@@ -1,42 +1,79 @@
 import Dependencies._
 
-name := "kafka-journal"
+lazy val commonSettings = Seq(
+  organization := "com.evolutiongaming",
+  homepage := Some(new URL("http://github.com/evolution-gaming/kafka-journal")),
+  startYear := Some(2018),
+  organizationName := "Evolution Gaming",
+  organizationHomepage := Some(url("http://evolutiongaming.com")),
+  bintrayOrganization := Some("evolutiongaming"),
+  scalaVersion := crossScalaVersions.value.last,
+  crossScalaVersions := Seq("2.11.12", "2.12.6"),
+  scalacOptions ++= Seq(
+    "-encoding", "UTF-8",
+    "-feature",
+    "-unchecked",
+    "-deprecation",
+//    "-Xfatal-warnings", TODO
+    "-Xlint",
+    "-Yno-adapted-args",
+    "-Ywarn-dead-code",
+    "-Ywarn-numeric-widen",
+    "-Xfuture"),
+  scalacOptions in(Compile, doc) ++= Seq("-groups", "-implicits", "-no-link-warnings"),
+  resolvers += Resolver.bintrayRepo("evolutiongaming", "maven"),
+  licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
+  releaseCrossBuild := true)
 
-organization := "com.evolutiongaming"
 
-homepage := Some(new URL("http://github.com/evolution-gaming/kafka-journal"))
+lazy val root = (project
+  in file(".")
+  settings (name := "kafka-journal")
+  settings commonSettings
+  aggregate(
+    journal,
+    persistence, persistenceTests,
+    replicator))
 
-startYear := Some(2018)
+// TODO cleanup dependencies
+lazy val journal = (project
+  in file("journal")
+  settings (name := "kafka-journal")
+  settings commonSettings
+  settings (libraryDependencies ++= Seq(
+    Akka.Persistence,
+    Akka.Tck,
+    Akka.Slf4j,
+    Skafka,
+    KafkaClients,
+    ScalaTest,
+    ExecutorTools,
+    Logback,
+    Cassandra,
+    PubSub,
+    PlayJson,
+    ScalaTools)))
 
-organizationName := "Evolution Gaming"
+lazy val persistence = (project
+  in file("persistence")
+  settings (name := "kafka-journal-persistence")
+  settings commonSettings
+  dependsOn journal % "test->test;compile->compile"
+  settings (libraryDependencies ++= Seq()))
 
-organizationHomepage := Some(url("http://evolutiongaming.com"))
+lazy val persistenceTests = (project
+  in file("persistence-tests")
+  settings (name := "kafka-journal-persistence-tests")
+  settings commonSettings
+  settings Seq(
+    skip in publish := true,
+    testOptions in Test := Seq(Tests.Filter(_ => false)))
+  dependsOn persistence % "test->test;compile->compile"
+  settings (libraryDependencies ++= Seq()))
 
-bintrayOrganization := Some("evolutiongaming")
-
-scalaVersion := "2.12.6"
-
-crossScalaVersions := Seq("2.12.6", "2.11.12")
-
-scalacOptions ++= Seq(
-  "-encoding", "UTF-8",
-  "-feature",
-  "-unchecked",
-  "-deprecation",
-  "-Xfatal-warnings",
-  "-Xlint",
-  "-Yno-adapted-args",
-  "-Ywarn-dead-code",
-  "-Ywarn-numeric-widen",
-  "-Xfuture"
-)
-
-scalacOptions in (Compile,doc) ++= Seq("-groups", "-implicits", "-no-link-warnings")
-
-resolvers += Resolver.bintrayRepo("evolutiongaming", "maven")
-
-libraryDependencies ++= Seq(ScalaTest, KafkaClients, ExecutorTools)
-
-licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT")))
-
-releaseCrossBuild := true
+lazy val replicator = (project
+  in file("replicator")
+  settings (name := "kafka-journal-replicator")
+  settings commonSettings
+  dependsOn journal % "test->test;compile->compile"
+  settings (libraryDependencies ++= Seq()))

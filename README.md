@@ -3,7 +3,7 @@
 Kafka journal implementation will also need some additional storage to overcome kafka `retention policy` and prevent the full topic scan in some corner cases. 
 But It has relaxed requirements for writes.
 
-
+# >>> Not for production use. yet. <<<
 
 ## Setup
 
