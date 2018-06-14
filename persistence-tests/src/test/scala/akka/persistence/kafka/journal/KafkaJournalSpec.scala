@@ -11,8 +11,8 @@ class KafkaJournalSpec extends JournalSpec(ConfigFactory.load()) {
   var shutdownKafka: StartKafka.Shutdown = StartKafka.Shutdown.Empty
 
   override def beforeAll(): Unit = {
-    super.beforeAll()
     shutdownKafka = StartKafka()
+    super.beforeAll()
   }
 
   private var _pid: String = _
@@ -27,7 +27,7 @@ class KafkaJournalSpec extends JournalSpec(ConfigFactory.load()) {
   def supportsRejectingNonSerializableObjects = CapabilityFlag.off()
 
   override def afterAll(): Unit = {
-    shutdownKafka()
     super.afterAll()
+    shutdownKafka()
   }
 }

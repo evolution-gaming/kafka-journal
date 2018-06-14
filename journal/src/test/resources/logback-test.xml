@@ -8,8 +8,12 @@
 	</appender>
 
 	<logger name="akka.persistence.kafka.journal.KafkaJournal" level="DEBUG"/>
-	<logger name="kafka.server" level="WARN"/>
+	<logger name="kafka" level="WARN"/>
+	<logger name="kafka.server.BrokerMetadataCheckpoint" level="ERROR"/>
 	<logger name="org.apache.kafka" level="WARN"/>
+	<logger name="org.apache.zookeeper.ClientCnxn" level="ERROR"/>
+	<logger name="org.apache.zookeeper" level="WARN"/>
+	<logger name="org.apache.kafka.clients.NetworkClient" level="ERROR"/>
 
 	<root level="INFO">
 		<appender-ref ref="console"/>

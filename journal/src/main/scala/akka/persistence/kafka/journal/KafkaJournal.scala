@@ -15,8 +15,10 @@ import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
 
 import scala.collection.immutable.Seq
-import scala.concurrent.Future
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 import scala.util.Try
+import scala.util.control.NonFatal
 
 class KafkaJournal extends AsyncWriteJournal {
   import KafkaJournal._
@@ -29,8 +31,19 @@ class KafkaJournal extends AsyncWriteJournal {
 
   lazy val client: Client = {
     val ecBlocking = system.dispatchers.lookup("kafka-plugin-blocking-dispatcher")
-    val configs = Configs.Default
+    val configs = Configs(clientId = Some("KafkaJournal"))
     val producer = CreateProducer(configs, ecBlocking)
+
+    system.registerOnTermination {
+      val future = for {
+        _ <- producer.flush()
+        _ <- producer.closeAsync(3.seconds)
+      } yield ()
+      try Await.result(future, 5.seconds) catch {
+        case NonFatal(failure) => log.error(s"failed to shutdown producer $failure", failure)
+      }
+    }
+
     val newConsumer = () => {
       val groupId = UUID.randomUUID().toString
       val props = new Properties()

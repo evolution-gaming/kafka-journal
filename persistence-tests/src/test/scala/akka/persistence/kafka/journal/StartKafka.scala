@@ -4,7 +4,7 @@ import java.net.InetSocketAddress
 
 import kafka.server.{KafkaConfig, KafkaServer}
 import org.apache.kafka.common.security.auth.SecurityProtocol
-import org.apache.zookeeper.server.{ServerCnxnFactory, ZooKeeperServer}
+import org.apache.zookeeper.server.{ServerCnxnFactory, SetShutdownHandler, ZooKeeperServer}
 
 import scala.collection.JavaConverters._
 
@@ -33,6 +33,7 @@ object StartKafka {
     val tmpDir = TmpDir("zookeeper")
     val inetAddress = new InetSocketAddress(address.host, address.port)
     val server = new ZooKeeperServer(tmpDir.file, tmpDir.file, ZooKeeperServer.DEFAULT_TICK_TIME)
+    SetShutdownHandler(server)
     val factory = ServerCnxnFactory.createFactory
     factory.configure(inetAddress, 1024)
     factory.startup(server)
