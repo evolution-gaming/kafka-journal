@@ -8,6 +8,8 @@
 	</appender>
 
 	<logger name="akka.persistence.kafka.journal.KafkaJournal" level="DEBUG"/>
+	<logger name="kafka.server" level="WARN"/>
+	<logger name="org.apache.kafka" level="WARN"/>
 
 	<root level="INFO">
 		<appender-ref ref="console"/>
