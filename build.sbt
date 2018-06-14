@@ -30,6 +30,7 @@ lazy val root = (project
   in file(".")
   settings (name := "kafka-journal")
   settings commonSettings
+  settings(skip in publish := true)
   aggregate(
     journal,
     persistence, persistenceTests,
@@ -45,7 +46,7 @@ lazy val journal = (project
     Akka.Tck,
     Akka.Slf4j,
     Skafka,
-    KafkaClients,
+    Kafka.Clients,
     ScalaTest,
     ExecutorTools,
     Logback,
@@ -67,9 +68,11 @@ lazy val persistenceTests = (project
   settings commonSettings
   settings Seq(
     skip in publish := true,
-    testOptions in Test := Seq(Tests.Filter(_ => false)))
+//    Test / testOptions in Test := Seq(Tests.Filter(_ => false)),
+    Test / fork := true,
+    Test / parallelExecution := false)
   dependsOn persistence % "test->test;compile->compile"
-  settings (libraryDependencies ++= Seq()))
+  settings (libraryDependencies ++= Seq(Kafka.Server)))
 
 lazy val replicator = (project
   in file("replicator")

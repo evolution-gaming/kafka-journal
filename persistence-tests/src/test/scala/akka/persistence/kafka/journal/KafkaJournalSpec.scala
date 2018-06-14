@@ -8,6 +8,13 @@ import com.typesafe.config.ConfigFactory
 
 class KafkaJournalSpec extends JournalSpec(ConfigFactory.load()) {
 
+  var shutdownKafka: StartKafka.Shutdown = StartKafka.Shutdown.Empty
+
+  override def beforeAll(): Unit = {
+    super.beforeAll()
+    shutdownKafka = StartKafka()
+  }
+
   private var _pid: String = _
 
   protected override def beforeEach() = {
@@ -18,4 +25,9 @@ class KafkaJournalSpec extends JournalSpec(ConfigFactory.load()) {
   override def pid = _pid
 
   def supportsRejectingNonSerializableObjects = CapabilityFlag.off()
+
+  override def afterAll(): Unit = {
+    shutdownKafka()
+    super.afterAll()
+  }
 }

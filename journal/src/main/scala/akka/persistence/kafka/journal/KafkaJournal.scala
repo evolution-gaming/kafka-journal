@@ -36,6 +36,7 @@ class KafkaJournal extends AsyncWriteJournal {
       val props = new Properties()
       props.put("bootstrap.servers", "localhost:9092")
       props.put("group.id", groupId)
+      props.put("client.id", "KafkaJournal")
       props.put("enable.auto.commit", "false")
       props.put("auto.offset.reset", "earliest")
       //  props.put("zookeeper.connect", "localhost:2181");
