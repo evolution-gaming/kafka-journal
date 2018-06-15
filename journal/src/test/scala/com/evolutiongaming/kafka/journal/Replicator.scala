@@ -27,7 +27,7 @@ object Replicator extends App {
 
   val deserializer = new StringDeserializer()
 
-  val consumer = com.evolutiongaming.skafka.concumer.Consumer(new KafkaConsumer[String, String](props, deserializer, deserializer))
+  val consumer = com.evolutiongaming.skafka.consumer.Consumer(new KafkaConsumer[String, String](props, deserializer, deserializer))
   val pattern = Pattern.compile(".*")
   //  consumer.subscribe(pattern)
 

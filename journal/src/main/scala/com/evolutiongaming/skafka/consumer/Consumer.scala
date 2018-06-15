@@ -1,12 +1,12 @@
-package com.evolutiongaming.skafka.concumer
+package com.evolutiongaming.skafka.consumer
 
 import java.io.Closeable
 import java.lang.{Long => LongJ}
 import java.util.regex.Pattern
 
-import com.evolutiongaming.skafka.Converters2._
+import com.evolutiongaming.skafka.Converters._
 import com.evolutiongaming.skafka._
-import com.evolutiongaming.skafka.concumer.ConsumerConverters._
+import com.evolutiongaming.skafka.consumer.ConsumerConverters._
 import org.apache.kafka.clients.consumer.{Consumer => ConsumerJ}
 
 import scala.collection.JavaConverters._

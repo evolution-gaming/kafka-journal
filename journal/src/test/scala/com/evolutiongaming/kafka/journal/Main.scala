@@ -2,8 +2,9 @@ package com.evolutiongaming.kafka.journal
 
 import akka.actor.ActorSystem
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.skafka.producer.Producer.Record
-import com.evolutiongaming.skafka.producer.{Configs, CreateProducer, ToBytes}
+import com.evolutiongaming.skafka.CommonConfig
+import com.evolutiongaming.skafka.producer.ProducerRecord
+import com.evolutiongaming.skafka.producer.{CreateProducer, ProducerConfig, ToBytes}
 
 import scala.compat.Platform
 import scala.concurrent.Await
@@ -17,7 +18,8 @@ object Main extends App {
   implicit val ec = system.dispatcher
 
 
-  val configs = Configs.Default.copy(bootstrapServers = Nel("localhost:9092"), clientId = Some("journal"))
+  val common = CommonConfig(bootstrapServers = Nel("localhost:9092"), clientId = Some("main"))
+  val configs = ProducerConfig(common)
   val producer = CreateProducer(configs, ecBlocking)
 
 
@@ -28,11 +30,9 @@ object Main extends App {
 
   val toBytes = ToBytes.StringToBytes
 
-  val record = Record(topic, event, Some(persistenceId), timestamp = Some(timestamp))
-
+  val record = ProducerRecord(topic, event, Some(persistenceId), timestamp = Some(timestamp))
 
   val records = List.fill(100)(record)
-
 
   for {
     _ <- 0 to 100

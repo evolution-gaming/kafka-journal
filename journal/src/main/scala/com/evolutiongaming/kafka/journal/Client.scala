@@ -6,9 +6,9 @@ import com.evolutiongaming.kafka.journal.Aliases._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Header
-import com.evolutiongaming.skafka.concumer.{Consumer, ConsumerRecord}
+import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecord}
 import com.evolutiongaming.skafka.producer.Producer
-import com.evolutiongaming.skafka.producer.Producer.Record
+import com.evolutiongaming.skafka.producer.ProducerRecord
 import com.evolutiongaming.util.FutureHelper._
 import play.api.libs.json.Json
 
@@ -93,7 +93,7 @@ object Client {
       val readId = UUID.randomUUID().toString
       val action = Action.Read(readId)
       val header = toHeader(action)
-      val record = Record(
+      val record = ProducerRecord(
         topic = topic,
         value = Array.empty[Byte],
         key = Some(id),
@@ -138,7 +138,7 @@ object Client {
         val topic = toTopic(id)
         val action = Action.Append(from = events.head.seqNr, to = events.last.seqNr)
         val header = toHeader(action)
-        val record = Record(
+        val record = ProducerRecord(
           topic = topic,
           value = payload,
           key = Some(id),
@@ -184,7 +184,7 @@ object Client {
         val topic = toTopic(id)
         val a = Action.Truncate(to)
         val header = toHeader(a)
-        val record = Record(
+        val record = ProducerRecord(
           topic = topic,
           value = payload,
           key = Some(id),

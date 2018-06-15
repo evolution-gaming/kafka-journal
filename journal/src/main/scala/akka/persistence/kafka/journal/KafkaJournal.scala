@@ -1,6 +1,6 @@
 package akka.persistence.kafka.journal
 
-import java.util.{Properties, UUID}
+import java.util.UUID
 
 import akka.persistence.journal.{AsyncWriteJournal, Tagged}
 import akka.persistence.{AtomicWrite, PersistentRepr}
@@ -10,7 +10,9 @@ import com.evolutiongaming.kafka.journal.{Client, Entry}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.serialization.{SerializedMsg, SerializedMsgExt}
-import com.evolutiongaming.skafka.producer.{Configs, CreateProducer}
+import com.evolutiongaming.skafka.CommonConfig
+import com.evolutiongaming.skafka.consumer.ConsumerConfig
+import com.evolutiongaming.skafka.producer.{CreateProducer, ProducerConfig}
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
 
@@ -31,8 +33,9 @@ class KafkaJournal extends AsyncWriteJournal {
 
   lazy val client: Client = {
     val ecBlocking = system.dispatchers.lookup("kafka-plugin-blocking-dispatcher")
-    val configs = Configs(clientId = Some("KafkaJournal"))
-    val producer = CreateProducer(configs, ecBlocking)
+    val commonConfig = CommonConfig(clientId = Some("KafkaJournal"))
+    val producerConfig = ProducerConfig(commonConfig)
+    val producer = CreateProducer(producerConfig, ecBlocking)
 
     system.registerOnTermination {
       val future = for {
@@ -46,21 +49,16 @@ class KafkaJournal extends AsyncWriteJournal {
 
     val newConsumer = () => {
       val groupId = UUID.randomUUID().toString
-      val props = new Properties()
-      props.put("bootstrap.servers", "localhost:9092")
-      props.put("group.id", groupId)
-      props.put("client.id", "KafkaJournal")
-      props.put("enable.auto.commit", "false")
-      props.put("auto.offset.reset", "earliest")
-      //  props.put("zookeeper.connect", "localhost:2181");
-      //  props.put("auto.commit.interval.ms", "1000")
-      //  props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
-      //  props.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
+      val consumerConfig = ConsumerConfig(
+        commonConfig,
+        groupId = Some(groupId),
+        autoOffsetReset = "earliest",
+        checkCrcs = false /*TODO for tests*/)
 
       val deserializerStr = new StringDeserializer()
       val deserializerBin = new ByteArrayDeserializer()
-      val consumer = new KafkaConsumer(props, deserializerStr, deserializerBin)
-      com.evolutiongaming.skafka.concumer.Consumer(consumer)
+      val consumer = new KafkaConsumer(consumerConfig.properties, deserializerStr, deserializerBin)
+      com.evolutiongaming.skafka.consumer.Consumer(consumer)
     }
     Client(producer, newConsumer)
   }
