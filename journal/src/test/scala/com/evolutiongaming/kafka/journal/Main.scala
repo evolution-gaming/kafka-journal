@@ -2,9 +2,9 @@ package com.evolutiongaming.kafka.journal
 
 import akka.actor.ActorSystem
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.skafka.CommonConfig
+import com.evolutiongaming.skafka.{CommonConfig, ToBytes}
 import com.evolutiongaming.skafka.producer.ProducerRecord
-import com.evolutiongaming.skafka.producer.{CreateProducer, ProducerConfig, ToBytes}
+import com.evolutiongaming.skafka.producer.{CreateProducer, ProducerConfig}
 
 import scala.compat.Platform
 import scala.concurrent.Await

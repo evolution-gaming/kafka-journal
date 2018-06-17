@@ -10,11 +10,9 @@ import com.evolutiongaming.kafka.journal.{Client, Entry}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.serialization.{SerializedMsg, SerializedMsgExt}
-import com.evolutiongaming.skafka.CommonConfig
-import com.evolutiongaming.skafka.consumer.ConsumerConfig
+import com.evolutiongaming.skafka.{Bytes, CommonConfig}
+import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, CreateConsumer}
 import com.evolutiongaming.skafka.producer.{CreateProducer, ProducerConfig}
-import org.apache.kafka.clients.consumer.KafkaConsumer
-import org.apache.kafka.common.serialization.{ByteArrayDeserializer, StringDeserializer}
 
 import scala.collection.immutable.Seq
 import scala.concurrent.duration._
@@ -49,16 +47,12 @@ class KafkaJournal extends AsyncWriteJournal {
 
     val newConsumer = () => {
       val groupId = UUID.randomUUID().toString
-      val consumerConfig = ConsumerConfig(
+      val config = ConsumerConfig(
         commonConfig,
         groupId = Some(groupId),
-        autoOffsetReset = "earliest",
+        autoOffsetReset = AutoOffsetReset.Earliest,
         checkCrcs = false /*TODO for tests*/)
-
-      val deserializerStr = new StringDeserializer()
-      val deserializerBin = new ByteArrayDeserializer()
-      val consumer = new KafkaConsumer(consumerConfig.properties, deserializerStr, deserializerBin)
-      com.evolutiongaming.skafka.consumer.Consumer(consumer)
+      CreateConsumer[String, Bytes](config)
     }
     Client(producer, newConsumer)
   }

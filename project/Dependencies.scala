@@ -8,7 +8,7 @@ object Dependencies {
 
   lazy val ConfigTools = "com.evolutiongaming" %% "config-tools" % "1.0.1"
 
-  lazy val Skafka = "com.evolutiongaming" %% "skafka-impl" % "0.3.0"
+  lazy val Skafka = "com.evolutiongaming" %% "skafka-impl" % "0.3.1"
 
   lazy val Logback = "ch.qos.logback" % "logback-classic" % "1.2.3" % Test
 

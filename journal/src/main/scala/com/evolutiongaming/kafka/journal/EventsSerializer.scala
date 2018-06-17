@@ -7,7 +7,7 @@ import com.evolutiongaming.cluster.pubsub.FromBytes
 import com.evolutiongaming.kafka.journal.JournalRecord.Payload
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.serialization.SerializerHelper._
-import com.evolutiongaming.skafka.producer.ToBytes
+import com.evolutiongaming.skafka.ToBytes
 
 object EventsSerializer {
 
