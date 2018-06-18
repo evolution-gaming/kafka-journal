@@ -7,19 +7,20 @@ import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Header
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecord}
-import com.evolutiongaming.skafka.producer.Producer
-import com.evolutiongaming.skafka.producer.ProducerRecord
+import com.evolutiongaming.skafka.producer.{Producer, ProducerRecord}
 import com.evolutiongaming.util.FutureHelper._
 import play.api.libs.json.Json
 
 import scala.annotation.tailrec
 import scala.compat.Platform
+import scala.collection.immutable.Seq
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 trait Client {
   def append(id: Id, events: Nel[Entry]): Future[Unit]
-  def read(id: Id): Future[List[Entry]]
+  // TODO decide on return type
+  def read(id: Id): Future[Seq[Entry]]
   def lastSeqNr(id: Id): Future[SeqNr]
   def truncate(id: Id, to: SeqNr): Future[Unit]
 }
@@ -149,9 +150,9 @@ object Client {
         result.unit
       }
 
-      def read(id: Id): Future[List[Entry]] = {
+      def read(id: Id): Future[Seq[Entry]] = {
 
-        consumeActions(id, List.empty[Entry]) { case (events, record, a) =>
+        consumeActions(id, Vector.empty[Entry]) { case (events, record, a) =>
           a match {
             case a: Action.Append =>
               val bytes = record.value
@@ -160,7 +161,7 @@ object Client {
                 val tags = Set.empty[String] // TODO
                 Entry(event.payload, event.seqNr, tags)
               }
-              head.toList ::: events
+              events ++ head.to[Vector]
 
             case a: Action.Truncate =>
               events.dropWhile(_.seqNr <= a.to)
@@ -169,7 +170,7 @@ object Client {
       }
 
       def lastSeqNr(id: Id) = {
-        consumeActions(id, 0L) { case (seqNr, record, a) =>
+        consumeActions(id, 0L) { case (seqNr, _, a) =>
           a match {
             case a: Action.Append   => a.to
             case a: Action.Truncate => seqNr

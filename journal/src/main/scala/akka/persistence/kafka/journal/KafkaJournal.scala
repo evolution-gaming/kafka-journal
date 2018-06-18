@@ -10,7 +10,7 @@ import com.evolutiongaming.kafka.journal.{Client, Entry}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.serialization.{SerializedMsg, SerializedMsgExt}
-import com.evolutiongaming.skafka.{Bytes, CommonConfig}
+import com.evolutiongaming.skafka.Bytes
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, CreateConsumer}
 import com.evolutiongaming.skafka.producer.{CreateProducer, ProducerConfig}
 
@@ -30,10 +30,26 @@ class KafkaJournal extends AsyncWriteJournal {
   val log = ActorLog(system, classOf[KafkaJournal])
 
   lazy val client: Client = {
+
+    def config(name: String) = {
+      val config = system.settings.config
+      val common = config.getConfig("kafka.persistence.journal.kafka")
+      common.getConfig(name) withFallback common
+    }
+
+    val producerConfig = ProducerConfig(config("producer"))
+    log.debug(s"Producer config: $producerConfig")
+
     val ecBlocking = system.dispatchers.lookup("kafka-plugin-blocking-dispatcher")
-    val commonConfig = CommonConfig(clientId = Some("KafkaJournal"))
-    val producerConfig = ProducerConfig(commonConfig)
-    val producer = CreateProducer(producerConfig, ecBlocking)
+
+
+    val producer = try {
+      CreateProducer(producerConfig, ecBlocking)
+    } catch {
+      case NonFatal(failure) =>
+        failure.printStackTrace()
+        throw failure
+    }
 
     system.registerOnTermination {
       val future = for {
@@ -44,15 +60,16 @@ class KafkaJournal extends AsyncWriteJournal {
         case NonFatal(failure) => log.error(s"failed to shutdown producer $failure", failure)
       }
     }
+    
+    val consumerConfig = ConsumerConfig(config("consumer"))
+    log.debug(s"Consumer config: $consumerConfig")
 
     val newConsumer = () => {
       val groupId = UUID.randomUUID().toString
-      val config = ConsumerConfig(
-        commonConfig,
+      val configFixed = consumerConfig.copy(
         groupId = Some(groupId),
-        autoOffsetReset = AutoOffsetReset.Earliest,
-        checkCrcs = false /*TODO for tests*/)
-      CreateConsumer[String, Bytes](config)
+        autoOffsetReset = AutoOffsetReset.Earliest)
+      CreateConsumer[String, Bytes](configFixed)
     }
     Client(producer, newConsumer)
   }
