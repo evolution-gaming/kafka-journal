@@ -6,7 +6,9 @@ import com.typesafe.config.Config
 
 import scala.concurrent.duration._
 
-
+/**
+  * See [[https://docs.datastax.com/en/developer/java-driver/3.5/manual/pooling/]]
+  */
 case class PoolingConfig(
   local: PoolingConfig.HostConfig = PoolingConfig.HostConfig.Local,
   remote: PoolingConfig.HostConfig = PoolingConfig.HostConfig.Remote,
@@ -53,7 +55,7 @@ object PoolingConfig {
   case class HostConfig(
     newConnectionThreshold: Int,
     maxRequestsPerConnection: Int,
-    connectionsPerHostCore: Int,
+    connectionsPerHostMin: Int,
     connectionsPerHostMax: Int)
 
   object HostConfig {
@@ -61,20 +63,20 @@ object PoolingConfig {
     val Local: HostConfig = HostConfig(
       newConnectionThreshold = 800,
       maxRequestsPerConnection = 32768,
-      connectionsPerHostCore = 1,
+      connectionsPerHostMin = 1,
       connectionsPerHostMax = 4)
 
     val Remote: HostConfig = HostConfig(
       newConnectionThreshold = 200,
       maxRequestsPerConnection = 2000,
-      connectionsPerHostCore = 1,
+      connectionsPerHostMin = 1,
       connectionsPerHostMax = 4)
 
     def apply(config: Config, default: HostConfig): HostConfig = {
       HostConfig(
         newConnectionThreshold = config.getOpt[Int]("new-connection-threshold") getOrElse default.newConnectionThreshold,
         maxRequestsPerConnection = config.getOpt[Int]("max-requests-per-connection") getOrElse default.maxRequestsPerConnection,
-        connectionsPerHostCore = config.getOpt[Int]("connections-per-host-core") getOrElse default.connectionsPerHostCore,
+        connectionsPerHostMin = config.getOpt[Int]("connections-per-host-min") getOrElse default.connectionsPerHostMin,
         connectionsPerHostMax = config.getOpt[Int]("connections-per-host-max") getOrElse default.connectionsPerHostMax)
     }
   }
@@ -86,7 +88,7 @@ object PoolingConfig {
       self
         .setNewConnectionThreshold(distance, hostConfig.newConnectionThreshold)
         .setMaxRequestsPerConnection(distance, hostConfig.maxRequestsPerConnection)
-        .setConnectionsPerHost(distance, hostConfig.connectionsPerHostCore, hostConfig.connectionsPerHostMax)
+        .setConnectionsPerHost(distance, hostConfig.connectionsPerHostMin, hostConfig.connectionsPerHostMax)
     }
   }
 }

@@ -18,12 +18,12 @@ class PoolingConfigSpec extends FunSuite with Matchers {
       local = PoolingConfig.HostConfig(
         newConnectionThreshold = 1,
         maxRequestsPerConnection = 2,
-        connectionsPerHostCore = 3,
+        connectionsPerHostMin = 3,
         connectionsPerHostMax = 4),
       remote = PoolingConfig.HostConfig(
         newConnectionThreshold = 5,
         maxRequestsPerConnection = 6,
-        connectionsPerHostCore = 7,
+        connectionsPerHostMin = 7,
         connectionsPerHostMax = 8),
       poolTimeout = 1.millis,
       idleTimeout = 2.seconds,
