@@ -14,7 +14,7 @@ lazy val commonSettings = Seq(
     "-feature",
     "-unchecked",
     "-deprecation",
-//    "-Xfatal-warnings", TODO
+    //    "-Xfatal-warnings", TODO
     "-Xlint",
     "-Yno-adapted-args",
     "-Ywarn-dead-code",
@@ -26,21 +26,21 @@ lazy val commonSettings = Seq(
   releaseCrossBuild := true)
 
 
-lazy val root = (project
-  in file(".")
+lazy val root = (project in file(".")
   settings (name := "kafka-journal")
   settings commonSettings
-  settings(skip in publish := true)
+  settings (skip in publish := true)
   aggregate(
+    `cassandra-client`,
     journal,
-    persistence, persistenceTests,
+    persistence, `persistence-tests`,
     replicator))
 
 // TODO cleanup dependencies
-lazy val journal = (project
-  in file("journal")
+lazy val journal = (project in file("journal")
   settings (name := "kafka-journal")
   settings commonSettings
+  dependsOn `cassandra-client`
   settings (libraryDependencies ++= Seq(
     Akka.Persistence,
     Akka.Tck,
@@ -55,28 +55,33 @@ lazy val journal = (project
     PlayJson,
     ScalaTools)))
 
-lazy val persistence = (project
-  in file("persistence")
+lazy val persistence = (project in file("persistence")
   settings (name := "kafka-journal-persistence")
   settings commonSettings
   dependsOn journal % "test->test;compile->compile"
   settings (libraryDependencies ++= Seq()))
 
-lazy val persistenceTests = (project
-  in file("persistence-tests")
+lazy val `persistence-tests` = (project in file("persistence-tests")
   settings (name := "kafka-journal-persistence-tests")
   settings commonSettings
   settings Seq(
     skip in publish := true,
-//    Test / testOptions in Test := Seq(Tests.Filter(_ => false)),
+    //    Test / testOptions in Test := Seq(Tests.Filter(_ => false)),
     Test / fork := true,
     Test / parallelExecution := false)
   dependsOn persistence % "test->test;compile->compile"
   settings (libraryDependencies ++= Seq(Kafka.Server)))
 
-lazy val replicator = (project
-  in file("replicator")
+lazy val replicator = (Project("replicator", file("replicator"))
   settings (name := "kafka-journal-replicator")
   settings commonSettings
   dependsOn journal % "test->test;compile->compile"
   settings (libraryDependencies ++= Seq()))
+
+lazy val `cassandra-client` = (project in file("cassandra-client")
+  settings (name := "kafka-journal-cassandra-client")
+  settings commonSettings
+  settings (libraryDependencies ++= Seq(
+    Cassandra,
+    ConfigTools,
+    ScalaTest)))
