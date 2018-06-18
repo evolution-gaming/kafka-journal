@@ -152,11 +152,13 @@ object Client {
 
       def read(id: Id): Future[Seq[Entry]] = {
 
+        val topic = toTopic(id) // TODO another topic created inside of consumeActions
         consumeActions(id, Vector.empty[Entry]) { case (events, record, a) =>
           a match {
             case a: Action.Append =>
               val bytes = record.value
-              val xs = EventsFromBytes(bytes)
+
+              val xs = EventsFromBytes(bytes, topic)
               val head = xs.events.map { event =>
                 val tags = Set.empty[String] // TODO
                 Entry(event.payload, event.seqNr, tags)

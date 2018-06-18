@@ -42,14 +42,7 @@ class KafkaJournal extends AsyncWriteJournal {
 
     val ecBlocking = system.dispatchers.lookup("kafka-plugin-blocking-dispatcher")
 
-
-    val producer = try {
-      CreateProducer(producerConfig, ecBlocking)
-    } catch {
-      case NonFatal(failure) =>
-        failure.printStackTrace()
-        throw failure
-    }
+    val producer = CreateProducer(producerConfig, ecBlocking)
 
     system.registerOnTermination {
       val future = for {

@@ -3,16 +3,16 @@ package com.evolutiongaming.kafka.journal
 import java.lang.{Integer => IntJ, Long => LongJ}
 import java.nio.ByteBuffer
 
-import com.evolutiongaming.cluster.pubsub.FromBytes
 import com.evolutiongaming.kafka.journal.JournalRecord.Payload
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.serialization.SerializerHelper._
-import com.evolutiongaming.skafka.ToBytes
+import com.evolutiongaming.skafka.{FromBytes, ToBytes, Topic}
 
 object EventsSerializer {
 
   implicit val EventsToBytes: ToBytes[JournalRecord.Payload.Events] = new ToBytes[JournalRecord.Payload.Events] {
-    def apply(value: Payload.Events) = {
+
+    def apply(value: Payload.Events, topic: Topic) = {
 
       val events = for {event <- value.events} yield {
         val payload = event.payload
@@ -34,7 +34,7 @@ object EventsSerializer {
 
   implicit val EventsFromBytes: FromBytes[JournalRecord.Payload.Events] = new FromBytes[JournalRecord.Payload.Events] {
 
-    def apply(bytes: Bytes) = {
+    def apply(bytes: Bytes, topic: Topic) = {
       val buffer = ByteBuffer.wrap(bytes)
       val events = buffer.readNel {
         val seqNr = buffer.getLong()

@@ -12,8 +12,9 @@ class EventsSerializerSpec extends FunSuite with Matchers {
     def event(seqNr: SeqNr) = JournalRecord.Event(seqNr, seqNr.toString.getBytes(Utf8))
 
     val expected = JournalRecord.Payload.Events(Nel(event(0), event(1), event(2)))
-    val bytes = EventsSerializer.EventsToBytes(expected)
-    val actual = EventsSerializer.EventsFromBytes(bytes)
+    val topic = "topic"
+    val bytes = EventsSerializer.EventsToBytes(expected, topic)
+    val actual = EventsSerializer.EventsFromBytes(bytes, topic)
 
     val event0 = event(0)
     actual.copy(events = Nel(event0)) shouldEqual expected.copy(events = Nel(event0))

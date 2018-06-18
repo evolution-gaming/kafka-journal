@@ -2,13 +2,11 @@ package com.evolutiongaming.skafka.consumer
 
 import java.lang.{Long => LongJ}
 import java.util.regex.Pattern
-import java.util.{Map => MapJ}
 
 import com.evolutiongaming.skafka.Converters._
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer.ConsumerConverters._
 import org.apache.kafka.clients.consumer.{KafkaConsumer, Consumer => ConsumerJ}
-import org.apache.kafka.common.serialization.Deserializer
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
@@ -159,19 +157,6 @@ object CreateConsumer {
     def close(timeout: FiniteDuration) = consumer.close(timeout.length, timeout.unit)
 
     def wakeup() = consumer.wakeup()
-  }
-
-  // TODO move to converters
-  implicit class FromBytesOps[T](val self: FromBytes[T]) extends AnyVal {
-
-    def asJava: Deserializer[T] = new Deserializer[T] {
-
-      def configure(configs: MapJ[String, _], isKey: Boolean) = {}
-
-      def deserialize(topic: Topic, data: Array[Byte]): T = self(data)
-
-      def close() = {}
-    }
   }
 }
 
