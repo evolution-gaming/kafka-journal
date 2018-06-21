@@ -3,7 +3,7 @@ package com.evolutiongaming.cassandra
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicInteger
 
-import com.datastax.driver.core.Cluster
+import com.datastax.driver.core.{Cluster, QueryLogger}
 
 import scala.collection.JavaConverters._
 
@@ -38,6 +38,14 @@ object CreateCluster {
     config.authentication.foreach { x => builder.withCredentials(x.username, x.password) }
     config.loadBalancing.foreach { x => builder.withLoadBalancingPolicy(x.asJava) }
     config.speculativeExecution.foreach { x => builder.withSpeculativeExecutionPolicy(x.asJava) }
-    builder.build()
+
+    val cluster = builder.build()
+
+    if (config.logQueries) {
+      val logger = QueryLogger.builder().build()
+      cluster.register(logger)
+    }
+
+    cluster
   }
 }

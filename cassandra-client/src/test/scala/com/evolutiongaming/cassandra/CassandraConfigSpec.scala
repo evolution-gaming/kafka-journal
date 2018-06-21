@@ -27,7 +27,8 @@ class CassandraConfigSpec extends FunSuite with Matchers {
       authentication = Some(AuthenticationConfig("username", "password")),
       loadBalancing = Some(LoadBalancingConfig.Default),
       speculativeExecution = Some(SpeculativeExecutionConfig.Default),
-      compression = Compression.LZ4)
+      compression = Compression.LZ4,
+      logQueries = true)
     CassandraConfig(config) shouldEqual expected
   }
 }

@@ -21,7 +21,8 @@ case class CassandraConfig(
   authentication: Option[AuthenticationConfig] = None,
   loadBalancing: Option[LoadBalancingConfig] = None,
   speculativeExecution: Option[SpeculativeExecutionConfig] = None,
-  compression: Compression = Compression.NONE)
+  compression: Compression = Compression.NONE,
+  logQueries: Boolean = false)
 
 
 object CassandraConfig {
@@ -68,7 +69,8 @@ object CassandraConfig {
       authentication = authentication,
       loadBalancing = loadBalancing,
       speculativeExecution = speculativeExecution,
-      compression = get[Compression]("compression") getOrElse Default.compression)
+      compression = get[Compression]("compression") getOrElse Default.compression,
+      logQueries = get[Boolean]("log-queries") getOrElse Default.logQueries)
   }
 
   // TODO copied from com.evolutiongaming.skafka.producer.ProducerConfig
