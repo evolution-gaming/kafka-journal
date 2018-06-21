@@ -6,7 +6,7 @@ object Dependencies {
 
   lazy val ExecutorTools = "com.evolutiongaming" %% "executor-tools" % "1.0.0"
 
-  lazy val ConfigTools = "com.evolutiongaming" %% "config-tools" % "1.0.1"
+  lazy val ConfigTools = "com.evolutiongaming" %% "config-tools" % "1.0.2"
 
   lazy val Skafka = "com.evolutiongaming" %% "skafka-impl" % "0.3.2"
 
@@ -19,6 +19,8 @@ object Dependencies {
   lazy val PlayJson = "com.typesafe.play" %% "play-json" % "2.6.9"
 
   lazy val ScalaTools = "com.evolutiongaming" %% "scala-tools" % "2.1"
+
+  lazy val Nel = "com.evolutiongaming" %% "nel" % "1.2"
 
   object Kafka {
     private val version = "1.1.0"

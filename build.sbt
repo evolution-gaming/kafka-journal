@@ -84,4 +84,5 @@ lazy val `cassandra-client` = (project in file("cassandra-client")
   settings (libraryDependencies ++= Seq(
     Cassandra,
     ConfigTools,
-    ScalaTest)))
+    ScalaTest,
+    Nel)))
