@@ -4,7 +4,7 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.persistence._
 import akka.persistence.journal.JournalSpec
 import akka.testkit.DefaultTimeout
-import com.evolutiongaming.kafka.journal.Aliases.SeqNr
+import com.evolutiongaming.kafka.journal.Alias.SeqNr
 import com.evolutiongaming.nel.Nel
 import com.typesafe.config.ConfigFactory
 import org.scalatest.Matchers

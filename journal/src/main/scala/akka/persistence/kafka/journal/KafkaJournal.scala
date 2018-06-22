@@ -5,7 +5,7 @@ import java.util.UUID
 import akka.persistence.journal.{AsyncWriteJournal, Tagged}
 import akka.persistence.{AtomicWrite, PersistentRepr}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
-import com.evolutiongaming.kafka.journal.Aliases._
+import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.{Client, Entry}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog

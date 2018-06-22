@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.Aliases.SeqNr
+import com.evolutiongaming.kafka.journal.Alias.SeqNr
 import play.api.libs.json._
 
 sealed trait Action

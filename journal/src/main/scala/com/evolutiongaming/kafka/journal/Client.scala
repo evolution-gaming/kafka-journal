@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import java.util.UUID
 
-import com.evolutiongaming.kafka.journal.Aliases._
+import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Header

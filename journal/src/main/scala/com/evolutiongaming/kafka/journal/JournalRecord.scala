@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.Aliases._
+import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.nel.Nel
 
 case class JournalRecord(

@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.Aliases.SeqNr
+import com.evolutiongaming.kafka.journal.Alias.SeqNr
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.serialization.SerializerHelper._
 import org.scalatest.{FunSuite, Matchers}
