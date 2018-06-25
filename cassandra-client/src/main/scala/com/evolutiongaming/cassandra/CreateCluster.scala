@@ -24,9 +24,11 @@ object CreateCluster {
       }
     }
 
+    val clusterName = s"${ config.name }-${ clusterId.getAndDecrement() }"
+
     val builder = Cluster.builder
       .addContactPointsWithPorts(contactPoints.toList.asJava)
-      .withClusterName(s"${ config.name }-${ clusterId.getAndDecrement() }")
+      .withClusterName(clusterName)
       .withPoolingOptions(config.pooling.asJava)
       .withReconnectionPolicy(config.reconnection.asJava)
       .withQueryOptions(config.query.asJava)

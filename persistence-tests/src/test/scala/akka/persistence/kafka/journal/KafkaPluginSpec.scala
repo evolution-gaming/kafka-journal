@@ -1,6 +1,7 @@
 package akka.persistence.kafka.journal
 
 import akka.persistence.PluginSpec
+import com.evolutiongaming.kafka.StartKafka
 
 trait KafkaPluginSpec extends PluginSpec {
 

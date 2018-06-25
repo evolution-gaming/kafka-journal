@@ -1,7 +1,8 @@
-package akka.persistence.kafka.journal
+package com.evolutiongaming.kafka
 
 import java.net.InetSocketAddress
 
+import com.evolutiongaming.tmpdir.TmpDir
 import kafka.server.{KafkaConfig, KafkaServer}
 import org.apache.kafka.common.security.auth.SecurityProtocol
 import org.apache.zookeeper.server.{ServerCnxnFactory, SetShutdownHandler, ZooKeeperServer}
@@ -30,7 +31,7 @@ object StartKafka {
   }
 
   private def zooKeeperServer(address: Address) = {
-    val tmpDir = TmpDir("zookeeper")
+    val tmpDir = TmpDir("zookeeper-")
     val inetAddress = new InetSocketAddress(address.host, address.port)
     val server = new ZooKeeperServer(tmpDir.file, tmpDir.file, ZooKeeperServer.DEFAULT_TICK_TIME)
     SetShutdownHandler(server)
@@ -45,7 +46,7 @@ object StartKafka {
 
   private def kafkaServer(kafkaAddress: Address, zkAddress: Address) = {
     val listener = s"${ SecurityProtocol.PLAINTEXT }://$kafkaAddress"
-    val tmpDir = TmpDir("kafka")
+    val tmpDir = TmpDir("kafka-")
     val props = Map[String, String](
       KafkaConfig.HostNameProp -> kafkaAddress.host,
       KafkaConfig.ZkConnectProp -> zkAddress.toString,

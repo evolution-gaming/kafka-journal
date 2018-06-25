@@ -11,7 +11,10 @@ import org.scalatest.Matchers
 
 import scala.concurrent.{Await, Promise}
 
-class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf")) with KafkaPluginSpec with DefaultTimeout with Matchers {
+class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
+  with KafkaPluginSpec
+  with DefaultTimeout
+  with Matchers {
 
   type State = Vector[String]
 

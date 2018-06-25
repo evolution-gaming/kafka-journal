@@ -32,9 +32,13 @@ lazy val root = (project in file(".")
   settings (skip in publish := true)
   aggregate(
     `cassandra-client`,
+    `cassandra-launcher`,
     journal,
-    persistence, `persistence-tests`,
-    replicator))
+    persistence,
+    `persistence-tests`,
+    replicator,
+    `tmp-dir`,
+    `kafka-launcher`))
 
 // TODO cleanup dependencies
 lazy val journal = (project in file("journal")
@@ -49,8 +53,8 @@ lazy val journal = (project in file("journal")
     Kafka.Clients,
     ScalaTest,
     ExecutorTools,
-    Logback,
-    Cassandra,
+    Logback.Core % Test,
+    Cassandra.Driver,
     PubSub,
     PlayJson,
     ScalaTools)))
@@ -69,8 +73,11 @@ lazy val `persistence-tests` = (project in file("persistence-tests")
     //    Test / testOptions in Test := Seq(Tests.Filter(_ => false)),
     Test / fork := true,
     Test / parallelExecution := false)
-  dependsOn persistence % "test->test;compile->compile"
-  settings (libraryDependencies ++= Seq(Kafka.Server)))
+  dependsOn (
+    persistence % "test->test;compile->compile",
+    `kafka-launcher`,
+    `cassandra-launcher`)
+  settings (libraryDependencies ++= Seq()))
 
 lazy val replicator = (Project("replicator", file("replicator"))
   settings (name := "kafka-journal-replicator")
@@ -81,8 +88,32 @@ lazy val replicator = (Project("replicator", file("replicator"))
 lazy val `cassandra-client` = (project in file("cassandra-client")
   settings (name := "kafka-journal-cassandra-client")
   settings commonSettings
+  dependsOn (`cassandra-launcher` % "compile->test")
   settings (libraryDependencies ++= Seq(
-    Cassandra,
+    Cassandra.Driver,
     ConfigTools,
     ScalaTest,
     Nel)))
+
+lazy val `tmp-dir` = (project in file("tmp-dir")
+  settings (name := "tmp-dir")
+  settings commonSettings
+  settings (libraryDependencies ++= Seq(CommonsIo)))
+
+lazy val `cassandra-launcher` = (project in file("cassandra-launcher")
+  settings (name := "cassandra-launcher")
+  settings commonSettings
+  dependsOn `tmp-dir`
+  settings (libraryDependencies ++= Seq(
+    Cassandra.Server,
+    Slf4j.Api % Test,
+    Slf4j.OverLog4j % Test,
+    Logback.Core % Test,
+    Logback.Classic % Test,
+    ScalaTest)))
+
+lazy val `kafka-launcher` = (project in file("kafka-launcher")
+  settings (name := "kafka-launcher")
+  settings commonSettings
+  dependsOn `tmp-dir`
+  settings (libraryDependencies ++= Seq(Kafka.Server, ScalaTest)))
