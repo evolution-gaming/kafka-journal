@@ -33,7 +33,7 @@ object Action {
       }
     }
 
-    val ReadFormat = Json.format[Read]
+    val ReadFormat = Json.format[Mark]
 
     new OFormat[Action] {
 
@@ -42,7 +42,7 @@ object Action {
           (json \ name).validate(reads)
         }
 
-        read("append", AppendFormat) orElse read("read", ReadFormat) orElse read("truncate", TruncateFormat)
+        read("append", AppendFormat) orElse read("mark", ReadFormat) orElse read("truncate", TruncateFormat)
       }
 
       def writes(action: Action): JsObject = {
@@ -54,7 +54,7 @@ object Action {
 
         action match {
           case action: Append   => write("append", action, AppendFormat)
-          case action: Read     => write("read", action, ReadFormat)
+          case action: Mark     => write("mark", action, ReadFormat)
           case action: Truncate => write("truncate", action, TruncateFormat)
         }
       }
@@ -65,5 +65,5 @@ object Action {
   sealed trait AppendOrTruncate extends Action
   case class Append(from: SeqNr, to: SeqNr) extends AppendOrTruncate
   case class Truncate(to: SeqNr) extends AppendOrTruncate
-  case class Read(id: String) extends Action
+  case class Mark(id: String) extends Action
 }

@@ -10,6 +10,10 @@ object StartCassandra {
 
   type Shutdown = () => Unit
 
+  object Shutdown {
+    val Empty: Shutdown = () => ()
+  }
+
   def apply(): Shutdown = {
 
     val tmpDir = TmpDir("cassandra-")

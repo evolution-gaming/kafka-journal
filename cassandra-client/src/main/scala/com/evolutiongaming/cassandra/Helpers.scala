@@ -1,23 +1,31 @@
 package com.evolutiongaming.cassandra
 
-import java.util.concurrent.Executor
-
+import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.google.common.util.concurrent.ListenableFuture
 
-import scala.concurrent.{Future, Promise}
-import scala.util.Try
+import scala.concurrent.{ExecutionException, Future, Promise}
+import scala.util.{Failure, Try}
 
 object Helpers {
 
   implicit class ListenableFutureOps[T](val self: ListenableFuture[T]) extends AnyVal {
 
-    def asScala(executor: Executor): Future[T] = {
-      val promise = Promise[T]
-      val runnable = new Runnable {
-        def run() = promise.complete(Try(self.get()))
+    def await(): Try[T] = {
+      val safe = Try(self.get())
+      safe.recoverWith { case failure: ExecutionException => Failure(failure.getCause) }
+    }
+
+    def asScala(): Future[T] = {
+      if (self.isDone) {
+        Future.fromTry(await())
+      } else {
+        val promise = Promise[T]
+        val runnable = new Runnable {
+          def run() = promise.complete(await())
+        }
+        self.addListener(runnable, CurrentThreadExecutionContext)
+        promise.future
       }
-      self.addListener(runnable, executor)
-      promise.future
     }
   }
 }

@@ -38,7 +38,8 @@ lazy val root = (project in file(".")
     `persistence-tests`,
     replicator,
     `tmp-dir`,
-    `kafka-launcher`))
+    `kafka-launcher`,
+    `ally-cassandra`))
 
 // TODO cleanup dependencies
 lazy val journal = (project in file("journal")
@@ -62,38 +63,42 @@ lazy val journal = (project in file("journal")
 lazy val persistence = (project in file("persistence")
   settings (name := "kafka-journal-persistence")
   settings commonSettings
-  dependsOn journal % "test->test;compile->compile"
+  dependsOn (journal % "test->test;compile->compile", `ally-cassandra`)
   settings (libraryDependencies ++= Seq()))
 
 lazy val `persistence-tests` = (project in file("persistence-tests")
   settings (name := "kafka-journal-persistence-tests")
   settings commonSettings
   settings Seq(
-    skip in publish := true,
-    //    Test / testOptions in Test := Seq(Tests.Filter(_ => false)),
+    skip in publish := true, // TODO use in other modules
+    Test / testOptions in Test := Seq(Tests.Filter(_ endsWith "IntegrationSpec")),
     Test / fork := true,
     Test / parallelExecution := false)
   dependsOn (
     persistence % "test->test;compile->compile",
     `kafka-launcher`,
-    `cassandra-launcher`)
+    `cassandra-launcher`,
+    replicator)
   settings (libraryDependencies ++= Seq()))
 
 lazy val replicator = (Project("replicator", file("replicator"))
   settings (name := "kafka-journal-replicator")
   settings commonSettings
-  dependsOn journal % "test->test;compile->compile"
+  dependsOn (journal % "test->test;compile->compile", `ally-cassandra`)
   settings (libraryDependencies ++= Seq()))
 
+// TODO rename to scassandra
 lazy val `cassandra-client` = (project in file("cassandra-client")
-  settings (name := "kafka-journal-cassandra-client")
+  settings (name := "cassandra-client")
   settings commonSettings
   dependsOn (`cassandra-launcher` % "compile->test")
   settings (libraryDependencies ++= Seq(
     Cassandra.Driver,
     ConfigTools,
     ScalaTest,
-    Nel)))
+    Nel,
+    ExecutorTools,
+    Skafka)))
 
 lazy val `tmp-dir` = (project in file("tmp-dir")
   settings (name := "tmp-dir")
@@ -117,3 +122,9 @@ lazy val `kafka-launcher` = (project in file("kafka-launcher")
   settings commonSettings
   dependsOn `tmp-dir`
   settings (libraryDependencies ++= Seq(Kafka.Server, ScalaTest)))
+
+lazy val `ally-cassandra` = (project in file("ally-cassandra")
+  settings (name := "kafka-journal-ally-cassandra")
+  settings commonSettings
+  dependsOn (`cassandra-client`, journal % "test->test;compile->compile")
+  settings (libraryDependencies ++= Seq()))

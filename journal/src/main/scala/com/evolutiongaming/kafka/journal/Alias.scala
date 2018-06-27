@@ -5,4 +5,7 @@ object Alias {
   type PersistenceId = String
   type Id = String
   type SeqNr = Long
+  type Bytes = Array[Byte]
+  type Tag = String
+  type Tags = Set[String]
 }

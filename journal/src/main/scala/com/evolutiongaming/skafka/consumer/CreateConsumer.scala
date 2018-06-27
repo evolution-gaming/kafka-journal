@@ -154,6 +154,7 @@ object CreateConsumer {
 
     def close() = consumer.close()
 
+    // TODO async
     def close(timeout: FiniteDuration) = consumer.close(timeout.length, timeout.unit)
 
     def wakeup() = consumer.wakeup()

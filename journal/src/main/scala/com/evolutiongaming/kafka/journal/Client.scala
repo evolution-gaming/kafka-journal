@@ -4,16 +4,17 @@ import java.util.UUID
 
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
+import com.evolutiongaming.kafka.journal.ally.{AllyDbRead, PartitionOffset}
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.skafka.Header
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecord}
 import com.evolutiongaming.skafka.producer.{Producer, ProducerRecord}
+import com.evolutiongaming.skafka.{Header, TopicPartition}
 import com.evolutiongaming.util.FutureHelper._
 import play.api.libs.json.Json
 
 import scala.annotation.tailrec
-import scala.compat.Platform
 import scala.collection.immutable.Seq
+import scala.compat.Platform
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -39,6 +40,7 @@ object Client {
   def apply(
     producer: Producer,
     newConsumer: () => Consumer[String, Array[Byte]],
+    allyDb: AllyDbRead = AllyDbRead.Empty,
     pollTimeout: FiniteDuration = 100.millis)(implicit ec: ExecutionContext): Client = {
 
     def toTopic(id: Id) = "journal-test9"
@@ -53,12 +55,12 @@ object Client {
       val headers = record.headers
       val header = headers.find { _.key == "journal.action" }.get
       val json = Json.parse(header.value)
-      json.validate[Action].get
+      json.as[Action]
     }
 
     case class Result[T](value: T, stop: Boolean)
 
-    def consume[T](id: Id, initial: T)(f: (T, ConsumerRecord[String, Array[Byte]]) => Result[T]): T = {
+    def consume[T](id: Id, initial: T, partitionOffset: Option[PartitionOffset])(f: (T, ConsumerRecord[String, Array[Byte]]) => Result[T]): T = {
       val consumer = newConsumer()
 
       @tailrec def consume(initial: T): T = {
@@ -83,16 +85,35 @@ object Client {
 
       val topic = toTopic(id)
       val topics = List(topic)
-      consumer.subscribe(topics)
+
+      partitionOffset match {
+        case None =>
+          consumer.subscribe(topics) // TODO with listener
+        //          consumer.seekToBeginning()
+
+        case Some(partitionOffset) =>
+          val topicPartition = TopicPartition(topic, partitionOffset.partition)
+          consumer.assign(List(topicPartition)) // TODO blocking
+          consumer.seek(topicPartition, partitionOffset.offset) // TODO blocking
+      }
+
+      //      partitionOffset.foreach { partitionOffset =>
+      //        val topicPartition = TopicPartition(topic, partitionOffset.partition)
+      //        consumer.seek(topicPartition, partitionOffset.offset)
+      //      }
       consume(initial)
     }
 
-    def consumeActions[T](id: Id, initial: T)(f: (T, ConsumerRecord[String, Array[Byte]], Action.AppendOrTruncate) => T): Future[T] = {
+    def consumeActions[T](
+      id: Id,
+      partitionOffset: Option[PartitionOffset],
+      initial: T)(f: (T, ConsumerRecord[String, Array[Byte]], Action.AppendOrTruncate) => T): Future[T] = {
+
       val ecBlocking = ec // TODO
 
       val topic = toTopic(id)
       val readId = UUID.randomUUID().toString
-      val action = Action.Read(readId)
+      val action = Action.Mark(readId)
       val header = toHeader(action)
       val record = ProducerRecord(
         topic = topic,
@@ -103,14 +124,14 @@ object Client {
       val write = producer(record)
 
       val read = Future {
-        val seqNr = consume(id, initial) { case (seqNr, record) =>
+        val seqNr = consume(id, initial, partitionOffset) { case (seqNr, record) =>
           val a = toAction(record)
           a match {
             case a: Action.AppendOrTruncate =>
               val result = f(seqNr, record, a)
               Result(result, stop = false)
 
-            case a: Action.Read =>
+            case a: Action.Mark =>
               val stop = a.id == readId
               Result(seqNr, stop)
           }
@@ -151,32 +172,90 @@ object Client {
       }
 
       def read(id: Id): Future[Seq[Entry]] = {
-
         val topic = toTopic(id) // TODO another topic created inside of consumeActions
-        consumeActions(id, Vector.empty[Entry]) { case (events, record, a) =>
-          a match {
-            case a: Action.Append =>
-              val bytes = record.value
 
-              val xs = EventsFromBytes(bytes, topic)
-              val head = xs.events.map { event =>
-                val tags = Set.empty[String] // TODO
-                Entry(event.payload, event.seqNr, tags)
-              }
-              events ++ head.to[Vector]
+        // write marker
+        // query for last
+        // query events and start
+        // start consuming
 
-            case a: Action.Truncate =>
-              events.dropWhile(_.seqNr <= a.to)
+
+        def allyRecords() = {
+          for {
+            allyRecords <- allyDb.list(id)
+          } yield {
+            allyRecords.map { record =>
+              Entry(
+                payload = record.payload,
+                seqNr = record.seqNr,
+                tags = record.tags)
+            }
           }
         }
+
+        case class Result(deleteTo: SeqNr, entries: Vector[Entry])
+
+        val zero = Result(0, Vector.empty)
+
+
+        val result = for {
+          record <- allyDb.last(id)
+          _ = println(s"record: $record")
+          partitionOffset = record.map { _.partitionOffset }
+          entries <- allyRecords()
+
+          records <- consumeActions(id, partitionOffset, zero) { case (result, record, a) =>
+            a match {
+              case a: Action.Append =>
+                val bytes = record.value
+
+                val xs = EventsFromBytes(bytes, topic)
+                val head = xs.events.map { event =>
+                  val tags = Set.empty[String] // TODO
+                  Entry(event.payload, event.seqNr, tags)
+                }
+                result.copy(entries = result.entries ++ head.to[Vector])
+
+              case a: Action.Truncate =>
+                if(a.to > result.deleteTo) {
+                  result.copy(deleteTo = a.to, entries = result.entries.dropWhile(_.seqNr <= a.to))
+                } else {
+                  result
+                }
+            }
+          }
+        } yield {
+
+          val cassandraEntries = entries.dropWhile(_.seqNr <= records.deleteTo)
+
+          cassandraEntries.lastOption match {
+            case None => records.entries
+
+            case Some(last) =>
+              val kafka = records.entries.dropWhile { _.seqNr <= last.seqNr }
+              cassandraEntries ++ kafka
+          }
+        }
+
+        result.failed.foreach { failure =>
+          failure.printStackTrace()
+        }
+
+        result
       }
 
       def lastSeqNr(id: Id) = {
-        consumeActions(id, 0L) { case (seqNr, _, a) =>
-          a match {
-            case a: Action.Append   => a.to
-            case a: Action.Truncate => seqNr
+        for {
+          record <- allyDb.last(id)
+          partitionOffset = record.map { _.partitionOffset }
+          result <- consumeActions(id, partitionOffset, 0L) { case (seqNr, _, a) =>
+            a match {
+              case a: Action.Append   => a.to
+              case a: Action.Truncate => seqNr
+            }
           }
+        } yield {
+          result
         }
       }
 

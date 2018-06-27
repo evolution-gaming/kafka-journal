@@ -4,8 +4,11 @@ import java.util.UUID
 
 import akka.persistence.journal.{AsyncWriteJournal, Tagged}
 import akka.persistence.{AtomicWrite, PersistentRepr}
+import com.evolutiongaming.cassandra.{CassandraConfig, CreateCluster}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.Alias._
+import com.evolutiongaming.kafka.journal.ally.AllyDb
+import com.evolutiongaming.kafka.journal.ally.cassandra.{AllyCassandra, SchemaConfig}
 import com.evolutiongaming.kafka.journal.{Client, Entry}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
@@ -64,7 +67,17 @@ class KafkaJournal extends AsyncWriteJournal {
         autoOffsetReset = AutoOffsetReset.Earliest)
       CreateConsumer[String, Bytes](configFixed)
     }
-    Client(producer, newConsumer)
+
+    val allyDb: AllyDb = {
+      val cassandraConfig = CassandraConfig.Default
+      val cluster = CreateCluster(cassandraConfig)
+      val session = cluster.connect()
+      val schemaConfig = SchemaConfig.Default
+      AllyCassandra(session, schemaConfig)
+      
+    }
+
+    Client(producer, newConsumer, allyDb)
   }
 
   // TODO optimise sequence of calls asyncWriteMessages & asyncReadHighestSequenceNr for the same persistenceId

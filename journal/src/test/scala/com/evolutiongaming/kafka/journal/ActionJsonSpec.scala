@@ -16,7 +16,7 @@ class ActionJsonSpec extends FunSuite with Matchers {
   }
 
   test("Read format") {
-    val action: Action = Action.Read("id")
+    val action: Action = Action.Mark("id")
     verify(action)
   }
 

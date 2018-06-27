@@ -3,6 +3,7 @@ package com.evolutiongaming.cassandra
 import com.datastax.driver.core.ProtocolOptions.Compression
 import com.datastax.driver.core.ProtocolVersion
 import com.evolutiongaming.config.ConfigHelper._
+import com.evolutiongaming.cassandra.ConfigHelpers._
 import com.evolutiongaming.nel.Nel
 import com.typesafe.config.{Config, ConfigException}
 
@@ -71,13 +72,5 @@ object CassandraConfig {
       speculativeExecution = speculativeExecution,
       compression = get[Compression]("compression") getOrElse Default.compression,
       logQueries = get[Boolean]("log-queries") getOrElse Default.logQueries)
-  }
-
-  // TODO copied from com.evolutiongaming.skafka.producer.ProducerConfig
-  implicit def nelFromConf[T](implicit fromConf: FromConf[List[T]]): FromConf[Nel[T]] = {
-    FromConf { case (config, path) =>
-      val list = fromConf(config, path)
-      Nel.unsafe(list)
-    }
   }
 }
