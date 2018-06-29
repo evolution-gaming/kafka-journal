@@ -5,7 +5,7 @@ language: scala
 
 scala:
   - 2.12.6
-  - 2.11.12
+#  - 2.11.12 TODO fix in a while
 
 jdk: oraclejdk8
 
