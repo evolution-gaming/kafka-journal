@@ -1,14 +1,12 @@
 package com.evolutiongaming.kafka.journal.ally.cassandra
 
+import com.datastax.driver.core._
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
-import com.datastax.driver.core.{BatchStatement, ConsistencyLevel, Session, Statement}
 import com.evolutiongaming.cassandra.Helpers._
 import com.evolutiongaming.cassandra.NextHostRetryPolicy
-import java.lang.{Long => LongJ}
 import com.evolutiongaming.kafka.journal.Alias.Id
-import com.evolutiongaming.kafka.journal.ally.{AllyDb, AllyRecord, AllyRecord2, PartitionOffset}
+import com.evolutiongaming.kafka.journal.ally.{AllyDb, AllyRecord, AllyRecord2}
 
-import scala.collection.JavaConverters._
 import scala.collection.immutable.Seq
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -37,28 +35,24 @@ object AllyCassandra {
 
     val futureUnit = Future.successful(())
 
-    case class PreparedStatements(insertRecord: InsertRecordStatement.Type)
+    case class PreparedStatements(
+      insertRecord: Statements.InsertRecord.Type,
+      lastStatement: Statements.Last.Type,
+      listStatement: Statements.List.Type)
 
-
-    val sessionAndPreparedStatements = for {
-      _ <- {
-        if (keyspace.autoCreate) {
-          // TODO make sure two parallel instances does do the same
-          val query =
-            s"""
+    def createKeyspace() = {
+      // TODO make sure two parallel instances does do the same
+      val query =
+        s"""
       CREATE KEYSPACE IF NOT EXISTS ${ keyspace.name }
       WITH REPLICATION = { 'class' : ${ keyspace.replicationStrategy.asCql } }
     """
-          session2.executeAsync(query).asScala()
-        } else {
-          futureUnit
-        }
-      }
+      session2.executeAsync(query).asScala()
+    }
 
-      _ <- {
-        if (schemaConfig.autoCreate) {
-          val query =
-            s"""
+    def createTable() = {
+      val query =
+        s"""
       CREATE TABLE IF NOT EXISTS $tableName (
         id text,
         partition bigint,
@@ -70,25 +64,50 @@ object AllyCassandra {
         kafka_offset bigint,
         PRIMARY KEY ((id, partition), seq_nr, timestamp))
               """
-          // TODO
-          /*
-          * WITH CLUSTERING ORDER BY (sequence_nr DESC) AND gc_grace_seconds =${ snapshotConfig.gcGraceSeconds }
-        AND compaction = ${ snapshotConfig.tableCompactionStrategy.asCQL }*/
+      // TODO
+      /*
+      * WITH CLUSTERING ORDER BY (sequence_nr DESC) AND gc_grace_seconds =${ snapshotConfig.gcGraceSeconds }
+    AND compaction = ${ snapshotConfig.tableCompactionStrategy.asCQL }*/
 
-          
-          //        WITH gc_grace_seconds =${gcGrace.toSeconds} TODO
-          //        AND compaction = ${config.tableCompactionStrategy.asCQL}
-          session2.executeAsync(query).asScala()
-        } else {
-          futureUnit
-        }
-      }
-      insertStatement <- InsertRecordStatement(tableName, session2.prepareAsync(_: String).asScala())
-    } yield {
-      val prepared = PreparedStatements(insertStatement)
-      (session2, prepared)
+
+      //        WITH gc_grace_seconds =${gcGrace.toSeconds} TODO
+      //        AND compaction = ${config.tableCompactionStrategy.asCQL}
+      session2.executeAsync(query).asScala()
     }
 
+    def preparedStatements() = {
+
+      val prepareAndExecute = new Statements.PrepareAndExecute {
+
+        def prepare(query: String) = {
+          session2.prepareAsync(query).asScala()
+        }
+
+        def execute(statement: BoundStatement) = {
+          val statementFinal = statement.set(statementConfig)
+          session2.executeAsync(statementFinal).asScala()
+        }
+      }
+
+      val insertStatement = Statements.InsertRecord(tableName, session2.prepareAsync(_: String).asScala())
+      val lastStatement = Statements.Last(tableName, prepareAndExecute)
+      val listStatement = Statements.List(tableName, prepareAndExecute)
+      for {
+        insertStatement <- insertStatement
+        lastStatement <- lastStatement
+        listStatement <- listStatement
+      } yield {
+        PreparedStatements(insertStatement, lastStatement, listStatement)
+      }
+    }
+
+    val sessionAndPreparedStatements = for {
+      _ <- if (keyspace.autoCreate) createKeyspace() else futureUnit
+      _ <- if (schemaConfig.autoCreate) createTable() else futureUnit
+      preparedStatements <- preparedStatements()
+    } yield {
+      (session2, preparedStatements)
+    }
 
     new AllyDb {
 
@@ -119,86 +138,31 @@ object AllyCassandra {
       }
 
       def last(id: Id): Future[Option[AllyRecord2]] = {
-        val query = s"""
-     SELECT seq_nr, kafka_partition, kafka_offset FROM $tableName WHERE
-       id = ? AND
-       partition = ?
-       ORDER BY seq_nr
-       DESC LIMIT 1
-   """
-
         val partition: Long = 0 // TODO
 
-        val statement = session2.prepare(query)
-        val boundStatement = statement.bind()
-          .setString("id", id)
-          .setLong("partition", partition)
-          .set(statementConfig)
-
-        val result = session2.execute(boundStatement)
-        val record = Option(result.one()) map { row =>
-          AllyRecord2(
-            seqNr = row.getLong("seq_nr"),
-            partitionOffset = PartitionOffset(
-              partition = row.getInt("kafka_partition"),
-              offset = row.getLong("kafka_offset")))
+        for {
+          (session, preparedStatements) <- sessionAndPreparedStatements
+          result <- preparedStatements.lastStatement(id, partition)
+        } yield {
+          result
         }
-        Future.successful(record)
       }
 
       def list(id: Id): Future[Vector[AllyRecord]] = {
 
+        val from: Long = 0
+        val to: Long = Long.MaxValue
+        val partition: Long = 0 // TODO
+
+        val range = SeqNrRange(from = from, to = to)
 
         // TODO use partition
 
         for {
           (session, preparedStatements) <- sessionAndPreparedStatements
+          result <- preparedStatements.listStatement(id, partition, range)
         } yield {
-
-          val query =
-            s"""
-      SELECT * FROM $tableName WHERE
-        id = ? AND
-        partition = ? AND
-        seq_nr >= ? AND
-        seq_nr <= ?
-    """
-
-          val from: Long = 0
-          val to: Long = Long.MaxValue
-          val partition: Long = 0 // TODO
-
-          val statement = session.prepare(query)
-
-          val boundStatement = statement
-            .bind(id, partition: LongJ, from: LongJ, to: LongJ)
-            .set(statementConfig)
-
-          //          boundStatement.setFetchSize() // TODO
-
-          val result = session.execute(boundStatement)
-
-          // TODO fetch batch by batch
-          result.all().asScala.toVector.map { row =>
-            /*id text,
-            partition bigint,
-            seq_nr bigint,
-            timestamp timestamp,
-            payload blob,
-            tags set<text>,
-            kafka_partition int,
-            kafka_offset bigint,*/
-
-            AllyRecord(
-              id = row.getString("id"),
-              seqNr = row.getLong("seq_nr"),
-              timestamp = row.getTimestamp("timestamp").getTime,
-              payload = row.getBytes("payload").array(),
-              tags = row.getSet("tags", classOf[String]).asScala.toSet,
-              partitionOffset = PartitionOffset(
-                partition = row.getInt("kafka_partition"),
-                offset = row.getLong("kafka_offset")))
-          }
+          result
         }
       }
     }
