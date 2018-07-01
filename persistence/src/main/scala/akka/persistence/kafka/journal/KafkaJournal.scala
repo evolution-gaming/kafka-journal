@@ -8,8 +8,8 @@ import com.evolutiongaming.cassandra.{CassandraConfig, CreateCluster}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.ally.AllyDb
-import com.evolutiongaming.kafka.journal.ally.cassandra.{AllyCassandra, SchemaConfig}
-import com.evolutiongaming.kafka.journal.{Client, Entry}
+import com.evolutiongaming.kafka.journal.ally.cassandra.{AllyCassandra, AllyCassandraConfig, SchemaConfig}
+import com.evolutiongaming.kafka.journal.{Client, Entry, SeqRange}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.serialization.{SerializedMsg, SerializedMsgExt}
@@ -73,8 +73,9 @@ class KafkaJournal extends AsyncWriteJournal {
       val cluster = CreateCluster(cassandraConfig)
       val session = cluster.connect()
       val schemaConfig = SchemaConfig.Default
-      AllyCassandra(session, schemaConfig)
-      
+      val config = AllyCassandraConfig.Default
+      // TODO read only cassandra statements
+      AllyCassandra(session, schemaConfig, config)
     }
 
     Client(producer, newConsumer, allyDb)
@@ -124,12 +125,14 @@ class KafkaJournal extends AsyncWriteJournal {
 
   def asyncReplayMessages(persistenceId: PersistenceId, from: SeqNr, to: SeqNr, max: Long)
     (callback: PersistentRepr => Unit): Future[Unit] = {
+    
+    val range = SeqRange(from , to)
 
-    log.debug(s"asyncReplayMessages persistenceId: $persistenceId, from: $from, to: $to, max: $max")
+    log.debug(s"asyncReplayMessages persistenceId: $persistenceId, range: $range, max: $max")
 
-    client.read(persistenceId).map { entries =>
+    client.read(persistenceId, range).map { entries =>
       val maxInt = (max min Int.MaxValue).toInt
-      val filtered = entries.filter(x => x.seqNr >= from && x.seqNr <= to).take(maxInt)
+      val filtered = entries.take(maxInt) // TODO avoid reading more than needed
 
       def seqNrs = filtered.map(_.seqNr).mkString(",")
 
@@ -153,7 +156,7 @@ class KafkaJournal extends AsyncWriteJournal {
   }
 
   def asyncReadHighestSequenceNr(persistenceId: PersistenceId, from: SeqNr): Future[SeqNr] = {
-    client.lastSeqNr(persistenceId).map { seqNr =>
+    client.lastSeqNr(persistenceId, from).map { seqNr =>
       log.debug(s"asyncReadHighestSequenceNr persistenceId: $persistenceId, from: $from, result: $seqNr")
       seqNr
     }

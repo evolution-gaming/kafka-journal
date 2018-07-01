@@ -18,7 +18,7 @@ trait KafkaPluginSpec extends PluginSpec {
   override def beforeAll(): Unit = {
     shutdownKafka = StartKafka()
     shutdownCassandra = StartCassandra()
-    shutdownReplicator = Replicator(system.dispatcher)
+    shutdownReplicator = Replicator(system, system.dispatcher)
     super.beforeAll()
   }
 

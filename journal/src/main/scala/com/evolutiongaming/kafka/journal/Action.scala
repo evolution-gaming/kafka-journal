@@ -9,30 +9,10 @@ object Action {
 
   implicit val JsonFormat: OFormat[Action] = {
 
-    val AppendFormat = new OFormat[Append] {
-      def writes(value: Append) = {
-        Json.obj("seqNr" -> Json.obj("from" -> value.from, "to" -> value.to))
-      }
-      def reads(json: JsValue) = {
-        for {
-          seqNr <- (json \ "seqNr").validate[JsValue]
-          from <- (seqNr \ "from").validate[SeqNr]
-          to <- (seqNr \ "to").validate[SeqNr]
-        } yield Append(from, to)
-      }
-    }
-    
-    val TruncateFormat = new OFormat[Truncate] {
-      def writes(value: Truncate) = {
-        Json.obj("seqNr" -> Json.obj("to" -> value.to))
-      }
-      def reads(json: JsValue) = {
-        for {
-          to <- (json \ "seqNr" \ "to").validate[SeqNr]
-        } yield Truncate(to)
-      }
-    }
+    implicit val SeqRangeFormat = Json.format[SeqRange]
 
+    val AppendFormat = Json.format[Append]
+    val TruncateFormat = Json.format[Truncate]
     val ReadFormat = Json.format[Mark]
 
     new OFormat[Action] {
@@ -63,7 +43,7 @@ object Action {
 
 
   sealed trait AppendOrTruncate extends Action
-  case class Append(from: SeqNr, to: SeqNr) extends AppendOrTruncate
+  case class Append(range: SeqRange) extends AppendOrTruncate
   case class Truncate(to: SeqNr) extends AppendOrTruncate
   case class Mark(id: String) extends Action
 }

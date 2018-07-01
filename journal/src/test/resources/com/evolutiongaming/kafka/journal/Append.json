@@ -1,6 +1,6 @@
 {
   "append": {
-    "seqNr": {
+    "range": {
       "from": 1,
       "to": 5
     }

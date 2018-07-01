@@ -6,7 +6,7 @@ import play.api.libs.json.{Format, JsValue, Json}
 class ActionJsonSpec extends FunSuite with Matchers {
 
   test("Append format") {
-    val action: Action = Action.Append(1, 5)
+    val action: Action = Action.Append(SeqRange(1, 5))
     verify(action)
   }
 

@@ -21,8 +21,8 @@ import scala.concurrent.{ExecutionContext, Future}
 trait Client {
   def append(id: Id, events: Nel[Entry]): Future[Unit]
   // TODO decide on return type
-  def read(id: Id): Future[Seq[Entry]]
-  def lastSeqNr(id: Id): Future[SeqNr]
+  def read(id: Id, range: SeqRange): Future[Seq[Entry]]
+  def lastSeqNr(id: Id, from: SeqNr): Future[SeqNr]
   def truncate(id: Id, to: SeqNr): Future[Unit]
 }
 
@@ -30,8 +30,8 @@ object Client {
 
   val Empty: Client = new Client {
     def append(id: Id, events: Nel[Entry]) = Future.unit
-    def read(id: Id): Future[List[Entry]] = Future.successful(Nil)
-    def lastSeqNr(id: Id) = Future.successful(0L)
+    def read(id: Id, range: SeqRange): Future[List[Entry]] = Future.successful(Nil)
+    def lastSeqNr(id: Id, from: SeqNr) = Future.successful(0L)
     def truncate(id: Id, to: SeqNr) = Future.unit
   }
 
@@ -158,7 +158,8 @@ object Client {
 
         val payload = JournalRecord.Payload.Events(events2)
         val topic = toTopic(id)
-        val action = Action.Append(from = events.head.seqNr, to = events.last.seqNr)
+        val range = SeqRange(from = events.head.seqNr, to = events.last.seqNr)
+        val action = Action.Append(range)
         val header = toHeader(action)
         val record = ProducerRecord(
           topic = topic,
@@ -171,7 +172,12 @@ object Client {
         result.unit
       }
 
-      def read(id: Id): Future[Seq[Entry]] = {
+      def read(id: Id, range: SeqRange): Future[Seq[Entry]] = {
+
+        if(id == "p-17") Thread.sleep(1000)
+        
+        println(s"read id: $id, range: $range")
+
         val topic = toTopic(id) // TODO another topic created inside of consumeActions
 
         // write marker
@@ -182,7 +188,7 @@ object Client {
 
         def allyRecords() = {
           for {
-            allyRecords <- allyDb.list(id)
+            allyRecords <- allyDb.list(id, range)
           } yield {
             allyRecords.map { record =>
               Entry(
@@ -199,26 +205,53 @@ object Client {
 
 
         val result = for {
-          record <- allyDb.last(id)
+          record <- allyDb.last(id, range.from)
           _ = println(s"record: $record")
           partitionOffset = record.map { _.partitionOffset }
+
           entries <- allyRecords()
 
+          // TODO use range after allyRecords
           records <- consumeActions(id, partitionOffset, zero) { case (result, record, a) =>
             a match {
-              case a: Action.Append =>
+              case action: Action.Append =>
                 val bytes = record.value
 
-                val xs = EventsFromBytes(bytes, topic)
-                val head = xs.events.map { event =>
-                  val tags = Set.empty[String] // TODO
-                  Entry(event.payload, event.seqNr, tags)
+                def entries = {
+                  EventsFromBytes(bytes, topic)
+                    .events
+                    .to[Vector]
+                    .map { event =>
+                      val tags = Set.empty[String] // TODO
+                      Entry(event.payload, event.seqNr, tags)
+                    }
                 }
-                result.copy(entries = result.entries ++ head.to[Vector])
+
+                if (range.contains(action.range)) {
+                  // TODO we don't need to deserialize entries that are out of scope
+                  result.copy(entries = result.entries ++ entries)
+
+                } else if (action.range < range) {
+                  result
+                } else if (action.range > range) {
+                  // TODO stop consuming
+                  result
+                } else {
+
+                  val filtered = entries.filter { entry => range contains entry.seqNr }
+
+                  if (entries.last.seqNr > range) {
+                    // TODO stop consuming
+                    result.copy(entries = result.entries ++ filtered)
+                  } else {
+                    result.copy(entries = result.entries ++ filtered)
+                  }
+                }
 
               case a: Action.Truncate =>
-                if(a.to > result.deleteTo) {
-                  result.copy(deleteTo = a.to, entries = result.entries.dropWhile(_.seqNr <= a.to))
+                if (a.to > result.deleteTo) {
+                  val entries = result.entries.dropWhile(_.seqNr <= a.to)
+                  result.copy(deleteTo = a.to, entries = entries)
                 } else {
                   result
                 }
@@ -229,10 +262,16 @@ object Client {
           val cassandraEntries = entries.dropWhile(_.seqNr <= records.deleteTo)
 
           cassandraEntries.lastOption match {
-            case None => records.entries
+            case None =>
+
+              // TODO important performance indication
+              println(s"$id >>>> ${ records.entries.size } <<<<")
+              records.entries
 
             case Some(last) =>
               val kafka = records.entries.dropWhile { _.seqNr <= last.seqNr }
+              // TODO important performance indication
+              println(s"$id >>>> ${ kafka.size } <<<< ${cassandraEntries.size}")
               cassandraEntries ++ kafka
           }
         }
@@ -244,13 +283,13 @@ object Client {
         result
       }
 
-      def lastSeqNr(id: Id) = {
+      def lastSeqNr(id: Id, from: SeqNr) = {
         for {
-          record <- allyDb.last(id)
+          record <- allyDb.last(id, from)
           partitionOffset = record.map { _.partitionOffset }
           result <- consumeActions(id, partitionOffset, 0L) { case (seqNr, _, a) =>
             a match {
-              case a: Action.Append   => a.to
+              case a: Action.Append   => a.range.to
               case a: Action.Truncate => seqNr
             }
           }

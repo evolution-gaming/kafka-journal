@@ -2,10 +2,11 @@ package akka.persistence.kafka.journal.replicator
 
 import java.util.UUID
 
+import akka.actor.ActorSystem
 import com.evolutiongaming.cassandra.{CassandraConfig, CreateCluster}
-import com.evolutiongaming.kafka.journal.ally.cassandra.{AllyCassandra, SchemaConfig}
+import com.evolutiongaming.kafka.journal.ally.cassandra.{AllyCassandra, AllyCassandraConfig, SchemaConfig}
 import com.evolutiongaming.kafka.journal.ally.{AllyDb, AllyRecord, PartitionOffset}
-import com.evolutiongaming.kafka.journal.{Action, EventsSerializer}
+import com.evolutiongaming.kafka.journal.{Action, EventsSerializer, SeqRange}
 import com.evolutiongaming.skafka.Bytes
 import com.evolutiongaming.skafka.consumer._
 import play.api.libs.json.Json
@@ -22,7 +23,7 @@ object Replicator {
     val Empty: Shutdown = () => Future.unit
   }
 
-  def apply(implicit ec: ExecutionContext): Shutdown = {
+  def apply(implicit system: ActorSystem, ec: ExecutionContext): Shutdown = {
     val groupId = UUID.randomUUID().toString
     val consumerConfig = ConsumerConfig.Default.copy(
       groupId = Some(groupId),
@@ -32,7 +33,8 @@ object Replicator {
     val cluster = CreateCluster(cassandraConfig)
     val session = cluster.connect()
     val schemaConfig = SchemaConfig.Default
-    val allyDb = AllyCassandra(session, schemaConfig)
+    val config = AllyCassandraConfig.Default
+    val allyDb = AllyCassandra(session, schemaConfig, config)
     apply(consumer, allyDb)
   }
 
@@ -94,8 +96,6 @@ object Replicator {
 
               val seqNr = event.seqNr
 
-              println(s"replicate id: $id, topic: $topic, seqNr: $seqNr")
-
               AllyRecord(
                 id = id,
                 seqNr = seqNr,
@@ -107,7 +107,21 @@ object Replicator {
                   offset = record.offset))
             }
 
-            allyDb.save(allyRecords)
+            val futures = for {
+              (id, allyRecords) <- allyRecords.groupBy(_.id)
+            } yield {
+//              println(s"$id batch size: ${allyRecords.size}")
+              allyDb.save(allyRecords).map { result =>
+                val head = allyRecords.head
+                val last = allyRecords.last
+                val range = SeqRange(head.seqNr, last.seqNr)
+                val offset = last.partitionOffset.offset
+
+                println(s"replicate id: $id, range: $range offset: $offset")
+                result
+              }
+            }
+            Future.sequence(futures)
           }
 
           val future = Future.sequence(futures)

@@ -8,4 +8,8 @@ object Alias {
   type Bytes = Array[Byte]
   type Tag = String
   type Tags = Set[String]
+
+  implicit class SeqNrOps(val self: SeqNr) extends AnyVal {
+    def next: SeqNr = self + 1
+  }
 }

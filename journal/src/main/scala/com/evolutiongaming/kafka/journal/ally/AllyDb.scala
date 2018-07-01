@@ -2,30 +2,32 @@ package com.evolutiongaming.kafka.journal.ally
 
 import com.evolutiongaming.kafka.journal.Alias._
 
-import scala.collection.immutable.Seq
 import scala.concurrent.Future
+import com.evolutiongaming.kafka.journal.SeqRange
+import scala.collection.immutable.Seq
 
 
 // TODO separate on read and write
 trait AllyDb extends AllyDbRead {
+  // TODO make sure all have the same id, so the segments work as expected
   def save(records: Seq[AllyRecord]): Future[Unit]
 }
 
 trait AllyDbRead {
   // TODO we don't need payload here
-  def last(id: Id): Future[Option[AllyRecord2]]
+  def last(id: Id, from: SeqNr): Future[Option[AllyRecord2]]
 
-  def list(id: Id): Future[Vector[AllyRecord]]
+  def list(id: Id, range: SeqRange): Future[Seq[AllyRecord]]
 }
 
 object AllyDbRead {
 
   val Empty: AllyDbRead = {
     val futureOption = Future.successful(None)
-    val futureVector = Future.successful(Vector.empty)
+    val futureVector = Future.successful(Seq.empty)
     new AllyDbRead {
-      def last(id: Id) = futureOption
-      def list(id: Id) = futureVector
+      def last(id: Id, from: SeqNr) = futureOption
+      def list(id: Id, range: SeqRange) = futureVector
     }
   }
 }

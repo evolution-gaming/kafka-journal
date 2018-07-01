@@ -1,7 +1,5 @@
 {
   "truncate": {
-    "seqNr": {
-      "to": 3
-    }
+    "to": 3
   }
 }

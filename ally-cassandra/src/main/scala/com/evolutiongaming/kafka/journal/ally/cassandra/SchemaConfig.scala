@@ -2,9 +2,11 @@ package com.evolutiongaming.kafka.journal.ally.cassandra
 
 import com.evolutiongaming.cassandra.ReplicationStrategyConfig
 
+// make a part of AllyCassandraConfig
 case class SchemaConfig(
   keyspace: SchemaConfig.Keyspace = SchemaConfig.Keyspace.Default,
-  table: String = "journal",
+  journalName: String = "journal",
+  metadataName: String = "metadata",
   autoCreate: Boolean = true)
 
 // TODO parse config
