@@ -10,7 +10,7 @@ But It has relaxed requirements for writes.
 
 ### Writing events flow:
 
-1. Jurnal client publishes events to kafka
+1. Journal client publishes events to kafka
 2. Replicator app stores events to cassandra
 
 
