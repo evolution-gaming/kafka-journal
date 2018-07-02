@@ -5,6 +5,44 @@ But It has relaxed requirements for writes.
 
 # >>> Not for production use. yet. <<<
 
+
+## High level idea
+
+### Writing events flow:
+
+1 Jurnal client publishes events to kafka
+2 Replicator app stores events to cassandra
+
+
+### Reading events flow: 
+
+1. Client publishes special marker to kafka so we can make sure there are no more events to expect
+2. Client reads events from cassandra, however at this point we are not yet sure that all events are replicated from kafka to cassandra
+3. Client read events from kafka using offset of last event found in cassandra
+4. We consider recovery finished when marker found in kafka
+
+
+## Notes
+
+* Kafka topic may be used for many different entities
+* We don't need to store all events in kafka as long as they are in cassandra
+* We do not cover snapshots yet
+* Replicator is a separate application
+* It is easy to replace cassandra here with some relation database
+
+
+## State recovery performance
+
+Reading events performance depends on finding the closest offset to the marker as well on replication latency (time difference between the moment event has been written to kafka and the moment when event gets into cassandra)
+
+We may share same kafka consumer for many simultaneous recoveries
+
+
+## Read & write capabilities:
+* Client allowed to `read` + `write` kafka and `read` cassandra
+* Replicator allowed to `read` kafka and `read` + `write` cassandra
+
+
 ## Setup
 
 ```scala
