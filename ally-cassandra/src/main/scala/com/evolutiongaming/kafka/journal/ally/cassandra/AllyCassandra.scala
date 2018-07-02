@@ -3,15 +3,17 @@ package com.evolutiongaming.kafka.journal.ally.cassandra
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
-import com.datastax.driver.core._
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
+import com.datastax.driver.core.{Metadata => _, _}
 import com.evolutiongaming.cassandra.Helpers._
 import com.evolutiongaming.cassandra.NextHostRetryPolicy
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.SeqRange
 import com.evolutiongaming.kafka.journal.ally.{AllyDb, AllyRecord, AllyRecord2}
+import com.evolutiongaming.skafka.Topic
 
 import scala.collection.immutable.Seq
+import scala.compat.Platform
 import scala.concurrent.{ExecutionContext, Future}
 
 
@@ -25,7 +27,7 @@ object AllyCassandra {
 
 
   def apply(
-    session2: Session,
+    session: Session,
     schemaConfig: SchemaConfig,
     config: AllyCassandraConfig)(implicit system: ActorSystem, ec: ExecutionContext): AllyDb = {
 
@@ -46,67 +48,37 @@ object AllyCassandra {
 
     val futureUnit = Future.successful(())
 
+    // TODO moveout
     case class PreparedStatements(
-      insert: Statements.InsertRecord.Type,
-      lastStatement: Statements.Last.Type,
-      listStatement: Statements.List.Type)
+      insertRecord: Statements.InsertRecord.Type,
+      selectLastRecord: Statements.SelectLastRecord.Type,
+      selectRecords: Statements.SelectRecords.Type,
+      insertMetadata: Statements.InsertMetadata.Type,
+      selectMetadata: Statements.SelectMetadata.Type,
+      selectSegmentSize: Statements.SelectSegmentSize.Type)
 
     def createKeyspace() = {
-      // TODO make sure two parallel instances does do the same
-      val query =
-        s"""
-      CREATE KEYSPACE IF NOT EXISTS ${ keyspace.name }
-      WITH REPLICATION = { 'class' : ${ keyspace.replicationStrategy.asCql } }
-    """
-      session2.executeAsync(query).asScala()
+      // TODO make sure two parallel instances does not do the same
+      val query = Statements.createKeyspace(keyspace)
+      session.executeAsync(query).asScala()
     }
 
     def createTable() = {
 
       val journal = {
-
-        val query =
-          s"""
-      CREATE TABLE IF NOT EXISTS $journalName (
-        id text,
-        segment bigint,
-        seq_nr bigint,
-        timestamp timestamp,
-        payload blob,
-        tags set<text>,
-        partition int,
-        offset bigint,
-        PRIMARY KEY ((id, segment), seq_nr, timestamp))
-              """
-        //        WITH gc_grace_seconds =${gcGrace.toSeconds} TODO
-        //        AND compaction = ${config.tableCompactionStrategy.asCQL}
-        session2.executeAsync(query).asScala()
+        val query = Statements.createJournal(journalName)
+        session.executeAsync(query).asScala()
       }
 
       val metadata = {
-
-        // TODO use segment_size
-
-        val query =
-          s"""
-      CREATE TABLE IF NOT EXISTS $metadataName(
-        id text PRIMARY KEY,
-        topic text,
-        segment_size bigint,
-        deleted_to bigint,
-        properties map<text,text>,
-        created timestamp,
-        updated timestamp)
-      """
-        session2.executeAsync(query).asScala()
+        val query = Statements.createMetadata(metadataName)
+        session.executeAsync(query).asScala()
       }
 
       for {
         _ <- journal
         _ <- metadata
-      } yield {
-
-      }
+      } yield {}
     }
 
 
@@ -115,24 +87,38 @@ object AllyCassandra {
       val prepareAndExecute = new Statements.PrepareAndExecute {
 
         def prepare(query: String) = {
-          session2.prepareAsync(query).asScala()
+          session.prepareAsync(query).asScala()
         }
 
         def execute(statement: BoundStatement) = {
-          val statementFinal = statement.set(statementConfig)
-          session2.executeAsync(statementFinal).asScala()
+          val statementConfigured = statement.set(statementConfig)
+          val result = session.executeAsync(statementConfigured)
+          result.asScala()
         }
       }
 
-      val insertStatement = Statements.InsertRecord(journalName, session2.prepareAsync(_: String).asScala())
-      val lastStatement = Statements.Last(journalName, prepareAndExecute)
-      val listStatement = Statements.List(journalName, prepareAndExecute)
+      val insertRecord = Statements.InsertRecord(journalName, session.prepareAsync(_: String).asScala())
+      val selectLastRecord = Statements.SelectLastRecord(journalName, prepareAndExecute)
+      val listRecords = Statements.SelectRecords(journalName, prepareAndExecute)
+      val insertMetadata = Statements.InsertMetadata(metadataName, prepareAndExecute)
+      val selectMetadata = Statements.SelectMetadata(metadataName, prepareAndExecute)
+      val selectSegmentSize = Statements.SelectSegmentSize(metadataName, prepareAndExecute)
+
       for {
-        insertStatement <- insertStatement
-        lastStatement <- lastStatement
-        listStatement <- listStatement
+        insertRecord <- insertRecord
+        selectLastRecord <- selectLastRecord
+        listRecords <- listRecords
+        insertMetadata <- insertMetadata
+        selectMetadata <- selectMetadata
+        selectSegmentSize <- selectSegmentSize
       } yield {
-        PreparedStatements(insertStatement, lastStatement, listStatement)
+        PreparedStatements(
+          insertRecord,
+          selectLastRecord,
+          listRecords,
+          insertMetadata,
+          selectMetadata,
+          selectSegmentSize)
       }
     }
 
@@ -141,27 +127,39 @@ object AllyCassandra {
       _ <- if (schemaConfig.autoCreate) createTable() else futureUnit
       preparedStatements <- preparedStatements()
     } yield {
-      (session2, preparedStatements)
+      (session, preparedStatements)
     }
 
-    // TODO read from metadata
-    val segmentSize = config.segmentSize
+    def segmentSize(id: Id, preparedStatements: PreparedStatements): Future[Int] = {
+      val selectSegmentSize = preparedStatements.selectSegmentSize
+      for {
+        segmentSize <- selectSegmentSize(id)
+      } yield {
+        segmentSize getOrElse config.segmentSize
+      }
+    }
 
 
     new AllyDb {
 
-      def save(records: Seq[AllyRecord]): Future[Unit] = {
+      // TODO verify all records have same id
+      def save(records: Seq[AllyRecord], topic: Topic): Future[Unit] = {
+
+        //        Thread.sleep(400)
 
         if (records.isEmpty) futureUnit
         else {
-          val segment = Segment(records.head.seqNr, config.segmentSize)
 
-          def statement(prepared: PreparedStatements) = {
+          val head = records.head
+          val segment = Segment(head.seqNr, config.segmentSize)
+          val id = head.id
+
+          def statement(prepared: PreparedStatements, segmentSize: Int) = {
 
             val statements = for {
               record <- records
             } yield {
-              prepared.insert(record, segment)
+              prepared.insertRecord(record, segment)
             }
 
             if (statements.size == 1) {
@@ -172,9 +170,29 @@ object AllyCassandra {
             }
           }
 
+          def insertMetadata(prepared: PreparedStatements) = {
+            // TODO make constant of SeqNr 1
+            if (head.seqNr == 1) {
+
+              val timestamp = Platform.currentTime
+              val segmentSize = config.segmentSize
+              // TODO is it right to use `currentTime` as timestamp ?
+              val metadata = Metadata(id, topic, segmentSize, created = timestamp, updated = timestamp)
+              println(s"$id AllyCassandra.metadata: $metadata")
+              for {
+                _ <- prepared.insertMetadata(metadata)
+              } yield {
+                segmentSize
+              }
+            } else {
+              segmentSize(id, prepared)
+            }
+          }
+
           for {
             (session, prepared) <- sessionAndPreparedStatements
-            statementFinal = statement(prepared).set(statementConfig)
+            segmentSize <- insertMetadata(prepared)
+            statementFinal = statement(prepared, segmentSize).set(statementConfig)
             _ <- session.executeAsync(statementFinal).asScala()
           } yield {
 
@@ -183,10 +201,9 @@ object AllyCassandra {
       }
 
       def last(id: Id, from: SeqNr): Future[Option[AllyRecord2]] = {
-        println(s"AllyCassandra last id: $id, from: $from")
+        println(s"$id AllyCassandra.last from: $from")
 
-        def last(statement: Statements.Last.Type) = {
-
+        def last(statement: Statements.SelectLastRecord.Type, segmentSize: Int) = {
 
           def recur(from: SeqNr, prev: Option[(Segment, AllyRecord2)]): Future[Option[AllyRecord2]] = {
             // println(s"AllyCassandra.last.recur id: $id, segment: $segment")
@@ -217,7 +234,8 @@ object AllyCassandra {
 
         for {
           (session, preparedStatements) <- sessionAndPreparedStatements
-          result <- last(preparedStatements.lastStatement)
+          segmentSize <- segmentSize(id, preparedStatements)
+          result <- last(preparedStatements.selectLastRecord, segmentSize)
         } yield {
           result
         }
@@ -225,9 +243,9 @@ object AllyCassandra {
 
       def list(id: Id, range: SeqRange): Future[Seq[AllyRecord]] = {
 
-        println(s"AllyCassandra list id: $id, range: $range")
+        println(s"$id AllyCassandra.list range: $range")
 
-        def list(statement: Statements.List.Type) = {
+        def list(statement: Statements.SelectRecords.Type, segmentSize: Int) = {
           val state = (range.from, Option.empty[Segment])
           val source = Source.unfoldAsync(state) { case (from, prev) =>
             // TODO use deletedTo
@@ -259,9 +277,9 @@ object AllyCassandra {
         // TODO use partition
         for {
           (session, preparedStatements) <- sessionAndPreparedStatements
-          result <- list(preparedStatements.listStatement)
+          segmentSize <- segmentSize(id, preparedStatements)
+          result <- list(preparedStatements.selectRecords, segmentSize)
         } yield {
-
 
           /*if(id == "p-17") {
             val query =
@@ -279,7 +297,7 @@ object AllyCassandra {
             }
           }*/
 
-          println(s"AllyCassandra $id: ${ result.map { _.seqNr }.mkString(",") }")
+          println(s"$id AllyCassandra.list ${ result.map { _.seqNr }.mkString(",") }")
           result
         }
       }

@@ -14,6 +14,7 @@ import play.api.libs.json.Json
 import scala.compat.Platform
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.util.control.NonFatal
 
 object Replicator {
 
@@ -67,65 +68,75 @@ object Replicator {
           shutdown.completeWith(future)
 
         case None =>
+
+
           val records = consumer.poll(pollTimeout)
-          val futures = for {
-            (topicPartition, records) <- records.values
-          } yield {
 
-            def toAction(record: ConsumerRecord[String, Bytes]) = {
-              val headers = record.headers
-              val header = headers.find { _.key == "journal.action" }.get
-              val json = Json.parse(header.value)
-              json.as[Action]
-            }
-
-            val allyRecords = for {
-              record <- records
-              id <- record.key.toIterable
-              action = toAction(record)
-              action <- action match {
-                case action: Action.Truncate => Nil // TODO
-                case action: Action.Append   => List(action)
-                case action: Action.Mark     => Nil
-              }
-              topic = record.topic
-              event <- EventsSerializer.EventsFromBytes(record.value, topic).events.to[Iterable]
-            } yield {
-
-              // TODO different created and inserted timestamps
-
-              val seqNr = event.seqNr
-
-              AllyRecord(
-                id = id,
-                seqNr = seqNr,
-                timestamp = Platform.currentTime,
-                payload = event.payload,
-                tags = Set.empty, // TODO
-                partitionOffset = PartitionOffset(
-                  partition = record.partition,
-                  offset = record.offset))
-            }
+          try {
 
             val futures = for {
-              (id, allyRecords) <- allyRecords.groupBy(_.id)
+              records <- records.values.values
+              (key, records) <- records.groupBy { _.key }
+              id <- key
             } yield {
-//              println(s"$id batch size: ${allyRecords.size}")
-              allyDb.save(allyRecords).map { result =>
-                val head = allyRecords.head
-                val last = allyRecords.last
-                val range = SeqRange(head.seqNr, last.seqNr)
-                val offset = last.partitionOffset.offset
 
-                println(s"replicate id: $id, range: $range offset: $offset")
-                result
+              val topic = records.head.topic
+
+              def toAction(record: ConsumerRecord[String, Bytes]) = {
+                val headers = record.headers
+                val header = headers.find { _.key == "journal.action" }.get
+                val json = Json.parse(header.value)
+                json.as[Action]
+              }
+
+              // TODO handle use case when the `Mark` is first ever Action
+
+              val allyRecords = for {
+                record <- records
+                action = toAction(record)
+                action <- action match {
+                  case action: Action.Truncate => Nil // TODO
+                  case action: Action.Append   => List(action)
+                  case action: Action.Mark     => Nil
+                }
+                event <- EventsSerializer.EventsFromBytes(record.value, topic).events.to[Iterable]
+              } yield {
+
+                // TODO different created and inserted timestamps
+
+                val seqNr = event.seqNr
+
+                AllyRecord(
+                  id = id,
+                  seqNr = seqNr,
+                  timestamp = Platform.currentTime,
+                  payload = event.payload,
+                  tags = Set.empty, // TODO
+                  partitionOffset = PartitionOffset(
+                    partition = record.partition,
+                    offset = record.offset))
+              }
+
+              if (allyRecords.nonEmpty) {
+                allyDb.save(allyRecords, topic).map { result =>
+                  val head = allyRecords.head
+                  val last = allyRecords.last
+                  val range = SeqRange(head.seqNr, last.seqNr)
+                  val offset = last.partitionOffset.offset
+
+                  println(s"$id replicate range: $range offset: $offset")
+                  result
+                }
+              } else {
+                Future.unit
               }
             }
-            Future.sequence(futures)
-          }
 
-          val future = Future.sequence(futures)
-          Await.result(future, 1.minute)
+            val future = Future.sequence(futures)
+            Await.result(future, 1.minute)
+          } catch {
+            case NonFatal(failure) => failure.printStackTrace()
+          }
 
           poll()
       }

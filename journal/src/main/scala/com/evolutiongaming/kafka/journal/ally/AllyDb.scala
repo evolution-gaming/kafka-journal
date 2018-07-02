@@ -4,13 +4,15 @@ import com.evolutiongaming.kafka.journal.Alias._
 
 import scala.concurrent.Future
 import com.evolutiongaming.kafka.journal.SeqRange
+import com.evolutiongaming.skafka.Topic
+
 import scala.collection.immutable.Seq
 
 
 // TODO separate on read and write
 trait AllyDb extends AllyDbRead {
   // TODO make sure all have the same id, so the segments work as expected
-  def save(records: Seq[AllyRecord]): Future[Unit]
+  def save(records: Seq[AllyRecord], topic: Topic): Future[Unit]
 }
 
 trait AllyDbRead {

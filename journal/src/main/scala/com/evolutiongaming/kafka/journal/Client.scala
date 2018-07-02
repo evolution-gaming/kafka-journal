@@ -174,9 +174,7 @@ object Client {
 
       def read(id: Id, range: SeqRange): Future[Seq[Entry]] = {
 
-        if(id == "p-17") Thread.sleep(1000)
-        
-        println(s"read id: $id, range: $range")
+        println(s"$id Client.read range: $range")
 
         val topic = toTopic(id) // TODO another topic created inside of consumeActions
 
@@ -206,7 +204,6 @@ object Client {
 
         val result = for {
           record <- allyDb.last(id, range.from)
-          _ = println(s"record: $record")
           partitionOffset = record.map { _.partitionOffset }
 
           entries <- allyRecords()
@@ -271,7 +268,7 @@ object Client {
             case Some(last) =>
               val kafka = records.entries.dropWhile { _.seqNr <= last.seqNr }
               // TODO important performance indication
-              println(s"$id >>>> ${ kafka.size } <<<< ${cassandraEntries.size}")
+              println(s"$id >>>> ${ kafka.size }(${{cassandraEntries.size}}) <<<<")
               cassandraEntries ++ kafka
           }
         }
