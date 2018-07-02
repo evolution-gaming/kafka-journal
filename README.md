@@ -28,7 +28,7 @@ But It has relaxed requirements for writes.
 * We don't need to store all events in kafka as long as they are in cassandra
 * We do not cover snapshots yet
 * Replicator is a separate application
-* It is easy to replace cassandra here with some relation database
+* It is easy to replace cassandra here with some relational database
 
 
 ## State recovery performance
