@@ -1,5 +1,6 @@
 package akka.persistence.kafka.journal.replicator
 
+import java.time.Instant
 import java.util.UUID
 
 import akka.actor.ActorSystem
@@ -11,7 +12,6 @@ import com.evolutiongaming.skafka.Bytes
 import com.evolutiongaming.skafka.consumer._
 import play.api.libs.json.Json
 
-import scala.compat.Platform
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.util.control.NonFatal
@@ -69,7 +69,6 @@ object Replicator {
 
         case None =>
 
-
           val records = consumer.poll(pollTimeout)
 
           try {
@@ -106,10 +105,12 @@ object Replicator {
 
                 val seqNr = event.seqNr
 
+                val timestamp = Instant.now()
+
                 AllyRecord(
                   id = id,
                   seqNr = seqNr,
-                  timestamp = Platform.currentTime,
+                  timestamp = timestamp,
                   payload = event.payload,
                   tags = Set.empty, // TODO
                   partitionOffset = PartitionOffset(

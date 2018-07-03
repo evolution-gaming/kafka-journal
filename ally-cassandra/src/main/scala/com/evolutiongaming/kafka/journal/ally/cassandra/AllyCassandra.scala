@@ -1,5 +1,7 @@
 package com.evolutiongaming.kafka.journal.ally.cassandra
 
+import java.time.Instant
+
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
@@ -13,7 +15,6 @@ import com.evolutiongaming.kafka.journal.ally.{AllyDb, AllyRecord, AllyRecord2}
 import com.evolutiongaming.skafka.Topic
 
 import scala.collection.immutable.Seq
-import scala.compat.Platform
 import scala.concurrent.{ExecutionContext, Future}
 
 
@@ -42,49 +43,51 @@ object AllyCassandra {
 
     val keyspace = schemaConfig.keyspace
 
-    val journalName = s"${ keyspace.name }.${ schemaConfig.journalName }"
-
-    val metadataName = s"${ keyspace.name }.${ schemaConfig.metadataName }"
+    val journalName = TableName(keyspace = keyspace.name, table = schemaConfig.journalName)
+    
+    val metadataName = TableName(keyspace = keyspace.name, table = schemaConfig.metadataName)
 
     val futureUnit = Future.successful(())
 
     // TODO moveout
     case class PreparedStatements(
-      insertRecord: Statements.InsertRecord.Type,
-      selectLastRecord: Statements.SelectLastRecord.Type,
-      selectRecords: Statements.SelectRecords.Type,
-      insertMetadata: Statements.InsertMetadata.Type,
-      selectMetadata: Statements.SelectMetadata.Type,
-      selectSegmentSize: Statements.SelectSegmentSize.Type)
+      insertRecord: JournalStatement.InsertRecord.Type,
+      selectLastRecord: JournalStatement.SelectLastRecord.Type,
+      selectRecords: JournalStatement.SelectRecords.Type,
+      insertMetadata: MetadataStatement.Insert.Type,
+      selectMetadata: MetadataStatement.Select.Type,
+      selectSegmentSize: MetadataStatement.SelectSegmentSize.Type)
 
     def createKeyspace() = {
       // TODO make sure two parallel instances does not do the same
-      val query = Statements.createKeyspace(keyspace)
+      val query = JournalStatement.createKeyspace(keyspace)
       session.executeAsync(query).asScala()
     }
 
     def createTable() = {
 
       val journal = {
-        val query = Statements.createJournal(journalName)
+        val query = JournalStatement.createTable(journalName)
         session.executeAsync(query).asScala()
       }
 
       val metadata = {
-        val query = Statements.createMetadata(metadataName)
+        val query = MetadataStatement.createTable(metadataName)
         session.executeAsync(query).asScala()
       }
 
       for {
         _ <- journal
         _ <- metadata
-      } yield {}
+      } yield {
+        
+      }
     }
 
 
     def preparedStatements() = {
 
-      val prepareAndExecute = new Statements.PrepareAndExecute {
+      val prepareAndExecute = new PrepareAndExecute {
 
         def prepare(query: String) = {
           session.prepareAsync(query).asScala()
@@ -97,12 +100,12 @@ object AllyCassandra {
         }
       }
 
-      val insertRecord = Statements.InsertRecord(journalName, session.prepareAsync(_: String).asScala())
-      val selectLastRecord = Statements.SelectLastRecord(journalName, prepareAndExecute)
-      val listRecords = Statements.SelectRecords(journalName, prepareAndExecute)
-      val insertMetadata = Statements.InsertMetadata(metadataName, prepareAndExecute)
-      val selectMetadata = Statements.SelectMetadata(metadataName, prepareAndExecute)
-      val selectSegmentSize = Statements.SelectSegmentSize(metadataName, prepareAndExecute)
+      val insertRecord = JournalStatement.InsertRecord(journalName, session.prepareAsync(_: String).asScala())
+      val selectLastRecord = JournalStatement.SelectLastRecord(journalName, prepareAndExecute)
+      val listRecords = JournalStatement.SelectRecords(journalName, prepareAndExecute)
+      val insertMetadata = MetadataStatement.Insert(metadataName, prepareAndExecute)
+      val selectMetadata = MetadataStatement.Select(metadataName, prepareAndExecute)
+      val selectSegmentSize = MetadataStatement.SelectSegmentSize(metadataName, prepareAndExecute)
 
       for {
         insertRecord <- insertRecord
@@ -174,7 +177,7 @@ object AllyCassandra {
             // TODO make constant of SeqNr 1
             if (head.seqNr == 1) {
 
-              val timestamp = Platform.currentTime
+              val timestamp = Instant.now()
               val segmentSize = config.segmentSize
               // TODO is it right to use `currentTime` as timestamp ?
               val metadata = Metadata(id, topic, segmentSize, created = timestamp, updated = timestamp)
@@ -203,7 +206,7 @@ object AllyCassandra {
       def last(id: Id, from: SeqNr): Future[Option[AllyRecord2]] = {
         println(s"$id AllyCassandra.last from: $from")
 
-        def last(statement: Statements.SelectLastRecord.Type, segmentSize: Int) = {
+        def last(statement: JournalStatement.SelectLastRecord.Type, segmentSize: Int) = {
 
           def recur(from: SeqNr, prev: Option[(Segment, AllyRecord2)]): Future[Option[AllyRecord2]] = {
             // println(s"AllyCassandra.last.recur id: $id, segment: $segment")
@@ -216,7 +219,7 @@ object AllyCassandra {
               Future.successful(record)
             } else {
               for {
-                result <- statement(id, from, segment)
+                result <- statement(id, segment, from)
                 result <- result match {
                   case None         => Future.successful(record)
                   case Some(result) =>
@@ -245,14 +248,14 @@ object AllyCassandra {
 
         println(s"$id AllyCassandra.list range: $range")
 
-        def list(statement: Statements.SelectRecords.Type, segmentSize: Int) = {
+        def list(statement: JournalStatement.SelectRecords.Type, segmentSize: Int) = {
           val state = (range.from, Option.empty[Segment])
           val source = Source.unfoldAsync(state) { case (from, prev) =>
             // TODO use deletedTo
             val segment = Segment(from, segmentSize)
             if ((range contains from) && !(prev contains segment)) {
               for {
-                records <- statement(id, range, segment)
+                records <- statement(id, segment, range)
               } yield {
                 if (records.isEmpty) {
                   None

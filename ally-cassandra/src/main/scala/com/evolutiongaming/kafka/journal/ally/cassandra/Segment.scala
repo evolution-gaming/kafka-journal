@@ -4,7 +4,7 @@ import com.evolutiongaming.kafka.journal.Alias.SeqNr
 
 case class Segment(value: Long) extends Ordered[Segment] {
 
-//  def next: Segment = copy(value + 1)
+  //  def next: Segment = copy(value + 1)
 
   def compare(that: Segment): Int = this.value compare that.value
 }
