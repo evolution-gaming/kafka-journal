@@ -15,6 +15,6 @@ case class AllyRecord(
 
 case class PartitionOffset(partition: Partition, offset: Offset)
 
-case class AllyRecord2(
+case class Pointer(
   seqNr: SeqNr,
   partitionOffset: PartitionOffset)

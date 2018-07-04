@@ -5,7 +5,7 @@ import com.evolutiongaming.nel.Nel
 
 case class JournalRecord(
   id: Id,
-  timestamp: Timestamp,
+  timestamp: Timestamp, // TODO Instant ?
   payload: JournalRecord.Payload)
 
 

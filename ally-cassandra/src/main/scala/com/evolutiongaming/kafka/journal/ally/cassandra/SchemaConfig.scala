@@ -7,6 +7,7 @@ case class SchemaConfig(
   keyspace: SchemaConfig.Keyspace = SchemaConfig.Keyspace.Default,
   journalName: String = "journal",
   metadataName: String = "metadata",
+  pointerName: String = "pointer",
   autoCreate: Boolean = true)
 
 // TODO parse config

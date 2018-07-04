@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 object Alias {
-  type Timestamp = Long
+  type Timestamp = Long // TODO Instant ?
   type PersistenceId = String
   type Id = String
   type SeqNr = Long

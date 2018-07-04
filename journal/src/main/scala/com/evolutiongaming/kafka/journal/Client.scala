@@ -43,7 +43,7 @@ object Client {
     allyDb: AllyDbRead = AllyDbRead.Empty,
     pollTimeout: FiniteDuration = 100.millis)(implicit ec: ExecutionContext): Client = {
 
-    def toTopic(id: Id) = "journal-test9"
+    def toTopic(id: Id) = "journal"
 
     def toHeader(a: Action) = {
       val json = Json.toJson(a)
@@ -203,7 +203,7 @@ object Client {
 
 
         val result = for {
-          record <- allyDb.last(id, range.from)
+          record <- allyDb.pointer(id, range.from)
           partitionOffset = record.map { _.partitionOffset }
 
           entries <- allyRecords()
@@ -282,7 +282,7 @@ object Client {
 
       def lastSeqNr(id: Id, from: SeqNr) = {
         for {
-          record <- allyDb.last(id, from)
+          record <- allyDb.pointer(id, from)
           partitionOffset = record.map { _.partitionOffset }
           result <- consumeActions(id, partitionOffset, 0L) { case (seqNr, _, a) =>
             a match {

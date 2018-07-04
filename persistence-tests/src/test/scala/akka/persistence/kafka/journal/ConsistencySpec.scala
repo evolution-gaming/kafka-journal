@@ -54,12 +54,25 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
       val (_, state) = createRef()
       state shouldEqual events.drop(50)
     }
+
+    "recover new entity from lengthy topic" in {
+      val (refPersist, _) = createRef()
+      val events = (1 to 1000).toVector map { _.toString }
+      for {
+        group <- events.grouped(100)
+      } {
+        val events = Nel.unsafe(group)
+        refPersist.persist(events)
+      }
+      val (_, state) = createRef("new_id")
+      state shouldEqual Vector.empty
+    }
   }
 
 
-  def createRef() = {
+  def createRef(id: String = pid) = {
     val promise = Promise[State]()
-    val props = Props(actor(pid, promise))
+    val props = Props(actor(id, promise))
     val ref = system.actorOf(props)
     val future = promise.future
     val state = Await.result(future, timeout.duration)

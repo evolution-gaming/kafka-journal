@@ -11,8 +11,8 @@ import com.evolutiongaming.cassandra.Helpers._
 import com.evolutiongaming.cassandra.NextHostRetryPolicy
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.SeqRange
-import com.evolutiongaming.kafka.journal.ally.{AllyDb, AllyRecord, AllyRecord2}
-import com.evolutiongaming.skafka.Topic
+import com.evolutiongaming.kafka.journal.ally.{AllyDb, AllyRecord, Pointer}
+import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 import scala.collection.immutable.Seq
 import scala.concurrent.{ExecutionContext, Future}
@@ -44,8 +44,10 @@ object AllyCassandra {
     val keyspace = schemaConfig.keyspace
 
     val journalName = TableName(keyspace = keyspace.name, table = schemaConfig.journalName)
-    
+
     val metadataName = TableName(keyspace = keyspace.name, table = schemaConfig.metadataName)
+
+    val pointerName = TableName(keyspace = keyspace.name, table = schemaConfig.pointerName)
 
     val futureUnit = Future.successful(())
 
@@ -56,7 +58,10 @@ object AllyCassandra {
       selectRecords: JournalStatement.SelectRecords.Type,
       insertMetadata: MetadataStatement.Insert.Type,
       selectMetadata: MetadataStatement.Select.Type,
-      selectSegmentSize: MetadataStatement.SelectSegmentSize.Type)
+      selectSegmentSize: MetadataStatement.SelectSegmentSize.Type,
+      insertPointer: PointerStatement.Insert.Type,
+      updatePointer: PointerStatement.Update.Type,
+      selectPointer: PointerStatement.Select.Type)
 
     def createKeyspace() = {
       // TODO make sure two parallel instances does not do the same
@@ -76,11 +81,17 @@ object AllyCassandra {
         session.executeAsync(query).asScala()
       }
 
+      val pointer = {
+        val query = PointerStatement.createTable(pointerName)
+        session.executeAsync(query).asScala()
+      }
+
       for {
         _ <- journal
         _ <- metadata
+        _ <- pointer
       } yield {
-        
+
       }
     }
 
@@ -106,6 +117,9 @@ object AllyCassandra {
       val insertMetadata = MetadataStatement.Insert(metadataName, prepareAndExecute)
       val selectMetadata = MetadataStatement.Select(metadataName, prepareAndExecute)
       val selectSegmentSize = MetadataStatement.SelectSegmentSize(metadataName, prepareAndExecute)
+      val insertPointer = PointerStatement.Insert(pointerName, prepareAndExecute)
+      val updatePointer = PointerStatement.Update(pointerName, prepareAndExecute)
+      val selectPointer = PointerStatement.Select(pointerName, prepareAndExecute)
 
       for {
         insertRecord <- insertRecord
@@ -114,6 +128,9 @@ object AllyCassandra {
         insertMetadata <- insertMetadata
         selectMetadata <- selectMetadata
         selectSegmentSize <- selectSegmentSize
+        insertPointer <- insertPointer
+        updatePointer <- updatePointer
+        selectPointer <- selectPointer
       } yield {
         PreparedStatements(
           insertRecord,
@@ -121,7 +138,10 @@ object AllyCassandra {
           listRecords,
           insertMetadata,
           selectMetadata,
-          selectSegmentSize)
+          selectSegmentSize,
+          insertPointer,
+          updatePointer,
+          selectPointer)
       }
     }
 
@@ -133,12 +153,26 @@ object AllyCassandra {
       (session, preparedStatements)
     }
 
-    def segmentSize(id: Id, preparedStatements: PreparedStatements): Future[Int] = {
-      val selectSegmentSize = preparedStatements.selectSegmentSize
+    // TODO remove
+    def segmentSize(id: Id, prepared: PreparedStatements): Future[Int] = {
+      val selectSegmentSize = prepared.selectSegmentSize
       for {
         segmentSize <- selectSegmentSize(id)
       } yield {
         segmentSize getOrElse config.segmentSize
+      }
+    }
+
+    def metadata(id: Id, prepared: PreparedStatements) = {
+      val selectMetadata = prepared.selectMetadata
+      for {
+        metadata <- selectMetadata(id)
+      } yield {
+        // TODO what to do if it is empty?
+
+        if (metadata.isEmpty) println(s"$id metadata is empty")
+
+        metadata
       }
     }
 
@@ -176,11 +210,16 @@ object AllyCassandra {
           def insertMetadata(prepared: PreparedStatements) = {
             // TODO make constant of SeqNr 1
             if (head.seqNr == 1) {
-
               val timestamp = Instant.now()
               val segmentSize = config.segmentSize
               // TODO is it right to use `currentTime` as timestamp ?
-              val metadata = Metadata(id, topic, segmentSize, created = timestamp, updated = timestamp)
+              val metadata = Metadata(
+                id = id,
+                topic = topic,
+                deleteTo = 0,
+                segmentSize = segmentSize,
+                created = timestamp,
+                updated = timestamp)
               println(s"$id AllyCassandra.metadata: $metadata")
               for {
                 _ <- prepared.insertMetadata(metadata)
@@ -203,12 +242,55 @@ object AllyCassandra {
         }
       }
 
-      def last(id: Id, from: SeqNr): Future[Option[AllyRecord2]] = {
+      def savePointer(topic: Topic, partition: Partition, offset: Offset) = {
+
+        val timestamp = Instant.now() // TODO
+
+        for {
+          (session, prepared) <- sessionAndPreparedStatements
+          pointer = PointerUpdate(topic = topic, partition = partition, offset = offset, updated = timestamp)
+          _ <- prepared.updatePointer(pointer)
+        } yield {
+
+        }
+      }
+
+      def insertPointer(topic: Topic, partition: Partition, offset: Offset) = {
+
+        val timestamp = Instant.now() // TODO
+
+        for {
+          (session, prepared) <- sessionAndPreparedStatements
+          pointer = PointerInsert(
+            topic = topic,
+            partition = partition,
+            offset = offset,
+            updated = timestamp,
+            created = timestamp)
+          _ <- prepared.insertPointer(pointer)
+        } yield {
+
+        }
+      }
+
+
+      // TODO return closest offset
+      def pointer(id: Id, from: SeqNr): Future[Option[Pointer]] = {
         println(s"$id AllyCassandra.last from: $from")
 
-        def last(statement: JournalStatement.SelectLastRecord.Type, segmentSize: Int) = {
+        def pointer(statement: JournalStatement.SelectLastRecord.Type, segmentSize: Int, metadata: Option[Metadata]) = {
 
-          def recur(from: SeqNr, prev: Option[(Segment, AllyRecord2)]): Future[Option[AllyRecord2]] = {
+          val deletedTo = metadata.map { _.deleteTo } getOrElse 0L
+
+//          val seqNr = from max deletedTo
+//
+//          val partition: Partition = ???
+
+
+
+
+
+          def recur(from: SeqNr, prev: Option[(Segment, Pointer)]): Future[Option[Pointer]] = {
             // println(s"AllyCassandra.last.recur id: $id, segment: $segment")
 
             def record = prev.map { case (_, record) => record }
@@ -236,19 +318,22 @@ object AllyCassandra {
         }
 
         for {
-          (session, preparedStatements) <- sessionAndPreparedStatements
-          segmentSize <- segmentSize(id, preparedStatements)
-          result <- last(preparedStatements.selectLastRecord, segmentSize)
+          (session, statements) <- sessionAndPreparedStatements
+          segmentSize <- segmentSize(id, statements)
+          metadata <- metadata(id, statements)
+          result <- pointer(statements.selectLastRecord, segmentSize, metadata)
         } yield {
           result
         }
       }
 
+
       def list(id: Id, range: SeqRange): Future[Seq[AllyRecord]] = {
 
         println(s"$id AllyCassandra.list range: $range")
 
-        def list(statement: JournalStatement.SelectRecords.Type, segmentSize: Int) = {
+        def list(statement: JournalStatement.SelectRecords.Type, segmentSize: Int, metadata: Option[Metadata]) = {
+
           val state = (range.from, Option.empty[Segment])
           val source = Source.unfoldAsync(state) { case (from, prev) =>
             // TODO use deletedTo
@@ -277,11 +362,11 @@ object AllyCassandra {
             .runWith(Sink.seq)
         }
 
-        // TODO use partition
         for {
-          (session, preparedStatements) <- sessionAndPreparedStatements
-          segmentSize <- segmentSize(id, preparedStatements)
-          result <- list(preparedStatements.selectRecords, segmentSize)
+          (session, statements) <- sessionAndPreparedStatements
+          segmentSize <- segmentSize(id, statements)
+          metadata <- metadata(id, statements)
+          result <- list(statements.selectRecords, segmentSize, metadata)
         } yield {
 
           /*if(id == "p-17") {
@@ -303,6 +388,20 @@ object AllyCassandra {
           println(s"$id AllyCassandra.list ${ result.map { _.seqNr }.mkString(",") }")
           result
         }
+      }
+
+      // TODO consider merging with save method
+      def delete(id: Id, to: SeqNr): Future[Unit] = {
+
+        for {
+          (session, statements) <- sessionAndPreparedStatements
+          segmentSize <- segmentSize(id, statements)
+        } yield {
+
+
+        }
+
+        ???
       }
     }
   }

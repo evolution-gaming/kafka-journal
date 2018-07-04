@@ -8,7 +8,7 @@ import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.Alias.{Id, SeqNr, Tags}
 import com.evolutiongaming.kafka.journal.SeqRange
 import com.evolutiongaming.kafka.journal.ally.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.ally.{AllyRecord, AllyRecord2, PartitionOffset}
+import com.evolutiongaming.kafka.journal.ally.{AllyRecord, Pointer, PartitionOffset}
 import com.evolutiongaming.skafka.{Bytes, Offset, Partition}
 
 import scala.collection.JavaConverters._
@@ -81,7 +81,7 @@ object JournalStatement {
   // TODO rename along with AllyRecord2
   object SelectLastRecord {
     // TODO add from ?
-    type Type = (Id, Segment, SeqNr) => Future[Option[AllyRecord2]]
+    type Type = (Id, Segment, SeqNr) => Future[Option[Pointer]]
 
     // TODO fast future
     // TODO create Prepare -> Run function
@@ -111,7 +111,7 @@ object JournalStatement {
             val partitionOffset = PartitionOffset(
               partition = row.decode[Partition]("partition"),
               offset = row.decode[Offset]("offset"))
-            AllyRecord2(
+            Pointer(
               seqNr = row.decode[SeqNr]("seq_nr"),
               partitionOffset = partitionOffset)
           }
