@@ -5,6 +5,7 @@ import java.util.regex.Pattern
 
 import com.evolutiongaming.skafka._
 
+import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
 trait Consumer[K, V] extends Closeable {
@@ -25,7 +26,7 @@ trait Consumer[K, V] extends Closeable {
 
   def unsubscribe(): Unit
 
-  def poll(timeout: FiniteDuration): ConsumerRecords[K, V]
+  def poll(timeout: FiniteDuration): Future[ConsumerRecords[K, V]]
 
   def commitSync(): Unit
 

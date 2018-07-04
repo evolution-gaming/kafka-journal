@@ -11,6 +11,7 @@ import com.evolutiongaming.kafka.journal.ally.{AllyDb, AllyRecord, PartitionOffs
 import com.evolutiongaming.kafka.journal.{Action, EventsSerializer, JournalRecord, SeqRange}
 import com.evolutiongaming.skafka.{Bytes, Offset, Partition, Topic}
 import com.evolutiongaming.skafka.consumer._
+import com.evolutiongaming.kafka.journal.ActionConverters._
 import play.api.libs.json.Json
 
 import scala.collection.immutable.Seq
@@ -32,7 +33,8 @@ object Replicator {
     val consumerConfig = ConsumerConfig.Default.copy(
       groupId = Some(groupId),
       autoOffsetReset = AutoOffsetReset.Earliest)
-    val consumer = CreateConsumer[String, Bytes](consumerConfig)
+    val ecBlocking = ec // TODO
+    val consumer = CreateConsumer[String, Bytes](consumerConfig, ecBlocking)
     val cassandraConfig = CassandraConfig.Default
     val cluster = CreateCluster(cassandraConfig)
     val session = cluster.connect()
@@ -76,7 +78,7 @@ object Replicator {
 
         case None =>
 
-          val records = consumer.poll(pollTimeout)
+          val records = Await.result(consumer.poll(pollTimeout), 3.seconds)
 
           try {
 
@@ -87,13 +89,6 @@ object Replicator {
             } yield {
 
               val topic = records.head.topic
-
-              def toAction(record: ConsumerRecord[String, Bytes]) = {
-                val headers = record.headers
-                val header = headers.find { _.key == "journal.action" }.get
-                val json = Json.parse(header.value)
-                json.as[Action]
-              }
 
               // TODO handle use case when the `Mark` is first ever Action
               case class Result(deleteTo: SeqNr, xs: Seq[AllyRecord])

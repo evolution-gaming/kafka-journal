@@ -2,17 +2,19 @@ package com.evolutiongaming.kafka.journal
 
 import java.util.UUID
 
+import akka.actor.ActorSystem
+import com.evolutiongaming.kafka.journal.ActionConverters._
 import com.evolutiongaming.kafka.journal.Alias._
+import com.evolutiongaming.kafka.journal.ConsumerHelper._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
+import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.ally.{AllyDbRead, PartitionOffset}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecord}
 import com.evolutiongaming.skafka.producer.{Producer, ProducerRecord}
-import com.evolutiongaming.skafka.{Header, TopicPartition}
-import com.evolutiongaming.util.FutureHelper._
+import com.evolutiongaming.skafka.{Partition, TopicPartition}
 import play.api.libs.json.Json
 
-import scala.annotation.tailrec
 import scala.collection.immutable.Seq
 import scala.compat.Platform
 import scala.concurrent.duration._
@@ -39,55 +41,44 @@ object Client {
 
   def apply(
     producer: Producer,
-    newConsumer: () => Consumer[String, Array[Byte]],
-    allyDb: AllyDbRead = AllyDbRead.Empty,
-    pollTimeout: FiniteDuration = 100.millis)(implicit ec: ExecutionContext): Client = {
+    newConsumer: () => Consumer[String, Bytes],
+    eventual: AllyDbRead = AllyDbRead.Empty,
+    pollTimeout: FiniteDuration = 100.millis)(implicit system: ActorSystem, ec: ExecutionContext): Client = {
 
     def toTopic(id: Id) = "journal"
 
-    def toHeader(a: Action) = {
-      val json = Json.toJson(a)
-      val bytes = Json.toBytes(json)
-      Header("journal.action", bytes)
+    def mark(id: Id): Future[(String, Partition)] = {
+      val topic = toTopic(id)
+      val marker = UUID.randomUUID().toString
+      val action = Action.Mark(marker)
+      val header = toHeader(action)
+      val record = ProducerRecord(
+        topic = topic,
+        value = Array.empty[Byte],
+        key = Some(id),
+        headers = List(header))
+
+      for {
+        metadata <- producer(record)
+      } yield {
+        val partition = metadata.topicPartition.partition
+        (marker, partition)
+      }
     }
 
-    def toAction(record: ConsumerRecord[String, Array[Byte]]) = {
-      val headers = record.headers
-      val header = headers.find { _.key == "journal.action" }.get
-      val json = Json.parse(header.value)
-      json.as[Action]
-    }
-
-    case class Result[T](value: T, stop: Boolean)
-
-    def consume[T](id: Id, initial: T, partitionOffset: Option[PartitionOffset])(f: (T, ConsumerRecord[String, Array[Byte]]) => Result[T]): T = {
+    def consume[S](
+      id: Id,
+      s: S,
+      partitionOffset: Option[PartitionOffset])(
+      f: (S, ConsumerRecord[String, Bytes]) => (S, Boolean)): Future[S] = {
+      
       val consumer = newConsumer()
 
-      @tailrec def consume(initial: T): T = {
-        val records = consumer.poll(pollTimeout)
-        val zero = Result(initial, stop = false)
-        val result = records.values.foldLeft(zero) { case (result, (_, records)) =>
-          if (result.stop) result
-          else records.foldLeft(result) { case (result, record) =>
-            if (result.stop) result
-            else if (record.key contains id) f(result.value, record)
-            else result
-          }
-        }
-
-        if (result.stop) {
-          consumer.close() // TODO
-          result.value
-        } else {
-          consume(result.value)
-        }
-      }
-
       val topic = toTopic(id)
-      val topics = List(topic)
 
       partitionOffset match {
         case None =>
+          val topics = List(topic)
           consumer.subscribe(topics) // TODO with listener
         //          consumer.seekToBeginning()
 
@@ -97,52 +88,92 @@ object Client {
           consumer.seek(topicPartition, partitionOffset.offset) // TODO blocking
       }
 
-      //      partitionOffset.foreach { partitionOffset =>
-      //        val topicPartition = TopicPartition(topic, partitionOffset.partition)
-      //        consumer.seek(topicPartition, partitionOffset.offset)
-      //      }
-      consume(initial)
-    }
-
-    def consumeActions[T](
-      id: Id,
-      partitionOffset: Option[PartitionOffset],
-      initial: T)(f: (T, ConsumerRecord[String, Array[Byte]], Action.AppendOrTruncate) => T): Future[T] = {
-
-      val ecBlocking = ec // TODO
-
-      val topic = toTopic(id)
-      val readId = UUID.randomUUID().toString
-      val action = Action.Mark(readId)
-      val header = toHeader(action)
-      val record = ProducerRecord(
-        topic = topic,
-        value = Array.empty[Byte],
-        key = Some(id),
-        headers = List(header))
-
-      val write = producer(record)
-
-      val read = Future {
-        val seqNr = consume(id, initial, partitionOffset) { case (seqNr, record) =>
-          val a = toAction(record)
-          a match {
-            case a: Action.AppendOrTruncate =>
-              val result = f(seqNr, record, a)
-              Result(result, stop = false)
-
-            case a: Action.Mark =>
-              val stop = a.id == readId
-              Result(seqNr, stop)
+      val ss = consumer.fold(s, pollTimeout) { (s, consumerRecords) =>
+        // TODO check performance flatten
+        val records = consumerRecords.values.values.flatten
+        val zero = (s, true)
+        records.foldLeft(zero) { case (skip @ (s, continue), record) =>
+          if(continue) {
+            if(record.key contains id) f(s, record)
+            else {
+              val key = record.key getOrElse "none"
+              val offset = record.offset
+              val partition = record.partition
+              val topic = record.topic
+              println(s"$id Client skipping topic: $topic, key: $key, offset: $offset, partition: $partition ")
+              skip
+            }
+          } else {
+            skip
           }
         }
-        seqNr
-      }(ecBlocking)
+      }
+      ss.onComplete { _ => consumer.close() } // TODO use timeout
+      ss
+    }
+
+
+    // TODO case class Fold[S, T](state: S, f: () => ?) hm...
+
+    /*def consumeStream[S, E](
+      id: Id,
+      state: S,
+      consumer: Consumer[String, Bytes])(
+      f: (S, ConsumerRecord[String, Bytes]) => (Option[S], E)) = {
+
+      consumer.source(state, pollTimeout) { (s, consumerRecords) =>
+
+        // TODO check performance flatten and other places
+        val records = consumerRecords.values.values.flatten.toVector
+        val builder = Iterable.newBuilder[E]
+
+        val ss = records.foldLeft[Option[S]](Some(s)) { (s, record) =>
+          s.flatMap { s =>
+            val (ss, e) = f(s, record)
+            builder += e
+            ss
+          }
+        }
+        val es = builder.result()
+        (ss, es)
+      }
+    }*/
+
+
+    trait Fold {
+      def apply[S](s: S)(f: (S, ConsumerRecord[String, Array[Byte]], Action.AppendOrTruncate) => S): Future[S]
+    }
+
+    val consumeActions = (id: Id, from: SeqNr) => {
+      val marker = mark(id)
+      val pointer = eventual.pointer(id, from)
 
       for {
-        _ <- write
-        r <- read
-      } yield r
+        (marker, partition) <- marker
+        pointer <- pointer
+        partitionOffset = pointer.map { _.partitionOffset } // TODO
+      } yield {
+
+        // TODO compare partitions !
+
+        new Fold {
+          def apply[S](s: S)(f: (S, ConsumerRecord[String, Array[Byte]], Action.AppendOrTruncate) => S): Future[S] = {
+
+            consume(id, s, partitionOffset) { case (s, record) =>
+              val a = toAction(record)
+              a match {
+                case a: Action.AppendOrTruncate =>
+                  val ss = f(s, record, a)
+                  (ss, true)
+
+                case a: Action.Mark =>
+                  val continue = a.id != marker
+                  (s, continue)
+              }
+            }
+          }
+        }
+      }
     }
 
     new Client {
@@ -178,15 +209,9 @@ object Client {
 
         val topic = toTopic(id) // TODO another topic created inside of consumeActions
 
-        // write marker
-        // query for last
-        // query events and start
-        // start consuming
-
-
         def allyRecords() = {
           for {
-            allyRecords <- allyDb.list(id, range)
+            allyRecords <- eventual.list(id, range)
           } yield {
             allyRecords.map { record =>
               Entry(
@@ -201,15 +226,11 @@ object Client {
 
         val zero = Result(0, Vector.empty)
 
-
         val result = for {
-          record <- allyDb.pointer(id, range.from)
-          partitionOffset = record.map { _.partitionOffset }
-
-          entries <- allyRecords()
-
+          consume <- consumeActions(id, range.from)
+          entries <- allyRecords() // TODO no need to wait for allyRecords before starting consume
           // TODO use range after allyRecords
-          records <- consumeActions(id, partitionOffset, zero) { case (result, record, a) =>
+          records <- consume(zero) { case (result, record, a) =>
             a match {
               case action: Action.Append =>
                 val bytes = record.value
@@ -260,7 +281,6 @@ object Client {
 
           cassandraEntries.lastOption match {
             case None =>
-
               // TODO important performance indication
               println(s"$id >>>> ${ records.entries.size } <<<<")
               records.entries
@@ -268,7 +288,7 @@ object Client {
             case Some(last) =>
               val kafka = records.entries.dropWhile { _.seqNr <= last.seqNr }
               // TODO important performance indication
-              println(s"$id >>>> ${ kafka.size }(${{cassandraEntries.size}}) <<<<")
+              println(s"$id >>>> ${ kafka.size }(${ cassandraEntries.size }) <<<<")
               cassandraEntries ++ kafka
           }
         }
@@ -281,10 +301,10 @@ object Client {
       }
 
       def lastSeqNr(id: Id, from: SeqNr) = {
+
         for {
-          record <- allyDb.pointer(id, from)
-          partitionOffset = record.map { _.partitionOffset }
-          result <- consumeActions(id, partitionOffset, 0L) { case (seqNr, _, a) =>
+          consume <- consumeActions(id, from)
+          result <- consume(0L) { case (seqNr, _, a) =>
             a match {
               case a: Action.Append   => a.range.to
               case a: Action.Truncate => seqNr

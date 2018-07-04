@@ -65,7 +65,7 @@ class KafkaJournal extends AsyncWriteJournal {
       val configFixed = consumerConfig.copy(
         groupId = Some(groupId),
         autoOffsetReset = AutoOffsetReset.Earliest)
-      CreateConsumer[String, Bytes](configFixed)
+      CreateConsumer[String, Bytes](configFixed, ecBlocking)
     }
 
     val allyDb: AllyDb = {
