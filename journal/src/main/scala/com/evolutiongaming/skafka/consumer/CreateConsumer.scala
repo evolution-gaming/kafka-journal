@@ -8,6 +8,7 @@ import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer.ConsumerConverters._
 import org.apache.kafka.clients.consumer.{KafkaConsumer, Consumer => ConsumerJ}
 
+import scala.collection.immutable.Iterable
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
@@ -167,10 +168,17 @@ object CreateConsumer {
         result.asScalaMap(_.asScala, v => v)
       }
 
-      def close() = consumer.close()
+      def close() = {
+        blocking {
+          consumer.close()
+        }
+      }
 
-      // TODO async
-      def close(timeout: FiniteDuration) = consumer.close(timeout.length, timeout.unit)
+      def close(timeout: FiniteDuration) = {
+        blocking {
+          consumer.close(timeout.length, timeout.unit)
+        }
+      }
 
       def wakeup() = consumer.wakeup()
     }

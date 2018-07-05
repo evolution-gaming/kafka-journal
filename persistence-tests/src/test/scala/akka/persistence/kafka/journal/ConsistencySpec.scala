@@ -59,7 +59,7 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
       val (refPersist, _) = createRef()
       val events = (1 to 1000).toVector map { _.toString }
       for {
-        group <- events.grouped(100)
+        group <- events.grouped(10)
       } {
         val events = Nel.unsafe(group)
         refPersist.persist(events)

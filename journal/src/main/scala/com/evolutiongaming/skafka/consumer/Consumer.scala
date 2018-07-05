@@ -1,14 +1,14 @@
 package com.evolutiongaming.skafka.consumer
 
-import java.io.Closeable
 import java.util.regex.Pattern
 
 import com.evolutiongaming.skafka._
 
+import scala.collection.immutable.Iterable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
-trait Consumer[K, V] extends Closeable {
+trait Consumer[K, V] {
 
   def assign(partitions: Iterable[TopicPartition]): Unit
 
@@ -64,9 +64,9 @@ trait Consumer[K, V] extends Closeable {
 
   def endOffsets(partitions: Iterable[TopicPartition]): Map[TopicPartition, Offset]
 
-  def close(): Unit
+  def close(): Future[Unit]
 
-  def close(timeout: FiniteDuration): Unit
+  def close(timeout: FiniteDuration): Future[Unit]
 
   def wakeup(): Unit
 }

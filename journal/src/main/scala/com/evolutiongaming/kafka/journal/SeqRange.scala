@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import com.evolutiongaming.kafka.journal.Alias.SeqNr
 
 // TODO test
-case class SeqRange(from: SeqNr, to: SeqNr) {
+case class SeqRange(from: SeqNr = 0, to: SeqNr = SeqNr.Max) {
   require(from <= to, s"from must be <= to, but $from > $to") // TODO do we need error?
 
 

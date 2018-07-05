@@ -5,19 +5,18 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import com.evolutiongaming.cassandra.{CassandraConfig, CreateCluster}
-import com.evolutiongaming.kafka.journal.Alias.SeqNr
-import com.evolutiongaming.kafka.journal.ally.cassandra.{AllyCassandra, AllyCassandraConfig, SchemaConfig}
-import com.evolutiongaming.kafka.journal.ally.{AllyDb, AllyRecord, PartitionOffset}
-import com.evolutiongaming.kafka.journal.{Action, EventsSerializer, JournalRecord, SeqRange}
-import com.evolutiongaming.skafka.{Bytes, Offset, Partition, Topic}
-import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.kafka.journal.ActionConverters._
-import play.api.libs.json.Json
+import com.evolutiongaming.kafka.journal.Alias.SeqNr
+import com.evolutiongaming.kafka.journal.ConsumerHelper._
+import com.evolutiongaming.kafka.journal.ally.cassandra.{AllyCassandra, AllyCassandraConfig, SchemaConfig}
+import com.evolutiongaming.kafka.journal.ally.{AllyDb, AllyRecord, PartitionOffset, UpdatePointers}
+import com.evolutiongaming.kafka.journal.{Action, EventsSerializer, JournalRecord, SeqRange}
+import com.evolutiongaming.skafka.consumer._
+import com.evolutiongaming.skafka.{TopicPartition, _}
 
 import scala.collection.immutable.Seq
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future, Promise}
-import scala.util.control.NonFatal
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 
 object Replicator {
@@ -53,146 +52,189 @@ object Replicator {
     //    val executorService = Executors.newSingleThreadExecutor()
     //    val executionContext = ExecutionContext.fromExecutor(executorService)
 
-    val topics = List("journal")
+    val topic = "journal"
+    val topics = List(topic)
     consumer.subscribe(topics)
-
-    val ecBlocking = ec // TODO
 
     // TODO replace with StateVar
     @volatile var shutdown = Option.empty[Promise[Unit]]
 
 
-     case class State(topics: Map[Topic, Map[Partition, Offset]])
+    case class State(pointers: Map[TopicPartition, Offset])
 
 
-    // TODO cache state and not re-read it when kafka is broken
-    def poll(): Unit = {
+    def apply(state: State, records: ConsumerRecords[String, Bytes]): Future[State] = {
 
-      shutdown match {
-        case Some(shutdown) =>
-          val future = Future {
-            consumer.close(closeTimeout)
-          }(ecBlocking)
+      val futures = for {
+        records <- records.values.values
+        (key, records) <- records.groupBy { _.key }
+        id <- key
+      } yield {
 
-          shutdown.completeWith(future)
+        val topic = records.head.topic
 
-        case None =>
+        // TODO handle use case when the `Mark` is first ever Action
+        case class Result(deleteTo: SeqNr, xs: Seq[AllyRecord])
 
-          val records = Await.result(consumer.poll(pollTimeout), 3.seconds)
+        def toAllyRecord(record: ConsumerRecord[String, Bytes], event: JournalRecord.Event) = {
+          // TODO different created and inserted timestamps
 
-          try {
+          val seqNr = event.seqNr
 
-            val futures = for {
-              records <- records.values.values
-              (key, records) <- records.groupBy { _.key }
-              id <- key
-            } yield {
+          val timestamp = Instant.now()
 
-              val topic = records.head.topic
+          AllyRecord(
+            id = id,
+            seqNr = seqNr,
+            timestamp = timestamp,
+            payload = event.payload,
+            tags = Set.empty, // TODO
+            partitionOffset = PartitionOffset(
+              partition = record.partition,
+              offset = record.offset))
+        }
 
-              // TODO handle use case when the `Mark` is first ever Action
-              case class Result(deleteTo: SeqNr, xs: Seq[AllyRecord])
+        val zero = Result(0, Vector.empty)
 
-              def toAllyRecord(record: ConsumerRecord[String, Bytes], event: JournalRecord.Event) = {
-                // TODO different created and inserted timestamps
+        val result: Result = records.foldLeft(zero) { case (result, record) =>
 
-                val seqNr = event.seqNr
+          val action = toAction(record)
 
-                val timestamp = Instant.now()
+          action match {
+            case action: Action.Append =>
+              val events = EventsSerializer.EventsFromBytes(record.value, topic).events.to[Iterable]
+              val records = events.map { event => toAllyRecord(record, event) }
+              result.copy(xs = result.xs ++ records)
 
-                AllyRecord(
-                  id = id,
-                  seqNr = seqNr,
-                  timestamp = timestamp,
-                  payload = event.payload,
-                  tags = Set.empty, // TODO
-                  partitionOffset = PartitionOffset(
-                    partition = record.partition,
-                    offset = record.offset))
-              }
-
-              val zero = Result(0, Vector.empty)
-
-              val result: Result = records.foldLeft(zero) { case (result, record) =>
-
-                val action = toAction(record)
-
-                action match {
-                  case action: Action.Append =>
-                    val events = EventsSerializer.EventsFromBytes(record.value, topic).events.to[Iterable]
-                    val records = events.map { event => toAllyRecord(record, event) }
-                    result.copy(xs = result.xs ++ records)
-
-                  case action: Action.Truncate =>
-                    if (action.to > result.deleteTo) {
-                      // TODO pasted from Client
-                      val entries = result.xs.dropWhile { _.seqNr <= action.to }
-                      result.copy(deleteTo = action.to, xs = entries)
-                    } else {
-                      result
-                    }
-
-                  case action: Action.Mark => result
-                }
-              }
-
-
-
-              // TODO commit offset to kafka
-
-              val deleteTo = result.deleteTo
-
-              if (deleteTo == 0) {
-
+            case action: Action.Truncate =>
+              if (action.to > result.deleteTo) {
+                // TODO pasted from Client
+                val entries = result.xs.dropWhile { _.seqNr <= action.to }
+                result.copy(deleteTo = action.to, xs = entries)
               } else {
-                println(s"$id replicate.delete deleteTo: $deleteTo")
-//                                allyDb.dele
-//                ???
+                result
               }
 
-              val allyRecords = result.xs
-              val future = {
-                if (allyRecords.nonEmpty) {
-                  allyDb.save(allyRecords, topic).map { result =>
-                    val head = allyRecords.head
-                    val last = allyRecords.last
-                    val range = SeqRange(head.seqNr, last.seqNr)
-                    val offset = last.partitionOffset.offset
-
-                    println(s"$id replicate.save range: $range offset: $offset")
-                    result
-                  }
-                } else {
-                  Future.unit
-                }
-              }
-
-              future
-            }
-
-            val future = Future.sequence(futures)
-            Await.result(future, 1.minute)
-
-            val pointers = records.values.map { case (topicPartition, records) =>
-              val offset = records.foldLeft(0L) { (offset, record) => record.offset max offset    }
-              (topicPartition, offset)
-            }
-            
-
-            
-          } catch {
-            case NonFatal(failure) => failure.printStackTrace()
+            case action: Action.Mark => result
           }
+        }
 
-          poll()
+
+        // TODO commit offset to kafka
+
+        val deleteTo = result.deleteTo
+
+        if (deleteTo == 0) {
+
+        } else {
+          println(s"$id replicate.delete deleteTo: $deleteTo")
+          //                                allyDb.dele
+          //                ???
+        }
+
+        val allyRecords = result.xs
+        val future = {
+          if (allyRecords.nonEmpty) {
+
+            // TODO limit the save size
+
+            allyDb.save(allyRecords, topic).map { result =>
+              val head = allyRecords.head
+              val last = allyRecords.last
+              val range = SeqRange(head.seqNr, last.seqNr)
+              val offset = last.partitionOffset.offset
+
+              println(s"$id replicate.save range: $range offset: $offset")
+              result
+            }
+          } else {
+            Future.unit
+          }
+        }
+
+        future
+      }
+
+      val pointers = records.values.map { case (topicPartition, records) =>
+        val offset = records.foldLeft[Offset](0L) { (offset, record) => record.offset max offset }
+        (topicPartition, offset)
+      }
+
+      val timestamp = Instant.now() // TODO move upppp
+
+      def save() = {
+        val tmp = for {
+          (topicPartition, offset) <- pointers
+        } yield {
+          val created = if (state.pointers contains topicPartition) None else Some(timestamp)
+          (topicPartition, (offset, created))
+        }
+        val updatePointers = UpdatePointers(timestamp, tmp)
+        allyDb.savePointers(updatePointers)
+      }
+
+      for {
+        _ <- Future.sequence(futures)
+        _ <- save()
+      } yield {
+        val str = pointers.map { case (topicPartition, offset) =>
+          val topic = topicPartition.topic
+          val partition = topicPartition.partition
+
+          s"\t\t\ttopic: $topic, partition: $partition, offset: $offset"
+        } mkString "\n"
+
+        println(s"Replicator pointers:\n$str")
+        state.copy(state.pointers ++ pointers)
       }
     }
 
-    val state = State(Map.empty)
-
-    val future = Future {
-      poll()
+    def state() = {
+      for {
+        topicPointers <- allyDb.topicPointers(topic)
+      } yield {
+        val pointers = for {
+          (partition, offset) <- topicPointers.pointers
+        } yield {
+          val topicPartition = TopicPartition(topic, partition)
+          (topicPartition, offset)
+        }
+        State(pointers)
+      }
     }
+
+    // TODO cache state and not re-read it when kafka is broken
+    def consume(state: State) = consumer.foldAsync(state, pollTimeout) { (state, records) =>
+      shutdown match {
+        case Some(shutdown) =>
+          val future = consumer.close(closeTimeout)
+          shutdown.completeWith(future)
+
+          for {
+            _ <- future.recover { case _ => () }
+          } yield {
+            (state, false)
+          }
+
+        case None =>
+
+          if (records.values.nonEmpty) {
+            for {
+              state <- apply(state, records)
+            } yield {
+              (state, true)
+            }
+          } else {
+            val result = (state, true)
+            Future.successful(result)
+          }
+      }
+    }
+
+    val future = for {
+      state <- state()
+      _ <- consume(state)
+    } yield {}
 
     future.failed.foreach { failure =>
       failure.printStackTrace()

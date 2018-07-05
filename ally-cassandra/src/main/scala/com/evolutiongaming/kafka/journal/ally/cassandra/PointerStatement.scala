@@ -1,15 +1,15 @@
 package com.evolutiongaming.kafka.journal.ally.cassandra
 
-import java.time.Instant
+import java.lang.{Integer => IntJ}
 
 import com.datastax.driver.core.{Metadata => _}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
-import com.evolutiongaming.kafka.journal.Alias.{Id, SeqNr}
+import com.evolutiongaming.kafka.journal.ally.TopicPointers
 import com.evolutiongaming.kafka.journal.ally.cassandra.CassandraHelper._
-import com.evolutiongaming.skafka.{Offset, Topic}
+import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.util.FutureHelper._
-import java.lang.{Integer => IntJ}
 
+import scala.collection.JavaConverters._
 import scala.concurrent.Future
 
 object PointerStatement {
@@ -65,7 +65,7 @@ object PointerStatement {
 
       val query =
         s"""
-           |INSERT INTO ${ name.asCql } (topic, partition, offset, created)
+           |INSERT INTO ${ name.asCql } (topic, partition, offset, updated)
            |VALUES (?, ?, ?, ?)
            |""".stripMargin
 
@@ -110,6 +110,43 @@ object PointerStatement {
             row <- Option(result.one()) // TODO use CassandraSession wrapper
           } yield {
             row.decode[Offset]("offset")
+          }
+      }
+    }
+  }
+
+  object SelectTopicPointers {
+    type Type = Topic => Future[TopicPointers]
+
+    def apply(name: TableName, session: PrepareAndExecute): Future[Type] = {
+      implicit val ec = CurrentThreadExecutionContext // TODO remove
+
+      val query =
+        s"""
+           |SELECT partition, offset FROM ${ name.asCql }
+           |WHERE topic = ?
+           |""".stripMargin
+
+      for {
+        prepared <- session.prepare(query)
+      } yield {
+        topic: Topic =>
+          val bound = prepared.bind(topic)
+
+          for {
+            result <- session.execute(bound)
+          } yield {
+            val rows = result.all() // TODO blocking
+
+            val pointers = for {
+              row <- rows.asScala
+            } yield {
+              val partition = row.decode[Partition]("partition")
+              val offset = row.decode[Offset]("offset")
+              (partition, offset)
+            }
+
+            TopicPointers(pointers.toMap)
           }
       }
     }

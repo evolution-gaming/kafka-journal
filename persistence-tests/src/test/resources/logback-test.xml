@@ -1,21 +1,28 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 
 <configuration>
+
+	<statusListener class="ch.qos.logback.core.status.NopStatusListener"/>
+
 	<appender name="console" class="ch.qos.logback.core.ConsoleAppender">
 		<encoder>
 			<pattern>%d{HH:mm:ss.SSS} %-5level %logger{10} - %msg%n</pattern>
 		</encoder>
 	</appender>
 
-	<logger name="akka.persistence.kafka.journal.KafkaJournal" level="DEBUG"/>
 	<logger name="kafka" level="WARN"/>
 	<logger name="kafka.server.BrokerMetadataCheckpoint" level="ERROR"/>
 	<logger name="org.apache.kafka" level="WARN"/>
+	<logger name="org.apache.kafka.clients.NetworkClient" level="ERROR"/>
+	<logger name="org.apache.kafka.common.utils.AppInfoParser" level="ERROR"/>
 	<logger name="org.apache.zookeeper.ClientCnxn" level="ERROR"/>
 	<logger name="org.apache.zookeeper" level="WARN"/>
-	<logger name="org.apache.kafka.clients.NetworkClient" level="ERROR"/>
+	<logger name="org.apache.cassandra.service.StartupChecks" level="ERROR"/>
+	<logger name="org.apache.cassandra.db.SystemKeyspace" level="ERROR"/>
+	<logger name="akka.persistence.kafka.journal.KafkaJournal" level="DEBUG"/>
+	<logger name="com.evolutiongaming.kafka.journal" level="DEBUG"/>
 
-	<root level="INFO">
+	<root level="WARN">
 		<appender-ref ref="console"/>
 	</root>
 </configuration>

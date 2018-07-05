@@ -36,9 +36,31 @@ object ConsumerHelper {
       ec: ExecutionContext /*TODO*/): Future[S] = {
 
       def poll(s: S): Future[S] = {
-        self.poll(timeout).flatMap { records =>
-          val (ss, b) = f(s, records)
-          if (b) poll(ss) else Future.successful(ss)
+        for {
+          records <- self.poll(timeout)
+          (ss, b) = f(s, records)
+          result <- if (b) poll(ss) else Future.successful(ss)
+        } yield {
+          result
+        }
+      }
+
+      poll(s)
+    }
+
+    // TODO FastFuture
+    // TODO rename
+    def foldAsync[S](s: S, timeout: FiniteDuration)(
+      f: (S, ConsumerRecords[K, V]) => Future[(S, Boolean)])(implicit
+      ec: ExecutionContext /*TODO*/): Future[S] = {
+
+      def poll(s: S): Future[S] = {
+        for {
+          records <- self.poll(timeout)
+          (ss, b) <- f(s, records)
+          result <- if (b) poll(ss) else Future.successful(ss)
+        } yield {
+          result
         }
       }
 

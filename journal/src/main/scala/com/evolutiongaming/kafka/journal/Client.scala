@@ -12,14 +12,14 @@ import com.evolutiongaming.kafka.journal.ally.{AllyDbRead, PartitionOffset}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecord}
 import com.evolutiongaming.skafka.producer.{Producer, ProducerRecord}
-import com.evolutiongaming.skafka.{Partition, TopicPartition}
-import play.api.libs.json.Json
+import com.evolutiongaming.skafka.{Offset, Partition, ToBytes, TopicPartition}
 
 import scala.collection.immutable.Seq
 import scala.compat.Platform
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
+// TODO consider passing topic along with id as method argument
 trait Client {
   def append(id: Id, events: Nel[Entry]): Future[Unit]
   // TODO decide on return type
@@ -43,23 +43,30 @@ object Client {
     producer: Producer,
     newConsumer: () => Consumer[String, Bytes],
     eventual: AllyDbRead = AllyDbRead.Empty,
-    pollTimeout: FiniteDuration = 100.millis)(implicit system: ActorSystem, ec: ExecutionContext): Client = {
+    pollTimeout: FiniteDuration = 100.millis)(implicit
+    system: ActorSystem,
+    ec: ExecutionContext): Client = {
 
     def toTopic(id: Id) = "journal"
 
-    def mark(id: Id): Future[(String, Partition)] = {
+    def produce[T](id: Id, action: Action, payload: T)(implicit toBytes: ToBytes[T]) = {
       val topic = toTopic(id)
-      val marker = UUID.randomUUID().toString
-      val action = Action.Mark(marker)
       val header = toHeader(action)
+      val timestamp = Platform.currentTime // TODO argument
       val record = ProducerRecord(
         topic = topic,
-        value = Array.empty[Byte],
+        value = payload,
         key = Some(id),
+        timestamp = Some(timestamp),
         headers = List(header))
+      producer(record)
+    }
 
+    def mark(id: Id): Future[(String, Partition)] = {
+      val marker = UUID.randomUUID().toString
+      val action = Action.Mark(marker)
       for {
-        metadata <- producer(record)
+        metadata <- produce(id, action, Array.empty[Byte])
       } yield {
         val partition = metadata.topicPartition.partition
         (marker, partition)
@@ -71,7 +78,7 @@ object Client {
       s: S,
       partitionOffset: Option[PartitionOffset])(
       f: (S, ConsumerRecord[String, Bytes]) => (S, Boolean)): Future[S] = {
-      
+
       val consumer = newConsumer()
 
       val topic = toTopic(id)
@@ -89,17 +96,18 @@ object Client {
       }
 
       val ss = consumer.fold(s, pollTimeout) { (s, consumerRecords) =>
-        // TODO check performance flatten
+        // TODO check performance of flatten
         val records = consumerRecords.values.values.flatten
         val zero = (s, true)
         records.foldLeft(zero) { case (skip @ (s, continue), record) =>
-          if(continue) {
-            if(record.key contains id) f(s, record)
+          if (continue) {
+            if (record.key contains id) f(s, record)
             else {
               val key = record.key getOrElse "none"
               val offset = record.offset
               val partition = record.partition
               val topic = record.topic
+              // TODO important performance indication
               println(s"$id Client skipping topic: $topic, key: $key, offset: $offset, partition: $partition ")
               skip
             }
@@ -141,25 +149,36 @@ object Client {
 
 
     trait Fold {
-      def apply[S](s: S)(f: (S, ConsumerRecord[String, Array[Byte]], Action.AppendOrTruncate) => S): Future[S]
+      def apply[S](s: S)(f: (S, ConsumerRecord[String, Bytes], Action.AppendOrTruncate) => S): Future[S]
     }
 
     val consumeActions = (id: Id, from: SeqNr) => {
       val marker = mark(id)
-      val pointer = eventual.pointer(id, from)
+      val pointer = eventual.pointerOld(id, from)
+      val topic = toTopic(id)
+      val topicPointers = eventual.topicPointers(topic)
 
       for {
         (marker, partition) <- marker
         pointer <- pointer
-        partitionOffset = pointer.map { _.partitionOffset } // TODO
+        topicPointers <- topicPointers
+        partitionOffsetOld = pointer.map { _.partitionOffset } // TODO
       } yield {
+        val partitionOffset = for {
+          offset <- topicPointers.pointers.get(partition)
+        } yield {
+          PartitionOffset(partition, offset)
+        }
+
+        println(s"$id partition: $partition, offset: ${ partitionOffset.map { _.offset } }, offset: ${ partitionOffsetOld.map { _.offset } }")
 
         // TODO compare partitions !
 
         new Fold {
-          def apply[S](s: S)(f: (S, ConsumerRecord[String, Array[Byte]], Action.AppendOrTruncate) => S): Future[S] = {
+          def apply[S](s: S)(f: (S, ConsumerRecord[String, Bytes], Action.AppendOrTruncate) => S): Future[S] = {
 
-            consume(id, s, partitionOffset) { case (s, record) =>
+            // TODO add seqNr safety check
+            consume(id, s, partitionOffsetOld) { case (s, record) =>
               val a = toAction(record)
               a match {
                 case a: Action.AppendOrTruncate =>
@@ -180,7 +199,6 @@ object Client {
 
       def append(id: Id, events: Nel[Entry]): Future[Unit] = {
 
-        val timestamp = Platform.currentTime // TODO argument
         val events2 = for {
           event <- events
         } yield {
@@ -188,18 +206,9 @@ object Client {
         }
 
         val payload = JournalRecord.Payload.Events(events2)
-        val topic = toTopic(id)
         val range = SeqRange(from = events.head.seqNr, to = events.last.seqNr)
         val action = Action.Append(range)
-        val header = toHeader(action)
-        val record = ProducerRecord(
-          topic = topic,
-          value = payload,
-          key = Some(id),
-          timestamp = Some(timestamp),
-          headers = List(header))
-
-        val result = producer(record)
+        val result = produce(id, action, payload)
         result.unit
       }
 
@@ -228,7 +237,7 @@ object Client {
 
         val result = for {
           consume <- consumeActions(id, range.from)
-          entries <- allyRecords() // TODO no need to wait for allyRecords before starting consume
+          entries = allyRecords()
           // TODO use range after allyRecords
           records <- consume(zero) { case (result, record, a) =>
             a match {
@@ -275,6 +284,7 @@ object Client {
                 }
             }
           }
+          entries <- entries
         } yield {
 
           val cassandraEntries = entries.dropWhile(_.seqNr <= records.deleteTo)
@@ -300,40 +310,30 @@ object Client {
         result
       }
 
+      // TODO pass range
       def lastSeqNr(id: Id, from: SeqNr) = {
-
+        val range = SeqRange(from = from)
         for {
           consume <- consumeActions(id, from)
-          result <- consume(0L) { case (seqNr, _, a) =>
+          valueEventual = eventual.lastSeqNr(id, range)
+          value <- consume[Offset](0L) { case (seqNr, _, a) =>
             a match {
               case a: Action.Append   => a.range.to
               case a: Action.Truncate => seqNr
             }
           }
         } yield {
-          result
+          value
         }
       }
 
       def truncate(id: Id, to: SeqNr): Future[Unit] = {
-        val timestamp = Platform.currentTime // TODO argument
-        val json = Json.obj("seqNr" -> to)
-        val payload = Json.toBytes(json)
-        val topic = toTopic(id)
-        val a = Action.Truncate(to)
-        val header = toHeader(a)
-        val record = ProducerRecord(
-          topic = topic,
-          value = payload,
-          key = Some(id),
-          timestamp = Some(timestamp),
-          headers = List(header))
-        val result = producer(record)
-        result.map { _ => () }
+        val action = Action.Truncate(to)
+        produce(id, action, Array.empty[Byte]).unit
       }
     }
   }
 }
 
 // TODO timestamp ?
-case class Entry(payload: Array[Byte], seqNr: SeqNr, tags: Set[String])
+case class Entry(payload: Bytes, seqNr: SeqNr, tags: Set[String])

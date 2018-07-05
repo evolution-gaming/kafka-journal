@@ -1,5 +1,7 @@
 package com.evolutiongaming.cassandra
 
+import java.io.File
+
 import com.evolutiongaming.tmpdir.TmpDir
 import org.apache.cassandra.config.DatabaseDescriptor
 import org.apache.cassandra.service.CassandraDaemon
@@ -18,11 +20,19 @@ object StartCassandra {
 
     val tmpDir = TmpDir("cassandra-")
 
+    val trigger = {
+      val file = new File(tmpDir.file, "triggers")
+      if (!file.exists()) file.mkdir()
+      file
+    }
+
     val props = Map(
       ("cassandra.config.loader", "com.evolutiongaming.cassandra.ConfigLoader"),
       ("cassandra-foreground", "true"),
       ("cassandra.native.epoll.enabled", "false"),
-      ("cassandra.unsafesystem", "true"))
+      ("cassandra.unsafesystem", "true"),
+      ("com.datastax.driver.FORCE_NIO", "true"),
+      ("cassandra.triggers_dir", trigger.getAbsolutePath))
 
     props.foreach { case (k, v) => Properties.setProp(k, v) }
 

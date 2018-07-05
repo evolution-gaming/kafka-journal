@@ -11,7 +11,7 @@ import com.evolutiongaming.cassandra.Helpers._
 import com.evolutiongaming.cassandra.NextHostRetryPolicy
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.SeqRange
-import com.evolutiongaming.kafka.journal.ally.{AllyDb, AllyRecord, Pointer}
+import com.evolutiongaming.kafka.journal.ally._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 import scala.collection.immutable.Seq
@@ -61,7 +61,8 @@ object AllyCassandra {
       selectSegmentSize: MetadataStatement.SelectSegmentSize.Type,
       insertPointer: PointerStatement.Insert.Type,
       updatePointer: PointerStatement.Update.Type,
-      selectPointer: PointerStatement.Select.Type)
+      selectPointer: PointerStatement.Select.Type,
+      selectTopicPointer: PointerStatement.SelectTopicPointers.Type)
 
     def createKeyspace() = {
       // TODO make sure two parallel instances does not do the same
@@ -120,6 +121,7 @@ object AllyCassandra {
       val insertPointer = PointerStatement.Insert(pointerName, prepareAndExecute)
       val updatePointer = PointerStatement.Update(pointerName, prepareAndExecute)
       val selectPointer = PointerStatement.Select(pointerName, prepareAndExecute)
+      val selectTopicPointers = PointerStatement.SelectTopicPointers(pointerName, prepareAndExecute)
 
       for {
         insertRecord <- insertRecord
@@ -131,6 +133,7 @@ object AllyCassandra {
         insertPointer <- insertPointer
         updatePointer <- updatePointer
         selectPointer <- selectPointer
+        selectTopicPointers <- selectTopicPointers
       } yield {
         PreparedStatements(
           insertRecord,
@@ -141,7 +144,8 @@ object AllyCassandra {
           selectSegmentSize,
           insertPointer,
           updatePointer,
-          selectPointer)
+          selectPointer,
+          selectTopicPointers)
       }
     }
 
@@ -242,52 +246,78 @@ object AllyCassandra {
         }
       }
 
-      def savePointer(topic: Topic, partition: Partition, offset: Offset) = {
+      def savePointers(updatePointers: UpdatePointers): Future[Unit] = {
+        val pointers = updatePointers.pointers
+        if (pointers.isEmpty) Future.unit
+        else {
 
-        val timestamp = Instant.now() // TODO
+          // TODO topic is a partition key, should I batch by partition ?
 
-        for {
-          (session, prepared) <- sessionAndPreparedStatements
-          pointer = PointerUpdate(topic = topic, partition = partition, offset = offset, updated = timestamp)
-          _ <- prepared.updatePointer(pointer)
-        } yield {
+          def savePointers(prepared: PreparedStatements) = {
+            val updated = updatePointers.timestamp
+            val futures = for {
+              (topicPartition, (offset, created)) <- pointers
+            } yield {
+              val topic = topicPartition.topic
+              val partition = topicPartition.partition
 
+              // TODO no need to pass separate created timestamp
+              created match {
+                case None =>
+                  val update = PointerUpdate(
+                    topic = topic,
+                    partition = partition,
+                    offset = offset,
+                    updated = updated)
+                  
+                  prepared.updatePointer(update)
+
+                case Some(created) =>
+                  val insert = PointerInsert(
+                    topic = topic,
+                    partition = partition,
+                    offset = offset,
+                    updated = updated,
+                    created = created)
+
+                  prepared.insertPointer(insert)
+              }
+            }
+
+            Future.sequence(futures)
+          }
+
+          for {
+            (session, prepared) <- sessionAndPreparedStatements
+            _ <- savePointers(prepared)
+          } yield {
+
+          }
         }
       }
 
-      def insertPointer(topic: Topic, partition: Partition, offset: Offset) = {
 
-        val timestamp = Instant.now() // TODO
-
+      def topicPointers(topic: Topic): Future[TopicPointers] = {
         for {
           (session, prepared) <- sessionAndPreparedStatements
-          pointer = PointerInsert(
-            topic = topic,
-            partition = partition,
-            offset = offset,
-            updated = timestamp,
-            created = timestamp)
-          _ <- prepared.insertPointer(pointer)
+          topicPointers <- prepared.selectTopicPointer(topic)
         } yield {
-
+          topicPointers
         }
       }
 
 
       // TODO return closest offset
-      def pointer(id: Id, from: SeqNr): Future[Option[Pointer]] = {
+      def pointerOld(id: Id, from: SeqNr): Future[Option[Pointer]] = {
         println(s"$id AllyCassandra.last from: $from")
 
         def pointer(statement: JournalStatement.SelectLastRecord.Type, segmentSize: Int, metadata: Option[Metadata]) = {
 
           val deletedTo = metadata.map { _.deleteTo } getOrElse 0L
 
-//          val seqNr = from max deletedTo
-//
-//          val partition: Partition = ???
-
-
-
+          //          val seqNr = from max deletedTo
+          //
+          //          val partition: Partition = ???
 
 
           def recur(from: SeqNr, prev: Option[(Segment, Pointer)]): Future[Option[Pointer]] = {
@@ -387,6 +417,50 @@ object AllyCassandra {
 
           println(s"$id AllyCassandra.list ${ result.map { _.seqNr }.mkString(",") }")
           result
+        }
+      }
+
+      def lastSeqNr(id: Id, range: SeqRange) = {
+        // TODO use range.to
+        def lastSeqNr(statement: JournalStatement.SelectLastRecord.Type, segmentSize: Int) = {
+
+          // TODO create lastSeqNr statement
+          // TODO remove duplication
+          def recur(from: SeqNr, prev: Option[(Segment, SeqNr)]): Future[Option[SeqNr]] = {
+            // println(s"AllyCassandra.last.recur id: $id, segment: $segment")
+
+            def record = prev.map { case (_, record) => record }
+
+            // TODO use deletedTo
+            val segment = Segment(from, segmentSize)
+            if (prev.exists { case (segmentPrev, _) => segmentPrev == segment }) {
+              Future.successful(record)
+            } else {
+              for {
+                result <- statement(id, segment, from)
+                result <- result match {
+                  case None         => Future.successful(record)
+                  case Some(result) =>
+                    val seqNr = (segment, result.seqNr)
+                    recur(from.next, Some(seqNr))
+                }
+              } yield {
+                result
+              }
+            }
+          }
+
+          recur(range.from, None)
+        }
+
+
+
+        for {
+          (session, statements) <- sessionAndPreparedStatements
+          segmentSize <- segmentSize(id, statements)
+          seqNr <- lastSeqNr(statements.selectLastRecord, segmentSize)
+        } yield {
+          seqNr
         }
       }
 

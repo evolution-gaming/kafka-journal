@@ -25,7 +25,6 @@ case class ServerConfig(
     memtable_flush_writers = 2
     memtable_heap_space_in_mb = 910
     memtable_offheap_space_in_mb = 910
-    memtable_cleanup_threshold = 0.33333334f
     listen_address = address
     start_rpc = false
     rpc_address = address

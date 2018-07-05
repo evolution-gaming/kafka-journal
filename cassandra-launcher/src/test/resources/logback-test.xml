@@ -7,6 +7,9 @@
 		</encoder>
 	</appender>
 
+	<logger name="org.apache.cassandra.service.StartupChecks" level="ERROR"/>
+	<logger name="org.apache.cassandra.db.SystemKeyspace" level="ERROR"/>
+
 	<root level="WARN">
 		<appender-ref ref="console"/>
 	</root>
