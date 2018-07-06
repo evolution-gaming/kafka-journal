@@ -14,7 +14,6 @@ import com.evolutiongaming.skafka.{Bytes, Offset, Partition}
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 
-// TODO split journal and metadata statements
 object JournalStatement {
 
   def createKeyspace(keyspace: SchemaConfig.Keyspace): String = {

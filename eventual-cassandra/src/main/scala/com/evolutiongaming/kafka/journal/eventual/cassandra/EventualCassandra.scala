@@ -1,7 +1,5 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import java.time.Instant
-
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
@@ -12,7 +10,7 @@ import com.evolutiongaming.cassandra.NextHostRetryPolicy
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.SeqRange
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.skafka.{Offset, Partition, Topic}
+import com.evolutiongaming.skafka.Topic
 
 import scala.collection.immutable.Seq
 import scala.concurrent.{ExecutionContext, Future}
@@ -53,13 +51,10 @@ object EventualCassandra {
 
     // TODO moveout
     case class PreparedStatements(
-      insertRecord: JournalStatement.InsertRecord.Type,
       selectLastRecord: JournalStatement.SelectLastRecord.Type,
       selectRecords: JournalStatement.SelectRecords.Type,
-      insertMetadata: MetadataStatement.Insert.Type,
       selectMetadata: MetadataStatement.Select.Type,
       selectSegmentSize: MetadataStatement.SelectSegmentSize.Type,
-      insertPointer: PointerStatement.Insert.Type,
       updatePointer: PointerStatement.Update.Type,
       selectPointer: PointerStatement.Select.Type,
       selectTopicPointer: PointerStatement.SelectTopicPointers.Type)
@@ -96,7 +91,6 @@ object EventualCassandra {
       }
     }
 
-
     def preparedStatements() = {
 
       val prepareAndExecute = new PrepareAndExecute {
@@ -112,37 +106,28 @@ object EventualCassandra {
         }
       }
 
-      val insertRecord = JournalStatement.InsertRecord(journalName, session.prepareAsync(_: String).asScala())
       val selectLastRecord = JournalStatement.SelectLastRecord(journalName, prepareAndExecute)
       val listRecords = JournalStatement.SelectRecords(journalName, prepareAndExecute)
-      val insertMetadata = MetadataStatement.Insert(metadataName, prepareAndExecute)
       val selectMetadata = MetadataStatement.Select(metadataName, prepareAndExecute)
       val selectSegmentSize = MetadataStatement.SelectSegmentSize(metadataName, prepareAndExecute)
-      val insertPointer = PointerStatement.Insert(pointerName, prepareAndExecute)
       val updatePointer = PointerStatement.Update(pointerName, prepareAndExecute)
       val selectPointer = PointerStatement.Select(pointerName, prepareAndExecute)
       val selectTopicPointers = PointerStatement.SelectTopicPointers(pointerName, prepareAndExecute)
 
       for {
-        insertRecord <- insertRecord
         selectLastRecord <- selectLastRecord
         listRecords <- listRecords
-        insertMetadata <- insertMetadata
         selectMetadata <- selectMetadata
         selectSegmentSize <- selectSegmentSize
-        insertPointer <- insertPointer
         updatePointer <- updatePointer
         selectPointer <- selectPointer
         selectTopicPointers <- selectTopicPointers
       } yield {
         PreparedStatements(
-          insertRecord,
           selectLastRecord,
           listRecords,
-          insertMetadata,
           selectMetadata,
           selectSegmentSize,
-          insertPointer,
           updatePointer,
           selectPointer,
           selectTopicPointers)
@@ -183,120 +168,6 @@ object EventualCassandra {
 
     new Eventual {
 
-      // TODO verify all records have same id
-      def save(records: Seq[EventualRecord], topic: Topic): Future[Unit] = {
-
-        //        Thread.sleep(400)
-
-        if (records.isEmpty) futureUnit
-        else {
-
-          val head = records.head
-          val segment = Segment(head.seqNr, config.segmentSize)
-          val id = head.id
-
-          def statement(prepared: PreparedStatements, segmentSize: Int) = {
-
-            val statements = for {
-              record <- records
-            } yield {
-              prepared.insertRecord(record, segment)
-            }
-
-            if (statements.size == 1) {
-              statements.head
-            } else {
-              val batch = new BatchStatement()
-              statements.foldLeft(batch) { _ add _ }
-            }
-          }
-
-          def insertMetadata(prepared: PreparedStatements) = {
-            // TODO make constant of SeqNr 1
-            if (head.seqNr == 1) {
-              val timestamp = Instant.now()
-              val segmentSize = config.segmentSize
-              // TODO is it right to use `currentTime` as timestamp ?
-              val metadata = Metadata(
-                id = id,
-                topic = topic,
-                deleteTo = 0,
-                segmentSize = segmentSize,
-                created = timestamp,
-                updated = timestamp)
-              println(s"$id EventualCassandra.metadata: $metadata")
-              for {
-                _ <- prepared.insertMetadata(metadata)
-              } yield {
-                segmentSize
-              }
-            } else {
-              segmentSize(id, prepared)
-            }
-          }
-
-          for {
-            (session, prepared) <- sessionAndPreparedStatements
-            segmentSize <- insertMetadata(prepared)
-            statementFinal = statement(prepared, segmentSize).set(statementConfig)
-            _ <- session.executeAsync(statementFinal).asScala()
-          } yield {
-
-          }
-        }
-      }
-
-      def savePointers(updatePointers: UpdatePointers): Future[Unit] = {
-        val pointers = updatePointers.pointers
-        if (pointers.isEmpty) Future.unit
-        else {
-
-          // TODO topic is a partition key, should I batch by partition ?
-
-          def savePointers(prepared: PreparedStatements) = {
-            val updated = updatePointers.timestamp
-            val futures = for {
-              (topicPartition, (offset, created)) <- pointers
-            } yield {
-              val topic = topicPartition.topic
-              val partition = topicPartition.partition
-
-              // TODO no need to pass separate created timestamp
-              created match {
-                case None =>
-                  val update = PointerUpdate(
-                    topic = topic,
-                    partition = partition,
-                    offset = offset,
-                    updated = updated)
-                  
-                  prepared.updatePointer(update)
-
-                case Some(created) =>
-                  val insert = PointerInsert(
-                    topic = topic,
-                    partition = partition,
-                    offset = offset,
-                    updated = updated,
-                    created = created)
-
-                  prepared.insertPointer(insert)
-              }
-            }
-
-            Future.sequence(futures)
-          }
-
-          for {
-            (session, prepared) <- sessionAndPreparedStatements
-            _ <- savePointers(prepared)
-          } yield {
-
-          }
-        }
-      }
-
-
       def topicPointers(topic: Topic): Future[TopicPointers] = {
         for {
           (session, prepared) <- sessionAndPreparedStatements
@@ -305,7 +176,6 @@ object EventualCassandra {
           topicPointers
         }
       }
-
 
       // TODO return closest offset
       def pointerOld(id: Id, from: SeqNr): Future[Option[Pointer]] = {
@@ -398,23 +268,6 @@ object EventualCassandra {
           metadata <- metadata(id, statements)
           result <- list(statements.selectRecords, segmentSize, metadata)
         } yield {
-
-          /*if(id == "p-17") {
-            val query =
-              s"SELECT seq_nr, segment, offset FROM $journalName WHERE id = ? ALLOW FILTERING"
-
-            val prepared = session.prepare(query)
-            val bound = prepared.bind(id)
-          val result = session.execute(bound)
-            import scala.collection.JavaConverters._
-            result.all().asScala.foreach { row =>
-              val seqNr = row.getLong("seq_nr")
-              val segment = row.getLong("segment")
-              val offset = row.getLong("offset")
-              println(s"### id: $id, seqNr: $seqNr, segment: $segment, offset: $offset")
-            }
-          }*/
-
           println(s"$id EventualCassandra.list ${ result.map { _.seqNr }.mkString(",") }")
           result
         }
@@ -454,7 +307,6 @@ object EventualCassandra {
         }
 
 
-
         for {
           (session, statements) <- sessionAndPreparedStatements
           segmentSize <- segmentSize(id, statements)
@@ -462,20 +314,6 @@ object EventualCassandra {
         } yield {
           seqNr
         }
-      }
-
-      // TODO consider merging with save method
-      def delete(id: Id, to: SeqNr): Future[Unit] = {
-
-        for {
-          (session, statements) <- sessionAndPreparedStatements
-          segmentSize <- segmentSize(id, statements)
-        } yield {
-
-
-        }
-
-        ???
       }
     }
   }
