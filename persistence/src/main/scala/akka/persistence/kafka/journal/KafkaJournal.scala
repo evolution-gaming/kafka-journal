@@ -7,8 +7,8 @@ import akka.persistence.{AtomicWrite, PersistentRepr}
 import com.evolutiongaming.cassandra.{CassandraConfig, CreateCluster}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.Alias._
-import com.evolutiongaming.kafka.journal.ally.AllyDb
-import com.evolutiongaming.kafka.journal.ally.cassandra.{AllyCassandra, AllyCassandraConfig, SchemaConfig}
+import com.evolutiongaming.kafka.journal.eventual.EventualDb
+import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig, SchemaConfig}
 import com.evolutiongaming.kafka.journal.{Client, Entry, SeqRange}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
@@ -68,17 +68,17 @@ class KafkaJournal extends AsyncWriteJournal {
       CreateConsumer[String, Bytes](configFixed, ecBlocking)
     }
 
-    val allyDb: AllyDb = {
+    val eventualDb: EventualDb = {
       val cassandraConfig = CassandraConfig.Default
       val cluster = CreateCluster(cassandraConfig)
       val session = cluster.connect()
       val schemaConfig = SchemaConfig.Default
-      val config = AllyCassandraConfig.Default
+      val config = EventualCassandraConfig.Default
       // TODO read only cassandra statements
-      AllyCassandra(session, schemaConfig, config)
+      EventualCassandra(session, schemaConfig, config)
     }
 
-    Client(producer, newConsumer, allyDb)
+    Client(producer, newConsumer, eventualDb)
   }
 
   // TODO optimise sequence of calls asyncWriteMessages & asyncReadHighestSequenceNr for the same persistenceId

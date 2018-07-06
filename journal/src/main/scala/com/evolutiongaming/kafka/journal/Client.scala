@@ -8,7 +8,7 @@ import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.ConsumerHelper._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FutureHelper._
-import com.evolutiongaming.kafka.journal.ally.{AllyDbRead, PartitionOffset}
+import com.evolutiongaming.kafka.journal.eventual.{EventualDbRead, PartitionOffset}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecord}
 import com.evolutiongaming.skafka.producer.{Producer, ProducerRecord}
@@ -42,7 +42,7 @@ object Client {
   def apply(
     producer: Producer,
     newConsumer: () => Consumer[String, Bytes],
-    eventual: AllyDbRead = AllyDbRead.Empty,
+    eventual: EventualDbRead = EventualDbRead.Empty,
     pollTimeout: FiniteDuration = 100.millis)(implicit
     system: ActorSystem,
     ec: ExecutionContext): Client = {
@@ -218,11 +218,11 @@ object Client {
 
         val topic = toTopic(id) // TODO another topic created inside of consumeActions
 
-        def allyRecords() = {
+        def eventualRecords() = {
           for {
-            allyRecords <- eventual.list(id, range)
+            eventualRecords <- eventual.list(id, range)
           } yield {
-            allyRecords.map { record =>
+            eventualRecords.map { record =>
               Entry(
                 payload = record.payload,
                 seqNr = record.seqNr,
@@ -237,8 +237,8 @@ object Client {
 
         val result = for {
           consume <- consumeActions(id, range.from)
-          entries = allyRecords()
-          // TODO use range after allyRecords
+          entries = eventualRecords()
+          // TODO use range after eventualRecords
           records <- consume(zero) { case (result, record, a) =>
             a match {
               case action: Action.Append =>

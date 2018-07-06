@@ -8,8 +8,8 @@ import com.evolutiongaming.cassandra.{CassandraConfig, CreateCluster}
 import com.evolutiongaming.kafka.journal.ActionConverters._
 import com.evolutiongaming.kafka.journal.Alias.SeqNr
 import com.evolutiongaming.kafka.journal.ConsumerHelper._
-import com.evolutiongaming.kafka.journal.ally.cassandra.{AllyCassandra, AllyCassandraConfig, SchemaConfig}
-import com.evolutiongaming.kafka.journal.ally.{AllyDb, AllyRecord, PartitionOffset, UpdatePointers}
+import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig, SchemaConfig}
+import com.evolutiongaming.kafka.journal.eventual.{EventualDb, EventualRecord, PartitionOffset, UpdatePointers}
 import com.evolutiongaming.kafka.journal.{Action, EventsSerializer, JournalRecord, SeqRange}
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{TopicPartition, _}
@@ -38,14 +38,14 @@ object Replicator {
     val cluster = CreateCluster(cassandraConfig)
     val session = cluster.connect()
     val schemaConfig = SchemaConfig.Default
-    val config = AllyCassandraConfig.Default
-    val allyDb = AllyCassandra(session, schemaConfig, config)
-    apply(consumer, allyDb)
+    val config = EventualCassandraConfig.Default
+    val eventualDb = EventualCassandra(session, schemaConfig, config)
+    apply(consumer, eventualDb)
   }
 
   def apply(
     consumer: Consumer[String, Bytes],
-    allyDb: AllyDb,
+    eventualDb: EventualDb,
     pollTimeout: FiniteDuration = 100.millis,
     closeTimeout: FiniteDuration = 10.seconds)(implicit ec: ExecutionContext): Shutdown = {
 
@@ -74,16 +74,16 @@ object Replicator {
         val topic = records.head.topic
 
         // TODO handle use case when the `Mark` is first ever Action
-        case class Result(deleteTo: SeqNr, xs: Seq[AllyRecord])
+        case class Result(deleteTo: SeqNr, xs: Seq[EventualRecord])
 
-        def toAllyRecord(record: ConsumerRecord[String, Bytes], event: JournalRecord.Event) = {
+        def toEventualRecord(record: ConsumerRecord[String, Bytes], event: JournalRecord.Event) = {
           // TODO different created and inserted timestamps
 
           val seqNr = event.seqNr
 
           val timestamp = Instant.now()
 
-          AllyRecord(
+          EventualRecord(
             id = id,
             seqNr = seqNr,
             timestamp = timestamp,
@@ -103,7 +103,7 @@ object Replicator {
           action match {
             case action: Action.Append =>
               val events = EventsSerializer.EventsFromBytes(record.value, topic).events.to[Iterable]
-              val records = events.map { event => toAllyRecord(record, event) }
+              val records = events.map { event => toEventualRecord(record, event) }
               result.copy(xs = result.xs ++ records)
 
             case action: Action.Truncate =>
@@ -128,19 +128,19 @@ object Replicator {
 
         } else {
           println(s"$id replicate.delete deleteTo: $deleteTo")
-          //                                allyDb.dele
+          //                                eventualDb.dele
           //                ???
         }
 
-        val allyRecords = result.xs
+        val eventualRecords = result.xs
         val future = {
-          if (allyRecords.nonEmpty) {
+          if (eventualRecords.nonEmpty) {
 
             // TODO limit the save size
 
-            allyDb.save(allyRecords, topic).map { result =>
-              val head = allyRecords.head
-              val last = allyRecords.last
+            eventualDb.save(eventualRecords, topic).map { result =>
+              val head = eventualRecords.head
+              val last = eventualRecords.last
               val range = SeqRange(head.seqNr, last.seqNr)
               val offset = last.partitionOffset.offset
 
@@ -170,7 +170,7 @@ object Replicator {
           (topicPartition, (offset, created))
         }
         val updatePointers = UpdatePointers(timestamp, tmp)
-        allyDb.savePointers(updatePointers)
+        eventualDb.savePointers(updatePointers)
       }
 
       for {
@@ -191,7 +191,7 @@ object Replicator {
 
     def state() = {
       for {
-        topicPointers <- allyDb.topicPointers(topic)
+        topicPointers <- eventualDb.topicPointers(topic)
       } yield {
         val pointers = for {
           (partition, offset) <- topicPointers.pointers
