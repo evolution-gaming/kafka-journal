@@ -8,7 +8,7 @@ import com.evolutiongaming.cassandra.{CassandraConfig, CreateCluster}
 import com.evolutiongaming.kafka.journal.ActionConverters._
 import com.evolutiongaming.kafka.journal.Alias.SeqNr
 import com.evolutiongaming.kafka.journal.ConsumerHelper._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig, SchemaConfig}
+import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig, EventualDbCassandra, SchemaConfig}
 import com.evolutiongaming.kafka.journal.eventual.{EventualDb, EventualRecord, PartitionOffset, UpdatePointers}
 import com.evolutiongaming.kafka.journal.{Action, EventsSerializer, JournalRecord, SeqRange}
 import com.evolutiongaming.skafka.consumer._
@@ -39,7 +39,7 @@ object Replicator {
     val session = cluster.connect()
     val schemaConfig = SchemaConfig.Default
     val config = EventualCassandraConfig.Default
-    val eventualDb = EventualCassandra(session, schemaConfig, config)
+    val eventualDb = EventualDbCassandra(session, schemaConfig, config)
     apply(consumer, eventualDb)
   }
 

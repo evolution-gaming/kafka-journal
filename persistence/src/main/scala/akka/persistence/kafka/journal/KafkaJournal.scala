@@ -7,7 +7,7 @@ import akka.persistence.{AtomicWrite, PersistentRepr}
 import com.evolutiongaming.cassandra.{CassandraConfig, CreateCluster}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.Alias._
-import com.evolutiongaming.kafka.journal.eventual.EventualDb
+import com.evolutiongaming.kafka.journal.eventual.{Eventual, EventualDb}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig, SchemaConfig}
 import com.evolutiongaming.kafka.journal.{Client, Entry, SeqRange}
 import com.evolutiongaming.nel.Nel
@@ -68,7 +68,7 @@ class KafkaJournal extends AsyncWriteJournal {
       CreateConsumer[String, Bytes](configFixed, ecBlocking)
     }
 
-    val eventualDb: EventualDb = {
+    val eventual: Eventual = {
       val cassandraConfig = CassandraConfig.Default
       val cluster = CreateCluster(cassandraConfig)
       val session = cluster.connect()
@@ -78,7 +78,7 @@ class KafkaJournal extends AsyncWriteJournal {
       EventualCassandra(session, schemaConfig, config)
     }
 
-    Client(producer, newConsumer, eventualDb)
+    Client(producer, newConsumer, eventual)
   }
 
   // TODO optimise sequence of calls asyncWriteMessages & asyncReadHighestSequenceNr for the same persistenceId

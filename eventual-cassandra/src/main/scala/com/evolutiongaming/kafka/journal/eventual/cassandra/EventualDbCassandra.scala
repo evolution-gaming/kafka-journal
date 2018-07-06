@@ -19,7 +19,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 
 // TODO create collection that is optimised for ordered sequence and seqNr
-object EventualCassandra {
+object EventualDbCassandra {
 
   case class StatementConfig(
     idempotent: Boolean = false,
@@ -30,7 +30,7 @@ object EventualCassandra {
   def apply(
     session: Session,
     schemaConfig: SchemaConfig,
-    config: EventualCassandraConfig)(implicit system: ActorSystem, ec: ExecutionContext): Eventual = {
+    config: EventualCassandraConfig)(implicit system: ActorSystem, ec: ExecutionContext): EventualDb = {
 
     implicit val materializer = ActorMaterializer()
 
@@ -181,7 +181,7 @@ object EventualCassandra {
     }
 
 
-    new Eventual {
+    new EventualDb {
 
       // TODO verify all records have same id
       def save(records: Seq[EventualRecord], topic: Topic): Future[Unit] = {
@@ -269,7 +269,7 @@ object EventualCassandra {
                     partition = partition,
                     offset = offset,
                     updated = updated)
-                  
+
                   prepared.updatePointer(update)
 
                 case Some(created) =>
@@ -492,4 +492,3 @@ object EventualCassandra {
   }
 
 }
-
