@@ -8,11 +8,13 @@ import com.datastax.driver.core.{Metadata => _, _}
 import com.evolutiongaming.cassandra.Helpers._
 import com.evolutiongaming.cassandra.NextHostRetryPolicy
 import com.evolutiongaming.kafka.journal.Alias._
+import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.SeqRange
+import com.evolutiongaming.kafka.journal.StreamHelper._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.skafka.Topic
 
-import scala.collection.immutable.Seq
+import scala.collection.immutable.{Iterable, Seq}
 import scala.concurrent.{ExecutionContext, Future}
 
 
@@ -183,7 +185,6 @@ object EventualCassandra {
 
         def pointer(statement: JournalStatement.SelectLastRecord.Type, segmentSize: Int, metadata: Option[Metadata]) = {
 
-          val deletedTo = metadata.map { _.deleteTo } getOrElse 0L
 
           //          val seqNr = from max deletedTo
           //
@@ -227,6 +228,7 @@ object EventualCassandra {
         }
       }
 
+      // TODO test use case when cassandra is not up to last Action.Truncate
 
       def list(id: Id, range: SeqRange): Future[Seq[EventualRecord]] = {
 
@@ -234,32 +236,42 @@ object EventualCassandra {
 
         def list(statement: JournalStatement.SelectRecords.Type, segmentSize: Int, metadata: Option[Metadata]) = {
 
-          val state = (range.from, Option.empty[Segment])
-          val source = Source.unfoldAsync(state) { case (from, prev) =>
-            // TODO use deletedTo
-            val segment = Segment(from, segmentSize)
-            if ((range contains from) && !(prev contains segment)) {
-              for {
-                records <- statement(id, segment, range)
-              } yield {
-                if (records.isEmpty) {
-                  None
-                } else {
-                  val last = records.last
-                  val from = last.seqNr.next
-                  val state = (from, Some(segment))
-                  val result = (state, records)
-                  Some(result)
+          println(s"$id EventualCassandra.list metadata: $metadata")
+
+          def segmentOf(seqNr: SeqNr) = Segment(seqNr, segmentSize)
+
+          def list(range: SeqRange) = {
+            val segment = segmentOf(range.from)
+            val source = Source.unfoldWhile(segment) { segment =>
+              println(s"$id Source.unfoldWhile range: $range, segment: $segment")
+                for {
+                  records <- statement(id, segment, range)
+                } yield {
+                  if (records.isEmpty) {
+                    (segment, false, Iterable.empty)
+                  } else {
+                    val seqNrNext = records.last.seqNr.next
+                    val segmentNext = segmentOf(seqNrNext)
+                    val continue = (range contains seqNrNext) && segment != segmentNext
+                    (segmentNext, continue, records)
+                  }
                 }
-              }
-            } else {
-              Future.successful(None) // todo make val
             }
+
+            source.runWith(Sink.seq)
           }
 
-          source
-            .mapConcat(identity)
-            .runWith(Sink.seq)
+          val start = metadata.map { _.range.from } getOrElse SeqNr.Min
+
+          println(s"$id EventualCassandra.list deletedTo: $start")
+
+          if (start <= range.to) {
+            val from = range.from max start
+            val range2 = range.copy(from = from)
+            list(range2)
+          } else {
+            Future.seq
+          }
         }
 
         for {
@@ -275,7 +287,7 @@ object EventualCassandra {
 
       def lastSeqNr(id: Id, range: SeqRange) = {
         // TODO use range.to
-        def lastSeqNr(statement: JournalStatement.SelectLastRecord.Type, segmentSize: Int) = {
+        /*def lastSeqNr(statement: JournalStatement.SelectLastRecord.Type, segmentSize: Int) = {
 
           // TODO create lastSeqNr statement
           // TODO remove duplication
@@ -304,15 +316,83 @@ object EventualCassandra {
           }
 
           recur(range.from, None)
-        }
+        }*/
 
+
+        def lastSeqNr(statement: JournalStatement.SelectLastRecord.Type, segmentSize: Int, metadata: Option[Metadata]) = {
+
+          println(s"$id EventualCassandra.list metadata: $metadata")
+
+          def segmentOf(seqNr: SeqNr) = Segment(seqNr, segmentSize)
+
+          def lastSeqNr(seqNr: SeqNr, range: SeqRange): Future[SeqNr] = {
+            val seqNrNext = seqNr.next
+            val segment = segmentOf(seqNrNext)
+
+              val result = for {
+                records <- statement(id, segment, seqNr)
+              } yield {
+
+                val x = records.map{_.seqNr}
+
+                x match {
+                  case None => Future.successful(seqNr)
+
+                  case Some(seqNr) =>
+                    val segmentNext = segmentOf(seqNrNext)
+                    if(segment != segmentNext) {
+                      lastSeqNr(seqNr, range)
+                    } else {
+                      Future.successful(seqNr)
+                    }
+                }
+              }
+
+            result.flatten
+          }
+
+          // TODO find better name
+          val start = metadata.map { _.range.from } getOrElse SeqNr.Min
+
+          println(s"$id EventualCassandra.list deletedTo: $start")
+
+          val result = {
+            if (start < range.to) {
+              val from = range.from max start
+              val range2 = range.copy(from = from)
+              lastSeqNr(from, range2)
+            } else {
+              Future.successful(start)
+            }
+          }
+
+          for {
+            seqNr <- result
+          } yield {
+
+            metadata match {
+              case Some(metadata) =>
+                require(metadata.range.to == seqNr, s"metadata.range.to != seqNr, ${metadata.range.to} != $seqNr")
+
+              case None =>
+                require(0L == seqNr, s"0 != seqNr, seqNr: $seqNr")
+            }
+
+            seqNr
+
+          }
+
+        }
 
         for {
           (session, statements) <- sessionAndPreparedStatements
           segmentSize <- segmentSize(id, statements)
-          seqNr <- lastSeqNr(statements.selectLastRecord, segmentSize)
+          metadata <- metadata(id, statements)
+          seqNr <- lastSeqNr(statements.selectLastRecord, segmentSize, metadata)
         } yield {
-          seqNr
+
+          println(s"$id lastSeqNr: $seqNr")
+          Some(seqNr)
         }
       }
     }

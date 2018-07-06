@@ -152,6 +152,7 @@ object Client {
       def apply[S](s: S)(f: (S, ConsumerRecord[String, Bytes], Action.AppendOrTruncate) => S): Future[S]
     }
 
+    // TODO add range argument
     val consumeActions = (id: Id, from: SeqNr) => {
       val marker = mark(id)
       val pointer = eventual.pointerOld(id, from)
@@ -178,7 +179,7 @@ object Client {
           def apply[S](s: S)(f: (S, ConsumerRecord[String, Bytes], Action.AppendOrTruncate) => S): Future[S] = {
 
             // TODO add seqNr safety check
-            consume(id, s, partitionOffsetOld) { case (s, record) =>
+            consume(id, s, partitionOffset) { case (s, record) =>
               val a = toAction(record)
               a match {
                 case a: Action.AppendOrTruncate =>
@@ -231,61 +232,22 @@ object Client {
           }
         }
 
-        case class Result(deleteTo: SeqNr, entries: Vector[Entry])
-
-        val zero = Result(0, Vector.empty)
+        val zero = Tmp.Result(SeqNr.Min, Vector.empty)
 
         val result = for {
           consume <- consumeActions(id, range.from)
           entries = eventualRecords()
           // TODO use range after eventualRecords
-          records <- consume(zero) { case (result, record, a) =>
-            a match {
-              case action: Action.Append =>
-                val bytes = record.value
-
-                def entries = {
-                  EventsFromBytes(bytes, topic)
-                    .events
-                    .to[Vector]
-                    .map { event =>
-                      val tags = Set.empty[String] // TODO
-                      Entry(event.payload, event.seqNr, tags)
-                    }
-                }
-
-                if (range.contains(action.range)) {
-                  // TODO we don't need to deserialize entries that are out of scope
-                  result.copy(entries = result.entries ++ entries)
-
-                } else if (action.range < range) {
-                  result
-                } else if (action.range > range) {
-                  // TODO stop consuming
-                  result
-                } else {
-
-                  val filtered = entries.filter { entry => range contains entry.seqNr }
-
-                  if (entries.last.seqNr > range) {
-                    // TODO stop consuming
-                    result.copy(entries = result.entries ++ filtered)
-                  } else {
-                    result.copy(entries = result.entries ++ filtered)
-                  }
-                }
-
-              case a: Action.Truncate =>
-                if (a.to > result.deleteTo) {
-                  val entries = result.entries.dropWhile(_.seqNr <= a.to)
-                  result.copy(deleteTo = a.to, entries = entries)
-                } else {
-                  result
-                }
-            }
+          records <- consume(zero) { case (result, record, action) =>
+            Tmp(result, action, record, topic, range)
           }
           entries <- entries
         } yield {
+
+
+          println(s"$id 1111 records: ${records.deleteTo}")
+
+          println(s"$id 1111 records: ${records.entries.map{_.seqNr}}")
 
           val cassandraEntries = entries.dropWhile(_.seqNr <= records.deleteTo)
 
@@ -307,13 +269,16 @@ object Client {
           failure.printStackTrace()
         }
 
-        result
+        result map { records =>
+          println(s"$id Client.read.result ${ records.map { _.seqNr } }")
+          records
+        }
       }
 
       // TODO pass range
       def lastSeqNr(id: Id, from: SeqNr) = {
         val range = SeqRange(from = from)
-        for {
+        val result = for {
           consume <- consumeActions(id, from)
           valueEventual = eventual.lastSeqNr(id, range)
           value <- consume[Offset](0L) { case (seqNr, _, a) =>
@@ -322,12 +287,24 @@ object Client {
               case a: Action.Truncate => seqNr
             }
           }
+          valueEventual <- valueEventual
         } yield {
-          value
+
+          println(s"$id Client.lastSeqNr.result $value")
+          println(s"$id Client.lastSeqNr.valueEventual $valueEventual")
+          val valueEventual2 = valueEventual getOrElse from
+          value max valueEventual2
         }
+
+        result.failed.foreach { failure =>
+          failure.printStackTrace()
+        }
+
+        result
       }
 
       def truncate(id: Id, to: SeqNr): Future[Unit] = {
+        println(s"$id Client.truncate $to")
         val action = Action.Truncate(to)
         produce(id, action, Array.empty[Byte]).unit
       }

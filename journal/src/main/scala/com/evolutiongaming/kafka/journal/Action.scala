@@ -7,6 +7,7 @@ sealed trait Action
 
 object Action {
 
+  // TODO move out to separate object
   implicit val JsonFormat: OFormat[Action] = {
 
     implicit val SeqRangeFormat = Json.format[SeqRange]

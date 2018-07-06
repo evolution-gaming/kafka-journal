@@ -10,7 +10,7 @@ import scala.concurrent.Future
 
 // TODO find better name
 trait Eventual {
-  def pointerOld(id: Id, from: SeqNr): Future[Option[Pointer]]
+  def  pointerOld(id: Id, from: SeqNr): Future[Option[Pointer]]
   def topicPointers(topic: Topic): Future[TopicPointers]
   def list(id: Id, range: SeqRange): Future[Seq[EventualRecord]]
   def lastSeqNr(id: Id, range: SeqRange): Future[Option[SeqNr]]

@@ -1,8 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import java.time.Instant
-
 import com.evolutiongaming.kafka.journal.Alias.{Id, SeqNr}
+import com.evolutiongaming.kafka.journal.SeqRange
 import com.evolutiongaming.skafka.Topic
 
 
@@ -11,7 +10,7 @@ import com.evolutiongaming.skafka.Topic
 case class Metadata(
   id: Id,
   topic: Topic, // TODO we'd better have this stored, however not needed for reading
-  segmentSize: Int,
-  deleteTo: SeqNr,
-  created: Instant,
-  updated: Instant)
+  segmentSize: Int, // TODO swap order
+  range: SeqRange)
+
+// TODO segmentSize && deleteTo are optional
