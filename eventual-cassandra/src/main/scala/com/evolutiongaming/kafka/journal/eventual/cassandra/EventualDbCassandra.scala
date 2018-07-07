@@ -1,13 +1,11 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
 import com.datastax.driver.core.{Metadata => _, _}
 import com.evolutiongaming.cassandra.Helpers._
 import com.evolutiongaming.cassandra.NextHostRetryPolicy
 import com.evolutiongaming.kafka.journal.Alias._
-import com.evolutiongaming.kafka.journal.SeqRange
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.skafka.Topic
 
@@ -29,8 +27,6 @@ object EventualDbCassandra {
     schemaConfig: SchemaConfig,
     config: EventualCassandraConfig)(implicit system: ActorSystem, ec: ExecutionContext): EventualDb = {
 
-    implicit val materializer = ActorMaterializer()
-
     val retries = 3
 
     val statementConfig = StatementConfig(
@@ -45,8 +41,6 @@ object EventualDbCassandra {
     val metadataName = TableName(keyspace = keyspace.name, table = schemaConfig.metadataName)
 
     val pointerName = TableName(keyspace = keyspace.name, table = schemaConfig.pointerName)
-
-    val futureUnit = Future.successful(())
 
     // TODO moveout
     case class PreparedStatements(
@@ -151,34 +145,11 @@ object EventualDbCassandra {
     }
 
     val sessionAndPreparedStatements = for {
-      _ <- if (keyspace.autoCreate) createKeyspace() else futureUnit
-      _ <- if (schemaConfig.autoCreate) createTable() else futureUnit
+      _ <- if (keyspace.autoCreate) createKeyspace() else Future.unit
+      _ <- if (schemaConfig.autoCreate) createTable() else Future.unit
       preparedStatements <- preparedStatements()
     } yield {
       (session, preparedStatements)
-    }
-
-    // TODO remove
-    def segmentSize(id: Id, prepared: PreparedStatements): Future[Int] = {
-      val selectSegmentSize = prepared.selectSegmentSize
-      for {
-        segmentSize <- selectSegmentSize(id)
-      } yield {
-        segmentSize getOrElse config.segmentSize
-      }
-    }
-
-    def metadata(id: Id, prepared: PreparedStatements) = {
-      val selectMetadata = prepared.selectMetadata
-      for {
-        metadata <- selectMetadata(id)
-      } yield {
-        // TODO what to do if it is empty?
-
-        if (metadata.isEmpty) println(s"$id metadata is empty")
-
-        metadata
-      }
     }
 
 
@@ -236,10 +207,6 @@ object EventualDbCassandra {
           }
 
           def insertRecordsAndMetadata(prepared: PreparedStatements, metadata: Option[Metadata]) = {
-            val head = records.head.seqNr
-            val last = records.last.seqNr
-            val range = SeqRange(from = head, to = last)
-
             // TODO
             val segmentSize = metadata.map { _.segmentSize } getOrElse config.segmentSize
             val deletedTo = metadata.map{_.deletedTo} getOrElse SeqNr.Min
@@ -433,57 +400,6 @@ object EventualDbCassandra {
           topicPointers <- prepared.selectTopicPointer(topic)
         } yield {
           topicPointers
-        }
-      }
-
-
-      // TODO return closest offset
-      def pointerOld(id: Id, from: SeqNr): Future[Option[Pointer]] = {
-        println(s"$id EventualCassandra.last from: $from")
-
-        def pointer(statement: JournalStatement.SelectLastRecord.Type, segmentSize: Int, metadata: Option[Metadata]) = {
-
-          //          val deletedTo = metadata.map { _.deleteTo } getOrElse 0L
-
-          //          val seqNr = from max deletedTo
-          //
-          //          val partition: Partition = ???
-
-
-          def recur(from: SeqNr, prev: Option[(Segment, Pointer)]): Future[Option[Pointer]] = {
-            // println(s"EventualCassandra.last.recur id: $id, segment: $segment")
-
-            def record = prev.map { case (_, record) => record }
-
-            // TODO use deletedTo
-            val segment = Segment(from, segmentSize)
-            if (prev.exists { case (segmentPrev, _) => segmentPrev == segment }) {
-              Future.successful(record)
-            } else {
-              for {
-                result <- statement(id, segment, from)
-                result <- result match {
-                  case None         => Future.successful(record)
-                  case Some(result) =>
-                    val segmentAndRecord = (segment, result)
-                    recur(from.next, Some(segmentAndRecord))
-                }
-              } yield {
-                result
-              }
-            }
-          }
-
-          recur(from, None)
-        }
-
-        for {
-          (session, statements) <- sessionAndPreparedStatements
-          segmentSize <- segmentSize(id, statements)
-          metadata <- metadata(id, statements)
-          result <- pointer(statements.selectLastRecord, segmentSize, metadata)
-        } yield {
-          result
         }
       }
     }

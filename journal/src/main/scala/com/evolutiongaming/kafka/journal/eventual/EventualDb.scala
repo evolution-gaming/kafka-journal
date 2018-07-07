@@ -11,6 +11,5 @@ trait EventualDb {
   // TODO make sure all have the same id, so the segments work as expected
   def save(id: Id, records: UpdateTmp, topic: Topic): Future[Unit]
   def savePointers(updatePointers: UpdatePointers): Future[Unit]
-  def pointerOld(id: Id, from: SeqNr): Future[Option[Pointer]]
   def topicPointers(topic: Topic): Future[TopicPointers]
 }

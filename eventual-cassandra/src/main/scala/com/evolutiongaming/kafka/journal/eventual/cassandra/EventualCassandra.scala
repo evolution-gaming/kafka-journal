@@ -179,55 +179,6 @@ object EventualCassandra {
         }
       }
 
-      // TODO return closest offset
-      def pointerOld(id: Id, from: SeqNr): Future[Option[Pointer]] = {
-        println(s"$id EventualCassandra.last from: $from")
-
-        def pointer(statement: JournalStatement.SelectLastRecord.Type, segmentSize: Int, metadata: Option[Metadata]) = {
-
-
-          //          val seqNr = from max deletedTo
-          //
-          //          val partition: Partition = ???
-
-
-          def recur(from: SeqNr, prev: Option[(Segment, Pointer)]): Future[Option[Pointer]] = {
-            // println(s"EventualCassandra.last.recur id: $id, segment: $segment")
-
-            def record = prev.map { case (_, record) => record }
-
-            // TODO use deletedTo
-            val segment = Segment(from, segmentSize)
-            if (prev.exists { case (segmentPrev, _) => segmentPrev == segment }) {
-              Future.successful(record)
-            } else {
-              for {
-                result <- statement(id, segment, from)
-                result <- result match {
-                  case None         => Future.successful(record)
-                  case Some(result) =>
-                    val segmentAndRecord = (segment, result)
-                    recur(from.next, Some(segmentAndRecord))
-                }
-              } yield {
-                result
-              }
-            }
-          }
-
-          recur(from, None)
-        }
-
-        for {
-          (session, statements) <- sessionAndPreparedStatements
-          segmentSize <- segmentSize(id, statements)
-          metadata <- metadata(id, statements)
-          result <- pointer(statements.selectLastRecord, segmentSize, metadata)
-        } yield {
-          result
-        }
-      }
-
       // TODO test use case when cassandra is not up to last Action.Truncate
 
       def list(id: Id, range: SeqRange): Future[Seq[EventualRecord]] = {

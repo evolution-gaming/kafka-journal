@@ -155,24 +155,18 @@ object Journal {
     // TODO add range argument
     val consumeActions = (id: Id, from: SeqNr) => {
       val marker = mark(id)
-      val pointer = eventual.pointerOld(id, from)
       val topic = toTopic(id)
       val topicPointers = eventual.topicPointers(topic)
 
       for {
         (marker, partition) <- marker
-        pointer <- pointer
         topicPointers <- topicPointers
-        partitionOffsetOld = pointer.map { _.partitionOffset } // TODO
       } yield {
         val partitionOffset = for {
           offset <- topicPointers.pointers.get(partition)
         } yield {
           PartitionOffset(partition, offset)
         }
-
-        println(s"$id partition: $partition, offset: ${ partitionOffset.map { _.offset } }, offset: ${ partitionOffsetOld.map { _.offset } }")
-
         // TODO compare partitions !
 
         new Fold {
@@ -270,12 +264,11 @@ object Journal {
         }
       }
 
-      // TODO pass range
       def lastSeqNr(id: Id, from: SeqNr) = {
         val result = for {
           consume <- consumeActions(id, from)
           valueEventual = eventual.lastSeqNr(id, from)
-          value <- consume[Offset](SeqNr.Min) { case (seqNr, _, a) =>
+          value <- consume[Offset](from) { case (seqNr, _, a) =>
             a match {
               case a: Action.Append   => a.range.to
               case a: Action.Truncate => seqNr
@@ -284,8 +277,6 @@ object Journal {
           valueEventual <- valueEventual
         } yield {
 
-          println(s"$id Client.lastSeqNr.result $value")
-          println(s"$id Client.lastSeqNr.valueEventual $valueEventual")
           val valueEventual2 = valueEventual getOrElse from
           value max valueEventual2
         }

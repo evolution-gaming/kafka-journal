@@ -96,8 +96,6 @@ object Replicator {
         }
 
 
-
-
         sealed trait DeleteTo
 
         case class DeleteToKnown(value: SeqNr) extends DeleteTo
@@ -117,93 +115,93 @@ object Replicator {
         }
 
 
-          val result = records.foldLeft[Tmp](Tmp.Empty) { case (result, record) =>
+        val result = records.foldLeft[Tmp](Tmp.Empty) { case (result, record) =>
 
-            val action = toAction(record)
+          val action = toAction(record)
 
-            action match {
-              case action: Action.Append =>
-                val events = EventsSerializer.EventsFromBytes(record.value, topic).events.to[Vector]
-                val records = events.map { event => toEventualRecord(record, event) }
+          action match {
+            case action: Action.Append =>
+              val events = EventsSerializer.EventsFromBytes(record.value, topic).events.to[Vector]
+              val records = events.map { event => toEventualRecord(record, event) }
 
-                result match {
-                  case Tmp.Empty => Tmp.DeleteToKnown(SeqNr.Min/*TODO*/, records)
+              result match {
+                case Tmp.Empty => Tmp.DeleteToKnown(SeqNr.Min /*TODO*/ , records)
 
-                  case Tmp.DeleteToKnown(deleteTo, xs) =>
-                    Tmp.DeleteToKnown(deleteTo, xs ++ records)
+                case Tmp.DeleteToKnown(deleteTo, xs) =>
+                  Tmp.DeleteToKnown(deleteTo, xs ++ records)
 
-                  case Tmp.DeleteToUnknown(value) =>
+                case Tmp.DeleteToUnknown(value) =>
 
-                    val range = action.range
-                    if (value < range.from) {
-                      Tmp.DeleteToKnown(value, records)
-                    } else if (value >= range.to) {
-                      Tmp.DeleteToKnown(range.to, Vector.empty)
-                    } else {
-                      val result = records.dropWhile { _.seqNr <= value }
-                      Tmp.DeleteToKnown(value, result)
-                    }
-
-
-                }
+                  val range = action.range
+                  if (value < range.from) {
+                    Tmp.DeleteToKnown(value, records)
+                  } else if (value >= range.to) {
+                    Tmp.DeleteToKnown(range.to, Vector.empty)
+                  } else {
+                    val result = records.dropWhile { _.seqNr <= value }
+                    Tmp.DeleteToKnown(value, result)
+                  }
 
 
-              case action: Action.Truncate =>
-
-                val deleteTo = action.to
-
-                result match {
-                  case Tmp.Empty => Tmp.DeleteToUnknown(deleteTo)
-                  case Tmp.DeleteToKnown(value, records) =>
-                    if(records.isEmpty) {
-                      Tmp.DeleteToKnown(value, records)
-                    } else {
-                      if(deleteTo <= value) {
-                        Tmp.DeleteToKnown(value, records)
-                      } else {
-                        val result = records.dropWhile { _.seqNr <= deleteTo}
-                        if(result.isEmpty) {
-                          val deleteTo2 = records.last.seqNr
-                          Tmp.DeleteToKnown(deleteTo2, result)
-                        } else {
-                          Tmp.DeleteToKnown(deleteTo, result)
-                        }
-                      }
-                    }
-
-                  case Tmp.DeleteToUnknown(value) => Tmp.DeleteToUnknown(deleteTo max value)
-                }
-
-              case action: Action.Mark => result
-            }
-          }
-
-        
-          result match {
-            case Tmp.Empty => Future.unit
-
-            case Tmp.DeleteToKnown(value, records) =>
-
-              val updateTmp = UpdateTmp.DeleteToKnown(value, records)
-
-              eventualDb.save(id, updateTmp, topic).map { result =>
-                if (records.nonEmpty) {
-                  val head = records.head
-                  val last = records.last
-                  val range = SeqRange(head.seqNr, last.seqNr)
-                  val offset = last.partitionOffset.offset
-
-                  println(s"$id replicate.save range: $range offset: $offset")
-                }
-                result
               }
 
 
-            case Tmp.DeleteToUnknown(value) =>
-              println(s"$id replicate.save DeleteToUnknown($value)")
-              val updateTmp = UpdateTmp.DeleteToUnknown(value)
-              eventualDb.save(id, updateTmp, topic)
+            case action: Action.Truncate =>
+
+              val deleteTo = action.to
+
+              result match {
+                case Tmp.Empty                         => Tmp.DeleteToUnknown(deleteTo)
+                case Tmp.DeleteToKnown(value, records) =>
+                  if (records.isEmpty) {
+                    Tmp.DeleteToKnown(value, records)
+                  } else {
+                    if (deleteTo <= value) {
+                      Tmp.DeleteToKnown(value, records)
+                    } else {
+                      val result = records.dropWhile { _.seqNr <= deleteTo }
+                      if (result.isEmpty) {
+                        val deleteTo2 = records.last.seqNr
+                        Tmp.DeleteToKnown(deleteTo2, result)
+                      } else {
+                        Tmp.DeleteToKnown(deleteTo, result)
+                      }
+                    }
+                  }
+
+                case Tmp.DeleteToUnknown(value) => Tmp.DeleteToUnknown(deleteTo max value)
+              }
+
+            case action: Action.Mark => result
           }
+        }
+
+
+        result match {
+          case Tmp.Empty => Future.unit
+
+          case Tmp.DeleteToKnown(value, records) =>
+
+            val updateTmp = UpdateTmp.DeleteToKnown(value, records)
+
+            eventualDb.save(id, updateTmp, topic).map { result =>
+              if (records.nonEmpty) {
+                val head = records.head
+                val last = records.last
+                val range = SeqRange(head.seqNr, last.seqNr)
+                val offset = last.partitionOffset.offset
+
+                println(s"$id replicate.save range: $range offset: $offset")
+              }
+              result
+            }
+
+
+          case Tmp.DeleteToUnknown(value) =>
+            println(s"$id replicate.save DeleteToUnknown($value)")
+            val updateTmp = UpdateTmp.DeleteToUnknown(value)
+            eventualDb.save(id, updateTmp, topic)
+        }
       }
 
       val pointers = records.values.map { case (topicPartition, records) =>
