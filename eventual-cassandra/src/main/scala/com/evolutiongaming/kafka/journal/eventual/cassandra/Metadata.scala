@@ -11,6 +11,6 @@ case class Metadata(
   id: Id,
   topic: Topic, // TODO we'd better have this stored, however not needed for reading
   segmentSize: Int, // TODO swap order
-  range: SeqRange)
+  deletedTo: SeqNr)
 
 // TODO segmentSize && deleteTo are optional

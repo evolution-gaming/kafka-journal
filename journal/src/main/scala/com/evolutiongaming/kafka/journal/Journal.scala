@@ -20,7 +20,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 // TODO consider passing topic along with id as method argument
-trait Client {
+trait Journal {
   def append(id: Id, events: Nel[Entry]): Future[Unit]
   // TODO decide on return type
   def read(id: Id, range: SeqRange): Future[Seq[Entry]]
@@ -28,16 +28,16 @@ trait Client {
   def truncate(id: Id, to: SeqNr): Future[Unit]
 }
 
-object Client {
+object Journal {
 
-  val Empty: Client = new Client {
+  val Empty: Journal = new Journal {
     def append(id: Id, events: Nel[Entry]) = Future.unit
     def read(id: Id, range: SeqRange): Future[List[Entry]] = Future.successful(Nil)
     def lastSeqNr(id: Id, from: SeqNr) = Future.successful(0L)
     def truncate(id: Id, to: SeqNr) = Future.unit
   }
 
-  def apply(settings: Settings): Client = ???
+  def apply(settings: Settings): Journal = ???
 
   def apply(
     producer: Producer,
@@ -45,7 +45,7 @@ object Client {
     eventual: Eventual = Eventual.Empty,
     pollTimeout: FiniteDuration = 100.millis)(implicit
     system: ActorSystem,
-    ec: ExecutionContext): Client = {
+    ec: ExecutionContext): Journal = {
 
     def toTopic(id: Id) = "journal"
 
@@ -196,7 +196,7 @@ object Client {
       }
     }
 
-    new Client {
+    new Journal {
 
       def append(id: Id, events: Nel[Entry]): Future[Unit] = {
 
@@ -244,11 +244,6 @@ object Client {
           entries <- entries
         } yield {
 
-
-          println(s"$id 1111 records: ${records.deleteTo}")
-
-          println(s"$id 1111 records: ${records.entries.map{_.seqNr}}")
-
           val cassandraEntries = entries.dropWhile(_.seqNr <= records.deleteTo)
 
           cassandraEntries.lastOption match {
@@ -264,7 +259,7 @@ object Client {
               cassandraEntries ++ kafka
           }
         }
-
+                                                                
         result.failed.foreach { failure =>
           failure.printStackTrace()
         }
@@ -277,11 +272,10 @@ object Client {
 
       // TODO pass range
       def lastSeqNr(id: Id, from: SeqNr) = {
-        val range = SeqRange(from = from)
         val result = for {
           consume <- consumeActions(id, from)
-          valueEventual = eventual.lastSeqNr(id, range)
-          value <- consume[Offset](0L) { case (seqNr, _, a) =>
+          valueEventual = eventual.lastSeqNr(id, from)
+          value <- consume[Offset](SeqNr.Min) { case (seqNr, _, a) =>
             a match {
               case a: Action.Append   => a.range.to
               case a: Action.Truncate => seqNr

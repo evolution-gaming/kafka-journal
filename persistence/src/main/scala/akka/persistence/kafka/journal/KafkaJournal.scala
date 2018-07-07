@@ -9,7 +9,7 @@ import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.eventual.{Eventual, EventualDb}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig, SchemaConfig}
-import com.evolutiongaming.kafka.journal.{Client, Entry, SeqRange}
+import com.evolutiongaming.kafka.journal.{Journal, Entry, SeqRange}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.serialization.{SerializedMsg, SerializedMsgExt}
@@ -32,7 +32,7 @@ class KafkaJournal extends AsyncWriteJournal {
 
   val log = ActorLog(system, classOf[KafkaJournal])
 
-  lazy val client: Client = {
+  lazy val client: Journal = {
 
     def config(name: String) = {
       val config = system.settings.config
@@ -78,7 +78,7 @@ class KafkaJournal extends AsyncWriteJournal {
       EventualCassandra(session, schemaConfig, config)
     }
 
-    Client(producer, newConsumer, eventual)
+    Journal(producer, newConsumer, eventual)
   }
 
   // TODO optimise sequence of calls asyncWriteMessages & asyncReadHighestSequenceNr for the same persistenceId

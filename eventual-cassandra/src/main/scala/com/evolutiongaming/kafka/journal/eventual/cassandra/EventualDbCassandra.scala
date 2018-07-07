@@ -199,11 +199,6 @@ object EventualDbCassandra {
         }
 
 
-
-
-
-
-
         def save1(eventualRecords: EventualRecords) = {
 
           println(s"$id save deletedTo: ${ eventualRecords.deletedTo }, topic: $topic")
@@ -246,13 +241,14 @@ object EventualDbCassandra {
             val range = SeqRange(from = head, to = last)
 
             // TODO
-            val segmentSize = metadata.map{_.segmentSize} getOrElse config.segmentSize
+            val segmentSize = metadata.map { _.segmentSize } getOrElse config.segmentSize
+            val deletedTo = metadata.map{_.deletedTo} getOrElse SeqNr.Min
 
             val metadata2 = Metadata(
               id = id,
               topic = topic,
-              range = range,
-              segmentSize = segmentSize)
+              segmentSize = segmentSize,
+              deletedTo = deletedTo)
 
             for {
               //                    _ <- deleteResult
@@ -276,27 +272,25 @@ object EventualDbCassandra {
 
 
             case Some(deletedTo) =>
-              
+
               def save(metadata: Option[Metadata], prepared: PreparedStatements) = {
 
                 val deleteResult = metadata match {
                   case Some(metadata) => delete(deletedTo)
-                  case None => Future.unit
+                  case None           => Future.unit
                 }
 
                 def tmp() = {
 
-                  // TODO this is delete all use case we don't need to insert segment size,
+                  // TODO this is delete all use case, we don't need to insert segment size,
                   if (records.isEmpty) {
 
-                    val range = SeqRange(from = deletedTo, to = deletedTo)
-                    // TODO
                     val segmentSize = metadata.map { _.segmentSize } getOrElse config.segmentSize
 
                     val metadata2 = Metadata(
                       id = id,
                       topic = topic,
-                      range = range,
+                      deletedTo = deletedTo,
                       segmentSize = segmentSize)
 
                     for {
@@ -335,40 +329,35 @@ object EventualDbCassandra {
 
           def save2(prepared: PreparedStatements, metadata: Option[Metadata]) = {
             metadata match {
-              case None => Future.unit
+              case None           => Future.unit
               case Some(metadata) =>
 
-                val range = metadata.range
-
-                if(deletedTo < range.from) {
+                if (deletedTo <= metadata.deletedTo) {
                   Future.unit
                 } else {
-                  val range2 = {
-                    if (deletedTo > range.to) {
-                      val start = range.to + 1
-                      SeqRange(from = start, to = start)
-                    } else {
-                      range.copy(from = deletedTo + 1)
-                    }
-                  }
 
-//                  val deletedTo2 = deletedTo + 1
-//                  val start = deletedTo2 min range.to
-//                  val range2 = range.copy(from = start)
-                  println(s"$id ############### $range2")
+                def save2(seqNr: SeqNr) = {
 
                   val metadata2 = Metadata(
                     id = id,
                     topic = topic,
-                    range = range2,
+                    deletedTo = deletedTo min seqNr,
                     segmentSize = metadata.segmentSize)
 
-                  prepared.insertMetadata(metadata2)
+                    prepared.insertMetadata(metadata2)
+                    }
+
+                    for {
+                      seqNr <- LastSeqNr(id, SeqNr.Min, prepared.selectLastRecord, metadata)
+                      _ <- save2(seqNr)
+                    } yield {
+
+                    }
                 }
             }
           }
 
-          if(deletedTo == SeqNr.Min) {
+          if (deletedTo == SeqNr.Min) {
             Future.unit
           } else {
             for {
@@ -383,7 +372,7 @@ object EventualDbCassandra {
 
         eventualRecords match {
           case UpdateTmp.DeleteToKnown(deletedTo, records) => save1(EventualRecords(records, Some(deletedTo)))
-          case UpdateTmp.DeleteToUnknown(deletedTo) => save2(deletedTo)
+          case UpdateTmp.DeleteToUnknown(deletedTo)        => save2(deletedTo)
         }
       }
 
@@ -454,7 +443,7 @@ object EventualDbCassandra {
 
         def pointer(statement: JournalStatement.SelectLastRecord.Type, segmentSize: Int, metadata: Option[Metadata]) = {
 
-//          val deletedTo = metadata.map { _.deleteTo } getOrElse 0L
+          //          val deletedTo = metadata.map { _.deleteTo } getOrElse 0L
 
           //          val seqNr = from max deletedTo
           //

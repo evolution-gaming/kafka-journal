@@ -234,9 +234,11 @@ object EventualCassandra {
 
         println(s"$id EventualCassandra.list range: $range")
 
-        def list(statement: JournalStatement.SelectRecords.Type, segmentSize: Int, metadata: Option[Metadata]) = {
+        def list(statement: JournalStatement.SelectRecords.Type, metadata: Metadata) = {
 
           println(s"$id EventualCassandra.list metadata: $metadata")
+
+          val segmentSize = metadata.segmentSize
 
           def segmentOf(seqNr: SeqNr) = Segment(seqNr, segmentSize)
 
@@ -261,31 +263,34 @@ object EventualCassandra {
             source.runWith(Sink.seq)
           }
 
-          val start = metadata.map { _.range.from } getOrElse SeqNr.Min
+          val deletedTo = metadata.deletedTo
 
-          println(s"$id EventualCassandra.list deletedTo: $start")
+          println(s"$id EventualCassandra.list deletedTo: $deletedTo")
 
-          if (start <= range.to) {
-            val from = range.from max start
+          if(deletedTo >= range.to) {
+            Future.seq
+          } else {
+            val from = range.from max (deletedTo + 1)
             val range2 = range.copy(from = from)
             list(range2)
-          } else {
-            Future.seq
           }
         }
 
         for {
           (session, statements) <- sessionAndPreparedStatements
-          segmentSize <- segmentSize(id, statements)
           metadata <- metadata(id, statements)
-          result <- list(statements.selectRecords, segmentSize, metadata)
+          result <- metadata match {
+            case Some(metadata) => list(statements.selectRecords, metadata)
+            case None => Future.seq
+          }
         } yield {
           println(s"$id EventualCassandra.list ${ result.map { _.seqNr }.mkString(",") }")
           result
         }
       }
 
-      def lastSeqNr(id: Id, range: SeqRange) = {
+      // TODO remove range argument
+      def lastSeqNr(id: Id, from: SeqNr) = {
         // TODO use range.to
         /*def lastSeqNr(statement: JournalStatement.SelectLastRecord.Type, segmentSize: Int) = {
 
@@ -319,80 +324,20 @@ object EventualCassandra {
         }*/
 
 
-        def lastSeqNr(statement: JournalStatement.SelectLastRecord.Type, segmentSize: Int, metadata: Option[Metadata]) = {
-
-          println(s"$id EventualCassandra.list metadata: $metadata")
-
-          def segmentOf(seqNr: SeqNr) = Segment(seqNr, segmentSize)
-
-          def lastSeqNr(seqNr: SeqNr, range: SeqRange): Future[SeqNr] = {
-            val seqNrNext = seqNr.next
-            val segment = segmentOf(seqNrNext)
-
-              val result = for {
-                records <- statement(id, segment, seqNr)
-              } yield {
-
-                val x = records.map{_.seqNr}
-
-                x match {
-                  case None => Future.successful(seqNr)
-
-                  case Some(seqNr) =>
-                    val segmentNext = segmentOf(seqNrNext)
-                    if(segment != segmentNext) {
-                      lastSeqNr(seqNr, range)
-                    } else {
-                      Future.successful(seqNr)
-                    }
-                }
-              }
-
-            result.flatten
-          }
-
-          // TODO find better name
-          val start = metadata.map { _.range.from } getOrElse SeqNr.Min
-
-          println(s"$id EventualCassandra.list deletedTo: $start")
-
-          val result = {
-            if (start < range.to) {
-              val from = range.from max start
-              val range2 = range.copy(from = from)
-              lastSeqNr(from, range2)
-            } else {
-              Future.successful(start)
-            }
-          }
-
-          for {
-            seqNr <- result
-          } yield {
-
-            metadata match {
-              case Some(metadata) =>
-                require(metadata.range.to == seqNr, s"metadata.range.to != seqNr, ${metadata.range.to} != $seqNr")
-
-              case None =>
-                require(0L == seqNr, s"0 != seqNr, seqNr: $seqNr")
-            }
-
-            seqNr
-
-          }
-
+        def lastSeqNr(statement: JournalStatement.SelectLastRecord.Type, metadata: Metadata) = {
+          LastSeqNr(id, from, statement, metadata)
         }
 
         for {
           (session, statements) <- sessionAndPreparedStatements
-          segmentSize <- segmentSize(id, statements)
           metadata <- metadata(id, statements)
-          seqNr <- lastSeqNr(statements.selectLastRecord, segmentSize, metadata)
+          seqNr <- metadata match {
+            case Some(metadata) => lastSeqNr(statements.selectLastRecord, metadata)
+            case None => Future.successful(SeqNr.Min) // TODO cache value
+          }
         } yield {
-
           println(s"$id lastSeqNr: $seqNr")
-          Some(seqNr)
+          Some(seqNr) // TODO simplify api
         }
       }
     }

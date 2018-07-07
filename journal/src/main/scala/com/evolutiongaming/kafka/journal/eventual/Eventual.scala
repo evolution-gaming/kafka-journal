@@ -13,7 +13,7 @@ trait Eventual {
   def  pointerOld(id: Id, from: SeqNr): Future[Option[Pointer]]
   def topicPointers(topic: Topic): Future[TopicPointers]
   def list(id: Id, range: SeqRange): Future[Seq[EventualRecord]]
-  def lastSeqNr(id: Id, range: SeqRange): Future[Option[SeqNr]]
+  def lastSeqNr(id: Id, from: SeqNr): Future[Option[SeqNr]]
 }
 
 object Eventual {
@@ -23,7 +23,7 @@ object Eventual {
       def pointerOld(id: Id, from: SeqNr) = Future.none
       def topicPointers(topic: Topic) = futureTopicPointers
       def list(id: Id, range: SeqRange) = Future.seq
-      def lastSeqNr(id: Id, range: SeqRange) = Future.none
+      def lastSeqNr(id: Id, from: SeqNr) = Future.none
     }
   }
 }

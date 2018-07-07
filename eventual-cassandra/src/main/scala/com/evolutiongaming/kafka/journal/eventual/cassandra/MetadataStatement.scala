@@ -4,7 +4,6 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import com.datastax.driver.core.{Metadata => _}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.Alias.{Id, SeqNr}
-import com.evolutiongaming.kafka.journal.SeqRange
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.util.FutureHelper._
@@ -21,8 +20,7 @@ object MetadataStatement {
        |id text,
        |topic text,
        |segment_size int,
-       |seq_nr_from bigint,
-       |seq_nr_to bigint,
+       |deleted_to bigint,
        |properties map<text,text>,
        |PRIMARY KEY (id))
        |""".stripMargin
@@ -37,8 +35,8 @@ object MetadataStatement {
 
       val query =
         s"""
-           |INSERT INTO ${ name.asCql } (id, topic, segment_size, seq_nr_from, seq_nr_to, properties)
-           |VALUES (?, ?, ?, ?, ?, ?)
+           |INSERT INTO ${ name.asCql } (id, topic, segment_size, deleted_to, properties)
+           |VALUES (?, ?, ?, ?, ?)
            |""".stripMargin
 
       for {
@@ -50,8 +48,7 @@ object MetadataStatement {
             .encode("id", metadata.id)
             .encode("topic", metadata.topic)
             .encode("segment_size", metadata.segmentSize)
-            .encode("seq_nr_from", metadata.range.from)
-            .encode("seq_nr_to", metadata.range.to)
+            .encode("deleted_to", metadata.deletedTo)
           val result = session.execute(bound)
           result.unit
       }
@@ -67,7 +64,7 @@ object MetadataStatement {
 
       val query =
         s"""
-           |SELECT topic, segment_size, seq_nr_from, seq_nr_to FROM ${ name.asCql }
+           |SELECT topic, segment_size, deleted_to FROM ${ name.asCql }
            |WHERE id = ?
            |""".stripMargin
 
@@ -81,14 +78,11 @@ object MetadataStatement {
           } yield for {
             row <- Option(result.one()) // TODO use CassandraSession wrapper
           } yield {
-            val range = SeqRange(
-              from = row.decode[SeqNr]("seq_nr_from"),
-              to = row.decode[SeqNr]("seq_nr_to"))
             Metadata(
               id = id,
               topic = row.decode[Topic]("topic"),
               segmentSize = row.decode[Int]("segment_size"),
-              range = range)
+              deletedTo = row.decode[SeqNr]("deleted_to"))
           }
       }
     }
@@ -134,8 +128,8 @@ object MetadataStatement {
       // TODO use update query
       val query =
         s"""
-           |INSERT INTO ${ name.asCql } (id, topic, seq_nr_from, seq_nr_to)
-           |VALUES (?, ?, ?, ?)
+           |INSERT INTO ${ name.asCql } (id, topic, deleted_to)
+           |VALUES (?, ?, ?)
            |""".stripMargin
 
       for {
@@ -146,8 +140,7 @@ object MetadataStatement {
             .bind()
             .encode("id", metadata.id)
             .encode("topic", metadata.topic)
-            .encode("seq_nr_from", metadata.range.from)
-            .encode("seq_nr_to", metadata.range.to)
+            .encode("deleted_to", metadata.deletedTo)
           val result = session.execute(bound)
           result.unit
       }
