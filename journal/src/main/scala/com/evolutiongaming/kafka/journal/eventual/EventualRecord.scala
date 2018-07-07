@@ -17,19 +17,14 @@ case class EventualRecord(
   partitionOffset: PartitionOffset)
 
 
-// TODO make own collection
-case class EventualRecords(records: Seq[EventualRecord], deletedTo: Option[SeqNr])
-
-
 sealed trait UpdateTmp
 
 // TODO rename
 object UpdateTmp {
-  // TODO handle case when there were no deletions
-    case class DeleteToKnown(value: SeqNr, records: Seq[EventualRecord]) extends UpdateTmp
+    case class DeleteToKnown(value: Option[SeqNr], records: Seq[EventualRecord]) extends UpdateTmp
 
   // TODO consider creating case class for unbounded deletedTo
-    case class DeleteToUnknown(value: SeqNr) extends UpdateTmp
+    case class DeleteUnbound(value: SeqNr) extends UpdateTmp
 }
 
 

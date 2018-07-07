@@ -6,9 +6,10 @@ import java.time.Instant
 import com.datastax.driver.core.{Metadata => _, _}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.Alias.{Id, SeqNr, Tags}
+import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.SeqRange
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.eventual.{EventualRecord, Pointer, PartitionOffset}
+import com.evolutiongaming.kafka.journal.eventual.{EventualRecord, PartitionOffset, Pointer}
 import com.evolutiongaming.skafka.{Bytes, Offset, Partition}
 
 import scala.collection.JavaConverters._
@@ -158,6 +159,33 @@ object JournalStatement {
                   offset = row.decode[Offset]("offset")))
             }
           }
+      }
+    }
+  }
+
+  object DeleteRecords {
+    type Type = (Id, Segment, SeqNr) => Future[Unit]
+
+    // TODO fast future
+    // TODO create Prepare -> Run function
+    def apply(name: TableName, session: PrepareAndExecute): Future[Type] = {
+      implicit val ec = CurrentThreadExecutionContext // TODO remove
+      val query =
+        s"""
+           |DELETE FROM ${ name.asCql }
+           |WHERE id = ?
+           |AND segment = ?
+           |AND seq_nr <= ?
+           |""".stripMargin
+
+      for {
+        prepared <- session.prepare(query)
+      } yield {
+        (id: Id, segment: Segment, seqNr: SeqNr) =>
+          // TODO avoid casting via providing implicit converters
+          val bound = prepared.bind(id, segment.value: LongJ, seqNr: LongJ)
+          val result = session.execute(bound)
+          result.unit
       }
     }
   }

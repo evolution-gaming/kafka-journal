@@ -6,9 +6,11 @@ import com.datastax.driver.core.{Metadata => _, _}
 import com.evolutiongaming.cassandra.Helpers._
 import com.evolutiongaming.cassandra.NextHostRetryPolicy
 import com.evolutiongaming.kafka.journal.Alias._
+import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.skafka.Topic
 
+import scala.collection.immutable.Seq
 import scala.concurrent.{ExecutionContext, Future}
 
 
@@ -47,6 +49,7 @@ object EventualDbCassandra {
       insertRecord: JournalStatement.InsertRecord.Type,
       selectLastRecord: JournalStatement.SelectLastRecord.Type,
       selectRecords: JournalStatement.SelectRecords.Type,
+      deleteRecords: JournalStatement.DeleteRecords.Type,
       insertMetadata: MetadataStatement.Insert.Type,
       selectMetadata: MetadataStatement.Select.Type,
       selectSegmentSize: MetadataStatement.SelectSegmentSize.Type,
@@ -106,7 +109,8 @@ object EventualDbCassandra {
 
       val insertRecord = JournalStatement.InsertRecord(journalName, session.prepareAsync(_: String).asScala())
       val selectLastRecord = JournalStatement.SelectLastRecord(journalName, prepareAndExecute)
-      val listRecords = JournalStatement.SelectRecords(journalName, prepareAndExecute)
+      val selectRecords = JournalStatement.SelectRecords(journalName, prepareAndExecute)
+      val deleteRecords = JournalStatement.DeleteRecords(journalName, prepareAndExecute)
       val insertMetadata = MetadataStatement.Insert(metadataName, prepareAndExecute)
       val selectMetadata = MetadataStatement.Select(metadataName, prepareAndExecute)
       val selectSegmentSize = MetadataStatement.SelectSegmentSize(metadataName, prepareAndExecute)
@@ -119,7 +123,8 @@ object EventualDbCassandra {
       for {
         insertRecord <- insertRecord
         selectLastRecord <- selectLastRecord
-        listRecords <- listRecords
+        selectRecords <- selectRecords
+        deleteRecords <- deleteRecords
         insertMetadata <- insertMetadata
         selectMetadata <- selectMetadata
         selectSegmentSize <- selectSegmentSize
@@ -132,7 +137,8 @@ object EventualDbCassandra {
         PreparedStatements(
           insertRecord,
           selectLastRecord,
-          listRecords,
+          selectRecords,
+          deleteRecords,
           insertMetadata,
           selectMetadata,
           selectSegmentSize,
@@ -161,185 +167,132 @@ object EventualDbCassandra {
       // TODO verify all records have same id
       // TODO what if eventualRecords.empty but deletedTo is present ?
       // TODO prevent passing both No records and No deletion
-      def save(id: Id, eventualRecords: UpdateTmp, topic: Topic): Future[Unit] = {
+      def save(id: Id, updateTmp: UpdateTmp, topic: Topic): Future[Unit] = {
 
+        def save(statements: PreparedStatements, metadata: Option[Metadata]) = {
 
-        def delete(seqNr: SeqNr) = {
-          // TODO implement
-          Future.unit
-        }
+          def delete(deletedTo: SeqNr, metadata: Metadata) = {
 
+            println(s"$id ######## $deletedTo, metadata: ${ metadata.deletedTo }")
 
-        def save1(eventualRecords: EventualRecords) = {
+            def segmentOf(seqNr: SeqNr) = Segment(seqNr, metadata.segmentSize)
 
-          println(s"$id save deletedTo: ${ eventualRecords.deletedTo }, topic: $topic")
-
-          // TODO delete actual records !!!
-
-          val records = eventualRecords.records
-
-          def insert(prepared: PreparedStatements, segmentSize: Int) = {
-            val records = eventualRecords.records
-            if (records.isEmpty) Future.unit
-            else {
-
-              val head = records.head
-              val segment = Segment(head.seqNr, config.segmentSize)
-              val statement = {
-
-                val statements = for {
-                  record <- records
-                } yield {
-                  prepared.insertRecord(record, segment)
-                }
-
-                if (statements.size == 1) {
-                  statements.head
-                } else {
-                  val batch = new BatchStatement()
-                  statements.foldLeft(batch) { _ add _ }
-                }
-              }
-
-              val statementFinal = statement.set(statementConfig)
-              session.executeAsync(statementFinal).asScala()
+            def delete(segment: Segment) = {
+              statements.deleteRecords(id, segment, deletedTo)
             }
-          }
 
-          def insertRecordsAndMetadata(prepared: PreparedStatements, metadata: Option[Metadata]) = {
-            // TODO
-            val segmentSize = metadata.map { _.segmentSize } getOrElse config.segmentSize
-            val deletedTo = metadata.map{_.deletedTo} getOrElse SeqNr.Min
-
-            val metadata2 = Metadata(
-              id = id,
-              topic = topic,
-              segmentSize = segmentSize,
-              deletedTo = deletedTo)
-
-            for {
-              //                    _ <- deleteResult
-              _ <- prepared.insertMetadata(metadata2)
-              _ <- insert(prepared, segmentSize)
+            val lowest = segmentOf(metadata.deletedTo)
+            val highest = segmentOf(deletedTo)
+            val futures = for {
+              segment <- lowest to highest // TODO maybe add ability to create Seq[Segment] out of SeqRange ?
             } yield {
-
+              delete(segment)
             }
+            Future.sequence(futures).unit
           }
 
-          eventualRecords.deletedTo match {
-            case None =>
 
-              for {
-                (session, prepared) <- sessionAndPreparedStatements
-                metadata <- prepared.selectMetadata(id)
-                _ <- insertRecordsAndMetadata(prepared, metadata)
-              } yield {
+          def save(records: Seq[EventualRecord], deletedTo: Option[SeqNr]) = {
 
-              }
+            println(s"$id save deletedTo: $deletedTo, topic: $topic")
 
+            // TODO delete actual records !!!
 
-            case Some(deletedTo) =>
+            def saveRecords(segmentSize: Int) = {
+              if (records.isEmpty) Future.unit
+              else {
+                val head = records.head
+                val segment = Segment(head.seqNr, config.segmentSize)
+                // TODO rename
+                val insert = {
 
-              def save(metadata: Option[Metadata], prepared: PreparedStatements) = {
+                  val inserts = for {
+                    record <- records
+                  } yield {
+                    statements.insertRecord(record, segment)
+                  }
 
-                val deleteResult = metadata match {
-                  case Some(metadata) => delete(deletedTo)
-                  case None           => Future.unit
-                }
-
-                def tmp() = {
-
-                  // TODO this is delete all use case, we don't need to insert segment size,
-                  if (records.isEmpty) {
-
-                    val segmentSize = metadata.map { _.segmentSize } getOrElse config.segmentSize
-
-                    val metadata2 = Metadata(
-                      id = id,
-                      topic = topic,
-                      deletedTo = deletedTo,
-                      segmentSize = segmentSize)
-
-                    for {
-                      //                    _ <- deleteResult
-                      _ <- prepared.insertMetadata(metadata2)
-                    } yield {
-
-                    }
-
+                  if (inserts.size == 1) {
+                    inserts.head
                   } else {
-                    insertRecordsAndMetadata(prepared, metadata)
+                    val batch = new BatchStatement()
+                    inserts.foldLeft(batch) { _ add _ }
                   }
                 }
 
-                for {
-                  _ <- deleteResult
-                  _ <- tmp()
-                } yield {
-
-                }
+                val insertFinal = insert.set(statementConfig)
+                session.executeAsync(insertFinal).asScala()
               }
+            }
 
+            def saveMetadata(): Future[Metadata] = {
 
+              val segmentSize = metadata.fold(config.segmentSize) { _.segmentSize }
+
+              val metadataNew = Metadata(
+                id = id,
+                topic = topic,
+                segmentSize = segmentSize,
+                deletedTo = deletedTo getOrElse SeqNr.Min)
+
+              // TODO split on insert and update queries
               for {
-                (session, prepared) <- sessionAndPreparedStatements
-                metadata <- prepared.selectMetadata(id)
-                _ <- save(metadata, prepared)
+                _ <- statements.insertMetadata(metadataNew)
               } yield {
-
+                metadataNew
               }
+            }
 
+            for {
+              metadata <- saveMetadata()
+              _ <- deletedTo.fold(Future.unit) { deletedTo => delete(deletedTo, metadata) }
+              _ <- saveRecords(metadata.segmentSize)
+            } yield {}
           }
-        }
 
-        def save2(deletedTo: SeqNr) = {
+          def deleteUnbound(deletedToUnbound: SeqNr) = {
 
-          def save2(prepared: PreparedStatements, metadata: Option[Metadata]) = {
-            metadata match {
-              case None           => Future.unit
-              case Some(metadata) =>
+            metadata.fold(Future.unit) { metadata =>
+              if (deletedToUnbound <= metadata.deletedTo) {
+                Future.unit
+              } else {
 
-                if (deletedTo <= metadata.deletedTo) {
-                  Future.unit
-                } else {
-
-                def save2(seqNr: SeqNr) = {
-
-                  val metadata2 = Metadata(
+                def saveAndDelete(deletedTo: SeqNr) = {
+                  val metadataNew = Metadata(
                     id = id,
                     topic = topic,
-                    deletedTo = deletedTo min seqNr,
+                    deletedTo = deletedTo,
                     segmentSize = metadata.segmentSize)
 
-                    prepared.insertMetadata(metadata2)
-                    }
-
-                    for {
-                      seqNr <- LastSeqNr(id, SeqNr.Min, prepared.selectLastRecord, metadata)
-                      _ <- save2(seqNr)
-                    } yield {
-
-                    }
+                  for {
+                    _ <- statements.insertMetadata(metadataNew) // TODO optimise query
+                    _ <- delete(deletedTo, metadata)
+                  } yield {}
                 }
+
+                for {
+                  lastSeqNr <- LastSeqNr(id, metadata.deletedTo, statements.selectLastRecord, metadata)
+                  deletedTo = deletedToUnbound min lastSeqNr
+                  result <- saveAndDelete(deletedTo)
+                } yield {
+                  result
+                }
+              }
             }
           }
 
-          if (deletedTo == SeqNr.Min) {
-            Future.unit
-          } else {
-            for {
-              (session, prepared) <- sessionAndPreparedStatements
-              metadata <- prepared.selectMetadata(id)
-              _ <- save2(prepared, metadata)
-            } yield {
-
-            }
+          updateTmp match {
+            case UpdateTmp.DeleteToKnown(deletedTo, records) => save(records, deletedTo)
+            case UpdateTmp.DeleteUnbound(deletedTo)          => deleteUnbound(deletedTo)
           }
         }
 
-        eventualRecords match {
-          case UpdateTmp.DeleteToKnown(deletedTo, records) => save1(EventualRecords(records, Some(deletedTo)))
-          case UpdateTmp.DeleteToUnknown(deletedTo)        => save2(deletedTo)
+        for {
+          (session, statements) <- sessionAndPreparedStatements
+          metadata <- statements.selectMetadata(id)
+          result <- save(statements, metadata)
+        } yield {
+          result
         }
       }
 

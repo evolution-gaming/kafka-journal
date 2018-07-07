@@ -5,7 +5,7 @@ import com.typesafe.config.Config
 
 case class EventualCassandraConfig(
   /*segmentSize: Int = 500000*/
-  segmentSize: Int = 100)
+  segmentSize: Int = 10)
 
 object EventualCassandraConfig {
 

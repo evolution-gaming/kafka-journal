@@ -109,8 +109,8 @@ object Replicator {
         // TODO rename
         object Tmp {
           case object Empty extends Tmp
-          case class DeleteToKnown(value: SeqNr, records: Seq[EventualRecord]) extends Tmp
-          case class DeleteToUnknown(value: SeqNr) extends Tmp
+          case class DeleteToKnown(deletedTo: Option[SeqNr], records: Seq[EventualRecord]) extends Tmp
+          case class DeleteToUnknown(deletedTo: SeqNr) extends Tmp
         }
 
 
@@ -124,7 +124,7 @@ object Replicator {
               val records = events.map { event => toEventualRecord(record, event) }
 
               result match {
-                case Tmp.Empty => Tmp.DeleteToKnown(SeqNr.Min /*TODO*/ , records)
+                case Tmp.Empty => Tmp.DeleteToKnown(None, records)
 
                 case Tmp.DeleteToKnown(deleteTo, xs) =>
                   Tmp.DeleteToKnown(deleteTo, xs ++ records)
@@ -133,15 +133,13 @@ object Replicator {
 
                   val range = action.range
                   if (value < range.from) {
-                    Tmp.DeleteToKnown(value, records)
+                    Tmp.DeleteToKnown(Some(value), records)
                   } else if (value >= range.to) {
-                    Tmp.DeleteToKnown(range.to, Vector.empty)
+                    Tmp.DeleteToKnown(Some(range.to), Vector.empty)
                   } else {
                     val result = records.dropWhile { _.seqNr <= value }
-                    Tmp.DeleteToKnown(value, result)
+                    Tmp.DeleteToKnown(Some(value), result)
                   }
-
-
               }
 
 
@@ -150,26 +148,41 @@ object Replicator {
               val deleteTo = action.to
 
               result match {
-                case Tmp.Empty                         => Tmp.DeleteToUnknown(deleteTo)
-                  // TODO use the same logic in Eventual
+                case Tmp.Empty => Tmp.DeleteToUnknown(deleteTo)
+                // TODO use the same logic in Eventual
                 case Tmp.DeleteToKnown(value, records) =>
-                  if (records.isEmpty) {
-                    Tmp.DeleteToKnown(value, records)
-                  } else {
-                    if (deleteTo <= value) {
-                      Tmp.DeleteToKnown(value, records)
-                    } else {
-                      val result = records.dropWhile { _.seqNr <= deleteTo }
-                      if (result.isEmpty) {
-                        val deleteTo2 = records.last.seqNr
-                        Tmp.DeleteToKnown(deleteTo2, result)
+
+                  value match {
+                    case None =>
+                      if (records.isEmpty) {
+                        ???
                       } else {
-                        Tmp.DeleteToKnown(deleteTo, result)
+                        val head = records.head.seqNr
+                        if (deleteTo < head) {
+                          Tmp.DeleteToKnown(None, records)
+                        } else {
+                          val result = records.dropWhile { _.seqNr <= deleteTo }
+                          val lastSeqNr = result.lastOption.fold(records.last.seqNr) { _.seqNr }
+                          Tmp.DeleteToKnown(Some(lastSeqNr), result)
+                        }
                       }
-                    }
+
+
+                    case Some(deleteToPrev) =>
+                      if (records.isEmpty) {
+                        Tmp.DeleteToKnown(Some(deleteToPrev), records)
+                      } else {
+                        if (deleteTo <= deleteToPrev) {
+                          Tmp.DeleteToKnown(Some(deleteToPrev), records)
+                        } else {
+                          val result = records.dropWhile { _.seqNr <= deleteTo }
+                          val lastSeqNr = result.lastOption.fold(records.last.seqNr) { _ => deleteTo }
+                          Tmp.DeleteToKnown(Some(lastSeqNr), result)
+                        }
+                      }
                   }
 
-                case Tmp.DeleteToUnknown(value) => Tmp.DeleteToUnknown(deleteTo max value)
+                case Tmp.DeleteToUnknown(deleteToPrev) => Tmp.DeleteToUnknown(deleteTo max deleteToPrev)
               }
 
             case action: Action.Mark => result
@@ -180,9 +193,9 @@ object Replicator {
         result match {
           case Tmp.Empty => Future.unit
 
-          case Tmp.DeleteToKnown(value, records) =>
+          case Tmp.DeleteToKnown(deletedTo, records) =>
 
-            val updateTmp = UpdateTmp.DeleteToKnown(value, records)
+            val updateTmp = UpdateTmp.DeleteToKnown(deletedTo, records)
 
             eventualDb.save(id, updateTmp, topic).map { result =>
               if (records.nonEmpty) {
@@ -199,7 +212,7 @@ object Replicator {
 
           case Tmp.DeleteToUnknown(value) =>
             println(s"$id replicate.save DeleteToUnknown($value)")
-            val updateTmp = UpdateTmp.DeleteToUnknown(value)
+            val updateTmp = UpdateTmp.DeleteUnbound(value)
             eventualDb.save(id, updateTmp, topic)
         }
       }
