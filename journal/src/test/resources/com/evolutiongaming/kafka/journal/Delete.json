@@ -1,5 +1,5 @@
 {
-  "truncate": {
+  "delete": {
     "to": 3
   }
 }

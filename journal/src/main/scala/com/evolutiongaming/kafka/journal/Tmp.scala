@@ -13,7 +13,7 @@ object Tmp {
 
   def apply(
     result: Result,
-    action: Action.AppendOrTruncate,
+    action: Action.AppendOrDelete,
     record: ConsumerRecord[String, Bytes],
     topic: Topic,
     range: SeqRange) = {
@@ -56,7 +56,7 @@ object Tmp {
           }
         }
 
-      case a: Action.Truncate =>
+      case a: Action.Delete =>
         println(s">>>>>> $a")
         if (a.to > result.deleteTo) {
           val entries = result.entries.dropWhile(_.seqNr <= a.to)

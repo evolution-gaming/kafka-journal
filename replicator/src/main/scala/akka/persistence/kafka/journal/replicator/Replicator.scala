@@ -19,7 +19,6 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 
-// TODO remove deletedTo to truncatedTo
 // TODO refactor EventualDb api, make sure it does operate with Seq[Actions]
 object Replicator {
 
@@ -146,12 +145,13 @@ object Replicator {
               }
 
 
-            case action: Action.Truncate =>
+            case action: Action.Delete =>
 
               val deleteTo = action.to
 
               result match {
                 case Tmp.Empty                         => Tmp.DeleteToUnknown(deleteTo)
+                  // TODO use the same logic in Eventual
                 case Tmp.DeleteToKnown(value, records) =>
                   if (records.isEmpty) {
                     Tmp.DeleteToKnown(value, records)

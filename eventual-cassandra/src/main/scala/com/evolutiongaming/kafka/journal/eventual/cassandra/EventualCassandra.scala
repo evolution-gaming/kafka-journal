@@ -179,7 +179,7 @@ object EventualCassandra {
         }
       }
 
-      // TODO test use case when cassandra is not up to last Action.Truncate
+      // TODO test use case when cassandra is not up to last Action.Delete
 
       def list(id: Id, range: SeqRange): Future[Seq[EventualRecord]] = {
 

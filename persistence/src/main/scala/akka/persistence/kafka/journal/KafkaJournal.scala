@@ -120,7 +120,7 @@ class KafkaJournal extends AsyncWriteJournal {
 
     log.debug(s"asyncDeleteMessagesTo persistenceId: $persistenceId, to: $to")
 
-    client.truncate(persistenceId, to)
+    client.delete(persistenceId, to)
   }
 
   def asyncReplayMessages(persistenceId: PersistenceId, from: SeqNr, to: SeqNr, max: Long)

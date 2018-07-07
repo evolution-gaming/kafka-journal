@@ -10,12 +10,12 @@ class ActionJsonSpec extends FunSuite with Matchers {
     verify(action)
   }
 
-  test("Truncate format") {
-    val action: Action = Action.Truncate(3)
+  test("Delete format") {
+    val action: Action = Action.Delete(3)
     verify(action)
   }
 
-  test("Read format") {
+  test("Mark format") {
     val action: Action = Action.Mark("id")
     verify(action)
   }

@@ -25,7 +25,7 @@ trait Journal {
   // TODO decide on return type
   def read(id: Id, range: SeqRange): Future[Seq[Entry]]
   def lastSeqNr(id: Id, from: SeqNr): Future[SeqNr]
-  def truncate(id: Id, to: SeqNr): Future[Unit]
+  def delete(id: Id, to: SeqNr): Future[Unit]
 }
 
 object Journal {
@@ -34,7 +34,7 @@ object Journal {
     def append(id: Id, events: Nel[Entry]) = Future.unit
     def read(id: Id, range: SeqRange): Future[List[Entry]] = Future.successful(Nil)
     def lastSeqNr(id: Id, from: SeqNr) = Future.successful(0L)
-    def truncate(id: Id, to: SeqNr) = Future.unit
+    def delete(id: Id, to: SeqNr) = Future.unit
   }
 
   def apply(settings: Settings): Journal = ???
@@ -149,7 +149,7 @@ object Journal {
 
 
     trait Fold {
-      def apply[S](s: S)(f: (S, ConsumerRecord[String, Bytes], Action.AppendOrTruncate) => S): Future[S]
+      def apply[S](s: S)(f: (S, ConsumerRecord[String, Bytes], Action.AppendOrDelete) => S): Future[S]
     }
 
     // TODO add range argument
@@ -170,13 +170,13 @@ object Journal {
         // TODO compare partitions !
 
         new Fold {
-          def apply[S](s: S)(f: (S, ConsumerRecord[String, Bytes], Action.AppendOrTruncate) => S): Future[S] = {
+          def apply[S](s: S)(f: (S, ConsumerRecord[String, Bytes], Action.AppendOrDelete) => S): Future[S] = {
 
             // TODO add seqNr safety check
             consume(id, s, partitionOffset) { case (s, record) =>
               val a = toAction(record)
               a match {
-                case a: Action.AppendOrTruncate =>
+                case a: Action.AppendOrDelete =>
                   val ss = f(s, record, a)
                   (ss, true)
 
@@ -253,7 +253,7 @@ object Journal {
               cassandraEntries ++ kafka
           }
         }
-                                                                
+
         result.failed.foreach { failure =>
           failure.printStackTrace()
         }
@@ -270,8 +270,8 @@ object Journal {
           valueEventual = eventual.lastSeqNr(id, from)
           value <- consume[Offset](from) { case (seqNr, _, a) =>
             a match {
-              case a: Action.Append   => a.range.to
-              case a: Action.Truncate => seqNr
+              case a: Action.Append => a.range.to
+              case a: Action.Delete => seqNr
             }
           }
           valueEventual <- valueEventual
@@ -288,9 +288,9 @@ object Journal {
         result
       }
 
-      def truncate(id: Id, to: SeqNr): Future[Unit] = {
+      def delete(id: Id, to: SeqNr): Future[Unit] = {
         println(s"$id Client.truncate $to")
-        val action = Action.Truncate(to)
+        val action = Action.Delete(to)
         produce(id, action, Array.empty[Byte]).unit
       }
     }
