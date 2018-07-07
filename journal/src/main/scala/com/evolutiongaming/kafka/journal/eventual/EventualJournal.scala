@@ -9,16 +9,16 @@ import scala.collection.immutable.Seq
 import scala.concurrent.Future
 
 // TODO find better name
-trait Eventual {
+trait EventualJournal {
   def topicPointers(topic: Topic): Future[TopicPointers]
   def list(id: Id, range: SeqRange): Future[Seq[EventualRecord]]
   def lastSeqNr(id: Id, from: SeqNr): Future[Option[SeqNr]]
 }
 
-object Eventual {
-  val Empty: Eventual = {
+object EventualJournal {
+  val Empty: EventualJournal = {
     val futureTopicPointers = Future.successful(TopicPointers.Empty)
-    new Eventual {
+    new EventualJournal {
       def topicPointers(topic: Topic) = futureTopicPointers
       def list(id: Id, range: SeqRange) = Future.seq
       def lastSeqNr(id: Id, from: SeqNr) = Future.none

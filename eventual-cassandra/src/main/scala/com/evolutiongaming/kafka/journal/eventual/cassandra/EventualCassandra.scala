@@ -30,7 +30,7 @@ object EventualCassandra {
   def apply(
     session: Session,
     schemaConfig: SchemaConfig,
-    config: EventualCassandraConfig)(implicit system: ActorSystem, ec: ExecutionContext): Eventual = {
+    config: EventualCassandraConfig)(implicit system: ActorSystem, ec: ExecutionContext): EventualJournal = {
 
     implicit val materializer = ActorMaterializer()
 
@@ -168,7 +168,7 @@ object EventualCassandra {
     }
 
 
-    new Eventual {
+    new EventualJournal {
 
       def topicPointers(topic: Topic): Future[TopicPointers] = {
         for {

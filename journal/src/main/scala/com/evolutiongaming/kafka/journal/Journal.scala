@@ -8,7 +8,7 @@ import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.ConsumerHelper._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FutureHelper._
-import com.evolutiongaming.kafka.journal.eventual.{Eventual, PartitionOffset}
+import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, PartitionOffset}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecord}
 import com.evolutiongaming.skafka.producer.{Producer, ProducerRecord}
@@ -42,7 +42,7 @@ object Journal {
   def apply(
     producer: Producer,
     newConsumer: () => Consumer[String, Bytes],
-    eventual: Eventual = Eventual.Empty,
+    eventual: EventualJournal = EventualJournal.Empty,
     pollTimeout: FiniteDuration = 100.millis)(implicit
     system: ActorSystem,
     ec: ExecutionContext): Journal = {
