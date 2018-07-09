@@ -1,14 +1,14 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import com.datastax.driver.core.Session
-import com.evolutiongaming.cassandra.CassandraHelpers._
+import com.evolutiongaming.cassandra.CassandraHelper._
 
 import scala.concurrent.{ExecutionContext, Future}
 
 case class Tables(journal: TableName, metadata: TableName, pointer: TableName)
 
 
-object CreateTables {
+object Tables {
 
   def apply(schemaConfig: SchemaConfig, session: Session)(implicit ec: ExecutionContext /*TODO remove*/): Future[Tables] = {
 

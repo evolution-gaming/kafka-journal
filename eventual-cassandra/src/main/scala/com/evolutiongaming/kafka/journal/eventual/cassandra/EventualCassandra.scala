@@ -3,9 +3,8 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
-import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
+import com.datastax.driver.core.policies.LoggingRetryPolicy
 import com.datastax.driver.core.{Metadata => _, _}
-import com.evolutiongaming.cassandra.CassandraHelpers._
 import com.evolutiongaming.cassandra.NextHostRetryPolicy
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.FutureHelper._
@@ -20,12 +19,6 @@ import scala.concurrent.{ExecutionContext, Future}
 
 // TODO create collection that is optimised for ordered sequence and seqNr
 object EventualCassandra {
-
-  case class StatementConfig(
-    idempotent: Boolean = false,
-    consistencyLevel: ConsistencyLevel,
-    retryPolicy: RetryPolicy)
-
 
   def apply(
     session: Session,
@@ -42,68 +35,16 @@ object EventualCassandra {
       retryPolicy = new LoggingRetryPolicy(NextHostRetryPolicy(retries)))
 
 
-    // TODO moveout
-    case class PreparedStatements(
-      selectLastRecord: JournalStatement.SelectLastRecord.Type,
-      selectRecords: JournalStatement.SelectRecords.Type,
-      selectMetadata: MetadataStatement.Select.Type,
-      selectSegmentSize: MetadataStatement.SelectSegmentSize.Type,
-      updatePointer: PointerStatement.Update.Type,
-      selectPointer: PointerStatement.Select.Type,
-      selectTopicPointer: PointerStatement.SelectTopicPointers.Type)
-
-    def preparedStatements(tables: Tables) = {
-
-      val prepareAndExecute = new PrepareAndExecute {
-
-        def prepare(query: String) = {
-          session.prepareAsync(query).asScala()
-        }
-
-        def execute(statement: BoundStatement) = {
-          val statementConfigured = statement.set(statementConfig)
-          val result = session.executeAsync(statementConfigured)
-          result.asScala()
-        }
-      }
-
-      val selectLastRecord = JournalStatement.SelectLastRecord(tables.journal, prepareAndExecute)
-      val listRecords = JournalStatement.SelectRecords(tables.journal, prepareAndExecute)
-      val selectMetadata = MetadataStatement.Select(tables.metadata, prepareAndExecute)
-      val selectSegmentSize = MetadataStatement.SelectSegmentSize(tables.metadata, prepareAndExecute)
-      val updatePointer = PointerStatement.Update(tables.pointer, prepareAndExecute)
-      val selectPointer = PointerStatement.Select(tables.pointer, prepareAndExecute)
-      val selectTopicPointers = PointerStatement.SelectTopicPointers(tables.pointer, prepareAndExecute)
-
-      for {
-        selectLastRecord <- selectLastRecord
-        listRecords <- listRecords
-        selectMetadata <- selectMetadata
-        selectSegmentSize <- selectSegmentSize
-        updatePointer <- updatePointer
-        selectPointer <- selectPointer
-        selectTopicPointers <- selectTopicPointers
-      } yield {
-        PreparedStatements(
-          selectLastRecord,
-          listRecords,
-          selectMetadata,
-          selectSegmentSize,
-          updatePointer,
-          selectPointer,
-          selectTopicPointers)
-      }
-    }
-
-    val sessionAndPreparedStatements = for {
+    val sessionAndStatements = for {
       tables <- CreateSchema(schemaConfig, session)
-      preparedStatements <- preparedStatements(tables)
+      prepareAndExecute = PrepareAndExecute(session, statementConfig)
+      statements <- Statements(tables, prepareAndExecute)
     } yield {
-      (session, preparedStatements)
+      (session, statements)
     }
 
-    def metadata(id: Id, prepared: PreparedStatements) = {
-      val selectMetadata = prepared.selectMetadata
+    def metadata(id: Id, statements: Statements) = {
+      val selectMetadata = statements.selectMetadata
       for {
         metadata <- selectMetadata(id)
       } yield {
@@ -120,8 +61,8 @@ object EventualCassandra {
 
       def topicPointers(topic: Topic): Future[TopicPointers] = {
         for {
-          (session, prepared) <- sessionAndPreparedStatements
-          topicPointers <- prepared.selectTopicPointer(topic)
+          (session, statements) <- sessionAndStatements
+          topicPointers <- statements.selectTopicPointer(topic)
         } yield {
           topicPointers
         }
@@ -145,18 +86,18 @@ object EventualCassandra {
             val segment = segmentOf(range.from)
             val source = Source.unfoldWhile(segment) { segment =>
               println(s"$id Source.unfoldWhile range: $range, segment: $segment")
-                for {
-                  records <- statement(id, segment, range)
-                } yield {
-                  if (records.isEmpty) {
-                    (segment, false, Iterable.empty)
-                  } else {
-                    val seqNrNext = records.last.seqNr.next
-                    val segmentNext = segmentOf(seqNrNext)
-                    val continue = (range contains seqNrNext) && segment != segmentNext
-                    (segmentNext, continue, records)
-                  }
+              for {
+                records <- statement(id, segment, range)
+              } yield {
+                if (records.isEmpty) {
+                  (segment, false, Iterable.empty)
+                } else {
+                  val seqNrNext = records.last.seqNr.next
+                  val segmentNext = segmentOf(seqNrNext)
+                  val continue = (range contains seqNrNext) && segment != segmentNext
+                  (segmentNext, continue, records)
                 }
+              }
             }
 
             source.runWith(Sink.seq)
@@ -166,7 +107,7 @@ object EventualCassandra {
 
           println(s"$id EventualCassandra.list deletedTo: $deletedTo")
 
-          if(deletedTo >= range.to) {
+          if (deletedTo >= range.to) {
             Future.seq
           } else {
             val from = range.from max (deletedTo + 1)
@@ -176,11 +117,11 @@ object EventualCassandra {
         }
 
         for {
-          (session, statements) <- sessionAndPreparedStatements
+          (session, statements) <- sessionAndStatements
           metadata <- metadata(id, statements)
           result <- metadata match {
             case Some(metadata) => list(statements.selectRecords, metadata)
-            case None => Future.seq
+            case None           => Future.seq
           }
         } yield {
           println(s"$id EventualCassandra.list ${ result.map { _.seqNr }.mkString(",") }")
@@ -228,11 +169,11 @@ object EventualCassandra {
         }
 
         for {
-          (session, statements) <- sessionAndPreparedStatements
+          (session, statements) <- sessionAndStatements
           metadata <- metadata(id, statements)
           seqNr <- metadata match {
             case Some(metadata) => lastSeqNr(statements.selectLastRecord, metadata)
-            case None => Future.successful(SeqNr.Min) // TODO cache value
+            case None           => Future.successful(SeqNr.Min) // TODO cache value
           }
         } yield {
           println(s"$id lastSeqNr: $seqNr")
@@ -243,15 +184,46 @@ object EventualCassandra {
   }
 
 
-  implicit class StatementOps(val self: Statement) extends AnyVal {
+  final case class Statements(
+    selectLastRecord: JournalStatement.SelectLastRecord.Type,
+    selectRecords: JournalStatement.SelectRecords.Type,
+    selectMetadata: MetadataStatement.Select.Type,
+    selectSegmentSize: MetadataStatement.SelectSegmentSize.Type,
+    updatePointer: PointerStatement.Update.Type,
+    selectPointer: PointerStatement.Select.Type,
+    selectTopicPointer: PointerStatement.SelectTopicPointers.Type)
 
-    def set(statementConfig: StatementConfig): Statement = {
-      self
-        .setIdempotent(statementConfig.idempotent)
-        .setConsistencyLevel(statementConfig.consistencyLevel)
-        .setRetryPolicy(statementConfig.retryPolicy)
+  object Statements {
+
+    def apply(tables: Tables, prepareAndExecute: PrepareAndExecute)(implicit ec: ExecutionContext): Future[Statements] = {
+
+      val selectLastRecord = JournalStatement.SelectLastRecord(tables.journal, prepareAndExecute)
+      val listRecords = JournalStatement.SelectRecords(tables.journal, prepareAndExecute)
+      val selectMetadata = MetadataStatement.Select(tables.metadata, prepareAndExecute)
+      val selectSegmentSize = MetadataStatement.SelectSegmentSize(tables.metadata, prepareAndExecute)
+      val updatePointer = PointerStatement.Update(tables.pointer, prepareAndExecute)
+      val selectPointer = PointerStatement.Select(tables.pointer, prepareAndExecute)
+      val selectTopicPointers = PointerStatement.SelectTopicPointers(tables.pointer, prepareAndExecute)
+
+      for {
+        selectLastRecord <- selectLastRecord
+        listRecords <- listRecords
+        selectMetadata <- selectMetadata
+        selectSegmentSize <- selectSegmentSize
+        updatePointer <- updatePointer
+        selectPointer <- selectPointer
+        selectTopicPointers <- selectTopicPointers
+      } yield {
+        Statements(
+          selectLastRecord,
+          listRecords,
+          selectMetadata,
+          selectSegmentSize,
+          updatePointer,
+          selectPointer,
+          selectTopicPointers)
+      }
     }
   }
-
 }
 

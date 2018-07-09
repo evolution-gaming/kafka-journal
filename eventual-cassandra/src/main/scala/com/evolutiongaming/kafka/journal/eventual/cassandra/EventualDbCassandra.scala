@@ -1,13 +1,14 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import akka.actor.ActorSystem
-import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
+import com.datastax.driver.core.policies.LoggingRetryPolicy
 import com.datastax.driver.core.{Metadata => _, _}
-import com.evolutiongaming.cassandra.CassandraHelpers._
+import com.evolutiongaming.cassandra.CassandraHelper._
 import com.evolutiongaming.cassandra.NextHostRetryPolicy
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.eventual._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Topic
 
@@ -18,12 +19,6 @@ import scala.concurrent.{ExecutionContext, Future}
 // TODO create collection that is optimised for ordered sequence and seqNr
 // TODO redesign EventualDbCassandra so it can hold stat and called recursively
 object EventualDbCassandra {
-
-  case class StatementConfig(
-    idempotent: Boolean = false,
-    consistencyLevel: ConsistencyLevel,
-    retryPolicy: RetryPolicy)
-
 
   def apply(
     session: Session,
@@ -39,85 +34,12 @@ object EventualDbCassandra {
       consistencyLevel = ConsistencyLevel.ONE,
       retryPolicy = new LoggingRetryPolicy(NextHostRetryPolicy(retries)))
 
-    // TODO moveout
-    case class PreparedStatements(
-      insertRecord: JournalStatement.InsertRecord.Type,
-      selectLastRecord: JournalStatement.SelectLastRecord.Type,
-      selectRecords: JournalStatement.SelectRecords.Type,
-      deleteRecords: JournalStatement.DeleteRecords.Type,
-      insertMetadata: MetadataStatement.Insert.Type,
-      selectMetadata: MetadataStatement.Select.Type,
-      selectSegmentSize: MetadataStatement.SelectSegmentSize.Type,
-      updatedDeletedTo: MetadataStatement.UpdatedMetadata.Type,
-      insertPointer: PointerStatement.Insert.Type,
-      updatePointer: PointerStatement.Update.Type,
-      selectPointer: PointerStatement.Select.Type,
-      selectTopicPointer: PointerStatement.SelectTopicPointers.Type)
-
-
-    def preparedStatements(tables: Tables) = {
-
-      val prepareAndExecute = new PrepareAndExecute {
-
-        def prepare(query: String) = {
-          session.prepareAsync(query).asScala()
-        }
-
-        def execute(statement: BoundStatement) = {
-          val statementConfigured = statement.set(statementConfig)
-          val result = session.executeAsync(statementConfigured)
-          result.asScala()
-        }
-      }
-
-      val insertRecord = JournalStatement.InsertRecord(tables.journal, session.prepareAsync(_: String).asScala())
-      val selectLastRecord = JournalStatement.SelectLastRecord(tables.journal, prepareAndExecute)
-      val selectRecords = JournalStatement.SelectRecords(tables.journal, prepareAndExecute)
-      val deleteRecords = JournalStatement.DeleteRecords(tables.journal, prepareAndExecute)
-      val insertMetadata = MetadataStatement.Insert(tables.metadata, prepareAndExecute)
-      val selectMetadata = MetadataStatement.Select(tables.metadata, prepareAndExecute)
-      val selectSegmentSize = MetadataStatement.SelectSegmentSize(tables.metadata, prepareAndExecute)
-      val updatedDeletedTo = MetadataStatement.UpdatedMetadata(tables.metadata, prepareAndExecute)
-      val insertPointer = PointerStatement.Insert(tables.pointer, prepareAndExecute)
-      val updatePointer = PointerStatement.Update(tables.pointer, prepareAndExecute)
-      val selectPointer = PointerStatement.Select(tables.pointer, prepareAndExecute)
-      val selectTopicPointers = PointerStatement.SelectTopicPointers(tables.pointer, prepareAndExecute)
-
-      for {
-        insertRecord <- insertRecord
-        selectLastRecord <- selectLastRecord
-        selectRecords <- selectRecords
-        deleteRecords <- deleteRecords
-        insertMetadata <- insertMetadata
-        selectMetadata <- selectMetadata
-        selectSegmentSize <- selectSegmentSize
-        updatedDeletedTo <- updatedDeletedTo
-        insertPointer <- insertPointer
-        updatePointer <- updatePointer
-        selectPointer <- selectPointer
-        selectTopicPointers <- selectTopicPointers
-      } yield {
-        PreparedStatements(
-          insertRecord,
-          selectLastRecord,
-          selectRecords,
-          deleteRecords,
-          insertMetadata,
-          selectMetadata,
-          selectSegmentSize,
-          updatedDeletedTo,
-          insertPointer,
-          updatePointer,
-          selectPointer,
-          selectTopicPointers)
-      }
-    }
-
-    val sessionAndPreparedStatements = for {
+    val statements = for {
       tables <- CreateSchema(schemaConfig, session)
-      preparedStatements <- preparedStatements(tables)
+      prepareAndExecute = PrepareAndExecute(session, statementConfig)
+      statements <- Statements(session, tables, prepareAndExecute)
     } yield {
-      (session, preparedStatements)
+      statements
     }
 
 
@@ -131,7 +53,7 @@ object EventualDbCassandra {
       // TODO prevent passing both No records and No deletion
       def save(id: Id, updateTmp: UpdateTmp, topic: Topic): Future[Unit] = {
 
-        def save(statements: PreparedStatements, metadata: Option[Metadata]) = {
+        def save(statements: Statements, metadata: Option[Metadata]) = {
 
           def delete(deletedTo: SeqNr, metadata: Metadata) = {
 
@@ -248,7 +170,7 @@ object EventualDbCassandra {
         }
 
         for {
-          (session, statements) <- sessionAndPreparedStatements
+          statements <- statements
           metadata <- statements.selectMetadata(id)
           result <- save(statements, metadata)
         } yield {
@@ -263,7 +185,7 @@ object EventualDbCassandra {
 
           // TODO topic is a partition key, should I batch by partition ?
 
-          def savePointers(prepared: PreparedStatements) = {
+          def savePointers(statements: Statements) = {
             val updated = updatePointers.timestamp
             val futures = for {
               (topicPartition, (offset, created)) <- pointers
@@ -280,7 +202,7 @@ object EventualDbCassandra {
                     offset = offset,
                     updated = updated)
 
-                  prepared.updatePointer(update)
+                  statements.updatePointer(update)
 
                 case Some(created) =>
                   val insert = PointerInsert(
@@ -290,7 +212,7 @@ object EventualDbCassandra {
                     updated = updated,
                     created = created)
 
-                  prepared.insertPointer(insert)
+                  statements.insertPointer(insert)
               }
             }
 
@@ -298,8 +220,8 @@ object EventualDbCassandra {
           }
 
           for {
-            (session, prepared) <- sessionAndPreparedStatements
-            _ <- savePointers(prepared)
+            statements <- statements
+            _ <- savePointers(statements)
           } yield {
 
           }
@@ -309,8 +231,8 @@ object EventualDbCassandra {
 
       def topicPointers(topic: Topic): Future[TopicPointers] = {
         for {
-          (session, prepared) <- sessionAndPreparedStatements
-          topicPointers <- prepared.selectTopicPointer(topic)
+          statements <- statements
+          topicPointers <- statements.selectTopicPointer(topic)
         } yield {
           topicPointers
         }
@@ -319,14 +241,69 @@ object EventualDbCassandra {
   }
 
 
-  implicit class StatementOps(val self: Statement) extends AnyVal {
+  final case class Statements(
+    insertRecord: JournalStatement.InsertRecord.Type,
+    selectLastRecord: JournalStatement.SelectLastRecord.Type,
+    selectRecords: JournalStatement.SelectRecords.Type,
+    deleteRecords: JournalStatement.DeleteRecords.Type,
+    insertMetadata: MetadataStatement.Insert.Type,
+    selectMetadata: MetadataStatement.Select.Type,
+    selectSegmentSize: MetadataStatement.SelectSegmentSize.Type,
+    updatedDeletedTo: MetadataStatement.UpdatedMetadata.Type,
+    insertPointer: PointerStatement.Insert.Type,
+    updatePointer: PointerStatement.Update.Type,
+    selectPointer: PointerStatement.Select.Type,
+    selectTopicPointer: PointerStatement.SelectTopicPointers.Type)
 
-    def set(statementConfig: StatementConfig): Statement = {
-      self
-        .setIdempotent(statementConfig.idempotent)
-        .setConsistencyLevel(statementConfig.consistencyLevel)
-        .setRetryPolicy(statementConfig.retryPolicy)
+  object Statements {
+
+    def apply(
+      session: Session,
+      tables: Tables,
+      prepareAndExecute: PrepareAndExecute)(implicit
+      ec: ExecutionContext): Future[Statements] = {
+
+      val insertRecord = JournalStatement.InsertRecord(tables.journal, session.prepareAsync(_: String).asScala())
+      val selectLastRecord = JournalStatement.SelectLastRecord(tables.journal, prepareAndExecute)
+      val selectRecords = JournalStatement.SelectRecords(tables.journal, prepareAndExecute)
+      val deleteRecords = JournalStatement.DeleteRecords(tables.journal, prepareAndExecute)
+      val insertMetadata = MetadataStatement.Insert(tables.metadata, prepareAndExecute)
+      val selectMetadata = MetadataStatement.Select(tables.metadata, prepareAndExecute)
+      val selectSegmentSize = MetadataStatement.SelectSegmentSize(tables.metadata, prepareAndExecute)
+      val updatedDeletedTo = MetadataStatement.UpdatedMetadata(tables.metadata, prepareAndExecute)
+      val insertPointer = PointerStatement.Insert(tables.pointer, prepareAndExecute)
+      val updatePointer = PointerStatement.Update(tables.pointer, prepareAndExecute)
+      val selectPointer = PointerStatement.Select(tables.pointer, prepareAndExecute)
+      val selectTopicPointers = PointerStatement.SelectTopicPointers(tables.pointer, prepareAndExecute)
+
+      for {
+        insertRecord <- insertRecord
+        selectLastRecord <- selectLastRecord
+        selectRecords <- selectRecords
+        deleteRecords <- deleteRecords
+        insertMetadata <- insertMetadata
+        selectMetadata <- selectMetadata
+        selectSegmentSize <- selectSegmentSize
+        updatedDeletedTo <- updatedDeletedTo
+        insertPointer <- insertPointer
+        updatePointer <- updatePointer
+        selectPointer <- selectPointer
+        selectTopicPointers <- selectTopicPointers
+      } yield {
+        Statements(
+          insertRecord,
+          selectLastRecord,
+          selectRecords,
+          deleteRecords,
+          insertMetadata,
+          selectMetadata,
+          selectSegmentSize,
+          updatedDeletedTo,
+          insertPointer,
+          updatePointer,
+          selectPointer,
+          selectTopicPointers)
+      }
     }
   }
-
 }

@@ -6,7 +6,7 @@ import com.google.common.util.concurrent.ListenableFuture
 import scala.concurrent.{ExecutionException, Future, Promise}
 import scala.util.{Failure, Try}
 
-object CassandraHelpers {
+object CassandraHelper {
 
   implicit class ListenableFutureOps[T](val self: ListenableFuture[T]) extends AnyVal {
 

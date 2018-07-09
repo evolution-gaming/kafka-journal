@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import com.datastax.driver.core.Session
-import com.evolutiongaming.cassandra.CassandraHelpers._
+import com.evolutiongaming.cassandra.CassandraHelper._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -9,7 +9,7 @@ object CreateSchema {
 
   def apply(schemaConfig: SchemaConfig, session: Session)(implicit ec: ExecutionContext /*TODO remove*/): Future[Tables] = {
 
-    def apply() = {
+    def createKeyspace() = {
       val keyspace = schemaConfig.keyspace
       if (keyspace.autoCreate) {
         val query = JournalStatement.createKeyspace(keyspace)
@@ -20,8 +20,8 @@ object CreateSchema {
     }
 
     for {
-      _ <- apply()
-      tables <- CreateTables(schemaConfig, session)
+      _ <- createKeyspace()
+      tables <- Tables(schemaConfig, session)
     } yield tables
   }
 }

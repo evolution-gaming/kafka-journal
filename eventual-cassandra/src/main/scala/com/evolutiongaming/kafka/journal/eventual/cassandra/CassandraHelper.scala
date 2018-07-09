@@ -4,7 +4,7 @@ import java.nio.ByteBuffer
 import java.time.Instant
 import java.util.Date
 
-import com.datastax.driver.core.{BoundStatement, Row}
+import com.datastax.driver.core.{BoundStatement, Row, Statement}
 
 import scala.collection.JavaConverters._
 
@@ -88,6 +88,17 @@ object CassandraHelper {
     def apply(row: Row, name: String) = {
       val set = row.getSet(name, classOf[String])
       set.asScala.toSet
+    }
+  }
+
+
+  implicit class StatementOps(val self: Statement) extends AnyVal {
+
+    def set(statementConfig: StatementConfig): Statement = {
+      self
+        .setIdempotent(statementConfig.idempotent)
+        .setConsistencyLevel(statementConfig.consistencyLevel)
+        .setRetryPolicy(statementConfig.retryPolicy)
     }
   }
 }
