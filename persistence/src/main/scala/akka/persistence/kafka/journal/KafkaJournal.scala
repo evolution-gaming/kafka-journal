@@ -7,9 +7,9 @@ import akka.persistence.{AtomicWrite, PersistentRepr}
 import com.evolutiongaming.cassandra.{CassandraConfig, CreateCluster}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.Alias._
-import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualDb}
+import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig, SchemaConfig}
-import com.evolutiongaming.kafka.journal.{Journal, Entry, SeqRange}
+import com.evolutiongaming.kafka.journal.{Journals, Entry, SeqRange}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.serialization.{SerializedMsg, SerializedMsgExt}
@@ -32,7 +32,7 @@ class KafkaJournal extends AsyncWriteJournal {
 
   val log = ActorLog(system, classOf[KafkaJournal])
 
-  lazy val client: Journal = {
+  lazy val journals: Journals = {
 
     def config(name: String) = {
       val config = system.settings.config
@@ -56,7 +56,7 @@ class KafkaJournal extends AsyncWriteJournal {
         case NonFatal(failure) => log.error(s"failed to shutdown producer $failure", failure)
       }
     }
-    
+
     val consumerConfig = ConsumerConfig(config("consumer"))
     log.debug(s"Consumer config: $consumerConfig")
 
@@ -78,7 +78,7 @@ class KafkaJournal extends AsyncWriteJournal {
       EventualCassandra(session, schemaConfig, config)
     }
 
-    Journal(producer, newConsumer, eventual)
+    Journals(producer, newConsumer, eventual)
   }
 
   // TODO optimise sequence of calls asyncWriteMessages & asyncReadHighestSequenceNr for the same persistenceId
@@ -109,7 +109,7 @@ class KafkaJournal extends AsyncWriteJournal {
           // TODO rename
           Entry(bytes, persistentRepr.sequenceNr, tags)
         }
-        val result = client.append(persistenceId, Nel(records.head, records.tail.toList))
+        val result = journals.append(persistenceId, Nel(records.head, records.tail.toList))
         result.map(_ => Nil)(CurrentThreadExecutionContext)
       }
       result.flatMap(identity)(CurrentThreadExecutionContext)
@@ -120,17 +120,17 @@ class KafkaJournal extends AsyncWriteJournal {
 
     log.debug(s"asyncDeleteMessagesTo persistenceId: $persistenceId, to: $to")
 
-    client.delete(persistenceId, to)
+    journals.delete(persistenceId, to)
   }
 
   def asyncReplayMessages(persistenceId: PersistenceId, from: SeqNr, to: SeqNr, max: Long)
     (callback: PersistentRepr => Unit): Future[Unit] = {
-    
+
     val range = SeqRange(from , to)
 
     log.debug(s"asyncReplayMessages persistenceId: $persistenceId, range: $range, max: $max")
 
-    client.read(persistenceId, range).map { entries =>
+    journals.read(persistenceId, range).map { entries =>
       val maxInt = (max min Int.MaxValue).toInt
       val filtered = entries.take(maxInt) // TODO avoid reading more than needed
 
@@ -156,7 +156,7 @@ class KafkaJournal extends AsyncWriteJournal {
   }
 
   def asyncReadHighestSequenceNr(persistenceId: PersistenceId, from: SeqNr): Future[SeqNr] = {
-    client.lastSeqNr(persistenceId, from).map { seqNr =>
+    journals.lastSeqNr(persistenceId, from).map { seqNr =>
       log.debug(s"asyncReadHighestSequenceNr persistenceId: $persistenceId, from: $from, result: $seqNr")
       seqNr
     }

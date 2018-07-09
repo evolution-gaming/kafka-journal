@@ -20,7 +20,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 // TODO consider passing topic along with id as method argument
-trait Journal {
+trait Journals {
   def append(id: Id, events: Nel[Entry]): Future[Unit]
   // TODO decide on return type
   def read(id: Id, range: SeqRange): Future[Seq[Entry]]
@@ -28,16 +28,16 @@ trait Journal {
   def delete(id: Id, to: SeqNr): Future[Unit]
 }
 
-object Journal {
+object Journals {
 
-  val Empty: Journal = new Journal {
+  val Empty: Journals = new Journals {
     def append(id: Id, events: Nel[Entry]) = Future.unit
     def read(id: Id, range: SeqRange): Future[List[Entry]] = Future.successful(Nil)
     def lastSeqNr(id: Id, from: SeqNr) = Future.successful(0L)
     def delete(id: Id, to: SeqNr) = Future.unit
   }
 
-  def apply(settings: Settings): Journal = ???
+  def apply(settings: Settings): Journals = ???
 
   def apply(
     producer: Producer,
@@ -45,7 +45,7 @@ object Journal {
     eventual: EventualJournal = EventualJournal.Empty,
     pollTimeout: FiniteDuration = 100.millis)(implicit
     system: ActorSystem,
-    ec: ExecutionContext): Journal = {
+    ec: ExecutionContext): Journals = {
 
     def toTopic(id: Id) = "journal"
 
@@ -190,7 +190,7 @@ object Journal {
       }
     }
 
-    new Journal {
+    new Journals {
 
       def append(id: Id, events: Nel[Entry]): Future[Unit] = {
 

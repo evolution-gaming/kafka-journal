@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import akka.actor.{ExtendedActorSystem, Extension, ExtensionId}
 
 trait ClientExtension extends Extension {
-  def client: Journal
+  def journals: Journals
 }
 
 object ClientExtension extends ExtensionId[ClientExtension] {
@@ -13,7 +13,7 @@ object ClientExtension extends ExtensionId[ClientExtension] {
     val settings = Settings(system.settings.config)
 
     new ClientExtension {
-      val client = Journal(settings)
+      val journals = Journals(settings)
     }
   }
 }
