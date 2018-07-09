@@ -5,7 +5,7 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
 import com.datastax.driver.core.{Metadata => _, _}
-import com.evolutiongaming.cassandra.Helpers._
+import com.evolutiongaming.cassandra.CassandraHelpers._
 import com.evolutiongaming.cassandra.NextHostRetryPolicy
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.FutureHelper._
@@ -41,15 +41,6 @@ object EventualCassandra {
       consistencyLevel = ConsistencyLevel.ONE,
       retryPolicy = new LoggingRetryPolicy(NextHostRetryPolicy(retries)))
 
-    val keyspace = schemaConfig.keyspace
-
-    val journalName = TableName(keyspace = keyspace.name, table = schemaConfig.journalName)
-
-    val metadataName = TableName(keyspace = keyspace.name, table = schemaConfig.metadataName)
-
-    val pointerName = TableName(keyspace = keyspace.name, table = schemaConfig.pointerName)
-
-    val futureUnit = Future.successful(())
 
     // TODO moveout
     case class PreparedStatements(
@@ -61,39 +52,7 @@ object EventualCassandra {
       selectPointer: PointerStatement.Select.Type,
       selectTopicPointer: PointerStatement.SelectTopicPointers.Type)
 
-    def createKeyspace() = {
-      // TODO make sure two parallel instances does not do the same
-      val query = JournalStatement.createKeyspace(keyspace)
-      session.executeAsync(query).asScala()
-    }
-
-    def createTable() = {
-
-      val journal = {
-        val query = JournalStatement.createTable(journalName)
-        session.executeAsync(query).asScala()
-      }
-
-      val metadata = {
-        val query = MetadataStatement.createTable(metadataName)
-        session.executeAsync(query).asScala()
-      }
-
-      val pointer = {
-        val query = PointerStatement.createTable(pointerName)
-        session.executeAsync(query).asScala()
-      }
-
-      for {
-        _ <- journal
-        _ <- metadata
-        _ <- pointer
-      } yield {
-
-      }
-    }
-
-    def preparedStatements() = {
+    def preparedStatements(tables: Tables) = {
 
       val prepareAndExecute = new PrepareAndExecute {
 
@@ -108,13 +67,13 @@ object EventualCassandra {
         }
       }
 
-      val selectLastRecord = JournalStatement.SelectLastRecord(journalName, prepareAndExecute)
-      val listRecords = JournalStatement.SelectRecords(journalName, prepareAndExecute)
-      val selectMetadata = MetadataStatement.Select(metadataName, prepareAndExecute)
-      val selectSegmentSize = MetadataStatement.SelectSegmentSize(metadataName, prepareAndExecute)
-      val updatePointer = PointerStatement.Update(pointerName, prepareAndExecute)
-      val selectPointer = PointerStatement.Select(pointerName, prepareAndExecute)
-      val selectTopicPointers = PointerStatement.SelectTopicPointers(pointerName, prepareAndExecute)
+      val selectLastRecord = JournalStatement.SelectLastRecord(tables.journal, prepareAndExecute)
+      val listRecords = JournalStatement.SelectRecords(tables.journal, prepareAndExecute)
+      val selectMetadata = MetadataStatement.Select(tables.metadata, prepareAndExecute)
+      val selectSegmentSize = MetadataStatement.SelectSegmentSize(tables.metadata, prepareAndExecute)
+      val updatePointer = PointerStatement.Update(tables.pointer, prepareAndExecute)
+      val selectPointer = PointerStatement.Select(tables.pointer, prepareAndExecute)
+      val selectTopicPointers = PointerStatement.SelectTopicPointers(tables.pointer, prepareAndExecute)
 
       for {
         selectLastRecord <- selectLastRecord
@@ -137,21 +96,10 @@ object EventualCassandra {
     }
 
     val sessionAndPreparedStatements = for {
-      _ <- if (keyspace.autoCreate) createKeyspace() else futureUnit
-      _ <- if (schemaConfig.autoCreate) createTable() else futureUnit
-      preparedStatements <- preparedStatements()
+      tables <- CreateSchema(schemaConfig, session)
+      preparedStatements <- preparedStatements(tables)
     } yield {
       (session, preparedStatements)
-    }
-
-    // TODO remove
-    def segmentSize(id: Id, prepared: PreparedStatements): Future[Int] = {
-      val selectSegmentSize = prepared.selectSegmentSize
-      for {
-        segmentSize <- selectSegmentSize(id)
-      } yield {
-        segmentSize getOrElse config.segmentSize
-      }
     }
 
     def metadata(id: Id, prepared: PreparedStatements) = {

@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import akka.actor.ActorSystem
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
 import com.datastax.driver.core.{Metadata => _, _}
-import com.evolutiongaming.cassandra.Helpers._
+import com.evolutiongaming.cassandra.CassandraHelpers._
 import com.evolutiongaming.cassandra.NextHostRetryPolicy
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.FutureHelper._
@@ -39,14 +39,6 @@ object EventualDbCassandra {
       consistencyLevel = ConsistencyLevel.ONE,
       retryPolicy = new LoggingRetryPolicy(NextHostRetryPolicy(retries)))
 
-    val keyspace = schemaConfig.keyspace
-
-    val journalName = TableName(keyspace = keyspace.name, table = schemaConfig.journalName)
-
-    val metadataName = TableName(keyspace = keyspace.name, table = schemaConfig.metadataName)
-
-    val pointerName = TableName(keyspace = keyspace.name, table = schemaConfig.pointerName)
-
     // TODO moveout
     case class PreparedStatements(
       insertRecord: JournalStatement.InsertRecord.Type,
@@ -62,40 +54,8 @@ object EventualDbCassandra {
       selectPointer: PointerStatement.Select.Type,
       selectTopicPointer: PointerStatement.SelectTopicPointers.Type)
 
-    def createKeyspace() = {
-      // TODO make sure two parallel instances does not do the same
-      val query = JournalStatement.createKeyspace(keyspace)
-      session.executeAsync(query).asScala()
-    }
 
-    def createTable() = {
-
-      val journal = {
-        val query = JournalStatement.createTable(journalName)
-        session.executeAsync(query).asScala()
-      }
-
-      val metadata = {
-        val query = MetadataStatement.createTable(metadataName)
-        session.executeAsync(query).asScala()
-      }
-
-      val pointer = {
-        val query = PointerStatement.createTable(pointerName)
-        session.executeAsync(query).asScala()
-      }
-
-      for {
-        _ <- journal
-        _ <- metadata
-        _ <- pointer
-      } yield {
-
-      }
-    }
-
-
-    def preparedStatements() = {
+    def preparedStatements(tables: Tables) = {
 
       val prepareAndExecute = new PrepareAndExecute {
 
@@ -110,18 +70,18 @@ object EventualDbCassandra {
         }
       }
 
-      val insertRecord = JournalStatement.InsertRecord(journalName, session.prepareAsync(_: String).asScala())
-      val selectLastRecord = JournalStatement.SelectLastRecord(journalName, prepareAndExecute)
-      val selectRecords = JournalStatement.SelectRecords(journalName, prepareAndExecute)
-      val deleteRecords = JournalStatement.DeleteRecords(journalName, prepareAndExecute)
-      val insertMetadata = MetadataStatement.Insert(metadataName, prepareAndExecute)
-      val selectMetadata = MetadataStatement.Select(metadataName, prepareAndExecute)
-      val selectSegmentSize = MetadataStatement.SelectSegmentSize(metadataName, prepareAndExecute)
-      val updatedDeletedTo = MetadataStatement.UpdatedMetadata(metadataName, prepareAndExecute)
-      val insertPointer = PointerStatement.Insert(pointerName, prepareAndExecute)
-      val updatePointer = PointerStatement.Update(pointerName, prepareAndExecute)
-      val selectPointer = PointerStatement.Select(pointerName, prepareAndExecute)
-      val selectTopicPointers = PointerStatement.SelectTopicPointers(pointerName, prepareAndExecute)
+      val insertRecord = JournalStatement.InsertRecord(tables.journal, session.prepareAsync(_: String).asScala())
+      val selectLastRecord = JournalStatement.SelectLastRecord(tables.journal, prepareAndExecute)
+      val selectRecords = JournalStatement.SelectRecords(tables.journal, prepareAndExecute)
+      val deleteRecords = JournalStatement.DeleteRecords(tables.journal, prepareAndExecute)
+      val insertMetadata = MetadataStatement.Insert(tables.metadata, prepareAndExecute)
+      val selectMetadata = MetadataStatement.Select(tables.metadata, prepareAndExecute)
+      val selectSegmentSize = MetadataStatement.SelectSegmentSize(tables.metadata, prepareAndExecute)
+      val updatedDeletedTo = MetadataStatement.UpdatedMetadata(tables.metadata, prepareAndExecute)
+      val insertPointer = PointerStatement.Insert(tables.pointer, prepareAndExecute)
+      val updatePointer = PointerStatement.Update(tables.pointer, prepareAndExecute)
+      val selectPointer = PointerStatement.Select(tables.pointer, prepareAndExecute)
+      val selectTopicPointers = PointerStatement.SelectTopicPointers(tables.pointer, prepareAndExecute)
 
       for {
         insertRecord <- insertRecord
@@ -154,9 +114,8 @@ object EventualDbCassandra {
     }
 
     val sessionAndPreparedStatements = for {
-      _ <- if (keyspace.autoCreate) createKeyspace() else Future.unit
-      _ <- if (schemaConfig.autoCreate) createTable() else Future.unit
-      preparedStatements <- preparedStatements()
+      tables <- CreateSchema(schemaConfig, session)
+      preparedStatements <- preparedStatements(tables)
     } yield {
       (session, preparedStatements)
     }
