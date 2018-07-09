@@ -44,7 +44,8 @@ object Journals {
     def journalOf(id: Id) = {
       val topic = "journal"
       val log = ActorLog(system, classOf[Journal]) prefixed id
-      Journal(id, topic, log, producer, newConsumer, eventual, pollTimeout)
+      val journal = Journal(id, topic, log, producer, newConsumer, eventual, pollTimeout)
+      Journal(journal, log)
     }
 
     new Journals {

@@ -5,11 +5,13 @@ import com.evolutiongaming.kafka.journal.EventsSerializer.EventsFromBytes
 import com.evolutiongaming.skafka.consumer.ConsumerRecord
 import com.evolutiongaming.skafka.{Bytes, Topic}
 
+import scala.collection.immutable.Seq
+
 // TODO rename
 object Tmp {
 
-  case class Result(deleteTo: SeqNr, entries: Vector[Entry])
-  
+  case class Result(deleteTo: SeqNr, entries: Seq[Entry])
+
 
   def apply(
     result: Result,
@@ -20,8 +22,6 @@ object Tmp {
 
     action match {
       case a: Action.Append =>
-
-        println(s">>>>>> $a")
 
         val bytes = record.value
 
@@ -57,7 +57,6 @@ object Tmp {
         }
 
       case a: Action.Delete =>
-        println(s">>>>>> $a")
         if (a.to > result.deleteTo) {
           val entries = result.entries.dropWhile(_.seqNr <= a.to)
           result.copy(deleteTo = a.to, entries = entries)

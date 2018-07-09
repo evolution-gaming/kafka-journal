@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal
 import java.util.UUID
 
 import akka.actor.ActorSystem
+import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.ActionConverters._
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.ConsumerHelper._
@@ -19,6 +20,7 @@ import scala.collection.immutable.Seq
 import scala.compat.Platform
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 // TODO consider passing topic along with id as method argument
 trait Journal {
@@ -36,6 +38,64 @@ object Journal {
     def read(range: SeqRange): Future[List[Entry]] = Future.successful(Nil)
     def lastSeqNr(from: SeqNr) = Future.successful(0L)
     def delete(to: SeqNr) = Future.unit
+
+    override def toString = s"Journal.Empty"
+  }
+
+  def apply(journal: Journal, log: ActorLog): Journal = {
+
+    implicit val ec = CurrentThreadExecutionContext // TODO remove
+
+    // TODO instance of `toStr` created per call
+    def logged[T](name: => String, toStr: T => String = (result: T) => result.toString)(future: Future[T]) = {
+      future.transform { result =>
+        result match {
+          case Success(())      => log.debug(name)
+          case Success(result)  => log.debug(s"$name, result: ${ toStr(result) }")
+          case Failure(failure) => log.error(s"$name failed: $failure", failure)
+        }
+        result
+      }
+    }
+
+    new Journal {
+
+      def append(events: Nel[Entry]) = {
+        def range = {
+          val head = events.head.seqNr
+          val last = events.last.seqNr
+          SeqRange(head, last)
+        }
+
+        logged[Unit](s"append $range") {
+          journal.append(events)
+        }
+      }
+
+      def read(range: SeqRange) = {
+        val toStr = (entries: Seq[Entry]) => {
+          entries.map(_.seqNr).mkString(",")
+        }
+
+        logged(s"read $range", toStr) {
+          journal.read(range)
+        }
+      }
+
+      def lastSeqNr(from: SeqNr) = {
+        logged[SeqNr](s"lastSeqNr $from") {
+          journal.lastSeqNr(from)
+        }
+      }
+
+      def delete(to: SeqNr) = {
+        logged[Unit](s"delete $to") {
+          journal.delete(to)
+        }
+      }
+
+      override def toString = journal.toString
+    }
   }
 
   def apply(settings: Settings): Journal = ???
@@ -44,7 +104,7 @@ object Journal {
   def apply(
     id: Id,
     topic: Topic,
-    log: ActorLog,
+    log: ActorLog, // TODO remove
     producer: Producer,
     newConsumer: () => Consumer[String, Bytes],
     eventual: EventualJournal,
@@ -52,7 +112,7 @@ object Journal {
     system: ActorSystem,
     ec: ExecutionContext): Journal = {
 
-    def produce[T](id: Id, action: Action, payload: T)(implicit toBytes: ToBytes[T]) = {
+    def produce[T](action: Action, payload: T)(implicit toBytes: ToBytes[T]) = {
       val header = toHeader(action)
       val timestamp = Platform.currentTime // TODO argument
       val record = ProducerRecord(
@@ -64,11 +124,11 @@ object Journal {
       producer(record)
     }
 
-    def mark(id: Id): Future[(String, Partition)] = {
+    def mark(): Future[(String, Partition)] = {
       val marker = UUID.randomUUID().toString
       val action = Action.Mark(marker)
       for {
-        metadata <- produce(id, action, Array.empty[Byte])
+        metadata <- produce(action, Array.empty[Byte])
       } yield {
         val partition = metadata.topicPartition.partition
         (marker, partition)
@@ -76,7 +136,6 @@ object Journal {
     }
 
     def consume[S](
-      id: Id,
       s: S,
       partitionOffset: Option[PartitionOffset])(
       f: (S, ConsumerRecord[String, Bytes]) => (S, Boolean)): Future[S] = {
@@ -106,9 +165,8 @@ object Journal {
               val key = record.key getOrElse "none"
               val offset = record.offset
               val partition = record.partition
-              val topic = record.topic
               // TODO important performance indication
-              println(s"$id Client skipping topic: $topic, key: $key, offset: $offset, partition: $partition ")
+              log.warn(s"skipping unnecessary record key: $key, partition: $partition, offset: $offset")
               skip
             }
           } else {
@@ -124,7 +182,6 @@ object Journal {
     // TODO case class Fold[S, T](state: S, f: () => ?) hm...
 
     /*def consumeStream[S, E](
-      id: Id,
       state: S,
       consumer: Consumer[String, Bytes])(
       f: (S, ConsumerRecord[String, Bytes]) => (Option[S], E)) = {
@@ -153,8 +210,8 @@ object Journal {
     }
 
     // TODO add range argument
-    val consumeActions = (id: Id, from: SeqNr) => {
-      val marker = mark(id)
+    val consumeActions = (from: SeqNr) => {
+      val marker = mark()
       val topicPointers = eventual.topicPointers(topic)
 
       for {
@@ -172,7 +229,7 @@ object Journal {
           def apply[S](s: S)(f: (S, ConsumerRecord[String, Bytes], Action.AppendOrDelete) => S): Future[S] = {
 
             // TODO add seqNr safety check
-            consume(id, s, partitionOffset) { case (s, record) =>
+            consume(s, partitionOffset) { case (s, record) =>
               val a = toAction(record)
               a match {
                 case a: Action.AppendOrDelete =>
@@ -202,13 +259,11 @@ object Journal {
         val payload = JournalRecord.Payload.Events(events2)
         val range = SeqRange(from = events.head.seqNr, to = events.last.seqNr)
         val action = Action.Append(range)
-        val result = produce(id, action, payload)
+        val result = produce(action, payload)
         result.unit
       }
 
       def read(range: SeqRange): Future[Seq[Entry]] = {
-
-        println(s"$id Client.read range: $range")
 
         def eventualRecords() = {
           for {
@@ -225,8 +280,8 @@ object Journal {
 
         val zero = Tmp.Result(SeqNr.Min, Vector.empty)
 
-        val result = for {
-          consume <- consumeActions(id, range.from)
+        for {
+          consume <- consumeActions(range.from)
           entries = eventualRecords()
           // TODO use range after eventualRecords
           records <- consume(zero) { case (result, record, action) =>
@@ -235,35 +290,28 @@ object Journal {
           entries <- entries
         } yield {
 
-          val cassandraEntries = entries.dropWhile(_.seqNr <= records.deleteTo)
+          val eventualEntries = entries.dropWhile(_.seqNr <= records.deleteTo)
 
-          cassandraEntries.lastOption match {
-            case None =>
-              // TODO important performance indication
-              println(s"$id >>>> ${ records.entries.size } <<<<")
-              records.entries
+          if (records.entries.nonEmpty) {
+            val size = records.entries.size
+            // TODO important performance indication
+            // TODO decide on naming convention regarding records, entries, etc
 
-            case Some(last) =>
-              val kafka = records.entries.dropWhile { _.seqNr <= last.seqNr }
-              // TODO important performance indication
-              println(s"$id >>>> ${ kafka.size }(${ cassandraEntries.size }) <<<<")
-              cassandraEntries ++ kafka
+            // TODO triggered by bug in consume that allows to consume deleted events
+            log.warn(s"last $size records are missing in EventualJournal")
           }
-        }
 
-        result.failed.foreach { failure =>
-          failure.printStackTrace()
-        }
-
-        result map { records =>
-          println(s"$id Client.read.result ${ records.map { _.seqNr } }")
-          records
+          eventualEntries.lastOption.fold(records.entries) { last =>
+            val kafka = records.entries.dropWhile(_.seqNr <= last.seqNr)
+            // TODO create special data structure
+            eventualEntries ++ kafka
+          }
         }
       }
 
       def lastSeqNr(from: SeqNr) = {
-        val result = for {
-          consume <- consumeActions(id, from)
+        for {
+          consume <- consumeActions(from)
           valueEventual = eventual.lastSeqNr(id, from)
           value <- consume[Offset](from) { case (seqNr, _, a) =>
             a match {
@@ -277,19 +325,14 @@ object Journal {
           val valueEventual2 = valueEventual getOrElse from
           value max valueEventual2
         }
-
-        result.failed.foreach { failure =>
-          failure.printStackTrace()
-        }
-
-        result
       }
 
       def delete(to: SeqNr): Future[Unit] = {
-        println(s"$id Client.truncate $to")
         val action = Action.Delete(to)
-        produce(id, action, Array.empty[Byte]).unit
+        produce(action, Array.empty[Byte]).unit
       }
+
+      override def toString = s"Journal($id)"
     }
   }
 }

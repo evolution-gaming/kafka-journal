@@ -6,7 +6,7 @@
 
 	<appender name="console" class="ch.qos.logback.core.ConsoleAppender">
 		<encoder>
-			<pattern>%d{HH:mm:ss.SSS} %-5level %logger{10} - %msg%n</pattern>
+			<pattern>%d{HH:mm:ss.SSS} %-5level %logger{10} %msg%n</pattern>
 		</encoder>
 	</appender>
 
@@ -19,7 +19,7 @@
 	<logger name="org.apache.zookeeper" level="WARN"/>
 	<logger name="org.apache.cassandra.service.StartupChecks" level="ERROR"/>
 	<logger name="org.apache.cassandra.db.SystemKeyspace" level="ERROR"/>
-	<logger name="akka.persistence.kafka.journal.KafkaJournal" level="DEBUG"/>
+	<logger name="akka.persistence.kafka.journal.PersistenceJournal" level="DEBUG"/>
 	<logger name="com.evolutiongaming.kafka.journal" level="DEBUG"/>
 
 	<root level="WARN">

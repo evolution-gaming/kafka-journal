@@ -8,6 +8,7 @@ import com.evolutiongaming.cassandra.NextHostRetryPolicy
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.eventual._
+import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Topic
 
 import scala.collection.immutable.Seq
@@ -28,6 +29,8 @@ object EventualDbCassandra {
     session: Session,
     schemaConfig: SchemaConfig,
     config: EventualCassandraConfig)(implicit system: ActorSystem, ec: ExecutionContext): EventualDb = {
+
+    val log = ActorLog(system, EventualDbCassandra.getClass)
 
     val retries = 3
 
@@ -172,8 +175,6 @@ object EventualDbCassandra {
         def save(statements: PreparedStatements, metadata: Option[Metadata]) = {
 
           def delete(deletedTo: SeqNr, metadata: Metadata) = {
-
-            println(s"$id ######## $deletedTo, metadata: ${ metadata.deletedTo }")
 
             def segmentOf(seqNr: SeqNr) = Segment(seqNr, metadata.segmentSize)
 

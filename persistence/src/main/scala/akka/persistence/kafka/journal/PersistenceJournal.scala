@@ -23,14 +23,14 @@ import scala.concurrent.{Await, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
 
-class KafkaJournal extends AsyncWriteJournal {
-  import KafkaJournal._
+class PersistenceJournal extends AsyncWriteJournal {
+  import PersistenceJournal._
 
   val serializedMsgExt = SerializedMsgExt(context.system)
   implicit val system = context.system
   implicit val ec = system.dispatcher
 
-  val log = ActorLog(system, classOf[KafkaJournal])
+  val log = ActorLog(system, classOf[PersistenceJournal])
 
   lazy val journals: Journals = {
 
@@ -117,9 +117,6 @@ class KafkaJournal extends AsyncWriteJournal {
   }
 
   def asyncDeleteMessagesTo(persistenceId: PersistenceId, to: SeqNr): Future[Unit] = {
-
-    log.debug(s"asyncDeleteMessagesTo persistenceId: $persistenceId, to: $to")
-
     journals.delete(persistenceId, to)
   }
 
@@ -127,8 +124,6 @@ class KafkaJournal extends AsyncWriteJournal {
     (callback: PersistentRepr => Unit): Future[Unit] = {
 
     val range = SeqRange(from , to)
-
-    log.debug(s"asyncReplayMessages persistenceId: $persistenceId, range: $range, max: $max")
 
     journals.read(persistenceId, range).map { entries =>
       val maxInt = (max min Int.MaxValue).toInt
@@ -156,14 +151,11 @@ class KafkaJournal extends AsyncWriteJournal {
   }
 
   def asyncReadHighestSequenceNr(persistenceId: PersistenceId, from: SeqNr): Future[SeqNr] = {
-    journals.lastSeqNr(persistenceId, from).map { seqNr =>
-      log.debug(s"asyncReadHighestSequenceNr persistenceId: $persistenceId, from: $from, result: $seqNr")
-      seqNr
-    }
+    journals.lastSeqNr(persistenceId, from)
   }
 }
 
-object KafkaJournal {
+object PersistenceJournal {
   val FutureNil: Future[List[Nothing]] = Future.successful(Nil)
 }
 
