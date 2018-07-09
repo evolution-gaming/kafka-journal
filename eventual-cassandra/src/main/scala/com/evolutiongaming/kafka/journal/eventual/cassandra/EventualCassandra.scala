@@ -11,6 +11,7 @@ import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.SeqRange
 import com.evolutiongaming.kafka.journal.StreamHelper._
 import com.evolutiongaming.kafka.journal.eventual._
+import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Topic
 
 import scala.collection.immutable.{Iterable, Seq}
@@ -23,7 +24,8 @@ object EventualCassandra {
   def apply(
     session: Session,
     schemaConfig: SchemaConfig,
-    config: EventualCassandraConfig)(implicit system: ActorSystem, ec: ExecutionContext): EventualJournal = {
+    config: EventualCassandraConfig,
+    log: ActorLog)(implicit system: ActorSystem, ec: ExecutionContext): EventualJournal = {
 
     implicit val materializer = ActorMaterializer()
 
@@ -35,12 +37,12 @@ object EventualCassandra {
       retryPolicy = new LoggingRetryPolicy(NextHostRetryPolicy(retries)))
 
 
-    val sessionAndStatements = for {
+    val statements = for {
       tables <- CreateSchema(schemaConfig, session)
       prepareAndExecute = PrepareAndExecute(session, statementConfig)
       statements <- Statements(tables, prepareAndExecute)
     } yield {
-      (session, statements)
+      statements
     }
 
     def metadata(id: Id, statements: Statements) = {
@@ -61,7 +63,7 @@ object EventualCassandra {
 
       def topicPointers(topic: Topic): Future[TopicPointers] = {
         for {
-          (session, statements) <- sessionAndStatements
+          statements <- statements
           topicPointers <- statements.selectTopicPointer(topic)
         } yield {
           topicPointers
@@ -70,13 +72,9 @@ object EventualCassandra {
 
       // TODO test use case when cassandra is not up to last Action.Delete
 
-      def list(id: Id, range: SeqRange): Future[Seq[EventualRecord]] = {
-
-        println(s"$id EventualCassandra.list range: $range")
+      def read(id: Id, range: SeqRange): Future[Seq[EventualRecord]] = {
 
         def list(statement: JournalStatement.SelectRecords.Type, metadata: Metadata) = {
-
-          println(s"$id EventualCassandra.list metadata: $metadata")
 
           val segmentSize = metadata.segmentSize
 
@@ -117,14 +115,13 @@ object EventualCassandra {
         }
 
         for {
-          (session, statements) <- sessionAndStatements
+          statements <- statements
           metadata <- metadata(id, statements)
           result <- metadata match {
             case Some(metadata) => list(statements.selectRecords, metadata)
             case None           => Future.seq
           }
         } yield {
-          println(s"$id EventualCassandra.list ${ result.map { _.seqNr }.mkString(",") }")
           result
         }
       }
@@ -169,14 +166,13 @@ object EventualCassandra {
         }
 
         for {
-          (session, statements) <- sessionAndStatements
+          statements <- statements
           metadata <- metadata(id, statements)
           seqNr <- metadata match {
             case Some(metadata) => lastSeqNr(statements.selectLastRecord, metadata)
             case None           => Future.successful(SeqNr.Min) // TODO cache value
           }
         } yield {
-          println(s"$id lastSeqNr: $seqNr")
           Some(seqNr) // TODO simplify api
         }
       }

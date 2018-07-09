@@ -9,7 +9,7 @@ import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig, SchemaConfig}
-import com.evolutiongaming.kafka.journal.{Journals, Entry, SeqRange}
+import com.evolutiongaming.kafka.journal.{Entry, Journals, SeqRange}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.serialization.{SerializedMsg, SerializedMsgExt}
@@ -68,17 +68,19 @@ class PersistenceJournal extends AsyncWriteJournal {
       CreateConsumer[String, Bytes](configFixed, ecBlocking)
     }
 
-    val eventual: EventualJournal = {
+    val eventualJournal: EventualJournal = {
       val cassandraConfig = CassandraConfig.Default
       val cluster = CreateCluster(cassandraConfig)
       val session = cluster.connect()
       val schemaConfig = SchemaConfig.Default
       val config = EventualCassandraConfig.Default
       // TODO read only cassandra statements
-      EventualCassandra(session, schemaConfig, config)
+      val log = ActorLog(system, EventualCassandra.getClass)
+      val eventualJournal = EventualCassandra(session, schemaConfig, config, log)
+      EventualJournal(eventualJournal, log)
     }
 
-    Journals(producer, newConsumer, eventual)
+    Journals(producer, newConsumer, eventualJournal)
   }
 
   // TODO optimise sequence of calls asyncWriteMessages & asyncReadHighestSequenceNr for the same persistenceId
@@ -123,7 +125,7 @@ class PersistenceJournal extends AsyncWriteJournal {
   def asyncReplayMessages(persistenceId: PersistenceId, from: SeqNr, to: SeqNr, max: Long)
     (callback: PersistentRepr => Unit): Future[Unit] = {
 
-    val range = SeqRange(from , to)
+    val range = SeqRange(from, to)
 
     journals.read(persistenceId, range).map { entries =>
       val maxInt = (max min Int.MaxValue).toInt

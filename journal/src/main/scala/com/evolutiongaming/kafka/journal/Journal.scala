@@ -3,12 +3,12 @@ package com.evolutiongaming.kafka.journal
 import java.util.UUID
 
 import akka.actor.ActorSystem
-import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.ActionConverters._
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.ConsumerHelper._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FutureHelper._
+import com.evolutiongaming.kafka.journal.LogHelper._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, PartitionOffset}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
@@ -20,7 +20,6 @@ import scala.collection.immutable.Seq
 import scala.compat.Platform
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
 // TODO consider passing topic along with id as method argument
 trait Journal {
@@ -42,60 +41,43 @@ object Journal {
     override def toString = s"Journal.Empty"
   }
 
-  def apply(journal: Journal, log: ActorLog): Journal = {
+  def apply(journal: Journal, log: ActorLog): Journal = new Journal {
 
-    implicit val ec = CurrentThreadExecutionContext // TODO remove
+    def append(events: Nel[Entry]) = {
+      def range = {
+        val head = events.head.seqNr
+        val last = events.last.seqNr
+        SeqRange(head, last)
+      }
 
-    // TODO instance of `toStr` created per call
-    def logged[T](name: => String, toStr: T => String = (result: T) => result.toString)(future: Future[T]) = {
-      future.transform { result =>
-        result match {
-          case Success(())      => log.debug(name)
-          case Success(result)  => log.debug(s"$name, result: ${ toStr(result) }")
-          case Failure(failure) => log.error(s"$name failed: $failure", failure)
-        }
-        result
+      log[Unit](s"append $range") {
+        journal.append(events)
       }
     }
 
-    new Journal {
-
-      def append(events: Nel[Entry]) = {
-        def range = {
-          val head = events.head.seqNr
-          val last = events.last.seqNr
-          SeqRange(head, last)
-        }
-
-        logged[Unit](s"append $range") {
-          journal.append(events)
-        }
+    def read(range: SeqRange) = {
+      val toStr = (entries: Seq[Entry]) => {
+        entries.map(_.seqNr).mkString(",") // TODO use range and implement misses verification
       }
 
-      def read(range: SeqRange) = {
-        val toStr = (entries: Seq[Entry]) => {
-          entries.map(_.seqNr).mkString(",")
-        }
-
-        logged(s"read $range", toStr) {
-          journal.read(range)
-        }
+      log[Seq[Entry]](s"read $range", toStr) {
+        journal.read(range)
       }
-
-      def lastSeqNr(from: SeqNr) = {
-        logged[SeqNr](s"lastSeqNr $from") {
-          journal.lastSeqNr(from)
-        }
-      }
-
-      def delete(to: SeqNr) = {
-        logged[Unit](s"delete $to") {
-          journal.delete(to)
-        }
-      }
-
-      override def toString = journal.toString
     }
+
+    def lastSeqNr(from: SeqNr) = {
+      log[SeqNr](s"lastSeqNr $from") {
+        journal.lastSeqNr(from)
+      }
+    }
+
+    def delete(to: SeqNr) = {
+      log[Unit](s"delete $to") {
+        journal.delete(to)
+      }
+    }
+
+    override def toString = journal.toString
   }
 
   def apply(settings: Settings): Journal = ???
@@ -267,7 +249,7 @@ object Journal {
 
         def eventualRecords() = {
           for {
-            eventualRecords <- eventual.list(id, range)
+            eventualRecords <- eventual.read(id, range)
           } yield {
             eventualRecords.map { record =>
               Entry(

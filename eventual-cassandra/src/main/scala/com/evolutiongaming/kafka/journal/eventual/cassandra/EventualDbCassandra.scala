@@ -34,12 +34,12 @@ object EventualDbCassandra {
       consistencyLevel = ConsistencyLevel.ONE,
       retryPolicy = new LoggingRetryPolicy(NextHostRetryPolicy(retries)))
 
-    val statements = for {
+    val sessionAndStatements = for {
       tables <- CreateSchema(schemaConfig, session)
       prepareAndExecute = PrepareAndExecute(session, statementConfig)
       statements <- Statements(session, tables, prepareAndExecute)
     } yield {
-      statements
+      (session, statements)
     }
 
 
@@ -53,7 +53,7 @@ object EventualDbCassandra {
       // TODO prevent passing both No records and No deletion
       def save(id: Id, updateTmp: UpdateTmp, topic: Topic): Future[Unit] = {
 
-        def save(statements: Statements, metadata: Option[Metadata]) = {
+        def save(statements: Statements, metadata: Option[Metadata], session: Session) = {
 
           def delete(deletedTo: SeqNr, metadata: Metadata) = {
 
@@ -170,9 +170,9 @@ object EventualDbCassandra {
         }
 
         for {
-          statements <- statements
+          (session, statements) <- sessionAndStatements
           metadata <- statements.selectMetadata(id)
-          result <- save(statements, metadata)
+          result <- save(statements, metadata, session)
         } yield {
           result
         }
@@ -220,7 +220,7 @@ object EventualDbCassandra {
           }
 
           for {
-            statements <- statements
+            (_, statements) <- sessionAndStatements
             _ <- savePointers(statements)
           } yield {
 
@@ -231,7 +231,7 @@ object EventualDbCassandra {
 
       def topicPointers(topic: Topic): Future[TopicPointers] = {
         for {
-          statements <- statements
+          (_, statements) <- sessionAndStatements
           topicPointers <- statements.selectTopicPointer(topic)
         } yield {
           topicPointers
