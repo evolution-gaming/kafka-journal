@@ -44,6 +44,7 @@ object Action {
 
 
   sealed trait AppendOrDelete extends Action
+  // TODO make all case classes as Final
   case class Append(range: SeqRange) extends AppendOrDelete
   case class Delete(to: SeqNr) extends AppendOrDelete
   case class Mark(id: String) extends Action
