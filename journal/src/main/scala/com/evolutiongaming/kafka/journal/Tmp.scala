@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
 import com.evolutiongaming.kafka.journal.Alias.SeqNr
-import com.evolutiongaming.kafka.journal.EventsSerializer.EventsFromBytes
 import com.evolutiongaming.skafka.Topic
 
 import scala.collection.immutable.Seq
@@ -24,19 +23,11 @@ object Tmp {
         val bytes = action.events
         val header = action.header
 
-        def entries = {
-          EventsFromBytes(bytes, topic)
-            .events
-            .to[Vector]
-            .map { event =>
-              val tags = Set.empty[String] // TODO
-              Event(event.payload, event.seqNr, tags)
-            }
-        }
+        def events = EventsSerializer.fromBytes(bytes).to[Vector]
 
         if (range.contains(header.range)) {
           // TODO we don't need to deserialize entries that are out of scope
-          result.copy(events = result.events ++ entries)
+          result.copy(events = result.events ++ events)
 
         } else if (header.range < range) {
           result
@@ -45,9 +36,9 @@ object Tmp {
           result
         } else {
 
-          val filtered = entries.filter { entry => range contains entry.seqNr }
+          val filtered = events.filter { entry => range contains entry.seqNr }
 
-          if (entries.last.seqNr > range) {
+          if (events.last.seqNr > range) {
             // TODO stop consuming
             result.copy(events = result.events ++ filtered)
           } else {

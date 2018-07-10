@@ -232,12 +232,7 @@ object Journal {
 
       def append(events: Nel[Event], timestamp: Instant): Future[Unit] = {
 
-        val events2 = for {
-          event <- events
-        } yield {
-          JournalRecord.Event(event.seqNr, event.payload)
-        }
-        val payload = EventsSerializer.EventsToBytes(JournalRecord.Payload.Events(events2), topic)
+        val payload = EventsSerializer.toBytes(events)
         val range = SeqRange(from = events.head.seqNr, to = events.last.seqNr)
         val header = Action.Header.Append(range)
         val action = Action.Append(header, timestamp, payload)

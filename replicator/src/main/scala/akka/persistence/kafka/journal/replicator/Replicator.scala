@@ -83,7 +83,7 @@ object Replicator {
       } yield {
 
         val result = records.foldLeft[FoldRecords.Tmp](FoldRecords.Tmp.Empty) { case (result, (record, partitionOffset)) =>
-          FoldRecords(topic, result, record, partitionOffset)
+          FoldRecords(result, record, partitionOffset)
         }
 
 

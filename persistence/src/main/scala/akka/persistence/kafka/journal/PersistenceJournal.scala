@@ -110,8 +110,7 @@ class PersistenceJournal extends AsyncWriteJournal {
           val serialized = serializedMsgExt.toMsg(payload)
           val persistentEvent = PersistentEvent(serialized, persistentRepr)
           val bytes = PersistentEventSerializer.toBinary(persistentEvent)
-          // TODO rename
-          Event(bytes, persistentRepr.sequenceNr, tags)
+          Event(persistentRepr.sequenceNr, tags, bytes)
         }
         val nel = Nel(events.head, events.tail.toList) // TODO is it optimal convert to list ?
         val result = journals.append(persistenceId, nel, timestamp)

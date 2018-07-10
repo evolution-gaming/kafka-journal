@@ -2,9 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import com.evolutiongaming.kafka.journal.Alias.SeqNr
 import com.evolutiongaming.kafka.journal.eventual.{EventualRecord, PartitionOffset}
-import com.evolutiongaming.skafka.Topic
 
-import scala.collection.immutable.Seq
 
 object FoldRecords {
 
@@ -15,25 +13,25 @@ object FoldRecords {
   // TODO rename
   object Tmp {
     case object Empty extends Tmp
-    case class DeleteToKnown(deletedTo: Option[SeqNr], records: Seq[EventualRecord]) extends Tmp
+    case class DeleteToKnown(deletedTo: Option[SeqNr], records: Vector[EventualRecord]) extends Tmp
     case class DeleteToUnknown(deletedTo: SeqNr) extends Tmp
   }
 
 
-  def apply(topic: Topic, result: Tmp, record: KafkaRecord[_ <: Action], partitionOffset: PartitionOffset): Tmp = {
+  def apply(result: Tmp, record: KafkaRecord[_ <: Action], partitionOffset: PartitionOffset): Tmp = {
 
     val id = record.id
     record.action match {
       case action: Action.Append =>
-        val events = EventsSerializer.EventsFromBytes(action.events, topic).events.to[Vector]
-        val records = events.map { event =>
+        val events = EventsSerializer.fromBytes(action.events)
+        val records = events.to[Vector]/*TODO*/.map { event =>
           // TODO different created and inserted timestamps
           EventualRecord(
             id = id,
             seqNr = event.seqNr,
             timestamp = action.timestamp,
             payload = event.payload,
-            tags = Set.empty, // TODO
+            tags = event.tags,
             partitionOffset = partitionOffset)
         }
 

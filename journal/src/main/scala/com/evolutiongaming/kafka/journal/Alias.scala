@@ -12,7 +12,7 @@ object Alias {
     val Min: SeqNr = 0L
   }
 
-  type Bytes = Array[Byte]
+  type Bytes = Array[Byte] // TODO case class ?
   type Tag = String
   type Tags = Set[String]
 
