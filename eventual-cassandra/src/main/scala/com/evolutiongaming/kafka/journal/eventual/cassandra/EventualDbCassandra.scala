@@ -1,5 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
+import java.time.Instant
+
 import akka.actor.ActorSystem
 import com.datastax.driver.core.policies.LoggingRetryPolicy
 import com.datastax.driver.core.{Metadata => _, _}
@@ -57,7 +59,7 @@ object EventualDbCassandra {
         def save(statements: Statements, metadata: Option[Metadata], session: Session) = {
 
           def delete(deletedTo: SeqNr, metadata: Metadata) = {
-            if(metadata.deletedTo >= deletedTo) Future.unit
+            if (metadata.deletedTo >= deletedTo) Future.unit
             else {
 
               def segmentOf(seqNr: SeqNr) = Segment(seqNr, metadata.segmentSize)
@@ -180,42 +182,26 @@ object EventualDbCassandra {
         }
       }
 
-      def savePointers(updatePointers: UpdatePointers): Future[Unit] = {
-        val pointers = updatePointers.pointers
+      def savePointers(topic: Topic, topicPointers: TopicPointers): Future[Unit] = {
+        val pointers = topicPointers.pointers
         if (pointers.isEmpty) Future.unit
         else {
 
           // TODO topic is a partition key, should I batch by partition ?
+          val timestamp = Instant.now() // TODO pass as argument
 
           def savePointers(statements: Statements) = {
-            val updated = updatePointers.timestamp
             val futures = for {
-              (topicPartition, (offset, created)) <- pointers
+              (partition, offset) <- pointers
             } yield {
-              val topic = topicPartition.topic
-              val partition = topicPartition.partition
+              val insert = PointerInsert(
+                topic = topic,
+                partition = partition,
+                offset = offset,
+                updated = timestamp,
+                created = timestamp)
 
-              // TODO no need to pass separate created timestamp
-              created match {
-                case None =>
-                  val update = PointerUpdate(
-                    topic = topic,
-                    partition = partition,
-                    offset = offset,
-                    updated = updated)
-
-                  statements.updatePointer(update)
-
-                case Some(created) =>
-                  val insert = PointerInsert(
-                    topic = topic,
-                    partition = partition,
-                    offset = offset,
-                    updated = updated,
-                    created = created)
-
-                  statements.insertPointer(insert)
-              }
+              statements.insertPointer(insert)
             }
 
             Future.sequence(futures)
@@ -231,7 +217,7 @@ object EventualDbCassandra {
       }
 
 
-      def topicPointers(topic: Topic): Future[TopicPointers] = {
+      def pointers(topic: Topic): Future[TopicPointers] = {
         for {
           (_, statements) <- sessionAndStatements
           topicPointers <- statements.selectTopicPointer(topic)

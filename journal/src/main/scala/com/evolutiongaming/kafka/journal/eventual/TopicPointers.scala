@@ -7,6 +7,11 @@ import com.evolutiongaming.skafka.{Offset, Partition, TopicPartition}
 // TODO what to do if Offset is not in map ?
 case class TopicPointers(pointers: Map[Partition, Offset]) {
 
+  def +(that: TopicPointers): TopicPointers = {
+    copy(this.pointers ++ that.pointers)
+  }
+
+
   override def toString: String = {
     val pointersStr = pointers.map { case (k, v) => s"$k:$v" }.mkString(",")
     s"$productPrefix($pointersStr)"

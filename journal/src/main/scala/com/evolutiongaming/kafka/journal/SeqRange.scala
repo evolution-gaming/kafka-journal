@@ -4,10 +4,12 @@ import com.evolutiongaming.kafka.journal.Alias.SeqNr
 
 // TODO test
 // TODO add method with single argument of range size 1
+
 case class SeqRange(from: SeqNr = 0, to: SeqNr = SeqNr.Max) {
-  require(from <= to, s"from must be <= to, but $from > $to") // TODO do we need error?
-  require(from >= 0) // TODO
-  require(to >= 0) // TODO
+  
+  require(from <= to, s"from($from) <= to($to)")
+  require(from >= 0, s"from($from) >= 0")
+  require(to >= 0, s"to($to) >= 0")
 
 
   def <(range: SeqRange): Boolean = this < range.from

@@ -10,6 +10,6 @@ import scala.concurrent.Future
 trait EventualDb {
   // TODO make sure all have the same id, so the segments work as expected
   def save(id: Id, records: UpdateTmp, topic: Topic): Future[Unit]
-  def savePointers(updatePointers: UpdatePointers): Future[Unit]
-  def topicPointers(topic: Topic): Future[TopicPointers]
+  def savePointers(topic: Topic, topicPointers: TopicPointers): Future[Unit]
+  def pointers(topic: Topic): Future[TopicPointers]
 }

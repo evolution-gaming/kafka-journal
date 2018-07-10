@@ -22,7 +22,7 @@ object Action {
   }
 
   final case class Delete(header: Header.Delete, timestamp: Instant) extends User {
-    def seqNr: SeqNr = header.to
+    def to: SeqNr = header.to
   }
 
   final case class Mark(header: Header.Mark) extends System
@@ -31,8 +31,14 @@ object Action {
   sealed trait Header
 
   object Header {
+
     final case class Append(range: SeqRange) extends Header
-    final case class Delete(to: SeqNr /*TODO NOT CONFIRMED*/) extends Header
+
+    final case class Delete(to: SeqNr /*TODO NOT CONFIRMED*/) extends Header {
+
+      require(to > 0, s"to($to) > 0")
+    }
+    
     final case class Mark(id: String) extends Header
   }
 }
