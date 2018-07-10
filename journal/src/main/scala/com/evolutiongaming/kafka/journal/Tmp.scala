@@ -2,8 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import com.evolutiongaming.kafka.journal.Alias.SeqNr
 import com.evolutiongaming.kafka.journal.EventsSerializer.EventsFromBytes
-import com.evolutiongaming.skafka.consumer.ConsumerRecord
-import com.evolutiongaming.skafka.{Bytes, Topic}
+import com.evolutiongaming.skafka.Topic
 
 import scala.collection.immutable.Seq
 

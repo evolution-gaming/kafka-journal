@@ -17,7 +17,6 @@ object Action {
 
   sealed trait System extends Action
 
-  // TODO consider using Vector
   final case class Append(header: Header.Append, timestamp: Instant, events: Bytes) extends User
 
   final case class Delete(header: Header.Delete, timestamp: Instant) extends User

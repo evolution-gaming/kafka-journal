@@ -5,16 +5,14 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import com.evolutiongaming.cassandra.{CassandraConfig, CreateCluster}
-import com.evolutiongaming.kafka.journal.Alias.SeqNr
 import com.evolutiongaming.kafka.journal.ConsumerHelper._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandraConfig, EventualDbCassandra, SchemaConfig}
-import com.evolutiongaming.kafka.journal.{Action, EventsSerializer, SeqRange}
+import com.evolutiongaming.kafka.journal.{FoldRecords, SeqRange}
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{TopicPartition, _}
 
-import scala.collection.immutable.Seq
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
@@ -84,112 +82,15 @@ object Replicator {
         (id, records) <- records.groupBy { case (record, _) => record.id }
       } yield {
 
-        sealed trait DeleteTo
-
-        case class DeleteToKnown(value: SeqNr) extends DeleteTo
-
-        case class DeleteToUnknown(value: SeqNr) extends DeleteTo
-
-
-        sealed trait Tmp {
-
-        }
-
-        // TODO rename
-        object Tmp {
-          case object Empty extends Tmp
-          case class DeleteToKnown(deletedTo: Option[SeqNr], records: Seq[EventualRecord]) extends Tmp
-          case class DeleteToUnknown(deletedTo: SeqNr) extends Tmp
-        }
-
-
-        val result = records.foldLeft[Tmp](Tmp.Empty) { case (result, (record, partitionOffset)) =>
-
-          record.action match {
-            case action: Action.Append =>
-              val events = EventsSerializer.EventsFromBytes(action.events, topic).events.to[Vector]
-              val records = events.map { event =>
-                // TODO different created and inserted timestamps
-                EventualRecord(
-                  id = id,
-                  seqNr = event.seqNr,
-                  timestamp = action.timestamp,
-                  payload = event.payload,
-                  tags = Set.empty, // TODO
-                  partitionOffset = partitionOffset)
-              }
-
-              result match {
-                case Tmp.Empty => Tmp.DeleteToKnown(None, records)
-
-                case Tmp.DeleteToKnown(deleteTo, xs) =>
-                  Tmp.DeleteToKnown(deleteTo, xs ++ records)
-
-                case Tmp.DeleteToUnknown(value) =>
-
-                  val range = action.header.range
-                  if (value < range.from) {
-                    Tmp.DeleteToKnown(Some(value), records)
-                  } else if (value >= range.to) {
-                    Tmp.DeleteToKnown(Some(range.to), Vector.empty)
-                  } else {
-                    val result = records.dropWhile { _.seqNr <= value }
-                    Tmp.DeleteToKnown(Some(value), result)
-                  }
-              }
-
-
-            case action: Action.Delete =>
-
-              val deleteTo = action.header.to
-
-              result match {
-                case Tmp.Empty => Tmp.DeleteToUnknown(deleteTo)
-                // TODO use the same logic in Eventual
-                case Tmp.DeleteToKnown(value, records) =>
-
-                  value match {
-                    case None =>
-                      if (records.isEmpty) {
-                        ???
-                      } else {
-                        val head = records.head.seqNr
-                        if (deleteTo < head) {
-                          Tmp.DeleteToKnown(None, records)
-                        } else {
-                          val result = records.dropWhile { _.seqNr <= deleteTo }
-                          val lastSeqNr = result.lastOption.fold(records.last.seqNr) { _.seqNr }
-                          Tmp.DeleteToKnown(Some(lastSeqNr), result)
-                        }
-                      }
-
-
-                    case Some(deleteToPrev) =>
-                      if (records.isEmpty) {
-                        Tmp.DeleteToKnown(Some(deleteToPrev), records)
-                      } else {
-                        if (deleteTo <= deleteToPrev) {
-                          Tmp.DeleteToKnown(Some(deleteToPrev), records)
-                        } else {
-                          val result = records.dropWhile { _.seqNr <= deleteTo }
-                          val lastSeqNr = result.lastOption.fold(records.last.seqNr) { _ => deleteTo }
-                          Tmp.DeleteToKnown(Some(lastSeqNr), result)
-                        }
-                      }
-                  }
-
-                case Tmp.DeleteToUnknown(deleteToPrev) => Tmp.DeleteToUnknown(deleteTo max deleteToPrev)
-              }
-
-            case action: Action.Mark => result
-          }
+        val result = records.foldLeft[FoldRecords.Tmp](FoldRecords.Tmp.Empty) { case (result, (record, partitionOffset)) =>
+          FoldRecords(topic, result, record, partitionOffset)
         }
 
 
         result match {
-          case Tmp.Empty => Future.unit
+          case FoldRecords.Tmp.Empty => Future.unit
 
-          case Tmp.DeleteToKnown(deletedTo, records) =>
+          case FoldRecords.Tmp.DeleteToKnown(deletedTo, records) =>
 
             val updateTmp = UpdateTmp.DeleteToKnown(deletedTo, records)
 
@@ -206,7 +107,7 @@ object Replicator {
             }
 
 
-          case Tmp.DeleteToUnknown(value) =>
+          case FoldRecords.Tmp.DeleteToUnknown(value) =>
             println(s"$id replicate.save DeleteToUnknown($value)")
             val updateTmp = UpdateTmp.DeleteUnbound(value)
             db.save(id, updateTmp, topic)
