@@ -1,4 +1,4 @@
-package akka.persistence.kafka.journal.replicator
+package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
 import java.util.UUID

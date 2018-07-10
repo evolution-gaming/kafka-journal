@@ -1,9 +1,9 @@
 package akka.persistence.kafka.journal
 
 import akka.persistence.PluginSpec
-import akka.persistence.kafka.journal.replicator.Replicator
 import com.evolutiongaming.cassandra.StartCassandra
 import com.evolutiongaming.kafka.StartKafka
+import com.evolutiongaming.kafka.journal.replicator.Replicator
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
