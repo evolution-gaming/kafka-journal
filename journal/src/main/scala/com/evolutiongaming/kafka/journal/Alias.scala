@@ -18,5 +18,6 @@ object Alias {
 
   implicit class SeqNrOps(val self: SeqNr) extends AnyVal {
     def next: SeqNr = self + 1
+    def prev: SeqNr = self - 1
   }
 }

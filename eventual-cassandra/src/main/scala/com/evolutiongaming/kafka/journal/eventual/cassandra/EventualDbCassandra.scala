@@ -57,21 +57,24 @@ object EventualDbCassandra {
         def save(statements: Statements, metadata: Option[Metadata], session: Session) = {
 
           def delete(deletedTo: SeqNr, metadata: Metadata) = {
+            if(metadata.deletedTo >= deletedTo) Future.unit
+            else {
 
-            def segmentOf(seqNr: SeqNr) = Segment(seqNr, metadata.segmentSize)
+              def segmentOf(seqNr: SeqNr) = Segment(seqNr, metadata.segmentSize)
 
-            def delete(segment: Segment) = {
-              statements.deleteRecords(id, segment, deletedTo)
+              def delete(segment: Segment) = {
+                statements.deleteRecords(id, segment, deletedTo)
+              }
+
+              val lowest = segmentOf(metadata.deletedTo)
+              val highest = segmentOf(deletedTo)
+              val futures = for {
+                segment <- lowest to highest // TODO maybe add ability to create Seq[Segment] out of SeqRange ?
+              } yield {
+                delete(segment)
+              }
+              Future.sequence(futures).unit
             }
-
-            val lowest = segmentOf(metadata.deletedTo)
-            val highest = segmentOf(deletedTo)
-            val futures = for {
-              segment <- lowest to highest // TODO maybe add ability to create Seq[Segment] out of SeqRange ?
-            } yield {
-              delete(segment)
-            }
-            Future.sequence(futures).unit
           }
 
 
@@ -106,13 +109,16 @@ object EventualDbCassandra {
 
             def saveMetadata(): Future[Metadata] = {
 
-              val segmentSize = metadata.fold(config.segmentSize) { _.segmentSize }
+              val segmentSize = metadata.fold(config.segmentSize)(_.segmentSize)
+
+              val deletedTo2 = deletedTo getOrElse SeqNr.Min
+              val deletedTo3 = metadata.fold(deletedTo2)(_.deletedTo max deletedTo2)
 
               val metadataNew = Metadata(
                 id = id,
                 topic = topic,
                 segmentSize = segmentSize,
-                deletedTo = deletedTo getOrElse SeqNr.Min)
+                deletedTo = deletedTo3)
 
               // TODO split on insert and update queries
               for {
@@ -129,10 +135,10 @@ object EventualDbCassandra {
             } yield {}
           }
 
-          def deleteUnbound(deletedToUnbound: SeqNr) = {
+          def deleteUnbound(deleteTo: SeqNr) = {
 
             metadata.fold(Future.unit) { metadata =>
-              if (deletedToUnbound <= metadata.deletedTo) {
+              if (deleteTo <= metadata.deletedTo) {
                 Future.unit
               } else {
 
@@ -151,8 +157,7 @@ object EventualDbCassandra {
 
                 for {
                   lastSeqNr <- LastSeqNr(id, metadata.deletedTo, statements.selectLastRecord, metadata)
-                  deletedTo = deletedToUnbound min lastSeqNr
-                  result <- saveAndDelete(deletedTo)
+                  result <- saveAndDelete(deleteTo min lastSeqNr)
                 } yield {
                   result
                 }

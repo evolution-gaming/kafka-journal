@@ -5,11 +5,13 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import com.evolutiongaming.cassandra.{CassandraConfig, CreateCluster}
+import com.evolutiongaming.kafka.journal.Alias.SeqNr
 import com.evolutiongaming.kafka.journal.ConsumerHelper._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
+import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandraConfig, EventualDbCassandra, SchemaConfig}
-import com.evolutiongaming.kafka.journal.{FoldRecords, SeqRange}
+import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{TopicPartition, _}
 
@@ -46,7 +48,8 @@ object Replicator {
     consumer: Consumer[String, Bytes],
     db: EventualDb,
     pollTimeout: FiniteDuration = 100.millis,
-    closeTimeout: FiniteDuration = 10.seconds)(implicit ec: ExecutionContext): Shutdown = {
+    closeTimeout: FiniteDuration = 10.seconds)(implicit
+    ec: ExecutionContext, system: ActorSystem): Shutdown = {
 
     //    val executorService = Executors.newSingleThreadExecutor()
     //    val executionContext = ExecutionContext.fromExecutor(executorService)
@@ -54,6 +57,8 @@ object Replicator {
     val topic = "journal"
     val topics = List(topic)
     consumer.subscribe(topics)
+
+    val log = ActorLog(system, Replicator.getClass) prefixed topic
 
     // TODO replace with StateVar
     @volatile var shutdown = Option.empty[Promise[Unit]]
@@ -82,35 +87,57 @@ object Replicator {
         (id, records) <- records.groupBy { case (record, _) => record.id }
       } yield {
 
-        val result = records.foldLeft[FoldRecords.Tmp](FoldRecords.Tmp.Empty) { case (result, (record, partitionOffset)) =>
-          FoldRecords(result, record, partitionOffset)
+        val actions = for {(record, _) <- records} yield record.action
+
+        def onNonEmpty(batch: ActionBatch.NonEmpty) = {
+          val deleteTo = batch.deleteTo getOrElse SeqNr.Min
+          val eventualRecords = for {
+            (record, partitionOffset) <- records
+            action <- PartialFunction.condOpt(record.action) { case a: Action.Append => a }.toIterable
+            if action.range.to > deleteTo
+            event <- EventsSerializer.fromBytes(action.events).toList
+            if event.seqNr > deleteTo
+          } yield {
+            EventualRecord(
+              id = record.id,
+              seqNr = event.seqNr,
+              timestamp = action.timestamp,
+              payload = event.payload,
+              tags = event.tags,
+              partitionOffset = partitionOffset)
+          }
+
+          val updateTmp = UpdateTmp.DeleteToKnown(batch.deleteTo, eventualRecords.toVector)
+
+          for {
+            result <- db.save(id, updateTmp, topic)
+          } yield {
+            val head = eventualRecords.head
+            val last = eventualRecords.last
+            val range = SeqRange(head.seqNr, last.seqNr)
+            val offset = last.partitionOffset.offset
+            val deleteTo = batch.deleteTo
+            log.info(s"replicate id: $id, range: $range, deleteTo: $deleteTo, offset: $offset")
+            result
+          }
         }
 
+        def onDelete(batch: ActionBatch.DeleteTo) = {
+          val deleteTo = batch.seqNr
+          val updateTmp = UpdateTmp.DeleteUnbound(deleteTo)
+          for {
+            result <- db.save(id, updateTmp, topic)
+          } yield {
+            log.info(s"replicate id: $id, deleteTo: $deleteTo")
+            result
+          }
+        }
 
-        result match {
-          case FoldRecords.Tmp.Empty => Future.unit
-
-          case FoldRecords.Tmp.DeleteToKnown(deletedTo, records) =>
-
-            val updateTmp = UpdateTmp.DeleteToKnown(deletedTo, records)
-
-            db.save(id, updateTmp, topic).map { result =>
-              if (records.nonEmpty) {
-                val head = records.head
-                val last = records.last
-                val range = SeqRange(head.seqNr, last.seqNr)
-                val offset = last.partitionOffset.offset
-
-                println(s"$id replicate.save range: $range offset: $offset")
-              }
-              result
-            }
-
-
-          case FoldRecords.Tmp.DeleteToUnknown(value) =>
-            println(s"$id replicate.save DeleteToUnknown($value)")
-            val updateTmp = UpdateTmp.DeleteUnbound(value)
-            db.save(id, updateTmp, topic)
+        val batch = ActionBatch(actions)
+        batch match {
+          case batch: ActionBatch.NonEmpty => onNonEmpty(batch)
+          case batch: ActionBatch.DeleteTo => onDelete(batch)
+          case ActionBatch.Empty           => Future.unit
         }
       }
 

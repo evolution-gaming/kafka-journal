@@ -17,9 +17,13 @@ object Action {
 
   sealed trait System extends Action
 
-  final case class Append(header: Header.Append, timestamp: Instant, events: Bytes) extends User
+  final case class Append(header: Header.Append, timestamp: Instant, events: Bytes) extends User {
+    def range: SeqRange = header.range
+  }
 
-  final case class Delete(header: Header.Delete, timestamp: Instant) extends User
+  final case class Delete(header: Header.Delete, timestamp: Instant) extends User {
+    def seqNr: SeqNr = header.to
+  }
 
   final case class Mark(header: Header.Mark) extends System
 
