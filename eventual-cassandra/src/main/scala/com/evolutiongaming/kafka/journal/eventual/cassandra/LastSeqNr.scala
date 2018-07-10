@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import com.evolutiongaming.kafka.journal.Alias.{Id, SeqNr, SeqNrOps}
+import com.evolutiongaming.kafka.journal.FutureHelper._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -27,14 +28,14 @@ object LastSeqNr {
         val x = records.map { _.seqNr }
 
         x match {
-          case None => Future.successful(from)
+          case None => from.future
 
           case Some(seqNr) =>
             val segmentNext = segmentOf(seqNrNext)
             if (segment != segmentNext) {
               lastSeqNr(seqNr)
             } else {
-              Future.successful(seqNr)
+              seqNr.future
             }
         }
       }

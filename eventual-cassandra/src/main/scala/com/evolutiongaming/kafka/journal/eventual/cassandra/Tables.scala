@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import com.datastax.driver.core.Session
 import com.evolutiongaming.cassandra.CassandraHelper._
+import com.evolutiongaming.kafka.journal.FutureHelper._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -22,7 +23,7 @@ object Tables {
           name
         }
       } else {
-        Future.successful(name)
+        name.future
       }
     }
 

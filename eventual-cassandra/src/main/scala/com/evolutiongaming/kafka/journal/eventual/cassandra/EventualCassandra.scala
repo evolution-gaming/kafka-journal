@@ -126,54 +126,20 @@ object EventualCassandra {
         }
       }
 
-      // TODO remove range argument
       def lastSeqNr(id: Id, from: SeqNr) = {
-        // TODO use range.to
-        /*def lastSeqNr(statement: JournalStatement.SelectLastRecord.Type, segmentSize: Int) = {
 
-          // TODO create lastSeqNr statement
-          // TODO remove duplication
-          def recur(from: SeqNr, prev: Option[(Segment, SeqNr)]): Future[Option[SeqNr]] = {
-            // println(s"EventualCassandra.last.recur id: $id, segment: $segment")
-
-            def record = prev.map { case (_, record) => record }
-
-            // TODO use deletedTo
-            val segment = Segment(from, segmentSize)
-            if (prev.exists { case (segmentPrev, _) => segmentPrev == segment }) {
-              Future.successful(record)
-            } else {
-              for {
-                result <- statement(id, segment, from)
-                result <- result match {
-                  case None         => Future.successful(record)
-                  case Some(result) =>
-                    val seqNr = (segment, result.seqNr)
-                    recur(from.next, Some(seqNr))
-                }
-              } yield {
-                result
-              }
-            }
+        def lastSeqNr(statements: Statements, metadata: Option[Metadata]) = {
+          metadata.fold(from.future) { metadata =>
+            LastSeqNr(id, from, statements.selectLastRecord, metadata)
           }
-
-          recur(range.from, None)
-        }*/
-
-
-        def lastSeqNr(statement: JournalStatement.SelectLastRecord.Type, metadata: Metadata) = {
-          LastSeqNr(id, from, statement, metadata)
         }
 
         for {
           statements <- statements
           metadata <- metadata(id, statements)
-          seqNr <- metadata match {
-            case Some(metadata) => lastSeqNr(statements.selectLastRecord, metadata)
-            case None           => Future.successful(SeqNr.Min) // TODO cache value
-          }
+          seqNr <- lastSeqNr(statements, metadata)
         } yield {
-          Some(seqNr) // TODO simplify api
+          seqNr
         }
       }
     }

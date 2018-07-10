@@ -11,6 +11,7 @@ import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandraConfig, EventualDbCassandra, SchemaConfig}
+import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer._
@@ -197,7 +198,7 @@ object Replicator {
               }
             } else {
               val result = (topicPointers, true)
-              Future.successful(result)
+              result.future
             }
         }
       }

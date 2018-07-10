@@ -13,17 +13,17 @@ import scala.concurrent.Future
 trait EventualJournal {
   def topicPointers(topic: Topic): Future[TopicPointers]
   def read(id: Id, range: SeqRange): Future[Seq[EventualRecord]]
-  def lastSeqNr(id: Id, from: SeqNr): Future[Option[SeqNr]]
+  def lastSeqNr(id: Id, from: SeqNr): Future[SeqNr]
 }
 
 object EventualJournal {
 
   val Empty: EventualJournal = {
-    val futureTopicPointers = Future.successful(TopicPointers.Empty)
+    val futureTopicPointers = TopicPointers.Empty.future
     new EventualJournal {
       def topicPointers(topic: Topic) = futureTopicPointers
       def read(id: Id, range: SeqRange) = Future.seq
-      def lastSeqNr(id: Id, from: SeqNr) = Future.none
+      def lastSeqNr(id: Id, from: SeqNr) = Future.seqNr
     }
   }
 
@@ -46,7 +46,7 @@ object EventualJournal {
     }
 
     def lastSeqNr(id: Id, from: SeqNr) = {
-      log[Option[SeqNr]](s"$id lastSeqNr from: $from") {
+      log[SeqNr](s"$id lastSeqNr from: $from") {
         eventualJournal.lastSeqNr(id, from)
       }
     }

@@ -11,6 +11,7 @@ import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig, SchemaConfig}
 import com.evolutiongaming.kafka.journal.{Event, Journals, SeqRange}
+import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.serialization.{SerializedMsg, SerializedMsgExt}
@@ -25,7 +26,6 @@ import scala.util.Try
 import scala.util.control.NonFatal
 
 class PersistenceJournal extends AsyncWriteJournal {
-  import PersistenceJournal._
 
   val serializedMsgExt = SerializedMsgExt(context.system)
   implicit val system = context.system
@@ -94,7 +94,7 @@ class PersistenceJournal extends AsyncWriteJournal {
     } yield {
       persistentRepr
     }
-    if (persistentReprs.isEmpty) FutureNil
+    if (persistentReprs.isEmpty) Future.seq
     else {
       val persistenceId = persistentReprs.head.persistenceId
 
@@ -160,9 +160,6 @@ class PersistenceJournal extends AsyncWriteJournal {
   }
 }
 
-object PersistenceJournal {
-  val FutureNil: Future[List[Nothing]] = Future.successful(Nil)
-}
 
 case class PersistentEvent(
   seqNr: SeqNr, // TODO

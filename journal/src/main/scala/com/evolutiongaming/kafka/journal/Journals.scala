@@ -5,6 +5,7 @@ import java.time.Instant
 import akka.actor.ActorSystem
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
+import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer.Consumer
@@ -28,8 +29,8 @@ object Journals {
 
   val Empty: Journals = new Journals {
     def append(id: Id, events: Nel[Event], timestamp: Instant) = Future.unit
-    def read(id: Id, range: SeqRange): Future[List[Event]] = Future.successful(Nil)
-    def lastSeqNr(id: Id, from: SeqNr) = Future.successful(0L)
+    def read(id: Id, range: SeqRange): Future[List[Event]] = Future.nil
+    def lastSeqNr(id: Id, from: SeqNr) = Future.seqNr
     def delete(id: Id, to: SeqNr, timestamp: Instant) = Future.unit
   }
 

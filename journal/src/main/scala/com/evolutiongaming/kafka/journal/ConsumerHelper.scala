@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.evolutiongaming.kafka.journal.StreamHelper._
+import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecords}
 
 import scala.collection.immutable.Seq
@@ -39,7 +40,7 @@ object ConsumerHelper {
         for {
           records <- self.poll(timeout)
           (ss, b) = f(s, records)
-          result <- if (b) poll(ss) else Future.successful(ss)
+          result <- if (b) poll(ss) else ss.future
         } yield {
           result
         }
@@ -58,7 +59,7 @@ object ConsumerHelper {
         for {
           records <- self.poll(timeout)
           (ss, b) <- f(s, records)
-          result <- if (b) poll(ss) else Future.successful(ss)
+          result <- if (b) poll(ss) else ss.future
         } yield {
           result
         }

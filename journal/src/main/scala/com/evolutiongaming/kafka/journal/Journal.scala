@@ -33,8 +33,8 @@ object Journal {
 
   val Empty: Journal = new Journal {
     def append(events: Nel[Event], timestamp: Instant) = Future.unit
-    def read(range: SeqRange): Future[List[Event]] = Future.successful(Nil)
-    def lastSeqNr(from: SeqNr) = Future.successful(0L)
+    def read(range: SeqRange): Future[List[Event]] = Future.nil
+    def lastSeqNr(from: SeqNr) = Future.seqNr
     def delete(to: SeqNr, timestamp: Instant) = Future.unit
 
     override def toString = s"Journal.Empty"
@@ -289,18 +289,14 @@ object Journal {
       def lastSeqNr(from: SeqNr) = {
         for {
           consume <- consumeActions(from)
-          valueEventual = eventual.lastSeqNr(id, from)
-          value <- consume[Offset](from) { case (seqNr, action) =>
-            action match {
-              case action: Action.Append => action.header.range.to
-              case action: Action.Delete => seqNr
-            }
+          seqNrEventual = eventual.lastSeqNr(id, from)
+          seqNr <- consume[Offset](from) {
+            case (seqNr, a: Action.Append) => a.header.range.to
+            case (seqNr, _: Action.Delete) => seqNr
           }
-          valueEventual <- valueEventual
+          seqNrEventual <- seqNrEventual
         } yield {
-
-          val valueEventual2 = valueEventual getOrElse from
-          value max valueEventual2
+          seqNrEventual max seqNr
         }
       }
 
