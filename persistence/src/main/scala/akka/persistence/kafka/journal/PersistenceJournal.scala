@@ -1,5 +1,6 @@
 package akka.persistence.kafka.journal
 
+import java.time.Instant
 import java.util.UUID
 
 import akka.persistence.journal.{AsyncWriteJournal, Tagged}
@@ -9,7 +10,7 @@ import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig, SchemaConfig}
-import com.evolutiongaming.kafka.journal.{Entry, Journals, SeqRange}
+import com.evolutiongaming.kafka.journal.{Event, Journals, SeqRange}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.serialization.{SerializedMsg, SerializedMsgExt}
@@ -86,6 +87,7 @@ class PersistenceJournal extends AsyncWriteJournal {
   // TODO optimise sequence of calls asyncWriteMessages & asyncReadHighestSequenceNr for the same persistenceId
 
   def asyncWriteMessages(atomicWrites: Seq[AtomicWrite]): Future[Seq[Try[Unit]]] = {
+    val timestamp = Instant.now()
     val persistentReprs = for {
       atomicWrite <- atomicWrites
       persistentRepr <- atomicWrite.payload
@@ -101,7 +103,7 @@ class PersistenceJournal extends AsyncWriteJournal {
       log.debug(s"asyncWriteMessages persistenceId: $persistenceId, seqNrs: $seqNrs")
 
       val result = Future {
-        val records = for {
+        val events = for {
           persistentRepr <- persistentReprs
         } yield {
           val (payload: AnyRef, tags) = PayloadAndTags(persistentRepr.payload)
@@ -109,9 +111,10 @@ class PersistenceJournal extends AsyncWriteJournal {
           val persistentEvent = PersistentEvent(serialized, persistentRepr)
           val bytes = PersistentEventSerializer.toBinary(persistentEvent)
           // TODO rename
-          Entry(bytes, persistentRepr.sequenceNr, tags)
+          Event(bytes, persistentRepr.sequenceNr, tags)
         }
-        val result = journals.append(persistenceId, Nel(records.head, records.tail.toList))
+        val nel = Nel(events.head, events.tail.toList) // TODO is it optimal convert to list ?
+        val result = journals.append(persistenceId, nel, timestamp)
         result.map(_ => Nil)(CurrentThreadExecutionContext)
       }
       result.flatMap(identity)(CurrentThreadExecutionContext)
@@ -119,7 +122,8 @@ class PersistenceJournal extends AsyncWriteJournal {
   }
 
   def asyncDeleteMessagesTo(persistenceId: PersistenceId, to: SeqNr): Future[Unit] = {
-    journals.delete(persistenceId, to)
+    val timestamp = Instant.now()
+    journals.delete(persistenceId, to, timestamp)
   }
 
   def asyncReplayMessages(persistenceId: PersistenceId, from: SeqNr, to: SeqNr, max: Long)

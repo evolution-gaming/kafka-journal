@@ -1,51 +1,42 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.Alias.SeqNr
-import play.api.libs.json._
+import java.time.Instant
 
-sealed trait Action
+import com.evolutiongaming.kafka.journal.Alias.{Bytes, Id, SeqNr}
+import com.evolutiongaming.skafka.Topic
+
+sealed trait Action {
+  def header: Action.Header
+}
 
 object Action {
 
-  // TODO move out to separate object
-  implicit val JsonFormat: OFormat[Action] = {
-
-    implicit val SeqRangeFormat = Json.format[SeqRange]
-
-    val AppendFormat = Json.format[Append]
-    val DeleteFormat = Json.format[Delete]
-    val ReadFormat = Json.format[Mark]
-
-    new OFormat[Action] {
-
-      def reads(json: JsValue): JsResult[Action] = {
-        def read[T](name: String, reads: Reads[T]) = {
-          (json \ name).validate(reads)
-        }
-
-        read("append", AppendFormat) orElse read("mark", ReadFormat) orElse read("delete", DeleteFormat)
-      }
-
-      def writes(action: Action): JsObject = {
-
-        def write[T](name: String, value: T, writes: Writes[T]) = {
-          val json = writes.writes(value)
-          Json.obj(name -> json)
-        }
-
-        action match {
-          case action: Append => write("append", action, AppendFormat)
-          case action: Mark   => write("mark", action, ReadFormat)
-          case action: Delete => write("delete", action, DeleteFormat)
-        }
-      }
-    }
+  sealed trait User extends Action {
+    def timestamp: Instant
   }
 
+  sealed trait System extends Action
 
-  sealed trait AppendOrDelete extends Action
-  // TODO make all case classes as Final
-  case class Append(range: SeqRange) extends AppendOrDelete
-  case class Delete(to: SeqNr) extends AppendOrDelete
-  case class Mark(id: String) extends Action
+  // TODO consider using Vector
+  final case class Append(header: Header.Append, timestamp: Instant, events: Bytes) extends User
+
+  final case class Delete(header: Header.Delete, timestamp: Instant) extends User
+
+  final case class Mark(header: Header.Mark) extends System
+
+
+  sealed trait Header
+
+  object Header {
+    final case class Append(range: SeqRange) extends Header
+    final case class Delete(to: SeqNr /*TODO NOT CONFIRMED*/) extends Header
+    final case class Mark(id: String) extends Header
+  }
 }
+
+
+final case class IdAndTopic(id: Id, topic: Topic) // TODO use for KafkaRecord
+
+
+// TODO drawback of using type here
+final case class KafkaRecord[A <: Action](id: Id, topic: Topic /*TODO not needed here*/ , action: A)

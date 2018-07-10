@@ -1,23 +1,25 @@
 package com.evolutiongaming.kafka.journal
 
+import com.evolutiongaming.kafka.journal.Action.Header
+import com.evolutiongaming.kafka.journal.HeaderFormats._
 import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json.{Format, JsValue, Json}
 
-class ActionJsonSpec extends FunSuite with Matchers {
+class HeaderJsonSpec extends FunSuite with Matchers {
 
   test("Append format") {
-    val action: Action = Action.Append(SeqRange(1, 5))
-    verify(action)
+    val header: Header = Header.Append(SeqRange(1, 5))
+    verify(header)
   }
 
   test("Delete format") {
-    val action: Action = Action.Delete(3)
-    verify(action)
+    val header: Header = Header.Delete(3)
+    verify(header)
   }
 
   test("Mark format") {
-    val action: Action = Action.Mark("id")
-    verify(action)
+    val header: Header = Header.Mark("id")
+    verify(header)
   }
 
 
@@ -34,7 +36,14 @@ class ActionJsonSpec extends FunSuite with Matchers {
     }
 
     def verifyAgainstFile() = {
-      val name = value.getClass.getSimpleName
+      val name = value.getClass
+        .getName
+        .split('.')
+        .filter(_.nonEmpty)
+        .last
+        .split('$')
+        .filter(_.nonEmpty)
+        .last
       val stream = value.getClass.getResourceAsStream(s"$name.json")
       val json = Json.parse(stream)
       verify(json)

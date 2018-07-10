@@ -1,66 +1,66 @@
 package com.evolutiongaming.kafka.journal
 
+import java.time.Instant
 import java.util.UUID
 
 import akka.actor.ActorSystem
-import com.evolutiongaming.kafka.journal.ActionConverters._
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.ConsumerHelper._
-import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FutureHelper._
+import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal.LogHelper._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, PartitionOffset}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecord}
-import com.evolutiongaming.skafka.producer.{Producer, ProducerRecord}
+import com.evolutiongaming.skafka.producer.Producer
 import com.evolutiongaming.skafka.{Bytes => _, _}
 
 import scala.collection.immutable.Seq
-import scala.compat.Platform
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 // TODO consider passing topic along with id as method argument
 trait Journal {
-  def append(events: Nel[Entry]): Future[Unit]
+  def append(events: Nel[Event], timestamp: Instant): Future[Unit]
   // TODO decide on return type
-  def read(range: SeqRange): Future[Seq[Entry]]
+  def read(range: SeqRange): Future[Seq[Event]]
   def lastSeqNr(from: SeqNr): Future[SeqNr]
-  def delete(to: SeqNr): Future[Unit]
+  def delete(to: SeqNr, timestamp: Instant): Future[Unit]
 }
 
 object Journal {
 
   val Empty: Journal = new Journal {
-    def append(events: Nel[Entry]) = Future.unit
-    def read(range: SeqRange): Future[List[Entry]] = Future.successful(Nil)
+    def append(events: Nel[Event], timestamp: Instant) = Future.unit
+    def read(range: SeqRange): Future[List[Event]] = Future.successful(Nil)
     def lastSeqNr(from: SeqNr) = Future.successful(0L)
-    def delete(to: SeqNr) = Future.unit
+    def delete(to: SeqNr, timestamp: Instant) = Future.unit
 
     override def toString = s"Journal.Empty"
   }
 
   def apply(journal: Journal, log: ActorLog): Journal = new Journal {
 
-    def append(events: Nel[Entry]) = {
-      def range = {
+    def append(events: Nel[Event], timestamp: Instant) = {
+
+      def eventsStr = {
         val head = events.head.seqNr
         val last = events.last.seqNr
         SeqRange(head, last)
       }
 
-      log[Unit](s"append $range") {
-        journal.append(events)
+      log[Unit](s"append $eventsStr, timestamp: $timestamp") {
+        journal.append(events, timestamp)
       }
     }
 
     def read(range: SeqRange) = {
-      val toStr = (entries: Seq[Entry]) => {
+      val toStr = (entries: Seq[Event]) => {
         entries.map(_.seqNr).mkString(",") // TODO use range and implement misses verification
       }
 
-      log[Seq[Entry]](s"read $range", toStr) {
+      log[Seq[Event]](s"read $range", toStr) {
         journal.read(range)
       }
     }
@@ -71,9 +71,9 @@ object Journal {
       }
     }
 
-    def delete(to: SeqNr) = {
-      log[Unit](s"delete $to") {
-        journal.delete(to)
+    def delete(to: SeqNr, timestamp: Instant) = {
+      log[Unit](s"delete $to, timestamp: $timestamp") {
+        journal.delete(to, timestamp)
       }
     }
 
@@ -94,23 +94,19 @@ object Journal {
     system: ActorSystem,
     ec: ExecutionContext): Journal = {
 
-    def produce[T](action: Action, payload: T)(implicit toBytes: ToBytes[T]) = {
-      val header = toHeader(action)
-      val timestamp = Platform.currentTime // TODO argument
-      val record = ProducerRecord(
-        topic = topic,
-        value = payload,
-        key = Some(id),
-        timestamp = Some(timestamp),
-        headers = List(header))
-      producer(record)
+    def produce(action: Action) = {
+      val kafkaRecord = KafkaRecord(id, topic, action)
+      val producerRecord = kafkaRecord.toProducerRecord
+      producer(producerRecord)
     }
 
     def mark(): Future[(String, Partition)] = {
       val marker = UUID.randomUUID().toString
-      val action = Action.Mark(marker)
+      val header = Action.Header.Mark(marker)
+      val action = Action.Mark(header)
+
       for {
-        metadata <- produce(action, Array.empty[Byte])
+        metadata <- produce(action)
       } yield {
         val partition = metadata.topicPartition.partition
         (marker, partition)
@@ -128,12 +124,13 @@ object Journal {
         case None =>
           val topics = List(topic)
           consumer.subscribe(topics) // TODO with listener
-        //          consumer.seekToBeginning()
+        //          consumer.seekToBeginning() // TODO
 
         case Some(partitionOffset) =>
           val topicPartition = TopicPartition(topic, partitionOffset.partition)
           consumer.assign(List(topicPartition)) // TODO blocking
-          consumer.seek(topicPartition, partitionOffset.offset) // TODO blocking
+        val offset = partitionOffset.offset + 1 // TODO TEST
+          consumer.seek(topicPartition, offset) // TODO blocking
       }
 
       val ss = consumer.fold(s, pollTimeout) { (s, consumerRecords) =>
@@ -188,7 +185,7 @@ object Journal {
 
 
     trait Fold {
-      def apply[S](s: S)(f: (S, ConsumerRecord[String, Bytes], Action.AppendOrDelete) => S): Future[S]
+      def apply[S](s: S)(f: (S, Action.User) => S): Future[S]
     }
 
     // TODO add range argument
@@ -208,19 +205,22 @@ object Journal {
         // TODO compare partitions !
 
         new Fold {
-          def apply[S](s: S)(f: (S, ConsumerRecord[String, Bytes], Action.AppendOrDelete) => S): Future[S] = {
+          def apply[S](s: S)(f: (S, Action.User) => S): Future[S] = {
 
             // TODO add seqNr safety check
             consume(s, partitionOffset) { case (s, record) =>
-              val a = toAction(record)
-              a match {
-                case a: Action.AppendOrDelete =>
-                  val ss = f(s, record, a)
-                  (ss, true)
+              val kafkaRecord = record.toKafkaRecord
+              kafkaRecord.fold((s, true)) { kafkaRecord =>
+                val action = kafkaRecord.action
+                action match {
+                  case action: Action.User =>
+                    val ss = f(s, action)
+                    (ss, true)
 
-                case a: Action.Mark =>
-                  val continue = a.id != marker
-                  (s, continue)
+                  case action: Action.Mark =>
+                    val continue = action.header.id != marker
+                    (s, continue)
+                }
               }
             }
           }
@@ -230,29 +230,29 @@ object Journal {
 
     new Journal {
 
-      def append(events: Nel[Entry]): Future[Unit] = {
+      def append(events: Nel[Event], timestamp: Instant): Future[Unit] = {
 
         val events2 = for {
           event <- events
         } yield {
           JournalRecord.Event(event.seqNr, event.payload)
         }
-
-        val payload = JournalRecord.Payload.Events(events2)
+        val payload = EventsSerializer.EventsToBytes(JournalRecord.Payload.Events(events2), topic)
         val range = SeqRange(from = events.head.seqNr, to = events.last.seqNr)
-        val action = Action.Append(range)
-        val result = produce(action, payload)
+        val header = Action.Header.Append(range)
+        val action = Action.Append(header, timestamp, payload) // TODO huh?!
+        val result = produce(action)
         result.unit
       }
 
-      def read(range: SeqRange): Future[Seq[Entry]] = {
+      def read(range: SeqRange): Future[Seq[Event]] = {
 
         def eventualRecords() = {
           for {
             eventualRecords <- eventual.read(id, range)
           } yield {
             eventualRecords.map { record =>
-              Entry(
+              Event(
                 payload = record.payload,
                 seqNr = record.seqNr,
                 tags = record.tags)
@@ -266,16 +266,16 @@ object Journal {
           consume <- consumeActions(range.from)
           entries = eventualRecords()
           // TODO use range after eventualRecords
-          records <- consume(zero) { case (result, record, action) =>
-            Tmp(result, action, record, topic, range)
+          records <- consume(zero) { case (result, action) =>
+            Tmp(result, action, topic, range)
           }
           entries <- entries
         } yield {
 
           val eventualEntries = entries.dropWhile(_.seqNr <= records.deleteTo)
 
-          if (records.entries.nonEmpty) {
-            val size = records.entries.size
+          if (records.events.nonEmpty) {
+            val size = records.events.size
             // TODO important performance indication
             // TODO decide on naming convention regarding records, entries, etc
 
@@ -283,8 +283,8 @@ object Journal {
             log.warn(s"last $size records are missing in EventualJournal")
           }
 
-          eventualEntries.lastOption.fold(records.entries) { last =>
-            val kafka = records.entries.dropWhile(_.seqNr <= last.seqNr)
+          eventualEntries.lastOption.fold(records.events) { last =>
+            val kafka = records.events.dropWhile(_.seqNr <= last.seqNr)
             // TODO create special data structure
             eventualEntries ++ kafka
           }
@@ -295,10 +295,10 @@ object Journal {
         for {
           consume <- consumeActions(from)
           valueEventual = eventual.lastSeqNr(id, from)
-          value <- consume[Offset](from) { case (seqNr, _, a) =>
-            a match {
-              case a: Action.Append => a.range.to
-              case a: Action.Delete => seqNr
+          value <- consume[Offset](from) { case (seqNr, action) =>
+            action match {
+              case action: Action.Append => action.header.range.to
+              case action: Action.Delete => seqNr
             }
           }
           valueEventual <- valueEventual
@@ -309,9 +309,10 @@ object Journal {
         }
       }
 
-      def delete(to: SeqNr): Future[Unit] = {
-        val action = Action.Delete(to)
-        produce(action, Array.empty[Byte]).unit
+      def delete(to: SeqNr, timestamp: Instant): Future[Unit] = {
+        val header = Action.Header.Delete(to)
+        val action = Action.Delete(header, timestamp)
+        produce(action).unit
       }
 
       override def toString = s"Journal($id)"

@@ -5,12 +5,12 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import com.evolutiongaming.cassandra.{CassandraConfig, CreateCluster}
-import com.evolutiongaming.kafka.journal.ActionConverters._
 import com.evolutiongaming.kafka.journal.Alias.SeqNr
 import com.evolutiongaming.kafka.journal.ConsumerHelper._
+import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandraConfig, EventualDbCassandra, SchemaConfig}
-import com.evolutiongaming.kafka.journal.{Action, EventsSerializer, JournalRecord, SeqRange}
+import com.evolutiongaming.kafka.journal.{Action, EventsSerializer, SeqRange}
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{TopicPartition, _}
 
@@ -46,7 +46,7 @@ object Replicator {
 
   def apply(
     consumer: Consumer[String, Bytes],
-    eventualDb: EventualDb,
+    db: EventualDb,
     pollTimeout: FiniteDuration = 100.millis,
     closeTimeout: FiniteDuration = 10.seconds)(implicit ec: ExecutionContext): Shutdown = {
 
@@ -64,36 +64,25 @@ object Replicator {
     case class State(pointers: Map[TopicPartition, Offset])
 
 
-    def apply(state: State, records: ConsumerRecords[String, Bytes]): Future[State] = {
+    // TODO handle that consumerRecords are not empty
+    def apply(state: State, consumerRecords: ConsumerRecords[String, Bytes]): Future[State] = {
+
+      // TODO avoid creating unnecessary collections
+      val records = for {
+        consumerRecords <- consumerRecords.values.values
+        consumerRecord <- consumerRecords
+        kafkaRecord <- consumerRecord.toKafkaRecord
+        // TODO kafkaRecord.asInstanceOf[Action.User] ???
+      } yield {
+        val partitionOffset = PartitionOffset(
+          partition = consumerRecord.partition,
+          offset = consumerRecord.offset)
+        (kafkaRecord, partitionOffset)
+      }
 
       val futures = for {
-        records <- records.values.values
-        (key, records) <- records.groupBy { _.key }
-        id <- key
+        (id, records) <- records.groupBy { case (record, _) => record.id }
       } yield {
-
-        val topic = records.head.topic
-
-        // TODO handle use case when the `Mark` is first ever Action
-
-        def toEventualRecord(record: ConsumerRecord[String, Bytes], event: JournalRecord.Event) = {
-          // TODO different created and inserted timestamps
-
-          val seqNr = event.seqNr
-
-          val timestamp = Instant.now()
-
-          EventualRecord(
-            id = id,
-            seqNr = seqNr,
-            timestamp = timestamp,
-            payload = event.payload,
-            tags = Set.empty, // TODO
-            partitionOffset = PartitionOffset(
-              partition = record.partition,
-              offset = record.offset))
-        }
-
 
         sealed trait DeleteTo
 
@@ -114,14 +103,21 @@ object Replicator {
         }
 
 
-        val result = records.foldLeft[Tmp](Tmp.Empty) { case (result, record) =>
+        val result = records.foldLeft[Tmp](Tmp.Empty) { case (result, (record, partitionOffset)) =>
 
-          val action = toAction(record)
-
-          action match {
+          record.action match {
             case action: Action.Append =>
-              val events = EventsSerializer.EventsFromBytes(record.value, topic).events.to[Vector]
-              val records = events.map { event => toEventualRecord(record, event) }
+              val events = EventsSerializer.EventsFromBytes(action.events, topic).events.to[Vector]
+              val records = events.map { event =>
+                // TODO different created and inserted timestamps
+                EventualRecord(
+                  id = id,
+                  seqNr = event.seqNr,
+                  timestamp = action.timestamp,
+                  payload = event.payload,
+                  tags = Set.empty, // TODO
+                  partitionOffset = partitionOffset)
+              }
 
               result match {
                 case Tmp.Empty => Tmp.DeleteToKnown(None, records)
@@ -131,7 +127,7 @@ object Replicator {
 
                 case Tmp.DeleteToUnknown(value) =>
 
-                  val range = action.range
+                  val range = action.header.range
                   if (value < range.from) {
                     Tmp.DeleteToKnown(Some(value), records)
                   } else if (value >= range.to) {
@@ -145,7 +141,7 @@ object Replicator {
 
             case action: Action.Delete =>
 
-              val deleteTo = action.to
+              val deleteTo = action.header.to
 
               result match {
                 case Tmp.Empty => Tmp.DeleteToUnknown(deleteTo)
@@ -197,7 +193,7 @@ object Replicator {
 
             val updateTmp = UpdateTmp.DeleteToKnown(deletedTo, records)
 
-            eventualDb.save(id, updateTmp, topic).map { result =>
+            db.save(id, updateTmp, topic).map { result =>
               if (records.nonEmpty) {
                 val head = records.head
                 val last = records.last
@@ -213,12 +209,12 @@ object Replicator {
           case Tmp.DeleteToUnknown(value) =>
             println(s"$id replicate.save DeleteToUnknown($value)")
             val updateTmp = UpdateTmp.DeleteUnbound(value)
-            eventualDb.save(id, updateTmp, topic)
+            db.save(id, updateTmp, topic)
         }
       }
 
-      val pointers = records.values.map { case (topicPartition, records) =>
-        val offset = records.foldLeft[Offset](0L) { (offset, record) => record.offset max offset }
+      val pointers = consumerRecords.values.map { case (topicPartition, records) =>
+        val offset = records.foldLeft[Offset](0L /*TODO what if empty ?*/) { (offset, record) => record.offset max offset }
         (topicPartition, offset)
       }
 
@@ -232,7 +228,7 @@ object Replicator {
           (topicPartition, (offset, created))
         }
         val updatePointers = UpdatePointers(timestamp, tmp)
-        eventualDb.savePointers(updatePointers)
+        db.savePointers(updatePointers)
       }
 
       for {
@@ -253,7 +249,7 @@ object Replicator {
 
     def state() = {
       for {
-        topicPointers <- eventualDb.topicPointers(topic)
+        topicPointers <- db.topicPointers(topic)
       } yield {
         val pointers = for {
           (partition, offset) <- topicPointers.pointers

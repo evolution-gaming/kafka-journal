@@ -18,6 +18,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 // TODO create collection that is optimised for ordered sequence and seqNr
 // TODO redesign EventualDbCassandra so it can hold stat and called recursively
+// TODO rename
 object EventualDbCassandra {
 
   def apply(
@@ -75,10 +76,6 @@ object EventualDbCassandra {
 
 
           def save(records: Seq[EventualRecord], deletedTo: Option[SeqNr]) = {
-
-            println(s"$id save deletedTo: $deletedTo, topic: $topic")
-
-            // TODO delete actual records !!!
 
             def saveRecords(segmentSize: Int) = {
               if (records.isEmpty) Future.unit
@@ -221,9 +218,9 @@ object EventualDbCassandra {
 
           for {
             (_, statements) <- sessionAndStatements
-            _ <- savePointers(statements)
+            result <- savePointers(statements)
           } yield {
-
+            result
           }
         }
       }

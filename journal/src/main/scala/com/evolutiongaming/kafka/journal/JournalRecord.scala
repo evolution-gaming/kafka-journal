@@ -19,5 +19,5 @@ object JournalRecord {
     case object Delete extends Payload
   }
 
-  case class Event(seqNr: SeqNr, payload: Array[Byte])
+  case class Event(seqNr: SeqNr, payload: Bytes)
 }

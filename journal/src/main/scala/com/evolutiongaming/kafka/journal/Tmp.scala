@@ -10,20 +10,20 @@ import scala.collection.immutable.Seq
 // TODO rename
 object Tmp {
 
-  case class Result(deleteTo: SeqNr, entries: Seq[Entry])
+  case class Result(deleteTo: SeqNr, events: Seq[Event])
 
 
   def apply(
     result: Result,
-    action: Action.AppendOrDelete,
-    record: ConsumerRecord[String, Bytes],
+    action: Action.User,
     topic: Topic,
     range: SeqRange) = {
 
     action match {
-      case a: Action.Append =>
+      case action: Action.Append =>
 
-        val bytes = record.value
+        val bytes = action.events
+        val header = action.header
 
         def entries = {
           EventsFromBytes(bytes, topic)
@@ -31,17 +31,17 @@ object Tmp {
             .to[Vector]
             .map { event =>
               val tags = Set.empty[String] // TODO
-              Entry(event.payload, event.seqNr, tags)
+              Event(event.payload, event.seqNr, tags)
             }
         }
 
-        if (range.contains(a.range)) {
+        if (range.contains(header.range)) {
           // TODO we don't need to deserialize entries that are out of scope
-          result.copy(entries = result.entries ++ entries)
+          result.copy(events = result.events ++ entries)
 
-        } else if (a.range < range) {
+        } else if (header.range < range) {
           result
-        } else if (a.range > range) {
+        } else if (header.range > range) {
           // TODO stop consuming
           result
         } else {
@@ -50,16 +50,18 @@ object Tmp {
 
           if (entries.last.seqNr > range) {
             // TODO stop consuming
-            result.copy(entries = result.entries ++ filtered)
+            result.copy(events = result.events ++ filtered)
           } else {
-            result.copy(entries = result.entries ++ filtered)
+            result.copy(events = result.events ++ filtered)
           }
         }
 
-      case a: Action.Delete =>
-        if (a.to > result.deleteTo) {
-          val entries = result.entries.dropWhile(_.seqNr <= a.to)
-          result.copy(deleteTo = a.to, entries = entries)
+      case action: Action.Delete =>
+        val header = action.header
+        val deletedTo = header.to
+        if (header.to > result.deleteTo) {
+          val entries = result.events.dropWhile(_.seqNr <= deletedTo)
+          result.copy(deleteTo = deletedTo, events = entries)
         } else {
           result
         }
