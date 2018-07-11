@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import com.evolutiongaming.kafka.journal.Alias.{Bytes, Id, SeqNr}
+import com.evolutiongaming.kafka.journal.eventual.PartitionOffset
 import com.evolutiongaming.skafka.Topic
 
 sealed trait Action {
@@ -49,3 +50,6 @@ final case class IdAndTopic(id: Id, topic: Topic) // TODO use for KafkaRecord
 
 // TODO drawback of using type here
 final case class KafkaRecord[A <: Action](id: Id, topic: Topic /*TODO not needed here*/ , action: A)
+
+// TODO
+final case class KafkaRecord2[A <: Action](record: KafkaRecord[A], partitionOffset: PartitionOffset)

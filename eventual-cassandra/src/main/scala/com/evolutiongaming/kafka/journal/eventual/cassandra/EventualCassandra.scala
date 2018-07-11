@@ -82,7 +82,7 @@ object EventualCassandra {
 
           def list(range: SeqRange) = {
             val segment = segmentOf(range.from)
-            val source = Source.unfoldWhile(segment) { segment =>
+            val source = Source.foldWhile(segment) { segment =>
               println(s"$id Source.unfoldWhile range: $range, segment: $segment")
               for {
                 records <- statement(id, segment, range)
@@ -102,8 +102,6 @@ object EventualCassandra {
           }
 
           val deletedTo = metadata.deletedTo
-
-          println(s"$id EventualCassandra.list deletedTo: $deletedTo")
 
           if (deletedTo >= range.to) {
             Future.seq

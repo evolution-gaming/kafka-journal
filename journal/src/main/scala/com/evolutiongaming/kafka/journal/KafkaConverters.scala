@@ -4,6 +4,7 @@ import java.time.Instant
 
 import com.evolutiongaming.kafka.journal.Alias.Bytes
 import com.evolutiongaming.kafka.journal.HeaderFormats._
+import com.evolutiongaming.kafka.journal.eventual.PartitionOffset
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.Header
 import com.evolutiongaming.skafka.consumer.ConsumerRecord
@@ -56,6 +57,10 @@ object KafkaConverters {
 
   implicit class ConsumerRecordOps(val self: ConsumerRecord[String, Bytes]) extends AnyVal {
 
+    def toPartitionOffset: PartitionOffset = {
+      PartitionOffset(partition = self.partition, offset = self.offset)
+    }
+
     def toKafkaRecord: Option[KafkaRecord[_ <: Action]] = {
 
       def action(header: Action.Header) = {
@@ -99,6 +104,15 @@ object KafkaConverters {
         action <- action(header)
       } yield {
         KafkaRecord(id, self.topic, action)
+      }
+    }
+
+    // TODO rename
+    def toKafkaRecord2(): Option[KafkaRecord2[_ <: Action]] = {
+      for {
+        kafkaRecord <- self.toKafkaRecord
+      } yield {
+        KafkaRecord2(kafkaRecord, self.toPartitionOffset)
       }
     }
   }

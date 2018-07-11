@@ -2,8 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.evolutiongaming.kafka.journal.StreamHelper._
-import com.evolutiongaming.kafka.journal.FutureHelper._
+import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecords}
 
 import scala.collection.immutable.Seq
@@ -21,7 +20,7 @@ object ConsumerHelper {
       f: (S, ConsumerRecords[K, V]) => (S, Boolean, Seq[E]))(implicit
       ec: ExecutionContext /*TODO*/): Source[E, NotUsed] = {
 
-      Source.unfoldWhile(s) { s =>
+      Source.foldWhile(s) { s =>
         for {
           records <- self.poll(timeout)
         } yield {
@@ -36,17 +35,13 @@ object ConsumerHelper {
       f: (S, ConsumerRecords[K, V]) => (S, Boolean))(implicit
       ec: ExecutionContext /*TODO*/): Future[S] = {
 
-      def poll(s: S): Future[S] = {
-        for {
-          records <- self.poll(timeout)
-          (ss, b) = f(s, records)
-          result <- if (b) poll(ss) else ss.future
-        } yield {
-          result
-        }
+      val ff = (s: S) => for {
+        records <- self.poll(timeout)
+      } yield {
+        f(s, records)
       }
 
-      poll(s)
+      ff.foldWhile(s)
     }
 
     // TODO FastFuture
@@ -55,17 +50,14 @@ object ConsumerHelper {
       f: (S, ConsumerRecords[K, V]) => Future[(S, Boolean)])(implicit
       ec: ExecutionContext /*TODO*/): Future[S] = {
 
-      def poll(s: S): Future[S] = {
-        for {
-          records <- self.poll(timeout)
-          (ss, b) <- f(s, records)
-          result <- if (b) poll(ss) else ss.future
-        } yield {
-          result
-        }
+      val ff = (s: S) => for {
+        records <- self.poll(timeout)
+        result <- f(s, records)
+      } yield {
+        result
       }
 
-      poll(s)
+      ff.foldWhile(s)
     }
   }
 }

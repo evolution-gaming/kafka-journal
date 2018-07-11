@@ -13,7 +13,7 @@ object StreamHelper {
 
     // TODO adapt to FastFuture ?
     // TODO return Future[S]
-    def unfoldWhile[S, E](s: S)(f: S => Future[(S, Boolean, Iterable[E])]): Source[E, NotUsed] = {
+    def foldWhile[S, E](s: S)(f: S => Future[(S, Boolean, Iterable[E])]): Source[E, NotUsed] = {
       implicit val ec = CurrentThreadExecutionContext
       val zero = (s, true)
       val source = Source.unfoldAsync[(S, Boolean), Iterable[E]](zero) {

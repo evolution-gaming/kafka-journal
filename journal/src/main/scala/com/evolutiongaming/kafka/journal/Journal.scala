@@ -5,7 +5,7 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import com.evolutiongaming.kafka.journal.Alias._
-import com.evolutiongaming.kafka.journal.ConsumerHelper._
+import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal.LogHelper._
@@ -113,13 +113,8 @@ object Journal {
       }
     }
 
-    def consume[S](
-      s: S,
-      partitionOffset: Option[PartitionOffset])(
-      f: (S, ConsumerRecord[String, Bytes]) => (S, Boolean)): Future[S] = {
-
+    def consumerOf(partitionOffset: Option[PartitionOffset]) = {
       val consumer = newConsumer()
-
       partitionOffset match {
         case None =>
           val topics = List(topic)
@@ -132,57 +127,40 @@ object Journal {
         val offset = partitionOffset.offset + 1 // TODO TEST
           consumer.seek(topicPartition, offset) // TODO blocking
       }
-
-      val ss = consumer.fold(s, pollTimeout) { (s, consumerRecords) =>
-        // TODO check performance of flatten
-        val records = consumerRecords.values.values.flatten
-        val zero = (s, true)
-        records.foldLeft(zero) { case (skip @ (s, continue), record) =>
-          if (continue) {
-            if (record.key contains id) f(s, record)
-            else {
-              val key = record.key getOrElse "none"
-              val offset = record.offset
-              val partition = record.partition
-              // TODO important performance indication
-              log.warn(s"skipping unnecessary record key: $key, partition: $partition, offset: $offset")
-              skip
-            }
-          } else {
-            skip
-          }
-        }
-      }
-      ss.onComplete { _ => consumer.close() } // TODO use timeout
-      ss
+      consumer
     }
 
+    def kafkaRecords(consumer: Consumer[String, Bytes]): Future[Iterable[KafkaRecord[_ <: Action]]] = {
 
-    // TODO case class Fold[S, T](state: S, f: () => ?) hm...
-
-    /*def consumeStream[S, E](
-      state: S,
-      consumer: Consumer[String, Bytes])(
-      f: (S, ConsumerRecord[String, Bytes]) => (Option[S], E)) = {
-
-      consumer.source(state, pollTimeout) { (s, consumerRecords) =>
-
-        // TODO check performance flatten and other places
-        val records = consumerRecords.values.values.flatten.toVector
-        val builder = Iterable.newBuilder[E]
-
-        val ss = records.foldLeft[Option[S]](Some(s)) { (s, record) =>
-          s.flatMap { s =>
-            val (ss, e) = f(s, record)
-            builder += e
-            ss
-          }
-        }
-        val es = builder.result()
-        (ss, es)
+      def logSkipped(record: ConsumerRecord[String, Bytes]) = {
+        val key = record.key getOrElse "none"
+        val offset = record.offset
+        val partition = record.partition
+        // TODO important performance indication
+        log.warn(s"skipping unnecessary record key: $key, partition: $partition, offset: $offset")
       }
-    }*/
 
+      def filter(record: ConsumerRecord[String, Bytes]) = {
+        val result = record.key contains id
+        if (!result) {
+          logSkipped(record)
+        }
+        result
+      }
+
+      for {
+        consumerRecords <- consumer.poll(pollTimeout)
+      } yield {
+        for {
+          consumerRecords <- consumerRecords.values.values
+          consumerRecord <- consumerRecords
+          if filter(consumerRecord) // TODO log skipped
+          record <- consumerRecord.toKafkaRecord
+        } yield {
+          record
+        }
+      }
+    }
 
     trait Fold {
       def apply[S](s: S)(f: (S, Action.User) => S): Future[S]
@@ -205,24 +183,31 @@ object Journal {
         // TODO compare partitions !
 
         new Fold {
+
           def apply[S](s: S)(f: (S, Action.User) => S): Future[S] = {
 
-            // TODO add seqNr safety check
-            consume(s, partitionOffset) { case (s, record) =>
-              val kafkaRecord = record.toKafkaRecord
-              kafkaRecord.fold((s, true)) { kafkaRecord =>
-                val action = kafkaRecord.action
-                action match {
-                  case action: Action.User =>
-                    val ss = f(s, action)
-                    (ss, true)
+            val consumer = consumerOf(partitionOffset)
 
-                  case action: Action.Mark =>
-                    val continue = action.header.id != marker
-                    (s, continue)
+            val ff = (s: S) => {
+              for {
+                records <- kafkaRecords(consumer)
+              } yield {
+                records.foldWhile(s) { (s, record) =>
+                  record.action match {
+                    case action: Action.User =>
+                      val ss = f(s, action)
+                      (ss, true)
+                    case action: Action.Mark =>
+                      val continue = action.header.id != marker
+                      (s, continue)
+                  }
                 }
               }
             }
+
+            val result = ff.foldWhile(s)
+            result.onComplete { _ => consumer.close() } // TODO use timeout
+            result
           }
         }
       }

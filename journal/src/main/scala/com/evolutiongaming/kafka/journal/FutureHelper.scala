@@ -4,7 +4,7 @@ import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.Alias.SeqNr
 
 import scala.collection.immutable.Seq
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 // TODO move out
 object FutureHelper {
