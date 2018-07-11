@@ -5,20 +5,29 @@ import com.evolutiongaming.kafka.journal.Alias.SeqNr
 // TODO test
 // TODO add method with single argument of range size 1
 
-case class SeqRange(from: SeqNr = 0, to: SeqNr = SeqNr.Max) {
-  
+case class SeqRange(from: SeqNr, to: SeqNr) {
+
   require(from <= to, s"from($from) <= to($to)")
   require(from >= 0, s"from($from) >= 0")
   require(to >= 0, s"to($to) >= 0")
 
+  def <(seqNr: SeqNr): Boolean = to < seqNr
+
+  def >(seqNr: SeqNr): Boolean = from > seqNr
 
   def <(range: SeqRange): Boolean = this < range.from
 
   def >(range: SeqRange): Boolean = this > range.to
 
-  def <(seqNr: SeqNr): Boolean = seqNr < from
+//  def <=(seqNr: SeqNr): Boolean = to <= seqNr
+//
+//  def >=(seqNr: SeqNr): Boolean = from >= seqNr
+//
+//  def <=(range: SeqRange): Boolean = this <= range.from
+//
+//  def >=(range: SeqRange): Boolean = this >= range.to
 
-  def >(seqNr: SeqNr): Boolean = seqNr > to
+  def intersects(range: SeqRange): Boolean = ???
 
   def contains(seqNr: SeqNr): Boolean = from <= seqNr && to >= seqNr
 
@@ -31,6 +40,8 @@ case class SeqRange(from: SeqNr = 0, to: SeqNr = SeqNr.Max) {
 }
 
 object SeqRange {
+
+  def apply(value: SeqNr): SeqRange = SeqRange(value, value)
 
   implicit class SeqNrOps(val self: SeqNr) extends AnyVal {
     def <(range: SeqRange): Boolean = range > self

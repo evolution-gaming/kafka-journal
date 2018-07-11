@@ -240,34 +240,70 @@ object Journal {
           }
         }
 
-        val zero = Tmp.Result(SeqNr.Min, Vector.empty)
-
         for {
           consume <- consumeActions(range.from)
           entries = eventualRecords()
           // TODO use range after eventualRecords
-          records <- consume(zero) { case (result, action) =>
-            Tmp(result, action, topic, range)
+
+          // TODO prevent from reading calling consume twice!
+          batch <- consume(ActionBatch.empty) { case (batch, action) =>
+            batch(action.header)
           }
-          entries <- entries
+
+          result <- batch match {
+            case ActionBatch.Empty                         => entries
+            case ActionBatch.NonEmpty(lastSeqNr, deleteTo) =>
+
+              val deleteTo2 = deleteTo getOrElse SeqNr.Min
+
+              // TODO we don't need to consume if everything is in cassandra :)
+
+              val result = consume(List.empty[Event]) { case (events, action) =>
+                action match {
+                  case action: Action.Append =>
+
+                    // TODO stop consuming
+                    if(action.range.from > range || action.range.to <= deleteTo2) {
+                      events
+                    } else {
+                      //                    val events = EventsSerializer.fromBytes(action.events)
+                      // TODO add implicit method events.toList.foldWhile()
+
+                      // TODO fix performance
+                      val events2 =
+                        EventsSerializer.fromBytes(action.events)
+                          .toList
+                          .takeWhile(_.seqNr <= range.to)
+                          .takeWhile(_.seqNr < deleteTo2)
+
+                      events ::: events2
+                    }
+
+                  case action: Action.Delete => events
+                }
+              }
+
+              for {
+                result <- result
+                entries <- entries
+              } yield {
+
+                val entries2 = entries.dropWhile(_.seqNr <= deleteTo2)
+
+                entries2.lastOption.fold(result) { last =>
+                  entries2.toList ::: entries2.toList.dropWhile(_.seqNr <= last.seqNr)
+                }
+              }
+
+            case ActionBatch.DeleteTo(deleteTo) =>
+              for {
+                entries <- entries
+              } yield {
+                entries.dropWhile(_.seqNr <= deleteTo).toList
+              }
+          }
         } yield {
-
-          val eventualEntries = entries.dropWhile(_.seqNr <= records.deleteTo)
-
-          if (records.events.nonEmpty) {
-            val size = records.events.size
-            // TODO important performance indication
-            // TODO decide on naming convention regarding records, entries, etc
-
-            // TODO triggered by bug in consume that allows to consume deleted events
-            log.warn(s"last $size records are missing in EventualJournal")
-          }
-
-          eventualEntries.lastOption.fold(records.events) { last =>
-            val kafka = records.events.dropWhile(_.seqNr <= last.seqNr)
-            // TODO create special data structure
-            eventualEntries ++ kafka
-          }
+          result
         }
       }
 

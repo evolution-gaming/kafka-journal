@@ -92,7 +92,7 @@ object Replicator {
           val eventualRecords = for {
             (record, partitionOffset) <- records
             action <- PartialFunction.condOpt(record.action) { case a: Action.Append => a }.toIterable
-            if action.range.to > deleteTo
+            if action.range.to > deleteTo // TODO special range operation ???
             event <- EventsSerializer.fromBytes(action.events).toList
             if event.seqNr > deleteTo
           } yield {

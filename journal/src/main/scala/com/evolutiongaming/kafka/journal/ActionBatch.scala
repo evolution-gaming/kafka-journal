@@ -26,6 +26,8 @@ object ActionBatch {
   }
 
 
+  // TODO consider adding DeleteAll case
+
   final case class NonEmpty(lastSeqNr: SeqNr, deleteTo: Option[SeqNr] = None) extends ActionBatch {
 
     require(
