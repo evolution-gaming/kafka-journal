@@ -7,7 +7,6 @@ import akka.actor.ActorSystem
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.FutureHelper._
-import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal.LogHelper._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, PartitionOffset}
 import com.evolutiongaming.nel.Nel
@@ -83,7 +82,7 @@ object Journal {
 
 
   def apply(settings: Settings): Journal = ???
-  
+
 
   // TODO create separate class IdAndTopic
   def apply(
@@ -98,26 +97,22 @@ object Journal {
     ec: ExecutionContext): Journal = {
 
     val closeTimeout = 3.seconds // TODO from  config
-    val withReadKafka = WithReadKafka(newConsumer, pollTimeout, closeTimeout)
+    val withReadKafka = WithReadActions(newConsumer, pollTimeout, closeTimeout)
 
-    apply(id, topic, log, producer, eventual, withReadKafka)
+    val writeAction = WriteAction(id, topic, producer)
+
+    apply(id, topic, log, eventual, withReadKafka, writeAction)
   }
 
   def apply(
     id: Id,
     topic: Topic,
     log: ActorLog, // TODO remove
-    producer: Producer,
     eventual: EventualJournal,
-    withReadKafka: WithReadKafka)(implicit
+    withReadKafka: WithReadActions,
+    writeAction: WriteAction)(implicit
     system: ActorSystem,
     ec: ExecutionContext): Journal = {
-
-    def produce(action: Action) = {
-      val kafkaRecord = KafkaRecord(id, topic, action)
-      val producerRecord = kafkaRecord.toProducerRecord
-      producer(producerRecord)
-    }
 
     def mark(): Future[(String, Partition)] = {
       val marker = UUID.randomUUID().toString
@@ -125,9 +120,8 @@ object Journal {
       val action = Action.Mark(header)
 
       for {
-        metadata <- produce(action)
+        partition <- writeAction(action)
       } yield {
-        val partition = metadata.topicPartition.partition
         (marker, partition)
       }
     }
@@ -163,15 +157,13 @@ object Journal {
                 for {
                   records <- readKafka(id)
                 } yield {
-                  records.foldWhile(s) { (s, record) =>
-                    record.action match {
-                      case action: Action.User =>
-                        val ss = f(s, action)
-                        (ss, true)
-                      case action: Action.Mark =>
-                        val continue = action.header.id != marker
-                        (s, continue)
-                    }
+                  records.foldWhile(s) {
+                    case (s, action: Action.User) =>
+                      val ss = f(s, action)
+                      (ss, true)
+                    case (s, action: Action.Mark) =>
+                      val continue = action.header.id != marker
+                      (s, continue)
                   }
                 }
               }
@@ -190,7 +182,7 @@ object Journal {
         val range = SeqRange(from = events.head.seqNr, to = events.last.seqNr)
         val header = Action.Header.Append(range)
         val action = Action.Append(header, timestamp, payload)
-        val result = produce(action)
+        val result = writeAction(action)
         result.unit
       }
 
@@ -232,7 +224,7 @@ object Journal {
                   case action: Action.Append =>
 
                     // TODO stop consuming
-                    if(action.range.from > range || action.range.to <= deleteTo2) {
+                    if (action.range.from > range || action.range.to <= deleteTo2) {
                       events
                     } else {
                       //                    val events = EventsSerializer.fromBytes(action.events)
@@ -293,7 +285,7 @@ object Journal {
       def delete(to: SeqNr, timestamp: Instant): Future[Unit] = {
         val header = Action.Header.Delete(to)
         val action = Action.Delete(header, timestamp)
-        produce(action).unit
+        writeAction(action).unit
       }
 
       override def toString = s"Journal($id)"

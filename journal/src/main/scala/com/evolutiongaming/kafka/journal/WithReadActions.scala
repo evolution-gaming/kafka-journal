@@ -8,20 +8,21 @@ import com.evolutiongaming.skafka.{Topic, TopicPartition}
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
-trait WithReadKafka {
-  def apply[T](topic: Topic, partitionOffset: Option[PartitionOffset])(f: ReadKafka => Future[T]): Future[T]
+
+trait WithReadActions {
+  def apply[T](topic: Topic, partitionOffset: Option[PartitionOffset])(f: ReadActions => Future[T]): Future[T]
 }
 
-object WithReadKafka {
+object WithReadActions {
 
   def apply(
     newConsumer: () => Consumer[String, Bytes],
     pollTimeout: FiniteDuration,
-    closeTimeout: FiniteDuration)(implicit ec: ExecutionContext /*TODO remove*/): WithReadKafka = {
+    closeTimeout: FiniteDuration)(implicit ec: ExecutionContext /*TODO remove*/): WithReadActions = {
 
-    new WithReadKafka {
+    new WithReadActions {
 
-      def apply[T](topic: Topic, partitionOffset: Option[PartitionOffset])(f: ReadKafka => Future[T]) = {
+      def apply[T](topic: Topic, partitionOffset: Option[PartitionOffset])(f: ReadActions => Future[T]) = {
 
         val consumer = newConsumer()
         partitionOffset match {
@@ -37,7 +38,7 @@ object WithReadKafka {
             consumer.seek(topicPartition, offset) // TODO blocking
         }
 
-        val readKafka = ReadKafka(consumer, pollTimeout)
+        val readKafka = ReadActions(consumer, pollTimeout)
         val result = f(readKafka)
         result.onComplete { _ => consumer.close() } // TODO use timeout
         result

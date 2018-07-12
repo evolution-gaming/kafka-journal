@@ -4,18 +4,18 @@ import com.evolutiongaming.kafka.journal.Alias.{Bytes, Id}
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecord}
 
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{ExecutionContext, Future}
 
-trait ReadKafka {
-  def apply(id: Id): Future[Iterable[KafkaRecord.Any]]
+trait ReadActions {
+  def apply(id: Id): Future[Iterable[Action]]
 }
 
-object ReadKafka {
+object ReadActions {
 
   def apply(
     consumer: Consumer[String, Bytes],
-    timeout: FiniteDuration)(implicit ec: ExecutionContext/*TODO remove*/): ReadKafka = {
+    timeout: FiniteDuration)(implicit ec: ExecutionContext /*TODO remove*/): ReadActions = {
 
     def logSkipped(record: ConsumerRecord[String, Bytes]) = {
       val key = record.key getOrElse "none"
@@ -25,7 +25,8 @@ object ReadKafka {
       println(s"skipping unnecessary record key: $key, partition: $partition, offset: $offset")
     }
 
-    new ReadKafka {
+    new ReadActions {
+
       def apply(id: Id) = {
 
         def filter(record: ConsumerRecord[String, Bytes]) = {
@@ -44,9 +45,9 @@ object ReadKafka {
             consumerRecords <- consumerRecords.values.values
             consumerRecord <- consumerRecords
             if filter(consumerRecord) // TODO log skipped
-            record <- consumerRecord.toKafkaRecord
+            action <- consumerRecord.toAction
           } yield {
-            record
+            action
           }
         }
       }

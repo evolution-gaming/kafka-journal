@@ -61,7 +61,7 @@ object KafkaConverters {
       PartitionOffset(partition = self.partition, offset = self.offset)
     }
 
-    def toKafkaRecord: Option[KafkaRecord.Any] = {
+    def toAction: Option[Action] = {
 
       def action(header: Action.Header) = {
 
@@ -98,10 +98,18 @@ object KafkaConverters {
       }
 
       for {
-        id <- self.key
         kafkaHeader <- self.headers.find { _.key == `journal.action` }
         header = kafkaHeader.toActionHeader
         action <- action(header)
+      } yield {
+        action
+      }
+    }
+
+    def toKafkaRecord: Option[KafkaRecord.Any] = {
+      for {
+        id <- self.key
+        action <- self.toAction
       } yield {
         KafkaRecord(id, self.topic, action)
       }
