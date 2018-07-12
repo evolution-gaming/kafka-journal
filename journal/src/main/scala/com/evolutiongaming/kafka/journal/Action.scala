@@ -49,7 +49,12 @@ final case class IdAndTopic(id: Id, topic: Topic) // TODO use for KafkaRecord
 
 
 // TODO drawback of using type here
+// TODO do we need this type complexity in general?
 final case class KafkaRecord[A <: Action](id: Id, topic: Topic /*TODO not needed here*/ , action: A)
+
+object KafkaRecord {
+  type Any = KafkaRecord[_ <: Action]
+}
 
 // TODO
 final case class KafkaRecord2[A <: Action](record: KafkaRecord[A], partitionOffset: PartitionOffset)

@@ -12,7 +12,7 @@ import com.evolutiongaming.kafka.journal.LogHelper._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, PartitionOffset}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
-import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecord}
+import com.evolutiongaming.skafka.consumer.Consumer
 import com.evolutiongaming.skafka.producer.Producer
 import com.evolutiongaming.skafka.{Bytes => _, _}
 
@@ -39,6 +39,7 @@ object Journal {
 
     override def toString = s"Journal.Empty"
   }
+
 
   def apply(journal: Journal, log: ActorLog): Journal = new Journal {
 
@@ -80,7 +81,9 @@ object Journal {
     override def toString = journal.toString
   }
 
+
   def apply(settings: Settings): Journal = ???
+  
 
   // TODO create separate class IdAndTopic
   def apply(
@@ -91,6 +94,22 @@ object Journal {
     newConsumer: () => Consumer[String, Bytes],
     eventual: EventualJournal,
     pollTimeout: FiniteDuration)(implicit
+    system: ActorSystem,
+    ec: ExecutionContext): Journal = {
+
+    val closeTimeout = 3.seconds // TODO from  config
+    val withReadKafka = WithReadKafka(newConsumer, pollTimeout, closeTimeout)
+
+    apply(id, topic, log, producer, eventual, withReadKafka)
+  }
+
+  def apply(
+    id: Id,
+    topic: Topic,
+    log: ActorLog, // TODO remove
+    producer: Producer,
+    eventual: EventualJournal,
+    withReadKafka: WithReadKafka)(implicit
     system: ActorSystem,
     ec: ExecutionContext): Journal = {
 
@@ -113,56 +132,8 @@ object Journal {
       }
     }
 
-    def consumerOf(partitionOffset: Option[PartitionOffset]) = {
-      val consumer = newConsumer()
-      partitionOffset match {
-        case None =>
-          val topics = List(topic)
-          consumer.subscribe(topics) // TODO with listener
-        //          consumer.seekToBeginning() // TODO
-
-        case Some(partitionOffset) =>
-          val topicPartition = TopicPartition(topic, partitionOffset.partition)
-          consumer.assign(List(topicPartition)) // TODO blocking
-        val offset = partitionOffset.offset + 1 // TODO TEST
-          consumer.seek(topicPartition, offset) // TODO blocking
-      }
-      consumer
-    }
-
-    def kafkaRecords(consumer: Consumer[String, Bytes]): Future[Iterable[KafkaRecord[_ <: Action]]] = {
-
-      def logSkipped(record: ConsumerRecord[String, Bytes]) = {
-        val key = record.key getOrElse "none"
-        val offset = record.offset
-        val partition = record.partition
-        // TODO important performance indication
-        log.warn(s"skipping unnecessary record key: $key, partition: $partition, offset: $offset")
-      }
-
-      def filter(record: ConsumerRecord[String, Bytes]) = {
-        val result = record.key contains id
-        if (!result) {
-          logSkipped(record)
-        }
-        result
-      }
-
-      for {
-        consumerRecords <- consumer.poll(pollTimeout)
-      } yield {
-        for {
-          consumerRecords <- consumerRecords.values.values
-          consumerRecord <- consumerRecords
-          if filter(consumerRecord) // TODO log skipped
-          record <- consumerRecord.toKafkaRecord
-        } yield {
-          record
-        }
-      }
-    }
-
     trait Fold {
+      // TODO f should return continue: Boolean
       def apply[S](s: S)(f: (S, Action.User) => S): Future[S]
     }
 
@@ -186,28 +157,26 @@ object Journal {
 
           def apply[S](s: S)(f: (S, Action.User) => S): Future[S] = {
 
-            val consumer = consumerOf(partitionOffset)
+            withReadKafka(topic, partitionOffset) { readKafka =>
 
-            val ff = (s: S) => {
-              for {
-                records <- kafkaRecords(consumer)
-              } yield {
-                records.foldWhile(s) { (s, record) =>
-                  record.action match {
-                    case action: Action.User =>
-                      val ss = f(s, action)
-                      (ss, true)
-                    case action: Action.Mark =>
-                      val continue = action.header.id != marker
-                      (s, continue)
+              val ff = (s: S) => {
+                for {
+                  records <- readKafka(id)
+                } yield {
+                  records.foldWhile(s) { (s, record) =>
+                    record.action match {
+                      case action: Action.User =>
+                        val ss = f(s, action)
+                        (ss, true)
+                      case action: Action.Mark =>
+                        val continue = action.header.id != marker
+                        (s, continue)
+                    }
                   }
                 }
               }
+              ff.foldWhile(s)
             }
-
-            val result = ff.foldWhile(s)
-            result.onComplete { _ => consumer.close() } // TODO use timeout
-            result
           }
         }
       }
