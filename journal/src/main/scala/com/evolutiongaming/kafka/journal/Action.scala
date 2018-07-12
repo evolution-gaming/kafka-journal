@@ -18,15 +18,39 @@ object Action {
 
   sealed trait System extends Action
 
+
   final case class Append(header: Header.Append, timestamp: Instant, events: Bytes) extends User {
     def range: SeqRange = header.range
   }
+
+  object Append {
+    def apply(range: SeqRange, timestamp: Instant, events: Bytes): Append = {
+      val header = Header.Append(range)
+      Append(header, timestamp, events)
+    }
+  }
+
 
   final case class Delete(header: Header.Delete, timestamp: Instant) extends User {
     def to: SeqNr = header.to
   }
 
+  object Delete {
+    def apply(to: SeqNr, timestamp: Instant): Delete = {
+      val header = Header.Delete(to)
+      Delete(header, timestamp)
+    }
+  }
+
+
   final case class Mark(header: Header.Mark) extends System
+
+  object Mark {
+    def apply(id: String): Mark = {
+      val header = Header.Mark(id)
+      Mark(header)
+    }
+  }
 
 
   sealed trait Header
@@ -39,7 +63,7 @@ object Action {
 
       require(to > 0, s"to($to) > 0")
     }
-    
+
     final case class Mark(id: String) extends Header
   }
 }

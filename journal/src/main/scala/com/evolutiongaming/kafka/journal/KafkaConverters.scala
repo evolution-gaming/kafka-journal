@@ -42,8 +42,8 @@ object KafkaConverters {
       val header = action.header.toKafkaHeader
       val (payload, timestamp) = action match {
         case action: Action.Append => (action.events, Some(action.timestamp))
-        case action: Action.Delete => (Array.empty[Byte], Some(action.timestamp))
-        case action: Action.Mark   => (Array.empty[Byte], None)
+        case action: Action.Delete => (Bytes.Empty, Some(action.timestamp))
+        case action: Action.Mark   => (Bytes.Empty, None)
       }
       ProducerRecord(
         topic = self.topic,

@@ -89,4 +89,22 @@ class SeqRangeSpec extends FunSuite with Matchers {
 
     SeqRange(1, 4) contains SeqRange(2, 3) shouldEqual true
   }
+
+  test("intersects") {
+    SeqRange(1) intersects SeqRange(1) shouldEqual true
+
+    SeqRange(1) intersects SeqRange(2) shouldEqual false
+    SeqRange(2) intersects SeqRange(1) shouldEqual false
+
+    SeqRange(1, 2) intersects SeqRange(1, 2) shouldEqual true
+
+    SeqRange(1, 2) intersects SeqRange(2, 3) shouldEqual true
+    SeqRange(1, 2) intersects SeqRange(3, 4) shouldEqual false
+
+    SeqRange(2, 3) intersects SeqRange(1, 2) shouldEqual true
+    SeqRange(3, 4) intersects SeqRange(1, 2) shouldEqual false
+
+    SeqRange(1, 4) intersects SeqRange(2, 3) shouldEqual true
+    SeqRange(2, 3) intersects SeqRange(1, 4) shouldEqual true
+  }
 }

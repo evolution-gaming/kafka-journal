@@ -20,6 +20,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 // TODO consider passing topic along with id as method argument
+// TODO should we return offset ?
 trait Journal {
   def append(events: Nel[Event], timestamp: Instant): Future[Unit]
   // TODO decide on return type
@@ -104,20 +105,19 @@ object Journal {
     apply(id, topic, log, eventual, withReadKafka, writeAction)
   }
 
+
   def apply(
     id: Id,
     topic: Topic,
-    log: ActorLog, // TODO remove
+    log: ActorLog,
     eventual: EventualJournal,
-    withReadKafka: WithReadActions,
+    withReadActions: WithReadActions,
     writeAction: WriteAction)(implicit
-    system: ActorSystem,
     ec: ExecutionContext): Journal = {
 
     def mark(): Future[(String, Partition)] = {
-      val marker = UUID.randomUUID().toString
-      val header = Action.Header.Mark(marker)
-      val action = Action.Mark(header)
+      val marker = UUID.randomUUID().toString // TODO randomUUID ? overkill ?
+      val action = Action.Mark(marker)
 
       for {
         partition <- writeAction(action)
@@ -151,13 +151,13 @@ object Journal {
 
           def apply[S](s: S)(f: (S, Action.User) => S): Future[S] = {
 
-            withReadKafka(topic, partitionOffset) { readKafka =>
+            withReadActions(topic, partitionOffset) { readActions =>
 
               val ff = (s: S) => {
                 for {
-                  records <- readKafka(id)
+                  actions <- readActions(id)
                 } yield {
-                  records.foldWhile(s) {
+                  actions.foldWhile(s) {
                     case (s, action: Action.User) =>
                       val ss = f(s, action)
                       (ss, true)
@@ -180,8 +180,7 @@ object Journal {
 
         val payload = EventsSerializer.toBytes(events)
         val range = SeqRange(from = events.head.seqNr, to = events.last.seqNr)
-        val header = Action.Header.Append(range)
-        val action = Action.Append(header, timestamp, payload)
+        val action = Action.Append(range, timestamp, payload)
         val result = writeAction(action)
         result.unit
       }
@@ -212,49 +211,65 @@ object Journal {
           }
 
           result <- batch match {
-            case ActionBatch.Empty                         => entries
+            case ActionBatch.Empty => entries
+
             case ActionBatch.NonEmpty(lastSeqNr, deleteTo) =>
 
-              val deleteTo2 = deleteTo getOrElse SeqNr.Min
+              def tmp(range: SeqRange) = {
+                // TODO we don't need to consume if everything is deleted
 
-              // TODO we don't need to consume if everything is in cassandra :)
+                // TODO we don't need to consume if everything is in cassandra :)
 
-              val result = consume(List.empty[Event]) { case (events, action) =>
-                action match {
-                  case action: Action.Append =>
+                val result = consume(List.empty[Event]) { case (events, action) =>
+                  action match {
+                    case action: Action.Append =>
+                      // TODO stop consuming
 
-                    // TODO stop consuming
-                    if (action.range.from > range || action.range.to <= deleteTo2) {
-                      events
-                    } else {
-                      //                    val events = EventsSerializer.fromBytes(action.events)
-                      // TODO add implicit method events.toList.foldWhile()
+                      if (action.range intersects range) {
+                        //                    val events = EventsSerializer.fromBytes(action.events)
+                        // TODO add implicit method events.toList.foldWhile()
 
-                      // TODO fix performance
-                      val events2 =
-                        EventsSerializer.fromBytes(action.events)
-                          .toList
-                          .takeWhile(_.seqNr <= range.to)
-                          .takeWhile(_.seqNr < deleteTo2)
+                        // TODO fix performance
+                        val events2 =
+                          EventsSerializer.fromBytes(action.events)
+                            .toList
+                            .filter { _.seqNr in range }
 
-                      events ::: events2
-                    }
+                        events ::: events2
 
-                  case action: Action.Delete => events
+                      } else {
+                        // TODO stop consumption
+                        events
+                      }
+
+                    case action: Action.Delete => events
+                  }
+                }
+
+                for {
+                  result <- result
+                  entries <- entries
+                } yield {
+                  val entries2 = entries.filter(_.seqNr in range)
+                  
+                  entries2.lastOption.fold(result) { last =>
+                    entries2.toList ::: result.dropWhile(_.seqNr <= last.seqNr)
+                  }
                 }
               }
 
-              for {
-                result <- result
-                entries <- entries
-              } yield {
-
-                val entries2 = entries.dropWhile(_.seqNr <= deleteTo2)
-
-                entries2.lastOption.fold(result) { last =>
-                  entries2.toList ::: entries2.toList.dropWhile(_.seqNr <= last.seqNr)
-                }
+              deleteTo match {
+                case None           => tmp(range)
+                case Some(deleteTo) =>
+                  if (range.to <= deleteTo) Future.nil
+                  else {
+                    val range2 =
+                      if (range.from > deleteTo) range
+                      else SeqRange(deleteTo.next, range.to) // TODO create separate method
+                    tmp(range2)
+                  }
               }
+
 
             case ActionBatch.DeleteTo(deleteTo) =>
               for {
@@ -283,9 +298,11 @@ object Journal {
       }
 
       def delete(to: SeqNr, timestamp: Instant): Future[Unit] = {
-        val header = Action.Header.Delete(to)
-        val action = Action.Delete(header, timestamp)
-        writeAction(action).unit
+        if (to <= 0) Future.unit
+        else {
+          val action = Action.Delete(to, timestamp)
+          writeAction(action).unit
+        }
       }
 
       override def toString = s"Journal($id)"

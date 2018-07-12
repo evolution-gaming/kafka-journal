@@ -24,7 +24,12 @@ object WithReadActions {
 
       def apply[T](topic: Topic, partitionOffset: Option[PartitionOffset])(f: ReadActions => Future[T]) = {
 
+
+        // TODO blocking
+        // TODO consider separate from splitting
         val consumer = newConsumer()
+
+
         partitionOffset match {
           case None =>
             val topics = List(topic)

@@ -8,6 +8,7 @@ import scala.collection.immutable.Seq
 
 // TODO rename
 // TODO remove id
+// TODO use Event
 case class EventualRecord(
   id: Id,
   seqNr: SeqNr,
