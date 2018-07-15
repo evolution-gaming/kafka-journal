@@ -4,9 +4,14 @@ import java.nio.ByteBuffer
 import java.time.Instant
 import java.util.Date
 
-import com.datastax.driver.core.{BoundStatement, Row, Statement}
+import com.datastax.driver.core.{BoundStatement, ResultSet, Row, Statement}
+import com.evolutiongaming.cassandra.CassandraHelper._
+import com.evolutiongaming.kafka.journal.FoldWhileHelper._
+import com.evolutiongaming.kafka.journal.FutureHelper._
 
+import scala.annotation.tailrec
 import scala.collection.JavaConverters._
+import scala.concurrent.{ExecutionContext, Future}
 
 // TODO move to cassandra client
 object CassandraHelper {
@@ -37,7 +42,7 @@ object CassandraHelper {
 
   trait Codec[T] extends Encode[T] with Decode[T]
 
-  
+
   // TODO add codecs for all supported types
 
   implicit val StrCodec: Codec[String] = new Codec[String] {
@@ -99,6 +104,43 @@ object CassandraHelper {
         .setIdempotent(statementConfig.idempotent)
         .setConsistencyLevel(statementConfig.consistencyLevel)
         .setRetryPolicy(statementConfig.retryPolicy)
+    }
+  }
+
+
+  implicit class ResultSetOps(val self: ResultSet) extends AnyVal {
+
+    def foldWhile[S](fetchThreshold: Int, s: S)(f: FoldWhile[S, Row])(implicit ec: ExecutionContext): Future[(S, Continue)] = {
+
+      @tailrec
+      def foldWhile(s: S, available: Int): (S, Continue) = {
+        if (available == 0) {
+          (s, true)
+        } else {
+          if (available == fetchThreshold) self.fetchMoreResults()
+          val row = self.one()
+          val result = f(s, row)
+          val (ss, continue) = result
+          if (continue) foldWhile(ss, available - 1)
+          else result
+        }
+      }
+
+      def fetch(s: S): Future[(S, Continue)] = {
+        val available = self.getAvailableWithoutFetching
+        val result = foldWhile(s, available)
+        val (ss, continue) = result
+        if (continue && !self.isFullyFetched) {
+          for {
+            _ <- self.fetchMoreResults().asScala()
+            r <- fetch(ss)
+          } yield r
+        } else {
+          result.future
+        }
+      }
+
+      fetch(s)
     }
   }
 }

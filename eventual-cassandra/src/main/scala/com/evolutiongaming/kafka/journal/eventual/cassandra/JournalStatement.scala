@@ -6,13 +6,13 @@ import java.time.Instant
 import com.datastax.driver.core.{Metadata => _, _}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.Alias.{Id, SeqNr, Tags}
+import com.evolutiongaming.kafka.journal.FoldWhileHelper.{Continue, FoldWhile}
 import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.SeqRange
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.eventual.{EventualRecord, PartitionOffset, Pointer}
 import com.evolutiongaming.skafka.{Bytes, Offset, Partition}
 
-import scala.collection.JavaConverters._
 import scala.concurrent.Future
 
 object JournalStatement {
@@ -45,7 +45,7 @@ object JournalStatement {
 
 
   object InsertRecord {
-    type Type = (EventualRecord, Segment) => BoundStatement
+    type Type = (EventualRecord, SegmentNr) => BoundStatement
 
     // TODO fast future
     // TODO create Prepare -> Run function
@@ -60,7 +60,7 @@ object JournalStatement {
       for {
         prepared <- prepare(query)
       } yield {
-        (record: EventualRecord, segment: Segment) => {
+        (record: EventualRecord, segment: SegmentNr) => {
           // TODO make up better way for creating queries
           prepared
             .bind()
@@ -81,7 +81,7 @@ object JournalStatement {
   // TODO rename along with EventualRecord2
   object SelectLastRecord {
     // TODO add from ?
-    type Type = (Id, Segment, SeqNr) => Future[Option[Pointer]]
+    type Type = (Id, SegmentNr, SeqNr) => Future[Option[Pointer]]
 
     // TODO fast future
     // TODO create Prepare -> Run function
@@ -101,7 +101,7 @@ object JournalStatement {
       for {
         prepared <- session.prepare(query)
       } yield {
-        (id: Id, segment: Segment, from: SeqNr) =>
+        (id: Id, segment: SegmentNr, from: SeqNr) =>
           val bound = prepared.bind(id, segment.value: LongJ, from: LongJ)
           for {
             result <- session.execute(bound)
@@ -121,7 +121,10 @@ object JournalStatement {
 
 
   object SelectRecords {
-    type Type = (Id, Segment, SeqRange) => Future[Vector[EventualRecord]]
+
+    trait Type {
+      def apply[S](id: Id, segment: SegmentNr, range: SeqRange, state: S)(f: FoldWhile[S, EventualRecord]): Future[(S, Continue)]
+    }
 
     // TODO fast future
     // TODO create Prepare -> Run function
@@ -139,32 +142,40 @@ object JournalStatement {
       for {
         prepared <- session.prepare(query)
       } yield {
-        (id: Id, segment: Segment, range: SeqRange) =>
+        new Type {
+          def apply[S](id: Id, segment: SegmentNr, range: SeqRange, s: S)(f: FoldWhile[S, EventualRecord]) = {
 
-          // TODO avoid casting via providing implicit converters
-          val bound = prepared.bind(id, segment.value: LongJ, range.from: LongJ, range.to: LongJ)
-          for {
-            result <- session.execute(bound)
-          } yield {
-            // TODO fetch batch by batch
-            result.all().asScala.toVector.map { row =>
-              EventualRecord(
-                id = id,
-                seqNr = row.decode[SeqNr]("seq_nr"),
-                timestamp = row.decode[Instant]("timestamp"),
-                payload = row.decode[Bytes]("payload"),
-                tags = row.decode[Tags]("tags"),
-                partitionOffset = PartitionOffset(
+            val fetchSize = 10 // TODO
+            val fetchThreshold = fetchSize / 2
+
+            // TODO avoid casting via providing implicit converters
+            val bound = prepared.bind(id, segment.value: LongJ, range.from: LongJ, range.to: LongJ)
+            bound.setFetchSize(fetchSize)
+
+            for {
+              result <- session.execute(bound)
+              result <- result.foldWhile(fetchThreshold, s) { (s, row) =>
+                val partitionOffset = PartitionOffset(
                   partition = row.decode[Partition]("partition"),
-                  offset = row.decode[Offset]("offset")))
-            }
+                  offset = row.decode[Offset]("offset"))
+                val record = EventualRecord(
+                  id = id,
+                  seqNr = row.decode[SeqNr]("seq_nr"),
+                  timestamp = row.decode[Instant]("timestamp"),
+                  payload = row.decode[Bytes]("payload"),
+                  tags = row.decode[Tags]("tags"),
+                  partitionOffset = partitionOffset)
+                f(s, record)
+              }
+            } yield result
           }
+        }
       }
     }
   }
 
   object DeleteRecords {
-    type Type = (Id, Segment, SeqNr) => Future[Unit]
+    type Type = (Id, SegmentNr, SeqNr) => Future[Unit]
 
     // TODO fast future
     // TODO create Prepare -> Run function
@@ -181,7 +192,7 @@ object JournalStatement {
       for {
         prepared <- session.prepare(query)
       } yield {
-        (id: Id, segment: Segment, seqNr: SeqNr) =>
+        (id: Id, segment: SegmentNr, seqNr: SeqNr) =>
           // TODO avoid casting via providing implicit converters
           val bound = prepared.bind(id, segment.value: LongJ, seqNr: LongJ)
           val result = session.execute(bound)

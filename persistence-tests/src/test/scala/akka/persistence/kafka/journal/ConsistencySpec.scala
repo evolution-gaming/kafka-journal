@@ -9,6 +9,7 @@ import com.evolutiongaming.nel.Nel
 import com.typesafe.config.ConfigFactory
 import org.scalatest.Matchers
 
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, Promise}
 
 class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
@@ -16,98 +17,160 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
   with DefaultTimeout
   with Matchers {
 
-  type State = Vector[String]
-
   implicit lazy val system: ActorSystem = ActorSystem("ConsistencySpec", config.withFallback(JournalSpec.config))
 
   "A KafkaJournal" should {
 
     "replay events in the same order" in {
-      val (refPersist, _) = createRef()
+      val persistenceRef = PersistenceRef()
       val events = (1 to 100).toVector map { _.toString }
       for {
         group <- events.grouped(10)
       } {
         val events = Nel.unsafe(group)
-        refPersist.persist(events)
+        persistenceRef.persist(events)
       }
 
-      stop(refPersist)
+      persistenceRef.stop()
 
-      val (_, state) = createRef()
-      state shouldEqual events
+      recoverEvents() shouldEqual events
     }
 
     "replay events in the same order when half is deleted" in {
-      val (refPersist, _) = createRef()
+      val persistenceRef = PersistenceRef()
       val events = (1 to 100).toVector map { _.toString }
       for {
         group <- events.grouped(10)
       } {
         val events = Nel.unsafe(group)
-        refPersist.persist(events)
+        persistenceRef.persist(events)
       }
 
-      refPersist.delete(50)
-      stop(refPersist)
+      persistenceRef.delete(50)
+      persistenceRef.stop()
 
-      val (_, state) = createRef()
-      state shouldEqual events.drop(50)
+      recoverEvents() shouldEqual events.drop(50)
     }
 
     "recover new entity from lengthy topic" in {
-      val (refPersist, _) = createRef()
+      val persistenceRef = PersistenceRef()
       val events = (1 to 1000).toVector map { _.toString }
       for {
         group <- events.grouped(10)
       } {
         val events = Nel.unsafe(group)
-        refPersist.persist(events)
+        persistenceRef.persist(events)
       }
-      val (_, state) = createRef("new_id")
-      state shouldEqual Vector.empty
+      val state = recoverEvents("new_id")
+      state shouldEqual Nil
+      recoverEvents("new_id") shouldEqual Nil
+    }
+
+    "recover million events" in {
+      val n = 100000
+      val persistenceRef = PersistenceRef()
+      val batchSize = 100
+      val events = (1 to batchSize).toList.map(_.toString)
+      for {
+        _ <- 1 to (n / batchSize)
+      } {
+        val batch = Nel(events.head, events.tail)
+        persistenceRef.persist(batch)
+      }
+
+      val count = recover(0, timeout.duration * 10) { case (s, _) => s + 1 }
+      count shouldEqual n
     }
   }
 
 
-  def createRef(id: String = pid) = {
-    val promise = Promise[State]()
-    val props = Props(actor(id, promise))
-    val ref = system.actorOf(props)
-    val future = promise.future
-    val state = Await.result(future, timeout.duration)
-    (ref, state)
+  trait PersistenceRef {
+    def persist(events: Nel[String]): Unit
+    def delete(seqNr: SeqNr): Unit
+    def stop(): Unit
   }
 
-  def actor(id: String, recovered: Promise[State]) = new PersistentActor {
-    var state = Vector.empty[String]
+  object PersistenceRef {
 
-    def persistenceId: String = id
+    def apply(id: String = pid): PersistenceRef = {
 
-    def receiveRecover = {
-      case event: String     => state = state :+ event
-      case RecoveryCompleted => recovered.success(state)
-    }
+      def actor() = new PersistentActor {
 
-    def receiveCommand: Receive = {
-      case Stop                     => context.stop(self)
-      case Delete(seqNr)            => deleteMessages(seqNr)
-      case x: DeleteMessagesSuccess => testActor.tell(x, self)
-      case x: DeleteMessagesFailure => testActor.tell(x, self)
-      case Cmd(events)              =>
-        val sender = this.sender()
-        val last = events.last
-        persistAll(events.toList) { event =>
-          state = state :+ event
-          if (event == last) sender.tell(event, self)
+        def persistenceId: String = id
+
+        def receiveRecover = PartialFunction.empty
+
+        def receiveCommand: Receive = {
+          case Stop                     => context.stop(self)
+          case Delete(seqNr)            => deleteMessages(seqNr)
+          case x: DeleteMessagesSuccess => testActor.tell(x, self)
+          case x: DeleteMessagesFailure => testActor.tell(x, self)
+          case Cmd(events)              =>
+            val sender = this.sender()
+            val last = events.last
+            persistAll(events.toList) { event =>
+              if (event == last) sender.tell(event, self)
+            }
         }
-    }
+      }
 
-    override def onRecoveryFailure(cause: Throwable, event: Option[Any]): Unit = {
-      recovered.failure(cause)
-      super.onRecoveryFailure(cause, event)
+      val props = Props(actor())
+      val ref = system.actorOf(props)
+
+      new PersistenceRef {
+        def persist(events: Nel[String]) = {
+          val cmd = Cmd(events)
+          ref.tell(cmd, testActor)
+          expectMsg(events.last)
+        }
+
+        def delete(seqNr: SeqNr) = {
+          val delete = Delete(seqNr)
+          ref.tell(delete, testActor)
+          expectMsg(DeleteMessagesSuccess(seqNr))
+        }
+
+        def stop() = {
+          ConsistencySpec.this.stop(ref)
+        }
+      }
     }
   }
+
+
+  def recover[S](s: S, timeout: FiniteDuration, id: String = pid)(f: (S, String) => S): S = {
+    val promise = Promise[S]()
+
+    var state = s
+
+    def actor() = new PersistentActor {
+
+      def persistenceId: String = id
+
+      def receiveRecover = {
+        case event: String     => state = f(state, event)
+        case RecoveryCompleted => promise.success(state)
+      }
+
+      def receiveCommand: Receive = PartialFunction.empty
+
+      override def onRecoveryFailure(cause: Throwable, event: Option[Any]): Unit = {
+        promise.failure(cause)
+        super.onRecoveryFailure(cause, event)
+      }
+    }
+
+    val props = Props(actor())
+    system.actorOf(props)
+    val future = promise.future
+    Await.result(future, timeout)
+  }
+
+  def recoverEvents(id: String = pid): List[String] = {
+    val events = recover(List.empty[String], timeout.duration, id) { (s, e) => e :: s }
+    events.reverse
+  }
+
 
   def stop(ref: ActorRef) = {
     watch(ref)
@@ -115,22 +178,8 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
     expectTerminated(ref)
   }
 
+
   case class Cmd(events: Nel[String])
   case class Delete(seqNr: SeqNr)
   case object Stop
-
-  implicit class RefOps(self: ActorRef) {
-
-    def persist(events: Nel[String]): Unit = {
-      val cmd = Cmd(events)
-      self.tell(cmd, testActor)
-      expectMsg(events.last)
-    }
-
-    def delete(seqNr: SeqNr): Unit = {
-      val delete = Delete(seqNr)
-      self.tell(delete, testActor)
-      expectMsg(DeleteMessagesSuccess(seqNr))
-    }
-  }
 }

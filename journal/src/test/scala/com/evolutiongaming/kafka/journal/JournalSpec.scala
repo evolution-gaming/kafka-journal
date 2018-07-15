@@ -4,6 +4,7 @@ import java.time.Instant
 
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.Alias._
+import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualRecord, PartitionOffset, TopicPointers}
 import com.evolutiongaming.nel.Nel
@@ -404,26 +405,27 @@ object JournalSpec {
           TopicPointers(pointers).future
         }
 
-        def read(id: Id, range: SeqRange) = {
+        def read[S](id: Id, from: SeqNr, s: S)(f: FoldWhile[S, EventualRecord]) = {
 
           def read(state: State) = {
-
-            val result = for {
-              replicated <- state.events
-              if range contains replicated.event.seqNr
-            } yield {
-              EventualRecord(
-                id = id,
-                seqNr = replicated.event.seqNr,
-                timestamp = replicated.timestamp,
-                payload = replicated.event.payload,
-                tags = replicated.event.tags,
-                partitionOffset = replicated.partitionOffset)
+            state.events.foldWhile(s) { (s, replicated) =>
+              val event = replicated.event
+              if (event.seqNr >= from) {
+                val record = EventualRecord(
+                  id = id,
+                  seqNr = event.seqNr,
+                  timestamp = replicated.timestamp,
+                  payload = event.payload,
+                  tags = event.tags,
+                  partitionOffset = replicated.partitionOffset)
+                f(s, record)
+              } else {
+                (s, true)
+              }
             }
-            result.future
           }
 
-          read(state)
+          read(state).future
         }
 
         def lastSeqNr(id: Id, from: SeqNr) = {

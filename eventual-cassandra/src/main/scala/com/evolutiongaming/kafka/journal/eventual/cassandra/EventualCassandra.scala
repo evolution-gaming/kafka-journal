@@ -1,20 +1,16 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Sink, Source}
 import com.datastax.driver.core.policies.LoggingRetryPolicy
 import com.datastax.driver.core.{Metadata => _, _}
 import com.evolutiongaming.cassandra.NextHostRetryPolicy
 import com.evolutiongaming.kafka.journal.Alias._
+import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.SeqRange
-import com.evolutiongaming.kafka.journal.StreamHelper._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Topic
 
-import scala.collection.immutable.{Iterable, Seq}
 import scala.concurrent.{ExecutionContext, Future}
 
 
@@ -25,9 +21,7 @@ object EventualCassandra {
     session: Session,
     schemaConfig: SchemaConfig,
     config: EventualCassandraConfig,
-    log: ActorLog)(implicit system: ActorSystem, ec: ExecutionContext): EventualJournal = {
-
-    implicit val materializer = ActorMaterializer()
+    log: ActorLog)(implicit ec: ExecutionContext): EventualJournal = {
 
     val retries = 3
 
@@ -61,7 +55,7 @@ object EventualCassandra {
 
     new EventualJournal {
 
-      def topicPointers(topic: Topic): Future[TopicPointers] = {
+      def topicPointers(topic: Topic) = {
         for {
           statements <- statements
           topicPointers <- statements.selectTopicPointer(topic)
@@ -70,65 +64,54 @@ object EventualCassandra {
         }
       }
 
-      // TODO test use case when cassandra is not up to last Action.Delete
 
-      def read(id: Id, range: SeqRange): Future[Seq[EventualRecord]] = {
+      def read[S](id: Id, from: SeqNr, s: S)(f: FoldWhile[S, EventualRecord]) = {
 
-        def list(statement: JournalStatement.SelectRecords.Type, metadata: Metadata) = {
+        def foldWhile(statement: JournalStatement.SelectRecords.Type, metadata: Metadata) = {
 
-          val segmentSize = metadata.segmentSize
-
-          def segmentOf(seqNr: SeqNr) = Segment(seqNr, segmentSize)
-
-          def list(range: SeqRange) = {
-            val segment = segmentOf(range.from)
-            val source = Source.foldWhile(segment) { segment =>
-              println(s"$id Source.unfoldWhile range: $range, segment: $segment")
-              for {
-                records <- statement(id, segment, range)
-              } yield {
-                if (records.isEmpty) {
-                  (segment, false, Iterable.empty)
+          def foldWhile(from: SeqNr, segment: Segment, s: S): Future[(S, Continue)] = {
+            val range = SeqRange(from, SeqNr.Max) // TODO do we need range here ?
+            for {
+              result <- statement(id, segment.nr, range, (s, from)) { case ((s, _), record) =>
+                val (ss, continue) = f(s, record)
+                ((ss, record.seqNr), continue)
+              }
+              result <- {
+                val ((s, seqNr), continue) = result
+                if (continue) {
+                  val from = seqNr.next
+                  segment.next(from).fold((s, continue).future) { segment =>
+                    foldWhile(from, segment, s)
+                  }
                 } else {
-                  val seqNrNext = records.last.seqNr.next
-                  val segmentNext = segmentOf(seqNrNext)
-                  val continue = (range contains seqNrNext) && segment != segmentNext
-                  (segmentNext, continue, records)
+                  (s, continue).future
                 }
               }
-            }
-
-            source.runWith(Sink.seq)
+            } yield result
           }
 
-          val deletedTo = metadata.deletedTo
-
-          if (deletedTo >= range.to) {
-            Future.seq
-          } else {
-            val from = range.from max (deletedTo + 1)
-            val range2 = range.copy(from = from)
-            list(range2)
-          }
+          val fromFixed = from max metadata.deletedTo.next
+          val segment = Segment(fromFixed, metadata.segmentSize)
+          foldWhile(fromFixed, segment, s)
         }
 
         for {
           statements <- statements
           metadata <- metadata(id, statements)
-          result <- metadata match {
-            case Some(metadata) => list(statements.selectRecords, metadata)
-            case None           => Future.seq
+          result <- metadata.fold((s, true).future) { metadata =>
+            foldWhile(statements.selectRecords, metadata)
           }
         } yield {
           result
         }
       }
 
+
       def lastSeqNr(id: Id, from: SeqNr) = {
 
         def lastSeqNr(statements: Statements, metadata: Option[Metadata]) = {
           metadata.fold(from.future) { metadata =>
-            LastSeqNr(id, from, statements.selectLastRecord, metadata)
+            LastSeqNr(id, from, statements.selectLastRecord, metadata) // TODO remove this, use lastSeqNr from metadata
           }
         }
 

@@ -13,28 +13,27 @@ object FoldWhileHelper {
 
   type Continue = Boolean
 
+  type FoldWhile[S, E] = (S, E) => (S, Continue)
+
 
   implicit class IterableFoldWhile[E](val self: Iterable[E]) extends AnyVal {
+    import IterableFoldWhile._
 
     def foldWhile[S](s: S)(f: (S, E) => (S, Continue)): (S, Continue) = {
-      IterableFoldWhile.foldWhile(self, s)(f)
-    }
-  }
-
-  object IterableFoldWhile {
-
-    private def foldWhile[S, E](iter: Iterable[E], s: S)(f: (S, E) => (S, Continue)): (S, Continue) = {
-      case class Return(s: S) extends ControlThrowable
       try {
-        val ss = iter.foldLeft(s) { (s, e) =>
+        val ss = self.foldLeft(s) { (s, e) =>
           val (ss, continue) = f(s, e)
           if (continue) ss else throw Return(ss)
         }
         (ss, true)
       } catch {
-        case Return(s) => (s, false)
+        case Return(s) => (s.asInstanceOf[S], false)
       }
     }
+  }
+
+  object IterableFoldWhile {
+    private case class Return[S](s: S) extends ControlThrowable
   }
 
 

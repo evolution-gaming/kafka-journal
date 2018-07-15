@@ -13,39 +13,24 @@ object LastSeqNr {
     statement: JournalStatement.SelectLastRecord.Type,
     metadata: Metadata)(implicit ec: ExecutionContext): Future[SeqNr] = {
 
-    val segmentSize = metadata.segmentSize
-
-    def segmentOf(seqNr: SeqNr) = Segment(seqNr, segmentSize)
-
-    def lastSeqNr(from: SeqNr): Future[SeqNr] = {
-      val seqNrNext = from.next
-      val segment = segmentOf(seqNrNext)
-
-      val result = for {
-        records <- statement(id, segment, from)
-      } yield {
-
-        val x = records.map { _.seqNr }
-
-        x match {
-          case None => from.future
-
-          case Some(seqNr) =>
-            val segmentNext = segmentOf(seqNrNext)
-            if (segment != segmentNext) {
-              lastSeqNr(seqNr)
-            } else {
-              seqNr.future
-            }
+    def apply(last: SeqNr, from: SeqNr, segment: Segment): Future[SeqNr] = {
+      for {
+        pointer <- statement(id, segment.nr, from)
+        seqNr <- pointer.fold(last.future) { pointer =>
+          val last = pointer.seqNr
+          val from = last.next
+          segment.next(from).fold(last.future) { segment =>
+            apply(last, from, segment)
+          }
         }
+      } yield {
+        seqNr
       }
-
-      result.flatten
     }
 
-    val deletedTo = metadata.deletedTo
-
-    val from2 = deletedTo max from
-    lastSeqNr(from2)
+    val seqNr = from max metadata.deletedTo
+    val fromFixed = seqNr.next
+    val segment = Segment(fromFixed, metadata.segmentSize)
+    apply(seqNr, fromFixed, segment)
   }
 }

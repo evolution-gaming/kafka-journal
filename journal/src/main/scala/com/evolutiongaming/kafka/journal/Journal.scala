@@ -188,16 +188,20 @@ object Journal {
       def read(range: SeqRange): Future[Seq[Event]] = {
 
         def eventualRecords() = {
-          for {
-            eventualRecords <- eventual.read(id, range)
-          } yield {
-            eventualRecords.map { record =>
-              Event(
-                payload = record.payload,
-                seqNr = record.seqNr,
-                tags = record.tags)
-            }
+
+          val result = eventual.read(id, range.from, List.empty[Event]) { (events, record) =>
+            val continue = record.seqNr <= range.to
+            val event = Event(
+              payload = record.payload,
+              seqNr = record.seqNr,
+              tags = record.tags)
+            val result = if (continue) event :: events else events
+            (result, continue)
           }
+
+          for {
+            (events, _) <- result
+          } yield events.reverse
         }
 
         for {
@@ -251,7 +255,7 @@ object Journal {
                   entries <- entries
                 } yield {
                   val entries2 = entries.filter(_.seqNr in range)
-                  
+
                   entries2.lastOption.fold(result) { last =>
                     entries2.toList ::: result.dropWhile(_.seqNr <= last.seqNr)
                   }

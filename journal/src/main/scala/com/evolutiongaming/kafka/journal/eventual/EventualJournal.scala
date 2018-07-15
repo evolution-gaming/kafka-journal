@@ -1,18 +1,17 @@
 package com.evolutiongaming.kafka.journal.eventual
 
 import com.evolutiongaming.kafka.journal.Alias._
+import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.LogHelper._
-import com.evolutiongaming.kafka.journal.SeqRange
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Topic
 
-import scala.collection.immutable.Seq
 import scala.concurrent.Future
 
 trait EventualJournal {
   def topicPointers(topic: Topic): Future[TopicPointers]
-  def read(id: Id, range: SeqRange): Future[Seq[EventualRecord]]
+  def read[S](id: Id, from: SeqNr, s: S)(f: FoldWhile[S, EventualRecord]): Future[(S, Continue)]
   def lastSeqNr(id: Id, from: SeqNr): Future[SeqNr]
 }
 
@@ -22,7 +21,7 @@ object EventualJournal {
     val futureTopicPointers = TopicPointers.Empty.future
     new EventualJournal {
       def topicPointers(topic: Topic) = futureTopicPointers
-      def read(id: Id, range: SeqRange) = Future.seq
+      def read[S](id: Id, from: SeqNr, state: S)(f: FoldWhile[S, EventualRecord]) = (state, true).future
       def lastSeqNr(id: Id, from: SeqNr) = Future.seqNr
     }
   }
@@ -36,12 +35,16 @@ object EventualJournal {
       }
     }
 
-    def read(id: Id, range: SeqRange): Future[Seq[EventualRecord]] = {
-      val toStr = (entries: Seq[EventualRecord]) => {
-        entries.map(_.seqNr).mkString(",") // TODO use range and implement misses verification
+    def read[S](id: Id, from: SeqNr, s: S)(f: FoldWhile[S, EventualRecord]) = {
+
+      val ff = (state: S, record: EventualRecord) => {
+        val (result, continue) = f(state, record)
+        log.debug(s"$id foldWhile record: $record, state: $state, result: $result, continue: $continue")
+        (result, continue)
       }
-      log[Seq[EventualRecord]](s"$id read range: $range", toStr) {
-        eventualJournal.read(id, range)
+
+      log[(S, Continue)](s"$id foldWhile from: $from, state: $s") {
+        eventualJournal.read(id, from, s)(ff)
       }
     }
 

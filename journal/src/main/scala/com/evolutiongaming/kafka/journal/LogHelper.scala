@@ -11,7 +11,6 @@ object LogHelper {
   implicit class ActorLogOps(val self: ActorLog) extends AnyVal {
     import ActorLogOps._
 
-    // TODO instance of `toStr` created per call
     def apply[T](name: => String, toStr: ToStr[T] = ToStr.Default)(future: Future[T]): Future[T] = {
       implicit val ec = CurrentThreadExecutionContext // TODO remove
       future.transform { result =>

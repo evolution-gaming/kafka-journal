@@ -62,9 +62,9 @@ object EventualDbCassandra {
             if (metadata.deletedTo >= deletedTo) Future.unit
             else {
 
-              def segmentOf(seqNr: SeqNr) = Segment(seqNr, metadata.segmentSize)
+              def segmentOf(seqNr: SeqNr) = SegmentNr(seqNr, metadata.segmentSize)
 
-              def delete(segment: Segment) = {
+              def delete(segment: SegmentNr) = {
                 statements.deleteRecords(id, segment, deletedTo)
               }
 
@@ -86,7 +86,7 @@ object EventualDbCassandra {
               if (records.isEmpty) Future.unit
               else {
                 val head = records.head
-                val segment = Segment(head.seqNr, config.segmentSize)
+                val segment = SegmentNr(head.seqNr, config.segmentSize)
                 // TODO rename
                 val insert = {
 
@@ -210,9 +210,7 @@ object EventualDbCassandra {
           for {
             (_, statements) <- sessionAndStatements
             result <- savePointers(statements)
-          } yield {
-            result
-          }
+          } yield result
         }
       }
 
