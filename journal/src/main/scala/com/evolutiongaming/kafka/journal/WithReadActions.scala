@@ -9,6 +9,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
 
+// TODO pass partition even if offset is unknown
 trait WithReadActions {
   def apply[T](topic: Topic, partitionOffset: Option[PartitionOffset])(f: ReadActions => Future[T]): Future[T]
 }
@@ -24,11 +25,9 @@ object WithReadActions {
 
       def apply[T](topic: Topic, partitionOffset: Option[PartitionOffset])(f: ReadActions => Future[T]) = {
 
-
         // TODO blocking
         // TODO consider separate from splitting
         val consumer = newConsumer()
-
 
         partitionOffset match {
           case None =>
@@ -39,7 +38,7 @@ object WithReadActions {
           case Some(partitionOffset) =>
             val topicPartition = TopicPartition(topic, partitionOffset.partition)
             consumer.assign(List(topicPartition)) // TODO blocking
-          val offset = partitionOffset.offset + 1 // TODO TEST
+          val offset = partitionOffset.offset + 1
             consumer.seek(topicPartition, offset) // TODO blocking
         }
 

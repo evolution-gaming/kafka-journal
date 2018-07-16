@@ -22,60 +22,61 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
   "A KafkaJournal" should {
 
     "replay events in the same order" in {
-      val persistenceRef = PersistenceRef()
+      val ref = PersistenceRef()
       val events = (1 to 100).toVector map { _.toString }
       for {
         group <- events.grouped(10)
       } {
         val events = Nel.unsafe(group)
-        persistenceRef.persist(events)
+        ref.persist(events)
       }
 
-      persistenceRef.stop()
+      ref.stop()
 
       recoverEvents() shouldEqual events
     }
 
     "replay events in the same order when half is deleted" in {
-      val persistenceRef = PersistenceRef()
+      val ref = PersistenceRef()
       val events = (1 to 100).toVector map { _.toString }
       for {
         group <- events.grouped(10)
       } {
         val events = Nel.unsafe(group)
-        persistenceRef.persist(events)
+        ref.persist(events)
       }
 
-      persistenceRef.delete(50)
-      persistenceRef.stop()
+      val deleteTo = 50
+      ref.delete(deleteTo.toLong)
+      ref.stop()
 
-      recoverEvents() shouldEqual events.drop(50)
+      recoverEvents() shouldEqual events.drop(deleteTo)
     }
 
     "recover new entity from lengthy topic" in {
-      val persistenceRef = PersistenceRef()
+      val ref = PersistenceRef()
       val events = (1 to 1000).toVector map { _.toString }
       for {
         group <- events.grouped(10)
       } {
         val events = Nel.unsafe(group)
-        persistenceRef.persist(events)
+        ref.persist(events)
       }
       val state = recoverEvents("new_id")
       state shouldEqual Nil
       recoverEvents("new_id") shouldEqual Nil
     }
 
-    "recover million events" in {
+    "recover 100000 events" in {
       val n = 100000
-      val persistenceRef = PersistenceRef()
+      val ref = PersistenceRef()
       val batchSize = 100
       val events = (1 to batchSize).toList.map(_.toString)
       for {
         _ <- 1 to (n / batchSize)
       } {
         val batch = Nel(events.head, events.tail)
-        persistenceRef.persist(batch)
+        ref.persist(batch)
       }
 
       val count = recover(0, timeout.duration * 10) { case (s, _) => s + 1 }

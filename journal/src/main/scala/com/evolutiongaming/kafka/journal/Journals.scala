@@ -4,14 +4,14 @@ import java.time.Instant
 
 import akka.actor.ActorSystem
 import com.evolutiongaming.kafka.journal.Alias._
-import com.evolutiongaming.kafka.journal.eventual.EventualJournal
+import com.evolutiongaming.kafka.journal.FoldWhileHelper.{Continue, Fold}
 import com.evolutiongaming.kafka.journal.FutureHelper._
+import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer.Consumer
 import com.evolutiongaming.skafka.producer.Producer
 
-import scala.collection.immutable.Seq
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -19,8 +19,7 @@ import scala.concurrent.{ExecutionContext, Future}
 // TODO consider replacing many methods with single `apply[In, Out]`
 trait Journals {
   def append(id: Id, events: Nel[Event], timestamp: Instant): Future[Unit]
-  // TODO decide on return type
-  def read(id: Id, range: SeqRange): Future[Seq[Event]]
+  def foldWhile[S](id: Id, from: SeqNr, s: S)(f: Fold[S, Event]): Future[(S, Continue)]
   def lastSeqNr(id: Id, from: SeqNr): Future[SeqNr]
   def delete(id: Id, to: SeqNr, timestamp: Instant): Future[Unit]
 }
@@ -29,7 +28,7 @@ object Journals {
 
   val Empty: Journals = new Journals {
     def append(id: Id, events: Nel[Event], timestamp: Instant) = Future.unit
-    def read(id: Id, range: SeqRange): Future[List[Event]] = Future.nil
+    def foldWhile[S](id: Id, from: SeqNr, s: S)(f: Fold[S, Event]) = (s, true).future
     def lastSeqNr(id: Id, from: SeqNr) = Future.seqNr
     def delete(id: Id, to: SeqNr, timestamp: Instant) = Future.unit
   }
@@ -60,9 +59,9 @@ object Journals {
         journal.append(events, timestamp)
       }
 
-      def read(id: Id, range: SeqRange) = {
+      def foldWhile[S](id: Id, from: SeqNr, s: S)(f: Fold[S, Event]) = {
         val journal = journalOf(id)
-        journal.read(range)
+        journal.foldWhile(from, s)(f)
       }
 
       def lastSeqNr(id: Id, from: SeqNr) = {

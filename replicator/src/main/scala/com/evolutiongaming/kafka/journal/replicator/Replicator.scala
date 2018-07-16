@@ -7,11 +7,11 @@ import akka.actor.ActorSystem
 import com.evolutiongaming.cassandra.{CassandraConfig, CreateCluster}
 import com.evolutiongaming.kafka.journal.Alias.SeqNr
 import com.evolutiongaming.kafka.journal.ConsumerHelper._
+import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandraConfig, EventualDbCassandra, SchemaConfig}
-import com.evolutiongaming.kafka.journal.FutureHelper._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandraConfig, ReplicatedCassandra, SchemaConfig}
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer._
@@ -41,13 +41,13 @@ object Replicator {
     val session = cluster.connect()
     val schemaConfig = SchemaConfig.Default
     val config = EventualCassandraConfig.Default
-    val eventualDb = EventualDbCassandra(session, schemaConfig, config)
+    val eventualDb = ReplicatedCassandra(session, schemaConfig, config)
     apply(consumer, eventualDb)
   }
 
   def apply(
     consumer: Consumer[String, Bytes],
-    db: EventualDb,
+    journal: ReplicatedJournal,
     pollTimeout: FiniteDuration = 100.millis,
     closeTimeout: FiniteDuration = 10.seconds)(implicit
     ec: ExecutionContext, system: ActorSystem): Shutdown = {
@@ -87,35 +87,30 @@ object Replicator {
         (id, records) <- records.groupBy { case (record, _) => record.id }
       } yield {
 
+        val (_, partitionOffset) = records.last
+
         def onNonEmpty(batch: ActionBatch.NonEmpty) = {
           val deleteTo = batch.deleteTo getOrElse SeqNr.Min
-          val eventualRecords = for {
+          val replicated = for {
             (record, partitionOffset) <- records
             action <- PartialFunction.condOpt(record.action) { case a: Action.Append => a }.toIterable
             if action.range.to > deleteTo // TODO special range operation ???
             event <- EventsSerializer.fromBytes(action.events).toList
             if event.seqNr > deleteTo
           } yield {
-            EventualRecord(
-              id = record.id,
-              seqNr = event.seqNr,
-              timestamp = action.timestamp,
-              payload = event.payload,
-              tags = event.tags,
-              partitionOffset = partitionOffset)
+            ReplicatedEvent(event, action.timestamp, partitionOffset)
           }
 
-          val updateTmp = UpdateTmp.DeleteToKnown(batch.deleteTo, eventualRecords.toVector)
+          val updateTmp = UpdateTmp.DeleteToKnown(batch.deleteTo, replicated.toList)
 
           for {
-            result <- db.save(id, updateTmp, topic)
+            result <- journal.save(id, updateTmp, topic)
           } yield {
-            val head = eventualRecords.head
-            val last = eventualRecords.last
-            val range = SeqRange(head.seqNr, last.seqNr)
-            val offset = last.partitionOffset.offset
+            val head = replicated.head
+            val last = replicated.last
+            val range = SeqRange(head.event.seqNr, last.event.seqNr)
             val deleteTo = batch.deleteTo
-            log.info(s"replicate id: $id, range: $range, deleteTo: $deleteTo, offset: $offset")
+            log.info(s"replicated id: $id, range: $range, deleteTo: $deleteTo, partitionOffset: $partitionOffset")
             result
           }
         }
@@ -124,9 +119,9 @@ object Replicator {
           val deleteTo = batch.seqNr
           val updateTmp = UpdateTmp.DeleteUnbound(deleteTo)
           for {
-            result <- db.save(id, updateTmp, topic)
+            result <- journal.save(id, updateTmp, topic)
           } yield {
-            log.info(s"replicate id: $id, deleteTo: $deleteTo")
+            log.info(s"replicated id: $id, deleteTo: $deleteTo, partitionOffset: $partitionOffset")
             result
           }
         }
@@ -154,18 +149,11 @@ object Replicator {
         }
 
         val result = {
-          if (diff.pointers.isEmpty) {
-            Future.unit
-          } else {
-            db.savePointers(topic, diff)
-          }
+          if (diff.pointers.isEmpty) Future.unit
+          else journal.savePointers(topic, diff)
         }
 
-        for {
-          _ <- result
-        } yield {
-          pointers + diff
-        }
+        for {_ <- result} yield pointers + diff
       }
 
       for {
@@ -205,7 +193,7 @@ object Replicator {
     }
 
     val future = for {
-      pointers <- db.pointers(topic)
+      pointers <- journal.pointers(topic)
       _ <- consume(pointers)
     } yield {}
 

@@ -110,7 +110,7 @@ object CassandraHelper {
 
   implicit class ResultSetOps(val self: ResultSet) extends AnyVal {
 
-    def foldWhile[S](fetchThreshold: Int, s: S)(f: FoldWhile[S, Row])(implicit ec: ExecutionContext): Future[(S, Continue)] = {
+    def foldWhile[S](fetchThreshold: Int, s: S)(f: Fold[S, Row])(implicit ec: ExecutionContext): Future[(S, Continue)] = {
 
       @tailrec
       def foldWhile(s: S, available: Int): (S, Continue) = {

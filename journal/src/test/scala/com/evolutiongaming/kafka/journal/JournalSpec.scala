@@ -6,7 +6,7 @@ import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.FutureHelper._
-import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualRecord, PartitionOffset, TopicPointers}
+import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, PartitionOffset, TopicPointers}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
@@ -144,15 +144,18 @@ class JournalSpec extends WordSpec with Matchers {
       test(() => journalOf())
 
       def journalOf() = {
-        var actions: Queue[Action] = Queue.empty
+        var actions: Queue[ActionRecord] = Queue.empty
         val eventualJournal = EventualJournal.Empty
 
         val withReadActions = WithReadActionsOneByOne(actions)
 
         val writeAction = new WriteAction {
           def apply(action: Action) = {
-            actions = actions.enqueue(action)
-            partition.future
+            val offset = actions.size.toLong + 1
+            val record = ActionRecord(action, offset)
+            actions = actions.enqueue(record)
+            // TODO create test without offset
+            (partition, Some(offset)).future
           }
         }
         val journal = Journal(id, topic, ActorLog.empty, eventualJournal, withReadActions, writeAction)
@@ -166,19 +169,25 @@ class JournalSpec extends WordSpec with Matchers {
       test(() => journalOf())
 
       def journalOf() = {
-        var actions: Queue[Action] = Queue.empty
+        var actions: Queue[ActionRecord] = Queue.empty
         var replicatedState = EventualJournalOf.State.Empty
 
         val eventualJournal = EventualJournalOf(replicatedState)
 
-        val withReadActions = WithReadActionsOneByOne(actions.collect { case action: Action.Mark => action })
+        val withReadActions = {
+          def marks() = actions.collect { case action @ ActionRecord(_: Action.Mark, _) => action }
+
+          WithReadActionsOneByOne(marks())
+        }
 
         val writeAction = new WriteAction {
 
           def apply(action: Action) = {
-            actions = actions.enqueue(action)
-            replicatedState = replicatedState(action, actions.size.toLong)
-            partition.future
+            val offset = actions.size.toLong + 1
+            val record = ActionRecord(action, offset)
+            actions = actions.enqueue(record)
+            replicatedState = replicatedState(record)
+            (partition, Some(offset)).future
           }
         }
 
@@ -192,7 +201,7 @@ class JournalSpec extends WordSpec with Matchers {
       test(() => journalOf())
 
       def journalOf() = {
-        var actions: Queue[Action] = Queue.empty
+        var actions: Queue[ActionRecord] = Queue.empty
         var replicatedState = EventualJournalOf.State.Empty
 
         val eventualJournal = EventualJournalOf(replicatedState)
@@ -202,9 +211,68 @@ class JournalSpec extends WordSpec with Matchers {
         val writeAction = new WriteAction {
 
           def apply(action: Action) = {
-            actions = actions.enqueue(action)
-            replicatedState = replicatedState(action, actions.size.toLong)
-            partition.future
+            val offset = actions.size.toLong + 1
+            val record = ActionRecord(action, offset)
+            actions = actions.enqueue(record)
+            replicatedState = replicatedState(record)
+            (partition, Some(offset)).future
+          }
+        }
+
+        val journal = Journal(id, topic, ActorLog.empty, eventualJournal, withReadActions, writeAction)
+        SeqNrJournal(journal)
+      }
+    }
+
+    "kafka and eventual journals are consistent and kafka does not return offset" should {
+
+      test(() => journalOf())
+
+      def journalOf() = {
+        var actions: Queue[ActionRecord] = Queue.empty
+        var replicatedState = EventualJournalOf.State.Empty
+
+        val eventualJournal = EventualJournalOf(replicatedState)
+
+        val withReadActions = WithReadActionsOneByOne(actions)
+
+        val writeAction = new WriteAction {
+
+          def apply(action: Action) = {
+            val offset = actions.size.toLong + 1
+            val record = ActionRecord(action, offset)
+            actions = actions.enqueue(record)
+            replicatedState = replicatedState(record)
+
+            (partition, None).future
+          }
+        }
+
+        val journal = Journal(id, topic, ActorLog.empty, eventualJournal, withReadActions, writeAction)
+        SeqNrJournal(journal)
+      }
+    }
+
+    "kafka and eventual journals are consistent, however eventual offset is behind" should {
+      test(() => journalOf())
+
+      def journalOf() = {
+        var actions: Queue[ActionRecord] = Queue.empty
+        var replicatedState = EventualJournalOf.State.Empty
+
+        val eventualJournal = EventualJournalOf(replicatedState)
+
+        val withReadActions = WithReadActionsOneByOne(actions)
+
+        val writeAction = new WriteAction {
+
+          def apply(action: Action) = {
+            val offset = actions.size.toLong + 1
+            val record = ActionRecord(action, offset)
+            actions = actions.enqueue(record)
+            replicatedState = replicatedState(record, offset - 2)
+
+            (partition, Some(offset)).future
           }
         }
 
@@ -218,9 +286,8 @@ class JournalSpec extends WordSpec with Matchers {
       test(() => journalOf())
 
       def journalOf() = {
-        var actions: Queue[Action] = Queue.empty
+        var actions: Queue[ActionRecord] = Queue.empty
         var replicatedState = EventualJournalOf.State.Empty
-
 
         val eventualJournal = EventualJournalOf(replicatedState)
 
@@ -229,18 +296,16 @@ class JournalSpec extends WordSpec with Matchers {
         val writeAction = new WriteAction {
 
           def apply(action: Action) = {
-
-            actions = actions.enqueue(action)
+            val offset = actions.size.toLong + 1
+            val record = ActionRecord(action, offset)
+            actions = actions.enqueue(record)
 
             for {
               actions <- actions.dropLast(1)
               action <- actions.lastOption
-            } {
-              val offset: Offset = actions.size.toLong - 1
-              replicatedState = replicatedState(action, offset)
-            }
+            } replicatedState = replicatedState(action)
 
-            partition.future
+            (partition, Some(offset)).future
           }
         }
 
@@ -254,9 +319,8 @@ class JournalSpec extends WordSpec with Matchers {
       test(() => journalOf())
 
       def journalOf() = {
-        var actions: Queue[Action] = Queue.empty
+        var actions: Queue[ActionRecord] = Queue.empty
         var replicatedState = EventualJournalOf.State.Empty
-
 
         val eventualJournal = EventualJournalOf(replicatedState)
 
@@ -266,17 +330,16 @@ class JournalSpec extends WordSpec with Matchers {
 
           def apply(action: Action) = {
 
-            actions = actions.enqueue(action)
+            val offset = actions.size.toLong + 1
+            val record = ActionRecord(action, offset)
+            actions = actions.enqueue(record)
 
             for {
               actions <- actions.dropLast(2)
               action <- actions.lastOption
-            } {
-              val offset: Offset = actions.size.toLong - 1
-              replicatedState = replicatedState(action, offset)
-            }
+            } replicatedState = replicatedState(action)
 
-            partition.future
+            (partition, Some(offset)).future
           }
         }
 
@@ -290,9 +353,8 @@ class JournalSpec extends WordSpec with Matchers {
       test(() => journalOf())
 
       def journalOf() = {
-        var actions: Queue[Action] = Queue.empty
+        var actions: Queue[ActionRecord] = Queue.empty
         var replicatedState = EventualJournalOf.State.Empty
-
 
         val eventualJournal = EventualJournalOf(replicatedState)
 
@@ -302,17 +364,16 @@ class JournalSpec extends WordSpec with Matchers {
 
           def apply(action: Action) = {
 
-            actions = actions.enqueue(action)
+            val offset = actions.size.toLong + 1
+            val record = ActionRecord(action, offset)
+            actions = actions.enqueue(record)
 
             for {
               actions <- actions.dropLast(3)
               action <- actions.lastOption
-            } {
-              val offset: Offset = actions.size.toLong - 1
-              replicatedState = replicatedState(action, offset)
-            }
+            } replicatedState = replicatedState(action)
 
-            partition.future
+            (partition, Some(offset)).future
           }
         }
 
@@ -332,10 +393,13 @@ object JournalSpec {
   implicit val ec: ExecutionContext = CurrentThreadExecutionContext
 
 
+  case class ActionRecord(action: Action, offset: Offset)
+
+
   // TODO do we need Future in API ?
   trait SeqNrJournal {
     def append(seqNr: SeqNr, seqNrs: SeqNr*): Future[Unit]
-    def read(range: SeqRange): Future[Seq[SeqNr]]
+    def read(range: SeqRange): Future[List[SeqNr]]
 
     // TODO not sure this should be a part of this API
     def lastSeqNr(from: SeqNr): Future[SeqNr]
@@ -354,13 +418,16 @@ object JournalSpec {
         }
 
         def read(range: SeqRange) = {
-          for {
-            events <- journal.read(range)
-          } yield for {
-            event <- events
-          } yield {
-            event.seqNr
+          val result = journal.foldWhile(range.from, List.empty[SeqNr]) { (seqNrs, event) =>
+            val continue = event.seqNr <= range.to
+            val result = {
+              if (event.seqNr >= range.from && continue) event.seqNr :: seqNrs
+              else seqNrs
+            }
+            (result, continue)
           }
+
+          for {(events, _) <- result} yield events.reverse
         }
 
         def lastSeqNr(from: SeqNr) = journal.lastSeqNr(from)
@@ -372,18 +439,20 @@ object JournalSpec {
 
 
   object WithReadActionsOneByOne {
-    def apply(actions: => Queue[Action]): WithReadActions = new WithReadActions {
+    def apply(actions: => Queue[ActionRecord]): WithReadActions = new WithReadActions {
 
       def apply[T](topic: Topic, partitionOffset: Option[PartitionOffset])(f: ReadActions => Future[T]) = {
 
         val readActions = new ReadActions {
 
-          var left = actions
+          var left = partitionOffset.fold(actions) { partitionOffset =>
+            actions.dropWhile(_.offset < partitionOffset.offset)
+          }
 
           def apply(id: Id): Future[Iterable[Action]] = {
-            left.dequeueOption.fold(Future.nil[Action]) { case (action, left) =>
+            left.dequeueOption.fold(Future.nil[Action]) { case (record, left) =>
               this.left = left
-              List(action).future
+              List(record.action).future
             }
           }
         }
@@ -405,20 +474,13 @@ object JournalSpec {
           TopicPointers(pointers).future
         }
 
-        def read[S](id: Id, from: SeqNr, s: S)(f: FoldWhile[S, EventualRecord]) = {
+        def foldWhile[S](id: Id, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
 
           def read(state: State) = {
             state.events.foldWhile(s) { (s, replicated) =>
-              val event = replicated.event
-              if (event.seqNr >= from) {
-                val record = EventualRecord(
-                  id = id,
-                  seqNr = event.seqNr,
-                  timestamp = replicated.timestamp,
-                  payload = event.payload,
-                  tags = event.tags,
-                  partitionOffset = replicated.partitionOffset)
-                f(s, record)
+              val seqNr = replicated.event.seqNr
+              if (seqNr >= from) {
+                f(s, replicated)
               } else {
                 (s, true)
               }
@@ -447,13 +509,17 @@ object JournalSpec {
       deleteTo: SeqNr = SeqNr.Min,
       offset: Offset = 0l) {
 
-      def apply(action: Action, offset: Offset): State = {
+      def apply(record: ActionRecord): State = {
+        apply(record, record.offset)
+      }
+
+      def apply(record: ActionRecord, offset: Offset): State = {
 
         def onAppend(action: Action.Append) = {
           val batch = for {
             event <- EventsSerializer.fromBytes(action.events)
           } yield {
-            val partitionOffset = PartitionOffset(partition, offset)
+            val partitionOffset = PartitionOffset(partition, record.offset)
             ReplicatedEvent(event, timestamp, partitionOffset)
           }
           copy(events = events.enqueue(batch.toList), offset = offset)
@@ -467,7 +533,7 @@ object JournalSpec {
           copy(deleteTo = deleteTo, events = left, offset = offset)
         }
 
-        action match {
+        record.action match {
           case action: Action.Append => onAppend(action)
           case action: Action.Delete => onDelete(action)
           case action: Action.Mark   => copy(offset = offset)
@@ -485,14 +551,8 @@ object JournalSpec {
     def get(): T = self.value.get.get
   }
 
-  implicit class QueueOps(val self: Queue[Action]) extends AnyVal {
-    def fix: Queue[Action] = self.map {
-      case action: Action.Append => action.copy(events = Bytes.Empty)
-      case action: Action.Delete => action
-      case action: Action.Mark   => action
-    }
-
-    def dropLast(n: Int): Option[Queue[Action]] = {
+  implicit class QueueOps[T](val self: Queue[T]) extends AnyVal {
+    def dropLast(n: Int): Option[Queue[T]] = {
       if (self.size <= n) None
       else Some(self.dropRight(n))
     }

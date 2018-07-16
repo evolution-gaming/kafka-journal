@@ -9,26 +9,25 @@ import com.evolutiongaming.cassandra.CassandraHelper._
 import com.evolutiongaming.cassandra.NextHostRetryPolicy
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.FutureHelper._
+import com.evolutiongaming.kafka.journal.ReplicatedEvent
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Topic
 
-import scala.collection.immutable.Seq
 import scala.concurrent.{ExecutionContext, Future}
 
 
 // TODO create collection that is optimised for ordered sequence and seqNr
 // TODO redesign EventualDbCassandra so it can hold stat and called recursively
-// TODO rename
-object EventualDbCassandra {
+object ReplicatedCassandra {
 
   def apply(
     session: Session,
     schemaConfig: SchemaConfig,
-    config: EventualCassandraConfig)(implicit system: ActorSystem, ec: ExecutionContext): EventualDb = {
+    config: EventualCassandraConfig)(implicit system: ActorSystem, ec: ExecutionContext): ReplicatedJournal = {
 
-    val log = ActorLog(system, EventualDbCassandra.getClass)
+    val log = ActorLog(system, ReplicatedCassandra.getClass)
 
     val retries = 3
 
@@ -46,7 +45,7 @@ object EventualDbCassandra {
     }
 
 
-    new EventualDb {
+    new ReplicatedJournal {
 
       // TODO consider creating collection   Deleted/Nil :: Elem :: Elem
       // TODO to encode sequence that can start either from 0 or for Deleted
@@ -59,16 +58,17 @@ object EventualDbCassandra {
         def save(statements: Statements, metadata: Option[Metadata], session: Session) = {
 
           def delete(deletedTo: SeqNr, metadata: Metadata) = {
-            if (metadata.deletedTo >= deletedTo) Future.unit
+            if (metadata.deleteTo >= deletedTo) Future.unit
             else {
 
+              // TODO
               def segmentOf(seqNr: SeqNr) = SegmentNr(seqNr, metadata.segmentSize)
 
               def delete(segment: SegmentNr) = {
                 statements.deleteRecords(id, segment, deletedTo)
               }
 
-              val lowest = segmentOf(metadata.deletedTo)
+              val lowest = segmentOf(metadata.deleteTo)
               val highest = segmentOf(deletedTo)
               val futures = for {
                 segment <- lowest to highest // TODO maybe add ability to create Seq[Segment] out of SeqRange ?
@@ -80,32 +80,35 @@ object EventualDbCassandra {
           }
 
 
-          def save(records: Seq[EventualRecord], deletedTo: Option[SeqNr]) = {
+          def save(replicated: List[ReplicatedEvent], deleteTo: Option[SeqNr]) = {
 
             def saveRecords(segmentSize: Int) = {
-              if (records.isEmpty) Future.unit
+              if (replicated.isEmpty) Future.unit
               else {
-                val head = records.head
-                val segment = SegmentNr(head.seqNr, config.segmentSize)
-                // TODO rename
-                val insert = {
+                val futures = for {
+                  (segment, replicated) <- replicated.groupBy { replicated =>
+                    SegmentNr(replicated.event.seqNr, config.segmentSize)
+                  }
+                } yield {
+                  val insert = {
 
-                  val inserts = for {
-                    record <- records
-                  } yield {
-                    statements.insertRecord(record, segment)
+                    val inserts = for {
+                      replicated <- replicated
+                    } yield {
+                      statements.insertRecord(id, replicated, segment)
+                    }
+
+                    if (inserts.size == 1) inserts.head
+                    else {
+                      val batch = new BatchStatement()
+                      inserts.foldLeft(batch) { _ add _ }
+                    }
                   }
 
-                  if (inserts.size == 1) {
-                    inserts.head
-                  } else {
-                    val batch = new BatchStatement()
-                    inserts.foldLeft(batch) { _ add _ }
-                  }
+                  val insertFinal = insert.set(statementConfig)
+                  session.executeAsync(insertFinal).asScala()
                 }
-
-                val insertFinal = insert.set(statementConfig)
-                session.executeAsync(insertFinal).asScala()
+                Future.sequence(futures)
               }
             }
 
@@ -113,14 +116,14 @@ object EventualDbCassandra {
 
               val segmentSize = metadata.fold(config.segmentSize)(_.segmentSize)
 
-              val deletedTo2 = deletedTo getOrElse SeqNr.Min
-              val deletedTo3 = metadata.fold(deletedTo2)(_.deletedTo max deletedTo2)
+              val deletedTo2 = deleteTo getOrElse SeqNr.Min
+              val deletedTo3 = metadata.fold(deletedTo2)(_.deleteTo max deletedTo2)
 
               val metadataNew = Metadata(
                 id = id,
                 topic = topic,
                 segmentSize = segmentSize,
-                deletedTo = deletedTo3)
+                deleteTo = deletedTo3)
 
               // TODO split on insert and update queries
               for {
@@ -132,7 +135,7 @@ object EventualDbCassandra {
 
             for {
               metadata <- saveMetadata()
-              _ <- deletedTo.fold(Future.unit) { deletedTo => delete(deletedTo, metadata) }
+              _ <- deleteTo.fold(Future.unit) { deletedTo => delete(deletedTo, metadata) }
               _ <- saveRecords(metadata.segmentSize)
             } yield {}
           }
@@ -140,25 +143,25 @@ object EventualDbCassandra {
           def deleteUnbound(deleteTo: SeqNr) = {
 
             metadata.fold(Future.unit) { metadata =>
-              if (deleteTo <= metadata.deletedTo) {
-                Future.unit
-              } else {
+              if (deleteTo <= metadata.deleteTo) Future.unit
+              else {
 
-                def saveAndDelete(deletedTo: SeqNr) = {
+                def saveAndDelete(deleteTo: SeqNr) = {
+
                   val metadataNew = Metadata(
                     id = id,
                     topic = topic,
-                    deletedTo = deletedTo,
+                    deleteTo = deleteTo,
                     segmentSize = metadata.segmentSize)
 
                   for {
                     _ <- statements.insertMetadata(metadataNew) // TODO optimise query
-                    _ <- delete(deletedTo, metadata)
+                    _ <- delete(deleteTo, metadata)
                   } yield {}
                 }
 
                 for {
-                  lastSeqNr <- LastSeqNr(id, metadata.deletedTo, statements.selectLastRecord, metadata)
+                  lastSeqNr <- LastSeqNr(id, metadata.deleteTo, statements.selectLastRecord, metadata)
                   result <- saveAndDelete(deleteTo min lastSeqNr)
                 } yield {
                   result
@@ -209,8 +212,8 @@ object EventualDbCassandra {
 
           for {
             (_, statements) <- sessionAndStatements
-            result <- savePointers(statements)
-          } yield result
+            _ <- savePointers(statements)
+          } yield ()
         }
       }
 

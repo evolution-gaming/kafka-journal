@@ -6,8 +6,8 @@ import com.evolutiongaming.cassandra.NextHostRetryPolicy
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.FutureHelper._
-import com.evolutiongaming.kafka.journal.SeqRange
 import com.evolutiongaming.kafka.journal.eventual._
+import com.evolutiongaming.kafka.journal.{ReplicatedEvent, SeqRange}
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Topic
 
@@ -39,20 +39,6 @@ object EventualCassandra {
       statements
     }
 
-    def metadata(id: Id, statements: Statements) = {
-      val selectMetadata = statements.selectMetadata
-      for {
-        metadata <- selectMetadata(id)
-      } yield {
-        // TODO what to do if it is empty?
-
-        if (metadata.isEmpty) println(s"$id metadata is empty")
-
-        metadata
-      }
-    }
-
-
     new EventualJournal {
 
       def topicPointers(topic: Topic) = {
@@ -65,16 +51,16 @@ object EventualCassandra {
       }
 
 
-      def read[S](id: Id, from: SeqNr, s: S)(f: FoldWhile[S, EventualRecord]) = {
+      def foldWhile[S](id: Id, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
 
         def foldWhile(statement: JournalStatement.SelectRecords.Type, metadata: Metadata) = {
 
           def foldWhile(from: SeqNr, segment: Segment, s: S): Future[(S, Continue)] = {
             val range = SeqRange(from, SeqNr.Max) // TODO do we need range here ?
             for {
-              result <- statement(id, segment.nr, range, (s, from)) { case ((s, _), record) =>
-                val (ss, continue) = f(s, record)
-                ((ss, record.seqNr), continue)
+              result <- statement(id, segment.nr, range, (s, from)) { case ((s, _), replicated) =>
+                val (ss, continue) = f(s, replicated)
+                ((ss, replicated.event.seqNr), continue)
               }
               result <- {
                 val ((s, seqNr), continue) = result
@@ -90,14 +76,14 @@ object EventualCassandra {
             } yield result
           }
 
-          val fromFixed = from max metadata.deletedTo.next
+          val fromFixed = from max metadata.deleteTo.next
           val segment = Segment(fromFixed, metadata.segmentSize)
           foldWhile(fromFixed, segment, s)
         }
 
         for {
           statements <- statements
-          metadata <- metadata(id, statements)
+          metadata <- statements.selectMetadata(id)
           result <- metadata.fold((s, true).future) { metadata =>
             foldWhile(statements.selectRecords, metadata)
           }
@@ -117,7 +103,7 @@ object EventualCassandra {
 
         for {
           statements <- statements
-          metadata <- metadata(id, statements)
+          metadata <- statements.selectMetadata(id)
           seqNr <- lastSeqNr(statements, metadata)
         } yield {
           seqNr

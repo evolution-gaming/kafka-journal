@@ -3,12 +3,12 @@ package com.evolutiongaming.kafka.journal
 import com.evolutiongaming.kafka.journal.Alias.Id
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.skafka.producer.Producer
-import com.evolutiongaming.skafka.{Partition, Topic}
+import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 trait WriteAction {
-  def apply(action: Action): Future[Partition]
+  def apply(action: Action): Future[(Partition, Option[Offset])]
 }
 
 object WriteAction {
@@ -26,7 +26,8 @@ object WriteAction {
         for {
           metadata <- producer(producerRecord)
         } yield {
-          metadata.topicPartition.partition
+          val partition = metadata.topicPartition.partition
+          (partition, metadata.offset)
         }
       }
     }

@@ -6,11 +6,11 @@ import java.time.Instant
 import com.datastax.driver.core.{Metadata => _, _}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.Alias.{Id, SeqNr, Tags}
-import com.evolutiongaming.kafka.journal.FoldWhileHelper.{Continue, FoldWhile}
+import com.evolutiongaming.kafka.journal.FoldWhileHelper.{Continue, Fold}
 import com.evolutiongaming.kafka.journal.FutureHelper._
-import com.evolutiongaming.kafka.journal.SeqRange
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.eventual.{EventualRecord, PartitionOffset, Pointer}
+import com.evolutiongaming.kafka.journal.eventual.{PartitionOffset, Pointer}
+import com.evolutiongaming.kafka.journal.{Event, ReplicatedEvent, SeqRange}
 import com.evolutiongaming.skafka.{Bytes, Offset, Partition}
 
 import scala.concurrent.Future
@@ -45,7 +45,7 @@ object JournalStatement {
 
 
   object InsertRecord {
-    type Type = (EventualRecord, SegmentNr) => BoundStatement
+    type Type = (Id, ReplicatedEvent, SegmentNr) => BoundStatement
 
     // TODO fast future
     // TODO create Prepare -> Run function
@@ -60,19 +60,19 @@ object JournalStatement {
       for {
         prepared <- prepare(query)
       } yield {
-        (record: EventualRecord, segment: SegmentNr) => {
+        (id: Id, replicated: ReplicatedEvent, segment: SegmentNr) =>
           // TODO make up better way for creating queries
+          val event = replicated.event
           prepared
             .bind()
-            .encode("id", record.id)
+            .encode("id", id)
             .encode("segment", segment.value)
-            .encode("seq_nr", record.seqNr)
-            .encode("timestamp", record.timestamp)
-            .encode("payload", record.payload)
-            .encode("tags", record.tags)
-            .encode("partition", record.partitionOffset.partition)
-            .encode("offset", record.partitionOffset.offset)
-        }
+            .encode("seq_nr", event.seqNr)
+            .encode("timestamp", replicated.timestamp)
+            .encode("payload", event.payload)
+            .encode("tags", event.tags)
+            .encode("partition", replicated.partitionOffset.partition)
+            .encode("offset", replicated.partitionOffset.offset)
       }
     }
   }
@@ -123,7 +123,7 @@ object JournalStatement {
   object SelectRecords {
 
     trait Type {
-      def apply[S](id: Id, segment: SegmentNr, range: SeqRange, state: S)(f: FoldWhile[S, EventualRecord]): Future[(S, Continue)]
+      def apply[S](id: Id, segment: SegmentNr, range: SeqRange, state: S)(f: Fold[S, ReplicatedEvent]): Future[(S, Continue)]
     }
 
     // TODO fast future
@@ -143,7 +143,7 @@ object JournalStatement {
         prepared <- session.prepare(query)
       } yield {
         new Type {
-          def apply[S](id: Id, segment: SegmentNr, range: SeqRange, s: S)(f: FoldWhile[S, EventualRecord]) = {
+          def apply[S](id: Id, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]) = {
 
             val fetchSize = 10 // TODO
             val fetchThreshold = fetchSize / 2
@@ -158,14 +158,15 @@ object JournalStatement {
                 val partitionOffset = PartitionOffset(
                   partition = row.decode[Partition]("partition"),
                   offset = row.decode[Offset]("offset"))
-                val record = EventualRecord(
-                  id = id,
+                val event = Event(
                   seqNr = row.decode[SeqNr]("seq_nr"),
-                  timestamp = row.decode[Instant]("timestamp"),
-                  payload = row.decode[Bytes]("payload"),
                   tags = row.decode[Tags]("tags"),
+                  payload = row.decode[Bytes]("payload"))
+                val replicated = ReplicatedEvent(
+                  event = event,
+                  timestamp = row.decode[Instant]("timestamp"),
                   partitionOffset = partitionOffset)
-                f(s, record)
+                f(s, replicated)
               }
             } yield result
           }

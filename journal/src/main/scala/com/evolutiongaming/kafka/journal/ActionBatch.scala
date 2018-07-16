@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal
 import com.evolutiongaming.kafka.journal.Action.Header._
 import com.evolutiongaming.kafka.journal.Alias._
 
+// TODO rename to JournalInfo
 sealed trait ActionBatch {
   def apply(a: Action.Header): ActionBatch
 }

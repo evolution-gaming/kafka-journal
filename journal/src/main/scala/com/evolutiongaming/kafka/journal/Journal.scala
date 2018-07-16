@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 import java.util.UUID
 
-import akka.actor.ActorSystem
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.FutureHelper._
@@ -15,7 +14,6 @@ import com.evolutiongaming.skafka.consumer.Consumer
 import com.evolutiongaming.skafka.producer.Producer
 import com.evolutiongaming.skafka.{Bytes => _, _}
 
-import scala.collection.immutable.Seq
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -23,8 +21,7 @@ import scala.concurrent.{ExecutionContext, Future}
 // TODO should we return offset ?
 trait Journal {
   def append(events: Nel[Event], timestamp: Instant): Future[Unit]
-  // TODO decide on return type
-  def read(range: SeqRange): Future[Seq[Event]]
+  def foldWhile[S](from: SeqNr, s: S)(f: Fold[S, Event]): Future[(S, Continue)]
   def lastSeqNr(from: SeqNr): Future[SeqNr]
   def delete(to: SeqNr, timestamp: Instant): Future[Unit]
 }
@@ -33,7 +30,7 @@ object Journal {
 
   val Empty: Journal = new Journal {
     def append(events: Nel[Event], timestamp: Instant) = Future.unit
-    def read(range: SeqRange): Future[List[Event]] = Future.nil
+    def foldWhile[S](from: SeqNr, s: S)(f: Fold[S, Event]) = (s, true).future
     def lastSeqNr(from: SeqNr) = Future.seqNr
     def delete(to: SeqNr, timestamp: Instant) = Future.unit
 
@@ -56,13 +53,9 @@ object Journal {
       }
     }
 
-    def read(range: SeqRange) = {
-      val toStr = (entries: Seq[Event]) => {
-        entries.map(_.seqNr).mkString(",") // TODO use range and implement misses verification
-      }
-
-      log[Seq[Event]](s"read $range", toStr) {
-        journal.read(range)
+    def foldWhile[S](from: SeqNr, s: S)(f: Fold[S, Event]): Future[(S, Continue)] = {
+      log[(S, Continue)](s"foldWhile from: $from, state: $s") {
+        journal.foldWhile(from, s)(f)
       }
     }
 
@@ -94,7 +87,6 @@ object Journal {
     newConsumer: () => Consumer[String, Bytes],
     eventual: EventualJournal,
     pollTimeout: FiniteDuration)(implicit
-    system: ActorSystem,
     ec: ExecutionContext): Journal = {
 
     val closeTimeout = 3.seconds // TODO from  config
@@ -115,59 +107,102 @@ object Journal {
     writeAction: WriteAction)(implicit
     ec: ExecutionContext): Journal = {
 
-    def mark(): Future[(String, Partition)] = {
+    def mark(): Future[(String, Partition, Option[Offset])] = {
       val marker = UUID.randomUUID().toString // TODO randomUUID ? overkill ?
       val action = Action.Mark(marker)
 
       for {
-        partition <- writeAction(action)
+        (partition, offset) <- writeAction(action)
       } yield {
-        (marker, partition)
+        (marker, partition, offset)
       }
     }
 
-    trait Fold {
-      // TODO f should return continue: Boolean
-      def apply[S](s: S)(f: (S, Action.User) => S): Future[S]
+    trait FoldActions {
+      def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]): Future[(S, Continue)]
     }
 
-    // TODO add range argument
-    val consumeActions = (from: SeqNr) => {
-      val marker = mark()
-      val topicPointers = eventual.topicPointers(topic)
+    object FoldActions {
 
-      for {
-        (marker, partition) <- marker
-        topicPointers <- topicPointers
-      } yield {
-        val partitionOffset = for {
-          offset <- topicPointers.pointers.get(partition)
+      val Empty: FoldActions = new FoldActions {
+        def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]) = (s, true).future
+      }
+
+
+      // TODO add range argument
+      def apply(from: SeqNr): Future[FoldActions] = {
+        val marker = mark()
+        val topicPointers = eventual.topicPointers(topic)
+
+        for {
+          (marker, partition, offsetLast) <- marker
+          topicPointers <- topicPointers
         } yield {
-          PartitionOffset(partition, offset)
-        }
-        // TODO compare partitions !
+          val offsetEventual = topicPointers.pointers.get(partition)
 
-        new Fold {
+          // TODO compare partitions !
+          val replicated = for {
+            offsetLast <- offsetLast
+            offsetReplicated <- offsetEventual
+          } yield {
+            offsetLast.prev <= offsetReplicated
+          }
 
-          def apply[S](s: S)(f: (S, Action.User) => S): Future[S] = {
+          if (replicated getOrElse false) {
+            println(">>>>>>>>>>>>>>> MIRACLE 1 <<<<<<<<<<<<<<<")
+            Empty
+          } else {
+            new FoldActions {
 
-            withReadActions(topic, partitionOffset) { readActions =>
+              def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]) = {
 
-              val ff = (s: S) => {
-                for {
-                  actions <- readActions(id)
+                val replicated = for {
+                  offsetLast <- offsetLast
+                  offset <- offset
                 } yield {
-                  actions.foldWhile(s) {
-                    case (s, action: Action.User) =>
-                      val ss = f(s, action)
-                      (ss, true)
-                    case (s, action: Action.Mark) =>
-                      val continue = action.header.id != marker
-                      (s, continue)
+                  offsetLast.prev <= offset
+                }
+
+                if (replicated getOrElse false) {
+                  println(">>>>>>>>>>>>>>> MIRACLE 2 <<<<<<<<<<<<<<<")
+                  (s, true).future
+                } else {
+                  val partitionOffset = {
+                    val offsetMax = PartialFunction.condOpt((offset, offsetEventual)) {
+                      case (Some(o1), Some(o2)) => o1 max o2
+                      case (Some(o), None)      => o
+                      case (None, Some(o))      => o
+                    }
+
+                    for {offset <- offsetMax} yield PartitionOffset(partition, offset)
+                  }
+
+                  withReadActions(topic, partitionOffset) { readActions =>
+
+                    val ff = (s: (S, Continue)) => {
+                      for {
+                        actions <- readActions(id)
+                      } yield {
+
+                        def apply(sb: (S, Continue), action: Action.User) = {
+                          val (s, _) = sb
+                          val result = f(s, action)
+                          val (_, continue) = result
+                          (result, continue)
+                        }
+
+                        // TODO verify we did not miss Mark and not cycled infinitely
+                        actions.foldWhile(s) {
+                          case (sb, action: Action.Append) => if (action.range.to < from) (sb, true) else apply(sb, action)
+                          case (sb, action: Action.Delete) => apply(sb, action)
+                          case (sb, action: Action.Mark)   => (sb, action.header.id != marker)
+                        }
+                      }
+                    }
+                    ff.foldWhile((s, true))
                   }
                 }
               }
-              ff.foldWhile(s)
             }
           }
         }
@@ -177,7 +212,6 @@ object Journal {
     new Journal {
 
       def append(events: Nel[Event], timestamp: Instant): Future[Unit] = {
-
         val payload = EventsSerializer.toBytes(events)
         val range = SeqRange(from = events.head.seqNr, to = events.last.seqNr)
         val action = Action.Append(range, timestamp, payload)
@@ -185,115 +219,78 @@ object Journal {
         result.unit
       }
 
-      def read(range: SeqRange): Future[Seq[Event]] = {
+      // TODO add optimisation for ranges
+      def foldWhile[S](from: SeqNr, s: S)(f: Fold[S, Event]) = {
 
-        def eventualRecords() = {
+        def replicatedSeqNr(from: SeqNr) = {
+          val ss = (s, from, Option.empty[Offset])
+          eventual.foldWhile(id, from, ss) { case ((s, _, _), replicated) =>
+            val event = replicated.event
+            val (ss, continue) = f(s, event)
+            val from = event.seqNr.next
+            ((ss, from, Some(replicated.partitionOffset.offset)), continue)
+          }
+        }
 
-          val result = eventual.read(id, range.from, List.empty[Event]) { (events, record) =>
-            val continue = record.seqNr <= range.to
-            val event = Event(
-              payload = record.payload,
-              seqNr = record.seqNr,
-              tags = record.tags)
-            val result = if (continue) event :: events else events
-            (result, continue)
+        def replicated(from: SeqNr) = {
+          eventual.foldWhile(id, from, s) { (s, replicated) => f(s, replicated.event) }
+        }
+
+        def onNonEmpty(deleteTo: Option[SeqNr], foldActions: FoldActions) = {
+
+          def events(from: SeqNr, offset: Option[Offset], s: S) = {
+            foldActions(offset, s) { case (s, action) =>
+              action match {
+                case action: Action.Append =>
+                  if (action.range.to < from) {
+                    (s, true)
+                  } else {
+                    val events = EventsSerializer.fromBytes(action.events)
+                    events.foldWhile(s) { case (s, event) =>
+                      if (event.seqNr >= from) f(s, event) else (s, true)
+                    }
+                  }
+
+                case action: Action.Delete => (s, true)
+              }
+            }
           }
 
+
+          val fromFixed = deleteTo.fold(from) { deleteTo => from max deleteTo.next }
+
           for {
-            (events, _) <- result
-          } yield events.reverse
+            ((s, from, offset), continue) <- replicatedSeqNr(fromFixed)
+            s <- if (continue) events(from, offset, s) else (s, continue).future
+          } yield {
+            s
+          }
         }
 
         for {
-          consume <- consumeActions(range.from)
-          entries = eventualRecords()
+          foldActions <- FoldActions(from)
           // TODO use range after eventualRecords
-
           // TODO prevent from reading calling consume twice!
-          batch <- consume(ActionBatch.empty) { case (batch, action) =>
-            batch(action.header)
-          }
-
+          (batch, _) <- foldActions(None, ActionBatch.empty) { (batch, action) => (batch(action.header), true) }
           result <- batch match {
-            case ActionBatch.Empty => entries
-
-            case ActionBatch.NonEmpty(lastSeqNr, deleteTo) =>
-
-              def tmp(range: SeqRange) = {
-                // TODO we don't need to consume if everything is deleted
-
-                // TODO we don't need to consume if everything is in cassandra :)
-
-                val result = consume(List.empty[Event]) { case (events, action) =>
-                  action match {
-                    case action: Action.Append =>
-                      // TODO stop consuming
-
-                      if (action.range intersects range) {
-                        //                    val events = EventsSerializer.fromBytes(action.events)
-                        // TODO add implicit method events.toList.foldWhile()
-
-                        // TODO fix performance
-                        val events2 =
-                          EventsSerializer.fromBytes(action.events)
-                            .toList
-                            .filter { _.seqNr in range }
-
-                        events ::: events2
-
-                      } else {
-                        // TODO stop consumption
-                        events
-                      }
-
-                    case action: Action.Delete => events
-                  }
-                }
-
-                for {
-                  result <- result
-                  entries <- entries
-                } yield {
-                  val entries2 = entries.filter(_.seqNr in range)
-
-                  entries2.lastOption.fold(result) { last =>
-                    entries2.toList ::: result.dropWhile(_.seqNr <= last.seqNr)
-                  }
-                }
-              }
-
-              deleteTo match {
-                case None           => tmp(range)
-                case Some(deleteTo) =>
-                  if (range.to <= deleteTo) Future.nil
-                  else {
-                    val range2 =
-                      if (range.from > deleteTo) range
-                      else SeqRange(deleteTo.next, range.to) // TODO create separate method
-                    tmp(range2)
-                  }
-              }
-
-
-            case ActionBatch.DeleteTo(deleteTo) =>
-              for {
-                entries <- entries
-              } yield {
-                entries.dropWhile(_.seqNr <= deleteTo).toList
-              }
+            case ActionBatch.Empty                         => replicated(from)
+            case ActionBatch.NonEmpty(lastSeqNr, deleteTo) => onNonEmpty(deleteTo, foldActions)
+            case ActionBatch.DeleteTo(deleteTo)            => replicated(from max deleteTo.next)
           }
-        } yield {
-          result
-        }
+        } yield result
       }
+
 
       def lastSeqNr(from: SeqNr) = {
         for {
-          consume <- consumeActions(from)
+          foldActions <- FoldActions(from)
           seqNrEventual = eventual.lastSeqNr(id, from)
-          seqNr <- consume[Offset](from) {
-            case (seqNr, a: Action.Append) => a.header.range.to
-            case (seqNr, _: Action.Delete) => seqNr
+          (seqNr, _) <- foldActions[SeqNr](None, from) { (seqNr, action) =>
+            val result = action match {
+              case action: Action.Append => action.header.range.to
+              case action: Action.Delete => seqNr
+            }
+            (result, true)
           }
           seqNrEventual <- seqNrEventual
         } yield {
@@ -301,7 +298,8 @@ object Journal {
         }
       }
 
-      def delete(to: SeqNr, timestamp: Instant): Future[Unit] = {
+
+      def delete(to: SeqNr, timestamp: Instant) = {
         if (to <= 0) Future.unit
         else {
           val action = Action.Delete(to, timestamp)

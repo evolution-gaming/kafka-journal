@@ -20,7 +20,7 @@ object MetadataStatement {
        |id text,
        |topic text,
        |segment_size int,
-       |deleted_to bigint,
+       |delete_to bigint,
        |properties map<text,text>,
        |PRIMARY KEY (id))
        |""".stripMargin
@@ -35,7 +35,7 @@ object MetadataStatement {
 
       val query =
         s"""
-           |INSERT INTO ${ name.asCql } (id, topic, segment_size, deleted_to, properties)
+           |INSERT INTO ${ name.asCql } (id, topic, segment_size, delete_to, properties)
            |VALUES (?, ?, ?, ?, ?)
            |""".stripMargin
 
@@ -48,7 +48,7 @@ object MetadataStatement {
             .encode("id", metadata.id)
             .encode("topic", metadata.topic)
             .encode("segment_size", metadata.segmentSize)
-            .encode("deleted_to", metadata.deletedTo)
+            .encode("delete_to", metadata.deleteTo)
           val result = session.execute(bound)
           result.unit
       }
@@ -64,7 +64,7 @@ object MetadataStatement {
 
       val query =
         s"""
-           |SELECT topic, segment_size, deleted_to FROM ${ name.asCql }
+           |SELECT topic, segment_size, delete_to FROM ${ name.asCql }
            |WHERE id = ?
            |""".stripMargin
 
@@ -82,7 +82,7 @@ object MetadataStatement {
               id = id,
               topic = row.decode[Topic]("topic"),
               segmentSize = row.decode[Int]("segment_size"),
-              deletedTo = row.decode[SeqNr]("deleted_to"))
+              deleteTo = row.decode[SeqNr]("delete_to"))
           }
       }
     }
@@ -128,7 +128,7 @@ object MetadataStatement {
       // TODO use update query
       val query =
         s"""
-           |INSERT INTO ${ name.asCql } (id, topic, deleted_to)
+           |INSERT INTO ${ name.asCql } (id, topic, delete_to)
            |VALUES (?, ?, ?)
            |""".stripMargin
 
@@ -140,7 +140,7 @@ object MetadataStatement {
             .bind()
             .encode("id", metadata.id)
             .encode("topic", metadata.topic)
-            .encode("deleted_to", metadata.deletedTo)
+            .encode("delete_to", metadata.deleteTo)
           val result = session.execute(bound)
           result.unit
       }

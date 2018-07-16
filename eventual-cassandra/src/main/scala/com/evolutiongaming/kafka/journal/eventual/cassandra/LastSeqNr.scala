@@ -28,7 +28,7 @@ object LastSeqNr {
       }
     }
 
-    val seqNr = from max metadata.deletedTo
+    val seqNr = from max metadata.deleteTo
     val fromFixed = seqNr.next
     val segment = Segment(fromFixed, metadata.segmentSize)
     apply(seqNr, fromFixed, segment)

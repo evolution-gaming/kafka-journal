@@ -8,10 +8,10 @@ import akka.persistence.{AtomicWrite, PersistentRepr}
 import com.evolutiongaming.cassandra.{CassandraConfig, CreateCluster}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.Alias._
+import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig, SchemaConfig}
-import com.evolutiongaming.kafka.journal.{Event, Journals, SeqRange}
-import com.evolutiongaming.kafka.journal.FutureHelper._
+import com.evolutiongaming.kafka.journal.{Event, Journals}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.serialization.{SerializedMsg, SerializedMsgExt}
@@ -128,31 +128,25 @@ class PersistenceJournal extends AsyncWriteJournal {
   def asyncReplayMessages(persistenceId: PersistenceId, from: SeqNr, to: SeqNr, max: Long)
     (callback: PersistentRepr => Unit): Future[Unit] = {
 
-    val range = SeqRange(from, to)
-
-    journals.read(persistenceId, range).map { entries =>
-      val maxInt = (max min Int.MaxValue).toInt
-      val filtered = entries.take(maxInt) // TODO avoid reading more than needed
-
-      def seqNrs = filtered.map(_.seqNr).mkString(",")
-
-      log.debug(s"asyncReplayMessages persistenceId: $persistenceId, from: $from, to: $to, max: $max, result: $seqNrs")
-
-      val persistentReprs = for {
-        entry <- filtered
-      } yield {
-        val persistentEvent = PersistentEventSerializer.fromBinary(entry.payload)
+    journals.foldWhile(persistenceId, from, 0l) { (count, event) =>
+      if (event.seqNr <= to && count < max) {
+        val persistentEvent = PersistentEventSerializer.fromBinary(event.payload)
         val serializedMsg = SerializedMsg(persistentEvent.identifier, persistentEvent.manifest, persistentEvent.payload)
         val payload = serializedMsgExt.fromMsg(serializedMsg).get
-        PersistentRepr(
+        val seqNr = persistentEvent.seqNr
+        val persistentRepr = PersistentRepr(
           payload = payload,
-          sequenceNr = persistentEvent.seqNr,
+          sequenceNr = seqNr,
           persistenceId = persistenceId,
           manifest = persistentEvent.persistentManifest,
           writerUuid = persistentEvent.writerUuid)
+        callback(persistentRepr)
+        val result = count + 1
+        (result, result != max)
+      } else {
+        (count, false)
       }
-      for {persistentRepr <- persistentReprs} callback(persistentRepr)
-    }
+    }.unit
   }
 
   def asyncReadHighestSequenceNr(persistenceId: PersistenceId, from: SeqNr): Future[SeqNr] = {

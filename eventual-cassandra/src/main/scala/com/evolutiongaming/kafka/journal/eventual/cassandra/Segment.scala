@@ -33,6 +33,8 @@ case class SegmentNr(value: Long) extends Ordered[SegmentNr] {
       range.map { value => SegmentNr(value) }
     }
   }
+
+  override def toString = value.toString
 }
 
 object SegmentNr {

@@ -4,14 +4,16 @@ import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.LogHelper._
+import com.evolutiongaming.kafka.journal.ReplicatedEvent
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Topic
 
 import scala.concurrent.Future
 
 trait EventualJournal {
+  // TODO should return NONE when it is empty, otherwise we will seek to wrong offset
   def topicPointers(topic: Topic): Future[TopicPointers]
-  def read[S](id: Id, from: SeqNr, s: S)(f: FoldWhile[S, EventualRecord]): Future[(S, Continue)]
+  def foldWhile[S](id: Id, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]): Future[(S, Continue)]
   def lastSeqNr(id: Id, from: SeqNr): Future[SeqNr]
 }
 
@@ -21,7 +23,7 @@ object EventualJournal {
     val futureTopicPointers = TopicPointers.Empty.future
     new EventualJournal {
       def topicPointers(topic: Topic) = futureTopicPointers
-      def read[S](id: Id, from: SeqNr, state: S)(f: FoldWhile[S, EventualRecord]) = (state, true).future
+      def foldWhile[S](id: Id, from: SeqNr, state: S)(f: Fold[S, ReplicatedEvent]) = (state, true).future
       def lastSeqNr(id: Id, from: SeqNr) = Future.seqNr
     }
   }
@@ -35,16 +37,9 @@ object EventualJournal {
       }
     }
 
-    def read[S](id: Id, from: SeqNr, s: S)(f: FoldWhile[S, EventualRecord]) = {
-
-      val ff = (state: S, record: EventualRecord) => {
-        val (result, continue) = f(state, record)
-        log.debug(s"$id foldWhile record: $record, state: $state, result: $result, continue: $continue")
-        (result, continue)
-      }
-
+    def foldWhile[S](id: Id, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
       log[(S, Continue)](s"$id foldWhile from: $from, state: $s") {
-        eventualJournal.read(id, from, s)(ff)
+        eventualJournal.foldWhile(id, from, s)(f)
       }
     }
 

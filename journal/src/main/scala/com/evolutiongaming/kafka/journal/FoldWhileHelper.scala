@@ -4,6 +4,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.FutureHelper._
+import com.evolutiongaming.nel.Nel
 
 import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
@@ -13,13 +14,13 @@ object FoldWhileHelper {
 
   type Continue = Boolean
 
-  type FoldWhile[S, E] = (S, E) => (S, Continue)
+  type Fold[S, E] = (S, E) => (S, Continue)
 
 
   implicit class IterableFoldWhile[E](val self: Iterable[E]) extends AnyVal {
     import IterableFoldWhile._
 
-    def foldWhile[S](s: S)(f: (S, E) => (S, Continue)): (S, Continue) = {
+    def foldWhile[S](s: S)(f: Fold[S, E]): (S, Continue) = {
       try {
         val ss = self.foldLeft(s) { (s, e) =>
           val (ss, continue) = f(s, e)
@@ -34,6 +35,13 @@ object FoldWhileHelper {
 
   object IterableFoldWhile {
     private case class Return[S](s: S) extends ControlThrowable
+  }
+
+
+  implicit class NelFoldWhile[E](val self: Nel[E]) extends AnyVal {
+    def foldWhile[S](s: S)(f: Fold[S, E]): (S, Continue) = {
+      self.toList.foldWhile(s)(f)
+    }
   }
 
 
