@@ -2,17 +2,25 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 
-import com.evolutiongaming.kafka.journal.Alias.Bytes
 import com.evolutiongaming.kafka.journal.HeaderFormats._
 import com.evolutiongaming.kafka.journal.eventual.PartitionOffset
 import com.evolutiongaming.skafka
-import com.evolutiongaming.skafka.Header
 import com.evolutiongaming.skafka.consumer.ConsumerRecord
 import com.evolutiongaming.skafka.producer.ProducerRecord
+import com.evolutiongaming.skafka.{FromBytes, Header, ToBytes, Topic}
 import play.api.libs.json.Json
 
 object KafkaConverters {
   private val `journal.action` = "journal.action"
+
+
+  implicit val bytesToBytes: ToBytes[Bytes] = new ToBytes[Bytes] {
+    def apply(value: Bytes, topic: Topic) = value.value
+  }
+
+  implicit val bytesFromBytes: FromBytes[Bytes] = new FromBytes[Bytes] {
+    def apply(bytes: Array[Byte], topic: Topic): Bytes = Bytes(bytes)
+  }
 
 
   implicit class ActionHeaderOps(val self: Action.Header) extends AnyVal {

@@ -10,8 +10,8 @@ import com.evolutiongaming.kafka.journal.FoldWhileHelper.{Continue, Fold}
 import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.eventual.{PartitionOffset, Pointer}
-import com.evolutiongaming.kafka.journal.{Event, ReplicatedEvent, SeqRange}
-import com.evolutiongaming.skafka.{Bytes, Offset, Partition}
+import com.evolutiongaming.kafka.journal.{Bytes, Event, ReplicatedEvent, SeqRange}
+import com.evolutiongaming.skafka.{Offset, Partition}
 
 import scala.concurrent.Future
 

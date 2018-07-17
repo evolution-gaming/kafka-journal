@@ -11,11 +11,11 @@ import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig, SchemaConfig}
-import com.evolutiongaming.kafka.journal.{Event, Journals}
+import com.evolutiongaming.kafka.journal.{Bytes, Event, Journals}
+import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.serialization.{SerializedMsg, SerializedMsgExt}
-import com.evolutiongaming.skafka.Bytes
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, CreateConsumer}
 import com.evolutiongaming.skafka.producer.{CreateProducer, ProducerConfig}
 
@@ -110,7 +110,7 @@ class PersistenceJournal extends AsyncWriteJournal {
           val serialized = serializedMsgExt.toMsg(payload)
           val persistentEvent = PersistentEvent(serialized, persistentRepr)
           val bytes = PersistentEventSerializer.toBinary(persistentEvent)
-          Event(persistentRepr.sequenceNr, tags, bytes)
+          Event(persistentRepr.sequenceNr, tags, Bytes(bytes))
         }
         val nel = Nel(events.head, events.tail.toList) // TODO is it optimal convert to list ?
         val result = journals.append(persistenceId, nel, timestamp)
@@ -130,7 +130,7 @@ class PersistenceJournal extends AsyncWriteJournal {
 
     journals.foldWhile(persistenceId, from, 0l) { (count, event) =>
       if (event.seqNr <= to && count < max) {
-        val persistentEvent = PersistentEventSerializer.fromBinary(event.payload)
+        val persistentEvent = PersistentEventSerializer.fromBinary(event.payload.value)
         val serializedMsg = SerializedMsg(persistentEvent.identifier, persistentEvent.manifest, persistentEvent.payload)
         val payload = serializedMsgExt.fromMsg(serializedMsg).get
         val seqNr = persistentEvent.seqNr

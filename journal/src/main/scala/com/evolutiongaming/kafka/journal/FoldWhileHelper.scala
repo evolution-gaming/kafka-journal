@@ -69,8 +69,7 @@ object FoldWhileHelper {
           for {
             (s, continue, es) <- f(s)
           } yield {
-            if (continue || es.nonEmpty) Some(((s, continue), es))
-            else None
+            if (continue || es.nonEmpty) Some(((s, continue), es)) else None
           }
       }
       source.mapConcat(_.to[immutable.Iterable])

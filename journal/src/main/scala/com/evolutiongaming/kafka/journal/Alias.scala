@@ -12,12 +12,6 @@ object Alias {
     val Min: SeqNr = 0L
   }
 
-  type Bytes = Array[Byte] // TODO case class ?
-  object Bytes {
-    val Empty: Bytes = Array.empty
-  }
-
-
   type Tag = String
 
 

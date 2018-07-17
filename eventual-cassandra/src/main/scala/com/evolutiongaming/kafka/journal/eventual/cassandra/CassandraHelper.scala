@@ -6,6 +6,7 @@ import java.util.Date
 
 import com.datastax.driver.core.{BoundStatement, ResultSet, Row, Statement}
 import com.evolutiongaming.cassandra.CassandraHelper._
+import com.evolutiongaming.kafka.journal.Bytes
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.FutureHelper._
 
@@ -71,14 +72,14 @@ object CassandraHelper {
     }
   }
 
-  implicit val BytesCodec: Codec[Array[Byte]] = new Codec[Array[Byte]] {
-    def apply(statement: BoundStatement, name: String, value: Array[Byte]) = {
-      val bytes = ByteBuffer.wrap(value)
+  implicit val BytesCodec: Codec[Bytes] = new Codec[Bytes] {
+    def apply(statement: BoundStatement, name: String, value: Bytes) = {
+      val bytes = ByteBuffer.wrap(value.value)
       statement.setBytes(name, bytes)
     }
     def apply(row: Row, name: String) = {
       val bytes = row.getBytes(name)
-      bytes.array()
+      Bytes(bytes.array())
     }
   }
 

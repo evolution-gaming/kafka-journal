@@ -25,6 +25,11 @@ sealed trait Async[+T] {
 }
 
 object Async {
+  private val futureUnit = ().async
+  private val futureNone = Option.empty.async
+  private val futureSeq = Seq.empty.async
+  private val futureNil = Nil.async
+
 
   def apply[T](value: T): Async[T] = Succeed(value)
 
@@ -44,6 +49,14 @@ object Async {
   def async[T](f: => T)(implicit ec: ExecutionContext): Async[T] = InCompleted(Future(f)(ec))
 
   def never[T]: Async[T] = Async(Future.never)(CurrentThreadExecutionContext)
+
+  def unit: Async[Unit] = futureUnit
+
+  def none[T]: Async[Option[T]] = futureNone
+
+  def seq[T]: Async[Seq[T]] = futureSeq
+
+  def nil[T]: Async[List[T]] = futureNil
 
 
   sealed trait Completed[+T] extends Async[T] {
@@ -145,3 +158,10 @@ object Async {
 
   private def safe[T](f: => Async[T]): Async[T] = try f catch { case NonFatal(failure) => Failed(failure) }
 }
+
+
+//object AsyncHelper {
+//  implicit class AnyAsyncOps[T](val self: T) extends AnyVal {
+//    def async: Async[T] = Async(self)
+//  }
+//}

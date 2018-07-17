@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.Alias.Bytes
 import com.evolutiongaming.kafka.journal.eventual.PartitionOffset
 import com.evolutiongaming.skafka.consumer.Consumer
 import com.evolutiongaming.skafka.{Topic, TopicPartition}

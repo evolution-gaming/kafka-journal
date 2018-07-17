@@ -14,9 +14,9 @@ object EventsSerializer {
       event <- events
     } yield {
       val payload = event.payload
-      val buffer = ByteBuffer.allocate(LongJ.SIZE + IntJ.SIZE + payload.length)
+      val buffer = ByteBuffer.allocate(LongJ.SIZE + IntJ.SIZE + payload.value.length)
       buffer.putLong(event.seqNr)
-      buffer.writeBytes(payload)
+      buffer.writeBytes(payload.value)
       buffer.array()
     }
 
@@ -26,15 +26,15 @@ object EventsSerializer {
 
     val buffer = ByteBuffer.allocate(length)
     buffer.writeNel(eventBytes)
-    buffer.array()
+    Bytes(buffer.array())
   }
 
   def fromBytes(bytes: Bytes): Nel[Event] = {
-    val buffer = ByteBuffer.wrap(bytes)
+    val buffer = ByteBuffer.wrap(bytes.value)
     buffer.readNel {
       val seqNr = buffer.getLong()
       val payload = buffer.readBytes
-      Event(seqNr, Set.empty /*TODO*/ , payload)
+      Event(seqNr, Set.empty /*TODO*/ , Bytes(payload))
     }
   }
 

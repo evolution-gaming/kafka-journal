@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.Alias.{Bytes, Id}
+import com.evolutiongaming.kafka.journal.Alias.Id
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecord}
 

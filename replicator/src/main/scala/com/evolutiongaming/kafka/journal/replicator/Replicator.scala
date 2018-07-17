@@ -13,8 +13,8 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandraConfig, ReplicatedCassandra, SchemaConfig}
 import com.evolutiongaming.safeakka.actor.ActorLog
-import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer._
+import com.evolutiongaming.skafka.{Bytes => _, _}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}

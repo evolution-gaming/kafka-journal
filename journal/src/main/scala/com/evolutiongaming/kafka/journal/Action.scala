@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 
-import com.evolutiongaming.kafka.journal.Alias.{Bytes, Id, SeqNr}
+import com.evolutiongaming.kafka.journal.Alias.{Id, SeqNr}
 import com.evolutiongaming.kafka.journal.eventual.PartitionOffset
 import com.evolutiongaming.skafka.Topic
 

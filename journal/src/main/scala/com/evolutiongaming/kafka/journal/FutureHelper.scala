@@ -4,7 +4,7 @@ import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.Alias.SeqNr
 
 import scala.collection.immutable.Seq
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 // TODO move out
 object FutureHelper {
@@ -27,7 +27,7 @@ object FutureHelper {
     def unit: Future[Unit] = self.map { _ => {} }(CurrentThreadExecutionContext)
   }
 
-  implicit class AnyOps[T](val self: T) extends AnyVal {
+  implicit class AnyFutureOps[T](val self: T) extends AnyVal {
     def future: Future[T] = Future.successful(self)
   }
 }

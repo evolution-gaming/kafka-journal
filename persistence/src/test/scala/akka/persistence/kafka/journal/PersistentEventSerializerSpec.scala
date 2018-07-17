@@ -1,6 +1,6 @@
 package akka.persistence.kafka.journal
 
-import com.evolutiongaming.kafka.journal.Alias.Bytes
+import com.evolutiongaming.kafka.journal.Bytes
 import com.evolutiongaming.serialization.SerializerHelper._
 import org.scalatest.{FunSuite, Matchers}
 
@@ -20,7 +20,7 @@ class PersistentEventSerializerSpec extends FunSuite with Matchers {
 
     val bytes = PersistentEventSerializer.toBinary(expected)
     val actual = PersistentEventSerializer.fromBinary(bytes)
-    actual.copy(payload = Bytes.Empty) shouldEqual expected.copy(payload = Bytes.Empty)
+    actual.copy(payload = Bytes.Empty.value) shouldEqual expected.copy(payload = Bytes.Empty.value)
     new String(actual.payload, Utf8) shouldEqual new String(expected.payload, Utf8)
   }
 }

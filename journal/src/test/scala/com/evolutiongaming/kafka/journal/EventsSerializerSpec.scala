@@ -6,10 +6,12 @@ import com.evolutiongaming.serialization.SerializerHelper._
 import org.scalatest.{FunSuite, Matchers}
 
 class EventsSerializerSpec extends FunSuite with Matchers {
+  import EventsSerializerSpec._
+  
 
   test("toBytes & fromBytes") {
 
-    def event(seqNr: SeqNr) = Event(seqNr, Set.empty, seqNr.toString.getBytes(Utf8))
+    def event(seqNr: SeqNr) = Event(seqNr, Set.empty, Bytes(seqNr.toString.getBytes(Utf8)))
 
     val expected = Nel(event(0), event(1), event(2))
     val bytes = EventsSerializer.toBytes(expected)
@@ -17,7 +19,13 @@ class EventsSerializerSpec extends FunSuite with Matchers {
 
     (actual.toList zip expected.toList) foreach { case (actual, expected) =>
       actual.seqNr shouldEqual expected.seqNr
-      new String(actual.payload, Utf8) shouldEqual new String(expected.payload, Utf8)
+      actual.payload.str shouldEqual expected.payload.str
     }
+  }
+}
+
+object EventsSerializerSpec {
+  implicit class BytesOps(val self: Bytes) extends AnyVal {
+    def str: String = new String(self.value, Utf8)
   }
 }
