@@ -7,15 +7,18 @@ import com.datastax.driver.core.policies.LoggingRetryPolicy
 import com.datastax.driver.core.{Metadata => _, _}
 import com.evolutiongaming.cassandra.CassandraHelper._
 import com.evolutiongaming.cassandra.NextHostRetryPolicy
+import com.evolutiongaming.concurrent.async.Async
+import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.Alias._
-import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.ReplicatedEvent
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
+import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Topic
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.annotation.tailrec
+import scala.concurrent.ExecutionContext
 
 
 // TODO create collection that is optimised for ordered sequence and seqNr
@@ -53,12 +56,12 @@ object ReplicatedCassandra {
       // TODO verify all records have same id
       // TODO what if eventualRecords.empty but deletedTo is present ?
       // TODO prevent passing both No records and No deletion
-      def save(id: Id, updateTmp: UpdateTmp, topic: Topic): Future[Unit] = {
+      def save(id: Id, updateTmp: UpdateTmp, topic: Topic): Async[Unit] = {
 
         def save(statements: Statements, metadata: Option[Metadata], session: Session) = {
 
           def delete(deletedTo: SeqNr, metadata: Metadata) = {
-            if (metadata.deleteTo >= deletedTo) Future.unit
+            if (metadata.deleteTo >= deletedTo) Async.unit
             else {
 
               // TODO
@@ -70,12 +73,12 @@ object ReplicatedCassandra {
 
               val lowest = segmentOf(metadata.deleteTo)
               val highest = segmentOf(deletedTo)
-              val futures = for {
+              val asyncs = for {
                 segment <- lowest to highest // TODO maybe add ability to create Seq[Segment] out of SeqRange ?
               } yield {
                 delete(segment)
               }
-              Future.sequence(futures).unit
+              Async.foldUnit(asyncs).unit
             }
           }
 
@@ -83,36 +86,56 @@ object ReplicatedCassandra {
           def save(replicated: List[ReplicatedEvent], deleteTo: Option[SeqNr]) = {
 
             def saveRecords(segmentSize: Int) = {
-              if (replicated.isEmpty) Future.unit
-              else {
-                val futures = for {
-                  (segment, replicated) <- replicated.groupBy { replicated =>
-                    SegmentNr(replicated.event.seqNr, config.segmentSize)
-                  }
-                } yield {
-                  val insert = {
 
-                    val inserts = for {
-                      replicated <- replicated
-                    } yield {
-                      statements.insertRecord(id, replicated, segment)
+              @tailrec
+              def loop(replicated: List[ReplicatedEvent], s: Option[(SegmentNr, Nel[BoundStatement])], async: Async[Unit]): Async[Unit] = {
+
+                def execute(statements: Nel[BoundStatement]) = {
+
+                  def execute() = {
+                    val statement = {
+                      if (statements.tail.isEmpty) statements.head
+                      else statements.foldLeft(new BatchStatement()) { _ add _ }
                     }
 
-                    if (inserts.size == 1) inserts.head
-                    else {
-                      val batch = new BatchStatement()
-                      inserts.foldLeft(batch) { _ add _ }
-                    }
+                    val statementFinal = statement.set(statementConfig)
+                    session.executeAsync(statementFinal).asScala().async.unit
                   }
 
-                  val insertFinal = insert.set(statementConfig)
-                  session.executeAsync(insertFinal).asScala()
+                  for {
+                    _ <- async
+                    _ <- execute()
+                  } yield {}
                 }
-                Future.sequence(futures)
+
+                if (replicated.isEmpty) {
+                  s.fold(async) { case (_, statements) => execute(statements) }
+                } else {
+                  val head = replicated.head
+                  val segment = SegmentNr(head.event.seqNr, config.segmentSize)
+                  val statement = statements.insertRecord(id, head, segment)
+
+                  s match {
+                    case Some((segmentPrev, statements)) =>
+                      if (segmentPrev == segment) {
+                        val s = (segment, statement :: statements)
+                        loop(replicated.tail, Some(s), async)
+                      } else {
+                        val s = (segment, Nel(statement))
+                        loop(replicated.tail, Some(s), execute(statements))
+                      }
+
+                    case None =>
+                      val s = (segment, Nel(statement))
+                      loop(replicated.tail, Some(s), async)
+                  }
+                }
               }
+
+              loop(replicated, None, Async.unit)
             }
 
-            def saveMetadata(): Future[Metadata] = {
+            def saveMetadata(): Async[Metadata] = {
 
               val segmentSize = metadata.fold(config.segmentSize)(_.segmentSize)
 
@@ -135,15 +158,15 @@ object ReplicatedCassandra {
 
             for {
               metadata <- saveMetadata()
-              _ <- deleteTo.fold(Future.unit) { deletedTo => delete(deletedTo, metadata) }
+              _ <- deleteTo.fold(Async.unit) { deletedTo => delete(deletedTo, metadata) }
               _ <- saveRecords(metadata.segmentSize)
             } yield {}
           }
 
           def deleteUnbound(deleteTo: SeqNr) = {
 
-            metadata.fold(Future.unit) { metadata =>
-              if (deleteTo <= metadata.deleteTo) Future.unit
+            metadata.fold(Async.unit) { metadata =>
+              if (deleteTo <= metadata.deleteTo) Async.unit
               else {
 
                 def saveAndDelete(deleteTo: SeqNr) = {
@@ -185,16 +208,16 @@ object ReplicatedCassandra {
         }
       }
 
-      def savePointers(topic: Topic, topicPointers: TopicPointers): Future[Unit] = {
+      def savePointers(topic: Topic, topicPointers: TopicPointers): Async[Unit] = {
         val pointers = topicPointers.pointers
-        if (pointers.isEmpty) Future.unit
+        if (pointers.isEmpty) Async.unit
         else {
 
           // TODO topic is a partition key, should I batch by partition ?
           val timestamp = Instant.now() // TODO pass as argument
 
           def savePointers(statements: Statements) = {
-            val futures = for {
+            val asyncs = for {
               (partition, offset) <- pointers
             } yield {
               val insert = PointerInsert(
@@ -207,7 +230,7 @@ object ReplicatedCassandra {
               statements.insertPointer(insert)
             }
 
-            Future.sequence(futures)
+            Async.foldUnit(asyncs)
           }
 
           for {
@@ -218,7 +241,7 @@ object ReplicatedCassandra {
       }
 
 
-      def pointers(topic: Topic): Future[TopicPointers] = {
+      def pointers(topic: Topic) = {
         for {
           (_, statements) <- sessionAndStatements
           topicPointers <- statements.selectTopicPointer(topic)
@@ -250,9 +273,9 @@ object ReplicatedCassandra {
       session: Session,
       tables: Tables,
       prepareAndExecute: PrepareAndExecute)(implicit
-      ec: ExecutionContext): Future[Statements] = {
+      ec: ExecutionContext): Async[Statements] = {
 
-      val insertRecord = JournalStatement.InsertRecord(tables.journal, session.prepareAsync(_: String).asScala())
+      val insertRecord = JournalStatement.InsertRecord(tables.journal, session.prepareAsync(_: String).asScala().async)
       val selectLastRecord = JournalStatement.SelectLastRecord(tables.journal, prepareAndExecute)
       val selectRecords = JournalStatement.SelectRecords(tables.journal, prepareAndExecute)
       val deleteRecords = JournalStatement.DeleteRecords(tables.journal, prepareAndExecute)

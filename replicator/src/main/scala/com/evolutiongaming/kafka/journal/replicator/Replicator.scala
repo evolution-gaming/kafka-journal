@@ -5,11 +5,12 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import com.evolutiongaming.cassandra.{CassandraConfig, CreateCluster}
+import com.evolutiongaming.concurrent.async.Async
+import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.Alias.SeqNr
-import com.evolutiongaming.kafka.journal.ConsumerHelper._
-import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandraConfig, ReplicatedCassandra, SchemaConfig}
 import com.evolutiongaming.safeakka.actor.ActorLog
@@ -18,6 +19,7 @@ import com.evolutiongaming.skafka.{Bytes => _, _}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.{Failure, Success}
 
 
 // TODO refactor EventualDb api, make sure it does operate with Seq[Actions]
@@ -68,7 +70,7 @@ object Replicator {
     def apply(
       pointers: TopicPointers,
       consumerRecords: ConsumerRecords[String, Bytes],
-      timestamp: Instant): Future[TopicPointers] = {
+      timestamp: Instant): Async[TopicPointers] = {
 
       // TODO avoid creating unnecessary collections
       val records = for {
@@ -83,7 +85,7 @@ object Replicator {
         (kafkaRecord, partitionOffset)
       }
 
-      val futures = for {
+      val asyncs = for {
         (id, records) <- records.groupBy { case (record, _) => record.id }
       } yield {
 
@@ -132,7 +134,7 @@ object Replicator {
         batch match {
           case batch: ActionBatch.NonEmpty => onNonEmpty(batch)
           case batch: ActionBatch.DeleteTo => onDelete(batch)
-          case ActionBatch.Empty           => Future.unit
+          case ActionBatch.Empty           => Async.unit
         }
       }
 
@@ -149,7 +151,7 @@ object Replicator {
         }
 
         val result = {
-          if (diff.pointers.isEmpty) Future.unit
+          if (diff.pointers.isEmpty) Async.unit
           else journal.savePointers(topic, diff)
         }
 
@@ -157,48 +159,52 @@ object Replicator {
       }
 
       for {
-        _ <- Future.sequence(futures)
+        _ <- Async.foldUnit(asyncs)
         pointers <- savePointers()
       } yield pointers
     }
 
     // TODO cache state and not re-read it when kafka is broken
-    def consume(topicPointers: TopicPointers) = {
-      consumer.foldAsync(topicPointers, pollTimeout) { (topicPointers, records) =>
-        shutdown match {
-          case Some(shutdown) =>
-            val future = consumer.close(closeTimeout)
-            shutdown.completeWith(future)
+    def consume(pointers: TopicPointers) = {
 
-            for {
-              _ <- future.recover { case _ => () }
-            } yield {
-              (topicPointers, false)
-            }
-
-          case None =>
-
-            if (records.values.nonEmpty) {
+      val fold = (pointers: TopicPointers) => {
+        for {
+          records <- consumer.poll(pollTimeout).async
+          result <- shutdown match {
+            case Some(shutdown) =>
+              val future = consumer.close(closeTimeout)
+              shutdown.completeWith(future)
               for {
-                state <- apply(topicPointers, records, Instant.now())
+                _ <- future.recover { case _ => () }.async
               } yield {
-                (state, true)
+                (pointers, false)
               }
-            } else {
-              val result = (topicPointers, true)
-              result.future
-            }
-        }
+
+            case None =>
+              if (records.values.nonEmpty) {
+                for {
+                  pointers <- apply(pointers, records, Instant.now())
+                } yield {
+                  (pointers, true)
+                }
+              } else {
+                (pointers, true).async
+              }
+          }
+        } yield result
       }
+
+      fold.foldWhile(pointers)
     }
 
-    val future = for {
+    val async = for {
       pointers <- journal.pointers(topic)
       _ <- consume(pointers)
     } yield {}
 
-    future.failed.foreach { failure =>
-      failure.printStackTrace()
+    async.onComplete {
+      case Success(_) =>
+      case Failure(failure) => log.error(s"Replicator failed: $failure", failure)
     }
 
     () => {

@@ -3,10 +3,12 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 import java.util.UUID
 
+import com.evolutiongaming.concurrent.async.Async
+import com.evolutiongaming.concurrent.async.AsyncConverters._
+import com.evolutiongaming.kafka.journal.ActorLogHelper._
 import com.evolutiongaming.kafka.journal.Alias._
+import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
-import com.evolutiongaming.kafka.journal.FutureHelper._
-import com.evolutiongaming.kafka.journal.LogHelper._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, PartitionOffset}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
@@ -14,25 +16,25 @@ import com.evolutiongaming.skafka.consumer.Consumer
 import com.evolutiongaming.skafka.producer.Producer
 import com.evolutiongaming.skafka.{Bytes => _, _}
 
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
 
 // TODO consider passing topic along with id as method argument
 // TODO should we return offset ?
 trait Journal {
-  def append(events: Nel[Event], timestamp: Instant): Future[Unit]
-  def foldWhile[S](from: SeqNr, s: S)(f: Fold[S, Event]): Future[(S, Continue)]
-  def lastSeqNr(from: SeqNr): Future[SeqNr]
-  def delete(to: SeqNr, timestamp: Instant): Future[Unit]
+  def append(events: Nel[Event], timestamp: Instant): Async[Unit]
+  def foldWhile[S](from: SeqNr, s: S)(f: Fold[S, Event]): Async[(S, Continue)]
+  def lastSeqNr(from: SeqNr): Async[SeqNr]
+  def delete(to: SeqNr, timestamp: Instant): Async[Unit]
 }
 
 object Journal {
 
   val Empty: Journal = new Journal {
-    def append(events: Nel[Event], timestamp: Instant) = Future.unit
-    def foldWhile[S](from: SeqNr, s: S)(f: Fold[S, Event]) = (s, true).future
-    def lastSeqNr(from: SeqNr) = Future.seqNr
-    def delete(to: SeqNr, timestamp: Instant) = Future.unit
+    def append(events: Nel[Event], timestamp: Instant) = Async.unit
+    def foldWhile[S](from: SeqNr, s: S)(f: Fold[S, Event]) = (s, true).async
+    def lastSeqNr(from: SeqNr) = Async.seqNr
+    def delete(to: SeqNr, timestamp: Instant) = Async.unit
 
     override def toString = s"Journal.Empty"
   }
@@ -53,7 +55,7 @@ object Journal {
       }
     }
 
-    def foldWhile[S](from: SeqNr, s: S)(f: Fold[S, Event]): Future[(S, Continue)] = {
+    def foldWhile[S](from: SeqNr, s: S)(f: Fold[S, Event]) = {
       log[(S, Continue)](s"foldWhile from: $from, state: $s") {
         journal.foldWhile(from, s)(f)
       }
@@ -107,7 +109,7 @@ object Journal {
     writeAction: WriteAction)(implicit
     ec: ExecutionContext): Journal = {
 
-    def mark(): Future[(String, Partition, Option[Offset])] = {
+    def mark(): Async[(String, Partition, Option[Offset])] = {
       val marker = UUID.randomUUID().toString // TODO randomUUID ? overkill ?
       val action = Action.Mark(marker)
 
@@ -119,18 +121,18 @@ object Journal {
     }
 
     trait FoldActions {
-      def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]): Future[(S, Continue)]
+      def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]): Async[(S, Continue)]
     }
 
     object FoldActions {
 
       val Empty: FoldActions = new FoldActions {
-        def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]) = (s, true).future
+        def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]) = (s, true).async
       }
 
 
       // TODO add range argument
-      def apply(from: SeqNr): Future[FoldActions] = {
+      def apply(from: SeqNr): Async[FoldActions] = {
         val marker = mark()
         val topicPointers = eventual.topicPointers(topic)
 
@@ -165,7 +167,7 @@ object Journal {
 
                 if (replicated getOrElse false) {
                   println(">>>>>>>>>>>>>>> MIRACLE 2 <<<<<<<<<<<<<<<")
-                  (s, true).future
+                  (s, true).async
                 } else {
                   val partitionOffset = {
                     val offsetMax = PartialFunction.condOpt((offset, offsetEventual)) {
@@ -211,7 +213,7 @@ object Journal {
 
     new Journal {
 
-      def append(events: Nel[Event], timestamp: Instant): Future[Unit] = {
+      def append(events: Nel[Event], timestamp: Instant) = {
         val payload = EventsSerializer.toBytes(events)
         val range = SeqRange(from = events.head.seqNr, to = events.last.seqNr)
         val action = Action.Append(range, timestamp, payload)
@@ -261,7 +263,7 @@ object Journal {
 
           for {
             ((s, from, offset), continue) <- replicatedSeqNr(fromFixed)
-            s <- if (continue) events(from, offset, s) else (s, continue).future
+            s <- if (continue) events(from, offset, s) else (s, continue).async
           } yield {
             s
           }
@@ -300,7 +302,7 @@ object Journal {
 
 
       def delete(to: SeqNr, timestamp: Instant) = {
-        if (to <= 0) Future.unit
+        if (to <= 0) Async.unit
         else {
           val action = Action.Delete(to, timestamp)
           writeAction(action).unit

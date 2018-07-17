@@ -3,12 +3,13 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import com.datastax.driver.core.{Metadata => _}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
+import com.evolutiongaming.concurrent.async.Async
+import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.Alias.{Id, SeqNr}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.util.FutureHelper._
 
-import scala.concurrent.Future
 
 object MetadataStatement {
 
@@ -28,9 +29,9 @@ object MetadataStatement {
 
 
   object Insert {
-    type Type = Metadata => Future[Unit]
+    type Type = Metadata => Async[Unit]
 
-    def apply(name: TableName, session: PrepareAndExecute): Future[Type] = {
+    def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
       implicit val ec = CurrentThreadExecutionContext // TODO remove
 
       val query =
@@ -40,7 +41,7 @@ object MetadataStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query)
+        prepared <- session.prepare(query).async
       } yield {
         metadata: Metadata =>
           val bound = prepared
@@ -49,17 +50,16 @@ object MetadataStatement {
             .encode("topic", metadata.topic)
             .encode("segment_size", metadata.segmentSize)
             .encode("delete_to", metadata.deleteTo)
-          val result = session.execute(bound)
-          result.unit
+          session.execute(bound).async.unit
       }
     }
   }
 
 
   object Select {
-    type Type = Id => Future[Option[Metadata]]
+    type Type = Id => Async[Option[Metadata]]
 
-    def apply(name: TableName, session: PrepareAndExecute): Future[Type] = {
+    def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
       implicit val ec = CurrentThreadExecutionContext // TODO remove
 
       val query =
@@ -69,12 +69,12 @@ object MetadataStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query)
+        prepared <- session.prepare(query).async
       } yield {
         id: Id =>
           val bound = prepared.bind(id)
           for {
-            result <- session.execute(bound)
+            result <- session.execute(bound).async
           } yield for {
             row <- Option(result.one()) // TODO use CassandraSession wrapper
           } yield {
@@ -89,9 +89,9 @@ object MetadataStatement {
   }
 
   object SelectSegmentSize {
-    type Type = Id => Future[Option[Int]]
+    type Type = Id => Async[Option[Int]]
 
-    def apply(name: TableName, session: PrepareAndExecute): Future[Type] = {
+    def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
       implicit val ec = CurrentThreadExecutionContext // TODO remove
 
       val query =
@@ -101,12 +101,12 @@ object MetadataStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query)
+        prepared <- session.prepare(query).async
       } yield {
         id: Id =>
           val bound = prepared.bind(id)
           for {
-            result <- session.execute(bound)
+            result <- session.execute(bound).async
           } yield for {
             row <- Option(result.one())
           } yield {
@@ -120,9 +120,9 @@ object MetadataStatement {
   // TODO remove Metadata usage here
   // TODO add separate queries for different cases
   object UpdatedMetadata {
-    type Type = Metadata => Future[Unit]
+    type Type = Metadata => Async[Unit]
 
-    def apply(name: TableName, session: PrepareAndExecute): Future[Type] = {
+    def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
       implicit val ec = CurrentThreadExecutionContext // TODO remove
 
       // TODO use update query
@@ -133,7 +133,7 @@ object MetadataStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query)
+        prepared <- session.prepare(query).async
       } yield {
         metadata: Metadata =>
           val bound = prepared
@@ -141,8 +141,7 @@ object MetadataStatement {
             .encode("id", metadata.id)
             .encode("topic", metadata.topic)
             .encode("delete_to", metadata.deleteTo)
-          val result = session.execute(bound)
-          result.unit
+          session.execute(bound).async.unit
       }
     }
   }

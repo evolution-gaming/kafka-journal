@@ -6,6 +6,8 @@ import java.util.Date
 
 import com.datastax.driver.core.{BoundStatement, ResultSet, Row, Statement}
 import com.evolutiongaming.cassandra.CassandraHelper._
+import com.evolutiongaming.concurrent.async.Async
+import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.Bytes
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.FutureHelper._
@@ -111,7 +113,7 @@ object CassandraHelper {
 
   implicit class ResultSetOps(val self: ResultSet) extends AnyVal {
 
-    def foldWhile[S](fetchThreshold: Int, s: S)(f: Fold[S, Row])(implicit ec: ExecutionContext): Future[(S, Continue)] = {
+    def foldWhile[S](fetchThreshold: Int, s: S)(f: Fold[S, Row])(implicit ec: ExecutionContext): Async[(S, Continue)] = {
 
       @tailrec
       def foldWhile(s: S, available: Int): (S, Continue) = {
@@ -127,17 +129,18 @@ object CassandraHelper {
         }
       }
 
-      def fetch(s: S): Future[(S, Continue)] = {
+      // TODO fix stack overflow
+      def fetch(s: S): Async[(S, Continue)] = {
         val available = self.getAvailableWithoutFetching
         val result = foldWhile(s, available)
         val (ss, continue) = result
         if (continue && !self.isFullyFetched) {
           for {
-            _ <- self.fetchMoreResults().asScala()
+            _ <- self.fetchMoreResults().asScala().async
             r <- fetch(ss)
           } yield r
         } else {
-          result.future
+          result.async
         }
       }
 

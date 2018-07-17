@@ -1,9 +1,8 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
+import com.evolutiongaming.concurrent.async.Async
+import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.Alias.{Id, SeqNr, SeqNrOps}
-import com.evolutiongaming.kafka.journal.FutureHelper._
-
-import scala.concurrent.{ExecutionContext, Future}
 
 object LastSeqNr {
 
@@ -11,15 +10,15 @@ object LastSeqNr {
     id: Id,
     from: SeqNr,
     statement: JournalStatement.SelectLastRecord.Type,
-    metadata: Metadata)(implicit ec: ExecutionContext): Future[SeqNr] = {
+    metadata: Metadata): Async[SeqNr] = {
 
-    def apply(last: SeqNr, from: SeqNr, segment: Segment): Future[SeqNr] = {
+    def apply(last: SeqNr, from: SeqNr, segment: Segment): Async[SeqNr] = {
       for {
         pointer <- statement(id, segment.nr, from)
-        seqNr <- pointer.fold(last.future) { pointer =>
+        seqNr <- pointer.fold(last.async) { pointer =>
           val last = pointer.seqNr
           val from = last.next
-          segment.next(from).fold(last.future) { segment =>
+          segment.next(from).fold(last.async) { segment =>
             apply(last, from, segment)
           }
         }

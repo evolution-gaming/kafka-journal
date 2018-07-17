@@ -3,15 +3,16 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import com.datastax.driver.core.policies.LoggingRetryPolicy
 import com.datastax.driver.core.{Metadata => _, _}
 import com.evolutiongaming.cassandra.NextHostRetryPolicy
+import com.evolutiongaming.concurrent.async.Async
+import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
-import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.{ReplicatedEvent, SeqRange}
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Topic
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 
 // TODO create collection that is optimised for ordered sequence and seqNr
@@ -55,7 +56,7 @@ object EventualCassandra {
 
         def foldWhile(statement: JournalStatement.SelectRecords.Type, metadata: Metadata) = {
 
-          def foldWhile(from: SeqNr, segment: Segment, s: S): Future[(S, Continue)] = {
+          def foldWhile(from: SeqNr, segment: Segment, s: S): Async[(S, Continue)] = {
             val range = SeqRange(from, SeqNr.Max) // TODO do we need range here ?
             for {
               result <- statement(id, segment.nr, range, (s, from)) { case ((s, _), replicated) =>
@@ -66,11 +67,11 @@ object EventualCassandra {
                 val ((s, seqNr), continue) = result
                 if (continue) {
                   val from = seqNr.next
-                  segment.next(from).fold((s, continue).future) { segment =>
+                  segment.next(from).fold((s, continue).async) { segment =>
                     foldWhile(from, segment, s)
                   }
                 } else {
-                  (s, continue).future
+                  (s, continue).async
                 }
               }
             } yield result
@@ -84,7 +85,7 @@ object EventualCassandra {
         for {
           statements <- statements
           metadata <- statements.selectMetadata(id)
-          result <- metadata.fold((s, true).future) { metadata =>
+          result <- metadata.fold((s, true).async) { metadata =>
             foldWhile(statements.selectRecords, metadata)
           }
         } yield {
@@ -96,7 +97,7 @@ object EventualCassandra {
       def lastSeqNr(id: Id, from: SeqNr) = {
 
         def lastSeqNr(statements: Statements, metadata: Option[Metadata]) = {
-          metadata.fold(from.future) { metadata =>
+          metadata.fold(from.async) { metadata =>
             LastSeqNr(id, from, statements.selectLastRecord, metadata) // TODO remove this, use lastSeqNr from metadata
           }
         }
@@ -124,7 +125,7 @@ object EventualCassandra {
 
   object Statements {
 
-    def apply(tables: Tables, prepareAndExecute: PrepareAndExecute)(implicit ec: ExecutionContext): Future[Statements] = {
+    def apply(tables: Tables, prepareAndExecute: PrepareAndExecute): Async[Statements] = {
 
       val selectLastRecord = JournalStatement.SelectLastRecord(tables.journal, prepareAndExecute)
       val listRecords = JournalStatement.SelectRecords(tables.journal, prepareAndExecute)

@@ -6,13 +6,13 @@ import java.util.UUID
 import akka.persistence.journal.{AsyncWriteJournal, Tagged}
 import akka.persistence.{AtomicWrite, PersistentRepr}
 import com.evolutiongaming.cassandra.{CassandraConfig, CreateCluster}
-import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
+import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.FutureHelper._
+import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig, SchemaConfig}
 import com.evolutiongaming.kafka.journal.{Bytes, Event, Journals}
-import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.serialization.{SerializedMsg, SerializedMsgExt}
@@ -22,7 +22,6 @@ import com.evolutiongaming.skafka.producer.{CreateProducer, ProducerConfig}
 import scala.collection.immutable.Seq
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
-import scala.util.Try
 import scala.util.control.NonFatal
 
 class PersistenceJournal extends AsyncWriteJournal {
@@ -86,7 +85,7 @@ class PersistenceJournal extends AsyncWriteJournal {
 
   // TODO optimise sequence of calls asyncWriteMessages & asyncReadHighestSequenceNr for the same persistenceId
 
-  def asyncWriteMessages(atomicWrites: Seq[AtomicWrite]): Future[Seq[Try[Unit]]] = {
+  def asyncWriteMessages(atomicWrites: Seq[AtomicWrite]) = {
     val timestamp = Instant.now()
     val persistentReprs = for {
       atomicWrite <- atomicWrites
@@ -102,7 +101,7 @@ class PersistenceJournal extends AsyncWriteJournal {
 
       log.debug(s"asyncWriteMessages persistenceId: $persistenceId, seqNrs: $seqNrs")
 
-      val result = Future {
+      val async = Async.async {
         val events = for {
           persistentRepr <- persistentReprs
         } yield {
@@ -114,24 +113,27 @@ class PersistenceJournal extends AsyncWriteJournal {
         }
         val nel = Nel(events.head, events.tail.toList) // TODO is it optimal convert to list ?
         val result = journals.append(persistenceId, nel, timestamp)
-        result.map(_ => Nil)(CurrentThreadExecutionContext)
+        result.map(_ => Nil)
       }
-      result.flatMap(identity)(CurrentThreadExecutionContext)
+      async.flatten.future
     }
   }
 
-  def asyncDeleteMessagesTo(persistenceId: PersistenceId, to: SeqNr): Future[Unit] = {
+  def asyncDeleteMessagesTo(persistenceId: PersistenceId, to: SeqNr) = {
     val timestamp = Instant.now()
-    journals.delete(persistenceId, to, timestamp)
+    journals.delete(persistenceId, to, timestamp).future
   }
 
   def asyncReplayMessages(persistenceId: PersistenceId, from: SeqNr, to: SeqNr, max: Long)
     (callback: PersistentRepr => Unit): Future[Unit] = {
 
-    journals.foldWhile(persistenceId, from, 0l) { (count, event) =>
+    val async = journals.foldWhile(persistenceId, from, 0l) { (count, event) =>
       if (event.seqNr <= to && count < max) {
         val persistentEvent = PersistentEventSerializer.fromBinary(event.payload.value)
-        val serializedMsg = SerializedMsg(persistentEvent.identifier, persistentEvent.manifest, persistentEvent.payload)
+        val serializedMsg = SerializedMsg(
+          persistentEvent.identifier,
+          persistentEvent.manifest,
+          persistentEvent.payload)
         val payload = serializedMsgExt.fromMsg(serializedMsg).get
         val seqNr = persistentEvent.seqNr
         val persistentRepr = PersistentRepr(
@@ -146,11 +148,12 @@ class PersistenceJournal extends AsyncWriteJournal {
       } else {
         (count, false)
       }
-    }.unit
+    }
+    async.unit.future
   }
 
-  def asyncReadHighestSequenceNr(persistenceId: PersistenceId, from: SeqNr): Future[SeqNr] = {
-    journals.lastSeqNr(persistenceId, from)
+  def asyncReadHighestSequenceNr(persistenceId: PersistenceId, from: SeqNr) = {
+    journals.lastSeqNr(persistenceId, from).future
   }
 }
 

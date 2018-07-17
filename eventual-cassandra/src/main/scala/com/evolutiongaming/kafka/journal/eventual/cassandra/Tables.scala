@@ -2,28 +2,29 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import com.datastax.driver.core.Session
 import com.evolutiongaming.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.FutureHelper._
+import com.evolutiongaming.concurrent.async.Async
+import com.evolutiongaming.concurrent.async.AsyncConverters._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 case class Tables(journal: TableName, metadata: TableName, pointer: TableName)
 
 
 object Tables {
 
-  def apply(schemaConfig: SchemaConfig, session: Session)(implicit ec: ExecutionContext /*TODO remove*/): Future[Tables] = {
+  def apply(schemaConfig: SchemaConfig, session: Session)(implicit ec: ExecutionContext /*TODO remove*/): Async[Tables] = {
 
     val keyspace = schemaConfig.keyspace.name
 
     def apply(name: TableName, query: String) = {
       if (schemaConfig.autoCreate) {
         for {
-          _ <- session.executeAsync(query).asScala()
+          _ <- session.executeAsync(query).asScala().async
         } yield {
           name
         }
       } else {
-        name.future
+        name.async
       }
     }
 

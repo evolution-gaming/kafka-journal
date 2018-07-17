@@ -3,9 +3,10 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
+import com.evolutiongaming.concurrent.async.Async
+import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
-import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, PartitionOffset, TopicPointers}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
@@ -22,16 +23,16 @@ class JournalSpec extends WordSpec with Matchers {
 
     "append single event" in {
       val journal = journalOf()
-      journal.read(SeqRange.All).get() shouldEqual Nil
+      journal.read(SeqRange.All) shouldEqual Nil
       journal.append(1)
-      journal.read(SeqRange.All).get() shouldEqual List(1)
+      journal.read(SeqRange.All) shouldEqual List(1)
     }
 
     "append many events atomically" in {
       val journal = journalOf()
       journal.append(1, 2, 3)
       journal.append(4, 5, 6)
-      journal.read(SeqRange.All).get() shouldEqual List(1, 2, 3, 4, 5, 6)
+      journal.read(SeqRange.All) shouldEqual List(1, 2, 3, 4, 5, 6)
     }
 
     "append many events one by one" in {
@@ -40,84 +41,84 @@ class JournalSpec extends WordSpec with Matchers {
       journal.append(2)
       journal.append(3)
       journal.append(4)
-      journal.read(SeqRange.All).get() shouldEqual List(1, 2, 3, 4)
+      journal.read(SeqRange.All) shouldEqual List(1, 2, 3, 4)
     }
 
     "delete no events" in {
       val journal = journalOf()
-      journal.delete(1).get()
-      journal.read(SeqRange.All).get() shouldEqual Nil
-      journal.lastSeqNr(SeqNr.Min).get() shouldEqual SeqNr.Min
+      journal.delete(1)
+      journal.read(SeqRange.All) shouldEqual Nil
+      journal.lastSeqNr(SeqNr.Min) shouldEqual SeqNr.Min
     }
 
     "delete some events" in {
       val journal = journalOf()
       journal.append(1)
       journal.append(2, 3)
-      journal.delete(2).get()
-      journal.read(SeqRange.All).get() shouldEqual List(3)
-      journal.lastSeqNr(SeqNr.Min).get() shouldEqual 3l
+      journal.delete(2)
+      journal.read(SeqRange.All) shouldEqual List(3)
+      journal.lastSeqNr(SeqNr.Min) shouldEqual 3l
     }
 
     "delete all events" in {
       val journal = journalOf()
       journal.append(1)
       journal.append(2, 3)
-      journal.delete(3).get()
-      journal.read(SeqRange.All).get() shouldEqual Nil
-      journal.lastSeqNr(SeqNr.Min).get() shouldEqual 3l
+      journal.delete(3)
+      journal.read(SeqRange.All) shouldEqual Nil
+      journal.lastSeqNr(SeqNr.Min) shouldEqual 3l
     }
 
     "delete existing events only" in {
       val journal = journalOf()
       journal.append(1)
       journal.append(2, 3)
-      journal.delete(4).get()
-      journal.read(SeqRange.All).get() shouldEqual Nil
-      journal.lastSeqNr(SeqNr.Min).get() shouldEqual 3l
+      journal.delete(4)
+      journal.read(SeqRange.All) shouldEqual Nil
+      journal.lastSeqNr(SeqNr.Min) shouldEqual 3l
     }
 
     "delete 0 events" in {
       val journal = journalOf()
-      journal.append(1).get()
-      journal.delete(SeqNr.Min).get()
-      journal.read(SeqRange.All).get() shouldEqual List(1)
-      journal.lastSeqNr(SeqNr.Min).get() shouldEqual 1l
+      journal.append(1)
+      journal.delete(SeqNr.Min)
+      journal.read(SeqRange.All) shouldEqual List(1)
+      journal.lastSeqNr(SeqNr.Min) shouldEqual 1l
     }
 
     "delete max events" in {
       val journal = journalOf()
       journal.append(1)
       journal.append(2, 3)
-      journal.delete(SeqNr.Max).get()
-      journal.read(SeqRange.All).get() shouldEqual Nil
-      journal.lastSeqNr(SeqNr.Min).get() shouldEqual 3l
+      journal.delete(SeqNr.Max)
+      journal.read(SeqRange.All) shouldEqual Nil
+      journal.lastSeqNr(SeqNr.Min) shouldEqual 3l
     }
 
     "lastSeqNr" in {
       val journal = journalOf()
-      journal.lastSeqNr(SeqNr.Min).get() shouldEqual SeqNr.Min
-      journal.lastSeqNr(SeqNr.Max).get() shouldEqual SeqNr.Max
+      journal.lastSeqNr(SeqNr.Min) shouldEqual SeqNr.Min
+      journal.lastSeqNr(SeqNr.Max) shouldEqual SeqNr.Max
     }
 
     "read empty journal" in {
       val journal = journalOf()
-      journal.read(SeqRange.All).get() shouldEqual Nil
+      journal.read(SeqRange.All) shouldEqual Nil
     }
 
     "read all events" in {
       val journal = journalOf()
       journal.append(1l)
       journal.append(2l, 3l, 4l, 5l, 6l)
-      journal.read(SeqRange.All).get() shouldEqual List(1l, 2l, 3l, 4l, 5l, 6l)
+      journal.read(SeqRange.All) shouldEqual List(1l, 2l, 3l, 4l, 5l, 6l)
     }
 
     "read some events" in {
       val journal = journalOf()
       journal.append(1l, 2l)
       journal.append(3l, 4l, 5l, 6l)
-      journal.read(2l __ 3l).get() shouldEqual List(2l, 3l)
-      journal.read(5l __ 7l).get() shouldEqual List(5l, 6l)
+      journal.read(2l __ 3l) shouldEqual List(2l, 3l)
+      journal.read(5l __ 7l) shouldEqual List(5l, 6l)
     }
 
     "append, delete, append, delete, append, read, lastSeqNr" in {
@@ -127,12 +128,12 @@ class JournalSpec extends WordSpec with Matchers {
       journal.append(2l, 3l)
       journal.delete(2l)
       journal.append(4l)
-      journal.read(1l __ 2l).get() shouldEqual Nil
-      journal.read(2l __ 3l).get() shouldEqual List(3l)
-      journal.read(3l __ 4l).get() shouldEqual List(3l, 4l)
-      journal.read(4l __ 5l).get() shouldEqual List(4l)
-      journal.read(5l __ 6l).get() shouldEqual Nil
-      journal.lastSeqNr(SeqNr.Min).get() shouldEqual 4l
+      journal.read(1l __ 2l) shouldEqual Nil
+      journal.read(2l __ 3l) shouldEqual List(3l)
+      journal.read(3l __ 4l) shouldEqual List(3l, 4l)
+      journal.read(4l __ 5l) shouldEqual List(4l)
+      journal.read(5l __ 6l) shouldEqual Nil
+      journal.lastSeqNr(SeqNr.Min) shouldEqual 4l
     }
   }
 
@@ -155,7 +156,7 @@ class JournalSpec extends WordSpec with Matchers {
             val record = ActionRecord(action, offset)
             actions = actions.enqueue(record)
             // TODO create test without offset
-            (partition, Some(offset)).future
+            (partition, Some(offset)).async
           }
         }
         val journal = Journal(id, topic, ActorLog.empty, eventualJournal, withReadActions, writeAction)
@@ -187,7 +188,7 @@ class JournalSpec extends WordSpec with Matchers {
             val record = ActionRecord(action, offset)
             actions = actions.enqueue(record)
             replicatedState = replicatedState(record)
-            (partition, Some(offset)).future
+            (partition, Some(offset)).async
           }
         }
 
@@ -215,7 +216,7 @@ class JournalSpec extends WordSpec with Matchers {
             val record = ActionRecord(action, offset)
             actions = actions.enqueue(record)
             replicatedState = replicatedState(record)
-            (partition, Some(offset)).future
+            (partition, Some(offset)).async
           }
         }
 
@@ -244,7 +245,7 @@ class JournalSpec extends WordSpec with Matchers {
             actions = actions.enqueue(record)
             replicatedState = replicatedState(record)
 
-            (partition, None).future
+            (partition, None).async
           }
         }
 
@@ -272,7 +273,7 @@ class JournalSpec extends WordSpec with Matchers {
             actions = actions.enqueue(record)
             replicatedState = replicatedState(record, offset - 2)
 
-            (partition, Some(offset)).future
+            (partition, Some(offset)).async
           }
         }
 
@@ -305,7 +306,7 @@ class JournalSpec extends WordSpec with Matchers {
               action <- actions.lastOption
             } replicatedState = replicatedState(action)
 
-            (partition, Some(offset)).future
+            (partition, Some(offset)).async
           }
         }
 
@@ -339,7 +340,7 @@ class JournalSpec extends WordSpec with Matchers {
               action <- actions.lastOption
             } replicatedState = replicatedState(action)
 
-            (partition, Some(offset)).future
+            (partition, Some(offset)).async
           }
         }
 
@@ -373,7 +374,7 @@ class JournalSpec extends WordSpec with Matchers {
               action <- actions.lastOption
             } replicatedState = replicatedState(action)
 
-            (partition, Some(offset)).future
+            (partition, Some(offset)).async
           }
         }
 
@@ -396,14 +397,13 @@ object JournalSpec {
   case class ActionRecord(action: Action, offset: Offset)
 
 
-  // TODO do we need Future in API ?
   trait SeqNrJournal {
-    def append(seqNr: SeqNr, seqNrs: SeqNr*): Future[Unit]
-    def read(range: SeqRange): Future[List[SeqNr]]
+    def append(seqNr: SeqNr, seqNrs: SeqNr*): Unit
+    def read(range: SeqRange): List[SeqNr]
 
     // TODO not sure this should be a part of this API
-    def lastSeqNr(from: SeqNr): Future[SeqNr]
-    def delete(to: SeqNr): Future[Unit]
+    def lastSeqNr(from: SeqNr): SeqNr
+    def delete(to: SeqNr): Unit
   }
 
   object SeqNrJournal {
@@ -414,25 +414,27 @@ object JournalSpec {
 
         def append(seqNr: SeqNr, seqNrs: SeqNr*) = {
           val events = for {seqNr <- Nel(seqNr, seqNrs: _*)} yield Event(seqNr)
-          journal.append(events, timestamp)
+          journal.append(events, timestamp).get()
         }
 
         def read(range: SeqRange) = {
-          val result = journal.foldWhile(range.from, List.empty[SeqNr]) { (seqNrs, event) =>
-            val continue = event.seqNr <= range.to
-            val result = {
-              if (event.seqNr >= range.from && continue) event.seqNr :: seqNrs
-              else seqNrs
+          val result = {
+            val result = journal.foldWhile(range.from, List.empty[SeqNr]) { (seqNrs, event) =>
+              val continue = event.seqNr <= range.to
+              val result = {
+                if (event.seqNr >= range.from && continue) event.seqNr :: seqNrs
+                else seqNrs
+              }
+              (result, continue)
             }
-            (result, continue)
+            for {(events, _) <- result} yield events.reverse
           }
-
-          for {(events, _) <- result} yield events.reverse
+          result.get()
         }
 
-        def lastSeqNr(from: SeqNr) = journal.lastSeqNr(from)
+        def lastSeqNr(from: SeqNr) = journal.lastSeqNr(from).get()
 
-        def delete(to: SeqNr) = journal.delete(to, timestamp)
+        def delete(to: SeqNr) = journal.delete(to, timestamp).get()
       }
     }
   }
@@ -441,7 +443,7 @@ object JournalSpec {
   object WithReadActionsOneByOne {
     def apply(actions: => Queue[ActionRecord]): WithReadActions = new WithReadActions {
 
-      def apply[T](topic: Topic, partitionOffset: Option[PartitionOffset])(f: ReadActions => Future[T]) = {
+      def apply[T](topic: Topic, partitionOffset: Option[PartitionOffset])(f: ReadActions => Async[T]) = {
 
         val readActions = new ReadActions {
 
@@ -449,10 +451,10 @@ object JournalSpec {
             actions.dropWhile(_.offset < partitionOffset.offset)
           }
 
-          def apply(id: Id): Future[Iterable[Action]] = {
-            left.dequeueOption.fold(Future.nil[Action]) { case (record, left) =>
+          def apply(id: Id) = {
+            left.dequeueOption.fold(Async.nil[Action]) { case (record, left) =>
               this.left = left
-              List(record.action).future
+              List(record.action).async
             }
           }
         }
@@ -471,7 +473,7 @@ object JournalSpec {
 
         def topicPointers(topic: Topic) = {
           val pointers = Map(partition -> state.offset)
-          TopicPointers(pointers).future
+          TopicPointers(pointers).async
         }
 
         def foldWhile[S](id: Id, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
@@ -487,7 +489,7 @@ object JournalSpec {
             }
           }
 
-          read(state).future
+          read(state).async
         }
 
         def lastSeqNr(id: Id, from: SeqNr) = {
@@ -495,7 +497,7 @@ object JournalSpec {
           def lastSeqNr(state: State) = {
             val seqNr = state.events.lastOption.fold(SeqNr.Min)(_.event.seqNr)
             val lastSeqNr = seqNr max state.deleteTo
-            lastSeqNr.future
+            lastSeqNr.async
           }
 
           lastSeqNr(state)

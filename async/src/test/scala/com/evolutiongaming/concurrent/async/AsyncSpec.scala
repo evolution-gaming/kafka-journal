@@ -1,4 +1,4 @@
-package com.evolutiongaming.async.concurrent
+package com.evolutiongaming.concurrent.async
 
 import org.scalatest.{FunSuite, Matchers}
 

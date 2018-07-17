@@ -3,12 +3,16 @@ package com.evolutiongaming.kafka.journal
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
+import com.evolutiongaming.concurrent.async.Async
+import com.evolutiongaming.concurrent.async.Async.{Failed, InCompleted, Succeed}
 import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.nel.Nel
 
+import scala.annotation.tailrec
 import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.ControlThrowable
+import scala.util.{Failure, Success}
 
 object FoldWhileHelper {
 
@@ -52,6 +56,37 @@ object FoldWhileHelper {
         (s, continue) <- self(s)
         s <- if (continue) foldWhile(s) else s.future
       } yield s
+    }
+  }
+
+  implicit class AsyncFoldWhile[S](val self: S => Async[(S, Continue)]) extends AnyVal {
+
+    def foldWhile(s: S): Async[S] = {
+
+      @tailrec
+      def foldWhile(sb: (S, Continue)): Async[S] = {
+        val (s, continue) = sb
+        if (continue) {
+          self(s) match {
+            case Succeed(v)                    => foldWhile(v)
+            case Failed(v)                     => Failed(v)
+            case v: InCompleted[(S, Continue)] => v.value() match {
+              case Some(Success(v)) => foldWhile(v)
+              case Some(Failure(v)) => Failed(v)
+              case None             => for {
+                v <- v
+                v <- breake(v)
+              } yield v
+            }
+          }
+        } else {
+          Async(s)
+        }
+      }
+
+      def breake(sb: (S, Continue)): Async[S] = foldWhile(sb)
+
+      foldWhile((s, true))
     }
   }
 

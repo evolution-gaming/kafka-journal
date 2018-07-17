@@ -1,16 +1,17 @@
 package com.evolutiongaming.kafka.journal
 
+import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.eventual.PartitionOffset
 import com.evolutiongaming.skafka.consumer.Consumer
 import com.evolutiongaming.skafka.{Topic, TopicPartition}
 
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 
 // TODO pass partition even if offset is unknown
 trait WithReadActions {
-  def apply[T](topic: Topic, partitionOffset: Option[PartitionOffset])(f: ReadActions => Future[T]): Future[T]
+  def apply[T](topic: Topic, partitionOffset: Option[PartitionOffset])(f: ReadActions => Async[T]): Async[T]
 }
 
 object WithReadActions {
@@ -22,7 +23,7 @@ object WithReadActions {
 
     new WithReadActions {
 
-      def apply[T](topic: Topic, partitionOffset: Option[PartitionOffset])(f: ReadActions => Future[T]) = {
+      def apply[T](topic: Topic, partitionOffset: Option[PartitionOffset])(f: ReadActions => Async[T]) = {
 
         // TODO blocking
         // TODO consider separate from splitting

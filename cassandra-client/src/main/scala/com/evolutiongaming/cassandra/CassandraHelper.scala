@@ -10,11 +10,13 @@ object CassandraHelper {
 
   implicit class ListenableFutureOps[T](val self: ListenableFuture[T]) extends AnyVal {
 
+    // TODO
     def await(): Try[T] = {
       val safe = Try(self.get())
       safe.recoverWith { case failure: ExecutionException => Failure(failure.getCause) }
     }
 
+    // TODO
     def asScala(): Future[T] = {
       if (self.isDone) {
         Future.fromTry(await())

@@ -4,13 +4,13 @@ import java.lang.{Integer => IntJ}
 
 import com.datastax.driver.core.{Metadata => _}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
+import com.evolutiongaming.concurrent.async.Async
+import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
-import com.evolutiongaming.util.FutureHelper._
 
 import scala.collection.JavaConverters._
-import scala.concurrent.Future
 
 object PointerStatement {
 
@@ -29,9 +29,9 @@ object PointerStatement {
 
 
   object Insert {
-    type Type = PointerInsert => Future[Unit]
+    type Type = PointerInsert => Async[Unit]
 
-    def apply(name: TableName, session: PrepareAndExecute): Future[Type] = {
+    def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
       implicit val ec = CurrentThreadExecutionContext // TODO remove
 
       val query =
@@ -41,7 +41,7 @@ object PointerStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query)
+        prepared <- session.prepare(query).async
       } yield {
         pointer: PointerInsert =>
           val bound = prepared
@@ -51,16 +51,15 @@ object PointerStatement {
             .encode("offset", pointer.offset)
             .encode("created", pointer.created)
             .encode("updated", pointer.updated)
-          val result = session.execute(bound)
-          result.unit
+          session.execute(bound).async.unit
       }
     }
   }
 
   object Update {
-    type Type = PointerUpdate => Future[Unit]
+    type Type = PointerUpdate => Async[Unit]
 
-    def apply(name: TableName, session: PrepareAndExecute): Future[Type] = {
+    def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
       implicit val ec = CurrentThreadExecutionContext // TODO remove
 
       val query =
@@ -70,7 +69,7 @@ object PointerStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query)
+        prepared <- session.prepare(query).async
       } yield {
         pointer: PointerUpdate =>
           val bound = prepared
@@ -79,17 +78,16 @@ object PointerStatement {
             .encode("partition", pointer.partition)
             .encode("offset", pointer.offset)
             .encode("updated", pointer.updated)
-          val result = session.execute(bound)
-          result.unit
+          session.execute(bound).async.unit
       }
     }
   }
 
 
   object Select {
-    type Type = PointerSelect => Future[Option[Offset]]
+    type Type = PointerSelect => Async[Option[Offset]]
 
-    def apply(name: TableName, session: PrepareAndExecute): Future[Type] = {
+    def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
       implicit val ec = CurrentThreadExecutionContext // TODO remove
 
       val query =
@@ -100,12 +98,12 @@ object PointerStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query)
+        prepared <- session.prepare(query).async
       } yield {
         key: PointerSelect =>
           val bound = prepared.bind(key.topic, key.partition: IntJ)
           for {
-            result <- session.execute(bound)
+            result <- session.execute(bound).async
           } yield for {
             row <- Option(result.one()) // TODO use CassandraSession wrapper
           } yield {
@@ -116,9 +114,9 @@ object PointerStatement {
   }
 
   object SelectTopicPointers {
-    type Type = Topic => Future[TopicPointers]
+    type Type = Topic => Async[TopicPointers]
 
-    def apply(name: TableName, session: PrepareAndExecute): Future[Type] = {
+    def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
       implicit val ec = CurrentThreadExecutionContext // TODO remove
 
       val query =
@@ -128,13 +126,13 @@ object PointerStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query)
+        prepared <- session.prepare(query).async
       } yield {
         topic: Topic =>
           val bound = prepared.bind(topic)
 
           for {
-            result <- session.execute(bound)
+            result <- session.execute(bound).async
           } yield {
             val rows = result.all() // TODO blocking
 

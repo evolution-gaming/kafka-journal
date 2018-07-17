@@ -1,14 +1,16 @@
 package com.evolutiongaming.kafka.journal
 
+import com.evolutiongaming.concurrent.async.Async
+import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.Alias.Id
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecord}
 
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future}
 
 trait ReadActions {
-  def apply(id: Id): Future[Iterable[Action]]
+  def apply(id: Id): Async[Iterable[Action]]
 }
 
 object ReadActions {
@@ -39,7 +41,7 @@ object ReadActions {
 
 
         for {
-          consumerRecords <- consumer.poll(timeout)
+          consumerRecords <- consumer.poll(timeout).async
         } yield {
           for {
             consumerRecords <- consumerRecords.values.values
