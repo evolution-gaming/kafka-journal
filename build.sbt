@@ -41,11 +41,16 @@ lazy val root = (project in file(".")
     `kafka-launcher`,
     `eventual-cassandra`))
 
+lazy val async = (project in file("async")
+  settings (name := "async")
+  settings commonSettings
+  settings (libraryDependencies ++= Seq(ExecutorTools, ScalaTest)))
+
 // TODO cleanup dependencies
 lazy val journal = (project in file("journal")
   settings (name := "kafka-journal")
   settings commonSettings
-  dependsOn `cassandra-client`
+  dependsOn (async, `cassandra-client`)
   settings (libraryDependencies ++= Seq(
     Akka.Persistence,
     Akka.Tck,
