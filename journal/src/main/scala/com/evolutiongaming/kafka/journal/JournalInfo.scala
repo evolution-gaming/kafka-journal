@@ -3,23 +3,22 @@ package com.evolutiongaming.kafka.journal
 import com.evolutiongaming.kafka.journal.Action.Header._
 import com.evolutiongaming.kafka.journal.Alias._
 
-// TODO rename to JournalInfo
-sealed trait ActionBatch {
-  def apply(a: Action.Header): ActionBatch
+sealed trait JournalInfo {
+  def apply(a: Action.Header): JournalInfo
 }
 
-object ActionBatch {
+object JournalInfo {
 
-  def empty: ActionBatch = Empty
+  def empty: JournalInfo = Empty
 
-  def apply(actions: Iterable[Action.Header]): ActionBatch = {
-    actions.foldLeft[ActionBatch](ActionBatch.Empty)(_ apply _)
+  def apply(actions: Iterable[Action.Header]): JournalInfo = {
+    actions.foldLeft[JournalInfo](JournalInfo.Empty)(_ apply _)
   }
 
 
-  final case object Empty extends ActionBatch {
+  final case object Empty extends JournalInfo {
 
-    def apply(a: Action.Header): ActionBatch = a match {
+    def apply(a: Action.Header): JournalInfo = a match {
       case a: Append => NonEmpty(a.range.to, None)
       case a: Delete => DeleteTo(a.to)
       case _: Mark   => this
@@ -29,7 +28,7 @@ object ActionBatch {
 
   // TODO consider adding DeleteAll case
 
-  final case class NonEmpty(lastSeqNr: SeqNr, deleteTo: Option[SeqNr] = None) extends ActionBatch {
+  final case class NonEmpty(lastSeqNr: SeqNr, deleteTo: Option[SeqNr] = None) extends JournalInfo {
 
     require(
       deleteTo.forall(_ > 0),
@@ -39,7 +38,7 @@ object ActionBatch {
       deleteTo.forall(_ <= lastSeqNr),
       s"lastSeqNr($lastSeqNr) >= deleteTo(${ deleteTo.getOrElse(0) })")
 
-    def apply(a: Action.Header): ActionBatch = {
+    def apply(a: Action.Header): JournalInfo = {
 
       def nonEmpty(a: Delete) = {
         val deleteTo = this.deleteTo.fold(a.to) { _ max a.to } min lastSeqNr
@@ -55,11 +54,11 @@ object ActionBatch {
   }
 
 
-  final case class DeleteTo(seqNr: SeqNr) extends ActionBatch {
+  final case class DeleteTo(seqNr: SeqNr) extends JournalInfo {
 
     require(seqNr > 0, s"seqNr($seqNr) > 0")
 
-    def apply(a: Action.Header): ActionBatch = {
+    def apply(a: Action.Header): JournalInfo = {
 
       def nonEmpty(a: Append) = {
         val deleteTo = {

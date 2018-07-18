@@ -262,11 +262,11 @@ object Journal {
           foldActions <- FoldActions(from)
           // TODO use range after eventualRecords
           // TODO prevent from reading calling consume twice!
-          batch <- foldActions(None, ActionBatch.empty) { (batch, action) => batch(action.header).continue }
-          result <- batch match {
-            case ActionBatch.Empty                 => replicated(from)
-            case ActionBatch.NonEmpty(_, deleteTo) => onNonEmpty(deleteTo, foldActions)
-            case ActionBatch.DeleteTo(deleteTo)    => replicated(from max deleteTo.next)
+          info <- foldActions(None, JournalInfo.empty) { (info, action) => info(action.header).continue }
+          result <- info match {
+            case JournalInfo.Empty                 => replicated(from)
+            case JournalInfo.NonEmpty(_, deleteTo) => onNonEmpty(deleteTo, foldActions)
+            case JournalInfo.DeleteTo(deleteTo)    => replicated(from max deleteTo.next)
           }
         } yield result
       }

@@ -92,8 +92,8 @@ object Replicator {
 
         val (_, partitionOffset) = records.last
 
-        def onNonEmpty(batch: ActionBatch.NonEmpty) = {
-          val deleteTo = batch.deleteTo getOrElse SeqNr.Min
+        def onNonEmpty(info: JournalInfo.NonEmpty) = {
+          val deleteTo = info.deleteTo getOrElse SeqNr.Min
           val replicated = for {
             (record, partitionOffset) <- records
             action <- PartialFunction.condOpt(record.action) { case a: Action.Append => a }.toIterable
@@ -104,7 +104,7 @@ object Replicator {
             ReplicatedEvent(event, action.timestamp, partitionOffset)
           }
 
-          val updateTmp = UpdateTmp.DeleteToKnown(batch.deleteTo, replicated.toList)
+          val updateTmp = UpdateTmp.DeleteToKnown(info.deleteTo, replicated.toList)
           val timestamp = Platform.currentTime
           for {
             result <- journal.save(id, updateTmp, topic)
@@ -112,7 +112,7 @@ object Replicator {
             val head = replicated.head
             val last = replicated.last
             val range = SeqRange(head.event.seqNr, last.event.seqNr)
-            val deleteTo = batch.deleteTo
+            val deleteTo = info.deleteTo
             val now = Platform.currentTime
             val duration = now - timestamp
             val latency = now - head.timestamp.toEpochMilli
@@ -121,8 +121,8 @@ object Replicator {
           }
         }
 
-        def onDelete(batch: ActionBatch.DeleteTo) = {
-          val deleteTo = batch.seqNr
+        def onDelete(info: JournalInfo.DeleteTo) = {
+          val deleteTo = info.seqNr
           val updateTmp = UpdateTmp.DeleteUnbound(deleteTo)
           val timestamp = Platform.currentTime
           for {
@@ -136,11 +136,11 @@ object Replicator {
 
         val headers = for {(record, _) <- records} yield record.action.header
 
-        val batch = ActionBatch(headers)
-        batch match {
-          case batch: ActionBatch.NonEmpty => onNonEmpty(batch)
-          case batch: ActionBatch.DeleteTo => onDelete(batch)
-          case ActionBatch.Empty           => Async.unit
+        val info = JournalInfo(headers)
+        info match {
+          case info: JournalInfo.NonEmpty => onNonEmpty(info)
+          case info: JournalInfo.DeleteTo => onDelete(info)
+          case JournalInfo.Empty          => Async.unit
         }
       }
 
@@ -209,7 +209,7 @@ object Replicator {
     } yield {}
 
     async.onComplete {
-      case Success(_) =>
+      case Success(_)       =>
       case Failure(failure) => log.error(s"Replicator failed: $failure", failure)
     }
 
