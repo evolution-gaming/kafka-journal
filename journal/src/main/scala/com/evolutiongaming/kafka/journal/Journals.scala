@@ -7,7 +7,7 @@ import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.AsyncHelper._
-import com.evolutiongaming.kafka.journal.FoldWhileHelper.{Continue, Fold}
+import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
@@ -21,7 +21,7 @@ import scala.concurrent.duration._
 // TODO consider replacing many methods with single `apply[In, Out]`
 trait Journals {
   def append(id: Id, events: Nel[Event], timestamp: Instant): Async[Unit]
-  def foldWhile[S](id: Id, from: SeqNr, s: S)(f: Fold[S, Event]): Async[(S, Continue)]
+  def foldWhile[S](id: Id, from: SeqNr, s: S)(f: Fold[S, Event]): Async[Switch[S]]
   def lastSeqNr(id: Id, from: SeqNr): Async[SeqNr]
   def delete(id: Id, to: SeqNr, timestamp: Instant): Async[Unit]
 }
@@ -30,7 +30,7 @@ object Journals {
 
   val Empty: Journals = new Journals {
     def append(id: Id, events: Nel[Event], timestamp: Instant) = Async.unit
-    def foldWhile[S](id: Id, from: SeqNr, s: S)(f: Fold[S, Event]) = (s, true).async
+    def foldWhile[S](id: Id, from: SeqNr, s: S)(f: Fold[S, Event]) = s.continue.async
     def lastSeqNr(id: Id, from: SeqNr) = Async.seqNr
     def delete(id: Id, to: SeqNr, timestamp: Instant) = Async.unit
   }

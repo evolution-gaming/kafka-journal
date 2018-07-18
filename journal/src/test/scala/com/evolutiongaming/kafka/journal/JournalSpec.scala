@@ -425,9 +425,11 @@ object JournalSpec {
                 if (event.seqNr >= range.from && continue) event.seqNr :: seqNrs
                 else seqNrs
               }
-              (result, continue)
+              result.switch(continue)
             }
-            for {(events, _) <- result} yield events.reverse
+            for {
+              Switch(events, _) <- result
+            } yield events.reverse
           }
           result.get()
         }
@@ -481,11 +483,8 @@ object JournalSpec {
           def read(state: State) = {
             state.events.foldWhile(s) { (s, replicated) =>
               val seqNr = replicated.event.seqNr
-              if (seqNr >= from) {
-                f(s, replicated)
-              } else {
-                (s, true)
-              }
+              if (seqNr >= from) f(s, replicated)
+              else s.continue
             }
           }
 

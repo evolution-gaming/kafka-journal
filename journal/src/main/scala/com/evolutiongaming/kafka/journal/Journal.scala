@@ -23,7 +23,7 @@ import scala.concurrent.duration._
 // TODO should we return offset ?
 trait Journal {
   def append(events: Nel[Event], timestamp: Instant): Async[Unit]
-  def foldWhile[S](from: SeqNr, s: S)(f: Fold[S, Event]): Async[(S, Continue)]
+  def foldWhile[S](from: SeqNr, s: S)(f: Fold[S, Event]): Async[Switch[S]]
   def lastSeqNr(from: SeqNr): Async[SeqNr]
   def delete(to: SeqNr, timestamp: Instant): Async[Unit]
 }
@@ -32,7 +32,7 @@ object Journal {
 
   val Empty: Journal = new Journal {
     def append(events: Nel[Event], timestamp: Instant) = Async.unit
-    def foldWhile[S](from: SeqNr, s: S)(f: Fold[S, Event]) = (s, true).async
+    def foldWhile[S](from: SeqNr, s: S)(f: Fold[S, Event]) = s.continue.async
     def lastSeqNr(from: SeqNr) = Async.seqNr
     def delete(to: SeqNr, timestamp: Instant) = Async.unit
 
@@ -56,7 +56,7 @@ object Journal {
     }
 
     def foldWhile[S](from: SeqNr, s: S)(f: Fold[S, Event]) = {
-      log[(S, Continue)](s"foldWhile from: $from, state: $s") {
+      log[Switch[S]](s"foldWhile from: $from, state: $s") {
         journal.foldWhile(from, s)(f)
       }
     }
@@ -121,13 +121,13 @@ object Journal {
     }
 
     trait FoldActions {
-      def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]): Async[(S, Continue)]
+      def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]): Async[Switch[S]]
     }
 
     object FoldActions {
 
       val Empty: FoldActions = new FoldActions {
-        def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]) = (s, true).async
+        def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]) = s.continue.async
       }
 
 
@@ -167,7 +167,7 @@ object Journal {
 
                 if (replicated getOrElse false) {
                   println(">>>>>>>>>>>>>>> MIRACLE 2 <<<<<<<<<<<<<<<")
-                  (s, true).async
+                  s.continue.async
                 } else {
                   val partitionOffset = {
                     val offsetMax = PartialFunction.condOpt((offset, offsetEventual)) {
@@ -181,27 +181,25 @@ object Journal {
 
                   withReadActions(topic, partitionOffset) { readActions =>
 
-                    val ff = (s: (S, Continue)) => {
+                    val ff = (s: Switch[S]) => {
                       for {
                         actions <- readActions(id)
                       } yield {
 
-                        def apply(sb: (S, Continue), action: Action.User) = {
-                          val (s, _) = sb
-                          val result = f(s, action)
-                          val (_, continue) = result
-                          (result, continue)
+                        def apply(s: Switch[S], action: Action.User) = {
+                          val switch = f(s.s, action)
+                          switch.nest
                         }
 
                         // TODO verify we did not miss Mark and not cycled infinitely
                         actions.foldWhile(s) {
-                          case (sb, action: Action.Append) => if (action.range.to < from) (sb, true) else apply(sb, action)
+                          case (sb, action: Action.Append) => if (action.range.to < from) sb.nest else apply(sb, action)
                           case (sb, action: Action.Delete) => apply(sb, action)
-                          case (sb, action: Action.Mark)   => (sb, action.header.id != marker)
+                          case (sb, action: Action.Mark)   => Switch(sb, action.header.id != marker)
                         }
                       }
                     }
-                    ff.foldWhile((s, true))
+                    ff.foldWhile(s.continue)
                   }
                 }
               }
@@ -228,9 +226,9 @@ object Journal {
           val ss = (s, from, Option.empty[Offset])
           eventual.foldWhile(id, from, ss) { case ((s, _, _), replicated) =>
             val event = replicated.event
-            val (ss, continue) = f(s, event)
+            val switch = f(s, event)
             val from = event.seqNr.next
-            ((ss, from, Some(replicated.partitionOffset.offset)), continue)
+            switch.map { s => (s, from, Some(replicated.partitionOffset.offset)) }
           }
         }
 
@@ -245,15 +243,15 @@ object Journal {
               action match {
                 case action: Action.Append =>
                   if (action.range.to < from) {
-                    (s, true)
+                    s.continue
                   } else {
                     val events = EventsSerializer.fromBytes(action.events)
                     events.foldWhile(s) { case (s, event) =>
-                      if (event.seqNr >= from) f(s, event) else (s, true)
+                      if (event.seqNr >= from) f(s, event) else s.continue
                     }
                   }
 
-                case action: Action.Delete => (s, true)
+                case action: Action.Delete => s.continue
               }
             }
           }
@@ -262,19 +260,18 @@ object Journal {
           val fromFixed = deleteTo.fold(from) { deleteTo => from max deleteTo.next }
 
           for {
-            ((s, from, offset), continue) <- replicatedSeqNr(fromFixed)
-            s <- if (continue) events(from, offset, s) else (s, continue).async
-          } yield {
-            s
-          }
+            switch <- replicatedSeqNr(fromFixed)
+            (s, from, offset) = switch.s
+            s <- if (switch.stop) s.stop.async else events(from, offset, s)
+          } yield s
         }
 
         for {
           foldActions <- FoldActions(from)
           // TODO use range after eventualRecords
           // TODO prevent from reading calling consume twice!
-          (batch, _) <- foldActions(None, ActionBatch.empty) { (batch, action) => (batch(action.header), true) }
-          result <- batch match {
+          switch <- foldActions(None, ActionBatch.empty) { (batch, action) => batch(action.header).continue }
+          result <- switch.s match {
             case ActionBatch.Empty                         => replicated(from)
             case ActionBatch.NonEmpty(lastSeqNr, deleteTo) => onNonEmpty(deleteTo, foldActions)
             case ActionBatch.DeleteTo(deleteTo)            => replicated(from max deleteTo.next)
@@ -287,12 +284,12 @@ object Journal {
         for {
           foldActions <- FoldActions(from)
           seqNrEventual = eventual.lastSeqNr(id, from)
-          (seqNr, _) <- foldActions[SeqNr](None, from) { (seqNr, action) =>
+          Switch(seqNr, _) <- foldActions[SeqNr](None, from) { (seqNr, action) =>
             val result = action match {
               case action: Action.Append => action.header.range.to
               case action: Action.Delete => seqNr
             }
-            (result, true)
+            result.continue
           }
           seqNrEventual <- seqNrEventual
         } yield {

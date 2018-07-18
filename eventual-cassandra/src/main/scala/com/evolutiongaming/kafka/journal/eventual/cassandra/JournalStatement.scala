@@ -6,7 +6,7 @@ import java.time.Instant
 import com.datastax.driver.core.{Metadata => _, _}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.Alias.{Id, SeqNr, Tags}
-import com.evolutiongaming.kafka.journal.FoldWhileHelper.{Continue, Fold}
+import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.eventual.{PartitionOffset, Pointer}
 import com.evolutiongaming.kafka.journal.{Bytes, Event, ReplicatedEvent, SeqRange}
@@ -118,7 +118,7 @@ object JournalStatement {
   object SelectRecords {
 
     trait Type {
-      def apply[S](id: Id, segment: SegmentNr, range: SeqRange, state: S)(f: Fold[S, ReplicatedEvent]): Async[(S, Continue)]
+      def apply[S](id: Id, segment: SegmentNr, range: SeqRange, state: S)(f: Fold[S, ReplicatedEvent]): Async[Switch[S]]
     }
 
     // TODO create Prepare -> Run function
@@ -147,7 +147,7 @@ object JournalStatement {
 
             for {
               result <- session.execute(bound)
-              result <- result.foldWhile(fetchThreshold, (s, true)) { case ((s, _), row) =>
+              result <- result.foldWhile(fetchThreshold, s.continue) { case (Switch(s, _), row) =>
                 val partitionOffset = PartitionOffset(
                   partition = row.decode[Partition]("partition"),
                   offset = row.decode[Offset]("offset"))
@@ -159,8 +159,8 @@ object JournalStatement {
                   event = event,
                   timestamp = row.decode[Instant]("timestamp"),
                   partitionOffset = partitionOffset)
-                val (ss, b) = f(s, replicated)
-                ((ss, b), b)
+                val switch = f(s, replicated)
+                switch.nest
               }
             } yield result
           }

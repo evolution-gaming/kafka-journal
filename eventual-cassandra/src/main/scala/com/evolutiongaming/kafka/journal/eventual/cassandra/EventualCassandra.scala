@@ -56,22 +56,21 @@ object EventualCassandra {
 
         def foldWhile(statement: JournalStatement.SelectRecords.Type, metadata: Metadata) = {
 
-          def foldWhile(from: SeqNr, segment: Segment, s: S): Async[(S, Continue)] = {
+          def foldWhile(from: SeqNr, segment: Segment, s: S): Async[Switch[S]] = {
             val range = SeqRange(from, SeqNr.Max) // TODO do we need range here ?
             for {
               result <- statement(id, segment.nr, range, (s, from)) { case ((s, _), replicated) =>
-                val (ss, continue) = f(s, replicated)
-                ((ss, replicated.event.seqNr), continue)
+                val switch = f(s, replicated)
+                for {s <- switch} yield (s, replicated.event.seqNr)
               }
               result <- {
-                val ((s, seqNr), continue) = result
-                if (continue) {
+                val (s, seqNr) = result.s
+                if (result.stop) s.stop.async
+                else {
                   val from = seqNr.next
-                  segment.next(from).fold((s, continue).async) { segment =>
+                  segment.next(from).fold(s.continue.async) { segment =>
                     foldWhile(from, segment, s)
                   }
-                } else {
-                  (s, continue).async
                 }
               }
             } yield result
@@ -85,7 +84,7 @@ object EventualCassandra {
         for {
           statements <- statements
           metadata <- statements.selectMetadata(id)
-          result <- metadata.fold((s, true).async) { metadata =>
+          result <- metadata.fold(s.continue.async) { metadata =>
             foldWhile(statements.selectRecords, metadata)
           }
         } yield {

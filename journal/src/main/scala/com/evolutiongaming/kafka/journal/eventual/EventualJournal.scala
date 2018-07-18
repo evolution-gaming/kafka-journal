@@ -13,7 +13,7 @@ import com.evolutiongaming.skafka.Topic
 trait EventualJournal {
   // TODO should return NONE when it is empty, otherwise we will seek to wrong offset
   def topicPointers(topic: Topic): Async[TopicPointers]
-  def foldWhile[S](id: Id, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]): Async[(S, Continue)]
+  def foldWhile[S](id: Id, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]): Async[Switch[S]]
   def lastSeqNr(id: Id, from: SeqNr): Async[SeqNr]
 }
 
@@ -23,7 +23,7 @@ object EventualJournal {
     val asyncTopicPointers = TopicPointers.Empty.async
     new EventualJournal {
       def topicPointers(topic: Topic) = asyncTopicPointers
-      def foldWhile[S](id: Id, from: SeqNr, state: S)(f: Fold[S, ReplicatedEvent]) = (state, true).async
+      def foldWhile[S](id: Id, from: SeqNr, state: S)(f: Fold[S, ReplicatedEvent]) = state.continue.async
       def lastSeqNr(id: Id, from: SeqNr) = Async.seqNr
     }
   }
@@ -38,7 +38,7 @@ object EventualJournal {
     }
 
     def foldWhile[S](id: Id, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
-      log[(S, Continue)](s"$id foldWhile from: $from, state: $s") {
+      log[Switch[S]](s"$id foldWhile from: $from, state: $s") {
         eventualJournal.foldWhile(id, from, s)(f)
       }
     }

@@ -9,6 +9,7 @@ import com.evolutiongaming.cassandra.{CassandraConfig, CreateCluster}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.FutureHelper._
+import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig, SchemaConfig}
@@ -144,9 +145,9 @@ class PersistenceJournal extends AsyncWriteJournal {
           writerUuid = persistentEvent.writerUuid)
         callback(persistentRepr)
         val result = count + 1
-        (result, result != max)
+        result switch result != max
       } else {
-        (count, false)
+        count.stop
       }
     }
     async.unit.future

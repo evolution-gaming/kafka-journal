@@ -114,33 +114,28 @@ object CassandraHelper {
 
     def foldWhile[S](fetchThreshold: Int, s: S)(f: Fold[S, Row])(implicit ec: ExecutionContext /*TODO remove*/): Async[S] = {
 
-      @tailrec
-      def foldWhile(s: S, available: Int): (S, Continue) = {
-        if (available == 0) {
-          (s, true)
-        } else {
+      @tailrec def foldWhile(s: S, available: Int): Switch[S] = {
+        if (available == 0) s.continue
+        else {
           if (available == fetchThreshold) self.fetchMoreResults()
           val row = self.one()
-          val result = f(s, row)
-          val (ss, continue) = result
-          if (continue) foldWhile(ss, available - 1)
-          else result
+          val switch = f(s, row)
+          if (switch.stop) switch
+          else foldWhile(switch.s, available - 1)
         }
       }
 
-      val fetch = (sb: (S, Continue)) => {
+      val fetch = (s: Switch[S]) => {
         val available = self.getAvailableWithoutFetching
-        val (s, _) = sb
-        val result = foldWhile(s, available)
-        val (_, continue) = result
-        if (continue && !self.isFullyFetched) {
-          for {_ <- self.fetchMoreResults().asScala().async} yield (result, true)
+        val switch = foldWhile(s.s, available)
+        if (switch.stop || self.isFullyFetched) {
+          Async(Switch.stop(switch))
         } else {
-          (result, false).async
+          for {_ <- self.fetchMoreResults().asScala().async} yield Switch.continue(switch)
         }
       }
 
-      fetch.foldWhile((s, true)).map(_._1)
+      fetch.foldWhile(Switch.continue(s)).map(_.s)
     }
   }
 }

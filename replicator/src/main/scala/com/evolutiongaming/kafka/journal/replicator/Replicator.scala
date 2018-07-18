@@ -177,7 +177,7 @@ object Replicator {
               for {
                 _ <- future.recover { case _ => () }.async
               } yield {
-                (pointers, false)
+                pointers.stop
               }
 
             case None =>
@@ -185,10 +185,10 @@ object Replicator {
                 for {
                   pointers <- apply(pointers, records, Instant.now())
                 } yield {
-                  (pointers, true)
+                  pointers.continue
                 }
               } else {
-                (pointers, true).async
+                pointers.continue.async
               }
           }
         } yield result
