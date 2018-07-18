@@ -8,15 +8,16 @@ import com.evolutiongaming.cassandra.{CassandraConfig, CreateCluster}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.Alias.SeqNr
+import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandraConfig, ReplicatedCassandra, SchemaConfig}
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Bytes => _, _}
 
+import scala.compat.Platform
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
@@ -104,7 +105,7 @@ object Replicator {
           }
 
           val updateTmp = UpdateTmp.DeleteToKnown(batch.deleteTo, replicated.toList)
-
+          val timestamp = Platform.currentTime
           for {
             result <- journal.save(id, updateTmp, topic)
           } yield {
@@ -112,7 +113,10 @@ object Replicator {
             val last = replicated.last
             val range = SeqRange(head.event.seqNr, last.event.seqNr)
             val deleteTo = batch.deleteTo
-            log.info(s"replicated id: $id, range: $range, deleteTo: $deleteTo, partitionOffset: $partitionOffset")
+            val now = Platform.currentTime
+            val duration = now - timestamp
+            val latency = now - head.timestamp.toEpochMilli
+            log.info(s"replicated in $duration|$latency ms, id: $id, range: $range, deleteTo: $deleteTo, partitionOffset: $partitionOffset")
             result
           }
         }
@@ -120,10 +124,12 @@ object Replicator {
         def onDelete(batch: ActionBatch.DeleteTo) = {
           val deleteTo = batch.seqNr
           val updateTmp = UpdateTmp.DeleteUnbound(deleteTo)
+          val timestamp = Platform.currentTime
           for {
             result <- journal.save(id, updateTmp, topic)
           } yield {
-            log.info(s"replicated id: $id, deleteTo: $deleteTo, partitionOffset: $partitionOffset")
+            val duration = Platform.currentTime - timestamp
+            log.info(s"replicated in $duration ms, id: $id, deleteTo: $deleteTo, partitionOffset: $partitionOffset")
             result
           }
         }
