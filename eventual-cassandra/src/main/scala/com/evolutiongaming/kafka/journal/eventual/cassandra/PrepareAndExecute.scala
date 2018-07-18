@@ -18,10 +18,7 @@ trait PrepareAndExecute {
 
 object PrepareAndExecute {
 
-  def apply(
-    session: Session,
-    statementConfig: StatementConfig)(implicit ec: ExecutionContext): PrepareAndExecute = {
-
+  def apply(session: Session, config: StatementConfig)(implicit ec: ExecutionContext): PrepareAndExecute = {
     new PrepareAndExecute {
 
       def prepare(query: String) = {
@@ -29,7 +26,7 @@ object PrepareAndExecute {
       }
 
       def execute(statement: BoundStatement) = {
-        val statementConfigured = statement.set(statementConfig)
+        val statementConfigured = statement.set(config)
         val result = session.executeAsync(statementConfigured)
         result.asScala().async
       }

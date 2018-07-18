@@ -112,7 +112,7 @@ object CassandraHelper {
 
   implicit class ResultSetOps(val self: ResultSet) extends AnyVal {
 
-    def foldWhile[S](fetchThreshold: Int, s: S)(f: Fold[S, Row])(implicit ec: ExecutionContext /*TODO remove*/): Async[(S, Continue)] = {
+    def foldWhile[S](fetchThreshold: Int, s: S)(f: Fold[S, Row])(implicit ec: ExecutionContext /*TODO remove*/): Async[S] = {
 
       @tailrec
       def foldWhile(s: S, available: Int): (S, Continue) = {
@@ -128,22 +128,19 @@ object CassandraHelper {
         }
       }
 
-      // TODO fix stack overflow
-      def fetch(s: S): Async[(S, Continue)] = {
+      val fetch = (sb: (S, Continue)) => {
         val available = self.getAvailableWithoutFetching
+        val (s, _) = sb
         val result = foldWhile(s, available)
-        val (ss, continue) = result
+        val (_, continue) = result
         if (continue && !self.isFullyFetched) {
-          for {
-            _ <- self.fetchMoreResults().asScala().async
-            r <- fetch(ss)
-          } yield r
+          for {_ <- self.fetchMoreResults().asScala().async} yield (result, true)
         } else {
-          result.async
+          (result, false).async
         }
       }
 
-      fetch(s)
+      fetch.foldWhile((s, true)).map(_._1)
     }
   }
 }

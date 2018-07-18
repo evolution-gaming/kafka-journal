@@ -147,7 +147,7 @@ object JournalStatement {
 
             for {
               result <- session.execute(bound)
-              result <- result.foldWhile(fetchThreshold, s) { (s, row) =>
+              result <- result.foldWhile(fetchThreshold, (s, true)) { case ((s, _), row) =>
                 val partitionOffset = PartitionOffset(
                   partition = row.decode[Partition]("partition"),
                   offset = row.decode[Offset]("offset"))
@@ -159,7 +159,8 @@ object JournalStatement {
                   event = event,
                   timestamp = row.decode[Instant]("timestamp"),
                   partitionOffset = partitionOffset)
-                f(s, replicated)
+                val (ss, b) = f(s, replicated)
+                ((ss, b), b)
               }
             } yield result
           }

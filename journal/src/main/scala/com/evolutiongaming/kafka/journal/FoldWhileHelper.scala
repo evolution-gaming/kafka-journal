@@ -73,10 +73,7 @@ object FoldWhileHelper {
             case v: InCompleted[(S, Continue)] => v.value() match {
               case Some(Success(v)) => foldWhile(v)
               case Some(Failure(v)) => Failed(v)
-              case None             => for {
-                v <- v
-                v <- break(v)
-              } yield v
+              case None             => v.flatMap(break)
             }
           }
         } else {

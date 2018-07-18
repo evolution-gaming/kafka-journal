@@ -32,7 +32,7 @@ sealed trait Async[+T] {
 
   def flatten[TT](implicit ev: T <:< Async[TT]): Async[TT] = flatMap(ev)
 
-  final def unit: Async[Unit] = map(_ => ())
+  final def unit: Async[Unit] = flatMap(_ => Async.unit)
 
   final def withFilter(p: T => Boolean): Async[T] = {
     map { v =>
@@ -92,15 +92,11 @@ object Async {
           case v: InCompleted[T] => v.value() match {
             case Some(Success(v)) => fold(f(s, v))
             case Some(Failure(v)) => Failed(v)
-            case None             => for {
-              v <- v
-              v <- break(f(s, v))
-            } yield v
+            case None             => v.flatMap(v => break(f(s, v)))
           }
         }
       }
     }
-
 
     def break(s: S) = fold(s)
 
