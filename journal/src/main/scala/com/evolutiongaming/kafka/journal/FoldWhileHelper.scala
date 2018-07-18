@@ -21,7 +21,7 @@ object FoldWhileHelper {
   case class Switch[@specialized +S](s: S, continue: Boolean) {
     def stop: Boolean = !continue
     def map[SS](f: S => SS): Switch[SS] = copy(s = f(s))
-    def nest: Switch[Switch[S]] = map(_ => this)
+    def enclose: Switch[Switch[S]] = map(_ => this)
   }
 
   object Switch {
@@ -53,6 +53,7 @@ object FoldWhileHelper {
     }
   }
 
+
   object IterableFoldWhile {
     private case class Return[S](s: S) extends ControlThrowable
   }
@@ -76,6 +77,7 @@ object FoldWhileHelper {
     }
   }
 
+
   implicit class AsyncFoldWhile[S](val self: S => Async[Switch[S]]) extends AnyVal {
 
     def foldWhile(s: S): Async[S] = {
@@ -84,12 +86,12 @@ object FoldWhileHelper {
         if (switch.stop) Async[S](switch.s)
         else {
           self(switch.s) match {
-            case Succeed(v)                => foldWhile(v)
-            case Failed(v)                 => Failed(v)
-            case v: InCompleted[Switch[S]] => v.value() match {
-              case Some(Success(v)) => foldWhile(v)
-              case Some(Failure(v)) => Failed(v)
-              case None             => v.flatMap(break)
+            case Succeed(s)                => foldWhile(s)
+            case Failed(s)                 => Failed(s)
+            case s: InCompleted[Switch[S]] => s.value() match {
+              case Some(Success(s)) => foldWhile(s)
+              case Some(Failure(s)) => Failed(s)
+              case None             => s.flatMap(break)
             }
           }
         }

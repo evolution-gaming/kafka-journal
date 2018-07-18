@@ -21,7 +21,7 @@ import scala.concurrent.duration._
 // TODO consider replacing many methods with single `apply[In, Out]`
 trait Journals {
   def append(id: Id, events: Nel[Event], timestamp: Instant): Async[Unit]
-  def foldWhile[S](id: Id, from: SeqNr, s: S)(f: Fold[S, Event]): Async[Switch[S]]
+  def foldWhile[S](id: Id, from: SeqNr, s: S)(f: Fold[S, Event]): Async[S]
   def lastSeqNr(id: Id, from: SeqNr): Async[SeqNr]
   def delete(id: Id, to: SeqNr, timestamp: Instant): Async[Unit]
 }
@@ -30,7 +30,7 @@ object Journals {
 
   val Empty: Journals = new Journals {
     def append(id: Id, events: Nel[Event], timestamp: Instant) = Async.unit
-    def foldWhile[S](id: Id, from: SeqNr, s: S)(f: Fold[S, Event]) = s.continue.async
+    def foldWhile[S](id: Id, from: SeqNr, s: S)(f: Fold[S, Event]) = s.async
     def lastSeqNr(id: Id, from: SeqNr) = Async.seqNr
     def delete(id: Id, to: SeqNr, timestamp: Instant) = Async.unit
   }

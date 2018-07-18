@@ -427,9 +427,7 @@ object JournalSpec {
               }
               result.switch(continue)
             }
-            for {
-              Switch(events, _) <- result
-            } yield events.reverse
+            for {events <- result} yield events.reverse
           }
           result.get()
         }
