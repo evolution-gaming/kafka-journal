@@ -2,13 +2,10 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 
 import com.datastax.driver.core.{Metadata => _}
-import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.Alias.{Id, SeqNr}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.skafka.Topic
-import com.evolutiongaming.util.FutureHelper._
 
 
 object MetadataStatement {
@@ -32,7 +29,6 @@ object MetadataStatement {
     type Type = Metadata => Async[Unit]
 
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
-      implicit val ec = CurrentThreadExecutionContext // TODO remove
 
       val query =
         s"""
@@ -41,7 +37,7 @@ object MetadataStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query).async
+        prepared <- session.prepare(query)
       } yield {
         metadata: Metadata =>
           val bound = prepared
@@ -50,7 +46,7 @@ object MetadataStatement {
             .encode("topic", metadata.topic)
             .encode("segment_size", metadata.segmentSize)
             .encode("delete_to", metadata.deleteTo)
-          session.execute(bound).async.unit
+          session.execute(bound).unit
       }
     }
   }
@@ -60,8 +56,6 @@ object MetadataStatement {
     type Type = Id => Async[Option[Metadata]]
 
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
-      implicit val ec = CurrentThreadExecutionContext // TODO remove
-
       val query =
         s"""
            |SELECT topic, segment_size, delete_to FROM ${ name.asCql }
@@ -69,12 +63,12 @@ object MetadataStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query).async
+        prepared <- session.prepare(query)
       } yield {
         id: Id =>
           val bound = prepared.bind(id)
           for {
-            result <- session.execute(bound).async
+            result <- session.execute(bound)
           } yield for {
             row <- Option(result.one()) // TODO use CassandraSession wrapper
           } yield {
@@ -92,7 +86,6 @@ object MetadataStatement {
     type Type = Id => Async[Option[Int]]
 
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
-      implicit val ec = CurrentThreadExecutionContext // TODO remove
 
       val query =
         s"""
@@ -101,12 +94,12 @@ object MetadataStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query).async
+        prepared <- session.prepare(query)
       } yield {
         id: Id =>
           val bound = prepared.bind(id)
           for {
-            result <- session.execute(bound).async
+            result <- session.execute(bound)
           } yield for {
             row <- Option(result.one())
           } yield {
@@ -123,7 +116,6 @@ object MetadataStatement {
     type Type = Metadata => Async[Unit]
 
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
-      implicit val ec = CurrentThreadExecutionContext // TODO remove
 
       // TODO use update query
       val query =
@@ -133,7 +125,7 @@ object MetadataStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query).async
+        prepared <- session.prepare(query)
       } yield {
         metadata: Metadata =>
           val bound = prepared
@@ -141,7 +133,7 @@ object MetadataStatement {
             .encode("id", metadata.id)
             .encode("topic", metadata.topic)
             .encode("delete_to", metadata.deleteTo)
-          session.execute(bound).async.unit
+          session.execute(bound).unit
       }
     }
   }

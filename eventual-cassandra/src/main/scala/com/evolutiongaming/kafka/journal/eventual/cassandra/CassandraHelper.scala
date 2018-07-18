@@ -10,11 +10,10 @@ import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.Bytes
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
-import com.evolutiongaming.kafka.journal.FutureHelper._
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 // TODO move to cassandra client
 object CassandraHelper {
@@ -113,7 +112,7 @@ object CassandraHelper {
 
   implicit class ResultSetOps(val self: ResultSet) extends AnyVal {
 
-    def foldWhile[S](fetchThreshold: Int, s: S)(f: Fold[S, Row])(implicit ec: ExecutionContext): Async[(S, Continue)] = {
+    def foldWhile[S](fetchThreshold: Int, s: S)(f: Fold[S, Row])(implicit ec: ExecutionContext /*TODO remove*/): Async[(S, Continue)] = {
 
       @tailrec
       def foldWhile(s: S, available: Int): (S, Continue) = {

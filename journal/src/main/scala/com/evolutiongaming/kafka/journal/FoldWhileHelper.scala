@@ -75,7 +75,7 @@ object FoldWhileHelper {
               case Some(Failure(v)) => Failed(v)
               case None             => for {
                 v <- v
-                v <- breake(v)
+                v <- break(v)
               } yield v
             }
           }
@@ -84,7 +84,7 @@ object FoldWhileHelper {
         }
       }
 
-      def breake(sb: (S, Continue)): Async[S] = foldWhile(sb)
+      def break(sb: (S, Continue)): Async[S] = foldWhile(sb)
 
       foldWhile((s, true))
     }

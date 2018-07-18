@@ -4,18 +4,15 @@ import java.lang.{Long => LongJ}
 import java.time.Instant
 
 import com.datastax.driver.core.{Metadata => _, _}
-import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.Alias.{Id, SeqNr, Tags}
 import com.evolutiongaming.kafka.journal.FoldWhileHelper.{Continue, Fold}
-import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.eventual.{PartitionOffset, Pointer}
 import com.evolutiongaming.kafka.journal.{Bytes, Event, ReplicatedEvent, SeqRange}
 import com.evolutiongaming.skafka.{Offset, Partition}
 
-import scala.concurrent.Future
+import scala.concurrent.ExecutionContext
 
 object JournalStatement {
 
@@ -83,10 +80,8 @@ object JournalStatement {
     // TODO add from ?
     type Type = (Id, SegmentNr, SeqNr) => Async[Option[Pointer]]
 
-    // TODO fast future
     // TODO create Prepare -> Run function
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
-      implicit val ec = CurrentThreadExecutionContext // TODO remove
       val query =
         s"""
            |SELECT seq_nr, partition, offset
@@ -99,12 +94,12 @@ object JournalStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query).async/*TODO*/
+        prepared <- session.prepare(query)
       } yield {
         (id: Id, segment: SegmentNr, from: SeqNr) =>
           val bound = prepared.bind(id, segment.value: LongJ, from: LongJ)
           for {
-            result <- session.execute(bound).async
+            result <- session.execute(bound)
           } yield for {
             row <- Option(result.one())
           } yield {
@@ -127,8 +122,7 @@ object JournalStatement {
     }
 
     // TODO create Prepare -> Run function
-    def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
-      implicit val ec = CurrentThreadExecutionContext // TODO remove
+    def apply(name: TableName, session: PrepareAndExecute)(implicit ec: ExecutionContext): Async[Type] = {
       val query =
         s"""
            |SELECT seq_nr, timestamp, payload, tags, partition, offset FROM ${ name.asCql }
@@ -139,7 +133,7 @@ object JournalStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query).async
+        prepared <- session.prepare(query)
       } yield {
         new Type {
           def apply[S](id: Id, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]) = {
@@ -152,7 +146,7 @@ object JournalStatement {
             bound.setFetchSize(fetchSize)
 
             for {
-              result <- session.execute(bound).async/*TODO*/
+              result <- session.execute(bound)
               result <- result.foldWhile(fetchThreshold, s) { (s, row) =>
                 val partitionOffset = PartitionOffset(
                   partition = row.decode[Partition]("partition"),
@@ -179,7 +173,6 @@ object JournalStatement {
 
     // TODO create Prepare -> Run function
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
-      implicit val ec = CurrentThreadExecutionContext // TODO remove
       val query =
         s"""
            |DELETE FROM ${ name.asCql }
@@ -189,12 +182,12 @@ object JournalStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query).async
+        prepared <- session.prepare(query)
       } yield {
         (id: Id, segment: SegmentNr, seqNr: SeqNr) =>
           // TODO avoid casting via providing implicit converters
           val bound = prepared.bind(id, segment.value: LongJ, seqNr: LongJ)
-          session.execute(bound).async.unit
+          session.execute(bound).unit
       }
     }
   }

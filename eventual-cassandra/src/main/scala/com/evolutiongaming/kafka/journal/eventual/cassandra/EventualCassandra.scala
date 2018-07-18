@@ -125,7 +125,7 @@ object EventualCassandra {
 
   object Statements {
 
-    def apply(tables: Tables, prepareAndExecute: PrepareAndExecute): Async[Statements] = {
+    def apply(tables: Tables, prepareAndExecute: PrepareAndExecute)(implicit ec: ExecutionContext): Async[Statements] = {
 
       val selectLastRecord = JournalStatement.SelectLastRecord(tables.journal, prepareAndExecute)
       val listRecords = JournalStatement.SelectRecords(tables.journal, prepareAndExecute)

@@ -3,9 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import java.lang.{Integer => IntJ}
 
 import com.datastax.driver.core.{Metadata => _}
-import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
@@ -32,8 +30,6 @@ object PointerStatement {
     type Type = PointerInsert => Async[Unit]
 
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
-      implicit val ec = CurrentThreadExecutionContext // TODO remove
-
       val query =
         s"""
            |INSERT INTO ${ name.asCql } (topic, partition, offset, created, updated)
@@ -41,7 +37,7 @@ object PointerStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query).async
+        prepared <- session.prepare(query)
       } yield {
         pointer: PointerInsert =>
           val bound = prepared
@@ -51,7 +47,7 @@ object PointerStatement {
             .encode("offset", pointer.offset)
             .encode("created", pointer.created)
             .encode("updated", pointer.updated)
-          session.execute(bound).async.unit
+          session.execute(bound).unit
       }
     }
   }
@@ -60,8 +56,6 @@ object PointerStatement {
     type Type = PointerUpdate => Async[Unit]
 
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
-      implicit val ec = CurrentThreadExecutionContext // TODO remove
-
       val query =
         s"""
            |INSERT INTO ${ name.asCql } (topic, partition, offset, updated)
@@ -69,7 +63,7 @@ object PointerStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query).async
+        prepared <- session.prepare(query)
       } yield {
         pointer: PointerUpdate =>
           val bound = prepared
@@ -78,7 +72,7 @@ object PointerStatement {
             .encode("partition", pointer.partition)
             .encode("offset", pointer.offset)
             .encode("updated", pointer.updated)
-          session.execute(bound).async.unit
+          session.execute(bound).unit
       }
     }
   }
@@ -88,8 +82,6 @@ object PointerStatement {
     type Type = PointerSelect => Async[Option[Offset]]
 
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
-      implicit val ec = CurrentThreadExecutionContext // TODO remove
-
       val query =
         s"""
            |SELECT offset FROM ${ name.asCql }
@@ -98,12 +90,12 @@ object PointerStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query).async
+        prepared <- session.prepare(query)
       } yield {
         key: PointerSelect =>
           val bound = prepared.bind(key.topic, key.partition: IntJ)
           for {
-            result <- session.execute(bound).async
+            result <- session.execute(bound)
           } yield for {
             row <- Option(result.one()) // TODO use CassandraSession wrapper
           } yield {
@@ -117,8 +109,6 @@ object PointerStatement {
     type Type = Topic => Async[TopicPointers]
 
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
-      implicit val ec = CurrentThreadExecutionContext // TODO remove
-
       val query =
         s"""
            |SELECT partition, offset FROM ${ name.asCql }
@@ -126,13 +116,13 @@ object PointerStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query).async
+        prepared <- session.prepare(query)
       } yield {
         topic: Topic =>
           val bound = prepared.bind(topic)
 
           for {
-            result <- session.execute(bound).async
+            result <- session.execute(bound)
           } yield {
             val rows = result.all() // TODO blocking
 

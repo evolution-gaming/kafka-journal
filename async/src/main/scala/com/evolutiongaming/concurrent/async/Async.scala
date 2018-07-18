@@ -94,7 +94,7 @@ object Async {
             case Some(Failure(v)) => Failed(v)
             case None             => for {
               v <- v
-              v <- async(f(s, v))
+              v <- break(f(s, v))
             } yield v
           }
         }
@@ -102,7 +102,7 @@ object Async {
     }
 
 
-    def async(s: S) = fold(s)
+    def break(s: S) = fold(s)
 
     fold(s)
   }
