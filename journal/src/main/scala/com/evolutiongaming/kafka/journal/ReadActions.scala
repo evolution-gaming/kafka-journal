@@ -46,7 +46,7 @@ object ReadActions {
           for {
             consumerRecords <- consumerRecords.values.values
             consumerRecord <- consumerRecords
-            if filter(consumerRecord) // TODO log skipped
+            if filter(consumerRecord)
             action <- consumerRecord.toAction
           } yield {
             action

@@ -9,7 +9,7 @@ import com.evolutiongaming.kafka.journal.ActorLogHelper._
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
-import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, PartitionOffset}
+import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer.Consumer
@@ -109,94 +109,36 @@ object Journal {
     writeAction: WriteAction)(implicit
     ec: ExecutionContext): Journal = {
 
-    def mark(): Async[(String, Partition, Option[Offset])] = {
-      val marker = UUID.randomUUID().toString
-      val action = Action.Mark(marker)
+    def mark(): Async[Marker] = {
+      val id = UUID.randomUUID().toString
+      val action = Action.Mark(id)
 
       for {
         (partition, offset) <- writeAction(action)
       } yield {
-        (marker, partition, offset)
+        Marker(id, partition, offset)
       }
     }
 
-    trait FoldActions {
-      def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]): Async[S]
-    }
+    def foldActions(from: SeqNr): Async[FoldActions] = {
+      val marker = mark()
+      val topicPointers = eventual.topicPointers(topic)
+      for {
+        marker <- marker
+        topicPointers <- topicPointers
+      } yield {
+        val offsetReplicated = topicPointers.pointers.get(marker.partition)
 
-    object FoldActions {
-
-      val Empty: FoldActions = new FoldActions {
-        def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]) = s.async
-      }
-
-
-      // TODO add range argument
-      def apply(from: SeqNr): Async[FoldActions] = {
-        val marker = mark()
-        val topicPointers = eventual.topicPointers(topic)
-
-        for {
-          (marker, partition, offsetLast) <- marker
-          topicPointers <- topicPointers
+        // TODO compare partitions !
+        val replicated = for {
+          offset <- marker.offset
+          offsetReplicated <- offsetReplicated
         } yield {
-          val offsetEventual = topicPointers.pointers.get(partition)
-
-          // TODO compare partitions !
-          val replicated = for {
-            offsetLast <- offsetLast
-            offsetReplicated <- offsetEventual
-          } yield {
-            offsetLast.prev <= offsetReplicated
-          }
-
-          if (replicated getOrElse false) Empty
-          else new FoldActions {
-
-            def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]) = {
-
-              val replicated = for {
-                offsetLast <- offsetLast
-                offset <- offset
-              } yield {
-                offsetLast.prev <= offset
-              }
-
-              if (replicated getOrElse false) s.async
-              else {
-                val partitionOffset = {
-                  val offsetMax = PartialFunction.condOpt((offset, offsetEventual)) {
-                    case (Some(o1), Some(o2)) => o1 max o2
-                    case (Some(o), None)      => o
-                    case (None, Some(o))      => o
-                  }
-
-                  for {offset <- offsetMax} yield PartitionOffset(partition, offset)
-                }
-
-                withReadActions(topic, partitionOffset) { readActions =>
-
-                  val ff = (s: S) => {
-                    for {
-                      actions <- readActions(id)
-                    } yield {
-
-                      // TODO verify we did not miss Mark and not cycled infinitely
-                      actions.foldWhile(s) { (s, action) =>
-                        action match {
-                          case action: Action.Append => if (action.range.to < from) Switch.continue(s) else f(s, action)
-                          case action: Action.Delete => f(s, action)
-                          case action: Action.Mark   => s switch action.header.id != marker
-                        }
-                      }
-                    }
-                  }
-                  ff.foldWhile(s)
-                }
-              }
-            }
-          }
+          offset.prev <= offsetReplicated
         }
+
+        if (replicated getOrElse false) FoldActions.Empty
+        else FoldActions(id, topic, from, marker, offsetReplicated, withReadActions)
       }
     }
 
@@ -259,7 +201,7 @@ object Journal {
         }
 
         for {
-          foldActions <- FoldActions(from)
+          foldActions <- foldActions(from)
           // TODO use range after eventualRecords
           // TODO prevent from reading calling consume twice!
           info <- foldActions(None, JournalInfo.empty) { (info, action) => info(action.header).continue }
@@ -274,7 +216,7 @@ object Journal {
 
       def lastSeqNr(from: SeqNr) = {
         for {
-          foldActions <- FoldActions(from)
+          foldActions <- foldActions(from)
           seqNrEventual = eventual.lastSeqNr(id, from)
           seqNr <- foldActions[SeqNr](None, from) { (seqNr, action) =>
             val result = action match {
