@@ -2,9 +2,8 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 
-import com.evolutiongaming.kafka.journal.Alias.{Id, SeqNr}
+import com.evolutiongaming.kafka.journal.Alias.SeqNr
 import com.evolutiongaming.kafka.journal.eventual.PartitionOffset
-import com.evolutiongaming.skafka.Topic
 
 sealed trait Action {
   def header: Action.Header
@@ -69,12 +68,9 @@ object Action {
 }
 
 
-final case class IdAndTopic(id: Id, topic: Topic) // TODO use for KafkaRecord
-
-
 // TODO drawback of using type here
 // TODO do we need this type complexity in general?
-final case class KafkaRecord[A <: Action](id: Id, topic: Topic /*TODO not needed here*/ , action: A)
+final case class KafkaRecord[A <: Action](key: Key, action: A)
 
 object KafkaRecord {
   type Any = KafkaRecord[_ <: Action]

@@ -8,8 +8,8 @@ import akka.persistence.{AtomicWrite, PersistentRepr}
 import com.evolutiongaming.cassandra.{CassandraConfig, CreateCluster}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.Alias._
-import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
+import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig, SchemaConfig}
@@ -25,15 +25,19 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.control.NonFatal
 
+// TODO split on two classes for unit testing: "? extends AsyncWriteJournal" and "?"
 class PersistenceJournal extends AsyncWriteJournal {
 
-  val serializedMsgExt = SerializedMsgExt(context.system)
-  implicit val system = context.system
-  implicit val ec = system.dispatcher
+  private implicit val system = context.system
+  private implicit val ec = system.dispatcher
 
-  val log = ActorLog(system, classOf[PersistenceJournal])
+  private val serializedMsgExt = SerializedMsgExt(system)
+  private val log = ActorLog(system, classOf[PersistenceJournal])
 
-  lazy val journals: Journals = {
+  // TODO add ability to override this
+  val toKey: ToKey = ToKey("journal")
+
+  private lazy val journals: Journals = {
 
     def config(name: String) = {
       val config = system.settings.config
@@ -72,7 +76,14 @@ class PersistenceJournal extends AsyncWriteJournal {
     val eventualJournal: EventualJournal = {
       val cassandraConfig = CassandraConfig.Default
       val cluster = CreateCluster(cassandraConfig)
-      val session = cluster.connect()
+      val session = {
+        val session = cluster.connect()
+        system.registerOnTermination {
+          session.closeAsync() // TODO wrap to scala future and log
+          cluster.closeAsync() // TODO wrap to scala future and log
+        }
+        session
+      }
       val schemaConfig = SchemaConfig.Default
       val config = EventualCassandraConfig.Default
       // TODO read only cassandra statements
@@ -97,6 +108,7 @@ class PersistenceJournal extends AsyncWriteJournal {
     if (persistentReprs.isEmpty) Future.seq
     else {
       val persistenceId = persistentReprs.head.persistenceId
+      val key = toKey(persistenceId)
 
       def seqNrs = persistentReprs.map(_.sequenceNr).mkString(",")
 
@@ -113,7 +125,7 @@ class PersistenceJournal extends AsyncWriteJournal {
           Event(persistentRepr.sequenceNr, tags, Bytes(bytes))
         }
         val nel = Nel(events.head, events.tail.toList) // TODO is it optimal convert to list ?
-        val result = journals.append(persistenceId, nel, timestamp)
+        val result = journals.append(key, nel, timestamp)
         result.map(_ => Nil)
       }
       async.flatten.future
@@ -122,13 +134,14 @@ class PersistenceJournal extends AsyncWriteJournal {
 
   def asyncDeleteMessagesTo(persistenceId: PersistenceId, to: SeqNr) = {
     val timestamp = Instant.now()
-    journals.delete(persistenceId, to, timestamp).future
+    val key = toKey(persistenceId)
+    journals.delete(key, to, timestamp).future
   }
 
   def asyncReplayMessages(persistenceId: PersistenceId, from: SeqNr, to: SeqNr, max: Long)
     (callback: PersistentRepr => Unit): Future[Unit] = {
 
-    val async = journals.foldWhile(persistenceId, from, 0l) { (count, event) =>
+    val fold: Fold[Long, Event] = (count, event) => {
       if (event.seqNr <= to && count < max) {
         val persistentEvent = PersistentEventSerializer.fromBinary(event.payload.value)
         val serializedMsg = SerializedMsg(
@@ -144,17 +157,20 @@ class PersistenceJournal extends AsyncWriteJournal {
           manifest = persistentEvent.persistentManifest,
           writerUuid = persistentEvent.writerUuid)
         callback(persistentRepr)
-        val result = count + 1
-        result switch result != max
+        val countNew = count + 1
+        countNew switch countNew != max
       } else {
         count.stop
       }
     }
+    val key = toKey(persistenceId)
+    val async = journals.foldWhile(key, from, 0l)(fold)
     async.unit.future
   }
 
   def asyncReadHighestSequenceNr(persistenceId: PersistenceId, from: SeqNr) = {
-    journals.lastSeqNr(persistenceId, from).future
+    val key = toKey(persistenceId)
+    journals.lastSeqNr(key, from).future
   }
 }
 

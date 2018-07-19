@@ -159,8 +159,7 @@ class JournalSpec extends WordSpec with Matchers {
             (partition, Some(offset)).async
           }
         }
-        val journal = Journal(id, topic, ActorLog.empty, eventualJournal, withReadActions, writeAction)
-        SeqNrJournal(journal)
+        SeqNrJournal(eventualJournal, withReadActions, writeAction)
       }
     }
 
@@ -192,8 +191,7 @@ class JournalSpec extends WordSpec with Matchers {
           }
         }
 
-        val journal = Journal(id, topic, ActorLog.empty, eventualJournal, withReadActions, writeAction)
-        SeqNrJournal(journal)
+        SeqNrJournal(eventualJournal, withReadActions, writeAction)
       }
     }
 
@@ -220,8 +218,7 @@ class JournalSpec extends WordSpec with Matchers {
           }
         }
 
-        val journal = Journal(id, topic, ActorLog.empty, eventualJournal, withReadActions, writeAction)
-        SeqNrJournal(journal)
+        SeqNrJournal(eventualJournal, withReadActions, writeAction)
       }
     }
 
@@ -249,8 +246,7 @@ class JournalSpec extends WordSpec with Matchers {
           }
         }
 
-        val journal = Journal(id, topic, ActorLog.empty, eventualJournal, withReadActions, writeAction)
-        SeqNrJournal(journal)
+        SeqNrJournal(eventualJournal, withReadActions, writeAction)
       }
     }
 
@@ -277,8 +273,7 @@ class JournalSpec extends WordSpec with Matchers {
           }
         }
 
-        val journal = Journal(id, topic, ActorLog.empty, eventualJournal, withReadActions, writeAction)
-        SeqNrJournal(journal)
+        SeqNrJournal(eventualJournal, withReadActions, writeAction)
       }
     }
 
@@ -310,8 +305,7 @@ class JournalSpec extends WordSpec with Matchers {
           }
         }
 
-        val journal = Journal(id, topic, ActorLog.empty, eventualJournal, withReadActions, writeAction)
-        SeqNrJournal(journal)
+        SeqNrJournal(eventualJournal, withReadActions, writeAction)
       }
     }
 
@@ -344,8 +338,7 @@ class JournalSpec extends WordSpec with Matchers {
           }
         }
 
-        val journal = Journal(id, topic, ActorLog.empty, eventualJournal, withReadActions, writeAction)
-        SeqNrJournal(journal)
+        SeqNrJournal(eventualJournal, withReadActions, writeAction)
       }
     }
 
@@ -378,16 +371,14 @@ class JournalSpec extends WordSpec with Matchers {
           }
         }
 
-        val journal = Journal(id, topic, ActorLog.empty, eventualJournal, withReadActions, writeAction)
-        SeqNrJournal(journal)
+        SeqNrJournal(eventualJournal, withReadActions, writeAction)
       }
     }
   }
 }
 
 object JournalSpec {
-  val id = "id"
-  val topic = "topic"
+  val key = Key(id = "id", topic = "topic")
   val timestamp = Instant.now()
   val partition: Partition = 0
 
@@ -436,6 +427,15 @@ object JournalSpec {
 
         def delete(to: SeqNr) = journal.delete(to, timestamp).get()
       }
+    }
+
+    def apply(
+      eventual: EventualJournal,
+      withReadActions: WithReadActions,
+      writeAction: WriteAction): SeqNrJournal = {
+
+      val journal = Journal(key, ActorLog.empty, eventual, withReadActions, writeAction)
+      SeqNrJournal(journal)
     }
   }
 

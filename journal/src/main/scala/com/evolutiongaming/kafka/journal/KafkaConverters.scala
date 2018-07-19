@@ -47,6 +47,7 @@ object KafkaConverters {
 
     def toProducerRecord: ProducerRecord[String, Bytes] = {
       val action = self.action
+      val key = self.key
       val header = action.header.toKafkaHeader
       val (payload, timestamp) = action match {
         case action: Action.Append => (action.events, Some(action.timestamp))
@@ -54,9 +55,9 @@ object KafkaConverters {
         case action: Action.Mark   => (Bytes.Empty, None)
       }
       ProducerRecord(
-        topic = self.topic,
+        topic = key.topic,
         value = payload,
-        key = Some(self.id),
+        key = Some(key.id),
         timestamp = timestamp.map(_.toEpochMilli),
         headers = List(header))
     }
@@ -119,7 +120,8 @@ object KafkaConverters {
         id <- self.key
         action <- self.toAction
       } yield {
-        KafkaRecord(id, self.topic, action)
+        val key = Key(id, self.topic)
+        KafkaRecord(key, action)
       }
     }
 

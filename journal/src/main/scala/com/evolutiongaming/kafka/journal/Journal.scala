@@ -82,8 +82,7 @@ object Journal {
 
   // TODO create separate class IdAndTopic
   def apply(
-    id: Id,
-    topic: Topic,
+    key: Key,
     log: ActorLog, // TODO remove
     producer: Producer,
     newConsumer: () => Consumer[String, Bytes],
@@ -94,15 +93,14 @@ object Journal {
     val closeTimeout = 3.seconds // TODO from  config
     val withReadKafka = WithReadActions(newConsumer, pollTimeout, closeTimeout)
 
-    val writeAction = WriteAction(id, topic, producer)
+    val writeAction = WriteAction(key, producer)
 
-    apply(id, topic, log, eventual, withReadKafka, writeAction)
+    apply(key, log, eventual, withReadKafka, writeAction)
   }
 
 
   def apply(
-    id: Id,
-    topic: Topic,
+    key: Key,
     log: ActorLog,
     eventual: EventualJournal,
     withReadActions: WithReadActions,
@@ -112,7 +110,6 @@ object Journal {
     def mark(): Async[Marker] = {
       val id = UUID.randomUUID().toString
       val action = Action.Mark(id)
-
       for {
         (partition, offset) <- writeAction(action)
       } yield {
@@ -122,23 +119,13 @@ object Journal {
 
     def foldActions(from: SeqNr): Async[FoldActions] = {
       val marker = mark()
-      val topicPointers = eventual.topicPointers(topic)
+      val topicPointers = eventual.topicPointers(key.topic)
       for {
         marker <- marker
         topicPointers <- topicPointers
       } yield {
         val offsetReplicated = topicPointers.pointers.get(marker.partition)
-
-        // TODO compare partitions !
-        val replicated = for {
-          offset <- marker.offset
-          offsetReplicated <- offsetReplicated
-        } yield {
-          offset.prev <= offsetReplicated
-        }
-
-        if (replicated getOrElse false) FoldActions.Empty
-        else FoldActions(id, topic, from, marker, offsetReplicated, withReadActions)
+        FoldActions(key, from, marker, offsetReplicated, withReadActions)
       }
     }
 
@@ -152,22 +139,26 @@ object Journal {
         result.unit
       }
 
+
       // TODO add optimisation for ranges
       def foldWhile[S](from: SeqNr, s: S)(f: Fold[S, Event]) = {
 
         def replicatedSeqNr(from: SeqNr) = {
           val ss = (s, from, Option.empty[Offset])
-          eventual.foldWhile(id, from, ss) { case ((s, _, _), replicated) =>
+          eventual.foldWhile(key.id, from, ss) { case ((s, _, _), replicated) =>
             val event = replicated.event
             val switch = f(s, event)
             val from = event.seqNr.next
-            switch.map { s => (s, from, Some(replicated.partitionOffset.offset)) }
+            switch.map { s =>
+              val offset = replicated.partitionOffset.offset
+              (s, from, Some(offset))
+            }
           }
         }
 
         def replicated(from: SeqNr) = {
           for {
-            s <- eventual.foldWhile(id, from, s) { (s, replicated) => f(s, replicated.event) }
+            s <- eventual.foldWhile(key.id, from, s) { (s, replicated) => f(s, replicated.event) }
           } yield s.s
         }
 
@@ -217,7 +208,7 @@ object Journal {
       def lastSeqNr(from: SeqNr) = {
         for {
           foldActions <- foldActions(from)
-          seqNrEventual = eventual.lastSeqNr(id, from)
+          seqNrEventual = eventual.lastSeqNr(key.id, from)
           seqNr <- foldActions[SeqNr](None, from) { (seqNr, action) =>
             val result = action match {
               case action: Action.Append => action.header.range.to
@@ -240,7 +231,7 @@ object Journal {
         }
       }
 
-      override def toString = s"Journal($id)"
+      override def toString = s"Journal($key)"
     }
   }
 }

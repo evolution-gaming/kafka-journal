@@ -5,7 +5,7 @@ import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.eventual.PartitionOffset
-import com.evolutiongaming.skafka.{Offset, Partition, Topic}
+import com.evolutiongaming.skafka.{Offset, Partition}
 
 trait FoldActions {
   def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]): Async[S]
@@ -19,8 +19,7 @@ object FoldActions {
 
   // TODO add range argument
   def apply(
-    id: Id,
-    topic: Topic,
+    key: Key,
     from: SeqNr,
     marker: Marker,
     offsetReplicated: Option[Offset],
@@ -28,10 +27,10 @@ object FoldActions {
 
     // TODO compare partitions !
     val replicated = for {
-      offsetLast <- marker.offset
+      offset <- marker.offset
       offsetReplicated <- offsetReplicated
     } yield {
-      offsetLast.prev <= offsetReplicated
+      offset.prev <= offsetReplicated
     }
 
     if (replicated getOrElse false) Empty
@@ -40,10 +39,10 @@ object FoldActions {
       def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]) = {
 
         val replicated = for {
-          offsetLast <- marker.offset
+          offsetMarker <- marker.offset
           offset <- offset
         } yield {
-          offsetLast.prev <= offset
+          offsetMarker.prev <= offset
         }
 
         if (replicated getOrElse false) s.async
@@ -58,11 +57,11 @@ object FoldActions {
             for {offset <- offsetMax} yield PartitionOffset(marker.partition, offset)
           }
 
-          withReadActions(topic, partitionOffset) { readActions =>
+          withReadActions(key.topic, partitionOffset) { readActions =>
 
             val ff = (s: S) => {
               for {
-                actions <- readActions(id)
+                actions <- readActions(key.id)
               } yield {
                 // TODO verify we did not miss Mark and not cycled infinitely
                 actions.foldWhile(s) { (s, action) =>

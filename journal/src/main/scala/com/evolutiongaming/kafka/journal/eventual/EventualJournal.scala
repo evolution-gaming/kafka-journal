@@ -13,6 +13,7 @@ import com.evolutiongaming.skafka.Topic
 trait EventualJournal {
   // TODO should return NONE when it is empty, otherwise we will seek to wrong offset
   def topicPointers(topic: Topic): Async[TopicPointers]
+  // TODO don't we need to query by Key here ?
   def foldWhile[S](id: Id, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]): Async[Switch[S]]
   def lastSeqNr(id: Id, from: SeqNr): Async[SeqNr]
 }

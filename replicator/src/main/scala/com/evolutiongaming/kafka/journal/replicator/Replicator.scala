@@ -44,13 +44,23 @@ object Replicator {
     val session = cluster.connect()
     val schemaConfig = SchemaConfig.Default
     val config = EventualCassandraConfig.Default
-    val eventualDb = ReplicatedCassandra(session, schemaConfig, config)
-    apply(consumer, eventualDb)
+    val replicatedJournal = ReplicatedCassandra(session, schemaConfig, config)
+    val log = ActorLog(system, Replicator.getClass)
+    val shutdown = apply(consumer, replicatedJournal, log)
+    () => {
+      for {
+        _ <- shutdown()
+        _ = session.closeAsync() // TODO scala future and log
+        _ = cluster.closeAsync() // TODO scala future and log
+        _ <- consumer.close(3.seconds /*FROM config*/)
+      } yield {}
+    }
   }
 
   def apply(
     consumer: Consumer[String, Bytes],
     journal: ReplicatedJournal,
+    log: ActorLog,
     pollTimeout: FiniteDuration = 100.millis,
     closeTimeout: FiniteDuration = 10.seconds)(implicit
     ec: ExecutionContext, system: ActorSystem): Shutdown = {
@@ -60,8 +70,6 @@ object Replicator {
     consumer.subscribe(topics)
     // TODO seek to the beginning
     // TODO acknowledge ?
-
-    val log = ActorLog(system, Replicator.getClass) prefixed topic
 
     // TODO replace with StateVar
     @volatile var shutdown = Option.empty[Promise[Unit]]
@@ -87,7 +95,7 @@ object Replicator {
       }
 
       val asyncs = for {
-        (id, records) <- records.groupBy { case (record, _) => record.id }
+        (key, records) <- records.groupBy { case (record, _) => record.key }
       } yield {
 
         val (_, partitionOffset) = records.last
@@ -107,7 +115,7 @@ object Replicator {
           val updateTmp = UpdateTmp.DeleteToKnown(info.deleteTo, replicated.toList)
           val timestamp = Platform.currentTime
           for {
-            result <- journal.save(id, updateTmp, topic)
+            result <- journal.save(key.id, updateTmp, topic)
           } yield {
             val head = replicated.head
             val last = replicated.last
@@ -116,7 +124,7 @@ object Replicator {
             val now = Platform.currentTime
             val duration = now - timestamp
             val latency = now - head.timestamp.toEpochMilli
-            log.info(s"replicated in $duration|$latency ms, id: $id, range: $range, deleteTo: $deleteTo, partitionOffset: $partitionOffset")
+            log.info(s"replicated in $duration|$latency ms, key: $key, range: $range, deleteTo: $deleteTo, partitionOffset: $partitionOffset")
             result
           }
         }
@@ -126,10 +134,10 @@ object Replicator {
           val updateTmp = UpdateTmp.DeleteUnbound(deleteTo)
           val timestamp = Platform.currentTime
           for {
-            result <- journal.save(id, updateTmp, topic)
+            result <- journal.save(key.id, updateTmp, topic)
           } yield {
             val duration = Platform.currentTime - timestamp
-            log.info(s"replicated in $duration ms, id: $id, deleteTo: $deleteTo, partitionOffset: $partitionOffset")
+            log.info(s"replicated in $duration ms, key: $key, deleteTo: $deleteTo, partitionOffset: $partitionOffset")
             result
           }
         }
