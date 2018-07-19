@@ -2,6 +2,7 @@ package akka.persistence.kafka.journal
 
 import java.util.UUID
 
+import akka.actor.ActorSystem
 import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.{AtomicWrite, PersistentRepr}
 import com.evolutiongaming.cassandra.{CassandraConfig, CreateCluster}
@@ -11,29 +12,30 @@ import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig, SchemaConfig}
 import com.evolutiongaming.kafka.journal.{Bytes, Journals}
 import com.evolutiongaming.safeakka.actor.ActorLog
-import com.evolutiongaming.serialization.SerializedMsgExt
+import com.evolutiongaming.serialization.{SerializedMsgConverter, SerializedMsgExt}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, CreateConsumer}
 import com.evolutiongaming.skafka.producer.{CreateProducer, ProducerConfig}
 import com.typesafe.config.Config
 
 import scala.collection.immutable.Seq
-import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContextExecutor}
 import scala.util.control.NonFatal
 
 class PersistenceJournal(config: Config) extends AsyncWriteJournal {
 
-  private implicit val system = context.system
-  private implicit val ec = system.dispatcher
+  implicit val system: ActorSystem = context.system
+  implicit val ec: ExecutionContextExecutor = system.dispatcher
 
-  private val serializedMsgExt = SerializedMsgExt(system)
+  val adapter: JournalsAdapter = adapterNew(toKey(), serialisation())
 
-  val toKey: ToKey = ToKey("journal")
+  def serialisation(): SerializedMsgConverter = SerializedMsgExt(system)
 
-  private val adapter: JournalsAdapter = {
+  def toKey(): ToKey = ToKey(config)
+
+  def adapterNew(toKey: ToKey, serialisation: SerializedMsgConverter): JournalsAdapter = {
 
     def kafkaConfig(name: String) = {
-      val config = system.settings.config
       val kafka = config.getConfig("kafka")
       kafka.getConfig(name) withFallback kafka
     }
@@ -87,7 +89,7 @@ class PersistenceJournal(config: Config) extends AsyncWriteJournal {
     }
 
     val journals = Journals(producer, newConsumer, eventualJournal)
-    JournalsAdapter(log, toKey, journals, serializedMsgExt)
+    JournalsAdapter(log, toKey, journals, serialisation)
   }
 
   // TODO optimise concurrent calls asyncReplayMessages & asyncReadHighestSequenceNr for the same persistenceId
