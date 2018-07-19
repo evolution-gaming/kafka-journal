@@ -14,7 +14,6 @@ object CreateCluster {
 
     val port = config.port
 
-    // TODO move to CassandraConfig
     val contactPoints = config.contactPoints.map { contactPoint =>
       contactPoint.split(":").map(_.trim) match {
         case Array(host, port) => new InetSocketAddress(host, port.toInt)

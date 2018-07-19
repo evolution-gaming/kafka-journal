@@ -8,8 +8,8 @@ import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer.ConsumerConverters._
 import org.apache.kafka.clients.consumer.{KafkaConsumer, Consumer => ConsumerJ}
 
-import scala.collection.immutable.Iterable
 import scala.collection.JavaConverters._
+import scala.collection.immutable.Iterable
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -36,7 +36,7 @@ object CreateConsumer {
 
     new Consumer[K, V] {
 
-      def assign(partitions: Iterable[TopicPartition]): Unit = {
+      def assign(partitions: Iterable[TopicPartition]) = {
         val partitionsJ = partitions.map(_.asJava).asJavaCollection
         consumer.assign(partitionsJ)
       }
@@ -46,21 +46,21 @@ object CreateConsumer {
         partitionsJ.asScala.map(_.asScala).toSet
       }
 
-      def subscribe(topics: Iterable[Topic]): Unit = {
+      def subscribe(topics: Iterable[Topic]) = {
         val topicsJ = topics.asJavaCollection
         consumer.subscribe(topicsJ)
       }
 
-      def subscribe(topics: Iterable[Topic], listener: RebalanceListener): Unit = {
+      def subscribe(topics: Iterable[Topic], listener: RebalanceListener) = {
         val topicsJ = topics.asJavaCollection
         consumer.subscribe(topicsJ, listener.asJava)
       }
 
-      def subscribe(pattern: Pattern, listener: RebalanceListener): Unit = {
+      def subscribe(pattern: Pattern, listener: RebalanceListener) = {
         consumer.subscribe(pattern, listener.asJava)
       }
 
-      def subscribe(pattern: Pattern): Unit = {
+      def subscribe(pattern: Pattern) = {
         consumer.subscribe(pattern)
       }
 
@@ -68,7 +68,7 @@ object CreateConsumer {
         consumer.subscription().asScala.toSet
       }
 
-      def unsubscribe(): Unit = {
+      def unsubscribe() = {
         consumer.unsubscribe()
       }
 
@@ -79,38 +79,38 @@ object CreateConsumer {
         }
       }
 
-      def commitSync(): Unit = {
+      def commitSync() = {
         consumer.commitSync()
       }
 
-      def commitSync(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit = {
+      def commitSync(offsets: Map[TopicPartition, OffsetAndMetadata]) = {
         val offsetsJ = offsets.asJavaMap(_.asJava, _.asJava)
         consumer.commitSync(offsetsJ)
       }
 
-      def commitAsync(): Unit = {
+      def commitAsync() = {
         consumer.commitAsync()
       }
 
-      def commitAsync(callback: CommitCallback): Unit = {
+      def commitAsync(callback: CommitCallback) = {
         consumer.commitAsync(callback.asJava)
       }
 
-      def commitAsync(offsets: Map[TopicPartition, OffsetAndMetadata], callback: CommitCallback): Unit = {
+      def commitAsync(offsets: Map[TopicPartition, OffsetAndMetadata], callback: CommitCallback) = {
         val offsetsJ = offsets.asJavaMap(_.asJava, _.asJava)
         consumer.commitAsync(offsetsJ, callback.asJava)
       }
 
-      def seek(partition: TopicPartition, offset: Offset): Unit = {
+      def seek(partition: TopicPartition, offset: Offset) = {
         consumer.seek(partition.asJava, offset)
       }
 
-      def seekToBeginning(partitions: Iterable[TopicPartition]): Unit = {
+      def seekToBeginning(partitions: Iterable[TopicPartition]) = {
         val partitionsJ = partitions.map(_.asJava).asJavaCollection
         consumer.seekToBeginning(partitionsJ)
       }
 
-      def seekToEnd(partitions: Iterable[TopicPartition]): Unit = {
+      def seekToEnd(partitions: Iterable[TopicPartition]) = {
         val partitionsJ = partitions.map(_.asJava).asJavaCollection
         consumer.seekToEnd(partitionsJ)
       }
@@ -119,13 +119,13 @@ object CreateConsumer {
         consumer.position(partition.asJava)
       }
 
-      def committed(partition: TopicPartition): OffsetAndMetadata = {
+      def committed(partition: TopicPartition) = {
         val partitionJ = partition.asJava
         val offsetAndMetadataJ = consumer.committed(partitionJ)
         offsetAndMetadataJ.asScala
       }
 
-      def partitionsFor(topic: Topic): List[PartitionInfo] = {
+      def partitionsFor(topic: Topic) = {
         val partitionInfosJ = consumer.partitionsFor(topic)
         partitionInfosJ.asScala.map(_.asScala).toList
       }
@@ -135,7 +135,7 @@ object CreateConsumer {
         result.asScalaMap(k => k, _.asScala.map(_.asScala).toList)
       }
 
-      def pause(partitions: Iterable[TopicPartition]): Unit = {
+      def pause(partitions: Iterable[TopicPartition]) = {
         val partitionsJ = partitions.map(_.asJava).asJavaCollection
         consumer.pause(partitionsJ)
       }
@@ -145,24 +145,24 @@ object CreateConsumer {
         partitionsJ.asScala.map(_.asScala).toSet
       }
 
-      def resume(partitions: Iterable[TopicPartition]): Unit = {
+      def resume(partitions: Iterable[TopicPartition]) = {
         val partitionsJ = partitions.map(_.asJava).asJavaCollection
         consumer.resume(partitionsJ)
       }
 
-      def offsetsForTimes(timestampsToSearch: Map[TopicPartition, Offset]): Map[TopicPartition, Option[OffsetAndTimestamp]] = {
+      def offsetsForTimes(timestampsToSearch: Map[TopicPartition, Offset]) = {
         val timestampsToSearchJ = timestampsToSearch.asJavaMap(_.asJava, LongJ.valueOf)
         val result = consumer.offsetsForTimes(timestampsToSearchJ)
         result.asScalaMap(_.asScala, v => Option(v).map(_.asScala))
       }
 
-      def beginningOffsets(partitions: Iterable[TopicPartition]): Map[TopicPartition, Offset] = {
+      def beginningOffsets(partitions: Iterable[TopicPartition]) = {
         val partitionsJ = partitions.map(_.asJava).asJavaCollection
         val result = consumer.beginningOffsets(partitionsJ)
         result.asScalaMap(_.asScala, v => v)
       }
 
-      def endOffsets(partitions: Iterable[TopicPartition]): Map[TopicPartition, Offset] = {
+      def endOffsets(partitions: Iterable[TopicPartition]) = {
         val partitionsJ = partitions.map(_.asJava).asJavaCollection
         val result = consumer.endOffsets(partitionsJ)
         result.asScalaMap(_.asScala, v => v)
