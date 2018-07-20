@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import com.datastax.driver.core._
+import com.datastax.driver.core.{BoundStatement, ConsistencyLevel, PreparedStatement, ResultSet}
 import com.datastax.driver.core.policies.RetryPolicy
-import com.evolutiongaming.cassandra.CassandraHelper._
+import com.evolutiongaming.cassandra.Session
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
@@ -22,13 +22,12 @@ object PrepareAndExecute {
     new PrepareAndExecute {
 
       def prepare(query: String) = {
-        session.prepareAsync(query).asScala().async
+        session.prepare(query).async
       }
 
       def execute(statement: BoundStatement) = {
         val statementConfigured = statement.set(config)
-        val result = session.executeAsync(statementConfigured)
-        result.asScala().async
+        session.execute(statementConfigured).async
       }
     }
   }

@@ -2,7 +2,6 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.lang.{Integer => IntJ}
 
-import com.datastax.driver.core.{Metadata => _}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._

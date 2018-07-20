@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 
-import com.datastax.driver.core.{Metadata => _}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.Alias.{Id, SeqNr}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._

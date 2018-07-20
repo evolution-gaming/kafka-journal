@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import java.lang.{Long => LongJ}
 import java.time.Instant
 
-import com.datastax.driver.core.{Metadata => _, _}
+import com.datastax.driver.core.{BoundStatement, PreparedStatement}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.Alias.{Id, SeqNr, Tags}
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._

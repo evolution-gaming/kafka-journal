@@ -3,7 +3,7 @@ package com.evolutiongaming.cassandra
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicInteger
 
-import com.datastax.driver.core.{Cluster, QueryLogger}
+import com.datastax.driver.core.{Cluster => ClusterJ, QueryLogger}
 
 import scala.collection.JavaConverters._
 
@@ -26,7 +26,7 @@ object CreateCluster {
 
     val clusterName = s"${ config.name }-${ clusterId.getAndDecrement() }"
 
-    val builder = Cluster.builder
+    val builder = ClusterJ.builder
       .addContactPointsWithPorts(contactPoints.toList.asJava)
       .withClusterName(clusterName)
       .withPoolingOptions(config.pooling.asJava)
@@ -48,6 +48,6 @@ object CreateCluster {
       cluster.register(logger)
     }
 
-    cluster
+    Cluster(cluster)
   }
 }

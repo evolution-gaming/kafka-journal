@@ -5,9 +5,9 @@ import java.time.Instant
 import akka.persistence.journal.Tagged
 import akka.persistence.{AtomicWrite, PersistentRepr}
 import com.evolutiongaming.concurrent.async.Async
+import com.evolutiongaming.concurrent.FutureHelper._
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
-import com.evolutiongaming.kafka.journal.FutureHelper._
 import com.evolutiongaming.kafka.journal.{Bytes, Event, Journals}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog

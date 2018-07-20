@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import com.datastax.driver.core.Session
-import com.evolutiongaming.cassandra.CassandraHelper._
+import com.evolutiongaming.cassandra.Session
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 
@@ -19,7 +18,7 @@ object Tables {
     def apply(name: TableName, query: String) = {
       if (schemaConfig.autoCreate) {
         for {
-          _ <- session.executeAsync(query).asScala().async
+          _ <- session.execute(query).async
         } yield {
           name
         }

@@ -28,9 +28,7 @@ object CreateConsumer {
     apply(consumer, ecBlocking)
   }
 
-  def apply[K, V](
-    consumer: ConsumerJ[K, V],
-    ecBlocking: ExecutionContext)(implicit ec: ExecutionContext): Consumer[K, V] = {
+  def apply[K, V](consumer: ConsumerJ[K, V], ecBlocking: ExecutionContext): Consumer[K, V] = {
 
     def blocking[T](f: => T): Future[T] = Future(f)(ecBlocking)
 

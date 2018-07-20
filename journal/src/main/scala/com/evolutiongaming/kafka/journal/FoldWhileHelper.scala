@@ -5,7 +5,7 @@ import akka.stream.scaladsl.Source
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.Async.{Failed, InCompleted, Succeed}
-import com.evolutiongaming.kafka.journal.FutureHelper._
+import com.evolutiongaming.concurrent.FutureHelper._
 import com.evolutiongaming.nel.Nel
 
 import scala.annotation.tailrec

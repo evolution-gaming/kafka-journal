@@ -3,9 +3,9 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import java.time.Instant
 
 import akka.actor.ActorSystem
+import com.datastax.driver.core.{BatchStatement, BoundStatement, ConsistencyLevel}
 import com.datastax.driver.core.policies.LoggingRetryPolicy
-import com.datastax.driver.core.{Metadata => _, _}
-import com.evolutiongaming.cassandra.CassandraHelper._
+import com.evolutiongaming.cassandra.Session
 import com.evolutiongaming.cassandra.NextHostRetryPolicy
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
@@ -99,7 +99,7 @@ object ReplicatedCassandra {
                     }
 
                     val statementFinal = statement.set(statementConfig)
-                    session.executeAsync(statementFinal).asScala().async.unit
+                    session.execute(statementFinal).async.unit
                   }
 
                   for {
@@ -275,7 +275,7 @@ object ReplicatedCassandra {
       prepareAndExecute: PrepareAndExecute)(implicit
       ec: ExecutionContext): Async[Statements] = {
 
-      val insertRecord = JournalStatement.InsertRecord(tables.journal, session.prepareAsync(_: String).asScala().async)
+      val insertRecord = JournalStatement.InsertRecord(tables.journal, session.prepare(_: String).async)
       val selectLastRecord = JournalStatement.SelectLastRecord(tables.journal, prepareAndExecute)
       val selectRecords = JournalStatement.SelectRecords(tables.journal, prepareAndExecute)
       val deleteRecords = JournalStatement.DeleteRecords(tables.journal, prepareAndExecute)

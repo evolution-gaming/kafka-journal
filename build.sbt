@@ -44,7 +44,7 @@ lazy val root = (project in file(".")
 lazy val async = (project in file("async")
   settings (name := "async")
   settings commonSettings
-  settings (libraryDependencies ++= Seq(ExecutorTools, ScalaTest)))
+  settings (libraryDependencies ++= Seq(`executor-tools`, scalatest)))
 
 // TODO cleanup dependencies
 lazy val journal = (project in file("journal")
@@ -55,15 +55,16 @@ lazy val journal = (project in file("journal")
     Akka.Persistence,
     Akka.Tck,
     Akka.Slf4j,
-    Skafka,
+    skafka,
     Kafka.Clients,
-    ScalaTest,
-    ExecutorTools,
+    scalatest,
+    `executor-tools`,
     Logback.Core % Test,
     Cassandra.Driver,
-    PubSub,
-    PlayJson,
-    ScalaTools)))
+    pubsub,
+    `play-json`,
+    `scala-tools`,
+    `future-helper`)))
 
 lazy val persistence = (project in file("persistence")
   settings (name := "kafka-journal-persistence")
@@ -99,16 +100,16 @@ lazy val `cassandra-client` = (project in file("cassandra-client")
   dependsOn (`cassandra-launcher` % "compile->test")
   settings (libraryDependencies ++= Seq(
     Cassandra.Driver,
-    ConfigTools,
-    ScalaTest,
-    Nel,
-    ExecutorTools,
-    Skafka)))
+    `config-tools`,
+    `future-helper`,
+    scalatest,
+    nel,
+    `executor-tools`)))
 
 lazy val `tmp-dir` = (project in file("tmp-dir")
   settings (name := "tmp-dir")
   settings commonSettings
-  settings (libraryDependencies ++= Seq(CommonsIo)))
+  settings (libraryDependencies ++= Seq(`commons-io`)))
 
 lazy val `cassandra-launcher` = (project in file("cassandra-launcher")
   settings (name := "cassandra-launcher")
@@ -120,13 +121,13 @@ lazy val `cassandra-launcher` = (project in file("cassandra-launcher")
     Slf4j.OverLog4j % Test,
     Logback.Core % Test,
     Logback.Classic % Test,
-    ScalaTest)))
+    scalatest)))
 
 lazy val `kafka-launcher` = (project in file("kafka-launcher")
   settings (name := "kafka-launcher")
   settings commonSettings
   dependsOn `tmp-dir`
-  settings (libraryDependencies ++= Seq(Kafka.Server, ScalaTest)))
+  settings (libraryDependencies ++= Seq(Kafka.Server, scalatest)))
 
 lazy val `eventual-cassandra` = (project in file("eventual-cassandra")
   settings (name := "kafka-journal-eventual-cassandra")

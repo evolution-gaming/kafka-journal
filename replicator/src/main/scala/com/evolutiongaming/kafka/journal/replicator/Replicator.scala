@@ -19,7 +19,7 @@ import com.evolutiongaming.skafka.{Bytes => _, _}
 
 import scala.compat.Platform
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
 
@@ -41,7 +41,7 @@ object Replicator {
     val consumer = CreateConsumer[String, Bytes](consumerConfig, ecBlocking)
     val cassandraConfig = CassandraConfig.Default
     val cluster = CreateCluster(cassandraConfig)
-    val session = cluster.connect()
+    val session = Await.result(cluster.connect(), 5.seconds) // TODO handle this properly
     val schemaConfig = SchemaConfig.Default
     val config = EventualCassandraConfig.Default
     val replicatedJournal = ReplicatedCassandra(session, schemaConfig, config)
@@ -50,9 +50,10 @@ object Replicator {
     () => {
       for {
         _ <- shutdown()
-        _ = session.closeAsync() // TODO scala future and log
-        _ = cluster.closeAsync() // TODO scala future and log
-        _ <- consumer.close(3.seconds /*FROM config*/)
+        cassandra = cluster.close()
+        kafka = consumer.close(3.seconds /*FROM config*/)
+        _ <- cassandra
+        _ <- kafka
       } yield {}
     }
   }
@@ -63,7 +64,8 @@ object Replicator {
     log: ActorLog,
     pollTimeout: FiniteDuration = 100.millis,
     closeTimeout: FiniteDuration = 10.seconds)(implicit
-    ec: ExecutionContext, system: ActorSystem): Shutdown = {
+    ec: ExecutionContext,
+    system: ActorSystem): Shutdown = {
 
     val topic = "journal"
     val topics = List(topic)

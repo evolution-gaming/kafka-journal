@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
+import com.datastax.driver.core.ConsistencyLevel
 import com.datastax.driver.core.policies.LoggingRetryPolicy
-import com.datastax.driver.core.{Metadata => _, _}
-import com.evolutiongaming.cassandra.NextHostRetryPolicy
+import com.evolutiongaming.cassandra.{NextHostRetryPolicy, Session}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.Alias._

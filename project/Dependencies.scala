@@ -2,23 +2,26 @@ import sbt._
 
 object Dependencies {
 
-  lazy val ScalaTest = "org.scalatest" %% "scalatest" % "3.0.5" % Test
+  lazy val scalatest = "org.scalatest" %% "scalatest" % "3.0.5" % Test
 
-  lazy val ExecutorTools = "com.evolutiongaming" %% "executor-tools" % "1.0.0"
+  lazy val `executor-tools` = "com.evolutiongaming" %% "executor-tools" % "1.0.0"
 
-  lazy val ConfigTools = "com.evolutiongaming" %% "config-tools" % "1.0.2"
+  lazy val `config-tools` = "com.evolutiongaming" %% "config-tools" % "1.0.2"
 
-  lazy val Skafka = "com.evolutiongaming" %% "skafka-impl" % "0.3.2"
+  lazy val skafka = "com.evolutiongaming" %% "skafka-impl" % "0.3.2"
 
-  lazy val PubSub = "com.evolutiongaming" %% "pubsub" % "2.0.4"
+  lazy val pubsub = "com.evolutiongaming" %% "pubsub" % "2.0.4"
 
-  lazy val PlayJson = "com.typesafe.play" %% "play-json" % "2.6.9"
+  lazy val `play-json` = "com.typesafe.play" %% "play-json" % "2.6.9"
 
-  lazy val ScalaTools = "com.evolutiongaming" %% "scala-tools" % "2.1"
+  lazy val `scala-tools` = "com.evolutiongaming" %% "scala-tools" % "2.1"
 
-  lazy val Nel = "com.evolutiongaming" %% "nel" % "1.2"
+  lazy val nel = "com.evolutiongaming" %% "nel" % "1.2"
 
-  lazy val CommonsIo = "org.apache.commons" % "commons-io" % "1.3.2"
+  lazy val `commons-io` = "org.apache.commons" % "commons-io" % "1.3.2"
+
+  lazy val `future-helper` = "com.evolutiongaming" %% "future-helper" % "1.0.0"
+  
 
   object Logback {
     private val version = "1.2.3"

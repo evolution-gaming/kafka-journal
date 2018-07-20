@@ -74,18 +74,28 @@ class PersistenceJournal(config: Config) extends AsyncWriteJournal {
       val config = this.config.getConfig("eventual-cassandra")
       val cassandraConfig = CassandraConfig(config.getConfig("client"))
       val cluster = CreateCluster(cassandraConfig)
-      val session = cluster.connect()
+      val session = Await.result(cluster.connect(), 5.seconds) // TODO handle this properly
       system.registerOnTermination {
-        session.closeAsync() // TODO wrap to scala future and log
-        cluster.closeAsync() // TODO wrap to scala future and log
+        val result = for {
+          _ <- session.close()
+          _ <- cluster.close()
+        } yield {}
+        try {
+          Await.result(result, 5.seconds)
+        } catch {
+          case NonFatal(failure) => log.error(s"failed to shutdown cassandra $failure", failure)
+        }
       }
       //      val schemaConfig = SchemaConfig(config.getConfig("schema"))
       val schemaConfig = SchemaConfig.Default
       val eventualCassandraConfig = EventualCassandraConfig.Default
       // TODO read only cassandra statements
-      val log = ActorLog(system, EventualCassandra.getClass)
-      val eventualJournal = EventualCassandra(session, schemaConfig, eventualCassandraConfig, log)
-      EventualJournal(eventualJournal, log)
+
+      {
+        val log = ActorLog(system, EventualCassandra.getClass)
+        val eventualJournal = EventualCassandra(session, schemaConfig, eventualCassandraConfig, log)
+        EventualJournal(eventualJournal, log)
+      }
     }
 
     val journals = Journals(producer, newConsumer, eventualJournal)

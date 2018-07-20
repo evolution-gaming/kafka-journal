@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import com.datastax.driver.core.Session
-import com.evolutiongaming.cassandra.CassandraHelper._
+import com.evolutiongaming.cassandra.Session
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 
@@ -15,7 +14,7 @@ object CreateSchema {
       val keyspace = schemaConfig.keyspace
       if (keyspace.autoCreate) {
         val query = JournalStatement.createKeyspace(keyspace)
-        session.executeAsync(query).asScala().async
+        session.execute(query).async
       } else {
         Async.unit
       }

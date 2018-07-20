@@ -3,7 +3,7 @@ package com.evolutiongaming.cassandra
 import com.datastax.driver.core.exceptions.DriverException
 import com.datastax.driver.core.policies.RetryPolicy
 import com.datastax.driver.core.policies.RetryPolicy.RetryDecision
-import com.datastax.driver.core.{Cluster, ConsistencyLevel, Statement, WriteType}
+import com.datastax.driver.core.{Cluster => ClusterJ, ConsistencyLevel, Statement, WriteType}
 
 case class NextHostRetryPolicy(retries: Int) extends RetryPolicy {
 
@@ -48,7 +48,7 @@ case class NextHostRetryPolicy(retries: Int) extends RetryPolicy {
     tryNextHost(consistencyLevel, nbRetry)
   }
 
-  def init(cluster: Cluster): Unit = {}
+  def init(cluster: ClusterJ): Unit = {}
 
   def close(): Unit = {}
 
