@@ -87,11 +87,11 @@ object Journal {
     producer: Producer,
     newConsumer: () => Consumer[String, Bytes],
     eventual: EventualJournal,
-    pollTimeout: FiniteDuration)(implicit
+    pollTimeout: FiniteDuration,
+    closeTimeout: FiniteDuration)(implicit
     ec: ExecutionContext): Journal = {
 
-    val closeTimeout = 3.seconds // TODO from  config
-    val withReadKafka = WithReadActions(newConsumer, pollTimeout, closeTimeout)
+    val withReadKafka = WithReadActions(newConsumer, pollTimeout, closeTimeout, log)
 
     val writeAction = WriteAction(key, producer)
 
@@ -209,7 +209,7 @@ object Journal {
         for {
           foldActions <- foldActions(from)
           seqNrEventual = eventual.lastSeqNr(key.id, from)
-          seqNr <- foldActions[SeqNr](None, from) { (seqNr, action) =>
+          seqNr <- foldActions[SeqNr](None/*TODO*/, from) { (seqNr, action) =>
             val result = action match {
               case action: Action.Append => action.header.range.to
               case action: Action.Delete => seqNr

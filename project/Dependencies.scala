@@ -8,7 +8,7 @@ object Dependencies {
 
   lazy val `config-tools` = "com.evolutiongaming" %% "config-tools" % "1.0.2"
 
-  lazy val skafka = "com.evolutiongaming" %% "skafka-impl" % "0.3.2"
+  lazy val skafka = "com.evolutiongaming" %% "skafka-impl" % "0.3.4"
 
   lazy val pubsub = "com.evolutiongaming" %% "pubsub" % "2.0.4"
 

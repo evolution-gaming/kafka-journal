@@ -3,6 +3,7 @@ package com.evolutiongaming.cassandra
 import com.datastax.driver.core.{Cluster => ClusterJ}
 import com.evolutiongaming.cassandra.CassandraHelper._
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
+import com.evolutiongaming.concurrent.FutureHelper._
 
 import scala.concurrent.Future
 

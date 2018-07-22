@@ -14,29 +14,19 @@ trait Consumer[K, V] {
 
   def assignment(): Set[TopicPartition]
 
-  def subscribe(topics: Iterable[Topic]): Unit
+  def subscribe(topics: Iterable[Topic], listener: Option[RebalanceListener]): Unit
 
-  def subscribe(topics: Iterable[Topic], listener: RebalanceListener): Unit
-
-  def subscribe(pattern: Pattern, listener: RebalanceListener): Unit
-
-  def subscribe(pattern: Pattern): Unit
+  def subscribe(pattern: Pattern, listener: Option[RebalanceListener]): Unit
 
   def subscription(): Set[Topic]
 
-  def unsubscribe(): Unit
+  def unsubscribe(): Future[Unit]
 
   def poll(timeout: FiniteDuration): Future[ConsumerRecords[K, V]]
 
-  def commitSync(): Unit
+  def commit(): Future[Map[TopicPartition, OffsetAndMetadata]]
 
-  def commitSync(offsets: Map[TopicPartition, OffsetAndMetadata]): Unit
-
-  def commitAsync(): Unit
-
-  def commitAsync(callback: CommitCallback): Unit
-
-  def commitAsync(offsets: Map[TopicPartition, OffsetAndMetadata], callback: CommitCallback): Unit
+  def commit(offsets: Map[TopicPartition, OffsetAndMetadata]): Future[Unit]
 
   def seek(partition: TopicPartition, offset: Offset): Unit
 
@@ -44,13 +34,13 @@ trait Consumer[K, V] {
 
   def seekToEnd(partitions: Iterable[TopicPartition]): Unit
 
-  def position(partition: TopicPartition): Offset
+  def position(partition: TopicPartition): Future[Offset]
 
-  def committed(partition: TopicPartition): OffsetAndMetadata
+  def committed(partition: TopicPartition): Future[OffsetAndMetadata]
 
-  def partitionsFor(topic: Topic): List[PartitionInfo]
+  def partitionsFor(topic: Topic): Future[List[PartitionInfo]]
 
-  def listTopics(): Map[Topic, List[PartitionInfo]]
+  def listTopics(): Future[Map[Topic, List[PartitionInfo]]]
 
   def pause(partitions: Iterable[TopicPartition]): Unit
 
@@ -58,15 +48,15 @@ trait Consumer[K, V] {
 
   def resume(partitions: Iterable[TopicPartition]): Unit
 
-  def offsetsForTimes(timestampsToSearch: Map[TopicPartition, Offset]): Map[TopicPartition, Option[OffsetAndTimestamp]]
+  def offsetsForTimes(timestampsToSearch: Map[TopicPartition, Offset]): Future[Map[TopicPartition, Option[OffsetAndTimestamp]]]
 
-  def beginningOffsets(partitions: Iterable[TopicPartition]): Map[TopicPartition, Offset]
+  def beginningOffsets(partitions: Iterable[TopicPartition]): Future[Map[TopicPartition, Offset]]
 
-  def endOffsets(partitions: Iterable[TopicPartition]): Map[TopicPartition, Offset]
+  def endOffsets(partitions: Iterable[TopicPartition]): Future[Map[TopicPartition, Offset]]
 
   def close(): Future[Unit]
 
   def close(timeout: FiniteDuration): Future[Unit]
 
-  def wakeup(): Unit
+  def wakeup(): Future[Unit]
 }

@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal
 
-import java.time.Instant
 
 import com.evolutiongaming.kafka.journal.HeaderFormats._
 import com.evolutiongaming.kafka.journal.eventual.PartitionOffset
@@ -58,7 +57,7 @@ object KafkaConverters {
         topic = key.topic,
         value = payload,
         key = Some(key.id),
-        timestamp = timestamp.map(_.toEpochMilli),
+        timestamp = timestamp,
         headers = List(header))
     }
   }
@@ -74,14 +73,7 @@ object KafkaConverters {
 
       def action(header: Action.Header) = {
 
-        def timestamp = {
-          for {
-            timestampAndType <- self.timestampAndType
-          } yield {
-            val timestamp = timestampAndType.timestamp
-            Instant.ofEpochMilli(timestamp)
-          }
-        }
+        def timestamp = self.timestampAndType.map(_.timestamp)
 
         def append(header: Action.Header.Append) = {
           for {

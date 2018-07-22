@@ -47,14 +47,18 @@ class PersistenceJournal(config: Config) extends AsyncWriteJournal {
 
     val ecBlocking = system.dispatchers.lookup("kafka-plugin-blocking-dispatcher")
 
+    // TODO use different constructor
     val producer = CreateProducer(producerConfig, ecBlocking)
+
+    val closeTimeout = 10.seconds // TODO from config
+    val connectTimeout = 5.seconds // TODO from config
 
     system.registerOnTermination {
       val future = for {
         _ <- producer.flush()
-        _ <- producer.closeAsync(3.seconds)
+        _ <- producer.close(closeTimeout)
       } yield ()
-      try Await.result(future, 5.seconds) catch {
+      try Await.result(future, closeTimeout) catch {
         case NonFatal(failure) => log.error(s"failed to shutdown producer $failure", failure)
       }
     }
@@ -74,14 +78,14 @@ class PersistenceJournal(config: Config) extends AsyncWriteJournal {
       val config = this.config.getConfig("eventual-cassandra")
       val cassandraConfig = CassandraConfig(config.getConfig("client"))
       val cluster = CreateCluster(cassandraConfig)
-      val session = Await.result(cluster.connect(), 5.seconds) // TODO handle this properly
+      val session = Await.result(cluster.connect(), connectTimeout) // TODO handle this properly
       system.registerOnTermination {
         val result = for {
           _ <- session.close()
           _ <- cluster.close()
         } yield {}
         try {
-          Await.result(result, 5.seconds)
+          Await.result(result, closeTimeout)
         } catch {
           case NonFatal(failure) => log.error(s"failed to shutdown cassandra $failure", failure)
         }

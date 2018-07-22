@@ -3,6 +3,7 @@ package com.evolutiongaming.skafka.consumer
 import java.lang.{Long => LongJ}
 import java.util.regex.Pattern
 
+import com.evolutiongaming.concurrent.FutureHelper._
 import com.evolutiongaming.skafka.Converters._
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer.ConsumerConverters._
@@ -11,7 +12,9 @@ import org.apache.kafka.clients.consumer.{KafkaConsumer, Consumer => ConsumerJ}
 import scala.collection.JavaConverters._
 import scala.collection.immutable.Iterable
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.Try
+import scala.util.control.NonFatal
 
 object CreateConsumer {
 
@@ -19,8 +22,7 @@ object CreateConsumer {
     config: ConsumerConfig,
     ecBlocking: ExecutionContext)(implicit
     valueFromBytes: FromBytes[V],
-    keyFromBytes: FromBytes[K],
-    ec: ExecutionContext): Consumer[K, V] = {
+    keyFromBytes: FromBytes[K]): Consumer[K, V] = {
 
     val valueDeserializer = valueFromBytes.asJava
     val keyDeserializer = keyFromBytes.asJava
@@ -31,6 +33,16 @@ object CreateConsumer {
   def apply[K, V](consumer: ConsumerJ[K, V], ecBlocking: ExecutionContext): Consumer[K, V] = {
 
     def blocking[T](f: => T): Future[T] = Future(f)(ecBlocking)
+
+    def callbackAndFuture() = {
+      val promise = Promise[Map[TopicPartition, OffsetAndMetadata]]()
+      val callback = new CommitCallback {
+        def apply(offsets: Try[Map[TopicPartition, OffsetAndMetadata]]) = {
+          promise.complete(offsets)
+        }
+      }
+      (callback, promise.future)
+    }
 
     new Consumer[K, V] {
 
@@ -44,30 +56,23 @@ object CreateConsumer {
         partitionsJ.asScala.map(_.asScala).toSet
       }
 
-      def subscribe(topics: Iterable[Topic]) = {
+      def subscribe(topics: Iterable[Topic], listener: Option[RebalanceListener]) = {
         val topicsJ = topics.asJavaCollection
-        consumer.subscribe(topicsJ)
+        consumer.subscribe(topicsJ, (listener getOrElse RebalanceListener.Empty).asJava)
       }
 
-      def subscribe(topics: Iterable[Topic], listener: RebalanceListener) = {
-        val topicsJ = topics.asJavaCollection
-        consumer.subscribe(topicsJ, listener.asJava)
+      def subscribe(pattern: Pattern, listener: Option[RebalanceListener]) = {
+        consumer.subscribe(pattern, (listener getOrElse RebalanceListener.Empty).asJava)
       }
 
-      def subscribe(pattern: Pattern, listener: RebalanceListener) = {
-        consumer.subscribe(pattern, listener.asJava)
-      }
-
-      def subscribe(pattern: Pattern) = {
-        consumer.subscribe(pattern)
-      }
-
-      def subscription(): Set[Topic] = {
+      def subscription() = {
         consumer.subscription().asScala.toSet
       }
 
       def unsubscribe() = {
-        consumer.unsubscribe()
+        blocking {
+          consumer.unsubscribe()
+        }
       }
 
       def poll(timeout: FiniteDuration): Future[ConsumerRecords[K, V]] = {
@@ -77,26 +82,25 @@ object CreateConsumer {
         }
       }
 
-      def commitSync() = {
-        consumer.commitSync()
+      def commit() = {
+        try {
+          val (callback, future) = callbackAndFuture()
+          consumer.commitAsync(callback.asJava)
+          future
+        } catch {
+          case NonFatal(failure) => Future.failed(failure)
+        }
       }
 
-      def commitSync(offsets: Map[TopicPartition, OffsetAndMetadata]) = {
-        val offsetsJ = offsets.asJavaMap(_.asJava, _.asJava)
-        consumer.commitSync(offsetsJ)
-      }
-
-      def commitAsync() = {
-        consumer.commitAsync()
-      }
-
-      def commitAsync(callback: CommitCallback) = {
-        consumer.commitAsync(callback.asJava)
-      }
-
-      def commitAsync(offsets: Map[TopicPartition, OffsetAndMetadata], callback: CommitCallback) = {
-        val offsetsJ = offsets.asJavaMap(_.asJava, _.asJava)
-        consumer.commitAsync(offsetsJ, callback.asJava)
+      def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = {
+        try {
+          val (callback, future) = callbackAndFuture()
+          val offsetsJ = offsets.asJavaMap(_.asJava, _.asJava)
+          consumer.commitAsync(offsetsJ, callback.asJava)
+          future.unit
+        } catch {
+          case NonFatal(failure) => Future.failed(failure)
+        }
       }
 
       def seek(partition: TopicPartition, offset: Offset) = {
@@ -113,24 +117,32 @@ object CreateConsumer {
         consumer.seekToEnd(partitionsJ)
       }
 
-      def position(partition: TopicPartition): Offset = {
-        consumer.position(partition.asJava)
+      def position(partition: TopicPartition) = {
+        blocking {
+          consumer.position(partition.asJava)
+        }
       }
 
       def committed(partition: TopicPartition) = {
         val partitionJ = partition.asJava
-        val offsetAndMetadataJ = consumer.committed(partitionJ)
-        offsetAndMetadataJ.asScala
+        blocking {
+          val offsetAndMetadataJ = consumer.committed(partitionJ)
+          offsetAndMetadataJ.asScala
+        }
       }
 
       def partitionsFor(topic: Topic) = {
-        val partitionInfosJ = consumer.partitionsFor(topic)
-        partitionInfosJ.asScala.map(_.asScala).toList
+        blocking {
+          val partitionInfosJ = consumer.partitionsFor(topic)
+          partitionInfosJ.asScala.map(_.asScala).toList
+        }
       }
 
-      def listTopics(): Map[Topic, List[PartitionInfo]] = {
-        val result = consumer.listTopics()
-        result.asScalaMap(k => k, _.asScala.map(_.asScala).toList)
+      def listTopics() = {
+        blocking {
+          val result = consumer.listTopics()
+          result.asScalaMap(k => k, _.asScala.map(_.asScala).toList)
+        }
       }
 
       def pause(partitions: Iterable[TopicPartition]) = {
@@ -149,21 +161,27 @@ object CreateConsumer {
       }
 
       def offsetsForTimes(timestampsToSearch: Map[TopicPartition, Offset]) = {
-        val timestampsToSearchJ = timestampsToSearch.asJavaMap(_.asJava, LongJ.valueOf)
-        val result = consumer.offsetsForTimes(timestampsToSearchJ)
-        result.asScalaMap(_.asScala, v => Option(v).map(_.asScala))
+        blocking {
+          val timestampsToSearchJ = timestampsToSearch.asJavaMap(_.asJava, LongJ.valueOf)
+          val result = consumer.offsetsForTimes(timestampsToSearchJ)
+          result.asScalaMap(_.asScala, v => Option(v).map(_.asScala))
+        }
       }
 
       def beginningOffsets(partitions: Iterable[TopicPartition]) = {
-        val partitionsJ = partitions.map(_.asJava).asJavaCollection
-        val result = consumer.beginningOffsets(partitionsJ)
-        result.asScalaMap(_.asScala, v => v)
+        blocking {
+          val partitionsJ = partitions.map(_.asJava).asJavaCollection
+          val result = consumer.beginningOffsets(partitionsJ)
+          result.asScalaMap(_.asScala, v => v)
+        }
       }
 
       def endOffsets(partitions: Iterable[TopicPartition]) = {
-        val partitionsJ = partitions.map(_.asJava).asJavaCollection
-        val result = consumer.endOffsets(partitionsJ)
-        result.asScalaMap(_.asScala, v => v)
+        blocking {
+          val partitionsJ = partitions.map(_.asJava).asJavaCollection
+          val result = consumer.endOffsets(partitionsJ)
+          result.asScalaMap(_.asScala, v => v)
+        }
       }
 
       def close() = {
@@ -178,7 +196,11 @@ object CreateConsumer {
         }
       }
 
-      def wakeup() = consumer.wakeup()
+      def wakeup() = {
+        blocking {
+          consumer.wakeup()
+        }
+      }
     }
   }
 }

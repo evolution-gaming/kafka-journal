@@ -43,13 +43,14 @@ object Journals {
     producer: Producer,
     newConsumer: () => Consumer[String, Bytes],
     eventual: EventualJournal = EventualJournal.Empty,
-    pollTimeout: FiniteDuration = 100.millis)(implicit
+    pollTimeout: FiniteDuration = 100.millis,
+    closeTimeout: FiniteDuration = 10.seconds)(implicit
     system: ActorSystem,
     ec: ExecutionContext): Journals = {
 
     def journalOf(key: Key) = {
       val log = ActorLog(system, classOf[Journal]) prefixed key.id
-      val journal = Journal(key, log, producer, newConsumer, eventual, pollTimeout)
+      val journal = Journal(key, log, producer, newConsumer, eventual, pollTimeout, closeTimeout)
       Journal(journal, log)
     }
 

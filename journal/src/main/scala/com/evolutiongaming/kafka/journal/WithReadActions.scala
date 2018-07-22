@@ -2,11 +2,13 @@ package com.evolutiongaming.kafka.journal
 
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.eventual.PartitionOffset
+import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer.Consumer
 import com.evolutiongaming.skafka.{Topic, TopicPartition}
 
-import scala.concurrent.duration.FiniteDuration
+import scala.compat.Platform
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.FiniteDuration
 
 
 // TODO pass partition even if offset is unknown
@@ -19,32 +21,42 @@ object WithReadActions {
   def apply(
     newConsumer: () => Consumer[String, Bytes],
     pollTimeout: FiniteDuration,
-    closeTimeout: FiniteDuration)(implicit ec: ExecutionContext /*TODO remove*/): WithReadActions = {
+    closeTimeout: FiniteDuration,
+    log: ActorLog)(implicit ec: ExecutionContext /*TODO remove*/): WithReadActions = {
 
     new WithReadActions {
 
       def apply[T](topic: Topic, partitionOffset: Option[PartitionOffset])(f: ReadActions => Async[T]) = {
 
-        // TODO blocking
         // TODO consider separate from splitting
-        val consumer = newConsumer()
+        val consumer = {
+          val timestamp = Platform.currentTime
+          val consumer = newConsumer() // TODO ~10ms
+          val duration = Platform.currentTime - timestamp
+          log.debug(s"newConsumer() took $duration ms")
+          consumer
+        }
 
         partitionOffset match {
           case None =>
             val topics = List(topic)
-            consumer.subscribe(topics) // TODO with listener
-          //          consumer.seekToBeginning() // TODO
+            consumer.subscribe(topics, None) // TODO with listener
 
           case Some(partitionOffset) =>
             val topicPartition = TopicPartition(topic, partitionOffset.partition)
-            consumer.assign(List(topicPartition)) // TODO blocking
-          val offset = partitionOffset.offset + 1
-            consumer.seek(topicPartition, offset) // TODO blocking
+            consumer.assign(List(topicPartition))
+            val offset = partitionOffset.offset + 1
+            consumer.seek(topicPartition, offset)
         }
+
 
         val readKafka = ReadActions(consumer, pollTimeout)
         val result = f(readKafka)
-        result.onComplete { _ => consumer.close() } // TODO use timeout
+        result.onComplete { _ =>
+          consumer.close(closeTimeout).failed.foreach { failure =>
+            log.error(s"failed to close consumer $failure", failure)
+          }
+        }
         result
       }
     }

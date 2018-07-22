@@ -64,12 +64,11 @@ object Replicator {
     log: ActorLog,
     pollTimeout: FiniteDuration = 100.millis,
     closeTimeout: FiniteDuration = 10.seconds)(implicit
-    ec: ExecutionContext,
-    system: ActorSystem): Shutdown = {
+    ec: ExecutionContext): Shutdown = {
 
     val topic = "journal"
     val topics = List(topic)
-    consumer.subscribe(topics)
+    consumer.subscribe(topics, None)
     // TODO seek to the beginning
     // TODO acknowledge ?
 
