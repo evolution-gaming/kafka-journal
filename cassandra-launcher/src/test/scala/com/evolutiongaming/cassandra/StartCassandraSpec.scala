@@ -4,9 +4,8 @@ import org.scalatest.FunSuite
 
 class StartCassandraSpec extends FunSuite {
 
-  test("start and stop cassandra") {
-    // TODO
-    /*val shutdown = StartCassandra()
-    shutdown()*/
+  ignore("start and stop cassandra") {
+    val shutdown = StartCassandra()
+    shutdown()
   }
 }
