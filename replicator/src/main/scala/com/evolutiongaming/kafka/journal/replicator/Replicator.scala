@@ -51,7 +51,7 @@ object Replicator {
       for {
         _ <- shutdown()
         cassandra = cluster.close()
-        kafka = consumer.close(3.seconds /*FROM config*/)
+        kafka = consumer.close(3.seconds /*TODO FROM config*/)
         _ <- cassandra
         _ <- kafka
       } yield {}
@@ -116,7 +116,7 @@ object Replicator {
           val updateTmp = UpdateTmp.DeleteToKnown(info.deleteTo, replicated.toList)
           val timestamp = Platform.currentTime
           for {
-            result <- journal.save(key.id, updateTmp, topic)
+            result <- journal.save(key, updateTmp)
           } yield {
             val head = replicated.head
             val last = replicated.last
@@ -135,7 +135,7 @@ object Replicator {
           val updateTmp = UpdateTmp.DeleteUnbound(deleteTo)
           val timestamp = Platform.currentTime
           for {
-            result <- journal.save(key.id, updateTmp, topic)
+            result <- journal.save(key, updateTmp)
           } yield {
             val duration = Platform.currentTime - timestamp
             log.info(s"replicated in $duration ms, key: $key, deleteTo: $deleteTo, partitionOffset: $partitionOffset")

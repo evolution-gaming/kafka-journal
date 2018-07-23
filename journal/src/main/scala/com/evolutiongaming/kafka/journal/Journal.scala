@@ -145,7 +145,7 @@ object Journal {
 
         def replicatedSeqNr(from: SeqNr) = {
           val ss = (s, from, Option.empty[Offset])
-          eventual.foldWhile(key.id, from, ss) { case ((s, _, _), replicated) =>
+          eventual.foldWhile(key, from, ss) { case ((s, _, _), replicated) =>
             val event = replicated.event
             val switch = f(s, event)
             val from = event.seqNr.next
@@ -158,7 +158,7 @@ object Journal {
 
         def replicated(from: SeqNr) = {
           for {
-            s <- eventual.foldWhile(key.id, from, s) { (s, replicated) => f(s, replicated.event) }
+            s <- eventual.foldWhile(key, from, s) { (s, replicated) => f(s, replicated.event) }
           } yield s.s
         }
 
@@ -208,7 +208,7 @@ object Journal {
       def lastSeqNr(from: SeqNr) = {
         for {
           foldActions <- foldActions(from)
-          seqNrEventual = eventual.lastSeqNr(key.id, from)
+          seqNrEventual = eventual.lastSeqNr(key, from)
           seqNr <- foldActions[SeqNr](None/*TODO*/, from) { (seqNr, action) =>
             val result = action match {
               case action: Action.Append => action.header.range.to

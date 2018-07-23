@@ -22,9 +22,10 @@ object ReadActions {
     def logSkipped(record: ConsumerRecord[String, Bytes]) = {
       val key = record.key getOrElse "none"
       val offset = record.offset
-      val partition = record.partition
+      val topicPartition = record.topicPartition
+
       // TODO important performance indication
-      println(s"skipping unnecessary record key: $key, partition: $partition, offset: $offset")
+      println(s"skipping unnecessary record key: $key, topicPartition: $topicPartition, offset: $offset")
     }
 
     new ReadActions {

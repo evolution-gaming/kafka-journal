@@ -476,7 +476,7 @@ object JournalSpec {
           TopicPointers(pointers).async
         }
 
-        def foldWhile[S](id: Id, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
+        def foldWhile[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
 
           def read(state: State) = {
             state.events.foldWhile(s) { (s, replicated) =>
@@ -489,7 +489,7 @@ object JournalSpec {
           read(state).async
         }
 
-        def lastSeqNr(id: Id, from: SeqNr) = {
+        def lastSeqNr(key: Key, from: SeqNr) = {
 
           def lastSeqNr(state: State) = {
             val seqNr = state.events.lastOption.fold(SeqNr.Min)(_.event.seqNr)

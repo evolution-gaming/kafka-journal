@@ -8,6 +8,9 @@ import scala.collection.immutable.Iterable
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
+/**
+  * See [[org.apache.kafka.clients.consumer.Consumer]]
+  */
 trait Consumer[K, V] {
 
   def assign(partitions: Iterable[TopicPartition]): Unit

@@ -13,7 +13,11 @@ object CreateSchema {
     def createKeyspace() = {
       val keyspace = schemaConfig.keyspace
       if (keyspace.autoCreate) {
-        val query = JournalStatement.createKeyspace(keyspace)
+        val query =
+          s"""
+             |CREATE KEYSPACE IF NOT EXISTS ${ keyspace.name }
+             |WITH REPLICATION = { 'class' : ${ keyspace.replicationStrategy.asCql } }
+             |""".stripMargin
         session.execute(query).async
       } else {
         Async.unit
