@@ -109,7 +109,7 @@ object Journal {
 
     def mark(): Async[Marker] = {
       val id = UUID.randomUUID().toString
-      val action = Action.Mark(id)
+      val action = Action.Mark(id, Instant.now())
       for {
         (partition, offset) <- writeAction(action)
       } yield {

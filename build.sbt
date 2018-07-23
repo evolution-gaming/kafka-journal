@@ -77,7 +77,6 @@ lazy val `persistence-tests` = (project in file("persistence-tests")
   settings commonSettings
   settings Seq(
     skip in publish := true, // TODO use in other modules
-    Test / testOptions in Test := Seq(Tests.Filter(_ endsWith "IntegrationSpec")),
     Test / fork := true,
     Test / parallelExecution := false)
   dependsOn (

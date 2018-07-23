@@ -11,7 +11,6 @@ import scala.collection.JavaConverters._
 
 object PointerStatement {
 
-  // TODO Partition metadata table using `topic` column and verify query for all topics works
   def createTable(name: TableName): String = {
     s"""
        |CREATE TABLE IF NOT EXISTS ${ name.asCql } (
@@ -20,7 +19,7 @@ object PointerStatement {
        |offset bigint,
        |created timestamp,
        |updated timestamp,
-       |PRIMARY KEY (topic, partition))
+       |PRIMARY KEY ((topic), partition))
        |""".stripMargin
   }
 

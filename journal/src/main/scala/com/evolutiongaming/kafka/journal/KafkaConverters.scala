@@ -72,29 +72,15 @@ object KafkaConverters {
     def toAction: Option[Action] = {
 
       def action(header: Action.Header) = {
-
-        def timestamp = self.timestampAndType.map(_.timestamp)
-
-        def append(header: Action.Header.Append) = {
-          for {
-            timestamp <- timestamp
-          } yield {
-            Action.Append(header, timestamp, self.value)
+        for {
+          timestampAndType <- self.timestampAndType
+        } yield {
+          val timestamp = timestampAndType.timestamp
+          header match {
+            case header: Action.Header.Append => Action.Append(header, timestamp, self.value)
+            case header: Action.Header.Delete => Action.Delete(header, timestamp)
+            case header: Action.Header.Mark   => Action.Mark(header, timestamp)
           }
-        }
-
-        def delete(header: Action.Header.Delete) = {
-          for {
-            timestamp <- timestamp
-          } yield {
-            Action.Delete(header, timestamp)
-          }
-        }
-
-        header match {
-          case header: Action.Header.Append => append(header)
-          case header: Action.Header.Delete => delete(header)
-          case header: Action.Header.Mark   => Some(Action.Mark(header))
         }
       }
 

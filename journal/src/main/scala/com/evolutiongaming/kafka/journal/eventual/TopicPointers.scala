@@ -11,7 +11,6 @@ case class TopicPointers(pointers: Map[Partition, Offset]) {
     copy(this.pointers ++ that.pointers)
   }
 
-
   override def toString: String = {
     val pointersStr = pointers.map { case (k, v) => s"$k:$v" }.mkString(",")
     s"$productPrefix($pointersStr)"

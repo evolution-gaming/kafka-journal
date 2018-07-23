@@ -7,13 +7,12 @@ import com.evolutiongaming.kafka.journal.eventual.PartitionOffset
 
 sealed trait Action {
   def header: Action.Header
+  def timestamp: Instant
 }
 
 object Action {
 
-  sealed trait User extends Action {
-    def timestamp: Instant
-  }
+  sealed trait User extends Action
 
   sealed trait System extends Action
 
@@ -42,12 +41,12 @@ object Action {
   }
 
 
-  final case class Mark(header: Header.Mark) extends System
+  final case class Mark(header: Header.Mark, timestamp: Instant) extends System
 
   object Mark {
-    def apply(id: String): Mark = {
+    def apply(id: String, timestamp: Instant): Mark = {
       val header = Header.Mark(id)
-      Mark(header)
+      Mark(header, timestamp)
     }
   }
 

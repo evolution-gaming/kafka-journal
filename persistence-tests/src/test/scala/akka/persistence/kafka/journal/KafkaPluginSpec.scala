@@ -2,20 +2,21 @@ package akka.persistence.kafka.journal
 
 import akka.persistence.PluginSpec
 import com.evolutiongaming.cassandra.StartCassandra
+import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.StartKafka
 import com.evolutiongaming.kafka.journal.replicator.Replicator
 
-import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.control.NonFatal
 
 trait KafkaPluginSpec extends PluginSpec {
 
-  var shutdownReplicator: Replicator.Shutdown = Replicator.Shutdown.Empty
+  var shutdown: () => Async[Unit] = () => Async.unit
 
   override def beforeAll(): Unit = {
     KafkaPluginSpec.start()
-    shutdownReplicator = Replicator(system, system.dispatcher)
+    val replicator = Replicator(system, system.dispatcher)
+    shutdown = () => replicator.shutdown()
     super.beforeAll()
   }
 
@@ -23,7 +24,7 @@ trait KafkaPluginSpec extends PluginSpec {
     super.afterAll()
 
     KafkaPluginSpec.safe {
-      Await.result(shutdownReplicator(), 1.minute)
+      shutdown().await(1.minute)
     }
   }
 }
@@ -35,6 +36,7 @@ object KafkaPluginSpec {
     val shutdownKafka = StartKafka()
 
     sys.addShutdownHook {
+
       safe {
         shutdownCassandra()
       }
