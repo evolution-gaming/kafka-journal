@@ -11,13 +11,10 @@ import scala.util.control.NonFatal
 
 trait KafkaPluginSpec extends PluginSpec {
 
-  var shutdownKafka: StartKafka.Shutdown = StartKafka.Shutdown.Empty
-  var shutdownCassandra: StartKafka.Shutdown = StartCassandra.Shutdown.Empty
   var shutdownReplicator: Replicator.Shutdown = Replicator.Shutdown.Empty
 
   override def beforeAll(): Unit = {
-    shutdownKafka = StartKafka()
-    shutdownCassandra = StartCassandra()
+    KafkaPluginSpec.start()
     shutdownReplicator = Replicator(system, system.dispatcher)
     super.beforeAll()
   }
@@ -25,21 +22,34 @@ trait KafkaPluginSpec extends PluginSpec {
   override def afterAll(): Unit = {
     super.afterAll()
 
-    def safe[T](f: => T) = {
-      try f catch {
-        case NonFatal(failure) => failure.printStackTrace() // TODO use logger
+    KafkaPluginSpec.safe {
+      Await.result(shutdownReplicator(), 1.minute)
+    }
+  }
+}
+
+object KafkaPluginSpec {
+
+  private lazy val started = {
+    val shutdownCassandra = StartCassandra()
+    val shutdownKafka = StartKafka()
+
+    sys.addShutdownHook {
+      safe {
+        shutdownCassandra()
+      }
+
+      safe {
+        shutdownKafka()
       }
     }
+  }
 
-    safe {
-      Await.result(shutdownReplicator(), 1.minute) // TODO
-    }
+  def start(): Unit = started
 
-    safe {
-      shutdownKafka()
-    }
-    safe {
-      shutdownCassandra()
+  def safe[T](f: => T): Unit = {
+    try f catch {
+      case NonFatal(failure) => failure.printStackTrace()
     }
   }
 }

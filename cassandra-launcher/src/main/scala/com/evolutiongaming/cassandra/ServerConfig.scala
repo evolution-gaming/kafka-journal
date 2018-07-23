@@ -9,7 +9,8 @@ import scala.collection.JavaConverters._
 case class ServerConfig(
   dir: String,
   clusterName: String = "Test Cluster",
-  address: String = "localhost") {
+  address: String = "localhost",
+  port: Int = 9042) {
 
   def asJava: Config = new Config {
     cluster_name = clusterName
@@ -47,5 +48,6 @@ case class ServerConfig(
     inter_dc_tcp_nodelay = false
     gc_warn_threshold_in_ms = 1000
     windows_timer_interval = 1
+    native_transport_port = port
   }
 }
