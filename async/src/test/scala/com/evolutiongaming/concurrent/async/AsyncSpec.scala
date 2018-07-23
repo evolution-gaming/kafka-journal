@@ -53,15 +53,16 @@ class AsyncSpec extends FunSuite with Matchers {
   test("fold") {
     val list = (1 to 100).toList.map(_.toString)
     val fold = (s: String, e: String) => s + e
+    val foldAsync = (s: String, e: Async[String]) => e.map(e => fold(s, e))
     val expected = list.foldLeft("")(fold)
     val completed = list.map(x => Async(x))
-    Async.fold(completed, "")(fold) shouldEqual Async(expected)
+    Async.fold(completed, "")(foldAsync) shouldEqual Async(expected)
 
     val mixed = list.map(x => if (x.startsWith("2") || x.startsWith("4")) Async.async(x) else Async(x))
-    Async.fold(mixed, "")(fold).await() shouldEqual Async(expected)
+    Async.fold(mixed, "")(foldAsync).await() shouldEqual Async(expected)
 
     val inCompleted = list.map(x => Async.async(x))
-    Async.fold(inCompleted, "")(fold).await() shouldEqual Async(expected)
+    Async.fold(inCompleted, "")(foldAsync).await() shouldEqual Async(expected)
   }
 
   private case object Error extends RuntimeException with NoStackTrace

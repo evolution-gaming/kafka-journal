@@ -77,7 +77,7 @@ object Async {
 
   def nil[T]: Async[List[T]] = futureNil
 
-  def fold[T, S](iter: Iterable[Async[T]], s: S)(f: (S, T) => S): Async[S] = {
+  def fold[T, S](iter: Iterable[T], s: S)(f: (S, T) => Async[S]): Async[S] = {
 
     val iterator = iter.iterator
 
@@ -86,13 +86,13 @@ object Async {
       if (iterator.isEmpty) Async(s)
       else {
         val v = iterator.next()
-        v match {
-          case Succeed(v)        => fold(f(s, v))
-          case Failed(v)         => Failed(v)
-          case v: InCompleted[T] => v.value() match {
-            case Some(Success(v)) => fold(f(s, v))
-            case Some(Failure(v)) => Failed(v)
-            case None             => v.flatMap(v => break(f(s, v)))
+        f(s, v) match {
+          case Succeed(s)        => fold(s)
+          case Failed(s)         => Failed(s)
+          case v: InCompleted[S] => v.value() match {
+            case Some(Success(s)) => fold(s)
+            case Some(Failure(s)) => Failed(s)
+            case None             => v.flatMap(break)
           }
         }
       }
@@ -104,7 +104,7 @@ object Async {
   }
 
 
-  def foldUnit[T](iter: Iterable[Async[T]]): Async[Unit] = fold(iter, ()) { (_, _) => () }
+  def foldUnit[T](iter: Iterable[Async[T]]): Async[Unit] = fold(iter, ()) { (_, x) => x.unit }
 
 
   sealed trait Completed[+T] extends Async[T] {
