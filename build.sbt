@@ -52,15 +52,15 @@ lazy val journal = (project in file("journal")
   settings commonSettings
   dependsOn (async, `cassandra-client`)
   settings (libraryDependencies ++= Seq(
-    Akka.Persistence,
-    Akka.Tck,
-    Akka.Slf4j,
+    Akka.persistence,
+    Akka.tck,
+    Akka.slf4j,
     skafka,
-    Kafka.Clients,
+    Kafka.clients,
     scalatest,
     `executor-tools`,
-    Logback.Core % Test,
-    Cassandra.Driver,
+    Logback.core % Test,
+    Cassandra.driver,
     pubsub,
     `play-json`,
     `scala-tools`,
@@ -90,7 +90,7 @@ lazy val replicator = (Project("replicator", file("replicator"))
   settings (name := "kafka-journal-replicator")
   settings commonSettings
   dependsOn (journal % "test->test;compile->compile", `eventual-cassandra`)
-  settings (libraryDependencies ++= Seq()))
+  settings (libraryDependencies ++= Seq(serially)))
 
 // TODO rename to scassandra
 lazy val `cassandra-client` = (project in file("cassandra-client")
@@ -98,7 +98,7 @@ lazy val `cassandra-client` = (project in file("cassandra-client")
   settings commonSettings
   dependsOn (`cassandra-launcher` % "compile->test")
   settings (libraryDependencies ++= Seq(
-    Cassandra.Driver,
+    Cassandra.driver,
     `config-tools`,
     `future-helper`,
     scalatest,
@@ -115,18 +115,18 @@ lazy val `cassandra-launcher` = (project in file("cassandra-launcher")
   settings commonSettings
   dependsOn `tmp-dir`
   settings (libraryDependencies ++= Seq(
-    Cassandra.Server,
-    Slf4j.Api % Test,
-    Slf4j.OverLog4j % Test,
-    Logback.Core % Test,
-    Logback.Classic % Test,
+    Cassandra.server,
+    Slf4j.api % Test,
+    Slf4j.`log4j-over-slf4j` % Test,
+    Logback.core % Test,
+    Logback.classic % Test,
     scalatest)))
 
 lazy val `kafka-launcher` = (project in file("kafka-launcher")
   settings (name := "kafka-launcher")
   settings commonSettings
   dependsOn `tmp-dir`
-  settings (libraryDependencies ++= Seq(Kafka.Server, scalatest)))
+  settings (libraryDependencies ++= Seq(Kafka.server, scalatest)))
 
 lazy val `eventual-cassandra` = (project in file("eventual-cassandra")
   settings (name := "kafka-journal-eventual-cassandra")

@@ -15,17 +15,17 @@ trait KafkaPluginSpec extends PluginSpec {
 
   override def beforeAll(): Unit = {
     KafkaPluginSpec.start()
-    val replicator = Replicator(system, system.dispatcher)
+    val replicator = Replicator(system)
     shutdown = () => replicator.shutdown()
     super.beforeAll()
   }
 
   override def afterAll(): Unit = {
-    super.afterAll()
-
     KafkaPluginSpec.safe {
-      shutdown().await(1.minute)
+      shutdown().await(30.seconds)
     }
+
+    super.afterAll()
   }
 }
 
@@ -36,11 +36,9 @@ object KafkaPluginSpec {
     val shutdownKafka = StartKafka()
 
     sys.addShutdownHook {
-
       safe {
         shutdownCassandra()
       }
-
       safe {
         shutdownKafka()
       }

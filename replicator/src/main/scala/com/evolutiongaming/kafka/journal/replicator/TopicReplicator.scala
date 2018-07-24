@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicBoolean
 
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
@@ -17,7 +18,6 @@ import scala.compat.Platform
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.language.existentials
-import scala.util.{Failure, Success}
 
 
 trait TopicReplicator {
@@ -31,8 +31,7 @@ object TopicReplicator {
     consumer: Consumer[String, Bytes],
     journal: ReplicatedJournal,
     log: ActorLog,
-    pollTimeout: FiniteDuration = 100.millis,
-    closeTimeout: FiniteDuration = 10.seconds)(implicit
+    pollTimeout: FiniteDuration = 100.millis)(implicit
     ec: ExecutionContext): TopicReplicator = {
 
     val topics = List(topic)
@@ -96,7 +95,7 @@ object TopicReplicator {
               s" range: $range,"
             }
 
-            log.info(s"replicated $id in $latency ms,$range deleteTo: $deleteTo, partitionOffset: $partitionOffset, save: $saveDuration ms")
+            log.info(s"replicated $id in ${ latency }ms,$range deleteTo: $deleteTo, partitionOffset: $partitionOffset, save: ${ saveDuration }ms")
             result
           }
         }
@@ -111,7 +110,7 @@ object TopicReplicator {
             val now = Platform.currentTime
             val saveDuration = now - timestamp
             val latency = now - last.action.timestamp.toEpochMilli
-            log.info(s"replicated $id in $latency ms, deleteTo: $deleteTo, partitionOffset: $partitionOffset, save: $saveDuration ms")
+            log.info(s"replicated $id in ${ latency }ms, deleteTo: $deleteTo, partitionOffset: $partitionOffset, save: ${ saveDuration }ms")
             result
           }
         }
@@ -152,21 +151,23 @@ object TopicReplicator {
       } yield pointers
     }
 
-    // TODO replace with StateVar
-    @volatile var stop = false
+    val stop = new AtomicBoolean(false)
 
     // TODO cache state and not re-read it when kafka is broken
     def consume(pointers: TopicPointers) = {
       val fold = (pointers: TopicPointers) => {
-        if (stop) pointers.stop.async
+        if (stop.get()) pointers.stop.async
         else {
           for {
             records <- consumer.poll(pollTimeout).async
             pointers <- {
-              if (records.values.isEmpty) pointers.async
-              else apply(pointers, records, Instant.now())
+              if (stop.get()) pointers.stop.async
+              else {
+                if (records.values.isEmpty) pointers.continue.async
+                else apply(pointers, records, Instant.now()).map(_.continue)
+              }
             }
-          } yield pointers.continue
+          } yield pointers
         }
       }
 
@@ -178,19 +179,19 @@ object TopicReplicator {
       _ <- consume(pointers)
     } yield {}
 
-    async.onComplete {
-      case Success(_)       =>
-      case Failure(failure) => log.error(s"TopicReplicator failed: $failure", failure)
-    }
+    async.onFailure { failure => log.error(s"TopicReplicator failed: $failure", failure) }
 
     new TopicReplicator {
+
       def shutdown() = {
-        stop = true
+        stop.set(true)
         for {
           _ <- async
-          _ <- consumer.close(closeTimeout).async
+          _ <- consumer.close().async
         } yield {}
       }
+
+      override def toString = s"TopicReplicator($topic)"
     }
   }
 }

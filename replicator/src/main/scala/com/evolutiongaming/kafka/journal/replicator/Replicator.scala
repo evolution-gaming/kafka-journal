@@ -6,14 +6,15 @@ import akka.actor.ActorSystem
 import com.evolutiongaming.cassandra.{CassandraConfig, CreateCluster}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
+import com.evolutiongaming.concurrent.serially.SeriallyAsync
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandraConfig, ReplicatedCassandra, SchemaConfig}
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer._
-import com.evolutiongaming.skafka.{Bytes => _}
+import com.evolutiongaming.skafka.{Topic, Bytes => _}
 
+import scala.compat.Platform
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
 
@@ -24,42 +25,113 @@ trait Replicator {
 // TODO refactor EventualDb api, make sure it does operate with Seq[Actions]
 object Replicator {
 
-  def apply(implicit system: ActorSystem, ec: ExecutionContext): Replicator = {
-    val ecBlocking = system.dispatchers.lookup("kafka-replicator-blocking-dispatcher")
-    apply(ecBlocking)
+  def apply(system: ActorSystem): Replicator = {
+    val name = "kafka-journal.replicator"
+    val config = ReplicatorConfig(system.settings.config.getConfig(name))
+    val ecBlocking = system.dispatchers.lookup(s"$name.blocking-dispatcher")
+    apply(config, ecBlocking)(system, system.dispatcher)
   }
 
-  def apply(ecBlocking: ExecutionContext)(implicit system: ActorSystem, ec: ExecutionContext): Replicator = {
+  def apply(config: ReplicatorConfig, ecBlocking: ExecutionContext)(implicit system: ActorSystem, ec: ExecutionContext): Replicator = {
     val log = ActorLog(system, Replicator.getClass)
-    val topics = Nel("journal", "consistency", "perf", "integration")
     val cassandraConfig = CassandraConfig.Default
     val cluster = CreateCluster(cassandraConfig)
     val session = Await.result(cluster.connect(), 5.seconds) // TODO handle this properly
     val schemaConfig = SchemaConfig.Default
-    val config = EventualCassandraConfig.Default
-    val journal = ReplicatedCassandra(session, schemaConfig, config)
+    val journal = ReplicatedCassandra(session, schemaConfig, EventualCassandraConfig.Default)
 
-    val replicators = for {
-      topic <- topics
-    } yield {
-      val groupId = UUID.randomUUID().toString
-      val consumerConfig = ConsumerConfig.Default.copy(
-        groupId = Some(groupId),
-        autoOffsetReset = AutoOffsetReset.Earliest)
+    val serially = SeriallyAsync()
+    val stateVar = AsyncVar[State](State.Running.Empty, serially)
+
+    def createReplicator(topic: Topic) = {
+      val uuid = UUID.randomUUID()
+      val prefix = config.consumerConfig.groupId getOrElse "replicator"
+      val groupId = s"$prefix-$topic-$uuid"
+      val consumerConfig = config.consumerConfig.copy(groupId = Some(groupId))
       val consumer = CreateConsumer[String, Bytes](consumerConfig, ecBlocking)
 
       val log = ActorLog(system, TopicReplicator.getClass) prefixed topic
       TopicReplicator(topic, consumer, journal, log)
     }
 
+    val consumer = CreateConsumer[String, Bytes](config.consumerConfig, ecBlocking)
+
+    def discoverTopics(): Unit = {
+      val timestamp = Platform.currentTime
+      val result = stateVar.updateAsync {
+        case State.Stopped        => State.Stopped.async
+        case state: State.Running =>
+          for {
+            topics <- consumer.listTopics().async
+          } yield {
+            val duration = Platform.currentTime - timestamp
+            val topicsNew = (topics.keySet -- state.replicators.keySet).filter { topic =>
+              config.topicPrefixes.exists(topic.startsWith)
+            }
+
+            val result = {
+              if (topicsNew.isEmpty) state
+              else {
+                log.info(s"discover new topics: ${ topicsNew.mkString(",") } in ${ duration }ms")
+
+                val replicators = topics.keys.foldLeft(state.replicators) { (replicators, topic) =>
+                  if (replicators contains topic) {
+                    replicators
+                  } else {
+                    val replicator = createReplicator(topic)
+                    replicators.updated(topic, replicator)
+                  }
+                }
+                state.copy(replicators = replicators)
+              }
+            }
+            system.scheduler.scheduleOnce(config.topicDiscoveryInterval) {
+              if (stateVar.value() != State.Stopped) discoverTopics()
+            }
+            result
+          }
+      }
+      result.onFailure { failure => log.error(s"discoverTopics failed $failure", failure) }
+    }
+
+    discoverTopics()
+
     new Replicator {
+
       def shutdown() = {
-        val shutdowns = replicators.toList.map(_.shutdown())
+
+        def shutdownReplicators() = {
+          stateVar.updateAsync {
+            case State.Stopped        => State.Stopped.async
+            case state: State.Running =>
+              val shutdowns = state.replicators.values.toList.map(_.shutdown())
+              for {_ <- Async.foldUnit(shutdowns)} yield State.Stopped
+          }
+        }
+
         for {
-          _ <- Async.foldUnit(shutdowns)
+          _ <- shutdownReplicators()
+          _ <- serially.stop().async
+          kafka = consumer.close().async
           _ <- cluster.close().async
+          _ <- kafka
         } yield {}
       }
     }
+  }
+
+
+  sealed trait State
+
+  object State {
+
+    case class Running(replicators: Map[Topic, TopicReplicator] = Map.empty) extends State
+
+    object Running {
+      val Empty: Running = Running()
+    }
+
+
+    case object Stopped extends State
   }
 }

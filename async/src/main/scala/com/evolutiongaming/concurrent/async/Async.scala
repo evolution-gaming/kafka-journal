@@ -28,6 +28,10 @@ sealed trait Async[+T] {
 
   def onComplete[TT](f: Try[T] => TT): Unit
 
+  def onSuccess[TT](f: T => TT): Unit
+
+  def onFailure[TT](f: Throwable => TT): Unit
+
   def recover[TT >: T](pf: PartialFunction[Throwable, TT]): Async[TT]
 
   def flatten[TT](implicit ev: T <:< Async[TT]): Async[TT] = flatMap(ev)
@@ -144,6 +148,10 @@ object Async {
 
     def get(timeout: Duration) = v
 
+    def onSuccess[TT](f: T => TT) = safeUnit { f(v) }
+
+    def onFailure[TT](f: Throwable => TT) = {}
+
     def recover[TT >: T](pf: PartialFunction[Throwable, TT]) = this
 
     override def toString = s"Async($v)"
@@ -161,6 +169,10 @@ object Async {
     def flatMap[TT](f: Nothing => Async[TT]) = this
 
     def get(timeout: Duration) = throw v
+
+    def onSuccess[TT](f: Nothing => TT) = {}
+
+    def onFailure[TT](f: Throwable => TT) = safeUnit { f(v) }
 
     def recover[TT >: Nothing](pf: PartialFunction[Throwable, TT]) = {
       safe { if (pf.isDefinedAt(v)) Succeed(pf(v)) else this }
@@ -227,6 +239,16 @@ object Async {
         case Some(v) => safeUnit { f(v) }
         case None    => future.onComplete(f)
       }
+    }
+
+    def onSuccess[TT](f: T => TT) = onComplete {
+      case Success(v) => f(v)
+      case Failure(v) =>
+    }
+
+    def onFailure[TT](f: Throwable => TT) = onComplete {
+      case Success(v) =>
+      case Failure(v) => f(v)
     }
 
     def recover[TT >: T](pf: PartialFunction[Throwable, TT]) = {

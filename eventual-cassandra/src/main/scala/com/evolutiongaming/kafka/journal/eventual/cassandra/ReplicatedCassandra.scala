@@ -3,16 +3,15 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import java.time.Instant
 
 import akka.actor.ActorSystem
-import com.datastax.driver.core.{BatchStatement, BoundStatement, ConsistencyLevel}
 import com.datastax.driver.core.policies.LoggingRetryPolicy
-import com.evolutiongaming.cassandra.Session
-import com.evolutiongaming.cassandra.NextHostRetryPolicy
+import com.datastax.driver.core.{BatchStatement, BoundStatement, ConsistencyLevel}
+import com.evolutiongaming.cassandra.{NextHostRetryPolicy, Session}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.Alias._
-import com.evolutiongaming.kafka.journal.{Key, ReplicatedEvent}
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
+import com.evolutiongaming.kafka.journal.{Key, ReplicatedEvent}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Topic
