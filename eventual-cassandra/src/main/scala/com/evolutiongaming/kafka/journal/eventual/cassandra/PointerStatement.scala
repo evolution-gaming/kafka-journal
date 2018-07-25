@@ -137,4 +137,32 @@ object PointerStatement {
       }
     }
   }
+
+  object SelectTopics {
+    type Type = () => Async[List[Topic]]
+
+    def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
+      val query =
+        s"""
+           |SELECT DISTINCT topic FROM ${ name.asCql }
+           |""".stripMargin
+      for {
+        prepared <- session.prepare(query)
+      } yield {
+        () => {
+          val bound = prepared.bind()
+          for {
+            result <- session.execute(bound)
+          } yield {
+            val rows = result.all().asScala.toList
+            for {
+              row <- rows
+            } yield {
+              row.decode[String]("topic")
+            }
+          }
+        }
+      }
+    }
+  }
 }

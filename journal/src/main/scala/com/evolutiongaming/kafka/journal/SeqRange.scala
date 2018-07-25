@@ -5,7 +5,7 @@ import com.evolutiongaming.kafka.journal.Alias._
 // TODO test
 // TODO add method with single argument of range size 1
 
-case class SeqRange(from: SeqNr, to: SeqNr) {
+final case class SeqRange(from: SeqNr, to: SeqNr) {
 
   require(from <= to, s"from($from) <= to($to)")
   require(from >= 0, s"from($from) >= 0")

@@ -4,7 +4,7 @@ import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.ProducerConfig
 import com.typesafe.config.Config
 
-case class Settings(
+final case class Settings(
   producer: ProducerConfig,
   consumer: ConsumerConfig)
 

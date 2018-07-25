@@ -5,7 +5,7 @@ import com.datastax.driver.core.policies.RetryPolicy
 import com.datastax.driver.core.policies.RetryPolicy.RetryDecision
 import com.datastax.driver.core.{Cluster => ClusterJ, ConsistencyLevel, Statement, WriteType}
 
-case class NextHostRetryPolicy(retries: Int) extends RetryPolicy {
+final case class NextHostRetryPolicy(retries: Int) extends RetryPolicy {
 
   def onUnavailable(
     statement: Statement,

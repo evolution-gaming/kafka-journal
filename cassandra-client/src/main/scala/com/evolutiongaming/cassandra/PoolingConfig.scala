@@ -9,7 +9,7 @@ import scala.concurrent.duration._
 /**
   * See [[https://docs.datastax.com/en/developer/java-driver/3.5/manual/pooling/]]
   */
-case class PoolingConfig(
+final case class PoolingConfig(
   local: PoolingConfig.HostConfig = PoolingConfig.HostConfig.Local,
   remote: PoolingConfig.HostConfig = PoolingConfig.HostConfig.Remote,
   poolTimeout: FiniteDuration = 5.seconds,
@@ -52,7 +52,7 @@ object PoolingConfig {
   }
 
 
-  case class HostConfig(
+  final case class HostConfig(
     newConnectionThreshold: Int,
     maxRequestsPerConnection: Int,
     connectionsPerHostMin: Int,

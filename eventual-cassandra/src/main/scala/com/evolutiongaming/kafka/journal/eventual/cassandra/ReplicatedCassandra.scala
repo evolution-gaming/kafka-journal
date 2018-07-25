@@ -26,7 +26,6 @@ object ReplicatedCassandra {
 
   def apply(
     session: Session,
-    schemaConfig: SchemaConfig,
     config: EventualCassandraConfig)(implicit system: ActorSystem, ec: ExecutionContext): ReplicatedJournal = {
 
     val log = ActorLog(system, ReplicatedCassandra.getClass)
@@ -39,7 +38,7 @@ object ReplicatedCassandra {
       retryPolicy = new LoggingRetryPolicy(NextHostRetryPolicy(retries)))
 
     val sessionAndStatements = for {
-      tables <- CreateSchema(schemaConfig, session)
+      tables <- CreateSchema(config.schema, session)
       prepareAndExecute = PrepareAndExecute(session, statementConfig)
       statements <- Statements(session, tables, prepareAndExecute)
     } yield {
@@ -48,6 +47,15 @@ object ReplicatedCassandra {
 
 
     new ReplicatedJournal {
+
+      def topics() = {
+        for {
+          (_, statements) <- sessionAndStatements
+          topics <- statements.selectTopics()
+        } yield {
+          topics
+        }
+      }
 
       // TODO consider creating collection   Deleted/Nil :: Elem :: Elem
       // TODO to encode sequence that can start either from 0 or for Deleted
@@ -258,7 +266,8 @@ object ReplicatedCassandra {
     insertPointer: PointerStatement.Insert.Type,
     updatePointer: PointerStatement.Update.Type,
     selectPointer: PointerStatement.Select.Type,
-    selectTopicPointer: PointerStatement.SelectTopicPointers.Type)
+    selectTopicPointer: PointerStatement.SelectTopicPointers.Type,
+    selectTopics: PointerStatement.SelectTopics.Type)
 
   object Statements {
 
@@ -279,6 +288,7 @@ object ReplicatedCassandra {
       val updatePointer = PointerStatement.Update(tables.pointer, prepareAndExecute)
       val selectPointer = PointerStatement.Select(tables.pointer, prepareAndExecute)
       val selectTopicPointers = PointerStatement.SelectTopicPointers(tables.pointer, prepareAndExecute)
+      val selectTopics = PointerStatement.SelectTopics(tables.pointer, prepareAndExecute)
 
       for {
         insertRecord <- insertRecord
@@ -292,6 +302,7 @@ object ReplicatedCassandra {
         updatePointer <- updatePointer
         selectPointer <- selectPointer
         selectTopicPointers <- selectTopicPointers
+        selectTopics <- selectTopics
       } yield {
         Statements(
           insertRecord,
@@ -304,7 +315,8 @@ object ReplicatedCassandra {
           insertPointer,
           updatePointer,
           selectPointer,
-          selectTopicPointers)
+          selectTopicPointers,
+          selectTopics)
       }
     }
   }

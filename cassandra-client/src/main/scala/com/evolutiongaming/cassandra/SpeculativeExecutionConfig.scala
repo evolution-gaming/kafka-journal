@@ -9,7 +9,7 @@ import scala.concurrent.duration._
 /**
   * See [[https://docs.datastax.com/en/developer/java-driver/3.5/manual/speculative_execution/]]
   */
-case class SpeculativeExecutionConfig(
+final case class SpeculativeExecutionConfig(
   delay: FiniteDuration = 500.millis,
   maxExecutions: Int = 2) {
 

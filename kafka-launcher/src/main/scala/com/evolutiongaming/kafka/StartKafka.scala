@@ -75,7 +75,7 @@ object StartKafka {
   }
 }
 
-case class Address(host: String = "localhost", port: Int) {
+final case class Address(host: String = "localhost", port: Int) {
   override def toString: String = s"$host:$port"
 }
 

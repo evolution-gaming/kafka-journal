@@ -9,14 +9,14 @@ sealed trait UpdateTmp
 
 // TODO rename
 object UpdateTmp {
-  case class DeleteToKnown(value: Option[SeqNr], replicated: List[ReplicatedEvent]) extends UpdateTmp
+  final case class DeleteToKnown(value: Option[SeqNr], replicated: List[ReplicatedEvent]) extends UpdateTmp
 
   // TODO consider creating case class for unbounded deletedTo
-  case class DeleteUnbound(value: SeqNr) extends UpdateTmp
+  final case class DeleteUnbound(value: SeqNr) extends UpdateTmp
 }
 
 
-case class PartitionOffset(partition: Partition, offset: Offset) {
+final case class PartitionOffset(partition: Partition, offset: Offset) {
   override def toString = s"$partition:$offset"
 }
 
@@ -25,6 +25,6 @@ object PartitionOffset {
 }
 
 
-case class Pointer(
+final case class Pointer(
   seqNr: SeqNr,
   partitionOffset: PartitionOffset)

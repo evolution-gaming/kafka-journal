@@ -1,11 +1,13 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
+import com.evolutiongaming.cassandra.CassandraConfig
 import com.evolutiongaming.config.ConfigHelper._
 import com.typesafe.config.Config
 
-case class EventualCassandraConfig(
-  /*segmentSize: Int = 500000*/
-  segmentSize: Int = 100)
+final case class EventualCassandraConfig(
+  segmentSize: Int = 1000000,
+  client: CassandraConfig = CassandraConfig.Default,
+  schema: SchemaConfig = SchemaConfig.Default)
 
 object EventualCassandraConfig {
 
@@ -17,6 +19,8 @@ object EventualCassandraConfig {
     def get[T: FromConf](name: String) = config.getOpt[T](name)
 
     EventualCassandraConfig(
-      segmentSize = get[Int]("segment-size") getOrElse Default.segmentSize)
+      segmentSize = get[Int]("segment-size") getOrElse Default.segmentSize,
+      client = get[Config]("client").fold(Default.client)(CassandraConfig.apply),
+      schema = get[Config]("schema").fold(Default.schema)(SchemaConfig.apply))
   }
 }

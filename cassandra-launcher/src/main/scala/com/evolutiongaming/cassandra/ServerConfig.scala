@@ -6,7 +6,7 @@ import org.apache.cassandra.config.{Config, ParameterizedClass}
 import scala.collection.JavaConverters._
 
 
-case class ServerConfig(
+final case class ServerConfig(
   dir: String,
   clusterName: String = "Test Cluster",
   address: String = "localhost",

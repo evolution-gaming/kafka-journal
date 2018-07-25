@@ -10,7 +10,7 @@ import com.typesafe.config.{Config, ConfigException}
 /**
   * See [[https://docs.datastax.com/en/developer/java-driver/3.5/manual/#setting-up-the-driver]]
   */
-case class CassandraConfig(
+final case class CassandraConfig(
   name: String = "cluster",
   port: Int = 9042,
   contactPoints: Nel[String] = Nel("127.0.0.1"),

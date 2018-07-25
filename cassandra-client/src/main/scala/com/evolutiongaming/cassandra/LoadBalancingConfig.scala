@@ -7,7 +7,7 @@ import com.typesafe.config.Config
 /**
   * See [[https://docs.datastax.com/en/developer/java-driver/3.5/manual/load_balancing/]]
   */
-case class LoadBalancingConfig(
+final case class LoadBalancingConfig(
   localDc: String = "localDc",
   usedHostsPerRemoteDc: Int = 0,
   allowRemoteDcsForLocalConsistencyLevel: Boolean = false) {

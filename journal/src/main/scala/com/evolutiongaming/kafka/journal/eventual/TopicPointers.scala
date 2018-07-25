@@ -5,7 +5,7 @@ import java.time.Instant
 import com.evolutiongaming.skafka.{Offset, Partition, TopicPartition}
 
 // TODO what to do if Offset is not in map ?
-case class TopicPointers(pointers: Map[Partition, Offset]) {
+final case class TopicPointers(pointers: Map[Partition, Offset]) {
 
   def +(that: TopicPointers): TopicPointers = {
     copy(this.pointers ++ that.pointers)
@@ -23,4 +23,4 @@ object TopicPointers {
 
 
 // TODO describe via ADT ?
-case class UpdatePointers(timestamp: Instant, pointers: Map[TopicPartition, (Offset, Option[Instant])])
+final case class UpdatePointers(timestamp: Instant, pointers: Map[TopicPartition, (Offset, Option[Instant])])

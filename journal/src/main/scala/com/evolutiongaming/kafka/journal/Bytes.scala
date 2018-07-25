@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-case class Bytes(value: Array[Byte]) {
+final case class Bytes(value: Array[Byte]) {
 
   override def toString: String = {
     val bytes = value.length

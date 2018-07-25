@@ -6,7 +6,7 @@ import com.evolutiongaming.concurrent.async.AsyncConverters._
 
 import scala.concurrent.ExecutionContext
 
-case class Tables(journal: TableName, metadata: TableName, pointer: TableName)
+final case class Tables(journal: TableName, metadata: TableName, pointer: TableName)
 
 
 object Tables {
@@ -30,19 +30,19 @@ object Tables {
     def tableName(name: String) = TableName(keyspace = keyspace, table = name)
 
     val journal = {
-      val name = tableName(schemaConfig.journalName)
+      val name = tableName(schemaConfig.journalTable)
       val query = JournalStatement.createTable(name)
       apply(name, query)
     }
 
     val metadata = {
-      val name = tableName(schemaConfig.metadataName)
+      val name = tableName(schemaConfig.metadataTable)
       val query = MetadataStatement.createTable(name)
       apply(name, query)
     }
 
     val pointer = {
-      val name = tableName(schemaConfig.pointerName)
+      val name = tableName(schemaConfig.pointerTable)
       val query = PointerStatement.createTable(name)
       apply(name, query)
     }

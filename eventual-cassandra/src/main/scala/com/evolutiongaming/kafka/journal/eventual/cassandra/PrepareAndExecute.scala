@@ -34,7 +34,7 @@ object PrepareAndExecute {
 }
 
 
-case class StatementConfig(
+final case class StatementConfig(
   idempotent: Boolean = false,
   consistencyLevel: ConsistencyLevel,
   retryPolicy: RetryPolicy)

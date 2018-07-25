@@ -20,7 +20,6 @@ object EventualCassandra {
 
   def apply(
     session: Session,
-    schemaConfig: SchemaConfig,
     config: EventualCassandraConfig,
     log: ActorLog)(implicit ec: ExecutionContext): EventualJournal = {
 
@@ -31,9 +30,8 @@ object EventualCassandra {
       consistencyLevel = ConsistencyLevel.ONE,
       retryPolicy = new LoggingRetryPolicy(NextHostRetryPolicy(retries)))
 
-
     val statements = for {
-      tables <- CreateSchema(schemaConfig, session)
+      tables <- CreateSchema(config.schema, session)
       prepareAndExecute = PrepareAndExecute(session, statementConfig)
       statements <- Statements(tables, prepareAndExecute)
     } yield {

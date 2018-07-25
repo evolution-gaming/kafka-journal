@@ -31,7 +31,7 @@ object ReplicationStrategyConfig {
   }
 
 
-  case class Simple(replicationFactor: Int = 1) extends ReplicationStrategyConfig {
+  final case class Simple(replicationFactor: Int = 1) extends ReplicationStrategyConfig {
     def asCql: String = s"'SimpleStrategy','replication_factor':$replicationFactor"
   }
 
@@ -47,7 +47,7 @@ object ReplicationStrategyConfig {
   }
 
 
-  case class NetworkTopology(
+  final case class NetworkTopology(
     replicationFactors: Nel[NetworkTopology.DcFactor] = Nel(NetworkTopology.DcFactor())) extends ReplicationStrategyConfig {
 
     def asCql: String = {
@@ -76,6 +76,6 @@ object ReplicationStrategyConfig {
       NetworkTopology(replicationFactors = replicationFactors)
     }
 
-    case class DcFactor(name: String = "localDc", replicationFactor: Int = 1)
+    final case class DcFactor(name: String = "localDc", replicationFactor: Int = 1)
   }
 }

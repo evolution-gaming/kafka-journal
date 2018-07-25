@@ -81,4 +81,4 @@ object FoldActions {
   }
 }
 
-case class Marker(id: String, partition: Partition, offset: Option[Offset])
+final case class Marker(id: String, partition: Partition, offset: Option[Offset])

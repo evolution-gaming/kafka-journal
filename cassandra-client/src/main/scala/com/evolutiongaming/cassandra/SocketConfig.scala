@@ -9,7 +9,7 @@ import scala.concurrent.duration._
 /**
   * See [[https://docs.datastax.com/en/developer/java-driver/3.5/manual/socket_options/]]
   */
-case class SocketConfig(
+final case class SocketConfig(
   connectTimeout: FiniteDuration = 5.seconds,
   readTimeout: FiniteDuration = 12.seconds,
   keepAlive: Option[Boolean] = None,

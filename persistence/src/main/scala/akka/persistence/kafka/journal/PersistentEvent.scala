@@ -4,7 +4,7 @@ import akka.persistence.PersistentRepr
 import com.evolutiongaming.kafka.journal.Alias.SeqNr
 import com.evolutiongaming.serialization.SerializedMsg
 
-case class PersistentEvent(
+final case class PersistentEvent(
   seqNr: SeqNr, // TODO
   persistentManifest: String,
   writerUuid: String,

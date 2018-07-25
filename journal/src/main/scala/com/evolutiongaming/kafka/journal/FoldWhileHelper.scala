@@ -18,7 +18,7 @@ object FoldWhileHelper {
 
   type Fold[S, E] = (S, E) => Switch[S]
 
-  case class Switch[@specialized +S](s: S, continue: Boolean) {
+  final case class Switch[@specialized +S](s: S, continue: Boolean) {
     def stop: Boolean = !continue
     def map[SS](f: S => SS): Switch[SS] = copy(s = f(s))
     def enclose: Switch[Switch[S]] = map(_ => this)
@@ -55,7 +55,7 @@ object FoldWhileHelper {
 
 
   object IterableFoldWhile {
-    private case class Return[S](s: S) extends ControlThrowable
+    private final case class Return[S](s: S) extends ControlThrowable
   }
 
 

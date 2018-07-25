@@ -5,11 +5,12 @@ import java.util.UUID
 import akka.actor.ActorSystem
 import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.{AtomicWrite, PersistentRepr}
-import com.evolutiongaming.cassandra.{CassandraConfig, CreateCluster}
+import com.evolutiongaming.cassandra.CreateCluster
+import com.evolutiongaming.config.ConfigHelper._
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
-import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig, SchemaConfig}
+import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
 import com.evolutiongaming.kafka.journal.{Bytes, Journals}
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.serialization.{SerializedMsgConverter, SerializedMsgExt}
@@ -45,7 +46,7 @@ class PersistenceJournal(config: Config) extends AsyncWriteJournal {
     val producerConfig = ProducerConfig(kafkaConfig("producer"))
     log.debug(s"Producer config: $producerConfig")
 
-    val ecBlocking = system.dispatchers.lookup("kafka-plugin-blocking-dispatcher")
+    val ecBlocking = system.dispatchers.lookup("kafka.persistence.journal.blocking-dispatcher")
 
     // TODO use different constructor
     val producer = CreateProducer(producerConfig, ecBlocking)
@@ -75,9 +76,8 @@ class PersistenceJournal(config: Config) extends AsyncWriteJournal {
     }
 
     val eventualJournal: EventualJournal = {
-      val config = this.config.getConfig("eventual-cassandra")
-      val cassandraConfig = CassandraConfig(config.getConfig("client"))
-      val cluster = CreateCluster(cassandraConfig)
+      val config = this.config.getOpt[Config]("cassandra").fold(EventualCassandraConfig.Default)(EventualCassandraConfig.apply)
+      val cluster = CreateCluster(config.client)
       val session = Await.result(cluster.connect(), connectTimeout) // TODO handle this properly
       system.registerOnTermination {
         val result = for {
@@ -90,14 +90,11 @@ class PersistenceJournal(config: Config) extends AsyncWriteJournal {
           case NonFatal(failure) => log.error(s"failed to shutdown cassandra $failure", failure)
         }
       }
-      //      val schemaConfig = SchemaConfig(config.getConfig("schema"))
-      val schemaConfig = SchemaConfig.Default
-      val eventualCassandraConfig = EventualCassandraConfig.Default
       // TODO read only cassandra statements
 
       {
         val log = ActorLog(system, EventualCassandra.getClass)
-        val eventualJournal = EventualCassandra(session, schemaConfig, eventualCassandraConfig, log)
+        val eventualJournal = EventualCassandra(session, config, log)
         EventualJournal(eventualJournal, log)
       }
     }

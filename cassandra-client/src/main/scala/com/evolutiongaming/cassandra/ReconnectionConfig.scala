@@ -9,7 +9,7 @@ import scala.concurrent.duration._
 /**
   * See [[https://docs.datastax.com/en/developer/java-driver/3.5/manual/reconnection/]]
   */
-case class ReconnectionConfig(
+final case class ReconnectionConfig(
   minDelay: FiniteDuration = 1.second,
   maxDelay: FiniteDuration = 10.minutes) {
 

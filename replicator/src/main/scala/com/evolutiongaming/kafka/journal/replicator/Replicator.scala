@@ -3,13 +3,13 @@ package com.evolutiongaming.kafka.journal.replicator
 import java.util.UUID
 
 import akka.actor.ActorSystem
-import com.evolutiongaming.cassandra.{CassandraConfig, CreateCluster}
+import com.evolutiongaming.cassandra.CreateCluster
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.concurrent.serially.SeriallyAsync
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandraConfig, ReplicatedCassandra, SchemaConfig}
+import com.evolutiongaming.kafka.journal.eventual.cassandra.ReplicatedCassandra
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Topic, Bytes => _}
@@ -34,27 +34,25 @@ object Replicator {
 
   def apply(config: ReplicatorConfig, ecBlocking: ExecutionContext)(implicit system: ActorSystem, ec: ExecutionContext): Replicator = {
     val log = ActorLog(system, Replicator.getClass)
-    val cassandraConfig = CassandraConfig.Default
-    val cluster = CreateCluster(cassandraConfig)
+    val cluster = CreateCluster(config.cassandra.client)
     val session = Await.result(cluster.connect(), 5.seconds) // TODO handle this properly
-    val schemaConfig = SchemaConfig.Default
-    val journal = ReplicatedCassandra(session, schemaConfig, EventualCassandraConfig.Default)
+    val journal = ReplicatedCassandra(session, config.cassandra)
 
     val serially = SeriallyAsync()
     val stateVar = AsyncVar[State](State.Running.Empty, serially)
 
     def createReplicator(topic: Topic) = {
       val uuid = UUID.randomUUID()
-      val prefix = config.consumerConfig.groupId getOrElse "replicator"
+      val prefix = config.consumer.groupId getOrElse "journal-replicator"
       val groupId = s"$prefix-$topic-$uuid"
-      val consumerConfig = config.consumerConfig.copy(groupId = Some(groupId))
+      val consumerConfig = config.consumer.copy(groupId = Some(groupId))
       val consumer = CreateConsumer[String, Bytes](consumerConfig, ecBlocking)
 
       val log = ActorLog(system, TopicReplicator.getClass) prefixed topic
       TopicReplicator(topic, consumer, journal, log)
     }
 
-    val consumer = CreateConsumer[String, Bytes](config.consumerConfig, ecBlocking)
+    val consumer = CreateConsumer[String, Bytes](config.consumer, ecBlocking)
 
     def discoverTopics(): Unit = {
       val timestamp = Platform.currentTime
@@ -125,7 +123,7 @@ object Replicator {
 
   object State {
 
-    case class Running(replicators: Map[Topic, TopicReplicator] = Map.empty) extends State
+    final case class Running(replicators: Map[Topic, TopicReplicator] = Map.empty) extends State
 
     object Running {
       val Empty: Running = Running()

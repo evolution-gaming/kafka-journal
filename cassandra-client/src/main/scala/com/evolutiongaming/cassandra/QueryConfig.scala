@@ -9,7 +9,7 @@ import scala.concurrent.duration._
 /**
   * See [[https://docs.datastax.com/en/drivers/java/3.5/com/datastax/driver/core/QueryOptions.html]]
   */
-case class QueryConfig(
+final case class QueryConfig(
   consistency: ConsistencyLevel = ConsistencyLevel.LOCAL_ONE,
   serialConsistency: ConsistencyLevel = ConsistencyLevel.SERIAL,
   fetchSize: Int = 5000,

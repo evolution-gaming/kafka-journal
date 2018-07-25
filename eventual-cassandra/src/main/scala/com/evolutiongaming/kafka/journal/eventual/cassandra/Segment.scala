@@ -5,7 +5,7 @@ import com.evolutiongaming.kafka.journal.Alias.SeqNr
 import scala.collection.immutable.Seq
 
 
-case class Segment(nr: SegmentNr, size: Int) {
+final case class Segment(nr: SegmentNr, size: Int) {
 
   def next(seqNr: SeqNr): Option[Segment] = {
     val segmentNr = SegmentNr(seqNr, size)
@@ -22,7 +22,7 @@ object Segment {
 }
 
 
-case class SegmentNr(value: Long) extends Ordered[SegmentNr] {
+final case class SegmentNr(value: Long) extends Ordered[SegmentNr] {
 
   def compare(that: SegmentNr): Int = this.value compare that.value
 
