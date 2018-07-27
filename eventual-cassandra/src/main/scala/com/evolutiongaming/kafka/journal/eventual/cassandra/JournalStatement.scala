@@ -130,12 +130,10 @@ object JournalStatement {
         new Type {
           def apply[S](key: Key, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]) = {
 
-            val fetchSize = 10 // TODO
-            val fetchThreshold = fetchSize / 2
+            val fetchThreshold = 10 // TODO #49
 
             // TODO avoid casting via providing implicit converters
             val bound = prepared.bind(key.id, key.topic, segment.value: LongJ, range.from: LongJ, range.to: LongJ)
-            bound.setFetchSize(fetchSize)
 
             for {
               result <- session.execute(bound)

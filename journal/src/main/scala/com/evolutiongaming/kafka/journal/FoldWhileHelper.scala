@@ -4,7 +4,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.concurrent.async.Async.{Failed, InCompleted, Succeed}
+import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.concurrent.FutureHelper._
 import com.evolutiongaming.nel.Nel
 
@@ -81,9 +81,10 @@ object FoldWhileHelper {
   implicit class AsyncFoldWhile[S](val self: S => Async[Switch[S]]) extends AnyVal {
 
     def foldWhile(s: S): Async[S] = {
+      import com.evolutiongaming.concurrent.async.Async._
 
       @tailrec def foldWhile(switch: Switch[S]): Async[S] = {
-        if (switch.stop) Async[S](switch.s)
+        if (switch.stop) switch.s.async
         else {
           self(switch.s) match {
             case Succeed(s)                => foldWhile(s)

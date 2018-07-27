@@ -85,7 +85,7 @@ object Journal {
     key: Key,
     log: ActorLog, // TODO remove
     producer: Producer,
-    newConsumer: () => Consumer[String, Bytes],
+    newConsumer: Topic => Consumer[String, Bytes],
     eventual: EventualJournal,
     pollTimeout: FiniteDuration,
     closeTimeout: FiniteDuration)(implicit

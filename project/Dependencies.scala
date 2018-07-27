@@ -49,7 +49,7 @@ object Dependencies {
   }
 
   object Akka {
-    private val version = "2.5.13"
+    private val version = "2.5.14"
     lazy val persistence = "com.typesafe.akka" %% "akka-persistence" % version
     lazy val tck = "com.typesafe.akka" %% "akka-persistence-tck" % version % Test
     lazy val slf4j = "com.typesafe.akka" %% "akka-slf4j" % version % Test

@@ -126,12 +126,13 @@ object CassandraHelper {
       }
 
       val fetch = (s: Switch[S]) => {
+        val fetched = self.isFullyFetched
         val available = self.getAvailableWithoutFetching
         val ss = foldWhile(s.s, available)
-        if (ss.stop || self.isFullyFetched) Async(Switch.stop(ss))
-        else {
-          for {_ <- self.fetchMoreResults().asScala().async} yield Switch.continue(ss)
-        }
+        if (ss.stop || fetched) Switch.stop(ss).async
+        else for {
+          _ <- self.fetchMoreResults().asScala().async
+        } yield Switch.continue(ss)
       }
 
       fetch.foldWhile(s.continue)

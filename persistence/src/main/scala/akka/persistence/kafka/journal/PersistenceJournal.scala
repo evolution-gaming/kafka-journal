@@ -14,7 +14,8 @@ import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, 
 import com.evolutiongaming.kafka.journal.{Bytes, Journals}
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.serialization.{SerializedMsgConverter, SerializedMsgExt}
-import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, CreateConsumer}
+import com.evolutiongaming.skafka.Topic
+import com.evolutiongaming.skafka.consumer.{ConsumerConfig, CreateConsumer}
 import com.evolutiongaming.skafka.producer.{CreateProducer, ProducerConfig}
 import com.typesafe.config.Config
 
@@ -67,11 +68,11 @@ class PersistenceJournal(config: Config) extends AsyncWriteJournal {
     val consumerConfig = ConsumerConfig(kafkaConfig("consumer"))
     log.debug(s"Consumer config: $consumerConfig")
 
-    val newConsumer = () => {
-      val groupId = UUID.randomUUID().toString
-      val configFixed = consumerConfig.copy(
-        groupId = Some(groupId),
-        autoOffsetReset = AutoOffsetReset.Earliest)
+    val newConsumer = (topic: Topic) => {
+      val uuid = UUID.randomUUID()
+      val prefix = consumerConfig.groupId getOrElse "journal"
+      val groupId = s"$prefix-$topic-$uuid"
+      val configFixed = consumerConfig.copy(groupId = Some(groupId))
       CreateConsumer[String, Bytes](configFixed, ecBlocking)
     }
 
@@ -113,7 +114,7 @@ class PersistenceJournal(config: Config) extends AsyncWriteJournal {
   }
 
   def asyncReplayMessages(persistenceId: PersistenceId, from: SeqNr, to: SeqNr, max: Long)(f: PersistentRepr => Unit) = {
-    adapter.replay(persistenceId, from, to, max)(f)
+    adapter.replay(persistenceId, from = from, to = to, max = max)(f)
   }
 
   def asyncReadHighestSequenceNr(persistenceId: PersistenceId, from: SeqNr) = {

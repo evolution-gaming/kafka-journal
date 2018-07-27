@@ -11,6 +11,7 @@ import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
+import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.skafka.consumer.Consumer
 import com.evolutiongaming.skafka.producer.Producer
 
@@ -41,7 +42,7 @@ object Journals {
 
   def apply(
     producer: Producer,
-    newConsumer: () => Consumer[String, Bytes],
+    newConsumer: Topic => Consumer[String, Bytes],
     eventual: EventualJournal = EventualJournal.Empty,
     pollTimeout: FiniteDuration = 100.millis,
     closeTimeout: FiniteDuration = 10.seconds)(implicit
