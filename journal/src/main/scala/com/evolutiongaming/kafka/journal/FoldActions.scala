@@ -4,7 +4,6 @@ import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
-import com.evolutiongaming.kafka.journal.eventual.PartitionOffset
 import com.evolutiongaming.skafka.{Offset, Partition}
 
 trait FoldActions {

@@ -9,7 +9,7 @@ import com.evolutiongaming.kafka.journal.Alias.{SeqNr, Tags}
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.eventual.{PartitionOffset, Pointer}
+import com.evolutiongaming.kafka.journal.eventual.Pointer
 import com.evolutiongaming.skafka.{Offset, Partition}
 
 import scala.concurrent.ExecutionContext

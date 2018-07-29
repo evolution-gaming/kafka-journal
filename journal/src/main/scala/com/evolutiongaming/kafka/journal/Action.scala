@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import com.evolutiongaming.kafka.journal.Alias.SeqNr
-import com.evolutiongaming.kafka.journal.eventual.PartitionOffset
 
 sealed trait Action {
   def header: Action.Header

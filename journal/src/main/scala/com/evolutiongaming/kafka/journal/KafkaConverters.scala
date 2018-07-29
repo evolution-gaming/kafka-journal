@@ -2,7 +2,6 @@ package com.evolutiongaming.kafka.journal
 
 
 import com.evolutiongaming.kafka.journal.HeaderFormats._
-import com.evolutiongaming.kafka.journal.eventual.PartitionOffset
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer.ConsumerRecord
 import com.evolutiongaming.skafka.producer.ProducerRecord

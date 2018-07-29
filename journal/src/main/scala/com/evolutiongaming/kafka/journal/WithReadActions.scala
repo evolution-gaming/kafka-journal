@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
 import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.kafka.journal.eventual.PartitionOffset
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer.Consumer
 import com.evolutiongaming.skafka.{Topic, TopicPartition}

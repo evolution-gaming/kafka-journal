@@ -1,6 +1,10 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 
+import java.lang.{Long => LongJ}
+import java.time.Instant
+import java.util.Date
+
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.Alias.SeqNr
 import com.evolutiongaming.kafka.journal.Key
@@ -9,7 +13,6 @@ import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 
 object MetadataStatement {
 
-  // TODO Partition metadata table using `topic` column and verify query for all topics works
   def createTable(name: TableName): String = {
     s"""
        |CREATE TABLE IF NOT EXISTS ${ name.asCql } (
@@ -17,6 +20,8 @@ object MetadataStatement {
        |topic text,
        |segment_size int,
        |delete_to bigint,
+       |created timestamp,
+       |updated timestamp,
        |properties map<text,text>,
        |PRIMARY KEY ((topic), id))
        |""".stripMargin
@@ -24,26 +29,28 @@ object MetadataStatement {
 
 
   object Insert {
-    type Type = (Key, Metadata) => Async[Unit]
+    type Type = (Key, Metadata, Instant) => Async[Unit]
 
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
 
       val query =
         s"""
-           |INSERT INTO ${ name.asCql } (id, topic, segment_size, delete_to, properties)
-           |VALUES (?, ?, ?, ?, ?)
+           |INSERT INTO ${ name.asCql } (id, topic, segment_size, delete_to, created, updated, properties)
+           |VALUES (?, ?, ?, ?, ?, ?, ?)
            |""".stripMargin
 
       for {
         prepared <- session.prepare(query)
       } yield {
-        (key: Key, metadata: Metadata) =>
+        (key: Key, metadata: Metadata, timestamp: Instant) =>
           val bound = prepared
             .bind()
             .encode("id", key.id)
             .encode("topic", key.topic)
             .encode("segment_size", metadata.segmentSize)
             .encode("delete_to", metadata.deleteTo)
+            .encode("created", timestamp)
+            .encode("updated", timestamp)
           session.execute(bound).unit
       }
     }
@@ -79,29 +86,33 @@ object MetadataStatement {
     }
   }
 
-  // TODO remove Metadata usage here
-  // TODO add separate queries for different cases
-  object UpdatedMetadata {
-    type Type = (Key, Metadata) => Async[Unit]
+  object Update {
+    type Type = (Key, SeqNr, Instant) => Async[Unit]
 
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
-
-      // TODO use update query
       val query =
         s"""
-           |INSERT INTO ${ name.asCql } (id, topic, delete_to)
-           |VALUES (?, ?, ?)
+           |UPDATE ${ name.asCql }
+           |SET delete_to = ?, updated = ?
+           |WHERE id = ?
+           |AND topic = ?
            |""".stripMargin
 
       for {
         prepared <- session.prepare(query)
       } yield {
-        (key: Key, metadata: Metadata) =>
+        (key: Key, deleteTo: SeqNr, timestamp: Instant) =>
+          // TODO avoid casting via providing implicit converters
           val bound = prepared
-            .bind()
-            .encode("id", key.id)
-            .encode("topic", key.topic)
-            .encode("delete_to", metadata.deleteTo)
+            .bind(deleteTo: LongJ, Date.from(timestamp), key.id, key.topic)
+
+          //          val bound = prepared
+          //            .bind()
+          //            .setLong(0, deleteTo: LongJ)
+          //            .setTimestamp(1, Date.from(timestamp))
+          //            .setString(2, key.id)
+          //            .setString(3, key.topic)
+
           session.execute(bound).unit
       }
     }

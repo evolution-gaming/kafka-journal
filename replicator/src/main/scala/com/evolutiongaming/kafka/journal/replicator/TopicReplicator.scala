@@ -64,7 +64,7 @@ object TopicReplicator {
       } yield {
 
         val (last, partitionOffset) = records.last
-        val timestamp = Platform.currentTime
+        val time = Platform.currentTime
         val id = key.id
 
         def onNonEmpty(info: JournalInfo.NonEmpty) = {
@@ -79,14 +79,14 @@ object TopicReplicator {
             ReplicatedEvent(event, action.timestamp, partitionOffset)
           }
 
-          val updateTmp = UpdateTmp.DeleteToKnown(info.deleteTo, replicated.toList)
+          val replicate = Replicate.DeleteToKnown(info.deleteTo, replicated.toList)
 
           for {
-            result <- journal.save(key, updateTmp)
+            result <- journal.save(key, replicate, timestamp)
           } yield {
             val deleteTo = info.deleteTo
             val now = Platform.currentTime
-            val saveDuration = now - timestamp
+            val saveDuration = now - time
             val latency = now - last.action.timestamp.toEpochMilli
 
             def range = replicated.headOption.fold("") { head =>
@@ -102,13 +102,13 @@ object TopicReplicator {
 
         def onDelete(info: JournalInfo.DeleteTo) = {
           val deleteTo = info.seqNr
-          val updateTmp = UpdateTmp.DeleteUnbound(deleteTo)
-          val timestamp = Platform.currentTime
+          val replicate = Replicate.DeleteUnbound(deleteTo)
+          val time = Platform.currentTime
           for {
-            result <- journal.save(key, updateTmp)
+            result <- journal.save(key, replicate, timestamp)
           } yield {
             val now = Platform.currentTime
-            val saveDuration = now - timestamp
+            val saveDuration = now - time
             val latency = now - last.action.timestamp.toEpochMilli
             log.info(s"replicated $id in ${ latency }ms, deleteTo: $deleteTo, partitionOffset: $partitionOffset, save: ${ saveDuration }ms")
             result

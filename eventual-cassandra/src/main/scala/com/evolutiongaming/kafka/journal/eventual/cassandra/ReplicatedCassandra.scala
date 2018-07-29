@@ -62,23 +62,23 @@ object ReplicatedCassandra {
 
       // TODO what if eventualRecords.empty but deletedTo is present ?
       // TODO prevent passing both No records and No deletion
-      def save(key: Key, updateTmp: UpdateTmp): Async[Unit] = {
+      def save(key: Key, replicate: Replicate, timestamp: Instant): Async[Unit] = {
 
         def save(statements: Statements, metadata: Option[Metadata], session: Session) = {
 
-          def delete(deletedTo: SeqNr, metadata: Metadata) = {
-            if (metadata.deleteTo >= deletedTo) Async.unit
+          def delete(deleteTo: SeqNr, metadata: Metadata) = {
+            if (metadata.deleteTo >= deleteTo) Async.unit
             else {
 
               // TODO
               def segmentOf(seqNr: SeqNr) = SegmentNr(seqNr, metadata.segmentSize)
 
               def delete(segment: SegmentNr) = {
-                statements.deleteRecords(key, segment, deletedTo)
+                statements.deleteRecords(key, segment, deleteTo)
               }
 
               val lowest = segmentOf(metadata.deleteTo)
-              val highest = segmentOf(deletedTo)
+              val highest = segmentOf(deleteTo)
               val asyncs = for {
                 segment <- lowest to highest // TODO maybe add ability to create Seq[Segment] out of SeqRange ?
               } yield {
@@ -143,21 +143,25 @@ object ReplicatedCassandra {
 
             def saveMetadata(): Async[Metadata] = {
 
-              val segmentSize = metadata.fold(config.segmentSize)(_.segmentSize)
+              def insert() = {
+                val metadata = Metadata(
+                  segmentSize = config.segmentSize,
+                  deleteTo = deleteTo getOrElse SeqNr.Min)
 
-              val deletedTo2 = deleteTo getOrElse SeqNr.Min
-              val deletedTo3 = metadata.fold(deletedTo2)(_.deleteTo max deletedTo2)
-
-              val metadataNew = Metadata(
-                segmentSize = segmentSize,
-                deleteTo = deletedTo3)
-
-              // TODO split on insert and update queries
-              for {
-                _ <- statements.insertMetadata(key, metadataNew)
-              } yield {
-                metadataNew
+                for {
+                  _ <- statements.insertMetadata(key, metadata, timestamp)
+                } yield metadata
               }
+
+              def update(metadata: Metadata) = {
+                val deleteTo2 = deleteTo getOrElse SeqNr.Min
+                val deleteTo3 = metadata.deleteTo max deleteTo2
+                for {
+                  _ <- statements.updateMetadata(key, deleteTo3, timestamp)
+                } yield metadata.copy(deleteTo = deleteTo3)
+              }
+
+              metadata.fold(insert())(update)
             }
 
             for {
@@ -174,13 +178,8 @@ object ReplicatedCassandra {
               else {
 
                 def saveAndDelete(deleteTo: SeqNr) = {
-
-                  val metadataNew = Metadata(
-                    deleteTo = deleteTo,
-                    segmentSize = metadata.segmentSize)
-
                   for {
-                    _ <- statements.insertMetadata(key, metadataNew) // TODO optimise query
+                    _ <- statements.updateMetadata(key, deleteTo, timestamp)
                     _ <- delete(deleteTo, metadata)
                   } yield {}
                 }
@@ -195,9 +194,9 @@ object ReplicatedCassandra {
             }
           }
 
-          updateTmp match {
-            case UpdateTmp.DeleteToKnown(deletedTo, records) => save(records, deletedTo)
-            case UpdateTmp.DeleteUnbound(deletedTo)          => deleteUnbound(deletedTo)
+          replicate match {
+            case Replicate.DeleteToKnown(deletedTo, records) => save(records, deletedTo)
+            case Replicate.DeleteUnbound(deletedTo)          => deleteUnbound(deletedTo)
           }
         }
 
@@ -262,7 +261,7 @@ object ReplicatedCassandra {
     deleteRecords: JournalStatement.DeleteRecords.Type,
     insertMetadata: MetadataStatement.Insert.Type,
     selectMetadata: MetadataStatement.Select.Type,
-    updatedDeletedTo: MetadataStatement.UpdatedMetadata.Type,
+    updateMetadata: MetadataStatement.Update.Type,
     insertPointer: PointerStatement.Insert.Type,
     updatePointer: PointerStatement.Update.Type,
     selectPointer: PointerStatement.Select.Type,
@@ -283,7 +282,7 @@ object ReplicatedCassandra {
       val deleteRecords = JournalStatement.DeleteRecords(tables.journal, prepareAndExecute)
       val insertMetadata = MetadataStatement.Insert(tables.metadata, prepareAndExecute)
       val selectMetadata = MetadataStatement.Select(tables.metadata, prepareAndExecute)
-      val updatedDeletedTo = MetadataStatement.UpdatedMetadata(tables.metadata, prepareAndExecute)
+      val updateMetadata = MetadataStatement.Update(tables.metadata, prepareAndExecute)
       val insertPointer = PointerStatement.Insert(tables.pointer, prepareAndExecute)
       val updatePointer = PointerStatement.Update(tables.pointer, prepareAndExecute)
       val selectPointer = PointerStatement.Select(tables.pointer, prepareAndExecute)
@@ -297,7 +296,7 @@ object ReplicatedCassandra {
         deleteRecords <- deleteRecords
         insertMetadata <- insertMetadata
         selectMetadata <- selectMetadata
-        updatedDeletedTo <- updatedDeletedTo
+        updateMetadata <- updateMetadata
         insertPointer <- insertPointer
         updatePointer <- updatePointer
         selectPointer <- selectPointer
@@ -311,7 +310,7 @@ object ReplicatedCassandra {
           deleteRecords,
           insertMetadata,
           selectMetadata,
-          updatedDeletedTo,
+          updateMetadata,
           insertPointer,
           updatePointer,
           selectPointer,
