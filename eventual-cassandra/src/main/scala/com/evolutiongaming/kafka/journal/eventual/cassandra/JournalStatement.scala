@@ -5,7 +5,7 @@ import java.time.Instant
 
 import com.datastax.driver.core.{BoundStatement, PreparedStatement}
 import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.kafka.journal.Alias.{SeqNr, Tags}
+import com.evolutiongaming.kafka.journal.Alias.Tags
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
@@ -35,6 +35,7 @@ object JournalStatement {
   }
 
 
+  // TODO add statement logging
   object InsertRecord {
     type Type = (Key, ReplicatedEvent, SegmentNr) => BoundStatement
 
@@ -89,7 +90,7 @@ object JournalStatement {
         prepared <- session.prepare(query)
       } yield {
         (key: Key, segment: SegmentNr, from: SeqNr) =>
-          val bound = prepared.bind(key.id, key.topic, segment.value: LongJ, from: LongJ)
+          val bound = prepared.bind(key.id, key.topic, segment.value: LongJ, from.value: LongJ)
           for {
             result <- session.execute(bound)
           } yield for {
@@ -133,7 +134,7 @@ object JournalStatement {
             val fetchThreshold = 10 // TODO #49
 
             // TODO avoid casting via providing implicit converters
-            val bound = prepared.bind(key.id, key.topic, segment.value: LongJ, range.from: LongJ, range.to: LongJ)
+            val bound = prepared.bind(key.id, key.topic, segment.value: LongJ, range.from.value: LongJ, range.to.value: LongJ)
 
             for {
               result <- session.execute(bound)
@@ -176,7 +177,7 @@ object JournalStatement {
       } yield {
         (key: Key, segment: SegmentNr, seqNr: SeqNr) =>
           // TODO avoid casting via providing implicit converters
-          val bound = prepared.bind(key.id, key.topic, segment.value: LongJ, seqNr: LongJ)
+          val bound = prepared.bind(key.id, key.topic, segment.value: LongJ, seqNr.value: LongJ)
           session.execute(bound).unit
       }
     }

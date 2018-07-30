@@ -5,7 +5,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
-import com.evolutiongaming.kafka.journal.Alias.SeqNr
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
@@ -68,13 +67,13 @@ object TopicReplicator {
         val id = key.id
 
         def onNonEmpty(info: JournalInfo.NonEmpty) = {
-          val deleteTo = info.deleteTo getOrElse SeqNr.Min
+          val deleteTo = info.deleteTo
           val replicated = for {
             (record, partitionOffset) <- records
             action <- PartialFunction.condOpt(record.action) { case a: Action.Append => a }.toIterable
-            if action.range.to > deleteTo
+            if deleteTo.forall(action.range.to > _)
             event <- EventsSerializer.fromBytes(action.events).toList
-            if event.seqNr > deleteTo
+            if deleteTo.forall(event.seqNr > _)
           } yield {
             ReplicatedEvent(event, action.timestamp, partitionOffset)
           }
@@ -95,7 +94,7 @@ object TopicReplicator {
               s" range: $range,"
             }
 
-            log.info(s"replicated $id in ${ latency }ms,$range deleteTo: $deleteTo, partitionOffset: $partitionOffset, save: ${ saveDuration }ms")
+            log.info(s"replicated $id in ${ latency }ms,$range deleteTo: $deleteTo, offset: $partitionOffset, save: ${ saveDuration }ms")
             result
           }
         }
@@ -110,7 +109,7 @@ object TopicReplicator {
             val now = Platform.currentTime
             val saveDuration = now - time
             val latency = now - last.action.timestamp.toEpochMilli
-            log.info(s"replicated $id in ${ latency }ms, deleteTo: $deleteTo, partitionOffset: $partitionOffset, save: ${ saveDuration }ms")
+            log.info(s"replicated $id in ${ latency }ms, deleteTo: $deleteTo, offset: $partitionOffset, save: ${ saveDuration }ms")
             result
           }
         }

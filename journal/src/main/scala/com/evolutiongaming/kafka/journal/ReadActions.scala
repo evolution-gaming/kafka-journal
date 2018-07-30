@@ -4,28 +4,30 @@ import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.Alias.Id
 import com.evolutiongaming.kafka.journal.KafkaConverters._
+import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecord}
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
 
 trait ReadActions {
-  def apply(id: Id): Async[Iterable[Action]]
+  def apply(id: Id): Async[Iterable[ActionRecord]]
 }
 
 object ReadActions {
 
   def apply(
     consumer: Consumer[String, Bytes],
-    timeout: FiniteDuration)(implicit ec: ExecutionContext /*TODO remove*/): ReadActions = {
+    timeout: FiniteDuration,
+    log: ActorLog)(implicit ec: ExecutionContext /*TODO remove*/): ReadActions = {
 
     def logSkipped(record: ConsumerRecord[String, Bytes]) = {
-      val key = record.key getOrElse "none"
-      val offset = record.offset
-      val topicPartition = record.topicPartition
+      def key = record.key getOrElse "none"
+
+      def partitionOffset = PartitionOffset(record)
 
       // TODO important performance indication
-      println(s"skipping unnecessary record key: $key, topicPartition: $topicPartition, offset: $offset")
+      log.debug(s"ignoring key: $key, offset: $partitionOffset")
     }
 
     new ReadActions {
@@ -50,7 +52,7 @@ object ReadActions {
             if filter(consumerRecord)
             action <- consumerRecord.toAction
           } yield {
-            action
+            ActionRecord(action, consumerRecord.offset)
           }
         }
       }

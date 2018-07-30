@@ -4,7 +4,6 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.persistence._
 import akka.persistence.journal.JournalSpec
 import akka.testkit.DefaultTimeout
-import com.evolutiongaming.kafka.journal.Alias.SeqNr
 import com.evolutiongaming.nel.Nel
 import com.typesafe.config.ConfigFactory
 import org.scalatest.Matchers
@@ -20,6 +19,14 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
   implicit lazy val system: ActorSystem = ActorSystem("ConsistencySpec", config.withFallback(JournalSpec.config))
 
   "A KafkaJournal" should {
+
+    "replay events" in {
+      val ref = PersistenceRef()
+      val events = Nel("event")
+      ref.persist(events)
+      ref.stop()
+      recoverEvents() shouldEqual events.toList
+    }
 
     "replay events in the same order" in {
       val ref = PersistenceRef()
@@ -87,7 +94,7 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
 
   trait PersistenceRef {
     def persist(events: Nel[String]): Unit
-    def delete(seqNr: SeqNr): Unit
+    def delete(seqNr: Long): Unit
     def stop(): Unit
   }
 
@@ -125,7 +132,7 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
           expectMsg(events.last)
         }
 
-        def delete(seqNr: SeqNr) = {
+        def delete(seqNr: Long) = {
           val delete = Delete(seqNr)
           ref.tell(delete, testActor)
           expectMsg(DeleteMessagesSuccess(seqNr))
@@ -181,6 +188,6 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
 
 
   case class Cmd(events: Nel[String])
-  case class Delete(seqNr: SeqNr)
+  case class Delete(seqNr: Long)
   case object Stop
 }

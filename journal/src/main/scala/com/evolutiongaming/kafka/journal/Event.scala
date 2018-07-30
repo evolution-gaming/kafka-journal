@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 
-import com.evolutiongaming.kafka.journal.Alias.{SeqNr, Tags}
+import com.evolutiongaming.kafka.journal.Alias.Tags
 
 // TODO add timestamp ?
 final case class Event(

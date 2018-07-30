@@ -8,10 +8,10 @@ import com.datastax.driver.core.{BatchStatement, BoundStatement, ConsistencyLeve
 import com.evolutiongaming.cassandra.{NextHostRetryPolicy, Session}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
-import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.{Key, ReplicatedEvent}
+import com.evolutiongaming.kafka.journal.SeqNr.Helper._
+import com.evolutiongaming.kafka.journal.{Key, ReplicatedEvent, SeqNr}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Topic
@@ -22,6 +22,7 @@ import scala.concurrent.ExecutionContext
 
 // TODO create collection that is optimised for ordered sequence and seqNr
 // TODO redesign EventualDbCassandra so it can hold stat and called recursively
+// TODO test ReplicatedCassandra
 object ReplicatedCassandra {
 
   def apply(
@@ -67,27 +68,26 @@ object ReplicatedCassandra {
         def save(statements: Statements, metadata: Option[Metadata], session: Session) = {
 
           def delete(deleteTo: SeqNr, metadata: Metadata) = {
-            if (metadata.deleteTo >= deleteTo) Async.unit
-            else {
 
-              // TODO
-              def segmentOf(seqNr: SeqNr) = SegmentNr(seqNr, metadata.segmentSize)
+            def delete(from: SeqNr) = {
 
-              def delete(segment: SegmentNr) = {
-                statements.deleteRecords(key, segment, deleteTo)
-              }
+              def segment(seqNr: SeqNr) = SegmentNr(seqNr, metadata.segmentSize)
 
-              val lowest = segmentOf(metadata.deleteTo)
-              val highest = segmentOf(deleteTo)
+              def delete(segment: SegmentNr) = statements.deleteRecords(key, segment, deleteTo)
+
               val asyncs = for {
-                segment <- lowest to highest // TODO maybe add ability to create Seq[Segment] out of SeqRange ?
+                segment <- segment(from) to segment(deleteTo) // TODO maybe add ability to create Seq[Segment] out of SeqRange ?
               } yield {
                 delete(segment)
               }
               Async.foldUnit(asyncs).unit
             }
-          }
 
+            metadata.deleteTo.fold(delete(SeqNr.Min)) { deletedTo =>
+              if (deletedTo >= deleteTo) Async.unit
+              else deletedTo.nextOpt.fold(Async.unit) { from => delete(from) }
+            }
+          }
 
           def save(replicated: List[ReplicatedEvent], deleteTo: Option[SeqNr]) = {
 
@@ -146,7 +146,7 @@ object ReplicatedCassandra {
               def insert() = {
                 val metadata = Metadata(
                   segmentSize = config.segmentSize,
-                  deleteTo = deleteTo getOrElse SeqNr.Min)
+                  deleteTo = deleteTo)
 
                 for {
                   _ <- statements.insertMetadata(key, metadata, timestamp)
@@ -154,11 +154,10 @@ object ReplicatedCassandra {
               }
 
               def update(metadata: Metadata) = {
-                val deleteTo2 = deleteTo getOrElse SeqNr.Min
-                val deleteTo3 = metadata.deleteTo max deleteTo2
+                val deleteToMax = metadata.deleteTo max deleteTo
                 for {
-                  _ <- statements.updateMetadata(key, deleteTo3, timestamp)
-                } yield metadata.copy(deleteTo = deleteTo3)
+                  _ <- statements.updateMetadata(key, deleteToMax, timestamp)
+                } yield metadata.copy(deleteTo = deleteToMax)
               }
 
               metadata.fold(insert())(update)
@@ -174,18 +173,21 @@ object ReplicatedCassandra {
           def deleteUnbound(deleteTo: SeqNr) = {
 
             metadata.fold(Async.unit) { metadata =>
-              if (deleteTo <= metadata.deleteTo) Async.unit
+              if (metadata.deleteTo.exists(_ >= deleteTo)) Async.unit
               else {
 
                 def saveAndDelete(deleteTo: SeqNr) = {
                   for {
-                    _ <- statements.updateMetadata(key, deleteTo, timestamp)
+                    _ <- statements.updateMetadata(key, Some(deleteTo), timestamp)
                     _ <- delete(deleteTo, metadata)
                   } yield {}
                 }
 
+                // TODO that's not optimal to query all starting from SeqNr.Min
+                val from = metadata.deleteTo getOrElse SeqNr.Min
+
                 for {
-                  lastSeqNr <- LastSeqNr(key, metadata.deleteTo, statements.selectLastRecord, metadata)
+                  lastSeqNr <- LastSeqNr(key, from, metadata, statements.selectLastRecord)
                   result <- saveAndDelete(deleteTo min lastSeqNr)
                 } yield {
                   result

@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.Alias._
+import com.evolutiongaming.kafka.journal.SeqNr.Helper._
+import com.evolutiongaming.nel.Nel
 
 // TODO test
 // TODO add method with single argument of range size 1
@@ -8,8 +9,6 @@ import com.evolutiongaming.kafka.journal.Alias._
 final case class SeqRange(from: SeqNr, to: SeqNr) {
 
   require(from <= to, s"from($from) <= to($to)")
-  require(from >= 0, s"from($from) >= 0")
-  require(to >= 0, s"to($to) >= 0")
 
   def <(seqNr: SeqNr): Boolean = to < seqNr
 
@@ -35,6 +34,9 @@ final case class SeqRange(from: SeqNr, to: SeqNr) {
 
   def contains(range: SeqRange): Boolean = from <= range.from && to >= range.to
 
+  // TODO implement properly
+  def seqNrs: Nel[SeqNr] = Nel.unsafe((from.value to to.value).toList).map(SeqNr(_))
+
   override def toString: String = {
     if (from == to) from.toString
     else s"$from..$to"
@@ -47,6 +49,11 @@ object SeqRange {
 
   def apply(value: SeqNr): SeqRange = SeqRange(value, value)
 
+  def apply(value: Long): SeqRange = SeqRange(value.toSeqNr)
+
+  def apply(from: Long, to: Long): SeqRange = SeqRange(from = from.toSeqNr, to = to.toSeqNr)
+
+  // TODO move to SeqNr
   implicit class SeqNrOps(val self: SeqNr) extends AnyVal {
     def <(range: SeqRange): Boolean = range > self
     def >(range: SeqRange): Boolean = range < self

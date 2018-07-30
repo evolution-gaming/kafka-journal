@@ -5,13 +5,26 @@ import java.lang.{Long => LongJ}
 import java.time.Instant
 import java.util.Date
 
+import com.datastax.driver.core.{BoundStatement, Row}
 import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.kafka.journal.Alias.SeqNr
-import com.evolutiongaming.kafka.journal.Key
+import com.evolutiongaming.kafka.journal.SeqNr.Helper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
+import com.evolutiongaming.kafka.journal.{Key, SeqNr}
 
 
 object MetadataStatement {
+
+  implicit val SeqNrOptDecode: Codec[Option[SeqNr]] = new Codec[Option[SeqNr]] {
+
+    def apply(statement: BoundStatement, name: String, seqNr: Option[SeqNr]) = {
+      LongCodec(statement, name, seqNr.toLong)
+    }
+
+    def apply(row: Row, name: String) = {
+      val value = LongCodec(row, name)
+      SeqNr.opt(value)
+    }
+  }
 
   def createTable(name: TableName): String = {
     s"""
@@ -80,14 +93,14 @@ object MetadataStatement {
           } yield {
             Metadata(
               segmentSize = row.decode[Int]("segment_size"),
-              deleteTo = row.decode[SeqNr]("delete_to"))
+              deleteTo = row.decode[Option[SeqNr]]("delete_to"))
           }
       }
     }
   }
 
   object Update {
-    type Type = (Key, SeqNr, Instant) => Async[Unit]
+    type Type = (Key, Option[SeqNr], Instant) => Async[Unit]
 
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
       val query =
@@ -101,10 +114,10 @@ object MetadataStatement {
       for {
         prepared <- session.prepare(query)
       } yield {
-        (key: Key, deleteTo: SeqNr, timestamp: Instant) =>
+        (key: Key, deleteTo: Option[SeqNr], timestamp: Instant) =>
           // TODO avoid casting via providing implicit converters
           val bound = prepared
-            .bind(deleteTo: LongJ, Date.from(timestamp), key.id, key.topic)
+            .bind(deleteTo.toLong: LongJ, Date.from(timestamp), key.id, key.topic)
 
           //          val bound = prepared
           //            .bind()

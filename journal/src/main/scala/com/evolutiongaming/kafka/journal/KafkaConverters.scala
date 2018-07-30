@@ -97,17 +97,8 @@ object KafkaConverters {
         id <- self.key
         action <- self.toAction
       } yield {
-        val key = Key(id, self.topic)
+        val key = Key(topic = self.topic, id = id)
         KafkaRecord(key, action)
-      }
-    }
-
-    // TODO rename
-    def toKafkaRecord2(): Option[KafkaRecord2[_ <: Action]] = {
-      for {
-        kafkaRecord <- self.toKafkaRecord
-      } yield {
-        KafkaRecord2(kafkaRecord, self.toPartitionOffset)
       }
     }
   }

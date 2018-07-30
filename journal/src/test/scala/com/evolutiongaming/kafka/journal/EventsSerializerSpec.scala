@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.Alias.SeqNr
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.serialization.SerializerHelper._
 import org.scalatest.{FunSuite, Matchers}
@@ -11,9 +10,9 @@ class EventsSerializerSpec extends FunSuite with Matchers {
 
   test("toBytes & fromBytes") {
 
-    def event(seqNr: SeqNr) = Event(seqNr, Set.empty, Bytes(seqNr.toString.getBytes(Utf8)))
+    def event(seqNr: Long) = Event(SeqNr(seqNr), Set.empty, Bytes(seqNr.toString.getBytes(Utf8)))
 
-    val expected = Nel(event(0), event(1), event(2))
+    val expected = Nel(event(1), event(2), event(3))
     val bytes = EventsSerializer.toBytes(expected)
     val actual = EventsSerializer.fromBytes(bytes)
 

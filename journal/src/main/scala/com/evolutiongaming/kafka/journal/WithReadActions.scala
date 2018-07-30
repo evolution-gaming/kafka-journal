@@ -49,7 +49,7 @@ object WithReadActions {
         }
 
 
-        val readKafka = ReadActions(consumer, pollTimeout)
+        val readKafka = ReadActions(consumer, pollTimeout, log)
         val result = f(readKafka)
         result.onComplete { _ =>
           consumer.close(closeTimeout).failed.foreach { failure =>

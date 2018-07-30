@@ -3,6 +3,7 @@ package akka.persistence.kafka.journal
 import java.lang.{Integer => IntJ, Long => LongJ}
 import java.nio.ByteBuffer
 
+import com.evolutiongaming.kafka.journal.SeqNr
 import com.evolutiongaming.serialization.SerializerHelper._
 
 object PersistentEventSerializer {
@@ -19,7 +20,7 @@ object PersistentEventSerializer {
         IntJ.BYTES +
         IntJ.BYTES + manifest.length +
         IntJ.BYTES + payload.length)
-    buffer.putLong(x.seqNr) // TODO
+    buffer.putLong(x.seqNr.value) // TODO
     buffer.writeBytes(persistentManifest)
     buffer.writeBytes(writerUuid)
     buffer.putInt(x.identifier)
@@ -30,7 +31,7 @@ object PersistentEventSerializer {
 
   def fromBinary(bytes: Bytes): PersistentEvent = {
     val buffer = ByteBuffer.wrap(bytes)
-    val seqNr = buffer.getLong()
+    val seqNr = SeqNr(buffer.getLong())
     val persistentManifest = buffer.readString
     val writerUuid = buffer.readString
     val identifier = buffer.getInt()

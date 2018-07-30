@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
 import com.evolutiongaming.kafka.journal.Action.Header._
-import com.evolutiongaming.kafka.journal.Alias._
 
 sealed trait JournalInfo {
   def apply(a: Action.Header): JournalInfo
@@ -31,10 +30,6 @@ object JournalInfo {
   final case class NonEmpty(lastSeqNr: SeqNr, deleteTo: Option[SeqNr] = None) extends JournalInfo {
 
     require(
-      deleteTo.forall(_ > 0),
-      s"deleteTo(${ deleteTo.getOrElse(0) }) > 0")
-
-    require(
       deleteTo.forall(_ <= lastSeqNr),
       s"lastSeqNr($lastSeqNr) >= deleteTo(${ deleteTo.getOrElse(0) })")
 
@@ -56,15 +51,12 @@ object JournalInfo {
 
   final case class DeleteTo(seqNr: SeqNr) extends JournalInfo {
 
-    require(seqNr > 0, s"seqNr($seqNr) > 0")
-
     def apply(a: Action.Header): JournalInfo = {
 
       def nonEmpty(a: Append) = {
-        val deleteTo = {
-          val deleteTo = seqNr min a.range.from.prev
-          if (deleteTo > 0) Some(deleteTo) else None
-        }
+        val deleteTo = for {
+          prev <- a.range.from.prevOpt
+        } yield seqNr min prev
         NonEmpty(a.range.to, deleteTo)
       }
 

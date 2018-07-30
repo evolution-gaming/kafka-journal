@@ -3,10 +3,9 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
-import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
-import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
+import com.evolutiongaming.kafka.journal.SeqNr.Helper._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
@@ -19,121 +18,106 @@ import scala.concurrent.{ExecutionContext, Future}
 class JournalSpec extends WordSpec with Matchers {
   import JournalSpec._
 
-  def test(journalOf: () => SeqNrJournal): Unit = {
+  def test(createJournal: () => SeqNrJournal): Unit = {
 
-    "append single event" in {
-      val journal = journalOf()
-      journal.read(SeqRange.All) shouldEqual Nil
-      journal.append(1)
-      journal.read(SeqRange.All) shouldEqual List(1)
+    for {
+      size <- 0 to 5
+      seqNrs = (1L to size.toLong).toList.map(_.toSeqNr) // TODO convert to SeqRange
+      combination <- Combinations(seqNrs)
+    } {
+
+      val seqNrLast = seqNrs.lastOption
+
+      def createAndAppend() = {
+        val journal = createJournal()
+        for {
+          seqNrs <- combination
+        } journal.append(seqNrs.head, seqNrs.tail: _*)
+        journal
+      }
+
+      val name = combination.map(_.mkString("[", ",", "]")).mkString(",")
+
+      s"$name append" in {
+        val journal = createAndAppend()
+        journal.read(SeqRange.All) shouldEqual seqNrs
+      }
+
+      s"$name read" in {
+        val journal = createAndAppend()
+        journal.read(SeqRange.All) shouldEqual seqNrs
+        val last = seqNrLast getOrElse SeqNr.Min
+        journal.read(SeqNr.Min __ last) shouldEqual seqNrs
+        journal.read(SeqNr.Min __ last + 1) shouldEqual seqNrs
+      }
+
+      s"$name delete all" in {
+        val journal = createAndAppend()
+        for {seqNr <- seqNrLast} journal.delete(seqNr)
+        journal.read(SeqRange.All) shouldEqual Nil
+        journal.lastSeqNr(SeqNr.Min) shouldEqual seqNrLast
+      }
+
+      s"$name delete SeqNr.Max" in {
+        val journal = createAndAppend()
+        journal.delete(SeqNr.Max)
+        journal.read(SeqRange.All) shouldEqual Nil
+        journal.lastSeqNr(SeqNr.Min) shouldEqual seqNrLast
+      }
+
+      s"$name delete SeqNr.Min" in {
+        val journal = createAndAppend()
+        journal.delete(SeqNr.Min)
+        journal.read(SeqRange.All) shouldEqual seqNrs.dropWhile(_ <= SeqNr.Min)
+        journal.lastSeqNr(SeqNr.Min) shouldEqual seqNrLast
+      }
+
+      s"$name lastSeqNr" in {
+        val journal = createAndAppend()
+        journal.lastSeqNr(SeqNr.Max) shouldEqual None
+        journal.lastSeqNr(SeqNr.Min) shouldEqual seqNrLast
+        journal.lastSeqNr(seqNrLast getOrElse SeqNr.Min) shouldEqual seqNrLast
+      }
+
+      for {
+        _ <- seqNrLast
+        seqNr <- seqNrs.tail.lastOption
+      } {
+
+        s"$name delete except last" in {
+          val journal = createAndAppend()
+          journal.delete(seqNr)
+          journal.read(SeqRange.All) shouldEqual seqNrs.dropWhile(_ <= seqNr)
+          journal.lastSeqNr(SeqNr.Min) shouldEqual seqNrLast
+        }
+
+        s"$name read tail" in {
+          val journal = createAndAppend()
+          journal.read(seqNr __ SeqNr.Max) shouldEqual seqNrs.dropWhile(_ < seqNr)
+        }
+      }
     }
 
-    "append many events atomically" in {
-      val journal = journalOf()
-      journal.append(1, 2, 3)
-      journal.append(4, 5, 6)
-      journal.read(SeqRange.All) shouldEqual List(1, 2, 3, 4, 5, 6)
-    }
-
-    "append many events one by one" in {
-      val journal = journalOf()
-      journal.append(1)
-      journal.append(2)
-      journal.append(3)
-      journal.append(4)
-      journal.read(SeqRange.All) shouldEqual List(1, 2, 3, 4)
-    }
-
-    "delete no events" in {
-      val journal = journalOf()
-      journal.delete(1)
-      journal.read(SeqRange.All) shouldEqual Nil
-      journal.lastSeqNr(SeqNr.Min) shouldEqual SeqNr.Min
-    }
-
-    "delete some events" in {
-      val journal = journalOf()
-      journal.append(1)
-      journal.append(2, 3)
-      journal.delete(2)
-      journal.read(SeqRange.All) shouldEqual List(3)
-      journal.lastSeqNr(SeqNr.Min) shouldEqual 3l
-    }
-
-    "delete all events" in {
-      val journal = journalOf()
-      journal.append(1)
-      journal.append(2, 3)
-      journal.delete(3)
-      journal.read(SeqRange.All) shouldEqual Nil
-      journal.lastSeqNr(SeqNr.Min) shouldEqual 3l
-    }
-
-    "delete existing events only" in {
-      val journal = journalOf()
-      journal.append(1)
-      journal.append(2, 3)
-      journal.delete(4)
-      journal.read(SeqRange.All) shouldEqual Nil
-      journal.lastSeqNr(SeqNr.Min) shouldEqual 3l
-    }
-
-    "delete 0 events" in {
-      val journal = journalOf()
-      journal.append(1)
-      journal.delete(SeqNr.Min)
-      journal.read(SeqRange.All) shouldEqual List(1)
-      journal.lastSeqNr(SeqNr.Min) shouldEqual 1l
-    }
-
-    "delete max events" in {
-      val journal = journalOf()
-      journal.append(1)
-      journal.append(2, 3)
-      journal.delete(SeqNr.Max)
-      journal.read(SeqRange.All) shouldEqual Nil
-      journal.lastSeqNr(SeqNr.Min) shouldEqual 3l
-    }
-
-    "lastSeqNr" in {
-      val journal = journalOf()
-      journal.lastSeqNr(SeqNr.Min) shouldEqual SeqNr.Min
-      journal.lastSeqNr(SeqNr.Max) shouldEqual SeqNr.Max
-    }
-
-    "read empty journal" in {
-      val journal = journalOf()
-      journal.read(SeqRange.All) shouldEqual Nil
-    }
-
-    "read all events" in {
-      val journal = journalOf()
-      journal.append(1l)
-      journal.append(2l, 3l, 4l, 5l, 6l)
-      journal.read(SeqRange.All) shouldEqual List(1l, 2l, 3l, 4l, 5l, 6l)
-    }
-
-    "read some events" in {
-      val journal = journalOf()
-      journal.append(1l, 2l)
-      journal.append(3l, 4l, 5l, 6l)
-      journal.read(2l __ 3l) shouldEqual List(2l, 3l)
-      journal.read(5l __ 7l) shouldEqual List(5l, 6l)
+    "read SeqNr.Max" in {
+      val journal = createJournal()
+      journal.read(SeqRange(SeqNr.Max)) shouldEqual Nil
+      journal.append(1.toSeqNr)
+      journal.read(SeqRange(SeqNr.Max)) shouldEqual Nil
     }
 
     "append, delete, append, delete, append, read, lastSeqNr" in {
-      val journal = journalOf()
-      journal.append(1l)
-      journal.delete(3l)
-      journal.append(2l, 3l)
-      journal.delete(2l)
-      journal.append(4l)
-      journal.read(1l __ 2l) shouldEqual Nil
-      journal.read(2l __ 3l) shouldEqual List(3l)
-      journal.read(3l __ 4l) shouldEqual List(3l, 4l)
-      journal.read(4l __ 5l) shouldEqual List(4l)
-      journal.read(5l __ 6l) shouldEqual Nil
-      journal.lastSeqNr(SeqNr.Min) shouldEqual 4l
+      val journal = createJournal()
+      journal.append(1.toSeqNr)
+      journal.delete(3.toSeqNr)
+      journal.append(2.toSeqNr, 3.toSeqNr)
+      journal.delete(2.toSeqNr)
+      journal.append(4.toSeqNr)
+      journal.read(SeqRange(1, 2)) shouldEqual Nil
+      journal.read(SeqRange(2, 3)) shouldEqual List(3.toSeqNr)
+      journal.read(SeqRange(3, 4)) shouldEqual List(3.toSeqNr, 4.toSeqNr)
+      journal.read(SeqRange(4, 5)) shouldEqual List(4.toSeqNr)
+      journal.read(SeqRange(5, 6)) shouldEqual Nil
+      journal.lastSeqNr(SeqNr.Min) shouldEqual Some(SeqNr(4))
     }
   }
 
@@ -155,8 +139,7 @@ class JournalSpec extends WordSpec with Matchers {
             val offset = actions.size.toLong + 1
             val record = ActionRecord(action, offset)
             actions = actions.enqueue(record)
-            // TODO create test without offset
-            (partition, Some(offset)).async
+            PartitionOffset(partition = partition, offset = offset).async
           }
         }
         SeqNrJournal(eventualJournal, withReadActions, writeAction)
@@ -187,7 +170,7 @@ class JournalSpec extends WordSpec with Matchers {
             val record = ActionRecord(action, offset)
             actions = actions.enqueue(record)
             replicatedState = replicatedState(record)
-            (partition, Some(offset)).async
+            PartitionOffset(partition = partition, offset = offset).async
           }
         }
 
@@ -214,35 +197,7 @@ class JournalSpec extends WordSpec with Matchers {
             val record = ActionRecord(action, offset)
             actions = actions.enqueue(record)
             replicatedState = replicatedState(record)
-            (partition, Some(offset)).async
-          }
-        }
-
-        SeqNrJournal(eventualJournal, withReadActions, writeAction)
-      }
-    }
-
-    "kafka and eventual journals are consistent and kafka does not return offset" should {
-
-      test(() => journalOf())
-
-      def journalOf() = {
-        var actions: Queue[ActionRecord] = Queue.empty
-        var replicatedState = EventualJournalOf.State.Empty
-
-        val eventualJournal = EventualJournalOf(replicatedState)
-
-        val withReadActions = WithReadActionsOneByOne(actions)
-
-        val writeAction = new WriteAction {
-
-          def apply(action: Action) = {
-            val offset = actions.size.toLong + 1
-            val record = ActionRecord(action, offset)
-            actions = actions.enqueue(record)
-            replicatedState = replicatedState(record)
-
-            (partition, None).async
+            PartitionOffset(partition = partition, offset = offset).async
           }
         }
 
@@ -269,7 +224,7 @@ class JournalSpec extends WordSpec with Matchers {
             actions = actions.enqueue(record)
             replicatedState = replicatedState(record, offset - 2)
 
-            (partition, Some(offset)).async
+            PartitionOffset(partition = partition, offset = offset).async
           }
         }
 
@@ -277,115 +232,50 @@ class JournalSpec extends WordSpec with Matchers {
       }
     }
 
+    for {
+      n <- 1 to 4
+    } {
+      s"eventual journal is $n events behind the kafka journal" should {
+        test(() => journalOf())
 
-    "eventual journal is one event behind the kafka journal" should {
-      test(() => journalOf())
+        def journalOf() = {
+          var actions: Queue[ActionRecord] = Queue.empty
+          var replicatedState = EventualJournalOf.State.Empty
 
-      def journalOf() = {
-        var actions: Queue[ActionRecord] = Queue.empty
-        var replicatedState = EventualJournalOf.State.Empty
+          val eventualJournal = EventualJournalOf(replicatedState)
 
-        val eventualJournal = EventualJournalOf(replicatedState)
+          val withReadActions = WithReadActionsOneByOne(actions)
 
-        val withReadActions = WithReadActionsOneByOne(actions)
+          val writeAction = new WriteAction {
 
-        val writeAction = new WriteAction {
+            def apply(action: Action) = {
 
-          def apply(action: Action) = {
-            val offset = actions.size.toLong + 1
-            val record = ActionRecord(action, offset)
-            actions = actions.enqueue(record)
+              val offset = actions.size.toLong + 1
+              val record = ActionRecord(action, offset)
+              actions = actions.enqueue(record)
 
-            for {
-              actions <- actions.dropLast(1)
-              action <- actions.lastOption
-            } replicatedState = replicatedState(action)
+              for {
+                actions <- actions.dropLast(n)
+                action <- actions.lastOption
+              } replicatedState = replicatedState(action)
 
-            (partition, Some(offset)).async
+              PartitionOffset(partition = partition, offset = offset).async
+            }
           }
+
+          SeqNrJournal(eventualJournal, withReadActions, writeAction)
         }
-
-        SeqNrJournal(eventualJournal, withReadActions, writeAction)
-      }
-    }
-
-
-    "eventual journal is two events behind the kafka journal" should {
-      test(() => journalOf())
-
-      def journalOf() = {
-        var actions: Queue[ActionRecord] = Queue.empty
-        var replicatedState = EventualJournalOf.State.Empty
-
-        val eventualJournal = EventualJournalOf(replicatedState)
-
-        val withReadActions = WithReadActionsOneByOne(actions)
-
-        val writeAction = new WriteAction {
-
-          def apply(action: Action) = {
-
-            val offset = actions.size.toLong + 1
-            val record = ActionRecord(action, offset)
-            actions = actions.enqueue(record)
-
-            for {
-              actions <- actions.dropLast(2)
-              action <- actions.lastOption
-            } replicatedState = replicatedState(action)
-
-            (partition, Some(offset)).async
-          }
-        }
-
-        SeqNrJournal(eventualJournal, withReadActions, writeAction)
-      }
-    }
-
-
-    "eventual journal is three events behind the kafka journal" should {
-      test(() => journalOf())
-
-      def journalOf() = {
-        var actions: Queue[ActionRecord] = Queue.empty
-        var replicatedState = EventualJournalOf.State.Empty
-
-        val eventualJournal = EventualJournalOf(replicatedState)
-
-        val withReadActions = WithReadActionsOneByOne(actions)
-
-        val writeAction = new WriteAction {
-
-          def apply(action: Action) = {
-
-            val offset = actions.size.toLong + 1
-            val record = ActionRecord(action, offset)
-            actions = actions.enqueue(record)
-
-            for {
-              actions <- actions.dropLast(3)
-              action <- actions.lastOption
-            } replicatedState = replicatedState(action)
-
-            (partition, Some(offset)).async
-          }
-        }
-
-        SeqNrJournal(eventualJournal, withReadActions, writeAction)
       }
     }
   }
 }
 
 object JournalSpec {
-  val key = Key(id = "id", topic = "topic")
+  val key = Key(topic = "topic", id = "id")
   val timestamp = Instant.now()
   val partition: Partition = 0
 
   implicit val ec: ExecutionContext = CurrentThreadExecutionContext
-
-
-  case class ActionRecord(action: Action, offset: Offset)
 
 
   trait SeqNrJournal {
@@ -393,7 +283,7 @@ object JournalSpec {
     def read(range: SeqRange): List[SeqNr]
 
     // TODO not sure this should be a part of this API
-    def lastSeqNr(from: SeqNr): SeqNr
+    def lastSeqNr(from: SeqNr): Option[SeqNr]
     def delete(to: SeqNr): Unit
   }
 
@@ -439,32 +329,7 @@ object JournalSpec {
     }
   }
 
-
-  object WithReadActionsOneByOne {
-    def apply(actions: => Queue[ActionRecord]): WithReadActions = new WithReadActions {
-
-      def apply[T](topic: Topic, partitionOffset: Option[PartitionOffset])(f: ReadActions => Async[T]) = {
-
-        val readActions = new ReadActions {
-
-          var left = partitionOffset.fold(actions) { partitionOffset =>
-            actions.dropWhile(_.offset < partitionOffset.offset)
-          }
-
-          def apply(id: Id) = {
-            left.dequeueOption.fold(Async.nil[Action]) { case (record, left) =>
-              this.left = left
-              List(record.action).async
-            }
-          }
-        }
-
-        f(readActions)
-      }
-    }
-  }
-
-
+  // TODO implement via mocking EventualCassandra
   object EventualJournalOf {
 
     def apply(state: => State): EventualJournal = {
@@ -492,8 +357,8 @@ object JournalSpec {
         def lastSeqNr(key: Key, from: SeqNr) = {
 
           def lastSeqNr(state: State) = {
-            val seqNr = state.events.lastOption.fold(SeqNr.Min)(_.event.seqNr)
-            val lastSeqNr = seqNr max state.deleteTo
+            val seqNr = state.events.lastOption.map(_.event.seqNr)
+            val lastSeqNr = (seqNr max state.deleteTo).filter(_ >= from)
             lastSeqNr.async
           }
 
@@ -505,7 +370,7 @@ object JournalSpec {
 
     case class State(
       events: Queue[ReplicatedEvent] = Queue.empty,
-      deleteTo: SeqNr = SeqNr.Min,
+      deleteTo: Option[SeqNr] = None,
       offset: Offset = 0l) {
 
       def apply(record: ActionRecord): State = {
@@ -525,11 +390,14 @@ object JournalSpec {
         }
 
         def onDelete(action: Action.Delete) = {
-          def last = events.lastOption.fold(SeqNr.Min)(_.event.seqNr)
-
-          val left = events.dropWhile(_.event.seqNr <= action.to)
-          val deleteTo = left.headOption.fold(last)(_.event.seqNr.prev)
-          copy(deleteTo = deleteTo, events = left, offset = offset)
+          events.lastOption.fold(this) { last =>
+            val lastSeqNr = last.event.seqNr
+            if (lastSeqNr <= action.to) copy(events = Queue.empty, deleteTo = Some(lastSeqNr), offset)
+            else {
+              val left = events.dropWhile(_.event.seqNr <= action.to)
+              copy(events = left, deleteTo = Some(action.to), offset)
+            }
+          }
         }
 
         record.action match {

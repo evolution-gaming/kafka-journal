@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 
-import com.evolutiongaming.kafka.journal.Alias.SeqNr
+import com.evolutiongaming.skafka.Offset
 
 sealed trait Action {
   def header: Action.Header
@@ -56,10 +56,7 @@ object Action {
 
     final case class Append(range: SeqRange) extends Header
 
-    final case class Delete(to: SeqNr /*TODO NOT CONFIRMED*/) extends Header {
-
-      require(to > 0, s"to($to) > 0")
-    }
+    final case class Delete(to: SeqNr) extends Header
 
     final case class Mark(id: String) extends Header
   }
@@ -74,5 +71,4 @@ object KafkaRecord {
   type Any = KafkaRecord[_ <: Action]
 }
 
-// TODO
-final case class KafkaRecord2[A <: Action](record: KafkaRecord[A], partitionOffset: PartitionOffset)
+case class ActionRecord(action: Action, offset: Offset)

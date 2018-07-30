@@ -6,6 +6,16 @@ import play.api.libs.json._
 
 object HeaderFormats {
 
+  implicit val SeqNrFormat: Format[SeqNr] = new Format[SeqNr] {
+
+    def reads(json: JsValue): JsResult[SeqNr] = for {
+      value <- json.validate[Long]
+      seqNr <- SeqNr.validate(value)(JsError(_), JsSuccess(_))
+    } yield seqNr
+
+    def writes(seqNr: SeqNr) = JsNumber(seqNr.value)
+  }
+
   implicit val JsonFormat: OFormat[Header] = {
 
     implicit val SeqRangeFormat = Json.format[SeqRange]

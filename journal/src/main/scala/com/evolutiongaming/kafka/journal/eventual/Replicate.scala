@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual
 
-import com.evolutiongaming.kafka.journal.Alias._
-import com.evolutiongaming.kafka.journal.{PartitionOffset, ReplicatedEvent}
+import com.evolutiongaming.kafka.journal.{PartitionOffset, ReplicatedEvent, SeqNr}
 
 
 sealed trait Replicate

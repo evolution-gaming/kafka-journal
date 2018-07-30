@@ -13,11 +13,11 @@ object ToKey {
   val Default: ToKey = ToKey("journal")
 
   val Identity: ToKey = new ToKey {
-    def apply(persistenceId: String) = Key(id = persistenceId, topic = persistenceId)
+    def apply(persistenceId: String) = Key(topic = persistenceId, id = persistenceId)
   }
 
   def apply(topic: Topic): ToKey = new ToKey {
-    def apply(persistenceId: String) = Key(id = persistenceId, topic = topic)
+    def apply(persistenceId: String) = Key(topic = topic, id = persistenceId)
   }
 
   def apply(config: Config): ToKey = {
@@ -55,7 +55,7 @@ object ToKey {
       else {
         val id = persistenceId.take(idx)
         val topic = persistenceId.drop(idx + separator.length)
-        Key(id = id, topic = topic)
+        Key(topic = topic, id = id)
       }
     }
   }

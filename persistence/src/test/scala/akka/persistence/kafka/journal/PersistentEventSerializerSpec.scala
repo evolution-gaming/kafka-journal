@@ -1,6 +1,6 @@
 package akka.persistence.kafka.journal
 
-import com.evolutiongaming.kafka.journal.Bytes
+import com.evolutiongaming.kafka.journal.{Bytes, SeqNr}
 import com.evolutiongaming.serialization.SerializerHelper._
 import org.scalatest.{FunSuite, Matchers}
 
@@ -11,7 +11,7 @@ class PersistentEventSerializerSpec extends FunSuite with Matchers {
     val payload = "payload"
 
     val expected = PersistentEvent(
-      seqNr = 1l,
+      seqNr = SeqNr.Min,
       persistentManifest = "persistentManifest",
       writerUuid = "writerUuid",
       identifier = 2,

@@ -9,9 +9,10 @@ import com.evolutiongaming.cassandra.CreateCluster
 import com.evolutiongaming.config.ConfigHelper._
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
+import com.evolutiongaming.kafka.journal.SeqNr.Helper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
-import com.evolutiongaming.kafka.journal.{Bytes, Journals}
+import com.evolutiongaming.kafka.journal.{Bytes, Journals, SeqNr, SeqRange}
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.serialization.{SerializedMsgConverter, SerializedMsgExt}
 import com.evolutiongaming.skafka.Topic
@@ -21,7 +22,7 @@ import com.typesafe.config.Config
 
 import scala.collection.immutable.Seq
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContextExecutor}
+import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.util.control.NonFatal
 
 class PersistenceJournal(config: Config) extends AsyncWriteJournal {
@@ -109,15 +110,24 @@ class PersistenceJournal(config: Config) extends AsyncWriteJournal {
     adapter.write(atomicWrites)
   }
 
-  def asyncDeleteMessagesTo(persistenceId: PersistenceId, to: SeqNr) = {
-    adapter.delete(persistenceId, to)
+  def asyncDeleteMessagesTo(persistenceId: PersistenceId, to: Long) = {
+    val seqNr = SeqNr.opt(to)
+    seqNr.fold(Future.unit) { to =>
+      adapter.delete(persistenceId, to)
+    }
   }
 
-  def asyncReplayMessages(persistenceId: PersistenceId, from: SeqNr, to: SeqNr, max: Long)(f: PersistentRepr => Unit) = {
-    adapter.replay(persistenceId, from = from, to = to, max = max)(f)
+  def asyncReplayMessages(persistenceId: PersistenceId, from: Long, to: Long, max: Long)(f: PersistentRepr => Unit) = {
+    val seqNrFrom = SeqNr(from, SeqNr.Min)
+    val seqNrTo = SeqNr(to, SeqNr.Max)
+    val range = SeqRange(seqNrFrom, seqNrTo)
+    adapter.replay(persistenceId, range, max)(f)
   }
 
-  def asyncReadHighestSequenceNr(persistenceId: PersistenceId, from: SeqNr) = {
-    adapter.highestSeqNr(persistenceId, from)
+  def asyncReadHighestSequenceNr(persistenceId: PersistenceId, from: Long) = {
+    val seqNr = SeqNr(from, SeqNr.Min)
+    for {
+      seqNr <- adapter.lastSeqNr(persistenceId, seqNr)
+    } yield seqNr.fold(from)(_.value)
   }
 }

@@ -8,8 +8,8 @@ import com.datastax.driver.core.{BoundStatement, ResultSet, Row, Statement}
 import com.evolutiongaming.cassandra.CassandraHelper._
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
-import com.evolutiongaming.kafka.journal.Bytes
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
+import com.evolutiongaming.kafka.journal.{Bytes, SeqNr}
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -98,6 +98,11 @@ object CassandraHelper {
     }
   }
 
+  // TODO move out
+  implicit val SeqNrCodec: Codec[SeqNr] = new Codec[SeqNr] {
+    def apply(statement: BoundStatement, name: String, value: SeqNr) = LongCodec(statement, name, value.value)
+    def apply(row: Row, name: String) = SeqNr(LongCodec(row, name))
+  }
 
   implicit class StatementOps(val self: Statement) extends AnyVal {
 

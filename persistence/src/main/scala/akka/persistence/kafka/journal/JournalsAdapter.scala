@@ -4,11 +4,11 @@ import java.time.Instant
 
 import akka.persistence.journal.Tagged
 import akka.persistence.{AtomicWrite, PersistentRepr}
-import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.FutureHelper._
+import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
-import com.evolutiongaming.kafka.journal.{Bytes, Event, Journals}
+import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.serialization.{SerializedMsg, SerializedMsgConverter}
@@ -20,8 +20,8 @@ import scala.util.Try
 trait JournalsAdapter {
   def write(messages: Seq[AtomicWrite]): Future[List[Try[Unit]]]
   def delete(persistenceId: String, to: SeqNr): Future[Unit]
-  def highestSeqNr(persistenceId: String, from: SeqNr): Future[Long]
-  def replay(persistenceId: String, from: SeqNr, to: SeqNr, max: Long)(f: PersistentRepr => Unit): Future[Unit]
+  def lastSeqNr(persistenceId: String, from: SeqNr): Future[Option[SeqNr]]
+  def replay(persistenceId: String, range: SeqRange, max: Long)(f: PersistentRepr => Unit): Future[Unit]
 }
 
 object JournalsAdapter {
@@ -58,7 +58,8 @@ object JournalsAdapter {
               val serialized = serialisation.toMsg(payload)
               val persistentEvent = PersistentEvent(serialized, persistentRepr)
               val bytes = PersistentEventSerializer.toBinary(persistentEvent)
-              Event(persistentRepr.sequenceNr, tags, Bytes(bytes))
+              val seqNr = SeqNr(persistentRepr.sequenceNr)
+              Event(seqNr, tags, Bytes(bytes))
             }
             val nel = Nel(events.head, events.tail.toList) // TODO is it optimal convert to list ?
             val result = journals.append(key, nel, timestamp)
@@ -74,11 +75,11 @@ object JournalsAdapter {
         journals.delete(key, to, timestamp).future
       }
 
-      def replay(persistenceId: PersistenceId, from: SeqNr, to: SeqNr, max: Long)
+      def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)
         (callback: PersistentRepr => Unit): Future[Unit] = {
 
         val fold: Fold[Long, Event] = (count, event) => {
-          if (event.seqNr <= to && count < max) {
+          if (event.seqNr <= range.to && count < max) {
             val persistentEvent = PersistentEventSerializer.fromBinary(event.payload.value)
             val serializedMsg = SerializedMsg(
               persistentEvent.identifier,
@@ -88,7 +89,7 @@ object JournalsAdapter {
             val seqNr = persistentEvent.seqNr
             val persistentRepr = PersistentRepr(
               payload = payload,
-              sequenceNr = seqNr,
+              sequenceNr = seqNr.value,
               persistenceId = persistenceId,
               manifest = persistentEvent.persistentManifest,
               writerUuid = persistentEvent.writerUuid)
@@ -100,11 +101,11 @@ object JournalsAdapter {
           }
         }
         val key = toKey(persistenceId)
-        val async = journals.foldWhile(key, from, 0l)(fold)
+        val async = journals.foldWhile(key, range.from, 0l)(fold)
         async.unit.future
       }
 
-      def highestSeqNr(persistenceId: PersistenceId, from: SeqNr) = {
+      def lastSeqNr(persistenceId: PersistenceId, from: SeqNr) = {
         val key = toKey(persistenceId)
         journals.lastSeqNr(key, from).future
       }

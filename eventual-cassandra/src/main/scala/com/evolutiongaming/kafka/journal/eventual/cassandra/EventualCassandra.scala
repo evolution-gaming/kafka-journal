@@ -5,10 +5,9 @@ import com.datastax.driver.core.policies.LoggingRetryPolicy
 import com.evolutiongaming.cassandra.{NextHostRetryPolicy, Session}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
-import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.{Key, ReplicatedEvent, SeqRange}
+import com.evolutiongaming.kafka.journal.{Key, ReplicatedEvent, SeqNr, SeqRange}
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Topic
 
@@ -16,6 +15,7 @@ import scala.concurrent.ExecutionContext
 
 
 // TODO create collection that is optimised for ordered sequence and seqNr
+// TODO test EventualCassandra
 object EventualCassandra {
 
   def apply(
@@ -49,7 +49,6 @@ object EventualCassandra {
         }
       }
 
-
       def foldWhile[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
 
         def foldWhile(statement: JournalStatement.SelectRecords.Type, metadata: Metadata) = {
@@ -74,7 +73,7 @@ object EventualCassandra {
             } yield result
           }
 
-          val fromFixed = from max metadata.deleteTo.next
+          val fromFixed = from max metadata.deleteTo.fold(SeqNr.Min)(_.next)
           val segment = Segment(fromFixed, metadata.segmentSize)
           foldWhile(fromFixed, segment, s)
         }
@@ -94,8 +93,8 @@ object EventualCassandra {
       def lastSeqNr(key: Key, from: SeqNr) = {
 
         def lastSeqNr(statements: Statements, metadata: Option[Metadata]) = {
-          metadata.fold(from.async) { metadata =>
-            LastSeqNr(key, from, statements.selectLastRecord, metadata) // TODO remove this, use lastSeqNr from metadata
+          metadata.fold(Option.empty[SeqNr].async) { metadata =>
+            LastSeqNr(key, from, metadata, statements.selectLastRecord)
           }
         }
 

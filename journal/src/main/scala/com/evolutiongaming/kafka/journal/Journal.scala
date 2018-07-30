@@ -6,9 +6,8 @@ import java.util.UUID
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.ActorLogHelper._
-import com.evolutiongaming.kafka.journal.Alias._
-import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
+import com.evolutiongaming.kafka.journal.SeqNr.Helper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
@@ -24,7 +23,7 @@ import scala.concurrent.duration._
 trait Journal {
   def append(events: Nel[Event], timestamp: Instant): Async[Unit]
   def foldWhile[S](from: SeqNr, s: S)(f: Fold[S, Event]): Async[S]
-  def lastSeqNr(from: SeqNr): Async[SeqNr]
+  def lastSeqNr(from: SeqNr): Async[Option[SeqNr]]
   def delete(to: SeqNr, timestamp: Instant): Async[Unit]
 }
 
@@ -33,7 +32,7 @@ object Journal {
   val Empty: Journal = new Journal {
     def append(events: Nel[Event], timestamp: Instant) = Async.unit
     def foldWhile[S](from: SeqNr, s: S)(f: Fold[S, Event]) = s.async
-    def lastSeqNr(from: SeqNr) = Async.seqNr
+    def lastSeqNr(from: SeqNr) = Async.none
     def delete(to: SeqNr, timestamp: Instant) = Async.unit
 
     override def toString = s"Journal.Empty"
@@ -62,7 +61,7 @@ object Journal {
     }
 
     def lastSeqNr(from: SeqNr) = {
-      log[SeqNr](s"lastSeqNr $from") {
+      log[Option[SeqNr]](s"lastSeqNr $from") {
         journal.lastSeqNr(from)
       }
     }
@@ -75,10 +74,6 @@ object Journal {
 
     override def toString = journal.toString
   }
-
-
-  def apply(settings: Settings): Journal = ???
-
 
   // TODO create separate class IdAndTopic
   def apply(
@@ -105,15 +100,15 @@ object Journal {
     eventual: EventualJournal,
     withReadActions: WithReadActions,
     writeAction: WriteAction)(implicit
-    ec: ExecutionContext): Journal = {
+    ec: ExecutionContext /*TODO not used*/): Journal = {
 
     def mark(): Async[Marker] = {
       val id = UUID.randomUUID().toString
       val action = Action.Mark(id, Instant.now())
       for {
-        (partition, offset) <- writeAction(action)
+        partitionOffset <- writeAction(action)
       } yield {
-        Marker(id, partition, offset)
+        Marker(id, partitionOffset)
       }
     }
 
@@ -124,7 +119,7 @@ object Journal {
         marker <- marker
         topicPointers <- topicPointers
       } yield {
-        val offsetReplicated = topicPointers.pointers.get(marker.partition)
+        val offsetReplicated = topicPointers.pointers.get(marker.partitionOffset.partition)
         FoldActions(key, from, marker, offsetReplicated, withReadActions)
       }
     }
@@ -138,7 +133,6 @@ object Journal {
         val result = writeAction(action)
         result.unit
       }
-
 
       // TODO add optimisation for ranges
       def foldWhile[S](from: SeqNr, s: S)(f: Fold[S, Event]) = {
@@ -199,19 +193,24 @@ object Journal {
           result <- info match {
             case JournalInfo.Empty                 => replicated(from)
             case JournalInfo.NonEmpty(_, deleteTo) => onNonEmpty(deleteTo, foldActions)
-            case JournalInfo.DeleteTo(deleteTo)    => replicated(from max deleteTo.next)
+            // TODO test this case
+            // TODO test case when deleteTo == Long.Max
+            case JournalInfo.DeleteTo(deleteTo) =>
+
+              val x = if (deleteTo == SeqNr.Max) deleteTo else deleteTo.next
+              replicated(from max x)
           }
         } yield result
       }
 
-
       def lastSeqNr(from: SeqNr) = {
+        // TODO reimplement, we don't need to call `eventual.lastSeqNr` without using it's offset
         for {
           foldActions <- foldActions(from)
           seqNrEventual = eventual.lastSeqNr(key, from)
-          seqNr <- foldActions[SeqNr](None/*TODO*/, from) { (seqNr, action) =>
+          seqNr <- foldActions(None /*TODO*/ , Option.empty[SeqNr]) { (seqNr, action) =>
             val result = action match {
-              case action: Action.Append => action.header.range.to
+              case action: Action.Append => Some(action.header.range.to)
               case action: Action.Delete => seqNr
             }
             result.continue
@@ -222,13 +221,9 @@ object Journal {
         }
       }
 
-
       def delete(to: SeqNr, timestamp: Instant) = {
-        if (to <= 0) Async.unit
-        else {
-          val action = Action.Delete(to, timestamp)
-          writeAction(action).unit
-        }
+        val action = Action.Delete(to, timestamp)
+        writeAction(action).unit
       }
 
       override def toString = s"Journal($key)"

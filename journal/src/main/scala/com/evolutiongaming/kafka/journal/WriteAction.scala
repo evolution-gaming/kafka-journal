@@ -4,12 +4,11 @@ import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.skafka.producer.Producer
-import com.evolutiongaming.skafka.{Offset, Partition}
 
 import scala.concurrent.ExecutionContext
 
 trait WriteAction {
-  def apply(action: Action): Async[(Partition, Option[Offset])]
+  def apply(action: Action): Async[PartitionOffset]
 }
 
 object WriteAction {
@@ -27,7 +26,10 @@ object WriteAction {
           metadata <- producer(producerRecord).async
         } yield {
           val partition = metadata.topicPartition.partition
-          (partition, metadata.offset)
+          val offset = metadata.offset getOrElse {
+            throw JournalException(key, "metadata.offset is missing, make sure ProducerConfig.acks set to One or All")
+          }
+          PartitionOffset(partition, offset)
         }
       }
     }

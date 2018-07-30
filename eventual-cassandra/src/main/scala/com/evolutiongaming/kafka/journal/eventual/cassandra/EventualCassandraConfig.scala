@@ -5,7 +5,7 @@ import com.evolutiongaming.config.ConfigHelper._
 import com.typesafe.config.Config
 
 final case class EventualCassandraConfig(
-  segmentSize: Int = 1000000,
+  segmentSize: Int = 100000,
   client: CassandraConfig = CassandraConfig.Default,
   schema: SchemaConfig = SchemaConfig.Default)
 

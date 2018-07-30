@@ -3,9 +3,9 @@ package com.evolutiongaming.kafka.journal
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
+import com.evolutiongaming.concurrent.FutureHelper._
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
-import com.evolutiongaming.concurrent.FutureHelper._
 import com.evolutiongaming.nel.Nel
 
 import scala.annotation.tailrec
@@ -22,9 +22,16 @@ object FoldWhileHelper {
     def stop: Boolean = !continue
     def map[SS](f: S => SS): Switch[SS] = copy(s = f(s))
     def enclose: Switch[Switch[S]] = map(_ => this)
+
+    def switch(continue: Boolean = true): Switch[S] = {
+      if (continue == this.continue) this
+      else copy(continue = continue)
+    }
   }
 
   object Switch {
+    val Unit: Switch[Unit] = continue(())
+    
     def continue[@specialized S](s: S) = Switch(s, continue = true)
     def stop[@specialized S](s: S) = Switch(s, continue = false)
   }

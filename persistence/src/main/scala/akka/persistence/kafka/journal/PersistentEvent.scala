@@ -1,11 +1,11 @@
 package akka.persistence.kafka.journal
 
 import akka.persistence.PersistentRepr
-import com.evolutiongaming.kafka.journal.Alias.SeqNr
+import com.evolutiongaming.kafka.journal.SeqNr
 import com.evolutiongaming.serialization.SerializedMsg
 
 final case class PersistentEvent(
-  seqNr: SeqNr, // TODO
+  seqNr: SeqNr, // TODO really ?
   persistentManifest: String,
   writerUuid: String,
   identifier: Int,
@@ -17,7 +17,7 @@ object PersistentEvent {
 
   def apply(msg: SerializedMsg, persistentRepr: PersistentRepr): PersistentEvent = {
     PersistentEvent(
-      seqNr = persistentRepr.sequenceNr,
+      seqNr = SeqNr(persistentRepr.sequenceNr),
       persistentManifest = persistentRepr.manifest,
       writerUuid = persistentRepr.writerUuid,
       identifier = msg.identifier,

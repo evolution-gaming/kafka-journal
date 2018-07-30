@@ -2,35 +2,45 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
-import com.evolutiongaming.kafka.journal.Alias.{SeqNr, SeqNrOps}
-import com.evolutiongaming.kafka.journal.Key
+import com.evolutiongaming.kafka.journal.eventual.cassandra.Helper._
+import com.evolutiongaming.kafka.journal.{Key, SeqNr}
 
 object LastSeqNr {
 
+  // TODO test this
   def apply(
     key: Key,
     from: SeqNr,
-    statement: JournalStatement.SelectLastRecord.Type,
-    metadata: Metadata): Async[SeqNr] = {
+    metadata: Metadata,
+    statement: JournalStatement.SelectLastRecord.Type): Async[Option[SeqNr]] = {
 
-    def apply(last: SeqNr, from: SeqNr, segment: Segment): Async[SeqNr] = {
-      for {
-        pointer <- statement(key, segment.nr, from)
-        seqNr <- pointer.fold(last.async) { pointer =>
-          val last = pointer.seqNr
-          val from = last.next
-          segment.next(from).fold(last.async) { segment =>
-            apply(last, from, segment)
+    def apply(from: SeqNr, last: Option[SeqNr]) = {
+
+      def apply(from: SeqNr, last: Option[SeqNr], segment: Segment): Async[Option[SeqNr]] = {
+        for {
+          pointer <- statement(key, segment.nr, from)
+          seqNr <- pointer.fold(last.async) { pointer =>
+            val last = pointer.seqNr
+            val result = for {
+              from <- last.nextOpt
+              segment <- segment.next(from)
+            } yield {
+              apply(from, Some(last), segment)
+            }
+            result getOrElse Some(last).async
           }
-        }
-      } yield {
-        seqNr
+        } yield seqNr
       }
+
+      val segment = Segment(from, metadata.segmentSize)
+      apply(from, last, segment)
     }
 
-    val seqNr = from max metadata.deleteTo
-    val fromFixed = seqNr.next
-    val segment = Segment(fromFixed, metadata.segmentSize)
-    apply(seqNr, fromFixed, segment)
+    metadata.deleteTo.fold(apply(from, None)) { deleteTo =>
+      if (from > deleteTo) apply(from, None)
+      else deleteTo.nextOpt.fold(SeqNr.Max.some.async) { from =>
+        apply(from, Some(deleteTo))
+      }
+    }
   }
 }

@@ -5,8 +5,6 @@ import java.time.Instant
 import akka.actor.ActorSystem
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
-import com.evolutiongaming.kafka.journal.Alias._
-import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.nel.Nel
@@ -23,7 +21,7 @@ import scala.concurrent.duration._
 trait Journals {
   def append(key: Key, events: Nel[Event], timestamp: Instant): Async[Unit]
   def foldWhile[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]): Async[S]
-  def lastSeqNr(key: Key, from: SeqNr): Async[SeqNr]
+  def lastSeqNr(key: Key, from: SeqNr): Async[Option[SeqNr]]
   def delete(key: Key, to: SeqNr, timestamp: Instant): Async[Unit]
 }
 
@@ -32,12 +30,9 @@ object Journals {
   val Empty: Journals = new Journals {
     def append(key: Key, events: Nel[Event], timestamp: Instant) = Async.unit
     def foldWhile[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = s.async
-    def lastSeqNr(key: Key, from: SeqNr) = Async.seqNr
+    def lastSeqNr(key: Key, from: SeqNr) = Async.none
     def delete(key: Key, to: SeqNr, timestamp: Instant) = Async.unit
   }
-
-
-  def apply(settings: Settings): Journals = ???
 
 
   def apply(
@@ -50,7 +45,7 @@ object Journals {
     ec: ExecutionContext): Journals = {
 
     def journalOf(key: Key) = {
-      val log = ActorLog(system, classOf[Journal]) prefixed key.id
+      val log = ActorLog(system, classOf[Journal]) prefixed key.toString
       val journal = Journal(key, log, producer, newConsumer, eventual, pollTimeout, closeTimeout)
       Journal(journal, log)
     }

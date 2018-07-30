@@ -2,18 +2,21 @@ package com.evolutiongaming.kafka.journal
 
 import com.evolutiongaming.kafka.journal.Action.Header
 import com.evolutiongaming.kafka.journal.HeaderFormats._
+import com.evolutiongaming.kafka.journal.SeqNr.Helper._
 import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json.{Format, JsValue, Json}
 
 class HeaderJsonSpec extends FunSuite with Matchers {
 
   test("Append format") {
-    val header: Header = Header.Append(SeqRange(1, 5))
+    val range = SeqRange(1, 5)
+    val header: Header = Header.Append(range)
     verify(header)
   }
 
   test("Delete format") {
-    val header: Header = Header.Delete(3)
+    val seqNr = 3.toSeqNr
+    val header: Header = Header.Delete(seqNr)
     verify(header)
   }
 
