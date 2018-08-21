@@ -35,6 +35,7 @@ final case class SeqRange(from: SeqNr, to: SeqNr) {
   def contains(range: SeqRange): Boolean = from <= range.from && to >= range.to
 
   // TODO implement properly
+  // TODO rename
   def seqNrs: Nel[SeqNr] = Nel.unsafe((from.value to to.value).toList).map(SeqNr(_))
 
   override def toString: String = {

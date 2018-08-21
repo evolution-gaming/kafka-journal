@@ -39,6 +39,7 @@ object FoldActions {
 
         if (replicated) s.async
         else {
+          // TODO use max form Helpers
           val partitionOffset = {
             val max = PartialFunction.condOpt((offset, offsetReplicated)) {
               case (Some(x), Some(y)) => x max y

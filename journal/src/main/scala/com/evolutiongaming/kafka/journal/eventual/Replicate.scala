@@ -7,7 +7,7 @@ sealed trait Replicate
 
 object Replicate {
   // TODO both cannot be empty
-  final case class DeleteToKnown(value: Option[SeqNr], replicated: List[ReplicatedEvent]) extends Replicate
+  final case class DeleteToKnown(deleteTo: Option[SeqNr], replicated: List[ReplicatedEvent]) extends Replicate
 
   // TODO consider creating case class for unbounded deletedTo
   final case class DeleteUnbound(deleteTo: SeqNr) extends Replicate

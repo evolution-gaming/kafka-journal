@@ -8,8 +8,12 @@ import com.evolutiongaming.skafka.Topic
 
 
 trait ReplicatedJournal {
-  def topics(): Async[List[Topic]]
+  // TODO not used
+  def topics(): Async[Iterable[Topic]]
+
   def save(key: Key, records: Replicate, timestamp: Instant): Async[Unit]
+
   def savePointers(topic: Topic, topicPointers: TopicPointers): Async[Unit]
+
   def pointers(topic: Topic): Async[TopicPointers]
 }

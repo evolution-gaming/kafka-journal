@@ -18,6 +18,8 @@ import scala.concurrent.{ExecutionContext, Future}
 class JournalSpec extends WordSpec with Matchers {
   import JournalSpec._
 
+  // TODO add test using SeqNr.Max
+  // TODO add test when Kafka missing it's tail comparing to eventual
   def test(createJournal: () => SeqNrJournal): Unit = {
 
     for {
@@ -235,7 +237,7 @@ class JournalSpec extends WordSpec with Matchers {
     for {
       n <- 1 to 4
     } {
-      s"eventual journal is $n events behind the kafka journal" should {
+      s"eventual journal is $n actions behind the kafka journal" should {
         test(() => journalOf())
 
         def journalOf() = {
@@ -300,7 +302,7 @@ object JournalSpec {
 
         def read(range: SeqRange) = {
           val result = {
-            val result = journal.foldWhile(range.from, List.empty[SeqNr]) { (seqNrs, event) =>
+            val result = journal.read(range.from, List.empty[SeqNr]) { (seqNrs, event) =>
               val continue = event.seqNr <= range.to
               val result = {
                 if (event.seqNr >= range.from && continue) event.seqNr :: seqNrs
@@ -336,12 +338,12 @@ object JournalSpec {
 
       new EventualJournal {
 
-        def topicPointers(topic: Topic) = {
+        def pointers(topic: Topic) = {
           val pointers = Map(partition -> state.offset)
           TopicPointers(pointers).async
         }
 
-        def foldWhile[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
+        def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
 
           def read(state: State) = {
             state.events.foldWhile(s) { (s, replicated) =>

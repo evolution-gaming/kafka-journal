@@ -70,7 +70,7 @@ object SeqNr {
 
   private def isValid(value: Long) = value > 0 && value <= Long.MaxValue
 
-  private def invalid(value: Long) = s"invalid SeqNr $value, it must be greater 0"
+  private def invalid(value: Long) = s"invalid SeqNr $value, it must be greater than 0"
 
 
   object Helper {
@@ -85,6 +85,7 @@ object SeqNr {
 
     implicit class OptSeqNrOps(val self: Option[SeqNr]) extends AnyVal {
 
+      // TODO not create new Somes
       def max(that: Option[SeqNr]): Option[SeqNr] = {
         PartialFunction.condOpt((self, that)) {
           case (Some(x), Some(y)) => x max y

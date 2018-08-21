@@ -25,6 +25,7 @@ object EventualCassandra {
 
     val retries = 3
 
+    // TODO LOAD FROM CONFIG
     val statementConfig = StatementConfig(
       idempotent = true, /*TODO remove from here*/
       consistencyLevel = ConsistencyLevel.ONE,
@@ -38,73 +39,98 @@ object EventualCassandra {
       statements
     }
 
-    new EventualJournal {
+    apply(statements, log)
+  }
 
-      def topicPointers(topic: Topic) = {
-        for {
-          statements <- statements
-          topicPointers <- statements.selectTopicPointer(topic)
-        } yield {
-          topicPointers
-        }
+  def apply(statements: Async[Statements], log: ActorLog): EventualJournal = new EventualJournal {
+
+    def pointers(topic: Topic) = {
+      for {
+        statements <- statements
+        topicPointers <- statements.selectPointers(topic)
+      } yield {
+        topicPointers
       }
+    }
 
-      def foldWhile[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
+    def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
 
-        def foldWhile(statement: JournalStatement.SelectRecords.Type, metadata: Metadata) = {
+      def read(statement: JournalStatement.SelectRecords.Type, metadata: Metadata) = {
 
-          def foldWhile(from: SeqNr, segment: Segment, s: S): Async[Switch[S]] = {
+        case class SS(seqNr: SeqNr, s: S)
+
+        val ff = (ss: SS, replicated: ReplicatedEvent) => {
+          for {
+            s <- f(ss.s, replicated)
+          } yield SS(replicated.event.seqNr, s)
+        }
+
+        def read(from: SeqNr) = {
+
+          def read(from: SeqNr, segment: Segment, s: S): Async[Switch[S]] = {
             val range = SeqRange(from, SeqNr.Max) // TODO do we need range here ?
+
             for {
-              result <- statement(key, segment.nr, range, (s, from)) { case ((s, _), replicated) =>
-                val switch = f(s, replicated)
-                for {s <- switch} yield (s, replicated.event.seqNr)
-              }
+              result <- statement(key, segment.nr, range, SS(from, s))(ff)
               result <- {
-                val (s, seqNr) = result.s
+                val ss = result.s
+                val s = ss.s
+                val seqNr = ss.seqNr
                 if (result.stop) s.stop.async
                 else {
-                  val from = seqNr.next
-                  segment.next(from).fold(s.continue.async) { segment =>
-                    foldWhile(from, segment, s)
+                  val result = for {
+                    from <- seqNr.nextOpt
+                    segment <- segment.next(from)
+                  } yield {
+                    read(from, segment, s)
                   }
+                  result getOrElse s.continue.async
                 }
               }
             } yield result
           }
 
-          val fromFixed = from max metadata.deleteTo.fold(SeqNr.Min)(_.next)
-          val segment = Segment(fromFixed, metadata.segmentSize)
-          foldWhile(fromFixed, segment, s)
+          val segment = Segment(from, metadata.segmentSize)
+          read(from, segment, s)
         }
 
-        for {
-          statements <- statements
-          metadata <- statements.selectMetadata(key)
-          result <- metadata.fold(s.continue.async) { metadata =>
-            foldWhile(statements.selectRecords, metadata)
-          }
-        } yield {
-          result
+        metadata.deleteTo match {
+          case None           => read(from)
+          case Some(deleteTo) =>
+            if (from > deleteTo) read(from)
+            else deleteTo.nextOpt match {
+              case Some(from) => read(from)
+              case None       => s.continue.async
+            }
         }
       }
 
-
-      def lastSeqNr(key: Key, from: SeqNr) = {
-
-        def lastSeqNr(statements: Statements, metadata: Option[Metadata]) = {
-          metadata.fold(Option.empty[SeqNr].async) { metadata =>
-            LastSeqNr(key, from, metadata, statements.selectLastRecord)
-          }
+      for {
+        statements <- statements
+        metadata <- statements.selectMetadata(key)
+        result <- metadata.fold(s.continue.async) { metadata =>
+          read(statements.selectRecords, metadata)
         }
+      } yield {
+        result
+      }
+    }
 
-        for {
-          statements <- statements
-          metadata <- statements.selectMetadata(key)
-          seqNr <- lastSeqNr(statements, metadata)
-        } yield {
-          seqNr
+
+    def lastSeqNr(key: Key, from: SeqNr) = {
+
+      def lastSeqNr(statements: Statements, metadata: Option[Metadata]) = {
+        metadata.fold(Option.empty[SeqNr].async) { metadata =>
+          LastSeqNr(key, from, metadata, statements.selectLastRecord)
         }
+      }
+
+      for {
+        statements <- statements
+        metadata <- statements.selectMetadata(key)
+        seqNr <- lastSeqNr(statements, metadata)
+      } yield {
+        seqNr
       }
     }
   }
@@ -114,36 +140,28 @@ object EventualCassandra {
     selectLastRecord: JournalStatement.SelectLastRecord.Type,
     selectRecords: JournalStatement.SelectRecords.Type,
     selectMetadata: MetadataStatement.Select.Type,
-    updatePointer: PointerStatement.Update.Type,
-    selectPointer: PointerStatement.Select.Type,
-    selectTopicPointer: PointerStatement.SelectTopicPointers.Type)
+    selectPointers: PointerStatement.SelectPointers.Type)
 
   object Statements {
 
     def apply(tables: Tables, prepareAndExecute: PrepareAndExecute)(implicit ec: ExecutionContext): Async[Statements] = {
 
       val selectLastRecord = JournalStatement.SelectLastRecord(tables.journal, prepareAndExecute)
-      val listRecords = JournalStatement.SelectRecords(tables.journal, prepareAndExecute)
+      val selectRecords = JournalStatement.SelectRecords(tables.journal, prepareAndExecute)
       val selectMetadata = MetadataStatement.Select(tables.metadata, prepareAndExecute)
-      val updatePointer = PointerStatement.Update(tables.pointer, prepareAndExecute)
-      val selectPointer = PointerStatement.Select(tables.pointer, prepareAndExecute)
-      val selectTopicPointers = PointerStatement.SelectTopicPointers(tables.pointer, prepareAndExecute)
+      val selectPointers = PointerStatement.SelectPointers(tables.pointer, prepareAndExecute)
 
       for {
         selectLastRecord <- selectLastRecord
-        listRecords <- listRecords
+        selectRecords <- selectRecords
         selectMetadata <- selectMetadata
-        updatePointer <- updatePointer
-        selectPointer <- selectPointer
-        selectTopicPointers <- selectTopicPointers
+        selectPointers <- selectPointers
       } yield {
         Statements(
-          selectLastRecord,
-          listRecords,
-          selectMetadata,
-          updatePointer,
-          selectPointer,
-          selectTopicPointers)
+          selectLastRecord = selectLastRecord,
+          selectRecords = selectRecords,
+          selectMetadata = selectMetadata,
+          selectPointers = selectPointers)
       }
     }
   }

@@ -7,7 +7,7 @@ import scala.collection.immutable.Seq
 
 final case class Segment(nr: SegmentNr, size: Int) {
 
-  require(size > 0, s"invalid size $size, it must be greater 0")
+  require(size > 1, s"invalid size $size, it must be greater than 1")
 
   def next(seqNr: SeqNr): Option[Segment] = {
     val segmentNr = SegmentNr(seqNr, size)

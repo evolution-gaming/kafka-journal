@@ -50,6 +50,7 @@ object PointerStatement {
     }
   }
 
+  // TODO not used
   object Update {
     type Type = PointerUpdate => Async[Unit]
 
@@ -76,6 +77,7 @@ object PointerStatement {
   }
 
 
+  // TODO not used
   object Select {
     type Type = PointerSelect => Async[Option[Offset]]
 
@@ -103,7 +105,7 @@ object PointerStatement {
     }
   }
 
-  object SelectTopicPointers {
+  object SelectPointers {
     type Type = Topic => Async[TopicPointers]
 
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {

@@ -18,12 +18,15 @@ import com.evolutiongaming.skafka.{Bytes => _, _}
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
-// TODO consider passing topic along with id as method argument
 // TODO should we return offset ?
 trait Journal {
+
   def append(events: Nel[Event], timestamp: Instant): Async[Unit]
-  def foldWhile[S](from: SeqNr, s: S)(f: Fold[S, Event]): Async[S]
+
+  def read[S](from: SeqNr, s: S)(f: Fold[S, Event]): Async[S]
+
   def lastSeqNr(from: SeqNr): Async[Option[SeqNr]]
+
   def delete(to: SeqNr, timestamp: Instant): Async[Unit]
 }
 
@@ -31,7 +34,7 @@ object Journal {
 
   val Empty: Journal = new Journal {
     def append(events: Nel[Event], timestamp: Instant) = Async.unit
-    def foldWhile[S](from: SeqNr, s: S)(f: Fold[S, Event]) = s.async
+    def read[S](from: SeqNr, s: S)(f: Fold[S, Event]) = s.async
     def lastSeqNr(from: SeqNr) = Async.none
     def delete(to: SeqNr, timestamp: Instant) = Async.unit
 
@@ -54,9 +57,9 @@ object Journal {
       }
     }
 
-    def foldWhile[S](from: SeqNr, s: S)(f: Fold[S, Event]) = {
-      log[S](s"foldWhile from: $from, state: $s") {
-        journal.foldWhile(from, s)(f)
+    def read[S](from: SeqNr, s: S)(f: Fold[S, Event]) = {
+      log[S](s"read from: $from, state: $s") {
+        journal.read(from, s)(f)
       }
     }
 
@@ -99,8 +102,7 @@ object Journal {
     log: ActorLog,
     eventual: EventualJournal,
     withReadActions: WithReadActions,
-    writeAction: WriteAction)(implicit
-    ec: ExecutionContext /*TODO not used*/): Journal = {
+    writeAction: WriteAction): Journal = {
 
     def mark(): Async[Marker] = {
       val id = UUID.randomUUID().toString
@@ -112,9 +114,9 @@ object Journal {
       }
     }
 
-    def foldActions(from: SeqNr): Async[FoldActions] = {
+    def readActions(from: SeqNr): Async[FoldActions] = {
       val marker = mark()
-      val topicPointers = eventual.topicPointers(key.topic)
+      val topicPointers = eventual.pointers(key.topic)
       for {
         marker <- marker
         topicPointers <- topicPointers
@@ -135,11 +137,11 @@ object Journal {
       }
 
       // TODO add optimisation for ranges
-      def foldWhile[S](from: SeqNr, s: S)(f: Fold[S, Event]) = {
+      def read[S](from: SeqNr, s: S)(f: Fold[S, Event]) = {
 
         def replicatedSeqNr(from: SeqNr) = {
           val ss = (s, from, Option.empty[Offset])
-          eventual.foldWhile(key, from, ss) { case ((s, _, _), replicated) =>
+          eventual.read(key, from, ss) { case ((s, _, _), replicated) =>
             val event = replicated.event
             val switch = f(s, event)
             val from = event.seqNr.next
@@ -152,7 +154,7 @@ object Journal {
 
         def replicated(from: SeqNr) = {
           for {
-            s <- eventual.foldWhile(key, from, s) { (s, replicated) => f(s, replicated.event) }
+            s <- eventual.read(key, from, s) { (s, replicated) => f(s, replicated.event) }
           } yield s.s
         }
 
@@ -186,13 +188,13 @@ object Journal {
         }
 
         for {
-          foldActions <- foldActions(from)
+          readActions <- readActions(from)
           // TODO use range after eventualRecords
           // TODO prevent from reading calling consume twice!
-          info <- foldActions(None, JournalInfo.empty) { (info, action) => info(action.header).continue }
+          info <- readActions(None, JournalInfo.empty) { (info, action) => info(action.header).continue }
           result <- info match {
             case JournalInfo.Empty                 => replicated(from)
-            case JournalInfo.NonEmpty(_, deleteTo) => onNonEmpty(deleteTo, foldActions)
+            case JournalInfo.NonEmpty(_, deleteTo) => onNonEmpty(deleteTo, readActions)
             // TODO test this case
             // TODO test case when deleteTo == Long.Max
             case JournalInfo.DeleteTo(deleteTo) =>
@@ -206,9 +208,9 @@ object Journal {
       def lastSeqNr(from: SeqNr) = {
         // TODO reimplement, we don't need to call `eventual.lastSeqNr` without using it's offset
         for {
-          foldActions <- foldActions(from)
+          readActions <- readActions(from)
           seqNrEventual = eventual.lastSeqNr(key, from)
-          seqNr <- foldActions(None /*TODO*/ , Option.empty[SeqNr]) { (seqNr, action) =>
+          seqNr <- readActions(None /*TODO*/ , Option.empty[SeqNr]) { (seqNr, action) =>
             val result = action match {
               case action: Action.Append => Some(action.header.range.to)
               case action: Action.Delete => seqNr

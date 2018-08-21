@@ -36,11 +36,14 @@ object LastSeqNr {
       apply(from, last, segment)
     }
 
-    metadata.deleteTo.fold(apply(from, None)) { deleteTo =>
-      if (from > deleteTo) apply(from, None)
-      else deleteTo.nextOpt.fold(SeqNr.Max.some.async) { from =>
-        apply(from, Some(deleteTo))
-      }
+    metadata.deleteTo match {
+      case None           => apply(from, None)
+      case Some(deleteTo) =>
+        if (from > deleteTo) apply(from, None)
+        else deleteTo.nextOpt match {
+          case Some(from) => apply(from, Some(deleteTo))
+          case None       => SeqNr.Max.some.async
+        }
     }
   }
 }

@@ -101,7 +101,7 @@ object JournalsAdapter {
           }
         }
         val key = toKey(persistenceId)
-        val async = journals.foldWhile(key, range.from, 0l)(fold)
+        val async = journals.read(key, range.from, 0l)(fold)
         async.unit.future
       }
 
