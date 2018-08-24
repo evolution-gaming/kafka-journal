@@ -96,7 +96,10 @@ object ReplicatedCassandra {
             if (bound) delete(deleteTo)
             else for {
               last <- LastSeqNr(key, from, metadata, statements.selectLastRecord)
-              result <- delete(deleteTo min last)
+              result <- last match {
+                case None       => Async.unit
+                case Some(last) => delete(deleteTo min last)
+              }
             } yield {
               result
             }
@@ -204,7 +207,7 @@ object ReplicatedCassandra {
       }
     }
 
-    def savePointers(topic: Topic, topicPointers: TopicPointers): Async[Unit] = {
+    def save(topic: Topic, topicPointers: TopicPointers): Async[Unit] = {
       val pointers = topicPointers.pointers
       if (pointers.isEmpty) Async.unit
       else {

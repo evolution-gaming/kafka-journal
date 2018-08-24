@@ -138,7 +138,7 @@ object TopicReplicator {
 
         val result = {
           if (diff.pointers.isEmpty) Async.unit
-          else journal.savePointers(topic, diff)
+          else journal.save(topic, diff)
         }
 
         for {_ <- result} yield pointers + diff

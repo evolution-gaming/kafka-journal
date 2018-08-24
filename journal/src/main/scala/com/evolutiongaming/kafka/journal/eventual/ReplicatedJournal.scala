@@ -11,9 +11,9 @@ trait ReplicatedJournal {
   // TODO not used
   def topics(): Async[Iterable[Topic]]
 
+  def pointers(topic: Topic): Async[TopicPointers]
+
   def save(key: Key, records: Replicate, timestamp: Instant): Async[Unit]
 
-  def savePointers(topic: Topic, topicPointers: TopicPointers): Async[Unit]
-
-  def pointers(topic: Topic): Async[TopicPointers]
+  def save(topic: Topic, pointers: TopicPointers): Async[Unit]
 }

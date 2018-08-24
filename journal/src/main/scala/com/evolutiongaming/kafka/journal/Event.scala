@@ -12,4 +12,7 @@ final case class Event(
 
 // TODO rename, statements called records, here - events
 // TODO move to eventual ?
-final case class ReplicatedEvent(event: Event, timestamp: Instant, partitionOffset: PartitionOffset)
+final case class ReplicatedEvent(event: Event, timestamp: Instant, partitionOffset: PartitionOffset) {
+
+  def seqNr: SeqNr = event.seqNr
+}
