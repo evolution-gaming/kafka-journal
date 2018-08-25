@@ -1,8 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import com.datastax.driver.core.ConsistencyLevel
-import com.datastax.driver.core.policies.LoggingRetryPolicy
-import com.evolutiongaming.cassandra.{NextHostRetryPolicy, Session}
+import com.evolutiongaming.cassandra.Session
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
@@ -23,17 +21,9 @@ object EventualCassandra {
     config: EventualCassandraConfig,
     log: ActorLog)(implicit ec: ExecutionContext): EventualJournal = {
 
-    val retries = 3
-
-    // TODO LOAD FROM CONFIG
-    val statementConfig = StatementConfig(
-      idempotent = true, /*TODO remove from here*/
-      consistencyLevel = ConsistencyLevel.ONE,
-      retryPolicy = new LoggingRetryPolicy(NextHostRetryPolicy(retries)))
-
     val statements = for {
       tables <- CreateSchema(config.schema, session)
-      prepareAndExecute = PrepareAndExecute(session, statementConfig)
+      prepareAndExecute = PrepareAndExecute(session, config.retries)
       statements <- Statements(tables, prepareAndExecute)
     } yield {
       statements

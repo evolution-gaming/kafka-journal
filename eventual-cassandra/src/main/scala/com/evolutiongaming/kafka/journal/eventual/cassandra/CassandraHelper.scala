@@ -4,7 +4,7 @@ import java.nio.ByteBuffer
 import java.time.Instant
 import java.util.Date
 
-import com.datastax.driver.core.{BoundStatement, ResultSet, Row, Statement}
+import com.datastax.driver.core.{BoundStatement, ResultSet, Row}
 import com.evolutiongaming.cassandra.CassandraHelper._
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
@@ -103,17 +103,6 @@ object CassandraHelper {
     def apply(statement: BoundStatement, name: String, value: SeqNr) = LongCodec(statement, name, value.value)
     def apply(row: Row, name: String) = SeqNr(LongCodec(row, name))
   }
-
-  implicit class StatementOps(val self: Statement) extends AnyVal {
-
-    def set(statementConfig: StatementConfig): Statement = {
-      self
-        .setIdempotent(statementConfig.idempotent)
-        .setConsistencyLevel(statementConfig.consistencyLevel)
-        .setRetryPolicy(statementConfig.retryPolicy)
-    }
-  }
-
 
   implicit class ResultSetOps(val self: ResultSet) extends AnyVal {
 

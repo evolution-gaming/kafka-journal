@@ -13,7 +13,8 @@ class EventualCassandraConfigSpec extends FunSuite with Matchers {
   test("apply from config") {
     val config = ConfigFactory.parseURL(getClass.getResource("eventual-cassandra.conf"))
     val expected = EventualCassandraConfig(
-      segmentSize = 1)
+      retries = 1,
+      segmentSize = 2)
     EventualCassandraConfig(config) shouldEqual expected
   }
 }

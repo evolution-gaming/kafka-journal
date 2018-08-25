@@ -3,9 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import java.time.Instant
 
 import akka.actor.ActorSystem
-import com.datastax.driver.core.ConsistencyLevel
-import com.datastax.driver.core.policies.LoggingRetryPolicy
-import com.evolutiongaming.cassandra.{NextHostRetryPolicy, Session}
+import com.evolutiongaming.cassandra.Session
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.{Key, ReplicatedEvent, SeqNr}
@@ -19,7 +17,6 @@ import scala.concurrent.ExecutionContext
 
 // TODO create collection that is optimised for ordered sequence and seqNr
 // TODO redesign EventualDbCassandra so it can hold stat and called recursively
-// TODO test ReplicatedCassandra
 // TODO add logs to ReplicatedCassandra
 object ReplicatedCassandra {
 
@@ -29,16 +26,9 @@ object ReplicatedCassandra {
 
     val log = ActorLog(system, ReplicatedCassandra.getClass)
 
-    val retries = 3
-
-    val statementConfig = StatementConfig(
-      idempotent = true, /*TODO remove from here*/
-      consistencyLevel = ConsistencyLevel.ONE,
-      retryPolicy = new LoggingRetryPolicy(NextHostRetryPolicy(retries)))
-
     val statements = for {
       tables <- CreateSchema(config.schema, session)
-      prepareAndExecute = PrepareAndExecute(session, statementConfig)
+      prepareAndExecute = PrepareAndExecute(session, config.retries)
       statements <- Statements(tables, prepareAndExecute)
     } yield {
       statements

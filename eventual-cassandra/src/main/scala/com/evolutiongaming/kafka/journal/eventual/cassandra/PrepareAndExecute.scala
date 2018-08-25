@@ -1,11 +1,10 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import com.datastax.driver.core._
-import com.datastax.driver.core.policies.RetryPolicy
-import com.evolutiongaming.cassandra.Session
+import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
+import com.evolutiongaming.cassandra.{NextHostRetryPolicy, Session}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 
 import scala.concurrent.ExecutionContext
 
@@ -20,7 +19,12 @@ trait PrepareAndExecute {
 
 object PrepareAndExecute {
 
-  def apply(session: Session, config: StatementConfig)(implicit ec: ExecutionContext): PrepareAndExecute = {
+  def apply(session: Session, retries: Int)(implicit ec: ExecutionContext): PrepareAndExecute = {
+    val retryPolicy = new LoggingRetryPolicy(NextHostRetryPolicy(retries))
+    apply(session, retryPolicy)
+  }
+
+  def apply(session: Session, retryPolicy: RetryPolicy)(implicit ec: ExecutionContext): PrepareAndExecute = {
     new PrepareAndExecute {
 
       def prepare(query: String) = session.prepare(query).async
@@ -30,15 +34,9 @@ object PrepareAndExecute {
       def execute(statement: BatchStatement) = exec(statement)
 
       private def exec(statement: Statement) = {
-        val statementConfigured = statement.set(config)
+        val statementConfigured = statement.setRetryPolicy(retryPolicy)
         session.execute(statementConfigured).async
       }
     }
   }
 }
-
-
-final case class StatementConfig(
-  idempotent: Boolean = false, // TODO!!!!
-  consistencyLevel: ConsistencyLevel,
-  retryPolicy: RetryPolicy)

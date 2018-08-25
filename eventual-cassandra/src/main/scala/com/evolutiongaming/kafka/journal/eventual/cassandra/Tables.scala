@@ -18,7 +18,7 @@ object Tables {
     def apply(name: TableName, query: String) = {
       if (schemaConfig.autoCreate) {
         for {
-          _ <- session.execute(query).async
+          _ <- session.execute(query).async // TODO should not be used
         } yield {
           name
         }
