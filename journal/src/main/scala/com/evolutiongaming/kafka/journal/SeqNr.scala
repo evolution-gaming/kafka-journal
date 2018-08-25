@@ -1,62 +1,37 @@
 package com.evolutiongaming.kafka.journal
 
-// TODO test
 final case class SeqNr(value: Long) extends Ordered[SeqNr] {
 
   require(SeqNr.isValid(value), SeqNr.invalid(value))
 
-  /*private */ def +(that: Long): SeqNr = copy(this.value + that)
-
-  /*private */ def +(that: SeqNr): SeqNr = this + that.value
-
-
-  private def -(that: Long): SeqNr = copy(this.value - that)
-
-  private def -(that: SeqNr): SeqNr = this - that.value
-
-
   def max(that: SeqNr): SeqNr = if (this.value > that.value) this else that
+
+  def max(that: Option[SeqNr]): SeqNr = that.fold(this)(_ max this)
 
   def min(that: SeqNr): SeqNr = if (this.value < that.value) this else that
 
   def min(that: Option[SeqNr]): SeqNr = that.fold(this)(_ min this)
 
-  // TODO
-  def next: SeqNr = this + 1
+  def next: Option[SeqNr] = map(_ + 1l)
 
-  // TODO
-  def prev: SeqNr = this - 1
-
-
-  def nextOpt: Option[SeqNr] = if (this == SeqNr.Max) None else Some(this + 1)
-
-  def prevOpt: Option[SeqNr] = if (this == SeqNr.Min) None else Some(this - 1)
-
+  def prev: Option[SeqNr] = map(_ - 1l)
 
   def in(range: SeqRange): Boolean = range contains this
 
-
-  // TODO
-  def __(seqNr: SeqNr): SeqRange = SeqRange(this, seqNr)
-
-  // TODO
-  def __ : SeqRange = SeqRange(this)
-
-  // TODO
   def to(seqNr: SeqNr): SeqRange = SeqRange(this, seqNr)
 
-  // TODO
   def to: SeqRange = SeqRange(this)
-
 
   def compare(that: SeqNr): Int = this.value compare that.value
 
   override def toString: String = value.toString
+
+  private def map(f: Long => Long): Option[SeqNr] = SeqNr.opt(f(value))
 }
 
 object SeqNr {
   val Max: SeqNr = SeqNr(Long.MaxValue)
-  val Min: SeqNr = SeqNr(1L)
+  val Min: SeqNr = SeqNr(1l)
 
   def validate[T](value: Long)(onError: String => T, onSeqNr: SeqNr => T): T = {
     if (isValid(value)) onSeqNr(SeqNr(value)) else onError(invalid(value))
@@ -64,7 +39,10 @@ object SeqNr {
 
   def either(value: Long): Either[String, SeqNr] = validate(value)(Left(_), Right(_))
 
-  def opt(value: Long): Option[SeqNr] = validate(value)(_ => None, Some(_))
+  val opt: Long => Option[SeqNr] = {
+    val onError = (_: String) => None
+    validate(_)(onError, Some(_))
+  }
 
   def apply(value: Long, fallback: => SeqNr): SeqNr = validate(value)(_ => fallback, identity)
 
@@ -73,6 +51,7 @@ object SeqNr {
   private def invalid(value: Long) = s"invalid SeqNr $value, it must be greater than 0"
 
 
+  // TODO remove?
   object Helper {
 
     implicit class LongOps(val self: Long) extends AnyVal {

@@ -22,7 +22,7 @@ object LastSeqNr {
           seqNr <- pointer.fold(last.async) { pointer =>
             val last = pointer.seqNr
             val result = for {
-              from <- last.nextOpt
+              from <- last.next
               segment <- segment.next(from)
             } yield {
               apply(from, Some(last), segment)
@@ -40,7 +40,7 @@ object LastSeqNr {
       case None           => apply(from, None)
       case Some(deleteTo) =>
         if (from > deleteTo) apply(from, None)
-        else deleteTo.nextOpt match {
+        else deleteTo.next match {
           case Some(from) => apply(from, Some(deleteTo))
           case None       => SeqNr.Max.some.async
         }

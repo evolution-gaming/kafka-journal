@@ -140,13 +140,13 @@ object Journal {
       def read[S](from: SeqNr, s: S)(f: Fold[S, Event]) = {
 
         def replicatedSeqNr(from: SeqNr) = {
-          val ss = (s, from, Option.empty[Offset])
+          val ss: (S, Option[SeqNr], Option[Offset]) = (s, Some(from), None)
           eventual.read(key, from, ss) { case ((s, _, _), replicated) =>
             val event = replicated.event
             val switch = f(s, event)
-            val from = event.seqNr.next
             switch.map { s =>
               val offset = replicated.partitionOffset.offset
+              val from = event.seqNr.next
               (s, from, Some(offset))
             }
           }
@@ -183,7 +183,10 @@ object Journal {
           for {
             switch <- replicatedSeqNr(fromFixed)
             (s, from, offset) = switch.s
-            s <- if (switch.stop) s.async else events(from, offset, s)
+            s <- from match {
+              case None       => s.async
+              case Some(from) => if (switch.stop) s.async else events(from, offset, s)
+            }
           } yield s
         }
 
@@ -196,11 +199,10 @@ object Journal {
             case JournalInfo.Empty                 => replicated(from)
             case JournalInfo.NonEmpty(_, deleteTo) => onNonEmpty(deleteTo, readActions)
             // TODO test this case
-            // TODO test case when deleteTo == Long.Max
-            case JournalInfo.DeleteTo(deleteTo) =>
-
-              val x = if (deleteTo == SeqNr.Max) deleteTo else deleteTo.next
-              replicated(from max x)
+            case JournalInfo.DeleteTo(deleteTo) => deleteTo.next match {
+              case None       => s.async
+              case Some(next) => replicated(from max next)
+            }
           }
         } yield result
       }

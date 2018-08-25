@@ -55,7 +55,7 @@ object JournalInfo {
 
       def nonEmpty(a: Append) = {
         val deleteTo = for {
-          prev <- a.range.from.prevOpt
+          prev <- a.range.from.prev
         } yield seqNr min prev
         NonEmpty(a.range.to, deleteTo)
       }

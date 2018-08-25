@@ -99,7 +99,7 @@ object ReplicatedCassandra {
             case None            => delete(SeqNr.Min)
             case Some(deletedTo) =>
               if (deletedTo >= deleteTo) Async.unit
-              else deletedTo.nextOpt match {
+              else deletedTo.next match {
                 case None       => Async.unit
                 case Some(from) => delete(from)
               }

@@ -53,7 +53,7 @@ class FoldActionsSpec extends FunSuite with Matchers {
 
     val timestamp = Instant.now()
     val (marker, markRecord) = {
-      val offset = pointers.lastOption.fold(1L) { _.offset + 1 }
+      val offset = pointers.lastOption.fold(1l) { _.offset + 1 }
       val mark = Action.Mark("mark", timestamp)
       val record = ActionRecord(Action.Mark("mark", timestamp), offset)
       val partitionOffset = PartitionOffset(partition = 0, offset = offset)

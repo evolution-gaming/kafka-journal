@@ -49,8 +49,8 @@ class JournalSpec extends WordSpec with Matchers {
         val journal = createAndAppend()
         journal.read(SeqRange.All) shouldEqual seqNrs
         val last = seqNrLast getOrElse SeqNr.Min
-        journal.read(SeqNr.Min __ last) shouldEqual seqNrs
-        journal.read(SeqNr.Min __ last + 1) shouldEqual seqNrs
+        journal.read(SeqNr.Min to last) shouldEqual seqNrs
+        journal.read(SeqNr.Min to last.next.getOrElse(last)) shouldEqual seqNrs
       }
 
       s"$name delete all" in {
@@ -95,7 +95,7 @@ class JournalSpec extends WordSpec with Matchers {
 
         s"$name read tail" in {
           val journal = createAndAppend()
-          journal.read(seqNr __ SeqNr.Max) shouldEqual seqNrs.dropWhile(_ < seqNr)
+          journal.read(seqNr to SeqNr.Max) shouldEqual seqNrs.dropWhile(_ < seqNr)
         }
       }
     }

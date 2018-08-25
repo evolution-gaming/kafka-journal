@@ -69,7 +69,7 @@ object EventualCassandra {
                 if (result.stop) s.stop.async
                 else {
                   val result = for {
-                    from <- seqNr.nextOpt
+                    from <- seqNr.next
                     segment <- segment.next(from)
                   } yield {
                     read(from, segment, s)
@@ -88,7 +88,7 @@ object EventualCassandra {
           case None           => read(from)
           case Some(deleteTo) =>
             if (from > deleteTo) read(from)
-            else deleteTo.nextOpt match {
+            else deleteTo.next match {
               case Some(from) => read(from)
               case None       => s.continue.async
             }

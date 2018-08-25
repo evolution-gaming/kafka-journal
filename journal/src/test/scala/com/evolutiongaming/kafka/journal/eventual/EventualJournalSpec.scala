@@ -70,7 +70,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
 
       for {
         seqNrLast <- seqNrLast
-        from <- seqNrLast.nextOpt
+        from <- seqNrLast.next
         size <- Nel(1, 5)
       } {
         s"$name append $size to existing journal" in {
@@ -101,7 +101,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
           val event = {
             val seqNr = for {
               seqNr <- seqNrLast
-              seqNr <- seqNr.nextOpt
+              seqNr <- seqNr.next
             } yield seqNr
             eventOf(seqNr getOrElse SeqNr.Min)
           }
