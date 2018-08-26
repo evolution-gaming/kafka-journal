@@ -20,13 +20,17 @@ object Dependencies {
 
   lazy val nel = "com.evolutiongaming" %% "nel" % "1.3.1"
 
-  lazy val `commons-io` = "org.apache.commons" % "commons-io" % "1.3.2"
-
   lazy val `future-helper` = "com.evolutiongaming" %% "future-helper" % "1.0.3"
 
   lazy val serially = "com.evolutiongaming" %% "serially" % "1.0.3"
 
   lazy val `safe-actor` = "com.evolutiongaming" %% "safe-actor" % "1.7"
+
+  lazy val `kafka-launcher` = "com.evolutiongaming" %% "kafka-launcher" % "0.0.1"
+
+  lazy val `cassandra-launcher` = "com.evolutiongaming" %% "cassandra-launcher" % "0.0.1"
+
+  lazy val `cassandra-driver` = "com.datastax.cassandra" % "cassandra-driver-core" % "3.5.1"
 
   object Logback {
     private val version = "1.2.3"
@@ -38,17 +42,6 @@ object Dependencies {
     private val version = "1.7.25"
     lazy val api = "org.slf4j" % "slf4j-api" % version
     lazy val `log4j-over-slf4j` = "org.slf4j" % "log4j-over-slf4j" % version
-  }
-
-  object Cassandra {
-    lazy val driver = "com.datastax.cassandra" % "cassandra-driver-core" % "3.5.1"
-    lazy val server = "org.apache.cassandra" % "cassandra-all" % "3.11.3" exclude("commons-logging", "commons-logging")
-  }
-
-  object Kafka {
-    private val version = "1.1.1"
-    val server = "org.apache.kafka" %% "kafka" % version
-    val clients = "org.apache.kafka" % "kafka-clients" % version
   }
 
   object Akka {
