@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual
 
 import java.time.Instant
 
+import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.SeqNr.Helper._
 import com.evolutiongaming.kafka.journal._
@@ -290,7 +291,7 @@ object EventualJournalSpec {
 
   object Replicated {
 
-    def apply(journal: ReplicatedJournal, key: Key, timestamp: Instant): Replicated = new Replicated {
+    def apply(journal: ReplicatedJournal[Async], key: Key, timestamp: Instant): Replicated = new Replicated {
 
       def save(records: Replicate) = journal.save(key, records, timestamp).get()
 
@@ -318,5 +319,5 @@ object EventualJournalSpec {
   }
 
 
-  final case class Journals(eventual: EventualJournal, replicated: ReplicatedJournal)
+  final case class Journals(eventual: EventualJournal, replicated: ReplicatedJournal[Async])
 }

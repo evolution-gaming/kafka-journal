@@ -21,7 +21,7 @@ object FoldActions {
     from: SeqNr,
     marker: Marker,
     offsetReplicated: Option[Offset],
-    withReadActions: WithReadActions): FoldActions = {
+    withReadActions: WithReadActions[Async]): FoldActions = {
 
     // TODO compare partitions !
     val partition = marker.partition

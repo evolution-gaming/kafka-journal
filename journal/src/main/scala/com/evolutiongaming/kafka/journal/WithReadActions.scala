@@ -11,8 +11,8 @@ import scala.concurrent.duration.FiniteDuration
 
 
 // TODO pass partition even if offset is unknown
-trait WithReadActions {
-  def apply[T](topic: Topic, partitionOffset: Option[PartitionOffset])(f: ReadActions => Async[T]): Async[T]
+trait WithReadActions[F[_]] {
+  def apply[T](topic: Topic, partitionOffset: Option[PartitionOffset])(f: ReadActions[F] => F[T]): F[T]
 }
 
 object WithReadActions {
@@ -21,11 +21,11 @@ object WithReadActions {
     newConsumer: Topic => Consumer[String, Bytes],
     pollTimeout: FiniteDuration,
     closeTimeout: FiniteDuration,
-    log: ActorLog)(implicit ec: ExecutionContext /*TODO remove*/): WithReadActions = {
+    log: ActorLog)(implicit ec: ExecutionContext /*TODO remove*/): WithReadActions[Async] = {
 
-    new WithReadActions {
+    new WithReadActions[Async] {
 
-      def apply[T](topic: Topic, partitionOffset: Option[PartitionOffset])(f: ReadActions => Async[T]) = {
+      def apply[T](topic: Topic, partitionOffset: Option[PartitionOffset])(f: ReadActions[Async] => Async[T]) = {
 
         // TODO consider separate from splitting
         val consumer = {

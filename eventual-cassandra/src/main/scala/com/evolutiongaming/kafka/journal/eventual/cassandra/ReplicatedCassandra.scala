@@ -6,6 +6,7 @@ import akka.actor.ActorSystem
 import com.evolutiongaming.cassandra.Session
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.eventual._
+import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.{Key, ReplicatedEvent, SeqNr}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
@@ -22,7 +23,7 @@ object ReplicatedCassandra {
 
   def apply(
     session: Session,
-    config: EventualCassandraConfig)(implicit system: ActorSystem, ec: ExecutionContext): ReplicatedJournal = {
+    config: EventualCassandraConfig)(implicit system: ActorSystem, ec: ExecutionContext): ReplicatedJournal[Async] = {
 
     val log = ActorLog(system, ReplicatedCassandra.getClass)
 
@@ -39,7 +40,7 @@ object ReplicatedCassandra {
 
   def apply(
     statements: Async[Statements],
-    segmentSize: Int): ReplicatedJournal = new ReplicatedJournal {
+    segmentSize: Int): ReplicatedJournal[Async] = new ReplicatedJournal[Async] {
 
     def topics() = {
       for {

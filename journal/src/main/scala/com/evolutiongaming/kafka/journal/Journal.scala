@@ -78,7 +78,6 @@ object Journal {
     override def toString = journal.toString
   }
 
-  // TODO create separate class IdAndTopic
   def apply(
     key: Key,
     log: ActorLog, // TODO remove
@@ -101,8 +100,8 @@ object Journal {
     key: Key,
     log: ActorLog,
     eventual: EventualJournal,
-    withReadActions: WithReadActions,
-    writeAction: WriteAction): Journal = {
+    withReadActions: WithReadActions[Async],
+    writeAction: WriteAction[Async]): Journal = {
 
     def mark(): Async[Marker] = {
       val id = UUID.randomUUID().toString

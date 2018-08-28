@@ -1,49 +1,42 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
-import java.util.concurrent.atomic.AtomicBoolean
 
-import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
+import com.evolutiongaming.kafka.journal.Implicits._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Bytes => _, _}
 
 import scala.compat.Platform
-import scala.concurrent.ExecutionContext
-import scala.concurrent.duration._
 import scala.language.existentials
 
 
-trait TopicReplicator {
-  def shutdown(): Async[Unit]
+// TODO partition replicator ?
+// TODO add metric to track replication lag in case it cannot catchup with producers
+// TODO verify that first consumed offset matches to the one expected, otherwise we fucked up.
+trait TopicReplicator[F[_]] {
+  def shutdown(): F[Unit]
 }
 
 object TopicReplicator {
 
-  def apply(
+  def apply[F[_] : IO](
     topic: Topic,
-    consumer: Consumer[String, Bytes],
-    journal: ReplicatedJournal,
-    log: ActorLog,
-    pollTimeout: FiniteDuration = 100.millis)(implicit
-    ec: ExecutionContext): TopicReplicator = {
-
-    val topics = List(topic)
-    consumer.subscribe(topics, None)
-    // TODO seek to the beginning
-    // TODO acknowledge ?
-
+    partitions: Set[Partition],
+    consumer: KafkaConsumer[F],
+    journal: ReplicatedJournal[F],
+    log: Log[F],
+    stopRef: Ref[Boolean, F] /*,
+    currentTime: F[Long]*/): TopicReplicator[F] = {
 
     // TODO handle that consumerRecords are not empty
     def apply(
       pointers: TopicPointers,
       consumerRecords: ConsumerRecords[String, Bytes],
-      timestamp: Instant): Async[TopicPointers] = {
+      timestamp: Instant): F[TopicPointers] = {
 
       // TODO avoid creating unnecessary collections
       val records = for {
@@ -58,7 +51,7 @@ object TopicReplicator {
         (kafkaRecord, partitionOffset)
       }
 
-      val asyncs = for {
+      val ios = for {
         (key, records) <- records.groupBy { case (record, _) => record.key }
       } yield {
 
@@ -81,35 +74,35 @@ object TopicReplicator {
           val replicate = Replicate.DeleteToKnown(info.deleteTo, replicated.toList)
 
           for {
-            result <- journal.save(key, replicate, timestamp)
-          } yield {
-            val deleteTo = info.deleteTo
-            val now = Platform.currentTime
-            val saveDuration = now - time
-            val latency = now - last.action.timestamp.toEpochMilli
-
-            def range = replicated.headOption.fold("") { head =>
-              val last = replicated.last
-              val range = SeqRange(head.event.seqNr, last.event.seqNr)
-              s" range: $range,"
+            _ <- journal.save(key, replicate, timestamp)
+            _ <- log.info {
+              val deleteTo = info.deleteTo
+              val now = Platform.currentTime // TODO
+              val saveDuration = now - time
+              val latency = now - last.action.timestamp.toEpochMilli
+              val range = replicated.headOption.fold("") { head =>
+                val last = replicated.last
+                val range = SeqRange(head.event.seqNr, last.event.seqNr)
+                s" range: $range,"
+              }
+              s"replicated $id in ${ latency }ms,$range deleteTo: $deleteTo, offset: $partitionOffset, save: ${ saveDuration }ms"
             }
-
-            log.info(s"replicated $id in ${ latency }ms,$range deleteTo: $deleteTo, offset: $partitionOffset, save: ${ saveDuration }ms")
-            result
-          }
+          } yield {}
         }
 
         def onDelete(info: JournalInfo.DeleteTo) = {
           val deleteTo = info.seqNr
           val replicate = Replicate.DeleteUnbound(deleteTo)
-          val time = Platform.currentTime
+          val start = Platform.currentTime
           for {
+            //            start <- currentTime
             result <- journal.save(key, replicate, timestamp)
+            //            end <- currentTime
+            end = Platform.currentTime
+            saveDuration = start - end
+            latency = start - last.action.timestamp.toEpochMilli
+            _ <- log.info(s"replicated $id in ${ latency }ms, deleteTo: $deleteTo, offset: $partitionOffset, save: ${ saveDuration }ms")
           } yield {
-            val now = Platform.currentTime
-            val saveDuration = now - time
-            val latency = now - last.action.timestamp.toEpochMilli
-            log.info(s"replicated $id in ${ latency }ms, deleteTo: $deleteTo, offset: $partitionOffset, save: ${ saveDuration }ms")
             result
           }
         }
@@ -120,7 +113,7 @@ object TopicReplicator {
         info match {
           case info: JournalInfo.NonEmpty => onNonEmpty(info)
           case info: JournalInfo.DeleteTo => onDelete(info)
-          case JournalInfo.Empty          => Async.unit
+          case JournalInfo.Empty          => unit
         }
       }
 
@@ -137,7 +130,7 @@ object TopicReplicator {
         }
 
         val result = {
-          if (diff.pointers.isEmpty) Async.unit
+          if (diff.pointers.isEmpty) unit
           else journal.save(topic, diff)
         }
 
@@ -145,48 +138,60 @@ object TopicReplicator {
       }
 
       for {
-        _ <- Async.foldUnit(asyncs)
+        _ <- IO[F].foldUnit(ios)
         pointers <- savePointers()
       } yield pointers
     }
 
-    val stop = new AtomicBoolean(false)
-
     // TODO cache state and not re-read it when kafka is broken
     def consume(pointers: TopicPointers) = {
-      val fold = (pointers: TopicPointers) => {
-        if (stop.get()) pointers.stop.async
-        else {
-          for {
-            records <- consumer.poll(pollTimeout).async
+      IO[F].foldWhile(pointers) { pointers =>
+        for {
+          stop <- stopRef.get()
+          pointers <- if (stop) pointers.stop.pure
+          else for {
+            records <- consumer.poll()
+            stop <- stopRef.get()
             pointers <- {
-              if (stop.get()) pointers.stop.async
-              else {
-                if (records.values.isEmpty) pointers.continue.async
-                else apply(pointers, records, Instant.now()).map(_.continue)
-              }
+              if (stop) pointers.stop.pure
+              else if (records.values.isEmpty) pointers.continue.pure
+              else for {
+                switch <- apply(pointers, records, /*TODO*/ Instant.now())
+              } yield switch.continue
             }
           } yield pointers
-        }
+        } yield pointers
       }
-
-      fold.foldWhile(pointers)
     }
 
-    val async = for {
+    val result = for {
+//      _ <- consumer.subscribe(topic)
+      // TODO seek to the beginning
+      // TODO acknowledge ?
       pointers <- journal.pointers(topic)
+      partitionOffsets = for {
+        partition <- partitions.toList
+      } yield {
+        val offset = pointers.pointers.getOrElse(partition, 0l /*TODO is it correct?*/)
+        PartitionOffset(partition = partition, offset = offset)
+      }
+      _ <- consumer.seek(topic, partitionOffsets)
       _ <- consume(pointers)
     } yield {}
 
-    async.onFailure { failure => log.error(s"TopicReplicator failed: $failure", failure) }
+    // TODO rename
+    val result2 = result.catchAll { failure =>
+      failure.printStackTrace() // TODO
+      log.error(s"failed: $failure", failure)
+    }
 
-    new TopicReplicator {
+    new TopicReplicator[F] {
 
       def shutdown() = {
-        stop.set(true)
         for {
-          _ <- async
-          _ <- consumer.close().async
+          _ <- stopRef.set(true)
+          _ <- result2
+          _ <- consumer.close()
         } yield {}
       }
 

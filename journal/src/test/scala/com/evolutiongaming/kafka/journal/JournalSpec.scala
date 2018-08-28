@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
+import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.SeqNr.Helper._
@@ -136,7 +137,7 @@ class JournalSpec extends WordSpec with Matchers {
 
         val withReadActions = WithReadActionsOneByOne(actions)
 
-        val writeAction = new WriteAction {
+        val writeAction = new WriteAction[Async] {
           def apply(action: Action) = {
             val offset = actions.size.toLong + 1
             val record = ActionRecord(action, offset)
@@ -165,7 +166,7 @@ class JournalSpec extends WordSpec with Matchers {
           WithReadActionsOneByOne(marks())
         }
 
-        val writeAction = new WriteAction {
+        val writeAction = new WriteAction[Async] {
 
           def apply(action: Action) = {
             val offset = actions.size.toLong + 1
@@ -192,7 +193,7 @@ class JournalSpec extends WordSpec with Matchers {
 
         val withReadActions = WithReadActionsOneByOne(actions)
 
-        val writeAction = new WriteAction {
+        val writeAction = new WriteAction[Async] {
 
           def apply(action: Action) = {
             val offset = actions.size.toLong + 1
@@ -218,7 +219,7 @@ class JournalSpec extends WordSpec with Matchers {
 
         val withReadActions = WithReadActionsOneByOne(actions)
 
-        val writeAction = new WriteAction {
+        val writeAction = new WriteAction[Async] {
 
           def apply(action: Action) = {
             val offset = actions.size.toLong + 1
@@ -248,7 +249,7 @@ class JournalSpec extends WordSpec with Matchers {
 
           val withReadActions = WithReadActionsOneByOne(actions)
 
-          val writeAction = new WriteAction {
+          val writeAction = new WriteAction[Async] {
 
             def apply(action: Action) = {
 
@@ -323,8 +324,8 @@ object JournalSpec {
 
     def apply(
       eventual: EventualJournal,
-      withReadActions: WithReadActions,
-      writeAction: WriteAction): SeqNrJournal = {
+      withReadActions: WithReadActions[Async],
+      writeAction: WriteAction[Async]): SeqNrJournal = {
 
       val journal = Journal(key, ActorLog.empty, eventual, withReadActions, writeAction)
       SeqNrJournal(journal)

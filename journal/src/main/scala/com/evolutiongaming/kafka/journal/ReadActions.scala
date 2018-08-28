@@ -10,8 +10,8 @@ import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecord}
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
 
-trait ReadActions {
-  def apply(id: Id): Async[Iterable[ActionRecord]]
+trait ReadActions[F[_]] {
+  def apply(id: Id): F[Iterable[ActionRecord]]
 }
 
 object ReadActions {
@@ -19,7 +19,7 @@ object ReadActions {
   def apply(
     consumer: Consumer[String, Bytes],
     timeout: FiniteDuration,
-    log: ActorLog)(implicit ec: ExecutionContext /*TODO remove*/): ReadActions = {
+    log: ActorLog)(implicit ec: ExecutionContext /*TODO remove*/): ReadActions[Async] = {
 
     def logSkipped(record: ConsumerRecord[String, Bytes]) = {
       def key = record.key getOrElse "none"
@@ -30,7 +30,7 @@ object ReadActions {
       log.debug(s"ignoring key: $key, offset: $partitionOffset")
     }
 
-    new ReadActions {
+    new ReadActions[Async] {
 
       def apply(id: Id) = {
 

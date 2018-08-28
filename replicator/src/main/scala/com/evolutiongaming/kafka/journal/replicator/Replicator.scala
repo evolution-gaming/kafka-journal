@@ -7,12 +7,13 @@ import com.evolutiongaming.cassandra.CreateCluster
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.concurrent.serially.SeriallyAsync
+import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.ReplicatedCassandra
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer._
-import com.evolutiongaming.skafka.{Topic, Bytes => _}
+import com.evolutiongaming.skafka.{Partition, Topic, Bytes => _}
 
 import scala.compat.Platform
 import scala.concurrent.duration._
@@ -41,15 +42,19 @@ object Replicator {
     val serially = SeriallyAsync()
     val stateVar = AsyncVar[State](State.Running.Empty, serially)
 
-    def createReplicator(topic: Topic) = {
+    def createReplicator(topic: Topic, partitions: Set[Partition]) = {
       val uuid = UUID.randomUUID()
       val prefix = config.consumer.groupId getOrElse "journal-replicator"
+      // TODO remove UUID
       val groupId = s"$prefix-$topic-$uuid"
       val consumerConfig = config.consumer.copy(groupId = Some(groupId))
       val consumer = CreateConsumer[String, Bytes](consumerConfig, ecBlocking)
-
-      val log = ActorLog(system, TopicReplicator.getClass) prefixed topic
-      TopicReplicator(topic, consumer, journal, log)
+      implicit val kafkaConsumer = KafkaConsumer(consumer, 100.millis)
+      val actorLog = ActorLog(system, TopicReplicator.getClass) prefixed topic
+      implicit val log = Log(actorLog)
+      val stopRef = Ref[Boolean, Async]()
+      //      val currentTime = IO[Async].point(Platform.currentTime) // TODO
+      TopicReplicator(topic, partitions, kafkaConsumer, journal, log, stopRef)
     }
 
     val consumer = CreateConsumer[String, Bytes](config.consumer, ecBlocking)
@@ -63,24 +68,28 @@ object Replicator {
             topics <- consumer.listTopics().async
           } yield {
             val duration = Platform.currentTime - timestamp
-            val topicsNew = (topics.keySet -- state.replicators.keySet).filter { topic =>
-              config.topicPrefixes.exists(topic.startsWith)
+            val topicsNew = for {
+              (topic, infos) <- topics -- state.replicators.keySet
+              if config.topicPrefixes.exists(topic.startsWith)
+            } yield {
+              (topic, infos)
             }
 
             val result = {
               if (topicsNew.isEmpty) state
               else {
-                log.info(s"discover new topics: ${ topicsNew.mkString(",") } in ${ duration }ms")
+                def topicsStr = topicsNew.keys.mkString(",")
+                log.info(s"discover new topics: $topicsStr in ${ duration }ms")
 
-                val replicators = topics.keys.foldLeft(state.replicators) { (replicators, topic) =>
-                  if (replicators contains topic) {
-                    replicators
-                  } else {
-                    val replicator = createReplicator(topic)
-                    replicators.updated(topic, replicator)
-                  }
+                val replicatorsNew = for {
+                  (topic, infos) <- topicsNew
+                } yield {
+                  val partitions = for {info <- infos} yield info.partition
+                  val replicator = createReplicator(topic, partitions.toSet)
+                  (topic, replicator)
                 }
-                state.copy(replicators = replicators)
+
+                state.copy(replicators = state.replicators ++ replicatorsNew)
               }
             }
             system.scheduler.scheduleOnce(config.topicDiscoveryInterval) {
@@ -123,7 +132,7 @@ object Replicator {
 
   object State {
 
-    final case class Running(replicators: Map[Topic, TopicReplicator] = Map.empty) extends State
+    final case class Running(replicators: Map[Topic, TopicReplicator[Async]] = Map.empty) extends State
 
     object Running {
       val Empty: Running = Running()

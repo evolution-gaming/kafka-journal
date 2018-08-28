@@ -9,11 +9,11 @@ import scala.collection.immutable.Queue
 
 object WithReadActionsOneByOne {
 
-  def apply(actions: => Queue[ActionRecord]): WithReadActions = new WithReadActions {
+  def apply(actions: => Queue[ActionRecord]): WithReadActions[Async] = new WithReadActions[Async] {
 
-    def apply[T](topic: Topic, partitionOffset: Option[PartitionOffset])(f: ReadActions => Async[T]) = {
+    def apply[T](topic: Topic, partitionOffset: Option[PartitionOffset])(f: ReadActions[Async] => Async[T]) = {
 
-      val readActions: ReadActions = new ReadActions {
+      val readActions = new ReadActions[Async] {
 
         var left = partitionOffset.fold(actions) { partitionOffset =>
           actions.dropWhile(_.offset <= partitionOffset.offset)

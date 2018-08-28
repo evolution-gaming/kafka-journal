@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-final case class Bytes(value: Array[Byte]) {
+sealed abstract case class Bytes(value: Array[Byte]) {
 
   override def toString: String = {
     val bytes = value.length
@@ -9,5 +9,7 @@ final case class Bytes(value: Array[Byte]) {
 }
 
 object Bytes {
-  val Empty: Bytes = Bytes(Array.empty)
+  val Empty: Bytes = new Bytes(Array.empty) {}
+
+  def apply(bytes: Array[Byte]): Bytes = if (bytes.isEmpty) Empty else new Bytes(bytes) {}
 }

@@ -12,7 +12,7 @@ object Dependencies {
 
   lazy val `akka-serialization` = "com.evolutiongaming" %% "akka-serialization" % "0.0.1"
 
-  lazy val async = "com.evolutiongaming" %% "async" % "0.0.1"
+  lazy val async = "com.evolutiongaming" %% "async" % "0.0.2"
 
   lazy val `play-json` = "com.typesafe.play" %% "play-json" % "2.6.10"
 
