@@ -28,11 +28,22 @@ object KafkaConsumer {
 //    }
 
     def seek(topic: Topic, partitionOffsets: List[PartitionOffset]): F[Unit] = {
+
+      val topicPartitions = for {
+        partitionOffset <- partitionOffsets
+      } yield {
+        TopicPartition(topic = topic, partition = partitionOffset.partition)
+      }
+      // TODO Hide behind KafkaConsumer.seek ?
+      consumer.assign(topicPartitions)
       for {
         partitionOffset <- partitionOffsets
       } {
         val topicPartition = TopicPartition(topic = topic, partition = partitionOffset.partition)
-        consumer.seek(topicPartition, partitionOffset.offset)
+        // partitionOffset.offset // TODO use Option
+        if(partitionOffset.offset == 0l) consumer.seekToBeginning(List(topicPartition))
+        else consumer.seek(topicPartition, partitionOffset.offset + 1l/*TODO cover +1 with test*/)
+
       }
       IO[F].unit
     }

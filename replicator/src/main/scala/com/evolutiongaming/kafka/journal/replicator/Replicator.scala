@@ -49,7 +49,7 @@ object Replicator {
       val groupId = s"$prefix-$topic-$uuid"
       val consumerConfig = config.consumer.copy(groupId = Some(groupId))
       val consumer = CreateConsumer[String, Bytes](consumerConfig, ecBlocking)
-      implicit val kafkaConsumer = KafkaConsumer(consumer, 100.millis)
+      implicit val kafkaConsumer = KafkaConsumer(consumer, 100.millis/*TODO from configuration*/)
       val actorLog = ActorLog(system, TopicReplicator.getClass) prefixed topic
       implicit val log = Log(actorLog)
       val stopRef = Ref[Boolean, Async]()

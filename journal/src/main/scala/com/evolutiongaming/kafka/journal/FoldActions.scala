@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
-import com.evolutiongaming.skafka.{Offset, Partition}
+import com.evolutiongaming.skafka.{Offset, Partition, TopicPartition}
 
 trait FoldActions {
   def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]): Async[S]
@@ -39,18 +39,19 @@ object FoldActions {
 
         if (replicated) s.async
         else {
-          // TODO use max form Helpers
-          val partitionOffset = {
-            val max = PartialFunction.condOpt((offset, offsetReplicated)) {
+
+          val last = {
+            // TODO use max form Helpers
+            PartialFunction.condOpt((offset, offsetReplicated)) {
               case (Some(x), Some(y)) => x max y
               case (Some(x), None)    => x
               case (None, Some(x))    => x
             }
-
-            for {offset <- max} yield PartitionOffset(partition, offset)
           }
 
-          withReadActions(key.topic, partitionOffset) { readActions =>
+          val topicPartition = TopicPartition(topic = key.topic, partition = partition)
+
+          withReadActions(topicPartition, last) { readActions =>
 
             val ff = (s: S) => {
               for {

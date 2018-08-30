@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer.Consumer
-import com.evolutiongaming.skafka.{Topic, TopicPartition}
+import com.evolutiongaming.skafka.{Offset, Topic, TopicPartition}
 
 import scala.compat.Platform
 import scala.concurrent.ExecutionContext
@@ -12,7 +12,7 @@ import scala.concurrent.duration.FiniteDuration
 
 // TODO pass partition even if offset is unknown
 trait WithReadActions[F[_]] {
-  def apply[T](topic: Topic, partitionOffset: Option[PartitionOffset])(f: ReadActions[F] => F[T]): F[T]
+  def apply[T](topicPartition: TopicPartition, offset: Option[Offset])(f: ReadActions[F] => F[T]): F[T]
 }
 
 object WithReadActions {
@@ -25,29 +25,29 @@ object WithReadActions {
 
     new WithReadActions[Async] {
 
-      def apply[T](topic: Topic, partitionOffset: Option[PartitionOffset])(f: ReadActions[Async] => Async[T]) = {
+      def apply[T](topicPartition: TopicPartition, offset: Option[Offset])(f: ReadActions[Async] => Async[T]) = {
 
         // TODO consider separate from splitting
         val consumer = {
           val timestamp = Platform.currentTime
-          val consumer = newConsumer(topic) // TODO ~10ms
+          val consumer = newConsumer(topicPartition.topic) // TODO ~10ms
           val duration = Platform.currentTime - timestamp
           log.debug(s"newConsumer() took $duration ms")
           consumer
         }
 
-        partitionOffset match {
+        consumer.assign(List(topicPartition))
+
+        offset match {
           case None =>
-            val topics = List(topic)
-            consumer.subscribe(topics, None) // TODO with listener
+            log.warn(s"consuming from offset: 0")
+            consumer.seekToBeginning(List(topicPartition))
 
-          case Some(partitionOffset) =>
-            val topicPartition = TopicPartition(topic, partitionOffset.partition)
-            consumer.assign(List(topicPartition))
-            val offset = partitionOffset.offset + 1
-            consumer.seek(topicPartition, offset)
+          case Some(offset) =>
+            val from = offset + 1
+            log.debug(s"consuming from offset: $from")
+            consumer.seek(topicPartition, from)
         }
-
 
         val readKafka = ReadActions(consumer, pollTimeout, log)
         val result = f(readKafka)

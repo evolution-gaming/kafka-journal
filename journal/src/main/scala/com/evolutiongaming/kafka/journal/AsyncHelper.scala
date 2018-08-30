@@ -16,6 +16,8 @@ object AsyncHelper {
     def unit[A] = Async.unit
     def unit[A](fa: Async[A]) = Async.unit
     def fold[A, S](iter: Iterable[A], s: S)(f: (S, A) => Async[S]) = Async.fold(iter, s)(f)
+    // TODO fix this
+    override def foldUnit[A](iter: Iterable[Async[A]]) = Async.foldUnit(iter)
     def foldWhile[S](s: S)(f: S => Async[FoldWhileHelper.Switch[S]]) = f.foldWhile(s)
     def catchAll[A, B >: A](fa: Async[A], f: Throwable => Async[B]) = fa.catchAll(f)
   }

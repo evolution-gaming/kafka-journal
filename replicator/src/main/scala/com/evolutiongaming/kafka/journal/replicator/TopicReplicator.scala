@@ -23,6 +23,7 @@ trait TopicReplicator[F[_]] {
 
 object TopicReplicator {
 
+  //  TODO return error in case failed to connect
   def apply[F[_] : IO](
     topic: Topic,
     partitions: Set[Partition],
@@ -56,7 +57,7 @@ object TopicReplicator {
       } yield {
 
         val (last, partitionOffset) = records.last
-        val time = Platform.currentTime
+        val start = Platform.currentTime
         val id = key.id
 
         def onNonEmpty(info: JournalInfo.NonEmpty) = {
@@ -77,9 +78,9 @@ object TopicReplicator {
             _ <- journal.save(key, replicate, timestamp)
             _ <- log.info {
               val deleteTo = info.deleteTo
-              val now = Platform.currentTime // TODO
-              val saveDuration = now - time
-              val latency = now - last.action.timestamp.toEpochMilli
+              val end = Platform.currentTime // TODO
+              val saveDuration = end - start
+              val latency = end - last.action.timestamp.toEpochMilli
               val range = replicated.headOption.fold("") { head =>
                 val last = replicated.last
                 val range = SeqRange(head.event.seqNr, last.event.seqNr)
@@ -99,8 +100,8 @@ object TopicReplicator {
             result <- journal.save(key, replicate, timestamp)
             //            end <- currentTime
             end = Platform.currentTime
-            saveDuration = start - end
-            latency = start - last.action.timestamp.toEpochMilli
+            saveDuration = end - start
+            latency = end - last.action.timestamp.toEpochMilli
             _ <- log.info(s"replicated $id in ${ latency }ms, deleteTo: $deleteTo, offset: $partitionOffset, save: ${ saveDuration }ms")
           } yield {
             result
@@ -165,7 +166,7 @@ object TopicReplicator {
     }
 
     val result = for {
-//      _ <- consumer.subscribe(topic)
+      //      _ <- consumer.subscribe(topic)
       // TODO seek to the beginning
       // TODO acknowledge ?
       pointers <- journal.pointers(topic)

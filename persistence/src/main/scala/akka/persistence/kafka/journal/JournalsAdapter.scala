@@ -46,9 +46,12 @@ object JournalsAdapter {
           val persistenceId = persistentReprs.head.persistenceId
           val key = toKey(persistenceId)
 
-          def seqNrs = persistentReprs.map(_.sequenceNr).mkString(",")
-
-          log.debug(s"asyncWriteMessages persistenceId: $persistenceId, seqNrs: $seqNrs")
+          log.debug {
+            val first = persistentReprs.head.sequenceNr
+            val last = persistentReprs.last.sequenceNr
+            val str = if (first == last) first else s"$first..$last"
+            s"asyncWriteMessages persistenceId: $persistenceId seqNrs: $str"
+          }
 
           val async = Async.async {
             val events = for {

@@ -35,7 +35,39 @@ object ReplicatedCassandra {
       statements
     }
 
-    apply(statements, config.segmentSize)
+    val journal = apply(statements, config.segmentSize)
+
+    // TODO extract logging
+    new ReplicatedJournal[Async] {
+      def topics() = journal.topics()
+      def pointers(topic: Topic) = journal.pointers(topic)
+
+      def save(key: Key, records: Replicate, timestamp: Instant) = {
+        for {
+          result <- journal.save(key, records, timestamp)
+        } yield {
+          records match {
+            case Replicate.DeleteToKnown(deleteTo, replicated) =>
+              replicated.lastOption match {
+                case Some(event) => log.debug(s"save key: $key, DeleteToKnown: ${event.partitionOffset}")
+                case None => log.debug(s"save key: $key, DeleteToKnown.deleteTo: $deleteTo")
+              }
+            case Replicate.DeleteUnbound(deleteTo) =>
+              log.debug(s"save key: $key, DeleteUnbound: $deleteTo")
+          }
+          result
+        }
+      }
+
+      def save(topic: Topic, pointers: TopicPointers) = {
+        for {
+          result <- journal.save(topic, pointers)
+        } yield {
+          log.debug(s"save topic: $topic, pointers: $pointers")
+          result
+        }
+      }
+    }
   }
 
   def apply(
