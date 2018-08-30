@@ -60,7 +60,7 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
       recoverEvents() shouldEqual events.drop(deleteTo)
     }
 
-    "recover new entity from lengthy topic" ignore {
+    "recover new entity from lengthy topic" in {
       val ref = PersistenceRef()
       val events = (1 to 1000).toVector map { _.toString }
       for {
@@ -74,7 +74,7 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
       recoverEvents("new_id") shouldEqual Nil
     }
 
-    "recover 100000 events" ignore {
+    "recover 100000 events" in {
       val n = 100000
       val ref = PersistenceRef()
       val batchSize = 100
