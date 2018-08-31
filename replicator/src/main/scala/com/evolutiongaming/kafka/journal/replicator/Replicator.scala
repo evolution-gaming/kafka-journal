@@ -27,7 +27,7 @@ trait Replicator {
 object Replicator {
 
   def apply(system: ActorSystem): Replicator = {
-    val name = "kafka-journal.replicator"
+    val name = "evolutiongaming.kafka-journal.replicator"
     val config = ReplicatorConfig(system.settings.config.getConfig(name))
     val ecBlocking = system.dispatchers.lookup(s"$name.blocking-dispatcher")
     apply(config, ecBlocking)(system, system.dispatcher)

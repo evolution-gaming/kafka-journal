@@ -9,7 +9,6 @@ import com.evolutiongaming.cassandra.CreateCluster
 import com.evolutiongaming.config.ConfigHelper._
 import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
-import com.evolutiongaming.kafka.journal.SeqNr.Helper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
 import com.evolutiongaming.kafka.journal.{Bytes, Journals, SeqNr, SeqRange}
@@ -48,7 +47,7 @@ class PersistenceJournal(config: Config) extends AsyncWriteJournal {
     val producerConfig = ProducerConfig(kafkaConfig("producer"))
     log.debug(s"Producer config: $producerConfig")
 
-    val ecBlocking = system.dispatchers.lookup("kafka.persistence.journal.blocking-dispatcher")
+    val ecBlocking = system.dispatchers.lookup("evolutiongaming.kafka-journal.persistence.journal.blocking-dispatcher")
 
     // TODO use different constructor
     val producer = CreateProducer(producerConfig, ecBlocking)
@@ -78,7 +77,10 @@ class PersistenceJournal(config: Config) extends AsyncWriteJournal {
     }
 
     val eventualJournal: EventualJournal = {
-      val config = this.config.getOpt[Config]("cassandra").fold(EventualCassandraConfig.Default)(EventualCassandraConfig.apply)
+      val config = this.config.getOpt[Config]("cassandra") match {
+        case Some(config) => EventualCassandraConfig(config)
+        case None         => EventualCassandraConfig.Default
+      }
       val cluster = CreateCluster(config.client)
       val session = Await.result(cluster.connect(), connectTimeout) // TODO handle this properly
       system.registerOnTermination {
@@ -111,9 +113,9 @@ class PersistenceJournal(config: Config) extends AsyncWriteJournal {
   }
 
   def asyncDeleteMessagesTo(persistenceId: PersistenceId, to: Long) = {
-    val seqNr = SeqNr.opt(to)
-    seqNr.fold(Future.unit) { to =>
-      adapter.delete(persistenceId, to)
+    SeqNr.opt(to) match {
+      case Some(to) => adapter.delete(persistenceId, to)
+      case None     => Future.unit
     }
   }
 
@@ -128,6 +130,9 @@ class PersistenceJournal(config: Config) extends AsyncWriteJournal {
     val seqNr = SeqNr(from, SeqNr.Min)
     for {
       seqNr <- adapter.lastSeqNr(persistenceId, seqNr)
-    } yield seqNr.fold(from)(_.value)
+    } yield seqNr match {
+      case Some(seqNr) => seqNr.value
+      case None        => from
+    }
   }
 }

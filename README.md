@@ -1,10 +1,13 @@
 # Kafka Journal [![Build Status](https://travis-ci.org/evolution-gaming/kafka-journal.svg)](https://travis-ci.org/evolution-gaming/kafka-journal) [![Coverage Status](https://coveralls.io/repos/evolution-gaming/kafka-journal/badge.svg)](https://coveralls.io/r/evolution-gaming/kafka-journal) [![Codacy Badge](https://api.codacy.com/project/badge/Grade/fab03059b5f94fa5b1e7ad7bddfe8b07)](https://www.codacy.com/app/evolution-gaming/kafka-journal?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=evolution-gaming/kafka-journal&amp;utm_campaign=Badge_Grade) [ ![version](https://api.bintray.com/packages/evolutiongaming/maven/kafka-journal/images/download.svg) ](https://bintray.com/evolutiongaming/maven/kafka-journal/_latestVersion) [![License: MIT](https://img.shields.io/badge/License-MIT-yellowgreen.svg)](https://opensource.org/licenses/MIT)
 
-Kafka journal implementation will also need some additional storage to overcome kafka `retention policy` and prevent the full topic scan in some corner cases. 
-But It has relaxed requirements for writes.
-
 # >>> Not for production use. yet. <<<
 
+This library provides ability to use [kafka](https://kafka.apache.org) as storage for events.
+Kafka is a perfect fit in case you want to have streaming capabilities for your events
+However it also uses [cassandra](http://cassandra.apache.org) to keep data access performance on acceptable level and overcome kafka `retention policy` 
+Cassandra is a default choice, but you may use any other storage which satisfies following interfaces:
+Read side, called within client library: [EventualJournal](journal/src/main/scala/com/evolutiongaming/kafka/journal/eventual/EventualJournal.scala) 
+Write side, called from replicator app: [ReplicatedJournal](journal/src/main/scala/com/evolutiongaming/kafka/journal/eventual/ReplicatedJournal.scala) 
 
 ## High level idea
 
@@ -42,6 +45,20 @@ We may share same kafka consumer for many simultaneous recoveries
 * Client allowed to `read` + `write` kafka and `read` cassandra
 * Replicator allowed to `read` kafka and `read` + `write` cassandra
 
+Hence we recommend to configure access rights accordingly.
+
+
+## Akka persistence plugin
+
+In order to use kafka-journal as [akka persistence plugin](https://doc.akka.io/docs/akka/2.5/persistence.html#storage-plugins) you would need to add following to your `*.conf` file:
+
+```hocon
+akka.persistence.journal.plugin = "evolutiongaming.kafka-journal.persistence.journal"
+
+```
+
+Unfortunately there is no akka persistence `snapshot` plugin implemented yet.
+
 
 ## Setup
 
@@ -49,4 +66,9 @@ We may share same kafka consumer for many simultaneous recoveries
 resolvers += Resolver.bintrayRepo("evolutiongaming", "maven")
 
 libraryDependencies += "com.evolutiongaming" %% "kafka-journal" % "0.0.1"
+
+libraryDependencies += "com.evolutiongaming" %% "kafka-journal-persistence" % "0.0.1"
+
+libraryDependencies += "com.evolutiongaming" %% "kafka-journal-replicator" % "0.0.1"
+
 ```
