@@ -10,7 +10,7 @@ object Dependencies {
 
   lazy val skafka = "com.evolutiongaming" %% "skafka-impl" % "1.2.0"
 
-  lazy val `akka-serialization` = "com.evolutiongaming" %% "akka-serialization" % "0.0.1"
+  lazy val `akka-serialization` = "com.evolutiongaming" %% "akka-serialization" % "0.0.3"
 
   lazy val async = "com.evolutiongaming" %% "async" % "0.0.2"
 

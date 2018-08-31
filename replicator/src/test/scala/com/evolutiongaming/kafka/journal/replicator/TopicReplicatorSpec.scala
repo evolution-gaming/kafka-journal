@@ -28,11 +28,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 
           def append(id: String, seqNrs: Nel[Int]) = {
             val key = keyOf(id)
-            val events = seqNrs.map { seqNr => Event(SeqNr(seqNr.toLong)) }
-            val bytes = EventsSerializer.toBytes(events)
-            val range = SeqRange(events.head.seqNr, events.last.seqNr)
-            val append = Action.Append(range, timestamp = timestamp, bytes)
-            KafkaRecord(key, append)
+            kafkaRecord(key, seqNrs)
           }
 
           val topicPartition = TopicPartition(topic = topic, partition = partition)
@@ -94,11 +90,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 
           def append(id: String, seqNrs: Nel[Int]) = {
             val key = keyOf(id)
-            val events = seqNrs.map { seqNr => Event(SeqNr(seqNr.toLong)) }
-            val bytes = EventsSerializer.toBytes(events)
-            val range = SeqRange(events.head.seqNr, events.last.seqNr)
-            val append = Action.Append(range, timestamp = timestamp, bytes)
-            KafkaRecord(key, append)
+            kafkaRecord(key, seqNrs)
           }
 
           def mark(id: String) = {
@@ -195,11 +187,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 
           def append(id: String, seqNrs: Nel[Int]) = {
             val key = keyOf(id)
-            val events = seqNrs.map { seqNr => Event(SeqNr(seqNr.toLong)) }
-            val bytes = EventsSerializer.toBytes(events)
-            val range = SeqRange(events.head.seqNr, events.last.seqNr)
-            val append = Action.Append(range, timestamp = timestamp, bytes)
-            KafkaRecord(key, append)
+            kafkaRecord(key, seqNrs)
           }
 
           def mark(id: String) = {
@@ -285,11 +273,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 
           def append(id: String, seqNrs: Nel[Int]) = {
             val key = keyOf(id)
-            val events = seqNrs.map { seqNr => Event(SeqNr(seqNr.toLong)) }
-            val bytes = EventsSerializer.toBytes(events)
-            val range = SeqRange(events.head.seqNr, events.last.seqNr)
-            val append = Action.Append(range, timestamp = timestamp, bytes)
-            KafkaRecord(key, append)
+            kafkaRecord(key, seqNrs)
           }
 
           def mark(id: String) = {
@@ -384,8 +368,16 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 
   private def replicated(seqNr: Int, partition: Partition, offset: Offset) = {
     val partitionOffset = PartitionOffset(partition = partition, offset = offset)
-    val event = Event(SeqNr(seqNr.toLong))
+    val event = Event(SeqNr(seqNr.toLong), Set(seqNr.toString))
     ReplicatedEvent(event, timestamp, partitionOffset)
+  }
+
+  private def kafkaRecord(key: Key, seqNrs: Nel[Int]) = {
+    val events = seqNrs.map { seqNr => Event(SeqNr(seqNr.toLong), Set(seqNr.toString)) }
+    val bytes = EventsSerializer.toBytes(events)
+    val range = SeqRange(events.head.seqNr, events.last.seqNr)
+    val append = Action.Append(range, timestamp = timestamp, bytes)
+    KafkaRecord(key, append)
   }
 }
 
