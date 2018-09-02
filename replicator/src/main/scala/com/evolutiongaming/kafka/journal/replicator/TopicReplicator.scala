@@ -7,6 +7,7 @@ import com.evolutiongaming.kafka.journal.Implicits._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
+import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Bytes => _, _}
 
@@ -57,12 +58,36 @@ object TopicReplicator {
       } yield {
 
         val (last, partitionOffset) = records.last
-        val start = Platform.currentTime
+        val offset = partitionOffset.offset
         val id = key.id
+
+        def measureLatency = {
+          val time = Platform.currentTime
+          time - last.action.timestamp.toEpochMilli
+        }
+
+        def delete(deleteTo: SeqNr, bound: Boolean) = {
+          for {
+            _ <- journal.delete(key, timestamp, deleteTo, bound)
+            latency = measureLatency
+            _ <- log.info(s"delete $id in ${ latency }ms, deleteTo: $deleteTo, bound: $bound, offset: $offset")
+          } yield {}
+        }
+
+        def append(deleteTo: Option[SeqNr], events: Nel[ReplicatedEvent]) = {
+          for {
+            _ <- journal.append(key, timestamp, events, deleteTo)
+            latency = measureLatency
+            _ <- log.info {
+              val range = events.head.seqNr to events.last.seqNr
+              s"append $id in ${ latency }ms, range: $range deleteTo: $deleteTo, offset: $offset"
+            }
+          } yield {}
+        }
 
         def onNonEmpty(info: JournalInfo.NonEmpty) = {
           val deleteTo = info.deleteTo
-          val replicated = for {
+          val events = for {
             (record, partitionOffset) <- records
             action <- PartialFunction.condOpt(record.action) { case a: Action.Append => a }.toIterable
             if deleteTo.forall(action.range.to > _)
@@ -72,48 +97,19 @@ object TopicReplicator {
             ReplicatedEvent(event, action.timestamp, partitionOffset)
           }
 
-          val replicate = Replicate.DeleteToKnown(info.deleteTo, replicated.toList)
-
-          for {
-            _ <- journal.save(key, replicate, timestamp)
-            _ <- log.info {
-              val deleteTo = info.deleteTo
-              val end = Platform.currentTime // TODO
-              val saveDuration = end - start
-              val latency = end - last.action.timestamp.toEpochMilli
-              val range = replicated.headOption.fold("") { head =>
-                val last = replicated.last
-                val range = SeqRange(head.event.seqNr, last.event.seqNr)
-                s" range: $range,"
-              }
-              s"replicated $id in ${ latency }ms,$range deleteTo: $deleteTo, offset: $partitionOffset, save: ${ saveDuration }ms"
+          Nel.opt(events) match {
+            case Some(events) => append(info.deleteTo, events)
+            case None         => info.deleteTo match {
+              case Some(deleteTo) => delete(deleteTo, bound = true)
+              case None           => unit
             }
-          } yield {}
-        }
-
-        def onDelete(info: JournalInfo.DeleteTo) = {
-          val deleteTo = info.seqNr
-          val replicate = Replicate.DeleteUnbound(deleteTo)
-          val start = Platform.currentTime
-          for {
-            //            start <- currentTime
-            result <- journal.save(key, replicate, timestamp)
-            //            end <- currentTime
-            end = Platform.currentTime
-            saveDuration = end - start
-            latency = end - last.action.timestamp.toEpochMilli
-            _ <- log.info(s"replicated $id in ${ latency }ms, deleteTo: $deleteTo, offset: $partitionOffset, save: ${ saveDuration }ms")
-          } yield {
-            result
           }
         }
 
-        val headers = for {(record, _) <- records} yield record.action.header
-
-        val info = JournalInfo(headers)
+        val info = records.foldLeft(JournalInfo.empty) { case (info, (record, _)) => info(record.action.header) }
         info match {
           case info: JournalInfo.NonEmpty => onNonEmpty(info)
-          case info: JournalInfo.DeleteTo => onDelete(info)
+          case info: JournalInfo.Deleted  => delete(info.deleteTo, bound = false)
           case JournalInfo.Empty          => unit
         }
       }
@@ -122,8 +118,7 @@ object TopicReplicator {
         val diff = {
           val pointers = for {
             (topicPartition, records) <- consumerRecords.values
-            offset = records.foldLeft[Offset](0) { (offset, record) => record.offset max offset }
-            if offset != 0
+            offset = records.foldLeft(0l) { (offset, record) => record.offset max offset }
           } yield {
             (topicPartition.partition, offset)
           }

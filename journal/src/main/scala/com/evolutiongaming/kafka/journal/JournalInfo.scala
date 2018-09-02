@@ -19,50 +19,47 @@ object JournalInfo {
 
     def apply(a: Action.Header): JournalInfo = a match {
       case a: Append => NonEmpty(a.range.to, None)
-      case a: Delete => DeleteTo(a.to)
+      case a: Delete => Deleted(a.to)
       case _: Mark   => this
     }
   }
 
 
-  // TODO consider adding DeleteAll case
-
   final case class NonEmpty(lastSeqNr: SeqNr, deleteTo: Option[SeqNr] = None) extends JournalInfo {
-
-    require(
-      deleteTo.forall(_ <= lastSeqNr),
-      s"lastSeqNr($lastSeqNr) >= deleteTo(${ deleteTo.getOrElse(0) })")
 
     def apply(a: Action.Header): JournalInfo = {
 
-      def nonEmpty(a: Delete) = {
+      def onDelete(a: Delete) = {
         val deleteTo = this.deleteTo.fold(a.to) { _ max a.to } min lastSeqNr
         NonEmpty(lastSeqNr, Some(deleteTo))
       }
 
+      def onAppend(a: Append) = {
+        val lastSeqNr = a.range.to
+        NonEmpty(lastSeqNr, deleteTo)
+      }
+
       a match {
-        case a: Append => NonEmpty(a.range.to, deleteTo)
-        case a: Delete => nonEmpty(a)
+        case a: Append => onAppend(a)
+        case a: Delete => onDelete(a)
         case _: Mark   => this
       }
     }
   }
 
 
-  final case class DeleteTo(seqNr: SeqNr) extends JournalInfo {
+  final case class Deleted(deleteTo: SeqNr) extends JournalInfo { self =>
 
     def apply(a: Action.Header): JournalInfo = {
 
-      def nonEmpty(a: Append) = {
-        val deleteTo = for {
-          prev <- a.range.from.prev
-        } yield seqNr min prev
+      def onAppend(a: Append) = {
+        val deleteTo = a.range.from.prev.map(_ min self.deleteTo)
         NonEmpty(a.range.to, deleteTo)
       }
 
       a match {
-        case a: Append => nonEmpty(a)
-        case a: Delete => DeleteTo(seqNr max a.to)
+        case a: Append => onAppend(a)
+        case a: Delete => Deleted(deleteTo max a.to)
         case _: Mark   => this
       }
     }

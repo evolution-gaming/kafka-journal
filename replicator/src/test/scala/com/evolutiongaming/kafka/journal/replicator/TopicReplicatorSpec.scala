@@ -5,7 +5,7 @@ import java.time.Instant
 import com.evolutiongaming.kafka.journal.FoldWhileHelper.Switch
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.eventual.{Replicate, ReplicatedJournal, TopicPointers}
+import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPointers}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords}
 import com.evolutiongaming.skafka.{Bytes => _, _}
@@ -47,7 +47,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           }
           (topicPartition, records.toVector)
         }
-        ConsumerRecords(records.toMap)
+        ConsumerRecords(records.toMap) // TODO add test with single record per poll/ConsumerRecords
       }
 
       val data = Data(records = List(records))
@@ -413,8 +413,12 @@ object TopicReplicatorSpec {
       TestIO { data => (data, data.pointers.getOrElse(topic, TopicPointers(Map.empty))) }
     }
 
-    def save(key: Key, records: Replicate, timestamp: Instant) = {
-      TestIO { _.save(key, records, timestamp) }
+    def append(key: Key, timestamp: Instant, events: Nel[ReplicatedEvent], deleteTo: Option[SeqNr]) = {
+      TestIO { _.append(key, events, deleteTo) }
+    }
+
+    def delete(key: Key, timestamp: Instant, deleteTo: SeqNr, bound: Boolean) = {
+      TestIO { _.delete(key, deleteTo, bound) }
     }
 
     def save(topic: Topic, pointers: TopicPointers) = {
@@ -447,11 +451,11 @@ object TopicReplicatorSpec {
     self =>
 
     def subscribe(topic: Topic): (Data, Unit) = {
-//      (copy(topics = topic :: topics), ())
+      //      (copy(topics = topic :: topics), ())
       (this, ())
     }
 
-    def seek(topic: Topic, partitionOffsets: List[PartitionOffset]):(Data, Unit) = {
+    def seek(topic: Topic, partitionOffsets: List[PartitionOffset]): (Data, Unit) = {
       val offsets = for {
         partitionOffset <- partitionOffsets
       } yield {
@@ -469,32 +473,44 @@ object TopicReplicatorSpec {
       (copy(pointers = self.pointers.updated(topic, pointers)), ())
     }
 
-    def save(key: Key, replicate: Replicate, timestamp: Instant): (Data, Unit) = {
+    def append(key: Key, events: Nel[ReplicatedEvent], deleteTo: Option[SeqNr]): (Data, Unit) = {
+
+      val deletedToPrev = self.metadata.getOrElse(key, None)
 
       val (records, deletedTo) = {
         val records = self.journal.getOrElse(key, Nil)
-        replicate match {
-          case replicate: Replicate.DeleteToKnown =>
-            val head = replicate.deleteTo match {
-              case Some(deleteTo) => records.dropWhile(_.seqNr <= deleteTo)
-              case None           => records
-            }
-            (replicate.replicated ++ head, replicate.deleteTo)
-
-          case replicate: Replicate.DeleteUnbound =>
-            val deleteTo = replicate.deleteTo
-            val head = records.dropWhile(_.seqNr <= deleteTo)
-            val last = head.headOption orElse records.lastOption
-            val deletedTo = last.map(_.seqNr)
-            (head, deletedTo)
+        val head = deleteTo match {
+          case Some(deleteTo) => records.dropWhile(_.seqNr <= deleteTo)
+          case None           => records
         }
+        (events.toList ++ head, deleteTo.map(_.value.toInt) orElse deletedToPrev)
       }
-      val deletedToInt = deletedTo.map(_.value.toInt)
-      val metadata = self.metadata.updated(key, deletedToInt orElse self.metadata.getOrElse(key, None))
 
       val updated = copy(
         journal = journal.updated(key, records),
-        metadata = metadata)
+        metadata = metadata.updated(key, deletedTo))
+
+      (updated, ())
+    }
+
+    def delete(key: Key, deleteTo: SeqNr, bound: Boolean): (Data, Unit) = {
+
+      val head = self
+        .journal.getOrElse(key, Nil)
+        .dropWhile(_.seqNr <= deleteTo)
+
+      val (records, deletedTo) = {
+        if (bound) {
+          (head, Some(deleteTo.value.toInt))
+        } else {
+          val deletedTo = head.headOption.flatMap(_.seqNr.prev)
+          (head, deletedTo.map(_.value.toInt) orElse self.metadata.getOrElse(key, None))
+        }
+      }
+
+      val updated = copy(
+        journal = journal.updated(key, records),
+        metadata = metadata.updated(key, deletedTo))
 
       (updated, ())
     }

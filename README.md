@@ -6,8 +6,8 @@ This library provides ability to use [kafka](https://kafka.apache.org) as storag
 Kafka is a perfect fit in case you want to have streaming capabilities for your events
 However it also uses [cassandra](http://cassandra.apache.org) to keep data access performance on acceptable level and overcome kafka `retention policy` 
 Cassandra is a default choice, but you may use any other storage which satisfies following interfaces:
-Read side, called within client library: [EventualJournal](journal/src/main/scala/com/evolutiongaming/kafka/journal/eventual/EventualJournal.scala) 
-Write side, called from replicator app: [ReplicatedJournal](journal/src/main/scala/com/evolutiongaming/kafka/journal/eventual/ReplicatedJournal.scala) 
+* Read side, called within client library: [EventualJournal](journal/src/main/scala/com/evolutiongaming/kafka/journal/eventual/EventualJournal.scala) 
+* Write side, called from replicator app: [ReplicatedJournal](journal/src/main/scala/com/evolutiongaming/kafka/journal/eventual/ReplicatedJournal.scala) 
 
 ## High level idea
 
@@ -54,10 +54,9 @@ In order to use kafka-journal as [akka persistence plugin](https://doc.akka.io/d
 
 ```hocon
 akka.persistence.journal.plugin = "evolutiongaming.kafka-journal.persistence.journal"
-
 ```
 
-Unfortunately there is no akka persistence `snapshot` plugin implemented yet.
+Unfortunately akka persistence `snapshot` plugin is not implemented yet.
 
 
 ## Setup

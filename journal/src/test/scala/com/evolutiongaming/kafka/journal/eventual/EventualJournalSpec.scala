@@ -82,19 +82,19 @@ trait EventualJournalSpec extends WordSpec with Matchers {
         }
       }
 
-      def testDelete(deleteTo: SeqNr, unbound: Boolean) = {
+      def testDelete(deleteTo: SeqNr, bound: Boolean) = {
 
-        s"$name deleteTo $deleteTo, unbound: $unbound" in {
+        s"$name deleteTo $deleteTo, bound: $bound" in {
           val (eventual, replicated) = createAndAppend()
-          replicated.delete(deleteTo, unbound)
+          replicated.delete(deleteTo, bound)
           val expected = events.dropWhile(_.seqNr <= deleteTo)
           eventual.events() shouldEqual expected
           eventual.lastSeqNr() shouldEqual seqNrLast
         }
 
-        s"$name deleteTo $deleteTo, unbound: $unbound and then append" in {
+        s"$name deleteTo $deleteTo, bound: $bound and then append" in {
           val (eventual, replicated) = createAndAppend()
-          replicated.delete(deleteTo, unbound)
+          replicated.delete(deleteTo, bound)
           val expected = events.dropWhile(_.seqNr <= deleteTo)
           eventual.events() shouldEqual expected
           eventual.lastSeqNr() shouldEqual seqNrLast
@@ -113,11 +113,11 @@ trait EventualJournalSpec extends WordSpec with Matchers {
       }
 
       for {deleteTo <- seqNrs} {
-        testDelete(deleteTo, unbound = false)
+        testDelete(deleteTo, bound = true)
       }
 
       for {deleteTo <- seqNrsAll} {
-        testDelete(deleteTo, unbound = true)
+        testDelete(deleteTo, bound = false)
       }
 
       for {
@@ -130,7 +130,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
           eventual.events() shouldEqual Nil
           eventual.lastSeqNr() shouldEqual Some(deleteTo)
 
-          replicated.delete(deleteToUnbound, unbound = true)
+          replicated.delete(deleteToUnbound, bound = false)
           eventual.events() shouldEqual Nil
           eventual.lastSeqNr() shouldEqual Some(deleteTo)
         }
@@ -191,6 +191,33 @@ trait EventualJournalSpec extends WordSpec with Matchers {
       }
     }
 
+    for {
+      bound <- List(true, false)
+      int <- List(1, 2, 5)
+      deleteTo <- SeqNr.opt(int.toLong)
+    } {
+      s"deleteTo $deleteTo on empty journal, bound: $bound" in {
+        val (eventual, replicated) = createJournals()
+        replicated.delete(deleteTo, bound)
+        eventual.events() shouldEqual Nil
+        val lastSeqNr = if (bound) Some(deleteTo) else None
+        eventual.lastSeqNr() shouldEqual lastSeqNr
+      }
+
+      s"deleteTo $deleteTo on empty journal, bound: $bound and then append" in {
+        val (eventual, replicated) = createJournals()
+        replicated.delete(deleteTo, bound)
+        eventual.events() shouldEqual Nil
+
+        val seqNr = (if (bound) deleteTo.next else None) getOrElse SeqNr.Min
+        val event = eventOf(seqNr)
+        replicated.append(Nel(event))
+
+        eventual.events() shouldEqual List(event)
+        eventual.lastSeqNr() shouldEqual Some(seqNr)
+      }
+    }
+
     "save empty pointers empty" in {
       val (eventual, replicated) = createJournals()
       replicated.save(topic, TopicPointers.Empty)
@@ -210,7 +237,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
       eventual.events() shouldEqual Nil
       eventual.lastSeqNr() shouldEqual None
 
-      replicated.delete(SeqNr.Max, unbound = true)
+      replicated.delete(SeqNr.Max, bound = false)
       eventual.events() shouldEqual Nil
       eventual.lastSeqNr() shouldEqual None
 
@@ -230,7 +257,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
       eventual.events() shouldEqual Nil
       eventual.lastSeqNr() shouldEqual Some(event3.seqNr)
 
-      replicated.delete(SeqNr.Max, unbound = true)
+      replicated.delete(SeqNr.Max, bound = false)
       eventual.events() shouldEqual Nil
       eventual.lastSeqNr() shouldEqual Some(event3.seqNr)
     }
@@ -280,11 +307,14 @@ object EventualJournalSpec {
 
     def append(events: Nel[ReplicatedEvent]): Unit
 
-    def delete(deleteTo: SeqNr, unbound: Boolean = false): Unit
+    def delete(deleteTo: SeqNr, bound: Boolean = true): Unit
 
     def deleteAndAppend(deleteTo: SeqNr, events: Nel[ReplicatedEvent]): Unit
 
     def pointers(topic: Topic): TopicPointers
+
+
+    // TODO add delete
 
     def save(topic: Topic, pointers: TopicPointers): Unit
   }
@@ -293,23 +323,18 @@ object EventualJournalSpec {
 
     def apply(journal: ReplicatedJournal[Async], key: Key, timestamp: Instant): Replicated = new Replicated {
 
-      def save(records: Replicate) = journal.save(key, records, timestamp).get()
-
       def topics() = journal.topics().get()
 
       def append(events: Nel[ReplicatedEvent]) = {
-        save(Replicate.DeleteToKnown(None, events.toList))
+        journal.append(key, timestamp, events, None)
       }
 
-      def delete(deleteTo: SeqNr, unbound: Boolean = false) = {
-        val replicate =
-          if (unbound) Replicate.DeleteUnbound(deleteTo)
-          else Replicate.DeleteToKnown(Some(deleteTo), Nil)
-        save(replicate)
+      def delete(deleteTo: SeqNr, bound: Boolean) = {
+        journal.delete(key, timestamp, deleteTo, bound)
       }
 
       def deleteAndAppend(deleteTo: SeqNr, events: Nel[ReplicatedEvent]) = {
-        save(Replicate.DeleteToKnown(Some(deleteTo), events.toList))
+        journal.append(key, timestamp, events, Some(deleteTo))
       }
 
       def pointers(topic: Topic) = journal.pointers(topic).get()

@@ -23,3 +23,5 @@ project/plugins/project/
 
 # Mac
 .DS_Store
+
+ignore

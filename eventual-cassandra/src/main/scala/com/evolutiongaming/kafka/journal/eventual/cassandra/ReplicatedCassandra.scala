@@ -5,14 +5,16 @@ import java.time.Instant
 import akka.actor.ActorSystem
 import com.evolutiongaming.cassandra.Session
 import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.AsyncHelper._
-import com.evolutiongaming.kafka.journal.{Key, ReplicatedEvent, SeqNr}
+import com.evolutiongaming.kafka.journal.FlatMap._
+import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Topic
 
 import scala.annotation.tailrec
+import scala.compat.Platform
 import scala.concurrent.ExecutionContext
 
 
@@ -21,11 +23,8 @@ import scala.concurrent.ExecutionContext
 // TODO add logs to ReplicatedCassandra
 object ReplicatedCassandra {
 
-  def apply(
-    session: Session,
-    config: EventualCassandraConfig)(implicit system: ActorSystem, ec: ExecutionContext): ReplicatedJournal[Async] = {
-
-    val log = ActorLog(system, ReplicatedCassandra.getClass)
+  def apply(session: Session, config: EventualCassandraConfig)
+    (implicit system: ActorSystem, ec: ExecutionContext): ReplicatedJournal[Async] = {
 
     val statements = for {
       tables <- CreateSchema(config.schema, session)
@@ -34,151 +33,176 @@ object ReplicatedCassandra {
     } yield {
       statements
     }
-
     val journal = apply(statements, config.segmentSize)
 
-    // TODO extract logging
-    new ReplicatedJournal[Async] {
-      def topics() = journal.topics()
-      def pointers(topic: Topic) = journal.pointers(topic)
+    val actorLog = ActorLog(system, ReplicatedCassandra.getClass)
+    val log = Log(actorLog)
+    apply(journal, log)
+  }
 
-      def save(key: Key, records: Replicate, timestamp: Instant) = {
+  def apply[F[_] : FlatMap](journal: ReplicatedJournal[F], log: Log[F]): ReplicatedJournal[F] = {
+
+    def duration[T](func: => F[T]): F[(T, Long)] = {
+      val start = Platform.currentTime
+      for {
+        result <- func
+        duration = Platform.currentTime - start
+      } yield (result, duration)
+    }
+
+    new ReplicatedJournal[F] {
+
+      def topics() = {
         for {
-          result <- journal.save(key, records, timestamp)
-        } yield {
-          records match {
-            case Replicate.DeleteToKnown(deleteTo, replicated) =>
-              replicated.lastOption match {
-                case Some(event) => log.debug(s"save key: $key, DeleteToKnown: ${event.partitionOffset}")
-                case None => log.debug(s"save key: $key, DeleteToKnown.deleteTo: $deleteTo")
-              }
-            case Replicate.DeleteUnbound(deleteTo) =>
-              log.debug(s"save key: $key, DeleteUnbound: $deleteTo")
-          }
-          result
-        }
+          result <- duration { journal.topics() }
+          (topics, duration) = result
+          _ <- log.debug(s"topics in ${ duration }ms, topics: ${ topics.mkString(",") }")
+        } yield topics
+      }
+
+      def pointers(topic: Topic) = {
+        for {
+          result <- duration { journal.pointers(topic) }
+          (pointers, duration) = result
+          _ <- log.debug(s"pointers in ${ duration }ms, topic: $topic, pointers: $pointers")
+        } yield pointers
+      }
+
+      def append(key: Key, timestamp: Instant, events: Nel[ReplicatedEvent], deleteTo: Option[SeqNr]) = {
+        for {
+          result <- duration { journal.append(key, timestamp, events, deleteTo) }
+          (_, duration) = result
+          _ <- log.debug(s"append in ${ duration }ms, key: $key, deleteTo: $deleteTo, events: ${ events.mkString(",") }")
+        } yield ()
+      }
+
+      def delete(key: Key, timestamp: Instant, deleteTo: SeqNr, bound: Boolean) = {
+        for {
+          result <- duration { journal.delete(key, timestamp, deleteTo, bound) }
+          (_, duration) = result
+          _ <- log.debug(s"delete in ${ duration }ms, key: $key, deleteTo: $deleteTo, bound: $bound")
+        } yield ()
       }
 
       def save(topic: Topic, pointers: TopicPointers) = {
         for {
-          result <- journal.save(topic, pointers)
-        } yield {
-          log.debug(s"save topic: $topic, pointers: $pointers")
-          result
-        }
+          result <- duration { journal.save(topic, pointers) }
+          (_, duration) = result
+          _ <- log.debug(s"save in ${ duration }ms, topic: $topic, pointers: $pointers")
+        } yield ()
       }
+
+      override def toString = journal.toString
     }
   }
 
+
   def apply(
     statements: Async[Statements],
-    segmentSize: Int): ReplicatedJournal[Async] = new ReplicatedJournal[Async] {
+    segmentSize: Int): ReplicatedJournal[Async] = {
 
-    def topics() = {
-      for {
-        statements <- statements
-        topics <- statements.selectTopics()
-      } yield {
-        topics.sorted
+    def deleteRecords(
+      statements: Statements,
+      key: Key,
+      timestamp: Instant,
+      seqNr: SeqNr,
+      deleteTo: SeqNr,
+      metadata: Metadata,
+      bound: Boolean) = {
+
+      def segment(seqNr: SeqNr) = SegmentNr(seqNr, metadata.segmentSize)
+
+      def delete(from: SeqNr) = {
+
+        def delete(deleteTo: SeqNr) = {
+          for {
+            _ <- statements.updateMetadata(key, Some(deleteTo), timestamp)
+            _ <- Async.foldUnit {
+              for {
+                segment <- segment(from) to segment(deleteTo) // TODO maybe add ability to create Seq[Segment] out of SeqRange ?
+              } yield {
+                statements.deleteRecords(key, segment, deleteTo)
+              }
+            }
+          } yield {}
+        }
+
+        if (bound) delete(deleteTo)
+        else for {
+          last <- LastSeqNr(key, from, metadata, statements.selectLastRecord)
+          result <- last match {
+            case None       => Async.unit
+            case Some(last) => delete(deleteTo min last)
+          }
+        } yield {
+          result
+        }
+      }
+
+      metadata.deleteTo match {
+        case None            => delete(SeqNr.Min)
+        case Some(deletedTo) =>
+          if (deletedTo >= deleteTo) Async.unit
+          else deletedTo.next match {
+            case None       => Async.unit
+            case Some(from) => delete(from)
+          }
       }
     }
 
-    // TODO consider creating collection   Deleted/Nil :: Elem :: Elem
-    // TODO to encode sequence that can start either from 0 or for Deleted
+    new ReplicatedJournal[Async] {
 
-    // TODO what if eventualRecords.empty but deletedTo is present ?
-    // TODO prevent passing both No records and No deletion
-    def save(key: Key, replicate: Replicate, timestamp: Instant): Async[Unit] = {
-
-      def save(statements: Statements, metadata: Option[Metadata]) = {
-
-        def delete(deleteTo: SeqNr, metadata: Metadata, bound: Boolean) = {
-
-          def delete(from: SeqNr) = {
-
-            def delete(deleteTo: SeqNr) = {
-
-              def deleteRecords() = {
-
-                def segment(seqNr: SeqNr) = SegmentNr(seqNr, metadata.segmentSize)
-
-                val asyncs = for {
-                  segment <- segment(from) to segment(deleteTo) // TODO maybe add ability to create Seq[Segment] out of SeqRange ?
-                } yield {
-                  statements.deleteRecords(key, segment, deleteTo)
-                }
-                Async.foldUnit(asyncs)
-              }
-
-              for {
-                _ <- statements.updateMetadata(key, Some(deleteTo), timestamp)
-                _ <- deleteRecords()
-              } yield {}
-            }
-
-            if (bound) delete(deleteTo)
-            else for {
-              last <- LastSeqNr(key, from, metadata, statements.selectLastRecord)
-              result <- last match {
-                case None       => Async.unit
-                case Some(last) => delete(deleteTo min last)
-              }
-            } yield {
-              result
-            }
-          }
-
-          metadata.deleteTo match {
-            case None            => delete(SeqNr.Min)
-            case Some(deletedTo) =>
-              if (deletedTo >= deleteTo) Async.unit
-              else deletedTo.next match {
-                case None       => Async.unit
-                case Some(from) => delete(from)
-              }
-          }
-        }
+      def topics() = {
+        for {
+          statements <- statements
+          topics <- statements.selectTopics()
+        } yield topics.sorted
+      }
 
 
-        def save(replicated: List[ReplicatedEvent], deleteTo: Option[SeqNr]) = {
+      def append(key: Key, timestamp: Instant, events: Nel[ReplicatedEvent], deleteTo: Option[SeqNr]) = {
 
-          def saveRecords(segmentSize: Int) = {
+        def append(statements: Statements, metadata: Option[Metadata]) = {
+
+          def lastSeqNr = events.foldLeft(SeqNr.Min) { (seqNr, event) => seqNr max event.seqNr }
+
+          def append(segmentSize: Int) = {
 
             @tailrec
             def loop(
-              replicated: List[ReplicatedEvent],
+              events: List[ReplicatedEvent],
               s: Option[(Segment, Nel[ReplicatedEvent])], // TODO not tuple
-              async: Async[Unit]): Async[Unit] = {
+              result: Async[Unit]): Async[Unit] = {
 
               def execute(segment: Segment, events: Nel[ReplicatedEvent]) = {
                 val next = statements.insertRecords(key, segment.nr, events)
                 for {
-                  _ <- async
+                  _ <- result
                   _ <- next
                 } yield {}
               }
 
-              replicated match {
+              events match {
                 case head :: tail =>
                   val seqNr = head.event.seqNr
                   s match {
-                    case Some((segment, events)) => segment.next(seqNr) match {
+                    case Some((segment, batch)) => segment.next(seqNr) match {
                       case None =>
-                        loop(tail, Some((segment, head :: events)), async)
+                        loop(tail, Some((segment, head :: batch)), result)
 
                       case Some(next) =>
-                        loop(tail, Some((next, Nel(head))), execute(segment, events))
+                        loop(tail, Some((next, Nel(head))), execute(segment, batch))
                     }
-                    case None                    =>
-                      loop(tail, Some((Segment(seqNr, segmentSize), Nel(head))), async)
+                    case None                   =>
+                      loop(tail, Some((Segment(seqNr, segmentSize), Nel(head))), result)
                   }
 
                 case Nil =>
-                  s.fold(async) { case (segment, events) => execute(segment, events) }
+                  s.fold(result) { case (segment, batch) => execute(segment, batch) }
               }
             }
 
-            loop(replicated, None, Async.unit)
+            loop(events.toList, None, Async.unit)
           }
 
           def updateMetadata(metadata: Metadata) = {
@@ -188,86 +212,116 @@ object ReplicatedCassandra {
             } yield metadata
           }
 
-          def saveMetadata() = {
-            val metadata = Metadata(segmentSize = segmentSize, deleteTo = deleteTo)
+          def insertMetadata() = {
+            val metadata = Metadata(segmentSize = segmentSize, seqNr = lastSeqNr, deleteTo = deleteTo)
             for {
               _ <- statements.insertMetadata(key, metadata, timestamp)
             } yield metadata
           }
 
+          def delete(metadata: Metadata, deleteTo: SeqNr) = deleteRecords(
+            statements = statements,
+            key = key,
+            timestamp = timestamp,
+            seqNr = lastSeqNr,
+            deleteTo = deleteTo,
+            metadata = metadata,
+            bound = true)
+
           for {
             metadata <- metadata match {
-              case None           => saveMetadata()
-              case Some(metadata) =>
-                for {
-                  _ <- deleteTo match {
-                    case None           => updateMetadata(metadata)
-                    case Some(deleteTo) => delete(deleteTo, metadata, bound = true)
-                  }
-                } yield metadata
+              case None           => insertMetadata()
+              case Some(metadata) => for {
+                _ <- deleteTo match {
+                  case None           => updateMetadata(metadata)
+                  case Some(deleteTo) => delete(metadata, deleteTo)
+                }
+              } yield metadata
             }
-            _ <- saveRecords(metadata.segmentSize)
+            _ <- append(metadata.segmentSize)
           } yield {}
-        }
-
-        def deleteUnbound(deletedTo: SeqNr) = metadata match {
-          case None           => Async.unit
-          case Some(metadata) => delete(deletedTo, metadata, bound = false)
-        }
-
-        replicate match {
-          case Replicate.DeleteToKnown(deletedTo, records) => save(records, deletedTo)
-          case Replicate.DeleteUnbound(deletedTo)          => deleteUnbound(deletedTo)
-        }
-      }
-
-      for {
-        statements <- statements
-        metadata <- statements.selectMetadata(key)
-        result <- save(statements, metadata)
-      } yield {
-        result
-      }
-    }
-
-    def save(topic: Topic, topicPointers: TopicPointers): Async[Unit] = {
-      val pointers = topicPointers.pointers
-      if (pointers.isEmpty) Async.unit
-      else {
-
-        // TODO topic is a partition key, should I batch by partition ?
-        val timestamp = Instant.now() // TODO pass as argument
-
-        def savePointers(statements: Statements) = {
-          val asyncs = for {
-            (partition, offset) <- pointers
-          } yield {
-            val insert = PointerInsert(
-              topic = topic,
-              partition = partition,
-              offset = offset,
-              updated = timestamp,
-              created = timestamp)
-
-            statements.insertPointer(insert)
-          }
-
-          Async.foldUnit(asyncs)
         }
 
         for {
           statements <- statements
-          _ <- savePointers(statements)
-        } yield ()
+          metadata <- statements.selectMetadata(key)
+          result <- append(statements, metadata)
+        } yield result
       }
-    }
 
-    def pointers(topic: Topic) = {
-      for {
-        statements <- statements
-        topicPointers <- statements.selectPointers(topic)
-      } yield {
-        topicPointers
+
+      def delete(key: Key, timestamp: Instant, deleteTo: SeqNr, bound: Boolean) = {
+
+        def delete(statements: Statements, metadata: Option[Metadata]) = {
+
+          def delete(metadata: Metadata) = deleteRecords(
+            statements = statements,
+            key = key,
+            timestamp = timestamp,
+            seqNr = deleteTo,
+            deleteTo = deleteTo,
+            metadata = metadata,
+            bound = bound)
+
+          def insertMetadata() = {
+            val metadata = Metadata(
+              segmentSize = segmentSize,
+              seqNr = deleteTo,
+              deleteTo = Some(deleteTo))
+            statements.insertMetadata(key, metadata, timestamp)
+          }
+
+          metadata match {
+            case Some(metadata) => delete(metadata)
+            case None if bound  => insertMetadata()
+            case None           => Async.unit
+          }
+        }
+
+        for {
+          statements <- statements
+          metadata <- statements.selectMetadata(key)
+          result <- delete(statements, metadata)
+        } yield result
+      }
+
+
+      def save(topic: Topic, topicPointers: TopicPointers): Async[Unit] = {
+        val pointers = topicPointers.pointers
+        if (pointers.isEmpty) Async.unit
+        else {
+
+          // TODO topic is a partition key, should I batch by partition ?
+          val timestamp = Instant.now() // TODO pass as argument
+
+          def savePointers(statements: Statements) = {
+            val asyncs = for {
+              (partition, offset) <- pointers
+            } yield {
+              val insert = PointerInsert(
+                topic = topic,
+                partition = partition,
+                offset = offset,
+                updated = timestamp,
+                created = timestamp)
+              statements.insertPointer(insert)
+            }
+
+            Async.foldUnit(asyncs)
+          }
+
+          for {
+            statements <- statements
+            _ <- savePointers(statements)
+          } yield {}
+        }
+      }
+
+      def pointers(topic: Topic) = {
+        for {
+          statements <- statements
+          topicPointers <- statements.selectPointers(topic)
+        } yield topicPointers
       }
     }
   }

@@ -2,15 +2,11 @@ package com.evolutiongaming.kafka.journal
 
 import com.evolutiongaming.kafka.journal.FoldWhileHelper.Switch
 
-trait IO[F[_]] {
+trait IO[F[_]] extends FlatMap[F] {
 
   def pure[A](a: A): F[A]
 
   def point[A](a: => A): F[A]
-
-  def flatMap[A, B](fa: F[A], afb: A => F[B]): F[B]
-
-  def map[A, B](fa: F[A], ab: A => B): F[B]
 
   def unit[A]: F[Unit]
 

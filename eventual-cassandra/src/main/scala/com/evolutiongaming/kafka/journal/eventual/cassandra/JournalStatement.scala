@@ -24,11 +24,11 @@ object JournalStatement {
        |topic text,
        |segment bigint,
        |seq_nr bigint,
+       |partition int,
+       |offset bigint,
        |timestamp timestamp,
        |payload blob,
        |tags set<text>,
-       |partition int,
-       |offset bigint,
        |PRIMARY KEY ((id, topic, segment), seq_nr, timestamp))
        |""".stripMargin
     //        WITH gc_grace_seconds =${gcGrace.toSeconds} TODO
@@ -43,7 +43,7 @@ object JournalStatement {
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
       val query =
         s"""
-           |INSERT INTO ${ name.asCql } (id, topic, segment, seq_nr, timestamp, payload, tags, partition, offset)
+           |INSERT INTO ${ name.asCql } (id, topic, segment, seq_nr, partition, offset, timestamp, payload, tags)
            |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
            |""".stripMargin
 
@@ -61,11 +61,11 @@ object JournalStatement {
               .encode("topic", key.topic)
               .encode("segment", segment.value)
               .encode("seq_nr", event.seqNr)
+              .encode("partition", replicated.partitionOffset.partition)
+              .encode("offset", replicated.partitionOffset.offset)
               .encode("timestamp", replicated.timestamp)
               .encode("payload", event.payload)
               .encode("tags", event.tags)
-              .encode("partition", replicated.partitionOffset.partition)
-              .encode("offset", replicated.partitionOffset.offset)
           }
 
           val statement = {
@@ -134,7 +134,7 @@ object JournalStatement {
     def apply(name: TableName, session: PrepareAndExecute)(implicit ec: ExecutionContext): Async[Type] = {
       val query =
         s"""
-           |SELECT seq_nr, timestamp, payload, tags, partition, offset FROM ${ name.asCql }
+           |SELECT seq_nr, partition, offset, timestamp, payload, tags FROM ${ name.asCql }
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?

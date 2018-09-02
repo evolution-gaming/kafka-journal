@@ -1,52 +1,70 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.Action.{Header => A}
-import com.evolutiongaming.kafka.journal.SeqNr.Helper._
-import com.evolutiongaming.kafka.journal.{JournalInfo => J}
 import org.scalatest.{FunSuite, Matchers}
 
 class JournalInfoSpec extends FunSuite with Matchers {
 
   test("Empty apply Append") {
-    J.Empty(A.Append(SeqRange(1, 2))) shouldEqual J.NonEmpty(2.toSeqNr)
+    Empty(append(1, 2)) shouldEqual nonEmpty(2)
   }
 
   test("Empty apply Delete") {
-    J.Empty(A.Delete(10.toSeqNr)) shouldEqual J.DeleteTo(10.toSeqNr)
+    Empty(delete(10)) shouldEqual deleted(10)
   }
 
   test("Empty apply Mark") {
-    J.Empty(A.Mark("id")) shouldEqual J.Empty
+    Empty(mark) shouldEqual Empty
   }
 
   test("NonEmpty apply Append") {
-    J.NonEmpty(1.toSeqNr)(A.Append(SeqRange(2, 3))) shouldEqual J.NonEmpty(3.toSeqNr)
-    J.NonEmpty(2.toSeqNr, Some(1.toSeqNr))(A.Append(SeqRange(3, 4))) shouldEqual J.NonEmpty(4.toSeqNr, Some(1.toSeqNr))
+    nonEmpty(1)(append(2, 3)) shouldEqual nonEmpty(3)
+    nonEmpty(2, Some(1))(append(3, 4)) shouldEqual nonEmpty(4, Some(1))
   }
 
   test("NonEmpty apply Delete") {
-    J.NonEmpty(2.toSeqNr)(A.Delete(3.toSeqNr)) shouldEqual J.NonEmpty(2.toSeqNr, Some(2.toSeqNr))
-    J.NonEmpty(2.toSeqNr)(A.Delete(1.toSeqNr)) shouldEqual J.NonEmpty(2.toSeqNr, Some(1.toSeqNr))
-    J.NonEmpty(2.toSeqNr, Some(1.toSeqNr))(A.Delete(3.toSeqNr)) shouldEqual J.NonEmpty(2.toSeqNr, Some(2.toSeqNr))
-    J.NonEmpty(2.toSeqNr, Some(2.toSeqNr))(A.Delete(1.toSeqNr)) shouldEqual J.NonEmpty(2.toSeqNr, Some(2.toSeqNr))
+    nonEmpty(2)(delete(3)) shouldEqual nonEmpty(2, Some(2))
+    nonEmpty(2)(delete(1)) shouldEqual nonEmpty(2, Some(1))
+    nonEmpty(2, Some(1))(delete(3)) shouldEqual nonEmpty(2, Some(2))
+    nonEmpty(2, Some(2))(delete(1)) shouldEqual nonEmpty(2, Some(2))
   }
 
   test("NonEmpty apply Mark") {
-    J.NonEmpty(2.toSeqNr)(A.Mark("id")) shouldEqual J.NonEmpty(2.toSeqNr)
+    nonEmpty(2)(mark) shouldEqual nonEmpty(2)
   }
 
   test("DeleteTo apply Append") {
-    J.DeleteTo(1.toSeqNr)(A.Append(SeqRange(1, 2))) shouldEqual J.NonEmpty(2.toSeqNr)
-    J.DeleteTo(10.toSeqNr)(A.Append(SeqRange(1, 2))) shouldEqual J.NonEmpty(2.toSeqNr)
-    J.DeleteTo(10.toSeqNr)(A.Append(SeqRange(2, 3))) shouldEqual J.NonEmpty(3.toSeqNr, Some(1.toSeqNr))
+    deleted(1)(append(1, 2)) shouldEqual nonEmpty(2)
+    deleted(10)(append(1, 2)) shouldEqual nonEmpty(2)
+    deleted(10)(append(2, 3)) shouldEqual nonEmpty(3, Some(1))
   }
 
   test("DeleteTo apply Delete") {
-    J.DeleteTo(1.toSeqNr)(A.Delete(2.toSeqNr)) shouldEqual J.DeleteTo(2.toSeqNr)
-    J.DeleteTo(2.toSeqNr)(A.Delete(1.toSeqNr)) shouldEqual J.DeleteTo(2.toSeqNr)
+    deleted(1)(delete(2)) shouldEqual deleted(2)
+    deleted(2)(delete(1)) shouldEqual deleted(2)
   }
 
   test("DeleteTo apply Mark") {
-    J.DeleteTo(1.toSeqNr)(A.Mark("id")) shouldEqual J.DeleteTo(1.toSeqNr)
+    deleted(1)(mark) shouldEqual deleted(1)
   }
+
+
+  private def append(from: Int, to: Int) = {
+    Action.Header.Append(SeqRange(SeqNr(from.toLong /*TODO try to avoid .toLong ?*/), SeqNr(to.toLong)))
+  }
+
+  private def delete(seqNr: Int) = {
+    Action.Header.Delete(SeqNr(seqNr.toLong))
+  }
+
+  private def mark = Action.Header.Mark("id")
+
+  private def deleted(seqNr: Int) = {
+    JournalInfo.Deleted(SeqNr(seqNr.toLong /*TODO try to avoid .toLong ?*/))
+  }
+
+  private def nonEmpty(seqNr: Int, deleteTo: Option[Int] = None) = {
+    JournalInfo.NonEmpty(SeqNr(seqNr.toLong), deleteTo.map(x => SeqNr(x.toLong)))
+  }
+
+  private def Empty = JournalInfo.Empty
 }

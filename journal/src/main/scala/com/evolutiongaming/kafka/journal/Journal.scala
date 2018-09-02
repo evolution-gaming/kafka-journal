@@ -33,9 +33,13 @@ trait Journal {
 object Journal {
 
   val Empty: Journal = new Journal {
+
     def append(events: Nel[Event], timestamp: Instant) = Async.unit
+
     def read[S](from: SeqNr, s: S)(f: Fold[S, Event]) = s.async
+
     def lastSeqNr(from: SeqNr) = Async.none
+    
     def delete(to: SeqNr, timestamp: Instant) = Async.unit
 
     override def toString = s"Journal.Empty"
@@ -198,7 +202,7 @@ object Journal {
             case JournalInfo.Empty                 => replicated(from)
             case JournalInfo.NonEmpty(_, deleteTo) => onNonEmpty(deleteTo, readActions)
             // TODO test this case
-            case JournalInfo.DeleteTo(deleteTo) => deleteTo.next match {
+            case JournalInfo.Deleted(deleteTo) => deleteTo.next match {
               case None       => s.async
               case Some(next) => replicated(from max next)
             }

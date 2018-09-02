@@ -16,11 +16,16 @@ trait Log[F[_]] {
 object Log {
 
   def empty[F[_]](unit: F[Unit]): Log[F] = new Log[F] {
+
     def debug(msg: => String) = unit
+
     def info(msg: => String) = unit
+
     def warn(msg: => String) = unit
+
     def error(msg: => String, cause: Throwable) = unit
   }
+
 
   def apply[F[_] : IO](log: ActorLog): Log[F] = new Log[F] {
 

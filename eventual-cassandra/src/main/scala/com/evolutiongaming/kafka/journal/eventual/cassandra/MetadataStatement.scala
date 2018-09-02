@@ -31,7 +31,10 @@ object MetadataStatement {
        |CREATE TABLE IF NOT EXISTS ${ name.asCql } (
        |id text,
        |topic text,
+       |partition int,
+       |offset bigint,
        |segment_size int,
+       |seq_nr bigint,
        |delete_to bigint,
        |created timestamp,
        |updated timestamp,
@@ -48,8 +51,8 @@ object MetadataStatement {
 
       val query =
         s"""
-           |INSERT INTO ${ name.asCql } (id, topic, segment_size, delete_to, created, updated, properties)
-           |VALUES (?, ?, ?, ?, ?, ?, ?)
+           |INSERT INTO ${ name.asCql } (id, topic, segment_size, seq_nr, delete_to, created, updated, properties)
+           |VALUES (?, ?, ?, ?, ?, ?, ?, ?)
            |""".stripMargin
 
       for {
@@ -61,6 +64,7 @@ object MetadataStatement {
             .encode("id", key.id)
             .encode("topic", key.topic)
             .encode("segment_size", metadata.segmentSize)
+            .encode("seq_nr", metadata.seqNr)
             .encode("delete_to", metadata.deleteTo)
             .encode("created", timestamp)
             .encode("updated", timestamp)
@@ -76,7 +80,7 @@ object MetadataStatement {
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
       val query =
         s"""
-           |SELECT segment_size, delete_to FROM ${ name.asCql }
+           |SELECT segment_size, seq_nr, delete_to FROM ${ name.asCql }
            |WHERE id = ?
            |AND topic = ?
            |""".stripMargin
@@ -93,6 +97,7 @@ object MetadataStatement {
           } yield {
             Metadata(
               segmentSize = row.decode[Int]("segment_size"),
+              seqNr = row.decode[SeqNr]("seq_nr"),
               deleteTo = row.decode[Option[SeqNr]]("delete_to"))
           }
       }
