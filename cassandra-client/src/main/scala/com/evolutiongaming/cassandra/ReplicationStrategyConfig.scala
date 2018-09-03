@@ -22,9 +22,9 @@ object ReplicationStrategyConfig {
 
     def get[T: FromConf](name: String) = config.getOpt[T](name)
 
-    val strategy = get[String]("replication-strategy").collect {
-      case "Simple"          => get[Config]("simple").fold(Simple.Default)(Simple.apply)
-      case "NetworkTopology" => get[Config]("network-topology").fold(NetworkTopology.Default)(NetworkTopology.apply)
+    val strategy = get[String]("replication-strategy").map(_.toLowerCase).collect {
+      case "simple"          => get[Config]("simple").fold(Simple.Default)(Simple.apply)
+      case "networktopology" => get[Config]("network-topology").fold(NetworkTopology.Default)(NetworkTopology.apply)
     }
 
     strategy getOrElse Simple.Default

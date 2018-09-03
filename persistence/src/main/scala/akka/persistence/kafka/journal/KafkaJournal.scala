@@ -24,27 +24,38 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.util.control.NonFatal
 
-class PersistenceJournal(config: Config) extends AsyncWriteJournal {
+class KafkaJournal(config: Config) extends AsyncWriteJournal {
 
   implicit val system: ActorSystem = context.system
   implicit val ec: ExecutionContextExecutor = system.dispatcher
 
-  val adapter: JournalsAdapter = adapterNew(toKey(), serialisation())
+  val log: ActorLog = ActorLog(system, classOf[KafkaJournal])
+
+  val adapter: JournalsAdapter = adapterOf(toKey(), serialisation())
 
   def serialisation(): SerializedMsgConverter = SerializedMsgExt(system)
 
   def toKey(): ToKey = ToKey(config)
 
-  def adapterNew(toKey: ToKey, serialisation: SerializedMsgConverter): JournalsAdapter = {
+  def kafkaConfig(name: String): Config = {
+    val kafka = config.getConfig("kafka")
+    kafka.getConfig(name) withFallback kafka
+  }
 
-    def kafkaConfig(name: String) = {
-      val kafka = config.getConfig("kafka")
-      kafka.getConfig(name) withFallback kafka
+  def producerConfig() = ProducerConfig(kafkaConfig("producer"))
+
+  def consumerConfig() = ConsumerConfig(kafkaConfig("consumer"))
+
+  def cassandraConfig(): EventualCassandraConfig = {
+    config.getOpt[Config]("cassandra") match {
+      case Some(config) => EventualCassandraConfig(config)
+      case None         => EventualCassandraConfig.Default
     }
+  }
 
-    val log = ActorLog(system, classOf[PersistenceJournal])
+  def adapterOf(toKey: ToKey, serialisation: SerializedMsgConverter): JournalsAdapter = {
 
-    val producerConfig = ProducerConfig(kafkaConfig("producer"))
+    val producerConfig = this.producerConfig()
     log.debug(s"Producer config: $producerConfig")
 
     val ecBlocking = system.dispatchers.lookup("evolutiongaming.kafka-journal.persistence.journal.blocking-dispatcher")
@@ -65,7 +76,7 @@ class PersistenceJournal(config: Config) extends AsyncWriteJournal {
       }
     }
 
-    val consumerConfig = ConsumerConfig(kafkaConfig("consumer"))
+    val consumerConfig = this.consumerConfig()
     log.debug(s"Consumer config: $consumerConfig")
 
     val newConsumer = (topic: Topic) => {
@@ -77,10 +88,7 @@ class PersistenceJournal(config: Config) extends AsyncWriteJournal {
     }
 
     val eventualJournal: EventualJournal = {
-      val config = this.config.getOpt[Config]("cassandra") match {
-        case Some(config) => EventualCassandraConfig(config)
-        case None         => EventualCassandraConfig.Default
-      }
+      val config = cassandraConfig()
       val cluster = CreateCluster(config.client)
       val session = Await.result(cluster.connect(), connectTimeout) // TODO handle this properly
       system.registerOnTermination {
