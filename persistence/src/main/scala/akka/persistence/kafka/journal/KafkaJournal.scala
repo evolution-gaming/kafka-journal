@@ -22,6 +22,7 @@ import com.typesafe.config.Config
 import scala.collection.immutable.Seq
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContextExecutor, Future}
+import scala.util.Try
 import scala.util.control.NonFatal
 
 class KafkaJournal(config: Config) extends AsyncWriteJournal {
@@ -116,25 +117,27 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
   }
 
   // TODO optimise concurrent calls asyncReplayMessages & asyncReadHighestSequenceNr for the same persistenceId
-  def asyncWriteMessages(atomicWrites: Seq[AtomicWrite]) = {
+  def asyncWriteMessages(atomicWrites: Seq[AtomicWrite]): Future[Seq[Try[Unit]]] = {
     adapter.write(atomicWrites)
   }
 
-  def asyncDeleteMessagesTo(persistenceId: PersistenceId, to: Long) = {
+  def asyncDeleteMessagesTo(persistenceId: PersistenceId, to: Long): Future[Unit] = {
     SeqNr.opt(to) match {
       case Some(to) => adapter.delete(persistenceId, to)
       case None     => Future.unit
     }
   }
 
-  def asyncReplayMessages(persistenceId: PersistenceId, from: Long, to: Long, max: Long)(f: PersistentRepr => Unit) = {
+  def asyncReplayMessages(persistenceId: PersistenceId, from: Long, to: Long, max: Long)
+    (f: PersistentRepr => Unit): Future[Unit] = {
+
     val seqNrFrom = SeqNr(from, SeqNr.Min)
     val seqNrTo = SeqNr(to, SeqNr.Max)
     val range = SeqRange(seqNrFrom, seqNrTo)
     adapter.replay(persistenceId, range, max)(f)
   }
 
-  def asyncReadHighestSequenceNr(persistenceId: PersistenceId, from: Long) = {
+  def asyncReadHighestSequenceNr(persistenceId: PersistenceId, from: Long): Future[Long] = {
     val seqNr = SeqNr(from, SeqNr.Min)
     for {
       seqNr <- adapter.lastSeqNr(persistenceId, seqNr)
