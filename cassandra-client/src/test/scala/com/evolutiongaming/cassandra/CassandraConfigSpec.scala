@@ -31,4 +31,10 @@ class CassandraConfigSpec extends FunSuite with Matchers {
       logQueries = true)
     CassandraConfig(config) shouldEqual expected
   }
+
+  test("apply from config with contactPoints as string") {
+    val config = ConfigFactory.parseURL(getClass.getResource("cluster_contact-points.conf"))
+    val expected = CassandraConfig(contactPoints = Nel("127.0.0.1", "127.0.0.2"))
+    CassandraConfig(config) shouldEqual expected
+  }
 }
