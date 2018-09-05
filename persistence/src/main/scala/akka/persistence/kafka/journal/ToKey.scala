@@ -50,12 +50,12 @@ object ToKey {
   def split(separator: String, fallback: ToKey): ToKey = new ToKey {
 
     def apply(persistenceId: String): Key = {
-      val idx = persistenceId.lastIndexOf(separator)
-      if (idx == -1) fallback(persistenceId)
-      else {
-        val id = persistenceId.take(idx)
-        val topic = persistenceId.drop(idx + separator.length)
-        Key(topic = topic, id = id)
+      persistenceId.lastIndexOf(separator) match {
+        case -1  => fallback(persistenceId)
+        case idx =>
+          val topic = persistenceId.take(idx)
+          val id = persistenceId.drop(idx + separator.length)
+          Key(topic = topic, id = id)
       }
     }
   }
