@@ -11,16 +11,6 @@ import play.api.libs.json.Json
 object KafkaConverters {
   private val `journal.action` = "journal.action"
 
-
-  implicit val BytesToBytes: ToBytes[Bytes] = new ToBytes[Bytes] {
-    def apply(value: Bytes, topic: Topic) = value.value
-  }
-
-  implicit val BytesFromBytes: FromBytes[Bytes] = new FromBytes[Bytes] {
-    def apply(bytes: Array[Byte], topic: Topic): Bytes = Bytes(bytes)
-  }
-
-
   implicit class ActionHeaderOps(val self: Action.Header) extends AnyVal {
 
     def toKafkaHeader: skafka.Header = {
