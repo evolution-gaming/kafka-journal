@@ -31,10 +31,21 @@ object ReplicatorConfig {
       prefixes getOrElse Default.topicPrefixes
     }
 
+    def consumer = {
+      val config = for {
+        kafka <- get[Config]("kafka")
+        consumer <- kafka.getOpt[Config]("consumer")
+      } yield {
+        val config = consumer withFallback kafka
+        ConsumerConfig(config)
+      }
+      config getOrElse ConsumerConfig.Default
+    }
+
     ReplicatorConfig(
       topicPrefixes = topicPrefixes,
       topicDiscoveryInterval = get[FiniteDuration]("topic-discovery-interval") getOrElse Default.topicDiscoveryInterval,
-      consumer = get[Config]("kafka.consumer").fold(Default.consumer)(ConsumerConfig.apply),
+      consumer = consumer,
       cassandra = get[Config]("cassandra").fold(Default.cassandra)(EventualCassandraConfig.apply))
   }
 }
