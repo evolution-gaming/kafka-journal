@@ -5,20 +5,20 @@ import java.time.Instant
 import com.evolutiongaming.skafka.{Offset, Partition, TopicPartition}
 
 // TODO what to do if Offset is not in map ?
-final case class TopicPointers(pointers: Map[Partition, Offset]) {
+final case class TopicPointers(values: Map[Partition, Offset] = Map.empty) {
 
   def +(that: TopicPointers): TopicPointers = {
-    copy(this.pointers ++ that.pointers)
+    copy(this.values ++ that.values)
   }
 
   override def toString: String = {
-    val pointersStr = pointers.map { case (k, v) => s"$k:$v" }.mkString(",")
+    val pointersStr = values.map { case (k, v) => s"$k:$v" }.mkString(",")
     s"$productPrefix($pointersStr)"
   }
 }
 
 object TopicPointers {
-  val Empty: TopicPointers = TopicPointers(Map.empty)
+  val Empty: TopicPointers = TopicPointers()
 }
 
 

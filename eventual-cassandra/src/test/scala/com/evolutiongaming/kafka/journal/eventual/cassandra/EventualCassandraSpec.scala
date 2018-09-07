@@ -106,7 +106,7 @@ class EventualCassandraSpec extends EventualJournalSpec {
 
       val insertPointer = (pointer: PointerInsert) => {
         val topicPointers = pointers.getOrElse(pointer.topic, TopicPointers.Empty)
-        val updated = topicPointers.copy(pointers = topicPointers.pointers.updated(pointer.partition, pointer.offset))
+        val updated = topicPointers.copy(values = topicPointers.values.updated(pointer.partition, pointer.offset))
         pointers = pointers.updated(pointer.topic, updated)
         Async.unit
       }

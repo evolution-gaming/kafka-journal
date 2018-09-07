@@ -287,7 +287,7 @@ object ReplicatedCassandra {
 
 
       def save(topic: Topic, topicPointers: TopicPointers): Async[Unit] = {
-        val pointers = topicPointers.pointers
+        val pointers = topicPointers.values
         if (pointers.isEmpty) Async.unit
         else {
 

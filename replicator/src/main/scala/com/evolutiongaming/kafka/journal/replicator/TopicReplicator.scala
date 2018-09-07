@@ -36,9 +36,9 @@ object TopicReplicator {
 
     // TODO handle that consumerRecords are not empty
     def apply(
-      pointers: TopicPointers,
+      state: State,
       consumerRecords: ConsumerRecords[String, Bytes],
-      timestamp: Instant): F[TopicPointers] = {
+      timestamp: Instant): F[(State, Map[TopicPartition, OffsetAndMetadata])] = {
 
       // TODO avoid creating unnecessary collections
       val records = for {
@@ -115,22 +115,41 @@ object TopicReplicator {
       }
 
       def savePointers() = {
-        val diff = {
-          val pointers = for {
-            (topicPartition, records) <- consumerRecords.values
-            offset = records.foldLeft(0l) { (offset, record) => record.offset max offset }
+
+        val offsets = for {
+          (topicPartition, records) <- consumerRecords.values
+          offset = records.foldLeft(0l /*TODO Offset.Min*/) { (offset, record) => record.offset max offset }
+          if offset != 0l /*TODO*/
+        } yield {
+          (topicPartition, offset)
+        }
+
+        val offsetsToCommit = for {
+          (topicPartition, offset) <- offsets
+        } yield {
+          val offsetAndMetadata = OffsetAndMetadata(offset + 1, "" /* TODO*/)
+          (topicPartition, offsetAndMetadata)
+        }
+
+        val pointersNew = TopicPointers {
+          for {
+            (topicPartition, offset) <- offsets
           } yield {
             (topicPartition.partition, offset)
           }
-          TopicPointers(pointers)
         }
 
         val result = {
-          if (diff.pointers.isEmpty) unit
-          else journal.save(topic, diff)
+          if (pointersNew.values.isEmpty) unit
+          else journal.save(topic, pointersNew)
         }
 
-        for {_ <- result} yield pointers + diff
+        for {
+          _ <- result
+        } yield {
+          val stateNew = state.copy(state.pointers + pointersNew)
+          (stateNew, offsetsToCommit)
+        }
       }
 
       for {
@@ -140,23 +159,25 @@ object TopicReplicator {
     }
 
     // TODO cache state and not re-read it when kafka is broken
-    def consume(pointers: TopicPointers) = {
-      IO[F].foldWhile(pointers) { pointers =>
+    def consume(state: State) = {
+      IO[F].foldWhile(state) { state =>
         for {
           stop <- stopRef.get()
-          pointers <- if (stop) pointers.stop.pure
+          state <- if (stop) state.stop.pure
           else for {
             records <- consumer.poll()
             stop <- stopRef.get()
-            pointers <- {
-              if (stop) pointers.stop.pure
-              else if (records.values.isEmpty) pointers.continue.pure
+            state <- {
+              if (stop) state.stop.pure
+              else if (records.values.isEmpty) state.continue.pure
               else for {
-                switch <- apply(pointers, records, /*TODO*/ Instant.now())
-              } yield switch.continue
+                stateAndOffsets <- apply(state, records, /*TODO*/ Instant.now())
+                (state, offsets) = stateAndOffsets
+                _ <- consumer.commit(offsets)
+              } yield state.continue
             }
-          } yield pointers
-        } yield pointers
+          } yield state
+        } yield state
       }
     }
 
@@ -168,11 +189,14 @@ object TopicReplicator {
       partitionOffsets = for {
         partition <- partitions.toList
       } yield {
-        val offset = pointers.pointers.getOrElse(partition, 0l /*TODO is it correct?*/)
+        val offset = pointers.values.getOrElse(partition, 0l /*TODO is it correct?*/)
         PartitionOffset(partition = partition, offset = offset)
       }
-      _ <- consumer.seek(topic, partitionOffsets)
-      _ <- consume(pointers)
+
+      // TODO verify it started processing from right position
+
+      _ <- consumer.subscribe(topic)
+      _ <- consume(State.Empty)
     } yield {}
 
     // TODO rename
@@ -193,6 +217,12 @@ object TopicReplicator {
 
       override def toString = s"TopicReplicator($topic)"
     }
+  }
+
+  case class State(pointers: TopicPointers = TopicPointers.Empty)
+
+  object State {
+    val Empty: State = State()
   }
 }
 

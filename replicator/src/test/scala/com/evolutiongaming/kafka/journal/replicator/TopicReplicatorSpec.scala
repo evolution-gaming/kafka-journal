@@ -7,7 +7,7 @@ import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPointers}
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords}
+import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, OffsetAndMetadata}
 import com.evolutiongaming.skafka.{Bytes => _, _}
 import org.scalatest.{Matchers, WordSpec}
 
@@ -31,7 +31,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             kafkaRecord(key, seqNrs)
           }
 
-          val topicPartition = TopicPartition(topic = topic, partition = partition)
+          val topicPartition = topicPartitionOf(partition)
 
           val kafkaRecords = List(
             append("0", Nel(1)),
@@ -43,11 +43,11 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             (record, idx) <- kafkaRecords.zipWithIndex
           } yield {
             val offset = idx + 1l
-            consumerRecord(record, topicPartition, offset)
+            consumerRecordOf(record, topicPartition, offset)
           }
           (topicPartition, records.toVector)
         }
-        ConsumerRecords(records.toMap) // TODO add test with single record per poll/ConsumerRecords
+        ConsumerRecords(records.toMap)
       }
 
       val data = Data(records = List(records))
@@ -55,7 +55,10 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
       val (result, _) = io.run(data)
 
       result shouldEqual Data(
-        subscription = Some((topic, Map((0, 0l), (1, 0l), (2, 0l), (3, 0l), (4, 0l)))),
+        topics = List(topic),
+        commits = List(Map(
+          (topicPartitionOf(0), offsetAndMetadata(5)),
+          (topicPartitionOf(1), offsetAndMetadata(5)))),
         stopped = true,
         pointers = Map((topic, TopicPointers(Map((0, 4l), (1, 4l))))),
         journal = Map(
@@ -73,6 +76,74 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             replicated(seqNr = 1, partition = 1, offset = 2),
             replicated(seqNr = 2, partition = 1, offset = 2),
             replicated(seqNr = 3, partition = 1, offset = 4)))),
+        metadata = Map(
+          (Key(id = "0-0", topic = topic), None),
+          (Key(id = "0-1", topic = topic), None),
+          (Key(id = "1-0", topic = topic), None),
+          (Key(id = "1-1", topic = topic), None)))
+    }
+
+    "replicate appends of many polls" in {
+      val records = for {
+        partition <- (0 to 1).toList
+        record <- {
+          def keyOf(id: String) = Key(id = s"$partition-$id", topic = topic)
+
+          def append(id: String, seqNrs: Nel[Int]) = {
+            val key = keyOf(id)
+            kafkaRecord(key, seqNrs)
+          }
+
+          val topicPartition = topicPartitionOf(partition)
+
+          val kafkaRecords = List(
+            append("0", Nel(1)),
+            append("1", Nel(1, 2)),
+            append("0", Nel(2)),
+            append("1", Nel(3)))
+
+          for {
+            (record, idx) <- kafkaRecords.zipWithIndex
+          } yield {
+            val offset = idx + 1l
+            val consumerRecord = consumerRecordOf(record, topicPartition, offset)
+            ConsumerRecords(Map((topicPartition, Vector(consumerRecord))))
+          }
+        }
+      } yield record
+
+      val data = Data(records = records)
+      val io = topicReplicator.shutdown()
+      val (result, _) = io.run(data)
+
+      result shouldEqual Data(
+        topics = List(topic),
+        commits = List(
+          Map((topicPartitionOf(1), offsetAndMetadata(5))),
+          Map((topicPartitionOf(1), offsetAndMetadata(4))),
+          Map((topicPartitionOf(1), offsetAndMetadata(3))),
+          Map((topicPartitionOf(1), offsetAndMetadata(2))),
+          Map((topicPartitionOf(0), offsetAndMetadata(5))),
+          Map((topicPartitionOf(0), offsetAndMetadata(4))),
+          Map((topicPartitionOf(0), offsetAndMetadata(3))),
+          Map((topicPartitionOf(0), offsetAndMetadata(2)))),
+        stopped = true,
+        pointers = Map((topic, TopicPointers(Map((0, 4l), (1, 4l))))),
+        journal = Map(
+          (Key(id = "0-0", topic = topic), List(
+            replicated(seqNr = 2, partition = 0, offset = 3),
+            replicated(seqNr = 1, partition = 0, offset = 1))),
+          (Key(id = "0-1", topic = topic), List(
+            replicated(seqNr = 3, partition = 0, offset = 4),
+            replicated(seqNr = 1, partition = 0, offset = 2),
+            replicated(seqNr = 2, partition = 0, offset = 2))),
+          (Key(id = "1-0", topic = topic), List(
+            replicated(seqNr = 2, partition = 1, offset = 3),
+            replicated(seqNr = 1, partition = 1, offset = 1))),
+          (Key(id = "1-1", topic = topic), List(
+            replicated(seqNr = 3, partition = 1, offset = 4),
+            replicated(seqNr = 1, partition = 1, offset = 2),
+            replicated(seqNr = 2, partition = 1, offset = 2)))),
         metadata = Map(
           (Key(id = "0-0", topic = topic), None),
           (Key(id = "0-1", topic = topic), None),
@@ -99,7 +170,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             KafkaRecord(key, mark)
           }
 
-          val topicPartition = TopicPartition(topic = topic, partition = partition)
+          val topicPartition = topicPartitionOf(partition)
 
           val kafkaRecords = List(
             append("0", Nel(1)),
@@ -116,7 +187,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             (record, idx) <- kafkaRecords.zipWithIndex
           } yield {
             val offset = idx + 1l
-            consumerRecord(record, topicPartition, offset)
+            consumerRecordOf(record, topicPartition, offset)
           }
           (topicPartition, records.toVector)
         }
@@ -128,7 +199,11 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
       val (result, _) = io.run(data)
 
       result shouldEqual Data(
-        subscription = Some((topic, Map((0, 0l), (1, 0l), (2, 0l), (3, 0l), (4, 0l)))),
+        topics = List(topic),
+        commits = List(Map(
+          (topicPartitionOf(0), offsetAndMetadata(10)),
+          (topicPartitionOf(1), offsetAndMetadata(10)),
+          (topicPartitionOf(2), offsetAndMetadata(10)))),
         stopped = true,
         pointers = Map((topic, TopicPointers(Map((0, 9l), (1, 9l), (2, 9l))))),
         journal = Map(
@@ -202,7 +277,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             KafkaRecord(key, mark)
           }
 
-          val topicPartition = TopicPartition(topic = topic, partition = partition)
+          val topicPartition = topicPartitionOf(partition)
 
           val kafkaRecords = List(
             append("0", Nel(1)),
@@ -220,7 +295,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             (record, idx) <- kafkaRecords.zipWithIndex
           } yield {
             val offset = idx + 1l
-            consumerRecord(record, topicPartition, offset)
+            consumerRecordOf(record, topicPartition, offset)
           }
           (topicPartition, records.toVector)
         }
@@ -232,7 +307,10 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
       val (result, _) = io.run(data)
 
       result shouldEqual Data(
-        subscription = Some((topic, Map((0, 0l), (1, 0l), (2, 0l), (3, 0l), (4, 0l)))),
+        topics = List(topic),
+        commits = List(Map(
+          (topicPartitionOf(0), offsetAndMetadata(11)),
+          (topicPartitionOf(1), offsetAndMetadata(11)))),
         stopped = true,
         pointers = Map((topic, TopicPointers(Map((0, 10l), (1, 10l))))),
         journal = Map(
@@ -288,7 +366,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             KafkaRecord(key, mark)
           }
 
-          val topicPartition = TopicPartition(topic = topic, partition = partition)
+          val topicPartition = topicPartitionOf(partition)
 
           val kafkaRecords = List(
             append("0", Nel(1)),
@@ -308,7 +386,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             (record, idx) <- kafkaRecords.zipWithIndex
           } yield {
             val offset = idx + 1l
-            consumerRecord(record, topicPartition, offset)
+            consumerRecordOf(record, topicPartition, offset)
           }
           (topicPartition, records.toVector)
         }
@@ -320,7 +398,9 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
       val (result, _) = io.run(data)
 
       result shouldEqual Data(
-        subscription = Some((topic, Map((0, 0l), (1, 0l), (2, 0l), (3, 0l), (4, 0l)))),
+        topics = List(topic),
+        commits = List(Map(
+          (topicPartitionOf(0), offsetAndMetadata(13)))),
         stopped = true,
         pointers = Map((topic, TopicPointers(Map((0, 12l))))),
         journal = Map(
@@ -343,13 +423,13 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
       val io = topicReplicator.shutdown()
       val (result, _) = io.run(data)
       result shouldEqual Data(
-        subscription = Some((topic, Map((0, 1l), (1, 0l), (2, 2l), (3, 0l), (4, 0l)))),
+        topics = List(topic),
         stopped = true,
         pointers = pointers)
     }
   }
 
-  private def consumerRecord(
+  private def consumerRecordOf(
     record: KafkaRecord.Any,
     topicPartition: TopicPartition,
     offset: Offset) = {
@@ -390,13 +470,19 @@ object TopicReplicatorSpec {
 
   val timestampAndType = TimestampAndType(timestamp, TimestampType.Create)
 
+  def topicPartitionOf(partition: Partition) = TopicPartition(topic, partition)
+
+  def offsetAndMetadata(offset: Offset) = OffsetAndMetadata(offset, "" /*TODO*/)
+
   val consumer: KafkaConsumer[TestIO] = new KafkaConsumer[TestIO] {
 
     def subscribe(topic: Topic) = TestIO { _.subscribe(topic) }
 
-    def seek(topic: Topic, partitionOffsets: List[PartitionOffset]) = {
-      TestIO { _.seek(topic, partitionOffsets) }
-    }
+    //    def seek(topic: Topic, partitionOffsets: List[PartitionOffset]) = {
+    //      TestIO { _.seek(topic, partitionOffsets) }
+    //    }
+
+    def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = TestIO { _.commit(offsets) }
 
     def poll() = TestIO { _.poll }
 
@@ -442,7 +528,8 @@ object TopicReplicatorSpec {
 
   // TODO create separate case class covering state of KafkaConsumer for testing
   final case class Data(
-    subscription: Option[(Topic, Map[Partition, Offset])] = None,
+    topics: List[Topic] = Nil,
+    commits: List[Map[TopicPartition, OffsetAndMetadata]] = Nil,
     records: List[ConsumerRecords[String, Bytes]] = Nil,
     stopped: Boolean = false,
     pointers: Map[Topic, TopicPointers] = Map.empty,
@@ -451,18 +538,24 @@ object TopicReplicatorSpec {
     self =>
 
     def subscribe(topic: Topic): (Data, Unit) = {
-      //      (copy(topics = topic :: topics), ())
-      (this, ())
+      val result = copy(topics = topic :: topics)
+      (result, ())
     }
 
-    def seek(topic: Topic, partitionOffsets: List[PartitionOffset]): (Data, Unit) = {
+    def commit(offsets: Map[TopicPartition, OffsetAndMetadata]): (Data, Unit) = {
+      val result = copy(commits = offsets :: commits)
+      (result, ())
+    }
+
+    /*def seek(topic: Topic, partitionOffsets: List[PartitionOffset]): (Data, Unit) = {
       val offsets = for {
         partitionOffset <- partitionOffsets
       } yield {
         (partitionOffset.partition, partitionOffset.offset)
       }
-      (copy(subscription = Some((topic, offsets.toMap))), ())
-    }
+      val result = copy(subscription = Some((topic, offsets.toMap)))
+      (result, ())
+    }*/
 
     def stop(value: Boolean): (Data, Unit) = {
       //      (copy(stopped = value), ())
@@ -470,7 +563,9 @@ object TopicReplicatorSpec {
     }
 
     def save(topic: Topic, pointers: TopicPointers): (Data, Unit) = {
-      (copy(pointers = self.pointers.updated(topic, pointers)), ())
+      val updated = self.pointers.getOrElse(topic, TopicPointers.Empty) + pointers
+      val result = copy(pointers = self.pointers.updated(topic, updated))
+      (result, ())
     }
 
     def append(key: Key, events: Nel[ReplicatedEvent], deleteTo: Option[SeqNr]): (Data, Unit) = {

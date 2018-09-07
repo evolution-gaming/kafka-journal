@@ -18,7 +18,7 @@ import com.evolutiongaming.skafka.{Bytes => _, _}
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
-// TODO should we return offset ?
+// TODO should we return offset ? Yes we should
 trait Journal {
 
   def append(events: Nel[Event], timestamp: Instant): Async[Unit]
@@ -124,7 +124,7 @@ object Journal {
         marker <- marker
         topicPointers <- topicPointers
       } yield {
-        val offsetReplicated = topicPointers.pointers.get(marker.partitionOffset.partition)
+        val offsetReplicated = topicPointers.values.get(marker.partitionOffset.partition)
         FoldActions(key, from, marker, offsetReplicated, withReadActions)
       }
     }
