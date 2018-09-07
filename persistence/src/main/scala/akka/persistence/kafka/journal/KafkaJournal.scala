@@ -8,7 +8,6 @@ import akka.persistence.{AtomicWrite, PersistentRepr}
 import com.evolutiongaming.cassandra.CreateCluster
 import com.evolutiongaming.config.ConfigHelper._
 import com.evolutiongaming.kafka.journal.Alias._
-import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
 import com.evolutiongaming.kafka.journal.{Bytes, Journals, SeqNr, SeqRange}
@@ -39,8 +38,8 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
   def toKey(): ToKey = ToKey(config)
 
   def kafkaConfig(name: String): Config = {
-    val kafka = config.getConfig("kafka")
-    kafka.getConfig(name) withFallback kafka
+    val common = config.getConfig("kafka")
+    common.getConfig(name) withFallback common
   }
 
   def producerConfig() = ProducerConfig(kafkaConfig("producer"))

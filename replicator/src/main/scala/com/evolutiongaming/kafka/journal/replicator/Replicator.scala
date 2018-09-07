@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import java.util.UUID
 
 import akka.actor.ActorSystem
 import com.evolutiongaming.cassandra.CreateCluster
@@ -8,7 +7,6 @@ import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.concurrent.serially.SeriallyAsync
 import com.evolutiongaming.kafka.journal.AsyncHelper._
-import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.ReplicatedCassandra
 import com.evolutiongaming.safeakka.actor.ActorLog
@@ -43,13 +41,11 @@ object Replicator {
     val stateVar = AsyncVar[State](State.Running.Empty, serially)
 
     def createReplicator(topic: Topic, partitions: Set[Partition]) = {
-      val uuid = UUID.randomUUID()
       val prefix = config.consumer.groupId getOrElse "journal-replicator"
-      // TODO remove UUID
-      val groupId = s"$prefix-$topic-$uuid"
+      val groupId = s"$prefix-$topic"
       val consumerConfig = config.consumer.copy(groupId = Some(groupId))
       val consumer = CreateConsumer[String, Bytes](consumerConfig, ecBlocking)
-      implicit val kafkaConsumer = KafkaConsumer(consumer, 100.millis/*TODO from configuration*/)
+      implicit val kafkaConsumer = KafkaConsumer(consumer, 100.millis /*TODO from configuration*/)
       val actorLog = ActorLog(system, TopicReplicator.getClass) prefixed topic
       implicit val log = Log(actorLog)
       val stopRef = Ref[Boolean, Async]()
@@ -79,6 +75,7 @@ object Replicator {
               if (topicsNew.isEmpty) state
               else {
                 def topicsStr = topicsNew.keys.mkString(",")
+
                 log.info(s"discover new topics: $topicsStr in ${ duration }ms")
 
                 val replicatorsNew = for {
