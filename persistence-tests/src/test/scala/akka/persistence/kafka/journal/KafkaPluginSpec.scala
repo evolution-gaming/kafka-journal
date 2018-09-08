@@ -1,6 +1,7 @@
 package akka.persistence.kafka.journal
 
 import akka.persistence.PluginSpec
+import akka.testkit.DefaultTimeout
 import com.evolutiongaming.cassandra.StartCassandra
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.StartKafka
@@ -9,13 +10,13 @@ import com.evolutiongaming.kafka.journal.replicator.Replicator
 import scala.concurrent.duration._
 import scala.util.control.NonFatal
 
-trait KafkaPluginSpec extends PluginSpec {
+trait KafkaPluginSpec extends PluginSpec with DefaultTimeout {
 
   var shutdown: () => Async[Unit] = () => Async.unit
 
   override def beforeAll(): Unit = {
     KafkaPluginSpec.start()
-    val replicator = Replicator(system)
+    val replicator = Replicator(system).get(timeout.duration)
     shutdown = () => replicator.shutdown()
     super.beforeAll()
   }

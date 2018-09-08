@@ -20,7 +20,8 @@ class ReplicatorConfigSpec extends FunSuite with Matchers {
     val config = ConfigFactory.parseURL(getClass.getResource("replicator.conf"))
     val expected = ReplicatorConfig(
       topicPrefixes = Nel("prefix1", "prefix2"),
-      topicDiscoveryInterval = 1.minute)
+      topicDiscoveryInterval = 1.minute,
+      pollTimeout = 200.millis)
     ReplicatorConfig(config) shouldEqual expected
   }
 
@@ -28,7 +29,9 @@ class ReplicatorConfigSpec extends FunSuite with Matchers {
     val config = ConfigFactory.parseURL(getClass.getResource("replicator_kafka.conf"))
     val expected = ReplicatorConfig(
       topicPrefixes = Nel("prefix"),
-      consumer = ConsumerConfig(maxPollRecords = 10, common = CommonConfig(clientId = Some("clientId"))))
+      consumer = ConsumerConfig(
+        maxPollRecords = 10,
+        common = CommonConfig(clientId = Some("clientId"))))
     ReplicatorConfig(config) shouldEqual expected
   }
 }

@@ -3,7 +3,6 @@ package akka.persistence.kafka.journal
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.persistence._
 import akka.persistence.journal.JournalSpec
-import akka.testkit.DefaultTimeout
 import com.evolutiongaming.nel.Nel
 import com.typesafe.config.ConfigFactory
 import org.scalatest.Matchers
@@ -15,7 +14,6 @@ import scala.concurrent.{Await, Promise}
 
 class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
   with KafkaPluginSpec
-  with DefaultTimeout
   with Matchers {
 
   implicit lazy val system: ActorSystem = ActorSystem("ConsistencySpec", config.withFallback(JournalSpec.config))

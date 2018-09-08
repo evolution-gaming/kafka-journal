@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.replicator
 
 
 import akka.actor.ActorSystem
-import com.evolutiongaming.cassandra.CreateCluster
+import com.evolutiongaming.cassandra.{Cluster, CreateCluster, Session}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.concurrent.serially.SeriallyAsync
@@ -14,27 +14,38 @@ import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Partition, Topic, Bytes => _}
 
 import scala.compat.Platform
-import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.ExecutionContext
+import scala.util.control.NonFatal
 
 trait Replicator {
   def shutdown(): Async[Unit]
 }
 
-// TODO refactor EventualDb api, make sure it does operate with Seq[Actions]
 object Replicator {
 
-  def apply(system: ActorSystem): Replicator = {
+  def apply(system: ActorSystem): Async[Replicator] = try {
     val name = "evolutiongaming.kafka-journal.replicator"
     val config = ReplicatorConfig(system.settings.config.getConfig(name))
     val ecBlocking = system.dispatchers.lookup(s"$name.blocking-dispatcher")
-    apply(config, ecBlocking)(system, system.dispatcher)
+    implicit val ec = system.dispatcher
+    val cassandra = CreateCluster(config.cassandra.client)
+    val consumerOf = (config: ConsumerConfig) => CreateConsumer[String, Bytes](config, ecBlocking)
+    for {
+      session <- cassandra.connect().async
+    } yield {
+      apply(config, cassandra, session, consumerOf)(system, ec)
+    }
+  } catch {
+    case NonFatal(failure) => Async.failed(failure)
   }
 
-  def apply(config: ReplicatorConfig, ecBlocking: ExecutionContext)(implicit system: ActorSystem, ec: ExecutionContext): Replicator = {
+  def apply(
+    config: ReplicatorConfig,
+    cassandra: Cluster,
+    session: Session,
+    consumerOf: ConsumerConfig => Consumer[String, Bytes])(implicit system: ActorSystem, ec: ExecutionContext): Replicator = {
+
     val log = ActorLog(system, Replicator.getClass)
-    val cluster = CreateCluster(config.cassandra.client)
-    val session = Await.result(cluster.connect(), 5.seconds) // TODO handle this properly
     val journal = ReplicatedCassandra(session, config.cassandra)
 
     val serially = SeriallyAsync()
@@ -44,8 +55,8 @@ object Replicator {
       val prefix = config.consumer.groupId getOrElse "journal-replicator"
       val groupId = s"$prefix-$topic"
       val consumerConfig = config.consumer.copy(groupId = Some(groupId))
-      val consumer = CreateConsumer[String, Bytes](consumerConfig, ecBlocking)
-      implicit val kafkaConsumer = KafkaConsumer(consumer, 100.millis /*TODO from configuration*/)
+      val consumer = consumerOf(consumerConfig)
+      implicit val kafkaConsumer = KafkaConsumer(consumer, config.pollTimeout)
       val actorLog = ActorLog(system, TopicReplicator.getClass) prefixed topic
       implicit val log = Log(actorLog)
       val stopRef = Ref[Boolean, Async]()
@@ -53,7 +64,7 @@ object Replicator {
       TopicReplicator(topic, partitions, kafkaConsumer, journal, log, stopRef)
     }
 
-    val consumer = CreateConsumer[String, Bytes](config.consumer, ecBlocking)
+    val consumer = consumerOf(config.consumer)
 
     def discoverTopics(): Unit = {
       val timestamp = Platform.currentTime
@@ -117,7 +128,7 @@ object Replicator {
           _ <- shutdownReplicators()
           _ <- serially.stop().async
           kafka = consumer.close().async
-          _ <- cluster.close().async
+          _ <- cassandra.close().async
           _ <- kafka
         } yield {}
       }

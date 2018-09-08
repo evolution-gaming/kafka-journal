@@ -12,7 +12,8 @@ final case class ReplicatorConfig(
   topicPrefixes: Nel[String] = Nel("journal"),
   topicDiscoveryInterval: FiniteDuration = 3.seconds,
   consumer: ConsumerConfig = ConsumerConfig.Default,
-  cassandra: EventualCassandraConfig = EventualCassandraConfig.Default)
+  cassandra: EventualCassandraConfig = EventualCassandraConfig.Default,
+  pollTimeout: FiniteDuration = 100.millis)
 
 object ReplicatorConfig {
 
@@ -46,6 +47,7 @@ object ReplicatorConfig {
       topicPrefixes = topicPrefixes,
       topicDiscoveryInterval = get[FiniteDuration]("topic-discovery-interval") getOrElse Default.topicDiscoveryInterval,
       consumer = consumer,
-      cassandra = get[Config]("cassandra").fold(Default.cassandra)(EventualCassandraConfig.apply))
+      cassandra = get[Config]("cassandra").fold(Default.cassandra)(EventualCassandraConfig.apply),
+      pollTimeout = get[FiniteDuration]("kafka.consumer.poll-timeout") getOrElse Default.pollTimeout)
   }
 }
