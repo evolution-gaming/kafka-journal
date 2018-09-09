@@ -3,7 +3,6 @@ package com.evolutiongaming.skafka.consumer
 import java.lang.{Long => LongJ}
 import java.util.regex.Pattern
 
-import com.evolutiongaming.concurrent.FutureHelper._
 import com.evolutiongaming.skafka.Converters._
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer.ConsumerConverters._
@@ -12,9 +11,7 @@ import org.apache.kafka.clients.consumer.{KafkaConsumer, Consumer => ConsumerJ}
 import scala.collection.JavaConverters._
 import scala.collection.immutable.Iterable
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.util.Try
-import scala.util.control.NonFatal
+import scala.concurrent.{ExecutionContext, Future}
 
 object CreateConsumer {
 
@@ -33,16 +30,6 @@ object CreateConsumer {
   def apply[K, V](consumer: ConsumerJ[K, V], ecBlocking: ExecutionContext): Consumer[K, V] = {
 
     def blocking[T](f: => T): Future[T] = Future(f)(ecBlocking)
-
-    def callbackAndFuture() = {
-      val promise = Promise[Map[TopicPartition, OffsetAndMetadata]]()
-      val callback = new CommitCallback {
-        def apply(offsets: Try[Map[TopicPartition, OffsetAndMetadata]]) = {
-          promise.complete(offsets)
-        }
-      }
-      (callback, promise.future)
-    }
 
     new Consumer[K, V] {
 
@@ -83,23 +70,15 @@ object CreateConsumer {
       }
 
       def commit() = {
-        try {
-          val (callback, future) = callbackAndFuture()
-          consumer.commitAsync(callback.asJava)
-          future
-        } catch {
-          case NonFatal(failure) => Future.failed(failure)
+        blocking {
+          consumer.commitSync()
         }
       }
 
       def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = {
-        try {
-          val (callback, future) = callbackAndFuture()
-          val offsetsJ = offsets.asJavaMap(_.asJava, _.asJava)
-          consumer.commitAsync(offsetsJ, callback.asJava)
-          future.unit
-        } catch {
-          case NonFatal(failure) => Future.failed(failure)
+        val offsetsJ = offsets.asJavaMap(_.asJava, _.asJava)
+        blocking {
+          consumer.commitSync(offsetsJ)
         }
       }
 

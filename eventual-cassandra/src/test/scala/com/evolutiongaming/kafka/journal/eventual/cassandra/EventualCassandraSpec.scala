@@ -9,7 +9,6 @@ import com.evolutiongaming.kafka.journal.eventual.{EventualJournalSpec, Pointer,
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
 import com.evolutiongaming.kafka.journal.{Key, ReplicatedEvent, SeqNr, SeqRange}
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Topic
 
 class EventualCassandraSpec extends EventualJournalSpec {
@@ -71,7 +70,7 @@ class EventualCassandraSpec extends EventualJournalSpec {
         selectMetadata = selectMetadata,
         selectPointers = selectPointers)
 
-      EventualCassandra(statements.async, ActorLog.empty)
+      EventualCassandra(statements.async)
     }
 
     val replicated = {

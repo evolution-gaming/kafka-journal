@@ -7,7 +7,6 @@ import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.{Key, ReplicatedEvent, SeqNr, SeqRange}
-import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Topic
 
 import scala.concurrent.ExecutionContext
@@ -19,8 +18,7 @@ object EventualCassandra {
 
   def apply(
     session: Session,
-    config: EventualCassandraConfig,
-    log: ActorLog)(implicit ec: ExecutionContext): EventualJournal = {
+    config: EventualCassandraConfig)(implicit ec: ExecutionContext): EventualJournal = {
 
     val statements = for {
       tables <- CreateSchema(config.schema, session)
@@ -30,10 +28,10 @@ object EventualCassandra {
       statements
     }
 
-    apply(statements, log)
+    apply(statements)
   }
 
-  def apply(statements: Async[Statements], log: ActorLog): EventualJournal = new EventualJournal {
+  def apply(statements: Async[Statements]): EventualJournal = new EventualJournal {
 
     def pointers(topic: Topic) = {
       for {

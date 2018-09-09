@@ -209,9 +209,11 @@ object TopicReplicator {
 
       def shutdown() = {
         for {
+          _ <- log.debug("shutting down")
           _ <- stopRef.set(true)
           _ <- result2
           _ <- consumer.close()
+          _ <- log.debug("shut down")
         } yield {}
       }
 

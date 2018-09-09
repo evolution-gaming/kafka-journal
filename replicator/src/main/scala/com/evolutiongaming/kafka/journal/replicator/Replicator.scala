@@ -126,7 +126,7 @@ object Replicator {
 
         for {
           _ <- shutdownReplicators()
-          _ <- serially.stop().async
+          //          _ <- serially.stop().async
           kafka = consumer.close().async
           _ <- cassandra.close().async
           _ <- kafka

@@ -27,7 +27,7 @@ trait Consumer[K, V] {
 
   def poll(timeout: FiniteDuration): Future[ConsumerRecords[K, V]]
 
-  def commit(): Future[Map[TopicPartition, OffsetAndMetadata]]
+  def commit(): Future[Unit]
 
   def commit(offsets: Map[TopicPartition, OffsetAndMetadata]): Future[Unit]
 
