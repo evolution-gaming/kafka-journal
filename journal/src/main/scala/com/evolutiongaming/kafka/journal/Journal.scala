@@ -18,29 +18,28 @@ import com.evolutiongaming.skafka.{Bytes => _, _}
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
-// TODO should we return offset ? Yes we should
 trait Journal {
 
-  def append(events: Nel[Event], timestamp: Instant): Async[Unit]
+  def append(events: Nel[Event], timestamp: Instant): Async[PartitionOffset]
 
   def read[S](from: SeqNr, s: S)(f: Fold[S, Event]): Async[S]
 
   def lastSeqNr(from: SeqNr): Async[Option[SeqNr]]
 
-  def delete(to: SeqNr, timestamp: Instant): Async[Unit]
+  def delete(to: SeqNr, timestamp: Instant): Async[PartitionOffset]
 }
 
 object Journal {
 
   val Empty: Journal = new Journal {
 
-    def append(events: Nel[Event], timestamp: Instant) = Async.unit
+    def append(events: Nel[Event], timestamp: Instant) = Async(PartitionOffset.Empty)
 
     def read[S](from: SeqNr, s: S)(f: Fold[S, Event]) = s.async
 
     def lastSeqNr(from: SeqNr) = Async.none
     
-    def delete(to: SeqNr, timestamp: Instant) = Async.unit
+    def delete(to: SeqNr, timestamp: Instant) = Async(PartitionOffset.Empty)
 
     override def toString = s"Journal.Empty"
   }
@@ -56,7 +55,7 @@ object Journal {
         SeqRange(head, last)
       }
 
-      log[Unit](s"append $eventsStr, timestamp: $timestamp") {
+      log[PartitionOffset](s"append $eventsStr, timestamp: $timestamp") {
         journal.append(events, timestamp)
       }
     }
@@ -74,7 +73,7 @@ object Journal {
     }
 
     def delete(to: SeqNr, timestamp: Instant) = {
-      log[Unit](s"delete $to, timestamp: $timestamp") {
+      log[PartitionOffset](s"delete $to, timestamp: $timestamp") {
         journal.delete(to, timestamp)
       }
     }
@@ -92,11 +91,11 @@ object Journal {
     closeTimeout: FiniteDuration)(implicit
     ec: ExecutionContext): Journal = {
 
-    val withReadKafka = WithReadActions(newConsumer, pollTimeout, closeTimeout, log)
+    val withReadActions = WithReadActions(newConsumer, pollTimeout, closeTimeout, log)
 
     val writeAction = WriteAction(key, producer)
 
-    apply(key, log, eventual, withReadKafka, writeAction)
+    apply(key, log, eventual, withReadActions, writeAction)
   }
 
 
@@ -135,8 +134,7 @@ object Journal {
         val payload = EventsSerializer.toBytes(events)
         val range = SeqRange(from = events.head.seqNr, to = events.last.seqNr)
         val action = Action.Append(range, timestamp, payload)
-        val result = writeAction(action)
-        result.unit
+        writeAction(action)
       }
 
       // TODO add optimisation for ranges
@@ -230,7 +228,7 @@ object Journal {
 
       def delete(to: SeqNr, timestamp: Instant) = {
         val action = Action.Delete(to, timestamp)
-        writeAction(action).unit
+        writeAction(action)
       }
 
       override def toString = s"Journal($key)"

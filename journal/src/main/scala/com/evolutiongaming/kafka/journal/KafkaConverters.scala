@@ -5,7 +5,7 @@ import com.evolutiongaming.kafka.journal.HeaderFormats._
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer.ConsumerRecord
 import com.evolutiongaming.skafka.producer.ProducerRecord
-import com.evolutiongaming.skafka.{FromBytes, Header, ToBytes, Topic}
+import com.evolutiongaming.skafka.Header
 import play.api.libs.json.Json
 
 object KafkaConverters {

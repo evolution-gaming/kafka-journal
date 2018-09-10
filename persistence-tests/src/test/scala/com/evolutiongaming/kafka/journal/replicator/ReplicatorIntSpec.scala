@@ -114,7 +114,12 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
 
       val topicPointers = eventual.pointers(topic).get(timeout)
 
-      journal.append(Nel(event), Instant.now()).get(timeout) // TODO get offset
+      val partitionOffset = journal.append(Nel(event), Instant.now()).get(timeout)
+      val partition = partitionOffset.partition
+
+      for {
+        offset <- topicPointers.values.get(partitionOffset.partition)
+      } partitionOffset.offset should be > offset
 
       val actual = readUntil(_.nonEmpty)
 
@@ -122,16 +127,14 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
 
       for {
         event <- actual
-        partitionOffset = event.partitionOffset
-        offset <- topicPointers.values.get(partitionOffset.partition)
-      } partitionOffset.offset should be > offset
+      } event.partitionOffset shouldEqual partitionOffset
 
-      journal.delete(event.seqNr, Instant.now()).get(timeout)
+      journal.delete(event.seqNr, Instant.now()).get(timeout).partition shouldEqual partition
 
       readUntil(_.isEmpty) shouldEqual Nil
 
       val events = Nel(Event(SeqNr(2l)), Event(SeqNr(3l)))
-      journal.append(events, Instant.now()).await(timeout)
+      journal.append(events, Instant.now()).get(timeout).partition shouldEqual partition
 
       readUntil(_.nonEmpty).map(_.event) shouldEqual events.toList
     }

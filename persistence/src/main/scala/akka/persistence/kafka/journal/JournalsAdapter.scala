@@ -18,9 +18,13 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 trait JournalsAdapter {
+
   def write(messages: Seq[AtomicWrite]): Future[List[Try[Unit]]]
+
   def delete(persistenceId: String, to: SeqNr): Future[Unit]
+
   def lastSeqNr(persistenceId: String, from: SeqNr): Future[Option[SeqNr]]
+  
   def replay(persistenceId: String, range: SeqRange, max: Long)(f: PersistentRepr => Unit): Future[Unit]
 }
 
@@ -33,6 +37,7 @@ object JournalsAdapter {
     serialisation: SerializedMsgConverter)(implicit ec: ExecutionContext): JournalsAdapter = {
 
     new JournalsAdapter {
+
       def write(atomicWrites: Seq[AtomicWrite]) = {
         val timestamp = Instant.now()
         val persistentReprs = for {
@@ -75,7 +80,7 @@ object JournalsAdapter {
       def delete(persistenceId: PersistenceId, to: SeqNr) = {
         val timestamp = Instant.now()
         val key = toKey(persistenceId)
-        journals.delete(key, to, timestamp).future
+        journals.delete(key, to, timestamp).unit.future
       }
 
       def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)

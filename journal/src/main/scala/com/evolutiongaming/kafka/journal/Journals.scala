@@ -16,26 +16,28 @@ import com.evolutiongaming.skafka.producer.Producer
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
-// TODO consider passing topic along with id as method argument
-// TODO consider replacing many methods with single `apply[In, Out]`
 trait Journals {
 
-  def append(key: Key, events: Nel[Event], timestamp: Instant): Async[Unit]
+  def append(key: Key, events: Nel[Event], timestamp: Instant): Async[PartitionOffset]
 
   def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]): Async[S]
 
   def lastSeqNr(key: Key, from: SeqNr): Async[Option[SeqNr]]
 
-  def delete(key: Key, to: SeqNr, timestamp: Instant): Async[Unit]
+  def delete(key: Key, to: SeqNr, timestamp: Instant): Async[PartitionOffset]
 }
 
 object Journals {
 
   val Empty: Journals = new Journals {
-    def append(key: Key, events: Nel[Event], timestamp: Instant) = Async.unit
+
+    def append(key: Key, events: Nel[Event], timestamp: Instant) = Async(PartitionOffset.Empty)
+
     def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = s.async
+
     def lastSeqNr(key: Key, from: SeqNr) = Async.none
-    def delete(key: Key, to: SeqNr, timestamp: Instant) = Async.unit
+    
+    def delete(key: Key, to: SeqNr, timestamp: Instant) = Async(PartitionOffset.Empty)
   }
 
 
