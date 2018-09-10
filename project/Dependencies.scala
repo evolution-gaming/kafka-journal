@@ -2,7 +2,7 @@ import sbt._
 
 object Dependencies {
 
-  lazy val scalatest = "org.scalatest" %% "scalatest" % "3.0.5" % Test
+  lazy val scalatest = "org.scalatest" %% "scalatest" % "3.0.5"
 
   lazy val `executor-tools` = "com.evolutiongaming" %% "executor-tools" % "1.0.1"
 
@@ -45,9 +45,10 @@ object Dependencies {
   }
 
   object Akka {
-    private val version = "2.5.15"
+    private val version = "2.5.16"
+    lazy val actor = "com.typesafe.akka" %% "akka-actor" % version
     lazy val persistence = "com.typesafe.akka" %% "akka-persistence" % version
-    lazy val tck = "com.typesafe.akka" %% "akka-persistence-tck" % version % Test
-    lazy val slf4j = "com.typesafe.akka" %% "akka-slf4j" % version % Test
+    lazy val tck = "com.typesafe.akka" %% "akka-persistence-tck" % version
+    lazy val slf4j = "com.typesafe.akka" %% "akka-slf4j" % version
   }
 }

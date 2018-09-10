@@ -44,11 +44,11 @@ lazy val journal = (project in file("journal")
   settings commonSettings
   dependsOn `cassandra-client`
   settings (libraryDependencies ++= Seq(
-    Akka.persistence,
+    Akka.actor,
     Akka.tck,
-    Akka.slf4j,
+    Akka.slf4j % Test,
     skafka,
-    scalatest,
+    scalatest % Test,
     `executor-tools`,
     Logback.core % Test,
     async,
@@ -62,7 +62,7 @@ lazy val persistence = (project in file("persistence")
   settings (name := "kafka-journal-persistence")
   settings commonSettings
   dependsOn (journal % "test->test;compile->compile", `eventual-cassandra`)
-  settings (libraryDependencies ++= Seq()))
+  settings (libraryDependencies ++= Seq(Akka.persistence)))
 
 lazy val `persistence-tests` = (project in file("persistence-tests")
   settings (name := "kafka-journal-persistence-tests")
@@ -81,7 +81,7 @@ lazy val `persistence-tests` = (project in file("persistence-tests")
     Slf4j.`log4j-over-slf4j` % Test,
     Logback.core % Test,
     Logback.classic % Test,
-    scalatest)))
+    scalatest % Test)))
 
 lazy val replicator = (Project("replicator", file("replicator"))
   settings (name := "kafka-journal-replicator")
@@ -96,7 +96,7 @@ lazy val `cassandra-client` = (project in file("cassandra-client")
   settings (libraryDependencies ++= Seq(
     `config-tools`,
     `future-helper`,
-    scalatest,
+    scalatest % Test,
     nel,
     `cassandra-driver`,
     `executor-tools`)))
