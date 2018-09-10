@@ -70,7 +70,7 @@ object TopicReplicator {
           for {
             _ <- journal.delete(key, timestamp, deleteTo, bound)
             latency = measureLatency
-            _ <- log.info(s"delete $id in ${ latency }ms, deleteTo: $deleteTo, bound: $bound, offset: $offset")
+            _ <- log.info(s"delete in ${ latency }ms id: $id, deleteTo: $deleteTo, bound: $bound, offset: $offset")
           } yield {}
         }
 
@@ -80,7 +80,7 @@ object TopicReplicator {
             latency = measureLatency
             _ <- log.info {
               val range = events.head.seqNr to events.last.seqNr
-              s"append $id in ${ latency }ms, range: $range deleteTo: $deleteTo, offset: $offset"
+              s"append in ${ latency }ms id: $id, range: $range deleteTo: $deleteTo, offset: $offset"
             }
           } yield {}
         }
