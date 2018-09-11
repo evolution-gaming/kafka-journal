@@ -29,7 +29,7 @@ object Replicator {
     val ecBlocking = system.dispatchers.lookup(s"$name.blocking-dispatcher")
     implicit val ec = system.dispatcher
     val cassandra = CreateCluster(config.cassandra.client)
-    val consumerOf = (config: ConsumerConfig) => CreateConsumer[String, Bytes](config, ecBlocking)
+    val consumerOf = (config: ConsumerConfig) => Consumer[String, Bytes](config, ecBlocking)
     for {
       session <- cassandra.connect().async
     } yield {

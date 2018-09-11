@@ -8,7 +8,7 @@ object Dependencies {
 
   lazy val `config-tools` = "com.evolutiongaming" %% "config-tools" % "1.0.3"
 
-  lazy val skafka = "com.evolutiongaming" %% "skafka-impl" % "1.2.0"
+  lazy val skafka = "com.evolutiongaming" %% "skafka" % "2.0.0"
 
   lazy val `akka-serialization` = "com.evolutiongaming" %% "akka-serialization" % "0.0.3"
 
@@ -22,7 +22,7 @@ object Dependencies {
 
   lazy val `future-helper` = "com.evolutiongaming" %% "future-helper" % "1.0.3"
 
-  lazy val serially = "com.evolutiongaming" %% "serially" % "1.0.3"
+  lazy val serially = "com.evolutiongaming" %% "serially" % "1.0.4"
 
   lazy val `safe-actor` = "com.evolutiongaming" %% "safe-actor" % "1.7"
 

@@ -22,7 +22,7 @@ object WriteAction {
       val kafkaRecord = KafkaRecord(key, action)
       val producerRecord = kafkaRecord.toProducerRecord
       for {
-        metadata <- producer(producerRecord).async
+        metadata <- producer.send(producerRecord).async
       } yield {
         val partition = metadata.topicPartition.partition
         val offset = metadata.offset getOrElse {

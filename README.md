@@ -2,6 +2,8 @@
 
 # >>> Not for production use. yet. <<<
 
+> Stream data from two sources when one is eventually consistent and the other one loses own tail
+
 This library provides ability to use [kafka](https://kafka.apache.org) as storage for events.
 Kafka is a perfect fit in case you want to have streaming capabilities for your events
 However it also uses [cassandra](http://cassandra.apache.org) to keep data access performance on acceptable level and overcome kafka `retention policy` 

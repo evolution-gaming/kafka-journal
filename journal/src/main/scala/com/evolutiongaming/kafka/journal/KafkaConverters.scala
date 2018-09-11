@@ -44,7 +44,7 @@ object KafkaConverters {
       }
       ProducerRecord(
         topic = key.topic,
-        value = payload,
+        value = Some(payload),
         key = Some(key.id),
         timestamp = timestamp,
         headers = List(header))
@@ -59,26 +59,19 @@ object KafkaConverters {
     }
 
     def toAction: Option[Action] = {
-
-      def action(header: Action.Header) = {
-        for {
-          timestampAndType <- self.timestampAndType
-        } yield {
-          val timestamp = timestampAndType.timestamp
-          header match {
-            case header: Action.Header.Append => Action.Append(header, timestamp, self.value)
-            case header: Action.Header.Delete => Action.Delete(header, timestamp)
-            case header: Action.Header.Mark   => Action.Mark(header, timestamp)
-          }
-        }
-      }
-
       for {
+        withSize <- self.value
+        value = withSize.value
         kafkaHeader <- self.headers.find { _.key == `journal.action` }
         header = kafkaHeader.toActionHeader
-        action <- action(header)
+        timestampAndType <- self.timestampAndType
+        timestamp = timestampAndType.timestamp
       } yield {
-        action
+        header match {
+          case header: Action.Header.Append => Action.Append(header, timestamp, value)
+          case header: Action.Header.Delete => Action.Delete(header, timestamp)
+          case header: Action.Header.Mark   => Action.Mark(header, timestamp)
+        }
       }
     }
 
@@ -87,7 +80,7 @@ object KafkaConverters {
         id <- self.key
         action <- self.toAction
       } yield {
-        val key = Key(topic = self.topic, id = id)
+        val key = Key(topic = self.topic, id = id.value)
         KafkaRecord(key, action)
       }
     }

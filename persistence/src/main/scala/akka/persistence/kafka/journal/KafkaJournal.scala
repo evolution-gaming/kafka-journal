@@ -14,8 +14,8 @@ import com.evolutiongaming.kafka.journal.{Bytes, Journals, SeqNr, SeqRange}
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.serialization.{SerializedMsgConverter, SerializedMsgExt}
 import com.evolutiongaming.skafka.Topic
-import com.evolutiongaming.skafka.consumer.{ConsumerConfig, CreateConsumer}
-import com.evolutiongaming.skafka.producer.{CreateProducer, ProducerConfig}
+import com.evolutiongaming.skafka.consumer.{ConsumerConfig, Consumer}
+import com.evolutiongaming.skafka.producer.{ProducerConfig, Producer}
 import com.typesafe.config.Config
 
 import scala.collection.immutable.Seq
@@ -60,8 +60,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
 
     val ecBlocking = system.dispatchers.lookup("evolutiongaming.kafka-journal.persistence.journal.blocking-dispatcher")
 
-    // TODO use different constructor
-    val producer = CreateProducer(producerConfig, ecBlocking)
+    val producer = Producer(producerConfig, ecBlocking)
 
     val closeTimeout = 10.seconds // TODO from config
     val connectTimeout = 5.seconds // TODO from config
@@ -84,7 +83,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
       val prefix = consumerConfig.groupId getOrElse "journal"
       val groupId = s"$prefix-$topic-$uuid"
       val configFixed = consumerConfig.copy(groupId = Some(groupId))
-      CreateConsumer[String, Bytes](configFixed, ecBlocking)
+      Consumer[String, Bytes](configFixed, ecBlocking)
     }
 
     val eventualJournal: EventualJournal = {

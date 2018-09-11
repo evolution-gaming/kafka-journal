@@ -7,7 +7,7 @@ import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPointers}
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, OffsetAndMetadata}
+import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, OffsetAndMetadata, WithSize}
 import com.evolutiongaming.skafka.{Bytes => _, _}
 import org.scalatest.{Matchers, WordSpec}
 
@@ -45,7 +45,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             val offset = idx + 1l
             consumerRecordOf(record, topicPartition, offset)
           }
-          (topicPartition, records.toVector)
+          (topicPartition, records)
         }
         ConsumerRecords(records.toMap)
       }
@@ -107,7 +107,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           } yield {
             val offset = idx + 1l
             val consumerRecord = consumerRecordOf(record, topicPartition, offset)
-            ConsumerRecords(Map((topicPartition, Vector(consumerRecord))))
+            ConsumerRecords(Map((topicPartition, List(consumerRecord))))
           }
         }
       } yield record
@@ -189,7 +189,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             val offset = idx + 1l
             consumerRecordOf(record, topicPartition, offset)
           }
-          (topicPartition, records.toVector)
+          (topicPartition, records)
         }
         ConsumerRecords(records.toMap)
       }
@@ -297,7 +297,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             val offset = idx + 1l
             consumerRecordOf(record, topicPartition, offset)
           }
-          (topicPartition, records.toVector)
+          (topicPartition, records)
         }
         ConsumerRecords(records.toMap)
       }
@@ -388,7 +388,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             val offset = idx + 1l
             consumerRecordOf(record, topicPartition, offset)
           }
-          (topicPartition, records.toVector)
+          (topicPartition, records)
         }
         ConsumerRecords(records.toMap)
       }
@@ -439,10 +439,8 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
       topicPartition = topicPartition,
       offset = offset,
       timestampAndType = Some(timestampAndType),
-      serializedKeySize = 0,
-      serializedValueSize = 0,
-      key = producerRecord.key,
-      value = producerRecord.value,
+      key = producerRecord.key.map(WithSize(_, 0/*TODO remove*/)),
+      value = producerRecord.value.map(WithSize(_, 0/*TODO remove*/)),
       headers = producerRecord.headers)
   }
 
@@ -472,7 +470,7 @@ object TopicReplicatorSpec {
 
   def topicPartitionOf(partition: Partition) = TopicPartition(topic, partition)
 
-  def offsetAndMetadata(offset: Offset) = OffsetAndMetadata(offset, "" /*TODO*/)
+  def offsetAndMetadata(offset: Offset) = OffsetAndMetadata(offset)
 
   val consumer: KafkaConsumer[TestIO] = new KafkaConsumer[TestIO] {
 

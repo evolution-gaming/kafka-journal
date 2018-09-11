@@ -12,8 +12,8 @@ import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, 
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Topic
-import com.evolutiongaming.skafka.consumer.{ConsumerConfig, CreateConsumer}
-import com.evolutiongaming.skafka.producer.{CreateProducer, ProducerConfig}
+import com.evolutiongaming.skafka.consumer.{ConsumerConfig, Consumer}
+import com.evolutiongaming.skafka.producer.{ProducerConfig, Producer}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.{Matchers, WordSpec}
 
@@ -73,7 +73,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
       val journal = {
         val producer = {
           val producerConfig = ProducerConfig(kafkaConf("producer"))
-          CreateProducer(producerConfig, ec)
+          Producer(producerConfig, ec)
         }
         // TODO refactor journal to reuse code
 
@@ -84,7 +84,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
           val prefix = consumerConfig.groupId getOrElse "replicator-test"
           val groupId = s"$prefix-$topic-$uuid"
           val configFixed = consumerConfig.copy(groupId = Some(groupId))
-          CreateConsumer[String, Bytes](configFixed, ec)
+          Consumer[String, Bytes](configFixed, ec)
         }
         val journal = Journal(
           key = key,

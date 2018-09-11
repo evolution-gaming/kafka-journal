@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import com.evolutiongaming.kafka.journal.Implicits._
+import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecords, OffsetAndMetadata}
 import com.evolutiongaming.skafka.{Topic, TopicPartition}
 
@@ -26,7 +27,7 @@ object KafkaConsumer {
     pollTimeout: FiniteDuration): KafkaConsumer[F] = new KafkaConsumer[F] {
 
     def subscribe(topic: Topic) = {
-      IO[F].point(consumer.subscribe(List(topic), None))
+      IO[F].point(consumer.subscribe(Nel(topic), None))
     }
 
     def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = {

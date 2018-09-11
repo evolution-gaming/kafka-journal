@@ -22,7 +22,8 @@ object ReadActions {
     log: ActorLog)(implicit ec: ExecutionContext /*TODO remove*/): ReadActions[Async] = {
 
     def logSkipped(record: ConsumerRecord[String, Bytes]) = {
-      def key = record.key getOrElse "none"
+      
+      def key = record.key.fold("none")(_.value)
 
       def partitionOffset = PartitionOffset(record)
 
@@ -35,7 +36,7 @@ object ReadActions {
       def apply(id: Id) = {
 
         def filter(record: ConsumerRecord[String, Bytes]) = {
-          val result = record.key contains id
+          val result = record.key.exists(_.value == id)
           if (!result) {
             logSkipped(record)
           }

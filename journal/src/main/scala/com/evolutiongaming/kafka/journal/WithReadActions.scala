@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import com.evolutiongaming.concurrent.async.Async
+import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer.Consumer
 import com.evolutiongaming.skafka.{Offset, Topic, TopicPartition}
@@ -36,12 +37,12 @@ object WithReadActions {
           consumer
         }
 
-        consumer.assign(List(topicPartition))
+        consumer.assign(Nel(topicPartition))
 
         offset match {
           case None =>
             log.warn(s"consuming from offset: 0")
-            consumer.seekToBeginning(List(topicPartition))
+            consumer.seekToBeginning(Nel(topicPartition))
 
           case Some(offset) =>
             val from = offset + 1
