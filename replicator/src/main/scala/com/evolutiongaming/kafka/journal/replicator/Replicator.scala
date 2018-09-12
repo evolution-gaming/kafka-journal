@@ -1,8 +1,10 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 
+import java.time.Instant
+
 import akka.actor.ActorSystem
-import com.evolutiongaming.cassandra.{Cluster, CreateCluster, Session}
+import com.evolutiongaming.cassandra.{Cluster, CreateCluster}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.concurrent.serially.SeriallyAsync
@@ -23,47 +25,72 @@ trait Replicator {
 
 object Replicator {
 
-  def apply(system: ActorSystem): Async[Replicator] = try {
+  type Metrics = Topic => TopicReplicator.Metrics[Async]
+
+  object Metrics {
+    
+    val Empty: Metrics = {
+      val empty = TopicReplicator.Metrics.empty(Async.unit)
+      _: Topic => empty
+    }
+  }
+
+
+  def apply(system: ActorSystem, metrics: Metrics = Metrics.Empty): Async[Replicator] = safe {
     val name = "evolutiongaming.kafka-journal.replicator"
     val config = ReplicatorConfig(system.settings.config.getConfig(name))
     val ecBlocking = system.dispatchers.lookup(s"$name.blocking-dispatcher")
-    implicit val ec = system.dispatcher
+    apply(config, ecBlocking, metrics)(system, system.dispatcher)
+  }
+
+  def apply(
+    config: ReplicatorConfig,
+    ecBlocking: ExecutionContext,
+    metrics: Metrics)(implicit
+    system: ActorSystem, ec: ExecutionContext): Async[Replicator] = safe {
+
     val cassandra = CreateCluster(config.cassandra.client)
     val consumerOf = (config: ConsumerConfig) => Consumer[String, Bytes](config, ecBlocking)
+
     for {
       session <- cassandra.connect().async
     } yield {
-      apply(config, cassandra, session, consumerOf)(system, ec)
+      val journal = ReplicatedCassandra(session, config.cassandra)
+
+      val createReplicator = (topic: Topic, partitions: Set[Partition]) => {
+        val prefix = config.consumer.groupId getOrElse "journal-replicator"
+        val groupId = s"$prefix-$topic"
+        val consumerConfig = config.consumer.copy(groupId = Some(groupId))
+        val consumer = consumerOf(consumerConfig)
+        val kafkaConsumer = KafkaConsumer(consumer, config.pollTimeout)
+        val actorLog = ActorLog(system, TopicReplicator.getClass) prefixed topic
+        val log = Log(actorLog)
+        val stopRef = Ref[Boolean, Async]()
+        TopicReplicator(
+          topic = topic,
+          partitions = partitions,
+          consumer = kafkaConsumer,
+          journal = journal,
+          log = log,
+          stopRef = stopRef,
+          metrics = metrics(topic),
+          Async(Instant.now))
+      }
+
+      apply(config, cassandra, consumerOf, createReplicator)
     }
-  } catch {
-    case NonFatal(failure) => Async.failed(failure)
   }
 
   def apply(
     config: ReplicatorConfig,
     cassandra: Cluster,
-    session: Session,
-    consumerOf: ConsumerConfig => Consumer[String, Bytes])(implicit system: ActorSystem, ec: ExecutionContext): Replicator = {
+    consumerOf: ConsumerConfig => Consumer[String, Bytes],
+    topicReplicatorOf: (Topic, Set[Partition]) => TopicReplicator[Async])(implicit
+    system: ActorSystem, ec: ExecutionContext): Replicator = {
 
     val log = ActorLog(system, Replicator.getClass)
-    val journal = ReplicatedCassandra(session, config.cassandra)
-
     val serially = SeriallyAsync()
     val stateVar = AsyncVar[State](State.Running.Empty, serially)
-
-    def createReplicator(topic: Topic, partitions: Set[Partition]) = {
-      val prefix = config.consumer.groupId getOrElse "journal-replicator"
-      val groupId = s"$prefix-$topic"
-      val consumerConfig = config.consumer.copy(groupId = Some(groupId))
-      val consumer = consumerOf(consumerConfig)
-      implicit val kafkaConsumer = KafkaConsumer(consumer, config.pollTimeout)
-      val actorLog = ActorLog(system, TopicReplicator.getClass) prefixed topic
-      implicit val log = Log(actorLog)
-      val stopRef = Ref[Boolean, Async]()
-      //      val currentTime = IO[Async].point(Platform.currentTime) // TODO
-      TopicReplicator(topic, partitions, kafkaConsumer, journal, log, stopRef)
-    }
-
     val consumer = consumerOf(config.consumer)
 
     def discoverTopics(): Unit = {
@@ -93,7 +120,7 @@ object Replicator {
                   (topic, infos) <- topicsNew
                 } yield {
                   val partitions = for {info <- infos} yield info.partition
-                  val replicator = createReplicator(topic, partitions.toSet)
+                  val replicator = topicReplicatorOf(topic, partitions.toSet)
                   (topic, replicator)
                 }
 
@@ -133,6 +160,10 @@ object Replicator {
         } yield {}
       }
     }
+  }
+
+  private def safe[T](f: => Async[T]): Async[T] = {
+    try f catch { case NonFatal(failure) => Async.failed(failure) }
   }
 
 

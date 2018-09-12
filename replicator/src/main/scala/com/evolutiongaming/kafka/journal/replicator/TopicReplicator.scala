@@ -7,11 +7,11 @@ import com.evolutiongaming.kafka.journal.Implicits._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
+import com.evolutiongaming.kafka.journal.replicator.InstantHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Bytes => _, _}
 
-import scala.compat.Platform
 import scala.language.existentials
 
 
@@ -31,11 +31,11 @@ object TopicReplicator {
     consumer: KafkaConsumer[F],
     journal: ReplicatedJournal[F],
     log: Log[F],
-    stopRef: Ref[Boolean, F] /*,
-    currentTime: F[Long]*/): TopicReplicator[F] = {
+    stopRef: Ref[Boolean, F],
+    metrics: Metrics[F],
+    now: => F[Instant] /*TODO should not be a function*/): TopicReplicator[F] = {
 
-    // TODO handle that consumerRecords are not empty
-    def apply(
+    def round(
       state: State,
       consumerRecords: ConsumerRecords[String, Bytes],
       timestamp: Instant): F[(State, Map[TopicPartition, OffsetAndMetadata])] = {
@@ -45,31 +45,36 @@ object TopicReplicator {
         consumerRecords <- consumerRecords.values.values
         consumerRecord <- consumerRecords
         kafkaRecord <- consumerRecord.toKafkaRecord
-        // TODO kafkaRecord.asInstanceOf[Action.User] ???
       } yield {
         val partitionOffset = PartitionOffset(
           partition = consumerRecord.partition,
           offset = consumerRecord.offset)
-        (kafkaRecord, partitionOffset)
+        (partitionOffset, kafkaRecord)
       }
 
       val ios = for {
-        (key, records) <- records.groupBy { case (record, _) => record.key }
+        (key, records) <- records.groupBy { case (_, record) => record.key }
       } yield {
 
-        val (last, partitionOffset) = records.last
+        val (partitionOffset, head) = records.head
         val offset = partitionOffset.offset
         val id = key.id
 
-        def measureLatency = {
-          val time = Platform.currentTime
-          time - last.action.timestamp.toEpochMilli
+        def latency = for {
+          now <- now
+        } yield {
+          // TODO not sure this is right to take `head` for this measurement, as it shows the worst case
+          now - head.action.timestamp
         }
 
         def delete(deleteTo: SeqNr, bound: Boolean) = {
           for {
             _ <- journal.delete(key, timestamp, deleteTo, bound)
-            latency = measureLatency
+            latency <- latency
+            _ <- metrics.delete(
+              partition = partitionOffset.partition,
+              latency = latency,
+              records = records.size)
             _ <- log.info(s"delete in ${ latency }ms id: $id, deleteTo: $deleteTo, bound: $bound, offset: $offset")
           } yield {}
         }
@@ -77,10 +82,17 @@ object TopicReplicator {
         def append(deleteTo: Option[SeqNr], events: Nel[ReplicatedEvent]) = {
           for {
             _ <- journal.append(key, timestamp, events, deleteTo)
-            latency = measureLatency
+            latency <- latency
+            _ <- metrics.append(
+              partition = partitionOffset.partition,
+              latency = latency,
+              events = events.length,
+              records = records.size,
+              bytes = events.foldLeft(0)((bytes, event) => bytes + event.event.payload.value.length))
             _ <- log.info {
+              val deleteToStr = deleteTo.fold("") { deleteTo => s", deleteTo: $deleteTo" }
               val range = events.head.seqNr to events.last.seqNr
-              s"append in ${ latency }ms id: $id, range: $range deleteTo: $deleteTo, offset: $offset"
+              s"append in ${ latency }ms id: $id, range: $range$deleteToStr, offset: $offset"
             }
           } yield {}
         }
@@ -88,7 +100,7 @@ object TopicReplicator {
         def onNonEmpty(info: JournalInfo.NonEmpty) = {
           val deleteTo = info.deleteTo
           val events = for {
-            (record, partitionOffset) <- records
+            (partitionOffset, record) <- records
             action <- PartialFunction.condOpt(record.action) { case a: Action.Append => a }.toIterable
             if deleteTo.forall(action.range.to > _)
             event <- EventsSerializer.fromBytes(action.events).toList
@@ -106,7 +118,7 @@ object TopicReplicator {
           }
         }
 
-        val info = records.foldLeft(JournalInfo.empty) { case (info, (record, _)) => info(record.action.header) }
+        val info = records.foldLeft(JournalInfo.empty) { case (info, (_, record)) => info(record.action.header) }
         info match {
           case info: JournalInfo.NonEmpty => onNonEmpty(info)
           case info: JournalInfo.Deleted  => delete(info.deleteTo, bound = false)
@@ -118,8 +130,7 @@ object TopicReplicator {
 
         val offsets = for {
           (topicPartition, records) <- consumerRecords.values
-          offset = records.foldLeft(0l /*TODO Offset.Min*/) { (offset, record) => record.offset max offset }
-          if offset != 0l /*TODO*/
+          offset = records.foldLeft(Offset.Min) { (offset, record) => record.offset max offset }
         } yield {
           (topicPartition, offset)
         }
@@ -127,7 +138,7 @@ object TopicReplicator {
         val offsetsToCommit = for {
           (topicPartition, offset) <- offsets
         } yield {
-          val offsetAndMetadata = OffsetAndMetadata(offset + 1, "" /* TODO*/)
+          val offsetAndMetadata = OffsetAndMetadata(offset + 1)
           (topicPartition, offsetAndMetadata)
         }
 
@@ -159,32 +170,33 @@ object TopicReplicator {
     }
 
     // TODO cache state and not re-read it when kafka is broken
-    def consume(state: State) = {
-      IO[F].foldWhile(state) { state =>
-        for {
+    def consume(state: State): F[Switch[State]] = {
+      for {
+        stop <- stopRef.get()
+        state <- if (stop) state.stop.pure
+        else for {
+          roundStart <- now
+          records <- consumer.poll() // TODO add kafka metrics
           stop <- stopRef.get()
-          state <- if (stop) state.stop.pure
-          else for {
-            records <- consumer.poll()
-            stop <- stopRef.get()
-            state <- {
-              if (stop) state.stop.pure
-              else if (records.values.isEmpty) state.continue.pure
-              else for {
-                stateAndOffsets <- apply(state, records, /*TODO*/ Instant.now())
-                (state, offsets) = stateAndOffsets
-                _ <- consumer.commit(offsets)
-              } yield state.continue
-            }
-          } yield state
+          state <- {
+            if (stop) state.stop.pure
+            else if (records.values.isEmpty) state.continue.pure
+            else for {
+              timestamp <- now
+              stateAndOffsets <- round(state, records, timestamp)
+              (state, offsets) = stateAndOffsets
+              _ <- consumer.commit(offsets)
+              roundEnd <- now
+              _ <- metrics.round(
+                duration = roundEnd - roundStart,
+                records = records.values.foldLeft(0) { case (acc, (_, record)) => acc + record.size })
+            } yield state.continue
+          }
         } yield state
-      }
+      } yield state
     }
 
     val result = for {
-      //      _ <- consumer.subscribe(topic)
-      // TODO seek to the beginning
-      // TODO acknowledge ?
       pointers <- journal.pointers(topic)
       partitionOffsets = for {
         partition <- partitions.toList
@@ -196,7 +208,7 @@ object TopicReplicator {
       // TODO verify it started processing from right position
 
       _ <- consumer.subscribe(topic)
-      _ <- consume(State.Empty)
+      _ <- IO[F].foldWhile(State.Empty)(consume)
     } yield {}
 
     // TODO rename
@@ -213,7 +225,6 @@ object TopicReplicator {
           _ <- stopRef.set(true)
           _ <- result2
           _ <- consumer.close()
-          _ <- log.debug("shut down")
         } yield {}
       }
 
@@ -225,6 +236,29 @@ object TopicReplicator {
 
   object State {
     val Empty: State = State()
+  }
+
+
+  trait Metrics[F[_]] {
+
+    // TODO add content type
+    def append(partition: Partition, latency: Long, events: Int, records: Int, bytes: Int): F[Unit]
+
+    def delete(partition: Partition, latency: Long, records: Int): F[Unit]
+
+    def round(duration: Long, records: Int): F[Unit]
+  }
+
+  object Metrics {
+
+    def empty[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
+
+      def append(partition: Partition, latency: Long, events: Int, records: Int, bytes: Int) = unit
+
+      def delete(partition: Partition, latency: Long, records: Int) = unit
+
+      def round(duration: Long, records: Int) = unit
+    }
   }
 }
 

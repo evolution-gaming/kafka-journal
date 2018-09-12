@@ -80,7 +80,7 @@ object KafkaConverters {
         id <- self.key
         action <- self.toAction
       } yield {
-        val key = Key(topic = self.topic, id = id.value)
+        val key = Key(id = id.value, topic = self.topic)
         KafkaRecord(key, action)
       }
     }
