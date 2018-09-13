@@ -1,8 +1,11 @@
 package com.evolutiongaming.kafka.journal.replicator
 
+import com.datastax.driver.core.ConsistencyLevel
+import com.evolutiongaming.cassandra.{CassandraConfig, QueryConfig}
+import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.CommonConfig
-import com.evolutiongaming.skafka.consumer.ConsumerConfig
+import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.typesafe.config.ConfigFactory
 import org.scalatest.{FunSuite, Matchers}
 
@@ -32,6 +35,26 @@ class ReplicatorConfigSpec extends FunSuite with Matchers {
       consumer = ConsumerConfig(
         maxPollRecords = 10,
         common = CommonConfig(clientId = Some("clientId"))))
+    ReplicatorConfig(config) shouldEqual expected
+  }
+
+  // TODO implement the same for persistence journal
+  test("apply from reference.conf") {
+    val config = ConfigFactory.load().getConfig("evolutiongaming.kafka-journal.replicator")
+    val expected = ReplicatorConfig(
+      consumer = ConsumerConfig(
+        common = CommonConfig(clientId = Some("replicator")),
+        groupId = Some("replicator"),
+        maxPollRecords = 200,
+        autoCommit = false,
+        autoOffsetReset = AutoOffsetReset.Earliest),
+      cassandra = EventualCassandraConfig(
+        client = CassandraConfig(
+          name = "replicator",
+          query = QueryConfig(
+            consistency = ConsistencyLevel.LOCAL_QUORUM,
+            fetchSize = 200,
+            defaultIdempotence = true))))
     ReplicatorConfig(config) shouldEqual expected
   }
 }
