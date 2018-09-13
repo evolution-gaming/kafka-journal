@@ -53,7 +53,6 @@ class ReplicatorConfigSpec extends FunSuite with Matchers {
           name = "replicator",
           query = QueryConfig(
             consistency = ConsistencyLevel.LOCAL_QUORUM,
-            fetchSize = 200,
             defaultIdempotence = true))))
     ReplicatorConfig(config) shouldEqual expected
   }
