@@ -43,7 +43,6 @@ object ReadActions {
           result
         }
 
-
         for {
           consumerRecords <- consumer.poll(timeout).async
         } yield {

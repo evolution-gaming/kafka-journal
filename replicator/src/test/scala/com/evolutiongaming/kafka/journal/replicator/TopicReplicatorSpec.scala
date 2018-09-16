@@ -6,6 +6,7 @@ import com.evolutiongaming.kafka.journal.FoldWhileHelper.Switch
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPointers}
+import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, OffsetAndMetadata, WithSize}
 import com.evolutiongaming.skafka.{Bytes => _, _}
@@ -83,10 +84,10 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           (Key(id = "1-1", topic = topic), None)),
         metrics = List(
           Metrics.Round(records = 8),
-          Metrics.Append(partition = 0, events = 2, records = 2),
-          Metrics.Append(partition = 1, events = 3, records = 2),
-          Metrics.Append(partition = 0, events = 3, records = 2),
-          Metrics.Append(partition = 1, events = 2, records = 2)))
+          Metrics.Append(partition = 0, events = 2, actions = 2),
+          Metrics.Append(partition = 1, events = 3, actions = 2),
+          Metrics.Append(partition = 0, events = 3, actions = 2),
+          Metrics.Append(partition = 1, events = 2, actions = 2)))
     }
 
     "replicate appends of many polls" in {
@@ -157,21 +158,21 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           (Key(id = "1-1", topic = topic), None)),
         metrics = List(
           Metrics.Round(records = 1),
-          Metrics.Append(partition = 1, events = 1, records = 1),
+          Metrics.Append(partition = 1, events = 1, actions = 1),
           Metrics.Round(records = 1),
-          Metrics.Append(partition = 1, events = 1, records = 1),
+          Metrics.Append(partition = 1, events = 1, actions = 1),
           Metrics.Round(records = 1),
-          Metrics.Append(partition = 1, events = 2, records = 1),
+          Metrics.Append(partition = 1, events = 2, actions = 1),
           Metrics.Round(records = 1),
-          Metrics.Append(partition = 1, events = 1, records = 1),
+          Metrics.Append(partition = 1, events = 1, actions = 1),
           Metrics.Round(records = 1),
-          Metrics.Append(partition = 0, events = 1, records = 1),
+          Metrics.Append(partition = 0, events = 1, actions = 1),
           Metrics.Round(records = 1),
-          Metrics.Append(partition = 0, events = 1, records = 1),
+          Metrics.Append(partition = 0, events = 1, actions = 1),
           Metrics.Round(records = 1),
-          Metrics.Append(partition = 0, events = 2, records = 1),
+          Metrics.Append(partition = 0, events = 2, actions = 1),
           Metrics.Round(records = 1),
-          Metrics.Append(partition = 0, events = 1, records = 1)))
+          Metrics.Append(partition = 0, events = 1, actions = 1)))
     }
 
     "replicate appends and ignore marks" in {
@@ -275,15 +276,15 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           (Key(id = "2-2", topic = topic), None)),
         metrics = List(
           Metrics.Round(records = 27),
-          Metrics.Append(partition = 0, events = 3, records = 2),
-          Metrics.Append(partition = 1, events = 2, records = 3),
-          Metrics.Append(partition = 1, events = 3, records = 3),
-          Metrics.Append(partition = 2, events = 3, records = 2),
-          Metrics.Append(partition = 0, events = 3, records = 3),
-          Metrics.Append(partition = 2, events = 2, records = 3),
-          Metrics.Append(partition = 2, events = 3, records = 3),
-          Metrics.Append(partition = 0, events = 2, records = 3),
-          Metrics.Append(partition = 1, events = 3, records = 2)))
+          Metrics.Append(partition = 0, events = 3, actions = 2),
+          Metrics.Append(partition = 1, events = 2, actions = 3),
+          Metrics.Append(partition = 1, events = 3, actions = 3),
+          Metrics.Append(partition = 2, events = 3, actions = 2),
+          Metrics.Append(partition = 0, events = 3, actions = 3),
+          Metrics.Append(partition = 2, events = 2, actions = 3),
+          Metrics.Append(partition = 2, events = 3, actions = 3),
+          Metrics.Append(partition = 0, events = 2, actions = 3),
+          Metrics.Append(partition = 1, events = 3, actions = 2)))
     }
 
     "replicate appends and deletes" in {
@@ -375,12 +376,12 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           (Key(id = "1-2", topic = topic), None)),
         metrics = List(
           Metrics.Round(records = 20),
-          Metrics.Append(partition = 0, events = 3, records = 2),
-          Metrics.Append(partition = 1, events = 2, records = 3),
-          Metrics.Append(partition = 1, events = 1, records = 4),
-          Metrics.Append(partition = 0, events = 1, records = 4),
-          Metrics.Append(partition = 0, events = 2, records = 3),
-          Metrics.Append(partition = 1, events = 3, records = 2)))
+          Metrics.Append(partition = 0, events = 3, actions = 2),
+          Metrics.Append(partition = 1, events = 2, actions = 3),
+          Metrics.Append(partition = 1, events = 1, actions = 4),
+          Metrics.Append(partition = 0, events = 1, actions = 4),
+          Metrics.Append(partition = 0, events = 2, actions = 3),
+          Metrics.Append(partition = 1, events = 3, actions = 2)))
     }
 
     "replicate appends and unbound deletes" in {
@@ -459,9 +460,9 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           (Key(id = "0-2", topic = topic), None)),
         metrics = List(
           Metrics.Round(records = 12),
-          Metrics.Delete(partition = 0, records = 4),
-          Metrics.Append(partition = 0, events = 1, records = 5),
-          Metrics.Append(partition = 0, events = 3, records = 2)))
+          Metrics.Delete(partition = 0, actions = 4),
+          Metrics.Append(partition = 0, events = 1, actions = 5),
+          Metrics.Append(partition = 0, events = 3, actions = 2)))
     }
 
     "replicate appends and unbound deletes of many polls" in {
@@ -552,26 +553,26 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           (Key(id = "0-2", topic = topic), None)),
         metrics = List(
           Metrics.Round(records = 1),
-          Metrics.Delete(partition = 0, records = 1),
+          Metrics.Delete(partition = 0, actions = 1),
           Metrics.Round(records = 1),
-          Metrics.Delete(partition = 0, records = 1),
+          Metrics.Delete(partition = 0, actions = 1),
           Metrics.Round(records = 1),
-          Metrics.Delete(partition = 0, records = 1),
+          Metrics.Delete(partition = 0, actions = 1),
           Metrics.Round(records = 1),
-          Metrics.Delete(partition = 0, records = 1),
+          Metrics.Delete(partition = 0, actions = 1),
           Metrics.Round(records = 1),
-          Metrics.Append(partition = 0, events = 1, records = 1),
+          Metrics.Append(partition = 0, events = 1, actions = 1),
           Metrics.Round(records = 1),
-          Metrics.Append(partition = 0, events = 3, records = 1),
-          Metrics.Round(records = 1),
-          Metrics.Round(records = 1),
-          Metrics.Append(partition = 0, events = 1, records = 1),
+          Metrics.Append(partition = 0, events = 3, actions = 1),
           Metrics.Round(records = 1),
           Metrics.Round(records = 1),
-          Metrics.Append(partition = 0, events = 2, records = 1),
+          Metrics.Append(partition = 0, events = 1, actions = 1),
           Metrics.Round(records = 1),
           Metrics.Round(records = 1),
-          Metrics.Append(partition = 0, events = 1, records = 1)))
+          Metrics.Append(partition = 0, events = 2, actions = 1),
+          Metrics.Round(records = 1),
+          Metrics.Round(records = 1),
+          Metrics.Append(partition = 0, events = 1, actions = 1)))
     }
 
     "consume since replicated offset" in {
@@ -587,7 +588,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
   }
 
   private def consumerRecordOf(
-    record: KafkaRecord.Any,
+    record: KafkaRecord,
     topicPartition: TopicPartition,
     offset: Offset) = {
 
@@ -685,29 +686,37 @@ object TopicReplicatorSpec {
       partition: Partition,
       latency: Long = replicationLatency,
       events: Int,
-      records: Int,
+      actions: Int,
       bytes: Int = 0) extends Metrics
 
-    final case class Delete(partition: Partition, latency: Long = replicationLatency, records: Int) extends Metrics
+    final case class Delete(
+      partition: Partition,
+      latency: Long = replicationLatency,
+      actions: Int) extends Metrics
 
     final case class Round(duration: Long = 0, records: Int) extends Metrics
   }
 
   val metrics: TopicReplicator.Metrics[TestIO] = new TopicReplicator.Metrics[TestIO] {
 
-    def append(partition: Partition, latency: Long, events: Int, records: Int, bytes: Int) = {
+    def append(events: Int, bytes: Int, measurements: Measurements) = {
       TestIO {
         _ + Metrics.Append(
-          partition = partition,
-          latency = latency,
+          partition = measurements.partition,
+          latency = measurements.replicationLatency,
           events = events,
-          records = records,
+          actions = measurements.actions,
           bytes = bytes)
       }
     }
 
-    def delete(partition: Partition, latency: Long, records: Int) = {
-      TestIO { _ + Metrics.Delete(partition = partition, latency = latency, records = records) }
+    def delete(measurements: Measurements) = {
+      TestIO {
+        _ + Metrics.Delete(
+          partition = measurements.partition,
+          latency = measurements.replicationLatency,
+          actions = measurements.actions)
+      }
     }
 
     def round(duration: Long, records: Int) = {
@@ -738,8 +747,7 @@ object TopicReplicatorSpec {
     pointers: Map[Topic, TopicPointers] = Map.empty,
     journal: Map[Key, List[ReplicatedEvent]] = Map.empty,
     metadata: Map[Key, Option[Int]] = Map.empty,
-    metrics: List[Metrics] = Nil) {
-    self =>
+    metrics: List[Metrics] = Nil) { self =>
 
     def +(metrics: Metrics): (Data, Unit) = {
       val result = copy(metrics = metrics :: self.metrics)
@@ -824,8 +832,7 @@ object TopicReplicatorSpec {
     }
   }
 
-  final case class TestIO[A](run: Data => (Data, A)) {
-    self =>
+  final case class TestIO[A](run: Data => (Data, A)) { self =>
 
     def map[B](ab: A => B): TestIO[B] = {
       TestIO { a => self.run(a) match { case (t, a) => (t, ab(a)) } }

@@ -12,8 +12,6 @@ import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Bytes => _, _}
 
-import scala.language.existentials
-
 
 // TODO partition replicator ?
 // TODO add metric to track replication lag in case it cannot catchup with producers
@@ -38,57 +36,56 @@ object TopicReplicator {
     def round(
       state: State,
       consumerRecords: ConsumerRecords[String, Bytes],
-      timestamp: Instant): F[(State, Map[TopicPartition, OffsetAndMetadata])] = {
+      roundStart: Instant): F[(State, Map[TopicPartition, OffsetAndMetadata])] = {
 
-      // TODO avoid creating unnecessary collections
-      val records = for {
-        consumerRecords <- consumerRecords.values.values
-        consumerRecord <- consumerRecords
-        kafkaRecord <- consumerRecord.toKafkaRecord
+      val actions = for {
+        records <- consumerRecords.values.values
+        record <- records
+        action <- record.toKafkaRecord
       } yield {
         val partitionOffset = PartitionOffset(
-          partition = consumerRecord.partition,
-          offset = consumerRecord.offset)
-        (partitionOffset, kafkaRecord)
+          partition = record.partition,
+          offset = record.offset)
+        (partitionOffset, action)
       }
 
       val ios = for {
-        (key, records) <- records.groupBy { case (_, record) => record.key }
+        (key, actions) <- actions.groupBy { case (_, record) => record.key }
       } yield {
 
-        val (partitionOffset, head) = records.head
+        val (partitionOffset, head) = actions.head
         val offset = partitionOffset.offset
         val id = key.id
 
-        def latency = for {
+        def measurements = for {
           now <- now
         } yield {
-          // TODO not sure this is right to take `head` for this measurement, as it shows the worst case
-          now - head.action.timestamp
+          Metrics.Measurements(
+            partition = partitionOffset.partition,
+            replicationLatency = now - head.action.timestamp,
+            deliveryLatency = roundStart - head.action.timestamp,
+            actions = actions.size)
         }
 
         def delete(deleteTo: SeqNr, bound: Boolean) = {
           for {
-            _ <- journal.delete(key, timestamp, deleteTo, bound)
-            latency <- latency
-            _ <- metrics.delete(
-              partition = partitionOffset.partition,
-              latency = latency,
-              records = records.size)
+            _ <- journal.delete(key, roundStart, deleteTo, bound)
+            measurements <- measurements
+            latency = measurements.replicationLatency
+            _ <- metrics.delete(measurements)
             _ <- log.info(s"delete in ${ latency }ms id: $id, deleteTo: $deleteTo, bound: $bound, offset: $offset")
           } yield {}
         }
 
         def append(deleteTo: Option[SeqNr], events: Nel[ReplicatedEvent]) = {
           for {
-            _ <- journal.append(key, timestamp, events, deleteTo)
-            latency <- latency
+            _ <- journal.append(key, roundStart, events, deleteTo)
+            measurements <- measurements
             _ <- metrics.append(
-              partition = partitionOffset.partition,
-              latency = latency,
               events = events.length,
-              records = records.size,
-              bytes = events.foldLeft(0)((bytes, event) => bytes + event.event.payload.value.length))
+              bytes = events.foldLeft(0)((bytes, event) => bytes + event.event.payload.value.length),
+              measurements = measurements)
+            latency = measurements.replicationLatency
             _ <- log.info {
               val deleteToStr = deleteTo.fold("") { deleteTo => s", deleteTo: $deleteTo" }
               val range = events.head.seqNr to events.last.seqNr
@@ -100,7 +97,7 @@ object TopicReplicator {
         def onNonEmpty(info: JournalInfo.NonEmpty) = {
           val deleteTo = info.deleteTo
           val events = for {
-            (partitionOffset, record) <- records
+            (partitionOffset, record) <- actions
             action <- PartialFunction.condOpt(record.action) { case a: Action.Append => a }.toIterable
             if deleteTo.forall(action.range.to > _)
             event <- EventsSerializer.fromBytes(action.events).toList
@@ -118,7 +115,7 @@ object TopicReplicator {
           }
         }
 
-        val info = records.foldLeft(JournalInfo.empty) { case (info, (_, record)) => info(record.action.header) }
+        val info = actions.foldLeft(JournalInfo.empty) { case (info, (_, record)) => info(record.action.header) }
         info match {
           case info: JournalInfo.NonEmpty => onNonEmpty(info)
           case info: JournalInfo.Deleted  => delete(info.deleteTo, bound = false)
@@ -240,11 +237,12 @@ object TopicReplicator {
 
 
   trait Metrics[F[_]] {
+    import Metrics._
 
     // TODO add content type
-    def append(partition: Partition, latency: Long, events: Int, records: Int, bytes: Int): F[Unit]
+    def append(events: Int, bytes: Int, measurements: Measurements): F[Unit]
 
-    def delete(partition: Partition, latency: Long, records: Int): F[Unit]
+    def delete(measurements: Measurements): F[Unit]
 
     def round(duration: Long, records: Int): F[Unit]
   }
@@ -253,12 +251,18 @@ object TopicReplicator {
 
     def empty[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
 
-      def append(partition: Partition, latency: Long, events: Int, records: Int, bytes: Int) = unit
+      def append(events: Int, bytes: Int, measurements: Measurements) = unit
 
-      def delete(partition: Partition, latency: Long, records: Int) = unit
+      def delete(measurements: Measurements) = unit
 
       def round(duration: Long, records: Int) = unit
     }
+
+    final case class Measurements(
+      partition: Partition,
+      replicationLatency: Long,
+      deliveryLatency: Long,
+      actions: Int)
   }
 }
 

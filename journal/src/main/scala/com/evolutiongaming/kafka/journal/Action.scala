@@ -63,12 +63,6 @@ object Action {
 }
 
 
-// TODO drawback of using type here
-// TODO do we need this type complexity in general?
-final case class KafkaRecord[A <: Action](key: Key, action: A)
+final case class KafkaRecord(key: Key, action: Action)
 
-object KafkaRecord {
-  type Any = KafkaRecord[_ <: Action]
-}
-
-case class ActionRecord(action: Action, offset: Offset)
+final case class ActionRecord(action: Action, offset: Offset)

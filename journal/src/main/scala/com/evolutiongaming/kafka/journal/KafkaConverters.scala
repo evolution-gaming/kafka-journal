@@ -31,7 +31,7 @@ object KafkaConverters {
   }
 
 
-  implicit class KafkaRecordOps(val self: KafkaRecord.Any) extends AnyVal {
+  implicit class KafkaRecordOps(val self: KafkaRecord) extends AnyVal {
 
     def toProducerRecord: ProducerRecord[String, Bytes] = {
       val action = self.action
@@ -75,7 +75,7 @@ object KafkaConverters {
       }
     }
 
-    def toKafkaRecord: Option[KafkaRecord.Any] = {
+    def toKafkaRecord: Option[KafkaRecord] = {
       for {
         id <- self.key
         action <- self.toAction
