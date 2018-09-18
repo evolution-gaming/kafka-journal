@@ -149,7 +149,7 @@ object TopicReplicator {
 
         val result = {
           if (pointersNew.values.isEmpty) unit
-          else journal.save(topic, pointersNew)
+          else journal.save(topic, pointersNew, roundStart)
         }
 
         for {
@@ -198,7 +198,7 @@ object TopicReplicator {
       partitionOffsets = for {
         partition <- partitions.toList
       } yield {
-        val offset = pointers.values.getOrElse(partition, 0l /*TODO is it correct?*/)
+        val offset = pointers.values.getOrElse(partition, Offset.Min /*TODO is it correct?*/)
         PartitionOffset(partition = partition, offset = offset)
       }
 

@@ -649,8 +649,7 @@ object TopicReplicatorSpec {
     def topics() = IO[TestIO].pure(Nil)
 
     def pointers(topic: Topic) = {
-      // TODO TopicPointers.Empty
-      TestIO { data => (data, data.pointers.getOrElse(topic, TopicPointers(Map.empty))) }
+      TestIO { data => (data, data.pointers.getOrElse(topic, TopicPointers.Empty)) }
     }
 
     def append(key: Key, timestamp: Instant, events: Nel[ReplicatedEvent], deleteTo: Option[SeqNr]) = {
@@ -661,7 +660,7 @@ object TopicReplicatorSpec {
       TestIO { _.delete(key, deleteTo, bound) }
     }
 
-    def save(topic: Topic, pointers: TopicPointers) = {
+    def save(topic: Topic, pointers: TopicPointers, timestamp: Instant) = {
       TestIO { _.save(topic, pointers) }
     }
   }

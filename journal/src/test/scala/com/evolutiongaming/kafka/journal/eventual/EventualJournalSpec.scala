@@ -313,9 +313,6 @@ object EventualJournalSpec {
 
     def pointers(topic: Topic): TopicPointers
 
-
-    // TODO add delete
-
     def save(topic: Topic, pointers: TopicPointers): Unit
   }
 
@@ -339,7 +336,9 @@ object EventualJournalSpec {
 
       def pointers(topic: Topic) = journal.pointers(topic).get()
 
-      def save(topic: Topic, pointers: TopicPointers) = journal.save(topic, pointers).get()
+      def save(topic: Topic, pointers: TopicPointers) = {
+        journal.save(topic, pointers, timestamp).get()
+      }
     }
   }
 

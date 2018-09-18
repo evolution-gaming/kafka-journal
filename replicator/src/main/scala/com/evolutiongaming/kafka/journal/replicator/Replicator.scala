@@ -10,6 +10,7 @@ import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.concurrent.serially.SeriallyAsync
 import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.ReplicatedCassandra
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer._
@@ -25,18 +26,10 @@ trait Replicator {
 
 object Replicator {
 
-  type Metrics = Topic => TopicReplicator.Metrics[Async]
+  def apply(
+    system: ActorSystem,
+    metrics: Option[Metrics[Async]] = None): Async[Replicator] = safe {
 
-  object Metrics {
-    
-    val Empty: Metrics = {
-      val empty = TopicReplicator.Metrics.empty(Async.unit)
-      _: Topic => empty
-    }
-  }
-
-
-  def apply(system: ActorSystem, metrics: Metrics = Metrics.Empty): Async[Replicator] = safe {
     val name = "evolutiongaming.kafka-journal.replicator"
     val config = ReplicatorConfig(system.settings.config.getConfig(name))
     val ecBlocking = system.dispatchers.lookup(s"$name.blocking-dispatcher")
@@ -46,7 +39,7 @@ object Replicator {
   def apply(
     config: ReplicatorConfig,
     ecBlocking: ExecutionContext,
-    metrics: Metrics)(implicit
+    metrics: Option[Metrics[Async]])(implicit
     system: ActorSystem, ec: ExecutionContext): Async[Replicator] = safe {
 
     val cassandra = CreateCluster(config.cassandra.client)
@@ -55,7 +48,12 @@ object Replicator {
     for {
       session <- cassandra.connect().async
     } yield {
-      val journal = ReplicatedCassandra(session, config.cassandra)
+      val journal = {
+        val journal = ReplicatedCassandra(session, config.cassandra)
+        val actorLog = ActorLog(system, ReplicatedCassandra.getClass)
+        val logging = ReplicatedJournal(journal, Log(actorLog))
+        metrics.fold(logging) { metrics => ReplicatedJournal(logging, metrics.journal) }
+      }
 
       val createReplicator = (topic: Topic, partitions: Set[Partition]) => {
         val prefix = config.consumer.groupId getOrElse "journal-replicator"
@@ -64,16 +62,15 @@ object Replicator {
         val consumer = consumerOf(consumerConfig)
         val kafkaConsumer = KafkaConsumer(consumer, config.pollTimeout)
         val actorLog = ActorLog(system, TopicReplicator.getClass) prefixed topic
-        val log = Log(actorLog)
         val stopRef = Ref[Boolean, Async]()
         TopicReplicator(
           topic = topic,
           partitions = partitions,
           consumer = kafkaConsumer,
           journal = journal,
-          log = log,
+          log = Log(actorLog),
           stopRef = stopRef,
-          metrics = metrics(topic),
+          metrics = metrics.fold(TopicReplicator.Metrics.empty(Async.unit)) { _.replicator(topic) },
           Async(Instant.now))
       }
 
@@ -179,5 +176,19 @@ object Replicator {
 
 
     case object Stopped extends State
+  }
+
+
+  final case class Metrics[F[_]](
+    journal: ReplicatedJournal.Metrics[F],
+    replicator: Topic => TopicReplicator.Metrics[F])
+
+  object Metrics {
+
+    def empty[F[_]](unit: F[Unit]): Metrics[F] = {
+      Metrics(
+        journal = ReplicatedJournal.Metrics.empty(unit),
+        replicator = (_: Topic) => TopicReplicator.Metrics.empty(unit))
+    }
   }
 }

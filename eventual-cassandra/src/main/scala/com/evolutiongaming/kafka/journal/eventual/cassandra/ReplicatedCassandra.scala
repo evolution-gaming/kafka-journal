@@ -2,19 +2,15 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
-import akka.actor.ActorSystem
 import com.evolutiongaming.cassandra.Session
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.AsyncHelper._
-import com.evolutiongaming.kafka.journal.FlatMap._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Topic
 
 import scala.annotation.tailrec
-import scala.compat.Platform
 import scala.concurrent.ExecutionContext
 
 
@@ -24,7 +20,7 @@ import scala.concurrent.ExecutionContext
 object ReplicatedCassandra {
 
   def apply(session: Session, config: EventualCassandraConfig)
-    (implicit system: ActorSystem, ec: ExecutionContext): ReplicatedJournal[Async] = {
+    (implicit ec: ExecutionContext): ReplicatedJournal[Async] = {
 
     val statements = for {
       tables <- CreateSchema(config.schema, session)
@@ -33,67 +29,7 @@ object ReplicatedCassandra {
     } yield {
       statements
     }
-    val journal = apply(statements, config.segmentSize)
-
-    val actorLog = ActorLog(system, ReplicatedCassandra.getClass)
-    val log = Log(actorLog)
-    apply(journal, log)
-  }
-
-  def apply[F[_] : FlatMap](journal: ReplicatedJournal[F], log: Log[F]): ReplicatedJournal[F] = {
-
-    def duration[T](func: => F[T]): F[(T, Long)] = {
-      val start = Platform.currentTime
-      for {
-        result <- func
-        duration = Platform.currentTime - start
-      } yield (result, duration)
-    }
-
-    new ReplicatedJournal[F] {
-
-      def topics() = {
-        for {
-          result <- duration { journal.topics() }
-          (topics, duration) = result
-          _ <- log.debug(s"topics in ${ duration }ms, topics: ${ topics.mkString(",") }")
-        } yield topics
-      }
-
-      def pointers(topic: Topic) = {
-        for {
-          result <- duration { journal.pointers(topic) }
-          (pointers, duration) = result
-          _ <- log.debug(s"pointers in ${ duration }ms, topic: $topic, pointers: $pointers")
-        } yield pointers
-      }
-
-      def append(key: Key, timestamp: Instant, events: Nel[ReplicatedEvent], deleteTo: Option[SeqNr]) = {
-        for {
-          result <- duration { journal.append(key, timestamp, events, deleteTo) }
-          (_, duration) = result
-          _ <- log.debug(s"append in ${ duration }ms, key: $key, deleteTo: $deleteTo, events: ${ events.mkString(",") }")
-        } yield ()
-      }
-
-      def delete(key: Key, timestamp: Instant, deleteTo: SeqNr, bound: Boolean) = {
-        for {
-          result <- duration { journal.delete(key, timestamp, deleteTo, bound) }
-          (_, duration) = result
-          _ <- log.debug(s"delete in ${ duration }ms, key: $key, deleteTo: $deleteTo, bound: $bound")
-        } yield ()
-      }
-
-      def save(topic: Topic, pointers: TopicPointers) = {
-        for {
-          result <- duration { journal.save(topic, pointers) }
-          (_, duration) = result
-          _ <- log.debug(s"save in ${ duration }ms, topic: $topic, pointers: $pointers")
-        } yield ()
-      }
-
-      override def toString = journal.toString
-    }
+    apply(statements, config.segmentSize)
   }
 
 
@@ -286,7 +222,7 @@ object ReplicatedCassandra {
       }
 
 
-      def save(topic: Topic, topicPointers: TopicPointers): Async[Unit] = {
+      def save(topic: Topic, topicPointers: TopicPointers, timestamp: Instant): Async[Unit] = {
         val pointers = topicPointers.values
         if (pointers.isEmpty) Async.unit
         else {
