@@ -5,6 +5,7 @@ import java.time.Instant
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
+import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.SeqNr.Helper._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
@@ -430,7 +431,7 @@ object JournalSpec {
 
         def onAppend(action: Action.Append) = {
           val batch = for {
-            event <- EventsSerializer.fromBytes(action.events)
+            event <- EventsFromPayload(action.payload, action.payloadType)
           } yield {
             val partitionOffset = PartitionOffset(partition, record.offset)
             ReplicatedEvent(event, timestamp, partitionOffset, None)

@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import com.evolutiongaming.cassandra.{Decode, Encode}
+import com.evolutiongaming.kafka.journal.PlayJsonHelper._
 import play.api.libs.json._
 
 final case class SeqNr(value: Long) extends Ordered[SeqNr] {
@@ -49,16 +50,11 @@ object SeqNr {
     } yield seqNr
   }
 
-  implicit val FormatImpl: Format[SeqNr] = new Format[SeqNr] {
+  implicit val WritesImpl: Writes[SeqNr] = WritesOf[Long].imap(_.value)
 
-    def reads(json: JsValue): JsResult[SeqNr] = for {
-      value <- json.validate[Long]
-      seqNr <- SeqNr.validate(value)(JsError(_), JsSuccess(_))
-    } yield seqNr
-
-    def writes(seqNr: SeqNr) = JsNumber(seqNr.value)
+  implicit val ReadsImpl: Reads[SeqNr] = ReadsOf[Long].mapResult { a =>
+    SeqNr.validate(a)(JsError(_), JsSuccess(_))
   }
-
 
   def validate[T](value: Long)(onError: String => T, onSeqNr: SeqNr => T): T = {
     if (isValid(value)) onSeqNr(SeqNr(value)) else onError(invalid(value))

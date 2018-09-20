@@ -5,18 +5,11 @@ import play.api.libs.json._
 sealed trait ActionHeader { self =>
 
   def origin: Option[Origin]
-
-  final def toBytes: Array[Byte] = {
-    val json = Json.toJson(self)
-    Json.toBytes(json)
-  }
 }
 
 object ActionHeader {
 
-  implicit val JsonFormat: OFormat[ActionHeader] = {
-
-    implicit val SeqRangeFormat = Json.format[SeqRange]
+  implicit val FormatImpl: OFormat[ActionHeader] = {
 
     val AppendFormat = Json.format[Append]
     val DeleteFormat = Json.format[Delete]
@@ -50,25 +43,30 @@ object ActionHeader {
     }
   }
 
+  implicit val ToBytesImpl: ToBytes[ActionHeader] = ToBytes[JsValue].imap(Json.toJson(_))
+
+  implicit val FromBytesImpl: FromBytes[ActionHeader] = FromBytes[JsValue].map(_.as[ActionHeader])
+
 
   def apply(action: Action): ActionHeader = {
     action match {
-      case action: Action.Append => Append(action.range, action.origin)
+      case action: Action.Append => Append(action.range, action.origin, action.payloadType)
       case action: Action.Delete => Delete(action.to, action.origin)
       case action: Action.Mark   => Mark(action.id, action.origin)
     }
   }
 
 
-  def apply(bytes: Array[Byte]): ActionHeader = {
-    val json = Json.parse(bytes)
-    json.as[ActionHeader]
-  }
+  final case class Append(
+    range: SeqRange,
+    origin: Option[Origin],
+    payloadType: PayloadType.BinaryOrJson) extends ActionHeader
 
+  final case class Delete(
+    to: SeqNr,
+    origin: Option[Origin]) extends ActionHeader
 
-  final case class Append(range: SeqRange, origin: Option[Origin]) extends ActionHeader
-
-  final case class Delete(to: SeqNr, origin: Option[Origin]) extends ActionHeader
-
-  final case class Mark(id: String, origin: Option[Origin]) extends ActionHeader
+  final case class Mark(
+    id: String,
+    origin: Option[Origin]) extends ActionHeader
 }

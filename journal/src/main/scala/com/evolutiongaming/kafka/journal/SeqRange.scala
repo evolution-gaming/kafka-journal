@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import com.evolutiongaming.kafka.journal.SeqNr.Helper._
 import com.evolutiongaming.nel.Nel
+import play.api.libs.json.{Json, OFormat}
 
 // TODO test
 // TODO add method with single argument of range size 1
@@ -45,6 +46,8 @@ final case class SeqRange(from: SeqNr, to: SeqNr) {
 }
 
 object SeqRange {
+
+  implicit val Format: OFormat[SeqRange] = Json.format[SeqRange]
 
   val All: SeqRange = SeqRange(SeqNr.Min, SeqNr.Max)
 

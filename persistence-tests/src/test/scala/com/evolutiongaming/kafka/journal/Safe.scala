@@ -3,8 +3,8 @@ package com.evolutiongaming.kafka.journal
 import scala.util.control.NonFatal
 
 object Safe {
-  def apply[T](f: => T): Unit = {
-    try f catch {
+  def apply[A](fa: => A): Unit = {
+    try fa catch {
       case NonFatal(failure) => failure.printStackTrace()
     }
   }

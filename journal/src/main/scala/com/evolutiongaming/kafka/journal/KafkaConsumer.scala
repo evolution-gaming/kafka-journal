@@ -11,7 +11,7 @@ trait KafkaConsumer[F[_]] {
 
   def subscribe(topic: Topic): F[Unit]
 
-  def poll(): F[ConsumerRecords[String, Bytes]]
+  def poll(): F[ConsumerRecords[Id, Bytes]]
 
   def commit(offsets: Map[TopicPartition, OffsetAndMetadata]): F[Unit]
 
@@ -21,7 +21,7 @@ trait KafkaConsumer[F[_]] {
 object KafkaConsumer {
 
   def apply[F[_] : IO : AdaptFuture](
-    consumer: Consumer[String, Bytes],
+    consumer: Consumer[Id, Bytes],
     pollTimeout: FiniteDuration): KafkaConsumer[F] = new KafkaConsumer[F] {
 
     def subscribe(topic: Topic) = {

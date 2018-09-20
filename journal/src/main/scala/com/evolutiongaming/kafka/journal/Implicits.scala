@@ -19,11 +19,11 @@ object Implicits {
   }
 
 
-  implicit class OptionIdOps[T](val self: T) extends AnyVal {
-    def some: Option[T] = Some(self)
+  implicit class OptionIdOps[A](val self: A) extends AnyVal {
+    def some: Option[A] = Some(self)
   }
 
-  def none[T]: Option[T] = Option.empty
+  def none[A]: Option[A] = Option.empty
 
   def unit[F[_] : IO]: F[Unit] = IO[F].unit
 }

@@ -18,7 +18,7 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
 
   implicit lazy val system: ActorSystem = ActorSystem("ConsistencySpec", config.withFallback(JournalSpec.config))
 
-  "A KafkaJournal" should {
+  "KafkaJournal" should {
 
     "replay events" in {
       val ref = PersistenceRef()

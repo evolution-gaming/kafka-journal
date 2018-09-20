@@ -2,7 +2,6 @@ package com.evolutiongaming.kafka.journal
 
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
-import com.evolutiongaming.kafka.journal.Alias.Id
 import com.evolutiongaming.skafka.{Offset, TopicPartition}
 
 import scala.collection.immutable.Queue

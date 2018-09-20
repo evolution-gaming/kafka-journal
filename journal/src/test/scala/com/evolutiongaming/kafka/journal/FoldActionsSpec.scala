@@ -66,7 +66,8 @@ class FoldActionsSpec extends FunSuite with Matchers {
     val appendRecords = for {
       pointer <- pointers
     } yield {
-      val action = Action.Append(key, timestamp, None, SeqRange(SeqNr(pointer.seqNr)), Bytes.Empty)
+      val range = SeqRange(SeqNr(pointer.seqNr))
+      val action = Action.Append(key, timestamp, None, range, PayloadType.Json, Payload.Binary.Empty)
       ActionRecord(action, PartitionOffset(offset = pointer.offset))
     }
     val records = appendRecords :+ markRecord

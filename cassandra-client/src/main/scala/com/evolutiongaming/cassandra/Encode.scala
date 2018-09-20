@@ -1,5 +1,6 @@
 package com.evolutiongaming.cassandra
 
+import java.nio.ByteBuffer
 import java.time.Instant
 import java.util.Date
 
@@ -14,10 +15,8 @@ trait Encode[-A] { self =>
 
   def apply(statement: BoundStatement, name: String, value: A): BoundStatement
 
-  def imap[B](f: B => A): Encode[B] = new Encode[B] {
-    def apply(statement: BoundStatement, name: String, value: B): BoundStatement = {
-      self.apply(statement, name, f(value))
-    }
+  final def imap[B](f: B => A): Encode[B] = new Encode[B] {
+    def apply(statement: BoundStatement, name: String, value: B) = self(statement, name, f(value))
   }
 }
 
@@ -65,6 +64,13 @@ object Encode {
     def apply(statement: BoundStatement, name: String, value: Set[String]) = {
       val set = value.asJava
       statement.setSet(name, set, classOf[String])
+    }
+  }
+
+  implicit val BytesImpl: Encode[Array[Byte]] = new Encode[Array[Byte]] {
+    def apply(statement: BoundStatement, name: String, value: Array[Byte]) = {
+      val bytes = ByteBuffer.wrap(value)
+      statement.setBytes(name, bytes)
     }
   }
 }

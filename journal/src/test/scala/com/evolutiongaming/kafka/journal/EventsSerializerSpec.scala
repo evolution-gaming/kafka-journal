@@ -1,36 +1,82 @@
 package com.evolutiongaming.kafka.journal
 
+import java.io.FileOutputStream
+
+import com.evolutiongaming.kafka.journal.EventsSerializer.{EventsFromPayload, EventsToPayload}
+import com.evolutiongaming.kafka.journal.FixEquality.Implicits._
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.serialization.SerializerHelper._
 import org.scalatest.{FunSuite, Matchers}
 
 class EventsSerializerSpec extends FunSuite with Matchers {
-  import EventsSerializerSpec._
 
+  private implicit val fixEquality = FixEquality.array[Byte]()
 
-  test("toBytes & fromBytes") {
+  def event(seqNr: Int, payload: Option[Payload] = None): Event = {
+    val tags = (0 to seqNr).map(_.toString).toSet
+    Event(SeqNr(seqNr.toLong), tags, payload)
+  }
 
-    def event(seqNr: Long) = {
-      val tags = (0l to seqNr).map(_.toString).toSet
-      val bytes = Bytes(seqNr.toString.getBytes(Utf8))
-      Event(SeqNr(seqNr), tags, bytes)
-    }
+  def event(seqNr: Int, payload: Payload): Event = {
+    event(seqNr, Some(payload))
+  }
 
-    val expected = Nel(event(1), event(2), event(3))
-    val bytes = EventsSerializer.toBytes(expected)
-    bytes.value.length shouldEqual 112
-    val actual = EventsSerializer.fromBytes(bytes)
+  for {
+    (name, payloadType, events) <- List(
+      ("empty", PayloadType.Json, Nel(
+        event(1))),
+      ("binary", PayloadType.Binary, Nel(
+        event(1, Payload.Binary("payload")))),
+      ("text", PayloadType.Json, Nel(
+        event(1, Payload.Text(""" {"key":"value"} """)))),
+      ("json", PayloadType.Json, Nel(
+        event(1, Payload.Json("payload")))),
+      ("empty-many", PayloadType.Json, Nel(
+        event(1),
+        event(2))),
+      ("binary-many", PayloadType.Binary, Nel(
+        event(1, Payload.Binary("1")),
+        event(2, Payload.Binary("2")))),
+      ("text-many", PayloadType.Json, Nel(
+        event(1, Payload.Text("1")),
+        event(2, Payload.Text("2")))),
+      ("json-many", PayloadType.Json, Nel(
+        event(1, Payload.Json("1")),
+        event(2, Payload.Json("2")))),
+      ("empty-binary-text-json", PayloadType.Binary, Nel(
+        event(1),
+        event(2, Payload.Binary("binary")),
+        event(3, Payload.Text("text")),
+        event(4, Payload.Json("json")))))
+  } {
 
-    (actual.toList zip expected.toList) foreach { case (actual, expected) =>
-      actual.seqNr shouldEqual expected.seqNr
-      actual.payload.str shouldEqual expected.payload.str
-      actual.tags shouldEqual expected.tags
+    test(s"toBytes & fromBytes, events: $name") {
+
+      def fromFile(path: String) = BytesOf(getClass, path)
+
+      def verify(payload: Bytes, payloadType: PayloadType.BinaryOrJson) = {
+        val actual = EventsFromPayload(Payload.Binary(payload), payloadType)
+        actual.fix shouldEqual events.fix
+      }
+
+      val (payload, payloadTypeActual) = EventsToPayload(events)
+
+      payloadType shouldEqual payloadTypeActual
+
+      val ext = payloadType.ext
+
+      val path = s"action.payload.$name.$ext"
+
+      //      writeToFile(payload.value, path)
+
+      verify(payload.value, payloadType)
+
+      verify(fromFile(path), payloadType)
     }
   }
-}
 
-object EventsSerializerSpec {
-  implicit class BytesOps(val self: Bytes) extends AnyVal {
-    def str: String = new String(self.value, Utf8)
+  def writeToFile(bytes: Bytes, path: String): Unit = {
+    val os = new FileOutputStream(path)
+    os.write(bytes)
+    os.close()
   }
 }

@@ -2,6 +2,8 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 
+import com.evolutiongaming.kafka.journal.EventsSerializer.EventsToPayload
+import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Partition}
 
 trait Action {
@@ -21,7 +23,16 @@ object Action {
     timestamp: Instant,
     origin: Option[Origin],
     range: SeqRange,
-    events: Bytes) extends User
+    payloadType: PayloadType.BinaryOrJson,
+    payload: Payload.Binary) extends User
+
+  object Append {
+    def apply(key: Key, timestamp: Instant, origin: Option[Origin], events: Nel[Event]): Append = {
+      val (payload, payloadType) = EventsToPayload(events)
+      val range = SeqRange(from = events.head.seqNr, to = events.last.seqNr)
+      Action.Append(key, timestamp, origin, range, payloadType, payload)
+    }
+  }
 
   final case class Delete(
     key: Key,

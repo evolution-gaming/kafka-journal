@@ -9,23 +9,25 @@ class ActionHeaderJsonSpec extends FunSuite with Matchers {
   for {
     origin <- List(Some(Origin("origin")), None)
   } {
-    val variance = s"origin=$origin"
-
-    test(s"Append format, $variance") {
-      val range = SeqRange(1, 5)
-      val header = ActionHeader.Append(range, origin)
-      verify(header, s"Append.$variance")
+    for {
+      payloadType <- List(PayloadType.Binary, PayloadType.Json)
+    } {
+      test(s"Append format, origin: $origin, payloadType: $payloadType") {
+        val range = SeqRange(1, 5)
+        val header = ActionHeader.Append(range, origin, payloadType)
+        verify(header, s"Append.$origin.$payloadType")
+      }
     }
 
-    test(s"Delete format, $variance") {
+    test(s"Delete format, origin: $origin") {
       val seqNr = 3.toSeqNr
       val header = ActionHeader.Delete(seqNr, origin)
-      verify(header, s"Delete.$variance")
+      verify(header, s"Delete.$origin")
     }
 
-    test(s"Mark format, $variance") {
+    test(s"Mark format, origin: $origin, ") {
       val header = ActionHeader.Mark("id", origin)
-      verify(header, s"Mark.$variance")
+      verify(header, s"Mark.$origin")
     }
   }
 
@@ -43,10 +45,8 @@ class ActionHeaderJsonSpec extends FunSuite with Matchers {
 
     def verifyAgainstFile() = {
       val path = s"$name.json"
-      val stream = Option(getClass.getResourceAsStream(path)) getOrElse {
-        sys.error(s"File not found $path")
-      }
-      val json = Json.parse(stream)
+      val bytes = BytesOf(getClass, path)
+      val json = Json.parse(bytes)
       verify(json)
     }
 

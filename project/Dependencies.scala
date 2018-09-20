@@ -18,7 +18,7 @@ object Dependencies {
 
   lazy val `scala-tools` = "com.evolutiongaming" %% "scala-tools" % "2.2"
 
-  lazy val nel = "com.evolutiongaming" %% "nel" % "1.3.1"
+  lazy val nel = "com.evolutiongaming" %% "nel" % "1.3.2"
 
   lazy val `future-helper` = "com.evolutiongaming" %% "future-helper" % "1.0.3"
 

@@ -1,58 +1,77 @@
 package com.evolutiongaming.kafka.journal
 
-import java.lang.{Integer => IntJ, Long => LongJ}
+import java.lang.{Byte => ByteJ, Integer => IntJ, Long => LongJ}
 import java.nio.ByteBuffer
 
-import com.evolutiongaming.kafka.journal.Alias.Tag
+import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
+import com.evolutiongaming.kafka.journal.PlayJsonHelper._
+import com.evolutiongaming.kafka.journal.Tags._
+import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.serialization.SerializerHelper
 import com.evolutiongaming.serialization.SerializerHelper._
+import play.api.libs.json._
 
 import scala.annotation.tailrec
 
 object EventsSerializer {
 
-  def toBytes(events: Nel[Event]): Bytes = {
+  implicit val EventToBytes: ToBytes[Event] = new ToBytes[Event] {
 
-    def bytesOf(tags: Set[Tag]) = {
-      if (tags.isEmpty) SerializerHelper.Bytes.Empty
-      else {
-        val bytes = tags.map(_.getBytes(Utf8))
-        val length = bytes.foldLeft(0) { (length, bytes) => length + IntJ.BYTES + bytes.length }
-        val buffer = ByteBuffer.allocate(length)
-        bytes.foreach(buffer.writeBytes)
-        buffer.array()
+    def apply(event: Event): Bytes = {
+      val (payloadType, bytes) = event.payload match {
+        case None          => (0: Byte, Bytes.Empty)
+        case Some(payload) => payload match {
+          case payload: Payload.Binary => (1: Byte, payload.toBytes)
+          case payload: Payload.Json   => (2: Byte, payload.toBytes)
+          case payload: Payload.Text   => (3: Byte, payload.toBytes)
+        }
       }
-    }
-
-    val eventBytes = for {
-      event <- events
-    } yield {
-      val payload = event.payload
-      val tags = bytesOf(event.tags)
-      val buffer = ByteBuffer.allocate(LongJ.BYTES + IntJ.BYTES + tags.length + IntJ.BYTES + payload.value.length)
+      val tags = event.tags.toBytes
+      val buffer = ByteBuffer.allocate(LongJ.BYTES + IntJ.BYTES + tags.length + ByteJ.BYTES + IntJ.BYTES + bytes.length)
       buffer.putLong(event.seqNr.value)
       buffer.writeBytes(tags)
-      buffer.writeBytes(payload.value)
+      buffer.put(payloadType)
+      buffer.writeBytes(bytes)
       buffer.array()
     }
-
-    val length = eventBytes.foldLeft(IntJ.BYTES) { case (length, event) =>
-      length + IntJ.BYTES + event.length
-    }
-
-    val buffer = ByteBuffer.allocate(length)
-    buffer.writeNel(eventBytes)
-    Bytes(buffer.array())
   }
 
-  def fromBytes(bytes: Bytes): Nel[Event] = {
-    val buffer = ByteBuffer.wrap(bytes.value)
-    buffer.readNel {
-      val seqNr = SeqNr(buffer.getLong())
-      val tags = buffer.readTags()
-      val payload = buffer.readBytes
-      Event(seqNr, tags, Bytes(payload))
+
+  implicit val EventsToBytes: ToBytes[Nel[Event]] = new ToBytes[Nel[Event]] {
+
+    def apply(events: Nel[Event]) = {
+      val eventBytes = events.map(_.toBytes)
+
+      val length = eventBytes.foldLeft(ByteJ.BYTES + IntJ.BYTES) { case (length, event) =>
+        length + IntJ.BYTES + event.length
+      }
+
+      val buffer = ByteBuffer.allocate(length)
+      buffer.put(0: Byte) // version
+      buffer.writeNel(eventBytes)
+      buffer.array()
+    }
+  }
+
+  implicit val EventsFromBytes: FromBytes[Nel[Event]] = new FromBytes[Nel[Event]] {
+
+    def apply(bytes: Bytes) = {
+      val buffer = ByteBuffer.wrap(bytes)
+      buffer.get() // version
+      buffer.readNel {
+        val seqNr = SeqNr(buffer.getLong())
+        val tags = buffer.readBytes.fromBytes[Tags]
+        val payloadType = buffer.get()
+        val bytes = buffer.readBytes
+        val payload = payloadType match {
+          case 0 => None
+          case 1 => Some(bytes.fromBytes[Payload.Binary])
+          case 2 => Some(bytes.fromBytes[Payload.Json])
+          case 3 => Some(bytes.fromBytes[Payload.Text])
+          case _ => Some(bytes.fromBytes[Payload.Binary])
+        }
+        Event(seqNr, tags, payload)
+      }
     }
   }
 
@@ -71,29 +90,119 @@ object EventsSerializer {
       Nel.unsafe(list)
     }
 
-    def writeNel(bytes: Nel[Array[Byte]]): Unit = {
+    def writeNel(bytes: Nel[Bytes]): Unit = {
       self.putInt(bytes.length)
       bytes.foreach { bytes => self.writeBytes(bytes) }
     }
+  }
 
-    def readTags(): Set[Tag] = {
-      val bytes = self.readBytes
-      if (bytes.isEmpty) Set.empty
-      else {
-        val buffer = ByteBuffer.wrap(bytes)
 
-        @tailrec
-        def loop(tags: Set[Tag]): Set[Tag] = {
-          if (!buffer.hasRemaining) tags
-          else {
-            val tag = buffer.readString
-            loop(tags + tag)
-          }
+  object EventsToPayload {
+
+    def apply(events: Nel[Event]): (Payload.Binary, PayloadType.BinaryOrJson) = {
+
+      @tailrec
+      def loop(events: List[Event], json: List[EventJson]): List[EventJson] = {
+        events match {
+          case Nil          => json.reverse
+          case head :: tail =>
+            val result = head.payload.fold[Option[EventJson]](Some(EventJson(head))) {
+              case payload: Payload.Binary => None
+              case payload: Payload.Text   => Some(EventJson(head, payload))
+              case payload: Payload.Json   => Some(EventJson(head, payload))
+            }
+            result match {
+              case None    => Nil
+              case Some(x) => loop(tail, x :: json)
+            }
         }
+      }
 
-        loop(Set.empty)
+      loop(events.toList, Nil) match {
+        case Nil =>
+          val bytes = events.toBytes
+          (Payload.Binary(bytes), PayloadType.Binary)
+
+        case head :: tail =>
+          val payload = PayloadJson(Nel(head, tail))
+          val json = Json.toJson(payload)
+          val bytes = json.toBytes
+          (Payload.Binary(bytes), PayloadType.Json)
       }
     }
   }
-}
 
+
+  object EventsFromPayload {
+
+    def apply(payload: Payload.Binary, payloadType: PayloadType.BinaryOrJson): Nel[Event] = {
+      payloadType match {
+        case PayloadType.Binary => payload.value.fromBytes[Nel[Event]]
+        case PayloadType.Json   =>
+          val json = payload.value.fromBytes[JsValue]
+          val payloadJson = json.as[PayloadJson]
+          for {
+            event <- payloadJson.events
+          } yield {
+            val payloadType = event.payloadType getOrElse PayloadType.Json
+            val payload = event.payload.map { payload =>
+              payloadType match {
+                case PayloadType.Json => Payload.Json(payload)
+                case PayloadType.Text => Payload.Text(payload.as[String])
+              }
+            }
+            Event(
+              seqNr = event.seqNr,
+              tags = event.tags,
+              payload = payload)
+          }
+      }
+    }
+  }
+
+
+  final case class EventJson(
+    seqNr: SeqNr,
+    tags: Tags,
+    payloadType: Option[PayloadType.TextOrJson] = None,
+    payload: Option[JsValue] = None)
+
+  object EventJson {
+
+    implicit val FormatImpl: OFormat[EventJson] = Json.format[EventJson]
+
+
+    implicit val NelWritesImpl: Writes[Nel[EventJson]] = nelWrites[EventJson]
+
+    implicit val NelReadsImpl: Reads[Nel[EventJson]] = nelReads[EventJson]
+
+
+    def apply(event: Event): EventJson = {
+      EventJson(
+        seqNr = event.seqNr,
+        tags = event.tags)
+    }
+
+    def apply(event: Event, payload: Payload.Json): EventJson = {
+      EventJson(
+        seqNr = event.seqNr,
+        tags = event.tags,
+        payload = Some(payload.value))
+    }
+
+    def apply(event: Event, payload: Payload.Text): EventJson = {
+      EventJson(
+        seqNr = event.seqNr,
+        tags = event.tags,
+        payloadType = Some(PayloadType.Text),
+        payload = Some(JsString(payload.value)))
+    }
+  }
+
+
+  final case class PayloadJson(events: Nel[EventJson])
+
+  object PayloadJson {
+    implicit val FormatImpl: OFormat[PayloadJson] = Json.format[PayloadJson]
+  }
+}

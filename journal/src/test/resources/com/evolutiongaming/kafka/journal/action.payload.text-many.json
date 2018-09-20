@@ -1,0 +1,23 @@
+{
+  "events": [
+    {
+      "seqNr": 1,
+      "tags": [
+        "0",
+        "1"
+      ],
+      "payloadType": "text",
+      "payload": "1"
+    },
+    {
+      "seqNr": 2,
+      "tags": [
+        "0",
+        "1",
+        "2"
+      ],
+      "payloadType": "text",
+      "payload": "2"
+    }
+  ]
+}

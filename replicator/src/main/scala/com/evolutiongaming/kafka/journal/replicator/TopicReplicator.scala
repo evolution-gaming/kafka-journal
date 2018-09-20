@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
 
+import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.Implicits._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
@@ -37,7 +38,7 @@ object TopicReplicator {
 
     def round(
       state: State,
-      consumerRecords: ConsumerRecords[String, Bytes],
+      consumerRecords: ConsumerRecords[Id, Bytes],
       roundStart: Instant): F[(State, Map[TopicPartition, OffsetAndMetadata])] = {
 
       val records = for {
@@ -55,7 +56,7 @@ object TopicReplicator {
 
         val head = records.head
         val partition = head.partitionOffset.partition
-        val offsetLast = records.last.offset
+        val offsetLast = records.last.partitionOffset
 
         val id = key.id
 
@@ -79,30 +80,41 @@ object TopicReplicator {
           } yield {}
         }
 
-        def append(deleteTo: Option[SeqNr], events: Nel[ReplicatedEvent]) = {
+        def append(deleteTo: Option[SeqNr], events: Nel[ReplicatedEvent], bytes: => Int) = {
           for {
             _ <- journal.append(key, roundStart, events, deleteTo)
             measurements <- measurements
             _ <- metrics.append(
               events = events.length,
-              bytes = events.foldLeft(0)((bytes, event) => bytes + event.event.payload.value.length),
+              bytes = bytes,
               measurements = measurements)
             latency = measurements.replicationLatency
             _ <- log.info {
               val deleteToStr = deleteTo.fold("") { deleteTo => s", deleteTo: $deleteTo" }
               val range = events.head.seqNr to events.last.seqNr
-              s"append in ${ latency }ms id: $id, range: $range$deleteToStr, offset: $offsetLast"
+              s"append in ${ latency }ms id: $id, events: $range$deleteToStr, offset: $offsetLast"
             }
           } yield {}
         }
 
         def onNonEmpty(info: JournalInfo.NonEmpty) = {
           val deleteTo = info.deleteTo
-          val events = for {
+
+          val appends = for {
             record <- records
             action <- PartialFunction.condOpt(record.action) { case a: Action.Append => a }.toIterable
             if deleteTo.forall(action.range.to > _)
-            event <- EventsSerializer.fromBytes(action.events).toList
+          } yield {
+            (record, action)
+          }
+
+          def bytes = appends.foldLeft(0) { case (bytes, (_, action)) =>
+            bytes + action.payload.value.length /*TODO provide Bytes.length func */
+          }
+
+          val events = for {
+            (record, action) <- appends
+            event <- EventsFromPayload(action.payload, action.payloadType).toList
             if deleteTo.forall(event.seqNr > _)
           } yield {
             ReplicatedEvent(
@@ -113,7 +125,7 @@ object TopicReplicator {
           }
 
           Nel.opt(events) match {
-            case Some(events) => append(info.deleteTo, events)
+            case Some(events) => append(info.deleteTo, events, bytes)
             case None         => info.deleteTo match {
               case Some(deleteTo) => delete(deleteTo, bound = true)
               case None           => unit

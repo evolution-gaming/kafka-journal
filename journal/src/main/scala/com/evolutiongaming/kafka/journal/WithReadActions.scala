@@ -19,7 +19,7 @@ trait WithReadActions[F[_]] {
 object WithReadActions {
 
   def apply(
-    newConsumer: Topic => Consumer[String, Bytes],
+    consumerOf: Topic => Consumer[Id, Bytes],
     pollTimeout: FiniteDuration,
     closeTimeout: FiniteDuration,
     log: ActorLog)(implicit ec: ExecutionContext /*TODO remove*/): WithReadActions[Async] = {
@@ -31,9 +31,9 @@ object WithReadActions {
         // TODO consider separate from splitting
         val consumer = {
           val timestamp = Platform.currentTime
-          val consumer = newConsumer(topicPartition.topic) // TODO ~10ms
+          val consumer = consumerOf(topicPartition.topic) // TODO ~10ms
           val duration = Platform.currentTime - timestamp
-          log.debug(s"newConsumer() took $duration ms")
+          log.debug(s"consumerOf() took $duration ms")
           consumer
         }
 

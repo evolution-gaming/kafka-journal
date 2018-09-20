@@ -5,15 +5,16 @@ import java.util.UUID
 
 import com.evolutiongaming.cassandra.CreateCluster
 import com.evolutiongaming.concurrent.FutureHelper._
+import com.evolutiongaming.kafka.journal.FixEquality.Implicits._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper.Switch
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
-import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerConfig}
 import com.evolutiongaming.skafka.producer.{Producer, ProducerConfig}
+import com.evolutiongaming.skafka.{Offset, Topic}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.{Matchers, WordSpec}
 
@@ -60,88 +61,167 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
 
   "Replicator" should {
 
-    "consume event from kafka and store in replicated journal" in {
-      val topic = "journal"
-      val key = Key(id = UUID.randomUUID().toString, topic = topic)
-      val origin = Origin(s"replicator")
+    implicit val fixEquality = FixEquality.array[Byte]()
 
+    val topic = "journal"
+    val origin = Origin("replicator")
+
+    lazy val journal = {
       def kafkaConf(name: String) = {
         val common = conf.getConfig("kafka")
         common.getConfig(name) withFallback common
       }
 
-      val journal = {
-        val producer = {
-          val producerConfig = ProducerConfig(kafkaConf("producer"))
-          Producer(producerConfig, ec)
-        }
-        // TODO refactor journal to reuse code
+      val producer = {
+        val producerConfig = ProducerConfig(kafkaConf("producer"))
+        Producer(producerConfig, ec)
+      }
+      // TODO refactor journal to reuse code
 
-        // TODO we don't need consumer here...
-        val consumerConfig = ConsumerConfig(kafkaConf("consumer"))
-        val newConsumer = (topic: Topic) => {
-          val uuid = UUID.randomUUID()
-          val prefix = consumerConfig.groupId getOrElse "replicator-test"
-          val groupId = s"$prefix-$topic-$uuid"
-          val configFixed = consumerConfig.copy(groupId = Some(groupId))
-          Consumer[String, Bytes](configFixed, ec)
-        }
-
-        val journal = Journal(
-          log = log, // TODO remove
-          Some(origin),
-          producer = producer,
-          newConsumer = newConsumer,
-          eventual = eventual,
-          pollTimeout = 100.millis /*TODO*/ ,
-          closeTimeout = timeout)
-        Journal(journal, log)
+      // TODO we don't need consumer here...
+      val consumerConfig = ConsumerConfig(kafkaConf("consumer"))
+      val consumerOf = (topic: Topic) => {
+        val uuid = UUID.randomUUID()
+        val prefix = consumerConfig.groupId getOrElse "replicator-test"
+        val groupId = s"$prefix-$topic-$uuid"
+        val configFixed = consumerConfig.copy(groupId = Some(groupId))
+        Consumer[Id, Bytes](configFixed, ec)
       }
 
+      val journal = Journal(
+        log = log, // TODO remove
+        Some(origin),
+        producer = producer,
+        consumerOf = consumerOf,
+        eventual = eventual,
+        pollTimeout = 100.millis /*TODO*/ ,
+        closeTimeout = timeout)
+      Journal(journal, log)
+    }
 
-      def readUntil(until: List[ReplicatedEvent] => Boolean) = {
-        val future = Retry() {
-          for {
-            switch <- eventual.read[List[ReplicatedEvent]](key, SeqNr.Min, Nil) { case (xs, x) => Switch.continue(x :: xs) }.future
-            events = switch.s
-            result <- if (until(events)) Some(events.reverse).future else None.future
-          } yield result
-        }
-
-        Await.result(future, timeout)
-      }
-
-      def append(events: Nel[Event]) = {
-        val timestamp = Instant.now()
-        val partitionOffset = journal.append(key, events, timestamp).get(timeout)
+    def read(key: Key)(until: List[ReplicatedEvent] => Boolean) = {
+      val future = Retry() {
         for {
-          event <- events
-        } yield {
-          ReplicatedEvent(event, timestamp, partitionOffset, Some(origin))
-        }
+          switch <- eventual.read[List[ReplicatedEvent]](key, SeqNr.Min, Nil) { case (xs, x) => Switch.continue(x :: xs) }.future
+          events = switch.s
+          result <- if (until(events)) Some(events.reverse).future else None.future
+        } yield result
       }
 
-      val topicPointers = eventual.pointers(topic).get(timeout)
+      Await.result(future, timeout)
+    }
 
-      val expected1 = append(Nel(Event(SeqNr.Min)))
+    def append(key: Key, events: Nel[Event]) = {
+      val timestamp = Instant.now()
+      val partitionOffset = journal.append(key, events, timestamp).get(timeout)
+      for {
+        event <- events
+      } yield {
+        ReplicatedEvent(event, timestamp, partitionOffset, Some(origin))
+      }
+    }
+
+    def lastSeqNr(key: Key) = journal.lastSeqNr(key, SeqNr.Min).get(timeout)
+
+    def topicPointers() = eventual.pointers(topic).get(timeout).values
+
+    "replicate events and then delete" in {
+
+      val key = Key(id = UUID.randomUUID().toString, topic = topic)
+
+      lastSeqNr(key) shouldEqual None
+
+      val pointers = topicPointers()
+
+      val expected1 = append(key, Nel(event(1)))
       val partitionOffset = expected1.head.partitionOffset
       val partition = partitionOffset.partition
 
       for {
-        offset <- topicPointers.values.get(partitionOffset.partition)
+        offset <- pointers.get(partitionOffset.partition)
       } partitionOffset.offset should be > offset
 
-      val actual1 = readUntil(_.nonEmpty)
+      val actual1 = read(key)(_.nonEmpty)
       actual1 shouldEqual expected1.toList
+      lastSeqNr(key) shouldEqual Some(expected1.last.seqNr)
 
       journal.delete(key, expected1.last.event.seqNr, Instant.now()).get(timeout).partition shouldEqual partition
-      readUntil(_.isEmpty) shouldEqual Nil
+      read(key)(_.isEmpty) shouldEqual Nil
+      lastSeqNr(key) shouldEqual Some(expected1.last.seqNr)
 
-      val expected2 = append(Nel(
-        Event(SeqNr(2l), Set("tag-2")),
-        Event(SeqNr(3l), Set("tag-3", "tag-4"))))
-      val actual2 = readUntil(_.nonEmpty)
+      val expected2 = append(key, Nel(event(2), event(3)))
+      val actual2 = read(key)(_.nonEmpty)
       actual2 shouldEqual expected2.toList
+      lastSeqNr(key) shouldEqual Some(expected2.last.seqNr)
     }
+
+    val numberOfEvents = 100
+
+    s"replicate append of $numberOfEvents events" in {
+      val key = Key(id = UUID.randomUUID().toString, topic = topic)
+      val events = for {
+        seqNr <- 1 to numberOfEvents
+      } yield {
+        event(seqNr, Payload("kafka-journal"))
+      }
+      val expected = append(key, Nel.unsafe(events))
+      val actual = read(key)(_.nonEmpty)
+      actual.fix shouldEqual expected.toList.fix
+
+      lastSeqNr(key) shouldEqual Some(events.last.seqNr)
+    }
+
+    for {
+      (name, events) <- List(
+        ("empty", Nel(event(1))),
+        ("binary", Nel(event(1, Payload.Binary("binary")))),
+        ("text", Nel(event(1, Payload.Text("text")))),
+        ("json", Nel(event(1, Payload.Json("json")))),
+        ("empty-many", Nel(
+          event(1),
+          event(2),
+          event(3))),
+        ("binary-many", Nel(
+          event(1, Payload.Binary("1")),
+          event(2, Payload.Binary("2")),
+          event(3, Payload.Binary("3")))),
+        ("text-many", Nel(
+          event(1, Payload.Text("1")),
+          event(2, Payload.Text("2")),
+          event(3, Payload.Text("3")))),
+        ("json-many", Nel(
+          event(1, Payload.Json("1")),
+          event(2, Payload.Json("2")),
+          event(3, Payload.Json("3")))),
+        ("empty-binary-text-json", Nel(
+          event(1),
+          event(2, Payload.Binary("binary")),
+          event(3, Payload.Text("text")),
+          event(4, Payload.Json("json")))))
+    } {
+      s"consume event from kafka and replicate to eventual journal, payload: $name" in {
+        val key = Key(id = UUID.randomUUID().toString, topic = topic)
+        val pointers = topicPointers()
+        val expected = append(key, events)
+        val partition = expected.head.partitionOffset.partition
+        val offsetBefore = pointers.getOrElse(partition, Offset.Min)
+        val actual = read(key)(_.nonEmpty)
+        actual.fix shouldEqual expected.toList.fix
+
+        lastSeqNr(key) shouldEqual Some(events.last.seqNr)
+
+        val offsetAfter = topicPointers().getOrElse(partition, Offset.Min)
+        offsetAfter should be > offsetBefore
+      }
+    }
+  }
+
+  private def event(seqNr: Int, payload: Option[Payload] = None): Event = {
+    val tags = (0 to seqNr).map(_.toString).toSet
+    Event(SeqNr(seqNr.toLong), tags, payload)
+  }
+
+  private def event(seqNr: Int, payload: Payload): Event = {
+    event(seqNr, Some(payload))
   }
 }

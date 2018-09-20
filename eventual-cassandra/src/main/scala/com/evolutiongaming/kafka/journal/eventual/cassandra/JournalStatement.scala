@@ -6,13 +6,13 @@ import java.time.Instant
 import com.datastax.driver.core.BatchStatement
 import com.evolutiongaming.cassandra.CassandraHelper._
 import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.kafka.journal.Alias.Tags
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.Pointer
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Partition}
+import play.api.libs.json.Json
 
 import scala.concurrent.ExecutionContext
 
@@ -31,7 +31,10 @@ object JournalStatement {
        |timestamp timestamp,
        |origin text,
        |tags set<text>,
-       |payload blob,
+       |metadata text,
+       |payload_type text,
+       |payload_txt text,
+       |payload_bin blob,
        |PRIMARY KEY ((id, topic, segment), seq_nr, timestamp))
        |""".stripMargin
     //        WITH gc_grace_seconds =${gcGrace.toSeconds} TODO
@@ -46,8 +49,20 @@ object JournalStatement {
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
       val query =
         s"""
-           |INSERT INTO ${ name.asCql } (id, topic, segment, seq_nr, partition, offset, timestamp, origin, tags, payload)
-           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           |INSERT INTO ${ name.asCql } (
+           |id,
+           |topic,
+           |segment,
+           |seq_nr,
+           |partition,
+           |offset,
+           |timestamp,
+           |origin,
+           |tags,
+           |payload_type,
+           |payload_txt,
+           |payload_bin)
+           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            |""".stripMargin
 
       for {
@@ -56,8 +71,23 @@ object JournalStatement {
         (key: Key, segment: SegmentNr, events: Nel[ReplicatedEvent]) =>
           // TODO make up better way for creating queries
 
+          // TODO add metadata field
+
           def statementOf(replicated: ReplicatedEvent) = {
             val event = replicated.event
+            // TODO test this shit
+            val (payloadType, txt, bin) = event.payload.map { payload =>
+              val (text, bytes) = payload match {
+                case payload: Payload.Binary => (None, Some(payload))
+                case payload: Payload.Text   => (Some(payload.value), None)
+                case payload: Payload.Json   => (Some(Json.stringify(payload.value)), None)
+              }
+              val payloadType = payload.payloadType
+              (Some(payloadType): Option[PayloadType], text, bytes)
+            } getOrElse {
+              (None, None, None)
+            }
+
             prepared
               .bind()
               .encode("id", key.id)
@@ -67,9 +97,11 @@ object JournalStatement {
               .encode("partition", replicated.partitionOffset.partition)
               .encode("offset", replicated.partitionOffset.offset)
               .encode("timestamp", replicated.timestamp)
-              .encode("tags", event.tags)
               .encode("origin", replicated.origin)
-              .encode("payload", event.payload)
+              .encode("tags", event.tags)
+              .encode("payload_type", payloadType)
+              .encode("payload_txt", txt)
+              .encode("payload_bin", bin)
           }
 
           val statement = {
@@ -138,7 +170,16 @@ object JournalStatement {
     def apply(name: TableName, session: PrepareAndExecute)(implicit ec: ExecutionContext): Async[Type] = {
       val query =
         s"""
-           |SELECT seq_nr, partition, offset, timestamp, tags, origin, payload FROM ${ name.asCql }
+           |SELECT
+           |seq_nr,
+           |partition,
+           |offset,
+           |timestamp,
+           |origin,
+           |tags,
+           |payload_type,
+           |payload_txt,
+           |payload_bin FROM ${ name.asCql }
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?
@@ -152,7 +193,7 @@ object JournalStatement {
         new Type {
           def apply[S](key: Key, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]) = {
 
-            val fetchThreshold = 10 // TODO #49, 
+            val fetchThreshold = 10 // TODO #49,
 
             // TODO avoid casting via providing implicit converters
             val bound = prepared.bind(key.id, key.topic, segment.value: LongJ, range.from.value: LongJ, range.to.value: LongJ)
@@ -163,10 +204,18 @@ object JournalStatement {
                 val partitionOffset = PartitionOffset(
                   partition = row.decode[Partition]("partition"),
                   offset = row.decode[Offset]("offset"))
+
+                val payloadType = row.decode[Option[PayloadType]]("payload_type")
+                val payload = payloadType.map {
+                  case PayloadType.Binary => row.decode[Option[Payload.Binary]]("payload_bin") getOrElse Payload.Binary.Empty
+                  case PayloadType.Text   => row.decode[Payload.Text]("payload_txt")
+                  case PayloadType.Json   => row.decode[Payload.Json]("payload_txt")
+                }
+
                 val event = Event(
                   seqNr = row.decode[SeqNr]("seq_nr"),
                   tags = row.decode[Tags]("tags"),
-                  payload = row.decode[Bytes]("payload"))
+                  payload = payload)
                 val replicated = ReplicatedEvent(
                   event = event,
                   timestamp = row.decode[Instant]("timestamp"),

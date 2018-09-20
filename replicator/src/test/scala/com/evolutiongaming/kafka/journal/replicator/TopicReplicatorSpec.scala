@@ -603,9 +603,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 
   private def appendOf(key: Key, seqNrs: Nel[Int]) = {
     val events = seqNrs.map { seqNr => Event(SeqNr(seqNr.toLong), Set(seqNr.toString)) }
-    val bytes = EventsSerializer.toBytes(events)
-    val range = SeqRange(events.head.seqNr, events.last.seqNr)
-    Action.Append(key, timestamp = timestamp, Some(origin), range, bytes)
+    Action.Append(key, timestamp = timestamp, Some(origin), events)
   }
 
   private def markOf(key: Key) = {
@@ -687,8 +685,7 @@ object TopicReplicatorSpec {
       partition: Partition,
       latency: Long = replicationLatency,
       events: Int,
-      actions: Int,
-      bytes: Int = 0) extends Metrics
+      actions: Int) extends Metrics
 
     final case class Delete(
       partition: Partition,
@@ -706,8 +703,7 @@ object TopicReplicatorSpec {
           partition = measurements.partition,
           latency = measurements.replicationLatency,
           events = events,
-          actions = measurements.actions,
-          bytes = bytes)
+          actions = measurements.actions)
       }
     }
 
@@ -743,7 +739,7 @@ object TopicReplicatorSpec {
   final case class Data(
     topics: List[Topic] = Nil,
     commits: List[Map[TopicPartition, OffsetAndMetadata]] = Nil,
-    records: List[ConsumerRecords[String, Bytes]] = Nil,
+    records: List[ConsumerRecords[Id, Bytes]] = Nil,
     stopped: Boolean = false,
     pointers: Map[Topic, TopicPointers] = Map.empty,
     journal: Map[Key, List[ReplicatedEvent]] = Map.empty,
@@ -825,7 +821,7 @@ object TopicReplicatorSpec {
       (result, ())
     }
 
-    def poll: (Data, ConsumerRecords[String, Bytes]) = {
+    def poll: (Data, ConsumerRecords[Id, Bytes]) = {
       records match {
         case head :: tail => (copy(records = tail), head)
         case Nil          => (copy(stopped = true), ConsumerRecords(Map.empty))

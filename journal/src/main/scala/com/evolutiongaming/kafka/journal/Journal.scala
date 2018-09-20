@@ -7,6 +7,7 @@ import akka.actor.ActorSystem
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.ActorLogHelper._
+import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.SeqNr.Helper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
@@ -84,7 +85,7 @@ object Journal {
   def apply(
     producer: Producer,
     origin: Option[Origin],
-    newConsumer: Topic => Consumer[String, Bytes],
+    consumerOf: Topic => Consumer[Id, Bytes],
     eventual: EventualJournal,
     pollTimeout: FiniteDuration = 100.millis,
     closeTimeout: FiniteDuration = 10.seconds)(implicit
@@ -92,20 +93,20 @@ object Journal {
     ec: ExecutionContext): Journal = {
 
     val log = ActorLog(system, classOf[Journal])
-    apply(log, origin, producer, newConsumer, eventual, pollTimeout, closeTimeout)
+    apply(log, origin, producer, consumerOf, eventual, pollTimeout, closeTimeout)
   }
 
   def apply(
     log: ActorLog, // TODO remove
     origin: Option[Origin],
     producer: Producer,
-    newConsumer: Topic => Consumer[String, Bytes],
+    consumerOf: Topic => Consumer[Id, Bytes],
     eventual: EventualJournal,
     pollTimeout: FiniteDuration,
     closeTimeout: FiniteDuration)(implicit
     ec: ExecutionContext): Journal = {
 
-    val withReadActions = WithReadActions(newConsumer, pollTimeout, closeTimeout, log)
+    val withReadActions = WithReadActions(consumerOf, pollTimeout, closeTimeout, log)
 
     val writeAction = AppendAction(producer)
 
@@ -147,9 +148,7 @@ object Journal {
     new Journal {
 
       def append(key: Key, events: Nel[Event], timestamp: Instant) = {
-        val payload = EventsSerializer.toBytes(events)
-        val range = SeqRange(from = events.head.seqNr, to = events.last.seqNr)
-        val action = Action.Append(key, timestamp, origin, range, payload)
+        val action = Action.Append(key, timestamp, origin, events)
         appendAction(action)
       }
 
@@ -183,7 +182,7 @@ object Journal {
                 case action: Action.Append =>
                   if (action.range.to < from) s.continue
                   else {
-                    val events = EventsSerializer.fromBytes(action.events)
+                    val events = EventsFromPayload(action.payload, action.payloadType)
                     events.foldWhile(s) { case (s, event) =>
                       if (event.seqNr >= from) f(s, event) else s.continue
                     }

@@ -2,14 +2,13 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 
-import com.evolutiongaming.kafka.journal.Alias.Tags
 import com.evolutiongaming.skafka.{Offset, Partition}
 
 // TODO add timestamp ?
 final case class Event(
   seqNr: SeqNr,
   tags: Tags = Tags.Empty,
-  payload: Bytes = Bytes.Empty)
+  payload: Option[Payload] = None)
 
 // TODO rename, statements called records, here - events
 // TODO move to eventual ?

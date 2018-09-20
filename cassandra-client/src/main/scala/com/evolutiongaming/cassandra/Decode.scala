@@ -13,7 +13,7 @@ trait Decode[A] extends { self =>
 
   def apply(row: Row, name: String): A
 
-  def map[B](f: A => B): Decode[B] = new Decode[B] {
+  final def map[B](f: A => B): Decode[B] = new Decode[B] {
     def apply(row: Row, name: String) = f(self(row, name))
   }
 }
@@ -60,6 +60,13 @@ object Decode {
     def apply(row: Row, name: String) = {
       val set = row.getSet(name, classOf[String])
       set.asScala.toSet
+    }
+  }
+
+  implicit val DecodeImpl: Decode[Array[Byte]] = new Decode[Array[Byte]] {
+    def apply(row: Row, name: String) = {
+      val bytes = row.getBytes(name)
+      bytes.array()
     }
   }
 }

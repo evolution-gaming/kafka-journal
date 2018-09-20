@@ -43,7 +43,7 @@ object Replicator {
     system: ActorSystem, ec: ExecutionContext): Async[Replicator] = safe {
 
     val cassandra = CreateCluster(config.cassandra.client)
-    val consumerOf = (config: ConsumerConfig) => Consumer[String, Bytes](config, ecBlocking)
+    val consumerOf = (config: ConsumerConfig) => Consumer[Id, Bytes](config, ecBlocking)
 
     for {
       session <- cassandra.connect().async
@@ -81,7 +81,7 @@ object Replicator {
   def apply(
     config: ReplicatorConfig,
     cassandra: Cluster,
-    consumerOf: ConsumerConfig => Consumer[String, Bytes],
+    consumerOf: ConsumerConfig => Consumer[Id, Bytes],
     topicReplicatorOf: (Topic, Set[Partition]) => TopicReplicator[Async])(implicit
     system: ActorSystem, ec: ExecutionContext): Replicator = {
 

@@ -7,12 +7,10 @@ import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.{AtomicWrite, PersistentRepr}
 import com.evolutiongaming.cassandra.CreateCluster
 import com.evolutiongaming.config.ConfigHelper._
-import com.evolutiongaming.kafka.journal.Alias._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
 import com.evolutiongaming.safeakka.actor.ActorLog
-import com.evolutiongaming.serialization.{SerializedMsgConverter, SerializedMsgExt}
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerConfig}
 import com.evolutiongaming.skafka.producer.{Producer, ProducerConfig}
@@ -31,9 +29,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
 
   val log: ActorLog = ActorLog(system, classOf[KafkaJournal])
 
-  val adapter: JournalsAdapter = adapterOf(toKey(), serialisation())
-
-  def serialisation(): SerializedMsgConverter = SerializedMsgExt(system)
+  val adapter: JournalsAdapter = adapterOf(toKey(), serializer())
 
   def toKey(): ToKey = ToKey(config)
 
@@ -57,7 +53,9 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
     Origin.HostName orElse Origin.AkkaHost(system) getOrElse Origin.AkkaName(system)
   }
 
-  def adapterOf(toKey: ToKey, serialisation: SerializedMsgConverter): JournalsAdapter = {
+  def serializer(): EventSerializer = EventSerializer(system)
+
+  def adapterOf(toKey: ToKey, serializer: EventSerializer): JournalsAdapter = {
 
     val producerConfig = this.producerConfig()
     log.debug(s"Producer config: $producerConfig")
@@ -82,12 +80,12 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
     val consumerConfig = this.consumerConfig()
     log.debug(s"Consumer config: $consumerConfig")
 
-    val newConsumer = (topic: Topic) => {
+    val consumerOf = (topic: Topic) => {
       val uuid = UUID.randomUUID()
       val prefix = consumerConfig.groupId getOrElse "journal"
       val groupId = s"$prefix-$topic-$uuid"
       val configFixed = consumerConfig.copy(groupId = Some(groupId))
-      Consumer[String, Bytes](configFixed, ecBlocking)
+      Consumer[Id, Bytes](configFixed, ecBlocking)
     }
 
     val eventualJournal: EventualJournal = {
@@ -114,8 +112,8 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
       }
     }
 
-    val journals = Journal(producer, origin, newConsumer, eventualJournal)
-    JournalsAdapter(log, toKey, journals, serialisation)
+    val journals = Journal(producer, origin, consumerOf, eventualJournal)
+    JournalsAdapter(log, toKey, journals, serializer)
   }
 
   // TODO optimise concurrent calls asyncReplayMessages & asyncReadHighestSequenceNr for the same persistenceId

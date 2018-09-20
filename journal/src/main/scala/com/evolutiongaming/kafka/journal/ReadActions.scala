@@ -2,7 +2,6 @@ package com.evolutiongaming.kafka.journal
 
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
-import com.evolutiongaming.kafka.journal.Alias.Id
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecord}
@@ -17,11 +16,11 @@ trait ReadActions[F[_]] {
 object ReadActions {
 
   def apply(
-    consumer: Consumer[String, Bytes],
+    consumer: Consumer[Id, Bytes],
     timeout: FiniteDuration,
     log: ActorLog)(implicit ec: ExecutionContext /*TODO remove*/): ReadActions[Async] = {
 
-    def logSkipped(record: ConsumerRecord[String, Bytes]) = {
+    def logSkipped(record: ConsumerRecord[Id, Bytes]) = {
 
       def key = record.key.fold("none")(_.value)
 
@@ -35,7 +34,7 @@ object ReadActions {
 
       def apply(id: Id) = {
 
-        def filter(record: ConsumerRecord[String, Bytes]) = {
+        def filter(record: ConsumerRecord[Id, Bytes]) = {
           val result = record.key.exists(_.value == id)
           if (!result) {
             logSkipped(record)
