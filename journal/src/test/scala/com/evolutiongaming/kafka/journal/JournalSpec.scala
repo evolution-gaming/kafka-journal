@@ -211,30 +211,34 @@ class JournalSpec extends WordSpec with Matchers {
       }
     }
 
-    "kafka and eventual journals are consistent, however eventual offset is behind" should {
-      test(() => journalOf())
+    for {
+      n <- 1 to 3
+    } {
+      s"kafka and eventual journals are consistent, however eventual offset is $n behind" should {
+        test(() => journalOf())
 
-      def journalOf() = {
-        var actions: Queue[ActionRecord] = Queue.empty
-        var replicatedState = EventualJournalOf.State.Empty
+        def journalOf() = {
+          var actions: Queue[ActionRecord] = Queue.empty
+          var replicatedState = EventualJournalOf.State.Empty
 
-        val eventualJournal = EventualJournalOf(replicatedState)
+          val eventualJournal = EventualJournalOf(replicatedState)
 
-        val withReadActions = WithReadActionsOneByOne(actions)
+          val withReadActions = WithReadActionsOneByOne(actions)
 
-        val writeAction = new AppendAction[Async] {
+          val writeAction = new AppendAction[Async] {
 
-          def apply(action: Action) = {
-            val offset = actions.size.toLong + 1
-            val partitionOffset = PartitionOffset(partition = partition, offset = offset)
-            val record = ActionRecord(action, partitionOffset)
-            actions = actions.enqueue(record)
-            replicatedState = replicatedState(record, offset - 2)
-            partitionOffset.async
+            def apply(action: Action) = {
+              val offset = actions.size.toLong + 1
+              val partitionOffset = PartitionOffset(partition = partition, offset = offset)
+              val record = ActionRecord(action, partitionOffset)
+              actions = actions.enqueue(record)
+              replicatedState = replicatedState(record, (offset - n) max 0l)
+              partitionOffset.async
+            }
           }
-        }
 
-        SeqNrJournal(eventualJournal, withReadActions, writeAction)
+          SeqNrJournal(eventualJournal, withReadActions, writeAction)
+        }
       }
     }
 
@@ -265,6 +269,44 @@ class JournalSpec extends WordSpec with Matchers {
                 actions <- actions.dropLast(n)
                 action <- actions.lastOption
               } replicatedState = replicatedState(action)
+
+              partitionOffset.async
+            }
+          }
+
+          SeqNrJournal(eventualJournal, withReadActions, writeAction)
+        }
+      }
+    }
+
+    for {
+      n <- 1 to 3
+      nn = n + 1
+    } {
+      s"eventual journal is $n actions behind and pointer is $nn behind the kafka journal and " should {
+        test(() => journalOf())
+
+        def journalOf() = {
+          var actions: Queue[ActionRecord] = Queue.empty
+          var replicatedState = EventualJournalOf.State.Empty
+
+          val eventualJournal = EventualJournalOf(replicatedState)
+
+          val withReadActions = WithReadActionsOneByOne(actions)
+
+          val writeAction = new AppendAction[Async] {
+
+            def apply(action: Action) = {
+
+              val offset = actions.size.toLong + 1
+              val partitionOffset = PartitionOffset(partition = partition, offset = offset)
+              val record = ActionRecord(action, partitionOffset)
+              actions = actions.enqueue(record)
+
+              for {
+                actions <- actions.dropLast(n)
+                action <- actions.lastOption
+              } replicatedState = replicatedState(action, (offset - n) max 0l)
 
               partitionOffset.async
             }
