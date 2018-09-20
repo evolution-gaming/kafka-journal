@@ -74,20 +74,21 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
       recoverEvents("new_id") shouldEqual Nil
     }
 
-    "recover 100000 events" in {
-      val n = 100000
+    val numberOfEvents = 100
+
+    s"recover $numberOfEvents events" in {
       val ref = PersistenceRef()
       val batchSize = 100
       val events = (1 to batchSize).toList.map(_.toString)
       for {
-        _ <- 1 to (n / batchSize)
+        _ <- 1 to (numberOfEvents / batchSize)
       } {
         val batch = Nel(events.head, events.tail)
         ref.persist(batch)
       }
 
       val count = recover(0, timeout.duration * 10) { case (s, _) => s + 1 }
-      count shouldEqual n
+      count shouldEqual numberOfEvents
     }
   }
 

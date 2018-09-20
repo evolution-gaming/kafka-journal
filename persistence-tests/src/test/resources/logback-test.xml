@@ -20,8 +20,8 @@
 	<logger name="org.apache.cassandra.config.DatabaseDescriptor" level="ERROR"/>
 	<logger name="org.apache.cassandra.service.StartupChecks" level="ERROR"/>
 	<logger name="org.apache.cassandra.db.SystemKeyspace" level="ERROR"/>
-	<!--<logger name="akka.persistence.kafka.journal.KafkaJournal" level="DEBUG"/>-->
-	<!--<logger name="com.evolutiongaming.kafka.journal" level="DEBUG"/>-->
+	<logger name="akka.persistence.kafka.journal.KafkaJournal" level="DEBUG"/>
+	<logger name="com.evolutiongaming.kafka.journal" level="DEBUG"/>
 
 	<root level="WARN">
 		<appender-ref ref="console"/>
