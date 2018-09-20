@@ -18,6 +18,7 @@ import scala.concurrent.ExecutionContext
 
 object JournalStatement {
 
+  // TODO store metadata as json text
   def createTable(name: TableName): String = {
     s"""
        |CREATE TABLE IF NOT EXISTS ${ name.asCql } (

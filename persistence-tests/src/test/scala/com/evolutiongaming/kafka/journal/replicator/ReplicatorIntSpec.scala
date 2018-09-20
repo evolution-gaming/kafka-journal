@@ -63,7 +63,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
     "consume event from kafka and store in replicated journal" in {
       val topic = "journal"
       val key = Key(id = UUID.randomUUID().toString, topic = topic)
-      val origin = Origin("replicator")
+      val origin = Origin(s"replicator")
 
       def kafkaConf(name: String) = {
         val common = conf.getConfig("kafka")
@@ -111,36 +111,37 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
         Await.result(future, timeout)
       }
 
-      val event = Event(SeqNr.Min)
+      def append(events: Nel[Event]) = {
+        val timestamp = Instant.now()
+        val partitionOffset = journal.append(key, events, timestamp).get(timeout)
+        for {
+          event <- events
+        } yield {
+          ReplicatedEvent(event, timestamp, partitionOffset, Some(origin))
+        }
+      }
 
       val topicPointers = eventual.pointers(topic).get(timeout)
 
-      val partitionOffset = journal.append(key, Nel(event), Instant.now()).get(timeout)
+      val expected1 = append(Nel(Event(SeqNr.Min)))
+      val partitionOffset = expected1.head.partitionOffset
       val partition = partitionOffset.partition
 
       for {
         offset <- topicPointers.values.get(partitionOffset.partition)
       } partitionOffset.offset should be > offset
 
-      val actual = readUntil(_.nonEmpty)
+      val actual1 = readUntil(_.nonEmpty)
+      actual1 shouldEqual expected1.toList
 
-      actual.map(_.event) shouldEqual List(event)
-
-      for {
-        event <- actual
-      } {
-        event.partitionOffset shouldEqual partitionOffset
-        event.origin shouldEqual Some(origin)
-      }
-
-      journal.delete(key, event.seqNr, Instant.now()).get(timeout).partition shouldEqual partition
-
+      journal.delete(key, expected1.last.event.seqNr, Instant.now()).get(timeout).partition shouldEqual partition
       readUntil(_.isEmpty) shouldEqual Nil
 
-      val events = Nel(Event(SeqNr(2l)), Event(SeqNr(3l)))
-      journal.append(key, events, Instant.now()).get(timeout).partition shouldEqual partition
-
-      readUntil(_.nonEmpty).map(_.event) shouldEqual events.toList
+      val expected2 = append(Nel(
+        Event(SeqNr(2l), Set("tag-2")),
+        Event(SeqNr(3l), Set("tag-3", "tag-4"))))
+      val actual2 = readUntil(_.nonEmpty)
+      actual2 shouldEqual expected2.toList
     }
   }
 }
