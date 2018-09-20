@@ -4,6 +4,7 @@ import java.lang.{Long => LongJ}
 import java.time.Instant
 
 import com.datastax.driver.core.BatchStatement
+import com.evolutiongaming.cassandra.CassandraHelper._
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.Alias.Tags
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
@@ -27,8 +28,9 @@ object JournalStatement {
        |partition int,
        |offset bigint,
        |timestamp timestamp,
-       |payload blob,
+       |origin text,
        |tags set<text>,
+       |payload blob,
        |PRIMARY KEY ((id, topic, segment), seq_nr, timestamp))
        |""".stripMargin
     //        WITH gc_grace_seconds =${gcGrace.toSeconds} TODO
@@ -43,8 +45,8 @@ object JournalStatement {
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
       val query =
         s"""
-           |INSERT INTO ${ name.asCql } (id, topic, segment, seq_nr, partition, offset, timestamp, payload, tags)
-           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+           |INSERT INTO ${ name.asCql } (id, topic, segment, seq_nr, partition, offset, timestamp, origin, tags, payload)
+           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            |""".stripMargin
 
       for {
@@ -64,8 +66,9 @@ object JournalStatement {
               .encode("partition", replicated.partitionOffset.partition)
               .encode("offset", replicated.partitionOffset.offset)
               .encode("timestamp", replicated.timestamp)
-              .encode("payload", event.payload)
               .encode("tags", event.tags)
+              .encode("origin", replicated.origin)
+              .encode("payload", event.payload)
           }
 
           val statement = {
@@ -134,7 +137,7 @@ object JournalStatement {
     def apply(name: TableName, session: PrepareAndExecute)(implicit ec: ExecutionContext): Async[Type] = {
       val query =
         s"""
-           |SELECT seq_nr, partition, offset, timestamp, payload, tags FROM ${ name.asCql }
+           |SELECT seq_nr, partition, offset, timestamp, tags, origin, payload FROM ${ name.asCql }
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?
@@ -166,6 +169,7 @@ object JournalStatement {
                 val replicated = ReplicatedEvent(
                   event = event,
                   timestamp = row.decode[Instant]("timestamp"),
+                  origin = row.decode[Option[Origin]]("origin"),
                   partitionOffset = partitionOffset)
                 f(s, replicated)
               }

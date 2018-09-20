@@ -3,8 +3,10 @@ package com.evolutiongaming.kafka.journal
 import com.evolutiongaming.skafka.consumer.ConsumerRecord
 import com.evolutiongaming.skafka.{Offset, Partition}
 
-//final case class PartitionOffset(partition: Partition = Partition.Min/*TODO*/, offset: Offset = Offset.Min/*TODO*/) {
-final case class PartitionOffset(partition: Partition = 0, offset: Offset = 0l) {
+final case class PartitionOffset(
+  partition: Partition = Partition.Min,
+  offset: Offset = Offset.Min) {
+
   override def toString = s"$partition:$offset"
 }
 

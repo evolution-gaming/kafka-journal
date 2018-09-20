@@ -1,5 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
+import java.time.Instant
+
 import org.scalatest.{FunSuite, Matchers}
 
 class JournalInfoSpec extends FunSuite with Matchers {
@@ -47,16 +49,19 @@ class JournalInfoSpec extends FunSuite with Matchers {
     deleted(1)(mark) shouldEqual deleted(1)
   }
 
+  private val timestamp = Instant.now()
+  private val keyEmpty = Key(id = "id", topic = "topic")
 
   private def append(from: Int, to: Int) = {
-    Action.Header.Append(SeqRange(SeqNr(from.toLong /*TODO try to avoid .toLong ?*/), SeqNr(to.toLong)))
+    val range = SeqRange(SeqNr(from.toLong /*TODO try to avoid .toLong ?*/), SeqNr(to.toLong))
+    Action.Append(keyEmpty, timestamp, None, range, Bytes.Empty)
   }
 
   private def delete(seqNr: Int) = {
-    Action.Header.Delete(SeqNr(seqNr.toLong))
+    Action.Delete(keyEmpty, timestamp, None, SeqNr(seqNr.toLong))
   }
 
-  private def mark = Action.Header.Mark("id")
+  private def mark = Action.Mark(keyEmpty, timestamp, None, "id")
 
   private def deleted(seqNr: Int) = {
     JournalInfo.Deleted(SeqNr(seqNr.toLong /*TODO try to avoid .toLong ?*/))

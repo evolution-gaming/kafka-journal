@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 import java.util.UUID
 
+import akka.actor.ActorSystem
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.ActorLogHelper._
@@ -20,34 +21,33 @@ import scala.concurrent.duration._
 
 trait Journal {
 
-  def append(events: Nel[Event], timestamp: Instant): Async[PartitionOffset]
+  def append(key: Key, events: Nel[Event], timestamp: Instant): Async[PartitionOffset] // TODO add Source to RESULT, also rename usages
 
-  def read[S](from: SeqNr, s: S)(f: Fold[S, Event]): Async[S]
+  def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]): Async[S]
 
-  def lastSeqNr(from: SeqNr): Async[Option[SeqNr]]
+  def lastSeqNr(key: Key, from: SeqNr): Async[Option[SeqNr]]
 
-  def delete(to: SeqNr, timestamp: Instant): Async[PartitionOffset]
+  def delete(key: Key, to: SeqNr, timestamp: Instant): Async[PartitionOffset]
 }
 
 object Journal {
 
   val Empty: Journal = new Journal {
 
-    def append(events: Nel[Event], timestamp: Instant) = Async(PartitionOffset.Empty)
+    def append(key: Key, events: Nel[Event], timestamp: Instant) = Async(PartitionOffset.Empty)
 
-    def read[S](from: SeqNr, s: S)(f: Fold[S, Event]) = s.async
+    def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = s.async
 
-    def lastSeqNr(from: SeqNr) = Async.none
-    
-    def delete(to: SeqNr, timestamp: Instant) = Async(PartitionOffset.Empty)
+    def lastSeqNr(key: Key, from: SeqNr) = Async.none
+
+    def delete(key: Key, to: SeqNr, timestamp: Instant) = Async(PartitionOffset.Empty)
 
     override def toString = s"Journal.Empty"
   }
 
-
   def apply(journal: Journal, log: ActorLog): Journal = new Journal {
 
-    def append(events: Nel[Event], timestamp: Instant) = {
+    def append(key: Key, events: Nel[Event], timestamp: Instant) = {
 
       def eventsStr = {
         val head = events.head.seqNr
@@ -55,26 +55,26 @@ object Journal {
         SeqRange(head, last)
       }
 
-      log[PartitionOffset](s"append $eventsStr, timestamp: $timestamp") {
-        journal.append(events, timestamp)
+      log[PartitionOffset](s"$key append $eventsStr, timestamp: $timestamp") {
+        journal.append(key, events, timestamp)
       }
     }
 
-    def read[S](from: SeqNr, s: S)(f: Fold[S, Event]) = {
-      log[S](s"read from: $from, state: $s") {
-        journal.read(from, s)(f)
+    def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = {
+      log[S](s"$key read from: $from, state: $s") {
+        journal.read(key, from, s)(f)
       }
     }
 
-    def lastSeqNr(from: SeqNr) = {
-      log[Option[SeqNr]](s"lastSeqNr $from") {
-        journal.lastSeqNr(from)
+    def lastSeqNr(key: Key, from: SeqNr) = {
+      log[Option[SeqNr]](s"$key lastSeqNr from: $from") {
+        journal.lastSeqNr(key, from)
       }
     }
 
-    def delete(to: SeqNr, timestamp: Instant) = {
-      log[PartitionOffset](s"delete $to, timestamp: $timestamp") {
-        journal.delete(to, timestamp)
+    def delete(key: Key, to: SeqNr, timestamp: Instant) = {
+      log[PartitionOffset](s"$key delete to: $to, timestamp: $timestamp") {
+        journal.delete(key, to, timestamp)
       }
     }
 
@@ -82,8 +82,22 @@ object Journal {
   }
 
   def apply(
-    key: Key,
+    producer: Producer,
+    origin: Option[Origin],
+    newConsumer: Topic => Consumer[String, Bytes],
+    eventual: EventualJournal,
+    pollTimeout: FiniteDuration = 100.millis,
+    closeTimeout: FiniteDuration = 10.seconds)(implicit
+    system: ActorSystem,
+    ec: ExecutionContext): Journal = {
+
+    val log = ActorLog(system, classOf[Journal])
+    apply(log, origin, producer, newConsumer, eventual, pollTimeout, closeTimeout)
+  }
+
+  def apply(
     log: ActorLog, // TODO remove
+    origin: Option[Origin],
     producer: Producer,
     newConsumer: Topic => Consumer[String, Bytes],
     eventual: EventualJournal,
@@ -93,31 +107,32 @@ object Journal {
 
     val withReadActions = WithReadActions(newConsumer, pollTimeout, closeTimeout, log)
 
-    val writeAction = WriteAction(key, producer)
+    val writeAction = AppendAction(producer)
 
-    apply(key, log, eventual, withReadActions, writeAction)
+    apply(log, origin, eventual, withReadActions, writeAction)
   }
 
 
+  // TODO too many arguments, add config?
   def apply(
-    key: Key,
     log: ActorLog,
+    origin: Option[Origin],
     eventual: EventualJournal,
     withReadActions: WithReadActions[Async],
-    writeAction: WriteAction[Async]): Journal = {
+    appendAction: AppendAction[Async]): Journal = {
 
-    def mark(): Async[Marker] = {
+    def mark(key: Key): Async[Marker] = {
       val id = UUID.randomUUID().toString
-      val action = Action.Mark(id, Instant.now())
+      val action = Action.Mark(key, Instant.now(), origin, id)
       for {
-        partitionOffset <- writeAction(action)
+        /*TODO rename*/ partitionOffset <- appendAction(action)
       } yield {
         Marker(id, partitionOffset)
       }
     }
 
-    def readActions(from: SeqNr): Async[FoldActions] = {
-      val marker = mark()
+    def readActions(key: Key, from: SeqNr): Async[FoldActions] = {
+      val marker = mark(key)
       val topicPointers = eventual.pointers(key.topic)
       for {
         marker <- marker
@@ -130,15 +145,15 @@ object Journal {
 
     new Journal {
 
-      def append(events: Nel[Event], timestamp: Instant) = {
+      def append(key: Key, events: Nel[Event], timestamp: Instant) = {
         val payload = EventsSerializer.toBytes(events)
         val range = SeqRange(from = events.head.seqNr, to = events.last.seqNr)
-        val action = Action.Append(range, timestamp, payload)
-        writeAction(action)
+        val action = Action.Append(key, timestamp, origin, range, payload)
+        appendAction(action)
       }
 
       // TODO add optimisation for ranges
-      def read[S](from: SeqNr, s: S)(f: Fold[S, Event]) = {
+      def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = {
 
         def replicatedSeqNr(from: SeqNr) = {
           val ss: (S, Option[SeqNr], Option[Offset]) = (s, Some(from), None)
@@ -192,10 +207,10 @@ object Journal {
         }
 
         for {
-          readActions <- readActions(from)
+          readActions <- readActions(key, from)
           // TODO use range after eventualRecords
           // TODO prevent from reading calling consume twice!
-          info <- readActions(None, JournalInfo.empty) { (info, action) => info(action.header).continue }
+          info <- readActions(None, JournalInfo.empty) { (info, action) => info(action).continue }
           result <- info match {
             case JournalInfo.Empty                 => replicated(from)
             case JournalInfo.NonEmpty(_, deleteTo) => onNonEmpty(deleteTo, readActions)
@@ -208,14 +223,14 @@ object Journal {
         } yield result
       }
 
-      def lastSeqNr(from: SeqNr) = {
+      def lastSeqNr(key: Key, from: SeqNr) = {
         // TODO reimplement, we don't need to call `eventual.lastSeqNr` without using it's offset
         for {
-          readActions <- readActions(from)
+          readActions <- readActions(key, from)
           seqNrEventual = eventual.lastSeqNr(key, from)
           seqNr <- readActions(None /*TODO*/ , Option.empty[SeqNr]) { (seqNr, action) =>
             val result = action match {
-              case action: Action.Append => Some(action.header.range.to)
+              case action: Action.Append => Some(action.range.to)
               case action: Action.Delete => seqNr
             }
             result.continue
@@ -226,12 +241,10 @@ object Journal {
         }
       }
 
-      def delete(to: SeqNr, timestamp: Instant) = {
-        val action = Action.Delete(to, timestamp)
-        writeAction(action)
+      def delete(key: Key, to: SeqNr, timestamp: Instant) = {
+        val action = Action.Delete(key, timestamp, origin, to)
+        appendAction(action)
       }
-
-      override def toString = s"Journal($key)"
     }
   }
 }

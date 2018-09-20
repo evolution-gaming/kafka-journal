@@ -5,8 +5,8 @@ import java.time.Instant
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper.{Fold, _}
-import com.evolutiongaming.kafka.journal.eventual.{EventualJournalSpec, Pointer, TopicPointers}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
+import com.evolutiongaming.kafka.journal.eventual.{EventualJournalSpec, Pointer, TopicPointers}
 import com.evolutiongaming.kafka.journal.{Key, ReplicatedEvent, SeqNr, SeqRange}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Topic

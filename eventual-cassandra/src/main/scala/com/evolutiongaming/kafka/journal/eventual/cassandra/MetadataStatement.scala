@@ -5,26 +5,13 @@ import java.lang.{Long => LongJ}
 import java.time.Instant
 import java.util.Date
 
-import com.datastax.driver.core.{BoundStatement, Row}
+import com.evolutiongaming.cassandra.CassandraHelper._
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.SeqNr.Helper._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.{Key, SeqNr}
 
 
 object MetadataStatement {
-
-  implicit val SeqNrOptDecode: Codec[Option[SeqNr]] = new Codec[Option[SeqNr]] {
-
-    def apply(statement: BoundStatement, name: String, seqNr: Option[SeqNr]) = {
-      LongCodec(statement, name, seqNr.toLong)
-    }
-
-    def apply(row: Row, name: String) = {
-      val value = LongCodec(row, name)
-      SeqNr.opt(value)
-    }
-  }
 
   def createTable(name: TableName): String = {
     s"""

@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 object Alias {
 
   type PersistenceId = String
-  
+
   type Id = String
 
   type Tag = String

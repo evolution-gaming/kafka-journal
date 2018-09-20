@@ -1,5 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
+import com.evolutiongaming.cassandra.{Decode, Encode}
+import play.api.libs.json._
+
 final case class SeqNr(value: Long) extends Ordered[SeqNr] {
 
   require(SeqNr.isValid(value), SeqNr.invalid(value))
@@ -32,6 +35,30 @@ final case class SeqNr(value: Long) extends Ordered[SeqNr] {
 object SeqNr {
   val Max: SeqNr = SeqNr(Long.MaxValue)
   val Min: SeqNr = SeqNr(1l)
+
+  implicit val EncodeImpl: Encode[SeqNr] = Encode[Long].imap((seqNr: SeqNr) => seqNr.value)
+
+  implicit val DecodeImpl: Decode[SeqNr] = Decode[Long].map(value => SeqNr(value))
+
+  implicit val EncodeOptImpl: Encode[Option[SeqNr]] = Encode.opt[SeqNr]
+
+  implicit val DecodeOptImpl: Decode[Option[SeqNr]] = Decode[Option[Long]].map { value =>
+    for {
+      value <- value
+      seqNr <- SeqNr.opt(value)
+    } yield seqNr
+  }
+
+  implicit val FormatImpl: Format[SeqNr] = new Format[SeqNr] {
+
+    def reads(json: JsValue): JsResult[SeqNr] = for {
+      value <- json.validate[Long]
+      seqNr <- SeqNr.validate(value)(JsError(_), JsSuccess(_))
+    } yield seqNr
+
+    def writes(seqNr: SeqNr) = JsNumber(seqNr.value)
+  }
+
 
   def validate[T](value: Long)(onError: String => T, onSeqNr: SeqNr => T): T = {
     if (isValid(value)) onSeqNr(SeqNr(value)) else onError(invalid(value))

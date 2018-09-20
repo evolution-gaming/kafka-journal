@@ -8,14 +8,14 @@ import akka.persistence.{AtomicWrite, PersistentRepr}
 import com.evolutiongaming.cassandra.CreateCluster
 import com.evolutiongaming.config.ConfigHelper._
 import com.evolutiongaming.kafka.journal.Alias._
+import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
-import com.evolutiongaming.kafka.journal.{Bytes, Journals, SeqNr, SeqRange}
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.serialization.{SerializedMsgConverter, SerializedMsgExt}
 import com.evolutiongaming.skafka.Topic
-import com.evolutiongaming.skafka.consumer.{ConsumerConfig, Consumer}
-import com.evolutiongaming.skafka.producer.{ProducerConfig, Producer}
+import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerConfig}
+import com.evolutiongaming.skafka.producer.{Producer, ProducerConfig}
 import com.typesafe.config.Config
 
 import scala.collection.immutable.Seq
@@ -51,6 +51,10 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
       case Some(config) => EventualCassandraConfig(config)
       case None         => EventualCassandraConfig.Default
     }
+  }
+
+  def origin: Option[Origin] = Some {
+    Origin.HostName orElse Origin.AkkaHost(system) getOrElse Origin.AkkaName(system)
   }
 
   def adapterOf(toKey: ToKey, serialisation: SerializedMsgConverter): JournalsAdapter = {
@@ -110,7 +114,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
       }
     }
 
-    val journals = Journals(producer, newConsumer, eventualJournal)
+    val journals = Journal(producer, origin, newConsumer, eventualJournal)
     JournalsAdapter(log, toKey, journals, serialisation)
   }
 

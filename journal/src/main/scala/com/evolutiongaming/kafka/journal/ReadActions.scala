@@ -22,7 +22,7 @@ object ReadActions {
     log: ActorLog)(implicit ec: ExecutionContext /*TODO remove*/): ReadActions[Async] = {
 
     def logSkipped(record: ConsumerRecord[String, Bytes]) = {
-      
+
       def key = record.key.fold("none")(_.value)
 
       def partitionOffset = PartitionOffset(record)
@@ -52,7 +52,8 @@ object ReadActions {
             if filter(consumerRecord)
             action <- consumerRecord.toAction
           } yield {
-            ActionRecord(action, consumerRecord.offset)
+            val partitionOffset = PartitionOffset(consumerRecord)
+            ActionRecord(action, partitionOffset)
           }
         }
       }

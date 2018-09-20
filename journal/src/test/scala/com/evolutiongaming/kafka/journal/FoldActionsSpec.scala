@@ -52,21 +52,22 @@ class FoldActionsSpec extends FunSuite with Matchers {
     pointers: List[Pointer]) = {
 
     val timestamp = Instant.now()
+    val key = Key(topic = "topic", id = "id")
+
     val (marker, markRecord) = {
       val offset = pointers.lastOption.fold(1l) { _.offset + 1 }
-      val mark = Action.Mark("mark", timestamp)
-      val record = ActionRecord(Action.Mark("mark", timestamp), offset)
-      val partitionOffset = PartitionOffset(partition = 0, offset = offset)
-      val marker = Marker(mark.header.id, partitionOffset)
+      val mark = Action.Mark(key, timestamp, None, "mark")
+      val partitionOffset = PartitionOffset(offset = offset)
+      val record = ActionRecord(mark, partitionOffset)
+      val marker = Marker(mark.id, partitionOffset)
       (marker, record)
     }
-    val key = Key(topic = "topic", id = "id")
 
     val appendRecords = for {
       pointer <- pointers
     } yield {
-      val action = Action.Append(SeqRange(SeqNr(pointer.seqNr)), timestamp, Bytes.Empty)
-      ActionRecord(action, pointer.offset)
+      val action = Action.Append(key, timestamp, None, SeqRange(SeqNr(pointer.seqNr)), Bytes.Empty)
+      ActionRecord(action, PartitionOffset(offset = pointer.offset))
     }
     val records = appendRecords :+ markRecord
 

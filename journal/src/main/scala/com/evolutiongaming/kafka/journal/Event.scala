@@ -12,7 +12,16 @@ final case class Event(
 
 // TODO rename, statements called records, here - events
 // TODO move to eventual ?
-final case class ReplicatedEvent(event: Event, timestamp: Instant, partitionOffset: PartitionOffset) {
+// TODO add Key
+/**
+  *
+  * @param origin identifier of event origin, for instance node IP address
+  */
+final case class ReplicatedEvent(
+  event: Event,
+  timestamp: Instant,
+  partitionOffset: PartitionOffset,
+  origin: Option[Origin] = None) {
 
   def seqNr: SeqNr = event.seqNr
 }

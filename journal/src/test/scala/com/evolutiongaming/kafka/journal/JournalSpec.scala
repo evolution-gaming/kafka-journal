@@ -137,12 +137,13 @@ class JournalSpec extends WordSpec with Matchers {
 
         val withReadActions = WithReadActionsOneByOne(actions)
 
-        val writeAction = new WriteAction[Async] {
+        val writeAction = new AppendAction[Async] {
           def apply(action: Action) = {
             val offset = actions.size.toLong + 1
-            val record = ActionRecord(action, offset)
+            val partitionOffset = PartitionOffset(partition = partition, offset = offset)
+            val record = ActionRecord(action, partitionOffset)
             actions = actions.enqueue(record)
-            PartitionOffset(partition = partition, offset = offset).async
+            partitionOffset.async
           }
         }
         SeqNrJournal(eventualJournal, withReadActions, writeAction)
@@ -166,14 +167,15 @@ class JournalSpec extends WordSpec with Matchers {
           WithReadActionsOneByOne(marks())
         }
 
-        val writeAction = new WriteAction[Async] {
+        val writeAction = new AppendAction[Async] {
 
           def apply(action: Action) = {
             val offset = actions.size.toLong + 1
-            val record = ActionRecord(action, offset)
+            val partitionOffset = PartitionOffset(partition = partition, offset = offset)
+            val record = ActionRecord(action, partitionOffset)
             actions = actions.enqueue(record)
             replicatedState = replicatedState(record)
-            PartitionOffset(partition = partition, offset = offset).async
+            partitionOffset.async
           }
         }
 
@@ -193,14 +195,15 @@ class JournalSpec extends WordSpec with Matchers {
 
         val withReadActions = WithReadActionsOneByOne(actions)
 
-        val writeAction = new WriteAction[Async] {
+        val writeAction = new AppendAction[Async] {
 
           def apply(action: Action) = {
             val offset = actions.size.toLong + 1
-            val record = ActionRecord(action, offset)
+            val partitionOffset = PartitionOffset(partition = partition, offset = offset)
+            val record = ActionRecord(action, partitionOffset)
             actions = actions.enqueue(record)
             replicatedState = replicatedState(record)
-            PartitionOffset(partition = partition, offset = offset).async
+            partitionOffset.async
           }
         }
 
@@ -219,15 +222,15 @@ class JournalSpec extends WordSpec with Matchers {
 
         val withReadActions = WithReadActionsOneByOne(actions)
 
-        val writeAction = new WriteAction[Async] {
+        val writeAction = new AppendAction[Async] {
 
           def apply(action: Action) = {
             val offset = actions.size.toLong + 1
-            val record = ActionRecord(action, offset)
+            val partitionOffset = PartitionOffset(partition = partition, offset = offset)
+            val record = ActionRecord(action, partitionOffset)
             actions = actions.enqueue(record)
             replicatedState = replicatedState(record, offset - 2)
-
-            PartitionOffset(partition = partition, offset = offset).async
+            partitionOffset.async
           }
         }
 
@@ -249,12 +252,13 @@ class JournalSpec extends WordSpec with Matchers {
 
           val withReadActions = WithReadActionsOneByOne(actions)
 
-          val writeAction = new WriteAction[Async] {
+          val writeAction = new AppendAction[Async] {
 
             def apply(action: Action) = {
 
               val offset = actions.size.toLong + 1
-              val record = ActionRecord(action, offset)
+              val partitionOffset = PartitionOffset(partition = partition, offset = offset)
+              val record = ActionRecord(action, partitionOffset)
               actions = actions.enqueue(record)
 
               for {
@@ -262,7 +266,7 @@ class JournalSpec extends WordSpec with Matchers {
                 action <- actions.lastOption
               } replicatedState = replicatedState(action)
 
-              PartitionOffset(partition = partition, offset = offset).async
+              partitionOffset.async
             }
           }
 
@@ -298,12 +302,12 @@ object JournalSpec {
 
         def append(seqNr: SeqNr, seqNrs: SeqNr*) = {
           val events = for {seqNr <- Nel(seqNr, seqNrs: _*)} yield Event(seqNr)
-          journal.append(events, timestamp).get()
+          journal.append(key, events, timestamp).get()
         }
 
         def read(range: SeqRange) = {
           val result = {
-            val result = journal.read(range.from, List.empty[SeqNr]) { (seqNrs, event) =>
+            val result = journal.read(key, range.from, List.empty[SeqNr]) { (seqNrs, event) =>
               val continue = event.seqNr <= range.to
               val result = {
                 if (event.seqNr >= range.from && continue) event.seqNr :: seqNrs
@@ -316,18 +320,18 @@ object JournalSpec {
           result.get()
         }
 
-        def lastSeqNr(from: SeqNr) = journal.lastSeqNr(from).get()
+        def lastSeqNr(from: SeqNr) = journal.lastSeqNr(key, from).get()
 
-        def delete(to: SeqNr) = journal.delete(to, timestamp).get()
+        def delete(to: SeqNr) = journal.delete(key, to, timestamp).get()
       }
     }
 
     def apply(
       eventual: EventualJournal,
       withReadActions: WithReadActions[Async],
-      writeAction: WriteAction[Async]): SeqNrJournal = {
+      writeAction: AppendAction[Async]): SeqNrJournal = {
 
-      val journal = Journal(key, ActorLog.empty, eventual, withReadActions, writeAction)
+      val journal = Journal(ActorLog.empty, None, eventual, withReadActions, writeAction)
       SeqNrJournal(journal)
     }
   }
@@ -387,7 +391,7 @@ object JournalSpec {
             event <- EventsSerializer.fromBytes(action.events)
           } yield {
             val partitionOffset = PartitionOffset(partition, record.offset)
-            ReplicatedEvent(event, timestamp, partitionOffset)
+            ReplicatedEvent(event, timestamp, partitionOffset, None)
           }
           copy(events = events.enqueue(batch.toList), offset = offset)
         }

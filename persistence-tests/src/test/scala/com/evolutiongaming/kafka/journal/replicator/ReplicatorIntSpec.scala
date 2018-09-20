@@ -12,8 +12,8 @@ import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, 
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Topic
-import com.evolutiongaming.skafka.consumer.{ConsumerConfig, Consumer}
-import com.evolutiongaming.skafka.producer.{ProducerConfig, Producer}
+import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerConfig}
+import com.evolutiongaming.skafka.producer.{Producer, ProducerConfig}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.{Matchers, WordSpec}
 
@@ -62,13 +62,13 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
 
     "consume event from kafka and store in replicated journal" in {
       val topic = "journal"
+      val key = Key(id = UUID.randomUUID().toString, topic = topic)
+      val origin = Origin("replicator")
 
       def kafkaConf(name: String) = {
         val common = conf.getConfig("kafka")
         common.getConfig(name) withFallback common
       }
-
-      val key = Key(id = UUID.randomUUID().toString, topic = topic)
 
       val journal = {
         val producer = {
@@ -86,9 +86,10 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
           val configFixed = consumerConfig.copy(groupId = Some(groupId))
           Consumer[String, Bytes](configFixed, ec)
         }
+
         val journal = Journal(
-          key = key,
           log = log, // TODO remove
+          Some(origin),
           producer = producer,
           newConsumer = newConsumer,
           eventual = eventual,
@@ -114,7 +115,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
 
       val topicPointers = eventual.pointers(topic).get(timeout)
 
-      val partitionOffset = journal.append(Nel(event), Instant.now()).get(timeout)
+      val partitionOffset = journal.append(key, Nel(event), Instant.now()).get(timeout)
       val partition = partitionOffset.partition
 
       for {
@@ -127,14 +128,17 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
 
       for {
         event <- actual
-      } event.partitionOffset shouldEqual partitionOffset
+      } {
+        event.partitionOffset shouldEqual partitionOffset
+        event.origin shouldEqual Some(origin)
+      }
 
-      journal.delete(event.seqNr, Instant.now()).get(timeout).partition shouldEqual partition
+      journal.delete(key, event.seqNr, Instant.now()).get(timeout).partition shouldEqual partition
 
       readUntil(_.isEmpty) shouldEqual Nil
 
       val events = Nel(Event(SeqNr(2l)), Event(SeqNr(3l)))
-      journal.append(events, Instant.now()).get(timeout).partition shouldEqual partition
+      journal.append(key, events, Instant.now()).get(timeout).partition shouldEqual partition
 
       readUntil(_.nonEmpty).map(_.event) shouldEqual events.toList
     }

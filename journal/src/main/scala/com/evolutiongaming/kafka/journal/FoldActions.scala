@@ -61,7 +61,7 @@ object FoldActions {
                   val switch = action.action match {
                     case action: Action.Append => if (action.range.to < from) s.continue else f(s, action)
                     case action: Action.Delete => f(s, action)
-                    case action: Action.Mark   => s switch action.header.id != marker.id
+                    case action: Action.Mark   => s switch action.id != marker.id
                   }
                   if (switch.stop) switch
                   else switch.switch(action.offset < max)

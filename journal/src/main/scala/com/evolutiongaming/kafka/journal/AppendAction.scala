@@ -7,26 +7,22 @@ import com.evolutiongaming.skafka.producer.Producer
 
 import scala.concurrent.ExecutionContext
 
-trait WriteAction[F[_]] {
+trait AppendAction[F[_]] {
   def apply(action: Action): F[PartitionOffset]
 }
 
-object WriteAction {
+object AppendAction {
 
-  def apply(
-    key: Key,
-    producer: Producer)(implicit
-    ec: ExecutionContext): WriteAction[Async] = new WriteAction[Async] {
+  def apply(producer: Producer)(implicit ec: ExecutionContext): AppendAction[Async] = new AppendAction[Async] {
 
     def apply(action: Action) = {
-      val kafkaRecord = KafkaRecord(key, action)
-      val producerRecord = kafkaRecord.toProducerRecord
+      val producerRecord = action.toProducerRecord
       for {
         metadata <- producer.send(producerRecord).async
       } yield {
         val partition = metadata.topicPartition.partition
         val offset = metadata.offset getOrElse {
-          throw JournalException(key, "metadata.offset is missing, make sure ProducerConfig.acks set to One or All")
+          throw JournalException(action.key, "metadata.offset is missing, make sure ProducerConfig.acks set to One or All")
         }
         PartitionOffset(partition, offset)
       }

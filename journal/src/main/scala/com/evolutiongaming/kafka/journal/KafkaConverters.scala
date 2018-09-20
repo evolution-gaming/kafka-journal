@@ -1,52 +1,42 @@
 package com.evolutiongaming.kafka.journal
 
 
-import com.evolutiongaming.kafka.journal.HeaderFormats._
 import com.evolutiongaming.skafka
+import com.evolutiongaming.skafka.Header
 import com.evolutiongaming.skafka.consumer.ConsumerRecord
 import com.evolutiongaming.skafka.producer.ProducerRecord
-import com.evolutiongaming.skafka.Header
-import play.api.libs.json.Json
 
 object KafkaConverters {
   private val `journal.action` = "journal.action"
 
-  implicit class ActionHeaderOps(val self: Action.Header) extends AnyVal {
+  implicit class ActionHeaderOps(val self: ActionHeader) extends AnyVal {
 
-    def toKafkaHeader: skafka.Header = {
-      val json = Json.toJson(self)
-      val bytes = Json.toBytes(json)
-      Header(`journal.action`, bytes)
-    }
+    def toHeader: skafka.Header = Header(`journal.action`, self.toBytes)
   }
 
 
   implicit class KafkaHeaderOps(val self: skafka.Header) extends AnyVal {
 
-    def toActionHeader: Action.Header = {
-      val bytes = self.value
-      val json = Json.parse(bytes)
-      json.as[Action.Header]
-    }
+    def toActionHeader: ActionHeader = ActionHeader(self.value)
   }
 
 
-  implicit class KafkaRecordOps(val self: KafkaRecord) extends AnyVal {
+  implicit class ActionOps(val self: Action) extends AnyVal {
 
     def toProducerRecord: ProducerRecord[String, Bytes] = {
-      val action = self.action
       val key = self.key
-      val header = action.header.toKafkaHeader
-      val (payload, timestamp) = action match {
-        case action: Action.Append => (action.events, Some(action.timestamp))
-        case action: Action.Delete => (Bytes.Empty, Some(action.timestamp))
-        case action: Action.Mark   => (Bytes.Empty, None)
+      val actionHeader = ActionHeader(self)
+      val header = Header(`journal.action`, actionHeader.toBytes)
+      val payload = self match {
+        case action: Action.Append => action.events
+        case action: Action.Delete => Bytes.Empty
+        case action: Action.Mark   => Bytes.Empty
       }
       ProducerRecord(
         topic = key.topic,
         value = Some(payload),
         key = Some(key.id),
-        timestamp = timestamp,
+        timestamp = Some(self.timestamp),
         headers = List(header))
     }
   }
@@ -54,34 +44,19 @@ object KafkaConverters {
 
   implicit class ConsumerRecordOps(val self: ConsumerRecord[String, Bytes]) extends AnyVal {
 
-    def toPartitionOffset: PartitionOffset = {
-      PartitionOffset(partition = self.partition, offset = self.offset)
-    }
-
     def toAction: Option[Action] = {
       for {
-        withSize <- self.value
-        value = withSize.value
+        id <- self.key
+        value <- self.value
         kafkaHeader <- self.headers.find { _.key == `journal.action` }
         header = kafkaHeader.toActionHeader
         timestampAndType <- self.timestampAndType
         timestamp = timestampAndType.timestamp
-      } yield {
-        header match {
-          case header: Action.Header.Append => Action.Append(header, timestamp, value)
-          case header: Action.Header.Delete => Action.Delete(header, timestamp)
-          case header: Action.Header.Mark   => Action.Mark(header, timestamp)
-        }
-      }
-    }
-
-    def toKafkaRecord: Option[KafkaRecord] = {
-      for {
-        id <- self.key
-        action <- self.toAction
-      } yield {
-        val key = Key(id = id.value, topic = self.topic)
-        KafkaRecord(key, action)
+        key = Key(id = id.value, topic = self.topic)
+      } yield header match {
+        case header: ActionHeader.Append => Action.Append(key, timestamp, header.origin, header.range, value.value)
+        case header: ActionHeader.Delete => Action.Delete(key, timestamp, header.origin, header.to)
+        case header: ActionHeader.Mark   => Action.Mark(key, timestamp, header.origin, header.id)
       }
     }
   }

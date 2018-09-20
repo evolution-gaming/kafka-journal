@@ -2,9 +2,9 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.lang.{Integer => IntJ}
 
+import com.evolutiongaming.cassandra.CassandraHelper._
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
-import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 import scala.collection.JavaConverters._

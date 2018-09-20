@@ -1,5 +1,6 @@
 package com.evolutiongaming.cassandra
 
+import com.datastax.driver.core.{BoundStatement, Row}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.google.common.util.concurrent.ListenableFuture
 
@@ -28,6 +29,19 @@ object CassandraHelper {
         self.addListener(runnable, CurrentThreadExecutionContext)
         promise.future
       }
+    }
+  }
+
+  implicit class BoundStatementOps(val self: BoundStatement) extends AnyVal {
+    def encode[T](name: String, value: T)(implicit encode: Encode[T]): BoundStatement = {
+      encode(self, name, value)
+    }
+  }
+
+
+  implicit class RowOps(val self: Row) extends AnyVal {
+    def decode[T](name: String)(implicit decode: Decode[T]): T = {
+      decode(self, name)
     }
   }
 }

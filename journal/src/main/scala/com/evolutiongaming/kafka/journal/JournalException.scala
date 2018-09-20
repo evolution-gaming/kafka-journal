@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-case class JournalException(
+final case class JournalException(
   key: Key,
   message: Option[String] = None,
   cause: Option[Throwable] = None) extends RuntimeException(message.orNull, cause.orNull)

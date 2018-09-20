@@ -132,8 +132,6 @@ object ReplicatedJournal {
           _ <- log.debug(s"save in ${ latency }ms, topic: $topic, pointers: $pointers")
         } yield result
       }
-
-      override def toString = journal.toString
     }
   }
 

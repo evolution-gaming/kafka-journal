@@ -29,22 +29,22 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 
           def append(id: String, seqNrs: Nel[Int]) = {
             val key = keyOf(id)
-            kafkaRecord(key, seqNrs)
+            appendOf(key, seqNrs)
           }
 
           val topicPartition = topicPartitionOf(partition)
 
-          val kafkaRecords = List(
+          val actions = List(
             append("0", Nel(1)),
             append("1", Nel(1, 2)),
             append("0", Nel(2)),
             append("1", Nel(3)))
 
           val records = for {
-            (record, idx) <- kafkaRecords.zipWithIndex
+            (action, idx) <- actions.zipWithIndex
           } yield {
             val offset = idx + 1l
-            consumerRecordOf(record, topicPartition, offset)
+            consumerRecordOf(action, topicPartition, offset)
           }
           (topicPartition, records)
         }
@@ -98,7 +98,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 
           def append(id: String, seqNrs: Nel[Int]) = {
             val key = keyOf(id)
-            kafkaRecord(key, seqNrs)
+            appendOf(key, seqNrs)
           }
 
           val topicPartition = topicPartitionOf(partition)
@@ -185,13 +185,12 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 
           def append(id: String, seqNrs: Nel[Int]) = {
             val key = keyOf(id)
-            kafkaRecord(key, seqNrs)
+            appendOf(key, seqNrs)
           }
 
           def mark(id: String) = {
             val key = keyOf(id)
-            val mark = Action.Mark("id", timestamp)
-            KafkaRecord(key, mark)
+            markOf(key)
           }
 
           val topicPartition = topicPartitionOf(partition)
@@ -297,19 +296,17 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 
           def append(id: String, seqNrs: Nel[Int]) = {
             val key = keyOf(id)
-            kafkaRecord(key, seqNrs)
+            appendOf(key, seqNrs)
           }
 
           def mark(id: String) = {
             val key = keyOf(id)
-            val mark = Action.Mark("id", timestamp)
-            KafkaRecord(key, mark)
+            markOf(key)
           }
 
           def delete(id: String, to: Int) = {
             val key = keyOf(id)
-            val mark = Action.Delete(SeqNr(to.toLong), timestamp)
-            KafkaRecord(key, mark)
+            deleteOf(key, to)
           }
 
           val topicPartition = topicPartitionOf(partition)
@@ -394,19 +391,17 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 
           def append(id: String, seqNrs: Nel[Int]) = {
             val key = keyOf(id)
-            kafkaRecord(key, seqNrs)
+            appendOf(key, seqNrs)
           }
 
           def mark(id: String) = {
             val key = keyOf(id)
-            val mark = Action.Mark("id", timestamp)
-            KafkaRecord(key, mark)
+            markOf(key)
           }
 
           def delete(id: String, to: Int) = {
             val key = keyOf(id)
-            val mark = Action.Delete(SeqNr(to.toLong), timestamp)
-            KafkaRecord(key, mark)
+            deleteOf(key, to)
           }
 
           val topicPartition = topicPartitionOf(partition)
@@ -474,19 +469,17 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 
           def append(id: String, seqNrs: Nel[Int]) = {
             val key = keyOf(id)
-            kafkaRecord(key, seqNrs)
+            appendOf(key, seqNrs)
           }
 
           def mark(id: String) = {
             val key = keyOf(id)
-            val mark = Action.Mark("id", timestamp)
-            KafkaRecord(key, mark)
+            markOf(key)
           }
 
           def delete(id: String, to: Int) = {
             val key = keyOf(id)
-            val mark = Action.Delete(SeqNr(to.toLong), timestamp)
-            KafkaRecord(key, mark)
+            deleteOf(key, to)
           }
 
           val topicPartition = topicPartitionOf(partition)
@@ -588,11 +581,11 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
   }
 
   private def consumerRecordOf(
-    record: KafkaRecord,
+    action: Action,
     topicPartition: TopicPartition,
     offset: Offset) = {
 
-    val producerRecord = record.toProducerRecord
+    val producerRecord = action.toProducerRecord
     ConsumerRecord(
       topicPartition = topicPartition,
       offset = offset,
@@ -605,15 +598,22 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
   private def replicated(seqNr: Int, partition: Partition, offset: Offset) = {
     val partitionOffset = PartitionOffset(partition = partition, offset = offset)
     val event = Event(SeqNr(seqNr.toLong), Set(seqNr.toString))
-    ReplicatedEvent(event, timestamp, partitionOffset)
+    ReplicatedEvent(event, timestamp, partitionOffset, Some(origin))
   }
 
-  private def kafkaRecord(key: Key, seqNrs: Nel[Int]) = {
+  private def appendOf(key: Key, seqNrs: Nel[Int]) = {
     val events = seqNrs.map { seqNr => Event(SeqNr(seqNr.toLong), Set(seqNr.toString)) }
     val bytes = EventsSerializer.toBytes(events)
     val range = SeqRange(events.head.seqNr, events.last.seqNr)
-    val append = Action.Append(range, timestamp = timestamp, bytes)
-    KafkaRecord(key, append)
+    Action.Append(key, timestamp = timestamp, Some(origin), range, bytes)
+  }
+
+  private def markOf(key: Key) = {
+    Action.Mark(key, timestamp, Some(origin), "id")
+  }
+
+  private def deleteOf(key: Key, to: Int) = {
+    Action.Delete(key, timestamp, Some(origin), SeqNr(to.toLong))
   }
 }
 
@@ -623,6 +623,8 @@ object TopicReplicatorSpec {
   val partitions = Set(0, 1, 2, 3, 4)
 
   val timestamp = Instant.now()
+
+  val origin = Origin("origin")
 
   val replicationLatency: Long = 10
 

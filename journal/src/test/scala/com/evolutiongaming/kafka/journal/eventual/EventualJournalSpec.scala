@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual
 import java.time.Instant
 
 import com.evolutiongaming.concurrent.async.Async
+import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.SeqNr.Helper._
 import com.evolutiongaming.kafka.journal._
@@ -18,7 +19,11 @@ trait EventualJournalSpec extends WordSpec with Matchers {
     val journalsOf = (key: Key, timestamp: Instant) => {
       val journals = createJournals()
       val eventual = Eventual(journals.eventual, key)
-      val replicated = Replicated(journals.replicated, key, timestamp)
+      val replicated = {
+        val metrics = ReplicatedJournal.Metrics.empty(Async.unit)
+        val journal = ReplicatedJournal(journals.replicated, metrics)
+        Replicated(journal, key, timestamp)
+      }
       (eventual, replicated)
     }
     test(journalsOf)
@@ -264,7 +269,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
 
     def eventOf(seqNr: SeqNr) = {
       val event = Event(seqNr)
-      val partitionOffset = PartitionOffset(partition = 0, offset = seqNr.value * 2)
+      val partitionOffset = PartitionOffset(offset = seqNr.value * 2)
       ReplicatedEvent(event, timestamp, partitionOffset)
     }
   }

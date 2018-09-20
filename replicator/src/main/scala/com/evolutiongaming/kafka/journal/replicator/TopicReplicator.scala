@@ -20,6 +20,8 @@ trait TopicReplicator[F[_]] {
   def shutdown(): F[Unit]
 }
 
+// TODO add Mark latency metric
+
 object TopicReplicator {
 
   //  TODO return error in case failed to connect
@@ -38,33 +40,33 @@ object TopicReplicator {
       consumerRecords: ConsumerRecords[String, Bytes],
       roundStart: Instant): F[(State, Map[TopicPartition, OffsetAndMetadata])] = {
 
-      val actions = for {
+      val records = for {
         records <- consumerRecords.values.values
         record <- records
-        action <- record.toKafkaRecord
+        action <- record.toAction
       } yield {
-        val partitionOffset = PartitionOffset(
-          partition = record.partition,
-          offset = record.offset)
-        (partitionOffset, action)
+        val partitionOffset = PartitionOffset(record)
+        ActionRecord(action, partitionOffset)
       }
 
       val ios = for {
-        (key, actions) <- actions.groupBy { case (_, record) => record.key }
+        (key, records) <- records.groupBy(_.action.key)
       } yield {
 
-        val (partitionOffset, head) = actions.head
-        val offset = partitionOffset.offset
+        val head = records.head
+        val partition = head.partitionOffset.partition
+        val offsetLast = records.last.offset
+
         val id = key.id
 
         def measurements = for {
           now <- now
         } yield {
           Metrics.Measurements(
-            partition = partitionOffset.partition,
+            partition = partition,
             replicationLatency = now - head.action.timestamp,
             deliveryLatency = roundStart - head.action.timestamp,
-            actions = actions.size)
+            actions = records.size)
         }
 
         def delete(deleteTo: SeqNr, bound: Boolean) = {
@@ -73,7 +75,7 @@ object TopicReplicator {
             measurements <- measurements
             latency = measurements.replicationLatency
             _ <- metrics.delete(measurements)
-            _ <- log.info(s"delete in ${ latency }ms id: $id, deleteTo: $deleteTo, bound: $bound, offset: $offset")
+            _ <- log.info(s"delete in ${ latency }ms id: $id, deleteTo: $deleteTo, bound: $bound, offset: $offsetLast")
           } yield {}
         }
 
@@ -89,7 +91,7 @@ object TopicReplicator {
             _ <- log.info {
               val deleteToStr = deleteTo.fold("") { deleteTo => s", deleteTo: $deleteTo" }
               val range = events.head.seqNr to events.last.seqNr
-              s"append in ${ latency }ms id: $id, range: $range$deleteToStr, offset: $offset"
+              s"append in ${ latency }ms id: $id, range: $range$deleteToStr, offset: $offsetLast"
             }
           } yield {}
         }
@@ -97,13 +99,17 @@ object TopicReplicator {
         def onNonEmpty(info: JournalInfo.NonEmpty) = {
           val deleteTo = info.deleteTo
           val events = for {
-            (partitionOffset, record) <- actions
+            record <- records
             action <- PartialFunction.condOpt(record.action) { case a: Action.Append => a }.toIterable
             if deleteTo.forall(action.range.to > _)
             event <- EventsSerializer.fromBytes(action.events).toList
             if deleteTo.forall(event.seqNr > _)
           } yield {
-            ReplicatedEvent(event, action.timestamp, partitionOffset)
+            ReplicatedEvent(
+              event = event,
+              timestamp = action.timestamp,
+              partitionOffset = record.partitionOffset,
+              origin = action.origin)
           }
 
           Nel.opt(events) match {
@@ -115,7 +121,7 @@ object TopicReplicator {
           }
         }
 
-        val info = actions.foldLeft(JournalInfo.empty) { case (info, (_, record)) => info(record.action.header) }
+        val info = records.foldLeft(JournalInfo.empty) { case (info, record) => info(record.action) }
         info match {
           case info: JournalInfo.NonEmpty => onNonEmpty(info)
           case info: JournalInfo.Deleted  => delete(info.deleteTo, bound = false)
@@ -229,7 +235,7 @@ object TopicReplicator {
     }
   }
 
-  case class State(pointers: TopicPointers = TopicPointers.Empty)
+  final case class State(pointers: TopicPointers = TopicPointers.Empty)
 
   object State {
     val Empty: State = State()

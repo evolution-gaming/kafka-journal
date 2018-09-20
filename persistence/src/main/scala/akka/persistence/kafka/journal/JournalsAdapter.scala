@@ -33,7 +33,7 @@ object JournalsAdapter {
   def apply(
     log: ActorLog,
     toKey: ToKey,
-    journals: Journals,
+    journal: Journal,
     serialisation: SerializedMsgConverter)(implicit ec: ExecutionContext): JournalsAdapter = {
 
     new JournalsAdapter {
@@ -70,7 +70,7 @@ object JournalsAdapter {
               Event(seqNr, tags, Bytes(bytes))
             }
             val nel = Nel(events.head, events.tail.toList) // TODO is it optimal convert to list ?
-            val result = journals.append(key, nel, timestamp)
+            val result = journal.append(key, nel, timestamp)
             result.map(_ => Nil)
           }
           async.flatten.future
@@ -80,7 +80,7 @@ object JournalsAdapter {
       def delete(persistenceId: PersistenceId, to: SeqNr) = {
         val timestamp = Instant.now()
         val key = toKey(persistenceId)
-        journals.delete(key, to, timestamp).unit.future
+        journal.delete(key, to, timestamp).unit.future
       }
 
       def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)
@@ -109,13 +109,13 @@ object JournalsAdapter {
           }
         }
         val key = toKey(persistenceId)
-        val async = journals.read(key, range.from, 0l)(fold)
+        val async = journal.read(key, range.from, 0l)(fold)
         async.unit.future
       }
 
       def lastSeqNr(persistenceId: PersistenceId, from: SeqNr) = {
         val key = toKey(persistenceId)
-        journals.lastSeqNr(key, from).future
+        journal.lastSeqNr(key, from).future
       }
     }
   }
