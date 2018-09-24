@@ -16,19 +16,19 @@ class ActionHeaderJsonSpec extends FunSuite with Matchers {
       test(s"Append format, origin: $origin, payloadType: $payloadType") {
         val range = SeqRange(1, 5)
         val header = ActionHeader.Append(range, origin, payloadType)
-        verify(header, s"Append.$originStr.$payloadType")
+        verify(header, s"Append-$originStr-$payloadType")
       }
     }
 
     test(s"Delete format, origin: $origin") {
       val seqNr = 3.toSeqNr
       val header = ActionHeader.Delete(seqNr, origin)
-      verify(header, s"Delete.$originStr")
+      verify(header, s"Delete-$originStr")
     }
 
     test(s"Mark format, origin: $origin, ") {
       val header = ActionHeader.Mark("id", origin)
-      verify(header, s"Mark.$originStr")
+      verify(header, s"Mark-$originStr")
     }
   }
 
@@ -39,19 +39,7 @@ class ActionHeaderJsonSpec extends FunSuite with Matchers {
       actual shouldEqual value
     }
 
-    def verifyAgainstJson() = {
-      val json = Json.toJson(value)
-      verify(json)
-    }
-
-    def verifyAgainstFile() = {
-      val path = s"$name.json"
-      val bytes = BytesOf(getClass, path)
-      val json = Json.parse(bytes)
-      verify(json)
-    }
-
-    verifyAgainstJson()
-    verifyAgainstFile()
+    verify(Json.toJson(value))
+    verify(Json.parse(BytesOf(getClass, s"$name.json")))
   }
 }
