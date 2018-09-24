@@ -64,7 +64,7 @@ class EventsSerializerSpec extends FunSuite with Matchers {
 
       val ext = payloadType.ext
 
-      val path = s"action.payload.$name.$ext"
+      val path = s"Payload-$name.$ext"
 
       //      writeToFile(payload.value, path)
 

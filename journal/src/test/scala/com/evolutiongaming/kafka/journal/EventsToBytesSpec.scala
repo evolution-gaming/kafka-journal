@@ -61,7 +61,7 @@ class EventsToBytesSpec extends FunSuite with Matchers {
 
       verify(bytes)
 
-      verify(BytesOf(getClass, s"events.$name.bin"))
+      verify(BytesOf(getClass, s"events-$name.bin"))
     }
   }
 
