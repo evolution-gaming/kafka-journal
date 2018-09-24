@@ -112,8 +112,8 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
       }
     }
 
-    val journals = Journal(producer, origin, consumerOf, eventualJournal)
-    JournalsAdapter(log, toKey, journals, serializer)
+    val journal = Journal(producer, origin, consumerOf, eventualJournal)
+    JournalsAdapter(log, toKey, journal, serializer)
   }
 
   // TODO optimise concurrent calls asyncReplayMessages & asyncReadHighestSequenceNr for the same persistenceId

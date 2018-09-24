@@ -93,7 +93,8 @@ object Journal {
     ec: ExecutionContext): Journal = {
 
     val log = ActorLog(system, classOf[Journal])
-    apply(log, origin, producer, consumerOf, eventual, pollTimeout, closeTimeout)
+    val journal = apply(log, origin, producer, consumerOf, eventual, pollTimeout, closeTimeout)
+    Journal(journal, log)
   }
 
   def apply(

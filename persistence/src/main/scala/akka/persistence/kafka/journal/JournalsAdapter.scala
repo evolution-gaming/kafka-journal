@@ -51,7 +51,7 @@ object JournalsAdapter {
           val first = persistentReprs.head.sequenceNr
           val last = persistentReprs.last.sequenceNr
           val str = if (first == last) first else s"$first..$last"
-          s"asyncWriteMessages persistenceId: $persistenceId seqNrs: $str"
+          s"write persistenceId: $persistenceId, seqNrs: $str"
         }
 
         val async = Async.async {
@@ -69,6 +69,8 @@ object JournalsAdapter {
     }
 
     def delete(persistenceId: PersistenceId, to: SeqNr) = {
+      log.debug(s"delete persistenceId: $persistenceId, to: $to")
+      
       val timestamp = Instant.now()
       val key = toKey(persistenceId)
       journal.delete(key, to, timestamp).unit.future
@@ -76,6 +78,9 @@ object JournalsAdapter {
 
     def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)
       (callback: PersistentRepr => Unit): Future[Unit] = {
+
+      log.debug(s"replay persistenceId: $persistenceId, range: $range")
+
       val key = toKey(persistenceId)
       val fold: Fold[Long, Event] = (count, event) => {
         val seqNr = event.seqNr
