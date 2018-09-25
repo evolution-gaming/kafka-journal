@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
-import com.evolutiongaming.skafka.{Offset, TopicPartition}
+import com.evolutiongaming.skafka.{Offset, Partition}
 
 import scala.collection.immutable.Queue
 
@@ -10,7 +10,7 @@ object WithReadActionsOneByOne {
 
   def apply(actions: => Queue[ActionRecord]): WithReadActions[Async] = new WithReadActions[Async] {
 
-    def apply[T](topicPartition: TopicPartition, offset: Option[Offset])(f: ReadActions[Async] => Async[T]) = {
+    def apply[T](key: Key, partition: Partition, offset: Option[Offset])(f: ReadActions[Async] => Async[T]) = {
 
       val readActions = new ReadActions[Async] {
 

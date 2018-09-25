@@ -182,7 +182,6 @@ object Journal {
         marker <- marker
         topicPointers <- topicPointers
       } yield {
-        log.debug(s"read $key topicPointers: $topicPointers")
         val offsetReplicated = topicPointers.values.get(marker.partitionOffset.partition)
         FoldActions(key, from, marker, offsetReplicated, withReadActions)
       }
@@ -242,7 +241,7 @@ object Journal {
           for {
             switch <- replicatedSeqNr(fromFixed)
             (s, from, offset) = switch.s
-            _ = log.debug(s"read $key from: $from, offset: $offset")
+            _ = log.debug(s"$key read from: $from, offset: $offset")
             s <- from match {
               case None       => s.async
               case Some(from) => if (switch.stop) s.async else events(from, offset, s)
@@ -255,7 +254,7 @@ object Journal {
           // TODO use range after eventualRecords
           // TODO prevent from reading calling consume twice!
           info <- readActions(None, JournalInfo.empty) { (info, action) => info(action).continue }
-          _ = log.debug(s"read $key info: $info")
+          _ = log.debug(s"$key read info: $info")
           result <- info match {
             case JournalInfo.Empty                 => replicated(from)
             case JournalInfo.NonEmpty(_, deleteTo) => onNonEmpty(deleteTo, readActions)

@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
-import com.evolutiongaming.skafka.{Offset, Partition, TopicPartition}
+import com.evolutiongaming.skafka.{Offset, Partition}
 
 trait FoldActions {
   def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]): Async[S]
@@ -49,9 +49,7 @@ object FoldActions {
             }
           }
 
-          val topicPartition = TopicPartition(topic = key.topic, partition = partition)
-
-          withReadActions(topicPartition, last) { readActions =>
+          withReadActions(key, partition, last) { readActions =>
 
             val ff = (s: S) => {
               for {
