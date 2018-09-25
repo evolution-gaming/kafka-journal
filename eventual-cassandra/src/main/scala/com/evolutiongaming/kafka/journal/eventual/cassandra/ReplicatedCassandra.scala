@@ -65,7 +65,7 @@ object ReplicatedCassandra {
 
         if (bound) delete(deleteTo)
         else for {
-          last <- LastSeqNr(key, from, metadata, statements.selectLastRecord)
+          last <- LastSeqNr(key, from, metadata, statements.selectLastRecord, Log.empty(Async.unit))
           result <- last match {
             case None       => Async.unit
             case Some(last) => delete(deleteTo min last)

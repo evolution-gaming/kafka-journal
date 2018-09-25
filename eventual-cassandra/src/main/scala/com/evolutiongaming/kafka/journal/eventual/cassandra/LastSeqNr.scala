@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import com.evolutiongaming.kafka.journal.Implicits._
 import com.evolutiongaming.kafka.journal.eventual.Pointer
-import com.evolutiongaming.kafka.journal.{IO, Key, SeqNr}
+import com.evolutiongaming.kafka.journal.{IO, Key, Log, SeqNr}
 
 object LastSeqNr {
 
@@ -10,13 +10,15 @@ object LastSeqNr {
     key: Key,
     from: SeqNr,
     metadata: Metadata,
-    statement: (Key, SegmentNr, SeqNr) => F[Option[Pointer]]): F[Option[SeqNr]] = {
+    statement: (Key, SegmentNr, SeqNr) => F[Option[Pointer]],
+    log: Log[F]): F[Option[SeqNr]] = {
 
     def apply(from: SeqNr, last: Option[SeqNr]) = {
 
       def apply(from: SeqNr, last: Option[SeqNr], segment: Segment): F[Option[SeqNr]] = {
         for {
           pointer <- statement(key, segment.nr, from)
+          _ <- log.debug(s"$key lastSeqNr, pointer: $pointer, from: $from, last: $last, segment: $segment") // TODO temporary
           seqNr <- pointer.fold(last.pure) { pointer =>
             val last = pointer.seqNr
             val result = for {

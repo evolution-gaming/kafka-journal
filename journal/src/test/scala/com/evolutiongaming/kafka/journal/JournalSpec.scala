@@ -22,7 +22,7 @@ class JournalSpec extends WordSpec with Matchers {
 
   // TODO add test using SeqNr.Max
   // TODO add test when Kafka missing it's tail comparing to eventual
-  def test(createJournal: () => SeqNrJournal): Unit = {
+  def test(journalOf: () => SeqNrJournal): Unit = {
 
     for {
       size <- 0 to 5
@@ -33,7 +33,7 @@ class JournalSpec extends WordSpec with Matchers {
       val seqNrLast = seqNrs.lastOption
 
       def createAndAppend() = {
-        val journal = createJournal()
+        val journal = journalOf()
         for {
           seqNrs <- combination
         } journal.append(seqNrs.head, seqNrs.tail: _*)
@@ -103,14 +103,14 @@ class JournalSpec extends WordSpec with Matchers {
     }
 
     "read SeqNr.Max" in {
-      val journal = createJournal()
+      val journal = journalOf()
       journal.read(SeqRange(SeqNr.Max)) shouldEqual Nil
       journal.append(1.toSeqNr)
       journal.read(SeqRange(SeqNr.Max)) shouldEqual Nil
     }
 
     "append, delete, append, delete, append, read, lastSeqNr" in {
-      val journal = createJournal()
+      val journal = journalOf()
       journal.append(1.toSeqNr)
       journal.delete(3.toSeqNr)
       journal.append(2.toSeqNr, 3.toSeqNr)
@@ -284,7 +284,7 @@ class JournalSpec extends WordSpec with Matchers {
       n <- 1 to 3
       nn = n + 1
     } {
-      s"eventual journal is $n actions behind and pointer is $nn behind the kafka journal and " should {
+      s"eventual journal is $n actions behind and pointer is $nn behind the kafka journal" should {
         test(() => journalOf())
 
         def journalOf() = {

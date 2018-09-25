@@ -5,6 +5,7 @@ import java.util.UUID
 
 import com.evolutiongaming.cassandra.CreateCluster
 import com.evolutiongaming.concurrent.FutureHelper._
+import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.FixEquality.Implicits._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper.Switch
 import com.evolutiongaming.kafka.journal._
@@ -36,7 +37,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
     val cassandra = CreateCluster(config.client)
     val session = Await.result(cassandra.connect(), timeout)
     // TODO add EventualCassandra.close and simplify all
-    val eventual = EventualCassandra(session, config)
+    val eventual = EventualCassandra(session, config, Log.empty(Async.unit))
     (EventualJournal(eventual, log), session, cassandra)
   }
 

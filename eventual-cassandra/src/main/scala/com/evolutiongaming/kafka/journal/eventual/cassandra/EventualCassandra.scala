@@ -6,7 +6,7 @@ import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.AsyncHelper._
-import com.evolutiongaming.kafka.journal.{Key, ReplicatedEvent, SeqNr, SeqRange}
+import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.Topic
 
 import scala.concurrent.ExecutionContext
@@ -18,7 +18,8 @@ object EventualCassandra {
 
   def apply(
     session: Session,
-    config: EventualCassandraConfig)(implicit ec: ExecutionContext): EventualJournal = {
+    config: EventualCassandraConfig,
+    log: Log[Async])(implicit ec: ExecutionContext): EventualJournal = {
 
     val statements = for {
       tables <- CreateSchema(config.schema, session)
@@ -28,10 +29,10 @@ object EventualCassandra {
       statements
     }
 
-    apply(statements)
+    apply(statements, log)
   }
 
-  def apply(statements: Async[Statements]): EventualJournal = new EventualJournal {
+  def apply(statements: Async[Statements], log: Log[Async]): EventualJournal = new EventualJournal {
 
     def pointers(topic: Topic) = {
       for {
@@ -110,13 +111,14 @@ object EventualCassandra {
 
       def lastSeqNr(statements: Statements, metadata: Option[Metadata]) = {
         metadata.fold(Option.empty[SeqNr].async) { metadata =>
-          LastSeqNr(key, from, metadata, statements.selectLastRecord)
+          LastSeqNr(key, from, metadata, statements.selectLastRecord, log)
         }
       }
 
       for {
         statements <- statements
         metadata <- statements.selectMetadata(key)
+        _ <- log.debug(s"$key lastSeqNr, metadata: $metadata")
         seqNr <- lastSeqNr(statements, metadata)
       } yield {
         seqNr

@@ -9,6 +9,7 @@ import com.evolutiongaming.cassandra.CreateCluster
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.config.ConfigHelper._
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
 import com.evolutiongaming.safeakka.actor.ActorLog
@@ -113,7 +114,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
       {
         val log = ActorLog(system, EventualCassandra.getClass)
         val journal = {
-          val journal = EventualCassandra(session, config)
+          val journal = EventualCassandra(session, config, Log(log))
           EventualJournal(journal, log)
         }
         eventualJournalMetrics.fold(journal) { metrics => EventualJournal(journal, metrics) }

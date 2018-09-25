@@ -275,7 +275,7 @@ object Journal {
         for {
           readActions <- readActions(key, from)
           seqNrEventual = eventual.lastSeqNr(key, from)
-          seqNr <- readActions(None /*TODO*/ , Option.empty[SeqNr]) { (seqNr, action) =>
+          seqNr <- readActions(None /*TODO provide offset from eventual.lastSeqNr*/ , Option.empty[SeqNr]) { (seqNr, action) =>
             val result = action match {
               case action: Action.Append => Some(action.range.to)
               case action: Action.Delete => seqNr
