@@ -10,7 +10,6 @@ import com.evolutiongaming.skafka.Topic
 
 trait EventualJournal {
 
-  // TODO should return NONE when it is empty, otherwise we will seek to wrong offset
   def pointers(topic: Topic): Async[TopicPointers]
 
   def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]): Async[Switch[S]]
@@ -20,13 +19,13 @@ trait EventualJournal {
 
 object EventualJournal {
 
-  val Empty: EventualJournal = {
-    val asyncTopicPointers = TopicPointers.Empty.async
-    new EventualJournal {
-      def pointers(topic: Topic) = asyncTopicPointers
-      def read[S](key: Key, from: SeqNr, state: S)(f: Fold[S, ReplicatedEvent]) = state.continue.async
-      def lastSeqNr(key: Key, from: SeqNr) = Async.none
-    }
+  val Empty: EventualJournal = new EventualJournal {
+
+    def pointers(topic: Topic) = TopicPointers.Empty.async
+
+    def read[S](key: Key, from: SeqNr, state: S)(f: Fold[S, ReplicatedEvent]) = state.continue.async
+
+    def lastSeqNr(key: Key, from: SeqNr) = Async.none
   }
 
 
@@ -69,10 +68,15 @@ object EventualJournal {
     }
 
     def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
+      val ff: Fold[(S, Int), ReplicatedEvent] = {
+        case ((s, n), e) => f(s, e).map { s => (s, n + 1) }
+      }
       for {
-        tuple <- Latency { journal.read(key, from, s)(f) }
-        (result, latency) = tuple
-        _ <- metrics.read(key.topic, latency)
+        tuple <- Latency { journal.read(key, from, (s, 0))(ff) }
+        (switch, latency) = tuple
+        (_, events) = switch.s
+        _ <- metrics.read(topic = key.topic, latency = latency, events = events)
+        result = switch.map { case (s, _) => s }
       } yield result
     }
 
@@ -85,12 +89,11 @@ object EventualJournal {
     }
   }
 
-
   trait Metrics[F[_]] {
 
     def pointers(topic: Topic, latency: Long): F[Unit]
 
-    def read(topic: Topic, latency: Long): F[Unit]
+    def read(topic: Topic, latency: Long, events: Int): F[Unit]
 
     def lastSeqNr(topic: Topic, latency: Long): F[Unit]
   }
@@ -101,8 +104,8 @@ object EventualJournal {
 
       def pointers(topic: Topic, latency: Long) = unit
 
-      def read(topic: Topic, latency: Long) = unit
-      
+      def read(topic: Topic, latency: Long, events: Int) = unit
+
       def lastSeqNr(topic: Topic, latency: Long) = unit
     }
   }

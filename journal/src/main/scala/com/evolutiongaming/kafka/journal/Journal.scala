@@ -80,7 +80,7 @@ object Journal {
       for {
         tuple <- Latency { journal.delete(key, to, timestamp) }
         (result, latency) = tuple
-        _ = log.debug(s"$key lastSeqNr in ${ latency }ms, to: $to, timestamp: $timestamp, result: $result")
+        _ = log.debug(s"$key delete in ${ latency }ms, to: $to, timestamp: $timestamp, result: $result")
       } yield result
     }
 
@@ -94,15 +94,18 @@ object Journal {
       for {
         tuple <- Latency { journal.append(key, events, timestamp) }
         (result, latency) = tuple
-        _ <- metrics.latency(name = "append", topic = key.topic, latency = latency)
+        _ <- metrics.append(topic = key.topic, latency = latency, events = events.size)
       } yield result
     }
 
     def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = {
+      val ff: Fold[(S, Int), Event] = {
+        case ((s, n), e) => f(s, e).map { s => (s, n + 1) }
+      }
       for {
-        tuple <- Latency { journal.read(key, from, s)(f) }
-        (result, latency) = tuple
-        _ <- metrics.latency(name = "read", topic = key.topic, latency = latency)
+        tuple <- Latency { journal.read(key, from, (s, 0))(ff) }
+        ((result, events), latency) = tuple
+        _ <- metrics.read(topic = key.topic, latency = latency, events = events)
       } yield result
     }
 
@@ -110,7 +113,7 @@ object Journal {
       for {
         tuple <- Latency { journal.lastSeqNr(key, from) }
         (result, latency) = tuple
-        _ <- metrics.latency(name = "lastSeqNr", topic = key.topic, latency = latency)
+        _ <- metrics.lastSeqNr(key.topic, latency)
       } yield result
     }
 
@@ -118,7 +121,7 @@ object Journal {
       for {
         tuple <- Latency { journal.delete(key, to, timestamp) }
         (result, latency) = tuple
-        _ <- metrics.latency(name = "delete", topic = key.topic, latency = latency)
+        _ <- metrics.delete(key.topic, latency)
       } yield result
     }
   }
@@ -177,13 +180,13 @@ object Journal {
 
     def readActions(key: Key, from: SeqNr): Async[FoldActions] = {
       val marker = mark(key)
-      val topicPointers = eventual.pointers(key.topic)
+      val pointers = eventual.pointers(key.topic)
       for {
         marker <- marker
-        topicPointers <- topicPointers
+        pointers <- pointers
       } yield {
-        val offsetReplicated = topicPointers.values.get(marker.partitionOffset.partition)
-        FoldActions(key, from, marker, offsetReplicated, withReadActions)
+        val offset = pointers.values.get(marker.partition)
+        FoldActions(key, from, marker, offset, withReadActions)
       }
     }
 
@@ -294,13 +297,27 @@ object Journal {
 
 
   trait Metrics[F[_]] {
-    def latency(name: String, topic: Topic, latency: Long): F[Unit]
+    
+    def append(topic: Topic, latency: Long, events: Int): F[Unit]
+
+    def read(topic: Topic, latency: Long, events: Int): F[Unit]
+
+    def lastSeqNr(topic: Topic, latency: Long): F[Unit]
+
+    def delete(topic: Topic, latency: Long): F[Unit]
   }
 
   object Metrics {
 
     def empty[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
-      def latency(name: String, topic: Topic, latency: Long) = unit
+
+      def append(topic: Topic, latency: Long, events: Int) = unit
+
+      def read(topic: Topic, latency: Long, events: Int) = unit
+
+      def lastSeqNr(topic: Topic, latency: Long) = unit
+
+      def delete(topic: Topic, latency: Long) = unit
     }
   }
 }
