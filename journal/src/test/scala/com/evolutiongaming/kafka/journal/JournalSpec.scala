@@ -375,7 +375,9 @@ object JournalSpec {
       writeAction: AppendAction[Async]): SeqNrJournal = {
 
       val journal = Journal(ActorLog.empty, None, eventual, withReadActions, writeAction)
-      SeqNrJournal(journal)
+      val withLogging = Journal(journal, ActorLog.empty)
+      val withMetrics = Journal(withLogging, Journal.Metrics.empty(Async.unit))
+      SeqNrJournal(withMetrics)
     }
   }
 

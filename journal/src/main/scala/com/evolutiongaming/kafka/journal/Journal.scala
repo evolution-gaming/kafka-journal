@@ -6,7 +6,7 @@ import java.util.UUID
 import akka.actor.ActorSystem
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
-import com.evolutiongaming.kafka.journal.ActorLogHelper._
+import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.SeqNr.Helper._
@@ -22,7 +22,7 @@ import scala.concurrent.duration._
 
 trait Journal {
 
-  def append(key: Key, events: Nel[Event], timestamp: Instant): Async[PartitionOffset] // TODO add Source to RESULT, also rename usages
+  def append(key: Key, events: Nel[Event], timestamp: Instant): Async[PartitionOffset]
 
   def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]): Async[S]
 
@@ -42,45 +42,87 @@ object Journal {
     def lastSeqNr(key: Key, from: SeqNr) = Async.none
 
     def delete(key: Key, to: SeqNr, timestamp: Instant) = Async(PartitionOffset.Empty)
-
-    override def toString = s"Journal.Empty"
   }
+
 
   def apply(journal: Journal, log: ActorLog): Journal = new Journal {
 
     def append(key: Key, events: Nel[Event], timestamp: Instant) = {
-
-      def eventsStr = {
-        val head = events.head.seqNr
-        val last = events.last.seqNr
-        SeqRange(head, last)
-      }
-
-      log[PartitionOffset](s"$key append $eventsStr, timestamp: $timestamp") {
-        journal.append(key, events, timestamp)
-      }
+      for {
+        tuple <- Latency { journal.append(key, events, timestamp) }
+        (result, latency) = tuple
+        _ = log.debug {
+          val head = events.head.seqNr
+          val last = events.last.seqNr
+          val range = SeqRange(head, last)
+          s"$key append in ${ latency }ms, events: $range, timestamp: $timestamp, result: $result"
+        }
+      } yield result
     }
 
     def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = {
-      log[S](s"$key read from: $from, state: $s") {
-        journal.read(key, from, s)(f)
-      }
+      for {
+        tuple <- Latency { journal.read(key, from, s)(f) }
+        (result, latency) = tuple
+        _ = log.debug(s"$key read in ${ latency }ms, from: $from, state: $s, result: $result")
+      } yield result
     }
 
     def lastSeqNr(key: Key, from: SeqNr) = {
-      log[Option[SeqNr]](s"$key lastSeqNr from: $from") {
-        journal.lastSeqNr(key, from)
-      }
+      for {
+        tuple <- Latency { journal.lastSeqNr(key, from) }
+        (result, latency) = tuple
+        _ = log.debug(s"$key lastSeqNr in ${ latency }ms, from: $from, result: $result")
+      } yield result
     }
 
     def delete(key: Key, to: SeqNr, timestamp: Instant) = {
-      log[PartitionOffset](s"$key delete to: $to, timestamp: $timestamp") {
-        journal.delete(key, to, timestamp)
-      }
+      for {
+        tuple <- Latency { journal.delete(key, to, timestamp) }
+        (result, latency) = tuple
+        _ = log.debug(s"$key lastSeqNr in ${ latency }ms, to: $to, timestamp: $timestamp, result: $result")
+      } yield result
     }
 
     override def toString = journal.toString
   }
+
+
+  def apply(journal: Journal, metrics: Metrics[Async]): Journal = new Journal {
+
+    def append(key: Key, events: Nel[Event], timestamp: Instant) = {
+      for {
+        tuple <- Latency { journal.append(key, events, timestamp) }
+        (result, latency) = tuple
+        _ <- metrics.latency(name = "append", topic = key.topic, latency = latency)
+      } yield result
+    }
+
+    def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = {
+      for {
+        tuple <- Latency { journal.read(key, from, s)(f) }
+        (result, latency) = tuple
+        _ <- metrics.latency(name = "read", topic = key.topic, latency = latency)
+      } yield result
+    }
+
+    def lastSeqNr(key: Key, from: SeqNr) = {
+      for {
+        tuple <- Latency { journal.lastSeqNr(key, from) }
+        (result, latency) = tuple
+        _ <- metrics.latency(name = "lastSeqNr", topic = key.topic, latency = latency)
+      } yield result
+    }
+
+    def delete(key: Key, to: SeqNr, timestamp: Instant) = {
+      for {
+        tuple <- Latency { journal.delete(key, to, timestamp) }
+        (result, latency) = tuple
+        _ <- metrics.latency(name = "delete", topic = key.topic, latency = latency)
+      } yield result
+    }
+  }
+
 
   def apply(
     producer: Producer,
@@ -248,6 +290,18 @@ object Journal {
         val action = Action.Delete(key, timestamp, origin, to)
         appendAction(action)
       }
+    }
+  }
+
+
+  trait Metrics[F[_]] {
+    def latency(name: String, topic: Topic, latency: Long): F[Unit]
+  }
+
+  object Metrics {
+
+    def empty[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
+      def latency(name: String, topic: Topic, latency: Long) = unit
     }
   }
 }

@@ -6,6 +6,7 @@ import akka.actor.ActorSystem
 import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.{AtomicWrite, PersistentRepr}
 import com.evolutiongaming.cassandra.CreateCluster
+import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.config.ConfigHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
@@ -54,6 +55,10 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
   }
 
   def serializer(): EventSerializer = EventSerializer(system)
+
+  def eventualJournalMetrics: Option[EventualJournal.Metrics[Async]] = None
+
+  def journalMetrics: Option[Journal.Metrics[Async]] = None
 
   def adapterOf(toKey: ToKey, serializer: EventSerializer): JournalsAdapter = {
 
@@ -107,12 +112,18 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
 
       {
         val log = ActorLog(system, EventualCassandra.getClass)
-        val eventualJournal = EventualCassandra(session, config)
-        EventualJournal(eventualJournal, log)
+        val journal = {
+          val journal = EventualCassandra(session, config)
+          EventualJournal(journal, log)
+        }
+        eventualJournalMetrics.fold(journal) { metrics => EventualJournal(journal, metrics) }
       }
     }
 
-    val journal = Journal(producer, origin, consumerOf, eventualJournal)
+    val journal = {
+      val journal = Journal(producer, origin, consumerOf, eventualJournal)
+      journalMetrics.fold(journal) { metrics => Journal(journal, metrics) }
+    }
     JournalsAdapter(log, toKey, journal, serializer)
   }
 

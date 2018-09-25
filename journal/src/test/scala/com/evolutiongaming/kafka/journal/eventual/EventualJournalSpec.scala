@@ -8,6 +8,7 @@ import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.SeqNr.Helper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.nel.Nel
+import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Topic
 import org.scalatest.Matchers._
 import org.scalatest.{Matchers, WordSpec}
@@ -18,11 +19,19 @@ trait EventualJournalSpec extends WordSpec with Matchers {
   def test(createJournals: () => Journals): Unit = {
     val journalsOf = (key: Key, timestamp: Instant) => {
       val journals = createJournals()
-      val eventual = Eventual(journals.eventual, key)
+      val eventual = {
+        val journal = journals.eventual
+        val withLogging = EventualJournal(journal, ActorLog.empty)
+        val metrics = EventualJournal.Metrics.empty(Async.unit)
+        val withMetrics = EventualJournal(withLogging, metrics)
+        Eventual(withMetrics, key)
+      }
       val replicated = {
+        val journal = journals.replicated
+        val withLogging = ReplicatedJournal(journal, Log.empty(Async.unit))
         val metrics = ReplicatedJournal.Metrics.empty(Async.unit)
-        val journal = ReplicatedJournal(journals.replicated, metrics)
-        Replicated(journal, key, timestamp)
+        val withMetrics = ReplicatedJournal(withLogging, metrics)
+        Replicated(withMetrics, key, timestamp)
       }
       (eventual, replicated)
     }
@@ -30,7 +39,6 @@ trait EventualJournalSpec extends WordSpec with Matchers {
   }
 
   private def test(journalsOf: (Key, Instant) => (Eventual, Replicated)): Unit = {
-
     val topic = "topic"
     val key = Key("id", topic)
     val timestamp = Instant.now()
