@@ -4,7 +4,7 @@ import java.time.Instant
 
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
-import com.evolutiongaming.kafka.journal.Implicits._
+import com.evolutiongaming.kafka.journal.IO.Implicits._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
@@ -42,7 +42,7 @@ object TopicReplicator {
       roundStart: Instant): F[(State, Map[TopicPartition, OffsetAndMetadata])] = {
 
       val records = for {
-        records <- consumerRecords.values.values
+        records <- consumerRecords.values.values.toList
         record <- records
         action <- record.toAction
       } yield {
@@ -55,89 +55,68 @@ object TopicReplicator {
       } yield {
 
         val head = records.head
-        val partition = head.partitionOffset.partition
-        val offsetLast = records.last.partitionOffset
-
         val id = key.id
 
-        def measurements = for {
+        def measurements(actions: Int) = for {
           now <- now
         } yield {
           Metrics.Measurements(
-            partition = partition,
+            partition = head.partition,
             replicationLatency = now - head.action.timestamp,
             deliveryLatency = roundStart - head.action.timestamp,
-            actions = records.size)
+            actions = actions)
         }
 
-        def delete(deleteTo: SeqNr, bound: Boolean) = {
+        def delete(partitionOffset: PartitionOffset, deleteTo: SeqNr, origin: Option[Origin]) = {
           for {
-            _ <- journal.delete(key, roundStart, deleteTo, bound)
-            measurements <- measurements
+            _ <- journal.delete(key, partitionOffset, roundStart, deleteTo, origin)
+            measurements <- measurements(1)
             latency = measurements.replicationLatency
             _ <- metrics.delete(measurements)
-            _ <- log.info(s"delete in ${ latency }ms id: $id, deleteTo: $deleteTo, bound: $bound, offset: $offsetLast")
+            _ <- log.info {
+              val originStr = origin.fold("") { origin => s", origin: $origin" }
+              s"delete in ${ latency }ms, id: $id, offset: $partitionOffset, deleteTo: $deleteTo$originStr"
+            }
           } yield {}
         }
 
-        def append(deleteTo: Option[SeqNr], events: Nel[ReplicatedEvent], bytes: => Int) = {
+        def append(partitionOffset: PartitionOffset, records: Nel[ActionRecord[Action.Append]]) = {
+
+          val bytes = records.foldLeft(0) { case (bytes, record) => bytes + record.action.payload.size }
+
+          val events = for {
+            record <- records
+            action = record.action
+            event <- EventsFromPayload(action.payload, action.payloadType)
+          } yield {
+            ReplicatedEvent(record, event)
+          }
+
           for {
-            _ <- journal.append(key, roundStart, events, deleteTo)
-            measurements <- measurements
+            _ <- journal.append(key, partitionOffset, roundStart, events)
+            measurements <- measurements(records.size)
             _ <- metrics.append(
               events = events.length,
               bytes = bytes,
               measurements = measurements)
             latency = measurements.replicationLatency
             _ <- log.info {
-              val deleteToStr = deleteTo.fold("") { deleteTo => s", deleteTo: $deleteTo" }
               val range = events.head.seqNr to events.last.seqNr
-              s"append in ${ latency }ms id: $id, events: $range$deleteToStr, offset: $offsetLast"
+              val origin = records.head.action.origin
+              val originStr = origin.fold("") { origin => s", origin: $origin" }
+              s"append in ${ latency }ms, id: $id, offset: $partitionOffset, events: $range$originStr"
             }
           } yield {}
         }
 
-        def onNonEmpty(info: JournalInfo.NonEmpty) = {
-          val deleteTo = info.deleteTo
-
-          val appends = for {
-            record <- records
-            action <- PartialFunction.condOpt(record.action) { case a: Action.Append => a }.toIterable
-            if deleteTo.forall(action.range.to > _)
-          } yield {
-            (record, action)
-          }
-
-          def bytes = appends.foldLeft(0) { case (bytes, (_, action)) =>
-            bytes + action.payload.value.length /*TODO provide Bytes.length func */
-          }
-
-          val events = for {
-            (record, action) <- appends
-            event <- EventsFromPayload(action.payload, action.payloadType).toList
-            if deleteTo.forall(event.seqNr > _)
-          } yield {
-            ReplicatedEvent(
-              event = event,
-              timestamp = action.timestamp,
-              partitionOffset = record.partitionOffset,
-              origin = action.origin)
-          }
-
-          Nel.opt(events) match {
-            case Some(events) => append(info.deleteTo, events, bytes)
-            case None         => info.deleteTo match {
-              case Some(deleteTo) => delete(deleteTo, bound = true)
-              case None           => unit
+        Batch.list(records).foldLeft(unit) { (result, batch) =>
+          for {
+            _ <- result
+            _ <- batch match {
+              case batch: Batch.Appends => append(batch.partitionOffset, batch.records)
+              case batch: Batch.Delete  => delete(batch.partitionOffset, batch.seqNr, batch.origin)
             }
-          }
-        }
-
-        val info = records.foldLeft(JournalInfo.empty) { case (info, record) => info(record.action) }
-        info match {
-          case info: JournalInfo.NonEmpty => onNonEmpty(info)
-          case info: JournalInfo.Deleted  => delete(info.deleteTo, bound = false)
-          case JournalInfo.Empty          => unit
+          } yield {}
         }
       }
 

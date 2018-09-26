@@ -14,9 +14,9 @@ trait ReplicatedJournal[F[_]] {
 
   def pointers(topic: Topic): F[TopicPointers]
 
-  def append(key: Key, timestamp: Instant, events: Nel[ReplicatedEvent], deleteTo: Option[SeqNr]): F[Unit]
+  def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[ReplicatedEvent]): F[Unit]
 
-  def delete(key: Key, timestamp: Instant, deleteTo: SeqNr, bound: Boolean): F[Unit]
+  def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]): F[Unit]
 
   def save(topic: Topic, pointers: TopicPointers, timestamp: Instant): F[Unit]
 }
@@ -44,19 +44,26 @@ object ReplicatedJournal {
       } yield result
     }
 
-    def append(key: Key, timestamp: Instant, events: Nel[ReplicatedEvent], deleteTo: Option[SeqNr]) = {
+    def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[ReplicatedEvent]) = {
       for {
-        tuple <- Latency { journal.append(key, timestamp, events, deleteTo) }
+        tuple <- Latency { journal.append(key, partitionOffset, timestamp, events) }
         (result, latency) = tuple
-        _ <- log.debug(s"$key append in ${ latency }ms, deleteTo: $deleteTo, events: ${ events.mkString(",") }")
+        _ <- log.debug {
+          val origin = events.head.origin
+          val originStr = origin.fold("") { origin => s", origin: $origin" }
+          s"$key append in ${ latency }ms, offset: $partitionOffset, events: ${ events.mkString(",") }$originStr"
+        }
       } yield result
     }
 
-    def delete(key: Key, timestamp: Instant, deleteTo: SeqNr, bound: Boolean) = {
+    def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = {
       for {
-        tuple <- Latency { journal.delete(key, timestamp, deleteTo, bound) }
+        tuple <- Latency { journal.delete(key, partitionOffset, timestamp, deleteTo, origin) }
         (result, latency) = tuple
-        _ <- log.debug(s"$key delete in ${ latency }ms, deleteTo: $deleteTo, bound: $bound")
+        _ <- log.debug {
+          val originStr = origin.fold("") { origin => s", origin: $origin" }
+          s"$key delete in ${ latency }ms, offset: $partitionOffset, deleteTo: $deleteTo$originStr"
+        }
       } yield result
     }
 
@@ -88,19 +95,19 @@ object ReplicatedJournal {
       } yield result
     }
 
-    def append(key: Key, timestamp: Instant, events: Nel[ReplicatedEvent], deleteTo: Option[SeqNr]) = {
+    def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[ReplicatedEvent]) = {
       for {
-        tuple <- Latency { journal.append(key, timestamp, events, deleteTo) }
+        tuple <- Latency { journal.append(key, partitionOffset, timestamp, events) }
         (result, latency) = tuple
         _ <- metrics.append(topic = key.topic, latency = latency, events = events.size)
       } yield result
     }
 
-    def delete(key: Key, timestamp: Instant, deleteTo: SeqNr, bound: Boolean) = {
+    def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = {
       for {
-        tuple <- Latency { journal.delete(key, timestamp, deleteTo, bound) }
+        tuple <- Latency { journal.delete(key, partitionOffset, timestamp, deleteTo, origin) }
         (result, latency) = tuple
-        _ <- metrics.delete(key.topic, latency, bound)
+        _ <- metrics.delete(key.topic, latency)
       } yield result
     }
 
@@ -122,7 +129,7 @@ object ReplicatedJournal {
 
     def append(topic: Topic, latency: Long, events: Int): F[Unit]
 
-    def delete(topic: Topic, latency: Long, bound: Boolean): F[Unit]
+    def delete(topic: Topic, latency: Long): F[Unit]
 
     def save(topic: Topic, latency: Long): F[Unit]
   }
@@ -137,7 +144,7 @@ object ReplicatedJournal {
 
       def append(topic: Topic, latency: Long, events: Int) = unit
 
-      def delete(topic: Topic, latency: Long, bound: Boolean) = unit
+      def delete(topic: Topic, latency: Long) = unit
 
       def save(topic: Topic, latency: Long) = unit
     }

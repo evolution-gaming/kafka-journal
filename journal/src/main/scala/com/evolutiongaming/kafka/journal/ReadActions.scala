@@ -10,7 +10,7 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
 
 trait ReadActions[F[_]] {
-  def apply(id: Id): F[Iterable[ActionRecord]]
+  def apply(id: Id): F[Iterable[ActionRecord[Action]]]
 }
 
 object ReadActions {

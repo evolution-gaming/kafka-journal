@@ -5,9 +5,9 @@ import java.time.Instant
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper.{Fold, _}
-import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
-import com.evolutiongaming.kafka.journal.eventual.{EventualJournalSpec, Pointer, TopicPointers}
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
+import com.evolutiongaming.kafka.journal.eventual.{EventualJournalSpec, TopicPointers}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Topic
 
@@ -19,14 +19,15 @@ class EventualCassandraSpec extends EventualJournalSpec {
   "EventualCassandra" when {
     for {
       segmentSize <- Nel(2, 10, 1000)
+      delete <- List(true, false)
     } {
-      s"segmentSize: $segmentSize" should {
-        test(createJournals(segmentSize))
+      s"segmentSize: $segmentSize, delete: $delete" should {
+        test(createJournals(segmentSize, delete))
       }
     }
   }
 
-  def createJournals(segmentSize: Int): () => Journals = () => {
+  def createJournals(segmentSize: Int, delete: Boolean): () => Journals = () => {
 
     var journal = Map.empty[(Key, SegmentNr), List[ReplicatedEvent]]
     var metadataMap = Map.empty[Key, Metadata]
@@ -39,9 +40,7 @@ class EventualCassandraSpec extends EventualJournalSpec {
         seqNr = record.event.seqNr
         if seqNr >= from
       } yield {
-        Pointer(
-          seqNr = record.event.seqNr,
-          partitionOffset = record.partitionOffset)
+        record.pointer
       }
       pointer.async
     }
@@ -65,9 +64,9 @@ class EventualCassandraSpec extends EventualJournalSpec {
       }
 
       val statements = EventualCassandra.Statements(
-        selectLastRecord = selectLastRecord,
-        selectRecords = selectRecords,
-        selectMetadata = selectMetadata,
+        lastRecord = selectLastRecord, // TODO not used
+        records = selectRecords,
+        metadata = selectMetadata,
         selectPointers = selectPointers)
 
       EventualCassandra(statements.async, Log.empty(Async.unit))
@@ -83,22 +82,45 @@ class EventualCassandraSpec extends EventualJournalSpec {
       }
 
       val deleteRecords = (key: Key, segment: SegmentNr, seqNr: SeqNr) => {
-        val events = journal.events(key, segment)
-        val updated = events.dropWhile(_.event.seqNr <= seqNr)
-        journal = journal.updated((key, segment), updated)
+        if (delete) {
+          val events = journal.events(key, segment)
+          val updated = events.dropWhile(_.event.seqNr <= seqNr)
+          journal = journal.updated((key, segment), updated)
+        }
         Async.unit
       }
 
-      val insertMetadata = (key: Key, metadata: Metadata, timestamp: Instant) => {
+      val insertMetadata = (key: Key, timestamp: Instant, metadata: Metadata, origin: Option[Origin]) => {
         metadataMap = metadataMap.updated(key, metadata)
         Async.unit
       }
 
-      val updateMetadata = (key: Key, deleteTo: Option[SeqNr], timestamp: Instant) => {
+      val updateMetadata: MetadataStatement.Update.Type = (key, partitionOffset, timestamp, seqNr, deleteTo: SeqNr) => {
         for {
           metadata <- metadataMap.get(key)
         } {
-          metadataMap = metadataMap.updated(key, metadata.copy(deleteTo = deleteTo))
+          val metadataNew = metadata.copy(partitionOffset = partitionOffset, seqNr = seqNr, deleteTo = Some(deleteTo))
+          metadataMap = metadataMap.updated(key, metadataNew)
+        }
+        Async.unit
+      }
+
+      val updateSeqNr: MetadataStatement.UpdateSeqNr.Type = (key, partitionOffset, timestamp, seqNr) => {
+        for {
+          metadata <- metadataMap.get(key)
+        } {
+          val metadataNew = metadata.copy(partitionOffset = partitionOffset, seqNr = seqNr)
+          metadataMap = metadataMap.updated(key, metadataNew)
+        }
+        Async.unit
+      }
+
+      val updateDeleteTo: MetadataStatement.UpdateDeleteTo.Type = (key, partitionOffset, timestamp, deleteTo) => {
+        for {
+          metadata <- metadataMap.get(key)
+        } {
+          val metadataNew = metadata.copy(partitionOffset = partitionOffset, deleteTo = Some(deleteTo))
+          metadataMap = metadataMap.updated(key, metadataNew)
         }
         Async.unit
       }
@@ -121,6 +143,8 @@ class EventualCassandraSpec extends EventualJournalSpec {
         insertMetadata = insertMetadata,
         selectMetadata = selectMetadata,
         updateMetadata = updateMetadata,
+        updateSeqNr = updateSeqNr,
+        updateDeleteTo = updateDeleteTo,
         insertPointer = insertPointer,
         selectPointers = selectPointers,
         selectTopics = selectTopics)

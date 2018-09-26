@@ -21,10 +21,9 @@ object Payload {
 
     def payloadType = PayloadType.Binary
 
-    override def toString: String = {
-      val bytes = value.length
-      s"$productPrefix($bytes)"
-    }
+    def size: Int = value.length
+
+    override def toString = s"$productPrefix($size)"
   }
 
   object Binary {

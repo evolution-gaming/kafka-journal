@@ -5,11 +5,10 @@ import java.time.Instant
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
-import com.evolutiongaming.kafka.journal.SeqNr.Helper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
-import com.evolutiongaming.skafka.Topic
+import com.evolutiongaming.skafka.{Offset, Topic}
 import org.scalatest.Matchers._
 import org.scalatest.{Matchers, WordSpec}
 
@@ -44,26 +43,34 @@ trait EventualJournalSpec extends WordSpec with Matchers {
     val timestamp = Instant.now()
     val createJournals = () => journalsOf(key, timestamp)
 
+    def eventOf(pointer: Pointer): ReplicatedEvent = {
+      val event = Event(pointer.seqNr)
+      ReplicatedEvent(event, timestamp, pointer.partitionOffset)
+    }
+
     for {
       size <- Nel(0, 1, 2, 5, 10)
+      batch <- List(true, false)
     } {
-      val name = s"[events:$size]"
+      val name = s"events: $size, batch: $batch"
 
-      def eventsOf(from: SeqNr, size: Int) = {
+      def eventsOf(from: Pointer, size: Int) = {
         for {
-          to <- SeqNr.opt(from.value + size).toList
-          if from != to
-          seqNr <- (from to to).seqNrs.toList
+          n <- (0 until size).toList
+          seqNr <- SeqNr.opt(from.seqNr.value + n).toList
+          offset = from.offset + n
         } yield {
-          eventOf(seqNr)
+          val pointer = pointerOf(offset, seqNr)
+          eventOf(pointer)
         }
       }
 
-      val events = eventsOf(SeqNr.Min, size)
-      val seqNrs = events.map(_.seqNr)
-      val seqNrLast = seqNrs.lastOption
+      val events = eventsOf(pointerOf(Offset.Min, SeqNr.Min), size)
+      val pointers = events.map(_.pointer)
+      val pointerLast = pointers.lastOption
+      val partitionOffsetNext = pointerLast.fold(partitionOffsetOf(Offset.Min))(_.partitionOffset.next)
       val seqNrsAll = {
-        val end = seqNrLast getOrElse SeqNr.Min
+        val end = pointerLast.fold(SeqNr.Min)(_.seqNr)
         val seqNrs = (SeqNr.Min to end).seqNrs
         SeqNr.Max :: seqNrs
       }
@@ -71,23 +78,30 @@ trait EventualJournalSpec extends WordSpec with Matchers {
       def createAndAppend() = {
         val (eventual, replicated) = createJournals()
 
-        for {events <- Nel.opt(events)} {
-          replicated.append(events)
+        if (batch) {
+          for {
+            events <- Nel.opt(events)
+          } replicated.append(events)
+        } else {
+          for {
+            event <- events
+          } replicated.append(Nel(event))
         }
+
         (eventual, replicated)
       }
 
-      s"$name append" in {
+      s"append, $name" in {
         val (eventual, _) = createAndAppend()
         eventual.events() shouldEqual events
       }
 
       for {
-        seqNrLast <- seqNrLast
+        seqNrLast <- pointerLast
         from <- seqNrLast.next
         size <- Nel(1, 5)
       } {
-        s"$name append $size to existing journal" in {
+        s"append $size to existing journal, $name" in {
           val (eventual, replicated) = createAndAppend()
           val head = eventsOf(from, size)
           for {head <- Nel.opt(head)} replicated.append(head)
@@ -95,57 +109,52 @@ trait EventualJournalSpec extends WordSpec with Matchers {
         }
       }
 
-      def testDelete(deleteTo: SeqNr, bound: Boolean) = {
-
-        s"$name deleteTo $deleteTo, bound: $bound" in {
+      for {
+        pointer <- pointers
+        deleteTo = pointer.seqNr
+      } {
+        s"deleteTo $deleteTo, $name" in {
           val (eventual, replicated) = createAndAppend()
-          replicated.delete(deleteTo, bound)
+          replicated.delete(deleteTo, partitionOffsetNext)
           val expected = events.dropWhile(_.seqNr <= deleteTo)
           eventual.events() shouldEqual expected
-          eventual.lastSeqNr() shouldEqual seqNrLast
+          eventual.pointer() shouldEqual pointerLast.map(_.withPartitionOffset(partitionOffsetNext))
         }
 
-        s"$name deleteTo $deleteTo, bound: $bound and then append" in {
+        s"deleteTo $deleteTo and then append, $name" in {
           val (eventual, replicated) = createAndAppend()
-          replicated.delete(deleteTo, bound)
+          replicated.delete(deleteTo, partitionOffsetNext)
           val expected = events.dropWhile(_.seqNr <= deleteTo)
           eventual.events() shouldEqual expected
-          eventual.lastSeqNr() shouldEqual seqNrLast
+          eventual.pointer() shouldEqual pointerLast.map(_.withPartitionOffset(partitionOffsetNext))
 
           val event = {
             val seqNr = for {
-              seqNr <- seqNrLast
+              seqNr <- pointerLast
               seqNr <- seqNr.next
             } yield seqNr
-            eventOf(seqNr getOrElse SeqNr.Min)
+            eventOf(seqNr getOrElse Pointer.min)
           }
           replicated.append(Nel(event))
           eventual.events() shouldEqual expected ++ List(event)
-          eventual.lastSeqNr() shouldEqual Some(event.seqNr)
+          eventual.pointer() shouldEqual Some(event.pointer)
         }
       }
 
-      for {deleteTo <- seqNrs} {
-        testDelete(deleteTo, bound = true)
-      }
-
-      for {deleteTo <- seqNrsAll} {
-        testDelete(deleteTo, bound = false)
-      }
-
       for {
-        deleteTo <- seqNrLast
-        deleteToUnbound <- List(deleteTo, SeqNr.Max)
+        pointer <- pointerLast
+        deleteTo = pointer.seqNr
       } {
-        s"$name deleteTo $deleteTo and then deleteTo $deleteToUnbound" in {
+        s"deleteTo $deleteTo and then deleteTo $deleteTo, $name" in {
           val (eventual, replicated) = createAndAppend()
-          replicated.delete(deleteTo)
+          replicated.delete(deleteTo, partitionOffsetNext)
           eventual.events() shouldEqual Nil
-          eventual.lastSeqNr() shouldEqual Some(deleteTo)
+          eventual.pointer() shouldEqual Some(Pointer(partitionOffsetNext, deleteTo))
 
-          replicated.delete(deleteToUnbound, bound = false)
+          val partitionOffset2 = partitionOffsetNext.next
+          replicated.delete(deleteTo, partitionOffset2)
           eventual.events() shouldEqual Nil
-          eventual.lastSeqNr() shouldEqual Some(deleteTo)
+          eventual.pointer() shouldEqual Some(Pointer(partitionOffset2, deleteTo))
         }
       }
 
@@ -154,14 +163,14 @@ trait EventualJournalSpec extends WordSpec with Matchers {
         for {
           from <- seqNrsAll
         } {
-          s"$name read from $from" in {
+          s"read from: $from, $name" in {
             val expected = events.dropWhile(_.seqNr < from)
             eventual.events(from) shouldEqual expected
           }
 
-          s"$name lastSeqNr $from" in {
-            val expected = seqNrLast.filter(_ >= from)
-            eventual.lastSeqNr(from) shouldEqual expected
+          s"pointer: $from, $name" in {
+            val expected = pointerLast.filter(_.seqNr >= from)
+            eventual.pointer(from) shouldEqual expected
           }
         }
       }
@@ -171,63 +180,65 @@ trait EventualJournalSpec extends WordSpec with Matchers {
       size <- List(0, 1, 5)
     } {
 
-      val name = s"[topics:$size]"
+      val name = s" topics: $size"
 
       val topics = for {idx <- 0 to size} yield s"topic-$idx"
 
       val (eventual, replicated) = createJournals()
-      val pointers = TopicPointers(Map((1, 1l)))
+      val partitionOffset = PartitionOffset(partition = 1, offset = 1)
+      val pointers = TopicPointers(Map((partitionOffset.partition, partitionOffset.offset)))
       for {topic <- topics} {
         replicated.save(topic, pointers)
       }
 
-      s"$name save pointers" in {
+      s"save pointers, $name" in {
         for {topic <- topics} {
           replicated.pointers(topic) shouldEqual pointers
         }
       }
 
-      s"$name topics" in {
+      s"topics, $name " in {
         replicated.topics() shouldEqual topics
       }
 
       for {topic <- topics} {
-        s"$name read pointers for $topic" in {
+        s"read pointers for $topic, $name " in {
           replicated.pointers(topic) shouldEqual pointers
           eventual.pointers(topic) shouldEqual pointers
         }
       }
 
-      s"$name read pointers for unknown" in {
+      s"read pointers for unknown, $name " in {
         replicated.pointers("unknown") shouldEqual TopicPointers.Empty
         eventual.pointers("unknown") shouldEqual TopicPointers.Empty
       }
     }
 
     for {
-      bound <- List(true, false)
-      int <- List(1, 2, 5)
-      deleteTo <- SeqNr.opt(int.toLong)
+      deleteTo <- List(1, 2, 5)
+      deleteTo <- SeqNr.opt(deleteTo.toLong)
+      deleteToPointer = pointerOf(offset = 1, seqNr = deleteTo)
     } {
-      s"deleteTo $deleteTo on empty journal, bound: $bound" in {
+      s"deleteTo $deleteTo on empty journal" in {
         val (eventual, replicated) = createJournals()
-        replicated.delete(deleteTo, bound)
+        replicated.delete(deleteTo, deleteToPointer.partitionOffset)
         eventual.events() shouldEqual Nil
-        val lastSeqNr = if (bound) Some(deleteTo) else None
-        eventual.lastSeqNr() shouldEqual lastSeqNr
+        eventual.pointer() shouldEqual Some(deleteToPointer)
       }
 
-      s"deleteTo $deleteTo on empty journal, bound: $bound and then append" in {
+      s"deleteTo $deleteTo on empty journal and then append" in {
         val (eventual, replicated) = createJournals()
-        replicated.delete(deleteTo, bound)
+        replicated.delete(deleteTo, deleteToPointer.partitionOffset)
         eventual.events() shouldEqual Nil
 
-        val seqNr = (if (bound) deleteTo.next else None) getOrElse SeqNr.Min
-        val event = eventOf(seqNr)
+        val event = {
+          val pointerNext = deleteToPointer.next getOrElse Pointer.min
+          eventOf(pointerNext)
+        }
         replicated.append(Nel(event))
 
         eventual.events() shouldEqual List(event)
-        eventual.lastSeqNr() shouldEqual Some(seqNr)
+        eventual.pointer() shouldEqual Some(event.pointer)
       }
     }
 
@@ -240,56 +251,56 @@ trait EventualJournalSpec extends WordSpec with Matchers {
     }
 
 
-    "delete, append, (delete,append), append, delete" in {
+    "delete, append, delete, append, append, delete" in {
       val (eventual, replicated) = createJournals()
 
-      val event1 = eventOf(1.toSeqNr)
-      val event2 = eventOf(2.toSeqNr)
-      val event3 = eventOf(3.toSeqNr)
-
       eventual.events() shouldEqual Nil
-      eventual.lastSeqNr() shouldEqual None
+      eventual.pointer() shouldEqual None
 
-      replicated.delete(SeqNr.Max, bound = false)
-      eventual.events() shouldEqual Nil
-      eventual.lastSeqNr() shouldEqual None
-
+      val event1 = eventOf(pointerOf(offset = 2, seqNr = SeqNr(1)))
       replicated.append(Nel(event1))
       eventual.events() shouldEqual List(event1)
-      eventual.lastSeqNr() shouldEqual Some(event1.seqNr)
+      eventual.pointer() shouldEqual Some(event1.pointer)
 
-      replicated.deleteAndAppend(event1.seqNr, Nel(event2))
+      val event2 = eventOf(pointerOf(offset = 3, seqNr = SeqNr(2)))
+
+      replicated.append(partitionOffsetOf(4), Nel(event2))
+      eventual.events() shouldEqual List(event1, event2)
+      eventual.pointer() shouldEqual Some(pointerOf(offset = 4, seqNr = event2.seqNr))
+
+      replicated.delete(event1.seqNr, partitionOffsetOf(5))
       eventual.events() shouldEqual List(event2)
-      eventual.lastSeqNr() shouldEqual Some(event2.seqNr)
+      eventual.pointer() shouldEqual Some(pointerOf(offset = 5, seqNr = event2.seqNr))
 
+      val event3 = eventOf(pointerOf(offset = 6, seqNr = SeqNr(3)))
       replicated.append(Nel(event3))
       eventual.events() shouldEqual List(event2, event3)
-      eventual.lastSeqNr() shouldEqual Some(event3.seqNr)
+      eventual.pointer() shouldEqual Some(event3.pointer)
 
-      replicated.delete(event3.seqNr)
+      replicated.delete(event3.seqNr, partitionOffsetOf(7))
       eventual.events() shouldEqual Nil
-      eventual.lastSeqNr() shouldEqual Some(event3.seqNr)
+      eventual.pointer() shouldEqual Some(pointerOf(offset = 7, seqNr = event3.seqNr))
 
-      replicated.delete(SeqNr.Max, bound = false)
+      replicated.delete(SeqNr.Max, partitionOffsetOf(8))
       eventual.events() shouldEqual Nil
-      eventual.lastSeqNr() shouldEqual Some(event3.seqNr)
-    }
-
-    def eventOf(seqNr: SeqNr) = {
-      val event = Event(seqNr)
-      val partitionOffset = PartitionOffset(offset = seqNr.value * 2)
-      ReplicatedEvent(event, timestamp, partitionOffset)
+      eventual.pointer() shouldEqual Some(pointerOf(offset = 8, seqNr = SeqNr.Max))
     }
   }
 }
 
 object EventualJournalSpec {
 
+  def partitionOffsetOf(offset: Offset): PartitionOffset = PartitionOffset(offset = offset)
+
+  def pointerOf(offset: Offset, seqNr: SeqNr): Pointer = {
+    Pointer(partitionOffsetOf(offset), seqNr)
+  }
+
   trait Eventual {
 
     def events(from: SeqNr = SeqNr.Min): List[ReplicatedEvent]
 
-    def lastSeqNr(from: SeqNr = SeqNr.Min): Option[SeqNr]
+    def pointer(from: SeqNr = SeqNr.Min): Option[Pointer]
 
     def pointers(topic: Topic): TopicPointers
   }
@@ -305,8 +316,8 @@ object EventualJournalSpec {
         switch.s.reverse
       }
 
-      def lastSeqNr(from: SeqNr = SeqNr.Min) = {
-        journal.lastSeqNr(key, from).get()
+      def pointer(from: SeqNr = SeqNr.Min) = {
+        journal.pointer(key, from).get()
       }
 
       def pointers(topic: Topic) = journal.pointers(topic).get()
@@ -318,11 +329,14 @@ object EventualJournalSpec {
 
     def topics(): Iterable[Topic]
 
-    def append(events: Nel[ReplicatedEvent]): Unit
+    final def append(events: Nel[ReplicatedEvent]): Unit = {
+      val partitionOffset = events.last.partitionOffset // TODO add test for custom offset
+      append(partitionOffset, events)
+    }
 
-    def delete(deleteTo: SeqNr, bound: Boolean = true): Unit
+    def append(partitionOffset: PartitionOffset, events: Nel[ReplicatedEvent]): Unit
 
-    def deleteAndAppend(deleteTo: SeqNr, events: Nel[ReplicatedEvent]): Unit
+    def delete(deleteTo: SeqNr, partitionOffset: PartitionOffset): Unit
 
     def pointers(topic: Topic): TopicPointers
 
@@ -335,16 +349,12 @@ object EventualJournalSpec {
 
       def topics() = journal.topics().get()
 
-      def append(events: Nel[ReplicatedEvent]) = {
-        journal.append(key, timestamp, events, None)
+      def append(partitionOffset: PartitionOffset, events: Nel[ReplicatedEvent]) = {
+        journal.append(key, partitionOffset, timestamp, events)
       }
 
-      def delete(deleteTo: SeqNr, bound: Boolean) = {
-        journal.delete(key, timestamp, deleteTo, bound)
-      }
-
-      def deleteAndAppend(deleteTo: SeqNr, events: Nel[ReplicatedEvent]) = {
-        journal.append(key, timestamp, events, Some(deleteTo))
+      def delete(deleteTo: SeqNr, partitionOffset: PartitionOffset) = {
+        journal.delete(key, partitionOffset, timestamp, deleteTo, None)
       }
 
       def pointers(topic: Topic) = journal.pointers(topic).get()
@@ -357,4 +367,33 @@ object EventualJournalSpec {
 
 
   final case class Journals(eventual: EventualJournal, replicated: ReplicatedJournal[Async])
+
+
+  implicit class PointerOps(val self: Pointer) extends AnyVal {
+
+    def next: Option[Pointer] = {
+      for {
+        seqNr <- self.seqNr.next
+      } yield {
+        val partitionOffset = self.partitionOffset
+        self.copy(
+          seqNr = seqNr,
+          partitionOffset = partitionOffset.copy(offset = partitionOffset.offset + 1))
+      }
+    }
+
+    def withPartitionOffset(partitionOffset: PartitionOffset): Pointer = {
+      self.copy(partitionOffset = partitionOffset)
+    }
+  }
+
+
+  implicit class PointerObjOps(val self: Pointer.type) extends AnyVal {
+    def min: Pointer = pointerOf(Offset.Min, SeqNr.Min)
+  }
+
+
+  implicit class PartitionOffsetOps(val self: PartitionOffset) extends AnyVal {
+    def next: PartitionOffset = self.copy(offset = self.offset + 1)
+  }
 }

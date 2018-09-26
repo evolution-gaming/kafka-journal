@@ -6,7 +6,7 @@ import com.evolutiongaming.kafka.journal.EventsSerializer.EventsToPayload
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Partition}
 
-trait Action {
+sealed trait Action {
   def key: Key
   def timestamp: Instant
   def origin: Option[Origin]
@@ -18,6 +18,7 @@ object Action {
 
   sealed trait System extends Action
 
+  
   final case class Append(
     key: Key,
     timestamp: Instant,
@@ -34,11 +35,13 @@ object Action {
     }
   }
 
+
   final case class Delete(
     key: Key,
     timestamp: Instant,
     origin: Option[Origin],
     to: SeqNr) extends User
+
 
   final case class Mark(
     key: Key,
@@ -48,7 +51,7 @@ object Action {
 }
 
 
-final case class ActionRecord(action: Action, partitionOffset: PartitionOffset) {
+final case class ActionRecord[+A <: Action](action: A, partitionOffset: PartitionOffset) {
 
   def offset: Offset = partitionOffset.offset
 

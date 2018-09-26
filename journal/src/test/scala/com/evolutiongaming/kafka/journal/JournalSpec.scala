@@ -20,7 +20,6 @@ import scala.concurrent.{ExecutionContext, Future}
 class JournalSpec extends WordSpec with Matchers {
   import JournalSpec._
 
-  // TODO add test using SeqNr.Max
   // TODO add test when Kafka missing it's tail comparing to eventual
   def test(journalOf: () => SeqNrJournal): Unit = {
 
@@ -32,52 +31,54 @@ class JournalSpec extends WordSpec with Matchers {
 
       val seqNrLast = seqNrs.lastOption
 
-      def createAndAppend() = {
+      def createAndAppend(): (SeqNrJournal, Option[Offset]) = {
         val journal = journalOf()
-        for {
-          seqNrs <- combination
-        } journal.append(seqNrs.head, seqNrs.tail: _*)
-        journal
+        val offset = combination.foldLeft(Option.empty[Offset]) { (_, seqNrs) =>
+          val offset = journal.append(seqNrs.head, seqNrs.tail: _*)
+          Some(offset)
+        }
+        val offsetNext = offset.map(_ + 1)
+        (journal, offsetNext)
       }
 
       val name = combination.map(_.mkString("[", ",", "]")).mkString(",")
 
-      s"$name append" in {
-        val journal = createAndAppend()
+      s"append, $name" in {
+        val (journal, offset) = createAndAppend()
         journal.read(SeqRange.All) shouldEqual seqNrs
       }
 
-      s"$name read" in {
-        val journal = createAndAppend()
+      s"read, $name" in {
+        val (journal, offset) = createAndAppend()
         journal.read(SeqRange.All) shouldEqual seqNrs
         val last = seqNrLast getOrElse SeqNr.Min
         journal.read(SeqNr.Min to last) shouldEqual seqNrs
         journal.read(SeqNr.Min to last.next.getOrElse(last)) shouldEqual seqNrs
       }
 
-      s"$name delete all" in {
-        val journal = createAndAppend()
+      s"delete all, $name" in {
+        val (journal, offset) = createAndAppend()
         for {seqNr <- seqNrLast} journal.delete(seqNr)
         journal.read(SeqRange.All) shouldEqual Nil
         journal.lastSeqNr(SeqNr.Min) shouldEqual seqNrLast
       }
 
-      s"$name delete SeqNr.Max" in {
-        val journal = createAndAppend()
+      s"delete SeqNr.Max, $name" in {
+        val (journal, offset) = createAndAppend()
         journal.delete(SeqNr.Max)
         journal.read(SeqRange.All) shouldEqual Nil
         journal.lastSeqNr(SeqNr.Min) shouldEqual seqNrLast
       }
 
-      s"$name delete SeqNr.Min" in {
-        val journal = createAndAppend()
-        journal.delete(SeqNr.Min)
+      s"delete SeqNr.Min, $name" in {
+        val (journal, offset) = createAndAppend()
+        journal.delete(SeqNr.Min) shouldEqual offset.map(_ + 1)
         journal.read(SeqRange.All) shouldEqual seqNrs.dropWhile(_ <= SeqNr.Min)
         journal.lastSeqNr(SeqNr.Min) shouldEqual seqNrLast
       }
 
-      s"$name lastSeqNr" in {
-        val journal = createAndAppend()
+      s"lastSeqNr, $name" in {
+        val (journal, offset) = createAndAppend()
         journal.lastSeqNr(SeqNr.Max) shouldEqual None
         journal.lastSeqNr(SeqNr.Min) shouldEqual seqNrLast
         journal.lastSeqNr(seqNrLast getOrElse SeqNr.Min) shouldEqual seqNrLast
@@ -88,15 +89,15 @@ class JournalSpec extends WordSpec with Matchers {
         seqNr <- seqNrs.tail.lastOption
       } {
 
-        s"$name delete except last" in {
-          val journal = createAndAppend()
+        s"delete except last, $name" in {
+          val (journal, offset) = createAndAppend()
           journal.delete(seqNr)
           journal.read(SeqRange.All) shouldEqual seqNrs.dropWhile(_ <= seqNr)
           journal.lastSeqNr(SeqNr.Min) shouldEqual seqNrLast
         }
 
-        s"$name read tail" in {
-          val journal = createAndAppend()
+        s"read tail, $name" in {
+          val (journal, offset) = createAndAppend()
           journal.read(seqNr to SeqNr.Max) shouldEqual seqNrs.dropWhile(_ < seqNr)
         }
       }
@@ -133,14 +134,14 @@ class JournalSpec extends WordSpec with Matchers {
       test(() => journalOf())
 
       def journalOf() = {
-        var actions: Queue[ActionRecord] = Queue.empty
+        var actions: Queue[ActionRecord[Action]] = Queue.empty
         val eventualJournal = EventualJournal.Empty
 
         val withReadActions = WithReadActionsOneByOne(actions)
 
         val writeAction = new AppendAction[Async] {
           def apply(action: Action) = {
-            val offset = actions.size.toLong + 1
+            val offset = actions.size.toLong
             val partitionOffset = PartitionOffset(partition = partition, offset = offset)
             val record = ActionRecord(action, partitionOffset)
             actions = actions.enqueue(record)
@@ -157,7 +158,7 @@ class JournalSpec extends WordSpec with Matchers {
       test(() => journalOf())
 
       def journalOf() = {
-        var actions: Queue[ActionRecord] = Queue.empty
+        var actions: Queue[ActionRecord[Action]] = Queue.empty
         var replicatedState = EventualJournalOf.State.Empty
 
         val eventualJournal = EventualJournalOf(replicatedState)
@@ -171,7 +172,7 @@ class JournalSpec extends WordSpec with Matchers {
         val writeAction = new AppendAction[Async] {
 
           def apply(action: Action) = {
-            val offset = actions.size.toLong + 1
+            val offset = actions.size.toLong
             val partitionOffset = PartitionOffset(partition = partition, offset = offset)
             val record = ActionRecord(action, partitionOffset)
             actions = actions.enqueue(record)
@@ -189,7 +190,7 @@ class JournalSpec extends WordSpec with Matchers {
       test(() => journalOf())
 
       def journalOf() = {
-        var actions: Queue[ActionRecord] = Queue.empty
+        var actions: Queue[ActionRecord[Action]] = Queue.empty
         var replicatedState = EventualJournalOf.State.Empty
 
         val eventualJournal = EventualJournalOf(replicatedState)
@@ -199,7 +200,7 @@ class JournalSpec extends WordSpec with Matchers {
         val writeAction = new AppendAction[Async] {
 
           def apply(action: Action) = {
-            val offset = actions.size.toLong + 1
+            val offset = actions.size.toLong
             val partitionOffset = PartitionOffset(partition = partition, offset = offset)
             val record = ActionRecord(action, partitionOffset)
             actions = actions.enqueue(record)
@@ -219,7 +220,7 @@ class JournalSpec extends WordSpec with Matchers {
         test(() => journalOf())
 
         def journalOf() = {
-          var actions: Queue[ActionRecord] = Queue.empty
+          var actions: Queue[ActionRecord[Action]] = Queue.empty
           var replicatedState = EventualJournalOf.State.Empty
 
           val eventualJournal = EventualJournalOf(replicatedState)
@@ -229,7 +230,7 @@ class JournalSpec extends WordSpec with Matchers {
           val writeAction = new AppendAction[Async] {
 
             def apply(action: Action) = {
-              val offset = actions.size.toLong + 1
+              val offset = actions.size.toLong
               val partitionOffset = PartitionOffset(partition = partition, offset = offset)
               val record = ActionRecord(action, partitionOffset)
               actions = actions.enqueue(record)
@@ -250,7 +251,7 @@ class JournalSpec extends WordSpec with Matchers {
         test(() => journalOf())
 
         def journalOf() = {
-          var actions: Queue[ActionRecord] = Queue.empty
+          var actions: Queue[ActionRecord[Action]] = Queue.empty
           var replicatedState = EventualJournalOf.State.Empty
 
           val eventualJournal = EventualJournalOf(replicatedState)
@@ -261,7 +262,7 @@ class JournalSpec extends WordSpec with Matchers {
 
             def apply(action: Action) = {
 
-              val offset = actions.size.toLong + 1
+              val offset = actions.size.toLong
               val partitionOffset = PartitionOffset(partition = partition, offset = offset)
               val record = ActionRecord(action, partitionOffset)
               actions = actions.enqueue(record)
@@ -288,7 +289,7 @@ class JournalSpec extends WordSpec with Matchers {
         test(() => journalOf())
 
         def journalOf() = {
-          var actions: Queue[ActionRecord] = Queue.empty
+          var actions: Queue[ActionRecord[Action]] = Queue.empty
           var replicatedState = EventualJournalOf.State.Empty
 
           val eventualJournal = EventualJournalOf(replicatedState)
@@ -299,7 +300,7 @@ class JournalSpec extends WordSpec with Matchers {
 
             def apply(action: Action) = {
 
-              val offset = actions.size.toLong + 1
+              val offset = actions.size.toLong
               val partitionOffset = PartitionOffset(partition = partition, offset = offset)
               val record = ActionRecord(action, partitionOffset)
               actions = actions.enqueue(record)
@@ -329,12 +330,14 @@ object JournalSpec {
 
 
   trait SeqNrJournal {
-    def append(seqNr: SeqNr, seqNrs: SeqNr*): Unit
+
+    def append(seqNr: SeqNr, seqNrs: SeqNr*): Offset
+
     def read(range: SeqRange): List[SeqNr]
 
-    // TODO not sure this should be a part of this API
     def lastSeqNr(from: SeqNr): Option[SeqNr]
-    def delete(to: SeqNr): Unit
+
+    def delete(to: SeqNr): Option[Offset]
   }
 
   object SeqNrJournal {
@@ -345,7 +348,7 @@ object JournalSpec {
 
         def append(seqNr: SeqNr, seqNrs: SeqNr*) = {
           val events = for {seqNr <- Nel(seqNr, seqNrs: _*)} yield Event(seqNr)
-          journal.append(key, events, timestamp).get()
+          journal.append(key, events, timestamp).get().offset
         }
 
         def read(range: SeqRange) = {
@@ -365,7 +368,9 @@ object JournalSpec {
 
         def lastSeqNr(from: SeqNr) = journal.lastSeqNr(key, from).get()
 
-        def delete(to: SeqNr) = journal.delete(key, to, timestamp).get()
+        def delete(to: SeqNr) = {
+          journal.delete(key, to, timestamp).get().map(_.offset)
+        }
       }
     }
 
@@ -384,52 +389,59 @@ object JournalSpec {
   // TODO implement via mocking EventualCassandra
   object EventualJournalOf {
 
-    def apply(state: => State): EventualJournal = {
+    def apply(state: => State): EventualJournal = new EventualJournal {
 
-      new EventualJournal {
-
-        def pointers(topic: Topic) = {
-          val pointers = Map(partition -> state.offset)
-          TopicPointers(pointers).async
+      def pointers(topic: Topic) = {
+        val pointers = state.offset.fold(TopicPointers.Empty) { offset =>
+          val pointers = Map((partition, offset))
+          TopicPointers(pointers)
         }
+        pointers.async
+      }
 
-        def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
+      def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
 
-          def read(state: State) = {
-            state.events.foldWhile(s) { (s, replicated) =>
-              val seqNr = replicated.event.seqNr
-              if (seqNr >= from) f(s, replicated)
-              else s.continue
-            }
+        def read(state: State) = {
+          state.events.foldWhile(s) { (s, replicated) =>
+            val seqNr = replicated.event.seqNr
+            if (seqNr >= from) f(s, replicated)
+            else s.continue
           }
-
-          read(state).async
         }
 
-        def lastSeqNr(key: Key, from: SeqNr) = {
+        read(state).async
+      }
 
-          def lastSeqNr(state: State) = {
-            val seqNr = state.events.lastOption.map(_.event.seqNr)
-            val lastSeqNr = (seqNr max state.deleteTo).filter(_ >= from)
-            lastSeqNr.async
+      def pointer(key: Key, from: SeqNr) = {
+
+        def pointer(state: State) = {
+          val seqNr = state.events.lastOption.map(_.event.seqNr)
+          for {
+            seqNr <- (seqNr max state.deleteTo).filter(_ >= from)
+            offset <- state.offset
+          } yield {
+            val partitionOffset = PartitionOffset(partition, offset)
+            Pointer(partitionOffset, seqNr)
           }
-
-          lastSeqNr(state)
         }
+
+        pointer(state).async
       }
     }
 
 
-    case class State(
+    final case class State(
       events: Queue[ReplicatedEvent] = Queue.empty,
       deleteTo: Option[SeqNr] = None,
-      offset: Offset = 0l) {
+      offset: Option[Offset] = None) {
 
-      def apply(record: ActionRecord): State = {
+      def apply(record: ActionRecord[Action]): State = {
         apply(record, record.offset)
       }
 
-      def apply(record: ActionRecord, offset: Offset): State = {
+      def apply(record: ActionRecord[Action], offset: Offset): State = {
+
+        def updateOffset = copy(offset = Some(offset))
 
         def onAppend(action: Action.Append) = {
           val batch = for {
@@ -438,16 +450,23 @@ object JournalSpec {
             val partitionOffset = PartitionOffset(partition, record.offset)
             ReplicatedEvent(event, timestamp, partitionOffset, None)
           }
-          copy(events = events.enqueue(batch.toList), offset = offset)
+          copy(events = events.enqueue(batch.toList), offset = Some(offset))
         }
 
         def onDelete(action: Action.Delete) = {
-          events.lastOption.fold(this) { last =>
+          events.lastOption.fold(updateOffset) { last =>
             val lastSeqNr = last.event.seqNr
-            if (lastSeqNr <= action.to) copy(events = Queue.empty, deleteTo = Some(lastSeqNr), offset)
-            else {
+            if (lastSeqNr <= action.to) {
+              copy(
+                events = Queue.empty,
+                deleteTo = Some(lastSeqNr),
+                offset = Some(offset))
+            } else {
               val left = events.dropWhile(_.event.seqNr <= action.to)
-              copy(events = left, deleteTo = Some(action.to), offset)
+              copy(
+                events = left,
+                deleteTo = Some(action.to),
+                offset = Some(offset))
             }
           }
         }
@@ -455,7 +474,7 @@ object JournalSpec {
         record.action match {
           case action: Action.Append => onAppend(action)
           case action: Action.Delete => onDelete(action)
-          case action: Action.Mark   => copy(offset = offset)
+          case action: Action.Mark   => updateOffset
         }
       }
     }

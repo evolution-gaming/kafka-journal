@@ -63,25 +63,25 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
         stopped = true,
         pointers = Map((topic, TopicPointers(Map((0, 4l), (1, 4l))))),
         journal = Map(
-          (Key(id = "0-0", topic = topic), List(
+          (keyOf("0-0"), List(
             replicated(seqNr = 1, partition = 0, offset = 1),
             replicated(seqNr = 2, partition = 0, offset = 3))),
-          (Key(id = "0-1", topic = topic), List(
+          (keyOf("0-1"), List(
             replicated(seqNr = 1, partition = 0, offset = 2),
             replicated(seqNr = 2, partition = 0, offset = 2),
             replicated(seqNr = 3, partition = 0, offset = 4))),
-          (Key(id = "1-0", topic = topic), List(
+          (keyOf("1-0"), List(
             replicated(seqNr = 1, partition = 1, offset = 1),
             replicated(seqNr = 2, partition = 1, offset = 3))),
-          (Key(id = "1-1", topic = topic), List(
+          (keyOf("1-1"), List(
             replicated(seqNr = 1, partition = 1, offset = 2),
             replicated(seqNr = 2, partition = 1, offset = 2),
             replicated(seqNr = 3, partition = 1, offset = 4)))),
         metadata = Map(
-          (Key(id = "0-0", topic = topic), None),
-          (Key(id = "0-1", topic = topic), None),
-          (Key(id = "1-0", topic = topic), None),
-          (Key(id = "1-1", topic = topic), None)),
+          metadataOf("0-0", partition = 0, offset = 3),
+          metadataOf("0-1", partition = 0, offset = 4),
+          metadataOf("1-0", partition = 1, offset = 3),
+          metadataOf("1-1", partition = 1, offset = 4)),
         metrics = List(
           Metrics.Round(records = 8),
           Metrics.Append(partition = 0, events = 2, actions = 2),
@@ -137,25 +137,25 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
         stopped = true,
         pointers = Map((topic, TopicPointers(Map((0, 4l), (1, 4l))))),
         journal = Map(
-          (Key(id = "0-0", topic = topic), List(
+          (keyOf("0-0"), List(
             replicated(seqNr = 2, partition = 0, offset = 3),
             replicated(seqNr = 1, partition = 0, offset = 1))),
-          (Key(id = "0-1", topic = topic), List(
+          (keyOf("0-1"), List(
             replicated(seqNr = 3, partition = 0, offset = 4),
             replicated(seqNr = 1, partition = 0, offset = 2),
             replicated(seqNr = 2, partition = 0, offset = 2))),
-          (Key(id = "1-0", topic = topic), List(
+          (keyOf("1-0"), List(
             replicated(seqNr = 2, partition = 1, offset = 3),
             replicated(seqNr = 1, partition = 1, offset = 1))),
-          (Key(id = "1-1", topic = topic), List(
+          (keyOf("1-1"), List(
             replicated(seqNr = 3, partition = 1, offset = 4),
             replicated(seqNr = 1, partition = 1, offset = 2),
             replicated(seqNr = 2, partition = 1, offset = 2)))),
         metadata = Map(
-          (Key(id = "0-0", topic = topic), None),
-          (Key(id = "0-1", topic = topic), None),
-          (Key(id = "1-0", topic = topic), None),
-          (Key(id = "1-1", topic = topic), None)),
+          metadataOf("0-0", partition = 0, offset = 3),
+          metadataOf("0-1", partition = 0, offset = 4),
+          metadataOf("1-0", partition = 1, offset = 3),
+          metadataOf("1-1", partition = 1, offset = 4)),
         metrics = List(
           Metrics.Round(records = 1),
           Metrics.Append(partition = 1, events = 1, actions = 1),
@@ -230,60 +230,60 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
         stopped = true,
         pointers = Map((topic, TopicPointers(Map((0, 9l), (1, 9l), (2, 9l))))),
         journal = Map(
-          (Key(id = "0-0", topic = topic), List(
+          (keyOf("0-0"), List(
             replicated(seqNr = 1, partition = 0, offset = 1),
             replicated(seqNr = 2, partition = 0, offset = 5))),
-          (Key(id = "0-1", topic = topic), List(
+          (keyOf("0-1"), List(
             replicated(seqNr = 1, partition = 0, offset = 3),
             replicated(seqNr = 2, partition = 0, offset = 3),
             replicated(seqNr = 3, partition = 0, offset = 8))),
-          (Key(id = "0-2", topic = topic), List(
+          (keyOf("0-2"), List(
             replicated(seqNr = 1, partition = 0, offset = 7),
             replicated(seqNr = 2, partition = 0, offset = 7),
             replicated(seqNr = 3, partition = 0, offset = 7))),
-          (Key(id = "1-0", topic = topic), List(
+          (keyOf("1-0"), List(
             replicated(seqNr = 1, partition = 1, offset = 1),
             replicated(seqNr = 2, partition = 1, offset = 5))),
-          (Key(id = "1-1", topic = topic), List(
+          (keyOf("1-1"), List(
             replicated(seqNr = 1, partition = 1, offset = 3),
             replicated(seqNr = 2, partition = 1, offset = 3),
             replicated(seqNr = 3, partition = 1, offset = 8))),
-          (Key(id = "1-2", topic = topic), List(
+          (keyOf("1-2"), List(
             replicated(seqNr = 1, partition = 1, offset = 7),
             replicated(seqNr = 2, partition = 1, offset = 7),
             replicated(seqNr = 3, partition = 1, offset = 7))),
-          (Key(id = "2-0", topic = topic), List(
+          (keyOf("2-0"), List(
             replicated(seqNr = 1, partition = 2, offset = 1),
             replicated(seqNr = 2, partition = 2, offset = 5))),
-          (Key(id = "2-1", topic = topic), List(
+          (keyOf("2-1"), List(
             replicated(seqNr = 1, partition = 2, offset = 3),
             replicated(seqNr = 2, partition = 2, offset = 3),
             replicated(seqNr = 3, partition = 2, offset = 8))),
-          (Key(id = "2-2", topic = topic), List(
+          (keyOf("2-2"), List(
             replicated(seqNr = 1, partition = 2, offset = 7),
             replicated(seqNr = 2, partition = 2, offset = 7),
             replicated(seqNr = 3, partition = 2, offset = 7)))),
         metadata = Map(
-          (Key(id = "0-0", topic = topic), None),
-          (Key(id = "0-1", topic = topic), None),
-          (Key(id = "0-2", topic = topic), None),
-          (Key(id = "1-0", topic = topic), None),
-          (Key(id = "1-1", topic = topic), None),
-          (Key(id = "1-2", topic = topic), None),
-          (Key(id = "2-0", topic = topic), None),
-          (Key(id = "2-1", topic = topic), None),
-          (Key(id = "2-2", topic = topic), None)),
+          metadataOf("0-0", partition = 0, offset = 9),
+          metadataOf("0-1", partition = 0, offset = 8),
+          metadataOf("0-2", partition = 0, offset = 7),
+          metadataOf("1-0", partition = 1, offset = 9),
+          metadataOf("1-1", partition = 1, offset = 8),
+          metadataOf("1-2", partition = 1, offset = 7),
+          metadataOf("2-0", partition = 2, offset = 9),
+          metadataOf("2-1", partition = 2, offset = 8),
+          metadataOf("2-2", partition = 2, offset = 7)),
         metrics = List(
           Metrics.Round(records = 27),
+          Metrics.Append(partition = 0, events = 3, actions = 1),
+          Metrics.Append(partition = 1, events = 2, actions = 2),
+          Metrics.Append(partition = 1, events = 3, actions = 2),
+          Metrics.Append(partition = 2, events = 3, actions = 1),
           Metrics.Append(partition = 0, events = 3, actions = 2),
-          Metrics.Append(partition = 1, events = 2, actions = 3),
-          Metrics.Append(partition = 1, events = 3, actions = 3),
+          Metrics.Append(partition = 2, events = 2, actions = 2),
           Metrics.Append(partition = 2, events = 3, actions = 2),
-          Metrics.Append(partition = 0, events = 3, actions = 3),
-          Metrics.Append(partition = 2, events = 2, actions = 3),
-          Metrics.Append(partition = 2, events = 3, actions = 3),
-          Metrics.Append(partition = 0, events = 2, actions = 3),
-          Metrics.Append(partition = 1, events = 3, actions = 2)))
+          Metrics.Append(partition = 0, events = 2, actions = 2),
+          Metrics.Append(partition = 1, events = 3, actions = 1)))
     }
 
     "replicate appends and deletes" in {
@@ -346,121 +346,44 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
         stopped = true,
         pointers = Map((topic, TopicPointers(Map((0, 10l), (1, 10l))))),
         journal = Map(
-          (Key(id = "0-0", topic = topic), List(
+          (keyOf("0-0"), List(
             replicated(seqNr = 1, partition = 0, offset = 1),
             replicated(seqNr = 2, partition = 0, offset = 5))),
-          (Key(id = "0-1", topic = topic), List(
+          (keyOf("0-1"), List(
             replicated(seqNr = 3, partition = 0, offset = 8))),
-          (Key(id = "0-2", topic = topic), List(
+          (keyOf("0-2"), List(
             replicated(seqNr = 1, partition = 0, offset = 7),
             replicated(seqNr = 2, partition = 0, offset = 7),
             replicated(seqNr = 3, partition = 0, offset = 7))),
-          (Key(id = "1-0", topic = topic), List(
+          (keyOf("1-0"), List(
             replicated(seqNr = 1, partition = 1, offset = 1),
             replicated(seqNr = 2, partition = 1, offset = 5))),
-          (Key(id = "1-1", topic = topic), List(
+          (keyOf("1-1"), List(
             replicated(seqNr = 3, partition = 1, offset = 8))),
-          (Key(id = "1-2", topic = topic), List(
+          (keyOf("1-2"), List(
             replicated(seqNr = 1, partition = 1, offset = 7),
             replicated(seqNr = 2, partition = 1, offset = 7),
             replicated(seqNr = 3, partition = 1, offset = 7)))),
         metadata = Map(
-          (Key(id = "0-0", topic = topic), None),
-          (Key(id = "0-1", topic = topic), Some(2)),
-          (Key(id = "0-2", topic = topic), None),
-          (Key(id = "1-0", topic = topic), None),
-          (Key(id = "1-1", topic = topic), Some(2)),
-          (Key(id = "1-2", topic = topic), None)),
+          metadataOf("0-0", partition = 0, offset = 10),
+          metadataOf("0-1", partition = 0, offset = 9, deleteTo = Some(2)),
+          metadataOf("0-2", partition = 0, offset = 7),
+          metadataOf("1-0", partition = 1, offset = 10),
+          metadataOf("1-1", partition = 1, offset = 9, deleteTo = Some(2)),
+          metadataOf("1-2", partition = 1, offset = 7)),
         metrics = List(
           Metrics.Round(records = 20),
+          Metrics.Append(partition = 0, events = 3, actions = 1),
+          Metrics.Append(partition = 1, events = 2, actions = 2),
+          Metrics.Delete(partition = 1, actions = 1),
+          Metrics.Append(partition = 1, events = 3, actions = 2),
+          Metrics.Delete(partition = 0, actions = 1),
           Metrics.Append(partition = 0, events = 3, actions = 2),
-          Metrics.Append(partition = 1, events = 2, actions = 3),
-          Metrics.Append(partition = 1, events = 1, actions = 4),
-          Metrics.Append(partition = 0, events = 1, actions = 4),
-          Metrics.Append(partition = 0, events = 2, actions = 3),
-          Metrics.Append(partition = 1, events = 3, actions = 2)))
+          Metrics.Append(partition = 0, events = 2, actions = 2),
+          Metrics.Append(partition = 1, events = 3, actions = 1)))
     }
 
-    "replicate appends and unbound deletes" in {
-      val records = {
-        val records = for {
-          partition <- 0 to 0
-        } yield {
-
-          def keyOf(id: String) = Key(id = s"$partition-$id", topic = topic)
-
-          def append(id: String, seqNrs: Nel[Int]) = {
-            val key = keyOf(id)
-            appendOf(key, seqNrs)
-          }
-
-          def mark(id: String) = {
-            val key = keyOf(id)
-            markOf(key)
-          }
-
-          def delete(id: String, to: Int) = {
-            val key = keyOf(id)
-            deleteOf(key, to)
-          }
-
-          val topicPartition = topicPartitionOf(partition)
-
-          val kafkaRecords = List(
-            append("0", Nel(1)),
-            mark("3"),
-            append("1", Nel(1, 2)),
-            mark("2"),
-            append("0", Nel(2)),
-            mark("1"),
-            append("2", Nel(1, 2, 3)),
-            append("1", Nel(3)),
-            delete("1", 2),
-            delete("0", 5),
-            delete("0", 6),
-            delete("1", 2))
-
-          val records = for {
-            (record, idx) <- kafkaRecords.zipWithIndex
-          } yield {
-            val offset = idx + 1l
-            consumerRecordOf(record, topicPartition, offset)
-          }
-          (topicPartition, records)
-        }
-        ConsumerRecords(records.toMap)
-      }
-
-      val data = Data(records = List(records))
-      val io = topicReplicator.shutdown()
-      val (result, _) = io.run(data)
-
-      result shouldEqual Data(
-        topics = List(topic),
-        commits = List(Map(
-          (topicPartitionOf(0), offsetAndMetadata(13)))),
-        stopped = true,
-        pointers = Map((topic, TopicPointers(Map((0, 12l))))),
-        journal = Map(
-          (Key(id = "0-0", topic = topic), Nil),
-          (Key(id = "0-1", topic = topic), List(
-            replicated(seqNr = 3, partition = 0, offset = 8))),
-          (Key(id = "0-2", topic = topic), List(
-            replicated(seqNr = 1, partition = 0, offset = 7),
-            replicated(seqNr = 2, partition = 0, offset = 7),
-            replicated(seqNr = 3, partition = 0, offset = 7)))),
-        metadata = Map(
-          (Key(id = "0-0", topic = topic), Some(2)),
-          (Key(id = "0-1", topic = topic), Some(2)),
-          (Key(id = "0-2", topic = topic), None)),
-        metrics = List(
-          Metrics.Round(records = 12),
-          Metrics.Delete(partition = 0, actions = 4),
-          Metrics.Append(partition = 0, events = 1, actions = 5),
-          Metrics.Append(partition = 0, events = 3, actions = 2)))
-    }
-
-    "replicate appends and unbound deletes of many polls" in {
+    "replicate appends and deletes of many polls" in {
       val records = for {
         partition <- (0 to 0).toList
         result <- {
@@ -531,19 +454,19 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
         pointers = Map(
           (topic, TopicPointers(Map((0, 12l))))),
         journal = Map(
-          (Key(id = "0-0", topic = topic), Nil),
-          (Key(id = "0-1", topic = topic), List(
+          (keyOf("0-0"), Nil),
+          (keyOf("0-1"), List(
             replicated(seqNr = 3, partition = 0, offset = 8),
             replicated(seqNr = 1, partition = 0, offset = 3),
             replicated(seqNr = 2, partition = 0, offset = 3))),
-          (Key(id = "0-2", topic = topic), List(
+          (keyOf("0-2"), List(
             replicated(seqNr = 1, partition = 0, offset = 7),
             replicated(seqNr = 2, partition = 0, offset = 7),
             replicated(seqNr = 3, partition = 0, offset = 7)))),
         metadata = Map(
-          (Key(id = "0-0", topic = topic), Some(1)),
-          (Key(id = "0-1", topic = topic), Some(2)),
-          (Key(id = "0-2", topic = topic), None)),
+          metadataOf("0-0", partition = 0, offset = 11, deleteTo = Some(1)),
+          metadataOf("0-1", partition = 0, offset = 12, deleteTo = Some(2)),
+          metadataOf("0-2", partition = 0, offset = 7)),
         metrics = List(
           Metrics.Round(records = 1),
           Metrics.Delete(partition = 0, actions = 1),
@@ -632,6 +555,16 @@ object TopicReplicatorSpec {
 
   def offsetAndMetadata(offset: Offset) = OffsetAndMetadata(offset)
 
+  def keyOf(id: Id) = Key(id = id, topic = topic)
+
+  def metadataOf(id: Id, partition: Partition, offset: Offset, deleteTo: Option[Int] = None): (Key, Metadata) = {
+    val deleteToSeqNr = deleteTo.flatMap(deleteTo => SeqNr.opt(deleteTo.toLong))
+    val partitionOffset = PartitionOffset(partition = partition, offset = offset)
+    val metadata = Metadata(partitionOffset, deleteToSeqNr)
+    val key = keyOf(id = id)
+    (key, metadata)
+  }
+
   val consumer: KafkaConsumer[TestIO] = new KafkaConsumer[TestIO] {
 
     def subscribe(topic: Topic) = TestIO { _.subscribe(topic) }
@@ -652,12 +585,13 @@ object TopicReplicatorSpec {
       TestIO { data => (data, data.pointers.getOrElse(topic, TopicPointers.Empty)) }
     }
 
-    def append(key: Key, timestamp: Instant, events: Nel[ReplicatedEvent], deleteTo: Option[SeqNr]) = {
-      TestIO { _.append(key, events, deleteTo) }
+    def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[ReplicatedEvent]) = {
+      TestIO { _.append(key, partitionOffset, events) }
     }
 
-    def delete(key: Key, timestamp: Instant, deleteTo: SeqNr, bound: Boolean) = {
-      TestIO { _.delete(key, deleteTo, bound) }
+    def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = {
+      // TODO test origin
+      TestIO { _.delete(key, deleteTo, partitionOffset) }
     }
 
     def save(topic: Topic, pointers: TopicPointers, timestamp: Instant) = {
@@ -743,7 +677,7 @@ object TopicReplicatorSpec {
     stopped: Boolean = false,
     pointers: Map[Topic, TopicPointers] = Map.empty,
     journal: Map[Key, List[ReplicatedEvent]] = Map.empty,
-    metadata: Map[Key, Option[Int]] = Map.empty,
+    metadata: Map[Key, Metadata] = Map.empty,
     metrics: List[Metrics] = Nil) { self =>
 
     def +(metrics: Metrics): (Data, Unit) = {
@@ -771,52 +705,42 @@ object TopicReplicatorSpec {
       (result, ())
     }
 
-    def append(key: Key, events: Nel[ReplicatedEvent], deleteTo: Option[SeqNr]): (Data, Unit) = {
+    def append(key: Key, partitionOffset: PartitionOffset, events: Nel[ReplicatedEvent]): (Data, Unit) = {
 
-      val deletedToPrev = self.metadata.getOrElse(key, None)
+      val records = events.toList ++ self.journal.getOrElse(key, Nil)
 
-      val (records, deletedTo) = {
-        val records = self.journal.getOrElse(key, Nil)
-        val head = deleteTo match {
-          case Some(deleteTo) => records.dropWhile(_.seqNr <= deleteTo)
-          case None           => records
-        }
-        (events.toList ++ head, deleteTo.map(_.value.toInt) orElse deletedToPrev)
-      }
+      val deletedTo = self.metadata.get(key).flatMap(_.deleteTo)
+
+      val metadata = Metadata(partitionOffset, deletedTo)
 
       val updated = copy(
         journal = journal.updated(key, records),
-        metadata = metadata.updated(key, deletedTo))
+        metadata = self.metadata.updated(key, metadata))
 
       (updated, ())
     }
 
-    def delete(key: Key, deleteTo: SeqNr, bound: Boolean): (Data, Unit) = {
+    def delete(key: Key, deleteTo: SeqNr, partitionOffset: PartitionOffset): (Data, Unit) = {
 
       def journal = self.journal.getOrElse(key, Nil)
 
       def delete(deleteTo: SeqNr) = journal.dropWhile(_.seqNr <= deleteTo)
 
-      val result =
-        if (bound) {
-          copy(
-            journal = self.journal.updated(key, delete(deleteTo)),
-            metadata = metadata.updated(key, Some(deleteTo.value.toInt)))
-        } else {
-          val deletedTo = self.metadata.getOrElse(key, None)
-
-          if (deletedTo.exists(_ >= deleteTo.value)) {
-            this
-          } else {
-
-            val records = delete(deleteTo)
-            val result = records.headOption.flatMap(_.seqNr.prev) orElse journal.lastOption.map(_.seqNr)
-            val deleteToInt = result.map(_.value.toInt) orElse self.metadata.getOrElse(key, None)
-            copy(
-              journal = self.journal.updated(key, records),
-              metadata = metadata.updated(key, deleteToInt))
+      val deletedTo = self.metadata.get(key).flatMap(_.deleteTo)
+      val result = {
+        if (deletedTo.exists(_ >= deleteTo)) {
+          self.metadata.get(key).fold(this) { metadata =>
+            copy(metadata = self.metadata.updated(key, metadata.copy(offset = partitionOffset)))
           }
+        } else {
+          val records = delete(deleteTo)
+          val result = records.headOption.flatMap(_.seqNr.prev) orElse journal.lastOption.map(_.seqNr)
+          val metadata = Metadata(partitionOffset, deleteTo = result orElse deletedTo)
+          copy(
+            journal = self.journal.updated(key, records),
+            metadata = self.metadata.updated(key, metadata))
         }
+      }
 
       (result, ())
     }
@@ -879,4 +803,6 @@ object TopicReplicatorSpec {
       def catchAll[A, B >: A](fa: TestIO[A], f: Throwable => TestIO[B]) = fa.catchAll(f)
     }
   }
+
+  final case class Metadata(offset: PartitionOffset, deleteTo: Option[SeqNr])
 }

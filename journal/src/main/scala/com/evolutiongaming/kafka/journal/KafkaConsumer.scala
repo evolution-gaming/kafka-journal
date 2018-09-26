@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.Implicits._
+import com.evolutiongaming.kafka.journal.IO.Implicits._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecords, OffsetAndMetadata}
 import com.evolutiongaming.skafka.{Topic, TopicPartition}

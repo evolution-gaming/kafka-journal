@@ -4,7 +4,7 @@ import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
-import com.evolutiongaming.kafka.journal.{Key, Latency, ReplicatedEvent, SeqNr}
+import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Topic
 
@@ -14,7 +14,9 @@ trait EventualJournal {
 
   def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]): Async[Switch[S]]
 
-  def lastSeqNr(key: Key, from: SeqNr): Async[Option[SeqNr]]
+  // TODO not Use Pointer until tested
+  // TODO remove from: SeqNr
+  def pointer(key: Key, from: SeqNr): Async[Option[Pointer]]
 }
 
 object EventualJournal {
@@ -25,7 +27,7 @@ object EventualJournal {
 
     def read[S](key: Key, from: SeqNr, state: S)(f: Fold[S, ReplicatedEvent]) = state.continue.async
 
-    def lastSeqNr(key: Key, from: SeqNr) = Async.none
+    def pointer(key: Key, from: SeqNr) = Async.none
   }
 
 
@@ -47,11 +49,11 @@ object EventualJournal {
       } yield result
     }
 
-    def lastSeqNr(key: Key, from: SeqNr) = {
+    def pointer(key: Key, from: SeqNr) = {
       for {
-        tuple <- Latency { journal.lastSeqNr(key, from) }
+        tuple <- Latency { journal.pointer(key, from) }
         (result, latency) = tuple
-        _ = log.debug(s"$key lastSeqNr in ${ latency }ms, from: $from, result: $result")
+        _ = log.debug(s"$key pointer in ${ latency }ms, from: $from, result: $result")
       } yield result
     }
   }
@@ -80,15 +82,16 @@ object EventualJournal {
       } yield result
     }
 
-    def lastSeqNr(key: Key, from: SeqNr) = {
+    def pointer(key: Key, from: SeqNr) = {
       for {
-        tuple <- Latency { journal.lastSeqNr(key, from) }
+        tuple <- Latency { journal.pointer(key, from) }
         (result, latency) = tuple
         _ <- metrics.pointers(key.topic, latency)
       } yield result
     }
   }
 
+  
   trait Metrics[F[_]] {
 
     def pointers(topic: Topic, latency: Long): F[Unit]

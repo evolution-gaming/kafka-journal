@@ -9,7 +9,6 @@ import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext
 
-// TODO move to cassandra client
 object CassandraHelper {
 
   implicit class ResultSetOps(val self: ResultSet) extends AnyVal {

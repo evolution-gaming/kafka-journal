@@ -8,7 +8,7 @@ import scala.collection.immutable.Queue
 
 object WithReadActionsOneByOne {
 
-  def apply(actions: => Queue[ActionRecord]): WithReadActions[Async] = new WithReadActions[Async] {
+  def apply(actions: => Queue[ActionRecord[Action]]): WithReadActions[Async] = new WithReadActions[Async] {
 
     def apply[T](key: Key, partition: Partition, offset: Option[Offset])(f: ReadActions[Async] => Async[T]) = {
 
@@ -20,7 +20,7 @@ object WithReadActionsOneByOne {
         }
 
         def apply(id: Id) = {
-          left.dequeueOption.fold(Async.nil[ActionRecord]) { case (record, left) =>
+          left.dequeueOption.fold(Async.nil[ActionRecord[Action]]) { case (record, left) =>
             this.left = left
             List(record).async
           }

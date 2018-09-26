@@ -1,8 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import com.evolutiongaming.kafka.journal.Implicits._
-import com.evolutiongaming.kafka.journal.eventual.Pointer
-import com.evolutiongaming.kafka.journal.{IO, Key, Log, SeqNr}
+import com.evolutiongaming.kafka.journal.IO.Implicits._
+import com.evolutiongaming.kafka.journal._
 
 object LastSeqNr {
 
@@ -10,24 +9,23 @@ object LastSeqNr {
     key: Key,
     from: SeqNr,
     metadata: Metadata,
-    statement: (Key, SegmentNr, SeqNr) => F[Option[Pointer]],
-    log: Log[F]): F[Option[SeqNr]] = {
+    lastRecord: JournalStatement.SelectLastRecord.Type[F],
+    log: Log[F]): F[Option[Pointer]] = {
 
-    def apply(from: SeqNr, last: Option[SeqNr]) = {
+    def apply(from: SeqNr, last: Option[Pointer]) = {
 
-      def apply(from: SeqNr, last: Option[SeqNr], segment: Segment): F[Option[SeqNr]] = {
+      def apply(from: SeqNr, last: Option[Pointer], segment: Segment): F[Option[Pointer]] = {
         for {
-          pointer <- statement(key, segment.nr, from)
+          pointer <- lastRecord(key, segment.nr, from)
           _ <- log.debug(s"$key lastSeqNr, pointer: $pointer, from: $from, last: $last, segment: $segment") // TODO temporary
           seqNr <- pointer.fold(last.pure) { pointer =>
-            val last = pointer.seqNr
             val result = for {
-              from <- last.next
+              from <- pointer.seqNr.next
               segment <- segment.next(from)
             } yield {
-              apply(from, last.some, segment)
+              apply(from, pointer.some, segment)
             }
-            result getOrElse last.some.pure
+            result getOrElse pointer.some.pure
           }
         } yield seqNr
       }
@@ -41,8 +39,8 @@ object LastSeqNr {
       case Some(deleteTo) =>
         if (from > deleteTo) apply(from, none)
         else deleteTo.next match {
-          case Some(from) => apply(from, deleteTo.some)
-          case None       => SeqNr.Max.some.pure
+          case Some(from) => apply(from, Pointer(metadata.partitionOffset, deleteTo).some).map(_.map(_.copy(partitionOffset = metadata.partitionOffset))) // TODO
+          case None       => Pointer(metadata.partitionOffset, SeqNr.Max).some.pure
         }
     }
   }

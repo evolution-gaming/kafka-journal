@@ -28,7 +28,8 @@ trait Journal {
 
   def lastSeqNr(key: Key, from: SeqNr): Async[Option[SeqNr]]
 
-  def delete(key: Key, to: SeqNr, timestamp: Instant): Async[PartitionOffset]
+  // TODO return Pointer and Test it
+  def delete(key: Key, to: SeqNr, timestamp: Instant): Async[Option[PartitionOffset]]
 }
 
 object Journal {
@@ -41,7 +42,7 @@ object Journal {
 
     def lastSeqNr(key: Key, from: SeqNr) = Async.none
 
-    def delete(key: Key, to: SeqNr, timestamp: Instant) = Async(PartitionOffset.Empty)
+    def delete(key: Key, to: SeqNr, timestamp: Instant) = Async.none
   }
 
 
@@ -168,18 +169,16 @@ object Journal {
     withReadActions: WithReadActions[Async],
     appendAction: AppendAction[Async]): Journal = {
 
-    def mark(key: Key): Async[Marker] = {
-      val id = UUID.randomUUID().toString
-      val action = Action.Mark(key, Instant.now(), origin, id)
-      for {
-        partitionOffset <- appendAction(action)
-      } yield {
-        Marker(id, partitionOffset)
-      }
-    }
-
     def readActions(key: Key, from: SeqNr): Async[FoldActions] = {
-      val marker = mark(key)
+      val marker = {
+        val id = UUID.randomUUID().toString
+        val action = Action.Mark(key, Instant.now(), origin, id)
+        for {
+          partitionOffset <- appendAction(action)
+        } yield {
+          Marker(id, partitionOffset)
+        }
+      }
       val pointers = eventual.pointers(key.topic)
       for {
         marker <- marker
@@ -274,23 +273,33 @@ object Journal {
         // TODO reimplement, we don't need to call `eventual.lastSeqNr` without using it's offset
         for {
           readActions <- readActions(key, from)
-          seqNrEventual = eventual.lastSeqNr(key, from)
+          pointer = eventual.pointer(key, from)
           seqNr <- readActions(None /*TODO provide offset from eventual.lastSeqNr*/ , Option.empty[SeqNr]) { (seqNr, action) =>
             val result = action match {
               case action: Action.Append => Some(action.range.to)
-              case action: Action.Delete => seqNr
+              case action: Action.Delete => Some(action.to max seqNr)
             }
             result.continue
           }
-          seqNrEventual <- seqNrEventual
+          pointer <- pointer
         } yield {
-          seqNrEventual max seqNr
+          pointer.map(_.seqNr) max seqNr
         }
       }
 
       def delete(key: Key, to: SeqNr, timestamp: Instant) = {
-        val action = Action.Delete(key, timestamp, origin, to)
-        appendAction(action)
+        for {
+          seqNr <- lastSeqNr(key, SeqNr.Min)
+          result <- seqNr match {
+            case None        => Async.none
+            case Some(seqNr) =>
+
+              // TODO not delete already delete, do not accept deleteTo=2 when already deleteTo=3
+              val deleteTo = seqNr min to
+              val action = Action.Delete(key, timestamp, origin, deleteTo)
+              appendAction(action).map(Some(_))
+          }
+        } yield result
       }
     }
   }

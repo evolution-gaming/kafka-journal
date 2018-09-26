@@ -146,7 +146,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
       actual1 shouldEqual expected1.toList
       lastSeqNr(key) shouldEqual Some(expected1.last.seqNr)
 
-      journal.delete(key, expected1.last.event.seqNr, Instant.now()).get(timeout).partition shouldEqual partition
+      journal.delete(key, expected1.last.event.seqNr, Instant.now()).get(timeout).map(_.partition) shouldEqual Some(partition)
       read(key)(_.isEmpty) shouldEqual Nil
       lastSeqNr(key) shouldEqual Some(expected1.last.seqNr)
 

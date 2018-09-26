@@ -4,9 +4,8 @@ import com.evolutiongaming.cassandra.Session
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
-import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.skafka.Topic
 
 import scala.concurrent.ExecutionContext
@@ -97,40 +96,34 @@ object EventualCassandra {
 
       for {
         statements <- statements
-        metadata <- statements.selectMetadata(key)
+        metadata <- statements.metadata(key)
         result <- metadata.fold(s.continue.async) { metadata =>
-          read(statements.selectRecords, metadata)
+          read(statements.records, metadata)
         }
       } yield {
         result
       }
     }
 
-
-    def lastSeqNr(key: Key, from: SeqNr) = {
-
-      def lastSeqNr(statements: Statements, metadata: Option[Metadata]) = {
-        metadata.fold(Option.empty[SeqNr].async) { metadata =>
-          LastSeqNr(key, from, metadata, statements.selectLastRecord, log)
-        }
-      }
-
+    def pointer(key: Key, from: SeqNr) = {
       for {
         statements <- statements
-        metadata <- statements.selectMetadata(key)
-        _ <- log.debug(s"$key lastSeqNr, metadata: $metadata")
-        seqNr <- lastSeqNr(statements, metadata)
+        metadata <- statements.metadata(key)
+      } yield for {
+        metadata <- metadata
+        seqNr = metadata.seqNr
+        if seqNr >= from
       } yield {
-        seqNr
+        Pointer(metadata.partitionOffset, seqNr)
       }
     }
   }
 
 
   final case class Statements(
-    selectLastRecord: JournalStatement.SelectLastRecord.Type,
-    selectRecords: JournalStatement.SelectRecords.Type,
-    selectMetadata: MetadataStatement.Select.Type,
+    lastRecord: JournalStatement.SelectLastRecord.Type[Async],
+    records: JournalStatement.SelectRecords.Type,
+    metadata: MetadataStatement.Select.Type,
     selectPointers: PointerStatement.SelectPointers.Type)
 
   object Statements {
@@ -149,9 +142,9 @@ object EventualCassandra {
         selectPointers <- selectPointers
       } yield {
         Statements(
-          selectLastRecord = selectLastRecord,
-          selectRecords = selectRecords,
-          selectMetadata = selectMetadata,
+          lastRecord = selectLastRecord,
+          records = selectRecords,
+          metadata = selectMetadata,
           selectPointers = selectPointers)
       }
     }

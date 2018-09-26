@@ -25,13 +25,13 @@ object JournalInfo {
   }
 
 
-  final case class NonEmpty(lastSeqNr: SeqNr, deleteTo: Option[SeqNr] = None) extends JournalInfo {
+  final case class NonEmpty(seqNr: SeqNr, deleteTo: Option[SeqNr] = None) extends JournalInfo {
 
     def apply(a: Action): JournalInfo = {
 
       def onDelete(a: Delete) = {
-        val deleteTo = this.deleteTo.fold(a.to) { _ max a.to } min lastSeqNr
-        NonEmpty(lastSeqNr, Some(deleteTo))
+        val deleteTo = this.deleteTo.fold(a.to) { _ max a.to } min seqNr
+        NonEmpty(seqNr, Some(deleteTo))
       }
 
       def onAppend(a: Append) = {

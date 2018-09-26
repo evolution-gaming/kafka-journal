@@ -8,7 +8,6 @@ import com.evolutiongaming.cassandra.CassandraHelper._
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.eventual.Pointer
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Partition}
@@ -75,7 +74,7 @@ object JournalStatement {
 
           def statementOf(replicated: ReplicatedEvent) = {
             val event = replicated.event
-            // TODO test this shit
+            // TODO test this
             val (payloadType, txt, bin) = event.payload.map { payload =>
               val (text, bytes) = payload match {
                 case payload: Payload.Binary => (None, Some(payload))
@@ -124,9 +123,9 @@ object JournalStatement {
   // TODO rename along with EventualRecord2
   object SelectLastRecord {
 
-    type Type = (Key, SegmentNr, SeqNr) => Async[Option[Pointer]]
+    type Type[F[_]] = (Key, SegmentNr, SeqNr) => F[Option[Pointer]]
 
-    def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
+    def apply(name: TableName, session: PrepareAndExecute): Async[Type[Async]] = {
       val query =
         s"""
            |SELECT seq_nr, partition, offset
@@ -149,12 +148,13 @@ object JournalStatement {
           } yield for {
             row <- Option(result.one())
           } yield {
-            val partitionOffset = PartitionOffset(
+            // TODO duplicate
+            val offset = PartitionOffset(
               partition = row.decode[Partition]("partition"),
               offset = row.decode[Offset]("offset"))
             Pointer(
               seqNr = row.decode[SeqNr]("seq_nr"),
-              partitionOffset = partitionOffset)
+              partitionOffset = offset)
           }
       }
     }
@@ -201,7 +201,8 @@ object JournalStatement {
             for {
               result <- session.execute(bound)
               result <- result.foldWhile(fetchThreshold, s) { case (s, row) =>
-                val partitionOffset = PartitionOffset(
+                // TODO duplicate
+                val offset = PartitionOffset(
                   partition = row.decode[Partition]("partition"),
                   offset = row.decode[Offset]("offset"))
 
@@ -220,7 +221,7 @@ object JournalStatement {
                   event = event,
                   timestamp = row.decode[Instant]("timestamp"),
                   origin = row.decode[Option[Origin]]("origin"),
-                  partitionOffset = partitionOffset)
+                  partitionOffset = offset)
                 f(s, replicated)
               }
             } yield result
