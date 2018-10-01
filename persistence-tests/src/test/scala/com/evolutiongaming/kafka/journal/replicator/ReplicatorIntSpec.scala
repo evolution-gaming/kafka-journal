@@ -13,9 +13,8 @@ import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
-import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerConfig}
-import com.evolutiongaming.skafka.producer.{Producer, ProducerConfig}
-import com.evolutiongaming.skafka.{Offset, Topic}
+import com.evolutiongaming.skafka.Offset
+import com.evolutiongaming.skafka.producer.Producer
 import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.{Matchers, WordSpec}
 
@@ -68,35 +67,20 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
     val origin = Origin("replicator")
 
     lazy val journal = {
-      def kafkaConf(name: String) = {
-        val common = conf.getConfig("kafka")
-        common.getConfig(name) withFallback common
-      }
-
-      val producer = {
-        val producerConfig = ProducerConfig(kafkaConf("producer"))
-        Producer(producerConfig, ec)
-      }
-      // TODO refactor journal to reuse code
+      val journalConfig = JournalConfig(conf)
+      val producer = Producer(journalConfig.producer, ec)
 
       // TODO we don't need consumer here...
-      val consumerConfig = ConsumerConfig(kafkaConf("consumer"))
-      val consumerOf = (topic: Topic) => {
-        val uuid = UUID.randomUUID()
-        val prefix = consumerConfig.groupId getOrElse "replicator-test"
-        val groupId = s"$prefix-$topic-$uuid"
-        val configFixed = consumerConfig.copy(groupId = Some(groupId))
-        Consumer[Id, Bytes](configFixed, ec)
-      }
+      val topicConsumer = TopicConsumer(journalConfig.consumer, ec, "replicator", None)
 
       val journal = Journal(
         log = log, // TODO remove
         Some(origin),
         producer = producer,
-        consumerOf = consumerOf,
+        topicConsumer = topicConsumer,
         eventual = eventual,
         pollTimeout = 100.millis /*TODO*/ ,
-        closeTimeout = timeout)
+        closeTimeout = timeout/*TODO*/)
       Journal(journal, log)
     }
 

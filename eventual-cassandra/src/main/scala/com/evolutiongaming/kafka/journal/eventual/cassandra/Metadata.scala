@@ -1,10 +1,9 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import com.evolutiongaming.kafka.journal.{Origin, PartitionOffset, SeqNr}
+import com.evolutiongaming.kafka.journal.{PartitionOffset, SeqNr}
 
 
 // TODO looks like we also need to store offset
-// TODO store partition/offset #57
 // TODO rename to topic metadata
 // TODO add Origin
 final case class Metadata(

@@ -8,8 +8,6 @@ object Dependencies {
 
   val `config-tools` = "com.evolutiongaming" %% "config-tools" % "1.0.3"
 
-  val skafka = "com.evolutiongaming" %% "skafka" % "2.0.0"
-
   val `akka-serialization` = "com.evolutiongaming" %% "akka-serialization" % "0.0.3"
 
   val async = "com.evolutiongaming" %% "async" % "0.0.2"
@@ -30,7 +28,7 @@ object Dependencies {
 
   val `cassandra-launcher` = "com.evolutiongaming" %% "cassandra-launcher" % "0.0.1"
 
-  val `cassandra-driver` = "com.datastax.cassandra" % "cassandra-driver-core" % "3.5.1"
+  val `cassandra-driver` = "com.datastax.cassandra" % "cassandra-driver-core" % "3.6.0"
 
   val prometheus = "io.prometheus" % "simpleclient" % "0.5.0"
 
@@ -47,10 +45,17 @@ object Dependencies {
   }
 
   object Akka {
-    private val version = "2.5.16"
+    private val version = "2.5.17"
     val actor = "com.typesafe.akka" %% "akka-actor" % version
+    val stream = "com.typesafe.akka" %% "akka-stream" % version
     val persistence = "com.typesafe.akka" %% "akka-persistence" % version
     val tck = "com.typesafe.akka" %% "akka-persistence-tck" % version
     val slf4j = "com.typesafe.akka" %% "akka-slf4j" % version
+  }
+
+  object Skafka {
+    private val version = "2.1.1"
+    val skafka = "com.evolutiongaming" %% "skafka" % version
+    val prometheus = "com.evolutiongaming" %% "skafka-prometheus" % version
   }
 }

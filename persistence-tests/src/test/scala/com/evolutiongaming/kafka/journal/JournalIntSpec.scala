@@ -9,10 +9,7 @@ import com.evolutiongaming.kafka.journal.FoldWhileHelper.Switch
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
-import com.evolutiongaming.skafka.Topic
-import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerConfig}
-import com.evolutiongaming.skafka.producer.{Producer, ProducerConfig}
-import com.typesafe.config.Config
+import com.evolutiongaming.skafka.producer.Producer
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.Await
@@ -38,31 +35,11 @@ class JournalIntSpec extends WordSpec with ActorSpec with Matchers {
       (eventual, cassandra)
     }
 
-    def kafkaConfig(name: String): Config = {
-      val common = conf.getConfig("kafka")
-      common.getConfig(name) withFallback common
-    }
-
+    val journalConfig = JournalConfig(conf)
     val ecBlocking = system.dispatchers.lookup("evolutiongaming.kafka-journal.persistence.journal.blocking-dispatcher")
-
-    val producer = {
-      val producerConfig = ProducerConfig(kafkaConfig("producer"))
-      Producer(producerConfig, ecBlocking)
-    }
-
-    val consumerOf = {
-      val consumerConfig = ConsumerConfig(kafkaConfig("consumer"))
-
-      (topic: Topic) => {
-        val uuid = UUID.randomUUID()
-        val prefix = consumerConfig.groupId getOrElse "journal"
-        val groupId = s"$prefix-$topic-$uuid"
-        val configFixed = consumerConfig.copy(groupId = Some(groupId))
-        Consumer[Id, Bytes](configFixed, ecBlocking)
-      }
-    }
-
-    val journal = Journal(producer, Some(origin), consumerOf, eventual)
+    val producer = Producer(journalConfig.producer, ecBlocking)
+    val topicConsumer = TopicConsumer(journalConfig.consumer, ecBlocking)
+    val journal = Journal(producer, Some(origin), topicConsumer, eventual)
 
     (journal, cassandra)
   }

@@ -13,7 +13,6 @@ import com.evolutiongaming.kafka.journal.SeqNr.Helper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
-import com.evolutiongaming.skafka.consumer.Consumer
 import com.evolutiongaming.skafka.producer.Producer
 import com.evolutiongaming.skafka.{Bytes => _, _}
 
@@ -131,7 +130,7 @@ object Journal {
   def apply(
     producer: Producer,
     origin: Option[Origin],
-    consumerOf: Topic => Consumer[Id, Bytes],
+    topicConsumer: TopicConsumer,
     eventual: EventualJournal,
     pollTimeout: FiniteDuration = 100.millis,
     closeTimeout: FiniteDuration = 10.seconds)(implicit
@@ -139,7 +138,7 @@ object Journal {
     ec: ExecutionContext): Journal = {
 
     val log = ActorLog(system, classOf[Journal])
-    val journal = apply(log, origin, producer, consumerOf, eventual, pollTimeout, closeTimeout)
+    val journal = apply(log, origin, producer, topicConsumer, eventual, pollTimeout, closeTimeout)
     Journal(journal, log)
   }
 
@@ -147,13 +146,13 @@ object Journal {
     log: ActorLog, // TODO remove
     origin: Option[Origin],
     producer: Producer,
-    consumerOf: Topic => Consumer[Id, Bytes],
+    topicConsumer: TopicConsumer,
     eventual: EventualJournal,
     pollTimeout: FiniteDuration,
     closeTimeout: FiniteDuration)(implicit
     ec: ExecutionContext): Journal = {
 
-    val withReadActions = WithReadActions(consumerOf, pollTimeout, closeTimeout, log)
+    val withReadActions = WithReadActions(topicConsumer, pollTimeout, closeTimeout, log)
 
     val writeAction = AppendAction(producer)
 

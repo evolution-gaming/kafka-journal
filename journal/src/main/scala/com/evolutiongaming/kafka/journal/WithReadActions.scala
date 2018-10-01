@@ -3,8 +3,7 @@ package com.evolutiongaming.kafka.journal
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
-import com.evolutiongaming.skafka.consumer.Consumer
-import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
+import com.evolutiongaming.skafka.{Offset, Partition, TopicPartition}
 
 import scala.compat.Platform
 import scala.concurrent.ExecutionContext
@@ -19,7 +18,7 @@ trait WithReadActions[F[_]] {
 object WithReadActions {
 
   def apply(
-    consumerOf: Topic => Consumer[Id, Bytes],
+    topicConsumer: TopicConsumer,
     pollTimeout: FiniteDuration,
     closeTimeout: FiniteDuration,
     log: ActorLog)(implicit ec: ExecutionContext /*TODO remove*/): WithReadActions[Async] = {
@@ -30,7 +29,7 @@ object WithReadActions {
         // TODO consider separate from splitting
         val consumer = {
           val timestamp = Platform.currentTime
-          val consumer = consumerOf(key.topic) // TODO ~10ms
+          val consumer = topicConsumer(key.topic) // TODO ~10ms
           val duration = Platform.currentTime - timestamp
           // TODO add metric
           log.debug(s"$key consumerOf() took $duration ms")

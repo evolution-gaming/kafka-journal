@@ -8,7 +8,7 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(url("http://evolutiongaming.com")),
   bintrayOrganization := Some("evolutiongaming"),
   scalaVersion := crossScalaVersions.value.last,
-  crossScalaVersions := Seq(/*"2.11.12", */"2.12.6"),
+  crossScalaVersions := Seq(/*"2.11.12", */"2.12.7"),
   scalacOptions ++= Seq(
     "-encoding", "UTF-8",
     "-feature",
@@ -47,9 +47,10 @@ lazy val journal = (project in file("journal")
   dependsOn `cassandra-client`
   settings (libraryDependencies ++= Seq(
     Akka.actor,
+    Akka.stream,
     Akka.tck,
     Akka.slf4j % Test,
-    skafka,
+    Skafka.skafka,
     scalatest % Test,
     `executor-tools`,
     Logback.core % Test,
@@ -70,7 +71,7 @@ lazy val `persistence-tests` = (project in file("persistence-tests")
   settings (name := "kafka-journal-persistence-tests")
   settings commonSettings
   settings Seq(
-    skip in publish := true,
+    skip / publish := true,
     Test / fork := true,
     Test / parallelExecution := false)
   dependsOn (
@@ -119,4 +120,4 @@ lazy val `replicator-prometheus` = (project in file("replicator-prometheus")
   settings (name := "kafka-journal-replicator-prometheus")
   settings commonSettings
   dependsOn replicator
-  settings (libraryDependencies ++= Seq(prometheus)))
+  settings (libraryDependencies ++= Seq(prometheus, Skafka.prometheus)))

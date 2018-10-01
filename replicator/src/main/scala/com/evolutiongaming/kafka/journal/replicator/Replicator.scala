@@ -28,7 +28,7 @@ object Replicator {
 
   def apply(
     system: ActorSystem,
-    metrics: Option[Metrics[Async]] = None): Async[Replicator] = safe {
+    metrics: Metrics[Async] = Metrics.empty[Async]): Async[Replicator] = safe {
 
     val name = "evolutiongaming.kafka-journal.replicator"
     val config = ReplicatorConfig(system.settings.config.getConfig(name))
@@ -39,11 +39,14 @@ object Replicator {
   def apply(
     config: ReplicatorConfig,
     ecBlocking: ExecutionContext,
-    metrics: Option[Metrics[Async]])(implicit
+    metrics: Metrics[Async])(implicit
     system: ActorSystem, ec: ExecutionContext): Async[Replicator] = safe {
 
     val cassandra = CreateCluster(config.cassandra.client)
-    val consumerOf = (config: ConsumerConfig) => Consumer[Id, Bytes](config, ecBlocking)
+    val consumerOf = (config: ConsumerConfig) => {
+      val consumer = Consumer[Id, Bytes](config, ecBlocking)
+      metrics.consumer.fold(consumer) { Consumer(consumer, _) }
+    }
 
     for {
       session <- cassandra.connect().async
@@ -52,7 +55,7 @@ object Replicator {
         val journal = ReplicatedCassandra(session, config.cassandra)
         val actorLog = ActorLog(system, ReplicatedCassandra.getClass)
         val logging = ReplicatedJournal(journal, Log(actorLog))
-        metrics.fold(logging) { metrics => ReplicatedJournal(logging, metrics.journal) }
+        metrics.journal.fold(logging) { ReplicatedJournal(logging, _) }
       }
 
       val createReplicator = (topic: Topic, partitions: Set[Partition]) => {
@@ -70,7 +73,7 @@ object Replicator {
           journal = journal,
           log = Log(actorLog),
           stopRef = stopRef,
-          metrics = metrics.fold(TopicReplicator.Metrics.empty(Async.unit)) { _.replicator(topic) },
+          metrics = metrics.replicator.fold(TopicReplicator.Metrics.empty(Async.unit)) { _.apply(topic) },
           Async(Instant.now))
       }
 
@@ -180,15 +183,11 @@ object Replicator {
 
 
   final case class Metrics[F[_]](
-    journal: ReplicatedJournal.Metrics[F],
-    replicator: Topic => TopicReplicator.Metrics[F])
+    journal: Option[ReplicatedJournal.Metrics[F]] = None,
+    replicator: Option[Topic => TopicReplicator.Metrics[F]] = None,
+    consumer: Option[Consumer.Metrics] = None)
 
   object Metrics {
-
-    def empty[F[_]](unit: F[Unit]): Metrics[F] = {
-      Metrics(
-        journal = ReplicatedJournal.Metrics.empty(unit),
-        replicator = (_: Topic) => TopicReplicator.Metrics.empty(unit))
-    }
+    def empty[F[_]]: Metrics[F] = Metrics()
   }
 }

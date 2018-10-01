@@ -9,7 +9,7 @@ object ReplicatedJournalMetrics {
 
   def apply[F[_]](
     registry: CollectorRegistry,
-    prefix: String = "journal")(implicit unit: F[Unit]): ReplicatedJournal.Metrics[F] = {
+    prefix: String = "replicated_journal")(implicit unit: F[Unit]): ReplicatedJournal.Metrics[F] = {
 
     val latencySummary = Summary.build()
       .name(s"${ prefix }_latency")
