@@ -57,14 +57,14 @@ object TopicReplicator {
         val head = records.head
         val id = key.id
 
-        def measurements(actions: Int) = for {
+        def measurements(records: Int) = for {
           now <- now
         } yield {
           Metrics.Measurements(
             partition = head.partition,
             replicationLatency = now - head.action.timestamp,
             deliveryLatency = roundStart - head.action.timestamp,
-            actions = actions)
+            records = records)
         }
 
         def delete(partitionOffset: PartitionOffset, deleteTo: SeqNr, origin: Option[Origin]) = {
@@ -101,7 +101,9 @@ object TopicReplicator {
               measurements = measurements)
             latency = measurements.replicationLatency
             _ <- log.info {
-              val range = events.head.seqNr to events.last.seqNr
+              val range =
+                if (events.tail.isEmpty) events.head.seqNr.toString
+                else s"${ events.head.seqNr }..${ events.last.seqNr }"
               val origin = records.head.action.origin
               val originStr = origin.fold("") { origin => s", origin: $origin" }
               s"append in ${ latency }ms, id: $id, offset: $partitionOffset, events: $range$originStr"
@@ -182,7 +184,7 @@ object TopicReplicator {
               _ <- consumer.commit(offsets)
               roundEnd <- now
               _ <- metrics.round(
-                duration = roundEnd - roundStart,
+                latency = roundEnd - roundStart,
                 records = records.values.foldLeft(0) { case (acc, (_, record)) => acc + record.size })
             } yield state.continue
           }
@@ -241,7 +243,7 @@ object TopicReplicator {
 
     def delete(measurements: Measurements): F[Unit]
 
-    def round(duration: Long, records: Int): F[Unit]
+    def round(latency: Long, records: Int): F[Unit]
   }
 
   object Metrics {
@@ -259,7 +261,7 @@ object TopicReplicator {
       partition: Partition,
       replicationLatency: Long,
       deliveryLatency: Long,
-      actions: Int)
+      records: Int)
   }
 }
 

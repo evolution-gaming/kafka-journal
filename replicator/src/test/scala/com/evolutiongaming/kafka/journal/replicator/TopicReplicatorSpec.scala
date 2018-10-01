@@ -84,10 +84,10 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           metadataOf("1-1", partition = 1, offset = 4)),
         metrics = List(
           Metrics.Round(records = 8),
-          Metrics.Append(partition = 0, events = 2, actions = 2),
-          Metrics.Append(partition = 1, events = 3, actions = 2),
-          Metrics.Append(partition = 0, events = 3, actions = 2),
-          Metrics.Append(partition = 1, events = 2, actions = 2)))
+          Metrics.Append(partition = 0, events = 2, records = 2),
+          Metrics.Append(partition = 1, events = 3, records = 2),
+          Metrics.Append(partition = 0, events = 3, records = 2),
+          Metrics.Append(partition = 1, events = 2, records = 2)))
     }
 
     "replicate appends of many polls" in {
@@ -158,21 +158,21 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           metadataOf("1-1", partition = 1, offset = 4)),
         metrics = List(
           Metrics.Round(records = 1),
-          Metrics.Append(partition = 1, events = 1, actions = 1),
+          Metrics.Append(partition = 1, events = 1, records = 1),
           Metrics.Round(records = 1),
-          Metrics.Append(partition = 1, events = 1, actions = 1),
+          Metrics.Append(partition = 1, events = 1, records = 1),
           Metrics.Round(records = 1),
-          Metrics.Append(partition = 1, events = 2, actions = 1),
+          Metrics.Append(partition = 1, events = 2, records = 1),
           Metrics.Round(records = 1),
-          Metrics.Append(partition = 1, events = 1, actions = 1),
+          Metrics.Append(partition = 1, events = 1, records = 1),
           Metrics.Round(records = 1),
-          Metrics.Append(partition = 0, events = 1, actions = 1),
+          Metrics.Append(partition = 0, events = 1, records = 1),
           Metrics.Round(records = 1),
-          Metrics.Append(partition = 0, events = 1, actions = 1),
+          Metrics.Append(partition = 0, events = 1, records = 1),
           Metrics.Round(records = 1),
-          Metrics.Append(partition = 0, events = 2, actions = 1),
+          Metrics.Append(partition = 0, events = 2, records = 1),
           Metrics.Round(records = 1),
-          Metrics.Append(partition = 0, events = 1, actions = 1)))
+          Metrics.Append(partition = 0, events = 1, records = 1)))
     }
 
     "replicate appends and ignore marks" in {
@@ -275,15 +275,15 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           metadataOf("2-2", partition = 2, offset = 7)),
         metrics = List(
           Metrics.Round(records = 27),
-          Metrics.Append(partition = 0, events = 3, actions = 1),
-          Metrics.Append(partition = 1, events = 2, actions = 2),
-          Metrics.Append(partition = 1, events = 3, actions = 2),
-          Metrics.Append(partition = 2, events = 3, actions = 1),
-          Metrics.Append(partition = 0, events = 3, actions = 2),
-          Metrics.Append(partition = 2, events = 2, actions = 2),
-          Metrics.Append(partition = 2, events = 3, actions = 2),
-          Metrics.Append(partition = 0, events = 2, actions = 2),
-          Metrics.Append(partition = 1, events = 3, actions = 1)))
+          Metrics.Append(partition = 0, events = 3, records = 1),
+          Metrics.Append(partition = 1, events = 2, records = 2),
+          Metrics.Append(partition = 1, events = 3, records = 2),
+          Metrics.Append(partition = 2, events = 3, records = 1),
+          Metrics.Append(partition = 0, events = 3, records = 2),
+          Metrics.Append(partition = 2, events = 2, records = 2),
+          Metrics.Append(partition = 2, events = 3, records = 2),
+          Metrics.Append(partition = 0, events = 2, records = 2),
+          Metrics.Append(partition = 1, events = 3, records = 1)))
     }
 
     "replicate appends and deletes" in {
@@ -373,14 +373,14 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           metadataOf("1-2", partition = 1, offset = 7)),
         metrics = List(
           Metrics.Round(records = 20),
-          Metrics.Append(partition = 0, events = 3, actions = 1),
-          Metrics.Append(partition = 1, events = 2, actions = 2),
+          Metrics.Append(partition = 0, events = 3, records = 1),
+          Metrics.Append(partition = 1, events = 2, records = 2),
           Metrics.Delete(partition = 1, actions = 1),
-          Metrics.Append(partition = 1, events = 3, actions = 2),
+          Metrics.Append(partition = 1, events = 3, records = 2),
           Metrics.Delete(partition = 0, actions = 1),
-          Metrics.Append(partition = 0, events = 3, actions = 2),
-          Metrics.Append(partition = 0, events = 2, actions = 2),
-          Metrics.Append(partition = 1, events = 3, actions = 1)))
+          Metrics.Append(partition = 0, events = 3, records = 2),
+          Metrics.Append(partition = 0, events = 2, records = 2),
+          Metrics.Append(partition = 1, events = 3, records = 1)))
     }
 
     "replicate appends and deletes of many polls" in {
@@ -477,18 +477,18 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           Metrics.Round(records = 1),
           Metrics.Delete(partition = 0, actions = 1),
           Metrics.Round(records = 1),
-          Metrics.Append(partition = 0, events = 1, actions = 1),
+          Metrics.Append(partition = 0, events = 1, records = 1),
           Metrics.Round(records = 1),
-          Metrics.Append(partition = 0, events = 3, actions = 1),
-          Metrics.Round(records = 1),
-          Metrics.Round(records = 1),
-          Metrics.Append(partition = 0, events = 1, actions = 1),
+          Metrics.Append(partition = 0, events = 3, records = 1),
           Metrics.Round(records = 1),
           Metrics.Round(records = 1),
-          Metrics.Append(partition = 0, events = 2, actions = 1),
+          Metrics.Append(partition = 0, events = 1, records = 1),
           Metrics.Round(records = 1),
           Metrics.Round(records = 1),
-          Metrics.Append(partition = 0, events = 1, actions = 1)))
+          Metrics.Append(partition = 0, events = 2, records = 1),
+          Metrics.Round(records = 1),
+          Metrics.Round(records = 1),
+          Metrics.Append(partition = 0, events = 1, records = 1)))
     }
 
     "consume since replicated offset" in {
@@ -619,7 +619,7 @@ object TopicReplicatorSpec {
       partition: Partition,
       latency: Long = replicationLatency,
       events: Int,
-      actions: Int) extends Metrics
+      records: Int) extends Metrics
 
     final case class Delete(
       partition: Partition,
@@ -637,7 +637,7 @@ object TopicReplicatorSpec {
           partition = measurements.partition,
           latency = measurements.replicationLatency,
           events = events,
-          actions = measurements.actions)
+          records = measurements.records)
       }
     }
 
@@ -646,7 +646,7 @@ object TopicReplicatorSpec {
         _ + Metrics.Delete(
           partition = measurements.partition,
           latency = measurements.replicationLatency,
-          actions = measurements.actions)
+          actions = measurements.records)
       }
     }
 

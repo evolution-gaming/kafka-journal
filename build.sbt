@@ -33,9 +33,11 @@ lazy val root = (project in file(".")
   aggregate(
     `cassandra-client`,
     journal,
+    `journal-prometheus`,
     persistence,
     `persistence-tests`,
     replicator,
+    `replicator-prometheus`,
     `eventual-cassandra`))
 
 // TODO cleanup dependencies
@@ -106,3 +108,15 @@ lazy val `eventual-cassandra` = (project in file("eventual-cassandra")
   settings commonSettings
   dependsOn (`cassandra-client`, journal % "test->test;compile->compile")
   settings (libraryDependencies ++= Seq()))
+
+lazy val `journal-prometheus` = (project in file("journal-prometheus")
+  settings (name := "kafka-journal-prometheus")
+  settings commonSettings
+  dependsOn journal
+  settings (libraryDependencies ++= Seq(prometheus)))
+
+lazy val `replicator-prometheus` = (project in file("replicator-prometheus")
+  settings (name := "kafka-journal-replicator-prometheus")
+  settings commonSettings
+  dependsOn replicator
+  settings (libraryDependencies ++= Seq(prometheus)))

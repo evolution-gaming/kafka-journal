@@ -114,7 +114,7 @@ object Journal {
       for {
         tuple <- Latency { journal.lastSeqNr(key, from) }
         (result, latency) = tuple
-        _ <- metrics.lastSeqNr(key.topic, latency)
+        _ <- metrics.pointer(key.topic, latency)
       } yield result
     }
 
@@ -306,12 +306,12 @@ object Journal {
 
 
   trait Metrics[F[_]] {
-    
+
     def append(topic: Topic, latency: Long, events: Int): F[Unit]
 
     def read(topic: Topic, latency: Long, events: Int): F[Unit]
 
-    def lastSeqNr(topic: Topic, latency: Long): F[Unit]
+    def pointer(topic: Topic, latency: Long): F[Unit]
 
     def delete(topic: Topic, latency: Long): F[Unit]
   }
@@ -324,7 +324,7 @@ object Journal {
 
       def read(topic: Topic, latency: Long, events: Int) = unit
 
-      def lastSeqNr(topic: Topic, latency: Long) = unit
+      def pointer(topic: Topic, latency: Long) = unit
 
       def delete(topic: Topic, latency: Long) = unit
     }

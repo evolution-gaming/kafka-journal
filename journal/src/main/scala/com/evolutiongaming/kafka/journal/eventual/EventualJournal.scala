@@ -98,7 +98,7 @@ object EventualJournal {
 
     def read(topic: Topic, latency: Long, events: Int): F[Unit]
 
-    def lastSeqNr(topic: Topic, latency: Long): F[Unit]
+    def pointer(topic: Topic, latency: Long): F[Unit]
   }
 
   object Metrics {
@@ -109,7 +109,7 @@ object EventualJournal {
 
       def read(topic: Topic, latency: Long, events: Int) = unit
 
-      def lastSeqNr(topic: Topic, latency: Long) = unit
+      def pointer(topic: Topic, latency: Long) = unit
     }
   }
 }
