@@ -11,6 +11,7 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
 import com.evolutiongaming.safeakka.actor.ActorLog
+import com.evolutiongaming.skafka.ClientId
 import com.evolutiongaming.skafka.consumer.Consumer
 import com.evolutiongaming.skafka.producer.Producer
 import com.typesafe.config.Config
@@ -67,8 +68,12 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
     val ecBlocking = system.dispatchers.lookup("evolutiongaming.kafka-journal.persistence.journal.blocking-dispatcher")
 
     val producer = {
+      val config = journalConfig.producer
       val producer = Producer(journalConfig.producer, ecBlocking)
-      metrics.producer.fold(producer) { Producer(producer, _) }
+      metrics.producer.fold(producer) { metrics =>
+        val clientId = config.common.clientId getOrElse "journal"
+        Producer(producer, metrics(clientId))
+      }
     }
 
     val closeTimeout = 10.seconds // TODO from config
@@ -84,7 +89,16 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
       }
     }
 
-    val topicConsumer = TopicConsumer(journalConfig.consumer, ecBlocking, metrics = metrics.consumer)
+    val topicConsumer = {
+      val config = journalConfig.consumer
+      val consumerMetrics = for {
+        metrics <- metrics.consumer
+      } yield {
+        val clientId = config.common.clientId getOrElse "journal"
+        metrics(clientId)
+      }
+      TopicConsumer(journalConfig.consumer, ecBlocking, metrics = consumerMetrics)
+    }
 
     val eventualJournal: EventualJournal = {
       val config = cassandraConfig()
@@ -109,7 +123,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
           val journal = EventualCassandra(session, config, Log(log))
           EventualJournal(journal, log)
         }
-        metrics.eventualJournal.fold(journal) { EventualJournal(journal, _) }
+        metrics.eventual.fold(journal) { EventualJournal(journal, _) }
       }
     }
 
@@ -163,9 +177,9 @@ object KafkaJournal {
 
   final case class Metrics(
     journal: Option[Journal.Metrics[Async]] = None,
-    eventualJournal: Option[EventualJournal.Metrics[Async]] = None,
-    producer: Option[Producer.Metrics] = None,
-    consumer: Option[Consumer.Metrics] = None)
+    eventual: Option[EventualJournal.Metrics[Async]] = None,
+    producer: Option[ClientId => Producer.Metrics] = None,
+    consumer: Option[ClientId => Consumer.Metrics] = None)
 
   object Metrics {
     val Empty: Metrics = Metrics()

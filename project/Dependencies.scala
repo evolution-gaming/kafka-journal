@@ -34,28 +34,28 @@ object Dependencies {
 
   object Logback {
     private val version = "1.2.3"
-    val core = "ch.qos.logback" % "logback-core" % version
+    val core    = "ch.qos.logback" % "logback-core" % version
     val classic = "ch.qos.logback" % "logback-classic" % version
   }
 
   object Slf4j {
     private val version = "1.7.25"
-    val api = "org.slf4j" % "slf4j-api" % version
+    val api                = "org.slf4j" % "slf4j-api" % version
     val `log4j-over-slf4j` = "org.slf4j" % "log4j-over-slf4j" % version
   }
 
   object Akka {
     private val version = "2.5.17"
-    val actor = "com.typesafe.akka" %% "akka-actor" % version
-    val stream = "com.typesafe.akka" %% "akka-stream" % version
+    val actor       = "com.typesafe.akka" %% "akka-actor" % version
+    val stream      = "com.typesafe.akka" %% "akka-stream" % version
     val persistence = "com.typesafe.akka" %% "akka-persistence" % version
-    val tck = "com.typesafe.akka" %% "akka-persistence-tck" % version
-    val slf4j = "com.typesafe.akka" %% "akka-slf4j" % version
+    val tck         = "com.typesafe.akka" %% "akka-persistence-tck" % version
+    val slf4j       = "com.typesafe.akka" %% "akka-slf4j" % version
   }
 
   object Skafka {
-    private val version = "2.1.1"
-    val skafka = "com.evolutiongaming" %% "skafka" % version
-    val prometheus = "com.evolutiongaming" %% "skafka-prometheus" % version
+    private val version = "2.1.2"
+    val skafka      = "com.evolutiongaming" %% "skafka" % version
+    val prometheus  = "com.evolutiongaming" %% "skafka-prometheus" % version
   }
 }
