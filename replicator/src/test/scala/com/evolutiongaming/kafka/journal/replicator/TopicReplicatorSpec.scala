@@ -541,7 +541,6 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 object TopicReplicatorSpec {
 
   val topic = "topic"
-  val partitions = Set(0, 1, 2, 3, 4)
 
   val timestamp = Instant.now()
 
@@ -659,7 +658,6 @@ object TopicReplicatorSpec {
     val timestampReplicated = timestamp.plusMillis(replicationLatency)
     TopicReplicator(
       topic = topic,
-      partitions = partitions,
       consumer = consumer,
       journal = journal,
       log = log,

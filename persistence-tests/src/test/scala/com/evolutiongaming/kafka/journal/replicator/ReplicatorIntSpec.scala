@@ -64,7 +64,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
     implicit val fixEquality = FixEquality.array[Byte]()
 
     val topic = "journal"
-    val origin = Origin("replicator")
+    val origin = Origin(system.name)
 
     lazy val journal = {
       val journalConfig = JournalConfig(conf)

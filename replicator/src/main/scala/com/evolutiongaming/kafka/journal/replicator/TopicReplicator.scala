@@ -2,6 +2,9 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
 
+import akka.actor.ActorSystem
+import com.evolutiongaming.concurrent.async.Async
+import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.IO.Implicits._
@@ -10,6 +13,7 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.replicator.InstantHelper._
 import com.evolutiongaming.nel.Nel
+import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Bytes => _, _}
 
@@ -28,7 +32,6 @@ object TopicReplicator {
   //  TODO return error in case failed to connect
   def apply[F[_] : IO](
     topic: Topic,
-    partitions: Set[Partition],
     consumer: KafkaConsumer[F],
     journal: ReplicatedJournal[F],
     log: Log[F],
@@ -111,7 +114,7 @@ object TopicReplicator {
           } yield {}
         }
 
-        Batch.list(records).foldLeft(unit) { (result, batch) =>
+        Batch.list(records).foldLeft(IO[F].unit) { (result, batch) =>
           for {
             _ <- result
             _ <- batch match {
@@ -147,7 +150,7 @@ object TopicReplicator {
         }
 
         val result = {
-          if (pointersNew.values.isEmpty) unit
+          if (pointersNew.values.isEmpty) IO[F].unit
           else journal.save(topic, pointersNew, roundStart)
         }
 
@@ -169,14 +172,14 @@ object TopicReplicator {
     def consume(state: State): F[Switch[State]] = {
       for {
         stop <- stopRef.get()
-        state <- if (stop) state.stop.pure
+        state <- if (stop) IO[F].pure(state.stop)
         else for {
           roundStart <- now
           records <- consumer.poll() // TODO add kafka metrics
           stop <- stopRef.get()
           state <- {
-            if (stop) state.stop.pure
-            else if (records.values.isEmpty) state.continue.pure
+            if (stop) IO[F].pure(state.stop)
+            else if (records.values.isEmpty) IO[F].pure(state.continue)
             else for {
               timestamp <- now
               stateAndOffsets <- round(state, records, timestamp)
@@ -194,15 +197,7 @@ object TopicReplicator {
 
     val result = for {
       pointers <- journal.pointers(topic)
-      partitionOffsets = for {
-        partition <- partitions.toList
-      } yield {
-        val offset = pointers.values.getOrElse(partition, Offset.Min /*TODO is it correct?*/)
-        PartitionOffset(partition = partition, offset = offset)
-      }
-
       // TODO verify it started processing from right position
-
       _ <- consumer.subscribe(topic)
       _ <- IO[F].foldWhile(State.Empty)(consume)
     } yield {}
@@ -227,6 +222,25 @@ object TopicReplicator {
       override def toString = s"TopicReplicator($topic)"
     }
   }
+
+  def apply(
+    topic: Topic,
+    journal: ReplicatedJournal[Async],
+    consumer: KafkaConsumer[Async],
+    metrics: Metrics[Async])(implicit system: ActorSystem): TopicReplicator[Async] = {
+
+    val actorLog = ActorLog(system, TopicReplicator.getClass) prefixed topic
+    val stopRef = Ref[Boolean, Async]()
+    apply(
+      topic = topic,
+      consumer = consumer,
+      journal = journal,
+      log = Log(actorLog),
+      stopRef = stopRef,
+      metrics = metrics,
+      now = Async(Instant.now))
+  }
+
 
   final case class State(pointers: TopicPointers = TopicPointers.Empty)
 

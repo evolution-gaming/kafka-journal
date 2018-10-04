@@ -1,10 +1,8 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 
-import java.time.Instant
-
 import akka.actor.ActorSystem
-import com.evolutiongaming.cassandra.{Cluster, CreateCluster}
+import com.evolutiongaming.cassandra.{CreateCluster, Session}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.concurrent.serially.SeriallyAsync
@@ -14,7 +12,7 @@ import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.ReplicatedCassandra
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer._
-import com.evolutiongaming.skafka.{Partition, Topic, Bytes => _}
+import com.evolutiongaming.skafka.{Topic, Bytes => _}
 
 import scala.compat.Platform
 import scala.concurrent.ExecutionContext
@@ -32,60 +30,65 @@ object Replicator {
 
     val name = "evolutiongaming.kafka-journal.replicator"
     val config = ReplicatorConfig(system.settings.config.getConfig(name))
+    val cassandra = CreateCluster(config.cassandra.client)
     val ecBlocking = system.dispatchers.lookup(s"$name.blocking-dispatcher")
-    apply(config, ecBlocking, metrics)(system, system.dispatcher)
+    implicit val ec = system.dispatcher
+    for {
+      session <- cassandra.connect().async
+    } yield {
+      val replicator = apply(config, session, ecBlocking, metrics)(system, ec)
+      new Replicator {
+        def shutdown() = {
+          for {
+            _ <- replicator.shutdown()
+            _ <- cassandra.close().async
+          } yield {}
+        }
+      }
+    }
   }
 
   def apply(
     config: ReplicatorConfig,
+    session: Session,
     ecBlocking: ExecutionContext,
     metrics: Metrics[Async])(implicit
-    system: ActorSystem, ec: ExecutionContext): Async[Replicator] = safe {
+    system: ActorSystem,
+    ec: ExecutionContext): Replicator = {
 
-    val cassandra = CreateCluster(config.cassandra.client)
     val consumerOf = (config: ConsumerConfig) => {
       val consumer = Consumer[Id, Bytes](config, ecBlocking)
       metrics.consumer.fold(consumer) { Consumer(consumer, _) }
     }
 
-    for {
-      session <- cassandra.connect().async
-    } yield {
-      val journal = {
-        val journal = ReplicatedCassandra(session, config.cassandra)
-        val actorLog = ActorLog(system, ReplicatedCassandra.getClass)
-        val logging = ReplicatedJournal(journal, Log(actorLog))
-        metrics.journal.fold(logging) { ReplicatedJournal(logging, _) }
-      }
-
-      val createReplicator = (topic: Topic, partitions: Set[Partition]) => {
-        val prefix = config.consumer.groupId getOrElse "journal-replicator"
-        val groupId = s"$prefix-$topic"
-        val consumerConfig = config.consumer.copy(groupId = Some(groupId))
-        val consumer = consumerOf(consumerConfig)
-        val kafkaConsumer = KafkaConsumer(consumer, config.pollTimeout)
-        val actorLog = ActorLog(system, TopicReplicator.getClass) prefixed topic
-        val stopRef = Ref[Boolean, Async]()
-        TopicReplicator(
-          topic = topic,
-          partitions = partitions,
-          consumer = kafkaConsumer,
-          journal = journal,
-          log = Log(actorLog),
-          stopRef = stopRef,
-          metrics = metrics.replicator.fold(TopicReplicator.Metrics.empty(Async.unit)) { _.apply(topic) },
-          Async(Instant.now))
-      }
-
-      apply(config, cassandra, consumerOf, createReplicator)
+    val journal = {
+      val journal = ReplicatedCassandra(session, config.cassandra)
+      val actorLog = ActorLog(system, ReplicatedCassandra.getClass)
+      val logging = ReplicatedJournal(journal, Log(actorLog))
+      metrics.journal.fold(logging) { ReplicatedJournal(logging, _) }
     }
+
+    val createReplicator = (topic: Topic) => {
+      val prefix = config.consumer.groupId getOrElse "journal-replicator"
+      val groupId = s"$prefix-$topic"
+      val consumerConfig = config.consumer.copy(groupId = Some(groupId))
+      val consumer = consumerOf(consumerConfig)
+      val kafkaConsumer = KafkaConsumer(consumer, config.pollTimeout)
+      TopicReplicator(
+        topic = topic,
+        journal = journal,
+        consumer = kafkaConsumer,
+        metrics = metrics.replicator.fold(TopicReplicator.Metrics.empty(Async.unit)) { _.apply(topic) })
+    }
+
+    apply(config, session, consumerOf, createReplicator)
   }
 
   def apply(
     config: ReplicatorConfig,
-    cassandra: Cluster,
+    session: Session,
     consumerOf: ConsumerConfig => Consumer[Id, Bytes],
-    topicReplicatorOf: (Topic, Set[Partition]) => TopicReplicator[Async])(implicit
+    topicReplicatorOf: Topic => TopicReplicator[Async])(implicit
     system: ActorSystem, ec: ExecutionContext): Replicator = {
 
     val log = ActorLog(system, Replicator.getClass)
@@ -103,24 +106,23 @@ object Replicator {
           } yield {
             val duration = Platform.currentTime - timestamp
             val topicsNew = for {
-              (topic, infos) <- topics -- state.replicators.keySet
+              (topic, _) <- topics -- state.replicators.keySet
               if config.topicPrefixes.exists(topic.startsWith)
             } yield {
-              (topic, infos)
+              topic
             }
 
             val result = {
               if (topicsNew.isEmpty) state
               else {
-                def topicsStr = topicsNew.keys.mkString(",")
+                def topicsStr = topicsNew.toSeq.sorted.mkString(",")
 
                 log.info(s"discover new topics: $topicsStr in ${ duration }ms")
 
                 val replicatorsNew = for {
-                  (topic, infos) <- topicsNew
+                  topic <- topicsNew
                 } yield {
-                  val partitions = for {info <- infos} yield info.partition
-                  val replicator = topicReplicatorOf(topic, partitions.toSet)
+                  val replicator = topicReplicatorOf(topic)
                   (topic, replicator)
                 }
 
@@ -155,7 +157,7 @@ object Replicator {
           _ <- shutdownReplicators()
           //          _ <- serially.stop().async
           kafka = consumer.close().async
-          _ <- cassandra.close().async
+          _ <- session.close().async
           _ <- kafka
         } yield {}
       }
