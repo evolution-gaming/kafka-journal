@@ -104,12 +104,12 @@ object TopicReplicator {
               measurements = measurements)
             latency = measurements.replicationLatency
             _ <- log.info {
-              val range =
-                if (events.tail.isEmpty) events.head.seqNr.toString
-                else s"${ events.head.seqNr }..${ events.last.seqNr }"
+              val seqNrs =
+                if (events.tail.isEmpty) s"seqNr: ${ events.head.seqNr }"
+                else s"seqNrs: ${ events.head.seqNr }..${ events.last.seqNr }"
               val origin = records.head.action.origin
               val originStr = origin.fold("") { origin => s", origin: $origin" }
-              s"append in ${ latency }ms, id: $id, offset: $partitionOffset, events: $range$originStr"
+              s"append in ${ latency }ms, id: $id, offset: $partitionOffset, $seqNrs$originStr"
             }
           } yield {}
         }

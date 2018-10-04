@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.cassandra.{Decode, Encode}
+import com.evolutiongaming.cassandra.{Decode, DecodeRow, Encode, EncodeRow}
 import com.evolutiongaming.kafka.journal.PlayJsonHelper._
 import play.api.libs.json._
 
@@ -41,6 +41,7 @@ object SeqNr {
 
   implicit val DecodeImpl: Decode[SeqNr] = Decode[Long].map(value => SeqNr(value))
 
+
   implicit val EncodeOptImpl: Encode[Option[SeqNr]] = Encode.opt[SeqNr]
 
   implicit val DecodeOptImpl: Decode[Option[SeqNr]] = Decode[Option[Long]].map { value =>
@@ -50,12 +51,19 @@ object SeqNr {
     } yield seqNr
   }
 
+
+  implicit val EncodeRowImpl: EncodeRow[SeqNr] = EncodeRow[SeqNr]("seq_nr")
+
+  implicit val DecodeRowImpl: DecodeRow[SeqNr] = DecodeRow[SeqNr]("seq_nr")
+
+
   implicit val WritesImpl: Writes[SeqNr] = WritesOf[Long].imap(_.value)
 
   implicit val ReadsImpl: Reads[SeqNr] = ReadsOf[Long].mapResult { a =>
     SeqNr.validate(a)(JsError(_), JsSuccess(_))
   }
 
+  
   def validate[T](value: Long)(onError: String => T, onSeqNr: SeqNr => T): T = {
     if (isValid(value)) onSeqNr(SeqNr(value)) else onError(invalid(value))
   }

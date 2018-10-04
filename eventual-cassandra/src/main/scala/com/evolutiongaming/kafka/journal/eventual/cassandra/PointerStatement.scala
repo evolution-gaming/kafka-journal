@@ -1,7 +1,5 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import java.lang.{Integer => IntJ}
-
 import com.evolutiongaming.cassandra.CassandraHelper._
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
@@ -41,8 +39,8 @@ object PointerStatement {
           val bound = prepared
             .bind()
             .encode("topic", pointer.topic)
-            .encode("partition", pointer.partition)
-            .encode("offset", pointer.offset)
+            .encode("partition", pointer.partition) // TODO
+            .encode("offset", pointer.offset) // TODO
             .encode("created", pointer.created)
             .encode("updated", pointer.updated)
           session.execute(bound).unit
@@ -93,7 +91,10 @@ object PointerStatement {
         prepared <- session.prepare(query)
       } yield {
         key: PointerSelect =>
-          val bound = prepared.bind(key.topic, key.partition: IntJ)
+          val bound = prepared
+            .bind()
+            .encode("topic", key.topic)
+            .encode("partition", key.partition)
           for {
             result <- session.execute(bound)
           } yield for {
@@ -119,7 +120,9 @@ object PointerStatement {
         prepared <- session.prepare(query)
       } yield {
         topic: Topic =>
-          val bound = prepared.bind(topic)
+          val bound = prepared
+            .bind()
+            .encode("topic", topic)
 
           for {
             result <- session.execute(bound)
@@ -160,7 +163,7 @@ object PointerStatement {
             for {
               row <- rows
             } yield {
-              row.decode[String]("topic")
+              row.decode[Topic]("topic")
             }
           }
         }

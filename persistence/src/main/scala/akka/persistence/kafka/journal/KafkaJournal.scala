@@ -115,7 +115,6 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
           case NonFatal(failure) => log.error(s"failed to shutdown cassandra $failure", failure)
         }
       }
-      // TODO read only cassandra statements
 
       {
         val log = ActorLog(system, classOf[EventualJournal])

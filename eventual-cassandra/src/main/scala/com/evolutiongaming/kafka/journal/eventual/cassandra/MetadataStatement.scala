@@ -6,7 +6,6 @@ import java.time.Instant
 import com.evolutiongaming.cassandra.CassandraHelper._
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.{Key, Origin, PartitionOffset, SeqNr}
-import com.evolutiongaming.skafka.{Offset, Partition}
 
 
 object MetadataStatement {
@@ -49,16 +48,14 @@ object MetadataStatement {
         (key: Key, timestamp: Instant, metadata: Metadata, origin: Option[Origin]) =>
           val bound = prepared
             .bind()
-            .encode("id", key.id)
-            .encode("topic", key.topic)
-            .encode("partition", metadata.partitionOffset.partition)
-            .encode("offset", metadata.partitionOffset.offset)
+            .encode(key)
+            .encode(metadata.partitionOffset)
             .encode("segment_size", metadata.segmentSize)
-            .encode("seq_nr", metadata.seqNr)
+            .encode(metadata.seqNr)
             .encode("delete_to", metadata.deleteTo)
             .encode("created", timestamp)
             .encode("updated", timestamp)
-            .encode("origin", origin)
+            .encode(origin)
           session.execute(bound).unit
       }
     }
@@ -80,21 +77,18 @@ object MetadataStatement {
         prepared <- session.prepare(query)
       } yield {
         key: Key =>
-          val bound = prepared.bind(key.id, key.topic)
+          val bound = prepared
+            .bind()
+            .encode(key)
           for {
             result <- session.execute(bound)
           } yield for {
             row <- Option(result.one()) // TODO use CassandraSession wrapper
           } yield {
-            // TODO duplicate
-            val offset = PartitionOffset(
-              partition = row.decode[Partition]("partition"),
-              offset = row.decode[Offset]("offset"))
-
             Metadata(
-              partitionOffset = offset,
+              partitionOffset = row.decode[PartitionOffset],
               segmentSize = row.decode[Int]("segment_size"),
-              seqNr = row.decode[SeqNr]("seq_nr"),
+              seqNr = row.decode[SeqNr],
               deleteTo = row.decode[Option[SeqNr]]("delete_to"))
           }
       }
@@ -119,14 +113,11 @@ object MetadataStatement {
         prepared <- session.prepare(query)
       } yield {
         (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: SeqNr) =>
-          // TODO avoid casting via providing implicit converters
           val bound = prepared
             .bind()
-            .encode("id", key.id) // TODO duplicate
-            .encode("topic", key.topic) // TODO duplicate
-            .encode("partition", partitionOffset.partition)
-            .encode("offset", partitionOffset.offset)
-            .encode("seq_nr", seqNr)
+            .encode(key)
+            .encode(partitionOffset)
+            .encode(seqNr)
             .encode("delete_to", deleteTo)
             .encode("updated", timestamp)
 
@@ -153,14 +144,11 @@ object MetadataStatement {
         prepared <- session.prepare(query)
       } yield {
         (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr) =>
-          // TODO avoid casting via providing implicit converters
           val bound = prepared
             .bind()
-            .encode("id", key.id) // TODO duplicate
-            .encode("topic", key.topic) // TODO duplicate
-            .encode("partition", partitionOffset.partition)
-            .encode("offset", partitionOffset.offset)
-            .encode("seq_nr", seqNr)
+            .encode(key)
+            .encode(partitionOffset)
+            .encode(seqNr)
             .encode("updated", timestamp)
 
           session.execute(bound).unit
@@ -185,13 +173,10 @@ object MetadataStatement {
         prepared <- session.prepare(query)
       } yield {
         (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr) =>
-          // TODO avoid casting via providing implicit converters
           val bound = prepared
             .bind()
-            .encode("id", key.id) // TODO duplicate
-            .encode("topic", key.topic) // TODO duplicate
-            .encode("partition", partitionOffset.partition)
-            .encode("offset", partitionOffset.offset)
+            .encode(key)
+            .encode(partitionOffset)
             .encode("delete_to", deleteTo)
             .encode("updated", timestamp)
 

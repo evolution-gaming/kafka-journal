@@ -10,7 +10,6 @@ import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.skafka.{Offset, Partition}
 import play.api.libs.json.Json
 
 import scala.concurrent.ExecutionContext
@@ -89,14 +88,12 @@ object JournalStatement {
 
             prepared
               .bind()
-              .encode("id", key.id)
-              .encode("topic", key.topic)
-              .encode("segment", segment.value)
-              .encode("seq_nr", event.seqNr)
-              .encode("partition", replicated.partitionOffset.partition)
-              .encode("offset", replicated.partitionOffset.offset)
+              .encode(key)
+              .encode(segment)
+              .encode(event.seqNr)
+              .encode(replicated.partitionOffset)
               .encode("timestamp", replicated.timestamp)
-              .encode("origin", replicated.origin)
+              .encode(replicated.origin)
               .encode("tags", event.tags)
               .encode("payload_type", payloadType)
               .encode("payload_txt", txt)
@@ -142,19 +139,19 @@ object JournalStatement {
         prepared <- session.prepare(query)
       } yield {
         (key: Key, segment: SegmentNr, from: SeqNr) =>
-          val bound = prepared.bind(key.id, key.topic, segment.value: LongJ, from.value: LongJ)
+          val bound = prepared
+            .bind()
+            .encode(key)
+            .encode(segment)
+            .encode(from)
           for {
             result <- session.execute(bound)
           } yield for {
             row <- Option(result.one())
           } yield {
-            // TODO duplicate
-            val offset = PartitionOffset(
-              partition = row.decode[Partition]("partition"),
-              offset = row.decode[Offset]("offset"))
             Pointer(
-              seqNr = row.decode[SeqNr]("seq_nr"),
-              partitionOffset = offset)
+              seqNr = row.decode[SeqNr],
+              partitionOffset = row.decode[PartitionOffset])
           }
       }
     }
@@ -196,15 +193,13 @@ object JournalStatement {
             val fetchThreshold = 10 // TODO #49,
 
             // TODO avoid casting via providing implicit converters
-            val bound = prepared.bind(key.id, key.topic, segment.value: LongJ, range.from.value: LongJ, range.to.value: LongJ)
+            val bound = prepared
+              .bind(key.id, key.topic, segment.value: LongJ, range.from.value: LongJ, range.to.value: LongJ)
 
             for {
               result <- session.execute(bound)
               result <- result.foldWhile(fetchThreshold, s) { case (s, row) =>
-                // TODO duplicate
-                val offset = PartitionOffset(
-                  partition = row.decode[Partition]("partition"),
-                  offset = row.decode[Offset]("offset"))
+                val partitionOffset = row.decode[PartitionOffset]
 
                 val payloadType = row.decode[Option[PayloadType]]("payload_type")
                 val payload = payloadType.map {
@@ -214,14 +209,14 @@ object JournalStatement {
                 }
 
                 val event = Event(
-                  seqNr = row.decode[SeqNr]("seq_nr"),
+                  seqNr = row.decode[SeqNr],
                   tags = row.decode[Tags]("tags"),
                   payload = payload)
                 val replicated = ReplicatedEvent(
                   event = event,
                   timestamp = row.decode[Instant]("timestamp"),
-                  origin = row.decode[Option[Origin]]("origin"),
-                  partitionOffset = offset)
+                  origin = row.decode[Option[Origin]],
+                  partitionOffset = partitionOffset)
                 f(s, replicated)
               }
             } yield result
@@ -248,8 +243,11 @@ object JournalStatement {
         prepared <- session.prepare(query)
       } yield {
         (key: Key, segment: SegmentNr, seqNr: SeqNr) =>
-          // TODO avoid casting via providing implicit converters
-          val bound = prepared.bind(key.id, key.topic, segment.value: LongJ, seqNr.value: LongJ)
+          val bound = prepared
+            .bind()
+            .encode(key)
+            .encode(segment)
+            .encode(seqNr)
           session.execute(bound).unit
       }
     }

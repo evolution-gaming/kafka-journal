@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import akka.actor.{ActorSystem, ExtendedActorSystem, Extension, ExtensionId}
-import com.evolutiongaming.cassandra.{Decode, Encode}
+import com.evolutiongaming.cassandra.{Decode, DecodeRow, Encode, EncodeRow}
 import com.evolutiongaming.hostname
 import com.evolutiongaming.kafka.journal.PlayJsonHelper._
 import play.api.libs.json._
@@ -12,7 +12,14 @@ final case class Origin(value: String) extends AnyVal {
 
 object Origin {
 
-  implicit val WritesImpl: Writes[Origin] = WritesOf[String].imap(_.value)
+  val Empty: Origin = Origin("")
+
+  val HostName: Option[Origin] = {
+    hostname.HostName() map { hostname => Origin(hostname) }
+  }
+
+
+  implicit val WritesImpl: Writes[Origin] = WritesOf[String].imap(_.val// TODO avoid casting ue)
 
   implicit val ReadsImpl: Reads[Origin] = ReadsOf[String].mapResult(a => JsSuccess(Origin(a)))
 
@@ -27,11 +34,15 @@ object Origin {
   implicit val DecodeOptImpl: Decode[Option[Origin]] = Decode.opt[Origin]
 
 
-  val Empty: Origin = Origin("")
+  implicit val EncodeRowImpl: EncodeRow[Origin] = EncodeRow("origin")
 
-  val HostName: Option[Origin] = {
-    hostname.HostName() map { hostname => Origin(hostname) }
-  }
+  implicit val DecodeRowImpl: DecodeRow[Origin] = DecodeRow("origin")
+
+
+  implicit val EncodeRowOptImpl: EncodeRow[Option[Origin]] = EncodeRow("origin")
+
+  implicit val DecodeRowOptImpl: DecodeRow[Option[Origin]] = DecodeRow("origin")
+
 
   object AkkaHost {
 

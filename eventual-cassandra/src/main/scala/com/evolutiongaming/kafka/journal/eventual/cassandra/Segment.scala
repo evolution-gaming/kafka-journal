@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
+import com.evolutiongaming.cassandra.{Decode, DecodeRow, Encode, EncodeRow}
 import com.evolutiongaming.kafka.journal.SeqNr
 
 import scala.collection.immutable.Seq
@@ -43,6 +44,16 @@ final case class SegmentNr(value: Long) extends Ordered[SegmentNr] {
 }
 
 object SegmentNr {
+
+  implicit val EncodeImp: Encode[SegmentNr] = Encode[Long].imap(_.value)
+
+  implicit val DecodeImp: Decode[SegmentNr] = Decode[Long].map(SegmentNr(_))
+
+
+  implicit val EncodeRowImpl: EncodeRow[SegmentNr] = EncodeRow[SegmentNr]("segment")
+
+  implicit val DecodeRowImpl: DecodeRow[SegmentNr] = DecodeRow[SegmentNr]("segment")
+  
 
   def apply(seqNr: SeqNr, size: Int): SegmentNr = {
     val value = (seqNr.value - 1) / size

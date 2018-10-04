@@ -32,16 +32,27 @@ object CassandraHelper {
     }
   }
 
+
   implicit class BoundStatementOps(val self: BoundStatement) extends AnyVal {
+
     def encode[T](name: String, value: T)(implicit encode: Encode[T]): BoundStatement = {
       encode(self, name, value)
+    }
+
+    def encode[T](value: T)(implicit encode: EncodeRow[T]): BoundStatement = {
+      encode(self, value)
     }
   }
 
 
   implicit class RowOps(val self: Row) extends AnyVal {
+
     def decode[T](name: String)(implicit decode: Decode[T]): T = {
       decode(self, name)
+    }
+
+    def decode[T](implicit decode: DecodeRow[T]): T = {
+      decode(self)
     }
   }
 }
