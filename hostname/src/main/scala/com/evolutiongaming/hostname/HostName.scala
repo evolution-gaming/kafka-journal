@@ -9,7 +9,6 @@ import scala.sys.process._
 import scala.util.Properties
 import scala.util.control.NonFatal
 
-// TODO Move out to separate repository
 object HostName {
 
   def apply(): Option[String] = {
