@@ -19,7 +19,7 @@ object Origin {
   }
 
 
-  implicit val WritesImpl: Writes[Origin] = WritesOf[String].imap(_.val// TODO avoid casting ue)
+  implicit val WritesImpl: Writes[Origin] = WritesOf[String].imap(_.value)
 
   implicit val ReadsImpl: Reads[Origin] = ReadsOf[String].mapResult(a => JsSuccess(Origin(a)))
 
