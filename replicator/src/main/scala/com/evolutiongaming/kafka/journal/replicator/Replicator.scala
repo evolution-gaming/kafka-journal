@@ -19,6 +19,9 @@ import scala.concurrent.ExecutionContext
 import scala.util.control.NonFatal
 
 trait Replicator {
+
+  def running(): Boolean
+
   def shutdown(): Async[Unit]
 }
 
@@ -37,7 +40,13 @@ object Replicator {
       session <- cassandra.connect().async
     } yield {
       val replicator = apply(config, session, ecBlocking, metrics)(system, ec)
+
       new Replicator {
+
+        def running() = {
+          replicator.running()
+        }
+
         def shutdown() = {
           for {
             _ <- replicator.shutdown()
@@ -141,6 +150,13 @@ object Replicator {
     discoverTopics()
 
     new Replicator {
+
+      def running() = {
+        stateVar.value() match {
+          case State.Stopped        => false
+          case state: State.Running => state.replicators.values.forall(_.done().value().isEmpty)
+        }
+      }
 
       def shutdown() = {
 

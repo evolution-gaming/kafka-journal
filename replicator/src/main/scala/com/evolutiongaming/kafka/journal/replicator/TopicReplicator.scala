@@ -20,8 +20,11 @@ import com.evolutiongaming.skafka.{Bytes => _, _}
 
 // TODO partition replicator ?
 // TODO add metric to track replication lag in case it cannot catchup with producers
-// TODO verify that first consumed offset matches to the one expected, otherwise we fucked up.
+// TODO verify that first consumed offset matches to the one expected, otherwise we screwed.
 trait TopicReplicator[F[_]] {
+
+  def done(): F[Unit]
+
   def shutdown(): F[Unit]
 }
 
@@ -172,26 +175,28 @@ object TopicReplicator {
     def consume(state: State): F[Switch[State]] = {
       for {
         stop <- stopRef.get()
-        state <- if (stop) IO[F].pure(state.stop)
-        else for {
-          roundStart <- now
-          records <- consumer.poll() // TODO add kafka metrics
-          stop <- stopRef.get()
-          state <- {
-            if (stop) IO[F].pure(state.stop)
-            else if (records.values.isEmpty) IO[F].pure(state.continue)
-            else for {
-              timestamp <- now
-              stateAndOffsets <- round(state, records, timestamp)
-              (state, offsets) = stateAndOffsets
-              _ <- consumer.commit(offsets)
-              roundEnd <- now
-              _ <- metrics.round(
-                latency = roundEnd - roundStart,
-                records = records.values.foldLeft(0) { case (acc, (_, record)) => acc + record.size })
-            } yield state.continue
-          }
-        } yield state
+        state <- {
+          if (stop) IO[F].pure(state.stop)
+          else for {
+            roundStart <- now
+            records <- consumer.poll()
+            stop <- stopRef.get()
+            state <- {
+              if (stop) IO[F].pure(state.stop)
+              else if (records.values.isEmpty) IO[F].pure(state.continue)
+              else for {
+                timestamp <- now
+                stateAndOffsets <- round(state, records, timestamp)
+                (state, offsets) = stateAndOffsets
+                _ <- consumer.commit(offsets)
+                roundEnd <- now
+                _ <- metrics.round(
+                  latency = roundEnd - roundStart,
+                  records = records.values.foldLeft(0) { case (acc, (_, record)) => acc + record.size })
+              } yield state.continue
+            }
+          } yield state
+        }
       } yield state
     }
 
@@ -209,6 +214,8 @@ object TopicReplicator {
     }
 
     new TopicReplicator[F] {
+
+      def done() = result
 
       def shutdown() = {
         for {
