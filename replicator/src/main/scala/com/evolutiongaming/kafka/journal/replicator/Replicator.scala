@@ -22,7 +22,7 @@ trait Replicator {
 
   def running(): Boolean
 
-  def shutdown(): Async[Unit]
+  def stop(): Async[Unit]
 }
 
 object Replicator {
@@ -47,9 +47,9 @@ object Replicator {
           replicator.running()
         }
 
-        def shutdown() = {
+        def stop() = {
           for {
-            _ <- replicator.shutdown()
+            _ <- replicator.stop()
             _ <- cassandra.close().async
           } yield {}
         }
@@ -158,7 +158,7 @@ object Replicator {
         }
       }
 
-      def shutdown() = {
+      def stop() = {
 
         def shutdownReplicators() = {
           stateVar.updateAsync {
@@ -171,10 +171,7 @@ object Replicator {
 
         for {
           _ <- shutdownReplicators()
-          //          _ <- serially.stop().async
-          kafka = consumer.close().async
-          _ <- session.close().async
-          _ <- kafka
+          _ <- consumer.close().async
         } yield {}
       }
     }

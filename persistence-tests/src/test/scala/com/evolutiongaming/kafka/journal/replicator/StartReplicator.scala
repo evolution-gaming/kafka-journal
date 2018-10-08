@@ -14,6 +14,6 @@ object StartReplicator {
 
   def apply(system: ActorSystem, timeout: FiniteDuration): Shutdown = {
     val replicator = Replicator(system).get(timeout)
-    () => replicator.shutdown().future
+    () => replicator.stop().future
   }
 }
