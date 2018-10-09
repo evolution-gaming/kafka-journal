@@ -49,10 +49,11 @@ trait EventualJournalSpec extends WordSpec with Matchers {
     }
 
     for {
+      seqNr <- List(SeqNr.Min, SeqNr(5), SeqNr(10))
       size <- Nel(0, 1, 2, 5, 10)
       batch <- List(true, false)
     } {
-      val name = s"events: $size, batch: $batch"
+      val name = s"seqNr: $seqNr, events: $size, batch: $batch"
 
       def eventsOf(from: Pointer, size: Int) = {
         for {
@@ -65,14 +66,14 @@ trait EventualJournalSpec extends WordSpec with Matchers {
         }
       }
 
-      val events = eventsOf(pointerOf(Offset.Min, SeqNr.Min), size)
+      val events = eventsOf(pointerOf(Offset.Min, seqNr), size)
       val pointers = events.map(_.pointer)
       val pointerLast = pointers.lastOption
       val partitionOffsetNext = pointerLast.fold(partitionOffsetOf(Offset.Min))(_.partitionOffset.next)
       val seqNrsAll = {
-        val end = pointerLast.fold(SeqNr.Min)(_.seqNr)
-        val seqNrs = (SeqNr.Min to end).seqNrs
-        SeqNr.Max :: seqNrs
+        val end = pointerLast.fold(seqNr)(_.seqNr)
+        val seqNrs = (seqNr to end).seqNrs
+        (SeqNr.Min :: SeqNr.Max :: seqNrs).distinct
       }
 
       def createAndAppend() = {
@@ -284,6 +285,17 @@ trait EventualJournalSpec extends WordSpec with Matchers {
       replicated.delete(SeqNr.Max, partitionOffsetOf(8))
       eventual.events() shouldEqual Nil
       eventual.pointer() shouldEqual Some(pointerOf(offset = 8, seqNr = SeqNr.Max))
+    }
+
+    "append not from beginning" in {
+      val (eventual, replicated) = createJournals()
+      val events = Nel(
+        eventOf(pointerOf(offset = 10, seqNr = SeqNr(5))),
+        eventOf(pointerOf(offset = 10, seqNr = SeqNr(6))),
+        eventOf(pointerOf(offset = 10, seqNr = SeqNr(7))))
+      replicated.append(events)
+      eventual.pointer(SeqNr.Min) shouldEqual Some(events.last.pointer)
+      eventual.events(SeqNr.Min) shouldEqual events.toList
     }
   }
 }

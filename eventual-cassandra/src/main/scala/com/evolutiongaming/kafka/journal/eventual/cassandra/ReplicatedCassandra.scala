@@ -80,15 +80,19 @@ object ReplicatedCassandra {
       }
 
       def saveMetadataAndSegmentSize(statements: Statements, metadata: Option[Metadata]) = {
-        val seqNr = events.last.seqNr
+        val seqNrLast = events.last.seqNr
 
         metadata match {
           case Some(metadata) =>
-            val update = () => statements.updateSeqNr(key, partitionOffset, timestamp, seqNr)
+            val update = () => statements.updateSeqNr(key, partitionOffset, timestamp, seqNrLast)
             (update, metadata.segmentSize)
 
           case None =>
-            val metadata = Metadata(partitionOffset = partitionOffset, segmentSize = segmentSize, seqNr = seqNr, deleteTo = None)
+            val metadata = Metadata(
+              partitionOffset = partitionOffset,
+              segmentSize = segmentSize,
+              seqNr = seqNrLast,
+              deleteTo = events.head.seqNr.prev)
             val origin = events.head.origin
             val insert = () => statements.insertMetadata(key, timestamp, metadata, origin)
             (insert, metadata.segmentSize)

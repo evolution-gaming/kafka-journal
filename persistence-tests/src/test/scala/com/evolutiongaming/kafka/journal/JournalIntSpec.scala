@@ -59,28 +59,35 @@ class JournalIntSpec extends WordSpec with ActorSpec with Matchers {
 
   "Journal" should {
 
-    "append, delete, read, lastSeqNr" in {
-      val key = Key(id = UUID.randomUUID().toString, topic = "journal")
+    def read(key: Key) = {
+      journal.read[List[Event]](key, SeqNr.Min, Nil) { (xs, x) => Switch.continue(x :: xs) }.get(timeout)
+    }
 
-      val timestamp = Instant.now()
+    def lastSeqNr(key: Key) = journal.lastSeqNr(key, SeqNr.Min).get(timeout)
 
-      def read() = {
-        journal.read[List[Event]](key, SeqNr.Min, Nil) { (xs, x) => Switch.continue(x :: xs) }.get(timeout)
+    def delete(key: Key) = journal.delete(key, SeqNr.Max, Instant.now()).get(timeout)
+
+    def keyOf() = Key(id = UUID.randomUUID().toString, topic = "journal")
+
+    def append(key: Key, events: Nel[Event]) = {
+      journal.append(key, events, Instant.now()).get(timeout)
+    }
+
+    for {
+      seqNr <- List(SeqNr.Min, SeqNr(10))
+    } {
+      s"append, delete, read, lastSeqNr, seqNr: $seqNr" in {
+        val key = keyOf()
+        lastSeqNr(key) shouldEqual None
+        read(key) shouldEqual Nil
+        delete(key) shouldEqual None
+        val event = Event(seqNr)
+        val partition = append(key, Nel(event)).partition
+        read(key) shouldEqual List(event)
+        delete(key).map(_.partition) shouldEqual Some(partition)
+        lastSeqNr(key) shouldEqual Some(seqNr)
+        read(key) shouldEqual Nil
       }
-
-      def lastSeqNr() = journal.lastSeqNr(key, SeqNr.Min).get(timeout)
-
-      def delete() = journal.delete(key, SeqNr.Max, timestamp).get(timeout)
-
-      lastSeqNr() shouldEqual None
-      read() shouldEqual Nil
-      delete() shouldEqual None
-      val event = Event(SeqNr.Min)
-      val partition = journal.append(key, Nel(event), timestamp).get(timeout).partition
-      read() shouldEqual List(event)
-      delete().map(_.partition) shouldEqual Some(partition)
-      lastSeqNr() shouldEqual Some(SeqNr.Min)
-      read() shouldEqual Nil
     }
   }
 }

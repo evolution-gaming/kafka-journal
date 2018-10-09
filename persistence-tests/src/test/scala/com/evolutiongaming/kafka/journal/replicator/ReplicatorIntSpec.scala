@@ -80,7 +80,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
         topicConsumer = topicConsumer,
         eventual = eventual,
         pollTimeout = 100.millis /*TODO*/ ,
-        closeTimeout = timeout/*TODO*/)
+        closeTimeout = timeout /*TODO*/)
       Journal(journal, log)
     }
 
@@ -110,93 +110,98 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
 
     def topicPointers() = eventual.pointers(topic).get(timeout).values
 
-    "replicate events and then delete" in {
-
-      val key = Key(id = UUID.randomUUID().toString, topic = topic)
-
-      lastSeqNr(key) shouldEqual None
-
-      val pointers = topicPointers()
-
-      val expected1 = append(key, Nel(event(1)))
-      val partitionOffset = expected1.head.partitionOffset
-      val partition = partitionOffset.partition
-
-      for {
-        offset <- pointers.get(partitionOffset.partition)
-      } partitionOffset.offset should be > offset
-
-      val actual1 = read(key)(_.nonEmpty)
-      actual1 shouldEqual expected1.toList
-      lastSeqNr(key) shouldEqual Some(expected1.last.seqNr)
-
-      journal.delete(key, expected1.last.event.seqNr, Instant.now()).get(timeout).map(_.partition) shouldEqual Some(partition)
-      read(key)(_.isEmpty) shouldEqual Nil
-      lastSeqNr(key) shouldEqual Some(expected1.last.seqNr)
-
-      val expected2 = append(key, Nel(event(2), event(3)))
-      val actual2 = read(key)(_.nonEmpty)
-      actual2 shouldEqual expected2.toList
-      lastSeqNr(key) shouldEqual Some(expected2.last.seqNr)
-    }
-
-    val numberOfEvents = 100
-
-    s"replicate append of $numberOfEvents events" in {
-      val key = Key(id = UUID.randomUUID().toString, topic = topic)
-      val events = for {
-        seqNr <- 1 to numberOfEvents
-      } yield {
-        event(seqNr, Payload("kafka-journal"))
-      }
-      val expected = append(key, Nel.unsafe(events))
-      val actual = read(key)(_.nonEmpty)
-      actual.fix shouldEqual expected.toList.fix
-
-      lastSeqNr(key) shouldEqual Some(events.last.seqNr)
-    }
-
     for {
-      (name, events) <- List(
-        ("empty", Nel(event(1))),
-        ("binary", Nel(event(1, Payload.Binary("binary")))),
-        ("text", Nel(event(1, Payload.Text("text")))),
-        ("json", Nel(event(1, Payload.Json("json")))),
-        ("empty-many", Nel(
-          event(1),
-          event(2),
-          event(3))),
-        ("binary-many", Nel(
-          event(1, Payload.Binary("1")),
-          event(2, Payload.Binary("2")),
-          event(3, Payload.Binary("3")))),
-        ("text-many", Nel(
-          event(1, Payload.Text("1")),
-          event(2, Payload.Text("2")),
-          event(3, Payload.Text("3")))),
-        ("json-many", Nel(
-          event(1, Payload.Json("1")),
-          event(2, Payload.Json("2")),
-          event(3, Payload.Json("3")))),
-        ("empty-binary-text-json", Nel(
-          event(1),
-          event(2, Payload.Binary("binary")),
-          event(3, Payload.Text("text")),
-          event(4, Payload.Json("json")))))
+      seqNr <- List(1, 2, 10)
     } {
-      s"consume event from kafka and replicate to eventual journal, payload: $name" in {
+
+      s"replicate events and then delete, seqNr: $seqNr" in {
+
         val key = Key(id = UUID.randomUUID().toString, topic = topic)
+
+        lastSeqNr(key) shouldEqual None
+
         val pointers = topicPointers()
-        val expected = append(key, events)
-        val partition = expected.head.partitionOffset.partition
-        val offsetBefore = pointers.getOrElse(partition, Offset.Min)
+
+        val expected1 = append(key, Nel(event(seqNr)))
+        val partitionOffset = expected1.head.partitionOffset
+        val partition = partitionOffset.partition
+
+        for {
+          offset <- pointers.get(partitionOffset.partition)
+        } partitionOffset.offset should be > offset
+
+        val actual1 = read(key)(_.nonEmpty)
+        actual1 shouldEqual expected1.toList
+        lastSeqNr(key) shouldEqual Some(expected1.last.seqNr)
+
+        journal.delete(key, expected1.last.event.seqNr, Instant.now()).get(timeout).map(_.partition) shouldEqual Some(partition)
+        read(key)(_.isEmpty) shouldEqual Nil
+        lastSeqNr(key) shouldEqual Some(expected1.last.seqNr)
+
+        val expected2 = append(key, Nel(event(seqNr + 1), event(seqNr + 2)))
+        val actual2 = read(key)(_.nonEmpty)
+        actual2 shouldEqual expected2.toList
+        lastSeqNr(key) shouldEqual Some(expected2.last.seqNr)
+      }
+
+      val numberOfEvents = 100
+
+      s"replicate append of $numberOfEvents events, seqNr: $seqNr" in {
+        val key = Key(id = UUID.randomUUID().toString, topic = topic)
+        val events = for {
+          n <- 0 until numberOfEvents
+        } yield {
+          event(seqNr + n, Payload("kafka-journal"))
+        }
+        val expected = append(key, Nel.unsafe(events))
         val actual = read(key)(_.nonEmpty)
         actual.fix shouldEqual expected.toList.fix
 
         lastSeqNr(key) shouldEqual Some(events.last.seqNr)
+      }
 
-        val offsetAfter = topicPointers().getOrElse(partition, Offset.Min)
-        offsetAfter should be > offsetBefore
+      for {
+        (name, events) <- List(
+          ("empty", Nel(event(seqNr))),
+          ("binary", Nel(event(seqNr, Payload.Binary("binary")))),
+          ("text", Nel(event(seqNr, Payload.Text("text")))),
+          ("json", Nel(event(seqNr, Payload.Json("json")))),
+          ("empty-many", Nel(
+            event(seqNr),
+            event(seqNr + 1),
+            event(seqNr + 2))),
+          ("binary-many", Nel(
+            event(seqNr, Payload.Binary("1")),
+            event(seqNr + 1, Payload.Binary("2")),
+            event(seqNr + 2, Payload.Binary("3")))),
+          ("text-many", Nel(
+            event(seqNr, Payload.Text("1")),
+            event(seqNr + 1, Payload.Text("2")),
+            event(seqNr + 2, Payload.Text("3")))),
+          ("json-many", Nel(
+            event(seqNr, Payload.Json("1")),
+            event(seqNr + 1, Payload.Json("2")),
+            event(seqNr + 2, Payload.Json("3")))),
+          ("empty-binary-text-json", Nel(
+            event(seqNr),
+            event(seqNr + 1, Payload.Binary("binary")),
+            event(seqNr + 2, Payload.Text("text")),
+            event(seqNr + 3, Payload.Json("json")))))
+      } {
+        s"consume event from kafka and replicate to eventual journal, seqNr: $seqNr, payload: $name" in {
+          val key = Key(id = UUID.randomUUID().toString, topic = topic)
+          val pointers = topicPointers()
+          val expected = append(key, events)
+          val partition = expected.head.partitionOffset.partition
+          val offsetBefore = pointers.getOrElse(partition, Offset.Min)
+          val actual = read(key)(_.nonEmpty)
+          actual.fix shouldEqual expected.toList.fix
+
+          lastSeqNr(key) shouldEqual Some(events.last.seqNr)
+
+          val offsetAfter = topicPointers().getOrElse(partition, Offset.Min)
+          offsetAfter should be > offsetBefore
+        }
       }
     }
   }
