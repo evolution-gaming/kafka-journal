@@ -5,11 +5,10 @@ import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.{AtomicWrite, PersistentRepr}
 import com.evolutiongaming.cassandra.CreateCluster
 import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.config.ConfigHelper._
 import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
-import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
+import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.ClientId
 import com.evolutiongaming.skafka.consumer.Consumer
@@ -17,7 +16,6 @@ import com.evolutiongaming.skafka.producer.Producer
 import com.typesafe.config.Config
 
 import scala.collection.immutable.Seq
-import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
@@ -26,7 +24,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
   import KafkaJournal._
 
   implicit val system: ActorSystem = context.system
-  implicit val ec: ExecutionContextExecutor = system.dispatcher
+  implicit val ec: ExecutionContextExecutor = context.dispatcher
 
   val log: ActorLog = ActorLog(system, classOf[KafkaJournal])
 
@@ -34,19 +32,12 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
     toKey(),
     origin(),
     serializer(),
-    journalConfig(),
+    kafkaJournalConfig(),
     metrics())
 
   def toKey(): ToKey = ToKey(config)
 
-  def cassandraConfig(): EventualCassandraConfig = {
-    config.getOpt[Config]("cassandra") match {
-      case Some(config) => EventualCassandraConfig(config)
-      case None         => EventualCassandraConfig.Default
-    }
-  }
-
-  def journalConfig() = JournalConfig(config)
+  def kafkaJournalConfig() = KafkaJournalConfig(config)
 
   def origin(): Option[Origin] = Some {
     Origin.HostName orElse Origin.AkkaHost(system) getOrElse Origin.AkkaName(system)
@@ -60,57 +51,54 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
     toKey: ToKey,
     origin: Option[Origin],
     serializer: EventSerializer,
-    journalConfig: JournalConfig,
+    config: KafkaJournalConfig,
     metrics: Metrics): JournalsAdapter = {
 
-    log.debug(s"Journal config: $journalConfig")
+    log.debug(s"Config: $config")
 
-    val ecBlocking = system.dispatchers.lookup("evolutiongaming.kafka-journal.persistence.journal.blocking-dispatcher")
+    val ecBlocking = system.dispatchers.lookup(config.blockingDispatcher)
 
     val producer = {
-      val config = journalConfig.producer
-      val producer = Producer(journalConfig.producer, ecBlocking)
+      val producerConfig = config.journal.producer
+      val producer = Producer(producerConfig, ecBlocking)
       metrics.producer.fold(producer) { metrics =>
-        val clientId = config.common.clientId getOrElse "journal"
+        val clientId = producerConfig.common.clientId getOrElse "journal"
         Producer(producer, metrics(clientId))
       }
     }
 
-    val closeTimeout = 10.seconds // TODO from config
-    val connectTimeout = 5.seconds // TODO from config
-
     system.registerOnTermination {
       val future = for {
         _ <- producer.flush()
-        _ <- producer.close(closeTimeout)
+        _ <- producer.close(config.stopTimeout)
       } yield ()
-      try Await.result(future, closeTimeout) catch {
+      try Await.result(future, config.stopTimeout) catch {
         case NonFatal(failure) => log.error(s"failed to shutdown producer $failure", failure)
       }
     }
 
     val topicConsumer = {
-      val config = journalConfig.consumer
+      val consumerConfig = config.journal.consumer
       val consumerMetrics = for {
         metrics <- metrics.consumer
       } yield {
-        val clientId = config.common.clientId getOrElse "journal"
+        val clientId = consumerConfig.common.clientId getOrElse "journal"
         metrics(clientId)
       }
-      TopicConsumer(journalConfig.consumer, ecBlocking, metrics = consumerMetrics)
+      TopicConsumer(consumerConfig, ecBlocking, metrics = consumerMetrics)
     }
 
     val eventualJournal: EventualJournal = {
-      val config = cassandraConfig()
-      val cluster = CreateCluster(config.client)
-      val session = Await.result(cluster.connect(), connectTimeout) // TODO handle this properly
+      val cassandraConfig = config.cassandra
+      val cluster = CreateCluster(cassandraConfig.client)
+      val session = Await.result(cluster.connect(), config.connectTimeout)
       system.registerOnTermination {
         val result = for {
           _ <- session.close()
           _ <- cluster.close()
         } yield {}
         try {
-          Await.result(result, closeTimeout)
+          Await.result(result, config.stopTimeout)
         } catch {
           case NonFatal(failure) => log.error(s"failed to shutdown cassandra $failure", failure)
         }
@@ -119,7 +107,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
       {
         val log = ActorLog(system, classOf[EventualJournal])
         val journal = {
-          val journal = EventualCassandra(session, config, Log(log))
+          val journal = EventualCassandra(session, cassandraConfig, Log(log))
           EventualJournal(journal, log)
         }
         metrics.eventual.fold(journal) { EventualJournal(journal, _) }
@@ -132,8 +120,8 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
         origin = origin,
         topicConsumer = topicConsumer,
         eventual = eventualJournal,
-        pollTimeout = journalConfig.pollTimeout,
-        closeTimeout = journalConfig.closeTimeout)
+        pollTimeout = config.journal.pollTimeout,
+        closeTimeout = config.journal.closeTimeout)
 
       metrics.journal.fold(journal) { Journal(journal, _) }
     }

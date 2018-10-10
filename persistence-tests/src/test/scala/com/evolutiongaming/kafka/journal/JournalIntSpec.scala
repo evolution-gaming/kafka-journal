@@ -3,10 +3,11 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 import java.util.UUID
 
+import akka.persistence.kafka.journal.KafkaJournalConfig
 import com.evolutiongaming.cassandra.CreateCluster
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.FoldWhileHelper.Switch
-import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
+import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.producer.Producer
@@ -25,20 +26,22 @@ class JournalIntSpec extends WordSpec with ActorSpec with Matchers {
 
   val origin = Origin("JournalIntSpec")
 
+  lazy val config = {
+    val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.persistence.journal")
+    KafkaJournalConfig(config)
+  }
+
   lazy val (journal, cassandra) = {
-    val conf = system.settings.config.getConfig("evolutiongaming.kafka-journal.persistence.journal")
     val (eventual, cassandra) = {
-      val config = EventualCassandraConfig(conf.getConfig("cassandra"))
-      val cassandra = CreateCluster(config.client)
-      val session = Await.result(cassandra.connect(), timeout)
-      val eventual = EventualCassandra(session, config, Log.empty(Async.unit))
+      val cassandraConfig = config.cassandra
+      val cassandra = CreateCluster(cassandraConfig.client)
+      val session = Await.result(cassandra.connect(), config.connectTimeout)
+      val eventual = EventualCassandra(session, cassandraConfig, Log.empty(Async.unit))
       (eventual, cassandra)
     }
-
-    val journalConfig = JournalConfig(conf)
-    val ecBlocking = system.dispatchers.lookup("evolutiongaming.kafka-journal.persistence.journal.blocking-dispatcher")
-    val producer = Producer(journalConfig.producer, ecBlocking)
-    val topicConsumer = TopicConsumer(journalConfig.consumer, ecBlocking)
+    val ecBlocking = system.dispatchers.lookup(config.blockingDispatcher)
+    val producer = Producer(config.journal.producer, ecBlocking)
+    val topicConsumer = TopicConsumer(config.journal.consumer, ecBlocking)
     val journal = Journal(producer, Some(origin), topicConsumer, eventual)
 
     (journal, cassandra)
@@ -52,7 +55,7 @@ class JournalIntSpec extends WordSpec with ActorSpec with Matchers {
 
   override def afterAll() = {
     Safe {
-      Await.result(cassandra.close(), timeout)
+      Await.result(cassandra.close(), config.stopTimeout)
     }
     super.afterAll()
   }

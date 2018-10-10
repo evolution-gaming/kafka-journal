@@ -34,6 +34,7 @@ object Replicator {
     val name = "evolutiongaming.kafka-journal.replicator"
     val config = ReplicatorConfig(system.settings.config.getConfig(name))
     val cassandra = CreateCluster(config.cassandra.client)
+    // TODO
     val ecBlocking = system.dispatchers.lookup(s"$name.blocking-dispatcher")
     implicit val ec = system.dispatcher
     for {
