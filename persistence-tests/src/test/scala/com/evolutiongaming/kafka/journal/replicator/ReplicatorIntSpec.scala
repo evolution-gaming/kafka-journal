@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal.replicator
 import java.time.Instant
 import java.util.UUID
 
+import akka.persistence.kafka.journal.KafkaJournalConfig
 import com.evolutiongaming.cassandra.CreateCluster
 import com.evolutiongaming.concurrent.FutureHelper._
 import com.evolutiongaming.concurrent.async.Async
@@ -10,7 +11,7 @@ import com.evolutiongaming.kafka.journal.FixEquality.Implicits._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper.Switch
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
-import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
+import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Offset
@@ -23,7 +24,10 @@ import scala.concurrent.duration._
 
 class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
 
-  lazy val conf = system.settings.config.getConfig("evolutiongaming.kafka-journal.replicator")
+  lazy val config = {
+    val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.replicator")
+    KafkaJournalConfig(config)
+  }
 
   implicit lazy val ec = system.dispatcher
 
@@ -32,11 +36,11 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
   val timeout = 30.seconds
 
   lazy val (eventual, session, cassandra) = {
-    val config = EventualCassandraConfig(conf.getConfig("cassandra"))
-    val cassandra = CreateCluster(config.client)
+    val cassandraConfig = config.cassandra
+    val cassandra = CreateCluster(cassandraConfig.client)
     val session = Await.result(cassandra.connect(), timeout)
     // TODO add EventualCassandra.close and simplify all
-    val eventual = EventualCassandra(session, config, Log.empty(Async.unit))
+    val eventual = EventualCassandra(session, cassandraConfig, Log.empty(Async.unit))
     (EventualJournal(eventual, log), session, cassandra)
   }
 
@@ -67,20 +71,19 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
     val origin = Origin(system.name)
 
     lazy val journal = {
-      val journalConfig = JournalConfig(conf)
-      val producer = Producer(journalConfig.producer, ec)
+      val producer = Producer(config.journal.producer, ec)
 
       // TODO we don't need consumer here...
-      val topicConsumer = TopicConsumer(journalConfig.consumer, ec, "replicator", None)
+      val topicConsumer = TopicConsumer(config.journal.consumer, ec, "replicator", None)
 
       val journal = Journal(
-        log = log, // TODO remove
+        log = log,
         Some(origin),
         producer = producer,
         topicConsumer = topicConsumer,
         eventual = eventual,
-        pollTimeout = 100.millis /*TODO*/ ,
-        closeTimeout = timeout /*TODO*/)
+        pollTimeout = config.journal.pollTimeout,
+        closeTimeout = config.journal.closeTimeout)
       Journal(journal, log)
     }
 
