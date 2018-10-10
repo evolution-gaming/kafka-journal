@@ -31,11 +31,12 @@ object Replicator {
     system: ActorSystem,
     metrics: Metrics[Async] = Metrics.empty[Async]): Async[Replicator] = safe {
 
-    val name = "evolutiongaming.kafka-journal.replicator"
-    val config = ReplicatorConfig(system.settings.config.getConfig(name))
+    val config = {
+      val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.replicator")
+      ReplicatorConfig(config)
+    }
     val cassandra = CreateCluster(config.cassandra.client)
-    // TODO
-    val ecBlocking = system.dispatchers.lookup(s"$name.blocking-dispatcher")
+    val ecBlocking = system.dispatchers.lookup(config.blockingDispatcher)
     implicit val ec = system.dispatcher
     for {
       session <- cassandra.connect().async

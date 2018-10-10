@@ -13,14 +13,18 @@ final case class ReplicatorConfig(
   topicDiscoveryInterval: FiniteDuration = 3.seconds,
   consumer: ConsumerConfig = ConsumerConfig.Default,
   cassandra: EventualCassandraConfig = EventualCassandraConfig.Default,
-  pollTimeout: FiniteDuration = 100.millis)
+  pollTimeout: FiniteDuration = 100.millis,
+  blockingDispatcher: String = "evolutiongaming.kafka-journal.replicator.default-blocking-dispatcher")
 
 object ReplicatorConfig {
 
   val Default: ReplicatorConfig = ReplicatorConfig()
 
-
   def apply(config: Config): ReplicatorConfig = {
+    apply(config, Default)
+  }
+
+  def apply(config: Config, default: => ReplicatorConfig): ReplicatorConfig = {
 
     def get[T: FromConf](name: String) = config.getOpt[T](name)
 
@@ -29,7 +33,7 @@ object ReplicatorConfig {
         prefixes <- get[List[String]]("topic-prefixes")
         prefixes <- Nel.opt(prefixes)
       } yield prefixes
-      prefixes getOrElse Default.topicPrefixes
+      prefixes getOrElse default.topicPrefixes
     }
 
     def consumer = {
@@ -40,14 +44,15 @@ object ReplicatorConfig {
         val config = consumer withFallback kafka
         ConsumerConfig(config)
       }
-      config getOrElse ConsumerConfig.Default
+      config getOrElse default.consumer
     }
 
     ReplicatorConfig(
       topicPrefixes = topicPrefixes,
-      topicDiscoveryInterval = get[FiniteDuration]("topic-discovery-interval") getOrElse Default.topicDiscoveryInterval,
+      topicDiscoveryInterval = get[FiniteDuration]("topic-discovery-interval") getOrElse default.topicDiscoveryInterval,
       consumer = consumer,
-      cassandra = get[Config]("cassandra").fold(Default.cassandra)(EventualCassandraConfig.apply),
-      pollTimeout = get[FiniteDuration]("kafka.consumer.poll-timeout") getOrElse Default.pollTimeout)
+      cassandra = get[Config]("cassandra").fold(default.cassandra)(EventualCassandraConfig.apply),
+      pollTimeout = get[FiniteDuration]("kafka.consumer.poll-timeout") getOrElse default.pollTimeout,
+      blockingDispatcher = get[String]("blocking-dispatcher") getOrElse default.blockingDispatcher)
   }
 }

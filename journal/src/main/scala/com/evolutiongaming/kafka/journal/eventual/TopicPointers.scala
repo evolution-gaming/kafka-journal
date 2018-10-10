@@ -1,10 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual
 
-import java.time.Instant
+import com.evolutiongaming.skafka.{Offset, Partition}
 
-import com.evolutiongaming.skafka.{Offset, Partition, TopicPartition}
-
-// TODO what to do if Offset is not in map ?
 final case class TopicPointers(values: Map[Partition, Offset] = Map.empty) {
 
   def +(that: TopicPointers): TopicPointers = {
@@ -20,7 +17,3 @@ final case class TopicPointers(values: Map[Partition, Offset] = Map.empty) {
 object TopicPointers {
   val Empty: TopicPointers = TopicPointers()
 }
-
-
-// TODO describe via ADT ?
-final case class UpdatePointers(timestamp: Instant, pointers: Map[TopicPartition, (Offset, Option[Instant])])

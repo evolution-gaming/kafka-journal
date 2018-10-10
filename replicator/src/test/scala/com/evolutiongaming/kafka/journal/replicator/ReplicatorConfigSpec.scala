@@ -24,7 +24,8 @@ class ReplicatorConfigSpec extends FunSuite with Matchers {
     val expected = ReplicatorConfig(
       topicPrefixes = Nel("prefix1", "prefix2"),
       topicDiscoveryInterval = 1.minute,
-      pollTimeout = 200.millis)
+      pollTimeout = 200.millis,
+      blockingDispatcher = "blocking-dispatcher")
     ReplicatorConfig(config) shouldEqual expected
   }
 
