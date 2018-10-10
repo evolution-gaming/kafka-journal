@@ -67,16 +67,27 @@ object Replicator {
     system: ActorSystem,
     ec: ExecutionContext): Replicator = {
 
-    val consumerOf = (config: ConsumerConfig) => {
-      val consumer = Consumer[Id, Bytes](config, ecBlocking)
-      metrics.consumer.fold(consumer) { Consumer(consumer, _) }
-    }
-
     val journal = {
       val journal = ReplicatedCassandra(session, config.cassandra)
       val actorLog = ActorLog(system, ReplicatedCassandra.getClass)
       val logging = ReplicatedJournal(journal, Log(actorLog))
       metrics.journal.fold(logging) { ReplicatedJournal(logging, _) }
+    }
+
+    apply(config, ecBlocking, journal, metrics)
+  }
+
+  def apply(
+    config: ReplicatorConfig,
+    ecBlocking: ExecutionContext,
+    journal: ReplicatedJournal[Async],
+    metrics: Metrics[Async])(implicit
+    system: ActorSystem,
+    ec: ExecutionContext): Replicator = {
+
+    val consumerOf = (config: ConsumerConfig) => {
+      val consumer = Consumer[Id, Bytes](config, ecBlocking)
+      metrics.consumer.fold(consumer) { Consumer(consumer, _) }
     }
 
     val createReplicator = (topic: Topic) => {
@@ -92,12 +103,11 @@ object Replicator {
         metrics = metrics.replicator.fold(TopicReplicator.Metrics.empty(Async.unit)) { _.apply(topic) })
     }
 
-    apply(config, session, consumerOf, createReplicator)
+    apply(config, consumerOf, createReplicator)
   }
 
   def apply(
     config: ReplicatorConfig,
-    session: Session,
     consumerOf: ConsumerConfig => Consumer[Id, Bytes],
     topicReplicatorOf: Topic => TopicReplicator[Async])(implicit
     system: ActorSystem, ec: ExecutionContext): Replicator = {
