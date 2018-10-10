@@ -5,7 +5,6 @@ import java.time.Instant
 import akka.persistence.journal.Tagged
 import akka.persistence.{AtomicWrite, PersistentRepr}
 import com.evolutiongaming.concurrent.FutureHelper._
-import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.nel.Nel
@@ -15,7 +14,7 @@ import scala.collection.immutable.Seq
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-trait JournalsAdapter {
+trait JournalAdapter {
 
   def write(messages: Seq[AtomicWrite]): Future[List[Try[Unit]]]
 
@@ -26,15 +25,15 @@ trait JournalsAdapter {
   def replay(persistenceId: String, range: SeqRange, max: Long)(f: PersistentRepr => Unit): Future[Unit]
 }
 
-object JournalsAdapter {
+object JournalAdapter {
 
   def apply(
     log: ActorLog,
     toKey: ToKey,
     journal: Journal,
-    serializer: EventSerializer)(implicit ec: ExecutionContext): JournalsAdapter = new JournalsAdapter {
+    serializer: EventSerializer)(implicit ec: ExecutionContext): JournalAdapter = new JournalAdapter {
 
-    def write(atomicWrites: Seq[AtomicWrite]) = {
+    def write(atomicWrites: Seq[AtomicWrite]) = Future {
       val timestamp = Instant.now()
       val persistentReprs = for {
         atomicWrite <- atomicWrites
@@ -54,19 +53,16 @@ object JournalsAdapter {
           s"write persistenceId: $persistenceId, seqNrs: $str"
         }
 
-        val async = Async.async {
-          val events = for {
-            persistentRepr <- persistentReprs
-          } yield {
-            serializer.toEvent(persistentRepr)
-          }
-          val nel = Nel(events.head, events.tail.toList)
-          val result = journal.append(key, nel, timestamp)
-          result.map(_ => Nil)
+        val events = for {
+          persistentRepr <- persistentReprs
+        } yield {
+          serializer.toEvent(persistentRepr)
         }
-        async.flatten.future
+        val nel = Nel(events.head, events.tail.toList)
+        val result = journal.append(key, nel, timestamp)
+        result.map(_ => Nil).future
       }
-    }
+    }.flatten
 
     def delete(persistenceId: PersistenceId, to: SeqNr) = {
       log.debug(s"delete persistenceId: $persistenceId, to: $to")

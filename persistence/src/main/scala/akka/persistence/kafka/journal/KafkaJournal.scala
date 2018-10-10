@@ -28,7 +28,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
 
   val log: ActorLog = ActorLog(system, classOf[KafkaJournal])
 
-  val adapter: JournalsAdapter = adapterOf(
+  val adapter: JournalAdapter = adapterOf(
     toKey(),
     origin(),
     serializer(),
@@ -52,7 +52,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
     origin: Option[Origin],
     serializer: EventSerializer,
     config: KafkaJournalConfig,
-    metrics: Metrics): JournalsAdapter = {
+    metrics: Metrics): JournalAdapter = {
 
     log.debug(s"Config: $config")
 
@@ -125,7 +125,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
 
       metrics.journal.fold(journal) { Journal(journal, _) }
     }
-    JournalsAdapter(log, toKey, journal, serializer)
+    JournalAdapter(log, toKey, journal, serializer)
   }
 
   // TODO optimise concurrent calls asyncReplayMessages & asyncReadHighestSequenceNr for the same persistenceId
