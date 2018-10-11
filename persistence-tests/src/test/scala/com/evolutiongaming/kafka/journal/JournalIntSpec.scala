@@ -112,6 +112,7 @@ class JournalIntSpec extends WordSpec with ActorSpec with Matchers {
             _ <- 0 to 10
           } yield Async.async {
             journal.read() shouldEqual events
+            journal.lastSeqNr() shouldEqual events.lastOption.map(_.seqNr)
           }
         }.get(timeout)
       }
