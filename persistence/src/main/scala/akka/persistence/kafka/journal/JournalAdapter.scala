@@ -33,40 +33,42 @@ object JournalAdapter {
     journal: Journal,
     serializer: EventSerializer)(implicit ec: ExecutionContext): JournalAdapter = new JournalAdapter {
 
-    def write(atomicWrites: Seq[AtomicWrite]) = Future {
+    def write(atomicWrites: Seq[AtomicWrite]) = {
       val timestamp = Instant.now()
-      val persistentReprs = for {
-        atomicWrite <- atomicWrites
-        persistentRepr <- atomicWrite.payload
-      } yield {
-        persistentRepr
-      }
-      if (persistentReprs.isEmpty) Future.nil
-      else {
-        val persistenceId = persistentReprs.head.persistenceId
-        val key = toKey(persistenceId)
-
-        log.debug {
-          val first = persistentReprs.head.sequenceNr
-          val last = persistentReprs.last.sequenceNr
-          val str = if (first == last) first else s"$first..$last"
-          s"write persistenceId: $persistenceId, seqNrs: $str"
-        }
-
-        val events = for {
-          persistentRepr <- persistentReprs
+      Future {
+        val persistentReprs = for {
+          atomicWrite <- atomicWrites
+          persistentRepr <- atomicWrite.payload
         } yield {
-          serializer.toEvent(persistentRepr)
+          persistentRepr
         }
-        val nel = Nel(events.head, events.tail.toList)
-        val result = journal.append(key, nel, timestamp)
-        result.map(_ => Nil).future
-      }
-    }.flatten
+        if (persistentReprs.isEmpty) Future.nil
+        else {
+          val persistenceId = persistentReprs.head.persistenceId
+          val key = toKey(persistenceId)
+
+          log.debug {
+            val first = persistentReprs.head.sequenceNr
+            val last = persistentReprs.last.sequenceNr
+            val str = if (first == last) first else s"$first..$last"
+            s"write persistenceId: $persistenceId, seqNrs: $str"
+          }
+
+          val events = for {
+            persistentRepr <- persistentReprs
+          } yield {
+            serializer.toEvent(persistentRepr)
+          }
+          val nel = Nel(events.head, events.tail.toList)
+          val result = journal.append(key, nel, timestamp)
+          result.map(_ => Nil).future
+        }
+      }.flatten
+    }
 
     def delete(persistenceId: PersistenceId, to: SeqNr) = {
       log.debug(s"delete persistenceId: $persistenceId, to: $to")
-      
+
       val timestamp = Instant.now()
       val key = toKey(persistenceId)
       journal.delete(key, to, timestamp).unit.future

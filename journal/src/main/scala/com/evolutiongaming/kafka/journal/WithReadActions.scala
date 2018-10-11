@@ -41,7 +41,7 @@ object WithReadActions {
 
         offset match {
           case None =>
-            log.warn(s"$key consuming from offset: 0")
+            log.debug(s"$key consuming from offset: 0")
             consumer.seekToBeginning(Nel(topicPartition))
 
           case Some(offset) =>

@@ -74,7 +74,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
       val producer = Producer(config.journal.producer, ec)
 
       // TODO we don't need consumer here...
-      val topicConsumer = TopicConsumer(config.journal.consumer, ec, "replicator", None)
+      val topicConsumer = TopicConsumer(config.journal.consumer, ec)
 
       val journal = Journal(
         log = log,

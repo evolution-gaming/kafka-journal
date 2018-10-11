@@ -30,7 +30,7 @@ final case class SeqNr(value: Long) extends Ordered[SeqNr] {
 
   override def toString: String = value.toString
 
-  private def map(f: Long => Long): Option[SeqNr] = SeqNr.opt(f(value))
+  def map(f: Long => Long): Option[SeqNr] = SeqNr.opt(f(value))
 }
 
 object SeqNr {

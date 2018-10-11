@@ -132,8 +132,8 @@ object Journal {
     origin: Option[Origin],
     topicConsumer: TopicConsumer,
     eventual: EventualJournal,
-    pollTimeout: FiniteDuration = 100.millis/*TODO remove*/,
-    closeTimeout: FiniteDuration = 10.seconds/*TODO remove*/)(implicit
+    pollTimeout: FiniteDuration,
+    closeTimeout: FiniteDuration)(implicit
     system: ActorSystem,
     ec: ExecutionContext): Journal = {
 
