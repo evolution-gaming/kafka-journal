@@ -19,7 +19,7 @@ object WithReadActionsOneByOne {
           case Some(offset) => actions.dropWhile(_.offset <= offset)
         }
 
-        def apply(id: Id) = {
+        def apply() = {
           left.dequeueOption.fold(Async.nil[ActionRecord[Action]]) { case (record, left) =>
             this.left = left
             List(record).async

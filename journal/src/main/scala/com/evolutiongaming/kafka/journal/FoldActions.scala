@@ -53,7 +53,7 @@ object FoldActions {
 
             val ff = (s: S) => {
               for {
-                actions <- readActions(key.id)
+                actions <- readActions()
               } yield {
                 actions.foldWhile(s) { case (s, action) =>
                   val switch = action.action match {

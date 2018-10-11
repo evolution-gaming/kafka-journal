@@ -50,8 +50,8 @@ object JournalAdapter {
           log.debug {
             val first = persistentReprs.head.sequenceNr
             val last = persistentReprs.last.sequenceNr
-            val str = if (first == last) first else s"$first..$last"
-            s"write persistenceId: $persistenceId, seqNrs: $str"
+            val seqNr = if (first == last) s"seqNr: $first" else s"seqNrs: $first..$last"
+            s"$persistenceId write, $seqNr"
           }
 
           val events = for {
@@ -67,7 +67,7 @@ object JournalAdapter {
     }
 
     def delete(persistenceId: PersistenceId, to: SeqNr) = {
-      log.debug(s"delete persistenceId: $persistenceId, to: $to")
+      log.debug(s"$persistenceId delete, to: $to")
 
       val timestamp = Instant.now()
       val key = toKey(persistenceId)
@@ -77,7 +77,7 @@ object JournalAdapter {
     def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)
       (callback: PersistentRepr => Unit): Future[Unit] = {
 
-      log.debug(s"replay persistenceId: $persistenceId, range: $range")
+      log.debug(s"$persistenceId replay, range: $range")
 
       val key = toKey(persistenceId)
       val fold: Fold[Long, Event] = (count, event) => {
@@ -96,6 +96,8 @@ object JournalAdapter {
     }
 
     def lastSeqNr(persistenceId: PersistenceId, from: SeqNr) = {
+      log.debug(s"$persistenceId lastSeqNr, from: $from")
+      
       val key = toKey(persistenceId)
       journal.lastSeqNr(key, from).future
     }

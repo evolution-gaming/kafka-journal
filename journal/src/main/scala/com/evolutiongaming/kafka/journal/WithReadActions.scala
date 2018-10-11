@@ -41,16 +41,16 @@ object WithReadActions {
 
         offset match {
           case None =>
-            log.debug(s"$key consuming from offset: 0")
+            log.debug(s"$key consuming from $partition:0")
             consumer.seekToBeginning(Nel(topicPartition))
 
           case Some(offset) =>
             val from = offset + 1
-            log.debug(s"$key consuming from offset: $from")
+            log.debug(s"$key consuming from $partition:$from")
             consumer.seek(topicPartition, from)
         }
 
-        val readKafka = ReadActions(consumer, pollTimeout, log)
+        val readKafka = ReadActions(key, consumer, pollTimeout, log)
         val result = f(readKafka)
         result.onComplete { _ =>
           consumer.close(closeTimeout).failed.foreach { failure =>

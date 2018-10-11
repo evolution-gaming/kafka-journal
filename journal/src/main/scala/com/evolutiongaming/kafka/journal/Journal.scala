@@ -175,6 +175,7 @@ object Journal {
         for {
           partitionOffset <- appendAction(action)
         } yield {
+          log.debug(s"$key mark, id: $id, offset $partitionOffset")
           Marker(id, partitionOffset)
         }
       }
