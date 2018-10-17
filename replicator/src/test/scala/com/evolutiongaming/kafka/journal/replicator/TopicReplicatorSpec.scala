@@ -501,6 +501,79 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
         stopped = true,
         pointers = pointers)
     }
+
+    "ignore already replicated data" in {
+      val records = {
+        val records = for {
+          partition <- 0 to 2
+        } yield {
+
+          def keyOf(id: String) = Key(id = s"$partition-$id", topic = topic)
+
+          def append(id: String, seqNrs: Nel[Int]) = {
+            val key = keyOf(id)
+            appendOf(key, seqNrs)
+          }
+
+          val topicPartition = topicPartitionOf(partition)
+
+          val actions = List(
+            append("0", Nel(1)),
+            append("1", Nel(1, 2)),
+            append("0", Nel(2)),
+            append("1", Nel(3)))
+
+          val records = for {
+            (action, offset) <- actions.zipWithIndex
+          } yield {
+            consumerRecordOf(action, topicPartition, offset.toLong)
+          }
+          (topicPartition, records)
+        }
+        ConsumerRecords(records.toMap)
+      }
+
+      val data = Data(
+        records = List(records),
+        pointers = Map((topic, TopicPointers(Map((0, 0l), (1, 1l), (2, 2l))))))
+      val io = topicReplicator.shutdown()
+      val (result, _) = io.run(data)
+
+      result shouldEqual Data(
+        topics = List(topic),
+        commits = List(Map(
+          (topicPartitionOf(0), offsetAndMetadata(4)),
+          (topicPartitionOf(1), offsetAndMetadata(4)),
+          (topicPartitionOf(2), offsetAndMetadata(4)))),
+        stopped = true,
+        pointers = Map((topic, TopicPointers(Map((0, 3l), (1, 3l), (2, 3l))))),
+        journal = Map(
+          (keyOf("0-0"), List(
+            replicated(seqNr = 2, partition = 0, offset = 2))),
+          (keyOf("0-1"), List(
+            replicated(seqNr = 1, partition = 0, offset = 1),
+            replicated(seqNr = 2, partition = 0, offset = 1),
+            replicated(seqNr = 3, partition = 0, offset = 3))),
+          (keyOf("1-0"), List(
+            replicated(seqNr = 2, partition = 1, offset = 2))),
+          (keyOf("1-1"), List(
+            replicated(seqNr = 3, partition = 1, offset = 3))),
+          (keyOf("2-1"), List(
+            replicated(seqNr = 3, partition = 2, offset = 3)))),
+        metadata = Map(
+          metadataOf("0-0", partition = 0, offset = 2),
+          metadataOf("0-1", partition = 0, offset = 3),
+          metadataOf("1-0", partition = 1, offset = 2),
+          metadataOf("1-1", partition = 1, offset = 3),
+          metadataOf("2-1", partition = 2, offset = 3)),
+        metrics = List(
+          Metrics.Round(records = 12),
+          Metrics.Append(partition = 1, events = 1, records = 1),
+          Metrics.Append(partition = 1, events = 1, records = 1),
+          Metrics.Append(partition = 0, events = 3, records = 2),
+          Metrics.Append(partition = 2, events = 1, records = 1),
+          Metrics.Append(partition = 0, events = 1, records = 1)))
+    }
   }
 
   private def consumerRecordOf(
@@ -513,8 +586,8 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
       topicPartition = topicPartition,
       offset = offset,
       timestampAndType = Some(timestampAndType),
-      key = producerRecord.key.map(WithSize(_, 0 /*TODO remove*/)),
-      value = producerRecord.value.map(WithSize(_, 0 /*TODO remove*/)),
+      key = producerRecord.key.map(WithSize(_)),
+      value = producerRecord.value.map(WithSize(_)),
       headers = producerRecord.headers)
   }
 

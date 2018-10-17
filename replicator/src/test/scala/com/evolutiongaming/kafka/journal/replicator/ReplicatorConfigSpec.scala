@@ -39,14 +39,14 @@ class ReplicatorConfigSpec extends FunSuite with Matchers {
     ReplicatorConfig(config) shouldEqual expected
   }
 
-  // TODO implement the same for persistence journal
   test("apply from reference.conf") {
     val config = ConfigFactory.load().getConfig("evolutiongaming.kafka-journal.replicator")
     val expected = ReplicatorConfig(
       consumer = ConsumerConfig(
-        common = CommonConfig(clientId = Some("replicator")),
+        common = CommonConfig(
+          clientId = Some("replicator"),
+          receiveBufferBytes = 1000000),
         groupId = Some("replicator"),
-        maxPollRecords = 200,
         autoCommit = false,
         autoOffsetReset = AutoOffsetReset.Earliest),
       cassandra = EventualCassandraConfig(

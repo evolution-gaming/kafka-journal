@@ -52,10 +52,10 @@ object Journal {
         tuple <- Latency { journal.append(key, events, timestamp) }
         (result, latency) = tuple
         _ = log.debug {
-          val head = events.head.seqNr
+          val first = events.head.seqNr
           val last = events.last.seqNr
-          val range = SeqRange(head, last)
-          s"$key append in ${ latency }ms, events: $range, timestamp: $timestamp, result: $result"
+          val seqNr = if (first == last) s"seqNr: $first" else s"seqNrs: $first..$last"
+          s"$key append in ${ latency }ms, $seqNr, timestamp: $timestamp, result: $result"
         }
       } yield result
     }
