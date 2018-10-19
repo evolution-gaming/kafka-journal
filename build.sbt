@@ -38,14 +38,13 @@ lazy val root = (project in file(".")
     `persistence-tests`,
     replicator,
     `replicator-prometheus`,
-    `eventual-cassandra`,
-    hostname))
+    `eventual-cassandra`))
 
 // TODO cleanup dependencies
 lazy val journal = (project in file("journal")
   settings (name := "kafka-journal")
   settings commonSettings
-  dependsOn (`cassandra-client`, hostname) // TODO move out to separate repositories
+  dependsOn `cassandra-client` // TODO move out to separate repositories
   settings (libraryDependencies ++= Seq(
     Akka.actor,
     Akka.stream,
@@ -60,7 +59,8 @@ lazy val journal = (project in file("journal")
     `play-json`,
     `scala-tools`,
     `future-helper`,
-    `safe-actor`)))
+    `safe-actor`,
+    hostname)))
 
 lazy val persistence = (project in file("persistence")
   settings (name := "kafka-journal-persistence")
@@ -122,8 +122,3 @@ lazy val `replicator-prometheus` = (project in file("replicator-prometheus")
   settings commonSettings
   dependsOn replicator
   settings (libraryDependencies ++= Seq(prometheus, Skafka.prometheus)))
-
-lazy val hostname = (project in file("hostname")
-  settings (name := "hostname")
-  settings commonSettings
-  settings (libraryDependencies ++= Seq(scalatest % Test)))

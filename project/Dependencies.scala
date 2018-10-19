@@ -28,6 +28,8 @@ object Dependencies {
 
   val `cassandra-launcher` = "com.evolutiongaming" %% "cassandra-launcher" % "0.0.1"
 
+  val hostname = "com.evolutiongaming" %% "hostname" % "0.1.0"
+
   val `cassandra-driver` = "com.datastax.cassandra" % "cassandra-driver-core" % "3.6.0"
 
   val prometheus = "io.prometheus" % "simpleclient" % "0.5.0"
