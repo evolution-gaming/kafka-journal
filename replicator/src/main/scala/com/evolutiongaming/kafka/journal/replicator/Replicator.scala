@@ -15,7 +15,7 @@ import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Topic, Bytes => _}
 
 import scala.compat.Platform
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 trait Replicator {
@@ -108,7 +108,7 @@ object Replicator {
 
   def apply(
     config: ReplicatorConfig,
-    consumerOf: ConsumerConfig => Consumer[Id, Bytes],
+    consumerOf: ConsumerConfig => Consumer[Id, Bytes, Future],
     topicReplicatorOf: Topic => TopicReplicator[Async])(implicit
     system: ActorSystem, ec: ExecutionContext): Replicator = {
 

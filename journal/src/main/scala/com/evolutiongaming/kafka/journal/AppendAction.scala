@@ -5,7 +5,7 @@ import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.skafka.producer.Producer
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 trait AppendAction[F[_]] {
   def apply(action: Action): F[PartitionOffset]
@@ -13,7 +13,7 @@ trait AppendAction[F[_]] {
 
 object AppendAction {
 
-  def apply(producer: Producer)(implicit ec: ExecutionContext): AppendAction[Async] = new AppendAction[Async] {
+  def apply(producer: Producer[Future])(implicit ec: ExecutionContext): AppendAction[Async] = new AppendAction[Async] {
 
     def apply(action: Action) = {
       val producerRecord = action.toProducerRecord

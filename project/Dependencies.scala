@@ -24,7 +24,7 @@ object Dependencies {
 
   val `safe-actor` = "com.evolutiongaming" %% "safe-actor" % "1.7"
 
-  val `kafka-launcher` = "com.evolutiongaming" %% "kafka-launcher" % "0.0.1"
+  val `kafka-launcher` = "com.evolutiongaming" %% "kafka-launcher" % "0.0.2"
 
   val `cassandra-launcher` = "com.evolutiongaming" %% "cassandra-launcher" % "0.0.1"
 
@@ -54,7 +54,7 @@ object Dependencies {
   }
 
   object Skafka {
-    private val version = "2.1.4"
+    private val version = "3.0.0"
     val skafka      = "com.evolutiongaming" %% "skafka" % version
     val prometheus  = "com.evolutiongaming" %% "skafka-prometheus" % version
   }

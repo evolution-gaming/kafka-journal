@@ -8,7 +8,7 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, OffsetAndMetadata, WithSize}
+import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, WithSize}
 import com.evolutiongaming.skafka.{Bytes => _, _}
 import org.scalatest.{Matchers, WordSpec}
 

@@ -16,7 +16,7 @@ import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.producer.Producer
 import com.evolutiongaming.skafka.{Bytes => _, _}
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 
 trait Journal {
@@ -128,7 +128,7 @@ object Journal {
 
 
   def apply(
-    producer: Producer,
+    producer: Producer[Future],
     origin: Option[Origin],
     topicConsumer: TopicConsumer,
     eventual: EventualJournal,
@@ -145,7 +145,7 @@ object Journal {
   def apply(
     log: ActorLog, // TODO remove
     origin: Option[Origin],
-    producer: Producer,
+    producer: Producer[Future],
     topicConsumer: TopicConsumer,
     eventual: EventualJournal,
     pollTimeout: FiniteDuration,

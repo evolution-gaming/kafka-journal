@@ -72,7 +72,7 @@ lazy val `persistence-tests` = (project in file("persistence-tests")
   settings (name := "kafka-journal-persistence-tests")
   settings commonSettings
   settings Seq(
-    skip / publish := true,
+    skip / publishArtifact := true,
     Test / fork := true,
     Test / parallelExecution := false)
   dependsOn (

@@ -6,7 +6,7 @@ import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer.Consumer
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
 
 trait ReadActions[F[_]] {
@@ -17,7 +17,7 @@ object ReadActions {
 
   def apply(
     key: Key,
-    consumer: Consumer[Id, Bytes],
+    consumer: Consumer[Id, Bytes, Future],
     timeout: FiniteDuration,
     log: ActorLog)(implicit ec: ExecutionContext): ReadActions[Async] = {
 
