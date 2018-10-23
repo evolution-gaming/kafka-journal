@@ -16,8 +16,8 @@ object EventualJournalMetrics {
       .help("Journal call latency in seconds")
       .labelNames("topic", "type")
       .quantile(0.5, 0.05)
-      .quantile(0.9, 0.01)
-      .quantile(0.99, 0.001)
+      .quantile(0.9, 0.05)
+      .quantile(0.99, 0.005)
       .register(registry)
 
     val eventsSummary = Summary.build()

@@ -16,8 +16,8 @@ object TopicReplicatorMetrics {
       .help("Replication latency in seconds")
       .labelNames("topic", "partition", "type")
       .quantile(0.5, 0.05)
-      .quantile(0.9, 0.01)
-      .quantile(0.99, 0.001)
+      .quantile(0.9, 0.05)
+      .quantile(0.99, 0.005)
       .register(registry)
 
     val deliverySummary = Summary.build()
@@ -25,8 +25,8 @@ object TopicReplicatorMetrics {
       .help("Delivery latency in seconds")
       .labelNames("topic", "partition", "type")
       .quantile(0.5, 0.05)
-      .quantile(0.9, 0.01)
-      .quantile(0.99, 0.001)
+      .quantile(0.9, 0.05)
+      .quantile(0.99, 0.005)
       .register(registry)
 
     val eventsSummary = Summary.build()
@@ -52,8 +52,8 @@ object TopicReplicatorMetrics {
       .help("Replication round duration")
       .labelNames("topic")
       .quantile(0.5, 0.05)
-      .quantile(0.9, 0.01)
-      .quantile(0.99, 0.001)
+      .quantile(0.9, 0.05)
+      .quantile(0.99, 0.005)
       .register(registry)
 
     val roundRecordsSummary = Summary.build()
