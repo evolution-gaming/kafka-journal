@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import com.evolutiongaming.cassandra.ReplicationStrategyConfig
+import com.evolutiongaming.scassandra.ReplicationStrategyConfig
 import com.typesafe.config.ConfigFactory
 import org.scalatest.{FunSuite, Matchers}
 

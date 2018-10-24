@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import com.datastax.driver.core.ConsistencyLevel
-import com.evolutiongaming.cassandra.{CassandraConfig, QueryConfig}
+import com.evolutiongaming.scassandra.{CassandraConfig, QueryConfig}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.CommonConfig

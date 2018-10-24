@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.replicator
 
 
 import akka.actor.ActorSystem
-import com.evolutiongaming.cassandra.{CreateCluster, Session}
+import com.evolutiongaming.scassandra.{CreateCluster, Session}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.concurrent.serially.SeriallyAsync

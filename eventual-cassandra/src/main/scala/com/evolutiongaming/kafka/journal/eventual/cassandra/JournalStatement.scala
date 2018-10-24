@@ -4,7 +4,7 @@ import java.lang.{Long => LongJ}
 import java.time.Instant
 
 import com.datastax.driver.core.BatchStatement
-import com.evolutiongaming.cassandra.CassandraHelper._
+import com.evolutiongaming.scassandra.CassandraHelper._
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal._

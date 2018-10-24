@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import com.evolutiongaming.cassandra.{Decode, DecodeRow, Encode, EncodeRow}
+import com.evolutiongaming.scassandra.{Decode, DecodeRow, Encode, EncodeRow}
 import com.evolutiongaming.kafka.journal.SeqNr
 
 import scala.collection.immutable.Seq

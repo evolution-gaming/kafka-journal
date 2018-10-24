@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
 import com.datastax.driver.core.{BoundStatement, Row}
-import com.evolutiongaming.cassandra.CassandraHelper._
-import com.evolutiongaming.cassandra.{DecodeRow, EncodeRow}
+import com.evolutiongaming.scassandra.CassandraHelper._
+import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow}
 import com.evolutiongaming.skafka.consumer.ConsumerRecord
 import com.evolutiongaming.skafka.{Offset, Partition}
 

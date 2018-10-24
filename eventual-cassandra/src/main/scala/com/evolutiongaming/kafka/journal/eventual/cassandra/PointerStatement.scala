@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import com.evolutiongaming.cassandra.CassandraHelper._
+import com.evolutiongaming.scassandra.CassandraHelper._
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}

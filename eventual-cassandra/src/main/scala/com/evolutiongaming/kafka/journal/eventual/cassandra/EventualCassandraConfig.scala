@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import com.evolutiongaming.cassandra.CassandraConfig
+import com.evolutiongaming.scassandra.CassandraConfig
 import com.evolutiongaming.config.ConfigHelper._
 import com.typesafe.config.Config
 

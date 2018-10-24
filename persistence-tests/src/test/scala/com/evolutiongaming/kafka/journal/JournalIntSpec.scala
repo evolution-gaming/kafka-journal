@@ -4,7 +4,7 @@ import java.time.Instant
 import java.util.UUID
 
 import akka.persistence.kafka.journal.KafkaJournalConfig
-import com.evolutiongaming.cassandra.CreateCluster
+import com.evolutiongaming.scassandra.CreateCluster
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.FoldWhileHelper.Switch
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
