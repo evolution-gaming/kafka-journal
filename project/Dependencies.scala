@@ -22,7 +22,7 @@ object Dependencies {
 
   val serially = "com.evolutiongaming" %% "serially" % "1.0.4"
 
-  val `safe-actor` = "com.evolutiongaming" %% "safe-actor" % "1.7"
+  val `safe-actor` = "com.evolutiongaming" %% "safe-actor" % "1.8.1"
 
   val `kafka-launcher` = "com.evolutiongaming" %% "kafka-launcher" % "0.0.2"
 
