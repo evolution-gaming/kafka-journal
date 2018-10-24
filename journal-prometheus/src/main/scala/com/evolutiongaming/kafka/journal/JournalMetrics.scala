@@ -16,6 +16,7 @@ object JournalMetrics {
       .labelNames("topic", "type")
       .quantile(0.5, 0.05)
       .quantile(0.9, 0.05)
+      .quantile(0.95, 0.01)
       .quantile(0.99, 0.005)
       .register(registry)
 
