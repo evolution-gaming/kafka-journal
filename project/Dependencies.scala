@@ -56,7 +56,7 @@ object Dependencies {
   }
 
   object Skafka {
-    private val version = "3.0.1"
+    private val version = "3.0.2"
     val skafka      = "com.evolutiongaming" %% "skafka" % version
     val prometheus  = "com.evolutiongaming" %% "skafka-prometheus" % version
   }
