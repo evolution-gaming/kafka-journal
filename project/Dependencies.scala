@@ -16,13 +16,13 @@ object Dependencies {
 
   val `scala-tools` = "com.evolutiongaming" %% "scala-tools" % "2.2"
 
-  val nel = "com.evolutiongaming" %% "nel" % "1.3.2"
+  val nel = "com.evolutiongaming" %% "nel" % "1.3.3"
 
   val `future-helper` = "com.evolutiongaming" %% "future-helper" % "1.0.3"
 
   val serially = "com.evolutiongaming" %% "serially" % "1.0.4"
 
-  val `safe-actor` = "com.evolutiongaming" %% "safe-actor" % "1.8.1"
+  val `safe-actor` = "com.evolutiongaming" %% "safe-actor" % "2.0.0"
 
   val `kafka-launcher` = "com.evolutiongaming" %% "kafka-launcher" % "0.0.2"
 
