@@ -147,7 +147,7 @@ object JournalIntSpec {
       }
 
       def lastSeqNr() = {
-        journal.lastSeqNr(key, SeqNr.Min).get(timeout)
+        journal.pointer(key, SeqNr.Min).get(timeout)
       }
 
       def delete(to: SeqNr) = {

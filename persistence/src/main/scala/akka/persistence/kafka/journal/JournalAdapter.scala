@@ -99,7 +99,7 @@ object JournalAdapter {
       log.debug(s"$persistenceId lastSeqNr, from: $from")
       
       val key = toKey(persistenceId)
-      journal.lastSeqNr(key, from).future
+      journal.pointer(key, from).future
     }
   }
 }

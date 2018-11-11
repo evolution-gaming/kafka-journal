@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import com.evolutiongaming.kafka.journal.MetricsHelper._
 import com.evolutiongaming.skafka.Topic
-import io.prometheus.client.{CollectorRegistry, Summary}
+import io.prometheus.client.{CollectorRegistry, Counter, Summary}
 
 object JournalMetrics {
 
@@ -26,10 +26,19 @@ object JournalMetrics {
       .labelNames("topic", "type")
       .register(registry)
 
+    val resultCounter = Counter.build()
+      .name(s"${ prefix }_results")
+      .help("Call result: success or failure")
+      .labelNames("topic", "type", "result")
+      .register(registry)
+
     def observeLatency(name: String, topic: Topic, latency: Long) = {
       latencySummary
         .labels(topic, name)
         .observe(latency.toSeconds)
+      resultCounter
+        .labels(topic, name, "success")
+        .inc()
     }
 
     def observeEvents(name: String, topic: Topic, events: Int) = {
@@ -59,6 +68,13 @@ object JournalMetrics {
 
       def delete(topic: Topic, latency: Long) = {
         observeLatency(name = "delete", topic = topic, latency = latency)
+        unit
+      }
+
+      def failure(name: String, topic: Topic) = {
+        resultCounter
+          .labels(topic, name, "failure")
+          .inc()
         unit
       }
     }

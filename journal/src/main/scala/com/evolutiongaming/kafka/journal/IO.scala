@@ -20,7 +20,7 @@ trait IO[F[_]] extends FlatMap[F] {
 
   def foldWhile[S](s: S)(f: S => F[Switch[S]]): F[S]
 
-  def catchAll[A, B >: A](fa: F[A], f: Throwable => F[B]): F[B]
+  def flatMapFailure[A, B >: A](fa: F[A], f: Throwable => F[B]): F[B]
 }
 
 object IO {
@@ -32,7 +32,7 @@ object IO {
     implicit class IOOps[A, F[_]](fa: F[A]) {
       def map[B](f: A => B)(implicit F: IO[F]): F[B] = F.map(fa, f)
       def flatMap[B](afb: A => F[B])(implicit F: IO[F]): F[B] = F.flatMap(fa, afb)
-      def catchAll[B >: A](ftb: Throwable => F[B])(implicit F: IO[F]): F[B] = F.catchAll(fa, ftb)
+      def catchAll[B >: A](ftb: Throwable => F[B])(implicit F: IO[F]): F[B] = F.flatMapFailure(fa, ftb)
     }
 
     implicit class IOIdOps[A](val self: A) extends AnyVal {

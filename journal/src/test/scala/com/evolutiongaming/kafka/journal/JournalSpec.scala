@@ -366,7 +366,7 @@ object JournalSpec {
           result.get()
         }
 
-        def lastSeqNr(from: SeqNr) = journal.lastSeqNr(key, from).get()
+        def lastSeqNr(from: SeqNr) = journal.pointer(key, from).get()
 
         def delete(to: SeqNr) = {
           journal.delete(key, to, timestamp).get().map(_.offset)

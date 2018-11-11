@@ -109,7 +109,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
       }
     }
 
-    def lastSeqNr(key: Key) = journal.lastSeqNr(key, SeqNr.Min).get(timeout)
+    def pointer(key: Key) = journal.pointer(key, SeqNr.Min).get(timeout)
 
     def topicPointers() = eventual.pointers(topic).get(timeout).values
 
@@ -121,7 +121,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
 
         val key = Key(id = UUID.randomUUID().toString, topic = topic)
 
-        lastSeqNr(key) shouldEqual None
+        pointer(key) shouldEqual None
 
         val pointers = topicPointers()
 
@@ -135,16 +135,16 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
 
         val actual1 = read(key)(_.nonEmpty)
         actual1 shouldEqual expected1.toList
-        lastSeqNr(key) shouldEqual Some(expected1.last.seqNr)
+        pointer(key) shouldEqual Some(expected1.last.seqNr)
 
         journal.delete(key, expected1.last.event.seqNr, Instant.now()).get(timeout).map(_.partition) shouldEqual Some(partition)
         read(key)(_.isEmpty) shouldEqual Nil
-        lastSeqNr(key) shouldEqual Some(expected1.last.seqNr)
+        pointer(key) shouldEqual Some(expected1.last.seqNr)
 
         val expected2 = append(key, Nel(event(seqNr + 1), event(seqNr + 2)))
         val actual2 = read(key)(_.nonEmpty)
         actual2 shouldEqual expected2.toList
-        lastSeqNr(key) shouldEqual Some(expected2.last.seqNr)
+        pointer(key) shouldEqual Some(expected2.last.seqNr)
       }
 
       val numberOfEvents = 100
@@ -160,7 +160,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
         val actual = read(key)(_.nonEmpty)
         actual.fix shouldEqual expected.toList.fix
 
-        lastSeqNr(key) shouldEqual Some(events.last.seqNr)
+        pointer(key) shouldEqual Some(events.last.seqNr)
       }
 
       for {
@@ -200,7 +200,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
           val actual = read(key)(_.nonEmpty)
           actual.fix shouldEqual expected.toList.fix
 
-          lastSeqNr(key) shouldEqual Some(events.last.seqNr)
+          pointer(key) shouldEqual Some(events.last.seqNr)
 
           val offsetAfter = topicPointers().getOrElse(partition, Offset.Min)
           offsetAfter should be > offsetBefore

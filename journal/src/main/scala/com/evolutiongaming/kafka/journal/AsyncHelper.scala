@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal
 
 import com.evolutiongaming.concurrent.async.Async
+import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 
 import scala.concurrent.{ExecutionContext, Future}
-import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 
 object AsyncHelper {
 
@@ -19,18 +19,11 @@ object AsyncHelper {
     // TODO fix this
     override def foldUnit[A](iter: Iterable[Async[A]]) = Async.foldUnit(iter)
     def foldWhile[S](s: S)(f: S => Async[FoldWhileHelper.Switch[S]]) = f.foldWhile(s)
-    def catchAll[A, B >: A](fa: Async[A], f: Throwable => Async[B]) = fa.catchAll(f)
+    def flatMapFailure[A, B >: A](fa: Async[A], f: Throwable => Async[B]) = fa.flatMapFailure(f)
   }
 
 
   implicit def futureToAsync(implicit ec: ExecutionContext): AdaptFuture[Async] = new AdaptFuture[Async] {
     def apply[A](future: Future[A]) = Async(future)
-  }
-
-  implicit class AsyncIdOps[A](val self: Async[A]) extends AnyVal {
-
-    def catchAll[B >: A](f: Throwable => Async[B]): Async[B] = {
-      self.redeem(f, Async(_))
-    }
   }
 }

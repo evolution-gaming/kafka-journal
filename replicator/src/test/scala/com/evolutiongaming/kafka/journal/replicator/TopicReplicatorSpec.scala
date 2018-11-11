@@ -834,7 +834,7 @@ object TopicReplicatorSpec {
       TestIO { a => self.run(a) match { case (b, a) => afb(a).run(b) } }
     }
 
-    def catchAll[B >: A](f: Throwable => TestIO[B]): TestIO[B] = {
+    def flatMapFailure[B >: A](f: Throwable => TestIO[B]): TestIO[B] = {
       TestIO { data =>
         try self.run(data) catch { case NonFatal(failure) => f(failure).run(data) }
       }
@@ -871,7 +871,7 @@ object TopicReplicatorSpec {
         loop(s)
       }
 
-      def catchAll[A, B >: A](fa: TestIO[A], f: Throwable => TestIO[B]) = fa.catchAll(f)
+      def flatMapFailure[A, B >: A](fa: TestIO[A], f: Throwable => TestIO[B]) = fa.flatMapFailure(f)
     }
   }
 
