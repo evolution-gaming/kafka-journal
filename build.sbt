@@ -39,14 +39,13 @@ lazy val root = (project in file(".")
     `replicator-prometheus`,
     `eventual-cassandra`))
 
-// TODO cleanup dependencies
 lazy val journal = (project in file("journal")
   settings (name := "kafka-journal")
   settings commonSettings
   settings (libraryDependencies ++= Seq(
     Akka.actor,
     Akka.stream,
-    Akka.tck,
+    Akka.testkit % Test,
     Akka.slf4j % Test,
     Skafka.skafka,
     scalatest % Test,
@@ -80,7 +79,8 @@ lazy val `persistence-tests` = (project in file("persistence-tests")
   settings (libraryDependencies ++= Seq(
     `kafka-launcher` % Test,
     `cassandra-launcher` % Test,
-    Slf4j.api % Test,
+    scalatest % Test,
+    Akka.`persistence-tck` % Test,
     Slf4j.`log4j-over-slf4j` % Test,
     Logback.core % Test,
     Logback.classic % Test,
@@ -102,10 +102,15 @@ lazy val `journal-prometheus` = (project in file("journal-prometheus")
   settings (name := "kafka-journal-prometheus")
   settings commonSettings
   dependsOn journal
-  settings (libraryDependencies ++= Seq(prometheus)))
+  settings (libraryDependencies ++= Seq(
+    prometheus,
+    scalatest % Test)))
 
 lazy val `replicator-prometheus` = (project in file("replicator-prometheus")
   settings (name := "kafka-journal-replicator-prometheus")
   settings commonSettings
   dependsOn replicator
-  settings (libraryDependencies ++= Seq(prometheus, Skafka.prometheus)))
+  settings (libraryDependencies ++= Seq(
+    prometheus,
+    Skafka.prometheus,
+    scalatest % Test)))
