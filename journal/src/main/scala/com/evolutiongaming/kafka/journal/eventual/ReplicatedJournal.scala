@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual
 
 import java.time.Instant
 
+import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.FlatMap._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.nel.Nel
@@ -22,6 +23,20 @@ trait ReplicatedJournal[F[_]] {
 }
 
 object ReplicatedJournal {
+
+  def empty: ReplicatedJournal[Async] = new ReplicatedJournal[Async] {
+
+    def topics() = Async.nil
+
+    def pointers(topic: Topic) = Async(TopicPointers.Empty)
+
+    def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[ReplicatedEvent]) = Async.unit
+
+    def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = Async.unit
+
+    def save(topic: Topic, pointers: TopicPointers, timestamp: Instant) = Async.unit
+  }
+  
 
   def apply[F[_]](implicit F: ReplicatedJournal[F]): ReplicatedJournal[F] = F
 

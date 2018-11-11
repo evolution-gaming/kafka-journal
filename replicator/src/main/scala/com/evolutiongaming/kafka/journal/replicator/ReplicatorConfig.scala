@@ -13,7 +13,7 @@ final case class ReplicatorConfig(
   topicDiscoveryInterval: FiniteDuration = 3.seconds,
   consumer: ConsumerConfig = ConsumerConfig.Default,
   cassandra: EventualCassandraConfig = EventualCassandraConfig.Default,
-  pollTimeout: FiniteDuration = 100.millis,
+  pollTimeout: FiniteDuration = 50.millis,
   blockingDispatcher: String = "evolutiongaming.kafka-journal.replicator.default-blocking-dispatcher")
 
 object ReplicatorConfig {
