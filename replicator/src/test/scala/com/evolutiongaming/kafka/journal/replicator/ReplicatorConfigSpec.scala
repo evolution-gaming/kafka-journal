@@ -45,8 +45,7 @@ class ReplicatorConfigSpec extends FunSuite with Matchers {
       consumer = ConsumerConfig(
         common = CommonConfig(
           clientId = Some("replicator"),
-          receiveBufferBytes = 1000000,
-          requestTimeout = 5.seconds),
+          receiveBufferBytes = 1000000),
         groupId = Some("replicator"),
         autoCommit = false,
         autoOffsetReset = AutoOffsetReset.Earliest),
