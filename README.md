@@ -48,6 +48,21 @@ We may share same kafka consumer for many simultaneous recoveries
 Hence we recommend to configure access rights accordingly.
 
 
+## Troubleshooting
+
+### Kafka exceptions in logs
+
+Kafka client is tend to log some exceptions at `error` level, however in reality those are harmless in case of operation retried successfully
+Retriable exceptions usually extend [RetriableException](https://github.com/apache/kafka/blob/trunk/clients/src/main/java/org/apache/kafka/common/errors/RetriableException.java)
+
+Here is the list of known error logs you may ignore:
+
+* Offset commit failed on partition .. at offset ..: The request timed out.
+* Offset commit failed on partition .. at offset ..: The coordinator is loading and hence can't process requests.
+* Offset commit failed on partition .. at offset ..: This is not the correct coordinator.
+* Offset commit failed on partition .. at offset ..: This server does not host this topic-partition. 
+
+
 ## Akka persistence plugin
 
 In order to use kafka-journal as [akka persistence plugin](https://doc.akka.io/docs/akka/2.5/persistence.html#storage-plugins) you would need to add following to your `*.conf` file:
