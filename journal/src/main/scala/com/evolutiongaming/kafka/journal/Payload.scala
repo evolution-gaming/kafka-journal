@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.scassandra.{Decode, Encode}
 import com.evolutiongaming.kafka.journal.PlayJsonHelper._
+import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
 import play.api.libs.json._
 
 sealed trait Payload {
@@ -35,9 +35,9 @@ object Payload {
     implicit val FromBytesImpl: FromBytes[Binary] = FromBytes[Bytes].map(Binary(_))
 
 
-    implicit val EncodeImpl: Encode[Binary] = Encode[Bytes].imap(_.value)
+    implicit val EncodeImpl: EncodeByName[Binary] = EncodeByName[Bytes].imap(_.value)
 
-    implicit val DecodeImpl: Decode[Binary] = Decode[Bytes].map(Binary(_))
+    implicit val DecodeImpl: DecodeByName[Binary] = DecodeByName[Bytes].map(Binary(_))
 
 
     def apply[A](a: A)(implicit toBytes: ToBytes[A]): Binary = Binary(toBytes(a))
@@ -55,9 +55,9 @@ object Payload {
     implicit val FromBytesImpl: FromBytes[Text] = FromBytes[String].map(Text(_))
     
 
-    implicit val EncodeImpl: Encode[Text] = Encode[String].imap(_.value)
+    implicit val EncodeImpl: EncodeByName[Text] = EncodeByName[String].imap(_.value)
 
-    implicit val DecodeImpl: Decode[Text] = Decode[String].map(Text(_))
+    implicit val DecodeImpl: DecodeByName[Text] = DecodeByName[String].map(Text(_))
   }
 
 
@@ -72,9 +72,9 @@ object Payload {
     implicit val FromBytesImpl: FromBytes[Json] = FromBytes[JsValue].map(Json(_))
 
 
-    implicit val EncodeImpl: Encode[Json] = Encode[JsValue].imap(_.value)
+    implicit val EncodeImpl: EncodeByName[Json] = EncodeByName[JsValue].imap(_.value)
 
-    implicit val DecodeImpl: Decode[Json] = Decode[JsValue].map(Json(_))
+    implicit val DecodeImpl: DecodeByName[Json] = DecodeByName[JsValue].map(Json(_))
 
 
     implicit val WritesImpl: Writes[Json] = WritesOf[JsValue].imap(_.value)
@@ -99,9 +99,9 @@ object PayloadType {
   private val byName = Values.map(value => (value.name, value)).toMap
 
 
-  implicit val EncodeImp: Encode[PayloadType] = Encode[String].imap { _.name }
+  implicit val EncodeImp: EncodeByName[PayloadType] = EncodeByName[String].imap { _.name }
 
-  implicit val DecodeImp: Decode[PayloadType] = Decode[String].map { name =>
+  implicit val DecodeImp: DecodeByName[PayloadType] = DecodeByName[String].map { name =>
     apply(name) getOrElse Binary
   }
 

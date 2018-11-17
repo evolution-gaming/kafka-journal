@@ -4,12 +4,13 @@ import java.lang.{Long => LongJ}
 import java.time.Instant
 
 import com.datastax.driver.core.BatchStatement
-import com.evolutiongaming.scassandra.CassandraHelper._
+import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.nel.Nel
+import com.evolutiongaming.scassandra.TableName
 import play.api.libs.json.Json
 
 import scala.concurrent.ExecutionContext
@@ -19,7 +20,7 @@ object JournalStatement {
   // TODO store metadata as json text
   def createTable(name: TableName): String = {
     s"""
-       |CREATE TABLE IF NOT EXISTS ${ name.asCql } (
+       |CREATE TABLE IF NOT EXISTS ${ name.toCql } (
        |id text,
        |topic text,
        |segment bigint,
@@ -47,7 +48,7 @@ object JournalStatement {
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
       val query =
         s"""
-           |INSERT INTO ${ name.asCql } (
+           |INSERT INTO ${ name.toCql } (
            |id,
            |topic,
            |segment,
@@ -126,7 +127,7 @@ object JournalStatement {
       val query =
         s"""
            |SELECT seq_nr, partition, offset
-           |FROM ${ name.asCql }
+           |FROM ${ name.toCql }
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?
@@ -176,7 +177,7 @@ object JournalStatement {
            |tags,
            |payload_type,
            |payload_txt,
-           |payload_bin FROM ${ name.asCql }
+           |payload_bin FROM ${ name.toCql }
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?
@@ -232,7 +233,7 @@ object JournalStatement {
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
       val query =
         s"""
-           |DELETE FROM ${ name.asCql }
+           |DELETE FROM ${ name.toCql }
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?

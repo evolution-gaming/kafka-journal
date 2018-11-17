@@ -1,14 +1,14 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.scassandra.{Decode, Encode}
 import com.evolutiongaming.nel.Nel
+import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
 import play.api.libs.json._
 
 object PlayJsonHelper {
 
-  implicit val JsonEncode: Encode[JsValue] = Encode[String].imap(Json.stringify)
+  implicit val JsonEncode: EncodeByName[JsValue] = EncodeByName[String].imap(Json.stringify)
 
-  implicit val JsonDecode: Decode[JsValue] = Decode[String].map(Json.parse)
+  implicit val JsonDecode: DecodeByName[JsValue] = DecodeByName[String].map(Json.parse)
 
 
   object ReadsOf {

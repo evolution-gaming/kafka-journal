@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import akka.actor.{ActorSystem, ExtendedActorSystem, Extension, ExtensionId}
-import com.evolutiongaming.scassandra.{Decode, DecodeRow, Encode, EncodeRow}
+import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
 import com.evolutiongaming.hostname
 import com.evolutiongaming.kafka.journal.PlayJsonHelper._
 import play.api.libs.json._
@@ -24,14 +24,14 @@ object Origin {
   implicit val ReadsImpl: Reads[Origin] = ReadsOf[String].mapResult(a => JsSuccess(Origin(a)))
 
 
-  implicit val EncodeImpl: Encode[Origin] = Encode[String].imap((b: Origin) => b.value)
+  implicit val EncodeImpl: EncodeByName[Origin] = EncodeByName[String].imap((b: Origin) => b.value)
 
-  implicit val DecodeImpl: Decode[Origin] = Decode[String].map(value => Origin(value))
+  implicit val DecodeImpl: DecodeByName[Origin] = DecodeByName[String].map(value => Origin(value))
 
 
-  implicit val EncodeOptImpl: Encode[Option[Origin]] = Encode.opt[Origin]
+  implicit val EncodeOptImpl: EncodeByName[Option[Origin]] = EncodeByName.opt[Origin]
 
-  implicit val DecodeOptImpl: Decode[Option[Origin]] = Decode.opt[Origin]
+  implicit val DecodeOptImpl: DecodeByName[Option[Origin]] = DecodeByName.opt[Origin]
 
 
   implicit val EncodeRowImpl: EncodeRow[Origin] = EncodeRow("origin")

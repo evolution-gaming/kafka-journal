@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.scassandra.{Decode, DecodeRow, Encode, EncodeRow}
+import com.evolutiongaming.scassandra._
 import com.evolutiongaming.kafka.journal.PlayJsonHelper._
 import play.api.libs.json._
 
@@ -37,14 +37,14 @@ object SeqNr {
   val Max: SeqNr = SeqNr(Long.MaxValue)
   val Min: SeqNr = SeqNr(1l)
 
-  implicit val EncodeImpl: Encode[SeqNr] = Encode[Long].imap((seqNr: SeqNr) => seqNr.value)
+  implicit val EncodeImpl: EncodeByName[SeqNr] = EncodeByName[Long].imap((seqNr: SeqNr) => seqNr.value)
 
-  implicit val DecodeImpl: Decode[SeqNr] = Decode[Long].map(value => SeqNr(value))
+  implicit val DecodeImpl: DecodeByName[SeqNr] = DecodeByName[Long].map(value => SeqNr(value))
 
 
-  implicit val EncodeOptImpl: Encode[Option[SeqNr]] = Encode.opt[SeqNr]
+  implicit val EncodeOptImpl: EncodeByName[Option[SeqNr]] = EncodeByName.opt[SeqNr]
 
-  implicit val DecodeOptImpl: Decode[Option[SeqNr]] = Decode[Option[Long]].map { value =>
+  implicit val DecodeOptImpl: DecodeByName[Option[SeqNr]] = DecodeByName[Option[Long]].map { value =>
     for {
       value <- value
       seqNr <- SeqNr.opt(value)

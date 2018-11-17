@@ -3,9 +3,10 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
-import com.evolutiongaming.scassandra.CassandraHelper._
+import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.{Key, Origin, PartitionOffset, SeqNr}
+import com.evolutiongaming.scassandra.TableName
 
 
 object MetadataStatement {
@@ -13,7 +14,7 @@ object MetadataStatement {
   // TODO make use of partition and offset
   def createTable(name: TableName): String = {
     s"""
-       |CREATE TABLE IF NOT EXISTS ${ name.asCql } (
+       |CREATE TABLE IF NOT EXISTS ${ name.toCql } (
        |id text,
        |topic text,
        |partition int,
@@ -38,7 +39,7 @@ object MetadataStatement {
 
       val query =
         s"""
-           |INSERT INTO ${ name.asCql } (id, topic, partition, offset, segment_size, seq_nr, delete_to, created, updated, origin, properties)
+           |INSERT INTO ${ name.toCql } (id, topic, partition, offset, segment_size, seq_nr, delete_to, created, updated, origin, properties)
            |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            |""".stripMargin
 
@@ -68,7 +69,7 @@ object MetadataStatement {
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
       val query =
         s"""
-           |SELECT partition, offset, segment_size, seq_nr, delete_to FROM ${ name.asCql }
+           |SELECT partition, offset, segment_size, seq_nr, delete_to FROM ${ name.toCql }
            |WHERE id = ?
            |AND topic = ?
            |""".stripMargin
@@ -103,7 +104,7 @@ object MetadataStatement {
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
       val query =
         s"""
-           |UPDATE ${ name.asCql }
+           |UPDATE ${ name.toCql }
            |SET partition = ?, offset = ?, seq_nr = ?, delete_to = ?, updated = ?
            |WHERE id = ?
            |AND topic = ?
@@ -134,7 +135,7 @@ object MetadataStatement {
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
       val query =
         s"""
-           |UPDATE ${ name.asCql }
+           |UPDATE ${ name.toCql }
            |SET partition = ?, offset = ?, seq_nr = ?, updated = ?
            |WHERE id = ?
            |AND topic = ?
@@ -163,7 +164,7 @@ object MetadataStatement {
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
       val query =
         s"""
-           |UPDATE ${ name.asCql }
+           |UPDATE ${ name.toCql }
            |SET partition = ?, offset = ?, delete_to = ?, updated = ?
            |WHERE id = ?
            |AND topic = ?

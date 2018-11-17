@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import com.evolutiongaming.scassandra.ReplicationStrategyConfig
 import com.evolutiongaming.config.ConfigHelper._
+import com.evolutiongaming.scassandra.ReplicationStrategyConfig
 import com.typesafe.config.Config
 
 // make a part of EventualCassandraConfig

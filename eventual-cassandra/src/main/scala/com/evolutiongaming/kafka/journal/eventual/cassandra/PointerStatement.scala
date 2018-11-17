@@ -1,8 +1,9 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import com.evolutiongaming.scassandra.CassandraHelper._
+import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
+import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 import scala.collection.JavaConverters._
@@ -11,7 +12,7 @@ object PointerStatement {
 
   def createTable(name: TableName): String = {
     s"""
-       |CREATE TABLE IF NOT EXISTS ${ name.asCql } (
+       |CREATE TABLE IF NOT EXISTS ${ name.toCql } (
        |topic text,
        |partition int,
        |offset bigint,
@@ -28,7 +29,7 @@ object PointerStatement {
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
       val query =
         s"""
-           |INSERT INTO ${ name.asCql } (topic, partition, offset, created, updated)
+           |INSERT INTO ${ name.toCql } (topic, partition, offset, created, updated)
            |VALUES (?, ?, ?, ?, ?)
            |""".stripMargin
 
@@ -55,7 +56,7 @@ object PointerStatement {
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
       val query =
         s"""
-           |INSERT INTO ${ name.asCql } (topic, partition, offset, updated)
+           |INSERT INTO ${ name.toCql } (topic, partition, offset, updated)
            |VALUES (?, ?, ?, ?)
            |""".stripMargin
 
@@ -82,7 +83,7 @@ object PointerStatement {
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
       val query =
         s"""
-           |SELECT offset FROM ${ name.asCql }
+           |SELECT offset FROM ${ name.toCql }
            |WHERE topic = ?
            |AND partition = ?
            |""".stripMargin
@@ -112,7 +113,7 @@ object PointerStatement {
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
       val query =
         s"""
-           |SELECT partition, offset FROM ${ name.asCql }
+           |SELECT partition, offset FROM ${ name.toCql }
            |WHERE topic = ?
            |""".stripMargin
 
@@ -149,7 +150,7 @@ object PointerStatement {
     def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
       val query =
         s"""
-           |SELECT DISTINCT topic FROM ${ name.asCql }
+           |SELECT DISTINCT topic FROM ${ name.toCql }
            |""".stripMargin
       for {
         prepared <- session.prepare(query)
