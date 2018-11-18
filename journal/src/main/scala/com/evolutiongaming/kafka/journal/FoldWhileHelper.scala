@@ -5,6 +5,7 @@ import akka.stream.scaladsl.Source
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.concurrent.FutureHelper._
 import com.evolutiongaming.concurrent.async.Async
+import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.nel.Nel
 
@@ -15,33 +16,6 @@ import scala.util.control.ControlThrowable
 import scala.util.{Failure, Success}
 
 object FoldWhileHelper {
-
-  type Fold[S, E] = (S, E) => Switch[S]
-
-  final case class Switch[@specialized +S](s: S, continue: Boolean) {
-    def stop: Boolean = !continue
-    def map[SS](f: S => SS): Switch[SS] = copy(s = f(s))
-    def enclose: Switch[Switch[S]] = map(_ => this)
-
-    def switch(continue: Boolean = true): Switch[S] = {
-      if (continue == this.continue) this
-      else copy(continue = continue)
-    }
-  }
-
-  object Switch {
-    val Unit: Switch[Unit] = continue(())
-    
-    def continue[@specialized S](s: S) = Switch(s, continue = true)
-    def stop[@specialized S](s: S) = Switch(s, continue = false)
-  }
-
-
-  implicit class AnySwitchOps[S](val self: S) extends AnyVal {
-    def continue: Switch[S] = Switch.continue(self)
-    def stop: Switch[S] = Switch.stop(self)
-    def switch(continue: Boolean): Switch[S] = Switch(self, continue)
-  }
 
 
   implicit class IterableFoldWhile[E](val self: Iterable[E]) extends AnyVal {

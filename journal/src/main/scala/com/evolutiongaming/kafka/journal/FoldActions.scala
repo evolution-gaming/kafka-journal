@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
+import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.skafka.{Offset, Partition}
 

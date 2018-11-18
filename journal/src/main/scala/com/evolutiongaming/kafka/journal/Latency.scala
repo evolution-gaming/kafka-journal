@@ -1,11 +1,11 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.FlatMap._
+import com.evolutiongaming.kafka.journal.IO.syntax._
 
 import scala.compat.Platform
 
 object Latency {
-  def apply[T, F[_]](func: => F[T])(implicit flatMap: FlatMap[F]): F[(T, Long)] = {
+  def apply[T, F[_] : IO](func: => F[T]): F[(T, Long)] = {
     val start = Platform.currentTime
     for {
       result <- func

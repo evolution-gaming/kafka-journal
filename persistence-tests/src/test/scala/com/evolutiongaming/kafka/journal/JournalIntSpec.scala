@@ -6,7 +6,7 @@ import java.util.UUID
 import akka.persistence.kafka.journal.KafkaJournalConfig
 import com.evolutiongaming.scassandra.CreateCluster
 import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.kafka.journal.FoldWhileHelper.Switch
+import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.nel.Nel

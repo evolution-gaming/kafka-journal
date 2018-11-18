@@ -16,7 +16,6 @@ import com.evolutiongaming.skafka.consumer.Consumer
 import com.evolutiongaming.skafka.producer.{Acks, Producer, ProducerConfig}
 
 import scala.concurrent.Future
-import scala.concurrent.duration._
 
 object AppendReplicate extends App {
 

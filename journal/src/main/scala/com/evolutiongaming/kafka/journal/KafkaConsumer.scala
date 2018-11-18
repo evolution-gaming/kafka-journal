@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.IO.Implicits._
+import com.evolutiongaming.kafka.journal.IO.syntax._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecords}
 import com.evolutiongaming.skafka.{OffsetAndMetadata, Topic, TopicPartition}
@@ -21,24 +21,24 @@ trait KafkaConsumer[F[_]] {
 
 object KafkaConsumer {
 
-  def apply[F[_] : IO : AdaptFuture](
+  def apply[F[_] : IO : FromFuture](
     consumer: Consumer[Id, Bytes, Future],
     pollTimeout: FiniteDuration): KafkaConsumer[F] = new KafkaConsumer[F] {
 
     def subscribe(topic: Topic) = {
-      IO[F].point(consumer.subscribe(Nel(topic), None))
+      IO[F].sync(consumer.subscribe(Nel(topic), None))
     }
 
     def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = {
-      consumer.commit(offsets).adapt
+      (() => consumer.commit(offsets)).toIO
     }
 
     def poll() = {
-      consumer.poll(pollTimeout).adapt
+      (() => consumer.poll(pollTimeout)).toIO
     }
 
     def close() = {
-      consumer.close().adapt
+      (() => consumer.close()).toIO
     }
   }
 }

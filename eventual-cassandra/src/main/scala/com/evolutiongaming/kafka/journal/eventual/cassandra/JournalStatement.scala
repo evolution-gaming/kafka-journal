@@ -6,7 +6,7 @@ import java.time.Instant
 import com.datastax.driver.core.BatchStatement
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.kafka.journal.FoldWhileHelper._
+import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.nel.Nel

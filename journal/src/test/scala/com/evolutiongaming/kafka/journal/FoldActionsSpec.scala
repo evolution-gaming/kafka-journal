@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 
-import com.evolutiongaming.kafka.journal.FoldWhileHelper._
+import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.skafka.Offset
 import org.scalatest.{FunSuite, Matchers}
 

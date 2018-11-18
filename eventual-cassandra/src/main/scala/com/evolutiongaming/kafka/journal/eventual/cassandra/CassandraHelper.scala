@@ -4,6 +4,7 @@ import com.datastax.driver.core.{ResultSet, Row}
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
+import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 
 import scala.annotation.tailrec

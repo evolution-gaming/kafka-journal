@@ -6,10 +6,10 @@ import akka.actor.ActorSystem
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
-import com.evolutiongaming.kafka.journal.FoldWhileHelper._
-import com.evolutiongaming.kafka.journal.IO.Implicits._
+import com.evolutiongaming.kafka.journal.FoldWhile._
+import com.evolutiongaming.kafka.journal.IO.syntax._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.{IO, _}
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.replicator.InstantHelper._
 import com.evolutiongaming.nel.Nel

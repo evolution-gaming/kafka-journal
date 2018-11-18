@@ -3,8 +3,8 @@ package com.evolutiongaming.kafka.journal.eventual
 import java.time.Instant
 
 import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.kafka.journal.FlatMap._
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.IO.syntax._
+import com.evolutiongaming.kafka.journal.{IO, _}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Topic
 
@@ -41,7 +41,7 @@ object ReplicatedJournal {
   def apply[F[_]](implicit F: ReplicatedJournal[F]): ReplicatedJournal[F] = F
 
 
-  def apply[F[_] : FlatMap](journal: ReplicatedJournal[F], log: Log[F]): ReplicatedJournal[F] = new ReplicatedJournal[F] {
+  def apply[F[_] : IO](journal: ReplicatedJournal[F], log: Log[F]): ReplicatedJournal[F] = new ReplicatedJournal[F] {
 
     def topics() = {
       for {
@@ -92,7 +92,7 @@ object ReplicatedJournal {
   }
 
 
-  def apply[F[_] : FlatMap](journal: ReplicatedJournal[F], metrics: Metrics[F]): ReplicatedJournal[F] = new ReplicatedJournal[F] {
+  def apply[F[_] : IO](journal: ReplicatedJournal[F], metrics: Metrics[F]): ReplicatedJournal[F] = new ReplicatedJournal[F] {
 
     def topics() = {
       for {

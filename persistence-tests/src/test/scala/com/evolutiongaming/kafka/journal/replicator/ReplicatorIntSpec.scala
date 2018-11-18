@@ -8,7 +8,7 @@ import com.evolutiongaming.scassandra.CreateCluster
 import com.evolutiongaming.concurrent.FutureHelper._
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.FixEquality.Implicits._
-import com.evolutiongaming.kafka.journal.FoldWhileHelper.Switch
+import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
