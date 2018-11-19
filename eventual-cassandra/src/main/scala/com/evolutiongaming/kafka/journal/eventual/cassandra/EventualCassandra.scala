@@ -16,12 +16,15 @@ import scala.concurrent.ExecutionContext
 object EventualCassandra {
 
   def apply(
-    session: Session,
     config: EventualCassandraConfig,
-    log: Log[Async])(implicit ec: ExecutionContext): EventualJournal = {
+    log: Log[Async],
+    origin: Option[Origin])(implicit
+    ec: ExecutionContext,
+    session: Session): EventualJournal = {
 
+    val cassandraSync = CassandraSync(config.schema, origin)
     val statements = for {
-      tables <- CreateSchema(config.schema)(ec, session)
+      tables <- CreateSchema(config.schema, cassandraSync)
       prepareAndExecute = PrepareAndExecute(session, config.retries)
       statements <- Statements(tables, prepareAndExecute)
     } yield {

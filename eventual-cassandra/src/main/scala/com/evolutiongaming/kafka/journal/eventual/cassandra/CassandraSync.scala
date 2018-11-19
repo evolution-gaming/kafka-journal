@@ -6,6 +6,7 @@ import com.evolutiongaming.cassandra
 import com.evolutiongaming.cassandra.sync.AutoCreate
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
+import com.evolutiongaming.kafka.journal.Origin
 import com.evolutiongaming.scassandra.Session
 
 import scala.concurrent.ExecutionContext
@@ -16,19 +17,21 @@ trait CassandraSync[F[_]] {
 
 object CassandraSync {
 
-  def apply(schemaConfig: SchemaConfig)(implicit ec: ExecutionContext, session: Session): CassandraSync[Async] = {
+  def apply(schemaConfig: SchemaConfig, origin: Option[Origin])(implicit ec: ExecutionContext, session: Session): CassandraSync[Async] = {
     val keyspace = schemaConfig.keyspace
     val autoCreate = if (keyspace.autoCreate) AutoCreate.Table else AutoCreate.None
     apply(
       keyspace = keyspace.name,
       table = schemaConfig.locksTable,
-      autoCreate = autoCreate)
+      autoCreate = autoCreate,
+      origin = origin)
   }
 
   def apply(
     keyspace: String,
     table: String,
-    autoCreate: AutoCreate)(implicit ec: ExecutionContext, session: Session): CassandraSync[Async] = {
+    autoCreate: AutoCreate,
+    origin: Option[Origin])(implicit ec: ExecutionContext, session: Session): CassandraSync[Async] = {
 
     new CassandraSync[Async] {
 
@@ -38,7 +41,7 @@ object CassandraSync {
           keyspace = keyspace,
           table = table,
           autoCreate = autoCreate)
-        val future = cassandraSync("kafka-journal")(f.future)
+        val future = cassandraSync(id = "kafka-journal", metadata = origin.map(_.value))(f.future)
         future.onComplete { _ => es.shutdown() }
         future.async
       }

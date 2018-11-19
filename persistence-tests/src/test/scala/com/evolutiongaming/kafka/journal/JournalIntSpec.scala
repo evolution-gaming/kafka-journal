@@ -33,8 +33,8 @@ class JournalIntSpec extends WordSpec with ActorSpec with Matchers {
   lazy val (eventual, cassandra) = {
     val cassandraConfig = config.cassandra
     val cassandra = CreateCluster(cassandraConfig.client)
-    val session = Await.result(cassandra.connect(), config.connectTimeout)
-    val eventual = EventualCassandra(session, cassandraConfig, Log.empty(Async.unit))
+    implicit val session = Await.result(cassandra.connect(), config.connectTimeout)
+    val eventual = EventualCassandra(cassandraConfig, Log.empty(Async.unit), None)
     (eventual, cassandra)
   }
 

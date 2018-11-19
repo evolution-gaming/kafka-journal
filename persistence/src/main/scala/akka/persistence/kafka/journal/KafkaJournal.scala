@@ -91,7 +91,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
     val eventualJournal: EventualJournal = {
       val cassandraConfig = config.cassandra
       val cluster = CreateCluster(cassandraConfig.client)
-      val session = Await.result(cluster.connect(), config.connectTimeout)
+      implicit val session = Await.result(cluster.connect(), config.connectTimeout)
       system.registerOnTermination {
         val result = for {
           _ <- session.close()
@@ -107,7 +107,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
       {
         val log = ActorLog(system, classOf[EventualJournal])
         val journal = {
-          val journal = EventualCassandra(session, cassandraConfig, Log(log))
+          val journal = EventualCassandra(cassandraConfig, Log(log), origin)
           EventualJournal(journal, log)
         }
         metrics.eventual.fold(journal) { EventualJournal(journal, _) }

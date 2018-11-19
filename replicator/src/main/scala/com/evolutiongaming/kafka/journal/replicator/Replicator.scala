@@ -41,7 +41,7 @@ object Replicator {
     for {
       session <- cassandra.connect().async
     } yield {
-      val replicator = apply(config, session, ecBlocking, metrics)(system, ec)
+      val replicator = apply(config, ecBlocking, metrics)(system, ec, session: Session)
 
       new Replicator {
 
@@ -61,14 +61,14 @@ object Replicator {
 
   def apply(
     config: ReplicatorConfig,
-    session: Session,
     ecBlocking: ExecutionContext,
     metrics: Metrics[Async])(implicit
     system: ActorSystem,
-    ec: ExecutionContext): Replicator = {
+    ec: ExecutionContext,
+    session: Session): Replicator = {
 
     val journal = {
-      val journal = ReplicatedCassandra(session, config.cassandra)
+      val journal = ReplicatedCassandra(config.cassandra)
       val actorLog = ActorLog(system, ReplicatedCassandra.getClass)
       val logging = ReplicatedJournal(journal, Log(actorLog))
       metrics.journal.fold(logging) { ReplicatedJournal(logging, _) }

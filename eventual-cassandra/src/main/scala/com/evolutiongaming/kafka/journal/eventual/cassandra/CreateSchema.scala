@@ -29,9 +29,4 @@ object CreateSchema {
       }
     } yield tables
   }
-
-  def apply(schemaConfig: SchemaConfig)(implicit ec: ExecutionContext, session: Session): Async[Tables] = {
-    val cassandraSync = CassandraSync(schemaConfig)
-    apply(schemaConfig, cassandraSync)
-  }
 }

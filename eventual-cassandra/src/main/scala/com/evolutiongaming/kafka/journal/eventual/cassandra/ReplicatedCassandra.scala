@@ -18,11 +18,12 @@ import scala.concurrent.ExecutionContext
 // TODO add logs to ReplicatedCassandra
 object ReplicatedCassandra {
 
-  def apply(session: Session, config: EventualCassandraConfig)
-    (implicit ec: ExecutionContext): ReplicatedJournal[Async] = {
+  def apply(config: EventualCassandraConfig)
+    (implicit ec: ExecutionContext, session: Session): ReplicatedJournal[Async] = {
 
+    val cassandraSync = CassandraSync(config.schema, Some(Origin("replicator")))
     val statements = for {
-      tables <- CreateSchema(config.schema)(ec, session)
+      tables <- CreateSchema(config.schema, cassandraSync)(ec, session)
       prepareAndExecute = PrepareAndExecute(session, config.retries)
       statements <- Statements(tables, prepareAndExecute)
     } yield {
