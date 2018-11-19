@@ -65,7 +65,8 @@ lazy val journal = (project in file("journal")
     `future-helper`,
     `safe-actor`,
     hostname,
-    scassandra)))
+    scassandra,
+    `cassandra-sync`)))
 
 lazy val persistence = (project in file("persistence")
   settings (name := "kafka-journal-persistence")

@@ -2,11 +2,11 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
-import com.evolutiongaming.scassandra.Session
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.nel.Nel
+import com.evolutiongaming.scassandra.Session
 import com.evolutiongaming.skafka.Topic
 
 import scala.annotation.tailrec
@@ -22,7 +22,7 @@ object ReplicatedCassandra {
     (implicit ec: ExecutionContext): ReplicatedJournal[Async] = {
 
     val statements = for {
-      tables <- CreateSchema(config.schema, session)
+      tables <- CreateSchema(config.schema)(ec, session)
       prepareAndExecute = PrepareAndExecute(session, config.retries)
       statements <- Statements(tables, prepareAndExecute)
     } yield {

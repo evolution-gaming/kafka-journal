@@ -10,6 +10,7 @@ final case class SchemaConfig(
   journalTable: String = "journal",
   metadataTable: String = "metadata",
   pointerTable: String = "pointer",
+  locksTable: String = "locks",
   autoCreate: Boolean = true)
 
 
@@ -27,6 +28,7 @@ object SchemaConfig {
       journalTable = get[String]("journal-table") getOrElse Default.journalTable,
       metadataTable = get[String]("metadata-table") getOrElse Default.metadataTable,
       pointerTable = get[String]("pointer-table") getOrElse Default.pointerTable,
+      locksTable = get[String]("locks-table") getOrElse Default.locksTable,
       autoCreate = get[Boolean]("auto-create") getOrElse Default.autoCreate)
   }
 

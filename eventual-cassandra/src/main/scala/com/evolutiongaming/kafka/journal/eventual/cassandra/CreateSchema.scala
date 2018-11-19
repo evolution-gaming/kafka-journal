@@ -8,7 +8,9 @@ import scala.concurrent.ExecutionContext
 
 object CreateSchema {
 
-  def apply(schemaConfig: SchemaConfig, session: Session)(implicit ec: ExecutionContext /*TODO remove*/): Async[Tables] = {
+  def apply(
+    schemaConfig: SchemaConfig,
+    cassandraSync: CassandraSync[Async])(implicit ec: ExecutionContext /*TODO remove*/ , session: Session): Async[Tables] = {
 
     def createKeyspace() = {
       val keyspace = schemaConfig.keyspace
@@ -22,7 +24,14 @@ object CreateSchema {
 
     for {
       _ <- createKeyspace()
-      tables <- Tables(schemaConfig, session)
+      tables <- cassandraSync {
+        Tables(schemaConfig, session)
+      }
     } yield tables
+  }
+
+  def apply(schemaConfig: SchemaConfig)(implicit ec: ExecutionContext, session: Session): Async[Tables] = {
+    val cassandraSync = CassandraSync(schemaConfig)
+    apply(schemaConfig, cassandraSync)
   }
 }

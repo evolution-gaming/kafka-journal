@@ -1,11 +1,11 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import com.evolutiongaming.scassandra.Session
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
+import com.evolutiongaming.scassandra.Session
 import com.evolutiongaming.skafka.Topic
 
 import scala.concurrent.ExecutionContext
@@ -21,7 +21,7 @@ object EventualCassandra {
     log: Log[Async])(implicit ec: ExecutionContext): EventualJournal = {
 
     val statements = for {
-      tables <- CreateSchema(config.schema, session)
+      tables <- CreateSchema(config.schema)(ec, session)
       prepareAndExecute = PrepareAndExecute(session, config.retries)
       statements <- Statements(tables, prepareAndExecute)
     } yield {
