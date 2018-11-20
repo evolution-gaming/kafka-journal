@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal.replicator
 
+import com.evolutiongaming.kafka.journal.IO
 import com.evolutiongaming.kafka.journal.replicator.MetricsHelper._
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
 import com.evolutiongaming.skafka.Topic
@@ -7,9 +8,9 @@ import io.prometheus.client.{CollectorRegistry, Summary}
 
 object TopicReplicatorMetrics {
 
-  def apply[F[_]](
+  def apply[F[_]: IO](
     registry: CollectorRegistry,
-    prefix: String = "replicator")(implicit unit: F[Unit]): Topic => TopicReplicator.Metrics[F] = {
+    prefix: String = "replicator"): Topic => TopicReplicator.Metrics[F] = {
 
     val replicationSummary = Summary.build()
       .name(s"${ prefix }_replication_latency")
@@ -87,37 +88,37 @@ object TopicReplicatorMetrics {
       new TopicReplicator.Metrics[F] {
 
         def append(events: Int, bytes: Int, measurements: Measurements) = {
+          IO[F].effect {
+            val partition = measurements.partition.toString
 
-          val partition = measurements.partition.toString
+            observeMeasurements("append", measurements)
 
-          observeMeasurements("append", measurements)
+            eventsSummary
+              .labels(topic, partition)
+              .observe(events.toDouble)
 
-          eventsSummary
-            .labels(topic, partition)
-            .observe(events.toDouble)
-
-          bytesSummary
-            .labels(topic, partition)
-            .observe(bytes.toDouble)
-
-          unit
+            bytesSummary
+              .labels(topic, partition)
+              .observe(bytes.toDouble)
+          }
         }
 
         def delete(measurements: Measurements) = {
-          observeMeasurements("delete", measurements)
-          unit
+          IO[F].effect {
+            observeMeasurements("delete", measurements)
+          }
         }
 
         def round(duration: Long, records: Int) = {
-          roundSummary
-            .labels(topic)
-            .observe(duration.toSeconds)
+          IO[F].effect {
+            roundSummary
+              .labels(topic)
+              .observe(duration.toSeconds)
 
-          roundRecordsSummary
-            .labels(topic)
-            .observe(records.toDouble)
-
-          unit
+            roundRecordsSummary
+              .labels(topic)
+              .observe(records.toDouble)
+          }
         }
       }
     }

@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.IO.syntax._
+import com.evolutiongaming.kafka.journal.IO.implicits._
 
 import scala.compat.Platform
 

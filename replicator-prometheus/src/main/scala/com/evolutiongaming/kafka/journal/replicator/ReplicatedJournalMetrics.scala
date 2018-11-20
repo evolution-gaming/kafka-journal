@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal.replicator
 
+import com.evolutiongaming.kafka.journal.IO
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
 import com.evolutiongaming.kafka.journal.replicator.MetricsHelper._
 import com.evolutiongaming.skafka.Topic
@@ -7,9 +8,9 @@ import io.prometheus.client.{CollectorRegistry, Summary}
 
 object ReplicatedJournalMetrics {
 
-  def apply[F[_]](
+  def apply[F[_] : IO](
     registry: CollectorRegistry,
-    prefix: String = "replicated_journal")(implicit unit: F[Unit]): ReplicatedJournal.Metrics[F] = {
+    prefix: String = "replicated_journal"): ReplicatedJournal.Metrics[F] = {
 
     val latencySummary = Summary.build()
       .name(s"${ prefix }_latency")
@@ -52,31 +53,36 @@ object ReplicatedJournalMetrics {
     new ReplicatedJournal.Metrics[F] {
 
       def topics(latency: Long) = {
-        observeLatency(name = "topics", latency = latency)
-        unit
+        IO[F].effect {
+          observeLatency(name = "topics", latency = latency)
+        }
       }
 
       def pointers(latency: Long) = {
-        observeLatency(name = "pointers", latency = latency)
-        unit
+        IO[F].effect {
+          observeLatency(name = "pointers", latency = latency)
+        }
       }
 
       def append(topic: Topic, latency: Long, events: Int) = {
-        eventsSummary
-          .labels(topic)
-          .observe(events.toDouble)
-        observeTopicLatency(name = "append", topic = topic, latency = latency)
-        unit
+        IO[F].effect {
+          eventsSummary
+            .labels(topic)
+            .observe(events.toDouble)
+          observeTopicLatency(name = "append", topic = topic, latency = latency)
+        }
       }
 
       def delete(topic: Topic, latency: Long) = {
-        observeTopicLatency(name = "delete", topic = topic, latency = latency)
-        unit
+        IO[F].effect {
+          observeTopicLatency(name = "delete", topic = topic, latency = latency)
+        }
       }
 
       def save(topic: Topic, latency: Long) = {
-        observeTopicLatency(name = "save", topic = topic, latency = latency)
-        unit
+        IO[F].effect {
+          observeTopicLatency(name = "save", topic = topic, latency = latency)
+        }
       }
     }
   }

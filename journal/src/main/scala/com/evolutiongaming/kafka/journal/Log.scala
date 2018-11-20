@@ -29,12 +29,20 @@ object Log {
 
   def apply[F[_] : IO](log: ActorLog): Log[F] = new Log[F] {
 
-    def debug(msg: => String) = IO[F].point(log.debug(msg))
+    def debug(msg: => String) = IO[F].effect {
+      log.debug(msg)
+    }
 
-    def info(msg: => String) = IO[F].point(log.info(msg))
+    def info(msg: => String) = IO[F].effect {
+      log.info(msg)
+    }
 
-    def warn(msg: => String) = IO[F].point(log.warn(msg))
+    def warn(msg: => String) = IO[F].effect {
+      log.warn(msg)
+    }
 
-    def error(msg: => String, cause: Throwable) = IO[F].point(log.error(msg, cause))
+    def error(msg: => String, cause: Throwable) = IO[F].effect {
+      log.error(msg, cause)
+    }
   }
 }

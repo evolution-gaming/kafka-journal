@@ -3,15 +3,13 @@ package com.evolutiongaming.kafka.journal.replicator
 import java.time.Instant
 
 import akka.actor.ActorSystem
-import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhile._
-import com.evolutiongaming.kafka.journal.IO.syntax._
+import com.evolutiongaming.kafka.journal.IO.implicits._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
-import com.evolutiongaming.kafka.journal.{IO, _}
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.replicator.InstantHelper._
+import com.evolutiongaming.kafka.journal.{IO, _}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer._
@@ -221,12 +219,11 @@ object TopicReplicator {
       pointers <- journal.pointers(topic)
       // TODO verify it started processing from right position
       _ <- consumer.subscribe(topic)
-      _ <- IO[F].foldWhile(State(pointers))(consume)
+      _ <- IO[F].foldWhile1(State(pointers))(consume)
     } yield {}
 
     // TODO rename
-    val result2 = result.catchAll { failure =>
-      failure.printStackTrace() // TODO
+    val result2 = result.flatMapFailure { failure =>
       log.error(s"failed: $failure", failure)
     }
 
@@ -247,14 +244,14 @@ object TopicReplicator {
     }
   }
 
-  def apply(
+  def apply[F[_]: IO](
     topic: Topic,
-    journal: ReplicatedJournal[Async],
-    consumer: KafkaConsumer[Async],
-    metrics: Metrics[Async])(implicit system: ActorSystem): TopicReplicator[Async] = {
+    journal: ReplicatedJournal[F],
+    consumer: KafkaConsumer[F],
+    metrics: Metrics[F])(implicit system: ActorSystem): TopicReplicator[F] = {
 
     val actorLog = ActorLog(system, TopicReplicator.getClass) prefixed topic
-    val stopRef = Ref[Boolean, Async]()
+    val stopRef = Ref[Boolean, F]()
     apply(
       topic = topic,
       consumer = consumer,
@@ -262,7 +259,7 @@ object TopicReplicator {
       log = Log(actorLog),
       stopRef = stopRef,
       metrics = metrics,
-      now = Async(Instant.now))
+      now = IO[F].point(Instant.now)/*TODO*/)
   }
 
 
@@ -286,13 +283,13 @@ object TopicReplicator {
 
   object Metrics {
 
-    def empty[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
+    def empty[F[_]: IO]: Metrics[F] = new Metrics[F] {
 
-      def append(events: Int, bytes: Int, measurements: Measurements) = unit
+      def append(events: Int, bytes: Int, measurements: Measurements) = IO[F].unit
 
-      def delete(measurements: Measurements) = unit
+      def delete(measurements: Measurements) = IO[F].unit
 
-      def round(duration: Long, records: Int) = unit
+      def round(duration: Long, records: Int) = IO[F].unit
     }
 
     final case class Measurements(

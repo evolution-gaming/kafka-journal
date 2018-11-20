@@ -36,6 +36,11 @@ object Dependencies {
 
   val prometheus = "io.prometheus" % "simpleclient" % "0.5.0"
 
+  object Cats {
+    private val version = "1.4.0"
+    val core = "org.typelevel" %% "cats-core" % version
+  }
+
   object Logback {
     private val version = "1.2.3"
     val core    = "ch.qos.logback" % "logback-core" % version

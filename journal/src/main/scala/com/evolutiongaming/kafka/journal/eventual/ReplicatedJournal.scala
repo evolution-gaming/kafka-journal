@@ -2,8 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual
 
 import java.time.Instant
 
-import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.kafka.journal.IO.syntax._
+import com.evolutiongaming.kafka.journal.IO.implicits._
 import com.evolutiongaming.kafka.journal.{IO, _}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Topic
@@ -24,21 +23,18 @@ trait ReplicatedJournal[F[_]] {
 
 object ReplicatedJournal {
 
-  def empty: ReplicatedJournal[Async] = new ReplicatedJournal[Async] {
+  def empty[F[_] : IO]: ReplicatedJournal[F] = new ReplicatedJournal[F] {
 
-    def topics() = Async.nil
+    def topics() = IO[F].iterable[Topic]
 
-    def pointers(topic: Topic) = Async(TopicPointers.Empty)
+    def pointers(topic: Topic) = TopicPointers.Empty.pure
 
-    def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[ReplicatedEvent]) = Async.unit
+    def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[ReplicatedEvent]) = IO[F].unit
 
-    def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = Async.unit
+    def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = IO[F].unit
 
-    def save(topic: Topic, pointers: TopicPointers, timestamp: Instant) = Async.unit
+    def save(topic: Topic, pointers: TopicPointers, timestamp: Instant) = IO[F].unit
   }
-  
-
-  def apply[F[_]](implicit F: ReplicatedJournal[F]): ReplicatedJournal[F] = F
 
 
   def apply[F[_] : IO](journal: ReplicatedJournal[F], log: Log[F]): ReplicatedJournal[F] = new ReplicatedJournal[F] {
@@ -151,17 +147,17 @@ object ReplicatedJournal {
 
   object Metrics {
 
-    def empty[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
+    def empty[F[_] : IO]: Metrics[F] = new Metrics[F] {
 
-      def topics(latency: Long) = unit
+      def topics(latency: Long) = IO[F].unit
 
-      def pointers(latency: Long) = unit
+      def pointers(latency: Long) = IO[F].unit
 
-      def append(topic: Topic, latency: Long, events: Int) = unit
+      def append(topic: Topic, latency: Long, events: Int) = IO[F].unit
 
-      def delete(topic: Topic, latency: Long) = unit
+      def delete(topic: Topic, latency: Long) = IO[F].unit
 
-      def save(topic: Topic, latency: Long) = unit
+      def save(topic: Topic, latency: Long) = IO[F].unit
     }
   }
 }

@@ -43,7 +43,7 @@ lazy val root = (project in file(".")
 lazy val io = (project in file("io")
   settings (name := "kafka-journal-io")
   settings commonSettings
-  settings (libraryDependencies ++= Seq(scalatest % Test)))
+  settings (libraryDependencies ++= Seq(Cats.core, scalatest % Test)))
 
 lazy val journal = (project in file("journal")
   settings (name := "kafka-journal")

@@ -2,7 +2,6 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
 
-import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
@@ -651,7 +650,7 @@ object TopicReplicatorSpec {
 
   val journal: ReplicatedJournal[TestIO] = new ReplicatedJournal[TestIO] {
 
-    def topics() = IO[TestIO].pure(Nil)
+    def topics() = IO[TestIO].iterable
 
     def pointers(topic: Topic) = {
       TestIO { data => (data, data.pointers.getOrElse(topic, TopicPointers.Empty)) }
@@ -749,7 +748,8 @@ object TopicReplicatorSpec {
     pointers: Map[Topic, TopicPointers] = Map.empty,
     journal: Map[Key, List[ReplicatedEvent]] = Map.empty,
     metadata: Map[Key, Metadata] = Map.empty,
-    metrics: List[Metrics] = Nil) { self =>
+    metrics: List[Metrics] = Nil) {
+    self =>
 
     def +(metrics: Metrics): (Data, Unit) = {
       val result = copy(metrics = metrics :: self.metrics)
@@ -824,7 +824,8 @@ object TopicReplicatorSpec {
     }
   }
 
-  final case class TestIO[A](run: Data => (Data, A)) { self =>
+  final case class TestIO[A](run: Data => (Data, A)) {
+    self =>
 
     def map[B](ab: A => B): TestIO[B] = {
       TestIO { a => self.run(a) match { case (t, a) => (t, ab(a)) } }
@@ -849,25 +850,16 @@ object TopicReplicatorSpec {
 
       def point[A](a: => A) = TestIO { data => (data, a) }
 
-      def sync[A](a: => A) = TestIO { data => (data, a) }
+      def effect[A](a: => A) = TestIO { data => (data, a) }
 
-      def flatMap[A, B](fa: TestIO[A], afb: A => TestIO[B]) = fa.flatMap(afb)
+      def flatMap[A, B](fa: TestIO[A])(afb: A => TestIO[B]) = fa.flatMap(afb)
 
-      def map[A, B](fa: TestIO[A], ab: A => B) = fa.map(ab)
+      def map[A, B](fa: TestIO[A])(ab: A => B) = fa.map(ab)
 
-      def unit[A] = TestIO { data => (data, ()) }
-
-      def unit[A](fa: TestIO[A]) = fa.map(_ => ())
-
-      def fold[A, S](iter: Iterable[A], s: S)(f: (S, A) => TestIO[S]) = {
-        iter.foldLeft(pure(s)) { (s, a) => s.flatMap { s => f(s, a) } }
-      }
-
-      def foldWhile[S](s: S)(f: S => TestIO[Switch[S]]) = {
-
+      def foldWhile[S](s: S)(f: S => TestIO[S], b: S => Boolean) = {
         def loop(s: S): TestIO[S] = for {
-          switch <- f(s)
-          s <- if (switch.stop) pure(switch.s) else loop(switch.s)
+          s <- f(s)
+          s <- if (b(s)) loop(s) else pure(s)
         } yield s
 
         loop(s)

@@ -6,7 +6,7 @@ import com.evolutiongaming.scassandra.{CreateCluster, Session}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.concurrent.serially.SeriallyAsync
-import com.evolutiongaming.kafka.journal.AsyncHelper._
+import com.evolutiongaming.kafka.journal.AsyncImplicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.ReplicatedCassandra
@@ -100,7 +100,7 @@ object Replicator {
         topic = topic,
         journal = journal,
         consumer = kafkaConsumer,
-        metrics = metrics.replicator.fold(TopicReplicator.Metrics.empty(Async.unit)) { _.apply(topic) })
+        metrics = metrics.replicator.fold(TopicReplicator.Metrics.empty) { _.apply(topic) })
     }
 
     apply(config, consumerOf, createReplicator)

@@ -6,7 +6,7 @@ import java.util.UUID
 import akka.actor.ActorSystem
 import akka.persistence.kafka.journal.KafkaJournalConfig
 import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.kafka.journal.AsyncHelper._
+import com.evolutiongaming.kafka.journal.AsyncImplicits._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, ReplicatedJournal}
 import com.evolutiongaming.kafka.journal.replicator.{ReplicatorConfig, TopicReplicator}
 import com.evolutiongaming.nel.Nel
@@ -82,7 +82,7 @@ object AppendReplicate extends App {
       val ecBlocking = system.dispatchers.lookup(config.blockingDispatcher)
       val consumer = Consumer[Id, Bytes](config.consumer, ecBlocking)
       val kafkaConsumer = KafkaConsumer[Async](consumer, config.pollTimeout)
-      TopicReplicator(topic, ReplicatedJournal.empty, kafkaConsumer, TopicReplicator.Metrics.empty(Async.unit))
+      TopicReplicator(topic, ReplicatedJournal.empty, kafkaConsumer, TopicReplicator.Metrics.empty)
     }
 
     val result = topicReplicator.done().future

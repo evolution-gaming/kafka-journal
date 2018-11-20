@@ -1,14 +1,13 @@
 package com.evolutiongaming.kafka.journal.replicator
 
+import com.evolutiongaming.kafka.journal.IO
 import com.evolutiongaming.skafka.ClientId
 import com.evolutiongaming.skafka.consumer.PrometheusConsumerMetrics
 import io.prometheus.client.CollectorRegistry
 
 object ReplicatorMetrics {
 
-  def apply[F[_]](
-    registry: CollectorRegistry,
-    clientId: ClientId)(implicit unit: F[Unit]): Replicator.Metrics[F] = {
+  def apply[F[_] : IO](registry: CollectorRegistry, clientId: ClientId): Replicator.Metrics[F] = {
 
     val replicator = TopicReplicatorMetrics(registry)
     val journal = ReplicatedJournalMetrics(registry)

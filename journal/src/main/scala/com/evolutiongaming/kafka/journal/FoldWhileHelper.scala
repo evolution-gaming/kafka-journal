@@ -12,32 +12,9 @@ import com.evolutiongaming.nel.Nel
 import scala.annotation.tailrec
 import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.control.ControlThrowable
 import scala.util.{Failure, Success}
 
 object FoldWhileHelper {
-
-
-  implicit class IterableFoldWhile[E](val self: Iterable[E]) extends AnyVal {
-    import IterableFoldWhile._
-
-    def foldWhile[S](s: S)(f: Fold[S, E]): Switch[S] = {
-      try {
-        val ss = self.foldLeft(s) { (s, e) =>
-          val switch = f(s, e)
-          if (switch.stop) throw Return(switch) else switch.s
-        }
-        ss.continue
-      } catch {
-        case Return(switch) => switch.asInstanceOf[Switch[S]]
-      }
-    }
-  }
-
-
-  object IterableFoldWhile {
-    private final case class Return[S](s: S) extends ControlThrowable
-  }
 
 
   implicit class NelFoldWhile[E](val self: Nel[E]) extends AnyVal {

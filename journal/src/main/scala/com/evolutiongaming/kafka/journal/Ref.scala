@@ -13,10 +13,16 @@ object Ref {
 
   def apply[A, F[_] : IO](ref: AtomicReference[A]): Ref[A, F] = new Ref[A, F] {
 
-    def set(value: A) = IO[F].point(ref.set(value))
+    def set(value: A) = {
+      IO[F].effect {
+        ref.set(value)
+      }
+    }
 
-    def get() = IO[F].point(ref.get())
+    def get() = IO[F].effect {
+      ref.get()
+    }
   }
 
-  def apply[A, F[_] : IO](): Ref[A, F] = apply[A, F](new AtomicReference[A])
+  def apply[A, F[_] : IO](): Ref[A, F] = apply(new AtomicReference[A])
 }
