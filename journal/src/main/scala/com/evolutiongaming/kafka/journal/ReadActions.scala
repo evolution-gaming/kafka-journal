@@ -1,12 +1,12 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.IO.implicits._
+import com.evolutiongaming.kafka.journal.IO.ops._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer.Consumer
 
+import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future}
 
 trait ReadActions[F[_]] {
   def apply(): F[Iterable[ActionRecord[Action]]]
@@ -18,7 +18,7 @@ object ReadActions {
     key: Key,
     consumer: Consumer[Id, Bytes, Future],
     timeout: FiniteDuration,
-    log: ActorLog)(implicit ec: ExecutionContext): ReadActions[F] = {
+    log: ActorLog): ReadActions[F] = {
 
     new ReadActions[F] {
 

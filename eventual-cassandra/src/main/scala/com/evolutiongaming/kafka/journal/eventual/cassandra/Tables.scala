@@ -1,29 +1,27 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import com.evolutiongaming.scassandra.{Session, TableName}
-import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.concurrent.async.AsyncConverters._
-
-import scala.concurrent.ExecutionContext
+import com.evolutiongaming.kafka.journal.IO
+import com.evolutiongaming.kafka.journal.IO.ops._
+import com.evolutiongaming.scassandra.TableName
 
 final case class Tables(journal: TableName, metadata: TableName, pointer: TableName)
 
 
 object Tables {
 
-  def apply(schemaConfig: SchemaConfig, session: Session)(implicit ec: ExecutionContext /*TODO remove*/): Async[Tables] = {
+  def apply[F[_] : IO](schemaConfig: SchemaConfig, session: CassandraSession[F]): F[Tables] = {
 
     val keyspace = schemaConfig.keyspace.name
 
     def apply(name: TableName, query: String) = {
       if (schemaConfig.autoCreate) {
         for {
-          _ <- session.execute(query).async // TODO should not be used
+          _ <- session.execute(query)
         } yield {
           name
         }
       } else {
-        name.async
+        name.pure
       }
     }
 

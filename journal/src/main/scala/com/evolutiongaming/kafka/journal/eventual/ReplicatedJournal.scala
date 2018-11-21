@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual
 
 import java.time.Instant
 
-import com.evolutiongaming.kafka.journal.IO.implicits._
+import com.evolutiongaming.kafka.journal.IO.ops._
 import com.evolutiongaming.kafka.journal.{IO, _}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Topic

@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
-import com.evolutiongaming.kafka.journal.FoldWhileHelper._
+import com.evolutiongaming.kafka.journal.AsyncImplicits._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
@@ -44,17 +44,17 @@ class EventualCassandraSpec extends EventualJournalSpec {
       pointer.async
     }
 
-    val selectMetadata: MetadataStatement.Select.Type = key => {
+    val selectMetadata: MetadataStatement.Select.Type[Async] = key => {
       metadataMap.get(key).async
     }
 
-    val selectPointers: PointerStatement.SelectPointers.Type = topic => {
+    val selectPointers: PointerStatement.SelectPointers.Type[Async] = topic => {
       pointers.getOrElse(topic, TopicPointers.Empty).async
     }
 
     val eventual = {
 
-      val selectRecords = new JournalStatement.SelectRecords.Type {
+      val selectRecords = new JournalStatement.SelectRecords.Type[Async] {
         def apply[S](key: Key, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]) = {
           val events = journal.events(key, segment)
           val result = events.foldWhile(s) { (s, event) =>
@@ -77,14 +77,14 @@ class EventualCassandraSpec extends EventualJournalSpec {
 
     val replicated = {
 
-      val insertRecords: JournalStatement.InsertRecords.Type = (key, segment, replicated) => {
+      val insertRecords: JournalStatement.InsertRecords.Type[Async] = (key, segment, replicated) => {
         val events = journal.events(key, segment)
         val updated = events ++ replicated.toList.sortBy(_.event.seqNr)
         journal = journal.updated((key, segment), updated)
         Async.unit
       }
 
-      val deleteRecords: JournalStatement.DeleteRecords.Type = (key, segment, seqNr) => {
+      val deleteRecords: JournalStatement.DeleteRecords.Type[Async] = (key, segment, seqNr) => {
         if (delete) {
           val events = journal.events(key, segment)
           val updated = events.dropWhile(_.event.seqNr <= seqNr)
@@ -93,12 +93,12 @@ class EventualCassandraSpec extends EventualJournalSpec {
         Async.unit
       }
 
-      val insertMetadata: MetadataStatement.Insert.Type = (key, timestamp, metadata, origin) => {
+      val insertMetadata: MetadataStatement.Insert.Type[Async] = (key, timestamp, metadata, origin) => {
         metadataMap = metadataMap.updated(key, metadata)
         Async.unit
       }
 
-      val updateMetadata: MetadataStatement.Update.Type = (key, partitionOffset, timestamp, seqNr, deleteTo) => {
+      val updateMetadata: MetadataStatement.Update.Type[Async] = (key, partitionOffset, timestamp, seqNr, deleteTo) => {
         for {
           metadata <- metadataMap.get(key)
         } {
@@ -108,7 +108,7 @@ class EventualCassandraSpec extends EventualJournalSpec {
         Async.unit
       }
 
-      val updateSeqNr: MetadataStatement.UpdateSeqNr.Type = (key, partitionOffset, timestamp, seqNr) => {
+      val updateSeqNr: MetadataStatement.UpdateSeqNr.Type[Async] = (key, partitionOffset, timestamp, seqNr) => {
         for {
           metadata <- metadataMap.get(key)
         } {
@@ -118,7 +118,7 @@ class EventualCassandraSpec extends EventualJournalSpec {
         Async.unit
       }
 
-      val updateDeleteTo: MetadataStatement.UpdateDeleteTo.Type = (key, partitionOffset, timestamp, deleteTo) => {
+      val updateDeleteTo: MetadataStatement.UpdateDeleteTo.Type[Async] = (key, partitionOffset, timestamp, deleteTo) => {
         for {
           metadata <- metadataMap.get(key)
         } {
@@ -128,14 +128,14 @@ class EventualCassandraSpec extends EventualJournalSpec {
         Async.unit
       }
 
-      val insertPointer: PointerStatement.Insert.Type = pointer => {
+      val insertPointer: PointerStatement.Insert.Type[Async] = pointer => {
         val topicPointers = pointers.getOrElse(pointer.topic, TopicPointers.Empty)
         val updated = topicPointers.copy(values = topicPointers.values.updated(pointer.partition, pointer.offset))
         pointers = pointers.updated(pointer.topic, updated)
         Async.unit
       }
 
-      val selectTopics: PointerStatement.SelectTopics.Type = () => {
+      val selectTopics: PointerStatement.SelectTopics.Type[Async] = () => {
         pointers.keys.toList.async
       }
 

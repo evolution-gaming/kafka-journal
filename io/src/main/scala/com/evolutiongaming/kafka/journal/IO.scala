@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.~>
 import com.evolutiongaming.kafka.journal.FoldWhile._
 
 import scala.annotation.tailrec
@@ -10,11 +11,11 @@ trait IO[F[_]] {
 
   def point[A](a: => A): F[A]
 
+  def fail[A](failure: Throwable): F[A]
+
   def effect[A](a: => A): F[A]
 
   def map[A, B](fa: F[A])(ab: A => B): F[B]
-
-  //  def flatMapTry[A, B](fa: F[A])(ab: Try[A] => F[B]): F[B]
 
   def flatMap[A, B](fa: F[A])(afb: A => F[B]): F[B]
 
@@ -23,6 +24,10 @@ trait IO[F[_]] {
   def flatMapFailure[A, B >: A](fa: F[A], f: Throwable => F[B]): F[B]
 
   def bracket[A, B](acquire: F[A])(release: A => F[Unit])(use: A => F[B]): F[B]
+
+  def from[A, G[_]](g: G[A])(implicit arrow: G ~> F): F[A] = arrow(g)
+
+  //  def to[A, G[_]](f: F[A])(implicit arrow: F ~> G): G[A] = arrow(f)
 
   final def foldUnit[A](iter: Iterable[F[A]]): F[Unit] = fold(iter, ()) { (_, a) => unit(a) }
 
@@ -71,6 +76,8 @@ object IO {
 
     def effect[A](a: => A) = a
 
+    def fail[A](failure: Throwable) = throw failure
+
     def map[A, B](fa: A)(ab: A => B) = ab(fa)
 
     def flatMap[A, B](fa: A)(afb: A => B) = afb(fa)
@@ -90,7 +97,7 @@ object IO {
   }
 
 
-  object implicits {
+  object ops {
 
     implicit class IOOps[A, F[_]](val fa: F[A]) extends AnyVal {
 
@@ -105,6 +112,8 @@ object IO {
       def bracket[B](release: A => F[Unit])(use: A => F[B])(implicit F: IO[F]): F[B] = {
         F.bracket(fa)(release)(use)
       }
+
+      def unit(implicit F: IO[F]): F[Unit] = IO[F].unit(fa)
     }
 
     implicit class IOIdOps[A](val self: A) extends AnyVal {

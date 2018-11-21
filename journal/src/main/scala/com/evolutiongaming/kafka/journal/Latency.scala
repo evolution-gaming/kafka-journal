@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.IO.implicits._
+import com.evolutiongaming.kafka.journal.IO.ops._
 
 import scala.compat.Platform
 

@@ -852,6 +852,8 @@ object TopicReplicatorSpec {
 
       def effect[A](a: => A) = TestIO { data => (data, a) }
 
+      def fail[A](failure: Throwable) = throw failure
+
       def flatMap[A, B](fa: TestIO[A])(afb: A => TestIO[B]) = fa.flatMap(afb)
 
       def map[A, B](fa: TestIO[A])(ab: A => B) = fa.map(ab)

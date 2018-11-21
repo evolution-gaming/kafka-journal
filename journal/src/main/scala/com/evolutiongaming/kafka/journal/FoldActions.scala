@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
-import com.evolutiongaming.kafka.journal.IO.implicits._
+import com.evolutiongaming.kafka.journal.IO.ops._
 import com.evolutiongaming.skafka.{Offset, Partition}
 
 trait FoldActions[F[_]] {

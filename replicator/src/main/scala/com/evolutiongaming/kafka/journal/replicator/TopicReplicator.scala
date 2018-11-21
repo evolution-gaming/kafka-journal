@@ -5,7 +5,7 @@ import java.time.Instant
 import akka.actor.ActorSystem
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhile._
-import com.evolutiongaming.kafka.journal.IO.implicits._
+import com.evolutiongaming.kafka.journal.IO.ops._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.replicator.InstantHelper._

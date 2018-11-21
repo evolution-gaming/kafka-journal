@@ -18,6 +18,8 @@ object AsyncImplicits {
 
     def effect[A](a: => A) = Async(a)
 
+    def fail[A](failure: Throwable) = Async.failed(failure)
+
     def flatMap[A, B](fa: Async[A])(afb: A => Async[B]) = fa.flatMap(afb)
 
     def map[A, B](fa: Async[A])(ab: A => B) = fa.map(ab)
@@ -62,7 +64,7 @@ object AsyncImplicits {
 
   implicit def fromFuture(implicit ec: ExecutionContext): FromFuture[Async] = new FromFuture[Async] {
 
-    def apply[A](fa: => Future[A]) = {
+    def apply[A](fa: Future[A]) = {
       try Async(fa) catch {
         case NonFatal(failure) => Async.failed(failure)
       }

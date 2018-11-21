@@ -2,8 +2,10 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
+import com.evolutiongaming.kafka.journal.AsyncImplicits._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.IO.ops._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.scassandra.Session
 import com.evolutiongaming.skafka.Topic
@@ -22,11 +24,11 @@ object EventualCassandra {
     ec: ExecutionContext,
     session: Session): EventualJournal = {
 
+    implicit val cassandraSession = CassandraSession[Async](session, config.retries)
     val cassandraSync = CassandraSync(config.schema, origin)
     val statements = for {
       tables <- CreateSchema(config.schema, cassandraSync)
-      prepareAndExecute = PrepareAndExecute(session, config.retries)
-      statements <- Statements(tables, prepareAndExecute)
+      statements <- Statements(tables, cassandraSession)
     } yield {
       statements
     }
@@ -34,7 +36,7 @@ object EventualCassandra {
     apply(statements, log)
   }
 
-  def apply(statements: Async[Statements], log: Log[Async]): EventualJournal = new EventualJournal {
+  def apply(statements: Async[Statements[Async]], log: Log[Async]): EventualJournal = new EventualJournal {
 
     def pointers(topic: Topic) = {
       for {
@@ -47,7 +49,7 @@ object EventualCassandra {
 
     def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
 
-      def read(statement: JournalStatement.SelectRecords.Type, metadata: Metadata) = {
+      def read(statement: JournalStatement.SelectRecords.Type[Async], metadata: Metadata) = {
 
         case class SS(seqNr: SeqNr, s: S)
 
@@ -123,20 +125,20 @@ object EventualCassandra {
   }
 
 
-  final case class Statements(
-    lastRecord: JournalStatement.SelectLastRecord.Type[Async],
-    records: JournalStatement.SelectRecords.Type,
-    metadata: MetadataStatement.Select.Type,
-    selectPointers: PointerStatement.SelectPointers.Type)
+  final case class Statements[F[_]](
+    lastRecord: JournalStatement.SelectLastRecord.Type[F],
+    records: JournalStatement.SelectRecords.Type[F],
+    metadata: MetadataStatement.Select.Type[F],
+    selectPointers: PointerStatement.SelectPointers.Type[F])
 
   object Statements {
 
-    def apply(tables: Tables, prepareAndExecute: PrepareAndExecute)(implicit ec: ExecutionContext): Async[Statements] = {
+    def apply[F[_]: IO: FromFuture](tables: Tables, session: CassandraSession[F]): F[Statements[F]] = {
 
-      val selectLastRecord = JournalStatement.SelectLastRecord(tables.journal, prepareAndExecute)
-      val selectRecords = JournalStatement.SelectRecords(tables.journal, prepareAndExecute)
-      val selectMetadata = MetadataStatement.Select(tables.metadata, prepareAndExecute)
-      val selectPointers = PointerStatement.SelectPointers(tables.pointer, prepareAndExecute)
+      val selectLastRecord = JournalStatement.SelectLastRecord(tables.journal, session)
+      val selectRecords = JournalStatement.SelectRecords(tables.journal, session)
+      val selectMetadata = MetadataStatement.Select(tables.metadata, session)
+      val selectPointers = PointerStatement.SelectPointers(tables.pointer, session)
 
       for {
         selectLastRecord <- selectLastRecord

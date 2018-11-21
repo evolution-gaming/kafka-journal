@@ -10,6 +10,7 @@ import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.SeqNr.Helper._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
+import com.evolutiongaming.kafka.journal.AsyncImplicits._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
@@ -343,7 +344,7 @@ object JournalSpec {
 
   object SeqNrJournal {
 
-    def apply(journal: Journal): SeqNrJournal = {
+    def apply(journal: Journal[Async]): SeqNrJournal = {
 
       new SeqNrJournal {
 
@@ -381,7 +382,7 @@ object JournalSpec {
       writeAction: AppendAction[Async]): SeqNrJournal = {
 
       val journal = Journal(ActorLog.empty, None, eventual, withReadActions, writeAction)
-      val withLogging = Journal(journal, ActorLog.empty)
+      val withLogging = Journal[Async](journal, ActorLog.empty)
       val withMetrics = Journal(withLogging, Journal.Metrics.empty(Async.unit))
       SeqNrJournal(withMetrics)
     }

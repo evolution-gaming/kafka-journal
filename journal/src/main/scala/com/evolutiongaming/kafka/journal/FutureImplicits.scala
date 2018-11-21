@@ -27,6 +27,8 @@ object FutureImplicits {
 
       def effect[A](a: => A) = safe { Future.successful(a) }
 
+      def fail[A](failure: Throwable) = Future.failed(failure)
+
       def flatMap[A, B](fa: Future[A])(afb: A => Future[B]) = {
         fa.value match {
           case Some(Success(a)) => safe { afb(a) }
@@ -85,7 +87,7 @@ object FutureImplicits {
 
   implicit val fromFuture: FromFuture[Future] = new FromFuture[Future] {
 
-    def apply[A](fa: => Future[A]) = {
+    def apply[A](fa: Future[A]) = {
       try fa catch {
         case NonFatal(failure) => Future.failed(failure)
       }

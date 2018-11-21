@@ -12,6 +12,7 @@ import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.SeqNr.Helper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
+import com.evolutiongaming.kafka.journal.IO.ops._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.producer.Producer
@@ -20,33 +21,33 @@ import com.evolutiongaming.skafka.{Bytes => _, _}
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
-trait Journal {
+trait Journal[F[_]] {
 
-  def append(key: Key, events: Nel[Event], timestamp: Instant): Async[PartitionOffset]
+  def append(key: Key, events: Nel[Event], timestamp: Instant): F[PartitionOffset]
 
-  def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]): Async[S]
+  def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]): F[S]
 
-  def pointer(key: Key, from: SeqNr): Async[Option[SeqNr]]
+  def pointer(key: Key, from: SeqNr): F[Option[SeqNr]]
 
   // TODO return Pointer and Test it
-  def delete(key: Key, to: SeqNr, timestamp: Instant): Async[Option[PartitionOffset]]
+  def delete(key: Key, to: SeqNr, timestamp: Instant): F[Option[PartitionOffset]]
 }
 
 object Journal {
 
-  val Empty: Journal = new Journal {
+  def empty[F[_] : IO]: Journal[F] = new Journal[F] {
 
-    def append(key: Key, events: Nel[Event], timestamp: Instant) = Async(PartitionOffset.Empty)
+    def append(key: Key, events: Nel[Event], timestamp: Instant) = IO[F].pure(PartitionOffset.Empty)
 
-    def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = s.async
+    def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = IO[F].pure(s)
 
-    def pointer(key: Key, from: SeqNr) = Async.none
+    def pointer(key: Key, from: SeqNr) = IO[F].none
 
-    def delete(key: Key, to: SeqNr, timestamp: Instant) = Async.none
+    def delete(key: Key, to: SeqNr, timestamp: Instant) = IO[F].none
   }
 
 
-  def apply(journal: Journal, log: ActorLog): Journal = new Journal {
+  def apply[F[_]: IO](journal: Journal[F], log: ActorLog): Journal[F] = new Journal[F] {
 
     def append(key: Key, events: Nel[Event], timestamp: Instant) = {
       for {
@@ -89,18 +90,18 @@ object Journal {
   }
 
 
-  def apply(journal: Journal, metrics: Metrics[Async]): Journal = {
+  def apply[F[_]: IO](journal: Journal[F], metrics: Metrics[F]): Journal[F] = {
 
-    def latency[A](name: String, topic: Topic)(f: => Async[A]) = {
+    def latency[A](name: String, topic: Topic)(f: => F[A]) = {
       val result = Latency(f)
       result.flatMapFailure { failure =>
         metrics.failure(name, topic).flatMap { _ =>
-          Async.failed(failure)
+          IO[F].fail[(A, Long)](failure)
         }
       }
     }
 
-    new Journal {
+    new Journal[F] {
 
       def append(key: Key, events: Nel[Event], timestamp: Instant) = {
         for {
@@ -148,9 +149,9 @@ object Journal {
     pollTimeout: FiniteDuration,
     closeTimeout: FiniteDuration)(implicit
     system: ActorSystem,
-    ec: ExecutionContext): Journal = {
+    ec: ExecutionContext): Journal[Async] = {
 
-    val log = ActorLog(system, classOf[Journal])
+    val log = ActorLog(system, Journal.getClass)
     val journal = apply(log, origin, producer, topicConsumer, eventual, pollTimeout, closeTimeout)
     Journal(journal, log)
   }
@@ -163,7 +164,7 @@ object Journal {
     eventual: EventualJournal,
     pollTimeout: FiniteDuration,
     closeTimeout: FiniteDuration)(implicit
-    ec: ExecutionContext): Journal = {
+    ec: ExecutionContext): Journal[Async] = {
 
     val withReadActions = WithReadActions(topicConsumer, pollTimeout, closeTimeout, log)
 
@@ -179,7 +180,7 @@ object Journal {
     origin: Option[Origin],
     eventual: EventualJournal,
     withReadActions: WithReadActions[Async],
-    appendAction: AppendAction[Async]): Journal = {
+    appendAction: AppendAction[Async]): Journal[Async] = {
 
     def readActions(key: Key, from: SeqNr): Async[FoldActions[Async]] = {
       val marker = {
@@ -202,7 +203,7 @@ object Journal {
       }
     }
 
-    new Journal {
+    new Journal[Async] {
 
       def append(key: Key, events: Nel[Event], timestamp: Instant) = {
         val action = Action.Append(key, timestamp, origin, events)
@@ -345,5 +346,7 @@ object Journal {
 
       def failure(name: String, topic: Topic) = unit
     }
+
+    def empty[F[_] : IO]: Metrics[F] = empty(IO[F].unit)
   }
 }

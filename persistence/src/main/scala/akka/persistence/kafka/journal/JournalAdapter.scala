@@ -5,6 +5,7 @@ import java.time.Instant
 import akka.persistence.journal.Tagged
 import akka.persistence.{AtomicWrite, PersistentRepr}
 import com.evolutiongaming.concurrent.FutureHelper._
+import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.nel.Nel
@@ -30,7 +31,7 @@ object JournalAdapter {
   def apply(
     log: ActorLog,
     toKey: ToKey,
-    journal: Journal,
+    journal: Journal[Async],
     serializer: EventSerializer)(implicit ec: ExecutionContext): JournalAdapter = new JournalAdapter {
 
     def write(atomicWrites: Seq[AtomicWrite]) = {

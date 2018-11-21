@@ -1,21 +1,19 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import com.datastax.driver.core.{ResultSet, Row}
-import com.evolutiongaming.scassandra.syntax._
-import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.concurrent.async.AsyncConverters._
-import com.evolutiongaming.kafka.journal.AsyncImplicits._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
+import com.evolutiongaming.kafka.journal.IO.ops._
+import com.evolutiongaming.kafka.journal.{FromFuture, IO}
+import com.evolutiongaming.scassandra.syntax._
 
 import scala.annotation.tailrec
-import scala.concurrent.ExecutionContext
 
 object CassandraHelper {
 
   implicit class ResultSetOps(val self: ResultSet) extends AnyVal {
 
-    def foldWhile[S](fetchThreshold: Int, s: S)(f: Fold[S, Row])(implicit ec: ExecutionContext /*TODO remove*/): Async[Switch[S]] = {
+    def foldWhile[F[_] : IO : FromFuture, S](fetchThreshold: Int, s: S)(f: Fold[S, Row]): F[Switch[S]] = {
 
       @tailrec def foldWhile(s: S, available: Int): Switch[S] = {
         if (available == 0) s.continue
@@ -32,9 +30,11 @@ object CassandraHelper {
         val fetched = self.isFullyFetched
         val available = self.getAvailableWithoutFetching
         val ss = foldWhile(s.s, available)
-        if (ss.stop || fetched) Switch.stop(ss).async
+        if (ss.stop || fetched) Switch.stop(ss).pure
         else for {
-          _ <- self.fetchMoreResults().asScala().async
+          _ <- IO[F].from {
+            self.fetchMoreResults().asScala()
+          }
         } yield Switch.continue(ss)
       }
 

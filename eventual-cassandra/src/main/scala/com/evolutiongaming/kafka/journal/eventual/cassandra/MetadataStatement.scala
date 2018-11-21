@@ -3,10 +3,10 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
-import com.evolutiongaming.scassandra.syntax._
-import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.kafka.journal.{Key, Origin, PartitionOffset, SeqNr}
+import com.evolutiongaming.kafka.journal.IO.ops._
+import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.scassandra.TableName
+import com.evolutiongaming.scassandra.syntax._
 
 
 object MetadataStatement {
@@ -33,9 +33,9 @@ object MetadataStatement {
 
 
   object Insert {
-    type Type = (Key, Instant, Metadata, Option[Origin]) => Async[Unit]
+    type Type[F[_]] = (Key, Instant, Metadata, Option[Origin]) => F[Unit]
 
-    def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
+    def apply[F[_]: IO](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
 
       val query =
         s"""
@@ -64,9 +64,9 @@ object MetadataStatement {
 
 
   object Select {
-    type Type = Key => Async[Option[Metadata]]
+    type Type[F[_]] = Key => F[Option[Metadata]]
 
-    def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
+    def apply[F[_]: IO](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
       val query =
         s"""
            |SELECT partition, offset, segment_size, seq_nr, delete_to FROM ${ name.toCql }
@@ -99,9 +99,9 @@ object MetadataStatement {
 
   // TODO add classes for common operations
   object Update {
-    type Type = (Key, PartitionOffset, Instant, SeqNr, SeqNr) => Async[Unit]
+    type Type[F[_]] = (Key, PartitionOffset, Instant, SeqNr, SeqNr) => F[Unit]
 
-    def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
+    def apply[F[_]: IO](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
       val query =
         s"""
            |UPDATE ${ name.toCql }
@@ -130,9 +130,9 @@ object MetadataStatement {
   // TEST statement
   // TODO add classes for common operations
   object UpdateSeqNr {
-    type Type = (Key, PartitionOffset, Instant, SeqNr) => Async[Unit]
+    type Type[F[_]] = (Key, PartitionOffset, Instant, SeqNr) => F[Unit]
 
-    def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
+    def apply[F[_]: IO](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
       val query =
         s"""
            |UPDATE ${ name.toCql }
@@ -159,9 +159,9 @@ object MetadataStatement {
 
   // TODO add classes for common operations
   object UpdateDeleteTo {
-    type Type = (Key, PartitionOffset, Instant, SeqNr) => Async[Unit]
+    type Type[F[_]] = (Key, PartitionOffset, Instant, SeqNr) => F[Unit]
 
-    def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
+    def apply[F[_]: IO](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
       val query =
         s"""
            |UPDATE ${ name.toCql }

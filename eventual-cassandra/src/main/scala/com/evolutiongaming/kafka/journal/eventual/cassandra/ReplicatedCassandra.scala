@@ -3,7 +3,9 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import java.time.Instant
 
 import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.AsyncImplicits._
+import com.evolutiongaming.kafka.journal.IO.ops._
+import com.evolutiongaming.kafka.journal.{IO, _}
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.Session
@@ -21,11 +23,11 @@ object ReplicatedCassandra {
   def apply(config: EventualCassandraConfig)
     (implicit ec: ExecutionContext, session: Session): ReplicatedJournal[Async] = {
 
+    implicit val cassandraSession = CassandraSession[Async](session, config.retries)
     val cassandraSync = CassandraSync(config.schema, Some(Origin("replicator")))
     val statements = for {
-      tables <- CreateSchema(config.schema, cassandraSync)(ec, session)
-      prepareAndExecute = PrepareAndExecute(session, config.retries)
-      statements <- Statements(tables, prepareAndExecute)
+      tables <- CreateSchema(config.schema, cassandraSync)
+      statements <- Statements(tables, cassandraSession)
     } yield {
       statements
     }
@@ -33,9 +35,9 @@ object ReplicatedCassandra {
   }
 
 
-  def apply(
-    statements: Async[Statements],
-    segmentSize: Int): ReplicatedJournal[Async] = new ReplicatedJournal[Async] {
+  def apply[F[_] : IO](
+    statements: F[Statements[F]],
+    segmentSize: Int): ReplicatedJournal[F] = new ReplicatedJournal[F] {
 
     def topics() = {
       for {
@@ -46,13 +48,13 @@ object ReplicatedCassandra {
 
     def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[ReplicatedEvent]) = {
 
-      def append(statements: Statements, segmentSize: Int) = {
+      def append(statements: Statements[F], segmentSize: Int) = {
 
         @tailrec
         def loop(
           events: List[ReplicatedEvent],
           s: Option[(Segment, Nel[ReplicatedEvent])], // TODO not tuple
-          result: Async[Unit]): Async[Unit] = {
+          result: F[Unit]): F[Unit] = {
 
           def execute(segment: Segment, events: Nel[ReplicatedEvent]) = {
             val next = statements.insertRecords(key, segment.nr, events)
@@ -77,10 +79,10 @@ object ReplicatedCassandra {
           }
         }
 
-        loop(events.toList, None, Async.unit)
+        loop(events.toList, None, IO[F].unit)
       }
 
-      def saveMetadataAndSegmentSize(statements: Statements, metadata: Option[Metadata]) = {
+      def saveMetadataAndSegmentSize(statements: Statements[F], metadata: Option[Metadata]) = {
         val seqNrLast = events.last.seqNr
 
         metadata match {
@@ -112,7 +114,7 @@ object ReplicatedCassandra {
 
     def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = {
 
-      def saveMetadata(statements: Statements, metadata: Option[Metadata]) = {
+      def saveMetadata(statements: Statements[F], metadata: Option[Metadata]) = {
         metadata match {
           case Some(metadata) =>
             val update =
@@ -137,13 +139,13 @@ object ReplicatedCassandra {
         }
       }
 
-      def delete(statements: Statements, segmentSize: Int, metadata: Metadata) = {
+      def delete(statements: Statements[F], segmentSize: Int, metadata: Metadata) = {
 
         def delete(from: SeqNr, deleteTo: SeqNr) = {
 
           def segment(seqNr: SeqNr) = SegmentNr(seqNr, segmentSize)
 
-          Async.foldUnit {
+          IO[F].foldUnit {
             for {
               segment <- segment(from) to segment(deleteTo) // TODO maybe add ability to create Seq[Segment] out of SeqRange ?
             } yield {
@@ -157,9 +159,9 @@ object ReplicatedCassandra {
         metadata.deleteTo match {
           case None            => delete(from = SeqNr.Min, deleteTo = deleteToFixed)
           case Some(deletedTo) =>
-            if (deletedTo >= deleteToFixed) Async.unit
+            if (deletedTo >= deleteToFixed) IO[F].unit
             else deletedTo.next match {
-              case None       => Async.unit
+              case None       => IO[F].unit
               case Some(from) => delete(from = from, deleteTo = deleteToFixed)
             }
         }
@@ -169,20 +171,20 @@ object ReplicatedCassandra {
         statements <- statements
         metadata <- statements.selectMetadata(key)
         segmentSize <- saveMetadata(statements, metadata)
-        _ <- metadata.fold(Async.unit) { delete(statements, segmentSize, _) }
+        _ <- metadata.fold(IO[F].unit) { delete(statements, segmentSize, _) }
       } yield {}
     }
 
 
-    def save(topic: Topic, topicPointers: TopicPointers, timestamp: Instant): Async[Unit] = {
+    def save(topic: Topic, topicPointers: TopicPointers, timestamp: Instant) = {
       val pointers = topicPointers.values
-      if (pointers.isEmpty) Async.unit
+      if (pointers.isEmpty) IO[F].unit
       else {
 
         // TODO topic is a partition key, should I batch by partition ?
 
-        def savePointers(statements: Statements) = {
-          val asyncs = for {
+        def savePointers(statements: Statements[F]) = {
+          val results = for {
             (partition, offset) <- pointers
           } yield {
             val insert = PointerInsert(
@@ -194,7 +196,7 @@ object ReplicatedCassandra {
             statements.insertPointer(insert)
           }
 
-          Async.foldUnit(asyncs)
+          IO[F].foldUnit(results)
         }
 
         for {
@@ -213,34 +215,34 @@ object ReplicatedCassandra {
   }
 
 
-  final case class Statements(
-    insertRecords: JournalStatement.InsertRecords.Type,
-    selectLastRecord: JournalStatement.SelectLastRecord.Type[Async], // TODO not used
-    deleteRecords: JournalStatement.DeleteRecords.Type,
-    insertMetadata: MetadataStatement.Insert.Type,
-    selectMetadata: MetadataStatement.Select.Type,
-    updateMetadata: MetadataStatement.Update.Type,
-    updateSeqNr: MetadataStatement.UpdateSeqNr.Type,
-    updateDeleteTo: MetadataStatement.UpdateDeleteTo.Type,
-    insertPointer: PointerStatement.Insert.Type,
-    selectPointers: PointerStatement.SelectPointers.Type,
-    selectTopics: PointerStatement.SelectTopics.Type)
+  final case class Statements[F[_]](
+    insertRecords: JournalStatement.InsertRecords.Type[F],
+    selectLastRecord: JournalStatement.SelectLastRecord.Type[F],
+    deleteRecords: JournalStatement.DeleteRecords.Type[F],
+    insertMetadata: MetadataStatement.Insert.Type[F],
+    selectMetadata: MetadataStatement.Select.Type[F],
+    updateMetadata: MetadataStatement.Update.Type[F],
+    updateSeqNr: MetadataStatement.UpdateSeqNr.Type[F],
+    updateDeleteTo: MetadataStatement.UpdateDeleteTo.Type[F],
+    insertPointer: PointerStatement.Insert.Type[F],
+    selectPointers: PointerStatement.SelectPointers.Type[F],
+    selectTopics: PointerStatement.SelectTopics.Type[F])
 
   object Statements {
 
-    def apply(tables: Tables, prepareAndExecute: PrepareAndExecute): Async[Statements] = {
+    def apply[F[_] : IO](tables: Tables, session: CassandraSession[F]): F[Statements[F]] = {
 
-      val insertRecords = JournalStatement.InsertRecords(tables.journal, prepareAndExecute)
-      val selectLastRecord = JournalStatement.SelectLastRecord(tables.journal, prepareAndExecute)
-      val deleteRecords = JournalStatement.DeleteRecords(tables.journal, prepareAndExecute)
-      val insertMetadata = MetadataStatement.Insert(tables.metadata, prepareAndExecute)
-      val selectMetadata = MetadataStatement.Select(tables.metadata, prepareAndExecute)
-      val updateMetadata = MetadataStatement.Update(tables.metadata, prepareAndExecute)
-      val updateSeqNr = MetadataStatement.UpdateSeqNr(tables.metadata, prepareAndExecute)
-      val updateDeleteTo = MetadataStatement.UpdateDeleteTo(tables.metadata, prepareAndExecute)
-      val insertPointer = PointerStatement.Insert(tables.pointer, prepareAndExecute)
-      val selectPointers = PointerStatement.SelectPointers(tables.pointer, prepareAndExecute)
-      val selectTopics = PointerStatement.SelectTopics(tables.pointer, prepareAndExecute)
+      val insertRecords = JournalStatement.InsertRecords(tables.journal, session)
+      val selectLastRecord = JournalStatement.SelectLastRecord(tables.journal, session)
+      val deleteRecords = JournalStatement.DeleteRecords(tables.journal, session)
+      val insertMetadata = MetadataStatement.Insert(tables.metadata, session)
+      val selectMetadata = MetadataStatement.Select(tables.metadata, session)
+      val updateMetadata = MetadataStatement.Update(tables.metadata, session)
+      val updateSeqNr = MetadataStatement.UpdateSeqNr(tables.metadata, session)
+      val updateDeleteTo = MetadataStatement.UpdateDeleteTo(tables.metadata, session)
+      val insertPointer = PointerStatement.Insert(tables.pointer, session)
+      val selectPointers = PointerStatement.SelectPointers(tables.pointer, session)
+      val selectTopics = PointerStatement.SelectTopics(tables.pointer, session)
 
       for {
         insertRecords <- insertRecords

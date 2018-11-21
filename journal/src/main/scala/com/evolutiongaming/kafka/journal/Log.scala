@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.Applicative
 import com.evolutiongaming.safeakka.actor.ActorLog
 
 trait Log[F[_]] {
@@ -25,6 +26,9 @@ object Log {
 
     def error(msg: => String, cause: Throwable) = unit
   }
+
+
+  def empty[F[_] : Applicative]: Log[F] = empty(Applicative[F].unit)
 
 
   def apply[F[_] : IO](log: ActorLog): Log[F] = new Log[F] {

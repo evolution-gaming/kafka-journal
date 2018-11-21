@@ -135,7 +135,7 @@ object JournalIntSpec {
 
   object KeyJournal {
 
-    def apply(key: Key, journal: Journal, timeout: FiniteDuration): KeyJournal = new KeyJournal {
+    def apply(key: Key, journal: Journal[Async], timeout: FiniteDuration): KeyJournal = new KeyJournal {
 
       def append(events: Nel[Event]) = {
         journal.append(key, events, Instant.now()).get(timeout)

@@ -4,16 +4,15 @@ import java.lang.{Long => LongJ}
 import java.time.Instant
 
 import com.datastax.driver.core.BatchStatement
-import com.evolutiongaming.scassandra.syntax._
-import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.FoldWhile._
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.IO.ops._
+import com.evolutiongaming.kafka.journal.{IO, _}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.TableName
+import com.evolutiongaming.scassandra.syntax._
 import play.api.libs.json.Json
 
-import scala.concurrent.ExecutionContext
 
 object JournalStatement {
 
@@ -43,9 +42,9 @@ object JournalStatement {
 
   // TODO add statement logging
   object InsertRecords {
-    type Type = (Key, SegmentNr, Nel[ReplicatedEvent]) => Async[Unit]
+    type Type[F[_]] = (Key, SegmentNr, Nel[ReplicatedEvent]) => F[Unit]
 
-    def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
+    def apply[F[_] : IO](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
       val query =
         s"""
            |INSERT INTO ${ name.toCql } (
@@ -123,7 +122,7 @@ object JournalStatement {
 
     type Type[F[_]] = (Key, SegmentNr, SeqNr) => F[Option[Pointer]]
 
-    def apply(name: TableName, session: PrepareAndExecute): Async[Type[Async]] = {
+    def apply[F[_] : IO](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
       val query =
         s"""
            |SELECT seq_nr, partition, offset
@@ -161,11 +160,11 @@ object JournalStatement {
 
   object SelectRecords {
 
-    trait Type {
-      def apply[S](key: Key, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]): Async[Switch[S]]
+    trait Type[F[_]] {
+      def apply[S](key: Key, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]): F[Switch[S]]
     }
 
-    def apply(name: TableName, session: PrepareAndExecute)(implicit ec: ExecutionContext): Async[Type] = {
+    def apply[F[_] : IO : FromFuture /*TODO REMOVE*/ ](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
       val query =
         s"""
            |SELECT
@@ -188,7 +187,7 @@ object JournalStatement {
       for {
         prepared <- session.prepare(query)
       } yield {
-        new Type {
+        new Type[F] {
           def apply[S](key: Key, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]) = {
 
             val fetchThreshold = 10 // TODO #49,
@@ -228,9 +227,9 @@ object JournalStatement {
   }
 
   object DeleteRecords {
-    type Type = (Key, SegmentNr, SeqNr) => Async[Unit]
+    type Type[F[_]] = (Key, SegmentNr, SeqNr) => F[Unit]
 
-    def apply(name: TableName, session: PrepareAndExecute): Async[Type] = {
+    def apply[F[_]: IO](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
       val query =
         s"""
            |DELETE FROM ${ name.toCql }

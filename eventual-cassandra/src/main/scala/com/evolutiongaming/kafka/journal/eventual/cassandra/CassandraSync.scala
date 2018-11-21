@@ -5,19 +5,21 @@ import java.util.concurrent.Executors
 import com.evolutiongaming.cassandra
 import com.evolutiongaming.cassandra.sync.AutoCreate
 import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.Origin
 import com.evolutiongaming.scassandra.Session
 
 import scala.concurrent.ExecutionContext
 
 trait CassandraSync[F[_]] {
-  def apply[A](f: => F[A] /*TODO eager f*/): F[A]
+  def apply[A](f: => F[A]): F[A]
 }
 
 object CassandraSync {
 
-  def apply(schemaConfig: SchemaConfig, origin: Option[Origin])(implicit ec: ExecutionContext, session: Session): CassandraSync[Async] = {
+  def apply(
+    schemaConfig: SchemaConfig,
+    origin: Option[Origin])(implicit ec: ExecutionContext, session: Session): CassandraSync[Async] = {
+
     val keyspace = schemaConfig.keyspace
     val autoCreate = if (keyspace.autoCreate) AutoCreate.Table else AutoCreate.None
     apply(
@@ -43,7 +45,7 @@ object CassandraSync {
           autoCreate = autoCreate)
         val future = cassandraSync(id = "kafka-journal", metadata = origin.map(_.value))(f.future)
         future.onComplete { _ => es.shutdown() }
-        future.async
+        Async(future)
       }
     }
   }
