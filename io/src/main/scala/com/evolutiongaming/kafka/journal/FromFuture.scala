@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import scala.concurrent.Future
 
 trait FromFuture[F[_]] {
-  def apply[A](future: => Future[A]): F[A]
+  def apply[A](fa: => Future[A]): F[A]
 }
 
 object FromFuture {

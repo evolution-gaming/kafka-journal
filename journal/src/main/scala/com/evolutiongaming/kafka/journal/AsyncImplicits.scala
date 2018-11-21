@@ -16,7 +16,7 @@ object AsyncImplicits {
     // TODO wrong implementation
     def point[A](a: => A) = Async(a)
 
-    def effect[A](a: => A): Async[A] = Async(a)
+    def effect[A](a: => A) = Async(a)
 
     def flatMap[A, B](fa: Async[A])(afb: A => Async[B]) = fa.flatMap(afb)
 
@@ -53,8 +53,8 @@ object AsyncImplicits {
 
   implicit def fromFuture(implicit ec: ExecutionContext): FromFuture[Async] = new FromFuture[Async] {
 
-    def apply[A](future: => Future[A]): Async[A] = {
-      try Async(future) catch {
+    def apply[A](fa: => Future[A]) = {
+      try Async(fa) catch {
         case NonFatal(failure) => Async.failed(failure)
       }
     }

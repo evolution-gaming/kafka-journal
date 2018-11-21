@@ -215,16 +215,16 @@ object TopicReplicator {
       } yield state
     }
 
-    val result = for {
-      pointers <- journal.pointers(topic)
-      // TODO verify it started processing from right position
-      _ <- consumer.subscribe(topic)
-      _ <- IO[F].foldWhile1(State(pointers))(consume)
-    } yield {}
+    val result = {
+      val result = for {
+        pointers <- journal.pointers(topic)
+        _ <- consumer.subscribe(topic)
+        _ <- IO[F].foldWhile1(State(pointers))(consume)
+      } yield {}
 
-    // TODO rename
-    val result2 = result.flatMapFailure { failure =>
-      log.error(s"failed: $failure", failure)
+      result.flatMapFailure { failure =>
+        log.error(s"failed: $failure", failure)
+      }
     }
 
     new TopicReplicator[F] {
@@ -235,7 +235,7 @@ object TopicReplicator {
         for {
           _ <- log.debug("shutting down")
           _ <- stopRef.set(true)
-          _ <- result2
+          _ <- result
           _ <- consumer.close()
         } yield {}
       }
