@@ -70,6 +70,15 @@ object FutureImplicits {
           case None             => fa.recoverWith[B] { case a => f(a) }
         }
       }
+
+      def bracket[A, B](acquire: Future[A])(release: A => Future[Unit])(use: A => Future[B]) = {
+        for {
+          a <- acquire
+          b = use(a)
+          _ = b.onComplete { _ => release(a) }
+          b <- b
+        } yield b
+      }
     }
   }
 

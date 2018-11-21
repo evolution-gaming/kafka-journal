@@ -181,7 +181,7 @@ object Journal {
     withReadActions: WithReadActions[Async],
     appendAction: AppendAction[Async]): Journal = {
 
-    def readActions(key: Key, from: SeqNr): Async[FoldActions] = {
+    def readActions(key: Key, from: SeqNr): Async[FoldActions[Async]] = {
       val marker = {
         val id = UUID.randomUUID().toString
         val action = Action.Mark(key, Instant.now(), origin, id)
@@ -231,7 +231,7 @@ object Journal {
           } yield s.s
         }
 
-        def onNonEmpty(deleteTo: Option[SeqNr], readActions: FoldActions) = {
+        def onNonEmpty(deleteTo: Option[SeqNr], readActions: FoldActions[Async]) = {
 
           def events(from: SeqNr, offset: Option[Offset], s: S) = {
             readActions(offset, s) { case (s, action) =>

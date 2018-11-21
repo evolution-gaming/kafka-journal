@@ -866,6 +866,13 @@ object TopicReplicatorSpec {
       }
 
       def flatMapFailure[A, B >: A](fa: TestIO[A], f: Throwable => TestIO[B]) = fa.flatMapFailure(f)
+
+      def bracket[A, B](acquire: TestIO[A])(release: A => TestIO[Unit])(use: A => TestIO[B]) = {
+        for {
+          a <- acquire
+          b <- try use(a) finally { release(a) }
+        } yield b
+      }
     }
   }
 

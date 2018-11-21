@@ -1,36 +1,35 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
+import com.evolutiongaming.kafka.journal.IO.implicits._
 import com.evolutiongaming.skafka.{Offset, Partition}
 
-trait FoldActions {
-  def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]): Async[S]
+trait FoldActions[F[_]] {
+  def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]): F[S]
 }
 
 object FoldActions {
 
-  val Empty: FoldActions = new FoldActions {
-    def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]) = s.async
+  def empty[F[_] : IO]: FoldActions[F] = new FoldActions[F] {
+    def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]) = IO[F].pure(s)
   }
 
   // TODO add range argument
-  def apply(
+  def apply[F[_] : IO](
     key: Key,
     from: SeqNr,
     marker: Marker,
     offsetReplicated: Option[Offset],
-    withReadActions: WithReadActions[Async]): FoldActions = {
+    withReadActions: WithReadActions[F]): FoldActions[F] = {
 
     // TODO compare partitions !
     val partition = marker.partition
 
     val replicated = offsetReplicated.exists(_ >= marker.offset)
 
-    if (replicated) Empty
-    else new FoldActions {
+    if (replicated) empty
+    else new FoldActions[F] {
 
       def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]) = {
 
@@ -38,7 +37,7 @@ object FoldActions {
 
         val replicated = offset.exists(_ >= max)
 
-        if (replicated) s.async
+        if (replicated) IO[F].pure(s)
         else {
 
           val last = {

@@ -48,6 +48,15 @@ object AsyncImplicits {
     }
 
     def flatMapFailure[A, B >: A](fa: Async[A], f: Throwable => Async[B]) = fa.flatMapFailure(f)
+
+    def bracket[A, B](acquire: Async[A])(release: A => Async[Unit])(use: A => Async[B]) = {
+      for {
+        a <- acquire
+        b = use(a)
+        _ = b.onComplete { _ => release(a) }
+        b <- b
+      } yield b
+    }
   }
 
 

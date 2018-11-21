@@ -4,15 +4,11 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.concurrent.FutureHelper._
-import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.FoldWhile._
-import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.nel.Nel
 
-import scala.annotation.tailrec
 import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
 object FoldWhileHelper {
 
@@ -36,29 +32,9 @@ object FoldWhileHelper {
   }
 
 
-  implicit class AsyncFoldWhile[S](val self: S => Async[Switch[S]]) extends AnyVal {
-
-    def foldWhile(s: S): Async[S] = {
-      import com.evolutiongaming.concurrent.async.Async._
-
-      @tailrec def foldWhile(switch: Switch[S]): Async[S] = {
-        if (switch.stop) switch.s.async
-        else {
-          self(switch.s) match {
-            case Succeed(s)                => foldWhile(s)
-            case Failed(s)                 => Failed(s)
-            case s: InCompleted[Switch[S]] => s.value() match {
-              case Some(Success(s)) => foldWhile(s)
-              case Some(Failure(s)) => Failed(s)
-              case None             => s.flatMap(break)
-            }
-          }
-        }
-      }
-
-      def break(switch: Switch[S]): Async[S] = foldWhile(switch)
-
-      foldWhile(s.continue)
+  implicit class FoldWhileIOOps[S, F[_]](val self: S => F[Switch[S]]) extends AnyVal {
+    def foldWhile(s: S)(implicit io: IO[F]): F[S] = {
+      io.foldWhile1(s)(self)
     }
   }
 
