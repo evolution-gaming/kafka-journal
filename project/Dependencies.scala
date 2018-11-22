@@ -32,7 +32,7 @@ object Dependencies {
 
   val scassandra = "com.evolutiongaming" %% "scassandra" % "0.0.3"
 
-  val `cassandra-sync` = "com.evolutiongaming" %% "cassandra-sync" % "0.0.2"
+  val `cassandra-sync` = "com.evolutiongaming" %% "cassandra-sync" % "0.0.3"
 
   val prometheus = "io.prometheus" % "simpleclient" % "0.5.0"
 
