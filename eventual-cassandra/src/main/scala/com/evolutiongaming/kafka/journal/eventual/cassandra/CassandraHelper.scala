@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import com.datastax.driver.core.{ResultSet, Row}
+import com.datastax.driver.core.{ResultSet, Row, Statement}
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.IO.ops._
@@ -39,6 +39,16 @@ object CassandraHelper {
       }
 
       fetch.foldWhile(s.continue)
+    }
+  }
+
+
+  // TODO move to scassandra
+  implicit class StatementOps(val self: Statement) extends AnyVal {
+
+    def trace(enable: Boolean): Statement = {
+      if (enable) self.enableTracing()
+      else self.disableTracing()
     }
   }
 }

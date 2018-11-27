@@ -4,9 +4,7 @@ import cats.arrow.FunctionK
 
 import scala.concurrent.Future
 
-trait FromFuture[F[_]] extends FunctionK[Future, F] {
-  def apply[A](fa: Future[A]): F[A]
-}
+trait FromFuture[F[_]] extends FunctionK[Future, F]
 
 object FromFuture {
 

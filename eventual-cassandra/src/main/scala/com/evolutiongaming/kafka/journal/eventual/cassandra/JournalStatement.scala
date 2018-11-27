@@ -6,8 +6,8 @@ import java.time.Instant
 import com.datastax.driver.core.BatchStatement
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.IO.ops._
-import com.evolutiongaming.kafka.journal.{IO, _}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
+import com.evolutiongaming.kafka.journal.{IO, _}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
@@ -57,10 +57,11 @@ object JournalStatement {
            |timestamp,
            |origin,
            |tags,
+           |metadata,
            |payload_type,
            |payload_txt,
            |payload_bin)
-           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            |""".stripMargin
 
       for {
@@ -95,6 +96,7 @@ object JournalStatement {
               .encode("timestamp", replicated.timestamp)
               .encode(replicated.origin)
               .encode("tags", event.tags)
+              .encode("metadata", "") // TODO
               .encode("payload_type", payloadType)
               .encode("payload_txt", txt)
               .encode("payload_bin", bin)

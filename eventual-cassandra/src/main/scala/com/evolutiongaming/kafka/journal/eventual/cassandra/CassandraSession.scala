@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import com.datastax.driver.core._
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
+import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.{FromFuture, IO}
 import com.evolutiongaming.scassandra.{NextHostRetryPolicy, Session}
 
@@ -19,12 +20,20 @@ object CassandraSession {
 
   def apply[F[_]](implicit F: CassandraSession[F]): CassandraSession[F] = F
 
-  def apply[F[_] : IO : FromFuture](session: Session, retries: Int): CassandraSession[F] = {
+  def apply[F[_] : IO : FromFuture](
+    session: Session,
+    retries: Int,
+    trace: Boolean = false): CassandraSession[F] = {
+
     val retryPolicy = new LoggingRetryPolicy(NextHostRetryPolicy(retries))
-    apply(session, retryPolicy)
+    apply(session, retryPolicy, trace)
   }
 
-  def apply[F[_] : IO : FromFuture](session: Session, retryPolicy: RetryPolicy): CassandraSession[F] = {
+  def apply[F[_] : IO : FromFuture](
+    session: Session,
+    retryPolicy: RetryPolicy,
+    trace: Boolean): CassandraSession[F] = {
+
     new CassandraSession[F] {
 
       def prepare(query: String) = {
@@ -34,11 +43,13 @@ object CassandraSession {
       }
 
       def execute(statement: Statement) = {
-        val statementConfigured = statement
+        val configured = statement
           .setRetryPolicy(retryPolicy)
           .setIdempotent(true)
+          .trace(trace)
+
         IO[F].from {
-          session.execute(statementConfigured)
+          session.execute(configured)
         }
       }
     }

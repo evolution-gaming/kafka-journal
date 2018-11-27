@@ -1,46 +1,22 @@
 package com.evolutiongaming.kafka.journal
 
-import java.time.Instant
 import java.util.UUID
 
-import akka.persistence.kafka.journal.KafkaJournalConfig
-import com.evolutiongaming.scassandra.CreateCluster
 import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.kafka.journal.FoldWhile._
+import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
-import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.skafka.producer.Producer
-import org.scalatest.{Matchers, WordSpec}
 
-import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class JournalIntSpec extends WordSpec with ActorSpec with Matchers {
-  import JournalIntSpec._
-
-  private implicit lazy val ec = system.dispatcher
+class JournalIntSpec extends JournalSuit {
+  import JournalSuit._
 
   private val timeout = 30.seconds
 
   val origin = Origin("JournalIntSpec")
 
-  lazy val config = {
-    val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.persistence.journal")
-    KafkaJournalConfig(config)
-  }
-
-  lazy val (eventual, cassandra) = {
-    val cassandraConfig = config.cassandra
-    val cassandra = CreateCluster(cassandraConfig.client)
-    implicit val session = Await.result(cassandra.connect(), config.connectTimeout)
-    val eventual = EventualCassandra(cassandraConfig, Log.empty(Async.unit), None)
-    (eventual, cassandra)
-  }
-
-  lazy val journalOf = {
-    val ecBlocking = system.dispatchers.lookup(config.blockingDispatcher)
-    val producer = Producer(config.journal.producer, ecBlocking)
+  private lazy val journalOf = {
     val topicConsumer = TopicConsumer(config.journal.consumer, ecBlocking)
     (eventual: EventualJournal, key: Key) => {
       val journal = Journal(
@@ -54,26 +30,13 @@ class JournalIntSpec extends WordSpec with ActorSpec with Matchers {
     }
   }
 
-  override def beforeAll() = {
-    super.beforeAll()
-    IntegrationSuit.start()
-    eventual
-  }
-
-  override def afterAll() = {
-    Safe {
-      Await.result(cassandra.close(), config.stopTimeout)
-    }
-    super.afterAll()
-  }
-
   "Journal" should {
 
     for {
       seqNr <- List(SeqNr.Min, SeqNr(10))
       (eventualName, eventual) <- List(
-        ("empty", () => eventual),
-        ("non-empty", () => EventualJournal.Empty))
+        ("empty", () => EventualJournal.Empty),
+        ("non-empty", () => eventual))
     } {
       val name = s"seqNr: $seqNr, eventual: $eventualName"
 
@@ -82,14 +45,14 @@ class JournalIntSpec extends WordSpec with ActorSpec with Matchers {
       s"append, delete, read, lastSeqNr, $name" in {
         val key = keyOf()
         val journal = journalOf(eventual(), key)
-        journal.lastSeqNr() shouldEqual None
+        journal.pointer() shouldEqual None
         journal.read() shouldEqual Nil
         journal.delete(SeqNr.Max) shouldEqual None
         val event = Event(seqNr)
         val partition = journal.append(Nel(event)).partition
         journal.read() shouldEqual List(event)
         journal.delete(SeqNr.Max).map(_.partition) shouldEqual Some(partition)
-        journal.lastSeqNr() shouldEqual Some(seqNr)
+        journal.pointer() shouldEqual Some(seqNr)
         journal.read() shouldEqual Nil
       }
 
@@ -112,46 +75,47 @@ class JournalIntSpec extends WordSpec with ActorSpec with Matchers {
             _ <- 0 to 10
           } yield Async.async {
             journal.read() shouldEqual events
-            journal.lastSeqNr() shouldEqual events.lastOption.map(_.seqNr)
+            journal.pointer() shouldEqual events.lastOption.map(_.seqNr)
           }
         }.get(timeout)
       }
-    }
-  }
-}
 
-object JournalIntSpec {
+      s"read $many in parallel, $name" in {
 
-  trait KeyJournal {
+        val events = for {
+          n <- (0 to 10).toList
+          seqNr <- seqNr.map(_ + n)
+        } yield Event(seqNr)
 
-    def append(events: Nel[Event]): PartitionOffset
+        val results = for {
+          _ <- 0 until many
+        } yield Async.async {
+          val key = keyOf()
+          val journal = journalOf(eventual(), key)
+          journal.read() shouldEqual Nil
+          journal.pointer() shouldEqual None
+          for {
+            event <- events
+          } yield {
+            journal.append(Nel(event))
+          }
+          () =>
+            Async.async {
+              journal.pointer() shouldEqual events.lastOption.map(_.seqNr)
+              journal.read() shouldEqual events
+              ()
+            }
+        }
 
-    def read(): List[Event]
+        val recoveries = Async.list(results.toList).get(timeout)
 
-    def lastSeqNr(): Option[SeqNr]
+        val recovered = for {
+          recovery <- recoveries
+        } yield {
+          recovery()
+        }
 
-    def delete(to: SeqNr): Option[PartitionOffset]
-  }
-
-  object KeyJournal {
-
-    def apply(key: Key, journal: Journal[Async], timeout: FiniteDuration): KeyJournal = new KeyJournal {
-
-      def append(events: Nel[Event]) = {
-        journal.append(key, events, Instant.now()).get(timeout)
-      }
-
-      def read() = {
-        val events = journal.read[List[Event]](key, SeqNr.Min, Nil) { (xs, x) => Switch.continue(x :: xs) }.get(timeout)
-        events.reverse
-      }
-
-      def lastSeqNr() = {
-        journal.pointer(key, SeqNr.Min).get(timeout)
-      }
-
-      def delete(to: SeqNr) = {
-        journal.delete(key, SeqNr.Max, Instant.now()).get(timeout)
+        Async.foldUnit(recovered).get(timeout)
       }
     }
   }
