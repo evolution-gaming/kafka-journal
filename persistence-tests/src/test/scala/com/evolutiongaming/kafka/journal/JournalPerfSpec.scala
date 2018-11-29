@@ -12,7 +12,7 @@ class JournalPerfSpec extends JournalSuit {
   import JournalSuit._
 
   private val timeout = 5.minutes
-  private val many = 1000
+  private val many = 100
   private val events = 1000
 
   private val origin = Origin("JournalPerfSpec")
