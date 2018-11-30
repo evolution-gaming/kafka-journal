@@ -57,24 +57,21 @@ object JournalStatement {
            |timestamp,
            |origin,
            |tags,
-           |metadata,
            |payload_type,
            |payload_txt,
            |payload_bin)
-           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            |""".stripMargin
 
       for {
         prepared <- session.prepare(query)
       } yield {
         (key: Key, segment: SegmentNr, events: Nel[ReplicatedEvent]) =>
-          // TODO make up better way for creating queries
 
-          // TODO add metadata field
+          // TODO use metadata field
 
           def statementOf(replicated: ReplicatedEvent) = {
             val event = replicated.event
-            // TODO test this
             val (payloadType, txt, bin) = event.payload.map { payload =>
               val (text, bytes) = payload match {
                 case payload: Payload.Binary => (None, Some(payload))
@@ -87,19 +84,19 @@ object JournalStatement {
               (None, None, None)
             }
 
-            prepared
+            val result = prepared
               .bind()
               .encode(key)
               .encode(segment)
               .encode(event.seqNr)
               .encode(replicated.partitionOffset)
               .encode("timestamp", replicated.timestamp)
-              .encode(replicated.origin)
+              .encodeSome(replicated.origin)
               .encode("tags", event.tags)
-              .encode("metadata", "") // TODO
-              .encode("payload_type", payloadType)
-              .encode("payload_txt", txt)
-              .encode("payload_bin", bin)
+              .encodeSome("payload_type", payloadType)
+              .encodeSome("payload_txt", txt)
+              .encodeSome("payload_bin", bin)
+            result
           }
 
           val statement = {

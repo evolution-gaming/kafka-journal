@@ -57,7 +57,7 @@ class JournalPerfSpec extends JournalSuit {
         n <- (0 to events).toList
         seqNr <- SeqNr.Min.map(_ + n)
       } {
-        val event = Event(seqNr, /*TODO*/Set(""), /*TODO*/Some(Payload("")))
+        val event = Event(seqNr)
         journal.append(Nel(event))
       }
     }

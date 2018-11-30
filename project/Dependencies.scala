@@ -22,15 +22,15 @@ object Dependencies {
 
   val serially = "com.evolutiongaming" %% "serially" % "1.0.4"
 
-  val `safe-actor` = "com.evolutiongaming" %% "safe-actor" % "2.0.0"
+  val `safe-actor` = "com.evolutiongaming" %% "safe-actor" % "2.0.3"
 
-  val `kafka-launcher` = "com.evolutiongaming" %% "kafka-launcher" % "0.0.3"
+  val `kafka-launcher` = "com.evolutiongaming" %% "kafka-launcher" % "0.0.5"
 
-  val `cassandra-launcher` = "com.evolutiongaming" %% "cassandra-launcher" % "0.0.1"
+  val `cassandra-launcher` = "com.evolutiongaming" %% "cassandra-launcher" % "0.0.2"
 
   val hostname = "com.evolutiongaming" %% "hostname" % "0.1.1"
 
-  val scassandra = "com.evolutiongaming" %% "scassandra" % "0.0.3"
+  val scassandra = "com.evolutiongaming" %% "scassandra" % "0.0.5"
 
   val `cassandra-sync` = "com.evolutiongaming" %% "cassandra-sync" % "0.0.3"
 
@@ -64,7 +64,7 @@ object Dependencies {
   }
 
   object Skafka {
-    private val version = "3.0.2"
+    private val version = "3.0.4"
     val skafka      = "com.evolutiongaming" %% "skafka" % version
     val prometheus  = "com.evolutiongaming" %% "skafka-prometheus" % version
   }
