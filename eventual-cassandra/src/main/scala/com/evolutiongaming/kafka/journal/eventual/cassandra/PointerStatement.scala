@@ -41,8 +41,8 @@ object PointerStatement {
           val bound = prepared
             .bind()
             .encode("topic", pointer.topic)
-            .encode("partition", pointer.partition) // TODO
-            .encode("offset", pointer.offset) // TODO
+            .encode("partition", pointer.partition)
+            .encode("offset", pointer.offset)
             .encode("created", pointer.created)
             .encode("updated", pointer.updated)
           session.execute(bound).unit

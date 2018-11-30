@@ -53,10 +53,10 @@ object MetadataStatement {
             .encode(metadata.partitionOffset)
             .encode("segment_size", metadata.segmentSize)
             .encode(metadata.seqNr)
-            .encode("delete_to", metadata.deleteTo)
+            .encodeSome("delete_to", metadata.deleteTo)
             .encode("created", timestamp)
             .encode("updated", timestamp)
-            .encode(origin)
+            .encodeSome(origin)
           session.execute(bound).unit
       }
     }
