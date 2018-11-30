@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.implicits._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.IO.ops._
@@ -39,16 +40,7 @@ object FoldActions {
 
         if (replicated) IO[F].pure(s)
         else {
-
-          val last = {
-            // TODO use max form Helpers
-            PartialFunction.condOpt((offset, offsetReplicated)) {
-              case (Some(x), Some(y)) => x max y
-              case (Some(x), None)    => x
-              case (None, Some(x))    => x
-            }
-          }
-
+          val last = offset max offsetReplicated
           withReadActions(key, partition, last) { readActions =>
 
             val ff = (s: S) => {

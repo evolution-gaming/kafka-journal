@@ -8,7 +8,7 @@ import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.FoldWhile._
-import com.evolutiongaming.kafka.journal.SeqNr.Helper._
+import com.evolutiongaming.kafka.journal.SeqNr.ops._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.AsyncImplicits._
 import com.evolutiongaming.nel.Nel
@@ -381,7 +381,7 @@ object JournalSpec {
       withReadActions: WithReadActions[Async],
       writeAction: AppendAction[Async]): SeqNrJournal = {
 
-      val journal = Journal(ActorLog.empty, None, eventual, withReadActions, writeAction)
+      val journal = Journal(ActorLog.empty, None, eventual, withReadActions, writeAction, HeadCache.empty[Async])
       val withLogging = Journal[Async](journal, ActorLog.empty)
       val withMetrics = Journal(withLogging, Journal.Metrics.empty(Async.unit))
       SeqNrJournal(withMetrics)

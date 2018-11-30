@@ -2,8 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import play.api.libs.json._
 
-sealed trait ActionHeader { self =>
-
+sealed abstract class ActionHeader {
   def origin: Option[Origin]
 }
 
@@ -57,14 +56,17 @@ object ActionHeader {
   }
 
 
+  sealed abstract class AppendOrDelete extends ActionHeader
+
+
   final case class Append(
     range: SeqRange,
     origin: Option[Origin],
-    payloadType: PayloadType.BinaryOrJson) extends ActionHeader
+    payloadType: PayloadType.BinaryOrJson) extends AppendOrDelete
 
   final case class Delete(
     to: SeqNr,
-    origin: Option[Origin]) extends ActionHeader
+    origin: Option[Origin]) extends AppendOrDelete
 
   final case class Mark(
     id: String,

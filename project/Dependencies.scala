@@ -37,8 +37,9 @@ object Dependencies {
   val prometheus = "io.prometheus" % "simpleclient" % "0.5.0"
 
   object Cats {
-    private val version = "1.4.0"
-    val core = "org.typelevel" %% "cats-core" % version
+    private val version = "1.5.0"
+    val core   = "org.typelevel" %% "cats-core"   % version
+    val effect = "org.typelevel" %% "cats-effect" % "1.1.0"
   }
 
   object Logback {
@@ -54,18 +55,18 @@ object Dependencies {
   }
 
   object Akka {
-    private val version = "2.5.18"
-    val actor             = "com.typesafe.akka" %% "akka-actor" % version
-    val testkit           = "com.typesafe.akka" %% "akka-testkit" % version
-    val stream            = "com.typesafe.akka" %% "akka-stream" % version
-    val persistence       = "com.typesafe.akka" %% "akka-persistence" % version
+    private val version = "2.5.19"
+    val actor             = "com.typesafe.akka" %% "akka-actor"           % version
+    val testkit           = "com.typesafe.akka" %% "akka-testkit"         % version
+    val stream            = "com.typesafe.akka" %% "akka-stream"          % version
+    val persistence       = "com.typesafe.akka" %% "akka-persistence"     % version
     val `persistence-tck` = "com.typesafe.akka" %% "akka-persistence-tck" % version
-    val slf4j             = "com.typesafe.akka" %% "akka-slf4j" % version
+    val slf4j             = "com.typesafe.akka" %% "akka-slf4j"           % version
   }
 
   object Skafka {
-    private val version = "3.0.4"
-    val skafka      = "com.evolutiongaming" %% "skafka" % version
+    private val version = "3.0.5"
+    val skafka      = "com.evolutiongaming" %% "skafka"            % version
     val prometheus  = "com.evolutiongaming" %% "skafka-prometheus" % version
   }
 }

@@ -2,16 +2,16 @@ package com.evolutiongaming.kafka.journal
 
 import java.util.concurrent.atomic.AtomicReference
 
-trait Ref[A, F[_]] {
+trait AtomicRef[A, F[_]] {
 
   def set(value: A): F[Unit]
 
   def get(): F[A]
 }
 
-object Ref {
+object AtomicRef {
 
-  def apply[A, F[_] : IO](ref: AtomicReference[A]): Ref[A, F] = new Ref[A, F] {
+  def apply[A, F[_] : IO](ref: AtomicReference[A]): AtomicRef[A, F] = new AtomicRef[A, F] {
 
     def set(value: A) = {
       IO[F].effect {
@@ -24,5 +24,5 @@ object Ref {
     }
   }
 
-  def apply[A, F[_] : IO](): Ref[A, F] = apply(new AtomicReference[A])
+  def apply[A, F[_] : IO](): AtomicRef[A, F] = apply(new AtomicReference[A])
 }

@@ -59,20 +59,25 @@ lazy val journal = (project in file("journal")
     `executor-tools`,
     Logback.core % Test,
     async,
-    `akka-serialization`,
+    `akka-serialization`/*TODO remove*/,
     `play-json`,
     `scala-tools`,
     `future-helper`,
     `safe-actor`,
     hostname,
     scassandra,
-    `cassandra-sync`)))
+    `cassandra-sync`,
+    serially,
+    Cats.core,
+    Cats.effect)))
 
 lazy val persistence = (project in file("persistence")
   settings (name := "kafka-journal-persistence")
   settings commonSettings
   dependsOn (journal % "test->test;compile->compile", `eventual-cassandra`)
-  settings (libraryDependencies ++= Seq(Akka.persistence)))
+  settings (libraryDependencies ++= Seq(
+    `akka-serialization`,
+    Akka.persistence)))
 
 lazy val `persistence-tests` = (project in file("persistence-tests")
   settings (name := "kafka-journal-persistence-tests")

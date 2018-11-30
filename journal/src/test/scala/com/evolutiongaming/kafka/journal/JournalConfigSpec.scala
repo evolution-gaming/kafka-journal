@@ -24,8 +24,7 @@ class JournalConfigSpec extends FunSuite with Matchers {
       producer = ProducerConfig(
         common = CommonConfig(clientId = Some("clientId")),
         acks = Acks.All,
-        idempotence = true,
-        retries = 10),
+        idempotence = true),
       ConsumerConfig(
         common = CommonConfig(clientId = Some("clientId")),
         groupId = Some("journal"),

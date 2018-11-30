@@ -12,7 +12,8 @@ final case class KafkaJournalConfig(
   cassandra: EventualCassandraConfig = EventualCassandraConfig.Default,
   blockingDispatcher: String = "evolutiongaming.kafka-journal.persistence.blocking-dispatcher",
   connectTimeout: FiniteDuration = 5.seconds,
-  stopTimeout: FiniteDuration = 10.seconds)
+  stopTimeout: FiniteDuration = 10.seconds,
+  headCache: Boolean = true)
 
 object KafkaJournalConfig {
 
@@ -31,6 +32,7 @@ object KafkaJournalConfig {
       cassandra = get[Config]("cassandra").fold(default.cassandra)(EventualCassandraConfig(_)),
       blockingDispatcher = get[String]("blocking-dispatcher") getOrElse default.blockingDispatcher,
       connectTimeout = get[FiniteDuration]("connect-timeout") getOrElse default.connectTimeout,
-      stopTimeout = get[FiniteDuration]("stop-timeout") getOrElse default.stopTimeout)
+      stopTimeout = get[FiniteDuration]("stop-timeout") getOrElse default.stopTimeout,
+      headCache = get[Boolean]("head-cache.enabled") getOrElse default.headCache)
   }
 }

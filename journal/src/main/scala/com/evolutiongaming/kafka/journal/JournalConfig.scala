@@ -14,8 +14,7 @@ final case class JournalConfig(
   producer: ProducerConfig = ProducerConfig(
     common = CommonConfig(clientId = Some("journal")),
     acks = Acks.All,
-    idempotence = true,
-    retries = 10),
+    idempotence = true),
   consumer: ConsumerConfig = ConsumerConfig(
     common = CommonConfig(clientId = Some("journal")),
     groupId = Some("journal"),

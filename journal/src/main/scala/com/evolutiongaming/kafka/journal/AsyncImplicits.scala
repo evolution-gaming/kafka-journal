@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.Applicative
 import com.evolutiongaming.concurrent.async.Async
 
 import scala.annotation.tailrec
@@ -67,6 +68,20 @@ object AsyncImplicits {
     def apply[A](fa: Future[A]) = {
       try Async(fa) catch {
         case NonFatal(failure) => Async.failed(failure)
+      }
+    }
+  }
+
+  implicit val ApplicativeAsync: Applicative[Async] = new Applicative[Async] {
+
+    def pure[A](x: A) = Async(x)
+
+    def ap[A, B](ff: Async[A => B])(fa: Async[A]) = {
+      for {
+        f <- ff
+        a <- fa
+      } yield {
+        f(a)
       }
     }
   }

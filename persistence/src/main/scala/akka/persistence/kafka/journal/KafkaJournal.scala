@@ -3,13 +3,13 @@ package akka.persistence.kafka.journal
 import akka.actor.ActorSystem
 import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.{AtomicWrite, PersistentRepr}
-import com.evolutiongaming.scassandra.CreateCluster
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.AsyncImplicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.safeakka.actor.ActorLog
+import com.evolutiongaming.scassandra.CreateCluster
 import com.evolutiongaming.skafka.ClientId
 import com.evolutiongaming.skafka.consumer.Consumer
 import com.evolutiongaming.skafka.producer.Producer
@@ -114,6 +114,14 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
       }
     }
 
+    val headCache = {
+      if (config.headCache) {
+        HeadCacheAsync(config.journal.consumer, eventualJournal, ecBlocking, log)
+      } else {
+        HeadCache.empty[Async]
+      }
+    }
+
     val journal = {
       val journal = Journal(
         producer = producer,
@@ -121,7 +129,8 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
         topicConsumer = topicConsumer,
         eventual = eventualJournal,
         pollTimeout = config.journal.pollTimeout,
-        closeTimeout = config.journal.closeTimeout)
+        closeTimeout = config.journal.closeTimeout,
+        readJournal = headCache)
 
       metrics.journal.fold(journal) { Journal(journal, _) }
     }

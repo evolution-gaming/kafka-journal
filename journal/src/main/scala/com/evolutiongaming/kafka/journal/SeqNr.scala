@@ -1,7 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.scassandra._
+import cats.kernel.Order
 import com.evolutiongaming.kafka.journal.PlayJsonHelper._
+import com.evolutiongaming.scassandra._
 import play.api.libs.json._
 
 final case class SeqNr(value: Long) extends Ordered[SeqNr] {
@@ -63,6 +64,10 @@ object SeqNr {
     SeqNr.validate(a)(JsError(_), JsSuccess(_))
   }
 
+  implicit val OrderImpl: Order[SeqNr] = new Order[SeqNr] {
+    def compare(x: SeqNr, y: SeqNr) = x compare y
+  }
+
   
   def validate[T](value: Long)(onError: String => T, onSeqNr: SeqNr => T): T = {
     if (isValid(value)) onSeqNr(SeqNr(value)) else onError(invalid(value))
@@ -83,7 +88,7 @@ object SeqNr {
 
 
   // TODO remove?
-  object Helper {
+  object ops {
 
     implicit class LongOps(val self: Long) extends AnyVal {
       def toSeqNr: SeqNr = SeqNr(self)
@@ -93,6 +98,7 @@ object SeqNr {
       def toSeqNr: SeqNr = self.toLong.toSeqNr
     }
 
+    // TODO remove
     implicit class OptSeqNrOps(val self: Option[SeqNr]) extends AnyVal {
 
       // TODO not create new Somes

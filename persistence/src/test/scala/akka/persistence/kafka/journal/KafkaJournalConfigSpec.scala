@@ -38,7 +38,6 @@ class KafkaJournalConfigSpec extends FunSuite with Matchers {
             clientId = Some("journal"),
             sendBufferBytes = 1000000),
           acks = Acks.All,
-          retries = 100,
           idempotence = true),
         consumer = ConsumerConfig(
           common = CommonConfig(

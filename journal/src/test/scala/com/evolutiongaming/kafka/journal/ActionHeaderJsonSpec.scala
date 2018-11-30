@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.SeqNr.Helper._
+import com.evolutiongaming.kafka.journal.SeqNr.ops._
 import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json._
 

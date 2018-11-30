@@ -4,6 +4,7 @@ import java.util.UUID
 
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.nel.Nel
+import com.evolutiongaming.safeakka.actor.ActorLog
 
 import scala.compat.Platform
 import scala.concurrent.duration._
@@ -20,13 +21,16 @@ class JournalPerfSpec extends JournalSuit {
   private lazy val journalOf = {
     val topicConsumer = TopicConsumer(config.journal.consumer, ecBlocking)
     (eventual: EventualJournal, key: Key) => {
+      val log = ActorLog(system, HeadCache.getClass)
+      val headCache = HeadCacheAsync(config.journal.consumer, eventual, ecBlocking, log)
       val journal = Journal(
         producer = producer,
         origin = Some(origin),
         topicConsumer = topicConsumer,
         eventual = eventual,
         pollTimeout = config.journal.pollTimeout,
-        closeTimeout = config.journal.closeTimeout)
+        closeTimeout = config.journal.closeTimeout,
+        readJournal = headCache)
       KeyJournal(key, journal, timeout)
     }
   }
@@ -53,11 +57,23 @@ class JournalPerfSpec extends JournalSuit {
 
     lazy val append: Unit = {
       val journal = journalOf(eventual, key)
+
+      journal.pointer()
+
       for {
         n <- (0 to events).toList
         seqNr <- SeqNr.Min.map(_ + n)
       } {
         val event = Event(seqNr)
+        journal.append(Nel(event))
+      }
+
+      for {
+        _ <- 0 to events
+        key = Key(id = UUID.randomUUID().toString, topic = "journal")
+      } yield {
+        val journal = journalOf(eventual, key)
+        val event = Event(SeqNr.Min)
         journal.append(Nel(event))
       }
     }

@@ -36,7 +36,7 @@ object TopicReplicator {
     consumer: KafkaConsumer[F],
     journal: ReplicatedJournal[F],
     log: Log[F],
-    stopRef: Ref[Boolean, F],
+    stopRef: AtomicRef[Boolean, F],
     metrics: Metrics[F],
     now: => F[Instant] /*TODO should not be a function*/): TopicReplicator[F] = {
 
@@ -251,7 +251,7 @@ object TopicReplicator {
     metrics: Metrics[F])(implicit system: ActorSystem): TopicReplicator[F] = {
 
     val actorLog = ActorLog(system, TopicReplicator.getClass) prefixed topic
-    val stopRef = Ref[Boolean, F]()
+    val stopRef = AtomicRef[Boolean, F]()
     apply(
       topic = topic,
       consumer = consumer,
