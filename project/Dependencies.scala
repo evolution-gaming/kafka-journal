@@ -30,7 +30,7 @@ object Dependencies {
 
   val hostname = "com.evolutiongaming" %% "hostname" % "0.1.1"
 
-  val scassandra = "com.evolutiongaming" %% "scassandra" % "0.0.5"
+  val scassandra = "com.evolutiongaming" %% "scassandra" % "0.0.6"
 
   val `cassandra-sync` = "com.evolutiongaming" %% "cassandra-sync" % "0.0.3"
 
