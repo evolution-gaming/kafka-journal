@@ -12,7 +12,7 @@ object Dependencies {
 
   val async = "com.evolutiongaming" %% "async" % "0.0.3"
 
-  val `play-json` = "com.typesafe.play" %% "play-json" % "2.6.10"
+  val `play-json` = "com.typesafe.play" %% "play-json" % "2.6.11"
 
   val `scala-tools` = "com.evolutiongaming" %% "scala-tools" % "2.2"
 

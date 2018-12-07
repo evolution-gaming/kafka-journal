@@ -8,7 +8,7 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(url("http://evolutiongaming.com")),
   bintrayOrganization := Some("evolutiongaming"),
   scalaVersion := crossScalaVersions.value.last,
-  crossScalaVersions := Seq(/*"2.11.12", */"2.12.7"),
+  crossScalaVersions := Seq(/*"2.11.12", */"2.12.8"),
   scalacOptions ++= Seq(
     "-encoding", "UTF-8",
     "-feature",
