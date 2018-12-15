@@ -13,7 +13,7 @@ import scala.concurrent.duration._
 class JournalIntSpec extends JournalSuit {
   import JournalSuit._
 
-  private val timeout = 30.seconds
+  private val timeout = 1.minute
 
   val origin = Origin("JournalIntSpec")
 
