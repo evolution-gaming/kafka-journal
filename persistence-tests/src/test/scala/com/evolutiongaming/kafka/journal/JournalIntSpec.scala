@@ -60,7 +60,7 @@ class JournalIntSpec extends JournalSuit {
         journal.read() shouldEqual Nil
       }
 
-      val many = 100
+      val many = 10
       s"append & read $many, $name" in {
         val key = keyOf()
         val journal = journalOf(eventual(), key)
