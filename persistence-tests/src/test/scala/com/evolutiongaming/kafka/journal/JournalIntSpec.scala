@@ -7,22 +7,19 @@ import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
+import org.scalatest.{AsyncWordSpec, Succeeded}
 
-import scala.concurrent.duration._
-
-class JournalIntSpec extends JournalSuit {
+class JournalIntSpec extends AsyncWordSpec with JournalSuit {
   import JournalSuit._
-
-  private val timeout = 10.minutes
 
   val origin = Origin("JournalIntSpec")
 
   private lazy val journalOf = {
     val topicConsumer = TopicConsumer(config.journal.consumer, ecBlocking)
-    (eventual: EventualJournal, key: Key) => {
+    eventual: EventualJournal => {
       val log = ActorLog(system, HeadCache.getClass)
       val headCache = HeadCacheAsync(config.journal.consumer, eventual, ecBlocking, log)
-      val journal = Journal(
+      Journal(
         producer = producer,
         origin = Some(origin),
         topicConsumer = topicConsumer,
@@ -30,7 +27,6 @@ class JournalIntSpec extends JournalSuit {
         pollTimeout = config.journal.pollTimeout,
         closeTimeout = config.journal.closeTimeout,
         readJournal = headCache)
-      KeyJournal(key, journal, timeout)
     }
   }
 
@@ -46,24 +42,38 @@ class JournalIntSpec extends JournalSuit {
 
       def keyOf() = Key(id = UUID.randomUUID().toString, topic = "journal")
 
+      lazy val journal0 = journalOf(eventual())
+
       s"append, delete, read, lastSeqNr, $name" in {
         val key = keyOf()
-        val journal = journalOf(eventual(), key)
-        journal.pointer() shouldEqual None
-        journal.read() shouldEqual Nil
-        journal.delete(SeqNr.Max) shouldEqual None
-        val event = Event(seqNr)
-        val partition = journal.append(Nel(event)).partition
-        journal.read() shouldEqual List(event)
-        journal.delete(SeqNr.Max).map(_.partition) shouldEqual Some(partition)
-        journal.pointer() shouldEqual Some(seqNr)
-        journal.read() shouldEqual Nil
+        val journal = KeyJournal(key, journal0)
+        val result = for {
+          pointer <- journal.pointer()
+          _ = pointer shouldEqual None
+          events <- journal.read()
+          _ = events shouldEqual Nil
+          offset <- journal.delete(SeqNr.Max)
+          _ = offset shouldEqual None
+          event = Event(seqNr)
+          offset <- journal.append(Nel(event))
+          partition = offset.partition
+          events <- journal.read()
+          _ = events shouldEqual List(event)
+          offset <- journal.delete(SeqNr.Max)
+          _ = offset.map(_.partition) shouldEqual Some(partition)
+          pointer <- journal.pointer()
+          _ = pointer shouldEqual Some(seqNr)
+          events <- journal.read()
+          _ = events shouldEqual Nil
+        } yield Succeeded
+
+        result.future
       }
 
       val many = 10
       s"append & read $many, $name" in {
         val key = keyOf()
-        val journal = journalOf(eventual(), key)
+        val journal = KeyJournal(key, journal0)
 
         val events = for {
           n <- 0 until many
@@ -72,54 +82,73 @@ class JournalIntSpec extends JournalSuit {
           Event(seqNr)
         }
 
-        journal.append(Nel.unsafe(events))
-
-        Async.foldUnit {
-          for {
-            _ <- 0 to 10
-          } yield Async.async {
-            journal.read() shouldEqual events
-            journal.pointer() shouldEqual events.lastOption.map(_.seqNr)
+        val result = for {
+          _ <- journal.append(Nel.unsafe(events))
+          _ <- Async.foldUnit {
+            for {
+              _ <- 0 to 10
+            } yield for {
+              events <- journal.read()
+              _ = events shouldEqual events
+              pointer <- journal.pointer()
+              _ = pointer shouldEqual events.lastOption.map(_.seqNr)
+            } yield {}
           }
-        }.get(timeout)
+        } yield Succeeded
+
+        result.future
       }
 
-      s"read $many in parallel, $name" ignore {
+      s"read $many in parallel, $name" in {
 
-        val events = for {
+        val expected = for {
           n <- (0 to 10).toList
           seqNr <- seqNr.map(_ + n)
         } yield Event(seqNr)
 
-        val results = for {
-          _ <- 0 until many
-        } yield Async.async {
-          val key = keyOf()
-          val journal = journalOf(eventual(), key)
-          journal.read() shouldEqual Nil
-          journal.pointer() shouldEqual None
-          for {
-            event <- events
-          } yield {
-            journal.append(Nel(event))
-          }
-          () =>
-            Async.async {
-              journal.pointer() shouldEqual events.lastOption.map(_.seqNr)
-              journal.read() shouldEqual events
-              ()
+
+        val result = for {
+          recoveries <- Async.list {
+            for {
+              _ <- (0 until many).toList
+            } yield {
+
+              val key = keyOf()
+              val journal = KeyJournal(key, journal0)
+
+              for {
+                events <- journal.read()
+                _ = events shouldEqual Nil
+                pointer <- journal.pointer()
+                _ = pointer shouldEqual None
+                _ <- Async.fold(expected, ()) { (_, event) =>
+                  for {
+                    _ <- journal.append(Nel(event))
+                  } yield {}
+                }
+              } yield {
+                () => {
+                  for {
+                    pointer <- journal.pointer()
+                    _ = pointer shouldEqual expected.lastOption.map(_.seqNr)
+                    events <- journal.read()
+                    _ = events shouldEqual expected
+                  } yield {}
+                }
+              }
             }
-        }
+          }
 
-        val recoveries = Async.list(results.toList).get(timeout)
+          _ <- Async.foldUnit {
+            for {
+              recovery <- recoveries
+            } yield {
+              recovery()
+            }
+          }
+        } yield Succeeded
 
-        val recovered = for {
-          recovery <- recoveries
-        } yield {
-          recovery()
-        }
-
-        Async.foldUnit(recovered).get(timeout)
+        result.future
       }
     }
   }

@@ -6,8 +6,7 @@ import akka.testkit.{DefaultTimeout, ImplicitSender, TestKit}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.{BeforeAndAfterAll, Suite}
 
-trait ActorSpec extends BeforeAndAfterAll {
-  this: Suite =>
+trait ActorSuite extends BeforeAndAfterAll { self: Suite =>
 
   implicit lazy val system: ActorSystem = ActorSystem(getClass.getSimpleName, configOf())
 

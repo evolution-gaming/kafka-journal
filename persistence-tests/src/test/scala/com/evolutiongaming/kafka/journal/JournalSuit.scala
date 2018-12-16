@@ -9,14 +9,14 @@ import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.CreateCluster
 import com.evolutiongaming.skafka.producer.Producer
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{Matchers, Suite}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-class JournalSuit extends WordSpec with ActorSpec with Matchers {
+trait JournalSuit extends ActorSuite with Matchers { self: Suite =>
 
-  implicit lazy val ec: ExecutionContext = system.dispatcher
+  private implicit lazy val ec: ExecutionContext = system.dispatcher
 
   lazy val config: KafkaJournalConfig = {
     val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.persistence.journal")
@@ -56,6 +56,50 @@ object JournalSuit {
 
   trait KeyJournal {
 
+    def append(events: Nel[Event]): Async[PartitionOffset]
+
+    def read(): Async[List[Event]]
+
+    def size(): Async[Int]
+
+    def pointer(): Async[Option[SeqNr]]
+
+    def delete(to: SeqNr): Async[Option[PartitionOffset]]
+  }
+
+  object KeyJournal {
+
+    def apply(key: Key, journal: Journal[Async]): KeyJournal = new KeyJournal {
+
+      def append(events: Nel[Event]) = {
+        journal.append(key, events, Instant.now())
+      }
+
+      def read() = {
+        for {
+          events <- journal.read[List[Event]](key, SeqNr.Min, Nil) { (xs, x) => Switch.continue(x :: xs) }
+        } yield {
+          events.reverse
+        }
+      }
+
+      def size() = {
+        journal.read[Int](key, SeqNr.Min, 0) { (a, _) => Switch.continue(a + 1) }
+      }
+
+      def pointer() = {
+        journal.pointer(key, SeqNr.Min)
+      }
+
+      def delete(to: SeqNr) = {
+        journal.delete(key, to, Instant.now())
+      }
+    }
+  }
+
+
+  trait KeyJournalSync {
+
     def append(events: Nel[Event]): PartitionOffset
 
     def read(): List[Event]
@@ -67,9 +111,9 @@ object JournalSuit {
     def delete(to: SeqNr): Option[PartitionOffset]
   }
 
-  object KeyJournal {
+  object KeyJournalSync {
 
-    def apply(key: Key, journal: Journal[Async], timeout: FiniteDuration): KeyJournal = new KeyJournal {
+    def apply(key: Key, journal: Journal[Async], timeout: FiniteDuration): KeyJournalSync = new KeyJournalSync {
 
       def append(events: Nel[Event]) = {
         journal.append(key, events, Instant.now()).get(timeout)

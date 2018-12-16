@@ -10,7 +10,7 @@ import com.evolutiongaming.kafka.journal._
 import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json.{JsString, JsValue}
 
-class EventSerializerSpec extends FunSuite with ActorSpec with Matchers {
+class EventSerializerSpec extends FunSuite with ActorSuite with Matchers {
 
   private implicit val fixEquality = FixEquality.array[Byte]()
 

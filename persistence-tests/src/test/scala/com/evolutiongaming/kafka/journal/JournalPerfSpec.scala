@@ -2,17 +2,18 @@ package com.evolutiongaming.kafka.journal
 
 import java.util.UUID
 
+import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
+import org.scalatest.{AsyncWordSpec, Succeeded}
 
 import scala.compat.Platform
 import scala.concurrent.duration._
 
-class JournalPerfSpec extends JournalSuit {
+class JournalPerfSpec extends AsyncWordSpec with JournalSuit {
   import JournalSuit._
 
-  private val timeout = 5.minutes
   private val many = 100
   private val events = 1000
 
@@ -20,10 +21,10 @@ class JournalPerfSpec extends JournalSuit {
 
   private lazy val journalOf = {
     val topicConsumer = TopicConsumer(config.journal.consumer, ecBlocking)
-    (eventual: EventualJournal, key: Key) => {
+    eventual: EventualJournal => {
       val log = ActorLog(system, HeadCache.getClass)
       val headCache = HeadCacheAsync(config.journal.consumer, eventual, ecBlocking, log)
-      val journal = Journal(
+      Journal(
         producer = producer,
         origin = Some(origin),
         topicConsumer = topicConsumer,
@@ -31,51 +32,66 @@ class JournalPerfSpec extends JournalSuit {
         pollTimeout = config.journal.pollTimeout,
         closeTimeout = config.journal.closeTimeout,
         readJournal = headCache)
-      KeyJournal(key, journal, timeout)
+
     }
   }
 
-  def measure[A](f: => A): FiniteDuration = {
-    val durations = {
-      val durations = for {
-        _ <- (0 to many).toList
-      } yield {
-        val start = Platform.currentTime
-        f
-        val duration = Platform.currentTime - start
-        duration
+  def measure[A](f: => Async[A]): Async[FiniteDuration] = {
+    for {
+      durations <- (0 to many).foldLeft(Async(List.empty[Long])) { (durations, _) =>
+        for {
+          durations <- durations
+          start = Platform.currentTime
+          _ <- f
+        } yield {
+          val duration = Platform.currentTime - start
+          duration :: durations
+        }
       }
-      durations.tail
+    } yield {
+      (durations.sum / durations.size).millis
     }
-
-    (durations.sum / durations.size).millis
   }
 
   "Journal" should {
 
     val key = Key(id = UUID.randomUUID().toString, topic = "journal")
 
-    lazy val append: Unit = {
-      val journal = journalOf(eventual, key)
+    lazy val append = {
+      val journal0 = journalOf(eventual)
+      val journal = KeyJournal(key, journal0)
 
-      journal.pointer()
-
-      for {
+      val expected = for {
         n <- (0 to events).toList
         seqNr <- SeqNr.Min.map(_ + n)
-      } {
-        val event = Event(seqNr)
-        journal.append(Nel(event))
-      }
+      } yield Event(seqNr)
 
       for {
-        _ <- 0 to events
-        key = Key(id = UUID.randomUUID().toString, topic = "journal")
-      } yield {
-        val journal = journalOf(eventual, key)
-        val event = Event(SeqNr.Min)
-        journal.append(Nel(event))
-      }
+        _ <- journal.pointer()
+        _ <- expected.foldLeft(Async.unit) { (async, event) =>
+          for {
+            _ <- async
+            _ <- journal.append(Nel(event))
+          } yield {}
+        }
+
+        _ <- {
+          val otherEvents = for {
+            _ <- 0 to events
+          } yield {
+            Event(SeqNr.Min)
+          }
+          otherEvents.foldLeft(Async.unit) { (async, event) =>
+            for {
+              _ <- async
+              _ <- journal.append(Nel(event))
+              key = Key(id = UUID.randomUUID().toString, topic = "journal")
+              journal = KeyJournal(key, journal0)
+              _ <- journal.append(Nel(event))
+            } yield {}
+          }
+        }
+      } yield {}
     }
 
     for {
@@ -85,28 +101,38 @@ class JournalPerfSpec extends JournalSuit {
     } {
       val name = s"events: $events, eventual: $eventualName"
 
-      lazy val journal = journalOf(eventual(), key)
+      lazy val journal = KeyJournal(key, journalOf(eventual()))
 
       s"measure pointer $many times, $name" in {
-        append
-        val average = measure {
-          journal.pointer()
+        val result = for {
+          _ <- append
+          _ <- journal.pointer()
+          average <- measure {
+            journal.pointer()
+          }
+        } yield {
+          info(s"pointer measured $many times for $events events returned on average in $average")
+          average should be <= expected
+          Succeeded
         }
 
-        info(s"pointer measured $many times for $events events returned on average in $average")
-
-        average should be <= expected
+        result.future
       }
 
       s"measure read $many times, $name" in {
-        append
-        val average = measure {
-          journal.size()
+        val result = for {
+          _ <- append
+          _ <- journal.size()
+          average <- measure {
+            journal.size()
+          }
+        } yield {
+          info(s"read measured $many times for $events events returned on average in $average")
+          average should be <= expected
+          Succeeded
         }
 
-        info(s"read measured $many times for $events events returned on average in $average")
-
-        average should be <= expected
+        result.future
       }
     }
   }

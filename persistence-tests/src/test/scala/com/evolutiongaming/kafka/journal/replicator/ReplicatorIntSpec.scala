@@ -23,7 +23,7 @@ import org.scalatest.{Matchers, WordSpec}
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class ReplicatorIntSpec extends WordSpec with ActorSpec with Matchers {
+class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
 
   lazy val config = {
     val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.replicator")
