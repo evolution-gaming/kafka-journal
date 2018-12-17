@@ -77,15 +77,8 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         consumer = TestConsumer(ref)
         headCache <- headCacheOf(consumer.pure[IO])
         result <- headCache(key = key, partition = partition, offset = marker)
-        state <- ref.get
-        state <- state
         _ <- headCache.close
       } yield {
-        state shouldEqual TestConsumer.State(
-          assigns = List(TestConsumer.Assign(topic, Nel(partition))),
-          seeks = List(TestConsumer.Seek(topic, Map((partition, marker + 1)))),
-          topics = Map((topic, List(partition))))
-
         result shouldEqual Some(HeadCache.Result(seqNr = None, deleteTo = None))
       }
 
