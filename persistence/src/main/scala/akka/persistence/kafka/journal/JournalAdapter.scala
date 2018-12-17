@@ -98,9 +98,18 @@ object JournalAdapter {
 
     def lastSeqNr(persistenceId: PersistenceId, from: SeqNr) = {
       log.debug(s"$persistenceId lastSeqNr, from: $from")
-      
+
       val key = toKey(persistenceId)
-      journal.pointer(key, from).future
+      val pointer = for {
+        pointer <- journal.pointer(key)
+      } yield for {
+        pointer <- pointer
+        if pointer >= from
+      } yield {
+        pointer
+      }
+
+      pointer.future
     }
   }
 }

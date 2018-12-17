@@ -101,15 +101,6 @@ object SeqNr {
     // TODO remove
     implicit class OptSeqNrOps(val self: Option[SeqNr]) extends AnyVal {
 
-      // TODO not create new Somes
-      def max(that: Option[SeqNr]): Option[SeqNr] = {
-        PartialFunction.condOpt((self, that)) {
-          case (Some(x), Some(y)) => x max y
-          case (Some(x), None)    => x
-          case (None, Some(x))    => x
-        }
-      }
-
       def toLong: Long = self.fold(0l)(_.value)
     }
   }

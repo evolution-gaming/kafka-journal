@@ -88,7 +88,7 @@ object JournalSuit {
       }
 
       def pointer() = {
-        journal.pointer(key, SeqNr.Min)
+        journal.pointer(key)
       }
 
       def delete(to: SeqNr) = {
@@ -129,7 +129,7 @@ object JournalSuit {
       }
 
       def pointer() = {
-        journal.pointer(key, SeqNr.Min).get(timeout)
+        journal.pointer(key).get(timeout)
       }
 
       def delete(to: SeqNr) = {

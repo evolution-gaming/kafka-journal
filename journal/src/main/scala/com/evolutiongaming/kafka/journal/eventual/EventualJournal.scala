@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual
 
+import cats.Applicative
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.AsyncImplicits._
@@ -15,8 +16,7 @@ trait EventualJournal {
   def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]): Async[Switch[S]]
 
   // TODO not Use Pointer until tested
-  // TODO remove from: SeqNr
-  def pointer(key: Key, from: SeqNr): Async[Option[Pointer]]
+  def pointer(key: Key): Async[Option[Pointer]]
 }
 
 object EventualJournal {
@@ -27,7 +27,7 @@ object EventualJournal {
 
     def read[S](key: Key, from: SeqNr, state: S)(f: Fold[S, ReplicatedEvent]) = state.continue.async
 
-    def pointer(key: Key, from: SeqNr) = Async.none
+    def pointer(key: Key) = Async.none
   }
 
 
@@ -49,11 +49,11 @@ object EventualJournal {
       } yield result
     }
 
-    def pointer(key: Key, from: SeqNr) = {
+    def pointer(key: Key) = {
       for {
-        tuple <- Latency { journal.pointer(key, from) }
+        tuple <- Latency { journal.pointer(key) }
         (result, latency) = tuple
-        _ = log.debug(s"$key pointer in ${ latency }ms, from: $from, result: $result")
+        _ = log.debug(s"$key pointer in ${ latency }ms, result: $result")
       } yield result
     }
   }
@@ -82,16 +82,16 @@ object EventualJournal {
       } yield result
     }
 
-    def pointer(key: Key, from: SeqNr) = {
+    def pointer(key: Key) = {
       for {
-        tuple <- Latency { journal.pointer(key, from) }
+        tuple <- Latency { journal.pointer(key) }
         (result, latency) = tuple
         _ <- metrics.pointers(key.topic, latency)
       } yield result
     }
   }
 
-  
+
   trait Metrics[F[_]] {
 
     def pointers(topic: Topic, latency: Long): F[Unit]
@@ -111,5 +111,7 @@ object EventualJournal {
 
       def pointer(topic: Topic, latency: Long) = unit
     }
+
+    def empty[F[_] : Applicative]: Metrics[F] = empty(Applicative[F].unit)
   }
 }

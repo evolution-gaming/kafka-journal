@@ -111,7 +111,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
       }
     }
 
-    def pointer(key: Key) = journal.pointer(key, SeqNr.Min).get(timeout)
+    def pointer(key: Key) = journal.pointer(key).get(timeout)
 
     def topicPointers() = eventual.pointers(topic).get(timeout).values
 

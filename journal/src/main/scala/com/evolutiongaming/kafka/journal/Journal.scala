@@ -4,6 +4,8 @@ import java.time.Instant
 import java.util.UUID
 
 import akka.actor.ActorSystem
+import cats._
+import cats.implicits._
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.AsyncImplicits._
@@ -11,7 +13,6 @@ import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.IO2.ops._
-import com.evolutiongaming.kafka.journal.SeqNr.ops._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
@@ -27,7 +28,7 @@ trait Journal[F[_]] {
 
   def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]): F[S]
 
-  def pointer(key: Key, from: SeqNr): F[Option[SeqNr]]
+  def pointer(key: Key): F[Option[SeqNr]]
 
   // TODO return Pointer and Test it
   def delete(key: Key, to: SeqNr, timestamp: Instant): F[Option[PartitionOffset]]
@@ -35,15 +36,15 @@ trait Journal[F[_]] {
 
 object Journal {
 
-  def empty[F[_] : IO2]: Journal[F] = new Journal[F] {
+  def empty[F[_] : Applicative]: Journal[F] = new Journal[F] {
 
-    def append(key: Key, events: Nel[Event], timestamp: Instant) = IO2[F].pure(PartitionOffset.Empty)
+    def append(key: Key, events: Nel[Event], timestamp: Instant) = Applicative[F].pure(PartitionOffset.Empty)
 
-    def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = IO2[F].pure(s)
+    def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = Applicative[F].pure(s)
 
-    def pointer(key: Key, from: SeqNr) = IO2[F].none
+    def pointer(key: Key) = Applicative[F].pure(none)
 
-    def delete(key: Key, to: SeqNr, timestamp: Instant) = IO2[F].none
+    def delete(key: Key, to: SeqNr, timestamp: Instant) = Applicative[F].pure(none)
   }
 
 
@@ -70,11 +71,11 @@ object Journal {
       } yield result
     }
 
-    def pointer(key: Key, from: SeqNr) = {
+    def pointer(key: Key) = {
       for {
-        tuple <- Latency { journal.pointer(key, from) }
+        tuple <- Latency { journal.pointer(key) }
         (result, latency) = tuple
-        _ = log.debug(s"$key lastSeqNr in ${ latency }ms, from: $from, result: $result")
+        _ = log.debug(s"$key lastSeqNr in ${ latency }ms, result: $result")
       } yield result
     }
 
@@ -122,9 +123,9 @@ object Journal {
         } yield result
       }
 
-      def pointer(key: Key, from: SeqNr) = {
+      def pointer(key: Key) = {
         for {
-          tuple <- latency("pointer", key.topic) { journal.pointer(key, from) }
+          tuple <- latency("pointer", key.topic) { journal.pointer(key) }
           (result, latency) = tuple
           _ <- metrics.pointer(key.topic, latency)
         } yield result
@@ -306,10 +307,12 @@ object Journal {
         } yield result
       }
 
-      def pointer(key: Key, from: SeqNr) = {
+      def pointer(key: Key) = {
         // TODO reimplement, we don't need to call `eventual.pointer` without using it's offset
 
-        def seqNrEventual = eventual.pointer(key, from).map(_.map(_.seqNr))
+        val from = SeqNr.Min // TODO remove
+
+        def seqNrEventual = eventual.pointer(key).map(_.map(_.seqNr))
 
         for {
           (info, readActions) <- readActions(key, from)
@@ -321,7 +324,7 @@ object Journal {
             }
 
             case None =>
-              val pointer = eventual.pointer(key, from)
+              val pointer = eventual.pointer(key)
               for {
                 seqNr <- readActions(None /*TODO provide offset from eventual.lastSeqNr*/ , Option.empty[SeqNr]) { (seqNr, action) =>
                   val result = action match {
@@ -342,7 +345,7 @@ object Journal {
 
       def delete(key: Key, to: SeqNr, timestamp: Instant) = {
         for {
-          seqNr <- pointer(key, SeqNr.Min)
+          seqNr <- pointer(key)
           result <- seqNr match {
             case None        => Async.none
             case Some(seqNr) =>
@@ -386,6 +389,6 @@ object Journal {
       def failure(name: String, topic: Topic) = unit
     }
 
-    def empty[F[_] : IO2]: Metrics[F] = empty(IO2[F].unit)
+    def empty[F[_] : Applicative]: Metrics[F] = empty(Applicative[F].unit)
   }
 }

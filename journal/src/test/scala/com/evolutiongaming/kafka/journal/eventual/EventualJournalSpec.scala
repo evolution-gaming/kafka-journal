@@ -168,11 +168,10 @@ trait EventualJournalSpec extends WordSpec with Matchers {
             val expected = events.dropWhile(_.seqNr < from)
             eventual.events(from) shouldEqual expected
           }
+        }
 
-          s"pointer: $from, $name" in {
-            val expected = pointerLast.filter(_.seqNr >= from)
-            eventual.pointer(from) shouldEqual expected
-          }
+        s"pointer, $name" in {
+          eventual.pointer() shouldEqual pointerLast
         }
       }
     }
@@ -294,7 +293,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
         eventOf(pointerOf(offset = 10, seqNr = SeqNr(6))),
         eventOf(pointerOf(offset = 10, seqNr = SeqNr(7))))
       replicated.append(events)
-      eventual.pointer(SeqNr.Min) shouldEqual Some(events.last.pointer)
+      eventual.pointer() shouldEqual Some(events.last.pointer)
       eventual.events(SeqNr.Min) shouldEqual events.toList
     }
   }
@@ -312,7 +311,7 @@ object EventualJournalSpec {
 
     def events(from: SeqNr = SeqNr.Min): List[ReplicatedEvent]
 
-    def pointer(from: SeqNr = SeqNr.Min): Option[Pointer]
+    def pointer(): Option[Pointer]
 
     def pointers(topic: Topic): TopicPointers
   }
@@ -328,8 +327,8 @@ object EventualJournalSpec {
         switch.s.reverse
       }
 
-      def pointer(from: SeqNr = SeqNr.Min) = {
-        journal.pointer(key, from).get()
+      def pointer() = {
+        journal.pointer(key).get()
       }
 
       def pointers(topic: Topic) = journal.pointers(topic).get()

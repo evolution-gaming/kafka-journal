@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 
+import cats.implicits._
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
@@ -62,28 +63,26 @@ class JournalSpec extends WordSpec with Matchers {
         val (journal, offset) = createAndAppend()
         for {seqNr <- seqNrLast} journal.delete(seqNr)
         journal.read(SeqRange.All) shouldEqual Nil
-        journal.lastSeqNr(SeqNr.Min) shouldEqual seqNrLast
+        journal.lastSeqNr() shouldEqual seqNrLast
       }
 
       s"delete SeqNr.Max, $name" in {
         val (journal, offset) = createAndAppend()
         journal.delete(SeqNr.Max)
         journal.read(SeqRange.All) shouldEqual Nil
-        journal.lastSeqNr(SeqNr.Min) shouldEqual seqNrLast
+        journal.lastSeqNr() shouldEqual seqNrLast
       }
 
       s"delete SeqNr.Min, $name" in {
         val (journal, offset) = createAndAppend()
         journal.delete(SeqNr.Min) shouldEqual offset.map(_ + 1)
         journal.read(SeqRange.All) shouldEqual seqNrs.dropWhile(_ <= SeqNr.Min)
-        journal.lastSeqNr(SeqNr.Min) shouldEqual seqNrLast
+        journal.lastSeqNr() shouldEqual seqNrLast
       }
 
       s"lastSeqNr, $name" in {
         val (journal, offset) = createAndAppend()
-        journal.lastSeqNr(SeqNr.Max) shouldEqual None
-        journal.lastSeqNr(SeqNr.Min) shouldEqual seqNrLast
-        journal.lastSeqNr(seqNrLast getOrElse SeqNr.Min) shouldEqual seqNrLast
+        journal.lastSeqNr() shouldEqual seqNrLast
       }
 
       for {
@@ -95,7 +94,7 @@ class JournalSpec extends WordSpec with Matchers {
           val (journal, offset) = createAndAppend()
           journal.delete(seqNr)
           journal.read(SeqRange.All) shouldEqual seqNrs.dropWhile(_ <= seqNr)
-          journal.lastSeqNr(SeqNr.Min) shouldEqual seqNrLast
+          journal.lastSeqNr() shouldEqual seqNrLast
         }
 
         s"read tail, $name" in {
@@ -124,7 +123,7 @@ class JournalSpec extends WordSpec with Matchers {
       journal.read(SeqRange(3, 4)) shouldEqual List(3.toSeqNr, 4.toSeqNr)
       journal.read(SeqRange(4, 5)) shouldEqual List(4.toSeqNr)
       journal.read(SeqRange(5, 6)) shouldEqual Nil
-      journal.lastSeqNr(SeqNr.Min) shouldEqual Some(SeqNr(4))
+      journal.lastSeqNr() shouldEqual Some(SeqNr(4))
     }
   }
 
@@ -337,7 +336,7 @@ object JournalSpec {
 
     def read(range: SeqRange): List[SeqNr]
 
-    def lastSeqNr(from: SeqNr): Option[SeqNr]
+    def lastSeqNr(): Option[SeqNr]
 
     def delete(to: SeqNr): Option[Offset]
   }
@@ -368,7 +367,7 @@ object JournalSpec {
           result.get()
         }
 
-        def lastSeqNr(from: SeqNr) = journal.pointer(key, from).get()
+        def lastSeqNr() = journal.pointer(key).get()
 
         def delete(to: SeqNr) = {
           journal.delete(key, to, timestamp).get().map(_.offset)
@@ -414,12 +413,12 @@ object JournalSpec {
         read(state).async
       }
 
-      def pointer(key: Key, from: SeqNr) = {
+      def pointer(key: Key) = {
 
         def pointer(state: State) = {
           val seqNr = state.events.lastOption.map(_.event.seqNr)
           for {
-            seqNr <- (seqNr max state.deleteTo).filter(_ >= from)
+            seqNr <- seqNr max state.deleteTo
             offset <- state.offset
           } yield {
             val partitionOffset = PartitionOffset(partition, offset)

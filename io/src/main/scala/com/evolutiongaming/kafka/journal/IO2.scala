@@ -119,12 +119,5 @@ object IO2 {
     implicit class IOIdOps[A](val self: A) extends AnyVal {
       def pure[F[_] : IO2]: F[A] = IO2[F].pure(self)
     }
-
-
-    implicit class OptionIdOps[A](val self: A) extends AnyVal {
-      def some: Option[A] = Some(self)
-    }
-
-    def none[A]: Option[A] = Option.empty
   }
 }

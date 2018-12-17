@@ -110,16 +110,14 @@ object EventualCassandra {
       }
     }
 
-    def pointer(key: Key, from: SeqNr) = {
+    def pointer(key: Key) = {
       for {
         statements <- statements
         metadata <- statements.metadata(key)
       } yield for {
         metadata <- metadata
-        seqNr = metadata.seqNr
-        if seqNr >= from
       } yield {
-        Pointer(metadata.partitionOffset, seqNr)
+        Pointer(metadata.partitionOffset, metadata.seqNr)
       }
     }
   }
