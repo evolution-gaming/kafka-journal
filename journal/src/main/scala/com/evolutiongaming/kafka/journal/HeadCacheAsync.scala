@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import cats.effect.IO
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
+import com.evolutiongaming.kafka.journal.util.IOFromFuture
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, Consumer, ConsumerConfig}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
@@ -23,10 +24,9 @@ object HeadCacheAsync {
     implicit val eventual = new HeadCache.Eventual[IO] {
 
       def pointers(topic: Topic) = {
-        val future = IO.delay {
+        IOFromFuture {
           eventualJournal.pointers(topic).future
         }
-        IO.fromFuture(future)
       }
     }
 

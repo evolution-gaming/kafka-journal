@@ -21,14 +21,14 @@ import scala.util.control.NoStackTrace
   * TODO
   * 1. handle cancellation in case of timeouts and not leak memory
   * 2. Journal should close HeadCache
-  * 3. Support empty list of partitions
-  * 4. Remove half of partition cache on cleanup
-  * 5. Support configuration
-  * 6. Add Metrics
+  * 3. Remove half of partition cache on cleanup
+  * 4. Support configuration
+  * 5. Add Metrics
   */
 trait HeadCache[F[_]] {
+  import HeadCache._
 
-  def apply(key: Key, partition: Partition, offset: Offset): F[Option[HeadCache.Result]]
+  def apply(key: Key, partition: Partition, offset: Offset): F[Option[Result]]
 
   def close: F[Unit]
 }
@@ -112,6 +112,7 @@ object HeadCache {
 
   final case class Config(
     pollTimeout: FiniteDuration = 50.millis,
+    retryInterval: FiniteDuration = 100.millis,
     cleanInterval: FiniteDuration = 3.seconds,
     maxSize: Int = 100000) {
 
@@ -155,7 +156,7 @@ object HeadCache {
           (entry.partition, entry)
         }
         state <- SerialVar.of(State[F](entries, List.empty))
-        polling <- {
+        consuming <- {
 
           def entriesOf(records: Map[TopicPartition, List[ConsumerRecord[Id, Bytes]]]) = {
             for {
@@ -210,85 +211,65 @@ object HeadCache {
             }
           }
 
-          def poll(consumer: Consumer[F]): F[Unit] = {
-            for {
-              consumerRecords <- consumer.poll(config.pollTimeout)
-              records = consumerRecords.values
-              _ <- {
-                if (records.isEmpty) {
-                  ().pure[F]
-                } else {
-                  val entries = entriesOf(records)
-                  state.update { state =>
-                    val combined = {
+          Concurrent[F].start {
 
-                      val combined = state.entries |+| entries
+            ConsumeTopic(
+              topic = topic,
+              from = pointers.values,
+              pollTimeout = config.pollTimeout,
+              retryInterval = config.retryInterval,
+              consumer = consumer) { records =>
+              
+              val entries = entriesOf(records.values)
+              state.update { state =>
+                val combined = {
 
-                      def sizeOf(map: Map[Partition, PartitionEntry]) = {
-                        map.values.foldLeft(0) { _ + _.entries.size }
-                      }
+                  val combined = state.entries |+| entries
 
-                      val maxSize = config.maxSize
+                  def sizeOf(map: Map[Partition, PartitionEntry]) = {
+                    map.values.foldLeft(0) { _ + _.entries.size }
+                  }
 
-                      if (sizeOf(combined) <= maxSize) {
-                        combined
-                      } else {
-                        val partitions = combined.size
-                        val maxSizePartition = maxSize / partitions max 1
-                        for {
-                          (partition, partitionEntry) <- combined
-                        } yield {
-                          val updated = {
-                            if (partitionEntry.entries.size <= maxSizePartition) {
-                              partitionEntry
-                            } else {
-                              // TODO
-                              val offset = partitionEntry.entries.values.foldLeft(Offset.Min) { _ max _.offset }
-                              // TODO remove half
-                              partitionEntry.copy(entries = Map.empty, trimmed = Some(offset))
-                            }
-                          }
-                          (partition, updated)
+                  val maxSize = config.maxSize
+
+                  if (sizeOf(combined) <= maxSize) {
+                    combined
+                  } else {
+                    val partitions = combined.size
+                    val maxSizePartition = maxSize / partitions max 1
+                    for {
+                      (partition, partitionEntry) <- combined
+                    } yield {
+                      val updated = {
+                        if (partitionEntry.entries.size <= maxSizePartition) {
+                          partitionEntry
+                        } else {
+                          // TODO
+                          val offset = partitionEntry.entries.values.foldLeft(Offset.Min) { _ max _.offset }
+                          // TODO remove half
+                          partitionEntry.copy(entries = Map.empty, trimmed = Some(offset))
                         }
                       }
-                    }
-
-                    val zero = (List.empty[Listener[F]], List.empty[F[Unit]])
-                    val (listeners, completed) = state.listeners.foldLeft(zero) { case ((listeners, completed), listener) =>
-                      listener(combined) match {
-                        case None         => (listener :: listeners, completed)
-                        case Some(result) => (listeners, result :: completed)
-                      }
-                    }
-
-                    for {
-                      _ <- Par[F].sequence(completed)
-                    } yield {
-                      state.copy(entries = combined, listeners = listeners)
+                      (partition, updated)
                     }
                   }
                 }
-              }
-            } yield {}
-          }
 
-          Concurrent[F].start {
-            for {
-              _ <- Consumer.resource(consumer).use { consumer =>
-                for {
-                  partitions <- consumer.partitions(topic)
-                  _ <- consumer.assign(topic, partitions)
-                  offsets = for {
-                    partition <- partitions
-                  } yield {
-                    val offset = pointers.values.get(partition).fold(Offset.Min)(_ + 1l)
-                    (partition, offset)
+                val zero = (List.empty[Listener[F]], List.empty[F[Unit]])
+                val (listeners, completed) = state.listeners.foldLeft(zero) { case ((listeners, completed), listener) =>
+                  listener(combined) match {
+                    case None         => (listener :: listeners, completed)
+                    case Some(result) => (listeners, result :: completed)
                   }
-                  _ <- consumer.seek(topic, offsets.toMap)
-                  _ <- poll(consumer).foreverM[Unit]
-                } yield {}
+                }
+
+                for {
+                  _ <- Par[F].sequence(completed)
+                } yield {
+                  state.copy(entries = combined, listeners = listeners)
+                }
               }
-            } yield {}
+            }
           }
         }
 
@@ -308,7 +289,7 @@ object HeadCache {
         }
       } yield {
         val cancel = for {
-          _ <- Par[F].traverse(List(polling, cleaning)) { _.cancel }
+          _ <- Par[F].traverse(List(consuming, cleaning)) { _.cancel }
         } yield {}
         apply(topic, cancel, state)
       }
@@ -476,7 +457,7 @@ object HeadCache {
 
     def poll(timeout: FiniteDuration): F[ConsumerRecords[String, Bytes]]
 
-    def partitions(topic: Topic): F[Nel[Partition]]
+    def partitions(topic: Topic): F[List[Partition]]
 
     def close: F[Unit]
   }
@@ -501,31 +482,32 @@ object HeadCache {
           }
         }
 
-        def seek(topic: Topic, offsets: Map[Partition, Offset]) = IO.delay {
-          for {
-            (partition, offset) <- offsets
-          } {
-            val topicPartition = TopicPartition(topic = topic, partition = partition)
-            consumer.seek(topicPartition, offset)
+        def seek(topic: Topic, offsets: Map[Partition, Offset]) = {
+          IO.delay {
+            for {
+              (partition, offset) <- offsets
+            } {
+              val topicPartition = TopicPartition(topic = topic, partition = partition)
+              consumer.seek(topicPartition, offset)
+            }
           }
         }
 
         def poll(timeout: FiniteDuration) = {
-          val future = IO.delay {
+          IOFromFuture {
             consumer.poll(timeout)
           }
-          IO.fromFuture(future)
         }
 
-        def partitions(topic: Topic /*TODO pass topic as constr arg ?*/) = {
-          val future = IO.delay {
-            consumer.partitions(topic) // TODO what if topics are not created yet ?
-          }
+        def partitions(topic: Topic) = {
           for {
-            infos <- IO.fromFuture(future)
+            infos <- IOFromFuture {
+              consumer.partitions(topic)
+            }
+          } yield for {
+            info <- infos
           } yield {
-            val partitions = for {info <- infos} yield info.partition
-            Nel.unsafe(partitions)
+            info.partition
           }
         }
 

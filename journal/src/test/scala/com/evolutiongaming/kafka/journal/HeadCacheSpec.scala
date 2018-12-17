@@ -90,8 +90,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
 
       implicit val eventual = HeadCache.Eventual.empty[IO]
 
-      val state = TestConsumer.State(
-        topics = Map((topic, List(0))))
+      val state = TestConsumer.State.Empty
 
       val key = Key(id = "id", topic = topic)
       val result = for {
@@ -100,6 +99,13 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         headCache <- headCacheOf(consumer.pure[IO])
         result <- Concurrent[IO].start {
           headCache(key = key, partition = partition, offset = marker)
+        }
+        _ <- ref.update { state =>
+          for {
+            state <- state
+          } yield {
+            state.copy(topics = Map((topic, List(partition))))
+          }
         }
         _ <- ref.update { state =>
           for {
@@ -264,6 +270,7 @@ object HeadCacheSpec {
   val topicPartition: TopicPartition = TopicPartition(topic = topic, partition = partition)
   val config: HeadCache.Config = HeadCache.Config(
     pollTimeout = 3.millis,
+    retryInterval = 3.millis,
     cleanInterval = 100.millis)
 
   def headCacheOf(
@@ -327,17 +334,12 @@ object HeadCacheSpec {
           }
         }
 
-        // TODO what if partition is not created ?
         def partitions(topic: Topic) = {
           for {
             state <- ref.get
             state <- state
-            partitions <- IO.delay {
-              val partitions = state.topics.getOrElse(topic, Nil)
-              Nel.unsafe(partitions)
-            }
           } yield {
-            partitions
+            state.topics.getOrElse(topic, Nil)
           }
         }
 
