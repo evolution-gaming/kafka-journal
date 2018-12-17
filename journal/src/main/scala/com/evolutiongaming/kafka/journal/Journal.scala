@@ -10,7 +10,7 @@ import com.evolutiongaming.kafka.journal.AsyncImplicits._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
-import com.evolutiongaming.kafka.journal.IO.ops._
+import com.evolutiongaming.kafka.journal.IO2.ops._
 import com.evolutiongaming.kafka.journal.SeqNr.ops._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.nel.Nel
@@ -35,19 +35,19 @@ trait Journal[F[_]] {
 
 object Journal {
 
-  def empty[F[_] : IO]: Journal[F] = new Journal[F] {
+  def empty[F[_] : IO2]: Journal[F] = new Journal[F] {
 
-    def append(key: Key, events: Nel[Event], timestamp: Instant) = IO[F].pure(PartitionOffset.Empty)
+    def append(key: Key, events: Nel[Event], timestamp: Instant) = IO2[F].pure(PartitionOffset.Empty)
 
-    def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = IO[F].pure(s)
+    def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = IO2[F].pure(s)
 
-    def pointer(key: Key, from: SeqNr) = IO[F].none
+    def pointer(key: Key, from: SeqNr) = IO2[F].none
 
-    def delete(key: Key, to: SeqNr, timestamp: Instant) = IO[F].none
+    def delete(key: Key, to: SeqNr, timestamp: Instant) = IO2[F].none
   }
 
 
-  def apply[F[_] : IO](journal: Journal[F], log: ActorLog): Journal[F] = new Journal[F] {
+  def apply[F[_] : IO2](journal: Journal[F], log: ActorLog): Journal[F] = new Journal[F] {
 
     def append(key: Key, events: Nel[Event], timestamp: Instant) = {
       for {
@@ -90,13 +90,13 @@ object Journal {
   }
 
 
-  def apply[F[_] : IO](journal: Journal[F], metrics: Metrics[F]): Journal[F] = {
+  def apply[F[_] : IO2](journal: Journal[F], metrics: Metrics[F]): Journal[F] = {
 
     def latency[A](name: String, topic: Topic)(f: => F[A]) = {
       val result = Latency(f)
       result.flatMapFailure { failure =>
         metrics.failure(name, topic).flatMap { _ =>
-          IO[F].fail[(A, Long)](failure)
+          IO2[F].fail[(A, Long)](failure)
         }
       }
     }
@@ -290,7 +290,7 @@ object Journal {
           // TODO use range after eventualRecords
           // TODO prevent from reading calling consume twice!
           info <- info match {
-            case Some(info) => IO[Async].pure(info)
+            case Some(info) => IO2[Async].pure(info)
             case None       => readActions(None, JournalInfo.empty) { (info, action) => info(action).continue }
           }
           _ = log.debug(s"$key read info: $info")
@@ -316,7 +316,7 @@ object Journal {
           result <- info match {
             case Some(info) => info match {
               case JournalInfo.Empty          => seqNrEventual
-              case info: JournalInfo.NonEmpty => IO[Async].pure(Some(info.seqNr))
+              case info: JournalInfo.NonEmpty => IO2[Async].pure(Some(info.seqNr))
               case info: JournalInfo.Deleted  => seqNrEventual
             }
 
@@ -386,6 +386,6 @@ object Journal {
       def failure(name: String, topic: Topic) = unit
     }
 
-    def empty[F[_] : IO]: Metrics[F] = empty(IO[F].unit)
+    def empty[F[_] : IO2]: Metrics[F] = empty(IO2[F].unit)
   }
 }

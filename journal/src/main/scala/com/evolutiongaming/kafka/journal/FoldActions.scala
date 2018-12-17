@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
-import com.evolutiongaming.kafka.journal.IO.ops._
+import com.evolutiongaming.kafka.journal.IO2.ops._
 import com.evolutiongaming.skafka.{Offset, Partition}
 
 trait FoldActions[F[_]] {
@@ -12,12 +12,12 @@ trait FoldActions[F[_]] {
 
 object FoldActions {
 
-  def empty[F[_] : IO]: FoldActions[F] = new FoldActions[F] {
-    def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]) = IO[F].pure(s)
+  def empty[F[_] : IO2]: FoldActions[F] = new FoldActions[F] {
+    def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]) = IO2[F].pure(s)
   }
 
   // TODO add range argument
-  def apply[F[_] : IO](
+  def apply[F[_] : IO2](
     key: Key,
     from: SeqNr,
     marker: Marker,
@@ -38,7 +38,7 @@ object FoldActions {
 
         val replicated = offset.exists(_ >= max)
 
-        if (replicated) IO[F].pure(s)
+        if (replicated) IO2[F].pure(s)
         else {
           val last = offset max offsetReplicated
           withReadActions(key, partition, last) { readActions =>

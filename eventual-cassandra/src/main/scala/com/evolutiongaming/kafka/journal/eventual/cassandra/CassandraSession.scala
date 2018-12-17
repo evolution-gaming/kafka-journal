@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import com.datastax.driver.core._
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.{FromFuture, IO}
+import com.evolutiongaming.kafka.journal.{FromFuture, IO2}
 import com.evolutiongaming.scassandra.{NextHostRetryPolicy, Session}
 
 trait CassandraSession[F[_]] {
@@ -20,7 +20,7 @@ object CassandraSession {
 
   def apply[F[_]](implicit F: CassandraSession[F]): CassandraSession[F] = F
 
-  def apply[F[_] : IO : FromFuture](
+  def apply[F[_] : IO2 : FromFuture](
     session: Session,
     retries: Int,
     trace: Boolean = false): CassandraSession[F] = {
@@ -29,7 +29,7 @@ object CassandraSession {
     apply(session, retryPolicy, trace)
   }
 
-  def apply[F[_] : IO : FromFuture](
+  def apply[F[_] : IO2 : FromFuture](
     session: Session,
     retryPolicy: RetryPolicy,
     trace: Boolean): CassandraSession[F] = {
@@ -37,7 +37,7 @@ object CassandraSession {
     new CassandraSession[F] {
 
       def prepare(query: String) = {
-        IO[F].from {
+        IO2[F].from {
           session.prepare(query)
         }
       }
@@ -48,7 +48,7 @@ object CassandraSession {
           .setIdempotent(true)
           .trace(trace)
 
-        IO[F].from {
+        IO2[F].from {
           session.execute(configured)
         }
       }

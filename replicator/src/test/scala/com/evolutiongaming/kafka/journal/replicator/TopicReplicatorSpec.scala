@@ -5,7 +5,7 @@ import java.time.Instant
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
-import com.evolutiongaming.kafka.journal.{IO, _}
+import com.evolutiongaming.kafka.journal.{IO2, _}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, WithSize}
 import com.evolutiongaming.skafka.{Bytes => _, _}
@@ -650,7 +650,7 @@ object TopicReplicatorSpec {
 
   val journal: ReplicatedJournal[TestF] = new ReplicatedJournal[TestF] {
 
-    def topics() = IO[TestF].iterable
+    def topics() = IO2[TestF].iterable
 
     def pointers(topic: Topic) = {
       TestF { data => (data, data.pointers.getOrElse(topic, TopicPointers.Empty)) }
@@ -842,7 +842,7 @@ object TopicReplicatorSpec {
 
   object TestF {
 
-    implicit val TestIOIO: IO[TestF] = new IO[TestF] {
+    implicit val TestIOIO: IO2[TestF] = new IO2[TestF] {
 
       def pure[A](a: A) = TestF { data => (data, a) }
 

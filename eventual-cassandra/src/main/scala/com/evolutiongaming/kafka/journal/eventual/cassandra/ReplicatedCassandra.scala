@@ -4,8 +4,8 @@ import java.time.Instant
 
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.AsyncImplicits._
-import com.evolutiongaming.kafka.journal.IO.ops._
-import com.evolutiongaming.kafka.journal.{IO, _}
+import com.evolutiongaming.kafka.journal.IO2.ops._
+import com.evolutiongaming.kafka.journal.{IO2, _}
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.Session
@@ -35,7 +35,7 @@ object ReplicatedCassandra {
   }
 
 
-  def apply[F[_] : IO](
+  def apply[F[_] : IO2](
     statements: F[Statements[F]],
     segmentSize: Int): ReplicatedJournal[F] = new ReplicatedJournal[F] {
 
@@ -79,7 +79,7 @@ object ReplicatedCassandra {
           }
         }
 
-        loop(events.toList, None, IO[F].unit)
+        loop(events.toList, None, IO2[F].unit)
       }
 
       def saveMetadataAndSegmentSize(statements: Statements[F], metadata: Option[Metadata]) = {
@@ -145,7 +145,7 @@ object ReplicatedCassandra {
 
           def segment(seqNr: SeqNr) = SegmentNr(seqNr, segmentSize)
 
-          IO[F].foldUnit {
+          IO2[F].foldUnit {
             for {
               segment <- segment(from) to segment(deleteTo) // TODO maybe add ability to create Seq[Segment] out of SeqRange ?
             } yield {
@@ -159,9 +159,9 @@ object ReplicatedCassandra {
         metadata.deleteTo match {
           case None            => delete(from = SeqNr.Min, deleteTo = deleteToFixed)
           case Some(deletedTo) =>
-            if (deletedTo >= deleteToFixed) IO[F].unit
+            if (deletedTo >= deleteToFixed) IO2[F].unit
             else deletedTo.next match {
-              case None       => IO[F].unit
+              case None       => IO2[F].unit
               case Some(from) => delete(from = from, deleteTo = deleteToFixed)
             }
         }
@@ -171,14 +171,14 @@ object ReplicatedCassandra {
         statements <- statements
         metadata <- statements.selectMetadata(key)
         segmentSize <- saveMetadata(statements, metadata)
-        _ <- metadata.fold(IO[F].unit) { delete(statements, segmentSize, _) }
+        _ <- metadata.fold(IO2[F].unit) { delete(statements, segmentSize, _) }
       } yield {}
     }
 
 
     def save(topic: Topic, topicPointers: TopicPointers, timestamp: Instant) = {
       val pointers = topicPointers.values
-      if (pointers.isEmpty) IO[F].unit
+      if (pointers.isEmpty) IO2[F].unit
       else {
 
         // TODO topic is a partition key, should I batch by partition ?
@@ -196,7 +196,7 @@ object ReplicatedCassandra {
             statements.insertPointer(insert)
           }
 
-          IO[F].foldUnit(results)
+          IO2[F].foldUnit(results)
         }
 
         for {
@@ -230,7 +230,7 @@ object ReplicatedCassandra {
 
   object Statements {
 
-    def apply[F[_] : IO](tables: Tables, session: CassandraSession[F]): F[Statements[F]] = {
+    def apply[F[_] : IO2](tables: Tables, session: CassandraSession[F]): F[Statements[F]] = {
 
       val insertRecords = JournalStatement.InsertRecords(tables.journal, session)
       val selectLastRecord = JournalStatement.SelectLastRecord(tables.journal, session)

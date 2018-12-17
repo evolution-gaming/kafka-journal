@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import com.evolutiongaming.kafka.journal.IO
+import com.evolutiongaming.kafka.journal.IO2
 import com.evolutiongaming.kafka.journal.replicator.MetricsHelper._
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
 import com.evolutiongaming.skafka.Topic
@@ -8,7 +8,7 @@ import io.prometheus.client.{CollectorRegistry, Summary}
 
 object TopicReplicatorMetrics {
 
-  def apply[F[_]: IO](
+  def apply[F[_]: IO2](
     registry: CollectorRegistry,
     prefix: String = "replicator"): Topic => TopicReplicator.Metrics[F] = {
 
@@ -88,7 +88,7 @@ object TopicReplicatorMetrics {
       new TopicReplicator.Metrics[F] {
 
         def append(events: Int, bytes: Int, measurements: Measurements) = {
-          IO[F].effect {
+          IO2[F].effect {
             val partition = measurements.partition.toString
 
             observeMeasurements("append", measurements)
@@ -104,13 +104,13 @@ object TopicReplicatorMetrics {
         }
 
         def delete(measurements: Measurements) = {
-          IO[F].effect {
+          IO2[F].effect {
             observeMeasurements("delete", measurements)
           }
         }
 
         def round(duration: Long, records: Int) = {
-          IO[F].effect {
+          IO2[F].effect {
             roundSummary
               .labels(topic)
               .observe(duration.toSeconds)

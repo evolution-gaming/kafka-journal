@@ -11,18 +11,18 @@ trait AtomicRef[A, F[_]] {
 
 object AtomicRef {
 
-  def apply[A, F[_] : IO](ref: AtomicReference[A]): AtomicRef[A, F] = new AtomicRef[A, F] {
+  def apply[A, F[_] : IO2](ref: AtomicReference[A]): AtomicRef[A, F] = new AtomicRef[A, F] {
 
     def set(value: A) = {
-      IO[F].effect {
+      IO2[F].effect {
         ref.set(value)
       }
     }
 
-    def get() = IO[F].effect {
+    def get() = IO2[F].effect {
       ref.get()
     }
   }
 
-  def apply[A, F[_] : IO](): AtomicRef[A, F] = apply(new AtomicReference[A])
+  def apply[A, F[_] : IO2](): AtomicRef[A, F] = apply(new AtomicReference[A])
 }

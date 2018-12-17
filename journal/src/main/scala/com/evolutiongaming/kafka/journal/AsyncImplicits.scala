@@ -10,7 +10,7 @@ import scala.util.{Failure, Success}
 
 object AsyncImplicits {
 
-  implicit val AsyncIO: IO[Async] = new IO[Async] {
+  implicit val AsyncIO: IO2[Async] = new IO2[Async] {
 
     def pure[A](a: A) = Async(a)
 

@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import com.evolutiongaming.kafka.journal.IO
+import com.evolutiongaming.kafka.journal.IO2
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
 import com.evolutiongaming.kafka.journal.replicator.MetricsHelper._
 import com.evolutiongaming.skafka.Topic
@@ -8,7 +8,7 @@ import io.prometheus.client.{CollectorRegistry, Summary}
 
 object ReplicatedJournalMetrics {
 
-  def apply[F[_] : IO](
+  def apply[F[_] : IO2](
     registry: CollectorRegistry,
     prefix: String = "replicated_journal"): ReplicatedJournal.Metrics[F] = {
 
@@ -53,19 +53,19 @@ object ReplicatedJournalMetrics {
     new ReplicatedJournal.Metrics[F] {
 
       def topics(latency: Long) = {
-        IO[F].effect {
+        IO2[F].effect {
           observeLatency(name = "topics", latency = latency)
         }
       }
 
       def pointers(latency: Long) = {
-        IO[F].effect {
+        IO2[F].effect {
           observeLatency(name = "pointers", latency = latency)
         }
       }
 
       def append(topic: Topic, latency: Long, events: Int) = {
-        IO[F].effect {
+        IO2[F].effect {
           eventsSummary
             .labels(topic)
             .observe(events.toDouble)
@@ -74,13 +74,13 @@ object ReplicatedJournalMetrics {
       }
 
       def delete(topic: Topic, latency: Long) = {
-        IO[F].effect {
+        IO2[F].effect {
           observeTopicLatency(name = "delete", topic = topic, latency = latency)
         }
       }
 
       def save(topic: Topic, latency: Long) = {
-        IO[F].effect {
+        IO2[F].effect {
           observeTopicLatency(name = "save", topic = topic, latency = latency)
         }
       }

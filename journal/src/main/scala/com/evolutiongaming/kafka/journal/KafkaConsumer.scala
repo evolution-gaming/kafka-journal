@@ -20,12 +20,12 @@ trait KafkaConsumer[F[_]] {
 
 object KafkaConsumer {
 
-  def apply[F[_] : IO : FromFuture](
+  def apply[F[_] : IO2 : FromFuture](
     consumer: Consumer[Id, Bytes, Future],
     pollTimeout: FiniteDuration): KafkaConsumer[F] = new KafkaConsumer[F] {
 
     def subscribe(topic: Topic) = {
-      IO[F].effect {
+      IO2[F].effect {
         consumer.subscribe(Nel(topic), None)
       }
     }

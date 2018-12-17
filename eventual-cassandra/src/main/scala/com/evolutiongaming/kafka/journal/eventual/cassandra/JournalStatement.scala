@@ -5,9 +5,9 @@ import java.time.Instant
 
 import com.datastax.driver.core.BatchStatement
 import com.evolutiongaming.kafka.journal.FoldWhile._
-import com.evolutiongaming.kafka.journal.IO.ops._
+import com.evolutiongaming.kafka.journal.IO2.ops._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.{IO, _}
+import com.evolutiongaming.kafka.journal.{IO2, _}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
@@ -44,7 +44,7 @@ object JournalStatement {
   object InsertRecords {
     type Type[F[_]] = (Key, SegmentNr, Nel[ReplicatedEvent]) => F[Unit]
 
-    def apply[F[_] : IO](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_] : IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
       val query =
         s"""
            |INSERT INTO ${ name.toCql } (
@@ -121,7 +121,7 @@ object JournalStatement {
 
     type Type[F[_]] = (Key, SegmentNr, SeqNr) => F[Option[Pointer]]
 
-    def apply[F[_] : IO](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_] : IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
       val query =
         s"""
            |SELECT seq_nr, partition, offset
@@ -163,7 +163,7 @@ object JournalStatement {
       def apply[S](key: Key, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]): F[Switch[S]]
     }
 
-    def apply[F[_] : IO : FromFuture /*TODO REMOVE*/ ](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_] : IO2 : FromFuture /*TODO REMOVE*/ ](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
       val query =
         s"""
            |SELECT
@@ -228,7 +228,7 @@ object JournalStatement {
   object DeleteRecords {
     type Type[F[_]] = (Key, SegmentNr, SeqNr) => F[Unit]
 
-    def apply[F[_]: IO](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_]: IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
       val query =
         s"""
            |DELETE FROM ${ name.toCql }

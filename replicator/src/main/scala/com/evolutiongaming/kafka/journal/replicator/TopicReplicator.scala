@@ -5,11 +5,11 @@ import java.time.Instant
 import akka.actor.ActorSystem
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhile._
-import com.evolutiongaming.kafka.journal.IO.ops._
+import com.evolutiongaming.kafka.journal.IO2.ops._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.replicator.InstantHelper._
-import com.evolutiongaming.kafka.journal.{IO, _}
+import com.evolutiongaming.kafka.journal.{IO2, _}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer._
@@ -31,7 +31,7 @@ trait TopicReplicator[F[_]] {
 object TopicReplicator {
 
   //  TODO return error in case failed to connect
-  def apply[F[_] : IO](
+  def apply[F[_] : IO2](
     topic: Topic,
     consumer: KafkaConsumer[F],
     journal: ReplicatedJournal[F],
@@ -115,7 +115,7 @@ object TopicReplicator {
           } yield {}
         }
 
-        Batch.list(records).foldLeft(IO[F].unit) { (result, batch) =>
+        Batch.list(records).foldLeft(IO2[F].unit) { (result, batch) =>
           for {
             _ <- result
             _ <- batch match {
@@ -151,7 +151,7 @@ object TopicReplicator {
         }
 
         val result = {
-          if (pointersNew.values.isEmpty) IO[F].unit
+          if (pointersNew.values.isEmpty) IO2[F].unit
           else journal.save(topic, pointersNew, roundStart)
         }
 
@@ -164,7 +164,7 @@ object TopicReplicator {
       }
 
       for {
-        _ <- IO[F].foldUnit(ios)
+        _ <- IO2[F].foldUnit(ios)
         pointers <- savePointers()
       } yield pointers
     }
@@ -174,13 +174,13 @@ object TopicReplicator {
       for {
         stop <- stopRef.get()
         state <- {
-          if (stop) IO[F].pure(state.stop)
+          if (stop) IO2[F].pure(state.stop)
           else for {
             roundStart <- now
             consumerRecords <- consumer.poll()
             stop <- stopRef.get()
             state <- {
-              if (stop) IO[F].pure(state.stop)
+              if (stop) IO2[F].pure(state.stop)
               else {
                 val records = for {
                   (topicPartition, records) <- consumerRecords.values
@@ -197,7 +197,7 @@ object TopicReplicator {
                   (topicPartition, result)
                 }
 
-                if (records.isEmpty) IO[F].pure(state.continue)
+                if (records.isEmpty) IO2[F].pure(state.continue)
                 else for {
                   timestamp <- now
                   stateAndOffsets <- round(state, records.toMap, timestamp)
@@ -219,7 +219,7 @@ object TopicReplicator {
       val result = for {
         pointers <- journal.pointers(topic)
         _ <- consumer.subscribe(topic)
-        _ <- IO[F].foldWhile1(State(pointers))(consume)
+        _ <- IO2[F].foldWhile1(State(pointers))(consume)
       } yield {}
 
       result.flatMapFailure { failure =>
@@ -244,7 +244,7 @@ object TopicReplicator {
     }
   }
 
-  def apply[F[_]: IO](
+  def apply[F[_]: IO2](
     topic: Topic,
     journal: ReplicatedJournal[F],
     consumer: KafkaConsumer[F],
@@ -259,7 +259,7 @@ object TopicReplicator {
       log = Log(actorLog),
       stopRef = stopRef,
       metrics = metrics,
-      now = IO[F].point(Instant.now)/*TODO*/)
+      now = IO2[F].point(Instant.now)/*TODO*/)
   }
 
 
@@ -283,13 +283,13 @@ object TopicReplicator {
 
   object Metrics {
 
-    def empty[F[_]: IO]: Metrics[F] = new Metrics[F] {
+    def empty[F[_]: IO2]: Metrics[F] = new Metrics[F] {
 
-      def append(events: Int, bytes: Int, measurements: Measurements) = IO[F].unit
+      def append(events: Int, bytes: Int, measurements: Measurements) = IO2[F].unit
 
-      def delete(measurements: Measurements) = IO[F].unit
+      def delete(measurements: Measurements) = IO2[F].unit
 
-      def round(duration: Long, records: Int) = IO[F].unit
+      def round(duration: Long, records: Int) = IO2[F].unit
     }
 
     final case class Measurements(

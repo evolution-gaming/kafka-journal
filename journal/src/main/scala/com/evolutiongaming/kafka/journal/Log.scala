@@ -46,21 +46,21 @@ object Log {
   def empty[F[_] : Applicative]: Log[F] = empty(Applicative[F].unit)
 
 
-  def apply[F[_] : IO](log: ActorLog): Log[F] = new Log[F] {
+  def apply[F[_] : IO2](log: ActorLog): Log[F] = new Log[F] {
 
-    def debug(msg: => String) = IO[F].effect {
+    def debug(msg: => String) = IO2[F].effect {
       log.debug(msg)
     }
 
-    def info(msg: => String) = IO[F].effect {
+    def info(msg: => String) = IO2[F].effect {
       log.info(msg)
     }
 
-    def warn(msg: => String) = IO[F].effect {
+    def warn(msg: => String) = IO2[F].effect {
       log.warn(msg)
     }
 
-    def error(msg: => String, cause: Throwable) = IO[F].effect {
+    def error(msg: => String, cause: Throwable) = IO2[F].effect {
       log.error(msg, cause)
     }
   }

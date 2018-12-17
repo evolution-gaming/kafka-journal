@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.IO.ops._
+import com.evolutiongaming.kafka.journal.IO2.ops._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer.Consumer
@@ -17,7 +17,7 @@ trait WithReadActions[F[_]] {
 
 object WithReadActions {
 
-  def apply[F[_] : IO : FromFuture](
+  def apply[F[_] : IO2 : FromFuture](
     topicConsumer: TopicConsumer,
     pollTimeout: FiniteDuration,
     closeTimeout: FiniteDuration,
@@ -27,7 +27,7 @@ object WithReadActions {
 
       def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: ReadActions[F] => F[A]) = {
         // TODO consider separate from splitting
-        val consumer = IO[F].effect {
+        val consumer = IO2[F].effect {
           val timestamp = Platform.currentTime
           val consumer = topicConsumer(key.topic) // TODO ~10ms
           val duration = Platform.currentTime - timestamp
@@ -69,7 +69,7 @@ object WithReadActions {
     }
   }
 
-  def apply2[F[_] : IO : FromFuture](
+  def apply2[F[_] : IO2 : FromFuture](
     topicConsumer: TopicConsumer,
     pollTimeout: FiniteDuration,
     closeTimeout: FiniteDuration,
@@ -79,7 +79,7 @@ object WithReadActions {
 
       def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: ReadActions[F] => F[A]) = {
         // TODO consider separate from splitting
-        val consumer = IO[F].effect {
+        val consumer = IO2[F].effect {
           val timestamp = Platform.currentTime
           val consumer = topicConsumer(key.topic) // TODO ~10ms
           val duration = Platform.currentTime - timestamp

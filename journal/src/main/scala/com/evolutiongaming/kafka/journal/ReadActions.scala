@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.IO.ops._
+import com.evolutiongaming.kafka.journal.IO2.ops._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer.Consumer
@@ -14,7 +14,7 @@ trait ReadActions[F[_]] {
 
 object ReadActions {
 
-  def apply[F[_] : IO : FromFuture](
+  def apply[F[_] : IO2 : FromFuture](
     key: Key,
     consumer: Consumer[Id, Bytes, Future],
     timeout: FiniteDuration,

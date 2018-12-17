@@ -8,7 +8,7 @@ import scala.util.{Failure, Success}
 
 object FutureImplicits {
 
-  implicit def futureIO(implicit ec: ExecutionContext): IO[Future] = {
+  implicit def futureIO(implicit ec: ExecutionContext): IO2[Future] = {
 
     def safe[A](f: => Future[A]): Future[A] = {
       try f catch {
@@ -18,7 +18,7 @@ object FutureImplicits {
 
     def cast[A](f: Future[_]): Future[A] = f.asInstanceOf[Future[A]]
 
-    new IO[Future] {
+    new IO2[Future] {
 
       def pure[A](a: A) = Future.successful(a)
 

@@ -5,7 +5,7 @@ import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.AsyncImplicits._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.IO.ops._
+import com.evolutiongaming.kafka.journal.IO2.ops._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.scassandra.Session
 import com.evolutiongaming.skafka.Topic
@@ -133,7 +133,7 @@ object EventualCassandra {
 
   object Statements {
 
-    def apply[F[_]: IO: FromFuture](tables: Tables, session: CassandraSession[F]): F[Statements[F]] = {
+    def apply[F[_]: IO2: FromFuture](tables: Tables, session: CassandraSession[F]): F[Statements[F]] = {
 
       val selectLastRecord = JournalStatement.SelectLastRecord(tables.journal, session)
       val selectRecords = JournalStatement.SelectRecords(tables.journal, session)

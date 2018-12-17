@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import com.evolutiongaming.scassandra.syntax._
-import com.evolutiongaming.kafka.journal.IO
-import com.evolutiongaming.kafka.journal.IO.ops._
+import com.evolutiongaming.kafka.journal.IO2
+import com.evolutiongaming.kafka.journal.IO2.ops._
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
@@ -27,7 +27,7 @@ object PointerStatement {
   object Insert {
     type Type[F[_]] = PointerInsert => F[Unit]
 
-    def apply[F[_]: IO](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_]: IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
       val query =
         s"""
            |INSERT INTO ${ name.toCql } (topic, partition, offset, created, updated)
@@ -54,7 +54,7 @@ object PointerStatement {
   object Update {
     type Type[F[_]] = PointerUpdate => F[Unit]
 
-    def apply[F[_]: IO](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_]: IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
       val query =
         s"""
            |INSERT INTO ${ name.toCql } (topic, partition, offset, updated)
@@ -81,7 +81,7 @@ object PointerStatement {
   object Select {
     type Type[F[_]] = PointerSelect => F[Option[Offset]]
 
-    def apply[F[_]: IO](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_]: IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
       val query =
         s"""
            |SELECT offset FROM ${ name.toCql }
@@ -111,7 +111,7 @@ object PointerStatement {
   object SelectPointers {
     type Type[F[_]] = Topic => F[TopicPointers]
 
-    def apply[F[_]: IO](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_]: IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
       val query =
         s"""
            |SELECT partition, offset FROM ${ name.toCql }
@@ -148,7 +148,7 @@ object PointerStatement {
   object SelectTopics {
     type Type[F[_]] = () => F[List[Topic]]
 
-    def apply[F[_]: IO](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_]: IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
       val query =
         s"""
            |SELECT DISTINCT topic FROM ${ name.toCql }

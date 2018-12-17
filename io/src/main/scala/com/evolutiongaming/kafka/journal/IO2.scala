@@ -5,7 +5,7 @@ import com.evolutiongaming.kafka.journal.FoldWhile._
 
 import scala.annotation.tailrec
 
-trait IO[F[_]] {
+trait IO2[F[_]] {
 
   def pure[A](a: A): F[A]
 
@@ -63,12 +63,12 @@ trait IO[F[_]] {
   private def cast[A](fa: F[_]): F[A] = fa.asInstanceOf[F[A]]
 }
 
-object IO {
+object IO2 {
 
-  def apply[F[_]](implicit F: IO[F]): IO[F] = F
+  def apply[F[_]](implicit F: IO2[F]): IO2[F] = F
 
 
-  implicit val IdIO: IO[cats.Id] = new IO[cats.Id] {
+  implicit val IdIO: IO2[cats.Id] = new IO2[cats.Id] {
 
     def pure[A](a: A) = a
 
@@ -101,23 +101,23 @@ object IO {
 
     implicit class IOOps[A, F[_]](val fa: F[A]) extends AnyVal {
 
-      def map[B](f: A => B)(implicit F: IO[F]): F[B] = F.map(fa)(f)
+      def map[B](f: A => B)(implicit F: IO2[F]): F[B] = F.map(fa)(f)
 
-      def flatMap[B](afb: A => F[B])(implicit F: IO[F]): F[B] = F.flatMap(fa)(afb)
+      def flatMap[B](afb: A => F[B])(implicit F: IO2[F]): F[B] = F.flatMap(fa)(afb)
 
-      def flatMapFailure[B >: A](ftb: Throwable => F[B])(implicit F: IO[F]): F[B] = F.flatMapFailure(fa, ftb)
+      def flatMapFailure[B >: A](ftb: Throwable => F[B])(implicit F: IO2[F]): F[B] = F.flatMapFailure(fa, ftb)
 
       //      def flatMapTry[B](ab: Try[A] => F[B])(implicit F: IO[F]) = F.flatMapTry(fa)(ab)
 
-      def bracket[B](release: A => F[Unit])(use: A => F[B])(implicit F: IO[F]): F[B] = {
+      def bracket[B](release: A => F[Unit])(use: A => F[B])(implicit F: IO2[F]): F[B] = {
         F.bracket(fa)(release)(use)
       }
 
-      def unit(implicit F: IO[F]): F[Unit] = IO[F].unit(fa)
+      def unit(implicit F: IO2[F]): F[Unit] = IO2[F].unit(fa)
     }
 
     implicit class IOIdOps[A](val self: A) extends AnyVal {
-      def pure[F[_] : IO]: F[A] = IO[F].pure(self)
+      def pure[F[_] : IO2]: F[A] = IO2[F].pure(self)
     }
 
 

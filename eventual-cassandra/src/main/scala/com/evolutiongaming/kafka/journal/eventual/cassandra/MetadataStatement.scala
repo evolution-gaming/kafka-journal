@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
-import com.evolutiongaming.kafka.journal.IO.ops._
+import com.evolutiongaming.kafka.journal.IO2.ops._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
@@ -35,7 +35,7 @@ object MetadataStatement {
   object Insert {
     type Type[F[_]] = (Key, Instant, Metadata, Option[Origin]) => F[Unit]
 
-    def apply[F[_]: IO](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_]: IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
 
       val query =
         s"""
@@ -66,7 +66,7 @@ object MetadataStatement {
   object Select {
     type Type[F[_]] = Key => F[Option[Metadata]]
 
-    def apply[F[_]: IO](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_]: IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
       val query =
         s"""
            |SELECT partition, offset, segment_size, seq_nr, delete_to FROM ${ name.toCql }
@@ -101,7 +101,7 @@ object MetadataStatement {
   object Update {
     type Type[F[_]] = (Key, PartitionOffset, Instant, SeqNr, SeqNr) => F[Unit]
 
-    def apply[F[_]: IO](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_]: IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
       val query =
         s"""
            |UPDATE ${ name.toCql }
@@ -132,7 +132,7 @@ object MetadataStatement {
   object UpdateSeqNr {
     type Type[F[_]] = (Key, PartitionOffset, Instant, SeqNr) => F[Unit]
 
-    def apply[F[_]: IO](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_]: IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
       val query =
         s"""
            |UPDATE ${ name.toCql }
@@ -161,7 +161,7 @@ object MetadataStatement {
   object UpdateDeleteTo {
     type Type[F[_]] = (Key, PartitionOffset, Instant, SeqNr) => F[Unit]
 
-    def apply[F[_]: IO](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_]: IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
       val query =
         s"""
            |UPDATE ${ name.toCql }
