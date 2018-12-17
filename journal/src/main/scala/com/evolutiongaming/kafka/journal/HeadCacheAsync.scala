@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.effect.IO.ioParallel
+import cats.effect.IO
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, Consumer, ConsumerConfig}
@@ -17,20 +17,20 @@ object HeadCacheAsync {
     ecBlocking: ExecutionContext,
     actorLog: ActorLog)(implicit ec: ExecutionContext): HeadCache[com.evolutiongaming.concurrent.async.Async] = {
 
-    implicit val cs = cats.effect.IO.contextShift(ec)
-    implicit val timer = cats.effect.IO.timer(ec)
-    implicit val log = Log.apply1[cats.effect.IO](actorLog)
-    implicit val eventual = new HeadCache.Eventual[cats.effect.IO] {
+    implicit val cs = IO.contextShift(ec)
+    implicit val timer = IO.timer(ec)
+    implicit val log = Log.fromLog[IO](actorLog)
+    implicit val eventual = new HeadCache.Eventual[IO] {
 
       def pointers(topic: Topic) = {
-        val future = cats.effect.IO.delay {
+        val future = IO.delay {
           eventualJournal.pointers(topic).future
         }
-        cats.effect.IO.fromFuture(future)
+        IO.fromFuture(future)
       }
     }
 
-    val consumer = cats.effect.IO.delay {
+    val consumer = IO.delay {
       val config = consumerConfig.copy(
         autoOffsetReset = AutoOffsetReset.Earliest,
         groupId = None)
@@ -40,7 +40,7 @@ object HeadCacheAsync {
     }
 
     val headCache = {
-      val headCache = HeadCache.of[cats.effect.IO](
+      val headCache = HeadCache.of[IO](
         consumer = consumer).unsafeToFuture()
       Await.result(headCache, 10.seconds) // TODO
     }

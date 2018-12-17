@@ -65,8 +65,7 @@ object Log {
     }
   }
 
-  // TODO rename
-  def apply1[F[_] : Concurrent](log: ActorLog): Log[F] = new Log[F] {
+  def fromLog[F[_] : Concurrent](log: ActorLog): Log[F] = new Log[F] {
 
     def debug(msg: => String) = {
       Concurrent[F].delay {

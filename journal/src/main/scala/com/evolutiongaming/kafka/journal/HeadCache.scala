@@ -486,9 +486,9 @@ object HeadCache {
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
 
-    def apply(consumer: skafka.consumer.Consumer[String, Bytes, Future]): Consumer[cats.effect.IO] = {
+    def apply(consumer: skafka.consumer.Consumer[String, Bytes, Future]): Consumer[IO] = {
 
-      new Consumer[cats.effect.IO] {
+      new Consumer[IO] {
 
         def assign(topic: Topic, partitions: Nel[Partition]) = {
           val topicPartitions = for {
@@ -496,12 +496,12 @@ object HeadCache {
           } yield {
             TopicPartition(topic = topic, partition)
           }
-          cats.effect.IO.delay {
+          IO.delay {
             consumer.assign(topicPartitions)
           }
         }
 
-        def seek(topic: Topic, offsets: Map[Partition, Offset]) = cats.effect.IO.delay {
+        def seek(topic: Topic, offsets: Map[Partition, Offset]) = IO.delay {
           for {
             (partition, offset) <- offsets
           } {
@@ -511,25 +511,25 @@ object HeadCache {
         }
 
         def poll(timeout: FiniteDuration) = {
-          val future = cats.effect.IO.delay {
+          val future = IO.delay {
             consumer.poll(timeout)
           }
-          cats.effect.IO.fromFuture(future)
+          IO.fromFuture(future)
         }
 
         def partitions(topic: Topic /*TODO pass topic as constr arg ?*/) = {
-          val future = cats.effect.IO.delay {
+          val future = IO.delay {
             consumer.partitions(topic) // TODO what if topics are not created yet ?
           }
           for {
-            infos <- cats.effect.IO.fromFuture(future)
+            infos <- IO.fromFuture(future)
           } yield {
             val partitions = for {info <- infos} yield info.partition
             Nel.unsafe(partitions)
           }
         }
 
-        def close = cats.effect.IO.delay { consumer.close() }
+        def close = IO.delay { consumer.close() }
       }
     }
 

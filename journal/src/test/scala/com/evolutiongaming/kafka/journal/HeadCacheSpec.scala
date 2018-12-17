@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import cats.effect.concurrent.Ref
-import cats.effect.{Concurrent, Timer}
+import cats.effect.{Concurrent, IO, Timer}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.kafka.journal.util.IOSuite._
@@ -24,7 +24,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
     "return result, records are in cache" in {
       val offsetLast = 10l
 
-      implicit val eventual = HeadCache.Eventual.empty[cats.effect.IO]
+      implicit val eventual = HeadCache.Eventual.empty[IO]
 
       val key = Key(id = "id", topic = topic)
       val records = ConsumerRecordsOf {
@@ -42,9 +42,9 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         records = Queue(records))
 
       val result = for {
-        ref <- Ref.of[cats.effect.IO, cats.effect.IO[TestConsumer.State]](state.pure[cats.effect.IO])
+        ref <- Ref.of[IO, IO[TestConsumer.State]](state.pure[IO])
         consumer = TestConsumer(ref)
-        headCache <- headCacheOf(consumer.pure[cats.effect.IO])
+        headCache <- headCacheOf(consumer.pure[IO])
         result <- headCache(key = key, partition = partition, offset = offsetLast)
         state <- ref.get
         state <- state
@@ -65,7 +65,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
       val marker = 10l
 
       val pointers = Map((partition, marker))
-      implicit val eventual = HeadCache.Eventual.const(TopicPointers(pointers).pure[cats.effect.IO])
+      implicit val eventual = HeadCache.Eventual.const(TopicPointers(pointers).pure[IO])
 
       val state = TestConsumer.State(
         topics = Map((topic, List(partition))))
@@ -73,9 +73,9 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
       val key = Key(id = "id", topic = topic)
 
       val result = for {
-        ref <- Ref.of[cats.effect.IO, cats.effect.IO[TestConsumer.State]](state.pure[cats.effect.IO])
+        ref <- Ref.of[IO, IO[TestConsumer.State]](state.pure[IO])
         consumer = TestConsumer(ref)
-        headCache <- headCacheOf(consumer.pure[cats.effect.IO])
+        headCache <- headCacheOf(consumer.pure[IO])
         result <- headCache(key = key, partition = partition, offset = marker)
         state <- ref.get
         state <- state
@@ -95,17 +95,17 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
     "return result, after events are replicated" in {
       val marker = 100l
 
-      implicit val eventual = HeadCache.Eventual.empty[cats.effect.IO]
+      implicit val eventual = HeadCache.Eventual.empty[IO]
 
       val state = TestConsumer.State(
         topics = Map((topic, List(0))))
 
       val key = Key(id = "id", topic = topic)
       val result = for {
-        ref <- Ref.of[cats.effect.IO, cats.effect.IO[TestConsumer.State]](state.pure[cats.effect.IO])
+        ref <- Ref.of[IO, IO[TestConsumer.State]](state.pure[IO])
         consumer = TestConsumer(ref)
-        headCache <- headCacheOf(consumer.pure[cats.effect.IO])
-        result <- Concurrent[cats.effect.IO].start {
+        headCache <- headCacheOf(consumer.pure[IO])
+        result <- Concurrent[IO].start {
           headCache(key = key, partition = partition, offset = marker)
         }
         _ <- ref.update { state =>
@@ -151,9 +151,9 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         records = Queue(records: _*))
 
       val result = for {
-        pointers <- Ref.of[cats.effect.IO, Map[Partition, Offset]](Map.empty)
-        consumerState <- Ref.of[cats.effect.IO, cats.effect.IO[TestConsumer.State]](state.pure[cats.effect.IO])
-        consumer = TestConsumer(consumerState).pure[cats.effect.IO]
+        pointers <- Ref.of[IO, Map[Partition, Offset]](Map.empty)
+        consumerState <- Ref.of[IO, IO[TestConsumer.State]](state.pure[IO])
+        consumer = TestConsumer(consumerState).pure[IO]
         headCache <- {
           val topicPointers = for {
             pointers <- pointers.get
@@ -185,15 +185,15 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
       val config = HeadCacheSpec.config.copy(maxSize = 1)
 
       val result = for {
-        pointers <- Ref.of[cats.effect.IO, Map[Partition, Offset]](Map.empty)
-        ref <- Ref.of[cats.effect.IO, cats.effect.IO[TestConsumer.State]](state.pure[cats.effect.IO])
+        pointers <- Ref.of[IO, Map[Partition, Offset]](Map.empty)
+        ref <- Ref.of[IO, IO[TestConsumer.State]](state.pure[IO])
         consumer = TestConsumer(ref)
         headCache <- {
           val topicPointers = for {
             pointers <- pointers.get
           } yield TopicPointers(pointers)
           implicit val eventual = HeadCache.Eventual.const(topicPointers)
-          headCacheOf(consumer.pure[cats.effect.IO], config)
+          headCacheOf(consumer.pure[IO], config)
         }
         key0 = Key(id = "id0", topic = topic)
         key1 = Key(id = "id1", topic = topic)
@@ -243,10 +243,10 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
 
       val offset = Offset.Min
       val pointers = Map((partition, offset))
-      implicit val eventual = HeadCache.Eventual.const(TopicPointers(pointers).pure[cats.effect.IO])
+      implicit val eventual = HeadCache.Eventual.const(TopicPointers(pointers).pure[IO])
       val result = for {
-        consumerState <- Ref.of[cats.effect.IO, cats.effect.IO[TestConsumer.State]](state.pure[cats.effect.IO])
-        consumer = TestConsumer(consumerState).pure[cats.effect.IO]
+        consumerState <- Ref.of[IO, IO[TestConsumer.State]](state.pure[IO])
+        consumer = TestConsumer(consumerState).pure[IO]
         headCache <- headCacheOf(consumer)
         _ <- headCache(
           key = key,
@@ -274,21 +274,21 @@ object HeadCacheSpec {
     cleanInterval = 100.millis)
 
   def headCacheOf(
-    consumer: cats.effect.IO[HeadCache.Consumer[cats.effect.IO]],
+    consumer: IO[HeadCache.Consumer[IO]],
     config: HeadCache.Config = config)(implicit
-    eventual: HeadCache.Eventual[cats.effect.IO]): cats.effect.IO[HeadCache[cats.effect.IO]] = {
+    eventual: HeadCache.Eventual[IO]): IO[HeadCache[IO]] = {
 
-    HeadCache.of[cats.effect.IO](
+    HeadCache.of[IO](
       config = config,
       consumer = consumer)
   }
 
-  implicit val log: Log[cats.effect.IO] = Log.empty[cats.effect.IO]
+  implicit val log: Log[IO] = Log.empty[IO]
 
   object TestConsumer {
 
-    def apply(ref: Ref[cats.effect.IO, cats.effect.IO[State]])(implicit timer: Timer[cats.effect.IO]): HeadCache.Consumer[cats.effect.IO] = {
-      new HeadCache.Consumer[cats.effect.IO] {
+    def apply(ref: Ref[IO, IO[State]])(implicit timer: Timer[IO]): HeadCache.Consumer[IO] = {
+      new HeadCache.Consumer[IO] {
 
         def assign(topic: Topic, partitions: Nel[Partition]) = {
           ref.update { state =>
@@ -339,7 +339,7 @@ object HeadCacheSpec {
           for {
             state <- ref.get
             state <- state
-            partitions <- cats.effect.IO.delay {
+            partitions <- IO.delay {
               val partitions = state.topics.getOrElse(topic, Nil)
               Nel.unsafe(partitions)
             }
@@ -349,15 +349,15 @@ object HeadCacheSpec {
         }
 
         def close = {
-          val closed = cats.effect.IO.raiseError(ClosedException)
+          val closed = IO.raiseError(ClosedException)
           ref.set(closed)
         }
       }
     }
 
-    def of(state: State)(implicit timer: Timer[cats.effect.IO]): cats.effect.IO[HeadCache.Consumer[cats.effect.IO]] = {
+    def of(state: State)(implicit timer: Timer[IO]): IO[HeadCache.Consumer[IO]] = {
       for {
-        ref <- Ref.of[cats.effect.IO, cats.effect.IO[State]](state.pure[cats.effect.IO])
+        ref <- Ref.of[IO, IO[State]](state.pure[IO])
       } yield {
         apply(ref)
       }
