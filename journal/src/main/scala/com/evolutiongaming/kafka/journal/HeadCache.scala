@@ -5,6 +5,7 @@ import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
+import com.evolutiongaming.kafka.journal.cache.Cache
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.kafka.journal.util.EitherHelper._
 import com.evolutiongaming.kafka.journal.util._
@@ -24,6 +25,7 @@ import scala.util.control.NoStackTrace
   * 3. Remove half of partition cache on cleanup
   * 4. Support configuration
   * 5. Add Metrics
+  * 6. Clearly handle cases when topic is not yet created, but requests are coming
   */
 trait HeadCache[F[_]] {
   import HeadCache._
@@ -112,7 +114,6 @@ object HeadCache {
 
   final case class Config(
     pollTimeout: FiniteDuration = 50.millis,
-    retryInterval: FiniteDuration = 100.millis,
     cleanInterval: FiniteDuration = 3.seconds,
     maxSize: Int = 100000) {
 
@@ -217,7 +218,6 @@ object HeadCache {
               topic = topic,
               from = pointers.values,
               pollTimeout = config.pollTimeout,
-              retryInterval = config.retryInterval,
               consumer = consumer) { records =>
               
               val entries = entriesOf(records.values)

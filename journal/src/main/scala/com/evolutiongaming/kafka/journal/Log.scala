@@ -12,6 +12,8 @@ trait Log[F[_]] { self =>
 
   def warn(msg: => String): F[Unit]
 
+  def error(msg: => String): F[Unit]
+
   def error(msg: => String, cause: Throwable): F[Unit]
 
 
@@ -23,6 +25,8 @@ trait Log[F[_]] { self =>
 
     def warn(msg: => String) = self.warn(s"$prefix $msg")
 
+    def error(msg: => String) = self.error(s"$prefix $msg")
+
     def error(msg: => String, cause: Throwable) = self.error(s"$prefix $msg", cause)
   }
 }
@@ -30,6 +34,7 @@ trait Log[F[_]] { self =>
 object Log {
 
   def apply[F[_]](implicit F: Log[F]): Log[F] = F
+
 
   def empty[F[_]](unit: F[Unit]): Log[F] = new Log[F] {
 
@@ -39,9 +44,10 @@ object Log {
 
     def warn(msg: => String) = unit
 
+    def error(msg: => String) = unit
+
     def error(msg: => String, cause: Throwable) = unit
   }
-
 
   def empty[F[_] : Applicative]: Log[F] = empty(Applicative[F].unit)
 
@@ -58,6 +64,10 @@ object Log {
 
     def warn(msg: => String) = IO2[F].effect {
       log.warn(msg)
+    }
+
+    def error(msg: => String) = IO2[F].effect {
+      log.error(msg)
     }
 
     def error(msg: => String, cause: Throwable) = IO2[F].effect {
@@ -86,6 +96,12 @@ object Log {
     }
 
     def error(msg: => String, cause: Throwable) = {
+      Concurrent[F].delay {
+        log.error(msg, cause)
+      }
+    }
+
+    def error(msg: => String) = {
       Concurrent[F].delay {
         log.error(msg)
       }

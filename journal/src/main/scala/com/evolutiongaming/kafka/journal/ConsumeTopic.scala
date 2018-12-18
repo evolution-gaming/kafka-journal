@@ -3,12 +3,13 @@ package com.evolutiongaming.kafka.journal
 import cats.effect.{Concurrent, Timer}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.HeadCache.Consumer
-import com.evolutiongaming.kafka.journal.util.TimerOf
+import com.evolutiongaming.kafka.journal.retry.Retry
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.ConsumerRecords
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
+import scala.util.control.NoStackTrace
 
 // TODO Test
 object ConsumeTopic {
@@ -17,14 +18,13 @@ object ConsumeTopic {
     topic: Topic,
     from: Map[Partition, Offset],
     pollTimeout: FiniteDuration,
-    retryInterval: FiniteDuration,
     consumer: F[HeadCache.Consumer[F] /*TODO*/ ])(
     onRecords: ConsumerRecords[String, Bytes] => F[Unit]): F[Unit] = {
 
     def poll(implicit consumer: Consumer[F]): F[Unit] = {
       for {
         records <- consumer.poll(pollTimeout)
-        _       <- {
+        _ <- {
           if (records.values.isEmpty) {
             ().pure[F]
           } else {
@@ -35,20 +35,35 @@ object ConsumeTopic {
     }
 
     def partitionsOf(implicit consumer: Consumer[F]): F[Nel[Partition]] = {
-      for {
-        partitions <- consumer.partitions(topic).handleErrorWith { error =>
-          for {
-            _ <- Log[F].warn(s"consumer.partitions($topic) failed, retrying in $retryInterval, error: $error")
-          } yield Nil
+      
+      val onError = (error: Throwable, details: Retry.Details) => {
+        import Retry.Decision
+
+        def prefix = s"consumer.partitions($topic) failed"
+
+        details.decision match {
+          case Decision.Retry(delay) =>
+            Log[F].error(s"$prefix, retrying in $delay, error: $error")
+
+          case Decision.GiveUp =>
+            val retries = details.retries
+            Log[F].error(s"$prefix, retried $retries times, error: $error", error)
         }
+      }
+
+      val partitions = for {
+        partitions <- consumer.partitions(topic)
         partitions <- Nel.opt(partitions) match {
           case Some(a) => a.pure[F]
-          case None    => for {
-            _          <- TimerOf[F].sleep(retryInterval)
-            partitions <- partitionsOf(consumer)
-          } yield partitions
+          case None    => NoPartitionsException.raiseError[F, Nel[Partition]]
         }
       } yield partitions
+
+      val policy = {
+        val fibonacci = Retry.Policy.fibonacci(5.millis)
+        Retry.Policy.cap(300.millis, fibonacci)
+      }
+      Retry(policy, onError)(partitions)
     }
 
     Consumer.resource(consumer).use { implicit consumer =>
@@ -66,4 +81,7 @@ object ConsumeTopic {
       } yield {}
     }
   }
+
+
+  final case object NoPartitionsException extends RuntimeException with NoStackTrace
 }

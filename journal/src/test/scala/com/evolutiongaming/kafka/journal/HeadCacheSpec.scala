@@ -270,7 +270,6 @@ object HeadCacheSpec {
   val topicPartition: TopicPartition = TopicPartition(topic = topic, partition = partition)
   val config: HeadCache.Config = HeadCache.Config(
     pollTimeout = 3.millis,
-    retryInterval = 3.millis,
     cleanInterval = 100.millis)
 
   def headCacheOf(

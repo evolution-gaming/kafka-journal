@@ -1,4 +1,4 @@
-package com.evolutiongaming.kafka.journal.util
+package com.evolutiongaming.kafka.journal.cache
 
 import cats.effect.{Concurrent, IO}
 import cats.implicits._
