@@ -116,6 +116,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
 
     val headCache = {
       if (config.headCache) {
+        val log = ActorLog(system, HeadCache.getClass)
         HeadCacheAsync(config.journal.consumer, eventualJournal, ecBlocking, log)
       } else {
         HeadCache.empty[Async]
