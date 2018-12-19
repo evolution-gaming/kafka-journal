@@ -86,7 +86,7 @@ object EventualJournal {
       for {
         tuple <- Latency { journal.pointer(key) }
         (result, latency) = tuple
-        _ <- metrics.pointers(key.topic, latency)
+        _ <- metrics.pointer(key.topic, latency)
       } yield result
     }
   }
