@@ -3,25 +3,25 @@ package com.evolutiongaming.kafka.journal.retry
 import cats._
 import cats.effect.Timer
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.util.TimerOf
+import com.evolutiongaming.kafka.journal.util.{Rng, TimerOf}
 
 import scala.concurrent.duration.FiniteDuration
 
 object Retry {
 
-  type Decide = Status => PolicyDecision
+  type Decide = Status => StrategyDecision
 
   def apply[F[_] : Sleep : FlatMap, A, E](
-    policy: Policy,
+    strategy: Strategy,
     onError: (E, Details) => F[Unit])(
     call: F[A])(implicit
     applicativeError: ApplicativeError[F, E]): F[A] = {
 
-    apply1(policy, onError, call, applicativeError)
+    apply1(strategy, onError, call, applicativeError)
   }
 
   private def apply1[F[_] : Sleep : FlatMap, A, E](
-    policy: Policy,
+    strategy: Strategy,
     onError: (E, Details) => F[Unit],
     call: F[A],
     applicativeError: ApplicativeError[F, E]): F[A] = {
@@ -32,9 +32,9 @@ object Retry {
         val details = Details(decision, status.retries)
         for {
           _ <- onError(e, details)
-          a <- decide(status) match {
-            case PolicyDecision.GiveUp               => applicativeError.raiseError(e)
-            case PolicyDecision.Retry(delay, decide) => for {
+          a <- decision match {
+            case StrategyDecision.GiveUp               => applicativeError.raiseError(e)
+            case StrategyDecision.Retry(delay, decide) => for {
               _ <- Sleep[F].apply(delay)
               a <- apply(status.inc, decide)
             } yield a
@@ -43,43 +43,63 @@ object Retry {
       }
     }
 
-    apply(Status.Empty, policy.decide)
+    apply(Status.Empty, strategy.decide)
   }
 
 
-  final case class Policy(decide: Decide)
+  final case class Strategy(decide: Decide)
 
-  object Policy {
+  object Strategy {
 
-    def const(delay: FiniteDuration): Policy = {
-      def decide: Decide = (_: Status) => PolicyDecision.Retry(delay, decide)
+    def const(delay: FiniteDuration): Strategy = {
+      def decide: Decide = (_: Status) => StrategyDecision.Retry(delay, decide)
 
-      Policy(decide)
+      Strategy(decide)
     }
 
-    def fibonacci(delay: FiniteDuration): Policy = {
-      val unit = delay.unit
+    def fibonacci(initial: FiniteDuration): Strategy = {
+      val unit = initial.unit
 
       def apply(a: Long, b: Long): Decide = {
-        _: Status => PolicyDecision.Retry(FiniteDuration(b, unit), apply(b, a + b))
+        _: Status => StrategyDecision.Retry(FiniteDuration(b, unit), apply(b, a + b))
       }
 
-      Policy(apply(0, delay.length))
+      Strategy(apply(0, initial.length))
     }
 
-    def cap(max: FiniteDuration, policy: Policy): Policy = {
+    def cap(max: FiniteDuration, strategy: Strategy): Strategy = {
 
       def apply(decide: Decide): Decide = {
-        status: Status =>
+        status: Status => {
           decide(status) match {
-            case PolicyDecision.GiveUp               => PolicyDecision.GiveUp
-            case PolicyDecision.Retry(delay, decide) =>
-              if (delay <= max) PolicyDecision.Retry(delay, apply(decide))
-              else PolicyDecision.Retry(max, const(max).decide)
+            case StrategyDecision.GiveUp               => StrategyDecision.GiveUp
+            case StrategyDecision.Retry(delay, decide) =>
+              if (delay <= max) StrategyDecision.Retry(delay, apply(decide))
+              else StrategyDecision.Retry(max, const(max).decide)
           }
+        }
       }
 
-      Policy(apply(policy.decide))
+      Strategy(apply(strategy.decide))
+    }
+
+    /**
+      * See https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
+      */
+    def fullJitter(initial: FiniteDuration, rng: Rng): Strategy = {
+
+      def apply(rng: Rng): Decide = {
+        status: Status => {
+          val e = math.pow(2.toDouble, status.retries + 1d)
+          val max = initial.length * e
+          val (double, rng1) = rng.double
+          val delay = (max * double).toLong max initial.length
+          val duration = FiniteDuration(delay, initial.unit)
+          StrategyDecision.Retry(duration, apply(rng1))
+        }
+      }
+
+      Strategy(apply(rng))
     }
   }
 
@@ -97,10 +117,10 @@ object Retry {
 
   object Details {
 
-    def apply(decision: Retry.PolicyDecision, retries: Int): Details = {
+    def apply(decision: Retry.StrategyDecision, retries: Int): Details = {
       val decision1 = decision match {
-        case PolicyDecision.Retry(delay, _) => Decision.Retry(delay)
-        case PolicyDecision.GiveUp          => Decision.GiveUp
+        case StrategyDecision.Retry(delay, _) => Decision.Retry(delay)
+        case StrategyDecision.GiveUp          => Decision.GiveUp
       }
       apply(decision1, retries)
     }
@@ -117,13 +137,13 @@ object Retry {
   }
 
 
-  sealed trait PolicyDecision
+  sealed trait StrategyDecision
 
-  object PolicyDecision {
+  object StrategyDecision {
 
-    final case class Retry(delay: FiniteDuration, decide: Decide) extends PolicyDecision
+    final case class Retry(delay: FiniteDuration, decide: Decide) extends StrategyDecision
 
-    case object GiveUp extends PolicyDecision
+    case object GiveUp extends StrategyDecision
   }
 
 

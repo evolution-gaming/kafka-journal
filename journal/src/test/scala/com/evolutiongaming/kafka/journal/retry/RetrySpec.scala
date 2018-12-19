@@ -4,6 +4,7 @@ import cats._
 import cats.data._
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.retry.Retry._
+import com.evolutiongaming.kafka.journal.util.Rng
 import org.scalatest.{FunSuite, Matchers}
 
 import scala.annotation.tailrec
@@ -15,14 +16,8 @@ class RetrySpec extends FunSuite with Matchers {
 
   test("fibonacci") {
     val policy = {
-      val fibonacci = Policy.fibonacci(5.millis)
-      Policy.cap(200.millis, fibonacci)
-    }
-
-    val onError = (_: Error, details: Details) => {
-      DataState { s =>
-        (s.onError(details), ().asRight)
-      }
+      val strategy = Strategy.fibonacci(5.millis)
+      Strategy.cap(200.millis, strategy)
     }
 
     val call = DataState { _.call }
@@ -55,6 +50,38 @@ class RetrySpec extends FunSuite with Matchers {
         5.millis))
     actual shouldEqual expected
   }
+
+  test("fullJitter") {
+    val policy = {
+      val rng = Rng(12345l)
+      val strategy = Strategy.fullJitter(5.millis, rng)
+      Strategy.cap(200.millis, strategy)
+    }
+
+    val call = DataState { _.call }
+    val result = Retry(policy, onError)(call)
+
+    val initial = Data(toRetry = 7)
+    val actual = result.run(initial).map(_._1)
+    val expected = Data(
+      decisions = List(
+        Details(decision = Decision.Retry(200.millis), retries = 6),
+        Details(decision = Decision.Retry(133.millis), retries = 5),
+        Details(decision = Decision.Retry(34.millis), retries = 4),
+        Details(decision = Decision.Retry(79.millis), retries = 3),
+        Details(decision = Decision.Retry(26.millis), retries = 2),
+        Details(decision = Decision.Retry(15.millis), retries = 1),
+        Details(decision = Decision.Retry(5.millis), retries = 0)),
+      delays = List(
+        200.millis,
+        133.millis,
+        34.millis,
+        79.millis,
+        26.millis,
+        15.millis,
+        5.millis))
+    actual shouldEqual expected
+  }
 }
 
 object RetrySpec {
@@ -63,6 +90,9 @@ object RetrySpec {
 
   type FE[A] = Either[Error, A]
 
+  val onError: (Error, Details) => DataState[Error] = (_: Error, details: Details) => {
+    DataState { s => (s.onError(details), ().asRight) }
+  }
 
   type DataState[A] = StateT[Id, Data, FE[A]]
 
@@ -147,8 +177,8 @@ object RetrySpec {
 
   final case class Data(
     toRetry: Int = 0,
-    delays: List[FiniteDuration] = Nil,
-    decisions: List[Details] = Nil) { self =>
+    decisions: List[Details] = Nil,
+    delays: List[FiniteDuration] = Nil) { self =>
 
     def sleep(duration: FiniteDuration): Data = {
       copy(delays = duration :: delays)

@@ -4,6 +4,7 @@ import cats.effect.{Concurrent, Timer}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.HeadCache.Consumer
 import com.evolutiongaming.kafka.journal.retry.Retry
+import com.evolutiongaming.kafka.journal.util.{Rng, TimerOf}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.ConsumerRecords
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
@@ -24,7 +25,7 @@ object ConsumeTopic {
     def poll(implicit consumer: Consumer[F]): F[Unit] = {
       for {
         records <- consumer.poll(pollTimeout)
-        _ <- {
+        _       <- {
           if (records.values.isEmpty) {
             ().pure[F]
           } else {
@@ -35,7 +36,7 @@ object ConsumeTopic {
     }
 
     def partitionsOf(implicit consumer: Consumer[F]): F[Nel[Partition]] = {
-      
+
       val onError = (error: Throwable, details: Retry.Details) => {
         import Retry.Decision
 
@@ -59,18 +60,25 @@ object ConsumeTopic {
         }
       } yield partitions
 
-      val policy = {
-        val fibonacci = Retry.Policy.fibonacci(5.millis)
-        Retry.Policy.cap(300.millis, fibonacci)
+      implicit val clock = TimerOf[F].clock
+      
+      for {
+        rng        <- Rng.fromClock[F]
+        strategy    = {
+          val strategy = Retry.Strategy.fullJitter(3.millis, rng)
+          Retry.Strategy.cap(300.millis, strategy)
+        }
+        partitions <- Retry(strategy, onError)(partitions)
+      } yield {
+        partitions
       }
-      Retry(policy, onError)(partitions)
     }
 
     Consumer.resource(consumer).use { implicit consumer =>
       for {
         partitions <- partitionsOf
         _          <- consumer.assign(topic, partitions)
-        offsets = for {
+        offsets     = for {
           partition <- partitions
         } yield {
           val offset = from.get(partition).fold(Offset.Min)(_ + 1l)
