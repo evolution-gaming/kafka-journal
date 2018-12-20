@@ -25,26 +25,26 @@ object EventualJournal {
 
     def pointers(topic: Topic) = {
       for {
-        tuple            <- Latency { journal.pointers(topic) }
-        (result, latency) = tuple
-        _                 = Log[F].debug(s"$topic pointers in ${ latency }ms, result: $result")
-      } yield result
+        rl     <- Latency { journal.pointers(topic) }
+        (r, l)  = rl
+        _      <- Log[F].debug(s"$topic pointers in ${ l }ms, result: $r")
+      } yield r
     }
 
     def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
       for {
-        tuple            <- Latency { journal.read(key, from, s)(f) }
-        (result, latency) = tuple
-        _                 = Log[F].debug(s"$key read in ${ latency }ms, from: $from, state: $s, result: $result")
-      } yield result
+        rl     <- Latency { journal.read(key, from, s)(f) }
+        (r, l)  = rl
+        _      <- Log[F].debug(s"$key read in ${ l }ms, from: $from, state: $s, result: $r")
+      } yield r
     }
 
     def pointer(key: Key) = {
       for {
-        tuple            <- Latency { journal.pointer(key) }
-        (result, latency) = tuple
-        _                 = Log[F].debug(s"$key pointer in ${ latency }ms, result: $result")
-      } yield result
+        rl     <- Latency { journal.pointer(key) }
+        (r, l)  = rl
+        _      <- Log[F].debug(s"$key pointer in ${ l }ms, result: $r")
+      } yield r
     }
   }
 
@@ -55,10 +55,10 @@ object EventualJournal {
 
     def pointers(topic: Topic) = {
       for {
-        tuple            <- Latency { journal.pointers(topic) }
-        (result, latency) = tuple
-        _                <- metrics.pointers(topic, latency)
-      } yield result
+        rl     <- Latency { journal.pointers(topic) }
+        (r, l)  = rl
+        _      <- metrics.pointers(topic, l)
+      } yield r
     }
 
     def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
@@ -66,20 +66,20 @@ object EventualJournal {
         case ((s, n), e) => f(s, e).map { s => (s, n + 1) }
       }
       for {
-        tuple            <- Latency { journal.read(key, from, (s, 0))(ff) }
-        (switch, latency) = tuple
-        (_, events)       = switch.s
-        _                <- metrics.read(topic = key.topic, latency = latency, events = events)
-        result            = switch.map { case (s, _) => s }
-      } yield result
+        rl      <- Latency { journal.read(key, from, (s, 0))(ff) }
+        (s, l)   = rl
+        (_, es)  = s.s
+        _       <- metrics.read(topic = key.topic, latency = l, events = es)
+        r        = s.map { case (s, _) => s }
+      } yield r
     }
 
     def pointer(key: Key) = {
       for {
-        tuple            <- Latency { journal.pointer(key) }
-        (result, latency) = tuple
-        _                <- metrics.pointer(key.topic, latency)
-      } yield result
+        rl     <- Latency { journal.pointer(key) }
+        (r, l)  = rl
+        _      <- metrics.pointer(key.topic, l)
+      } yield r
     }
   }
 

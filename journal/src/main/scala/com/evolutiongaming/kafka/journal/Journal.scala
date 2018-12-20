@@ -52,39 +52,39 @@ object Journal {
 
     def append(key: Key, events: Nel[Event], timestamp: Instant) = {
       for {
-        tuple            <- Latency { journal.append(key, events, timestamp) }
-        (result, latency) = tuple
-        _                <- Log[F].debug {
+        rl     <- Latency { journal.append(key, events, timestamp) }
+        (r, l)  = rl
+        _      <- Log[F].debug {
           val first = events.head.seqNr
           val last = events.last.seqNr
           val seqNr = if (first == last) s"seqNr: $first" else s"seqNrs: $first..$last"
-          s"$key append in ${ latency }ms, $seqNr, timestamp: $timestamp, result: $result"
+          s"$key append in ${ l }ms, $seqNr, timestamp: $timestamp, result: $r"
         }
-      } yield result
+      } yield r
     }
 
     def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = {
       for {
-        tuple            <- Latency { journal.read(key, from, s)(f) }
-        (result, latency) = tuple
-        _                <- Log[F].debug(s"$key read in ${ latency }ms, from: $from, state: $s, result: $result")
-      } yield result
+        rl     <- Latency { journal.read(key, from, s)(f) }
+        (r, l)  = rl
+        _      <- Log[F].debug(s"$key read in ${ l }ms, from: $from, state: $s, r: $r")
+      } yield r
     }
 
     def pointer(key: Key) = {
       for {
-        tuple            <- Latency { journal.pointer(key) }
-        (result, latency) = tuple
-        _                <- Log[F].debug(s"$key lastSeqNr in ${ latency }ms, result: $result")
-      } yield result
+        rl     <- Latency { journal.pointer(key) }
+        (r, l)  = rl
+        _      <- Log[F].debug(s"$key lastSeqNr in ${ l }ms, result: $r")
+      } yield r
     }
 
     def delete(key: Key, to: SeqNr, timestamp: Instant) = {
       for {
-        tuple            <- Latency { journal.delete(key, to, timestamp) }
-        (result, latency) = tuple
-        _                <- Log[F].debug(s"$key delete in ${ latency }ms, to: $to, timestamp: $timestamp, result: $result")
-      } yield result
+        rl     <- Latency { journal.delete(key, to, timestamp) }
+        (r, l)  = rl
+        _      <- Log[F].debug(s"$key delete in ${ l }ms, to: $to, timestamp: $timestamp, r: $r")
+      } yield r
     }
   }
 
@@ -108,10 +108,10 @@ object Journal {
 
       def append(key: Key, events: Nel[Event], timestamp: Instant) = {
         for {
-          tuple            <- latency("append", key.topic) { journal.append(key, events, timestamp) }
-          (result, latency) = tuple
-          _                <- metrics.append(topic = key.topic, latency = latency, events = events.size)
-        } yield result
+          rl     <- latency("append", key.topic) { journal.append(key, events, timestamp) }
+          (r, l)  = rl
+          _      <- metrics.append(topic = key.topic, latency = l, events = events.size)
+        } yield r
       }
 
       def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = {
@@ -119,26 +119,26 @@ object Journal {
           case ((s, n), e) => f(s, e).map { s => (s, n + 1) }
         }
         for {
-          tuple                      <- latency("read", key.topic) { journal.read(key, from, (s, 0))(ff) }
-          ((result, events), latency) = tuple
-          _                          <- metrics.read(topic = key.topic, latency = latency, events = events)
-        } yield result
+          rl           <- latency("read", key.topic) { journal.read(key, from, (s, 0))(ff) }
+          ((r, es), l)  = rl
+          _            <- metrics.read(topic = key.topic, latency = l, events = es)
+        } yield r
       }
 
       def pointer(key: Key) = {
         for {
-          tuple            <- latency("pointer", key.topic) { journal.pointer(key) }
-          (result, latency) = tuple
-          _                <- metrics.pointer(key.topic, latency)
-        } yield result
+          rl     <- latency("pointer", key.topic) { journal.pointer(key) }
+          (r, l)  = rl
+          _      <- metrics.pointer(key.topic, l)
+        } yield r
       }
 
       def delete(key: Key, to: SeqNr, timestamp: Instant) = {
         for {
-          tuple            <- latency("delete", key.topic) { journal.delete(key, to, timestamp) }
-          (result, latency) = tuple
-          _                <- metrics.delete(key.topic, latency)
-        } yield result
+          rl     <- latency("delete", key.topic) { journal.delete(key, to, timestamp) }
+          (r, l)  = rl
+          _      <- metrics.delete(key.topic, l)
+        } yield r
       }
     }
   }
@@ -343,9 +343,7 @@ object Journal {
                 pointer.map(_.seqNr) max seqNr
               }
           }
-        } yield {
-          result
-        }
+        } yield result
       }
 
       def delete(key: Key, to: SeqNr, timestamp: Instant) = {

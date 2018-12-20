@@ -524,18 +524,14 @@ object HeadCache {
           for {
             _ <- log.debug(s"assign topic: $topic, partitions: $partitions")
             r <- consumer.assign(topic, partitions)
-          } yield {
-            r
-          }
+          } yield r
         }
 
         def seek(topic: Topic, offsets: Map[Partition, Offset]) = {
           for {
             _ <- log.debug(s"seek topic: $topic, offsets: $offsets")
             r <- consumer.seek(topic, offsets)
-          } yield {
-            r
-          }
+          } yield r
         }
 
         def poll(timeout: FiniteDuration) = {
@@ -548,9 +544,7 @@ object HeadCache {
                 s"poll timeout: $timeout, result: $size"
               }
             }
-          } yield {
-            r
-          }
+          } yield r
         }
 
         def partitions(topic: Topic) = {
@@ -566,9 +560,7 @@ object HeadCache {
           for {
             _ <- log.debug("close")
             r <- consumer.close
-          } yield {
-            r
-          }
+          } yield r
         }
       }
     }
