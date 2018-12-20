@@ -5,6 +5,7 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import cats._
+import cats.effect.Clock
 import cats.implicits._
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
@@ -12,7 +13,6 @@ import com.evolutiongaming.kafka.journal.AsyncImplicits._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
-import com.evolutiongaming.kafka.journal.IO2.ops._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
@@ -48,13 +48,13 @@ object Journal {
   }
 
 
-  def apply[F[_] : IO2](journal: Journal[F], log: ActorLog): Journal[F] = new Journal[F] {
+  def apply[F[_] : FlatMap : Clock : Log](journal: Journal[F]): Journal[F] = new Journal[F] {
 
     def append(key: Key, events: Nel[Event], timestamp: Instant) = {
       for {
-        tuple <- Latency { journal.append(key, events, timestamp) }
+        tuple            <- Latency { journal.append(key, events, timestamp) }
         (result, latency) = tuple
-        _ = log.debug {
+        _                <- Log[F].debug {
           val first = events.head.seqNr
           val last = events.last.seqNr
           val seqNr = if (first == last) s"seqNr: $first" else s"seqNrs: $first..$last"
@@ -65,39 +65,41 @@ object Journal {
 
     def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = {
       for {
-        tuple <- Latency { journal.read(key, from, s)(f) }
+        tuple            <- Latency { journal.read(key, from, s)(f) }
         (result, latency) = tuple
-        _ = log.debug(s"$key read in ${ latency }ms, from: $from, state: $s, result: $result")
+        _                <- Log[F].debug(s"$key read in ${ latency }ms, from: $from, state: $s, result: $result")
       } yield result
     }
 
     def pointer(key: Key) = {
       for {
-        tuple <- Latency { journal.pointer(key) }
+        tuple            <- Latency { journal.pointer(key) }
         (result, latency) = tuple
-        _ = log.debug(s"$key lastSeqNr in ${ latency }ms, result: $result")
+        _                <- Log[F].debug(s"$key lastSeqNr in ${ latency }ms, result: $result")
       } yield result
     }
 
     def delete(key: Key, to: SeqNr, timestamp: Instant) = {
       for {
-        tuple <- Latency { journal.delete(key, to, timestamp) }
+        tuple            <- Latency { journal.delete(key, to, timestamp) }
         (result, latency) = tuple
-        _ = log.debug(s"$key delete in ${ latency }ms, to: $to, timestamp: $timestamp, result: $result")
+        _                <- Log[F].debug(s"$key delete in ${ latency }ms, to: $to, timestamp: $timestamp, result: $result")
       } yield result
     }
-
-    override def toString = journal.toString
   }
 
 
-  def apply[F[_] : IO2](journal: Journal[F], metrics: Metrics[F]): Journal[F] = {
+  def apply[F[_] : Clock, E](
+    journal: Journal[F],
+    metrics: Metrics[F])(implicit monadError: MonadError[F, E]): Journal[F] = {
 
-    def latency[A](name: String, topic: Topic)(f: => F[A]) = {
-      val result = Latency(f)
-      result.flatMapFailure { failure =>
-        metrics.failure(name, topic).flatMap { _ =>
-          IO2[F].fail[(A, Long)](failure)
+    def latency[A](name: String, topic: Topic)(f: => F[A]/*TODO*/): F[(A, Long)] = {
+      Latency {
+        f.handleErrorWith { e =>
+          for {
+            _ <- metrics.failure(name, topic)
+            a <- e.raiseError[F, A]
+          } yield a
         }
       }
     }
@@ -106,9 +108,9 @@ object Journal {
 
       def append(key: Key, events: Nel[Event], timestamp: Instant) = {
         for {
-          tuple <- latency("append", key.topic) { journal.append(key, events, timestamp) }
+          tuple            <- latency("append", key.topic) { journal.append(key, events, timestamp) }
           (result, latency) = tuple
-          _ <- metrics.append(topic = key.topic, latency = latency, events = events.size)
+          _                <- metrics.append(topic = key.topic, latency = latency, events = events.size)
         } yield result
       }
 
@@ -117,25 +119,25 @@ object Journal {
           case ((s, n), e) => f(s, e).map { s => (s, n + 1) }
         }
         for {
-          tuple <- latency("read", key.topic) { journal.read(key, from, (s, 0))(ff) }
+          tuple                      <- latency("read", key.topic) { journal.read(key, from, (s, 0))(ff) }
           ((result, events), latency) = tuple
-          _ <- metrics.read(topic = key.topic, latency = latency, events = events)
+          _                          <- metrics.read(topic = key.topic, latency = latency, events = events)
         } yield result
       }
 
       def pointer(key: Key) = {
         for {
-          tuple <- latency("pointer", key.topic) { journal.pointer(key) }
+          tuple            <- latency("pointer", key.topic) { journal.pointer(key) }
           (result, latency) = tuple
-          _ <- metrics.pointer(key.topic, latency)
+          _                <- metrics.pointer(key.topic, latency)
         } yield result
       }
 
       def delete(key: Key, to: SeqNr, timestamp: Instant) = {
         for {
-          tuple <- latency("delete", key.topic) { journal.delete(key, to, timestamp) }
+          tuple            <- latency("delete", key.topic) { journal.delete(key, to, timestamp) }
           (result, latency) = tuple
-          _ <- metrics.delete(key.topic, latency)
+          _                <- metrics.delete(key.topic, latency)
         } yield result
       }
     }
@@ -146,16 +148,19 @@ object Journal {
     producer: Producer[Future],
     origin: Option[Origin],
     topicConsumer: TopicConsumer,
-    eventual: EventualJournal,
+    eventual: EventualJournal[Async],
     pollTimeout: FiniteDuration,
     closeTimeout: FiniteDuration,
     readJournal: HeadCache[Async])(implicit
     system: ActorSystem,
     ec: ExecutionContext): Journal[Async] = {
 
-    val log = ActorLog(system, Journal.getClass)
-    val journal = apply(log, origin, producer, topicConsumer, eventual, pollTimeout, closeTimeout, readJournal)
-    Journal(journal, log)
+    val actorLog = ActorLog(system, Journal.getClass)
+
+    implicit val log = Log[Async](actorLog)
+
+    val journal = apply(actorLog, origin, producer, topicConsumer, eventual, pollTimeout, closeTimeout, readJournal)
+    Journal(journal)
   }
 
   def apply(
@@ -163,7 +168,7 @@ object Journal {
     origin: Option[Origin],
     producer: Producer[Future],
     topicConsumer: TopicConsumer,
-    eventual: EventualJournal,
+    eventual: EventualJournal[Async],
     pollTimeout: FiniteDuration,
     closeTimeout: FiniteDuration,
     readJournal: HeadCache[Async])(implicit
@@ -181,14 +186,14 @@ object Journal {
   def apply(
     log: ActorLog,
     origin: Option[Origin],
-    eventual: EventualJournal,
+    eventual: EventualJournal[Async],
     withReadActions: WithReadActions[Async],
     appendAction: AppendAction[Async],
     headCache: HeadCache[Async]): Journal[Async] = {
 
     def readActions(key: Key, from: SeqNr) = {
       val marker = {
-        val id = UUID.randomUUID().toString
+        val id = UUID.randomUUID().toString // TODO
         val action = Action.Mark(key, Instant.now(), origin, id)
         for {
           partitionOffset <- appendAction(action)
@@ -200,13 +205,13 @@ object Journal {
       val pointers = eventual.pointers(key.topic)
       for {
         marker <- marker
-        result2 <- if (marker.offset == Offset.Min) {
-          (Some(JournalInfo.Empty), FoldActions.empty).async
+        result <- if (marker.offset == Offset.Min) {
+          (Some(JournalInfo.Empty), FoldActions.empty[Async]).async
         } else {
           for {
-            result <- headCache(key, partition = marker.partition, offset = Offset.Min max marker.offset - 1)
+            result   <- headCache(key, partition = marker.partition, offset = Offset.Min max marker.offset - 1)
             pointers <- pointers
-            offset = pointers.values.get(marker.partition)
+            offset    = pointers.values.get(marker.partition)
           } yield {
             val info = for {
               result <- result
@@ -220,7 +225,7 @@ object Journal {
           }
         }
       } yield {
-        result2
+        result
       }
     }
 
@@ -276,10 +281,10 @@ object Journal {
           val fromFixed = deleteTo.fold(from) { deleteTo => from max deleteTo.next }
 
           for {
-            switch <- replicatedSeqNr(fromFixed)
+            switch           <- replicatedSeqNr(fromFixed)
             (s, from, offset) = switch.s
-            _ = log.debug(s"$key read from: $from, offset: $offset")
-            s <- from match {
+            _                 = log.debug(s"$key read from: $from, offset: $offset")
+            s                <- from match {
               case None       => s.async
               case Some(from) => if (switch.stop) s.async else events(from, offset, s)
             }
@@ -287,17 +292,17 @@ object Journal {
         }
 
         for {
-          (info, readActions) <- readActions(key, from)
+          (info, read) <- readActions(key, from)
           // TODO use range after eventualRecords
           // TODO prevent from reading calling consume twice!
-          info <- info match {
+          info         <- info match {
             case Some(info) => IO2[Async].pure(info)
-            case None       => readActions(None, JournalInfo.empty) { (info, action) => info(action).continue }
+            case None       => read(None, JournalInfo.empty) { (info, action) => info(action).continue }
           }
-          _ = log.debug(s"$key read info: $info")
-          result <- info match {
+          _            = log.debug(s"$key read info: $info")
+          result      <- info match {
             case JournalInfo.Empty                 => replicated(from)
-            case JournalInfo.NonEmpty(_, deleteTo) => onNonEmpty(deleteTo, readActions)
+            case JournalInfo.NonEmpty(_, deleteTo) => onNonEmpty(deleteTo, read)
             // TODO test this case
             case JournalInfo.Deleted(deleteTo) => deleteTo.next match {
               case None       => s.async
@@ -345,7 +350,7 @@ object Journal {
 
       def delete(key: Key, to: SeqNr, timestamp: Instant) = {
         for {
-          seqNr <- pointer(key)
+          seqNr  <- pointer(key)
           result <- seqNr match {
             case None        => Async.none
             case Some(seqNr) =>
@@ -389,6 +394,6 @@ object Journal {
       def failure(name: String, topic: Topic) = unit
     }
 
-    def empty[F[_] : Applicative]: Metrics[F] = empty(Applicative[F].unit)
+    def empty[F[_] : Applicative]: Metrics[F] = empty(().pure[F])
   }
 }

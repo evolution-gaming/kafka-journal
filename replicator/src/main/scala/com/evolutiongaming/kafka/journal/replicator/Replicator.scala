@@ -70,7 +70,8 @@ object Replicator {
     val journal = {
       val journal = ReplicatedCassandra(config.cassandra)
       val actorLog = ActorLog(system, ReplicatedCassandra.getClass)
-      val logging = ReplicatedJournal(journal, Log(actorLog))
+      implicit val log = Log(actorLog)
+      val logging = ReplicatedJournal(journal)
       metrics.journal.fold(logging) { ReplicatedJournal(logging, _) }
     }
 

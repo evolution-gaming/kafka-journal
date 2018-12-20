@@ -32,7 +32,9 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
 
   implicit lazy val ec = system.dispatcher
 
-  lazy val log = ActorLog(system, getClass)
+  lazy val actorLog = ActorLog(system, getClass)
+
+  implicit lazy val log = Log[Async](actorLog)
 
   val timeout = 30.seconds
 
@@ -42,7 +44,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
     implicit val session = Await.result(cassandra.connect(), timeout)
     // TODO add EventualCassandra.close and simplify all
     val eventual = EventualCassandra(cassandraConfig, Log.empty(Async.unit), None)
-    (EventualJournal(eventual, log), session, cassandra)
+    (EventualJournal(eventual), session, cassandra)
   }
 
   override def configOf(): Config = ConfigFactory.load("replicator.conf")
@@ -78,7 +80,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
       val topicConsumer = TopicConsumer(config.journal.consumer, ec)
 
       val journal = Journal(
-        log = log,
+        log = actorLog,
         Some(origin),
         producer = producer,
         topicConsumer = topicConsumer,
@@ -86,7 +88,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
         pollTimeout = config.journal.pollTimeout,
         closeTimeout = config.journal.closeTimeout,
         readJournal = HeadCache.empty[Async])
-      Journal(journal, log)
+      Journal(journal)
     }
 
     def read(key: Key)(until: List[ReplicatedEvent] => Boolean) = {

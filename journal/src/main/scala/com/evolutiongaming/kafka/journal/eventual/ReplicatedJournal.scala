@@ -2,15 +2,17 @@ package com.evolutiongaming.kafka.journal.eventual
 
 import java.time.Instant
 
-import com.evolutiongaming.kafka.journal.IO2.ops._
-import com.evolutiongaming.kafka.journal.{IO2, _}
+import cats.{Applicative, FlatMap}
+import cats.implicits._
+import cats.effect.Clock
+import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Topic
 
 
 trait ReplicatedJournal[F[_]] {
-  // TODO not used
-  def topics(): F[Iterable[Topic]]
+
+  def topics: F[Iterable[Topic]]
 
   def pointers(topic: Topic): F[TopicPointers]
 
@@ -23,43 +25,29 @@ trait ReplicatedJournal[F[_]] {
 
 object ReplicatedJournal {
 
-  def empty[F[_] : IO2]: ReplicatedJournal[F] = new ReplicatedJournal[F] {
+  def apply[F[_] : FlatMap : Clock : Log](journal: ReplicatedJournal[F]): ReplicatedJournal[F] = new ReplicatedJournal[F] {
 
-    def topics() = IO2[F].iterable[Topic]
-
-    def pointers(topic: Topic) = TopicPointers.Empty.pure
-
-    def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[ReplicatedEvent]) = IO2[F].unit
-
-    def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = IO2[F].unit
-
-    def save(topic: Topic, pointers: TopicPointers, timestamp: Instant) = IO2[F].unit
-  }
-
-
-  def apply[F[_] : IO2](journal: ReplicatedJournal[F], log: Log[F]): ReplicatedJournal[F] = new ReplicatedJournal[F] {
-
-    def topics() = {
+    def topics = {
       for {
-        tuple <- Latency { journal.topics() }
+        tuple            <- Latency { journal.topics }
         (result, latency) = tuple
-        _ <- log.debug(s"topics in ${ latency }ms, result: ${ result.mkString(",") }")
+        _                <- Log[F].debug(s"topics in ${ latency }ms, result: ${ result.mkString(",") }")
       } yield result
     }
 
     def pointers(topic: Topic) = {
       for {
-        tuple <- Latency { journal.pointers(topic) }
+        tuple            <- Latency { journal.pointers(topic) }
         (result, latency) = tuple
-        _ <- log.debug(s"$topic pointers in ${ latency }ms, result: $result")
+        _                <- Log[F].debug(s"$topic pointers in ${ latency }ms, result: $result")
       } yield result
     }
 
     def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[ReplicatedEvent]) = {
       for {
-        tuple <- Latency { journal.append(key, partitionOffset, timestamp, events) }
+        tuple            <- Latency { journal.append(key, partitionOffset, timestamp, events) }
         (result, latency) = tuple
-        _ <- log.debug {
+        _                <- Log[F].debug {
           val origin = events.head.origin
           val originStr = origin.fold("") { origin => s", origin: $origin" }
           s"$key append in ${ latency }ms, offset: $partitionOffset, events: ${ events.mkString(",") }$originStr"
@@ -69,9 +57,9 @@ object ReplicatedJournal {
 
     def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = {
       for {
-        tuple <- Latency { journal.delete(key, partitionOffset, timestamp, deleteTo, origin) }
+        tuple            <- Latency { journal.delete(key, partitionOffset, timestamp, deleteTo, origin) }
         (result, latency) = tuple
-        _ <- log.debug {
+        _                <- Log[F].debug {
           val originStr = origin.fold("") { origin => s", origin: $origin" }
           s"$key delete in ${ latency }ms, offset: $partitionOffset, deleteTo: $deleteTo$originStr"
         }
@@ -80,55 +68,69 @@ object ReplicatedJournal {
 
     def save(topic: Topic, pointers: TopicPointers, timestamp: Instant) = {
       for {
-        tuple <- Latency { journal.save(topic, pointers, timestamp) }
+        tuple            <- Latency { journal.save(topic, pointers, timestamp) }
         (result, latency) = tuple
-        _ <- log.debug(s"$topic save in ${ latency }ms, pointers: $pointers, timestamp: $timestamp")
+        _                <- Log[F].debug(s"$topic save in ${ latency }ms, pointers: $pointers, timestamp: $timestamp")
       } yield result
     }
   }
 
 
-  def apply[F[_] : IO2](journal: ReplicatedJournal[F], metrics: Metrics[F]): ReplicatedJournal[F] = new ReplicatedJournal[F] {
+  def apply[F[_] : FlatMap : Clock](journal: ReplicatedJournal[F], metrics: Metrics[F]): ReplicatedJournal[F] = new ReplicatedJournal[F] {
 
-    def topics() = {
+    def topics = {
       for {
-        tuple <- Latency { journal.topics() }
+        tuple            <- Latency { journal.topics }
         (result, latency) = tuple
-        _ <- metrics.topics(latency)
+        _                <- metrics.topics(latency)
       } yield result
     }
 
     def pointers(topic: Topic) = {
       for {
-        tuple <- Latency { journal.pointers(topic) }
+        tuple            <- Latency { journal.pointers(topic) }
         (result, latency) = tuple
-        _ <- metrics.pointers(latency)
+        _                <- metrics.pointers(latency)
       } yield result
     }
 
     def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[ReplicatedEvent]) = {
       for {
-        tuple <- Latency { journal.append(key, partitionOffset, timestamp, events) }
+        tuple            <- Latency { journal.append(key, partitionOffset, timestamp, events) }
         (result, latency) = tuple
-        _ <- metrics.append(topic = key.topic, latency = latency, events = events.size)
+        _                <- metrics.append(topic = key.topic, latency = latency, events = events.size)
       } yield result
     }
 
     def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = {
       for {
-        tuple <- Latency { journal.delete(key, partitionOffset, timestamp, deleteTo, origin) }
+        tuple            <- Latency { journal.delete(key, partitionOffset, timestamp, deleteTo, origin) }
         (result, latency) = tuple
-        _ <- metrics.delete(key.topic, latency)
+        _                <- metrics.delete(key.topic, latency)
       } yield result
     }
 
     def save(topic: Topic, pointers: TopicPointers, timestamp: Instant) = {
       for {
-        tuple <- Latency { journal.save(topic, pointers, timestamp) }
+        tuple            <- Latency { journal.save(topic, pointers, timestamp) }
         (result, latency) = tuple
-        _ <- metrics.save(topic, latency)
+        _                <- metrics.save(topic, latency)
       } yield result
     }
+  }
+
+
+  def empty[F[_] : Applicative]: ReplicatedJournal[F] = new ReplicatedJournal[F] {
+
+    def topics = Iterable.empty[Topic].pure[F]
+
+    def pointers(topic: Topic) = TopicPointers.Empty.pure[F]
+
+    def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[ReplicatedEvent]) = ().pure[F]
+
+    def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = ().pure[F]
+
+    def save(topic: Topic, pointers: TopicPointers, timestamp: Instant) = ().pure[F]
   }
 
 
@@ -147,17 +149,19 @@ object ReplicatedJournal {
 
   object Metrics {
 
-    def empty[F[_] : IO2]: Metrics[F] = new Metrics[F] {
+    def empty[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
 
-      def topics(latency: Long) = IO2[F].unit
+      def topics(latency: Long) = unit
 
-      def pointers(latency: Long) = IO2[F].unit
+      def pointers(latency: Long) = unit
 
-      def append(topic: Topic, latency: Long, events: Int) = IO2[F].unit
+      def append(topic: Topic, latency: Long, events: Int) = unit
 
-      def delete(topic: Topic, latency: Long) = IO2[F].unit
+      def delete(topic: Topic, latency: Long) = unit
 
-      def save(topic: Topic, latency: Long) = IO2[F].unit
+      def save(topic: Topic, latency: Long) = unit
     }
+
+    def empty[F[_] : Applicative]: Metrics[F] = empty(().pure[F])
   }
 }

@@ -21,6 +21,7 @@ import com.evolutiongaming.skafka.{Bytes => _, _}
 // TODO verify that first consumed offset matches to the one expected, otherwise we screwed.
 trait TopicReplicator[F[_]] {
 
+  // TODO remove all method(): F
   def done(): F[Unit]
 
   def shutdown(): F[Unit]

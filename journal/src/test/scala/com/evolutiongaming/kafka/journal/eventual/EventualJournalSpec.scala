@@ -7,7 +7,6 @@ import com.evolutiongaming.kafka.journal.AsyncImplicits._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.{Offset, Topic}
 import org.scalatest.Matchers._
 import org.scalatest.{Matchers, WordSpec}
@@ -18,16 +17,17 @@ trait EventualJournalSpec extends WordSpec with Matchers {
   def test(createJournals: () => Journals): Unit = {
     val journalsOf = (key: Key, timestamp: Instant) => {
       val journals = createJournals()
+      implicit val log = Log.empty[Async]
       val eventual = {
         val journal = journals.eventual
-        val withLogging = EventualJournal(journal, ActorLog.empty)
+        val withLogging = EventualJournal(journal)
         val metrics = EventualJournal.Metrics.empty(Async.unit)
         val withMetrics = EventualJournal(withLogging, metrics)
         Eventual(withMetrics, key)
       }
       val replicated = {
         val journal = journals.replicated
-        val withLogging = ReplicatedJournal(journal, Log.empty(Async.unit))
+        val withLogging = ReplicatedJournal(journal)
         val metrics = ReplicatedJournal.Metrics.empty
         val withMetrics = ReplicatedJournal(withLogging, metrics)
         Replicated(withMetrics, key, timestamp)
@@ -318,7 +318,7 @@ object EventualJournalSpec {
 
   object Eventual {
 
-    def apply(journal: EventualJournal, key: Key): Eventual = new Eventual {
+    def apply(journal: EventualJournal[Async], key: Key): Eventual = new Eventual {
 
       def events(from: SeqNr = SeqNr.Min) = {
         val async = journal.read(key, from, List.empty[ReplicatedEvent]) { (xs, x) => (x :: xs).continue }
@@ -358,7 +358,7 @@ object EventualJournalSpec {
 
     def apply(journal: ReplicatedJournal[Async], key: Key, timestamp: Instant): Replicated = new Replicated {
 
-      def topics() = journal.topics().get()
+      def topics() = journal.topics.get()
 
       def append(partitionOffset: PartitionOffset, events: Nel[ReplicatedEvent]) = {
         journal.append(key, partitionOffset, timestamp, events)
@@ -377,7 +377,7 @@ object EventualJournalSpec {
   }
 
 
-  final case class Journals(eventual: EventualJournal, replicated: ReplicatedJournal[Async])
+  final case class Journals(eventual: EventualJournal[Async], replicated: ReplicatedJournal[Async])
 
 
   implicit class PointerOps(val self: Pointer) extends AnyVal {

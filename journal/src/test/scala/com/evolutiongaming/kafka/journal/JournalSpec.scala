@@ -1,23 +1,25 @@
 package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
+import java.util.concurrent.TimeUnit
 
+import cats.effect.Clock
 import cats.implicits._
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
+import com.evolutiongaming.kafka.journal.AsyncImplicits._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
-import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.SeqNr.ops._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
-import com.evolutiongaming.kafka.journal.AsyncImplicits._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.collection.immutable.Queue
+import scala.concurrent.duration.TimeUnit
 import scala.concurrent.{ExecutionContext, Future}
 
 class JournalSpec extends WordSpec with Matchers {
@@ -136,7 +138,7 @@ class JournalSpec extends WordSpec with Matchers {
 
       def journalOf() = {
         var actions: Queue[ActionRecord[Action]] = Queue.empty
-        val eventualJournal = EventualJournal.Empty
+        val eventualJournal = EventualJournal.empty[Async]
 
         val withReadActions = WithReadActionsOneByOne(actions)
 
@@ -376,12 +378,13 @@ object JournalSpec {
     }
 
     def apply(
-      eventual: EventualJournal,
+      eventual: EventualJournal[Async],
       withReadActions: WithReadActions[Async],
       writeAction: AppendAction[Async]): SeqNrJournal = {
 
       val journal = Journal(ActorLog.empty, None, eventual, withReadActions, writeAction, HeadCache.empty[Async])
-      val withLogging = Journal[Async](journal, ActorLog.empty)
+      implicit val log = Log.empty[Async]
+      val withLogging = Journal[Async](journal)
       val withMetrics = Journal(withLogging, Journal.Metrics.empty(Async.unit))
       SeqNrJournal(withMetrics)
     }
@@ -390,7 +393,7 @@ object JournalSpec {
   // TODO implement via mocking EventualCassandra
   object EventualJournalOf {
 
-    def apply(state: => State): EventualJournal = new EventualJournal {
+    def apply(state: => State): EventualJournal[Async] = new EventualJournal[Async] {
 
       def pointers(topic: Topic) = {
         val pointers = state.offset.fold(TopicPointers.Empty) { offset =>

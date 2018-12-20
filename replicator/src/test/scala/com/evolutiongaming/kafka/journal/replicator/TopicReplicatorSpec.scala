@@ -650,7 +650,7 @@ object TopicReplicatorSpec {
 
   val journal: ReplicatedJournal[TestF] = new ReplicatedJournal[TestF] {
 
-    def topics() = IO2[TestF].iterable
+    def topics = IO2[TestF].iterable
 
     def pointers(topic: Topic) = {
       TestF { data => (data, data.pointers.getOrElse(topic, TopicPointers.Empty)) }

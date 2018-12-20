@@ -4,6 +4,7 @@ import java.util.UUID
 
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
+import com.evolutiongaming.kafka.journal.AsyncImplicits._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import org.scalatest.{AsyncWordSpec, Succeeded}
@@ -21,7 +22,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuit {
 
   private lazy val journalOf = {
     val topicConsumer = TopicConsumer(config.journal.consumer, ecBlocking)
-    eventual: EventualJournal => {
+    eventual: EventualJournal[Async] => {
       val log = ActorLog(system, HeadCache.getClass)
       val headCache = HeadCacheAsync(config.journal.consumer, eventual, ecBlocking, log)
       Journal(
@@ -96,7 +97,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuit {
 
     for {
       (eventualName, expected, eventual) <- List(
-        ("empty", 2.second, () => EventualJournal.Empty),
+        ("empty", 2.second, () => EventualJournal.empty[Async]),
         ("non-empty", 1.second, () => eventual))
     } {
       val name = s"events: $events, eventual: $eventualName"

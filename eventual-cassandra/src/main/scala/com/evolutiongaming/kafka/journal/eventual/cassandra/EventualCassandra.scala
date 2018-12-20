@@ -22,12 +22,12 @@ object EventualCassandra {
     log: Log[Async],
     origin: Option[Origin])(implicit
     ec: ExecutionContext,
-    session: Session): EventualJournal = {
+    session: Session): EventualJournal[Async] = {
 
     implicit val cassandraSession = CassandraSession[Async](session, config.retries)
     val cassandraSync = CassandraSync(config.schema, origin)
     val statements = for {
-      tables <- CreateSchema(config.schema, cassandraSync)
+      tables     <- CreateSchema(config.schema, cassandraSync)
       statements <- Statements(tables, cassandraSession)
     } yield {
       statements
@@ -36,7 +36,7 @@ object EventualCassandra {
     apply(statements, log)
   }
 
-  def apply(statements: Async[Statements[Async]], log: Log[Async]): EventualJournal = new EventualJournal {
+  def apply(statements: Async[Statements[Async]], log: Log[Async]): EventualJournal[Async] = new EventualJournal[Async] {
 
     def pointers(topic: Topic) = {
       for {

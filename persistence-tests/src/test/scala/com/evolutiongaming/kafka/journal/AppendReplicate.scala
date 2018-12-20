@@ -51,10 +51,10 @@ object AppendReplicate extends App {
       producer = producer,
       origin = Some(Origin(topic)),
       topicConsumer = topicConsumer,
-      eventual = EventualJournal.Empty,
+      eventual = EventualJournal.empty,
       pollTimeout = config.journal.pollTimeout,
       closeTimeout = config.journal.closeTimeout,
-      readJournal = HeadCache.empty[Async])
+      readJournal = HeadCache.empty)
   }
 
   def append(id: String) = {

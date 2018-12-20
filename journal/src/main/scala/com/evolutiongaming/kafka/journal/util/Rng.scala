@@ -1,10 +1,9 @@
 package com.evolutiongaming.kafka.journal.util
 
-import java.util.concurrent.TimeUnit
-
 import cats.FlatMap
 import cats.effect.Clock
 import cats.implicits._
+import com.evolutiongaming.kafka.journal.util.ClockHelper._
 
 trait Rng {
 
@@ -25,7 +24,7 @@ object Rng {
 
   def fromClock[F[_] : Clock : FlatMap]: F[Rng] = {
     for {
-      nanos <- ClockOf[F].monotonic(TimeUnit.NANOSECONDS)
+      nanos <- ClockOf[F].nanos
     } yield {
       apply(nanos)
     }

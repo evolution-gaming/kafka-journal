@@ -1,15 +1,21 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.IO2.ops._
-
-import scala.compat.Platform
+import cats.FlatMap
+import cats.implicits._
+import cats.effect.Clock
+import com.evolutiongaming.kafka.journal.util.ClockHelper._
+import com.evolutiongaming.kafka.journal.util.ClockOf
 
 object Latency {
-  def apply[T, F[_] : IO2](func: => F[T]): F[(T, Long)] = {
-    val start = Platform.currentTime
+
+  def apply[F[_] : FlatMap : Clock, A](func: => F[A] /*TODO change*/): F[(A, Long)] = {
     for {
-      result <- func
-      latency = Platform.currentTime - start
-    } yield (result, latency)
+      start   <- ClockOf[F].millis
+      result  <- func
+      end     <- ClockOf[F].millis
+      latency  = end - start
+    } yield {
+      (result, latency)
+    }
   }
 }

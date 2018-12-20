@@ -1,6 +1,9 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.Applicative
+import java.util.concurrent.TimeUnit
+
+import cats.MonadError
+import cats.effect.Clock
 import com.evolutiongaming.concurrent.async.Async
 
 import scala.annotation.tailrec
@@ -72,17 +75,51 @@ object AsyncImplicits {
     }
   }
 
-  implicit val ApplicativeAsync: Applicative[Async] = new Applicative[Async] {
+  implicit val MonadErrorAsync: MonadError[Async, Throwable] = new MonadError[Async, Throwable] {
+
+    def raiseError[A](e: Throwable) = Async.failed(e)
+
+    def handleErrorWith[A](fa: Async[A])(f: Throwable => Async[A]) = fa.flatMapFailure(f)
+
+    def flatMap[A, B](fa: Async[A])(f: A => Async[B]) = fa.flatMap(f)
+
+    def tailRecM[A, B](a: A)(f: A => Async[Either[A, B]]) = {
+
+      @tailrec
+      def apply(a: A): Async[B] = {
+        import Async.{Succeed, Failed, InCompleted}
+
+        f(a) match {
+          case Succeed(Right(a))            => Succeed(a)
+          case Succeed(Left(a))             => apply(a)
+          case Failed(s)                    => Failed(s)
+          case v: InCompleted[Either[A, B]] => v.value() match {
+            case Some(Success(Right(a))) => Succeed(a)
+            case Some(Success(Left(a)))  => apply(a)
+            case Some(Failure(s))        => Failed(s)
+            case None                    => v.flatMap {
+              case Right(a) => Async(a)
+              case Left(a)  => break(a)
+            }
+          }
+        }
+      }
+
+      def break(a: A) = apply(a)
+
+      apply(a)
+    }
 
     def pure[A](x: A) = Async(x)
+  }
 
-    def ap[A, B](ff: Async[A => B])(fa: Async[A]) = {
-      for {
-        f <- ff
-        a <- fa
-      } yield {
-        f(a)
-      }
+
+  implicit val ClockAsync: Clock[Async] = new Clock[Async] {
+    def realTime(unit: TimeUnit) = {
+      Async(unit.convert(System.currentTimeMillis(), TimeUnit.MILLISECONDS))
+    }
+    def monotonic(unit: TimeUnit) = {
+      Async(unit.convert(System.nanoTime(), TimeUnit.NANOSECONDS))
     }
   }
 }

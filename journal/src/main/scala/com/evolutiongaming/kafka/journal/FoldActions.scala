@@ -1,9 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.implicits._
+import cats.{Applicative, Monad}
 import com.evolutiongaming.kafka.journal.FoldWhile._
-import com.evolutiongaming.kafka.journal.FoldWhileHelper._
-import com.evolutiongaming.kafka.journal.IO2.ops._
 import com.evolutiongaming.skafka.{Offset, Partition}
 
 trait FoldActions[F[_]] {
@@ -12,12 +11,12 @@ trait FoldActions[F[_]] {
 
 object FoldActions {
 
-  def empty[F[_] : IO2]: FoldActions[F] = new FoldActions[F] {
-    def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]) = IO2[F].pure(s)
+  def empty[F[_] : Applicative]: FoldActions[F] = new FoldActions[F] {
+    def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]) = s.pure[F]
   }
 
   // TODO add range argument
-  def apply[F[_] : IO2](
+  def apply[F[_] : Monad](
     key: Key,
     from: SeqNr,
     marker: Marker,
@@ -29,7 +28,7 @@ object FoldActions {
 
     val replicated = offsetReplicated.exists(_ >= marker.offset)
 
-    if (replicated) empty
+    if (replicated) empty[F]
     else new FoldActions[F] {
 
       def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]) = {
@@ -38,16 +37,15 @@ object FoldActions {
 
         val replicated = offset.exists(_ >= max)
 
-        if (replicated) IO2[F].pure(s)
+        if (replicated) s.pure[F]
         else {
           val last = offset max offsetReplicated
           withReadActions(key, partition, last) { readActions =>
-
-            val ff = (s: S) => {
+            s.tailRecM { s =>
               for {
                 actions <- readActions()
               } yield {
-                actions.foldWhile(s) { case (s, action) =>
+                val switch = actions.foldWhile(s) { case (s, action) =>
                   val switch = action.action match {
                     case action: Action.Append => if (action.range.to < from) s.continue else f(s, action)
                     case action: Action.Delete => f(s, action)
@@ -56,9 +54,11 @@ object FoldActions {
                   if (switch.stop) switch
                   else switch.switch(action.offset < max)
                 }
+
+                if (switch.stop) switch.s.asRight
+                else switch.s.asLeft
               }
             }
-            ff.foldWhile(s)
           }
         }
       }

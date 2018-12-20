@@ -1,71 +1,63 @@
 package com.evolutiongaming.kafka.journal.eventual
 
-import cats.Applicative
-import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.concurrent.async.AsyncConverters._
-import com.evolutiongaming.kafka.journal.AsyncImplicits._
+import cats._
+import cats.effect.Clock
+import cats.implicits._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Topic
 
-trait EventualJournal {
+trait EventualJournal[F[_]] {
 
-  def pointers(topic: Topic): Async[TopicPointers]
+  def pointers(topic: Topic): F[TopicPointers]
 
-  def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]): Async[Switch[S]]
+  def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]): F[Switch[S]]
 
   // TODO not Use Pointer until tested
-  def pointer(key: Key): Async[Option[Pointer]]
+  def pointer(key: Key): F[Option[Pointer]]
 }
 
 object EventualJournal {
 
-  val Empty: EventualJournal = new EventualJournal {
+//  def apply[F[_]](implicit F: EventualJournal[F]): EventualJournal[F] = F
 
-    def pointers(topic: Topic) = TopicPointers.Empty.async
-
-    def read[S](key: Key, from: SeqNr, state: S)(f: Fold[S, ReplicatedEvent]) = state.continue.async
-
-    def pointer(key: Key) = Async.none
-  }
-
-
-  def apply(journal: EventualJournal, log: ActorLog): EventualJournal = new EventualJournal {
+  def apply[F[_] : FlatMap : Log : Clock](journal: EventualJournal[F]): EventualJournal[F] = new EventualJournal[F] {
 
     def pointers(topic: Topic) = {
       for {
-        tuple <- Latency { journal.pointers(topic) }
+        tuple            <- Latency { journal.pointers(topic) }
         (result, latency) = tuple
-        _ = log.debug(s"$topic pointers in ${ latency }ms, result: $result")
+        _                 = Log[F].debug(s"$topic pointers in ${ latency }ms, result: $result")
       } yield result
     }
 
     def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
       for {
-        tuple <- Latency { journal.read(key, from, s)(f) }
+        tuple            <- Latency { journal.read(key, from, s)(f) }
         (result, latency) = tuple
-        _ = log.debug(s"$key read in ${ latency }ms, from: $from, state: $s, result: $result")
+        _                 = Log[F].debug(s"$key read in ${ latency }ms, from: $from, state: $s, result: $result")
       } yield result
     }
 
     def pointer(key: Key) = {
       for {
-        tuple <- Latency { journal.pointer(key) }
+        tuple            <- Latency { journal.pointer(key) }
         (result, latency) = tuple
-        _ = log.debug(s"$key pointer in ${ latency }ms, result: $result")
+        _                 = Log[F].debug(s"$key pointer in ${ latency }ms, result: $result")
       } yield result
     }
   }
 
 
-  def apply(journal: EventualJournal, metrics: Metrics[Async]): EventualJournal = new EventualJournal {
+  def apply[F[_] : FlatMap : Log : Clock](
+    journal: EventualJournal[F],
+    metrics: Metrics[F]): EventualJournal[F] = new EventualJournal[F] {
 
     def pointers(topic: Topic) = {
       for {
-        tuple <- Latency { journal.pointers(topic) }
+        tuple            <- Latency { journal.pointers(topic) }
         (result, latency) = tuple
-        _ <- metrics.pointers(topic, latency)
+        _                <- metrics.pointers(topic, latency)
       } yield result
     }
 
@@ -74,21 +66,31 @@ object EventualJournal {
         case ((s, n), e) => f(s, e).map { s => (s, n + 1) }
       }
       for {
-        tuple <- Latency { journal.read(key, from, (s, 0))(ff) }
+        tuple            <- Latency { journal.read(key, from, (s, 0))(ff) }
         (switch, latency) = tuple
-        (_, events) = switch.s
-        _ <- metrics.read(topic = key.topic, latency = latency, events = events)
-        result = switch.map { case (s, _) => s }
+        (_, events)       = switch.s
+        _                <- metrics.read(topic = key.topic, latency = latency, events = events)
+        result            = switch.map { case (s, _) => s }
       } yield result
     }
 
     def pointer(key: Key) = {
       for {
-        tuple <- Latency { journal.pointer(key) }
+        tuple            <- Latency { journal.pointer(key) }
         (result, latency) = tuple
-        _ <- metrics.pointer(key.topic, latency)
+        _                <- metrics.pointer(key.topic, latency)
       } yield result
     }
+  }
+
+
+  def empty[F[_] : Applicative]: EventualJournal[F] = new EventualJournal[F] {
+
+    def pointers(topic: Topic) = TopicPointers.Empty.pure[F]
+
+    def read[S](key: Key, from: SeqNr, state: S)(f: Fold[S, ReplicatedEvent]) = state.continue.pure[F]
+
+    def pointer(key: Key) = none[Pointer].pure[F]
   }
 
 

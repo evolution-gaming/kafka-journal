@@ -26,6 +26,7 @@ import scala.util.control.NoStackTrace
   * 4. Support configuration
   * 5. Add Metrics
   * 6. Clearly handle cases when topic is not yet created, but requests are coming
+  * 7. Keep 1000 last seen entries, even if replicated.
   */
 trait HeadCache[F[_]] {
   import HeadCache._

@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.effect.IO
+import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.util.IOFromFuture
 import com.evolutiongaming.safeakka.actor.ActorLog
@@ -14,7 +15,7 @@ object HeadCacheAsync {
 
   def apply(
     consumerConfig: ConsumerConfig,
-    eventualJournal: EventualJournal,
+    eventualJournal: EventualJournal[Async],
     ecBlocking: ExecutionContext,
     actorLog: ActorLog)(implicit ec: ExecutionContext): HeadCache[com.evolutiongaming.concurrent.async.Async] = {
 

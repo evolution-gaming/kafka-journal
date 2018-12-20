@@ -39,7 +39,7 @@ object ReplicatedCassandra {
     statements: F[Statements[F]],
     segmentSize: Int): ReplicatedJournal[F] = new ReplicatedJournal[F] {
 
-    def topics() = {
+    def topics = {
       for {
         statements <- statements
         topics <- statements.selectTopics()

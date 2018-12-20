@@ -4,6 +4,7 @@ import java.util.UUID
 
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.AsyncHelper._
+import com.evolutiongaming.kafka.journal.AsyncImplicits._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
@@ -16,7 +17,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuit {
 
   private lazy val journalOf = {
     val topicConsumer = TopicConsumer(config.journal.consumer, ecBlocking)
-    eventual: EventualJournal => {
+    eventual: EventualJournal[Async] => {
       val log = ActorLog(system, HeadCache.getClass)
       val headCache = HeadCacheAsync(config.journal.consumer, eventual, ecBlocking, log)
       Journal(
@@ -35,7 +36,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuit {
     for {
       seqNr <- List(SeqNr.Min, SeqNr(10))
       (eventualName, eventual) <- List(
-        ("empty", () => EventualJournal.Empty),
+        ("empty", () => EventualJournal.empty[Async]),
         ("non-empty", () => eventual))
     } {
       val name = s"seqNr: $seqNr, eventual: $eventualName"

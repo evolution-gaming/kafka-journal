@@ -32,7 +32,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           idx <- (0l to offsetLast).toList
           seqNr <- SeqNr.opt(idx + 1)
         } yield {
-          val action = Action.Append(key, timestamp, None, Nel(Event(seqNr)))
+          val action = Action.Append(key, timestamp, none, Nel(Event(seqNr)))
           ConsumerRecordOf(action, topicPartition, idx)
         }
       }
@@ -55,7 +55,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           seeks = List(TestConsumer.Seek(topic, Map((partition, 0)))),
           topics = Map((topic, List(partition))))
 
-        result shouldEqual Some(HeadCache.Result(seqNr = Some(SeqNr(11)), deleteTo = None))
+        result shouldEqual Some(HeadCache.Result(seqNr = Some(SeqNr(11)), deleteTo = none))
       }
 
       result.run
@@ -79,7 +79,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         result <- headCache(key = key, partition = partition, offset = marker)
         _ <- headCache.close
       } yield {
-        result shouldEqual Some(HeadCache.Result(seqNr = None, deleteTo = None))
+        result shouldEqual Some(HeadCache.Result(seqNr = none, deleteTo = none))
       }
 
       result.run
@@ -111,7 +111,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           for {
             state <- state
           } yield {
-            val action = Action.Mark(key, timestamp, None, "mark")
+            val action = Action.Mark(key, timestamp, none, "mark")
             val record = ConsumerRecordOf(action, topicPartition, marker)
             val records = ConsumerRecordsOf(List(record))
             state.copy(records = state.records.enqueue(records))
@@ -126,7 +126,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           seeks = List(TestConsumer.Seek(topic, Map((partition, 0)))),
           topics = Map((topic, List(partition))))
 
-        result shouldEqual Some(HeadCache.Result(seqNr = None, deleteTo = None))
+        result shouldEqual Some(HeadCache.Result(seqNr = none, deleteTo = none))
       }
 
       result.run
@@ -140,7 +140,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         offset <- (0l until offsetLast).toList
         seqNr <- SeqNr.opt(offset + 1)
       } yield {
-        val action = Action.Append(key, timestamp, None, Nel(Event(seqNr)))
+        val action = Action.Append(key, timestamp, none, Nel(Event(seqNr)))
         val record = ConsumerRecordOf(action, topicPartition, offset)
         ConsumerRecordsOf(List(record))
       }
@@ -171,7 +171,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           seeks = List(TestConsumer.Seek(topic, Map((partition, 0)))),
           topics = Map((topic, List(partition))))
 
-        result shouldEqual Some(HeadCache.Result(seqNr = None, deleteTo = None))
+        result shouldEqual Some(HeadCache.Result(seqNr = none, deleteTo = none))
       }
 
       result.run
@@ -201,7 +201,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
             for {
               state <- state
             } yield {
-              val action = Action.Append(key, timestamp, None, Nel(Event(SeqNr.Min)))
+              val action = Action.Append(key, timestamp, none, Nel(Event(SeqNr.Min)))
               val record = ConsumerRecordOf(action, topicPartition, offset)
               val records = ConsumerRecordsOf(List(record))
               state.copy(records = state.records.enqueue(records))
@@ -224,11 +224,11 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           assigns = List(TestConsumer.Assign(topic, Nel(0))),
           seeks = List(TestConsumer.Seek(topic, Map((partition, 0)))),
           topics = Map((topic, List(partition))))
-        r0 shouldEqual Some(HeadCache.Result(seqNr = Some(SeqNr.Min), deleteTo = None))
-        r1 shouldEqual None
-        r2 shouldEqual None
-        r3 shouldEqual None
-        r4 shouldEqual Some(HeadCache.Result(seqNr = Some(SeqNr.Min), deleteTo = None))
+        r0 shouldEqual Some(HeadCache.Result(seqNr = Some(SeqNr.Min), deleteTo = none))
+        r1 shouldEqual none
+        r2 shouldEqual none
+        r3 shouldEqual none
+        r4 shouldEqual Some(HeadCache.Result(seqNr = Some(SeqNr.Min), deleteTo = none))
       }
 
       result.run
