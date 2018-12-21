@@ -1,29 +1,29 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import com.evolutiongaming.kafka.journal.IO2
-import com.evolutiongaming.kafka.journal.IO2.ops._
+import cats.Monad
+import cats.implicits._
 import com.evolutiongaming.scassandra.CreateKeyspaceIfNotExists
+import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
+import com.evolutiongaming.kafka.journal.util.FHelper._
 
 object CreateSchema {
 
-  def apply[F[_] : IO2 : CassandraSession](
-    schemaConfig: SchemaConfig,
-    cassandraSync: CassandraSync[F]): F[Tables] = {
+  def apply[F[_] : Monad : CassandraSession : CassandraSync](schemaConfig: SchemaConfig): F[Tables] = {
 
-    def createKeyspace() = {
+    def createKeyspace = {
       val keyspace = schemaConfig.keyspace
       if (keyspace.autoCreate) {
         val query = CreateKeyspaceIfNotExists(keyspace.name, keyspace.replicationStrategy)
-        CassandraSession[F].execute(query)
+        query.execute.unit
       } else {
-        IO2[F].unit
+        ().pure[F]
       }
     }
 
     for {
-      _ <- createKeyspace()
-      tables <- cassandraSync {
-        Tables(schemaConfig, CassandraSession[F])
+      _      <- createKeyspace
+      tables <- CassandraSync[F].apply {
+        Tables[F](schemaConfig)
       }
     } yield tables
   }

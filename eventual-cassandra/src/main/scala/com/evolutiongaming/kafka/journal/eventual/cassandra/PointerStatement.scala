@@ -1,9 +1,11 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
+import cats.FlatMap
+import cats.implicits._
 import com.evolutiongaming.scassandra.syntax._
-import com.evolutiongaming.kafka.journal.IO2
-import com.evolutiongaming.kafka.journal.IO2.ops._
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
+import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
+import com.evolutiongaming.kafka.journal.util.FHelper._
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
@@ -27,7 +29,7 @@ object PointerStatement {
   object Insert {
     type Type[F[_]] = PointerInsert => F[Unit]
 
-    def apply[F[_]: IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_] : FlatMap : CassandraSession](name: TableName): F[Type[F]] = {
       val query =
         s"""
            |INSERT INTO ${ name.toCql } (topic, partition, offset, created, updated)
@@ -35,7 +37,7 @@ object PointerStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query)
+        prepared <- query.prepare
       } yield {
         pointer: PointerInsert =>
           val bound = prepared
@@ -45,7 +47,7 @@ object PointerStatement {
             .encode("offset", pointer.offset)
             .encode("created", pointer.created)
             .encode("updated", pointer.updated)
-          session.execute(bound).unit
+          bound.execute.unit
       }
     }
   }
@@ -54,7 +56,7 @@ object PointerStatement {
   object Update {
     type Type[F[_]] = PointerUpdate => F[Unit]
 
-    def apply[F[_]: IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_] : FlatMap : CassandraSession](name: TableName): F[Type[F]] = {
       val query =
         s"""
            |INSERT INTO ${ name.toCql } (topic, partition, offset, updated)
@@ -62,7 +64,7 @@ object PointerStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query)
+        prepared <- query.prepare
       } yield {
         pointer: PointerUpdate =>
           val bound = prepared
@@ -71,7 +73,7 @@ object PointerStatement {
             .encode("partition", pointer.partition)
             .encode("offset", pointer.offset)
             .encode("updated", pointer.updated)
-          session.execute(bound).unit
+          bound.execute.unit
       }
     }
   }
@@ -81,7 +83,7 @@ object PointerStatement {
   object Select {
     type Type[F[_]] = PointerSelect => F[Option[Offset]]
 
-    def apply[F[_]: IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_] : FlatMap : CassandraSession](name: TableName): F[Type[F]] = {
       val query =
         s"""
            |SELECT offset FROM ${ name.toCql }
@@ -90,7 +92,7 @@ object PointerStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query)
+        prepared <- query.prepare
       } yield {
         key: PointerSelect =>
           val bound = prepared
@@ -98,7 +100,7 @@ object PointerStatement {
             .encode("topic", key.topic)
             .encode("partition", key.partition)
           for {
-            result <- session.execute(bound)
+            result <- bound.execute
           } yield for {
             row <- Option(result.one()) // TODO use CassandraSession wrapper
           } yield {
@@ -111,7 +113,7 @@ object PointerStatement {
   object SelectPointers {
     type Type[F[_]] = Topic => F[TopicPointers]
 
-    def apply[F[_]: IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_] : FlatMap : CassandraSession](name: TableName): F[Type[F]] = {
       val query =
         s"""
            |SELECT partition, offset FROM ${ name.toCql }
@@ -119,7 +121,7 @@ object PointerStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query)
+        prepared <- query.prepare
       } yield {
         topic: Topic =>
           val bound = prepared
@@ -127,7 +129,7 @@ object PointerStatement {
             .encode("topic", topic)
 
           for {
-            result <- session.execute(bound)
+            result <- bound.execute
           } yield {
             val rows = result.all() // TODO blocking
 
@@ -148,18 +150,15 @@ object PointerStatement {
   object SelectTopics {
     type Type[F[_]] = () => F[List[Topic]]
 
-    def apply[F[_]: IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
-      val query =
-        s"""
-           |SELECT DISTINCT topic FROM ${ name.toCql }
-           |""".stripMargin
+    def apply[F[_] : FlatMap : CassandraSession](name: TableName): F[Type[F]] = {
+      val query = s"""SELECT DISTINCT topic FROM ${ name.toCql }""".stripMargin
       for {
-        prepared <- session.prepare(query)
+        prepared <- query.prepare
       } yield {
         () => {
           val bound = prepared.bind()
           for {
-            result <- session.execute(bound)
+            result <- bound.execute
           } yield {
             val rows = result.all().asScala.toList
             for {

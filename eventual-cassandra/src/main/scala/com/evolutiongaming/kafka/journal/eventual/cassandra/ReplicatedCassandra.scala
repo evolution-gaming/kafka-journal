@@ -2,10 +2,9 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
+import cats.FlatMap
 import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.kafka.journal.AsyncImplicits._
-import com.evolutiongaming.kafka.journal.IO2.ops._
-import com.evolutiongaming.kafka.journal.{IO2, _}
+import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.Session
@@ -20,14 +19,18 @@ import scala.concurrent.ExecutionContext
 // TODO add logs to ReplicatedCassandra
 object ReplicatedCassandra {
 
-  def apply(config: EventualCassandraConfig)
-    (implicit ec: ExecutionContext, session: Session): ReplicatedJournal[Async] = {
+  def apply(
+    config: EventualCassandraConfig)(implicit
+    ec: ExecutionContext,
+    session: Session): ReplicatedJournal[Async] = {
 
-    implicit val cassandraSession = CassandraSession[Async](session, config.retries)
-    val cassandraSync = CassandraSync(config.schema, Some(Origin("replicator")))
+    import com.evolutiongaming.kafka.journal.AsyncImplicits._
+
+    implicit val cassandraSession = CassandraSession(CassandraSession[Async](session), config.retries)
+    implicit val cassandraSync = CassandraSync(config.schema, Some(Origin("replicator")))
     val statements = for {
-      tables <- CreateSchema(config.schema, cassandraSync)
-      statements <- Statements(tables, cassandraSession)
+      tables <- CreateSchema(config.schema)
+      statements <- Statements(tables)
     } yield {
       statements
     }
@@ -38,6 +41,8 @@ object ReplicatedCassandra {
   def apply[F[_] : IO2](
     statements: F[Statements[F]],
     segmentSize: Int): ReplicatedJournal[F] = new ReplicatedJournal[F] {
+
+    import com.evolutiongaming.kafka.journal.IO2.ops._
 
     def topics = {
       for {
@@ -217,7 +222,6 @@ object ReplicatedCassandra {
 
   final case class Statements[F[_]](
     insertRecords: JournalStatement.InsertRecords.Type[F],
-    selectLastRecord: JournalStatement.SelectLastRecord.Type[F],
     deleteRecords: JournalStatement.DeleteRecords.Type[F],
     insertMetadata: MetadataStatement.Insert.Type[F],
     selectMetadata: MetadataStatement.Select.Type[F],
@@ -230,45 +234,44 @@ object ReplicatedCassandra {
 
   object Statements {
 
-    def apply[F[_] : IO2](tables: Tables, session: CassandraSession[F]): F[Statements[F]] = {
+    import cats.implicits._
 
-      val insertRecords = JournalStatement.InsertRecords(tables.journal, session)
-      val selectLastRecord = JournalStatement.SelectLastRecord(tables.journal, session)
-      val deleteRecords = JournalStatement.DeleteRecords(tables.journal, session)
-      val insertMetadata = MetadataStatement.Insert(tables.metadata, session)
-      val selectMetadata = MetadataStatement.Select(tables.metadata, session)
-      val updateMetadata = MetadataStatement.Update(tables.metadata, session)
-      val updateSeqNr = MetadataStatement.UpdateSeqNr(tables.metadata, session)
-      val updateDeleteTo = MetadataStatement.UpdateDeleteTo(tables.metadata, session)
-      val insertPointer = PointerStatement.Insert(tables.pointer, session)
-      val selectPointers = PointerStatement.SelectPointers(tables.pointer, session)
-      val selectTopics = PointerStatement.SelectTopics(tables.pointer, session)
+    def apply[F[_] : FlatMap : CassandraSession](tables: Tables): F[Statements[F]] = {
+
+      val insertRecords  = JournalStatement.InsertRecords[F](tables.journal)
+      val deleteRecords  = JournalStatement.DeleteRecords[F](tables.journal)
+      val insertMetadata = MetadataStatement.Insert[F](tables.metadata)
+      val selectMetadata = MetadataStatement.Select[F](tables.metadata)
+      val updateMetadata = MetadataStatement.Update[F](tables.metadata)
+      val updateSeqNr    = MetadataStatement.UpdateSeqNr[F](tables.metadata)
+      val updateDeleteTo = MetadataStatement.UpdateDeleteTo[F](tables.metadata)
+      val insertPointer  = PointerStatement.Insert[F](tables.pointer)
+      val selectPointers = PointerStatement.SelectPointers[F](tables.pointer)
+      val selectTopics   = PointerStatement.SelectTopics[F](tables.pointer)
 
       for {
-        insertRecords <- insertRecords
-        selectLastRecord <- selectLastRecord
-        deleteRecords <- deleteRecords
+        insertRecords  <- insertRecords
+        deleteRecords  <- deleteRecords
         insertMetadata <- insertMetadata
         selectMetadata <- selectMetadata
         updateMetadata <- updateMetadata
-        updateSeqNr <- updateSeqNr
+        updateSeqNr    <- updateSeqNr
         updateDeleteTo <- updateDeleteTo
-        insertPointer <- insertPointer
+        insertPointer  <- insertPointer
         selectPointers <- selectPointers
-        selectTopics <- selectTopics
+        selectTopics   <- selectTopics
       } yield {
         Statements(
-          insertRecords = insertRecords,
-          selectLastRecord = selectLastRecord,
-          deleteRecords = deleteRecords,
+          insertRecords  = insertRecords,
+          deleteRecords  = deleteRecords,
           insertMetadata = insertMetadata,
           selectMetadata = selectMetadata,
           updateMetadata = updateMetadata,
-          updateSeqNr = updateSeqNr,
+          updateSeqNr    = updateSeqNr,
           updateDeleteTo = updateDeleteTo,
-          insertPointer = insertPointer,
+          insertPointer  = insertPointer,
           selectPointers = selectPointers,
-          selectTopics = selectTopics)
+          selectTopics   = selectTopics)
       }
     }
   }

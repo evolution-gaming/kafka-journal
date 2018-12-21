@@ -11,10 +11,12 @@ import com.evolutiongaming.scassandra.Session
 import scala.concurrent.ExecutionContext
 
 trait CassandraSync[F[_]] {
-  def apply[A](f: => F[A]): F[A]
+  def apply[A](f: /*TODO*/=> F[A]): F[A]
 }
 
 object CassandraSync {
+
+  def apply[F[_]](implicit F: CassandraSync[F]): CassandraSync[F] = F
 
   def apply(
     schemaConfig: SchemaConfig,

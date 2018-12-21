@@ -3,8 +3,11 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
-import com.evolutiongaming.kafka.journal.IO2.ops._
+import cats.FlatMap
+import cats.implicits._
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
+import com.evolutiongaming.kafka.journal.util.FHelper._
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
 
@@ -35,7 +38,7 @@ object MetadataStatement {
   object Insert {
     type Type[F[_]] = (Key, Instant, Metadata, Option[Origin]) => F[Unit]
 
-    def apply[F[_]: IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_]: FlatMap : CassandraSession](name: TableName): F[Type[F]] = {
 
       val query =
         s"""
@@ -44,7 +47,7 @@ object MetadataStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query)
+        prepared <- query.prepare
       } yield {
         (key: Key, timestamp: Instant, metadata: Metadata, origin: Option[Origin]) =>
           val bound = prepared
@@ -57,7 +60,7 @@ object MetadataStatement {
             .encode("created", timestamp)
             .encode("updated", timestamp)
             .encodeSome(origin)
-          session.execute(bound).unit
+          bound.execute.unit
       }
     }
   }
@@ -66,7 +69,7 @@ object MetadataStatement {
   object Select {
     type Type[F[_]] = Key => F[Option[Metadata]]
 
-    def apply[F[_]: IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_]: FlatMap : CassandraSession](name: TableName): F[Type[F]] = {
       val query =
         s"""
            |SELECT partition, offset, segment_size, seq_nr, delete_to FROM ${ name.toCql }
@@ -75,14 +78,14 @@ object MetadataStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query)
+        prepared <- query.prepare
       } yield {
         key: Key =>
           val bound = prepared
             .bind()
             .encode(key)
           for {
-            result <- session.execute(bound)
+            result <- bound.execute
           } yield for {
             row <- Option(result.one()) // TODO use CassandraSession wrapper
           } yield {
@@ -101,7 +104,7 @@ object MetadataStatement {
   object Update {
     type Type[F[_]] = (Key, PartitionOffset, Instant, SeqNr, SeqNr) => F[Unit]
 
-    def apply[F[_]: IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_] : FlatMap : CassandraSession](name: TableName): F[Type[F]] = {
       val query =
         s"""
            |UPDATE ${ name.toCql }
@@ -111,7 +114,7 @@ object MetadataStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query)
+        prepared <- query.prepare
       } yield {
         (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: SeqNr) =>
           val bound = prepared
@@ -122,7 +125,7 @@ object MetadataStatement {
             .encode("delete_to", deleteTo)
             .encode("updated", timestamp)
 
-          session.execute(bound).unit
+          bound.execute.unit
       }
     }
   }
@@ -132,7 +135,7 @@ object MetadataStatement {
   object UpdateSeqNr {
     type Type[F[_]] = (Key, PartitionOffset, Instant, SeqNr) => F[Unit]
 
-    def apply[F[_]: IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_] : FlatMap : CassandraSession](name: TableName): F[Type[F]] = {
       val query =
         s"""
            |UPDATE ${ name.toCql }
@@ -142,7 +145,7 @@ object MetadataStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query)
+        prepared <- query.prepare
       } yield {
         (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr) =>
           val bound = prepared
@@ -152,7 +155,7 @@ object MetadataStatement {
             .encode(seqNr)
             .encode("updated", timestamp)
 
-          session.execute(bound).unit
+          bound.execute.unit
       }
     }
   }
@@ -161,7 +164,7 @@ object MetadataStatement {
   object UpdateDeleteTo {
     type Type[F[_]] = (Key, PartitionOffset, Instant, SeqNr) => F[Unit]
 
-    def apply[F[_]: IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_] : FlatMap : CassandraSession](name: TableName): F[Type[F]] = {
       val query =
         s"""
            |UPDATE ${ name.toCql }
@@ -171,7 +174,7 @@ object MetadataStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query)
+        prepared <- query.prepare
       } yield {
         (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr) =>
           val bound = prepared
@@ -181,7 +184,7 @@ object MetadataStatement {
             .encode("delete_to", deleteTo)
             .encode("updated", timestamp)
 
-          session.execute(bound).unit
+          bound.execute.unit
       }
     }
   }

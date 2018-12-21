@@ -31,9 +31,7 @@ object SerialVar {
               ab <- f(a)
               (a, b) = ab
               _ <- r.set(a)
-            } yield {
-              b
-            }
+            } yield b
           }
         }
 

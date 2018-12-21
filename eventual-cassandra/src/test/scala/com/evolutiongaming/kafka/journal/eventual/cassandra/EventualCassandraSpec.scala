@@ -32,18 +32,6 @@ class EventualCassandraSpec extends EventualJournalSpec {
     var metadataMap = Map.empty[Key, Metadata]
     var pointers = Map.empty[Topic, TopicPointers]
 
-    val selectLastRecord: JournalStatement.SelectLastRecord.Type[Async] = (key, segment, from) => {
-      val records = journal.events(key, segment)
-      val pointer = for {
-        record <- records.lastOption
-        seqNr = record.event.seqNr
-        if seqNr >= from
-      } yield {
-        record.pointer
-      }
-      pointer.async
-    }
-
     val selectMetadata: MetadataStatement.Select.Type[Async] = key => {
       metadataMap.get(key).async
     }
@@ -67,10 +55,9 @@ class EventualCassandraSpec extends EventualJournalSpec {
       }
 
       val statements = EventualCassandra.Statements(
-        lastRecord = selectLastRecord, // TODO not used
         records = selectRecords,
         metadata = selectMetadata,
-        selectPointers = selectPointers)
+        pointers = selectPointers)
 
       EventualCassandra(statements.async, Log.empty(Async.unit))
     }
@@ -139,18 +126,17 @@ class EventualCassandraSpec extends EventualJournalSpec {
         pointers.keys.toList.async
       }
 
-      val statements = ReplicatedCassandra.Statements(
-        insertRecords = insertRecords,
-        selectLastRecord = selectLastRecord,
-        deleteRecords = deleteRecords,
+      val statements   = ReplicatedCassandra.Statements(
+        insertRecords  = insertRecords,
+        deleteRecords  = deleteRecords,
         insertMetadata = insertMetadata,
         selectMetadata = selectMetadata,
         updateMetadata = updateMetadata,
-        updateSeqNr = updateSeqNr,
+        updateSeqNr    = updateSeqNr,
         updateDeleteTo = updateDeleteTo,
-        insertPointer = insertPointer,
+        insertPointer  = insertPointer,
         selectPointers = selectPointers,
-        selectTopics = selectTopics)
+        selectTopics   = selectTopics)
 
       ReplicatedCassandra(statements.async, segmentSize)
     }

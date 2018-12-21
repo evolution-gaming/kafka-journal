@@ -1,11 +1,10 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import com.datastax.driver.core.{ResultSet, Row, Statement}
+import com.datastax.driver.core.{PreparedStatement, Row, Statement}
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.IO2.ops._
 import com.evolutiongaming.kafka.journal.{FromFuture, IO2}
-import com.evolutiongaming.scassandra.syntax._
 
 import scala.annotation.tailrec
 
@@ -33,7 +32,7 @@ object CassandraHelper {
         if (ss.stop || fetched) Switch.stop(ss).pure
         else for {
           _ <- IO2[F].from {
-            self.fetchMoreResults().asScala()
+            self.fetchMoreResults()
           }
         } yield Switch.continue(ss)
       }
@@ -49,6 +48,22 @@ object CassandraHelper {
     def trace(enable: Boolean): Statement = {
       if (enable) self.enableTracing()
       else self.disableTracing()
+    }
+
+    def execute[F[_] : CassandraSession]: F[ResultSet] = {
+      CassandraSession[F].execute(self)
+    }
+  }
+
+  
+  implicit class QueryOps(val self: String) extends AnyVal {
+
+    def prepare[F[_]: CassandraSession]: F[PreparedStatement] = {
+      CassandraSession[F].prepare(self)
+    }
+
+    def execute[F[_]: CassandraSession]: F[ResultSet] = {
+      CassandraSession[F].execute(self)
     }
   }
 }

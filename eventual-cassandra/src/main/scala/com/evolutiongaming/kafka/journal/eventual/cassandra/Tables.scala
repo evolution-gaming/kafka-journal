@@ -1,7 +1,8 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import com.evolutiongaming.kafka.journal.IO2
-import com.evolutiongaming.kafka.journal.IO2.ops._
+import cats.Monad
+import cats.implicits._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.scassandra.TableName
 
 final case class Tables(journal: TableName, metadata: TableName, pointer: TableName)
@@ -9,19 +10,15 @@ final case class Tables(journal: TableName, metadata: TableName, pointer: TableN
 
 object Tables {
 
-  def apply[F[_] : IO2](schemaConfig: SchemaConfig, session: CassandraSession[F]): F[Tables] = {
+  def apply[F[_] : Monad : CassandraSession](schemaConfig: SchemaConfig): F[Tables] = {
 
     val keyspace = schemaConfig.keyspace.name
 
     def apply(name: TableName, query: String) = {
       if (schemaConfig.autoCreate) {
-        for {
-          _ <- session.execute(query)
-        } yield {
-          name
-        }
+        for {_ <- query.execute} yield name
       } else {
-        name.pure
+        name.pure[F]
       }
     }
 

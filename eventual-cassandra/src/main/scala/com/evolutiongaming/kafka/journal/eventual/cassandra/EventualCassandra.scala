@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
+import cats.FlatMap
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
-import com.evolutiongaming.kafka.journal.AsyncImplicits._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.IO2.ops._
@@ -24,11 +24,13 @@ object EventualCassandra {
     ec: ExecutionContext,
     session: Session): EventualJournal[Async] = {
 
-    implicit val cassandraSession = CassandraSession[Async](session, config.retries)
-    val cassandraSync = CassandraSync(config.schema, origin)
+    import com.evolutiongaming.kafka.journal.AsyncImplicits._
+
+    implicit val cassandraSession = CassandraSession(CassandraSession[Async](session), config.retries)
+    implicit val cassandraSync = CassandraSync(config.schema, origin)
     val statements = for {
-      tables     <- CreateSchema(config.schema, cassandraSync)
-      statements <- Statements(tables, cassandraSession)
+      tables     <- CreateSchema(config.schema)
+      statements <- Statements(tables)
     } yield {
       statements
     }
@@ -41,9 +43,9 @@ object EventualCassandra {
     def pointers(topic: Topic) = {
       for {
         statements <- statements
-        topicPointers <- statements.selectPointers(topic)
+        pointers   <- statements.pointers(topic)
       } yield {
-        topicPointers
+        pointers
       }
     }
 
@@ -124,31 +126,28 @@ object EventualCassandra {
 
 
   final case class Statements[F[_]](
-    lastRecord: JournalStatement.SelectLastRecord.Type[F],
     records: JournalStatement.SelectRecords.Type[F],
     metadata: MetadataStatement.Select.Type[F],
-    selectPointers: PointerStatement.SelectPointers.Type[F])
+    pointers: PointerStatement.SelectPointers.Type[F])
 
   object Statements {
 
-    def apply[F[_]: IO2: FromFuture](tables: Tables, session: CassandraSession[F]): F[Statements[F]] = {
+    def apply[F[_]: IO2/*TODO*/ : FromFuture/*TODO*/ : FlatMap : CassandraSession](tables: Tables): F[Statements[F]] = {
 
-      val selectLastRecord = JournalStatement.SelectLastRecord(tables.journal, session)
-      val selectRecords = JournalStatement.SelectRecords(tables.journal, session)
-      val selectMetadata = MetadataStatement.Select(tables.metadata, session)
-      val selectPointers = PointerStatement.SelectPointers(tables.pointer, session)
+      // TODO run in parallel with IO
+      val records  = JournalStatement.SelectRecords(tables.journal)
+      val metadata = MetadataStatement.Select(tables.metadata)
+      val pointers = PointerStatement.SelectPointers(tables.pointer)
 
       for {
-        selectLastRecord <- selectLastRecord
-        selectRecords <- selectRecords
-        selectMetadata <- selectMetadata
-        selectPointers <- selectPointers
+        records  <- records
+        metadata <- metadata
+        pointers <- pointers
       } yield {
         Statements(
-          lastRecord = selectLastRecord,
-          records = selectRecords,
-          metadata = selectMetadata,
-          selectPointers = selectPointers)
+          records  = records,
+          metadata = metadata,
+          pointers = pointers)
       }
     }
   }

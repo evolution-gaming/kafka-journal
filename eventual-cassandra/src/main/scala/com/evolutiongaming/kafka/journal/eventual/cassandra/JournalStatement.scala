@@ -3,11 +3,13 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import java.lang.{Long => LongJ}
 import java.time.Instant
 
+import cats.FlatMap
+import cats.implicits._
 import com.datastax.driver.core.BatchStatement
 import com.evolutiongaming.kafka.journal.FoldWhile._
-import com.evolutiongaming.kafka.journal.IO2.ops._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.{IO2, _}
+import com.evolutiongaming.kafka.journal.util.FHelper._
+import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
@@ -44,7 +46,7 @@ object JournalStatement {
   object InsertRecords {
     type Type[F[_]] = (Key, SegmentNr, Nel[ReplicatedEvent]) => F[Unit]
 
-    def apply[F[_] : IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_] : FlatMap : CassandraSession](name: TableName): F[Type[F]] = {
       val query =
         s"""
            |INSERT INTO ${ name.toCql } (
@@ -64,7 +66,7 @@ object JournalStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query)
+        prepared <- query.prepare
       } yield {
         (key: Key, segment: SegmentNr, events: Nel[ReplicatedEvent]) =>
 
@@ -101,57 +103,14 @@ object JournalStatement {
 
           val statement = {
             if (events.tail.isEmpty) {
-              val statement = statementOf(events.head)
-              session.execute(statement)
+              statementOf(events.head)
             } else {
-              val statement = events.foldLeft(new BatchStatement()) { (batch, event) =>
+              events.foldLeft(new BatchStatement()) { (batch, event) =>
                 batch.add(statementOf(event))
               }
-              session.execute(statement)
             }
           }
-          statement.unit
-      }
-    }
-  }
-
-
-  // TODO rename along with EventualRecord2
-  object SelectLastRecord {
-
-    type Type[F[_]] = (Key, SegmentNr, SeqNr) => F[Option[Pointer]]
-
-    def apply[F[_] : IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
-      val query =
-        s"""
-           |SELECT seq_nr, partition, offset
-           |FROM ${ name.toCql }
-           |WHERE id = ?
-           |AND topic = ?
-           |AND segment = ?
-           |AND seq_nr >= ?
-           |ORDER BY seq_nr
-           |DESC LIMIT 1
-           |""".stripMargin
-
-      for {
-        prepared <- session.prepare(query)
-      } yield {
-        (key: Key, segment: SegmentNr, from: SeqNr) =>
-          val bound = prepared
-            .bind()
-            .encode(key)
-            .encode(segment)
-            .encode(from)
-          for {
-            result <- session.execute(bound)
-          } yield for {
-            row <- Option(result.one())
-          } yield {
-            Pointer(
-              seqNr = row.decode[SeqNr],
-              partitionOffset = row.decode[PartitionOffset])
-          }
+          statement.execute.unit
       }
     }
   }
@@ -163,7 +122,10 @@ object JournalStatement {
       def apply[S](key: Key, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]): F[Switch[S]]
     }
 
-    def apply[F[_] : IO2 : FromFuture /*TODO REMOVE*/ ](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_] : IO2 : FromFuture /*TODO REMOVE*/ : CassandraSession](name: TableName): F[Type[F]] = {
+
+      import com.evolutiongaming.kafka.journal.IO2.ops._
+
       val query =
         s"""
            |SELECT
@@ -184,7 +146,7 @@ object JournalStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query)
+        prepared <- query.prepare
       } yield {
         new Type[F] {
           def apply[S](key: Key, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]) = {
@@ -196,7 +158,7 @@ object JournalStatement {
               .bind(key.id, key.topic, segment.value: LongJ, range.from.value: LongJ, range.to.value: LongJ)
 
             for {
-              result <- session.execute(bound)
+              result <- bound.execute
               result <- result.foldWhile(fetchThreshold, s) { case (s, row) =>
                 val partitionOffset = row.decode[PartitionOffset]
 
@@ -225,10 +187,11 @@ object JournalStatement {
     }
   }
 
+
   object DeleteRecords {
     type Type[F[_]] = (Key, SegmentNr, SeqNr) => F[Unit]
 
-    def apply[F[_]: IO2](name: TableName, session: CassandraSession[F]): F[Type[F]] = {
+    def apply[F[_]: FlatMap: CassandraSession](name: TableName): F[Type[F]] = {
       val query =
         s"""
            |DELETE FROM ${ name.toCql }
@@ -239,7 +202,7 @@ object JournalStatement {
            |""".stripMargin
 
       for {
-        prepared <- session.prepare(query)
+        prepared <- query.prepare
       } yield {
         (key: Key, segment: SegmentNr, seqNr: SeqNr) =>
           val bound = prepared
@@ -247,7 +210,7 @@ object JournalStatement {
             .encode(key)
             .encode(segment)
             .encode(seqNr)
-          session.execute(bound).unit
+          bound.execute.unit
       }
     }
   }
