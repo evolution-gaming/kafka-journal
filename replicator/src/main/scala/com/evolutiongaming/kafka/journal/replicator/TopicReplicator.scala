@@ -3,13 +3,16 @@ package com.evolutiongaming.kafka.journal.replicator
 import java.time.Instant
 
 import akka.actor.ActorSystem
+import cats.{Applicative, FlatMap}
+import cats.effect.Clock
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.IO2.ops._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.replicator.InstantHelper._
-import com.evolutiongaming.kafka.journal.{IO2, _}
+import com.evolutiongaming.kafka.journal.util.ClockHelper._
+import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer._
@@ -32,14 +35,13 @@ trait TopicReplicator[F[_]] {
 object TopicReplicator {
 
   //  TODO return error in case failed to connect
-  def apply[F[_] : IO2](
+  def apply[F[_] : IO2 : Clock : FlatMap](
     topic: Topic,
     consumer: KafkaConsumer[F],
     journal: ReplicatedJournal[F],
     log: Log[F],
     stopRef: AtomicRef[Boolean, F],
-    metrics: Metrics[F],
-    now: => F[Instant] /*TODO should not be a function*/): TopicReplicator[F] = {
+    metrics: Metrics[F]): TopicReplicator[F] = {
 
     def round(
       state: State,
@@ -62,14 +64,16 @@ object TopicReplicator {
         val head = records.head
         val id = key.id
 
-        def measurements(records: Int) = for {
-          now <- now
-        } yield {
-          Metrics.Measurements(
-            partition = head.partition,
-            replicationLatency = now - head.action.timestamp,
-            deliveryLatency = roundStart - head.action.timestamp,
-            records = records)
+        def measurements(records: Int) = {
+          for {
+            now <- Clock[F].instant
+          } yield {
+            Metrics.Measurements(
+              partition = head.partition,
+              replicationLatency = now - head.action.timestamp,
+              deliveryLatency = roundStart - head.action.timestamp,
+              records = records)
+          }
         }
 
         def delete(partitionOffset: PartitionOffset, deleteTo: SeqNr, origin: Option[Origin]) = {
@@ -152,7 +156,7 @@ object TopicReplicator {
         }
 
         val result = {
-          if (pointersNew.values.isEmpty) IO2[F].unit
+          if (pointersNew.values.isEmpty) ().pure[F]
           else journal.save(topic, pointersNew, roundStart)
         }
 
@@ -175,13 +179,13 @@ object TopicReplicator {
       for {
         stop <- stopRef.get()
         state <- {
-          if (stop) IO2[F].pure(state.stop)
+          if (stop) state.stop.pure[F]
           else for {
-            roundStart <- now
+            roundStart <- Clock[F].instant
             consumerRecords <- consumer.poll()
             stop <- stopRef.get()
             state <- {
-              if (stop) IO2[F].pure(state.stop)
+              if (stop) state.stop.pure[F]
               else {
                 val records = for {
                   (topicPartition, records) <- consumerRecords.values
@@ -198,13 +202,13 @@ object TopicReplicator {
                   (topicPartition, result)
                 }
 
-                if (records.isEmpty) IO2[F].pure(state.continue)
+                if (records.isEmpty) state.continue.pure[F]
                 else for {
-                  timestamp <- now
+                  timestamp <- Clock[F].instant
                   stateAndOffsets <- round(state, records.toMap, timestamp)
                   (state, offsets) = stateAndOffsets
                   _ <- consumer.commit(offsets)
-                  roundEnd <- now
+                  roundEnd <- Clock[F].instant
                   _ <- metrics.round(
                     latency = roundEnd - roundStart,
                     records = consumerRecords.values.foldLeft(0) { case (acc, (_, record)) => acc + record.size })
@@ -245,7 +249,7 @@ object TopicReplicator {
     }
   }
 
-  def apply[F[_]: IO2](
+  def apply[F[_]: IO2 : FlatMap : Clock](
     topic: Topic,
     journal: ReplicatedJournal[F],
     consumer: KafkaConsumer[F],
@@ -259,8 +263,7 @@ object TopicReplicator {
       journal = journal,
       log = Log(actorLog),
       stopRef = stopRef,
-      metrics = metrics,
-      now = IO2[F].point(Instant.now)/*TODO*/)
+      metrics = metrics)
   }
 
 
@@ -284,13 +287,15 @@ object TopicReplicator {
 
   object Metrics {
 
-    def empty[F[_]: IO2]: Metrics[F] = new Metrics[F] {
+    def empty[F[_] : Applicative]: Metrics[F] = empty(Applicative[F].unit)
 
-      def append(events: Int, bytes: Int, measurements: Measurements) = IO2[F].unit
+    def empty[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
 
-      def delete(measurements: Measurements) = IO2[F].unit
+      def append(events: Int, bytes: Int, measurements: Measurements) = unit
 
-      def round(duration: Long, records: Int) = IO2[F].unit
+      def delete(measurements: Measurements) = unit
+
+      def round(duration: Long, records: Int) = unit
     }
 
     final case class Measurements(

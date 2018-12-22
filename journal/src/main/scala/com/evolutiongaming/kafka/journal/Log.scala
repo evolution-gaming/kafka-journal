@@ -75,6 +75,7 @@ object Log {
     }
   }
 
+
   def fromLog[F[_] : Concurrent](log: ActorLog): Log[F] = new Log[F] {
 
     def debug(msg: => String) = {

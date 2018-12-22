@@ -2,15 +2,18 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
 
+import cats.Monad
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
+import com.evolutiongaming.kafka.journal.util.ClockOf
 import com.evolutiongaming.kafka.journal.{IO2, _}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, WithSize}
 import com.evolutiongaming.skafka.{Bytes => _, _}
 import org.scalatest.{Matchers, WordSpec}
 
+import scala.annotation.tailrec
 import scala.util.control.NonFatal
 
 class TopicReplicatorSpec extends WordSpec with Matchers {
@@ -636,49 +639,49 @@ object TopicReplicatorSpec {
     (key, metadata)
   }
 
-  val consumer: KafkaConsumer[TestF] = new KafkaConsumer[TestF] {
+  val consumer: KafkaConsumer[DataF] = new KafkaConsumer[DataF] {
 
-    def subscribe(topic: Topic) = TestF { _.subscribe(topic) }
+    def subscribe(topic: Topic) = DataF { _.subscribe(topic) }
 
-    def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = TestF { _.commit(offsets) }
+    def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = DataF { _.commit(offsets) }
 
-    def poll() = TestF { _.poll }
+    def poll() = DataF { _.poll }
 
-    def close() = TestF { data => (data, ()) }
+    def close() = DataF { data => (data, ()) }
   }
 
 
-  val journal: ReplicatedJournal[TestF] = new ReplicatedJournal[TestF] {
+  val journal: ReplicatedJournal[DataF] = new ReplicatedJournal[DataF] {
 
-    def topics = IO2[TestF].iterable
+    def topics = IO2[DataF].iterable
 
     def pointers(topic: Topic) = {
-      TestF { data => (data, data.pointers.getOrElse(topic, TopicPointers.Empty)) }
+      DataF { data => (data, data.pointers.getOrElse(topic, TopicPointers.Empty)) }
     }
 
     def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[ReplicatedEvent]) = {
-      TestF { _.append(key, partitionOffset, events) }
+      DataF { _.append(key, partitionOffset, events) }
     }
 
     def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = {
       // TODO test origin
-      TestF { _.delete(key, deleteTo, partitionOffset) }
+      DataF { _.delete(key, deleteTo, partitionOffset) }
     }
 
     def save(topic: Topic, pointers: TopicPointers, timestamp: Instant) = {
-      TestF { _.save(topic, pointers) }
+      DataF { _.save(topic, pointers) }
     }
   }
 
 
-  val log: Log[TestF] = Log.empty[TestF](TestF.TestIOIO.unit)
+  val log: Log[DataF] = Log.empty[DataF](DataF.IO2DataF.unit)
 
 
-  val stopRef: AtomicRef[Boolean, TestF] = new AtomicRef[Boolean, TestF] {
+  val stopRef: AtomicRef[Boolean, DataF] = new AtomicRef[Boolean, DataF] {
 
-    def set(value: Boolean) = TestF { _.stop(value) }
+    def set(value: Boolean) = DataF { _.stop(value) }
 
-    def get() = TestF { data => (data, data.stopped) }
+    def get() = DataF { data => (data, data.stopped) }
   }
 
 
@@ -700,10 +703,10 @@ object TopicReplicatorSpec {
     final case class Round(duration: Long = 0, records: Int) extends Metrics
   }
 
-  val metrics: TopicReplicator.Metrics[TestF] = new TopicReplicator.Metrics[TestF] {
+  val metrics: TopicReplicator.Metrics[DataF] = new TopicReplicator.Metrics[DataF] {
 
     def append(events: Int, bytes: Int, measurements: Measurements) = {
-      TestF {
+      DataF {
         _ + Metrics.Append(
           partition = measurements.partition,
           latency = measurements.replicationLatency,
@@ -713,7 +716,7 @@ object TopicReplicatorSpec {
     }
 
     def delete(measurements: Measurements) = {
-      TestF {
+      DataF {
         _ + Metrics.Delete(
           partition = measurements.partition,
           latency = measurements.replicationLatency,
@@ -722,20 +725,23 @@ object TopicReplicatorSpec {
     }
 
     def round(duration: Long, records: Int) = {
-      TestF { _ + Metrics.Round(duration = duration, records = records) }
+      DataF { _ + Metrics.Round(duration = duration, records = records) }
     }
   }
 
-  val topicReplicator: TopicReplicator[TestF] = {
-    val timestampReplicated = timestamp.plusMillis(replicationLatency)
+  val topicReplicator: TopicReplicator[DataF] = {
+
+    val millis = timestamp.plusMillis(replicationLatency).toEpochMilli
+
+    implicit val clock = ClockOf[DataF](millis)
+
     TopicReplicator(
       topic = topic,
       consumer = consumer,
       journal = journal,
       log = log,
       stopRef = stopRef,
-      metrics = metrics,
-      now = TestF { (_, timestampReplicated) })
+      metrics = metrics)
   }
 
 
@@ -823,41 +829,41 @@ object TopicReplicatorSpec {
     }
   }
 
-  final case class TestF[A](run: Data => (Data, A)) { self =>
+  final case class DataF[A](run: Data => (Data, A)) { self =>
 
-    def map[B](ab: A => B): TestF[B] = {
-      TestF { a => self.run(a) match { case (t, a) => (t, ab(a)) } }
+    def map[B](ab: A => B): DataF[B] = {
+      DataF { a => self.run(a) match { case (t, a) => (t, ab(a)) } }
     }
 
-    def flatMap[B](afb: A => TestF[B]): TestF[B] = {
-      TestF { a => self.run(a) match { case (b, a) => afb(a).run(b) } }
+    def flatMap[B](afb: A => DataF[B]): DataF[B] = {
+      DataF { a => self.run(a) match { case (b, a) => afb(a).run(b) } }
     }
 
-    def flatMapFailure[B >: A](f: Throwable => TestF[B]): TestF[B] = {
-      TestF { data =>
+    def flatMapFailure[B >: A](f: Throwable => DataF[B]): DataF[B] = {
+      DataF { data =>
         try self.run(data) catch { case NonFatal(failure) => f(failure).run(data) }
       }
     }
   }
 
-  object TestF {
+  object DataF {
 
-    implicit val TestIOIO: IO2[TestF] = new IO2[TestF] {
+    implicit val IO2DataF: IO2[DataF] = new IO2[DataF] {
 
-      def pure[A](a: A) = TestF { data => (data, a) }
+      def pure[A](a: A) = DataF { data => (data, a) }
 
-      def point[A](a: => A) = TestF { data => (data, a) }
+      def point[A](a: => A) = DataF { data => (data, a) }
 
-      def effect[A](a: => A) = TestF { data => (data, a) }
+      def effect[A](a: => A) = DataF { data => (data, a) }
 
       def fail[A](failure: Throwable) = throw failure
 
-      def flatMap[A, B](fa: TestF[A])(afb: A => TestF[B]) = fa.flatMap(afb)
+      def flatMap[A, B](fa: DataF[A])(afb: A => DataF[B]) = fa.flatMap(afb)
 
-      def map[A, B](fa: TestF[A])(ab: A => B) = fa.map(ab)
+      def map[A, B](fa: DataF[A])(ab: A => B) = fa.map(ab)
 
-      def foldWhile[S](s: S)(f: S => TestF[S], b: S => Boolean) = {
-        def loop(s: S): TestF[S] = for {
+      def foldWhile[S](s: S)(f: S => DataF[S], b: S => Boolean) = {
+        def loop(s: S): DataF[S] = for {
           s <- f(s)
           s <- if (b(s)) loop(s) else pure(s)
         } yield s
@@ -865,13 +871,39 @@ object TopicReplicatorSpec {
         loop(s)
       }
 
-      def flatMapFailure[A, B >: A](fa: TestF[A], f: Throwable => TestF[B]) = fa.flatMapFailure(f)
+      def flatMapFailure[A, B >: A](fa: DataF[A], f: Throwable => DataF[B]) = fa.flatMapFailure(f)
 
-      def bracket[A, B](acquire: TestF[A])(release: A => TestF[Unit])(use: A => TestF[B]) = {
+      def bracket[A, B](acquire: DataF[A])(release: A => DataF[Unit])(use: A => DataF[B]) = {
         for {
           a <- acquire
           b <- try use(a) finally { release(a) }
         } yield b
+      }
+    }
+
+    implicit val DataFMonad: Monad[DataF] = new Monad[DataF] {
+
+      def pure[A](x: A) = DataF { s => (s, x) }
+
+      def flatMap[A, B](fa: DataF[A])(f: A => DataF[B]) = {
+        DataF { s =>
+          val (s1, a) = fa.run(s)
+          f(a).run(s1)
+        }
+      }
+
+      def tailRecM[A, B](a: A)(f: A => DataF[Either[A, B]]) = {
+
+        @tailrec
+        def apply(s: Data, a: A): (Data, B) = {
+          val (s1, b) = f(a).run(s)
+          b match {
+            case Right(b) => (s1, b)
+            case Left(b)  => apply(s1, b)
+          }
+        }
+
+        DataF { s => apply(s, a) }
       }
     }
   }
