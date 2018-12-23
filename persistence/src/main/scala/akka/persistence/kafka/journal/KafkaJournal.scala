@@ -4,7 +4,7 @@ import akka.actor.ActorSystem
 import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.{AtomicWrite, PersistentRepr}
 import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.kafka.journal.AsyncImplicits._
+import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra

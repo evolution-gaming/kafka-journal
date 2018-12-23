@@ -13,7 +13,7 @@ object FoldWhile {
     def enclose: Switch[Switch[S]] = map(_ => this)
 
     def switch(continue: Boolean = true): Switch[S] = {
-      if (continue == this.continue) this
+      if (continue == /*TODO use Eq*/ this.continue) this
       else copy(continue = continue)
     }
   }

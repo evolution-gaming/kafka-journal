@@ -32,10 +32,10 @@ final case class SegmentNr(value: Long) extends Ordered[SegmentNr] {
   def compare(that: SegmentNr): Int = this.value compare that.value
 
   // TODO test this
-  def to(segment: SegmentNr): Seq[SegmentNr] = {
-    if (this == segment) Seq(segment)
+  def to(segment: SegmentNr): List[SegmentNr] = {
+    if (this == segment) List(segment)
     else {
-      val range = this.value to segment.value
+      val range = (this.value to segment.value).toList
       range.map { value => SegmentNr(value) }
     }
   }

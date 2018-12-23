@@ -1,12 +1,15 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
+import cats.{Traverse, UnorderedFoldable}
+import cats.kernel.CommutativeMonoid
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
-import com.evolutiongaming.kafka.journal.AsyncImplicits._
+import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournalSpec, TopicPointers}
+import com.evolutiongaming.kafka.journal.util.Par
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Topic
 
@@ -126,7 +129,7 @@ class EventualCassandraSpec extends EventualJournalSpec {
         pointers.keys.toList.async
       }
 
-      val statements   = ReplicatedCassandra.Statements(
+      implicit val statements   = ReplicatedCassandra.Statements(
         insertRecords  = insertRecords,
         deleteRecords  = deleteRecords,
         insertMetadata = insertMetadata,
@@ -138,7 +141,27 @@ class EventualCassandraSpec extends EventualJournalSpec {
         selectPointers = selectPointers,
         selectTopics   = selectTopics)
 
-      ReplicatedCassandra(statements.async, segmentSize)
+      implicit val par: Par[Async] = new Par[Async] {
+
+        def sequence[T[_] : Traverse, A](tfa: T[Async[A]]) = {
+          Traverse[T].map(tfa)(_.get()).async
+        }
+
+        def unorderedFold[T[_] : UnorderedFoldable, A: CommutativeMonoid](tfa: T[Async[A]]) = {
+          unorderedFoldMap(tfa)(identity)
+        }
+
+        def unorderedFoldMap[T[_] : UnorderedFoldable, A, B: CommutativeMonoid](ta: T[A])(f: A => Async[B]) = {
+          UnorderedFoldable[T].unorderedFoldMap(ta)(f.andThen(_.get())).async
+        }
+
+        def mapN[Z, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9](t10: (Async[A0], Async[A1], Async[A2], Async[A3], Async[A4], Async[A5], Async[A6], Async[A7], Async[A8], Async[A9]))(f: (A0, A1, A2, A3, A4, A5, A6, A7, A8, A9) => Z) = {
+          val (t0, t1, t2, t3, t4, t5, t6, t7, t8, t9) = t10
+          f(t0.get(), t1.get(), t2.get(), t3.get(), t4.get(), t5.get(), t6.get(), t7.get(), t8.get(), t9.get()).async
+        }
+      }
+
+      ReplicatedCassandra(segmentSize)
     }
     Journals(eventual, replicated)
   }

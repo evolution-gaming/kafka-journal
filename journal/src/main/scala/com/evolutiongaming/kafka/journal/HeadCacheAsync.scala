@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.effect.IO
+import cats.effect.{ContextShift, IO}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.util.IOFromFuture
@@ -31,13 +31,21 @@ object HeadCacheAsync {
       }
     }
 
-    val consumer = IO.delay {
+    val consumer = {
+      // TODO
       val config = consumerConfig.copy(
         autoOffsetReset = AutoOffsetReset.Earliest,
         groupId = None)
 
-      val consumer = Consumer[Id, Bytes](config, ecBlocking)
-      HeadCache.Consumer(consumer)
+      for {
+        consumer <- ContextShift[IO].evalOn(ecBlocking) {
+          IO.delay {
+            Consumer[Id, Bytes](config, ecBlocking)
+          }
+        }
+      } yield {
+        HeadCache.Consumer.io(consumer)
+      }
     }
 
     val headCache = {

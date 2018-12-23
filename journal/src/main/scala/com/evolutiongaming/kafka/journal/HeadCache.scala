@@ -9,6 +9,7 @@ import com.evolutiongaming.kafka.journal.cache.Cache
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.kafka.journal.util.EitherHelper._
 import com.evolutiongaming.kafka.journal.util._
+import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords}
@@ -100,7 +101,7 @@ object HeadCache {
             }
             c <- c
             v <- c.values
-            _ <- Par[F].traverse(v.values.toList) { v =>
+            _ <- Par[F].unorderedFoldMap(v.values) { v =>
               for {
                 v <- v.get
                 _ <- v.close
@@ -290,7 +291,7 @@ object HeadCache {
         }
       } yield {
         val cancel = for {
-          _ <- Par[F].traverse(List(consuming, cleaning)) { _.cancel }
+          _ <- Par[F].unorderedFoldMap(List(consuming, cleaning)) { _.cancel }
         } yield {}
         apply(topic, cancel, state)
       }
@@ -468,7 +469,7 @@ object HeadCache {
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
 
-    def apply(consumer: skafka.consumer.Consumer[String, Bytes, Future]): Consumer[IO] = {
+    def io(consumer: skafka.consumer.Consumer[String, Bytes, Future]): Consumer[IO] = {
 
       new Consumer[IO] {
 

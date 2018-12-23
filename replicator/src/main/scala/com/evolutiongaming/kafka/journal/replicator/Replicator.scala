@@ -6,7 +6,7 @@ import com.evolutiongaming.scassandra.{CreateCluster, Session}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.concurrent.serially.SeriallyAsync
-import com.evolutiongaming.kafka.journal.AsyncImplicits._
+import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.ReplicatedCassandra

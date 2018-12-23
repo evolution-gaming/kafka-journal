@@ -24,10 +24,10 @@ object EventualCassandra {
     ec: ExecutionContext,
     session: Session): EventualJournal[Async] = {
 
-    import com.evolutiongaming.kafka.journal.AsyncImplicits._
+    import com.evolutiongaming.kafka.journal.AsyncHelper._
 
     implicit val cassandraSession = CassandraSession(CassandraSession[Async](session), config.retries)
-    implicit val cassandraSync = CassandraSync(config.schema, origin)
+    implicit val cassandraSync = CassandraSync.async(config.schema, origin)
     val statements = for {
       tables     <- CreateSchema(config.schema)
       statements <- Statements(tables)

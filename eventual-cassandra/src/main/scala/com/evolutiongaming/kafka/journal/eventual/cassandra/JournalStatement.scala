@@ -8,7 +8,7 @@ import cats.implicits._
 import com.datastax.driver.core.BatchStatement
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.util.FHelper._
+import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.TableName

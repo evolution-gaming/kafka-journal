@@ -2,16 +2,20 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
-import cats.FlatMap
+import cats.effect.IO
+import cats.{FlatMap, Monad}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
+import com.evolutiongaming.kafka.journal.util.Par
+import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.Session
 import com.evolutiongaming.skafka.Topic
 
 import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
 
 
 // TODO create collection that is optimised for ordered sequence and seqNr
@@ -24,37 +28,77 @@ object ReplicatedCassandra {
     ec: ExecutionContext,
     session: Session): ReplicatedJournal[Async] = {
 
-    import com.evolutiongaming.kafka.journal.AsyncImplicits._
+    async(config).get(30.seconds) // TODO
+  }
 
-    implicit val cassandraSession = CassandraSession(CassandraSession[Async](session), config.retries)
-    implicit val cassandraSync = CassandraSync(config.schema, Some(Origin("replicator")))
-    val statements = for {
-      tables <- CreateSchema(config.schema)
-      statements <- Statements(tables)
+  def async(
+    config: EventualCassandraConfig)(implicit
+    ec: ExecutionContext,
+    session: Session): Async[ReplicatedJournal[Async]] = {
+
+    import com.evolutiongaming.concurrent.async.AsyncConverters._
+
+    implicit val cs = IO.contextShift(ec)
+    implicit val cassandraSession = CassandraSession(CassandraSession.io(session), config.retries)
+    implicit val cassandraSync = CassandraSync.io(config.schema, Some(Origin("replicator")))
+
+    val journal = for {
+      journal <- of[IO](config)
     } yield {
-      statements
+      new ReplicatedJournal[Async] {
+
+        def topics = journal.topics.unsafeToFuture().async
+
+        def pointers(topic: Topic) = {
+          journal.pointers(topic).unsafeToFuture().async
+        }
+
+        def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[ReplicatedEvent]) = {
+          journal.append(key, partitionOffset, timestamp, events).unsafeToFuture().async
+        }
+
+        def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = {
+          journal.delete(key, partitionOffset, timestamp, deleteTo, origin).unsafeToFuture().async
+        }
+
+        def save(topic: Topic, pointers: TopicPointers, timestamp: Instant) = {
+          journal.save(topic, pointers, timestamp).unsafeToFuture().async
+        }
+      }
     }
-    apply(statements, config.segmentSize)
+
+    Async(journal.unsafeToFuture())
+  }
+
+  def of[F[_] : Monad : Par : CassandraSession : CassandraSync](config: EventualCassandraConfig): F[ReplicatedJournal[F]] = {
+
+    import cats.implicits._
+
+    for {
+      tables <- CreateSchema[F](config.schema)
+      statements <- Statements.of[F](tables)
+    } yield {
+      implicit val statements1 = statements
+      apply(config.segmentSize)
+    }
   }
 
 
-  def apply[F[_] : IO2](
-    statements: F[Statements[F]],
-    segmentSize: Int): ReplicatedJournal[F] = new ReplicatedJournal[F] {
+  def apply[F[_] : Monad : Par : Statements](segmentSize: Int): ReplicatedJournal[F] = new ReplicatedJournal[F] {
 
-    import com.evolutiongaming.kafka.journal.IO2.ops._
+    import cats.implicits._
 
     def topics = {
       for {
-        statements <- statements
-        topics <- statements.selectTopics()
+        topics <- Statements[F].selectTopics()
       } yield topics.sorted
     }
 
     def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[ReplicatedEvent]) = {
 
-      def append(statements: Statements[F], segmentSize: Int) = {
+      def append(segmentSize: Int) = {
 
+        // TODO not loop
         @tailrec
         def loop(
           events: List[ReplicatedEvent],
@@ -62,7 +106,7 @@ object ReplicatedCassandra {
           result: F[Unit]): F[Unit] = {
 
           def execute(segment: Segment, events: Nel[ReplicatedEvent]) = {
-            val next = statements.insertRecords(key, segment.nr, events)
+            val next = Statements[F].insertRecords(key, segment.nr, events)
             for {
               _ <- result
               _ <- next
@@ -84,15 +128,15 @@ object ReplicatedCassandra {
           }
         }
 
-        loop(events.toList, None, IO2[F].unit)
+        loop(events.toList, None, ().pure[F])
       }
 
-      def saveMetadataAndSegmentSize(statements: Statements[F], metadata: Option[Metadata]) = {
+      def saveMetadataAndSegmentSize(metadata: Option[Metadata]) = {
         val seqNrLast = events.last.seqNr
 
         metadata match {
           case Some(metadata) =>
-            val update = () => statements.updateSeqNr(key, partitionOffset, timestamp, seqNrLast)
+            val update = () => Statements[F].updateSeqNr(key, partitionOffset, timestamp, seqNrLast)
             (update, metadata.segmentSize)
 
           case None =>
@@ -102,16 +146,15 @@ object ReplicatedCassandra {
               seqNr = seqNrLast,
               deleteTo = events.head.seqNr.prev)
             val origin = events.head.origin
-            val insert = () => statements.insertMetadata(key, timestamp, metadata, origin)
+            val insert = () => Statements[F].insertMetadata(key, timestamp, metadata, origin)
             (insert, metadata.segmentSize)
         }
       }
 
       for {
-        statements <- statements
-        metadata <- statements.selectMetadata(key)
-        (saveMetadata, segmentSize) = saveMetadataAndSegmentSize(statements, metadata)
-        _ <- append(statements, segmentSize)
+        metadata <- Statements[F].selectMetadata(key)
+        (saveMetadata, segmentSize) = saveMetadataAndSegmentSize(metadata)
+        _ <- append(segmentSize)
         _ <- saveMetadata()
       } yield {}
     }
@@ -119,14 +162,14 @@ object ReplicatedCassandra {
 
     def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = {
 
-      def saveMetadata(statements: Statements[F], metadata: Option[Metadata]) = {
+      def saveMetadata(metadata: Option[Metadata]) = {
         metadata match {
           case Some(metadata) =>
             val update =
               if (metadata.seqNr >= deleteTo) {
-                statements.updateDeleteTo(key, partitionOffset, timestamp, deleteTo)
+                Statements[F].updateDeleteTo(key, partitionOffset, timestamp, deleteTo)
               } else {
-                statements.updateMetadata(key, partitionOffset, timestamp, deleteTo, deleteTo)
+                Statements[F].updateMetadata(key, partitionOffset, timestamp, deleteTo, deleteTo)
               }
             for {
               _ <- update
@@ -139,22 +182,22 @@ object ReplicatedCassandra {
               seqNr = deleteTo,
               deleteTo = Some(deleteTo))
             for {
-              _ <- statements.insertMetadata(key, timestamp, metadata, origin)
+              _ <- Statements[F].insertMetadata(key, timestamp, metadata, origin)
             } yield metadata.segmentSize
         }
       }
 
-      def delete(statements: Statements[F], segmentSize: Int, metadata: Metadata) = {
+      def delete(segmentSize: Int, metadata: Metadata) = {
 
         def delete(from: SeqNr, deleteTo: SeqNr) = {
 
           def segment(seqNr: SeqNr) = SegmentNr(seqNr, segmentSize)
 
-          IO2[F].foldUnit {
+          Par[F].unorderedFold {
             for {
               segment <- segment(from) to segment(deleteTo) // TODO maybe add ability to create Seq[Segment] out of SeqRange ?
             } yield {
-              statements.deleteRecords(key, segment, deleteTo)
+              Statements[F].deleteRecords(key, segment, deleteTo)
             }
           }
         }
@@ -164,58 +207,42 @@ object ReplicatedCassandra {
         metadata.deleteTo match {
           case None            => delete(from = SeqNr.Min, deleteTo = deleteToFixed)
           case Some(deletedTo) =>
-            if (deletedTo >= deleteToFixed) IO2[F].unit
+            if (deletedTo >= deleteToFixed) ().pure[F]
             else deletedTo.next match {
-              case None       => IO2[F].unit
+              case None       => ().pure[F]
               case Some(from) => delete(from = from, deleteTo = deleteToFixed)
             }
         }
       }
 
       for {
-        statements <- statements
-        metadata <- statements.selectMetadata(key)
-        segmentSize <- saveMetadata(statements, metadata)
-        _ <- metadata.fold(IO2[F].unit) { delete(statements, segmentSize, _) }
+        metadata <- Statements[F].selectMetadata(key)
+        segmentSize <- saveMetadata(metadata)
+        _ <- metadata.fold(().pure[F]) { delete(segmentSize, _) }
       } yield {}
     }
 
 
     def save(topic: Topic, topicPointers: TopicPointers, timestamp: Instant) = {
-      val pointers = topicPointers.values
-      if (pointers.isEmpty) IO2[F].unit
-      else {
+      // TODO topic is a partition key, should I batch by partition ?
 
-        // TODO topic is a partition key, should I batch by partition ?
-
-        def savePointers(statements: Statements[F]) = {
-          val results = for {
-            (partition, offset) <- pointers
-          } yield {
-            val insert = PointerInsert(
-              topic = topic,
-              partition = partition,
-              offset = offset,
-              updated = timestamp,
-              created = timestamp)
-            statements.insertPointer(insert)
-          }
-
-          IO2[F].foldUnit(results)
-        }
-
+      Par[F].unorderedFold {
         for {
-          statements <- statements
-          _ <- savePointers(statements)
-        } yield {}
+          (partition, offset) <- topicPointers.values
+        } yield {
+          val insert = PointerInsert(
+            topic = topic,
+            partition = partition,
+            offset = offset,
+            updated = timestamp,
+            created = timestamp)
+          Statements[F].insertPointer(insert)
+        }
       }
     }
 
     def pointers(topic: Topic) = {
-      for {
-        statements <- statements
-        topicPointers <- statements.selectPointers(topic)
-      } yield topicPointers
+      Statements[F].selectPointers(topic)
     }
   }
 
@@ -234,45 +261,21 @@ object ReplicatedCassandra {
 
   object Statements {
 
-    import cats.implicits._
+    def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 
-    def apply[F[_] : FlatMap : CassandraSession](tables: Tables): F[Statements[F]] = {
-
-      val insertRecords  = JournalStatement.InsertRecords[F](tables.journal)
-      val deleteRecords  = JournalStatement.DeleteRecords[F](tables.journal)
-      val insertMetadata = MetadataStatement.Insert[F](tables.metadata)
-      val selectMetadata = MetadataStatement.Select[F](tables.metadata)
-      val updateMetadata = MetadataStatement.Update[F](tables.metadata)
-      val updateSeqNr    = MetadataStatement.UpdateSeqNr[F](tables.metadata)
-      val updateDeleteTo = MetadataStatement.UpdateDeleteTo[F](tables.metadata)
-      val insertPointer  = PointerStatement.Insert[F](tables.pointer)
-      val selectPointers = PointerStatement.SelectPointers[F](tables.pointer)
-      val selectTopics   = PointerStatement.SelectTopics[F](tables.pointer)
-
-      for {
-        insertRecords  <- insertRecords
-        deleteRecords  <- deleteRecords
-        insertMetadata <- insertMetadata
-        selectMetadata <- selectMetadata
-        updateMetadata <- updateMetadata
-        updateSeqNr    <- updateSeqNr
-        updateDeleteTo <- updateDeleteTo
-        insertPointer  <- insertPointer
-        selectPointers <- selectPointers
-        selectTopics   <- selectTopics
-      } yield {
-        Statements(
-          insertRecords  = insertRecords,
-          deleteRecords  = deleteRecords,
-          insertMetadata = insertMetadata,
-          selectMetadata = selectMetadata,
-          updateMetadata = updateMetadata,
-          updateSeqNr    = updateSeqNr,
-          updateDeleteTo = updateDeleteTo,
-          insertPointer  = insertPointer,
-          selectPointers = selectPointers,
-          selectTopics   = selectTopics)
-      }
+    def of[F[_] : FlatMap : Par : CassandraSession](tables: Tables): F[Statements[F]] = {
+      val statements = (
+        JournalStatement.InsertRecords[F](tables.journal),
+        JournalStatement.DeleteRecords[F](tables.journal),
+        MetadataStatement.Insert[F](tables.metadata),
+        MetadataStatement.Select[F](tables.metadata),
+        MetadataStatement.Update[F](tables.metadata),
+        MetadataStatement.UpdateSeqNr[F](tables.metadata),
+        MetadataStatement.UpdateDeleteTo[F](tables.metadata),
+        PointerStatement.Insert[F](tables.pointer),
+        PointerStatement.SelectPointers[F](tables.pointer),
+        PointerStatement.SelectTopics[F](tables.pointer))
+      Par[F].mapN(statements)(Statements[F])
     }
   }
 }

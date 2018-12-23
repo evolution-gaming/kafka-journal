@@ -4,7 +4,7 @@ import java.time.Instant
 
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.FoldWhile._
-import com.evolutiongaming.kafka.journal.AsyncImplicits._
+import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.skafka.Offset
 import org.scalatest.{FunSuite, Matchers}
 

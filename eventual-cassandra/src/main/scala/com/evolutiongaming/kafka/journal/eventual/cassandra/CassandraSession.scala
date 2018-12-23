@@ -74,7 +74,7 @@ object CassandraSession {
   }
 
 
-  def apply(session: Session): CassandraSession[IO] = new CassandraSession[IO] {
+  def io(session: Session): CassandraSession[IO] = new CassandraSession[IO] {
 
     def prepare(query: String) = {
       IOFromFuture {

@@ -6,7 +6,7 @@ import java.util.UUID
 import akka.actor.ActorSystem
 import akka.persistence.kafka.journal.KafkaJournalConfig
 import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.kafka.journal.AsyncImplicits._
+import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, ReplicatedJournal}
 import com.evolutiongaming.kafka.journal.replicator.{ReplicatorConfig, TopicReplicator}
 import com.evolutiongaming.nel.Nel
