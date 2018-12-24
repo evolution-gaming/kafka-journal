@@ -3,8 +3,6 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
 import com.evolutiongaming.kafka.journal.SeqNr
 
-import scala.collection.immutable.Seq
-
 
 final case class Segment(nr: SegmentNr, size: Int) {
 

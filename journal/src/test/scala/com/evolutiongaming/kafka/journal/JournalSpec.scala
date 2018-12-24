@@ -1,9 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
-import java.util.concurrent.TimeUnit
 
-import cats.effect.Clock
 import cats.implicits._
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.concurrent.async.Async
@@ -19,7 +17,6 @@ import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.collection.immutable.Queue
-import scala.concurrent.duration.TimeUnit
 import scala.concurrent.{ExecutionContext, Future}
 
 class JournalSpec extends WordSpec with Matchers {
