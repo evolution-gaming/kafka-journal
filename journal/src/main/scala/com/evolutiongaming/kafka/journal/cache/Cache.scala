@@ -6,7 +6,7 @@ import cats.implicits._
 
 trait Cache[F[_], K, V] {
 
-  def getOrUpdate(k: K, v: F[V]): F[V]
+  def getOrUpdate(k: K)(v: F[V]): F[V]
 
   def values: F[Map[K, Deferred[F, V]]]
 }
@@ -21,7 +21,7 @@ object Cache {
       new Cache[F, K, V] {
 
         // TODO add support of cancellation
-        def getOrUpdate(k: K, v: F[V]) = {
+        def getOrUpdate(k: K)(v: F[V]) = {
           for {
             map <- ref.get
             v <- map.get(k).fold {

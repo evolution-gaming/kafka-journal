@@ -82,7 +82,7 @@ object HeadCache {
           for {
             cache <- cache.get
             cache <- cache
-            topicCache <- cache.getOrUpdate(topic, topicCache(topic))
+            topicCache <- cache.getOrUpdate(topic)(topicCache(topic))
             result <- topicCache(id = key.id, partition = partition, offset = offset)
           } yield {
             result
