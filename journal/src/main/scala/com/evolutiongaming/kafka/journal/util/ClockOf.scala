@@ -15,8 +15,8 @@ object ClockOf {
 
   def apply[F[_] : Applicative](millis: Long): Clock[F] = new Clock[F] {
 
-    def realTime(unit: TimeUnit) = realTime(unit)
+    def realTime(unit: TimeUnit) = unit.convert(millis, TimeUnit.MILLISECONDS).pure[F]
 
-    def monotonic(unit: TimeUnit) = unit.convert(millis, TimeUnit.MILLISECONDS).pure[F]
+    def monotonic(unit: TimeUnit) = realTime(unit)
   }
 }

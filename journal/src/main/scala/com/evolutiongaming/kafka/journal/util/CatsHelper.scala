@@ -31,7 +31,7 @@ object CatsHelper {
 
   implicit class CommutativeApplicativeOps(val self: CommutativeApplicative.type) extends AnyVal {
 
-    def commutativeMonoid[F[_] : Applicative/*TODO CommutativeApplicative*/, A: CommutativeMonoid]: CommutativeMonoid[F[A]] = {
+    def commutativeMonoid[F[_] : CommutativeApplicative, A: CommutativeMonoid]: CommutativeMonoid[F[A]] = {
       new CommutativeMonoid[F[A]] {
         def empty = {
           Applicative[F].pure(CommutativeMonoid[A].empty)
@@ -45,10 +45,15 @@ object CatsHelper {
   }
 
 
+  implicit class ParallelIdOps[M[_], F[_]](val self: Parallel[M, F]) extends AnyVal {
+    def commutativeApplicative: CommutativeApplicative[F] = CommutativeApplicativeOf(self.applicative)
+  }
+
+
   implicit class ParallelOps(val self: Parallel.type) extends AnyVal {
 
     def unorderedFoldMap[T[_] : UnorderedFoldable, M[_], F[_], A, B: CommutativeMonoid](ta: T[A])(f: A => M[B])(implicit P: Parallel[M, F]): M[B] = {
-      implicit val applicative = P.applicative
+      implicit val commutativeApplicative = P.commutativeApplicative
       implicit val commutativeMonoid = CommutativeApplicative.commutativeMonoid[F, B]
       val fb = UnorderedFoldable[T].unorderedFoldMap(ta)(f.andThen(P.parallel.apply))
       P.sequential(fb)
