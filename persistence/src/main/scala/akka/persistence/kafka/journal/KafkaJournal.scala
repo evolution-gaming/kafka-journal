@@ -108,7 +108,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
         val actorLog = ActorLog(system, EventualJournal.getClass)
         implicit val log = Log(actorLog)
         val journal = {
-          val journal = EventualCassandra(cassandraConfig, Log(log), origin)
+          val journal = EventualCassandra(cassandraConfig, actorLog, origin)
           EventualJournal(journal)
         }
         metrics.eventual.fold(journal) { EventualJournal(journal, _) }

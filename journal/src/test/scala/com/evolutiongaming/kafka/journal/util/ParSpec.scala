@@ -11,7 +11,7 @@ class ParSpec extends AsyncFunSuite with Matchers {
 
   test("unorderedFold") {
 
-    implicit val commutativeApplicative = new CommutativeMonoid[List[Int]] {
+    implicit val commutativeApplicative: CommutativeMonoid[List[Int]] = new CommutativeMonoid[List[Int]] {
       def empty = List.empty
       def combine(x: List[Int], y: List[Int]) = x ++ y
     }

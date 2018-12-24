@@ -7,6 +7,7 @@ import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.nel.Nel
+import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.scassandra.CreateCluster
 import com.evolutiongaming.skafka.producer.Producer
 import org.scalatest.{Matchers, Suite}
@@ -27,7 +28,7 @@ trait JournalSuit extends ActorSuite with Matchers { self: Suite =>
     val cassandraConfig = config.cassandra
     val cassandra = CreateCluster(cassandraConfig.client)
     implicit val session = Await.result(cassandra.connect(), config.connectTimeout)
-    val eventual = EventualCassandra(cassandraConfig, Log.empty(Async.unit), None)
+    val eventual = EventualCassandra(cassandraConfig, ActorLog.empty, None)
     (eventual, cassandra)
   }
 

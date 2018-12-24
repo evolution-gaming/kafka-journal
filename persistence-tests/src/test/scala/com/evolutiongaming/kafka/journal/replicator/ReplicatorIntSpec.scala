@@ -43,7 +43,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
     val cassandra = CreateCluster(cassandraConfig.client)
     implicit val session = Await.result(cassandra.connect(), timeout)
     // TODO add EventualCassandra.close and simplify all
-    val eventual = EventualCassandra(cassandraConfig, Log.empty(Async.unit), None)
+    val eventual = EventualCassandra(cassandraConfig, ActorLog.empty, None)
     (EventualJournal(eventual), session, cassandra)
   }
 

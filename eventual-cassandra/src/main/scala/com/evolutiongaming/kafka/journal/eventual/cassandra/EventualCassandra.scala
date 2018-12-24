@@ -1,125 +1,182 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.FlatMap
+import cats.implicits._
+import cats.effect.IO
+import cats.{FlatMap, Monad}
+import com.datastax.driver.core.Statement
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
+import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.IO2.ops._
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.scassandra.Session
+import com.evolutiongaming.kafka.journal.util.{IOFromFuture, Par}
+import com.evolutiongaming.safeakka.actor.ActorLog
+import com.evolutiongaming.scassandra.{Session, TableName}
 import com.evolutiongaming.skafka.Topic
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
 
 
-// TODO create collection that is optimised for ordered sequence and seqNr
 // TODO test EventualCassandra
 object EventualCassandra {
 
   def apply(
     config: EventualCassandraConfig,
-    log: Log[Async],
+    actorLog: ActorLog,
     origin: Option[Origin])(implicit
     ec: ExecutionContext,
     session: Session): EventualJournal[Async] = {
 
-    import com.evolutiongaming.kafka.journal.AsyncHelper._
-
-    implicit val cassandraSession = CassandraSession(CassandraSession[Async](session), config.retries)
-    implicit val cassandraSync = CassandraSync.async(config.schema, origin)
-    val statements = for {
-      tables     <- CreateSchema(config.schema)
-      statements <- Statements(tables)
-    } yield {
-      statements
-    }
-
-    apply(statements, log)
+    async(config, actorLog, origin).get(30.seconds) // TODO
   }
 
-  def apply(statements: Async[Statements[Async]], log: Log[Async]): EventualJournal[Async] = new EventualJournal[Async] {
 
-    def pointers(topic: Topic) = {
+  def async(
+    config: EventualCassandraConfig,
+    actorLog: ActorLog,
+    origin: Option[Origin])(implicit
+    ec: ExecutionContext,
+    session: Session): Async[EventualJournal[Async]] = {
+
+    implicit val cs = IO.contextShift(ec)
+    implicit val cassandraSession = CassandraSession(CassandraSession.io(session), config.retries)
+    implicit val cassandraSync = CassandraSync.io(config.schema, origin)
+    implicit val log = Log.fromLog[IO](actorLog)
+
+    val selectRecords = (name: TableName) => {
+      implicit val cassandraSessionAsync = new CassandraSession[Async] {
+        def prepare(query: String) = cassandraSession.prepare(query).unsafeToFuture().async
+        def execute(statement: Statement) = cassandraSession.execute(statement).unsafeToFuture().async
+      }
+
       for {
-        statements <- statements
-        pointers   <- statements.pointers(topic)
+        selectRecords <- IOFromFuture {
+          JournalStatement.SelectRecords[Async](name).future
+        }
       } yield {
-        pointers
+        new JournalStatement.SelectRecords.Type[IO] {
+          def apply[S](key: Key, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]) = {
+            IOFromFuture {
+              selectRecords(key, segment, range, s)(f).future
+            }
+          }
+        }
       }
     }
 
-    def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
 
-      def read(statement: JournalStatement.SelectRecords.Type[Async], metadata: Metadata) = {
-
-        case class SS(seqNr: SeqNr, s: S)
-
-        val ff = (ss: SS, replicated: ReplicatedEvent) => {
-          for {
-            s <- f(ss.s, replicated)
-          } yield SS(replicated.event.seqNr, s)
+    val journal = for {
+      journal <- of[IO](config, selectRecords)
+    } yield {
+      new EventualJournal[Async] {
+        def pointers(topic: Topic) = {
+          journal.pointers(topic).unsafeToFuture().async
         }
 
-        def read(from: SeqNr) = {
+        def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
+          journal.read(key, from, s)(f).unsafeToFuture().async
+        }
 
-          def read(from: SeqNr, segment: Segment, s: S): Async[Switch[S]] = {
-            val range = SeqRange(from, SeqNr.Max) // TODO do we need range here ?
+        def pointer(key: Key) = {
+          journal.pointer(key).unsafeToFuture().async
+        }
+      }
+    }
+    Async(journal.unsafeToFuture())
+  }
 
+
+  def of[F[_] : Monad : Par : CassandraSession : CassandraSync : Log](config: EventualCassandraConfig, selectRecords: TableName => F[JournalStatement.SelectRecords.Type[F]]): F[EventualJournal[F]] = {
+    for {
+      tables     <- CreateSchema[F](config.schema)
+      statements <- Statements.of[F](tables, selectRecords)
+    } yield {
+      implicit val statements1 = statements
+      apply[F]
+    }
+  }
+
+  
+  def apply[F[_] : Monad : Par : Statements : Log]: EventualJournal[F] = {
+
+    new EventualJournal[F] {
+
+      def pointers(topic: Topic) = {
+        Statements[F].pointers(topic)
+      }
+
+      def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
+
+        def read(statement: JournalStatement.SelectRecords.Type[F], metadata: Metadata) = {
+
+          case class SS(seqNr: SeqNr, s: S)
+
+          val ff = (ss: SS, replicated: ReplicatedEvent) => {
             for {
-              result <- statement(key, segment.nr, range, SS(from, s))(ff)
-              result <- {
-                val ss = result.s
-                val s = ss.s
-                val seqNr = ss.seqNr
-                if (result.stop) s.stop.async
-                else {
-                  val result = for {
-                    from <- seqNr.next
-                    segment <- segment.next(from)
-                  } yield {
-                    read(from, segment, s)
-                  }
-                  result getOrElse s.continue.async
-                }
-              }
-            } yield result
+              s <- f(ss.s, replicated)
+            } yield SS(replicated.event.seqNr, s)
           }
 
-          val segment = Segment(from, metadata.segmentSize)
-          read(from, segment, s)
-        }
+          def read(from: SeqNr) = {
 
-        metadata.deleteTo match {
-          case None           => read(from)
-          case Some(deleteTo) =>
-            if (from > deleteTo) read(from)
-            else deleteTo.next match {
-              case Some(from) => read(from)
-              case None       => s.continue.async
+            def read(from: SeqNr, segment: Segment, s: S): F[Switch[S]] = {
+              val range = SeqRange(from, SeqNr.Max) // TODO do we need range here ?
+
+              for {
+                result <- statement(key, segment.nr, range, SS(from, s))(ff)
+                result <- {
+                  val ss = result.s
+                  val s = ss.s
+                  val seqNr = ss.seqNr
+                  if (result.stop) s.stop.pure[F]
+                  else {
+                    val result = for {
+                      from <- seqNr.next
+                      segment <- segment.next(from)
+                    } yield {
+                      read(from, segment, s)
+                    }
+                    result getOrElse s.continue.pure[F]
+                  }
+                }
+              } yield result
             }
+
+            val segment = Segment(from, metadata.segmentSize)
+            read(from, segment, s)
+          }
+
+          metadata.deleteTo match {
+            case None           => read(from)
+            case Some(deleteTo) =>
+              if (from > deleteTo) read(from)
+              else deleteTo.next match {
+                case Some(from) => read(from)
+                case None       => s.continue.pure[F]
+              }
+          }
+        }
+
+        for {
+          metadata <- Statements[F].metadata(key)
+          result <- metadata.fold(s.continue.pure[F]) { metadata =>
+            read(Statements[F].records, metadata)
+          }
+        } yield {
+          result
         }
       }
 
-      for {
-        statements <- statements
-        metadata <- statements.metadata(key)
-        result <- metadata.fold(s.continue.async) { metadata =>
-          read(statements.records, metadata)
+      def pointer(key: Key) = {
+        for {
+          metadata <- Statements[F].metadata(key)
+        } yield for {
+          metadata <- metadata
+        } yield {
+          Pointer(metadata.partitionOffset, metadata.seqNr)
         }
-      } yield {
-        result
-      }
-    }
-
-    def pointer(key: Key) = {
-      for {
-        statements <- statements
-        metadata <- statements.metadata(key)
-      } yield for {
-        metadata <- metadata
-      } yield {
-        Pointer(metadata.partitionOffset, metadata.seqNr)
       }
     }
   }
@@ -132,23 +189,14 @@ object EventualCassandra {
 
   object Statements {
 
-    def apply[F[_]: IO2/*TODO*/ : FromFuture/*TODO*/ : FlatMap : CassandraSession](tables: Tables): F[Statements[F]] = {
+    def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 
-      // TODO run in parallel with IO
-      val records  = JournalStatement.SelectRecords(tables.journal)
-      val metadata = MetadataStatement.Select(tables.metadata)
-      val pointers = PointerStatement.SelectPointers(tables.pointer)
-
-      for {
-        records  <- records
-        metadata <- metadata
-        pointers <- pointers
-      } yield {
-        Statements(
-          records  = records,
-          metadata = metadata,
-          pointers = pointers)
-      }
+    def of[F[_] : FlatMap : Par : CassandraSession ](tables: Tables, selectRecords: TableName => F[JournalStatement.SelectRecords.Type[F]]): F[Statements[F]] = {
+      val statements = (
+        selectRecords(tables.journal),
+        MetadataStatement.Select[F](tables.metadata),
+        PointerStatement.SelectPointers[F](tables.pointer))
+      Par[F].mapN(statements)(Statements[F])
     }
   }
 }
