@@ -469,7 +469,7 @@ object HeadCache {
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
 
-    def io(consumer: skafka.consumer.Consumer[String, Bytes, Future]): Consumer[IO] = {
+    def io(consumer: skafka.consumer.Consumer[String, Bytes, Future])(implicit fromFuture: FromFuture[IO]): Consumer[IO] = {
 
       new Consumer[IO] {
 
@@ -496,14 +496,14 @@ object HeadCache {
         }
 
         def poll(timeout: FiniteDuration) = {
-          IOFromFuture {
+          fromFuture {
             consumer.poll(timeout)
           }
         }
 
         def partitions(topic: Topic) = {
           for {
-            infos <- IOFromFuture {
+            infos <- fromFuture {
               consumer.partitions(topic)
             }
           } yield for {

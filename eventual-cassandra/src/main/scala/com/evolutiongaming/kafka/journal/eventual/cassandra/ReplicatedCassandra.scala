@@ -9,7 +9,7 @@ import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.util.Par
+import com.evolutiongaming.kafka.journal.util.{FromFuture, Par}
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.Session
@@ -38,8 +38,9 @@ object ReplicatedCassandra {
     session: Session): Async[ReplicatedJournal[Async]] = {
 
     implicit val cs = IO.contextShift(ec)
-    implicit val cassandraSession = CassandraSession(CassandraSession.io(session), config.retries)
-    implicit val cassandraSync = CassandraSync.io(config.schema, Some(Origin("replicator")))
+    implicit val fromFuture = FromFuture.io
+    implicit val cassandraSession = CassandraSession(CassandraSession[IO](session), config.retries)
+    implicit val cassandraSync = CassandraSync[IO](config.schema, Some(Origin("replicator")))
 
     val journal = for {
       journal <- of[IO](config)

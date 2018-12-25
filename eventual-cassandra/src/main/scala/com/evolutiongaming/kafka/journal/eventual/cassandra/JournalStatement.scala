@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import java.lang.{Long => LongJ}
 import java.time.Instant
 
 import cats.FlatMap
+import cats.effect.Concurrent
 import cats.implicits._
 import com.datastax.driver.core.BatchStatement
 import com.evolutiongaming.kafka.journal.FoldWhile._
@@ -122,9 +122,7 @@ object JournalStatement {
       def apply[S](key: Key, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]): F[Switch[S]]
     }
 
-    def apply[F[_] : IO2 : FromFuture /*TODO REMOVE*/ : CassandraSession](name: TableName): F[Type[F]] = {
-
-      import com.evolutiongaming.kafka.journal.IO2.ops._
+    def apply[F[_] : FlatMap : Concurrent : CassandraSession](name: TableName): F[Type[F]] = {
 
       val query =
         s"""
@@ -150,16 +148,18 @@ object JournalStatement {
       } yield {
         new Type[F] {
           def apply[S](key: Key, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]) = {
-
-            val fetchThreshold = 10 // TODO #49,
-
-            // TODO avoid casting via providing implicit converters
             val bound = prepared
-              .bind(key.id, key.topic, segment.value: LongJ, range.from.value: LongJ, range.to.value: LongJ)
+              .bind()
+              .encode(key)
+              .encode(segment)
+              .setLong(3, range.from.value) // TODO
+              .setLong(4, range.to.value) // TODO
+//              .encodeAt(3, range.from)
+//              .encodeAt(4, range.to)
 
             for {
               result <- bound.execute
-              result <- result.foldWhile(fetchThreshold, s) { case (s, row) =>
+              result <- result.foldWhile[S](s) { case (s, row) =>
                 val partitionOffset = row.decode[PartitionOffset]
 
                 val payloadType = row.decode[Option[PayloadType]]("payload_type")

@@ -85,7 +85,7 @@ object FutureImplicits {
   }
 
 
-  implicit val fromFuture: FromFuture[Future] = new FromFuture[Future] {
+  implicit val fromFuture: FromFuture2[Future] = new FromFuture2[Future] {
 
     def apply[A](fa: Future[A]) = {
       try fa catch {

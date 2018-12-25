@@ -1,18 +1,16 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.implicits._
-import cats.effect.IO
+import cats.effect.{Concurrent, IO}
 import cats.{FlatMap, Monad}
-import com.datastax.driver.core.Statement
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
-import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.util.{IOFromFuture, Par}
+import com.evolutiongaming.kafka.journal.util.{FromFuture, Par}
 import com.evolutiongaming.safeakka.actor.ActorLog
-import com.evolutiongaming.scassandra.{Session, TableName}
+import com.evolutiongaming.scassandra.Session
 import com.evolutiongaming.skafka.Topic
 
 import scala.concurrent.ExecutionContext
@@ -41,34 +39,13 @@ object EventualCassandra {
     session: Session): Async[EventualJournal[Async]] = {
 
     implicit val cs = IO.contextShift(ec)
-    implicit val cassandraSession = CassandraSession(CassandraSession.io(session), config.retries)
-    implicit val cassandraSync = CassandraSync.io(config.schema, origin)
+    implicit val fromFuture = FromFuture.io
+    implicit val cassandraSession = CassandraSession(CassandraSession[IO](session), config.retries)
+    implicit val cassandraSync = CassandraSync[IO](config.schema, origin)
     implicit val log = Log.fromLog[IO](actorLog)
 
-    val selectRecords = (name: TableName) => {
-      implicit val cassandraSessionAsync = new CassandraSession[Async] {
-        def prepare(query: String) = cassandraSession.prepare(query).unsafeToFuture().async
-        def execute(statement: Statement) = cassandraSession.execute(statement).unsafeToFuture().async
-      }
-
-      for {
-        selectRecords <- IOFromFuture {
-          JournalStatement.SelectRecords[Async](name).future
-        }
-      } yield {
-        new JournalStatement.SelectRecords.Type[IO] {
-          def apply[S](key: Key, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]) = {
-            IOFromFuture {
-              selectRecords(key, segment, range, s)(f).future
-            }
-          }
-        }
-      }
-    }
-
-
     val journal = for {
-      journal <- of[IO](config, selectRecords)
+      journal <- of[IO](config)
     } yield {
       new EventualJournal[Async] {
         def pointers(topic: Topic) = {
@@ -88,10 +65,10 @@ object EventualCassandra {
   }
 
 
-  def of[F[_] : Monad : Par : CassandraSession : CassandraSync : Log](config: EventualCassandraConfig, selectRecords: TableName => F[JournalStatement.SelectRecords.Type[F]]): F[EventualJournal[F]] = {
+  def of[F[_] : Monad : Par : Concurrent : CassandraSession : CassandraSync : Log](config: EventualCassandraConfig): F[EventualJournal[F]] = {
     for {
       tables     <- CreateSchema[F](config.schema)
-      statements <- Statements.of[F](tables, selectRecords)
+      statements <- Statements.of[F](tables)
     } yield {
       implicit val statements1 = statements
       apply[F]
@@ -191,9 +168,9 @@ object EventualCassandra {
 
     def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 
-    def of[F[_] : FlatMap : Par : CassandraSession ](tables: Tables, selectRecords: TableName => F[JournalStatement.SelectRecords.Type[F]]): F[Statements[F]] = {
+    def of[F[_] : FlatMap : Par : Concurrent : CassandraSession](tables: Tables): F[Statements[F]] = {
       val statements = (
-        selectRecords(tables.journal),
+        JournalStatement.SelectRecords[F](tables.journal),
         MetadataStatement.Select[F](tables.metadata),
         PointerStatement.SelectPointers[F](tables.pointer))
       Par[F].mapN(statements)(Statements[F])

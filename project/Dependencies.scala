@@ -12,7 +12,7 @@ object Dependencies {
 
   val async = "com.evolutiongaming" %% "async" % "0.0.3"
 
-  val `play-json` = "com.typesafe.play" %% "play-json" % "2.6.11"
+  val `play-json` = "com.typesafe.play" %% "play-json" % "2.6.13"
 
   val `scala-tools` = "com.evolutiongaming" %% "scala-tools" % "2.2"
 
@@ -35,6 +35,8 @@ object Dependencies {
   val `cassandra-sync` = "com.evolutiongaming" %% "cassandra-sync" % "0.0.4"
 
   val prometheus = "io.prometheus" % "simpleclient" % "0.5.0"
+
+  val `scala-java8-compat` = "org.scala-lang.modules" %% "scala-java8-compat" % "0.9.0"
 
   object Cats {
     private val version = "1.5.0"

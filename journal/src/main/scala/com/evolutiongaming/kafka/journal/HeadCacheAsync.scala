@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import cats.effect.{ContextShift, IO}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
-import com.evolutiongaming.kafka.journal.util.IOFromFuture
+import com.evolutiongaming.kafka.journal.util.FromFuture
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, Consumer, ConsumerConfig}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
@@ -22,10 +22,11 @@ object HeadCacheAsync {
     implicit val cs = IO.contextShift(ec)
     implicit val timer = IO.timer(ec)
     implicit val log = Log.fromLog[IO](actorLog)
+    implicit val fromFuture: FromFuture[IO] = FromFuture.lift[IO]
     implicit val eventual = new HeadCache.Eventual[IO] {
 
       def pointers(topic: Topic) = {
-        IOFromFuture {
+        fromFuture {
           eventualJournal.pointers(topic).future
         }
       }

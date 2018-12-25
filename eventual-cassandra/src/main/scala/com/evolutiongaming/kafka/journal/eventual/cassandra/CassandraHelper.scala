@@ -1,43 +1,28 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
+import cats.Monad
+import cats.implicits._
 import com.datastax.driver.core.{PreparedStatement, Row, Statement}
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
-import com.evolutiongaming.kafka.journal.IO2.ops._
-import com.evolutiongaming.kafka.journal.{FromFuture, IO2}
-
-import scala.annotation.tailrec
 
 object CassandraHelper {
 
-  implicit class ResultSetOps(val self: ResultSet) extends AnyVal {
+  implicit class ResultSetOps[F[_]](val self: QueryResult[F]) extends AnyVal {
 
-    def foldWhile[F[_] : IO2 : FromFuture, S](fetchThreshold: Int, s: S)(f: Fold[S, Row]): F[Switch[S]] = {
-
-      @tailrec def foldWhile(s: S, available: Int): Switch[S] = {
-        if (available == 0) s.continue
-        else {
-          if (available == fetchThreshold) self.fetchMoreResults()
-          val row = self.one()
-          val switch = f(s, row)
-          if (switch.stop) switch
-          else foldWhile(switch.s, available - 1)
+    def foldWhile[S](s: S)(f: Fold[S, Row])(implicit F: Monad[F]): F[Switch[S]] = {
+      
+      (s, self).tailRecM { case (s, resultSet) =>
+        resultSet.value.fold {
+          s.continue.asRight[(S, QueryResult[F])].pure[F]
+        } { case (rows, resultSet) =>
+          val ss = rows.foldWhile(s)(f)
+          if (ss.stop) ss.asRight[(S, QueryResult[F])].pure[F]
+          else for {
+            resultSet <- resultSet
+          } yield (ss.s, resultSet).asLeft
         }
       }
-
-      val fetch = (s: Switch[S]) => {
-        val fetched = self.isFullyFetched
-        val available = self.getAvailableWithoutFetching
-        val ss = foldWhile(s.s, available)
-        if (ss.stop || fetched) Switch.stop(ss).pure
-        else for {
-          _ <- IO2[F].from {
-            self.fetchMoreResults()
-          }
-        } yield Switch.continue(ss)
-      }
-
-      fetch.foldWhile(s.continue)
     }
   }
 
@@ -50,19 +35,19 @@ object CassandraHelper {
       else self.disableTracing()
     }
 
-    def execute[F[_] : CassandraSession]: F[ResultSet] = {
+    def execute[F[_] : CassandraSession]: F[QueryResult[F]] = {
       CassandraSession[F].execute(self)
     }
   }
 
-  
+
   implicit class QueryOps(val self: String) extends AnyVal {
 
-    def prepare[F[_]: CassandraSession]: F[PreparedStatement] = {
+    def prepare[F[_] : CassandraSession]: F[PreparedStatement] = {
       CassandraSession[F].prepare(self)
     }
 
-    def execute[F[_]: CassandraSession]: F[ResultSet] = {
+    def execute[F[_] : CassandraSession]: F[QueryResult[F]] = {
       CassandraSession[F].execute(self)
     }
   }

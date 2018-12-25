@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.Applicative
-import cats.effect.Concurrent
+import cats.effect.{Concurrent, Sync}
 import com.evolutiongaming.safeakka.actor.ActorLog
 
 trait Log[F[_]] { self =>
@@ -79,31 +79,31 @@ object Log {
   def fromLog[F[_] : Concurrent](log: ActorLog): Log[F] = new Log[F] {
 
     def debug(msg: => String) = {
-      Concurrent[F].delay {
+      Sync[F].delay {
         log.debug(msg)
       }
     }
 
     def info(msg: => String) = {
-      Concurrent[F].delay {
+      Sync[F].delay {
         log.info(msg)
       }
     }
 
     def warn(msg: => String) = {
-      Concurrent[F].delay {
+      Sync[F].delay {
         log.warn(msg)
       }
     }
 
     def error(msg: => String, cause: Throwable) = {
-      Concurrent[F].delay {
+      Sync[F].delay {
         log.error(msg, cause)
       }
     }
 
     def error(msg: => String) = {
-      Concurrent[F].delay {
+      Sync[F].delay {
         log.error(msg)
       }
     }

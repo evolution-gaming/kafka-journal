@@ -87,7 +87,7 @@ object MetadataStatement {
           for {
             result <- bound.execute
           } yield for {
-            row <- Option(result.one()) // TODO use CassandraSession wrapper
+            row <- result.head
           } yield {
             Metadata(
               partitionOffset = row.decode[PartitionOffset],

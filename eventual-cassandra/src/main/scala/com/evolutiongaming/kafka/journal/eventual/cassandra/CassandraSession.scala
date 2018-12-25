@@ -1,21 +1,22 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.FlatMap
-import cats.effect.IO
+import cats.implicits._
+import cats.effect.Concurrent
 import com.datastax.driver.core._
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.util.IOFromFuture
-import com.evolutiongaming.kafka.journal.{FromFuture, IO2}
+import com.evolutiongaming.kafka.journal.util.FromFuture
 import com.evolutiongaming.scassandra.{NextHostRetryPolicy, Session}
+
 
 trait CassandraSession[F[_]] {
 
   def prepare(query: String): F[PreparedStatement]
 
-  def execute(statement: Statement): F[ResultSet]
+  def execute(statement: Statement): F[QueryResult[F]]
 
-  final def execute(statement: String): F[ResultSet] = execute(new SimpleStatement(statement))
+  final def execute(statement: String): F[QueryResult[F]] = execute(new SimpleStatement(statement))
 }
 
 
@@ -23,7 +24,7 @@ object CassandraSession {
 
   def apply[F[_]](implicit F: CassandraSession[F]): CassandraSession[F] = F
 
-  
+
   def apply[F[_] : FlatMap](
     session: CassandraSession[F],
     retries: Int,
@@ -52,43 +53,22 @@ object CassandraSession {
     }
   }
 
+  def apply[F[_] : FlatMap : Concurrent : FromFuture](session: Session): CassandraSession[F] = {
+    new CassandraSession[F] {
 
-  def apply[F[_] : IO2 : FromFuture](session: Session): CassandraSession[F] = new CassandraSession[F] {
-
-    def prepare(query: String) = {
-      IO2[F].from {
-        session.prepare(query)
-      }
-    }
-
-    def execute(statement: Statement) = {
-      import com.evolutiongaming.kafka.journal.IO2.ops._
-      for {
-        resultSet <- IO2[F].from {
-          session.execute(statement)
+      def prepare(query: String) = {
+        FromFuture[F].apply {
+          session.prepare(query)
         }
-      } yield {
-        ResultSet(resultSet)
       }
-    }
-  }
 
-
-  def io(session: Session): CassandraSession[IO] = new CassandraSession[IO] {
-
-    def prepare(query: String) = {
-      IOFromFuture {
-        session.prepare(query)
-      }
-    }
-
-    def execute(statement: Statement) = {
-      for {
-        resultSet <- IOFromFuture {
-          session.execute(statement)
+      def execute(statement: Statement) = {
+        for {
+          result <- FromFuture[F].apply { session.execute(statement) }
+          result <- QueryResult.of[F](result)
+        } yield {
+          result
         }
-      } yield {
-        ResultSet(resultSet)
       }
     }
   }

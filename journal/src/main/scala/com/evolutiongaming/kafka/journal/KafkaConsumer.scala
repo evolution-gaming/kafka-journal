@@ -20,7 +20,7 @@ trait KafkaConsumer[F[_]] {
 
 object KafkaConsumer {
 
-  def apply[F[_] : IO2 : FromFuture](
+  def apply[F[_] : IO2 : FromFuture2](
     consumer: Consumer[Id, Bytes, Future],
     pollTimeout: FiniteDuration): KafkaConsumer[F] = new KafkaConsumer[F] {
 
@@ -31,19 +31,19 @@ object KafkaConsumer {
     }
 
     def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = {
-      FromFuture[F].apply {
+      FromFuture2[F].apply {
         consumer.commit(offsets)
       }
     }
 
     def poll() = {
-      FromFuture[F].apply {
+      FromFuture2[F].apply {
         consumer.poll(pollTimeout)
       }
     }
 
     def close() = {
-      FromFuture[F].apply {
+      FromFuture2[F].apply {
         consumer.close()
       }
     }

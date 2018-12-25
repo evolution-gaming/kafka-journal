@@ -52,7 +52,7 @@ class KafkaJournalConfigSpec extends FunSuite with Matchers {
           name = "journal",
           query = QueryConfig(
             consistency = ConsistencyLevel.LOCAL_QUORUM,
-            fetchSize = 500,
+            fetchSize = 100,
             defaultIdempotence = true))))
     KafkaJournalConfig(config) shouldEqual expected
   }

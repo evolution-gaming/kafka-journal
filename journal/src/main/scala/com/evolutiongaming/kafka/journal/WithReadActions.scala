@@ -17,7 +17,7 @@ trait WithReadActions[F[_]] {
 
 object WithReadActions {
 
-  def apply[F[_] : IO2 : FromFuture](
+  def apply[F[_] : IO2 : FromFuture2](
     topicConsumer: TopicConsumer,
     pollTimeout: FiniteDuration,
     closeTimeout: FiniteDuration,
@@ -38,7 +38,7 @@ object WithReadActions {
 
 
         def release(consumer: Consumer[Id, Bytes, Future]) = {
-          FromFuture[F].apply {
+          FromFuture2[F].apply {
             for {
               failure <- consumer.close(closeTimeout).failed
             } yield {
@@ -69,7 +69,7 @@ object WithReadActions {
     }
   }
 
-  def apply2[F[_] : IO2 : FromFuture](
+  def apply2[F[_] : IO2 : FromFuture2](
     topicConsumer: TopicConsumer,
     pollTimeout: FiniteDuration,
     closeTimeout: FiniteDuration,
@@ -90,7 +90,7 @@ object WithReadActions {
 
 
         def release(consumer: Consumer[Id, Bytes, Future]) = {
-          FromFuture[F].apply {
+          FromFuture2[F].apply {
             for {
               failure <- consumer.close(closeTimeout).failed
             } yield {

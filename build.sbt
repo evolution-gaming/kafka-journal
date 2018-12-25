@@ -31,7 +31,6 @@ lazy val root = (project in file(".")
   settings commonSettings
   settings (skip in publish := true)
   aggregate(
-    io,
     journal,
     `journal-prometheus`,
     persistence,
@@ -40,15 +39,9 @@ lazy val root = (project in file(".")
     `replicator-prometheus`,
     `eventual-cassandra`))
 
-lazy val io = (project in file("io")
-  settings (name := "kafka-journal-io")
-  settings commonSettings
-  settings (libraryDependencies ++= Seq(Cats.core, scalatest % Test)))
-
 lazy val journal = (project in file("journal")
   settings (name := "kafka-journal")
   settings commonSettings
-  dependsOn io
   settings (libraryDependencies ++= Seq(
     Akka.actor,
     Akka.stream,
@@ -68,6 +61,7 @@ lazy val journal = (project in file("journal")
     scassandra,
     `cassandra-sync`,
     serially,
+    `scala-java8-compat`,
     Cats.core,
     Cats.effect)))
 

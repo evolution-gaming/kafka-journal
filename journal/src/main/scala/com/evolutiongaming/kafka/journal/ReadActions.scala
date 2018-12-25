@@ -14,7 +14,7 @@ trait ReadActions[F[_]] {
 
 object ReadActions {
 
-  def apply[F[_] : IO2 : FromFuture](
+  def apply[F[_] : IO2 : FromFuture2](
     key: Key,
     consumer: Consumer[Id, Bytes, Future],
     timeout: FiniteDuration,
@@ -24,7 +24,7 @@ object ReadActions {
 
       def apply() = {
         for {
-          consumerRecords <- FromFuture[F].apply { consumer.poll(timeout) }
+          consumerRecords <- FromFuture2[F].apply { consumer.poll(timeout) }
         } yield {
           for {
             consumerRecords <- consumerRecords.values.values

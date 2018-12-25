@@ -9,7 +9,6 @@ import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
-import scala.collection.JavaConverters._
 
 object PointerStatement {
 
@@ -102,7 +101,7 @@ object PointerStatement {
           for {
             result <- bound.execute
           } yield for {
-            row <- Option(result.one()) // TODO use CassandraSession wrapper
+            row <- result.head
           } yield {
             row.decode[Offset]("offset")
           }
@@ -130,11 +129,10 @@ object PointerStatement {
 
           for {
             result <- bound.execute
+            rows <- result.all
           } yield {
-            val rows = result.all() // TODO blocking
-
             val pointers = for {
-              row <- rows.asScala
+              row <- rows
             } yield {
               val partition = row.decode[Partition]("partition")
               val offset = row.decode[Offset]("offset")
@@ -159,8 +157,8 @@ object PointerStatement {
           val bound = prepared.bind()
           for {
             result <- bound.execute
+            rows   <- result.all
           } yield {
-            val rows = result.all().asScala.toList
             for {
               row <- rows
             } yield {
