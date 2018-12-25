@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.implicits._
-import cats.effect.{Concurrent, IO}
-import cats.{FlatMap, Monad}
+import cats.effect.IO
+import cats.{Monad}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.FoldWhile._
@@ -65,7 +65,7 @@ object EventualCassandra {
   }
 
 
-  def of[F[_] : Monad : Par : Concurrent : CassandraSession : CassandraSync : Log](config: EventualCassandraConfig): F[EventualJournal[F]] = {
+  def of[F[_] : Monad : Par : CassandraSession : CassandraSync : Log](config: EventualCassandraConfig): F[EventualJournal[F]] = {
     for {
       tables     <- CreateSchema[F](config.schema)
       statements <- Statements.of[F](tables)
@@ -110,7 +110,7 @@ object EventualCassandra {
                   if (result.stop) s.stop.pure[F]
                   else {
                     val result = for {
-                      from <- seqNr.next
+                      from    <- seqNr.next
                       segment <- segment.next(from)
                     } yield {
                       read(from, segment, s)
@@ -138,7 +138,7 @@ object EventualCassandra {
 
         for {
           metadata <- Statements[F].metadata(key)
-          result <- metadata.fold(s.continue.pure[F]) { metadata =>
+          result   <- metadata.fold(s.continue.pure[F]) { metadata =>
             read(Statements[F].records, metadata)
           }
         } yield {
@@ -168,7 +168,7 @@ object EventualCassandra {
 
     def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 
-    def of[F[_] : FlatMap : Par : Concurrent : CassandraSession](tables: Tables): F[Statements[F]] = {
+    def of[F[_] : Par : Monad : CassandraSession](tables: Tables): F[Statements[F]] = {
       val statements = (
         JournalStatement.SelectRecords[F](tables.journal),
         MetadataStatement.Select[F](tables.metadata),

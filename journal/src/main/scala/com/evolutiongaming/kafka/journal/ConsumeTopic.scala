@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.effect.{Concurrent, Timer}
+import cats.effect.{Sync, Timer}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.HeadCache.Consumer
 import com.evolutiongaming.kafka.journal.retry.Retry
@@ -15,7 +15,7 @@ import scala.util.control.NoStackTrace
 // TODO Test
 object ConsumeTopic {
 
-  def apply[F[_] : Concurrent : Timer : Log](
+  def apply[F[_] : Sync : Timer : Log](
     topic: Topic,
     from: Map[Partition, Offset],
     pollTimeout: FiniteDuration,
@@ -61,7 +61,7 @@ object ConsumeTopic {
       } yield partitions
 
       implicit val clock = TimerOf[F].clock
-      
+
       for {
         rng        <- Rng.fromClock[F]
         strategy    = {

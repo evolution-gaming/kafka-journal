@@ -22,6 +22,6 @@ object Timeout {
 
   def apply[F[_] : Timer : ContextShift : Concurrent, A](fa: F[A], after: FiniteDuration): F[A] = {
     val error = new TimeoutException(after.toString) with NoStackTrace
-    apply(fa, after, Concurrent[F].raiseError(error))
+    apply(fa, after, error.raiseError[F, A])
   }
 }

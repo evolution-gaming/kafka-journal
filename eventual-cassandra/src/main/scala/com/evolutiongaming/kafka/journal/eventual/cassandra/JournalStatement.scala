@@ -2,8 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
-import cats.FlatMap
-import cats.effect.Concurrent
+import cats.{FlatMap, Monad}
 import cats.implicits._
 import com.datastax.driver.core.BatchStatement
 import com.evolutiongaming.kafka.journal.FoldWhile._
@@ -122,7 +121,7 @@ object JournalStatement {
       def apply[S](key: Key, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]): F[Switch[S]]
     }
 
-    def apply[F[_] : FlatMap : Concurrent : CassandraSession](name: TableName): F[Type[F]] = {
+    def apply[F[_] : Monad : CassandraSession](name: TableName): F[Type[F]] = {
 
       val query =
         s"""

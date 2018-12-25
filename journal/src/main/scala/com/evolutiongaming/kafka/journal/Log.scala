@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.Applicative
-import cats.effect.{Concurrent, Sync}
+import cats.effect.Sync
 import com.evolutiongaming.safeakka.actor.ActorLog
 
 trait Log[F[_]] { self =>
@@ -76,7 +76,7 @@ object Log {
   }
 
 
-  def fromLog[F[_] : Concurrent](log: ActorLog): Log[F] = new Log[F] {
+  def fromLog[F[_] : Sync](log: ActorLog): Log[F] = new Log[F] {
 
     def debug(msg: => String) = {
       Sync[F].delay {

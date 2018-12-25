@@ -8,7 +8,7 @@ import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 
 object CassandraHelper {
 
-  implicit class ResultSetOps[F[_]](val self: QueryResult[F]) extends AnyVal {
+  implicit class QueryResultOps[F[_]](val self: QueryResult[F]) extends AnyVal {
 
     def foldWhile[S](s: S)(f: Fold[S, Row])(implicit F: Monad[F]): F[Switch[S]] = {
       
