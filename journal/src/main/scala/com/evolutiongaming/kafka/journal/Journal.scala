@@ -151,7 +151,7 @@ object Journal {
     eventual: EventualJournal[Async],
     pollTimeout: FiniteDuration,
     closeTimeout: FiniteDuration,
-    readJournal: HeadCache[Async])(implicit
+    headCache: HeadCache[Async])(implicit
     system: ActorSystem,
     ec: ExecutionContext): Journal[Async] = {
 
@@ -159,7 +159,7 @@ object Journal {
 
     implicit val log = Log[Async](actorLog)
 
-    val journal = apply(actorLog, origin, producer, topicConsumer, eventual, pollTimeout, closeTimeout, readJournal)
+    val journal = apply(actorLog, origin, producer, topicConsumer, eventual, pollTimeout, closeTimeout, headCache)
     Journal(journal)
   }
 
@@ -171,14 +171,14 @@ object Journal {
     eventual: EventualJournal[Async],
     pollTimeout: FiniteDuration,
     closeTimeout: FiniteDuration,
-    readJournal: HeadCache[Async])(implicit
+    headCache: HeadCache[Async])(implicit
     ec: ExecutionContext): Journal[Async] = {
 
     val withReadActions = WithReadActions(topicConsumer, pollTimeout, closeTimeout, log)
 
     val writeAction = AppendAction(producer)
 
-    apply(log, origin, eventual, withReadActions, writeAction, readJournal)
+    apply(log, origin, eventual, withReadActions, writeAction, headCache)
   }
 
 

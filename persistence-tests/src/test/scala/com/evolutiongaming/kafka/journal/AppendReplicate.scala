@@ -54,7 +54,7 @@ object AppendReplicate extends App {
       eventual = EventualJournal.empty,
       pollTimeout = config.journal.pollTimeout,
       closeTimeout = config.journal.closeTimeout,
-      readJournal = HeadCache.empty)
+      headCache = HeadCache.empty)
   }
 
   def append(id: String) = {

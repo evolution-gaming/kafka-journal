@@ -132,7 +132,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
         eventual = eventualJournal,
         pollTimeout = config.journal.pollTimeout,
         closeTimeout = config.journal.closeTimeout,
-        readJournal = headCache)
+        headCache = headCache)
 
       metrics.journal.fold(journal) { Journal(journal, _) }
     }

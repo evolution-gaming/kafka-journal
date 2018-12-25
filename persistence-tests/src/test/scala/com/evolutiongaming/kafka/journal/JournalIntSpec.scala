@@ -27,7 +27,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuit {
         eventual = eventual,
         pollTimeout = config.journal.pollTimeout,
         closeTimeout = config.journal.closeTimeout,
-        readJournal = headCache)
+        headCache = headCache)
     }
   }
 

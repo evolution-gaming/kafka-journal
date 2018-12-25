@@ -7,7 +7,6 @@ import cats.implicits._
 import com.datastax.driver.core.BatchStatement
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.TableName
@@ -109,7 +108,7 @@ object JournalStatement {
               }
             }
           }
-          statement.execute.unit
+          statement.execute.void
       }
     }
   }
@@ -121,6 +120,7 @@ object JournalStatement {
       def apply[S](key: Key, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]): F[Switch[S]]
     }
 
+    // TODO apply -> of
     def apply[F[_] : Monad : CassandraSession](name: TableName): F[Type[F]] = {
 
       val query =
@@ -209,7 +209,7 @@ object JournalStatement {
             .encode(key)
             .encode(segment)
             .encode(seqNr)
-          bound.execute.unit
+          bound.execute.void
       }
     }
   }

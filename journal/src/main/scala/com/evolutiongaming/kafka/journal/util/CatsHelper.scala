@@ -1,20 +1,11 @@
 package com.evolutiongaming.kafka.journal.util
 
-import cats.implicits._
 import cats.kernel.CommutativeMonoid
-import cats.{Applicative, Apply, CommutativeApplicative, FlatMap, Parallel, UnorderedFoldable}
+import cats.{Applicative, Apply, CommutativeApplicative, Parallel, UnorderedFoldable}
 
 import scala.collection.immutable
 
 object CatsHelper {
-
-  implicit class FOps[F[_], A](val self: F[A]) extends AnyVal {
-
-    def unit(implicit flatMap: FlatMap[F]): F[Unit] = {
-      for {_ <- self} yield {}
-    }
-  }
-
 
   implicit def commutativeMonoidF[F[_] : CommutativeApplicative, A: CommutativeMonoid]: CommutativeMonoid[F[A]] = {
     new CommutativeMonoid[F[A]] {

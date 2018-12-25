@@ -4,7 +4,6 @@ import cats.Monad
 import cats.implicits._
 import com.evolutiongaming.scassandra.CreateKeyspaceIfNotExists
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
 
 object CreateSchema {
 
@@ -14,7 +13,7 @@ object CreateSchema {
       val keyspace = schemaConfig.keyspace
       if (keyspace.autoCreate) {
         val query = CreateKeyspaceIfNotExists(keyspace.name, keyspace.replicationStrategy)
-        query.execute.unit
+        query.execute.void
       } else {
         ().pure[F]
       }

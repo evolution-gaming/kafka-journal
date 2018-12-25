@@ -7,7 +7,6 @@ import cats.FlatMap
 import cats.implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
 
@@ -60,7 +59,7 @@ object MetadataStatement {
             .encode("created", timestamp)
             .encode("updated", timestamp)
             .encodeSome(origin)
-          bound.execute.unit
+          bound.execute.void
       }
     }
   }
@@ -125,7 +124,7 @@ object MetadataStatement {
             .encode("delete_to", deleteTo)
             .encode("updated", timestamp)
 
-          bound.execute.unit
+          bound.execute.void
       }
     }
   }
@@ -155,7 +154,7 @@ object MetadataStatement {
             .encode(seqNr)
             .encode("updated", timestamp)
 
-          bound.execute.unit
+          bound.execute.void
       }
     }
   }
@@ -184,7 +183,7 @@ object MetadataStatement {
             .encode("delete_to", deleteTo)
             .encode("updated", timestamp)
 
-          bound.execute.unit
+          bound.execute.void
       }
     }
   }

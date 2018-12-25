@@ -87,7 +87,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
         eventual = eventual,
         pollTimeout = config.journal.pollTimeout,
         closeTimeout = config.journal.closeTimeout,
-        readJournal = HeadCache.empty[Async])
+        headCache = HeadCache.empty[Async])
       Journal(journal)
     }
 

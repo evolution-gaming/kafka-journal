@@ -5,7 +5,6 @@ import cats.implicits._
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
@@ -46,7 +45,7 @@ object PointerStatement {
             .encode("offset", pointer.offset)
             .encode("created", pointer.created)
             .encode("updated", pointer.updated)
-          bound.execute.unit
+          bound.execute.void
       }
     }
   }
@@ -72,7 +71,7 @@ object PointerStatement {
             .encode("partition", pointer.partition)
             .encode("offset", pointer.offset)
             .encode("updated", pointer.updated)
-          bound.execute.unit
+          bound.execute.void
       }
     }
   }
