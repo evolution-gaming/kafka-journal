@@ -35,17 +35,17 @@ class EventualCassandraSpec extends EventualJournalSpec {
     var metadataMap = Map.empty[Key, Metadata]
     var pointers = Map.empty[Topic, TopicPointers]
 
-    val selectMetadata: MetadataStatement.Select.Type[Async] = key => {
+    val selectMetadata: MetadataStatement.Select[Async] = key => {
       metadataMap.get(key).async
     }
 
-    val selectPointers: PointerStatement.SelectPointers.Type[Async] = topic => {
+    val selectPointers: PointerStatement.SelectPointers[Async] = topic => {
       pointers.getOrElse(topic, TopicPointers.Empty).async
     }
 
     val eventual = {
 
-      val selectRecords = new JournalStatement.SelectRecords.Type[Async] {
+      val selectRecords = new JournalStatement.SelectRecords[Async] {
         def apply[S](key: Key, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]) = {
           val events = journal.events(key, segment)
           val result = events.foldWhile(s) { (s, event) =>
@@ -94,14 +94,14 @@ class EventualCassandraSpec extends EventualJournalSpec {
 
     val replicated = {
 
-      val insertRecords: JournalStatement.InsertRecords.Type[Async] = (key, segment, replicated) => {
+      val insertRecords: JournalStatement.InsertRecords[Async] = (key, segment, replicated) => {
         val events = journal.events(key, segment)
         val updated = events ++ replicated.toList.sortBy(_.event.seqNr)
         journal = journal.updated((key, segment), updated)
         Async.unit
       }
 
-      val deleteRecords: JournalStatement.DeleteRecords.Type[Async] = (key, segment, seqNr) => {
+      val deleteRecords: JournalStatement.DeleteRecords[Async] = (key, segment, seqNr) => {
         if (delete) {
           val events = journal.events(key, segment)
           val updated = events.dropWhile(_.event.seqNr <= seqNr)
@@ -110,12 +110,12 @@ class EventualCassandraSpec extends EventualJournalSpec {
         Async.unit
       }
 
-      val insertMetadata: MetadataStatement.Insert.Type[Async] = (key, timestamp, metadata, origin) => {
+      val insertMetadata: MetadataStatement.Insert[Async] = (key, timestamp, metadata, origin) => {
         metadataMap = metadataMap.updated(key, metadata)
         Async.unit
       }
 
-      val updateMetadata: MetadataStatement.Update.Type[Async] = (key, partitionOffset, timestamp, seqNr, deleteTo) => {
+      val updateMetadata: MetadataStatement.Update[Async] = (key, partitionOffset, timestamp, seqNr, deleteTo) => {
         for {
           metadata <- metadataMap.get(key)
         } {
@@ -125,7 +125,7 @@ class EventualCassandraSpec extends EventualJournalSpec {
         Async.unit
       }
 
-      val updateSeqNr: MetadataStatement.UpdateSeqNr.Type[Async] = (key, partitionOffset, timestamp, seqNr) => {
+      val updateSeqNr: MetadataStatement.UpdateSeqNr[Async] = (key, partitionOffset, timestamp, seqNr) => {
         for {
           metadata <- metadataMap.get(key)
         } {
@@ -135,7 +135,7 @@ class EventualCassandraSpec extends EventualJournalSpec {
         Async.unit
       }
 
-      val updateDeleteTo: MetadataStatement.UpdateDeleteTo.Type[Async] = (key, partitionOffset, timestamp, deleteTo) => {
+      val updateDeleteTo: MetadataStatement.UpdateDeleteTo[Async] = (key, partitionOffset, timestamp, deleteTo) => {
         for {
           metadata <- metadataMap.get(key)
         } {
@@ -145,14 +145,14 @@ class EventualCassandraSpec extends EventualJournalSpec {
         Async.unit
       }
 
-      val insertPointer: PointerStatement.Insert.Type[Async] = pointer => {
+      val insertPointer: PointerStatement.Insert[Async] = pointer => {
         val topicPointers = pointers.getOrElse(pointer.topic, TopicPointers.Empty)
         val updated = topicPointers.copy(values = topicPointers.values.updated(pointer.partition, pointer.offset))
         pointers = pointers.updated(pointer.topic, updated)
         Async.unit
       }
 
-      val selectTopics: PointerStatement.SelectTopics.Type[Async] = () => {
+      val selectTopics: PointerStatement.SelectTopics[Async] = () => {
         pointers.keys.toList.async
       }
 

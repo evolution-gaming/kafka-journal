@@ -86,7 +86,7 @@ object EventualCassandra {
 
       def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
 
-        def read(statement: JournalStatement.SelectRecords.Type[F], metadata: Metadata) = {
+        def read(statement: JournalStatement.SelectRecords[F], metadata: Metadata) = {
 
           case class SS(seqNr: SeqNr, s: S)
 
@@ -160,9 +160,9 @@ object EventualCassandra {
 
 
   final case class Statements[F[_]](
-    records: JournalStatement.SelectRecords.Type[F],
-    metadata: MetadataStatement.Select.Type[F],
-    pointers: PointerStatement.SelectPointers.Type[F])
+    records: JournalStatement.SelectRecords[F],
+    metadata: MetadataStatement.Select[F],
+    pointers: PointerStatement.SelectPointers[F])
 
   object Statements {
 
@@ -170,9 +170,9 @@ object EventualCassandra {
 
     def of[F[_] : Par : Monad : CassandraSession](tables: Tables): F[Statements[F]] = {
       val statements = (
-        JournalStatement.SelectRecords[F](tables.journal),
-        MetadataStatement.Select[F](tables.metadata),
-        PointerStatement.SelectPointers[F](tables.pointer))
+        JournalStatement.SelectRecords.of[F](tables.journal),
+        MetadataStatement.Select.of[F](tables.metadata),
+        PointerStatement.SelectPointers.of[F](tables.pointer))
       Par[F].mapN(statements)(Statements[F])
     }
   }

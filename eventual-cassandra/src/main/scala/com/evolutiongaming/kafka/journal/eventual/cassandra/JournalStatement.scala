@@ -40,11 +40,12 @@ object JournalStatement {
   }
 
 
+  type InsertRecords[F[_]] = (Key, SegmentNr, Nel[ReplicatedEvent]) => F[Unit]
+
   // TODO add statement logging
   object InsertRecords {
-    type Type[F[_]] = (Key, SegmentNr, Nel[ReplicatedEvent]) => F[Unit]
 
-    def apply[F[_] : FlatMap : CassandraSession](name: TableName): F[Type[F]] = {
+    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[InsertRecords[F]] = {
       val query =
         s"""
            |INSERT INTO ${ name.toCql } (
@@ -114,14 +115,14 @@ object JournalStatement {
   }
 
 
+  trait SelectRecords[F[_]] {
+    def apply[S](key: Key, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]): F[Switch[S]]
+  }
+
   object SelectRecords {
 
-    trait Type[F[_]] {
-      def apply[S](key: Key, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]): F[Switch[S]]
-    }
-
     // TODO apply -> of
-    def apply[F[_] : Monad : CassandraSession](name: TableName): F[Type[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[SelectRecords[F]] = {
 
       val query =
         s"""
@@ -145,7 +146,7 @@ object JournalStatement {
       for {
         prepared <- query.prepare
       } yield {
-        new Type[F] {
+        new SelectRecords[F] {
           def apply[S](key: Key, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]) = {
             val bound = prepared
               .bind()
@@ -187,10 +188,11 @@ object JournalStatement {
   }
 
 
-  object DeleteRecords {
-    type Type[F[_]] = (Key, SegmentNr, SeqNr) => F[Unit]
+  type DeleteRecords[F[_]] = (Key, SegmentNr, SeqNr) => F[Unit]
 
-    def apply[F[_]: FlatMap: CassandraSession](name: TableName): F[Type[F]] = {
+  object DeleteRecords {
+
+    def of[F[_]: FlatMap: CassandraSession](name: TableName): F[DeleteRecords[F]] = {
       val query =
         s"""
            |DELETE FROM ${ name.toCql }

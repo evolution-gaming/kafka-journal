@@ -34,10 +34,11 @@ object MetadataStatement {
   }
 
 
-  object Insert {
-    type Type[F[_]] = (Key, Instant, Metadata, Option[Origin]) => F[Unit]
+  type Insert[F[_]] = (Key, Instant, Metadata, Option[Origin]) => F[Unit]
 
-    def apply[F[_]: FlatMap : CassandraSession](name: TableName): F[Type[F]] = {
+  object Insert {
+
+    def of[F[_]: FlatMap : CassandraSession](name: TableName): F[Insert[F]] = {
 
       val query =
         s"""
@@ -65,10 +66,11 @@ object MetadataStatement {
   }
 
 
-  object Select {
-    type Type[F[_]] = Key => F[Option[Metadata]]
+  type Select[F[_]] = Key => F[Option[Metadata]]
 
-    def apply[F[_]: FlatMap : CassandraSession](name: TableName): F[Type[F]] = {
+  object Select {
+
+    def of[F[_]: FlatMap : CassandraSession](name: TableName): F[Select[F]] = {
       val query =
         s"""
            |SELECT partition, offset, segment_size, seq_nr, delete_to FROM ${ name.toCql }
@@ -99,11 +101,12 @@ object MetadataStatement {
   }
 
 
+  type Update[F[_]] = (Key, PartitionOffset, Instant, SeqNr, SeqNr) => F[Unit]
+
   // TODO add classes for common operations
   object Update {
-    type Type[F[_]] = (Key, PartitionOffset, Instant, SeqNr, SeqNr) => F[Unit]
 
-    def apply[F[_] : FlatMap : CassandraSession](name: TableName): F[Type[F]] = {
+    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[Update[F]] = {
       val query =
         s"""
            |UPDATE ${ name.toCql }
@@ -129,12 +132,14 @@ object MetadataStatement {
     }
   }
 
-  // TEST statement
+
+  type UpdateSeqNr[F[_]] = (Key, PartitionOffset, Instant, SeqNr) => F[Unit]
+
+  // TODO TEST statement
   // TODO add classes for common operations
   object UpdateSeqNr {
-    type Type[F[_]] = (Key, PartitionOffset, Instant, SeqNr) => F[Unit]
 
-    def apply[F[_] : FlatMap : CassandraSession](name: TableName): F[Type[F]] = {
+    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[UpdateSeqNr[F]] = {
       val query =
         s"""
            |UPDATE ${ name.toCql }
@@ -159,11 +164,12 @@ object MetadataStatement {
     }
   }
 
-  // TODO add classes for common operations
-  object UpdateDeleteTo {
-    type Type[F[_]] = (Key, PartitionOffset, Instant, SeqNr) => F[Unit]
 
-    def apply[F[_] : FlatMap : CassandraSession](name: TableName): F[Type[F]] = {
+  type UpdateDeleteTo[F[_]] = (Key, PartitionOffset, Instant, SeqNr) => F[Unit]
+
+  object UpdateDeleteTo {
+
+    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[UpdateDeleteTo[F]] = {
       val query =
         s"""
            |UPDATE ${ name.toCql }

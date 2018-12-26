@@ -241,16 +241,16 @@ object ReplicatedCassandra {
 
 
   final case class Statements[F[_]](
-    insertRecords : JournalStatement.InsertRecords.Type[F],
-    deleteRecords : JournalStatement.DeleteRecords.Type[F],
-    insertMetadata: MetadataStatement.Insert.Type[F],
-    selectMetadata: MetadataStatement.Select.Type[F],
-    updateMetadata: MetadataStatement.Update.Type[F],
-    updateSeqNr   : MetadataStatement.UpdateSeqNr.Type[F],
-    updateDeleteTo: MetadataStatement.UpdateDeleteTo.Type[F],
-    insertPointer : PointerStatement.Insert.Type[F],
-    selectPointers: PointerStatement.SelectPointers.Type[F],
-    selectTopics  : PointerStatement.SelectTopics.Type[F])
+    insertRecords : JournalStatement.InsertRecords[F],
+    deleteRecords : JournalStatement.DeleteRecords[F],
+    insertMetadata: MetadataStatement.Insert[F],
+    selectMetadata: MetadataStatement.Select[F],
+    updateMetadata: MetadataStatement.Update[F],
+    updateSeqNr   : MetadataStatement.UpdateSeqNr[F],
+    updateDeleteTo: MetadataStatement.UpdateDeleteTo[F],
+    insertPointer : PointerStatement.Insert[F],
+    selectPointers: PointerStatement.SelectPointers[F],
+    selectTopics  : PointerStatement.SelectTopics[F])
 
   object Statements {
 
@@ -258,16 +258,16 @@ object ReplicatedCassandra {
 
     def of[F[_] : FlatMap : Par : CassandraSession](tables: Tables): F[Statements[F]] = {
       val statements = (
-        JournalStatement.InsertRecords[F](tables.journal),
-        JournalStatement.DeleteRecords[F](tables.journal),
-        MetadataStatement.Insert[F](tables.metadata),
-        MetadataStatement.Select[F](tables.metadata),
-        MetadataStatement.Update[F](tables.metadata),
-        MetadataStatement.UpdateSeqNr[F](tables.metadata),
-        MetadataStatement.UpdateDeleteTo[F](tables.metadata),
-        PointerStatement.Insert[F](tables.pointer),
-        PointerStatement.SelectPointers[F](tables.pointer),
-        PointerStatement.SelectTopics[F](tables.pointer))
+        JournalStatement.InsertRecords.of[F](tables.journal),
+        JournalStatement.DeleteRecords.of[F](tables.journal),
+        MetadataStatement.Insert.of[F](tables.metadata),
+        MetadataStatement.Select.of[F](tables.metadata),
+        MetadataStatement.Update.of[F](tables.metadata),
+        MetadataStatement.UpdateSeqNr.of[F](tables.metadata),
+        MetadataStatement.UpdateDeleteTo.of[F](tables.metadata),
+        PointerStatement.Insert.of[F](tables.pointer),
+        PointerStatement.SelectPointers.of[F](tables.pointer),
+        PointerStatement.SelectTopics.of[F](tables.pointer))
       Par[F].mapN(statements)(Statements[F])
     }
   }

@@ -24,10 +24,11 @@ object PointerStatement {
   }
 
 
-  object Insert {
-    type Type[F[_]] = PointerInsert => F[Unit]
+  type Insert[F[_]] = PointerInsert => F[Unit]
 
-    def apply[F[_] : FlatMap : CassandraSession](name: TableName): F[Type[F]] = {
+  object Insert {
+
+    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[Insert[F]] = {
       val query =
         s"""
            |INSERT INTO ${ name.toCql } (topic, partition, offset, created, updated)
@@ -50,11 +51,13 @@ object PointerStatement {
     }
   }
 
+
+  type Update[F[_]] = PointerUpdate => F[Unit]
+
   // TODO not used
   object Update {
-    type Type[F[_]] = PointerUpdate => F[Unit]
 
-    def apply[F[_] : FlatMap : CassandraSession](name: TableName): F[Type[F]] = {
+    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[Update[F]] = {
       val query =
         s"""
            |INSERT INTO ${ name.toCql } (topic, partition, offset, updated)
@@ -77,11 +80,12 @@ object PointerStatement {
   }
 
 
+  type Select[F[_]] = PointerSelect => F[Option[Offset]]
+
   // TODO not used
   object Select {
-    type Type[F[_]] = PointerSelect => F[Option[Offset]]
 
-    def apply[F[_] : FlatMap : CassandraSession](name: TableName): F[Type[F]] = {
+    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[Select[F]] = {
       val query =
         s"""
            |SELECT offset FROM ${ name.toCql }
@@ -108,10 +112,12 @@ object PointerStatement {
     }
   }
 
-  object SelectPointers {
-    type Type[F[_]] = Topic => F[TopicPointers]
 
-    def apply[F[_] : FlatMap : CassandraSession](name: TableName): F[Type[F]] = {
+  type SelectPointers[F[_]] = Topic => F[TopicPointers]
+
+  object SelectPointers {
+
+    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[SelectPointers[F]] = {
       val query =
         s"""
            |SELECT partition, offset FROM ${ name.toCql }
@@ -144,10 +150,12 @@ object PointerStatement {
     }
   }
 
-  object SelectTopics {
-    type Type[F[_]] = () => F[List[Topic]]
 
-    def apply[F[_] : FlatMap : CassandraSession](name: TableName): F[Type[F]] = {
+  type SelectTopics[F[_]] = () => F[List[Topic]]
+
+  object SelectTopics {
+
+    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[SelectTopics[F]] = {
       val query = s"""SELECT DISTINCT topic FROM ${ name.toCql }""".stripMargin
       for {
         prepared <- query.prepare
