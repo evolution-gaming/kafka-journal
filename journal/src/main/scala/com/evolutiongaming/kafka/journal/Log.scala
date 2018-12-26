@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal
 import cats.Applicative
 import cats.effect.Sync
 import com.evolutiongaming.safeakka.actor.ActorLog
+import org.slf4j.Logger
 
 trait Log[F[_]] { self =>
 
@@ -52,7 +53,41 @@ object Log {
   def empty[F[_] : Applicative]: Log[F] = empty(Applicative[F].unit)
 
 
-  def apply[F[_] : IO2](log: ActorLog): Log[F] = new Log[F] {
+  def apply[F[_] : Sync](logger: Logger): Log[F] = new Log[F] {
+
+    def debug(msg: => String) = {
+      Sync[F].delay {
+        if (logger.isDebugEnabled) logger.debug(msg)
+      }
+    }
+
+    def info(msg: => String) = {
+      Sync[F].delay {
+        if (logger.isInfoEnabled) logger.info(msg)
+      }
+    }
+
+    def warn(msg: => String) = {
+      Sync[F].delay {
+        if (logger.isWarnEnabled) logger.warn(msg)
+      }
+    }
+
+    def error(msg: => String) = {
+      Sync[F].delay {
+        if (logger.isErrorEnabled) logger.error(msg)
+      }
+    }
+
+    def error(msg: => String, cause: Throwable) = {
+      Sync[F].delay {
+        if (logger.isErrorEnabled) logger.error(msg, cause)
+      }
+    }
+  }
+
+
+  def async[F[_] : IO2](log: ActorLog): Log[F] = new Log[F] {
 
     def debug(msg: => String) = IO2[F].effect {
       log.debug(msg)

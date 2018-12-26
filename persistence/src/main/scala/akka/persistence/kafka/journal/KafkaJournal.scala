@@ -106,7 +106,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
 
       {
         val actorLog = ActorLog(system, EventualJournal.getClass)
-        implicit val log = Log(actorLog)
+        implicit val log = Log.async(actorLog)
         val journal = {
           val journal = EventualCassandra(cassandraConfig, actorLog, origin)
           EventualJournal(journal)

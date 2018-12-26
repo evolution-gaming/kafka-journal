@@ -34,7 +34,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
 
   lazy val actorLog = ActorLog(system, getClass)
 
-  implicit lazy val log = Log[Async](actorLog)
+  implicit lazy val log = Log.async[Async](actorLog)
 
   val timeout = 30.seconds
 

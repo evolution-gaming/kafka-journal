@@ -261,7 +261,7 @@ object TopicReplicator {
       topic = topic,
       consumer = consumer,
       journal = journal,
-      log = Log(actorLog),
+      log = Log.async(actorLog),
       stopRef = stopRef,
       metrics = metrics)
   }

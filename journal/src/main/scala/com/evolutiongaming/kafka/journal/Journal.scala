@@ -157,7 +157,7 @@ object Journal {
 
     val actorLog = ActorLog(system, Journal.getClass)
 
-    implicit val log = Log[Async](actorLog)
+    implicit val log = Log.async[Async](actorLog)
 
     val journal = apply(actorLog, origin, producer, topicConsumer, eventual, pollTimeout, closeTimeout, headCache)
     Journal(journal)
