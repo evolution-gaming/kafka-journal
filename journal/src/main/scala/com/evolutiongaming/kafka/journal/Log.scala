@@ -1,9 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.implicits._
 import cats.Applicative
 import cats.effect.Sync
 import com.evolutiongaming.safeakka.actor.ActorLog
-import org.slf4j.Logger
+import org.slf4j.{Logger, LoggerFactory}
 
 trait Log[F[_]] { self =>
 
@@ -86,6 +87,16 @@ object Log {
     }
   }
 
+
+  def of[F[_] : Sync](subject: Class[_]): F[Log[F]] = {
+    val name = subject.getName.stripSuffix("$")
+    for {
+      logger <- Sync[F].delay { LoggerFactory.getLogger(name) }
+    } yield {
+      apply[F](logger)
+    }
+  }
+  
 
   def async[F[_] : IO2](log: ActorLog): Log[F] = new Log[F] {
 

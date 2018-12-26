@@ -27,7 +27,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
       }
       val replicated = {
         val journal = journals.replicated
-        val withLogging = ReplicatedJournal(journal)
+        val withLogging = ReplicatedJournal[Async](journal, log)
         val metrics = ReplicatedJournal.Metrics.empty
         val withMetrics = ReplicatedJournal(withLogging, metrics)
         Replicated(withMetrics, key, timestamp)

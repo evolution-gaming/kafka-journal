@@ -4,7 +4,7 @@ import cats.effect._
 import cats.effect.concurrent.{Ref, Semaphore}
 import cats.implicits._
 
-trait SerialVar[F[_], A] {
+trait SerialRef[F[_], A] {
 
   def get: F[A]
 
@@ -13,14 +13,14 @@ trait SerialVar[F[_], A] {
   def update(f: A => F[A]): F[Unit]
 }
 
-object SerialVar {
+object SerialRef {
 
-  def of[F[_] : Concurrent, A](value: A): F[SerialVar[F, A]] = {
+  def of[F[_] : Concurrent, A](value: A): F[SerialRef[F, A]] = {
     for {
       s <- Semaphore[F](1)
       r <- Ref[F].of(value)
     } yield {
-      new SerialVar[F, A] {
+      new SerialRef[F, A] {
 
         def get = r.get
 

@@ -2,218 +2,282 @@ package com.evolutiongaming.kafka.journal.replicator
 
 
 import akka.actor.ActorSystem
-import com.evolutiongaming.scassandra.{CreateCluster, Session}
-import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.concurrent.async.AsyncConverters._
-import com.evolutiongaming.concurrent.serially.SeriallyAsync
-import com.evolutiongaming.kafka.journal.AsyncHelper._
+import cats.FlatMap
+import cats.effect._
+import cats.implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.ReplicatedCassandra
-import com.evolutiongaming.safeakka.actor.ActorLog
+import com.evolutiongaming.kafka.journal.util.CatsHelper._
+import com.evolutiongaming.kafka.journal.util.ClockHelper._
+import com.evolutiongaming.kafka.journal.util._
+import com.evolutiongaming.scassandra.{CreateCluster, Session}
+import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Topic, Bytes => _}
 
-import scala.compat.Platform
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.control.NonFatal
 
-trait Replicator {
+// TODO TEST
+trait Replicator[F[_]] {
 
-  def running(): Boolean
+  def done: F[Boolean]
 
-  def stop(): Async[Unit]
+  def close: F[Unit]
 }
 
 object Replicator {
 
-  def apply(
+  def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture](
     system: ActorSystem,
-    metrics: Metrics[Async] = Metrics.empty[Async]): Async[Replicator] = safe {
+    metrics: Metrics[F] = Metrics.empty[F]): F[Replicator[F]] = {
 
     val config = {
       val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.replicator")
       ReplicatorConfig(config)
     }
-    val cassandra = CreateCluster(config.cassandra.client)
-    val ecBlocking = system.dispatchers.lookup(config.blockingDispatcher)
-    implicit val ec = system.dispatcher
+
     for {
-      session <- cassandra.connect().async
+      cassandra  <- Sync[F].delay { CreateCluster(config.cassandra.client) }
+      ecBlocking <- Sync[F].delay { system.dispatchers.lookup(config.blockingDispatcher) }
+      session    <- FromFuture[F].apply { cassandra.connect() }
+      replicator <- {
+        implicit val session1 = session
+        of1[F](config, ecBlocking, metrics)
+      }
     } yield {
-      val replicator = apply(config, ecBlocking, metrics)(system, ec, session: Session)
+      new Replicator[F] {
 
-      new Replicator {
-
-        def running() = {
-          replicator.running()
+        def done = {
+          replicator.done
         }
 
-        def stop() = {
+        def close = {
           for {
-            _ <- replicator.stop()
-            _ <- cassandra.close().async
+            _ <- replicator.close
+            _ <- FromFuture[F].apply { cassandra.close() }
           } yield {}
         }
       }
     }
   }
 
-  def apply(
+  def of1[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture](
     config: ReplicatorConfig,
     ecBlocking: ExecutionContext,
-    metrics: Metrics[Async])(implicit
-    system: ActorSystem,
-    ec: ExecutionContext,
-    session: Session): Replicator = {
+    metrics: Metrics[F])(implicit
+    session: Session): F[Replicator[F]] = {
+
+    implicit val clock = TimerOf[F].clock
 
     val journal = {
-      val journal = ReplicatedCassandra(config.cassandra)
-      val actorLog = ActorLog(system, ReplicatedCassandra.getClass)
-      implicit val log = Log.async(actorLog)
-      val logging = ReplicatedJournal(journal)
-      metrics.journal.fold(logging) { ReplicatedJournal(logging, _) }
+      for {
+        journal <- ReplicatedCassandra.of[F](config.cassandra)
+        log     <- Log.of[F](ReplicatedCassandra.getClass)
+      } yield {
+        val logging = ReplicatedJournal[F](journal, log)
+        metrics.journal.fold(logging) { ReplicatedJournal(logging, _) }
+      }
     }
 
-    apply(config, ecBlocking, journal, metrics)
+    for {
+      journal <- journal
+      replicator <- {
+        implicit val journal1 = journal
+        of2(config, ecBlocking, metrics)
+      }
+    } yield {
+      replicator
+    }
   }
 
-  def apply(
+  def of2[F[_] : Concurrent : Timer : Par : FromFuture : ReplicatedJournal](
     config: ReplicatorConfig,
     ecBlocking: ExecutionContext,
-    journal: ReplicatedJournal[Async],
-    metrics: Metrics[Async])(implicit
-    system: ActorSystem,
-    ec: ExecutionContext): Replicator = {
+    metrics: Metrics[F]): F[Replicator[F]] = {
 
     val consumerOf = (config: ConsumerConfig) => {
-      val consumer = Consumer[Id, Bytes](config, ecBlocking)
-      metrics.consumer.fold(consumer) { Consumer(consumer, _) }
+      for {
+        consumer <- Sync[F].delay { skafka.consumer.Consumer[Id, Bytes](config, ecBlocking) }
+      } yield {
+        metrics.consumer.fold(consumer) { skafka.consumer.Consumer(consumer, _) }
+      }
+    }
+
+    val consumerOf1 = consumerOf.andThen { consumer =>
+      for {
+        consumer <- consumer
+      } yield {
+        Consumer[F](consumer)
+      }
     }
 
     val createReplicator = (topic: Topic) => {
       val prefix = config.consumer.groupId getOrElse "journal-replicator"
       val groupId = s"$prefix-$topic"
-      val consumerConfig = config.consumer.copy(groupId = Some(groupId))
-      val consumer = consumerOf(consumerConfig)
-      val kafkaConsumer = KafkaConsumer(consumer, config.pollTimeout)
-      TopicReplicator(
-        topic = topic,
-        journal = journal,
-        consumer = kafkaConsumer,
-        metrics = metrics.replicator.fold(TopicReplicator.Metrics.empty) { _.apply(topic) })
+      val consumerConfig = config.consumer.copy(
+        groupId = Some(groupId),
+        autoOffsetReset = AutoOffsetReset.Earliest,
+        autoCommit = false)
+
+      val c = for {
+        consumer <- consumerOf(consumerConfig)
+      } yield {
+        TopicReplicator.Consumer[F](consumer, config.pollTimeout)
+      }
+
+      implicit val metrics1 = metrics.replicator.fold(TopicReplicator.Metrics.empty[F]) { _.apply(topic) }
+
+      TopicReplicator.of[F](topic = topic, consumer = c)
     }
 
-    apply(config, consumerOf, createReplicator)
+    of(config, consumerOf1, createReplicator)
   }
 
-  def apply(
+  def of[F[_] : Concurrent : Timer : Par : FromFuture](
     config: ReplicatorConfig,
-    consumerOf: ConsumerConfig => Consumer[Id, Bytes, Future],
-    topicReplicatorOf: Topic => TopicReplicator[Async])(implicit
-    system: ActorSystem, ec: ExecutionContext): Replicator = {
+    consumerOf: ConsumerConfig => F[Consumer[F]],
+    topicReplicatorOf: Topic => F[TopicReplicator[F]]): F[Replicator[F]] = {
 
-    val log = ActorLog(system, Replicator.getClass)
-    val serially = SeriallyAsync()
-    val stateVar = AsyncVar[State](State.Running.Empty, serially)
-    val consumer = consumerOf(config.consumer)
+    implicit val clock: Clock[F] = TimerOf[F].clock
 
-    def discoverTopics(): Unit = {
-      val timestamp = Platform.currentTime
-      val result = stateVar.updateAsync {
-        case State.Stopped        => State.Stopped.async
-        case state: State.Running =>
-          for {
-            topics <- consumer.listTopics().async
-          } yield {
-            val duration = Platform.currentTime - timestamp
-            val topicsNew = for {
-              (topic, _) <- topics -- state.replicators.keySet
-              if config.topicPrefixes.exists(topic.startsWith)
-            } yield {
-              topic
-            }
+    sealed trait State
 
-            val result = {
-              if (topicsNew.isEmpty) state
-              else {
-                def topicsStr = topicsNew.toSeq.sorted.mkString(",")
+    object State {
 
-                log.info(s"discover new topics: $topicsStr in ${ duration }ms")
+      def closed: State = Closed
 
-                val replicatorsNew = for {
-                  topic <- topicsNew
-                } yield {
-                  val replicator = topicReplicatorOf(topic)
-                  (topic, replicator)
-                }
+      final case class Running(replicators: Map[Topic, TopicReplicator[F]] = Map.empty) extends State
 
-                state.copy(replicators = state.replicators ++ replicatorsNew)
+      case object Closed extends State
+    }
+
+    for {
+      log       <- Log.of[F](Replicator.getClass)
+      stateRef  <- SerialRef.of[F, State](State.Running())
+      consumer  <- consumerOf(config.consumer) // TODO should not be used directly!
+      discovery <- Concurrent[F].start {
+        val discovery = for {
+          state  <- stateRef.get
+          result <- state match {
+            case State.Closed     => ().some.pure[F]
+            case _: State.Running => for {
+              start  <- ClockOf[F].millis
+              topics <- consumer.topics
+              result <- stateRef.modify[Option[Unit]] {
+                case State.Closed         => (State.closed, ().some).pure[F]
+                case state: State.Running =>
+                  for {
+                    end       <- ClockOf[F].millis
+                    duration   = end - start
+                    topicsNew  = {
+                      for {
+                        topic <- topics -- state.replicators.keySet
+                        if config.topicPrefixes exists topic.startsWith
+                      } yield topic
+                    }.toList
+                    result    <- {
+                      if (topicsNew.isEmpty) (state, none[Unit]).pure[F]
+                      else {
+                        for {
+                          _ <- log.info {
+                            val topics = topicsNew.mkString(",")
+                            s"discover new topics: $topics in ${ duration }ms"
+                          }
+                          replicators <- Par[F].unorderedSequence {
+                            for {
+                              topic <- topicsNew
+                            } yield for {
+                              replicator <- topicReplicatorOf(topic)
+                            } yield {
+                              (topic, replicator)
+                            }
+                          }
+                        } yield {
+                          val state1 = state.copy(replicators = state.replicators ++ replicators)
+                          (state1, none[Unit])
+                        }
+                      }
+                    }
+                  } yield result
               }
-            }
-            system.scheduler.scheduleOnce(config.topicDiscoveryInterval) {
-              if (stateVar.value() != State.Stopped) discoverTopics()
-            }
-            result
+            } yield result
           }
-      }
-      result.onFailure { failure => log.error(s"discoverTopics failed $failure", failure) }
-    }
+          _ <- result.fold {
+            TimerOf[F].sleep(config.topicDiscoveryInterval)
+          } {
+            _.pure[F]
+          }
+        } yield result
 
-    discoverTopics()
-
-    new Replicator {
-
-      def running() = {
-        stateVar.value() match {
-          case State.Stopped        => false
-          case state: State.Running => state.replicators.values.forall(_.done().value().isEmpty)
+        val discoveryLoop = discovery.untilDefinedM
+        
+        Sync[F].guarantee(discoveryLoop)(consumer.close).onError { case error =>
+          log.error(s"topics discovery failed with $error", error)
         }
       }
+    } yield {
 
-      def stop() = {
+      new Replicator[F] {
 
-        def shutdownReplicators() = {
-          stateVar.updateAsync {
-            case State.Stopped        => State.Stopped.async
-            case state: State.Running =>
-              val shutdowns = state.replicators.values.toList.map(_.shutdown())
-              for {_ <- Async.foldUnit(shutdowns)} yield State.Stopped
+        def done = {
+          stateRef.get.map {
+            case State.Closed     => false
+            case _: State.Running => true
           }
         }
 
-        for {
-          _ <- shutdownReplicators()
-          _ <- consumer.close().async
-        } yield {}
+        def close = {
+          for {
+            _ <- stateRef.update {
+              case State.Closed         =>
+                State.closed.pure[F]
+              case state: State.Running =>
+                Par[F].unorderedFoldMap(state.replicators.values)(_.close).as(State.closed)
+            }
+            _ <- discovery.join
+          } yield {}
+        }
       }
     }
   }
 
-  private def safe[T](f: => Async[T]): Async[T] = {
-    try f catch { case NonFatal(failure) => Async.failed(failure) }
+
+  trait Consumer[F[_]] {
+
+    def topics: F[Set[Topic]]
+
+    def close: F[Unit]
   }
 
+  object Consumer {
 
-  sealed trait State
+    def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
-  object State {
+    def apply[F[_] : FlatMap : FromFuture](consumer: skafka.consumer.Consumer[Id, Bytes, Future]): Consumer[F] = {
 
-    final case class Running(replicators: Map[Topic, TopicReplicator[Async]] = Map.empty) extends State
+      new Consumer[F] {
 
-    object Running {
-      val Empty: Running = Running()
+        def topics = {
+          for {
+            infos <- FromFuture[F].apply { consumer.listTopics() }
+          } yield {
+            infos.keySet
+          }
+        }
+
+        def close = {
+          FromFuture[F].apply { consumer.close() }
+        }
+      }
     }
-
-
-    case object Stopped extends State
   }
 
 
   final case class Metrics[F[_]](
     journal: Option[ReplicatedJournal.Metrics[F]] = None,
-    replicator: Option[Topic => TopicReplicator.Metrics[F]] = None,
-    consumer: Option[Consumer.Metrics] = None)
+    replicator: Option[Topic => TopicReplicator.Metrics[F]] = None, // TODO F ?
+    consumer: Option[skafka.consumer.Consumer.Metrics] = None)
 
   object Metrics {
     def empty[F[_]]: Metrics[F] = Metrics()

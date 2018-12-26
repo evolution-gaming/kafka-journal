@@ -26,24 +26,30 @@ object Retry {
     call: F[A],
     applicativeError: ApplicativeError[F, E]): F[A] = {
 
-    def apply(status: Status, decide: Decide): F[A] = {
-      applicativeError.handleErrorWith(call) { e =>
+    type S = (Status, Decide)
+
+    (Status.Empty, strategy.decide).tailRecM[F, A] { case (status, decide) =>
+
+      def retry(e: E): F[Either[S, A]] = {
         val decision = decide(status)
         val details = Details(decision, status.retries)
         for {
           _ <- onError(e, details)
           a <- decision match {
-            case StrategyDecision.GiveUp               => applicativeError.raiseError(e)
-            case StrategyDecision.Retry(delay, decide) => for {
-              _ <- Sleep[F].apply(delay)
-              a <- apply(status.inc, decide)
-            } yield a
+            case StrategyDecision.GiveUp =>
+              for {a <- applicativeError.raiseError[A](e)} yield a.asRight[S]
+
+            case StrategyDecision.Retry(delay, decide) =>
+              for {_ <- Sleep[F].apply(delay)} yield (status.inc, decide).asLeft[A]
           }
         } yield a
       }
-    }
 
-    apply(Status.Empty, strategy.decide)
+      for {
+        result <- applicativeError.attempt(call)
+        result <- result.fold(retry, a => applicativeError.pure(a.asRight[(Status, Decide)]))
+      } yield result
+    }
   }
 
 

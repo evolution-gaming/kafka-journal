@@ -7,6 +7,7 @@ import cats.implicits._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal.cache.Cache
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
+import com.evolutiongaming.kafka.journal.retry.Retry
 import com.evolutiongaming.kafka.journal.util.EitherHelper._
 import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
@@ -28,6 +29,7 @@ import scala.util.control.NoStackTrace
   * 5. Add Metrics
   * 6. Clearly handle cases when topic is not yet created, but requests are coming
   * 7. Keep 1000 last seen entries, even if replicated.
+  * 8. Fail headcache when background tasks failed
   */
 trait HeadCache[F[_]] {
   import HeadCache._
@@ -158,7 +160,7 @@ object HeadCache {
           val entry = PartitionEntry(partition = partition, offset = offset, entries = Map.empty, trimmed = None)
           (entry.partition, entry)
         }
-        state <- SerialVar.of(State[F](entries, List.empty))
+        state <- SerialRef.of(State[F](entries, List.empty))
         consuming <- {
 
           def entriesOf(records: Map[TopicPartition, List[ConsumerRecord[Id, Bytes]]]) = {
@@ -216,7 +218,7 @@ object HeadCache {
 
           Concurrent[F].start {
 
-            ConsumeTopic(
+            val consuming = ConsumeTopic(
               topic = topic,
               from = pointers.values,
               pollTimeout = config.pollTimeout,
@@ -272,6 +274,10 @@ object HeadCache {
                 }
               }
             }
+
+            consuming.onError { case error =>
+              Log[F].error(s"consuming failed with $error", error)
+            }
           }
         }
 
@@ -287,7 +293,9 @@ object HeadCache {
               _ <- if (removed > 0) Log[F].debug(s"remove $removed entries") else ().pure[F]
             } yield {}
           }
-          cleaning.foreverM[Unit]
+          cleaning.foreverM[Unit].onError { case error =>
+            Log[F].error(s"cleaning failed with $error", error) // TODO fail head cache
+          }
         }
       } yield {
         val cancel = for {
@@ -300,7 +308,7 @@ object HeadCache {
     def apply[F[_] : Concurrent : Eventual : Monad : Log](
       topic: Topic,
       cancel: F[Unit],
-      stateRef: SerialVar[F, State[F]]): TopicCache[F] = {
+      stateRef: SerialRef[F, State[F]]): TopicCache[F] = {
 
       // TODO handle case with replicator being down
 
@@ -469,9 +477,9 @@ object HeadCache {
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
 
-    def io(consumer: skafka.consumer.Consumer[String, Bytes, Future])(implicit fromFuture: FromFuture[IO]): Consumer[IO] = {
+    def apply[F[_] : Sync : FromFuture](consumer: skafka.consumer.Consumer[String, Bytes, Future]): Consumer[F] = {
 
-      new Consumer[IO] {
+      new Consumer[F] {
 
         def assign(topic: Topic, partitions: Nel[Partition]) = {
           val topicPartitions = for {
@@ -479,13 +487,13 @@ object HeadCache {
           } yield {
             TopicPartition(topic = topic, partition)
           }
-          IO.delay {
+          Sync[F].delay {
             consumer.assign(topicPartitions)
           }
         }
 
         def seek(topic: Topic, offsets: Map[Partition, Offset]) = {
-          IO.delay {
+          Sync[F].delay {
             for {
               (partition, offset) <- offsets
             } {
@@ -496,14 +504,14 @@ object HeadCache {
         }
 
         def poll(timeout: FiniteDuration) = {
-          fromFuture {
+          FromFuture[F].apply {
             consumer.poll(timeout)
           }
         }
 
         def partitions(topic: Topic) = {
           for {
-            infos <- fromFuture {
+            infos <- FromFuture[F].apply {
               consumer.partitions(topic)
             }
           } yield for {
@@ -513,7 +521,7 @@ object HeadCache {
           }
         }
 
-        def close = IO.delay { consumer.close() }
+        def close = Sync[F].delay { consumer.close() }
       }
     }
 
@@ -588,5 +596,86 @@ object HeadCache {
   }
 
 
-  object ClosedException extends RuntimeException("HeadCache is closed") with NoStackTrace
+  object ConsumeTopic {
+
+    def apply[F[_] : Sync : Timer : Log](
+      topic: Topic,
+      from: Map[Partition, Offset],
+      pollTimeout: FiniteDuration,
+      consumer: F[Consumer[F]])(
+      onRecords: ConsumerRecords[String, Bytes] => F[Unit]): F[Unit] = {
+
+      def poll(implicit consumer: Consumer[F]): F[Unit] = {
+        for {
+          records <- consumer.poll(pollTimeout)
+          _       <- {
+            if (records.values.isEmpty) {
+              ().pure[F]
+            } else {
+              onRecords(records)
+            }
+          }
+        } yield {}
+      }
+
+      def partitionsOf(implicit consumer: Consumer[F]): F[Nel[Partition]] = {
+
+        val onError = (error: Throwable, details: Retry.Details) => {
+          import Retry.Decision
+
+          def prefix = s"consumer.partitions($topic) failed"
+
+          details.decision match {
+            case Decision.Retry(delay) =>
+              Log[F].error(s"$prefix, retrying in $delay, error: $error")
+
+            case Decision.GiveUp =>
+              val retries = details.retries
+              Log[F].error(s"$prefix, retried $retries times, error: $error", error)
+          }
+        }
+
+        val partitions = for {
+          partitions <- consumer.partitions(topic)
+          partitions <- Nel.opt(partitions) match {
+            case Some(a) => a.pure[F]
+            case None    => NoPartitionsException.raiseError[F, Nel[Partition]]
+          }
+        } yield partitions
+
+        implicit val clock = TimerOf[F].clock
+
+        for {
+          rng        <- Rng.fromClock[F]
+          strategy    = {
+            val strategy = Retry.Strategy.fullJitter(3.millis, rng)
+            Retry.Strategy.cap(300.millis, strategy)
+          }
+          partitions <- Retry(strategy, onError)(partitions)
+        } yield {
+          partitions
+        }
+      }
+
+      Consumer.resource(consumer).use { implicit consumer =>
+        for {
+          partitions <- partitionsOf
+          _          <- consumer.assign(topic, partitions)
+          offsets     = for {
+            partition <- partitions
+          } yield {
+            val offset = from.get(partition).fold(Offset.Min)(_ + 1l)
+            (partition, offset)
+          }
+          _          <- consumer.seek(topic, offsets.toMap)
+          _          <- poll.foreverM[Unit]
+        } yield {}
+      }
+    }
+  }
+
+
+  case object NoPartitionsException extends RuntimeException("No partitions") with NoStackTrace
+
+  case object ClosedException extends RuntimeException("HeadCache is closed") with NoStackTrace
 }

@@ -2,76 +2,30 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
+import cats.effect.Concurrent
 import cats.implicits._
-import cats.effect.IO
 import cats.{Applicative, FlatMap, Monad}
-import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.util.{FromFuture, Par}
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
+import com.evolutiongaming.kafka.journal.util.{FromFuture, Par, ToFuture}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.Session
 import com.evolutiongaming.skafka.Topic
 
 import scala.annotation.tailrec
-import scala.concurrent.ExecutionContext
-import scala.concurrent.duration._
 
 
 // TODO redesign EventualDbCassandra so it can hold state and called recursively
 // TODO test ReplicatedCassandra
 object ReplicatedCassandra {
 
-  def apply(
+  def of[F[_] : Concurrent : FromFuture : ToFuture : Par](
     config: EventualCassandraConfig)(implicit
-    ec: ExecutionContext,
-    session: Session): ReplicatedJournal[Async] = {
-
-    async(config).get(30.seconds) // TODO
-  }
-
-  def async(
-    config: EventualCassandraConfig)(implicit
-    ec: ExecutionContext,
-    session: Session): Async[ReplicatedJournal[Async]] = {
-
-    implicit val cs = IO.contextShift(ec)
-    implicit val fromFuture = FromFuture.io
-    implicit val cassandraSession = CassandraSession(CassandraSession[IO](session), config.retries)
-    implicit val cassandraSync = CassandraSync[IO](config.schema, Some(Origin("replicator")))
-
-    val journal = for {
-      journal <- of[IO](config)
-    } yield {
-      new ReplicatedJournal[Async] {
-
-        def topics = journal.topics.unsafeToFuture().async
-
-        def pointers(topic: Topic) = {
-          journal.pointers(topic).unsafeToFuture().async
-        }
-
-        def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[ReplicatedEvent]) = {
-          journal.append(key, partitionOffset, timestamp, events).unsafeToFuture().async
-        }
-
-        def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = {
-          journal.delete(key, partitionOffset, timestamp, deleteTo, origin).unsafeToFuture().async
-        }
-
-        def save(topic: Topic, pointers: TopicPointers, timestamp: Instant) = {
-          journal.save(topic, pointers, timestamp).unsafeToFuture().async
-        }
-      }
-    }
-
-    Async(journal.unsafeToFuture())
-  }
-
-
-  def of[F[_] : Monad : Par : CassandraSession : CassandraSync](config: EventualCassandraConfig): F[ReplicatedJournal[F]] = {
+    session: Session): F[ReplicatedJournal[F]] = {
+    
+    implicit val cassandraSession = CassandraSession[F](CassandraSession[F](session), config.retries)
+    implicit val cassandraSync = CassandraSync[F](config.schema, Some(Origin("replicator"/*TODO*/)))
     for {
       tables     <- CreateSchema[F](config.schema)
       statements <- Statements.of[F](tables)

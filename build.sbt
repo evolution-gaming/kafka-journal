@@ -60,7 +60,6 @@ lazy val journal = (project in file("journal")
     hostname,
     scassandra,
     `cassandra-sync`,
-    serially,
     `scala-java8-compat`,
     Cats.core,
     Cats.effect)))
@@ -97,7 +96,7 @@ lazy val replicator = (Project("replicator", file("replicator"))
   settings (name := "kafka-journal-replicator")
   settings commonSettings
   dependsOn (journal % "test->test;compile->compile", `eventual-cassandra`)
-  settings (libraryDependencies ++= Seq(serially)))
+  settings (libraryDependencies ++= Seq()))
 
 lazy val `eventual-cassandra` = (project in file("eventual-cassandra")
   settings (name := "kafka-journal-eventual-cassandra")

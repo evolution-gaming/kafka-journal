@@ -1,13 +1,13 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.kernel.CommutativeMonoid
-import cats.{Applicative, Apply, CommutativeApplicative, Parallel, UnorderedFoldable}
+import cats.{Applicative, CommutativeApplicative, Parallel, UnorderedFoldable, UnorderedTraverse}
 
 import scala.collection.immutable
 
 object CatsHelper {
 
-  implicit def commutativeMonoidF[F[_] : CommutativeApplicative, A: CommutativeMonoid]: CommutativeMonoid[F[A]] = {
+  /*implicit def commutativeMonoidF[F[_] : CommutativeApplicative, A: CommutativeMonoid]: CommutativeMonoid[F[A]] = {
     new CommutativeMonoid[F[A]] {
       def empty = {
         Applicative[F].pure(CommutativeMonoid[A].empty)
@@ -17,7 +17,7 @@ object CatsHelper {
         Apply[F].map2(x, y)(CommutativeMonoid[A].combine)
       }
     }
-  }
+  }*/
 
 
   implicit class CommutativeApplicativeOps(val self: CommutativeApplicative.type) extends AnyVal {
@@ -50,8 +50,14 @@ object CatsHelper {
       P.sequential(fb)
     }
 
-    def unorderedFold[T[_] : UnorderedFoldable, M[_], F[_], A: CommutativeMonoid](ta: T[M[A]])(implicit P: Parallel[M, F]): M[A] = {
-      unorderedFoldMap(ta)(identity)
+    def unorderedFold[T[_] : UnorderedFoldable, M[_], F[_], A: CommutativeMonoid](tma: T[M[A]])(implicit P: Parallel[M, F]): M[A] = {
+      unorderedFoldMap(tma)(identity)
+    }
+
+    def unorderedSequence[T[_]: UnorderedTraverse, M[_], F[_], A](tma: T[M[A]])(implicit P: Parallel[M, F]): M[T[A]] = {
+      implicit val commutativeApplicative = P.commutativeApplicative
+      val fta: F[T[A]] = UnorderedTraverse[T].unorderedTraverse(tma)(P.parallel.apply)
+      P.sequential(fta)
     }
   }
 

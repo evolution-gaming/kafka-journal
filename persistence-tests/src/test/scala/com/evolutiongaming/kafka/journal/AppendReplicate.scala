@@ -5,10 +5,12 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import akka.persistence.kafka.journal.KafkaJournalConfig
-import com.evolutiongaming.concurrent.async.Async
+import cats.effect.IO
+import cats.implicits._
 import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, ReplicatedJournal}
 import com.evolutiongaming.kafka.journal.replicator.{ReplicatorConfig, TopicReplicator}
+import com.evolutiongaming.kafka.journal.util.FromFuture
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.CommonConfig
@@ -23,6 +25,9 @@ object AppendReplicate extends App {
   val topic = "append-replicate"
   implicit val system = ActorSystem(topic)
   implicit val ec = system.dispatcher
+  implicit val contextShift = IO.contextShift(ec)
+  implicit val fromFuture = FromFuture.lift[IO]
+  implicit val timer = IO.timer(ec)
   val log = ActorLog(system, getClass)
 
   val commonConfig = CommonConfig(
@@ -75,20 +80,26 @@ object AppendReplicate extends App {
   }
 
   def consume(nr: Int) = {
-    val topicReplicator = {
-      val config = {
-        val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.replicator")
-        ReplicatorConfig(config)
-      }
-      val ecBlocking = system.dispatchers.lookup(config.blockingDispatcher)
-      val consumer = Consumer[Id, Bytes](config.consumer, ecBlocking)
-      val kafkaConsumer = KafkaConsumer[Async](consumer, config.pollTimeout)
-      TopicReplicator(topic, ReplicatedJournal.empty, kafkaConsumer, TopicReplicator.Metrics.empty)
+    val config = {
+      val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.replicator")
+      ReplicatorConfig(config)
     }
+    val ecBlocking = system.dispatchers.lookup(config.blockingDispatcher)
+    val consumer = Consumer[Id, Bytes](config.consumer, ecBlocking)
+    val kafkaConsumer = TopicReplicator.Consumer[IO](consumer, config.pollTimeout)
 
-    val result = topicReplicator.done().future
-    result.failed.foreach { failure => log.error(s"consumer $nr: $failure", failure) }
-    result
+    implicit val replicatedJournal = ReplicatedJournal.empty[IO]
+    implicit val metrics = TopicReplicator.Metrics.empty[IO]
+
+    val done = for {
+      replicator <- TopicReplicator.of[IO](topic, kafkaConsumer.pure[IO])
+      done <- replicator.done
+    } yield done
+
+    val future = done.unsafeToFuture()
+
+    future.failed.foreach { failure => log.error(s"consumer $nr: $failure", failure) }
+    future
   }
 
   val producers = for {

@@ -67,7 +67,7 @@ object FromFuture {
     }
   }
 
-  def io(implicit F: Async[IO]): FromFuture[IO] = lift[IO]
+//  def io(implicit F: Async[IO]): FromFuture[IO] = lift[IO]
 
-  implicit def ioFromFuture(implicit F: Async[IO]): FromFuture[IO] = io
+//  implicit def ioFromFuture(implicit F: Async[IO]): FromFuture[IO] = io
 }

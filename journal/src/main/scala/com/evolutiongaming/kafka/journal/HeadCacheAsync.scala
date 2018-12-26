@@ -33,10 +33,10 @@ object HeadCacheAsync {
     }
 
     val consumer = {
-      // TODO
       val config = consumerConfig.copy(
         autoOffsetReset = AutoOffsetReset.Earliest,
-        groupId = None)
+        groupId = None,
+        autoCommit = false)
 
       for {
         consumer <- ContextShift[IO].evalOn(ecBlocking) {
@@ -45,14 +45,14 @@ object HeadCacheAsync {
           }
         }
       } yield {
-        HeadCache.Consumer.io(consumer)
+        HeadCache.Consumer[IO](consumer)
       }
     }
 
     val headCache = {
       val headCache = HeadCache.of[IO](
         consumer = consumer).unsafeToFuture()
-      Await.result(headCache, 10.seconds) // TODO
+      Await.result(headCache, 30.seconds) // TODO
     }
 
     new HeadCache[com.evolutiongaming.concurrent.async.Async] {

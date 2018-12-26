@@ -10,6 +10,7 @@ object Dependencies {
 
   val `akka-serialization` = "com.evolutiongaming" %% "akka-serialization" % "0.0.3"
 
+  // TODO
   val async = "com.evolutiongaming" %% "async" % "0.0.3"
 
   val `play-json` = "com.typesafe.play" %% "play-json" % "2.6.13"
@@ -20,8 +21,7 @@ object Dependencies {
 
   val `future-helper` = "com.evolutiongaming" %% "future-helper" % "1.0.3"
 
-  val serially = "com.evolutiongaming" %% "serially" % "1.0.4"
-
+  // TODO ?
   val `safe-actor` = "com.evolutiongaming" %% "safe-actor" % "2.0.3"
 
   val `kafka-launcher` = "com.evolutiongaming" %% "kafka-launcher" % "0.0.5"

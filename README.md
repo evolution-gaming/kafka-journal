@@ -52,7 +52,7 @@ Hence we recommend to configure access rights accordingly.
 
 ### Kafka exceptions in logs
 
-Kafka client is tend to log some exceptions at `error` level, however in reality those are harmless in case of operation retried successfully
+Kafka client is tend to log some exceptions at `error` level, however in reality those are harmless in case of operation retried successfully.
 Retriable exceptions usually extend [RetriableException](https://github.com/apache/kafka/blob/trunk/clients/src/main/java/org/apache/kafka/common/errors/RetriableException.java)
 
 Here is the list of known error logs you may ignore:

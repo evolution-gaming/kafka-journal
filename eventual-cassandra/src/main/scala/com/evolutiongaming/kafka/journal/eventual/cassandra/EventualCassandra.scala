@@ -39,7 +39,7 @@ object EventualCassandra {
     session: Session): Async[EventualJournal[Async]] = {
 
     implicit val cs = IO.contextShift(ec)
-    implicit val fromFuture = FromFuture.io
+    implicit val fromFuture = FromFuture.lift[IO]
     implicit val cassandraSession = CassandraSession(CassandraSession[IO](session), config.retries)
     implicit val cassandraSync = CassandraSync[IO](config.schema, origin)
     implicit val log = Log.fromLog[IO](actorLog)
