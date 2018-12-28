@@ -221,19 +221,26 @@ object Replicator {
       new Replicator[F] {
 
         def done = {
+          /*for {
+            state <- stateRef.get
+            _ <- state match {
+              case State.Closed         => ().pure[F]
+              case state: State.Running => Par[F].unorderedFoldMap(state.replicators.values)(_.done)
+            }
+            _ <- discovery.join
+          } yield {}*/
+          // TODO implement properly
           stateRef.get.map {
-            case State.Closed     => false
-            case _: State.Running => true
+            case State.Closed     => true
+            case _: State.Running => false
           }
         }
 
         def close = {
           for {
             _ <- stateRef.update {
-              case State.Closed         =>
-                State.closed.pure[F]
-              case state: State.Running =>
-                Par[F].unorderedFoldMap(state.replicators.values)(_.close).as(State.closed)
+              case State.Closed         => State.closed.pure[F]
+              case state: State.Running => Par[F].unorderedFoldMap(state.replicators.values)(_.close).as(State.closed)
             }
             _ <- discovery.join
           } yield {}
