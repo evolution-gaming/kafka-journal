@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.Applicative
-import cats.effect.{Async, IO, Sync}
+import cats.effect.{Async, Sync}
 import cats.implicits._
 import com.google.common.util.concurrent.{FutureCallback, Futures, ListenableFuture}
 

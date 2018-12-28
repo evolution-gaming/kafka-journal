@@ -2,7 +2,8 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import io.prometheus.client.CollectorRegistry
 import org.scalatest.{FunSuite, Matchers}
-import cats._
+import cats.Id
+import com.evolutiongaming.kafka.journal.util.TestSync
 
 class ReplicatedJournalMetricsSpec extends FunSuite with Matchers {
   import ReplicatedJournalMetricsSpec._
@@ -45,7 +46,8 @@ class ReplicatedJournalMetricsSpec extends FunSuite with Matchers {
 
   private trait Scope {
     val registry = new CollectorRegistry()
-    val metrics = ReplicatedJournalMetrics[Id](registry, prefix)
+    implicit val syncId = TestSync[Id](cats.catsInstancesForId)
+    val metrics = ReplicatedJournalMetrics.of[Id](registry, prefix)
   }
 }
 

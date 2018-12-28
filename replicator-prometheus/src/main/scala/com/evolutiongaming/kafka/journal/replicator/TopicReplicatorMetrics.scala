@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import com.evolutiongaming.kafka.journal.IO2
+import cats.effect.Sync
 import com.evolutiongaming.kafka.journal.replicator.MetricsHelper._
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
 import com.evolutiongaming.skafka.Topic
@@ -8,116 +8,119 @@ import io.prometheus.client.{CollectorRegistry, Summary}
 
 object TopicReplicatorMetrics {
 
-  def apply[F[_]: IO2](
+  def of[F[_] : Sync](
     registry: CollectorRegistry,
-    prefix: String = "replicator"): Topic => TopicReplicator.Metrics[F] = {
+    prefix: String = "replicator"): F[Topic => TopicReplicator.Metrics[F]] = {
 
-    val replicationSummary = Summary.build()
-      .name(s"${ prefix }_replication_latency")
-      .help("Replication latency in seconds")
-      .labelNames("topic", "partition", "type")
-      .quantile(0.5, 0.05)
-      .quantile(0.9, 0.05)
-      .quantile(0.95, 0.01)
-      .quantile(0.99, 0.005)
-      .register(registry)
+    Sync[F].delay {
 
-    val deliverySummary = Summary.build()
-      .name(s"${ prefix }_delivery_latency")
-      .help("Delivery latency in seconds")
-      .labelNames("topic", "partition", "type")
-      .quantile(0.5, 0.05)
-      .quantile(0.9, 0.05)
-      .quantile(0.95, 0.01)
-      .quantile(0.99, 0.005)
-      .register(registry)
+      val replicationSummary = Summary.build()
+        .name(s"${ prefix }_replication_latency")
+        .help("Replication latency in seconds")
+        .labelNames("topic", "partition", "type")
+        .quantile(0.5, 0.05)
+        .quantile(0.9, 0.05)
+        .quantile(0.95, 0.01)
+        .quantile(0.99, 0.005)
+        .register(registry)
 
-    val eventsSummary = Summary.build()
-      .name(s"${ prefix }_events")
-      .help("Number of events replicated")
-      .labelNames("topic", "partition")
-      .register(registry)
+      val deliverySummary = Summary.build()
+        .name(s"${ prefix }_delivery_latency")
+        .help("Delivery latency in seconds")
+        .labelNames("topic", "partition", "type")
+        .quantile(0.5, 0.05)
+        .quantile(0.9, 0.05)
+        .quantile(0.95, 0.01)
+        .quantile(0.99, 0.005)
+        .register(registry)
 
-    val bytesSummary = Summary.build()
-      .name(s"${ prefix }_bytes")
-      .help("Number of bytes replicated")
-      .labelNames("topic", "partition")
-      .register(registry)
+      val eventsSummary = Summary.build()
+        .name(s"${ prefix }_events")
+        .help("Number of events replicated")
+        .labelNames("topic", "partition")
+        .register(registry)
 
-    val recordsSummary = Summary.build()
-      .name(s"${ prefix }_records")
-      .help("Number of kafka records processed")
-      .labelNames("topic", "partition")
-      .register(registry)
+      val bytesSummary = Summary.build()
+        .name(s"${ prefix }_bytes")
+        .help("Number of bytes replicated")
+        .labelNames("topic", "partition")
+        .register(registry)
 
-    val roundSummary = Summary.build()
-      .name(s"${ prefix }_round_duration")
-      .help("Replication round duration")
-      .labelNames("topic")
-      .quantile(0.5, 0.05)
-      .quantile(0.9, 0.05)
-      .quantile(0.95, 0.01)
-      .quantile(0.99, 0.005)
-      .register(registry)
+      val recordsSummary = Summary.build()
+        .name(s"${ prefix }_records")
+        .help("Number of kafka records processed")
+        .labelNames("topic", "partition")
+        .register(registry)
 
-    val roundRecordsSummary = Summary.build()
-      .name(s"${ prefix }_round_records")
-      .help("Number of kafka records processed in round")
-      .labelNames("topic")
-      .register(registry)
+      val roundSummary = Summary.build()
+        .name(s"${ prefix }_round_duration")
+        .help("Replication round duration")
+        .labelNames("topic")
+        .quantile(0.5, 0.05)
+        .quantile(0.9, 0.05)
+        .quantile(0.95, 0.01)
+        .quantile(0.99, 0.005)
+        .register(registry)
 
-    topic: Topic => {
+      val roundRecordsSummary = Summary.build()
+        .name(s"${ prefix }_round_records")
+        .help("Number of kafka records processed in round")
+        .labelNames("topic")
+        .register(registry)
 
-      def observeMeasurements(name: String, measurements: Measurements) = {
+      topic: Topic => {
 
-        val partition = measurements.partition.toString
+        def observeMeasurements(name: String, measurements: Measurements) = {
 
-        replicationSummary
-          .labels(topic, partition, name)
-          .observe(measurements.replicationLatency.toSeconds)
+          val partition = measurements.partition.toString
 
-        deliverySummary
-          .labels(topic, partition, name)
-          .observe(measurements.deliveryLatency.toSeconds)
+          replicationSummary
+            .labels(topic, partition, name)
+            .observe(measurements.replicationLatency.toSeconds)
 
-        recordsSummary
-          .labels(topic, partition)
-          .observe(measurements.records.toDouble)
-      }
+          deliverySummary
+            .labels(topic, partition, name)
+            .observe(measurements.deliveryLatency.toSeconds)
 
-      new TopicReplicator.Metrics[F] {
-
-        def append(events: Int, bytes: Int, measurements: Measurements) = {
-          IO2[F].effect {
-            val partition = measurements.partition.toString
-
-            observeMeasurements("append", measurements)
-
-            eventsSummary
-              .labels(topic, partition)
-              .observe(events.toDouble)
-
-            bytesSummary
-              .labels(topic, partition)
-              .observe(bytes.toDouble)
-          }
+          recordsSummary
+            .labels(topic, partition)
+            .observe(measurements.records.toDouble)
         }
 
-        def delete(measurements: Measurements) = {
-          IO2[F].effect {
-            observeMeasurements("delete", measurements)
+        new TopicReplicator.Metrics[F] {
+
+          def append(events: Int, bytes: Int, measurements: Measurements) = {
+            Sync[F].delay {
+              val partition = measurements.partition.toString
+
+              observeMeasurements("append", measurements)
+
+              eventsSummary
+                .labels(topic, partition)
+                .observe(events.toDouble)
+
+              bytesSummary
+                .labels(topic, partition)
+                .observe(bytes.toDouble)
+            }
           }
-        }
 
-        def round(duration: Long, records: Int) = {
-          IO2[F].effect {
-            roundSummary
-              .labels(topic)
-              .observe(duration.toSeconds)
+          def delete(measurements: Measurements) = {
+            Sync[F].delay {
+              observeMeasurements("delete", measurements)
+            }
+          }
 
-            roundRecordsSummary
-              .labels(topic)
-              .observe(records.toDouble)
+          def round(duration: Long, records: Int) = {
+            Sync[F].delay {
+              roundSummary
+                .labels(topic)
+                .observe(duration.toSeconds)
+
+              roundRecordsSummary
+                .labels(topic)
+                .observe(records.toDouble)
+            }
           }
         }
       }

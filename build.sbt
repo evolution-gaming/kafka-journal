@@ -115,7 +115,7 @@ lazy val `journal-prometheus` = (project in file("journal-prometheus")
 lazy val `replicator-prometheus` = (project in file("replicator-prometheus")
   settings (name := "kafka-journal-replicator-prometheus")
   settings commonSettings
-  dependsOn replicator
+  dependsOn (replicator % "test->test;compile->compile")
   settings (libraryDependencies ++= Seq(
     prometheus,
     Skafka.prometheus,
