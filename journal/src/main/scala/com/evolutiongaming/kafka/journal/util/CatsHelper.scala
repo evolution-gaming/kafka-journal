@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal.util
 
+import cats.effect.Bracket
 import cats.kernel.CommutativeMonoid
 import cats.{Applicative, CommutativeApplicative, Parallel, UnorderedFoldable, UnorderedTraverse}
 
@@ -62,6 +63,20 @@ object CatsHelper {
   }
 
 
+  implicit class BracketIdOps[F[_], E](val self: Bracket[F, E]) extends AnyVal {
+
+    def redeem[A, B](fa: F[A])(recover: E => B, map: A => B): F[B] = {
+      val fb = self.map(fa)(map)
+      self.handleError(fb)(recover)
+    }
+
+    def redeemWith[A, B](fa: F[A])(recover: E => F[B], flatMap: A => F[B]): F[B] = {
+      val fb = self.flatMap(fa)(flatMap)
+      self.handleErrorWith(fb)(recover)
+    }
+  }
+
+
   implicit val FoldableIterable: UnorderedFoldable[Iterable] = new UnorderedFoldable[Iterable] {
 
     def unorderedFoldMap[A, B](fa: Iterable[A])(f: A => B)(implicit F: CommutativeMonoid[B]) = {
@@ -74,6 +89,18 @@ object CatsHelper {
 
     def unorderedFoldMap[A, B](fa: immutable.Iterable[A])(f: A => B)(implicit F: CommutativeMonoid[B]) = {
       fa.foldLeft(F.empty)((b, a) => F.combine(b, f(a)))
+    }
+  }
+
+
+  implicit class FOps[F[_], A](val self: F[A]) extends AnyVal {
+
+    def redeem[B, E](recover: E => B, map: A => B)(implicit bracket: Bracket[F, E]): F[B] = {
+      bracket.redeem(self)(recover, map)
+    }
+
+    def redeemWith[B, E](recover: E => F[B], flatMap: A => F[B])(implicit bracket: Bracket[F, E]): F[B] = {
+      bracket.redeemWith(self)(recover, flatMap)
     }
   }
 }

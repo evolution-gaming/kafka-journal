@@ -13,11 +13,11 @@ import com.evolutiongaming.skafka.producer.Producer
 import org.scalatest.{Matchers, Suite}
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 
 trait JournalSuit extends ActorSuite with Matchers { self: Suite =>
 
-  private implicit lazy val ec: ExecutionContext = system.dispatcher
+  private implicit lazy val ec: ExecutionContextExecutor = system.dispatcher
 
   lazy val config: KafkaJournalConfig = {
     val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.persistence.journal")
@@ -32,7 +32,7 @@ trait JournalSuit extends ActorSuite with Matchers { self: Suite =>
     (eventual, cassandra)
   }
 
-  lazy val ecBlocking: ExecutionContext = system.dispatchers.lookup(config.blockingDispatcher)
+  lazy val ecBlocking: ExecutionContextExecutor = system.dispatchers.lookup(config.blockingDispatcher)
 
   lazy val producer: Producer[Future] = Producer(config.journal.producer, ecBlocking)
 

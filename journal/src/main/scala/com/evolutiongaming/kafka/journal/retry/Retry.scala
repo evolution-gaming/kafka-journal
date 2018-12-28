@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal.retry
 
-import cats._
-import cats.effect.Timer
+import cats.effect.{Bracket, Timer}
 import cats.implicits._
+import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.{Rng, TimerOf}
 
 import scala.concurrent.duration.FiniteDuration
@@ -11,20 +11,11 @@ object Retry {
 
   type Decide = Status => StrategyDecision
 
-  def apply[F[_] : Sleep : FlatMap, A, E](
+  def apply[F[_] : Sleep, A, E](
     strategy: Strategy,
     onError: (E, Details) => F[Unit])(
     call: F[A])(implicit
-    applicativeError: ApplicativeError[F, E]): F[A] = {
-
-    apply1(strategy, onError, call, applicativeError)
-  }
-
-  private def apply1[F[_] : Sleep : FlatMap, A, E](
-    strategy: Strategy,
-    onError: (E, Details) => F[Unit],
-    call: F[A],
-    applicativeError: ApplicativeError[F, E]): F[A] = {
+    bracket: Bracket[F, E]): F[A] = {
 
     type S = (Status, Decide)
 
@@ -37,7 +28,7 @@ object Retry {
           _ <- onError(e, details)
           a <- decision match {
             case StrategyDecision.GiveUp =>
-              for {a <- applicativeError.raiseError[A](e)} yield a.asRight[S]
+              for {a <- e.raiseError[F, A]} yield a.asRight[S]
 
             case StrategyDecision.Retry(delay, decide) =>
               for {_ <- Sleep[F].apply(delay)} yield (status.inc, decide).asLeft[A]
@@ -45,10 +36,7 @@ object Retry {
         } yield a
       }
 
-      for {
-        result <- applicativeError.attempt(call)
-        result <- result.fold(retry, a => applicativeError.pure(a.asRight[(Status, Decide)]))
-      } yield result
+      call.redeemWith(retry, _.asRight[(Status, Decide)].pure[F])
     }
   }
 

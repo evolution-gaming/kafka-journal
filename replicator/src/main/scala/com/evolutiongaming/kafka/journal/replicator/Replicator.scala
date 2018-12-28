@@ -25,7 +25,7 @@ trait Replicator[F[_]] {
 
   def close: F[Unit]
 }
-
+ 
 object Replicator {
 
   def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture](
@@ -81,7 +81,7 @@ object Replicator {
     }
 
     for {
-      journal <- journal
+      journal    <- journal
       replicator <- {
         implicit val journal1 = journal
         of2(config, ecBlocking, metrics)
@@ -120,7 +120,7 @@ object Replicator {
         autoOffsetReset = AutoOffsetReset.Earliest,
         autoCommit = false)
 
-      val c = for {
+      val consumer = for {
         consumer <- consumerOf(consumerConfig)
       } yield {
         TopicReplicator.Consumer[F](consumer, config.pollTimeout)
@@ -128,7 +128,7 @@ object Replicator {
 
       implicit val metrics1 = metrics.replicator.fold(TopicReplicator.Metrics.empty[F]) { _.apply(topic) }
 
-      TopicReplicator.of[F](topic = topic, consumer = c)
+      TopicReplicator.of[F](topic = topic, consumer = consumer)
     }
 
     of(config, consumerOf1, createReplicator)

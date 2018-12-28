@@ -5,10 +5,9 @@ import cats.effect.{Async, Sync}
 import cats.implicits._
 import com.google.common.util.concurrent.{FutureCallback, Futures, ListenableFuture}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
 
-// TODO not pass as argument, use Async instead
 trait FromFuture[F[_]] {
 
   def apply[A](future: => Future[A])(): F[A]
@@ -18,23 +17,10 @@ trait FromFuture[F[_]] {
 
 object FromFuture {
 
-  private val immediate: ExecutionContext = new ExecutionContext {
-
-    def execute(r: Runnable) = r.run()
-
-    def reportFailure(e: Throwable) = {
-      Thread.getDefaultUncaughtExceptionHandler match {
-        case null => e.printStackTrace()
-        case h    => h.uncaughtException(Thread.currentThread(), e)
-      }
-    }
-  }
-
-  
   def apply[F[_]](implicit f: FromFuture[F]): FromFuture[F] = f
   
 
-  def lift[F[_] : Applicative : Async]: FromFuture[F] = {
+  def lift[F[_] : Applicative : Async](implicit ec: ExecutionContextExecutor): FromFuture[F] = {
     
     new FromFuture[F] {
 
@@ -43,7 +29,9 @@ object FromFuture {
           future <- Sync[F].delay(future)
           result <- future.value.fold {
             Async[F].async[A] { callback =>
-              future.onComplete(a => callback(a.toEither))(immediate)
+              future.onComplete { a =>
+                callback(a.toEither)
+              }
             }
           } {
             case Success(a) => a.pure[F]
@@ -60,14 +48,10 @@ object FromFuture {
               def onSuccess(a: A) = callback(a.asRight)
               def onFailure(t: Throwable) = callback(t.asLeft)
             }
-            Futures.addCallback(future, futureCallback)
+            Futures.addCallback(future, futureCallback, ec)
           }
         } yield result
       }
     }
   }
-
-//  def io(implicit F: Async[IO]): FromFuture[IO] = lift[IO]
-
-//  implicit def ioFromFuture(implicit F: Async[IO]): FromFuture[IO] = io
 }

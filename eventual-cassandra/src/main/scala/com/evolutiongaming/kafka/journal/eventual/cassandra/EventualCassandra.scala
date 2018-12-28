@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.implicits._
 import cats.effect.IO
-import cats.{Monad}
+import cats.Monad
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.FoldWhile._
@@ -13,7 +13,7 @@ import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.scassandra.Session
 import com.evolutiongaming.skafka.Topic
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
 
 
@@ -24,7 +24,7 @@ object EventualCassandra {
     config: EventualCassandraConfig,
     actorLog: ActorLog,
     origin: Option[Origin])(implicit
-    ec: ExecutionContext,
+    ec: ExecutionContextExecutor,
     session: Session): EventualJournal[Async] = {
 
     async(config, actorLog, origin).get(30.seconds) // TODO
@@ -35,7 +35,7 @@ object EventualCassandra {
     config: EventualCassandraConfig,
     actorLog: ActorLog,
     origin: Option[Origin])(implicit
-    ec: ExecutionContext,
+    ec: ExecutionContextExecutor,
     session: Session): Async[EventualJournal[Async]] = {
 
     implicit val cs = IO.contextShift(ec)

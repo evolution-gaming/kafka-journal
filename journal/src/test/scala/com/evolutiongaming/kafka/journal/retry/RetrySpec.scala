@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal.retry
 
 import cats._
 import cats.data._
+import cats.effect.{Bracket, ExitCase}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.retry.Retry._
 import com.evolutiongaming.kafka.journal.util.Rng
@@ -98,46 +99,7 @@ object RetrySpec {
 
   object DataState {
 
-    implicit val ApplicativeErrorImpl: ApplicativeError[DataState, Error] = new ApplicativeError[DataState, Error] {
-
-      def raiseError[A](e: Error) = {
-        DataState { s => (s, e.asLeft) }
-      }
-
-      def handleErrorWith[A](fa: DataState[A])(f: Error => DataState[A]) = {
-        DataState { s =>
-          val (s1, a) = fa.run(s)
-          a.fold(a => f(a).run(s1), a => (s1, a.asRight))
-        }
-      }
-
-      def pure[A](a: A) = DataState { s => (s, a.asRight) }
-
-      def ap[A, B](ff: DataState[A => B])(fa: DataState[A]) = {
-        DataState { s =>
-          val (s1, f) = ff.run(s)
-          val (s2, a) = fa.run(s1)
-          val b = for {
-            f <- f
-            a <- a
-          } yield {
-            f(a)
-          }
-          (s2, b)
-        }
-      }
-    }
-
-
-    implicit val SleepImpl: Sleep[DataState] = new Sleep[DataState] {
-
-      def apply(duration: FiniteDuration) = {
-        DataState { s => (s.sleep(duration), ().asRight) }
-      }
-    }
-
-
-    implicit val FlatMapImpl: FlatMap[DataState] = new FlatMap[DataState] {
+    implicit val BracketImpl: Bracket[DataState, Error] = new Bracket[DataState, Error] {
 
       def flatMap[A, B](fa: DataState[A])(f: A => DataState[B]) = {
         DataState[B] { s =>
@@ -161,11 +123,39 @@ object RetrySpec {
         DataState { s => apply(s, a) }
       }
 
-      def map[A, B](fa: DataState[A])(f: A => B) = {
-        DataState[B] { s =>
-          val (s1, a) = fa.run(s)
-          (s1, a.map(f))
+      def bracketCase[A, B](acquire: DataState[A])(use: A => DataState[B])(release: (A, ExitCase[Error]) => DataState[Error]) = {
+        DataState { s =>
+          val (s1, a) = acquire.run(s)
+          a match {
+            case Left(a)  => (s1, a.asLeft[B])
+            case Right(a) =>
+              val (s2, b) = use(a).run(s1)
+              val exitCase = b.fold(ExitCase.error, _ => ExitCase.complete)
+              release(a, exitCase)
+              (s2, b)
+          }
         }
+      }
+
+      def raiseError[A](e: Error) = {
+        DataState { s => (s, e.asLeft) }
+      }
+
+      def handleErrorWith[A](fa: DataState[A])(f: Error => DataState[A]) = {
+        DataState { s =>
+          val (s1, a) = fa.run(s)
+          a.fold(a => f(a).run(s1), a => (s1, a.asRight))
+        }
+      }
+
+      def pure[A](a: A) = DataState { s => (s, a.asRight) }
+    }
+
+
+    implicit val SleepImpl: Sleep[DataState] = new Sleep[DataState] {
+
+      def apply(duration: FiniteDuration) = {
+        DataState { s => (s.sleep(duration), ().asRight) }
       }
     }
 

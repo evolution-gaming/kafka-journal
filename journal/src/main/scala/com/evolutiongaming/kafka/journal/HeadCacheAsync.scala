@@ -4,24 +4,22 @@ import cats.effect.{ContextShift, IO}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.util.FromFuture
-import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, Consumer, ConsumerConfig}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 
 object HeadCacheAsync {
 
   def apply(
     consumerConfig: ConsumerConfig,
     eventualJournal: EventualJournal[Async],
-    ecBlocking: ExecutionContext,
-    actorLog: ActorLog)(implicit ec: ExecutionContext): HeadCache[com.evolutiongaming.concurrent.async.Async] = {
+    ecBlocking: ExecutionContext)(implicit
+    ec: ExecutionContextExecutor): HeadCache[com.evolutiongaming.concurrent.async.Async] = {
 
     implicit val cs = IO.contextShift(ec)
     implicit val timer = IO.timer(ec)
-    implicit val log = Log.fromLog[IO](actorLog)
     implicit val fromFuture: FromFuture[IO] = FromFuture.lift[IO]
     implicit val eventual = new HeadCache.Eventual[IO] {
 
@@ -50,9 +48,18 @@ object HeadCacheAsync {
     }
 
     val headCache = {
-      val headCache = HeadCache.of[IO](
-        consumer = consumer).unsafeToFuture()
-      Await.result(headCache, 30.seconds) // TODO
+      val headCache = for {
+        log       <- Log.of[IO](HeadCache.getClass)
+        headCache <- {
+          implicit val log1 = log
+          HeadCache.of[IO](consumer = consumer)
+        }
+      } yield headCache
+
+      val timeout = 1.minute
+      headCache.unsafeRunTimed(timeout) getOrElse {
+        sys.error(s"headCache.unsafeRunTimed timed out in $timeout") // TODO
+      }
     }
 
     new HeadCache[com.evolutiongaming.concurrent.async.Async] {
