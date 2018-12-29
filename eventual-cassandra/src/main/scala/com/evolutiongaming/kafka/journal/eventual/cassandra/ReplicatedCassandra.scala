@@ -144,7 +144,7 @@ object ReplicatedCassandra {
 
             def segment(seqNr: SeqNr) = SegmentNr(seqNr, segmentSize)
 
-            Par[F].unorderedFold {
+            Par[F].fold {
               for {
                 segment <- segment(from) to segment(deleteTo) // TODO maybe add ability to create Seq[Segment] out of SeqRange ?
               } yield {
@@ -172,7 +172,7 @@ object ReplicatedCassandra {
 
 
       def save(topic: Topic, topicPointers: TopicPointers, timestamp: Instant) = {
-        Par[F].unorderedFold {
+        Par[F].fold {
           for {
             (partition, offset) <- topicPointers.values
           } yield {

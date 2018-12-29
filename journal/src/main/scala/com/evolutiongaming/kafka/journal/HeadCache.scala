@@ -6,17 +6,16 @@ import cats.effect.concurrent.{Deferred, Ref}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal.cache.Cache
-import com.evolutiongaming.kafka.journal.eventual.TopicPointers
+import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.retry.Retry
 import com.evolutiongaming.kafka.journal.util.EitherHelper._
 import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
+import com.evolutiongaming.concurrent.async
 
-import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 
@@ -103,7 +102,7 @@ object HeadCache {
             }
             c <- c
             v <- c.values
-            _ <- Par[F].unorderedFoldMap(v.values) { v =>
+            _ <- Par[F].foldMap(v.values) { v =>
               for {
                 v <- v.get
                 _ <- v.close
@@ -299,7 +298,7 @@ object HeadCache {
         }
       } yield {
         val cancel = for {
-          _ <- Par[F].unorderedFoldMap(List(consuming, cleaning)) { _.cancel }
+          _ <- Par[F].foldMap(List(consuming, cleaning)) { _.cancel }
         } yield {}
         apply(topic, cancel, state)
       }
@@ -476,9 +475,7 @@ object HeadCache {
 
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
-
-    def apply[F[_] : Sync : FromFuture](consumer: skafka.consumer.Consumer[String, Bytes, Future]): Consumer[F] = {
-
+    def apply[F[_] : Applicative](consumer: KafkaConsumer[F])(implicit monoid: Monoid[F[Unit]]): Consumer[F] = {
       new Consumer[F] {
 
         def assign(topic: Topic, partitions: Nel[Partition]) = {
@@ -487,41 +484,21 @@ object HeadCache {
           } yield {
             TopicPartition(topic = topic, partition)
           }
-          Sync[F].delay {
-            consumer.assign(topicPartitions)
-          }
+          consumer.assign(topicPartitions)
         }
 
         def seek(topic: Topic, offsets: Map[Partition, Offset]) = {
-          Sync[F].delay {
-            for {
-              (partition, offset) <- offsets
-            } {
-              val topicPartition = TopicPartition(topic = topic, partition = partition)
-              consumer.seek(topicPartition, offset)
-            }
+          offsets.foldMap { case (partition, offset) =>
+            val topicPartition = TopicPartition(topic = topic, partition = partition)
+            consumer.seek(topicPartition, offset)
           }
         }
 
-        def poll(timeout: FiniteDuration) = {
-          FromFuture[F].apply {
-            consumer.poll(timeout)
-          }
-        }
+        def poll(timeout: FiniteDuration) = consumer.poll(timeout)
 
-        def partitions(topic: Topic) = {
-          for {
-            infos <- FromFuture[F].apply {
-              consumer.partitions(topic)
-            }
-          } yield for {
-            info <- infos
-          } yield {
-            info.partition
-          }
-        }
+        def partitions(topic: Topic) = consumer.partitions(topic)
 
-        def close = Sync[F].delay { consumer.close() }
+        def close = consumer.close
       }
     }
 
@@ -586,7 +563,18 @@ object HeadCache {
   }
 
   object Eventual {
+
     def apply[F[_]](implicit F: Eventual[F]): Eventual[F] = F
+
+    def apply[F[_]: FromFuture](eventualJournal: EventualJournal[async.Async]): Eventual[F] = {
+      new HeadCache.Eventual[F] {
+        def pointers(topic: Topic) = {
+          FromFuture[F].apply {
+            eventualJournal.pointers(topic).future
+          }
+        }
+      }
+    }
 
     def empty[F[_] : Applicative]: Eventual[F] = const(Applicative[F].pure(TopicPointers.Empty))
 

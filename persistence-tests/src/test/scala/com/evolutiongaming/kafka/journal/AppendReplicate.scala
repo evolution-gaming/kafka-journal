@@ -14,7 +14,6 @@ import com.evolutiongaming.kafka.journal.util.FromFuture
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.CommonConfig
-import com.evolutiongaming.skafka.consumer.Consumer
 import com.evolutiongaming.skafka.producer.{Acks, Producer, ProducerConfig}
 
 import scala.concurrent.Future
@@ -84,15 +83,15 @@ object AppendReplicate extends App {
       val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.replicator")
       ReplicatorConfig(config)
     }
-    val ecBlocking = system.dispatchers.lookup(config.blockingDispatcher)
-    val consumer = Consumer[Id, Bytes](config.consumer, ecBlocking)
-    val kafkaConsumer = TopicReplicator.Consumer[IO](consumer, config.pollTimeout)
+    val blocking = system.dispatchers.lookup(config.blockingDispatcher)
 
     implicit val replicatedJournal = ReplicatedJournal.empty[IO]
     implicit val metrics = TopicReplicator.Metrics.empty[IO]
 
     val done = for {
-      replicator <- TopicReplicator.of[IO](topic, kafkaConsumer.pure[IO])
+      kafkaConsumer <- KafkaConsumer.of[IO](config.consumer, blocking)
+      consumer       = TopicReplicator.Consumer[IO](kafkaConsumer, config.pollTimeout)
+      replicator    <- TopicReplicator.of[IO](topic, consumer.pure[IO])
       done <- replicator.done
     } yield done
 

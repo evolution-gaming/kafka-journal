@@ -2,7 +2,6 @@ package com.evolutiongaming.kafka.journal.replicator
 
 
 import akka.actor.ActorSystem
-import cats.FlatMap
 import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.kafka.journal._
@@ -16,7 +15,7 @@ import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Topic, Bytes => _}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 // TODO TEST
 trait Replicator[F[_]] {
@@ -28,7 +27,7 @@ trait Replicator[F[_]] {
  
 object Replicator {
 
-  def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture](
+  def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift](
     system: ActorSystem,
     metrics: Metrics[F] = Metrics.empty[F]): F[Replicator[F]] = {
 
@@ -62,7 +61,7 @@ object Replicator {
     }
   }
 
-  def of1[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture](
+  def of1[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift](
     config: ReplicatorConfig,
     ecBlocking: ExecutionContext,
     metrics: Metrics[F])(implicit
@@ -91,20 +90,16 @@ object Replicator {
     }
   }
 
-  def of2[F[_] : Concurrent : Timer : Par : FromFuture : ReplicatedJournal](
+  def of2[F[_] : Concurrent : Timer : Par : FromFuture : ReplicatedJournal : ContextShift](
     config: ReplicatorConfig,
-    ecBlocking: ExecutionContext,
+    blocking: ExecutionContext,
     metrics: Metrics[F]): F[Replicator[F]] = {
 
-    val consumerOf = (config: ConsumerConfig) => {
-      for {
-        consumer <- Sync[F].delay { skafka.consumer.Consumer[Id, Bytes](config, ecBlocking) }
-      } yield {
-        metrics.consumer.fold(consumer) { skafka.consumer.Consumer(consumer, _) }
-      }
+    val kafkaConsumerOf = (config: ConsumerConfig) => {
+      KafkaConsumer.of[F](config, blocking, metrics.consumer)
     }
 
-    val consumerOf1 = consumerOf.andThen { consumer =>
+    val consumerOf = kafkaConsumerOf.andThen { consumer =>
       for {
         consumer <- consumer
       } yield {
@@ -112,7 +107,7 @@ object Replicator {
       }
     }
 
-    val createReplicator = (topic: Topic) => {
+    val topicReplicatorOf = (topic: Topic) => {
       val prefix = config.consumer.groupId getOrElse "journal-replicator"
       val groupId = s"$prefix-$topic"
       val consumerConfig = config.consumer.copy(
@@ -121,9 +116,9 @@ object Replicator {
         autoCommit = false)
 
       val consumer = for {
-        consumer <- consumerOf(consumerConfig)
+        kafkaConsumer <- kafkaConsumerOf(consumerConfig)
       } yield {
-        TopicReplicator.Consumer[F](consumer, config.pollTimeout)
+        TopicReplicator.Consumer[F](kafkaConsumer, config.pollTimeout)
       }
 
       implicit val metrics1 = metrics.replicator.fold(TopicReplicator.Metrics.empty[F]) { _.apply(topic) }
@@ -131,7 +126,7 @@ object Replicator {
       TopicReplicator.of[F](topic = topic, consumer = consumer)
     }
 
-    of(config, consumerOf1, createReplicator)
+    of(config, consumerOf, topicReplicatorOf)
   }
 
   def of[F[_] : Concurrent : Timer : Par : FromFuture](
@@ -184,7 +179,7 @@ object Replicator {
                             val topics = topicsNew.mkString(",")
                             s"discover new topics: $topics in ${ duration }ms"
                           }
-                          replicators <- Par[F].unorderedSequence {
+                          replicators <- Par[F].sequence {
                             for {
                               topic <- topicsNew
                             } yield for {
@@ -240,7 +235,7 @@ object Replicator {
           for {
             _ <- stateRef.update {
               case State.Closed         => State.closed.pure[F]
-              case state: State.Running => Par[F].unorderedFoldMap(state.replicators.values)(_.close).as(State.closed)
+              case state: State.Running => Par[F].foldMap(state.replicators.values)(_.close).as(State.closed)
             }
             _ <- discovery.join
           } yield {}
@@ -261,21 +256,12 @@ object Replicator {
 
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
-    def apply[F[_] : FlatMap : FromFuture](consumer: skafka.consumer.Consumer[Id, Bytes, Future]): Consumer[F] = {
-
+    def apply[F[_]](consumer: KafkaConsumer[F]): Consumer[F] = {
       new Consumer[F] {
 
-        def topics = {
-          for {
-            infos <- FromFuture[F].apply { consumer.listTopics() }
-          } yield {
-            infos.keySet
-          }
-        }
+        def topics = consumer.topics
 
-        def close = {
-          FromFuture[F].apply { consumer.close() }
-        }
+        def close = consumer.close
       }
     }
   }
@@ -283,7 +269,7 @@ object Replicator {
 
   final case class Metrics[F[_]](
     journal: Option[ReplicatedJournal.Metrics[F]] = None,
-    replicator: Option[Topic => TopicReplicator.Metrics[F]] = None, // TODO F ?
+    replicator: Option[Topic => TopicReplicator.Metrics[F]] = None,
     consumer: Option[skafka.consumer.Consumer.Metrics] = None)
 
   object Metrics {

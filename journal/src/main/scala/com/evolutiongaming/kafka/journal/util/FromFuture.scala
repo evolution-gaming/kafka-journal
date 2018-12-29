@@ -17,7 +17,7 @@ trait FromFuture[F[_]] {
 
 object FromFuture {
 
-  def apply[F[_]](implicit f: FromFuture[F]): FromFuture[F] = f
+  def apply[F[_]](implicit F: FromFuture[F]): FromFuture[F] = F
   
 
   def lift[F[_] : Applicative : Async](implicit ec: ExecutionContextExecutor): FromFuture[F] = {

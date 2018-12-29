@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal.util
 
-import cats.kernel.CommutativeMonoid
-import cats.{Traverse, UnorderedFoldable, UnorderedTraverse}
+import cats.{Foldable, Monoid, Traverse}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
 
@@ -11,16 +10,12 @@ object ParAsync extends Par[Async] {
     Traverse[T].map(tfa)(_.get()).async
   }
 
-  def unorderedSequence[T[_] : UnorderedTraverse, A](tfa: T[Async[A]]) = {
-    UnorderedTraverse[T].unorderedTraverse[cats.Id, Async[A], A](tfa)(_.get()).async
+  def fold[T[_] : Foldable, A : Monoid](tfa: T[Async[A]]) = {
+    foldMap(tfa)(identity)
   }
 
-  def unorderedFold[T[_] : UnorderedFoldable, A: CommutativeMonoid](tfa: T[Async[A]]) = {
-    unorderedFoldMap(tfa)(identity)
-  }
-
-  def unorderedFoldMap[T[_] : UnorderedFoldable, A, B: CommutativeMonoid](ta: T[A])(f: A => Async[B]) = {
-    UnorderedFoldable[T].unorderedFoldMap(ta)(f.andThen(_.get())).async
+  def foldMap[T[_] : Foldable, A, B : Monoid](ta: T[A])(f: A => Async[B]) = {
+    Foldable[T].foldMap(ta)(f.andThen(_.get())).async
   }
 
   def mapN[Z, A0, A1, A2](t3: (Async[A0], Async[A1], Async[A2]))(f: (A0, A1, A2) => Z) = {

@@ -9,7 +9,7 @@ import org.scalatest.{AsyncFunSuite, Matchers}
 
 class ParSpec extends AsyncFunSuite with Matchers {
 
-  test("unorderedFold") {
+  test("fold") {
 
     implicit val commutativeApplicative: CommutativeMonoid[List[Int]] = new CommutativeMonoid[List[Int]] {
       def empty = List.empty
@@ -22,7 +22,7 @@ class ParSpec extends AsyncFunSuite with Matchers {
       result    <- Concurrent[IO].start {
         val v0 = deferred0.get
         val v1 = deferred1.complete(()).map { _ => List(1) }
-        Par[IO].unorderedFold(List(v0, v1))
+        Par[IO].fold(List(v0, v1))
       }
       _       <- deferred1.get
       _       <- deferred0.complete(List(0))

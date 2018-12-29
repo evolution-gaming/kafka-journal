@@ -4,8 +4,7 @@ import java.time.Instant
 
 import cats.effect.{Concurrent, ExitCase, Fiber}
 import cats.implicits._
-import cats.kernel.CommutativeMonoid
-import cats.{Traverse, UnorderedFoldable, UnorderedTraverse}
+import cats.{Applicative, Foldable, Monoid, Traverse}
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPointers}
@@ -750,18 +749,7 @@ object TopicReplicatorSpec {
 
   object DataF {
 
-    implicit def commutativeMonoidDataF[A: CommutativeMonoid]: CommutativeMonoid[DataF[A]] = new CommutativeMonoid[DataF[A]] {
-
-      def empty = CommutativeMonoid[A].empty.pure[DataF]
-
-      def combine(x: DataF[A], y: DataF[A]) = {
-        DataF { s =>
-          val (s1, x1) = x.run(s)
-          val (s2, y1) = y.run(s1)
-          (s2, x1 combine y1)
-        }
-      }
-    }
+    implicit def monoidDataF[A : Monoid]: Monoid[DataF[A]] = Applicative.monoid[DataF, A]
 
 
     implicit val ConcurrentDataF: Concurrent[DataF] = new Concurrent[DataF] {
@@ -890,14 +878,12 @@ object TopicReplicatorSpec {
 
       def sequence[T[_] : Traverse, A](tfa: T[DataF[A]]) = throw NotImplemented
 
-      def unorderedSequence[T[_] : UnorderedTraverse, A](tfa: T[DataF[A]]) = throw NotImplemented
-
-      def unorderedFold[T[_] : UnorderedFoldable, A: CommutativeMonoid](tfa: T[DataF[A]]) = {
-        unorderedFoldMap(tfa)(identity)
+      def fold[T[_] : Foldable, A : Monoid](tfa: T[DataF[A]]) = {
+        foldMap(tfa)(identity)
       }
 
-      def unorderedFoldMap[T[_] : UnorderedFoldable, A, B: CommutativeMonoid](ta: T[A])(f: A => DataF[B]) = {
-        UnorderedFoldable[T].unorderedFoldMap(ta)(f)
+      def foldMap[T[_] : Foldable, A, B : Monoid](ta: T[A])(f: A => DataF[B]) = {
+        Foldable[T].foldMap(ta)(f)
       }
 
       def mapN[Z, A0, A1, A2](t3: (DataF[A0], DataF[A1], DataF[A2]))(f: (A0, A1, A2) => Z) = throw NotImplemented

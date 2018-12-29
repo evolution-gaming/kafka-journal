@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.util
 
 import cats.effect.Bracket
 import cats.kernel.CommutativeMonoid
-import cats.{Applicative, CommutativeApplicative, Parallel, UnorderedFoldable, UnorderedTraverse}
+import cats.{Applicative, CommutativeApplicative, Eval, Foldable, Monoid, Parallel, UnorderedFoldable, UnorderedTraverse}
 
 import scala.collection.immutable
 
@@ -38,11 +38,31 @@ object CatsHelper {
 
 
   implicit class ParallelIdOps[M[_], F[_]](val self: Parallel[M, F]) extends AnyVal {
-    def commutativeApplicative: CommutativeApplicative[F] = CommutativeApplicativeOf(self.applicative)
+
+    def commutativeApplicative: CommutativeApplicative[F] = {
+      val applicative = self.applicative
+      new CommutativeApplicative[F] {
+
+        def pure[A](x: A) = applicative.pure(x)
+
+        def ap[A, B](ff: F[A => B])(fa: F[A]) = applicative.ap(ff)(fa)
+      }
+    }
   }
 
 
   implicit class ParallelOps(val self: Parallel.type) extends AnyVal {
+
+    def foldMap[T[_] : Foldable, M[_], F[_], A, B : Monoid](ta: T[A])(f: A => M[B])(implicit P: Parallel[M, F]/*, monoid: Monoid[F[B]] TODO*/): M[B] = {
+      implicit val commutativeApplicative = P.commutativeApplicative // TODO
+      implicit val commutativeMonoid = Applicative.monoid[F, B] // TODO
+      val fb = Foldable[T].foldMap(ta)(f.andThen(P.parallel.apply))
+      P.sequential(fb)
+    }
+
+    def fold[T[_] : Foldable, M[_], F[_], A : Monoid](tma: T[M[A]])(implicit P: Parallel[M, F]): M[A] = {
+      foldMap(tma)(identity)
+    }
 
     def unorderedFoldMap[T[_] : UnorderedFoldable, M[_], F[_], A, B: CommutativeMonoid](ta: T[A])(f: A => M[B])(implicit P: Parallel[M, F]): M[B] = {
       implicit val commutativeApplicative = P.commutativeApplicative
@@ -77,18 +97,26 @@ object CatsHelper {
   }
 
 
-  implicit val FoldableIterable: UnorderedFoldable[Iterable] = new UnorderedFoldable[Iterable] {
+  implicit val FoldableIterable: Foldable[Iterable] = new Foldable[Iterable] {
 
-    def unorderedFoldMap[A, B](fa: Iterable[A])(f: A => B)(implicit F: CommutativeMonoid[B]) = {
-      fa.foldLeft(F.empty)((b, a) => F.combine(b, f(a)))
+    def foldLeft[A, B](fa: Iterable[A], b: B)(f: (B, A) => B) = {
+      fa.foldLeft(b)(f)
+    }
+
+    def foldRight[A, B](fa: Iterable[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]) = {
+      fa.foldRight(lb)(f)
     }
   }
 
+  
+  implicit val FoldableImmutableIterable: Foldable[immutable.Iterable] = new Foldable[immutable.Iterable] {
 
-  implicit val FoldableImmutableIterable: UnorderedFoldable[immutable.Iterable] = new UnorderedFoldable[immutable.Iterable] {
+    def foldLeft[A, B](fa: immutable.Iterable[A], b: B)(f: (B, A) => B) = {
+      FoldableIterable.foldLeft(fa, b)(f)
+    }
 
-    def unorderedFoldMap[A, B](fa: immutable.Iterable[A])(f: A => B)(implicit F: CommutativeMonoid[B]) = {
-      fa.foldLeft(F.empty)((b, a) => F.combine(b, f(a)))
+    def foldRight[A, B](fa: immutable.Iterable[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]) = {
+      FoldableIterable.foldRight(fa, lb)(f)
     }
   }
 

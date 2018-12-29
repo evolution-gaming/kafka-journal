@@ -1,11 +1,12 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.effect.{ContextShift, IO}
+import cats.effect.IO
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.util.FromFuture
-import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, Consumer, ConsumerConfig}
-import com.evolutiongaming.skafka.{Offset, Partition, Topic}
+import com.evolutiongaming.kafka.journal.util.IOHelper._
+import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
+import com.evolutiongaming.skafka.{Offset, Partition}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
@@ -15,20 +16,13 @@ object HeadCacheAsync {
   def apply(
     consumerConfig: ConsumerConfig,
     eventualJournal: EventualJournal[Async],
-    ecBlocking: ExecutionContext)(implicit
-    ec: ExecutionContextExecutor): HeadCache[com.evolutiongaming.concurrent.async.Async] = {
+    blocking: ExecutionContext)(implicit
+    ec: ExecutionContextExecutor): HeadCache[Async] = {
 
     implicit val cs = IO.contextShift(ec)
     implicit val timer = IO.timer(ec)
     implicit val fromFuture: FromFuture[IO] = FromFuture.lift[IO]
-    implicit val eventual = new HeadCache.Eventual[IO] {
-
-      def pointers(topic: Topic) = {
-        fromFuture {
-          eventualJournal.pointers(topic).future
-        }
-      }
-    }
+    implicit val eventual = HeadCache.Eventual[IO](eventualJournal)
 
     val consumer = {
       val config = consumerConfig.copy(
@@ -37,13 +31,9 @@ object HeadCacheAsync {
         autoCommit = false)
 
       for {
-        consumer <- ContextShift[IO].evalOn(ecBlocking) {
-          IO.delay {
-            Consumer[Id, Bytes](config, ecBlocking)
-          }
-        }
+        kafkaConsumer <- KafkaConsumer.of[IO](config, blocking)
       } yield {
-        HeadCache.Consumer[IO](consumer)
+        HeadCache.Consumer[IO](kafkaConsumer)
       }
     }
 
@@ -62,17 +52,17 @@ object HeadCacheAsync {
       }
     }
 
-    new HeadCache[com.evolutiongaming.concurrent.async.Async] {
+    new HeadCache[Async] {
 
       def apply(key: Key, partition: Partition, marker: Offset) = {
 
         val future = headCache(key, partition, marker).unsafeToFuture()
-        com.evolutiongaming.concurrent.async.Async(future)
+        Async(future)
       }
 
       def close = {
         val future = headCache.close.unsafeToFuture()
-        com.evolutiongaming.concurrent.async.Async(future)
+        Async(future)
       }
     }
   }

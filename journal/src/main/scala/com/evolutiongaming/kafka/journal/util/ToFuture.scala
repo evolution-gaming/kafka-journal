@@ -10,7 +10,7 @@ trait ToFuture[F[_]] {
 
 object ToFuture {
 
-  def apply[F[_]](implicit f: ToFuture[F]): ToFuture[F] = f
+  def apply[F[_]](implicit F: ToFuture[F]): ToFuture[F] = F
 
   val io: ToFuture[IO] = new ToFuture[IO] {
     def apply[A](f: IO[A]) = f.unsafeToFuture()

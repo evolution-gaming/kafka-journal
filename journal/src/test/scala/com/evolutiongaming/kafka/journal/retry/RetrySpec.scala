@@ -131,8 +131,8 @@ object RetrySpec {
             case Right(a) =>
               val (s2, b) = use(a).run(s1)
               val exitCase = b.fold(ExitCase.error, _ => ExitCase.complete)
-              release(a, exitCase)
-              (s2, b)
+              val(s3, _) = release(a, exitCase).run(s2)
+              (s3, b)
           }
         }
       }

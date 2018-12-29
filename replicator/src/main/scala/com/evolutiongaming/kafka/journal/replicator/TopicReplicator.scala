@@ -13,13 +13,11 @@ import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.replicator.InstantHelper._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.ClockHelper._
-import com.evolutiongaming.kafka.journal.util.{FromFuture, Par}
+import com.evolutiongaming.kafka.journal.util.Par
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer._
-import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.{Bytes => _, _}
 
-import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
 
@@ -171,7 +169,7 @@ object TopicReplicator {
       }
 
       for {
-        _        <- Par[F].unorderedFold(ios)
+        _        <- Par[F].fold(ios)
         pointers <- savePointers
       } yield pointers
     }
@@ -274,34 +272,26 @@ object TopicReplicator {
 
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
-    def apply[F[_] : Sync : FromFuture](
-      consumer: skafka.consumer.Consumer[Id, Bytes, Future],
+    def apply[F[_] : Applicative](
+      consumer: KafkaConsumer[F],
       pollTimeout: FiniteDuration /*TODO*/): Consumer[F] = {
 
       new Consumer[F] {
 
         def subscribe(topic: Topic) = {
-          Sync[F].delay {
-            consumer.subscribe(Nel(topic), None)
-          }
+          consumer.subscribe(topic)
         }
 
         def poll = {
-          FromFuture[F].apply {
-            consumer.poll(pollTimeout)
-          }
+          consumer.poll(pollTimeout)
         }
 
         def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = {
-          FromFuture[F].apply {
-            consumer.commit(offsets)
-          }
+          consumer.commit(offsets)
         }
 
         def close = {
-          FromFuture[F].apply {
-            consumer.close()
-          }
+          consumer.close
         }
       }
     }

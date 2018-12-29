@@ -2,19 +2,16 @@ package com.evolutiongaming.kafka.journal.util
 
 import cats.effect.IO
 import cats.implicits._
-import cats.kernel.CommutativeMonoid
-import cats.{Parallel, Traverse, UnorderedFoldable, UnorderedTraverse}
+import cats.{Foldable, Monoid, Parallel, Traverse}
 import com.evolutiongaming.kafka.journal.util.CatsHelper.ParallelOps
 
 trait Par[F[_]] {
 
   def sequence[T[_] : Traverse, A](tfa: T[F[A]]): F[T[A]]
 
-  def unorderedSequence[T[_]: UnorderedTraverse, A](tfa: T[F[A]]): F[T[A]]
+  def fold[T[_] : Foldable, A : Monoid](tfa: T[F[A]]): F[A]
 
-  def unorderedFold[T[_] : UnorderedFoldable, A : CommutativeMonoid](tfa: T[F[A]]): F[A]
-
-  def unorderedFoldMap[T[_] : UnorderedFoldable, A, B : CommutativeMonoid](ta: T[A])(f: A => F[B]): F[B]
+  def foldMap[T[_] : Foldable, A, B : Monoid](ta: T[A])(f: A => F[B]): F[B]
 
   def mapN[Z, A0, A1, A2](
     t3: (F[A0], F[A1], F[A2]))
@@ -37,16 +34,12 @@ object Par {
       Parallel.parSequence(tfa)
     }
 
-    def unorderedSequence[T[_]: UnorderedTraverse, A](tfa: T[IO[A]]) = {
-      Parallel.unorderedSequence(tfa)
+    def fold[T[_] : Foldable, A : Monoid](tfa: T[IO[A]]) = {
+      Parallel.fold(tfa)
     }
 
-    def unorderedFold[T[_] : UnorderedFoldable, A : CommutativeMonoid](tfa: T[IO[A]]) = {
-      Parallel.unorderedFold(tfa)
-    }
-
-    def unorderedFoldMap[T[_] : UnorderedFoldable, A, B : CommutativeMonoid](ta: T[A])(f: A => IO[B]) = {
-      Parallel.unorderedFoldMap(ta)(f)
+    def foldMap[T[_] : Foldable, A, B : Monoid](ta: T[A])(f: A => IO[B]) = {
+      Parallel.foldMap(ta)(f)
     }
 
     def mapN[Z, A0, A1, A2](

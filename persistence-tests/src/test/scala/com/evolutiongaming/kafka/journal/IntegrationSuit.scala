@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import akka.actor.{ActorSystem, CoordinatedShutdown}
-import cats.effect.{Concurrent, IO, Sync, Timer}
+import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.cassandra.StartCassandra
 import com.evolutiongaming.kafka.StartKafka
@@ -15,7 +15,7 @@ import scala.util.control.NonFatal
 
 object IntegrationSuit {
 
-  def startF[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture](system: ActorSystem): F[F[Unit]] = {
+  def startF[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift](system: ActorSystem): F[F[Unit]] = {
 
     val cassandra = for {
       cassandra <- Sync[F].delay { StartCassandra() }
