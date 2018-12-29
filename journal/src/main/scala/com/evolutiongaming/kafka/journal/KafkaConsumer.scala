@@ -10,6 +10,7 @@ import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerConfig, ConsumerRe
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
 
+// TODO use Resource
 trait KafkaConsumer[F[_]] {
 
   def assign(partitions: Nel[TopicPartition]): F[Unit]
@@ -42,9 +43,8 @@ object KafkaConsumer {
       consumer0 <- ContextShift[F].evalOn(blocking) {
         Sync[F].delay { Consumer[Id, Bytes](config, blocking) }
       }
+      consumer   = metrics.fold(consumer0) { metrics => Consumer(consumer0, metrics) }
     } yield {
-      val consumer = metrics.fold(consumer0) { metrics => Consumer(consumer0, metrics) }
-
       new KafkaConsumer[F] {
 
         def assign(partitions: Nel[TopicPartition]) = {
@@ -77,7 +77,6 @@ object KafkaConsumer {
           }
         }
 
-
         def topics: F[Set[Topic]] = {
           for {
             infos <- FromFuture[F].apply { consumer.listTopics() }
@@ -85,7 +84,6 @@ object KafkaConsumer {
             infos.keySet
           }
         }
-
 
         def partitions(topic: Topic) = {
           for {
@@ -99,7 +97,9 @@ object KafkaConsumer {
           }
         }
 
-        def close = FromFuture[F].apply { consumer.close() }
+        def close = {
+          FromFuture[F].apply { consumer.close() }
+        }
       }
     }
   }
