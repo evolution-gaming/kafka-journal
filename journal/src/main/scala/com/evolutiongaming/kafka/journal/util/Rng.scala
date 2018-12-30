@@ -24,7 +24,7 @@ object Rng {
 
   def fromClock[F[_] : Clock : FlatMap]: F[Rng] = {
     for {
-      nanos <- ClockOf[F].nanos
+      nanos <- Clock[F].nanos
     } yield {
       apply(nanos)
     }

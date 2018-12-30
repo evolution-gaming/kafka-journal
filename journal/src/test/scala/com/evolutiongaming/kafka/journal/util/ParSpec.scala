@@ -31,6 +31,6 @@ class ParSpec extends AsyncFunSuite with Matchers {
       result shouldEqual List(0, 1)
     }
 
-    result.run
+    result.run()
   }
 }

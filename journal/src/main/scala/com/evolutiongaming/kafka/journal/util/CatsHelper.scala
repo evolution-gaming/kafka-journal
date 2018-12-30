@@ -1,10 +1,12 @@
 package com.evolutiongaming.kafka.journal.util
 
-import cats.effect.Bracket
+import cats.effect._
 import cats.kernel.CommutativeMonoid
 import cats.{Applicative, CommutativeApplicative, Eval, Foldable, Monoid, Parallel, UnorderedFoldable, UnorderedTraverse}
 
 import scala.collection.immutable
+import scala.concurrent.Future
+import scala.concurrent.duration.FiniteDuration
 
 object CatsHelper {
 
@@ -121,14 +123,28 @@ object CatsHelper {
   }
 
 
-  implicit class FOps[F[_], A](val self: F[A]) extends AnyVal {
+  implicit class FIdOps[F[_], A](val self: F[A]) extends AnyVal {
 
-    def redeem[B, E](recover: E => B, map: A => B)(implicit bracket: Bracket[F, E]): F[B] = {
+    def redeem[B, E](recover: E => B)(map: A => B)(implicit bracket: Bracket[F, E]): F[B] = {
       bracket.redeem(self)(recover, map)
     }
 
-    def redeemWith[B, E](recover: E => F[B], flatMap: A => F[B])(implicit bracket: Bracket[F, E]): F[B] = {
+    def redeemWith[B, E](recover: E => F[B])(flatMap: A => F[B])(implicit bracket: Bracket[F, E]): F[B] = {
       bracket.redeemWith(self)(recover, flatMap)
+    }
+
+    def unsafeToFuture()(implicit toFuture: ToFuture[F]): Future[A] = toFuture(self)
+
+    def timeoutFixed(duration: FiniteDuration)(implicit F: Concurrent[F], timer: Timer[F]): F[A] = {
+      TimeoutFixed[F, A](self, duration)
+    }
+  }
+
+
+  implicit class ResourceOps[F[_], A](val self: Resource[F, A]) extends AnyVal {
+
+    def fork[B](use: A => F[B])(implicit F: Concurrent[F], cs: ContextShift[F]): F[Fiber[F, B]] = {
+      ForkRes(self)(use)
     }
   }
 }

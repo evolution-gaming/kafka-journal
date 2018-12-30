@@ -67,20 +67,10 @@ object Replicator {
     metrics: Metrics[F])(implicit
     session: Session): F[Replicator[F]] = {
 
-    implicit val clock = TimerOf[F].clock
-
-    val journal = {
-      for {
-        journal <- ReplicatedCassandra.of[F](config.cassandra)
-        log     <- Log.of[F](ReplicatedCassandra.getClass)
-      } yield {
-        val logging = ReplicatedJournal[F](journal, log)
-        metrics.journal.fold(logging) { ReplicatedJournal(logging, _) }
-      }
-    }
+    implicit val clock = Timer[F].clock
 
     for {
-      journal    <- journal
+      journal    <- ReplicatedCassandra.of[F](config.cassandra, metrics.journal)
       replicator <- {
         implicit val journal1 = journal
         of2(config, ecBlocking, metrics)
@@ -134,7 +124,7 @@ object Replicator {
     consumerOf: ConsumerConfig => F[Consumer[F]],
     topicReplicatorOf: Topic => F[TopicReplicator[F]]): F[Replicator[F]] = {
 
-    implicit val clock: Clock[F] = TimerOf[F].clock
+    implicit val clock: Clock[F] = Timer[F].clock
 
     sealed trait State
 
@@ -157,13 +147,13 @@ object Replicator {
           result <- state match {
             case State.Closed     => ().some.pure[F]
             case _: State.Running => for {
-              start  <- ClockOf[F].millis
+              start  <- Clock[F].millis
               topics <- consumer.topics
               result <- stateRef.modify[Option[Unit]] {
                 case State.Closed         => (State.closed, ().some).pure[F]
                 case state: State.Running =>
                   for {
-                    end       <- ClockOf[F].millis
+                    end       <- Clock[F].millis
                     duration   = end - start
                     topicsNew  = {
                       for {
@@ -199,7 +189,7 @@ object Replicator {
             } yield result
           }
           _ <- result.fold {
-            TimerOf[F].sleep(config.topicDiscoveryInterval)
+            Timer[F].sleep(config.topicDiscoveryInterval)
           } {
             _.pure[F]
           }

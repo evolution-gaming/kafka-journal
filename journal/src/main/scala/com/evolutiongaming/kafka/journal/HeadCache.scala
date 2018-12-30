@@ -70,7 +70,7 @@ object HeadCache {
           topicCache <- TopicCache.of(
             topic = topic,
             config = config,
-            consumer = consumerWithLog)(Concurrent[F], Eventual[F], Par[F], logTopic, TimerOf[F])
+            consumer = consumerWithLog)(Concurrent[F], Eventual[F], Par[F], logTopic, Timer[F])
         } yield {
           topicCache
         }
@@ -283,7 +283,7 @@ object HeadCache {
         cleaning <- Concurrent[F].start {
           val cleaning = {
             for {
-              _ <- TimerOf[F].sleep(config.cleanInterval)
+              _ <- Timer[F].sleep(config.cleanInterval)
               pointers <- Eventual[F].pointers(topic)
               before <- state.get
               _ <- state.update { _.removeUntil(pointers.values).pure[F] }
@@ -488,7 +488,7 @@ object HeadCache {
         }
 
         def seek(topic: Topic, offsets: Map[Partition, Offset]) = {
-          offsets.foldMap { case (partition, offset) =>
+          offsets.toIterable.foldMap { case (partition, offset) =>
             val topicPartition = TopicPartition(topic = topic, partition = partition)
             consumer.seek(topicPartition, offset)
           }
@@ -631,7 +631,7 @@ object HeadCache {
           }
         } yield partitions
 
-        implicit val clock = TimerOf[F].clock
+        implicit val clock = Timer[F].clock
 
         for {
           rng        <- Rng.fromClock[F]

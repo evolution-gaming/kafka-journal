@@ -17,8 +17,6 @@ trait CassandraSession[F[_]] {
   def execute(statement: Statement): F[QueryResult[F]]
 
   final def execute(statement: String): F[QueryResult[F]] = execute(new SimpleStatement(statement))
-
-  def close: F[Unit]
 }
 
 
@@ -53,13 +51,9 @@ object CassandraSession {
         .trace(trace)
       session.execute(configured)
     }
-
-    def close = {
-      session.close
-    }
   }
 
-  def apply[F[_] : FlatMap : Concurrent : FromFuture](session: Session): CassandraSession[F] = {
+  def apply[F[_] : Concurrent : FromFuture](session: Session): CassandraSession[F] = {
     new CassandraSession[F] {
 
       def prepare(query: String) = {
@@ -74,12 +68,6 @@ object CassandraSession {
           result <- QueryResult.of[F](result)
         } yield {
           result
-        }
-      }
-
-      def close = {
-        FromFuture[F].apply {
-          session.close()
         }
       }
     }

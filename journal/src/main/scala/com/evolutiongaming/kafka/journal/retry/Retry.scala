@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.retry
 import cats.effect.{Bracket, Timer}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
-import com.evolutiongaming.kafka.journal.util.{Rng, TimerOf}
+import com.evolutiongaming.kafka.journal.util.Rng
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -36,7 +36,7 @@ object Retry {
         } yield a
       }
 
-      call.redeemWith(retry, _.asRight[(Status, Decide)].pure[F])
+      call.redeemWith(retry)(_.asRight[(Status, Decide)].pure[F])
     }
   }
 
@@ -151,7 +151,7 @@ object Retry {
     def apply[F[_]](implicit F: Sleep[F]): Sleep[F] = F
 
     implicit def fromTimer[F[_] : Timer]: Sleep[F] = new Sleep[F] {
-      def apply(duration: FiniteDuration) = TimerOf[F].sleep(duration)
+      def apply(duration: FiniteDuration) = Timer[F].sleep(duration)
     }
   }
 }

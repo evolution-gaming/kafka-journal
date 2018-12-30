@@ -34,6 +34,6 @@ class CacheSpec extends AsyncFunSuite with Matchers {
       update0 shouldEqual 0
       update1 shouldEqual 0
     }
-    result.run
+    result.run()
   }
 }

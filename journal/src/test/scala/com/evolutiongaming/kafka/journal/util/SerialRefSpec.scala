@@ -34,6 +34,6 @@ class SerialRefSpec extends AsyncFunSuite {
       result
     }
 
-    result.run
+    result.run()
   }
 }

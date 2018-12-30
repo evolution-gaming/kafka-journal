@@ -2,10 +2,11 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
-import cats.effect.Concurrent
+import cats.effect.{Clock, Concurrent}
 import cats.implicits._
 import cats.{Applicative, FlatMap, Monad}
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal.Metrics
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.{FromFuture, Par, ToFuture}
@@ -20,21 +21,23 @@ import scala.annotation.tailrec
 // TODO test ReplicatedCassandra
 object ReplicatedCassandra {
 
-  def of[F[_] : Concurrent : FromFuture : ToFuture : Par](
-    config: EventualCassandraConfig)(implicit
+  def of[F[_] : Concurrent : FromFuture : ToFuture : Par : Clock](
+    config: EventualCassandraConfig,
+    metrics: Option[Metrics[F]])(implicit
     session: Session): F[ReplicatedJournal[F]] = {
-    
+
     implicit val cassandraSession = CassandraSession[F](CassandraSession[F](session), config.retries)
     implicit val cassandraSync = CassandraSync[F](config.schema, Some(Origin("replicator"/*TODO*/)))
     for {
       tables     <- CreateSchema[F](config.schema)
       statements <- Statements.of[F](tables)
+      log        <- Log.of[F](ReplicatedCassandra.getClass)
     } yield {
       implicit val statements1 = statements
-      apply(config.segmentSize)
+      val journal = apply[F](config.segmentSize)
+      ReplicatedJournal[F](journal, log, metrics)
     }
   }
-
 
   def apply[F[_] : Monad : Par : Statements](segmentSize: Int): ReplicatedJournal[F] = {
 

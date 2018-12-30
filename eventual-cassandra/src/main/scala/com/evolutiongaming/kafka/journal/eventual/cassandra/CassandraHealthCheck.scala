@@ -6,65 +6,66 @@ import cats.effect.concurrent.Ref
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.Log
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.util.{FromFuture, TimerOf}
-import com.evolutiongaming.scassandra.Session
+import com.evolutiongaming.kafka.journal.util.CatsHelper._
+import com.evolutiongaming.kafka.journal.util.FromFuture
 
 import scala.concurrent.duration._
 
 trait CassandraHealthCheck[F[_]] {
-
   def error: F[Option[Throwable]]
-
-  // TODO fiber
-  def close: F[Unit]
 }
 
 object CassandraHealthCheck {
 
-  def of[F[_] : Concurrent : Timer : FromFuture](session: Session, retries: Int): F[CassandraHealthCheck[F]] = {
-    implicit val cassandraSession = CassandraSession(CassandraSession[F](session), retries)
-    for {
-      log       <- Log.of[F](CassandraHealthCheck.getClass)
-      statement <- Statement.of[F]
-      result    <- {
-        implicit val log1 = log
-        of[F](statement, 1.second, CassandraSession[F].close)
+  def of[F[_] : Concurrent : Timer : FromFuture : ContextShift](
+    session: Resource[F, CassandraSession[F]]): Resource[F, CassandraHealthCheck[F]] = {
+
+    val statement = for {
+      session   <- session
+      statement <- {
+        implicit val session1 = session
+        Resource.liftF(Statement.of[F])
       }
-    } yield {
-      result
-    }
+    } yield statement
+
+    for {
+      log    <- Resource.liftF(Log.of[F](CassandraHealthCheck.getClass))
+      result <- {
+        implicit val log1 = log
+        of(initial = 10.seconds, interval = 1.second, statement = statement)
+      }
+    } yield result
   }
 
-  def of[F[_] : Concurrent : Log : Timer](
-    statement: Statement[F],
+  def of[F[_] : Concurrent : Timer : ContextShift : Log](
+    initial: FiniteDuration,
     interval: FiniteDuration,
-    close: F[Unit]): F[CassandraHealthCheck[F]] = {
+    statement: Resource[F, Statement[F]]): Resource[F, CassandraHealthCheck[F]] = {
 
-    for {
-      ref   <- Ref.of[F, Option[Throwable]](none)
-      fiber <- Concurrent[F].start {
-        Sync[F].guarantee {
+    Resource {
+      for {
+        ref <- Ref.of[F, Option[Throwable]](none)
+        fiber <- statement.fork { statement =>
           for {
-            _ <- TimerOf[F].sleep(10.seconds)
+            _ <- Timer[F].sleep(initial)
             _ <- {
               for {
-                error <- Sync[F].attempt(statement) // TODO redeem
-                _     <- error.fold(error => Log[F].error(s"failed with $error"), _.pure[F])
-                _     <- ref.set(error.fold(_.some, _ => none))
-                _     <- TimerOf[F].sleep(interval)
+                error <- statement.redeemWith { (error: Throwable) =>
+                  Log[F].error(s"failed with $error").as(error.some)
+                } { _ =>
+                  none.pure[F]
+                }
+                _     <- ref.set(error)
+                _     <- Timer[F].sleep(interval)
               } yield ().asLeft
             }.foreverM[Unit]
           } yield {}
-        } {
-          close
         }
-      }
-    } yield {
-      new CassandraHealthCheck[F] {
-
-        def error = ref.get
-
-        def close = fiber.cancel
+      } yield {
+        val result = new CassandraHealthCheck[F] {
+          def error = ref.get
+        }
+        (result, fiber.cancel)
       }
     }
   }

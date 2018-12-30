@@ -58,7 +58,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         result shouldEqual Some(HeadCache.Result(seqNr = Some(SeqNr(11)), deleteTo = none))
       }
 
-      result.run
+      result.run()
     }
 
     "return result, all events are already replicated and cache is empty" in {
@@ -82,7 +82,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         result shouldEqual Some(HeadCache.Result(seqNr = none, deleteTo = none))
       }
 
-      result.run
+      result.run()
     }
 
     "return result, after events are replicated" in {
@@ -129,7 +129,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         result shouldEqual Some(HeadCache.Result(seqNr = none, deleteTo = none))
       }
 
-      result.run
+      result.run()
     }
 
     "clean cache after events are being replicated" ignore {
@@ -174,7 +174,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         result shouldEqual Some(HeadCache.Result(seqNr = none, deleteTo = none))
       }
 
-      result.run
+      result.run()
     }
 
     "invalidate cache in case exceeding maxSize" in {
@@ -231,7 +231,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         r4 shouldEqual Some(HeadCache.Result(seqNr = Some(SeqNr.Min), deleteTo = none))
       }
 
-      result.run
+      result.run()
     }
 
     "close" in {
@@ -258,7 +258,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         state shouldEqual Left(TestConsumer.ClosedException)
       }
 
-      result.run
+      result.run()
     }
   }
 }

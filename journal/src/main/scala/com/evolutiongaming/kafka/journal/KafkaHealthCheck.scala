@@ -4,10 +4,10 @@ import java.util.UUID
 
 import cats.Applicative
 import cats.effect.concurrent.Ref
-import cats.effect.{Concurrent, Sync, Timer}
+import cats.effect.{Clock, Concurrent, Sync, Timer}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.util.ClockHelper._
-import com.evolutiongaming.kafka.journal.util.{ClockOf, FromFuture, TimerOf}
+import com.evolutiongaming.kafka.journal.util.FromFuture
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerConfig}
 import com.evolutiongaming.skafka.producer.{Producer, ProducerConfig, ProducerRecord}
@@ -70,7 +70,7 @@ object KafkaHealthCheck {
     consumer: Consumer[String, String, Future],
     log: Log[F]): F[KafkaHealthCheck[F]] = {
 
-    implicit val clock = TimerOf[F].clock
+    implicit val clock = Timer[F].clock
     implicit val log1 = log
 
     for {
@@ -83,7 +83,7 @@ object KafkaHealthCheck {
 
         def poll(id: String, deadline: Long): F[Unit] = {
           val poll: F[Option[Unit]] = for {
-            now <- ClockOf[F].millis
+            now <- Clock[F].millis
             result <- {
               if (now > deadline) timeoutFailure(s"timed out in $timeout finding $id")
               else {
@@ -125,12 +125,12 @@ object KafkaHealthCheck {
         val poll1: F[Option[Unit]] = {
 
           for {
-            now <- ClockOf[F].millis
+            now <- Clock[F].millis
             deadline = now + timeout.toMillis
             timeoutFinal = timeout + 1.second
 
             timeoutF = for {
-              _ <- TimerOf[F].sleep(timeoutFinal)
+              _ <- Timer[F].sleep(timeoutFinal)
               // TODO redeem
               result <- timeoutFailure[Unit](s"timed out in $timeoutFinal").attempt.map[Option[Throwable]](_.fold[Option[Throwable]](_.some, _ => none[Throwable])) /*TODO*/
             } yield {
@@ -148,7 +148,7 @@ object KafkaHealthCheck {
               if (stop) ().some.pure[F]
               else {
                 for {
-                  _ <- TimerOf[F].sleep(interval)
+                  _ <- Timer[F].sleep(interval)
                 } yield none[Unit]
               }
             }
@@ -158,7 +158,7 @@ object KafkaHealthCheck {
         }
 
         for {
-          _ <- TimerOf[F].sleep(10.seconds)
+          _ <- Timer[F].sleep(10.seconds)
           _ <- FromFuture[F].apply { consumer.poll(3.seconds) }
           _ <- produce
           _ <- FromFuture[F].apply { consumer.poll(3.seconds) }

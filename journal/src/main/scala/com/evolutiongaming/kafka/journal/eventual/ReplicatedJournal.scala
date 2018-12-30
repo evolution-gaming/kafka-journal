@@ -2,9 +2,9 @@ package com.evolutiongaming.kafka.journal.eventual
 
 import java.time.Instant
 
-import cats.{Applicative, FlatMap}
-import cats.implicits._
 import cats.effect.Clock
+import cats.implicits._
+import cats.{Applicative, FlatMap}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Topic
@@ -26,6 +26,11 @@ trait ReplicatedJournal[F[_]] {
 object ReplicatedJournal {
 
   def apply[F[_]](implicit F: ReplicatedJournal[F]): ReplicatedJournal[F] = F
+
+  def apply[F[_] : FlatMap : Clock](journal: ReplicatedJournal[F], log: Log[F], metrics: Option[Metrics[F]]): ReplicatedJournal[F] = {
+    val logging = apply[F](journal, log)
+    metrics.fold(logging) { metrics => ReplicatedJournal[F](logging, metrics) }
+  }
 
   def apply[F[_] : FlatMap : Clock](journal: ReplicatedJournal[F], log: Log[F]): ReplicatedJournal[F] = {
 

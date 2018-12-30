@@ -1,38 +1,25 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.effect.IO
-import cats.effect.concurrent.Ref
+import cats.effect.{IO, Resource}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.Log
 import com.evolutiongaming.kafka.journal.util.IOSuite._
 import org.scalatest.{AsyncFunSuite, Matchers}
 
 import scala.concurrent.duration._
+import scala.util.control.NoStackTrace
 
 class CassandraHealthCheckSpec extends AsyncFunSuite with Matchers {
 
-  test("close") {
+  test("CassandraHealthCheck") {
     implicit val log = Log.empty[IO]
+    val error = (new RuntimeException with NoStackTrace).raiseError[IO, Unit]
+    val healthCheck = CassandraHealthCheck.of[IO](0.seconds, 1.second, Resource.pure[IO, IO[Unit]](error))
     val result = for {
-      ref         <- Ref.of[IO, Boolean](false)
-      healthCheck <- CassandraHealthCheck.of[IO](().pure[IO], 1.second, ref.set(true))
-      _           <- healthCheck.close
-      stopped     <- 100.tailRecM { n =>
-        for {
-          stopped <- ref.get
-          stopped <- {
-            if (stopped || n <= 0) stopped.asRight[Int].pure[IO]
-            else for {
-              _ <- timer.sleep(5.millis)
-            } yield {
-              (n - 1).asLeft[Boolean]
-            }
-          }
-        } yield stopped
-      }
+      error <- healthCheck.use(_.error.untilDefinedM)
     } yield {
-      stopped shouldEqual true
+      error shouldEqual error
     }
-    result.run
+    result.run()
   }
 }

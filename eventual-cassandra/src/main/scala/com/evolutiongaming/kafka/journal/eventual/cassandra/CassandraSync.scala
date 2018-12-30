@@ -7,6 +7,7 @@ import com.evolutiongaming.cassandra
 import com.evolutiongaming.cassandra.sync.AutoCreate
 import com.evolutiongaming.kafka.journal.Origin
 import com.evolutiongaming.kafka.journal.util.{FromFuture, ToFuture}
+import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.scassandra.Session
 
 trait CassandraSync[F[_]] {
@@ -38,9 +39,10 @@ object CassandraSync {
 
       def apply[A](fa: F[A]) = {
 
-        val es = {
-          val es = Sync[F].delay { Executors.newScheduledThreadPool(2) }
-          Resource.make(es) { es => Sync[F].delay { es.shutdown() } }
+        val es = Resource.make {
+          Sync[F].delay { Executors.newScheduledThreadPool(2) }
+        } { es =>
+          Sync[F].delay { es.shutdown() }
         }
 
         es.use { implicit es =>
@@ -51,7 +53,7 @@ object CassandraSync {
 
           FromFuture[F].apply {
             cassandraSync(id = "kafka-journal", metadata = origin.map(_.value)) {
-              ToFuture[F].apply(fa)
+              fa.unsafeToFuture()
             }
           }
         }
