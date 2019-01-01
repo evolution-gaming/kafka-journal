@@ -86,14 +86,15 @@ object Replicator {
     metrics: Metrics[F]): F[Replicator[F]] = {
 
     val kafkaConsumerOf = (config: ConsumerConfig) => {
-      KafkaConsumer.of[F](config, blocking, metrics.consumer)
+      KafkaConsumer.of[F, Id, Bytes](config, blocking, metrics.consumer)
     }
 
     val consumerOf = kafkaConsumerOf.andThen { consumer =>
       for {
-        consumer <- consumer
+        consumer <- consumer.allocated
       } yield {
-        Consumer[F](consumer)
+        val (resource, release) = consumer
+        Consumer[F](resource, release)
       }
     }
 
@@ -106,9 +107,10 @@ object Replicator {
         autoCommit = false)
 
       val consumer = for {
-        kafkaConsumer <- kafkaConsumerOf(consumerConfig)
+        kafkaConsumer <- kafkaConsumerOf(consumerConfig).allocated // TODO
       } yield {
-        TopicReplicator.Consumer[F](kafkaConsumer, config.pollTimeout)
+        val (resource, release) = kafkaConsumer
+        TopicReplicator.Consumer[F](resource, config.pollTimeout, release)
       }
 
       implicit val metrics1 = metrics.replicator.fold(TopicReplicator.Metrics.empty[F]) { _.apply(topic) }
@@ -246,12 +248,12 @@ object Replicator {
 
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
-    def apply[F[_]](consumer: KafkaConsumer[F]): Consumer[F] = {
+    def apply[F[_]](consumer: KafkaConsumer[F, Id, Bytes], release: F[Unit]): Consumer[F] = {
       new Consumer[F] {
 
         def topics = consumer.topics
 
-        def close = consumer.close
+        def close = release
       }
     }
   }

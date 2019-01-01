@@ -273,8 +273,9 @@ object TopicReplicator {
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
     def apply[F[_] : Applicative](
-      consumer: KafkaConsumer[F],
-      pollTimeout: FiniteDuration /*TODO*/): Consumer[F] = {
+      consumer: KafkaConsumer[F, Id, Bytes],
+      pollTimeout: FiniteDuration /*TODO*/,
+      release: F[Unit]): Consumer[F] = {
 
       new Consumer[F] {
 
@@ -291,7 +292,7 @@ object TopicReplicator {
         }
 
         def close = {
-          consumer.close
+          release
         }
       }
     }

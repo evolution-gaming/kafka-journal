@@ -7,7 +7,6 @@ import cats.implicits._
 import com.evolutiongaming.kafka.journal.Log
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
-import com.evolutiongaming.kafka.journal.util.FromFuture
 
 import scala.concurrent.duration._
 
@@ -17,7 +16,7 @@ trait CassandraHealthCheck[F[_]] {
 
 object CassandraHealthCheck {
 
-  def of[F[_] : Concurrent : Timer : FromFuture : ContextShift](
+  def of[F[_] : Concurrent : Timer : ContextShift](
     session: Resource[F, CassandraSession[F]]): Resource[F, CassandraHealthCheck[F]] = {
 
     val statement = for {

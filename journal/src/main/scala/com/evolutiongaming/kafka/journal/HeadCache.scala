@@ -464,7 +464,7 @@ object HeadCache {
 
     def seek(topic: Topic, offsets: Map[Partition, Offset]): F[Unit]
 
-    def poll(timeout: FiniteDuration): F[ConsumerRecords[String, Bytes]]
+    def poll(timeout: FiniteDuration): F[ConsumerRecords[Id, Bytes]]
 
     def partitions(topic: Topic): F[List[Partition]]
 
@@ -475,7 +475,11 @@ object HeadCache {
 
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
-    def apply[F[_] : Applicative](consumer: KafkaConsumer[F])(implicit monoid: Monoid[F[Unit]]): Consumer[F] = {
+    def apply[F[_] : Applicative](
+      consumer: KafkaConsumer[F, Id, Bytes],
+      release: F[Unit])(implicit
+      monoid: Monoid[F[Unit]]): Consumer[F] = {
+      
       new Consumer[F] {
 
         def assign(topic: Topic, partitions: Nel[Partition]) = {
@@ -498,7 +502,7 @@ object HeadCache {
 
         def partitions(topic: Topic) = consumer.partitions(topic)
 
-        def close = consumer.close
+        def close = release
       }
     }
 
@@ -591,7 +595,7 @@ object HeadCache {
       from: Map[Partition, Offset],
       pollTimeout: FiniteDuration,
       consumer: F[Consumer[F]])(
-      onRecords: ConsumerRecords[String, Bytes] => F[Unit]): F[Unit] = {
+      onRecords: ConsumerRecords[Id, Bytes] => F[Unit]): F[Unit] = {
 
       def poll(implicit consumer: Consumer[F]): F[Unit] = {
         for {

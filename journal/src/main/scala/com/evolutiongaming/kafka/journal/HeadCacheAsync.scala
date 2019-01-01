@@ -31,9 +31,10 @@ object HeadCacheAsync {
         autoCommit = false)
 
       for {
-        kafkaConsumer <- KafkaConsumer.of[IO](config, blocking)
+        kafkaConsumer <- KafkaConsumer.of[IO, Id, Bytes](config, blocking).allocated // TODO
       } yield {
-        HeadCache.Consumer[IO](kafkaConsumer)
+        val (consumer, release) = kafkaConsumer
+        HeadCache.Consumer[IO](consumer, release)
       }
     }
 
