@@ -5,7 +5,6 @@ import cats.effect.{Concurrent, Fiber}
 import cats.implicits._
 
 
-// TODO rename
 trait FiberAndCancel[F[_]] {
   def apply[A](f: F[Boolean] => F[Fiber[F, A]]): F[Fiber[F, A]]
 }

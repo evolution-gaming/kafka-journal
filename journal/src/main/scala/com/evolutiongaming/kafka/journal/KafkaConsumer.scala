@@ -13,7 +13,6 @@ import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerConfig, ConsumerRe
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
 
-// TODO use Resource
 trait KafkaConsumer[F[_], K, V] {
 
   def assign(partitions: Nel[TopicPartition]): F[Unit]
