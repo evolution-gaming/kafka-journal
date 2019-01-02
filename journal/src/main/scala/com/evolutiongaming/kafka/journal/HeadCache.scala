@@ -210,7 +210,7 @@ object HeadCache {
           }
 
 
-          FiberAndCancel[F].apply { cancel =>
+          GracefulFiber[F].apply { cancel =>
             consumer.start { consumer =>
 
               val consuming = ConsumeTopic(

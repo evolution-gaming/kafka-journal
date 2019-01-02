@@ -6,22 +6,23 @@ import cats.implicits._
 import com.evolutiongaming.kafka.journal.util.IOSuite._
 import org.scalatest.{AsyncFunSuite, Matchers}
 
-class FiberAndCancelSpec extends AsyncFunSuite with Matchers {
+class GracefulFiberSpec extends AsyncFunSuite with Matchers {
 
-  test("FiberAndCancel") {
+  test("GracefulFiber") {
     val result = for {
       deferred <- Deferred[IO, Unit]
       ref      <- Ref.of[IO, Boolean](false)
-      fiber    <- FiberAndCancel[IO].apply { cancel =>
+      fiber    <- GracefulFiber[IO].apply { cancel =>
         Concurrent[IO].start[Unit] {
+          val loop = for {
+            cancel <- cancel
+            _      <- ref.set(cancel)
+          } yield {
+            if (cancel) ().some else none
+          }
           for {
             _ <- deferred.complete(())
-            _ <- {
-              for {
-                cancel <- cancel
-                _      <- ref.set(cancel)
-              } yield {}
-            }.foreverM[Unit]
+            _ <- loop.untilDefinedM
           } yield {}
         }
       }

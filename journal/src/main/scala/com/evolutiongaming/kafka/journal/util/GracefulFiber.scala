@@ -5,15 +5,15 @@ import cats.effect.{Concurrent, Fiber}
 import cats.implicits._
 
 
-trait FiberAndCancel[F[_]] {
+trait GracefulFiber[F[_]] {
   def apply[A](f: F[Boolean] => F[Fiber[F, A]]): F[Fiber[F, A]]
 }
 
-object FiberAndCancel {
+object GracefulFiber {
 
-  def apply[F[_] : Concurrent]: FiberAndCancel[F] = {
+  def apply[F[_] : Concurrent]: GracefulFiber[F] = {
 
-    new FiberAndCancel[F] {
+    new GracefulFiber[F] {
 
       def apply[A](f: F[Boolean] => F[Fiber[F, A]]) = {
         for {
@@ -23,9 +23,9 @@ object FiberAndCancel {
           new Fiber[F, A] {
             def cancel = {
               for {
-                _ <- cancelRef.set(true)
-                r <- fiber.cancel
-              } yield r
+                cancel <- cancelRef.getAndSet(true)
+                _      <- if (cancel) ().pure[F] else fiber.join
+              } yield {}
             }
 
             def join = fiber.join
