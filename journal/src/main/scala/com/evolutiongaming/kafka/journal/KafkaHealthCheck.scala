@@ -9,7 +9,7 @@ import cats.{Applicative, FlatMap}
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.FromFuture
 import com.evolutiongaming.skafka.Topic
-import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords}
+import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecords}
 import com.evolutiongaming.skafka.producer.{ProducerConfig, ProducerRecord}
 
 import scala.concurrent.ExecutionContext
@@ -41,7 +41,9 @@ object KafkaHealthCheck {
 
       val consumerConfig1 = {
         val groupId = consumerConfig.common.clientId.fold(key) { clientId => s"$clientId-$key" }
-        consumerConfig.copy(groupId = Some(groupId))
+        consumerConfig.copy(
+          groupId = Some(groupId),
+          autoOffsetReset = AutoOffsetReset.Latest)
       }
 
       val producer = for {
@@ -94,31 +96,30 @@ object KafkaHealthCheck {
             _  <- producer.send(id)
           } yield id
 
-          val produceConsume = for {
-            id <- produce
-            _  <- poll(id).untilDefinedM
-          } yield {}
-
-          val check: F[Unit] = {
-
-            for {
-              e <- produceConsume
-                .timeoutFixed(config.timeout)
-                .redeemWith[Option[Throwable], Throwable] { e =>
-                Log[F].error(s"failed with $e", e).as(e.some)
-              } { _ =>
-                none[Throwable].pure[F]
-              }
-              _ <- ref.set(e)
-              _ <- Timer[F].sleep(config.interval)
+          val produceConsume = {
+            val produceConsume = for {
+              id <- produce
+              _  <- poll(id).untilDefinedM
             } yield {}
+
+            produceConsume
+              .timeoutFixed(config.timeout)
+              .toError
           }
+
+          val check = for {
+            e <- produceConsume
+            _ <- e.fold(().pure[F]) { e => Log[F].error(s"failed with $e", e) }
+            _ <- ref.set(e)
+            _ <- Timer[F].sleep(config.interval)
+          } yield {}
 
           for {
             _ <- Timer[F].sleep(config.initial)
             _ <- consumer.subscribe(config.topic)
             _ <- consumer.poll(1.second)
             _ <- produce
+            _ <- produceConsume.attempt
             _ <- check.foreverM[Unit]
           } yield {}
         }
@@ -188,6 +189,6 @@ object KafkaHealthCheck {
     pollTimeout: FiniteDuration = 100.millis)
 
   object Config {
-    val Empty: Config = Config()
+    val Default: Config = Config()
   }
 }

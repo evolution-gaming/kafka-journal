@@ -20,10 +20,9 @@ import scala.annotation.tailrec
 // TODO test ReplicatedCassandra
 object ReplicatedCassandra {
 
-  def of[F[_] : Concurrent : FromFuture : ToFuture : Par : Clock](
+  def of[F[_] : Concurrent : FromFuture : ToFuture : Par : Clock : CassandraSession](
     config: EventualCassandraConfig,
-    metrics: Option[Metrics[F]])(implicit
-    session: CassandraSession[F]): F[ReplicatedJournal[F]] = {
+    metrics: Option[Metrics[F]]): F[ReplicatedJournal[F]] = {
 
     implicit val cassandraSync = CassandraSync[F](config.schema, Some(Origin("replicator"/*TODO*/)))
     for {

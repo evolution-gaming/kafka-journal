@@ -49,13 +49,10 @@ object CassandraHealthCheck {
             _ <- Timer[F].sleep(initial)
             _ <- {
               for {
-                error <- statement.redeemWith { (error: Throwable) =>
-                  Log[F].error(s"failed with $error").as(error.some)
-                } { _ =>
-                  none.pure[F]
-                }
-                _     <- ref.set(error)
-                _     <- Timer[F].sleep(interval)
+                e <- statement.toError[Throwable]
+                _ <- e.fold(().pure[F]) { e => Log[F].error(s"failed with $e", e) }
+                _ <- ref.set(e)
+                _ <- Timer[F].sleep(interval)
               } yield ().asLeft
             }.foreverM[Unit]
           } yield {}

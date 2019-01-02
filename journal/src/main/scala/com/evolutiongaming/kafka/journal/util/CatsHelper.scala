@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.effect._
+import cats.implicits._
 import cats.kernel.CommutativeMonoid
 import cats.{Applicative, CommutativeApplicative, Eval, Foldable, Monoid, Parallel, UnorderedFoldable, UnorderedTraverse}
 
@@ -131,6 +132,10 @@ object CatsHelper {
 
     def redeemWith[B, E](recover: E => F[B])(flatMap: A => F[B])(implicit bracket: Bracket[F, E]): F[B] = {
       bracket.redeemWith(self)(recover, flatMap)
+    }
+
+    def toError[E](implicit bracket: Bracket[F, E]): F[Option[E]] = {
+      self.redeem[Option[E], E](_.some)(_ => none[E])
     }
 
     def unsafeToFuture()(implicit toFuture: ToFuture[F]): Future[A] = toFuture(self)
