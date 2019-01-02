@@ -24,7 +24,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuit {
     val topicConsumer = TopicConsumer(config.journal.consumer, ecBlocking)
     eventual: EventualJournal[Async] => {
       val headCache = HeadCacheAsync(config.journal.consumer, eventual, ecBlocking)
-      Journal(
+      val journal = Journal(
         producer = producer,
         origin = Some(origin),
         topicConsumer = topicConsumer,
@@ -32,6 +32,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuit {
         pollTimeout = config.journal.pollTimeout,
         closeTimeout = config.journal.closeTimeout,
         headCache = headCache)
+      (journal, () => headCache.close)
     }
   }
 
@@ -57,7 +58,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuit {
     val key = Key(id = UUID.randomUUID().toString, topic = "journal")
 
     lazy val append = {
-      val journal0 = journalOf(eventual)
+      val (journal0, release) = journalOf(eventual)
       val journal = KeyJournal(key, journal0)
 
       val expected = for {
@@ -90,6 +91,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuit {
             } yield {}
           }
         }
+        _ <- release()
       } yield {}
     }
 
@@ -100,7 +102,10 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuit {
     } {
       val name = s"events: $events, eventual: $eventualName"
 
-      lazy val journal = KeyJournal(key, journalOf(eventual()))
+      lazy val (journal, release) = {
+        val (journal, release) = journalOf(eventual())
+        (KeyJournal(key, journal), release)
+      }
 
       s"measure pointer $many times, $name" in {
         val result = for {
@@ -125,6 +130,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuit {
           average <- measure {
             journal.size()
           }
+          _ <- release()
         } yield {
           info(s"read measured $many times for $events events returned on average in $average")
           average should be <= expected

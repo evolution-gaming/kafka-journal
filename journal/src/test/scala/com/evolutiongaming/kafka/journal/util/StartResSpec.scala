@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.effect.concurrent.{Deferred, Ref}
-import cats.effect.{IO, Resource}
+import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.util.IOSuite._
 import org.scalatest.{AsyncFunSuite, Matchers}

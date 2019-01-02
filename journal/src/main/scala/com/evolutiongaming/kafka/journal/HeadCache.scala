@@ -4,17 +4,17 @@ import cats._
 import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.implicits._
+import com.evolutiongaming.concurrent.async
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal.cache.Cache
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.retry.Retry
+import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.EitherHelper._
 import com.evolutiongaming.kafka.journal.util._
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
-import com.evolutiongaming.concurrent.async
 
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
@@ -209,67 +209,71 @@ object HeadCache {
             }
           }
 
-          consumer.start { consumer =>
 
-            val consuming = ConsumeTopic(
-              topic = topic,
-              from = pointers.values,
-              pollTimeout = config.pollTimeout,
-              consumer = consumer) { records =>
-              
-              val entries = entriesOf(records.values)
-              state.update { state =>
-                val combined = {
+          FiberAndCancel[F].apply { cancel =>
+            consumer.start { consumer =>
 
-                  val combined = state.entries |+| entries
+              val consuming = ConsumeTopic(
+                topic = topic,
+                from = pointers.values,
+                pollTimeout = config.pollTimeout,
+                consumer = consumer,
+                cancel = cancel) { records =>
 
-                  def sizeOf(map: Map[Partition, PartitionEntry]) = {
-                    map.values.foldLeft(0) { _ + _.entries.size }
-                  }
+                val entries = entriesOf(records.values)
+                state.update { state =>
+                  val combined = {
 
-                  val maxSize = config.maxSize
+                    val combined = state.entries |+| entries
 
-                  if (sizeOf(combined) <= maxSize) {
-                    combined
-                  } else {
-                    val partitions = combined.size
-                    val maxSizePartition = maxSize / partitions max 1
-                    for {
-                      (partition, partitionEntry) <- combined
-                    } yield {
-                      val updated = {
-                        if (partitionEntry.entries.size <= maxSizePartition) {
-                          partitionEntry
-                        } else {
-                          // TODO
-                          val offset = partitionEntry.entries.values.foldLeft(Offset.Min) { _ max _.offset }
-                          // TODO remove half
-                          partitionEntry.copy(entries = Map.empty, trimmed = Some(offset))
+                    def sizeOf(map: Map[Partition, PartitionEntry]) = {
+                      map.values.foldLeft(0) { _ + _.entries.size }
+                    }
+
+                    val maxSize = config.maxSize
+
+                    if (sizeOf(combined) <= maxSize) {
+                      combined
+                    } else {
+                      val partitions = combined.size
+                      val maxSizePartition = maxSize / partitions max 1
+                      for {
+                        (partition, partitionEntry) <- combined
+                      } yield {
+                        val updated = {
+                          if (partitionEntry.entries.size <= maxSizePartition) {
+                            partitionEntry
+                          } else {
+                            // TODO
+                            val offset = partitionEntry.entries.values.foldLeft(Offset.Min) { _ max _.offset }
+                            // TODO remove half
+                            partitionEntry.copy(entries = Map.empty, trimmed = Some(offset))
+                          }
                         }
+                        (partition, updated)
                       }
-                      (partition, updated)
                     }
                   }
-                }
 
-                val zero = (List.empty[Listener[F]], List.empty[F[Unit]])
-                val (listeners, completed) = state.listeners.foldLeft(zero) { case ((listeners, completed), listener) =>
-                  listener(combined) match {
-                    case None         => (listener :: listeners, completed)
-                    case Some(result) => (listeners, result :: completed)
+                  val zero = (List.empty[Listener[F]], List.empty[F[Unit]])
+                  val (listeners, completed) = state.listeners.foldLeft(zero) { case ((listeners, completed), listener) =>
+                    listener(combined) match {
+                      case None         => (listener :: listeners, completed)
+                      case Some(result) => (listeners, result :: completed)
+                    }
+                  }
+
+                  for {
+                    _ <- Par[F].sequence(completed)
+                  } yield {
+                    state.copy(entries = combined, listeners = listeners)
                   }
                 }
-
-                for {
-                  _ <- Par[F].sequence(completed)
-                } yield {
-                  state.copy(entries = combined, listeners = listeners)
-                }
               }
-            }
 
-            consuming.onError { case error =>
-              Log[F].error(s"consuming failed with $error", error)
+              consuming.onError { case error =>
+                Log[F].error(s"consuming failed with $error", error)
+              } // TODO fail head cache
             }
           }
         }
@@ -291,16 +295,14 @@ object HeadCache {
           }
         }
       } yield {
-        val cancel = for {
-          _ <- Par[F].foldMap(List(consuming, cleaning)) { _.cancel }
-        } yield {}
-        apply(topic, cancel, state)
+        val release = Par[F].foldMap(List(consuming, cleaning)) { _.cancel }
+        apply(topic, release, state)
       }
     }
 
     def apply[F[_] : Concurrent : Eventual : Monad : Log](
       topic: Topic,
-      cancel: F[Unit],
+      release: F[Unit],
       stateRef: SerialRef[F, State[F]]): TopicCache[F] = {
 
       // TODO handle case with replicator being down
@@ -382,7 +384,7 @@ object HeadCache {
         def close = {
           for {
             _ <- Log[F].debug("close")
-            _ <- cancel // TODO should be idempotent
+            _ <- release // TODO should be idempotent
           } yield {}
         }
       }
@@ -467,10 +469,10 @@ object HeadCache {
 
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
-    def apply[F[_] : Applicative](
+    def apply[F[_] : Sync](
       consumer: KafkaConsumer[F, Id, Bytes])(implicit
       monoid: Monoid[F[Unit]]): Consumer[F] = {
-      
+
       new Consumer[F] {
 
         def assign(topic: Topic, partitions: Nel[Partition]) = {
@@ -571,13 +573,22 @@ object HeadCache {
       topic: Topic,
       from: Map[Partition, Offset],
       pollTimeout: FiniteDuration,
-      consumer: Consumer[F])(
+      consumer: Consumer[F],
+      cancel: F[Boolean])(
       onRecords: ConsumerRecords[Id, Bytes] => F[Unit]): F[Unit] = {
 
       val poll = for {
-        records <- consumer.poll(pollTimeout)
-        _       <- if (records.values.isEmpty) ().pure[F] else onRecords(records)
-      } yield {}
+        cancel <- cancel
+        result <- {
+          if (cancel) ().some.pure[F]
+          else {
+            for {
+              records <- consumer.poll(pollTimeout)
+              _       <- if (records.values.isEmpty) ().pure[F] else onRecords(records)
+            } yield none[Unit]
+          }
+        }
+      } yield result
 
       val partitionsOf: F[Nel[Partition]] = {
 
@@ -628,7 +639,7 @@ object HeadCache {
           (partition, offset)
         }
         _          <- consumer.seek(topic, offsets.toMap)
-        _          <- poll.foreverM[Unit]
+        _          <- poll.untilDefinedM
       } yield {}
     }
   }

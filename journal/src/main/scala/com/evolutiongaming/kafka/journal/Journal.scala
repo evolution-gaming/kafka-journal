@@ -38,13 +38,13 @@ object Journal {
 
   def empty[F[_] : Applicative]: Journal[F] = new Journal[F] {
 
-    def append(key: Key, events: Nel[Event], timestamp: Instant) = Applicative[F].pure(PartitionOffset.Empty)
+    def append(key: Key, events: Nel[Event], timestamp: Instant) = PartitionOffset.Empty.pure[F]
 
-    def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = Applicative[F].pure(s)
+    def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = s.pure[F]
 
-    def pointer(key: Key) = Applicative[F].pure(none)
+    def pointer(key: Key) = none[SeqNr].pure[F]
 
-    def delete(key: Key, to: SeqNr, timestamp: Instant) = Applicative[F].pure(none)
+    def delete(key: Key, to: SeqNr, timestamp: Instant) = none[PartitionOffset].pure[F]
   }
 
 

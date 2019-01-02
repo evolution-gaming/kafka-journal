@@ -32,9 +32,9 @@ object HeadCacheAsync {
         autoCommit = false)
 
       for {
-        kafkaConsumer <- KafkaConsumer.of[IO, Id, Bytes](config, blocking)
+        consumer <- KafkaConsumer.of[IO, Id, Bytes](config, blocking)
       } yield {
-        HeadCache.Consumer[IO](kafkaConsumer)
+        HeadCache.Consumer[IO](consumer)
       }
     }
 
@@ -43,7 +43,7 @@ object HeadCacheAsync {
         log       <- Log.of[IO](HeadCache.getClass)
         headCache <- {
           implicit val log1 = log
-          HeadCache.of[IO](consumer = consumer)
+          HeadCache.of[IO](consumer)
         }
       } yield headCache
 

@@ -18,7 +18,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuit {
     val topicConsumer = TopicConsumer(config.journal.consumer, ecBlocking)
     eventual: EventualJournal[Async] => {
       val headCache = HeadCacheAsync(config.journal.consumer, eventual, ecBlocking)
-      Journal(
+      val journal = Journal(
         producer = producer,
         origin = Some(origin),
         topicConsumer = topicConsumer,
@@ -26,13 +26,14 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuit {
         pollTimeout = config.journal.pollTimeout,
         closeTimeout = config.journal.closeTimeout,
         headCache = headCache)
+      (journal, () => headCache.close)
     }
   }
 
   "Journal" should {
 
     for {
-      seqNr <- List(SeqNr.Min, SeqNr(10))
+      seqNr <- List(SeqNr.Min, SeqNr(2))
       (eventualName, eventual) <- List(
         ("empty", () => EventualJournal.empty[Async]),
         ("non-empty", () => eventual))
@@ -41,7 +42,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuit {
 
       def keyOf() = Key(id = UUID.randomUUID().toString, topic = "journal")
 
-      lazy val journal0 = journalOf(eventual())
+      lazy val (journal0, release) = journalOf(eventual())
 
       s"append, delete, read, lastSeqNr, $name" in {
         val key = keyOf()
@@ -145,6 +146,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuit {
               recovery()
             }
           }
+          _ <- release()
         } yield Succeeded
 
         result.future

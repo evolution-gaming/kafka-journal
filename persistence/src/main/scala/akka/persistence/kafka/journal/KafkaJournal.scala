@@ -123,6 +123,14 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
       }
     }
 
+    system.registerOnTermination {
+      try {
+        Await.result(headCache.close.future, config.stopTimeout)
+      } catch {
+        case NonFatal(failure) => log.error(s"failed to shutdown headCache $failure", failure)
+      }
+    }
+
     val journal = {
       val journal = Journal(
         producer = producer,
