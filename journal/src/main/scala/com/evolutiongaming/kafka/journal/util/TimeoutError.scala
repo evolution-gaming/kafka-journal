@@ -4,8 +4,9 @@ import cats.effect.Sync
 import cats.implicits._
 
 import scala.concurrent.TimeoutException
+import scala.util.control.NoStackTrace
 
-final case class TimeoutError(msg: String) extends TimeoutException(msg)
+final case class TimeoutError(msg: String) extends TimeoutException(msg) with NoStackTrace
 
 object TimeoutError {
 
