@@ -11,6 +11,8 @@ import scala.concurrent.ExecutionContext
 trait KafkaProducer[F[_]] {
 
   def send[K : skafka.ToBytes, V : skafka.ToBytes](record: ProducerRecord[K, V]): F[RecordMetadata]
+
+  def flush: F[Unit]
 }
 
 object KafkaProducer {
@@ -41,6 +43,12 @@ object KafkaProducer {
           def send[K : skafka.ToBytes, V : skafka.ToBytes](record: ProducerRecord[K, V]) = {
             FromFuture[F].apply {
               producer.send(record)
+            }
+          }
+
+          def flush = {
+            FromFuture[F].apply {
+              producer.flush()
             }
           }
         }

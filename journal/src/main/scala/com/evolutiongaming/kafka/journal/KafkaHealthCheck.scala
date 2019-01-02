@@ -9,7 +9,7 @@ import cats.{Applicative, FlatMap}
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.FromFuture
 import com.evolutiongaming.skafka.Topic
-import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecords}
+import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.evolutiongaming.skafka.producer.{ProducerConfig, ProducerRecord}
 
 import scala.concurrent.ExecutionContext
@@ -17,12 +17,14 @@ import scala.concurrent.duration._
 
 trait KafkaHealthCheck[F[_]] {
   def error: F[Option[Throwable]]
+  def done: F[Unit]
 }
 
 object KafkaHealthCheck {
 
   def empty[F[_] : Applicative]: KafkaHealthCheck[F] = new KafkaHealthCheck[F] {
     def error = none[Throwable].pure[F]
+    def done = ().pure[F]
   }
 
   def of[F[_] : Concurrent : Timer : FromFuture : ContextShift](
@@ -31,11 +33,9 @@ object KafkaHealthCheck {
     consumerConfig: ConsumerConfig,
     blocking: ExecutionContext): Resource[F, KafkaHealthCheck[F]] = {
 
-    val randomId = Sync[F].delay { UUID.randomUUID().toString } // TODO use RNG
-
     val result = for {
       log <- Log.of[F](KafkaHealthCheck.getClass)
-      key <- randomId
+      key <- Sync[F].delay { UUID.randomUUID().toString }
     } yield {
       implicit val log1 = log
 
@@ -49,7 +49,7 @@ object KafkaHealthCheck {
       val producer = for {
         producer <- KafkaProducer.of(producerConfig, blocking, None)
       } yield {
-        Producer(key = key, topic = config.topic, producer = producer)
+        Producer(topic = config.topic, producer = producer)
       }
 
       val consumer = for {
@@ -61,7 +61,7 @@ object KafkaHealthCheck {
       of(
         key = key,
         config = config,
-        randomId = randomId,
+        stop = false.pure[F],
         producer = producer,
         consumer = consumer)
     }
@@ -72,84 +72,97 @@ object KafkaHealthCheck {
   def of[F[_] : Concurrent : Timer : ContextShift : Log](
     key: String,
     config: Config,
-    randomId: F[String],
+    stop: F[Boolean],
     producer: Resource[F, Producer[F]],
     consumer: Resource[F, Consumer[F]]): Resource[F, KafkaHealthCheck[F]] = {
 
-    Resource {
-      for {
-        ref   <- Ref.of[F, Option[Throwable]](None)
-        fiber <- (producer, consumer).tupled.start { case (producer, consumer) =>
+    val result = for {
+      ref   <- Ref.of[F, Option[Throwable]](None)
+      fiber <- (producer, consumer).tupled.start { case (producer, consumer) =>
 
-          def poll(id: String) = {
+        def produce(value: String) = {
+          val record = Record(key = Some(key), value = Some(value))
+          for {
+            _ <- Log[F].debug(s"$key send $value")
+            _ <- producer.send(record)
+          } yield {}
+        }
+
+        def produceConsume(n: Long) = {
+          val value = n.toString
+
+          def consume(retry: Long) = {
             for {
               records <- consumer.poll(config.pollTimeout)
-              values   = records.values.values.flatten
-              found    = values.find { record =>
-                record.key.exists(_.value == key) && record.value.exists(_.value == id)
+              found    = records.find { record => record.key.contains(key) && record.value.contains(value) }
+              result  <- found.fold {
+                produce(s"$n, retry: $retry").as((retry + 1).asLeft[Unit])
+              } { _ =>
+                ().asRight[Long].pure[F]
               }
-            } yield found.void
+            } yield {
+              result
+            }
           }
 
-          val produce = for {
-            id <- randomId
-            _  <- producer.send(id)
-          } yield id
-
-          val produceConsume = {
-            val produceConsume = for {
-              id <- produce
-              _  <- poll(id).untilDefinedM
-            } yield {}
-
-            produceConsume
-              .timeoutFixed(config.timeout)
-              .toError
-          }
-
-          val check = for {
-            e <- produceConsume
-            _ <- e.fold(().pure[F]) { e => Log[F].error(s"failed with $e", e) }
-            _ <- ref.set(e)
-            _ <- Timer[F].sleep(config.interval)
+          val produceConsume = for {
+            _ <- produce(value)
+            _ <- 0l.tailRecM(consume)
           } yield {}
 
+          produceConsume
+            .timeout1(config.timeout)
+            .error
+        }
+
+        def check(n: Long) = {
           for {
-            _ <- Timer[F].sleep(config.initial)
-            _ <- consumer.subscribe(config.topic)
-            _ <- consumer.poll(1.second)
-            _ <- produce
-            _ <- produceConsume.attempt
-            _ <- check.foreverM[Unit]
-          } yield {}
-        }
-      } yield {
-
-        val result = new KafkaHealthCheck[F] {
-          def error = ref.get
+            error <- produceConsume(n)
+            _     <- error.fold(().pure[F]) { error => Log[F].error(s"$n failed with $error", error) }
+            _     <- ref.set(error)
+            _     <- Timer[F].sleep(config.interval)
+            stop  <- stop
+          } yield {
+            if (stop) ().asRight[Long]
+            else (n + 1).asLeft[Unit]
+          }
         }
 
-        (result, fiber.cancel)
+        for {
+          _ <- Timer[F].sleep(config.initial)
+          _ <- consumer.subscribe(config.topic)
+          _ <- consumer.poll(config.interval)
+          _ <- produceConsume(0l) // warmup
+          _ <- 1l.tailRecM(check)
+        } yield {}
       }
+    } yield {
+
+      val result = new KafkaHealthCheck[F] {
+        def error = ref.get
+        def done = fiber.join
+      }
+
+      (result, fiber.cancel)
     }
+
+    Resource(result)
   }
 
 
   trait Producer[F[_]] {
-    def send(value: String): F[Unit]
+    def send(record: Record): F[Unit]
   }
 
   object Producer {
 
-    def apply[F[_] : FlatMap](
-      key: String,
-      topic: Topic,
-      producer: KafkaProducer[F]): Producer[F] = {
+    def apply[F[_]](implicit F: Producer[F]): Producer[F] = F
 
+    def apply[F[_] : FlatMap](topic: Topic, producer: KafkaProducer[F]): Producer[F] = {
       new Producer[F] {
-        def send(value: String) = {
-          val record = ProducerRecord[String, String](topic = topic, value = Some(value), key = Some(key))
-          producer.send(record).void
+        def send(record: Record) = {
+          val record1 = ProducerRecord[String, String](topic = topic, key = record.key, value = record.value)
+          producer.send(record1).void
         }
       }
     }
@@ -160,12 +173,14 @@ object KafkaHealthCheck {
 
     def subscribe(topic: Topic): F[Unit]
     
-    def poll(timeout: FiniteDuration): F[ConsumerRecords[String, String]]
+    def poll(timeout: FiniteDuration): F[Iterable[Record]]
   }
 
   object Consumer {
 
-    def apply[F[_] : FromFuture](consumer: KafkaConsumer[F, String, String]): Consumer[F] = {
+    def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
+
+    def apply[F[_] : FlatMap : FromFuture](consumer: KafkaConsumer[F, String, String]): Consumer[F] = {
 
       new Consumer[F] {
 
@@ -174,11 +189,20 @@ object KafkaHealthCheck {
         }
 
         def poll(timeout: FiniteDuration) = {
-          consumer.poll(timeout)
+          for {
+            records <- consumer.poll(timeout)
+          } yield for {
+            record <- records.values.values.flatten
+          } yield {
+            Record(key = record.key.map(_.value), value = record.value.map(_.value))
+          }
         }
       }
     }
   }
+
+
+  final case class Record(key: Option[String], value: Option[String])
 
 
   final case class Config(

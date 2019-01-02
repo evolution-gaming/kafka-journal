@@ -737,7 +737,8 @@ object TopicReplicatorSpec {
     }
   }
 
-  
+
+  // TODO swithc to StateT
   final case class DataF[A](run: Data => (Data, A))
 
   object DataF {

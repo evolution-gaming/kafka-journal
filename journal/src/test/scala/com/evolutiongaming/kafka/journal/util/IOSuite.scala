@@ -15,7 +15,7 @@ object IOSuite {
   implicit lazy val timer: Timer[IO] = IO.timer(ec)
 
   def runIO[A](io: IO[A], timeout: FiniteDuration = Timeout): Future[Succeeded.type] = {
-    io.timeoutFixed(timeout).as(Succeeded).unsafeToFuture
+    io.timeout1(timeout).as(Succeeded).unsafeToFuture
   }
 
   implicit class IOOps[A](val self: IO[A]) extends AnyVal {

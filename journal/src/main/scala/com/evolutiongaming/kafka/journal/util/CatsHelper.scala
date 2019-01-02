@@ -100,6 +100,15 @@ object CatsHelper {
   }
 
 
+  implicit class ConcurrentOps(val self: Concurrent.type) extends AnyVal {
+
+    def timeout1[F[_], A](fa: F[A], duration: FiniteDuration)(implicit F: Concurrent[F], timer: Timer[F]): F[A] = {
+      val fe = TimeoutError.lift[F, A](s"timed out after $duration")
+      Concurrent.timeoutTo(fa, duration, fe)
+    }
+  }
+
+  
   implicit val FoldableIterable: Foldable[Iterable] = new Foldable[Iterable] {
 
     def foldLeft[A, B](fa: Iterable[A], b: B)(f: (B, A) => B) = {
@@ -134,14 +143,18 @@ object CatsHelper {
       bracket.redeemWith(self)(recover, flatMap)
     }
 
-    def toError[E](implicit bracket: Bracket[F, E]): F[Option[E]] = {
+    def error[E](implicit bracket: Bracket[F, E]): F[Option[E]] = {
       self.redeem[Option[E], E](_.some)(_ => none[E])
     }
 
     def unsafeToFuture()(implicit toFuture: ToFuture[F]): Future[A] = toFuture(self)
 
-    def timeoutFixed(duration: FiniteDuration)(implicit F: Concurrent[F], timer: Timer[F]): F[A] = {
-      TimeoutFixed[F, A](self, duration)
+    def timeout1(duration: FiniteDuration)(implicit F: Concurrent[F], timer: Timer[F]): F[A] = {
+      Concurrent.timeout1(self, duration)
+    }
+
+    def timeout2(duration: FiniteDuration)(implicit F: Timeout[F]): F[A] = {
+      F.apply(self, duration)
     }
   }
 

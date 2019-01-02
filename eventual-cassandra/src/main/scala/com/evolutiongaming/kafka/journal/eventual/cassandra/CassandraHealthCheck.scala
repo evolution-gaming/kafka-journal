@@ -49,7 +49,7 @@ object CassandraHealthCheck {
             _ <- Timer[F].sleep(initial)
             _ <- {
               for {
-                e <- statement.toError[Throwable]
+                e <- statement.error[Throwable]
                 _ <- e.fold(().pure[F]) { e => Log[F].error(s"failed with $e", e) }
                 _ <- ref.set(e)
                 _ <- Timer[F].sleep(interval)
