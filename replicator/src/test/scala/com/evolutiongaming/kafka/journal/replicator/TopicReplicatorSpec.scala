@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
 
-import cats.effect.{Concurrent, ExitCase, Fiber}
+import cats.effect._
 import cats.implicits._
 import cats.{Applicative, Foldable, Monoid, Traverse}
 import com.evolutiongaming.kafka.journal.KafkaConverters._
@@ -16,6 +16,7 @@ import com.evolutiongaming.skafka.{Bytes => _, _}
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.annotation.tailrec
+import scala.concurrent.ExecutionContext
 import scala.util.control.{NoStackTrace, NonFatal}
 
 class TopicReplicatorSpec extends WordSpec with Matchers {
@@ -655,17 +656,10 @@ object TopicReplicatorSpec {
   }
 
 
-  val topicReplicator: DataF[TopicReplicator[DataF]] = {
+  val topicReplicator: DataF[Unit] = {
     val millis = timestamp.plusMillis(replicationLatency).toEpochMilli
     implicit val clock = ClockOf[DataF](millis)
-    for {
-      topicReplicator <- TopicReplicator.of[DataF](
-        topic = topic,
-        consumer = TopicReplicator.Consumer[DataF],
-        log = Log[DataF],
-        stopRef = TopicReplicator.StopRef[DataF])
-      _ <- topicReplicator.close
-    } yield topicReplicator
+    TopicReplicator.of[DataF](topic, TopicReplicator.StopRef[DataF])
   }
 
   // TODO create separate case class covering state of KafkaConsumer for testing
@@ -677,8 +671,7 @@ object TopicReplicatorSpec {
     pointers: Map[Topic, TopicPointers] = Map.empty,
     journal: Map[Key, List[ReplicatedEvent]] = Map.empty,
     metadata: Map[Key, Metadata] = Map.empty,
-    metrics: List[Metrics] = Nil) {
-    self =>
+    metrics: List[Metrics] = Nil) { self =>
 
     def +(metrics: Metrics): (Data, Unit) = {
       val result = copy(metrics = metrics :: self.metrics)
@@ -819,6 +812,14 @@ object TopicReplicatorSpec {
     }
 
 
+    implicit val ContextShiftDataF: ContextShift[DataF] = new ContextShift[DataF] {
+
+      def shift = ().pure[DataF]
+
+      def evalOn[A](ec: ExecutionContext)(fa: DataF[A]) = fa
+    }
+
+
     implicit val ReplicatedJournalDataF: ReplicatedJournal[DataF] = new ReplicatedJournal[DataF] {
 
       def topics = Iterable.empty[Topic].pure[DataF]
@@ -869,8 +870,6 @@ object TopicReplicatorSpec {
       def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = DataF { s => (s.commit(offsets), ()) }
 
       def poll = DataF { _.poll }
-
-      def close = ().pure[DataF]
     }
 
 

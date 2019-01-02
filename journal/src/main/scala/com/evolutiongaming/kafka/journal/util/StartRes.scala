@@ -5,7 +5,7 @@ import cats.effect.concurrent.Deferred
 import cats.effect.implicits._
 import cats.implicits._
 
-object ForkRes {
+object StartRes {
 
   def apply[F[_] : Concurrent : ContextShift, A, B](
     res: Resource[F, A])(

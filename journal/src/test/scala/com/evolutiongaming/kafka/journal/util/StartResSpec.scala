@@ -6,14 +6,14 @@ import cats.implicits._
 import com.evolutiongaming.kafka.journal.util.IOSuite._
 import org.scalatest.{AsyncFunSuite, Matchers}
 
-class ForkResSpec extends AsyncFunSuite with Matchers {
+class StartResSpec extends AsyncFunSuite with Matchers {
 
-  test("ForkRes") {
+  test("StartRes") {
     val result = for {
       deferred <- Deferred[IO, Unit]
       ref      <- Ref.of[IO, Boolean](false)
       res       = Resource.make(IO.unit)(_ => ref.set(true))
-      fiber    <- ForkRes(res)(_ => deferred.complete(()) *> IO.never.as(()))
+      fiber    <- StartRes(res)(_ => deferred.complete(()) *> IO.never.as(()))
       _        <- deferred.get
       _        <- fiber.cancel
       result   <- ref.get

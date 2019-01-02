@@ -3,8 +3,8 @@ package com.evolutiongaming.kafka.journal.replicator
 import java.time.Instant
 
 import cats.Applicative
+import cats.effect._
 import cats.effect.concurrent.Ref
-import cats.effect.{Bracket, Clock, Concurrent, Sync}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
@@ -24,6 +24,7 @@ import scala.concurrent.duration.FiniteDuration
 // TODO partition replicator ?
 // TODO add metric to track replication lag in case it cannot catchup with producers
 // TODO verify that first consumed offset matches to the one expected, otherwise we screwed.
+// TODO should it be Resource ?
 trait TopicReplicator[F[_]] {
 
   def done: F[Unit]
@@ -34,14 +35,49 @@ trait TopicReplicator[F[_]] {
 object TopicReplicator {
 
   //  TODO return error in case failed to connect
-  def of[F[_] : Concurrent : Clock : Par : Metrics : ReplicatedJournal](
+  def of[F[_] : Concurrent : Clock : Par : Metrics : ReplicatedJournal : ContextShift : Log](
     topic: Topic,
-    consumer: Consumer[F],
-    stopRef: StopRef[F],
-    log: Log[F]): F[TopicReplicator[F]] = {
+    consumer: Resource[F, Consumer[F]],
+    stopRef: StopRef[F]): F[TopicReplicator[F]] = {
+    
+    for {
+      fiber <- consumer.start { implicit consumer => of(topic, stopRef) }
+    } yield {
+      new TopicReplicator[F] {
 
-    implicit val log1 = log
-    implicit val consumer1 = consumer
+        def done = fiber.join
+
+        def close = {
+          for {
+            _ <- Log[F].debug("shutting down")
+            _ <- stopRef.set // TODO remove
+            _ <- fiber.join
+            //            _ <- fiber.cancel // TODO
+          } yield {}
+        }
+      }
+    }
+  }
+
+  def of[F[_] : Concurrent : Clock : Par : Metrics : ReplicatedJournal : ContextShift](
+    topic: Topic,
+    consumer: Resource[F, Consumer[F]]): F[TopicReplicator[F]] = {
+
+    for {
+      log      <- Log.of[F](TopicReplicator.getClass)
+      stopRef  <- StopRef.of[F]
+      result   <- {
+        implicit val topicLog = log prefixed topic
+        of[F](topic, consumer, stopRef)
+      }
+    } yield result
+  }
+
+
+  //  TODO return error in case failed to connect
+  def of[F[_] : Concurrent : Clock : Par : Metrics : ReplicatedJournal : Consumer : Log](
+    topic: Topic,
+    stopRef: StopRef[F]): F[Unit] = {
 
     type State = TopicPointers
 
@@ -218,42 +254,12 @@ object TopicReplicator {
       }
     }
 
-    for {
+    val result = for {
       pointers <- ReplicatedJournal[F].pointers(topic)
       _        <- Consumer[F].subscribe(topic)
-      fiber    <- Concurrent[F].start {
-        val subscription = pointers
-          .tailRecM(consume)
-          .onError { case error => Log[F].error(s"failed with $error", error) /*TODO fail the app*/ }
-        Bracket[F, Throwable].guarantee(subscription)(Consumer[F].close)
-      }
-    } yield {
-      new TopicReplicator[F] {
-
-        def done = fiber.join
-
-        def close = {
-          for {
-            _ <- Log[F].debug("shutting down")
-            _ <- stopRef.set
-            _ <- fiber.join
-          } yield {}
-        }
-      }
-    }
-  }
-
-  def of[F[_] : Concurrent : Clock : Par : Metrics : ReplicatedJournal](
-    topic: Topic,
-    consumer: F[Consumer[F]]): F[TopicReplicator[F]] = {
-
-    for {
-      consumer <- consumer
-      log      <- Log.of[F](TopicReplicator.getClass)
-      topicLog  = log prefixed topic
-      stopRef  <- StopRef.of[F]
-      result   <- of[F](topic, consumer, stopRef, topicLog)
-    } yield result
+      _        <- pointers.tailRecM(consume)
+    } yield {}
+    result.onError { case error => Log[F].error(s"failed with $error", error) /*TODO fail the app*/ }
   }
 
 
@@ -264,8 +270,6 @@ object TopicReplicator {
     def poll: F[ConsumerRecords[Id, Bytes]]
 
     def commit(offsets: Map[TopicPartition, OffsetAndMetadata]): F[Unit]
-
-    def close: F[Unit]
   }
 
   object Consumer {
@@ -274,8 +278,7 @@ object TopicReplicator {
 
     def apply[F[_] : Applicative](
       consumer: KafkaConsumer[F, Id, Bytes],
-      pollTimeout: FiniteDuration /*TODO*/,
-      release: F[Unit]): Consumer[F] = {
+      pollTimeout: FiniteDuration /*TODO*/): Consumer[F] = {
 
       new Consumer[F] {
 
@@ -289,10 +292,6 @@ object TopicReplicator {
 
         def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = {
           consumer.commit(offsets)
-        }
-
-        def close = {
-          release
         }
       }
     }

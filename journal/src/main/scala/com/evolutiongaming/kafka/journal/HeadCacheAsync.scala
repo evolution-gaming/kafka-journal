@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.implicits._
 import cats.effect.IO
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
@@ -31,10 +32,9 @@ object HeadCacheAsync {
         autoCommit = false)
 
       for {
-        kafkaConsumer <- KafkaConsumer.of[IO, Id, Bytes](config, blocking).allocated // TODO
+        kafkaConsumer <- KafkaConsumer.of[IO, Id, Bytes](config, blocking)
       } yield {
-        val (consumer, release) = kafkaConsumer
-        HeadCache.Consumer[IO](consumer, release)
+        HeadCache.Consumer[IO](kafkaConsumer)
       }
     }
 

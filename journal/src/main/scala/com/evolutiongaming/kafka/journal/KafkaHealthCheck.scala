@@ -77,7 +77,7 @@ object KafkaHealthCheck {
     Resource {
       for {
         ref   <- Ref.of[F, Option[Throwable]](None)
-        fiber <- (producer, consumer).tupled.fork { case (producer, consumer) =>
+        fiber <- (producer, consumer).tupled.start { case (producer, consumer) =>
 
           def poll(id: String) = {
             for {

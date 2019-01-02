@@ -107,10 +107,9 @@ object Replicator {
         autoCommit = false)
 
       val consumer = for {
-        kafkaConsumer <- kafkaConsumerOf(consumerConfig).allocated // TODO
+        consumer <- kafkaConsumerOf(consumerConfig)
       } yield {
-        val (resource, release) = kafkaConsumer
-        TopicReplicator.Consumer[F](resource, config.pollTimeout, release)
+        TopicReplicator.Consumer[F](consumer, config.pollTimeout)
       }
 
       implicit val metrics1 = metrics.replicator.fold(TopicReplicator.Metrics.empty[F]) { _.apply(topic) }

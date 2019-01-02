@@ -88,13 +88,16 @@ object AppendReplicate extends App {
     implicit val replicatedJournal = ReplicatedJournal.empty[IO]
     implicit val metrics = TopicReplicator.Metrics.empty[IO]
 
-    val done = KafkaConsumer.of[IO, Id, Bytes](config.consumer, blocking).use { kafkaConsumer =>
-      val consumer = TopicReplicator.Consumer[IO](kafkaConsumer, config.pollTimeout, IO.unit)
-      for {
-        replicator <- TopicReplicator.of[IO](topic, consumer.pure[IO])
-        done       <- replicator.done
-      } yield done
+    val consumer = for {
+      consumer <- KafkaConsumer.of[IO, Id, Bytes](config.consumer, blocking)
+    } yield {
+      TopicReplicator.Consumer[IO](consumer, config.pollTimeout)
     }
+
+    val done = for {
+      replicator <- TopicReplicator.of[IO](topic, consumer)
+      done       <- replicator.done
+    } yield done
 
     val future = done.unsafeToFuture()
 

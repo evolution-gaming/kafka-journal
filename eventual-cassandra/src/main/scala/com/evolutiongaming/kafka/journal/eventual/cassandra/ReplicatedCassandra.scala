@@ -2,9 +2,9 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
-import cats.effect.{Clock, Concurrent}
+import cats.effect.{Clock, Concurrent, Sync}
 import cats.implicits._
-import cats.{Applicative, FlatMap, Monad}
+import cats.{Applicative, FlatMap}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal.Metrics
 import com.evolutiongaming.kafka.journal.eventual._
@@ -39,7 +39,7 @@ object ReplicatedCassandra {
     }
   }
 
-  def apply[F[_] : Monad : Par : Statements](segmentSize: Int): ReplicatedJournal[F] = {
+  def apply[F[_] : Sync : Par : Statements](segmentSize: Int): ReplicatedJournal[F] = {
 
     implicit val monoidUnit = Applicative.monoid[F, Unit]
 
@@ -110,8 +110,12 @@ object ReplicatedCassandra {
         for {
           metadata                    <- Statements[F].selectMetadata(key)
           (saveMetadata, segmentSize)  = saveMetadataAndSegmentSize(metadata)
-          _                           <- append(segmentSize)
-          _                           <- saveMetadata()
+          _                           <- Sync[F].uncancelable {
+            for {
+              _ <- append(segmentSize)
+              _ <- saveMetadata()
+            } yield {}
+          }
         } yield {}
       }
 
@@ -168,8 +172,12 @@ object ReplicatedCassandra {
 
         for {
           metadata    <- Statements[F].selectMetadata(key)
-          segmentSize <- saveMetadata(metadata)
-          _           <- metadata.foldMap[F[Unit]](delete(segmentSize, _))
+          _           <- Sync[F].uncancelable {
+            for {
+              segmentSize <- saveMetadata(metadata)
+              _           <- metadata.foldMap[F[Unit]](delete(segmentSize, _))
+            } yield {}
+          }
         } yield {}
       }
 

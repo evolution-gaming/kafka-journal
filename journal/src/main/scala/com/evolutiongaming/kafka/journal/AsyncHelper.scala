@@ -2,8 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import java.util.concurrent.TimeUnit
 
-import cats.MonadError
-import cats.effect.Clock
+import cats.effect.{Clock, ExitCase, Sync}
 import com.evolutiongaming.concurrent.async.Async
 
 import scala.annotation.tailrec
@@ -106,7 +105,21 @@ object AsyncHelper {
     }
   }
 
-  implicit val MonadErrorAsync: MonadError[Async, Throwable] = new MonadError[Async, Throwable] {
+  implicit val SyncAsync: Sync[Async] = new Sync[Async] {
+
+    def suspend[A](thunk: => Async[A]) = thunk
+
+    def bracketCase[A, B](acquire: Async[A])(use: A => Async[B])(release: (A, ExitCase[Throwable]) => Async[Unit]) = {
+      for {
+        a <- acquire
+        b <- use(a).flatMapFailure { error =>
+          for {
+            _ <- release(a, ExitCase.error(error)).recover { case _ => () }
+            b <- Async.failed[B](error)
+          } yield b
+        }
+      } yield b
+    }
 
     def raiseError[A](e: Throwable) = Async.failed(e)
 

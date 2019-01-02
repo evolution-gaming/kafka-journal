@@ -143,8 +143,8 @@ object CatsHelper {
 
   implicit class ResourceOps[F[_], A](val self: Resource[F, A]) extends AnyVal {
 
-    def fork[B](use: A => F[B])(implicit F: Concurrent[F], cs: ContextShift[F]): F[Fiber[F, B]] = {
-      ForkRes(self)(use)
+    def start[B](use: A => F[B])(implicit F: Concurrent[F], cs: ContextShift[F]): F[Fiber[F, B]] = {
+      StartRes(self)(use)
     }
   }
 }

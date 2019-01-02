@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import cats.effect.concurrent.Ref
-import cats.effect.{Concurrent, IO, Timer}
+import cats.effect.{Concurrent, IO, Resource, Timer}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.kafka.journal.util.IOSuite._
@@ -14,7 +14,6 @@ import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.collection.immutable.Queue
 import scala.concurrent.duration._
-import scala.util.control.NoStackTrace
 
 class HeadCacheSpec extends AsyncWordSpec with Matchers {
   import HeadCacheSpec._
@@ -233,33 +232,6 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
 
       result.run()
     }
-
-    "close" in {
-      val key = Key(id = "id", topic = topic)
-
-      val state = TestConsumer.State(
-        topics = Map((topic, List(0))))
-
-      val offset = Offset.Min
-      val pointers = Map((partition, offset))
-      implicit val eventual = HeadCache.Eventual.const(TopicPointers(pointers).pure[IO])
-      val result = for {
-        consumerState <- Ref.of[IO, IO[TestConsumer.State]](state.pure[IO])
-        consumer = TestConsumer(consumerState).pure[IO]
-        headCache <- headCacheOf(consumer)
-        _ <- headCache(
-          key = key,
-          partition = partition,
-          offset = offset)
-        _ <- headCache.close
-        state <- consumerState.get
-        state <- state.attempt
-      } yield {
-        state shouldEqual Left(TestConsumer.ClosedException)
-      }
-
-      result.run()
-    }
   }
 }
 
@@ -279,7 +251,7 @@ object HeadCacheSpec {
 
     HeadCache.of[IO](
       config = config,
-      consumer = consumer)
+      consumer = Resource.liftF(consumer))
   }
 
   implicit val log: Log[IO] = Log.empty[IO]
@@ -341,19 +313,6 @@ object HeadCacheSpec {
             state.topics.getOrElse(topic, Nil)
           }
         }
-
-        def close = {
-          val closed = IO.raiseError(ClosedException)
-          ref.set(closed)
-        }
-      }
-    }
-
-    def of(state: State)(implicit timer: Timer[IO]): IO[HeadCache.Consumer[IO]] = {
-      for {
-        ref <- Ref.of[IO, IO[State]](state.pure[IO])
-      } yield {
-        apply(ref)
       }
     }
 
@@ -371,7 +330,5 @@ object HeadCacheSpec {
     object State {
       val Empty: State = State()
     }
-
-    case object ClosedException extends RuntimeException("consumer is closed") with NoStackTrace
   }
 }

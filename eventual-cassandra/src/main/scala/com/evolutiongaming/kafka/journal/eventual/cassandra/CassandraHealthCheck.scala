@@ -43,8 +43,8 @@ object CassandraHealthCheck {
 
     Resource {
       for {
-        ref <- Ref.of[F, Option[Throwable]](none)
-        fiber <- statement.fork { statement =>
+        ref   <- Ref.of[F, Option[Throwable]](none)
+        fiber <- statement.start { statement =>
           for {
             _ <- Timer[F].sleep(initial)
             _ <- {

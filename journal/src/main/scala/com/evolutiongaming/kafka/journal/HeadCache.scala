@@ -49,8 +49,8 @@ object HeadCache {
   }
 
 
-  def of[F[_] : Concurrent : Eventual : Par : Timer : Log](
-    consumer: F[Consumer[F]],
+  def of[F[_] : Concurrent : Eventual : Par : Timer : Log : ContextShift](
+    consumer: Resource[F, Consumer[F]],
     config: Config = Config.Default): F[HeadCache[F]] = {
 
     for {
@@ -61,16 +61,12 @@ object HeadCache {
       def topicCache(topic: Topic)(implicit log: Log[F]) = {
         val logTopic = log.prefixed(topic)
         for {
-          _ <- logTopic.info("create")
-          consumerWithLog = for {
-            consumer <- consumer
-          } yield {
-            Consumer(consumer, logTopic)
-          }
+          _          <- logTopic.info("create")
+          consumer1   = consumer.map(Consumer(_, logTopic))
           topicCache <- TopicCache.of(
             topic = topic,
             config = config,
-            consumer = consumerWithLog)(Concurrent[F], Eventual[F], Par[F], logTopic, Timer[F])
+            consumer = consumer1)(Concurrent[F], Eventual[F], Par[F], logTopic, Timer[F], ContextShift[F])
         } yield {
           topicCache
         }
@@ -81,13 +77,11 @@ object HeadCache {
         def apply(key: Key, partition: Partition, offset: Offset) = {
           val topic = key.topic
           for {
-            cache <- cache.get
-            cache <- cache
+            cache      <- cache.get
+            cache      <- cache
             topicCache <- cache.getOrUpdate(topic)(topicCache(topic))
-            result <- topicCache(id = key.id, partition = partition, offset = offset)
-          } yield {
-            result
-          }
+            result     <- topicCache(id = key.id, partition = partition, offset = offset)
+          } yield result
         }
 
         def close = {
@@ -96,7 +90,7 @@ object HeadCache {
             c <- cache.modify { c =>
               val cc = for {
                 _ <- c
-                c <- Concurrent[F].raiseError[Cache[F, Topic, TopicCache[F]]](ClosedException)
+                c <- ClosedException.raiseError[F, Cache[F, Topic, TopicCache[F]]]
               } yield c
               (cc, c)
             }
@@ -146,10 +140,10 @@ object HeadCache {
 
     type Listener[F[_]] = Map[Partition, PartitionEntry] => Option[F[Unit]]
 
-    def of[F[_] : Concurrent : Eventual : Par : Log : Timer](
+    def of[F[_] : Concurrent : Eventual : Par : Log : Timer : ContextShift](
       topic: Topic,
       config: Config,
-      consumer: F[Consumer[F]]): F[TopicCache[F]] = {
+      consumer: Resource[F, Consumer[F]]): F[TopicCache[F]] = {
 
       for {
         pointers <- Eventual[F].pointers(topic)
@@ -215,7 +209,7 @@ object HeadCache {
             }
           }
 
-          Concurrent[F].start {
+          consumer.start { consumer =>
 
             val consuming = ConsumeTopic(
               topic = topic,
@@ -283,13 +277,13 @@ object HeadCache {
         cleaning <- Concurrent[F].start {
           val cleaning = {
             for {
-              _ <- Timer[F].sleep(config.cleanInterval)
+              _        <- Timer[F].sleep(config.cleanInterval)
               pointers <- Eventual[F].pointers(topic)
-              before <- state.get
-              _ <- state.update { _.removeUntil(pointers.values).pure[F] }
-              after <- state.get
-              removed = before.size - after.size
-              _ <- if (removed > 0) Log[F].debug(s"remove $removed entries") else ().pure[F]
+              before   <- state.get
+              _        <- state.update { _.removeUntil(pointers.values).pure[F] }
+              after    <- state.get
+              removed   = before.size - after.size
+              _        <- if (removed > 0) Log[F].debug(s"remove $removed entries") else ().pure[F]
             } yield {}
           }
           cleaning.foreverM[Unit].onError { case error =>
@@ -467,8 +461,6 @@ object HeadCache {
     def poll(timeout: FiniteDuration): F[ConsumerRecords[Id, Bytes]]
 
     def partitions(topic: Topic): F[List[Partition]]
-
-    def close: F[Unit]
   }
 
   object Consumer {
@@ -476,8 +468,7 @@ object HeadCache {
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
     def apply[F[_] : Applicative](
-      consumer: KafkaConsumer[F, Id, Bytes],
-      release: F[Unit])(implicit
+      consumer: KafkaConsumer[F, Id, Bytes])(implicit
       monoid: Monoid[F[Unit]]): Consumer[F] = {
       
       new Consumer[F] {
@@ -501,8 +492,6 @@ object HeadCache {
         def poll(timeout: FiniteDuration) = consumer.poll(timeout)
 
         def partitions(topic: Topic) = consumer.partitions(topic)
-
-        def close = release
       }
     }
 
@@ -545,19 +534,7 @@ object HeadCache {
             r
           }
         }
-
-        def close = {
-          for {
-            _ <- log.debug("close")
-            r <- consumer.close
-          } yield r
-        }
       }
-    }
-
-
-    def resource[F[_] : Functor](consumer: F[Consumer[F]]): Resource[F, Consumer[F]] = {
-      Resource.make(consumer)(_.close)
     }
   }
 
@@ -594,23 +571,15 @@ object HeadCache {
       topic: Topic,
       from: Map[Partition, Offset],
       pollTimeout: FiniteDuration,
-      consumer: F[Consumer[F]])(
+      consumer: Consumer[F])(
       onRecords: ConsumerRecords[Id, Bytes] => F[Unit]): F[Unit] = {
 
-      def poll(implicit consumer: Consumer[F]): F[Unit] = {
-        for {
-          records <- consumer.poll(pollTimeout)
-          _       <- {
-            if (records.values.isEmpty) {
-              ().pure[F]
-            } else {
-              onRecords(records)
-            }
-          }
-        } yield {}
-      }
+      val poll = for {
+        records <- consumer.poll(pollTimeout)
+        _       <- if (records.values.isEmpty) ().pure[F] else onRecords(records)
+      } yield {}
 
-      def partitionsOf(implicit consumer: Consumer[F]): F[Nel[Partition]] = {
+      val partitionsOf: F[Nel[Partition]] = {
 
         val onError = (error: Throwable, details: Retry.Details) => {
           import Retry.Decision
@@ -649,20 +618,18 @@ object HeadCache {
         }
       }
 
-      Consumer.resource(consumer).use { implicit consumer =>
-        for {
-          partitions <- partitionsOf
-          _          <- consumer.assign(topic, partitions)
-          offsets     = for {
-            partition <- partitions
-          } yield {
-            val offset = from.get(partition).fold(Offset.Min)(_ + 1l)
-            (partition, offset)
-          }
-          _          <- consumer.seek(topic, offsets.toMap)
-          _          <- poll.foreverM[Unit]
-        } yield {}
-      }
+      for {
+        partitions <- partitionsOf
+        _          <- consumer.assign(topic, partitions)
+        offsets     = for {
+          partition <- partitions
+        } yield {
+          val offset = from.get(partition).fold(Offset.Min)(_ + 1l)
+          (partition, offset)
+        }
+        _          <- consumer.seek(topic, offsets.toMap)
+        _          <- poll.foreverM[Unit]
+      } yield {}
     }
   }
 
