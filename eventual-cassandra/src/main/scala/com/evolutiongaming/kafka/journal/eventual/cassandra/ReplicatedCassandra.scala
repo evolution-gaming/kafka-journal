@@ -11,7 +11,6 @@ import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.{FromFuture, Par, ToFuture}
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.scassandra.Session
 import com.evolutiongaming.skafka.Topic
 
 import scala.annotation.tailrec
@@ -24,9 +23,8 @@ object ReplicatedCassandra {
   def of[F[_] : Concurrent : FromFuture : ToFuture : Par : Clock](
     config: EventualCassandraConfig,
     metrics: Option[Metrics[F]])(implicit
-    session: Session): F[ReplicatedJournal[F]] = {
+    session: CassandraSession[F]): F[ReplicatedJournal[F]] = {
 
-    implicit val cassandraSession = CassandraSession[F](CassandraSession[F](session), config.retries)
     implicit val cassandraSync = CassandraSync[F](config.schema, Some(Origin("replicator"/*TODO*/)))
     for {
       tables     <- CreateSchema[F](config.schema)

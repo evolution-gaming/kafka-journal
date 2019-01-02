@@ -15,36 +15,39 @@ import scala.util.control.NonFatal
 
 object IntegrationSuit {
 
-  def startF[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift](system: ActorSystem): F[F[Unit]] = {
+  def startF[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift](system: ActorSystem): Resource[F, Unit] = {
 
-    val cassandra = for {
-      cassandra <- Sync[F].delay { StartCassandra() }
-    } yield {
-      Sync[F].delay { cassandra() }
+    def cassandra(log: Log[F]) = Resource {
+      for {
+        cassandra <- Sync[F].delay { StartCassandra() }
+      } yield {
+        val release = Sync[F].delay { cassandra() }.onError { case e =>
+          log.error(s"failed to release cassandra with $e", e)
+        }
+        (().pure[F], release)
+      }
     }
 
-    val kafka = for {
-      kafka <- Sync[F].delay { StartKafka() }
-    } yield {
-      Sync[F].delay { kafka() }
+    def kafka(log: Log[F]) = Resource {
+      for {
+        kafka <- Sync[F].delay { StartKafka() }
+      } yield {
+        val release = Sync[F].delay { kafka() }.onError { case e =>
+          log.error(s"failed to release kafka with $e", e)
+        }
+        (().pure[F], release)
+      }
     }
 
     for {
-      log    <- Log.of[F](IntegrationSuit.getClass)
-      ck     <- Par[F].tupleN(cassandra, kafka)
-      (c, k)  = ck
-      r      <- Replicator.of[F](system)
-    } yield {
-      for {
-        _  <- r.close.handleErrorWith { e => log.error(s"failed to shutdown replicator with $e", e) }
-        c1  = c.handleErrorWith       { e => log.error(s"failed to shutdown cassandra with $e", e) }
-        k1  = k.handleErrorWith       { e => log.error(s"failed to shutdown kafka with $e", e) }
-        _  <- Par[F].tupleN(c1, k1)
-      } yield {}
-    }
+      log <- Resource.liftF(Log.of[F](IntegrationSuit.getClass))
+      _   <- cassandra(log)
+      _   <- kafka(log)
+      _   <- Replicator.of[F](system)
+    } yield {}
   }
 
-  def startIO(system: ActorSystem): IO[IO[Unit]] = {
+  def startIO(system: ActorSystem): Resource[IO, Unit] = {
     implicit val executionContext = system.dispatcher
     implicit val contextShift = IO.contextShift(executionContext)
     implicit val fromFuture = FromFuture.lift[IO]
@@ -55,11 +58,11 @@ object IntegrationSuit {
   private lazy val started: Unit = {
     val config = ConfigFactory.load("replicator.conf")
     val system = ActorSystem("replicator", config)
-    val future = startIO(system).unsafeToFuture()
-    val shutdown = Await.result(future, 1.minute)
+    val future = startIO(system).allocated.unsafeToFuture()
+    val (_, release) = Await.result(future, 1.minute)
 
     CoordinatedShutdown.get(system).addJvmShutdownHook {
-      val future = shutdown.unsafeToFuture()
+      val future = release.unsafeToFuture()
       try {
         Await.result(future, 1.minute)
       } catch {

@@ -6,11 +6,10 @@ import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
-import com.evolutiongaming.kafka.journal.eventual.cassandra.ReplicatedCassandra
+import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession, ReplicatedCassandra}
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.ClockHelper._
 import com.evolutiongaming.kafka.journal.util._
-import com.evolutiongaming.scassandra.{CreateCluster, Session}
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Topic, Bytes => _}
@@ -21,69 +20,52 @@ import scala.concurrent.ExecutionContext
 trait Replicator[F[_]] {
 
   def done: F[Boolean]
-
-  def close: F[Unit]
 }
  
 object Replicator {
 
   def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift](
     system: ActorSystem,
-    metrics: Metrics[F] = Metrics.empty[F]): F[Replicator[F]] = {
+    metrics: Metrics[F] = Metrics.empty[F]): Resource[F, Replicator[F]] = {
 
-    val config = {
+    val config = Sync[F].delay {
       val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.replicator")
       ReplicatorConfig(config)
     }
 
     for {
-      cassandra  <- Sync[F].delay { CreateCluster(config.cassandra.client) }
-      ecBlocking <- Sync[F].delay { system.dispatchers.lookup(config.blockingDispatcher) }
-      session    <- FromFuture[F].apply { cassandra.connect() }
+      config     <- Resource.liftF(config)
+      cassandra  <- CassandraCluster.of(config.cassandra.client, config.cassandra.retries)
+      session    <- cassandra.session
+      blocking    = Sync[F].delay { system.dispatchers.lookup(config.blockingDispatcher) /*TODO move to common place*/}
+      blocking   <- Resource.liftF(blocking)
       replicator <- {
         implicit val session1 = session
-        of1[F](config, ecBlocking, metrics)
+        of[F](config, blocking, metrics)
       }
-    } yield {
-      new Replicator[F] {
-
-        def done = {
-          replicator.done
-        }
-
-        def close = {
-          for {
-            _ <- replicator.close
-            _ <- FromFuture[F].apply { cassandra.close() }
-          } yield {}
-        }
-      }
-    }
+    } yield replicator
   }
 
-  def of1[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift](
+  def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : CassandraSession](
     config: ReplicatorConfig,
-    ecBlocking: ExecutionContext,
-    metrics: Metrics[F])(implicit
-    session: Session): F[Replicator[F]] = {
+    blocking: ExecutionContext,
+    metrics: Metrics[F]): Resource[F, Replicator[F]] = {
 
     implicit val clock = Timer[F].clock
 
     for {
-      journal    <- ReplicatedCassandra.of[F](config.cassandra, metrics.journal)
-      replicator <- {
+      journal <- Resource.liftF(ReplicatedCassandra.of[F](config.cassandra, metrics.journal))
+      result  <- {
         implicit val journal1 = journal
-        of2(config, ecBlocking, metrics)
+        of2(config, blocking, metrics)
       }
-    } yield {
-      replicator
-    }
+    } yield result
   }
 
   def of2[F[_] : Concurrent : Timer : Par : FromFuture : ReplicatedJournal : ContextShift](
     config: ReplicatorConfig,
     blocking: ExecutionContext,
-    metrics: Metrics[F]): F[Replicator[F]] = {
+    metrics: Metrics[F]): Resource[F, Replicator[F]] = {
 
     val kafkaConsumerOf = (config: ConsumerConfig) => {
       KafkaConsumer.of[F, Id, Bytes](config, blocking, metrics.consumer)
@@ -123,7 +105,7 @@ object Replicator {
   def of[F[_] : Concurrent : Timer : Par : FromFuture](
     config: ReplicatorConfig,
     consumerOf: ConsumerConfig => F[Consumer[F]],
-    topicReplicatorOf: Topic => F[TopicReplicator[F]]): F[Replicator[F]] = {
+    topicReplicatorOf: Topic => F[TopicReplicator[F]]): Resource[F, Replicator[F]] = {
 
     implicit val clock: Clock[F] = Timer[F].clock
 
@@ -138,7 +120,7 @@ object Replicator {
       case object Closed extends State
     }
 
-    for {
+    val result = for {
       log       <- Log.of[F](Replicator.getClass)
       stateRef  <- SerialRef.of[F, State](State.Running())
       consumer  <- consumerOf(config.consumer) // TODO should not be used directly!
@@ -204,7 +186,17 @@ object Replicator {
       }
     } yield {
 
-      new Replicator[F] {
+      val release = {
+        for {
+          _ <- stateRef.update {
+            case State.Closed         => State.closed.pure[F]
+            case state: State.Running => Par[F].foldMap(state.replicators.values)(_.close).as(State.closed)
+          }
+          _ <- discovery.join
+        } yield {}
+      }
+
+      val result = new Replicator[F] {
 
         def done = {
           /*for {
@@ -221,18 +213,12 @@ object Replicator {
             case _: State.Running => false
           }
         }
-
-        def close = {
-          for {
-            _ <- stateRef.update {
-              case State.Closed         => State.closed.pure[F]
-              case state: State.Running => Par[F].foldMap(state.replicators.values)(_.close).as(State.closed)
-            }
-            _ <- discovery.join
-          } yield {}
-        }
       }
+
+      (result, release)
     }
+
+    Resource(result)
   }
 
 
@@ -240,7 +226,7 @@ object Replicator {
 
     def topics: F[Set[Topic]]
 
-    def close: F[Unit]
+    def close: F[Unit] // TODO resource
   }
 
   object Consumer {

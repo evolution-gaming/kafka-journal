@@ -8,7 +8,6 @@ import com.evolutiongaming.cassandra.sync.AutoCreate
 import com.evolutiongaming.kafka.journal.Origin
 import com.evolutiongaming.kafka.journal.util.{FromFuture, ToFuture}
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
-import com.evolutiongaming.scassandra.Session
 
 trait CassandraSync[F[_]] {
   def apply[A](fa: F[A]): F[A]
@@ -18,7 +17,9 @@ object CassandraSync {
 
   def apply[F[_]](implicit F: CassandraSync[F]): CassandraSync[F] = F
 
-  def apply[F[_] : Sync : FromFuture : ToFuture](config: SchemaConfig, origin: Option[Origin])(implicit session: Session): CassandraSync[F] = {
+  def apply[F[_] : Sync : FromFuture : ToFuture : CassandraSession](
+    config: SchemaConfig,
+    origin: Option[Origin]): CassandraSync[F] = {
 
     val keyspace = config.keyspace
     val autoCreate = if (keyspace.autoCreate) AutoCreate.Table else AutoCreate.None
@@ -29,15 +30,17 @@ object CassandraSync {
       origin = origin)
   }
 
-  def apply[F[_] : Sync : FromFuture : ToFuture](
+  def apply[F[_] : Sync : FromFuture : ToFuture : CassandraSession](
     keyspace: String,
     table: String,
     autoCreate: AutoCreate,
-    origin: Option[Origin])(implicit session: Session): CassandraSync[F] = {
+    origin: Option[Origin]): CassandraSync[F] = {
 
     new CassandraSync[F] {
 
       def apply[A](fa: F[A]) = {
+
+        implicit val session = CassandraSession[F].unsafe
 
         val es = Resource.make {
           Sync[F].delay { Executors.newScheduledThreadPool(2) }

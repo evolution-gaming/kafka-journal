@@ -16,6 +16,8 @@ trait CassandraSession[F[_]] {
 
   def execute(statement: Statement): F[QueryResult[F]]
 
+  def unsafe: Session // TODO remove this
+
   final def execute(statement: String): F[QueryResult[F]] = execute(new SimpleStatement(statement))
 }
 
@@ -51,6 +53,8 @@ object CassandraSession {
         .trace(trace)
       session.execute(configured)
     }
+
+    def unsafe = session.unsafe
   }
 
   def apply[F[_] : Concurrent : FromFuture](session: Session): CassandraSession[F] = {
@@ -70,6 +74,8 @@ object CassandraSession {
           result
         }
       }
+
+      def unsafe = session
     }
   }
 }
