@@ -569,7 +569,7 @@ object HeadCache {
 
   object ConsumeTopic {
 
-    def apply[F[_] : Sync : Timer : Log](
+    def apply[F[_] : Sync : Timer : Log : ContextShift](
       topic: Topic,
       from: Map[Partition, Offset],
       pollTimeout: FiniteDuration,
@@ -581,12 +581,11 @@ object HeadCache {
         cancel <- cancel
         result <- {
           if (cancel) ().some.pure[F]
-          else {
-            for {
-              records <- consumer.poll(pollTimeout)
-              _       <- if (records.values.isEmpty) ().pure[F] else onRecords(records)
-            } yield none[Unit]
-          }
+          else for {
+            _       <- ContextShift[F].shift
+            records <- consumer.poll(pollTimeout)
+            _       <- if (records.values.isEmpty) ().pure[F] else onRecords(records)
+          } yield none[Unit]
         }
       } yield result
 

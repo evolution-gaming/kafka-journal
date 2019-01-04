@@ -52,6 +52,7 @@ lazy val journal = (project in file("journal")
     scalatest % Test,
     `executor-tools`,
     Logback.core % Test,
+    Logback.classic % Test,
     async,
     `akka-serialization`/*TODO remove*/,
     `play-json`,

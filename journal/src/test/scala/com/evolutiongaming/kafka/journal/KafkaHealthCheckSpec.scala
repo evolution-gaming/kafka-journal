@@ -75,11 +75,11 @@ class KafkaHealthCheckSpec extends AsyncFunSuite with Matchers {
       data shouldEqual Data(
         subscribed = Some("topic"),
         logs = List(
-          "debug key send 2, retry: 0",
+          "debug key send 2:0",
           "debug key send 2",
-          "debug key send 1, retry: 0",
+          "debug key send 1:0",
           "debug key send 1",
-          "debug key send 0, retry: 0",
+          "debug key send 0:0",
           "debug key send 0"))
     }
 

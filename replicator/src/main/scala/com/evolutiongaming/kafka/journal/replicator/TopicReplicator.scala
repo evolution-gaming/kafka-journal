@@ -75,7 +75,7 @@ object TopicReplicator {
 
 
   //  TODO return error in case failed to connect
-  def of[F[_] : Concurrent : Clock : Par : Metrics : ReplicatedJournal : Consumer : Log](
+  def of[F[_] : Concurrent : Clock : Par : Metrics : ReplicatedJournal : Consumer : Log : ContextShift](
     topic: Topic,
     stopRef: StopRef[F]): F[Unit] = {
 
@@ -220,6 +220,7 @@ object TopicReplicator {
     def consume(state: State): F[Either[State, Unit]] = {
       ifContinue {
         for {
+          _               <- ContextShift[F].shift
           roundStart      <- Clock[F].instant
           consumerRecords <- Consumer[F].poll
           state           <- ifContinue {

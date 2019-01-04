@@ -96,7 +96,12 @@ object KafkaHealthCheck {
               records <- consumer.poll(config.pollTimeout)
               found    = records.find { record => record.key.contains(key) && record.value.contains(value) }
               result  <- found.fold {
-                produce(s"$n, retry: $retry").as((retry + 1).asLeft[Unit])
+                for {
+                  _ <- ContextShift[F].shift
+                  _ <- produce(s"$n:$retry")
+                } yield {
+                  (retry + 1).asLeft[Unit]
+                }
               } { _ =>
                 ().asRight[Long].pure[F]
               }
@@ -117,15 +122,20 @@ object KafkaHealthCheck {
 
         def check(n: Long) = {
           for {
-            error <- produceConsume(n)
-            _     <- error.fold(().pure[F]) { error => Log[F].error(s"$n failed with $error", error) }
-            _     <- ref.set(error)
-            _     <- Timer[F].sleep(config.interval)
-            stop  <- stop
-          } yield {
-            if (stop) ().asRight[Long]
-            else (n + 1).asLeft[Unit]
-          }
+            error  <- produceConsume(n)
+            _      <- error.fold(().pure[F]) { error => Log[F].error(s"$n failed with $error", error) }
+            _      <- ref.set(error)
+            _      <- Timer[F].sleep(config.interval)
+            stop   <- stop
+            result <- {
+              if (stop) ().asRight[Long].pure[F]
+              else for {
+                _ <- ContextShift[F].shift
+              } yield {
+                (n + 1).asLeft[Unit]
+              }
+            }
+          } yield result
         }
 
         for {

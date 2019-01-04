@@ -53,6 +53,7 @@ object CassandraHealthCheck {
                 _ <- e.fold(().pure[F]) { e => Log[F].error(s"failed with $e", e) }
                 _ <- ref.set(e)
                 _ <- Timer[F].sleep(interval)
+                _ <- ContextShift[F].shift
               } yield ().asLeft
             }.foreverM[Unit]
           } yield {}
