@@ -21,7 +21,7 @@ object FoldActions {
     from: SeqNr,
     marker: Marker,
     offsetReplicated: Option[Offset],
-    withReadActions: WithReadActions[F]): FoldActions[F] = {
+    withPollActions: WithPollActions[F]): FoldActions[F] = {
 
     // TODO compare partitions !
     val partition = marker.partition
@@ -40,10 +40,10 @@ object FoldActions {
         if (replicated) s.pure[F]
         else {
           val last = offset max offsetReplicated
-          withReadActions(key, partition, last) { readActions =>
+          withPollActions(key, partition, last) { pollActions =>
             s.tailRecM { s =>
               for {
-                actions <- readActions()
+                actions <- pollActions()
               } yield {
                 val switch = actions.foldWhile(s) { case (s, action) =>
                   val switch = action.action match {

@@ -174,11 +174,11 @@ object Journal {
     headCache: HeadCache[Async])(implicit
     ec: ExecutionContext): Journal[Async] = {
 
-    val withReadActions = WithReadActions(topicConsumer, pollTimeout, closeTimeout, log)
+    val withPollActions = WithPollActions(topicConsumer, pollTimeout, closeTimeout, log)
 
     val writeAction = AppendAction(producer)
 
-    apply(log, origin, eventual, withReadActions, writeAction, headCache)
+    apply(log, origin, eventual, withPollActions, writeAction, headCache)
   }
 
 
@@ -187,7 +187,7 @@ object Journal {
     log: ActorLog,
     origin: Option[Origin],
     eventual: EventualJournal[Async],
-    withReadActions: WithReadActions[Async],
+    withPollActions: WithPollActions[Async],
     appendAction: AppendAction[Async],
     headCache: HeadCache[Async]): Journal[Async] = {
 
@@ -220,7 +220,7 @@ object Journal {
 
               result.seqNr.fold(info)(JournalInfo.NonEmpty(_, result.deleteTo))
             }
-            val foldActions = FoldActions(key, from, marker, offset, withReadActions)
+            val foldActions = FoldActions(key, from, marker, offset, withPollActions)
             (info, foldActions)
           }
         }

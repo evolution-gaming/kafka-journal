@@ -6,13 +6,13 @@ import com.evolutiongaming.skafka.{Offset, Partition}
 
 import scala.collection.immutable.Queue
 
-object WithReadActionsOneByOne {
+object WithPollActionsOneByOne {
 
-  def apply(actions: => Queue[ActionRecord[Action]]): WithReadActions[Async] = new WithReadActions[Async] {
+  def apply(actions: => Queue[ActionRecord[Action]]): WithPollActions[Async] = new WithPollActions[Async] {
 
-    def apply[T](key: Key, partition: Partition, offset: Option[Offset])(f: ReadActions[Async] => Async[T]) = {
+    def apply[T](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[Async] => Async[T]) = {
 
-      val readActions = new ReadActions[Async] {
+      val pollActions = new PollActions[Async] {
 
         var left = offset match {
           case None         => actions
@@ -27,7 +27,7 @@ object WithReadActionsOneByOne {
         }
       }
 
-      f(readActions)
+      f(pollActions)
     }
   }
 }

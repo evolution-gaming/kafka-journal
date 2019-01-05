@@ -137,7 +137,7 @@ class JournalSpec extends WordSpec with Matchers {
         var actions: Queue[ActionRecord[Action]] = Queue.empty
         val eventualJournal = EventualJournal.empty[Async]
 
-        val withReadActions = WithReadActionsOneByOne(actions)
+        val withPollActions = WithPollActionsOneByOne(actions)
 
         val writeAction = new AppendAction[Async] {
           def apply(action: Action) = {
@@ -148,7 +148,7 @@ class JournalSpec extends WordSpec with Matchers {
             partitionOffset.async
           }
         }
-        SeqNrJournal(eventualJournal, withReadActions, writeAction)
+        SeqNrJournal(eventualJournal, withPollActions, writeAction)
       }
     }
 
@@ -163,10 +163,10 @@ class JournalSpec extends WordSpec with Matchers {
 
         val eventualJournal = EventualJournalOf(replicatedState)
 
-        val withReadActions = {
+        val withPollActions = {
           def marks() = actions.collect { case action @ ActionRecord(_: Action.Mark, _) => action }
 
-          WithReadActionsOneByOne(marks())
+          WithPollActionsOneByOne(marks())
         }
 
         val writeAction = new AppendAction[Async] {
@@ -181,7 +181,7 @@ class JournalSpec extends WordSpec with Matchers {
           }
         }
 
-        SeqNrJournal(eventualJournal, withReadActions, writeAction)
+        SeqNrJournal(eventualJournal, withPollActions, writeAction)
       }
     }
 
@@ -195,7 +195,7 @@ class JournalSpec extends WordSpec with Matchers {
 
         val eventualJournal = EventualJournalOf(replicatedState)
 
-        val withReadActions = WithReadActionsOneByOne(actions)
+        val withPollActions = WithPollActionsOneByOne(actions)
 
         val writeAction = new AppendAction[Async] {
 
@@ -209,7 +209,7 @@ class JournalSpec extends WordSpec with Matchers {
           }
         }
 
-        SeqNrJournal(eventualJournal, withReadActions, writeAction)
+        SeqNrJournal(eventualJournal, withPollActions, writeAction)
       }
     }
 
@@ -225,7 +225,7 @@ class JournalSpec extends WordSpec with Matchers {
 
           val eventualJournal = EventualJournalOf(replicatedState)
 
-          val withReadActions = WithReadActionsOneByOne(actions)
+          val withPollActions = WithPollActionsOneByOne(actions)
 
           val writeAction = new AppendAction[Async] {
 
@@ -239,7 +239,7 @@ class JournalSpec extends WordSpec with Matchers {
             }
           }
 
-          SeqNrJournal(eventualJournal, withReadActions, writeAction)
+          SeqNrJournal(eventualJournal, withPollActions, writeAction)
         }
       }
     }
@@ -256,7 +256,7 @@ class JournalSpec extends WordSpec with Matchers {
 
           val eventualJournal = EventualJournalOf(replicatedState)
 
-          val withReadActions = WithReadActionsOneByOne(actions)
+          val withPollActions = WithPollActionsOneByOne(actions)
 
           val writeAction = new AppendAction[Async] {
 
@@ -276,7 +276,7 @@ class JournalSpec extends WordSpec with Matchers {
             }
           }
 
-          SeqNrJournal(eventualJournal, withReadActions, writeAction)
+          SeqNrJournal(eventualJournal, withPollActions, writeAction)
         }
       }
     }
@@ -294,7 +294,7 @@ class JournalSpec extends WordSpec with Matchers {
 
           val eventualJournal = EventualJournalOf(replicatedState)
 
-          val withReadActions = WithReadActionsOneByOne(actions)
+          val withPollActions = WithPollActionsOneByOne(actions)
 
           val writeAction = new AppendAction[Async] {
 
@@ -314,7 +314,7 @@ class JournalSpec extends WordSpec with Matchers {
             }
           }
 
-          SeqNrJournal(eventualJournal, withReadActions, writeAction)
+          SeqNrJournal(eventualJournal, withPollActions, writeAction)
         }
       }
     }
@@ -376,10 +376,10 @@ object JournalSpec {
 
     def apply(
       eventual: EventualJournal[Async],
-      withReadActions: WithReadActions[Async],
+      withPollActions: WithPollActions[Async],
       writeAction: AppendAction[Async]): SeqNrJournal = {
 
-      val journal = Journal(ActorLog.empty, None, eventual, withReadActions, writeAction, HeadCache.empty[Async])
+      val journal = Journal(ActorLog.empty, None, eventual, withPollActions, writeAction, HeadCache.empty[Async])
       implicit val log = Log.empty[Async]
       val withLogging = Journal[Async](journal)
       val withMetrics = Journal(withLogging, Journal.Metrics.empty(Async.unit))

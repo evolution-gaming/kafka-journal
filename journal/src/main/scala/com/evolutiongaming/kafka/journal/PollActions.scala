@@ -8,19 +8,19 @@ import com.evolutiongaming.skafka.consumer.Consumer
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 
-trait ReadActions[F[_]] {
+trait PollActions[F[_]] {
   def apply(): F[Iterable[ActionRecord[Action]]]
 }
 
-object ReadActions {
+object PollActions {
 
   def apply[F[_] : IO2 : FromFuture2](
     key: Key,
     consumer: Consumer[Id, Bytes, Future],
     timeout: FiniteDuration,
-    log: ActorLog): ReadActions[F] = {
+    log: ActorLog): PollActions[F] = {
 
-    new ReadActions[F] {
+    new PollActions[F] {
 
       def apply() = {
         for {

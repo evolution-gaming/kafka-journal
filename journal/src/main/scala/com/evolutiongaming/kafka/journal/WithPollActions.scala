@@ -11,21 +11,21 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
 
-trait WithReadActions[F[_]] {
-  def apply[T](key: Key, partition: Partition, offset: Option[Offset])(f: ReadActions[F] => F[T]): F[T]
+trait WithPollActions[F[_]] {
+  def apply[T](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[F] => F[T]): F[T]
 }
 
-object WithReadActions {
+object WithPollActions {
 
   def apply[F[_] : IO2 : FromFuture2](
     topicConsumer: TopicConsumer,
     pollTimeout: FiniteDuration,
     closeTimeout: FiniteDuration,
-    log: ActorLog)(implicit ec: ExecutionContext /*TODO remove*/): WithReadActions[F] = {
+    log: ActorLog)(implicit ec: ExecutionContext /*TODO remove*/): WithPollActions[F] = {
 
-    new WithReadActions[F] {
+    new WithPollActions[F] {
 
-      def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: ReadActions[F] => F[A]) = {
+      def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[F] => F[A]) = {
         // TODO consider separate from splitting
         val consumer = IO2[F].effect {
           val timestamp = Platform.currentTime
@@ -62,7 +62,7 @@ object WithReadActions {
               consumer.seek(topicPartition, from)
           }
 
-          val readKafka = ReadActions(key, consumer, pollTimeout, log)
+          val readKafka = PollActions(key, consumer, pollTimeout, log)
           f(readKafka)
         }
       }
@@ -73,11 +73,11 @@ object WithReadActions {
     topicConsumer: TopicConsumer,
     pollTimeout: FiniteDuration,
     closeTimeout: FiniteDuration,
-    log: ActorLog)(implicit ec: ExecutionContext /*TODO remove*/): WithReadActions[F] = {
+    log: ActorLog)(implicit ec: ExecutionContext /*TODO remove*/): WithPollActions[F] = {
 
-    new WithReadActions[F] {
+    new WithPollActions[F] {
 
-      def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: ReadActions[F] => F[A]) = {
+      def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[F] => F[A]) = {
         // TODO consider separate from splitting
         val consumer = IO2[F].effect {
           val timestamp = Platform.currentTime
@@ -114,7 +114,7 @@ object WithReadActions {
               consumer.seek(topicPartition, from)
           }
 
-          val readKafka = ReadActions(key, consumer, pollTimeout, log)
+          val readKafka = PollActions(key, consumer, pollTimeout, log)
           f(readKafka)
         }
       }

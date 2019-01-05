@@ -34,7 +34,7 @@ object Dependencies {
 
   val `cassandra-sync` = "com.evolutiongaming" %% "cassandra-sync" % "0.0.4"
 
-  val prometheus = "io.prometheus" % "simpleclient" % "0.5.0"
+  val prometheus = "io.prometheus" % "simpleclient" % "0.6.0"
 
   val `scala-java8-compat` = "org.scala-lang.modules" %% "scala-java8-compat" % "0.9.0"
 
