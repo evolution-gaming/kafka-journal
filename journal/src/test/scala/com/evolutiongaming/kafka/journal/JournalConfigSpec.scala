@@ -20,7 +20,6 @@ class JournalConfigSpec extends FunSuite with Matchers {
     val config = ConfigFactory.parseURL(getClass.getResource("journal.conf"))
     JournalConfig(config) shouldEqual JournalConfig(
       pollTimeout = 1.millis,
-      closeTimeout = 2.seconds,
       producer = ProducerConfig(
         common = CommonConfig(clientId = Some("clientId")),
         acks = Acks.All,

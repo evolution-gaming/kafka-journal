@@ -3,11 +3,13 @@ package akka.persistence.kafka.journal
 import akka.actor.ActorSystem
 import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.{AtomicWrite, PersistentRepr}
+import cats.effect.IO
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
+import com.evolutiongaming.kafka.journal.util.FromFuture
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.scassandra.CreateCluster
 import com.evolutiongaming.skafka.ClientId
@@ -78,6 +80,8 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
     }
 
     val topicConsumer = {
+      implicit val cs = IO.contextShift(ec)
+      implicit val fromFuture = FromFuture.lift[IO]
       val consumerConfig = config.journal.consumer
       val consumerMetrics = for {
         metrics <- metrics.consumer
@@ -85,7 +89,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
         val clientId = consumerConfig.common.clientId getOrElse "journal"
         metrics(clientId)
       }
-      TopicConsumer(consumerConfig, ecBlocking, metrics = consumerMetrics)
+      TopicConsumer[IO](consumerConfig, ecBlocking, metrics = consumerMetrics)
     }
 
     val eventualJournal: EventualJournal[Async] = {
@@ -138,7 +142,6 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
         topicConsumer = topicConsumer,
         eventual = eventualJournal,
         pollTimeout = config.journal.pollTimeout,
-        closeTimeout = config.journal.closeTimeout,
         headCache = headCache)
 
       metrics.journal.fold(journal) { Journal(journal, _) }

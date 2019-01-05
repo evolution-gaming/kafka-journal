@@ -4,6 +4,7 @@ import java.time.Instant
 import java.util.UUID
 
 import akka.persistence.kafka.journal.KafkaJournalConfig
+import cats.effect.IO
 import com.evolutiongaming.scassandra.CreateCluster
 import com.evolutiongaming.concurrent.FutureHelper._
 import com.evolutiongaming.concurrent.async.Async
@@ -13,6 +14,7 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.kafka.journal.AsyncHelper._
+import com.evolutiongaming.kafka.journal.util.IOSuite._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Offset
@@ -77,7 +79,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
       val producer = Producer(config.journal.producer, ec)
 
       // TODO we don't need consumer here...
-      val topicConsumer = TopicConsumer(config.journal.consumer, ec)
+      val topicConsumer = TopicConsumer[IO](config.journal.consumer, ec)
 
       val journal = Journal(
         log = actorLog,
@@ -86,7 +88,6 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
         topicConsumer = topicConsumer,
         eventual = eventual,
         pollTimeout = config.journal.pollTimeout,
-        closeTimeout = config.journal.closeTimeout,
         headCache = HeadCache.empty[Async])
       Journal(journal)
     }

@@ -96,7 +96,7 @@ object AsyncHelper {
   }
 
 
-  implicit def fromFuture(implicit ec: ExecutionContext): FromFuture2[Async] = new FromFuture2[Async] {
+  implicit def fromFutureAsync(implicit ec: ExecutionContext): FromFuture2[Async] = new FromFuture2[Async] {
 
     def apply[A](fa: Future[A]) = {
       try Async(fa) catch {

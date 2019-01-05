@@ -10,7 +10,6 @@ import scala.concurrent.duration._
 
 final case class JournalConfig(
   pollTimeout: FiniteDuration = 100.millis, // TODO used in WithReadActions only
-  closeTimeout: FiniteDuration = 10.seconds, // TODO used in WithReadActions only
   producer: ProducerConfig = ProducerConfig(
     common = CommonConfig(clientId = Some("journal")),
     acks = Acks.All,
@@ -44,7 +43,6 @@ object JournalConfig {
 
     JournalConfig(
       pollTimeout = get[FiniteDuration]("poll-timeout") getOrElse default.pollTimeout,
-      closeTimeout = get[FiniteDuration]("close-timeout") getOrElse default.closeTimeout,
       producer = kafka("producer").fold(default.producer)(ProducerConfig(_, default.producer)),
       consumer = kafka("consumer").fold(default.consumer)(ConsumerConfig(_, default.consumer)))
   }

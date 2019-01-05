@@ -5,7 +5,7 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import cats._
-import cats.effect.Clock
+import cats.effect.{Clock, IO}
 import cats.implicits._
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
@@ -14,13 +14,14 @@ import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
+import com.evolutiongaming.kafka.journal.util.FromFuture
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.producer.Producer
 import com.evolutiongaming.skafka.{Bytes => _, _}
 
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContextExecutor, Future}
 
 trait Journal[F[_]] {
 
@@ -147,19 +148,18 @@ object Journal {
   def apply(
     producer: Producer[Future],
     origin: Option[Origin],
-    topicConsumer: TopicConsumer,
+    topicConsumer: TopicConsumer[IO],
     eventual: EventualJournal[Async],
     pollTimeout: FiniteDuration,
-    closeTimeout: FiniteDuration,
     headCache: HeadCache[Async])(implicit
     system: ActorSystem,
-    ec: ExecutionContext): Journal[Async] = {
+    ec: ExecutionContextExecutor): Journal[Async] = {
 
     val actorLog = ActorLog(system, Journal.getClass)
 
     implicit val log = Log.async[Async](actorLog)
 
-    val journal = apply(actorLog, origin, producer, topicConsumer, eventual, pollTimeout, closeTimeout, headCache)
+    val journal = apply(actorLog, origin, producer, topicConsumer, eventual, pollTimeout, headCache)
     Journal(journal)
   }
 
@@ -167,18 +167,24 @@ object Journal {
     log: ActorLog, // TODO remove
     origin: Option[Origin],
     producer: Producer[Future],
-    topicConsumer: TopicConsumer,
+    topicConsumer: TopicConsumer[IO],
     eventual: EventualJournal[Async],
     pollTimeout: FiniteDuration,
-    closeTimeout: FiniteDuration,
     headCache: HeadCache[Async])(implicit
-    ec: ExecutionContext): Journal[Async] = {
+    ec: ExecutionContextExecutor): Journal[Async] = {
 
-    val withPollActions = WithPollActions(topicConsumer, pollTimeout, closeTimeout, log)
+    import cats.effect._
 
-    val writeAction = AppendAction(producer)
+    val withPollActions = {
+      implicit val cs = IO.contextShift(ec)
+      implicit val fromFuture = FromFuture.lift[IO]
+      implicit val log1 = Log.fromLog[IO](log)
+      WithPollActions.async[IO](topicConsumer, pollTimeout)
+    }
 
-    apply(log, origin, eventual, withPollActions, writeAction, headCache)
+    val appendAction = AppendAction(producer)
+
+    apply(log, origin, eventual, withPollActions, appendAction, headCache)
   }
 
 

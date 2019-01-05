@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import java.util.UUID
 
+import cats.effect.IO
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
@@ -15,7 +16,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuit {
   val origin = Origin("JournalIntSpec")
 
   private lazy val journalOf = {
-    val topicConsumer = TopicConsumer(config.journal.consumer, ecBlocking)
+    val topicConsumer = TopicConsumer[IO](config.journal.consumer, ecBlocking)
     eventual: EventualJournal[Async] => {
       val headCache = HeadCacheAsync(config.journal.consumer, eventual, ecBlocking)
       val journal = Journal(
@@ -24,7 +25,6 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuit {
         topicConsumer = topicConsumer,
         eventual = eventual,
         pollTimeout = config.journal.pollTimeout,
-        closeTimeout = config.journal.closeTimeout,
         headCache = headCache)
       (journal, () => headCache.close)
     }

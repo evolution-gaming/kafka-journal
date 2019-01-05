@@ -24,9 +24,9 @@ object AppendReplicate extends App {
   val topic = "append-replicate"
   implicit val system = ActorSystem(topic)
   implicit val ec = system.dispatcher
-  implicit val contextShift = IO.contextShift(ec)
-  implicit val fromFuture = FromFuture.lift[IO]
+  implicit val cs = IO.contextShift(ec)
   implicit val timer = IO.timer(ec)
+  implicit val fromFuture = FromFuture.lift[IO]
   val log = ActorLog(system, getClass)
 
   val commonConfig = CommonConfig(
@@ -47,9 +47,9 @@ object AppendReplicate extends App {
       val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.persistence.journal")
       KafkaJournalConfig(config)
     }
-    val ecBlocking = system.dispatchers.lookup(config.blockingDispatcher)
-    val producer = Producer(config.journal.producer, ecBlocking)
-    val topicConsumer = TopicConsumer(config.journal.consumer, ecBlocking)
+    val blocking = system.dispatchers.lookup(config.blockingDispatcher)
+    val producer = Producer(config.journal.producer, blocking)
+    val topicConsumer = TopicConsumer[IO](config.journal.consumer, blocking)
 
     Journal(
       producer = producer,
@@ -57,7 +57,6 @@ object AppendReplicate extends App {
       topicConsumer = topicConsumer,
       eventual = EventualJournal.empty,
       pollTimeout = config.journal.pollTimeout,
-      closeTimeout = config.journal.closeTimeout,
       headCache = HeadCache.empty)
   }
 

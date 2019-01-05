@@ -11,7 +11,7 @@ import scala.concurrent.duration._
 class SerialRefSpec extends AsyncFunSuite {
 
   test("modify") {
-    val delay = timer.sleep(10.millis)
+    val delay = timerIO.sleep(10.millis)
 
     def expect[A: Eq](t: IO[A], expected: A): IO[Unit] = {
       for {

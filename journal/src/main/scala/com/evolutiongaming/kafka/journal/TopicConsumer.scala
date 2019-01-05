@@ -1,25 +1,32 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.effect.{Concurrent, ContextShift, Resource}
+import com.evolutiongaming.kafka.journal.util.FromFuture
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerConfig}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
-trait TopicConsumer {
-  def apply(topic: Topic): Consumer[Id, Bytes, Future]
+
+// TODO remove this
+trait TopicConsumer[F[_]] {
+  def apply(topic: Topic): Resource[F, KafkaConsumer[F, Id, Bytes]]
 }
 
 object TopicConsumer {
 
-  def apply(
+  def apply[F[_] : Concurrent : FromFuture : ContextShift](
     config: ConsumerConfig,
-    ecBlocking: ExecutionContext,
-    metrics: Option[Consumer.Metrics] = None): TopicConsumer = new TopicConsumer {
+    blocking: ExecutionContext,
+    metrics: Option[Consumer.Metrics] = None): TopicConsumer[F] = {
 
-    def apply(topic: Topic): Consumer[Id, Bytes, Future] = {
-      val configFixed = config.copy(groupId = None)
-      val consumer = Consumer[Id, Bytes](configFixed, ecBlocking)
-      metrics.fold(consumer) { Consumer(consumer, _) }
+    val config1 = config.copy(groupId = None)
+
+    new TopicConsumer[F] {
+
+      def apply(topic: Topic) = {
+        KafkaConsumer.of(config1, blocking, metrics)
+      }
     }
   }
 }

@@ -1,121 +1,80 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.IO2.ops._
+import cats.implicits._
+import cats.effect.Sync
+import com.evolutiongaming.concurrent.async.Async
+import com.evolutiongaming.kafka.journal.util.{FromFuture, ToFuture}
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.safeakka.actor.ActorLog
-import com.evolutiongaming.skafka.consumer.Consumer
 import com.evolutiongaming.skafka.{Offset, Partition, TopicPartition}
 
-import scala.compat.Platform
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future}
 
 
 trait WithPollActions[F[_]] {
-  def apply[T](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[F] => F[T]): F[T]
+  def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[F] => F[A]): F[A]
 }
 
 object WithPollActions {
 
-  def apply[F[_] : IO2 : FromFuture2](
-    topicConsumer: TopicConsumer,
-    pollTimeout: FiniteDuration,
-    closeTimeout: FiniteDuration,
-    log: ActorLog)(implicit ec: ExecutionContext /*TODO remove*/): WithPollActions[F] = {
+  def async[F[_] : Sync : Log : FromFuture : ToFuture](
+    topicConsumer: TopicConsumer[F],
+    pollTimeout: FiniteDuration)(implicit ec: ExecutionContext): WithPollActions[Async] = {
 
-    new WithPollActions[F] {
+    async(apply[F](topicConsumer, pollTimeout))
+  }
 
-      def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[F] => F[A]) = {
-        // TODO consider separate from splitting
-        val consumer = IO2[F].effect {
-          val timestamp = Platform.currentTime
-          val consumer = topicConsumer(key.topic) // TODO ~10ms
-          val duration = Platform.currentTime - timestamp
-          // TODO add metric
-          log.debug(s"$key consumerOf() took $duration ms")
-          consumer
-        }
+  def async[F[_] : FromFuture : ToFuture](withPollActions: WithPollActions[F])(implicit ec: ExecutionContext /*TODO remove*/): WithPollActions[Async] = {
 
+    new WithPollActions[Async] {
 
-        def release(consumer: Consumer[Id, Bytes, Future]) = {
-          FromFuture2[F].apply {
-            for {
-              failure <- consumer.close(closeTimeout).failed
-            } yield {
-              log.error(s"$key failed to close consumer $failure", failure)
+      def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[Async] => Async[A]) = {
+
+        val ff = (pollActions: PollActions[F]) => {
+
+          val pollActions1 = new PollActions[Async] {
+            def apply() = {
+              Async {
+                ToFuture[F].apply {
+                  pollActions()
+                }
+              }
             }
           }
+          
+          FromFuture[F].apply {
+            f(pollActions1).future
+          }
         }
 
-        consumer.bracket(release) { consumer =>
-          val topicPartition = TopicPartition(topic = key.topic, partition = partition)
-          consumer.assign(Nel(topicPartition))
-
-          offset match {
-            case None =>
-              log.debug(s"$key consuming from $partition:0")
-              consumer.seekToBeginning(Nel(topicPartition))
-
-            case Some(offset) =>
-              val from = offset + 1
-              log.debug(s"$key consuming from $partition:$from")
-              consumer.seek(topicPartition, from)
+        Async {
+          ToFuture[F].apply {
+            withPollActions(key, partition, offset)(ff)
           }
-
-          val readKafka = PollActions(key, consumer, pollTimeout, log)
-          f(readKafka)
         }
       }
     }
   }
 
-  def apply2[F[_] : IO2 : FromFuture2](
-    topicConsumer: TopicConsumer,
-    pollTimeout: FiniteDuration,
-    closeTimeout: FiniteDuration,
-    log: ActorLog)(implicit ec: ExecutionContext /*TODO remove*/): WithPollActions[F] = {
+  def apply[F[_] : Sync : Log](
+    topicConsumer: TopicConsumer[F],
+    pollTimeout: FiniteDuration): WithPollActions[F] = {
 
     new WithPollActions[F] {
 
+      // TODO pass From instead of Last offset
       def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[F] => F[A]) = {
-        // TODO consider separate from splitting
-        val consumer = IO2[F].effect {
-          val timestamp = Platform.currentTime
-          val consumer = topicConsumer(key.topic) // TODO ~10ms
-          val duration = Platform.currentTime - timestamp
-          // TODO add metric
-          log.debug(s"$key consumerOf() took $duration ms")
-          consumer
-        }
-
-
-        def release(consumer: Consumer[Id, Bytes, Future]) = {
-          FromFuture2[F].apply {
-            for {
-              failure <- consumer.close(closeTimeout).failed
-            } yield {
-              log.error(s"$key failed to close consumer $failure", failure)
-            }
-          }
-        }
-
-        consumer.bracket(release) { consumer =>
-          val topicPartition = TopicPartition(topic = key.topic, partition = partition)
-          consumer.assign(Nel(topicPartition))
-
-          offset match {
-            case None =>
-              log.debug(s"$key consuming from $partition:0")
-              consumer.seekToBeginning(Nel(topicPartition))
-
-            case Some(offset) =>
-              val from = offset + 1
-              log.debug(s"$key consuming from $partition:$from")
-              consumer.seek(topicPartition, from)
-          }
-
-          val readKafka = PollActions(key, consumer, pollTimeout, log)
-          f(readKafka)
+        val consumer = topicConsumer(key.topic)
+        val from = offset.fold(Offset.Min)(_ + 1)
+        val topicPartition = TopicPartition(topic = key.topic, partition = partition)
+        consumer.use { consumer =>
+          for {
+            _ <- consumer.assign(Nel(topicPartition))
+            _ <- consumer.seek(topicPartition, from)
+            _ <- Log[F].debug(s"$key consuming from $partition:$from")
+            p  = PollActions[F](key, consumer, pollTimeout)
+            a <- f(p)
+          } yield a
         }
       }
     }
