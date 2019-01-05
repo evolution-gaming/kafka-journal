@@ -5,7 +5,7 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import akka.persistence.kafka.journal.KafkaJournalConfig
-import cats.effect.IO
+import cats.effect.{IO, Resource}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, ReplicatedJournal}
@@ -14,7 +14,6 @@ import com.evolutiongaming.kafka.journal.util.FromFuture
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.CommonConfig
-import com.evolutiongaming.skafka.producer.{Acks, Producer, ProducerConfig}
 
 import scala.concurrent.Future
 
@@ -33,85 +32,97 @@ object AppendReplicate extends App {
     clientId = Some(topic),
     bootstrapServers = Nel("localhost:9092", "localhost:9093", "localhost:9094"))
 
-  val producer = {
-    val config = ProducerConfig(
-      common = commonConfig,
-      acks = Acks.All,
-      retries = 100,
-      idempotence = true)
-    Producer(config, ec)
+  val journalConfig = {
+    val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.persistence.journal")
+    KafkaJournalConfig(config)
   }
 
-  val journal = {
-    val config = {
-      val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.persistence.journal")
-      KafkaJournalConfig(config)
-    }
-    val blocking = system.dispatchers.lookup(config.blockingDispatcher)
-    val producer = Producer(config.journal.producer, blocking)
-    val topicConsumer = TopicConsumer[IO](config.journal.consumer, blocking)
+  val blocking = system.dispatchers.lookup(journalConfig.blockingDispatcher)
 
-    Journal(
-      producer = producer,
-      origin = Some(Origin(topic)),
-      topicConsumer = topicConsumer,
-      eventual = EventualJournal.empty,
-      pollTimeout = config.journal.pollTimeout,
-      headCache = HeadCache.empty)
+  val systemRes = Resource.make[IO, ActorSystem] {
+    IO.pure(system)
+  } { system =>
+    FromFuture[IO].apply {
+      system.terminate()
+    }.void
   }
 
-  def append(id: String) = {
-
-    val key = Key(id = id, topic = topic)
-
-    def append(seqNr: SeqNr): Future[Unit] = {
-      val event = Event(seqNr, payload = Some(Payload(name)))
-      for {
-        _ <- journal.append(key, Nel(event), Instant.now()).future
-        _ <- seqNr.next.fold(Future.unit)(append)
-      } yield ()
-    }
-
-    val result = append(SeqNr.Min)
-    result.failed.foreach { failure => log.error(s"producer $key: $failure", failure) }
-    result
+  val resources = for {
+    system <- systemRes
+    producer <- KafkaProducer.of[IO](journalConfig.journal.producer, blocking)
+  } yield {
+    (system, producer)
   }
 
-  def consume(nr: Int) = {
-    val config = {
-      val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.replicator")
-      ReplicatorConfig(config)
-    }
-    val blocking = system.dispatchers.lookup(config.blockingDispatcher)
+  val result = resources.use { case (_, producer) =>
 
-    implicit val replicatedJournal = ReplicatedJournal.empty[IO]
-    implicit val metrics = TopicReplicator.Metrics.empty[IO]
-
-    val consumer = for {
-      consumer <- KafkaConsumer.of[IO, Id, Bytes](config.consumer, blocking)
-    } yield {
-      TopicReplicator.Consumer[IO](consumer, config.pollTimeout)
+    val journal = {
+      val topicConsumer = TopicConsumer[IO](journalConfig.journal.consumer, blocking)
+      Journal(
+        producer = producer,
+        origin = Some(Origin(topic)),
+        topicConsumer = topicConsumer,
+        eventual = EventualJournal.empty,
+        pollTimeout = journalConfig.journal.pollTimeout,
+        headCache = HeadCache.empty)
     }
 
-    val done = for {
-      replicator <- TopicReplicator.of[IO](topic, consumer)
-      done       <- replicator.done
-    } yield done
+    def append(id: String) = {
 
-    val future = done.unsafeToFuture()
+      val key = Key(id = id, topic = topic)
 
-    future.failed.foreach { failure => log.error(s"consumer $nr: $failure", failure) }
-    future
+      def append(seqNr: SeqNr): Future[Unit] = {
+        val event = Event(seqNr, payload = Some(Payload(name)))
+        for {
+          _ <- journal.append(key, Nel(event), Instant.now()).future
+          _ <- seqNr.next.fold(Future.unit)(append)
+        } yield ()
+      }
+
+      val result = append(SeqNr.Min)
+      result.failed.foreach { failure => log.error(s"producer $key: $failure", failure) }
+      result
+    }
+
+    def consume(nr: Int) = {
+      val config = {
+        val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.replicator")
+        ReplicatorConfig(config)
+      }
+      val blocking = system.dispatchers.lookup(config.blockingDispatcher)
+
+      implicit val replicatedJournal = ReplicatedJournal.empty[IO]
+      implicit val metrics = TopicReplicator.Metrics.empty[IO]
+
+      val consumer = for {
+        consumer <- KafkaConsumer.of[IO, Id, Bytes](config.consumer, blocking)
+      } yield {
+        TopicReplicator.Consumer[IO](consumer, config.pollTimeout)
+      }
+
+      val done = for {
+        replicator <- TopicReplicator.of[IO](topic, consumer)
+        done <- replicator.done
+      } yield done
+
+      val future = done.unsafeToFuture()
+
+      future.failed.foreach { failure => log.error(s"consumer $nr: $failure", failure) }
+      future
+    }
+
+    val producers = for {
+      _ <- 1 to 3
+    } yield append(UUID.randomUUID().toString)
+
+    val consumers = for {
+      n <- 1 to 3
+    } yield consume(n)
+
+    FromFuture[IO].apply {
+      Future.sequence(consumers ++ producers)
+    }
   }
 
-  val producers = for {
-    _ <- 1 to 3
-  } yield append(UUID.randomUUID().toString)
-
-  val consumers = for {
-    n <- 1 to 3
-  } yield consume(n)
-
-  val result = Future.sequence(consumers ++ producers)
-  result.onComplete { _ => system.terminate() }
+  result.unsafeRunSync()
 }

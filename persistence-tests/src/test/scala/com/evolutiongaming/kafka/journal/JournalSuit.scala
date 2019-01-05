@@ -3,17 +3,18 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import akka.persistence.kafka.journal.KafkaJournalConfig
+import cats.effect.IO
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
+import com.evolutiongaming.kafka.journal.util.IOSuite._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.scassandra.CreateCluster
-import com.evolutiongaming.skafka.producer.Producer
 import org.scalatest.{Matchers, Suite}
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContextExecutor, Future}
+import scala.concurrent.{Await, ExecutionContextExecutor}
 
 trait JournalSuit extends ActorSuite with Matchers { self: Suite =>
 
@@ -34,21 +35,20 @@ trait JournalSuit extends ActorSuite with Matchers { self: Suite =>
 
   lazy val ecBlocking: ExecutionContextExecutor = system.dispatchers.lookup(config.blockingDispatcher)
 
-  lazy val producer: Producer[Future] = Producer(config.journal.producer, ecBlocking)
+  lazy val (producer, producerRelease) = KafkaProducer.of[IO](config.journal.producer, ecBlocking).allocated.unsafeRunSync()
 
   override def beforeAll() = {
     super.beforeAll()
     IntegrationSuit.start()
     eventual
+    producer
   }
 
   override def afterAll() = {
     Safe {
       Await.result(cassandra.close(), config.stopTimeout)
     }
-    Safe {
-      producer.close()
-    }
+    producerRelease.unsafeRunSync()
     super.afterAll()
   }
 }

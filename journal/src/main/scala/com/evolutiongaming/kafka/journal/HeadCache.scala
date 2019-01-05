@@ -326,7 +326,7 @@ object HeadCache {
               r <- pe.entries.get(id).fold {
                 // TODO Test this
                 // TODO
-                //                  val replicatedTo: Offset = ???
+                //                  val replicatedTo: Offset =
                 //
                 //                  if (offset <= replicatedTo) {
                 //                    Result(None, None).asRight

@@ -18,7 +18,6 @@ import com.evolutiongaming.kafka.journal.util.IOSuite._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.Offset
-import com.evolutiongaming.skafka.producer.Producer
 import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.{Matchers, WordSpec}
 
@@ -49,6 +48,8 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
     (EventualJournal(eventual), session, cassandra)
   }
 
+  lazy val (producer, producerRelease) = KafkaProducer.of[IO](config.journal.producer, ec).allocated.unsafeRunSync()
+
   override def configOf(): Config = ConfigFactory.load("replicator.conf")
 
   override def beforeAll() = {
@@ -64,6 +65,9 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
     Safe {
       Await.result(cassandra.close(), timeout)
     }
+
+    producerRelease.unsafeRunSync()
+
     super.afterAll()
   }
 
@@ -76,7 +80,6 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
     val origin = Origin(system.name)
 
     lazy val journal = {
-      val producer = Producer(config.journal.producer, ec)
 
       // TODO we don't need consumer here...
       val topicConsumer = TopicConsumer[IO](config.journal.consumer, ec)
