@@ -84,14 +84,14 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
       // TODO we don't need consumer here...
       val topicConsumer = TopicConsumer[IO](config.journal.consumer, ec)
 
-      val journal = Journal(
+      val journal = Journal[IO](
         log = actorLog,
         Some(origin),
         producer = producer,
         topicConsumer = topicConsumer,
         eventual = eventual,
         pollTimeout = config.journal.pollTimeout,
-        headCache = HeadCache.empty[Async])
+        headCache = HeadCache.empty[IO])
       Journal(journal)
     }
 

@@ -8,6 +8,7 @@ import com.evolutiongaming.skafka
 
 import scala.concurrent.ExecutionContext
 
+// TODO create by Config factories
 trait KafkaProducer[F[_]] {
 
   def send[K : skafka.ToBytes, V : skafka.ToBytes](record: ProducerRecord[K, V]): F[RecordMetadata]

@@ -2,31 +2,31 @@ package akka.persistence.kafka.journal
 
 import java.time.Instant
 
-import cats.implicits._
 import akka.actor.ActorSystem
 import akka.persistence.journal.Tagged
 import akka.persistence.kafka.journal.KafkaJournal.Metrics
 import akka.persistence.{AtomicWrite, PersistentRepr}
-import cats.effect.{Concurrent, ContextShift, IO, Resource}
+import cats.Monoid
+import cats.effect._
+import cats.implicits._
 import com.evolutiongaming.concurrent.FutureHelper._
 import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.kafka.journal.FoldWhile._
-import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.AsyncHelper._
+import com.evolutiongaming.kafka.journal.FoldWhile.{Fold, _}
+import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
-import com.evolutiongaming.kafka.journal.util.{FromFuture, ToFuture}
+import com.evolutiongaming.kafka.journal.util.{FromFuture, Par, ToFuture}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
-import com.evolutiongaming.scassandra.CreateCluster
+import com.evolutiongaming.scassandra.{CreateCluster, Session}
 import com.evolutiongaming.skafka.ClientId
 import com.evolutiongaming.skafka.consumer.Consumer
 import com.evolutiongaming.skafka.producer.Producer
 
 import scala.collection.immutable.Seq
-import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.Try
-import scala.util.control.NonFatal
 
 trait JournalAdapter {
 
@@ -41,17 +41,22 @@ trait JournalAdapter {
 
 object JournalAdapter {
 
-  def adapterOf[F[_] : Concurrent : ContextShift : FromFuture : ToFuture](
+  def of[F[_] : Concurrent : ContextShift : FromFuture : ToFuture : Par : Timer](
     toKey: ToKey,
     origin: Option[Origin],
     serializer: EventSerializer,
     config: KafkaJournalConfig,
     metrics: Metrics,
-    log: ActorLog)(implicit system: ActorSystem, ec: ExecutionContextExecutor): Resource[F, JournalAdapter] = {
+    log: ActorLog)(implicit
+    system: ActorSystem,
+    ec: ExecutionContextExecutor,
+    monoid: Monoid[F[Unit]]): Resource[F, JournalAdapter] = {
 
-    val blocking = system.dispatchers.lookup(config.blockingDispatcher)
+    val blocking = Sync[F].delay {
+      system.dispatchers.lookup(config.blockingDispatcher)
+    }
 
-    val producer = {
+    def kafkaProducer(blocking: ExecutionContext) = {
       val producerConfig = config.journal.producer
       val producerMetrics = for {
         metrics <- metrics.producer
@@ -62,8 +67,52 @@ object JournalAdapter {
       KafkaProducer.of[F](producerConfig, blocking, producerMetrics)
     }
 
+    val cassandraSession = {
+      val cluster = CreateCluster(config.cassandra.client)
+      val cassandraSession = for {
+        session <- FromFuture[F].apply { cluster.connect() }
+      } yield {
+        val release = for {
+          _ <- FromFuture[F].apply { session.close() }
+          _ <- FromFuture[F].apply { cluster.close() }
+        } yield {}
+
+        (session, release)
+      }
+      Resource(cassandraSession)
+    }
+
+    def eventualJournalOf(implicit cassandraSession: Session) = {
+      val actorLog = ActorLog(system, EventualJournal.getClass)
+      implicit val log = Log.async(actorLog)
+      val journal = {
+        val journal = EventualCassandra(config.cassandra, actorLog, origin)
+        EventualJournal(journal)
+      }
+      metrics.eventual.fold(journal) { EventualJournal(journal, _) }
+    }
+
+    def headCache(eventualJournal: EventualJournal[Async], blocking: ExecutionContext) = {
+      val result = for {
+        headCache <- {
+          if (config.headCache) {
+            HeadCache.of[F](config.journal.consumer, eventualJournal, blocking)
+          } else {
+            HeadCache.empty[F].pure[F]
+          }
+        }
+      } yield {
+        (headCache, headCache.close)
+      }
+      Resource(result)
+    }
+
     for {
-      producer <- producer
+      blocking         <- Resource.liftF(blocking)
+      kafkaProducer    <- kafkaProducer(blocking)
+      cassandraSession <- cassandraSession
+      eventualJournal   = eventualJournalOf(cassandraSession)
+      headCache        <- headCache(eventualJournal, blocking)
     } yield {
       val topicConsumer = {
         val consumerConfig = config.journal.consumer
@@ -76,53 +125,9 @@ object JournalAdapter {
         TopicConsumer[F](consumerConfig, blocking, metrics = consumerMetrics)
       }
 
-      val eventualJournal: EventualJournal[Async] = {
-        val cassandraConfig = config.cassandra
-        val cluster = CreateCluster(cassandraConfig.client)
-        implicit val session = Await.result(cluster.connect(), config.connectTimeout)
-        system.registerOnTermination {
-          val result = for {
-            _ <- session.close()
-            _ <- cluster.close()
-          } yield {}
-          try {
-            Await.result(result, config.stopTimeout)
-          } catch {
-            case NonFatal(failure) => log.error(s"failed to shutdown cassandra $failure", failure)
-          }
-        }
-
-        {
-          val actorLog = ActorLog(system, EventualJournal.getClass)
-          implicit val log = Log.async(actorLog)
-          val journal = {
-            val journal = EventualCassandra(cassandraConfig, actorLog, origin)
-            EventualJournal(journal)
-          }
-          metrics.eventual.fold(journal) { EventualJournal(journal, _) }
-        }
-      }
-
-      // TODO resource
-      val headCache = {
-        if (config.headCache) {
-          HeadCacheAsync(config.journal.consumer, eventualJournal, blocking)
-        } else {
-          HeadCache.empty[Async]
-        }
-      }
-
-      system.registerOnTermination {
-        try {
-          Await.result(headCache.close.future, config.stopTimeout)
-        } catch {
-          case NonFatal(failure) => log.error(s"failed to shutdown headCache $failure", failure)
-        }
-      }
-
       val journal = {
-        val journal = Journal(
-          producer = producer,
+        val journal = Journal[F](
+          producer = kafkaProducer,
           origin = origin,
           topicConsumer = topicConsumer,
           eventual = eventualJournal,
@@ -140,7 +145,7 @@ object JournalAdapter {
     toKey: ToKey,
     journal: Journal[Async],
     serializer: EventSerializer)(implicit ec: ExecutionContext): JournalAdapter = {
-    
+
     new JournalAdapter {
 
       def write(atomicWrites: Seq[AtomicWrite]) = {

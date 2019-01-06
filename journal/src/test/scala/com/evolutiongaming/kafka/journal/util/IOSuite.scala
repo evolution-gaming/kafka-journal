@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal.util
 
+import cats.Parallel
 import cats.effect.{Concurrent, ContextShift, IO, Timer}
 import cats.implicits._
 import org.scalatest.Succeeded
@@ -12,9 +13,11 @@ object IOSuite {
   val Timeout: FiniteDuration = 5.seconds
   implicit val ec: ExecutionContextExecutor = ExecutionContext.global
   implicit val csIO: ContextShift[IO] = IO.contextShift(ec)
-  implicit val concurrentIO: Concurrent[IO] = IO.ioConcurrentEffect(csIO)
+  implicit val concurrentIO: Concurrent[IO] = IO.ioConcurrentEffect
   implicit val timerIO: Timer[IO] = IO.timer(ec)
   implicit val fromFutureIO: FromFuture[IO] = FromFuture.lift[IO]
+  implicit val parallel: Parallel[IO, IO.Par] = IO.ioParallel
+  implicit val par: Par[IO] = Par.lift
 
   def runIO[A](io: IO[A], timeout: FiniteDuration = Timeout): Future[Succeeded.type] = {
     io.timeout1(timeout).as(Succeeded).unsafeToFuture

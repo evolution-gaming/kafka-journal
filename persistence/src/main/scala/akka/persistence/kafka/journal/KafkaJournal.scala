@@ -3,11 +3,13 @@ package akka.persistence.kafka.journal
 import akka.actor.ActorSystem
 import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.{AtomicWrite, PersistentRepr}
+import cats.Parallel
 import cats.effect.{ContextShift, IO, Resource, Timer}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
-import com.evolutiongaming.kafka.journal.util.FromFuture
+import com.evolutiongaming.kafka.journal.util.IOHelper._
+import com.evolutiongaming.kafka.journal.util.{FromFuture, Par}
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.ClientId
 import com.evolutiongaming.skafka.consumer.Consumer
@@ -27,18 +29,34 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
   implicit val cs: ContextShift[IO] = IO.contextShift(ec)
   implicit val timer: Timer[IO] = IO.timer(ec)
   implicit val fromFuture: FromFuture[IO] = FromFuture.lift[IO]
+  implicit val parallel: Parallel[IO, IO.Par] = IO.ioParallel(cs)
+  implicit val par: Par[IO] = Par.lift(parallel)
 
   val log: ActorLog = ActorLog(system, classOf[KafkaJournal])
 
-  lazy val (adapter, release): (JournalAdapter, IO[Unit]) = {
-    val adapter = adapterOf(
+  lazy val (adapter, release): (JournalAdapter, () => Unit) = {
+    val config = kafkaJournalConfig()
+
+    log.debug(s"Config: $config")
+
+    val resource = adapterOf(
       toKey(),
       origin(),
       serializer(),
-      kafkaJournalConfig(),
+      config,
       metrics())
 
-    adapter.allocated.unsafeRunSync()
+    val timeout = config.startTimeout
+    val (adapter, release) = resource.allocated.unsafeRunTimed(timeout).getOrElse {
+      sys.error(s"failed to start in $timeout")
+    }
+    val release1 = () => {
+      val timeout = config.stopTimeout
+      release.unsafeRunTimed(timeout).getOrElse {
+        log.error(s"failed to release in $timeout")
+      }
+    }
+    (adapter, release1)
   }
 
   override def preStart(): Unit = {
@@ -47,7 +65,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
   }
 
   override def postStop(): Unit = {
-    try release.unsafeRunSync() catch {
+    try release() catch {
       case NonFatal(failure) => log.error(s"release failed with $failure", failure)
     }
     super.postStop()
@@ -56,7 +74,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
 
   def toKey(): ToKey = ToKey(config)
 
-  def kafkaJournalConfig() = KafkaJournalConfig(config)
+  def kafkaJournalConfig(): KafkaJournalConfig = KafkaJournalConfig(config)
 
   def origin(): Option[Origin] = Some {
     Origin.HostName orElse Origin.AkkaHost(system) getOrElse Origin.AkkaName(system)
@@ -73,9 +91,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
     config: KafkaJournalConfig,
     metrics: Metrics): Resource[IO, JournalAdapter] = {
 
-    log.debug(s"Config: $config")
-
-    JournalAdapter.adapterOf[IO](toKey, origin, serializer, config, metrics, log)
+    JournalAdapter.of[IO](toKey, origin, serializer, config, metrics, log)
   }
 
   // TODO optimise concurrent calls asyncReplayMessages & asyncReadHighestSequenceNr for the same persistenceId

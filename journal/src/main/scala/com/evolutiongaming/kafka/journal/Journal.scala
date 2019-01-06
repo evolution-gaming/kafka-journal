@@ -150,7 +150,7 @@ object Journal {
     topicConsumer: TopicConsumer[F],
     eventual: EventualJournal[Async],
     pollTimeout: FiniteDuration,
-    headCache: HeadCache[Async])(implicit
+    headCache: HeadCache[F])(implicit
     system: ActorSystem,
     ec: ExecutionContextExecutor): Journal[Async] = {
 
@@ -169,14 +169,15 @@ object Journal {
     topicConsumer: TopicConsumer[F],
     eventual: EventualJournal[Async],
     pollTimeout: FiniteDuration,
-    headCache: HeadCache[Async])(implicit
+    headCache: HeadCache[F])(implicit
     ec: ExecutionContextExecutor): Journal[Async] = {
 
     implicit val log1 = Log.fromLog[F](log)
     val withPollActions = WithPollActions.async[F](topicConsumer, pollTimeout)
     val appendAction = AppendAction.async[F](producer)
+    val headCacheAsync = HeadCacheAsync(headCache)
 
-    apply(log, origin, eventual, withPollActions, appendAction, headCache)
+    apply(log, origin, eventual, withPollActions, appendAction, headCacheAsync)
   }
 
 

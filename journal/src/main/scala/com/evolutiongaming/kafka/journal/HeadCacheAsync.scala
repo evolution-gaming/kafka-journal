@@ -1,69 +1,31 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.implicits._
-import cats.effect.IO
 import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.kafka.journal.eventual.EventualJournal
-import com.evolutiongaming.kafka.journal.util.FromFuture
-import com.evolutiongaming.kafka.journal.util.IOHelper._
-import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
+import com.evolutiongaming.kafka.journal.util.ToFuture
 import com.evolutiongaming.skafka.{Offset, Partition}
 
-import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
+import scala.concurrent.ExecutionContext
 
 object HeadCacheAsync {
 
-  def apply(
-    consumerConfig: ConsumerConfig,
-    eventualJournal: EventualJournal[Async],
-    blocking: ExecutionContext)(implicit
-    ec: ExecutionContextExecutor): HeadCache[Async] = {
-
-    implicit val cs = IO.contextShift(ec)
-    implicit val timer = IO.timer(ec)
-    implicit val fromFuture: FromFuture[IO] = FromFuture.lift[IO]
-    implicit val eventual = HeadCache.Eventual[IO](eventualJournal)
-
-    val consumer = {
-      val config = consumerConfig.copy(
-        autoOffsetReset = AutoOffsetReset.Earliest,
-        groupId = None,
-        autoCommit = false)
-
-      for {
-        consumer <- KafkaConsumer.of[IO, Id, Bytes](config, blocking)
-      } yield {
-        HeadCache.Consumer[IO](consumer)
-      }
-    }
-
-    val headCache = {
-      val headCache = for {
-        log       <- Log.of[IO](HeadCache.getClass)
-        headCache <- {
-          implicit val log1 = log
-          HeadCache.of[IO](consumer)
-        }
-      } yield headCache
-
-      val timeout = 1.minute
-      headCache.unsafeRunTimed(timeout) getOrElse {
-        sys.error(s"headCache.unsafeRunTimed timed out in $timeout") // TODO
-      }
-    }
+  def apply[F[_] : ToFuture](headCache: HeadCache[F])(implicit ec: ExecutionContext): HeadCache[Async] = {
 
     new HeadCache[Async] {
 
       def apply(key: Key, partition: Partition, marker: Offset) = {
-
-        val future = headCache(key, partition, marker).unsafeToFuture()
-        Async(future)
+        Async {
+          ToFuture[F].apply {
+            headCache(key, partition, marker)
+          }
+        }
       }
 
       def close = {
-        val future = headCache.close.unsafeToFuture()
-        Async(future)
+        Async {
+          ToFuture[F].apply {
+            headCache.close
+          }
+        }
       }
     }
   }

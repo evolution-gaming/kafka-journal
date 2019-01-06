@@ -28,7 +28,7 @@ trait JournalSuit extends ActorSuite with Matchers { self: Suite =>
   lazy val (eventual, cassandra) = {
     val cassandraConfig = config.cassandra
     val cassandra = CreateCluster(cassandraConfig.client)
-    implicit val session = Await.result(cassandra.connect(), config.connectTimeout)
+    implicit val session = Await.result(cassandra.connect(), config.startTimeout)
     val eventual = EventualCassandra(cassandraConfig, ActorLog.empty, None)
     (eventual, cassandra)
   }

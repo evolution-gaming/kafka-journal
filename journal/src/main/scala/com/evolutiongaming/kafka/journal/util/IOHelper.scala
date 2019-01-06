@@ -7,5 +7,6 @@ import cats.kernel.Monoid
 
 object IOHelper {
 
+  // TODO remove and not pass as argument
   implicit val MonoidIOUnit: Monoid[IO[Unit]] = Applicative.monoid[IO, Unit]
 }

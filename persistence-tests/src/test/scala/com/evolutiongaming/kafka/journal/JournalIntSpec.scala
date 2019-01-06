@@ -7,6 +7,7 @@ import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.util.IOSuite._
+import com.evolutiongaming.kafka.journal.util.IOHelper._
 import com.evolutiongaming.nel.Nel
 import org.scalatest.{AsyncWordSpec, Succeeded}
 
@@ -18,15 +19,16 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuit {
   private lazy val journalOf = {
     val topicConsumer = TopicConsumer[IO](config.journal.consumer, ecBlocking)
     eventual: EventualJournal[Async] => {
-      val headCache = HeadCacheAsync(config.journal.consumer, eventual, ecBlocking)
-      val journal = Journal(
+      val headCache = HeadCache.of[IO](config.journal.consumer, eventual, ecBlocking).unsafeRunSync()/*TODO*/
+      val release = () => Async(headCache.close.unsafeRunSync())
+      val journal = Journal[IO](
         producer = producer,
         origin = Some(origin),
         topicConsumer = topicConsumer,
         eventual = eventual,
         pollTimeout = config.journal.pollTimeout,
         headCache = headCache)
-      (journal, () => headCache.close)
+      (journal, release)
     }
   }
 

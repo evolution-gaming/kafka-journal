@@ -13,9 +13,10 @@ import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.EitherHelper._
 import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords}
+import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecord, ConsumerRecords}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
 
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 
@@ -48,6 +49,36 @@ object HeadCache {
     def close = Applicative[F].unit
   }
 
+  // TODO return resource
+  def of[F[_] : Concurrent : Par : Timer : ContextShift : FromFuture](
+    consumerConfig: ConsumerConfig,
+    eventualJournal: EventualJournal[async.Async],
+    blocking: ExecutionContext)(implicit
+    monoid: Monoid[F[Unit]]): F[HeadCache[F]] = {
+
+    implicit val eventual = Eventual[F](eventualJournal)
+
+    val consumer = {
+      val config = consumerConfig.copy(
+        autoOffsetReset = AutoOffsetReset.Earliest,
+        groupId = None,
+        autoCommit = false)
+
+      for {
+        consumer <- KafkaConsumer.of[F, Id, Bytes](config, blocking)
+      } yield {
+        HeadCache.Consumer[F](consumer)
+      }
+    }
+
+    for {
+      log       <- Log.of[F](HeadCache.getClass)
+      headCache <- {
+        implicit val log1 = log
+        HeadCache.of[F](consumer)
+      }
+    } yield headCache
+  }
 
   def of[F[_] : Concurrent : Eventual : Par : Timer : Log : ContextShift](
     consumer: Resource[F, Consumer[F]],
@@ -536,6 +567,23 @@ object HeadCache {
             r
           }
         }
+      }
+    }
+
+    def of[F[_] : Concurrent : FromFuture : ContextShift](
+      config: ConsumerConfig,
+      blocking: ExecutionContext)(implicit
+      monoid: Monoid[F[Unit]]): Resource[F, Consumer[F]] = {
+      
+      val config1 = config.copy(
+        autoOffsetReset = AutoOffsetReset.Earliest,
+        groupId = None,
+        autoCommit = false)
+
+      for {
+        consumer <- KafkaConsumer.of[F, Id, Bytes](config1, blocking)
+      } yield {
+        HeadCache.Consumer[F](consumer)
       }
     }
   }
