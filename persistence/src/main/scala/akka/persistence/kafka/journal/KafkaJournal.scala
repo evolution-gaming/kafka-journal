@@ -82,14 +82,14 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
 
   def serializer(): EventSerializer = EventSerializer(system)
 
-  def metrics(): Metrics = Metrics.Empty
+  def metrics(): Metrics[IO] = Metrics.empty[IO]
 
   def adapterOf(
     toKey: ToKey,
     origin: Option[Origin],
     serializer: EventSerializer,
     config: KafkaJournalConfig,
-    metrics: Metrics): Resource[IO, JournalAdapter] = {
+    metrics: Metrics[IO]): Resource[IO, JournalAdapter] = {
 
     JournalAdapter.of[IO](toKey, origin, serializer, config, metrics, log)
   }
@@ -128,13 +128,13 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
 
 object KafkaJournal {
 
-  final case class Metrics(
+  final case class Metrics[F[_]](
     journal: Option[Journal.Metrics[Async]] = None,
-    eventual: Option[EventualJournal.Metrics[Async]] = None,
+    eventual: Option[EventualJournal.Metrics[F]] = None,
     producer: Option[ClientId => Producer.Metrics] = None,
     consumer: Option[ClientId => Consumer.Metrics] = None)
 
   object Metrics {
-    val Empty: Metrics = Metrics()
+    def empty[F[_]]: Metrics[F] = Metrics[F]()
   }
 }

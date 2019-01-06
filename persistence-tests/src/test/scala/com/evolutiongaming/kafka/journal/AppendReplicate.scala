@@ -7,8 +7,6 @@ import akka.actor.ActorSystem
 import akka.persistence.kafka.journal.KafkaJournalConfig
 import cats.effect.{IO, Resource}
 import cats.implicits._
-import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, ReplicatedJournal}
 import com.evolutiongaming.kafka.journal.replicator.{ReplicatorConfig, TopicReplicator}
 import com.evolutiongaming.kafka.journal.util.FromFuture
@@ -60,10 +58,11 @@ object AppendReplicate extends App {
     val journal = {
       val topicConsumer = TopicConsumer[IO](journalConfig.journal.consumer, blocking)
       Journal[IO](
-        producer = producer,
+        log = ActorLog.empty,
+        kafkaProducer = producer,
         origin = Some(Origin(topic)),
         topicConsumer = topicConsumer,
-        eventual = EventualJournal.empty[Async],
+        eventualJournal = EventualJournal.empty[IO],
         pollTimeout = journalConfig.journal.pollTimeout,
         headCache = HeadCache.empty[IO])
     }

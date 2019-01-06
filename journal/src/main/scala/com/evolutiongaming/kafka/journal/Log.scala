@@ -1,8 +1,9 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.implicits._
-import cats.Applicative
+import cats.{Applicative, ~>}
 import cats.effect.Sync
+import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.safeakka.actor.ActorLog
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -98,25 +99,25 @@ object Log {
   }
   
 
-  def async[F[_] : IO2](log: ActorLog): Log[F] = new Log[F] {
+  def async(log: ActorLog): Log[Async] = new Log[Async] {
 
-    def debug(msg: => String) = IO2[F].effect {
+    def debug(msg: => String) = Async {
       log.debug(msg)
     }
 
-    def info(msg: => String) = IO2[F].effect {
+    def info(msg: => String) = Async {
       log.info(msg)
     }
 
-    def warn(msg: => String) = IO2[F].effect {
+    def warn(msg: => String) = Async {
       log.warn(msg)
     }
 
-    def error(msg: => String) = IO2[F].effect {
+    def error(msg: => String) = Async {
       log.error(msg)
     }
 
-    def error(msg: => String, cause: Throwable) = IO2[F].effect {
+    def error(msg: => String, cause: Throwable) = Async {
       log.error(msg, cause)
     }
   }
@@ -152,6 +153,23 @@ object Log {
       Sync[F].delay {
         log.error(msg)
       }
+    }
+  }
+
+
+  implicit class LogOps[F[_]](val self: Log[F]) extends AnyVal {
+
+    def mapK[G[_]](f: F ~> G): Log[G] = new Log[G] {
+
+      def debug(msg: => String) = f(self.debug(msg))
+
+      def info(msg: => String) = f(self.info(msg))
+
+      def warn(msg: => String) = f(self.warn(msg))
+
+      def error(msg: => String) = f(self.error(msg))
+
+      def error(msg: => String, cause: Throwable) = f(self.error(msg, cause))
     }
   }
 }

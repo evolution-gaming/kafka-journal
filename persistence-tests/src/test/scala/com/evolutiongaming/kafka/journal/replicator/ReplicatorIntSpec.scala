@@ -4,15 +4,13 @@ import java.time.Instant
 import java.util.UUID
 
 import akka.persistence.kafka.journal.KafkaJournalConfig
-import cats.effect.IO
-import com.evolutiongaming.scassandra.CreateCluster
+import cats.implicits._
+import cats.effect.{IO, Resource}
 import com.evolutiongaming.concurrent.FutureHelper._
-import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.FixEquality.Implicits._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.eventual.EventualJournal
-import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
+import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, EventualCassandra}
 import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.util.IOSuite._
 import com.evolutiongaming.nel.Nel
@@ -35,39 +33,36 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
 
   lazy val actorLog = ActorLog(system, getClass)
 
-  implicit lazy val log = Log.async[Async](actorLog)
+  implicit lazy val log = Log.async(actorLog)
 
   val timeout = 30.seconds
 
-  lazy val (eventual, session, cassandra) = {
-    val cassandraConfig = config.cassandra
-    val cassandra = CreateCluster(cassandraConfig.client)
-    implicit val session = Await.result(cassandra.connect(), timeout)
-    // TODO add EventualCassandra.close and simplify all
-    val eventual = EventualCassandra(cassandraConfig, ActorLog.empty, None)
-    (EventualJournal(eventual), session, cassandra)
-  }
+  lazy val ((eventual, producer), release) = {
+    val resource = for {
+      cassandraCluster <- CassandraCluster.of[IO](config.cassandra.client, config.cassandra.retries)
+      cassandraSession <- cassandraCluster.session
+      eventualJournal  <- {
+        implicit val cassandraSession1 = cassandraSession
+        Resource.liftF(EventualCassandra.of[IO](config.cassandra, None))
+      }
+      kafkaProducer <- KafkaProducer.of[IO](config.journal.producer, ec)
+    } yield {
+      (eventualJournal, kafkaProducer)
+    }
 
-  lazy val (producer, producerRelease) = KafkaProducer.of[IO](config.journal.producer, ec).allocated.unsafeRunSync()
+    resource.allocated.unsafeRunSync()
+  }
 
   override def configOf(): Config = ConfigFactory.load("replicator.conf")
 
   override def beforeAll() = {
     super.beforeAll()
     IntegrationSuit.start()
-    eventual
+//    eventual
   }
 
   override def afterAll() = {
-    Safe {
-      Await.result(session.close(), timeout)
-    }
-    Safe {
-      Await.result(cassandra.close(), timeout)
-    }
-
-    producerRelease.unsafeRunSync()
-
+    release.unsafeRunSync()
     super.afterAll()
   }
 
@@ -87,9 +82,9 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
       val journal = Journal[IO](
         log = actorLog,
         Some(origin),
-        producer = producer,
+        kafkaProducer = producer,
         topicConsumer = topicConsumer,
-        eventual = eventual,
+        eventualJournal = eventual,
         pollTimeout = config.journal.pollTimeout,
         headCache = HeadCache.empty[IO])
       Journal(journal)
@@ -98,7 +93,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
     def read(key: Key)(until: List[ReplicatedEvent] => Boolean) = {
       val future = Retry() {
         for {
-          switch <- eventual.read[List[ReplicatedEvent]](key, SeqNr.Min, Nil) { case (xs, x) => Switch.continue(x :: xs) }.future
+          switch <- eventual.read[List[ReplicatedEvent]](key, SeqNr.Min, Nil) { case (xs, x) => Switch.continue(x :: xs) }.unsafeToFuture()
           events = switch.s
           result <- if (until(events)) Some(events.reverse).future else None.future
         } yield result
@@ -119,7 +114,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
 
     def pointer(key: Key) = journal.pointer(key).get(timeout)
 
-    def topicPointers() = eventual.pointers(topic).get(timeout).values
+    def topicPointers() = eventual.pointers(topic).unsafeRunSync().values
 
     for {
       seqNr <- List(1, 2, 10)

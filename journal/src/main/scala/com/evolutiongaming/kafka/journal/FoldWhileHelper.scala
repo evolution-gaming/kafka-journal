@@ -32,13 +32,6 @@ object FoldWhileHelper {
   }
 
 
-  implicit class FoldWhileIOOps[S, F[_]](val self: S => F[Switch[S]]) extends AnyVal {
-    def foldWhile(s: S)(implicit io: IO2[F]): F[S] = {
-      io.foldWhile1(s)(self)
-    }
-  }
-
-
   implicit class SourceObjFoldWhile(val self: Source.type) extends AnyVal {
 
     def foldWhile[S, E](s: S)(f: S => Future[(Switch[S], Iterable[E])]): Source[E, NotUsed] = {

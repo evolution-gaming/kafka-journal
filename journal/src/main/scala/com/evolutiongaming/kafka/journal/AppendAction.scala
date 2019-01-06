@@ -2,12 +2,9 @@ package com.evolutiongaming.kafka.journal
 
 import cats.effect.Sync
 import cats.implicits._
-import com.evolutiongaming.concurrent.async.Async
+import cats.~>
 import com.evolutiongaming.kafka.journal.KafkaConverters._
-import com.evolutiongaming.kafka.journal.util.ToFuture
 import com.evolutiongaming.skafka.Offset
-
-import scala.concurrent.ExecutionContext
 
 trait AppendAction[F[_]] {
   def apply(action: Action): F[PartitionOffset]
@@ -37,18 +34,11 @@ object AppendAction {
     }
   }
 
-  def async[F[_] : Sync : ToFuture](producer: KafkaProducer[F])(implicit ec: ExecutionContext): AppendAction[Async] = {
 
-    val appendAction = apply[F](producer)
+  implicit class AppendActionOps[F[_]](val self: AppendAction[F]) extends AnyVal {
 
-    new AppendAction[Async] {
-      def apply(action: Action) = {
-        Async {
-          ToFuture[F].apply {
-            appendAction(action)
-          }
-        }
-      }
+    def mapK[G[_]](f: F ~> G): AppendAction[G] = new AppendAction[G] {
+      def apply(action: Action) = f(self(action))
     }
   }
 }

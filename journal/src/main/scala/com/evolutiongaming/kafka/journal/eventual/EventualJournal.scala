@@ -49,7 +49,7 @@ object EventualJournal {
   }
 
 
-  def apply[F[_] : FlatMap : Log : Clock](
+  def apply[F[_] : FlatMap : Clock](
     journal: EventualJournal[F],
     metrics: Metrics[F]): EventualJournal[F] = new EventualJournal[F] {
 
@@ -115,5 +115,20 @@ object EventualJournal {
     }
 
     def empty[F[_] : Applicative]: Metrics[F] = empty(Applicative[F].unit)
+  }
+
+
+  implicit class EventualJournalOps[F[_]](val self: EventualJournal[F]) extends AnyVal {
+
+    def mapK[G[_]](f: F ~> G): EventualJournal[G] = new EventualJournal[G] {
+
+      def pointers(topic: Topic) = f(self.pointers(topic))
+
+      def read[S](key: Key, from: SeqNr, s: S)(f1: Fold[S, ReplicatedEvent]) = {
+        f(self.read[S](key, from, s)(f1))
+      }
+
+      def pointer(key: Key) = f(self.pointer(key))
+    }
   }
 }

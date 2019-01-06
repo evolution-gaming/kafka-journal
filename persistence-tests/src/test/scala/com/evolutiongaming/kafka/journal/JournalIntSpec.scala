@@ -9,6 +9,7 @@ import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.util.IOSuite._
 import com.evolutiongaming.kafka.journal.util.IOHelper._
 import com.evolutiongaming.nel.Nel
+import com.evolutiongaming.safeakka.actor.ActorLog
 import org.scalatest.{AsyncWordSpec, Succeeded}
 
 class JournalIntSpec extends AsyncWordSpec with JournalSuit {
@@ -17,15 +18,16 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuit {
   val origin = Origin("JournalIntSpec")
 
   private lazy val journalOf = {
-    val topicConsumer = TopicConsumer[IO](config.journal.consumer, ecBlocking)
-    eventual: EventualJournal[Async] => {
-      val headCache = HeadCache.of[IO](config.journal.consumer, eventual, ecBlocking).unsafeRunSync()/*TODO*/
+    val topicConsumer = TopicConsumer[IO](config.journal.consumer, blocking)
+    eventualJournal: EventualJournal[IO] => {
+      val headCache = HeadCache.of[IO](config.journal.consumer, eventualJournal, blocking).unsafeRunSync() // TODO
       val release = () => Async(headCache.close.unsafeRunSync())
       val journal = Journal[IO](
-        producer = producer,
+        log = ActorLog.empty,
+        kafkaProducer = producer,
         origin = Some(origin),
         topicConsumer = topicConsumer,
-        eventual = eventual,
+        eventualJournal = eventualJournal,
         pollTimeout = config.journal.pollTimeout,
         headCache = headCache)
       (journal, release)
@@ -37,7 +39,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuit {
     for {
       seqNr <- List(SeqNr.Min, SeqNr(2))
       (eventualName, eventual) <- List(
-        ("empty", () => EventualJournal.empty[Async]),
+        ("empty", () => EventualJournal.empty[IO]),
         ("non-empty", () => eventual))
     } {
       val name = s"seqNr: $seqNr, eventual: $eventualName"

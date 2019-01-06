@@ -2,12 +2,10 @@ package com.evolutiongaming.kafka.journal
 
 import cats.implicits._
 import cats.effect.Sync
-import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.kafka.journal.util.{FromFuture, ToFuture}
+import cats.~>
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Partition, TopicPartition}
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
 
 
@@ -16,45 +14,6 @@ trait WithPollActions[F[_]] {
 }
 
 object WithPollActions {
-
-  def async[F[_] : Sync : Log : FromFuture : ToFuture](
-    topicConsumer: TopicConsumer[F],
-    pollTimeout: FiniteDuration)(implicit ec: ExecutionContext): WithPollActions[Async] = {
-
-    async(apply[F](topicConsumer, pollTimeout))
-  }
-
-  def async[F[_] : FromFuture : ToFuture](withPollActions: WithPollActions[F])(implicit ec: ExecutionContext /*TODO remove*/): WithPollActions[Async] = {
-
-    new WithPollActions[Async] {
-
-      def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[Async] => Async[A]) = {
-
-        val ff = (pollActions: PollActions[F]) => {
-
-          val pollActions1 = new PollActions[Async] {
-            def apply() = {
-              Async {
-                ToFuture[F].apply {
-                  pollActions()
-                }
-              }
-            }
-          }
-          
-          FromFuture[F].apply {
-            f(pollActions1).future
-          }
-        }
-
-        Async {
-          ToFuture[F].apply {
-            withPollActions(key, partition, offset)(ff)
-          }
-        }
-      }
-    }
-  }
 
   def apply[F[_] : Sync : Log](
     topicConsumer: TopicConsumer[F],
@@ -76,6 +35,18 @@ object WithPollActions {
             a <- f(p)
           } yield a
         }
+      }
+    }
+  }
+
+
+  implicit class WithPollActionsOps[F[_]](val self: WithPollActions[F]) extends AnyVal {
+
+    def mapK[G[_]](to: F ~> G, from: G ~> F): WithPollActions[G] = new WithPollActions[G] {
+
+      def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[G] => G[A]) = {
+        val ff = (pollActions: PollActions[F]) => from(f(pollActions.mapK(to)))
+        to(self(key, partition, offset)(ff))
       }
     }
   }

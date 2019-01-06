@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.FlatMap
 import cats.implicits._
+import cats.{FlatMap, ~>}
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 
 import scala.concurrent.duration.FiniteDuration
@@ -32,6 +32,14 @@ object PollActions {
           ActionRecord(action, partitionOffset)
         }
       }
+    }
+  }
+
+
+  implicit class PollActionsOps[F[_]](val self: PollActions[F]) extends AnyVal {
+
+    def mapK[G[_]](f: F ~> G): PollActions[G] = new PollActions[G] {
+      def apply() = f(self())
     }
   }
 }

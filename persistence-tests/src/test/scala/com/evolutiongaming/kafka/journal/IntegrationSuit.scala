@@ -9,9 +9,6 @@ import com.evolutiongaming.kafka.journal.replicator.Replicator
 import com.evolutiongaming.kafka.journal.util.{FromFuture, Par, ToFuture}
 import com.typesafe.config.ConfigFactory
 
-import scala.concurrent.Await
-import scala.concurrent.duration._
-import scala.util.control.NonFatal
 
 object IntegrationSuit {
 
@@ -58,16 +55,10 @@ object IntegrationSuit {
   private lazy val started: Unit = {
     val config = ConfigFactory.load("replicator.conf")
     val system = ActorSystem("replicator", config)
-    val future = startIO(system).allocated.unsafeToFuture()
-    val (_, release) = Await.result(future, 1.minute)
+    val (_, release) = startIO(system).allocated.unsafeRunSync()
 
     CoordinatedShutdown.get(system).addJvmShutdownHook {
-      val future = release.unsafeToFuture()
-      try {
-        Await.result(future, 1.minute)
-      } catch {
-        case NonFatal(e) => e.printStackTrace()
-      }
+      release.unsafeRunSync()
     }
   }
 

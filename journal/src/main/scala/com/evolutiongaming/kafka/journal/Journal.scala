@@ -3,9 +3,8 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 import java.util.UUID
 
-import akka.actor.ActorSystem
 import cats._
-import cats.effect.{Clock, Concurrent, ContextShift}
+import cats.effect.{Clock, Concurrent, ContextShift, Sync}
 import cats.implicits._
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.concurrent.async.AsyncConverters._
@@ -20,7 +19,7 @@ import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.{Bytes => _, _}
 
 import scala.concurrent.duration._
-import scala.concurrent.ExecutionContextExecutor
+import scala.concurrent.ExecutionContext
 
 trait Journal[F[_]] {
 
@@ -89,9 +88,7 @@ object Journal {
   }
 
 
-  def apply[F[_] : Clock, E](
-    journal: Journal[F],
-    metrics: Metrics[F])(implicit monadError: MonadError[F, E]): Journal[F] = {
+  def apply[F[_] : Sync : Clock](journal: Journal[F], metrics: Metrics[F]): Journal[F] = {
 
     def latency[A](name: String, topic: Topic)(f: => F[A]/*TODO*/): F[(A, Long)] = {
       Latency {
@@ -144,40 +141,50 @@ object Journal {
   }
 
 
-  def apply[F[_] : Concurrent : ContextShift : FromFuture : ToFuture](
+  /*def apply[F[_] : Concurrent : ContextShift : FromFuture : ToFuture](
     producer: KafkaProducer[F],
     origin: Option[Origin],
     topicConsumer: TopicConsumer[F],
-    eventual: EventualJournal[Async],
+    eventualJournal: EventualJournal[F],
     pollTimeout: FiniteDuration,
     headCache: HeadCache[F])(implicit
     system: ActorSystem,
-    ec: ExecutionContextExecutor): Journal[Async] = {
+    ec: ExecutionContext): Journal[Async] = {
 
     val actorLog = ActorLog(system, Journal.getClass)
 
     implicit val log = Log.async[Async](actorLog)
 
-    val journal = apply(actorLog, origin, producer, topicConsumer, eventual, pollTimeout, headCache)
+    val journal = apply(actorLog, origin, producer, topicConsumer, eventualJournal, pollTimeout, headCache)
     Journal(journal)
-  }
+  }*/
 
   def apply[F[_] : Concurrent : ContextShift : FromFuture : ToFuture](
     log: ActorLog, // TODO remove
     origin: Option[Origin],
-    producer: KafkaProducer[F],
+    kafkaProducer: KafkaProducer[F],
     topicConsumer: TopicConsumer[F],
-    eventual: EventualJournal[Async],
+    eventualJournal: EventualJournal[F],
     pollTimeout: FiniteDuration,
     headCache: HeadCache[F])(implicit
-    ec: ExecutionContextExecutor): Journal[Async] = {
+    ec: ExecutionContext): Journal[Async] = {
+
+    val toAsync = new (F ~> Async) {
+      def apply[A](fa: F[A]) = Async { ToFuture[F].apply { fa } }
+    }
+
+    val fromAsync = new (Async ~> F) {
+      def apply[A](fa: Async[A]) = FromFuture[F].apply { fa.future }
+    }
 
     implicit val log1 = Log.fromLog[F](log)
-    val withPollActions = WithPollActions.async[F](topicConsumer, pollTimeout)
-    val appendAction = AppendAction.async[F](producer)
-    val headCacheAsync = HeadCacheAsync(headCache)
+    val withPollActions = WithPollActions[F](topicConsumer, pollTimeout)
+    val withPollActions1 = withPollActions.mapK(toAsync, fromAsync)
+    val appendAction = AppendAction[F](kafkaProducer).mapK(toAsync)
+    val headCache1 = headCache.mapK(toAsync)
+    val eventualJournal1 = eventualJournal.mapK(toAsync)
 
-    apply(log, origin, eventual, withPollActions, appendAction, headCacheAsync)
+    apply(log, origin, eventualJournal1, withPollActions1, appendAction, headCache1)
   }
 
 
@@ -295,7 +302,7 @@ object Journal {
           // TODO use range after eventualRecords
           // TODO prevent from reading calling consume twice!
           info         <- info match {
-            case Some(info) => IO2[Async].pure(info)
+            case Some(info) => info.pure[Async]
             case None       => read(None, JournalInfo.empty) { (info, action) => info(action).continue }
           }
           _            = log.debug(s"$key read info: $info")
@@ -323,7 +330,7 @@ object Journal {
           result <- info match {
             case Some(info) => info match {
               case JournalInfo.Empty          => seqNrEventual
-              case info: JournalInfo.NonEmpty => IO2[Async].pure(Some(info.seqNr))
+              case info: JournalInfo.NonEmpty => info.seqNr.some.pure[Async]
               case info: JournalInfo.Deleted  => seqNrEventual
             }
 

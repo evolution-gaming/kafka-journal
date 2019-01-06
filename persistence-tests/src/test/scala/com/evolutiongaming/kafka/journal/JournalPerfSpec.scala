@@ -5,10 +5,10 @@ import java.util.UUID
 import cats.effect.IO
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
-import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.util.IOSuite._
 import com.evolutiongaming.kafka.journal.util.IOHelper._
 import com.evolutiongaming.nel.Nel
+import com.evolutiongaming.safeakka.actor.ActorLog
 import org.scalatest.{AsyncWordSpec, Succeeded}
 
 import scala.compat.Platform
@@ -23,15 +23,16 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuit {
   private val origin = Origin("JournalPerfSpec")
 
   private lazy val journalOf = {
-    val topicConsumer = TopicConsumer[IO](config.journal.consumer, ecBlocking)
-    eventual: EventualJournal[Async] => {
-      val headCache = HeadCache.of[IO](config.journal.consumer, eventual, ecBlocking).unsafeRunSync()/*TODO*/
+    val topicConsumer = TopicConsumer[IO](config.journal.consumer, blocking)
+    eventualJournal: EventualJournal[IO] => {
+      val headCache = HeadCache.of[IO](config.journal.consumer, eventualJournal, blocking).unsafeRunSync() // TODO
       val release = () => Async(headCache.close.unsafeRunSync())
       val journal = Journal(
-        producer = producer,
+        log = ActorLog.empty,
+        kafkaProducer = producer,
         origin = Some(origin),
         topicConsumer = topicConsumer,
-        eventual = eventual,
+        eventualJournal = eventualJournal,
         pollTimeout = config.journal.pollTimeout,
         headCache = headCache)
       (journal, release)
@@ -99,7 +100,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuit {
 
     for {
       (eventualName, expected, eventual) <- List(
-        ("empty", 2.second, () => EventualJournal.empty[Async]),
+        ("empty", 2.second, () => EventualJournal.empty[IO]),
         ("non-empty", 1.second, () => eventual))
     } {
       val name = s"events: $events, eventual: $eventualName"

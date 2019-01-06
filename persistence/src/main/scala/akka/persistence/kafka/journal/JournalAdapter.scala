@@ -15,14 +15,10 @@ import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.FoldWhile.{Fold, _}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
-import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
+import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession, EventualCassandra}
 import com.evolutiongaming.kafka.journal.util.{FromFuture, Par, ToFuture}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
-import com.evolutiongaming.scassandra.{CreateCluster, Session}
-import com.evolutiongaming.skafka.ClientId
-import com.evolutiongaming.skafka.consumer.Consumer
-import com.evolutiongaming.skafka.producer.Producer
 
 import scala.collection.immutable.Seq
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
@@ -46,7 +42,7 @@ object JournalAdapter {
     origin: Option[Origin],
     serializer: EventSerializer,
     config: KafkaJournalConfig,
-    metrics: Metrics,
+    metrics: Metrics[F],
     log: ActorLog)(implicit
     system: ActorSystem,
     ec: ExecutionContextExecutor,
@@ -67,32 +63,15 @@ object JournalAdapter {
       KafkaProducer.of[F](producerConfig, blocking, producerMetrics)
     }
 
-    val cassandraSession = {
-      val cluster = CreateCluster(config.cassandra.client)
-      val cassandraSession = for {
-        session <- FromFuture[F].apply { cluster.connect() }
+    def eventualJournalOf(implicit cassandraSession: CassandraSession[F]) = {
+      for {
+        journal <- EventualCassandra.of[F](config.cassandra, origin)
       } yield {
-        val release = for {
-          _ <- FromFuture[F].apply { session.close() }
-          _ <- FromFuture[F].apply { cluster.close() }
-        } yield {}
-
-        (session, release)
+        metrics.eventual.fold(journal) { metrics => EventualJournal[F](journal, metrics) }
       }
-      Resource(cassandraSession)
     }
 
-    def eventualJournalOf(implicit cassandraSession: Session) = {
-      val actorLog = ActorLog(system, EventualJournal.getClass)
-      implicit val log = Log.async(actorLog)
-      val journal = {
-        val journal = EventualCassandra(config.cassandra, actorLog, origin)
-        EventualJournal(journal)
-      }
-      metrics.eventual.fold(journal) { EventualJournal(journal, _) }
-    }
-
-    def headCache(eventualJournal: EventualJournal[Async], blocking: ExecutionContext) = {
+    def headCache(eventualJournal: EventualJournal[F], blocking: ExecutionContext) = {
       val result = for {
         headCache <- {
           if (config.headCache) {
@@ -108,10 +87,11 @@ object JournalAdapter {
     }
 
     for {
+      cassandraCluster <- CassandraCluster.of[F](config.cassandra.client, config.cassandra.retries)
+      cassandraSession <- cassandraCluster.session
       blocking         <- Resource.liftF(blocking)
       kafkaProducer    <- kafkaProducer(blocking)
-      cassandraSession <- cassandraSession
-      eventualJournal   = eventualJournalOf(cassandraSession)
+      eventualJournal  <- Resource.liftF(eventualJournalOf(cassandraSession))
       headCache        <- headCache(eventualJournal, blocking)
     } yield {
       val topicConsumer = {
@@ -126,15 +106,21 @@ object JournalAdapter {
       }
 
       val journal = {
+        val actorLog = ActorLog(system, Journal.getClass)
         val journal = Journal[F](
-          producer = kafkaProducer,
+          log = actorLog,
+          kafkaProducer = kafkaProducer,
           origin = origin,
           topicConsumer = topicConsumer,
-          eventual = eventualJournal,
+          eventualJournal = eventualJournal,
           pollTimeout = config.journal.pollTimeout,
           headCache = headCache)
 
-        metrics.journal.fold(journal) { Journal(journal, _) }
+        implicit val log = Log.async(actorLog)
+
+        val journal1 = Journal[Async](journal)
+
+        metrics.journal.fold(journal1) { metrics => Journal(journal1, metrics) }
       }
       JournalAdapter(log, toKey, journal, serializer)
     }
@@ -234,17 +220,6 @@ object PayloadAndTags {
   def apply(payload: Any): (Any, Tags) = payload match {
     case Tagged(payload, tags) => (payload, tags)
     case _                     => (payload, Set.empty)
-  }
-
-
-  final case class Metrics(
-    journal: Option[Journal.Metrics[Async]] = None,
-    eventual: Option[EventualJournal.Metrics[Async]] = None,
-    producer: Option[ClientId => Producer.Metrics] = None,
-    consumer: Option[ClientId => Consumer.Metrics] = None)
-
-  object Metrics {
-    val Empty: Metrics = Metrics()
   }
 }
 

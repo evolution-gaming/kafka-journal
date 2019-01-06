@@ -1,73 +1,39 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.implicits._
-import cats.effect.IO
 import cats.Monad
-import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.concurrent.async.AsyncConverters._
+import cats.effect.{Clock, Sync}
+import cats.implicits._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.util.{FromFuture, Par}
-import com.evolutiongaming.safeakka.actor.ActorLog
-import com.evolutiongaming.scassandra.Session
+import com.evolutiongaming.kafka.journal.util.{FromFuture, Par, ToFuture}
 import com.evolutiongaming.skafka.Topic
-
-import scala.concurrent.ExecutionContextExecutor
-import scala.concurrent.duration._
 
 
 // TODO test EventualCassandra
 object EventualCassandra {
 
-  def apply(
+  def of[F[_] : Sync : Par : Clock : CassandraSession : FromFuture : ToFuture](
     config: EventualCassandraConfig,
-    actorLog: ActorLog,
-    origin: Option[Origin])(implicit
-    ec: ExecutionContextExecutor,
-    session: Session): EventualJournal[Async] = {
+    origin: Option[Origin]): F[EventualJournal[F]] = {
 
-    async(config, actorLog, origin).get(30.seconds) // TODO
-  }
+    implicit val cassandraSync = CassandraSync[F](config.schema, origin)
 
-
-  def async(
-    config: EventualCassandraConfig,
-    actorLog: ActorLog,
-    origin: Option[Origin])(implicit
-    ec: ExecutionContextExecutor,
-    session: Session): Async[EventualJournal[Async]] = {
-
-    implicit val cs = IO.contextShift(ec)
-    implicit val fromFuture = FromFuture.lift[IO]
-    implicit val cassandraSession = CassandraSession(CassandraSession[IO](session), config.retries)
-    implicit val cassandraSync = CassandraSync[IO](config.schema, origin)
-    implicit val log = Log.fromLog[IO](actorLog)
-
-    val journal = for {
-      journal <- of[IO](config)
-    } yield {
-      new EventualJournal[Async] {
-        def pointers(topic: Topic) = {
-          journal.pointers(topic).unsafeToFuture().async
-        }
-
-        def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
-          journal.read(key, from, s)(f).unsafeToFuture().async
-        }
-
-        def pointer(key: Key) = {
-          journal.pointer(key).unsafeToFuture().async
-        }
+    for {
+      log <- Log.of[F](EventualCassandra.getClass)
+      journal <- {
+        implicit val log1 = log
+        of[F](config)
       }
+    } yield {
+      implicit val log1 = log
+      EventualJournal[F](journal)
     }
-    Async(journal.unsafeToFuture())
   }
-
 
   def of[F[_] : Monad : Par : CassandraSession : CassandraSync : Log](config: EventualCassandraConfig): F[EventualJournal[F]] = {
     for {
-      tables     <- CreateSchema[F](config.schema)
+      tables <- CreateSchema[F](config.schema)
       statements <- Statements.of[F](tables)
     } yield {
       implicit val statements1 = statements
@@ -75,7 +41,7 @@ object EventualCassandra {
     }
   }
 
-  
+
   def apply[F[_] : Monad : Par : Statements : Log]: EventualJournal[F] = {
 
     new EventualJournal[F] {

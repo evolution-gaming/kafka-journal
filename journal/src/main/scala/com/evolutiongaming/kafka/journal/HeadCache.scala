@@ -4,7 +4,6 @@ import cats._
 import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.implicits._
-import com.evolutiongaming.concurrent.async
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal.cache.Cache
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
@@ -52,7 +51,7 @@ object HeadCache {
   // TODO return resource
   def of[F[_] : Concurrent : Par : Timer : ContextShift : FromFuture](
     consumerConfig: ConsumerConfig,
-    eventualJournal: EventualJournal[async.Async],
+    eventualJournal: EventualJournal[F],
     blocking: ExecutionContext)(implicit
     monoid: Monoid[F[Unit]]): F[HeadCache[F]] = {
 
@@ -597,14 +596,8 @@ object HeadCache {
 
     def apply[F[_]](implicit F: Eventual[F]): Eventual[F] = F
 
-    def apply[F[_]: FromFuture](eventualJournal: EventualJournal[async.Async]): Eventual[F] = {
-      new HeadCache.Eventual[F] {
-        def pointers(topic: Topic) = {
-          FromFuture[F].apply {
-            eventualJournal.pointers(topic).future
-          }
-        }
-      }
+    def apply[F[_]](eventualJournal: EventualJournal[F]): Eventual[F] = new HeadCache.Eventual[F] {
+      def pointers(topic: Topic) = eventualJournal.pointers(topic)
     }
 
     def empty[F[_] : Applicative]: Eventual[F] = const(Applicative[F].pure(TopicPointers.Empty))
@@ -695,4 +688,17 @@ object HeadCache {
   case object NoPartitionsException extends RuntimeException("No partitions") with NoStackTrace
 
   case object ClosedException extends RuntimeException("HeadCache is closed") with NoStackTrace
+
+
+  implicit class HeadCacheOps[F[_]](val self: HeadCache[F]) extends AnyVal {
+
+    def mapK[G[_]](f: F ~> G): HeadCache[G] = new HeadCache[G] {
+
+      def apply(key: Key, partition: Partition, offset: Offset) = {
+        f(self(key, partition, offset))
+      }
+
+      def close = f(self.close)
+    }
+  }
 }

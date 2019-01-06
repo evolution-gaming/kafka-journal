@@ -3,52 +3,52 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import akka.persistence.kafka.journal.KafkaJournalConfig
-import cats.effect.IO
+import cats.implicits._
+import cats.effect.{IO, Resource}
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.FoldWhile._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
+import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, EventualCassandra}
 import com.evolutiongaming.kafka.journal.util.IOSuite._
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.safeakka.actor.ActorLog
-import com.evolutiongaming.scassandra.CreateCluster
 import org.scalatest.{Matchers, Suite}
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContextExecutor}
+import scala.concurrent.ExecutionContextExecutor
 
 trait JournalSuit extends ActorSuite with Matchers { self: Suite =>
-
-  private implicit lazy val ec: ExecutionContextExecutor = system.dispatcher
 
   lazy val config: KafkaJournalConfig = {
     val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.persistence.journal")
     KafkaJournalConfig(config)
   }
 
-  lazy val (eventual, cassandra) = {
-    val cassandraConfig = config.cassandra
-    val cassandra = CreateCluster(cassandraConfig.client)
-    implicit val session = Await.result(cassandra.connect(), config.startTimeout)
-    val eventual = EventualCassandra(cassandraConfig, ActorLog.empty, None)
-    (eventual, cassandra)
+  lazy val blocking: ExecutionContextExecutor = system.dispatchers.lookup(config.blockingDispatcher)
+
+  lazy val ((eventual, producer), release) = {
+    val resource = for {
+      cassandraCluster <- CassandraCluster.of[IO](config.cassandra.client, config.cassandra.retries)
+      cassandraSession <- cassandraCluster.session
+      eventualJournal  <- {
+        implicit val cassandraSession1 = cassandraSession
+        Resource.liftF(EventualCassandra.of[IO](config.cassandra, None))
+      }
+      kafkaProducer <- KafkaProducer.of[IO](config.journal.producer, blocking)
+    } yield {
+      (eventualJournal, kafkaProducer)
+    }
+
+    resource.allocated.unsafeRunSync()
   }
-
-  lazy val ecBlocking: ExecutionContextExecutor = system.dispatchers.lookup(config.blockingDispatcher)
-
-  lazy val (producer, producerRelease) = KafkaProducer.of[IO](config.journal.producer, ecBlocking).allocated.unsafeRunSync()
 
   override def beforeAll() = {
     super.beforeAll()
     IntegrationSuit.start()
-    eventual
-    producer
+//    eventual
+//    producer
   }
 
   override def afterAll() = {
-    Safe {
-      Await.result(cassandra.close(), config.stopTimeout)
-    }
-    producerRelease.unsafeRunSync()
+    release.unsafeRunSync()
     super.afterAll()
   }
 }
