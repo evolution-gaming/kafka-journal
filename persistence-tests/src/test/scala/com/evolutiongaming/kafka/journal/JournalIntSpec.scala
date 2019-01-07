@@ -2,35 +2,38 @@ package com.evolutiongaming.kafka.journal
 
 import java.util.UUID
 
-import cats.effect.IO
-import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.kafka.journal.AsyncHelper._
+import cats.Foldable
+import cats.implicits._
+import cats.effect.{IO, Resource, Sync}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.util.IOSuite._
 import com.evolutiongaming.kafka.journal.util.IOHelper._
+import com.evolutiongaming.kafka.journal.util.Par
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import org.scalatest.{AsyncWordSpec, Succeeded}
+
+import scala.concurrent.duration._
 
 class JournalIntSpec extends AsyncWordSpec with JournalSuit {
   import JournalSuit._
 
   val origin = Origin("JournalIntSpec")
 
-  private lazy val journalOf = {
+  private val journalOf = {
     val topicConsumer = TopicConsumer[IO](config.journal.consumer, blocking)
     eventualJournal: EventualJournal[IO] => {
-      val headCache = HeadCache.of[IO](config.journal.consumer, eventualJournal, blocking).unsafeRunSync() // TODO
-      val release = () => Async(headCache.close.unsafeRunSync())
-      val journal = Journal[IO](
-        log = ActorLog.empty,
-        kafkaProducer = producer,
-        origin = Some(origin),
-        topicConsumer = topicConsumer,
-        eventualJournal = eventualJournal,
-        pollTimeout = config.journal.pollTimeout,
-        headCache = headCache)
-      (journal, release)
+      for {
+        headCache <- Resource.make(HeadCache.of[IO](config.journal.consumer, eventualJournal, blocking))(_.close)
+        journal = Journal[IO](
+          log = ActorLog.empty,
+          kafkaProducer = producer,
+          origin = Some(origin),
+          topicConsumer = topicConsumer,
+          eventualJournal = eventualJournal,
+          pollTimeout = config.journal.pollTimeout,
+          headCache = headCache)
+      } yield journal
     }
   }
 
@@ -44,40 +47,38 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuit {
     } {
       val name = s"seqNr: $seqNr, eventual: $eventualName"
 
-      def keyOf() = Key(id = UUID.randomUUID().toString, topic = "journal")
+      val keyRandom = Sync[IO].delay { Key(id = UUID.randomUUID().toString, topic = "journal") }
 
-      lazy val (journal0, release) = journalOf(eventual())
+      lazy val (journal0, release) = journalOf(eventual()).allocated.unsafeRunSync()
 
       s"append, delete, read, lastSeqNr, $name" in {
-        val key = keyOf()
-        val journal = KeyJournal(key, journal0)
         val result = for {
-          pointer <- journal.pointer()
-          _ = pointer shouldEqual None
-          events <- journal.read()
-          _ = events shouldEqual Nil
-          offset <- journal.delete(SeqNr.Max)
-          _ = offset shouldEqual None
-          event = Event(seqNr)
-          offset <- journal.append(Nel(event))
-          partition = offset.partition
-          events <- journal.read()
-          _ = events shouldEqual List(event)
-          offset <- journal.delete(SeqNr.Max)
-          _ = offset.map(_.partition) shouldEqual Some(partition)
-          pointer <- journal.pointer()
-          _ = pointer shouldEqual Some(seqNr)
-          events <- journal.read()
-          _ = events shouldEqual Nil
+          key       <- keyRandom
+          journal    = KeyJournal(key, journal0)
+          pointer   <- journal.pointer()
+          _          = pointer shouldEqual None
+          events    <- journal.read()
+          _          = events shouldEqual Nil
+          offset    <- journal.delete(SeqNr.Max)
+          _          = offset shouldEqual None
+          event      = Event(seqNr)
+          offset    <- journal.append(Nel(event))
+          partition  = offset.partition
+          events    <- journal.read()
+          _          = events shouldEqual List(event)
+          offset    <- journal.delete(SeqNr.Max)
+          _          = offset.map(_.partition) shouldEqual Some(partition)
+          pointer   <- journal.pointer()
+          _          = pointer shouldEqual Some(seqNr)
+          events    <- journal.read()
+          _          = events shouldEqual Nil
         } yield Succeeded
 
-        result.future
+        result.run(1.minute)
       }
 
       val many = 10
       s"append & read $many, $name" in {
-        val key = keyOf()
-        val journal = KeyJournal(key, journal0)
 
         val events = for {
           n <- 0 until many
@@ -87,73 +88,53 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuit {
         }
 
         val result = for {
-          _ <- journal.append(Nel.unsafe(events))
-          _ <- Async.foldUnit {
-            for {
-              _ <- 0 to 10
-            } yield for {
-              events <- journal.read()
-              _ = events shouldEqual events
-              pointer <- journal.pointer()
-              _ = pointer shouldEqual events.lastOption.map(_.seqNr)
-            } yield {}
-          }
-        } yield Succeeded
+          key     <- keyRandom
+          journal  = KeyJournal(key, journal0)
+          read = for {
+            events  <- journal.read()
+            _        = events shouldEqual events
+            pointer <- journal.pointer()
+            _ = pointer shouldEqual events.lastOption.map(_.seqNr)
+          } yield {}
+          _       <- journal.append(Nel.unsafe(events))
+          reads    = List.fill(10)(read)
+          _       <- Foldable[List].fold(reads)
+        } yield {}
 
-        result.future
+        result.run(1.minute)
       }
 
-      s"read $many in parallel, $name" in {
+      s"append & read $many in parallel, $name" in {
 
         val expected = for {
           n <- (0 to 10).toList
           seqNr <- seqNr.map(_ + n)
         } yield Event(seqNr)
 
+        val appends = for {
+          key     <- keyRandom
+          journal  = KeyJournal(key, journal0)
+          events  <- journal.read()
+          _        = events shouldEqual Nil
+          pointer <- journal.pointer()
+          _        = pointer shouldEqual None
+          _       <- expected.foldMap { event => journal.append(Nel(event)).void }
+        } yield {
+          for {
+            pointer <- journal.pointer()
+            _        = pointer shouldEqual expected.lastOption.map(_.seqNr)
+            events  <- journal.read()
+            _        = events shouldEqual expected
+          } yield {}
+        }
 
         val result = for {
-          recoveries <- Async.list {
-            for {
-              _ <- (0 until many).toList
-            } yield {
+          reads <- Par[IO].sequence(List.fill(10)(appends))
+          _     <- Par[IO].fold(reads)
+          _     <- release
+        } yield {}
 
-              val key = keyOf()
-              val journal = KeyJournal(key, journal0)
-
-              for {
-                events <- journal.read()
-                _ = events shouldEqual Nil
-                pointer <- journal.pointer()
-                _ = pointer shouldEqual None
-                _ <- Async.fold(expected, ()) { (_, event) =>
-                  for {
-                    _ <- journal.append(Nel(event))
-                  } yield {}
-                }
-              } yield {
-                () => {
-                  for {
-                    pointer <- journal.pointer()
-                    _ = pointer shouldEqual expected.lastOption.map(_.seqNr)
-                    events <- journal.read()
-                    _ = events shouldEqual expected
-                  } yield {}
-                }
-              }
-            }
-          }
-
-          _ <- Async.foldUnit {
-            for {
-              recovery <- recoveries
-            } yield {
-              recovery()
-            }
-          }
-          _ <- release()
-        } yield Succeeded
-
-        result.future
+        result.run(1.minute)
       }
     }
   }

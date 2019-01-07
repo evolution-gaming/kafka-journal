@@ -1,18 +1,18 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.concurrent.async.AsyncConverters._
+import cats.Applicative
+import cats.implicits._
 import com.evolutiongaming.skafka.{Offset, Partition}
 
 import scala.collection.immutable.Queue
 
 object WithPollActionsOneByOne {
 
-  def apply(actions: => Queue[ActionRecord[Action]]): WithPollActions[Async] = new WithPollActions[Async] {
+  def apply[F[_] : Applicative](actions: => Queue[ActionRecord[Action]]): WithPollActions[F] = new WithPollActions[F] {
 
-    def apply[T](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[Async] => Async[T]) = {
+    def apply[T](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[F] => F[T]) = {
 
-      val pollActions = new PollActions[Async] {
+      val pollActions = new PollActions[F] {
 
         var left = offset match {
           case None         => actions
@@ -20,9 +20,9 @@ object WithPollActionsOneByOne {
         }
 
         def apply() = {
-          left.dequeueOption.fold(Async.nil[ActionRecord[Action]]) { case (record, left) =>
+          left.dequeueOption.fold(Iterable.empty[ActionRecord[Action]].pure[F]) { case (record, left) =>
             this.left = left
-            List(record).async
+            List(record).toIterable.pure[F]
           }
         }
       }

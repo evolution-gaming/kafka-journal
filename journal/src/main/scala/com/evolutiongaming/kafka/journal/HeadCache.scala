@@ -52,8 +52,7 @@ object HeadCache {
   def of[F[_] : Concurrent : Par : Timer : ContextShift : FromFuture](
     consumerConfig: ConsumerConfig,
     eventualJournal: EventualJournal[F],
-    blocking: ExecutionContext)(implicit
-    monoid: Monoid[F[Unit]]): F[HeadCache[F]] = {
+    blocking: ExecutionContext): F[HeadCache[F]] = {
 
     implicit val eventual = Eventual[F](eventualJournal)
 
@@ -499,9 +498,9 @@ object HeadCache {
 
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
-    def apply[F[_] : Sync](
-      consumer: KafkaConsumer[F, Id, Bytes])(implicit
-      monoid: Monoid[F[Unit]]): Consumer[F] = {
+    def apply[F[_] : Sync](consumer: KafkaConsumer[F, Id, Bytes]): Consumer[F] = {
+
+      implicit val monoidUnit = Applicative.monoid[F, Unit]
 
       new Consumer[F] {
 
@@ -571,8 +570,7 @@ object HeadCache {
 
     def of[F[_] : Concurrent : FromFuture : ContextShift](
       config: ConsumerConfig,
-      blocking: ExecutionContext)(implicit
-      monoid: Monoid[F[Unit]]): Resource[F, Consumer[F]] = {
+      blocking: ExecutionContext): Resource[F, Consumer[F]] = {
       
       val config1 = config.copy(
         autoOffsetReset = AutoOffsetReset.Earliest,

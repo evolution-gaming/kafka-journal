@@ -7,6 +7,7 @@ import akka.actor.ActorSystem
 import akka.persistence.kafka.journal.KafkaJournalConfig
 import cats.effect.{IO, Resource}
 import cats.implicits._
+import cats.~>
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, ReplicatedJournal}
 import com.evolutiongaming.kafka.journal.replicator.{ReplicatorConfig, TopicReplicator}
 import com.evolutiongaming.kafka.journal.util.FromFuture
@@ -16,11 +17,11 @@ import com.evolutiongaming.skafka.CommonConfig
 
 import scala.concurrent.Future
 
-object AppendReplicate extends App {
+object AppendReplicateApp extends App {
 
   val name = getClass.getName
   val topic = "append-replicate"
-  implicit val system = ActorSystem(topic)
+  implicit val system = ActorSystem(name)
   implicit val ec = system.dispatcher
   implicit val cs = IO.contextShift(ec)
   implicit val timer = IO.timer(ec)
@@ -53,11 +54,15 @@ object AppendReplicate extends App {
     (system, producer)
   }
 
+  implicit val replicatedJournal = ReplicatedJournal.empty[IO]
+
+  implicit val metrics = TopicReplicator.Metrics.empty[IO]
+
   val result = resources.use { case (_, producer) =>
 
-    val journal = {
+    val journal: Journal[Future] = {
       val topicConsumer = TopicConsumer[IO](journalConfig.journal.consumer, blocking)
-      Journal[IO](
+      val journal = Journal[IO](
         log = ActorLog.empty,
         kafkaProducer = producer,
         origin = Some(Origin(topic)),
@@ -65,6 +70,12 @@ object AppendReplicate extends App {
         eventualJournal = EventualJournal.empty[IO],
         pollTimeout = journalConfig.journal.pollTimeout,
         headCache = HeadCache.empty[IO])
+
+      val toFuture = new (IO ~> Future) {
+        def apply[A](fa: IO[A]) = fa.unsafeToFuture()
+      }
+
+      journal.mapK(toFuture)
     }
 
     def append(id: String) = {
@@ -74,7 +85,7 @@ object AppendReplicate extends App {
       def append(seqNr: SeqNr): Future[Unit] = {
         val event = Event(seqNr, payload = Some(Payload(name)))
         for {
-          _ <- journal.append(key, Nel(event), Instant.now()).future
+          _ <- journal.append(key, Nel(event), Instant.now())
           _ <- seqNr.next.fold(Future.unit)(append)
         } yield ()
       }
@@ -90,9 +101,6 @@ object AppendReplicate extends App {
         ReplicatorConfig(config)
       }
       val blocking = system.dispatchers.lookup(config.blockingDispatcher)
-
-      implicit val replicatedJournal = ReplicatedJournal.empty[IO]
-      implicit val metrics = TopicReplicator.Metrics.empty[IO]
 
       val consumer = for {
         consumer <- KafkaConsumer.of[IO, Id, Bytes](config.consumer, blocking)

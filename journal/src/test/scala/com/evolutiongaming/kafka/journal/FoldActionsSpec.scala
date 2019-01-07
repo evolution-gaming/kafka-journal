@@ -2,9 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 
-import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.FoldWhile._
-import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.skafka.Offset
 import org.scalatest.{FunSuite, Matchers}
 
@@ -74,17 +72,16 @@ class FoldActionsSpec extends FunSuite with Matchers {
     }
     val records = appendRecords :+ markRecord
 
-    val withPollActions = WithPollActionsOneByOne(records.to[Queue])
+    val withPollActions = WithPollActionsOneByOne[cats.Id](records.to[Queue])
 
-    // TODO remove this
-    val foldActions = FoldActions[Async](key, SeqNr.Min, marker, replicated, withPollActions)
+    val foldActions = FoldActions[cats.Id](key, SeqNr.Min, marker, replicated, withPollActions)
     val seqNr = foldActions(offset, List.empty[SeqNr]) { (s, action) =>
       action match {
         case action: Action.Append => (action.range.seqNrs.toList ::: s).continue
         case action: Action.Delete => s.continue
       }
     }
-    seqNr.value().get.get.reverse.map(_.value)
+    seqNr.reverse.map(_.value)
   }
 
   case class Pointer(seqNr: Long, offset: Offset)

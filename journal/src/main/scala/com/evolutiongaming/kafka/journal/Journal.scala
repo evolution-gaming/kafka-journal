@@ -6,20 +6,17 @@ import java.util.UUID
 import cats._
 import cats.effect.{Clock, Concurrent, ContextShift, Sync}
 import cats.implicits._
-import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.concurrent.async.AsyncConverters._
-import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.util.{FromFuture, ToFuture}
+import com.evolutiongaming.kafka.journal.util.ClockHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.{Bytes => _, _}
 
 import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext
 
 trait Journal[F[_]] {
 
@@ -141,82 +138,52 @@ object Journal {
   }
 
 
-  /*def apply[F[_] : Concurrent : ContextShift : FromFuture : ToFuture](
-    producer: KafkaProducer[F],
-    origin: Option[Origin],
-    topicConsumer: TopicConsumer[F],
-    eventualJournal: EventualJournal[F],
-    pollTimeout: FiniteDuration,
-    headCache: HeadCache[F])(implicit
-    system: ActorSystem,
-    ec: ExecutionContext): Journal[Async] = {
-
-    val actorLog = ActorLog(system, Journal.getClass)
-
-    implicit val log = Log.async[Async](actorLog)
-
-    val journal = apply(actorLog, origin, producer, topicConsumer, eventualJournal, pollTimeout, headCache)
-    Journal(journal)
-  }*/
-
-  def apply[F[_] : Concurrent : ContextShift : FromFuture : ToFuture](
+  def apply[F[_] : Concurrent : ContextShift : FromFuture : ToFuture : Clock](
     log: ActorLog, // TODO remove
     origin: Option[Origin],
     kafkaProducer: KafkaProducer[F],
     topicConsumer: TopicConsumer[F],
     eventualJournal: EventualJournal[F],
     pollTimeout: FiniteDuration,
-    headCache: HeadCache[F])(implicit
-    ec: ExecutionContext): Journal[Async] = {
-
-    val toAsync = new (F ~> Async) {
-      def apply[A](fa: F[A]) = Async { ToFuture[F].apply { fa } }
-    }
-
-    val fromAsync = new (Async ~> F) {
-      def apply[A](fa: Async[A]) = FromFuture[F].apply { fa.future }
-    }
+    headCache: HeadCache[F]): Journal[F] = {
 
     implicit val log1 = Log.fromLog[F](log)
     val withPollActions = WithPollActions[F](topicConsumer, pollTimeout)
-    val withPollActions1 = withPollActions.mapK(toAsync, fromAsync)
-    val appendAction = AppendAction[F](kafkaProducer).mapK(toAsync)
-    val headCache1 = headCache.mapK(toAsync)
-    val eventualJournal1 = eventualJournal.mapK(toAsync)
-
-    apply(log, origin, eventualJournal1, withPollActions1, appendAction, headCache1)
+    val appendAction = AppendAction[F](kafkaProducer)
+    apply[F](origin, eventualJournal, withPollActions, appendAction, headCache)
   }
 
 
-  // TODO too many arguments, add config?
-  def apply(
-    log: ActorLog,
+  def apply[F[_] : Concurrent : Log : Clock](
     origin: Option[Origin],
-    eventual: EventualJournal[Async],
-    withPollActions: WithPollActions[Async],
-    appendAction: AppendAction[Async],
-    headCache: HeadCache[Async]): Journal[Async] = {
+    eventual: EventualJournal[F],
+    withPollActions: WithPollActions[F],
+    appendAction: AppendAction[F],
+    headCache: HeadCache[F]): Journal[F] = {
 
     def readActions(key: Key, from: SeqNr) = {
       val marker = {
-        val id = UUID.randomUUID().toString // TODO
-        val action = Action.Mark(key, Instant.now(), origin, id)
         for {
+          id              <- Sync[F].delay { UUID.randomUUID().toString }
+          timestamp       <- Clock[F].instant
+          action           = Action.Mark(key, timestamp, origin, id)
           partitionOffset <- appendAction(action)
+          _               <- Log[F].debug(s"$key mark, id: $id, offset $partitionOffset")
         } yield {
-          log.debug(s"$key mark, id: $id, offset $partitionOffset")
           Marker(id, partitionOffset)
         }
       }
       val pointers = eventual.pointers(key.topic)
+
       for {
-        marker <- marker
-        result <- if (marker.offset == Offset.Min) {
-          (Some(JournalInfo.Empty), FoldActions.empty[Async]).async
+        pointers <- Concurrent[F].start(pointers)
+        marker   <- marker
+        result   <- if (marker.offset == Offset.Min) {
+          (JournalInfo.empty.some, FoldActions.empty[F]).pure[F]
         } else {
           for {
             result   <- headCache(key, partition = marker.partition, offset = Offset.Min max marker.offset - 1)
-            pointers <- pointers
+            pointers <- pointers.join
             offset    = pointers.values.get(marker.partition)
           } yield {
             val info = for {
@@ -230,12 +197,10 @@ object Journal {
             (info, foldActions)
           }
         }
-      } yield {
-        result
-      }
+      } yield result
     }
 
-    new Journal[Async] {
+    new Journal[F] {
 
       def append(key: Key, events: Nel[Event], timestamp: Instant) = {
         val action = Action.Append(key, timestamp, origin, events)
@@ -264,7 +229,7 @@ object Journal {
           } yield s.s
         }
 
-        def onNonEmpty(deleteTo: Option[SeqNr], readActions: FoldActions[Async]) = {
+        def onNonEmpty(deleteTo: Option[SeqNr], readActions: FoldActions[F]) = {
 
           def events(from: SeqNr, offset: Option[Offset], s: S) = {
             readActions(offset, s) { case (s, action) =>
@@ -289,29 +254,30 @@ object Journal {
           for {
             switch           <- replicatedSeqNr(fromFixed)
             (s, from, offset) = switch.s
-            _                 = log.debug(s"$key read from: $from, offset: $offset")
+            _                <- Log[F].debug(s"$key read from: $from, offset: $offset")
             s                <- from match {
-              case None       => s.async
-              case Some(from) => if (switch.stop) s.async else events(from, offset, s)
+              case None       => s.pure[F]
+              case Some(from) => if (switch.stop) s.pure[F] else events(from, offset, s)
             }
           } yield s
         }
 
         for {
-          (info, read) <- readActions(key, from)
+          ab           <- readActions(key, from)
+          (info, read)  = ab
           // TODO use range after eventualRecords
           // TODO prevent from reading calling consume twice!
           info         <- info match {
-            case Some(info) => info.pure[Async]
+            case Some(info) => info.pure[F]
             case None       => read(None, JournalInfo.empty) { (info, action) => info(action).continue }
           }
-          _            = log.debug(s"$key read info: $info")
+          _           <- Log[F].debug(s"$key read info: $info")
           result      <- info match {
             case JournalInfo.Empty                 => replicated(from)
             case JournalInfo.NonEmpty(_, deleteTo) => onNonEmpty(deleteTo, read)
             // TODO test this case
             case JournalInfo.Deleted(deleteTo) => deleteTo.next match {
-              case None       => s.async
+              case None       => s.pure[F]
               case Some(next) => replicated(from max next)
             }
           }
@@ -326,11 +292,12 @@ object Journal {
         def seqNrEventual = eventual.pointer(key).map(_.map(_.seqNr))
 
         for {
-          (info, readActions) <- readActions(key, from)
-          result <- info match {
+          ab                  <- readActions(key, from)
+          (info, readActions)  = ab
+          result              <- info match {
             case Some(info) => info match {
               case JournalInfo.Empty          => seqNrEventual
-              case info: JournalInfo.NonEmpty => info.seqNr.some.pure[Async]
+              case info: JournalInfo.NonEmpty => info.seqNr.some.pure[F]
               case info: JournalInfo.Deleted  => seqNrEventual
             }
 
@@ -356,13 +323,13 @@ object Journal {
         for {
           seqNr  <- pointer(key)
           result <- seqNr match {
-            case None        => Async.none
+            case None        => none[PartitionOffset].pure[F]
             case Some(seqNr) =>
 
               // TODO not delete already deleted, do not accept deleteTo=2 when already deleteTo=3
               val deleteTo = seqNr min to
               val action = Action.Delete(key, timestamp, origin, deleteTo)
-              appendAction(action).map(Some(_))
+              appendAction(action).map(_.some)
           }
         } yield result
       }
@@ -399,5 +366,28 @@ object Journal {
     }
 
     def empty[F[_] : Applicative]: Metrics[F] = empty(().pure[F])
+  }
+
+
+  implicit class JournalOps[F[_]](val self: Journal[F]) extends AnyVal {
+
+    def mapK[G[_]](f: F ~> G): Journal[G] = new Journal[G] {
+
+      def append(key: Key, events: Nel[Event], timestamp: Instant) = {
+        f(self.append(key, events, timestamp))
+      }
+
+      def read[S](key: Key, from: SeqNr, s: S)(f1: Fold[S, Event]) = {
+        f(self.read(key, from, s)(f1))
+      }
+
+      def pointer(key: Key) = {
+        f(self.pointer(key))
+      }
+
+      def delete(key: Key, to: SeqNr, timestamp: Instant) = {
+        f(self.delete(key, to, timestamp))
+      }
+    }
   }
 }

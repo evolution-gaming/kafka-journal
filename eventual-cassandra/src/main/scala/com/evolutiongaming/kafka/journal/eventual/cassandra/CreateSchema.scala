@@ -21,9 +21,7 @@ object CreateSchema {
 
     for {
       _      <- createKeyspace
-      tables <- CassandraSync[F].apply {
-        Tables[F](schemaConfig)
-      }
+      tables <- Tables[F](schemaConfig)
     } yield tables
   }
 }

@@ -1,38 +1,35 @@
 package akka.persistence.kafka.journal
 
-import java.time.Instant
-
 import akka.actor.ActorSystem
-import akka.persistence.journal.Tagged
-import akka.persistence.kafka.journal.KafkaJournal.Metrics
 import akka.persistence.{AtomicWrite, PersistentRepr}
-import cats.Monoid
 import cats.effect._
 import cats.implicits._
-import com.evolutiongaming.concurrent.FutureHelper._
-import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.kafka.journal.AsyncHelper._
+import cats.{Monad, ~>}
 import com.evolutiongaming.kafka.journal.FoldWhile.{Fold, _}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession, EventualCassandra}
+import com.evolutiongaming.kafka.journal.util.ClockHelper._
 import com.evolutiongaming.kafka.journal.util.{FromFuture, Par, ToFuture}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
+import com.evolutiongaming.skafka.ClientId
+import com.evolutiongaming.skafka.consumer.Consumer
+import com.evolutiongaming.skafka.producer.Producer
 
 import scala.collection.immutable.Seq
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
+import scala.concurrent.ExecutionContext
 import scala.util.Try
 
-trait JournalAdapter {
+trait JournalAdapter[F[_]] {
 
-  def write(messages: Seq[AtomicWrite]): Future[List[Try[Unit]]]
+  def write(messages: Seq[AtomicWrite]): F[List[Try[Unit]]]
 
-  def delete(persistenceId: String, to: SeqNr): Future[Unit]
+  def delete(persistenceId: String, to: SeqNr): F[Unit]
 
-  def lastSeqNr(persistenceId: String, from: SeqNr): Future[Option[SeqNr]]
+  def lastSeqNr(persistenceId: String, from: SeqNr): F[Option[SeqNr]]
 
-  def replay(persistenceId: String, range: SeqRange, max: Long)(f: PersistentRepr => Unit): Future[Unit]
+  def replay(persistenceId: String, range: SeqRange, max: Long)(f: PersistentRepr => Unit): F[Unit]
 }
 
 object JournalAdapter {
@@ -43,10 +40,8 @@ object JournalAdapter {
     serializer: EventSerializer,
     config: KafkaJournalConfig,
     metrics: Metrics[F],
-    log: ActorLog)(implicit
-    system: ActorSystem,
-    ec: ExecutionContextExecutor,
-    monoid: Monoid[F[Unit]]): Resource[F, JournalAdapter] = {
+    actorLog: ActorLog)(implicit
+    system: ActorSystem): Resource[F, JournalAdapter[F]] = {
 
     val blocking = Sync[F].delay {
       system.dispatchers.lookup(config.blockingDispatcher)
@@ -116,71 +111,56 @@ object JournalAdapter {
           pollTimeout = config.journal.pollTimeout,
           headCache = headCache)
 
-        implicit val log = Log.async(actorLog)
-
-        val journal1 = Journal[Async](journal)
-
-        metrics.journal.fold(journal1) { metrics => Journal(journal1, metrics) }
+        metrics.journal.fold(journal) { metrics => Journal(journal, metrics) }
       }
-      JournalAdapter(log, toKey, journal, serializer)
+
+      implicit val log = Log.fromLog[F](actorLog)
+      JournalAdapter[F](journal, toKey, serializer)
     }
   }
 
-  def apply(
-    log: ActorLog,
+  def apply[F[_] : Monad : Clock : Log](
+    journal: Journal[F],
     toKey: ToKey,
-    journal: Journal[Async],
-    serializer: EventSerializer)(implicit ec: ExecutionContext): JournalAdapter = {
+    serializer: EventSerializer): JournalAdapter[F] = {
 
-    new JournalAdapter {
+    new JournalAdapter[F] {
 
-      def write(atomicWrites: Seq[AtomicWrite]) = {
-        val timestamp = Instant.now()
-        Future {
-          val persistentReprs = for {
-            atomicWrite <- atomicWrites
-            persistentRepr <- atomicWrite.payload
-          } yield {
-            persistentRepr
-          }
-          if (persistentReprs.isEmpty) Future.nil
-          else {
-            val persistenceId = persistentReprs.head.persistenceId
+      def write(aws: Seq[AtomicWrite]) = {
+        for {
+          timestamp <- Clock[F].instant
+          prs        = for { aw <- aws; pr <- aw.payload } yield pr
+          result    <- Nel.opt(prs).fold(List.empty[Try[Unit]].pure[F]) { prs =>
+            val persistenceId = prs.head.persistenceId
             val key = toKey(persistenceId)
-
-            log.debug {
-              val first = persistentReprs.head.sequenceNr
-              val last = persistentReprs.last.sequenceNr
-              val seqNr = if (first == last) s"seqNr: $first" else s"seqNrs: $first..$last"
-              s"$persistenceId write, $seqNr"
-            }
-
-            val events = for {
-              persistentRepr <- persistentReprs
-            } yield {
-              serializer.toEvent(persistentRepr)
-            }
-            val nel = Nel(events.head, events.tail.toList)
-            val result = journal.append(key, nel, timestamp)
-            result.map(_ => Nil).future
+            for {
+              _      <- Log[F].debug {
+                val first = prs.head.sequenceNr
+                val last = prs.last.sequenceNr
+                val seqNr = if (first == last) s"seqNr: $first" else s"seqNrs: $first..$last"
+                s"$persistenceId write, $seqNr"
+              }
+              events  = prs.map(serializer.toEvent)
+              _      <- journal.append(key, events, timestamp)
+            } yield List.empty[Try[Unit]]
           }
-        }.flatten
+        } yield result
       }
 
       def delete(persistenceId: PersistenceId, to: SeqNr) = {
-        log.debug(s"$persistenceId delete, to: $to")
-
-        val timestamp = Instant.now()
-        val key = toKey(persistenceId)
-        journal.delete(key, to, timestamp).unit.future
+        for {
+          timestamp <- Clock[F].instant
+          _         <- Log[F].debug(s"$persistenceId delete, to: $to")
+          key        = toKey(persistenceId)
+          _         <- journal.delete(key, to, timestamp)
+        } yield {}
       }
 
       def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)
-        (callback: PersistentRepr => Unit): Future[Unit] = {
-
-        log.debug(s"$persistenceId replay, range: $range")
+        (callback: PersistentRepr => Unit) = {
 
         val key = toKey(persistenceId)
+
         val fold: Fold[Long, Event] = (count, event) => {
           val seqNr = event.seqNr
           if (seqNr <= range.to && count < max) {
@@ -192,34 +172,51 @@ object JournalAdapter {
             count.stop
           }
         }
-        val async = journal.read(key, range.from, 0l)(fold)
-        async.unit.future
+
+        for {
+          _ <- Log[F].debug(s"$persistenceId replay, range: $range")
+          _ <- journal.read(key, range.from, 0l)(fold)
+        } yield {}
       }
 
       def lastSeqNr(persistenceId: PersistenceId, from: SeqNr) = {
-        log.debug(s"$persistenceId lastSeqNr, from: $from")
-
         val key = toKey(persistenceId)
-        val pointer = for {
+        for {
+          _       <- Log[F].debug(s"$persistenceId lastSeqNr, from: $from")
           pointer <- journal.pointer(key)
         } yield for {
           pointer <- pointer
           if pointer >= from
-        } yield {
-          pointer
-        }
-
-        pointer.future
+        } yield pointer
       }
     }
   }
-}
 
-object PayloadAndTags {
 
-  def apply(payload: Any): (Any, Tags) = payload match {
-    case Tagged(payload, tags) => (payload, tags)
-    case _                     => (payload, Set.empty)
+  implicit class JournalAdapterOps[F[_]](val self: JournalAdapter[F]) extends AnyVal {
+
+    def mapK[G[_]](f: F ~> G): JournalAdapter[G] = new JournalAdapter[G] {
+
+      def write(messages: Seq[AtomicWrite]) = f(self.write(messages))
+
+      def delete(persistenceId: String, to: SeqNr) = f(self.delete(persistenceId, to))
+
+      def lastSeqNr(persistenceId: String, from: SeqNr) = f(self.lastSeqNr(persistenceId, from))
+
+      def replay(persistenceId: String, range: SeqRange, max: Long)(f1: PersistentRepr => Unit) = {
+        f(self.replay(persistenceId, range, max)(f1))
+      }
+    }
+  }
+
+
+  final case class Metrics[F[_]](
+    journal: Option[Journal.Metrics[F]] = None,
+    eventual: Option[EventualJournal.Metrics[F]] = None,
+    producer: Option[ClientId => Producer.Metrics] = None,
+    consumer: Option[ClientId => Consumer.Metrics] = None)
+
+  object Metrics {
+    def empty[F[_]]: Metrics[F] = Metrics[F]()
   }
 }
-

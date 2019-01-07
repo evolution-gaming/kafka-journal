@@ -3,17 +3,11 @@ package akka.persistence.kafka.journal
 import akka.actor.ActorSystem
 import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.{AtomicWrite, PersistentRepr}
-import cats.Parallel
+import cats.{Parallel, ~>}
 import cats.effect.{ContextShift, IO, Resource, Timer}
-import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.eventual.EventualJournal
-import com.evolutiongaming.kafka.journal.util.IOHelper._
 import com.evolutiongaming.kafka.journal.util.{FromFuture, Par}
 import com.evolutiongaming.safeakka.actor.ActorLog
-import com.evolutiongaming.skafka.ClientId
-import com.evolutiongaming.skafka.consumer.Consumer
-import com.evolutiongaming.skafka.producer.Producer
 import com.typesafe.config.Config
 
 import scala.collection.immutable.Seq
@@ -22,7 +16,6 @@ import scala.util.Try
 import scala.util.control.NonFatal
 
 class KafkaJournal(config: Config) extends AsyncWriteJournal {
-  import KafkaJournal._
 
   implicit val system: ActorSystem = context.system
   implicit val ec: ExecutionContextExecutor = context.dispatcher
@@ -34,7 +27,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
 
   val log: ActorLog = ActorLog(system, classOf[KafkaJournal])
 
-  lazy val (adapter, release): (JournalAdapter, () => Unit) = {
+  lazy val (adapter, release): (JournalAdapter[Future], () => Unit) = {
     val config = kafkaJournalConfig()
 
     log.debug(s"Config: $config")
@@ -50,14 +43,23 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
     val (adapter, release) = resource.allocated.unsafeRunTimed(timeout).getOrElse {
       sys.error(s"failed to start in $timeout")
     }
+
     val release1 = () => {
       val timeout = config.stopTimeout
       release.unsafeRunTimed(timeout).getOrElse {
         log.error(s"failed to release in $timeout")
       }
     }
-    (adapter, release1)
+
+    val toFuture = new (IO ~> Future) {
+      def apply[A](fa: IO[A]) = fa.unsafeToFuture()
+    }
+
+    val adapter1 = adapter.mapK(toFuture)
+    
+    (adapter1, release1)
   }
+
 
   override def preStart(): Unit = {
     super.preStart()
@@ -82,21 +84,20 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
 
   def serializer(): EventSerializer = EventSerializer(system)
 
-  def metrics(): Metrics[IO] = Metrics.empty[IO]
+  def metrics(): JournalAdapter.Metrics[IO] = JournalAdapter.Metrics.empty[IO]
 
   def adapterOf(
     toKey: ToKey,
     origin: Option[Origin],
     serializer: EventSerializer,
     config: KafkaJournalConfig,
-    metrics: Metrics[IO]): Resource[IO, JournalAdapter] = {
+    metrics: JournalAdapter.Metrics[IO]): Resource[IO, JournalAdapter[IO]] = {
 
     JournalAdapter.of[IO](toKey, origin, serializer, config, metrics, log)
   }
 
-  // TODO optimise concurrent calls asyncReplayMessages & asyncReadHighestSequenceNr for the same persistenceId
   def asyncWriteMessages(atomicWrites: Seq[AtomicWrite]): Future[Seq[Try[Unit]]] = {
-    adapter.write(atomicWrites)
+    Future { adapter.write(atomicWrites) }.flatten
   }
 
   def asyncDeleteMessagesTo(persistenceId: PersistenceId, to: Long): Future[Unit] = {
@@ -123,18 +124,5 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
       case Some(seqNr) => seqNr.value
       case None        => from
     }
-  }
-}
-
-object KafkaJournal {
-
-  final case class Metrics[F[_]](
-    journal: Option[Journal.Metrics[Async]] = None,
-    eventual: Option[EventualJournal.Metrics[F]] = None,
-    producer: Option[ClientId => Producer.Metrics] = None,
-    consumer: Option[ClientId => Consumer.Metrics] = None)
-
-  object Metrics {
-    def empty[F[_]]: Metrics[F] = Metrics[F]()
   }
 }

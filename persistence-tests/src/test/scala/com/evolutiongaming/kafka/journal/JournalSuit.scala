@@ -1,18 +1,17 @@
 package com.evolutiongaming.kafka.journal
 
-import java.time.Instant
 
 import akka.persistence.kafka.journal.KafkaJournalConfig
+import cats.FlatMap
 import cats.implicits._
-import cats.effect.{IO, Resource}
-import com.evolutiongaming.concurrent.async.Async
+import cats.effect.{Clock, IO, Resource}
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, EventualCassandra}
 import com.evolutiongaming.kafka.journal.util.IOSuite._
+import com.evolutiongaming.kafka.journal.util.ClockHelper._
 import com.evolutiongaming.nel.Nel
 import org.scalatest.{Matchers, Suite}
 
-import scala.concurrent.duration._
 import scala.concurrent.ExecutionContextExecutor
 
 trait JournalSuit extends ActorSuite with Matchers { self: Suite =>
@@ -55,25 +54,28 @@ trait JournalSuit extends ActorSuite with Matchers { self: Suite =>
 
 object JournalSuit {
 
-  trait KeyJournal {
+  trait KeyJournal[F[_]] {
 
-    def append(events: Nel[Event]): Async[PartitionOffset]
+    def append(events: Nel[Event]): F[PartitionOffset]
 
-    def read(): Async[List[Event]]
+    def read(): F[List[Event]]
 
-    def size(): Async[Int]
+    def size(): F[Int]
 
-    def pointer(): Async[Option[SeqNr]]
+    def pointer(): F[Option[SeqNr]]
 
-    def delete(to: SeqNr): Async[Option[PartitionOffset]]
+    def delete(to: SeqNr): F[Option[PartitionOffset]]
   }
 
   object KeyJournal {
 
-    def apply(key: Key, journal: Journal[Async]): KeyJournal = new KeyJournal {
+    def apply[F[_] : FlatMap : Clock](key: Key, journal: Journal[F]): KeyJournal[F] = new KeyJournal[F] {
 
       def append(events: Nel[Event]) = {
-        journal.append(key, events, Instant.now())
+        for {
+          timestamp <- Clock[F].instant
+          result    <- journal.append(key, events, timestamp)
+        } yield result
       }
 
       def read() = {
@@ -93,48 +95,10 @@ object JournalSuit {
       }
 
       def delete(to: SeqNr) = {
-        journal.delete(key, to, Instant.now())
-      }
-    }
-  }
-
-
-  trait KeyJournalSync {
-
-    def append(events: Nel[Event]): PartitionOffset
-
-    def read(): List[Event]
-
-    def size(): Int
-
-    def pointer(): Option[SeqNr]
-
-    def delete(to: SeqNr): Option[PartitionOffset]
-  }
-
-  object KeyJournalSync {
-
-    def apply(key: Key, journal: Journal[Async], timeout: FiniteDuration): KeyJournalSync = new KeyJournalSync {
-
-      def append(events: Nel[Event]) = {
-        journal.append(key, events, Instant.now()).get(timeout)
-      }
-
-      def read() = {
-        val events = journal.read[List[Event]](key, SeqNr.Min, Nil) { (xs, x) => Switch.continue(x :: xs) }.get(timeout)
-        events.reverse
-      }
-
-      def size() = {
-        journal.read[Int](key, SeqNr.Min, 0) { (a, _) => Switch.continue(a + 1) }.get(timeout)
-      }
-
-      def pointer() = {
-        journal.pointer(key).get(timeout)
-      }
-
-      def delete(to: SeqNr) = {
-        journal.delete(key, to, Instant.now()).get(timeout)
+        for {
+          timestamp <- Clock[F].instant
+          result    <- journal.delete(key, to, timestamp)
+        } yield result
       }
     }
   }

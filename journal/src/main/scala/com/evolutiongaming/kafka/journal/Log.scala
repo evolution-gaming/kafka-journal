@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal
 import cats.implicits._
 import cats.{Applicative, ~>}
 import cats.effect.Sync
-import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.safeakka.actor.ActorLog
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -98,30 +97,6 @@ object Log {
     }
   }
   
-
-  def async(log: ActorLog): Log[Async] = new Log[Async] {
-
-    def debug(msg: => String) = Async {
-      log.debug(msg)
-    }
-
-    def info(msg: => String) = Async {
-      log.info(msg)
-    }
-
-    def warn(msg: => String) = Async {
-      log.warn(msg)
-    }
-
-    def error(msg: => String) = Async {
-      log.error(msg)
-    }
-
-    def error(msg: => String, cause: Throwable) = Async {
-      log.error(msg, cause)
-    }
-  }
-
 
   def fromLog[F[_] : Sync](log: ActorLog): Log[F] = new Log[F] {
 

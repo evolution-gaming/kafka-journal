@@ -10,16 +10,13 @@ final case class Tables(journal: TableName, metadata: TableName, pointer: TableN
 
 object Tables {
 
-  def apply[F[_] : Monad : CassandraSession](schemaConfig: SchemaConfig): F[Tables] = {
+  def apply[F[_] : Monad : CassandraSession : CassandraSync](schemaConfig: SchemaConfig): F[Tables] = {
 
     val keyspace = schemaConfig.keyspace.name
+    val autoCreate = schemaConfig.autoCreate
 
     def apply(name: TableName, query: String) = {
-      if (schemaConfig.autoCreate) {
-        for {_ <- query.execute} yield name
-      } else {
-        name.pure[F]
-      }
+      if (autoCreate) query.execute.as(name) else name.pure[F]
     }
 
     def tableName(name: String) = TableName(keyspace = keyspace, table = name)
@@ -42,12 +39,14 @@ object Tables {
       apply(name, query)
     }
 
-    for {
+    val result = for {
       journal <- journal
       metadata <- metadata
       pointer <- pointer
     } yield {
       Tables(journal = journal, metadata = metadata, pointer = pointer)
     }
+
+    if (autoCreate) CassandraSync[F].apply(result) else result
   }
 }

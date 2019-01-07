@@ -11,7 +11,6 @@ import com.evolutiongaming.kafka.journal.FixEquality.Implicits._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, EventualCassandra}
-import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.util.IOSuite._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
@@ -32,8 +31,6 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
   implicit lazy val ec = system.dispatcher
 
   lazy val actorLog = ActorLog(system, getClass)
-
-  implicit lazy val log = Log.async(actorLog)
 
   val timeout = 30.seconds
 
@@ -79,7 +76,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
       // TODO we don't need consumer here...
       val topicConsumer = TopicConsumer[IO](config.journal.consumer, ec)
 
-      val journal = Journal[IO](
+      Journal[IO](
         log = actorLog,
         Some(origin),
         kafkaProducer = producer,
@@ -87,7 +84,6 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
         eventualJournal = eventual,
         pollTimeout = config.journal.pollTimeout,
         headCache = HeadCache.empty[IO])
-      Journal(journal)
     }
 
     def read(key: Key)(until: List[ReplicatedEvent] => Boolean) = {
@@ -104,7 +100,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
 
     def append(key: Key, events: Nel[Event]) = {
       val timestamp = Instant.now()
-      val partitionOffset = journal.append(key, events, timestamp).get(timeout)
+      val partitionOffset = journal.append(key, events, timestamp).unsafeRunSync()
       for {
         event <- events
       } yield {
@@ -112,7 +108,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
       }
     }
 
-    def pointer(key: Key) = journal.pointer(key).get(timeout)
+    def pointer(key: Key) = journal.pointer(key).unsafeRunSync()
 
     def topicPointers() = eventual.pointers(topic).unsafeRunSync().values
 
@@ -140,7 +136,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
         actual1 shouldEqual expected1.toList
         pointer(key) shouldEqual Some(expected1.last.seqNr)
 
-        journal.delete(key, expected1.last.event.seqNr, Instant.now()).get(timeout).map(_.partition) shouldEqual Some(partition)
+        journal.delete(key, expected1.last.event.seqNr, Instant.now()).unsafeRunSync().map(_.partition) shouldEqual Some(partition)
         read(key)(_.isEmpty) shouldEqual Nil
         pointer(key) shouldEqual Some(expected1.last.seqNr)
 

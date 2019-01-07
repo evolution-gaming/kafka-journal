@@ -11,8 +11,8 @@ import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.SeqNr.ops._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
+import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import org.scalatest.{Matchers, WordSpec}
 
@@ -137,7 +137,7 @@ class JournalSpec extends WordSpec with Matchers {
         var actions: Queue[ActionRecord[Action]] = Queue.empty
         val eventualJournal = EventualJournal.empty[Async]
 
-        val withPollActions = WithPollActionsOneByOne(actions)
+        val withPollActions = WithPollActionsOneByOne[Async](actions)
 
         val writeAction = new AppendAction[Async] {
           def apply(action: Action) = {
@@ -166,7 +166,7 @@ class JournalSpec extends WordSpec with Matchers {
         val withPollActions = {
           def marks() = actions.collect { case action @ ActionRecord(_: Action.Mark, _) => action }
 
-          WithPollActionsOneByOne(marks())
+          WithPollActionsOneByOne[Async](marks())
         }
 
         val writeAction = new AppendAction[Async] {
@@ -195,7 +195,7 @@ class JournalSpec extends WordSpec with Matchers {
 
         val eventualJournal = EventualJournalOf(replicatedState)
 
-        val withPollActions = WithPollActionsOneByOne(actions)
+        val withPollActions = WithPollActionsOneByOne[Async](actions)
 
         val writeAction = new AppendAction[Async] {
 
@@ -225,7 +225,7 @@ class JournalSpec extends WordSpec with Matchers {
 
           val eventualJournal = EventualJournalOf(replicatedState)
 
-          val withPollActions = WithPollActionsOneByOne(actions)
+          val withPollActions = WithPollActionsOneByOne[Async](actions)
 
           val writeAction = new AppendAction[Async] {
 
@@ -256,7 +256,7 @@ class JournalSpec extends WordSpec with Matchers {
 
           val eventualJournal = EventualJournalOf(replicatedState)
 
-          val withPollActions = WithPollActionsOneByOne(actions)
+          val withPollActions = WithPollActionsOneByOne[Async](actions)
 
           val writeAction = new AppendAction[Async] {
 
@@ -294,7 +294,7 @@ class JournalSpec extends WordSpec with Matchers {
 
           val eventualJournal = EventualJournalOf(replicatedState)
 
-          val withPollActions = WithPollActionsOneByOne(actions)
+          val withPollActions = WithPollActionsOneByOne[Async](actions)
 
           val writeAction = new AppendAction[Async] {
 
@@ -379,8 +379,9 @@ object JournalSpec {
       withPollActions: WithPollActions[Async],
       writeAction: AppendAction[Async]): SeqNrJournal = {
 
-      val journal = Journal(ActorLog.empty, None, eventual, withPollActions, writeAction, HeadCache.empty[Async])
       implicit val log = Log.empty[Async]
+      implicit val concurrent = ConcurrentOf(AsyncHelper.asyncAsync(CurrentThreadExecutionContext))
+      val journal = Journal[Async](None, eventual, withPollActions, writeAction, HeadCache.empty[Async])
       val withLogging = Journal[Async](journal)
       val withMetrics = Journal(withLogging, Journal.Metrics.empty(Async.unit))
       SeqNrJournal(withMetrics)

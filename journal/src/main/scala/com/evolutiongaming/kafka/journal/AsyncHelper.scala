@@ -2,11 +2,14 @@ package com.evolutiongaming.kafka.journal
 
 import java.util.concurrent.TimeUnit
 
-import cats.effect.{Clock, ExitCase, Sync}
+import cats.effect._
+import cats.~>
 import com.evolutiongaming.concurrent.async.Async
+import com.evolutiongaming.kafka.journal.util.ToFuture
 
 import scala.annotation.tailrec
 import scala.collection.generic.CanBuildFrom
+import scala.concurrent.{ExecutionContext, Promise}
 import scala.util.{Failure, Success}
 
 object AsyncHelper {
@@ -41,7 +44,32 @@ object AsyncHelper {
   }
 
 
-  implicit val SyncAsync: Sync[Async] = new Sync[Async] {
+  implicit def asyncAsync(implicit ec: ExecutionContext): cats.effect.Async[Async] = new cats.effect.Async[Async] {
+
+    def async[A](k: (Either[Throwable, A] => Unit) => Unit) = {
+      val promise = Promise[A]
+      val f: Either[Throwable, A] => Unit = (result: Either[Throwable, A]) => promise.complete {
+        result match {
+          case Right(a) => Success(a)
+          case Left(a)  => Failure(a)
+        }
+      }
+      k(f)
+      Async(promise.future)
+    }
+
+    def asyncF[A](k: (Either[Throwable, A] => Unit) => Async[Unit]) = {
+      val promise = Promise[A]
+
+      val f: Either[Throwable, A] => Unit = (result: Either[Throwable, A]) => promise.complete {
+        result match {
+          case Right(a) => Success(a)
+          case Left(a)  => Failure(a)
+        }
+      }
+
+      flatMap(k(f)) { _ => Async(promise.future) }
+    }
 
     def suspend[A](thunk: => Async[A]) = thunk
 
@@ -91,6 +119,11 @@ object AsyncHelper {
     }
 
     def pure[A](x: A) = Async(x)
+  }
+
+
+  implicit def toAsync[F[_] : ToFuture](implicit ec: ExecutionContext): F ~> Async = new (F ~> Async) {
+    def apply[A](fa: F[A]) = Async { ToFuture[F].apply { fa } }
   }
 
 

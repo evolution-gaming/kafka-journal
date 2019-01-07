@@ -2,10 +2,13 @@ package com.evolutiongaming.kafka.journal.eventual
 
 import java.time.Instant
 
+import cats.effect.Concurrent
+import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.concurrent.async.Async
 import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Topic}
 import org.scalatest.Matchers._
@@ -300,6 +303,8 @@ trait EventualJournalSpec extends WordSpec with Matchers {
 }
 
 object EventualJournalSpec {
+
+  implicit val ConcurrentAsync: Concurrent[Async] = ConcurrentOf(AsyncHelper.asyncAsync(CurrentThreadExecutionContext))
 
   def partitionOffsetOf(offset: Offset): PartitionOffset = PartitionOffset(offset = offset)
 
