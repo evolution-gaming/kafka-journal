@@ -5,7 +5,7 @@ import cats.effect.concurrent.Deferred
 import cats.effect.implicits._
 import cats.implicits._
 
-object StartRes {
+object StartResource {
 
   def apply[F[_] : Concurrent : ContextShift, A, B](
     res: Resource[F, A])(
@@ -14,8 +14,8 @@ object StartRes {
     res.allocated.bracketCase { case (a, release) =>
       for {
         released <- Deferred[F, Unit]
-        fiber    <- Concurrent[F].start {
-          (/*TODO*/ ContextShift[F].shift *> use(a)).guarantee {
+        fiber <- Concurrent[F].start {
+          (ContextShift[F].shift *> use(a)).guarantee {
             release.guarantee {
               released.complete(())
             }

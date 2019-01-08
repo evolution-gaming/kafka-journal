@@ -6,7 +6,7 @@ import cats.implicits._
 import com.evolutiongaming.cassandra.StartCassandra
 import com.evolutiongaming.kafka.StartKafka
 import com.evolutiongaming.kafka.journal.replicator.Replicator
-import com.evolutiongaming.kafka.journal.util.{FromFuture, Par, ToFuture}
+import com.evolutiongaming.kafka.journal.util.{FromFuture, Par, ResourceOf, ToFuture}
 import com.typesafe.config.ConfigFactory
 
 
@@ -36,11 +36,19 @@ object IntegrationSuit {
       }
     }
 
+    def replicator(log: Log[F]) = {
+      for {
+        a  <- Replicator.of[F](system)
+        a1  = a.onError { case e => log.error(s"failed to release kafka with $e", e) }
+        _  <- ResourceOf(Concurrent[F].start(a1))
+      } yield {}
+    }
+
     for {
       log <- Resource.liftF(Log.of[F](IntegrationSuit.getClass))
       _   <- cassandra(log)
       _   <- kafka(log)
-      _   <- Replicator.of[F](system)
+      _   <- replicator(log)
     } yield {}
   }
 

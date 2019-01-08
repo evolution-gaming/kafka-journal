@@ -5,7 +5,7 @@ import cats.implicits._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.Rng
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 
 object Retry {
 
@@ -27,11 +27,13 @@ object Retry {
         for {
           _ <- onError(e, details)
           a <- decision match {
-            case StrategyDecision.GiveUp =>
-              for {a <- e.raiseError[F, A]} yield a.asRight[S]
-
+            case StrategyDecision.GiveUp => e.raiseError[F, Either[S, A]]
             case StrategyDecision.Retry(delay, decide) =>
-              for {_ <- Sleep[F].apply(delay)} yield (status.inc, decide).asLeft[A]
+              for {
+                _ <- Sleep[F].apply(delay)
+              } yield {
+                (status.plus(delay), decide).asLeft[A]
+              }
           }
         } yield a
       }
@@ -77,6 +79,22 @@ object Retry {
       Strategy(apply(strategy.decide))
     }
 
+    def limit(max: FiniteDuration, strategy: Strategy): Strategy = {
+
+      def apply(decide: Decide): Decide = {
+        status: Status => {
+          decide(status) match {
+            case StrategyDecision.GiveUp               => StrategyDecision.GiveUp
+            case StrategyDecision.Retry(delay, decide) =>
+              if (status.delay + delay > max) StrategyDecision.GiveUp
+              else StrategyDecision.Retry(delay, apply(decide))
+          }
+        }
+      }
+
+      Strategy(apply(strategy.decide))
+    }
+
     /**
       * See https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
       */
@@ -98,16 +116,19 @@ object Retry {
   }
 
 
-  final case class Status(retries: Int) {
-    def inc: Status = Status(retries = retries + 1)
+  final case class Status(retries: Int, delay: FiniteDuration) { self =>
+
+    def plus(delay: FiniteDuration): Status = {
+      copy(retries = retries + 1, delay = self.delay + delay)
+    } 
   }
 
   object Status {
-    val Empty: Status = Status(0)
+    val Empty: Status = Status(0, Duration.Zero)
   }
 
 
-  final case class Details(decision: Decision, retries: Int)
+  final case class Details(decision: Decision, retries: Int/*, delay: FiniteDuration*/)
 
   object Details {
 
@@ -153,6 +174,14 @@ object Retry {
     implicit def fromTimer[F[_] : Timer]: Sleep[F] = new Sleep[F] {
       def apply(duration: FiniteDuration) = Timer[F].sleep(duration)
     }
+  }
+
+
+  implicit class StrategyOps(val self: Strategy) extends AnyVal {
+
+    def cap(max: FiniteDuration): Strategy = Strategy.cap(max, self)
+
+    def limit(max: FiniteDuration): Strategy = Strategy.limit(max, self)
   }
 }
 

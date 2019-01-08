@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
 import akka.actor.ActorSystem
-import cats.Applicative
 import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.FoldWhile._
@@ -37,8 +36,6 @@ object ReadEventsApp extends IOApp {
   private def runF[F[_] : Concurrent : ContextShift : Timer : Clock : FromFuture : ToFuture : Par](
     blocking: ExecutionContext)(implicit
     system: ActorSystem): F[Unit] = {
-
-    implicit val monoidUnit = Applicative.monoid[F, Unit]
 
     val commonConfig = CommonConfig(bootstrapServers = Nel("localhost:9092"))
 

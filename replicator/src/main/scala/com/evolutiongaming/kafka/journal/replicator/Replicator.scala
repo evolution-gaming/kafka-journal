@@ -3,30 +3,34 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import akka.actor.ActorSystem
 import cats.effect._
+import cats.effect.concurrent.Ref
 import cats.implicits._
+import cats.~>
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession, ReplicatedCassandra}
+import com.evolutiongaming.kafka.journal.retry.Retry
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
-import com.evolutiongaming.kafka.journal.util.ClockHelper._
 import com.evolutiongaming.kafka.journal.util._
+import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Topic, Bytes => _}
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
 
 // TODO TEST
 trait Replicator[F[_]] {
 
   def done: F[Boolean]
 }
- 
+
 object Replicator {
 
   def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift](
     system: ActorSystem,
-    metrics: Metrics[F] = Metrics.empty[F]): Resource[F, Replicator[F]] = {
+    metrics: Metrics[F] = Metrics.empty[F]): Resource[F, F[Unit]] = {
 
     val config = Sync[F].delay {
       val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.replicator")
@@ -49,7 +53,7 @@ object Replicator {
   def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : CassandraSession](
     config: ReplicatorConfig,
     blocking: ExecutionContext,
-    metrics: Metrics[F]): Resource[F, Replicator[F]] = {
+    metrics: Metrics[F]): Resource[F, F[Unit]] = {
 
     implicit val clock = Timer[F].clock
 
@@ -65,22 +69,13 @@ object Replicator {
   def of2[F[_] : Concurrent : Timer : Par : FromFuture : ReplicatedJournal : ContextShift](
     config: ReplicatorConfig,
     blocking: ExecutionContext,
-    metrics: Metrics[F]): Resource[F, Replicator[F]] = {
+    metrics: Metrics[F]): Resource[F, F[Unit]] = {
 
     val kafkaConsumerOf = (config: ConsumerConfig) => {
       KafkaConsumer.of[F, Id, Bytes](config, blocking, metrics.consumer)
     }
 
-    val consumerOf = kafkaConsumerOf.andThen { consumer =>
-      for {
-        consumer <- consumer.allocated
-      } yield {
-        val (resource, release) = consumer
-        Consumer[F](resource, release)
-      }
-    }
-
-    val topicReplicatorOf = (topic: Topic) => {
+    val topicReplicator = (topic: Topic) => {
       val prefix = config.consumer.groupId getOrElse "journal-replicator"
       val groupId = s"$prefix-$topic"
       val consumerConfig = config.consumer.copy(
@@ -96,149 +91,155 @@ object Replicator {
 
       implicit val metrics1 = metrics.replicator.fold(TopicReplicator.Metrics.empty[F]) { _.apply(topic) }
 
-      TopicReplicator.of[F](topic = topic, consumer = consumer)
+      val result = for {
+        topicReplicator <- TopicReplicator.of[F](topic = topic, consumer = consumer)
+      } yield {
+        (topicReplicator.done, topicReplicator.close)
+      }
+      Resource(result)
     }
 
-    of(config, consumerOf, topicReplicatorOf)
+    val consumer = for {
+      consumer <- kafkaConsumerOf(config.consumer)
+    } yield {
+      Consumer[F](consumer)
+    }
+
+    of(Config(config), consumer, topicReplicator)
   }
 
-  def of[F[_] : Concurrent : Timer : Par : FromFuture](
-    config: ReplicatorConfig,
-    consumerOf: ConsumerConfig => F[Consumer[F]],
-    topicReplicatorOf: Topic => F[TopicReplicator[F]]): Resource[F, Replicator[F]] = {
+  def of[F[_] : Concurrent : Timer : Par : ContextShift](
+    config: Config,
+    consumer: Resource[F, Consumer[F]],
+    topicReplicatorOf: Topic => Resource[F, F[Unit]]): Resource[F, F[Unit]] = {
 
-    implicit val clock: Clock[F] = Timer[F].clock
-
-    sealed trait State
-
-    object State {
-
-      def closed: State = Closed
-
-      final case class Running(replicators: Map[Topic, TopicReplicator[F]] = Map.empty) extends State
-
-      case object Closed extends State
-    }
-
-    val result = for {
-      log       <- Log.of[F](Replicator.getClass)
-      stateRef  <- SerialRef.of[F, State](State.Running())
-      consumer  <- consumerOf(config.consumer) // TODO should not be used directly!
-      discovery <- Concurrent[F].start {
-        val discovery = for {
-          state  <- stateRef.get
-          result <- state match {
-            case State.Closed     => ().some.pure[F]
-            case _: State.Running => for {
-              start  <- Clock[F].millis
-              topics <- consumer.topics
-              result <- stateRef.modify[Option[Unit]] {
-                case State.Closed         => (State.closed, ().some).pure[F]
-                case state: State.Running =>
-                  for {
-                    end       <- Clock[F].millis
-                    duration   = end - start
-                    topicsNew  = {
-                      for {
-                        topic <- topics -- state.replicators.keySet
-                        if config.topicPrefixes exists topic.startsWith
-                      } yield topic
-                    }.toList
-                    result    <- {
-                      if (topicsNew.isEmpty) (state, none[Unit]).pure[F]
-                      else {
-                        for {
-                          _ <- log.info {
-                            val topics = topicsNew.mkString(",")
-                            s"discover new topics: $topics in ${ duration }ms"
-                          }
-                          replicators <- Par[F].sequence {
-                            for {
-                              topic <- topicsNew
-                            } yield for {
-                              replicator <- topicReplicatorOf(topic)
-                            } yield {
-                              (topic, replicator)
-                            }
-                          }
-                        } yield {
-                          val state1 = state.copy(replicators = state.replicators ++ replicators)
-                          (state1, none[Unit])
-                        }
-                      }
-                    }
-                  } yield result
-              }
-            } yield result
-          }
-          _ <- result.fold {
-            Timer[F].sleep(config.topicDiscoveryInterval)
-          } {
-            _.pure[F]
-          }
-        } yield result
-
-        val discoveryLoop = discovery.untilDefinedM
-        
-        Sync[F].guarantee(discoveryLoop)(consumer.close).onError { case error =>
-          log.error(s"topics discovery failed with $error", error)
-        }
-      }
+    for {
+      consumer <- consumer
+      registry <- ResourceRegistry.of[F]
     } yield {
-
-      val release = {
-        for {
-          _ <- stateRef.update {
-            case State.Closed         => State.closed.pure[F]
-            case state: State.Running => Par[F].foldMap(state.replicators.values)(_.close).as(State.closed)
-          }
-          _ <- discovery.join
-        } yield {}
-      }
-
-      val result = new Replicator[F] {
-
-        def done = {
-          /*for {
-            state <- stateRef.get
-            _ <- state match {
-              case State.Closed         => ().pure[F]
-              case state: State.Running => Par[F].unorderedFoldMap(state.replicators.values)(_.done)
+      for {
+        log    <- Log.of[F](Replicator.getClass) // TODO
+        rng    <- Rng.fromClock[F]
+        error  <- Ref.of[F, F[Unit]](().pure[F])
+        result <- {
+          val topicReplicator = topicReplicatorOf.andThen { topicReplicator =>
+            registry.allocate {
+              val fiber = for {
+                fiber <- topicReplicator.start { _.onError { case e => error.set(e.raiseError[F, Unit]) } }
+              } yield {
+                ((), fiber.cancel)
+              }
+              Resource(fiber)
             }
-            _ <- discovery.join
-          } yield {}*/
-          // TODO implement properly
-          stateRef.get.map {
-            case State.Closed     => true
-            case _: State.Running => false
+          }
+
+          val strategy = Retry.Strategy.fullJitter(100.millis, rng).limit(1.minute)
+
+          def onError(name: String)(error: Throwable, details: Retry.Details) = {
+            details.decision match {
+              case Retry.Decision.Retry(delay) =>
+                log.warn(s"$name failed, retrying in $delay, error: $error")
+
+              case Retry.Decision.GiveUp =>
+                log.error(s"$name failed after ${ details.retries } retries, error: $error", error)
+            }
+          }
+
+          val retry = new Named[F] {
+            def apply[A](fa: F[A], name: String) = Retry(strategy, onError(s"consumer.$name"))(fa)
+          }
+
+          val consumerRetry = consumer.mapMethod(retry)
+
+          implicit val log1 = log
+          val result = start(config, consumerRetry, topicReplicator, error.get.flatten)
+          result.onError { case e => log.error(s"failed with $e", e) }
+        }
+      } yield result
+    }
+  }
+
+
+  def start[F[_] : Sync : Par : Timer : Log](
+    config: Config,
+    consumer: Consumer[F],
+    start: Topic => F[Unit],
+    continue: F[Unit]): F[Unit] = {
+
+    type State = Set[Topic]
+
+    def newTopics(state: State) = {
+      for {
+        ab <- Latency { consumer.topics }
+        (topics, latency) = ab
+        topicsNew = for {
+          topic <- (topics -- state).toList
+          if config.topicPrefixes exists topic.startsWith
+        } yield topic
+        _ <- {
+          if (topicsNew.isEmpty) ().pure[F]
+          else Log[F].info {
+            val topics = topicsNew.mkString(",")
+            s"discovered new topics in ${ latency }ms: $topics"
           }
         }
-      }
-
-      (result, release)
+      } yield topicsNew
     }
 
-    Resource(result)
+    val sleep = Timer[F].sleep(config.topicDiscoveryInterval)
+
+    def loop(state: State): F[State] = {
+      val result = for {
+        topics <- newTopics(state)
+        _      <- continue
+        _      <- Par[F].foldMap(topics)(start)
+        _      <- continue
+        _      <- sleep
+        _      <- continue
+      } yield state ++ topics
+      result >>= loop
+    }
+
+    loop(Set.empty).void
+  }
+
+
+  final case class Config(
+    topicPrefixes: Nel[String] = Nel("journal"),
+    topicDiscoveryInterval: FiniteDuration = 3.seconds)
+
+  object Config {
+    val Default: Config = Config()
+
+    def apply(config: ReplicatorConfig): Config = {
+      Config(
+        topicPrefixes = config.topicPrefixes,
+        topicDiscoveryInterval = config.topicDiscoveryInterval)
+    }
   }
 
 
   trait Consumer[F[_]] {
-
     def topics: F[Set[Topic]]
-
-    def close: F[Unit] // TODO resource
   }
 
   object Consumer {
 
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
-    def apply[F[_]](consumer: KafkaConsumer[F, Id, Bytes], release: F[Unit]): Consumer[F] = {
-      new Consumer[F] {
+    def apply[F[_]](consumer: KafkaConsumer[F, Id, Bytes]): Consumer[F] = new Consumer[F] {
+      def topics = consumer.topics
+    }
 
-        def topics = consumer.topics
 
-        def close = release
+    implicit class ConsumerOps[F[_]](val self: Consumer[F]) extends AnyVal {
+
+      def mapK[G[_]](f: F ~> G): Consumer[G] = new Consumer[G] {
+        def topics = f(self.topics)
+      }
+
+      def mapMethod(f: Named[F]): Consumer[F] = new Consumer[F] {
+        def topics = f(self.topics, "topics")
       }
     }
   }

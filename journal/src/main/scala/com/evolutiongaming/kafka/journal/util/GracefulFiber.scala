@@ -21,14 +21,15 @@ object GracefulFiber {
           fiber     <- f(cancelRef.get)
         } yield {
           new Fiber[F, A] {
+
+            def join = fiber.join
+
             def cancel = {
               for {
                 cancel <- cancelRef.getAndSet(true)
                 _      <- if (cancel) ().pure[F] else fiber.join
               } yield {}
             }
-
-            def join = fiber.join
           }
         }
       }

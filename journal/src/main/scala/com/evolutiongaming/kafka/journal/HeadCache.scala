@@ -657,10 +657,7 @@ object HeadCache {
 
         for {
           rng        <- Rng.fromClock[F]
-          strategy    = {
-            val strategy = Retry.Strategy.fullJitter(3.millis, rng)
-            Retry.Strategy.cap(300.millis, strategy)
-          }
+          strategy    = Retry.Strategy.fullJitter(3.millis, rng).cap(300.millis)
           partitions <- Retry(strategy, onError)(partitions)
         } yield {
           partitions

@@ -7,14 +7,14 @@ import com.evolutiongaming.kafka.journal.util.ClockHelper._
 
 object Latency {
 
-  def apply[F[_] : FlatMap : Clock, A](func: => F[A] /*TODO change*/): F[(A, Long)] = {
+  def apply[F[_] : FlatMap : Clock, A](fa: F[A]): F[(A, Long)] = {
     for {
-      start   <- Clock[F].millis
-      result  <- func
-      end     <- Clock[F].millis
-      latency  = end - start
+      start <- Clock[F].millis
+      a     <- fa
+      end   <- Clock[F].millis
     } yield {
-      (result, latency)
+      val latency = end - start
+      (a, latency)
     }
   }
 }

@@ -56,9 +56,9 @@ object CatsHelper {
 
   implicit class ParallelOps(val self: Parallel.type) extends AnyVal {
 
-    def foldMap[T[_] : Foldable, M[_], F[_], A, B : Monoid](ta: T[A])(f: A => M[B])(implicit P: Parallel[M, F]/*, monoid: Monoid[F[B]] TODO*/): M[B] = {
-      implicit val commutativeApplicative = P.commutativeApplicative // TODO
-      implicit val commutativeMonoid = Applicative.monoid[F, B] // TODO
+    def foldMap[T[_] : Foldable, M[_], F[_], A, B : Monoid](ta: T[A])(f: A => M[B])(implicit P: Parallel[M, F]): M[B] = {
+      implicit val applicative = P.applicative
+      implicit val monoid = Applicative.monoid[F, B]
       val fb = Foldable[T].foldMap(ta)(f.andThen(P.parallel.apply))
       P.sequential(fb)
     }
@@ -133,7 +133,7 @@ object CatsHelper {
   }
 
 
-  implicit class FIdOps[F[_], A](val self: F[A]) extends AnyVal {
+  implicit class FOps[F[_], A](val self: F[A]) extends AnyVal {
 
     def redeem[B, E](recover: E => B)(map: A => B)(implicit bracket: Bracket[F, E]): F[B] = {
       bracket.redeem(self)(recover, map)
@@ -162,7 +162,7 @@ object CatsHelper {
   implicit class ResourceOps[F[_], A](val self: Resource[F, A]) extends AnyVal {
 
     def start[B](use: A => F[B])(implicit F: Concurrent[F], cs: ContextShift[F]): F[Fiber[F, B]] = {
-      StartRes(self)(use)
+      StartResource(self)(use)
     }
   }
 }
