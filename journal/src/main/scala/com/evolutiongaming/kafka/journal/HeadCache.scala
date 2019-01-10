@@ -49,7 +49,7 @@ object HeadCache {
   }
 
   // TODO return resource
-  def of[F[_] : Concurrent : Par : Timer : ContextShift : FromFuture](
+  def of[F[_] : Concurrent : Par : Timer : ContextShift : FromFuture : LogOf](
     consumerConfig: ConsumerConfig,
     eventualJournal: EventualJournal[F],
     blocking: ExecutionContext): F[HeadCache[F]] = {
@@ -70,7 +70,7 @@ object HeadCache {
     }
 
     for {
-      log       <- Log.of[F](HeadCache.getClass)
+      log       <- LogOf[F].apply(HeadCache.getClass)
       headCache <- {
         implicit val log1 = log
         HeadCache.of[F](consumer)

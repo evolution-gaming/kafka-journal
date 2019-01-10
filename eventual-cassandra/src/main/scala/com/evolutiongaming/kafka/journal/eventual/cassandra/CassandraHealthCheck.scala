@@ -4,7 +4,7 @@ import cats.FlatMap
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.Log
+import com.evolutiongaming.kafka.journal.{Log, LogOf}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 
@@ -16,7 +16,7 @@ trait CassandraHealthCheck[F[_]] {
 
 object CassandraHealthCheck {
 
-  def of[F[_] : Concurrent : Timer : ContextShift](
+  def of[F[_] : Concurrent : Timer : ContextShift : LogOf](
     session: Resource[F, CassandraSession[F]]): Resource[F, CassandraHealthCheck[F]] = {
 
     val statement = for {
@@ -28,7 +28,7 @@ object CassandraHealthCheck {
     } yield statement
 
     for {
-      log    <- Resource.liftF(Log.of[F](CassandraHealthCheck.getClass))
+      log    <- Resource.liftF(LogOf[F].apply(CassandraHealthCheck.getClass))
       result <- {
         implicit val log1 = log
         of(initial = 10.seconds, interval = 1.second, statement = statement)

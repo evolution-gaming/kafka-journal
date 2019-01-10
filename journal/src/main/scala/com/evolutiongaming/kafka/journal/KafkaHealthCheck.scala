@@ -27,14 +27,14 @@ object KafkaHealthCheck {
     def done = ().pure[F]
   }
 
-  def of[F[_] : Concurrent : Timer : FromFuture : ContextShift](
+  def of[F[_] : Concurrent : Timer : FromFuture : ContextShift : LogOf](
     config: Config,
     producerConfig: ProducerConfig,
     consumerConfig: ConsumerConfig,
     blocking: ExecutionContext): Resource[F, KafkaHealthCheck[F]] = {
 
     val result = for {
-      log <- Log.of[F](KafkaHealthCheck.getClass)
+      log <- LogOf[F].apply(KafkaHealthCheck.getClass)
       key <- Sync[F].delay { UUID.randomUUID().toString }
     } yield {
       implicit val log1 = log

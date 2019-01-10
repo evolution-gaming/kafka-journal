@@ -12,7 +12,7 @@ import com.typesafe.config.ConfigFactory
 
 object IntegrationSuit {
 
-  def startF[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift](system: ActorSystem): Resource[F, Unit] = {
+  def startF[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf](system: ActorSystem): Resource[F, Unit] = {
 
     def cassandra(log: Log[F]) = Resource {
       for {
@@ -45,7 +45,7 @@ object IntegrationSuit {
     }
 
     for {
-      log <- Resource.liftF(Log.of[F](IntegrationSuit.getClass))
+      log <- Resource.liftF(LogOf[F].apply(IntegrationSuit.getClass))
       _   <- cassandra(log)
       _   <- kafka(log)
       _   <- replicator(log)
@@ -57,6 +57,7 @@ object IntegrationSuit {
     implicit val contextShift = IO.contextShift(executionContext)
     implicit val fromFuture = FromFuture.lift[IO]
     implicit val timer = IO.timer(executionContext)
+    implicit val logOf = LogOf[IO](system)
     startF[IO](system)
   }
 

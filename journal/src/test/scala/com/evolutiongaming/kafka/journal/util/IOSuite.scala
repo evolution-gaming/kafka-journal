@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal.util
 import cats.Parallel
 import cats.effect.{Concurrent, ContextShift, IO, Timer}
 import cats.implicits._
+import com.evolutiongaming.kafka.journal.LogOf
 import org.scalatest.Succeeded
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 
@@ -18,6 +19,7 @@ object IOSuite {
   implicit val fromFutureIO: FromFuture[IO] = FromFuture.lift[IO]
   implicit val parallel: Parallel[IO, IO.Par] = IO.ioParallel
   implicit val par: Par[IO] = Par.lift
+  implicit val logOf: LogOf[IO] = LogOf.empty[IO]
 
   def runIO[A](io: IO[A], timeout: FiniteDuration = Timeout): Future[Succeeded.type] = {
     io.timeout1(timeout).as(Succeeded).unsafeToFuture

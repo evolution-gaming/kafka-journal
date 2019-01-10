@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.implicits._
-import cats.{Applicative, ~>}
+import akka.event.LoggingAdapter
 import cats.effect.Sync
+import cats.{Applicative, ~>}
 import com.evolutiongaming.safeakka.actor.ActorLog
-import org.slf4j.{Logger, LoggerFactory}
+import org.slf4j.Logger
 
 trait Log[F[_]] { self =>
 
@@ -51,6 +51,7 @@ object Log {
     def error(msg: => String, cause: Throwable) = unit
   }
 
+  // TODO revisit usages of this and rely on LogOf
   def empty[F[_] : Applicative]: Log[F] = empty(Applicative[F].unit)
 
 
@@ -88,17 +89,41 @@ object Log {
   }
 
 
-  def of[F[_] : Sync](subject: Class[_]): F[Log[F]] = {
-    val name = subject.getName.stripSuffix("$")
-    for {
-      logger <- Sync[F].delay { LoggerFactory.getLogger(name) }
-    } yield {
-      apply[F](logger)
+  def apply[F[_] : Sync](log: LoggingAdapter): Log[F] = new Log[F] {
+
+    def debug(msg: => String) = {
+      Sync[F].delay {
+        if (log.isDebugEnabled) log.debug(msg)
+      }
+    }
+
+    def info(msg: => String) = {
+      Sync[F].delay {
+        if (log.isInfoEnabled) log.info(msg)
+      }
+    }
+
+    def warn(msg: => String) = {
+      Sync[F].delay {
+        if (log.isWarningEnabled) log.warning(msg)
+      }
+    }
+
+    def error(msg: => String) = {
+      Sync[F].delay {
+        if (log.isErrorEnabled) log.error(msg)
+      }
+    }
+
+    def error(msg: => String, cause: Throwable) = {
+      Sync[F].delay {
+        if (log.isErrorEnabled) log.error(cause, msg)
+      }
     }
   }
-  
 
-  def fromLog[F[_] : Sync](log: ActorLog): Log[F] = new Log[F] {
+
+  def apply[F[_] : Sync](log: ActorLog): Log[F] = new Log[F] {
 
     def debug(msg: => String) = {
       Sync[F].delay {

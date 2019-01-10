@@ -26,6 +26,8 @@ object AppendReplicateApp extends App {
   implicit val cs = IO.contextShift(ec)
   implicit val timer = IO.timer(ec)
   implicit val fromFuture = FromFuture.lift[IO]
+  implicit val logOf = LogOf[IO](system)
+
   val log = ActorLog(system, getClass)
 
   val commonConfig = CommonConfig(
@@ -62,8 +64,8 @@ object AppendReplicateApp extends App {
 
     val journal: Journal[Future] = {
       val topicConsumer = TopicConsumer[IO](journalConfig.journal.consumer, blocking)
+      implicit val log = Log.empty[IO]
       val journal = Journal[IO](
-        log = ActorLog.empty,
         kafkaProducer = producer,
         origin = Some(Origin(topic)),
         topicConsumer = topicConsumer,

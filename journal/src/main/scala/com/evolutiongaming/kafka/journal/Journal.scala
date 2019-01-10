@@ -13,7 +13,6 @@ import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.util.{FromFuture, ToFuture}
 import com.evolutiongaming.kafka.journal.util.ClockHelper._
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.{Bytes => _, _}
 
 import scala.concurrent.duration._
@@ -44,102 +43,7 @@ object Journal {
   }
 
 
-  def apply[F[_] : FlatMap : Clock : Log](journal: Journal[F]): Journal[F] = new Journal[F] {
-
-    def append(key: Key, events: Nel[Event], timestamp: Instant) = {
-      for {
-        rl     <- Latency { journal.append(key, events, timestamp) }
-        (r, l)  = rl
-        _      <- Log[F].debug {
-          val first = events.head.seqNr
-          val last = events.last.seqNr
-          val seqNr = if (first == last) s"seqNr: $first" else s"seqNrs: $first..$last"
-          s"$key append in ${ l }ms, $seqNr, timestamp: $timestamp, result: $r"
-        }
-      } yield r
-    }
-
-    def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = {
-      for {
-        rl     <- Latency { journal.read(key, from, s)(f) }
-        (r, l)  = rl
-        _      <- Log[F].debug(s"$key read in ${ l }ms, from: $from, state: $s, r: $r")
-      } yield r
-    }
-
-    def pointer(key: Key) = {
-      for {
-        rl     <- Latency { journal.pointer(key) }
-        (r, l)  = rl
-        _      <- Log[F].debug(s"$key lastSeqNr in ${ l }ms, result: $r")
-      } yield r
-    }
-
-    def delete(key: Key, to: SeqNr, timestamp: Instant) = {
-      for {
-        rl     <- Latency { journal.delete(key, to, timestamp) }
-        (r, l)  = rl
-        _      <- Log[F].debug(s"$key delete in ${ l }ms, to: $to, timestamp: $timestamp, r: $r")
-      } yield r
-    }
-  }
-
-
-  def apply[F[_] : Sync : Clock](journal: Journal[F], metrics: Metrics[F]): Journal[F] = {
-
-    def latency[A](name: String, topic: Topic)(f: => F[A]/*TODO*/): F[(A, Long)] = {
-      Latency {
-        f.handleErrorWith { e =>
-          for {
-            _ <- metrics.failure(name, topic)
-            a <- e.raiseError[F, A]
-          } yield a
-        }
-      }
-    }
-
-    new Journal[F] {
-
-      def append(key: Key, events: Nel[Event], timestamp: Instant) = {
-        for {
-          rl     <- latency("append", key.topic) { journal.append(key, events, timestamp) }
-          (r, l)  = rl
-          _      <- metrics.append(topic = key.topic, latency = l, events = events.size)
-        } yield r
-      }
-
-      def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = {
-        val ff: Fold[(S, Int), Event] = {
-          case ((s, n), e) => f(s, e).map { s => (s, n + 1) }
-        }
-        for {
-          rl           <- latency("read", key.topic) { journal.read(key, from, (s, 0))(ff) }
-          ((r, es), l)  = rl
-          _            <- metrics.read(topic = key.topic, latency = l, events = es)
-        } yield r
-      }
-
-      def pointer(key: Key) = {
-        for {
-          rl     <- latency("pointer", key.topic) { journal.pointer(key) }
-          (r, l)  = rl
-          _      <- metrics.pointer(key.topic, l)
-        } yield r
-      }
-
-      def delete(key: Key, to: SeqNr, timestamp: Instant) = {
-        for {
-          rl     <- latency("delete", key.topic) { journal.delete(key, to, timestamp) }
-          (r, l)  = rl
-          _      <- metrics.delete(key.topic, l)
-        } yield r
-      }
-    }
-  }
-
-
-  def apply[F[_] : Concurrent : ContextShift : FromFuture : ToFuture : Clock](
-    log: ActorLog, // TODO remove
+  def apply[F[_] : Concurrent : ContextShift : FromFuture : ToFuture : Clock : Log](
     origin: Option[Origin],
     kafkaProducer: KafkaProducer[F],
     topicConsumer: TopicConsumer[F],
@@ -147,7 +51,6 @@ object Journal {
     pollTimeout: FiniteDuration,
     headCache: HeadCache[F]): Journal[F] = {
 
-    implicit val log1 = Log.fromLog[F](log)
     val withPollActions = WithPollActions[F](topicConsumer, pollTimeout)
     val appendAction = AppendAction[F](kafkaProducer)
     apply[F](origin, eventualJournal, withPollActions, appendAction, headCache)
@@ -337,6 +240,100 @@ object Journal {
   }
 
 
+  def apply[F[_] : FlatMap : Clock](journal: Journal[F], log: Log[F]): Journal[F] = new Journal[F] {
+
+    def append(key: Key, events: Nel[Event], timestamp: Instant) = {
+      for {
+        rl     <- Latency { journal.append(key, events, timestamp) }
+        (r, l)  = rl
+        _      <- log.debug {
+          val first = events.head.seqNr
+          val last = events.last.seqNr
+          val seqNr = if (first == last) s"seqNr: $first" else s"seqNrs: $first..$last"
+          s"$key append in ${ l }ms, $seqNr, timestamp: $timestamp, result: $r"
+        }
+      } yield r
+    }
+
+    def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = {
+      for {
+        rl     <- Latency { journal.read(key, from, s)(f) }
+        (r, l)  = rl
+        _      <- log.debug(s"$key read in ${ l }ms, from: $from, state: $s, r: $r")
+      } yield r
+    }
+
+    def pointer(key: Key) = {
+      for {
+        rl     <- Latency { journal.pointer(key) }
+        (r, l)  = rl
+        _      <- log.debug(s"$key lastSeqNr in ${ l }ms, result: $r")
+      } yield r
+    }
+
+    def delete(key: Key, to: SeqNr, timestamp: Instant) = {
+      for {
+        rl     <- Latency { journal.delete(key, to, timestamp) }
+        (r, l)  = rl
+        _      <- log.debug(s"$key delete in ${ l }ms, to: $to, timestamp: $timestamp, r: $r")
+      } yield r
+    }
+  }
+
+
+  def apply[F[_] : Sync : Clock](journal: Journal[F], metrics: Metrics[F]): Journal[F] = {
+
+    def latency[A](name: String, topic: Topic)(f: => F[A]/*TODO*/): F[(A, Long)] = {
+      Latency {
+        f.handleErrorWith { e =>
+          for {
+            _ <- metrics.failure(name, topic)
+            a <- e.raiseError[F, A]
+          } yield a
+        }
+      }
+    }
+
+    new Journal[F] {
+
+      def append(key: Key, events: Nel[Event], timestamp: Instant) = {
+        for {
+          rl     <- latency("append", key.topic) { journal.append(key, events, timestamp) }
+          (r, l)  = rl
+          _      <- metrics.append(topic = key.topic, latency = l, events = events.size)
+        } yield r
+      }
+
+      def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = {
+        val ff: Fold[(S, Int), Event] = {
+          case ((s, n), e) => f(s, e).map { s => (s, n + 1) }
+        }
+        for {
+          rl           <- latency("read", key.topic) { journal.read(key, from, (s, 0))(ff) }
+          ((r, es), l)  = rl
+          _            <- metrics.read(topic = key.topic, latency = l, events = es)
+        } yield r
+      }
+
+      def pointer(key: Key) = {
+        for {
+          rl     <- latency("pointer", key.topic) { journal.pointer(key) }
+          (r, l)  = rl
+          _      <- metrics.pointer(key.topic, l)
+        } yield r
+      }
+
+      def delete(key: Key, to: SeqNr, timestamp: Instant) = {
+        for {
+          rl     <- latency("delete", key.topic) { journal.delete(key, to, timestamp) }
+          (r, l)  = rl
+          _      <- metrics.delete(key.topic, l)
+        } yield r
+      }
+    }
+  }
+
+
   trait Metrics[F[_]] {
 
     def append(topic: Topic, latency: Long, events: Int): F[Unit]
@@ -370,6 +367,16 @@ object Journal {
 
 
   implicit class JournalOps[F[_]](val self: Journal[F]) extends AnyVal {
+
+    def withLog(log: Log[F])(implicit sync: Sync[F], clock: Clock[F]): Journal[F] =  {
+      Journal(self, log)
+    }
+
+    
+    def withMetrics(metrics: Metrics[F])(implicit sync: Sync[F], clock: Clock[F]): Journal[F] =  {
+      Journal(self, metrics)
+    }
+
 
     def mapK[G[_]](f: F ~> G): Journal[G] = new Journal[G] {
 

@@ -75,9 +75,9 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
 
       // TODO we don't need consumer here...
       val topicConsumer = TopicConsumer[IO](config.journal.consumer, ec)
+      implicit val log = Log[IO](actorLog)
 
       Journal[IO](
-        log = actorLog,
         Some(origin),
         kafkaProducer = producer,
         topicConsumer = topicConsumer,

@@ -20,7 +20,7 @@ import scala.annotation.tailrec
 // TODO test ReplicatedCassandra
 object ReplicatedCassandra {
 
-  def of[F[_] : Concurrent : FromFuture : ToFuture : Par : Clock : CassandraSession](
+  def of[F[_] : Concurrent : FromFuture : ToFuture : Par : Clock : CassandraSession : LogOf](
     config: EventualCassandraConfig,
     metrics: Option[Metrics[F]]): F[ReplicatedJournal[F]] = {
 
@@ -28,7 +28,7 @@ object ReplicatedCassandra {
     for {
       tables     <- CreateSchema[F](config.schema)
       statements <- Statements.of[F](tables)
-      log        <- Log.of[F](ReplicatedCassandra.getClass)
+      log        <- LogOf[F].apply(ReplicatedCassandra.getClass)
     } yield {
       implicit val statements1 = statements
       val journal = apply[F](config.segmentSize)

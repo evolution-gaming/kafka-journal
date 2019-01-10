@@ -9,7 +9,6 @@ import com.evolutiongaming.kafka.journal.util.IOSuite._
 import com.evolutiongaming.kafka.journal.util.IOHelper._
 import com.evolutiongaming.kafka.journal.util.ClockHelper._
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.safeakka.actor.ActorLog
 import org.scalatest.AsyncWordSpec
 
 import scala.concurrent.duration._
@@ -25,10 +24,10 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuit {
   private val journalOf = {
     val topicConsumer = TopicConsumer[IO](config.journal.consumer, blocking)
     eventualJournal: EventualJournal[IO] => {
+      implicit val log = Log.empty[IO]
       for {
         headCache <- Resource.make(HeadCache.of[IO](config.journal.consumer, eventualJournal, blocking))(_.close)
         journal = Journal(
-          log = ActorLog.empty,
           kafkaProducer = producer,
           origin = Some(origin),
           topicConsumer = topicConsumer,

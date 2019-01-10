@@ -44,13 +44,14 @@ object Replicator {
       blocking    = Sync[F].delay { system.dispatchers.lookup(config.blockingDispatcher) /*TODO move to common place*/}
       blocking   <- Resource.liftF(blocking)
       replicator <- {
+        implicit val logOf = LogOf[F](system) // TODO remove
         implicit val session1 = session
         of[F](config, blocking, metrics)
       }
     } yield replicator
   }
 
-  def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : CassandraSession](
+  def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : CassandraSession : LogOf](
     config: ReplicatorConfig,
     blocking: ExecutionContext,
     metrics: Metrics[F]): Resource[F, F[Unit]] = {
@@ -66,7 +67,7 @@ object Replicator {
     } yield result
   }
 
-  def of2[F[_] : Concurrent : Timer : Par : FromFuture : ReplicatedJournal : ContextShift](
+  def of2[F[_] : Concurrent : Timer : Par : FromFuture : ReplicatedJournal : ContextShift : LogOf](
     config: ReplicatorConfig,
     blocking: ExecutionContext,
     metrics: Metrics[F]): Resource[F, F[Unit]] = {
@@ -108,7 +109,7 @@ object Replicator {
     of(Config(config), consumer, topicReplicator)
   }
 
-  def of[F[_] : Concurrent : Timer : Par : ContextShift](
+  def of[F[_] : Concurrent : Timer : Par : ContextShift : LogOf](
     config: Config,
     consumer: Resource[F, Consumer[F]],
     topicReplicatorOf: Topic => Resource[F, F[Unit]]): Resource[F, F[Unit]] = {
@@ -118,7 +119,7 @@ object Replicator {
       registry <- ResourceRegistry.of[F]
     } yield {
       for {
-        log    <- Log.of[F](Replicator.getClass) // TODO
+        log    <- LogOf[F].apply(Replicator.getClass)
         rng    <- Rng.fromClock[F]
         error  <- Ref.of[F, F[Unit]](().pure[F])
         result <- {

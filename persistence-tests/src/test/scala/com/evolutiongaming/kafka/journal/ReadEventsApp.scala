@@ -25,6 +25,7 @@ object ReadEventsApp extends IOApp {
     implicit val fromFuture = FromFuture.lift[IO]
     implicit val parallel = IO.ioParallel
     implicit val par = Par.lift
+    implicit val logOf = LogOf[IO](system)
 
     val terminate = FromFuture[IO].apply { system.terminate() }.void
     runF[IO](ec)
@@ -33,7 +34,7 @@ object ReadEventsApp extends IOApp {
   }
 
 
-  private def runF[F[_] : Concurrent : ContextShift : Timer : Clock : FromFuture : ToFuture : Par](
+  private def runF[F[_] : Concurrent : ContextShift : Timer : Clock : FromFuture : ToFuture : Par : LogOf](
     blocking: ExecutionContext)(implicit
     system: ActorSystem): F[Unit] = {
 
@@ -41,7 +42,7 @@ object ReadEventsApp extends IOApp {
 
     val actorLog = ActorLog(system, ReadEventsApp.getClass)
 
-    implicit val log = Log.fromLog[F](actorLog)
+    implicit val log = Log[F](actorLog)
 
     val producerConfig = ProducerConfig(common = commonConfig)
 
@@ -72,7 +73,7 @@ object ReadEventsApp extends IOApp {
       headCache        <- Resource.liftF(HeadCache.of[F](consumerConfig, eventualJournal, blocking))
       kafkaProducer    <- KafkaProducer.of[F](producerConfig, blocking)
     } yield {
-      val journal = Journal[F](actorLog, None, kafkaProducer, topicConsumer, eventualJournal, 100.millis, headCache)
+      val journal = Journal[F](None, kafkaProducer, topicConsumer, eventualJournal, 100.millis, headCache)
       val key = Key(id = "id", topic = "journal")
       for {
         pointer <- journal.pointer(key)

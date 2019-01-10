@@ -59,12 +59,12 @@ object TopicReplicator {
     }
   }
 
-  def of[F[_] : Concurrent : Clock : Par : Metrics : ReplicatedJournal : ContextShift](
+  def of[F[_] : Concurrent : Clock : Par : Metrics : ReplicatedJournal : ContextShift : LogOf](
     topic: Topic,
     consumer: Resource[F, Consumer[F]]): F[TopicReplicator[F]] = {
 
     for {
-      log      <- Log.of[F](TopicReplicator.getClass)
+      log      <- LogOf[F].apply(TopicReplicator.getClass)
       stopRef  <- StopRef.of[F]
       result   <- {
         implicit val topicLog = log prefixed topic

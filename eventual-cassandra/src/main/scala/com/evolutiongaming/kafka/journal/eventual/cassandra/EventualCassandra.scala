@@ -13,14 +13,14 @@ import com.evolutiongaming.skafka.Topic
 // TODO test EventualCassandra
 object EventualCassandra {
 
-  def of[F[_] : Sync : Par : Clock : CassandraSession : FromFuture : ToFuture](
+  def of[F[_] : Sync : Par : Clock : CassandraSession : FromFuture : ToFuture : LogOf](
     config: EventualCassandraConfig,
     origin: Option[Origin]): F[EventualJournal[F]] = {
 
     implicit val cassandraSync = CassandraSync[F](config.schema, origin)
 
     for {
-      log <- Log.of[F](EventualCassandra.getClass)
+      log <- LogOf[F].apply(EventualCassandra.getClass)
       journal <- {
         implicit val log1 = log
         of[F](config)

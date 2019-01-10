@@ -24,6 +24,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
   implicit val fromFuture: FromFuture[IO] = FromFuture.lift[IO]
   implicit val parallel: Parallel[IO, IO.Par] = IO.ioParallel(cs)
   implicit val par: Par[IO] = Par.lift(parallel)
+  implicit val logOf: LogOf[IO] = LogOf[IO](system)
 
   val log: ActorLog = ActorLog(system, classOf[KafkaJournal])
 

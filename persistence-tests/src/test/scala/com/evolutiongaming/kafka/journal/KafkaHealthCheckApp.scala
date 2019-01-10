@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.effect.{ExitCode, IO, IOApp}
+import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.util.FromFuture
 import com.evolutiongaming.nel.Nel
@@ -17,6 +17,20 @@ object KafkaHealthCheckApp extends IOApp {
     implicit val ec = ExecutionContext.global
     implicit val fromFuture = FromFuture.lift[IO]
 
+    for {
+      logOf <- LogOf.slfj4[IO]()
+      _     <- {
+        implicit val logOf1 = logOf
+        runF[IO](ec)
+      }
+    } yield {
+      ExitCode.Success
+    }
+  }
+
+  private def runF[F[_] : Concurrent : Timer : FromFuture : ContextShift : LogOf](
+    blocking: ExecutionContext) = {
+
     val consumerConfig = ConsumerConfig(common = CommonConfig(
       bootstrapServers = Nel("localhost:9092"),
       clientId = Some("KafkaHealthCheckApp")))
@@ -24,16 +38,12 @@ object KafkaHealthCheckApp extends IOApp {
     val producerConfig = ProducerConfig(
       common = consumerConfig.common)
 
-    val kafkaHealthCheck = KafkaHealthCheck.of[IO](
+    val kafkaHealthCheck = KafkaHealthCheck.of[F](
       config = KafkaHealthCheck.Config.Default,
       producerConfig = producerConfig,
       consumerConfig = consumerConfig,
-      blocking = ec)
+      blocking = blocking)
 
-    for {
-      _ <- kafkaHealthCheck.use(_.error.untilDefinedM)
-    } yield {
-      ExitCode.Success
-    }
+    kafkaHealthCheck.use(_.error.untilDefinedM)
   }
 }

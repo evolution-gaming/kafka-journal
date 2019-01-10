@@ -382,9 +382,9 @@ object JournalSpec {
       implicit val log = Log.empty[Async]
       implicit val concurrent = ConcurrentOf(AsyncHelper.asyncAsync(CurrentThreadExecutionContext))
       val journal = Journal[Async](None, eventual, withPollActions, writeAction, HeadCache.empty[Async])
-      val withLogging = Journal[Async](journal)
-      val withMetrics = Journal(withLogging, Journal.Metrics.empty(Async.unit))
-      SeqNrJournal(withMetrics)
+        .withLog(log)
+        .withMetrics(Journal.Metrics.empty(Async.unit))
+      SeqNrJournal(journal)
     }
   }
 
