@@ -38,23 +38,6 @@ object Log {
   def apply[F[_]](implicit F: Log[F]): Log[F] = F
 
 
-  def empty[F[_]](unit: F[Unit]): Log[F] = new Log[F] {
-
-    def debug(msg: => String) = unit
-
-    def info(msg: => String) = unit
-
-    def warn(msg: => String) = unit
-
-    def error(msg: => String) = unit
-
-    def error(msg: => String, cause: Throwable) = unit
-  }
-
-  // TODO revisit usages of this and rely on LogOf
-  def empty[F[_] : Applicative]: Log[F] = empty(Applicative[F].unit)
-
-
   def apply[F[_] : Sync](logger: Logger): Log[F] = new Log[F] {
 
     def debug(msg: => String) = {
@@ -155,6 +138,23 @@ object Log {
       }
     }
   }
+
+
+  def const[F[_]](unit: F[Unit]): Log[F] = new Log[F] {
+
+    def debug(msg: => String) = unit
+
+    def info(msg: => String) = unit
+
+    def warn(msg: => String) = unit
+
+    def error(msg: => String) = unit
+
+    def error(msg: => String, cause: Throwable) = unit
+  }
+
+  // TODO revisit usages of this and rely on LogOf
+  def empty[F[_] : Applicative]: Log[F] = const(Applicative[F].unit)
 
 
   implicit class LogOps[F[_]](val self: Log[F]) extends AnyVal {

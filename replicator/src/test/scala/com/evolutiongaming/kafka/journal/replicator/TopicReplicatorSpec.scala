@@ -659,7 +659,7 @@ object TopicReplicatorSpec {
   val topicReplicator: DataF[Unit] = {
     val millis = timestamp.plusMillis(replicationLatency).toEpochMilli
     implicit val clock = ClockOf[DataF](millis)
-    TopicReplicator.of[DataF](topic, TopicReplicator.StopRef[DataF])
+    TopicReplicator.of[DataF](topic, TopicReplicator.StopRef[DataF], DataF.ConsumerDataF, TopicReplicator.RetryCall.empty[DataF])
   }
 
   // TODO create separate case class covering state of KafkaConsumer for testing

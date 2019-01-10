@@ -2,23 +2,24 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
 
-import cats.Applicative
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.implicits._
+import cats.{Applicative, ~>}
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.replicator.InstantHelper._
+import com.evolutiongaming.kafka.journal.retry.Retry
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.ClockHelper._
-import com.evolutiongaming.kafka.journal.util.Par
+import com.evolutiongaming.kafka.journal.util.{Named, Par, Rng}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Bytes => _, _}
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 
 
 // TODO partition replicator ?
@@ -34,14 +35,32 @@ trait TopicReplicator[F[_]] {
 
 object TopicReplicator {
 
+  def of[F[_] : Concurrent : Timer : Par : Metrics : ReplicatedJournal : ContextShift : LogOf](
+    topic: Topic,
+    consumer: Resource[F, Consumer[F]]): F[TopicReplicator[F]] = {
+
+    for {
+      log     <- LogOf[F].apply(TopicReplicator.getClass)
+      stopRef <- StopRef.of[F]
+      rng     <- Rng.fromClock[F]
+      result  <- {
+        val strategy = Retry.Strategy.fullJitter(100.millis, rng).limit(1.minute)
+        implicit val topicLog = log prefixed topic
+        val retry = RetryCall[F](strategy)
+        of[F](topic, consumer, stopRef, retry)
+      }
+    } yield result
+  }
+
   //  TODO return error in case failed to connect
-  def of[F[_] : Concurrent : Clock : Par : Metrics : ReplicatedJournal : ContextShift : Log](
+  def of[F[_] : Concurrent : Timer : Par : Metrics : ReplicatedJournal : ContextShift : Log](
     topic: Topic,
     consumer: Resource[F, Consumer[F]],
-    stopRef: StopRef[F]): F[TopicReplicator[F]] = {
-    
+    stopRef: StopRef[F],
+    retry: RetryCall[F]): F[TopicReplicator[F]] = {
+
     for {
-      fiber <- consumer.start { implicit consumer => of(topic, stopRef) }
+      fiber <- consumer.start { consumer => of(topic, stopRef, consumer, retry) }
     } yield {
       new TopicReplicator[F] {
 
@@ -59,25 +78,12 @@ object TopicReplicator {
     }
   }
 
-  def of[F[_] : Concurrent : Clock : Par : Metrics : ReplicatedJournal : ContextShift : LogOf](
-    topic: Topic,
-    consumer: Resource[F, Consumer[F]]): F[TopicReplicator[F]] = {
-
-    for {
-      log      <- LogOf[F].apply(TopicReplicator.getClass)
-      stopRef  <- StopRef.of[F]
-      result   <- {
-        implicit val topicLog = log prefixed topic
-        of[F](topic, consumer, stopRef)
-      }
-    } yield result
-  }
-
-
   //  TODO return error in case failed to connect
-  def of[F[_] : Concurrent : Clock : Par : Metrics : ReplicatedJournal : Consumer : Log : ContextShift](
+  def of[F[_] : Concurrent : Clock : Par : Metrics : ReplicatedJournal : Log : ContextShift](
     topic: Topic,
-    stopRef: StopRef[F]): F[Unit] = {
+    stopRef: StopRef[F],
+    consumer: Consumer[F],
+    retry: RetryCall[F]): F[Unit] = {
 
     type State = TopicPointers
 
@@ -222,7 +228,7 @@ object TopicReplicator {
         for {
           _               <- ContextShift[F].shift
           roundStart      <- Clock[F].instant
-          consumerRecords <- Consumer[F].poll
+          consumerRecords <- consumer.poll
           state           <- ifContinue {
             val records = for {
               (topicPartition, records) <- consumerRecords.values
@@ -244,7 +250,7 @@ object TopicReplicator {
               timestamp        <- Clock[F].instant
               stateAndOffsets  <- round(state, records.toMap, timestamp)
               (state, offsets)  = stateAndOffsets
-              _                <- Consumer[F].commit(offsets)
+              _                <- retry(consumer.commit(offsets), "consumer.commit")
               roundEnd         <- Clock[F].instant
               _                <- Metrics[F].round(
                 latency = roundEnd - roundStart,
@@ -257,7 +263,7 @@ object TopicReplicator {
 
     val result = for {
       pointers <- ReplicatedJournal[F].pointers(topic)
-      _        <- Consumer[F].subscribe(topic)
+      _        <- consumer.subscribe(topic)
       _        <- pointers.tailRecM(consume)
     } yield {}
     result.onError { case error => Log[F].error(s"failed with $error", error) /*TODO fail the app*/ }
@@ -293,6 +299,63 @@ object TopicReplicator {
 
         def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = {
           consumer.commit(offsets)
+        }
+      }
+    }
+
+
+    implicit class ConsumerOps[F[_]](val self: Consumer[F]) extends AnyVal {
+
+      def mapK[G[_]](f: F ~> G): Consumer[G] = new Consumer[G] {
+
+        def subscribe(topic: Topic) = f(self.subscribe(topic))
+
+        def poll = f(self.poll)
+
+        def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = f(self.commit(offsets))
+      }
+
+
+      def mapMethod(f: Named[F]): Consumer[F] = new Consumer[F] {
+
+        def subscribe(topic: Topic) = f(self.subscribe(topic), "subscribe")
+
+        def poll = f(self.poll, "poll")
+
+        def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = f(self.commit(offsets), "commit")
+      }
+    }
+  }
+
+
+  // TODO reuse
+  trait RetryCall[F[_]] {
+
+    def apply[A](fa: F[A], name: String): F[A]
+  }
+
+  object RetryCall {
+
+    def empty[F[_]]: RetryCall[F] = new RetryCall[F] {
+      def apply[A](fa: F[A], name: String) = fa
+    }
+
+    def apply[F[_] : Sync : Timer : Log](strategy: Retry.Strategy): RetryCall[F] = {
+
+      new RetryCall[F] {
+        def apply[A](fa: F[A], name: String) = {
+
+          def onError(error: Throwable, details: Retry.Details) = {
+            details.decision match {
+              case Retry.Decision.Retry(delay) =>
+                Log[F].warn(s"$name failed, retrying in $delay, error: $error")
+
+              case Retry.Decision.GiveUp =>
+                Log[F].error(s"$name failed after ${ details.retries } retries, error: $error", error)
+            }
+          }
+
+          Retry(strategy, onError)(fa)
         }
       }
     }
@@ -338,9 +401,9 @@ object TopicReplicator {
 
     def apply[F[_]](implicit F: Metrics[F]): Metrics[F] = F
 
-    def empty[F[_] : Applicative]: Metrics[F] = empty(Applicative[F].unit)
+    def empty[F[_] : Applicative]: Metrics[F] = const(Applicative[F].unit)
 
-    def empty[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
+    def const[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
 
       def append(events: Int, bytes: Int, measurements: Measurements) = unit
 
