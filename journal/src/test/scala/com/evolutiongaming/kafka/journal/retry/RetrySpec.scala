@@ -19,7 +19,7 @@ class RetrySpec extends FunSuite with Matchers {
     val strategy = Strategy.fibonacci(5.millis).cap(200.millis)
 
     val call = DataState { _.call }
-    val result = Retry(strategy, onError)(call)
+    val result = Retry(strategy)(onError).apply(call)
 
     val initial = Data(toRetry = 10)
     val actual = result.run(initial).map(_._1)
@@ -57,7 +57,7 @@ class RetrySpec extends FunSuite with Matchers {
     }
 
     val call = DataState { _.call }
-    val result = Retry(policy, onError)(call)
+    val result = Retry(policy)(onError).apply(call)
 
     val initial = Data(toRetry = 7)
     val actual = result.run(initial).map(_._1)
@@ -84,7 +84,7 @@ class RetrySpec extends FunSuite with Matchers {
   test("const") {
     val strategy = Strategy.const(1.millis).limit(4.millis)
     val call = DataState { _.call }
-    val result = Retry(strategy, onError)(call)
+    val result = Retry(strategy)(onError).apply(call)
 
     val initial = Data(toRetry = 6)
     val actual = result.run(initial).map(_._1)

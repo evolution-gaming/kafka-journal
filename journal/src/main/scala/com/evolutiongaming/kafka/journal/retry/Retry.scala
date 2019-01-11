@@ -7,38 +7,49 @@ import com.evolutiongaming.kafka.journal.util.Rng
 
 import scala.concurrent.duration._
 
+trait Retry[F[_]] {
+
+  def apply[A](fa: F[A]): F[A]
+}
+
 object Retry {
 
   type Decide = Status => StrategyDecision
 
-  def apply[F[_] : Sleep, A, E](
-    strategy: Strategy,
-    onError: (E, Details) => F[Unit])(
-    call: F[A])(implicit
-    bracket: Bracket[F, E]): F[A] = {
+
+  def apply[F[_] : Sleep, E](
+    strategy: Strategy)(
+    onError: (E, Details) => F[Unit])(implicit bracket: Bracket[F, E]): Retry[F] = {
 
     type S = (Status, Decide)
 
-    (Status.Empty, strategy.decide).tailRecM[F, A] { case (status, decide) =>
+    new Retry[F] {
+      def apply[A](fa: F[A]) = {
 
-      def retry(e: E): F[Either[S, A]] = {
-        val decision = decide(status)
-        val details = Details(decision, status.retries)
-        for {
-          _ <- onError(e, details)
-          a <- decision match {
-            case StrategyDecision.GiveUp => e.raiseError[F, Either[S, A]]
-            case StrategyDecision.Retry(delay, decide) =>
-              for {
-                _ <- Sleep[F].apply(delay)
-              } yield {
-                (status.plus(delay), decide).asLeft[A]
+        (Status.Empty, strategy.decide).tailRecM[F, A] { case (status, decide) =>
+
+          def retry(e: E): F[Either[S, A]] = {
+            val decision = decide(status)
+            val details = Details(decision, status.retries)
+            for {
+              _ <- onError(e, details)
+              a <- decision match {
+                case StrategyDecision.GiveUp =>
+                  e.raiseError[F, Either[S, A]]
+
+                case StrategyDecision.Retry(delay, decide) =>
+                  for {
+                    _ <- Sleep[F].apply(delay)
+                  } yield {
+                    (status.plus(delay), decide).asLeft[A]
+                  }
               }
+            } yield a
           }
-        } yield a
-      }
 
-      call.redeemWith(retry)(_.asRight[(Status, Decide)].pure[F])
+          fa.redeemWith(retry)(_.asRight[(Status, Decide)].pure[F])
+        }
+      }
     }
   }
 
@@ -116,11 +127,12 @@ object Retry {
   }
 
 
-  final case class Status(retries: Int, delay: FiniteDuration) { self =>
+  final case class Status(retries: Int, delay: FiniteDuration) {
+    self =>
 
     def plus(delay: FiniteDuration): Status = {
       copy(retries = retries + 1, delay = self.delay + delay)
-    } 
+    }
   }
 
   object Status {
@@ -128,7 +140,7 @@ object Retry {
   }
 
 
-  final case class Details(decision: Decision, retries: Int/*, delay: FiniteDuration*/)
+  final case class Details(decision: Decision, retries: Int /*, delay: FiniteDuration*/)
 
   object Details {
 

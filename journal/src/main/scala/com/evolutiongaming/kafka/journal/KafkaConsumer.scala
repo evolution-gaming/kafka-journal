@@ -167,4 +167,6 @@ object KafkaConsumer {
 }
 
 
-final case class KafkaConsumerError(message: String, cause: Throwable) extends RuntimeException with NoStackTrace
+final case class KafkaConsumerError(
+  message: String,
+  cause: Throwable) extends RuntimeException(message, cause) with NoStackTrace

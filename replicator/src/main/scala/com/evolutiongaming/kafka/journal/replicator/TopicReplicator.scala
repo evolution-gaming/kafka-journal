@@ -355,7 +355,7 @@ object TopicReplicator {
             }
           }
 
-          Retry(strategy, onError)(fa)
+          Retry(strategy)(onError).apply(fa)
         }
       }
     }

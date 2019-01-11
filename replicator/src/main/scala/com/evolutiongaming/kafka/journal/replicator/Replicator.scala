@@ -147,7 +147,7 @@ object Replicator {
           }
 
           val retry = new Named[F] {
-            def apply[A](fa: F[A], name: String) = Retry(strategy, onError(s"consumer.$name"))(fa)
+            def apply[A](fa: F[A], name: String) = Retry(strategy)(onError(s"consumer.$name")).apply(fa)
           }
 
           val consumerRetry = consumer.mapMethod(retry)
