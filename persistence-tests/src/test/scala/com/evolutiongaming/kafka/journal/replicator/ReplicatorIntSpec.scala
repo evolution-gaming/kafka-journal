@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 import akka.persistence.kafka.journal.KafkaJournalConfig
@@ -55,7 +56,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
   override def beforeAll() = {
     super.beforeAll()
     IntegrationSuit.start()
-//    eventual
+//    release
   }
 
   override def afterAll() = {
@@ -99,7 +100,7 @@ class ReplicatorIntSpec extends WordSpec with ActorSuite with Matchers {
     }
 
     def append(key: Key, events: Nel[Event]) = {
-      val timestamp = Instant.now()
+      val timestamp = Instant.now().truncatedTo(ChronoUnit.MILLIS)
       val partitionOffset = journal.append(key, events, timestamp).unsafeRunSync()
       for {
         event <- events
