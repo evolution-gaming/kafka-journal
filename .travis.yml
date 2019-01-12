@@ -7,7 +7,10 @@ scala:
   - 2.12.8
 #  - 2.11.12 TODO fix in a while
 
-jdk: oraclejdk8
+jdk:
+  - oraclejdk8
+  - oraclejdk9
+  - oraclejdk11
 
 script: sbt --warn ++$TRAVIS_SCALA_VERSION clean coverage test
 
