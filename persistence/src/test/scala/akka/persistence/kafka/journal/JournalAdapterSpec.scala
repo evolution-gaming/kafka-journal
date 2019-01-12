@@ -1,6 +1,7 @@
 package akka.persistence.kafka.journal
 
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.Id
@@ -61,7 +62,7 @@ class JournalAdapterSpec extends FunSuite with Matchers {
 
 object JournalAdapterSpec {
 
-  val timestamp: Instant = Instant.now()
+  val timestamp: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS)
 
   final case class Append(key: Key, events: Nel[Event], timestamp: Instant)
 
