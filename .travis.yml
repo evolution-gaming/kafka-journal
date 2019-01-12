@@ -9,8 +9,8 @@ scala:
 
 jdk:
   - oraclejdk8
-  - oraclejdk9
   - oraclejdk11
+  - openjdk11
 
 script: sbt --warn ++$TRAVIS_SCALA_VERSION clean coverage test
 
