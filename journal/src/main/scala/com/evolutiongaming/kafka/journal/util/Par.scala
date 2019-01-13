@@ -5,7 +5,8 @@ import cats.implicits._
 import cats.{Foldable, Monoid, Parallel, Traverse}
 import com.evolutiongaming.kafka.journal.util.CatsHelper.ParallelOps
 
-trait Par[F[_]] {
+trait
+Par[F[_]] {
 
   def sequence[T[_] : Traverse, A](tfa: T[F[A]]): F[T[A]]
 

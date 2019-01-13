@@ -8,7 +8,7 @@ import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.nel.Nel
 
 import scala.collection.immutable
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 object FoldWhileHelper {
 
@@ -16,18 +16,6 @@ object FoldWhileHelper {
   implicit class NelFoldWhile[E](val self: Nel[E]) extends AnyVal {
     def foldWhile[S](s: S)(f: Fold[S, E]): Switch[S] = {
       self.toList.foldWhile(s)(f)
-    }
-  }
-
-
-  implicit class FutureFoldWhile[S](val self: S => Future[Switch[S]]) extends AnyVal {
-
-    def foldWhile(s: S)(implicit ec: ExecutionContext): Future[S] = {
-      for {
-        switch <- self(s)
-        s = switch.s
-        s <- if (switch.stop) s.future else foldWhile(s)
-      } yield s
     }
   }
 

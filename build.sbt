@@ -53,7 +53,6 @@ lazy val journal = (project in file("journal")
     `executor-tools`,
     Logback.core % Test,
     Logback.classic % Test,
-    async,
     `play-json`,
     `future-helper`,
     `safe-actor`,

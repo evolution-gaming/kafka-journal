@@ -1,12 +1,10 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.concurrent.async.AsyncConverters._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournalSpec, TopicPointers}
-import com.evolutiongaming.kafka.journal.util.{Par, ParAsync}
+import com.evolutiongaming.kafka.journal.util.{ConcurrentOf, Par, ParOf}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Topic
 
@@ -32,25 +30,24 @@ class EventualCassandraSpec extends EventualJournalSpec {
     var metadataMap = Map.empty[Key, Metadata]
     var pointers = Map.empty[Topic, TopicPointers]
 
-    val selectMetadata: MetadataStatement.Select[Async] = key => {
-      metadataMap.get(key).async
+    val selectMetadata: MetadataStatement.Select[cats.Id] = key => {
+      metadataMap.get(key)
     }
 
-    val selectPointers: PointerStatement.SelectPointers[Async] = topic => {
-      pointers.getOrElse(topic, TopicPointers.Empty).async
+    val selectPointers: PointerStatement.SelectPointers[cats.Id] = topic => {
+      pointers.getOrElse(topic, TopicPointers.Empty)
     }
 
     val eventual = {
 
-      val selectRecords = new JournalStatement.SelectRecords[Async] {
+      val selectRecords = new JournalStatement.SelectRecords[cats.Id] {
         def apply[S](key: Key, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]) = {
           val events = journal.events(key, segment)
-          val result = events.foldWhile(s) { (s, event) =>
+          events.foldWhile(s) { (s, event) =>
             val seqNr = event.event.seqNr
             if (range contains seqNr) f(s, event)
             else s.switch(seqNr <= range.to)
           }
-          result.async
         }
       }
 
@@ -59,91 +56,80 @@ class EventualCassandraSpec extends EventualJournalSpec {
         metadata = selectMetadata,
         pointers = selectPointers)
 
-      implicit val log = Log.empty[Async]
-
-      implicit val par: Par[Async] = ParAsync
-
-      EventualCassandra[Async]
+      implicit val log = Log.empty[cats.Id]
+      EventualCassandra[cats.Id]
     }
 
     val replicated = {
 
-      val insertRecords: JournalStatement.InsertRecords[Async] = (key, segment, replicated) => {
+      val insertRecords: JournalStatement.InsertRecords[cats.Id] = (key, segment, replicated) => {
         val events = journal.events(key, segment)
         val updated = events ++ replicated.toList.sortBy(_.event.seqNr)
         journal = journal.updated((key, segment), updated)
-        Async.unit
       }
 
-      val deleteRecords: JournalStatement.DeleteRecords[Async] = (key, segment, seqNr) => {
+      val deleteRecords: JournalStatement.DeleteRecords[cats.Id] = (key, segment, seqNr) => {
         if (delete) {
           val events = journal.events(key, segment)
           val updated = events.dropWhile(_.event.seqNr <= seqNr)
           journal = journal.updated((key, segment), updated)
         }
-        Async.unit
       }
 
-      val insertMetadata: MetadataStatement.Insert[Async] = (key, timestamp, metadata, origin) => {
+      val insertMetadata: MetadataStatement.Insert[cats.Id] = (key, timestamp, metadata, origin) => {
         metadataMap = metadataMap.updated(key, metadata)
-        Async.unit
       }
 
-      val updateMetadata: MetadataStatement.Update[Async] = (key, partitionOffset, timestamp, seqNr, deleteTo) => {
+      val updateMetadata: MetadataStatement.Update[cats.Id] = (key, partitionOffset, timestamp, seqNr, deleteTo) => {
         for {
           metadata <- metadataMap.get(key)
         } {
           val metadataNew = metadata.copy(partitionOffset = partitionOffset, seqNr = seqNr, deleteTo = Some(deleteTo))
           metadataMap = metadataMap.updated(key, metadataNew)
         }
-        Async.unit
       }
 
-      val updateSeqNr: MetadataStatement.UpdateSeqNr[Async] = (key, partitionOffset, timestamp, seqNr) => {
+      val updateSeqNr: MetadataStatement.UpdateSeqNr[cats.Id] = (key, partitionOffset, timestamp, seqNr) => {
         for {
           metadata <- metadataMap.get(key)
         } {
           val metadataNew = metadata.copy(partitionOffset = partitionOffset, seqNr = seqNr)
           metadataMap = metadataMap.updated(key, metadataNew)
         }
-        Async.unit
       }
 
-      val updateDeleteTo: MetadataStatement.UpdateDeleteTo[Async] = (key, partitionOffset, timestamp, deleteTo) => {
+      val updateDeleteTo: MetadataStatement.UpdateDeleteTo[cats.Id] = (key, partitionOffset, timestamp, deleteTo) => {
         for {
           metadata <- metadataMap.get(key)
         } {
           val metadataNew = metadata.copy(partitionOffset = partitionOffset, deleteTo = Some(deleteTo))
           metadataMap = metadataMap.updated(key, metadataNew)
         }
-        Async.unit
       }
 
-      val insertPointer: PointerStatement.Insert[Async] = pointer => {
+      val insertPointer: PointerStatement.Insert[cats.Id] = pointer => {
         val topicPointers = pointers.getOrElse(pointer.topic, TopicPointers.Empty)
         val updated = topicPointers.copy(values = topicPointers.values.updated(pointer.partition, pointer.offset))
         pointers = pointers.updated(pointer.topic, updated)
-        Async.unit
       }
 
-      val selectTopics: PointerStatement.SelectTopics[Async] = () => {
-        pointers.keys.toList.async
+      val selectTopics: PointerStatement.SelectTopics[cats.Id] = () => {
+        pointers.keys.toList
       }
 
-      implicit val statements   = ReplicatedCassandra.Statements(
-        insertRecords  = insertRecords,
-        deleteRecords  = deleteRecords,
+      implicit val statements = ReplicatedCassandra.Statements(
+        insertRecords = insertRecords,
+        deleteRecords = deleteRecords,
         insertMetadata = insertMetadata,
         selectMetadata = selectMetadata,
         updateMetadata = updateMetadata,
-        updateSeqNr    = updateSeqNr,
+        updateSeqNr = updateSeqNr,
         updateDeleteTo = updateDeleteTo,
-        insertPointer  = insertPointer,
+        insertPointer = insertPointer,
         selectPointers = selectPointers,
-        selectTopics   = selectTopics)
+        selectTopics = selectTopics)
 
-      implicit val par: Par[Async] = ParAsync
-
+      implicit val ConcurrentId = ConcurrentOf.fromMonad[cats.Id]
       ReplicatedCassandra(segmentSize)
     }
     Journals(eventual, replicated)
@@ -151,6 +137,8 @@ class EventualCassandraSpec extends EventualJournalSpec {
 }
 
 object EventualCassandraSpec {
+
+  implicit val ParId: Par[cats.Id] = ParOf.id
 
   implicit class JournalOps(val self: Map[(Key, SegmentNr), List[ReplicatedEvent]]) extends AnyVal {
 

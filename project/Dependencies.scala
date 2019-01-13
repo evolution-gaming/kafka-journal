@@ -10,7 +10,6 @@ object Dependencies {
   val `config-tools`       = "com.evolutiongaming" %% "config-tools" % "1.0.3"
   val `akka-serialization` = "com.evolutiongaming" %% "akka-serialization" % "0.0.3"
   // TODO
-  val async                = "com.evolutiongaming" %% "async" % "0.0.3"
   val nel                  = "com.evolutiongaming" %% "nel" % "1.3.3"
   val `future-helper`      = "com.evolutiongaming" %% "future-helper" % "1.0.3"
   // TODO ?
