@@ -74,7 +74,7 @@ object ReadEventsApp extends IOApp {
       cassandraCluster <- CassandraCluster.of[F](eventualCassandraConfig.client, eventualCassandraConfig.retries)
       cassandraSession <- cassandraCluster.session
       eventualJournal  <- Resource.liftF(eventualJournal(cassandraSession))
-      headCache        <- Resource.liftF(HeadCache.of[F](consumerConfig, eventualJournal))
+      headCache        <- HeadCache.of[F](consumerConfig, eventualJournal)
       kafkaProducer    <- KafkaProducerOf[F].apply(producerConfig)
     } yield {
       val journal = Journal[F](None, kafkaProducer, topicConsumer, eventualJournal, 100.millis, headCache)

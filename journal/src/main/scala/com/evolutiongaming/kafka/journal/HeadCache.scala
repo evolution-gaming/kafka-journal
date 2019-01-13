@@ -33,8 +33,6 @@ trait HeadCache[F[_]] {
   import HeadCache._
 
   def apply(key: Key, partition: Partition, offset: Offset): F[Option[Result]]
-
-  def close: F[Unit]
 }
 
 
@@ -43,20 +41,17 @@ object HeadCache {
   def empty[F[_] : Applicative]: HeadCache[F] = new HeadCache[F] {
 
     def apply(key: Key, partition: Partition, offset: Offset) = Applicative[F].pure(None)
-
-    def close = Applicative[F].unit
   }
 
-  // TODO return resource
   def of[F[_] : Concurrent : Par : Timer : ContextShift : LogOf : KafkaConsumerOf](
     consumerConfig: ConsumerConfig,
-    eventualJournal: EventualJournal[F]): F[HeadCache[F]] = {
+    eventualJournal: EventualJournal[F]): Resource[F, HeadCache[F]] = {
 
     implicit val eventual = Eventual[F](eventualJournal)
 
     val consumer = Consumer.of[F](consumerConfig)
     for {
-      log       <- LogOf[F].apply(HeadCache.getClass)
+      log       <- Resource.liftF(LogOf[F].apply(HeadCache.getClass))
       headCache <- HeadCache.of[F](log, consumer)
     } yield headCache
   }
@@ -64,9 +59,9 @@ object HeadCache {
   def of[F[_] : Concurrent : Eventual : Par : Timer : ContextShift](
     log: Log[F],
     consumer: Resource[F, Consumer[F]],
-    config: Config = Config.Default): F[HeadCache[F]] = {
+    config: Config = Config.Default): Resource[F, HeadCache[F]] = {
 
-    for {
+    val result = for {
       cache <- Cache.of[F, Topic, TopicCache[F]]
       cache <- Ref.of(cache.pure[F])
     } yield {
@@ -85,7 +80,26 @@ object HeadCache {
         }
       }
 
-      new HeadCache[F] {
+      val release = for {
+        _ <- cache.get.flatten
+        c <- cache.modify { c =>
+          val cc = for {
+            _ <- c
+            c <- ClosedException.raiseError[F, Cache[F, Topic, TopicCache[F]]]
+          } yield c
+          (cc, c)
+        }
+        c <- c
+        v <- c.values
+        _ <- Par[F].foldMap(v.values) { v =>
+          for {
+            v <- v.get
+            _ <- v.close
+          } yield {}
+        }
+      } yield {}
+
+      val headCache = new HeadCache[F] {
 
         def apply(key: Key, partition: Partition, offset: Offset) = {
           val topic = key.topic
@@ -96,29 +110,12 @@ object HeadCache {
             result     <- topicCache(id = key.id, partition = partition, offset = offset)
           } yield result
         }
-
-        def close = {
-          for {
-            _ <- cache.get.flatten
-            c <- cache.modify { c =>
-              val cc = for {
-                _ <- c
-                c <- ClosedException.raiseError[F, Cache[F, Topic, TopicCache[F]]]
-              } yield c
-              (cc, c)
-            }
-            c <- c
-            v <- c.values
-            _ <- Par[F].foldMap(v.values) { v =>
-              for {
-                v <- v.get
-                _ <- v.close
-              } yield {}
-            }
-          } yield {}
-        }
       }
+
+      (headCache, release)
     }
+
+    Resource(result)
   }
 
 
@@ -674,8 +671,6 @@ object HeadCache {
       def apply(key: Key, partition: Partition, offset: Offset) = {
         f(self(key, partition, offset))
       }
-
-      def close = f(self.close)
     }
   }
 }

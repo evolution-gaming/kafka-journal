@@ -74,18 +74,11 @@ object JournalAdapter {
     }
 
     def headCache(eventualJournal: EventualJournal[F])(implicit kafkaConsumerOf: KafkaConsumerOf[F]) = {
-      val result = for {
-        headCache <- {
-          if (config.headCache) {
-            HeadCache.of[F](config.journal.consumer, eventualJournal)
-          } else {
-            HeadCache.empty[F].pure[F]
-          }
-        }
-      } yield {
-        (headCache, headCache.close)
+      if (config.headCache) {
+        HeadCache.of[F](config.journal.consumer, eventualJournal)
+      } else {
+        Resource.pure[F, HeadCache[F]](HeadCache.empty[F])
       }
-      Resource(result)
     }
 
 

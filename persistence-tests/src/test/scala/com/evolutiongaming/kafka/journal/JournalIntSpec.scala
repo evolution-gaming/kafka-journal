@@ -4,7 +4,7 @@ import java.util.UUID
 
 import cats.Foldable
 import cats.implicits._
-import cats.effect.{IO, Resource, Sync}
+import cats.effect.{IO, Sync}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.util.IOSuite._
 import com.evolutiongaming.kafka.journal.util.IOHelper._
@@ -24,7 +24,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuit {
     eventualJournal: EventualJournal[IO] => {
       implicit val log = Log.empty[IO]
       for {
-        headCache <- Resource.make(HeadCache.of[IO](config.journal.consumer, eventualJournal))(_.close)
+        headCache <- HeadCache.of[IO](config.journal.consumer, eventualJournal)
         journal = Journal[IO](
           kafkaProducer = producer,
           origin = Some(origin),
