@@ -7,8 +7,8 @@ import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
 import com.evolutiongaming.kafka.journal.PlayJsonHelper._
 import com.evolutiongaming.kafka.journal.Tags._
 import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
+import com.evolutiongaming.kafka.journal.util.ByteBufferHelper._
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.serialization.SerializerHelper._
 import play.api.libs.json._
 
 import scala.annotation.tailrec

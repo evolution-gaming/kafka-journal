@@ -19,14 +19,6 @@ final case class SeqRange(from: SeqNr, to: SeqNr) {
 
   def >(range: SeqRange): Boolean = this > range.to
 
-  //  def <=(seqNr: SeqNr): Boolean = to <= seqNr
-  //
-  //  def >=(seqNr: SeqNr): Boolean = from >= seqNr
-  //
-  //  def <=(range: SeqRange): Boolean = this <= range.from
-  //
-  //  def >=(range: SeqRange): Boolean = this >= range.to
-  //
   def intersects(range: SeqRange): Boolean = {
     !(this > range || this < range)
   }
@@ -56,10 +48,4 @@ object SeqRange {
   def apply(value: Long): SeqRange = SeqRange(value.toSeqNr)
 
   def apply(from: Long, to: Long): SeqRange = SeqRange(from = from.toSeqNr, to = to.toSeqNr)
-
-  // TODO move to SeqNr
-  implicit class SeqNrOps(val self: SeqNr) extends AnyVal {
-    def <(range: SeqRange): Boolean = range > self
-    def >(range: SeqRange): Boolean = range < self
-  }
 }

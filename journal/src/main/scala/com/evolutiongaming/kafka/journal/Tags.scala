@@ -5,7 +5,7 @@ import java.nio.ByteBuffer
 
 import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
 import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
-import com.evolutiongaming.serialization.SerializerHelper._
+import com.evolutiongaming.kafka.journal.util.ByteBufferHelper._
 
 import scala.annotation.tailrec
 
