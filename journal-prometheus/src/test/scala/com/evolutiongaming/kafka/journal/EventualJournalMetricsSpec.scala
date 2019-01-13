@@ -6,9 +6,6 @@ import org.scalatest.{FunSuite, Matchers}
 class EventualJournalMetricsSpec extends FunSuite with Matchers {
   import EventualJournalMetricsSpec._
 
-  // TODO duplicate
-  type Id[A] = A
-
   test("read") {
     new Scope {
       metrics.read(topic, latency = 1000, events = 10)
@@ -33,7 +30,7 @@ class EventualJournalMetricsSpec extends FunSuite with Matchers {
 
   private trait Scope {
     val registry = new CollectorRegistry()
-    val metrics = EventualJournalMetrics[Id](registry, prefix)(())
+    val metrics = EventualJournalMetrics[cats.Id](registry, prefix)(())
   }
 }
 

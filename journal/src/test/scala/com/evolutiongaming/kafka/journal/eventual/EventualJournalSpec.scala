@@ -304,7 +304,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
 
 object EventualJournalSpec {
 
-  implicit val ConcurrentAsync: Concurrent[Async] = ConcurrentOf(AsyncHelper.asyncAsync(CurrentThreadExecutionContext))
+  implicit val ConcurrentAsync: Concurrent[Async] = ConcurrentOf.fromAsync(AsyncHelper.asyncAsync(CurrentThreadExecutionContext))
 
   def partitionOffsetOf(offset: Offset): PartitionOffset = PartitionOffset(offset = offset)
 

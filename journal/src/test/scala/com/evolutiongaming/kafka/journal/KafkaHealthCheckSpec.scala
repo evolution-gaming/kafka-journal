@@ -51,7 +51,7 @@ class KafkaHealthCheckSpec extends AsyncFunSuite with Matchers {
   }
 
   test("periodic healthcheck") {
-    implicit val concurrent = ConcurrentOf[DataF]
+    implicit val concurrent = ConcurrentOf.fromAsync[DataF]
     val stop = DataF { data =>
       val data1 = data.copy(checks = data.checks - 1)
       (data1, data1.checks <= 0)

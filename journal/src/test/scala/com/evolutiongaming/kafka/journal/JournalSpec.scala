@@ -4,14 +4,11 @@ import java.time.Instant
 
 import cats.implicits._
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
-import com.evolutiongaming.concurrent.async.Async
-import com.evolutiongaming.concurrent.async.AsyncConverters._
-import com.evolutiongaming.kafka.journal.AsyncHelper._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.SeqNr.ops._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
-import com.evolutiongaming.kafka.journal.util.ConcurrentOf
+import com.evolutiongaming.kafka.journal.util.{ClockOf, ConcurrentOf}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import org.scalatest.{Matchers, WordSpec}
@@ -135,17 +132,17 @@ class JournalSpec extends WordSpec with Matchers {
 
       def journalOf() = {
         var actions: Queue[ActionRecord[Action]] = Queue.empty
-        val eventualJournal = EventualJournal.empty[Async]
+        val eventualJournal = EventualJournal.empty[cats.Id]
 
-        val withPollActions = WithPollActionsOneByOne[Async](actions)
+        val withPollActions = WithPollActionsOneByOne[cats.Id](actions)
 
-        val writeAction = new AppendAction[Async] {
+        val writeAction = new AppendAction[cats.Id] {
           def apply(action: Action) = {
             val offset = actions.size.toLong
             val partitionOffset = PartitionOffset(partition = partition, offset = offset)
             val record = ActionRecord(action, partitionOffset)
             actions = actions.enqueue(record)
-            partitionOffset.async
+            partitionOffset
           }
         }
         SeqNrJournal(eventualJournal, withPollActions, writeAction)
@@ -166,10 +163,10 @@ class JournalSpec extends WordSpec with Matchers {
         val withPollActions = {
           def marks() = actions.collect { case action @ ActionRecord(_: Action.Mark, _) => action }
 
-          WithPollActionsOneByOne[Async](marks())
+          WithPollActionsOneByOne[cats.Id](marks())
         }
 
-        val writeAction = new AppendAction[Async] {
+        val writeAction = new AppendAction[cats.Id] {
 
           def apply(action: Action) = {
             val offset = actions.size.toLong
@@ -177,7 +174,7 @@ class JournalSpec extends WordSpec with Matchers {
             val record = ActionRecord(action, partitionOffset)
             actions = actions.enqueue(record)
             replicatedState = replicatedState(record)
-            partitionOffset.async
+            partitionOffset
           }
         }
 
@@ -195,9 +192,9 @@ class JournalSpec extends WordSpec with Matchers {
 
         val eventualJournal = EventualJournalOf(replicatedState)
 
-        val withPollActions = WithPollActionsOneByOne[Async](actions)
+        val withPollActions = WithPollActionsOneByOne[cats.Id](actions)
 
-        val writeAction = new AppendAction[Async] {
+        val writeAction = new AppendAction[cats.Id] {
 
           def apply(action: Action) = {
             val offset = actions.size.toLong
@@ -205,7 +202,7 @@ class JournalSpec extends WordSpec with Matchers {
             val record = ActionRecord(action, partitionOffset)
             actions = actions.enqueue(record)
             replicatedState = replicatedState(record)
-            partitionOffset.async
+            partitionOffset
           }
         }
 
@@ -225,9 +222,9 @@ class JournalSpec extends WordSpec with Matchers {
 
           val eventualJournal = EventualJournalOf(replicatedState)
 
-          val withPollActions = WithPollActionsOneByOne[Async](actions)
+          val withPollActions = WithPollActionsOneByOne[cats.Id](actions)
 
-          val writeAction = new AppendAction[Async] {
+          val writeAction = new AppendAction[cats.Id] {
 
             def apply(action: Action) = {
               val offset = actions.size.toLong
@@ -235,7 +232,7 @@ class JournalSpec extends WordSpec with Matchers {
               val record = ActionRecord(action, partitionOffset)
               actions = actions.enqueue(record)
               replicatedState = replicatedState(record, (offset - n) max 0l)
-              partitionOffset.async
+              partitionOffset
             }
           }
 
@@ -256,9 +253,9 @@ class JournalSpec extends WordSpec with Matchers {
 
           val eventualJournal = EventualJournalOf(replicatedState)
 
-          val withPollActions = WithPollActionsOneByOne[Async](actions)
+          val withPollActions = WithPollActionsOneByOne[cats.Id](actions)
 
-          val writeAction = new AppendAction[Async] {
+          val writeAction = new AppendAction[cats.Id] {
 
             def apply(action: Action) = {
 
@@ -272,7 +269,7 @@ class JournalSpec extends WordSpec with Matchers {
                 action <- actions.lastOption
               } replicatedState = replicatedState(action)
 
-              partitionOffset.async
+              partitionOffset
             }
           }
 
@@ -294,9 +291,9 @@ class JournalSpec extends WordSpec with Matchers {
 
           val eventualJournal = EventualJournalOf(replicatedState)
 
-          val withPollActions = WithPollActionsOneByOne[Async](actions)
+          val withPollActions = WithPollActionsOneByOne[cats.Id](actions)
 
-          val writeAction = new AppendAction[Async] {
+          val writeAction = new AppendAction[cats.Id] {
 
             def apply(action: Action) = {
 
@@ -310,7 +307,7 @@ class JournalSpec extends WordSpec with Matchers {
                 action <- actions.lastOption
               } replicatedState = replicatedState(action, (offset - n) max 0l)
 
-              partitionOffset.async
+              partitionOffset
             }
           }
 
@@ -342,48 +339,47 @@ object JournalSpec {
 
   object SeqNrJournal {
 
-    def apply(journal: Journal[Async]): SeqNrJournal = {
+    def apply(journal: Journal[cats.Id]): SeqNrJournal = {
 
       new SeqNrJournal {
 
         def append(seqNr: SeqNr, seqNrs: SeqNr*) = {
           val events = for {seqNr <- Nel(seqNr, seqNrs: _*)} yield Event(seqNr)
-          journal.append(key, events, timestamp).get().offset
+          journal.append(key, events, timestamp).offset
         }
 
         def read(range: SeqRange) = {
-          val result = {
-            val result = journal.read(key, range.from, List.empty[SeqNr]) { (seqNrs, event) =>
-              val continue = event.seqNr <= range.to
-              val result = {
-                if (event.seqNr >= range.from && continue) event.seqNr :: seqNrs
-                else seqNrs
-              }
-              result.switch(continue)
+          val events = journal.read(key, range.from, List.empty[SeqNr]) { (seqNrs, event) =>
+            val continue = event.seqNr <= range.to
+            val result = {
+              if (event.seqNr >= range.from && continue) event.seqNr :: seqNrs
+              else seqNrs
             }
-            for {events <- result} yield events.reverse
+            result.switch(continue)
           }
-          result.get()
+          events.reverse
         }
 
-        def lastSeqNr() = journal.pointer(key).get()
+        def lastSeqNr() = journal.pointer(key)
 
         def delete(to: SeqNr) = {
-          journal.delete(key, to, timestamp).get().map(_.offset)
+          journal.delete(key, to, timestamp).map(_.offset)
         }
       }
     }
 
     def apply(
-      eventual: EventualJournal[Async],
-      withPollActions: WithPollActions[Async],
-      writeAction: AppendAction[Async]): SeqNrJournal = {
+      eventual: EventualJournal[cats.Id],
+      withPollActions: WithPollActions[cats.Id],
+      writeAction: AppendAction[cats.Id]): SeqNrJournal = {
 
-      implicit val log = Log.empty[Async]
-      implicit val concurrent = ConcurrentOf(AsyncHelper.asyncAsync(CurrentThreadExecutionContext))
-      val journal = Journal[Async](None, eventual, withPollActions, writeAction, HeadCache.empty[Async])
+      implicit val log = Log.empty[cats.Id]
+//      implicit val concurrent = ConcurrentOf(AsyncHelper.asyncAsync(CurrentThreadExecutionContext))
+      implicit val concurrent = ConcurrentOf.fromMonad[cats.Id]
+      implicit val clock = ClockOf[cats.Id](timestamp.toEpochMilli)
+      val journal = Journal[cats.Id](None, eventual, withPollActions, writeAction, HeadCache.empty[cats.Id])
         .withLog(log)
-        .withMetrics(Journal.Metrics.empty(Async.unit))
+        .withMetrics(Journal.Metrics.empty[cats.Id])
       SeqNrJournal(journal)
     }
   }
@@ -391,14 +387,13 @@ object JournalSpec {
   // TODO implement via mocking EventualCassandra
   object EventualJournalOf {
 
-    def apply(state: => State): EventualJournal[Async] = new EventualJournal[Async] {
+    def apply(state: => State): EventualJournal[cats.Id] = new EventualJournal[cats.Id] {
 
       def pointers(topic: Topic) = {
-        val pointers = state.offset.fold(TopicPointers.Empty) { offset =>
+        state.offset.fold(TopicPointers.Empty) { offset =>
           val pointers = Map((partition, offset))
           TopicPointers(pointers)
         }
-        pointers.async
       }
 
       def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
@@ -411,7 +406,7 @@ object JournalSpec {
           }
         }
 
-        read(state).async
+        read(state)
       }
 
       def pointer(key: Key) = {
@@ -427,7 +422,7 @@ object JournalSpec {
           }
         }
 
-        pointer(state).async
+        pointer(state)
       }
     }
 

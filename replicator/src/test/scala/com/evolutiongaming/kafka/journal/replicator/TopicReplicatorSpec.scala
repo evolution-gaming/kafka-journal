@@ -662,7 +662,6 @@ object TopicReplicatorSpec {
     TopicReplicator.of[DataF](topic, TopicReplicator.StopRef[DataF], DataF.ConsumerDataF, TopicReplicator.RetryCall.empty[DataF])
   }
 
-  // TODO create separate case class covering state of KafkaConsumer for testing
   final case class Data(
     topics: List[Topic] = Nil,
     commits: List[Map[TopicPartition, OffsetAndMetadata]] = Nil,
@@ -738,7 +737,7 @@ object TopicReplicatorSpec {
   }
 
 
-  // TODO swithc to StateT
+  // TODO switch to StateT
   final case class DataF[A](run: Data => (Data, A))
 
   object DataF {

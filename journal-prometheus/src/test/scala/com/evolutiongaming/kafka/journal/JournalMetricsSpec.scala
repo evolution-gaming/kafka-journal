@@ -6,9 +6,6 @@ import org.scalatest.{FunSuite, Matchers}
 class JournalMetricsSpec extends FunSuite with Matchers {
   import JournalMetricsSpec._
 
-  // TODO duplicate
-  type Id[A] = A
-
   test("append") {
     new Scope {
       metrics.append(topic, latency = 1000, events = 10)
@@ -41,7 +38,7 @@ class JournalMetricsSpec extends FunSuite with Matchers {
 
   private trait Scope {
     val registry = new CollectorRegistry()
-    val metrics = JournalMetrics[Id](registry, prefix)(())
+    val metrics = JournalMetrics[cats.Id](registry, prefix)(())
   }
 }
 
