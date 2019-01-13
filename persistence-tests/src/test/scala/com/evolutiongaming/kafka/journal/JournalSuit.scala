@@ -23,6 +23,10 @@ trait JournalSuit extends ActorSuite with Matchers { self: Suite =>
 
   lazy val blocking: ExecutionContextExecutor = system.dispatchers.lookup(config.blockingDispatcher)
 
+  implicit val kafkaConsumerOf: KafkaConsumerOf[IO] = KafkaConsumerOf[IO](blocking)
+
+  implicit val kafkaProducerOf: KafkaProducerOf[IO] = KafkaProducerOf[IO](blocking)
+
   lazy val ((eventual, producer), release) = {
     val resource = for {
       cassandraCluster <- CassandraCluster.of[IO](config.cassandra.client, config.cassandra.retries)
@@ -31,7 +35,7 @@ trait JournalSuit extends ActorSuite with Matchers { self: Suite =>
         implicit val cassandraSession1 = cassandraSession
         Resource.liftF(EventualCassandra.of[IO](config.cassandra, None))
       }
-      kafkaProducer <- KafkaProducer.of[IO](config.journal.producer, blocking)
+      kafkaProducer <- KafkaProducerOf[IO].apply(config.journal.producer)
     } yield {
       (eventualJournal, kafkaProducer)
     }

@@ -303,6 +303,25 @@ object TopicReplicator {
       }
     }
 
+    def of[F[_] : Sync : KafkaConsumerOf](
+      topic: Topic,
+      config: ConsumerConfig,
+      pollTimeout: FiniteDuration): Resource[F, Consumer[F]] = {
+
+      val prefix = config.groupId getOrElse "journal-replicator"
+      val groupId = s"$prefix-$topic"
+      val config1 = config.copy(
+        groupId = Some(groupId),
+        autoOffsetReset = AutoOffsetReset.Earliest,
+        autoCommit = false)
+
+      for {
+        consumer <- KafkaConsumerOf[F].apply[Id, Bytes](config1)
+      } yield {
+        Consumer[F](consumer, pollTimeout)
+      }
+    }
+
 
     implicit class ConsumerOps[F[_]](val self: Consumer[F]) extends AnyVal {
 

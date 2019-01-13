@@ -38,6 +38,10 @@ object ReadEventsApp extends IOApp {
     blocking: ExecutionContext)(implicit
     system: ActorSystem): F[Unit] = {
 
+    implicit val kafkaConsumerOf = KafkaConsumerOf[F](blocking)
+
+    implicit val kafkaProducerOf = KafkaProducerOf[F](blocking)
+
     val commonConfig = CommonConfig(bootstrapServers = Nel("localhost:9092"))
 
     val actorLog = ActorLog(system, ReadEventsApp.getClass)
@@ -48,7 +52,7 @@ object ReadEventsApp extends IOApp {
 
     val consumerConfig = ConsumerConfig(common = commonConfig)
 
-    val topicConsumer = TopicConsumer[F](consumerConfig, blocking)
+    val topicConsumer = TopicConsumer[F](consumerConfig)
 
     val eventualCassandraConfig = EventualCassandraConfig(
       schema = SchemaConfig(
@@ -70,8 +74,8 @@ object ReadEventsApp extends IOApp {
       cassandraCluster <- CassandraCluster.of[F](eventualCassandraConfig.client, eventualCassandraConfig.retries)
       cassandraSession <- cassandraCluster.session
       eventualJournal  <- Resource.liftF(eventualJournal(cassandraSession))
-      headCache        <- Resource.liftF(HeadCache.of[F](consumerConfig, eventualJournal, blocking))
-      kafkaProducer    <- KafkaProducer.of[F](producerConfig, blocking)
+      headCache        <- Resource.liftF(HeadCache.of[F](consumerConfig, eventualJournal))
+      kafkaProducer    <- KafkaProducerOf[F].apply(producerConfig)
     } yield {
       val journal = Journal[F](None, kafkaProducer, topicConsumer, eventualJournal, 100.millis, headCache)
       val key = Key(id = "id", topic = "journal")

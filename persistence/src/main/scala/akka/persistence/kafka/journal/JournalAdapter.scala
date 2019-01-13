@@ -13,9 +13,9 @@ import com.evolutiongaming.kafka.journal.util.ClockHelper._
 import com.evolutiongaming.kafka.journal.util.{FromFuture, Par, ToFuture}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
-import com.evolutiongaming.skafka.ClientId
 import com.evolutiongaming.skafka.consumer.Consumer
 import com.evolutiongaming.skafka.producer.Producer
+import com.evolutiongaming.skafka.{ClientId, CommonConfig}
 
 import scala.collection.immutable.Seq
 import scala.concurrent.ExecutionContext
@@ -43,34 +43,41 @@ object JournalAdapter {
     actorLog: ActorLog)(implicit
     system: ActorSystem): Resource[F, JournalAdapter[F]] = {
 
-    val blocking = Sync[F].delay {
-      system.dispatchers.lookup(config.blockingDispatcher)
-    }
+    def clientIdOf(config: CommonConfig) = config.clientId getOrElse "journal"
 
-    def kafkaProducer(blocking: ExecutionContext) = {
-      val producerConfig = config.journal.producer
-      val producerMetrics = for {
-        metrics <- metrics.producer
+    def kafkaConsumerOf(blocking: ExecutionContext) = {
+      val consumerMetrics = for {
+        metrics <- metrics.consumer
       } yield {
-        val clientId = producerConfig.common.clientId getOrElse "journal"
+        val clientId = clientIdOf(config.journal.consumer.common)
         metrics(clientId)
       }
-      KafkaProducer.of[F](producerConfig, blocking, producerMetrics)
+      KafkaConsumerOf[F](blocking, consumerMetrics)
+    }
+
+    def kafkaProducerOf(blocking: ExecutionContext) = {
+      val consumerMetrics = for {
+        metrics <- metrics.producer
+      } yield {
+        val clientId = clientIdOf(config.journal.producer.common)
+        metrics(clientId)
+      }
+      KafkaProducerOf[F](blocking, consumerMetrics)
     }
 
     def eventualJournalOf(implicit cassandraSession: CassandraSession[F]) = {
       for {
         journal <- EventualCassandra.of[F](config.cassandra, origin)
       } yield {
-        metrics.eventual.fold(journal) { metrics => EventualJournal[F](journal, metrics) }
+        metrics.eventual.fold(journal) { metrics => journal.withMetrics(metrics) }
       }
     }
 
-    def headCache(eventualJournal: EventualJournal[F], blocking: ExecutionContext) = {
+    def headCache(eventualJournal: EventualJournal[F])(implicit kafkaConsumerOf: KafkaConsumerOf[F]) = {
       val result = for {
         headCache <- {
           if (config.headCache) {
-            HeadCache.of[F](config.journal.consumer, eventualJournal, blocking)
+            HeadCache.of[F](config.journal.consumer, eventualJournal)
           } else {
             HeadCache.empty[F].pure[F]
           }
@@ -84,20 +91,11 @@ object JournalAdapter {
 
     def journal(
       eventualJournal: EventualJournal[F],
-      kafkaProducer: KafkaProducer[F],
       headCache: HeadCache[F],
-      blocking: ExecutionContext) = {
+      kafkaProducer: KafkaProducer[F])(implicit
+      kafkaConsumerOf: KafkaConsumerOf[F]) = {
 
-      val topicConsumer = {
-        val consumerConfig = config.journal.consumer
-        val consumerMetrics = for {
-          metrics <- metrics.consumer
-        } yield {
-          val clientId = consumerConfig.common.clientId getOrElse "journal"
-          metrics(clientId)
-        }
-        TopicConsumer[F](consumerConfig, blocking, metrics = consumerMetrics)
-      }
+      val topicConsumer = TopicConsumer[F](config.journal.consumer)
 
       for {
         log <- LogOf[F].apply(Journal.getClass)
@@ -115,14 +113,18 @@ object JournalAdapter {
       }
     }
 
+    val blocking = Sync[F].delay { system.dispatchers.lookup(config.blockingDispatcher) }
+
     for {
       cassandraCluster <- CassandraCluster.of[F](config.cassandra.client, config.cassandra.retries)
       cassandraSession <- cassandraCluster.session
       blocking         <- Resource.liftF(blocking)
-      kafkaProducer    <- kafkaProducer(blocking)
+      kafkaProducerOf1  = kafkaProducerOf(blocking)
+      kafkaConsumerOf1  = kafkaConsumerOf(blocking)
       eventualJournal  <- Resource.liftF(eventualJournalOf(cassandraSession))
-      headCache        <- headCache(eventualJournal, blocking)
-      journal          <- Resource.liftF(journal(eventualJournal, kafkaProducer, headCache, blocking))
+      headCache        <- headCache(eventualJournal)(kafkaConsumerOf1)
+      kafkaProducer    <- kafkaProducerOf1(config.journal.producer)
+      journal          <- Resource.liftF(journal(eventualJournal, headCache, kafkaProducer)(kafkaConsumerOf1))
     } yield {
       implicit val log = Log[F](actorLog)
       JournalAdapter[F](journal, toKey, serializer)

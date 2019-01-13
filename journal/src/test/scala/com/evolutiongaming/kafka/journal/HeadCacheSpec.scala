@@ -250,11 +250,12 @@ object HeadCacheSpec {
     eventual: HeadCache.Eventual[IO]): IO[HeadCache[IO]] = {
 
     HeadCache.of[IO](
+      log = LogIO,
       config = config,
       consumer = Resource.liftF(consumer))
   }
 
-  implicit val log: Log[IO] = Log.empty[IO]
+  implicit val LogIO: Log[IO] = Log.empty[IO]
 
   object TestConsumer {
 

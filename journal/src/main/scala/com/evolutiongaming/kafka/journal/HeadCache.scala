@@ -15,7 +15,6 @@ import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecord, ConsumerRecords}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 
@@ -49,36 +48,21 @@ object HeadCache {
   }
 
   // TODO return resource
-  def of[F[_] : Concurrent : Par : Timer : ContextShift : FromFuture : LogOf](
+  def of[F[_] : Concurrent : Par : Timer : ContextShift : LogOf : KafkaConsumerOf](
     consumerConfig: ConsumerConfig,
-    eventualJournal: EventualJournal[F],
-    blocking: ExecutionContext): F[HeadCache[F]] = {
+    eventualJournal: EventualJournal[F]): F[HeadCache[F]] = {
 
     implicit val eventual = Eventual[F](eventualJournal)
 
-    val consumer = {
-      val config = consumerConfig.copy(
-        autoOffsetReset = AutoOffsetReset.Earliest,
-        groupId = None,
-        autoCommit = false)
-
-      for {
-        consumer <- KafkaConsumer.of[F, Id, Bytes](config, blocking)
-      } yield {
-        HeadCache.Consumer[F](consumer)
-      }
-    }
-
+    val consumer = Consumer.of[F](consumerConfig)
     for {
       log       <- LogOf[F].apply(HeadCache.getClass)
-      headCache <- {
-        implicit val log1 = log
-        HeadCache.of[F](consumer)
-      }
+      headCache <- HeadCache.of[F](log, consumer)
     } yield headCache
   }
 
-  def of[F[_] : Concurrent : Eventual : Par : Timer : Log : ContextShift](
+  def of[F[_] : Concurrent : Eventual : Par : Timer : ContextShift](
+    log: Log[F],
     consumer: Resource[F, Consumer[F]],
     config: Config = Config.Default): F[HeadCache[F]] = {
 
@@ -87,7 +71,7 @@ object HeadCache {
       cache <- Ref.of(cache.pure[F])
     } yield {
 
-      def topicCache(topic: Topic)(implicit log: Log[F]) = {
+      def topicCache(topic: Topic) = {
         val logTopic = log.prefixed(topic)
         for {
           _          <- logTopic.info("create")
@@ -498,7 +482,7 @@ object HeadCache {
 
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
-    def apply[F[_] : Sync](consumer: KafkaConsumer[F, Id, Bytes]): Consumer[F] = {
+    def apply[F[_] : Monad](consumer: KafkaConsumer[F, Id, Bytes]): Consumer[F] = {
 
       implicit val monoidUnit = Applicative.monoid[F, Unit]
 
@@ -568,9 +552,7 @@ object HeadCache {
       }
     }
 
-    def of[F[_] : Concurrent : FromFuture : ContextShift](
-      config: ConsumerConfig,
-      blocking: ExecutionContext): Resource[F, Consumer[F]] = {
+    def of[F[_] : Monad : KafkaConsumerOf](config: ConsumerConfig): Resource[F, Consumer[F]] = {
       
       val config1 = config.copy(
         autoOffsetReset = AutoOffsetReset.Earliest,
@@ -578,7 +560,7 @@ object HeadCache {
         autoCommit = false)
 
       for {
-        consumer <- KafkaConsumer.of[F, Id, Bytes](config1, blocking)
+        consumer <- KafkaConsumerOf[F].apply[Id, Bytes](config1)
       } yield {
         HeadCache.Consumer[F](consumer)
       }

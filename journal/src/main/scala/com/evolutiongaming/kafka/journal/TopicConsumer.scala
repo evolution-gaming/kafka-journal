@@ -1,11 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.effect.{Concurrent, ContextShift, Resource}
-import com.evolutiongaming.kafka.journal.util.FromFuture
+import cats.effect.Resource
 import com.evolutiongaming.skafka.Topic
-import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerConfig}
-
-import scala.concurrent.ExecutionContext
+import com.evolutiongaming.skafka.consumer.ConsumerConfig
 
 
 // TODO remove this
@@ -15,17 +12,15 @@ trait TopicConsumer[F[_]] {
 
 object TopicConsumer {
 
-  def apply[F[_] : Concurrent : FromFuture : ContextShift](
-    config: ConsumerConfig,
-    blocking: ExecutionContext,
-    metrics: Option[Consumer.Metrics] = None): TopicConsumer[F] = {
+  def apply[F[_] : KafkaConsumerOf](config: ConsumerConfig): TopicConsumer[F] = {
 
-    val config1 = config.copy(groupId = None)
+    val config1 = config.copy(
+      groupId = None,
+      autoCommit = false)
 
     new TopicConsumer[F] {
-
       def apply(topic: Topic) = {
-        KafkaConsumer.of(config1, blocking, metrics)
+        KafkaConsumerOf[F].apply(config1)
       }
     }
   }

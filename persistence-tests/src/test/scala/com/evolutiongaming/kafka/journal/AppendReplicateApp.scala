@@ -49,9 +49,13 @@ object AppendReplicateApp extends App {
     }.void
   }
 
+  implicit val kafkaConsumerOf = KafkaConsumerOf[IO](blocking)
+
+  implicit val kafkaProducerOf = KafkaProducerOf[IO](blocking)
+
   val resources = for {
     system <- systemRes
-    producer <- KafkaProducer.of[IO](journalConfig.journal.producer, blocking)
+    producer <- KafkaProducerOf[IO].apply(journalConfig.journal.producer)
   } yield {
     (system, producer)
   }
@@ -63,7 +67,7 @@ object AppendReplicateApp extends App {
   val result = resources.use { case (_, producer) =>
 
     val journal: Journal[Future] = {
-      val topicConsumer = TopicConsumer[IO](journalConfig.journal.consumer, blocking)
+      val topicConsumer = TopicConsumer[IO](journalConfig.journal.consumer)
       implicit val log = Log.empty[IO]
       val journal = Journal[IO](
         kafkaProducer = producer,
@@ -102,13 +106,7 @@ object AppendReplicateApp extends App {
         val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.replicator")
         ReplicatorConfig(config)
       }
-      val blocking = system.dispatchers.lookup(config.blockingDispatcher)
-
-      val consumer = for {
-        consumer <- KafkaConsumer.of[IO, Id, Bytes](config.consumer, blocking)
-      } yield {
-        TopicReplicator.Consumer[IO](consumer, config.pollTimeout)
-      }
+      val consumer = TopicReplicator.Consumer.of[IO](topic, config.consumer, config.pollTimeout)
 
       val done = for {
         replicator <- TopicReplicator.of[IO](topic, consumer)

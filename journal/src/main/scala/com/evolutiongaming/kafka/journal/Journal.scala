@@ -10,7 +10,6 @@ import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
-import com.evolutiongaming.kafka.journal.util.{FromFuture, ToFuture}
 import com.evolutiongaming.kafka.journal.util.ClockHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Bytes => _, _}
@@ -43,7 +42,7 @@ object Journal {
   }
 
 
-  def apply[F[_] : Concurrent : ContextShift : FromFuture : ToFuture : Clock : Log](
+  def apply[F[_] : Concurrent : ContextShift : Clock : Log](
     origin: Option[Origin],
     kafkaProducer: KafkaProducer[F],
     topicConsumer: TopicConsumer[F],

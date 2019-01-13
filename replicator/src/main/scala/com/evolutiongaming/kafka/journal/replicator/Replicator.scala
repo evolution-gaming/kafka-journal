@@ -17,7 +17,6 @@ import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Topic, Bytes => _}
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
 // TODO TEST
@@ -44,16 +43,16 @@ object Replicator {
       blocking    = Sync[F].delay { system.dispatchers.lookup(config.blockingDispatcher) /*TODO move to common place*/}
       blocking   <- Resource.liftF(blocking)
       replicator <- {
+        implicit val kafkaConsumerOf = KafkaConsumerOf[F](blocking, metrics.consumer)
         implicit val logOf = LogOf[F](system) // TODO remove
         implicit val session1 = session
-        of[F](config, blocking, metrics)
+        of[F](config, metrics)
       }
     } yield replicator
   }
 
-  def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : CassandraSession : LogOf](
+  def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : CassandraSession : LogOf : KafkaConsumerOf](
     config: ReplicatorConfig,
-    blocking: ExecutionContext,
     metrics: Metrics[F]): Resource[F, F[Unit]] = {
 
     implicit val clock = Timer[F].clock
@@ -62,33 +61,18 @@ object Replicator {
       journal <- Resource.liftF(ReplicatedCassandra.of[F](config.cassandra, metrics.journal))
       result  <- {
         implicit val journal1 = journal
-        of2(config, blocking, metrics)
+        of2(config, metrics)
       }
     } yield result
   }
 
-  def of2[F[_] : Concurrent : Timer : Par : FromFuture : ReplicatedJournal : ContextShift : LogOf](
+  def of2[F[_] : Concurrent : Timer : Par : ReplicatedJournal : ContextShift : LogOf : KafkaConsumerOf](
     config: ReplicatorConfig,
-    blocking: ExecutionContext,
-    metrics: Metrics[F]): Resource[F, F[Unit]] = {
-
-    val kafkaConsumerOf = (config: ConsumerConfig) => {
-      KafkaConsumer.of[F, Id, Bytes](config, blocking, metrics.consumer)
-    }
+    metrics: Metrics[F]/*TODO not used for kafka*/): Resource[F, F[Unit]] = {
 
     val topicReplicator = (topic: Topic) => {
-      val prefix = config.consumer.groupId getOrElse "journal-replicator"
-      val groupId = s"$prefix-$topic"
-      val consumerConfig = config.consumer.copy(
-        groupId = Some(groupId),
-        autoOffsetReset = AutoOffsetReset.Earliest,
-        autoCommit = false)
 
-      val consumer = for {
-        consumer <- kafkaConsumerOf(consumerConfig)
-      } yield {
-        TopicReplicator.Consumer[F](consumer, config.pollTimeout)
-      }
+      val consumer = TopicReplicator.Consumer.of[F](topic, config.consumer, config.pollTimeout)
 
       implicit val metrics1 = metrics.replicator.fold(TopicReplicator.Metrics.empty[F]) { _.apply(topic) }
 
@@ -100,11 +84,7 @@ object Replicator {
       Resource(result)
     }
 
-    val consumer = for {
-      consumer <- kafkaConsumerOf(config.consumer)
-    } yield {
-      Consumer[F](consumer)
-    }
+    val consumer = Consumer.of[F](config.consumer)
 
     of(Config(config), consumer, topicReplicator)
   }
@@ -230,6 +210,15 @@ object Replicator {
 
     def apply[F[_]](consumer: KafkaConsumer[F, Id, Bytes]): Consumer[F] = new Consumer[F] {
       def topics = consumer.topics
+    }
+
+
+    def of[F[_] : Sync : KafkaConsumerOf](config: ConsumerConfig): Resource[F, Consumer[F]] = {
+      for {
+        consumer <- KafkaConsumerOf[F].apply[Id, Bytes](config)
+      } yield {
+        Consumer[F](consumer)
+      }
     }
 
 

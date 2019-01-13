@@ -7,12 +7,10 @@ import cats.effect.concurrent.Ref
 import cats.implicits._
 import cats.{Applicative, FlatMap}
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
-import com.evolutiongaming.kafka.journal.util.FromFuture
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.evolutiongaming.skafka.producer.{ProducerConfig, ProducerRecord}
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
 trait KafkaHealthCheck[F[_]] {
@@ -27,11 +25,10 @@ object KafkaHealthCheck {
     def done = ().pure[F]
   }
 
-  def of[F[_] : Concurrent : Timer : FromFuture : ContextShift : LogOf](
+  def of[F[_] : Concurrent : ContextShift : Timer : LogOf : KafkaConsumerOf : KafkaProducerOf](
     config: Config,
     producerConfig: ProducerConfig,
-    consumerConfig: ConsumerConfig,
-    blocking: ExecutionContext): Resource[F, KafkaHealthCheck[F]] = {
+    consumerConfig: ConsumerConfig): Resource[F, KafkaHealthCheck[F]] = {
 
     val result = for {
       log <- LogOf[F].apply(KafkaHealthCheck.getClass)
@@ -39,24 +36,9 @@ object KafkaHealthCheck {
     } yield {
       implicit val log1 = log
 
-      val consumerConfig1 = {
-        val groupId = consumerConfig.common.clientId.fold(key) { clientId => s"$clientId-$key" }
-        consumerConfig.copy(
-          groupId = Some(groupId),
-          autoOffsetReset = AutoOffsetReset.Latest)
-      }
-
-      val producer = for {
-        producer <- KafkaProducer.of(producerConfig, blocking, None)
-      } yield {
-        Producer(topic = config.topic, producer = producer)
-      }
-
-      val consumer = for {
-        consumer <- KafkaConsumer.of[F, String, String](consumerConfig1, blocking, None)
-      } yield {
-        Consumer(consumer)
-      }
+      val consumer = Consumer.of[F](key, consumerConfig)
+      
+      val producer = Producer.of[F](config.topic, producerConfig)
 
       of(
         key = key,
@@ -176,6 +158,14 @@ object KafkaHealthCheck {
         }
       }
     }
+
+    def of[F[_] : Sync : KafkaProducerOf](topic: Topic, config: ProducerConfig): Resource[F, Producer[F]] = {
+      for {
+        producer <- KafkaProducerOf[F].apply(config)
+      } yield {
+        Producer[F](topic = topic, producer = producer)
+      }
+    }
   }
 
 
@@ -190,7 +180,7 @@ object KafkaHealthCheck {
 
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
-    def apply[F[_] : FlatMap : FromFuture](consumer: KafkaConsumer[F, String, String]): Consumer[F] = {
+    def apply[F[_] : FlatMap](consumer: KafkaConsumer[F, String, String]): Consumer[F] = {
 
       new Consumer[F] {
 
@@ -207,6 +197,21 @@ object KafkaHealthCheck {
             Record(key = record.key.map(_.value), value = record.value.map(_.value))
           }
         }
+      }
+    }
+
+    def of[F[_] : Sync : KafkaConsumerOf](key: String, config: ConsumerConfig): Resource[F, Consumer[F]] = {
+      val config1 = {
+        val groupId = config.common.clientId.fold(key) { clientId => s"$clientId-$key" }
+        config.copy(
+          groupId = Some(groupId),
+          autoOffsetReset = AutoOffsetReset.Latest)
+      }
+
+      for {
+        consumer <- KafkaConsumerOf[F].apply[String, String](config1)
+      } yield {
+        Consumer[F](consumer)
       }
     }
   }

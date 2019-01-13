@@ -31,6 +31,10 @@ object KafkaHealthCheckApp extends IOApp {
   private def runF[F[_] : Concurrent : Timer : FromFuture : ContextShift : LogOf](
     blocking: ExecutionContext) = {
 
+    implicit val kafkaConsumerOf = KafkaConsumerOf[F](blocking)
+
+    implicit val kafkaProducerOf = KafkaProducerOf[F](blocking)
+
     val consumerConfig = ConsumerConfig(common = CommonConfig(
       bootstrapServers = Nel("localhost:9092"),
       clientId = Some("KafkaHealthCheckApp")))
@@ -41,8 +45,7 @@ object KafkaHealthCheckApp extends IOApp {
     val kafkaHealthCheck = KafkaHealthCheck.of[F](
       config = KafkaHealthCheck.Config.Default,
       producerConfig = producerConfig,
-      consumerConfig = consumerConfig,
-      blocking = blocking)
+      consumerConfig = consumerConfig)
 
     kafkaHealthCheck.use(_.error.untilDefinedM)
   }

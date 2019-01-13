@@ -20,11 +20,11 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuit {
   val origin = Origin("JournalIntSpec")
 
   private val journalOf = {
-    val topicConsumer = TopicConsumer[IO](config.journal.consumer, blocking)
+    val topicConsumer = TopicConsumer[IO](config.journal.consumer)
     eventualJournal: EventualJournal[IO] => {
       implicit val log = Log.empty[IO]
       for {
-        headCache <- Resource.make(HeadCache.of[IO](config.journal.consumer, eventualJournal, blocking))(_.close)
+        headCache <- Resource.make(HeadCache.of[IO](config.journal.consumer, eventualJournal))(_.close)
         journal = Journal[IO](
           kafkaProducer = producer,
           origin = Some(origin),

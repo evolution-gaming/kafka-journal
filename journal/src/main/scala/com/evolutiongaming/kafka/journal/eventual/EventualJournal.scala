@@ -19,15 +19,15 @@ trait EventualJournal[F[_]] {
 
 object EventualJournal {
 
-//  def apply[F[_]](implicit F: EventualJournal[F]): EventualJournal[F] = F
+  def apply[F[_]](implicit F: EventualJournal[F]): EventualJournal[F] = F
 
-  def apply[F[_] : FlatMap : Log : Clock](journal: EventualJournal[F]): EventualJournal[F] = new EventualJournal[F] {
+  def apply[F[_] : FlatMap : Clock](journal: EventualJournal[F], log: Log[F]): EventualJournal[F] = new EventualJournal[F] {
 
     def pointers(topic: Topic) = {
       for {
         rl     <- Latency { journal.pointers(topic) }
         (r, l)  = rl
-        _      <- Log[F].debug(s"$topic pointers in ${ l }ms, result: $r")
+        _      <- log.debug(s"$topic pointers in ${ l }ms, result: $r")
       } yield r
     }
 
@@ -35,7 +35,7 @@ object EventualJournal {
       for {
         rl     <- Latency { journal.read(key, from, s)(f) }
         (r, l)  = rl
-        _      <- Log[F].debug(s"$key read in ${ l }ms, from: $from, state: $s, result: $r")
+        _      <- log.debug(s"$key read in ${ l }ms, from: $from, state: $s, result: $r")
       } yield r
     }
 
@@ -43,7 +43,7 @@ object EventualJournal {
       for {
         rl     <- Latency { journal.pointer(key) }
         (r, l)  = rl
-        _      <- Log[F].debug(s"$key pointer in ${ l }ms, result: $r")
+        _      <- log.debug(s"$key pointer in ${ l }ms, result: $r")
       } yield r
     }
   }
@@ -129,6 +129,14 @@ object EventualJournal {
       }
 
       def pointer(key: Key) = f(self.pointer(key))
+    }
+
+    def withLog(log: Log[F])(implicit flatMap: FlatMap[F], clock: Clock[F]): EventualJournal[F] = {
+      EventualJournal[F](self, log)
+    }
+
+    def withMetrics(metrics: Metrics[F])(implicit flatMap: FlatMap[F], clock: Clock[F]): EventualJournal[F] = {
+      EventualJournal(self, metrics)
     }
   }
 }

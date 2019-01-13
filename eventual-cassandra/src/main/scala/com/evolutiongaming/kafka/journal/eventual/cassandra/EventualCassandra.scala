@@ -26,8 +26,7 @@ object EventualCassandra {
         of[F](config)
       }
     } yield {
-      implicit val log1 = log
-      EventualJournal[F](journal)
+      journal.withLog(log)
     }
   }
 
