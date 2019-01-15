@@ -11,19 +11,6 @@ import scala.concurrent.duration.FiniteDuration
 
 object CatsHelper {
 
-  /*implicit def commutativeMonoidF[F[_] : CommutativeApplicative, A: CommutativeMonoid]: CommutativeMonoid[F[A]] = {
-    new CommutativeMonoid[F[A]] {
-      def empty = {
-        Applicative[F].pure(CommutativeMonoid[A].empty)
-      }
-
-      def combine(x: F[A], y: F[A]) = {
-        Apply[F].map2(x, y)(CommutativeMonoid[A].combine)
-      }
-    }
-  }*/
-
-
   implicit class CommutativeApplicativeOps(val self: CommutativeApplicative.type) extends AnyVal {
 
     def commutativeMonoid[F[_] : CommutativeApplicative, A: CommutativeMonoid]: CommutativeMonoid[F[A]] = {

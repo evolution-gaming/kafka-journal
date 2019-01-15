@@ -35,7 +35,7 @@ lazy val root = (project in file(".")
     journal,
     `journal-prometheus`,
     persistence,
-    `persistence-tests`,
+    `tests`,
     replicator,
     `replicator-prometheus`,
     `eventual-cassandra`))
@@ -71,7 +71,7 @@ lazy val persistence = (project in file("persistence")
     `akka-serialization`,
     Akka.persistence)))
 
-lazy val `persistence-tests` = (project in file("persistence-tests")
+lazy val `tests` = (project in file("tests")
   settings (name := "kafka-journal-persistence-tests")
   settings commonSettings
   settings Seq(
