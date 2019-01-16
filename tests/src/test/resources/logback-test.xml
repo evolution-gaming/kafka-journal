@@ -23,6 +23,7 @@
 	<logger name="org.apache.cassandra.service.StartupChecks" level="ERROR"/>
 	<logger name="org.apache.cassandra.db.SystemKeyspace" level="ERROR"/>
 	<!--<logger name="com.evolutiongaming.kafka.journal" level="DEBUG"/>-->
+	<!--<logger name="com.evolutiongaming.kafka.journal.replicator.TopicReplicator" level="WARN"/>-->
 
 	<root level="WARN">
 		<appender-ref ref="console"/>

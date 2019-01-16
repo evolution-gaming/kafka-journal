@@ -1,136 +1,118 @@
 package com.evolutiongaming.kafka.journal
 
-import java.time.Instant
-import java.util.UUID
-
 import akka.actor.ActorSystem
 import akka.persistence.kafka.journal.KafkaJournalConfig
-import cats.effect.{IO, Resource}
+import cats.effect._
 import cats.implicits._
-import cats.~>
-import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, ReplicatedJournal}
-import com.evolutiongaming.kafka.journal.replicator.{ReplicatorConfig, TopicReplicator}
-import com.evolutiongaming.kafka.journal.util.FromFuture
+import com.evolutiongaming.kafka.journal.eventual.EventualJournal
+import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraCluster
+import com.evolutiongaming.kafka.journal.replicator.Replicator
+import com.evolutiongaming.kafka.journal.util.ClockHelper._
+import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.safeakka.actor.ActorLog
-import com.evolutiongaming.skafka.CommonConfig
+import com.evolutiongaming.skafka.Topic
+import com.typesafe.config.ConfigFactory
 
-import scala.concurrent.Future
+import scala.concurrent.duration._
 
-object AppendReplicateApp extends App {
+object AppendReplicateApp extends IOApp {
 
-  val name = getClass.getName
-  val topic = "append-replicate"
-  implicit val system = ActorSystem(name)
-  implicit val ec = system.dispatcher
-  implicit val cs = IO.contextShift(ec)
-  implicit val timer = IO.timer(ec)
-  implicit val fromFuture = FromFuture.lift[IO]
-  implicit val logOf = LogOf[IO](system)
+  def run(args: List[String]): IO[ExitCode] = {
+    val config = ConfigFactory.load("AppendReplicate.conf")
+    val system = ActorSystem("AppendReplicateApp", config)
+    implicit val ec = system.dispatcher
+    implicit val timer = IO.timer(ec)
+    implicit val fromFuture = FromFuture.lift[IO]
+    implicit val toFuture = ToFuture.io
+    implicit val parallel = IO.ioParallel
+    implicit val par = Par.lift
 
-  val log = ActorLog(system, getClass)
+    val topic = "journal.AppendReplicate"
 
-  val commonConfig = CommonConfig(
-    clientId = Some(topic),
-    bootstrapServers = Nel("localhost:9092", "localhost:9093", "localhost:9094"))
-
-  val journalConfig = {
-    val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.persistence.journal")
-    KafkaJournalConfig(config)
+    val result = ActorSystemResource[IO](system).use { implicit system => runF[IO](topic) }
+    result.as(ExitCode.Success)
   }
 
-  val blocking = system.dispatchers.lookup(journalConfig.blockingDispatcher)
 
-  val systemRes = Resource.make[IO, ActorSystem] {
-    IO.pure(system)
-  } { system =>
-    FromFuture[IO].apply {
-      system.terminate()
-    }.void
-  }
+  private def runF[F[_] : Concurrent : Timer : Par : ContextShift : FromFuture : ToFuture](
+    topic: Topic)(implicit
+    system: ActorSystem): F[Unit] = {
 
-  implicit val kafkaConsumerOf = KafkaConsumerOf[IO](blocking)
+    implicit val logOf = LogOf[F](system)
 
-  implicit val kafkaProducerOf = KafkaProducerOf[IO](blocking)
-
-  val resources = for {
-    system <- systemRes
-    producer <- KafkaProducerOf[IO].apply(journalConfig.journal.producer)
-  } yield {
-    (system, producer)
-  }
-
-  implicit val replicatedJournal = ReplicatedJournal.empty[IO]
-
-  implicit val metrics = TopicReplicator.Metrics.empty[IO]
-
-  val result = resources.use { case (_, producer) =>
-
-    val journal: Journal[Future] = {
-      val topicConsumer = TopicConsumer[IO](journalConfig.journal.consumer)
-      implicit val log = Log.empty[IO]
-      val journal = Journal[IO](
-        kafkaProducer = producer,
-        origin = Some(Origin(topic)),
-        topicConsumer = topicConsumer,
-        eventualJournal = EventualJournal.empty[IO],
-        pollTimeout = journalConfig.journal.pollTimeout,
-        headCache = HeadCache.empty[IO])
-
-      val toFuture = new (IO ~> Future) {
-        def apply[A](fa: IO[A]) = fa.unsafeToFuture()
-      }
-
-      journal.mapK(toFuture)
+    val kafkaJournalConfig = Sync[F].delay {
+      val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.persistence.journal")
+      KafkaJournalConfig(config)
     }
 
-    def append(id: String) = {
+    def blocking(kafkaJournalConfig: KafkaJournalConfig) = {
+      Sync[F].delay { system.dispatchers.lookup(kafkaJournalConfig.blockingDispatcher) }
+    }
 
-      val key = Key(id = id, topic = topic)
+    def journal(
+      producer: KafkaProducer[F],
+      journalConfig: JournalConfig)(implicit
+      kafkaConsumerOf: KafkaConsumerOf[F]) = {
 
-      def append(seqNr: SeqNr): Future[Unit] = {
-        val event = Event(seqNr, payload = Some(Payload(name)))
+      val topicConsumer = TopicConsumer[F](journalConfig.consumer)
+      for {
+        log <- LogOf[F].apply(Journal.getClass)
+      } yield {
+        implicit val log1 = log
+        Journal[F](
+          origin = Origin.HostName,
+          kafkaProducer = producer,
+          topicConsumer = topicConsumer,
+          eventualJournal = EventualJournal.empty[F] /*TODO*/ ,
+          pollTimeout = journalConfig.pollTimeout,
+          headCache = HeadCache.empty[F])
+      }
+    }
+
+    val resource = for {
+      kafkaJournalConfig <- Resource.liftF(kafkaJournalConfig)
+      blocking           <- Resource.liftF(blocking(kafkaJournalConfig))
+      kafkaConsumerOf     = KafkaConsumerOf[F](blocking)
+      kafkaProducerOf     = KafkaProducerOf[F](blocking)
+      replicate          <- Replicator.of[F](system)
+      cassandraCluster   <- CassandraCluster.of(kafkaJournalConfig.cassandra.client, kafkaJournalConfig.cassandra.retries)
+      cassandraSession   <- cassandraCluster.session
+      producer           <- kafkaProducerOf.apply(kafkaJournalConfig.journal.producer)
+      journal            <- Resource.liftF(journal(producer, kafkaJournalConfig.journal)(kafkaConsumerOf))
+    } yield {
+      (journal, replicate)
+    }
+
+    resource.use { case (journal, replicate) =>
+      Concurrent[F].race(append[F](topic, journal), replicate).void
+    }
+  }
+
+
+  private def append[F[_] : Concurrent : Timer : Par](topic: Topic, journal: Journal[F]) = {
+
+    def append(id: Id) = {
+
+      def append(seqNr: SeqNr) = {
+        val key = Key(id = id, topic = topic)
+        val event = Event(seqNr, payload = Some(Payload("AppendReplicateApp")))
+
         for {
-          _ <- journal.append(key, Nel(event), Instant.now())
-          _ <- seqNr.next.fold(Future.unit)(append)
-        } yield ()
+          timestamp <- Clock[F].instant
+          _         <- journal.append(key, Nel(event), timestamp)
+          result    <- seqNr.next.fold(().asRight[SeqNr].pure[F]) { seqNr =>
+            for {
+              _ <- Timer[F].sleep(100.millis)
+            } yield {
+              seqNr.asLeft[Unit]
+            }
+          }
+        } yield result
       }
 
-      val result = append(SeqNr.Min)
-      result.failed.foreach { failure => log.error(s"producer $key: $failure", failure) }
-      result
+      SeqNr.Min.tailRecM(append)
     }
 
-    def consume(nr: Int) = {
-      val config = {
-        val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.replicator")
-        ReplicatorConfig(config)
-      }
-      val consumer = TopicReplicator.Consumer.of[IO](topic, config.consumer, config.pollTimeout)
-
-      val done = for {
-        replicator <- TopicReplicator.of[IO](topic, consumer)
-        done <- replicator.done
-      } yield done
-
-      val future = done.unsafeToFuture()
-
-      future.failed.foreach { failure => log.error(s"consumer $nr: $failure", failure) }
-      future
-    }
-
-    val producers = for {
-      _ <- 1 to 3
-    } yield append(UUID.randomUUID().toString)
-
-    val consumers = for {
-      n <- 1 to 3
-    } yield consume(n)
-
-    FromFuture[IO].apply {
-      Future.sequence(consumers ++ producers)
-    }
+    Par[F].foldMap((0 to 10).toList) { id => append(id.toString) }
   }
-
-  result.unsafeRunSync()
 }

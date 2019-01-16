@@ -72,7 +72,7 @@ lazy val persistence = (project in file("persistence")
     Akka.persistence)))
 
 lazy val `tests` = (project in file("tests")
-  settings (name := "kafka-journal-persistence-tests")
+  settings (name := "kafka-journal-tests")
   settings commonSettings
   settings Seq(
     skip in publish := true,

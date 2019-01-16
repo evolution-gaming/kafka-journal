@@ -5,7 +5,7 @@ import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.eventual.cassandra._
-import com.evolutiongaming.kafka.journal.util.{FromFuture, Par, ToFuture}
+import com.evolutiongaming.kafka.journal.util.{ActorSystemResource, FromFuture, Par, ToFuture}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.scassandra.{AuthenticationConfig, CassandraConfig}
@@ -19,7 +19,7 @@ import scala.concurrent.duration._
 object ReadEventsApp extends IOApp {
 
   def run(args: List[String]) = {
-    implicit val system = ActorSystem("ReadEventsApp")
+    val system = ActorSystem("ReadEventsApp")
     implicit val ec = system.dispatcher
     implicit val timer = IO.timer(ec)
     implicit val fromFuture = FromFuture.lift[IO]
@@ -27,10 +27,8 @@ object ReadEventsApp extends IOApp {
     implicit val par = Par.lift
     implicit val logOf = LogOf[IO](system)
 
-    val terminate = FromFuture[IO].apply { system.terminate() }.void
-    runF[IO](ec)
-      .guarantee(terminate)
-      .as(ExitCode.Success)
+    val result = ActorSystemResource[IO](system).use { implicit system => runF[IO](ec) }
+    result.as(ExitCode.Success)
   }
 
 

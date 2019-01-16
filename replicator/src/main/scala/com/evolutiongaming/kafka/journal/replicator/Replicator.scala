@@ -133,8 +133,7 @@ object Replicator {
           val consumerRetry = consumer.mapMethod(retry)
 
           implicit val log1 = log
-          val result = start(config, consumerRetry, topicReplicator, error.get.flatten)
-          result.onError { case e => log.error(s"failed with $e", e) }
+          start(config, consumerRetry, topicReplicator, error.get.flatten)
         }
       } yield result
     }
@@ -181,7 +180,7 @@ object Replicator {
       result >>= loop
     }
 
-    loop(Set.empty).void
+    loop(Set.empty).void.onError { case e => Log[F].error(s"failed with $e", e) }
   }
 
 
