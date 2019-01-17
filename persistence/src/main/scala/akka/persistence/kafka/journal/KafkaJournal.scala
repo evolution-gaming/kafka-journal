@@ -6,7 +6,7 @@ import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.{Parallel, ~>}
 import cats.effect.{ContextShift, IO, Resource, Timer}
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.util.{FromFuture, Par}
+import com.evolutiongaming.kafka.journal.util.{FromFuture, Par, Runtime}
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.typesafe.config.Config
 
@@ -25,6 +25,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
   implicit val parallel: Parallel[IO, IO.Par] = IO.ioParallel(cs)
   implicit val par: Par[IO] = Par.lift(parallel)
   implicit val logOf: LogOf[IO] = LogOf[IO](system)
+  implicit val runtime: Runtime[IO] = Runtime.lift[IO]
 
   val log: ActorLog = ActorLog(system, classOf[KafkaJournal])
 

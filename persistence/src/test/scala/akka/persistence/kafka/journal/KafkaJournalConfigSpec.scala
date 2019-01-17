@@ -22,11 +22,9 @@ class KafkaJournalConfigSpec extends FunSuite with Matchers {
   test("apply from config") {
     val config = ConfigFactory.parseURL(getClass.getResource("kafka-journal.conf"))
     val expected = KafkaJournalConfig(
-      blockingDispatcher = "blocking-dispatcher",
       startTimeout = 1.millis,
       stopTimeout = 2.seconds)
     KafkaJournalConfig(config) shouldEqual expected
-
   }
 
   test("apply from reference.conf") {

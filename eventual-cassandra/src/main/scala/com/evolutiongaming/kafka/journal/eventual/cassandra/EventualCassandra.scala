@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Monad
-import cats.effect.{Clock, Sync}
+import cats.effect.{Clock, Concurrent, Resource}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
@@ -13,40 +13,44 @@ import com.evolutiongaming.skafka.Topic
 // TODO test EventualCassandra
 object EventualCassandra {
 
-  def of[F[_] : Sync : Par : Clock : CassandraSession : FromFuture : ToFuture : LogOf](
+  def of[F[_] : Concurrent : Par : Clock : FromFuture : ToFuture : LogOf](
     config: EventualCassandraConfig,
-    origin: Option[Origin]): F[EventualJournal[F]] = {
+    metrics: Option[EventualJournal.Metrics[F]]): Resource[F, EventualJournal[F]] = {
 
-    implicit val cassandraSync = CassandraSync[F](config.schema, origin)
+    def journal(implicit cassandraSession: CassandraSession[F]) = {
+      implicit val cassandraSync = CassandraSync[F](config.schema)
+      of(config.schema, metrics)
+    }
 
     for {
-      log <- LogOf[F].apply(EventualCassandra.getClass)
-      journal <- {
-        implicit val log1 = log
-        of[F](config)
-      }
-    } yield {
-      journal.withLog(log)
-    }
+      cassandraCluster <- CassandraCluster.of[F](config.client, config.retries)
+      cassandraSession <- cassandraCluster.session
+      journal          <- Resource.liftF(journal(cassandraSession))
+    } yield journal
   }
 
-  def of[F[_] : Monad : Par : CassandraSession : CassandraSync : Log](config: EventualCassandraConfig): F[EventualJournal[F]] = {
+  def of[F[_] : Monad : Par : CassandraSession : CassandraSync : LogOf : Clock](
+    schemaConfig: SchemaConfig,
+    metrics: Option[EventualJournal.Metrics[F]]): F[EventualJournal[F]] = {
+
     for {
-      tables <- CreateSchema[F](config.schema)
+      log        <- LogOf[F].apply(EventualCassandra.getClass)
+      tables     <- CreateSchema[F](schemaConfig)
       statements <- Statements.of[F](tables)
     } yield {
-      implicit val statements1 = statements
-      apply[F]
+      val journal = apply[F](statements, log)
+      val withLog = journal.withLog(log)
+      metrics.fold(withLog) { metrics => withLog.withMetrics(metrics) }
     }
   }
 
 
-  def apply[F[_] : Monad : Par : Statements : Log]: EventualJournal[F] = {
+  def apply[F[_] : Monad : Par](statements: Statements[F], log: Log[F]): EventualJournal[F] = {
 
     new EventualJournal[F] {
 
       def pointers(topic: Topic) = {
-        Statements[F].pointers(topic)
+        statements.pointers(topic)
       }
 
       def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
@@ -102,9 +106,9 @@ object EventualCassandra {
         }
 
         for {
-          metadata <- Statements[F].metadata(key)
+          metadata <- statements.metadata(key)
           result   <- metadata.fold(s.continue.pure[F]) { metadata =>
-            read(Statements[F].records, metadata)
+            read(statements.records, metadata)
           }
         } yield {
           result
@@ -113,7 +117,7 @@ object EventualCassandra {
 
       def pointer(key: Key) = {
         for {
-          metadata <- Statements[F].metadata(key)
+          metadata <- statements.metadata(key)
         } yield for {
           metadata <- metadata
         } yield {

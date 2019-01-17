@@ -15,7 +15,6 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
 
-// TODO create by Config factories
 trait KafkaConsumer[F[_], K, V] {
 
   def assign(partitions: Nel[TopicPartition]): F[Unit]

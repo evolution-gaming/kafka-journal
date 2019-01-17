@@ -22,6 +22,7 @@ object AppendAction {
           metadata  <- producer.send(producerRecord)
           partition  = metadata.topicPartition.partition
           offset    <- metadata.offset.fold {
+            // TODO replace this with proper config
             val error = JournalException(action.key, "metadata.offset is missing, make sure ProducerConfig.acks set to One or All")
             error.raiseError[F, Offset]
           } {

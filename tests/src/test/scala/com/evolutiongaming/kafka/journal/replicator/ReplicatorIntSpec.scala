@@ -4,17 +4,16 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.UUID
 
-import akka.actor.ActorSystem
 import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.FixEquality.Implicits._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
-import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession, EventualCassandra, EventualCassandraConfig}
+import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
 import com.evolutiongaming.kafka.journal.retry.Retry
 import com.evolutiongaming.kafka.journal.util.IOSuite._
-import com.evolutiongaming.kafka.journal.util.{FromFuture, Par, ToFuture}
+import com.evolutiongaming.kafka.journal.util.{ActorSystemOf, FromFuture, Par, ToFuture}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Offset
 import com.typesafe.config.{Config, ConfigFactory}
@@ -31,19 +30,10 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
   private def resources[F[_] : Concurrent : LogOf : Par : FromFuture : Clock : ToFuture : ContextShift] = {
 
     def eventualJournal(conf: Config) = {
-
       val config = Sync[F].delay { EventualCassandraConfig(conf.getConfig("cassandra")) }
-
-      def eventualJournal(config: EventualCassandraConfig)(implicit cassandraSession: CassandraSession[F]) = {
-        val eventualJournal = EventualCassandra.of[F](config, Some(origin))
-        Resource.liftF(eventualJournal)
-      }
-
       for {
-        config           <- Resource.liftF[F, EventualCassandraConfig](config)
-        cassandraCluster <- CassandraCluster.of[F](config.client, config.retries)
-        cassandraSession <- cassandraCluster.session
-        eventualJournal  <- eventualJournal(config)(cassandraSession)
+        config          <- Resource.liftF[F, EventualCassandraConfig](config)
+        eventualJournal <- EventualCassandra.of[F](config, None)
       } yield eventualJournal
     }
 
@@ -76,14 +66,11 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
     }
 
     val system = {
-      val system = for {
-        config <- Sync[F].delay { ConfigFactory.load("replicator.conf") }
-        system <- Sync[F].delay { ActorSystem(getClass.getSimpleName, config) }
-      } yield {
-        val release = FromFuture[F].apply { system.terminate() }.void
-        (system, release)
-      }
-      Resource(system)
+      val config = Sync[F].delay { ConfigFactory.load("replicator.conf") }
+      for {
+        config <- Resource.liftF(config)
+        system <- ActorSystemOf[F](getClass.getSimpleName, Some(config))
+      } yield system
     }
 
     for {

@@ -51,13 +51,12 @@ class EventualCassandraSpec extends EventualJournalSpec {
         }
       }
 
-      implicit val statements = EventualCassandra.Statements(
+      val statements = EventualCassandra.Statements(
         records = selectRecords,
         metadata = selectMetadata,
         pointers = selectPointers)
 
-      implicit val log = Log.empty[cats.Id]
-      EventualCassandra[cats.Id]
+      EventualCassandra[cats.Id](statements, Log.empty)
     }
 
     val replicated = {

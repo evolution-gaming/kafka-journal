@@ -5,7 +5,7 @@ import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.eventual.cassandra._
-import com.evolutiongaming.kafka.journal.util.{ActorSystemResource, FromFuture, Par, ToFuture}
+import com.evolutiongaming.kafka.journal.util.{ActorSystemOf, FromFuture, Par, ToFuture}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.scassandra.{AuthenticationConfig, CassandraConfig}
@@ -18,7 +18,7 @@ import scala.concurrent.duration._
 
 object ReadEventsApp extends IOApp {
 
-  def run(args: List[String]) = {
+  def run(args: List[String]): IO[ExitCode] = {
     val system = ActorSystem("ReadEventsApp")
     implicit val ec = system.dispatcher
     implicit val timer = IO.timer(ec)
@@ -27,7 +27,7 @@ object ReadEventsApp extends IOApp {
     implicit val par = Par.lift
     implicit val logOf = LogOf[IO](system)
 
-    val result = ActorSystemResource[IO](system).use { implicit system => runF[IO](ec) }
+    val result = ActorSystemOf[IO](system).use { implicit system => runF[IO](ec) }
     result.as(ExitCode.Success)
   }
 
@@ -64,24 +64,18 @@ object ReadEventsApp extends IOApp {
           username = "username",
           password = "password"))))
 
-    def eventualJournal(implicit cassandraSession: CassandraSession[F]) = {
-      EventualCassandra.of[F](eventualCassandraConfig, None)
-    }
-
     val journal = for {
-      cassandraCluster <- CassandraCluster.of[F](eventualCassandraConfig.client, eventualCassandraConfig.retries)
-      cassandraSession <- cassandraCluster.session
-      eventualJournal  <- Resource.liftF(eventualJournal(cassandraSession))
-      headCache        <- HeadCache.of[F](consumerConfig, eventualJournal)
-      kafkaProducer    <- KafkaProducerOf[F].apply(producerConfig)
+      eventualJournal <- EventualCassandra.of[F](eventualCassandraConfig, None)
+      headCache       <- HeadCache.of[F](consumerConfig, eventualJournal)
+      kafkaProducer   <- KafkaProducerOf[F].apply(producerConfig)
     } yield {
       val journal = Journal[F](None, kafkaProducer, topicConsumer, eventualJournal, 100.millis, headCache)
       val key = Key(id = "id", topic = "journal")
       for {
         pointer <- journal.pointer(key)
-        seqNrs <- journal.read(key, SeqNr.Min, List.empty[SeqNr]) { case (result, event) => (event.seqNr :: result).continue }
-        _ <- Log[F].info(s"pointer: $pointer")
-        _ <- Log[F].info(s"seqNrs: $seqNrs")
+        seqNrs  <- journal.read(key, SeqNr.Min, List.empty[SeqNr]) { case (result, event) => (event.seqNr :: result).continue }
+        _       <- Log[F].info(s"pointer: $pointer")
+        _       <- Log[F].info(s"seqNrs: $seqNrs")
       } yield {}
     }
 

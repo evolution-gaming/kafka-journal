@@ -51,7 +51,7 @@ object LogOf {
   }
 
 
-  def slfj4[F[_] : Sync](): F[LogOf[F]] = {
+  def slfj4[F[_] : Sync]: F[LogOf[F]] = {
     for {
       factory <- Sync[F].delay { LoggerFactory.getILoggerFactory }
     } yield {

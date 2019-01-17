@@ -39,25 +39,24 @@ object KafkaConverters {
   }
 
 
-  // TODO test this, especially case when value == None for Mark,Delete
   implicit class ConsumerRecordOps(val self: ConsumerRecord[Id, Bytes]) extends AnyVal {
 
     def toActionHeader: Option[ActionHeader] = {
       for {
         headerKafka <- self.headers.find { _.key == `journal.action` }
-        header = headerKafka.value.fromBytes[ActionHeader]
+        header       = headerKafka.value.fromBytes[ActionHeader]
       } yield header
     }
 
     def toAction: Option[Action] = {
       for {
-        id <- self.key
-        header <- self.toActionHeader
+        id               <- self.key
+        header           <- self.toActionHeader
         timestampAndType <- self.timestampAndType
-        timestamp = timestampAndType.timestamp
-        key = Key(id = id.value, topic = self.topic)
-        origin = header.origin
-        action <- header match {
+        timestamp         = timestampAndType.timestamp
+        key               = Key(id = id.value, topic = self.topic)
+        origin            = header.origin
+        action           <- header match {
           case header: ActionHeader.Append =>
             for {
               value <- self.value

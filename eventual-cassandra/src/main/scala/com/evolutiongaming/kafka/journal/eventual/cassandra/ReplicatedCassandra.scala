@@ -24,7 +24,7 @@ object ReplicatedCassandra {
     config: EventualCassandraConfig,
     metrics: Option[Metrics[F]]): F[ReplicatedJournal[F]] = {
 
-    implicit val cassandraSync = CassandraSync[F](config.schema, Some(Origin("replicator"/*TODO*/)))
+    implicit val cassandraSync = CassandraSync[F](config.schema)
     for {
       tables     <- CreateSchema[F](config.schema)
       statements <- Statements.of[F](tables)

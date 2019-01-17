@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 
-import akka.actor.ActorSystem
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.implicits._
@@ -27,48 +26,30 @@ trait Replicator[F[_]] {
 
 object Replicator {
 
-  def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift](
-    system: ActorSystem,
-    metrics: Metrics[F] = Metrics.empty[F]): Resource[F, F[Unit]] = {
-
-    val config = Sync[F].delay {
-      val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.replicator")
-      ReplicatorConfig(config)
-    }
-
-    for {
-      config     <- Resource.liftF(config)
-      cassandra  <- CassandraCluster.of(config.cassandra.client, config.cassandra.retries)
-      session    <- cassandra.session
-      blocking    = Sync[F].delay { system.dispatchers.lookup(config.blockingDispatcher) /*TODO move to common place*/}
-      blocking   <- Resource.liftF(blocking)
-      replicator <- {
-        implicit val kafkaConsumerOf = KafkaConsumerOf[F](blocking, metrics.consumer)
-        implicit val logOf = LogOf[F](system) // TODO remove
-        implicit val session1 = session
-        of[F](config, metrics)
-      }
-    } yield replicator
-  }
-
-  def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : CassandraSession : LogOf : KafkaConsumerOf](
+  def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf : KafkaConsumerOf](
     config: ReplicatorConfig,
-    metrics: Metrics[F]): Resource[F, F[Unit]] = {
+    metrics: Metrics[F] = Metrics.empty[F]/*TODO  option*/): Resource[F, F[Unit]] = {
 
     implicit val clock = Timer[F].clock
 
+    def replicatedJournal(implicit cassandraSession: CassandraSession[F]) = {
+      ReplicatedCassandra.of[F](config.cassandra, metrics.journal)
+    }
+
     for {
-      journal <- Resource.liftF(ReplicatedCassandra.of[F](config.cassandra, metrics.journal))
-      result  <- {
-        implicit val journal1 = journal
-        of2(config, metrics)
-      }
+      cassandraCluster  <- CassandraCluster.of(config.cassandra.client, config.cassandra.retries)
+      cassandraSession  <- cassandraCluster.session
+      replicatedJournal <- Resource.liftF(replicatedJournal(cassandraSession))
+      result            <- of(config, metrics, replicatedJournal)
     } yield result
   }
 
-  def of2[F[_] : Concurrent : Timer : Par : ReplicatedJournal : ContextShift : LogOf : KafkaConsumerOf](
+  def of[F[_] : Concurrent : Timer : Par : ContextShift : LogOf : KafkaConsumerOf](
     config: ReplicatorConfig,
-    metrics: Metrics[F]/*TODO not used for kafka*/): Resource[F, F[Unit]] = {
+    metrics: Metrics[F]/*TODO not used for kafka*/,
+    replicatedJournal: ReplicatedJournal[F]): Resource[F, F[Unit]] = {
+
+    implicit val replicatedJournal1 = replicatedJournal
 
     val topicReplicator = (topic: Topic) => {
 

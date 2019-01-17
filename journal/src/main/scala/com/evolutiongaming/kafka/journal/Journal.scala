@@ -4,13 +4,14 @@ import java.time.Instant
 import java.util.UUID
 
 import cats._
-import cats.effect.{Clock, Concurrent, ContextShift, Sync}
+import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.util.ClockHelper._
+import com.evolutiongaming.kafka.journal.util.Par
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Bytes => _, _}
 
@@ -41,7 +42,42 @@ object Journal {
     def delete(key: Key, to: SeqNr, timestamp: Instant) = none[PartitionOffset].pure[F]
   }
 
+  
+  def of[F[_] : Concurrent : ContextShift : Timer : Par : LogOf : KafkaConsumerOf : KafkaProducerOf](
+    config: JournalConfig,
+    origin: Option[Origin],
+    eventualJournal: EventualJournal[F],
+    metrics: Option[Metrics[F]]): Resource[F, Journal[F]] = {
 
+    val topicConsumer = TopicConsumer[F](config.consumer)
+
+    val headCache = {
+      if (config.headCache) {
+        HeadCache.of[F](config.consumer, eventualJournal)
+      } else {
+        Resource.pure[F, HeadCache[F]](HeadCache.empty[F])
+      }
+    }
+
+    for {
+      kafkaProducer <- KafkaProducerOf[F].apply(config.producer)
+      log           <- Resource.liftF(LogOf[F].apply(Journal.getClass))
+      headCache     <- headCache
+    } yield {
+      implicit val log1 = log
+      val journal = apply(
+        origin,
+        kafkaProducer,
+        topicConsumer,
+        eventualJournal,
+        config.pollTimeout,
+        headCache)
+      val withLog = journal.withLog(log)
+      metrics.fold(withLog) { metrics => withLog.withMetrics(metrics) }
+    }
+  }
+
+  
   def apply[F[_] : Concurrent : ContextShift : Clock : Log](
     origin: Option[Origin],
     kafkaProducer: KafkaProducer[F],
@@ -282,9 +318,9 @@ object Journal {
 
   def apply[F[_] : Sync : Clock](journal: Journal[F], metrics: Metrics[F]): Journal[F] = {
 
-    def latency[A](name: String, topic: Topic)(f: => F[A]/*TODO*/): F[(A, Long)] = {
+    def latency[A](name: String, topic: Topic)(fa: F[A]): F[(A, Long)] = {
       Latency {
-        f.handleErrorWith { e =>
+        fa.handleErrorWith { e =>
           for {
             _ <- metrics.failure(name, topic)
             a <- e.raiseError[F, A]

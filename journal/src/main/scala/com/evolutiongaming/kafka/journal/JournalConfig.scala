@@ -19,7 +19,8 @@ final case class JournalConfig(
     groupId = Some("journal"),
     autoOffsetReset = AutoOffsetReset.Earliest,
     maxPollRecords = 100,
-    autoCommit = false))
+    autoCommit = false),
+  headCache: Boolean = true)
 
 object JournalConfig {
 
@@ -44,6 +45,7 @@ object JournalConfig {
     JournalConfig(
       pollTimeout = get[FiniteDuration]("poll-timeout") getOrElse default.pollTimeout,
       producer = kafka("producer").fold(default.producer)(ProducerConfig(_, default.producer)),
-      consumer = kafka("consumer").fold(default.consumer)(ConsumerConfig(_, default.consumer)))
+      consumer = kafka("consumer").fold(default.consumer)(ConsumerConfig(_, default.consumer)),
+      headCache = get[Boolean]("head-cache.enabled") getOrElse default.headCache)
   }
 }

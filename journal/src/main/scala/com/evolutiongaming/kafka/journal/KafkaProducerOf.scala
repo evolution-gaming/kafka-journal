@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.effect.{ContextShift, Resource, Sync}
+import cats.effect._
 import com.evolutiongaming.kafka.journal.util.FromFuture
 import com.evolutiongaming.skafka.producer.{Producer, ProducerConfig}
 
@@ -15,7 +15,7 @@ object KafkaProducerOf {
 
   def apply[F[_]](implicit F: KafkaProducerOf[F]): KafkaProducerOf[F] = F
 
-  def apply[F[_] : Sync : ContextShift : FromFuture](
+  def apply[F[_] : Async : ContextShift : FromFuture : Clock](
     blocking: ExecutionContext,
     metrics: Option[Producer.Metrics] = None): KafkaProducerOf[F] = {
 

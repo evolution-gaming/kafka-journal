@@ -29,6 +29,7 @@ class JournalConfigSpec extends FunSuite with Matchers {
         groupId = Some("journal"),
         autoOffsetReset = AutoOffsetReset.Earliest,
         maxPollRecords = 100,
-        autoCommit = false))
+        autoCommit = false),
+      headCache = false)
   }
 }

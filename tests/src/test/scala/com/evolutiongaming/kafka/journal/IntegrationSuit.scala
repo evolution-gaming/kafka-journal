@@ -1,18 +1,21 @@
 package com.evolutiongaming.kafka.journal
 
-import akka.actor.{ActorSystem, CoordinatedShutdown}
 import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.cassandra.StartCassandra
 import com.evolutiongaming.kafka.StartKafka
-import com.evolutiongaming.kafka.journal.replicator.Replicator
-import com.evolutiongaming.kafka.journal.util.{FromFuture, Par, ResourceOf, ToFuture}
+import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
+import com.evolutiongaming.kafka.journal.util._
+import com.evolutiongaming.kafka.journal.util.IOSuite._
 import com.typesafe.config.ConfigFactory
+
+import scala.concurrent.ExecutionContext
 
 
 object IntegrationSuit {
 
-  def startF[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf](system: ActorSystem): Resource[F, Unit] = {
+  def startF[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf : Runtime](
+    blocking: ExecutionContext): Resource[F, Unit] = {
 
     def cassandra(log: Log[F]) = Resource {
       for {
@@ -37,10 +40,18 @@ object IntegrationSuit {
     }
 
     def replicator(log: Log[F]) = {
+      implicit val kafkaConsumerOf = KafkaConsumerOf[F](blocking)
+      val config = Sync[F].delay {
+        val config0 = ConfigFactory.load("replicator.conf")
+        val config1 = config0.getConfig("evolutiongaming.kafka-journal.replicator")
+        ReplicatorConfig(config1)
+      }
+
       for {
-        a  <- Replicator.of[F](system)
-        a1  = a.onError { case e => log.error(s"failed to release kafka with $e", e) }
-        _  <- ResourceOf(Concurrent[F].start(a1))
+        config  <- Resource.liftF(config)
+        result  <- Replicator.of[F](config)
+        result1  = result.onError { case e => log.error(s"failed to release replicator with $e", e) }
+        _       <- ResourceOf(Concurrent[F].start(result1))
       } yield {}
     }
 
@@ -52,23 +63,21 @@ object IntegrationSuit {
     } yield {}
   }
 
-  def startIO(system: ActorSystem): Resource[IO, Unit] = {
-    implicit val executionContext = system.dispatcher
-    implicit val contextShift = IO.contextShift(executionContext)
-    implicit val fromFuture = FromFuture.lift[IO]
-    implicit val timer = IO.timer(executionContext)
-    implicit val logOf = LogOf[IO](system)
-    startF[IO](system)
+  def startIO: Resource[IO, Unit] = {
+    val logOf = LogOf.slfj4[IO]
+    for {
+      logOf  <- Resource.liftF(logOf)
+      result <- {
+        implicit val logOf1 = logOf
+        startF[IO](IOSuite.ec)
+      }
+    } yield result
   }
 
   private lazy val started: Unit = {
-    val config = ConfigFactory.load("replicator.conf")
-    val system = ActorSystem("replicator", config)
-    val (_, release) = startIO(system).allocated.unsafeRunSync()
+    val (_, release) = startIO.allocated.unsafeRunSync()
 
-    CoordinatedShutdown.get(system).addJvmShutdownHook {
-      release.unsafeRunSync()
-    }
+    sys.addShutdownHook { release.unsafeRunSync() }
   }
 
   def start(): Unit = started

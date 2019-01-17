@@ -5,7 +5,7 @@ import java.util.concurrent.Executors
 import cats.effect.{Resource, Sync}
 import com.evolutiongaming.cassandra
 import com.evolutiongaming.cassandra.sync.AutoCreate
-import com.evolutiongaming.kafka.journal.Origin
+import com.evolutiongaming.hostname.HostName
 import com.evolutiongaming.kafka.journal.util.{FromFuture, ToFuture}
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 
@@ -17,24 +17,20 @@ object CassandraSync {
 
   def apply[F[_]](implicit F: CassandraSync[F]): CassandraSync[F] = F
 
-  def apply[F[_] : Sync : FromFuture : ToFuture : CassandraSession](
-    config: SchemaConfig,
-    origin: Option[Origin]): CassandraSync[F] = {
+  def apply[F[_] : Sync : FromFuture : ToFuture : CassandraSession](config: SchemaConfig): CassandraSync[F] = {
 
     val keyspace = config.keyspace
     val autoCreate = if (keyspace.autoCreate) AutoCreate.Table else AutoCreate.None
     apply(
       keyspace = keyspace.name,
       table = config.locksTable,
-      autoCreate = autoCreate,
-      origin = origin)
+      autoCreate = autoCreate)
   }
 
   def apply[F[_] : Sync : FromFuture : ToFuture : CassandraSession](
     keyspace: String,
     table: String,
-    autoCreate: AutoCreate,
-    origin: Option[Origin]): CassandraSync[F] = {
+    autoCreate: AutoCreate): CassandraSync[F] = {
 
     new CassandraSync[F] {
 
@@ -55,7 +51,7 @@ object CassandraSync {
             autoCreate = autoCreate)
 
           FromFuture[F].apply {
-            cassandraSync(id = "kafka-journal", metadata = origin.map(_.value)) {
+            cassandraSync(id = "kafka-journal", metadata = HostName()) {
               fa.unsafeToFuture()
             }
           }

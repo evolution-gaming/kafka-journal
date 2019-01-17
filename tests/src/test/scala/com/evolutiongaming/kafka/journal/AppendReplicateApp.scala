@@ -5,8 +5,7 @@ import akka.persistence.kafka.journal.KafkaJournalConfig
 import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
-import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraCluster
-import com.evolutiongaming.kafka.journal.replicator.Replicator
+import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
 import com.evolutiongaming.kafka.journal.util.ClockHelper._
 import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.nel.Nel
@@ -26,15 +25,16 @@ object AppendReplicateApp extends IOApp {
     implicit val toFuture = ToFuture.io
     implicit val parallel = IO.ioParallel
     implicit val par = Par.lift
+    implicit val runtime = Runtime.lift[IO]
 
     val topic = "journal.AppendReplicate"
 
-    val result = ActorSystemResource[IO](system).use { implicit system => runF[IO](topic) }
+    val result = ActorSystemOf[IO](system).use { implicit system => runF[IO](topic) }
     result.as(ExitCode.Success)
   }
 
 
-  private def runF[F[_] : Concurrent : Timer : Par : ContextShift : FromFuture : ToFuture](
+  private def runF[F[_] : Concurrent : Timer : Par : ContextShift : FromFuture : ToFuture : Runtime](
     topic: Topic)(implicit
     system: ActorSystem): F[Unit] = {
 
@@ -43,10 +43,6 @@ object AppendReplicateApp extends IOApp {
     val kafkaJournalConfig = Sync[F].delay {
       val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.persistence.journal")
       KafkaJournalConfig(config)
-    }
-
-    def blocking(kafkaJournalConfig: KafkaJournalConfig) = {
-      Sync[F].delay { system.dispatchers.lookup(kafkaJournalConfig.blockingDispatcher) }
     }
 
     def journal(
@@ -63,20 +59,29 @@ object AppendReplicateApp extends IOApp {
           origin = Origin.HostName,
           kafkaProducer = producer,
           topicConsumer = topicConsumer,
-          eventualJournal = EventualJournal.empty[F] /*TODO*/ ,
+          eventualJournal = EventualJournal.empty[F],
           pollTimeout = journalConfig.pollTimeout,
           headCache = HeadCache.empty[F])
       }
     }
 
+    def replicator(implicit kafkaConsumerOf: KafkaConsumerOf[F]) = {
+      val config = Sync[F].delay {
+        val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.replicator")
+        ReplicatorConfig(config)
+      }
+      for {
+        config <- Resource.liftF(config)
+        result <- Replicator.of[F](config)
+      } yield result
+    }
+
     val resource = for {
       kafkaJournalConfig <- Resource.liftF(kafkaJournalConfig)
-      blocking           <- Resource.liftF(blocking(kafkaJournalConfig))
+      blocking           <- Executors.blocking[F]
       kafkaConsumerOf     = KafkaConsumerOf[F](blocking)
       kafkaProducerOf     = KafkaProducerOf[F](blocking)
-      replicate          <- Replicator.of[F](system)
-      cassandraCluster   <- CassandraCluster.of(kafkaJournalConfig.cassandra.client, kafkaJournalConfig.cassandra.retries)
-      cassandraSession   <- cassandraCluster.session
+      replicate          <- replicator(kafkaConsumerOf)
       producer           <- kafkaProducerOf.apply(kafkaJournalConfig.journal.producer)
       journal            <- Resource.liftF(journal(producer, kafkaJournalConfig.journal)(kafkaConsumerOf))
     } yield {

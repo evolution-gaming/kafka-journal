@@ -10,10 +10,8 @@ import scala.concurrent.duration._
 final case class KafkaJournalConfig(
   journal: JournalConfig = JournalConfig.Default,
   cassandra: EventualCassandraConfig = EventualCassandraConfig.Default,
-  blockingDispatcher: String = "evolutiongaming.kafka-journal.persistence.blocking-dispatcher",
   startTimeout: FiniteDuration = 1.minute,
-  stopTimeout: FiniteDuration = 1.minute,
-  headCache: Boolean = true)
+  stopTimeout: FiniteDuration = 1.minute)
 
 object KafkaJournalConfig {
 
@@ -30,9 +28,7 @@ object KafkaJournalConfig {
     KafkaJournalConfig(
       journal = JournalConfig(config),
       cassandra = get[Config]("cassandra").fold(default.cassandra)(EventualCassandraConfig(_)),
-      blockingDispatcher = get[String]("blocking-dispatcher") getOrElse default.blockingDispatcher,
       startTimeout = get[FiniteDuration]("start-timeout") getOrElse default.startTimeout,
-      stopTimeout = get[FiniteDuration]("stop-timeout") getOrElse default.stopTimeout,
-      headCache = get[Boolean]("head-cache.enabled") getOrElse default.headCache)
+      stopTimeout = get[FiniteDuration]("stop-timeout") getOrElse default.stopTimeout)
   }
 }

@@ -18,7 +18,7 @@ object KafkaHealthCheckApp extends IOApp {
     implicit val fromFuture = FromFuture.lift[IO]
 
     for {
-      logOf <- LogOf.slfj4[IO]()
+      logOf <- LogOf.slfj4[IO]
       _     <- {
         implicit val logOf1 = logOf
         runF[IO](ec)
