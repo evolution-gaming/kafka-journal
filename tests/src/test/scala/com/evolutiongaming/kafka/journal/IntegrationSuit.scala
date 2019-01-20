@@ -14,8 +14,7 @@ import scala.concurrent.ExecutionContext
 
 object IntegrationSuit {
 
-  def startF[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf : Runtime](
-    blocking: ExecutionContext): Resource[F, Unit] = {
+  def startF[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf : Runtime]: Resource[F, Unit] = {
 
     def cassandra(log: Log[F]) = Resource {
       for {
@@ -39,7 +38,7 @@ object IntegrationSuit {
       }
     }
 
-    def replicator(log: Log[F]) = {
+    def replicator(log: Log[F], blocking: ExecutionContext) = {
       implicit val kafkaConsumerOf = KafkaConsumerOf[F](blocking)
       val config = Sync[F].delay {
         val config0 = ConfigFactory.load("replicator.conf")
@@ -56,10 +55,11 @@ object IntegrationSuit {
     }
 
     for {
-      log <- Resource.liftF(LogOf[F].apply(IntegrationSuit.getClass))
-      _   <- cassandra(log)
-      _   <- kafka(log)
-      _   <- replicator(log)
+      log      <- Resource.liftF(LogOf[F].apply(IntegrationSuit.getClass))
+      _        <- cassandra(log)
+      _        <- kafka(log)
+      blocking <- Executors.blocking[F]
+      _        <- replicator(log, blocking)
     } yield {}
   }
 
@@ -69,7 +69,7 @@ object IntegrationSuit {
       logOf  <- Resource.liftF(logOf)
       result <- {
         implicit val logOf1 = logOf
-        startF[IO](IOSuite.ec)
+        startF[IO]
       }
     } yield result
   }
