@@ -27,9 +27,9 @@ trait JournalSuit extends ActorSuite with Matchers { self: Suite =>
   lazy val ((eventual, producer), release) = {
     val resource = for {
       eventualJournal <- EventualCassandra.of[IO](config.cassandra, None)
-      kafkaProducer   <- KafkaProducerOf[IO].apply(config.journal.producer)
+      producer   <- Journal.Producer.of[IO](config.journal.producer)
     } yield {
-      (eventualJournal, kafkaProducer)
+      (eventualJournal, producer)
     }
 
     resource.allocated.unsafeRunSync()

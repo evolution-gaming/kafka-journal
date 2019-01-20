@@ -12,7 +12,7 @@ trait AppendAction[F[_]] {
 
 object AppendAction {
 
-  def apply[F[_] : Sync](producer: KafkaProducer[F]): AppendAction[F] = {
+  def apply[F[_] : Sync](producer: Journal.Producer[F]): AppendAction[F] = {
 
     new AppendAction[F] {
 

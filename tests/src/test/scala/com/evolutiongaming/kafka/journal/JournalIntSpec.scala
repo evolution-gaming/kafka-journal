@@ -25,7 +25,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuit {
       for {
         headCache <- HeadCache.of[IO](config.journal.consumer, eventualJournal)
         journal = Journal[IO](
-          kafkaProducer = producer,
+          producer = producer,
           origin = Some(origin),
           consumer = consumer,
           eventualJournal = eventualJournal,

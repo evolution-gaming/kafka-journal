@@ -67,9 +67,9 @@ object ReadEventsApp extends IOApp {
     val journal = for {
       eventualJournal <- EventualCassandra.of[F](eventualCassandraConfig, None)
       headCache       <- HeadCache.of[F](consumerConfig, eventualJournal)
-      kafkaProducer   <- KafkaProducerOf[F].apply(producerConfig)
+      producer        <- Journal.Producer.of[F](producerConfig)
     } yield {
-      val journal = Journal[F](None, kafkaProducer, consumer, eventualJournal, 100.millis, headCache)
+      val journal = Journal[F](None, producer, consumer, eventualJournal, 100.millis, headCache)
       val key = Key(id = "id", topic = "journal")
       for {
         pointer <- journal.pointer(key)

@@ -14,6 +14,7 @@ import com.evolutiongaming.kafka.journal.util.ClockHelper._
 import com.evolutiongaming.kafka.journal.util.Par
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords}
+import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord, RecordMetadata}
 import com.evolutiongaming.skafka.{Bytes => _, _}
 
 import scala.concurrent.duration._
@@ -61,14 +62,14 @@ object Journal {
     }
 
     for {
-      kafkaProducer <- KafkaProducerOf[F].apply(config.producer)
+      producer      <- Producer.of[F](config.producer)
       log           <- Resource.liftF(LogOf[F].apply(Journal.getClass))
       headCache     <- headCache
     } yield {
       implicit val log1 = log
       val journal = apply(
         origin,
-        kafkaProducer,
+        producer,
         consumer,
         eventualJournal,
         config.pollTimeout,
@@ -81,14 +82,14 @@ object Journal {
   
   def apply[F[_] : Concurrent : ContextShift : Clock : Log](
     origin: Option[Origin],
-    kafkaProducer: KafkaProducer[F],
+    producer: Producer[F],
     consumer: Resource[F, Consumer[F]],
     eventualJournal: EventualJournal[F],
     pollTimeout: FiniteDuration,
     headCache: HeadCache[F]): Journal[F] = {
 
     val withPollActions = WithPollActions[F](consumer, pollTimeout)
-    val appendAction = AppendAction[F](kafkaProducer)
+    val appendAction = AppendAction[F](producer)
     apply[F](origin, eventualJournal, withPollActions, appendAction, headCache)
   }
 
@@ -399,6 +400,44 @@ object Journal {
     }
 
     def empty[F[_] : Applicative]: Metrics[F] = empty(().pure[F])
+  }
+
+
+  trait Producer[F[_]] {
+    def send(record: ProducerRecord[Id, Bytes]): F[RecordMetadata]
+  }
+
+  object Producer {
+
+    def of[F[_] : Sync : KafkaProducerOf](config: ProducerConfig): Resource[F, Producer[F]] = {
+
+      val acks = config.acks match {
+        case Acks.None => Acks.One
+        case acks      => acks
+      }
+
+      val config1 = config.copy(
+        acks = acks,
+        idempotence = true,
+        retries = config.retries max 10,
+        common = config.common.copy(
+          clientId = Some(config.common.clientId getOrElse "journal"),
+          sendBufferBytes = config.common.sendBufferBytes max 1000000))
+
+      for {
+        kafkaProducer <- KafkaProducerOf[F].apply(config1)
+      } yield {
+        apply(kafkaProducer)
+      }
+    }
+
+    def apply[F[_]](producer: KafkaProducer[F]): Producer[F] = {
+      new Producer[F] {
+        def send(record: ProducerRecord[Id, Bytes]) = {
+          producer.send(record)
+        }
+      }
+    }
   }
 
 

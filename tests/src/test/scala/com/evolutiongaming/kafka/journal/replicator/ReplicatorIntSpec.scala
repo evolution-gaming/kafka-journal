@@ -49,15 +49,15 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       implicit val kafkaProducerOf = KafkaProducerOf[F](blocking)
 
       for {
-        config        <- Resource.liftF(config)
-        kafkaProducer <- KafkaProducerOf[F].apply(config.producer)
-        consumer       = Journal.Consumer.of[F](config.consumer)
-        log           <- Resource.liftF(LogOf[F].apply(Journal.getClass))
+        config   <- Resource.liftF(config)
+        producer <- Journal.Producer.of[F](config.producer)
+        consumer  = Journal.Consumer.of[F](config.consumer)
+        log      <- Resource.liftF(LogOf[F].apply(Journal.getClass))
       } yield {
         implicit val log1 = log
         Journal[F](
           origin = Some(origin),
-          kafkaProducer = kafkaProducer,
+          producer = producer,
           consumer = consumer,
           eventualJournal = eventualJournal,
           pollTimeout = config.pollTimeout,

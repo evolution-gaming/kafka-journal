@@ -97,11 +97,5 @@ object SeqNr {
     implicit class IntOps(val self: Int) extends AnyVal {
       def toSeqNr: SeqNr = self.toLong.toSeqNr
     }
-
-    // TODO remove
-    implicit class OptSeqNrOps(val self: Option[SeqNr]) extends AnyVal {
-
-      def toLong: Long = self.fold(0l)(_.value)
-    }
   }
 }
