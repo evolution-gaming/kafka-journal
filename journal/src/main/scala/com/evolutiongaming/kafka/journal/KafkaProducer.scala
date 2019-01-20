@@ -13,7 +13,6 @@ import org.apache.kafka.clients.producer.{Callback, Producer => ProducerJ, Recor
 import scala.concurrent.ExecutionContext
 import scala.util.control.NonFatal
 
-// TODO create by Config factories
 trait KafkaProducer[F[_]] {
 
   def send[K: skafka.ToBytes, V: skafka.ToBytes](record: ProducerRecord[K, V]): F[RecordMetadata]

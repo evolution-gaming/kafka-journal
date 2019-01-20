@@ -153,7 +153,6 @@ object Log {
     def error(msg: => String, cause: Throwable) = unit
   }
 
-  // TODO revisit usages of this and rely on LogOf
   def empty[F[_] : Applicative]: Log[F] = const(Applicative[F].unit)
 
 

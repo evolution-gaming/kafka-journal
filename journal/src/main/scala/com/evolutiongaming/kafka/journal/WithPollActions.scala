@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.implicits._
-import cats.effect.Sync
+import cats.effect.{Resource, Sync}
 import cats.~>
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Partition, TopicPartition}
@@ -16,14 +16,13 @@ trait WithPollActions[F[_]] {
 object WithPollActions {
 
   def apply[F[_] : Sync : Log](
-    topicConsumer: TopicConsumer[F],
+    consumer: Resource[F, Journal.Consumer[F]],
     pollTimeout: FiniteDuration): WithPollActions[F] = {
 
     new WithPollActions[F] {
 
       // TODO pass From instead of Last offset
       def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[F] => F[A]) = {
-        val consumer = topicConsumer(key.topic)
         val from = offset.fold(Offset.Min)(_ + 1)
         val topicPartition = TopicPartition(topic = key.topic, partition = partition)
         consumer.use { consumer =>

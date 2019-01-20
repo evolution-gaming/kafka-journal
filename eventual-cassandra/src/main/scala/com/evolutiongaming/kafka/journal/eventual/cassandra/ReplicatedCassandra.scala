@@ -16,7 +16,6 @@ import com.evolutiongaming.skafka.Topic
 import scala.annotation.tailrec
 
 
-// TODO redesign EventualDbCassandra so it can hold state and called recursively
 // TODO test ReplicatedCassandra
 object ReplicatedCassandra {
 

@@ -8,7 +8,6 @@ import com.google.common.util.concurrent.{FutureCallback, Futures, ListenableFut
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
 
-// TODO remove odd usages
 trait FromFuture[F[_]] {
 
   def apply[A](future: => Future[A])(): F[A]

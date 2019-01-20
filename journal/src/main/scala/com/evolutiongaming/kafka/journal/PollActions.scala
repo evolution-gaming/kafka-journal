@@ -14,7 +14,7 @@ object PollActions {
 
   def apply[F[_] : FlatMap](
     key: Key,
-    consumer: KafkaConsumer[F, Id, Bytes],
+    consumer: Journal.Consumer[F],
     timeout: FiniteDuration): PollActions[F] = {
 
     new PollActions[F] {

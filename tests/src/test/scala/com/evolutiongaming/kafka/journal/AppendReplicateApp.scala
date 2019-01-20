@@ -50,7 +50,7 @@ object AppendReplicateApp extends IOApp {
       journalConfig: JournalConfig)(implicit
       kafkaConsumerOf: KafkaConsumerOf[F]) = {
 
-      val topicConsumer = TopicConsumer[F](journalConfig.consumer)
+      val consumer = Journal.Consumer.of[F](journalConfig.consumer)
       for {
         log <- LogOf[F].apply(Journal.getClass)
       } yield {
@@ -58,7 +58,7 @@ object AppendReplicateApp extends IOApp {
         Journal[F](
           origin = Origin.HostName,
           kafkaProducer = producer,
-          topicConsumer = topicConsumer,
+          consumer = consumer,
           eventualJournal = EventualJournal.empty[F],
           pollTimeout = journalConfig.pollTimeout,
           headCache = HeadCache.empty[F])

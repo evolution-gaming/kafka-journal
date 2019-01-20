@@ -13,6 +13,7 @@ import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.util.ClockHelper._
 import com.evolutiongaming.kafka.journal.util.Par
 import com.evolutiongaming.nel.Nel
+import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords}
 import com.evolutiongaming.skafka.{Bytes => _, _}
 
 import scala.concurrent.duration._
@@ -49,7 +50,7 @@ object Journal {
     eventualJournal: EventualJournal[F],
     metrics: Option[Metrics[F]]): Resource[F, Journal[F]] = {
 
-    val topicConsumer = TopicConsumer[F](config.consumer)
+    val consumer = Consumer.of[F](config.consumer)
 
     val headCache = {
       if (config.headCache) {
@@ -68,7 +69,7 @@ object Journal {
       val journal = apply(
         origin,
         kafkaProducer,
-        topicConsumer,
+        consumer,
         eventualJournal,
         config.pollTimeout,
         headCache)
@@ -81,12 +82,12 @@ object Journal {
   def apply[F[_] : Concurrent : ContextShift : Clock : Log](
     origin: Option[Origin],
     kafkaProducer: KafkaProducer[F],
-    topicConsumer: TopicConsumer[F],
+    consumer: Resource[F, Consumer[F]],
     eventualJournal: EventualJournal[F],
     pollTimeout: FiniteDuration,
     headCache: HeadCache[F]): Journal[F] = {
 
-    val withPollActions = WithPollActions[F](topicConsumer, pollTimeout)
+    val withPollActions = WithPollActions[F](consumer, pollTimeout)
     val appendAction = AppendAction[F](kafkaProducer)
     apply[F](origin, eventualJournal, withPollActions, appendAction, headCache)
   }
@@ -398,6 +399,49 @@ object Journal {
     }
 
     def empty[F[_] : Applicative]: Metrics[F] = empty(().pure[F])
+  }
+
+
+  trait Consumer[F[_]] {
+
+    def assign(partitions: Nel[TopicPartition]): F[Unit]
+
+    def seek(partition: TopicPartition, offset: Offset): F[Unit]
+
+    def poll(timeout: FiniteDuration): F[ConsumerRecords[Id, Bytes]]
+  }
+
+  object Consumer {
+
+    def of[F[_] : Sync : KafkaConsumerOf](config: ConsumerConfig): Resource[F, Consumer[F]] = {
+
+      val config1 = config.copy(
+        groupId = None,
+        autoCommit = false)
+
+      for {
+        kafkaConsumer <- KafkaConsumerOf[F].apply[Id, Bytes](config1)
+      } yield {
+        apply[F](kafkaConsumer)
+      }
+    }
+
+    def apply[F[_]](consumer: KafkaConsumer[F, Id, Bytes]): Consumer[F] = {
+      new Consumer[F] {
+
+        def assign(partitions: Nel[TopicPartition]) = {
+          consumer.assign(partitions)
+        }
+
+        def seek(partition: TopicPartition, offset: Offset) = {
+          consumer.seek(partition, offset)
+        }
+
+        def poll(timeout: FiniteDuration) = {
+          consumer.poll(timeout)
+        }
+      }
+    }
   }
 
 

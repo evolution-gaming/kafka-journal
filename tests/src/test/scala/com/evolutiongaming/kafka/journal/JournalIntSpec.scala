@@ -7,7 +7,6 @@ import cats.implicits._
 import cats.effect.{IO, Sync}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.util.IOSuite._
-import com.evolutiongaming.kafka.journal.util.IOHelper._
 import com.evolutiongaming.kafka.journal.util.Par
 import com.evolutiongaming.nel.Nel
 import org.scalatest.{AsyncWordSpec, Succeeded}
@@ -20,7 +19,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuit {
   val origin = Origin("JournalIntSpec")
 
   private val journalOf = {
-    val topicConsumer = TopicConsumer[IO](config.journal.consumer)
+    val consumer = Journal.Consumer.of[IO](config.journal.consumer)
     eventualJournal: EventualJournal[IO] => {
       implicit val log = Log.empty[IO]
       for {
@@ -28,7 +27,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuit {
         journal = Journal[IO](
           kafkaProducer = producer,
           origin = Some(origin),
-          topicConsumer = topicConsumer,
+          consumer = consumer,
           eventualJournal = eventualJournal,
           pollTimeout = config.journal.pollTimeout,
           headCache = headCache)

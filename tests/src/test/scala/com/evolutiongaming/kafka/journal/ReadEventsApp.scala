@@ -50,7 +50,7 @@ object ReadEventsApp extends IOApp {
 
     val consumerConfig = ConsumerConfig(common = commonConfig)
 
-    val topicConsumer = TopicConsumer[F](consumerConfig)
+    val consumer = Journal.Consumer.of[F](consumerConfig)
 
     val eventualCassandraConfig = EventualCassandraConfig(
       schema = SchemaConfig(
@@ -69,7 +69,7 @@ object ReadEventsApp extends IOApp {
       headCache       <- HeadCache.of[F](consumerConfig, eventualJournal)
       kafkaProducer   <- KafkaProducerOf[F].apply(producerConfig)
     } yield {
-      val journal = Journal[F](None, kafkaProducer, topicConsumer, eventualJournal, 100.millis, headCache)
+      val journal = Journal[F](None, kafkaProducer, consumer, eventualJournal, 100.millis, headCache)
       val key = Key(id = "id", topic = "journal")
       for {
         pointer <- journal.pointer(key)
