@@ -14,7 +14,7 @@ import com.evolutiongaming.kafka.journal.util.ClockHelper._
 import com.evolutiongaming.kafka.journal.util.Par
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords}
-import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord, RecordMetadata}
+import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord}
 import com.evolutiongaming.skafka.{Bytes => _, _}
 
 import scala.concurrent.duration._
@@ -404,7 +404,7 @@ object Journal {
 
 
   trait Producer[F[_]] {
-    def send(record: ProducerRecord[Id, Bytes]): F[RecordMetadata]
+    def send(record: ProducerRecord[Id, Bytes]): F[PartitionOffset]
   }
 
   object Producer {
@@ -431,10 +431,21 @@ object Journal {
       }
     }
 
-    def apply[F[_]](producer: KafkaProducer[F]): Producer[F] = {
+    def apply[F[_] : Sync](producer: KafkaProducer[F]): Producer[F] = {
       new Producer[F] {
         def send(record: ProducerRecord[Id, Bytes]) = {
-          producer.send(record)
+          for {
+            metadata  <- producer.send(record)
+            partition  = metadata.topicPartition.partition
+            offset    <- metadata.offset.fold {
+              val error = new IllegalArgumentException("metadata.offset is missing, make sure ProducerConfig.acks set to One or All")
+              error.raiseError[F, Offset]
+            } {
+              _.pure[F]
+            }
+          } yield {
+            PartitionOffset(partition, offset)
+          }
         }
       }
     }

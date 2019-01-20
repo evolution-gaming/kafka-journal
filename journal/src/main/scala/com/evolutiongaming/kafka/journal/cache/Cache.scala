@@ -3,55 +3,67 @@ package com.evolutiongaming.kafka.journal.cache
 import cats.effect.Concurrent
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.implicits._
+import com.evolutiongaming.kafka.journal.util.CatsHelper._
 
 trait Cache[F[_], K, V] {
 
-  def getOrUpdate(k: K)(v: F[V]): F[V]
+  def get(key: K): F[Option[V]]
 
-  def values: F[Map[K, Deferred[F, V]]]
+  def getOrUpdate(key: K)(value: => F[V]): F[V]
+
+  def values: F[Map[K, F[V]]]
 }
 
 object Cache {
 
   def of[F[_] : Concurrent, K, V]: F[Cache[F, K, V]] = {
     for {
-      ref <- Ref.of[F, Map[K, Deferred[F, V]]](Map.empty)
+      ref <- Ref.of[F, Map[K, F[V]]](Map.empty)
     } yield {
+      apply(ref)
+    }
+  }
 
-      new Cache[F, K, V] {
+  private def apply[F[_] : Concurrent, K, V](ref: Ref[F, Map[K, F[V]]]): Cache[F, K, V] = {
+    new Cache[F, K, V] {
 
-        // TODO add support of cancellation
-        def getOrUpdate(k: K)(v: F[V]) = {
+      def get(key: K) = {
+        for {
+          values <- values
+          value  <- values.get(key).fold(none[V].pure[F]) { _.map(_.some) }
+        } yield value
+      }
+
+      def getOrUpdate(key: K)(value: => F[V]) = {
+
+        def update = {
           for {
-            map <- ref.get
-            v <- map.get(k).fold {
-              for {
-                d <- Deferred[F, V]
-                v <- ref.modify { map =>
-                  map.get(k).fold {
-                    val value = for {
-                      v <- v
-                      _ <- d.complete(v)
-                    } yield v
-                    (map.updated(k, d), value)
-                  } { d =>
-                    (map, d.get)
-                  }
+            deferred <- Deferred[F, F[V]]
+            value1   <- ref.modify { map =>
+              map.get(key).fold {
+                val value1 = Concurrent[F].uncancelable {
+                  for {
+                    value <- value.redeem[F[V], Throwable](_.raiseError[F, V])(_.pure[F])
+                    _     <- deferred.complete(value)
+                    value <- value
+                  } yield value
                 }
-                v <- v
-              } yield {
-                v
+                (map.updated(key, deferred.get.flatten), value1)
+              } { value =>
+                (map, value)
               }
-            } { d =>
-              d.get
             }
-          } yield {
-            v
-          }
+            value1 <- value1
+          } yield value1
         }
 
-        def values = ref.get
+        for {
+          map   <- ref.get
+          value <- map.getOrElse(key, update)
+        } yield value
       }
+
+      def values = ref.get
     }
   }
 }

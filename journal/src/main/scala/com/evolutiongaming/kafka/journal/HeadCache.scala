@@ -93,7 +93,7 @@ object HeadCache {
         v <- c.values
         _ <- Par[F].foldMap(v.values) { v =>
           for {
-            v <- v.get
+            v <- v
             _ <- v.close
           } yield {}
         }
