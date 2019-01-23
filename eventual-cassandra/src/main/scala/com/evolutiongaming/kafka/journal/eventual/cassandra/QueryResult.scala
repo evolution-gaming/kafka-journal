@@ -9,6 +9,7 @@ import com.evolutiongaming.kafka.journal.util.FromFuture
 import com.evolutiongaming.nel.Nel
 
 
+// TODO replace with Stream
 final case class QueryResult[F[_] : Monad](value: Option[(Nel[Row], F[QueryResult[F]])]) { self =>
 
   def head: Option[Row] = value.fold(none[Row]) { case (rows, _) => rows.head.some }

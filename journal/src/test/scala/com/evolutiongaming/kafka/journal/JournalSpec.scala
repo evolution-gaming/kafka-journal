@@ -396,17 +396,8 @@ object JournalSpec {
         }
       }
 
-      def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
-
-        def read(state: State) = {
-          state.events.foldWhile(s) { (s, replicated) =>
-            val seqNr = replicated.event.seqNr
-            if (seqNr >= from) f(s, replicated)
-            else s.continue
-          }
-        }
-
-        read(state)
+      def read(key: Key, from: SeqNr) = {
+        Stream[cats.Id].apply(state.events.toList.filter(_.seqNr >= from))
       }
 
       def pointer(key: Key) = {

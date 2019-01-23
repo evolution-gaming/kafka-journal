@@ -2,12 +2,10 @@ package com.evolutiongaming.kafka.journal.eventual
 
 import java.time.Instant
 
-import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.ClockOf
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Topic}
-import org.scalatest.Matchers._
 import org.scalatest.{Matchers, WordSpec}
 
 trait EventualJournalSpec extends WordSpec with Matchers {
@@ -322,11 +320,7 @@ object EventualJournalSpec {
 
     def apply(journal: EventualJournal[cats.Id], key: Key): Eventual = new Eventual {
 
-      def events(from: SeqNr = SeqNr.Min) = {
-        val switch = journal.read(key, from, List.empty[ReplicatedEvent]) { (xs, x) => (x :: xs).continue }
-        switch.continue shouldEqual true
-        switch.s.reverse
-      }
+      def events(from: SeqNr = SeqNr.Min) = journal.read(key, from).toList
 
       def pointer = journal.pointer(key)
 

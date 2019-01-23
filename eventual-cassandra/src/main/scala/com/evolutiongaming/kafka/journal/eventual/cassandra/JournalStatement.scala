@@ -2,12 +2,11 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
-import cats.{FlatMap, Monad}
 import cats.implicits._
+import cats.{FlatMap, Monad}
 import com.datastax.driver.core.BatchStatement
-import com.evolutiongaming.kafka.journal.FoldWhile._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
@@ -116,7 +115,7 @@ object JournalStatement {
 
 
   trait SelectRecords[F[_]] {
-    def apply[S](key: Key, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]): F[Switch[S]]
+    def apply(key: Key, segment: SegmentNr, range: SeqRange): Stream[F, ReplicatedEvent]
   }
 
   object SelectRecords {
@@ -147,40 +146,42 @@ object JournalStatement {
         prepared <- query.prepare
       } yield {
         new SelectRecords[F] {
-          def apply[S](key: Key, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]) = {
+
+          def apply(key: Key, segment: SegmentNr, range: SeqRange) = {
+
             val bound = prepared
               .bind()
               .encode(key)
               .encode(segment)
               .setLong(3, range.from.value) // TODO
               .setLong(4, range.to.value) // TODO
-//              .encodeAt(3, range.from)
-//              .encodeAt(4, range.to)
+            //              .encodeAt(3, range.from)
+            //              .encodeAt(4, range.to)
 
             for {
-              result <- bound.execute
-              result <- result.foldWhile[S](s) { case (s, row) =>
-                val partitionOffset = row.decode[PartitionOffset]
+              result <- Stream.lift(bound.execute)
+              // TODO use Stream.map
+              row <- result.stream
+            } yield {
+              val partitionOffset = row.decode[PartitionOffset]
 
-                val payloadType = row.decode[Option[PayloadType]]("payload_type")
-                val payload = payloadType.map {
-                  case PayloadType.Binary => row.decode[Option[Payload.Binary]]("payload_bin") getOrElse Payload.Binary.Empty
-                  case PayloadType.Text   => row.decode[Payload.Text]("payload_txt")
-                  case PayloadType.Json   => row.decode[Payload.Json]("payload_txt")
-                }
-
-                val event = Event(
-                  seqNr = row.decode[SeqNr],
-                  tags = row.decode[Tags]("tags"),
-                  payload = payload)
-                val replicated = ReplicatedEvent(
-                  event = event,
-                  timestamp = row.decode[Instant]("timestamp"),
-                  origin = row.decode[Option[Origin]],
-                  partitionOffset = partitionOffset)
-                f(s, replicated)
+              val payloadType = row.decode[Option[PayloadType]]("payload_type")
+              val payload = payloadType.map {
+                case PayloadType.Binary => row.decode[Option[Payload.Binary]]("payload_bin") getOrElse Payload.Binary.Empty
+                case PayloadType.Text   => row.decode[Payload.Text]("payload_txt")
+                case PayloadType.Json   => row.decode[Payload.Json]("payload_txt")
               }
-            } yield result
+
+              val event = Event(
+                seqNr = row.decode[SeqNr],
+                tags = row.decode[Tags]("tags"),
+                payload = payload)
+              ReplicatedEvent(
+                event = event,
+                timestamp = row.decode[Instant]("timestamp"),
+                origin = row.decode[Option[Origin]],
+                partitionOffset = partitionOffset)
+            }
           }
         }
       }
@@ -192,7 +193,7 @@ object JournalStatement {
 
   object DeleteRecords {
 
-    def of[F[_]: FlatMap: CassandraSession](name: TableName): F[DeleteRecords[F]] = {
+    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[DeleteRecords[F]] = {
       val query =
         s"""
            |DELETE FROM ${ name.toCql }

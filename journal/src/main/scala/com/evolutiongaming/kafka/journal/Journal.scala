@@ -150,9 +150,10 @@ object Journal {
       // TODO add optimisation for ranges
       def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = {
 
+        // TODO why do we need this?
         def replicatedSeqNr(from: SeqNr) = {
           val ss: (S, Option[SeqNr], Option[Offset]) = (s, Some(from), None)
-          eventual.read(key, from, ss) { case ((s, _, _), replicated) =>
+          eventual.read(key, from).foldWhileSwitch(ss) { case ((s, _, _), replicated) =>
             val event = replicated.event
             val switch = f(s, event)
             switch.map { s =>
@@ -165,8 +166,10 @@ object Journal {
 
         def replicated(from: SeqNr) = {
           for {
-            s <- eventual.read(key, from, s) { (s, replicated) => f(s, replicated.event) }
-          } yield s.s
+            switch <- eventual.read(key, from).foldWhileSwitch(s) { (s, replicated) => f(s, replicated.event) }
+          } yield {
+            switch.s
+          }
         }
 
         def onNonEmpty(deleteTo: Option[SeqNr], readActions: FoldActions[F]) = {

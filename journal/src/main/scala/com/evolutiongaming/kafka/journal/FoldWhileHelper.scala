@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import cats.Monad
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.concurrent.FutureHelper._
 import com.evolutiongaming.kafka.journal.FoldWhile._
@@ -10,12 +11,17 @@ import com.evolutiongaming.nel.Nel
 import scala.collection.immutable
 import scala.concurrent.Future
 
+// TODO remove
 object FoldWhileHelper {
 
+  implicit class NelFoldWhile[A](val self: Nel[A]) extends AnyVal {
 
-  implicit class NelFoldWhile[E](val self: Nel[E]) extends AnyVal {
-    def foldWhile[S](s: S)(f: Fold[S, E]): Switch[S] = {
+    def foldWhile[S](s: S)(f: Fold[S, A]): Switch[S] = {
       self.toList.foldWhile(s)(f)
+    }
+
+    def foldWhileM[F[_], B, S](s: S)(f: (S, A) => F[Either[S, B]])(implicit F: Monad[F]): F[Either[S, B]] = {
+      self.toList.foldWhileM(s)(f)
     }
   }
 

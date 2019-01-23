@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal.eventual
 import cats._
 import cats.effect.Clock
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.Topic
 
@@ -11,7 +10,7 @@ trait EventualJournal[F[_]] {
 
   def pointers(topic: Topic): F[TopicPointers]
 
-  def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]): F[Switch[S]]
+  def read(key: Key, from: SeqNr): Stream[F, ReplicatedEvent]
 
   // TODO not Use Pointer until tested
   def pointer(key: Key): F[Option[Pointer]]
@@ -31,12 +30,15 @@ object EventualJournal {
       } yield r
     }
 
-    def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
-      for {
-        rl     <- Latency { journal.read(key, from, s)(f) }
-        (r, l)  = rl
-        _      <- log.debug(s"$key read in ${ l }ms, from: $from, state: $s, result: $r")
-      } yield r
+    def read(key: Key, from: SeqNr) = new Stream[F, ReplicatedEvent] {
+
+      def foldWhileM[L, R](l: L)(f: (L, ReplicatedEvent) => F[Either[L, R]]) = {
+        for {
+          rl     <- Latency { journal.read(key, from).foldWhileM(l)(f) }
+          (r, l)  = rl
+          _      <- log.debug(s"$key read in ${ l }ms, from: $from, result: $r")
+        } yield r
+      }
     }
 
     def pointer(key: Key) = {
@@ -61,17 +63,22 @@ object EventualJournal {
       } yield r
     }
 
-    def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
-      val ff: Fold[(S, Int), ReplicatedEvent] = {
-        case ((s, n), e) => f(s, e).map { s => (s, n + 1) }
+    def read(key: Key, from: SeqNr) = {
+
+      val stream = new Stream[F, ReplicatedEvent] {
+        def foldWhileM[L, R](l: L)(f: (L, ReplicatedEvent) => F[Either[L, R]]) = {
+          for {
+            rl     <- Latency { journal.read(key, from).foldWhileM(l)(f) } // TODO around
+            (r, l)  = rl
+            _      <- metrics.read(topic = key.topic, latency = l)
+          } yield r
+        }
       }
+
       for {
-        rl      <- Latency { journal.read(key, from, (s, 0))(ff) }
-        (s, l)   = rl
-        (_, es)  = s.s
-        _       <- metrics.read(topic = key.topic, latency = l, events = es)
-        r        = s.map { case (s, _) => s }
-      } yield r
+        a <- stream
+        _ <- Stream.lift(metrics.read(key.topic))
+      } yield a
     }
 
     def pointer(key: Key) = {
@@ -88,7 +95,7 @@ object EventualJournal {
 
     def pointers(topic: Topic) = TopicPointers.Empty.pure[F]
 
-    def read[S](key: Key, from: SeqNr, state: S)(f: Fold[S, ReplicatedEvent]) = state.continue.pure[F]
+    def read(key: Key, from: SeqNr) = Stream.empty[F, ReplicatedEvent]
 
     def pointer(key: Key) = none[Pointer].pure[F]
   }
@@ -98,7 +105,9 @@ object EventualJournal {
 
     def pointers(topic: Topic, latency: Long): F[Unit]
 
-    def read(topic: Topic, latency: Long, events: Int): F[Unit]
+    def read(topic: Topic, latency: Long): F[Unit]
+
+    def read(topic: Topic): F[Unit]
 
     def pointer(topic: Topic, latency: Long): F[Unit]
   }
@@ -109,7 +118,9 @@ object EventualJournal {
 
       def pointers(topic: Topic, latency: Long) = unit
 
-      def read(topic: Topic, latency: Long, events: Int) = unit
+      def read(topic: Topic, latency: Long) = unit
+
+      def read(topic: Topic) = unit
 
       def pointer(topic: Topic, latency: Long) = unit
     }
@@ -120,15 +131,13 @@ object EventualJournal {
 
   implicit class EventualJournalOps[F[_]](val self: EventualJournal[F]) extends AnyVal {
 
-    def mapK[G[_]](f: F ~> G): EventualJournal[G] = new EventualJournal[G] {
+    def mapK[G[_]](to: F ~> G, from: G ~> F): EventualJournal[G] = new EventualJournal[G] {
 
-      def pointers(topic: Topic) = f(self.pointers(topic))
+      def pointers(topic: Topic) = to(self.pointers(topic))
 
-      def read[S](key: Key, from: SeqNr, s: S)(f1: Fold[S, ReplicatedEvent]) = {
-        f(self.read[S](key, from, s)(f1))
-      }
+      def read(key: Key, from1: SeqNr) = self.read(key, from1).mapK(to, from)
 
-      def pointer(key: Key) = f(self.pointer(key))
+      def pointer(key: Key) = to(self.pointer(key))
     }
 
     def withLog(log: Log[F])(implicit flatMap: FlatMap[F], clock: Clock[F]): EventualJournal[F] = {

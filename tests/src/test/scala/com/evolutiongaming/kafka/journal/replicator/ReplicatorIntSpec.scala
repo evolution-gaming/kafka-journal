@@ -7,7 +7,6 @@ import java.util.UUID
 import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.FixEquality.Implicits._
-import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
@@ -108,9 +107,8 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
     def read(key: Key)(until: List[ReplicatedEvent] => Boolean) = {
       val events = for {
-        switch <- eventualJournal.read[List[ReplicatedEvent]](key, SeqNr.Min, Nil) { case (xs, x) => Switch.continue(x :: xs) }
-        events = switch.s
-        events <- if (until(events)) events.reverse.pure[IO] else Error.raiseError[IO, List[ReplicatedEvent]]
+        events <- eventualJournal.read(key, SeqNr.Min).toList
+        events <- if (until(events)) events.pure[IO] else Error.raiseError[IO, List[ReplicatedEvent]]
       } yield events
 
       Retry[IO, Throwable](strategy)((_, _) => ().pure[IO]).apply(events)

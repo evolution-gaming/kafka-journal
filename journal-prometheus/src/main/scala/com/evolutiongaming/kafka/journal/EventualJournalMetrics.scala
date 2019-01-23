@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.effect.Sync
 import com.evolutiongaming.kafka.journal.MetricsHelper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.skafka.Topic
@@ -7,48 +8,57 @@ import io.prometheus.client.{CollectorRegistry, Summary}
 
 object EventualJournalMetrics {
 
-  def apply[F[_]](
+  def apply[F[_] : Sync](
     registry: CollectorRegistry,
-    prefix: String = "eventual_journal")(implicit unit: F[Unit]): EventualJournal.Metrics[F] = {
+    prefix: String = "eventual_journal"): F[EventualJournal.Metrics[F]] = {
 
-    val latencySummary = Summary.build()
-      .name(s"${ prefix }_topic_latency")
-      .help("Journal call latency in seconds")
-      .labelNames("topic", "type")
-      .quantile(0.5, 0.05)
-      .quantile(0.9, 0.05)
-      .quantile(0.95, 0.01)
-      .quantile(0.99, 0.005)
-      .register(registry)
+    Sync[F].delay {
 
-    val eventsSummary = Summary.build()
-      .name(s"${ prefix }_events")
-      .help("Number of events")
-      .labelNames("topic")
-      .register(registry)
+      val latencySummary = Summary.build()
+        .name(s"${ prefix }_topic_latency")
+        .help("Journal call latency in seconds")
+        .labelNames("topic", "type")
+        .quantile(0.5, 0.05)
+        .quantile(0.9, 0.05)
+        .quantile(0.95, 0.01)
+        .quantile(0.99, 0.005)
+        .register(registry)
 
-    def observeLatency(name: String, topic: Topic, latency: Long) = {
-      latencySummary
-        .labels(topic, name)
-        .observe(latency.toSeconds)
-      unit
-    }
+      val eventsSummary = Summary.build()
+        .name(s"${ prefix }_events")
+        .help("Number of events")
+        .labelNames("topic")
+        .register(registry)
 
-    new EventualJournal.Metrics[F] {
-
-      def pointers(topic: Topic, latency: Long) = {
-        observeLatency(name = "pointers", topic = topic, latency = latency)
+      def observeLatency(name: String, topic: Topic, latency: Long) = {
+        Sync[F].delay {
+          latencySummary
+            .labels(topic, name)
+            .observe(latency.toSeconds)
+        }
       }
 
-      def read(topic: Topic, latency: Long, events: Int) = {
-        eventsSummary
-          .labels(topic)
-          .observe(events.toDouble)
-        observeLatency(name = "read", topic = topic, latency = latency)
-      }
+      new EventualJournal.Metrics[F] {
 
-      def pointer(topic: Topic, latency: Long) = {
-        observeLatency(name = "pointer", topic = topic, latency = latency)
+        def pointers(topic: Topic, latency: Long) = {
+          observeLatency(name = "pointers", topic = topic, latency = latency)
+        }
+
+        def read(topic: Topic, latency: Long) = {
+          observeLatency(name = "read", topic = topic, latency = latency)
+        }
+
+        def read(topic: Topic) = {
+          Sync[F].delay {
+            eventsSummary
+              .labels(topic)
+              .observe(1.0)
+          }
+        }
+
+        def pointer(topic: Topic, latency: Long) = {
+          observeLatency(name = "pointer", topic = topic, latency = latency)
+        }
       }
     }
   }

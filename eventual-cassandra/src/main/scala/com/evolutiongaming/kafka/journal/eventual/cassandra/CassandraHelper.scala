@@ -5,6 +5,7 @@ import cats.implicits._
 import com.datastax.driver.core.{PreparedStatement, Row, Statement}
 import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
+import com.evolutiongaming.kafka.journal.Stream
 
 object CassandraHelper {
 
@@ -21,6 +22,25 @@ object CassandraHelper {
           else for {
             resultSet <- resultSet
           } yield (ss.s, resultSet).asLeft
+        }
+      }
+    }
+
+    def stream(implicit F: Monad[F]): Stream[F, Row] = new Stream[F, Row] {
+
+      def foldWhileM[L, R](s: L)(f: (L, Row) => F[Either[L, R]]) = {
+        (s, self).tailRecM[F, Either[L, R]] { case (s, queryResult) =>
+          queryResult.value.fold {
+            s.asLeft[R].asRight[(L, QueryResult[F])].pure[F]
+          } { case (rows, queryResult) =>
+            for {
+              result <- rows.foldWhileM(s)(f)
+              result <- result match {
+                case Left(s) => queryResult.map { queryResult => (s, queryResult).asLeft[Either[L, R]] }
+                case result  => result.asRight[(L, QueryResult[F])].pure[F]
+              }
+            } yield result
+          }
         }
       }
     }

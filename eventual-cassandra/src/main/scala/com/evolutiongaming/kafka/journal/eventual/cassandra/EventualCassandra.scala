@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.Monad
 import cats.effect.{Clock, Concurrent, Resource}
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.util.{FromFuture, Par, ToFuture}
@@ -53,45 +52,44 @@ object EventualCassandra {
         statements.pointers(topic)
       }
 
-      def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, ReplicatedEvent]) = {
+      def read(key: Key, from: SeqNr): Stream[F, ReplicatedEvent] = {
 
         def read(statement: JournalStatement.SelectRecords[F], metadata: Metadata) = {
 
-          case class SS(seqNr: SeqNr, s: S)
+          def read(from: SeqNr) = new Stream[F, ReplicatedEvent] {
 
-          val ff = (ss: SS, replicated: ReplicatedEvent) => {
-            for {
-              s <- f(ss.s, replicated)
-            } yield SS(replicated.event.seqNr, s)
-          }
+            def foldWhileM[L, R](l: L)(f: (L, ReplicatedEvent) => F[Either[L, R]]) = {
 
-          def read(from: SeqNr) = {
+              case class S(l: L, seqNr: SeqNr)
 
-            def read(from: SeqNr, segment: Segment, s: S): F[Switch[S]] = {
-              val range = SeqRange(from, SeqNr.Max) // TODO do we need range here ?
+              val ff = (s: S, replicated: ReplicatedEvent) => {
+                for {
+                  result <- f(s.l, replicated)
+                } yield {
+                  result.leftMap { l => S(l, replicated.event.seqNr) }
+                }
+              }
 
-              for {
-                result <- statement(key, segment.nr, range, SS(from, s))(ff)
-                result <- {
-                  val ss = result.s
-                  val s = ss.s
-                  val seqNr = ss.seqNr
-                  if (result.stop) s.stop.pure[F]
-                  else {
+              val segment = Segment(from, metadata.segmentSize)
+
+              (from, segment, l).tailRecM { case (from, segment, l) =>
+                val range = SeqRange(from, SeqNr.Max) // TODO do we need range here ?
+                for {
+                  result <- statement(key, segment.nr, range).foldWhileM[S, R](S(l, from))(ff) // TODO
+                } yield result match {
+                  case Left(s) =>
                     val result = for {
-                      from    <- seqNr.next
+                      from <- s.seqNr.next
                       segment <- segment.next(from)
                     } yield {
-                      read(from, segment, s)
+                      (from, segment, s.l).asLeft[Either[L, R]]
                     }
-                    result getOrElse s.continue.pure[F]
-                  }
-                }
-              } yield result
-            }
+                    result getOrElse s.l.asLeft[R].asRight[(SeqNr, Segment, L)]
 
-            val segment = Segment(from, metadata.segmentSize)
-            read(from, segment, s)
+                  case Right(r) => r.asRight[L].asRight[(SeqNr, Segment, L)]
+                }
+              }
+            }
           }
 
           metadata.deleteTo match {
@@ -100,14 +98,14 @@ object EventualCassandra {
               if (from > deleteTo) read(from)
               else deleteTo.next match {
                 case Some(from) => read(from)
-                case None       => s.continue.pure[F]
+                case None       => Stream.empty[F, ReplicatedEvent]
               }
           }
         }
 
         for {
-          metadata <- statements.metadata(key)
-          result   <- metadata.fold(s.continue.pure[F]) { metadata =>
+          metadata <- Stream.lift(statements.metadata(key))
+          result   <- metadata.fold(Stream.empty[F, ReplicatedEvent]) { metadata =>
             read(statements.records, metadata)
           }
         } yield {

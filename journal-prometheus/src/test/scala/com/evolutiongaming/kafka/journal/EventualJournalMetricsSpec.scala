@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
+import com.evolutiongaming.kafka.journal.util.TestSync
 import io.prometheus.client.CollectorRegistry
 import org.scalatest.{FunSuite, Matchers}
 
@@ -8,9 +9,15 @@ class EventualJournalMetricsSpec extends FunSuite with Matchers {
 
   test("read") {
     new Scope {
-      metrics.read(topic, latency = 1000, events = 10)
+      metrics.read(topic, latency = 1000)
       registry.latency("read") shouldEqual Some(1)
-      registry.events() shouldEqual Some(10)
+    }
+  }
+
+  test("read event") {
+    new Scope {
+      metrics.read(topic)
+      registry.events() shouldEqual Some(1)
     }
   }
 
@@ -29,8 +36,9 @@ class EventualJournalMetricsSpec extends FunSuite with Matchers {
   }
 
   private trait Scope {
+    implicit val syncId = TestSync[cats.Id](cats.catsInstancesForId)
     val registry = new CollectorRegistry()
-    val metrics = EventualJournalMetrics[cats.Id](registry, prefix)(())
+    val metrics = EventualJournalMetrics[cats.Id](registry, prefix)
   }
 }
 

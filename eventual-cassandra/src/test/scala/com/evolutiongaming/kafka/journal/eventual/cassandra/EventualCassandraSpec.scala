@@ -1,9 +1,10 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import com.evolutiongaming.kafka.journal.FoldWhile._
+import cats.implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournalSpec, TopicPointers}
+import com.evolutiongaming.kafka.journal.FoldWhile1._
 import com.evolutiongaming.kafka.journal.util.{ConcurrentOf, Par, ParOf}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Topic
@@ -41,12 +42,17 @@ class EventualCassandraSpec extends EventualJournalSpec {
     val eventual = {
 
       val selectRecords = new JournalStatement.SelectRecords[cats.Id] {
-        def apply[S](key: Key, segment: SegmentNr, range: SeqRange, s: S)(f: Fold[S, ReplicatedEvent]) = {
-          val events = journal.events(key, segment)
-          events.foldWhile(s) { (s, event) =>
-            val seqNr = event.event.seqNr
-            if (range contains seqNr) f(s, event)
-            else s.switch(seqNr <= range.to)
+
+        def apply(key: Key, segment: SegmentNr, range: SeqRange) = {
+          new Stream[cats.Id, ReplicatedEvent] {
+            def foldWhileM[L, R](l: L)(f: (L, ReplicatedEvent) => cats.Id[Either[L, R]]) = {
+              val events = journal.events(key, segment)
+              events.foldWhileM[cats.Id, L, R](l) { (l, event) =>
+                val seqNr = event.event.seqNr
+                if (range contains seqNr) f(l, event)
+                else l.asLeft[R].pure[cats.Id]
+              }
+            }
           }
         }
       }
