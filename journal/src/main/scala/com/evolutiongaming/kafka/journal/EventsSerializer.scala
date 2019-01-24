@@ -107,9 +107,9 @@ object EventsSerializer {
           case Nil          => json.reverse
           case head :: tail =>
             val result = head.payload.fold[Option[EventJson]](Some(EventJson(head))) {
-              case payload: Payload.Binary => None
-              case payload: Payload.Text   => Some(EventJson(head, payload))
-              case payload: Payload.Json   => Some(EventJson(head, payload))
+              case _: Payload.Binary => None
+              case a: Payload.Text   => Some(EventJson(head, a))
+              case a: Payload.Json   => Some(EventJson(head, a))
             }
             result match {
               case None    => Nil

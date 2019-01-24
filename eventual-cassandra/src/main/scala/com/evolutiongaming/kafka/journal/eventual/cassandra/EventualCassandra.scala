@@ -37,14 +37,14 @@ object EventualCassandra {
       tables     <- CreateSchema[F](schemaConfig)
       statements <- Statements.of[F](tables)
     } yield {
-      val journal = apply[F](statements, log)
+      val journal = apply[F](statements)
       val withLog = journal.withLog(log)
       metrics.fold(withLog) { metrics => withLog.withMetrics(metrics) }
     }
   }
 
 
-  def apply[F[_] : Monad : Par](statements: Statements[F], log: Log[F]): EventualJournal[F] = {
+  def apply[F[_] : Monad : Par](statements: Statements[F]): EventualJournal[F] = {
 
     new EventualJournal[F] {
 

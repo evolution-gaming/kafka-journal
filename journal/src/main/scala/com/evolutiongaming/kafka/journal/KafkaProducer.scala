@@ -126,7 +126,7 @@ object KafkaProducer {
           }
 
           try {
-            producer.send(recordBytes, callback1)
+            val _ = producer.send(recordBytes, callback1)
           } catch {
             case NonFatal(failure) => callback(failure.asLeft[RecordMetadataJ])
           }

@@ -14,7 +14,7 @@ trait ActorSuite extends BeforeAndAfterAll { self: Suite =>
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
-    system
+    val _ = system
   }
 
   override protected def afterAll(): Unit = {

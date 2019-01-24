@@ -65,7 +65,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
 
   override def preStart(): Unit = {
     super.preStart()
-    adapter
+    val _ = adapter
   }
 
   override def postStop(): Unit = {

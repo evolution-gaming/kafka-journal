@@ -43,12 +43,12 @@ class JournalSpec extends WordSpec with Matchers {
       val name = combination.map(_.mkString("[", ",", "]")).mkString(",")
 
       s"append, $name" in {
-        val (journal, offset) = createAndAppend()
+        val (journal, _) = createAndAppend()
         journal.read(SeqRange.All) shouldEqual seqNrs
       }
 
       s"read, $name" in {
-        val (journal, offset) = createAndAppend()
+        val (journal, _) = createAndAppend()
         journal.read(SeqRange.All) shouldEqual seqNrs
         val last = seqNrLast getOrElse SeqNr.Min
         journal.read(SeqNr.Min to last) shouldEqual seqNrs
@@ -56,14 +56,14 @@ class JournalSpec extends WordSpec with Matchers {
       }
 
       s"delete all, $name" in {
-        val (journal, offset) = createAndAppend()
+        val (journal, _) = createAndAppend()
         for {seqNr <- seqNrLast} journal.delete(seqNr)
         journal.read(SeqRange.All) shouldEqual Nil
         journal.lastSeqNr() shouldEqual seqNrLast
       }
 
       s"delete SeqNr.Max, $name" in {
-        val (journal, offset) = createAndAppend()
+        val (journal, _) = createAndAppend()
         journal.delete(SeqNr.Max)
         journal.read(SeqRange.All) shouldEqual Nil
         journal.lastSeqNr() shouldEqual seqNrLast
@@ -77,7 +77,7 @@ class JournalSpec extends WordSpec with Matchers {
       }
 
       s"lastSeqNr, $name" in {
-        val (journal, offset) = createAndAppend()
+        val (journal, _) = createAndAppend()
         journal.lastSeqNr() shouldEqual seqNrLast
       }
 
@@ -87,14 +87,14 @@ class JournalSpec extends WordSpec with Matchers {
       } {
 
         s"delete except last, $name" in {
-          val (journal, offset) = createAndAppend()
+          val (journal, _) = createAndAppend()
           journal.delete(seqNr)
           journal.read(SeqRange.All) shouldEqual seqNrs.dropWhile(_ <= seqNr)
           journal.lastSeqNr() shouldEqual seqNrLast
         }
 
         s"read tail, $name" in {
-          val (journal, offset) = createAndAppend()
+          val (journal, _) = createAndAppend()
           journal.read(seqNr to SeqNr.Max) shouldEqual seqNrs.dropWhile(_ < seqNr)
         }
       }
@@ -460,9 +460,9 @@ object JournalSpec {
         }
 
         record.action match {
-          case action: Action.Append => onAppend(action)
-          case action: Action.Delete => onDelete(action)
-          case action: Action.Mark   => updateOffset
+          case a: Action.Append => onAppend(a)
+          case a: Action.Delete => onDelete(a)
+          case _: Action.Mark   => updateOffset
         }
       }
     }

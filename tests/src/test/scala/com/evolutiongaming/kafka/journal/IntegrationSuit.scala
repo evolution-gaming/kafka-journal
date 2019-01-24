@@ -77,7 +77,7 @@ object IntegrationSuit {
   private lazy val started: Unit = {
     val (_, release) = startIO.allocated.unsafeRunSync()
 
-    sys.addShutdownHook { release.unsafeRunSync() }
+    val _ = sys.addShutdownHook { release.unsafeRunSync() }
   }
 
   def start(): Unit = started

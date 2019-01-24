@@ -306,12 +306,11 @@ object HeadCache {
         }
       } yield {
         val release = Par[F].foldMap(List(consuming, cleaning)) { _.cancel }
-        apply(topic, release, state)
+        apply(release, state)
       }
     }
 
     def apply[F[_] : Concurrent : Eventual : Monad : Log](
-      topic: Topic,
       release: F[Unit],
       stateRef: SerialRef[F, State[F]]): TopicCache[F] = {
 

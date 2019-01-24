@@ -130,17 +130,17 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
         def persist(events: Nel[String]) = {
           val cmd = Cmd(events)
           ref.tell(cmd, testActor)
-          expectMsg(events.last)
+          val _ = expectMsg(events.last)
         }
 
         def delete(seqNr: Long) = {
           val delete = Delete(seqNr)
           ref.tell(delete, testActor)
-          expectMsg(DeleteMessagesSuccess(seqNr))
+          val _ = expectMsg(DeleteMessagesSuccess(seqNr))
         }
 
         def stop() = {
-          ConsistencySpec.this.stop(ref)
+          val _ = ConsistencySpec.this.stop(ref)
         }
       }
     }

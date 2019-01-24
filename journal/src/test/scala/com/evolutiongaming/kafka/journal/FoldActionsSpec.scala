@@ -75,10 +75,10 @@ class FoldActionsSpec extends FunSuite with Matchers {
     val withPollActions = WithPollActionsOneByOne[cats.Id](records.to[Queue])
 
     val foldActions = FoldActions[cats.Id](key, SeqNr.Min, marker, replicated, withPollActions)
-    val seqNr = foldActions(offset, List.empty[SeqNr]) { (s, action) =>
-      action match {
-        case action: Action.Append => (action.range.seqNrs.toList ::: s).continue
-        case action: Action.Delete => s.continue
+    val seqNr = foldActions(offset, List.empty[SeqNr]) { (s, a) =>
+      a match {
+        case a: Action.Append => (a.range.seqNrs.toList ::: s).continue
+        case _: Action.Delete => s.continue
       }
     }
     seqNr.reverse.map(_.value)

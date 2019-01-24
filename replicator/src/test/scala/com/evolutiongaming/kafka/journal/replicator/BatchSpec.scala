@@ -274,7 +274,7 @@ class BatchSpec extends FunSuite with Matchers {
   def appends(offset: Int, a: A.Append, as: A.Append*): Batch.Appends = {
     val partitionOffset = partitionOffsetOf(offset)
     val appends = Nel(a, as.toList).map { a =>
-      val action = appendOf(offset = a.offset, Nel(a.seqNr, a.seqNrs))
+      val action = appendOf(Nel(a.seqNr, a.seqNrs))
       actionRecordOf(action, a.offset)
     }
     Batch.Appends(partitionOffset, appends)
@@ -304,7 +304,7 @@ class BatchSpec extends FunSuite with Matchers {
     if (origin.isEmpty) None else Some(Origin(origin))
   }
 
-  def appendOf(offset: Int, seqNrs: Nel[Int]): Action.Append = {
+  def appendOf(seqNrs: Nel[Int]): Action.Append = {
     Action.Append(
       key = keyOf,
       timestamp = timestamp,
@@ -314,20 +314,16 @@ class BatchSpec extends FunSuite with Matchers {
       payload = Payload.Binary.Empty)
   }
 
-  def deleteOf(offset: Int, seqNr: Int, origin: String): Action.Delete = {
+  def deleteOf(seqNr: Int, origin: String): Action.Delete = {
     val originOpt = originOf(origin)
     Action.Delete(keyOf, timestamp, originOpt, seqNrOf(seqNr))
   }
 
-  def markOf(offset: Int): Action.Mark = {
-    Action.Mark(keyOf, timestamp, None, "id")
-  }
-
   def actionOf(a: A): Action = {
     a match {
-      case a: A.Append => appendOf(offset = a.offset, Nel(a.seqNr, a.seqNrs))
-      case a: A.Delete => deleteOf(seqNr = a.seqNr, offset = a.offset, origin = a.origin)
-      case a: A.Mark   => markOf(offset = a.offset)
+      case a: A.Append => appendOf(Nel(a.seqNr, a.seqNrs))
+      case a: A.Delete => deleteOf(seqNr = a.seqNr, origin = a.origin)
+      case _: A.Mark   => Action.Mark(keyOf, timestamp, None, "id")
     }
   }
 

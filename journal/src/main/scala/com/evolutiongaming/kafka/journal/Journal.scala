@@ -175,18 +175,17 @@ object Journal {
         def onNonEmpty(deleteTo: Option[SeqNr], readActions: FoldActions[F]) = {
 
           def events(from: SeqNr, offset: Option[Offset], s: S) = {
-            readActions(offset, s) { case (s, action) =>
-              action match {
-                case action: Action.Append =>
-                  if (action.range.to < from) s.continue
+            readActions(offset, s) { case (s, a) =>
+              a match {
+                case _: Action.Delete => s.continue
+                case a: Action.Append =>
+                  if (a.range.to < from) s.continue
                   else {
-                    val events = EventsFromPayload(action.payload, action.payloadType)
+                    val events = EventsFromPayload(a.payload, a.payloadType)
                     events.foldWhile(s) { case (s, event) =>
                       if (event.seqNr >= from) f(s, event) else s.continue
                     }
                   }
-
-                case action: Action.Delete => s.continue
               }
             }
           }
@@ -241,7 +240,7 @@ object Journal {
             case Some(info) => info match {
               case JournalInfo.Empty          => seqNrEventual
               case info: JournalInfo.NonEmpty => info.seqNr.some.pure[F]
-              case info: JournalInfo.Deleted  => seqNrEventual
+              case _   : JournalInfo.Deleted  => seqNrEventual
             }
 
             case None =>

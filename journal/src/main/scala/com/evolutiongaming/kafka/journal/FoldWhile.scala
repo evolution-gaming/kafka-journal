@@ -35,7 +35,7 @@ object FoldWhile1 {
       F.foldWhileM[G, A, L, R](self, l)(f)
     }
 
-    def foldWhile[L, R](fa: F[A], l: L)(f: (L, A) => Either[L, R])(implicit F: FoldWhile1[F]): Either[L, R] = {
+    def foldWhile[L, R](l: L)(f: (L, A) => Either[L, R])(implicit F: FoldWhile1[F]): Either[L, R] = {
       F.foldWhile[A, L, R](self, l)(f)
     }
   }

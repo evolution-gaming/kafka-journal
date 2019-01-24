@@ -80,9 +80,9 @@ object EventSerializer {
       }
 
       payload match {
-        case payload: Payload.Binary => binary(payload.value)
-        case payload: Payload.Text   => sys.error(s"Payload.Text is not supported, persistenceId: $persistenceId, event: $event")
-        case payload: Payload.Json   => json(payload.value)
+        case p: Payload.Binary => binary(p.value)
+        case _: Payload.Text   => sys.error(s"Payload.Text is not supported, persistenceId: $persistenceId, event: $event")
+        case p: Payload.Json   => json(p.value)
       }
     }
   }

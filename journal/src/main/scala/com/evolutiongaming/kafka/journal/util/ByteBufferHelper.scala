@@ -22,7 +22,9 @@ object ByteBufferHelper {
 
     def writeBytes(bytes: Bytes): Unit = {
       self.putInt(bytes.length)
-      if (bytes.nonEmpty) self.put(bytes)
+      if (bytes.nonEmpty) {
+        val _ = self.put(bytes)
+      }
     }
 
     def readString: String = {

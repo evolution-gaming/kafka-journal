@@ -25,9 +25,9 @@ object KafkaConverters {
       val actionHeader = ActionHeader(self)
       val header = Header(`journal.action`, actionHeader.toBytes)
       val payload = self match {
-        case action: Action.Append => Some(action.payload.value)
-        case action: Action.Delete => None
-        case action: Action.Mark   => None
+        case a: Action.Append => Some(a.payload.value)
+        case _: Action.Delete => None
+        case _: Action.Mark   => None
       }
       ProducerRecord(
         topic = key.topic,
