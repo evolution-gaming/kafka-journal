@@ -2,7 +2,9 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 
+import cats.data.StateT
 import cats.implicits._
+import cats.{FlatMap, Monad}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhile._
@@ -11,7 +13,7 @@ import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointer
 import com.evolutiongaming.kafka.journal.util.{ClockOf, ConcurrentOf}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{Assertion, Matchers, WordSpec}
 
 import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
@@ -20,106 +22,183 @@ class JournalSpec extends WordSpec with Matchers {
   import JournalSpec._
 
   // TODO add test when Kafka missing it's tail comparing to eventual
-  def test(journalOf: () => SeqNrJournal): Unit = {
-
+  def testF[F[_] : Monad](withJournal: (SeqNrJournal[F] => F[Assertion]) => Assertion): Unit = {
     for {
-      size <- 0 to 5
-      seqNrs = (1L to size.toLong).toList.map(_.toSeqNr) // TODO convert to SeqRange
+      size        <- 0 to 5
+      seqNrs       = (1L to size.toLong).toList.map(_.toSeqNr) // TODO convert to SeqRange
       combination <- Combinations(seqNrs)
     } {
 
       val seqNrLast = seqNrs.lastOption
 
-      def createAndAppend(): (SeqNrJournal, Option[Offset]) = {
-        val journal = journalOf()
-        val offset = combination.foldLeft(Option.empty[Offset]) { (_, seqNrs) =>
-          val offset = journal.append(seqNrs.head, seqNrs.tail: _*)
-          Some(offset)
+      def createAndAppend(f: (SeqNrJournal[F], Option[Offset]) => F[Assertion]) = {
+        withJournal { journal =>
+          for {
+            offset <- combination.foldLeft(none[Offset].pure[F]) { (offset, seqNrs) =>
+              for {
+                _      <- offset
+                offset <- journal.append(seqNrs.head, seqNrs.tail: _*)
+              } yield {
+                offset.some
+              }
+            }
+            offsetNext  = offset.map(_ + 1)
+            result     <- f(journal, offsetNext)
+          } yield result
         }
-        val offsetNext = offset.map(_ + 1)
-        (journal, offsetNext)
       }
 
       val name = combination.map(_.mkString("[", ",", "]")).mkString(",")
 
       s"append, $name" in {
-        val (journal, _) = createAndAppend()
-        journal.read(SeqRange.All) shouldEqual seqNrs
+        createAndAppend { case (journal, _) =>
+          for {
+            a <- journal.read(SeqRange.All)
+          } yield {
+            a shouldEqual seqNrs
+          }
+        }
       }
 
       s"read, $name" in {
-        val (journal, _) = createAndAppend()
-        journal.read(SeqRange.All) shouldEqual seqNrs
-        val last = seqNrLast getOrElse SeqNr.Min
-        journal.read(SeqNr.Min to last) shouldEqual seqNrs
-        journal.read(SeqNr.Min to last.next.getOrElse(last)) shouldEqual seqNrs
+        createAndAppend { case (journal, _) =>
+          for {
+            a   <- journal.read(SeqRange.All)
+            _    = a shouldEqual seqNrs
+            last = seqNrLast getOrElse SeqNr.Min
+            a   <- journal.read(SeqNr.Min to last)
+            _    = a shouldEqual seqNrs
+            a   <- journal.read(SeqNr.Min to last.next.getOrElse(last))
+          } yield {
+            a shouldEqual seqNrs
+          }
+        }
       }
 
       s"delete all, $name" in {
-        val (journal, _) = createAndAppend()
-        for {seqNr <- seqNrLast} journal.delete(seqNr)
-        journal.read(SeqRange.All) shouldEqual Nil
-        journal.lastSeqNr() shouldEqual seqNrLast
+        createAndAppend { case (journal, _) =>
+          for {
+            _ <- seqNrLast.fold(().pure[F]) { seqNr => journal.delete(seqNr).void }
+            a <- journal.read(SeqRange.All)
+            _  = a shouldEqual Nil
+            a <- journal.lastSeqNr()
+          } yield {
+            a shouldEqual seqNrLast
+          }
+        }
       }
 
       s"delete SeqNr.Max, $name" in {
-        val (journal, _) = createAndAppend()
-        journal.delete(SeqNr.Max)
-        journal.read(SeqRange.All) shouldEqual Nil
-        journal.lastSeqNr() shouldEqual seqNrLast
+        createAndAppend { case (journal, _) =>
+          for {
+            _ <- journal.delete(SeqNr.Max)
+            a <- journal.read(SeqRange.All)
+            _  = a shouldEqual Nil
+            a <- journal.lastSeqNr()
+          } yield {
+            a shouldEqual seqNrLast
+          }
+        }
       }
 
       s"delete SeqNr.Min, $name" in {
-        val (journal, offset) = createAndAppend()
-        journal.delete(SeqNr.Min) shouldEqual offset.map(_ + 1)
-        journal.read(SeqRange.All) shouldEqual seqNrs.dropWhile(_ <= SeqNr.Min)
-        journal.lastSeqNr() shouldEqual seqNrLast
+        createAndAppend { case (journal, offset) =>
+          for {
+            a <- journal.delete(SeqNr.Min)
+            _  = a shouldEqual offset.map(_ + 1)
+            a <- journal.read(SeqRange.All)
+            _  = a shouldEqual seqNrs.dropWhile(_ <= SeqNr.Min)
+            a <- journal.lastSeqNr()
+          } yield {
+            a shouldEqual seqNrLast
+          }
+        }
       }
 
       s"lastSeqNr, $name" in {
-        val (journal, _) = createAndAppend()
-        journal.lastSeqNr() shouldEqual seqNrLast
+        createAndAppend { case (journal, _) =>
+          for {
+            a <- journal.lastSeqNr()
+          } yield {
+            a shouldEqual seqNrLast
+          }
+        }
       }
 
       for {
-        _ <- seqNrLast
+        _     <- seqNrLast
         seqNr <- seqNrs.tail.lastOption
       } {
 
         s"delete except last, $name" in {
-          val (journal, _) = createAndAppend()
-          journal.delete(seqNr)
-          journal.read(SeqRange.All) shouldEqual seqNrs.dropWhile(_ <= seqNr)
-          journal.lastSeqNr() shouldEqual seqNrLast
+          createAndAppend { case (journal, _) =>
+            for {
+              _      <- journal.delete(seqNr)
+              seqNrs <- journal.read(SeqRange.All)
+              _       = seqNrs shouldEqual seqNrs.dropWhile(_ <= seqNr)
+              seqNr  <- journal.lastSeqNr()
+            } yield {
+              seqNr shouldEqual seqNrLast
+            }
+          }
         }
 
         s"read tail, $name" in {
-          val (journal, _) = createAndAppend()
-          journal.read(seqNr to SeqNr.Max) shouldEqual seqNrs.dropWhile(_ < seqNr)
+          createAndAppend { case (journal, _) =>
+            for {
+              seqNrs <- journal.read(seqNr to SeqNr.Max)
+            } yield {
+              seqNrs shouldEqual seqNrs.dropWhile(_ < seqNr)
+            }
+          }
         }
       }
     }
 
     "read SeqNr.Max" in {
-      val journal = journalOf()
-      journal.read(SeqRange(SeqNr.Max)) shouldEqual Nil
-      journal.append(1.toSeqNr)
-      journal.read(SeqRange(SeqNr.Max)) shouldEqual Nil
+      withJournal { journal =>
+        for {
+          seqNrs <- journal.read(SeqRange(SeqNr.Max))
+          _       = seqNrs shouldEqual Nil
+          _      <- journal.append(1.toSeqNr)
+          seqNrs <- journal.read(SeqRange(SeqNr.Max))
+        } yield {
+          seqNrs shouldEqual Nil
+        }
+      }
     }
 
     "append, delete, append, delete, append, read, lastSeqNr" in {
-      val journal = journalOf()
-      journal.append(1.toSeqNr)
-      journal.delete(3.toSeqNr)
-      journal.append(2.toSeqNr, 3.toSeqNr)
-      journal.delete(2.toSeqNr)
-      journal.append(4.toSeqNr)
-      journal.read(SeqRange(1, 2)) shouldEqual Nil
-      journal.read(SeqRange(2, 3)) shouldEqual List(3.toSeqNr)
-      journal.read(SeqRange(3, 4)) shouldEqual List(3.toSeqNr, 4.toSeqNr)
-      journal.read(SeqRange(4, 5)) shouldEqual List(4.toSeqNr)
-      journal.read(SeqRange(5, 6)) shouldEqual Nil
-      journal.lastSeqNr() shouldEqual Some(SeqNr(4))
+      withJournal { journal =>
+        for {
+          _      <- journal.append(1.toSeqNr)
+          _      <- journal.delete(3.toSeqNr)
+          _      <- journal.append(2.toSeqNr, 3.toSeqNr)
+          _      <- journal.delete(2.toSeqNr)
+          _      <- journal.append(4.toSeqNr)
+          seqNrs <- journal.read(SeqRange(1, 2))
+          _       = seqNrs shouldEqual Nil
+          seqNrs <- journal.read(SeqRange(2, 3))
+          _       = seqNrs shouldEqual List(3.toSeqNr)
+          seqNrs <- journal.read(SeqRange(3, 4))
+          _       = seqNrs shouldEqual List(3.toSeqNr, 4.toSeqNr)
+          seqNrs <- journal.read(SeqRange(4, 5))
+          _       = seqNrs shouldEqual List(4.toSeqNr)
+          seqNrs <- journal.read(SeqRange(5, 6))
+          _       = seqNrs shouldEqual Nil
+          seqNr  <- journal.lastSeqNr()
+        } yield {
+          seqNr shouldEqual Some(SeqNr(4))
+        }
+      }
+    }
+  }
+
+
+  def test(journal: SeqNrJournal[StateM]) = {
+    testF[StateM] { f =>
+      val (_, result) = f(journal).run(State.Empty)
+      result
     }
   }
 
@@ -127,117 +206,58 @@ class JournalSpec extends WordSpec with Matchers {
   "Journal" when {
 
     "eventual journal is empty" should {
-
-      test(() => journalOf())
-
-      def journalOf() = {
-        var actions: Queue[ActionRecord[Action]] = Queue.empty
-        val eventualJournal = EventualJournal.empty[cats.Id]
-
-        val withPollActions = WithPollActionsOneByOne[cats.Id](actions)
-
-        val writeAction = new AppendAction[cats.Id] {
-          def apply(action: Action) = {
-            val offset = actions.size.toLong
-            val partitionOffset = PartitionOffset(partition = partition, offset = offset)
-            val record = ActionRecord(action, partitionOffset)
-            actions = actions.enqueue(record)
-            partitionOffset
-          }
-        }
-        SeqNrJournal(eventualJournal, withPollActions, writeAction)
-      }
+      val journal = SeqNrJournal(EventualJournal.empty[StateM], StateM.withPollActions, StateM.appendAction)
+      test(journal)
     }
 
 
     "kafka journal is empty" should {
 
-      test(() => journalOf())
+      val withPollActions = new WithPollActions[StateM] {
 
-      def journalOf() = {
-        var actions: Queue[ActionRecord[Action]] = Queue.empty
-        var replicatedState = EventualJournalOf.State.Empty
-
-        val eventualJournal = EventualJournalOf(replicatedState)
-
-        val withPollActions = {
-          def marks() = actions.collect { case action @ ActionRecord(_: Action.Mark, _) => action }
-
-          WithPollActionsOneByOne[cats.Id](marks())
-        }
-
-        val writeAction = new AppendAction[cats.Id] {
-
-          def apply(action: Action) = {
-            val offset = actions.size.toLong
-            val partitionOffset = PartitionOffset(partition = partition, offset = offset)
-            val record = ActionRecord(action, partitionOffset)
-            actions = actions.enqueue(record)
-            replicatedState = replicatedState(record)
-            partitionOffset
+        def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[StateM] => StateM[A]) = {
+          StateM { state =>
+            val records = offset
+              .fold(state.records) { offset => state.records.dropWhile(_.offset <= offset) }
+              .collect { case action @ ActionRecord(_: Action.Mark, _) => action }
+            val state1 = state.copy(recordsToRead = records)
+            f(StateM.pollActions).run(state1)
           }
         }
-
-        SeqNrJournal(eventualJournal, withPollActions, writeAction)
       }
+
+      val journal = SeqNrJournal(StateM.eventualJournal, withPollActions, StateM.appendAction)
+      test(journal)
     }
 
 
     "kafka and eventual journals are consistent" should {
-      test(() => journalOf())
-
-      def journalOf() = {
-        var actions: Queue[ActionRecord[Action]] = Queue.empty
-        var replicatedState = EventualJournalOf.State.Empty
-
-        val eventualJournal = EventualJournalOf(replicatedState)
-
-        val withPollActions = WithPollActionsOneByOne[cats.Id](actions)
-
-        val writeAction = new AppendAction[cats.Id] {
-
-          def apply(action: Action) = {
-            val offset = actions.size.toLong
-            val partitionOffset = PartitionOffset(partition = partition, offset = offset)
-            val record = ActionRecord(action, partitionOffset)
-            actions = actions.enqueue(record)
-            replicatedState = replicatedState(record)
-            partitionOffset
-          }
-        }
-
-        SeqNrJournal(eventualJournal, withPollActions, writeAction)
-      }
+      val journal = SeqNrJournal(StateM.eventualJournal, StateM.withPollActions, StateM.appendAction)
+      test(journal)
     }
 
     for {
       n <- 1 to 3
     } {
       s"kafka and eventual journals are consistent, however eventual offset is $n behind" should {
-        test(() => journalOf())
+        val appendAction = new AppendAction[StateM] {
 
-        def journalOf() = {
-          var actions: Queue[ActionRecord[Action]] = Queue.empty
-          var replicatedState = EventualJournalOf.State.Empty
-
-          val eventualJournal = EventualJournalOf(replicatedState)
-
-          val withPollActions = WithPollActionsOneByOne[cats.Id](actions)
-
-          val writeAction = new AppendAction[cats.Id] {
-
-            def apply(action: Action) = {
-              val offset = actions.size.toLong
+          def apply(action: Action) = {
+            StateM { state =>
+              val offset = state.records.size.toLong
               val partitionOffset = PartitionOffset(partition = partition, offset = offset)
               val record = ActionRecord(action, partitionOffset)
-              actions = actions.enqueue(record)
-              replicatedState = replicatedState(record, (offset - n) max 0l)
-              partitionOffset
+              val records = state.records.enqueue(record)
+
+              val replicatedState = state.replicatedState(record, (offset - n) max 0l)
+              val state1 = state.copy(records = records, replicatedState = replicatedState)
+              (state1, partitionOffset)
             }
           }
-
-          SeqNrJournal(eventualJournal, withPollActions, writeAction)
         }
+
+        val journal = SeqNrJournal(StateM.eventualJournal, StateM.withPollActions, appendAction)
+        test(journal)
       }
     }
 
@@ -245,36 +265,28 @@ class JournalSpec extends WordSpec with Matchers {
       n <- 1 to 4
     } {
       s"eventual journal is $n actions behind the kafka journal" should {
-        test(() => journalOf())
 
-        def journalOf() = {
-          var actions: Queue[ActionRecord[Action]] = Queue.empty
-          var replicatedState = EventualJournalOf.State.Empty
+        val appendAction = new AppendAction[StateM] {
 
-          val eventualJournal = EventualJournalOf(replicatedState)
-
-          val withPollActions = WithPollActionsOneByOne[cats.Id](actions)
-
-          val writeAction = new AppendAction[cats.Id] {
-
-            def apply(action: Action) = {
-
-              val offset = actions.size.toLong
+          def apply(action: Action) = {
+            StateM { state =>
+              val offset = state.records.size.toLong
               val partitionOffset = PartitionOffset(partition = partition, offset = offset)
               val record = ActionRecord(action, partitionOffset)
-              actions = actions.enqueue(record)
+              val records = state.records.enqueue(record)
 
-              for {
-                actions <- actions.dropLast(n)
+              val replicatedState = for {
+                actions <- records.dropLast(n)
                 action <- actions.lastOption
-              } replicatedState = replicatedState(action)
-
-              partitionOffset
+              } yield state.replicatedState(action)
+              val state1 = state.copy(records = records, replicatedState = replicatedState getOrElse state.replicatedState)
+              (state1, partitionOffset)
             }
           }
-
-          SeqNrJournal(eventualJournal, withPollActions, writeAction)
         }
+
+        val journal = SeqNrJournal(StateM.eventualJournal, StateM.withPollActions, appendAction)
+        test(journal)
       }
     }
 
@@ -283,36 +295,28 @@ class JournalSpec extends WordSpec with Matchers {
       nn = n + 1
     } {
       s"eventual journal is $n actions behind and pointer is $nn behind the kafka journal" should {
-        test(() => journalOf())
 
-        def journalOf() = {
-          var actions: Queue[ActionRecord[Action]] = Queue.empty
-          var replicatedState = EventualJournalOf.State.Empty
+        val appendAction = new AppendAction[StateM] {
 
-          val eventualJournal = EventualJournalOf(replicatedState)
-
-          val withPollActions = WithPollActionsOneByOne[cats.Id](actions)
-
-          val writeAction = new AppendAction[cats.Id] {
-
-            def apply(action: Action) = {
-
-              val offset = actions.size.toLong
+          def apply(action: Action) = {
+            StateM { state =>
+              val offset = state.records.size.toLong
               val partitionOffset = PartitionOffset(partition = partition, offset = offset)
               val record = ActionRecord(action, partitionOffset)
-              actions = actions.enqueue(record)
+              val records = state.records.enqueue(record)
 
-              for {
-                actions <- actions.dropLast(n)
+              val replicatedState = for {
+                actions <- records.dropLast(n)
                 action <- actions.lastOption
-              } replicatedState = replicatedState(action, (offset - n) max 0l)
-
-              partitionOffset
+              } yield state.replicatedState(action, (offset - n) max 0l)
+              val state1 = state.copy(records = records, replicatedState = replicatedState getOrElse state.replicatedState)
+              (state1, partitionOffset)
             }
           }
-
-          SeqNrJournal(eventualJournal, withPollActions, writeAction)
         }
+
+        val journal = SeqNrJournal(StateM.eventualJournal, StateM.withPollActions, appendAction)
+        test(journal)
       }
     }
   }
@@ -326,97 +330,185 @@ object JournalSpec {
   implicit val ec: ExecutionContext = CurrentThreadExecutionContext
 
 
-  trait SeqNrJournal {
+  trait SeqNrJournal[F[_]] {
 
-    def append(seqNr: SeqNr, seqNrs: SeqNr*): Offset
+    def append(seqNr: SeqNr, seqNrs: SeqNr*): F[Offset]
 
-    def read(range: SeqRange): List[SeqNr]
+    def read(range: SeqRange): F[List[SeqNr]]
 
-    def lastSeqNr(): Option[SeqNr]
+    def lastSeqNr(): F[Option[SeqNr]]
 
-    def delete(to: SeqNr): Option[Offset]
+    def delete(to: SeqNr): F[Option[Offset]]
   }
 
   object SeqNrJournal {
 
-    def apply(journal: Journal[cats.Id]): SeqNrJournal = {
+    def apply[F[_] : FlatMap](journal: Journal[F]): SeqNrJournal[F] = {
 
-      new SeqNrJournal {
+      new SeqNrJournal[F] {
 
         def append(seqNr: SeqNr, seqNrs: SeqNr*) = {
-          val events = for {seqNr <- Nel(seqNr, seqNrs: _*)} yield Event(seqNr)
-          journal.append(key, events, timestamp).offset
+          val events = for {
+            seqNr <- Nel(seqNr, seqNrs: _*)
+          } yield {
+            Event(seqNr)
+          }
+          for {
+            partitionOffset <- journal.append(key, events, timestamp)
+          } yield {
+            partitionOffset.offset
+          }
         }
 
         def read(range: SeqRange) = {
-          val events = journal.read(key, range.from, List.empty[SeqNr]) { (seqNrs, event) =>
-            val continue = event.seqNr <= range.to
-            val result = {
-              if (event.seqNr >= range.from && continue) event.seqNr :: seqNrs
-              else seqNrs
+          for {
+            events <- journal.read(key, range.from, List.empty[SeqNr]) { (seqNrs, event) =>
+              val continue = event.seqNr <= range.to
+              val result = {
+                if (event.seqNr >= range.from && continue) event.seqNr :: seqNrs
+                else seqNrs
+              }
+              result.switch(continue)
             }
-            result.switch(continue)
+          } yield {
+            events.reverse
           }
-          events.reverse
         }
 
         def lastSeqNr() = journal.pointer(key)
 
         def delete(to: SeqNr) = {
-          journal.delete(key, to, timestamp).map(_.offset)
+          for {
+            partitionOffset <- journal.delete(key, to, timestamp)
+          } yield for {
+            partitionOffset <- partitionOffset
+          } yield {
+            partitionOffset.offset
+          }
         }
       }
     }
 
-    def apply(
-      eventual: EventualJournal[cats.Id],
-      withPollActions: WithPollActions[cats.Id],
-      writeAction: AppendAction[cats.Id]): SeqNrJournal = {
+    def apply[F[_] : Monad](
+      eventual: EventualJournal[F],
+      withPollActions: WithPollActions[F],
+      writeAction: AppendAction[F]): SeqNrJournal[F] = {
 
-      implicit val log = Log.empty[cats.Id]
-//      implicit val concurrent = ConcurrentOf(AsyncHelper.asyncAsync(CurrentThreadExecutionContext))
-      implicit val concurrent = ConcurrentOf.fromMonad[cats.Id]
-      implicit val clock = ClockOf[cats.Id](timestamp.toEpochMilli)
-      val journal = Journal[cats.Id](None, eventual, withPollActions, writeAction, HeadCache.empty[cats.Id])
+      implicit val log = Log.empty[F]
+      implicit val concurrent = ConcurrentOf.fromMonad[F]
+      implicit val clock = ClockOf[F](timestamp.toEpochMilli)
+      val journal = Journal[F](None, eventual, withPollActions, writeAction, HeadCache.empty[F])
         .withLog(log)
-        .withMetrics(Journal.Metrics.empty[cats.Id])
+        .withMetrics(Journal.Metrics.empty[F])
       SeqNrJournal(journal)
     }
   }
 
-  // TODO implement via mocking EventualCassandra
-  object EventualJournalOf {
 
-    def apply(state: => State): EventualJournal[cats.Id] = new EventualJournal[cats.Id] {
+  final case class State(
+    records: Queue[ActionRecord[Action]] = Queue.empty,
+    replicatedState: EventualJournalOf.State = EventualJournalOf.State.Empty,
+    recordsToRead: Queue[ActionRecord[Action]] = Queue.empty)
+
+  object State {
+    val Empty: State = State()
+  }
+
+
+  type StateM[A] = StateT[cats.Id, State, A]
+
+  object StateM {
+
+    val eventualJournal: EventualJournal[StateM] = new EventualJournal[StateM] {
 
       def pointers(topic: Topic) = {
-        state.offset.fold(TopicPointers.Empty) { offset =>
-          val pointers = Map((partition, offset))
-          TopicPointers(pointers)
+        StateM { state =>
+          val topicPointers = state.replicatedState.offset.fold(TopicPointers.Empty) { offset =>
+            val pointers = Map((partition, offset))
+            TopicPointers(pointers)
+          }
+
+          (state, topicPointers)
         }
       }
 
       def read(key: Key, from: SeqNr) = {
-        Stream[cats.Id].apply(state.events.toList.filter(_.seqNr >= from))
+        val events = StateM { state =>
+          val events = state.replicatedState.events.toList.filter(_.seqNr >= from)
+          (state, events)
+        }
+
+        for {
+          events <- Stream.lift(events)
+          event <- Stream[StateM].apply(events)
+        } yield {
+          event
+        }
       }
 
       def pointer(key: Key) = {
+        StateM { state =>
 
-        def pointer(state: State) = {
-          val seqNr = state.events.lastOption.map(_.event.seqNr)
-          for {
-            seqNr <- seqNr max state.deleteTo
-            offset <- state.offset
+          val seqNr = state.replicatedState.events.lastOption.map(_.event.seqNr)
+          val pointer = for {
+            seqNr <- seqNr max state.replicatedState.deleteTo
+            offset <- state.replicatedState.offset
           } yield {
             val partitionOffset = PartitionOffset(partition, offset)
             Pointer(partitionOffset, seqNr)
           }
-        }
 
-        pointer(state)
+          (state, pointer)
+        }
       }
     }
 
+
+    val pollActions: PollActions[StateM] = new PollActions[StateM] {
+      def apply() = StateM { state =>
+        state.recordsToRead.dequeueOption match {
+          case Some((record, records)) => (state.copy(recordsToRead = records), List(record))
+          case None                    => (state, Nil)
+        }
+      }
+    }
+
+
+    val withPollActions: WithPollActions[StateM] = new WithPollActions[StateM] {
+
+      def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[StateM] => StateM[A]) = {
+        StateM { state =>
+          val records = offset.fold(state.records) { offset => state.records.dropWhile(_.offset <= offset) }
+          val state1 = state.copy(recordsToRead = records)
+          f(pollActions).run(state1)
+        }
+      }
+    }
+
+
+    val appendAction: AppendAction[StateM] = new AppendAction[StateM] {
+
+      def apply(action: Action) = {
+        StateM { state =>
+          val offset = state.records.size.toLong
+          val partitionOffset = PartitionOffset(partition = partition, offset = offset)
+          val record = ActionRecord(action, partitionOffset)
+          val records = state.records.enqueue(record)
+
+          val replicatedState = state.replicatedState(record)
+          val state1 = state.copy(records = records, replicatedState = replicatedState)
+          (state1, partitionOffset)
+        }
+      }
+    }
+
+
+    def apply[A](f: State => (State, A)): StateM[A] = StateT[cats.Id, State, A](f)
+  }
+
+
+  // TODO implement via mocking EventualCassandra
+  object EventualJournalOf {
 
     final case class State(
       events: Queue[ReplicatedEvent] = Queue.empty,

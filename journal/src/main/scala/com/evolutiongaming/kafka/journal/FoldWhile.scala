@@ -18,6 +18,10 @@ trait FoldWhile1[F[_]] {
 
 object FoldWhile1 {
 
+//  implicit val FoldWhileList: FoldWhile1[List] = foldWhileFoldable[List]
+
+//  implicit val FoldWhileIterable: FoldWhile1[Iterable] = ???
+
   implicit def foldWhileFoldable[F[_]](implicit foldable: Foldable[F]): FoldWhile1[F] = new FoldWhile1[F] {
 
     def foldWhileM[G[_], A, L, R](fa: F[A], l: L)(f: (L, A) => G[Either[L, R]])(implicit monad: Monad[G]) = {

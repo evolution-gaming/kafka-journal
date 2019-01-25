@@ -2,12 +2,13 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 
-import com.evolutiongaming.skafka.Offset
+import cats.data.StateT
+import com.evolutiongaming.skafka.{Offset, Partition}
 import org.scalatest.{FunSuite, Matchers}
 
-import scala.collection.immutable.Queue
-
 class FoldActionsSpec extends FunSuite with Matchers {
+
+  import FoldActionsSpec._
 
   test("no offsets") {
     val records = List(
@@ -71,11 +72,37 @@ class FoldActionsSpec extends FunSuite with Matchers {
     }
     val records = appendRecords :+ markRecord
 
-    val withPollActions = WithPollActionsOneByOne[cats.Id](records.to[Queue])
+    val withPollActions = new WithPollActions[StateM] {
+      def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[StateM] => StateM[A]) = {
+        val pollActions = new PollActions[StateM] {
+          def apply() = StateS { s =>
+            val records = offset.fold(s.records) { offset => s.records.dropWhile(_.offset <= offset) }
+            records match {
+              case h :: t => (s.copy(records = t), List(h))
+              case _ => (s, Nil)
+            }
+          }
+        }
+        f(pollActions)
+      }
+    }
 
-    val foldActions = FoldActions[cats.Id](key, SeqNr.Min, marker, replicated, withPollActions)
-    foldActions(offset).collect { case a: Action.Append => a.range.seqNrs.toList }.toList.flatten.map(_.value)
+    val foldActions = FoldActions[StateM](key, SeqNr.Min, marker, replicated, withPollActions)
+    val (_, result) = foldActions(offset).collect { case a: Action.Append => a.range.seqNrs.toList }.toList.run(State(records))
+    result.flatten.map(_.value)
   }
 
   case class Pointer(seqNr: Long, offset: Offset)
+}
+
+object FoldActionsSpec {
+
+  final case class State(records: List[ActionRecord[Action]])
+
+  type StateM[A] = StateT[cats.Id, State, A]
+
+  object StateS {
+
+    def apply[A](f: State => (State, A)): StateM[A] = StateT[cats.Id, State, A](f)
+  }
 }

@@ -2,7 +2,6 @@ package com.evolutiongaming.kafka.journal
 
 import cats.implicits._
 import cats.{Applicative, Monad}
-import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.skafka.{Offset, Partition}
 
 trait FoldActions[F[_]] {
@@ -37,41 +36,31 @@ object FoldActions {
 
         val replicated = offset.exists(_ >= max)
         if (replicated) Stream.empty[F, Action.User]
-        else new Stream[F, Action.User] {
+        else {
+          // TODO add support of Resources in Stream
+          new Stream[F, Action.User] {
 
-          def foldWhileM[L, R](l: L)(f: (L, Action.User) => F[Either[L, R]]) = {
-            val last = offset max offsetReplicated
-            withPollActions(key, partition, last) { pollActions =>
+            def foldWhileM[L, R](l: L)(f: (L, Action.User) => F[Either[L, R]]) = {
+              val last = offset max offsetReplicated
+              withPollActions(key, partition, last) { pollActions =>
 
-              // TODO can we rework this via stream operations ?
+                val actions = for {
+                  actions <- Stream.repeat(pollActions())
+                  action <- Stream[F].apply(actions.toList /*TODO*/)
+                } yield action
 
-              l.tailRecM[F, Either[L, R]] { l =>
-                for {
-                  actions <- pollActions()
-                  result <- actions.foldWhileM[F, L, Either[L, R]](l) { case (l, action) =>
-
-                    def continue = l.asLeft[Either[L, R]].pure[F]
-
-                    def stop = l.asLeft[R].asRight[L].pure[F]
-
-                    def ff(a: Action.User) = {
-                      for {
-                        result <- f(l, a)
-                      } yield for {
-                        result <- result
-                      } yield {
-                        result.asRight[L]
-                      }
-                    }
-
-                    if (action.offset > max) stop
-                    else action.action match {
-                      case a: Action.Append => if (a.range.to < from) continue else ff(a)
-                      case a: Action.Delete => ff(a)
-                      case a: Action.Mark   => if (a.id == marker.id) stop else continue
-                    }
+                val stream = actions.mapCmd { action =>
+                  import Stream.Cmd
+                  
+                  if (action.offset > max) Stream.Cmd.Stop
+                  else action.action match {
+                    case a: Action.Append => if (a.range.to < from) Cmd.Skip else Cmd.Take(a)
+                    case a: Action.Delete => Cmd.Take(a)
+                    case a: Action.Mark   => if (a.id == marker.id) Cmd.Stop else Cmd.Skip
                   }
-                } yield result
+                }
+
+                stream.foldWhileM(l)(f)
               }
             }
           }
