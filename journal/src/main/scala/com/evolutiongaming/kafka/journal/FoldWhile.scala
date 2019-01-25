@@ -90,25 +90,8 @@ object FoldWhile {
       }
     }
 
-    def foldWhileM[F[_], B, S](s: S)(f: (S, A) => F[Either[S, B]])(implicit F: Monad[F]): F[Either[S, B]] = {
-      FoldWhileM[F, List, A, B, S](self.toList)(s)(f)
-    }
-  }
-
-
-  object FoldWhileM {
-
-    def apply[F[_], G[_], A, B, S](
-      ga: G[A])(
-      s: S)(
-      f: (S, A) => F[Either[S, B]])(implicit
-      foldable: Foldable[G],
-      monad: Monad[F]): F[Either[S, B]] = {
-
-      foldable.foldLeftM[F, A, Either[S, B]](ga, s.asLeft[B]) {
-        case (Left(s), a) => f(s, a)
-        case (b, _)       => b.pure[F]
-      }
+    def foldWhileM[F[_], L, R](l: L)(f: (L, A) => F[Either[L, R]])(implicit F: Monad[F]): F[Either[L, R]] = {
+      Stream[F].apply(self.toList).foldWhileM(l)(f)
     }
   }
 

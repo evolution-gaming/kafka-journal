@@ -7,6 +7,7 @@ import com.evolutiongaming.kafka.journal.KafkaConverters._
 import scala.concurrent.duration.FiniteDuration
 
 trait PollActions[F[_]] {
+  // TODO remove ()
   def apply(): F[Iterable[ActionRecord[Action]]]
 }
 

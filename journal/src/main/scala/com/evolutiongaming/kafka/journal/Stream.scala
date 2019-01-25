@@ -76,6 +76,13 @@ trait Stream[F[_], A] { self =>
       self.foldWhileM(l) { (l, a) => f(a).foldWhileM(l)(f1) }
     }
   }
+
+  final def collect[B](pf: PartialFunction[A, B])(implicit F: Applicative[F]): Stream[F, B] = new Stream[F, B] {
+
+    def foldWhileM[L, R](l: L)(f: (L, B) => F[Either[L, R]]) = {
+      self.foldWhileM(l) { (l, a) => if (pf.isDefinedAt(a)) f(l, pf(a)) else l.asLeft[R].pure[F] }
+    }
+  }
 }
 
 object Stream {

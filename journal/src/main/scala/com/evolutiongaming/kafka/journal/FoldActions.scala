@@ -6,13 +6,13 @@ import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.skafka.{Offset, Partition}
 
 trait FoldActions[F[_]] {
-  def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]): F[S]
+  def apply(offset: Option[Offset]): Stream[F, Action.User]
 }
 
 object FoldActions {
 
   def empty[F[_] : Applicative]: FoldActions[F] = new FoldActions[F] {
-    def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]) = s.pure[F]
+    def apply(offset: Option[Offset]) = Stream.empty[F, Action.User]
   }
 
   // TODO add range argument
@@ -31,32 +31,47 @@ object FoldActions {
     if (replicated) empty[F]
     else new FoldActions[F] {
 
-      def apply[S](offset: Option[Offset], s: S)(f: Fold[S, Action.User]) = {
+      def apply(offset: Option[Offset]) = {
 
         val max = marker.offset - 1
 
         val replicated = offset.exists(_ >= max)
+        if (replicated) Stream.empty[F, Action.User]
+        else new Stream[F, Action.User] {
 
-        if (replicated) s.pure[F]
-        else {
-          val last = offset max offsetReplicated
-          withPollActions(key, partition, last) { pollActions =>
-            s.tailRecM { s =>
-              for {
-                actions <- pollActions()
-              } yield {
-                val switch = actions.foldWhile(s) { case (s, action) =>
-                  val switch = action.action match {
-                    case action: Action.Append => if (action.range.to < from) s.continue else f(s, action)
-                    case action: Action.Delete => f(s, action)
-                    case action: Action.Mark   => s switch action.id != marker.id
+          def foldWhileM[L, R](l: L)(f: (L, Action.User) => F[Either[L, R]]) = {
+            val last = offset max offsetReplicated
+            withPollActions(key, partition, last) { pollActions =>
+
+              // TODO can we rework this via stream operations ?
+
+              l.tailRecM[F, Either[L, R]] { l =>
+                for {
+                  actions <- pollActions()
+                  result <- actions.foldWhileM[F, L, Either[L, R]](l) { case (l, action) =>
+
+                    def continue = l.asLeft[Either[L, R]].pure[F]
+
+                    def stop = l.asLeft[R].asRight[L].pure[F]
+
+                    def ff(a: Action.User) = {
+                      for {
+                        result <- f(l, a)
+                      } yield for {
+                        result <- result
+                      } yield {
+                        result.asRight[L]
+                      }
+                    }
+
+                    if (action.offset > max) stop
+                    else action.action match {
+                      case a: Action.Append => if (a.range.to < from) continue else ff(a)
+                      case a: Action.Delete => ff(a)
+                      case a: Action.Mark   => if (a.id == marker.id) stop else continue
+                    }
                   }
-                  if (switch.stop) switch
-                  else switch.switch(action.offset < max)
-                }
-
-                if (switch.stop) switch.s.asRight
-                else switch.s.asLeft
+                } yield result
               }
             }
           }

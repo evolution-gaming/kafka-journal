@@ -3,28 +3,12 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.Monad
 import cats.implicits._
 import com.datastax.driver.core.{PreparedStatement, Row, Statement}
-import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.Stream
 
 object CassandraHelper {
 
   implicit class QueryResultOps[F[_]](val self: QueryResult[F]) extends AnyVal {
-
-    def foldWhile[S](s: S)(f: Fold[S, Row])(implicit F: Monad[F]): F[Switch[S]] = {
-      
-      (s, self).tailRecM { case (s, resultSet) =>
-        resultSet.value.fold {
-          s.continue.asRight[(S, QueryResult[F])].pure[F]
-        } { case (rows, resultSet) =>
-          val ss = rows.foldWhile(s)(f)
-          if (ss.stop) ss.asRight[(S, QueryResult[F])].pure[F]
-          else for {
-            resultSet <- resultSet
-          } yield (ss.s, resultSet).asLeft
-        }
-      }
-    }
 
     def stream(implicit F: Monad[F]): Stream[F, Row] = new Stream[F, Row] {
 

@@ -175,7 +175,7 @@ object Journal {
         def onNonEmpty(deleteTo: Option[SeqNr], readActions: FoldActions[F]) = {
 
           def events(from: SeqNr, offset: Option[Offset], s: S) = {
-            readActions(offset, s) { case (s, a) =>
+            val switch = readActions(offset).foldWhileSwitch(s) { case (s, a) =>
               a match {
                 case _: Action.Delete => s.continue
                 case a: Action.Append =>
@@ -188,6 +188,8 @@ object Journal {
                   }
               }
             }
+
+            switch.map(_.s)
           }
 
 
@@ -211,7 +213,11 @@ object Journal {
           // TODO prevent from reading calling consume twice!
           info         <- info match {
             case Some(info) => info.pure[F]
-            case None       => read(None, JournalInfo.empty) { (info, action) => info(action).continue }
+            case None       => for {
+              switch <- read(None).foldWhileSwitch(JournalInfo.empty) { (info, action) => info(action).continue }
+            } yield {
+              switch.s
+            }
           }
           _           <- Log[F].debug(s"$key read info: $info")
           result      <- info match {
@@ -246,13 +252,14 @@ object Journal {
             case None =>
               val pointer = eventual.pointer(key)
               for {
-                seqNr <- readActions(None /*TODO provide offset from eventual.lastSeqNr*/ , Option.empty[SeqNr]) { (seqNr, action) =>
+                switch <- readActions(None /*TODO provide offset from eventual.lastSeqNr*/).foldWhileSwitch(Option.empty[SeqNr]) { (seqNr, action) =>
                   val result = action match {
                     case action: Action.Append => Some(action.range.to)
                     case action: Action.Delete => Some(action.to max seqNr)
                   }
                   result.continue
                 }
+                seqNr = switch.s
                 pointer <- pointer
               } yield {
                 pointer.map(_.seqNr) max seqNr

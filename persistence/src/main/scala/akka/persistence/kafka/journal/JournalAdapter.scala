@@ -4,7 +4,7 @@ import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.effect._
 import cats.implicits._
 import cats.{Monad, ~>}
-import com.evolutiongaming.kafka.journal.FoldWhile.{Fold, _}
+import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra

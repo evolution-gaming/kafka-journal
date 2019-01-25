@@ -9,6 +9,7 @@ import com.evolutiongaming.skafka.{Offset, Partition, TopicPartition}
 import scala.concurrent.duration.FiniteDuration
 
 
+// TODO replace with Resource
 trait WithPollActions[F[_]] {
   def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[F] => F[A]): F[A]
 }
