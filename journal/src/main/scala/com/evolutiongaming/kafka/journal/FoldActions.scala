@@ -3,9 +3,10 @@ package com.evolutiongaming.kafka.journal
 import cats.implicits._
 import cats.{Applicative, Monad}
 import com.evolutiongaming.skafka.{Offset, Partition}
+import com.evolutiongaming.kafka.journal.stream.Stream
 
 trait FoldActions[F[_]] {
-  def apply(offset: Option[Offset]): Stream[F, Action.User]
+  def apply(offset: Option[Offset]): stream.Stream[F, Action.User]
 }
 
 object FoldActions {
@@ -38,7 +39,7 @@ object FoldActions {
         if (replicated) Stream.empty[F, Action.User]
         else {
           // TODO add support of Resources in Stream
-          new Stream[F, Action.User] {
+          new stream.Stream[F, Action.User] {
 
             def foldWhileM[L, R](l: L)(f: (L, Action.User) => F[Either[L, R]]) = {
               val last = offset max offsetReplicated

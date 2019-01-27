@@ -11,6 +11,7 @@ import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.SeqNr.ops._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.{ClockOf, ConcurrentOf}
+import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import org.scalatest.{Assertion, Matchers, WordSpec}

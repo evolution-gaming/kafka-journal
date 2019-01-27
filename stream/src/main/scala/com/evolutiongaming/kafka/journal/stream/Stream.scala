@@ -1,8 +1,7 @@
-package com.evolutiongaming.kafka.journal
+package com.evolutiongaming.kafka.journal.stream
 
 import cats.implicits._
 import cats.{Applicative, FlatMap, Monad, ~>}
-import com.evolutiongaming.kafka.journal.FoldWhile.Switch
 
 trait Stream[F[_], A] { self =>
 
@@ -13,18 +12,6 @@ trait Stream[F[_], A] { self =>
 
   final def foldWhile[L, R](l: L)(f: (L, A) => Either[L, R])(implicit F: Applicative[F]): F[Either[L, R]] = {
     foldWhileM[L, R](l) { (l, a) => f(l, a).pure[F] }
-  }
-
-
-  final def foldWhileSwitch[S](s: S)(f: (S, A) => Switch[S])(implicit F: Monad[F]): F[Switch[S]] = {
-    for {
-      result <- foldWhile(s) { (s, a) =>
-        val switch = f(s, a)
-        if (switch.continue) switch.s.asLeft[S] else switch.s.asRight[S]
-      }
-    } yield {
-      result.fold(l => Switch(l, continue = true), r => Switch(r, continue = false))
-    }
   }
 
 

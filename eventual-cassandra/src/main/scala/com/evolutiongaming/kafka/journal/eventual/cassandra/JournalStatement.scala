@@ -6,6 +6,7 @@ import cats.implicits._
 import cats.{FlatMap, Monad}
 import com.datastax.driver.core.BatchStatement
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.TableName
@@ -115,7 +116,7 @@ object JournalStatement {
 
 
   trait SelectRecords[F[_]] {
-    def apply(key: Key, segment: SegmentNr, range: SeqRange): Stream[F, ReplicatedEvent]
+    def apply(key: Key, segment: SegmentNr, range: SeqRange): stream.Stream[F, ReplicatedEvent]
   }
 
   object SelectRecords {

@@ -1,11 +1,15 @@
-package com.evolutiongaming.kafka.journal
+package com.evolutiongaming.kafka.journal.stream
 
 import org.scalatest.{FunSuite, Matchers}
 
 class StreamSpec extends FunSuite with Matchers {
 
-  test("single") {
+  test("lift") {
     Stream.lift[cats.Id, Int](0).toList shouldEqual List(0)
+  }
+
+  test("single") {
+    Stream[cats.Id].single(0).toList shouldEqual List(0)
   }
 
   test("empty") {

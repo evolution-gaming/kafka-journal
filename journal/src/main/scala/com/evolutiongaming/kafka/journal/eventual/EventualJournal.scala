@@ -4,13 +4,14 @@ import cats._
 import cats.effect.Clock
 import cats.implicits._
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.skafka.Topic
 
 trait EventualJournal[F[_]] {
 
   def pointers(topic: Topic): F[TopicPointers]
 
-  def read(key: Key, from: SeqNr): Stream[F, ReplicatedEvent]
+  def read(key: Key, from: SeqNr): stream.Stream[F, ReplicatedEvent]
 
   // TODO not Use Pointer until tested
   def pointer(key: Key): F[Option[Pointer]]
@@ -30,7 +31,7 @@ object EventualJournal {
       } yield r
     }
 
-    def read(key: Key, from: SeqNr) = new Stream[F, ReplicatedEvent] {
+    def read(key: Key, from: SeqNr) = new stream.Stream[F, ReplicatedEvent] {
 
       def foldWhileM[L, R](l: L)(f: (L, ReplicatedEvent) => F[Either[L, R]]) = {
         for {

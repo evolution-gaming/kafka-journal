@@ -4,7 +4,8 @@ import cats.implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournalSpec, TopicPointers}
-import com.evolutiongaming.kafka.journal.FoldWhile1._
+import com.evolutiongaming.kafka.journal.stream.FoldWhile1._
+import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.kafka.journal.util.{ConcurrentOf, Par, ParOf}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Topic

@@ -79,15 +79,15 @@ Unfortunately akka persistence `snapshot` plugin is not implemented yet.
 ```scala
 resolvers += Resolver.bintrayRepo("evolutiongaming", "maven")
 
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal" % "0.0.10"
+libraryDependencies += "com.evolutiongaming" %% "kafka-journal" % "0.0.40"
 
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal-persistence" % "0.0.10"
+libraryDependencies += "com.evolutiongaming" %% "kafka-journal-persistence" % "0.0.40"
 
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal-replicator" % "0.0.10"
+libraryDependencies += "com.evolutiongaming" %% "kafka-journal-replicator" % "0.0.40"
 
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal-eventual-cassandra" % "0.0.10"
+libraryDependencies += "com.evolutiongaming" %% "kafka-journal-eventual-cassandra" % "0.0.40"
 
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal-prometheus" % "0.0.10"
+libraryDependencies += "com.evolutiongaming" %% "kafka-journal-prometheus" % "0.0.40"
 
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal-replicator-prometheus" % "0.0.10"
+libraryDependencies += "com.evolutiongaming" %% "kafka-journal-replicator-prometheus" % "0.0.40"
 ```

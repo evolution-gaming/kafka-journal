@@ -68,6 +68,7 @@ lazy val root = (project in file(".")
   settings commonSettings
   settings (skip in publish := true)
   aggregate(
+    stream,
     journal,
     `journal-prometheus`,
     persistence,
@@ -76,9 +77,17 @@ lazy val root = (project in file(".")
     `replicator-prometheus`,
     `eventual-cassandra`))
 
+lazy val stream = (project in file("stream")
+  settings (name := "kafka-journal-stream")
+  settings commonSettings
+  settings (libraryDependencies ++= Seq(
+    scalatest % Test,
+    Cats.core)))
+
 lazy val journal = (project in file("journal")
   settings (name := "kafka-journal")
   settings commonSettings
+  dependsOn stream
   settings (libraryDependencies ++= Seq(
     Akka.actor,
     Akka.stream,

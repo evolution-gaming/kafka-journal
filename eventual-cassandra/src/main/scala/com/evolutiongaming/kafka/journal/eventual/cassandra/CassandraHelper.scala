@@ -4,7 +4,7 @@ import cats.Monad
 import cats.implicits._
 import com.datastax.driver.core.{PreparedStatement, Row, Statement}
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
-import com.evolutiongaming.kafka.journal.Stream
+import com.evolutiongaming.kafka.journal.stream.Stream
 
 object CassandraHelper {
 
