@@ -10,6 +10,7 @@ import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.kafka.journal.util.IOSuite._
 import com.evolutiongaming.kafka.journal.util.ClockHelper._
 import com.evolutiongaming.nel.Nel
+import com.evolutiongaming.skafka.consumer.Consumer
 import org.scalatest.{Matchers, Suite}
 
 
@@ -20,9 +21,13 @@ trait JournalSuit extends ActorSuite with Matchers { self: Suite =>
     KafkaJournalConfig(config)
   }
 
-  implicit val kafkaConsumerOf: KafkaConsumerOf[IO] = KafkaConsumerOf[IO](system.dispatcher)
+  implicit val kafkaConsumerOf: KafkaConsumerOf[IO] = KafkaConsumerOf[IO](
+    system.dispatcher,
+    Some(Consumer.Metrics.Empty))
 
-  implicit val kafkaProducerOf: KafkaProducerOf[IO] = KafkaProducerOf[IO](system.dispatcher)
+  implicit val kafkaProducerOf: KafkaProducerOf[IO] = KafkaProducerOf[IO](
+    system.dispatcher,
+    Some(KafkaProducer.Metrics.empty[IO]))
 
   lazy val ((eventual, producer), release) = {
     val resource = for {

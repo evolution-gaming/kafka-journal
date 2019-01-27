@@ -54,13 +54,13 @@ object JournalAdapter {
     }
 
     def kafkaProducerOf(blocking: ExecutionContext) = {
-      val consumerMetrics = for {
+      val producerMetrics = for {
         metrics <- metrics.producer
       } yield {
         val clientId = clientIdOf(config.journal.producer.common)
-        metrics(clientId)
+        KafkaProducer.Metrics(metrics(clientId))
       }
-      KafkaProducerOf[F](blocking, consumerMetrics)
+      KafkaProducerOf[F](blocking, producerMetrics)
     }
 
     def journal(

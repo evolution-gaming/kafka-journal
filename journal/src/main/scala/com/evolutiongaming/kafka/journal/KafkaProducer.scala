@@ -2,8 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import cats.effect._
 import cats.implicits._
-import cats.~>
-import com.evolutiongaming.kafka.journal.util.FromFuture
+import cats.{Applicative, ~>}
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.skafka.producer.ProducerConverters._
@@ -24,48 +23,10 @@ object KafkaProducer {
 
   def apply[F[_]](implicit F: KafkaProducer[F]): KafkaProducer[F] = F
 
-  def of1[F[_] : Sync : FromFuture : ContextShift](
-    config: ProducerConfig,
-    blocking: ExecutionContext,
-    metrics: Option[Producer.Metrics] = None
-  ): Resource[F, KafkaProducer[F]] = {
-
-    val result = for {
-      producer0 <- ContextShift[F].evalOn(blocking) {
-        Sync[F].delay { Producer(config, blocking) }
-      }
-    } yield {
-      val producer = metrics.fold(producer0) { metrics => Producer(producer0, metrics) }
-
-      val release = for {
-        _ <- FromFuture[F].apply { producer.flush() }
-        _ <- FromFuture[F].apply { producer.close() }
-      } yield {}
-
-      val result = new KafkaProducer[F] {
-
-        def send[K: skafka.ToBytes, V: skafka.ToBytes](record: ProducerRecord[K, V]) = {
-          FromFuture[F].apply {
-            producer.send(record)
-          }
-        }
-
-        def flush = {
-          FromFuture[F].apply {
-            producer.flush()
-          }
-        }
-      }
-      (result, release)
-    }
-    Resource(result)
-  }
-
-
   def of[F[_] : Async : ContextShift : Clock](
     config: ProducerConfig,
     blocking: ExecutionContext,
-    metrics: Option[Producer.Metrics] = None
+    metrics: Option[KafkaProducer.Metrics[F]] = None
   ): Resource[F, KafkaProducer[F]] = {
 
     val blocking1 = new (F ~> F) {
@@ -79,12 +40,11 @@ object KafkaProducer {
       val close = blocking1 { Sync[F].delay { producer.close() } }
 
       val (producer2, close1) = metrics.fold((producer1, close)) { metrics =>
-        val metrics1 = Metrics[F](metrics)
-        val producer2 = producer1.withMetrics(metrics1)
+        val producer2 = producer1.withMetrics(metrics)
         val close1 = for {
           ab     <- Latency { close }
           (r, l)  = ab
-          _      <- metrics1.close(l)
+          _      <- metrics.close(l)
         } yield r
         (producer2, close1)
       }
@@ -196,25 +156,38 @@ object KafkaProducer {
 
   object Metrics {
 
-    def apply[F[_] : Sync](metrics: Producer.Metrics): Metrics[F] = {
-      new Metrics[F] {
+    def apply[F[_] : Sync](metrics: Producer.Metrics): Metrics[F] = new Metrics[F] {
 
-        def send(topic: Topic, latency: Long, bytes: Int) = {
-          Sync[F].delay { metrics.send(topic, latency, bytes) }
-        }
+      def send(topic: Topic, latency: Long, bytes: Int) = {
+        Sync[F].delay { metrics.send(topic, latency, bytes) }
+      }
 
-        def failure(topic: Topic, latency: Long) = {
-          Sync[F].delay { metrics.failure(topic, latency) }
-        }
+      def failure(topic: Topic, latency: Long) = {
+        Sync[F].delay { metrics.failure(topic, latency) }
+      }
 
-        def flush(latency: Long) = {
-          Sync[F].delay { metrics.flush(latency) }
-        }
+      def flush(latency: Long) = {
+        Sync[F].delay { metrics.flush(latency) }
+      }
 
-        def close(latency: Long) = {
-          Sync[F].delay { metrics.close(latency) }
-        }
+      def close(latency: Long) = {
+        Sync[F].delay { metrics.close(latency) }
       }
     }
+
+
+    def const[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
+
+      def send(topic: Topic, latency: Long, bytes: Int) = unit
+
+      def failure(topic: Topic, latency: Long) = unit
+
+      def flush(latency: Long) = unit
+
+      def close(latency: Long) = unit
+    }
+
+
+    def empty[F[_] : Applicative]: Metrics[F] = const(().pure[F])
   }
 }
