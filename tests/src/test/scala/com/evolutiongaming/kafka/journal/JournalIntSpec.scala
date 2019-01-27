@@ -53,22 +53,22 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuit {
         val result = for {
           key       <- keyRandom
           journal    = KeyJournal(key, journal0)
-          pointer   <- journal.pointer()
+          pointer   <- journal.pointer
           _          = pointer shouldEqual None
-          events    <- journal.read()
+          events    <- journal.read
           _          = events shouldEqual Nil
           offset    <- journal.delete(SeqNr.Max)
           _          = offset shouldEqual None
           event      = Event(seqNr)
           offset    <- journal.append(Nel(event))
           partition  = offset.partition
-          events    <- journal.read()
+          events    <- journal.read
           _          = events shouldEqual List(event)
           offset    <- journal.delete(SeqNr.Max)
           _          = offset.map(_.partition) shouldEqual Some(partition)
-          pointer   <- journal.pointer()
+          pointer   <- journal.pointer
           _          = pointer shouldEqual Some(seqNr)
-          events    <- journal.read()
+          events    <- journal.read
           _          = events shouldEqual Nil
         } yield Succeeded
 
@@ -89,9 +89,9 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuit {
           key     <- keyRandom
           journal  = KeyJournal(key, journal0)
           read = for {
-            events  <- journal.read()
+            events  <- journal.read
             _        = events shouldEqual events
-            pointer <- journal.pointer()
+            pointer <- journal.pointer
             _ = pointer shouldEqual events.lastOption.map(_.seqNr)
           } yield {}
           _       <- journal.append(Nel.unsafe(events))
@@ -112,16 +112,16 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuit {
         val appends = for {
           key     <- keyRandom
           journal  = KeyJournal(key, journal0)
-          events  <- journal.read()
+          events  <- journal.read
           _        = events shouldEqual Nil
-          pointer <- journal.pointer()
+          pointer <- journal.pointer
           _        = pointer shouldEqual None
           _       <- expected.foldMap { event => journal.append(Nel(event)).void }
         } yield {
           for {
-            pointer <- journal.pointer()
+            pointer <- journal.pointer
             _        = pointer shouldEqual expected.lastOption.map(_.seqNr)
-            events  <- journal.read()
+            events  <- journal.read
             _        = events shouldEqual expected
           } yield {}
         }

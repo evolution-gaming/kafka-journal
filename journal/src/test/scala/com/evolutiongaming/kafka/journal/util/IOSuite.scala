@@ -18,7 +18,7 @@ object IOSuite {
   implicit val timerIO: Timer[IO]             = IO.timer(ec)
   implicit val fromFutureIO: FromFuture[IO]   = FromFuture.lift[IO]
   implicit val parallel: Parallel[IO, IO.Par] = IO.ioParallel
-  implicit val par: Par[IO]                   = Par.lift
+  implicit val par: Par[IO]                   = Par.liftIO
   implicit val logOf: LogOf[IO]               = LogOf.empty[IO]
   implicit val runtime: Runtime[IO]           = Runtime.lift[IO]
 

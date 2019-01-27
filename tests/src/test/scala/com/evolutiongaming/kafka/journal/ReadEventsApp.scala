@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal
 import akka.actor.ActorSystem
 import cats.effect._
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.eventual.cassandra._
 import com.evolutiongaming.kafka.journal.util.{ActorSystemOf, FromFuture, Par, ToFuture}
 import com.evolutiongaming.nel.Nel
@@ -24,7 +23,7 @@ object ReadEventsApp extends IOApp {
     implicit val timer = IO.timer(ec)
     implicit val fromFuture = FromFuture.lift[IO]
     implicit val parallel = IO.ioParallel
-    implicit val par = Par.lift
+    implicit val par = Par.liftIO
     implicit val logOf = LogOf[IO](system)
 
     val result = ActorSystemOf[IO](system).use { implicit system => runF[IO](ec) }
@@ -73,7 +72,7 @@ object ReadEventsApp extends IOApp {
       val key = Key(id = "id", topic = "journal")
       for {
         pointer <- journal.pointer(key)
-        seqNrs  <- journal.read(key, SeqNr.Min, List.empty[SeqNr]) { case (result, event) => (event.seqNr :: result).continue }
+        seqNrs  <- journal.read(key, SeqNr.Min).map(_.seqNr).toList
         _       <- Log[F].info(s"pointer: $pointer")
         _       <- Log[F].info(s"seqNrs: $seqNrs")
       } yield {}

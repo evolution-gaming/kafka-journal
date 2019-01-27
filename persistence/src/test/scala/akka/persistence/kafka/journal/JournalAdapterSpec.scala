@@ -8,9 +8,9 @@ import cats.Id
 import cats.data.StateT
 import cats.effect.Clock
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.ClockOf
+import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.nel.Nel
 import org.scalatest.{FunSuite, Matchers}
 
@@ -101,25 +101,26 @@ object JournalAdapterSpec {
         }
       }
 
-      def read[S](key: Key, from: SeqNr, s2: S)(f: Fold[S, Event]) = {
-        StateF { s =>
-          val s3 = s.events.foldWhile(s2)(f)
-          val s1 = s.copy(reads = Read(key, from) :: s.reads, events = Nil)
-          (s1, s3.s)
+      def read(key: Key, from: SeqNr) = {
+        val stream = StateF { state =>
+          val stream = Stream[StateF].apply(state.events)
+          val state1 = state.copy(reads = Read(key, from) :: state.reads, events = Nil)
+          (state1, stream)
         }
+        Stream.lift(stream).flatten
       }
-
+      
       def pointer(key: Key) = {
-        StateF { s =>
-          val s1 = s.copy(pointers = Pointer(key) :: s.pointers)
-          (s1, none[SeqNr])
+        StateF { state =>
+          val state1 = state.copy(pointers = Pointer(key) :: state.pointers)
+          (state1, none[SeqNr])
         }
       }
 
       def delete(key: Key, to: SeqNr, timestamp: Instant) = {
-        StateF { s =>
-          val s1 = s.copy(deletes = Delete(key, to, timestamp) :: s.deletes)
-          (s1, none[PartitionOffset])
+        StateF { state =>
+          val state1 = state.copy(deletes = Delete(key, to, timestamp) :: state.deletes)
+          (state1, none[PartitionOffset])
         }
       }
     }

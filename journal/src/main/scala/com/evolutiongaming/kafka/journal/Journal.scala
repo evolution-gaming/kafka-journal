@@ -7,9 +7,10 @@ import cats._
 import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
-import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
+import com.evolutiongaming.kafka.journal.stream.FoldWhile.FoldWhileOps
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
+import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.kafka.journal.util.ClockHelper._
 import com.evolutiongaming.kafka.journal.util.Par
 import com.evolutiongaming.nel.Nel
@@ -23,7 +24,7 @@ trait Journal[F[_]] {
 
   def append(key: Key, events: Nel[Event], timestamp: Instant): F[PartitionOffset]
 
-  def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]): F[S]
+  def read(key: Key, from: SeqNr): Stream[F, Event]
 
   def pointer(key: Key): F[Option[SeqNr]]
 
@@ -37,7 +38,7 @@ object Journal {
 
     def append(key: Key, events: Nel[Event], timestamp: Instant) = PartitionOffset.Empty.pure[F]
 
-    def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = s.pure[F]
+    def read(key: Key, from: SeqNr) = Stream.empty
 
     def pointer(key: Key) = none[SeqNr].pure[F]
 
@@ -80,7 +81,7 @@ object Journal {
   }
 
   
-  def apply[F[_] : Concurrent : ContextShift : Clock : Log](
+  def apply[F[_] : Concurrent : ContextShift : Par : Clock : Log](
     origin: Option[Origin],
     producer: Producer[F],
     consumer: Resource[F, Consumer[F]],
@@ -94,7 +95,7 @@ object Journal {
   }
 
 
-  def apply[F[_] : Concurrent : Log : Clock](
+  def apply[F[_] : Concurrent : Log : Clock : Par](
     origin: Option[Origin],
     eventual: EventualJournal[F],
     withPollActions: WithPollActions[F],
@@ -147,89 +148,87 @@ object Journal {
         appendAction(action)
       }
 
-      // TODO add optimisation for ranges
-      def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = {
+      def read(key: Key, from: SeqNr) = new Stream[F, Event] {
 
-        // TODO why do we need this?
-        def replicatedSeqNr(from: SeqNr) = {
-          val ss: (S, Option[SeqNr], Option[Offset]) = (s, Some(from), None)
-          eventual.read(key, from).foldWhileSwitch(ss) { case ((s, _, _), replicated) =>
-            val event = replicated.event
-            val switch = f(s, event)
-            switch.map { s =>
+        def foldWhileM[L, R](l: L)(f: (L, Event) => F[Either[L, R]]) = {
+
+          // TODO why do we need this?
+          def replicatedSeqNr(from: SeqNr) = {
+            val ss = (l, from.some, none[Offset])
+            eventual.read(key, from).foldWhileM(ss) { case ((l, _, _), replicated) =>
+              val event = replicated.event
               val offset = replicated.partitionOffset.offset
               val from = event.seqNr.next
-              (s, from, Some(offset))
+              f(l, event).map {
+                case Left(l)  => (l, from, offset.some).asLeft[(R, Option[SeqNr], Option[Offset])]
+                case Right(r) => (r, from, offset.some).asRight[(L, Option[SeqNr], Option[Offset])]
+              }
             }
           }
-        }
 
-        def replicated(from: SeqNr) = {
-          for {
-            switch <- eventual.read(key, from).foldWhileSwitch(s) { (s, replicated) => f(s, replicated.event) }
-          } yield {
-            switch.s
+          def replicated(from: SeqNr) = {
+            val events = eventual.read(key, from).map(_.event)
+            events.foldWhileM(l)(f)
           }
-        }
 
-        def onNonEmpty(deleteTo: Option[SeqNr], readActions: FoldActions[F]) = {
+          def onNonEmpty(deleteTo: Option[SeqNr], readActions: FoldActions[F]) = {
 
-          def events(from: SeqNr, offset: Option[Offset], s: S) = {
-            val switch = readActions(offset).foldWhileSwitch(s) { case (s, a) =>
-              a match {
-                case _: Action.Delete => s.continue
-                case a: Action.Append =>
-                  if (a.range.to < from) s.continue
-                  else {
-                    val events = EventsFromPayload(a.payload, a.payloadType)
-                    events.foldWhile(s) { case (s, event) =>
-                      if (event.seqNr >= from) f(s, event) else s.continue
+            def events(from: SeqNr, offset: Option[Offset], l: L) = {
+              readActions(offset).foldWhileM(l) { (l, a) =>
+                a match {
+                  case _: Action.Delete => l.asLeft[R].pure[F]
+                  case a: Action.Append =>
+                    if (a.range.to < from) l.asLeft[R].pure[F]
+                    else {
+                      val events = EventsFromPayload(a.payload, a.payloadType)
+                      events.foldWhileM(l) { case (l, event) =>
+                        if (event.seqNr >= from) f(l, event) else l.asLeft[R].pure[F]
+                      }
                     }
-                  }
+                }
               }
             }
 
-            switch.map(_.s)
+            val fromFixed = deleteTo.fold(from) { deleteTo => from max deleteTo.next }
+
+            for {
+              abc                    <- replicatedSeqNr(fromFixed)
+              (result, from, offset)  = abc match {
+                case Left((l, from, offset))  => (l.asLeft[R], from, offset)
+                case Right((r, from, offset)) => (r.asRight[L], from, offset)
+              }
+              _                      <- Log[F].debug(s"$key read from: $from, offset: $offset")
+              result                 <- from match {
+                case None       => result.pure[F]
+                case Some(from) => result match {
+                  case Left(l)  => events(from, offset, l)
+                  case Right(r) => r.asRight[L].pure[F]
+                }
+              }
+            } yield result
           }
-
-
-          val fromFixed = deleteTo.fold(from) { deleteTo => from max deleteTo.next }
 
           for {
-            switch           <- replicatedSeqNr(fromFixed)
-            (s, from, offset) = switch.s
-            _                <- Log[F].debug(s"$key read from: $from, offset: $offset")
-            s                <- from match {
-              case None       => s.pure[F]
-              case Some(from) => if (switch.stop) s.pure[F] else events(from, offset, s)
+            ab           <- readActions(key, from)
+            (info, read)  = ab
+            // TODO use range after eventualRecords
+            // TODO prevent from reading calling consume twice!
+            info         <- info match {
+              case Some(info) => info.pure[F]
+              case None       => read(None).fold(JournalInfo.empty) { (info, action) => info(action) }
             }
-          } yield s
+            _            <- Log[F].debug(s"$key read info: $info")
+            result       <- info match {
+              case JournalInfo.Empty                 => replicated(from)
+              case JournalInfo.NonEmpty(_, deleteTo) => onNonEmpty(deleteTo, read)
+              // TODO test this case
+              case JournalInfo.Deleted(deleteTo)     => deleteTo.next match {
+                case None       => l.asLeft[R].pure[F]
+                case Some(next) => replicated(from max next)
+              }
+            }
+          } yield result
         }
-
-        for {
-          ab           <- readActions(key, from)
-          (info, read)  = ab
-          // TODO use range after eventualRecords
-          // TODO prevent from reading calling consume twice!
-          info         <- info match {
-            case Some(info) => info.pure[F]
-            case None       => for {
-              switch <- read(None).foldWhileSwitch(JournalInfo.empty) { (info, action) => info(action).continue }
-            } yield {
-              switch.s
-            }
-          }
-          _           <- Log[F].debug(s"$key read info: $info")
-          result      <- info match {
-            case JournalInfo.Empty                 => replicated(from)
-            case JournalInfo.NonEmpty(_, deleteTo) => onNonEmpty(deleteTo, read)
-            // TODO test this case
-            case JournalInfo.Deleted(deleteTo) => deleteTo.next match {
-              case None       => s.pure[F]
-              case Some(next) => replicated(from max next)
-            }
-          }
-        } yield result
       }
 
       def pointer(key: Key) = {
@@ -250,18 +249,19 @@ object Journal {
             }
 
             case None =>
-              val pointer = eventual.pointer(key)
-              for {
-                switch <- readActions(None /*TODO provide offset from eventual.lastSeqNr*/).foldWhileSwitch(Option.empty[SeqNr]) { (seqNr, action) =>
-                  val result = action match {
-                    case action: Action.Append => Some(action.range.to)
-                    case action: Action.Delete => Some(action.to max seqNr)
-                  }
-                  result.continue
+              val seqNr = readActions(None /*TODO provide offset from eventual.lastSeqNr*/).fold(Option.empty[SeqNr]) { (seqNr, action) =>
+                action match {
+                  case action: Action.Append => Some(action.range.to)
+                  case action: Action.Delete => Some(action.to max seqNr)
                 }
-                seqNr = switch.s
-                pointer <- pointer
+              }
+
+              val pointer = eventual.pointer(key)
+
+              for {
+                ab <- Par[F].tupleN(seqNr, pointer)
               } yield {
+                val (seqNr, pointer) = ab
                 pointer.map(_.seqNr) max seqNr
               }
           }
@@ -301,12 +301,15 @@ object Journal {
       } yield r
     }
 
-    def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = {
-      for {
-        rl     <- Latency { journal.read(key, from, s)(f) }
-        (r, l)  = rl
-        _      <- log.debug(s"$key read in ${ l }ms, from: $from, state: $s, r: $r")
-      } yield r
+    def read(key: Key, from: SeqNr) = new Stream[F, Event] {
+
+      def foldWhileM[L, R](l: L)(f: (L, Event) => F[Either[L, R]]) = {
+        for {
+          rl     <- Latency { journal.read(key, from).foldWhileM(l)(f) }
+          (r, l)  = rl
+          _      <- log.debug(s"$key read in ${ l }ms, from: $from, result: $r")
+        } yield r
+      }
     }
 
     def pointer(key: Key) = {
@@ -350,15 +353,22 @@ object Journal {
         } yield r
       }
 
-      def read[S](key: Key, from: SeqNr, s: S)(f: Fold[S, Event]) = {
-        val ff: Fold[(S, Int), Event] = {
-          case ((s, n), e) => f(s, e).map { s => (s, n + 1) }
+      def read(key: Key, from: SeqNr) = {
+
+        val stream = new Stream[F, Event] {
+          def foldWhileM[L, R](l: L)(f: (L, Event) => F[Either[L, R]]) = {
+            for {
+              rl     <- Latency { journal.read(key, from).foldWhileM(l)(f) } // TODO around, capture stream as val?
+              (r, l)  = rl
+              _      <- metrics.read(topic = key.topic, latency = l)
+            } yield r
+          }
         }
+
         for {
-          rl           <- latency("read", key.topic) { journal.read(key, from, (s, 0))(ff) }
-          ((r, es), l)  = rl
-          _            <- metrics.read(topic = key.topic, latency = l, events = es)
-        } yield r
+          a <- stream
+          _ <- Stream.lift(metrics.read(key.topic))
+        } yield a
       }
 
       def pointer(key: Key) = {
@@ -384,7 +394,9 @@ object Journal {
 
     def append(topic: Topic, latency: Long, events: Int): F[Unit]
 
-    def read(topic: Topic, latency: Long, events: Int): F[Unit]
+    def read(topic: Topic, latency: Long): F[Unit]
+
+    def read(topic: Topic): F[Unit]
 
     def pointer(topic: Topic, latency: Long): F[Unit]
 
@@ -399,7 +411,9 @@ object Journal {
 
       def append(topic: Topic, latency: Long, events: Int) = unit
 
-      def read(topic: Topic, latency: Long, events: Int) = unit
+      def read(topic: Topic, latency: Long) = unit
+
+      def read(topic: Topic) = unit
 
       def pointer(topic: Topic, latency: Long) = unit
 
@@ -516,22 +530,22 @@ object Journal {
     }
 
 
-    def mapK[G[_]](f: F ~> G): Journal[G] = new Journal[G] {
+    def mapK[G[_]](to: F ~> G, from: G ~> F): Journal[G] = new Journal[G] {
 
       def append(key: Key, events: Nel[Event], timestamp: Instant) = {
-        f(self.append(key, events, timestamp))
+        to(self.append(key, events, timestamp))
       }
 
-      def read[S](key: Key, from: SeqNr, s: S)(f1: Fold[S, Event]) = {
-        f(self.read(key, from, s)(f1))
+      def read(key: Key, from1: SeqNr) = {
+        self.read(key, from1).mapK(to, from)
       }
 
       def pointer(key: Key) = {
-        f(self.pointer(key))
+        to(self.pointer(key))
       }
 
-      def delete(key: Key, to: SeqNr, timestamp: Instant) = {
-        f(self.delete(key, to, timestamp))
+      def delete(key: Key, to1: SeqNr, timestamp: Instant) = {
+        to(self.delete(key, to1, timestamp))
       }
     }
   }

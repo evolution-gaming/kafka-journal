@@ -24,7 +24,7 @@ object AppendReplicateApp extends IOApp {
     implicit val fromFuture = FromFuture.lift[IO]
     implicit val toFuture = ToFuture.io
     implicit val parallel = IO.ioParallel
-    implicit val par = Par.lift
+    implicit val par = Par.liftIO
     implicit val runtime = Runtime.lift[IO]
 
     val topic = "journal.AppendReplicate"

@@ -4,12 +4,12 @@ import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.effect._
 import cats.implicits._
 import cats.{Monad, ~>}
-import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
+import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.kafka.journal.util.ClockHelper._
-import com.evolutiongaming.kafka.journal.util.{Executors, FromFuture, Par, ToFuture, Runtime}
+import com.evolutiongaming.kafka.journal.util.{Executors, FromFuture, Par, Runtime, ToFuture}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer.Consumer
@@ -129,21 +129,22 @@ object JournalAdapter {
 
         val key = toKey(persistenceId)
 
-        val fold: Fold[Long, Event] = (count, event) => {
-          val seqNr = event.seqNr
-          if (seqNr <= range.to && count < max) {
-            val persistentRepr = serializer.toPersistentRepr(persistenceId, event)
-            callback(persistentRepr)
-            val countNew = count + 1
-            countNew switch countNew != max
-          } else {
-            count.stop
+        val stream = journal
+          .read(key, range.from)
+          .foldMapCmd(max) { (n, event) =>
+            val seqNr = event.seqNr
+            if (n > 0 && seqNr <= range.to) {
+              val persistentRepr = serializer.toPersistentRepr(persistenceId, event)
+              callback(persistentRepr)
+              (n - 1, Stream.Cmd.take(event))
+            } else {
+              (n, Stream.Cmd.stop)
+            }
           }
-        }
 
         for {
           _ <- Log[F].debug(s"$persistenceId replay, range: $range")
-          _ <- journal.read(key, range.from, 0l)(fold)
+          _ <- stream.drain
         } yield {}
       }
 

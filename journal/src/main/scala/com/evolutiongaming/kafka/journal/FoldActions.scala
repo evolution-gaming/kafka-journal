@@ -53,11 +53,11 @@ object FoldActions {
                 val stream = actions.mapCmd { action =>
                   import Stream.Cmd
                   
-                  if (action.offset > max) Stream.Cmd.Stop
+                  if (action.offset > max) Stream.Cmd.stop
                   else action.action match {
-                    case a: Action.Append => if (a.range.to < from) Cmd.Skip else Cmd.Take(a)
-                    case a: Action.Delete => Cmd.Take(a)
-                    case a: Action.Mark   => if (a.id == marker.id) Cmd.Stop else Cmd.Skip
+                    case a: Action.Append => if (a.range.to < from) Cmd.skip else Cmd.take(a)
+                    case a: Action.Delete => Cmd.take(a)
+                    case a: Action.Mark   => if (a.id == marker.id) Cmd.stop else Cmd.skip
                   }
                 }
 

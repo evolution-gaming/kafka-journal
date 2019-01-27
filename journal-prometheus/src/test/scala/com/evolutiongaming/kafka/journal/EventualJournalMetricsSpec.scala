@@ -38,7 +38,7 @@ class EventualJournalMetricsSpec extends FunSuite with Matchers {
   private trait Scope {
     implicit val syncId = TestSync[cats.Id](cats.catsInstancesForId)
     val registry = new CollectorRegistry()
-    val metrics = EventualJournalMetrics[cats.Id](registry, prefix)
+    val metrics = EventualJournalMetrics.of[cats.Id](registry, prefix)
   }
 }
 

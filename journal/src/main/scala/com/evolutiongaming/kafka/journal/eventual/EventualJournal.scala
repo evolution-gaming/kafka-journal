@@ -69,7 +69,7 @@ object EventualJournal {
       val stream = new Stream[F, ReplicatedEvent] {
         def foldWhileM[L, R](l: L)(f: (L, ReplicatedEvent) => F[Either[L, R]]) = {
           for {
-            rl     <- Latency { journal.read(key, from).foldWhileM(l)(f) } // TODO around
+            rl     <- Latency { journal.read(key, from).foldWhileM(l)(f) } // TODO around, capture stream as val?
             (r, l)  = rl
             _      <- metrics.read(topic = key.topic, latency = l)
           } yield r

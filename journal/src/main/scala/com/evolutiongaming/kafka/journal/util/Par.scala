@@ -2,11 +2,10 @@ package com.evolutiongaming.kafka.journal.util
 
 import cats.effect.IO
 import cats.implicits._
-import cats.{Foldable, Monoid, Parallel, Traverse}
+import cats.{Foldable, Monoid, Parallel, Traverse, Applicative}
 import com.evolutiongaming.kafka.journal.util.CatsHelper.ParallelOps
 
-trait
-Par[F[_]] {
+trait Par[F[_]] {
 
   def sequence[T[_] : Traverse, A](tfa: T[F[A]]): F[T[A]]
 
@@ -29,7 +28,8 @@ object Par {
 
   def apply[F[_]](implicit F: Par[F]): Par[F] = F
 
-  def lift(implicit parallel: Parallel[IO, IO.Par]): Par[IO] = new Par[IO] {
+
+  def liftIO(implicit parallel: Parallel[IO, IO.Par]): Par[IO] = new Par[IO] {
 
     def sequence[T[_] : Traverse, A](tfa: T[IO[A]]) = {
       Parallel.parSequence(tfa)
@@ -62,5 +62,30 @@ object Par {
     }
   }
 
-  implicit def ioPar(implicit parallel: Parallel[IO, IO.Par]): Par[IO] = lift
+
+  def sequential[F[_]](implicit F: Applicative[F]): Par[F] = new Par[F] {
+
+    def sequence[T[_] : Traverse, A](tfa: T[F[A]]) = Traverse[T].sequence(tfa)
+
+    def fold[T[_] : Foldable, A: Monoid](tfa: T[F[A]]) = {
+      implicit val monoid = Applicative.monoid[F, A]
+      Foldable[T].fold(tfa)
+    }
+
+    def foldMap[T[_] : Foldable, A, B: Monoid](ta: T[A])(f: A => F[B]) = {
+      implicit val monoid = Applicative.monoid[F, B]
+      Foldable[T].foldMap(ta)(f)
+    }
+
+    def mapN[Z, A0, A1, A2](t3: (F[A0], F[A1], F[A2]))(f: (A0, A1, A2) => Z) = t3.mapN(f)
+
+    def mapN[Z, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9](
+      t10: (F[A0], F[A1], F[A2], F[A3], F[A4], F[A5], F[A6], F[A7], F[A8], F[A9]))(
+      f: (A0, A1, A2, A3, A4, A5, A6, A7, A8, A9) => Z) = {
+
+      t10.mapN(f)
+    }
+
+    def tupleN[A0, A1](f0: F[A0], f1: F[A1]) = (f0, f1).tupled
+  }
 }

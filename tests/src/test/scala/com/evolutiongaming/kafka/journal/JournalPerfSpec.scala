@@ -71,7 +71,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuit {
         } yield Event(seqNr)
 
         for {
-          _ <- journal.pointer()
+          _ <- journal.pointer
           _ <- expected.foldMap { event => journal.append(Nel(event)).void }
           _ <- {
             val otherEvents = for {_ <- 0 to events} yield Event(SeqNr.Min)
@@ -105,8 +105,8 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuit {
       s"measure pointer $many times, $name" in {
         val result = for {
           _       <- append
-          _       <- journal.pointer()
-          average <- measure { journal.pointer() }
+          _       <- journal.pointer
+          average <- measure { journal.pointer }
         } yield {
           info(s"pointer measured $many times for $events events returned on average in $average")
           average should be <= expected
@@ -117,8 +117,8 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuit {
 
       s"measure read $many times, $name" in {
         val result = for {
-          _       <- journal.size()
-          average <- measure { journal.size() }
+          _       <- journal.size
+          average <- measure { journal.size }
           _       <- release
         } yield {
           info(s"read measured $many times for $events events returned on average in $average")

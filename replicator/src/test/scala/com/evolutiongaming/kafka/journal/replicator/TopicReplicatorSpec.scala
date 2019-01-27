@@ -4,7 +4,7 @@ import java.time.Instant
 
 import cats.effect._
 import cats.implicits._
-import cats.{Applicative, Foldable, Monoid, Traverse}
+import cats.{Applicative, Monoid}
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPointers}
@@ -873,26 +873,7 @@ object TopicReplicatorSpec {
     }
 
 
-    implicit val ParDataF: Par[DataF] = new Par[DataF] {
-
-      def sequence[T[_] : Traverse, A](tfa: T[DataF[A]]) = throw NotImplemented
-
-      def fold[T[_] : Foldable, A : Monoid](tfa: T[DataF[A]]) = {
-        foldMap(tfa)(identity)
-      }
-
-      def foldMap[T[_] : Foldable, A, B : Monoid](ta: T[A])(f: A => DataF[B]) = {
-        Foldable[T].foldMap(ta)(f)
-      }
-
-      def mapN[Z, A0, A1, A2](t3: (DataF[A0], DataF[A1], DataF[A2]))(f: (A0, A1, A2) => Z) = throw NotImplemented
-
-      def mapN[Z, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9](
-        t10: (DataF[A0], DataF[A1], DataF[A2], DataF[A3], DataF[A4], DataF[A5], DataF[A6], DataF[A7], DataF[A8], DataF[A9]))(
-        f: (A0, A1, A2, A3, A4, A5, A6, A7, A8, A9) => Z) = throw NotImplemented
-
-      def tupleN[A0, A1](f0: DataF[A0], f1: DataF[A1]) = throw NotImplemented
-    }
+    implicit val ParDataF: Par[DataF] = Par.sequential[DataF]
 
 
     implicit val MetricsDataF: TopicReplicator.Metrics[DataF] = new TopicReplicator.Metrics[DataF] {

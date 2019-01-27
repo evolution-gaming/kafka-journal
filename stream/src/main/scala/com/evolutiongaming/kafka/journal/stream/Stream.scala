@@ -24,6 +24,15 @@ trait Stream[F[_], A] { self =>
   }
 
 
+  final def foldM[B](b: B)(f: (B, A) => F[B])(implicit F: Applicative[F]): F[B] = {
+    for {
+      result <- foldWhileM(b) { (b, a) => f(b, a).map(_.asLeft[B]) }
+    } yield {
+      result.merge
+    }
+  }
+
+
   final def toList(implicit F: Applicative[F]): F[List[A]] = {
     for {
       result <- fold(List.empty[A]) { (b, a) => a :: b }
@@ -33,8 +42,13 @@ trait Stream[F[_], A] { self =>
   }
 
 
-  final def take(n: Int)(implicit F: Monad[F]): Stream[F, A] = {
-    foldMapCmd(n) { (n, a) => if (n > 0) (n - 1, Cmd.Take(a)) else (n, Cmd.Stop) }
+  final def length(implicit F: Monad[F]): F[Long] = {
+    fold(0l) { (n, _) =>  n + 1 }
+  }
+
+
+  final def take(n: Long)(implicit F: Monad[F]): Stream[F, A] = {
+    foldMapCmd(n) { (n, a) => if (n > 0) (n - 1, Cmd.take(a)) else (n, Cmd.stop) }
   }
 
 
@@ -64,7 +78,7 @@ trait Stream[F[_], A] { self =>
   }
 
 
-  final def mapF[B](f: A => F[B])(implicit F: FlatMap[F]): Stream[F, B] = new Stream[F, B] {
+  final def mapM[B](f: A => F[B])(implicit F: FlatMap[F]): Stream[F, B] = new Stream[F, B] {
 
     def foldWhileM[L, R](l: L)(f1: (L, B) => F[Either[L, R]]) = {
       self.foldWhileM(l) { (l, a) => f(a).flatMap(b => f1(l, b)) }
@@ -102,12 +116,12 @@ trait Stream[F[_], A] { self =>
 
 
   final def dropWhile(f: A => Boolean)(implicit F: Monad[F]): Stream[F, A] = {
-    foldMapCmd(true) { (drop, a) => if (drop && f(a)) (drop, Cmd.Skip) else (false, Cmd.Take(a)) }
+    foldMapCmd(true) { (drop, a) => if (drop && f(a)) (drop, Cmd.skip) else (false, Cmd.take(a)) }
   }
 
 
   final def takeWhile(f: A => Boolean)(implicit F: Monad[F]): Stream[F, A] = {
-    mapCmd { a => if (f(a)) Cmd.Take(a) else Cmd.Stop }
+    mapCmd { a => if (f(a)) Cmd.take(a) else Cmd.stop }
   }
 
 
@@ -198,6 +212,16 @@ trait Stream[F[_], A] { self =>
   final def mapCmd[B](f: A => Cmd[B])(implicit F: Monad[F]): Stream[F, B] = {
     mapCmdM { a => f(a).pure[F] }
   }
+
+
+  final def drain(implicit F: Applicative[F]): F[Unit] = {
+    val unit = ().asLeft[Unit].pure[F]
+    for {
+      result <- foldWhileM(()) { (_, _) => unit }
+    } yield {
+      result.merge
+    }
+  }
 }
 
 object Stream {
@@ -225,7 +249,7 @@ object Stream {
   }
 
 
-  def from[F[_], G[_], A](ga: G[A])(implicit G: FoldWhile1[G], monad: Monad[F]): Stream[F, A] = new Stream[F, A] {
+  def from[F[_], G[_], A](ga: G[A])(implicit G: FoldWhile[G], monad: Monad[F]): Stream[F, A] = new Stream[F, A] {
     def foldWhileM[L, R](l: L)(f: (L, A) => F[Either[L, R]]) = G.foldWhileM(ga, l)(f)
   }
 
@@ -237,7 +261,7 @@ object Stream {
 
   final class Builders[F[_]](val F: Monad[F]) extends AnyVal {
 
-    def apply[G[_], A](ga: G[A])(implicit G: FoldWhile1[G]): Stream[F, A] = new Stream[F, A] {
+    def apply[G[_], A](ga: G[A])(implicit G: FoldWhile[G]): Stream[F, A] = new Stream[F, A] {
       def foldWhileM[L, R](l: L)(f: (L, A) => F[Either[L, R]]) = G.foldWhileM(ga, l)(f)(F)
     }
 
@@ -269,8 +293,18 @@ object Stream {
   sealed trait Cmd[+A]
 
   object Cmd {
+
+    def take[A](a: A): Cmd[A] = Take(a)
+
+    def stop[A]: Cmd[A] = Stop
+
+    def skip[A]: Cmd[A] = Skip
+
+
     final case class Take[A](a: A) extends Cmd[A]
+
     final case object Skip extends Cmd[Nothing]
+
     final case object Stop extends Cmd[Nothing]
   }
 }

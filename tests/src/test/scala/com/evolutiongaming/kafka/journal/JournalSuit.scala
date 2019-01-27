@@ -2,10 +2,9 @@ package com.evolutiongaming.kafka.journal
 
 
 import akka.persistence.kafka.journal.KafkaJournalConfig
-import cats.FlatMap
+import cats.Monad
 import cats.implicits._
 import cats.effect.{Clock, IO}
-import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.kafka.journal.util.IOSuite._
 import com.evolutiongaming.kafka.journal.util.ClockHelper._
@@ -59,18 +58,18 @@ object JournalSuit {
 
     def append(events: Nel[Event]): F[PartitionOffset]
 
-    def read(): F[List[Event]]
+    def read: F[List[Event]]
 
-    def size(): F[Int]
+    def size: F[Long]
 
-    def pointer(): F[Option[SeqNr]]
+    def pointer: F[Option[SeqNr]]
 
     def delete(to: SeqNr): F[Option[PartitionOffset]]
   }
 
   object KeyJournal {
 
-    def apply[F[_] : FlatMap : Clock](key: Key, journal: Journal[F]): KeyJournal[F] = new KeyJournal[F] {
+    def apply[F[_] : Monad : Clock](key: Key, journal: Journal[F]): KeyJournal[F] = new KeyJournal[F] {
 
       def append(events: Nel[Event]) = {
         for {
@@ -79,21 +78,11 @@ object JournalSuit {
         } yield result
       }
 
-      def read() = {
-        for {
-          events <- journal.read[List[Event]](key, SeqNr.Min, Nil) { (xs, x) => Switch.continue(x :: xs) }
-        } yield {
-          events.reverse
-        }
-      }
+      def read = journal.read(key, SeqNr.Min).toList
 
-      def size() = {
-        journal.read[Int](key, SeqNr.Min, 0) { (a, _) => Switch.continue(a + 1) }
-      }
+      def size = journal.read(key, SeqNr.Min).length
 
-      def pointer() = {
-        journal.pointer(key)
-      }
+      def pointer = journal.pointer(key)
 
       def delete(to: SeqNr) = {
         for {

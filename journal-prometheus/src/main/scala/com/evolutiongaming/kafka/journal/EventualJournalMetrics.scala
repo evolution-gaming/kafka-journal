@@ -8,7 +8,7 @@ import io.prometheus.client.{CollectorRegistry, Summary}
 
 object EventualJournalMetrics {
 
-  def apply[F[_] : Sync](
+  def of[F[_] : Sync](
     registry: CollectorRegistry,
     prefix: String = "eventual_journal"): F[EventualJournal.Metrics[F]] = {
 

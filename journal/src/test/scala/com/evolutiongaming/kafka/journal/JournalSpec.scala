@@ -2,16 +2,15 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 
+import cats.Monad
 import cats.data.StateT
 import cats.implicits._
-import cats.{FlatMap, Monad}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.EventsSerializer._
-import com.evolutiongaming.kafka.journal.FoldWhile._
 import com.evolutiongaming.kafka.journal.SeqNr.ops._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
-import com.evolutiongaming.kafka.journal.util.{ClockOf, ConcurrentOf}
 import com.evolutiongaming.kafka.journal.stream.Stream
+import com.evolutiongaming.kafka.journal.util.{ClockOf, ConcurrentOf, Par}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import org.scalatest.{Assertion, Matchers, WordSpec}
@@ -82,7 +81,7 @@ class JournalSpec extends WordSpec with Matchers {
             _ <- seqNrLast.fold(().pure[F]) { seqNr => journal.delete(seqNr).void }
             a <- journal.read(SeqRange.All)
             _  = a shouldEqual Nil
-            a <- journal.lastSeqNr()
+            a <- journal.pointer
           } yield {
             a shouldEqual seqNrLast
           }
@@ -95,7 +94,7 @@ class JournalSpec extends WordSpec with Matchers {
             _ <- journal.delete(SeqNr.Max)
             a <- journal.read(SeqRange.All)
             _  = a shouldEqual Nil
-            a <- journal.lastSeqNr()
+            a <- journal.pointer
           } yield {
             a shouldEqual seqNrLast
           }
@@ -109,7 +108,7 @@ class JournalSpec extends WordSpec with Matchers {
             _  = a shouldEqual offset.map(_ + 1)
             a <- journal.read(SeqRange.All)
             _  = a shouldEqual seqNrs.dropWhile(_ <= SeqNr.Min)
-            a <- journal.lastSeqNr()
+            a <- journal.pointer
           } yield {
             a shouldEqual seqNrLast
           }
@@ -119,7 +118,7 @@ class JournalSpec extends WordSpec with Matchers {
       s"lastSeqNr, $name" in {
         createAndAppend { case (journal, _) =>
           for {
-            a <- journal.lastSeqNr()
+            a <- journal.pointer
           } yield {
             a shouldEqual seqNrLast
           }
@@ -137,7 +136,7 @@ class JournalSpec extends WordSpec with Matchers {
               _      <- journal.delete(seqNr)
               seqNrs <- journal.read(SeqRange.All)
               _       = seqNrs shouldEqual seqNrs.dropWhile(_ <= seqNr)
-              seqNr  <- journal.lastSeqNr()
+              seqNr  <- journal.pointer
             } yield {
               seqNr shouldEqual seqNrLast
             }
@@ -187,7 +186,7 @@ class JournalSpec extends WordSpec with Matchers {
           _       = seqNrs shouldEqual List(4.toSeqNr)
           seqNrs <- journal.read(SeqRange(5, 6))
           _       = seqNrs shouldEqual Nil
-          seqNr  <- journal.lastSeqNr()
+          seqNr  <- journal.pointer
         } yield {
           seqNr shouldEqual Some(SeqNr(4))
         }
@@ -337,14 +336,14 @@ object JournalSpec {
 
     def read(range: SeqRange): F[List[SeqNr]]
 
-    def lastSeqNr(): F[Option[SeqNr]]
+    def pointer: F[Option[SeqNr]]
 
     def delete(to: SeqNr): F[Option[Offset]]
   }
 
   object SeqNrJournal {
 
-    def apply[F[_] : FlatMap](journal: Journal[F]): SeqNrJournal[F] = {
+    def apply[F[_] : Monad](journal: Journal[F]): SeqNrJournal[F] = {
 
       new SeqNrJournal[F] {
 
@@ -362,21 +361,18 @@ object JournalSpec {
         }
 
         def read(range: SeqRange) = {
-          for {
-            events <- journal.read(key, range.from, List.empty[SeqNr]) { (seqNrs, event) =>
-              val continue = event.seqNr <= range.to
-              val result = {
-                if (event.seqNr >= range.from && continue) event.seqNr :: seqNrs
-                else seqNrs
-              }
-              result.switch(continue)
+          import Stream.Cmd
+          val stream = journal
+            .read(key, range.from)
+            .mapCmd { event =>
+              if (event.seqNr < range.from) Cmd.skip
+              else if (event.seqNr <= range.to) Cmd.take(event.seqNr)
+              else Cmd.stop
             }
-          } yield {
-            events.reverse
-          }
+          stream.toList
         }
 
-        def lastSeqNr() = journal.pointer(key)
+        def pointer = journal.pointer(key)
 
         def delete(to: SeqNr) = {
           for {
@@ -398,6 +394,7 @@ object JournalSpec {
       implicit val log = Log.empty[F]
       implicit val concurrent = ConcurrentOf.fromMonad[F]
       implicit val clock = ClockOf[F](timestamp.toEpochMilli)
+      implicit val par = Par.sequential[F]
       val journal = Journal[F](None, eventual, withPollActions, writeAction, HeadCache.empty[F])
         .withLog(log)
         .withMetrics(Journal.Metrics.empty[F])
