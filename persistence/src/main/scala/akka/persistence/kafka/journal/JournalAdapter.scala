@@ -95,21 +95,21 @@ object JournalAdapter {
     new JournalAdapter[F] {
 
       def write(aws: Seq[AtomicWrite]) = {
+        val prs = aws.flatMap(_.payload)
         for {
-          timestamp <- Clock[F].instant
-          prs        = for { aw <- aws; pr <- aw.payload } yield pr
-          result    <- Nel.opt(prs).fold(List.empty[Try[Unit]].pure[F]) { prs =>
+          result <- Nel.opt(prs).fold(List.empty[Try[Unit]].pure[F]) { prs =>
             val persistenceId = prs.head.persistenceId
             val key = toKey(persistenceId)
             for {
-              _      <- Log[F].debug {
+              _         <- Log[F].debug {
                 val first = prs.head.sequenceNr
                 val last = prs.last.sequenceNr
                 val seqNr = if (first == last) s"seqNr: $first" else s"seqNrs: $first..$last"
                 s"$persistenceId write, $seqNr"
               }
-              events  = prs.map(serializer.toEvent)
-              _      <- journal.append(key, events, timestamp)
+              events     = prs.map(serializer.toEvent)
+              timestamp <- Clock[F].instant
+              _         <- journal.append(key, events, timestamp)
             } yield List.empty[Try[Unit]]
           }
         } yield result

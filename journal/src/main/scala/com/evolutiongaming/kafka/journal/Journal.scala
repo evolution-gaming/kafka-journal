@@ -144,7 +144,7 @@ object Journal {
     new Journal[F] {
 
       def append(key: Key, events: Nel[Event], timestamp: Instant) = {
-        val action = Action.Append(key, timestamp, origin, events)
+        val action = Action.Append(key, timestamp, origin, events) // TODO measure
         appendAction(action)
       }
 
