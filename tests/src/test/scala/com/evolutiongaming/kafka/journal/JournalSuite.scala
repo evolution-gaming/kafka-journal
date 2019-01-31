@@ -13,7 +13,7 @@ import com.evolutiongaming.skafka.consumer.Consumer
 import org.scalatest.{Matchers, Suite}
 
 
-trait JournalSuit extends ActorSuite with Matchers { self: Suite =>
+trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
 
   lazy val config: KafkaJournalConfig = {
     val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.persistence.journal")
@@ -41,7 +41,7 @@ trait JournalSuit extends ActorSuite with Matchers { self: Suite =>
 
   override def beforeAll() = {
     super.beforeAll()
-    IntegrationSuit.start()
+    IntegrationSuite.start()
 //    eventual
 //    producer
   }
@@ -52,7 +52,7 @@ trait JournalSuit extends ActorSuite with Matchers { self: Suite =>
   }
 }
 
-object JournalSuit {
+object JournalSuite {
 
   trait KeyJournal[F[_]] {
 

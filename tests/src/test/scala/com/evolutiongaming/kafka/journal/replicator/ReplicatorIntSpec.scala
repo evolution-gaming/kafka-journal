@@ -85,7 +85,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
   lazy val ((eventualJournal, journal), release) = resources[IO].allocated.unsafeRunSync()
 
   override protected def beforeAll(): Unit = {
-    IntegrationSuit.start()
+    IntegrationSuite.start()
     release
     super.beforeAll()
   }

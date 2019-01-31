@@ -12,8 +12,8 @@ import org.scalatest.AsyncWordSpec
 
 import scala.concurrent.duration._
 
-class JournalPerfSpec extends AsyncWordSpec with JournalSuit {
-  import JournalSuit._
+class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
+  import JournalSuite._
 
   private val many = 100
   private val events = 1000

@@ -12,7 +12,7 @@ import com.typesafe.config.ConfigFactory
 import scala.concurrent.ExecutionContext
 
 
-object IntegrationSuit {
+object IntegrationSuite {
 
   def startF[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf : Runtime]: Resource[F, Unit] = {
 
@@ -55,7 +55,7 @@ object IntegrationSuit {
     }
 
     for {
-      log      <- Resource.liftF(LogOf[F].apply(IntegrationSuit.getClass))
+      log      <- Resource.liftF(LogOf[F].apply(IntegrationSuite.getClass))
       _        <- cassandra(log)
       _        <- kafka(log)
       blocking <- Executors.blocking[F]

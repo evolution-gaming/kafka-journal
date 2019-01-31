@@ -5,7 +5,7 @@ object Dependencies {
   val scalatest            = "org.scalatest" %% "scalatest" % "3.0.5"
   val `scala-java8-compat` = "org.scala-lang.modules" %% "scala-java8-compat" % "0.9.0"
   val prometheus           = "io.prometheus" % "simpleclient" % "0.6.0"
-  val `play-json`          = "com.typesafe.play" %% "play-json" % "2.6.13"
+  val `play-json`          = "com.typesafe.play" %% "play-json" % "2.7.1"
   val `executor-tools`     = "com.evolutiongaming" %% "executor-tools" % "1.0.1"
   val `config-tools`       = "com.evolutiongaming" %% "config-tools" % "1.0.3"
   val `akka-serialization` = "com.evolutiongaming" %% "akka-serialization" % "0.0.3"
@@ -22,7 +22,7 @@ object Dependencies {
   object Cats {
     private val version = "1.5.0"
     val core   = "org.typelevel" %% "cats-core"   % version
-    val effect = "org.typelevel" %% "cats-effect" % "1.1.0"
+    val effect = "org.typelevel" %% "cats-effect" % "1.2.0"
   }
 
   object Logback {
@@ -38,7 +38,7 @@ object Dependencies {
   }
 
   object Akka {
-    private val version = "2.5.19"
+    private val version = "2.5.20"
     val actor             = "com.typesafe.akka" %% "akka-actor"           % version
     val testkit           = "com.typesafe.akka" %% "akka-testkit"         % version
     val stream            = "com.typesafe.akka" %% "akka-stream"          % version

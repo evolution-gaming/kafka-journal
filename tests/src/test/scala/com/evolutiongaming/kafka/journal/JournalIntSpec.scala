@@ -13,8 +13,8 @@ import org.scalatest.{AsyncWordSpec, Succeeded}
 
 import scala.concurrent.duration._
 
-class JournalIntSpec extends AsyncWordSpec with JournalSuit {
-  import JournalSuit._
+class JournalIntSpec extends AsyncWordSpec with JournalSuite {
+  import JournalSuite._
 
   val origin = Origin("JournalIntSpec")
 
