@@ -56,7 +56,7 @@ class FoldActionsSpec extends FunSuite with Matchers {
 
     val (marker, markRecord) = {
       val offset = pointers.lastOption.fold(1l) { _.offset + 1 }
-      val mark = Action.Mark(key, timestamp, None, "mark")
+      val mark = Action.Mark(key, timestamp, ActionHeader.Mark("mark", None))
       val partitionOffset = PartitionOffset(offset = offset)
       val record = ActionRecord(mark, partitionOffset)
       val marker = Marker(mark.id, partitionOffset)
@@ -67,7 +67,8 @@ class FoldActionsSpec extends FunSuite with Matchers {
       pointer <- pointers
     } yield {
       val range = SeqRange(SeqNr(pointer.seqNr))
-      val action = Action.Append(key, timestamp, None, range, PayloadType.Json, Payload.Binary.Empty)
+      val header = ActionHeader.Append(range, None, PayloadType.Json)
+      val action = Action.Append(key, timestamp, header, Payload.Binary.Empty)
       ActionRecord(action, PartitionOffset(offset = pointer.offset))
     }
     val records = appendRecords :+ markRecord

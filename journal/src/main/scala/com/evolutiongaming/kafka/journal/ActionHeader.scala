@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import play.api.libs.json._
 
-sealed abstract class ActionHeader {
+sealed abstract class ActionHeader extends Product {
   def origin: Option[Origin]
 }
 
@@ -47,28 +47,24 @@ object ActionHeader {
   implicit val FromBytesImpl: FromBytes[ActionHeader] = FromBytes[JsValue].map(_.as[ActionHeader])
 
 
-  def apply(action: Action): ActionHeader = {
-    action match {
-      case action: Action.Append => Append(action.range, action.origin, action.payloadType)
-      case action: Action.Delete => Delete(action.to, action.origin)
-      case action: Action.Mark   => Mark(action.id, action.origin)
-    }
-  }
-
-
   sealed abstract class AppendOrDelete extends ActionHeader
 
 
   final case class Append(
     range: SeqRange,
     origin: Option[Origin],
-    payloadType: PayloadType.BinaryOrJson) extends AppendOrDelete
+    payloadType: PayloadType.BinaryOrJson
+  ) extends AppendOrDelete
+
 
   final case class Delete(
     to: SeqNr,
-    origin: Option[Origin]) extends AppendOrDelete
+    origin: Option[Origin]
+  ) extends AppendOrDelete
+
 
   final case class Mark(
     id: String,
-    origin: Option[Origin]) extends ActionHeader
+    origin: Option[Origin]
+  ) extends ActionHeader
 }

@@ -290,7 +290,7 @@ object Stream {
   }
 
 
-  sealed trait Cmd[+A]
+  sealed abstract class Cmd[+A]
 
   object Cmd {
 

@@ -22,7 +22,7 @@ object KafkaConverters {
 
     def toProducerRecord: ProducerRecord[Id, Bytes] = {
       val key = self.key
-      val actionHeader = ActionHeader(self)
+      val actionHeader = self.header
       val header = Header(`journal.action`, actionHeader.toBytes)
       val payload = self match {
         case a: Action.Append => Some(a.payload.value)
@@ -55,17 +55,16 @@ object KafkaConverters {
         timestampAndType <- self.timestampAndType
         timestamp         = timestampAndType.timestamp
         key               = Key(id = id.value, topic = self.topic)
-        origin            = header.origin
         action           <- header match {
           case header: ActionHeader.Append =>
             for {
               value <- self.value
             } yield {
               val payload = Payload.Binary(value.value)
-              Action.Append(key, timestamp, origin, header.range, header.payloadType, payload)
+              Action.Append(key, timestamp, header, payload)
             }
-          case header: ActionHeader.Delete => Some(Action.Delete(key, timestamp, origin, header.to))
-          case header: ActionHeader.Mark   => Some(Action.Mark(key, timestamp, origin, header.id))
+          case header: ActionHeader.Delete => Some(Action.Delete(key, timestamp, header))
+          case header: ActionHeader.Mark   => Some(Action.Mark(key, timestamp, header))
         }
       } yield action
     }

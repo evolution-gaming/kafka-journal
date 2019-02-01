@@ -602,11 +602,11 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
   }
 
   private def markOf(key: Key) = {
-    Action.Mark(key, timestamp, Some(origin), "id")
+    Action.Mark(key, timestamp, "id", Some(origin))
   }
 
   private def deleteOf(key: Key, to: Int) = {
-    Action.Delete(key, timestamp, Some(origin), SeqNr(to.toLong))
+    Action.Delete(key, timestamp, SeqNr(to.toLong), Some(origin))
   }
 }
 
@@ -637,7 +637,7 @@ object TopicReplicatorSpec {
   }
 
 
-  sealed trait Metrics
+  sealed abstract class Metrics extends Product
 
   object Metrics {
 
@@ -696,9 +696,9 @@ object TopicReplicatorSpec {
 
       val records = events.toList ++ self.journal.getOrElse(key, Nil)
 
-      val deletedTo = self.metadata.get(key).flatMap(_.deleteTo)
+      val deleteTo = self.metadata.get(key).flatMap(_.deleteTo)
 
-      val metadata = Metadata(partitionOffset, deletedTo)
+      val metadata = Metadata(partitionOffset, deleteTo)
 
       val updated = copy(
         journal = journal.updated(key, records),
@@ -713,15 +713,15 @@ object TopicReplicatorSpec {
 
       def delete(deleteTo: SeqNr) = journal.dropWhile(_.seqNr <= deleteTo)
 
-      val deletedTo = self.metadata.get(key).flatMap(_.deleteTo)
-      if (deletedTo.exists(_ >= deleteTo)) {
+      val deleteTo1 = self.metadata.get(key).flatMap(_.deleteTo)
+      if (deleteTo1.exists(_ >= deleteTo)) {
         self.metadata.get(key).fold(this) { metadata =>
           copy(metadata = self.metadata.updated(key, metadata.copy(offset = partitionOffset)))
         }
       } else {
         val records = delete(deleteTo)
         val result = records.headOption.flatMap(_.seqNr.prev) orElse journal.lastOption.map(_.seqNr)
-        val metadata = Metadata(partitionOffset, deleteTo = result orElse deletedTo)
+        val metadata = Metadata(partitionOffset, deleteTo = result orElse deleteTo1)
         copy(
           journal = self.journal.updated(key, records),
           metadata = self.metadata.updated(key, metadata))

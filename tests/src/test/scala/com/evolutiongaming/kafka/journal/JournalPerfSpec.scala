@@ -25,7 +25,10 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
     eventualJournal: EventualJournal[IO] => {
       implicit val log = Log.empty[IO]
       for {
-        headCache <- HeadCache.of[IO](config.journal.consumer, eventualJournal)
+        headCache <- HeadCache.of[IO](
+          config.journal.consumer,
+          eventualJournal,
+          HeadCache.Metrics.empty[IO].some)
         journal = Journal(
           producer = producer,
           origin = Some(origin),

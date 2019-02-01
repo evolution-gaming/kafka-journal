@@ -4,7 +4,7 @@ import com.evolutiongaming.kafka.journal.PlayJsonHelper._
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
 import play.api.libs.json._
 
-sealed trait Payload {
+sealed abstract class Payload extends Product {
   def payloadType: PayloadType
 }
 
@@ -87,7 +87,7 @@ object Payload {
 }
 
 
-sealed trait PayloadType {
+sealed abstract class PayloadType extends Product {
   def ext: String
   def name: String
 }
@@ -119,7 +119,7 @@ object PayloadType {
   def apply(name: String): Option[PayloadType] = byName.get(name)
 
 
-  sealed trait BinaryOrJson extends PayloadType
+  sealed abstract class BinaryOrJson extends PayloadType
 
   object BinaryOrJson {
     implicit val ReadsImpl: Reads[BinaryOrJson] = ReadsOf[String].mapResult { a =>

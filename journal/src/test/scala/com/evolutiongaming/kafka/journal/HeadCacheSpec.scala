@@ -7,6 +7,7 @@ import cats.effect.{Concurrent, IO, Resource, Timer}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.kafka.journal.util.IOSuite._
+import com.evolutiongaming.kafka.journal.HeadCache.Result
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer.ConsumerRecords
@@ -45,7 +46,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         consumer  = TestConsumer(ref)
         _        <- headCacheOf(consumer.pure[IO]).use { headCache =>
           for {
-            result <- headCache(key = key, partition = partition, offset = offsetLast)
+            result <- headCache.get(key = key, partition = partition, offset = offsetLast)
             state  <- ref.get
             state  <- state
           } yield {
@@ -54,7 +55,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
               seeks = List(TestConsumer.Seek(topic, Map((partition, 0)))),
               topics = Map((topic, List(partition))))
 
-            result shouldEqual Some(HeadCache.Result(seqNr = Some(SeqNr(11)), deleteTo = none))
+            result shouldEqual Result.valid(JournalInfo.append(SeqNr(11)))
           }
         }
       } yield {}
@@ -78,9 +79,9 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         consumer  = TestConsumer(ref)
         _        <- headCacheOf(consumer.pure[IO]).use { headCache =>
           for {
-            result <- headCache(key = key, partition = partition, offset = marker)
+            result <- headCache.get(key = key, partition = partition, offset = marker)
           } yield {
-            result shouldEqual Some(HeadCache.Result(seqNr = none, deleteTo = none))
+            result shouldEqual Result.empty
           }
         }
       } yield {}
@@ -101,7 +102,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         consumer  = TestConsumer(ref)
         _        <- headCacheOf(consumer.pure[IO]).use { headCache =>
           for {
-            result <- Concurrent[IO].start { headCache(key = key, partition = partition, offset = marker) }
+            result <- Concurrent[IO].start { headCache.get(key = key, partition = partition, offset = marker) }
             _      <- ref.update { state =>
               for {
                 state <- state
@@ -113,7 +114,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
               for {
                 state <- state
               } yield {
-                val action = Action.Mark(key, timestamp, none, "mark")
+                val action = Action.Mark(key, timestamp, ActionHeader.Mark("mark", None))
                 val record = ConsumerRecordOf(action, topicPartition, marker)
                 val records = ConsumerRecordsOf(List(record))
                 state.copy(records = state.records.enqueue(records))
@@ -128,7 +129,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
               seeks = List(TestConsumer.Seek(topic, Map((partition, 0)))),
               topics = Map((topic, List(partition))))
 
-            result shouldEqual Some(HeadCache.Result(seqNr = none, deleteTo = none))
+            result shouldEqual Result.empty
           }
         }
       } yield {}
@@ -166,7 +167,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         }
         _ <- headCache.use { headCache =>
           for {
-            result <- headCache(
+            result <- headCache.get(
               key = key,
               partition = partition,
               offset = offsetLast)
@@ -177,7 +178,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
               seeks = List(TestConsumer.Seek(topic, Map((partition, 0)))),
               topics = Map((topic, List(partition))))
 
-            result shouldEqual Some(HeadCache.Result(seqNr = none, deleteTo = none))
+            result shouldEqual Result.empty
           }
         }
 
@@ -221,14 +222,14 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           }
           for {
           _     <- enqueue(key0, 0l)
-          r0    <- headCache(key0, partition, 0l)
+          r0    <- headCache.get(key0, partition, 0l)
           _     <- enqueue(key1, 1l)
-          r1    <- headCache(key0, partition, 1l)
-          r2    <- headCache(key1, partition, 1l)
+          r1    <- headCache.get(key0, partition, 1l)
+          r2    <- headCache.get(key1, partition, 1l)
           _     <- pointers.update(_ ++ Map((partition, 1l)))
-          r3    <- headCache(key1, partition, 1l)
+          r3    <- headCache.get(key1, partition, 1l)
           _     <- enqueue(key0, 2l)
-          r4    <- headCache(key0, partition, 2l)
+          r4    <- headCache.get(key0, partition, 2l)
           state <- ref.get
           state <- state
           } yield {
@@ -236,11 +237,11 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
               assigns = List(TestConsumer.Assign(topic, Nel(0))),
               seeks = List(TestConsumer.Seek(topic, Map((partition, 0)))),
               topics = Map((topic, List(partition))))
-            r0 shouldEqual Some(HeadCache.Result(seqNr = Some(SeqNr.Min), deleteTo = none))
-            r1 shouldEqual none
-            r2 shouldEqual none
-            r3 shouldEqual none
-            r4 shouldEqual Some(HeadCache.Result(seqNr = Some(SeqNr.Min), deleteTo = none))
+            r0 shouldEqual Result.valid(JournalInfo.append(SeqNr.Min))
+            r1 shouldEqual Result.invalid
+            r2 shouldEqual Result.invalid
+            r3 shouldEqual Result.invalid
+            r4 shouldEqual Result.valid(JournalInfo.append(SeqNr.Min))
           }
         }
       } yield {}
@@ -267,7 +268,8 @@ object HeadCacheSpec {
     HeadCache.of[IO](
       log = LogIO,
       config = config,
-      consumer = Resource.liftF(consumer))
+      consumer = Resource.liftF(consumer),
+      metrics = HeadCache.Metrics.empty[IO])
   }
 
   implicit val LogIO: Log[IO] = Log.empty[IO]

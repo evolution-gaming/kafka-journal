@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.replicator
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.nel.Nel
 
-sealed trait Batch {
+sealed abstract class Batch extends Product {
   def partitionOffset: PartitionOffset
 }
 

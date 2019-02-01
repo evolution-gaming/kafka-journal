@@ -65,7 +65,7 @@ object ReadEventsApp extends IOApp {
 
     val journal = for {
       eventualJournal <- EventualCassandra.of[F](eventualCassandraConfig, None)
-      headCache       <- HeadCache.of[F](consumerConfig, eventualJournal)
+      headCache       <- HeadCache.of[F](consumerConfig, eventualJournal, None)
       producer        <- Journal.Producer.of[F](producerConfig)
     } yield {
       val journal = Journal[F](None, producer, consumer, eventualJournal, 100.millis, headCache)

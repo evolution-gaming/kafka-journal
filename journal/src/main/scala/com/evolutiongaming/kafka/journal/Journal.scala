@@ -8,8 +8,8 @@ import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
-import com.evolutiongaming.kafka.journal.stream.FoldWhile.FoldWhileOps
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
+import com.evolutiongaming.kafka.journal.stream.FoldWhile.FoldWhileOps
 import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.kafka.journal.util.ClockHelper._
 import com.evolutiongaming.kafka.journal.util.Par
@@ -22,6 +22,7 @@ import scala.concurrent.duration._
 
 trait Journal[F[_]] {
 
+   // TODO remove timestamp ?
   def append(key: Key, events: Nel[Event], timestamp: Instant): F[PartitionOffset]
 
   def read(key: Key, from: SeqNr): Stream[F, Event]
@@ -46,7 +47,7 @@ object Journal {
   }
 
   
-  def of[F[_] : Concurrent : ContextShift : Timer : Par : LogOf : KafkaConsumerOf : KafkaProducerOf](
+  def of[F[_] : Concurrent : ContextShift : Timer : Par : LogOf : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf](
     config: JournalConfig,
     origin: Option[Origin],
     eventualJournal: EventualJournal[F],
@@ -56,16 +57,16 @@ object Journal {
 
     val headCache = {
       if (config.headCache) {
-        HeadCache.of[F](config.consumer, eventualJournal)
+        HeadCacheOf[F].apply(config.consumer, eventualJournal)
       } else {
         Resource.pure[F, HeadCache[F]](HeadCache.empty[F])
       }
     }
 
     for {
-      producer      <- Producer.of[F](config.producer)
-      log           <- Resource.liftF(LogOf[F].apply(Journal.getClass))
-      headCache     <- headCache
+      producer  <- Producer.of[F](config.producer)
+      log       <- Resource.liftF(LogOf[F].apply(Journal.getClass))
+      headCache <- headCache
     } yield {
       implicit val log1 = log
       val journal = apply(
@@ -102,40 +103,45 @@ object Journal {
     appendAction: AppendAction[F],
     headCache: HeadCache[F]): Journal[F] = {
 
-    def readActions(key: Key, from: SeqNr) = {
-      val marker = {
-        for {
-          id              <- Sync[F].delay { UUID.randomUUID().toString }
-          timestamp       <- Clock[F].instant
-          action           = Action.Mark(key, timestamp, origin, id)
-          partitionOffset <- appendAction(action)
-          _               <- Log[F].debug(s"$key mark, id: $id, offset $partitionOffset")
-        } yield {
-          Marker(id, partitionOffset)
-        }
+    def readActions(key: Key, from: SeqNr): F[(F[JournalInfo], FoldActions[F])] = {
+      val marker = for {
+        id              <- Sync[F].delay { UUID.randomUUID().toString }
+        timestamp       <- Clock[F].instant
+        action           = Action.Mark(key, timestamp, id, origin)
+        partitionOffset <- appendAction(action)
+        _               <- Log[F].debug(s"$key mark, id: $id, offset $partitionOffset")
+      } yield {
+        Marker(id, partitionOffset)
       }
-      val pointers = eventual.pointers(key.topic)
+      
+      val pointers = eventual.pointers(key.topic) // TODO pass partition as argument
 
       for {
         pointers <- Concurrent[F].start(pointers)
         marker   <- marker
-        result   <- if (marker.offset == Offset.Min) {
-          (JournalInfo.empty.some, FoldActions.empty[F]).pure[F]
-        } else {
-          for {
-            result   <- headCache(key, partition = marker.partition, offset = Offset.Min max marker.offset - 1)
-            pointers <- pointers.join
-            offset    = pointers.values.get(marker.partition)
-          } yield {
-            val info = for {
-              result <- result
+        result   <- {
+          if (marker.offset == Offset.Min) {
+            for {
+              _ <- pointers.cancel
             } yield {
-              def info = result.deleteTo.fold[JournalInfo](JournalInfo.Empty)(JournalInfo.Deleted(_))
-
-              result.seqNr.fold(info)(JournalInfo.NonEmpty(_, result.deleteTo))
+              (JournalInfo.empty.pure[F], FoldActions.empty[F])
             }
-            val foldActions = FoldActions(key, from, marker, offset, withPollActions)
-            (info, foldActions)
+          } else {
+            for {
+              result   <- headCache.get(key, partition = marker.partition, offset = Offset.Min max marker.offset - 1)
+              pointers <- pointers.join
+              offset    = pointers.values.get(marker.partition)
+            } yield {
+
+              val readKafka = FoldActions(key, from, marker, offset, withPollActions)
+
+              val info = result match {
+                case HeadCache.Result.Valid(info) => info.pure[F]
+                case HeadCache.Result.Invalid     =>
+                  readKafka(None).fold(JournalInfo.empty) { (info, action) => info(action.header) }
+              }
+              (info, readKafka)
+            }
           }
         }
       } yield result
@@ -171,10 +177,10 @@ object Journal {
             events.foldWhileM(l)(f)
           }
 
-          def onNonEmpty(deleteTo: Option[SeqNr], readActions: FoldActions[F]) = {
+          def onNonEmpty(deleteTo: Option[SeqNr], readKafka: FoldActions[F]) = {
 
             def events(from: SeqNr, offset: Option[Offset], l: L) = {
-              readActions(offset).foldWhileM(l) { (l, a) =>
+              readKafka(offset).foldWhileM(l) { (l, a) =>
                 a match {
                   case _: Action.Delete => l.asLeft[R].pure[F]
                   case a: Action.Append =>
@@ -209,20 +215,17 @@ object Journal {
           }
 
           for {
-            ab           <- readActions(key, from)
-            (info, read)  = ab
+            ab                <- readActions(key, from)
+            (info, readKafka)  = ab
             // TODO use range after eventualRecords
             // TODO prevent from reading calling consume twice!
-            info         <- info match {
-              case Some(info) => info.pure[F]
-              case None       => read(None).fold(JournalInfo.empty) { (info, action) => info(action) }
-            }
-            _            <- Log[F].debug(s"$key read info: $info")
-            result       <- info match {
-              case JournalInfo.Empty                 => replicated(from)
-              case JournalInfo.NonEmpty(_, deleteTo) => onNonEmpty(deleteTo, read)
+            info              <- info
+            _                 <- Log[F].debug(s"$key read info: $info")
+            result            <- info match {
+              case JournalInfo.Empty               => replicated(from)
+              case JournalInfo.Append(_, deleteTo) => onNonEmpty(deleteTo, readKafka)
               // TODO test this case
-              case JournalInfo.Deleted(deleteTo)     => deleteTo.next match {
+              case JournalInfo.Delete(deleteTo) => deleteTo.next match {
                 case None       => l.asLeft[R].pure[F]
                 case Some(next) => replicated(from max next)
               }
@@ -236,36 +239,25 @@ object Journal {
 
         val from = SeqNr.Min // TODO remove
 
-        def seqNrEventual = eventual.pointer(key).map(_.map(_.seqNr))
-
         for {
-          ab                  <- readActions(key, from)
-          (info, readActions)  = ab
-          result              <- info match {
-            case Some(info) => info match {
-              case JournalInfo.Empty          => seqNrEventual
-              case info: JournalInfo.NonEmpty => info.seqNr.some.pure[F]
-              case _   : JournalInfo.Deleted  => seqNrEventual
-            }
-
-            case None =>
-              val seqNr = readActions(None /*TODO provide offset from eventual.lastSeqNr*/).fold(Option.empty[SeqNr]) { (seqNr, action) =>
-                action match {
-                  case action: Action.Append => Some(action.range.to)
-                  case action: Action.Delete => Some(action.to max seqNr)
-                }
-              }
-
-              val pointer = eventual.pointer(key)
-
-              for {
-                ab <- Par[F].tupleN(seqNr, pointer)
-              } yield {
-                val (seqNr, pointer) = ab
-                pointer.map(_.seqNr) max seqNr
-              }
+          ab              <- readActions(key, from)
+          (info, _)        = ab
+          pointer          = Concurrent[F].start { eventual.pointer(key) }
+          ab              <- Par[F].tupleN(info, pointer)
+          (info, pointer)  = ab
+          seqNrEventual    = for {
+            pointer <- pointer.join
+          } yield for {
+            pointer <- pointer
+          } yield {
+            pointer.seqNr
           }
-        } yield result
+          seqNr           <- info match {
+            case JournalInfo.Empty        => seqNrEventual
+            case info: JournalInfo.Append => info.seqNr.some.pure[F]
+            case _: JournalInfo.Delete    => seqNrEventual
+          }
+        } yield seqNr
       }
 
       def delete(key: Key, to: SeqNr, timestamp: Instant) = {
@@ -277,7 +269,7 @@ object Journal {
 
               // TODO not delete already deleted, do not accept deleteTo=2 when already deleteTo=3
               val deleteTo = seqNr min to
-              val action = Action.Delete(key, timestamp, origin, deleteTo)
+              val action = Action.Delete(key, timestamp, deleteTo, origin)
               appendAction(action).map(_.some)
           }
         } yield result
@@ -407,7 +399,7 @@ object Journal {
 
   object Metrics {
 
-    def empty[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
+    def const[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
 
       def append(topic: Topic, latency: Long, events: Int) = unit
 
@@ -422,7 +414,7 @@ object Journal {
       def failure(name: String, topic: Topic) = unit
     }
 
-    def empty[F[_] : Applicative]: Metrics[F] = empty(().pure[F])
+    def empty[F[_] : Applicative]: Metrics[F] = const(().pure[F])
   }
 
 
@@ -520,12 +512,12 @@ object Journal {
 
   implicit class JournalOps[F[_]](val self: Journal[F]) extends AnyVal {
 
-    def withLog(log: Log[F])(implicit sync: Sync[F], clock: Clock[F]): Journal[F] =  {
+    def withLog(log: Log[F])(implicit F: FlatMap[F], clock: Clock[F]): Journal[F] =  {
       Journal(self, log)
     }
 
     
-    def withMetrics(metrics: Metrics[F])(implicit sync: Sync[F], clock: Clock[F]): Journal[F] =  {
+    def withMetrics(metrics: Metrics[F])(implicit F: Sync[F], clock: Clock[F]): Journal[F] =  {
       Journal(self, metrics)
     }
 

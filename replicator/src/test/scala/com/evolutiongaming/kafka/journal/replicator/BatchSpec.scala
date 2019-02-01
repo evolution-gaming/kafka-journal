@@ -308,22 +308,23 @@ class BatchSpec extends FunSuite with Matchers {
     Action.Append(
       key = keyOf,
       timestamp = timestamp,
-      origin = None,
-      range = SeqRange(seqNrOf(seqNrs.head), seqNrOf(seqNrs.last)),
-      payloadType = PayloadType.Binary,
+      header = ActionHeader.Append(
+        range = SeqRange(seqNrOf(seqNrs.head), seqNrOf(seqNrs.last)),
+        payloadType = PayloadType.Binary,
+        origin = None),
       payload = Payload.Binary.Empty)
   }
 
   def deleteOf(seqNr: Int, origin: String): Action.Delete = {
     val originOpt = originOf(origin)
-    Action.Delete(keyOf, timestamp, originOpt, seqNrOf(seqNr))
+    Action.Delete(keyOf, timestamp, seqNrOf(seqNr), originOpt)
   }
 
   def actionOf(a: A): Action = {
     a match {
       case a: A.Append => appendOf(Nel(a.seqNr, a.seqNrs))
       case a: A.Delete => deleteOf(seqNr = a.seqNr, origin = a.origin)
-      case _: A.Mark   => Action.Mark(keyOf, timestamp, None, "id")
+      case _: A.Mark   => Action.Mark(keyOf, timestamp, ActionHeader.Mark("id", None))
     }
   }
 

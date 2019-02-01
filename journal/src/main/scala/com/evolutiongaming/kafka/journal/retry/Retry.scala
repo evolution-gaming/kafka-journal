@@ -154,7 +154,7 @@ object Retry {
   }
 
 
-  sealed trait Decision
+  sealed abstract class Decision
 
   object Decision {
 
@@ -164,7 +164,7 @@ object Retry {
   }
 
 
-  sealed trait StrategyDecision
+  sealed abstract class StrategyDecision
 
   object StrategyDecision {
 

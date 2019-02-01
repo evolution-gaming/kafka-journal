@@ -63,10 +63,15 @@ object JournalAdapter {
       KafkaProducerOf[F](blocking, producerMetrics)
     }
 
+    def headCacheOf(implicit kafkaConsumerOf: KafkaConsumerOf[F]): HeadCacheOf[F] = {
+      HeadCacheOf[F](metrics.headCache)
+    }
+
     def journal(
       eventualJournal: EventualJournal[F])(implicit
       kafkaConsumerOf: KafkaConsumerOf[F],
-      kafkaProducerOf: KafkaProducerOf[F]) = {
+      kafkaProducerOf: KafkaProducerOf[F],
+      headCacheOf: HeadCacheOf[F]) = {
 
       Journal.of[F](
         origin = origin,
@@ -79,8 +84,9 @@ object JournalAdapter {
       blocking         <- Executors.blocking[F]
       kafkaProducerOf1  = kafkaProducerOf(blocking)
       kafkaConsumerOf1  = kafkaConsumerOf(blocking)
+      headCacheOf1      = headCacheOf(kafkaConsumerOf1)
       eventualJournal  <- EventualCassandra.of[F](config.cassandra, metrics.eventual)
-      journal          <- journal(eventualJournal)(kafkaConsumerOf1, kafkaProducerOf1)
+      journal          <- journal(eventualJournal)(kafkaConsumerOf1, kafkaProducerOf1, headCacheOf1)
     } yield {
       implicit val log = Log[F](actorLog)
       JournalAdapter[F](journal, toKey, serializer)
@@ -182,6 +188,7 @@ object JournalAdapter {
   final case class Metrics[F[_]](
     journal: Option[Journal.Metrics[F]] = None,
     eventual: Option[EventualJournal.Metrics[F]] = None,
+    headCache: Option[HeadCache.Metrics[F]] = None,
     producer: Option[ClientId => Producer.Metrics] = None,
     consumer: Option[ClientId => Consumer.Metrics] = None)
 

@@ -6,32 +6,42 @@ import com.evolutiongaming.kafka.journal.EventsSerializer.EventsToPayload
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Partition}
 
-sealed trait Action {
+sealed abstract class Action extends Product {
+
   def key: Key
+
   def timestamp: Instant
-  def origin: Option[Origin]
+
+  def header: ActionHeader
+
+  def origin: Option[Origin] = header.origin
 }
 
 object Action {
 
-  sealed trait User extends Action
+  sealed abstract class User extends Action
 
-  sealed trait System extends Action
+  sealed abstract class System extends Action
 
   
   final case class Append(
     key: Key,
     timestamp: Instant,
-    origin: Option[Origin],
-    range: SeqRange,
-    payloadType: PayloadType.BinaryOrJson,
-    payload: Payload.Binary) extends User
+    header: ActionHeader.Append,
+    payload: Payload.Binary
+  ) extends User {
+
+    def payloadType: PayloadType.BinaryOrJson = header.payloadType
+
+    def range: SeqRange = header.range
+  }
 
   object Append {
     def apply(key: Key, timestamp: Instant, origin: Option[Origin], events: Nel[Event]): Append = {
       val (payload, payloadType) = EventsToPayload(events)
       val range = SeqRange(from = events.head.seqNr, to = events.last.seqNr)
-      Action.Append(key, timestamp, origin, range, payloadType, payload)
+      val header = ActionHeader.Append(range, origin, payloadType)
+      Action.Append(key, timestamp, header, payload)
     }
   }
 
@@ -39,15 +49,34 @@ object Action {
   final case class Delete(
     key: Key,
     timestamp: Instant,
-    origin: Option[Origin],
-    to: SeqNr) extends User
+    header: ActionHeader.Delete
+  ) extends User {
+
+    def to: SeqNr = header.to
+  }
+
+  object Delete {
+    def apply(key: Key, timestamp: Instant, to: SeqNr, origin: Option[Origin]): Delete = {
+      val header = ActionHeader.Delete(to, origin)
+      Delete(key, timestamp, header)
+    }
+  }
 
 
   final case class Mark(
     key: Key,
     timestamp: Instant,
-    origin: Option[Origin],
-    id: String) extends System
+    header: ActionHeader.Mark
+  ) extends System {
+
+    def id: String = header.id
+  }
+
+  object Mark {
+    def apply(key: Key, timestamp: Instant, id: String, origin: Option[Origin]): Mark = {
+      Mark(key, timestamp, ActionHeader.Mark(id, origin))
+    }
+  }
 }
 
 
