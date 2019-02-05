@@ -3,11 +3,9 @@ package com.evolutiongaming.kafka.journal
 
 import akka.persistence.kafka.journal.KafkaJournalConfig
 import cats.Monad
-import cats.implicits._
 import cats.effect.{Clock, IO}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.kafka.journal.util.IOSuite._
-import com.evolutiongaming.kafka.journal.util.ClockHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.Consumer
 import org.scalatest.{Matchers, Suite}
@@ -71,12 +69,7 @@ object JournalSuite {
 
     def apply[F[_] : Monad : Clock](key: Key, journal: Journal[F]): KeyJournal[F] = new KeyJournal[F] {
 
-      def append(events: Nel[Event]) = {
-        for {
-          timestamp <- Clock[F].instant
-          result    <- journal.append(key, events, timestamp)
-        } yield result
-      }
+      def append(events: Nel[Event]) = journal.append(key, events)
 
       def read = journal.read(key, SeqNr.Min).toList
 
@@ -84,12 +77,7 @@ object JournalSuite {
 
       def pointer = journal.pointer(key)
 
-      def delete(to: SeqNr) = {
-        for {
-          timestamp <- Clock[F].instant
-          result    <- journal.delete(key, to, timestamp)
-        } yield result
-      }
+      def delete(to: SeqNr) = journal.delete(key, to)
     }
   }
 }

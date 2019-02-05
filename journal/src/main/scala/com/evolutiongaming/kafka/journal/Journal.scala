@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal
 
-import java.time.Instant
 import java.util.UUID
 
 import cats._
@@ -22,28 +21,27 @@ import scala.concurrent.duration._
 
 trait Journal[F[_]] {
 
-   // TODO remove timestamp ?
-  def append(key: Key, events: Nel[Event], timestamp: Instant): F[PartitionOffset]
+  def append(key: Key, events: Nel[Event]): F[PartitionOffset]
 
   def read(key: Key, from: SeqNr): Stream[F, Event]
 
   def pointer(key: Key): F[Option[SeqNr]]
 
   // TODO return Pointer and Test it
-  def delete(key: Key, to: SeqNr, timestamp: Instant): F[Option[PartitionOffset]]
+  def delete(key: Key, to: SeqNr): F[Option[PartitionOffset]]
 }
 
 object Journal {
 
   def empty[F[_] : Applicative]: Journal[F] = new Journal[F] {
 
-    def append(key: Key, events: Nel[Event], timestamp: Instant) = PartitionOffset.Empty.pure[F]
+    def append(key: Key, events: Nel[Event]) = PartitionOffset.Empty.pure[F]
 
     def read(key: Key, from: SeqNr) = Stream.empty
 
     def pointer(key: Key) = none[SeqNr].pure[F]
 
-    def delete(key: Key, to: SeqNr, timestamp: Instant) = none[PartitionOffset].pure[F]
+    def delete(key: Key, to: SeqNr) = none[PartitionOffset].pure[F]
   }
 
   
@@ -149,9 +147,12 @@ object Journal {
 
     new Journal[F] {
 
-      def append(key: Key, events: Nel[Event], timestamp: Instant) = {
-        val action = Action.Append(key, timestamp, origin, events) // TODO measure
-        appendAction(action)
+      def append(key: Key, events: Nel[Event]) = {
+        for {
+          timestamp <- Clock[F].instant
+          action     = Action.Append(key, timestamp, origin, events) // TODO measure
+          result    <- appendAction(action)
+        } yield result
       }
 
       def read(key: Key, from: SeqNr) = new Stream[F, Event] {
@@ -260,17 +261,21 @@ object Journal {
         } yield seqNr
       }
 
-      def delete(key: Key, to: SeqNr, timestamp: Instant) = {
+      def delete(key: Key, to: SeqNr) = {
         for {
           seqNr  <- pointer(key)
           result <- seqNr match {
             case None        => none[PartitionOffset].pure[F]
             case Some(seqNr) =>
-
               // TODO not delete already deleted, do not accept deleteTo=2 when already deleteTo=3
               val deleteTo = seqNr min to
-              val action = Action.Delete(key, timestamp, deleteTo, origin)
-              appendAction(action).map(_.some)
+              for {
+                timestamp <- Clock[F].instant
+                action     = Action.Delete(key, timestamp, deleteTo, origin)
+                result    <- appendAction(action)
+              } yield {
+                result.some
+              }
           }
         } yield result
       }
@@ -280,15 +285,15 @@ object Journal {
 
   def apply[F[_] : FlatMap : Clock](journal: Journal[F], log: Log[F]): Journal[F] = new Journal[F] {
 
-    def append(key: Key, events: Nel[Event], timestamp: Instant) = {
+    def append(key: Key, events: Nel[Event]) = {
       for {
-        rl     <- Latency { journal.append(key, events, timestamp) }
+        rl     <- Latency { journal.append(key, events) }
         (r, l)  = rl
         _      <- log.debug {
           val first = events.head.seqNr
           val last = events.last.seqNr
           val seqNr = if (first == last) s"seqNr: $first" else s"seqNrs: $first..$last"
-          s"$key append in ${ l }ms, $seqNr, timestamp: $timestamp, result: $r"
+          s"$key append in ${ l }ms, $seqNr, result: $r"
         }
       } yield r
     }
@@ -312,11 +317,11 @@ object Journal {
       } yield r
     }
 
-    def delete(key: Key, to: SeqNr, timestamp: Instant) = {
+    def delete(key: Key, to: SeqNr) = {
       for {
-        rl     <- Latency { journal.delete(key, to, timestamp) }
+        rl     <- Latency { journal.delete(key, to) }
         (r, l)  = rl
-        _      <- log.debug(s"$key delete in ${ l }ms, to: $to, timestamp: $timestamp, r: $r")
+        _      <- log.debug(s"$key delete in ${ l }ms, to: $to, r: $r")
       } yield r
     }
   }
@@ -337,9 +342,9 @@ object Journal {
 
     new Journal[F] {
 
-      def append(key: Key, events: Nel[Event], timestamp: Instant) = {
+      def append(key: Key, events: Nel[Event]) = {
         for {
-          rl     <- latency("append", key.topic) { journal.append(key, events, timestamp) }
+          rl     <- latency("append", key.topic) { journal.append(key, events) }
           (r, l)  = rl
           _      <- metrics.append(topic = key.topic, latency = l, events = events.size)
         } yield r
@@ -371,9 +376,9 @@ object Journal {
         } yield r
       }
 
-      def delete(key: Key, to: SeqNr, timestamp: Instant) = {
+      def delete(key: Key, to: SeqNr) = {
         for {
-          rl     <- latency("delete", key.topic) { journal.delete(key, to, timestamp) }
+          rl     <- latency("delete", key.topic) { journal.delete(key, to) }
           (r, l)  = rl
           _      <- metrics.delete(key.topic, l)
         } yield r
@@ -524,8 +529,8 @@ object Journal {
 
     def mapK[G[_]](to: F ~> G, from: G ~> F): Journal[G] = new Journal[G] {
 
-      def append(key: Key, events: Nel[Event], timestamp: Instant) = {
-        to(self.append(key, events, timestamp))
+      def append(key: Key, events: Nel[Event]) = {
+        to(self.append(key, events))
       }
 
       def read(key: Key, from1: SeqNr) = {
@@ -536,8 +541,8 @@ object Journal {
         to(self.pointer(key))
       }
 
-      def delete(key: Key, to1: SeqNr, timestamp: Instant) = {
-        to(self.delete(key, to1, timestamp))
+      def delete(key: Key, to1: SeqNr) = {
+        to(self.delete(key, to1))
       }
     }
   }

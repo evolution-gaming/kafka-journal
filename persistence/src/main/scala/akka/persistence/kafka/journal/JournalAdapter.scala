@@ -8,7 +8,6 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.kafka.journal.stream.Stream
-import com.evolutiongaming.kafka.journal.util.ClockHelper._
 import com.evolutiongaming.kafka.journal.util.{Executors, FromFuture, Par, Runtime, ToFuture}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
@@ -114,8 +113,7 @@ object JournalAdapter {
                 s"$persistenceId write, $seqNr"
               }
               events     = prs.map(serializer.toEvent)
-              timestamp <- Clock[F].instant
-              _         <- journal.append(key, events, timestamp)
+              _         <- journal.append(key, events)
             } yield List.empty[Try[Unit]]
           }
         } yield result
@@ -123,10 +121,9 @@ object JournalAdapter {
 
       def delete(persistenceId: PersistenceId, to: SeqNr) = {
         for {
-          timestamp <- Clock[F].instant
           _         <- Log[F].debug(s"$persistenceId delete, to: $to")
           key        = toKey(persistenceId)
-          _         <- journal.delete(key, to, timestamp)
+          _         <- journal.delete(key, to)
         } yield {}
       }
 

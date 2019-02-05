@@ -94,7 +94,7 @@ object JournalAdapterSpec {
 
     implicit val JournalStateF: Journal[StateF] = new Journal[StateF] {
 
-      def append(key: Key, events: Nel[Event], timestamp: Instant) = {
+      def append(key: Key, events: Nel[Event]) = {
         StateF { s =>
           val s1 = s.copy(appends = Append(key, events, timestamp) :: s.appends)
           (s1, PartitionOffset.Empty)
@@ -117,7 +117,7 @@ object JournalAdapterSpec {
         }
       }
 
-      def delete(key: Key, to: SeqNr, timestamp: Instant) = {
+      def delete(key: Key, to: SeqNr) = {
         StateF { state =>
           val state1 = state.copy(deletes = Delete(key, to, timestamp) :: state.deletes)
           (state1, none[PartitionOffset])

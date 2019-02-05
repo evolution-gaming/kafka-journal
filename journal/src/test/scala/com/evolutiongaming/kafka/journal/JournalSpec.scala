@@ -394,7 +394,7 @@ object JournalSpec {
             Event(seqNr)
           }
           for {
-            partitionOffset <- journal.append(key, events, timestamp)
+            partitionOffset <- journal.append(key, events)
           } yield {
             partitionOffset.offset
           }
@@ -416,7 +416,7 @@ object JournalSpec {
 
         def delete(to: SeqNr) = {
           for {
-            partitionOffset <- journal.delete(key, to, timestamp)
+            partitionOffset <- journal.delete(key, to)
           } yield for {
             partitionOffset <- partitionOffset
           } yield {

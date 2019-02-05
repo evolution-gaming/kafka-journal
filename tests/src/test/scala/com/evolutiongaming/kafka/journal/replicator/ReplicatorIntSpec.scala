@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
-import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 import cats.effect._
@@ -97,6 +96,8 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
   "Replicator" should {
 
+    val timestamp = Instant.now()
+
     implicit val fixEquality = FixEquality.array[Byte]()
 
     val topic = "journal"
@@ -108,16 +109,18 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
     def read(key: Key)(until: List[ReplicatedEvent] => Boolean) = {
       val events = for {
         events <- eventualJournal.read(key, SeqNr.Min).toList
-        events <- if (until(events)) events.pure[IO] else Error.raiseError[IO, List[ReplicatedEvent]]
+        events <- {
+          if (until(events)) events.map(_.copy(timestamp = timestamp)).pure[IO]
+          else Error.raiseError[IO, List[ReplicatedEvent]]
+        }
       } yield events
 
       Retry[IO, Throwable](strategy)((_, _) => ().pure[IO]).apply(events)
     }
 
     def append(key: Key, events: Nel[Event]) = {
-      val timestamp = Instant.now().truncatedTo(ChronoUnit.MILLIS)
       for {
-        partitionOffset <- journal.append(key, events, timestamp)
+        partitionOffset <- journal.append(key, events)
       } yield for {
         event <- events
       } yield {
@@ -157,7 +160,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
           _                = events0 shouldEqual expected1.toList
           pointer1        <- pointer(key)
           _                = pointer1 shouldEqual Some(expected1.last.seqNr)
-          pointer2        <- journal.delete(key, expected1.last.event.seqNr, Instant.now()).map(_.map(_.partition))
+          pointer2        <- journal.delete(key, expected1.last.event.seqNr).map(_.map(_.partition))
           _                = pointer2 shouldEqual Some(partition)
           events1         <- read(key)(_.isEmpty)
           _                = events1 shouldEqual Nil

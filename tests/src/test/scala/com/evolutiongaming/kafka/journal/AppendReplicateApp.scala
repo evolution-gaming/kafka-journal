@@ -6,7 +6,6 @@ import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
-import com.evolutiongaming.kafka.journal.util.ClockHelper._
 import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Topic
@@ -103,9 +102,8 @@ object AppendReplicateApp extends IOApp {
         val event = Event(seqNr, payload = Some(Payload("AppendReplicateApp")))
 
         for {
-          timestamp <- Clock[F].instant
-          _         <- journal.append(key, Nel(event), timestamp)
-          result    <- seqNr.next.fold(().asRight[SeqNr].pure[F]) { seqNr =>
+          _      <- journal.append(key, Nel(event))
+          result <- seqNr.next.fold(().asRight[SeqNr].pure[F]) { seqNr =>
             for {
               _ <- Timer[F].sleep(100.millis)
             } yield {
