@@ -68,6 +68,7 @@ lazy val root = (project in file(".")
   settings commonSettings
   settings (skip in publish := true)
   aggregate(
+    rng,
     `scalatest-io`,
     `cats-effect-helpers`,
     cache,
