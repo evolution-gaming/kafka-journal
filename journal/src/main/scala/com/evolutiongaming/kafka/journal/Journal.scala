@@ -111,10 +111,8 @@ object Journal {
         Marker(id, partitionOffset)
       }
       
-      val pointers = eventual.pointers(key.topic) // TODO pass partition as argument
-
       for {
-        pointers <- Concurrent[F].start(pointers)
+        pointers <- Concurrent[F].start { eventual.pointers(key.topic) }
         marker   <- marker
         result   <- {
           if (marker.offset == Offset.Min) {
