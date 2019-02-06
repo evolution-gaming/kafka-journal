@@ -92,7 +92,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
     config: KafkaJournalConfig,
     metrics: JournalAdapter.Metrics[IO]): Resource[IO, JournalAdapter[IO]] = {
 
-    JournalAdapter.of[IO](toKey, origin, serializer, config, metrics, log)
+    JournalAdapter.of[IO](toKey, origin, serializer, config, metrics, Log[IO](log))
   }
 
   def asyncWriteMessages(atomicWrites: Seq[AtomicWrite]): Future[Seq[Try[Unit]]] = {

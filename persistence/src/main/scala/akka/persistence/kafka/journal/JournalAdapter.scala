@@ -10,7 +10,6 @@ import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.kafka.journal.util.{Executors, FromFuture, ToFuture}
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer.Consumer
 import com.evolutiongaming.skafka.producer.Producer
 import com.evolutiongaming.skafka.{ClientId, CommonConfig}
@@ -38,7 +37,7 @@ object JournalAdapter {
     serializer: EventSerializer,
     config: KafkaJournalConfig,
     metrics: Metrics[F],
-    actorLog: ActorLog): Resource[F, JournalAdapter[F]] = {
+    log: Log[F]): Resource[F, JournalAdapter[F]] = {
 
     def clientIdOf(config: CommonConfig) = config.clientId getOrElse "journal"
 
@@ -72,11 +71,15 @@ object JournalAdapter {
       kafkaProducerOf: KafkaProducerOf[F],
       headCacheOf: HeadCacheOf[F]) = {
 
-      Journal.of[F](
-        origin = origin,
-        config = config.journal,
-        eventualJournal = eventualJournal,
-        metrics = metrics.journal)
+      for {
+        journal <- Journal.of[F](
+          origin = origin,
+          config = config.journal,
+          eventualJournal = eventualJournal,
+          metrics = metrics.journal)
+      } yield {
+        journal.withLogError(log)
+      }
     }
 
     for {
@@ -87,80 +90,63 @@ object JournalAdapter {
       eventualJournal  <- EventualCassandra.of[F](config.cassandra, metrics.eventual)
       journal          <- journal(eventualJournal)(kafkaConsumerOf1, kafkaProducerOf1, headCacheOf1)
     } yield {
-      implicit val log = Log[F](actorLog)
       JournalAdapter[F](journal, toKey, serializer)
     }
   }
 
-  def apply[F[_] : Monad : Clock : Log](
+  def apply[F[_] : Monad : Clock](
     journal: Journal[F],
     toKey: ToKey,
-    serializer: EventSerializer): JournalAdapter[F] = {
+    serializer: EventSerializer): JournalAdapter[F] = new JournalAdapter[F] {
 
-    new JournalAdapter[F] {
-
-      def write(aws: Seq[AtomicWrite]) = {
-        val prs = aws.flatMap(_.payload)
-        for {
-          result <- Nel.opt(prs).fold(List.empty[Try[Unit]].pure[F]) { prs =>
-            val persistenceId = prs.head.persistenceId
-            val key = toKey(persistenceId)
-            for {
-              _         <- Log[F].debug {
-                val first = prs.head.sequenceNr
-                val last = prs.last.sequenceNr
-                val seqNr = if (first == last) s"seqNr: $first" else s"seqNrs: $first..$last"
-                s"$persistenceId write, $seqNr"
-              }
-              events     = prs.map(serializer.toEvent)
-              _         <- journal.append(key, events)
-            } yield List.empty[Try[Unit]]
-          }
-        } yield result
-      }
-
-      def delete(persistenceId: PersistenceId, to: SeqNr) = {
-        for {
-          _         <- Log[F].debug(s"$persistenceId delete, to: $to")
-          key        = toKey(persistenceId)
-          _         <- journal.delete(key, to)
-        } yield {}
-      }
-
-      def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)
-        (callback: PersistentRepr => Unit) = {
-
+    def write(aws: Seq[AtomicWrite]) = {
+      val prs = aws.flatMap(_.payload)
+      Nel.opt(prs).fold {
+        List.empty[Try[Unit]].pure[F]
+      } { prs =>
+        val persistenceId = prs.head.persistenceId
         val key = toKey(persistenceId)
+        val events = prs.map(serializer.toEvent)
+        for {
+          _ <- journal.append(key, events)
+        } yield List.empty[Try[Unit]]
+      }
+    }
 
-        val stream = journal
-          .read(key, range.from)
-          .foldMapCmd(max) { (n, event) =>
-            val seqNr = event.seqNr
-            if (n > 0 && seqNr <= range.to) {
-              val persistentRepr = serializer.toPersistentRepr(persistenceId, event)
-              callback(persistentRepr)
-              (n - 1, Stream.Cmd.take(event))
-            } else {
-              (n, Stream.Cmd.stop)
-            }
+    def delete(persistenceId: PersistenceId, to: SeqNr) = {
+      val key  = toKey(persistenceId)
+      journal.delete(key, to).void
+    }
+
+    def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)
+      (callback: PersistentRepr => Unit) = {
+
+      val key = toKey(persistenceId)
+
+      val stream = journal
+        .read(key, range.from)
+        .foldMapCmd(max) { (n, event) =>
+          val seqNr = event.seqNr
+          if (n > 0 && seqNr <= range.to) {
+            val persistentRepr = serializer.toPersistentRepr(persistenceId, event)
+            callback(persistentRepr)
+            (n - 1, Stream.Cmd.take(event))
+          } else {
+            (n, Stream.Cmd.stop)
           }
+        }
 
-        for {
-          _ <- Log[F].debug(s"$persistenceId replay, range: $range")
-          _ <- stream.drain
-        } yield {}
-      }
+      stream.drain
+    }
 
-      def lastSeqNr(persistenceId: PersistenceId, from: SeqNr) = {
-        val key = toKey(persistenceId)
-        for {
-          _       <- Log[F].debug(s"$persistenceId lastSeqNr, from: $from")
-          pointer <- journal.pointer(key)
-        } yield for {
-          pointer <- pointer
-          if pointer >= from
-        } yield pointer
-      }
+    def lastSeqNr(persistenceId: PersistenceId, from: SeqNr) = {
+      val key = toKey(persistenceId)
+      for {
+        pointer <- journal.pointer(key)
+      } yield for {
+        pointer <- pointer
+        if pointer >= from
+      } yield pointer
     }
   }
 

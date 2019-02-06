@@ -3,14 +3,15 @@ package com.evolutiongaming.kafka.journal
 import java.util.UUID
 
 import cats._
+import cats.arrow.FunctionK
 import cats.effect._
 import cats.implicits._
+import com.evolutiongaming.kafka.journal.ClockHelper._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.stream.FoldWhile.FoldWhileOps
 import com.evolutiongaming.kafka.journal.stream.Stream
-import com.evolutiongaming.kafka.journal.ClockHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords}
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord}
@@ -280,51 +281,60 @@ object Journal {
   }
 
 
-  def apply[F[_] : FlatMap : Clock](journal: Journal[F], log: Log[F]): Journal[F] = new Journal[F] {
+  def apply[F[_] : FlatMap : Clock](journal: Journal[F], log: Log[F]): Journal[F] = {
 
-    def append(key: Key, events: Nel[Event]) = {
-      for {
-        rl     <- Latency { journal.append(key, events) }
-        (r, l)  = rl
-        _      <- log.debug {
-          val first = events.head.seqNr
-          val last = events.last.seqNr
-          val seqNr = if (first == last) s"seqNr: $first" else s"seqNrs: $first..$last"
-          s"$key append in ${ l }ms, $seqNr, result: $r"
-        }
-      } yield r
-    }
+    val functionKId = FunctionK.id[F]
 
-    def read(key: Key, from: SeqNr) = new Stream[F, Event] {
+    new Journal[F] {
 
-      def foldWhileM[L, R](l: L)(f: (L, Event) => F[Either[L, R]]) = {
+      def append(key: Key, events: Nel[Event]) = {
         for {
-          rl     <- Latency { journal.read(key, from).foldWhileM(l)(f) }
+          rl     <- Latency { journal.append(key, events) }
           (r, l)  = rl
-          _      <- log.debug(s"$key read in ${ l }ms, from: $from, result: $r")
+          _      <- log.debug {
+            val first = events.head.seqNr
+            val last = events.last.seqNr
+            val seqNr = if (first == last) s"seqNr: $first" else s"seqNrs: $first..$last"
+            s"$key append in ${ l }ms, $seqNr, result: $r"
+          }
         } yield r
       }
-    }
 
-    def pointer(key: Key) = {
-      for {
-        rl     <- Latency { journal.pointer(key) }
-        (r, l)  = rl
-        _      <- log.debug(s"$key lastSeqNr in ${ l }ms, result: $r")
-      } yield r
-    }
+      def read(key: Key, from: SeqNr) = {
+        val logging = new (F ~> F) {
+          def apply[A](fa: F[A]) = {
+            for {
+              rl     <- Latency { fa }
+              (r, l)  = rl
+              _      <- log.debug(s"$key read in ${ l }ms, from: $from, result: $r")
+            } yield r
+          }
+        }
+        journal.read(key, from).mapK(logging, functionKId)
+      }
 
-    def delete(key: Key, to: SeqNr) = {
-      for {
-        rl     <- Latency { journal.delete(key, to) }
-        (r, l)  = rl
-        _      <- log.debug(s"$key delete in ${ l }ms, to: $to, r: $r")
-      } yield r
+      def pointer(key: Key) = {
+        for {
+          rl     <- Latency { journal.pointer(key) }
+          (r, l)  = rl
+          _      <- log.debug(s"$key pointer in ${ l }ms, result: $r")
+        } yield r
+      }
+
+      def delete(key: Key, to: SeqNr) = {
+        for {
+          rl     <- Latency { journal.delete(key, to) }
+          (r, l)  = rl
+          _      <- log.debug(s"$key delete in ${ l }ms, to: $to, r: $r")
+        } yield r
+      }
     }
   }
 
 
   def apply[F[_] : Sync : Clock](journal: Journal[F], metrics: Metrics[F]): Journal[F] = {
+
+    val functionKId = FunctionK.id[F]
 
     def latency[A](name: String, topic: Topic)(fa: F[A]): F[(A, Long)] = {
       Latency {
@@ -348,11 +358,10 @@ object Journal {
       }
 
       def read(key: Key, from: SeqNr) = {
-
-        val stream = new Stream[F, Event] {
-          def foldWhileM[L, R](l: L)(f: (L, Event) => F[Either[L, R]]) = {
+        val measure = new (F ~> F) {
+          def apply[A](fa: F[A]) = {
             for {
-              rl     <- Latency { journal.read(key, from).foldWhileM(l)(f) } // TODO around, capture stream as val?
+              rl     <- latency("read", key.topic) { fa }
               (r, l)  = rl
               _      <- metrics.read(topic = key.topic, latency = l)
             } yield r
@@ -360,7 +369,7 @@ object Journal {
         }
 
         for {
-          a <- stream
+          a <- journal.read(key, from).mapK(measure, functionKId)
           _ <- Stream.lift(metrics.read(key.topic))
         } yield a
       }
@@ -516,6 +525,64 @@ object Journal {
 
     def withLog(log: Log[F])(implicit F: FlatMap[F], clock: Clock[F]): Journal[F] =  {
       Journal(self, log)
+    }
+
+
+    def withLogError(log: Log[F])(implicit F: Sync[F], clock: Clock[F]): Journal[F] = {
+
+      val functionKId = FunctionK.id[F]
+
+      def logError[A](fa: F[A])(f: (Throwable, Long) => String) = {
+        for {
+          start  <- Clock[F].millis
+          result <- fa.handleErrorWith { error =>
+            for {
+              end     <- Clock[F].millis
+              latency  = end - start
+              _       <- log.error(f(error, latency), error)
+              result  <- error.raiseError[F, A]
+            } yield result
+          }
+        } yield result
+      }
+
+      new Journal[F] {
+
+        def append(key: Key, events: Nel[Event]) = {
+          logError {
+            self.append(key, events)
+          } { (error, latency) =>
+            s"$key append failed in ${ latency }ms, events: $events, error: $error"
+          }
+        }
+
+        def read(key: Key, from: SeqNr) = {
+          val logging = new (F ~> F) {
+            def apply[A](fa: F[A]) = {
+              logError(fa) { (error, latency) =>
+                s"$key read failed in ${ latency }ms, from: $from, error: $error"
+              }
+            }
+          }
+          self.read(key, from).mapK(logging, functionKId)
+        }
+
+        def pointer(key: Key) = {
+          logError {
+            self.pointer(key)
+          } { (error, latency) =>
+            s"$key pointer failed in ${ latency }ms, error: $error"
+          }
+        }
+
+        def delete(key: Key, to: SeqNr) = {
+          logError {
+            self.delete(key, to)
+          } { (error, latency) =>
+            s"$key delete failed in ${ latency }ms, to: $to, error: $error"
+          }
+        }
+      }
     }
 
     

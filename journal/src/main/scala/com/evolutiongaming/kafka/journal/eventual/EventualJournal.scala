@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual
 
 import cats._
+import cats.arrow.FunctionK
 import cats.effect.Clock
 import cats.implicits._
 import com.evolutiongaming.kafka.journal._
@@ -21,73 +22,84 @@ object EventualJournal {
 
   def apply[F[_]](implicit F: EventualJournal[F]): EventualJournal[F] = F
 
-  def apply[F[_] : FlatMap : Clock](journal: EventualJournal[F], log: Log[F]): EventualJournal[F] = new EventualJournal[F] {
+  def apply[F[_] : FlatMap : Clock](journal: EventualJournal[F], log: Log[F]): EventualJournal[F] = {
 
-    def pointers(topic: Topic) = {
-      for {
-        rl     <- Latency { journal.pointers(topic) }
-        (r, l)  = rl
-        _      <- log.debug(s"$topic pointers in ${ l }ms, result: $r")
-      } yield r
-    }
+    val functionKId = FunctionK.id[F]
 
-    def read(key: Key, from: SeqNr) = new stream.Stream[F, ReplicatedEvent] {
+    new EventualJournal[F] {
 
-      def foldWhileM[L, R](l: L)(f: (L, ReplicatedEvent) => F[Either[L, R]]) = {
+      def pointers(topic: Topic) = {
         for {
-          rl     <- Latency { journal.read(key, from).foldWhileM(l)(f) }
+          rl     <- Latency { journal.pointers(topic) }
           (r, l)  = rl
-          _      <- log.debug(s"$key read in ${ l }ms, from: $from, result: $r")
+          _      <- log.debug(s"$topic pointers in ${ l }ms, result: $r")
         } yield r
       }
-    }
 
-    def pointer(key: Key) = {
-      for {
-        rl     <- Latency { journal.pointer(key) }
-        (r, l)  = rl
-        _      <- log.debug(s"$key pointer in ${ l }ms, result: $r")
-      } yield r
+      def read(key: Key, from: SeqNr) = {
+        val logging = new (F ~> F) {
+          def apply[A](fa: F[A]) = {
+            for {
+              rl     <- Latency { fa }
+              (r, l)  = rl
+              _      <- log.debug(s"$key read in ${ l }ms, from: $from, result: $r")
+            } yield r
+          }
+        }
+        journal.read(key, from).mapK(logging, functionKId)
+      }
+
+      def pointer(key: Key) = {
+        for {
+          rl     <- Latency { journal.pointer(key) }
+          (r, l)  = rl
+          _      <- log.debug(s"$key pointer in ${ l }ms, result: $r")
+        } yield r
+      }
     }
   }
 
 
   def apply[F[_] : FlatMap : Clock](
     journal: EventualJournal[F],
-    metrics: Metrics[F]): EventualJournal[F] = new EventualJournal[F] {
+    metrics: Metrics[F]): EventualJournal[F] = {
 
-    def pointers(topic: Topic) = {
-      for {
-        rl     <- Latency { journal.pointers(topic) }
-        (r, l)  = rl
-        _      <- metrics.pointers(topic, l)
-      } yield r
-    }
+    val functionKId = FunctionK.id[F]
 
-    def read(key: Key, from: SeqNr) = {
+    new EventualJournal[F] {
 
-      val stream = new Stream[F, ReplicatedEvent] {
-        def foldWhileM[L, R](l: L)(f: (L, ReplicatedEvent) => F[Either[L, R]]) = {
-          for {
-            rl     <- Latency { journal.read(key, from).foldWhileM(l)(f) } // TODO around, capture stream as val?
-            (r, l)  = rl
-            _      <- metrics.read(topic = key.topic, latency = l)
-          } yield r
-        }
+      def pointers(topic: Topic) = {
+        for {
+          rl     <- Latency { journal.pointers(topic) }
+          (r, l)  = rl
+          _      <- metrics.pointers(topic, l)
+        } yield r
       }
 
-      for {
-        a <- stream
-        _ <- Stream.lift(metrics.read(key.topic))
-      } yield a
-    }
+      def read(key: Key, from: SeqNr) = {
+        val measure = new (F ~> F) {
+          def apply[A](fa: F[A]) = {
+            for {
+              rl     <- Latency { fa }
+              (r, l)  = rl
+              _      <- metrics.read(topic = key.topic, latency = l)
+            } yield r
+          }
+        }
 
-    def pointer(key: Key) = {
-      for {
-        rl     <- Latency { journal.pointer(key) }
-        (r, l)  = rl
-        _      <- metrics.pointer(key.topic, l)
-      } yield r
+        for {
+          a <- journal.read(key, from).mapK(measure, functionKId)
+          _ <- Stream.lift(metrics.read(key.topic))
+        } yield a
+      }
+
+      def pointer(key: Key) = {
+        for {
+          rl     <- Latency { journal.pointer(key) }
+          (r, l)  = rl
+          _      <- metrics.pointer(key.topic, l)
+        } yield r
+      }
     }
   }
 
