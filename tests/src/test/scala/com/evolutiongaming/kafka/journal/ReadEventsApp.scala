@@ -4,7 +4,7 @@ import akka.actor.ActorSystem
 import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.eventual.cassandra._
-import com.evolutiongaming.kafka.journal.util.{ActorSystemOf, FromFuture, Par, ToFuture}
+import com.evolutiongaming.kafka.journal.util.{ActorSystemOf, FromFuture, ToFuture}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.scassandra.{AuthenticationConfig, CassandraConfig}
@@ -21,9 +21,7 @@ object ReadEventsApp extends IOApp {
     val system = ActorSystem("ReadEventsApp")
     implicit val ec = system.dispatcher
     implicit val timer = IO.timer(ec)
-    implicit val fromFuture = FromFuture.lift[IO]
     implicit val parallel = IO.ioParallel
-    implicit val par = Par.liftIO
     implicit val logOf = LogOf[IO](system)
 
     val result = ActorSystemOf[IO](system).use { implicit system => runF[IO](ec) }

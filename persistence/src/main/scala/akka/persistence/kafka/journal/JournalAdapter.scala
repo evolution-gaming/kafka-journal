@@ -8,7 +8,7 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.kafka.journal.stream.Stream
-import com.evolutiongaming.kafka.journal.util.{Executors, FromFuture, Par, Runtime, ToFuture}
+import com.evolutiongaming.kafka.journal.util.{Executors, FromFuture, ToFuture}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.skafka.consumer.Consumer

@@ -10,7 +10,7 @@ import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.SeqNr.ops._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.stream.Stream
-import com.evolutiongaming.kafka.journal.util.{ClockOf, ConcurrentOf, Par}
+import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import org.scalatest.{Assertion, Matchers, WordSpec}

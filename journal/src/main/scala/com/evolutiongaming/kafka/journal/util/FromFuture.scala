@@ -20,7 +20,7 @@ object FromFuture {
   def apply[F[_]](implicit F: FromFuture[F]): FromFuture[F] = F
   
 
-  def lift[F[_] : Applicative : Async](implicit ec: ExecutionContextExecutor): FromFuture[F] = {
+  implicit def lift[F[_] : Applicative : Async](implicit ec: ExecutionContextExecutor): FromFuture[F] = {
     
     new FromFuture[F] {
 

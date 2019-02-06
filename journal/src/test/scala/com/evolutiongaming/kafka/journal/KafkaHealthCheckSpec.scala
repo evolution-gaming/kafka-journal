@@ -5,7 +5,7 @@ import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.KafkaHealthCheck.Record
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
-import com.evolutiongaming.kafka.journal.util.IOSuite._
+import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.skafka.Topic
 import org.scalatest.{AsyncFunSuite, Matchers}
 

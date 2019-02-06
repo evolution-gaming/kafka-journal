@@ -10,8 +10,7 @@ import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.stream.FoldWhile.FoldWhileOps
 import com.evolutiongaming.kafka.journal.stream.Stream
-import com.evolutiongaming.kafka.journal.util.ClockHelper._
-import com.evolutiongaming.kafka.journal.util.Par
+import com.evolutiongaming.kafka.journal.ClockHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords}
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord}

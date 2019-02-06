@@ -10,8 +10,8 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
 import com.evolutiongaming.kafka.journal.retry.Retry
-import com.evolutiongaming.kafka.journal.util.IOSuite._
-import com.evolutiongaming.kafka.journal.util.{ActorSystemOf, FromFuture, Par, ToFuture}
+import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.util.{ActorSystemOf, FromFuture, ToFuture}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Offset
 import com.typesafe.config.{Config, ConfigFactory}
@@ -81,7 +81,10 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
     }
   }
 
-  lazy val ((eventualJournal, journal), release) = resources[IO].allocated.unsafeRunSync()
+  lazy val ((eventualJournal, journal), release) = {
+    implicit val logOf = LogOf.empty[IO]
+    resources[IO].allocated.unsafeRunSync()
+  }
 
   override protected def beforeAll(): Unit = {
     IntegrationSuite.start()

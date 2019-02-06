@@ -5,7 +5,7 @@ import akka.persistence.kafka.journal.KafkaJournalConfig
 import cats.Monad
 import cats.effect.{Clock, IO}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
-import com.evolutiongaming.kafka.journal.util.IOSuite._
+import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.Consumer
 import org.scalatest.{Matchers, Suite}
@@ -27,6 +27,7 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
     Some(KafkaProducer.Metrics.empty[IO]))
 
   lazy val ((eventual, producer), release) = {
+    implicit val logOf = LogOf.empty[IO]
     val resource = for {
       eventualJournal <- EventualCassandra.of[IO](config.cassandra, None)
       producer   <- Journal.Producer.of[IO](config.journal.producer)

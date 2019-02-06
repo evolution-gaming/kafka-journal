@@ -20,11 +20,8 @@ object AppendReplicateApp extends IOApp {
     val system = ActorSystem("AppendReplicateApp", config)
     implicit val ec = system.dispatcher
     implicit val timer = IO.timer(ec)
-    implicit val fromFuture = FromFuture.lift[IO]
     implicit val toFuture = ToFuture.io
     implicit val parallel = IO.ioParallel
-    implicit val par = Par.liftIO
-    implicit val runtime = Runtime.lift[IO]
 
     val topic = "journal.AppendReplicate"
 

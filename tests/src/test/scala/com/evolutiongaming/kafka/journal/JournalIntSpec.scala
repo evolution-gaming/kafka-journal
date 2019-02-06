@@ -6,8 +6,7 @@ import cats.Foldable
 import cats.implicits._
 import cats.effect.{IO, Sync}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
-import com.evolutiongaming.kafka.journal.util.IOSuite._
-import com.evolutiongaming.kafka.journal.util.Par
+import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.nel.Nel
 import org.scalatest.{AsyncWordSpec, Succeeded}
 
@@ -22,6 +21,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
     val consumer = Journal.Consumer.of[IO](config.journal.consumer)
     eventualJournal: EventualJournal[IO] => {
       implicit val log = Log.empty[IO]
+      implicit val logOf = LogOf.empty[IO]
       for {
         headCache <- HeadCache.of[IO](
           config.journal.consumer,

@@ -6,7 +6,7 @@ import com.evolutiongaming.cassandra.StartCassandra
 import com.evolutiongaming.kafka.StartKafka
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
 import com.evolutiongaming.kafka.journal.util._
-import com.evolutiongaming.kafka.journal.util.IOSuite._
+import com.evolutiongaming.kafka.journal.IOSuite._
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.ExecutionContext

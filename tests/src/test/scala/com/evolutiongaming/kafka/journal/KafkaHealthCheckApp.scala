@@ -15,7 +15,6 @@ object KafkaHealthCheckApp extends IOApp {
   def run(args: List[String]): IO[ExitCode] = {
 
     implicit val ec = ExecutionContext.global
-    implicit val fromFuture = FromFuture.lift[IO]
 
     for {
       logOf <- LogOf.slfj4[IO]

@@ -12,9 +12,10 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.replicator.InstantHelper._
 import com.evolutiongaming.kafka.journal.retry.Retry
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
-import com.evolutiongaming.kafka.journal.util.ClockHelper._
-import com.evolutiongaming.kafka.journal.util.{Named, Par, Rng}
+import com.evolutiongaming.kafka.journal.CatsHelper._
+import com.evolutiongaming.kafka.journal.ClockHelper._
+import com.evolutiongaming.kafka.journal.rng.Rng
+import com.evolutiongaming.kafka.journal.util.Named
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Bytes => _, _}

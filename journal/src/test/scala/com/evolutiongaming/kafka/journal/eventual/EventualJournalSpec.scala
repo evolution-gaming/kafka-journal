@@ -2,8 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual
 
 import java.time.Instant
 
-import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.util.ClockOf
+import com.evolutiongaming.kafka.journal.{ClockOf, _}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Topic}
 import org.scalatest.{Matchers, WordSpec}

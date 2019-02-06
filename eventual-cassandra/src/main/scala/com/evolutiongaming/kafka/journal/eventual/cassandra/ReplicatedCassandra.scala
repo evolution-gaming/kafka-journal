@@ -8,8 +8,8 @@ import cats.{Applicative, FlatMap}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal.Metrics
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
-import com.evolutiongaming.kafka.journal.util.{FromFuture, Par, ToFuture}
+import com.evolutiongaming.kafka.journal.CatsHelper._
+import com.evolutiongaming.kafka.journal.util.{FromFuture, ToFuture}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Topic
 

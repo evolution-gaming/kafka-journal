@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import cats.FlatMap
 import cats.implicits._
 import cats.effect.Clock
-import com.evolutiongaming.kafka.journal.util.ClockHelper._
+import com.evolutiongaming.kafka.journal.ClockHelper._
 
 object Latency {
 

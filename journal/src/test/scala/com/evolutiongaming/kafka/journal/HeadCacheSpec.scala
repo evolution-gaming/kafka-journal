@@ -6,7 +6,7 @@ import cats.effect.concurrent.Ref
 import cats.effect.{Concurrent, IO, Resource, Timer}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
-import com.evolutiongaming.kafka.journal.util.IOSuite._
+import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.HeadCache.Result
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka._

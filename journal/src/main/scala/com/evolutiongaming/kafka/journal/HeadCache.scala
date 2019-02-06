@@ -10,10 +10,10 @@ import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal.cache.Cache
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.retry.Retry
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
-import com.evolutiongaming.kafka.journal.util.ClockHelper._
+import com.evolutiongaming.kafka.journal.CatsHelper._
+import com.evolutiongaming.kafka.journal.ClockHelper._
+import com.evolutiongaming.kafka.journal.rng.Rng
 import com.evolutiongaming.kafka.journal.util.EitherHelper._
-import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecord, ConsumerRecords}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}

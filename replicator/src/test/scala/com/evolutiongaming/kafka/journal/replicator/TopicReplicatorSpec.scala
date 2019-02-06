@@ -9,7 +9,6 @@ import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
-import com.evolutiongaming.kafka.journal.util.{ClockOf, Par}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, WithSize}
 import com.evolutiongaming.skafka.{Bytes => _, _}

@@ -3,7 +3,8 @@ package com.evolutiongaming.kafka.journal.replicator
 import cats.effect.{IO, Resource}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.replicator.Replicator.Consumer
-import com.evolutiongaming.kafka.journal.util.IOSuite._
+import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.LogOf
 import com.evolutiongaming.skafka.Topic
 import org.scalatest.{AsyncWordSpec, Matchers}
 
@@ -15,6 +16,8 @@ class ReplicatorSpec extends AsyncWordSpec with Matchers {
   "Replicator" should {
 
     "fail if any of replicators failed" in {
+
+      implicit val logOf = LogOf.empty[IO]
 
       val error = new RuntimeException with NoStackTrace
 

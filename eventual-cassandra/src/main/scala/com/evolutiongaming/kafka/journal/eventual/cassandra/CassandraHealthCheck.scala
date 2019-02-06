@@ -6,7 +6,7 @@ import cats.effect.concurrent.Ref
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.{Log, LogOf}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
+import com.evolutiongaming.kafka.journal.CatsHelper._
 
 import scala.concurrent.duration._
 

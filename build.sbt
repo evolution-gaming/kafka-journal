@@ -68,7 +68,11 @@ lazy val root = (project in file(".")
   settings commonSettings
   settings (skip in publish := true)
   aggregate(
+    `scalatest-io`,
+    `cats-effect-helpers`,
+    cache,
     stream,
+    retry,
     journal,
     `journal-prometheus`,
     persistence,
@@ -77,6 +81,15 @@ lazy val root = (project in file(".")
     `replicator-prometheus`,
     `eventual-cassandra`))
 
+lazy val `scalatest-io` = (project in file("scalatest-io")
+  settings (name := "kafka-journal-scalatest-io")
+  settings commonSettings
+  settings (skip in publish := true)
+  settings (libraryDependencies ++= Seq(
+    scalatest,
+    Cats.core,
+    Cats.effect)))
+
 lazy val stream = (project in file("stream")
   settings (name := "kafka-journal-stream")
   settings commonSettings
@@ -84,10 +97,48 @@ lazy val stream = (project in file("stream")
     scalatest % Test,
     Cats.core)))
 
+lazy val retry = (project in file("retry")
+  settings (name := "kafka-journal-retry")
+  settings commonSettings
+  dependsOn (rng, `cats-effect-helpers`)
+  settings (libraryDependencies ++= Seq(
+    scalatest % Test,
+    Cats.core,
+    Cats.effect)))
+
+lazy val rng = (project in file("rng")
+  settings (name := "kafka-journal-rng")
+  settings commonSettings
+  dependsOn `cats-effect-helpers`
+  settings (libraryDependencies ++= Seq(
+    scalatest % Test,
+    Cats.core,
+    Cats.effect)))
+
+lazy val `cats-effect-helpers` = (project in file("cats-effect-helpers")
+  settings (name := "kafka-journal-cats-effect-helpers")
+  settings commonSettings
+  dependsOn `scalatest-io` % "test->compile"
+  settings (libraryDependencies ++= Seq(
+    scalatest % Test,
+    Cats.core,
+    Cats.effect)))
+
+lazy val cache = (project in file("cache")
+  settings (name := "kafka-journal-cache")
+  settings commonSettings
+  dependsOn (
+    `cats-effect-helpers`, 
+    `scalatest-io` % "test->compile")
+  settings (libraryDependencies ++= Seq(
+    scalatest % Test,
+    Cats.core,
+    Cats.effect)))
+
 lazy val journal = (project in file("journal")
   settings (name := "kafka-journal")
   settings commonSettings
-  dependsOn stream
+  dependsOn (stream, retry, cache, `scalatest-io` % "test->compile")
   settings (libraryDependencies ++= Seq(
     Akka.actor,
     Akka.stream,
@@ -111,7 +162,9 @@ lazy val journal = (project in file("journal")
 lazy val persistence = (project in file("persistence")
   settings (name := "kafka-journal-persistence")
   settings commonSettings
-  dependsOn (journal % "test->test;compile->compile", `eventual-cassandra`)
+  dependsOn (
+    journal % "test->test;compile->compile", 
+    `eventual-cassandra`)
   settings (libraryDependencies ++= Seq(
     `akka-serialization`,
     Akka.persistence)))
@@ -139,7 +192,9 @@ lazy val `tests` = (project in file("tests")
 lazy val replicator = (Project("replicator", file("replicator"))
   settings (name := "kafka-journal-replicator")
   settings commonSettings
-  dependsOn (journal % "test->test;compile->compile", `eventual-cassandra`)
+  dependsOn (
+    journal % "test->test;compile->compile", 
+    `eventual-cassandra`)
   settings (libraryDependencies ++= Seq()))
 
 lazy val `eventual-cassandra` = (project in file("eventual-cassandra")

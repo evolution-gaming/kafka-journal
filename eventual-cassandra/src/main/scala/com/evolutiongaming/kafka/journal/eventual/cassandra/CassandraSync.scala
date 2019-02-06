@@ -7,7 +7,6 @@ import com.evolutiongaming.cassandra
 import com.evolutiongaming.cassandra.sync.AutoCreate
 import com.evolutiongaming.hostname.HostName
 import com.evolutiongaming.kafka.journal.util.{FromFuture, ToFuture}
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
 
 trait CassandraSync[F[_]] {
   def apply[A](fa: F[A]): F[A]
@@ -52,7 +51,7 @@ object CassandraSync {
 
           FromFuture[F].apply {
             cassandraSync(id = "kafka-journal", metadata = HostName()) {
-              fa.unsafeToFuture()
+              ToFuture[F].apply(fa)
             }
           }
         }

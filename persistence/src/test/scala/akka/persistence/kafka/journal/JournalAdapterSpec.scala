@@ -8,8 +8,7 @@ import cats.Id
 import cats.data.StateT
 import cats.effect.Clock
 import cats.implicits._
-import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.util.ClockOf
+import com.evolutiongaming.kafka.journal.{ClockOf, _}
 import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.nel.Nel
 import org.scalatest.{FunSuite, Matchers}

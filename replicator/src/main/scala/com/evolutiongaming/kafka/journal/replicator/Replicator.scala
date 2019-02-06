@@ -9,7 +9,8 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession, ReplicatedCassandra}
 import com.evolutiongaming.kafka.journal.retry.Retry
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
+import com.evolutiongaming.kafka.journal.CatsHelper._
+import com.evolutiongaming.kafka.journal.rng.Rng
 import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka

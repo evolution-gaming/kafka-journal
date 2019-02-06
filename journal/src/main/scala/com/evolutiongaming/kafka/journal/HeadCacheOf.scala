@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal
 import cats.Applicative
 import cats.effect.{Concurrent, ContextShift, Resource, Timer}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
-import com.evolutiongaming.kafka.journal.util.Par
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 
 trait HeadCacheOf[F[_]] {

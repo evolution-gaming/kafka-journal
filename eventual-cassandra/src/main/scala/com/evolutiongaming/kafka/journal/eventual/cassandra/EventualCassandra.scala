@@ -5,7 +5,7 @@ import cats.effect.{Clock, Concurrent, Resource}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.util.{FromFuture, Par, ToFuture}
+import com.evolutiongaming.kafka.journal.util.{FromFuture, ToFuture}
 import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.skafka.Topic
 
