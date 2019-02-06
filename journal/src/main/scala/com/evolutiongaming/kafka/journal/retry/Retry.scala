@@ -59,7 +59,7 @@ object Retry {
   object Strategy {
 
     def const(delay: FiniteDuration): Strategy = {
-      def decide: Decide = (_: Status) => StrategyDecision.Retry(delay, decide)
+      def decide: Decide = (_: Status) => StrategyDecision.retry(delay, decide)
 
       Strategy(decide)
     }
@@ -68,7 +68,7 @@ object Retry {
       val unit = initial.unit
 
       def apply(a: Long, b: Long): Decide = {
-        _: Status => StrategyDecision.Retry(FiniteDuration(b, unit), apply(b, a + b))
+        _: Status => StrategyDecision.retry(FiniteDuration(b, unit), apply(b, a + b))
       }
 
       Strategy(apply(0, initial.length))
@@ -79,10 +79,10 @@ object Retry {
       def apply(decide: Decide): Decide = {
         status: Status => {
           decide(status) match {
-            case StrategyDecision.GiveUp               => StrategyDecision.GiveUp
+            case StrategyDecision.GiveUp               => StrategyDecision.giveUp
             case StrategyDecision.Retry(delay, decide) =>
-              if (delay <= max) StrategyDecision.Retry(delay, apply(decide))
-              else StrategyDecision.Retry(max, const(max).decide)
+              if (delay <= max) StrategyDecision.retry(delay, apply(decide))
+              else StrategyDecision.retry(max, const(max).decide)
           }
         }
       }
@@ -95,10 +95,10 @@ object Retry {
       def apply(decide: Decide): Decide = {
         status: Status => {
           decide(status) match {
-            case StrategyDecision.GiveUp               => StrategyDecision.GiveUp
+            case StrategyDecision.GiveUp               => StrategyDecision.giveUp
             case StrategyDecision.Retry(delay, decide) =>
-              if (status.delay + delay > max) StrategyDecision.GiveUp
-              else StrategyDecision.Retry(delay, apply(decide))
+              if (status.delay + delay > max) StrategyDecision.giveUp
+              else StrategyDecision.retry(delay, apply(decide))
           }
         }
       }
@@ -118,7 +118,7 @@ object Retry {
           val (double, rng1) = rng.double
           val delay = (max * double).toLong max initial.length
           val duration = FiniteDuration(delay, initial.unit)
-          StrategyDecision.Retry(duration, apply(rng1))
+          StrategyDecision.retry(duration, apply(rng1))
         }
       }
 
@@ -127,8 +127,7 @@ object Retry {
   }
 
 
-  final case class Status(retries: Int, delay: FiniteDuration) {
-    self =>
+  final case class Status(retries: Int, delay: FiniteDuration) { self =>
 
     def plus(delay: FiniteDuration): Status = {
       copy(retries = retries + 1, delay = self.delay + delay)
@@ -146,17 +145,22 @@ object Retry {
 
     def apply(decision: Retry.StrategyDecision, retries: Int): Details = {
       val decision1 = decision match {
-        case StrategyDecision.Retry(delay, _) => Decision.Retry(delay)
-        case StrategyDecision.GiveUp          => Decision.GiveUp
+        case StrategyDecision.Retry(delay, _) => Decision.retry(delay)
+        case StrategyDecision.giveUp          => Decision.giveUp
       }
       apply(decision1, retries)
     }
   }
 
 
-  sealed abstract class Decision
+  sealed abstract class Decision extends Product
 
   object Decision {
+
+    def retry(delay: FiniteDuration): Decision = Retry(delay)
+
+    def giveUp: Decision = GiveUp
+
 
     final case class Retry(delay: FiniteDuration) extends Decision
 
@@ -164,9 +168,14 @@ object Retry {
   }
 
 
-  sealed abstract class StrategyDecision
+  sealed abstract class StrategyDecision extends Product
 
   object StrategyDecision {
+
+    def retry(delay: FiniteDuration, decide: Decide): StrategyDecision = Retry(delay, decide)
+
+    def giveUp: StrategyDecision = GiveUp
+
 
     final case class Retry(delay: FiniteDuration, decide: Decide) extends StrategyDecision
 

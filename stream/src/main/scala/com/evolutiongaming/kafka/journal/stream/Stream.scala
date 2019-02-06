@@ -290,7 +290,7 @@ object Stream {
   }
 
 
-  sealed abstract class Cmd[+A]
+  sealed abstract class Cmd[+A] extends Product
 
   object Cmd {
 

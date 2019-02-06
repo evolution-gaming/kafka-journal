@@ -25,16 +25,16 @@ class RetrySpec extends FunSuite with Matchers {
     val actual = result.run(initial).map(_._1)
     val expected = Data(
       decisions = List(
-        Details(decision = Decision.Retry(200.millis), retries = 9),
-        Details(decision = Decision.Retry(170.millis), retries = 8),
-        Details(decision = Decision.Retry(105.millis), retries = 7),
-        Details(decision = Decision.Retry(65.millis), retries = 6),
-        Details(decision = Decision.Retry(40.millis), retries = 5),
-        Details(decision = Decision.Retry(25.millis), retries = 4),
-        Details(decision = Decision.Retry(15.millis), retries = 3),
-        Details(decision = Decision.Retry(10.millis), retries = 2),
-        Details(decision = Decision.Retry(5.millis), retries = 1),
-        Details(decision = Decision.Retry(5.millis), retries = 0)),
+        Details(decision = Decision.retry(200.millis), retries = 9),
+        Details(decision = Decision.retry(170.millis), retries = 8),
+        Details(decision = Decision.retry(105.millis), retries = 7),
+        Details(decision = Decision.retry(65.millis), retries = 6),
+        Details(decision = Decision.retry(40.millis), retries = 5),
+        Details(decision = Decision.retry(25.millis), retries = 4),
+        Details(decision = Decision.retry(15.millis), retries = 3),
+        Details(decision = Decision.retry(10.millis), retries = 2),
+        Details(decision = Decision.retry(5.millis), retries = 1),
+        Details(decision = Decision.retry(5.millis), retries = 0)),
       delays = List(
         200.millis,
         170.millis,
@@ -63,13 +63,13 @@ class RetrySpec extends FunSuite with Matchers {
     val actual = result.run(initial).map(_._1)
     val expected = Data(
       decisions = List(
-        Details(decision = Decision.Retry(200.millis), retries = 6),
-        Details(decision = Decision.Retry(133.millis), retries = 5),
-        Details(decision = Decision.Retry(34.millis), retries = 4),
-        Details(decision = Decision.Retry(79.millis), retries = 3),
-        Details(decision = Decision.Retry(26.millis), retries = 2),
-        Details(decision = Decision.Retry(15.millis), retries = 1),
-        Details(decision = Decision.Retry(5.millis), retries = 0)),
+        Details(decision = Decision.retry(200.millis), retries = 6),
+        Details(decision = Decision.retry(133.millis), retries = 5),
+        Details(decision = Decision.retry(34.millis), retries = 4),
+        Details(decision = Decision.retry(79.millis), retries = 3),
+        Details(decision = Decision.retry(26.millis), retries = 2),
+        Details(decision = Decision.retry(15.millis), retries = 1),
+        Details(decision = Decision.retry(5.millis), retries = 0)),
       delays = List(
         200.millis,
         133.millis,
@@ -91,11 +91,11 @@ class RetrySpec extends FunSuite with Matchers {
     val expected = Data(
       toRetry = 1,
       decisions = List(
-        Details(decision = Decision.GiveUp, retries = 4),
-        Details(decision = Decision.Retry(1.millis), retries = 3),
-        Details(decision = Decision.Retry(1.millis), retries = 2),
-        Details(decision = Decision.Retry(1.millis), retries = 1),
-        Details(decision = Decision.Retry(1.millis), retries = 0)),
+        Details(decision = Decision.giveUp, retries = 4),
+        Details(decision = Decision.retry(1.millis), retries = 3),
+        Details(decision = Decision.retry(1.millis), retries = 2),
+        Details(decision = Decision.retry(1.millis), retries = 1),
+        Details(decision = Decision.retry(1.millis), retries = 0)),
       delays = List(
         1.millis,
         1.millis,
