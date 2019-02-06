@@ -14,7 +14,7 @@ object StartResource {
     res.allocated.bracketCase { case (a, release) =>
       for {
         released <- Deferred[F, Unit]
-        fiber <- Concurrent[F].start {
+        fiber    <- Concurrent[F].start {
           (ContextShift[F].shift *> use(a)).guarantee {
             release.guarantee {
               released.complete(())
