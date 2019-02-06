@@ -18,10 +18,11 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
 
   implicit val system: ActorSystem = context.system
   implicit val ec: ExecutionContextExecutor = context.dispatcher
-  implicit val cs: ContextShift[IO] = IO.contextShift(ec)
-  implicit val timer: Timer[IO] = IO.timer(ec)
-  implicit val parallel: Parallel[IO, IO.Par] = IO.ioParallel(cs)
-  implicit val logOf: LogOf[IO] = LogOf[IO](system)
+
+  implicit val contextShift: ContextShift[IO] = IO.contextShift(ec)
+  implicit val parallel: Parallel[IO, IO.Par] = IO.ioParallel(contextShift)
+  implicit val timer: Timer[IO]               = IO.timer(ec)
+  implicit val logOf: LogOf[IO]               = LogOf[IO](system)
 
   val log: ActorLog = ActorLog(system, classOf[KafkaJournal])
 

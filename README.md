@@ -47,6 +47,20 @@ We may share same kafka consumer for many simultaneous recoveries
 
 Hence we recommend to configure access rights accordingly.
 
+## Api
+
+```scala
+trait Journal[F[_]] {
+
+  def append(key: Key, events: Nel[Event]): F[PartitionOffset]
+
+  def read(key: Key, from: SeqNr): Stream[F, Event]
+
+  def pointer(key: Key): F[Option[SeqNr]]
+
+  def delete(key: Key, to: SeqNr): F[Option[PartitionOffset]]
+}
+```
 
 ## Troubleshooting
 
@@ -79,15 +93,20 @@ Unfortunately akka persistence `snapshot` plugin is not implemented yet.
 ```scala
 resolvers += Resolver.bintrayRepo("evolutiongaming", "maven")
 
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal" % "0.0.40"
+libraryDependencies += "com.evolutiongaming" %% "kafka-journal" % "0.0.43"
 
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal-persistence" % "0.0.40"
+libraryDependencies += "com.evolutiongaming" %% "kafka-journal-persistence" % "0.0.43"
 
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal-replicator" % "0.0.40"
+libraryDependencies += "com.evolutiongaming" %% "kafka-journal-replicator" % "0.0.43"
 
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal-eventual-cassandra" % "0.0.40"
+libraryDependencies += "com.evolutiongaming" %% "kafka-journal-eventual-cassandra" % "0.0.43"
 
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal-prometheus" % "0.0.40"
+libraryDependencies += "com.evolutiongaming" %% "kafka-journal-prometheus" % "0.0.43"
 
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal-replicator-prometheus" % "0.0.40"
+libraryDependencies += "com.evolutiongaming" %% "kafka-journal-replicator-prometheus" % "0.0.43"
 ```
+
+
+## Presentations
+
+* Jan 2019 [Riga Scala Community](https://www.meetup.com/Riga-Scala-Community/events/257926307)
