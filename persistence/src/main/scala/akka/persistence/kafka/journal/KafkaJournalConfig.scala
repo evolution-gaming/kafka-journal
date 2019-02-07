@@ -17,9 +17,8 @@ object KafkaJournalConfig {
 
   val Default: KafkaJournalConfig = KafkaJournalConfig()
 
-  def apply(config: Config): KafkaJournalConfig = {
-    apply(config, Default)
-  }
+
+  def apply(config: Config): KafkaJournalConfig = apply(config, Default)
 
   def apply(config: Config, default: => KafkaJournalConfig): KafkaJournalConfig = {
 
@@ -27,7 +26,7 @@ object KafkaJournalConfig {
 
     KafkaJournalConfig(
       journal = JournalConfig(config),
-      cassandra = get[Config]("cassandra").fold(default.cassandra)(EventualCassandraConfig(_)),
+      cassandra = get[Config]("cassandra").fold(default.cassandra)(EventualCassandraConfig(_, default.cassandra)),
       startTimeout = get[FiniteDuration]("start-timeout") getOrElse default.startTimeout,
       stopTimeout = get[FiniteDuration]("stop-timeout") getOrElse default.stopTimeout)
   }

@@ -6,14 +6,14 @@ import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.implicits._
 import cats.{Applicative, ~>}
+import com.evolutiongaming.kafka.journal.CatsHelper._
+import com.evolutiongaming.kafka.journal.ClockHelper._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.replicator.InstantHelper._
 import com.evolutiongaming.kafka.journal.retry.Retry
-import com.evolutiongaming.kafka.journal.CatsHelper._
-import com.evolutiongaming.kafka.journal.ClockHelper._
 import com.evolutiongaming.kafka.journal.rng.Rng
 import com.evolutiongaming.kafka.journal.util.Named
 import com.evolutiongaming.nel.Nel
@@ -36,6 +36,7 @@ trait TopicReplicator[F[_]] {
 
 object TopicReplicator {
 
+  // TODO should return Resource
   def of[F[_] : Concurrent : Timer : Par : Metrics : ReplicatedJournal : ContextShift : LogOf](
     topic: Topic,
     consumer: Resource[F, Consumer[F]]): F[TopicReplicator[F]] = {
@@ -307,11 +308,23 @@ object TopicReplicator {
     def of[F[_] : Sync : KafkaConsumerOf](
       topic: Topic,
       config: ConsumerConfig,
-      pollTimeout: FiniteDuration): Resource[F, Consumer[F]] = {
+      pollTimeout: FiniteDuration,
+      hostName: Option[HostName]): Resource[F, Consumer[F]] = {
 
-      val prefix = config.groupId getOrElse "journal-replicator"
-      val groupId = s"$prefix-$topic"
+      val groupId = {
+        val prefix = config.groupId getOrElse "replicator"
+        s"$prefix-$topic"
+      }
+
+      val common = config.common
+      
+      val clientId = {
+        val clientId = common.clientId getOrElse "replicator"
+        hostName.fold(clientId) { hostName => s"$clientId-$hostName" }
+      }
+
       val config1 = config.copy(
+        common = common.copy(clientId = clientId.some),
         groupId = Some(groupId),
         autoOffsetReset = AutoOffsetReset.Earliest,
         autoCommit = false)

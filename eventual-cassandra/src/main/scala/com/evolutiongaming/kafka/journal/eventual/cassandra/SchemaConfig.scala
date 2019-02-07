@@ -18,18 +18,20 @@ object SchemaConfig {
 
   val Default: SchemaConfig = SchemaConfig()
 
+  
+  def apply(config: Config): SchemaConfig = apply(config, Default)
 
-  def apply(config: Config): SchemaConfig = {
+  def apply(config: Config, default: => SchemaConfig): SchemaConfig = {
 
     def get[T: FromConf](name: String) = config.getOpt[T](name)
 
     SchemaConfig(
-      keyspace = get[Config]("keyspace").fold(Default.keyspace)(Keyspace.apply),
-      journalTable = get[String]("journal-table") getOrElse Default.journalTable,
-      metadataTable = get[String]("metadata-table") getOrElse Default.metadataTable,
-      pointerTable = get[String]("pointer-table") getOrElse Default.pointerTable,
-      locksTable = get[String]("locks-table") getOrElse Default.locksTable,
-      autoCreate = get[Boolean]("auto-create") getOrElse Default.autoCreate)
+      keyspace = get[Config]("keyspace").fold(default.keyspace)(Keyspace.apply),
+      journalTable = get[String]("journal-table") getOrElse default.journalTable,
+      metadataTable = get[String]("metadata-table") getOrElse default.metadataTable,
+      pointerTable = get[String]("pointer-table") getOrElse default.pointerTable,
+      locksTable = get[String]("locks-table") getOrElse default.locksTable,
+      autoCreate = get[Boolean]("auto-create") getOrElse default.autoCreate)
   }
 
 
@@ -42,14 +44,17 @@ object SchemaConfig {
 
     val Default: Keyspace = Keyspace()
 
-    def apply(config: Config): Keyspace = {
+    
+    def apply(config: Config): Keyspace = apply(config, Default)
+
+    def apply(config: Config, default: => Keyspace): Keyspace = {
 
       def get[T: FromConf](name: String) = config.getOpt[T](name)
 
       Keyspace(
-        name = get[String]("name") getOrElse Default.name,
+        name = get[String]("name") getOrElse default.name,
         replicationStrategy = ReplicationStrategyConfig(config),
-        autoCreate = get[Boolean]("auto-create") getOrElse Default.autoCreate)
+        autoCreate = get[Boolean]("auto-create") getOrElse default.autoCreate)
     }
   }
 }

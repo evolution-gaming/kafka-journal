@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import com.datastax.driver.core.ConsistencyLevel
-import com.evolutiongaming.scassandra.{CassandraConfig, QueryConfig}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig
 import com.evolutiongaming.nel.Nel
+import com.evolutiongaming.scassandra.{CassandraConfig, QueryConfig}
 import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.typesafe.config.ConfigFactory
@@ -34,7 +34,12 @@ class ReplicatorConfigSpec extends FunSuite with Matchers {
       topicPrefixes = Nel("prefix"),
       consumer = ConsumerConfig(
         maxPollRecords = 10,
-        common = CommonConfig(clientId = Some("clientId"))))
+        common = CommonConfig(
+          clientId = Some("clientId"),
+          receiveBufferBytes = 1000000),
+        groupId = Some("replicator"),
+        autoCommit = false,
+        autoOffsetReset = AutoOffsetReset.Earliest))
     ReplicatorConfig(config) shouldEqual expected
   }
 

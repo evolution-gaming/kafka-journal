@@ -2,7 +2,6 @@ package com.evolutiongaming.kafka.journal
 
 import akka.actor.{ActorSystem, ExtendedActorSystem, Extension, ExtensionId}
 import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
-import com.evolutiongaming.hostname
 import com.evolutiongaming.kafka.journal.PlayJsonHelper._
 import play.api.libs.json._
 
@@ -15,7 +14,7 @@ object Origin {
   val Empty: Origin = Origin("")
 
   val HostName: Option[Origin] = {
-    hostname.HostName() map { hostname => Origin(hostname) }
+    com.evolutiongaming.kafka.journal.HostName() map { hostname => Origin(hostname.value) }
   }
 
 

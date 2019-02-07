@@ -5,9 +5,9 @@ import cats.implicits._
 import cats.effect.Concurrent
 import com.datastax.driver.core._
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
-import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.util.FromFuture
 import com.evolutiongaming.scassandra.{NextHostRetryPolicy, Session}
+import com.evolutiongaming.scassandra.syntax._
 
 
 trait CassandraSession[F[_]] {

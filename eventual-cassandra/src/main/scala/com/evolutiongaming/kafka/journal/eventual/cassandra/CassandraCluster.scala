@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.effect.{Concurrent, Resource, Sync}
 import cats.implicits._
+import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.util.FromFuture
 import com.evolutiongaming.scassandra.{CassandraConfig, Cluster, CreateCluster}
 
@@ -14,7 +15,7 @@ object CassandraCluster {
   def of[F[_] : Concurrent : FromFuture](config: CassandraConfig, retries: Int): Resource[F, CassandraCluster[F]] = {
     for {
       cassandra <- Resource.make {
-        Sync[F].delay { CreateCluster(config) }
+        Sync[F].delay { CreateCluster(config)(CurrentThreadExecutionContext) }
       } { cassandra =>
         FromFuture[F].apply { cassandra.close() }
       }

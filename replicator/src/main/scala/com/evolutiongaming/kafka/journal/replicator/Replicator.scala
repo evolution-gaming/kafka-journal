@@ -29,34 +29,38 @@ object Replicator {
 
   def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf : KafkaConsumerOf](
     config: ReplicatorConfig,
-    metrics: Metrics[F] = Metrics.empty[F]/*TODO  option*/): Resource[F, F[Unit]] = {
+    hostName: Option[HostName] = HostName(),
+    metrics: Option[Metrics[F]] = none): Resource[F, F[Unit]] = {
 
     implicit val clock = Timer[F].clock
 
     def replicatedJournal(implicit cassandraSession: CassandraSession[F]) = {
-      ReplicatedCassandra.of[F](config.cassandra, metrics.journal)
+      ReplicatedCassandra.of[F](config.cassandra, metrics.flatMap(_.journal))
     }
 
     for {
       cassandraCluster  <- CassandraCluster.of(config.cassandra.client, config.cassandra.retries)
       cassandraSession  <- cassandraCluster.session
       replicatedJournal <- Resource.liftF(replicatedJournal(cassandraSession))
-      result            <- of(config, metrics, replicatedJournal)
+      result            <- of(config, metrics, replicatedJournal, hostName)
     } yield result
   }
 
   def of[F[_] : Concurrent : Timer : Par : ContextShift : LogOf : KafkaConsumerOf](
     config: ReplicatorConfig,
-    metrics: Metrics[F]/*TODO not used for kafka*/,
-    replicatedJournal: ReplicatedJournal[F]): Resource[F, F[Unit]] = {
+    metrics: Option[Metrics[F]]/*TODO not used for kafka*/,
+    replicatedJournal: ReplicatedJournal[F],
+    hostName: Option[HostName]): Resource[F, F[Unit]] = {
 
     implicit val replicatedJournal1 = replicatedJournal
 
     val topicReplicator = (topic: Topic) => {
 
-      val consumer = TopicReplicator.Consumer.of[F](topic, config.consumer, config.pollTimeout)
+      val consumer = TopicReplicator.Consumer.of[F](topic, config.consumer, config.pollTimeout, hostName)
 
-      implicit val metrics1 = metrics.replicator.fold(TopicReplicator.Metrics.empty[F]) { _.apply(topic) }
+      implicit val metrics1 = metrics
+        .flatMap(_.replicator)
+        .fold(TopicReplicator.Metrics.empty[F])(_.apply(topic))
 
       val result = for {
         topicReplicator <- TopicReplicator.of[F](topic = topic, consumer = consumer)

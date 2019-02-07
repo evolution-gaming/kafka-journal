@@ -26,9 +26,8 @@ object JournalConfig {
 
   val Default: JournalConfig = JournalConfig()
 
-  def apply(config: Config): JournalConfig = {
-    apply(config, Default)
-  }
+
+  def apply(config: Config): JournalConfig = apply(config, Default)
 
   def apply(config: Config, default: => JournalConfig): JournalConfig = {
 

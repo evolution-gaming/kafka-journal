@@ -32,13 +32,7 @@ object CassandraHelper {
   }
 
 
-  // TODO move to scassandra
   implicit class StatementOps(val self: Statement) extends AnyVal {
-
-    def trace(enable: Boolean): Statement = {
-      if (enable) self.enableTracing()
-      else self.disableTracing()
-    }
 
     def execute[F[_] : CassandraSession]: F[QueryResult[F]] = {
       CassandraSession[F].execute(self)

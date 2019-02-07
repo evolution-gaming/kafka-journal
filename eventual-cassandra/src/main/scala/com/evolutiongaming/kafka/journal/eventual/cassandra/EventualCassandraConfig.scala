@@ -14,15 +14,17 @@ object EventualCassandraConfig {
 
   val Default: EventualCassandraConfig = EventualCassandraConfig()
 
+  
+  def apply(config: Config): EventualCassandraConfig = apply(config, Default)
 
-  def apply(config: Config): EventualCassandraConfig = {
+  def apply(config: Config, default: => EventualCassandraConfig): EventualCassandraConfig = {
 
     def get[T: FromConf](name: String) = config.getOpt[T](name)
 
     EventualCassandraConfig(
-      retries = get[Int]("retries") getOrElse Default.retries,
-      segmentSize = get[Int]("segment-size") getOrElse Default.segmentSize,
-      client = get[Config]("client").fold(Default.client)(CassandraConfig.apply),
-      schema = get[Config]("schema").fold(Default.schema)(SchemaConfig.apply))
+      retries = get[Int]("retries") getOrElse default.retries,
+      segmentSize = get[Int]("segment-size") getOrElse default.segmentSize,
+      client = get[Config]("client").fold(default.client)(CassandraConfig(_, default.client)),
+      schema = get[Config]("schema").fold(default.schema)(SchemaConfig(_, default.schema)))
   }
 }
