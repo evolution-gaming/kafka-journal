@@ -1,16 +1,14 @@
 package com.evolutiongaming.kafka.journal
 
-import akka.actor.ActorSystem
 import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.eventual.cassandra._
-import com.evolutiongaming.kafka.journal.util.{ActorSystemOf, FromFuture, ToFuture}
+import com.evolutiongaming.kafka.journal.util.{FromFuture, ToFuture}
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.safeakka.actor.ActorLog
 import com.evolutiongaming.scassandra.{AuthenticationConfig, CassandraConfig}
 import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
-import com.evolutiongaming.skafka.producer.ProducerConfig
+import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig}
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
@@ -18,32 +16,44 @@ import scala.concurrent.duration._
 object ReadEventsApp extends IOApp {
 
   def run(args: List[String]): IO[ExitCode] = {
-    val system = ActorSystem("ReadEventsApp")
-    implicit val ec = system.dispatcher
-    implicit val timer = IO.timer(ec)
     implicit val parallel = IO.ioParallel
-    implicit val logOf = LogOf[IO](system)
-
-    val result = ActorSystemOf[IO](system).use { implicit system => runF[IO](ec) }
-    result.as(ExitCode.Success)
+    implicit val ec = ExecutionContext.global
+    runF[IO].as(ExitCode.Success)
   }
 
+  private def runF[F[_] : Concurrent : ContextShift : Timer : Clock : FromFuture : ToFuture : Par](
+    implicit ec: ExecutionContext
+  ): F[Unit] = {
 
-  private def runF[F[_] : Concurrent : ContextShift : Timer : Clock : FromFuture : ToFuture : Par : LogOf](
-    blocking: ExecutionContext)(implicit
-    system: ActorSystem): F[Unit] = {
+    for {
+      logOf  <- LogOf.slfj4[F]
+      log    <- logOf(ReadEventsApp.getClass)
+      result <- {
+        implicit val logOf1 = logOf
+        implicit val log1 = log
+        runF[F](ec, log).handleErrorWith { error =>
+          log.error(s"failed with $error", error)
+        }
+      }
+    } yield result
+
+  }
+
+  private def runF[F[_] : Concurrent : ContextShift : Timer : Clock : FromFuture : ToFuture : Par : LogOf : Log](
+    blocking: ExecutionContext, log: Log[F]): F[Unit] = {
 
     implicit val kafkaConsumerOf = KafkaConsumerOf[F](blocking)
 
     implicit val kafkaProducerOf = KafkaProducerOf[F](blocking)
 
-    val commonConfig = CommonConfig(bootstrapServers = Nel("localhost:9092"))
+    val commonConfig = CommonConfig(
+      clientId = "ReadEventsApp".some,
+      bootstrapServers = Nel("localhost:9092"))
 
-    val actorLog = ActorLog(system, ReadEventsApp.getClass)
-
-    implicit val log = Log[F](actorLog)
-
-    val producerConfig = ProducerConfig(common = commonConfig)
+    val producerConfig = ProducerConfig(
+      common = commonConfig,
+      idempotence = true,
+      acks = Acks.All)
 
     val consumerConfig = ConsumerConfig(common = commonConfig)
 
@@ -66,13 +76,14 @@ object ReadEventsApp extends IOApp {
       headCache       <- HeadCache.of[F](consumerConfig, eventualJournal, None)
       producer        <- Journal.Producer.of[F](producerConfig)
     } yield {
-      val journal = Journal[F](None, producer, consumer, eventualJournal, 100.millis, headCache)
-      val key = Key(id = "id", topic = "journal")
+      val origin = Origin("ReadEventsApp")
+      val journal = Journal[F](origin.some, producer, consumer, eventualJournal, 100.millis, headCache)
+      val key = Key(id = "id", topic = "topic")
       for {
         pointer <- journal.pointer(key)
         seqNrs  <- journal.read(key, SeqNr.Min).map(_.seqNr).toList
-        _       <- Log[F].info(s"pointer: $pointer")
-        _       <- Log[F].info(s"seqNrs: $seqNrs")
+        _       <- log.info(s"pointer: $pointer")
+        _       <- log.info(s"seqNrs: $seqNrs")
       } yield {}
     }
 

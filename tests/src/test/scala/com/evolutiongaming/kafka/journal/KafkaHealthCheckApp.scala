@@ -34,9 +34,10 @@ object KafkaHealthCheckApp extends IOApp {
 
     implicit val kafkaProducerOf = KafkaProducerOf[F](blocking)
 
-    val consumerConfig = ConsumerConfig(common = CommonConfig(
-      bootstrapServers = Nel("localhost:9092"),
-      clientId = Some("KafkaHealthCheckApp")))
+    val consumerConfig = ConsumerConfig(
+      common = CommonConfig(
+        clientId = "KafkaHealthCheckApp".some,
+        bootstrapServers = Nel("localhost:9092")))
 
     val producerConfig = ProducerConfig(
       common = consumerConfig.common)
