@@ -25,30 +25,30 @@ class EventsToBytesSpec extends FunSuite with Matchers {
   for {
     (name, events) <- List(
       ("empty", Nel(event(1))),
-      ("binary", Nel(event(1, Payload.Binary("binary")))),
-      ("text", Nel(event(1, Payload.Text("text")))),
-      ("json", Nel(event(1, Payload.Json("json")))),
+      ("binary", Nel(event(1, Payload.binary("binary")))),
+      ("text", Nel(event(1, Payload.text("text")))),
+      ("json", Nel(event(1, Payload.json("json")))),
       ("empty-many", Nel(
         event(1),
         event(2),
         event(3))),
       ("binary-many", Nel(
-        event(1, Payload.Binary("1")),
-        event(2, Payload.Binary("2")),
-        event(3, Payload.Binary("3")))),
+        event(1, Payload.binary("1")),
+        event(2, Payload.binary("2")),
+        event(3, Payload.binary("3")))),
       ("text-many", Nel(
-        event(1, Payload.Text("1")),
-        event(2, Payload.Text("2")),
-        event(3, Payload.Text("3")))),
+        event(1, Payload.text("1")),
+        event(2, Payload.text("2")),
+        event(3, Payload.text("3")))),
       ("json-many", Nel(
-        event(1, Payload.Json("1")),
-        event(2, Payload.Json("2")),
-        event(3, Payload.Json("3")))),
+        event(1, Payload.json("1")),
+        event(2, Payload.json("2")),
+        event(3, Payload.json("3")))),
       ("empty-binary-text-json", Nel(
         event(1),
-        event(2, Payload.Binary("binary")),
-        event(3, Payload.Text("text")),
-        event(4, Payload.Json("json")))))
+        event(2, Payload.binary("binary")),
+        event(3, Payload.text("text")),
+        event(4, Payload.json("json")))))
   } {
     test(s"toBytes & fromBytes $name") {
 

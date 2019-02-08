@@ -28,7 +28,7 @@ object EventSerializer {
         val serialized = serialisation.toMsg(payload)
         val persistent = PersistentBinary(serialized, persistentRepr)
         val bytes = persistent.toBytes
-        Payload.Binary(bytes)
+        Payload.binary(bytes)
       }
 
       def json(payload: JsValue, payloadType: Option[PayloadType.TextOrJson] = None) = {
@@ -38,7 +38,7 @@ object EventSerializer {
           payloadType = payloadType,
           payload = payload)
         val json = Json.toJson(persistent)
-        Payload.Json(json)
+        Payload.json(json)
       }
 
       val payload = anyRef match {

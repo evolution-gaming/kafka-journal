@@ -205,30 +205,30 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       for {
         (name, events) <- List(
           ("empty", Nel(event(seqNr))),
-          ("binary", Nel(event(seqNr, Payload.Binary("binary")))),
-          ("text", Nel(event(seqNr, Payload.Text("text")))),
-          ("json", Nel(event(seqNr, Payload.Json("json")))),
+          ("binary", Nel(event(seqNr, Payload.binary("binary")))),
+          ("text", Nel(event(seqNr, Payload.text("text")))),
+          ("json", Nel(event(seqNr, Payload.json("json")))),
           ("empty-many", Nel(
             event(seqNr),
             event(seqNr + 1),
             event(seqNr + 2))),
           ("binary-many", Nel(
-            event(seqNr, Payload.Binary("1")),
-            event(seqNr + 1, Payload.Binary("2")),
-            event(seqNr + 2, Payload.Binary("3")))),
+            event(seqNr, Payload.binary("1")),
+            event(seqNr + 1, Payload.binary("2")),
+            event(seqNr + 2, Payload.binary("3")))),
           ("text-many", Nel(
-            event(seqNr, Payload.Text("1")),
-            event(seqNr + 1, Payload.Text("2")),
-            event(seqNr + 2, Payload.Text("3")))),
+            event(seqNr, Payload.text("1")),
+            event(seqNr + 1, Payload.text("2")),
+            event(seqNr + 2, Payload.text("3")))),
           ("json-many", Nel(
-            event(seqNr, Payload.Json("1")),
-            event(seqNr + 1, Payload.Json("2")),
-            event(seqNr + 2, Payload.Json("3")))),
+            event(seqNr, Payload.json("1")),
+            event(seqNr + 1, Payload.json("2")),
+            event(seqNr + 2, Payload.json("3")))),
           ("empty-binary-text-json", Nel(
             event(seqNr),
-            event(seqNr + 1, Payload.Binary("binary")),
-            event(seqNr + 2, Payload.Text("text")),
-            event(seqNr + 3, Payload.Json("json")))))
+            event(seqNr + 1, Payload.binary("binary")),
+            event(seqNr + 2, Payload.text("text")),
+            event(seqNr + 3, Payload.json("json")))))
       } {
         s"consume event from kafka and replicate to eventual journal, seqNr: $seqNr, payload: $name" in {
 

@@ -25,28 +25,28 @@ class EventsSerializerSpec extends FunSuite with Matchers {
       ("empty", PayloadType.Json, Nel(
         event(1))),
       ("binary", PayloadType.Binary, Nel(
-        event(1, Payload.Binary("payload")))),
+        event(1, Payload.binary("payload")))),
       ("text", PayloadType.Json, Nel(
-        event(1, Payload.Text(""" {"key":"value"} """)))),
+        event(1, Payload.text(""" {"key":"value"} """)))),
       ("json", PayloadType.Json, Nel(
-        event(1, Payload.Json("payload")))),
+        event(1, Payload.json("payload")))),
       ("empty-many", PayloadType.Json, Nel(
         event(1),
         event(2))),
       ("binary-many", PayloadType.Binary, Nel(
-        event(1, Payload.Binary("1")),
-        event(2, Payload.Binary("2")))),
+        event(1, Payload.binary("1")),
+        event(2, Payload.binary("2")))),
       ("text-many", PayloadType.Json, Nel(
-        event(1, Payload.Text("1")),
-        event(2, Payload.Text("2")))),
+        event(1, Payload.text("1")),
+        event(2, Payload.text("2")))),
       ("json-many", PayloadType.Json, Nel(
-        event(1, Payload.Json("1")),
-        event(2, Payload.Json("2")))),
+        event(1, Payload.json("1")),
+        event(2, Payload.json("2")))),
       ("empty-binary-text-json", PayloadType.Binary, Nel(
         event(1),
-        event(2, Payload.Binary("binary")),
-        event(3, Payload.Text("text")),
-        event(4, Payload.Json("json")))))
+        event(2, Payload.binary("binary")),
+        event(3, Payload.text("text")),
+        event(4, Payload.json("json")))))
   } {
 
     test(s"toBytes & fromBytes, events: $name") {

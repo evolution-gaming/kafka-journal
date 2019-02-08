@@ -294,14 +294,14 @@ object Stream {
 
   object Cmd {
 
-    def take[A](a: A): Cmd[A] = Take(a)
+    def take[A](value: A): Cmd[A] = Take(value)
 
     def stop[A]: Cmd[A] = Stop
 
     def skip[A]: Cmd[A] = Skip
 
 
-    final case class Take[A](a: A) extends Cmd[A]
+    final case class Take[A](value: A) extends Cmd[A]
 
     final case object Skip extends Cmd[Nothing]
 

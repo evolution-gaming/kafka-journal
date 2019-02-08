@@ -25,9 +25,10 @@ trait Journal[F[_]] {
 
   def read(key: Key, from: SeqNr): Stream[F, Event]
 
+  // TODO return Pointer and test it
   def pointer(key: Key): F[Option[SeqNr]]
 
-  // TODO return Pointer and Test it
+  // TODO return Pointer and test it
   def delete(key: Key, to: SeqNr): F[Option[PartitionOffset]]
 }
 

@@ -6,18 +6,18 @@ import play.api.libs.json.JsString
 class PayloadSpec extends FunSuite with Matchers {
 
   test("apply text") {
-    Payload("text") shouldEqual Payload.Text("text")
+    Payload("text") shouldEqual Payload.text("text")
   }
 
   test("apply binary") {
-    Payload(Bytes.Empty) shouldEqual Payload.Binary(Bytes.Empty)
+    Payload(Bytes.Empty) shouldEqual Payload.binary(Bytes.Empty)
   }
 
   test("apply json") {
-    Payload(JsString("json")) shouldEqual Payload.Json(JsString("json"))
+    Payload(JsString("json")) shouldEqual Payload.json(JsString("json"))
   }
 
   test("toString") {
-    Payload.Binary("test").toString shouldEqual "Binary(4)"
+    Payload.binary("test").toString shouldEqual "Binary(4)"
   }
 }

@@ -10,11 +10,18 @@ sealed abstract class Payload extends Product {
 
 object Payload {
 
-  def apply(value: String): Payload = Text(value)
+  def apply(value: String): Payload = text(value)
 
-  def apply(value: Bytes): Payload = Binary(value)
+  def apply(value: Bytes): Payload = binary(value)
 
-  def apply(value: JsValue): Payload = Json(value)
+  def apply(value: JsValue): Payload = json(value)
+
+
+  def text(value: String): Payload = Text(value)
+
+  def binary[A](value: A)(implicit toBytes: ToBytes[A]): Payload = Binary(toBytes(value))
+
+  def json[A](value: A)(implicit writes: Writes[A]): Payload = Json(value)
 
 
   final case class Binary(value: Bytes) extends Payload {
@@ -117,6 +124,13 @@ object PayloadType {
 
 
   def apply(name: String): Option[PayloadType] = byName.get(name)
+
+
+  def binary: PayloadType = Binary
+
+  def text: PayloadType = Text
+
+  def json: PayloadType = Json
 
 
   sealed abstract class BinaryOrJson extends PayloadType

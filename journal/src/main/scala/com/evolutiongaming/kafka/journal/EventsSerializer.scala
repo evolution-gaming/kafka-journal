@@ -147,8 +147,8 @@ object EventsSerializer {
             val payloadType = event.payloadType getOrElse PayloadType.Json
             val payload = event.payload.map { payload =>
               payloadType match {
-                case PayloadType.Json => Payload.Json(payload)
-                case PayloadType.Text => Payload.Text(payload.as[String])
+                case PayloadType.Json => Payload.json(payload)
+                case PayloadType.Text => Payload.text(payload.as[String])
               }
             }
             Event(
