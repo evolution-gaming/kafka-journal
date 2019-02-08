@@ -55,7 +55,7 @@ object EventualCassandra {
 
       def read(key: Key, from: SeqNr): stream.Stream[F, ReplicatedEvent] = {
 
-        def read(statement: JournalStatement.SelectRecords[F], metadata: Metadata) = {
+        def read(statement: JournalStatement.SelectRecords[F], head: Head) = {
 
           def read(from: SeqNr) = new stream.Stream[F, ReplicatedEvent] {
 
@@ -71,29 +71,28 @@ object EventualCassandra {
                 }
               }
 
-              val segment = Segment(from, metadata.segmentSize)
+              val segment = Segment(from, head.segmentSize)
 
               (from, segment, l).tailRecM { case (from, segment, l) =>
                 val range = SeqRange(from, SeqNr.Max) // TODO do we need range here ?
                 for {
                   result <- statement(key, segment.nr, range).foldWhileM[S, R](S(l, from))(ff) // TODO
                 } yield result match {
-                  case Left(s) =>
+                  case Right(r) => r.asRight[L].asRight[(SeqNr, Segment, L)]
+                  case Left(s)  =>
                     val result = for {
-                      from <- s.seqNr.next
+                      from    <- s.seqNr.next
                       segment <- segment.next(from)
                     } yield {
                       (from, segment, s.l).asLeft[Either[L, R]]
                     }
                     result getOrElse s.l.asLeft[R].asRight[(SeqNr, Segment, L)]
-
-                  case Right(r) => r.asRight[L].asRight[(SeqNr, Segment, L)]
                 }
               }
             }
           }
 
-          metadata.deleteTo match {
+          head.deleteTo match {
             case None           => read(from)
             case Some(deleteTo) =>
               if (from > deleteTo) read(from)
@@ -105,22 +104,20 @@ object EventualCassandra {
         }
 
         for {
-          metadata <- Stream.lift(statements.metadata(key))
-          result   <- metadata.fold(Stream.empty[F, ReplicatedEvent]) { metadata =>
-            read(statements.records, metadata)
+          head   <- Stream.lift(statements.head(key))
+          result <- head.fold(Stream.empty[F, ReplicatedEvent]) { head =>
+            read(statements.records, head)
           }
-        } yield {
-          result
-        }
+        } yield result
       }
 
       def pointer(key: Key) = {
         for {
-          metadata <- statements.metadata(key)
+          head <- statements.head(key)
         } yield for {
-          metadata <- metadata
+          head <- head
         } yield {
-          Pointer(metadata.partitionOffset, metadata.seqNr)
+          Pointer(head.partitionOffset, head.seqNr)
         }
       }
     }
@@ -129,7 +126,7 @@ object EventualCassandra {
 
   final case class Statements[F[_]](
     records: JournalStatement.SelectRecords[F],
-    metadata: MetadataStatement.Select[F],
+    head: HeadStatement.Select[F],
     pointers: PointerStatement.SelectPointers[F])
 
   object Statements {
@@ -139,7 +136,7 @@ object EventualCassandra {
     def of[F[_] : Par : Monad : CassandraSession](tables: Tables): F[Statements[F]] = {
       val statements = (
         JournalStatement.SelectRecords.of[F](tables.journal),
-        MetadataStatement.Select.of[F](tables.metadata),
+        HeadStatement.Select.of[F](tables.head),
         PointerStatement.SelectPointers.of[F](tables.pointer))
       Par[F].mapN(statements)(Statements[F])
     }

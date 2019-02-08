@@ -8,7 +8,7 @@ import com.typesafe.config.Config
 final case class SchemaConfig(
   keyspace: SchemaConfig.Keyspace = SchemaConfig.Keyspace.Default,
   journalTable: String = "journal",
-  metadataTable: String = "metadata",
+  head: String = "metadata",
   pointerTable: String = "pointer",
   locksTable: String = "locks",
   autoCreate: Boolean = true)
@@ -18,7 +18,7 @@ object SchemaConfig {
 
   val Default: SchemaConfig = SchemaConfig()
 
-  
+
   def apply(config: Config): SchemaConfig = apply(config, Default)
 
   def apply(config: Config, default: => SchemaConfig): SchemaConfig = {
@@ -28,7 +28,7 @@ object SchemaConfig {
     SchemaConfig(
       keyspace = get[Config]("keyspace").fold(default.keyspace)(Keyspace.apply),
       journalTable = get[String]("journal-table") getOrElse default.journalTable,
-      metadataTable = get[String]("metadata-table") getOrElse default.metadataTable,
+      head = get[String]("head-table") getOrElse default.head,
       pointerTable = get[String]("pointer-table") getOrElse default.pointerTable,
       locksTable = get[String]("locks-table") getOrElse default.locksTable,
       autoCreate = get[Boolean]("auto-create") getOrElse default.autoCreate)

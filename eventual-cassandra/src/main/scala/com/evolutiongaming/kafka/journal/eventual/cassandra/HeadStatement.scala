@@ -11,7 +11,7 @@ import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
 
 
-object MetadataStatement {
+object HeadStatement {
 
   // TODO make use of partition and offset
   def createTable(name: TableName): String = {
@@ -34,7 +34,7 @@ object MetadataStatement {
   }
 
 
-  type Insert[F[_]] = (Key, Instant, Metadata, Option[Origin]) => F[Unit]
+  type Insert[F[_]] = (Key, Instant, Head, Option[Origin]) => F[Unit]
 
   object Insert {
 
@@ -49,14 +49,14 @@ object MetadataStatement {
       for {
         prepared <- query.prepare
       } yield {
-        (key: Key, timestamp: Instant, metadata: Metadata, origin: Option[Origin]) =>
+        (key: Key, timestamp: Instant, head: Head, origin: Option[Origin]) =>
           val bound = prepared
             .bind()
             .encode(key)
-            .encode(metadata.partitionOffset)
-            .encode("segment_size", metadata.segmentSize)
-            .encode(metadata.seqNr)
-            .encodeSome("delete_to", metadata.deleteTo)
+            .encode(head.partitionOffset)
+            .encode("segment_size", head.segmentSize)
+            .encode(head.seqNr)
+            .encodeSome("delete_to", head.deleteTo)
             .encode("created", timestamp)
             .encode("updated", timestamp)
             .encodeSome(origin)
@@ -66,7 +66,7 @@ object MetadataStatement {
   }
 
 
-  type Select[F[_]] = Key => F[Option[Metadata]]
+  type Select[F[_]] = Key => F[Option[Head]]
 
   object Select {
 
@@ -90,7 +90,7 @@ object MetadataStatement {
           } yield for {
             row <- result.head
           } yield {
-            Metadata(
+            Head(
               partitionOffset = row.decode[PartitionOffset],
               segmentSize = row.decode[Int]("segment_size"),
               seqNr = row.decode[SeqNr],

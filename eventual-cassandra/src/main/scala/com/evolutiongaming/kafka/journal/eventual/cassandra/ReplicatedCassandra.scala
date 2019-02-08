@@ -5,10 +5,10 @@ import java.time.Instant
 import cats.effect.{Clock, Concurrent, Sync}
 import cats.implicits._
 import cats.{Applicative, FlatMap}
+import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal.Metrics
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.{FromFuture, ToFuture}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Topic
@@ -83,33 +83,31 @@ object ReplicatedCassandra {
           loop(events.toList, None, ().pure[F])
         }
 
-        def saveMetadataAndSegmentSize(metadata: Option[Metadata]) = {
+        def saveHeadAndSegmentSize(head: Option[Head]) = {
           val seqNrLast = events.last.seqNr
 
-          metadata match {
-            case Some(metadata) =>
-              val update = () => Statements[F].updateSeqNr(key, partitionOffset, timestamp, seqNrLast)
-              (update, metadata.segmentSize)
-
-            case None =>
-              val metadata = Metadata(
-                partitionOffset = partitionOffset,
-                segmentSize = segmentSize,
-                seqNr = seqNrLast,
-                deleteTo = events.head.seqNr.prev)
-              val origin = events.head.origin
-              val insert = () => Statements[F].insertMetadata(key, timestamp, metadata, origin)
-              (insert, metadata.segmentSize)
+          head.fold {
+            val head = Head(
+              partitionOffset = partitionOffset,
+              segmentSize = segmentSize,
+              seqNr = seqNrLast,
+              deleteTo = events.head.seqNr.prev)
+            val origin = events.head.origin
+            val insert = () => Statements[F].insertHead(key, timestamp, head, origin)
+            (insert, head.segmentSize)
+          } { head =>
+            val update = () => Statements[F].updateSeqNr(key, partitionOffset, timestamp, seqNrLast)
+            (update, head.segmentSize)
           }
         }
 
         for {
-          metadata                    <- Statements[F].selectMetadata(key)
-          (saveMetadata, segmentSize)  = saveMetadataAndSegmentSize(metadata)
-          _                           <- Sync[F].uncancelable {
+          head                    <- Statements[F].selectHead(key)
+          (saveHead, segmentSize)  = saveHeadAndSegmentSize(head)
+          _                       <- Sync[F].uncancelable {
             for {
               _ <- append(segmentSize)
-              _ <- saveMetadata()
+              _ <- saveHead()
             } yield {}
           }
         } yield {}
@@ -118,30 +116,30 @@ object ReplicatedCassandra {
 
       def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = {
 
-        def saveMetadata(metadata: Option[Metadata]) = {
-          metadata.fold {
-            val metadata = Metadata(
+        def saveHead(head: Option[Head]) = {
+          head.fold {
+            val head = Head(
               partitionOffset = partitionOffset,
               segmentSize = segmentSize,
               seqNr = deleteTo,
               deleteTo = Some(deleteTo))
             for {
-              _ <- Statements[F].insertMetadata(key, timestamp, metadata, origin)
-            } yield metadata.segmentSize
-          } { metadata =>
+              _ <- Statements[F].insertHead(key, timestamp, head, origin)
+            } yield head.segmentSize
+          } { head =>
             val update =
-              if (metadata.seqNr >= deleteTo) {
+              if (head.seqNr >= deleteTo) {
                 Statements[F].updateDeleteTo(key, partitionOffset, timestamp, deleteTo)
               } else {
-                Statements[F].updateMetadata(key, partitionOffset, timestamp, deleteTo, deleteTo)
+                Statements[F].updateHead(key, partitionOffset, timestamp, deleteTo, deleteTo)
               }
             for {
               _ <- update
-            } yield metadata.segmentSize
+            } yield head.segmentSize
           }
         }
 
-        def delete(segmentSize: Int, metadata: Metadata) = {
+        def delete(segmentSize: Int, head: Head) = {
 
           def delete(from: SeqNr, deleteTo: SeqNr) = {
 
@@ -156,9 +154,9 @@ object ReplicatedCassandra {
             }
           }
 
-          val deleteToFixed = metadata.seqNr min deleteTo
+          val deleteToFixed = head.seqNr min deleteTo
 
-          metadata.deleteTo match {
+          head.deleteTo match {
             case None           => delete(from = SeqNr.Min, deleteTo = deleteToFixed)
             case Some(deleteTo) =>
               if (deleteTo >= deleteToFixed) ().pure[F]
@@ -167,11 +165,11 @@ object ReplicatedCassandra {
         }
 
         for {
-          metadata    <- Statements[F].selectMetadata(key)
-          _           <- Sync[F].uncancelable {
+          head <- Statements[F].selectHead(key)
+          _    <- Sync[F].uncancelable {
             for {
-              segmentSize <- saveMetadata(metadata)
-              _           <- metadata.foldMap[F[Unit]](delete(segmentSize, _))
+              segmentSize <- saveHead(head)
+              _           <- head.foldMap[F[Unit]](delete(segmentSize, _))
             } yield {}
           }
         } yield {}
@@ -204,11 +202,11 @@ object ReplicatedCassandra {
   final case class Statements[F[_]](
     insertRecords : JournalStatement.InsertRecords[F],
     deleteRecords : JournalStatement.DeleteRecords[F],
-    insertMetadata: MetadataStatement.Insert[F],
-    selectMetadata: MetadataStatement.Select[F],
-    updateMetadata: MetadataStatement.Update[F],
-    updateSeqNr   : MetadataStatement.UpdateSeqNr[F],
-    updateDeleteTo: MetadataStatement.UpdateDeleteTo[F],
+    insertHead    : HeadStatement.Insert[F],
+    selectHead    : HeadStatement.Select[F],
+    updateHead    : HeadStatement.Update[F],
+    updateSeqNr   : HeadStatement.UpdateSeqNr[F],
+    updateDeleteTo: HeadStatement.UpdateDeleteTo[F],
     insertPointer : PointerStatement.Insert[F],
     selectPointers: PointerStatement.SelectPointers[F],
     selectTopics  : PointerStatement.SelectTopics[F])
@@ -221,11 +219,11 @@ object ReplicatedCassandra {
       val statements = (
         JournalStatement.InsertRecords.of[F](tables.journal),
         JournalStatement.DeleteRecords.of[F](tables.journal),
-        MetadataStatement.Insert.of[F](tables.metadata),
-        MetadataStatement.Select.of[F](tables.metadata),
-        MetadataStatement.Update.of[F](tables.metadata),
-        MetadataStatement.UpdateSeqNr.of[F](tables.metadata),
-        MetadataStatement.UpdateDeleteTo.of[F](tables.metadata),
+        HeadStatement.Insert.of[F](tables.head),
+        HeadStatement.Select.of[F](tables.head),
+        HeadStatement.Update.of[F](tables.head),
+        HeadStatement.UpdateSeqNr.of[F](tables.head),
+        HeadStatement.UpdateDeleteTo.of[F](tables.head),
         PointerStatement.Insert.of[F](tables.pointer),
         PointerStatement.SelectPointers.of[F](tables.pointer),
         PointerStatement.SelectTopics.of[F](tables.pointer))

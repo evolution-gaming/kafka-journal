@@ -81,11 +81,11 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             replicated(seqNr = 1, partition = 1, offset = 2),
             replicated(seqNr = 2, partition = 1, offset = 2),
             replicated(seqNr = 3, partition = 1, offset = 4)))),
-        metadata = Map(
-          metadataOf("0-0", partition = 0, offset = 3),
-          metadataOf("0-1", partition = 0, offset = 4),
-          metadataOf("1-0", partition = 1, offset = 3),
-          metadataOf("1-1", partition = 1, offset = 4)),
+        heads = Map(
+          headOf("0-0", partition = 0, offset = 3),
+          headOf("0-1", partition = 0, offset = 4),
+          headOf("1-0", partition = 1, offset = 3),
+          headOf("1-1", partition = 1, offset = 4)),
         metrics = List(
           Metrics.Round(records = 8),
           Metrics.Append(partition = 0, events = 2, records = 2),
@@ -154,11 +154,11 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             replicated(seqNr = 3, partition = 1, offset = 4),
             replicated(seqNr = 1, partition = 1, offset = 2),
             replicated(seqNr = 2, partition = 1, offset = 2)))),
-        metadata = Map(
-          metadataOf("0-0", partition = 0, offset = 3),
-          metadataOf("0-1", partition = 0, offset = 4),
-          metadataOf("1-0", partition = 1, offset = 3),
-          metadataOf("1-1", partition = 1, offset = 4)),
+        heads = Map(
+          headOf("0-0", partition = 0, offset = 3),
+          headOf("0-1", partition = 0, offset = 4),
+          headOf("1-0", partition = 1, offset = 3),
+          headOf("1-1", partition = 1, offset = 4)),
         metrics = List(
           Metrics.Round(records = 1),
           Metrics.Append(partition = 1, events = 1, records = 1),
@@ -265,16 +265,16 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             replicated(seqNr = 1, partition = 2, offset = 7),
             replicated(seqNr = 2, partition = 2, offset = 7),
             replicated(seqNr = 3, partition = 2, offset = 7)))),
-        metadata = Map(
-          metadataOf("0-0", partition = 0, offset = 9),
-          metadataOf("0-1", partition = 0, offset = 8),
-          metadataOf("0-2", partition = 0, offset = 7),
-          metadataOf("1-0", partition = 1, offset = 9),
-          metadataOf("1-1", partition = 1, offset = 8),
-          metadataOf("1-2", partition = 1, offset = 7),
-          metadataOf("2-0", partition = 2, offset = 9),
-          metadataOf("2-1", partition = 2, offset = 8),
-          metadataOf("2-2", partition = 2, offset = 7)),
+        heads = Map(
+          headOf("0-0", partition = 0, offset = 9),
+          headOf("0-1", partition = 0, offset = 8),
+          headOf("0-2", partition = 0, offset = 7),
+          headOf("1-0", partition = 1, offset = 9),
+          headOf("1-1", partition = 1, offset = 8),
+          headOf("1-2", partition = 1, offset = 7),
+          headOf("2-0", partition = 2, offset = 9),
+          headOf("2-1", partition = 2, offset = 8),
+          headOf("2-2", partition = 2, offset = 7)),
         metrics = List(
           Metrics.Round(records = 27),
           Metrics.Append(partition = 0, events = 3, records = 1),
@@ -365,13 +365,13 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             replicated(seqNr = 1, partition = 1, offset = 7),
             replicated(seqNr = 2, partition = 1, offset = 7),
             replicated(seqNr = 3, partition = 1, offset = 7)))),
-        metadata = Map(
-          metadataOf("0-0", partition = 0, offset = 10),
-          metadataOf("0-1", partition = 0, offset = 9, deleteTo = Some(2)),
-          metadataOf("0-2", partition = 0, offset = 7),
-          metadataOf("1-0", partition = 1, offset = 10),
-          metadataOf("1-1", partition = 1, offset = 9, deleteTo = Some(2)),
-          metadataOf("1-2", partition = 1, offset = 7)),
+        heads = Map(
+          headOf("0-0", partition = 0, offset = 10),
+          headOf("0-1", partition = 0, offset = 9, deleteTo = Some(2)),
+          headOf("0-2", partition = 0, offset = 7),
+          headOf("1-0", partition = 1, offset = 10),
+          headOf("1-1", partition = 1, offset = 9, deleteTo = Some(2)),
+          headOf("1-2", partition = 1, offset = 7)),
         metrics = List(
           Metrics.Round(records = 20),
           Metrics.Append(partition = 0, events = 3, records = 1),
@@ -463,10 +463,10 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             replicated(seqNr = 1, partition = 0, offset = 7),
             replicated(seqNr = 2, partition = 0, offset = 7),
             replicated(seqNr = 3, partition = 0, offset = 7)))),
-        metadata = Map(
-          metadataOf("0-0", partition = 0, offset = 11, deleteTo = Some(1)),
-          metadataOf("0-1", partition = 0, offset = 12, deleteTo = Some(2)),
-          metadataOf("0-2", partition = 0, offset = 7)),
+        heads = Map(
+          headOf("0-0", partition = 0, offset = 11, deleteTo = Some(1)),
+          headOf("0-1", partition = 0, offset = 12, deleteTo = Some(2)),
+          headOf("0-2", partition = 0, offset = 7)),
         metrics = List(
           Metrics.Round(records = 1),
           Metrics.Delete(partition = 0, actions = 1),
@@ -558,12 +558,12 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             replicated(seqNr = 3, partition = 1, offset = 3))),
           (keyOf("2-1"), List(
             replicated(seqNr = 3, partition = 2, offset = 3)))),
-        metadata = Map(
-          metadataOf("0-0", partition = 0, offset = 2),
-          metadataOf("0-1", partition = 0, offset = 3),
-          metadataOf("1-0", partition = 1, offset = 2),
-          metadataOf("1-1", partition = 1, offset = 3),
-          metadataOf("2-1", partition = 2, offset = 3)),
+        heads = Map(
+          headOf("0-0", partition = 0, offset = 2),
+          headOf("0-1", partition = 0, offset = 3),
+          headOf("1-0", partition = 1, offset = 2),
+          headOf("1-1", partition = 1, offset = 3),
+          headOf("2-1", partition = 2, offset = 3)),
         metrics = List(
           Metrics.Round(records = 12),
           Metrics.Append(partition = 1, events = 1, records = 1),
@@ -627,12 +627,12 @@ object TopicReplicatorSpec {
 
   def keyOf(id: Id) = Key(id = id, topic = topic)
 
-  def metadataOf(id: Id, partition: Partition, offset: Offset, deleteTo: Option[Int] = None): (Key, Metadata) = {
+  def headOf(id: Id, partition: Partition, offset: Offset, deleteTo: Option[Int] = None): (Key, Head) = {
     val deleteToSeqNr = deleteTo.flatMap(deleteTo => SeqNr.opt(deleteTo.toLong))
     val partitionOffset = PartitionOffset(partition = partition, offset = offset)
-    val metadata = Metadata(partitionOffset, deleteToSeqNr)
+    val head = Head(partitionOffset, deleteToSeqNr)
     val key = keyOf(id = id)
-    (key, metadata)
+    (key, head)
   }
 
 
@@ -668,7 +668,7 @@ object TopicReplicatorSpec {
     stopAfter: Option[Int] = None,
     pointers: Map[Topic, TopicPointers] = Map.empty,
     journal: Map[Key, List[ReplicatedEvent]] = Map.empty,
-    metadata: Map[Key, Metadata] = Map.empty,
+    heads: Map[Key, Head] = Map.empty,
     metrics: List[Metrics] = Nil) { self =>
 
     def +(metrics: Metrics): (Data, Unit) = {
@@ -695,13 +695,13 @@ object TopicReplicatorSpec {
 
       val records = events.toList ++ self.journal.getOrElse(key, Nil)
 
-      val deleteTo = self.metadata.get(key).flatMap(_.deleteTo)
+      val deleteTo = self.heads.get(key).flatMap(_.deleteTo)
 
-      val metadata = Metadata(partitionOffset, deleteTo)
+      val head = Head(partitionOffset, deleteTo)
 
       val updated = copy(
         journal = journal.updated(key, records),
-        metadata = self.metadata.updated(key, metadata))
+        heads = self.heads.updated(key, head))
 
       (updated, ())
     }
@@ -712,18 +712,18 @@ object TopicReplicatorSpec {
 
       def delete(deleteTo: SeqNr) = journal.dropWhile(_.seqNr <= deleteTo)
 
-      val deleteTo1 = self.metadata.get(key).flatMap(_.deleteTo)
+      val deleteTo1 = self.heads.get(key).flatMap(_.deleteTo)
       if (deleteTo1.exists(_ >= deleteTo)) {
-        self.metadata.get(key).fold(this) { metadata =>
-          copy(metadata = self.metadata.updated(key, metadata.copy(offset = partitionOffset)))
+        self.heads.get(key).fold(this) { head =>
+          copy(heads = self.heads.updated(key, head.copy(offset = partitionOffset)))
         }
       } else {
         val records = delete(deleteTo)
         val result = records.headOption.flatMap(_.seqNr.prev) orElse journal.lastOption.map(_.seqNr)
-        val metadata = Metadata(partitionOffset, deleteTo = result orElse deleteTo1)
+        val head = Head(partitionOffset, deleteTo = result orElse deleteTo1)
         copy(
           journal = self.journal.updated(key, records),
-          metadata = self.metadata.updated(key, metadata))
+          heads = self.heads.updated(key, head))
       }
     }
 
@@ -902,7 +902,7 @@ object TopicReplicatorSpec {
     }
   }
 
-  final case class Metadata(offset: PartitionOffset, deleteTo: Option[SeqNr])
+  final case class Head(offset: PartitionOffset, deleteTo: Option[SeqNr])
 
   case object NotImplemented extends RuntimeException with NoStackTrace
 }

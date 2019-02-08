@@ -5,7 +5,7 @@ import cats.implicits._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.scassandra.TableName
 
-final case class Tables(journal: TableName, metadata: TableName, pointer: TableName)
+final case class Tables(journal: TableName, head: TableName, pointer: TableName)
 
 
 object Tables {
@@ -27,9 +27,9 @@ object Tables {
       apply(name, query)
     }
 
-    val metadata = {
-      val name = tableName(schemaConfig.metadataTable)
-      val query = MetadataStatement.createTable(name)
+    val head = {
+      val name = tableName(schemaConfig.head)
+      val query = HeadStatement.createTable(name)
       apply(name, query)
     }
 
@@ -41,10 +41,10 @@ object Tables {
 
     val result = for {
       journal <- journal
-      metadata <- metadata
+      head <- head
       pointer <- pointer
     } yield {
-      Tables(journal = journal, metadata = metadata, pointer = pointer)
+      Tables(journal = journal, head = head, pointer = pointer)
     }
 
     if (autoCreate) CassandraSync[F].apply(result) else result

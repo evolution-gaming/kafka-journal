@@ -28,12 +28,13 @@ class EventualCassandraSpec extends EventualJournalSpec {
 
   def createJournals(segmentSize: Int, delete: Boolean): () => Journals = () => {
 
+    // TODO use StateT
     var journal = Map.empty[(Key, SegmentNr), List[ReplicatedEvent]]
-    var metadataMap = Map.empty[Key, Metadata]
+    var heads = Map.empty[Key, Head]
     var pointers = Map.empty[Topic, TopicPointers]
 
-    val selectMetadata: MetadataStatement.Select[cats.Id] = key => {
-      metadataMap.get(key)
+    val selectHead: HeadStatement.Select[cats.Id] = key => {
+      heads.get(key)
     }
 
     val selectPointers: PointerStatement.SelectPointers[cats.Id] = topic => {
@@ -60,7 +61,7 @@ class EventualCassandraSpec extends EventualJournalSpec {
 
       val statements = EventualCassandra.Statements(
         records = selectRecords,
-        metadata = selectMetadata,
+        head = selectHead,
         pointers = selectPointers)
 
       EventualCassandra[cats.Id](statements)
@@ -82,34 +83,34 @@ class EventualCassandraSpec extends EventualJournalSpec {
         }
       }
 
-      val insertMetadata: MetadataStatement.Insert[cats.Id] = (key, _, metadata, _) => {
-        metadataMap = metadataMap.updated(key, metadata)
+      val insertHead: HeadStatement.Insert[cats.Id] = (key, _, head, _) => {
+        heads = heads.updated(key, head)
       }
 
-      val updateMetadata: MetadataStatement.Update[cats.Id] = (key, partitionOffset, _, seqNr, deleteTo) => {
+      val updateHead: HeadStatement.Update[cats.Id] = (key, partitionOffset, _, seqNr, deleteTo) => {
         for {
-          metadata <- metadataMap.get(key)
+          head <- heads.get(key)
         } {
-          val metadataNew = metadata.copy(partitionOffset = partitionOffset, seqNr = seqNr, deleteTo = Some(deleteTo))
-          metadataMap = metadataMap.updated(key, metadataNew)
+          val metadataNew = head.copy(partitionOffset = partitionOffset, seqNr = seqNr, deleteTo = Some(deleteTo))
+          heads = heads.updated(key, metadataNew)
         }
       }
 
-      val updateSeqNr: MetadataStatement.UpdateSeqNr[cats.Id] = (key, partitionOffset, _, seqNr) => {
+      val updateSeqNr: HeadStatement.UpdateSeqNr[cats.Id] = (key, partitionOffset, _, seqNr) => {
         for {
-          metadata <- metadataMap.get(key)
+          head <- heads.get(key)
         } {
-          val metadataNew = metadata.copy(partitionOffset = partitionOffset, seqNr = seqNr)
-          metadataMap = metadataMap.updated(key, metadataNew)
+          val head1 = head.copy(partitionOffset = partitionOffset, seqNr = seqNr)
+          heads = heads.updated(key, head1)
         }
       }
 
-      val updateDeleteTo: MetadataStatement.UpdateDeleteTo[cats.Id] = (key, partitionOffset, _, deleteTo) => {
+      val updateDeleteTo: HeadStatement.UpdateDeleteTo[cats.Id] = (key, partitionOffset, _, deleteTo) => {
         for {
-          metadata <- metadataMap.get(key)
+          head <- heads.get(key)
         } {
-          val metadataNew = metadata.copy(partitionOffset = partitionOffset, deleteTo = Some(deleteTo))
-          metadataMap = metadataMap.updated(key, metadataNew)
+          val head1 = head.copy(partitionOffset = partitionOffset, deleteTo = Some(deleteTo))
+          heads = heads.updated(key, head1)
         }
       }
 
@@ -126,9 +127,9 @@ class EventualCassandraSpec extends EventualJournalSpec {
       implicit val statements = ReplicatedCassandra.Statements(
         insertRecords = insertRecords,
         deleteRecords = deleteRecords,
-        insertMetadata = insertMetadata,
-        selectMetadata = selectMetadata,
-        updateMetadata = updateMetadata,
+        insertHead = insertHead,
+        selectHead = selectHead,
+        updateHead = updateHead,
         updateSeqNr = updateSeqNr,
         updateDeleteTo = updateDeleteTo,
         insertPointer = insertPointer,
