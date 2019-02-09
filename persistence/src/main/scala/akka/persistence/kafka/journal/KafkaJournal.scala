@@ -82,19 +82,21 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
     Origin.HostName orElse Origin.AkkaHost(system) getOrElse Origin.AkkaName(system)
   }
 
-  def serializer(): EventSerializer = EventSerializer(system)
+  def serializer(): EventSerializer[cats.Id] = EventSerializer.unsafe(system)
 
   def metrics(): JournalAdapter.Metrics[IO] = JournalAdapter.Metrics.empty[IO]
 
   def adapterOf(
     toKey: ToKey,
     origin: Option[Origin],
-    serializer: EventSerializer,
+    serializer: EventSerializer[cats.Id],
     config: KafkaJournalConfig,
-    metrics: JournalAdapter.Metrics[IO]
+    metrics: JournalAdapter.Metrics[IO],
   ): Resource[IO, JournalAdapter[IO]] = {
 
-    JournalAdapter.of[IO](toKey, origin, serializer, config, metrics, Log[IO](log))
+    val log1 = Log[IO](log)
+    val batching = Batching.byNumberOfEvents[IO](config.maxEventsInBatch)
+    JournalAdapter.of[IO](toKey, origin, serializer, config, metrics, log1, batching)
   }
 
   def asyncWriteMessages(atomicWrites: Seq[AtomicWrite]): Future[Seq[Try[Unit]]] = {

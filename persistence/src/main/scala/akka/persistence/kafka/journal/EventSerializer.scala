@@ -2,24 +2,36 @@ package akka.persistence.kafka.journal
 
 import akka.actor.ActorSystem
 import akka.persistence.PersistentRepr
+import cats.MonadError
+import cats.implicits._
 import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
 import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.serialization.{SerializedMsgConverter, SerializedMsgExt}
 import play.api.libs.json.{JsString, JsValue, Json}
 
-trait EventSerializer {
-  def toEvent(persistentRepr: PersistentRepr): Event
-  def toPersistentRepr(persistenceId: PersistenceId, event: Event): PersistentRepr
+trait EventSerializer[F[_]] {
+
+  def toEvent(persistentRepr: PersistentRepr): F[Event]
+  
+  def toPersistentRepr(persistenceId: PersistenceId, event: Event): F[PersistentRepr]
 }
 
 object EventSerializer {
 
-  def apply(system: ActorSystem): EventSerializer = {
-    apply(SerializedMsgExt(system))
+  def unsafe(system: ActorSystem): EventSerializer[cats.Id] = {
+    implicit val monadError = MonadErrorOf.throwable[cats.Id]
+    apply[cats.Id](system)
   }
 
-  def apply(serialisation: SerializedMsgConverter): EventSerializer = new EventSerializer {
+  def apply[F[_]](system: ActorSystem)(implicit F: MonadError[F, Throwable]): EventSerializer[F] = {
+    apply[F](SerializedMsgExt(system))
+  }
+
+  def apply[F[_]](
+    serialisation: SerializedMsgConverter)(implicit
+    F: MonadError[F, Throwable]
+  ): EventSerializer[F] = new EventSerializer[F] {
 
     def toEvent(persistentRepr: PersistentRepr) = {
       val (anyRef: AnyRef, tags) = PayloadAndTags(persistentRepr.payload)
@@ -47,11 +59,22 @@ object EventSerializer {
         case payload          => binary(payload)
       }
       val seqNr = SeqNr(persistentRepr.sequenceNr)
-      Event(seqNr, tags, Some(payload))
+      val event = Event(seqNr, tags, Some(payload))
+      event.pure[F]
     }
 
     def toPersistentRepr(persistenceId: PersistenceId, event: Event) = {
-      val payload = event.payload getOrElse sys.error(s"Event.payload is not defined, persistenceId: $persistenceId, event: $event")
+
+      def error[A](msg: String) = {
+        val error = new RuntimeException(msg)
+        error.raiseError[F, A]
+      }
+
+      val payload = event.payload.fold {
+        error[Payload](s"Event.payload is not defined, persistenceId: $persistenceId, event: $event")
+      } {
+        _.pure[F]
+      }
 
       def binary(payload: Bytes) = {
         val persistent = payload.fromBytes[PersistentBinary]
@@ -79,11 +102,14 @@ object EventSerializer {
           writerUuid = persistent.writerUuid)
       }
 
-      payload match {
-        case p: Payload.Binary => binary(p.value)
-        case _: Payload.Text   => sys.error(s"Payload.Text is not supported, persistenceId: $persistenceId, event: $event")
-        case p: Payload.Json   => json(p.value)
-      }
+      for {
+        payload        <- payload
+        persistentRepr <- payload match {
+          case p: Payload.Binary => binary(p.value).pure[F]
+          case _: Payload.Text   => error[PersistentRepr](s"Payload.Text is not supported, persistenceId: $persistenceId, event: $event")
+          case p: Payload.Json   => json(p.value).pure[F]
+        }
+      } yield persistentRepr
     }
   }
 }

@@ -11,11 +11,15 @@ import scala.concurrent.duration._
 final case class JournalConfig(
   pollTimeout: FiniteDuration = 100.millis, // TODO used in WithReadActions only
   producer: ProducerConfig = ProducerConfig(
-    common = CommonConfig(clientId = Some("journal")),
+    common = CommonConfig(
+      clientId = Some("journal"),
+      sendBufferBytes = 1000000),
     acks = Acks.All,
     idempotence = true),
   consumer: ConsumerConfig = ConsumerConfig(
-    common = CommonConfig(clientId = Some("journal")),
+    common = CommonConfig(
+      clientId = Some("journal"),
+      receiveBufferBytes = 100000),
     groupId = Some("journal"),
     autoOffsetReset = AutoOffsetReset.Earliest,
     maxPollRecords = 100,

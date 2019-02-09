@@ -22,7 +22,7 @@ class EventSerializerSpec extends FunSuite with ActorSuite with Matchers {
   } {
 
     test(s"toEvent & toPersistentRepr, payload: $payload") {
-      val serializer = EventSerializer(system)
+      val serializer = EventSerializer.unsafe(system)
       val persistenceId = "persistenceId"
       val persistentRepr = PersistentRepr(
         payload = payload,

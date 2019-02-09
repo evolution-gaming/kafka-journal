@@ -105,11 +105,11 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
 
       def actor() = new PersistentActor {
 
-        def persistenceId: String = id
+        def persistenceId = id
 
         def receiveRecover = PartialFunction.empty
 
-        def receiveCommand: Receive = {
+        def receiveCommand = {
           case Stop                     => context.stop(self)
           case Delete(seqNr)            => deleteMessages(seqNr)
           case x: DeleteMessagesSuccess => testActor.tell(x, self)
@@ -147,21 +147,21 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
   }
 
 
-  def recover[S](s: S, timeout: FiniteDuration, id: String = pid)(f: (S, String) => S): S = {
+  def recover[S](s: S, timeout: FiniteDuration, id: PersistenceId = pid)(f: (S, String) => S): S = {
     val promise = Promise[S]()
 
     var state = s
 
     def actor() = new PersistentActor {
 
-      def persistenceId: String = id
+      def persistenceId = id
 
       def receiveRecover = {
         case event: String     => state = f(state, event)
         case RecoveryCompleted => promise.success(state)
       }
 
-      def receiveCommand: Receive = PartialFunction.empty
+      def receiveCommand = PartialFunction.empty
 
       override def onRecoveryFailure(cause: Throwable, event: Option[Any]): Unit = {
         promise.failure(cause)
@@ -175,7 +175,7 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
     Await.result(future, timeout)
   }
 
-  def recoverEvents(id: String = pid): List[String] = {
+  def recoverEvents(id: PersistenceId = pid): List[String] = {
     val events = recover(List.empty[String], timeout.duration, id) { (s, e) => e :: s }
     events.reverse
   }

@@ -24,19 +24,24 @@ class JournalAdapterSpec extends FunSuite with Matchers {
   private val persistenceId = "id"
   private val persistentRepr = PersistentRepr(None, persistenceId = persistenceId)
 
-  private val eventSerializer = new EventSerializer {
+  private val eventSerializer = new EventSerializer[cats.Id] {
 
     def toEvent(persistentRepr: PersistentRepr) = event
 
     def toPersistentRepr(persistenceId: PersistenceId, event: Event) = persistentRepr
   }
 
-  val journalAdapter = JournalAdapter[StateF](StateF.JournalStateF, toKey, eventSerializer)
+  private val aws = List(
+    AtomicWrite(List(persistentRepr)),
+    AtomicWrite(List(persistentRepr)))
+
+
+  private val journalAdapter = JournalAdapter[StateF](StateF.JournalStateF, toKey, eventSerializer)
 
   test("write") {
-    val (data, result) = journalAdapter.write(List(AtomicWrite(List(persistentRepr)))).run(Data.Empty)
+    val (data, result) = journalAdapter.write(aws).run(Data.Empty)
     result shouldEqual Nil
-    data shouldEqual Data(appends = List(Append(key1, Nel(event), timestamp)))
+    data shouldEqual Data(appends = List(Append(key1, Nel(event, event), timestamp)))
   }
 
   test("delete") {
@@ -57,6 +62,19 @@ class JournalAdapterSpec extends FunSuite with Matchers {
     val (data, _) = journalAdapter.replay(persistenceId, range, Int.MaxValue)(pr => prs = pr :: prs).run(initial)
     data shouldEqual Data(reads = List(Read(key1, SeqNr.Min)))
     prs shouldEqual List(persistentRepr)
+  }
+
+  test("withBatching") {
+    val grouping = new Batching[StateF] {
+      def apply(aws: List[AtomicWrite]) = aws.map(aw => List(aw)).pure[StateF]
+    }
+    val (data, result) = journalAdapter
+      .withBatching(grouping)
+      .write(aws).run(Data.Empty)
+    result shouldEqual Nil
+    data shouldEqual Data(appends = List(
+      Append(key1, Nel(event), timestamp),
+      Append(key1, Nel(event), timestamp)))
   }
 }
 

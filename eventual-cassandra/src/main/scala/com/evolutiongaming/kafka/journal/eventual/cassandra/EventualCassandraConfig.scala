@@ -1,13 +1,19 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import com.evolutiongaming.scassandra.CassandraConfig
+import com.datastax.driver.core.ConsistencyLevel
+import com.evolutiongaming.scassandra.{CassandraConfig, QueryConfig}
 import com.evolutiongaming.config.ConfigHelper._
 import com.typesafe.config.Config
 
 final case class EventualCassandraConfig(
   retries: Int = 100,
   segmentSize: Int = 100000,
-  client: CassandraConfig = CassandraConfig.Default,
+  client: CassandraConfig = CassandraConfig(
+    name = "journal",
+    query = QueryConfig(
+      consistency = ConsistencyLevel.LOCAL_QUORUM,
+      fetchSize = 100,
+      defaultIdempotence = true)),
   schema: SchemaConfig = SchemaConfig.Default)
 
 object EventualCassandraConfig {

@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig}
 import com.typesafe.config.ConfigFactory
@@ -21,11 +20,11 @@ class JournalConfigSpec extends FunSuite with Matchers {
     JournalConfig(config) shouldEqual JournalConfig(
       pollTimeout = 1.millis,
       producer = ProducerConfig(
-        common = CommonConfig(clientId = Some("clientId")),
+        common = JournalConfig.Default.producer.common.copy(clientId = Some("clientId")),
         acks = Acks.All,
         idempotence = true),
       ConsumerConfig(
-        common = CommonConfig(clientId = Some("clientId")),
+        common = JournalConfig.Default.consumer.common.copy(clientId = Some("clientId")),
         groupId = Some("journal"),
         autoOffsetReset = AutoOffsetReset.Earliest,
         maxPollRecords = 100,

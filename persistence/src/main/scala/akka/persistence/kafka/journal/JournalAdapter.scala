@@ -20,13 +20,13 @@ import scala.util.Try
 
 trait JournalAdapter[F[_]] {
 
-  def write(messages: Seq[AtomicWrite]): F[List[Try[Unit]]]
+  def write(aws: Seq[AtomicWrite]): F[List[Try[Unit]]]
 
-  def delete(persistenceId: String, to: SeqNr): F[Unit]
+  def delete(persistenceId: PersistenceId, to: SeqNr): F[Unit]
 
-  def lastSeqNr(persistenceId: String, from: SeqNr): F[Option[SeqNr]]
+  def lastSeqNr(persistenceId: PersistenceId, from: SeqNr): F[Option[SeqNr]]
 
-  def replay(persistenceId: String, range: SeqRange, max: Long)(f: PersistentRepr => Unit): F[Unit]
+  def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)(f: PersistentRepr => Unit): F[Unit]
 }
 
 object JournalAdapter {
@@ -34,10 +34,11 @@ object JournalAdapter {
   def of[F[_] : Concurrent : ContextShift : FromFuture : ToFuture : Par : Timer : LogOf : Runtime : RandomId](
     toKey: ToKey,
     origin: Option[Origin],
-    serializer: EventSerializer,
+    serializer: EventSerializer[cats.Id],
     config: KafkaJournalConfig,
     metrics: Metrics[F],
-    log: Log[F]
+    log: Log[F],
+    batching: Batching[F]
   ): Resource[F, JournalAdapter[F]] = {
 
     def clientIdOf(config: CommonConfig) = config.clientId getOrElse "journal"
@@ -91,14 +92,15 @@ object JournalAdapter {
       eventualJournal  <- EventualCassandra.of[F](config.cassandra, metrics.eventual)
       journal          <- journal(eventualJournal)(kafkaConsumerOf1, kafkaProducerOf1, headCacheOf1)
     } yield {
-      JournalAdapter[F](journal, toKey, serializer)
+      JournalAdapter[F](journal, toKey, serializer).withBatching(batching)
     }
   }
 
   def apply[F[_] : Monad : Clock](
     journal: Journal[F],
     toKey: ToKey,
-    serializer: EventSerializer): JournalAdapter[F] = new JournalAdapter[F] {
+    serializer: EventSerializer[cats.Id]
+  ): JournalAdapter[F] = new JournalAdapter[F] {
 
     def write(aws: Seq[AtomicWrite]) = {
       val prs = aws.flatMap(_.payload)
@@ -156,14 +158,42 @@ object JournalAdapter {
 
     def mapK[G[_]](f: F ~> G): JournalAdapter[G] = new JournalAdapter[G] {
 
-      def write(messages: Seq[AtomicWrite]) = f(self.write(messages))
+      def write(aws: Seq[AtomicWrite]) = f(self.write(aws))
 
-      def delete(persistenceId: String, to: SeqNr) = f(self.delete(persistenceId, to))
+      def delete(persistenceId: PersistenceId, to: SeqNr) = f(self.delete(persistenceId, to))
 
-      def lastSeqNr(persistenceId: String, from: SeqNr) = f(self.lastSeqNr(persistenceId, from))
+      def lastSeqNr(persistenceId: PersistenceId, from: SeqNr) = f(self.lastSeqNr(persistenceId, from))
 
-      def replay(persistenceId: String, range: SeqRange, max: Long)(f1: PersistentRepr => Unit) = {
+      def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)(f1: PersistentRepr => Unit) = {
         f(self.replay(persistenceId, range, max)(f1))
+      }
+    }
+
+
+    def withBatching(batching: Batching[F])(implicit F : Monad[F]): JournalAdapter[F] = new JournalAdapter[F] {
+
+      def write(aws: Seq[AtomicWrite]) = {
+        if (aws.size <= 1) self.write(aws)
+        else for {
+          batches <- batching(aws.toList)
+          results <- batches.foldLeftM(List.empty[List[Try[Unit]]]) { (results, group) =>
+            for {
+              result <- self.write(group)
+            } yield {
+              result :: results
+            }
+          }
+        } yield {
+          results.reverse.flatten
+        }
+      }
+
+      def delete(persistenceId: PersistenceId, to: SeqNr) = self.delete(persistenceId, to)
+
+      def lastSeqNr(persistenceId: PersistenceId, from: SeqNr) = self.lastSeqNr(persistenceId, from)
+
+      def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)(f: PersistentRepr => Unit) = {
+        self.replay(persistenceId, range, max)(f)
       }
     }
   }

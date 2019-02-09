@@ -11,7 +11,8 @@ final case class KafkaJournalConfig(
   journal: JournalConfig = JournalConfig.Default,
   cassandra: EventualCassandraConfig = EventualCassandraConfig.Default,
   startTimeout: FiniteDuration = 1.minute,
-  stopTimeout: FiniteDuration = 1.minute)
+  stopTimeout: FiniteDuration = 1.minute,
+  maxEventsInBatch: Int = 10)
 
 object KafkaJournalConfig {
 
@@ -28,6 +29,7 @@ object KafkaJournalConfig {
       journal = JournalConfig(config),
       cassandra = get[Config]("cassandra").fold(default.cassandra)(EventualCassandraConfig(_, default.cassandra)),
       startTimeout = get[FiniteDuration]("start-timeout") getOrElse default.startTimeout,
-      stopTimeout = get[FiniteDuration]("stop-timeout") getOrElse default.stopTimeout)
+      stopTimeout = get[FiniteDuration]("stop-timeout") getOrElse default.stopTimeout,
+      maxEventsInBatch = get[Int]("max-events-in-batch") getOrElse default.maxEventsInBatch)
   }
 }

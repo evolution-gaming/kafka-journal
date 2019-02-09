@@ -6,18 +6,18 @@ import com.evolutiongaming.skafka.Topic
 import com.typesafe.config.Config
 
 trait ToKey {
-  def apply(persistenceId: String): Key
+  def apply(persistenceId: PersistenceId): Key
 }
 
 object ToKey {
   val Default: ToKey = ToKey("journal")
 
   val Identity: ToKey = new ToKey {
-    def apply(persistenceId: String) = Key(topic = persistenceId, id = persistenceId)
+    def apply(persistenceId: PersistenceId) = Key(topic = persistenceId, id = persistenceId)
   }
 
   def apply(topic: Topic): ToKey = new ToKey {
-    def apply(persistenceId: String) = Key(topic = topic, id = persistenceId)
+    def apply(persistenceId: PersistenceId) = Key(topic = topic, id = persistenceId)
   }
 
   def apply(config: Config): ToKey = {
@@ -49,7 +49,7 @@ object ToKey {
 
   def split(separator: String, fallback: ToKey): ToKey = new ToKey {
 
-    def apply(persistenceId: String): Key = {
+    def apply(persistenceId: PersistenceId): Key = {
       persistenceId.lastIndexOf(separator) match {
         case -1  => fallback(persistenceId)
         case idx =>
