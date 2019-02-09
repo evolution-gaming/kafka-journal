@@ -34,6 +34,8 @@ object KafkaHealthCheckApp extends IOApp {
 
     implicit val kafkaProducerOf = KafkaProducerOf[F](blocking)
 
+    implicit val randomId = RandomId.uuid[F]
+
     val consumerConfig = ConsumerConfig(
       common = CommonConfig(
         clientId = "KafkaHealthCheckApp".some,

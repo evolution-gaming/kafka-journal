@@ -11,6 +11,11 @@ final case class Event(
   payload: Option[Payload] = None)
 
 
+final case class EventRecord(
+  event: Event,
+  metadata: Option[JsValue])
+
+
 // TODO rename, statements called records, here - events
 // TODO add Key
 /**

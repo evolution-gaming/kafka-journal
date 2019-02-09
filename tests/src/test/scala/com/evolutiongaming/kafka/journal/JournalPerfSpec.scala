@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal
 
-import java.util.UUID
 
 import cats.implicits._
 import cats.effect.{Clock, IO}
@@ -61,7 +60,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
 
   "Journal" should {
 
-    val key = Key(id = UUID.randomUUID().toString, topic = "journal")
+    val key = Key.random[IO]("journal").unsafeRunSync()
 
     lazy val append = {
 
@@ -82,7 +81,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
             otherEvents.toList.foldMap { event =>
               for {
                 _       <- journal.append(Nel(event))
-                key      = Key(id = UUID.randomUUID().toString, topic = "journal")
+                key     <- Key.random[IO]("journal")
                 journal  = KeyJournal(key, journal0)
                 _       <- journal.append(Nel(event))
               } yield {}

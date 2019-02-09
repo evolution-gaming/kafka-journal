@@ -31,13 +31,14 @@ trait JournalAdapter[F[_]] {
 
 object JournalAdapter {
 
-  def of[F[_] : Concurrent : ContextShift : FromFuture : ToFuture : Par : Timer : LogOf : Runtime](
+  def of[F[_] : Concurrent : ContextShift : FromFuture : ToFuture : Par : Timer : LogOf : Runtime : RandomId](
     toKey: ToKey,
     origin: Option[Origin],
     serializer: EventSerializer,
     config: KafkaJournalConfig,
     metrics: Metrics[F],
-    log: Log[F]): Resource[F, JournalAdapter[F]] = {
+    log: Log[F]
+  ): Resource[F, JournalAdapter[F]] = {
 
     def clientIdOf(config: CommonConfig) = config.clientId getOrElse "journal"
 

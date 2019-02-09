@@ -46,6 +46,8 @@ object ReadEventsApp extends IOApp {
 
     implicit val kafkaProducerOf = KafkaProducerOf[F](blocking)
 
+    implicit val randomId = RandomId.uuid[F]
+
     val commonConfig = CommonConfig(
       clientId = "ReadEventsApp".some,
       bootstrapServers = Nel("localhost:9092"))

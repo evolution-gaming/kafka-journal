@@ -26,6 +26,8 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
     system.dispatcher,
     Some(KafkaProducer.Metrics.empty[IO]))
 
+  implicit val randomId: RandomId[IO] = RandomId.uuid[IO]
+
   lazy val ((eventual, producer), release) = {
     implicit val logOf = LogOf.empty[IO]
     val resource = for {

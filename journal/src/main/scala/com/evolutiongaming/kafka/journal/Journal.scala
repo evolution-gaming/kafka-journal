@@ -1,7 +1,5 @@
 package com.evolutiongaming.kafka.journal
 
-import java.util.UUID
-
 import cats._
 import cats.arrow.FunctionK
 import cats.effect._
@@ -47,11 +45,12 @@ object Journal {
   }
 
   
-  def of[F[_] : Concurrent : ContextShift : Timer : Par : LogOf : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf](
+  def of[F[_] : Concurrent : ContextShift : Timer : Par : LogOf : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomId](
     config: JournalConfig,
     origin: Option[Origin],
     eventualJournal: EventualJournal[F],
-    metrics: Option[Metrics[F]]): Resource[F, Journal[F]] = {
+    metrics: Option[Metrics[F]]
+  ): Resource[F, Journal[F]] = {
 
     val consumer = Consumer.of[F](config.consumer)
 
@@ -82,13 +81,14 @@ object Journal {
   }
 
   
-  def apply[F[_] : Concurrent : ContextShift : Par : Clock : Log](
+  def apply[F[_] : Concurrent : ContextShift : Par : Clock : Log : RandomId](
     origin: Option[Origin],
     producer: Producer[F],
     consumer: Resource[F, Consumer[F]],
     eventualJournal: EventualJournal[F],
     pollTimeout: FiniteDuration,
-    headCache: HeadCache[F]): Journal[F] = {
+    headCache: HeadCache[F]
+  ): Journal[F] = {
 
     val withPollActions = WithPollActions[F](consumer, pollTimeout)
     val appendAction = AppendAction[F](producer)
@@ -96,16 +96,17 @@ object Journal {
   }
 
 
-  def apply[F[_] : Concurrent : Log : Clock : Par](
+  def apply[F[_] : Concurrent : Log : Clock : Par : RandomId](
     origin: Option[Origin],
     eventual: EventualJournal[F],
     withPollActions: WithPollActions[F],
     appendAction: AppendAction[F],
-    headCache: HeadCache[F]): Journal[F] = {
+    headCache: HeadCache[F]
+  ): Journal[F] = {
 
     def readActions(key: Key, from: SeqNr): F[(F[JournalInfo], FoldActions[F])] = {
       val marker = for {
-        id              <- Sync[F].delay { UUID.randomUUID().toString }
+        id              <- RandomId[F].get
         timestamp       <- Clock[F].instant
         action           = Action.Mark(key, timestamp, id, origin)
         partitionOffset <- appendAction(action)

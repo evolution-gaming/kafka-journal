@@ -35,6 +35,7 @@ object AppendReplicateApp extends IOApp {
     system: ActorSystem): F[Unit] = {
 
     implicit val logOf = LogOf[F](system)
+    implicit val randomId = RandomId.uuid[F]
 
     val kafkaJournalConfig = Sync[F].delay {
       val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.persistence.journal")

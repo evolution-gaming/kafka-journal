@@ -1,15 +1,13 @@
 package com.evolutiongaming.kafka.journal
 
-import java.util.UUID
 
 import cats.Foldable
 import cats.implicits._
-import cats.effect.{IO, Sync}
+import cats.effect.IO
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.nel.Nel
 import org.scalatest.{AsyncWordSpec, Succeeded}
-import play.api.libs.json.Json
 
 import scala.concurrent.duration._
 
@@ -49,13 +47,13 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
     } {
       val name = s"seqNr: $seqNr, eventual: $eventualName"
 
-      val keyRandom = Sync[IO].delay { Key(id = UUID.randomUUID().toString, topic = "journal") }
+      val key = Key.random[IO]("journal")
 
       lazy val (journal0, release) = journalOf(eventual()).allocated.unsafeRunSync()
 
       s"append, delete, read, lastSeqNr, $name" in {
         val result = for {
-          key       <- keyRandom
+          key       <- key
           journal    = KeyJournal(key, journal0)
           pointer   <- journal.pointer
           _          = pointer shouldEqual None
@@ -90,7 +88,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
         }
 
         val result = for {
-          key     <- keyRandom
+          key     <- key
           journal  = KeyJournal(key, journal0)
           read = for {
             events  <- journal.read
@@ -114,7 +112,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
         } yield Event(seqNr)
 
         val appends = for {
-          key     <- keyRandom
+          key     <- key
           journal  = KeyJournal(key, journal0)
           events  <- journal.read
           _        = events shouldEqual Nil

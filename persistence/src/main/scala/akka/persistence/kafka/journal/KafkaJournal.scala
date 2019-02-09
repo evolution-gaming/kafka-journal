@@ -23,6 +23,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
   implicit val parallel: Parallel[IO, IO.Par] = IO.ioParallel(contextShift)
   implicit val timer: Timer[IO]               = IO.timer(ec)
   implicit val logOf: LogOf[IO]               = LogOf[IO](system)
+  implicit val randomId: RandomId[IO]         = RandomId.uuid[IO]
 
   val log: ActorLog = ActorLog(system, classOf[KafkaJournal])
 
@@ -90,7 +91,8 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
     origin: Option[Origin],
     serializer: EventSerializer,
     config: KafkaJournalConfig,
-    metrics: JournalAdapter.Metrics[IO]): Resource[IO, JournalAdapter[IO]] = {
+    metrics: JournalAdapter.Metrics[IO]
+  ): Resource[IO, JournalAdapter[IO]] = {
 
     JournalAdapter.of[IO](toKey, origin, serializer, config, metrics, Log[IO](log))
   }

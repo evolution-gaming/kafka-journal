@@ -1,7 +1,5 @@
 package com.evolutiongaming.kafka.journal
 
-import java.util.UUID
-
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.implicits._
@@ -25,14 +23,14 @@ object KafkaHealthCheck {
     def done = ().pure[F]
   }
 
-  def of[F[_] : Concurrent : ContextShift : Timer : LogOf : KafkaConsumerOf : KafkaProducerOf](
+  def of[F[_] : Concurrent : ContextShift : Timer : LogOf : KafkaConsumerOf : KafkaProducerOf : RandomId](
     config: Config,
     producerConfig: ProducerConfig,
     consumerConfig: ConsumerConfig): Resource[F, KafkaHealthCheck[F]] = {
 
     val result = for {
       log <- LogOf[F].apply(KafkaHealthCheck.getClass)
-      key <- Sync[F].delay { UUID.randomUUID().toString }
+      key <- RandomId[F].get
     } yield {
       implicit val log1 = log
 

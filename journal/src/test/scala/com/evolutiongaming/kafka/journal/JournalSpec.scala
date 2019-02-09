@@ -430,12 +430,14 @@ object JournalSpec {
       eventual: EventualJournal[F],
       withPollActions: WithPollActions[F],
       writeAction: AppendAction[F],
-      headCache: HeadCache[F]): SeqNrJournal[F] = {
+      headCache: HeadCache[F]
+    ): SeqNrJournal[F] = {
 
       implicit val log = Log.empty[F]
       implicit val concurrent = ConcurrentOf.fromMonad[F]
       implicit val clock = ClockOf[F](timestamp.toEpochMilli)
       implicit val par = Par.sequential[F]
+      implicit val randomId = RandomId.uuid[F]
       val journal = Journal[F](None, eventual, withPollActions, writeAction, headCache)
         .withLog(log)
         .withMetrics(Journal.Metrics.empty[F])

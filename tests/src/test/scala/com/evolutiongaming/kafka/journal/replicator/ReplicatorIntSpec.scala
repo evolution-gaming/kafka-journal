@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
-import java.util.UUID
 
 import cats.effect._
 import cats.implicits._
@@ -28,7 +27,9 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
   private val metadata = Json.obj(("key", "value"))
 
-  private def resources[F[_] : Concurrent : LogOf : Par : FromFuture : Clock : ToFuture : ContextShift] = {
+  private implicit val randomId = RandomId.uuid[IO]
+
+  private def resources[F[_] : Concurrent : LogOf : Par : FromFuture : Clock : ToFuture : ContextShift : RandomId] = {
 
     def eventualJournal(conf: Config) = {
       val config = Sync[F].delay { EventualCassandraConfig(conf.getConfig("cassandra")) }
@@ -150,9 +151,8 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
       s"replicate events and then delete, seqNr: $seqNr" in {
 
-        val key = Key(id = UUID.randomUUID().toString, topic = topic)
-
         val result = for {
+          key             <- Key.random[IO](topic)
           pointer0        <- pointer(key)
           _                = pointer0 shouldEqual None
           pointers        <- topicPointers
@@ -186,20 +186,20 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       val numberOfEvents = 100
 
       s"replicate append of $numberOfEvents events, seqNr: $seqNr" in {
-        val key = Key(id = UUID.randomUUID().toString, topic = topic)
 
-        val events = for {
-          n <- 0 until numberOfEvents
-        } yield {
-          event(seqNr + n, Payload("kafka-journal"))
-        }
 
         val result = for {
-          expected <- append(key, Nel.unsafe(events))
-          actual   <- read(key)(_.nonEmpty)
-          _         = actual.fix shouldEqual expected.toList.fix
-          pointer  <- pointer(key)
-          _         = pointer shouldEqual Some(events.last.seqNr)
+          key        <- Key.random[IO](topic)
+          events     = for {
+            n <- 0 until numberOfEvents
+          } yield {
+            event(seqNr + n, Payload("kafka-journal"))
+          }
+          expected   <- append(key, Nel.unsafe(events))
+          actual     <- read(key)(_.nonEmpty)
+          _           = actual.fix shouldEqual expected.toList.fix
+          pointer    <- pointer(key)
+          _           = pointer shouldEqual Some(events.last.seqNr)
         } yield {}
 
         result.run(5.minutes)
@@ -234,10 +234,9 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
             event(seqNr + 3, Payload.json("json")))))
       } {
         s"consume event from kafka and replicate to eventual journal, seqNr: $seqNr, payload: $name" in {
-
-          val key = Key(id = UUID.randomUUID().toString, topic = topic)
-
+          
           val result = for {
+            key          <- Key.random[IO](topic)
             pointers     <- topicPointers
             expected     <- append(key, events)
             partition     = expected.head.partitionOffset.partition
