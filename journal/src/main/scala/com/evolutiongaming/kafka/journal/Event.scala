@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import com.evolutiongaming.skafka.{Offset, Partition}
+import play.api.libs.json.JsValue
 
 final case class Event(
   seqNr: SeqNr,
@@ -19,7 +20,9 @@ final case class ReplicatedEvent(
   event: Event,
   timestamp: Instant,
   partitionOffset: PartitionOffset,
-  origin: Option[Origin] = None) {
+  origin: Option[Origin] = None,
+  metadata: Option[JsValue]
+) {
 
   def seqNr: SeqNr = event.seqNr
 
@@ -34,7 +37,12 @@ object ReplicatedEvent {
 
   def apply(record: ActionRecord[Action.Append], event: Event): ReplicatedEvent = {
     val action = record.action
-    ReplicatedEvent(event, action.timestamp, record.partitionOffset, action.origin)
+    ReplicatedEvent(
+      event = event,
+      timestamp = action.timestamp,
+      partitionOffset = record.partitionOffset,
+      origin = action.origin,
+      metadata = action.header.metadata)
   }
 }
 

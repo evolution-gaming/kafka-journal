@@ -1,0 +1,12 @@
+{
+  "append": {
+    "range": {
+      "from": 1,
+      "to": 5
+    },
+    "payloadType": "json",
+    "metadata": {
+      "key": "value"
+    }
+  }
+}

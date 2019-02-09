@@ -5,6 +5,7 @@ import java.time.Instant
 import com.evolutiongaming.kafka.journal.EventsSerializer.EventsToPayload
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Partition}
+import play.api.libs.json.JsValue
 
 sealed abstract class Action extends Product {
 
@@ -37,10 +38,16 @@ object Action {
   }
 
   object Append {
-    def apply(key: Key, timestamp: Instant, origin: Option[Origin], events: Nel[Event]): Append = {
+    def apply(
+      key: Key,
+      timestamp: Instant,
+      origin: Option[Origin],
+      events: Nel[Event],
+      metadata: Option[JsValue]
+    ): Append = {
       val (payload, payloadType) = EventsToPayload(events)
       val range = SeqRange(from = events.head.seqNr, to = events.last.seqNr)
-      val header = ActionHeader.Append(range, origin, payloadType)
+      val header = ActionHeader.Append(range, origin, payloadType, metadata)
       Action.Append(key, timestamp, header, payload)
     }
   }

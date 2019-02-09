@@ -577,7 +577,7 @@ object JournalSpec {
             event <- EventsFromPayload(action.payload, action.payloadType)
           } yield {
             val partitionOffset = PartitionOffset(partition, record.offset)
-            ReplicatedEvent(event, timestamp, partitionOffset, None)
+            ReplicatedEvent(event, timestamp, partitionOffset, None, action.header.metadata)
           }
           copy(events = events.enqueue(batch.toList), offset = Some(offset))
         }

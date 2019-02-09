@@ -6,6 +6,7 @@ import com.evolutiongaming.kafka.journal.{ClockOf, _}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Topic}
 import org.scalatest.{Matchers, WordSpec}
+import play.api.libs.json.Json
 
 trait EventualJournalSpec extends WordSpec with Matchers {
   import EventualJournalSpec._
@@ -44,7 +45,12 @@ trait EventualJournalSpec extends WordSpec with Matchers {
 
     def eventOf(pointer: Pointer): ReplicatedEvent = {
       val event = Event(pointer.seqNr)
-      ReplicatedEvent(event, timestamp, pointer.partitionOffset)
+      val metadata = Json.obj(("key", "value"))
+      ReplicatedEvent(
+        event = event,
+        timestamp = timestamp,
+        partitionOffset = pointer.partitionOffset,
+        metadata = Some(metadata))
     }
 
     for {

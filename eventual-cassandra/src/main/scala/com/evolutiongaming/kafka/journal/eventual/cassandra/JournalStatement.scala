@@ -8,10 +8,11 @@ import com.datastax.driver.core.BatchStatement
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
+import com.evolutiongaming.kafka.journal.PlayJsonHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
-import play.api.libs.json.Json
+import play.api.libs.json.{JsValue, Json}
 
 
 object JournalStatement {
@@ -60,16 +61,15 @@ object JournalStatement {
            |tags,
            |payload_type,
            |payload_txt,
-           |payload_bin)
-           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           |payload_bin,
+           |metadata)
+           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            |""".stripMargin
 
       for {
         prepared <- query.prepare
       } yield {
         (key: Key, segment: SegmentNr, events: Nel[ReplicatedEvent]) =>
-
-          // TODO use metadata field
 
           def statementOf(replicated: ReplicatedEvent) = {
             val event = replicated.event
@@ -97,6 +97,7 @@ object JournalStatement {
               .encodeSome("payload_type", payloadType)
               .encodeSome("payload_txt", txt)
               .encodeSome("payload_bin", bin)
+              .encodeSome("metadata", replicated.metadata)
             result
           }
 
@@ -135,7 +136,8 @@ object JournalStatement {
            |tags,
            |payload_type,
            |payload_txt,
-           |payload_bin FROM ${ name.toCql }
+           |payload_bin,
+           |metadata FROM ${ name.toCql }
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?
@@ -181,7 +183,8 @@ object JournalStatement {
                 event = event,
                 timestamp = row.decode[Instant]("timestamp"),
                 origin = row.decode[Option[Origin]],
-                partitionOffset = partitionOffset)
+                partitionOffset = partitionOffset,
+                metadata = row.decode[Option[JsValue]]("metadata"))
             }
           }
         }

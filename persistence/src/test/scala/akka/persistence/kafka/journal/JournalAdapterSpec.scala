@@ -12,6 +12,7 @@ import com.evolutiongaming.kafka.journal.{ClockOf, _}
 import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.nel.Nel
 import org.scalatest.{FunSuite, Matchers}
+import play.api.libs.json.JsValue
 
 class JournalAdapterSpec extends FunSuite with Matchers {
   import JournalAdapterSpec.StateF._
@@ -93,7 +94,7 @@ object JournalAdapterSpec {
 
     implicit val JournalStateF: Journal[StateF] = new Journal[StateF] {
 
-      def append(key: Key, events: Nel[Event]) = {
+      def append(key: Key, events: Nel[Event], metadata: Option[JsValue]) = {
         StateF { s =>
           val s1 = s.copy(appends = Append(key, events, timestamp) :: s.appends)
           (s1, PartitionOffset.Empty)

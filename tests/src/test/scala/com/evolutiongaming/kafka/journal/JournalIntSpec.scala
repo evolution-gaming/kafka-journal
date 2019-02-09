@@ -9,6 +9,7 @@ import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.nel.Nel
 import org.scalatest.{AsyncWordSpec, Succeeded}
+import play.api.libs.json.Json
 
 import scala.concurrent.duration._
 
@@ -41,9 +42,9 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
   "Journal" should {
 
     for {
-      seqNr <- List(SeqNr.Min, SeqNr(2))
+      seqNr                    <- List(SeqNr.Min, SeqNr(2))
       (eventualName, eventual) <- List(
-        ("empty", () => EventualJournal.empty[IO]),
+        ("empty",     () => EventualJournal.empty[IO]),
         ("non-empty", () => eventual))
     } {
       val name = s"seqNr: $seqNr, eventual: $eventualName"

@@ -10,6 +10,10 @@ object PlayJsonHelper {
 
   implicit val JsonDecode: DecodeByName[JsValue] = DecodeByName[String].map(Json.parse)
 
+  implicit val JsonOptEncode: EncodeByName[Option[JsValue]] = EncodeByName.opt[JsValue]
+
+  implicit val JsonOptDecode: DecodeByName[Option[JsValue]] = DecodeByName.opt[JsValue]
+
 
   object ReadsOf {
     def apply[A](implicit F: Reads[A]): Reads[A] = F

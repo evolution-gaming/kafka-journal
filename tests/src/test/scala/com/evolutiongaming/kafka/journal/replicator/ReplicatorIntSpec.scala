@@ -16,6 +16,7 @@ import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Offset
 import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.{AsyncWordSpec, BeforeAndAfterAll, Matchers}
+import play.api.libs.json.Json
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
@@ -24,6 +25,8 @@ import scala.util.control.NoStackTrace
 class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers {
 
   private val origin = Origin.HostName getOrElse Origin("ReplicatorIntSpec")
+
+  private val metadata = Json.obj(("key", "value"))
 
   private def resources[F[_] : Concurrent : LogOf : Par : FromFuture : Clock : ToFuture : ContextShift] = {
 
@@ -123,11 +126,11 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
     def append(key: Key, events: Nel[Event]) = {
       for {
-        partitionOffset <- journal.append(key, events)
+        partitionOffset <- journal.append(key, events, metadata.some)
       } yield for {
         event <- events
       } yield {
-        ReplicatedEvent(event, timestamp, partitionOffset, Some(origin))
+        ReplicatedEvent(event, timestamp, partitionOffset, Some(origin), Some(metadata))
       }
     }
 

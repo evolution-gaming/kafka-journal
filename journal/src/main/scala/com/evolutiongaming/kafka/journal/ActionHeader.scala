@@ -53,7 +53,8 @@ object ActionHeader {
   final case class Append(
     range: SeqRange,
     origin: Option[Origin],
-    payloadType: PayloadType.BinaryOrJson
+    payloadType: PayloadType.BinaryOrJson,
+    metadata: Option[JsValue]
   ) extends AppendOrDelete
 
 

@@ -13,6 +13,7 @@ import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, WithSize}
 import com.evolutiongaming.skafka.{Bytes => _, _}
 import org.scalatest.{Matchers, WordSpec}
+import play.api.libs.json.Json
 
 import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext
@@ -592,12 +593,12 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
   private def replicated(seqNr: Int, partition: Partition, offset: Offset) = {
     val partitionOffset = PartitionOffset(partition = partition, offset = offset)
     val event = Event(SeqNr(seqNr.toLong), Set(seqNr.toString))
-    ReplicatedEvent(event, timestamp, partitionOffset, Some(origin))
+    ReplicatedEvent(event, timestamp, partitionOffset, Some(origin), Some(metadata))
   }
 
   private def appendOf(key: Key, seqNrs: Nel[Int]) = {
     val events = seqNrs.map { seqNr => Event(SeqNr(seqNr.toLong), Set(seqNr.toString)) }
-    Action.Append(key, timestamp = timestamp, Some(origin), events)
+    Action.Append(key, timestamp = timestamp, Some(origin), events, Some(metadata))
   }
 
   private def markOf(key: Key) = {
@@ -616,6 +617,8 @@ object TopicReplicatorSpec {
   val timestamp = Instant.now()
 
   val origin = Origin("origin")
+
+  val metadata = Json.obj(("key", "value"))
 
   val replicationLatency: Long = 10
 
