@@ -16,6 +16,8 @@ object Retry {
 
   type Decide = Status => StrategyDecision
 
+  def apply[F[_]](implicit F: Retry[F]): Retry[F] = F
+
 
   def apply[F[_] : Sleep, E](
     strategy: Strategy)(
@@ -51,6 +53,10 @@ object Retry {
         }
       }
     }
+  }
+
+  def empty[F[_]]: Retry[F] = new Retry[F] {
+    def apply[A](fa: F[A]) = fa
   }
 
 

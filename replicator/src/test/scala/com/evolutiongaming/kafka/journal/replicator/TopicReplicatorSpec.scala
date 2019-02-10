@@ -661,7 +661,7 @@ object TopicReplicatorSpec {
   val topicReplicator: DataF[Unit] = {
     val millis = timestamp.plusMillis(replicationLatency).toEpochMilli
     implicit val clock = ClockOf[DataF](millis)
-    TopicReplicator.of[DataF](topic, TopicReplicator.StopRef[DataF], DataF.ConsumerDataF, TopicReplicator.RetryCall.empty[DataF])
+    TopicReplicator.of[DataF](topic, TopicReplicator.StopRef[DataF], DataF.ConsumerDataF)
   }
 
   final case class Data(

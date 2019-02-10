@@ -48,7 +48,7 @@ object TopicReplicator {
       result  <- {
         val strategy = Retry.Strategy.fullJitter(100.millis, rng).limit(1.minute)
         implicit val topicLog = log prefixed topic
-        val retry = RetryCall[F](strategy)
+        val retry = RetryOf[F](strategy)
         of[F](topic, consumer, stopRef, retry)
       }
     } yield result
@@ -59,10 +59,14 @@ object TopicReplicator {
     topic: Topic,
     consumer: Resource[F, Consumer[F]],
     stopRef: StopRef[F],
-    retry: RetryCall[F]): F[TopicReplicator[F]] = {
+    retry: Retry[F]): F[TopicReplicator[F]] = {
 
     for {
-      fiber <- consumer.start { consumer => of(topic, stopRef, consumer, retry) }
+      fiber <- Concurrent[F].start {
+        retry {
+          consumer.use { consumer => of(topic, stopRef, consumer) }
+        }
+      }
     } yield {
       new TopicReplicator[F] {
 
@@ -84,8 +88,7 @@ object TopicReplicator {
   def of[F[_] : Concurrent : Clock : Par : Metrics : ReplicatedJournal : Log : ContextShift](
     topic: Topic,
     stopRef: StopRef[F],
-    consumer: Consumer[F],
-    retry: RetryCall[F]): F[Unit] = {
+    consumer: Consumer[F]): F[Unit] = {
 
     type State = TopicPointers
 
@@ -252,7 +255,7 @@ object TopicReplicator {
               timestamp        <- Clock[F].instant
               stateAndOffsets  <- round(state, records.toMap, timestamp)
               (state, offsets)  = stateAndOffsets
-              _                <- retry(consumer.commit(offsets), "consumer.commit")
+              _                <- consumer.commit(offsets)
               roundEnd         <- Clock[F].instant
               _                <- Metrics[F].round(
                 latency = roundEnd - roundStart,
@@ -317,7 +320,7 @@ object TopicReplicator {
       }
 
       val common = config.common
-      
+
       val clientId = {
         val clientId = common.clientId getOrElse "replicator"
         hostName.fold(clientId) { hostName => s"$clientId-$hostName" }
@@ -361,36 +364,21 @@ object TopicReplicator {
   }
 
 
-  // TODO reuse
-  trait RetryCall[F[_]] {
+  object RetryOf {
 
-    def apply[A](fa: F[A], name: String): F[A]
-  }
+    def apply[F[_] : Sync : Timer : Log](strategy: Retry.Strategy): Retry[F] = {
 
-  object RetryCall {
+      def onError(error: Throwable, details: Retry.Details) = {
+        details.decision match {
+          case Retry.Decision.Retry(delay) =>
+            Log[F].warn(s"failed, retrying in $delay, error: $error")
 
-    def empty[F[_]]: RetryCall[F] = new RetryCall[F] {
-      def apply[A](fa: F[A], name: String) = fa
-    }
-
-    def apply[F[_] : Sync : Timer : Log](strategy: Retry.Strategy): RetryCall[F] = {
-
-      new RetryCall[F] {
-        def apply[A](fa: F[A], name: String) = {
-
-          def onError(error: Throwable, details: Retry.Details) = {
-            details.decision match {
-              case Retry.Decision.Retry(delay) =>
-                Log[F].warn(s"$name failed, retrying in $delay, error: $error")
-
-              case Retry.Decision.GiveUp =>
-                Log[F].error(s"$name failed after ${ details.retries } retries, error: $error", error)
-            }
-          }
-
-          Retry(strategy)(onError).apply(fa)
+          case Retry.Decision.GiveUp =>
+            Log[F].error(s"failed after ${ details.retries } retries, error: $error", error)
         }
       }
+
+      Retry(strategy)(onError)
     }
   }
 
