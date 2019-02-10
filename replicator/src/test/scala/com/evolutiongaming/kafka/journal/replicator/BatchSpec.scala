@@ -312,7 +312,7 @@ class BatchSpec extends FunSuite with Matchers {
         range = SeqRange(seqNrOf(seqNrs.head), seqNrOf(seqNrs.last)),
         payloadType = PayloadType.Binary,
         origin = None,
-        metadata = None),
+        metadata = Metadata(id = "id", data = None)),
       payload = Payload.Binary.Empty)
   }
 

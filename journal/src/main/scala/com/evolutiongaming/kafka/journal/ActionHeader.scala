@@ -10,7 +10,26 @@ object ActionHeader {
 
   implicit val FormatImpl: OFormat[ActionHeader] = {
 
-    val AppendFormat = Json.format[Append]
+    val AppendFormat = {
+      val format = Json.format[Append]
+      val reads = format orElse new Reads[Append] {
+        def reads(json: JsValue) = {
+          for {
+            range       <- (json \ "range").validate[SeqRange]
+            origin      <- (json \ "origin").validateOpt[Origin]
+            payloadType <- (json \ "payloadType").validate[PayloadType.BinaryOrJson]
+            metadata    <- (json \ "metadata").validateOpt[Metadata]
+          } yield {
+            Append(
+              range,
+              origin,
+              payloadType,
+              metadata getOrElse Metadata(range.from))
+          }
+        }
+      }
+      OFormat(reads, format)
+    }
     val DeleteFormat = Json.format[Delete]
     val ReadFormat = Json.format[Mark]
 
@@ -54,7 +73,7 @@ object ActionHeader {
     range: SeqRange,
     origin: Option[Origin],
     payloadType: PayloadType.BinaryOrJson,
-    metadata: Option[JsValue]
+    metadata: Metadata
   ) extends AppendOrDelete
 
 

@@ -151,7 +151,9 @@ object Journal {
       def append(key: Key, events: Nel[Event], metadata: Option[JsValue]) = {
         for {
           timestamp <- Clock[F].instant
-          action     = Action.Append(key, timestamp, origin, events, metadata) // TODO measure
+          id        <- RandomId[F].get
+          metadata1  = Metadata(id = id, data = metadata)
+          action     = Action.Append(key, timestamp, origin, events, metadata1) // TODO measure
           result    <- appendAction(action)
         } yield result
       }

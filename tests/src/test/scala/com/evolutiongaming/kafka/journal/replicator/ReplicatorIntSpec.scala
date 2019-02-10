@@ -25,7 +25,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
   private val origin = Origin.HostName getOrElse Origin("ReplicatorIntSpec")
 
-  private val metadata = Json.obj(("key", "value"))
+  private val metadata = Metadata(id = "id", data = Json.obj(("key", "value")).some)
 
   private implicit val randomId = RandomId.uuid[IO]
 
@@ -117,8 +117,18 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       val events = for {
         events <- eventualJournal.read(key, SeqNr.Min).toList
         events <- {
-          if (until(events)) events.map(_.copy(timestamp = timestamp)).pure[IO]
-          else Error.raiseError[IO, List[ReplicatedEvent]]
+          if (until(events)) {
+            val result = for {
+              event <- events
+            } yield {
+              event.copy(
+                timestamp = timestamp,
+                metadata = event.metadata.copy(id = metadata.id))
+            }
+            result.pure[IO]
+          } else {
+            Error.raiseError[IO, List[ReplicatedEvent]]
+          }
         }
       } yield events
 
@@ -127,11 +137,11 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
     def append(key: Key, events: Nel[Event]) = {
       for {
-        partitionOffset <- journal.append(key, events, metadata.some)
+        partitionOffset <- journal.append(key, events, metadata.data)
       } yield for {
         event <- events
       } yield {
-        ReplicatedEvent(event, timestamp, partitionOffset, Some(origin), Some(metadata))
+        ReplicatedEvent(event, timestamp, partitionOffset, Some(origin), metadata)
       }
     }
 

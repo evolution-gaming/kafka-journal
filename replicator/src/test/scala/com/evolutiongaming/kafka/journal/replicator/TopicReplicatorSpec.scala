@@ -11,7 +11,7 @@ import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPoint
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, WithSize}
-import com.evolutiongaming.skafka.{Bytes => _, _}
+import com.evolutiongaming.skafka.{Bytes => _, Metadata => _, _}
 import org.scalatest.{Matchers, WordSpec}
 import play.api.libs.json.Json
 
@@ -593,12 +593,12 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
   private def replicated(seqNr: Int, partition: Partition, offset: Offset) = {
     val partitionOffset = PartitionOffset(partition = partition, offset = offset)
     val event = Event(SeqNr(seqNr.toLong), Set(seqNr.toString))
-    ReplicatedEvent(event, timestamp, partitionOffset, Some(origin), Some(metadata))
+    ReplicatedEvent(event, timestamp, partitionOffset, Some(origin), metadata)
   }
 
   private def appendOf(key: Key, seqNrs: Nel[Int]) = {
     val events = seqNrs.map { seqNr => Event(SeqNr(seqNr.toLong), Set(seqNr.toString)) }
-    Action.Append(key, timestamp = timestamp, Some(origin), events, Some(metadata))
+    Action.Append(key, timestamp = timestamp, Some(origin), events, metadata)
   }
 
   private def markOf(key: Key) = {
@@ -618,7 +618,7 @@ object TopicReplicatorSpec {
 
   val origin = Origin("origin")
 
-  val metadata = Json.obj(("key", "value"))
+  val metadata = Metadata(id = "id", data = Json.obj(("key", "value")).some)
 
   val replicationLatency: Long = 10
 

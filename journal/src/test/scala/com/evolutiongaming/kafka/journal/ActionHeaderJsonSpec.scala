@@ -7,7 +7,10 @@ import play.api.libs.json._
 class ActionHeaderJsonSpec extends FunSuite with Matchers {
 
   val origins = List(Some(Origin("origin")), None)
-  val metadata = List(Some(Json.obj(("key", "value"))), None)
+  val metadata = List(
+    ("metadata", Metadata(id = "id", data = Some(Json.obj(("key", "value"))))),
+    ("none"    , Metadata(id = "id", data = None)),
+    ("legacy"  , Metadata(id = "1",  data = None)))
   val payloadTypes = List(PayloadType.Binary, PayloadType.Json)
 
   for {
@@ -15,11 +18,10 @@ class ActionHeaderJsonSpec extends FunSuite with Matchers {
   } {
     val originStr = origin.fold("None")(_.toString)
     for {
-      payloadType <- payloadTypes
-      metadata    <- metadata
+      payloadType             <- payloadTypes
+      (metadataStr, metadata) <- metadata
     } {
-      val metadataStr = metadata.fold("None")(_ => "metadata")
-      test(s"Append format, origin: $origin, payloadType: $payloadType, metadata: ${ metadata.isDefined }") {
+      test(s"Append format, origin: $origin, payloadType: $payloadType, metadata: $metadataStr") {
         val range = SeqRange(1, 5)
         val header = ActionHeader.Append(range, origin, payloadType, metadata)
         verify(header, s"Append-$originStr-$payloadType-$metadataStr")

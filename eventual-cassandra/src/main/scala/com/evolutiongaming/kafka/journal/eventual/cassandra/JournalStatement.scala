@@ -8,11 +8,10 @@ import com.datastax.driver.core.BatchStatement
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.PlayJsonHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
-import play.api.libs.json.{JsValue, Json}
+import play.api.libs.json.Json
 
 
 object JournalStatement {
@@ -97,7 +96,7 @@ object JournalStatement {
               .encodeSome("payload_type", payloadType)
               .encodeSome("payload_txt", txt)
               .encodeSome("payload_bin", bin)
-              .encodeSome("metadata", replicated.metadata)
+              .encode("metadata", replicated.metadata)
             result
           }
 
@@ -175,16 +174,20 @@ object JournalStatement {
                 case PayloadType.Json   => row.decode[Payload.Json]("payload_txt")
               }
 
+              val seqNr = row.decode[SeqNr]
               val event = Event(
-                seqNr = row.decode[SeqNr],
+                seqNr = seqNr,
                 tags = row.decode[Tags]("tags"),
                 payload = payload)
+
+              val metadata = row.decode[Option[Metadata]]("metadata") getOrElse Metadata(seqNr)
+
               ReplicatedEvent(
                 event = event,
                 timestamp = row.decode[Instant]("timestamp"),
                 origin = row.decode[Option[Origin]],
                 partitionOffset = partitionOffset,
-                metadata = row.decode[Option[JsValue]]("metadata"))
+                metadata = metadata)
             }
           }
         }

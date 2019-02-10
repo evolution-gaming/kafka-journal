@@ -50,7 +50,8 @@ class JournalInfoSpec extends FunSuite with Matchers {
 
   private def append(from: Int, to: Int) = {
     val range = SeqRange(SeqNr(from.toLong /*TODO try to avoid .toLong ?*/), SeqNr(to.toLong))
-    ActionHeader.Append(range, None, PayloadType.Json, None)
+    val metadata = Metadata(id = "id", None)
+    ActionHeader.Append(range, None, PayloadType.Json, metadata)
   }
 
   private def delete(seqNr: Int) = {
