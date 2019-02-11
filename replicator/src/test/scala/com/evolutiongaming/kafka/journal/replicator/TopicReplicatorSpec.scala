@@ -618,7 +618,7 @@ object TopicReplicatorSpec {
 
   val origin = Origin("origin")
 
-  val metadata = Metadata(id = "id", data = Json.obj(("key", "value")).some)
+  val metadata = Metadata(Json.obj(("key", "value")).some)
 
   val replicationLatency: Long = 10
 

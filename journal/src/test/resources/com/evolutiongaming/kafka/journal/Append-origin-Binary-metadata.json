@@ -7,7 +7,6 @@
     "origin": "origin",
     "payloadType": "binary",
     "metadata": {
-      "id": "id",
       "data": {
         "key": "value"
       }

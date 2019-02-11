@@ -45,7 +45,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
 
     def eventOf(pointer: Pointer): ReplicatedEvent = {
       val event = Event(pointer.seqNr)
-      val metadata = Metadata(id = "id", data = Some(Json.obj(("key", "value"))))
+      val metadata = Metadata(data = Some(Json.obj(("key", "value"))))
       ReplicatedEvent(
         event = event,
         timestamp = timestamp,

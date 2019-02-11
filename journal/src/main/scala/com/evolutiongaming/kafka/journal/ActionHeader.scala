@@ -24,7 +24,7 @@ object ActionHeader {
               range,
               origin,
               payloadType,
-              metadata getOrElse Metadata(range.from))
+              metadata getOrElse Metadata.Empty)
           }
         }
       }

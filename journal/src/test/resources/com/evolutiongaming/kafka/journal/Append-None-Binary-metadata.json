@@ -6,7 +6,6 @@
     },
     "payloadType": "binary",
     "metadata": {
-      "id": "id",
       "data": {
         "key": "value"
       }

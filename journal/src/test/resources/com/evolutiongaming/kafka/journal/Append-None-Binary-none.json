@@ -5,8 +5,6 @@
       "to": 5
     },
     "payloadType": "binary",
-    "metadata": {
-      "id": "id"
-    }
+    "metadata": {}
   }
 }

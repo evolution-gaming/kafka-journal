@@ -260,7 +260,7 @@ object HeadCacheSpec {
     pollTimeout = 3.millis,
     cleanInterval = 100.millis)
 
-  val metadata: Metadata = Metadata(id = "id", None)
+  val metadata: Metadata = Metadata.Empty
 
   def headCacheOf(
     consumer: IO[HeadCache.Consumer[IO]],

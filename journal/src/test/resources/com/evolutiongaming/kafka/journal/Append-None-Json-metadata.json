@@ -6,7 +6,6 @@
     },
     "payloadType": "json",
     "metadata": {
-      "id": "id",
       "data": {
         "key": "value"
       }

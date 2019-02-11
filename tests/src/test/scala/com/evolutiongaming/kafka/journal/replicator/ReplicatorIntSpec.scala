@@ -25,7 +25,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
   private val origin = Origin.HostName getOrElse Origin("ReplicatorIntSpec")
 
-  private val metadata = Metadata(id = "id", data = Json.obj(("key", "value")).some)
+  private val metadata = Metadata(data = Json.obj(("key", "value")).some)
 
   private implicit val randomId = RandomId.uuid[IO]
 
@@ -121,9 +121,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
             val result = for {
               event <- events
             } yield {
-              event.copy(
-                timestamp = timestamp,
-                metadata = event.metadata.copy(id = metadata.id))
+              event.copy(timestamp = timestamp)
             }
             result.pure[IO]
           } else {

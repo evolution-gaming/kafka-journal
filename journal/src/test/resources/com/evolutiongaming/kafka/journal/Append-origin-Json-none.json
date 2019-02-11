@@ -6,8 +6,6 @@
     },
     "origin": "origin",
     "payloadType": "json",
-    "metadata": {
-      "id": "id"
-    }
+    "metadata": {}
   }
 }

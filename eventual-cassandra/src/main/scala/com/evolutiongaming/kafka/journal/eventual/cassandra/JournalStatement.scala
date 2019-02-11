@@ -180,7 +180,7 @@ object JournalStatement {
                 tags = row.decode[Tags]("tags"),
                 payload = payload)
 
-              val metadata = row.decode[Option[Metadata]]("metadata") getOrElse Metadata(seqNr)
+              val metadata = row.decode[Option[Metadata]]("metadata") getOrElse Metadata.Empty
 
               ReplicatedEvent(
                 event = event,

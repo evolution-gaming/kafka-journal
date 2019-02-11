@@ -6,8 +6,6 @@
     },
     "origin": "origin",
     "payloadType": "binary",
-    "metadata": {
-      "id": "id"
-    }
+    "metadata": {}
   }
 }
