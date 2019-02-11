@@ -222,7 +222,7 @@ object KafkaHealthCheck {
     topic: Topic = "healthcheck",
     initial: FiniteDuration = 10.seconds,
     interval: FiniteDuration = 1.second,
-    timeout: FiniteDuration = 10.seconds,
+    timeout: FiniteDuration = 30.seconds,
     pollTimeout: FiniteDuration = 100.millis)
 
   object Config {
