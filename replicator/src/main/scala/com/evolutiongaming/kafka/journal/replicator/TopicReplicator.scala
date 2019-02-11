@@ -294,12 +294,11 @@ object TopicReplicator {
       }
     }
 
-    val result = for {
+    for {
       pointers <- ReplicatedJournal[F].pointers(topic)
       _        <- consumer.subscribe(topic)
       _        <- pointers.tailRecM(consume)
     } yield {}
-    result.onError { case error => Log[F].error(s"failed with $error", error) /*TODO fail the app*/ }
   }
 
 
