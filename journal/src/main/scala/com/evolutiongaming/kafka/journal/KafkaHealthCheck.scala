@@ -58,85 +58,93 @@ object KafkaHealthCheck {
 
     val result = for {
       ref   <- Ref.of[F, Option[Throwable]](None)
-      fiber <- (producer, consumer).tupled.start { case (producer, consumer) =>
-
-        def produce(value: String) = {
-          val record = Record(key = Some(key), value = Some(value))
-          for {
-            _ <- Log[F].debug(s"$key send $value")
-            _ <- producer.send(record)
-          } yield {}
+      fiber <- Concurrent[F].start {
+        (producer, consumer).tupled.use { case (producer, consumer) =>
+          run(key, config, stop, producer, consumer, ref.set)
         }
-
-        def produceConsume(n: Long) = {
-          val value = n.toString
-
-          def consume(retry: Long) = {
-            for {
-              records <- consumer.poll(config.pollTimeout)
-              found    = records.find { record => record.key.contains(key) && record.value.contains(value) }
-              result  <- found.fold {
-                for {
-                  _ <- ContextShift[F].shift
-                  _ <- produce(s"$n:$retry")
-                } yield {
-                  (retry + 1).asLeft[Unit]
-                }
-              } { _ =>
-                ().asRight[Long].pure[F]
-              }
-            } yield {
-              result
-            }
-          }
-
-          val produceConsume = for {
-            _ <- produce(value)
-            _ <- 0l.tailRecM(consume)
-          } yield {}
-
-          produceConsume
-            .timeout1(config.timeout)
-            .error
-        }
-
-        def check(n: Long) = {
-          for {
-            error  <- produceConsume(n)
-            _      <- error.fold(().pure[F]) { error => Log[F].error(s"$n failed with $error", error) }
-            _      <- ref.set(error)
-            _      <- Timer[F].sleep(config.interval)
-            stop   <- stop
-            result <- {
-              if (stop) ().asRight[Long].pure[F]
-              else for {
-                _ <- ContextShift[F].shift
-              } yield {
-                (n + 1).asLeft[Unit]
-              }
-            }
-          } yield result
-        }
-
-        for {
-          _ <- Timer[F].sleep(config.initial)
-          _ <- consumer.subscribe(config.topic)
-          _ <- consumer.poll(config.interval)
-          _ <- produceConsume(0l) // warmup
-          _ <- 1l.tailRecM(check)
-        } yield {}
       }
     } yield {
-
       val result = new KafkaHealthCheck[F] {
         def error = ref.get
         def done = fiber.join
       }
-
       (result, fiber.cancel)
     }
 
     Resource(result)
+  }
+
+  def run[F[_] : Concurrent : Timer : ContextShift : Log](
+    key: String,
+    config: Config,
+    stop: F[Boolean],
+    producer: Producer[F],
+    consumer: Consumer[F],
+    set: Option[Throwable] => F[Unit]): F[Unit] = {
+
+    def produce(value: String) = {
+      val record = Record(key = Some(key), value = Some(value))
+      for {
+        _ <- Log[F].debug(s"$key send $value")
+        _ <- producer.send(record)
+      } yield {}
+    }
+
+    def produceConsume(n: Long) = {
+      val value = n.toString
+
+      def consume(retry: Long) = {
+        for {
+          records <- consumer.poll(config.pollTimeout)
+          found    = records.find { record => record.key.contains(key) && record.value.contains(value) }
+          result  <- found.fold {
+            for {
+              _ <- ContextShift[F].shift
+              _ <- produce(s"$n:$retry")
+            } yield {
+              (retry + 1).asLeft[Unit]
+            }
+          } { _ =>
+            ().asRight[Long].pure[F]
+          }
+        } yield result
+      }
+
+      val produceConsume = for {
+        _ <- produce(value)
+        _ <- 0l.tailRecM(consume)
+      } yield {}
+
+      produceConsume
+        .timeout1(config.timeout)
+        .error
+    }
+
+    def check(n: Long) = {
+      for {
+        error  <- produceConsume(n)
+        _      <- error.fold(().pure[F]) { error => Log[F].error(s"$n failed with $error", error) }
+        _      <- set(error)
+        _      <- Timer[F].sleep(config.interval)
+        stop   <- stop
+        result <- {
+          if (stop) ().asRight[Long].pure[F]
+          else for {
+            _ <- ContextShift[F].shift
+          } yield {
+            (n + 1).asLeft[Unit]
+          }
+        }
+      } yield result
+    }
+
+    for {
+      _ <- Timer[F].sleep(config.initial)
+      _ <- consumer.subscribe(config.topic)
+      _ <- consumer.poll(config.interval)
+      _ <- produceConsume(0l) // warmup
+      _ <- 1l.tailRecM(check)
+    } yield {}
   }
 
 
