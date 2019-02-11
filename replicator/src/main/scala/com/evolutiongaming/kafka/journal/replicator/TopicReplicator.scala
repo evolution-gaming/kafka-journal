@@ -228,6 +228,34 @@ object TopicReplicator {
       } yield result
     }
 
+    def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = {
+      consumer.commit(offsets).handleErrorWith { error =>
+
+        val partitions = offsets.keySet.map(_.partition)
+
+        def str(partitions: Set[Partition]) = partitions.mkString("[", ",", "]")
+
+        def compare(name: String, ps: F[Set[Partition]]) = {
+          val fa = for {
+            ps      <- ps
+            removed  = partitions -- ps
+            added    = ps -- partitions
+            _       <- Log[F].warn(s"$name: +${ str(added) }, -${ str(removed) }")
+          } yield {}
+          fa.handleErrorWith { error =>
+            Log[F].error(s"$name failed with $error", error)
+          }
+        }
+
+        for {
+          _ <- Log[F].warn(s"partitions: ${ str(partitions) }")
+          _ <- compare("consumer.assignment", consumer.assignment.map(_.map(_.partition)))
+          _ <- compare("consumer.poll", consumer.poll.map(_.values.keySet.map(_.partition)))
+          result <- error.raiseError[F, Unit]
+        } yield result
+      }
+    }
+
     def consume(state: State): F[Either[State, Unit]] = {
       ifContinue {
         for {
@@ -255,7 +283,7 @@ object TopicReplicator {
               timestamp        <- Clock[F].instant
               stateAndOffsets  <- round(state, records.toMap, timestamp)
               (state, offsets)  = stateAndOffsets
-              _                <- consumer.commit(offsets)
+              _                <- commit(offsets)
               roundEnd         <- Clock[F].instant
               _                <- Metrics[F].round(
                 latency = roundEnd - roundStart,
@@ -282,6 +310,8 @@ object TopicReplicator {
     def poll: F[ConsumerRecords[Id, Bytes]]
 
     def commit(offsets: Map[TopicPartition, OffsetAndMetadata]): F[Unit]
+
+    def assignment: F[Set[TopicPartition]]
   }
 
   object Consumer {
@@ -290,22 +320,16 @@ object TopicReplicator {
 
     def apply[F[_] : Applicative](
       consumer: KafkaConsumer[F, Id, Bytes],
-      pollTimeout: FiniteDuration /*TODO*/): Consumer[F] = {
+      pollTimeout: FiniteDuration /*TODO*/
+    ): Consumer[F] = new Consumer[F] {
 
-      new Consumer[F] {
+      def subscribe(topic: Topic) = consumer.subscribe(topic)
 
-        def subscribe(topic: Topic) = {
-          consumer.subscribe(topic)
-        }
+      def poll = consumer.poll(pollTimeout)
 
-        def poll = {
-          consumer.poll(pollTimeout)
-        }
+      def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = consumer.commit(offsets)
 
-        def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = {
-          consumer.commit(offsets)
-        }
-      }
+      def assignment = consumer.assignment
     }
 
     def of[F[_] : Sync : KafkaConsumerOf](
@@ -349,6 +373,8 @@ object TopicReplicator {
         def poll = f(self.poll)
 
         def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = f(self.commit(offsets))
+
+        def assignment = f(self.assignment)
       }
 
 
@@ -359,6 +385,8 @@ object TopicReplicator {
         def poll = f(self.poll, "poll")
 
         def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = f(self.commit(offsets), "commit")
+
+        def assignment = f(self.assignment, "assignment")
       }
     }
   }

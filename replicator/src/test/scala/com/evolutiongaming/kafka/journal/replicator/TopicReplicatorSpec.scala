@@ -872,6 +872,8 @@ object TopicReplicatorSpec {
       def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = DataF { s => (s.commit(offsets), ()) }
 
       def poll = DataF { _.poll }
+
+      def assignment = Set.empty[TopicPartition].pure[DataF]
     }
 
 

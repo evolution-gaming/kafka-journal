@@ -330,7 +330,7 @@ object HeadCacheSpec {
             state <- ref.get
             state <- state
           } yield {
-            state.topics.getOrElse(topic, Nil)
+            state.topics.get(topic).fold(Set.empty[Partition])(_.toSet)
           }
         }
       }

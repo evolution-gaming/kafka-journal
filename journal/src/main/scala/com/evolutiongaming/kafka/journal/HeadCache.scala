@@ -498,7 +498,7 @@ object HeadCache {
 
     def poll(timeout: FiniteDuration): F[ConsumerRecords[Id, Bytes]]
 
-    def partitions(topic: Topic): F[List[Partition]]
+    def partitions(topic: Topic): F[Set[Partition]]
   }
 
   object Consumer {

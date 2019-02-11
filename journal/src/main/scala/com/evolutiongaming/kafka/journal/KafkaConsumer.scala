@@ -29,7 +29,9 @@ trait KafkaConsumer[F[_], K, V] {
 
   def topics: F[Set[Topic]]
 
-  def partitions(topic: Topic): F[List[Partition]]
+  def partitions(topic: Topic): F[Set[Partition]]
+
+  def assignment: F[Set[TopicPartition]]
 }
 
 object KafkaConsumer {
@@ -117,10 +119,14 @@ object KafkaConsumer {
         for {
           infos <- FromFuture[F].apply { consumer.partitions(topic) }
         } yield for {
-          info <- infos
+          info <- infos.to[Set]
         } yield {
           info.partition
         }
+      }
+
+      def assignment = {
+        Sync[F].delay { consumer.assignment }
       }
     }
   }
@@ -143,6 +149,8 @@ object KafkaConsumer {
       def topics = f(self.topics)
 
       def partitions(topic: Topic) = f(self.partitions(topic))
+
+      def assignment = f(self.assignment)
     }
 
 
@@ -161,6 +169,8 @@ object KafkaConsumer {
       def topics = f(self.topics, "topics")
 
       def partitions(topic: Topic) = f(self.partitions(topic), "partitions")
+
+      def assignment = f(self.assignment, "assignment")
     }
   }
 }
