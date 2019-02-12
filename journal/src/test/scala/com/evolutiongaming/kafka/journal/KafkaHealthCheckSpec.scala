@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.data.StateT
 import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.KafkaHealthCheck.Record
@@ -13,7 +12,7 @@ import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 
 class KafkaHealthCheckSpec extends AsyncFunSuite with Matchers {
-  import KafkaHealthCheckSpec.DataF._
+  import KafkaHealthCheckSpec.StateT._
   import KafkaHealthCheckSpec._
 
   test("error") {
@@ -51,12 +50,12 @@ class KafkaHealthCheckSpec extends AsyncFunSuite with Matchers {
   }
 
   test("periodic healthcheck") {
-    implicit val concurrent = ConcurrentOf.fromAsync[DataF]
-    val stop = DataF { data =>
+    implicit val concurrent = ConcurrentOf.fromAsync[StateT]
+    val stop = StateT { data =>
       val data1 = data.copy(checks = data.checks - 1)
       (data1, data1.checks <= 0)
     }
-    val healthCheck = KafkaHealthCheck.of[DataF](
+    val healthCheck = KafkaHealthCheck.of[StateT](
       key = "key",
       config = KafkaHealthCheck.Config(
         topic = "topic",
@@ -64,15 +63,15 @@ class KafkaHealthCheckSpec extends AsyncFunSuite with Matchers {
         interval = 0.millis,
         timeout = 100.millis),
       stop = stop,
-      producer = Resource.pure[DataF, KafkaHealthCheck.Producer[DataF]](KafkaHealthCheck.Producer[DataF]),
-      consumer = Resource.pure[DataF, KafkaHealthCheck.Consumer[DataF]](KafkaHealthCheck.Consumer[DataF]))
+      producer = Resource.pure[StateT, KafkaHealthCheck.Producer[StateT]](KafkaHealthCheck.Producer[StateT]),
+      consumer = Resource.pure[StateT, KafkaHealthCheck.Consumer[StateT]](KafkaHealthCheck.Consumer[StateT]))
 
-    val initial = Data(checks = 2)
+    val initial = State(checks = 2)
     val result = for {
       ab <- healthCheck.use(_.done).run(initial)
     } yield {
       val (data, _) = ab
-      data shouldEqual Data(
+      data shouldEqual State(
         subscribed = Some("topic"),
         logs = List(
           "debug key send 2:0",
@@ -89,20 +88,20 @@ class KafkaHealthCheckSpec extends AsyncFunSuite with Matchers {
 
 object KafkaHealthCheckSpec {
 
-  type DataF[A] = StateT[IO, Data, A]
+  type StateT[A] = cats.data.StateT[IO, State, A]
 
   val Error: Throwable = new RuntimeException with NoStackTrace
 
-  object DataF {
+  object StateT {
 
-    implicit val LogDataF: Log[DataF] = {
+    implicit val log: Log[StateT] = {
 
-      def add(log: String) = DataF[Unit] { data =>
+      def add(log: String) = StateT[Unit] { data =>
         val data1 = data.copy(logs = log :: data.logs)
         (data1, ())
       }
 
-      new Log[DataF] {
+      new Log[StateT] {
         def debug(msg: => String) = add(s"debug $msg")
         def info(msg: => String) = add(s"info $msg")
         def warn(msg: => String) = add(s"warn $msg")
@@ -112,17 +111,17 @@ object KafkaHealthCheckSpec {
     }
 
 
-    implicit val ConsumerDataF: KafkaHealthCheck.Consumer[DataF] = new KafkaHealthCheck.Consumer[DataF] {
+    implicit val consumer: KafkaHealthCheck.Consumer[StateT] = new KafkaHealthCheck.Consumer[StateT] {
 
       def subscribe(topic: Topic) = {
-        DataF { data =>
+        StateT { data =>
           val data1 = data.copy(subscribed = Some(topic))
           (data1, ())
         }
       }
 
       def poll(timeout: FiniteDuration) = {
-        DataF { data =>
+        StateT { data =>
           if (data.records.size >= 2) {
             (data.copy(records = List.empty), data.records)
           } else {
@@ -133,21 +132,21 @@ object KafkaHealthCheckSpec {
     }
 
 
-    implicit val ProducerDataF: KafkaHealthCheck.Producer[DataF] = new KafkaHealthCheck.Producer[DataF] {
+    implicit val producer: KafkaHealthCheck.Producer[StateT] = new KafkaHealthCheck.Producer[StateT] {
 
       def send(record: Record) = {
-        StateT[IO, Data, Unit] { data =>
+        cats.data.StateT[IO, State, Unit] { data =>
           val data1 = data.copy(records = record :: data.records)
           (data1, ()).pure[IO]
         }
       }
     }
 
-    def apply[A](f: Data => (Data, A)): DataF[A] = StateT[IO, Data, A](data => f(data).pure[IO])
+    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[IO, State, A](data => f(data).pure[IO])
   }
 
 
-  final case class Data(
+  final case class State(
     checks: Int = 0,
     subscribed: Option[Topic] = None,
     logs: List[String] = List.empty,

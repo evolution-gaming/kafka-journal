@@ -20,7 +20,7 @@ import scala.concurrent.duration._
 
 trait Journal[F[_]] {
 
-  def append(key: Key, events: Nel[Event], metadata: Option[JsValue] = None/*TODO remove and test*/): F[PartitionOffset]
+  def append(key: Key, events: Nel[Event], metadata: Option[JsValue] = None): F[PartitionOffset]
 
   def read(key: Key, from: SeqNr): Stream[F, Event]
 

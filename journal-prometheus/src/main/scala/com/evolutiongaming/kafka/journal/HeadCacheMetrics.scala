@@ -58,7 +58,7 @@ object HeadCacheMetrics {
 
           val name = result match {
             case Result.Replicated    => "replicated"
-            case Result.NotReplicated => "not_replicated¨"
+            case Result.NotReplicated => "not_replicated"
             case Result.Invalid       => "invalid"
             case Result.Failure       => "failure"
           }

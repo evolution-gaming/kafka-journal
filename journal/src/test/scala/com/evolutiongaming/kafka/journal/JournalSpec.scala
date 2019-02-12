@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import cats.Monad
-import cats.data.StateT
 import cats.implicits._
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.EventsSerializer._
@@ -195,8 +194,8 @@ class JournalSpec extends WordSpec with Matchers {
   }
 
 
-  def test(journal: SeqNrJournal[StateM]) = {
-    testF[StateM] { f =>
+  def test(journal: SeqNrJournal[StateT]) = {
+    testF[StateT] { f =>
       val (_, result) = f(journal).run(State.Empty)
       result
     }
@@ -208,17 +207,17 @@ class JournalSpec extends WordSpec with Matchers {
     // TODO add case with failing head cache
     for {
       (headCacheStr, headCache) <- List(
-        ("invalid", HeadCache.empty[StateM]),
-        ("valid",   StateM.headCache))
+        ("invalid", HeadCache.empty[StateT]),
+        ("valid",   StateT.headCache))
     } {
 
       val name = s"headCache: $headCacheStr"
 
       s"eventual journal is empty, $name" should {
         val journal = SeqNrJournal(
-          EventualJournal.empty[StateM],
-          StateM.withPollActions,
-          StateM.appendAction,
+          EventualJournal.empty[StateT],
+          StateT.withPollActions,
+          StateT.appendAction,
           headCache)
 
         test(journal)
@@ -227,23 +226,23 @@ class JournalSpec extends WordSpec with Matchers {
 
       s"kafka journal is empty, $name" should {
 
-        val withPollActions = new WithPollActions[StateM] {
+        val withPollActions = new WithPollActions[StateT] {
 
-          def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[StateM] => StateM[A]) = {
-            StateM { state =>
+          def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[StateT] => StateT[A]) = {
+            StateT { state =>
               val records = offset
                 .fold(state.records) { offset => state.records.dropWhile(_.offset <= offset) }
                 .collect { case action @ ActionRecord(_: Action.Mark, _) => action }
               val state1 = state.copy(recordsToRead = records)
-              f(StateM.pollActions).run(state1)
+              f(StateT.pollActions).run(state1)
             }
           }
         }
 
         val journal = SeqNrJournal(
-          StateM.eventualJournal,
+          StateT.eventualJournal,
           withPollActions,
-          StateM.appendAction,
+          StateT.appendAction,
           headCache)
 
         test(journal)
@@ -252,9 +251,9 @@ class JournalSpec extends WordSpec with Matchers {
 
       s"kafka and eventual journals are consistent, $name" should {
         val journal = SeqNrJournal(
-          StateM.eventualJournal,
-          StateM.withPollActions,
-          StateM.appendAction,
+          StateT.eventualJournal,
+          StateT.withPollActions,
+          StateT.appendAction,
           headCache)
 
         test(journal)
@@ -264,10 +263,10 @@ class JournalSpec extends WordSpec with Matchers {
         n <- 1 to 3
       } {
         s"kafka and eventual journals are consistent, however eventual offset is $n behind, $name" should {
-          val appendAction = new AppendAction[StateM] {
+          val appendAction = new AppendAction[StateT] {
 
             def apply(action: Action) = {
-              StateM { state =>
+              StateT { state =>
                 val offset = state.records.size.toLong
                 val partitionOffset = PartitionOffset(partition = partition, offset = offset)
                 val record = ActionRecord(action, partitionOffset)
@@ -281,8 +280,8 @@ class JournalSpec extends WordSpec with Matchers {
           }
 
           val journal = SeqNrJournal(
-            StateM.eventualJournal,
-            StateM.withPollActions,
+            StateT.eventualJournal,
+            StateT.withPollActions,
             appendAction,
             headCache)
 
@@ -295,10 +294,10 @@ class JournalSpec extends WordSpec with Matchers {
       } {
         s"eventual journal is $n actions behind the kafka journal, $name" should {
 
-          val appendAction = new AppendAction[StateM] {
+          val appendAction = new AppendAction[StateT] {
 
             def apply(action: Action) = {
-              StateM { state =>
+              StateT { state =>
                 val offset = state.records.size.toLong
                 val partitionOffset = PartitionOffset(partition = partition, offset = offset)
                 val record = ActionRecord(action, partitionOffset)
@@ -315,8 +314,8 @@ class JournalSpec extends WordSpec with Matchers {
           }
 
           val journal = SeqNrJournal(
-            StateM.eventualJournal,
-            StateM.withPollActions,
+            StateT.eventualJournal,
+            StateT.withPollActions,
             appendAction,
             headCache)
 
@@ -330,10 +329,10 @@ class JournalSpec extends WordSpec with Matchers {
       } {
         s"eventual journal is $n actions behind and pointer is $nn behind the kafka journal, $name" should {
 
-          val appendAction = new AppendAction[StateM] {
+          val appendAction = new AppendAction[StateT] {
 
             def apply(action: Action) = {
-              StateM { state =>
+              StateT { state =>
                 val offset = state.records.size.toLong
                 val partitionOffset = PartitionOffset(partition = partition, offset = offset)
                 val record = ActionRecord(action, partitionOffset)
@@ -350,8 +349,8 @@ class JournalSpec extends WordSpec with Matchers {
           }
 
           val journal = SeqNrJournal(
-            StateM.eventualJournal,
-            StateM.withPollActions,
+            StateT.eventualJournal,
+            StateT.withPollActions,
             appendAction,
             headCache)
 
@@ -456,14 +455,14 @@ object JournalSpec {
   }
 
 
-  type StateM[A] = StateT[cats.Id, State, A]
+  type StateT[A] = cats.data.StateT[cats.Id, State, A]
 
-  object StateM {
+  object StateT {
 
-    val eventualJournal: EventualJournal[StateM] = new EventualJournal[StateM] {
+    val eventualJournal: EventualJournal[StateT] = new EventualJournal[StateT] {
 
       def pointers(topic: Topic) = {
-        StateM { state =>
+        StateT { state =>
           val topicPointers = state.replicatedState.offset.fold(TopicPointers.Empty) { offset =>
             val pointers = Map((partition, offset))
             TopicPointers(pointers)
@@ -474,21 +473,21 @@ object JournalSpec {
       }
 
       def read(key: Key, from: SeqNr) = {
-        val events = StateM { state =>
+        val events = StateT { state =>
           val events = state.replicatedState.events.toList.filter(_.seqNr >= from)
           (state, events)
         }
 
         for {
           events <- Stream.lift(events)
-          event <- Stream[StateM].apply(events)
+          event <- Stream[StateT].apply(events)
         } yield {
           event
         }
       }
 
       def pointer(key: Key) = {
-        StateM { state =>
+        StateT { state =>
 
           val seqNr = state.replicatedState.events.lastOption.map(_.event.seqNr)
           val pointer = for {
@@ -505,8 +504,8 @@ object JournalSpec {
     }
 
 
-    val pollActions: PollActions[StateM] = new PollActions[StateM] {
-      def apply() = StateM { state =>
+    val pollActions: PollActions[StateT] = new PollActions[StateT] {
+      def apply() = StateT { state =>
         state.recordsToRead.dequeueOption match {
           case Some((record, records)) => (state.copy(recordsToRead = records), List(record))
           case None                    => (state, Nil)
@@ -515,10 +514,10 @@ object JournalSpec {
     }
 
 
-    val withPollActions: WithPollActions[StateM] = new WithPollActions[StateM] {
+    val withPollActions: WithPollActions[StateT] = new WithPollActions[StateT] {
 
-      def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[StateM] => StateM[A]) = {
-        StateM { state =>
+      def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[StateT] => StateT[A]) = {
+        StateT { state =>
           val records = offset.fold(state.records) { offset => state.records.dropWhile(_.offset <= offset) }
           val state1 = state.copy(recordsToRead = records)
           f(pollActions).run(state1)
@@ -527,10 +526,10 @@ object JournalSpec {
     }
 
 
-    val appendAction: AppendAction[StateM] = new AppendAction[StateM] {
+    val appendAction: AppendAction[StateT] = new AppendAction[StateT] {
 
       def apply(action: Action) = {
-        StateM { state =>
+        StateT { state =>
           val offset = state.records.size.toLong
           val partitionOffset = PartitionOffset(partition = partition, offset = offset)
           val record = ActionRecord(action, partitionOffset)
@@ -544,17 +543,17 @@ object JournalSpec {
     }
 
 
-    val headCache: HeadCache[StateM] = new HeadCache[StateM] {
+    val headCache: HeadCache[StateT] = new HeadCache[StateT] {
       def get(key: Key, partition: Partition, offset: Offset) = {
 
-        StateM { state =>
+        StateT { state =>
           val info = state.records.foldLeft(JournalInfo.empty) { (info, record) => info(record.action.header) }
           (state, HeadCache.Result.valid(info))
         }
       }
     }
 
-    def apply[A](f: State => (State, A)): StateM[A] = StateT[cats.Id, State, A](f)
+    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[cats.Id, State, A](f)
   }
 
 

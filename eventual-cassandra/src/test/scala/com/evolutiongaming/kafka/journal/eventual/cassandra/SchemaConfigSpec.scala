@@ -22,6 +22,7 @@ class SchemaConfigSpec extends FunSuite with Matchers {
       journalTable = "table-journal",
       head = "table-head",
       pointerTable = "table-pointer",
+      settingTable = "table-setting",
       locksTable = "table-locks",
       autoCreate = false)
     SchemaConfig(config) shouldEqual expected

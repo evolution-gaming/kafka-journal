@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal.retry
 
 import cats._
-import cats.data._
 import cats.effect.{Bracket, ExitCase}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.retry.Retry._
@@ -12,18 +11,18 @@ import scala.annotation.tailrec
 import scala.concurrent.duration._
 
 class RetrySpec extends FunSuite with Matchers {
-  import RetrySpec.DataState._
+  import RetrySpec.StateT._
   import RetrySpec._
 
   test("fibonacci") {
     val strategy = Strategy.fibonacci(5.millis).cap(200.millis)
 
-    val call = DataState { _.call }
+    val call = StateT { _.call }
     val result = Retry(strategy)(onError).apply(call)
 
-    val initial = Data(toRetry = 10)
+    val initial = State(toRetry = 10)
     val actual = result.run(initial).map(_._1)
-    val expected = Data(
+    val expected = State(
       decisions = List(
         Details(decision = Decision.retry(200.millis), retries = 9),
         Details(decision = Decision.retry(170.millis), retries = 8),
@@ -56,12 +55,12 @@ class RetrySpec extends FunSuite with Matchers {
       Strategy.cap(200.millis, strategy)
     }
 
-    val call = DataState { _.call }
+    val call = StateT { _.call }
     val result = Retry(policy)(onError).apply(call)
 
-    val initial = Data(toRetry = 7)
+    val initial = State(toRetry = 7)
     val actual = result.run(initial).map(_._1)
-    val expected = Data(
+    val expected = State(
       decisions = List(
         Details(decision = Decision.retry(200.millis), retries = 6),
         Details(decision = Decision.retry(133.millis), retries = 5),
@@ -83,12 +82,12 @@ class RetrySpec extends FunSuite with Matchers {
 
   test("const") {
     val strategy = Strategy.const(1.millis).limit(4.millis)
-    val call = DataState { _.call }
+    val call = StateT { _.call }
     val result = Retry(strategy)(onError).apply(call)
 
-    val initial = Data(toRetry = 6)
+    val initial = State(toRetry = 6)
     val actual = result.run(initial).map(_._1)
-    val expected = Data(
+    val expected = State(
       toRetry = 1,
       decisions = List(
         Details(decision = Decision.giveUp, retries = 4),
@@ -111,27 +110,27 @@ object RetrySpec {
 
   type FE[A] = Either[Error, A]
 
-  val onError: (Error, Details) => DataState[Error] = (_: Error, details: Details) => {
-    DataState { s => (s.onError(details), ().asRight) }
+  val onError: (Error, Details) => StateT[Error] = (_: Error, details: Details) => {
+    StateT { s => (s.onError(details), ().asRight) }
   }
 
-  type DataState[A] = StateT[Id, Data, FE[A]]
+  type StateT[A] = cats.data.StateT[Id, State, FE[A]]
 
-  object DataState {
+  object StateT {
 
-    implicit val BracketImpl: Bracket[DataState, Error] = new Bracket[DataState, Error] {
+    implicit val BracketImpl: Bracket[StateT, Error] = new Bracket[StateT, Error] {
 
-      def flatMap[A, B](fa: DataState[A])(f: A => DataState[B]) = {
-        DataState[B] { s =>
+      def flatMap[A, B](fa: StateT[A])(f: A => StateT[B]) = {
+        StateT[B] { s =>
           val (s1, a) = fa.run(s)
           a.fold(a => (s1, a.asLeft), a => f(a).run(s1))
         }
       }
 
-      def tailRecM[A, B](a: A)(f: A => DataState[Either[A, B]]) = {
+      def tailRecM[A, B](a: A)(f: A => StateT[Either[A, B]]) = {
 
         @tailrec
-        def apply(s: Data, a: A): (Data, FE[B]) = {
+        def apply(s: State, a: A): (State, FE[B]) = {
           val (s1, b) = f(a).run(s)
           b match {
             case Right(Right(b)) => (s1, b.asRight)
@@ -140,11 +139,11 @@ object RetrySpec {
           }
         }
 
-        DataState { s => apply(s, a) }
+        StateT { s => apply(s, a) }
       }
 
-      def bracketCase[A, B](acquire: DataState[A])(use: A => DataState[B])(release: (A, ExitCase[Error]) => DataState[Error]) = {
-        DataState { s =>
+      def bracketCase[A, B](acquire: StateT[A])(use: A => StateT[B])(release: (A, ExitCase[Error]) => StateT[Error]) = {
+        StateT { s =>
           val (s1, a) = acquire.run(s)
           a match {
             case Left(a)  => (s1, a.asLeft[B])
@@ -158,43 +157,43 @@ object RetrySpec {
       }
 
       def raiseError[A](e: Error) = {
-        DataState { s => (s, e.asLeft) }
+        StateT { s => (s, e.asLeft) }
       }
 
-      def handleErrorWith[A](fa: DataState[A])(f: Error => DataState[A]) = {
-        DataState { s =>
+      def handleErrorWith[A](fa: StateT[A])(f: Error => StateT[A]) = {
+        StateT { s =>
           val (s1, a) = fa.run(s)
           a.fold(a => f(a).run(s1), a => (s1, a.asRight))
         }
       }
 
-      def pure[A](a: A) = DataState { s => (s, a.asRight) }
+      def pure[A](a: A) = StateT { s => (s, a.asRight) }
     }
 
 
-    implicit val SleepImpl: Sleep[DataState] = new Sleep[DataState] {
+    implicit val SleepImpl: Sleep[StateT] = new Sleep[StateT] {
 
       def apply(duration: FiniteDuration) = {
-        DataState { s => (s.sleep(duration), ().asRight) }
+        StateT { s => (s.sleep(duration), ().asRight) }
       }
     }
 
-    def apply[A](f: Data => (Data, FE[A])): DataState[A] = {
-      StateT[Id, Data, FE[A]](f)
+    def apply[A](f: State => (State, FE[A])): StateT[A] = {
+      cats.data.StateT[Id, State, FE[A]](f)
     }
   }
 
 
-  final case class Data(
+  final case class State(
     toRetry: Int = 0,
     decisions: List[Details] = Nil,
     delays: List[FiniteDuration] = Nil) { self =>
 
-    def sleep(duration: FiniteDuration): Data = {
+    def sleep(duration: FiniteDuration): State = {
       copy(delays = duration :: delays)
     }
 
-    def call: (Data, FE[Unit]) = {
+    def call: (State, FE[Unit]) = {
       if (toRetry > 0) {
         (copy(toRetry = toRetry - 1), ().asLeft)
       } else {
@@ -202,6 +201,6 @@ object RetrySpec {
       }
     }
 
-    def onError(details: Details): Data = copy(decisions = details :: self.decisions)
+    def onError(details: Details): State = copy(decisions = details :: self.decisions)
   }
 }

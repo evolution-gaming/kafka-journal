@@ -2,7 +2,6 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 
-import cats.data.StateT
 import com.evolutiongaming.skafka.{Offset, Partition}
 import org.scalatest.{FunSuite, Matchers}
 
@@ -74,10 +73,10 @@ class FoldActionsSpec extends FunSuite with Matchers {
     }
     val records = appendRecords :+ markRecord
 
-    val withPollActions = new WithPollActions[StateM] {
-      def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[StateM] => StateM[A]) = {
-        val pollActions = new PollActions[StateM] {
-          def apply() = StateS { s =>
+    val withPollActions = new WithPollActions[StateT] {
+      def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[StateT] => StateT[A]) = {
+        val pollActions = new PollActions[StateT] {
+          def apply() = StateT { s =>
             val records = offset.fold(s.records) { offset => s.records.dropWhile(_.offset <= offset) }
             records match {
               case h :: t => (s.copy(records = t), List(h))
@@ -89,7 +88,7 @@ class FoldActionsSpec extends FunSuite with Matchers {
       }
     }
 
-    val foldActions = FoldActions[StateM](key, SeqNr.Min, marker, replicated, withPollActions)
+    val foldActions = FoldActions[StateT](key, SeqNr.Min, marker, replicated, withPollActions)
     val (_, result) = foldActions(offset).collect { case a: Action.Append => a.range.seqNrs.toList }.toList.run(State(records))
     result.flatten.map(_.value)
   }
@@ -101,10 +100,10 @@ object FoldActionsSpec {
 
   final case class State(records: List[ActionRecord[Action]])
 
-  type StateM[A] = StateT[cats.Id, State, A]
+  type StateT[A] = cats.data.StateT[cats.Id, State, A]
 
-  object StateS {
+  object StateT {
 
-    def apply[A](f: State => (State, A)): StateM[A] = StateT[cats.Id, State, A](f)
+    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[cats.Id, State, A](f)
   }
 }
