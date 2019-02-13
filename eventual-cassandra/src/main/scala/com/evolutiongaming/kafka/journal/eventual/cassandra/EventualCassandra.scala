@@ -5,8 +5,8 @@ import cats.effect.{Clock, Concurrent, Resource}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.util.{FromFuture, ToFuture}
 import com.evolutiongaming.kafka.journal.stream.Stream
+import com.evolutiongaming.kafka.journal.util.{FromFuture, ToFuture}
 import com.evolutiongaming.skafka.Topic
 
 
@@ -15,28 +15,29 @@ object EventualCassandra {
 
   def of[F[_] : Concurrent : Par : Clock : FromFuture : ToFuture : LogOf](
     config: EventualCassandraConfig,
-    metrics: Option[EventualJournal.Metrics[F]]): Resource[F, EventualJournal[F]] = {
+    metrics: Option[EventualJournal.Metrics[F]]
+  ): Resource[F, EventualJournal[F]] = {
 
-    def journal(implicit cassandraSession: CassandraSession[F]) = {
-      implicit val cassandraSync = CassandraSync[F](config.schema)
+    def journal(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
       of(config.schema, metrics)
     }
 
     for {
       cassandraCluster <- CassandraCluster.of[F](config.client, config.retries)
       cassandraSession <- cassandraCluster.session
-      journal          <- Resource.liftF(journal(cassandraSession))
+      journal          <- Resource.liftF(journal(cassandraCluster, cassandraSession))
     } yield journal
   }
 
-  def of[F[_] : Monad : Par : CassandraSession : CassandraSync : LogOf : Clock](
+  def of[F[_] : Concurrent : Par : CassandraCluster : CassandraSession : LogOf : Clock : FromFuture : ToFuture](
     schemaConfig: SchemaConfig,
-    metrics: Option[EventualJournal.Metrics[F]]): F[EventualJournal[F]] = {
+    metrics: Option[EventualJournal.Metrics[F]]
+  ): F[EventualJournal[F]] = {
 
     for {
       log        <- LogOf[F].apply(EventualCassandra.getClass)
-      tables     <- CreateSchema[F](schemaConfig)
-      statements <- Statements.of[F](tables)
+      schema     <- CreateSchema[F](schemaConfig)
+      statements <- Statements.of[F](schema)
     } yield {
       val journal = apply[F](statements)
       val withLog = journal.withLog(log)
@@ -133,11 +134,11 @@ object EventualCassandra {
 
     def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 
-    def of[F[_] : Par : Monad : CassandraSession](tables: Tables): F[Statements[F]] = {
+    def of[F[_] : Par : Monad : CassandraSession](schema: Schema): F[Statements[F]] = {
       val statements = (
-        JournalStatement.SelectRecords.of[F](tables.journal),
-        HeadStatement.Select.of[F](tables.head),
-        PointerStatement.SelectPointers.of[F](tables.pointer))
+        JournalStatement.SelectRecords.of[F](schema.journal),
+        HeadStatement.Select.of[F](schema.head),
+        PointerStatement.SelectPointers.of[F](schema.pointer))
       Par[F].mapN(statements)(Statements[F])
     }
   }

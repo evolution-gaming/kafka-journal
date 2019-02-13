@@ -1,16 +1,17 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.FlatMap
+import cats.{FlatMap, Monad}
 import cats.effect.Clock
 import cats.implicits._
+import com.evolutiongaming.kafka.journal.ClockHelper._
 import com.evolutiongaming.kafka.journal.Setting.{Key, Value}
 import com.evolutiongaming.kafka.journal.stream.Stream
-import com.evolutiongaming.kafka.journal.{HostName, Setting, Settings}
-import com.evolutiongaming.kafka.journal.ClockHelper._
+import com.evolutiongaming.kafka.journal.{HostName, Par, Setting, Settings}
+import com.evolutiongaming.scassandra.TableName
 
 object SettingsCassandra {
 
-  def apply[F[_] : Clock : FlatMap](
+  def apply[F[_] : FlatMap : Clock](
     statements: Statements[F],
     hostName: Option[HostName]): Settings[F] = new Settings[F] {
 
@@ -19,9 +20,7 @@ object SettingsCassandra {
         setting <- statements.select(key)
       } yield for {
         setting <- setting
-      } yield {
-        setting
-      }
+      } yield setting
     }
 
     def set(key: Key, value: Value) = {
@@ -49,9 +48,31 @@ object SettingsCassandra {
     }
   }
 
+
+  def of[F[_] : Monad : Par : Clock : CassandraSession](schema: Schema): F[Settings[F]] = {
+    for {
+      statements <- Statements.of[F](schema.setting)
+    } yield {
+      val hostName = HostName()
+      apply(statements, hostName)
+    }
+  }
+
+
   final case class Statements[F[_]](
     select: SettingStatement.Select[F],
-    all: SettingStatement.All[F],
     insert: SettingStatement.Insert[F],
+    all: SettingStatement.All[F],
     delete: SettingStatement.Delete[F])
+
+  object Statements {
+    def of[F[_] : Monad : Par : CassandraSession](table: TableName): F[Statements[F]] = {
+      val statements = (
+        SettingStatement.Select.of[F](table),
+        SettingStatement.Insert.of[F](table),
+        SettingStatement.All.of[F](table),
+        SettingStatement.Delete.of[F](table))
+      Par[F].mapN(statements)(Statements[F])
+    }
+  }
 }

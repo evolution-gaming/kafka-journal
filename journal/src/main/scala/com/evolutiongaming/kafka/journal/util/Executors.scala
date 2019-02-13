@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.util
 
-import java.util.concurrent.{ExecutorService, Executors => ExecutorsJ}
+import java.util.concurrent.{ExecutorService, ScheduledExecutorService, Executors => ExecutorsJ}
 
 import cats.effect.{Resource, Sync}
 import com.evolutiongaming.kafka.journal.Runtime
@@ -27,6 +27,14 @@ object Executors {
 
   def forkJoin[F[_] : Sync](parallelism: Int): Resource[F, ExecutionContextExecutorService] = {
     resource { ExecutorsJ.newWorkStealingPool(parallelism) }
+  }
+
+  def scheduled[F[_] : Sync](parallelism: Int): Resource[F, ScheduledExecutorService] = {
+    Resource.make {
+      Sync[F].delay { ExecutorsJ.newScheduledThreadPool(parallelism) }
+    } { es =>
+      Sync[F].delay { es.shutdown() }
+    }
   }
 
   private def resource[F[_] : Sync](es: => ExecutorService): Resource[F, ExecutionContextExecutorService] = {

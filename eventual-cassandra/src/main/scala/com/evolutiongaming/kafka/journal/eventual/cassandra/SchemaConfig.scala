@@ -8,7 +8,7 @@ import com.typesafe.config.Config
 final case class SchemaConfig(
   keyspace: SchemaConfig.Keyspace = SchemaConfig.Keyspace.Default,
   journalTable: String = "journal",
-  head: String = "metadata",
+  headTable: String = "metadata",
   pointerTable: String = "pointer",
   settingTable: String = "setting",
   locksTable: String = "locks",
@@ -29,7 +29,7 @@ object SchemaConfig {
     SchemaConfig(
       keyspace = get[Config]("keyspace").fold(default.keyspace)(Keyspace.apply),
       journalTable = get[String]("journal-table") getOrElse default.journalTable,
-      head = get[String]("head-table") getOrElse default.head,
+      headTable = get[String]("head-table") getOrElse default.headTable,
       pointerTable = get[String]("pointer-table") getOrElse default.pointerTable,
       settingTable = get[String]("setting-table") getOrElse default.settingTable,
       locksTable = get[String]("locks-table") getOrElse default.locksTable,

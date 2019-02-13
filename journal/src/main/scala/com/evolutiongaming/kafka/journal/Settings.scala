@@ -13,3 +13,7 @@ trait Settings[F[_]] {
 
   def all: Stream[F, Setting]
 }
+
+object Settings {
+  def apply[F[_]](implicit F: Settings[F]): Settings[F] = F
+}

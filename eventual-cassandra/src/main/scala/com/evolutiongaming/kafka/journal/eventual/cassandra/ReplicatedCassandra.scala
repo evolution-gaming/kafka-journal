@@ -19,14 +19,14 @@ import scala.annotation.tailrec
 // TODO test ReplicatedCassandra
 object ReplicatedCassandra {
 
-  def of[F[_] : Concurrent : FromFuture : ToFuture : Par : Clock : CassandraSession : LogOf](
+  def of[F[_] : Concurrent : FromFuture : ToFuture : Par : Clock : CassandraCluster : CassandraSession : LogOf](
     config: EventualCassandraConfig,
-    metrics: Option[Metrics[F]]): F[ReplicatedJournal[F]] = {
+    metrics: Option[Metrics[F]]
+  ): F[ReplicatedJournal[F]] = {
 
-    implicit val cassandraSync = CassandraSync[F](config.schema)
     for {
-      tables     <- CreateSchema[F](config.schema)
-      statements <- Statements.of[F](tables)
+      schema     <- CreateSchema[F](config.schema)
+      statements <- Statements.of[F](schema)
       log        <- LogOf[F].apply(ReplicatedCassandra.getClass)
     } yield {
       implicit val statements1 = statements
@@ -215,18 +215,18 @@ object ReplicatedCassandra {
 
     def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 
-    def of[F[_] : FlatMap : Par : CassandraSession](tables: Tables): F[Statements[F]] = {
+    def of[F[_] : FlatMap : Par : CassandraSession](schema: Schema): F[Statements[F]] = {
       val statements = (
-        JournalStatement.InsertRecords.of[F](tables.journal),
-        JournalStatement.DeleteRecords.of[F](tables.journal),
-        HeadStatement.Insert.of[F](tables.head),
-        HeadStatement.Select.of[F](tables.head),
-        HeadStatement.Update.of[F](tables.head),
-        HeadStatement.UpdateSeqNr.of[F](tables.head),
-        HeadStatement.UpdateDeleteTo.of[F](tables.head),
-        PointerStatement.Insert.of[F](tables.pointer),
-        PointerStatement.SelectPointers.of[F](tables.pointer),
-        PointerStatement.SelectTopics.of[F](tables.pointer))
+        JournalStatement.InsertRecords.of[F](schema.journal),
+        JournalStatement.DeleteRecords.of[F](schema.journal),
+        HeadStatement.Insert.of[F](schema.head),
+        HeadStatement.Select.of[F](schema.head),
+        HeadStatement.Update.of[F](schema.head),
+        HeadStatement.UpdateSeqNr.of[F](schema.head),
+        HeadStatement.UpdateDeleteTo.of[F](schema.head),
+        PointerStatement.Insert.of[F](schema.pointer),
+        PointerStatement.SelectPointers.of[F](schema.pointer),
+        PointerStatement.SelectTopics.of[F](schema.pointer))
       Par[F].mapN(statements)(Statements[F])
     }
   }

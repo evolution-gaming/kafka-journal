@@ -1,13 +1,13 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.FlatMap
-import cats.implicits._
 import cats.effect.Concurrent
+import cats.implicits._
 import com.datastax.driver.core._
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
 import com.evolutiongaming.kafka.journal.util.FromFuture
-import com.evolutiongaming.scassandra.{NextHostRetryPolicy, Session}
 import com.evolutiongaming.scassandra.syntax._
+import com.evolutiongaming.scassandra.{NextHostRetryPolicy, Session}
 
 
 trait CassandraSession[F[_]] {
@@ -33,49 +33,50 @@ object CassandraSession {
     trace: Boolean = false): CassandraSession[F] = {
 
     val retryPolicy = new LoggingRetryPolicy(NextHostRetryPolicy(retries))
-    apply(session, retryPolicy, trace)
+    session.configured(retryPolicy, trace)
   }
 
 
-  def apply[F[_] : FlatMap](
-    session: CassandraSession[F],
-    retryPolicy: RetryPolicy,
-    trace: Boolean): CassandraSession[F] = new CassandraSession[F] {
+  def apply[F[_] : Concurrent : FromFuture](session: Session): CassandraSession[F] = new CassandraSession[F] {
 
     def prepare(query: String) = {
-      session.prepare(query)
+      FromFuture[F].apply {
+        session.prepare(query)
+      }
     }
 
     def execute(statement: Statement) = {
-      val configured = statement
-        .setRetryPolicy(retryPolicy)
-        .setIdempotent(true)
-        .trace(trace)
-      session.execute(configured)
+      for {
+        result <- FromFuture[F].apply { session.execute(statement) }
+        result <- QueryResult.of[F](result)
+      } yield {
+        result
+      }
     }
 
-    def unsafe = session.unsafe
+    def unsafe = session
   }
 
-  def apply[F[_] : Concurrent : FromFuture](session: Session): CassandraSession[F] = {
-    new CassandraSession[F] {
+
+  implicit class CassandraSessionOps[F[_]](val self: CassandraSession[F]) extends AnyVal {
+
+    def configured(
+      retryPolicy: RetryPolicy,
+      trace: Boolean): CassandraSession[F] = new CassandraSession[F] {
 
       def prepare(query: String) = {
-        FromFuture[F].apply {
-          session.prepare(query)
-        }
+        self.prepare(query)
       }
 
       def execute(statement: Statement) = {
-        for {
-          result <- FromFuture[F].apply { session.execute(statement) }
-          result <- QueryResult.of[F](result)
-        } yield {
-          result
-        }
+        val configured = statement
+          .setRetryPolicy(retryPolicy)
+          .setIdempotent(true)
+          .trace(trace)
+        self.execute(configured)
       }
 
-      def unsafe = session
+      def unsafe = self.unsafe
     }
   }
 }

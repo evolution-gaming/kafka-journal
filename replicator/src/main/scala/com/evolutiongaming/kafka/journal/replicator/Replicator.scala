@@ -34,14 +34,14 @@ object Replicator {
 
     implicit val clock = Timer[F].clock
 
-    def replicatedJournal(implicit cassandraSession: CassandraSession[F]) = {
+    def replicatedJournal(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
       ReplicatedCassandra.of[F](config.cassandra, metrics.flatMap(_.journal))
     }
 
     for {
       cassandraCluster  <- CassandraCluster.of(config.cassandra.client, config.cassandra.retries)
       cassandraSession  <- cassandraCluster.session
-      replicatedJournal <- Resource.liftF(replicatedJournal(cassandraSession))
+      replicatedJournal <- Resource.liftF(replicatedJournal(cassandraCluster, cassandraSession))
       result            <- of(config, metrics, replicatedJournal, hostName)
     } yield result
   }

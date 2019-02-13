@@ -16,6 +16,10 @@ trait Par[F[_]] {
     t3: (F[A0], F[A1], F[A2]))
     (f: (A0, A1, A2) => Z): F[Z]
 
+  def mapN[Z, A0, A1, A2, A3](
+    t4: (F[A0], F[A1], F[A2], F[A3]))
+    (f: (A0, A1, A2, A3) => Z): F[Z]
+
   def mapN[Z, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9](
     t10: (F[A0], F[A1], F[A2], F[A3], F[A4], F[A5], F[A6], F[A7], F[A8], F[A9]))
     (f: (A0, A1, A2, A3, A4, A5, A6, A7, A8, A9) => Z): F[Z]
@@ -49,6 +53,13 @@ object Par {
       t3.parMapN(f)
     }
 
+    def mapN[Z, A0, A1, A2, A3](
+      t4: (F[A0], F[A1], F[A2], F[A3]))
+      (f: (A0, A1, A2, A3) => Z) = {
+
+      t4.parMapN(f)
+    }
+
     def mapN[Z, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9](
       t10: (F[A0], F[A1], F[A2], F[A3], F[A4], F[A5], F[A6], F[A7], F[A8], F[A9]))(
       f: (A0, A1, A2, A3, A4, A5, A6, A7, A8, A9) => Z) = {
@@ -77,6 +88,13 @@ object Par {
     }
 
     def mapN[Z, A0, A1, A2](t3: (F[A0], F[A1], F[A2]))(f: (A0, A1, A2) => Z) = t3.mapN(f)
+
+    def mapN[Z, A0, A1, A2, A3](
+      t4: (F[A0], F[A1], F[A2], F[A3]))
+      (f: (A0, A1, A2, A3) => Z) = {
+
+      t4.mapN(f)
+    }
 
     def mapN[Z, A0, A1, A2, A3, A4, A5, A6, A7, A8, A9](
       t10: (F[A0], F[A1], F[A2], F[A3], F[A4], F[A5], F[A6], F[A7], F[A8], F[A9]))(
