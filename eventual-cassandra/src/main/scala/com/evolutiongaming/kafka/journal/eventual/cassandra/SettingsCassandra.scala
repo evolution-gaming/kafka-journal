@@ -1,21 +1,21 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.{FlatMap, Monad}
+import cats.Monad
 import cats.effect.Clock
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.ClockHelper._
-import com.evolutiongaming.kafka.journal.Setting.{Key, Value}
 import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.kafka.journal.{HostName, Par, Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
 
 object SettingsCassandra {
 
-  def apply[F[_] : FlatMap : Clock](
+  def apply[F[_] : Monad : Clock](
     statements: Statements[F],
-    hostName: Option[HostName]): Settings[F] = new Settings[F] {
+    origin: Option[String],
+  ): Settings[F] = new Settings[F] {
 
-    def get(key: Key) = {
+    def get(key: K) = {
       for {
         setting <- statements.select(key)
       } yield for {
@@ -23,8 +23,7 @@ object SettingsCassandra {
       } yield setting
     }
 
-    def set(key: Key, value: Value) = {
-      val origin = hostName.map(_.value)
+    def set(key: K, value: V) = {
       for {
         timestamp <- Clock[F].instant
         prev      <- statements.select(key)
@@ -33,7 +32,16 @@ object SettingsCassandra {
       } yield prev
     }
 
-    def remove(key: Value) = {
+    def setIfEmpty(key: K, value: V) = {
+      for {
+        timestamp <- Clock[F].instant
+        setting    = Setting(key = key, value = value, timestamp = timestamp, origin = origin)
+        inserted  <- statements.insertIfEmpty(setting)
+        result    <- if (inserted) none[Setting].pure[F] else statements.select(key)
+      } yield result
+    }
+
+    def remove(key: K) = {
       for {
         prev <- statements.select(key)
         _    <- statements.delete(key)
@@ -54,7 +62,8 @@ object SettingsCassandra {
       statements <- Statements.of[F](schema.setting)
     } yield {
       val hostName = HostName()
-      apply(statements, hostName)
+      val origin = hostName.map(_.value)
+      apply(statements, origin)
     }
   }
 
@@ -62,6 +71,7 @@ object SettingsCassandra {
   final case class Statements[F[_]](
     select: SettingStatement.Select[F],
     insert: SettingStatement.Insert[F],
+    insertIfEmpty: SettingStatement.InsertIfEmpty[F],
     all: SettingStatement.All[F],
     delete: SettingStatement.Delete[F])
 
@@ -70,6 +80,7 @@ object SettingsCassandra {
       val statements = (
         SettingStatement.Select.of[F](table),
         SettingStatement.Insert.of[F](table),
+        SettingStatement.InsertIfEmpty.of[F](table),
         SettingStatement.All.of[F](table),
         SettingStatement.Delete.of[F](table))
       Par[F].mapN(statements)(Statements[F])

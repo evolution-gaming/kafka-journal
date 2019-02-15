@@ -25,7 +25,7 @@ object ReplicatedCassandra {
   ): F[ReplicatedJournal[F]] = {
 
     for {
-      schema     <- CreateSchema[F](config.schema)
+      schema     <- SetupSchema[F](config.schema)
       statements <- Statements.of[F](schema)
       log        <- LogOf[F].apply(ReplicatedCassandra.getClass)
     } yield {

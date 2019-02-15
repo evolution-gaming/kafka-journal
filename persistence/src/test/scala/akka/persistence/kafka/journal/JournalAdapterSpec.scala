@@ -7,11 +7,11 @@ import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.Id
 import cats.effect.Clock
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.{ClockOf, _}
 import com.evolutiongaming.kafka.journal.stream.Stream
+import com.evolutiongaming.kafka.journal.{ClockOf, _}
 import com.evolutiongaming.nel.Nel
 import org.scalatest.{FunSuite, Matchers}
-import play.api.libs.json.JsValue
+import play.api.libs.json.{JsValue, Json}
 
 class JournalAdapterSpec extends FunSuite with Matchers {
   import JournalAdapterSpec.StateT._
@@ -22,6 +22,8 @@ class JournalAdapterSpec extends FunSuite with Matchers {
   private val event = Event(SeqNr.Min)
   private val persistenceId = "id"
   private val persistentRepr = PersistentRepr(None, persistenceId = persistenceId)
+  private val metadata = Metadata(Json.obj(("key", "value")).some)
+  private val headers = Headers(("key", "value"))
 
   private val eventSerializer = new EventSerializer[cats.Id] {
 
@@ -37,10 +39,14 @@ class JournalAdapterSpec extends FunSuite with Matchers {
 
   private val journalAdapter = JournalAdapter[StateT](StateT.JournalStateF, toKey, eventSerializer)
 
+  private def appendOf(key: Key, events: Nel[Event]) = {
+    Append(key, events, timestamp, metadata, headers)
+  }
+
   test("write") {
-    val (data, result) = journalAdapter.write(aws).run(State.Empty)
+    val (data, result) = journalAdapter.write(aws, metadata.data, headers).run(State.Empty)
     result shouldEqual Nil
-    data shouldEqual State(appends = List(Append(key1, Nel(event, event), timestamp)))
+    data shouldEqual State(appends = List(appendOf(key1, Nel(event, event))))
   }
 
   test("delete") {
@@ -69,11 +75,11 @@ class JournalAdapterSpec extends FunSuite with Matchers {
     }
     val (data, result) = journalAdapter
       .withBatching(grouping)
-      .write(aws).run(State.Empty)
+      .write(aws, metadata.data, headers).run(State.Empty)
     result shouldEqual Nil
     data shouldEqual State(appends = List(
-      Append(key1, Nel(event), timestamp),
-      Append(key1, Nel(event), timestamp)))
+      appendOf(key1, Nel(event)),
+      appendOf(key1, Nel(event))))
   }
 }
 
@@ -81,7 +87,12 @@ object JournalAdapterSpec {
 
   val timestamp: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS)
 
-  final case class Append(key: Key, events: Nel[Event], timestamp: Instant)
+  final case class Append(
+    key: Key,
+    events: Nel[Event],
+    timestamp: Instant,
+    metadata: Metadata,
+    headers: Headers)
 
   final case class Read(key: Key, from: SeqNr)
 
@@ -111,9 +122,10 @@ object JournalAdapterSpec {
 
     implicit val JournalStateF: Journal[StateT] = new Journal[StateT] {
 
-      def append(key: Key, events: Nel[Event], metadata: Option[JsValue]) = {
+      def append(key: Key, events: Nel[Event], metadata: Option[JsValue], headers: Headers) = {
         StateT { s =>
-          val s1 = s.copy(appends = Append(key, events, timestamp) :: s.appends)
+          val append = Append(key, events, timestamp, Metadata(metadata), headers)
+          val s1 = s.copy(appends = append :: s.appends)
           (s1, PartitionOffset.Empty)
         }
       }
@@ -121,7 +133,8 @@ object JournalAdapterSpec {
       def read(key: Key, from: SeqNr) = {
         val stream = StateT { state =>
           val stream = Stream[StateT].apply(state.events)
-          val state1 = state.copy(reads = Read(key, from) :: state.reads, events = Nil)
+          val read = Read(key, from)
+          val state1 = state.copy(reads = read :: state.reads, events = Nil)
           (state1, stream)
         }
         Stream.lift(stream).flatten
@@ -136,7 +149,8 @@ object JournalAdapterSpec {
 
       def delete(key: Key, to: SeqNr) = {
         StateT { state =>
-          val state1 = state.copy(deletes = Delete(key, to, timestamp) :: state.deletes)
+          val delete = Delete(key, to, timestamp)
+          val state1 = state.copy(deletes = delete :: state.deletes)
           (state1, none[PartitionOffset])
         }
       }

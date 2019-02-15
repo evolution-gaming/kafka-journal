@@ -27,11 +27,8 @@ object PollActions {
           records <- records.values.values
           record  <- records
           if record.key.exists(_.value == key.id)
-          action  <- record.toAction
-        } yield {
-          val partitionOffset = PartitionOffset(record)
-          ActionRecord(action, partitionOffset)
-        }
+          action  <- record.toActionRecord
+        } yield action
       }
     }
   }

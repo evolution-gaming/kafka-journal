@@ -24,6 +24,8 @@
 	<logger name="org.apache.cassandra.db.SystemKeyspace" level="ERROR"/>
 	<!--<logger name="com.evolutiongaming.kafka.journal" level="DEBUG"/>-->
 	<!--<logger name="com.evolutiongaming.kafka.journal.replicator.TopicReplicator" level="WARN"/>-->
+	<!--<logger name="com.evolutiongaming.kafka.journal.Settings" level="DEBUG"/>-->
+	<!--<logger name="com.evolutiongaming.kafka.journal.eventual.cassandra.SettingsCassandra" level="DEBUG"/>-->
 
 	<root level="WARN">
 		<appender-ref ref="console"/>

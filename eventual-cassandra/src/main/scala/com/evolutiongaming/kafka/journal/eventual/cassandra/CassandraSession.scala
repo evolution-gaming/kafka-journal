@@ -5,6 +5,7 @@ import cats.effect.Concurrent
 import cats.implicits._
 import com.datastax.driver.core._
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
+import com.evolutiongaming.kafka.journal.cache.Cache
 import com.evolutiongaming.kafka.journal.util.FromFuture
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.scassandra.{NextHostRetryPolicy, Session}
@@ -37,7 +38,7 @@ object CassandraSession {
   }
 
 
-  def apply[F[_] : Concurrent : FromFuture](session: Session): CassandraSession[F] = new CassandraSession[F] {
+  private def apply[F[_] : Concurrent : FromFuture](session: Session): CassandraSession[F] = new CassandraSession[F] {
 
     def prepare(query: String) = {
       FromFuture[F].apply {
@@ -55,6 +56,11 @@ object CassandraSession {
     }
 
     def unsafe = session
+  }
+
+
+  def of[F[_] : Concurrent : FromFuture](session: Session): F[CassandraSession[F]] = {
+    apply[F](session).cachePrepared
   }
 
 
@@ -77,6 +83,22 @@ object CassandraSession {
       }
 
       def unsafe = self.unsafe
+    }
+
+
+    def cachePrepared(implicit F: Concurrent[F]): F[CassandraSession[F]] = {
+      for {
+        cache <- Cache.of[F, String, PreparedStatement]
+      } yield new CassandraSession[F] {
+
+        def prepare(query: String) = {
+          cache.getOrUpdate(query) { self.prepare(query) }
+        }
+
+        def execute(statement: Statement) = self.execute(statement)
+
+        def unsafe = self.unsafe
+      }
     }
   }
 }

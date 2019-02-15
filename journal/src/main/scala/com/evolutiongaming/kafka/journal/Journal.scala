@@ -20,7 +20,12 @@ import scala.concurrent.duration._
 
 trait Journal[F[_]] {
 
-  def append(key: Key, events: Nel[Event], metadata: Option[JsValue] = None): F[PartitionOffset]
+  def append(
+    key: Key,
+    events: Nel[Event],
+    metadata: Option[JsValue] = None,
+    headers: Headers = Headers.Empty
+  ): F[PartitionOffset]
 
   def read(key: Key, from: SeqNr): Stream[F, Event]
 
@@ -35,7 +40,7 @@ object Journal {
 
   def empty[F[_] : Applicative]: Journal[F] = new Journal[F] {
 
-    def append(key: Key, events: Nel[Event], metadata: Option[JsValue]) = PartitionOffset.Empty.pure[F]
+    def append(key: Key, events: Nel[Event], metadata: Option[JsValue], headers: Headers) = PartitionOffset.Empty.pure[F]
 
     def read(key: Key, from: SeqNr) = Stream.empty
 
@@ -148,11 +153,11 @@ object Journal {
 
     new Journal[F] {
 
-      def append(key: Key, events: Nel[Event], metadata: Option[JsValue]) = {
+      def append(key: Key, events: Nel[Event], metadata: Option[JsValue], headers: Headers) = {
         for {
           timestamp <- Clock[F].instant
           metadata1  = Metadata(data = metadata)
-          action     = Action.Append(key, timestamp, origin, events, metadata1) // TODO measure
+          action     = Action.Append(key, timestamp, origin, events, metadata1, headers) // TODO measure
           result    <- appendAction(action)
         } yield result
       }
@@ -291,9 +296,9 @@ object Journal {
 
     new Journal[F] {
 
-      def append(key: Key, events: Nel[Event], metadata: Option[JsValue]) = {
+      def append(key: Key, events: Nel[Event], metadata: Option[JsValue], headers: Headers) = {
         for {
-          rl     <- Latency { journal.append(key, events, metadata) }
+          rl     <- Latency { journal.append(key, events, metadata, headers) }
           (r, l)  = rl
           _      <- log.debug {
             val first = events.head.seqNr
@@ -353,9 +358,9 @@ object Journal {
 
     new Journal[F] {
 
-      def append(key: Key, events: Nel[Event], metadata: Option[JsValue]) = {
+      def append(key: Key, events: Nel[Event], metadata: Option[JsValue], headers: Headers) = {
         for {
-          rl     <- latency("append", key.topic) { journal.append(key, events, metadata) }
+          rl     <- latency("append", key.topic) { journal.append(key, events, metadata, headers) }
           (r, l)  = rl
           _      <- metrics.append(topic = key.topic, latency = l, events = events.size)
         } yield r
@@ -552,9 +557,9 @@ object Journal {
 
       new Journal[F] {
 
-        def append(key: Key, events: Nel[Event], metadata: Option[JsValue]) = {
+        def append(key: Key, events: Nel[Event], metadata: Option[JsValue], headers: Headers) = {
           logError {
-            self.append(key, events, metadata)
+            self.append(key, events, metadata, headers)
           } { (error, latency) =>
             s"$key append failed in ${ latency }ms, events: $events, error: $error"
           }
@@ -597,8 +602,8 @@ object Journal {
 
     def mapK[G[_]](to: F ~> G, from: G ~> F): Journal[G] = new Journal[G] {
 
-      def append(key: Key, events: Nel[Event], metadata: Option[JsValue]) = {
-        to(self.append(key, events, metadata))
+      def append(key: Key, events: Nel[Event], metadata: Option[JsValue], headers: Headers) = {
+        to(self.append(key, events, metadata, headers))
       }
 
       def read(key: Key, from1: SeqNr) = {

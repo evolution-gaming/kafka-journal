@@ -45,4 +45,6 @@ object Tags {
       }
     }
   }
+
+  def apply(tag: Tag, tags: Tag*): Tags = tags.toSet[Tag] + tag
 }

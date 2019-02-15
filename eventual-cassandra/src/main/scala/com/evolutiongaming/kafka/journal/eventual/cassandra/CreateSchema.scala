@@ -1,20 +1,35 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
+import cats.Monad
 import cats.effect.Concurrent
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.LogOf
-import com.evolutiongaming.kafka.journal.util.{FromFuture, ToFuture}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.TableName
 
-// TODO test
 object CreateSchema {
 
-  def apply[F[_] : Concurrent : CassandraCluster : CassandraSession : FromFuture : ToFuture : LogOf](
-    config: SchemaConfig
-  ): F[Schema] = {
+  type Fresh = Boolean
 
-    def createTables(implicit cassandraSync: CassandraSync[F]) = {
+
+  def apply[F[_] : Concurrent : CassandraCluster : CassandraSession : CassandraSync : LogOf](
+    config: SchemaConfig
+  ): F[(Schema, Fresh)] = {
+
+    for {
+      createTables   <- CreateTables.of[F]
+      createKeyspace  = CreateKeyspace[F]
+      result         <- apply[F](config, createKeyspace, createTables)
+    } yield result
+  }
+
+  def apply[F[_] : Monad](
+    config: SchemaConfig,
+    createKeyspace: CreateKeyspace[F],
+    createTables: CreateTables[F]
+  ): F[(Schema, Fresh)] = {
+
+    def createTables1 = {
       val keyspace = config.keyspace.name
 
       def tableName(table: CreateTables.Table) = TableName(keyspace = keyspace, table = table.name)
@@ -40,18 +55,18 @@ object CreateSchema {
 
       if (config.autoCreate) {
         for {
-          createTables <- CreateTables.of[F]
-          _            <- createTables(keyspace, Nel(journal, head, pointer, setting))
-        } yield schema
+          result <- createTables(keyspace, Nel(journal, head, pointer, setting))
+        } yield {
+          (schema, result)
+        }
       } else {
-        schema.pure[F]
+        (schema, false).pure[F]
       }
     }
 
     for {
-      _             <- CreateKeyspace[F](config.keyspace)
-      cassandraSync <- CassandraSync.of[F](config)
-      schema        <- createTables(cassandraSync)
-    } yield schema
+      _      <- createKeyspace(config.keyspace)
+      result <- createTables1
+    } yield result
   }
 }

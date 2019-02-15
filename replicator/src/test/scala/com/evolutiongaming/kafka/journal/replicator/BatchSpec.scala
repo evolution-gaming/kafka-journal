@@ -313,7 +313,8 @@ class BatchSpec extends FunSuite with Matchers {
         payloadType = PayloadType.Binary,
         origin = None,
         metadata = Metadata.Empty),
-      payload = Payload.Binary.Empty)
+      payload = Payload.Binary.Empty,
+      headers = Headers.Empty)
   }
 
   def deleteOf(seqNr: Int, origin: String): Action.Delete = {

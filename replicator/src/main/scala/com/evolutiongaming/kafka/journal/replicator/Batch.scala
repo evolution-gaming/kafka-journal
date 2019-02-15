@@ -19,7 +19,7 @@ object Batch {
     val result = records.foldLeft(List.empty[Batch]) { (bs, record) =>
       val partitionOffset = record.partitionOffset
 
-      def actionRecord[A <: Action](a: A) = ActionRecord(a, partitionOffset)
+      def actionRecord[A <: Action](a: A) = record.copy(action = a)
 
       def origin = {
         bs.foldRight(Option.empty[Origin]) { (b, origin) =>

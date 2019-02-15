@@ -8,6 +8,7 @@ import com.datastax.driver.core.BatchStatement
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.HeadersHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
@@ -33,10 +34,16 @@ object JournalStatement {
        |payload_type text,
        |payload_txt text,
        |payload_bin blob,
+       |headers map<text, text>,
        |PRIMARY KEY ((id, topic, segment), seq_nr, timestamp))
        |""".stripMargin
     //        WITH gc_grace_seconds =${gcGrace.toSeconds} TODO
     //        AND compaction = ${config.tableCompactionStrategy.asCQL}
+  }
+
+
+  def addHeaders(table: TableName): String = {
+    s"ALTER TABLE ${ table.toCql } ADD headers map<text, text>"
   }
 
 
@@ -61,8 +68,9 @@ object JournalStatement {
            |payload_type,
            |payload_txt,
            |payload_bin,
-           |metadata)
-           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           |metadata,
+           |headers)
+           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            |""".stripMargin
 
       for {
@@ -97,6 +105,7 @@ object JournalStatement {
               .encodeSome("payload_txt", txt)
               .encodeSome("payload_bin", bin)
               .encode("metadata", replicated.metadata)
+              .encode(replicated.headers)
             result
           }
 
@@ -136,7 +145,8 @@ object JournalStatement {
            |payload_type,
            |payload_txt,
            |payload_bin,
-           |metadata FROM ${ name.toCql }
+           |metadata,
+           |headers FROM ${ name.toCql }
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?
@@ -182,12 +192,15 @@ object JournalStatement {
 
               val metadata = row.decode[Option[Metadata]]("metadata") getOrElse Metadata.Empty
 
+              val headers = row.decode[Headers]
+
               ReplicatedEvent(
                 event = event,
                 timestamp = row.decode[Instant]("timestamp"),
                 origin = row.decode[Option[Origin]],
                 partitionOffset = partitionOffset,
-                metadata = metadata)
+                metadata = metadata,
+                headers = headers)
             }
           }
         }

@@ -25,7 +25,8 @@ final case class ReplicatedEvent(
   timestamp: Instant,
   partitionOffset: PartitionOffset,
   origin: Option[Origin] = None,
-  metadata: Metadata) {
+  metadata: Metadata,
+  headers: Headers) {
 
   def seqNr: SeqNr = event.seqNr
 
@@ -39,13 +40,17 @@ final case class ReplicatedEvent(
 object ReplicatedEvent {
 
   def apply(record: ActionRecord[Action.Append], event: Event): ReplicatedEvent = {
-    val action = record.action
+    apply(record.action, event, record.partitionOffset)
+  }
+
+  def apply(action: Action.Append, event: Event, partitionOffset: PartitionOffset): ReplicatedEvent = {
     ReplicatedEvent(
       event = event,
       timestamp = action.timestamp,
-      partitionOffset = record.partitionOffset,
+      partitionOffset = partitionOffset,
       origin = action.origin,
-      metadata = action.header.metadata)
+      metadata = action.header.metadata,
+      headers = action.headers)
   }
 }
 

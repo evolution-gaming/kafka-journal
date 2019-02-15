@@ -13,13 +13,14 @@ class CreateTablesSpec extends FunSuite with Matchers {
 
   test("create 1 table") {
     val initial = State.Empty
-    val (state, _) = createTables("keyspace", Nel(Table("table", "query"))).run(initial)
+    val (state, fresh) = createTables("keyspace", Nel(Table("table", "query"))).run(initial)
+    fresh shouldEqual true
     state shouldEqual initial.copy(
       actions = List(
         Action.SyncEnd,
         Action.Query,
         Action.SyncStart,
-        Action.Log("table")))
+        Action.Log("tables: table, fresh: true")))
   }
 
   test("create 2 tables and ignore 1") {
@@ -28,14 +29,15 @@ class CreateTablesSpec extends FunSuite with Matchers {
       Table("table1", "query"),
       Table("table2", "query"),
       Table("table3", "query"))
-    val (state, _) = createTables("keyspace", tables).run(initial)
+    val (state, fresh) = createTables("keyspace", tables).run(initial)
+    fresh shouldEqual false
     state shouldEqual initial.copy(
       actions = List(
         Action.SyncEnd,
         Action.Query,
         Action.Query,
         Action.SyncStart,
-        Action.Log("table2, table3")))
+        Action.Log("tables: table2,table3, fresh: false")))
   }
 
   test("create 2 tables") {
@@ -43,20 +45,22 @@ class CreateTablesSpec extends FunSuite with Matchers {
     val tables = Nel(
       Table("table1", "query"),
       Table("table2", "query"))
-    val (state, _) = createTables("unknown", tables).run(initial)
+    val (state, fresh) = createTables("unknown", tables).run(initial)
+    fresh shouldEqual true
     state shouldEqual initial.copy(
       actions = List(
         Action.SyncEnd,
         Action.Query,
         Action.Query,
         Action.SyncStart,
-        Action.Log("table1, table2")))
+        Action.Log("tables: table1,table2, fresh: true")))
   }
 
   test("no create tables") {
     val initial = State.Empty.copy(tables = Set("table"))
     val tables = Nel(Table("table", "query"))
-    val (state, _) = createTables("keyspace", tables).run(initial)
+    val (state, fresh) = createTables("keyspace", tables).run(initial)
+    fresh shouldEqual false
     state shouldEqual initial
   }
 

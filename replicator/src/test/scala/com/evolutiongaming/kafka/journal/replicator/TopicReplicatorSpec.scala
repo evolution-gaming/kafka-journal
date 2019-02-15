@@ -593,12 +593,12 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
   private def replicated(seqNr: Int, partition: Partition, offset: Offset) = {
     val partitionOffset = PartitionOffset(partition = partition, offset = offset)
     val event = Event(SeqNr(seqNr.toLong), Set(seqNr.toString))
-    ReplicatedEvent(event, timestamp, partitionOffset, Some(origin), metadata)
+    ReplicatedEvent(event, timestamp, partitionOffset, Some(origin), metadata, headers)
   }
 
   private def appendOf(key: Key, seqNrs: Nel[Int]) = {
     val events = seqNrs.map { seqNr => Event(SeqNr(seqNr.toLong), Set(seqNr.toString)) }
-    Action.Append(key, timestamp = timestamp, Some(origin), events, metadata)
+    Action.Append(key, timestamp = timestamp, Some(origin), events, metadata, headers)
   }
 
   private def markOf(key: Key) = {
@@ -619,6 +619,8 @@ object TopicReplicatorSpec {
   val origin = Origin("origin")
 
   val metadata = Metadata(Json.obj(("key", "value")).some)
+
+  val headers = Headers(("key", "value"))
 
   val replicationLatency: Long = 10
 

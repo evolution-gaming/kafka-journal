@@ -100,11 +100,8 @@ object TopicReplicator {
       val records = for {
         records <- consumerRecords.values.toList
         record  <- records
-        action  <- record.toAction
-      } yield {
-        val partitionOffset = PartitionOffset(record)
-        ActionRecord(action, partitionOffset)
-      }
+        action  <- record.toActionRecord
+      } yield action
 
       val ios = for {
         (key, records) <- records.groupBy(_.action.key)

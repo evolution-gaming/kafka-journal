@@ -32,7 +32,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           idx <- (0l to offsetLast).toList
           seqNr <- SeqNr.opt(idx + 1)
         } yield {
-          val action = Action.Append(key, timestamp, none, Nel(Event(seqNr)), metadata)
+          val action = appendOf(key, seqNr)
           ConsumerRecordOf(action, topicPartition, idx)
         }
       }
@@ -145,7 +145,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         offset <- (0l until offsetLast).toList
         seqNr <- SeqNr.opt(offset + 1)
       } yield {
-        val action = Action.Append(key, timestamp, none, Nel(Event(seqNr)), metadata)
+        val action = appendOf(key, seqNr)
         val record = ConsumerRecordOf(action, topicPartition, offset)
         ConsumerRecordsOf(List(record))
       }
@@ -213,7 +213,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
               for {
                 state <- state
               } yield {
-                val action = Action.Append(key, timestamp, none, Nel(Event(SeqNr.Min)), metadata)
+                val action = appendOf(key, SeqNr.Min)
                 val record = ConsumerRecordOf(action, topicPartition, offset)
                 val records = ConsumerRecordsOf(List(record))
                 state.copy(records = state.records.enqueue(records))
@@ -261,6 +261,12 @@ object HeadCacheSpec {
     cleanInterval = 100.millis)
 
   val metadata: Metadata = Metadata.Empty
+
+  val headers: Headers = Headers.Empty
+
+  def appendOf(key: Key, seqNr: SeqNr): Action.Append  = {
+    Action.Append(key, timestamp, none, Nel(Event(seqNr)), metadata, headers)
+  }
 
   def headCacheOf(
     consumer: IO[HeadCache.Consumer[IO]],

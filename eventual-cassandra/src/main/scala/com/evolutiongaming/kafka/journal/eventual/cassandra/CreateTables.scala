@@ -6,13 +6,16 @@ import com.evolutiongaming.kafka.journal.{Log, LogOf}
 import com.evolutiongaming.nel.Nel
 
 trait CreateTables[F[_]] {
-  import CreateTables.Table
+  import CreateTables.{Fresh, Table}
 
-  def apply(keyspace: String, tables: Nel[Table]): F[Unit]
+  def apply(keyspace: String, tables: Nel[Table]): F[Fresh]
 }
 
 
 object CreateTables { self =>
+
+  type Fresh = Boolean
+
 
   def apply[F[_]](implicit F: CreateTables[F]): CreateTables[F] = F
 
@@ -37,24 +40,27 @@ object CreateTables { self =>
         }
       }
 
-      def create(tables: List[Table]) = {
+      def create(tables1: List[Table]) = {
+        val fresh = tables1.length == tables.length
         for {
-          _      <- log.info(tables.map(_.name).mkString(", "))
-          result <- CassandraSync[F].apply {
-            tables.foldMapM { table =>
+          _ <- log.info(s"tables: ${tables1.map(_.name).mkString(",")}, fresh: $fresh")
+          _ <- CassandraSync[F].apply {
+            tables1.foldMapM { table =>
               CassandraSession[F].execute(table.query).void
             }
           }
-        } yield result
+        } yield {
+          tables1.length == tables.length
+        }
       }
 
       for {
         tables   <- tables.distinct.pure[F]
         metadata <- CassandraCluster[F].metadata
         keyspace <- metadata.keyspace(keyspace)
-        tables   <- keyspace.fold(tables.toList.pure[F])(missing)
-        result   <- if (tables.isEmpty) ().pure[F] else create(tables)
-      } yield result
+        tables1  <- keyspace.fold(tables.toList.pure[F])(missing)
+        fresh    <- if (tables1.isEmpty) false.pure[F] else create(tables1)
+      } yield fresh
     }
   }
 
@@ -65,6 +71,11 @@ object CreateTables { self =>
     } yield {
       apply[F](log)
     }
+  }
+
+
+  def const[F[_]](fresh: F[Fresh]): CreateTables[F] = new CreateTables[F] {
+    def apply(keyspace: String, tables: Nel[Table]) = fresh
   }
 
 

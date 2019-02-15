@@ -3,10 +3,11 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
+import cats.arrow.FunctionK
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.Setting.Key
 import com.evolutiongaming.kafka.journal.stream.Stream
-import com.evolutiongaming.kafka.journal.{ClockOf, HostName, Setting}
+import com.evolutiongaming.kafka.journal.{ClockOf, Log, Setting}
 import org.scalatest.{FunSuite, Matchers}
 
 class SettingsCassandraSpec extends FunSuite with Matchers {
@@ -15,6 +16,13 @@ class SettingsCassandraSpec extends FunSuite with Matchers {
     val (state, prev) = settings.set(setting.key, setting.value).run(State.Empty)
     state shouldEqual State(settings = Map((setting.key, setting)))
     prev shouldEqual None
+  }
+
+  test("setIfEmpty") {
+    val initial = State(settings = Map((setting.key, setting)))
+    val (state, current) = settings.setIfEmpty(setting.key, setting.value).run(initial)
+    state shouldEqual State(settings = Map((setting.key, setting)))
+    current shouldEqual setting.some
   }
 
   test("get") {
@@ -50,6 +58,10 @@ class SettingsCassandraSpec extends FunSuite with Matchers {
       _  = a shouldEqual None
       a <- settings.get(setting.key)
       _  = a shouldEqual Some(setting)
+      a <- settings.setIfEmpty(setting.key, setting.value)
+      _  = a shouldEqual Some(setting)
+      a <- settings.get(setting.key)
+      _  = a shouldEqual Some(setting)
       a <- settings.all.toList
       _  = a shouldEqual List(setting)
 
@@ -61,9 +73,11 @@ class SettingsCassandraSpec extends FunSuite with Matchers {
       _  = a shouldEqual Nil
       a <- settings.remove(setting.key)
       _  = a shouldEqual None
+      a <- settings.setIfEmpty(setting.key, setting.value)
+      _  = a shouldEqual None
     } yield {}
     val (state, _) = stateT.run(State.Empty)
-    state shouldEqual State.Empty
+    state shouldEqual State(settings = Map((setting.key, setting)))
   }
 
 
@@ -82,11 +96,6 @@ class SettingsCassandraSpec extends FunSuite with Matchers {
       }
     }
 
-    val all = StateT { state =>
-      val stream = Stream[StateT].apply(state.settings.values.toList)
-      (state, stream)
-    }
-
     val insert = new SettingStatement.Insert[StateT] {
       def apply(setting: Setting) = {
         StateT { state =>
@@ -94,6 +103,24 @@ class SettingsCassandraSpec extends FunSuite with Matchers {
           (state1, ())
         }
       }
+    }
+
+    val insertIfEmpty = new SettingStatement.InsertIfEmpty[StateT] {
+      def apply(setting: Setting) = {
+        StateT { state =>
+          state.settings.get(setting.key).fold {
+            val state1 = state.copy(settings = state.settings.updated(setting.key, setting))
+            (state1, true)
+          } { _ =>
+            (state, false)
+          }
+        }
+      }
+    }
+
+    val all = StateT { state =>
+      val stream = Stream[StateT].apply(state.settings.values.toList)
+      (state, stream)
     }
 
     val delete = new SettingStatement.Delete[StateT] {
@@ -107,13 +134,16 @@ class SettingsCassandraSpec extends FunSuite with Matchers {
 
     val statements = SettingsCassandra.Statements(
       select = select,
-      all = all,
       insert = insert,
+      insertIfEmpty = insertIfEmpty,
+      all = all,
       delete = delete)
 
     implicit val clock = ClockOf[StateT](timestamp.toEpochMilli)
 
-    SettingsCassandra[StateT](statements, Some(HostName("hostName")))
+    SettingsCassandra[StateT](statements, Some("hostName"))
+      .withLog(Log.empty)
+      .mapK(FunctionK.id[StateT], FunctionK.id[StateT])
   }
 
 

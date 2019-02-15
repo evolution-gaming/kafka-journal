@@ -24,9 +24,9 @@ object CassandraCluster {
 
     def session = {
       val session = for {
-        session <- FromFuture[F].apply { cassandra.connect() }
+        session  <- FromFuture[F].apply { cassandra.connect() }
+        session1 <- CassandraSession.of[F](session)
       } yield {
-        val session1 = CassandraSession[F](session)
         val session2 = CassandraSession[F](session1, retries)
         val release = FromFuture[F].apply { session.close() }
         (session2, release)

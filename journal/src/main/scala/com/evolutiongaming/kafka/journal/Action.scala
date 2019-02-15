@@ -28,7 +28,8 @@ object Action {
     key: Key,
     timestamp: Instant,
     header: ActionHeader.Append,
-    payload: Payload.Binary
+    payload: Payload.Binary,
+    headers: Headers
   ) extends User {
 
     def payloadType: PayloadType.BinaryOrJson = header.payloadType
@@ -42,12 +43,13 @@ object Action {
       timestamp: Instant,
       origin: Option[Origin],
       events: Nel[Event],
-      metadata: Metadata
+      metadata: Metadata,
+      headers: Headers
     ): Append = {
       val (payload, payloadType) = EventsToPayload(events)
       val range = SeqRange(from = events.head.seqNr, to = events.last.seqNr)
       val header = ActionHeader.Append(range, origin, payloadType, metadata)
-      Action.Append(key, timestamp, header, payload)
+      Action.Append(key, timestamp, header, payload, headers)
     }
   }
 

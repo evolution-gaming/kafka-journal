@@ -118,6 +118,29 @@ object SettingStatement {
   }
 
 
+  type InsertIfEmpty[F[_]] = Setting => F[Boolean]
+
+  object InsertIfEmpty {
+
+    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[InsertIfEmpty[F]] = {
+      val query = s"INSERT INTO ${ name.toCql } (key, value, timestamp, origin) VALUES (?, ?, ?, ?) IF NOT EXISTS"
+      for {
+        prepared <- query.prepare
+      } yield {
+        setting: Setting =>
+          val bound = prepared
+            .bind()
+            .encode(setting)
+          for {
+            result <- bound.execute
+          } yield {
+            result.head.fold(false) { _.decode[Boolean]("[applied]") }
+          }
+      }
+    }
+  }
+
+
   type Delete[F[_]] = Key => F[Unit]
 
   object Delete {

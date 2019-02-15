@@ -36,7 +36,7 @@ object EventualCassandra {
 
     for {
       log        <- LogOf[F].apply(EventualCassandra.getClass)
-      schema     <- CreateSchema[F](schemaConfig)
+      schema     <- SetupSchema[F](schemaConfig)
       statements <- Statements.of[F](schema)
     } yield {
       val journal = apply[F](statements)

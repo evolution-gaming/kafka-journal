@@ -20,6 +20,7 @@ object KafkaConverters {
 
   implicit class ActionOps(val self: Action) extends AnyVal {
 
+    // TODO test
     def toProducerRecord: ProducerRecord[Id, Bytes] = {
       val key = self.key
       val actionHeader = self.header
@@ -29,12 +30,23 @@ object KafkaConverters {
         case _: Action.Delete => None
         case _: Action.Mark   => None
       }
+
+      val headers = self match {
+        case a: Action.Append => for {
+          (key, value) <- a.headers.toList
+        } yield {
+          Header(key, value.toBytes)
+        }
+        case _: Action.Delete => List.empty[Header]
+        case _: Action.Mark   => List.empty[Header]
+      }
+
       ProducerRecord(
         topic = key.topic,
         value = payload,
         key = Some(key.id),
         timestamp = Some(self.timestamp),
-        headers = List(header))
+        headers = header :: headers)
     }
   }
 
@@ -48,6 +60,7 @@ object KafkaConverters {
       } yield header
     }
 
+    // TODO test
     def toAction: Option[Action] = {
       for {
         id               <- self.key
@@ -60,13 +73,29 @@ object KafkaConverters {
             for {
               value <- self.value
             } yield {
+              val headers = for {
+                header        <- self.headers
+                if header.key != `journal.action`
+              } yield {
+                val value = header.value.fromBytes[String]
+                (header.key, value)
+              }
               val payload = Payload.Binary(value.value)
-              Action.Append(key, timestamp, header, payload)
+              Action.Append(key, timestamp, header, payload, headers.toMap)
             }
           case header: ActionHeader.Delete => Some(Action.Delete(key, timestamp, header))
           case header: ActionHeader.Mark   => Some(Action.Mark(key, timestamp, header))
         }
       } yield action
+    }
+
+    def toActionRecord: Option[ActionRecord[Action]] = {
+      for {
+        action <- self.toAction
+      } yield {
+        val partitionOffset = PartitionOffset(self)
+        ActionRecord(action, partitionOffset)
+      }
     }
   }
 }
