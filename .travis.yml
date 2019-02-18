@@ -11,7 +11,9 @@ jdk:
 #  - oraclejdk11
   - openjdk11
 
-script: sbt --warn ++$TRAVIS_SCALA_VERSION clean coverage test
+script:
+  - sonar-scanner
+  - sbt --warn ++$TRAVIS_SCALA_VERSION clean coverage test
 
 after_success: sbt ++$TRAVIS_SCALA_VERSION coverageReport coverageAggregate coveralls
 
@@ -30,3 +32,9 @@ cache:
 before_cache:
   - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
   - find $HOME/.sbt        -name "*.lock"               -print -delete
+
+addons:
+  sonarcloud:
+    organization: "evolution-gaming"
+    token:
+      secure: "jMopO89iXGGz+BDg5bJFQCbHO5kLLPsAAJfAY6YNS12CRqbewbd2fZVBHzmWEo4dtI50AgGWuDmRrjT84Lh2+9N5R6/qia5Kx8YqBqApwFpDvmXILhBE5fF9hK8Odc+uwDoXjNpF7d5kMkRyzIRMSns+XdLkDomzMP0g7wz9CUqfRRrjW6gqbiMLg3kn3FRYAWA6EJbZSwZ57XKrhg8YpG/Nejlbs2wMk1RL0oKDMPTxMujkIwHv6mOvGdB6wm33INYA4tp4dkvmC8jFo/LwLD+c3NEwPpvUTAUPI2VzEpjrg71gMMfhUoMJvyOywL6NmhnNXCXeYgArGVOmAj1puRP2PI4SOeHmObet1k33lZ39po2DxnrWiwRGCyjfAKq2vjBxcuEjocdWXWFn39l1xVyewJ1frIxuI7njSkKOJ+pqWjjvq+LFI/PJfOpJtcZr3+2Fm5QXENC+Y4Oyepnf7f4xdHMOuStsBdtyItArt1YrghfEXmboe5+2A/YeWxf/9KMWJnAPTYBhCv4Gs8bpx7a2dxsrPh7Z30MpCYJrl+9TzctsZfC3PJzBvwY0GDXr8uqwZ01bu3PVzdrGBPfA8gMRKdNgmIAxqkgI1+nvKtkxA8uuUADxhaVFnmGiGI1psZKxIk2E44Zw7ixKtreORI6/k+/wbtoxLop4mNxdrdc="
