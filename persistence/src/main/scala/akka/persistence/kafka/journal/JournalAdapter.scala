@@ -13,7 +13,6 @@ import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.Consumer
 import com.evolutiongaming.skafka.producer.Producer
 import com.evolutiongaming.skafka.{ClientId, CommonConfig}
-import play.api.libs.json.JsValue
 
 import scala.collection.immutable.Seq
 import scala.concurrent.ExecutionContext
@@ -21,11 +20,7 @@ import scala.util.Try
 
 trait JournalAdapter[F[_]] {
 
-  def write(
-    aws: Seq[AtomicWrite],
-    metadata: Option[JsValue] = None,
-    headers: Headers = Headers.Empty
-  ): F[List[Try[Unit]]]
+  def write(aws: Seq[AtomicWrite]): F[List[Try[Unit]]]
 
   def delete(persistenceId: PersistenceId, to: SeqNr): F[Unit]
 
@@ -43,7 +38,8 @@ object JournalAdapter {
     config: KafkaJournalConfig,
     metrics: Metrics[F],
     log: Log[F],
-    batching: Batching[F]
+    batching: Batching[F],
+    metadataAndHeadersOf: MetadataAndHeadersOf[F]
   ): Resource[F, JournalAdapter[F]] = {
 
     def clientIdOf(config: CommonConfig) = config.clientId getOrElse "journal"
@@ -97,17 +93,18 @@ object JournalAdapter {
       eventualJournal  <- EventualCassandra.of[F](config.cassandra, metrics.eventual)
       journal          <- journal(eventualJournal)(kafkaConsumerOf1, kafkaProducerOf1, headCacheOf1)
     } yield {
-      JournalAdapter[F](journal, toKey, serializer).withBatching(batching)
+      JournalAdapter[F](journal, toKey, serializer, metadataAndHeadersOf).withBatching(batching)
     }
   }
 
   def apply[F[_] : Monad : Clock](
     journal: Journal[F],
     toKey: ToKey,
-    serializer: EventSerializer[cats.Id]
+    serializer: EventSerializer[cats.Id],
+    metadataAndHeadersOf: MetadataAndHeadersOf[F]
   ): JournalAdapter[F] = new JournalAdapter[F] {
 
-    def write(aws: Seq[AtomicWrite], metadata: Option[JsValue], headers: Headers) = {
+    def write(aws: Seq[AtomicWrite]) = {
       val prs = aws.flatMap(_.payload)
       Nel.opt(prs).fold {
         List.empty[Try[Unit]].pure[F]
@@ -116,7 +113,8 @@ object JournalAdapter {
         val key = toKey(persistenceId)
         val events = prs.map(serializer.toEvent)
         for {
-          _ <- journal.append(key, events, metadata, headers)
+          mah <- metadataAndHeadersOf(key, prs, events)
+          _   <- journal.append(key, events, mah.metadata, mah.headers)
         } yield List.empty[Try[Unit]]
       }
     }
@@ -163,9 +161,7 @@ object JournalAdapter {
 
     def mapK[G[_]](f: F ~> G): JournalAdapter[G] = new JournalAdapter[G] {
 
-      def write(aws: Seq[AtomicWrite], metadata: Option[JsValue], headers: Headers) = {
-        f(self.write(aws, metadata, headers))
-      }
+      def write(aws: Seq[AtomicWrite]) = f(self.write(aws))
 
       def delete(persistenceId: PersistenceId, to: SeqNr) = f(self.delete(persistenceId, to))
 
@@ -179,13 +175,13 @@ object JournalAdapter {
 
     def withBatching(batching: Batching[F])(implicit F : Monad[F]): JournalAdapter[F] = new JournalAdapter[F] {
 
-      def write(aws: Seq[AtomicWrite], metadata: Option[JsValue], headers: Headers) = {
-        if (aws.size <= 1) self.write(aws, metadata, headers)
+      def write(aws: Seq[AtomicWrite]) = {
+        if (aws.size <= 1) self.write(aws)
         else for {
           batches <- batching(aws.toList)
           results <- batches.foldLeftM(List.empty[List[Try[Unit]]]) { (results, group) =>
             for {
-              result <- self.write(group, metadata, headers)
+              result <- self.write(group)
             } yield {
               result :: results
             }

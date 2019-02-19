@@ -37,7 +37,8 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
       origin(),
       serializer(),
       config,
-      metrics())
+      metrics(),
+      metadataAndHeadersOf())
 
     val timeout = config.startTimeout
     val (adapter, release) = resource.allocated.unsafeRunTimed(timeout).getOrElse {
@@ -86,17 +87,28 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
 
   def metrics(): JournalAdapter.Metrics[IO] = JournalAdapter.Metrics.empty[IO]
 
+  def metadataAndHeadersOf(): MetadataAndHeadersOf[IO] = MetadataAndHeadersOf.empty[IO]
+
   def adapterOf(
     toKey: ToKey,
     origin: Option[Origin],
     serializer: EventSerializer[cats.Id],
     config: KafkaJournalConfig,
     metrics: JournalAdapter.Metrics[IO],
+    metadataAndHeadersOf: MetadataAndHeadersOf[IO],
   ): Resource[IO, JournalAdapter[IO]] = {
 
     val log1 = Log[IO](log)
     val batching = Batching.byNumberOfEvents[IO](config.maxEventsInBatch)
-    JournalAdapter.of[IO](toKey, origin, serializer, config, metrics, log1, batching)
+    JournalAdapter.of[IO](
+      toKey = toKey,
+      origin = origin,
+      serializer = serializer,
+      config = config,
+      metrics = metrics,
+      log = log1,
+      batching = batching,
+      metadataAndHeadersOf = metadataAndHeadersOf)
   }
 
   def asyncWriteMessages(atomicWrites: Seq[AtomicWrite]): Future[Seq[Try[Unit]]] = {

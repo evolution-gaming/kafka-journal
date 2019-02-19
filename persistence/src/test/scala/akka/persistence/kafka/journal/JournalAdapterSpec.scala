@@ -36,15 +36,19 @@ class JournalAdapterSpec extends FunSuite with Matchers {
     AtomicWrite(List(persistentRepr)),
     AtomicWrite(List(persistentRepr)))
 
+  private val metadataAndHeadersOf = {
+    val metadataAndHeaders = MetadataAndHeaders(metadata.data, headers)
+    MetadataAndHeadersOf.const(metadataAndHeaders.pure[StateT])
+  }
 
-  private val journalAdapter = JournalAdapter[StateT](StateT.JournalStateF, toKey, eventSerializer)
+  private val journalAdapter = JournalAdapter[StateT](StateT.JournalStateF, toKey, eventSerializer, metadataAndHeadersOf)
 
   private def appendOf(key: Key, events: Nel[Event]) = {
     Append(key, events, timestamp, metadata, headers)
   }
 
   test("write") {
-    val (data, result) = journalAdapter.write(aws, metadata.data, headers).run(State.Empty)
+    val (data, result) = journalAdapter.write(aws).run(State.Empty)
     result shouldEqual Nil
     data shouldEqual State(appends = List(appendOf(key1, Nel(event, event))))
   }
@@ -75,7 +79,7 @@ class JournalAdapterSpec extends FunSuite with Matchers {
     }
     val (data, result) = journalAdapter
       .withBatching(grouping)
-      .write(aws, metadata.data, headers).run(State.Empty)
+      .write(aws).run(State.Empty)
     result shouldEqual Nil
     data shouldEqual State(appends = List(
       appendOf(key1, Nel(event)),
