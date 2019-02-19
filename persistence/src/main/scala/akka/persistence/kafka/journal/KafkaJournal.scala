@@ -3,8 +3,9 @@ package akka.persistence.kafka.journal
 import akka.actor.ActorSystem
 import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.{AtomicWrite, PersistentRepr}
+import cats.effect._
+import cats.implicits._
 import cats.{Parallel, ~>}
-import cats.effect.{ContextShift, IO, Resource, Timer}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.typesafe.config.Config
@@ -32,13 +33,26 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
 
     log.debug(s"Config: $config")
 
-    val resource = adapterOf(
-      toKey(),
-      origin(),
-      serializer(),
-      config,
-      metrics(),
-      metadataAndHeadersOf())
+    val resource = {
+      val adapter = for {
+        toKey                <- toKey
+        origin               <- origin
+        metadataAndHeadersOf <- metadataAndHeadersOf
+        serializer           <- serializer
+        metrics              <- metrics
+        batching             <- batching(config)
+      } yield {
+        adapterOf(
+          toKey                = toKey,
+          origin               = origin,
+          serializer           = serializer,
+          config               = config,
+          metrics              = metrics,
+          metadataAndHeadersOf = metadataAndHeadersOf,
+          batching             = batching)
+      }
+      Resource.liftF(adapter).flatten
+    }
 
     val timeout = config.startTimeout
     val (adapter, release) = resource.allocated.unsafeRunTimed(timeout).getOrElse {
@@ -75,19 +89,26 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
   }
 
 
-  def toKey(): ToKey = ToKey(config)
+  def toKey: IO[ToKey] = ToKey(config).pure[IO]
 
   def kafkaJournalConfig(): KafkaJournalConfig = KafkaJournalConfig(config)
 
-  def origin(): Option[Origin] = Some {
-    Origin.HostName orElse Origin.AkkaHost(system) getOrElse Origin.AkkaName(system)
+  def origin: IO[Option[Origin]] = {
+    Sync[IO].delay {
+      val origin = Origin.HostName orElse Origin.AkkaHost(system) getOrElse Origin.AkkaName(system)
+      origin.some
+    }
   }
 
-  def serializer(): EventSerializer[cats.Id] = EventSerializer.unsafe(system)
+  def serializer: IO[EventSerializer[cats.Id]] = EventSerializer.unsafe(system).pure[IO]
 
-  def metrics(): JournalAdapter.Metrics[IO] = JournalAdapter.Metrics.empty[IO]
+  def metrics: IO[JournalAdapter.Metrics[IO]] = JournalAdapter.Metrics.empty[IO].pure[IO]
 
-  def metadataAndHeadersOf(): MetadataAndHeadersOf[IO] = MetadataAndHeadersOf.empty[IO]
+  def metadataAndHeadersOf: IO[MetadataAndHeadersOf[IO]] = MetadataAndHeadersOf.empty[IO].pure[IO]
+
+  def batching(config: KafkaJournalConfig): IO[Batching[IO]] = {
+    Batching.byNumberOfEvents[IO](config.maxEventsInBatch).pure[IO]
+  }
 
   def adapterOf(
     toKey: ToKey,
@@ -96,10 +117,9 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
     config: KafkaJournalConfig,
     metrics: JournalAdapter.Metrics[IO],
     metadataAndHeadersOf: MetadataAndHeadersOf[IO],
-  ): Resource[IO, JournalAdapter[IO]] = {
+    batching: Batching[IO]): Resource[IO, JournalAdapter[IO]] = {
 
     val log1 = Log[IO](log)
-    val batching = Batching.byNumberOfEvents[IO](config.maxEventsInBatch)
     JournalAdapter.of[IO](
       toKey = toKey,
       origin = origin,

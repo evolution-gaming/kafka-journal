@@ -10,17 +10,23 @@ trait ToKey {
 }
 
 object ToKey {
+  
   val Default: ToKey = ToKey("journal")
 
   val Identity: ToKey = new ToKey {
     def apply(persistenceId: PersistenceId) = Key(topic = persistenceId, id = persistenceId)
   }
 
+
   def apply(topic: Topic): ToKey = new ToKey {
     def apply(persistenceId: PersistenceId) = Key(topic = topic, id = persistenceId)
   }
 
   def apply(config: Config): ToKey = {
+    apply(config, Default)
+  }
+
+  def apply(config: Config, default: => ToKey): ToKey = {
 
     def apply(config: Config) = {
 
@@ -31,11 +37,11 @@ object ToKey {
       }
 
       def onConstantTopic() = {
-        config.getOpt[String]("constant-topic.topic").fold(Default) { topic => ToKey(topic) }
+        config.getOpt[String]("constant-topic.topic").fold(default) { topic => ToKey(topic) }
       }
 
       def apply(name: String): ToKey = {
-        config.getOpt[String](name).fold(Default) {
+        config.getOpt[String](name).fold(default) {
           case "constant-topic" => onConstantTopic()
           case "split"          => onSplit()
         }
@@ -44,8 +50,9 @@ object ToKey {
       apply("impl")
     }
 
-    config.getOpt[Config]("persistence-id-to-key").fold(Default)(apply)
+    config.getOpt[Config]("persistence-id-to-key").fold(default)(apply)
   }
+
 
   def split(separator: String, fallback: ToKey): ToKey = new ToKey {
 
