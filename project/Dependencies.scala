@@ -12,7 +12,7 @@ object Dependencies {
   val nel                  = "com.evolutiongaming" %% "nel" % "1.3.3"
   val `future-helper`      = "com.evolutiongaming" %% "future-helper" % "1.0.3"
   val `safe-actor`         = "com.evolutiongaming" %% "safe-actor" % "2.0.3"
-  val `kafka-launcher`     = "com.evolutiongaming" %% "kafka-launcher" % "0.0.5"
+  val `kafka-launcher`     = "com.evolutiongaming" %% "kafka-launcher" % "0.0.6"
   val `cassandra-launcher` = "com.evolutiongaming" %% "cassandra-launcher" % "0.0.2"
   val hostname             = "com.evolutiongaming" %% "hostname" % "0.1.1"
   val scassandra           = "com.evolutiongaming" %% "scassandra" % "0.0.10"
@@ -46,9 +46,15 @@ object Dependencies {
     val `persistence-tck` = "com.typesafe.akka" %% "akka-persistence-tck" % version
     val slf4j             = "com.typesafe.akka" %% "akka-slf4j"           % version
   }
+  
+  object Kafka {
+    private val version = "2.1.1"
+    val kafka           = "org.apache.kafka" %% "kafka" % version
+    val `kafka-clients` = "org.apache.kafka" %  "kafka-clients" % version
+  }
 
   object Skafka {
-    private val version = "3.0.6"
+    private val version = "3.0.7"
     val skafka      = "com.evolutiongaming" %% "skafka"            % version
     val prometheus  = "com.evolutiongaming" %% "skafka-prometheus" % version
   }

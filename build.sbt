@@ -144,6 +144,7 @@ lazy val journal = (project in file("journal")
     Akka.stream,
     Akka.testkit % Test,
     Akka.slf4j % Test,
+    Kafka.`kafka-clients`,
     Skafka.skafka,
     scalatest % Test,
     `executor-tools`,
@@ -180,6 +181,7 @@ lazy val `tests` = (project in file("tests")
     persistence % "test->test;compile->compile",
     replicator)
   settings (libraryDependencies ++= Seq(
+    Kafka.kafka % Test,
     `kafka-launcher` % Test,
     `cassandra-launcher` % Test,
     scalatest % Test,
