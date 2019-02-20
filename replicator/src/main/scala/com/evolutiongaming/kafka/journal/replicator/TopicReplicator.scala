@@ -228,26 +228,35 @@ object TopicReplicator {
     def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = {
       consumer.commit(offsets).handleErrorWith { error =>
 
-        val partitions = offsets.keySet.map(_.partition)
+        val commit = offsets.keySet.map(_.partition)
+
+        def assignment = for {
+          topicPartitions <- consumer.assignment
+        } yield for {
+          topicPartition <- topicPartitions
+        } yield {
+          topicPartition.partition
+        }
 
         def str(partitions: Set[Partition]) = partitions.mkString("[", ",", "]")
 
-        def compare(name: String, ps: F[Set[Partition]]) = {
-          val fa = for {
-            ps      <- ps
-            removed  = partitions -- ps
-            added    = ps -- partitions
-            _       <- Log[F].warn(s"$name: +${ str(added) }, -${ str(removed) }")
-          } yield {}
-          fa.handleErrorWith { error =>
-            Log[F].error(s"$name failed with $error", error)
-          }
+        def diff(before: Set[Partition], after: Set[Partition]) = {
+          val removed = before -- after
+          val added = after -- before
+          s"+${ str(added) }, -${ str(removed) }"
         }
 
         for {
-          _ <- Log[F].warn(s"partitions: ${ str(partitions) }")
-          _ <- compare("consumer.assignment", consumer.assignment.map(_.map(_.partition)))
-          _ <- compare("consumer.poll", consumer.poll.map(_.values.keySet.map(_.partition)))
+          before <- assignment
+          poll   <- consumer.poll.map(_.values.keySet.map(_.partition))
+          after  <- assignment
+          _      <- Log[F].warn {
+            s"commit: ${ str(commit) }; " +
+              s"poll: ${ str(poll) }; " +
+              s"diff: ${ diff(before = before, after = after) }; " +
+              s"before: ${ str(before) }; " +
+              s"after: ${ str(after) }"
+          }
           result <- error.raiseError[F, Unit]
         } yield result
       }
