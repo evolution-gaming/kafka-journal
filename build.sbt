@@ -154,6 +154,7 @@ lazy val journal = (project in file("journal")
     `future-helper`,
     `safe-actor`,
     hostname,
+    `cassandra-driver`,
     scassandra,
     `cassandra-sync`,
     `scala-java8-compat`,
