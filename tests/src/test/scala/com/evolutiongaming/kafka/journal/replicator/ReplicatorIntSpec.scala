@@ -37,7 +37,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       val config = Sync[F].delay { EventualCassandraConfig(conf.getConfig("cassandra")) }
       for {
         config          <- Resource.liftF[F, EventualCassandraConfig](config)
-        eventualJournal <- EventualCassandra.of[F](config, None)
+        eventualJournal <- EventualCassandra.of[F](config, None, executor)
       } yield eventualJournal
     }
 

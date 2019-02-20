@@ -31,7 +31,7 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
   lazy val ((eventual, producer), release) = {
     implicit val logOf = LogOf.empty[IO]
     val resource = for {
-      eventualJournal <- EventualCassandra.of[IO](config.cassandra, None)
+      eventualJournal <- EventualCassandra.of[IO](config.cassandra, None, executor)
       producer   <- Journal.Producer.of[IO](config.journal.producer)
     } yield {
       (eventualJournal, producer)

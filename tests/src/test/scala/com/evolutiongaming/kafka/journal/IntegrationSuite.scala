@@ -48,7 +48,7 @@ object IntegrationSuite {
 
       for {
         config  <- Resource.liftF(config)
-        result  <- Replicator.of[F](config)
+        result  <- Replicator.of[F](config, executor)
         result1  = result.onError { case e => log.error(s"failed to release replicator with $e", e) }
         _       <- ResourceOf(Concurrent[F].start(result1))
       } yield {}

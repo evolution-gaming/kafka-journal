@@ -11,11 +11,11 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 object IOSuite {
   val Timeout: FiniteDuration = 5.seconds
 
-  implicit val executionContextExecutor: ExecutionContextExecutor = ExecutionContext.global
-  
-  implicit val contextShiftIO: ContextShift[IO] = IO.contextShift(executionContextExecutor)
+  implicit val executor: ExecutionContextExecutor = ExecutionContext.global
+
+  implicit val contextShiftIO: ContextShift[IO] = IO.contextShift(executor)
   implicit val concurrentIO: Concurrent[IO]     = IO.ioConcurrentEffect
-  implicit val timerIO: Timer[IO]               = IO.timer(executionContextExecutor)
+  implicit val timerIO: Timer[IO]               = IO.timer(executor)
   implicit val parallel: Parallel[IO, IO.Par]   = IO.ioParallel
 
   def runIO[A](io: IO[A], timeout: FiniteDuration = Timeout): Future[Succeeded.type] = {

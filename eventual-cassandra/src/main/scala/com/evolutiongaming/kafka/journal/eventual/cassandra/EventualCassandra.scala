@@ -9,13 +9,16 @@ import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.kafka.journal.util.{FromFuture, ToFuture}
 import com.evolutiongaming.skafka.Topic
 
+import scala.concurrent.ExecutionContextExecutor
+
 
 // TODO test EventualCassandra
 object EventualCassandra {
 
   def of[F[_] : Concurrent : Par : Clock : FromFuture : ToFuture : LogOf](
     config: EventualCassandraConfig,
-    metrics: Option[EventualJournal.Metrics[F]]
+    metrics: Option[EventualJournal.Metrics[F]],
+    executor: ExecutionContextExecutor
   ): Resource[F, EventualJournal[F]] = {
 
     def journal(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
@@ -23,7 +26,7 @@ object EventualCassandra {
     }
 
     for {
-      cassandraCluster <- CassandraCluster.of[F](config.client, config.retries)
+      cassandraCluster <- CassandraCluster.of[F](config.client, config.retries, executor)
       cassandraSession <- cassandraCluster.session
       journal          <- Resource.liftF(journal(cassandraCluster, cassandraSession))
     } yield journal

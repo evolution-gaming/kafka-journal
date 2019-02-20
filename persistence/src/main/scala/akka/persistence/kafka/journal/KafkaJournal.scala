@@ -18,11 +18,11 @@ import scala.util.control.NonFatal
 class KafkaJournal(config: Config) extends AsyncWriteJournal {
 
   implicit val system: ActorSystem = context.system
-  implicit val ec: ExecutionContextExecutor = context.dispatcher
+  implicit val executor: ExecutionContextExecutor = context.dispatcher
 
-  implicit val contextShift: ContextShift[IO] = IO.contextShift(ec)
+  implicit val contextShift: ContextShift[IO] = IO.contextShift(executor)
   implicit val parallel: Parallel[IO, IO.Par] = IO.ioParallel(contextShift)
-  implicit val timer: Timer[IO]               = IO.timer(ec)
+  implicit val timer: Timer[IO]               = IO.timer(executor)
   implicit val logOf: LogOf[IO]               = LogOf[IO](system)
   implicit val randomId: RandomId[IO]         = RandomId.uuid[IO]
 
@@ -128,7 +128,8 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
       metrics = metrics,
       log = log1,
       batching = batching,
-      metadataAndHeadersOf = metadataAndHeadersOf)
+      metadataAndHeadersOf = metadataAndHeadersOf,
+      executor = executor)
   }
 
   def asyncWriteMessages(atomicWrites: Seq[AtomicWrite]): Future[Seq[Try[Unit]]] = {

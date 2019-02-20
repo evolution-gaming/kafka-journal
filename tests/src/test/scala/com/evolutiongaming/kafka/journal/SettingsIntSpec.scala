@@ -55,7 +55,7 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
     for {
       system           <- system
       config           <- Resource.liftF(config(system))
-      cassandraCluster <- CassandraCluster.of[F](config.client, config.retries)
+      cassandraCluster <- CassandraCluster.of[F](config.client, config.retries, executor)
       cassandraSession <- cassandraCluster.session
       settings         <- Resource.liftF(settings(config.schema)(cassandraCluster, cassandraSession))
     } yield settings

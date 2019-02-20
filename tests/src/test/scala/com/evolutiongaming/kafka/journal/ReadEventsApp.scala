@@ -10,7 +10,7 @@ import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig}
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 import scala.concurrent.duration._
 
 object ReadEventsApp extends IOApp {
@@ -22,7 +22,7 @@ object ReadEventsApp extends IOApp {
   }
 
   private def runF[F[_] : Concurrent : ContextShift : Timer : Clock : FromFuture : ToFuture : Par](
-    implicit ec: ExecutionContext
+    implicit executor: ExecutionContextExecutor
   ): F[Unit] = {
 
     for {
@@ -31,7 +31,7 @@ object ReadEventsApp extends IOApp {
       result <- {
         implicit val logOf1 = logOf
         implicit val log1 = log
-        runF[F](ec, log).handleErrorWith { error =>
+        runF[F](executor, log).handleErrorWith { error =>
           log.error(s"failed with $error", error)
         }
       }
@@ -40,11 +40,13 @@ object ReadEventsApp extends IOApp {
   }
 
   private def runF[F[_] : Concurrent : ContextShift : Timer : Clock : FromFuture : ToFuture : Par : LogOf : Log](
-    blocking: ExecutionContext, log: Log[F]): F[Unit] = {
+    executor: ExecutionContextExecutor,
+    log: Log[F]
+  ): F[Unit] = {
 
-    implicit val kafkaConsumerOf = KafkaConsumerOf[F](blocking)
+    implicit val kafkaConsumerOf = KafkaConsumerOf[F](executor)
 
-    implicit val kafkaProducerOf = KafkaProducerOf[F](blocking)
+    implicit val kafkaProducerOf = KafkaProducerOf[F](executor)
 
     implicit val randomId = RandomId.uuid[F]
 
@@ -74,7 +76,7 @@ object ReadEventsApp extends IOApp {
           password = "password"))))
 
     val journal = for {
-      eventualJournal <- EventualCassandra.of[F](eventualCassandraConfig, None)
+      eventualJournal <- EventualCassandra.of[F](eventualCassandraConfig, None, executor)
       headCache       <- HeadCache.of[F](consumerConfig, eventualJournal, None)
       producer        <- Journal.Producer.of[F](producerConfig)
     } yield {

@@ -20,8 +20,8 @@ object FromFuture {
   def apply[F[_]](implicit F: FromFuture[F]): FromFuture[F] = F
   
 
-  implicit def lift[F[_] : Applicative : Async](implicit ec: ExecutionContextExecutor): FromFuture[F] = {
-    
+  implicit def lift[F[_] : Applicative : Async](implicit executor: ExecutionContextExecutor): FromFuture[F] = {
+
     new FromFuture[F] {
 
       def apply[A](future: => Future[A])() = {
@@ -48,7 +48,7 @@ object FromFuture {
               def onSuccess(a: A) = callback(a.asRight)
               def onFailure(t: Throwable) = callback(t.asLeft)
             }
-            Futures.addCallback(future, futureCallback, ec)
+            Futures.addCallback(future, futureCallback, executor)
           }
         } yield result
       }

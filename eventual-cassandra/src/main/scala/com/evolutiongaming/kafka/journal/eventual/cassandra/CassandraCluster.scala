@@ -2,9 +2,10 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.effect.{Concurrent, Resource, Sync}
 import cats.implicits._
-import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.util.FromFuture
 import com.evolutiongaming.scassandra.{CassandraConfig, Cluster, CreateCluster}
+
+import scala.concurrent.ExecutionContextExecutor
 
 trait CassandraCluster[F[_]] {
 
@@ -45,12 +46,13 @@ object CassandraCluster {
 
   def of[F[_] : Concurrent : FromFuture](
     config: CassandraConfig,
-    retries: Int
+    retries: Int,
+    executor: ExecutionContextExecutor
   ): Resource[F, CassandraCluster[F]] = {
 
     for {
       cassandra <- Resource.make {
-        Sync[F].delay { CreateCluster(config)(CurrentThreadExecutionContext /*TODO pass ec*/  ) }
+        Sync[F].delay { CreateCluster(config)(executor) }
       } { cassandra =>
         FromFuture[F].apply { cassandra.close() }
       }

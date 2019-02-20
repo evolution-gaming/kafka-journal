@@ -15,7 +15,7 @@ import com.evolutiongaming.skafka.producer.Producer
 import com.evolutiongaming.skafka.{ClientId, CommonConfig}
 
 import scala.collection.immutable.Seq
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 import scala.util.Try
 
 trait JournalAdapter[F[_]] {
@@ -39,7 +39,8 @@ object JournalAdapter {
     metrics: Metrics[F],
     log: Log[F],
     batching: Batching[F],
-    metadataAndHeadersOf: MetadataAndHeadersOf[F]
+    metadataAndHeadersOf: MetadataAndHeadersOf[F],
+    executor: ExecutionContextExecutor
   ): Resource[F, JournalAdapter[F]] = {
 
     def clientIdOf(config: CommonConfig) = config.clientId getOrElse "journal"
@@ -90,7 +91,7 @@ object JournalAdapter {
       kafkaProducerOf1  = kafkaProducerOf(blocking)
       kafkaConsumerOf1  = kafkaConsumerOf(blocking)
       headCacheOf1      = headCacheOf(kafkaConsumerOf1)
-      eventualJournal  <- EventualCassandra.of[F](config.cassandra, metrics.eventual)
+      eventualJournal  <- EventualCassandra.of[F](config.cassandra, metrics.eventual, executor)
       journal          <- journal(eventualJournal)(kafkaConsumerOf1, kafkaProducerOf1, headCacheOf1)
     } yield {
       JournalAdapter[F](journal, toKey, serializer, metadataAndHeadersOf).withBatching(batching)

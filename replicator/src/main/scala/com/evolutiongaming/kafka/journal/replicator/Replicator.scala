@@ -17,6 +17,7 @@ import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Topic, Bytes => _}
 
+import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
 
 // TODO TEST
@@ -29,8 +30,10 @@ object Replicator {
 
   def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf : KafkaConsumerOf](
     config: ReplicatorConfig,
+    executor: ExecutionContextExecutor,
     hostName: Option[HostName] = HostName(),
-    metrics: Option[Metrics[F]] = none): Resource[F, F[Unit]] = {
+    metrics: Option[Metrics[F]] = none
+  ): Resource[F, F[Unit]] = {
 
     implicit val clock = Timer[F].clock
 
@@ -39,7 +42,7 @@ object Replicator {
     }
 
     for {
-      cassandraCluster  <- CassandraCluster.of(config.cassandra.client, config.cassandra.retries)
+      cassandraCluster  <- CassandraCluster.of(config.cassandra.client, config.cassandra.retries, executor)
       cassandraSession  <- cassandraCluster.session
       replicatedJournal <- Resource.liftF(replicatedJournal(cassandraCluster, cassandraSession))
       result            <- of(config, metrics, replicatedJournal, hostName)

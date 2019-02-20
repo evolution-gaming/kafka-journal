@@ -11,6 +11,7 @@ import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Topic
 import com.typesafe.config.ConfigFactory
 
+import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
 
 object AppendReplicateApp extends IOApp {
@@ -32,7 +33,9 @@ object AppendReplicateApp extends IOApp {
 
   private def runF[F[_] : Concurrent : Timer : Par : ContextShift : FromFuture : ToFuture : Runtime](
     topic: Topic)(implicit
-    system: ActorSystem): F[Unit] = {
+    system: ActorSystem,
+    executor: ExecutionContextExecutor
+  ): F[Unit] = {
 
     implicit val logOf = LogOf[F](system)
     implicit val randomId = RandomId.uuid[F]
@@ -70,7 +73,7 @@ object AppendReplicateApp extends IOApp {
       }
       for {
         config <- Resource.liftF(config)
-        result <- Replicator.of[F](config)
+        result <- Replicator.of[F](config, executor)
       } yield result
     }
 
