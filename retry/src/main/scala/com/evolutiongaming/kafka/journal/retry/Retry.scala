@@ -1,8 +1,11 @@
 package com.evolutiongaming.kafka.journal.retry
 
-import cats.effect.{Bracket, Timer}
+import java.time.Instant
+
+import cats.effect.{Bracket, Clock, Timer}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.CatsHelper._
+import com.evolutiongaming.kafka.journal.ClockHelper._
 import com.evolutiongaming.kafka.journal.rng.Rng
 
 import scala.concurrent.duration._
@@ -14,49 +17,79 @@ trait Retry[F[_]] {
 
 object Retry {
 
-  type Decide = Status => StrategyDecision
-
   def apply[F[_]](implicit F: Retry[F]): Retry[F] = F
 
 
-  def apply[F[_] : Sleep, E](
+  def apply[F[_] : Timer, E](
     strategy: Strategy)(
-    onError: (E, Details) => F[Unit])(implicit bracket: Bracket[F, E]): Retry[F] = {
+    onError: (E, Details) => F[Unit])(implicit
+    bracket: Bracket[F, E]
+  ): Retry[F] = {
 
     type S = (Status, Decide)
 
-    new Retry[F] {
-      def apply[A](fa: F[A]) = {
+    def retry[A](status: Status, decide: Decide, error: E): F[Either[S, A]] = {
 
-        (Status.Empty, strategy.decide).tailRecM[F, A] { case (status, decide) =>
+      def onError1(status: Status, decision: StrategyDecision) = {
+        val details = Details(decision, status.retries)
+        onError(error, details)
+      }
 
-          def retry(e: E): F[Either[S, A]] = {
-            val decision = decide(status)
-            val details = Details(decision, status.retries)
+      for {
+        now      <- Clock[F].instant
+        decision  = decide(status, now)
+        result   <- decision match {
+          case StrategyDecision.GiveUp =>
             for {
-              _ <- onError(e, details)
-              a <- decision match {
-                case StrategyDecision.GiveUp =>
-                  e.raiseError[F, Either[S, A]]
+              _      <- onError1(status, decision)
+              result <- error.raiseError[F, Either[S, A]]
+            } yield result
 
-                case StrategyDecision.Retry(delay, decide) =>
-                  for {
-                    _ <- Sleep[F].apply(delay)
-                  } yield {
-                    (status.plus(delay), decide).asLeft[A]
-                  }
-              }
-            } yield a
-          }
-
-          fa.redeemWith(retry)(_.asRight[(Status, Decide)].pure[F])
+          case StrategyDecision.Retry(delay, status, decide) =>
+            for {
+              _ <- onError1(status, decision)
+              _ <- Timer[F].sleep(delay)
+            } yield {
+              (status.plus(delay), decide).asLeft[A]
+            }
         }
+      } yield result
+    }
+
+    new Retry[F] {
+
+      def apply[A](fa: F[A]) = {
+        for {
+          now    <- Clock[F].instant
+          zero    = (Status.empty(now), strategy.decide)
+          result <- zero.tailRecM[F, A] { case (status, decide) =>
+            fa.redeemWith { error =>
+              retry[A](status, decide, error)
+            } { result =>
+              result.asRight[(Status, Decide)].pure[F]
+            }
+          }
+        } yield result
       }
     }
   }
 
+
   def empty[F[_]]: Retry[F] = new Retry[F] {
     def apply[A](fa: F[A]) = fa
+  }
+
+
+  trait Decide {
+    def apply(status: Status, now: Instant): StrategyDecision
+  }
+
+  object Decide {
+
+    // TODO rename
+    def tmp(decision: StrategyDecision): Decide = new Decide {
+      def apply(status: Status, now: Instant): StrategyDecision = decision
+    }
   }
 
 
@@ -65,75 +98,114 @@ object Retry {
   object Strategy {
 
     def const(delay: FiniteDuration): Strategy = {
-      def decide: Decide = (_: Status) => StrategyDecision.retry(delay, decide)
+      def decide: Decide = new Decide {
+        def apply(status: Status, now: Instant) = {
+          StrategyDecision.retry(delay, status, decide)
+        }
+      }
 
       Strategy(decide)
     }
 
+
     def fibonacci(initial: FiniteDuration): Strategy = {
       val unit = initial.unit
 
-      def apply(a: Long, b: Long): Decide = {
-        _: Status => StrategyDecision.retry(FiniteDuration(b, unit), apply(b, a + b))
-      }
+      def recur(a: Long, b: Long): Decide = new Decide {
 
-      Strategy(apply(0, initial.length))
-    }
-
-    def cap(max: FiniteDuration, strategy: Strategy): Strategy = {
-
-      def apply(decide: Decide): Decide = {
-        status: Status => {
-          decide(status) match {
-            case StrategyDecision.GiveUp               => StrategyDecision.giveUp
-            case StrategyDecision.Retry(delay, decide) =>
-              if (delay <= max) StrategyDecision.retry(delay, apply(decide))
-              else StrategyDecision.retry(max, const(max).decide)
-          }
+        def apply(status: Status, now: Instant) = {
+          val delay = FiniteDuration(b, unit)
+          StrategyDecision.retry(delay, status, recur(b, a + b))
         }
       }
 
-      Strategy(apply(strategy.decide))
+      Strategy(recur(0, initial.length))
     }
 
-    def limit(max: FiniteDuration, strategy: Strategy): Strategy = {
-
-      def apply(decide: Decide): Decide = {
-        status: Status => {
-          decide(status) match {
-            case StrategyDecision.GiveUp               => StrategyDecision.giveUp
-            case StrategyDecision.Retry(delay, decide) =>
-              if (status.delay + delay > max) StrategyDecision.giveUp
-              else StrategyDecision.retry(delay, apply(decide))
-          }
-        }
-      }
-
-      Strategy(apply(strategy.decide))
-    }
 
     /**
       * See https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
       */
     def fullJitter(initial: FiniteDuration, rng: Rng): Strategy = {
 
-      def apply(rng: Rng): Decide = {
-        status: Status => {
+      def recur(rng: Rng): Decide = new Decide {
+
+        def apply(status: Status, now: Instant) = {
           val e = math.pow(2.toDouble, status.retries + 1d)
           val max = initial.length * e
           val (double, rng1) = rng.double
           val delay = (max * double).toLong max initial.length
           val duration = FiniteDuration(delay, initial.unit)
-          StrategyDecision.retry(duration, apply(rng1))
+          StrategyDecision.retry(duration, status, recur(rng1))
         }
       }
 
-      Strategy(apply(rng))
+      Strategy(recur(rng))
+    }
+
+
+    def cap(strategy: Strategy, max: FiniteDuration): Strategy = {
+
+      def recur(decide: Decide): Decide = new Decide {
+
+        def apply(status: Status, now: Instant) = {
+          decide(status, now) match {
+            case StrategyDecision.GiveUp                       => StrategyDecision.giveUp
+            case StrategyDecision.Retry(delay, status, decide) =>
+              if (delay <= max) StrategyDecision.retry(delay, status, recur(decide))
+              else StrategyDecision.retry(max, status, const(max).decide)
+          }
+        }
+      }
+
+      Strategy(recur(strategy.decide))
+    }
+
+
+    def limit(strategy: Strategy, max: FiniteDuration): Strategy = {
+
+      def recur(decide: Decide): Decide = new Decide {
+
+        def apply(status: Status, now: Instant) = {
+          decide(status, now) match {
+            case StrategyDecision.GiveUp                       => StrategyDecision.giveUp
+            case StrategyDecision.Retry(delay, status, decide) =>
+              if (status.delay + delay > max) StrategyDecision.giveUp
+              else StrategyDecision.retry(delay, status, recur(decide))
+          }
+        }
+      }
+
+      Strategy(recur(strategy.decide))
+    }
+
+
+    def resetAfter(strategy: Strategy, cooldown: FiniteDuration): Strategy = {
+
+      def recur(decide: Decide): Decide = new Decide {
+
+        def apply(status: Status, now: Instant) = {
+
+          val reset = status.last.toEpochMilli + cooldown.toMillis <= now.toEpochMilli
+
+          val result = {
+            if (reset) {
+              val status = Status.empty(now)
+              strategy.decide(status, now)
+            } else {
+              decide(status, now)
+            }
+          }
+          result.mapDecide(recur)
+        }
+      }
+
+      Strategy(recur(strategy.decide))
     }
   }
 
 
-  final case class Status(retries: Int, delay: FiniteDuration) { self =>
+  final case class Status(retries: Int, delay: FiniteDuration, last: Instant) { self =>
 
     def plus(delay: FiniteDuration): Status = {
       copy(retries = retries + 1, delay = self.delay + delay)
@@ -141,7 +213,7 @@ object Retry {
   }
 
   object Status {
-    val Empty: Status = Status(0, Duration.Zero)
+    def empty(last: Instant): Status = Status(0, Duration.Zero, last)
   }
 
 
@@ -151,8 +223,8 @@ object Retry {
 
     def apply(decision: Retry.StrategyDecision, retries: Int): Details = {
       val decision1 = decision match {
-        case StrategyDecision.Retry(delay, _) => Decision.retry(delay)
-        case StrategyDecision.GiveUp          => Decision.giveUp
+        case StrategyDecision.Retry(delay, _, _) => Decision.retry(delay)
+        case StrategyDecision.GiveUp             => Decision.giveUp
       }
       apply(decision1, retries)
     }
@@ -178,37 +250,37 @@ object Retry {
 
   object StrategyDecision {
 
-    def retry(delay: FiniteDuration, decide: Decide): StrategyDecision = Retry(delay, decide)
+    def retry(delay: FiniteDuration, status: Status, decide: Decide): StrategyDecision = {
+      Retry(delay, status, decide)
+    }
 
     def giveUp: StrategyDecision = GiveUp
 
 
-    final case class Retry(delay: FiniteDuration, decide: Decide) extends StrategyDecision
+    final case class Retry(delay: FiniteDuration, status: Status, decide: Decide) extends StrategyDecision
 
     case object GiveUp extends StrategyDecision
-  }
 
 
-  trait Sleep[F[_]] {
+    implicit class StrategyDecisionOps(val self: StrategyDecision) extends AnyVal {
 
-    def apply(duration: FiniteDuration): F[Unit]
-  }
-
-  object Sleep {
-
-    def apply[F[_]](implicit F: Sleep[F]): Sleep[F] = F
-
-    implicit def fromTimer[F[_] : Timer]: Sleep[F] = new Sleep[F] {
-      def apply(duration: FiniteDuration) = Timer[F].sleep(duration)
+      def mapDecide(f: Decide => Decide): StrategyDecision = {
+        self match {
+          case StrategyDecision.GiveUp   => StrategyDecision.giveUp
+          case a: StrategyDecision.Retry => a.copy(decide = f(a.decide))
+        }
+      }
     }
   }
 
 
   implicit class StrategyOps(val self: Strategy) extends AnyVal {
 
-    def cap(max: FiniteDuration): Strategy = Strategy.cap(max, self)
+    def cap(max: FiniteDuration): Strategy = Strategy.cap(self, max)
 
-    def limit(max: FiniteDuration): Strategy = Strategy.limit(max, self)
+    def limit(max: FiniteDuration): Strategy = Strategy.limit(self, max)
+
+    def resetAfter(cooldown: FiniteDuration): Strategy = Strategy.resetAfter(self, cooldown)
   }
 }
 

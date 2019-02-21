@@ -1,13 +1,15 @@
 package com.evolutiongaming.kafka.journal.retry
 
 import cats._
-import cats.effect.{Bracket, ExitCase}
+import cats.effect.{Bracket, ExitCase, Timer}
 import cats.implicits._
+import com.evolutiongaming.kafka.journal.ClockOf
 import com.evolutiongaming.kafka.journal.retry.Retry._
 import com.evolutiongaming.kafka.journal.rng.Rng
 import org.scalatest.{FunSuite, Matchers}
 
 import scala.annotation.tailrec
+import scala.compat.Platform
 import scala.concurrent.duration._
 
 class RetrySpec extends FunSuite with Matchers {
@@ -49,11 +51,8 @@ class RetrySpec extends FunSuite with Matchers {
   }
 
   test("fullJitter") {
-    val policy = {
-      val rng = Rng(12345l)
-      val strategy = Strategy.fullJitter(5.millis, rng)
-      Strategy.cap(200.millis, strategy)
-    }
+    val rng = Rng(12345l)
+    val policy = Strategy.fullJitter(5.millis, rng).cap(200.millis)
 
     val call = StateT { _.call }
     val result = Retry(policy)(onError).apply(call)
@@ -100,6 +99,46 @@ class RetrySpec extends FunSuite with Matchers {
         1.millis,
         1.millis,
         1.millis))
+    actual shouldEqual expected
+  }
+
+  test("resetAfter 0.millis") {
+    val strategy = Strategy.fibonacci(5.millis).resetAfter(0.millis)
+
+    val call = StateT { _.call }
+    val result = Retry(strategy)(onError).apply(call)
+
+    val initial = State(toRetry = 3)
+    val actual = result.run(initial).map(_._1)
+    val expected = State(
+      decisions = List(
+        Details(decision = Decision.retry(5.millis), retries = 0),
+        Details(decision = Decision.retry(5.millis), retries = 0),
+        Details(decision = Decision.retry(5.millis), retries = 0)),
+      delays = List(
+        5.millis,
+        5.millis,
+        5.millis))
+    actual shouldEqual expected
+  }
+
+  test("resetAfter 1.minute") {
+    val strategy = Strategy.fibonacci(5.millis).resetAfter(1.minute)
+
+    val call = StateT { _.call }
+    val result = Retry(strategy)(onError).apply(call)
+
+    val initial = State(toRetry = 3)
+    val actual = result.run(initial).map(_._1)
+    val expected = State(
+      decisions = List(
+        Details(decision = Decision.retry(10.millis), retries = 2),
+        Details(decision = Decision.retry(5.millis), retries = 1),
+        Details(decision = Decision.retry(5.millis), retries = 0)),
+      delays = List(
+        10.millis,
+        5.millis,
+        5.millis))
     actual shouldEqual expected
   }
 }
@@ -171,9 +210,11 @@ object RetrySpec {
     }
 
 
-    implicit val SleepImpl: Sleep[StateT] = new Sleep[StateT] {
+    implicit val TimerStateT: Timer[StateT] = new Timer[StateT] {
 
-      def apply(duration: FiniteDuration) = {
+      val clock = ClockOf[StateT](Platform.currentTime)
+
+      def sleep(duration: FiniteDuration) = {
         StateT { s => (s.sleep(duration), ().asRight) }
       }
     }
@@ -187,7 +228,8 @@ object RetrySpec {
   final case class State(
     toRetry: Int = 0,
     decisions: List[Details] = Nil,
-    delays: List[FiniteDuration] = Nil) { self =>
+    delays: List[FiniteDuration] = Nil
+  ) { self =>
 
     def sleep(duration: FiniteDuration): State = {
       copy(delays = duration :: delays)

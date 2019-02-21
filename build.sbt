@@ -104,7 +104,8 @@ lazy val retry = (project in file("retry")
   dependsOn (rng, `cats-effect-helpers`)
   settings (libraryDependencies ++= Seq(
     scalatest % Test,
-    Cats.core)))
+    Cats.core,
+    Cats.effect)))
 
 lazy val rng = (project in file("rng")
   settings (name := "kafka-journal-rng")

@@ -8,7 +8,6 @@ scala:
 
 jdk:
   - oraclejdk8
-#  - oraclejdk11
   - openjdk11
 
 script:

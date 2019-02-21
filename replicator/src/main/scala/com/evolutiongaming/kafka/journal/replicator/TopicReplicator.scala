@@ -5,7 +5,7 @@ import java.time.Instant
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.implicits._
-import cats.{Applicative, ~>}
+import cats.{Applicative, FlatMap, ~>}
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.kafka.journal.ClockHelper._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
@@ -34,52 +34,56 @@ trait TopicReplicator[F[_]] {
   def close: F[Unit]
 }
 
-object TopicReplicator {
+object TopicReplicator { self =>
 
   // TODO should return Resource
   def of[F[_] : Concurrent : Timer : Par : Metrics : ReplicatedJournal : ContextShift : LogOf](
     topic: Topic,
-    consumer: Resource[F, Consumer[F]]): F[TopicReplicator[F]] = {
+    consumer: Resource[F, Consumer[F]]
+  ): F[TopicReplicator[F]] = {
 
-    for {
-      log     <- LogOf[F].apply(TopicReplicator.getClass)
-      stopRef <- StopRef.of[F]
-      rng     <- Rng.fromClock[F]
-      result  <- {
-        val strategy = Retry.Strategy.fullJitter(100.millis, rng).limit(1.minute)
-        implicit val topicLog = log prefixed topic
-        val retry = RetryOf[F](strategy)
-        of[F](topic, consumer, stopRef, retry)
-      }
-    } yield result
-  }
+    def apply(stopRef: StopRef[F], fiber: Fiber[F, Unit])(implicit log: Log[F]) = {
+      self.apply[F](stopRef, fiber)
+    }
 
-  //  TODO return error in case failed to connect
-  def of[F[_] : Concurrent : Timer : Par : Metrics : ReplicatedJournal : ContextShift : Log](
-    topic: Topic,
-    consumer: Resource[F, Consumer[F]],
-    stopRef: StopRef[F],
-    retry: Retry[F]): F[TopicReplicator[F]] = {
+    def start(stopRef: StopRef[F], consumer: Resource[F, Consumer[F]], rng: Rng)(implicit log: Log[F]) = {
+      val strategy = Retry.Strategy
+        .fullJitter(100.millis, rng)
+        .limit(1.minute)
+        .resetAfter(5.minutes)
 
-    for {
-      fiber <- Concurrent[F].start {
+      val retry = RetryOf[F](strategy)
+      Concurrent[F].start {
         retry {
           consumer.use { consumer => of(topic, stopRef, consumer) }
         }
       }
+    }
+
+    for {
+      log0    <- LogOf[F].apply(TopicReplicator.getClass)
+      log      = log0 prefixed topic
+      stopRef <- StopRef.of[F]
+      rng     <- Rng.fromClock[F]
+      fiber   <- start(stopRef, consumer, rng)(log)
     } yield {
-      new TopicReplicator[F] {
+      apply(stopRef, fiber)(log)
+    }
+  }
 
-        def done = fiber.join
+  //  TODO return error in case failed to connect
+  def apply[F[_] : FlatMap : Log](stopRef: StopRef[F], fiber: Fiber[F, Unit]): TopicReplicator[F] = {
+    new TopicReplicator[F] {
 
-        def close = {
-          for {
-            _ <- Log[F].debug("shutting down")
-            _ <- stopRef.set // TODO remove
-            _ <- fiber.join
-            //            _ <- fiber.cancel // TODO
-          } yield {}
-        }
+      def done = fiber.join
+
+      def close = {
+        for {
+          _ <- Log[F].debug("shutting down")
+          _ <- stopRef.set // TODO remove
+          _ <- fiber.join
+          //            _ <- fiber.cancel // TODO
+        } yield {}
       }
     }
   }
