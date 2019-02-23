@@ -84,14 +84,6 @@ object Retry {
     def apply(status: Status, now: Instant): StrategyDecision
   }
 
-  object Decide {
-
-    // TODO rename
-    def tmp(decision: StrategyDecision): Decide = new Decide {
-      def apply(status: Status, now: Instant): StrategyDecision = decision
-    }
-  }
-
 
   final case class Strategy(decide: Decide)
 
