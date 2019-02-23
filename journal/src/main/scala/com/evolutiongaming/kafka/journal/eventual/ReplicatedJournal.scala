@@ -4,7 +4,7 @@ import java.time.Instant
 
 import cats.effect.Clock
 import cats.implicits._
-import cats.{Applicative, FlatMap}
+import cats.{Applicative, FlatMap, ~>}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Topic
@@ -178,5 +178,38 @@ object ReplicatedJournal {
     }
 
     def empty[F[_] : Applicative]: Metrics[F] = empty(().pure[F])
+  }
+
+
+  implicit class ReplicatedJournalOps[F[_]](val self: ReplicatedJournal[F]) extends AnyVal {
+
+    def mapK[G[_]](f: F ~> G): ReplicatedJournal[G] = new ReplicatedJournal[G] {
+
+      def topics = f(self.topics)
+
+      def pointers(topic: Topic) = f(self.pointers(topic))
+
+      def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[ReplicatedEvent]) = {
+        f(self.append(key, partitionOffset, timestamp, events))
+      }
+
+      def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = {
+        f(self.delete(key, partitionOffset, timestamp, deleteTo, origin))
+      }
+
+      def save(topic: Topic, pointers: TopicPointers, timestamp: Instant) = {
+        f(self.save(topic, pointers, timestamp))
+      }
+    }
+
+
+    def withLog(log: Log[F])(implicit flatMap: FlatMap[F], clock: Clock[F]): ReplicatedJournal[F] = {
+      ReplicatedJournal[F](self, log)
+    }
+
+
+    def withMetrics(metrics: Metrics[F])(implicit flatMap: FlatMap[F], clock: Clock[F]): ReplicatedJournal[F] = {
+      ReplicatedJournal(self, metrics)
+    }
   }
 }
