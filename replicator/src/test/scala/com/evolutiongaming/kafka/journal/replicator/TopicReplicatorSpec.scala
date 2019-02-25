@@ -17,6 +17,7 @@ import org.scalatest.{Matchers, WordSpec}
 import play.api.libs.json.Json
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 
 class TopicReplicatorSpec extends WordSpec with Matchers {
@@ -760,7 +761,7 @@ object TopicReplicatorSpec {
     val millis = timestamp.plusMillis(replicationLatency).toEpochMilli
     implicit val concurrent = ConcurrentOf.fromMonad[StateT]
     implicit val clock = ClockOf[StateT](millis)
-    TopicReplicator.of[StateT](topic, TopicReplicator.StopRef[StateT], consumer)
+    TopicReplicator.of[StateT](topic, TopicReplicator.StopRef[StateT], consumer, 1.second)
   }
 
 

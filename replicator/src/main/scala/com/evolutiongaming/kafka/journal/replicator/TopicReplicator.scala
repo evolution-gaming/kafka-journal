@@ -12,10 +12,10 @@ import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.replicator.InstantHelper._
 import com.evolutiongaming.kafka.journal.retry.Retry
 import com.evolutiongaming.kafka.journal.rng.Rng
 import com.evolutiongaming.kafka.journal.util.Named
+import com.evolutiongaming.kafka.journal.util.TimeHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Bytes => _, _}
@@ -55,7 +55,7 @@ object TopicReplicator { self =>
       val retry = RetryOf[F](strategy)
       Concurrent[F].start {
         retry {
-          consumer.use { consumer => of(topic, stopRef, consumer) }
+          consumer.use { consumer => of(topic, stopRef, consumer, 1.hour) }
         }
       }
     }
@@ -92,9 +92,9 @@ object TopicReplicator { self =>
   def of[F[_] : Concurrent : Clock : Par : Metrics : ReplicatedJournal : Log : ContextShift](
     topic: Topic,
     stopRef: StopRef[F],
-    consumer: Consumer[F]): F[Unit] = {
-
-    type State = TopicPointers
+    consumer: Consumer[F],
+    errorCooldown: FiniteDuration
+  ): F[Unit] = {
 
     def round(
       state: State,
@@ -120,8 +120,8 @@ object TopicReplicator { self =>
           } yield {
             Metrics.Measurements(
               partition = head.partition,
-              replicationLatency = now - head.action.timestamp,
-              deliveryLatency = roundStart - head.action.timestamp,
+              replicationLatency = now diff head.action.timestamp,
+              deliveryLatency = roundStart diff head.action.timestamp,
               records = records)
           }
         }
@@ -197,7 +197,7 @@ object TopicReplicator { self =>
           (topicPartition, offsetAndMetadata)
         }
 
-        val pointersNew = TopicPointers {
+        val pointers = TopicPointers {
           for {
             (topicPartition, offset) <- offsets
           } yield {
@@ -207,12 +207,12 @@ object TopicReplicator { self =>
 
         for {
           _ <- {
-            if (pointersNew.values.isEmpty) ().pure[F]
-            else ReplicatedJournal[F].save(topic, pointersNew, roundStart)
+            if (pointers.values.isEmpty) ().pure[F]
+            else ReplicatedJournal[F].save(topic, pointers, roundStart)
           }
         } yield {
-          val stateNew = state + pointersNew
-          (stateNew, offsetsToCommit)
+          val state1 = state.copy(pointers = state.pointers + pointers)
+          (state1, offsetsToCommit)
         }
       }
 
@@ -229,40 +229,19 @@ object TopicReplicator { self =>
       } yield result
     }
 
-    def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = {
-      consumer.commit(offsets).handleErrorWith { error =>
-
-        val commit = offsets.keySet.map(_.partition)
-
-        def assignment = for {
-          topicPartitions <- consumer.assignment
-        } yield for {
-          topicPartition <- topicPartitions
-        } yield {
-          topicPartition.partition
-        }
-
-        def str(partitions: Set[Partition]) = partitions.mkString("[", ",", "]")
-
-        def diff(before: Set[Partition], after: Set[Partition]) = {
-          val removed = before -- after
-          val added = after -- before
-          s"+${ str(added) }, -${ str(removed) }"
-        }
-
+    def commit(offsets: Map[TopicPartition, OffsetAndMetadata], state: State) = {
+      consumer.commit(offsets)
+        .as(state)
+        .handleErrorWith { error =>
         for {
-          before <- assignment
-          poll   <- consumer.poll.map(_.values.keySet.map(_.partition))
-          after  <- assignment
-          _      <- Log[F].warn {
-            s"commit: ${ str(commit) }; " +
-              s"poll: ${ str(poll) }; " +
-              s"diff: ${ diff(before = before, after = after) }; " +
-              s"before: ${ str(before) }; " +
-              s"after: ${ str(after) }"
+          now   <- Clock[F].instant
+          state <- state.failed.fold {
+            state.copy(failed = now.some).pure[F]
+          } { failed =>
+            if (failed + errorCooldown <= now) state.copy(failed = now.some).pure[F]
+            else error.raiseError[F, State]
           }
-          result <- error.raiseError[F, Unit]
-        } yield result
+        } yield state
       }
     }
 
@@ -275,9 +254,9 @@ object TopicReplicator { self =>
           state           <- ifContinue {
             val records = for {
               (topicPartition, records) <- consumerRecords.values
-              partition = topicPartition.partition
-              offset = state.values.get(partition)
-              result = offset.fold(records) { offset =>
+              partition                  = topicPartition.partition
+              offset                     = state.pointers.values.get(partition)
+              result                     = offset.fold(records) { offset =>
                 for {
                   record <- records
                   if record.offset > offset
@@ -293,10 +272,10 @@ object TopicReplicator { self =>
               timestamp        <- Clock[F].instant
               stateAndOffsets  <- round(state, records.toMap, timestamp)
               (state, offsets)  = stateAndOffsets
-              _                <- commit(offsets)
+              state            <- commit(offsets, state)
               roundEnd         <- Clock[F].instant
               _                <- Metrics[F].round(
-                latency = roundEnd - roundStart,
+                latency = roundEnd diff roundStart,
                 records = consumerRecords.values.foldLeft(0) { case (acc, (_, record)) => acc + record.size })
             } yield state.asLeft[Unit]
           }
@@ -307,9 +286,12 @@ object TopicReplicator { self =>
     for {
       pointers <- ReplicatedJournal[F].pointers(topic)
       _        <- consumer.subscribe(topic)
-      _        <- pointers.tailRecM(consume)
+      _        <- State(pointers, none).tailRecM(consume)
     } yield {}
   }
+
+
+  final case class State(pointers: TopicPointers, failed: Option[Instant])
 
 
   trait Consumer[F[_]] {
