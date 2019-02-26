@@ -1,7 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.implicits._
-import cats.{Applicative, Monad}
+import cats.Applicative
+import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.skafka.{Offset, Partition}
 
@@ -16,12 +17,12 @@ object FoldActions {
   }
 
   // TODO add range argument
-  def apply[F[_] : Monad](
+  def apply[F[_] : BracketE](
     key: Key,
     from: SeqNr,
     marker: Marker,
     offsetReplicated: Option[Offset],
-    withPollActions: WithPollActions[F]
+    readActionsOf: ReadActionsOf[F]
   ): FoldActions[F] = {
 
     // TODO compare partitions !
@@ -45,11 +46,10 @@ object FoldActions {
             def foldWhileM[L, R](l: L)(f: (L, Action.User) => F[Either[L, R]]) = {
               val last = offset max offsetReplicated
               val from1 = last.fold(Offset.Min)(_ + 1)
-              withPollActions(key, partition, from1) { pollActions =>
-
+              readActionsOf(key, partition, from1).use { readActions =>
                 val actions = for {
-                  actions <- Stream.repeat(pollActions())
-                  action <- Stream[F].apply(actions.toList /*TODO*/)
+                  actions <- Stream.repeat(readActions)
+                  action  <- Stream[F].apply(actions.toList /*TODO*/)
                 } yield action
 
                 val stream = actions.mapCmd { action =>

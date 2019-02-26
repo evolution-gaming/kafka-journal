@@ -3,12 +3,17 @@ package com.evolutiongaming.kafka.journal
 import cats.effect._
 import cats.implicits._
 import cats.kernel.CommutativeMonoid
-import cats.{Applicative, CommutativeApplicative, Eval, Foldable, Monoid, Parallel, UnorderedFoldable, UnorderedTraverse}
+import cats.{Applicative, CommutativeApplicative, Eval, Foldable, MonadError, Monoid, Parallel, UnorderedFoldable, UnorderedTraverse}
 
 import scala.collection.immutable
 import scala.concurrent.duration.FiniteDuration
 
 object CatsHelper {
+
+  type MonadErrorE[F[_]] = MonadError[F, Throwable]
+
+  type BracketE[F[_]] = Bracket[F, Throwable]
+  
 
   implicit class CommutativeApplicativeOps(val self: CommutativeApplicative.type) extends AnyVal {
 

@@ -96,16 +96,16 @@ object Journal {
     headCache: HeadCache[F]
   ): Journal[F] = {
 
-    val withPollActions = WithPollActions[F](consumer, pollTimeout)
+    val readActionsOf = ReadActionsOf[F](consumer, pollTimeout)
     val appendAction = AppendAction[F](producer)
-    apply[F](origin, eventualJournal, withPollActions, appendAction, headCache)
+    apply[F](origin, eventualJournal, readActionsOf, appendAction, headCache)
   }
 
 
   def apply[F[_] : Concurrent : Log : Clock : Par : RandomId](
     origin: Option[Origin],
     eventual: EventualJournal[F],
-    withPollActions: WithPollActions[F],
+    readActionsOf: ReadActionsOf[F],
     appendAction: AppendAction[F],
     headCache: HeadCache[F]
   ): Journal[F] = {
@@ -120,7 +120,7 @@ object Journal {
       } yield {
         Marker(id, partitionOffset)
       }
-      
+
       for {
         pointers <- Concurrent[F].start { eventual.pointers(key.topic) }
         marker   <- marker
@@ -138,7 +138,7 @@ object Journal {
               offset    = pointers.values.get(marker.partition)
             } yield {
 
-              val readKafka = FoldActions(key, from, marker, offset, withPollActions)
+              val readKafka = FoldActions(key, from, marker, offset, readActionsOf)
 
               val info = result match {
                 case HeadCache.Result.Valid(info) => info.pure[F]

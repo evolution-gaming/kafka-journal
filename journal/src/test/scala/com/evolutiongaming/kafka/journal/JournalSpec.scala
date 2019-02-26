@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import cats.Monad
+import cats.effect.Resource
 import cats.implicits._
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.EventsSerializer._
@@ -216,7 +217,7 @@ class JournalSpec extends WordSpec with Matchers {
       s"eventual journal is empty, $name" should {
         val journal = SeqNrJournal(
           EventualJournal.empty[StateT],
-          StateT.withPollActions,
+          StateT.readActionsOf,
           StateT.appendAction,
           headCache)
 
@@ -226,22 +227,23 @@ class JournalSpec extends WordSpec with Matchers {
 
       s"kafka journal is empty, $name" should {
 
-        val withPollActions = new WithPollActions[StateT] {
+        val readActionsOf = new ReadActionsOf[StateT] {
 
-          def apply[A](key: Key, partition: Partition, from: Offset)(f: PollActions[StateT] => StateT[A]) = {
-            StateT { state =>
+          def apply(key: Key, partition: Partition, from: Offset) = {
+            val stateT = StateT { state =>
               val records = state.records
                 .dropWhile(_.offset < from)
                 .collect { case action @ ActionRecord(_: Action.Mark, _) => action }
               val state1 = state.copy(recordsToRead = records)
-              f(StateT.pollActions).run(state1)
+              (state1, StateT.readActions)
             }
+            Resource.liftF(stateT)
           }
         }
 
         val journal = SeqNrJournal(
           StateT.eventualJournal,
-          withPollActions,
+          readActionsOf,
           StateT.appendAction,
           headCache)
 
@@ -252,7 +254,7 @@ class JournalSpec extends WordSpec with Matchers {
       s"kafka and eventual journals are consistent, $name" should {
         val journal = SeqNrJournal(
           StateT.eventualJournal,
-          StateT.withPollActions,
+          StateT.readActionsOf,
           StateT.appendAction,
           headCache)
 
@@ -281,7 +283,7 @@ class JournalSpec extends WordSpec with Matchers {
 
           val journal = SeqNrJournal(
             StateT.eventualJournal,
-            StateT.withPollActions,
+            StateT.readActionsOf,
             appendAction,
             headCache)
 
@@ -315,7 +317,7 @@ class JournalSpec extends WordSpec with Matchers {
 
           val journal = SeqNrJournal(
             StateT.eventualJournal,
-            StateT.withPollActions,
+            StateT.readActionsOf,
             appendAction,
             headCache)
 
@@ -350,7 +352,7 @@ class JournalSpec extends WordSpec with Matchers {
 
           val journal = SeqNrJournal(
             StateT.eventualJournal,
-            StateT.withPollActions,
+            StateT.readActionsOf,
             appendAction,
             headCache)
 
@@ -427,7 +429,7 @@ object JournalSpec {
 
     def apply[F[_] : Monad](
       eventual: EventualJournal[F],
-      withPollActions: WithPollActions[F],
+      readActionsOf: ReadActionsOf[F],
       writeAction: AppendAction[F],
       headCache: HeadCache[F]
     ): SeqNrJournal[F] = {
@@ -437,7 +439,7 @@ object JournalSpec {
       implicit val clock = ClockOf[F](timestamp.toEpochMilli)
       implicit val par = Par.sequential[F]
       implicit val randomId = RandomId.uuid[F]
-      val journal = Journal[F](None, eventual, withPollActions, writeAction, headCache)
+      val journal = Journal[F](None, eventual, readActionsOf, writeAction, headCache)
         .withLog(log)
         .withMetrics(Journal.Metrics.empty[F])
       SeqNrJournal(journal)
@@ -504,24 +506,23 @@ object JournalSpec {
     }
 
 
-    val pollActions: PollActions[StateT] = new PollActions[StateT] {
-      def apply() = StateT { state =>
-        state.recordsToRead.dequeueOption match {
-          case Some((record, records)) => (state.copy(recordsToRead = records), List(record))
-          case None                    => (state, Nil)
-        }
+    val readActions: ReadActions.Type[StateT] = StateT { state =>
+      state.recordsToRead.dequeueOption match {
+        case Some((record, records)) => (state.copy(recordsToRead = records), List(record))
+        case None                    => (state, Nil)
       }
     }
 
 
-    val withPollActions: WithPollActions[StateT] = new WithPollActions[StateT] {
+    val readActionsOf: ReadActionsOf[StateT] = new ReadActionsOf[StateT] {
 
-      def apply[A](key: Key, partition: Partition, from: Offset)(f: PollActions[StateT] => StateT[A]) = {
-        StateT { state =>
+      def apply(key: Key, partition: Partition, from: Offset) = {
+        val stateT = StateT { state =>
           val records = state.records.dropWhile(_.offset < from)
           val state1 = state.copy(recordsToRead = records)
-          f(pollActions).run(state1)
+          (state1, readActions)
         }
+        Resource.liftF(stateT)
       }
     }
 
