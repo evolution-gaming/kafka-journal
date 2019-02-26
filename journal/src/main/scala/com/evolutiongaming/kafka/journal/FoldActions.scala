@@ -2,11 +2,11 @@ package com.evolutiongaming.kafka.journal
 
 import cats.implicits._
 import cats.{Applicative, Monad}
-import com.evolutiongaming.skafka.{Offset, Partition}
 import com.evolutiongaming.kafka.journal.stream.Stream
+import com.evolutiongaming.skafka.{Offset, Partition}
 
 trait FoldActions[F[_]] {
-  def apply(offset: Option[Offset]): stream.Stream[F, Action.User]
+  def apply(offset: Option[Offset]): Stream[F, Action.User]
 }
 
 object FoldActions {
@@ -21,7 +21,8 @@ object FoldActions {
     from: SeqNr,
     marker: Marker,
     offsetReplicated: Option[Offset],
-    withPollActions: WithPollActions[F]): FoldActions[F] = {
+    withPollActions: WithPollActions[F]
+  ): FoldActions[F] = {
 
     // TODO compare partitions !
     val partition = marker.partition
@@ -39,11 +40,12 @@ object FoldActions {
         if (replicated) Stream.empty[F, Action.User]
         else {
           // TODO add support of Resources in Stream
-          new stream.Stream[F, Action.User] {
+          new Stream[F, Action.User] {
 
             def foldWhileM[L, R](l: L)(f: (L, Action.User) => F[Either[L, R]]) = {
               val last = offset max offsetReplicated
-              withPollActions(key, partition, last) { pollActions =>
+              val from1 = last.fold(Offset.Min)(_ + 1)
+              withPollActions(key, partition, from1) { pollActions =>
 
                 val actions = for {
                   actions <- Stream.repeat(pollActions())
@@ -72,6 +74,8 @@ object FoldActions {
 }
 
 final case class Marker(id: String, partitionOffset: PartitionOffset) {
+
   def offset: Offset = partitionOffset.offset
+
   def partition: Partition = partitionOffset.partition
 }

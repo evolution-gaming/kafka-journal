@@ -57,11 +57,11 @@ object EventualCassandra {
         statements.pointers(topic)
       }
 
-      def read(key: Key, from: SeqNr): stream.Stream[F, ReplicatedEvent] = {
+      def read(key: Key, from: SeqNr): Stream[F, ReplicatedEvent] = {
 
         def read(statement: JournalStatement.SelectRecords[F], head: Head) = {
 
-          def read(from: SeqNr) = new stream.Stream[F, ReplicatedEvent] {
+          def read(from: SeqNr) = new Stream[F, ReplicatedEvent] {
 
             def foldWhileM[L, R](l: L)(f: (L, ReplicatedEvent) => F[Either[L, R]]) = {
 

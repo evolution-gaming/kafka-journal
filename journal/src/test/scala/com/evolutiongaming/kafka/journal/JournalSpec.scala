@@ -228,10 +228,10 @@ class JournalSpec extends WordSpec with Matchers {
 
         val withPollActions = new WithPollActions[StateT] {
 
-          def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[StateT] => StateT[A]) = {
+          def apply[A](key: Key, partition: Partition, from: Offset)(f: PollActions[StateT] => StateT[A]) = {
             StateT { state =>
-              val records = offset
-                .fold(state.records) { offset => state.records.dropWhile(_.offset <= offset) }
+              val records = state.records
+                .dropWhile(_.offset < from)
                 .collect { case action @ ActionRecord(_: Action.Mark, _) => action }
               val state1 = state.copy(recordsToRead = records)
               f(StateT.pollActions).run(state1)
@@ -516,9 +516,9 @@ object JournalSpec {
 
     val withPollActions: WithPollActions[StateT] = new WithPollActions[StateT] {
 
-      def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[StateT] => StateT[A]) = {
+      def apply[A](key: Key, partition: Partition, from: Offset)(f: PollActions[StateT] => StateT[A]) = {
         StateT { state =>
-          val records = offset.fold(state.records) { offset => state.records.dropWhile(_.offset <= offset) }
+          val records = state.records.dropWhile(_.offset < from)
           val state1 = state.copy(recordsToRead = records)
           f(pollActions).run(state1)
         }

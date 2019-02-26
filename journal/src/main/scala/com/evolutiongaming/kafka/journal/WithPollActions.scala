@@ -11,7 +11,7 @@ import scala.concurrent.duration.FiniteDuration
 
 // TODO replace with Resource
 trait WithPollActions[F[_]] {
-  def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[F] => F[A]): F[A]
+  def apply[A](key: Key, partition: Partition, from: Offset)(f: PollActions[F] => F[A]): F[A]
 }
 
 object WithPollActions {
@@ -22,9 +22,7 @@ object WithPollActions {
 
     new WithPollActions[F] {
 
-      // TODO pass From instead of Last offset
-      def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[F] => F[A]) = {
-        val from = offset.fold(Offset.Min)(_ + 1)
+      def apply[A](key: Key, partition: Partition, from: Offset)(f: PollActions[F] => F[A]) = {
         val topicPartition = TopicPartition(topic = key.topic, partition = partition)
         consumer.use { consumer =>
           for {
@@ -44,9 +42,9 @@ object WithPollActions {
 
     def mapK[G[_]](to: F ~> G, from: G ~> F): WithPollActions[G] = new WithPollActions[G] {
 
-      def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[G] => G[A]) = {
+      def apply[A](key: Key, partition: Partition, from1: Offset)(f: PollActions[G] => G[A]) = {
         val ff = (pollActions: PollActions[F]) => from(f(pollActions.mapK(to)))
-        to(self(key, partition, offset)(ff))
+        to(self(key, partition, from1)(ff))
       }
     }
   }

@@ -125,7 +125,7 @@ object JournalStatement {
 
 
   trait SelectRecords[F[_]] {
-    def apply(key: Key, segment: SegmentNr, range: SeqRange): stream.Stream[F, ReplicatedEvent]
+    def apply(key: Key, segment: SegmentNr, range: SeqRange): Stream[F, ReplicatedEvent]
   }
 
   object SelectRecords {

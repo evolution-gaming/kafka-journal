@@ -74,10 +74,11 @@ class FoldActionsSpec extends FunSuite with Matchers {
     val records = appendRecords :+ markRecord
 
     val withPollActions = new WithPollActions[StateT] {
-      def apply[A](key: Key, partition: Partition, offset: Option[Offset])(f: PollActions[StateT] => StateT[A]) = {
+
+      def apply[A](key: Key, partition: Partition, from: Offset)(f: PollActions[StateT] => StateT[A]) = {
         val pollActions = new PollActions[StateT] {
           def apply() = StateT { s =>
-            val records = offset.fold(s.records) { offset => s.records.dropWhile(_.offset <= offset) }
+            val records = s.records.dropWhile(_.offset < from)
             records match {
               case h :: t => (s.copy(records = t), List(h))
               case _ => (s, Nil)

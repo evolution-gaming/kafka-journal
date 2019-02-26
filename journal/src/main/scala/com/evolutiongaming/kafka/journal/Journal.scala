@@ -27,6 +27,7 @@ trait Journal[F[_]] {
     headers: Headers = Headers.Empty
   ): F[PartitionOffset]
 
+  // TODO return EventRecord
   def read(key: Key, from: SeqNr): Stream[F, Event]
 
   // TODO return Pointer and test it
