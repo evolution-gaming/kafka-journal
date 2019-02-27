@@ -4,7 +4,6 @@ import cats.Monad
 import cats.effect.Clock
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.ClockHelper._
-import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.kafka.journal.{HostName, Par, Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
 
@@ -49,10 +48,7 @@ object SettingsCassandra {
     }
 
     def all = {
-      for {
-        settings <- Stream.lift(statements.all)
-        setting  <- settings
-      } yield setting
+      statements.all
     }
   }
 

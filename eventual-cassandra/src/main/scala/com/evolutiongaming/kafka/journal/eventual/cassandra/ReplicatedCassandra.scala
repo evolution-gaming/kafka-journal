@@ -4,7 +4,7 @@ import java.time.Instant
 
 import cats.effect.{Clock, Concurrent, Sync}
 import cats.implicits._
-import cats.{Applicative, FlatMap}
+import cats.{Applicative, Monad}
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal.Metrics
@@ -215,7 +215,7 @@ object ReplicatedCassandra {
 
     def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 
-    def of[F[_] : FlatMap : Par : CassandraSession](schema: Schema): F[Statements[F]] = {
+    def of[F[_] : Monad : Par : CassandraSession](schema: Schema): F[Statements[F]] = {
       val statements = (
         JournalStatement.InsertRecords.of[F](schema.journal),
         JournalStatement.DeleteRecords.of[F](schema.journal),

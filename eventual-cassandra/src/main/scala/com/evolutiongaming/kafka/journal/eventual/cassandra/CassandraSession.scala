@@ -7,6 +7,7 @@ import com.datastax.driver.core._
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
 import com.evolutiongaming.kafka.journal.cache.Cache
 import com.evolutiongaming.kafka.journal.util.FromFuture
+import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.scassandra.{NextHostRetryPolicy, Session}
 
@@ -15,11 +16,11 @@ trait CassandraSession[F[_]] {
 
   def prepare(query: String): F[PreparedStatement]
 
-  def execute(statement: Statement): F[QueryResult[F]]
+  def execute(statement: Statement): Stream[F, Row]
 
   def unsafe: Session // TODO remove this
 
-  final def execute(statement: String): F[QueryResult[F]] = execute(new SimpleStatement(statement))
+  final def execute(statement: String): Stream[F, Row] = execute(new SimpleStatement(statement))
 }
 
 
@@ -46,13 +47,12 @@ object CassandraSession {
       }
     }
 
-    def execute(statement: Statement) = {
+    def execute(statement: Statement): Stream[F, Row] = {
+      val execute = FromFuture[F].apply { session.execute(statement) }
       for {
-        result <- FromFuture[F].apply { session.execute(statement) }
-        result <- QueryResult.of[F](result)
-      } yield {
-        result
-      }
+        resultSet <- Stream.lift(execute)
+        row       <- ResultSet[F](resultSet)
+      } yield row
     }
 
     def unsafe = session

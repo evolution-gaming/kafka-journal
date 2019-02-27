@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import java.time.Instant
 
 import cats.implicits._
-import cats.{FlatMap, Monad}
+import cats.Monad
 import com.datastax.driver.core.{GettableByNameData, SettableData}
 import com.evolutiongaming.kafka.journal.Setting
 import com.evolutiongaming.kafka.journal.Setting.{Key, Value}
@@ -52,7 +52,7 @@ object SettingStatement {
 
   object Select {
 
-    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[Select[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[Select[F]] = {
       val query = s"SELECT value, timestamp, origin FROM ${ name.toCql } WHERE key = ?"
       for {
         prepared <- query.prepare
@@ -62,9 +62,9 @@ object SettingStatement {
             .bind()
             .encode("key", key)
           for {
-            result <- bound.execute
+            row <- bound.first
           } yield for {
-            row <- result.head
+            row <- row
           } yield {
             Setting(
               key = key,
@@ -77,7 +77,7 @@ object SettingStatement {
   }
 
 
-  type All[F[_]] = F[Stream[F, Setting]]
+  type All[F[_]] = Stream[F, Setting]
 
   object All {
 
@@ -88,9 +88,7 @@ object SettingStatement {
       } yield {
         val bound = prepared.bind()
         for {
-          result <- bound.execute
-        } yield for {
-          row <- result.stream
+          row <- bound.execute
         } yield {
           row.decode[Setting]
         }
@@ -103,7 +101,7 @@ object SettingStatement {
 
   object Insert {
 
-    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[Insert[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[Insert[F]] = {
       val query = s"INSERT INTO ${ name.toCql } (key, value, timestamp, origin) VALUES (?, ?, ?, ?)"
       for {
         prepared <- query.prepare
@@ -112,7 +110,7 @@ object SettingStatement {
           val bound = prepared
             .bind()
             .encode(setting)
-          bound.execute.void
+          bound.first.void
       }
     }
   }
@@ -122,7 +120,7 @@ object SettingStatement {
 
   object InsertIfEmpty {
 
-    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[InsertIfEmpty[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[InsertIfEmpty[F]] = {
       val query = s"INSERT INTO ${ name.toCql } (key, value, timestamp, origin) VALUES (?, ?, ?, ?) IF NOT EXISTS"
       for {
         prepared <- query.prepare
@@ -132,9 +130,9 @@ object SettingStatement {
             .bind()
             .encode(setting)
           for {
-            result <- bound.execute
+            row <- bound.first
           } yield {
-            result.head.fold(false) { _.decode[Boolean]("[applied]") }
+            row.fold(false) { _.decode[Boolean]("[applied]") }
           }
       }
     }
@@ -145,7 +143,7 @@ object SettingStatement {
 
   object Delete {
 
-    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[Delete[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[Delete[F]] = {
       val query = s"DELETE FROM ${ name.toCql } WHERE key = ?"
       for {
         prepared <- query.prepare
@@ -154,7 +152,7 @@ object SettingStatement {
           val bound = prepared
             .bind()
             .encode("key", key)
-          bound.execute.void
+          bound.first.void
       }
     }
   }

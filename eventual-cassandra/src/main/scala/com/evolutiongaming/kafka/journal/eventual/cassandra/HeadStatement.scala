@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
-import cats.FlatMap
+import cats.Monad
 import cats.implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
@@ -38,7 +38,7 @@ object HeadStatement {
 
   object Insert {
 
-    def of[F[_]: FlatMap : CassandraSession](name: TableName): F[Insert[F]] = {
+    def of[F[_]: Monad : CassandraSession](name: TableName): F[Insert[F]] = {
 
       val query =
         s"""
@@ -60,7 +60,7 @@ object HeadStatement {
             .encode("created", timestamp)
             .encode("updated", timestamp)
             .encodeSome(origin)
-          bound.execute.void
+          bound.first.void
       }
     }
   }
@@ -70,7 +70,7 @@ object HeadStatement {
 
   object Select {
 
-    def of[F[_]: FlatMap : CassandraSession](name: TableName): F[Select[F]] = {
+    def of[F[_]: Monad : CassandraSession](name: TableName): F[Select[F]] = {
       val query =
         s"""
            |SELECT partition, offset, segment_size, seq_nr, delete_to FROM ${ name.toCql }
@@ -86,9 +86,9 @@ object HeadStatement {
             .bind()
             .encode(key)
           for {
-            result <- bound.execute
+            row <- bound.first
           } yield for {
-            row <- result.head
+            row <- row
           } yield {
             Head(
               partitionOffset = row.decode[PartitionOffset],
@@ -106,7 +106,7 @@ object HeadStatement {
   // TODO add classes for common operations
   object Update {
 
-    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[Update[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[Update[F]] = {
       val query =
         s"""
            |UPDATE ${ name.toCql }
@@ -127,7 +127,7 @@ object HeadStatement {
             .encode("delete_to", deleteTo)
             .encode("updated", timestamp)
 
-          bound.execute.void
+          bound.first.void
       }
     }
   }
@@ -139,7 +139,7 @@ object HeadStatement {
   // TODO add classes for common operations
   object UpdateSeqNr {
 
-    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[UpdateSeqNr[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[UpdateSeqNr[F]] = {
       val query =
         s"""
            |UPDATE ${ name.toCql }
@@ -158,8 +158,7 @@ object HeadStatement {
             .encode(partitionOffset)
             .encode(seqNr)
             .encode("updated", timestamp)
-
-          bound.execute.void
+          bound.first.void
       }
     }
   }
@@ -169,7 +168,7 @@ object HeadStatement {
 
   object UpdateDeleteTo {
 
-    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[UpdateDeleteTo[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[UpdateDeleteTo[F]] = {
       val query =
         s"""
            |UPDATE ${ name.toCql }
@@ -188,8 +187,7 @@ object HeadStatement {
             .encode(partitionOffset)
             .encode("delete_to", deleteTo)
             .encode("updated", timestamp)
-
-          bound.execute.void
+          bound.first.void
       }
     }
   }

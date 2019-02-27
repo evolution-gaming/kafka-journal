@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.FlatMap
+import cats.Monad
 import cats.implicits._
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
@@ -28,7 +28,7 @@ object PointerStatement {
 
   object Insert {
 
-    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[Insert[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[Insert[F]] = {
       val query =
         s"""
            |INSERT INTO ${ name.toCql } (topic, partition, offset, created, updated)
@@ -46,7 +46,7 @@ object PointerStatement {
             .encode("offset", pointer.offset)
             .encode("created", pointer.created)
             .encode("updated", pointer.updated)
-          bound.execute.void
+          bound.first.void
       }
     }
   }
@@ -57,7 +57,7 @@ object PointerStatement {
   // TODO not used
   object Update {
 
-    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[Update[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[Update[F]] = {
       val query =
         s"""
            |INSERT INTO ${ name.toCql } (topic, partition, offset, updated)
@@ -74,7 +74,7 @@ object PointerStatement {
             .encode("partition", pointer.partition)
             .encode("offset", pointer.offset)
             .encode("updated", pointer.updated)
-          bound.execute.void
+          bound.first.void
       }
     }
   }
@@ -85,7 +85,7 @@ object PointerStatement {
   // TODO not used
   object Select {
 
-    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[Select[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[Select[F]] = {
       val query =
         s"""
            |SELECT offset FROM ${ name.toCql }
@@ -102,9 +102,9 @@ object PointerStatement {
             .encode("topic", key.topic)
             .encode("partition", key.partition)
           for {
-            result <- bound.execute
+            row <- bound.first
           } yield for {
-            row <- result.head
+            row <- row
           } yield {
             row.decode[Offset]("offset")
           }
@@ -117,7 +117,7 @@ object PointerStatement {
 
   object SelectPointers {
 
-    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[SelectPointers[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[SelectPointers[F]] = {
       val query =
         s"""
            |SELECT partition, offset FROM ${ name.toCql }
@@ -133,8 +133,7 @@ object PointerStatement {
             .encode("topic", topic)
 
           for {
-            result <- bound.execute
-            rows <- result.all
+            rows <- bound.execute.toList
           } yield {
             val pointers = for {
               row <- rows
@@ -155,7 +154,7 @@ object PointerStatement {
 
   object SelectTopics {
 
-    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[SelectTopics[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[SelectTopics[F]] = {
       val query = s"""SELECT DISTINCT topic FROM ${ name.toCql }""".stripMargin
       for {
         prepared <- query.prepare
@@ -163,8 +162,7 @@ object PointerStatement {
         () => {
           val bound = prepared.bind()
           for {
-            result <- bound.execute
-            rows   <- result.all
+            rows <- bound.execute.toList
           } yield {
             for {
               row <- rows

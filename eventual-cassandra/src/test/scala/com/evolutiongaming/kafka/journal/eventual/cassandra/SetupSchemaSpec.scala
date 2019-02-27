@@ -4,7 +4,8 @@ import java.time.Instant
 
 import cats.Monad
 import cats.implicits._
-import com.datastax.driver.core.Statement
+import com.datastax.driver.core.{Row, Statement}
+import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.kafka.journal.util.TestSync
 import com.evolutiongaming.kafka.journal.{Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
@@ -86,11 +87,12 @@ class SetupSchemaSpec extends FunSuite with Matchers {
     def prepare(query: String) = throw NotImplemented
 
     def execute(statement: Statement) = {
-      StateT { state =>
-        val result = QueryResult[StateT](None)
+      val stateT = StateT { state =>
         val state1 = state.add(Action.Query)
-        (state1, result)
+        val rows = Stream.empty[StateT, Row]
+        (state1, rows)
       }
+      Stream.lift(stateT).flatten
     }
 
     def unsafe = throw NotImplemented

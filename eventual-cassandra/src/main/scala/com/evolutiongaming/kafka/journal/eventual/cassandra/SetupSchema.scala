@@ -5,6 +5,8 @@ import cats.implicits._
 import com.evolutiongaming.kafka.journal.util.{FromFuture, ToFuture}
 import com.evolutiongaming.kafka.journal.{LogOf, Par, Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
+import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
+import com.evolutiongaming.kafka.journal.CatsHelper._
 
 import scala.util.Try
 
@@ -17,7 +19,7 @@ object SetupSchema { self =>
 
     def addHeaders(table: TableName)(implicit cassandraSync: CassandraSync[F]) = {
       val query = JournalStatement.addHeaders(table)
-      val fa = CassandraSession[F].execute(query).void.handleError(_ => ())
+      val fa = query.execute.first.redeem[Unit, Throwable](_ => ())(_ => ())
       cassandraSync { fa }
     }
 

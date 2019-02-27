@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.FlatMap
+import cats.Monad
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.implicits._
@@ -72,11 +72,11 @@ object CassandraHealthCheck {
 
   object Statement {
 
-    def of[F[_] : FlatMap : CassandraSession]: F[Statement[F]] = {
+    def of[F[_] : Monad : CassandraSession]: F[Statement[F]] = {
       for {
         prepared <- "SELECT now() FROM system.local".prepare
       } yield {
-        prepared.bind().execute.void
+        prepared.bind().first.void
       }
     }
   }

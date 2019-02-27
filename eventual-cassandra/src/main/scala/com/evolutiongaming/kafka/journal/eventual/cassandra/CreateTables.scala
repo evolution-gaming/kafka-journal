@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.Monad
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.{Log, LogOf}
+import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.nel.Nel
 
 trait CreateTables[F[_]] {
@@ -45,9 +46,7 @@ object CreateTables { self =>
         for {
           _ <- log.info(s"tables: ${tables1.map(_.name).mkString(",")}, fresh: $fresh")
           _ <- CassandraSync[F].apply {
-            tables1.foldMapM { table =>
-              CassandraSession[F].execute(table.query).void
-            }
+            tables1.foldMapM { _.query.execute.first.void }
           }
         } yield {
           tables1.length == tables.length

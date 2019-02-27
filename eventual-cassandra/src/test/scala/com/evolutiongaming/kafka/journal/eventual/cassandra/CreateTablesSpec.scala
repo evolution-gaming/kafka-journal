@@ -1,10 +1,11 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.implicits._
-import com.datastax.driver.core.Statement
+import com.datastax.driver.core.{Row, Statement}
 import com.evolutiongaming.kafka.journal.Log
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CreateTables.Table
+import com.evolutiongaming.kafka.journal.stream.Stream
 import org.scalatest.{FunSuite, Matchers}
 
 import scala.util.control.NoStackTrace
@@ -100,11 +101,12 @@ class CreateTablesSpec extends FunSuite with Matchers {
     def prepare(query: String) = throw NotImplemented
 
     def execute(statement: Statement) = {
-      StateT { state =>
-        val result = QueryResult[StateT](None)
+      val stateT = StateT { state =>
         val state1 = state.add(Action.Query)
-        (state1, result)
+        val rows = Stream.empty[StateT, Row]
+        (state1, rows)
       }
+      Stream.lift(stateT).flatten
     }
 
     def unsafe = throw NotImplemented

@@ -23,7 +23,7 @@ object CreateKeyspace { self =>
           for {
             log <- LogOf[F].apply(self.getClass)
             _   <- log.info(keyspace)
-            _   <- query.execute
+            _   <- query.execute.first
           } yield {}
         }
 

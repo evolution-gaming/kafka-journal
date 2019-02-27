@@ -118,9 +118,12 @@ class SettingsCassandraSpec extends FunSuite with Matchers {
       }
     }
 
-    val all = StateT { state =>
-      val stream = Stream[StateT].apply(state.settings.values.toList)
-      (state, stream)
+    val all = {
+      val stateT = StateT { state =>
+        val stream = Stream[StateT].apply(state.settings.values.toList)
+        (state, stream)
+      }
+      Stream.lift(stateT).flatten
     }
 
     val delete = new SettingStatement.Delete[StateT] {

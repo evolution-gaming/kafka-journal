@@ -1,10 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.Monad
-import cats.implicits._
+import cats.Applicative
 import com.datastax.driver.core._
-import com.evolutiongaming.kafka.journal.FoldWhileHelper._
-import com.evolutiongaming.kafka.journal.stream.FoldWhile.FoldWhileOps
 import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
 
@@ -12,34 +9,11 @@ import scala.collection.JavaConverters._
 
 object CassandraHelper {
 
-  implicit class QueryResultOps[F[_]](val self: QueryResult[F]) extends AnyVal {
-
-    def stream(implicit F: Monad[F]): Stream[F, Row] = new Stream[F, Row] {
-
-      def foldWhileM[L, R](s: L)(f: (L, Row) => F[Either[L, R]]) = {
-        (s, self).tailRecM[F, Either[L, R]] { case (s, queryResult) =>
-          queryResult.value.fold {
-            s.asLeft[R].asRight[(L, QueryResult[F])].pure[F]
-          } { case (rows, queryResult) =>
-            for {
-              result <- rows.foldWhileM(s)(f)
-              result <- result match {
-                case Left(s) => queryResult.map { queryResult => (s, queryResult).asLeft[Either[L, R]] }
-                case result  => result.asRight[(L, QueryResult[F])].pure[F]
-              }
-            } yield result
-          }
-        }
-      }
-    }
-  }
-
-
   implicit class StatementOps(val self: Statement) extends AnyVal {
 
-    def execute[F[_] : CassandraSession]: F[QueryResult[F]] = {
-      CassandraSession[F].execute(self)
-    }
+    def execute[F[_] : CassandraSession]: Stream[F, Row] = CassandraSession[F].execute(self)
+
+    def first[F[_] : CassandraSession : Applicative]: F[Option[Row]] = execute[F].first
   }
 
 
@@ -49,7 +23,7 @@ object CassandraHelper {
       CassandraSession[F].prepare(self)
     }
 
-    def execute[F[_] : CassandraSession]: F[QueryResult[F]] = {
+    def execute[F[_] : CassandraSession]: Stream[F, Row] = {
       CassandraSession[F].execute(self)
     }
   }

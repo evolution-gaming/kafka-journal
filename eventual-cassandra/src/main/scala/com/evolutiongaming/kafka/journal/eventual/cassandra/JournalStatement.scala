@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import java.time.Instant
 
 import cats.implicits._
-import cats.{FlatMap, Monad}
+import cats.Monad
 import com.datastax.driver.core.BatchStatement
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.stream.Stream
@@ -52,7 +52,7 @@ object JournalStatement {
   // TODO add statement logging
   object InsertRecords {
 
-    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[InsertRecords[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[InsertRecords[F]] = {
       val query =
         s"""
            |INSERT INTO ${ name.toCql } (
@@ -118,7 +118,7 @@ object JournalStatement {
               }
             }
           }
-          statement.execute.void
+          statement.first.void
       }
     }
   }
@@ -171,9 +171,7 @@ object JournalStatement {
             //              .encodeAt(4, range.to)
 
             for {
-              result <- Stream.lift(bound.execute)
-              // TODO use Stream.map
-              row <- result.stream
+              row <- bound.execute
             } yield {
               val partitionOffset = row.decode[PartitionOffset]
 
@@ -213,7 +211,7 @@ object JournalStatement {
 
   object DeleteRecords {
 
-    def of[F[_] : FlatMap : CassandraSession](name: TableName): F[DeleteRecords[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[DeleteRecords[F]] = {
       val query =
         s"""
            |DELETE FROM ${ name.toCql }
@@ -232,7 +230,7 @@ object JournalStatement {
             .encode(key)
             .encode(segment)
             .encode(seqNr)
-          bound.execute.void
+          bound.first.void
       }
     }
   }

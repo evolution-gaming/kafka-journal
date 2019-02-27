@@ -297,7 +297,7 @@ object Stream { self =>
     def skip[A]: Cmd[A] = Skip
 
 
-    final case class Take[A](value: A) extends Cmd[A]
+    final case class Take[A] private(value: A) extends Cmd[A]
 
     final case object Skip extends Cmd[Nothing]
 
