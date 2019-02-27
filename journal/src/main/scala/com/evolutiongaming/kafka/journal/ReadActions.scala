@@ -4,20 +4,17 @@ import cats.FlatMap
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 
-import scala.concurrent.duration.FiniteDuration
-
 object ReadActions {
 
   type Type[F[_]] = F[Iterable[ActionRecord[Action]]]
 
   def apply[F[_] : FlatMap](
     key: Key,
-    consumer: Journal.Consumer[F],
-    timeout: FiniteDuration
+    consumer: Journal.Consumer[F]
   ): Type[F] = {
 
     for {
-      records <- consumer.poll(timeout)
+      records <- consumer.poll
     } yield for {
       records <- records.values.values
       record  <- records if record.key.exists(_.value == key.id)

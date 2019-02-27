@@ -24,11 +24,11 @@ object BracketCase {
       }
 
       for {
-        a <- acquire
-        b = use(a)
-        ec = exitCase(b)
-        _ <- release(a, ec)
-        b <- b
+        a  <- acquire
+        b   = use(a)
+        ec  = exitCase(b)
+        _  <- release(a, ec)
+        b  <- b
       } yield b
     }
   }

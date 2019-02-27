@@ -58,7 +58,7 @@ object Journal {
     metrics: Option[Metrics[F]]
   ): Resource[F, Journal[F]] = {
 
-    val consumer = Consumer.of[F](config.consumer)
+    val consumer = Consumer.of[F](config.consumer, config.pollTimeout)
 
     val headCache = {
       if (config.headCache) {
@@ -79,7 +79,6 @@ object Journal {
         producer,
         consumer,
         eventualJournal,
-        config.pollTimeout,
         headCache)
       val withLog = journal.withLog(log)
       metrics.fold(withLog) { metrics => withLog.withMetrics(metrics) }
@@ -92,11 +91,10 @@ object Journal {
     producer: Producer[F],
     consumer: Resource[F, Consumer[F]],
     eventualJournal: EventualJournal[F],
-    pollTimeout: FiniteDuration,
     headCache: HeadCache[F]
   ): Journal[F] = {
 
-    val readActionsOf = ReadActionsOf[F](consumer, pollTimeout)
+    val readActionsOf = ReadActionsOf[F](consumer)
     val appendAction = AppendAction[F](producer)
     apply[F](origin, eventualJournal, readActionsOf, appendAction, headCache)
   }
@@ -494,12 +492,15 @@ object Journal {
 
     def seek(partition: TopicPartition, offset: Offset): F[Unit]
 
-    def poll(timeout: FiniteDuration): F[ConsumerRecords[Id, Bytes]]
+    def poll: F[ConsumerRecords[Id, Bytes]]
   }
 
   object Consumer {
 
-    def of[F[_] : Sync : KafkaConsumerOf](config: ConsumerConfig): Resource[F, Consumer[F]] = {
+    def of[F[_] : Sync : KafkaConsumerOf](
+      config: ConsumerConfig,
+      pollTimeout: FiniteDuration
+    ): Resource[F, Consumer[F]] = {
 
       val config1 = config.copy(
         groupId = None,
@@ -508,24 +509,25 @@ object Journal {
       for {
         kafkaConsumer <- KafkaConsumerOf[F].apply[Id, Bytes](config1)
       } yield {
-        apply[F](kafkaConsumer)
+        apply[F](kafkaConsumer, pollTimeout)
       }
     }
 
-    def apply[F[_]](consumer: KafkaConsumer[F, Id, Bytes]): Consumer[F] = {
-      new Consumer[F] {
+    def apply[F[_]](
+      consumer: KafkaConsumer[F, Id, Bytes],
+      pollTimeout: FiniteDuration
+    ): Consumer[F] = new Consumer[F] {
 
-        def assign(partitions: Nel[TopicPartition]) = {
-          consumer.assign(partitions)
-        }
+      def assign(partitions: Nel[TopicPartition]) = {
+        consumer.assign(partitions)
+      }
 
-        def seek(partition: TopicPartition, offset: Offset) = {
-          consumer.seek(partition, offset)
-        }
+      def seek(partition: TopicPartition, offset: Offset) = {
+        consumer.seek(partition, offset)
+      }
 
-        def poll(timeout: FiniteDuration) = {
-          consumer.poll(timeout)
-        }
+      def poll = {
+        consumer.poll(pollTimeout)
       }
     }
   }

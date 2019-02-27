@@ -55,7 +55,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       for {
         config   <- Resource.liftF(config)
         producer <- Journal.Producer.of[F](config.producer)
-        consumer  = Journal.Consumer.of[F](config.consumer)
+        consumer  = Journal.Consumer.of[F](config.consumer, config.pollTimeout)
         log      <- Resource.liftF(LogOf[F].apply(Journal.getClass))
       } yield {
         implicit val log1 = log
@@ -64,7 +64,6 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
           producer = producer,
           consumer = consumer,
           eventualJournal = eventualJournal,
-          pollTimeout = config.pollTimeout,
           headCache = HeadCache.empty[F])
       }
     }

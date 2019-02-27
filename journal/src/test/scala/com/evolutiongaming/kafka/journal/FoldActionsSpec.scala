@@ -136,10 +136,10 @@ object FoldActionsSpec {
   }
 
 
-  final case class State(records: List[ActionRecord[Action]])
-
-
   final case class Pointer(seqNr: Long, offset: Offset)
+
+
+  final case class State(records: List[ActionRecord[Action]])
 
 
   type StateT[A] = cats.data.StateT[Try, State, A]

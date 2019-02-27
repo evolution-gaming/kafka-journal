@@ -6,8 +6,6 @@ import cats.~>
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Partition, TopicPartition}
 
-import scala.concurrent.duration.FiniteDuration
-
 
 trait ReadActionsOf[F[_]] {
 
@@ -17,8 +15,7 @@ trait ReadActionsOf[F[_]] {
 object ReadActionsOf {
 
   def apply[F[_] : Sync : Log](
-    consumer: Resource[F, Journal.Consumer[F]],
-    pollTimeout: FiniteDuration
+    consumer: Resource[F, Journal.Consumer[F]]
   ): ReadActionsOf[F] = new ReadActionsOf[F] {
 
     def apply(key: Key, partition: Partition, from: Offset) = {
@@ -31,7 +28,7 @@ object ReadActionsOf {
           _ <- consumer.seek(topicPartition, from)
           _ <- Log[F].debug(s"$key consuming from $partition:$from")
         } yield {
-          ReadActions[F](key, consumer, pollTimeout)
+          ReadActions[F](key, consumer)
         }
       }
 

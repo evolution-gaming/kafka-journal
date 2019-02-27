@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.implicits._
 import cats.Applicative
+import cats.implicits._
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.skafka.{Offset, Partition}
@@ -40,31 +40,22 @@ object FoldActions {
         val replicated = offset.exists(_ >= max)
         if (replicated) Stream.empty[F, Action.User]
         else {
-          // TODO add support of Resources in Stream
-          new Stream[F, Action.User] {
+          val last = offset max offsetReplicated
+          val fromOffset = last.fold(Offset.Min)(_ + 1)
+          val actions = for {
+            readActions <- Stream[F].apply(readActionsOf(key, partition, fromOffset))
+            actions     <- Stream[F].repeat(readActions)
+            action      <- Stream[F].apply(actions.toList /*TODO avoid conversion*/)
+          } yield action
 
-            def foldWhileM[L, R](l: L)(f: (L, Action.User) => F[Either[L, R]]) = {
-              val last = offset max offsetReplicated
-              val from1 = last.fold(Offset.Min)(_ + 1)
-              readActionsOf(key, partition, from1).use { readActions =>
-                val actions = for {
-                  actions <- Stream.repeat(readActions)
-                  action  <- Stream[F].apply(actions.toList /*TODO*/)
-                } yield action
+          actions.mapCmd { action =>
+            import Stream.Cmd
 
-                val stream = actions.mapCmd { action =>
-                  import Stream.Cmd
-                  
-                  if (action.offset > max) Stream.Cmd.stop
-                  else action.action match {
-                    case a: Action.Append => if (a.range.to < from) Cmd.skip else Cmd.take(a)
-                    case a: Action.Delete => Cmd.take(a)
-                    case a: Action.Mark   => if (a.id == marker.id) Cmd.stop else Cmd.skip
-                  }
-                }
-
-                stream.foldWhileM(l)(f)
-              }
+            if (action.offset > max) Stream.Cmd.stop
+            else action.action match {
+              case a: Action.Append => if (a.range.to < from) Cmd.skip else Cmd.take(a)
+              case a: Action.Delete => Cmd.take(a)
+              case a: Action.Mark   => if (a.id == marker.id) Cmd.stop else Cmd.skip
             }
           }
         }

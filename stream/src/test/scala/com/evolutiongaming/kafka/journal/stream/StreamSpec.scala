@@ -1,9 +1,108 @@
 package com.evolutiongaming.kafka.journal.stream
 
-import cats.Id
+import cats.data.IndexedStateT
+import cats.effect.{Bracket, ExitCase, Resource}
+import cats.implicits._
+import cats.{Id, MonadError}
 import org.scalatest.{FunSuite, Matchers}
 
+import scala.util.{Success, Try}
+
 class StreamSpec extends FunSuite with Matchers {
+
+  test("apply resource") {
+
+    sealed trait Action
+
+    object Action {
+      case object Acquire extends Action
+      case object Release extends Action
+      case object Use extends Action
+    }
+
+    case class State(n: Int, actions: List[Action]) {
+      def add(action: Action): State = copy(actions = action :: actions)
+    }
+
+    object State {
+      lazy val Empty: State = State(0, List.empty)
+    }
+
+
+    type StateT[A] = cats.data.StateT[Try, State, A]
+
+    object StateT {
+
+      def apply[A](f: State => (State, A)): StateT[A] = {
+        cats.data.StateT[Try, State, A] { state => Success(f(state)) }
+      }
+    }
+
+
+    def bracketOf[F[_]](implicit F: MonadError[F, Throwable]): Bracket[F, Throwable] = new Bracket[F, Throwable] {
+
+      def bracketCase[A, B](acquire: F[A])(use: A => F[B])(release: (A, ExitCase[Throwable]) => F[Unit]) = {
+
+        def onError(a: A, error: Throwable) = {
+          for {
+            _ <- release(a, ExitCase.error(error))
+            b <- raiseError[B](error)
+          } yield b
+        }
+
+        for {
+          a <- acquire
+          b <- use(a).handleErrorWith(e => onError(a, e))
+          _ <- release(a, ExitCase.complete)
+        } yield b
+      }
+
+      def raiseError[A](e: Throwable) = F.raiseError(e)
+
+      def handleErrorWith[A](fa: F[A])(f: Throwable => F[A]) = F.handleErrorWith(fa)(f)
+
+      def flatMap[A, B](fa: F[A])(f: A => F[B]) = F.flatMap(fa)(f)
+
+      def tailRecM[A, B](a: A)(f: A => F[Either[A, B]]) = F.tailRecM(a)(f)
+
+      def pure[A](a: A) = F.pure(a)
+    }
+
+
+    implicit val bracket = bracketOf[StateT](IndexedStateT.catsDataMonadErrorForIndexedStateT[Try, State, Throwable])
+
+    val increment = StateT { state =>
+      val n = state.n + 1
+      val state1 = state.copy(n = n).add(Action.Use)
+      (state1, n)
+    }
+
+    val resource = Resource.make {
+      StateT { state =>
+        val state1 = state.add(Action.Acquire)
+        (state1, increment)
+      }
+    } { _ =>
+      StateT { state =>
+        val state1 = state.add(Action.Release)
+        (state1, ())
+      }
+    }
+
+    val stream = for {
+      a <- Stream[StateT].apply(resource)
+      a <- Stream[StateT].repeat(a)
+    } yield a
+
+    val (state, value) = stream.take(2).toList.run(State.Empty).get
+    value shouldEqual List(1, 2)
+    state shouldEqual State(3, List(
+      Action.Release,
+      Action.Use,
+      Action.Use,
+      Action.Use,
+      Action.Acquire))
+  }
 
   test("lift") {
     Stream.lift[Id, Int](0).toList shouldEqual List(0)

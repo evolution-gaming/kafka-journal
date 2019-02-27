@@ -2,10 +2,10 @@ package com.evolutiongaming.kafka.journal
 
 
 import cats.Foldable
+import cats.effect.{IO, Resource}
 import cats.implicits._
-import cats.effect.IO
-import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.nel.Nel
 import org.scalatest.{AsyncWordSpec, Succeeded}
 
@@ -17,21 +17,29 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
   val origin = Origin("JournalIntSpec")
 
   private val journalOf = {
-    val consumer = Journal.Consumer.of[IO](config.journal.consumer)
-    eventualJournal: EventualJournal[IO] => {
+
+    val consumer = Journal.Consumer.of[IO](config.journal.consumer, config.journal.pollTimeout)
+
+    (eventualJournal: EventualJournal[IO], headCache: Boolean) => {
       implicit val log = Log.empty[IO]
       implicit val logOf = LogOf.empty[IO]
-      for {
-        headCache <- HeadCache.of[IO](
+
+      val headCache1 = if (headCache) {
+        HeadCache.of[IO](
           config.journal.consumer,
           eventualJournal,
           HeadCache.Metrics.empty[IO].some)
-        journal = Journal[IO](
+      } else {
+        Resource.pure[IO, HeadCache[IO]](HeadCache.empty[IO])
+      }
+
+      for {
+        headCache <- headCache1
+        journal   = Journal[IO](
           producer = producer,
           origin = Some(origin),
           consumer = consumer,
           eventualJournal = eventualJournal,
-          pollTimeout = config.journal.pollTimeout,
           headCache = headCache)
       } yield journal
     }
@@ -41,15 +49,16 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
 
     for {
       seqNr                    <- List(SeqNr.Min, SeqNr(2))
+      headCache                <- List(true, false)
       (eventualName, eventual) <- List(
         ("empty",     () => EventualJournal.empty[IO]),
         ("non-empty", () => eventual))
     } {
-      val name = s"seqNr: $seqNr, eventual: $eventualName"
+      val name = s"seqNr: $seqNr, eventual: $eventualName, headCache: $headCache"
 
       val key = Key.random[IO]("journal")
 
-      lazy val (journal0, release) = journalOf(eventual()).allocated.unsafeRunSync()
+      lazy val (journal0, release) = journalOf(eventual(), headCache).allocated.unsafeRunSync()
 
       s"append, delete, read, lastSeqNr, $name" in {
         val result = for {

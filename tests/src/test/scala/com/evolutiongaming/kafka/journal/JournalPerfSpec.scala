@@ -20,7 +20,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
   private val origin = Origin("JournalPerfSpec")
 
   private val journalOf = {
-    val consumer = Journal.Consumer.of[IO](config.journal.consumer)
+    val consumer = Journal.Consumer.of[IO](config.journal.consumer, config.journal.pollTimeout)
     eventualJournal: EventualJournal[IO] => {
       implicit val log = Log.empty[IO]
       implicit val logOf = LogOf.empty[IO]
@@ -34,7 +34,6 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
           origin = Some(origin),
           consumer = consumer,
           eventualJournal = eventualJournal,
-          pollTimeout = config.journal.pollTimeout,
           headCache = headCache)
       } yield journal
     }

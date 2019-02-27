@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal.stream
 
+import cats.effect.{Bracket, Resource}
 import cats.implicits._
 import cats.{Applicative, FlatMap, Monad, ~>}
 
@@ -224,7 +225,7 @@ trait Stream[F[_], A] { self =>
   }
 }
 
-object Stream {
+object Stream { self =>
 
   def apply[F[_]](implicit F: Monad[F]): Builders[F] = new Builders[F](F)
 
@@ -259,10 +260,20 @@ object Stream {
   }
 
 
+  def fromResource[F[_], A](resource: Resource[F, A])(implicit F: Bracket[F, Throwable]): Stream[F, A] = new Stream[F, A] {
+    
+    def foldWhileM[L, R](l: L)(f: (L, A) => F[Either[L, R]]) = {
+      resource.use(a => f(l, a))
+    }
+  }
+
+
   final class Builders[F[_]](val F: Monad[F]) extends AnyVal {
 
-    def apply[G[_], A](ga: G[A])(implicit G: FoldWhile[G]): Stream[F, A] = new Stream[F, A] {
-      def foldWhileM[L, R](l: L)(f: (L, A) => F[Either[L, R]]) = G.foldWhileM(ga, l)(f)(F)
+    def apply[G[_], A](ga: G[A])(implicit G: FoldWhile[G]): Stream[F, A] = from[F, G, A](ga)(G, F)
+
+    def apply[A](resource: Resource[F, A])(implicit F: Bracket[F, Throwable]): Stream[F, A] = {
+      fromResource(resource)
     }
 
     def single[A](a: A): Stream[F, A] = new Stream[F, A] {
@@ -270,23 +281,8 @@ object Stream {
     }
 
     def many[A](a: A, as: A*): Stream[F, A] = apply[List, A](a :: as.toList)
-  }
 
-
-  implicit class StreamOps[F[_], A](val self: Stream[F, A]) extends AnyVal {
-
-    def mapK[G[_]](to: F ~> G, from: G ~> F): Stream[G, A] = new Stream[G, A] {
-
-      def foldWhileM[L, R](l: L)(f: (L, A) => G[Either[L, R]]) = {
-        to(self.foldWhileM(l) { (l, a) => from(f(l, a)) })
-      }
-    }
-  }
-
-
-  implicit class FlattenOps[F[_], A](val self: Stream[F, Stream[F, A]]) extends AnyVal {
-
-    def flatten: Stream[F, A] = self.flatMap(identity)
+    def repeat[A](fa: F[A])(implicit F: Monad[F]): Stream[F, A] = self.repeat(fa)
   }
 
 
@@ -306,5 +302,22 @@ object Stream {
     final case object Skip extends Cmd[Nothing]
 
     final case object Stop extends Cmd[Nothing]
+  }
+
+
+  implicit class StreamOps[F[_], A](val self: Stream[F, A]) extends AnyVal {
+
+    def mapK[G[_]](to: F ~> G, from: G ~> F): Stream[G, A] = new Stream[G, A] {
+
+      def foldWhileM[L, R](l: L)(f: (L, A) => G[Either[L, R]]) = {
+        to(self.foldWhileM(l) { (l, a) => from(f(l, a)) })
+      }
+    }
+  }
+
+
+  implicit class FlattenOps[F[_], A](val self: Stream[F, Stream[F, A]]) extends AnyVal {
+
+    def flatten: Stream[F, A] = self.flatMap(identity)
   }
 }

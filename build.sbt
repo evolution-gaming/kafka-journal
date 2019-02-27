@@ -96,7 +96,8 @@ lazy val stream = (project in file("stream")
   settings commonSettings
   settings (libraryDependencies ++= Seq(
     scalatest % Test,
-    Cats.core)))
+    Cats.core,
+    Cats.effect)))
 
 lazy val retry = (project in file("retry")
   settings (name := "kafka-journal-retry")
