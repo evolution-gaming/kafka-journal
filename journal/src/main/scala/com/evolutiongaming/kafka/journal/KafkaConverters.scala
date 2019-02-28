@@ -20,7 +20,6 @@ object KafkaConverters {
 
   implicit class ActionOps(val self: Action) extends AnyVal {
 
-    // TODO test
     def toProducerRecord: ProducerRecord[Id, Bytes] = {
       val key = self.key
       val actionHeader = self.header
@@ -60,7 +59,6 @@ object KafkaConverters {
       } yield header
     }
 
-    // TODO test
     def toAction: Option[Action] = {
       for {
         id               <- self.key

@@ -28,12 +28,14 @@ class ResultSetSpec extends AsyncFunSuite with Matchers {
     val all = (0 until size).toList
 
     for {
-      left <- Ref[F].of(all.drop(1))
-      fetched <- Ref[F].of(all.take(1))
-      next = fetched.modify { rows => (List.empty, rows) }
-      fetch = for {
+      fetches <- Ref[F].of(0)
+      left    <- Ref[F].of(all)
+      fetched <- Ref[F].of(List.empty[Row])
+      next     = fetched.modify { rows => (List.empty, rows) }
+      fetch    = for {
+        _        <- fetches.update(_ + 1)
         toFetch1 <- left.get
-        result <- {
+        result   <- {
           if (toFetch1.isEmpty) ().pure[F]
           else for {
             taken <- left.modify { rows =>
@@ -41,14 +43,23 @@ class ResultSetSpec extends AsyncFunSuite with Matchers {
               val left = rows.drop(fetchSize)
               (left, fetched)
             }
-            _ <- fetched.set(taken)
+            _    <- fetched.set(taken)
           } yield {}
         }
       } yield result
-      resultSet = ResultSet[F, Row](fetch, left.get.map(_.isEmpty), next)
-      rows <- resultSet.take(take.toLong).toList
+      resultSet   = ResultSet[F, Row](fetch, left.get.map(_.isEmpty), next)
+      rows       <- resultSet.take(take.toLong).toList
+      fetches    <- fetches.get
     } yield {
       rows shouldEqual all.take(take)
+
+      if (take >= size) {
+        val expected = {
+          val n = size / fetchSize
+          if (size % fetchSize == 0) n else n + 1
+        }
+        fetches shouldEqual expected
+      }
     }
   }
 
