@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
+import com.evolutiongaming.nel.Nel
 import org.scalatest.{FunSuite, Matchers}
 
 class SeqRangeSpec extends FunSuite with Matchers {
@@ -41,37 +42,13 @@ class SeqRangeSpec extends FunSuite with Matchers {
     SeqRange(3, 4) < SeqRange(1, 2) shouldEqual false
   }
 
-  // TODO decide on semantic
-  /*test(">=") {
-    SeqRange(1) >= SeqRange(1) shouldEqual true
-
-    SeqRange(1) >= SeqRange(2) shouldEqual false
-    SeqRange(2) >= SeqRange(1) shouldEqual true
-
-    SeqRange(1, 2) >= SeqRange(1, 2) shouldEqual true
-
-    SeqRange(1, 2) >= SeqRange(2, 3) shouldEqual false
-    SeqRange(1, 2) >= SeqRange(3, 4) shouldEqual false
-
-    SeqRange(2, 3) >= SeqRange(1, 2) shouldEqual false
-    SeqRange(3, 4) >= SeqRange(1, 2) shouldEqual true
-  }*/
-
-  // TODO decide on semantic
-  /*test("<=") {
-    SeqRange(1) <= SeqRange(1) shouldEqual true
-
-    SeqRange(1) <= SeqRange(2) shouldEqual true
-    SeqRange(2) <= SeqRange(1) shouldEqual false
-
-    SeqRange(1, 2) <= SeqRange(1, 2) shouldEqual true
-
-    SeqRange(1, 2) <= SeqRange(2, 3) shouldEqual false
-    SeqRange(1, 2) <= SeqRange(3, 4) shouldEqual false
-
-    SeqRange(2, 3) <= SeqRange(1, 2) shouldEqual false
-    SeqRange(3, 4) <= SeqRange(1, 2) shouldEqual true
-  }*/
+  test("toNel") {
+    SeqRange(1).toNel.map(_.value) shouldEqual Nel(1)
+    SeqRange(1, 2).toNel.map(_.value) shouldEqual Nel(1, 2)
+    SeqRange(1, 4).toNel.map(_.value) shouldEqual Nel(1, 2, 3, 4)
+    SeqRange(SeqNr.Min).toNel shouldEqual Nel(SeqNr.Min)
+    SeqRange(SeqNr.Max).toNel shouldEqual Nel(SeqNr.Max)
+  }
 
   test("contains") {
     SeqRange(1) contains SeqRange(1) shouldEqual true

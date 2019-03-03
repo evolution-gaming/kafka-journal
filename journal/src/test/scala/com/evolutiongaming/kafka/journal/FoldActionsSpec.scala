@@ -21,7 +21,7 @@ class FoldActionsSpec extends FunSuite with Matchers {
       Pointer(seqNr = 2l, offset = 12l),
       Pointer(seqNr = 3l, offset = 13l))
     val result = seqNrs(None, None, records)
-    result shouldEqual List(1l, 2l, 3l)
+    result shouldEqual List((1l, 11l), (2l, 12l), (3l, 13l))
   }
 
   test("replicated offset") {
@@ -30,7 +30,7 @@ class FoldActionsSpec extends FunSuite with Matchers {
       Pointer(seqNr = 2l, offset = 12l),
       Pointer(seqNr = 3l, offset = 13l))
     val result = seqNrs(Some(11l), None, records)
-    result shouldEqual List(2l, 3l)
+    result shouldEqual List((2l, 12l), (3l, 13l))
   }
 
   test("replicated and queried offsets") {
@@ -39,7 +39,7 @@ class FoldActionsSpec extends FunSuite with Matchers {
       Pointer(seqNr = 2l, offset = 12l),
       Pointer(seqNr = 3l, offset = 13l))
     val result = seqNrs(Some(11l), Some(12l), records)
-    result shouldEqual List(3l)
+    result shouldEqual List((3l, 13l))
   }
 
   test("queried offsets covers all kafka records") {
@@ -126,13 +126,21 @@ object FoldActionsSpec {
       }
     }
 
+    def seqNrAndOffset(action: Action.Append, partitionOffset: PartitionOffset) = {
+      for {
+        seqNr <- action.range.toNel.toList
+      } yield {
+        (seqNr.value, partitionOffset.offset)
+      }
+    }
+
     val foldActions = FoldActions[StateT](key, SeqNr.Min, marker, replicated, readActionsOf)
     val (_, result) = foldActions(offset)
-      .collect { case a: Action.Append => a.range.seqNrs.toList }
+      .collect { case ActionRecord(a: Action.Append, partitionOffset) => seqNrAndOffset(a, partitionOffset) }
       .toList
       .run(State(records))
       .get
-    result.flatten.map(_.value)
+    result.flatten
   }
 
 

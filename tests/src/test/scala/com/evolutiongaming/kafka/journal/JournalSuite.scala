@@ -1,14 +1,18 @@
 package com.evolutiongaming.kafka.journal
 
 
+import java.time.Instant
+
 import akka.persistence.kafka.journal.KafkaJournalConfig
 import cats.Monad
+import cats.implicits._
 import cats.effect.{Clock, IO}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.Consumer
 import org.scalatest.{Matchers, Suite}
+import play.api.libs.json.JsValue
 
 
 trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
@@ -57,9 +61,9 @@ object JournalSuite {
 
   trait KeyJournal[F[_]] {
 
-    def append(events: Nel[Event]): F[PartitionOffset]
+    def append(events: Nel[Event], metadata: Option[JsValue] = None, headers: Headers = Headers.Empty): F[PartitionOffset]
 
-    def read: F[List[Event]]
+    def read: F[List[EventRecord]]
 
     def size: F[Long]
 
@@ -70,11 +74,25 @@ object JournalSuite {
 
   object KeyJournal {
 
-    def apply[F[_] : Monad : Clock](key: Key, journal: Journal[F]): KeyJournal[F] = new KeyJournal[F] {
+    def apply[F[_] : Monad : Clock](
+      key: Key,
+      timestamp: Instant,
+      journal: Journal[F]
+    ): KeyJournal[F] = new KeyJournal[F] {
 
-      def append(events: Nel[Event]) = journal.append(key, events)
+      def append(events: Nel[Event], metadata: Option[JsValue], headers: Headers) = {
+        journal.append(key, events, metadata, headers)
+      }
 
-      def read = journal.read(key, SeqNr.Min).toList
+      def read = {
+        for {
+          records <- journal.read(key, SeqNr.Min).toList
+        } yield for {
+          record <- records
+        } yield {
+          record.copy(timestamp = timestamp)
+        }
+      }
 
       def size = journal.read(key, SeqNr.Min).length
 

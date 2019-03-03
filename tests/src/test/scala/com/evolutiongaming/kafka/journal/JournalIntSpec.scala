@@ -1,6 +1,9 @@
 package com.evolutiongaming.kafka.journal
 
 
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+
 import cats.Foldable
 import cats.effect.{IO, Resource}
 import cats.implicits._
@@ -8,13 +11,13 @@ import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.nel.Nel
 import org.scalatest.{AsyncWordSpec, Succeeded}
+import play.api.libs.json.Json
 
 import scala.concurrent.duration._
 
 class JournalIntSpec extends AsyncWordSpec with JournalSuite {
   import JournalSuite._
-
-  val origin = Origin("JournalIntSpec")
+  import JournalIntSpec._
 
   private val journalOf = {
 
@@ -63,7 +66,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
       s"append, delete, read, lastSeqNr, $name" in {
         val result = for {
           key       <- key
-          journal    = KeyJournal(key, journal0)
+          journal    = KeyJournal(key, timestamp, journal0)
           pointer   <- journal.pointer
           _          = pointer shouldEqual None
           events    <- journal.read
@@ -71,10 +74,11 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
           offset    <- journal.delete(SeqNr.Max)
           _          = offset shouldEqual None
           event      = Event(seqNr)
-          offset    <- journal.append(Nel(event))
+          offset    <- journal.append(Nel(event), metadata.data, headers)
+          record     = EventRecord(event, timestamp, offset, origin.some, metadata, headers)
           partition  = offset.partition
           events    <- journal.read
-          _          = events shouldEqual List(event)
+          _          = events shouldEqual List(record)
           offset    <- journal.delete(SeqNr.Max)
           _          = offset.map(_.partition) shouldEqual Some(partition)
           pointer   <- journal.pointer
@@ -98,10 +102,10 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
 
         val result = for {
           key     <- key
-          journal  = KeyJournal(key, journal0)
+          journal  = KeyJournal(key, timestamp, journal0)
           read = for {
-            events  <- journal.read
-            _        = events shouldEqual events
+            events1 <- journal.read
+            _        = events1.map(_.event) shouldEqual events
             pointer <- journal.pointer
             _ = pointer shouldEqual events.lastOption.map(_.seqNr)
           } yield {}
@@ -122,7 +126,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
 
         val appends = for {
           key     <- key
-          journal  = KeyJournal(key, journal0)
+          journal  = KeyJournal(key, timestamp, journal0)
           events  <- journal.read
           _        = events shouldEqual Nil
           pointer <- journal.pointer
@@ -133,7 +137,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             pointer <- journal.pointer
             _        = pointer shouldEqual expected.lastOption.map(_.seqNr)
             events  <- journal.read
-            _        = events shouldEqual expected
+            _        = events.map(_.event) shouldEqual expected
           } yield {}
         }
 
@@ -146,5 +150,16 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
         result.run(1.minute)
       }
     }
+  }
+}
+
+object JournalIntSpec {
+  private val timestamp = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+  private val origin = Origin("JournalIntSpec")
+  private val metadata = Metadata(data = Some(Json.obj(("key", "value"))))
+  private val headers = Headers(("key", "value"))
+
+  implicit class EventRecordOps(val self: EventRecord) extends AnyVal {
+    def fix: EventRecord = self.copy(timestamp = timestamp)
   }
 }

@@ -88,7 +88,7 @@ object Action {
 }
 
 
-final case class ActionRecord[+A <: Action](action: A, partitionOffset: PartitionOffset) {
+final case class ActionRecord[+A <: Action](action: A, partitionOffset: PartitionOffset) { self =>
 
   def offset: Offset = partitionOffset.offset
 

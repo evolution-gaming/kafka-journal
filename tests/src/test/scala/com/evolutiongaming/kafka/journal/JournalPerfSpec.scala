@@ -1,6 +1,9 @@
 package com.evolutiongaming.kafka.journal
 
 
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+
 import cats.implicits._
 import cats.effect.{Clock, IO}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
@@ -16,8 +19,8 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
 
   private val many = 100
   private val events = 1000
-
   private val origin = Origin("JournalPerfSpec")
+  private val timestamp = Instant.now().truncatedTo(ChronoUnit.MILLIS)
 
   private val journalOf = {
     val consumer = Journal.Consumer.of[IO](config.journal.consumer, config.journal.pollTimeout)
@@ -65,7 +68,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
 
       def append(journal0: Journal[IO]) = {
 
-        val journal = KeyJournal(key, journal0)
+        val journal = KeyJournal(key, timestamp, journal0)
 
         val expected = for {
           n <- (0 to events).toList
@@ -81,7 +84,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
               for {
                 _       <- journal.append(Nel(event))
                 key     <- Key.random[IO]("journal")
-                journal  = KeyJournal(key, journal0)
+                journal  = KeyJournal(key, timestamp, journal0)
                 _       <- journal.append(Nel(event))
               } yield {}
             }
@@ -101,7 +104,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
 
       lazy val (journal, release) = {
         val (journal, release) = journalOf(eventual()).allocated.unsafeRunSync()
-        (KeyJournal(key, journal), release)
+        (KeyJournal(key, timestamp, journal), release)
       }
 
       s"measure pointer $many times, $name" in {

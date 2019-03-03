@@ -27,8 +27,7 @@ trait Journal[F[_]] {
     headers: Headers = Headers.Empty
   ): F[PartitionOffset]
 
-  // TODO return EventRecord
-  def read(key: Key, from: SeqNr): Stream[F, Event]
+  def read(key: Key, from: SeqNr): Stream[F, EventRecord]
 
   // TODO return Pointer and test it
   def pointer(key: Key): F[Option[SeqNr]]
@@ -141,7 +140,7 @@ object Journal {
               val info = result match {
                 case HeadCache.Result.Valid(info) => info.pure[F]
                 case HeadCache.Result.Invalid     =>
-                  readKafka(None).fold(JournalInfo.empty) { (info, action) => info(action.header) }
+                  readKafka(None).fold(JournalInfo.empty) { (info, action) => info(action.action.header) }
               }
               (info, readKafka)
             }
@@ -161,9 +160,9 @@ object Journal {
         } yield result
       }
 
-      def read(key: Key, from: SeqNr) = new Stream[F, Event] {
+      def read(key: Key, from: SeqNr) = new Stream[F, EventRecord] {
 
-        def foldWhileM[L, R](l: L)(f: (L, Event) => F[Either[L, R]]) = {
+        def foldWhileM[L, R](l: L)(f: (L, EventRecord) => F[Either[L, R]]) = {
 
           // TODO why do we need this?
           def replicatedSeqNr(from: SeqNr) = {
@@ -172,7 +171,7 @@ object Journal {
               val event = record.event
               val offset = record.partitionOffset.offset
               val from = event.seqNr.next
-              f(l, event).map {
+              f(l, record).map {
                 case Left(l)  => (l, from, offset.some).asLeft[(R, Option[SeqNr], Option[Offset])]
                 case Right(r) => (r, from, offset.some).asRight[(L, Option[SeqNr], Option[Offset])]
               }
@@ -180,22 +179,27 @@ object Journal {
           }
 
           def replicated(from: SeqNr) = {
-            val events = eventual.read(key, from).map(_.event)
+            val events = eventual.read(key, from)
             events.foldWhileM(l)(f)
           }
 
           def onNonEmpty(deleteTo: Option[SeqNr], readKafka: FoldActions[F]) = {
 
             def events(from: SeqNr, offset: Option[Offset], l: L) = {
-              readKafka(offset).foldWhileM(l) { (l, a) =>
-                a match {
+              readKafka(offset).foldWhileM(l) { (l, record) =>
+                record.action match {
                   case _: Action.Delete => l.asLeft[R].pure[F]
                   case a: Action.Append =>
                     if (a.range.to < from) l.asLeft[R].pure[F]
                     else {
                       val events = EventsFromPayload(a.payload, a.payloadType)
                       events.foldWhileM(l) { case (l, event) =>
-                        if (event.seqNr >= from) f(l, event) else l.asLeft[R].pure[F]
+                        if (event.seqNr >= from) {
+                          val eventRecord = EventRecord(a, event, record.partitionOffset)
+                          f(l, eventRecord)
+                        } else {
+                          l.asLeft[R].pure[F]
+                        }
                       }
                     }
                 }

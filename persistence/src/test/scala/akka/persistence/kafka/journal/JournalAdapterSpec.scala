@@ -17,14 +17,6 @@ class JournalAdapterSpec extends FunSuite with Matchers {
   import JournalAdapterSpec.StateT._
   import JournalAdapterSpec._
 
-  private val toKey = ToKey.Default
-  private val key1 = Key(id = "id", topic = "journal")
-  private val event = Event(SeqNr.Min)
-  private val persistenceId = "id"
-  private val persistentRepr = PersistentRepr(None, persistenceId = persistenceId)
-  private val metadata = Metadata(Json.obj(("key", "value")).some)
-  private val headers = Headers(("key", "value"))
-
   private val eventSerializer = new EventSerializer[cats.Id] {
 
     def toEvent(persistentRepr: PersistentRepr) = event
@@ -67,7 +59,7 @@ class JournalAdapterSpec extends FunSuite with Matchers {
   test("replay") {
     val range = SeqRange(from = SeqNr.Min, to = SeqNr.Max)
     var prs = List.empty[PersistentRepr]
-    val initial = State(events = List(event))
+    val initial = State(events = List(eventRecord))
     val (data, _) = journalAdapter.replay(persistenceId, range, Int.MaxValue)(pr => prs = pr :: prs).run(initial)
     data shouldEqual State(reads = List(Read(key1, SeqNr.Min)))
     prs shouldEqual List(persistentRepr)
@@ -89,7 +81,17 @@ class JournalAdapterSpec extends FunSuite with Matchers {
 
 object JournalAdapterSpec {
 
-  val timestamp: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+  private val timestamp: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+  private val toKey = ToKey.Default
+  private val key1 = Key(id = "id", topic = "journal")
+  private val event = Event(SeqNr.Min)
+  private val partitionOffset = PartitionOffset.Empty
+  private val persistenceId = "id"
+  private val persistentRepr = PersistentRepr(None, persistenceId = persistenceId)
+  private val metadata = Metadata(Json.obj(("key", "value")).some)
+  private val headers = Headers(("key", "value"))
+  private val origin = Origin("origin")
+  private val eventRecord = EventRecord(event, timestamp, partitionOffset, origin.some, metadata, headers)
 
   final case class Append(
     key: Key,
@@ -105,7 +107,7 @@ object JournalAdapterSpec {
   final case class Pointer(key: Key)
 
   final case class State(
-    events: List[Event] = Nil,
+    events: List[EventRecord] = Nil,
     appends: List[Append] = Nil,
     pointers: List[Pointer] = Nil,
     deletes: List[Delete] = Nil,
@@ -130,7 +132,7 @@ object JournalAdapterSpec {
         StateT { s =>
           val append = Append(key, events, timestamp, Metadata(metadata), headers)
           val s1 = s.copy(appends = append :: s.appends)
-          (s1, PartitionOffset.Empty)
+          (s1, partitionOffset)
         }
       }
 

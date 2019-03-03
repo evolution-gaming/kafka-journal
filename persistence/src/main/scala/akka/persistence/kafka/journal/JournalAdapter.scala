@@ -132,7 +132,8 @@ object JournalAdapter {
 
       val stream = journal
         .read(key, range.from)
-        .foldMapCmd(max) { (n, event) =>
+        .foldMapCmd(max) { (n, record) =>
+          val event = record.event
           val seqNr = event.seqNr
           if (n > 0 && seqNr <= range.to) {
             val persistentRepr = serializer.toPersistentRepr(persistenceId, event)

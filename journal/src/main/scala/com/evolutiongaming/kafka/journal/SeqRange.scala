@@ -1,11 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.SeqNr.ops._
+import com.evolutiongaming.kafka.journal.SeqNr.syntax._
 import com.evolutiongaming.nel.Nel
 import play.api.libs.json.{Json, OFormat}
 
-// TODO test
-// TODO add method with single argument of range size 1
+import scala.annotation.tailrec
 
 final case class SeqRange(from: SeqNr, to: SeqNr) {
 
@@ -27,9 +26,16 @@ final case class SeqRange(from: SeqNr, to: SeqNr) {
 
   def contains(range: SeqRange): Boolean = from <= range.from && to >= range.to
 
-  // TODO implement properly
-  // TODO rename
-  def seqNrs: Nel[SeqNr] = Nel.unsafe((from.value to to.value).toList).map(SeqNr(_))
+  def toNel: Nel[SeqNr] = {
+
+    @tailrec
+    def loop(xs: Nel[SeqNr]): Nel[SeqNr] = xs.head.prev match {
+      case Some(seqNr) if seqNr >= from => loop(seqNr :: xs)
+      case _                            => xs
+    }
+
+    loop(Nel(to))
+  }
 
   override def toString: String = {
     if (from == to) from.toString

@@ -7,13 +7,13 @@ import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.skafka.{Offset, Partition}
 
 trait FoldActions[F[_]] {
-  def apply(offset: Option[Offset]): Stream[F, Action.User]
+  def apply(offset: Option[Offset]): Stream[F, ActionRecord[Action.User]]
 }
 
 object FoldActions {
 
   def empty[F[_] : Applicative]: FoldActions[F] = new FoldActions[F] {
-    def apply(offset: Option[Offset]) = Stream.empty[F, Action.User]
+    def apply(offset: Option[Offset]) = Stream.empty[F, ActionRecord[Action.User]]
   }
 
   // TODO add range argument
@@ -38,23 +38,25 @@ object FoldActions {
         val max = marker.offset - 1
 
         val replicated = offset.exists(_ >= max)
-        if (replicated) Stream.empty[F, Action.User]
+        if (replicated) Stream.empty[F, ActionRecord[Action.User]]
         else {
           val last = offset max offsetReplicated
           val fromOffset = last.fold(Offset.Min)(_ + 1)
           val actions = for {
             readActions <- Stream[F].apply(readActionsOf(key, partition, fromOffset))
             actions     <- Stream[F].repeat(readActions)
-            action      <- Stream[F].apply(actions.toList /*TODO avoid conversion*/)
+            action      <- Stream[F].apply(actions.toList)
           } yield action
 
           actions.mapCmd { action =>
             import Stream.Cmd
 
+            def take(a: Action.User) = Cmd.take(action.copy(action = a))
+
             if (action.offset > max) Stream.Cmd.stop
             else action.action match {
-              case a: Action.Append => if (a.range.to < from) Cmd.skip else Cmd.take(a)
-              case a: Action.Delete => Cmd.take(a)
+              case a: Action.Append => if (a.range.to < from) Cmd.skip else take(a)
+              case a: Action.Delete => take(a)
               case a: Action.Mark   => if (a.id == marker.id) Cmd.stop else Cmd.skip
             }
           }
