@@ -10,7 +10,6 @@ import org.scalatest.Matchers
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, Promise}
 
-// TODO test for different type of configurations, including topic-key separations.
 
 class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
   with KafkaPluginSpec

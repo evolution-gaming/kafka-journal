@@ -15,8 +15,6 @@ import com.evolutiongaming.skafka.Topic
 class EventualCassandraSpec extends EventualJournalSpec {
   import EventualCassandraSpec._
 
-  // TODO implement and test fetch threshold
-
   "EventualCassandra" when {
     for {
       segmentSize <- Nel(2, 10, 1000)
@@ -61,9 +59,9 @@ object EventualCassandraSpec {
 
     val selectRecords = new JournalStatement.SelectRecords[StateT] {
 
-      def apply(key: Key, segment: SegmentNr, range: SeqRange) = new Stream[StateT, ReplicatedEvent] {
+      def apply(key: Key, segment: SegmentNr, range: SeqRange) = new Stream[StateT, EventRecord] {
 
-        def foldWhileM[L, R](l: L)(f: (L, ReplicatedEvent) => StateT[Either[L, R]]) = {
+        def foldWhileM[L, R](l: L)(f: (L, EventRecord) => StateT[Either[L, R]]) = {
           StateT { state =>
             val events = state.journal.events(key, segment)
             val result = events.foldWhileM[StateT, L, R](l) { (l, event) =>
@@ -92,11 +90,11 @@ object EventualCassandraSpec {
 
       val insertRecords = new JournalStatement.InsertRecords[StateT] {
 
-        def apply(key: Key, segment: SegmentNr, replicated: Nel[ReplicatedEvent]) = {
+        def apply(key: Key, segment: SegmentNr, records: Nel[EventRecord]) = {
           StateT { state =>
             val journal = state.journal
             val events = journal.events(key, segment)
-            val updated = events ++ replicated.toList.sortBy(_.event.seqNr)
+            val updated = events ++ records.toList.sortBy(_.event.seqNr)
             val state1 = state.copy(journal = journal.updated((key, segment), updated))
             (state1, ())
           }
@@ -227,7 +225,7 @@ object EventualCassandraSpec {
 
 
   final case class State(
-    journal: Map[(Key, SegmentNr), List[ReplicatedEvent]],
+    journal: Map[(Key, SegmentNr), List[EventRecord]],
     heads: Map[Key, Head],
     pointers: Map[Topic, TopicPointers])
 
@@ -243,9 +241,9 @@ object EventualCassandraSpec {
   }
 
 
-  implicit class JournalOps(val self: Map[(Key, SegmentNr), List[ReplicatedEvent]]) extends AnyVal {
+  implicit class JournalOps(val self: Map[(Key, SegmentNr), List[EventRecord]]) extends AnyVal {
 
-    def events(key: Key, segment: SegmentNr): List[ReplicatedEvent] = {
+    def events(key: Key, segment: SegmentNr): List[EventRecord] = {
       val composite = (key, segment)
       self.getOrElse(composite, Nil)
     }

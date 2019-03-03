@@ -12,7 +12,7 @@ trait EventualJournal[F[_]] {
 
   def pointers(topic: Topic): F[TopicPointers]
 
-  def read(key: Key, from: SeqNr): Stream[F, ReplicatedEvent]
+  def read(key: Key, from: SeqNr): Stream[F, EventRecord]
 
   // TODO not Use Pointer until tested
   def pointer(key: Key): F[Option[Pointer]]
@@ -108,7 +108,7 @@ object EventualJournal {
 
     def pointers(topic: Topic) = TopicPointers.Empty.pure[F]
 
-    def read(key: Key, from: SeqNr) = Stream.empty[F, ReplicatedEvent]
+    def read(key: Key, from: SeqNr) = Stream.empty[F, EventRecord]
 
     def pointer(key: Key) = none[Pointer].pure[F]
   }

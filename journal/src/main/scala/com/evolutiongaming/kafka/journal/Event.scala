@@ -10,17 +10,10 @@ final case class Event(
   payload: Option[Payload] = None)
 
 
-final case class EventRecord(
-  event: Event,
-  metadata: Metadata)
-
-
-// TODO rename, statements called records, here - events
-// TODO add Key
 /**
   * @param origin identifier of event origin, for instance node IP address
   */
-final case class ReplicatedEvent(
+final case class EventRecord(
   event: Event,
   timestamp: Instant,
   partitionOffset: PartitionOffset,
@@ -37,14 +30,14 @@ final case class ReplicatedEvent(
   def pointer: Pointer = Pointer(partitionOffset, event.seqNr)
 }
 
-object ReplicatedEvent {
+object EventRecord {
 
-  def apply(record: ActionRecord[Action.Append], event: Event): ReplicatedEvent = {
+  def apply(record: ActionRecord[Action.Append], event: Event): EventRecord = {
     apply(record.action, event, record.partitionOffset)
   }
 
-  def apply(action: Action.Append, event: Event, partitionOffset: PartitionOffset): ReplicatedEvent = {
-    ReplicatedEvent(
+  def apply(action: Action.Append, event: Event, partitionOffset: PartitionOffset): EventRecord = {
+    EventRecord(
       event = event,
       timestamp = action.timestamp,
       partitionOffset = partitionOffset,

@@ -114,7 +114,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
     val Error = new RuntimeException with NoStackTrace
 
-    def read(key: Key)(until: List[ReplicatedEvent] => Boolean) = {
+    def read(key: Key)(until: List[EventRecord] => Boolean) = {
       val events = for {
         events <- eventualJournal.read(key, SeqNr.Min).toList
         events <- {
@@ -126,7 +126,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
             }
             result.pure[IO]
           } else {
-            Error.raiseError[IO, List[ReplicatedEvent]]
+            Error.raiseError[IO, List[EventRecord]]
           }
         }
       } yield events
@@ -140,7 +140,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       } yield for {
         event <- events
       } yield {
-        ReplicatedEvent(event, timestamp, partitionOffset, Some(origin), metadata, headers)
+        EventRecord(event, timestamp, partitionOffset, Some(origin), metadata, headers)
       }
     }
 

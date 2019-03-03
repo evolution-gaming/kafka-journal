@@ -70,19 +70,19 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
         pointers = Map((topic, TopicPointers(Map((0, 4l), (1, 4l))))),
         journal = Map(
           (keyOf("0-0"), List(
-            replicated(seqNr = 1, partition = 0, offset = 1),
-            replicated(seqNr = 2, partition = 0, offset = 3))),
+            record(seqNr = 1, partition = 0, offset = 1),
+            record(seqNr = 2, partition = 0, offset = 3))),
           (keyOf("0-1"), List(
-            replicated(seqNr = 1, partition = 0, offset = 2),
-            replicated(seqNr = 2, partition = 0, offset = 2),
-            replicated(seqNr = 3, partition = 0, offset = 4))),
+            record(seqNr = 1, partition = 0, offset = 2),
+            record(seqNr = 2, partition = 0, offset = 2),
+            record(seqNr = 3, partition = 0, offset = 4))),
           (keyOf("1-0"), List(
-            replicated(seqNr = 1, partition = 1, offset = 1),
-            replicated(seqNr = 2, partition = 1, offset = 3))),
+            record(seqNr = 1, partition = 1, offset = 1),
+            record(seqNr = 2, partition = 1, offset = 3))),
           (keyOf("1-1"), List(
-            replicated(seqNr = 1, partition = 1, offset = 2),
-            replicated(seqNr = 2, partition = 1, offset = 2),
-            replicated(seqNr = 3, partition = 1, offset = 4)))),
+            record(seqNr = 1, partition = 1, offset = 2),
+            record(seqNr = 2, partition = 1, offset = 2),
+            record(seqNr = 3, partition = 1, offset = 4)))),
         heads = Map(
           headOf("0-0", partition = 0, offset = 3),
           headOf("0-1", partition = 0, offset = 4),
@@ -143,19 +143,19 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
         pointers = Map((topic, TopicPointers(Map((0, 4l), (1, 4l))))),
         journal = Map(
           (keyOf("0-0"), List(
-            replicated(seqNr = 2, partition = 0, offset = 3),
-            replicated(seqNr = 1, partition = 0, offset = 1))),
+            record(seqNr = 2, partition = 0, offset = 3),
+            record(seqNr = 1, partition = 0, offset = 1))),
           (keyOf("0-1"), List(
-            replicated(seqNr = 3, partition = 0, offset = 4),
-            replicated(seqNr = 1, partition = 0, offset = 2),
-            replicated(seqNr = 2, partition = 0, offset = 2))),
+            record(seqNr = 3, partition = 0, offset = 4),
+            record(seqNr = 1, partition = 0, offset = 2),
+            record(seqNr = 2, partition = 0, offset = 2))),
           (keyOf("1-0"), List(
-            replicated(seqNr = 2, partition = 1, offset = 3),
-            replicated(seqNr = 1, partition = 1, offset = 1))),
+            record(seqNr = 2, partition = 1, offset = 3),
+            record(seqNr = 1, partition = 1, offset = 1))),
           (keyOf("1-1"), List(
-            replicated(seqNr = 3, partition = 1, offset = 4),
-            replicated(seqNr = 1, partition = 1, offset = 2),
-            replicated(seqNr = 2, partition = 1, offset = 2)))),
+            record(seqNr = 3, partition = 1, offset = 4),
+            record(seqNr = 1, partition = 1, offset = 2),
+            record(seqNr = 2, partition = 1, offset = 2)))),
         heads = Map(
           headOf("0-0", partition = 0, offset = 3),
           headOf("0-1", partition = 0, offset = 4),
@@ -235,38 +235,38 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
         pointers = Map((topic, TopicPointers(Map((0, 9l), (1, 9l), (2, 9l))))),
         journal = Map(
           (keyOf("0-0"), List(
-            replicated(seqNr = 1, partition = 0, offset = 1),
-            replicated(seqNr = 2, partition = 0, offset = 5))),
+            record(seqNr = 1, partition = 0, offset = 1),
+            record(seqNr = 2, partition = 0, offset = 5))),
           (keyOf("0-1"), List(
-            replicated(seqNr = 1, partition = 0, offset = 3),
-            replicated(seqNr = 2, partition = 0, offset = 3),
-            replicated(seqNr = 3, partition = 0, offset = 8))),
+            record(seqNr = 1, partition = 0, offset = 3),
+            record(seqNr = 2, partition = 0, offset = 3),
+            record(seqNr = 3, partition = 0, offset = 8))),
           (keyOf("0-2"), List(
-            replicated(seqNr = 1, partition = 0, offset = 7),
-            replicated(seqNr = 2, partition = 0, offset = 7),
-            replicated(seqNr = 3, partition = 0, offset = 7))),
+            record(seqNr = 1, partition = 0, offset = 7),
+            record(seqNr = 2, partition = 0, offset = 7),
+            record(seqNr = 3, partition = 0, offset = 7))),
           (keyOf("1-0"), List(
-            replicated(seqNr = 1, partition = 1, offset = 1),
-            replicated(seqNr = 2, partition = 1, offset = 5))),
+            record(seqNr = 1, partition = 1, offset = 1),
+            record(seqNr = 2, partition = 1, offset = 5))),
           (keyOf("1-1"), List(
-            replicated(seqNr = 1, partition = 1, offset = 3),
-            replicated(seqNr = 2, partition = 1, offset = 3),
-            replicated(seqNr = 3, partition = 1, offset = 8))),
+            record(seqNr = 1, partition = 1, offset = 3),
+            record(seqNr = 2, partition = 1, offset = 3),
+            record(seqNr = 3, partition = 1, offset = 8))),
           (keyOf("1-2"), List(
-            replicated(seqNr = 1, partition = 1, offset = 7),
-            replicated(seqNr = 2, partition = 1, offset = 7),
-            replicated(seqNr = 3, partition = 1, offset = 7))),
+            record(seqNr = 1, partition = 1, offset = 7),
+            record(seqNr = 2, partition = 1, offset = 7),
+            record(seqNr = 3, partition = 1, offset = 7))),
           (keyOf("2-0"), List(
-            replicated(seqNr = 1, partition = 2, offset = 1),
-            replicated(seqNr = 2, partition = 2, offset = 5))),
+            record(seqNr = 1, partition = 2, offset = 1),
+            record(seqNr = 2, partition = 2, offset = 5))),
           (keyOf("2-1"), List(
-            replicated(seqNr = 1, partition = 2, offset = 3),
-            replicated(seqNr = 2, partition = 2, offset = 3),
-            replicated(seqNr = 3, partition = 2, offset = 8))),
+            record(seqNr = 1, partition = 2, offset = 3),
+            record(seqNr = 2, partition = 2, offset = 3),
+            record(seqNr = 3, partition = 2, offset = 8))),
           (keyOf("2-2"), List(
-            replicated(seqNr = 1, partition = 2, offset = 7),
-            replicated(seqNr = 2, partition = 2, offset = 7),
-            replicated(seqNr = 3, partition = 2, offset = 7)))),
+            record(seqNr = 1, partition = 2, offset = 7),
+            record(seqNr = 2, partition = 2, offset = 7),
+            record(seqNr = 3, partition = 2, offset = 7)))),
         heads = Map(
           headOf("0-0", partition = 0, offset = 9),
           headOf("0-1", partition = 0, offset = 8),
@@ -350,23 +350,23 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
         pointers = Map((topic, TopicPointers(Map((0, 10l), (1, 10l))))),
         journal = Map(
           (keyOf("0-0"), List(
-            replicated(seqNr = 1, partition = 0, offset = 1),
-            replicated(seqNr = 2, partition = 0, offset = 5))),
+            record(seqNr = 1, partition = 0, offset = 1),
+            record(seqNr = 2, partition = 0, offset = 5))),
           (keyOf("0-1"), List(
-            replicated(seqNr = 3, partition = 0, offset = 8))),
+            record(seqNr = 3, partition = 0, offset = 8))),
           (keyOf("0-2"), List(
-            replicated(seqNr = 1, partition = 0, offset = 7),
-            replicated(seqNr = 2, partition = 0, offset = 7),
-            replicated(seqNr = 3, partition = 0, offset = 7))),
+            record(seqNr = 1, partition = 0, offset = 7),
+            record(seqNr = 2, partition = 0, offset = 7),
+            record(seqNr = 3, partition = 0, offset = 7))),
           (keyOf("1-0"), List(
-            replicated(seqNr = 1, partition = 1, offset = 1),
-            replicated(seqNr = 2, partition = 1, offset = 5))),
+            record(seqNr = 1, partition = 1, offset = 1),
+            record(seqNr = 2, partition = 1, offset = 5))),
           (keyOf("1-1"), List(
-            replicated(seqNr = 3, partition = 1, offset = 8))),
+            record(seqNr = 3, partition = 1, offset = 8))),
           (keyOf("1-2"), List(
-            replicated(seqNr = 1, partition = 1, offset = 7),
-            replicated(seqNr = 2, partition = 1, offset = 7),
-            replicated(seqNr = 3, partition = 1, offset = 7)))),
+            record(seqNr = 1, partition = 1, offset = 7),
+            record(seqNr = 2, partition = 1, offset = 7),
+            record(seqNr = 3, partition = 1, offset = 7)))),
         heads = Map(
           headOf("0-0", partition = 0, offset = 10),
           headOf("0-1", partition = 0, offset = 9, deleteTo = Some(2)),
@@ -458,13 +458,13 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
         journal = Map(
           (keyOf("0-0"), Nil),
           (keyOf("0-1"), List(
-            replicated(seqNr = 3, partition = 0, offset = 8),
-            replicated(seqNr = 1, partition = 0, offset = 3),
-            replicated(seqNr = 2, partition = 0, offset = 3))),
+            record(seqNr = 3, partition = 0, offset = 8),
+            record(seqNr = 1, partition = 0, offset = 3),
+            record(seqNr = 2, partition = 0, offset = 3))),
           (keyOf("0-2"), List(
-            replicated(seqNr = 1, partition = 0, offset = 7),
-            replicated(seqNr = 2, partition = 0, offset = 7),
-            replicated(seqNr = 3, partition = 0, offset = 7)))),
+            record(seqNr = 1, partition = 0, offset = 7),
+            record(seqNr = 2, partition = 0, offset = 7),
+            record(seqNr = 3, partition = 0, offset = 7)))),
         heads = Map(
           headOf("0-0", partition = 0, offset = 11, deleteTo = Some(1)),
           headOf("0-1", partition = 0, offset = 12, deleteTo = Some(2)),
@@ -549,17 +549,17 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
         pointers = Map((topic, TopicPointers(Map((0, 3l), (1, 3l), (2, 3l))))),
         journal = Map(
           (keyOf("0-0"), List(
-            replicated(seqNr = 2, partition = 0, offset = 2))),
+            record(seqNr = 2, partition = 0, offset = 2))),
           (keyOf("0-1"), List(
-            replicated(seqNr = 1, partition = 0, offset = 1),
-            replicated(seqNr = 2, partition = 0, offset = 1),
-            replicated(seqNr = 3, partition = 0, offset = 3))),
+            record(seqNr = 1, partition = 0, offset = 1),
+            record(seqNr = 2, partition = 0, offset = 1),
+            record(seqNr = 3, partition = 0, offset = 3))),
           (keyOf("1-0"), List(
-            replicated(seqNr = 2, partition = 1, offset = 2))),
+            record(seqNr = 2, partition = 1, offset = 2))),
           (keyOf("1-1"), List(
-            replicated(seqNr = 3, partition = 1, offset = 3))),
+            record(seqNr = 3, partition = 1, offset = 3))),
           (keyOf("2-1"), List(
-            replicated(seqNr = 3, partition = 2, offset = 3)))),
+            record(seqNr = 3, partition = 2, offset = 3)))),
         heads = Map(
           headOf("0-0", partition = 0, offset = 2),
           headOf("0-1", partition = 0, offset = 3),
@@ -591,10 +591,10 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
       headers = producerRecord.headers)
   }
 
-  private def replicated(seqNr: Int, partition: Partition, offset: Offset) = {
+  private def record(seqNr: Int, partition: Partition, offset: Offset) = {
     val partitionOffset = PartitionOffset(partition = partition, offset = offset)
     val event = Event(SeqNr(seqNr.toLong), Set(seqNr.toString))
-    ReplicatedEvent(event, timestamp, partitionOffset, Some(origin), metadata, headers)
+    EventRecord(event, timestamp, partitionOffset, Some(origin), metadata, headers)
   }
 
   private def appendOf(key: Key, seqNrs: Nel[Int]) = {
@@ -633,10 +633,15 @@ object TopicReplicatorSpec {
 
   def keyOf(id: Id) = Key(id = id, topic = topic)
 
-  def headOf(id: Id, partition: Partition, offset: Offset, deleteTo: Option[Int] = None): (Key, Head) = {
+  def headOf(
+    id: Id,
+    partition: Partition,
+    offset: Offset,
+    deleteTo: Option[Int] = None
+  ): (Key, Head) = {
     val deleteToSeqNr = deleteTo.flatMap(deleteTo => SeqNr.opt(deleteTo.toLong))
     val partitionOffset = PartitionOffset(partition = partition, offset = offset)
-    val head = Head(partitionOffset, deleteToSeqNr)
+    val head = Head(partitionOffset, deleteToSeqNr, origin.some)
     val key = keyOf(id = id)
     (key, head)
   }
@@ -680,13 +685,12 @@ object TopicReplicatorSpec {
       StateT { state => (state, state.pointers.getOrElse(topic, TopicPointers.Empty)) }
     }
 
-    def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[ReplicatedEvent]) = {
+    def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[EventRecord]) = {
       StateT { _.append(key, partitionOffset, events) }
     }
 
     def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = {
-      // TODO test origin
-      StateT { state => (state.delete(key, deleteTo, partitionOffset), ()) }
+      StateT { state => (state.delete(key, deleteTo, partitionOffset, origin), ()) }
     }
 
     def save(topic: Topic, pointers: TopicPointers, timestamp: Instant) = {
@@ -771,7 +775,7 @@ object TopicReplicatorSpec {
     records: List[ConsumerRecords[Id, Bytes]] = Nil,
     stopAfter: Option[Int] = None,
     pointers: Map[Topic, TopicPointers] = Map.empty,
-    journal: Map[Key, List[ReplicatedEvent]] = Map.empty,
+    journal: Map[Key, List[EventRecord]] = Map.empty,
     heads: Map[Key, Head] = Map.empty,
     metrics: List[Metrics] = Nil) { self =>
 
@@ -795,13 +799,13 @@ object TopicReplicatorSpec {
       copy(pointers = self.pointers.updated(topic, updated))
     }
 
-    def append(key: Key, partitionOffset: PartitionOffset, events: Nel[ReplicatedEvent]): (State, Unit) = {
+    def append(key: Key, partitionOffset: PartitionOffset, events: Nel[EventRecord]): (State, Unit) = {
 
       val records = events.toList ++ self.journal.getOrElse(key, Nil)
 
       val deleteTo = self.heads.get(key).flatMap(_.deleteTo)
 
-      val head = Head(partitionOffset, deleteTo)
+      val head = Head(partitionOffset, deleteTo, events.last.origin)
 
       val updated = copy(
         journal = journal.updated(key, records),
@@ -810,7 +814,7 @@ object TopicReplicatorSpec {
       (updated, ())
     }
 
-    def delete(key: Key, deleteTo: SeqNr, partitionOffset: PartitionOffset): State = {
+    def delete(key: Key, deleteTo: SeqNr, partitionOffset: PartitionOffset, origin: Option[Origin]): State = {
 
       def journal = self.journal.getOrElse(key, Nil)
 
@@ -824,7 +828,7 @@ object TopicReplicatorSpec {
       } else {
         val records = delete(deleteTo)
         val result = records.headOption.flatMap(_.seqNr.prev) orElse journal.lastOption.map(_.seqNr)
-        val head = Head(partitionOffset, deleteTo = result orElse deleteTo1)
+        val head = Head(partitionOffset, deleteTo = result orElse deleteTo1, origin = origin)
         copy(
           journal = self.journal.updated(key, records),
           heads = self.heads.updated(key, head))
@@ -847,7 +851,7 @@ object TopicReplicatorSpec {
   }
 
 
-  final case class Head(offset: PartitionOffset, deleteTo: Option[SeqNr])
+  final case class Head(offset: PartitionOffset, deleteTo: Option[SeqNr], origin: Option[Origin])
 
   case object NotImplemented extends RuntimeException with NoStackTrace
 }

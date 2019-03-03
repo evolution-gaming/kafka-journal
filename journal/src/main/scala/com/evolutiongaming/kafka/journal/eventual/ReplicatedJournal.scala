@@ -16,7 +16,7 @@ trait ReplicatedJournal[F[_]] {
 
   def pointers(topic: Topic): F[TopicPointers]
 
-  def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[ReplicatedEvent]): F[Unit]
+  def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[EventRecord]): F[Unit]
 
   def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]): F[Unit]
 
@@ -54,7 +54,7 @@ object ReplicatedJournal {
         } yield r
       }
 
-      def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[ReplicatedEvent]) = {
+      def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[EventRecord]) = {
         for {
           rl     <- Latency { journal.append(key, partitionOffset, timestamp, events) }
           (r, l)  = rl
@@ -108,7 +108,7 @@ object ReplicatedJournal {
         } yield r
       }
 
-      def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[ReplicatedEvent]) = {
+      def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[EventRecord]) = {
         for {
           rl     <- Latency { journal.append(key, partitionOffset, timestamp, events) }
           (r, l)  = rl
@@ -141,7 +141,7 @@ object ReplicatedJournal {
 
     def pointers(topic: Topic) = TopicPointers.Empty.pure[F]
 
-    def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[ReplicatedEvent]) = ().pure[F]
+    def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[EventRecord]) = ().pure[F]
 
     def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = ().pure[F]
 
@@ -189,7 +189,7 @@ object ReplicatedJournal {
 
       def pointers(topic: Topic) = f(self.pointers(topic))
 
-      def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[ReplicatedEvent]) = {
+      def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[EventRecord]) = {
         f(self.append(key, partitionOffset, timestamp, events))
       }
 

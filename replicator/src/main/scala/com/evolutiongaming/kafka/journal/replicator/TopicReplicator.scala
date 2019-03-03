@@ -148,7 +148,7 @@ object TopicReplicator { self =>
             action  = record.action
             event  <- EventsFromPayload(action.payload, action.payloadType)
           } yield {
-            ReplicatedEvent(record, event)
+            EventRecord(record, event)
           }
 
           for {
@@ -429,7 +429,6 @@ object TopicReplicator { self =>
   trait Metrics[F[_]] {
     import Metrics._
 
-    // TODO add content type
     def append(events: Int, bytes: Int, measurements: Measurements): F[Unit]
 
     def delete(measurements: Measurements): F[Unit]

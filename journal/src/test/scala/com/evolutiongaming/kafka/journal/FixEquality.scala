@@ -26,12 +26,12 @@ object FixEquality {
     def apply(a: Nel[Event]) = a.map(F.apply)
   }
 
-  implicit def replicatedEventImpl(implicit F: FixEquality[Event]): FixEquality[ReplicatedEvent] = new FixEquality[ReplicatedEvent] {
-    def apply(a: ReplicatedEvent) = a.copy(event = F(a.event))
+  implicit def eventRecordImpl(implicit F: FixEquality[Event]): FixEquality[EventRecord] = new FixEquality[EventRecord] {
+    def apply(a: EventRecord) = a.copy(event = F(a.event))
   }
 
-  implicit def replicatedEventsImpl(implicit F: FixEquality[ReplicatedEvent]): FixEquality[List[ReplicatedEvent]] = new FixEquality[List[ReplicatedEvent]] {
-    def apply(a: List[ReplicatedEvent]) = a.map(F.apply)
+  implicit def eventRecordsImpl(implicit F: FixEquality[EventRecord]): FixEquality[List[EventRecord]] = new FixEquality[List[EventRecord]] {
+    def apply(a: List[EventRecord]) = a.map(F.apply)
   }
 
   def array[A](): FixEquality[Array[A]] = {

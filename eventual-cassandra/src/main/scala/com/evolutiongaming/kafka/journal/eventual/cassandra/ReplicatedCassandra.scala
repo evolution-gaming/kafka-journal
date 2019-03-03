@@ -47,17 +47,17 @@ object ReplicatedCassandra {
         } yield topics.sorted
       }
 
-      def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[ReplicatedEvent]) = {
+      def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[EventRecord]) = {
 
         def append(segmentSize: Int) = {
 
           @tailrec
           def loop(
-            events: List[ReplicatedEvent],
-            s: Option[(Segment, Nel[ReplicatedEvent])],
+            events: List[EventRecord],
+            s: Option[(Segment, Nel[EventRecord])],
             result: F[Unit]): F[Unit] = {
 
-            def insert(segment: Segment, events: Nel[ReplicatedEvent]) = {
+            def insert(segment: Segment, events: Nel[EventRecord]) = {
               val next = Statements[F].insertRecords(key, segment.nr, events)
               for {
                 _ <- result

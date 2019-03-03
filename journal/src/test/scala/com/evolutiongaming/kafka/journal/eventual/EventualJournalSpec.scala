@@ -55,11 +55,11 @@ trait EventualJournalSpec extends WordSpec with Matchers {
       }
     }
 
-    def eventOf(pointer: Pointer): ReplicatedEvent = {
+    def eventOf(pointer: Pointer): EventRecord = {
       val event = Event(pointer.seqNr)
       val metadata = Metadata(data = Some(Json.obj(("key", "value"))))
       val headers = Headers(("key", "value"))
-      ReplicatedEvent(
+      EventRecord(
         event = event,
         timestamp = timestamp,
         partitionOffset = pointer.partitionOffset,
@@ -446,7 +446,7 @@ object EventualJournalSpec {
 
   trait Eventual[F[_]] {
 
-    def events(from: SeqNr = SeqNr.Min): F[List[ReplicatedEvent]]
+    def events(from: SeqNr = SeqNr.Min): F[List[EventRecord]]
 
     def pointer: F[Option[Pointer]]
 
@@ -472,12 +472,12 @@ object EventualJournalSpec {
 
     def topics: F[Iterable[Topic]]
 
-    final def append(events: Nel[ReplicatedEvent]): F[Unit] = {
+    final def append(events: Nel[EventRecord]): F[Unit] = {
       val partitionOffset = events.last.partitionOffset // TODO add test for custom offset
       append(partitionOffset, events)
     }
 
-    def append(partitionOffset: PartitionOffset, events: Nel[ReplicatedEvent]): F[Unit]
+    def append(partitionOffset: PartitionOffset, events: Nel[EventRecord]): F[Unit]
 
     def delete(deleteTo: SeqNr, partitionOffset: PartitionOffset): F[Unit]
 
@@ -492,7 +492,7 @@ object EventualJournalSpec {
 
       def topics = journal.topics
 
-      def append(partitionOffset: PartitionOffset, events: Nel[ReplicatedEvent]) = {
+      def append(partitionOffset: PartitionOffset, events: Nel[EventRecord]) = {
         journal.append(key, partitionOffset, timestamp, events)
       }
 

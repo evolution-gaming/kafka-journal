@@ -562,7 +562,7 @@ object JournalSpec {
   object EventualJournalOf {
 
     final case class State(
-      events: Queue[ReplicatedEvent] = Queue.empty,
+      events: Queue[EventRecord] = Queue.empty,
       deleteTo: Option[SeqNr] = None,
       offset: Option[Offset] = None) {
 
@@ -579,7 +579,7 @@ object JournalSpec {
             event <- EventsFromPayload(action.payload, action.payloadType)
           } yield {
             val partitionOffset = PartitionOffset(partition, record.offset)
-            ReplicatedEvent(action, event, partitionOffset)
+            EventRecord(action, event, partitionOffset)
           }
           copy(events = events.enqueue(batch.toList), offset = Some(offset))
         }

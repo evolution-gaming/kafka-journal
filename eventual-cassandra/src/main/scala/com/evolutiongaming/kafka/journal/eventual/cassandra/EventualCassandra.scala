@@ -12,7 +12,6 @@ import com.evolutiongaming.skafka.Topic
 import scala.concurrent.ExecutionContextExecutor
 
 
-// TODO test EventualCassandra
 object EventualCassandra {
 
   def of[F[_] : Concurrent : Par : Clock : FromFuture : ToFuture : LogOf](
@@ -57,21 +56,21 @@ object EventualCassandra {
         statements.pointers(topic)
       }
 
-      def read(key: Key, from: SeqNr): Stream[F, ReplicatedEvent] = {
+      def read(key: Key, from: SeqNr): Stream[F, EventRecord] = {
 
         def read(statement: JournalStatement.SelectRecords[F], head: Head) = {
 
-          def read(from: SeqNr) = new Stream[F, ReplicatedEvent] {
+          def read(from: SeqNr) = new Stream[F, EventRecord] {
 
-            def foldWhileM[L, R](l: L)(f: (L, ReplicatedEvent) => F[Either[L, R]]) = {
+            def foldWhileM[L, R](l: L)(f: (L, EventRecord) => F[Either[L, R]]) = {
 
               case class S(l: L, seqNr: SeqNr)
 
-              val ff = (s: S, replicated: ReplicatedEvent) => {
+              val ff = (s: S, record: EventRecord) => {
                 for {
-                  result <- f(s.l, replicated)
+                  result <- f(s.l, record)
                 } yield {
-                  result.leftMap { l => S(l, replicated.event.seqNr) }
+                  result.leftMap { l => S(l, record.event.seqNr) }
                 }
               }
 
@@ -102,14 +101,14 @@ object EventualCassandra {
               if (from > deleteTo) read(from)
               else deleteTo.next match {
                 case Some(from) => read(from)
-                case None       => Stream.empty[F, ReplicatedEvent]
+                case None       => Stream.empty[F, EventRecord]
               }
           }
         }
 
         for {
           head   <- Stream.lift(statements.head(key))
-          result <- head.fold(Stream.empty[F, ReplicatedEvent]) { head =>
+          result <- head.fold(Stream.empty[F, EventRecord]) { head =>
             read(statements.records, head)
           }
         } yield result

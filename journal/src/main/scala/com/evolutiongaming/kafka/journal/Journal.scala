@@ -168,9 +168,9 @@ object Journal {
           // TODO why do we need this?
           def replicatedSeqNr(from: SeqNr) = {
             val ss = (l, from.some, none[Offset])
-            eventual.read(key, from).foldWhileM(ss) { case ((l, _, _), replicated) =>
-              val event = replicated.event
-              val offset = replicated.partitionOffset.offset
+            eventual.read(key, from).foldWhileM(ss) { case ((l, _, _), record) =>
+              val event = record.event
+              val offset = record.partitionOffset.offset
               val from = event.seqNr.next
               f(l, event).map {
                 case Left(l)  => (l, from, offset.some).asLeft[(R, Option[SeqNr], Option[Offset])]
