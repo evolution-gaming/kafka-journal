@@ -20,8 +20,6 @@ object Rng {
 
   type Seed = Long
 
-  private val DoubleUnit = 1.0 / (1L << 53)
-
 
   def apply(seed: Seed): Rng = Simple(seed)
 
@@ -34,7 +32,10 @@ object Rng {
     }
   }
 
+  
   private final case class Simple(seed: Seed) extends Rng {
+
+    import Simple._
 
     private def next(bits: Int, seed: Seed): (Int, Seed) = {
       val r = (seed >>> (48 - bits)).toInt
@@ -57,7 +58,7 @@ object Rng {
 
     def float = {
       val (a0, s1) = next(24, seed)
-      val a = a0 / (1 << 24).toFloat
+      val a = a0 / FloatUnit
       (a, Simple(s1))
     }
 
@@ -68,5 +69,12 @@ object Rng {
       val r = (a1 + a2) * DoubleUnit
       (r, Simple(s2))
     }
+  }
+
+  private object Simple {
+
+    val DoubleUnit = 1.0 / (1L << 53)
+    
+    val FloatUnit = (1 << 24).toFloat
   }
 }
