@@ -85,7 +85,7 @@ object ReadEventsApp extends IOApp {
       val key = Key(id = "id", topic = "topic")
       for {
         pointer <- journal.pointer(key)
-        seqNrs  <- journal.read(key, SeqNr.Min).map(_.seqNr).toList
+        seqNrs  <- journal.read(key).map(_.seqNr).toList
         _       <- log.info(s"pointer: $pointer")
         _       <- log.info(s"seqNrs: $seqNrs")
       } yield {}

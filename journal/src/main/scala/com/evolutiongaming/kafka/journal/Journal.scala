@@ -27,13 +27,13 @@ trait Journal[F[_]] {
     headers: Headers = Headers.Empty
   ): F[PartitionOffset]
 
-  def read(key: Key, from: SeqNr): Stream[F, EventRecord]
+  def read(key: Key, from: SeqNr = SeqNr.Min): Stream[F, EventRecord]
 
   // TODO return Pointer and test it
   def pointer(key: Key): F[Option[SeqNr]]
 
   // TODO return Pointer and test it
-  def delete(key: Key, to: SeqNr): F[Option[PartitionOffset]]
+  def delete(key: Key, to: SeqNr = SeqNr.Max): F[Option[PartitionOffset]]
 }
 
 object Journal {

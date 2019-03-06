@@ -86,7 +86,7 @@ object JournalSuite {
 
       def read = {
         for {
-          records <- journal.read(key, SeqNr.Min).toList
+          records <- journal.read(key).toList
         } yield for {
           record <- records
         } yield {
@@ -94,7 +94,7 @@ object JournalSuite {
         }
       }
 
-      def size = journal.read(key, SeqNr.Min).length
+      def size = journal.read(key).length
 
       def pointer = journal.pointer(key)
 
