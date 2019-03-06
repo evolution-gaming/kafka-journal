@@ -51,103 +51,151 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
   "Journal" should {
 
     for {
-      seqNr                    <- List(SeqNr.Min, SeqNr(2))
       headCache                <- List(true, false)
       (eventualName, eventual) <- List(
         ("empty",     () => EventualJournal.empty[IO]),
         ("non-empty", () => eventual))
     } {
-      val name = s"seqNr: $seqNr, eventual: $eventualName, headCache: $headCache"
+
+      val name = s"eventual: $eventualName, headCache: $headCache"
 
       val key = Key.random[IO]("journal")
 
       lazy val (journal0, release) = journalOf(eventual(), headCache).allocated.unsafeRunSync()
 
-      s"append, delete, read, lastSeqNr, $name" in {
-        val result = for {
-          key       <- key
-          journal    = KeyJournal(key, timestamp, journal0)
-          pointer   <- journal.pointer
-          _          = pointer shouldEqual None
-          events    <- journal.read
-          _          = events shouldEqual Nil
-          offset    <- journal.delete(SeqNr.Max)
-          _          = offset shouldEqual None
-          event      = Event(seqNr)
-          offset    <- journal.append(Nel(event), metadata.data, headers)
-          record     = EventRecord(event, timestamp, offset, origin.some, metadata, headers)
-          partition  = offset.partition
-          events    <- journal.read
-          _          = events shouldEqual List(record)
-          offset    <- journal.delete(SeqNr.Max)
-          _          = offset.map(_.partition) shouldEqual Some(partition)
-          pointer   <- journal.pointer
-          _          = pointer shouldEqual Some(seqNr)
-          events    <- journal.read
-          _          = events shouldEqual Nil
-        } yield Succeeded
+      for {
+        seqNr <- List(SeqNr.Min, SeqNr(2))
+      } {
 
-        result.run(1.minute)
-      }
+        val name1 = s"seqNr: $seqNr, $name"
 
-      val many = 10
-      s"append & read $many, $name" in {
+        s"append, delete, read, lastSeqNr, $name1" in {
+          val result = for {
+            key       <- key
+            journal    = KeyJournal(key, timestamp, journal0)
+            pointer   <- journal.pointer
+            _          = pointer shouldEqual None
+            events    <- journal.read
+            _          = events shouldEqual Nil
+            offset    <- journal.delete(SeqNr.Max)
+            _          = offset shouldEqual None
+            event      = Event(seqNr)
+            offset    <- journal.append(Nel(event), metadata.data, headers)
+            record     = EventRecord(event, timestamp, offset, origin.some, metadata, headers)
+            partition  = offset.partition
+            events    <- journal.read
+            _          = events shouldEqual List(record)
+            offset    <- journal.delete(SeqNr.Max)
+            _          = offset.map(_.partition) shouldEqual Some(partition)
+            pointer   <- journal.pointer
+            _          = pointer shouldEqual Some(seqNr)
+            events    <- journal.read
+            _          = events shouldEqual Nil
+          } yield Succeeded
 
-        val events = for {
-          n <- 0 until many
-          seqNr <- seqNr.map(_ + n)
-        } yield {
-          Event(seqNr)
+          result.run(1.minute)
         }
 
-        val result = for {
-          key     <- key
-          journal  = KeyJournal(key, timestamp, journal0)
-          read = for {
-            events1 <- journal.read
-            _        = events1.map(_.event) shouldEqual events
-            pointer <- journal.pointer
-            _ = pointer shouldEqual events.lastOption.map(_.seqNr)
+        val many = 10
+        s"append & read $many, $name1" in {
+
+          val events = for {
+            n <- 0 until many
+            seqNr <- seqNr.map(_ + n)
+          } yield {
+            Event(seqNr)
+          }
+
+          val result = for {
+            key     <- key
+            journal  = KeyJournal(key, timestamp, journal0)
+            read = for {
+              events1 <- journal.read
+              _        = events1.map(_.event) shouldEqual events
+              pointer <- journal.pointer
+              _ = pointer shouldEqual events.lastOption.map(_.seqNr)
+            } yield {}
+            _       <- journal.append(Nel.unsafe(events))
+            reads    = List.fill(10)(read)
+            _       <- Foldable[List].fold(reads)
           } yield {}
-          _       <- journal.append(Nel.unsafe(events))
-          reads    = List.fill(10)(read)
-          _       <- Foldable[List].fold(reads)
-        } yield {}
 
-        result.run(1.minute)
-      }
+          result.run(1.minute)
+        }
 
-      s"append & read $many in parallel, $name" in {
+        s"append & read $many in parallel, $name1" in {
 
-        val expected = for {
-          n <- (0 to 10).toList
-          seqNr <- seqNr.map(_ + n)
-        } yield Event(seqNr)
+          val expected = for {
+            n <- (0 to 10).toList
+            seqNr <- seqNr.map(_ + n)
+          } yield Event(seqNr)
 
-        val appends = for {
-          key     <- key
-          journal  = KeyJournal(key, timestamp, journal0)
-          events  <- journal.read
-          _        = events shouldEqual Nil
-          pointer <- journal.pointer
-          _        = pointer shouldEqual None
-          _       <- expected.foldMap { event => journal.append(Nel(event)).void }
-        } yield {
-          for {
-            pointer <- journal.pointer
-            _        = pointer shouldEqual expected.lastOption.map(_.seqNr)
+          val appends = for {
+            key     <- key
+            journal  = KeyJournal(key, timestamp, journal0)
             events  <- journal.read
-            _        = events.map(_.event) shouldEqual expected
+            _        = events shouldEqual Nil
+            pointer <- journal.pointer
+            _        = pointer shouldEqual None
+            _       <- expected.foldMap { event => journal.append(Nel(event)).void }
+          } yield {
+            for {
+              pointer <- journal.pointer
+              _        = pointer shouldEqual expected.lastOption.map(_.seqNr)
+              events  <- journal.read
+              _        = events.map(_.event) shouldEqual expected
+            } yield {}
+          }
+
+          val result = for {
+            reads <- Par[IO].sequence(List.fill(10)(appends))
+            _     <- Par[IO].fold(reads)
           } yield {}
+
+          result.run(1.minute)
         }
 
-        val result = for {
-          reads <- Par[IO].sequence(List.fill(10)(appends))
-          _     <- Par[IO].fold(reads)
-          _     <- release
-        } yield {}
+        s"append duplicates $name1" ignore {
 
-        result.run(1.minute)
+          val seqNrs = {
+            val seqNrs = (0 to 2).foldLeft(Nel(seqNr)) { (seqNrs, _) =>
+              seqNrs.head.next.fold(seqNrs) { _ :: seqNrs }
+            }
+            seqNrs.reverse
+          }
+
+          val result = for {
+            key       <- key
+            journal    = KeyJournal(key, timestamp, journal0)
+            pointer   <- journal.pointer
+            _          = pointer shouldEqual None
+            events    <- journal.read
+            _          = events shouldEqual Nil
+            offset    <- journal.delete(SeqNr.Max)
+            _          = offset shouldEqual None
+            events     = seqNrs.map { seqNr => Event(seqNr) }
+            append     = journal.append(events, metadata.data, headers)
+            _         <- append
+            _         <- append
+            offset    <- append
+            records    = events.map { event => EventRecord(event, timestamp, offset, origin.some, metadata, headers) }
+            partition  = offset.partition
+            events    <- journal.read
+            _          = events shouldEqual records.toList
+            offset    <- journal.delete(seqNrs.last)
+            _          = offset.map(_.partition) shouldEqual Some(partition)
+            pointer   <- journal.pointer
+            _          = pointer shouldEqual Some(seqNrs.last)
+            events    <- journal.read
+            _          = events shouldEqual Nil
+          } yield Succeeded
+
+          result.run(1.minute)
+        }
+      }
+
+      s"release $name" in {
+        release.run(1.minute)
       }
     }
   }
