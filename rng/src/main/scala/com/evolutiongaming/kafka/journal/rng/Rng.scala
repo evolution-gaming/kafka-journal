@@ -9,6 +9,10 @@ trait Rng {
 
   def int: (Int, Rng)
 
+  def long: (Long, Rng)
+
+  def float: (Float, Rng)
+
   def double: (Double, Rng)
 }
 
@@ -38,17 +42,31 @@ object Rng {
       (r, s1)
     }
 
+    def int = {
+      val (r, s1) = next(32, seed)
+      (r, Simple(s1))
+    }
+
+    def long = {
+      val (a0, s1) = next(32, seed)
+      val a1 = a0.toLong << 32
+      val (a2, s2) = next(32, s1)
+      val r = a1 + a2
+      (r, Simple(s2))
+    }
+
+    def float = {
+      val (a0, s1) = next(24, seed)
+      val a = a0 / (1 << 24).toFloat
+      (a, Simple(s1))
+    }
+
     def double = {
       val (a0, s1) = next(26, seed)
       val a1 = a0.toLong << 27
       val (a2, s2) = next(27, s1)
       val r = (a1 + a2) * DoubleUnit
       (r, Simple(s2))
-    }
-
-    def int = {
-      val (r, s1) = next(32, seed)
-      (r, Simple(s1))
     }
   }
 }
