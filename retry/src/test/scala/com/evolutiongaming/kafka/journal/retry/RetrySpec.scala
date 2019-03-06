@@ -51,7 +51,7 @@ class RetrySpec extends FunSuite with Matchers {
   }
 
   test("fullJitter") {
-    val rng = Rng(12345l)
+    val rng = Rng.State(12345l)
     val policy = Strategy.fullJitter(5.millis, rng).cap(200.millis)
 
     val call = StateT { _.call }

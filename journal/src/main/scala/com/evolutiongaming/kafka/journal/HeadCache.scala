@@ -673,7 +673,7 @@ object HeadCache {
         implicit val clock = Timer[F].clock
 
         for {
-          rng        <- Rng.fromClock[F]
+          rng        <- Rng.State.fromClock[F]()
           strategy    = Retry.Strategy.fullJitter(3.millis, rng).cap(300.millis)
           partitions <- Retry[F, Throwable](strategy)(onError).apply(partitions)
         } yield {

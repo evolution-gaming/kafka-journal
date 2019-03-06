@@ -118,14 +118,14 @@ object Retry {
     /**
       * See https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
       */
-    def fullJitter(initial: FiniteDuration, rng: Rng): Strategy = {
+    def fullJitter(initial: FiniteDuration, rng: Rng.State): Strategy = {
 
-      def recur(rng: Rng): Decide = new Decide {
+      def recur(rng: Rng.State): Decide = new Decide {
 
         def apply(status: Status, now: Instant) = {
           val e = math.pow(2.toDouble, status.retries + 1d)
           val max = initial.length * e
-          val (double, rng1) = rng.double
+          val (rng1, double) = rng.double
           val delay = (max * double).toLong max initial.length
           val duration = FiniteDuration(delay, initial.unit)
           StrategyDecision.retry(duration, status, recur(rng1))

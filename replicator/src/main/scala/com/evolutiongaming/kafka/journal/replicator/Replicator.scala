@@ -89,7 +89,7 @@ object Replicator {
     } yield {
       for {
         log    <- LogOf[F].apply(Replicator.getClass)
-        rng    <- Rng.fromClock[F]
+        rng    <- Rng.State.fromClock[F]()
         error  <- Ref.of[F, F[Unit]](().pure[F])
         result <- {
           val topicReplicator = topicReplicatorOf.andThen { topicReplicator =>

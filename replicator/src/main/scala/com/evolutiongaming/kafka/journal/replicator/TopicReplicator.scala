@@ -46,7 +46,7 @@ object TopicReplicator { self =>
       self.apply[F](stopRef, fiber)
     }
 
-    def start(stopRef: StopRef[F], consumer: Resource[F, Consumer[F]], rng: Rng)(implicit log: Log[F]) = {
+    def start(stopRef: StopRef[F], consumer: Resource[F, Consumer[F]], rng: Rng.State)(implicit log: Log[F]) = {
       val strategy = Retry.Strategy
         .fullJitter(100.millis, rng)
         .limit(1.minute)
@@ -64,7 +64,7 @@ object TopicReplicator { self =>
       log0    <- LogOf[F].apply(TopicReplicator.getClass)
       log      = log0 prefixed topic
       stopRef <- StopRef.of[F]
-      rng     <- Rng.fromClock[F]
+      rng     <- Rng.State.fromClock[F]()
       fiber   <- start(stopRef, consumer, rng)(log)
     } yield {
       apply(stopRef, fiber)(log)
