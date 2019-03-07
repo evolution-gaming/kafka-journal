@@ -8,7 +8,8 @@ import cats.Id
 import cats.effect.Clock
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.stream.Stream
-import com.evolutiongaming.kafka.journal.{ClockOf, _}
+import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.nel.Nel
 import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json.{JsValue, Json}
@@ -124,7 +125,7 @@ object JournalAdapterSpec {
 
     implicit val LogStateF: Log[StateT] = Log.empty[StateT]
 
-    implicit val ClockStateF: Clock[StateT] = ClockOf(timestamp.toEpochMilli)
+    implicit val ClockStateF: Clock[StateT] = Clock.const(nanos = 0, millis = timestamp.toEpochMilli) // TODO add Instant as argument
 
     implicit val JournalStateF: Journal[StateT] = new Journal[StateT] {
 

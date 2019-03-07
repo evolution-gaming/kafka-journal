@@ -2,9 +2,11 @@ package com.evolutiongaming.kafka.journal.eventual
 
 import java.time.Instant
 
+import cats.effect.Clock
 import cats.implicits._
 import cats.{Applicative, Monad}
-import com.evolutiongaming.kafka.journal.{ClockOf, _}
+import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Topic}
 import org.scalatest.{Assertion, Matchers, WordSpec}
@@ -20,7 +22,8 @@ trait EventualJournalSpec extends WordSpec with Matchers {
       (f: (Eventual[F], Replicated[F]) => F[Assertion]) => {
         withJournals { journals =>
           implicit val log = Log.empty[F]
-          implicit val clock = ClockOf[F](0)
+//          implicit val clock = Clock[F].empty(0) // TODO
+          implicit val clock = Clock.const[F](nanos = 0, millis = 0) // TODO
           val eventual = {
             val journal = journals.eventual
               .withLog(log)

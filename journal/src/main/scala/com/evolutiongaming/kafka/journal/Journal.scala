@@ -4,7 +4,7 @@ import cats._
 import cats.arrow.FunctionK
 import cats.effect._
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.ClockHelper._
+import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal

@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import cats.Monad
-import cats.effect.Resource
+import cats.effect.{Clock, Resource}
 import cats.implicits._
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.EventsSerializer._
@@ -11,6 +11,7 @@ import com.evolutiongaming.kafka.journal.SeqNr.syntax._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
+import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import org.scalatest.{Assertion, Matchers, WordSpec}
@@ -436,7 +437,7 @@ object JournalSpec {
 
       implicit val log = Log.empty[F]
       implicit val concurrent = ConcurrentOf.fromMonad[F]
-      implicit val clock = ClockOf[F](timestamp.toEpochMilli)
+      implicit val clock = Clock.const[F](nanos = 0, millis = timestamp.toEpochMilli)
       implicit val par = Par.sequential[F]
       implicit val randomId = RandomId.uuid[F]
       val journal = Journal[F](None, eventual, readActionsOf, writeAction, headCache)

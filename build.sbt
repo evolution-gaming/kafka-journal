@@ -68,12 +68,10 @@ lazy val root = (project in file(".")
   settings commonSettings
   settings (skip in publish := true)
   aggregate(
-    rng,
     `scalatest-io`,
     `cats-effect-helpers`,
     cache,
     stream,
-    retry,
     journal,
     `journal-prometheus`,
     persistence,
@@ -99,32 +97,15 @@ lazy val stream = (project in file("stream")
     Cats.core,
     Cats.effect)))
 
-lazy val retry = (project in file("retry")
-  settings (name := "kafka-journal-retry")
-  settings commonSettings
-  dependsOn (rng, `cats-effect-helpers`)
-  settings (libraryDependencies ++= Seq(
-    scalatest % Test,
-    Cats.core,
-    Cats.effect)))
-
-lazy val rng = (project in file("rng")
-  settings (name := "kafka-journal-rng")
-  settings commonSettings
-  dependsOn `cats-effect-helpers`
-  settings (libraryDependencies ++= Seq(
-    scalatest % Test,
-    Cats.core,
-    Cats.effect)))
-
 lazy val `cats-effect-helpers` = (project in file("cats-effect-helpers")
   settings (name := "kafka-journal-cats-effect-helpers")
   settings commonSettings
   dependsOn `scalatest-io` % "test->compile"
   settings (libraryDependencies ++= Seq(
-    scalatest % Test,
+    `cats-helper`,
     Cats.core,
-    Cats.effect)))
+    Cats.effect,
+    scalatest % Test)))
 
 lazy val cache = (project in file("cache")
   settings (name := "kafka-journal-cache")
@@ -140,7 +121,7 @@ lazy val cache = (project in file("cache")
 lazy val journal = (project in file("journal")
   settings (name := "kafka-journal")
   settings commonSettings
-  dependsOn (stream, retry, cache, `scalatest-io` % "test->compile")
+  dependsOn (stream, cache, `scalatest-io` % "test->compile")
   settings (libraryDependencies ++= Seq(
     Akka.actor,
     Akka.stream,
@@ -150,8 +131,9 @@ lazy val journal = (project in file("journal")
     Skafka.skafka,
     scalatest % Test,
     `executor-tools`,
-    Logback.core % Test,
-    Logback.classic % Test,
+    random,
+    retry,
+    `cats-helper`,
     `play-json`,
     `future-helper`,
     `safe-actor`,
@@ -161,7 +143,9 @@ lazy val journal = (project in file("journal")
     `cassandra-sync`,
     `scala-java8-compat`,
     Cats.core,
-    Cats.effect)))
+    Cats.effect,
+    Logback.core % Test,
+    Logback.classic % Test)))
 
 lazy val persistence = (project in file("persistence")
   settings (name := "kafka-journal-persistence")

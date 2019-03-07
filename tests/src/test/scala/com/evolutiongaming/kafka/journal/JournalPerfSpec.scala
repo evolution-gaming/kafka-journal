@@ -8,7 +8,7 @@ import cats.implicits._
 import cats.effect.{Clock, IO}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.IOSuite._
-import com.evolutiongaming.kafka.journal.ClockHelper._
+import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.nel.Nel
 import org.scalatest.AsyncWordSpec
 

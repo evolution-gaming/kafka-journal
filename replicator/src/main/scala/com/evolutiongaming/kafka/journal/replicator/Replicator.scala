@@ -8,9 +8,9 @@ import cats.~>
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession, ReplicatedCassandra}
-import com.evolutiongaming.kafka.journal.retry.Retry
+import com.evolutiongaming.retry.Retry
 import com.evolutiongaming.kafka.journal.CatsHelper._
-import com.evolutiongaming.kafka.journal.rng.Rng
+import com.evolutiongaming.random.Random
 import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka
@@ -89,7 +89,7 @@ object Replicator {
     } yield {
       for {
         log    <- LogOf[F].apply(Replicator.getClass)
-        rng    <- Rng.State.fromClock[F]()
+        random <- Random.State.fromClock[F]()
         error  <- Ref.of[F, F[Unit]](().pure[F])
         result <- {
           val topicReplicator = topicReplicatorOf.andThen { topicReplicator =>
@@ -103,7 +103,7 @@ object Replicator {
             }
           }
 
-          val strategy = Retry.Strategy.fullJitter(100.millis, rng).limit(1.minute)
+          val strategy = Retry.Strategy.fullJitter(100.millis, random).limit(1.minute)
 
           def onError(name: String)(error: Throwable, details: Retry.Details) = {
             details.decision match {
@@ -116,7 +116,7 @@ object Replicator {
           }
 
           val retry = new Named[F] {
-            def apply[A](fa: F[A], name: String) = Retry(strategy)(onError(s"consumer.$name")).apply(fa)
+            def apply[A](fa: F[A], name: String) = Retry(strategy, onError(s"consumer.$name")).apply(fa)
           }
 
           val consumerRetry = consumer.mapMethod(retry)

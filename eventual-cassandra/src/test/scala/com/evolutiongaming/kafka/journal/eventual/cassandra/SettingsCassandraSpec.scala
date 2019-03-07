@@ -4,10 +4,12 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 
 import cats.arrow.FunctionK
+import cats.effect.Clock
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.Setting.Key
 import com.evolutiongaming.kafka.journal.stream.Stream
-import com.evolutiongaming.kafka.journal.{ClockOf, Log, Setting}
+import com.evolutiongaming.kafka.journal.{Log, Setting}
+import com.evolutiongaming.catshelper.ClockHelper._
 import org.scalatest.{FunSuite, Matchers}
 
 class SettingsCassandraSpec extends FunSuite with Matchers {
@@ -142,7 +144,7 @@ class SettingsCassandraSpec extends FunSuite with Matchers {
       all = all,
       delete = delete)
 
-    implicit val clock = ClockOf[StateT](timestamp.toEpochMilli)
+    implicit val clock = Clock.const[StateT](nanos = 0, millis = timestamp.toEpochMilli)
 
     SettingsCassandra[StateT](statements, Some("hostName"))
       .withLog(Log.empty)

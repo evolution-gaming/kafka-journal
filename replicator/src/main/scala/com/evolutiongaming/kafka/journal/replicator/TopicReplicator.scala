@@ -7,13 +7,13 @@ import cats.effect.concurrent.Ref
 import cats.implicits._
 import cats.{Applicative, FlatMap, ~>}
 import com.evolutiongaming.kafka.journal.CatsHelper._
-import com.evolutiongaming.kafka.journal.ClockHelper._
+import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.retry.Retry
-import com.evolutiongaming.kafka.journal.rng.Rng
+import com.evolutiongaming.retry.Retry
+import com.evolutiongaming.random.Random
 import com.evolutiongaming.kafka.journal.util.Named
 import com.evolutiongaming.kafka.journal.util.TimeHelper._
 import com.evolutiongaming.nel.Nel
@@ -46,9 +46,9 @@ object TopicReplicator { self =>
       self.apply[F](stopRef, fiber)
     }
 
-    def start(stopRef: StopRef[F], consumer: Resource[F, Consumer[F]], rng: Rng.State)(implicit log: Log[F]) = {
+    def start(stopRef: StopRef[F], consumer: Resource[F, Consumer[F]], random: Random.State)(implicit log: Log[F]) = {
       val strategy = Retry.Strategy
-        .fullJitter(100.millis, rng)
+        .fullJitter(100.millis, random)
         .limit(1.minute)
         .resetAfter(5.minutes)
 
@@ -64,8 +64,8 @@ object TopicReplicator { self =>
       log0    <- LogOf[F].apply(TopicReplicator.getClass)
       log      = log0 prefixed topic
       stopRef <- StopRef.of[F]
-      rng     <- Rng.State.fromClock[F]()
-      fiber   <- start(stopRef, consumer, rng)(log)
+      random  <- Random.State.fromClock[F]()
+      fiber   <- start(stopRef, consumer, random)(log)
     } yield {
       apply(stopRef, fiber)(log)
     }
@@ -397,7 +397,7 @@ object TopicReplicator { self =>
         }
       }
 
-      Retry(strategy)(onError)
+      Retry(strategy, onError)
     }
   }
 

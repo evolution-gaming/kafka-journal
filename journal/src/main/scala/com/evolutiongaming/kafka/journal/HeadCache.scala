@@ -9,10 +9,10 @@ import cats.implicits._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal.cache.Cache
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
-import com.evolutiongaming.kafka.journal.retry.Retry
+import com.evolutiongaming.retry.Retry
 import com.evolutiongaming.kafka.journal.CatsHelper._
-import com.evolutiongaming.kafka.journal.ClockHelper._
-import com.evolutiongaming.kafka.journal.rng.Rng
+import com.evolutiongaming.catshelper.ClockHelper._
+import com.evolutiongaming.random.Random
 import com.evolutiongaming.kafka.journal.util.EitherHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecord, ConsumerRecords}
@@ -673,9 +673,9 @@ object HeadCache {
         implicit val clock = Timer[F].clock
 
         for {
-          rng        <- Rng.State.fromClock[F]()
-          strategy    = Retry.Strategy.fullJitter(3.millis, rng).cap(300.millis)
-          partitions <- Retry[F, Throwable](strategy)(onError).apply(partitions)
+          random     <- Random.State.fromClock[F]()
+          strategy    = Retry.Strategy.fullJitter(3.millis, random).cap(300.millis)
+          partitions <- Retry[F, Throwable](strategy, onError).apply(partitions)
         } yield {
           partitions
         }

@@ -8,7 +8,7 @@ import com.evolutiongaming.kafka.journal.FixEquality.Implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
-import com.evolutiongaming.kafka.journal.retry.Retry
+import com.evolutiongaming.retry.Retry
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.util.{ActorSystemOf, FromFuture, ToFuture}
 import com.evolutiongaming.nel.Nel
@@ -131,7 +131,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
         }
       } yield events
 
-      Retry[IO, Throwable](strategy)((_, _) => ().pure[IO]).apply(events)
+      Retry[IO, Throwable](strategy).apply(events)
     }
 
     def append(key: Key, events: Nel[Event]) = {

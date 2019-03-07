@@ -10,6 +10,7 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
+import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, WithSize}
 import com.evolutiongaming.skafka.{Bytes => _, Metadata => _, _}
@@ -764,7 +765,7 @@ object TopicReplicatorSpec {
   val topicReplicator: StateT[Unit] = {
     val millis = timestamp.plusMillis(replicationLatency).toEpochMilli
     implicit val concurrent = ConcurrentOf.fromMonad[StateT]
-    implicit val clock = ClockOf[StateT](millis)
+    implicit val clock = Clock.const[StateT](nanos = 0, millis = millis)
     TopicReplicator.of[StateT](topic, TopicReplicator.StopRef[StateT], consumer, 1.second)
   }
 

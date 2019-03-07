@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.Monad
 import cats.effect.Clock
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.ClockHelper._
+import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.kafka.journal.{HostName, Par, Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
 
