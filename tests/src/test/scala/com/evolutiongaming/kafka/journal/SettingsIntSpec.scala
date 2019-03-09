@@ -6,6 +6,7 @@ import java.time.temporal.ChronoUnit
 import akka.actor.ActorSystem
 import cats.effect._
 import cats.implicits._
+import cats.temp.par.Par
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.eventual.cassandra._
 import com.evolutiongaming.kafka.journal.util.{ActorSystemOf, FromFuture, ToFuture}

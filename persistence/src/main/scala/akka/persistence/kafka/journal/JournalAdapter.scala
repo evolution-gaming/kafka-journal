@@ -3,7 +3,9 @@ package akka.persistence.kafka.journal
 import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.effect._
 import cats.implicits._
+import cats.temp.par.Par
 import cats.{Monad, ~>}
+import com.evolutiongaming.catshelper.Runtime
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra

@@ -116,7 +116,7 @@ object KafkaHealthCheck {
       } yield {}
 
       produceConsume
-        .timeout1(config.timeout)
+        .timeout(config.timeout)
         .error
     }
 

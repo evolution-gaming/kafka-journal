@@ -4,6 +4,7 @@ package com.evolutiongaming.kafka.journal.replicator
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.implicits._
+import cats.temp.par._
 import cats.~>
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
@@ -161,7 +162,7 @@ object Replicator {
       val result = for {
         topics <- newTopics(state)
         _      <- continue
-        _      <- Par[F].foldMap(topics)(start)
+        _      <- topics.parFoldMap(start)
         _      <- continue
         _      <- sleep
         _      <- continue

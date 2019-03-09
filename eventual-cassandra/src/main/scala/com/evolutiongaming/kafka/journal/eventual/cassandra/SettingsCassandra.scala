@@ -3,8 +3,9 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.Monad
 import cats.effect.Clock
 import cats.implicits._
+import cats.temp.par._
 import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.kafka.journal.{HostName, Par, Setting, Settings}
+import com.evolutiongaming.kafka.journal.{HostName, Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
 
 object SettingsCassandra {
@@ -79,7 +80,7 @@ object SettingsCassandra {
         SettingStatement.InsertIfEmpty.of[F](table),
         SettingStatement.All.of[F](table),
         SettingStatement.Delete.of[F](table))
-      Par[F].mapN(statements)(Statements[F])
+      statements.parMapN(Statements[F])
     }
   }
 }

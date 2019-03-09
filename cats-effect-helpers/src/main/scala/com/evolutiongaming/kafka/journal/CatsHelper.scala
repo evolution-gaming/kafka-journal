@@ -4,6 +4,7 @@ import cats.effect._
 import cats.implicits._
 import cats.kernel.CommutativeMonoid
 import cats.{Applicative, CommutativeApplicative, Eval, Foldable, MonadError, Monoid, Parallel, UnorderedFoldable, UnorderedTraverse}
+import com.evolutiongaming.catshelper.EffectHelper._
 
 import scala.collection.immutable
 import scala.concurrent.duration.FiniteDuration
@@ -77,29 +78,6 @@ object CatsHelper {
   }
 
 
-  implicit class BracketIdOps[F[_], E](val self: Bracket[F, E]) extends AnyVal {
-
-    def redeem[A, B](fa: F[A])(recover: E => B, map: A => B): F[B] = {
-      val fb = self.map(fa)(map)
-      self.handleError(fb)(recover)
-    }
-
-    def redeemWith[A, B](fa: F[A])(recover: E => F[B], flatMap: A => F[B]): F[B] = {
-      val fb = self.flatMap(fa)(flatMap)
-      self.handleErrorWith(fb)(recover)
-    }
-  }
-
-
-  implicit class ConcurrentOps(val self: Concurrent.type) extends AnyVal {
-
-    def timeout1[F[_], A](fa: F[A], duration: FiniteDuration)(implicit F: Concurrent[F], timer: Timer[F]): F[A] = {
-      val fe = TimeoutError.lift[F, A](s"timed out after $duration")
-      Concurrent.timeoutTo(fa, duration, fe)
-    }
-  }
-
-
   implicit val FoldableIterable: Foldable[Iterable] = new Foldable[Iterable] {
 
     def foldLeft[A, B](fa: Iterable[A], b: B)(f: (B, A) => B) = {
@@ -124,28 +102,30 @@ object CatsHelper {
   }
 
 
-  implicit class FOps[F[_], A](val self: F[A]) extends AnyVal {
-
-    def redeem[B, E](recover: E => B)(map: A => B)(implicit bracket: Bracket[F, E]): F[B] = {
-      bracket.redeem(self)(recover, map)
-    }
-
-    def redeemWith[B, E](recover: E => F[B])(flatMap: A => F[B])(implicit bracket: Bracket[F, E]): F[B] = {
-      bracket.redeemWith(self)(recover, flatMap)
-    }
+  implicit class FOps1[F[_], A](val self: F[A]) extends AnyVal {
 
     def error[E](implicit bracket: Bracket[F, E]): F[Option[E]] = {
-      self.redeem[Option[E], E](_.some)(_ => none[E])
+      self.redeem[Option[E], E](_.some, _ => none[E])
     }
 
-//    def unsafeToFuture()(implicit toFuture: ToFuture[F]): Future[A] = toFuture(self)
-
-    def timeout1(duration: FiniteDuration)(implicit F: Concurrent[F], timer: Timer[F]): F[A] = {
-      Concurrent.timeout1(self, duration)
+    def timeout(duration: FiniteDuration)(implicit F: Concurrent[F], timer: Timer[F]): F[A] = {
+      Concurrent.timeout(self, duration)
     }
+  }
 
-    def timeout2(duration: FiniteDuration)(implicit F: Timeout[F]): F[A] = {
-      F.apply(self, duration)
+
+  implicit class TOps[T[_], A](val self: T[A]) extends AnyVal {
+    
+    def parFoldMap[M[_], F[_], B : Monoid](f: A => M[B])(implicit F: Foldable[T], P: Parallel[M, F]): M[B] = {
+      Parallel.foldMap(self)(f)
+    }
+  }
+
+
+  implicit class TMOps[T[_], M[_], A](val self: T[M[A]]) extends AnyVal {
+
+    def parFold[F[_]](implicit F: Foldable[T], P: Parallel[M, F], M : Monoid[A]): M[A] = {
+      Parallel.fold(self)
     }
   }
 

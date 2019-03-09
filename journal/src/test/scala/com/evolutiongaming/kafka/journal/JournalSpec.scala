@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 
-import cats.Monad
+import cats.{Monad, Parallel}
 import cats.effect.{Clock, Resource}
 import cats.implicits._
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
@@ -438,7 +438,7 @@ object JournalSpec {
       implicit val log = Log.empty[F]
       implicit val concurrent = ConcurrentOf.fromMonad[F]
       implicit val clock = Clock.const[F](nanos = 0, millis = timestamp.toEpochMilli)
-      implicit val par = Par.sequential[F]
+      implicit val parallel = Parallel.identity[F]
       implicit val randomId = RandomId.uuid[F]
       val journal = Journal[F](None, eventual, readActionsOf, writeAction, headCache)
         .withLog(log)

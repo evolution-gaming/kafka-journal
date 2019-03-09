@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.cache
 import cats.effect.Concurrent
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.CatsHelper._
+import com.evolutiongaming.catshelper.EffectHelper._
 
 trait Cache[F[_], K, V] {
 
@@ -43,7 +43,7 @@ object Cache {
               map.get(key).fold {
                 val value1 = Concurrent[F].uncancelable {
                   for {
-                    value <- value.redeem[F[V], Throwable](_.raiseError[F, V])(_.pure[F])
+                    value <- value.redeem[F[V], Throwable](_.raiseError[F, V], _.pure[F])
                     _     <- deferred.complete(value)
                     value <- value
                   } yield value

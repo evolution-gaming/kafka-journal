@@ -4,6 +4,7 @@ import java.time.Instant
 
 import cats.effect.{Clock, Concurrent, Sync}
 import cats.implicits._
+import cats.temp.par._
 import cats.{Applicative, Monad}
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.kafka.journal._
@@ -145,12 +146,8 @@ object ReplicatedCassandra {
 
             def segment(seqNr: SeqNr) = SegmentNr(seqNr, segmentSize)
 
-            Par[F].fold {
-              for {
-                segment <- segment(from) to segment(deleteTo) // TODO maybe add ability to create Seq[Segment] out of SeqRange ?
-              } yield {
-                Statements[F].deleteRecords(key, segment, deleteTo)
-              }
+            (segment(from) to segment(deleteTo)).parFoldMap { segment =>
+              Statements[F].deleteRecords(key, segment, deleteTo)
             }
           }
 
@@ -177,18 +174,14 @@ object ReplicatedCassandra {
 
 
       def save(topic: Topic, topicPointers: TopicPointers, timestamp: Instant) = {
-        Par[F].fold {
-          for {
-            (partition, offset) <- topicPointers.values
-          } yield {
-            val insert = PointerInsert(
-              topic = topic,
-              partition = partition,
-              offset = offset,
-              updated = timestamp,
-              created = timestamp)
-            Statements[F].insertPointer(insert)
-          }
+        topicPointers.values.toList.parFoldMap { case (partition, offset) =>
+          val insert = PointerInsert(
+            topic = topic,
+            partition = partition,
+            offset = offset,
+            updated = timestamp,
+            created = timestamp)
+          Statements[F].insertPointer(insert)
         }
       }
 
@@ -227,7 +220,7 @@ object ReplicatedCassandra {
         PointerStatement.Insert.of[F](schema.pointer),
         PointerStatement.SelectPointers.of[F](schema.pointer),
         PointerStatement.SelectTopics.of[F](schema.pointer))
-      Par[F].mapN(statements)(Statements[F])
+      statements.parMapN(Statements[F])
     }
   }
 }

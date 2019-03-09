@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.util
 import java.util.concurrent.{ExecutorService, ScheduledExecutorService, Executors => ExecutorsJ}
 
 import cats.effect.{Resource, Sync}
-import com.evolutiongaming.kafka.journal.Runtime
+import com.evolutiongaming.catshelper.Runtime
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 

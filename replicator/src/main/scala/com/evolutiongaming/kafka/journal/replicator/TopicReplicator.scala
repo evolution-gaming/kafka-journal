@@ -5,6 +5,7 @@ import java.time.Instant
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.implicits._
+import cats.temp.par._
 import cats.{Applicative, FlatMap, ~>}
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
@@ -217,7 +218,7 @@ object TopicReplicator { self =>
       }
 
       for {
-        _        <- Par[F].fold(ios)
+        _        <- ios.parFold
         pointers <- savePointers
       } yield pointers
     }

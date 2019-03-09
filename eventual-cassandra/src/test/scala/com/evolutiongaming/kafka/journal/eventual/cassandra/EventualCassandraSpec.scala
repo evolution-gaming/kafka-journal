@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
+import cats.Parallel
 import cats.implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
@@ -52,7 +53,7 @@ object EventualCassandraSpec {
   }
 
 
-  implicit val par: Par[StateT] = Par.sequential[StateT]
+  implicit val parallel = Parallel.identity[StateT]
 
 
   implicit val eventualJournal: EventualJournal[StateT] = {

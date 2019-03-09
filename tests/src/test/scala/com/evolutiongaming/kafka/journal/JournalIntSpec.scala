@@ -9,6 +9,7 @@ import cats.effect.{IO, Resource}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
+import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.nel.Nel
 import org.scalatest.{AsyncWordSpec, Succeeded}
 import play.api.libs.json.Json
@@ -148,8 +149,8 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
           }
 
           val result = for {
-            reads <- Par[IO].sequence(List.fill(10)(appends))
-            _     <- Par[IO].fold(reads)
+            reads <- List.fill(10)(appends).parSequence
+            _     <- reads.parFold
           } yield {}
 
           result.run(1.minute)

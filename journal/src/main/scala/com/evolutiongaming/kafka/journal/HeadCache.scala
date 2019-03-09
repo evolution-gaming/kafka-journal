@@ -6,12 +6,14 @@ import cats._
 import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.implicits._
+import cats.temp.par._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal.cache.Cache
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.retry.Retry
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
+import com.evolutiongaming.catshelper.SerialRef
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.kafka.journal.util.EitherHelper._
 import com.evolutiongaming.nel.Nel
@@ -100,7 +102,7 @@ object HeadCache {
         }
         c <- c
         v <- c.values
-        _ <- Par[F].foldMap(v.values) { v =>
+        _ <- Parallel.foldMap(v.values) { v =>
           for {
             v <- v
             _ <- v.close
@@ -204,7 +206,7 @@ object HeadCache {
                   val combined = combineAndTrim(state.entries, entries, config.maxSize)
                   val (listeners, completed) = runListeners(state.listeners, combined)
                   for {
-                    _      <- Par[F].fold(completed)
+                    _      <- completed.parFold
                     state1  = state.copy(entries = combined, listeners = listeners)
                   } yield (state1, state1)
                 }
@@ -237,7 +239,7 @@ object HeadCache {
           }
         }
       } yield {
-        val release = Par[F].foldMap(List(consuming, cleaning)) { _.cancel }
+        val release = List(consuming, cleaning).parFoldMap { _.cancel }
         apply(topic, release, state, metrics)
       }
     }

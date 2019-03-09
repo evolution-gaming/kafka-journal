@@ -142,6 +142,7 @@ lazy val journal = (project in file("journal")
     scassandra,
     `cassandra-sync`,
     `scala-java8-compat`,
+    `cats-par`,
     Cats.core,
     Cats.effect,
     Logback.core % Test,

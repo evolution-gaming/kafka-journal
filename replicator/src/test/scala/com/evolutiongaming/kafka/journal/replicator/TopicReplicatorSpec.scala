@@ -4,7 +4,7 @@ import java.time.Instant
 
 import cats.effect._
 import cats.implicits._
-import cats.{Applicative, Monoid}
+import cats.{Applicative, Monoid, Parallel}
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPointers}
@@ -732,7 +732,7 @@ object TopicReplicatorSpec {
   }
 
 
-  implicit val par: Par[StateT] = Par.sequential[StateT]
+  implicit val parallel = Parallel.identity[StateT]
 
 
   implicit val metrics: TopicReplicator.Metrics[StateT] = new TopicReplicator.Metrics[StateT] {

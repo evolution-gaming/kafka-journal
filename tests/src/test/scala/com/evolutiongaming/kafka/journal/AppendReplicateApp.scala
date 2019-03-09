@@ -4,9 +4,12 @@ import akka.actor.ActorSystem
 import akka.persistence.kafka.journal.KafkaJournalConfig
 import cats.effect._
 import cats.implicits._
+import cats.temp.par._
+import com.evolutiongaming.catshelper.Runtime
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
 import com.evolutiongaming.kafka.journal.util._
+import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Topic
 import com.typesafe.config.ConfigFactory
@@ -116,6 +119,6 @@ object AppendReplicateApp extends IOApp {
       SeqNr.Min.tailRecM(append)
     }
 
-    Par[F].foldMap((0 to 10).toList) { id => append(id.toString) }
+    (0 to 10).toList.parFoldMap { id => append(id.toString) }
   }
 }

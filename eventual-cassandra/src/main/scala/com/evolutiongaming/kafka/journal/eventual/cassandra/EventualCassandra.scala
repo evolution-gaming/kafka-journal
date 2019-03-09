@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.Monad
 import cats.effect.{Clock, Concurrent, Resource}
 import cats.implicits._
+import cats.temp.par._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.stream.Stream
@@ -141,7 +142,7 @@ object EventualCassandra {
         JournalStatement.SelectRecords.of[F](schema.journal),
         HeadStatement.Select.of[F](schema.head),
         PointerStatement.SelectPointers.of[F](schema.pointer))
-      Par[F].mapN(statements)(Statements[F])
+      statements.parMapN(Statements[F])
     }
   }
 }

@@ -4,6 +4,7 @@ import cats._
 import cats.arrow.FunctionK
 import cats.effect._
 import cats.implicits._
+import cats.temp.par._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
@@ -254,7 +255,7 @@ object Journal {
           ab              <- readActions(key, from)
           (info, _)        = ab
           pointer          = Concurrent[F].start { eventual.pointer(key) }
-          ab              <- Par[F].tupleN(info, pointer)
+          ab              <- (info, pointer).parTupled
           (info, pointer)  = ab
           seqNrEventual    = for {
             pointer <- pointer.join

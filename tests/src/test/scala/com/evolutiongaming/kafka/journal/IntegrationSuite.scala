@@ -2,7 +2,9 @@ package com.evolutiongaming.kafka.journal
 
 import cats.effect._
 import cats.implicits._
+import cats.temp.par.Par
 import com.evolutiongaming.cassandra.StartCassandra
+import com.evolutiongaming.catshelper.Runtime
 import com.evolutiongaming.kafka.StartKafka
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
 import com.evolutiongaming.kafka.journal.util._

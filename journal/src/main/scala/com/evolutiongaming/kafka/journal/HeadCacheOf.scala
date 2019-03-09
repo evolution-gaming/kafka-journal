@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import cats.Applicative
 import cats.effect.{Concurrent, ContextShift, Resource, Timer}
+import cats.temp.par.Par
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 
