@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.effect.{Concurrent, ContextShift, Resource}
-import com.evolutiongaming.kafka.journal.util.FromFuture
+import com.evolutiongaming.catshelper.FromFuture
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerConfig}
 

@@ -5,7 +5,7 @@ import akka.persistence.kafka.journal.KafkaJournalConfig
 import cats.effect._
 import cats.implicits._
 import cats.temp.par._
-import com.evolutiongaming.catshelper.Runtime
+import com.evolutiongaming.catshelper.{FromFuture, Runtime, ToFuture}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
 import com.evolutiongaming.kafka.journal.util._
@@ -24,7 +24,6 @@ object AppendReplicateApp extends IOApp {
     val system = ActorSystem("AppendReplicateApp", config)
     implicit val ec = system.dispatcher
     implicit val timer = IO.timer(ec)
-    implicit val toFuture = ToFuture.io
     implicit val parallel = IO.ioParallel
 
     val topic = "journal.AppendReplicate"
@@ -34,7 +33,7 @@ object AppendReplicateApp extends IOApp {
   }
 
 
-  private def runF[F[_] : Concurrent : Timer : Par : ContextShift : FromFuture : ToFuture : Runtime](
+  private def runF[F[_] : Concurrent : Timer : Par : ContextShift : FromFuture : ToFuture : Runtime : FromGFuture](
     topic: Topic)(implicit
     system: ActorSystem,
     executor: ExecutionContextExecutor

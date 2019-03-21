@@ -185,7 +185,7 @@ object HeadCache {
           val entry = PartitionEntry(partition = partition, offset = offset, entries = Map.empty, trimmed = None)
           (entry.partition, entry)
         }
-        state     <- SerialRef.of(State[F](entries, List.empty))
+        state     <- SerialRef[F].of(State[F](entries, List.empty))
         consuming <- GracefulFiber[F].apply { cancel =>
           // TODO not use `.start` here
           consumer.start { consumer =>

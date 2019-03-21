@@ -5,7 +5,8 @@ import cats.effect.implicits._
 import cats.effect.{Concurrent, ContextShift, Resource, Sync}
 import cats.implicits._
 import cats.~>
-import com.evolutiongaming.kafka.journal.util.{FromFuture, Named}
+import com.evolutiongaming.catshelper.FromFuture
+import com.evolutiongaming.kafka.journal.util.Named
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka._

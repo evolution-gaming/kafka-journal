@@ -6,6 +6,7 @@ import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.effect._
 import cats.implicits._
 import cats.{Parallel, ~>}
+import com.evolutiongaming.catshelper.ToFuture
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.safeakka.actor.ActorLog
 import com.typesafe.config.Config
@@ -67,7 +68,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
     }
 
     val toFuture = new (IO ~> Future) {
-      def apply[A](fa: IO[A]) = fa.unsafeToFuture()
+      def apply[A](fa: IO[A]) = ToFuture[IO].apply(fa)
     }
 
     val adapter1 = adapter.mapK(toFuture)

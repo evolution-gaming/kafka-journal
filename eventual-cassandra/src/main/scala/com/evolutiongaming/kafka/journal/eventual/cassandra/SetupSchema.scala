@@ -3,12 +3,11 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.effect.{Clock, Concurrent, Sync}
 import cats.implicits._
 import cats.temp.par.Par
-import com.evolutiongaming.kafka.journal.util.{FromFuture, ToFuture}
 import com.evolutiongaming.kafka.journal.{LogOf, Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.catshelper.EffectHelper._
+import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-
 
 import scala.util.Try
 

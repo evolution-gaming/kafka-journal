@@ -5,12 +5,12 @@ import cats.effect._
 import cats.implicits._
 import cats.temp.par.Par
 import cats.{Monad, ~>}
-import com.evolutiongaming.catshelper.Runtime
+import com.evolutiongaming.catshelper.{FromFuture, Runtime, ToFuture}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.kafka.journal.stream.Stream
-import com.evolutiongaming.kafka.journal.util.{Executors, FromFuture, ToFuture}
+import com.evolutiongaming.kafka.journal.util.{Executors, FromGFuture}
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.Consumer
 import com.evolutiongaming.skafka.producer.Producer
@@ -33,7 +33,7 @@ trait JournalAdapter[F[_]] {
 
 object JournalAdapter {
 
-  def of[F[_] : Concurrent : ContextShift : FromFuture : ToFuture : Par : Timer : LogOf : Runtime : RandomId](
+  def of[F[_] : Concurrent : ContextShift : FromFuture : ToFuture : Par : Timer : LogOf : Runtime : RandomId : FromGFuture](
     toKey: ToKey,
     origin: Option[Origin],
     serializer: EventSerializer[cats.Id],

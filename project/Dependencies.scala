@@ -2,25 +2,25 @@ import sbt._
 
 object Dependencies {
 
-  val scalatest            = "org.scalatest" %% "scalatest" % "3.0.6"
+  val scalatest            = "org.scalatest" %% "scalatest" % "3.0.7"
   val `scala-java8-compat` = "org.scala-lang.modules" %% "scala-java8-compat" % "0.9.0"
   val prometheus           = "io.prometheus" % "simpleclient" % "0.6.0"
   val `cats-par`           = "io.chrisdavenport" %% "cats-par" % "0.2.1"
   val `cassandra-driver`   = "com.datastax.cassandra" % "cassandra-driver-core" % "3.7.1"
-  val `play-json`          = "com.typesafe.play" %% "play-json" % "2.7.1"
+  val `play-json`          = "com.typesafe.play" %% "play-json" % "2.7.2"
   val `executor-tools`     = "com.evolutiongaming" %% "executor-tools" % "1.0.1"
   val `config-tools`       = "com.evolutiongaming" %% "config-tools" % "1.0.3"
-  val `akka-serialization` = "com.evolutiongaming" %% "akka-serialization" % "0.0.3"
+  val `akka-serialization` = "com.evolutiongaming" %% "akka-serialization" % "0.0.4"
   val nel                  = "com.evolutiongaming" %% "nel" % "1.3.3"
   val `future-helper`      = "com.evolutiongaming" %% "future-helper" % "1.0.4"
-  val `safe-actor`         = "com.evolutiongaming" %% "safe-actor" % "2.0.3"
+  val `safe-actor`         = "com.evolutiongaming" %% "safe-actor" % "2.0.4"
   val `kafka-launcher`     = "com.evolutiongaming" %% "kafka-launcher" % "0.0.6"
   val `cassandra-launcher` = "com.evolutiongaming" %% "cassandra-launcher" % "0.0.2"
   val hostname             = "com.evolutiongaming" %% "hostname" % "0.1.1"
   val scassandra           = "com.evolutiongaming" %% "scassandra" % "0.0.10"
   val `cassandra-sync`     = "com.evolutiongaming" %% "cassandra-sync" % "0.0.6"
-  val `cats-helper`        = "com.evolutiongaming" %% "cats-helper" % "0.0.2"
-  val random               = "com.evolutiongaming" %% "random" % "0.0.1"
+  val `cats-helper`        = "com.evolutiongaming" %% "cats-helper" % "0.0.6"
+  val random               = "com.evolutiongaming" %% "random" % "0.0.2"
   val retry                = "com.evolutiongaming" %% "retry" % "0.0.1"
   
 

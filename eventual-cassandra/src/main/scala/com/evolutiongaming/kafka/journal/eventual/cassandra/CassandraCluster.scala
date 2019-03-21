@@ -2,7 +2,8 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.effect.{Concurrent, Resource, Sync}
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.util.FromFuture
+import com.evolutiongaming.catshelper.FromFuture
+import com.evolutiongaming.kafka.journal.util.FromGFuture
 import com.evolutiongaming.scassandra.{CassandraConfig, Cluster, CreateCluster}
 
 import scala.concurrent.ExecutionContextExecutor
@@ -18,7 +19,7 @@ object CassandraCluster {
 
   def apply[F[_]](implicit F: CassandraCluster[F]): CassandraCluster[F] = F
 
-  def apply[F[_] : Concurrent : FromFuture](
+  def apply[F[_] : Concurrent : FromFuture : FromGFuture](
     cassandra: Cluster,
     retries: Int
   ): CassandraCluster[F] = new CassandraCluster[F] {
@@ -44,7 +45,7 @@ object CassandraCluster {
     }
   }
 
-  def of[F[_] : Concurrent : FromFuture](
+  def of[F[_] : Concurrent : FromFuture : FromGFuture](
     config: CassandraConfig,
     retries: Int,
     executor: ExecutionContextExecutor

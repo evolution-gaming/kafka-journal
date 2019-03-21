@@ -5,16 +5,16 @@ import cats.implicits._
 import com.datastax.driver.core.{Row, ResultSet => ResultSetJ}
 import com.evolutiongaming.kafka.journal.stream.FoldWhile._
 import com.evolutiongaming.kafka.journal.stream.Stream
-import com.evolutiongaming.kafka.journal.util.FromFuture
+import com.evolutiongaming.kafka.journal.util.FromGFuture
 
 
 object ResultSet {
 
-  def apply[F[_] : Concurrent : FromFuture](resultSet: ResultSetJ): Stream[F, Row] = {
+  def apply[F[_] : Concurrent : FromGFuture](resultSet: ResultSetJ): Stream[F, Row] = {
 
     val iterator = resultSet.iterator()
 
-    val fetch = FromFuture[F].listenable { resultSet.fetchMoreResults() }.void
+    val fetch = FromGFuture[F].apply { resultSet.fetchMoreResults() }.void
 
     val fetched = Sync[F].delay { resultSet.isFullyFetched }
 

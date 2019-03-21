@@ -80,7 +80,10 @@ object KafkaHealthCheck {
     stop: F[Boolean],
     producer: Producer[F],
     consumer: Consumer[F],
-    set: Option[Throwable] => F[Unit]): F[Unit] = {
+    set: Option[Throwable] => F[Unit]
+  ): F[Unit] = {
+
+    val sleep = Timer[F].sleep(config.interval)
 
     def produce(value: String) = {
       val record = Record(key = Some(key), value = Some(value))
@@ -100,6 +103,7 @@ object KafkaHealthCheck {
           result  <- found.fold {
             for {
               _ <- ContextShift[F].shift
+              _ <- sleep
               _ <- produce(s"$n:$retry")
             } yield {
               (retry + 1).asLeft[Unit]
@@ -125,7 +129,7 @@ object KafkaHealthCheck {
         error  <- produceConsume(n)
         _      <- error.fold(().pure[F]) { error => Log[F].error(s"$n failed with $error", error) }
         _      <- set(error)
-        _      <- Timer[F].sleep(config.interval)
+        _      <- sleep
         stop   <- stop
         result <- {
           if (stop) ().asRight[Long].pure[F]
@@ -230,7 +234,7 @@ object KafkaHealthCheck {
     topic: Topic = "healthcheck",
     initial: FiniteDuration = 10.seconds,
     interval: FiniteDuration = 1.second,
-    timeout: FiniteDuration = 1.minute,
+    timeout: FiniteDuration = 2.minutes,
     pollTimeout: FiniteDuration = 100.millis)
 
   object Config {

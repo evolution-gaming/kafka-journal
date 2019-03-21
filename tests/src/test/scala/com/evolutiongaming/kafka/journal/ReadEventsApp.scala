@@ -3,8 +3,9 @@ package com.evolutiongaming.kafka.journal
 import cats.effect._
 import cats.implicits._
 import cats.temp.par.Par
+import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import com.evolutiongaming.kafka.journal.eventual.cassandra._
-import com.evolutiongaming.kafka.journal.util.{FromFuture, ToFuture}
+import com.evolutiongaming.kafka.journal.util.FromGFuture
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.{AuthenticationConfig, CassandraConfig}
 import com.evolutiongaming.skafka.CommonConfig
@@ -40,7 +41,7 @@ object ReadEventsApp extends IOApp {
 
   }
 
-  private def runF[F[_] : Concurrent : ContextShift : Timer : Clock : FromFuture : ToFuture : Par : LogOf : Log](
+  private def runF[F[_] : Concurrent : ContextShift : Timer : Clock : FromFuture : ToFuture : Par : LogOf : Log : FromGFuture](
     executor: ExecutionContextExecutor,
     log: Log[F]
   ): F[Unit] = {

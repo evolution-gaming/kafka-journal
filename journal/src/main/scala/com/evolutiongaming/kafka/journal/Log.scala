@@ -18,7 +18,6 @@ trait Log[F[_]] { self =>
 
   def error(msg: => String, cause: Throwable): F[Unit]
 
-
   def prefixed(prefix: String): Log[F] = new Log[F] {
 
     def debug(msg: => String) = self.debug(s"$prefix $msg")

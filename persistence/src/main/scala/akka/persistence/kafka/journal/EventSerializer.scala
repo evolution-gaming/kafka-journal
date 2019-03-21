@@ -29,7 +29,7 @@ object EventSerializer {
   }
 
   def apply[F[_]](
-    serialisation: SerializedMsgConverter)(implicit
+    serialisation: SerializedMsgConverter/*TODO*/)(implicit
     F: MonadError[F, Throwable]
   ): EventSerializer[F] = new EventSerializer[F] {
 

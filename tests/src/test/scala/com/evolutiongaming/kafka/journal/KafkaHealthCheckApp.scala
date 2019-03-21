@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import cats.effect._
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.util.FromFuture
+import com.evolutiongaming.catshelper.FromFuture
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.ConsumerConfig

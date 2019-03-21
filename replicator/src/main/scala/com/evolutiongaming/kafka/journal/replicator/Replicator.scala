@@ -6,6 +6,7 @@ import cats.effect.concurrent.Ref
 import cats.implicits._
 import cats.temp.par._
 import cats.~>
+import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession, ReplicatedCassandra}
@@ -29,7 +30,7 @@ trait Replicator[F[_]] {
 
 object Replicator {
 
-  def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf : KafkaConsumerOf](
+  def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf : KafkaConsumerOf : FromGFuture](
     config: ReplicatorConfig,
     executor: ExecutionContextExecutor,
     hostName: Option[HostName] = HostName(),

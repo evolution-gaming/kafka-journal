@@ -5,8 +5,9 @@ import cats.effect.concurrent.Semaphore
 import cats.implicits._
 import com.evolutiongaming.cassandra
 import com.evolutiongaming.cassandra.sync.AutoCreate
+import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import com.evolutiongaming.kafka.journal.HostName
-import com.evolutiongaming.kafka.journal.util.{Executors, FromFuture, ToFuture}
+import com.evolutiongaming.kafka.journal.util.Executors
 
 trait CassandraSync[F[_]] {
   def apply[A](fa: F[A]): F[A]

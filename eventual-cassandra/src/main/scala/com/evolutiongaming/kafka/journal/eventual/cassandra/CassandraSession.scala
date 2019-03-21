@@ -5,9 +5,10 @@ import cats.effect.Concurrent
 import cats.implicits._
 import com.datastax.driver.core._
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
+import com.evolutiongaming.catshelper.FromFuture
 import com.evolutiongaming.kafka.journal.cache.Cache
-import com.evolutiongaming.kafka.journal.util.FromFuture
 import com.evolutiongaming.kafka.journal.stream.Stream
+import com.evolutiongaming.kafka.journal.util.FromGFuture
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.scassandra.{NextHostRetryPolicy, Session}
 
@@ -39,7 +40,7 @@ object CassandraSession {
   }
 
 
-  private def apply[F[_] : Concurrent : FromFuture](session: Session): CassandraSession[F] = new CassandraSession[F] {
+  private def apply[F[_] : Concurrent : FromFuture : FromGFuture](session: Session): CassandraSession[F] = new CassandraSession[F] {
 
     def prepare(query: String) = {
       FromFuture[F].apply {
@@ -59,7 +60,7 @@ object CassandraSession {
   }
 
 
-  def of[F[_] : Concurrent : FromFuture](session: Session): F[CassandraSession[F]] = {
+  def of[F[_] : Concurrent : FromFuture : FromGFuture](session: Session): F[CassandraSession[F]] = {
     apply[F](session).cachePrepared
   }
 

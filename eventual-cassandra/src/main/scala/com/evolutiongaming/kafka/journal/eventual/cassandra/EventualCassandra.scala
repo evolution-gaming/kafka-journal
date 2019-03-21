@@ -4,10 +4,11 @@ import cats.Monad
 import cats.effect.{Clock, Concurrent, Resource}
 import cats.implicits._
 import cats.temp.par._
+import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.stream.Stream
-import com.evolutiongaming.kafka.journal.util.{FromFuture, ToFuture}
+import com.evolutiongaming.kafka.journal.util.FromGFuture
 import com.evolutiongaming.skafka.Topic
 
 import scala.concurrent.ExecutionContextExecutor
@@ -15,7 +16,7 @@ import scala.concurrent.ExecutionContextExecutor
 
 object EventualCassandra {
 
-  def of[F[_] : Concurrent : Par : Clock : FromFuture : ToFuture : LogOf](
+  def of[F[_] : Concurrent : Par : Clock : FromFuture : ToFuture : LogOf : FromGFuture](
     config: EventualCassandraConfig,
     metrics: Option[EventualJournal.Metrics[F]],
     executor: ExecutionContextExecutor

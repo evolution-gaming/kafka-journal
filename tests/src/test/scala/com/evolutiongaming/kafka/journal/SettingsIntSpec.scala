@@ -7,9 +7,10 @@ import akka.actor.ActorSystem
 import cats.effect._
 import cats.implicits._
 import cats.temp.par.Par
+import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.eventual.cassandra._
-import com.evolutiongaming.kafka.journal.util.{ActorSystemOf, FromFuture, ToFuture}
+import com.evolutiongaming.kafka.journal.util.{ActorSystemOf, FromGFuture}
 import com.typesafe.config.ConfigFactory
 import org.scalatest.{AsyncWordSpec, BeforeAndAfterAll, Matchers}
 
@@ -25,7 +26,7 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
   }
 
 
-  private def resources[F[_] : Concurrent : LogOf : Par : FromFuture : Clock : ToFuture : ContextShift] = {
+  private def resources[F[_] : Concurrent : LogOf : Par : FromFuture : Clock : ToFuture : ContextShift : FromGFuture] = {
 
     def settings(
       config: SchemaConfig)(implicit
