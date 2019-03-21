@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal
 import akka.event.LoggingAdapter
 import cats.effect.Sync
 import cats.{Applicative, ~>}
-import com.evolutiongaming.safeakka.actor.ActorLog
 import org.slf4j.Logger
 
 trait Log[F[_]] { self =>
@@ -100,40 +99,6 @@ object Log {
     def error(msg: => String, cause: Throwable) = {
       Sync[F].delay {
         if (log.isErrorEnabled) log.error(cause, msg)
-      }
-    }
-  }
-
-
-  def apply[F[_] : Sync](log: ActorLog): Log[F] = new Log[F] {
-
-    def debug(msg: => String) = {
-      Sync[F].delay {
-        log.debug(msg)
-      }
-    }
-
-    def info(msg: => String) = {
-      Sync[F].delay {
-        log.info(msg)
-      }
-    }
-
-    def warn(msg: => String) = {
-      Sync[F].delay {
-        log.warn(msg)
-      }
-    }
-
-    def error(msg: => String, cause: Throwable) = {
-      Sync[F].delay {
-        log.error(msg, cause)
-      }
-    }
-
-    def error(msg: => String) = {
-      Sync[F].delay {
-        log.error(msg)
       }
     }
   }

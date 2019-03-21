@@ -136,7 +136,6 @@ lazy val journal = (project in file("journal")
     `cats-helper`,
     `play-json`,
     `future-helper`,
-    `safe-actor`,
     hostname,
     `cassandra-driver`,
     scassandra,

@@ -13,7 +13,6 @@ object Dependencies {
   val `akka-serialization` = "com.evolutiongaming" %% "akka-serialization" % "0.0.4"
   val nel                  = "com.evolutiongaming" %% "nel" % "1.3.3"
   val `future-helper`      = "com.evolutiongaming" %% "future-helper" % "1.0.4"
-  val `safe-actor`         = "com.evolutiongaming" %% "safe-actor" % "2.0.4"
   val `kafka-launcher`     = "com.evolutiongaming" %% "kafka-launcher" % "0.0.6"
   val `cassandra-launcher` = "com.evolutiongaming" %% "cassandra-launcher" % "0.0.2"
   val hostname             = "com.evolutiongaming" %% "hostname" % "0.1.1"
