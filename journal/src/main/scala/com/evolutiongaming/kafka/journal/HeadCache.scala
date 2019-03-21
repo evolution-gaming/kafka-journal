@@ -13,7 +13,7 @@ import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointer
 import com.evolutiongaming.retry.Retry
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.catshelper.SerialRef
+import com.evolutiongaming.catshelper.{Log, LogOf, SerialRef}
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.kafka.journal.util.EitherHelper._
 import com.evolutiongaming.nel.Nel

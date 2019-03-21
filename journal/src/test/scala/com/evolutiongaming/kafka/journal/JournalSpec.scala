@@ -12,6 +12,7 @@ import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointer
 import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.catshelper.ClockHelper._
+import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import org.scalatest.{Assertion, Matchers, WordSpec}

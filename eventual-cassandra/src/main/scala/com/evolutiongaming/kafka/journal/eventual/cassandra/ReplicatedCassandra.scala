@@ -6,7 +6,7 @@ import cats.effect.{Clock, Concurrent, Sync}
 import cats.implicits._
 import cats.temp.par._
 import cats.{Applicative, Monad}
-import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
+import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal.Metrics

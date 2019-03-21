@@ -6,6 +6,7 @@ import cats.effect._
 import cats.implicits._
 import cats.temp.par._
 import com.evolutiongaming.catshelper.ClockHelper._
+import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal

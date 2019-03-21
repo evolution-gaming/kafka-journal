@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.Monad
 import cats.effect.Concurrent
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.LogOf
+import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.TableName
 

@@ -7,6 +7,7 @@ import cats.implicits._
 import cats.{Applicative, Monad}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.catshelper.ClockHelper._
+import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Topic}
 import org.scalatest.{Assertion, Matchers, WordSpec}

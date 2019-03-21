@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.effect.{IO, Resource}
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.Log
+import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.IOSuite._
 import org.scalatest.{AsyncFunSuite, Matchers}
 

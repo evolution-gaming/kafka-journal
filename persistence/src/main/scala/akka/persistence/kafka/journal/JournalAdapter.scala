@@ -5,7 +5,7 @@ import cats.effect._
 import cats.implicits._
 import cats.temp.par.Par
 import cats.{Monad, ~>}
-import com.evolutiongaming.catshelper.{FromFuture, Runtime, ToFuture}
+import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, Runtime, ToFuture}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra

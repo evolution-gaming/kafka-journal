@@ -4,7 +4,7 @@ import cats.Monad
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.{Log, LogOf}
+import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.CatsHelper._
 

@@ -5,6 +5,7 @@ import java.time.Instant
 import cats.effect.concurrent.Ref
 import cats.effect.{Concurrent, IO, Resource, Timer}
 import cats.implicits._
+import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.HeadCache.Result

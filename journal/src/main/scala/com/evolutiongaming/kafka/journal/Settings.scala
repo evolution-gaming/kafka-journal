@@ -4,6 +4,7 @@ import cats.arrow.FunctionK
 import cats.effect.Clock
 import cats.implicits._
 import cats.{FlatMap, ~>}
+import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.stream.Stream
 
 trait Settings[F[_]] {

@@ -4,6 +4,7 @@ import cats._
 import cats.arrow.FunctionK
 import cats.effect.Clock
 import cats.implicits._
+import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.skafka.Topic

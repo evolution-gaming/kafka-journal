@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal
 import cats.effect.{Resource, Sync}
 import cats.implicits._
 import cats.~>
+import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Partition, TopicPartition}
 

@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.implicits._
 import cats.{Applicative, Monad}
-import com.evolutiongaming.kafka.journal.LogOf
+import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.scassandra.CreateKeyspaceIfNotExists
 

@@ -9,6 +9,7 @@ import cats.temp.par._
 import cats.{Applicative, FlatMap, ~>}
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
+import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._

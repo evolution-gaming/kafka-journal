@@ -5,7 +5,7 @@ import akka.persistence.kafka.journal.KafkaJournalConfig
 import cats.effect._
 import cats.implicits._
 import cats.temp.par._
-import com.evolutiongaming.catshelper.{FromFuture, Runtime, ToFuture}
+import com.evolutiongaming.catshelper.{FromFuture, LogOf, Runtime, ToFuture}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
 import com.evolutiongaming.kafka.journal.util._
@@ -39,7 +39,7 @@ object AppendReplicateApp extends IOApp {
     executor: ExecutionContextExecutor
   ): F[Unit] = {
 
-    implicit val logOf = LogOf[F](system)
+    implicit val logOf = LogOfFromAkka[F](system)
     implicit val randomId = RandomId.uuid[F]
 
     val kafkaJournalConfig = Sync[F].delay {

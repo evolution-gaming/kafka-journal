@@ -11,6 +11,7 @@ import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPoint
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.catshelper.ClockHelper._
+import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, WithSize}
 import com.evolutiongaming.skafka.{Bytes => _, Metadata => _, _}

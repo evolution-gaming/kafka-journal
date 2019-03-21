@@ -2,9 +2,9 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import cats.effect.{IO, Resource}
 import cats.implicits._
+import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.replicator.Replicator.Consumer
 import com.evolutiongaming.kafka.journal.IOSuite._
-import com.evolutiongaming.kafka.journal.LogOf
 import com.evolutiongaming.skafka.Topic
 import org.scalatest.{AsyncWordSpec, Matchers}
 

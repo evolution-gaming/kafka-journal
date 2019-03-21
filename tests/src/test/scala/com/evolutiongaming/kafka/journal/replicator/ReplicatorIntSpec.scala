@@ -5,7 +5,7 @@ import java.time.Instant
 import cats.effect._
 import cats.implicits._
 import cats.temp.par.Par
-import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
+import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal.FixEquality.Implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal

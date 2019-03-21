@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Monad
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.{Log, LogOf}
+import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.nel.Nel
 

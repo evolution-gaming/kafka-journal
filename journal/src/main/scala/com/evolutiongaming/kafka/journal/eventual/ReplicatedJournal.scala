@@ -5,6 +5,7 @@ import java.time.Instant
 import cats.effect.Clock
 import cats.implicits._
 import cats.{Applicative, FlatMap, ~>}
+import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Topic

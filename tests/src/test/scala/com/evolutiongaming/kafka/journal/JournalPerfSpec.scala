@@ -9,6 +9,7 @@ import cats.effect.{Clock, IO}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.catshelper.ClockHelper._
+import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.nel.Nel
 import org.scalatest.AsyncWordSpec
 

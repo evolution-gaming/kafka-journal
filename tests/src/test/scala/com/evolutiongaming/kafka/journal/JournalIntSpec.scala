@@ -7,6 +7,7 @@ import java.time.temporal.ChronoUnit
 import cats.Foldable
 import cats.effect.{IO, Resource}
 import cats.implicits._
+import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.CatsHelper._

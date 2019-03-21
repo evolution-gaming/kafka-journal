@@ -6,7 +6,7 @@ import cats.effect.concurrent.Ref
 import cats.implicits._
 import cats.temp.par._
 import cats.~>
-import com.evolutiongaming.catshelper.{FromFuture, ToFuture}
+import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession, ReplicatedCassandra}
