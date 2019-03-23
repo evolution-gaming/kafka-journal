@@ -1,14 +1,12 @@
 package akka.persistence.kafka.journal
 
-import java.lang.{Integer => IntJ}
-import java.nio.ByteBuffer
+import java.lang.{Byte => ByteJ}
 
 import akka.persistence.PersistentRepr
-import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
-import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
 import com.evolutiongaming.kafka.journal.{Bytes, FromBytes, ToBytes}
 import com.evolutiongaming.serialization.SerializedMsg
-import com.evolutiongaming.serialization.SerializerHelper._
+import scodec.bits.BitVector
+import scodec.{Attempt, Codec, DecodeResult, Err, SizeBound, codecs}
 
 final case class PersistentBinary(
   manifest: String,
@@ -18,45 +16,51 @@ final case class PersistentBinary(
 
 object PersistentBinary {
 
+  private def codecCustom[A](codec: Codec[A], sizeCodec: Codec[Int] = codecs.int32): Codec[A] = new Codec[A] {
+
+    def decode(bits: BitVector) = {
+      for {
+        result <- sizeCodec.decode(bits)
+        size    = result.value
+        _      <- Attempt.guard(size >= 0, Err(s"requires positive size, got $size"))
+        bits    = result.remainder
+        (bits1, remainder) = bits.splitAt(size * ByteJ.SIZE.toLong)
+        result <- codec.decode(bits1)
+      } yield {
+        DecodeResult(result.value, remainder)
+      }
+    }
+
+    def encode(value: A) = {
+      for {
+        bits     <- codec.encode(value)
+        size      = bits.size.toInt / ByteJ.SIZE
+        sizeBits <- sizeCodec.encode(size)
+      } yield {
+        sizeBits ++ bits
+      }
+    }
+
+    val sizeBound = SizeBound.atLeast(ByteJ.SIZE.toLong)
+  }
+
+  private val codec = {
+    val codecSerializedMsg = (codecs.int32 :: codecs.utf8_32 :: codecCustom(codecs.bytes)).as[SerializedMsg]
+    (codecs.utf8_32 :: codecs.utf8_32 :: codecSerializedMsg).as[PersistentBinary]
+  }
+
+
   implicit val ToBytesImpl: ToBytes[PersistentBinary] = new ToBytes[PersistentBinary] {
 
     def apply(value: PersistentBinary): Bytes = {
-      val persistentManifest = value.manifest.toBytes
-      val writerUuid = value.writerUuid.toBytes
-      val payload = value.payload
-      val bytes = payload.bytes
-      val manifest = payload.manifest.toBytes
-      val buffer = ByteBuffer.allocate(
-        IntJ.BYTES + persistentManifest.length +
-          IntJ.BYTES + writerUuid.length +
-          IntJ.BYTES +
-          IntJ.BYTES + manifest.length +
-          IntJ.BYTES + bytes.length)
-      buffer.writeBytes(persistentManifest)
-      buffer.writeBytes(writerUuid)
-      buffer.putInt(payload.identifier)
-      buffer.writeBytes(manifest)
-      buffer.writeBytes(bytes)
-      buffer.array()
+      codec.encode(value).require.toByteArray
     }
   }
 
   implicit val FromBytesImpl: FromBytes[PersistentBinary] = new FromBytes[PersistentBinary] {
 
     def apply(bytes: Bytes) = {
-      val buffer = ByteBuffer.wrap(bytes)
-      val persistentManifest = buffer.readBytes.fromBytes[String]
-      val writerUuid = buffer.readBytes.fromBytes[String]
-      val identifier = buffer.getInt()
-      val manifest = buffer.readBytes.fromBytes[String]
-      val payload = buffer.readBytes
-      PersistentBinary(
-        manifest = persistentManifest,
-        writerUuid = writerUuid,
-        payload = SerializedMsg(
-          identifier = identifier,
-          manifest = manifest,
-          bytes = payload))
+      codec.decode(BitVector.view(bytes)).require.value
     }
   }
 

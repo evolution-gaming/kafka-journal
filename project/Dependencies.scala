@@ -10,7 +10,7 @@ object Dependencies {
   val `play-json`          = "com.typesafe.play" %% "play-json" % "2.7.2"
   val `executor-tools`     = "com.evolutiongaming" %% "executor-tools" % "1.0.1"
   val `config-tools`       = "com.evolutiongaming" %% "config-tools" % "1.0.3"
-  val `akka-serialization` = "com.evolutiongaming" %% "akka-serialization" % "0.0.4"
+  val `akka-serialization` = "com.evolutiongaming" %% "akka-serialization" % "1.0.0"
   val nel                  = "com.evolutiongaming" %% "nel" % "1.3.3"
   val `future-helper`      = "com.evolutiongaming" %% "future-helper" % "1.0.4"
   val `kafka-launcher`     = "com.evolutiongaming" %% "kafka-launcher" % "0.0.6"
@@ -61,5 +61,10 @@ object Dependencies {
     private val version = "3.0.7"
     val skafka      = "com.evolutiongaming" %% "skafka"            % version
     val prometheus  = "com.evolutiongaming" %% "skafka-prometheus" % version
+  }
+
+  object Scodec {
+    val core = "org.scodec" %% "scodec-core" % "1.11.3"
+    val bits = "org.scodec" %% "scodec-bits" % "1.1.9"
   }
 }

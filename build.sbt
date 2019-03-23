@@ -155,6 +155,8 @@ lazy val persistence = (project in file("persistence")
     `eventual-cassandra`)
   settings (libraryDependencies ++= Seq(
     `akka-serialization`,
+    Scodec.core,
+    Scodec.bits,
     Akka.persistence)))
 
 lazy val `tests` = (project in file("tests")

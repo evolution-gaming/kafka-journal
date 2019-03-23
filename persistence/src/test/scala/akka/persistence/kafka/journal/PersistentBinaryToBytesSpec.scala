@@ -1,16 +1,14 @@
 package akka.persistence.kafka.journal
 
-import akka.persistence.kafka.journal.FixEqualityHelper._
-import com.evolutiongaming.kafka.journal.FixEquality.Implicits._
 import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
 import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
-import com.evolutiongaming.kafka.journal.{Bytes, BytesOf, FixEquality}
+import com.evolutiongaming.kafka.journal.{Bytes, BytesOf}
 import com.evolutiongaming.serialization.SerializedMsg
 import org.scalatest.{FunSuite, Matchers}
+import scodec.bits.ByteVector
 
 class PersistentBinaryToBytesSpec extends FunSuite with Matchers {
-
-  private implicit val fixEquality = FixEquality.array[Byte]()
+  import PersistentBinaryToBytesSpec._
 
   test("toBytes & fromBytes") {
 
@@ -20,14 +18,21 @@ class PersistentBinaryToBytesSpec extends FunSuite with Matchers {
       payload = SerializedMsg(
         identifier = 2,
         manifest = "manifest",
-        bytes = "payload".toBytes))
+        bytes = "payload".encodeStr))
 
     def verify(bytes: Bytes) = {
       val actual = bytes.fromBytes[PersistentBinary]
-      actual.fix shouldEqual expected.fix
+      actual shouldEqual expected
     }
 
     verify(expected.toBytes)
     verify(BytesOf(getClass, "PersistentBinary.bin"))
+  }
+}
+
+object PersistentBinaryToBytesSpec {
+
+  implicit class StrOps(val self: String) extends AnyVal {
+    def encodeStr: ByteVector = ByteVector.encodeUtf8(self).right.get
   }
 }
