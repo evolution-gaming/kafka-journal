@@ -61,7 +61,7 @@ lazy val commonSettings = Seq(
   resolvers += Resolver.bintrayRepo("evolutiongaming", "maven"),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   releaseCrossBuild := true,
-  testOptions in Test ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUNCXEHLOPQRM")))
+  testOptions in Test ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM")))
 
 
 lazy val root = (project in file(".")
