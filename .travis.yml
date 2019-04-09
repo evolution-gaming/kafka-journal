@@ -10,9 +10,7 @@ jdk:
 scala:
   - 2.12.8
 
-script:
-  - sonar-scanner
-  - sbt --warn ++$TRAVIS_SCALA_VERSION clean coverage test
+script: sbt --warn ++$TRAVIS_SCALA_VERSION clean coverage test
 
 after_success: sbt ++$TRAVIS_SCALA_VERSION coverageReport coverageAggregate coveralls
 
