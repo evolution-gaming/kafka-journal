@@ -7,11 +7,11 @@ object Dependencies {
   val prometheus           = "io.prometheus" % "simpleclient" % "0.6.0"
   val `cats-par`           = "io.chrisdavenport" %% "cats-par" % "0.2.1"
   val `cassandra-driver`   = "com.datastax.cassandra" % "cassandra-driver-core" % "3.7.1"
-  val `play-json`          = "com.typesafe.play" %% "play-json" % "2.7.2"
+  val `play-json`          = "com.typesafe.play" %% "play-json" % "2.7.3"
   val pureconfig           = "com.github.pureconfig" %% "pureconfig" % "0.10.2"
   val `executor-tools`     = "com.evolutiongaming" %% "executor-tools" % "1.0.1"
   val `config-tools`       = "com.evolutiongaming" %% "config-tools" % "1.0.3"
-  val `akka-serialization` = "com.evolutiongaming" %% "akka-serialization" % "1.0.0"
+  val `akka-serialization` = "com.evolutiongaming" %% "akka-serialization" % "1.0.1"
   val nel                  = "com.evolutiongaming" %% "nel" % "1.3.3"
   val `future-helper`      = "com.evolutiongaming" %% "future-helper" % "1.0.4"
   val `kafka-launcher`     = "com.evolutiongaming" %% "kafka-launcher" % "0.0.6"
@@ -42,7 +42,7 @@ object Dependencies {
   }
 
   object Akka {
-    private val version = "2.5.21"
+    private val version = "2.5.22"
     val actor             = "com.typesafe.akka" %% "akka-actor"           % version
     val testkit           = "com.typesafe.akka" %% "akka-testkit"         % version
     val stream            = "com.typesafe.akka" %% "akka-stream"          % version
@@ -65,6 +65,6 @@ object Dependencies {
 
   object Scodec {
     val core = "org.scodec" %% "scodec-core" % "1.11.3"
-    val bits = "org.scodec" %% "scodec-bits" % "1.1.9"
+    val bits = "org.scodec" %% "scodec-bits" % "1.1.10"
   }
 }
