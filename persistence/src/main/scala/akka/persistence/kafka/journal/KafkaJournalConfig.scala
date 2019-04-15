@@ -1,6 +1,7 @@
 package akka.persistence.kafka.journal
 
 import com.evolutiongaming.config.ConfigHelper._
+import com.evolutiongaming.kafka.journal.Journal.CallTimeThresholds
 import com.evolutiongaming.kafka.journal.JournalConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig
 import com.typesafe.config.Config
@@ -12,7 +13,8 @@ final case class KafkaJournalConfig(
   cassandra: EventualCassandraConfig = EventualCassandraConfig.Default,
   startTimeout: FiniteDuration = 1.minute,
   stopTimeout: FiniteDuration = 1.minute,
-  maxEventsInBatch: Int = 10)
+  maxEventsInBatch: Int = 10,
+  callTimeThresholds: CallTimeThresholds = CallTimeThresholds.Default)
 
 object KafkaJournalConfig {
 
@@ -25,11 +27,14 @@ object KafkaJournalConfig {
 
     def get[T: FromConf](name: String) = config.getOpt[T](name)
 
+    val callTimeThresholds = pureconfig.loadConfig[CallTimeThresholds](config, "call-time-thresholds") getOrElse CallTimeThresholds.Default
+
     KafkaJournalConfig(
       journal = JournalConfig(config),
       cassandra = get[Config]("cassandra").fold(default.cassandra)(EventualCassandraConfig(_, default.cassandra)),
       startTimeout = get[FiniteDuration]("start-timeout") getOrElse default.startTimeout,
       stopTimeout = get[FiniteDuration]("stop-timeout") getOrElse default.stopTimeout,
-      maxEventsInBatch = get[Int]("max-events-in-batch") getOrElse default.maxEventsInBatch)
+      maxEventsInBatch = get[Int]("max-events-in-batch") getOrElse default.maxEventsInBatch,
+      callTimeThresholds = callTimeThresholds)
   }
 }

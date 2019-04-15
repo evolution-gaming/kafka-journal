@@ -17,6 +17,7 @@ import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords}
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord}
 import com.evolutiongaming.skafka.{Bytes => _, _}
 import play.api.libs.json.JsValue
+import pureconfig.{ConfigReader, generic}
 
 import scala.concurrent.duration._
 
@@ -56,7 +57,8 @@ object Journal {
     config: JournalConfig,
     origin: Option[Origin],
     eventualJournal: EventualJournal[F],
-    metrics: Option[Metrics[F]]
+    metrics: Option[Metrics[F]],
+    callTimeThresholds: CallTimeThresholds
   ): Resource[F, Journal[F]] = {
 
     val consumer = Consumer.of[F](config.consumer, config.pollTimeout)
@@ -81,7 +83,7 @@ object Journal {
         consumer,
         eventualJournal,
         headCache)
-      val withLog = journal.withLog(log)
+      val withLog = journal.withLog(log, callTimeThresholds)
       metrics.fold(withLog) { metrics => withLog.withMetrics(metrics) }
     }
   }
@@ -295,57 +297,6 @@ object Journal {
   }
 
 
-  def apply[F[_] : FlatMap : Clock](journal: Journal[F], log: Log[F]): Journal[F] = {
-
-    val functionKId = FunctionK.id[F]
-
-    new Journal[F] {
-
-      def append(key: Key, events: Nel[Event], metadata: Option[JsValue], headers: Headers) = {
-        for {
-          rl     <- Latency { journal.append(key, events, metadata, headers) }
-          (r, l)  = rl
-          _      <- log.debug {
-            val first = events.head.seqNr
-            val last = events.last.seqNr
-            val seqNr = if (first == last) s"seqNr: $first" else s"seqNrs: $first..$last"
-            s"$key append in ${ l }ms, $seqNr, result: $r"
-          }
-        } yield r
-      }
-
-      def read(key: Key, from: SeqNr) = {
-        val logging = new (F ~> F) {
-          def apply[A](fa: F[A]) = {
-            for {
-              rl     <- Latency { fa }
-              (r, l)  = rl
-              _      <- log.debug(s"$key read in ${ l }ms, from: $from, result: $r")
-            } yield r
-          }
-        }
-        journal.read(key, from).mapK(logging, functionKId)
-      }
-
-      def pointer(key: Key) = {
-        for {
-          rl     <- Latency { journal.pointer(key) }
-          (r, l)  = rl
-          _      <- log.debug(s"$key pointer in ${ l }ms, result: $r")
-        } yield r
-      }
-
-      def delete(key: Key, to: SeqNr) = {
-        for {
-          rl     <- Latency { journal.delete(key, to) }
-          (r, l)  = rl
-          _      <- log.debug(s"$key delete in ${ l }ms, to: $to, r: $r")
-        } yield r
-      }
-    }
-  }
-
-
   def apply[F[_] : Sync : Clock](journal: Journal[F], metrics: Metrics[F]): Journal[F] = {
 
     val functionKId = FunctionK.id[F]
@@ -541,8 +492,63 @@ object Journal {
 
   implicit class JournalOps[F[_]](val self: Journal[F]) extends AnyVal {
 
-    def withLog(log: Log[F])(implicit F: FlatMap[F], clock: Clock[F]): Journal[F] =  {
-      Journal(self, log)
+    def withLog(
+      log: Log[F],
+      config: CallTimeThresholds = CallTimeThresholds.Default)(implicit
+      F: FlatMap[F],
+      clock: Clock[F]
+    ): Journal[F] = {
+
+      val functionKId = FunctionK.id[F]
+
+      def logDebugOrWarn(latency: Long, threshold: FiniteDuration)(msg: => String) = {
+        if (latency >= threshold.toMillis) log.warn(msg) else log.debug(msg)
+      }
+
+      new Journal[F] {
+
+        def append(key: Key, events: Nel[Event], metadata: Option[JsValue], headers: Headers) = {
+          for {
+            rl     <- Latency { self.append(key, events, metadata, headers) }
+            (r, l)  = rl
+            _      <- logDebugOrWarn(l, config.append) {
+              val first = events.head.seqNr
+              val last = events.last.seqNr
+              val seqNr = if (first == last) s"seqNr: $first" else s"seqNrs: $first..$last"
+              s"$key append in ${ l }ms, $seqNr, result: $r"
+            }
+          } yield r
+        }
+
+        def read(key: Key, from: SeqNr) = {
+          val logging = new (F ~> F) {
+            def apply[A](fa: F[A]) = {
+              for {
+                rl     <- Latency { fa }
+                (r, l)  = rl
+                _      <- logDebugOrWarn(l, config.read) {s"$key read in ${ l }ms, from: $from, result: $r" }
+              } yield r
+            }
+          }
+          self.read(key, from).mapK(logging, functionKId)
+        }
+
+        def pointer(key: Key) = {
+          for {
+            rl     <- Latency { self.pointer(key) }
+            (r, l)  = rl
+            _      <- logDebugOrWarn(l, config.pointer) {s"$key pointer in ${ l }ms, result: $r" }
+          } yield r
+        }
+
+        def delete(key: Key, to: SeqNr) = {
+          for {
+            rl     <- Latency { self.delete(key, to) }
+            (r, l)  = rl
+            _      <- logDebugOrWarn(l, config.delete) {s"$key delete in ${ l }ms, to: $to, r: $r" }
+          } yield r
+        }
+      }
     }
 
 
@@ -603,7 +609,7 @@ object Journal {
       }
     }
 
-    
+
     def withMetrics(metrics: Metrics[F])(implicit F: Sync[F], clock: Clock[F]): Journal[F] =  {
       Journal(self, metrics)
     }
@@ -627,5 +633,18 @@ object Journal {
         to(self.delete(key, to1))
       }
     }
+  }
+
+
+  final case class CallTimeThresholds(
+    append: FiniteDuration = 1.second,
+    read: FiniteDuration = 5.seconds,
+    pointer: FiniteDuration = 1.second,
+    delete: FiniteDuration = 1.second)
+
+  object CallTimeThresholds {
+    val Default: CallTimeThresholds = CallTimeThresholds()
+
+    implicit val ConfigReaderVal: ConfigReader[CallTimeThresholds] = generic.auto.exportReader[CallTimeThresholds].instance
   }
 }

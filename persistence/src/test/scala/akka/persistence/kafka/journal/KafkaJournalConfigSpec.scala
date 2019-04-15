@@ -1,5 +1,6 @@
 package akka.persistence.kafka.journal
 
+import com.evolutiongaming.kafka.journal.Journal.CallTimeThresholds
 import com.typesafe.config.ConfigFactory
 import org.scalatest.{FunSuite, Matchers}
 
@@ -17,7 +18,12 @@ class KafkaJournalConfigSpec extends FunSuite with Matchers {
     val expected = KafkaJournalConfig(
       startTimeout = 1.millis,
       stopTimeout = 2.seconds,
-      maxEventsInBatch = 3)
+      maxEventsInBatch = 3,
+      callTimeThresholds = CallTimeThresholds(
+        append = 1.millis,
+          read = 2.millis,
+          pointer = 3.millis,
+          delete = 4.millis))
     KafkaJournalConfig(config) shouldEqual expected
   }
 

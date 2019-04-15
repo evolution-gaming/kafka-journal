@@ -8,6 +8,7 @@ object Dependencies {
   val `cats-par`           = "io.chrisdavenport" %% "cats-par" % "0.2.1"
   val `cassandra-driver`   = "com.datastax.cassandra" % "cassandra-driver-core" % "3.7.1"
   val `play-json`          = "com.typesafe.play" %% "play-json" % "2.7.2"
+  val pureconfig           = "com.github.pureconfig" %% "pureconfig" % "0.10.2"
   val `executor-tools`     = "com.evolutiongaming" %% "executor-tools" % "1.0.1"
   val `config-tools`       = "com.evolutiongaming" %% "config-tools" % "1.0.3"
   val `akka-serialization` = "com.evolutiongaming" %% "akka-serialization" % "1.0.0"
@@ -21,7 +22,6 @@ object Dependencies {
   val `cats-helper`        = "com.evolutiongaming" %% "cats-helper" % "0.0.6"
   val random               = "com.evolutiongaming" %% "random" % "0.0.2"
   val retry                = "com.evolutiongaming" %% "retry" % "0.0.1"
-  
 
   object Cats {
     private val version = "1.6.0"

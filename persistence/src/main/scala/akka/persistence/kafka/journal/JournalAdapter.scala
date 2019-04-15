@@ -82,7 +82,8 @@ object JournalAdapter {
           origin = origin,
           config = config.journal,
           eventualJournal = eventualJournal,
-          metrics = metrics.journal)
+          metrics = metrics.journal,
+          callTimeThresholds = config.callTimeThresholds)
       } yield {
         journal.withLogError(log)
       }
