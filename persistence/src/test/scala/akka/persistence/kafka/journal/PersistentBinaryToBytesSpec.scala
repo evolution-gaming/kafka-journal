@@ -13,7 +13,7 @@ class PersistentBinaryToBytesSpec extends FunSuite with Matchers {
   test("toBytes & fromBytes") {
 
     val expected = PersistentBinary(
-      manifest = "persistentManifest",
+      manifest = Some("persistentManifest"),
       writerUuid = "writerUuid",
       payload = SerializedMsg(
         identifier = 2,

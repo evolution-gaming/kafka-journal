@@ -36,12 +36,11 @@ class EventSerializerSpec extends FunSuite with ActorSuite with Matchers {
       val persistentPayload = event.payload getOrElse sys.error("Event.payload is not defined")
       persistentPayload.payloadType shouldEqual payloadType
 
-      /*val persistentReprBytes = persistentPayload match {
-        case payload: Payload.Binary => payload.value
-        case payload: Payload.text   => sys.error("Payload.text is not expected")
-        case payload: Payload.json   => payload.value.toBytes
-      }
-      writeToFile(persistentReprBytes, name)*/
+      /*persistentPayload match {
+        case a: Payload.Binary => writeToFile(a.value, name)
+        case _: Payload.Text   =>
+        case _: Payload.Json   =>
+      }*/
 
       val bytes = BytesOf(getClass, name)
       persistentPayload match {

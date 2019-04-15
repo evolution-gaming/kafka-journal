@@ -4,7 +4,7 @@ import com.evolutiongaming.kafka.journal.PayloadType
 import play.api.libs.json.{JsValue, Json, OFormat}
 
 final case class PersistentJson(
-  manifest: String,
+  manifest: Option[String],
   writerUuid: String,
   payloadType: Option[PayloadType.TextOrJson],
   payload: JsValue)

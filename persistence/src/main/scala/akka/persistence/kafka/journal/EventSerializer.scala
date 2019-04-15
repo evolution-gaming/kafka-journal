@@ -45,7 +45,7 @@ object EventSerializer {
 
       def json(payload: JsValue, payloadType: Option[PayloadType.TextOrJson] = None) = {
         val persistent = PersistentJson(
-          manifest = persistentRepr.manifest,
+          manifest = Some(persistentRepr.manifest) /*TODO filter out PersistentRepr.Undefined*/,
           writerUuid = persistentRepr.writerUuid,
           payloadType = payloadType,
           payload = payload)
@@ -83,7 +83,7 @@ object EventSerializer {
           payload = anyRef,
           sequenceNr = event.seqNr.value,
           persistenceId = persistenceId,
-          manifest = persistent.manifest,
+          manifest = persistent.manifest getOrElse PersistentRepr.Undefined,
           writerUuid = persistent.writerUuid)
       }
 
@@ -98,7 +98,7 @@ object EventSerializer {
           payload = anyRef,
           sequenceNr = event.seqNr.value,
           persistenceId = persistenceId,
-          manifest = persistent.manifest,
+          manifest = persistent.manifest getOrElse PersistentRepr.Undefined,
           writerUuid = persistent.writerUuid)
       }
 

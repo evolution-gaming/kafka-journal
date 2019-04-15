@@ -7,7 +7,7 @@ import scodec.bits.BitVector
 import scodec.codecs._
 
 final case class PersistentBinary(
-  manifest: String,
+  manifest: Option[String],
   writerUuid: String,
   payload: SerializedMsg)
 
@@ -16,7 +16,7 @@ object PersistentBinary {
 
   private val codec = {
     val codecSerializedMsg = (int32 :: utf8_32 :: variableSizeBytes(int32, bytes)).as[SerializedMsg]
-    (utf8_32 :: utf8_32 :: codecSerializedMsg).as[PersistentBinary]
+    (optional(bool, utf8_32) :: utf8_32 :: codecSerializedMsg).as[PersistentBinary]
   }
 
 
@@ -37,7 +37,7 @@ object PersistentBinary {
 
   def apply(msg: SerializedMsg, persistentRepr: PersistentRepr): PersistentBinary = {
     PersistentBinary(
-      manifest = persistentRepr.manifest,
+      manifest = Some(persistentRepr.manifest).filter(_ != PersistentRepr.Undefined),
       writerUuid = persistentRepr.writerUuid,
       payload = msg)
   }
