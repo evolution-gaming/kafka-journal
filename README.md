@@ -110,3 +110,4 @@ libraryDependencies += "com.evolutiongaming" %% "kafka-journal-replicator-promet
 ## Presentations
 
 * Jan 2019 [Riga Scala Community](https://www.meetup.com/Riga-Scala-Community/events/257926307)
+* Apr 2019 [Amsterdam.scala](https://www.meetup.com/amsterdam-scala/events/260005066/)
