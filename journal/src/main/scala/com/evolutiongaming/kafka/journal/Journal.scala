@@ -17,7 +17,8 @@ import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords}
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord}
 import com.evolutiongaming.skafka.{Bytes => _, _}
 import play.api.libs.json.JsValue
-import pureconfig.{ConfigReader, generic}
+import pureconfig.ConfigReader
+import pureconfig.generic.semiauto.deriveReader
 
 import scala.concurrent.duration._
 
@@ -637,7 +638,7 @@ object Journal {
 
 
   final case class CallTimeThresholds(
-    append: FiniteDuration = 1.second,
+    append: FiniteDuration = 500.millis,
     read: FiniteDuration = 5.seconds,
     pointer: FiniteDuration = 1.second,
     delete: FiniteDuration = 1.second)
@@ -645,6 +646,6 @@ object Journal {
   object CallTimeThresholds {
     val Default: CallTimeThresholds = CallTimeThresholds()
 
-    implicit val ConfigReaderVal: ConfigReader[CallTimeThresholds] = generic.auto.exportReader[CallTimeThresholds].instance
+    implicit val ConfigReaderVal: ConfigReader[CallTimeThresholds] = deriveReader[CallTimeThresholds]
   }
 }
