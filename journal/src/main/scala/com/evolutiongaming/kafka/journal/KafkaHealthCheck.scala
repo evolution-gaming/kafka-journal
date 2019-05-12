@@ -27,7 +27,8 @@ object KafkaHealthCheck {
   def of[F[_] : Concurrent : ContextShift : Timer : LogOf : KafkaConsumerOf : KafkaProducerOf : RandomId](
     config: Config,
     producerConfig: ProducerConfig,
-    consumerConfig: ConsumerConfig): Resource[F, KafkaHealthCheck[F]] = {
+    consumerConfig: ConsumerConfig
+  ): Resource[F, KafkaHealthCheck[F]] = {
 
     val result = for {
       log <- LogOf[F].apply(KafkaHealthCheck.getClass)
@@ -55,7 +56,8 @@ object KafkaHealthCheck {
     config: Config,
     stop: F[Boolean],
     producer: Resource[F, Producer[F]],
-    consumer: Resource[F, Consumer[F]]): Resource[F, KafkaHealthCheck[F]] = {
+    consumer: Resource[F, Consumer[F]]
+  ): Resource[F, KafkaHealthCheck[F]] = {
 
     val result = for {
       ref   <- Ref.of[F, Option[Throwable]](None)
@@ -128,7 +130,7 @@ object KafkaHealthCheck {
     def check(n: Long) = {
       for {
         error  <- produceConsume(n)
-        _      <- error.fold(().pure[F]) { error => Log[F].error(s"$n failed with $error", error) }
+        _      <- error.fold(().pure[F]) { error => Log[F].error(s"$n failed with $error") }
         _      <- set(error)
         _      <- sleep
         stop   <- stop
