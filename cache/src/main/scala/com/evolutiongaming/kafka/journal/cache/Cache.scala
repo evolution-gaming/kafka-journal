@@ -24,7 +24,7 @@ object Cache {
     }
   }
 
-  private def apply[F[_] : Concurrent, K, V](ref: Ref[F, Map[K, F[V]]]): Cache[F, K, V] = {
+  private def apply[F[_] : Concurrent, K, V](map: Ref[F, Map[K, F[V]]]): Cache[F, K, V] = {
     new Cache[F, K, V] {
 
       def get(key: K) = {
@@ -37,18 +37,28 @@ object Cache {
       def getOrUpdate(key: K)(value: => F[V]) = {
 
         def update = {
+
+          def update(deferred: Deferred[F, F[V]]) = {
+            Concurrent[F].uncancelable {
+              for {
+                value <- value.redeem[F[V], Throwable](_.raiseError[F, V], _.pure[F])
+                _     <- deferred.complete(value)
+                value <- value.attempt
+                value <- value match {
+                  case Right(value) => value.pure[F]
+                  case Left(value)  => map.modify { map => (map - key, value.raiseError[F, V]) }.flatten
+                }
+              } yield value
+            }
+          }
+
           for {
             deferred <- Deferred[F, F[V]]
-            value1   <- ref.modify { map =>
+            value1   <- map.modify { map =>
               map.get(key).fold {
-                val value1 = Concurrent[F].uncancelable {
-                  for {
-                    value <- value.redeem[F[V], Throwable](_.raiseError[F, V], _.pure[F])
-                    _     <- deferred.complete(value)
-                    value <- value
-                  } yield value
-                }
-                (map.updated(key, deferred.get.flatten), value1)
+                val value1 = update(deferred)
+                val map1 = map.updated(key, deferred.get.flatten)
+                (map1, value1)
               } { value =>
                 (map, value)
               }
@@ -58,12 +68,12 @@ object Cache {
         }
 
         for {
-          map   <- ref.get
+          map   <- map.get
           value <- map.getOrElse(key, update)
         } yield value
       }
 
-      def values = ref.get
+      def values = map.get
     }
   }
 }

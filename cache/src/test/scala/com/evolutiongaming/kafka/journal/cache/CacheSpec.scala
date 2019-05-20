@@ -6,6 +6,7 @@ import cats.implicits._
 import com.evolutiongaming.kafka.journal.IOSuite._
 import org.scalatest.{AsyncFunSuite, Matchers}
 
+import scala.util.control.NoStackTrace
 
 class CacheSpec extends AsyncFunSuite with Matchers {
 
@@ -59,4 +60,20 @@ class CacheSpec extends AsyncFunSuite with Matchers {
     }
     result.run()
   }
+
+  test("no leak in case of failure") {
+    val result = for {
+      cache     <- Cache.of[IO, Int, Int]
+      result0 <- cache.getOrUpdate(0)(TestError.raiseError[IO, Int]).attempt
+      result1 <- cache.getOrUpdate(0)(0.pure[IO]).attempt
+      result2 <- cache.getOrUpdate(0)(TestError.raiseError[IO, Int]).attempt
+    } yield {
+      result0 shouldEqual TestError.asLeft[Int]
+      result1 shouldEqual 0.asRight
+      result2 shouldEqual 0.asRight
+    }
+    result.run()
+  }
+
+  case object TestError extends RuntimeException with NoStackTrace
 }
