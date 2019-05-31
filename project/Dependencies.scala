@@ -8,7 +8,7 @@ object Dependencies {
   val `cats-par`           = "io.chrisdavenport"      %% "cats-par"              % "0.2.1"
   val `cassandra-driver`   = "com.datastax.cassandra"  % "cassandra-driver-core" % "3.7.1"
   val `play-json`          = "com.typesafe.play"      %% "play-json"             % "2.7.3"
-  val pureconfig           = "com.github.pureconfig"  %% "pureconfig"            % "0.10.2"
+  val pureconfig           = "com.github.pureconfig"  %% "pureconfig"            % "0.11.0"
   val `executor-tools`     = "com.evolutiongaming"    %% "executor-tools"        % "1.0.1"
   val `config-tools`       = "com.evolutiongaming"    %% "config-tools"          % "1.0.3"
   val `akka-serialization` = "com.evolutiongaming"    %% "akka-serialization"    % "1.0.1"
@@ -17,16 +17,16 @@ object Dependencies {
   val `kafka-launcher`     = "com.evolutiongaming"    %% "kafka-launcher"        % "0.0.6"
   val `cassandra-launcher` = "com.evolutiongaming"    %% "cassandra-launcher"    % "0.0.2"
   val hostname             = "com.evolutiongaming"    %% "hostname"              % "0.1.1"
-  val scassandra           = "com.evolutiongaming"    %% "scassandra"            % "0.0.10"
-  val `cassandra-sync`     = "com.evolutiongaming"    %% "cassandra-sync"        % "0.0.6"
-  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "0.0.7"
+  val scassandra           = "com.evolutiongaming"    %% "scassandra"            % "0.0.11"
+  val `cassandra-sync`     = "com.evolutiongaming"    %% "cassandra-sync"        % "0.0.7"
+  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "0.0.12"
   val random               = "com.evolutiongaming"    %% "random"                % "0.0.2"
   val retry                = "com.evolutiongaming"    %% "retry"                 % "0.0.1"
 
   object Cats {
     private val version = "1.6.0"
     val core   = "org.typelevel" %% "cats-core"   % version
-    val effect = "org.typelevel" %% "cats-effect" % "1.2.0"
+    val effect = "org.typelevel" %% "cats-effect" % "1.3.1"
   }
 
   object Logback {
@@ -42,7 +42,7 @@ object Dependencies {
   }
 
   object Akka {
-    private val version = "2.5.22"
+    private val version = "2.5.23"
     val actor             = "com.typesafe.akka" %% "akka-actor"           % version
     val testkit           = "com.typesafe.akka" %% "akka-testkit"         % version
     val stream            = "com.typesafe.akka" %% "akka-stream"          % version
@@ -65,6 +65,6 @@ object Dependencies {
 
   object Scodec {
     val core = "org.scodec" %% "scodec-core" % "1.11.3"
-    val bits = "org.scodec" %% "scodec-bits" % "1.1.10"
+    val bits = "org.scodec" %% "scodec-bits" % "1.1.11"
   }
 }
