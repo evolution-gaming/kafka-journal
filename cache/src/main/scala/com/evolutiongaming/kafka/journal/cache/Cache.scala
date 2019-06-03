@@ -31,17 +31,17 @@ object Cache {
 
   def of[F[_] : Concurrent : Runtime, K, V]: F[Cache[F, K, V]] = {
     for {
-      cpus               <- Runtime[F].availableCores
-      numberOfPartitions  = 2 + cpus
-      cache              <- of[F, K, V](numberOfPartitions)
+      cpus       <- Runtime[F].availableCores
+      partitions  = 2 + cpus
+      cache      <- of[F, K, V](partitions)
     } yield cache
   }
 
 
-  def of[F[_] : Concurrent, K, V](numberOfPartitions: Int): F[Cache[F, K, V]] = {
+  def of[F[_] : Concurrent, K, V](nrOfPartitions: Int): F[Cache[F, K, V]] = {
     val cache = of[F, K, V](Map.empty[K, F[V]])
     for {
-      partitions <- Partitions.of[F, K, Cache[F, K, V]](numberOfPartitions, _ => cache, _.hashCode())
+      partitions <- Partitions.of[F, K, Cache[F, K, V]](nrOfPartitions, _ => cache, _.hashCode())
     } yield {
       apply(partitions)
     }
