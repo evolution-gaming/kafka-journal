@@ -1,9 +1,11 @@
 package com.evolutiongaming.kafka.journal.cache
 
+import cats.{Applicative, Monad}
 import cats.effect.Concurrent
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.implicits._
 import com.evolutiongaming.catshelper.EffectHelper._
+import com.evolutiongaming.catshelper.Runtime
 
 trait Cache[F[_], K, V] {
 
@@ -16,13 +18,44 @@ trait Cache[F[_], K, V] {
 
 object Cache {
 
-  def of[F[_] : Concurrent, K, V]: F[Cache[F, K, V]] = {
+
+  def empty[F[_] : Applicative, K, V]: Cache[F, K, V] = new Cache[F, K, V] {
+
+    def get(key: K) = none[V].pure[F]
+
+    def getOrUpdate(key: K)(value: => F[V]) = value
+
+    val values = Map.empty[K, F[V]].pure[F]
+  }
+
+
+  def of[F[_] : Concurrent : Runtime, K, V]: F[Cache[F, K, V]] = {
     for {
-      ref <- Ref.of[F, Map[K, F[V]]](Map.empty)
+      cpus               <- Runtime[F].availableCores
+      numberOfPartitions  = 2 + cpus
+      cache              <- of[F, K, V](numberOfPartitions)
+    } yield cache
+  }
+
+
+  def of[F[_] : Concurrent, K, V](numberOfPartitions: Int): F[Cache[F, K, V]] = {
+    val cache = of[F, K, V](Map.empty[K, F[V]])
+    for {
+      partitions <- Partitions.of[F, K, Cache[F, K, V]](numberOfPartitions, _ => cache, _.hashCode())
+    } yield {
+      apply(partitions)
+    }
+  }
+
+
+  def of[F[_] : Concurrent, K, V](map: Map[K, F[V]]): F[Cache[F, K, V]] = {
+    for {
+      ref <- Ref.of[F, Map[K, F[V]]](map)
     } yield {
       apply(ref)
     }
   }
+
 
   private def apply[F[_] : Concurrent, K, V](map: Ref[F, Map[K, F[V]]]): Cache[F, K, V] = {
     new Cache[F, K, V] {
@@ -42,7 +75,7 @@ object Cache {
             Concurrent[F].uncancelable {
               for {
                 value <- value.redeem[F[V], Throwable](_.raiseError[F, V], _.pure[F])
-                _     <- deferred.complete(value)
+                _ <- deferred.complete(value)
                 value <- value.attempt
                 value <- value match {
                   case Right(value) => value.pure[F]
@@ -54,7 +87,7 @@ object Cache {
 
           for {
             deferred <- Deferred[F, F[V]]
-            value1   <- map.modify { map =>
+            value1 <- map.modify { map =>
               map.get(key).fold {
                 val value1 = update(deferred)
                 val map1 = map.updated(key, deferred.get.flatten)
@@ -68,12 +101,40 @@ object Cache {
         }
 
         for {
-          map   <- map.get
+          map <- map.get
           value <- map.getOrElse(key, update)
         } yield value
       }
 
       def values = map.get
+    }
+  }
+
+
+  private def apply[F[_] : Monad, K, V](partitions: Partitions[K, Cache[F, K, V]]): Cache[F, K, V] = {
+
+    new Cache[F, K, V] {
+
+      def get(key: K) = {
+        val cache = partitions.get(key)
+        cache.get(key)
+      }
+
+      def getOrUpdate(key: K)(value: => F[V]) = {
+        val cache = partitions.get(key)
+        cache.getOrUpdate(key)(value)
+      }
+
+      def values = {
+        val zero = Map.empty[K, F[V]]
+        partitions.values.foldLeftM(zero) { (a, b) =>
+          for {
+            b <- b.values
+          } yield {
+            a ++ b
+          }
+        }
+      }
     }
   }
 }
