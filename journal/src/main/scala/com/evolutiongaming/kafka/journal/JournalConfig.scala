@@ -9,7 +9,7 @@ import com.typesafe.config.Config
 import scala.concurrent.duration._
 
 final case class JournalConfig(
-  pollTimeout: FiniteDuration = 100.millis, // TODO used in WithReadActions only
+  pollTimeout: FiniteDuration = 50.millis,
   producer: ProducerConfig = ProducerConfig(
     common = CommonConfig(
       clientId = Some("journal"),
