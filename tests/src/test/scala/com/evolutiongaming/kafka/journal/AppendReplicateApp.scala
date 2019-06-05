@@ -5,7 +5,7 @@ import akka.persistence.kafka.journal.KafkaJournalConfig
 import cats.effect._
 import cats.implicits._
 import cats.temp.par._
-import com.evolutiongaming.catshelper.{FromFuture, LogOf, Runtime, ToFuture}
+import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, Runtime, ToFuture}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
 import com.evolutiongaming.kafka.journal.util._
@@ -50,14 +50,14 @@ object AppendReplicateApp extends IOApp {
     def journal(
       config: JournalConfig)(implicit
       kafkaConsumerOf: KafkaConsumerOf[F],
-      kafkaProducerOf: KafkaProducerOf[F]) = {
+      kafkaProducerOf: KafkaProducerOf[F],
+      log: Log[F]
+    ) = {
 
       val consumer = Journal.Consumer.of[F](config.consumer, config.pollTimeout)
       for {
-        log      <- Resource.liftF(LogOf[F].apply(Journal.getClass))
         producer <- Journal.Producer.of[F](config.producer)
       } yield {
-        implicit val log1 = log
         Journal[F](
           origin = Origin.HostName,
           producer = producer,
@@ -79,12 +79,13 @@ object AppendReplicateApp extends IOApp {
     }
 
     val resource = for {
+      log                <- Resource.liftF(LogOf[F].apply(Journal.getClass))
       kafkaJournalConfig <- Resource.liftF(kafkaJournalConfig)
-      blocking           <- Executors.blocking[F]
+      blocking           <- Executors.blocking[F]("kafka-journal-blocking", log)
       kafkaConsumerOf     = KafkaConsumerOf[F](blocking)
       kafkaProducerOf     = KafkaProducerOf[F](blocking)
       replicate          <- replicator(kafkaConsumerOf)
-      journal            <- journal(kafkaJournalConfig.journal)(kafkaConsumerOf, kafkaProducerOf)
+      journal            <- journal(kafkaJournalConfig.journal)(kafkaConsumerOf, kafkaProducerOf, log)
     } yield {
       (journal, replicate)
     }

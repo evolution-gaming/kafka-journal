@@ -1,48 +1,52 @@
 package com.evolutiongaming.kafka.journal.util
 
-import java.util.concurrent.{ExecutorService, ScheduledExecutorService, Executors => ExecutorsJ}
+import java.util.concurrent.ScheduledExecutorService
 
 import cats.effect.{Resource, Sync}
-import com.evolutiongaming.catshelper.Runtime
+import com.evolutiongaming.catshelper.{Log, Runtime, ToFuture}
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 
 object Executors {
 
-  def blocking[F[_] : Sync : Runtime]: Resource[F, ExecutionContextExecutorService] = {
+  def blocking[F[_] : Sync : Runtime : ToFuture](
+    name: String,
+    log: Log[F]
+  ): Resource[F, ExecutionContextExecutorService] = {
     for {
       cores       <- Resource.liftF(Runtime[F].availableCores)
-      parallelism  = (cores + 2) * 4
-      pool        <- forkJoin(parallelism)
+      parallelism  = (cores + 2) * 3
+      pool        <- forkJoin(name, parallelism, log)
     } yield pool
   }
 
-  def nonBlocking[F[_] : Sync : Runtime]: Resource[F, ExecutionContextExecutorService] = {
+
+  def nonBlocking[F[_] : Sync : Runtime : ToFuture](
+    name: String,
+    log: Log[F]
+  ): Resource[F, ExecutionContextExecutorService] = {
     for {
       cores       <- Resource.liftF(Runtime[F].availableCores)
       parallelism  = cores + 4
-      pool        <- forkJoin(parallelism)
+      pool        <- forkJoin(name, parallelism, log)
     } yield pool
   }
 
-  def forkJoin[F[_] : Sync](parallelism: Int): Resource[F, ExecutionContextExecutorService] = {
-    resource { ExecutorsJ.newWorkStealingPool(parallelism) }
-  }
 
-  def scheduled[F[_] : Sync](parallelism: Int): Resource[F, ScheduledExecutorService] = {
-    Resource.make {
-      Sync[F].delay { ExecutorsJ.newScheduledThreadPool(parallelism) }
-    } { es =>
-      Sync[F].delay { es.shutdown() }
+  def forkJoin[F[_] : Sync : ToFuture](
+    name: String,
+    parallelism: Int,
+    log: Log[F]
+  ): Resource[F, ExecutionContextExecutorService] = {
+    for {
+      pool <- ForkJoinPoolOf[F](name, parallelism, log)
+    } yield {
+      ExecutionContext.fromExecutorService(pool)
     }
   }
 
-  private def resource[F[_] : Sync](es: => ExecutorService): Resource[F, ExecutionContextExecutorService] = {
-    val result = Sync[F].delay {
-      val ec = ExecutionContext.fromExecutorService(es)
-      val release = Sync[F].delay { ec.shutdown() }
-      (ec, release)
-    }
-    Resource(result)
+
+  def scheduled[F[_] : Sync](name: String, parallelism: Int): Resource[F, ScheduledExecutorService] = {
+    ScheduledExecutorServiceOf[F](name, parallelism)
   }
 }

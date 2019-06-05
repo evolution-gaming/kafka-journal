@@ -42,7 +42,7 @@ object CassandraSync {
 
     implicit val session = CassandraSession[F].unsafe
 
-    val es = Executors.scheduled(2)
+    val es = Executors.scheduled("kafka-journal-sync", 2)
 
     new CassandraSync[F] {
 

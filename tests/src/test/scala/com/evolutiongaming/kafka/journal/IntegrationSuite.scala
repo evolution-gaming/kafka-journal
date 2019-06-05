@@ -60,7 +60,7 @@ object IntegrationSuite {
       log      <- Resource.liftF(LogOf[F].apply(IntegrationSuite.getClass))
       _        <- cassandra(log)
       _        <- kafka(log)
-      blocking <- Executors.blocking[F]
+      blocking <- Executors.blocking[F]("kafka-journal-blocking", log)
       _        <- replicator(log, blocking)
     } yield {}
   }
