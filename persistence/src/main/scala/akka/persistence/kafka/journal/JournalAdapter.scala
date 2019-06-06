@@ -12,8 +12,8 @@ import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.kafka.journal.util.{Executors, FromGFuture}
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.skafka.consumer.Consumer
-import com.evolutiongaming.skafka.producer.Producer
+import com.evolutiongaming.skafka.consumer.ConsumerMetrics
+import com.evolutiongaming.skafka.producer.ProducerMetrics
 import com.evolutiongaming.skafka.{ClientId, CommonConfig}
 
 import scala.collection.immutable.Seq
@@ -62,7 +62,7 @@ object JournalAdapter {
         metrics <- metrics.producer
       } yield {
         val clientId = clientIdOf(config.journal.producer.common)
-        KafkaProducer.Metrics(metrics(clientId))
+        metrics(clientId)
       }
       KafkaProducerOf[F](blocking, producerMetrics)
     }
@@ -211,8 +211,8 @@ object JournalAdapter {
     journal: Option[Journal.Metrics[F]] = None,
     eventual: Option[EventualJournal.Metrics[F]] = None,
     headCache: Option[HeadCache.Metrics[F]] = None,
-    producer: Option[ClientId => Producer.Metrics] = None,
-    consumer: Option[ClientId => Consumer.Metrics] = None)
+    producer: Option[ClientId => ProducerMetrics[F]] = None,
+    consumer: Option[ClientId => ConsumerMetrics[F]] = None)
 
   object Metrics {
     def empty[F[_]]: Metrics[F] = Metrics[F]()

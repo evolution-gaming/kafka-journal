@@ -11,7 +11,8 @@ import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.skafka.consumer.Consumer
+import com.evolutiongaming.skafka.consumer.ConsumerMetrics
+import com.evolutiongaming.skafka.producer.ProducerMetrics
 import org.scalatest.{Matchers, Suite}
 import play.api.libs.json.JsValue
 
@@ -25,11 +26,11 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
 
   implicit val kafkaConsumerOf: KafkaConsumerOf[IO] = KafkaConsumerOf[IO](
     system.dispatcher,
-    Some(Consumer.Metrics.Empty))
+    ConsumerMetrics.empty[IO].some)
 
   implicit val kafkaProducerOf: KafkaProducerOf[IO] = KafkaProducerOf[IO](
     system.dispatcher,
-    Some(KafkaProducer.Metrics.empty[IO]))
+    ProducerMetrics.empty[IO].some)
 
   implicit val randomId: RandomId[IO] = RandomId.uuid[IO]
 

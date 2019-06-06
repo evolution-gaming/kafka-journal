@@ -2,18 +2,17 @@ package com.evolutiongaming.kafka.journal
 
 import cats.effect.concurrent.Semaphore
 import cats.effect.implicits._
-import cats.effect.{Concurrent, ContextShift, Resource, Sync}
+import cats.effect._
 import cats.implicits._
 import cats.~>
-import com.evolutiongaming.catshelper.FromFuture
 import com.evolutiongaming.kafka.journal.util.Named
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka._
-import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerConfig, ConsumerRecords}
+import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerConfig, ConsumerMetrics, ConsumerRecords}
 
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
 
 trait KafkaConsumer[F[_], K, V] {
@@ -39,16 +38,18 @@ object KafkaConsumer {
 
   def apply[F[_], K, V](implicit F: KafkaConsumer[F, K, V]): KafkaConsumer[F, K, V] = F
 
-  def of[F[_] : Concurrent : FromFuture : ContextShift, K: skafka.FromBytes, V: skafka.FromBytes](
+  def of[F[_] : Concurrent : ContextShift : Clock, K: skafka.FromBytes, V: skafka.FromBytes](
     config: ConsumerConfig,
     blocking: ExecutionContext,
-    metrics: Option[Consumer.Metrics] = None): Resource[F, KafkaConsumer[F, K, V]] = {
+    metrics: Option[ConsumerMetrics[F]] = None
+  ): Resource[F, KafkaConsumer[F, K, V]] = {
 
     val result = for {
       semaphore <- Semaphore[F](1)
-      consumer0 <- ContextShift[F].evalOn(blocking) { Sync[F].delay { Consumer[K, V](config, blocking) } }
+      ab        <- Consumer.of[F, K, V](config, blocking).allocated
     } yield {
-      val consumer = metrics.fold(consumer0) { metrics => Consumer(consumer0, metrics) }
+      val (consumer0, close0) = ab
+      val consumer = metrics.fold(consumer0)(consumer0.withMetrics(_))
 
       val serial = new (F ~> F) {
         def apply[A](fa: F[A]) = semaphore.withPermit(fa).uncancelable
@@ -60,10 +61,7 @@ object KafkaConsumer {
         }
       }
 
-      val close = {
-        val close = FromFuture[F].apply { consumer.close() }
-        toError(serial(close), "close")
-      }
+      val close = toError(serial(close0), "close")
 
       val kafkaConsumer = apply[F, K, V](consumer)
         .mapK(serial)
@@ -75,42 +73,32 @@ object KafkaConsumer {
   }
 
 
-  def apply[F[_] : Sync : FromFuture, K, V](consumer: Consumer[K, V, Future]): KafkaConsumer[F, K, V] = {
+  def apply[F[_] : Sync, K, V](consumer: Consumer[F, K, V]): KafkaConsumer[F, K, V] = {
     new KafkaConsumer[F, K, V] {
 
       def assign(partitions: Nel[TopicPartition]) = {
-        Sync[F].delay {
-          consumer.assign(partitions)
-        }
+        consumer.assign(partitions)
       }
 
       def seek(partition: TopicPartition, offset: Offset) = {
-        Sync[F].delay {
-          consumer.seek(partition, offset)
-        }
+        consumer.seek(partition, offset)
       }
 
       def subscribe(topic: Topic) = {
-        Sync[F].delay {
-          consumer.subscribe(Nel(topic), None)
-        }
+        consumer.subscribe(Nel(topic), None)
       }
 
       def poll(timeout: FiniteDuration) = {
-        FromFuture[F].apply {
-          consumer.poll(timeout)
-        }
+        consumer.poll(timeout)
       }
 
       def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = {
-        FromFuture[F].apply {
-          consumer.commit(offsets)
-        }
+        consumer.commit(offsets)
       }
 
       def topics: F[Set[Topic]] = {
         for {
-          infos <- FromFuture[F].apply { consumer.listTopics() }
+          infos <- consumer.listTopics
         } yield {
           infos.keySet
         }
@@ -118,7 +106,7 @@ object KafkaConsumer {
 
       def partitions(topic: Topic) = {
         for {
-          infos <- FromFuture[F].apply { consumer.partitions(topic) }
+          infos <- consumer.partitions(topic)
         } yield for {
           info <- infos.to[Set]
         } yield {
@@ -127,7 +115,7 @@ object KafkaConsumer {
       }
 
       def assignment = {
-        Sync[F].delay { consumer.assignment }
+        consumer.assignment
       }
     }
   }

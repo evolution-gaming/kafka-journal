@@ -12,9 +12,9 @@ object ReplicatorMetrics {
     for {
       replicator <- TopicReplicatorMetrics.of[F](registry)
       journal    <- ReplicatedJournalMetrics.of[F](registry)
-      consumer   <- Sync[F].delay { PrometheusConsumerMetrics(registry)(clientId) } // TODO
+      consumer   <- PrometheusConsumerMetrics.of[F](registry)
     } yield {
-      Replicator.Metrics[F](Some(journal), Some(replicator), Some(consumer))
+      Replicator.Metrics[F](journal.some, replicator.some, consumer(clientId).some)
     }
   }
 }

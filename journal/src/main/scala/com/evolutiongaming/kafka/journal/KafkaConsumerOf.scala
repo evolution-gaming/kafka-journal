@@ -1,9 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.effect.{Concurrent, ContextShift, Resource}
-import com.evolutiongaming.catshelper.FromFuture
+import cats.effect.{Clock, Concurrent, ContextShift, Resource}
 import com.evolutiongaming.skafka
-import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerConfig}
+import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerMetrics}
 
 import scala.concurrent.ExecutionContext
 
@@ -15,9 +14,10 @@ object KafkaConsumerOf {
 
   def apply[F[_]](implicit F: KafkaConsumerOf[F]): KafkaConsumerOf[F] = F
 
-  def apply[F[_] : Concurrent : ContextShift : FromFuture](
+  def apply[F[_] : Concurrent : ContextShift : Clock](
     blocking: ExecutionContext,
-    metrics: Option[Consumer.Metrics] = None): KafkaConsumerOf[F] = {
+    metrics: Option[ConsumerMetrics[F]] = None
+  ): KafkaConsumerOf[F] = {
 
     new KafkaConsumerOf[F] {
 

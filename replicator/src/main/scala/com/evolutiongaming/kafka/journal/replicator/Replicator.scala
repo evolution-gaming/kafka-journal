@@ -15,7 +15,6 @@ import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Topic, Bytes => _}
 
@@ -228,7 +227,7 @@ object Replicator {
   final case class Metrics[F[_]](
     journal: Option[ReplicatedJournal.Metrics[F]] = None,
     replicator: Option[Topic => TopicReplicator.Metrics[F]] = None,
-    consumer: Option[skafka.consumer.Consumer.Metrics] = None)
+    consumer: Option[ConsumerMetrics[F]] = None)
 
   object Metrics {
     def empty[F[_]]: Metrics[F] = Metrics()

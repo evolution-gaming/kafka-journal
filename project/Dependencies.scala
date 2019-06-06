@@ -24,7 +24,7 @@ object Dependencies {
   val retry                = "com.evolutiongaming"    %% "retry"                 % "0.0.1"
 
   object Cats {
-    private val version = "1.6.0"
+    private val version = "1.6.1"
     val core   = "org.typelevel" %% "cats-core"   % version
     val effect = "org.typelevel" %% "cats-effect" % "1.3.1"
   }
@@ -52,13 +52,13 @@ object Dependencies {
   }
   
   object Kafka {
-    private val version = "2.1.1"
+    private val version = "2.2.1"
     val kafka           = "org.apache.kafka" %% "kafka"         % version
     val `kafka-clients` = "org.apache.kafka" %  "kafka-clients" % version
   }
 
   object Skafka {
-    private val version = "3.0.9"
+    private val version = "4.0.4"
     val skafka      = "com.evolutiongaming" %% "skafka"            % version
     val prometheus  = "com.evolutiongaming" %% "skafka-prometheus" % version
   }
