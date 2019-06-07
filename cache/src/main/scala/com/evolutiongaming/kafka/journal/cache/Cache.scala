@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.cache
 
 import cats.{Applicative, Monad}
-import cats.effect.Concurrent
+import cats.effect.{Concurrent, Sync}
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.implicits._
 import com.evolutiongaming.catshelper.EffectHelper._
@@ -72,7 +72,7 @@ object Cache {
         def update = {
 
           def update(deferred: Deferred[F, F[V]]) = {
-            Concurrent[F].uncancelable {
+            Sync[F].uncancelable {
               for {
                 value <- value.redeem[F[V], Throwable](_.raiseError[F, V], _.pure[F])
                 _ <- deferred.complete(value)

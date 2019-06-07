@@ -313,7 +313,7 @@ object TopicReplicator { self =>
 
     def apply[F[_] : Applicative](
       consumer: KafkaConsumer[F, Id, Bytes],
-      pollTimeout: FiniteDuration /*TODO*/
+      pollTimeout: FiniteDuration
     ): Consumer[F] = new Consumer[F] {
 
       def subscribe(topic: Topic) = consumer.subscribe(topic)
@@ -329,7 +329,8 @@ object TopicReplicator { self =>
       topic: Topic,
       config: ConsumerConfig,
       pollTimeout: FiniteDuration,
-      hostName: Option[HostName]): Resource[F, Consumer[F]] = {
+      hostName: Option[HostName]
+    ): Resource[F, Consumer[F]] = {
 
       val groupId = {
         val prefix = config.groupId getOrElse "replicator"
