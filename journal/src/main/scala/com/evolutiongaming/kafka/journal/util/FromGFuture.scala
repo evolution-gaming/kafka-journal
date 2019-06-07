@@ -16,13 +16,13 @@ object FromGFuture {
   def apply[F[_]](implicit F: FromGFuture[F]): FromGFuture[F] = F
 
 
-  def apply[F[_] : Async](executor: Executor): FromGFuture[F] = {
+  implicit def lift[F[_] : Async](implicit executor: Executor): FromGFuture[F] = {
 
     new FromGFuture[F] {
 
       def apply[A](future: => ListenableFuture[A]) = {
         for {
-          future <- Sync[F].delay(future)
+          future <- Sync[F].delay { future }
           result <- Async[F].async[A] { callback =>
             val futureCallback = new FutureCallback[A] {
               def onSuccess(a: A) = callback(a.asRight)
