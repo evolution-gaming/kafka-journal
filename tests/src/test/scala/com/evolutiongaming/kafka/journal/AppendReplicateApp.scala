@@ -81,7 +81,7 @@ object AppendReplicateApp extends IOApp {
     val resource = for {
       log                <- Resource.liftF(LogOf[F].apply(Journal.getClass))
       kafkaJournalConfig <- Resource.liftF(kafkaJournalConfig)
-      blocking           <- Executors.blocking[F]("kafka-journal-blocking", log)
+      blocking           <- Executors.blocking[F]("kafka-journal-blocking")
       kafkaConsumerOf     = KafkaConsumerOf[F](blocking)
       kafkaProducerOf     = KafkaProducerOf[F](blocking)
       replicate          <- replicator(kafkaConsumerOf)

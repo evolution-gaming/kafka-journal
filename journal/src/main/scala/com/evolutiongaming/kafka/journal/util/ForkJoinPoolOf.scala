@@ -1,36 +1,26 @@
 package com.evolutiongaming.kafka.journal.util
 
-import java.util.concurrent.ForkJoinPool.ForkJoinWorkerThreadFactory
 import java.util.concurrent.ForkJoinPool
+import java.util.concurrent.ForkJoinPool.ForkJoinWorkerThreadFactory
 
 import cats.effect.{Resource, Sync}
 import cats.implicits._
-import com.evolutiongaming.catshelper.{Log, ToFuture}
 
 
 object ForkJoinPoolOf {
 
-  def apply[F[_] : Sync : ToFuture](
+  def apply[F[_] : Sync](
     name: String,
-    parallelism: Int,
-    log: Log[F]
-
+    parallelism: Int
   ): Resource[F, ForkJoinPool] = {
 
     val threadFactory = ForkJoinPool.defaultForkJoinWorkerThreadFactory.withPrefix(name)
-
-    val exceptionHandler = new Thread.UncaughtExceptionHandler {
-      def uncaughtException(thread: Thread, exception: Throwable) = {
-        ToFuture[F].apply { log.error(s"uncaught exception on $thread: $exception", exception) }
-        ()
-      }
-    }
 
     val threadPool = Sync[F].delay {
       new ForkJoinPool(
         parallelism,
         threadFactory,
-        exceptionHandler,
+        UncaughtExceptionHandler.default,
         true)
     }
 

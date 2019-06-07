@@ -90,7 +90,7 @@ object JournalAdapter {
     }
 
     for {
-      blocking         <- Executors.blocking[F]("kafka-journal-blocking", log)
+      blocking         <- Executors.blocking[F]("kafka-journal-blocking")
       kafkaProducerOf1  = kafkaProducerOf(blocking)
       kafkaConsumerOf1  = kafkaConsumerOf(blocking)
       headCacheOf1      = headCacheOf(kafkaConsumerOf1)
