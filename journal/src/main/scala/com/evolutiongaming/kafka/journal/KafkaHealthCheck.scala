@@ -238,7 +238,7 @@ object KafkaHealthCheck {
     initial: FiniteDuration = 10.seconds,
     interval: FiniteDuration = 1.second,
     timeout: FiniteDuration = 2.minutes,
-    pollTimeout: FiniteDuration = 100.millis)
+    pollTimeout: FiniteDuration = 10.millis)
 
   object Config {
     val Default: Config = Config()

@@ -131,7 +131,7 @@ object HeadCache {
 
 
   final case class Config(
-    pollTimeout: FiniteDuration = 50.millis,
+    pollTimeout: FiniteDuration = 10.millis,
     cleanInterval: FiniteDuration = 3.seconds,
     maxSize: Int = 100000) {
 

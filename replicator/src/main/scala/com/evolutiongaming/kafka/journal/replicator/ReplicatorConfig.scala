@@ -27,7 +27,7 @@ final case class ReplicatorConfig(
       query = QueryConfig(
         consistency = ConsistencyLevel.LOCAL_QUORUM,
         defaultIdempotence = true))),
-  pollTimeout: FiniteDuration = 50.millis)
+  pollTimeout: FiniteDuration = 10.millis)
 
 object ReplicatorConfig {
 
