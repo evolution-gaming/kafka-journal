@@ -27,7 +27,7 @@ object Executors {
   ): Resource[F, ExecutionContextExecutorService] = {
     for {
       cores        <- Resource.liftF(Runtime[F].availableCores)
-      parallelism   = cores + 4
+      parallelism   = cores + 8
       forkJoinPool <- ForkJoinPoolOf[F](name, parallelism)
     } yield {
       ExecutionContext.fromExecutorService(forkJoinPool)
