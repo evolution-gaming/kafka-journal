@@ -4,6 +4,7 @@ import java.util.concurrent.ScheduledExecutorService
 
 import cats.effect.{Resource, Sync}
 import com.evolutiongaming.catshelper.Runtime
+import com.evolutiongaming.kafka.journal.execution.{ForkJoinPoolOf, ScheduledExecutorServiceOf, ThreadFactoryOf, ThreadPoolOf}
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 

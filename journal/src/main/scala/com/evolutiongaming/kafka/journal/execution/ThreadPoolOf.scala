@@ -1,4 +1,4 @@
-package com.evolutiongaming.kafka.journal.util
+package com.evolutiongaming.kafka.journal.execution
 
 import java.util.concurrent.{SynchronousQueue, ThreadFactory, ThreadPoolExecutor}
 
