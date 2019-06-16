@@ -57,13 +57,13 @@ object Cache {
   }
 
 
-  private def apply[F[_] : Concurrent, K, V](map: Ref[F, Map[K, F[V]]]): Cache[F, K, V] = {
+  private def apply[F[_] : Concurrent, K, V](ref: Ref[F, Map[K, F[V]]]): Cache[F, K, V] = {
     new Cache[F, K, V] {
 
       def get(key: K) = {
         for {
-          values <- values
-          value  <- values.get(key).fold(none[V].pure[F]) { _.map(_.some) }
+          map   <- ref.get
+          value <- map.get(key).fold(none[V].pure[F]) { _.map(_.some) }
         } yield value
       }
 
@@ -79,7 +79,7 @@ object Cache {
                 value <- value.attempt
                 value <- value match {
                   case Right(value) => value.pure[F]
-                  case Left(value)  => map.modify { map => (map - key, value.raiseError[F, V]) }.flatten
+                  case Left(value)  => ref.modify { map => (map - key, value.raiseError[F, V]) }.flatten
                 }
               } yield value
             }
@@ -87,7 +87,7 @@ object Cache {
 
           for {
             deferred <- Deferred[F, F[V]]
-            value1 <- map.modify { map =>
+            value1 <- ref.modify { map =>
               map.get(key).fold {
                 val value1 = update(deferred)
                 val map1 = map.updated(key, deferred.get.flatten)
@@ -101,12 +101,12 @@ object Cache {
         }
 
         for {
-          map <- map.get
+          map <- ref.get
           value <- map.getOrElse(key, update)
         } yield value
       }
 
-      def values = map.get
+      def values = ref.get
     }
   }
 
