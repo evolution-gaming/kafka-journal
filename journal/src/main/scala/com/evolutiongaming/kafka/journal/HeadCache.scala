@@ -619,13 +619,14 @@ object HeadCache {
       pollTimeout: FiniteDuration,
       consumer: Consumer[F], // TODO resource
       cancel: F[Boolean])(
-      onRecords: Map[Partition, List[KafkaRecord]] => F[Unit]): F[Unit] = {
+      onRecords: Map[Partition, List[KafkaRecord]] => F[Unit]
+    ): F[Unit] = {
 
       def kafkaRecords(records: ConsumerRecords[Id, Bytes]) = {
         for {
           (partition, records0) <- records.values
           records                = for {
-            record <- records0
+            record <- records0.toList
             record <- KafkaRecord.opt(record)
           } yield record
           if records.nonEmpty
@@ -791,11 +792,11 @@ object HeadCache {
 
     def opt(record: ConsumerRecord[Id, Bytes]): Option[KafkaRecord] = {
       for {
-        key <- record.key
-        id = key.value
+        key              <- record.key
+        id                = key.value
         timestampAndType <- record.timestampAndType
-        timestamp = timestampAndType.timestamp
-        header <- record.toActionHeader
+        timestamp         = timestampAndType.timestamp
+        header           <- record.toActionHeader
       } yield {
         KafkaRecord(id, timestamp, record.offset, header)
       }

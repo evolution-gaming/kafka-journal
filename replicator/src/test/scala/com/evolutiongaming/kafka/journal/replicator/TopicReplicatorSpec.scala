@@ -54,7 +54,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             val offset = idx + 1l
             consumerRecordOf(action, topicPartition, offset)
           }
-          (topicPartition, records)
+          (topicPartition, Nel.unsafe(records))
         }
         ConsumerRecords(records.toMap) // TODO use ConsumerRecordsOf
       }
@@ -122,7 +122,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           } yield {
             val offset = idx + 1l
             val consumerRecord = consumerRecordOf(record, topicPartition, offset)
-            ConsumerRecords(Map((topicPartition, List(consumerRecord))))
+            ConsumerRecords(Map((topicPartition, Nel(consumerRecord))))
           }
         }
       } yield record
@@ -219,7 +219,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             val offset = idx + 1l
             consumerRecordOf(record, topicPartition, offset)
           }
-          (topicPartition, records)
+          (topicPartition, Nel.unsafe(records))
         }
         ConsumerRecords(records.toMap)
       }
@@ -335,7 +335,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             val offset = idx + 1l
             consumerRecordOf(record, topicPartition, offset)
           }
-          (topicPartition, records)
+          (topicPartition, Nel.unsafe(records))
         }
         ConsumerRecords(records.toMap)
       }
@@ -431,7 +431,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           } yield {
             val offset = idx + 1l
             val consumerRecord = consumerRecordOf(record, topicPartition, offset)
-            ConsumerRecords(Map((topicPartition, List(consumerRecord))))
+            ConsumerRecords(Map((topicPartition, Nel(consumerRecord))))
           }
         }
       } yield result
@@ -531,7 +531,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           } yield {
             consumerRecordOf(action, topicPartition, offset.toLong)
           }
-          (topicPartition, records)
+          (topicPartition, Nel.unsafe(records))
         }
         ConsumerRecords(records.toMap)
       }

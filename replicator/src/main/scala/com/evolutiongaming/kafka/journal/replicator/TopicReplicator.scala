@@ -258,9 +258,10 @@ object TopicReplicator { self =>
               (topicPartition, records) <- consumerRecords.values
               partition                  = topicPartition.partition
               offset                     = state.pointers.values.get(partition)
-              result                     = offset.fold(records) { offset =>
+              records1                   = records.toList
+              result                     = offset.fold(records1) { offset =>
                 for {
-                  record <- records
+                  record <- records1
                   if record.offset > offset
                 } yield record
               }

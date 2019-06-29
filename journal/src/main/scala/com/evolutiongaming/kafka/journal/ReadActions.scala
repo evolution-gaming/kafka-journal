@@ -17,7 +17,7 @@ object ReadActions {
       records <- consumer.poll
     } yield for {
       records <- records.values.values
-      record  <- records if record.key.exists(_.value == key.id)
+      record  <- records.toList if record.key.exists(_.value == key.id)
       action  <- record.toActionRecord
     } yield action
   }

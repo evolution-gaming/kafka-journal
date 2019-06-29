@@ -2,13 +2,13 @@ import sbt._
 
 object Dependencies {
 
-  val scalatest            = "org.scalatest"          %% "scalatest"             % "3.0.7"
+  val scalatest            = "org.scalatest"          %% "scalatest"             % "3.0.8"
   val `scala-java8-compat` = "org.scala-lang.modules" %% "scala-java8-compat"    % "0.9.0"
   val prometheus           = "io.prometheus"           % "simpleclient"          % "0.6.0"
   val `cats-par`           = "io.chrisdavenport"      %% "cats-par"              % "0.2.1"
   val `cassandra-driver`   = "com.datastax.cassandra"  % "cassandra-driver-core" % "3.7.1"
-  val `play-json`          = "com.typesafe.play"      %% "play-json"             % "2.7.3"
-  val pureconfig           = "com.github.pureconfig"  %% "pureconfig"            % "0.11.0"
+  val `play-json`          = "com.typesafe.play"      %% "play-json"             % "2.7.4"
+  val pureconfig           = "com.github.pureconfig"  %% "pureconfig"            % "0.11.1"
   val `executor-tools`     = "com.evolutiongaming"    %% "executor-tools"        % "1.0.1"
   val `config-tools`       = "com.evolutiongaming"    %% "config-tools"          % "1.0.3"
   val `akka-serialization` = "com.evolutiongaming"    %% "akka-serialization"    % "1.0.1"
@@ -19,7 +19,7 @@ object Dependencies {
   val hostname             = "com.evolutiongaming"    %% "hostname"              % "0.1.1"
   val scassandra           = "com.evolutiongaming"    %% "scassandra"            % "0.0.11"
   val `cassandra-sync`     = "com.evolutiongaming"    %% "cassandra-sync"        % "0.0.7"
-  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "0.0.12"
+  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "0.0.14"
   val random               = "com.evolutiongaming"    %% "random"                % "0.0.2"
   val retry                = "com.evolutiongaming"    %% "retry"                 % "0.0.1"
 
@@ -58,13 +58,13 @@ object Dependencies {
   }
 
   object Skafka {
-    private val version = "4.0.4"
+    private val version = "5.0.0"
     val skafka      = "com.evolutiongaming" %% "skafka"            % version
     val prometheus  = "com.evolutiongaming" %% "skafka-prometheus" % version
   }
 
   object Scodec {
-    val core = "org.scodec" %% "scodec-core" % "1.11.3"
-    val bits = "org.scodec" %% "scodec-bits" % "1.1.11"
+    val core = "org.scodec" %% "scodec-core" % "1.11.4"
+    val bits = "org.scodec" %% "scodec-bits" % "1.1.12"
   }
 }

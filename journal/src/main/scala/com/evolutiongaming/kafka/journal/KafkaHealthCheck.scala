@@ -205,7 +205,7 @@ object KafkaHealthCheck {
           for {
             records <- consumer.poll(timeout)
           } yield for {
-            record <- records.values.values.flatten
+            record <- records.values.values.flatMap(_.toList)
           } yield {
             Record(key = record.key.map(_.value), value = record.value.map(_.value))
           }

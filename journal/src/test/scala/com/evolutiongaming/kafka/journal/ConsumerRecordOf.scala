@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import com.evolutiongaming.kafka.journal.KafkaConverters._
+import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, WithSize}
 import com.evolutiongaming.skafka.{Offset, TimestampAndType, TimestampType, TopicPartition}
 
@@ -26,6 +27,12 @@ object ConsumerRecordOf {
 object ConsumerRecordsOf {
 
   def apply[K, V](records: List[ConsumerRecord[K, V]]): ConsumerRecords[K, V] = {
-    ConsumerRecords(records.groupBy(_.topicPartition))
+    val records1 = for {
+      (topicPartition, records) <- records.groupBy(_.topicPartition)
+      record                    <- Nel.opt(records)
+    } yield {
+      (topicPartition, record)
+    }
+    ConsumerRecords(records1)
   }
 }
