@@ -35,6 +35,8 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
   implicit val randomId: RandomId[IO] = RandomId.uuid[IO]
 
   lazy val ((eventual, producer), release) = {
+    // TODO move to IOSuite
+    implicit val measureDuration = MeasureDuration.fromClock(Clock[IO])
     implicit val logOf = LogOf.empty[IO]
     val resource = for {
       eventualJournal <- EventualCassandra.of[IO](config.cassandra, None, executor)

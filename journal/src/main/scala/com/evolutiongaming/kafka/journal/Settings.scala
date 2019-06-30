@@ -1,16 +1,15 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.arrow.FunctionK
-import cats.effect.Clock
 import cats.implicits._
 import cats.{FlatMap, ~>}
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.stream.Stream
 
 trait Settings[F[_]] {
-  
+
   type K = Setting.Key
-  
+
   type V = Setting.Value
 
   def get(key: K): F[Option[Setting]]
@@ -25,13 +24,13 @@ trait Settings[F[_]] {
 }
 
 object Settings {
-  
+
   def apply[F[_]](implicit F: Settings[F]): Settings[F] = F
 
 
   implicit class SettingsOps[F[_]](val self: Settings[F]) extends AnyVal {
 
-    def withLog(log: Log[F])(implicit F: FlatMap[F], clock: Clock[F]): Settings[F] = {
+    def withLog(log: Log[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): Settings[F] = {
 
       val functionKId = FunctionK.id[F]
 
@@ -39,33 +38,37 @@ object Settings {
 
         def get(key: K): F[Option[Setting]] = {
           for {
-            ab     <- Latency { self.get(key) }
-            (r, l)  = ab
-            _      <- log.debug(s"$key get in ${ l }ms, result: $r")
+            d <- MeasureDuration[F].start
+            r <- self.get(key)
+            d <- d
+            _ <- log.debug(s"$key get in ${ d.toMillis }ms, result: $r")
           } yield r
         }
 
         def set(key: K, value: V) = {
           for {
-            ab     <- Latency { self.set(key, value) }
-            (r, l)  = ab
-            _      <- log.debug(s"$key set in ${ l }ms, value: $value, result: $r")
+            d <- MeasureDuration[F].start
+            r <- self.set(key, value)
+            d <- d
+            _ <- log.debug(s"$key set in ${ d.toMillis }ms, value: $value, result: $r")
           } yield r
         }
 
         def setIfEmpty(key: K, value: V) = {
           for {
-            ab     <- Latency { self.setIfEmpty(key, value) }
-            (r, l)  = ab
-            _      <- log.debug(s"$key setIfEmpty in ${ l }ms, value: $value, result: $r")
+            d <- MeasureDuration[F].start
+            r <- self.setIfEmpty(key, value)
+            d <- d
+            _ <- log.debug(s"$key setIfEmpty in ${ d.toMillis }ms, value: $value, result: $r")
           } yield r
         }
 
         def remove(key: K) = {
           for {
-            ab     <- Latency { self.remove(key) }
-            (r, l)  = ab
-            _      <- log.debug(s"$key set in ${ l }ms, result: $r")
+            d <- MeasureDuration[F].start
+            r <- self.remove(key)
+            d <- d
+            _ <- log.debug(s"$key set in ${ d.toMillis }ms, result: $r")
           } yield r
         }
 
@@ -73,9 +76,10 @@ object Settings {
           val logging = new (F ~> F) {
             def apply[A](fa: F[A]) = {
               for {
-                ab     <- Latency { fa }
-                (r, l)  = ab
-                _      <- log.debug(s"all in ${ l }ms, result: $r")
+                d <- MeasureDuration[F].start
+                r <- fa
+                d <- d
+                _ <- log.debug(s"all in ${ d.toMillis }ms, result: $r")
               } yield r
             }
           }

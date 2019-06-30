@@ -625,7 +625,7 @@ object TopicReplicatorSpec {
 
   val headers = Headers(("key", "value"))
 
-  val replicationLatency: Long = 10
+  val replicationLatency: FiniteDuration = 10.millis
 
   val timestampAndType = TimestampAndType(timestamp, TimestampType.Create)
 
@@ -655,16 +655,16 @@ object TopicReplicatorSpec {
 
     final case class Append(
       partition: Partition,
-      latency: Long = replicationLatency,
+      latency: FiniteDuration = replicationLatency,
       events: Int,
       records: Int) extends Metrics
 
     final case class Delete(
       partition: Partition,
-      latency: Long = replicationLatency,
+      latency: FiniteDuration = replicationLatency,
       actions: Int) extends Metrics
 
-    final case class Round(duration: Long = 0, records: Int) extends Metrics
+    final case class Round(duration: FiniteDuration = 0.millis, records: Int) extends Metrics
   }
 
 
@@ -757,14 +757,14 @@ object TopicReplicatorSpec {
       }
     }
 
-    def round(duration: Long, records: Int) = {
+    def round(duration: FiniteDuration, records: Int) = {
       StateT { _ + Metrics.Round(duration = duration, records = records) }
     }
   }
 
   
   val topicReplicator: StateT[Unit] = {
-    val millis = timestamp.plusMillis(replicationLatency).toEpochMilli
+    val millis = timestamp.toEpochMilli + replicationLatency.toMillis
     implicit val concurrent = ConcurrentOf.fromMonad[StateT]
     implicit val clock = Clock.const[StateT](nanos = 0, millis = millis)
     TopicReplicator.of[StateT](topic, TopicReplicator.StopRef[StateT], consumer, 1.second)

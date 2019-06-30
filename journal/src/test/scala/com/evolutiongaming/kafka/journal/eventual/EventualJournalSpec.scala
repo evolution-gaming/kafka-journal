@@ -23,8 +23,8 @@ trait EventualJournalSpec extends WordSpec with Matchers {
       (f: (Eventual[F], Replicated[F]) => F[Assertion]) => {
         withJournals { journals =>
           implicit val log = Log.empty[F]
-//          implicit val clock = Clock[F].empty(0) // TODO
-          implicit val clock = Clock.const[F](nanos = 0, millis = 0) // TODO
+          implicit val clock = Clock.const[F](nanos = 0, millis = 0)
+          implicit val measureDuration = MeasureDuration.fromClock(clock)
           val eventual = {
             val journal = journals.eventual
               .withLog(log)

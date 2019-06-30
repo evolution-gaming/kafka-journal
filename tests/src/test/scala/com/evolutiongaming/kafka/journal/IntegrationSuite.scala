@@ -16,7 +16,7 @@ import scala.concurrent.ExecutionContext
 
 object IntegrationSuite {
 
-  def startF[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf : Runtime]: Resource[F, Unit] = {
+  def startF[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf : Runtime : MeasureDuration]: Resource[F, Unit] = {
 
     def cassandra(log: Log[F]) = Resource {
       for {
@@ -66,6 +66,8 @@ object IntegrationSuite {
   }
 
   def startIO: Resource[IO, Unit] = {
+    // TODO move to IOSuite
+    implicit val measureDuration = MeasureDuration.fromClock(Clock[IO])
     val logOf = LogOf.slfj4[IO]
     for {
       logOf  <- Resource.liftF(logOf)

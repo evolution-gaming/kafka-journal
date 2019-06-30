@@ -20,7 +20,7 @@ import scala.annotation.tailrec
 // TODO test ReplicatedCassandra
 object ReplicatedCassandra {
 
-  def of[F[_] : Concurrent : FromFuture : ToFuture : Par : Clock : CassandraCluster : CassandraSession : LogOf](
+  def of[F[_] : Concurrent : FromFuture : ToFuture : Par : Clock : CassandraCluster : CassandraSession : LogOf : MeasureDuration](
     config: EventualCassandraConfig,
     metrics: Option[Metrics[F]]
   ): F[ReplicatedJournal[F]] = {

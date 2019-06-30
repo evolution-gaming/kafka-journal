@@ -33,8 +33,8 @@ object TimeHelper {
 
   implicit class InstantOps(val self: Instant) extends AnyVal {
 
-    def diff(instant: Instant): Long = {
-      (self.toEpochMilli - instant.toEpochMilli).abs
+    def diff(instant: Instant): FiniteDuration = {
+      (self.toEpochMilli - instant.toEpochMilli).abs.millis
     }
   }
 

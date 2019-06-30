@@ -7,6 +7,7 @@ import com.evolutiongaming.kafka.journal.util.TestSync
 import com.evolutiongaming.skafka.Partition
 import io.prometheus.client.CollectorRegistry
 import org.scalatest.{FunSuite, Matchers}
+import scala.concurrent.duration._
 
 class TopicReplicatorMetricsSpec extends FunSuite with Matchers {
   import TopicReplicatorMetricsSpec._
@@ -33,7 +34,7 @@ class TopicReplicatorMetricsSpec extends FunSuite with Matchers {
 
   test("round") {
     new Scope {
-      metrics.round(latency = 1000, records = 10)
+      metrics.round(latency = 1000.millis, records = 10)
       registry.roundDuration() shouldEqual Some(1)
       registry.roundRecords() shouldEqual Some(10)
     }
@@ -54,8 +55,8 @@ object TopicReplicatorMetricsSpec {
 
   val measurements = Metrics.Measurements(
     partition = partition,
-    replicationLatency = 2000,
-    deliveryLatency = 1000,
+    replicationLatency = 2000.millis,
+    deliveryLatency = 1000.millis,
     records = 10)
 
   implicit class CollectorRegistryOps(val self: CollectorRegistry) extends AnyVal {

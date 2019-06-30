@@ -1,16 +1,19 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import cats.effect.Sync
-import com.evolutiongaming.kafka.journal.replicator.MetricsHelper._
+import com.evolutiongaming.kafka.journal.MetricsHelper._
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
 import com.evolutiongaming.skafka.Topic
 import io.prometheus.client.{CollectorRegistry, Summary}
+
+import scala.concurrent.duration.FiniteDuration
 
 object TopicReplicatorMetrics {
 
   def of[F[_] : Sync](
     registry: CollectorRegistry,
-    prefix: String = "replicator"): F[Topic => TopicReplicator.Metrics[F]] = {
+    prefix: String = "replicator"
+  ): F[Topic => TopicReplicator.Metrics[F]] = {
 
     Sync[F].delay {
 
@@ -18,9 +21,7 @@ object TopicReplicatorMetrics {
         .name(s"${ prefix }_replication_latency")
         .help("Replication latency in seconds")
         .labelNames("topic", "partition", "type")
-        .quantile(0.5, 0.05)
         .quantile(0.9, 0.05)
-        .quantile(0.95, 0.01)
         .quantile(0.99, 0.005)
         .register(registry)
 
@@ -28,9 +29,7 @@ object TopicReplicatorMetrics {
         .name(s"${ prefix }_delivery_latency")
         .help("Delivery latency in seconds")
         .labelNames("topic", "partition", "type")
-        .quantile(0.5, 0.05)
         .quantile(0.9, 0.05)
-        .quantile(0.95, 0.01)
         .quantile(0.99, 0.005)
         .register(registry)
 
@@ -56,9 +55,7 @@ object TopicReplicatorMetrics {
         .name(s"${ prefix }_round_duration")
         .help("Replication round duration")
         .labelNames("topic")
-        .quantile(0.5, 0.05)
         .quantile(0.9, 0.05)
-        .quantile(0.95, 0.01)
         .quantile(0.99, 0.005)
         .register(registry)
 
@@ -76,11 +73,11 @@ object TopicReplicatorMetrics {
 
           replicationSummary
             .labels(topic, partition, name)
-            .observe(measurements.replicationLatency.toSeconds)
+            .observe(measurements.replicationLatency.toNanos.nanosToSeconds)
 
           deliverySummary
             .labels(topic, partition, name)
-            .observe(measurements.deliveryLatency.toSeconds)
+            .observe(measurements.deliveryLatency.toNanos.nanosToSeconds)
 
           recordsSummary
             .labels(topic, partition)
@@ -111,11 +108,11 @@ object TopicReplicatorMetrics {
             }
           }
 
-          def round(duration: Long, records: Int) = {
+          def round(duration: FiniteDuration, records: Int) = {
             Sync[F].delay {
               roundSummary
                 .labels(topic)
-                .observe(duration.toSeconds)
+                .observe(duration.toNanos.nanosToSeconds)
 
               roundRecordsSummary
                 .labels(topic)

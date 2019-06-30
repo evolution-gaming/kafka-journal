@@ -33,7 +33,10 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
   private implicit val randomId = RandomId.uuid[IO]
 
-  private def resources[F[_] : Concurrent : LogOf : Par : FromFuture : Clock : ToFuture : ContextShift : RandomId] = {
+  // TODO move to IOSuite
+  private implicit val measureDuration = MeasureDuration.fromClock(Clock[IO])
+
+  private def resources[F[_] : Concurrent : LogOf : Par : FromFuture : Clock : ToFuture : ContextShift : RandomId : MeasureDuration] = {
 
     def eventualJournal(conf: Config) = {
       val config = Sync[F].delay { EventualCassandraConfig(conf.getConfig("cassandra")) }

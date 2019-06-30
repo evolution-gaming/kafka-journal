@@ -8,7 +8,7 @@ import cats.effect.Clock
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.Setting.Key
 import com.evolutiongaming.kafka.journal.stream.Stream
-import com.evolutiongaming.kafka.journal.Setting
+import com.evolutiongaming.kafka.journal.{MeasureDuration, Setting}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.Log
 import org.scalatest.{FunSuite, Matchers}
@@ -146,6 +146,8 @@ class SettingsCassandraSpec extends FunSuite with Matchers {
       delete = delete)
 
     implicit val clock = Clock.const[StateT](nanos = 0, millis = timestamp.toEpochMilli)
+
+    implicit val measureDuration = MeasureDuration.fromClock(clock)
 
     SettingsCassandra[StateT](statements, Some("hostName"))
       .withLog(Log.empty)

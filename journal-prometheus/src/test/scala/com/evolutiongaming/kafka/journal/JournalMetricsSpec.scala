@@ -3,13 +3,14 @@ package com.evolutiongaming.kafka.journal
 import com.evolutiongaming.kafka.journal.util.TestSync
 import io.prometheus.client.CollectorRegistry
 import org.scalatest.{FunSuite, Matchers}
+import scala.concurrent.duration._
 
 class JournalMetricsSpec extends FunSuite with Matchers {
   import JournalMetricsSpec._
 
   test("append") {
     new Scope {
-      metrics.append(topic, latency = 1000, events = 10)
+      metrics.append(topic, latency = 1000.millis, events = 10)
       registry.latency("append") shouldEqual Some(1)
       registry.events("append") shouldEqual Some(10)
     }
@@ -17,7 +18,7 @@ class JournalMetricsSpec extends FunSuite with Matchers {
 
   test("read") {
     new Scope {
-      metrics.read(topic, 1000)
+      metrics.read(topic, 1000.millis)
       registry.latency("read") shouldEqual Some(1)
     }
   }
@@ -31,14 +32,14 @@ class JournalMetricsSpec extends FunSuite with Matchers {
 
   test("pointer") {
     new Scope {
-      metrics.pointer(topic, 1000)
+      metrics.pointer(topic, 1000.millis)
       registry.latency("pointer") shouldEqual Some(1)
     }
   }
 
   test("delete") {
     new Scope {
-      metrics.delete(topic, 1000)
+      metrics.delete(topic, 1000.millis)
       registry.latency("delete") shouldEqual Some(1)
     }
   }

@@ -16,7 +16,7 @@ import scala.concurrent.ExecutionContextExecutor
 
 object EventualCassandra {
 
-  def of[F[_] : Concurrent : Par : Clock : FromFuture : ToFuture : LogOf : FromGFuture](
+  def of[F[_] : Concurrent : Par : Clock : FromFuture : ToFuture : LogOf : FromGFuture : MeasureDuration](
     config: EventualCassandraConfig,
     metrics: Option[EventualJournal.Metrics[F]],
     executor: ExecutionContextExecutor
@@ -33,7 +33,7 @@ object EventualCassandra {
     } yield journal
   }
 
-  def of[F[_] : Concurrent : Par : CassandraCluster : CassandraSession : LogOf : Clock : FromFuture : ToFuture](
+  def of[F[_] : Concurrent : Par : CassandraCluster : CassandraSession : LogOf : Clock : FromFuture : ToFuture : MeasureDuration](
     schemaConfig: SchemaConfig,
     metrics: Option[EventualJournal.Metrics[F]]
   ): F[EventualJournal[F]] = {

@@ -24,6 +24,8 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
   private val timestamp = Instant.now().truncatedTo(ChronoUnit.MILLIS)
 
   private val journalOf = {
+    // TODO move to IOSuite
+    implicit val measureDuration = MeasureDuration.fromClock(Clock[IO])
     val consumer = Journal.Consumer.of[IO](config.journal.consumer, config.journal.pollTimeout)
     eventualJournal: EventualJournal[IO] => {
       implicit val log = Log.empty[IO]

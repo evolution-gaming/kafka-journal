@@ -6,6 +6,8 @@ import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.skafka.Topic
 import io.prometheus.client.{CollectorRegistry, Summary}
 
+import scala.concurrent.duration.FiniteDuration
+
 object EventualJournalMetrics {
 
   def of[F[_] : Sync](
@@ -18,9 +20,7 @@ object EventualJournalMetrics {
         .name(s"${ prefix }_topic_latency")
         .help("Journal call latency in seconds")
         .labelNames("topic", "type")
-        .quantile(0.5, 0.05)
         .quantile(0.9, 0.05)
-        .quantile(0.95, 0.01)
         .quantile(0.99, 0.005)
         .register(registry)
 
@@ -30,21 +30,21 @@ object EventualJournalMetrics {
         .labelNames("topic")
         .register(registry)
 
-      def observeLatency(name: String, topic: Topic, latency: Long) = {
+      def observeLatency(name: String, topic: Topic, latency: FiniteDuration) = {
         Sync[F].delay {
           latencySummary
             .labels(topic, name)
-            .observe(latency.toSeconds)
+            .observe(latency.toNanos.nanosToSeconds)
         }
       }
 
       new EventualJournal.Metrics[F] {
 
-        def pointers(topic: Topic, latency: Long) = {
+        def pointers(topic: Topic, latency: FiniteDuration) = {
           observeLatency(name = "pointers", topic = topic, latency = latency)
         }
 
-        def read(topic: Topic, latency: Long) = {
+        def read(topic: Topic, latency: FiniteDuration) = {
           observeLatency(name = "read", topic = topic, latency = latency)
         }
 
@@ -56,7 +56,7 @@ object EventualJournalMetrics {
           }
         }
 
-        def pointer(topic: Topic, latency: Long) = {
+        def pointer(topic: Topic, latency: FiniteDuration) = {
           observeLatency(name = "pointer", topic = topic, latency = latency)
         }
       }

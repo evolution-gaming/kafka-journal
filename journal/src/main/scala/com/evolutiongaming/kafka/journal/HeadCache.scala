@@ -48,10 +48,12 @@ object HeadCache {
     def get(key: Key, partition: Partition, offset: Offset) = Result.invalid.pure[F]
   }
 
-  def of[F[_] : Concurrent : Par : Timer : ContextShift : LogOf : KafkaConsumerOf](
+
+  def of[F[_] : Concurrent : Par : Timer : ContextShift : LogOf : KafkaConsumerOf : MeasureDuration](
     consumerConfig: ConsumerConfig,
     eventualJournal: EventualJournal[F],
-    metrics: Option[Metrics[F]]): Resource[F, HeadCache[F]] = {
+    metrics: Option[Metrics[F]]
+  ): Resource[F, HeadCache[F]] = {
 
     implicit val eventual = Eventual[F](eventualJournal)
 
@@ -64,6 +66,7 @@ object HeadCache {
       metrics.fold(headCache1) { metrics => headCache1.withMetrics(metrics) }
     }
   }
+
 
   def of[F[_] : Concurrent : Eventual : Par : Timer : ContextShift](
     log: Log[F],
@@ -214,7 +217,7 @@ object HeadCache {
                   topic = topic,
                   entries = state.size,
                   listeners = state.listeners.size,
-                  deliveryLatency = latency)
+                  deliveryLatency = latency.millis)
               } yield {}
             }
 
@@ -715,32 +718,34 @@ object HeadCache {
     }
 
 
-    def withMetrics(metrics: Metrics[F])(implicit F: Sync[F], clock: Clock[F]): HeadCache[F] = new HeadCache[F] {
+    def withMetrics(metrics: Metrics[F])(implicit F: Sync[F], measureDuration: MeasureDuration[F]): HeadCache[F] = new HeadCache[F] {
 
       def get(key: Key, partition: Partition, offset: Offset) = {
         for {
-          rl      <- Latency { self.get(key, partition, offset).attempt }
-          (r, l)  = rl
+          d <- MeasureDuration[F].start
+          r <- self.get(key, partition, offset).attempt
+          d <- d
           result = r match {
             case Right(Result.Valid(_: JournalInfo.NonEmpty)) => Metrics.Result.NotReplicated
             case Right(Result.Valid(JournalInfo.Empty))       => Metrics.Result.Replicated
             case Right(Result.Invalid)                        => Metrics.Result.Invalid
             case Left(_)                                      => Metrics.Result.Failure
           }
-          _      <- metrics.get(key.topic, l, result)
+          _      <- metrics.get(key.topic, d, result)
           r      <- r.fold(_.raiseError[F, Result], _.pure[F])
         } yield r
       }
     }
 
 
-    def withLog(log: Log[F])(implicit F: FlatMap[F], clock: Clock[F]): HeadCache[F] = new HeadCache[F] {
+    def withLog(log: Log[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): HeadCache[F] = new HeadCache[F] {
 
       def get(key: Key, partition: Partition, offset: Offset) = {
         for {
-          rl     <- Latency { self.get(key, partition, offset) }
-          (r, l)  = rl
-          _      <- log.debug(s"$key get in ${ l }ms, offset: $partition:$offset, result: $r")
+          d <- MeasureDuration[F].start
+          r <- self.get(key, partition, offset)
+          d <- d
+          _      <- log.debug(s"$key get in ${ d.toMillis }ms, offset: $partition:$offset, result: $r")
         } yield r
       }
     }
@@ -749,11 +754,11 @@ object HeadCache {
 
   trait Metrics[F[_]] {
 
-    def get(topic: Topic, latency: Long, result: Metrics.Result): F[Unit]
+    def get(topic: Topic, latency: FiniteDuration, result: Metrics.Result): F[Unit]
 
     def listeners(topic: Topic, size: Int): F[Unit]
 
-    def round(topic: Topic, entries: Long, listeners: Int, deliveryLatency: Long): F[Unit]
+    def round(topic: Topic, entries: Long, listeners: Int, deliveryLatency: FiniteDuration): F[Unit]
   }
 
 
@@ -761,11 +766,11 @@ object HeadCache {
 
     def const[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
 
-      def get(topic: Topic, latency: Offset, result: Metrics.Result) = unit
+      def get(topic: Topic, latency: FiniteDuration, result: Metrics.Result) = unit
 
       def listeners(topic: Topic, size: Int) = unit
 
-      def round(topic: Topic, entries: Long, listeners: Int, deliveryLatency: Long) = unit
+      def round(topic: Topic, entries: Long, listeners: Int, deliveryLatency: FiniteDuration) = unit
     }
 
     def empty[F[_] : Applicative]: Metrics[F] = const(().pure[F])

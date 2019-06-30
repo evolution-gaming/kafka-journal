@@ -6,6 +6,8 @@ import com.evolutiongaming.kafka.journal.MetricsHelper._
 import com.evolutiongaming.skafka.Topic
 import io.prometheus.client.{CollectorRegistry, Counter, Summary}
 
+import scala.concurrent.duration.FiniteDuration
+
 object JournalMetrics {
 
   def of[F[_] : Sync](
@@ -18,9 +20,7 @@ object JournalMetrics {
         .name(s"${ prefix }_topic_latency")
         .help("Journal call latency in seconds")
         .labelNames("topic", "type")
-        .quantile(0.5, 0.05)
         .quantile(0.9, 0.05)
-        .quantile(0.95, 0.01)
         .quantile(0.99, 0.005)
         .register(registry)
 
@@ -36,11 +36,11 @@ object JournalMetrics {
         .labelNames("topic", "type", "result")
         .register(registry)
 
-      def observeLatency(name: String, topic: Topic, latency: Long) = {
+      def observeLatency(name: String, topic: Topic, latency: FiniteDuration) = {
         Sync[F].delay {
           latencySummary
             .labels(topic, name)
-            .observe(latency.toSeconds)
+            .observe(latency.toNanos.nanosToSeconds)
           resultCounter
             .labels(topic, name, "success")
             .inc()
@@ -57,14 +57,14 @@ object JournalMetrics {
 
       new Journal.Metrics[F] {
 
-        def append(topic: Topic, latency: Long, events: Int) = {
+        def append(topic: Topic, latency: FiniteDuration, events: Int) = {
           for {
             _ <- observeEvents(name = "append", topic = topic, events = events)
             _ <- observeLatency(name = "append", topic = topic, latency = latency)
           } yield {}
         }
 
-        def read(topic: Topic, latency: Long) = {
+        def read(topic: Topic, latency: FiniteDuration) = {
           observeLatency(name = "read", topic = topic, latency = latency)
         }
 
@@ -72,11 +72,11 @@ object JournalMetrics {
           observeEvents(name = "read", topic = topic, events = 1)
         }
 
-        def pointer(topic: Topic, latency: Long) = {
+        def pointer(topic: Topic, latency: FiniteDuration) = {
           observeLatency(name = "pointer", topic = topic, latency = latency)
         }
 
-        def delete(topic: Topic, latency: Long) = {
+        def delete(topic: Topic, latency: FiniteDuration) = {
           observeLatency(name = "delete", topic = topic, latency = latency)
         }
 

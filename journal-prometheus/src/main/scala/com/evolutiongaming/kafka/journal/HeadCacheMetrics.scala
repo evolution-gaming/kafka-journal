@@ -6,6 +6,8 @@ import com.evolutiongaming.kafka.journal.MetricsHelper._
 import com.evolutiongaming.skafka.Topic
 import io.prometheus.client.{CollectorRegistry, Counter, Gauge, Summary}
 
+import scala.concurrent.duration.FiniteDuration
+
 object HeadCacheMetrics {
 
   def of[F[_] : Sync](
@@ -18,9 +20,7 @@ object HeadCacheMetrics {
         .name(s"${ prefix }_get_latency")
         .help("HeadCache get latency in seconds")
         .labelNames("topic", "result")
-        .quantile(0.5, 0.05)
         .quantile(0.9, 0.05)
-        .quantile(0.95, 0.01)
         .quantile(0.99, 0.005)
         .register(registry)
 
@@ -46,15 +46,13 @@ object HeadCacheMetrics {
         .name(s"${ prefix }_delivery_latency")
         .help("HeadCache kafka delivery latency in seconds")
         .labelNames("topic")
-        .quantile(0.5, 0.05)
         .quantile(0.9, 0.05)
-        .quantile(0.95, 0.01)
         .quantile(0.99, 0.005)
         .register(registry)
 
       new HeadCache.Metrics[F] {
 
-        def get(topic: Topic, latency: Long, result: Result) = {
+        def get(topic: Topic, latency: FiniteDuration, result: Result) = {
 
           val name = result match {
             case Result.Replicated    => "replicated"
@@ -67,7 +65,7 @@ object HeadCacheMetrics {
 
             getLatencySummary
               .labels(topic, name)
-              .observe(latency.toSeconds)
+              .observe(latency.toNanos.nanosToSeconds)
 
             getResultCounter
               .labels(topic, name)
@@ -83,7 +81,7 @@ object HeadCacheMetrics {
           }
         }
 
-        def round(topic: Topic, entries: Long, listeners: Int, deliveryLatency: Long) = {
+        def round(topic: Topic, entries: Long, listeners: Int, deliveryLatency: FiniteDuration) = {
           Sync[F].delay {
 
             entriesGauge
@@ -96,7 +94,7 @@ object HeadCacheMetrics {
 
             deliveryLatencySummary
               .labels(topic)
-              .observe(deliveryLatency.toSeconds)
+              .observe(deliveryLatency.toNanos.nanosToSeconds)
           }
         }
       }

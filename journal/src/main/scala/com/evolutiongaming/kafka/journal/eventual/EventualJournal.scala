@@ -2,12 +2,13 @@ package com.evolutiongaming.kafka.journal.eventual
 
 import cats._
 import cats.arrow.FunctionK
-import cats.effect.Clock
 import cats.implicits._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.skafka.Topic
+
+import scala.concurrent.duration.FiniteDuration
 
 trait EventualJournal[F[_]] {
 
@@ -23,7 +24,7 @@ object EventualJournal {
 
   def apply[F[_]](implicit F: EventualJournal[F]): EventualJournal[F] = F
 
-  def apply[F[_] : FlatMap : Clock](journal: EventualJournal[F], log: Log[F]): EventualJournal[F] = {
+  def apply[F[_] : FlatMap : MeasureDuration](journal: EventualJournal[F], log: Log[F]): EventualJournal[F] = {
 
     val functionKId = FunctionK.id[F]
 
@@ -31,9 +32,10 @@ object EventualJournal {
 
       def pointers(topic: Topic) = {
         for {
-          rl     <- Latency { journal.pointers(topic) }
-          (r, l)  = rl
-          _      <- log.debug(s"$topic pointers in ${ l }ms, result: $r")
+          d <- MeasureDuration[F].start
+          r <- journal.pointers(topic)
+          d <- d
+          _ <- log.debug(s"$topic pointers in ${ d.toMillis }ms, result: $r")
         } yield r
       }
 
@@ -41,9 +43,10 @@ object EventualJournal {
         val logging = new (F ~> F) {
           def apply[A](fa: F[A]) = {
             for {
-              rl     <- Latency { fa }
-              (r, l)  = rl
-              _      <- log.debug(s"$key read in ${ l }ms, from: $from, result: $r")
+              d <- MeasureDuration[F].start
+              r <- fa
+              d <- d
+              _ <- log.debug(s"$key read in ${ d.toMillis }ms, from: $from, result: $r")
             } yield r
           }
         }
@@ -52,16 +55,17 @@ object EventualJournal {
 
       def pointer(key: Key) = {
         for {
-          rl     <- Latency { journal.pointer(key) }
-          (r, l)  = rl
-          _      <- log.debug(s"$key pointer in ${ l }ms, result: $r")
+          d <- MeasureDuration[F].start
+          r <- journal.pointer(key)
+          d <- d
+          _ <- log.debug(s"$key pointer in ${ d.toMillis }ms, result: $r")
         } yield r
       }
     }
   }
 
 
-  def apply[F[_] : FlatMap : Clock](
+  def apply[F[_] : FlatMap : MeasureDuration](
     journal: EventualJournal[F],
     metrics: Metrics[F]): EventualJournal[F] = {
 
@@ -71,9 +75,10 @@ object EventualJournal {
 
       def pointers(topic: Topic) = {
         for {
-          rl     <- Latency { journal.pointers(topic) }
-          (r, l)  = rl
-          _      <- metrics.pointers(topic, l)
+          d <- MeasureDuration[F].start
+          r <- journal.pointers(topic)
+          d <- d
+          _ <- metrics.pointers(topic, d)
         } yield r
       }
 
@@ -81,9 +86,10 @@ object EventualJournal {
         val measure = new (F ~> F) {
           def apply[A](fa: F[A]) = {
             for {
-              rl     <- Latency { fa }
-              (r, l)  = rl
-              _      <- metrics.read(topic = key.topic, latency = l)
+              d <- MeasureDuration[F].start
+              r <- fa
+              d <- d
+              _ <- metrics.read(topic = key.topic, latency = d)
             } yield r
           }
         }
@@ -96,9 +102,10 @@ object EventualJournal {
 
       def pointer(key: Key) = {
         for {
-          rl     <- Latency { journal.pointer(key) }
-          (r, l)  = rl
-          _      <- metrics.pointer(key.topic, l)
+          d <- MeasureDuration[F].start
+          r <- journal.pointer(key)
+          d <- d
+          _ <- metrics.pointer(key.topic, d)
         } yield r
       }
     }
@@ -117,26 +124,26 @@ object EventualJournal {
 
   trait Metrics[F[_]] {
 
-    def pointers(topic: Topic, latency: Long): F[Unit]
+    def pointers(topic: Topic, latency: FiniteDuration): F[Unit]
 
-    def read(topic: Topic, latency: Long): F[Unit]
+    def read(topic: Topic, latency: FiniteDuration): F[Unit]
 
     def read(topic: Topic): F[Unit]
 
-    def pointer(topic: Topic, latency: Long): F[Unit]
+    def pointer(topic: Topic, latency: FiniteDuration): F[Unit]
   }
 
   object Metrics {
 
     def empty[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
 
-      def pointers(topic: Topic, latency: Long) = unit
+      def pointers(topic: Topic, latency: FiniteDuration) = unit
 
-      def read(topic: Topic, latency: Long) = unit
+      def read(topic: Topic, latency: FiniteDuration) = unit
 
       def read(topic: Topic) = unit
 
-      def pointer(topic: Topic, latency: Long) = unit
+      def pointer(topic: Topic, latency: FiniteDuration) = unit
     }
 
     def empty[F[_] : Applicative]: Metrics[F] = empty(Applicative[F].unit)
@@ -154,11 +161,11 @@ object EventualJournal {
       def pointer(key: Key) = to(self.pointer(key))
     }
 
-    def withLog(log: Log[F])(implicit flatMap: FlatMap[F], clock: Clock[F]): EventualJournal[F] = {
+    def withLog(log: Log[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): EventualJournal[F] = {
       EventualJournal[F](self, log)
     }
 
-    def withMetrics(metrics: Metrics[F])(implicit flatMap: FlatMap[F], clock: Clock[F]): EventualJournal[F] = {
+    def withMetrics(metrics: Metrics[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): EventualJournal[F] = {
       EventualJournal(self, metrics)
     }
   }

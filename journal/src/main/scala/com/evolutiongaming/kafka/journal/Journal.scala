@@ -53,8 +53,8 @@ object Journal {
     def delete(key: Key, to: SeqNr) = none[PartitionOffset].pure[F]
   }
 
-  
-  def of[F[_] : Concurrent : ContextShift : Timer : Par : LogOf : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomId](
+
+  def of[F[_] : Concurrent : ContextShift : Timer : Par : LogOf : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomId : MeasureDuration](
     config: JournalConfig,
     origin: Option[Origin],
     eventualJournal: EventualJournal[F],
@@ -89,7 +89,7 @@ object Journal {
     }
   }
 
-  
+
   def apply[F[_] : Concurrent : ContextShift : Par : Clock : Log : RandomId](
     origin: Option[Origin],
     producer: Producer[F],
@@ -298,18 +298,16 @@ object Journal {
   }
 
 
-  def apply[F[_] : Sync : Clock](journal: Journal[F], metrics: Metrics[F]): Journal[F] = {
+  def apply[F[_] : Sync : MeasureDuration](journal: Journal[F], metrics: Metrics[F]): Journal[F] = {
 
     val functionKId = FunctionK.id[F]
 
-    def latency[A](name: String, topic: Topic)(fa: F[A]): F[(A, Long)] = {
-      Latency {
-        fa.handleErrorWith { e =>
-          for {
-            _ <- metrics.failure(name, topic)
-            a <- e.raiseError[F, A]
-          } yield a
-        }
+    def handleError[A](name: String, topic: Topic)(fa: F[A]): F[A] = {
+      fa.handleErrorWith { e =>
+        for {
+          _ <- metrics.failure(name, topic)
+          a <- e.raiseError[F, A]
+        } yield a
       }
     }
 
@@ -317,9 +315,10 @@ object Journal {
 
       def append(key: Key, events: Nel[Event], metadata: Option[JsValue], headers: Headers) = {
         for {
-          rl     <- latency("append", key.topic) { journal.append(key, events, metadata, headers) }
-          (r, l)  = rl
-          _      <- metrics.append(topic = key.topic, latency = l, events = events.size)
+          d <- MeasureDuration[F].start
+          r <- handleError("append", key.topic) { journal.append(key, events, metadata, headers) }
+          d <- d
+          _ <- metrics.append(topic = key.topic, latency = d, events = events.size)
         } yield r
       }
 
@@ -327,9 +326,10 @@ object Journal {
         val measure = new (F ~> F) {
           def apply[A](fa: F[A]) = {
             for {
-              rl     <- latency("read", key.topic) { fa }
-              (r, l)  = rl
-              _      <- metrics.read(topic = key.topic, latency = l)
+              d <- MeasureDuration[F].start
+              r <- handleError("read", key.topic) { fa }
+              d <- d
+              _ <- metrics.read(topic = key.topic, latency = d)
             } yield r
           }
         }
@@ -342,17 +342,19 @@ object Journal {
 
       def pointer(key: Key) = {
         for {
-          rl     <- latency("pointer", key.topic) { journal.pointer(key) }
-          (r, l)  = rl
-          _      <- metrics.pointer(key.topic, l)
+          d <- MeasureDuration[F].start
+          r <- handleError("pointer", key.topic) { journal.pointer(key) }
+          d <- d
+          _ <- metrics.pointer(key.topic, d)
         } yield r
       }
 
       def delete(key: Key, to: SeqNr) = {
         for {
-          rl     <- latency("delete", key.topic) { journal.delete(key, to) }
-          (r, l)  = rl
-          _      <- metrics.delete(key.topic, l)
+          d <- MeasureDuration[F].start
+          r <- handleError("delete", key.topic) { journal.delete(key, to) }
+          d <- d
+          _ <- metrics.delete(key.topic, d)
         } yield r
       }
     }
@@ -361,15 +363,15 @@ object Journal {
 
   trait Metrics[F[_]] {
 
-    def append(topic: Topic, latency: Long, events: Int): F[Unit]
+    def append(topic: Topic, latency: FiniteDuration, events: Int): F[Unit]
 
-    def read(topic: Topic, latency: Long): F[Unit]
+    def read(topic: Topic, latency: FiniteDuration): F[Unit]
 
     def read(topic: Topic): F[Unit]
 
-    def pointer(topic: Topic, latency: Long): F[Unit]
+    def pointer(topic: Topic, latency: FiniteDuration): F[Unit]
 
-    def delete(topic: Topic, latency: Long): F[Unit]
+    def delete(topic: Topic, latency: FiniteDuration): F[Unit]
 
     def failure(name: String, topic: Topic): F[Unit]
   }
@@ -378,15 +380,15 @@ object Journal {
 
     def const[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
 
-      def append(topic: Topic, latency: Long, events: Int) = unit
+      def append(topic: Topic, latency: FiniteDuration, events: Int) = unit
 
-      def read(topic: Topic, latency: Long) = unit
+      def read(topic: Topic, latency: FiniteDuration) = unit
 
       def read(topic: Topic) = unit
 
-      def pointer(topic: Topic, latency: Long) = unit
+      def pointer(topic: Topic, latency: FiniteDuration) = unit
 
-      def delete(topic: Topic, latency: Long) = unit
+      def delete(topic: Topic, latency: FiniteDuration) = unit
 
       def failure(name: String, topic: Topic) = unit
     }
@@ -497,26 +499,27 @@ object Journal {
       log: Log[F],
       config: CallTimeThresholds = CallTimeThresholds.Default)(implicit
       F: FlatMap[F],
-      clock: Clock[F]
+      measureDuration: MeasureDuration[F]
     ): Journal[F] = {
 
       val functionKId = FunctionK.id[F]
 
-      def logDebugOrWarn(latency: Long, threshold: FiniteDuration)(msg: => String) = {
-        if (latency >= threshold.toMillis) log.warn(msg) else log.debug(msg)
+      def logDebugOrWarn(latency: FiniteDuration, threshold: FiniteDuration)(msg: => String) = {
+        if (latency >= threshold) log.warn(msg) else log.debug(msg)
       }
 
       new Journal[F] {
 
         def append(key: Key, events: Nel[Event], metadata: Option[JsValue], headers: Headers) = {
           for {
-            rl     <- Latency { self.append(key, events, metadata, headers) }
-            (r, l)  = rl
-            _      <- logDebugOrWarn(l, config.append) {
+            d <- MeasureDuration[F].start
+            r <- self.append(key, events, metadata, headers)
+            d <- d
+            _ <- logDebugOrWarn(d, config.append) {
               val first = events.head.seqNr
               val last = events.last.seqNr
               val seqNr = if (first == last) s"seqNr: $first" else s"seqNrs: $first..$last"
-              s"$key append in ${ l }ms, $seqNr, result: $r"
+              s"$key append in ${ d.toMillis }ms, $seqNr, result: $r"
             }
           } yield r
         }
@@ -525,9 +528,10 @@ object Journal {
           val logging = new (F ~> F) {
             def apply[A](fa: F[A]) = {
               for {
-                rl     <- Latency { fa }
-                (r, l)  = rl
-                _      <- logDebugOrWarn(l, config.read) {s"$key read in ${ l }ms, from: $from, result: $r" }
+                d <- MeasureDuration[F].start
+                r <- fa
+                d <- d
+                _ <- logDebugOrWarn(d, config.read) { s"$key read in ${ d.toMillis }ms, from: $from, result: $r" }
               } yield r
             }
           }
@@ -536,39 +540,40 @@ object Journal {
 
         def pointer(key: Key) = {
           for {
-            rl     <- Latency { self.pointer(key) }
-            (r, l)  = rl
-            _      <- logDebugOrWarn(l, config.pointer) {s"$key pointer in ${ l }ms, result: $r" }
+            d <- MeasureDuration[F].start
+            r <- self.pointer(key)
+            d <- d
+            _ <- logDebugOrWarn(d, config.pointer) { s"$key pointer in ${ d.toMillis }ms, result: $r" }
           } yield r
         }
 
         def delete(key: Key, to: SeqNr) = {
           for {
-            rl     <- Latency { self.delete(key, to) }
-            (r, l)  = rl
-            _      <- logDebugOrWarn(l, config.delete) {s"$key delete in ${ l }ms, to: $to, r: $r" }
+            d <- MeasureDuration[F].start
+            r <- self.delete(key, to)
+            d <- d
+            _ <- logDebugOrWarn(d, config.delete) { s"$key delete in ${ d.toMillis }ms, to: $to, r: $r" }
           } yield r
         }
       }
     }
 
 
-    def withLogError(log: Log[F])(implicit F: Sync[F], clock: Clock[F]): Journal[F] = {
+    def withLogError(log: Log[F])(implicit F: Sync[F], measureDuration: MeasureDuration[F]): Journal[F] = {
 
       val functionKId = FunctionK.id[F]
 
-      def logError[A](fa: F[A])(f: (Throwable, Long) => String) = {
+      def logError[A](fa: F[A])(f: (Throwable, FiniteDuration) => String) = {
         for {
-          start  <- Clock[F].millis
-          result <- fa.handleErrorWith { error =>
+          d <- MeasureDuration[F].start
+          r <- fa.handleErrorWith { error =>
             for {
-              end     <- Clock[F].millis
-              latency  = end - start
-              _       <- log.error(f(error, latency), error)
-              result  <- error.raiseError[F, A]
-            } yield result
+              d <- d
+              _ <- log.error(f(error, d), error)
+              r <- error.raiseError[F, A]
+            } yield r
           }
-        } yield result
+        } yield r
       }
 
       new Journal[F] {
@@ -577,7 +582,7 @@ object Journal {
           logError {
             self.append(key, events, metadata, headers)
           } { (error, latency) =>
-            s"$key append failed in ${ latency }ms, events: $events, error: $error"
+            s"$key append failed in ${ latency.toMillis }ms, events: $events, error: $error"
           }
         }
 
@@ -585,7 +590,7 @@ object Journal {
           val logging = new (F ~> F) {
             def apply[A](fa: F[A]) = {
               logError(fa) { (error, latency) =>
-                s"$key read failed in ${ latency }ms, from: $from, error: $error"
+                s"$key read failed in ${ latency.toMillis }ms, from: $from, error: $error"
               }
             }
           }
@@ -596,7 +601,7 @@ object Journal {
           logError {
             self.pointer(key)
           } { (error, latency) =>
-            s"$key pointer failed in ${ latency }ms, error: $error"
+            s"$key pointer failed in ${ latency.toMillis }ms, error: $error"
           }
         }
 
@@ -604,14 +609,14 @@ object Journal {
           logError {
             self.delete(key, to)
           } { (error, latency) =>
-            s"$key delete failed in ${ latency }ms, to: $to, error: $error"
+            s"$key delete failed in ${ latency.toMillis }ms, to: $to, error: $error"
           }
         }
       }
     }
 
 
-    def withMetrics(metrics: Metrics[F])(implicit F: Sync[F], clock: Clock[F]): Journal[F] =  {
+    def withMetrics(metrics: Metrics[F])(implicit F: Sync[F], measureDuration: MeasureDuration[F]): Journal[F] = {
       Journal(self, metrics)
     }
 

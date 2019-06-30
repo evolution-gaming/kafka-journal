@@ -441,6 +441,7 @@ object JournalSpec {
       implicit val clock = Clock.const[F](nanos = 0, millis = timestamp.toEpochMilli)
       implicit val parallel = Parallel.identity[F]
       implicit val randomId = RandomId.uuid[F]
+      implicit val measureDuration = MeasureDuration.fromClock(clock)
       val journal = Journal[F](None, eventual, readActionsOf, writeAction, headCache)
         .withLog(log)
         .withMetrics(Journal.Metrics.empty[F])

@@ -29,7 +29,7 @@ trait Replicator[F[_]] {
 
 object Replicator {
 
-  def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf : KafkaConsumerOf : FromGFuture](
+  def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf : KafkaConsumerOf : FromGFuture : MeasureDuration](
     config: ReplicatorConfig,
     executor: ExecutionContextExecutor,
     hostName: Option[HostName] = HostName(),
@@ -50,7 +50,7 @@ object Replicator {
     } yield result
   }
 
-  def of[F[_] : Concurrent : Timer : Par : ContextShift : LogOf : KafkaConsumerOf](
+  def of[F[_] : Concurrent : Timer : Par : ContextShift : LogOf : KafkaConsumerOf : MeasureDuration](
     config: ReplicatorConfig,
     metrics: Option[Metrics[F]]/*TODO not used for kafka*/,
     replicatedJournal: ReplicatedJournal[F],
@@ -79,7 +79,7 @@ object Replicator {
     of(Config(config), consumer, topicReplicator)
   }
 
-  def of[F[_] : Concurrent : Timer : Par : ContextShift : LogOf](
+  def of[F[_] : Concurrent : Timer : Par : ContextShift : LogOf : MeasureDuration](
     config: Config,
     consumer: Resource[F, Consumer[F]],
     topicReplicatorOf: Topic => Resource[F, F[Unit]]): Resource[F, F[Unit]] = {
@@ -130,7 +130,7 @@ object Replicator {
   }
 
 
-  def start[F[_] : Sync : Par : Timer : Log](
+  def start[F[_] : Sync : Par : Timer : Log : MeasureDuration](
     config: Config,
     consumer: Consumer[F],
     start: Topic => F[Unit],
@@ -140,8 +140,9 @@ object Replicator {
 
     def newTopics(state: State) = {
       for {
-        ab <- Latency { consumer.topics }
-        (topics, latency) = ab
+        latency <- MeasureDuration[F].start
+        topics  <- consumer.topics
+        latency <- latency
         topicsNew = for {
           topic <- (topics -- state).toList
           if config.topicPrefixes exists topic.startsWith

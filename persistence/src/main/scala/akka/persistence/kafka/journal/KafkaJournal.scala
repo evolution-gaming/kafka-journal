@@ -19,11 +19,12 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
   implicit val system: ActorSystem                = context.system
   implicit val executor: ExecutionContextExecutor = context.dispatcher
 
-  implicit val contextShift: ContextShift[IO]     = IO.contextShift(executor)
-  implicit val parallel    : Parallel[IO, IO.Par] = IO.ioParallel(contextShift)
-  implicit val timer       : Timer[IO]            = IO.timer(executor)
-  implicit val logOf       : LogOf[IO]            = LogOfFromAkka[IO](system)
-  implicit val randomId    : RandomId[IO]         = RandomId.uuid[IO]
+  implicit val contextShift    : ContextShift[IO]     = IO.contextShift(executor)
+  implicit val parallel        : Parallel[IO, IO.Par] = IO.ioParallel(contextShift)
+  implicit val timer           : Timer[IO]            = IO.timer(executor)
+  implicit val logOf           : LogOf[IO]            = LogOfFromAkka[IO](system)
+  implicit val randomId        : RandomId[IO]         = RandomId.uuid[IO]
+  implicit val measureDuration : MeasureDuration[IO]  = MeasureDuration.fromClock(Clock[IO])
 
   lazy val (adapter, release): (JournalAdapter[Future], () => Unit) = {
     

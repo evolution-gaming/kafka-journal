@@ -25,6 +25,7 @@ object AppendReplicateApp extends IOApp {
     implicit val ec = system.dispatcher
     implicit val timer = IO.timer(ec)
     implicit val parallel = IO.ioParallel
+    implicit val measureDuration = MeasureDuration.fromClock(Clock[IO])
 
     val topic = "journal.AppendReplicate"
 
@@ -33,7 +34,7 @@ object AppendReplicateApp extends IOApp {
   }
 
 
-  private def runF[F[_] : Concurrent : Timer : Par : ContextShift : FromFuture : ToFuture : Runtime : FromGFuture](
+  private def runF[F[_] : Concurrent : Timer : Par : ContextShift : FromFuture : ToFuture : Runtime : FromGFuture : MeasureDuration](
     topic: Topic)(implicit
     system: ActorSystem,
     executor: ExecutionContextExecutor

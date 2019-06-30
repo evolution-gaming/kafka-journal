@@ -3,13 +3,14 @@ package com.evolutiongaming.kafka.journal
 import com.evolutiongaming.kafka.journal.util.TestSync
 import io.prometheus.client.CollectorRegistry
 import org.scalatest.{FunSuite, Matchers}
+import scala.concurrent.duration._
 
 class HeadCacheMetricsSpec extends FunSuite with Matchers {
   import HeadCacheMetricsSpec._
 
   test("get") {
     new Scope {
-      metrics.get(topic, latency = 1000, result = HeadCache.Metrics.Result.Replicated)
+      metrics.get(topic, latency = 1000.millis, result = HeadCache.Metrics.Result.Replicated)
       registry.latency("replicated") shouldEqual Some(1)
       registry.result("replicated") shouldEqual Some(1)
     }
@@ -24,7 +25,7 @@ class HeadCacheMetricsSpec extends FunSuite with Matchers {
 
   test("round") {
     new Scope {
-      metrics.round(topic, entries = 100, listeners = 10, deliveryLatency = 100)
+      metrics.round(topic, entries = 100, listeners = 10, deliveryLatency = 100.millis)
       registry.entries shouldEqual Some(100)
       registry.listeners shouldEqual Some(10)
       registry.deliveryLatency shouldEqual Some(0.1)

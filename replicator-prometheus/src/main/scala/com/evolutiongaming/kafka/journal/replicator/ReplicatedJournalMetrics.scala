@@ -2,15 +2,18 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import cats.effect.Sync
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
-import com.evolutiongaming.kafka.journal.replicator.MetricsHelper._
+import com.evolutiongaming.kafka.journal.MetricsHelper._
 import com.evolutiongaming.skafka.Topic
 import io.prometheus.client.{CollectorRegistry, Summary}
+
+import scala.concurrent.duration.FiniteDuration
 
 object ReplicatedJournalMetrics {
 
   def of[F[_] : Sync](
     registry: CollectorRegistry,
-    prefix: String = "replicated_journal"): F[ReplicatedJournal.Metrics[F]] = {
+    prefix: String = "replicated_journal"
+  ): F[ReplicatedJournal.Metrics[F]] = {
 
     Sync[F].delay {
 
@@ -18,9 +21,7 @@ object ReplicatedJournalMetrics {
         .name(s"${ prefix }_latency")
         .help("Journal call latency in seconds")
         .labelNames("type")
-        .quantile(0.5, 0.05)
         .quantile(0.9, 0.05)
-        .quantile(0.95, 0.01)
         .quantile(0.99, 0.005)
         .register(registry)
 
@@ -28,9 +29,7 @@ object ReplicatedJournalMetrics {
         .name(s"${ prefix }_topic_latency")
         .help("Journal topic call latency in seconds")
         .labelNames("topic", "type")
-        .quantile(0.5, 0.05)
         .quantile(0.9, 0.05)
-        .quantile(0.95, 0.01)
         .quantile(0.99, 0.005)
         .register(registry)
 
@@ -40,33 +39,33 @@ object ReplicatedJournalMetrics {
         .labelNames("topic")
         .register(registry)
 
-      def observeTopicLatency(name: String, topic: Topic, latency: Long) = {
+      def observeTopicLatency(name: String, topic: Topic, latency: FiniteDuration) = {
         topicLatencySummary
           .labels(topic, name)
-          .observe(latency.toSeconds)
+          .observe(latency.toNanos.nanosToSeconds)
       }
 
-      def observeLatency(name: String, latency: Long) = {
+      def observeLatency(name: String, latency: FiniteDuration) = {
         latencySummary
           .labels(name)
-          .observe(latency.toSeconds)
+          .observe(latency.toNanos.nanosToSeconds)
       }
 
       new ReplicatedJournal.Metrics[F] {
 
-        def topics(latency: Long) = {
+        def topics(latency: FiniteDuration) = {
           Sync[F].delay {
             observeLatency(name = "topics", latency = latency)
           }
         }
 
-        def pointers(latency: Long) = {
+        def pointers(latency: FiniteDuration) = {
           Sync[F].delay {
             observeLatency(name = "pointers", latency = latency)
           }
         }
 
-        def append(topic: Topic, latency: Long, events: Int) = {
+        def append(topic: Topic, latency: FiniteDuration, events: Int) = {
           Sync[F].delay {
             eventsSummary
               .labels(topic)
@@ -75,13 +74,13 @@ object ReplicatedJournalMetrics {
           }
         }
 
-        def delete(topic: Topic, latency: Long) = {
+        def delete(topic: Topic, latency: FiniteDuration) = {
           Sync[F].delay {
             observeTopicLatency(name = "delete", topic = topic, latency = latency)
           }
         }
 
-        def save(topic: Topic, latency: Long) = {
+        def save(topic: Topic, latency: FiniteDuration) = {
           Sync[F].delay {
             observeTopicLatency(name = "save", topic = topic, latency = latency)
           }

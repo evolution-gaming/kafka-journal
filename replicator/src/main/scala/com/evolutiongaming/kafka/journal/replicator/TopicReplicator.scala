@@ -437,7 +437,7 @@ object TopicReplicator { self =>
 
     def delete(measurements: Measurements): F[Unit]
 
-    def round(latency: Long, records: Int): F[Unit]
+    def round(latency: FiniteDuration, records: Int): F[Unit]
   }
 
   object Metrics {
@@ -452,13 +452,13 @@ object TopicReplicator { self =>
 
       def delete(measurements: Measurements) = unit
 
-      def round(duration: Long, records: Int) = unit
+      def round(duration: FiniteDuration, records: Int) = unit
     }
 
     final case class Measurements(
       partition: Partition,
-      replicationLatency: Long,
-      deliveryLatency: Long,
+      replicationLatency: FiniteDuration,
+      deliveryLatency: FiniteDuration,
       records: Int)
   }
 }
