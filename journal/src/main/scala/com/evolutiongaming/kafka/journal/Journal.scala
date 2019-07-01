@@ -16,6 +16,7 @@ import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords}
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord}
 import com.evolutiongaming.skafka.{Bytes => _, _}
+import com.evolutiongaming.smetrics.MeasureDuration
 import play.api.libs.json.JsValue
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader

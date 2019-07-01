@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import cats.effect.Sync
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
-import com.evolutiongaming.kafka.journal.MetricsHelper._
+import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.skafka.Topic
 import io.prometheus.client.{CollectorRegistry, Summary}
 

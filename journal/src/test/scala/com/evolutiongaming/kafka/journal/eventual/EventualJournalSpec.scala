@@ -10,6 +10,7 @@ import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Topic}
+import com.evolutiongaming.smetrics.MeasureDuration
 import org.scalatest.{Assertion, Matchers, WordSpec}
 import play.api.libs.json.Json
 

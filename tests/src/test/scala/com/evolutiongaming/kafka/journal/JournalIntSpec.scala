@@ -5,7 +5,7 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 
 import cats.Foldable
-import cats.effect.{Clock, IO, Resource}
+import cats.effect.{IO, Resource}
 import cats.implicits._
 import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.kafka.journal.IOSuite._
@@ -22,9 +22,6 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
   import JournalIntSpec._
 
   private val journalOf = {
-
-    // TODO move to IOSuite
-    implicit val measureDuration = MeasureDuration.fromClock(Clock[IO])
 
     val consumer = Journal.Consumer.of[IO](config.journal.consumer, config.journal.pollTimeout)
 

@@ -7,6 +7,7 @@ import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.skafka.Topic
+import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.concurrent.duration.FiniteDuration
 

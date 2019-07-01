@@ -15,6 +15,7 @@ import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.ConsumerMetrics
 import com.evolutiongaming.skafka.producer.ProducerMetrics
 import com.evolutiongaming.skafka.{ClientId, CommonConfig}
+import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.collection.immutable.Seq
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}

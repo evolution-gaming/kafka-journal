@@ -19,6 +19,7 @@ import com.evolutiongaming.kafka.journal.util.EitherHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecord, ConsumerRecords}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
+import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace

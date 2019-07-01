@@ -15,6 +15,7 @@ import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.util.ActorSystemOf
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Offset
+import com.evolutiongaming.smetrics.MeasureDuration
 import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.{AsyncWordSpec, BeforeAndAfterAll, Matchers}
 import play.api.libs.json.Json
@@ -33,9 +34,6 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
   private implicit val randomId = RandomId.uuid[IO]
 
-  // TODO move to IOSuite
-  private implicit val measureDuration = MeasureDuration.fromClock(Clock[IO])
-
   private def resources[F[_] : Concurrent : LogOf : Par : FromFuture : Clock : ToFuture : ContextShift : RandomId : MeasureDuration] = {
 
     def eventualJournal(conf: Config) = {
@@ -49,7 +47,8 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
     def journal(
       conf: Config,
       blocking: ExecutionContext,
-      eventualJournal: EventualJournal[F]) = {
+      eventualJournal: EventualJournal[F]
+    ) = {
 
       val config = Sync[F].delay { JournalConfig(conf) }
 

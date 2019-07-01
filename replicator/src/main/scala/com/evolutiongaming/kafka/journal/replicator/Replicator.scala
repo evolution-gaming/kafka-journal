@@ -17,6 +17,7 @@ import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Topic, Bytes => _}
+import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._

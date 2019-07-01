@@ -8,6 +8,7 @@ import cats.implicits._
 import cats.{Parallel, ~>}
 import com.evolutiongaming.catshelper.{Log, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.smetrics.MeasureDuration
 import com.typesafe.config.Config
 
 import scala.collection.immutable.Seq

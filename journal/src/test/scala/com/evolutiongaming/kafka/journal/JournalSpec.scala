@@ -15,6 +15,7 @@ import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
+import com.evolutiongaming.smetrics.MeasureDuration
 import org.scalatest.{Assertion, Matchers, WordSpec}
 
 import scala.collection.immutable.Queue

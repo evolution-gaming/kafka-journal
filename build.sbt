@@ -39,6 +39,7 @@ lazy val `scalatest-io` = (project in file("scalatest-io")
   settings (skip in publish := true)
   settings (libraryDependencies ++= Seq(
     scalatest,
+    smetrics,
     Cats.core,
     Cats.effect)))
 
@@ -96,6 +97,7 @@ lazy val journal = (project in file("journal")
     `scala-java8-compat`,
     `cats-par`,
     pureconfig,
+    smetrics,
     Cats.core,
     Cats.effect,
     Logback.core % Test,

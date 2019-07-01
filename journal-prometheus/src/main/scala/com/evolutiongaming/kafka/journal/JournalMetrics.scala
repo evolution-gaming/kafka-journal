@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import cats.effect.Sync
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.MetricsHelper._
+import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.skafka.Topic
 import io.prometheus.client.{CollectorRegistry, Counter, Summary}
 

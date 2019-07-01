@@ -9,6 +9,7 @@ import com.evolutiongaming.kafka.StartKafka
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
 import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.smetrics.MeasureDuration
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.ExecutionContext
@@ -66,8 +67,6 @@ object IntegrationSuite {
   }
 
   def startIO: Resource[IO, Unit] = {
-    // TODO move to IOSuite
-    implicit val measureDuration = MeasureDuration.fromClock(Clock[IO])
     val logOf = LogOf.slfj4[IO]
     for {
       logOf  <- Resource.liftF(logOf)

@@ -13,6 +13,7 @@ import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal.Metrics
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Topic
+import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.annotation.tailrec
 
