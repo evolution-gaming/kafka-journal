@@ -8,6 +8,7 @@ import cats.implicits._
 import cats.{Parallel, ~>}
 import com.evolutiongaming.catshelper.{Log, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.smetrics.MeasureDuration
 import com.typesafe.config.Config
 
@@ -70,6 +71,8 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
     Batching.byNumberOfEvents[IO](config.maxEventsInBatch).pure[IO]
   }
 
+  def cassandraClusterOf: IO[CassandraClusterOf[IO]] = CassandraClusterOf.of[IO]
+
   def adapterIO: IO[(JournalAdapter[IO], IO[Unit])] = {
     for {
       config  <- kafkaJournalConfig
@@ -87,6 +90,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
       serializer           <- serializer
       metrics              <- metrics
       batching             <- batching(config)
+      cassandraClusterOf   <- cassandraClusterOf
       adapter               = adapterOf(
         toKey                = toKey,
         origin               = origin,
@@ -95,7 +99,8 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
         metrics              = metrics,
         metadataAndHeadersOf = metadataAndHeadersOf,
         batching             = batching,
-        log                  = log)
+        log                  = log,
+        cassandraClusterOf   = cassandraClusterOf)
       ab                   <- adapter.allocated
     } yield {
       val (adapter, release) = ab
@@ -115,7 +120,8 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
     metrics: JournalAdapter.Metrics[IO],
     metadataAndHeadersOf: MetadataAndHeadersOf[IO],
     batching: Batching[IO],
-    log: Log[IO]
+    log: Log[IO],
+    cassandraClusterOf: CassandraClusterOf[IO]
   ): Resource[IO, JournalAdapter[IO]] = {
 
     JournalAdapter.of[IO](
@@ -127,7 +133,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
       log = log,
       batching = batching,
       metadataAndHeadersOf = metadataAndHeadersOf,
-      executor = executor)
+      cassandraClusterOf = cassandraClusterOf)
   }
 
   def asyncWriteMessages(atomicWrites: Seq[AtomicWrite]): Future[Seq[Try[Unit]]] = {

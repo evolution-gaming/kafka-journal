@@ -1,26 +1,25 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Monad
-import cats.effect.{Clock, Concurrent, Resource}
+import cats.effect.{Concurrent, Resource, Timer}
 import cats.implicits._
 import cats.temp.par._
 import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.stream.Stream
-import com.evolutiongaming.kafka.journal.util.FromGFuture
+import com.evolutiongaming.scassandra.CassandraClusterOf
+import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.MeasureDuration
-
-import scala.concurrent.ExecutionContextExecutor
 
 
 object EventualCassandra {
 
-  def of[F[_] : Concurrent : Par : Clock : FromFuture : ToFuture : LogOf : FromGFuture : MeasureDuration](
+  def of[F[_] : Concurrent : Par : Timer : FromFuture : ToFuture : LogOf : FromGFuture : MeasureDuration](
     config: EventualCassandraConfig,
     metrics: Option[EventualJournal.Metrics[F]],
-    executor: ExecutionContextExecutor
+    cassandraClusterOf: CassandraClusterOf[F],
   ): Resource[F, EventualJournal[F]] = {
 
     def journal(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
@@ -28,13 +27,13 @@ object EventualCassandra {
     }
 
     for {
-      cassandraCluster <- CassandraCluster.of[F](config.client, config.retries, executor)
+      cassandraCluster <- CassandraCluster.of[F](config.client, cassandraClusterOf, config.retries)
       cassandraSession <- cassandraCluster.session
       journal          <- Resource.liftF(journal(cassandraCluster, cassandraSession))
     } yield journal
   }
 
-  def of[F[_] : Concurrent : Par : CassandraCluster : CassandraSession : LogOf : Clock : FromFuture : ToFuture : MeasureDuration](
+  def of[F[_] : Concurrent : Par : CassandraCluster : CassandraSession : LogOf : Timer : FromFuture : ToFuture : MeasureDuration](
     schemaConfig: SchemaConfig,
     metrics: Option[EventualJournal.Metrics[F]]
   ): F[EventualJournal[F]] = {

@@ -10,6 +10,7 @@ import cats.effect.{Clock, IO}
 import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.ConsumerMetrics
 import com.evolutiongaming.skafka.producer.ProducerMetrics
@@ -37,7 +38,7 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
   lazy val ((eventual, producer), release) = {
     implicit val logOf = LogOf.empty[IO]
     val resource = for {
-      eventualJournal <- EventualCassandra.of[IO](config.cassandra, None, executor)
+      eventualJournal <- EventualCassandra.of[IO](config.cassandra, None, cassandraClusterOf)
       producer        <- Journal.Producer.of[IO](config.journal.producer)
     } yield {
       (eventualJournal, producer)

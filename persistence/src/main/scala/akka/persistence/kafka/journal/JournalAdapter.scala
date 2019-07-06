@@ -10,15 +10,17 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.kafka.journal.stream.Stream
-import com.evolutiongaming.kafka.journal.util.{Executors, FromGFuture}
+import com.evolutiongaming.kafka.journal.util.Executors
 import com.evolutiongaming.nel.Nel
+import com.evolutiongaming.scassandra.CassandraClusterOf
+import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.consumer.ConsumerMetrics
 import com.evolutiongaming.skafka.producer.ProducerMetrics
 import com.evolutiongaming.skafka.{ClientId, CommonConfig}
 import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.collection.immutable.Seq
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
+import scala.concurrent.ExecutionContext
 import scala.util.Try
 
 trait JournalAdapter[F[_]] {
@@ -43,7 +45,7 @@ object JournalAdapter {
     log: Log[F],
     batching: Batching[F],
     metadataAndHeadersOf: MetadataAndHeadersOf[F],
-    executor: ExecutionContextExecutor
+    cassandraClusterOf: CassandraClusterOf[F]
   ): Resource[F, JournalAdapter[F]] = {
 
     def clientIdOf(config: CommonConfig) = config.clientId getOrElse "journal"
@@ -95,7 +97,7 @@ object JournalAdapter {
       kafkaProducerOf1  = kafkaProducerOf(blocking)
       kafkaConsumerOf1  = kafkaConsumerOf(blocking)
       headCacheOf1      = headCacheOf(kafkaConsumerOf1)
-      eventualJournal  <- EventualCassandra.of[F](config.cassandra, metrics.eventual, executor)
+      eventualJournal  <- EventualCassandra.of[F](config.cassandra, metrics.eventual, cassandraClusterOf)
       journal          <- journal(eventualJournal)(kafkaConsumerOf1, kafkaProducerOf1, headCacheOf1)
     } yield {
       JournalAdapter[F](journal, toKey, serializer, metadataAndHeadersOf).withBatching(batching)

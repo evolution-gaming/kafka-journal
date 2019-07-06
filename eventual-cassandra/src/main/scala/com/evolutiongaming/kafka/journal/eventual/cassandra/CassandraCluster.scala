@@ -1,12 +1,11 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.effect.{Concurrent, Resource, Sync}
+import cats.effect.{Concurrent, Resource}
 import cats.implicits._
 import com.evolutiongaming.catshelper.FromFuture
-import com.evolutiongaming.kafka.journal.util.FromGFuture
-import com.evolutiongaming.scassandra.{CassandraConfig, Cluster, CreateCluster}
-
-import scala.concurrent.ExecutionContextExecutor
+import com.evolutiongaming.scassandra.{CassandraClusterOf, CassandraConfig}
+import com.evolutiongaming.scassandra
+import com.evolutiongaming.scassandra.util.FromGFuture
 
 trait CassandraCluster[F[_]] {
 
@@ -19,26 +18,23 @@ object CassandraCluster {
 
   def apply[F[_]](implicit F: CassandraCluster[F]): CassandraCluster[F] = F
 
-  def apply[F[_] : Concurrent : FromFuture : FromGFuture](
-    cassandra: Cluster,
+  def apply[F[_] : Concurrent : FromGFuture](
+    cluster: scassandra.CassandraCluster[F],
     retries: Int
   ): CassandraCluster[F] = new CassandraCluster[F] {
 
     def session = {
-      val session = for {
-        session  <- FromFuture[F].apply { cassandra.connect() }
-        session1 <- CassandraSession.of[F](session)
+      for {
+        session <- cluster.connect
+        session <- Resource.liftF(CassandraSession.of[F](session))
       } yield {
-        val session2 = CassandraSession[F](session1, retries)
-        val release = FromFuture[F].apply { session.close() }
-        (session2, release)
+        CassandraSession(session, retries)
       }
-      Resource(session)
     }
 
     def metadata = {
       for {
-        metadata <- Sync[F].delay { cassandra.metadata }
+        metadata <- cluster.metadata
       } yield {
         CassandraMetadata[F](metadata)
       }
@@ -47,18 +43,14 @@ object CassandraCluster {
 
   def of[F[_] : Concurrent : FromFuture : FromGFuture](
     config: CassandraConfig,
+    cassandraClusterOf: CassandraClusterOf[F],
     retries: Int,
-    executor: ExecutionContextExecutor
   ): Resource[F, CassandraCluster[F]] = {
 
     for {
-      cassandra <- Resource.make {
-        Sync[F].delay { CreateCluster(config)(executor) }
-      } { cassandra =>
-        FromFuture[F].apply { cassandra.close() }
-      }
+      cluster <- cassandraClusterOf(config)
     } yield {
-      apply[F](cassandra, retries)
+      apply[F](cluster, retries)
     }
   }
 }

@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.effect.{Clock, Concurrent, Sync}
+import cats.effect.{Concurrent, Sync, Timer}
 import cats.implicits._
 import cats.temp.par.Par
 import com.evolutiongaming.kafka.journal.{Setting, Settings}
@@ -46,7 +46,7 @@ object SetupSchema { self =>
     } yield {}
   }
 
-  def apply[F[_] : Concurrent : Par : Clock : CassandraCluster : CassandraSession : FromFuture : ToFuture : LogOf](
+  def apply[F[_] : Concurrent : Par : Timer : CassandraCluster : CassandraSession : FromFuture : ToFuture : LogOf](
     config: SchemaConfig,
   ): F[Schema] = {
 

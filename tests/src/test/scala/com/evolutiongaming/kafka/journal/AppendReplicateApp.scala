@@ -11,11 +11,11 @@ import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfi
 import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.nel.Nel
+import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.MeasureDuration
 import com.typesafe.config.ConfigFactory
 
-import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
 
 object AppendReplicateApp extends IOApp {
@@ -38,7 +38,6 @@ object AppendReplicateApp extends IOApp {
   private def runF[F[_] : Concurrent : Timer : Par : ContextShift : FromFuture : ToFuture : Runtime : FromGFuture : MeasureDuration](
     topic: Topic)(implicit
     system: ActorSystem,
-    executor: ExecutionContextExecutor
   ): F[Unit] = {
 
     implicit val logOf = LogOfFromAkka[F](system)
@@ -76,7 +75,7 @@ object AppendReplicateApp extends IOApp {
       }
       for {
         config <- Resource.liftF(config)
-        result <- Replicator.of[F](config, executor)
+        result <- Replicator.of[F](config)
       } yield result
     }
 

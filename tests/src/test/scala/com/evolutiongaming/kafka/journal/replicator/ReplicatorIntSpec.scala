@@ -10,10 +10,12 @@ import com.evolutiongaming.kafka.journal.FixEquality.Implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
+import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.retry.Retry
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.util.ActorSystemOf
 import com.evolutiongaming.nel.Nel
+import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.skafka.Offset
 import com.evolutiongaming.smetrics.MeasureDuration
 import com.typesafe.config.{Config, ConfigFactory}
@@ -34,13 +36,15 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
   private implicit val randomId = RandomId.uuid[IO]
 
-  private def resources[F[_] : Concurrent : LogOf : Par : FromFuture : Clock : ToFuture : ContextShift : RandomId : MeasureDuration] = {
+  private def resources[F[_] : Concurrent : LogOf : Par : FromFuture : Timer : ToFuture : ContextShift : RandomId : MeasureDuration](
+    cassandraClusterOf: CassandraClusterOf[F]
+  ) = {
 
     def eventualJournal(conf: Config) = {
       val config = Sync[F].delay { EventualCassandraConfig(conf.getConfig("cassandra")) }
       for {
         config          <- Resource.liftF[F, EventualCassandraConfig](config)
-        eventualJournal <- EventualCassandra.of[F](config, None, executor)
+        eventualJournal <- EventualCassandra.of[F](config, None, cassandraClusterOf)
       } yield eventualJournal
     }
 
@@ -92,7 +96,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
   lazy val ((eventualJournal, journal), release) = {
     implicit val logOf = LogOf.empty[IO]
-    resources[IO].allocated.unsafeRunSync()
+    resources[IO](cassandraClusterOf).allocated.unsafeRunSync()
   }
 
   override protected def beforeAll(): Unit = {

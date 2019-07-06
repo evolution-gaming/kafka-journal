@@ -5,7 +5,7 @@ import cats.implicits._
 import com.datastax.driver.core.{Row, ResultSet => ResultSetJ}
 import com.evolutiongaming.kafka.journal.stream.FoldWhile._
 import com.evolutiongaming.kafka.journal.stream.Stream
-import com.evolutiongaming.kafka.journal.util.FromGFuture
+import com.evolutiongaming.scassandra.util.FromGFuture
 
 
 object ResultSet {

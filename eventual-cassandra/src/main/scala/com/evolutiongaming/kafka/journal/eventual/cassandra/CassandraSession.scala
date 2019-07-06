@@ -5,12 +5,12 @@ import cats.effect.Concurrent
 import cats.implicits._
 import com.datastax.driver.core._
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
-import com.evolutiongaming.catshelper.FromFuture
 import com.evolutiongaming.kafka.journal.cache.Cache
 import com.evolutiongaming.kafka.journal.stream.Stream
-import com.evolutiongaming.kafka.journal.util.FromGFuture
 import com.evolutiongaming.scassandra.syntax._
-import com.evolutiongaming.scassandra.{NextHostRetryPolicy, Session}
+import com.evolutiongaming.scassandra.NextHostRetryPolicy
+import com.evolutiongaming.scassandra
+import com.evolutiongaming.scassandra.util.FromGFuture
 
 
 trait CassandraSession[F[_]] {
@@ -19,7 +19,7 @@ trait CassandraSession[F[_]] {
 
   def execute(statement: Statement): Stream[F, Row]
 
-  def unsafe: Session // TODO remove this
+  def unsafe: scassandra.CassandraSession[F] // TODO remove this
 
   final def execute(statement: String): Stream[F, Row] = execute(new SimpleStatement(statement))
 }
@@ -33,34 +33,36 @@ object CassandraSession {
   def apply[F[_] : FlatMap](
     session: CassandraSession[F],
     retries: Int,
-    trace: Boolean = false): CassandraSession[F] = {
-
+    trace: Boolean = false
+  ): CassandraSession[F] = {
     val retryPolicy = new LoggingRetryPolicy(NextHostRetryPolicy(retries))
     session.configured(retryPolicy, trace)
   }
 
 
-  private def apply[F[_] : Concurrent : FromFuture : FromGFuture](session: Session): CassandraSession[F] = new CassandraSession[F] {
+  private def apply[F[_] : Concurrent : FromGFuture](
+    session: scassandra.CassandraSession[F]
+  ): CassandraSession[F] = {
+    new CassandraSession[F] {
 
-    def prepare(query: String) = {
-      FromFuture[F].apply {
-        session.prepare(query)
+      def prepare(query: String) = session.prepare(query)
+
+      def execute(statement: Statement): Stream[F, Row] = {
+        val execute = session.execute(statement)
+        for {
+          resultSet <- Stream.lift(execute)
+          row       <- ResultSet[F](resultSet)
+        } yield row
       }
-    }
 
-    def execute(statement: Statement): Stream[F, Row] = {
-      val execute = FromFuture[F].apply { session.execute(statement) }
-      for {
-        resultSet <- Stream.lift(execute)
-        row       <- ResultSet[F](resultSet)
-      } yield row
+      def unsafe = session
     }
-
-    def unsafe = session
   }
 
 
-  def of[F[_] : Concurrent : FromFuture : FromGFuture](session: Session): F[CassandraSession[F]] = {
+  def of[F[_] : Concurrent : FromGFuture](
+    session: scassandra.CassandraSession[F]
+  ): F[CassandraSession[F]] = {
     apply[F](session).cachePrepared
   }
 
@@ -90,15 +92,17 @@ object CassandraSession {
     def cachePrepared(implicit F: Concurrent[F]): F[CassandraSession[F]] = {
       for {
         cache <- Cache.of[F, String, PreparedStatement]
-      } yield new CassandraSession[F] {
+      } yield {
+        new CassandraSession[F] {
 
-        def prepare(query: String) = {
-          cache.getOrUpdate(query) { self.prepare(query) }
+          def prepare(query: String) = {
+            cache.getOrUpdate(query) { self.prepare(query) }
+          }
+
+          def execute(statement: Statement) = self.execute(statement)
+
+          def unsafe = self.unsafe
         }
-
-        def execute(statement: Statement) = self.execute(statement)
-
-        def unsafe = self.unsafe
       }
     }
   }

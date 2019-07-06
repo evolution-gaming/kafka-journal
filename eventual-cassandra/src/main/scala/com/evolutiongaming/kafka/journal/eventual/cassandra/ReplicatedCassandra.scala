@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
-import cats.effect.{Clock, Concurrent, Sync}
+import cats.effect.{Concurrent, Sync, Timer}
 import cats.implicits._
 import cats.temp.par._
 import cats.{Applicative, Monad}
@@ -21,7 +21,7 @@ import scala.annotation.tailrec
 // TODO test ReplicatedCassandra
 object ReplicatedCassandra {
 
-  def of[F[_] : Concurrent : FromFuture : ToFuture : Par : Clock : CassandraCluster : CassandraSession : LogOf : MeasureDuration](
+  def of[F[_] : Concurrent : FromFuture : ToFuture : Par : Timer : CassandraCluster : CassandraSession : LogOf : MeasureDuration](
     config: EventualCassandraConfig,
     metrics: Option[Metrics[F]]
   ): F[ReplicatedJournal[F]] = {

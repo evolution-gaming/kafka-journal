@@ -5,9 +5,10 @@ import cats.implicits._
 import cats.temp.par.Par
 import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal.eventual.cassandra._
-import com.evolutiongaming.kafka.journal.util.FromGFuture
+import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.nel.Nel
-import com.evolutiongaming.scassandra.{AuthenticationConfig, CassandraConfig}
+import com.evolutiongaming.scassandra.util.FromGFuture
+import com.evolutiongaming.scassandra.{AuthenticationConfig, CassandraClusterOf, CassandraConfig}
 import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig}
@@ -20,12 +21,13 @@ object ReadEventsApp extends IOApp {
 
   def run(args: List[String]): IO[ExitCode] = {
     implicit val parallel = IO.ioParallel
-    implicit val ec = ExecutionContext.global
-    runF[IO].as(ExitCode.Success)
+    implicit val executor = ExecutionContext.global
+    runF[IO](executor, cassandraClusterOf).as(ExitCode.Success)
   }
 
-  private def runF[F[_] : Concurrent : ContextShift : Timer : Clock : FromFuture : ToFuture : Par](
-    implicit executor: ExecutionContextExecutor
+  private def runF[F[_] : Concurrent : ContextShift : Timer : Clock : FromFuture : ToFuture : Par : FromGFuture](
+    executor: ExecutionContextExecutor,
+    cassandraClusterOf: CassandraClusterOf[F]
   ): F[Unit] = {
 
     for {
@@ -35,7 +37,7 @@ object ReadEventsApp extends IOApp {
         implicit val logOf1 = logOf
         implicit val log1 = log
         implicit val measureDuration = MeasureDuration.fromClock(Clock[F])
-        runF[F](executor, log).handleErrorWith { error =>
+        runF[F](executor, log, cassandraClusterOf).handleErrorWith { error =>
           log.error(s"failed with $error", error)
         }
       }
@@ -45,7 +47,8 @@ object ReadEventsApp extends IOApp {
 
   private def runF[F[_] : Concurrent : ContextShift : Timer : Clock : FromFuture : ToFuture : Par : LogOf : Log : FromGFuture : MeasureDuration](
     executor: ExecutionContextExecutor,
-    log: Log[F]
+    log: Log[F],
+    cassandraClusterOf: CassandraClusterOf[F]
   ): F[Unit] = {
 
     implicit val kafkaConsumerOf = KafkaConsumerOf[F](executor)
@@ -80,7 +83,7 @@ object ReadEventsApp extends IOApp {
           password = "password"))))
 
     val journal = for {
-      eventualJournal <- EventualCassandra.of[F](eventualCassandraConfig, None, executor)
+      eventualJournal <- EventualCassandra.of[F](eventualCassandraConfig, None, cassandraClusterOf)
       headCache       <- HeadCache.of[F](consumerConfig, eventualJournal, None)
       producer        <- Journal.Producer.of[F](producerConfig)
     } yield {

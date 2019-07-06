@@ -10,7 +10,10 @@ import cats.temp.par.Par
 import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.eventual.cassandra._
-import com.evolutiongaming.kafka.journal.util.{ActorSystemOf, FromGFuture}
+import com.evolutiongaming.kafka.journal.util.ActorSystemOf
+import com.evolutiongaming.kafka.journal.CassandraSuite._
+import com.evolutiongaming.scassandra.CassandraClusterOf
+import com.evolutiongaming.scassandra.util.FromGFuture
 import com.typesafe.config.ConfigFactory
 import org.scalatest.{AsyncWordSpec, BeforeAndAfterAll, Matchers}
 
@@ -26,7 +29,9 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
   }
 
 
-  private def resources[F[_] : Concurrent : LogOf : Par : FromFuture : Clock : ToFuture : ContextShift : FromGFuture] = {
+  private def resources[F[_] : Concurrent : LogOf : Par : FromFuture : Timer : ToFuture : ContextShift : FromGFuture](
+    cassandraClusterOf: CassandraClusterOf[F]
+  ) = {
 
     def settings(
       config: SchemaConfig)(implicit
@@ -57,14 +62,16 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
     for {
       system           <- system
       config           <- Resource.liftF(config(system))
-      cassandraCluster <- CassandraCluster.of[F](config.client, config.retries, executor)
+      cassandraCluster <- CassandraCluster.of[F](config.client, cassandraClusterOf, config.retries)
       cassandraSession <- cassandraCluster.session
       settings         <- Resource.liftF(settings(config.schema)(cassandraCluster, cassandraSession))
     } yield settings
   }
 
 
-  def test[F[_] : Concurrent : Par : FromFuture : ToFuture : Clock : ContextShift]: F[Unit] = {
+  def test[F[_] : Concurrent : Par : FromFuture : ToFuture : Timer : ContextShift : FromGFuture](
+    cassandraClusterOf: CassandraClusterOf[F]
+  ): F[Unit] = {
 
     implicit val logOf = LogOf.empty[F]
 
@@ -78,7 +85,7 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
         origin = Some("origin"))
     }
 
-    resources[F].use { settings =>
+    resources[F](cassandraClusterOf).use { settings =>
 
       val all = for {
         settings <- settings.all.toList
@@ -154,7 +161,7 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
   "Settings" should {
 
     "set, get, all, remove" in {
-      test[IO].run()
+      test[IO](cassandraClusterOf).run()
     }
   }
 }

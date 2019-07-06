@@ -15,11 +15,12 @@ import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.nel.Nel
+import com.evolutiongaming.scassandra.CassandraClusterOf
+import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Topic, Bytes => _}
 import com.evolutiongaming.smetrics.MeasureDuration
 
-import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration._
 
 // TODO TEST
@@ -32,22 +33,20 @@ object Replicator {
 
   def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf : KafkaConsumerOf : FromGFuture : MeasureDuration](
     config: ReplicatorConfig,
-    executor: ExecutionContextExecutor,
     hostName: Option[HostName] = HostName(),
     metrics: Option[Metrics[F]] = none
   ): Resource[F, F[Unit]] = {
-
-    implicit val clock = Timer[F].clock
 
     def replicatedJournal(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
       ReplicatedCassandra.of[F](config.cassandra, metrics.flatMap(_.journal))
     }
 
     for {
-      cassandraCluster  <- CassandraCluster.of(config.cassandra.client, config.cassandra.retries, executor)
-      cassandraSession  <- cassandraCluster.session
-      replicatedJournal <- Resource.liftF(replicatedJournal(cassandraCluster, cassandraSession))
-      result            <- of(config, metrics, replicatedJournal, hostName)
+      cassandraClusterOf <- Resource.liftF(CassandraClusterOf.of[F])
+      cassandraCluster   <- CassandraCluster.of(config.cassandra.client, cassandraClusterOf, config.cassandra.retries)
+      cassandraSession   <- cassandraCluster.session
+      replicatedJournal  <- Resource.liftF(replicatedJournal(cassandraCluster, cassandraSession))
+      result             <- of(config, metrics, replicatedJournal, hostName)
     } yield result
   }
 
