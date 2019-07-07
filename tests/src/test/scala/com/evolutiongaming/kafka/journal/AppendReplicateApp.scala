@@ -11,6 +11,7 @@ import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfi
 import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.nel.Nel
+import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.MeasureDuration
@@ -74,8 +75,9 @@ object AppendReplicateApp extends IOApp {
         ReplicatorConfig(config)
       }
       for {
-        config <- Resource.liftF(config)
-        result <- Replicator.of[F](config)
+        cassandraClusterOf <- Resource.liftF(CassandraClusterOf.of[F])
+        config             <- Resource.liftF(config)
+        result             <- Replicator.of[F](config, cassandraClusterOf)
       } yield result
     }
 

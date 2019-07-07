@@ -33,6 +33,7 @@ object Replicator {
 
   def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf : KafkaConsumerOf : FromGFuture : MeasureDuration](
     config: ReplicatorConfig,
+    cassandraClusterOf: CassandraClusterOf[F],
     hostName: Option[HostName] = HostName(),
     metrics: Option[Metrics[F]] = none
   ): Resource[F, F[Unit]] = {
@@ -42,11 +43,10 @@ object Replicator {
     }
 
     for {
-      cassandraClusterOf <- Resource.liftF(CassandraClusterOf.of[F])
-      cassandraCluster   <- CassandraCluster.of(config.cassandra.client, cassandraClusterOf, config.cassandra.retries)
-      cassandraSession   <- cassandraCluster.session
-      replicatedJournal  <- Resource.liftF(replicatedJournal(cassandraCluster, cassandraSession))
-      result             <- of(config, metrics, replicatedJournal, hostName)
+      cassandraCluster  <- CassandraCluster.of(config.cassandra.client, cassandraClusterOf, config.cassandra.retries)
+      cassandraSession  <- cassandraCluster.session
+      replicatedJournal <- Resource.liftF(replicatedJournal(cassandraCluster, cassandraSession))
+      result            <- of(config, metrics, replicatedJournal, hostName)
     } yield result
   }
 

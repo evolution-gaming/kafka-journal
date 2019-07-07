@@ -9,6 +9,7 @@ import com.evolutiongaming.kafka.StartKafka
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
 import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.smetrics.MeasureDuration
 import com.typesafe.config.ConfigFactory
 
@@ -17,7 +18,9 @@ import scala.concurrent.ExecutionContext
 
 object IntegrationSuite {
 
-  def startF[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf : Runtime : MeasureDuration]: Resource[F, Unit] = {
+  def startF[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf : Runtime : MeasureDuration](
+    cassandraClusterOf: CassandraClusterOf[F]
+  ): Resource[F, Unit] = {
 
     def cassandra(log: Log[F]) = Resource {
       for {
@@ -51,7 +54,7 @@ object IntegrationSuite {
 
       for {
         config  <- Resource.liftF(config)
-        result  <- Replicator.of[F](config)
+        result  <- Replicator.of[F](config, cassandraClusterOf)
         result1  = result.onError { case e => log.error(s"failed to release replicator with $e", e) }
         _       <- ResourceOf(Concurrent[F].start(result1))
       } yield {}
@@ -66,19 +69,19 @@ object IntegrationSuite {
     } yield {}
   }
 
-  def startIO: Resource[IO, Unit] = {
+  def startIO(cassandraClusterOf: CassandraClusterOf[IO]): Resource[IO, Unit] = {
     val logOf = LogOf.slfj4[IO]
     for {
       logOf  <- Resource.liftF(logOf)
       result <- {
         implicit val logOf1 = logOf
-        startF[IO]
+        startF[IO](cassandraClusterOf)
       }
     } yield result
   }
 
   private lazy val started: Unit = {
-    val (_, release) = startIO.allocated.unsafeRunSync()
+    val (_, release) = startIO(CassandraSuite.cassandraClusterOf).allocated.unsafeRunSync()
 
     val _ = sys.addShutdownHook { release.unsafeRunSync() }
   }
