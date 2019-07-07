@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.effect.Sync
+import cats.FlatMap
 import cats.implicits._
 import com.evolutiongaming.scassandra
 
@@ -11,11 +11,11 @@ trait CassandraMetadata[F[_]] {
 
 object CassandraMetadata {
 
-  def apply[F[_] : Sync](metadata: scassandra.Metadata): CassandraMetadata[F] = new CassandraMetadata[F] {
+  def apply[F[_] : FlatMap](metadata: scassandra.Metadata[F]): CassandraMetadata[F] = new CassandraMetadata[F] {
 
     def keyspace(name: String) = {
       for {
-        keyspace <- Sync[F].delay { metadata.keyspace(name) }
+        keyspace <- metadata.keyspace(name)
       } yield for {
         keyspace <- keyspace
       } yield {
@@ -33,11 +33,11 @@ trait KeyspaceMetadata[F[_]] {
 
 object KeyspaceMetadata {
 
-  def apply[F[_] : Sync](metadata: scassandra.KeyspaceMetadata): KeyspaceMetadata[F] = new KeyspaceMetadata[F] {
+  def apply[F[_] : FlatMap](metadata: scassandra.KeyspaceMetadata[F]): KeyspaceMetadata[F] = new KeyspaceMetadata[F] {
 
     def table(name: String) = {
       for {
-        table <- Sync[F].delay { metadata.table(name) }
+        table <- metadata.table(name)
       } yield for {
         table <- table
       } yield {
