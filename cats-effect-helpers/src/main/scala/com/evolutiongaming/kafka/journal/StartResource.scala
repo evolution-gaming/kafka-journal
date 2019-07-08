@@ -9,13 +9,14 @@ object StartResource {
 
   def apply[F[_] : Concurrent : ContextShift, A, B](
     res: Resource[F, A])(
-    use: A => F[B]): F[Fiber[F, B]] = {
+    use: A => F[B]
+  ): F[Fiber[F, B]] = {
 
     res.allocated.bracketCase { case (a, release) =>
       for {
         released <- Deferred[F, Unit]
         fiber    <- Concurrent[F].start {
-          (ContextShift[F].shift *> use(a)).guarantee {
+          use(a).guarantee {
             release.guarantee {
               released.complete(())
             }
