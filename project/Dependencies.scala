@@ -6,7 +6,7 @@ object Dependencies {
   val `scala-java8-compat` = "org.scala-lang.modules" %% "scala-java8-compat"    % "0.9.0"
   val prometheus           = "io.prometheus"           % "simpleclient"          % "0.6.0"
   val `cats-par`           = "io.chrisdavenport"      %% "cats-par"              % "0.2.1"
-  val `cassandra-driver`   = "com.datastax.cassandra"  % "cassandra-driver-core" % "3.7.1"
+  val `cassandra-driver`   = "com.datastax.cassandra"  % "cassandra-driver-core" % "3.7.2"
   val `play-json`          = "com.typesafe.play"      %% "play-json"             % "2.7.4"
   val pureconfig           = "com.github.pureconfig"  %% "pureconfig"            % "0.11.1"
   val `executor-tools`     = "com.evolutiongaming"    %% "executor-tools"        % "1.0.1"
@@ -19,9 +19,9 @@ object Dependencies {
   val hostname             = "com.evolutiongaming"    %% "hostname"              % "0.1.1"
   val scassandra           = "com.evolutiongaming"    %% "scassandra"            % "1.1.0"
   val `cassandra-sync`     = "com.evolutiongaming"    %% "cassandra-sync"        % "1.0.0"
-  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "0.0.14"
-  val random               = "com.evolutiongaming"    %% "random"                % "0.0.2"
-  val retry                = "com.evolutiongaming"    %% "retry"                 % "0.0.1"
+  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "0.0.18"
+  val random               = "com.evolutiongaming"    %% "random"                % "0.0.3"
+  val retry                = "com.evolutiongaming"    %% "retry"                 % "0.0.2"
   val smetrics             = "com.evolutiongaming"    %% "smetrics"              % "0.0.3"
 
   object Cats {
