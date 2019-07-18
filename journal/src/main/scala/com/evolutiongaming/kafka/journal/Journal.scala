@@ -113,20 +113,12 @@ object Journal {
     headCache: HeadCache[F]
   ): Journal[F] = {
 
-    def readActions(key: Key, from: SeqNr): F[(F[JournalInfo], FoldActions[F])] = {
-      val marker = for {
-        id              <- RandomId[F].get
-        timestamp       <- Clock[F].instant
-        action           = Action.Mark(key, timestamp, id, origin)
-        partitionOffset <- appendAction(action)
-        _               <- Log[F].debug(s"$key mark, id: $id, offset $partitionOffset")
-      } yield {
-        Marker(id, partitionOffset)
-      }
+    val appendMarker = AppendMarker(appendAction, origin)
 
+    def readActions(key: Key, from: SeqNr): F[(F[JournalInfo], FoldActions[F])] = {
       for {
         pointers <- Concurrent[F].start { eventual.pointers(key.topic) }
-        marker   <- marker
+        marker   <- appendMarker(key)
         result   <- {
           if (marker.offset == Offset.Min) {
             for {
