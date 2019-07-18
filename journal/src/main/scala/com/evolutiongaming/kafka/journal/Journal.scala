@@ -425,7 +425,7 @@ object Journal {
             metadata  <- producer.send(record)
             partition  = metadata.topicPartition.partition
             offset    <- metadata.offset.fold {
-              val error = new IllegalArgumentException("metadata.offset is missing, make sure ProducerConfig.acks set to One or All")
+              val error = JournalError("metadata.offset is missing, make sure ProducerConfig.acks set to One or All")
               error.raiseError[F, Offset]
             } {
               _.pure[F]

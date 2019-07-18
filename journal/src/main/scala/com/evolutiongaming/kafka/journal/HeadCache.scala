@@ -100,7 +100,7 @@ object HeadCache {
         c <- cache.modify { c =>
           val cc = for {
             _ <- c
-            c <- ClosedException.raiseError[F, Cache[F, Topic, TopicCache[F]]]
+            c <- ClosedError.raiseError[F, Cache[F, Topic, TopicCache[F]]]
           } yield c
           (cc, c)
         }
@@ -673,7 +673,7 @@ object HeadCache {
           partitions <- consumer.partitions(topic)
           partitions <- Nel.opt(partitions) match {
             case Some(a) => a.pure[F]
-            case None    => NoPartitionsException.raiseError[F, Nel[Partition]]
+            case None    => NoPartitionsError.raiseError[F, Nel[Partition]]
           }
         } yield partitions
 
@@ -704,9 +704,9 @@ object HeadCache {
   }
 
 
-  case object NoPartitionsException extends RuntimeException("No partitions") with NoStackTrace
+  case object NoPartitionsError extends RuntimeException("No partitions") with NoStackTrace
 
-  case object ClosedException extends RuntimeException("HeadCache is closed") with NoStackTrace
+  case object ClosedError extends RuntimeException("HeadCache is closed") with NoStackTrace
 
 
   implicit class HeadCacheOps[F[_]](val self: HeadCache[F]) extends AnyVal {

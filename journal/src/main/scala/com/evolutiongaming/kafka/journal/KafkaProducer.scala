@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.FlatMap
 import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.catshelper.FromFuture
@@ -42,7 +43,7 @@ object KafkaProducer {
   }
 
 
-  def apply[F[_] : Async](producer: Producer[F]): KafkaProducer[F] = {
+  def apply[F[_] : FlatMap](producer: Producer[F]): KafkaProducer[F] = {
     new KafkaProducer[F] {
 
       def send[K: skafka.ToBytes, V: skafka.ToBytes](record: ProducerRecord[K, V]) = {

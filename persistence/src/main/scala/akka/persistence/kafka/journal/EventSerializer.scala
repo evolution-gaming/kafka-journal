@@ -66,7 +66,7 @@ object EventSerializer {
     def toPersistentRepr(persistenceId: PersistenceId, event: Event) = {
 
       def error[A](msg: String) = {
-        val error = new RuntimeException(msg)
+        val error = JournalError(msg)
         error.raiseError[F, A]
       }
 
