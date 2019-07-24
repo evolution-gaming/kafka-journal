@@ -137,6 +137,8 @@ class CreateTablesSpec extends FunSuite with Matchers {
 
     def warn(msg: => String) = ().pure[StateT]
 
+    def warn(msg: => String, cause: Throwable) = ().pure[StateT]
+    
     def error(msg: => String) = ().pure[StateT]
 
     def error(msg: => String, cause: Throwable) = ().pure[StateT]

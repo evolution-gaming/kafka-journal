@@ -6,7 +6,7 @@ import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.effect._
 import cats.implicits._
 import cats.{Parallel, ~>}
-import com.evolutiongaming.catshelper.{Log, LogOf, ToFuture}
+import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.smetrics.MeasureDuration
@@ -35,7 +35,12 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
     val toFuture = new (IO ~> Future) {
       def apply[A](fa: IO[A]) = ToFuture[IO].apply(fa)
     }
-    val adapter1 = adapter.mapK(toFuture)
+
+    val fromFuture = new (Future ~> IO) {
+      def apply[A](fa: Future[A]) = FromFuture[IO].apply(fa)
+    }
+
+    val adapter1 = adapter.mapK(toFuture, fromFuture)
     val release1 = () => release.unsafeRunSync()
     (adapter1, release1)
   }
@@ -147,13 +152,19 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
     }
   }
 
-  def asyncReplayMessages(persistenceId: PersistenceId, from: Long, to: Long, max: Long)
-    (f: PersistentRepr => Unit): Future[Unit] = {
+  def asyncReplayMessages(
+    persistenceId: PersistenceId,
+    from: Long,
+    to: Long,
+    max: Long)(
+    f: PersistentRepr => Unit
+  ): Future[Unit] = {
 
     val seqNrFrom = SeqNr(from, SeqNr.Min)
     val seqNrTo = SeqNr(to, SeqNr.Max)
     val range = SeqRange(seqNrFrom, seqNrTo)
-    adapter.replay(persistenceId, range, max)(f)
+    val f1 = (a: PersistentRepr) => Future.fromTry(Try { f(a) })
+    adapter.replay(persistenceId, range, max)(f1)
   }
 
   def asyncReadHighestSequenceNr(persistenceId: PersistenceId, from: Long): Future[Long] = {

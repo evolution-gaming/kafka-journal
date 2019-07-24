@@ -7,10 +7,10 @@ import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.Id
 import cats.effect.Clock
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.stream.Stream
-import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.Log
+import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.nel.Nel
 import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json.{JsValue, Json}
@@ -60,11 +60,13 @@ class JournalAdapterSpec extends FunSuite with Matchers {
 
   test("replay") {
     val range = SeqRange(from = SeqNr.Min, to = SeqNr.Max)
-    var prs = List.empty[PersistentRepr]
     val initial = State(events = List(eventRecord))
-    val (data, _) = journalAdapter.replay(persistenceId, range, Int.MaxValue)(pr => prs = pr :: prs).run(initial)
-    data shouldEqual State(reads = List(Read(key1, SeqNr.Min)))
-    prs shouldEqual List(persistentRepr)
+    val f = (a: PersistentRepr) => StateT { s =>
+      val s1 = s.copy(replayed = a :: s.replayed)
+      (s1, ())
+    }
+    val (data, _) = journalAdapter.replay(persistenceId, range, Int.MaxValue)(f).run(initial)
+    data shouldEqual State(reads = List(Read(key1, SeqNr.Min)), replayed = List(persistentRepr))
   }
 
   test("withBatching") {
@@ -113,7 +115,8 @@ object JournalAdapterSpec {
     appends: List[Append] = Nil,
     pointers: List[Pointer] = Nil,
     deletes: List[Delete] = Nil,
-    reads: List[Read] = Nil)
+    reads: List[Read] = Nil,
+    replayed: List[PersistentRepr] = Nil)
 
   object State {
     val Empty: State = State()

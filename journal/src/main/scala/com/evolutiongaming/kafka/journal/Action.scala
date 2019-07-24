@@ -42,7 +42,7 @@ object Action {
       key: Key,
       timestamp: Instant,
       origin: Option[Origin],
-      events: Nel[Event],
+      events: Nel[Event], // TODO use cats NonEmptyList
       metadata: Metadata,
       headers: Headers
     ): Append = {

@@ -31,7 +31,7 @@ trait JournalAdapter[F[_]] {
 
   def lastSeqNr(persistenceId: PersistenceId, from: SeqNr): F[Option[SeqNr]]
 
-  def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)(f: PersistentRepr => Unit): F[Unit]
+  def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)(f: PersistentRepr => F[Unit]): F[Unit]
 }
 
 object JournalAdapter {
@@ -131,22 +131,24 @@ object JournalAdapter {
       journal.delete(key, to).void
     }
 
-    def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)
-      (callback: PersistentRepr => Unit) = {
+    def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)(f: PersistentRepr => F[Unit]) = {
 
       val key = toKey(persistenceId)
 
       val stream = journal
         .read(key, range.from)
-        .foldMapCmd(max) { (n, record) =>
+        .foldMapCmdM(max) { (n, record) =>
           val event = record.event
           val seqNr = event.seqNr
           if (n > 0 && seqNr <= range.to) {
             val persistentRepr = serializer.toPersistentRepr(persistenceId, event)
-            callback(persistentRepr)
-            (n - 1, Stream.Cmd.take(event))
+            for {
+              _ <- f(persistentRepr)
+            } yield {
+              (n - 1, Stream.Cmd.take(event))
+            }
           } else {
-            (n, Stream.Cmd.stop)
+            (n, Stream.Cmd.stop[Event]).pure[F]
           }
         }
 
@@ -167,16 +169,16 @@ object JournalAdapter {
 
   implicit class JournalAdapterOps[F[_]](val self: JournalAdapter[F]) extends AnyVal {
 
-    def mapK[G[_]](f: F ~> G): JournalAdapter[G] = new JournalAdapter[G] {
+    def mapK[G[_]](fg: F ~> G, gf: G ~> F): JournalAdapter[G] = new JournalAdapter[G] {
 
-      def write(aws: Seq[AtomicWrite]) = f(self.write(aws))
+      def write(aws: Seq[AtomicWrite]) = fg(self.write(aws))
 
-      def delete(persistenceId: PersistenceId, to: SeqNr) = f(self.delete(persistenceId, to))
+      def delete(persistenceId: PersistenceId, to: SeqNr) = fg(self.delete(persistenceId, to))
 
-      def lastSeqNr(persistenceId: PersistenceId, from: SeqNr) = f(self.lastSeqNr(persistenceId, from))
+      def lastSeqNr(persistenceId: PersistenceId, from: SeqNr) = fg(self.lastSeqNr(persistenceId, from))
 
-      def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)(f1: PersistentRepr => Unit) = {
-        f(self.replay(persistenceId, range, max)(f1))
+      def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)(f: PersistentRepr => G[Unit]) = {
+        fg(self.replay(persistenceId, range, max)(a => gf(f(a))))
       }
     }
 
@@ -203,7 +205,7 @@ object JournalAdapter {
 
       def lastSeqNr(persistenceId: PersistenceId, from: SeqNr) = self.lastSeqNr(persistenceId, from)
 
-      def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)(f: PersistentRepr => Unit) = {
+      def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)(f: PersistentRepr => F[Unit]) = {
         self.replay(persistenceId, range, max)(f)
       }
     }

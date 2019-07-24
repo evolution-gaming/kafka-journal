@@ -106,6 +106,7 @@ object KafkaHealthCheckSpec {
         def debug(msg: => String) = add(s"debug $msg")
         def info(msg: => String) = add(s"info $msg")
         def warn(msg: => String) = add(s"warn $msg")
+        def warn(msg: => String, cause: Throwable) = add(s"warn $msg $cause")
         def error(msg: => String) = add(s"error $msg")
         def error(msg: => String, cause: Throwable) = add(s"error $msg $cause")
       }

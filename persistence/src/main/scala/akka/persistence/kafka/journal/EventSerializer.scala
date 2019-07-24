@@ -19,6 +19,7 @@ trait EventSerializer[F[_]] {
 
 object EventSerializer {
 
+  // TODO remove
   def unsafe(system: ActorSystem): EventSerializer[cats.Id] = {
     implicit val monadError = MonadErrorOf.throwable[cats.Id]
     apply[cats.Id](system)

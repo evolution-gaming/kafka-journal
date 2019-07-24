@@ -26,6 +26,12 @@ object LogFromAkka {
       }
     }
 
+    def warn(msg: => String, cause: Throwable) = {
+      Sync[F].delay {
+        if (log.isWarningEnabled) log.warning(s"$msg: $cause")
+      }
+    }
+
     def error(msg: => String) = {
       Sync[F].delay {
         if (log.isErrorEnabled) log.error(msg)

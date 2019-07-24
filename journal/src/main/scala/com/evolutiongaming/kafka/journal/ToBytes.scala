@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets.UTF_8
 
 import play.api.libs.json.{JsValue, Json}
 
+// TODO add F
 trait ToBytes[-A] { self =>
 
   def apply(a: A): Bytes
