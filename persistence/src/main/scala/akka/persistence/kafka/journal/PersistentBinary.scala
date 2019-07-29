@@ -36,8 +36,9 @@ object PersistentBinary {
 
 
   def apply(msg: SerializedMsg, persistentRepr: PersistentRepr): PersistentBinary = {
+    val manifest = ManifestOf(persistentRepr)
     PersistentBinary(
-      manifest = Some(persistentRepr.manifest).filter(_ != PersistentRepr.Undefined),
+      manifest = manifest,
       writerUuid = persistentRepr.writerUuid,
       payload = msg)
   }

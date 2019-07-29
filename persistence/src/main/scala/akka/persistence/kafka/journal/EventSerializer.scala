@@ -45,8 +45,9 @@ object EventSerializer {
       }
 
       def json(payload: JsValue, payloadType: Option[PayloadType.TextOrJson] = None) = {
+        val manifest = ManifestOf(persistentRepr)
         val persistent = PersistentJson(
-          manifest = Some(persistentRepr.manifest) /*TODO filter out PersistentRepr.Undefined*/,
+          manifest = manifest,
           writerUuid = persistentRepr.writerUuid,
           payloadType = payloadType,
           payload = payload)
