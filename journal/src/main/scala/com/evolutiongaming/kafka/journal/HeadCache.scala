@@ -19,7 +19,8 @@ import com.evolutiongaming.random.Random
 import com.evolutiongaming.kafka.journal.util.EitherHelper._
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecord, ConsumerRecords}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
-import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.smetrics.{CollectorRegistry, LabelNames, MeasureDuration, Quantile, Quantiles}
+import com.evolutiongaming.smetrics.MetricsHelper._
 
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
@@ -765,6 +766,9 @@ object HeadCache {
 
   object Metrics {
 
+    def empty[F[_] : Applicative]: Metrics[F] = const(().pure[F])
+    
+
     def const[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
 
       def get(topic: Topic, latency: FiniteDuration, result: Metrics.Result) = unit
@@ -774,7 +778,82 @@ object HeadCache {
       def round(topic: Topic, entries: Long, listeners: Int, deliveryLatency: FiniteDuration) = unit
     }
 
-    def empty[F[_] : Applicative]: Metrics[F] = const(().pure[F])
+
+    def of[F[_] : Monad](
+      registry: CollectorRegistry[F],
+      prefix: String = "headcache"
+    ): Resource[F, Metrics[F]] = {
+
+      val quantiles = Quantiles(
+        Quantile(0.9, 0.05),
+        Quantile(0.99, 0.005))
+
+      val getLatencySummary = registry.summary(
+        name      = s"${ prefix }_get_latency",
+        help      = "HeadCache get latency in seconds",
+        quantiles = quantiles,
+        labels    = LabelNames("topic", "result"))
+
+      val getResultCounter = registry.counter(
+        name   = s"${ prefix }_get_results",
+        help   = "HeadCache `get` call result: replicated, not_replicated, invalid or failure",
+        labels = LabelNames("topic", "result"))
+
+      val entriesGauge = registry.gauge(
+        name   = s"${ prefix }_entries",
+        help   = "HeadCache entries",
+        labels = LabelNames("topic"))
+
+      val listenersGauge = registry.gauge(
+        name   = s"${ prefix }_listeners",
+        help   = "HeadCache listeners",
+        labels = LabelNames("topic"))
+
+      val deliveryLatencySummary = registry.summary(
+        name      = s"${ prefix }_delivery_latency",
+        help      = "HeadCache kafka delivery latency in seconds",
+        quantiles = quantiles,
+        labels    = LabelNames("topic"))
+
+      for {
+        getLatencySummary      <- getLatencySummary
+        getResultCounter       <- getResultCounter
+        entriesGauge           <- entriesGauge
+        listenersGauge         <- listenersGauge
+        deliveryLatencySummary <- deliveryLatencySummary
+      } yield {
+
+        new Metrics[F] {
+
+          def get(topic: Topic, latency: FiniteDuration, result: Metrics.Result) = {
+
+            val name = result match {
+              case Result.Replicated    => "replicated"
+              case Result.NotReplicated => "not_replicated"
+              case Result.Invalid       => "invalid"
+              case Result.Failure       => "failure"
+            }
+
+            for {
+              _ <- getLatencySummary.labels(topic, name).observe(latency.toNanos.nanosToSeconds)
+              _ <- getResultCounter.labels(topic, name).inc()
+            } yield {}
+          }
+
+          def listeners(topic: Topic, size: Int) = {
+            listenersGauge.labels(topic).set(size.toDouble)
+          }
+
+          def round(topic: Topic, entries: Long, listeners: Int, deliveryLatency: FiniteDuration) = {
+            for {
+              _ <- entriesGauge.labels(topic).set(entries.toDouble)
+              _ <- listenersGauge.labels(topic).set(listeners.toDouble)
+              _ <- deliveryLatencySummary.labels(topic).observe(deliveryLatency.toNanos.nanosToSeconds)
+            } yield {}
+          }
+        }
+      }
+    }
 
 
     sealed abstract class Result extends Product

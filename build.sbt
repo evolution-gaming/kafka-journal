@@ -25,7 +25,6 @@ lazy val root = (project in file(".")
     `cats-effect-helpers`,
     cache,
     journal,
-    `journal-prometheus`,
     persistence,
     `tests`,
     replicator,
@@ -140,11 +139,3 @@ lazy val `eventual-cassandra` = (project in file("eventual-cassandra")
   settings commonSettings
   dependsOn (journal % "test->test;compile->compile")
   settings (libraryDependencies ++= Seq(scassandra)))
-
-lazy val `journal-prometheus` = (project in file("journal-prometheus")
-  settings (name := "kafka-journal-prometheus")
-  settings commonSettings
-  dependsOn journal % "test->test;compile->compile"
-  settings (libraryDependencies ++= Seq(
-    prometheus,
-    scalatest % Test)))

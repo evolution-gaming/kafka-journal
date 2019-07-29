@@ -2,11 +2,13 @@ package com.evolutiongaming.kafka.journal.eventual
 
 import cats._
 import cats.arrow.FunctionK
+import cats.effect.Resource
 import cats.implicits._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.Topic
-import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.smetrics.MetricsHelper._
+import com.evolutiongaming.smetrics._
 import com.evolutiongaming.sstream.Stream
 
 import scala.concurrent.duration.FiniteDuration
@@ -136,7 +138,9 @@ object EventualJournal {
 
   object Metrics {
 
-    def empty[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
+    def empty[F[_] : Applicative]: Metrics[F] = const(Applicative[F].unit)
+
+    def const[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
 
       def pointers(topic: Topic, latency: FiniteDuration) = unit
 
@@ -147,7 +151,57 @@ object EventualJournal {
       def pointer(topic: Topic, latency: FiniteDuration) = unit
     }
 
-    def empty[F[_] : Applicative]: Metrics[F] = empty(Applicative[F].unit)
+
+    def of[F[_] : Monad](
+      registry: CollectorRegistry[F],
+      prefix: String = "eventual_journal"
+    ): Resource[F, Metrics[F]] = {
+
+      val latencySummary = registry.summary(
+        name = s"${ prefix }_topic_latency",
+        help = "Journal call latency in seconds",
+        quantiles = Quantiles(
+          Quantile(0.9, 0.05),
+          Quantile(0.99, 0.005)),
+        labels = LabelNames("topic", "type"))
+
+      val eventsSummary = registry.summary(
+        name = s"${ prefix }_events",
+        help = "Number of events",
+        quantiles = Quantiles.Empty,
+        labels = LabelNames("topic"))
+
+      for {
+        latencySummary <- latencySummary
+        eventsSummary  <- eventsSummary
+      } yield {
+
+        def observeLatency(name: String, topic: Topic, latency: FiniteDuration) = {
+          latencySummary
+            .labels(topic, name)
+            .observe(latency.toNanos.nanosToSeconds)
+        }
+
+        new Metrics[F] {
+
+          def pointers(topic: Topic, latency: FiniteDuration) = {
+            observeLatency(name = "pointers", topic = topic, latency = latency)
+          }
+
+          def read(topic: Topic, latency: FiniteDuration) = {
+            observeLatency(name = "read", topic = topic, latency = latency)
+          }
+
+          def read(topic: Topic) = {
+            eventsSummary.labels(topic).observe(1.0)
+          }
+
+          def pointer(topic: Topic, latency: FiniteDuration) = {
+            observeLatency(name = "pointer", topic = topic, latency = latency)
+          }
+        }
+      }
+    }
   }
 
 
