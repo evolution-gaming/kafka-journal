@@ -10,7 +10,7 @@ import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfi
 import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.scassandra.CassandraClusterOf
-import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.smetrics.{CollectorRegistry, MeasureDuration}
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.ExecutionContext
@@ -53,8 +53,9 @@ object IntegrationSuite {
       }
 
       for {
+        metrics <- Replicator.Metrics.of[F](CollectorRegistry.empty[F], "clientId")
         config  <- Resource.liftF(config)
-        result  <- Replicator.of[F](config, cassandraClusterOf)
+        result  <- Replicator.of[F](config, cassandraClusterOf, metrics = metrics.some)
         result1  = result.onError { case e => log.error(s"failed to release replicator with $e", e) }
         _       <- ResourceOf(Concurrent[F].start(result1))
       } yield {}

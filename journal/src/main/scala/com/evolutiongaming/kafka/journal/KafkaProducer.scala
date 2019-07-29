@@ -7,7 +7,6 @@ import com.evolutiongaming.skafka.producer._
 
 trait KafkaProducer[F[_]] {
 
-  // TODO doe we need ToBytes ?
   def send[K, V](
     record: ProducerRecord[K, V])(implicit
     toBytesK: skafka.ToBytes[F, K],

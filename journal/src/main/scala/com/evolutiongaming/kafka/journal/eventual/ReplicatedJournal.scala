@@ -3,13 +3,14 @@ package com.evolutiongaming.kafka.journal.eventual
 import java.time.Instant
 
 import cats.data.{NonEmptyList => Nel}
-import cats.effect.Clock
+import cats.effect.{Clock, Resource}
 import cats.implicits._
-import cats.{Applicative, FlatMap, ~>}
+import cats.{Applicative, FlatMap, Monad, ~>}
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.Topic
-import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.smetrics.{CollectorRegistry, LabelNames, MeasureDuration, Quantile, Quantiles}
+import com.evolutiongaming.smetrics.MetricsHelper._
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -182,7 +183,10 @@ object ReplicatedJournal {
 
   object Metrics {
 
-    def empty[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
+    def empty[F[_] : Applicative]: Metrics[F] = const(().pure[F])
+
+
+    def const[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
 
       def topics(latency: FiniteDuration) = unit
 
@@ -195,7 +199,79 @@ object ReplicatedJournal {
       def save(topic: Topic, latency: FiniteDuration) = unit
     }
 
-    def empty[F[_] : Applicative]: Metrics[F] = empty(().pure[F])
+    
+    def of[F[_] : Monad](
+      registry: CollectorRegistry[F],
+      prefix: String = "replicated_journal"
+    ): Resource[F, ReplicatedJournal.Metrics[F]] = {
+
+      val quantiles = Quantiles(
+        Quantile(0.9, 0.05),
+        Quantile(0.99, 0.005))
+
+      val latencySummary = registry.summary(
+        name      = s"${ prefix }_latency",
+        help      = "Journal call latency in seconds",
+        quantiles = quantiles,
+        labels    = LabelNames("type"))
+
+      val topicLatencySummary = registry.summary(
+        name      = s"${ prefix }_topic_latency",
+        help      = "Journal topic call latency in seconds",
+        quantiles = quantiles,
+        labels    = LabelNames("topic", "type"))
+
+      val eventsSummary = registry.summary(
+        name      = s"${ prefix }_events",
+        help      = "Number of events saved",
+        quantiles = Quantiles.Empty,
+        labels    = LabelNames("topic"))
+
+      for {
+        latencySummary      <- latencySummary
+        topicLatencySummary <- topicLatencySummary
+        eventsSummary       <- eventsSummary
+      } yield {
+
+        def observeTopicLatency(name: String, topic: Topic, latency: FiniteDuration) = {
+          topicLatencySummary
+            .labels(topic, name)
+            .observe(latency.toNanos.nanosToSeconds)
+        }
+
+        def observeLatency(name: String, latency: FiniteDuration) = {
+          latencySummary
+            .labels(name)
+            .observe(latency.toNanos.nanosToSeconds)
+        }
+
+        new ReplicatedJournal.Metrics[F] {
+
+          def topics(latency: FiniteDuration) = {
+            observeLatency(name = "topics", latency = latency)
+          }
+
+          def pointers(latency: FiniteDuration) = {
+            observeLatency(name = "pointers", latency = latency)
+          }
+
+          def append(topic: Topic, latency: FiniteDuration, events: Int) = {
+            for {
+              _ <- eventsSummary.labels(topic).observe(events.toDouble)
+              _ <- observeTopicLatency(name = "append", topic = topic, latency = latency)
+            } yield {}
+          }
+
+          def delete(topic: Topic, latency: FiniteDuration) = {
+            observeTopicLatency(name = "delete", topic = topic, latency = latency)
+          }
+
+          def save(topic: Topic, latency: FiniteDuration) = {
+            observeTopicLatency(name = "save", topic = topic, latency = latency)
+          }
+        }
+      }
+    }
   }
 
 

@@ -29,7 +29,6 @@ lazy val root = (project in file(".")
     persistence,
     `tests`,
     replicator,
-    `replicator-prometheus`,
     `eventual-cassandra`))
 
 lazy val `scalatest-io` = (project in file("scalatest-io")
@@ -148,15 +147,4 @@ lazy val `journal-prometheus` = (project in file("journal-prometheus")
   dependsOn journal % "test->test;compile->compile"
   settings (libraryDependencies ++= Seq(
     prometheus,
-    scalatest % Test)))
-
-lazy val `replicator-prometheus` = (project in file("replicator-prometheus")
-  settings (name := "kafka-journal-replicator-prometheus")
-  settings commonSettings
-  dependsOn (replicator % "test->test;compile->compile")
-  settings (libraryDependencies ++= Seq(
-    Smetrics.smetrics,
-    Smetrics.prometheus,
-    prometheus,
-    skafka,
     scalatest % Test)))

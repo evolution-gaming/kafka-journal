@@ -6,20 +6,20 @@ import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.implicits._
 import cats.temp.par._
-import cats.~>
-import com.evolutiongaming.catshelper.{FromFuture, FromTry, Log, LogOf, ToFuture}
+import cats.{Monad, ~>}
+import com.evolutiongaming.catshelper._
+import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession, ReplicatedCassandra}
-import com.evolutiongaming.retry.Retry
-import com.evolutiongaming.kafka.journal.CatsHelper._
-import com.evolutiongaming.random.Random
 import com.evolutiongaming.kafka.journal.util._
+import com.evolutiongaming.random.Random
+import com.evolutiongaming.retry.Retry
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.consumer._
-import com.evolutiongaming.skafka.{Topic, Bytes => _}
-import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.skafka.{ClientId, Topic, Bytes => _}
+import com.evolutiongaming.smetrics.{CollectorRegistry, MeasureDuration}
 
 import scala.concurrent.duration._
 
@@ -225,12 +225,42 @@ object Replicator {
   }
 
 
-  final case class Metrics[F[_]](
-    journal: Option[ReplicatedJournal.Metrics[F]] = None,
-    replicator: Option[Topic => TopicReplicator.Metrics[F]] = None,
-    consumer: Option[ConsumerMetrics[F]] = None)
+  trait Metrics[F[_]] {
+
+    def journal: Option[ReplicatedJournal.Metrics[F]]
+
+    def replicator: Option[Topic => TopicReplicator.Metrics[F]]
+
+    def consumer: Option[ConsumerMetrics[F]]
+  }
 
   object Metrics {
-    def empty[F[_]]: Metrics[F] = Metrics()
+
+    def empty[F[_]]: Metrics[F] = new Metrics[F] {
+
+      def journal = None
+
+      def replicator = None
+
+      def consumer = None
+    }
+
+
+    def of[F[_] : Monad](registry: CollectorRegistry[F], clientId: ClientId): Resource[F, Replicator.Metrics[F]] = {
+      for {
+        replicator1 <- TopicReplicator.Metrics.of[F](registry)
+        journal1    <- ReplicatedJournal.Metrics.of[F](registry)
+        consumer1   <- ConsumerMetrics.of[F](registry)
+      } yield {
+        new Metrics[F] {
+
+          val journal = journal1.some
+
+          val replicator = replicator1.some
+
+          val consumer = consumer1(clientId).some
+        }
+      }
+    }
   }
 }
