@@ -100,10 +100,6 @@ libraryDependencies += "com.evolutiongaming" %% "kafka-journal-persistence" % "0
 libraryDependencies += "com.evolutiongaming" %% "kafka-journal-replicator" % "0.0.71"
 
 libraryDependencies += "com.evolutiongaming" %% "kafka-journal-eventual-cassandra" % "0.0.71"
-
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal-prometheus" % "0.0.71"
-
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal-replicator-prometheus" % "0.0.71"
 ```
 
 
