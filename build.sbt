@@ -24,7 +24,6 @@ lazy val root = (project in file(".")
     `scalatest-io`,
     `cats-effect-helpers`,
     cache,
-    stream,
     journal,
     `journal-prometheus`,
     persistence,
@@ -40,14 +39,6 @@ lazy val `scalatest-io` = (project in file("scalatest-io")
   settings (libraryDependencies ++= Seq(
     scalatest,
     smetrics,
-    Cats.core,
-    Cats.effect)))
-
-lazy val stream = (project in file("stream")
-  settings (name := "kafka-journal-stream")
-  settings commonSettings
-  settings (libraryDependencies ++= Seq(
-    scalatest % Test,
     Cats.core,
     Cats.effect)))
 
@@ -75,7 +66,7 @@ lazy val cache = (project in file("cache")
 lazy val journal = (project in file("journal")
   settings (name := "kafka-journal")
   settings commonSettings
-  dependsOn (stream, cache, `scalatest-io` % "test->compile")
+  dependsOn (cache, `scalatest-io` % "test->compile")
   settings (libraryDependencies ++= Seq(
     Akka.actor,
     Akka.stream,
@@ -98,6 +89,7 @@ lazy val journal = (project in file("journal")
     `cats-par`,
     pureconfig,
     smetrics,
+    sstream,
     Cats.core,
     Cats.effect,
     Logback.core % Test,

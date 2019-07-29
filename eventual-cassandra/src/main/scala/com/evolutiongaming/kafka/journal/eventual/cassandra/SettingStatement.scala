@@ -8,9 +8,9 @@ import com.datastax.driver.core.{GettableByNameData, SettableData}
 import com.evolutiongaming.kafka.journal.Setting
 import com.evolutiongaming.kafka.journal.Setting.{Key, Value}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow, TableName}
+import com.evolutiongaming.sstream.Stream
 
 object SettingStatement {
 

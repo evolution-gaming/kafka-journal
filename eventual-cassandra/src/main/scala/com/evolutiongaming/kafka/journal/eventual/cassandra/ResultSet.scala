@@ -3,9 +3,9 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.effect.{Concurrent, Sync}
 import cats.implicits._
 import com.datastax.driver.core.{Row, ResultSet => ResultSetJ}
-import com.evolutiongaming.kafka.journal.stream.FoldWhile._
-import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.scassandra.util.FromGFuture
+import com.evolutiongaming.sstream.Stream
+import com.evolutiongaming.sstream.FoldWhile._
 
 
 object ResultSet {

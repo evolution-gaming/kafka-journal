@@ -6,11 +6,11 @@ import cats.implicits._
 import com.datastax.driver.core._
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
 import com.evolutiongaming.kafka.journal.cache.Cache
-import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.scassandra.NextHostRetryPolicy
 import com.evolutiongaming.scassandra
 import com.evolutiongaming.scassandra.util.FromGFuture
+import com.evolutiongaming.sstream.Stream
 
 
 trait CassandraSession[F[_]] {

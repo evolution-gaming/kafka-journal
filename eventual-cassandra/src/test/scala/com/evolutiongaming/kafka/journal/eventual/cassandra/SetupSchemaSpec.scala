@@ -5,10 +5,10 @@ import java.time.Instant
 import cats.Monad
 import cats.implicits._
 import com.datastax.driver.core.{Row, Statement}
-import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.kafka.journal.util.TestSync
 import com.evolutiongaming.kafka.journal.{Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
+import com.evolutiongaming.sstream.Stream
 import org.scalatest.{FunSuite, Matchers}
 
 import scala.util.control.NoStackTrace

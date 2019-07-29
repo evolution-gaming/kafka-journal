@@ -10,8 +10,8 @@ import cats.implicits._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.nel.Nel
+import com.evolutiongaming.sstream.Stream
 import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json.{JsValue, Json}
 

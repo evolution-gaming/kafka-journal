@@ -7,11 +7,11 @@ import cats.temp.par._
 import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.sstream.Stream
 
 
 object EventualCassandra {

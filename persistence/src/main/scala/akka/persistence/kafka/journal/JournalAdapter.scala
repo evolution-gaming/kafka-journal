@@ -9,7 +9,6 @@ import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, Runtime, ToFuture
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
-import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.kafka.journal.util.Executors
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.CassandraClusterOf
@@ -18,6 +17,7 @@ import com.evolutiongaming.skafka.consumer.ConsumerMetrics
 import com.evolutiongaming.skafka.producer.ProducerMetrics
 import com.evolutiongaming.skafka.{ClientId, CommonConfig}
 import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.sstream.Stream
 
 import scala.collection.immutable.Seq
 import scala.concurrent.ExecutionContext

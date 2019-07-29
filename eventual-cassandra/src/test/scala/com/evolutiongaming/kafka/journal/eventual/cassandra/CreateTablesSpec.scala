@@ -5,7 +5,7 @@ import com.datastax.driver.core.{Row, Statement}
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CreateTables.Table
-import com.evolutiongaming.kafka.journal.stream.Stream
+import com.evolutiongaming.sstream.Stream
 import org.scalatest.{FunSuite, Matchers}
 
 import scala.util.control.NoStackTrace

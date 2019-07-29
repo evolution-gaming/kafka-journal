@@ -3,8 +3,8 @@ package com.evolutiongaming.kafka.journal
 import cats.Applicative
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.CatsHelper._
-import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.skafka.{Offset, Partition}
+import com.evolutiongaming.sstream.Stream
 
 trait FoldActions[F[_]] {
   def apply(offset: Option[Offset]): Stream[F, ActionRecord[Action.User]]

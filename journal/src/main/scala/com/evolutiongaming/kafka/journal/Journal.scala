@@ -10,13 +10,13 @@ import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
-import com.evolutiongaming.kafka.journal.stream.FoldWhile.FoldWhileOps
-import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords}
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord}
 import com.evolutiongaming.skafka.{Bytes => _, _}
 import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.sstream.Stream
+import com.evolutiongaming.sstream.FoldWhile.FoldWhileOps
 import play.api.libs.json.JsValue
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader

@@ -6,12 +6,12 @@ import cats.implicits._
 import cats.Monad
 import com.datastax.driver.core.BatchStatement
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.HeadersHelper._
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
+import com.evolutiongaming.sstream.Stream
 import play.api.libs.json.Json
 
 

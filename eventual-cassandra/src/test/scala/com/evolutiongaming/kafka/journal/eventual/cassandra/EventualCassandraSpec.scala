@@ -7,11 +7,11 @@ import cats.implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualJournalSpec, TopicPointers}
-import com.evolutiongaming.kafka.journal.stream.FoldWhile._
-import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Topic
+import com.evolutiongaming.sstream.Stream
+import com.evolutiongaming.sstream.FoldWhile._
 
 class EventualCassandraSpec extends EventualJournalSpec {
   import EventualCassandraSpec._

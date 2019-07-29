@@ -2,8 +2,8 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Applicative
 import com.datastax.driver.core._
-import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
+import com.evolutiongaming.sstream.Stream
 
 import scala.collection.JavaConverters._
 

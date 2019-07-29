@@ -9,13 +9,13 @@ import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.SeqNr.syntax._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
-import com.evolutiongaming.kafka.journal.stream.Stream
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.sstream.Stream
 import org.scalatest.{Assertion, Matchers, WordSpec}
 
 import scala.collection.immutable.Queue
