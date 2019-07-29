@@ -17,13 +17,13 @@ object Dependencies {
   val `kafka-launcher`     = "com.evolutiongaming"    %% "kafka-launcher"        % "0.0.6"
   val `cassandra-launcher` = "com.evolutiongaming"    %% "cassandra-launcher"    % "0.0.2"
   val hostname             = "com.evolutiongaming"    %% "hostname"              % "0.1.1"
-  val scassandra           = "com.evolutiongaming"    %% "scassandra"            % "1.1.0"
-  val `cassandra-sync`     = "com.evolutiongaming"    %% "cassandra-sync"        % "1.0.0"
-  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "0.0.19"
+  val scassandra           = "com.evolutiongaming"    %% "scassandra"            % "1.1.1"
+  val `cassandra-sync`     = "com.evolutiongaming"    %% "cassandra-sync"        % "1.0.1"
+  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "0.0.23"
   val random               = "com.evolutiongaming"    %% "random"                % "0.0.3"
-  val retry                = "com.evolutiongaming"    %% "retry"                 % "0.0.2"
-  val smetrics             = "com.evolutiongaming"    %% "smetrics"              % "0.0.3"
+  val retry                = "com.evolutiongaming"    %% "retry"                 % "0.0.3"
   val sstream              = "com.evolutiongaming"    %% "sstream"               % "0.0.1"
+  val skafka               = "com.evolutiongaming"    %% "skafka"                % "6.0.2"
 
   object Cats {
     private val version = "1.6.1"
@@ -54,19 +54,19 @@ object Dependencies {
   }
   
   object Kafka {
-    private val version = "2.2.1"
+    private val version = "2.3.0"
     val kafka           = "org.apache.kafka" %% "kafka"         % version
     val `kafka-clients` = "org.apache.kafka" %  "kafka-clients" % version
-  }
-
-  object Skafka {
-    private val version = "5.0.2"
-    val skafka      = "com.evolutiongaming" %% "skafka"            % version
-    val prometheus  = "com.evolutiongaming" %% "skafka-prometheus" % version
   }
 
   object Scodec {
     val core = "org.scodec" %% "scodec-core" % "1.11.4"
     val bits = "org.scodec" %% "scodec-bits" % "1.1.12"
+  }
+
+  object Smetrics {
+    private val version = "0.0.4"
+    val smetrics   = "com.evolutiongaming" %% "smetrics"            % version
+    val prometheus = "com.evolutiongaming" %% "smetrics-prometheus" % version
   }
 }

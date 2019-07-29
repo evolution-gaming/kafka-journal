@@ -30,7 +30,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
 
   lazy val (adapter, release): (JournalAdapter[Future], () => Unit) = {
     
-    val (adapter, release) = adapterIO.unsafeRunSync()
+    val (adapter, release) = adapterIO.allocated.unsafeRunSync()
 
     val toFuture = new (IO ~> Future) {
       def apply[A](fa: IO[A]) = ToFuture[IO].apply(fa)
@@ -55,7 +55,10 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
     super.postStop()
   }
 
-  def toKey: IO[ToKey] = ToKey(config).pure[IO]
+  def toKey: Resource[IO, ToKey] = {
+    val toKey = ToKey(config)
+    Resource.liftF(toKey.pure[IO])
+  }
 
   def kafkaJournalConfig: IO[KafkaJournalConfig] = KafkaJournalConfig(config).pure[IO]
 
@@ -66,37 +69,50 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
     }
   }
 
-  def serializer: IO[EventSerializer[cats.Id]] = EventSerializer.unsafe(system).pure[IO]
-
-  def metrics: IO[JournalAdapter.Metrics[IO]] = JournalAdapter.Metrics.empty[IO].pure[IO]
-
-  def metadataAndHeadersOf: IO[MetadataAndHeadersOf[IO]] = MetadataAndHeadersOf.empty[IO].pure[IO]
-
-  def batching(config: KafkaJournalConfig): IO[Batching[IO]] = {
-    Batching.byNumberOfEvents[IO](config.maxEventsInBatch).pure[IO]
+  def serializer: Resource[IO, EventSerializer[cats.Id]] = {
+    val serializer = EventSerializer.unsafe(system)
+    Resource.liftF(serializer.pure[IO])
   }
 
-  def cassandraClusterOf: IO[CassandraClusterOf[IO]] = CassandraClusterOf.of[IO]
+  def metrics: Resource[IO, JournalAdapter.Metrics[IO]] = {
+    val metrics = JournalAdapter.Metrics.empty[IO]
+    Resource.liftF(metrics.pure[IO])
+  }
 
-  def adapterIO: IO[(JournalAdapter[IO], IO[Unit])] = {
+  def metadataAndHeadersOf: Resource[IO, MetadataAndHeadersOf[IO]] = {
+    val metadataAndHeadersOf = MetadataAndHeadersOf.empty[IO]
+    Resource.liftF(metadataAndHeadersOf.pure[IO])
+  }
+
+  def batching(config: KafkaJournalConfig): Resource[IO, Batching[IO]] = {
+    val batching = Batching.byNumberOfEvents[IO](config.maxEventsInBatch)
+    Resource.liftF(batching.pure[IO])
+  }
+
+  def cassandraClusterOf: Resource[IO, CassandraClusterOf[IO]] = {
+    val cassandraClusterOf = CassandraClusterOf.of[IO]
+    Resource.liftF(cassandraClusterOf)
+  }
+
+  def adapterIO: Resource[IO, JournalAdapter[IO]] = {
     for {
-      config  <- kafkaJournalConfig
+      config  <- Resource.liftF(kafkaJournalConfig)
       adapter <- adapterIO(config)
     } yield adapter
   }
 
-  def adapterIO(config: KafkaJournalConfig): IO[(JournalAdapter[IO], IO[Unit])] = {
-    val result = for {
-      log                  <- logOf(classOf[KafkaJournal])
-      _                    <- log.debug(s"config: $config")
+  def adapterIO(config: KafkaJournalConfig): Resource[IO, JournalAdapter[IO]] = {
+    val resource = for {
+      log                  <- Resource.liftF(logOf(classOf[KafkaJournal]))
+      _                    <- Resource.liftF(log.debug(s"config: $config"))
       toKey                <- toKey
-      origin               <- origin
+      origin               <- Resource.liftF(origin)
       metadataAndHeadersOf <- metadataAndHeadersOf
       serializer           <- serializer
       metrics              <- metrics
       batching             <- batching(config)
       cassandraClusterOf   <- cassandraClusterOf
-      adapter               = adapterOf(
+      adapter              <- adapterOf(
         toKey                = toKey,
         origin               = origin,
         serializer           = serializer,
@@ -106,15 +122,21 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
         batching             = batching,
         log                  = log,
         cassandraClusterOf   = cassandraClusterOf)
-      ab                   <- adapter.allocated
     } yield {
-      val (adapter, release) = ab
+      (adapter, log)
+    }
+
+    val result = for {
+      a <- resource.allocated.timeout(config.startTimeout)
+    } yield {
+      val ((adapter, log), release) = a
       val release1 = release.timeout(config.startTimeout).handleErrorWith { error =>
         log.error(s"release failed with $error", error)
       }
       (adapter, release1)
     }
-    result.timeout(config.startTimeout)
+
+    Resource(result)
   }
 
   def adapterOf(

@@ -1,11 +1,13 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.effect._
+import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
-import com.evolutiongaming.catshelper.{FromFuture, LogOf}
+import com.evolutiongaming.catshelper.{FromFuture, FromTry, LogOf, ToFuture, ToTry}
 import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.ProducerConfig
+import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.concurrent.ExecutionContext
 
@@ -13,20 +15,21 @@ object KafkaHealthCheckApp extends IOApp {
 
   def run(args: List[String]): IO[ExitCode] = {
 
-    implicit val ec = ExecutionContext.global
+    implicit val executor = ExecutionContext.global
+    implicit val measureDuration = MeasureDuration.empty[IO]
 
     for {
       logOf <- LogOf.slfj4[IO]
       _     <- {
         implicit val logOf1 = logOf
-        runF[IO](ec)
+        runF[IO](executor)
       }
     } yield {
       ExitCode.Success
     }
   }
 
-  private def runF[F[_] : Concurrent : Timer : FromFuture : ContextShift : LogOf](
+  private def runF[F[_] : Concurrent : Timer : FromFuture : ToFuture : ContextShift : LogOf : FromTry : ToTry : MeasureDuration](
     blocking: ExecutionContext
   ) = {
 
@@ -39,7 +42,7 @@ object KafkaHealthCheckApp extends IOApp {
     val consumerConfig = ConsumerConfig(
       common = CommonConfig(
         clientId = "KafkaHealthCheckApp".some,
-        bootstrapServers = com.evolutiongaming.nel.Nel("localhost:9092"))) // TODO Nel
+        bootstrapServers = Nel.of("localhost:9092")))
 
     val producerConfig = ProducerConfig(
       common = consumerConfig.common)

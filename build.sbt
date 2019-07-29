@@ -38,7 +38,7 @@ lazy val `scalatest-io` = (project in file("scalatest-io")
   settings (skip in publish := true)
   settings (libraryDependencies ++= Seq(
     scalatest,
-    smetrics,
+    Smetrics.smetrics,
     Cats.core,
     Cats.effect)))
 
@@ -73,7 +73,7 @@ lazy val journal = (project in file("journal")
     Akka.testkit % Test,
     Akka.slf4j % Test,
     Kafka.`kafka-clients`,
-    Skafka.skafka,
+    skafka,
     scalatest % Test,
     `executor-tools`,
     random,
@@ -88,7 +88,7 @@ lazy val journal = (project in file("journal")
     `scala-java8-compat`,
     `cats-par`,
     pureconfig,
-    smetrics,
+    Smetrics.smetrics,
     sstream,
     Cats.core,
     Cats.effect,
@@ -155,6 +155,8 @@ lazy val `replicator-prometheus` = (project in file("replicator-prometheus")
   settings commonSettings
   dependsOn (replicator % "test->test;compile->compile")
   settings (libraryDependencies ++= Seq(
+    Smetrics.smetrics,
+    Smetrics.prometheus,
     prometheus,
-    Skafka.prometheus,
+    skafka,
     scalatest % Test)))

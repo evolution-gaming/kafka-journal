@@ -1,9 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.effect._
+import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import cats.temp.par.Par
-import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, ToFuture}
+import com.evolutiongaming.catshelper.{FromFuture, FromTry, Log, LogOf, ToFuture, ToTry}
 import com.evolutiongaming.kafka.journal.eventual.cassandra._
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.scassandra.{AuthenticationConfig, CassandraClusterOf, CassandraConfig}
@@ -23,7 +24,7 @@ object ReadEventsApp extends IOApp {
     runF[IO](executor).as(ExitCode.Success)
   }
 
-  private def runF[F[_] : Concurrent : ContextShift : Timer : Clock : FromFuture : ToFuture : Par : FromGFuture](
+  private def runF[F[_] : Concurrent : ContextShift : Timer : Clock : FromFuture : ToFuture : Par : FromGFuture : FromTry : ToTry](
     executor: ExecutionContextExecutor,
   ): F[Unit] = {
 
@@ -42,7 +43,7 @@ object ReadEventsApp extends IOApp {
 
   }
 
-  private def runF[F[_] : Concurrent : ContextShift : Timer : Clock : FromFuture : ToFuture : Par : LogOf : Log : FromGFuture : MeasureDuration](
+  private def runF[F[_] : Concurrent : ContextShift : Timer : Clock : FromFuture : ToFuture : Par : LogOf : Log : FromGFuture : MeasureDuration : FromTry : ToTry](
     executor: ExecutionContextExecutor,
     log: Log[F],
   ): F[Unit] = {
@@ -55,7 +56,7 @@ object ReadEventsApp extends IOApp {
 
     val commonConfig = CommonConfig(
       clientId = "ReadEventsApp".some,
-      bootstrapServers = com.evolutiongaming.nel.Nel("localhost:9092")) // TODO Nel
+      bootstrapServers = Nel.of("localhost:9092"))
 
     val producerConfig = ProducerConfig(
       common = commonConfig,

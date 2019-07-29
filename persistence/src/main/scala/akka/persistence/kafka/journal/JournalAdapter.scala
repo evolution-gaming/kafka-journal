@@ -6,7 +6,7 @@ import cats.effect._
 import cats.implicits._
 import cats.temp.par.Par
 import cats.{Monad, ~>}
-import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, Runtime, ToFuture}
+import com.evolutiongaming.catshelper.{FromFuture, FromTry, Log, LogOf, Runtime, ToFuture, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
@@ -36,7 +36,7 @@ trait JournalAdapter[F[_]] {
 
 object JournalAdapter {
 
-  def of[F[_] : Concurrent : ContextShift : FromFuture : ToFuture : Par : Timer : LogOf : Runtime : RandomId : FromGFuture : MeasureDuration](
+  def of[F[_] : Concurrent : ContextShift : FromFuture : ToFuture : Par : Timer : LogOf : Runtime : RandomId : FromGFuture : MeasureDuration : ToTry : FromTry](
     toKey: ToKey,
     origin: Option[Origin],
     serializer: EventSerializer[cats.Id],

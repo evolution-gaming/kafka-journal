@@ -7,7 +7,7 @@ import cats.effect.concurrent.Ref
 import cats.implicits._
 import cats.temp.par._
 import cats.~>
-import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, ToFuture}
+import com.evolutiongaming.catshelper.{FromFuture, FromTry, Log, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession, ReplicatedCassandra}
@@ -31,7 +31,7 @@ trait Replicator[F[_]] {
 
 object Replicator {
 
-  def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf : KafkaConsumerOf : FromGFuture : MeasureDuration](
+  def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf : KafkaConsumerOf : FromGFuture : MeasureDuration : FromTry](
     config: ReplicatorConfig,
     cassandraClusterOf: CassandraClusterOf[F],
     hostName: Option[HostName] = HostName(),
@@ -50,7 +50,7 @@ object Replicator {
     } yield result
   }
 
-  def of[F[_] : Concurrent : Timer : Par : ContextShift : LogOf : KafkaConsumerOf : MeasureDuration](
+  def of[F[_] : Concurrent : Timer : Par : ContextShift : LogOf : KafkaConsumerOf : MeasureDuration : FromTry](
     config: ReplicatorConfig,
     metrics: Option[Metrics[F]]/*TODO not used for kafka*/,
     replicatedJournal: ReplicatedJournal[F],
@@ -203,7 +203,7 @@ object Replicator {
     }
 
 
-    def of[F[_] : Sync : KafkaConsumerOf](config: ConsumerConfig): Resource[F, Consumer[F]] = {
+    def of[F[_] : Sync : KafkaConsumerOf : FromTry](config: ConsumerConfig): Resource[F, Consumer[F]] = {
       for {
         consumer <- KafkaConsumerOf[F].apply[Id, Bytes](config)
       } yield {

@@ -14,7 +14,7 @@ import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointer
 import com.evolutiongaming.retry.Retry
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.catshelper.{Log, LogOf, SerialRef}
+import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, SerialRef}
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.kafka.journal.util.EitherHelper._
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecord, ConsumerRecords}
@@ -50,7 +50,7 @@ object HeadCache {
   }
 
 
-  def of[F[_] : Concurrent : Par : Timer : ContextShift : LogOf : KafkaConsumerOf : MeasureDuration](
+  def of[F[_] : Concurrent : Par : Timer : ContextShift : LogOf : KafkaConsumerOf : MeasureDuration : FromTry](
     consumerConfig: ConsumerConfig,
     eventualJournal: EventualJournal[F],
     metrics: Option[Metrics[F]]
@@ -523,7 +523,7 @@ object HeadCache {
           } yield {
             TopicPartition(topic = topic, partition)
           }
-          consumer.assign(Nel(topicPartitions.head, topicPartitions.tail)) // TODO Nel
+          consumer.assign(topicPartitions)
         }
 
         def seek(topic: Topic, offsets: Map[Partition, Offset]) = {
@@ -579,7 +579,7 @@ object HeadCache {
       }
     }
 
-    def of[F[_] : Monad : KafkaConsumerOf](config: ConsumerConfig): Resource[F, Consumer[F]] = {
+    def of[F[_] : Monad : KafkaConsumerOf : FromTry](config: ConsumerConfig): Resource[F, Consumer[F]] = {
 
       val config1 = config.copy(
         autoOffsetReset = AutoOffsetReset.Earliest,

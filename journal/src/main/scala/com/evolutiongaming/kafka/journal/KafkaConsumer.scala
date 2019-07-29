@@ -1,17 +1,14 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.data.{NonEmptyList => Nel}
-import cats.effect.concurrent.Semaphore
-import cats.effect.implicits._
 import cats.effect._
+import cats.effect.concurrent.Semaphore
 import cats.implicits._
 import cats.~>
 import com.evolutiongaming.kafka.journal.util.Named
-import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka._
-import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerConfig, ConsumerMetrics, ConsumerRecords}
+import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecords}
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
 import scala.util.control.NoStackTrace
 
@@ -38,21 +35,19 @@ object KafkaConsumer {
 
   def apply[F[_], K, V](implicit F: KafkaConsumer[F, K, V]): KafkaConsumer[F, K, V] = F
 
-  def of[F[_] : Concurrent : ContextShift : Clock, K: skafka.FromBytes, V: skafka.FromBytes](
-    config: ConsumerConfig,
-    blocking: ExecutionContext,
-    metrics: Option[ConsumerMetrics[F]] = None
+
+  def of[F[_] : Concurrent, K, V](
+    consumer: Resource[F, Consumer[F, K, V]]
   ): Resource[F, KafkaConsumer[F, K, V]] = {
 
     val result = for {
       semaphore <- Semaphore[F](1)
-      ab        <- Consumer.of[F, K, V](config, blocking).allocated
+      result    <- consumer.allocated
     } yield {
-      val (consumer0, close0) = ab
-      val consumer = metrics.fold(consumer0)(consumer0.withMetrics(_))
+      val (consumer, close0) = result
 
       val serial = new (F ~> F) {
-        def apply[A](fa: F[A]) = semaphore.withPermit(fa).uncancelable
+        def apply[A](fa: F[A]) = semaphore.withPermit(fa)
       }
 
       val toError = new Named[F] {
@@ -77,7 +72,7 @@ object KafkaConsumer {
     new KafkaConsumer[F, K, V] {
 
       def assign(partitions: Nel[TopicPartition]) = {
-        consumer.assign(com.evolutiongaming.nel.Nel(partitions.head, partitions.tail)) // TODO Nel
+        consumer.assign(partitions)
       }
 
       def seek(partition: TopicPartition, offset: Offset) = {
@@ -85,7 +80,7 @@ object KafkaConsumer {
       }
 
       def subscribe(topic: Topic) = {
-        consumer.subscribe(com.evolutiongaming.nel.Nel(topic), None) // TODO Nel
+        consumer.subscribe(Nel.of(topic), None)
       }
 
       def poll(timeout: FiniteDuration) = {

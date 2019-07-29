@@ -87,7 +87,7 @@ object EventsSerializer {
         self.position(position + length)
         value
       }
-      Nel.fromListUnsafe(list) // TODO Nel
+      Nel.fromListUnsafe(list)
     }
 
     def writeNel(bytes: Nel[Bytes]): Unit = {

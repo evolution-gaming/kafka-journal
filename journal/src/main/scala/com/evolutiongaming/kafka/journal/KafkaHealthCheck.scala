@@ -3,8 +3,8 @@ package com.evolutiongaming.kafka.journal
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.implicits._
-import cats.{Applicative, FlatMap}
-import com.evolutiongaming.catshelper.{Log, LogOf}
+import cats.{Applicative, FlatMap, Monad}
+import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
@@ -24,7 +24,7 @@ object KafkaHealthCheck {
     def done = ().pure[F]
   }
 
-  def of[F[_] : Concurrent : ContextShift : Timer : LogOf : KafkaConsumerOf : KafkaProducerOf : RandomId](
+  def of[F[_] : Concurrent : ContextShift : Timer : LogOf : KafkaConsumerOf : KafkaProducerOf : RandomId : FromTry](
     config: Config,
     producerConfig: ProducerConfig,
     consumerConfig: ConsumerConfig
@@ -163,7 +163,7 @@ object KafkaHealthCheck {
 
     def apply[F[_]](implicit F: Producer[F]): Producer[F] = F
 
-    def apply[F[_] : FlatMap](topic: Topic, producer: KafkaProducer[F]): Producer[F] = {
+    def apply[F[_] : Monad : FromTry](topic: Topic, producer: KafkaProducer[F]): Producer[F] = {
       new Producer[F] {
         def send(record: Record) = {
           val record1 = ProducerRecord[String, String](topic = topic, key = record.key, value = record.value)
@@ -172,7 +172,7 @@ object KafkaHealthCheck {
       }
     }
 
-    def of[F[_] : Sync : KafkaProducerOf](topic: Topic, config: ProducerConfig): Resource[F, Producer[F]] = {
+    def of[F[_] : Sync : KafkaProducerOf : FromTry](topic: Topic, config: ProducerConfig): Resource[F, Producer[F]] = {
       for {
         producer <- KafkaProducerOf[F].apply(config)
       } yield {
@@ -213,7 +213,7 @@ object KafkaHealthCheck {
       }
     }
 
-    def of[F[_] : Sync : KafkaConsumerOf](key: String, config: ConsumerConfig): Resource[F, Consumer[F]] = {
+    def of[F[_] : Sync : KafkaConsumerOf : FromTry](key: String, config: ConsumerConfig): Resource[F, Consumer[F]] = {
       val config1 = {
         val groupId = config.common.clientId.fold(key) { clientId => s"$clientId-$key" }
         config.copy(

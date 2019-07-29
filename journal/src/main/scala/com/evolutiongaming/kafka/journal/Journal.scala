@@ -7,7 +7,7 @@ import cats.effect._
 import cats.implicits._
 import cats.temp.par._
 import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.catshelper.{Log, LogOf}
+import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords}
@@ -54,7 +54,7 @@ object Journal {
   }
 
 
-  def of[F[_] : Concurrent : ContextShift : Timer : Par : LogOf : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomId : MeasureDuration](
+  def of[F[_] : Concurrent : ContextShift : Timer : Par : LogOf : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomId : MeasureDuration : FromTry](
     config: JournalConfig,
     origin: Option[Origin],
     eventualJournal: EventualJournal[F],
@@ -395,7 +395,7 @@ object Journal {
 
   object Producer {
 
-    def of[F[_] : Sync : KafkaProducerOf](config: ProducerConfig): Resource[F, Producer[F]] = {
+    def of[F[_] : Sync : KafkaProducerOf : FromTry](config: ProducerConfig): Resource[F, Producer[F]] = {
 
       val acks = config.acks match {
         case Acks.None => Acks.One
@@ -417,7 +417,7 @@ object Journal {
       }
     }
 
-    def apply[F[_] : Sync](producer: KafkaProducer[F]): Producer[F] = {
+    def apply[F[_] : Sync : FromTry](producer: KafkaProducer[F]): Producer[F] = {
       new Producer[F] {
         def send(record: ProducerRecord[Id, Bytes]) = {
           for {
@@ -449,7 +449,7 @@ object Journal {
 
   object Consumer {
 
-    def of[F[_] : Sync : KafkaConsumerOf](
+    def of[F[_] : Sync : KafkaConsumerOf : FromTry](
       config: ConsumerConfig,
       pollTimeout: FiniteDuration
     ): Resource[F, Consumer[F]] = {
@@ -471,7 +471,7 @@ object Journal {
     ): Consumer[F] = new Consumer[F] {
 
       def assign(partitions: Nel[TopicPartition]) = {
-        consumer.assign(partitions) // TODO Nel
+        consumer.assign(partitions)
       }
 
       def seek(partition: TopicPartition, offset: Offset) = {

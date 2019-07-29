@@ -32,7 +32,7 @@ object ConsumerRecordsOf {
       (topicPartition, records) <- records.groupBy(_.topicPartition)
       records                   <- Nel.fromList(records)
     } yield {
-      (topicPartition, com.evolutiongaming.nel.Nel(records.head, records.tail)) // TODO Nel
+      (topicPartition, records)
     }
     ConsumerRecords(records1)
   }

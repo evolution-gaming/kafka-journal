@@ -4,7 +4,7 @@ import cats.effect._
 import cats.implicits._
 import cats.temp.par.Par
 import com.evolutiongaming.cassandra.StartCassandra
-import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, Runtime, ToFuture}
+import com.evolutiongaming.catshelper.{FromFuture, FromTry, Log, LogOf, Runtime, ToFuture, ToTry}
 import com.evolutiongaming.kafka.StartKafka
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
 import com.evolutiongaming.kafka.journal.util._
@@ -18,7 +18,7 @@ import scala.concurrent.ExecutionContext
 
 object IntegrationSuite {
 
-  def startF[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf : Runtime : MeasureDuration](
+  def startF[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf : Runtime : MeasureDuration : FromTry : ToTry](
     cassandraClusterOf: CassandraClusterOf[F]
   ): Resource[F, Unit] = {
 

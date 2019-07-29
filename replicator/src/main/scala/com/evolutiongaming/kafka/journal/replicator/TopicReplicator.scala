@@ -10,7 +10,7 @@ import cats.temp.par._
 import cats.{Applicative, FlatMap, ~>}
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.catshelper.{Log, LogOf}
+import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal.EventsSerializer._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
@@ -326,7 +326,7 @@ object TopicReplicator { self =>
       def assignment = consumer.assignment
     }
 
-    def of[F[_] : Sync : KafkaConsumerOf](
+    def of[F[_] : Sync : KafkaConsumerOf : FromTry](
       topic: Topic,
       config: ConsumerConfig,
       pollTimeout: FiniteDuration,
