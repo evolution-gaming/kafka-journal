@@ -5,12 +5,12 @@ import java.time.temporal.ChronoUnit
 
 import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.Id
+import cats.data.{NonEmptyList => Nel}
 import cats.effect.Clock
 import cats.implicits._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json.{JsValue, Json}
@@ -44,7 +44,7 @@ class JournalAdapterSpec extends FunSuite with Matchers {
   test("write") {
     val (data, result) = journalAdapter.write(aws).run(State.Empty)
     result shouldEqual Nil
-    data shouldEqual State(appends = List(appendOf(key1, Nel(event, event))))
+    data shouldEqual State(appends = List(appendOf(key1, Nel.of(event, event))))
   }
 
   test("delete") {
@@ -78,8 +78,8 @@ class JournalAdapterSpec extends FunSuite with Matchers {
       .write(aws).run(State.Empty)
     result shouldEqual Nil
     data shouldEqual State(appends = List(
-      appendOf(key1, Nel(event)),
-      appendOf(key1, Nel(event))))
+      appendOf(key1, Nel.of(event)),
+      appendOf(key1, Nel.of(event))))
   }
 }
 

@@ -2,8 +2,8 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
 
+import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.nel.Nel
 import org.scalatest.{FunSuite, Matchers}
 
 class BatchSpec extends FunSuite with Matchers {

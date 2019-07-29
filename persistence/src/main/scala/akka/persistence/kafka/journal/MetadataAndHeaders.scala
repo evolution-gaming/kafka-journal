@@ -2,9 +2,9 @@ package akka.persistence.kafka.journal
 
 import akka.persistence.PersistentRepr
 import cats.Applicative
+import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.{Event, Headers, Key}
-import com.evolutiongaming.nel.Nel
 import play.api.libs.json.JsValue
 
 final case class MetadataAndHeaders(metadata: Option[JsValue], headers: Headers)

@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.nel.Nel
+import cats.data.{NonEmptyList => Nel}
 import org.scalatest.{FunSuite, Matchers}
 
 class SeqRangeSpec extends FunSuite with Matchers {
@@ -43,11 +43,11 @@ class SeqRangeSpec extends FunSuite with Matchers {
   }
 
   test("toNel") {
-    SeqRange(1).toNel.map(_.value) shouldEqual Nel(1)
-    SeqRange(1, 2).toNel.map(_.value) shouldEqual Nel(1, 2)
-    SeqRange(1, 4).toNel.map(_.value) shouldEqual Nel(1, 2, 3, 4)
-    SeqRange(SeqNr.Min).toNel shouldEqual Nel(SeqNr.Min)
-    SeqRange(SeqNr.Max).toNel shouldEqual Nel(SeqNr.Max)
+    SeqRange(1).toNel.map(_.value) shouldEqual Nel.of(1)
+    SeqRange(1, 2).toNel.map(_.value) shouldEqual Nel.of(1, 2)
+    SeqRange(1, 4).toNel.map(_.value) shouldEqual Nel.of(1, 2, 3, 4)
+    SeqRange(SeqNr.Min).toNel shouldEqual Nel.of(SeqNr.Min)
+    SeqRange(SeqNr.Max).toNel shouldEqual Nel.of(SeqNr.Max)
   }
 
   test("contains") {

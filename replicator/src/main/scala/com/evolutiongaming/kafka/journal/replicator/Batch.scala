@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.replicator
 
+import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.nel.Nel
 
 sealed abstract class Batch extends Product {
   def partitionOffset: PartitionOffset
@@ -51,7 +51,7 @@ object Batch {
             Appends(partitionOffset, b.records) :: tail
 
           case (b: Delete, a: Action.Append) =>
-            Appends(partitionOffset, Nel(actionRecord(a))) :: b :: tail
+            Appends(partitionOffset, Nel.of(actionRecord(a))) :: b :: tail
 
           case (b: Delete, a: Action.Delete) =>
             if (a.to > b.seqNr) {
@@ -73,7 +73,7 @@ object Batch {
 
         case Nil =>
           record.action match {
-            case a: Action.Append => Appends(partitionOffset, Nel(actionRecord(a))) :: Nil
+            case a: Action.Append => Appends(partitionOffset, Nel.of(actionRecord(a))) :: Nil
             case a: Action.Delete => Delete(partitionOffset, a.to, a.origin) :: Nil
             case _: Action.Mark   => Nil
           }

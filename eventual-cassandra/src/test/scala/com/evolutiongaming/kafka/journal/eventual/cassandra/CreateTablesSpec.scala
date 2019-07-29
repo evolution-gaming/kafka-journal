@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
+import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.datastax.driver.core.{Row, Statement}
 import com.evolutiongaming.catshelper.Log
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CreateTables.Table
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.{FunSuite, Matchers}
@@ -14,7 +14,7 @@ class CreateTablesSpec extends FunSuite with Matchers {
 
   test("create 1 table") {
     val initial = State.Empty
-    val (state, fresh) = createTables("keyspace", Nel(Table("table", "query"))).run(initial)
+    val (state, fresh) = createTables("keyspace", Nel.of(Table("table", "query"))).run(initial)
     fresh shouldEqual true
     state shouldEqual initial.copy(
       actions = List(
@@ -26,7 +26,7 @@ class CreateTablesSpec extends FunSuite with Matchers {
 
   test("create 2 tables and ignore 1") {
     val initial = State.Empty.copy(tables = Set("table1"))
-    val tables = Nel(
+    val tables = Nel.of(
       Table("table1", "query"),
       Table("table2", "query"),
       Table("table3", "query"))
@@ -43,7 +43,7 @@ class CreateTablesSpec extends FunSuite with Matchers {
 
   test("create 2 tables") {
     val initial = State.Empty.copy(tables = Set("table1"))
-    val tables = Nel(
+    val tables = Nel.of(
       Table("table1", "query"),
       Table("table2", "query"))
     val (state, fresh) = createTables("unknown", tables).run(initial)
@@ -59,7 +59,7 @@ class CreateTablesSpec extends FunSuite with Matchers {
 
   test("no create tables") {
     val initial = State.Empty.copy(tables = Set("table"))
-    val tables = Nel(Table("table", "query"))
+    val tables = Nel.of(Table("table", "query"))
     val (state, fresh) = createTables("keyspace", tables).run(initial)
     fresh shouldEqual false
     state shouldEqual initial

@@ -2,15 +2,14 @@ package com.evolutiongaming.kafka.journal
 
 import cats._
 import cats.arrow.FunctionK
+import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.implicits._
 import cats.temp.par._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.kafka.journal.EventsSerializer._
-import com.evolutiongaming.kafka.journal.FoldWhileHelper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords}
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord}
 import com.evolutiongaming.skafka.{Bytes => _, _}
@@ -472,7 +471,7 @@ object Journal {
     ): Consumer[F] = new Consumer[F] {
 
       def assign(partitions: Nel[TopicPartition]) = {
-        consumer.assign(partitions)
+        consumer.assign(partitions) // TODO Nel
       }
 
       def seek(partition: TopicPartition, offset: Offset) = {

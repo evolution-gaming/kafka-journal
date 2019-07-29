@@ -3,12 +3,12 @@ package com.evolutiongaming.kafka.journal.eventual
 import java.time.Instant
 
 import cats.effect.Clock
+import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import cats.{Applicative, Monad}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.Log
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
 import org.scalatest.{Assertion, Matchers, WordSpec}
@@ -74,7 +74,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
 
     for {
       seqNr <- List(SeqNr.Min, SeqNr(5), SeqNr(10))
-      size <- Nel(0, 1, 2, 5, 10)
+      size  <- List(0, 1, 2, 5, 10)
       batch <- List(true, false)
     } {
       val name = s"seqNr: $seqNr, events: $size, batch: $batch"
@@ -106,9 +106,9 @@ trait EventualJournalSpec extends WordSpec with Matchers {
           for {
             _ <- {
               if (batch) {
-                Nel.opt(events).foldMap { events => replicated.append(events) }
+                Nel.fromList(events).foldMap { events => replicated.append(events) }
               } else {
-                events.foldMap { event => replicated.append(Nel(event)) }
+                events.foldMap { event => replicated.append(Nel.of(event)) }
               }
             }
             result <- f(eventual, replicated)
@@ -128,14 +128,14 @@ trait EventualJournalSpec extends WordSpec with Matchers {
 
       for {
         seqNrLast <- pointerLast
-        from <- seqNrLast.next
-        size <- Nel(1, 5)
+        from      <- seqNrLast.next
+        size      <- List(1, 5)
       } {
         s"append $size to existing journal, $name" in {
           withJournals2 { case (eventual, replicated) =>
             val head = eventsOf(from, size)
             for {
-              _ <- Nel.opt(head).foldMap { head => replicated.append(head) }
+              _ <- Nel.fromList(head).foldMap { head => replicated.append(head) }
               a <- eventual.events()
             } yield {
               a shouldEqual events ++ head
@@ -178,7 +178,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
                 } yield seqNr
                 eventOf(seqNr getOrElse Pointer.min)
               }
-              _ <- replicated.append(Nel(event))
+              _ <- replicated.append(Nel.of(event))
               a <- eventual.events()
               _ = a shouldEqual expected ++ List(event)
               a <- eventual.pointer
@@ -215,7 +215,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
 
 
       for {
-        from <- seqNrsAll
+        from <- seqNrsAll.toList
       } {
         s"read from: $from, $name" in {
           val expected = events.dropWhile(_.seqNr < from)
@@ -342,7 +342,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
               val pointerNext = deleteToPointer.next getOrElse Pointer.min
               eventOf(pointerNext)
             }
-            _ <- replicated.append(Nel(event))
+            _ <- replicated.append(Nel.of(event))
             a <- eventual.events()
             _ = a shouldEqual List(event)
             a <- eventual.pointer
@@ -378,13 +378,13 @@ trait EventualJournalSpec extends WordSpec with Matchers {
           a <- eventual.pointer
           _ = a shouldEqual None
           event1 = eventOf(pointerOf(offset = 2, seqNr = SeqNr(1)))
-          _ <- replicated.append(Nel(event1))
+          _ <- replicated.append(Nel.of(event1))
           a <- eventual.events()
           _ = a shouldEqual List(event1)
           a <- eventual.pointer
           _ = a shouldEqual Some(event1.pointer)
           event2 = eventOf(pointerOf(offset = 3, seqNr = SeqNr(2)))
-          _ <- replicated.append(partitionOffsetOf(4), Nel(event2))
+          _ <- replicated.append(partitionOffsetOf(4), Nel.of(event2))
           a <- eventual.events()
           _ = a shouldEqual List(event1, event2)
           a <- eventual.pointer
@@ -395,7 +395,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
           a <- eventual.pointer
           _ = a shouldEqual Some(pointerOf(offset = 5, seqNr = event2.seqNr))
           event3 = eventOf(pointerOf(offset = 6, seqNr = SeqNr(3)))
-          _ <- replicated.append(Nel(event3))
+          _ <- replicated.append(Nel.of(event3))
           a <- eventual.events()
           _ = a shouldEqual List(event2, event3)
           a <- eventual.pointer
@@ -416,7 +416,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
     }
 
     "append not from beginning" in {
-      val events = Nel(
+      val events = Nel.of(
         eventOf(pointerOf(offset = 10, seqNr = SeqNr(5))),
         eventOf(pointerOf(offset = 10, seqNr = SeqNr(6))),
         eventOf(pointerOf(offset = 10, seqNr = SeqNr(7))))

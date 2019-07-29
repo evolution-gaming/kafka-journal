@@ -2,13 +2,13 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
+import cats.data.{NonEmptyList => Nel}
 import cats.Parallel
 import cats.implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualJournalSpec, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.sstream.Stream
 import com.evolutiongaming.sstream.FoldWhile._
@@ -18,7 +18,7 @@ class EventualCassandraSpec extends EventualJournalSpec {
 
   "EventualCassandra" when {
     for {
-      segmentSize <- Nel(2, 10, 1000)
+      segmentSize <- List(2, 10, 1000)
       delete      <- List(true, false)
     } {
       s"segmentSize: $segmentSize, delete: $delete" should {

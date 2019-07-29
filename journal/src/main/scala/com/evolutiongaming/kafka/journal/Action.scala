@@ -2,8 +2,8 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 
+import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.kafka.journal.EventsSerializer.EventsToPayload
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Partition}
 
 sealed abstract class Action extends Product {
@@ -42,7 +42,7 @@ object Action {
       key: Key,
       timestamp: Instant,
       origin: Option[Origin],
-      events: Nel[Event], // TODO use cats NonEmptyList
+      events: Nel[Event],
       metadata: Metadata,
       headers: Headers
     ): Append = {

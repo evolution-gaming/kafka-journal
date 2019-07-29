@@ -5,7 +5,6 @@ import cats.implicits._
 import cats.temp.par.Par
 import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal.eventual.cassandra._
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.scassandra.{AuthenticationConfig, CassandraClusterOf, CassandraConfig}
 import com.evolutiongaming.skafka.CommonConfig
@@ -56,7 +55,7 @@ object ReadEventsApp extends IOApp {
 
     val commonConfig = CommonConfig(
       clientId = "ReadEventsApp".some,
-      bootstrapServers = Nel("localhost:9092"))
+      bootstrapServers = com.evolutiongaming.nel.Nel("localhost:9092")) // TODO Nel
 
     val producerConfig = ProducerConfig(
       common = commonConfig,
@@ -74,7 +73,7 @@ object ReadEventsApp extends IOApp {
           autoCreate = false),
         autoCreate = false),
       client = CassandraConfig(
-        contactPoints = Nel("127.0.0.1"),
+        contactPoints = com.evolutiongaming.nel.Nel("127.0.0.1"),
         authentication = Some(AuthenticationConfig(
           username = "username",
           password = "password"))))

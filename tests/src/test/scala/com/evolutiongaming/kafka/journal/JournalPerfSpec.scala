@@ -4,13 +4,13 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
+import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import cats.effect.{Clock, IO}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{Log, LogOf}
-import com.evolutiongaming.nel.Nel
 import org.scalatest.AsyncWordSpec
 
 import scala.concurrent.duration._
@@ -78,15 +78,15 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
 
         for {
           _ <- journal.pointer
-          _ <- expected.foldMap { event => journal.append(Nel(event)).void }
+          _ <- expected.foldMap { event => journal.append(Nel.of(event)).void }
           _ <- {
             val otherEvents = for {_ <- 0 to events} yield Event(SeqNr.Min)
             otherEvents.toList.foldMap { event =>
               for {
-                _       <- journal.append(Nel(event))
+                _       <- journal.append(Nel.of(event))
                 key     <- Key.random[IO]("journal")
                 journal  = KeyJournal(key, timestamp, journal0)
-                _       <- journal.append(Nel(event))
+                _       <- journal.append(Nel.of(event))
               } yield {}
             }
           }

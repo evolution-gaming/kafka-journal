@@ -2,12 +2,12 @@ package com.evolutiongaming.kafka.journal.eventual
 
 import java.time.Instant
 
+import cats.data.{NonEmptyList => Nel}
 import cats.effect.Clock
 import cats.implicits._
 import cats.{Applicative, FlatMap, ~>}
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.MeasureDuration
 
@@ -72,7 +72,7 @@ object ReplicatedJournal {
           _ <- Log[F].debug {
             val origin = events.head.origin
             val originStr = origin.fold("") { origin => s", origin: $origin" }
-            s"$key append in ${ d.toMillis }ms, offset: $partitionOffset, events: ${ events.mkString(",") }$originStr"
+            s"$key append in ${ d.toMillis }ms, offset: $partitionOffset, events: ${ events.toList.mkString(",") }$originStr"
           }
         } yield r
       }

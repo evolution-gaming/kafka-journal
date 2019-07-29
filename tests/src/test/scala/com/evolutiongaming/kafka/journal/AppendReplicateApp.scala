@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import akka.actor.ActorSystem
 import akka.persistence.kafka.journal.KafkaJournalConfig
+import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.implicits._
 import cats.temp.par._
@@ -10,7 +11,6 @@ import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
 import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.kafka.journal.CatsHelper._
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.Topic
@@ -108,7 +108,7 @@ object AppendReplicateApp extends IOApp {
         val event = Event(seqNr, payload = Some(Payload("AppendReplicateApp")))
 
         for {
-          _      <- journal.append(key, Nel(event))
+          _      <- journal.append(key, Nel.of(event))
           result <- seqNr.next.fold(().asRight[SeqNr].pure[F]) { seqNr =>
             for {
               _ <- Timer[F].sleep(100.millis)

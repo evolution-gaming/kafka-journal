@@ -1,12 +1,12 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.data.{NonEmptyList => Nel}
 import cats.effect.concurrent.Semaphore
 import cats.effect.implicits._
 import cats.effect._
 import cats.implicits._
 import cats.~>
 import com.evolutiongaming.kafka.journal.util.Named
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerConfig, ConsumerMetrics, ConsumerRecords}
@@ -77,7 +77,7 @@ object KafkaConsumer {
     new KafkaConsumer[F, K, V] {
 
       def assign(partitions: Nel[TopicPartition]) = {
-        consumer.assign(partitions)
+        consumer.assign(com.evolutiongaming.nel.Nel(partitions.head, partitions.tail)) // TODO Nel
       }
 
       def seek(partition: TopicPartition, offset: Offset) = {
@@ -85,7 +85,7 @@ object KafkaConsumer {
       }
 
       def subscribe(topic: Topic) = {
-        consumer.subscribe(Nel(topic), None)
+        consumer.subscribe(com.evolutiongaming.nel.Nel(topic), None) // TODO Nel
       }
 
       def poll(timeout: FiniteDuration) = {

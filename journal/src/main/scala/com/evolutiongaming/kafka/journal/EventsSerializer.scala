@@ -3,12 +3,12 @@ package com.evolutiongaming.kafka.journal
 import java.lang.{Byte => ByteJ, Integer => IntJ, Long => LongJ}
 import java.nio.ByteBuffer
 
+import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
 import com.evolutiongaming.kafka.journal.PlayJsonHelper._
 import com.evolutiongaming.kafka.journal.Tags._
 import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
 import com.evolutiongaming.kafka.journal.util.ByteBufferHelper._
-import com.evolutiongaming.nel.Nel
 import play.api.libs.json._
 
 import scala.annotation.tailrec
@@ -87,12 +87,12 @@ object EventsSerializer {
         self.position(position + length)
         value
       }
-      Nel.unsafe(list)
+      Nel.fromListUnsafe(list) // TODO Nel
     }
 
     def writeNel(bytes: Nel[Bytes]): Unit = {
       self.putInt(bytes.length)
-      bytes.foreach { bytes => self.writeBytes(bytes) }
+      bytes.toList.foreach { bytes => self.writeBytes(bytes) } // TODO
     }
   }
 

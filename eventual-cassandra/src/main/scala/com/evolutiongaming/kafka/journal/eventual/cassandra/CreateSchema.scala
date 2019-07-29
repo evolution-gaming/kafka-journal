@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Monad
+import cats.data.{NonEmptyList => Nel}
 import cats.effect.Concurrent
 import cats.implicits._
 import com.evolutiongaming.catshelper.LogOf
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.TableName
 
 object CreateSchema {
@@ -55,7 +55,7 @@ object CreateSchema {
 
       if (config.autoCreate) {
         for {
-          result <- createTables(keyspace, Nel(journal, head, pointer, setting))
+          result <- createTables(keyspace, Nel.of(journal, head, pointer, setting))
         } yield {
           (schema, result)
         }

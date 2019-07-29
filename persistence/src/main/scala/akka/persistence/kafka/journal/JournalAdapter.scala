@@ -1,6 +1,7 @@
 package akka.persistence.kafka.journal
 
 import akka.persistence.{AtomicWrite, PersistentRepr}
+import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.implicits._
 import cats.temp.par.Par
@@ -10,7 +11,6 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.kafka.journal.util.Executors
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.consumer.ConsumerMetrics
@@ -113,7 +113,7 @@ object JournalAdapter {
 
     def write(aws: Seq[AtomicWrite]) = {
       val prs = aws.flatMap(_.payload)
-      Nel.opt(prs).fold {
+      Nel.fromList(prs.toList).fold {
         List.empty[Try[Unit]].pure[F]
       } { prs =>
         val persistenceId = prs.head.persistenceId

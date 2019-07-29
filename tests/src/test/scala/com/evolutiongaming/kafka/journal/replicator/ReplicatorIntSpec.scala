@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
 
+import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.implicits._
 import cats.temp.par.Par
@@ -14,7 +15,6 @@ import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.retry.Retry
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.util.ActorSystemOf
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.skafka.Offset
 import com.evolutiongaming.smetrics.MeasureDuration
@@ -173,7 +173,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
           pointer0        <- pointer(key)
           _                = pointer0 shouldEqual None
           pointers        <- topicPointers
-          expected1       <- append(key, Nel(event(seqNr)))
+          expected1       <- append(key, Nel.of(event(seqNr)))
           partitionOffset  = expected1.head.partitionOffset
           partition        = partitionOffset.partition
           _                = for {
@@ -189,7 +189,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
           _                = events1 shouldEqual Nil
           pointer3        <- pointer(key)
           _                = pointer3 shouldEqual Some(expected1.last.seqNr)
-          expected2       <- append(key, Nel(event(seqNr + 1), event(seqNr + 2)))
+          expected2       <- append(key, Nel.of(event(seqNr + 1), event(seqNr + 2)))
           events2         <- read(key)(_.nonEmpty)
           _                = events2 shouldEqual expected2.toList
           pointer4        <- pointer(key)
@@ -208,11 +208,11 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
         val result = for {
           key        <- Key.random[IO](topic)
           events     = for {
-            n <- 0 until numberOfEvents
+            n <- (0 until numberOfEvents).toList
           } yield {
             event(seqNr + n, Payload("kafka-journal"))
           }
-          expected   <- append(key, Nel.unsafe(events))
+          expected   <- append(key, Nel.fromListUnsafe(events))
           actual     <- read(key)(_.nonEmpty)
           _           = actual.fix shouldEqual expected.toList.fix
           pointer    <- pointer(key)
@@ -224,27 +224,27 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
       for {
         (name, events) <- List(
-          ("empty", Nel(event(seqNr))),
-          ("binary", Nel(event(seqNr, Payload.binary("binary")))),
-          ("text", Nel(event(seqNr, Payload.text("text")))),
-          ("json", Nel(event(seqNr, Payload.json("json")))),
-          ("empty-many", Nel(
+          ("empty", Nel.of(event(seqNr))),
+          ("binary", Nel.of(event(seqNr, Payload.binary("binary")))),
+          ("text", Nel.of(event(seqNr, Payload.text("text")))),
+          ("json", Nel.of(event(seqNr, Payload.json("json")))),
+          ("empty-many", Nel.of(
             event(seqNr),
             event(seqNr + 1),
             event(seqNr + 2))),
-          ("binary-many", Nel(
+          ("binary-many", Nel.of(
             event(seqNr, Payload.binary("1")),
             event(seqNr + 1, Payload.binary("2")),
             event(seqNr + 2, Payload.binary("3")))),
-          ("text-many", Nel(
+          ("text-many", Nel.of(
             event(seqNr, Payload.text("1")),
             event(seqNr + 1, Payload.text("2")),
             event(seqNr + 2, Payload.text("3")))),
-          ("json-many", Nel(
+          ("json-many", Nel.of(
             event(seqNr, Payload.json("1")),
             event(seqNr + 1, Payload.json("2")),
             event(seqNr + 2, Payload.json("3")))),
-          ("empty-binary-text-json", Nel(
+          ("empty-binary-text-json", Nel.of(
             event(seqNr),
             event(seqNr + 1, Payload.binary("binary")),
             event(seqNr + 2, Payload.text("text")),

@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import cats.{Monad, Parallel}
+import cats.data.{NonEmptyList => Nel}
 import cats.effect.{Clock, Resource}
 import cats.implicits._
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
@@ -12,7 +13,6 @@ import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointer
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.Log
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
 import com.evolutiongaming.sstream.Stream
@@ -51,7 +51,7 @@ class JournalSpec extends WordSpec with Matchers {
         }
       }
 
-      val name = combination.map(_.mkString("[", ",", "]")).mkString(",")
+      val name = combination.map(_.toList.mkString("[", ",", "]")).mkString(",")
 
       s"append, $name" in {
         createAndAppend { case (journal, _) =>
@@ -393,7 +393,7 @@ object JournalSpec {
 
         def append(seqNr: SeqNr, seqNrs: SeqNr*) = {
           val events = for {
-            seqNr <- Nel(seqNr, seqNrs: _*)
+            seqNr <- Nel.of(seqNr, seqNrs: _*)
           } yield {
             Event(seqNr)
           }

@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 
+import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.implicits._
@@ -14,7 +15,6 @@ import com.evolutiongaming.retry.Retry
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.kafka.journal.util._
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.consumer._
@@ -176,7 +176,7 @@ object Replicator {
 
 
   final case class Config(
-    topicPrefixes: Nel[String] = Nel("journal"),
+    topicPrefixes: Nel[String] = Nel.of("journal"),
     topicDiscoveryInterval: FiniteDuration = 3.seconds)
 
   object Config {

@@ -4,6 +4,7 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import akka.persistence.kafka.journal.KafkaJournalConfig
+import cats.data.{NonEmptyList => Nel}
 import cats.Monad
 import cats.implicits._
 import cats.effect.{Clock, IO}
@@ -11,7 +12,6 @@ import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.CassandraSuite._
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.ConsumerMetrics
 import com.evolutiongaming.skafka.producer.ProducerMetrics
 import org.scalatest.{Matchers, Suite}

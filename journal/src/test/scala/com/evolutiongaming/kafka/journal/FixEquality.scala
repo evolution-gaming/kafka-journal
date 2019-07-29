@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.nel.Nel
+import cats.data.{NonEmptyList => Nel}
 
 import scala.collection.concurrent.TrieMap
 

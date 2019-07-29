@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal
 import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.catshelper.{FromFuture, LogOf}
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.ProducerConfig
@@ -28,7 +27,8 @@ object KafkaHealthCheckApp extends IOApp {
   }
 
   private def runF[F[_] : Concurrent : Timer : FromFuture : ContextShift : LogOf](
-    blocking: ExecutionContext) = {
+    blocking: ExecutionContext
+  ) = {
 
     implicit val kafkaConsumerOf = KafkaConsumerOf[F](blocking)
 
@@ -39,7 +39,7 @@ object KafkaHealthCheckApp extends IOApp {
     val consumerConfig = ConsumerConfig(
       common = CommonConfig(
         clientId = "KafkaHealthCheckApp".some,
-        bootstrapServers = Nel("localhost:9092")))
+        bootstrapServers = com.evolutiongaming.nel.Nel("localhost:9092"))) // TODO Nel
 
     val producerConfig = ProducerConfig(
       common = consumerConfig.common)

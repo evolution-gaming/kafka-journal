@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
+import cats.data.{NonEmptyList => Nel}
 import cats.effect.{Concurrent, Sync, Timer}
 import cats.implicits._
 import cats.temp.par._
@@ -11,7 +12,6 @@ import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal.Metrics
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.MeasureDuration
 
@@ -73,9 +73,9 @@ object ReplicatedCassandra {
                 s match {
                   case Some((segment, batch)) => segment.next(seqNr) match {
                     case None       => loop(tail, Some((segment, head :: batch)), result)
-                    case Some(next) => loop(tail, Some((next, Nel(head))), insert(segment, batch))
+                    case Some(next) => loop(tail, Some((next, Nel.of(head))), insert(segment, batch))
                   }
-                  case None                   => loop(tail, Some((Segment(seqNr, segmentSize), Nel(head))), result)
+                  case None                   => loop(tail, Some((Segment(seqNr, segmentSize), Nel.of(head))), result)
                 }
 
               case Nil => s.fold(result) { case (segment, batch) => insert(segment, batch) }

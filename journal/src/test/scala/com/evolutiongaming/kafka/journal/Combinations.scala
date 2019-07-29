@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.nel.Nel
+import cats.data.{NonEmptyList => Nel}
 
 object Combinations {
 
@@ -18,7 +18,7 @@ object Combinations {
       case head :: tail =>
         val xxs = for {
           ts <- loop(tail)
-          a = Nel(head) :: ts
+          a = Nel.of(head) :: ts
           bs = ts.headOption.fold[Type[T]](Nil) { ht => List((head :: ht) :: ts.tail) }
           x <- a :: bs
         } yield x

@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.data.{NonEmptyList => Nel}
 import cats.effect.{Resource, Sync}
 import cats.implicits._
 import cats.~>
 import com.evolutiongaming.catshelper.Log
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.{Offset, Partition, TopicPartition}
 
 
@@ -25,7 +25,7 @@ object ReadActionsOf {
 
       def readActions(consumer: Journal.Consumer[F]) = {
         for {
-          _ <- consumer.assign(Nel(topicPartition))
+          _ <- consumer.assign(Nel.of(topicPartition))
           _ <- consumer.seek(topicPartition, from)
           _ <- Log[F].debug(s"$key consuming from $partition:$from")
         } yield {

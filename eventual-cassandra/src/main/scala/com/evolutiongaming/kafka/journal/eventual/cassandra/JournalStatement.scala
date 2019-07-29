@@ -2,13 +2,13 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
+import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import cats.Monad
 import com.datastax.driver.core.BatchStatement
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.HeadersHelper._
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.sstream.Stream

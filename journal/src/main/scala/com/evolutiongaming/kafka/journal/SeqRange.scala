@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.kafka.journal.SeqNr.syntax._
-import com.evolutiongaming.nel.Nel
 import play.api.libs.json.{Json, OFormat}
 
 import scala.annotation.tailrec
@@ -34,7 +34,7 @@ final case class SeqRange(from: SeqNr, to: SeqNr) {
       case _                            => xs
     }
 
-    loop(Nel(to))
+    loop(Nel.of(to))
   }
 
   override def toString: String = {

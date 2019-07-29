@@ -4,8 +4,8 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 
 import cats.implicits._
+import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.kafka.journal.KafkaConverters._
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, WithSize}
 import com.evolutiongaming.skafka.{TimestampAndType, TimestampType, TopicPartition}
 import org.scalatest.{FunSuite, Matchers}
@@ -52,9 +52,9 @@ class KafkaConvertersSpec extends FunSuite with Matchers {
     tags    <- List(Tags.Empty, Tags("tag"))
     payload <- payloads
     seqNrs  <- List(
-      Nel(SeqNr.Min),
-      Nel(SeqNr.Max),
-      Nel(SeqNr(1), SeqNr(2), SeqNr(3)))
+      Nel.of(SeqNr.Min),
+      Nel.of(SeqNr.Max),
+      Nel.of(SeqNr(1), SeqNr(2), SeqNr(3)))
   } yield {
     for {
       seqNr <- seqNrs

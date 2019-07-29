@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.Monad
+import cats.{Monad, Order}
+import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.nel.Nel
 
 trait CreateTables[F[_]] {
   import CreateTables.{Fresh, Table}
@@ -53,8 +53,10 @@ object CreateTables { self =>
         }
       }
 
+      val orderTable = Order.by { a: Table => a.name }
+
       for {
-        tables   <- tables.distinct.pure[F]
+        tables   <- tables.distinct(orderTable).pure[F]
         metadata <- CassandraCluster[F].metadata
         keyspace <- metadata.keyspace(keyspace)
         tables1  <- keyspace.fold(tables.toList.pure[F])(missing)

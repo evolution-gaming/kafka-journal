@@ -2,9 +2,9 @@ package com.evolutiongaming.kafka.journal
 
 import java.io.FileOutputStream
 
+import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.kafka.journal.EventsSerializer.{EventsFromPayload, EventsToPayload}
 import com.evolutiongaming.kafka.journal.FixEquality.Implicits._
-import com.evolutiongaming.nel.Nel
 import org.scalatest.{FunSuite, Matchers}
 
 class EventsSerializerSpec extends FunSuite with Matchers {
@@ -22,27 +22,27 @@ class EventsSerializerSpec extends FunSuite with Matchers {
 
   for {
     (name, payloadType, events) <- List(
-      ("empty", PayloadType.Json, Nel(
+      ("empty", PayloadType.Json, Nel.of(
         event(1))),
-      ("binary", PayloadType.Binary, Nel(
+      ("binary", PayloadType.Binary, Nel.of(
         event(1, Payload.binary("payload")))),
-      ("text", PayloadType.Json, Nel(
+      ("text", PayloadType.Json, Nel.of(
         event(1, Payload.text(""" {"key":"value"} """)))),
-      ("json", PayloadType.Json, Nel(
+      ("json", PayloadType.Json, Nel.of(
         event(1, Payload.json("payload")))),
-      ("empty-many", PayloadType.Json, Nel(
+      ("empty-many", PayloadType.Json, Nel.of(
         event(1),
         event(2))),
-      ("binary-many", PayloadType.Binary, Nel(
+      ("binary-many", PayloadType.Binary, Nel.of(
         event(1, Payload.binary("1")),
         event(2, Payload.binary("2")))),
-      ("text-many", PayloadType.Json, Nel(
+      ("text-many", PayloadType.Json, Nel.of(
         event(1, Payload.text("1")),
         event(2, Payload.text("2")))),
-      ("json-many", PayloadType.Json, Nel(
+      ("json-many", PayloadType.Json, Nel.of(
         event(1, Payload.json("1")),
         event(2, Payload.json("2")))),
-      ("empty-binary-text-json", PayloadType.Binary, Nel(
+      ("empty-binary-text-json", PayloadType.Binary, Nel.of(
         event(1),
         event(2, Payload.binary("binary")),
         event(3, Payload.text("text")),

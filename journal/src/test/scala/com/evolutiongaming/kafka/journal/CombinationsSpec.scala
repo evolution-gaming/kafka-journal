@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.nel.Nel
+import cats.data.{NonEmptyList => Nel}
 import org.scalatest.{FunSuite, Matchers}
 
 class CombinationsSpec extends FunSuite with Matchers {
@@ -10,32 +10,32 @@ class CombinationsSpec extends FunSuite with Matchers {
   }
 
   test("List(1)") {
-    Combinations(List(1)) shouldEqual List(List(Nel(1)))
+    Combinations(List(1)) shouldEqual List(List(Nel.of(1)))
   }
 
   test("List(1, 2)") {
     Combinations(List(1, 2)) shouldEqual List(
-      List(Nel(1, 2)),
-      List(Nel(1), Nel(2)))
+      List(Nel.of(1, 2)),
+      List(Nel.of(1), Nel.of(2)))
   }
 
   test("List(1, 2, 3)") {
     Combinations(List(1, 2, 3)) shouldEqual List(
-      List(Nel(1, 2, 3)),
-      List(Nel(1), Nel(2, 3)),
-      List(Nel(1), Nel(2), Nel(3)),
-      List(Nel(1, 2), Nel(3)))
+      List(Nel.of(1, 2, 3)),
+      List(Nel.of(1), Nel.of(2, 3)),
+      List(Nel.of(1), Nel.of(2), Nel.of(3)),
+      List(Nel.of(1, 2), Nel.of(3)))
   }
 
   test("List(1, 2, 3, 4)") {
     Combinations(List(1, 2, 3, 4)) shouldEqual List(
-      List(Nel(1, 2, 3, 4)),
-      List(Nel(1), Nel(2, 3, 4)),
-      List(Nel(1), Nel(2), Nel(3, 4)),
-      List(Nel(1, 2), Nel(3, 4)),
-      List(Nel(1), Nel(2), Nel(3), Nel(4)),
-      List(Nel(1, 2), Nel(3), Nel(4)),
-      List(Nel(1), Nel(2, 3), Nel(4)),
-      List(Nel(1, 2, 3), Nel(4)))
+      List(Nel.of(1, 2, 3, 4)),
+      List(Nel.of(1), Nel.of(2, 3, 4)),
+      List(Nel.of(1), Nel.of(2), Nel.of(3, 4)),
+      List(Nel.of(1, 2), Nel.of(3, 4)),
+      List(Nel.of(1), Nel.of(2), Nel.of(3), Nel.of(4)),
+      List(Nel.of(1, 2), Nel.of(3), Nel.of(4)),
+      List(Nel.of(1), Nel.of(2, 3), Nel.of(4)),
+      List(Nel.of(1, 2, 3), Nel.of(4)))
   }
 }

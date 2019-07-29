@@ -4,6 +4,7 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
+import cats.data.{NonEmptyList => Nel}
 import cats.Foldable
 import cats.effect.{IO, Resource}
 import cats.implicits._
@@ -11,7 +12,6 @@ import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.CatsHelper._
-import com.evolutiongaming.nel.Nel
 import org.scalatest.{AsyncWordSpec, Succeeded}
 import play.api.libs.json.Json
 
@@ -82,7 +82,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             offset    <- journal.delete(SeqNr.Max)
             _          = offset shouldEqual None
             event      = Event(seqNr)
-            offset    <- journal.append(Nel(event), metadata.data, headers)
+            offset    <- journal.append(Nel.of(event), metadata.data, headers)
             record     = EventRecord(event, timestamp, offset, origin.some, metadata, headers)
             partition  = offset.partition
             events    <- journal.read
@@ -102,7 +102,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
         s"append & read $many, $name1" in {
 
           val events = for {
-            n <- 0 until many
+            n <- (0 until many).toList
             seqNr <- seqNr.map(_ + n)
           } yield {
             Event(seqNr)
@@ -117,7 +117,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
               pointer <- journal.pointer
               _ = pointer shouldEqual events.lastOption.map(_.seqNr)
             } yield {}
-            _       <- journal.append(Nel.unsafe(events))
+            _       <- journal.append(Nel.fromListUnsafe(events))
             reads    = List.fill(10)(read)
             _       <- Foldable[List].fold(reads)
           } yield {}
@@ -139,7 +139,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             _        = events shouldEqual Nil
             pointer <- journal.pointer
             _        = pointer shouldEqual None
-            _       <- expected.foldMap { event => journal.append(Nel(event)).void }
+            _       <- expected.foldMap { event => journal.append(Nel.of(event)).void }
           } yield {
             for {
               pointer <- journal.pointer
@@ -160,7 +160,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
         s"append duplicates $name1" ignore {
 
           val seqNrs = {
-            val seqNrs = (0 to 2).foldLeft(Nel(seqNr)) { (seqNrs, _) =>
+            val seqNrs = (0 to 2).foldLeft(Nel.of(seqNr)) { (seqNrs, _) =>
               seqNrs.head.next.fold(seqNrs) { _ :: seqNrs }
             }
             seqNrs.reverse

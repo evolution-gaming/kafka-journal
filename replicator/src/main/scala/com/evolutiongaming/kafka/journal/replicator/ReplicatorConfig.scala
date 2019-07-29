@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal.replicator
 
+import cats.data.{NonEmptyList => Nel}
 import com.datastax.driver.core.ConsistencyLevel
 import com.evolutiongaming.config.ConfigHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.scassandra.{CassandraConfig, QueryConfig}
 import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
@@ -12,7 +12,7 @@ import com.typesafe.config.Config
 import scala.concurrent.duration._
 
 final case class ReplicatorConfig(
-  topicPrefixes: Nel[String] = Nel("journal"),
+  topicPrefixes: Nel[String] = Nel.of("journal"),
   topicDiscoveryInterval: FiniteDuration = 3.seconds,
   consumer: ConsumerConfig = ConsumerConfig(
     common = CommonConfig(
@@ -43,7 +43,7 @@ object ReplicatorConfig {
     val topicPrefixes = {
       val prefixes = for {
         prefixes <- get[List[String]]("topic-prefixes")
-        prefixes <- Nel.opt(prefixes)
+        prefixes <- Nel.fromList(prefixes)
       } yield prefixes
       prefixes getOrElse default.topicPrefixes
     }

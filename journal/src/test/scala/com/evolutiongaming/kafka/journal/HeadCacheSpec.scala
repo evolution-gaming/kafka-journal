@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 
+import cats.data.{NonEmptyList => Nel}
 import cats.effect.concurrent.Ref
 import cats.effect.{Concurrent, IO, Resource, Timer}
 import cats.implicits._
@@ -9,7 +10,6 @@ import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.HeadCache.Result
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer.ConsumerRecords
 import org.scalatest.{AsyncWordSpec, Matchers}
@@ -52,7 +52,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
             state  <- state
           } yield {
             state shouldEqual TestConsumer.State(
-              assigns = List(TestConsumer.Assign(topic, Nel(partition))),
+              assigns = List(TestConsumer.Assign(topic, Nel.of(partition))),
               seeks = List(TestConsumer.Seek(topic, Map((partition, 0)))),
               topics = Map((topic, List(partition))))
 
@@ -126,7 +126,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
             state  <- state
           } yield {
             state shouldEqual TestConsumer.State(
-              assigns = List(TestConsumer.Assign(topic, Nel(0))),
+              assigns = List(TestConsumer.Assign(topic, Nel.of(0))),
               seeks = List(TestConsumer.Seek(topic, Map((partition, 0)))),
               topics = Map((topic, List(partition))))
 
@@ -175,7 +175,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
             _ <- pointers.update { pointers => pointers ++ Map((partition, offsetLast)) }
           } yield {
             state shouldEqual TestConsumer.State(
-              assigns = List(TestConsumer.Assign(topic, Nel(0))),
+              assigns = List(TestConsumer.Assign(topic, Nel.of(0))),
               seeks = List(TestConsumer.Seek(topic, Map((partition, 0)))),
               topics = Map((topic, List(partition))))
 
@@ -235,7 +235,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           state <- state
           } yield {
             state shouldEqual TestConsumer.State(
-              assigns = List(TestConsumer.Assign(topic, Nel(0))),
+              assigns = List(TestConsumer.Assign(topic, Nel.of(0))),
               seeks = List(TestConsumer.Seek(topic, Map((partition, 0)))),
               topics = Map((topic, List(partition))))
             r0 shouldEqual Result.valid(JournalInfo.append(SeqNr.Min))
@@ -266,7 +266,7 @@ object HeadCacheSpec {
   val headers: Headers = Headers.Empty
 
   def appendOf(key: Key, seqNr: SeqNr): Action.Append  = {
-    Action.Append(key, timestamp, none, Nel(Event(seqNr)), metadata, headers)
+    Action.Append(key, timestamp, none, Nel.of(Event(seqNr)), metadata, headers)
   }
 
   def headCacheOf(

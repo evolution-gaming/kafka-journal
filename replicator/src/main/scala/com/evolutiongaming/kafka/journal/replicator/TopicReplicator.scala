@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
 
+import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.implicits._
@@ -18,7 +19,6 @@ import com.evolutiongaming.retry.Retry
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.kafka.journal.util.Named
 import com.evolutiongaming.kafka.journal.util.TimeHelper._
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Bytes => _, _}
 

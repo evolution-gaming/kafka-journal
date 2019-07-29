@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import com.evolutiongaming.nel.Nel
+import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.scassandra.TableName
 import org.scalatest.{FunSuite, Matchers}
 

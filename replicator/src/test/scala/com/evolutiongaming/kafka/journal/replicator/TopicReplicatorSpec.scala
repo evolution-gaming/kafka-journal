@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
 
+import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.implicits._
 import cats.{Applicative, Monoid, Parallel}
@@ -12,7 +13,6 @@ import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Meas
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.Log
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, WithSize}
 import com.evolutiongaming.skafka.{Bytes => _, Metadata => _, _}
 import org.scalatest.{Matchers, WordSpec}
@@ -43,10 +43,10 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           val topicPartition = topicPartitionOf(partition)
 
           val actions = List(
-            append("0", Nel(1)),
-            append("1", Nel(1, 2)),
-            append("0", Nel(2)),
-            append("1", Nel(3)))
+            append("0", Nel.of(1)),
+            append("1", Nel.of(1, 2)),
+            append("0", Nel.of(2)),
+            append("1", Nel.of(3)))
 
           val records = for {
             (action, idx) <- actions.zipWithIndex
@@ -54,7 +54,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             val offset = idx + 1l
             consumerRecordOf(action, topicPartition, offset)
           }
-          (topicPartition, Nel.unsafe(records))
+          (topicPartition, com.evolutiongaming.nel.Nel.unsafe(records)) // TODO Nel
         }
         ConsumerRecords(records.toMap) // TODO use ConsumerRecordsOf
       }
@@ -112,17 +112,17 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           val topicPartition = topicPartitionOf(partition)
 
           val kafkaRecords = List(
-            append("0", Nel(1)),
-            append("1", Nel(1, 2)),
-            append("0", Nel(2)),
-            append("1", Nel(3)))
+            append("0", Nel.of(1)),
+            append("1", Nel.of(1, 2)),
+            append("0", Nel.of(2)),
+            append("1", Nel.of(3)))
 
           for {
             (record, idx) <- kafkaRecords.zipWithIndex
           } yield {
             val offset = idx + 1l
             val consumerRecord = consumerRecordOf(record, topicPartition, offset)
-            ConsumerRecords(Map((topicPartition, Nel(consumerRecord))))
+            ConsumerRecords(Map((topicPartition, com.evolutiongaming.nel.Nel(consumerRecord)))) // TODO Nel
           }
         }
       } yield record
@@ -203,14 +203,14 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           val topicPartition = topicPartitionOf(partition)
 
           val kafkaRecords = List(
-            append("0", Nel(1)),
+            append("0", Nel.of(1)),
             mark("3"),
-            append("1", Nel(1, 2)),
+            append("1", Nel.of(1, 2)),
             mark("2"),
-            append("0", Nel(2)),
+            append("0", Nel.of(2)),
             mark("1"),
-            append("2", Nel(1, 2, 3)),
-            append("1", Nel(3)),
+            append("2", Nel.of(1, 2, 3)),
+            append("1", Nel.of(3)),
             mark("0"))
 
           val records = for {
@@ -219,7 +219,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             val offset = idx + 1l
             consumerRecordOf(record, topicPartition, offset)
           }
-          (topicPartition, Nel.unsafe(records))
+          (topicPartition, com.evolutiongaming.nel.Nel.unsafe(records)) // TODO Nel
         }
         ConsumerRecords(records.toMap)
       }
@@ -318,14 +318,14 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           val topicPartition = topicPartitionOf(partition)
 
           val kafkaRecords = List(
-            append("0", Nel(1)),
+            append("0", Nel.of(1)),
             mark("3"),
-            append("1", Nel(1, 2)),
+            append("1", Nel.of(1, 2)),
             mark("2"),
-            append("0", Nel(2)),
+            append("0", Nel.of(2)),
             mark("1"),
-            append("2", Nel(1, 2, 3)),
-            append("1", Nel(3)),
+            append("2", Nel.of(1, 2, 3)),
+            append("1", Nel.of(3)),
             delete("1", 2),
             mark("0"))
 
@@ -335,7 +335,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
             val offset = idx + 1l
             consumerRecordOf(record, topicPartition, offset)
           }
-          (topicPartition, Nel.unsafe(records))
+          (topicPartition, com.evolutiongaming.nel.Nel.unsafe(records)) // TODO Nel
         }
         ConsumerRecords(records.toMap)
       }
@@ -413,14 +413,14 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           val topicPartition = topicPartitionOf(partition)
 
           val kafkaRecords = List(
-            append("0", Nel(1)),
+            append("0", Nel.of(1)),
             mark("3"),
-            append("1", Nel(1, 2)),
+            append("1", Nel.of(1, 2)),
             mark("2"),
-            append("0", Nel(2)),
+            append("0", Nel.of(2)),
             mark("1"),
-            append("2", Nel(1, 2, 3)),
-            append("1", Nel(3)),
+            append("2", Nel.of(1, 2, 3)),
+            append("1", Nel.of(3)),
             delete("1", 2),
             delete("0", 5),
             delete("0", 6),
@@ -431,7 +431,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           } yield {
             val offset = idx + 1l
             val consumerRecord = consumerRecordOf(record, topicPartition, offset)
-            ConsumerRecords(Map((topicPartition, Nel(consumerRecord))))
+            ConsumerRecords(Map((topicPartition, com.evolutiongaming.nel.Nel(consumerRecord)))) // TODO Nel
           }
         }
       } yield result
@@ -521,17 +521,17 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           val topicPartition = topicPartitionOf(partition)
 
           val actions = List(
-            append("0", Nel(1)),
-            append("1", Nel(1, 2)),
-            append("0", Nel(2)),
-            append("1", Nel(3)))
+            append("0", Nel.of(1)),
+            append("1", Nel.of(1, 2)),
+            append("0", Nel.of(2)),
+            append("1", Nel.of(3)))
 
           val records = for {
             (action, offset) <- actions.zipWithIndex
           } yield {
             consumerRecordOf(action, topicPartition, offset.toLong)
           }
-          (topicPartition, Nel.unsafe(records))
+          (topicPartition, com.evolutiongaming.nel.Nel.unsafe(records)) // TODO Nel
         }
         ConsumerRecords(records.toMap)
       }

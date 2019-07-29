@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import cats._
+import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.implicits._
@@ -16,7 +17,6 @@ import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{Log, LogOf, SerialRef}
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.kafka.journal.util.EitherHelper._
-import com.evolutiongaming.nel.Nel
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecord, ConsumerRecords}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
 import com.evolutiongaming.smetrics.MeasureDuration
@@ -523,7 +523,7 @@ object HeadCache {
           } yield {
             TopicPartition(topic = topic, partition)
           }
-          consumer.assign(topicPartitions)
+          consumer.assign(Nel(topicPartitions.head, topicPartitions.tail)) // TODO Nel
         }
 
         def seek(topic: Topic, offsets: Map[Partition, Offset]) = {
@@ -671,7 +671,7 @@ object HeadCache {
 
         val partitions = for {
           partitions <- consumer.partitions(topic)
-          partitions <- Nel.opt(partitions) match {
+          partitions <- Nel.fromList(partitions.toList) match {
             case Some(a) => a.pure[F]
             case None    => NoPartitionsError.raiseError[F, Nel[Partition]]
           }
@@ -697,7 +697,7 @@ object HeadCache {
           val offset = from.get(partition).fold(Offset.Min)(_ + 1l)
           (partition, offset)
         }
-        _          <- consumer.seek(topic, offsets.toMap)
+        _          <- consumer.seek(topic, offsets.toList.toMap)
         _          <- poll.untilDefinedM
       } yield {}
     }

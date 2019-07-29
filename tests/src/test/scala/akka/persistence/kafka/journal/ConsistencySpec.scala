@@ -3,7 +3,7 @@ package akka.persistence.kafka.journal
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.persistence._
 import akka.persistence.journal.JournalSpec
-import com.evolutiongaming.nel.Nel
+import cats.data.{NonEmptyList => Nel}
 import com.typesafe.config.ConfigFactory
 import org.scalatest.Matchers
 
@@ -21,7 +21,7 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
 
     "replay events" in {
       val ref = PersistenceRef()
-      val events = Nel("event")
+      val events = Nel.of("event")
       ref.persist(events)
       ref.stop()
       recoverEvents() shouldEqual events.toList
@@ -29,11 +29,11 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
 
     "replay events in the same order" in {
       val ref = PersistenceRef()
-      val events = (1 to 100).toVector map { _.toString }
+      val events = (1 to 100).toList map { _.toString }
       for {
         group <- events.grouped(10)
       } {
-        val events = Nel.unsafe(group)
+        val events = Nel.fromListUnsafe(group)
         ref.persist(events)
       }
 
@@ -44,11 +44,11 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
 
     "replay events in the same order when half is deleted" in {
       val ref = PersistenceRef()
-      val events = (1 to 100).toVector map { _.toString }
+      val events = (1 to 100).toList map { _.toString }
       for {
         group <- events.grouped(10)
       } {
-        val events = Nel.unsafe(group)
+        val events = Nel.fromListUnsafe(group)
         ref.persist(events)
       }
 
@@ -61,11 +61,11 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
 
     "recover new entity from lengthy topic" in {
       val ref = PersistenceRef()
-      val events = (1 to 1000).toVector map { _.toString }
+      val events = (1 to 1000).toList map { _.toString }
       for {
         group <- events.grouped(10)
       } {
-        val events = Nel.unsafe(group)
+        val events = Nel.fromListUnsafe(group)
         ref.persist(events)
       }
       val state = recoverEvents("new_id")
