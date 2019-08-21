@@ -17,7 +17,7 @@ object PartitionOffset {
 
   val Empty: PartitionOffset = PartitionOffset()
 
-  implicit val EncodeImpl: EncodeRow[PartitionOffset] = new EncodeRow[PartitionOffset] {
+  implicit val EncodeRowPartitionOffset: EncodeRow[PartitionOffset] = new EncodeRow[PartitionOffset] {
 
     def apply[B <: SettableData[B]](data: B, value: PartitionOffset) = {
       data
@@ -26,13 +26,10 @@ object PartitionOffset {
     }
   }
 
-  implicit val DecodeImpl: DecodeRow[PartitionOffset] = new DecodeRow[PartitionOffset] {
-
-    def apply(data: GettableByNameData) = {
-      PartitionOffset(
-        partition = data.decode[Partition]("partition"),
-        offset = data.decode[Offset]("offset"))
-    }
+  implicit val DecodeRowPartitionOffset: DecodeRow[PartitionOffset] = (data: GettableByNameData) => {
+    PartitionOffset(
+      partition = data.decode[Partition]("partition"),
+      offset = data.decode[Offset]("offset"))
   }
 
   def apply(record: ConsumerRecord[_, _]): PartitionOffset = {

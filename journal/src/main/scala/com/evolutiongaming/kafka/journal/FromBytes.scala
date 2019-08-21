@@ -8,24 +8,16 @@ trait FromBytes[A] { self =>
 
   def apply(bytes: Bytes): A
 
-  final def map[B](f: A => B): FromBytes[B] = new FromBytes[B] {
-    def apply(bytes: Bytes) = f(self(bytes))
-  }
+  final def map[B](f: A => B): FromBytes[B] = (bytes: Bytes) => f(self(bytes))
 }
 
 object FromBytes {
 
-  implicit val BytesImpl: FromBytes[Bytes] = new FromBytes[Bytes] {
-    def apply(bytes: Bytes) = bytes
-  }
+  implicit val BytesFromBytes: FromBytes[Bytes] = (a: Bytes) => a
 
-  implicit val StrImpl: FromBytes[String] = new FromBytes[String] {
-    def apply(bytes: Bytes) = new String(bytes, UTF_8)
-  }
+  implicit val StringFromBytes: FromBytes[String] = (a: Bytes) => new String(a, UTF_8)
 
-  implicit val JsonImpl: FromBytes[JsValue] = new FromBytes[JsValue] {
-    def apply(bytes: Bytes) = Json.parse(bytes)
-  }
+  implicit val JsValueFromBytes: FromBytes[JsValue] = (a: Bytes) => Json.parse(a)
 
   def apply[A](implicit fromBytes: FromBytes[A]): FromBytes[A] = fromBytes
 

@@ -38,14 +38,14 @@ object SeqNr {
   val Max: SeqNr = SeqNr(Long.MaxValue)
   val Min: SeqNr = SeqNr(1l)
 
-  implicit val EncodeImpl: EncodeByName[SeqNr] = EncodeByName[Long].imap((seqNr: SeqNr) => seqNr.value)
+  implicit val EncodeByNameSeqNr: EncodeByName[SeqNr] = EncodeByName[Long].imap((seqNr: SeqNr) => seqNr.value)
 
-  implicit val DecodeImpl: DecodeByName[SeqNr] = DecodeByName[Long].map(value => SeqNr(value))
+  implicit val DecodeByNameSeqNr: DecodeByName[SeqNr] = DecodeByName[Long].map(value => SeqNr(value))
 
 
-  implicit val EncodeOptImpl: EncodeByName[Option[SeqNr]] = EncodeByName.opt[SeqNr]
+  implicit val EncodeByNameOptSeqNr: EncodeByName[Option[SeqNr]] = EncodeByName.opt[SeqNr]
 
-  implicit val DecodeOptImpl: DecodeByName[Option[SeqNr]] = DecodeByName[Option[Long]].map { value =>
+  implicit val DecodeByNameOptSeqNr: DecodeByName[Option[SeqNr]] = DecodeByName[Option[Long]].map { value =>
     for {
       value <- value
       seqNr <- SeqNr.opt(value)
@@ -53,18 +53,18 @@ object SeqNr {
   }
 
 
-  implicit val EncodeRowImpl: EncodeRow[SeqNr] = EncodeRow[SeqNr]("seq_nr")
+  implicit val EncodeRowSeqNr: EncodeRow[SeqNr] = EncodeRow[SeqNr]("seq_nr")
 
-  implicit val DecodeRowImpl: DecodeRow[SeqNr] = DecodeRow[SeqNr]("seq_nr")
+  implicit val DecodeRowSeqNr: DecodeRow[SeqNr] = DecodeRow[SeqNr]("seq_nr")
 
 
-  implicit val WritesImpl: Writes[SeqNr] = WritesOf[Long].imap(_.value)
+  implicit val WritesSeqNr: Writes[SeqNr] = WritesOf[Long].imap(_.value)
 
-  implicit val ReadsImpl: Reads[SeqNr] = ReadsOf[Long].mapResult { a =>
+  implicit val ReadsSeqNr: Reads[SeqNr] = ReadsOf[Long].mapResult { a =>
     SeqNr.validate(a)(JsError(_), JsSuccess(_))
   }
 
-  implicit val OrderImpl: Order[SeqNr] = new Order[SeqNr] {
+  implicit val OrderSeqNr: Order[SeqNr] = new Order[SeqNr] {
     def compare(x: SeqNr, y: SeqNr) = x compare y
   }
 

@@ -169,12 +169,12 @@ object EventsSerializer {
 
   object EventJson {
 
-    implicit val FormatImpl: OFormat[EventJson] = Json.format[EventJson]
+    implicit val FormatEventJson: OFormat[EventJson] = Json.format[EventJson]
 
 
-    implicit val NelWritesImpl: Writes[Nel[EventJson]] = nelWrites[EventJson]
+    implicit val WritesNelEventJson: Writes[Nel[EventJson]] = nelWrites[EventJson]
 
-    implicit val NelReadsImpl: Reads[Nel[EventJson]] = nelReads[EventJson]
+    implicit val ReadsNelEventJson: Reads[Nel[EventJson]] = nelReads[EventJson]
 
 
     def apply(event: Event): EventJson = {
@@ -203,6 +203,6 @@ object EventsSerializer {
   final case class PayloadJson(events: Nel[EventJson])
 
   object PayloadJson {
-    implicit val FormatImpl: OFormat[PayloadJson] = Json.format[PayloadJson]
+    implicit val OFormatPayloadJson: OFormat[PayloadJson] = Json.format[PayloadJson]
   }
 }

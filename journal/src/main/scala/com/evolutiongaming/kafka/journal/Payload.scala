@@ -37,14 +37,14 @@ object Payload {
 
     val Empty: Binary = Binary(Bytes.Empty)
 
-    implicit val ToBytesImpl: ToBytes[Binary] = ToBytes[Bytes].imap(_.value)
+    implicit val ToBytesBinary: ToBytes[Binary] = ToBytes[Bytes].imap(_.value)
 
-    implicit val FromBytesImpl: FromBytes[Binary] = FromBytes[Bytes].map(Binary(_))
+    implicit val FromBytesBinary: FromBytes[Binary] = FromBytes[Bytes].map(Binary(_))
 
 
-    implicit val EncodeImpl: EncodeByName[Binary] = EncodeByName[Bytes].imap(_.value)
+    implicit val EncodeByNameBinary: EncodeByName[Binary] = EncodeByName[Bytes].imap(_.value)
 
-    implicit val DecodeImpl: DecodeByName[Binary] = DecodeByName[Bytes].map(Binary(_))
+    implicit val DecodeByNameBinary: DecodeByName[Binary] = DecodeByName[Bytes].map(Binary(_))
 
 
     def apply[A](a: A)(implicit toBytes: ToBytes[A]): Binary = Binary(toBytes(a))
@@ -57,14 +57,14 @@ object Payload {
 
   object Text {
 
-    implicit val ToBytesImpl: ToBytes[Text] = ToBytes[String].imap(_.value)
+    implicit val ToBytesText: ToBytes[Text] = ToBytes[String].imap(_.value)
 
-    implicit val FromBytesImpl: FromBytes[Text] = FromBytes[String].map(Text(_))
+    implicit val FromBytesText: FromBytes[Text] = FromBytes[String].map(Text(_))
     
 
-    implicit val EncodeImpl: EncodeByName[Text] = EncodeByName[String].imap(_.value)
+    implicit val EncodeByNameText: EncodeByName[Text] = EncodeByName[String].imap(_.value)
 
-    implicit val DecodeImpl: DecodeByName[Text] = DecodeByName[String].map(Text(_))
+    implicit val DecodeByNameText: DecodeByName[Text] = DecodeByName[String].map(Text(_))
   }
 
 
@@ -74,19 +74,19 @@ object Payload {
 
   object Json {
 
-    implicit val ToBytesImpl: ToBytes[Json] = ToBytes[JsValue].imap(_.value)
+    implicit val ToBytesJson: ToBytes[Json] = ToBytes[JsValue].imap(_.value)
 
-    implicit val FromBytesImpl: FromBytes[Json] = FromBytes[JsValue].map(Json(_))
-
-
-    implicit val EncodeImpl: EncodeByName[Json] = EncodeByName[JsValue].imap(_.value)
-
-    implicit val DecodeImpl: DecodeByName[Json] = DecodeByName[JsValue].map(Json(_))
+    implicit val FromBytesJson: FromBytes[Json] = FromBytes[JsValue].map(Json(_))
 
 
-    implicit val WritesImpl: Writes[Json] = WritesOf[JsValue].imap(_.value)
+    implicit val EncodeByNameJson: EncodeByName[Json] = EncodeByName[JsValue].imap(_.value)
 
-    implicit val ReadsImpl: Reads[Json] = ReadsOf[JsValue].mapResult(a => JsSuccess(Json(a)))
+    implicit val DecodeByNameJson: DecodeByName[Json] = DecodeByName[JsValue].map(Json(_))
+
+
+    implicit val WritesJson: Writes[Json] = WritesOf[JsValue].imap(_.value)
+
+    implicit val ReadsJson: Reads[Json] = ReadsOf[JsValue].map(Json(_))
 
 
     def apply[A](a: A)(implicit writes: Writes[A]): Json = Json(writes.writes(a))
@@ -113,9 +113,9 @@ object PayloadType {
   }
 
 
-  implicit val WritesImpl: Writes[PayloadType] = WritesOf[String].imap(_.name)
+  implicit val WritesPayloadType: Writes[PayloadType] = WritesOf[String].imap(_.name)
 
-  implicit val ReadsImpl: Reads[PayloadType] = ReadsOf[String].mapResult { a =>
+  implicit val ReadsPayloadType: Reads[PayloadType] = ReadsOf[String].mapResult { a =>
     apply(a) match {
       case Some(a) => JsSuccess(a)
       case None    => JsError(s"No PayloadType found by $a")
@@ -136,7 +136,7 @@ object PayloadType {
   sealed abstract class BinaryOrJson extends PayloadType
 
   object BinaryOrJson {
-    implicit val ReadsImpl: Reads[BinaryOrJson] = ReadsOf[String].mapResult { a =>
+    implicit val ReadsBinaryOrJson: Reads[BinaryOrJson] = ReadsOf[String].mapResult { a =>
       apply(a) match {
         case Some(a: BinaryOrJson) => JsSuccess(a)
         case _                     => JsError(s"No PayloadType.BinaryOrJson found by $a")
@@ -148,7 +148,7 @@ object PayloadType {
   sealed trait TextOrJson extends PayloadType
 
   object TextOrJson {
-    implicit val ReadsImpl: Reads[TextOrJson] = ReadsOf[String].mapResult { a =>
+    implicit val ReadsTextOrJson: Reads[TextOrJson] = ReadsOf[String].mapResult { a =>
       apply(a) match {
         case Some(a: TextOrJson) => JsSuccess(a)
         case _                   => JsError(s"No PayloadType.TextOrJson found by $a")

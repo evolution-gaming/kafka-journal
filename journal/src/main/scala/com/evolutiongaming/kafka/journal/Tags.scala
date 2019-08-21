@@ -13,7 +13,7 @@ object Tags {
 
   val Empty: Tags = Set.empty
 
-  implicit val ToBytesImpl: ToBytes[Tags] = new ToBytes[Tags] {
+  implicit val TagsToBytes: ToBytes[Tags] = new ToBytes[Tags] {
     def apply(tags: Tags) = {
       if (tags.isEmpty) Bytes.Empty
       else {
@@ -26,7 +26,7 @@ object Tags {
     }
   }
 
-  implicit val FromBytesImpl: FromBytes[Tags] = new FromBytes[Tags] {
+  implicit val TagsFromBytes: FromBytes[Tags] = new FromBytes[Tags] {
     def apply(bytes: Bytes) = {
       if (bytes.isEmpty) Set.empty
       else {

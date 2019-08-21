@@ -18,15 +18,15 @@ object ToBytes {
 
   private val Empty = const(Array.empty)
 
-  implicit val BytesImpl: ToBytes[Bytes] = new ToBytes[Bytes] {
+  implicit val BytesToBytes: ToBytes[Bytes] = new ToBytes[Bytes] {
     def apply(a: Bytes) = a
   }
 
-  implicit val StrImpl: ToBytes[String] = new ToBytes[String] {
+  implicit val StringToBytes: ToBytes[String] = new ToBytes[String] {
     def apply(a: String) = a.getBytes(UTF_8)
   }
 
-  implicit val JsonImpl: ToBytes[JsValue] = new ToBytes[JsValue] {
+  implicit val JsValueToBytes: ToBytes[JsValue] = new ToBytes[JsValue] {
     def apply(a: JsValue) = Json.toBytes(a)
   }
 

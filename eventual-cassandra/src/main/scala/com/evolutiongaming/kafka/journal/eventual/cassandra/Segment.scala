@@ -43,14 +43,14 @@ final case class SegmentNr(value: Long) extends Ordered[SegmentNr] {
 
 object SegmentNr {
 
-  implicit val EncodeImp: EncodeByName[SegmentNr] = EncodeByName[Long].imap(_.value)
+  implicit val EncodeByNameSegmentNr: EncodeByName[SegmentNr] = EncodeByName[Long].imap(_.value)
 
-  implicit val DecodeImp: DecodeByName[SegmentNr] = DecodeByName[Long].map(SegmentNr(_))
+  implicit val DecodeByNameSegmentNr: DecodeByName[SegmentNr] = DecodeByName[Long].map(SegmentNr(_))
 
 
-  implicit val EncodeRowImpl: EncodeRow[SegmentNr] = EncodeRow[SegmentNr]("segment")
+  implicit val EncodeRowSegmentNr: EncodeRow[SegmentNr] = EncodeRow[SegmentNr]("segment")
 
-  implicit val DecodeRowImpl: DecodeRow[SegmentNr] = DecodeRow[SegmentNr]("segment")
+  implicit val DecodeRowSegmentNr: DecodeRow[SegmentNr] = DecodeRow[SegmentNr]("segment")
   
 
   def apply(seqNr: SeqNr, size: Int): SegmentNr = {

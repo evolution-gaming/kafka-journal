@@ -35,7 +35,7 @@ object JournalInfo {
 
   object NonEmpty {
 
-    implicit val SemigroupImpl: Semigroup[NonEmpty] = new Semigroup[NonEmpty] {
+    implicit val SemigroupNonEmpty: Semigroup[NonEmpty] = new Semigroup[NonEmpty] {
 
       def combine(x: NonEmpty, y: NonEmpty) = {
 

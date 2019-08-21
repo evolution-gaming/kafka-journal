@@ -18,29 +18,29 @@ object Origin {
   }
 
 
-  implicit val WritesImpl: Writes[Origin] = WritesOf[String].imap(_.value)
+  implicit val WritesOrigin: Writes[Origin] = WritesOf[String].imap(_.value)
 
-  implicit val ReadsImpl: Reads[Origin] = ReadsOf[String].mapResult(a => JsSuccess(Origin(a)))
-
-
-  implicit val EncodeImpl: EncodeByName[Origin] = EncodeByName[String].imap((b: Origin) => b.value)
-
-  implicit val DecodeImpl: DecodeByName[Origin] = DecodeByName[String].map(value => Origin(value))
+  implicit val ReadsOrigin: Reads[Origin] = ReadsOf[String].map(Origin(_))
 
 
-  implicit val EncodeOptImpl: EncodeByName[Option[Origin]] = EncodeByName.opt[Origin]
+  implicit val EncodeByNameOrigin: EncodeByName[Origin] = EncodeByName[String].imap((b: Origin) => b.value)
 
-  implicit val DecodeOptImpl: DecodeByName[Option[Origin]] = DecodeByName.opt[Origin]
-
-
-  implicit val EncodeRowImpl: EncodeRow[Origin] = EncodeRow("origin")
-
-  implicit val DecodeRowImpl: DecodeRow[Origin] = DecodeRow("origin")
+  implicit val DecodeByNameOrigin: DecodeByName[Origin] = DecodeByName[String].map(value => Origin(value))
 
 
-  implicit val EncodeRowOptImpl: EncodeRow[Option[Origin]] = EncodeRow("origin")
+  implicit val EncodeByNameOptOrigin: EncodeByName[Option[Origin]] = EncodeByName.opt[Origin]
 
-  implicit val DecodeRowOptImpl: DecodeRow[Option[Origin]] = DecodeRow("origin")
+  implicit val DecodeByNameOptOrigin: DecodeByName[Option[Origin]] = DecodeByName.opt[Origin]
+
+
+  implicit val EncodeRowOrigin: EncodeRow[Origin] = EncodeRow("origin")
+
+  implicit val DecodeRowOrigin: DecodeRow[Origin] = DecodeRow("origin")
+
+
+  implicit val EncodeRowOptOrigin: EncodeRow[Option[Origin]] = EncodeRow("origin")
+
+  implicit val DecodeRowOptOrigin: DecodeRow[Option[Origin]] = DecodeRow("origin")
 
 
   object AkkaHost {

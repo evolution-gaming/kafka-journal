@@ -20,14 +20,14 @@ object PersistentBinary {
   }
 
 
-  implicit val ToBytesImpl: ToBytes[PersistentBinary] = new ToBytes[PersistentBinary] {
+  implicit val ToBytesPersistentBinary: ToBytes[PersistentBinary] = new ToBytes[PersistentBinary] {
 
     def apply(value: PersistentBinary): Bytes = {
       codec.encode(value).require.toByteArray
     }
   }
 
-  implicit val FromBytesImpl: FromBytes[PersistentBinary] = new FromBytes[PersistentBinary] {
+  implicit val FromBytesPersistentBinary: FromBytes[PersistentBinary] = new FromBytes[PersistentBinary] {
 
     def apply(bytes: Bytes) = {
       codec.decode(BitVector.view(bytes)).require.value

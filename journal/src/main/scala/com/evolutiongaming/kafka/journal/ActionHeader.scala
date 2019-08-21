@@ -8,7 +8,7 @@ sealed abstract class ActionHeader extends Product {
 
 object ActionHeader {
 
-  implicit val FormatImpl: OFormat[ActionHeader] = {
+  implicit val FormatActionHeader: OFormat[ActionHeader] = {
 
     val AppendFormat = {
       val format = Json.format[Append]
@@ -61,9 +61,9 @@ object ActionHeader {
     }
   }
 
-  implicit val ToBytesImpl: ToBytes[ActionHeader] = ToBytes[JsValue].imap(Json.toJson(_))
+  implicit val ToBytesActionHeader: ToBytes[ActionHeader] = ToBytes[JsValue].imap(Json.toJson(_))
 
-  implicit val FromBytesImpl: FromBytes[ActionHeader] = FromBytes[JsValue].map(_.as[ActionHeader])
+  implicit val FromBytesActionHeader: FromBytes[ActionHeader] = FromBytes[JsValue].map(_.as[ActionHeader])
 
 
   sealed abstract class AppendOrDelete extends ActionHeader

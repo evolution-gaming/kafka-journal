@@ -440,7 +440,7 @@ object HeadCache {
 
     object Entry {
 
-      implicit val SemigroupImpl: Semigroup[Entry] = new Semigroup[Entry] {
+      implicit val SemigroupEntry: Semigroup[Entry] = new Semigroup[Entry] {
 
         def combine(x: Entry, y: Entry) = {
           val offset = x.offset max y.offset
@@ -459,7 +459,7 @@ object HeadCache {
 
     object PartitionEntry {
 
-      implicit val SemigroupImpl: Semigroup[PartitionEntry] = new Semigroup[PartitionEntry] {
+      implicit val SemigroupPartitionEntry: Semigroup[PartitionEntry] = new Semigroup[PartitionEntry] {
 
         def combine(x: PartitionEntry, y: PartitionEntry) = {
           val entries = x.entries combine y.entries

@@ -45,17 +45,13 @@ object PlayJsonHelper {
 
   implicit class WritesOps[A](val self: Writes[A]) extends AnyVal {
 
-    final def imap[B](f: B => A): Writes[B] = new Writes[B] {
-      def writes(b: B) = self.writes(f(b))
-    }
+    final def imap[B](f: B => A): Writes[B] = (b: B) => self.writes(f(b))
   }
 
 
   implicit class ReadsOps[A](val self: Reads[A]) extends AnyVal {
 
-    final def mapResult[B](f: A => JsResult[B]): Reads[B] = new Reads[B] {
-      def reads(json: JsValue) = self.reads(json).flatMap(f)
-    }
+    final def mapResult[B](f: A => JsResult[B]): Reads[B] = (a: JsValue) => self.reads(a).flatMap(f)
   }
 
 
