@@ -4,7 +4,6 @@ import java.time.Instant
 
 import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.kafka.journal.EventsSerializer.EventsToPayload
-import com.evolutiongaming.skafka.{Offset, Partition}
 
 sealed abstract class Action extends Product {
 
@@ -85,12 +84,4 @@ object Action {
       Mark(key, timestamp, ActionHeader.Mark(id, origin))
     }
   }
-}
-
-
-final case class ActionRecord[+A <: Action](action: A, partitionOffset: PartitionOffset) { self =>
-
-  def offset: Offset = partitionOffset.offset
-
-  def partition: Partition = partitionOffset.partition
 }
