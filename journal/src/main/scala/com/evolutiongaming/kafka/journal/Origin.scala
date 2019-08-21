@@ -6,6 +6,7 @@ import com.evolutiongaming.kafka.journal.PlayJsonHelper._
 import play.api.libs.json._
 
 final case class Origin(value: String) extends AnyVal {
+
   override def toString = value
 }
 
@@ -18,7 +19,7 @@ object Origin {
   }
 
 
-  implicit val WritesOrigin: Writes[Origin] = WritesOf[String].imap(_.value)
+  implicit val WritesOrigin: Writes[Origin] = WritesOf[String].contramap(_.value)
 
   implicit val ReadsOrigin: Reads[Origin] = ReadsOf[String].map(Origin(_))
 

@@ -39,13 +39,7 @@ object PlayJsonHelper {
 
 
   implicit def nelWrites[A](implicit writes: Writes[List[A]]): Writes[Nel[A]] = {
-    writes.imap(_.toList)
-  }
-
-
-  implicit class WritesOps[A](val self: Writes[A]) extends AnyVal {
-
-    final def imap[B](f: B => A): Writes[B] = (b: B) => self.writes(f(b))
+    writes.contramap(_.toList)
   }
 
 
@@ -59,7 +53,7 @@ object PlayJsonHelper {
 
     def bimap[B](to: B => A)(from: A => JsResult[B]): Format[B] = {
       val reads = self.mapResult(from)
-      val writes = self.imap(to)
+      val writes = self.contramap(to)
       Format(reads, writes)
     }
   }

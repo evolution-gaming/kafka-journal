@@ -84,7 +84,7 @@ object Payload {
     implicit val DecodeByNameJson: DecodeByName[Json] = DecodeByName[JsValue].map(Json(_))
 
 
-    implicit val WritesJson: Writes[Json] = WritesOf[JsValue].imap(_.value)
+    implicit val WritesJson: Writes[Json] = WritesOf[JsValue].contramap(_.value)
 
     implicit val ReadsJson: Reads[Json] = ReadsOf[JsValue].map(Json(_))
 
@@ -113,7 +113,7 @@ object PayloadType {
   }
 
 
-  implicit val WritesPayloadType: Writes[PayloadType] = WritesOf[String].imap(_.name)
+  implicit val WritesPayloadType: Writes[PayloadType] = WritesOf[String].contramap(_.name)
 
   implicit val ReadsPayloadType: Reads[PayloadType] = ReadsOf[String].mapResult { a =>
     apply(a) match {
