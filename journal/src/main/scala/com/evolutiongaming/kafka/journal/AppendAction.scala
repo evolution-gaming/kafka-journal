@@ -6,19 +6,21 @@ import cats.~>
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 
 trait AppendAction[F[_]] {
+  
   def apply(action: Action): F[PartitionOffset]
 }
 
 object AppendAction {
 
   def apply[F[_] : Sync](producer: Journal.Producer[F]): AppendAction[F] = {
-    new AppendAction[F] {
-      def apply(action: Action) = {
-        val producerRecord = action.toProducerRecord
-        producer.send(producerRecord).handleErrorWith { cause =>
-          val error = JournalError(s"failed to append $action", cause.some)
-          error.raiseError[F, PartitionOffset]
-        }
+    action: Action => {
+      val partitionOffset = for {
+        producerRecord  <- Sync[F].delay { action.toProducerRecord }
+        partitionOffset <- producer.send(producerRecord)
+      } yield partitionOffset
+      partitionOffset.handleErrorWith { cause =>
+        val error = JournalError(s"failed to append $action", cause.some)
+        error.raiseError[F, PartitionOffset]
       }
     }
   }
