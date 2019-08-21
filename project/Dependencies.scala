@@ -19,7 +19,7 @@ object Dependencies {
   val hostname             = "com.evolutiongaming"    %% "hostname"              % "0.1.1"
   val scassandra           = "com.evolutiongaming"    %% "scassandra"            % "1.1.1"
   val `cassandra-sync`     = "com.evolutiongaming"    %% "cassandra-sync"        % "1.0.1"
-  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "0.0.23"
+  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "0.0.25"
   val random               = "com.evolutiongaming"    %% "random"                % "0.0.3"
   val retry                = "com.evolutiongaming"    %% "retry"                 % "0.0.3"
   val sstream              = "com.evolutiongaming"    %% "sstream"               % "0.0.1"
@@ -28,7 +28,7 @@ object Dependencies {
   object Cats {
     private val version = "1.6.1"
     val core   = "org.typelevel" %% "cats-core"   % version
-    val effect = "org.typelevel" %% "cats-effect" % "1.3.1"
+    val effect = "org.typelevel" %% "cats-effect" % "1.4.0"
   }
 
   object Logback {
@@ -38,13 +38,13 @@ object Dependencies {
   }
 
   object Slf4j {
-    private val version = "1.7.26"
+    private val version = "1.7.28"
     val api                = "org.slf4j" % "slf4j-api"        % version
     val `log4j-over-slf4j` = "org.slf4j" % "log4j-over-slf4j" % version
   }
 
   object Akka {
-    private val version = "2.5.23"
+    private val version = "2.5.25"
     val actor             = "com.typesafe.akka" %% "akka-actor"           % version
     val testkit           = "com.typesafe.akka" %% "akka-testkit"         % version
     val stream            = "com.typesafe.akka" %% "akka-stream"          % version
