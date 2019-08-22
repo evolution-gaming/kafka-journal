@@ -8,7 +8,7 @@ import cats.effect.{Clock, Resource}
 import cats.implicits._
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.EventsSerializer._
-import com.evolutiongaming.kafka.journal.SeqNr.syntax._
+import com.evolutiongaming.kafka.journal.SeqNr.implicits._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.catshelper.ClockHelper._

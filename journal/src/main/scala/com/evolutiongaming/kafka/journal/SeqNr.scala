@@ -95,7 +95,7 @@ object SeqNr {
   private def invalid(value: Long) = s"invalid SeqNr $value, it must be greater than 0"
 
 
-  object syntax {
+  object implicits {
 
     implicit class SeqNrLongOps(val self: Long) extends AnyVal {
       def toSeqNr: SeqNr = SeqNr(self)

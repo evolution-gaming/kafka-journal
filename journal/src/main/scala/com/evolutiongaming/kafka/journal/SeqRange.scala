@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.data.{NonEmptyList => Nel}
-import com.evolutiongaming.kafka.journal.SeqNr.syntax._
+import com.evolutiongaming.kafka.journal.SeqNr.implicits._
 import play.api.libs.json.{Json, OFormat}
 
 import scala.annotation.tailrec
