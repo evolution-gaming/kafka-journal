@@ -4,7 +4,7 @@ import java.nio.charset.StandardCharsets.UTF_8
 
 import play.api.libs.json.{JsValue, Json}
 import scodec.Decoder
-import scodec.bits.BitVector
+import scodec.bits.{BitVector, ByteVector}
 
 trait FromBytes[A] { self =>
 
@@ -21,11 +21,12 @@ object FromBytes {
 
   implicit val JsValueFromBytes: FromBytes[JsValue] = (a: Bytes) => Json.parse(a)
 
+  implicit val BytesVectorToBytes: FromBytes[ByteVector] = (a: Bytes) => ByteVector.view(a)
+
+
   def apply[A](implicit fromBytes: FromBytes[A]): FromBytes[A] = fromBytes
 
-  def const[A](a: A): FromBytes[A] = new FromBytes[A] {
-    def apply(bytes: Bytes) = a
-  }
+  def const[A](a: A): FromBytes[A] = (_: Bytes) => a
 
 
   implicit def decoderFromBytes[A](implicit decoder: Decoder[A]): FromBytes[A] = {

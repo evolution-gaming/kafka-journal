@@ -9,6 +9,7 @@ import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.serialization.{SerializedMsgConverter, SerializedMsgExt}
 import play.api.libs.json.{JsString, JsValue, Json}
+import scodec.bits.ByteVector
 
 trait EventSerializer[F[_]] {
 
@@ -41,7 +42,7 @@ object EventSerializer {
         val serialized = serialisation.toMsg(payload)
         val persistent = PersistentBinary(serialized, persistentRepr)
         val bytes = persistent.toBytes
-        Payload.binary(bytes)
+        Payload.binary(ByteVector.view(bytes))
       }
 
       def json(payload: JsValue, payloadType: Option[PayloadType.TextOrJson] = None) = {
@@ -78,8 +79,8 @@ object EventSerializer {
         _.pure[F]
       }
 
-      def binary(payload: Bytes) = {
-        val persistent = payload.fromBytes[PersistentBinary]
+      def binary(payload: ByteVector) = {
+        val persistent = payload.toArray.fromBytes[PersistentBinary]
         val anyRef = serialisation.fromMsg(persistent.payload).get
         PersistentRepr(
           payload = anyRef,

@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json.JsString
+import scodec.bits.ByteVector
 
 class PayloadSpec extends FunSuite with Matchers {
 
@@ -10,14 +11,10 @@ class PayloadSpec extends FunSuite with Matchers {
   }
 
   test("apply binary") {
-    Payload(Bytes.Empty) shouldEqual Payload.binary(Bytes.Empty)
+    Payload(ByteVector.empty) shouldEqual Payload.binary(ByteVector.empty)
   }
 
   test("apply json") {
     Payload(JsString("json")) shouldEqual Payload.json(JsString("json"))
-  }
-
-  test("toString") {
-    Payload.binary("test").toString shouldEqual "Binary(4)"
   }
 }

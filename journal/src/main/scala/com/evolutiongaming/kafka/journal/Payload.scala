@@ -15,46 +15,40 @@ object Payload {
 
   def apply(value: String): Payload = text(value)
 
-  def apply(value: Bytes): Payload = binary(value)
+  def apply(value: ByteVector): Payload = binary(value)
 
   def apply(value: JsValue): Payload = json(value)
 
 
   def text(value: String): Payload = Text(value)
 
-  def binary[A](value: A)(implicit toBytes: ToBytes[A]): Payload = Binary(toBytes(value))
+  def binary(value: ByteVector): Payload = Binary(value)
 
   def json[A](value: A)(implicit writes: Writes[A]): Payload = Json(value)
 
 
-  // TODO replace with scodec
-  final case class Binary(value: Bytes) extends Payload {
+  final case class Binary(value: ByteVector) extends Payload {
 
     def payloadType = PayloadType.Binary
 
-    def size: Int = value.length
-
-    override def toString = s"$productPrefix($size)"
+    def size: Long = value.length
   }
 
   object Binary {
 
-    val Empty: Binary = Binary(Bytes.Empty)
+    val Empty: Binary = Binary(ByteVector.empty)
 
-    implicit val ToBytesBinary: ToBytes[Binary] = ToBytes[Bytes].imap(_.value)
+    implicit val ToBytesBinary: ToBytes[Binary] = ToBytes[ByteVector].imap(_.value)
 
-    implicit val FromBytesBinary: FromBytes[Binary] = FromBytes[Bytes].map(Binary(_))
-
-
-    implicit val EncodeByNameBinary: EncodeByName[Binary] = EncodeByName[Bytes].imap(_.value)
-
-    implicit val DecodeByNameBinary: DecodeByName[Binary] = DecodeByName[Bytes].map(Binary(_))
+    implicit val FromBytesBinary: FromBytes[Binary] = FromBytes[ByteVector].map(Binary(_))
 
 
-    implicit val CodecBinary: Codec[Binary] = bytes.xmap[Binary](a => Binary(a.toArray), a => ByteVector(a.value))
+    implicit val EncodeByNameBinary: EncodeByName[Binary] = EncodeByName[Bytes].imap(_.value.toArray)
+
+    implicit val DecodeByNameBinary: DecodeByName[Binary] = DecodeByName[Bytes].map(a => Binary(ByteVector.view(a)))
 
 
-    def apply[A](a: A)(implicit toBytes: ToBytes[A]): Binary = Binary(toBytes(a))
+    implicit val CodecBinary: Codec[Binary] = bytes.as[Binary]
   }
 
 

@@ -26,7 +26,7 @@ object PlayJsonHelper {
     }
     val toBytes = (a: JsValue) => {
       val bytes = Json.toBytes(a)
-      val byteVector = ByteVector(bytes)
+      val byteVector = ByteVector.view(bytes)
       Attempt.successful(byteVector)
     }
     codecs.bytes.exmap(fromBytes, toBytes)

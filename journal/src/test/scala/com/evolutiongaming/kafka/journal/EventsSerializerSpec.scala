@@ -4,12 +4,10 @@ import java.io.FileOutputStream
 
 import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.kafka.journal.EventsSerializer.{EventsFromPayload, EventsToPayload}
-import com.evolutiongaming.kafka.journal.FixEquality.Implicits._
 import org.scalatest.{FunSuite, Matchers}
+import scodec.bits.ByteVector
 
 class EventsSerializerSpec extends FunSuite with Matchers {
-
-  private implicit val fixEquality = FixEquality.array[Byte]()
 
   def event(seqNr: Int, payload: Option[Payload] = None): Event = {
     val tags = (0 to seqNr).map(_.toString).toSet
@@ -20,12 +18,14 @@ class EventsSerializerSpec extends FunSuite with Matchers {
     event(seqNr, Some(payload))
   }
 
+  def binary(a: String) = PayloadBinaryFromStr(a)
+
   for {
     (name, payloadType, events) <- List(
       ("empty", PayloadType.Json, Nel.of(
         event(1))),
       ("binary", PayloadType.Binary, Nel.of(
-        event(1, Payload.binary("payload")))),
+        event(1, binary("payload")))),
       ("text", PayloadType.Json, Nel.of(
         event(1, Payload.text(""" {"key":"value"} """)))),
       ("json", PayloadType.Json, Nel.of(
@@ -34,8 +34,8 @@ class EventsSerializerSpec extends FunSuite with Matchers {
         event(1),
         event(2))),
       ("binary-many", PayloadType.Binary, Nel.of(
-        event(1, Payload.binary("1")),
-        event(2, Payload.binary("2")))),
+        event(1, binary("1")),
+        event(2, binary("2")))),
       ("text-many", PayloadType.Json, Nel.of(
         event(1, Payload.text("1")),
         event(2, Payload.text("2")))),
@@ -44,18 +44,18 @@ class EventsSerializerSpec extends FunSuite with Matchers {
         event(2, Payload.json("2")))),
       ("empty-binary-text-json", PayloadType.Binary, Nel.of(
         event(1),
-        event(2, Payload.binary("binary")),
+        event(2, binary("binary")),
         event(3, Payload.text("text")),
         event(4, Payload.json("json")))))
   } {
 
     test(s"toBytes & fromBytes, events: $name") {
 
-      def fromFile(path: String) = BytesOf(getClass, path)
+      def fromFile(path: String) = ByteVector.view(BytesOf(getClass, path))
 
-      def verify(payload: Bytes, payloadType: PayloadType.BinaryOrJson) = {
+      def verify(payload: ByteVector, payloadType: PayloadType.BinaryOrJson) = {
         val actual = EventsFromPayload(Payload.Binary(payload), payloadType)
-        actual.fix shouldEqual events.fix
+        actual shouldEqual events
       }
 
       val (payload, payloadTypeActual) = EventsToPayload(events)

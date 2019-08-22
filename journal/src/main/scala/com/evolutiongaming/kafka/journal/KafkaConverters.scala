@@ -6,6 +6,7 @@ import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
 import com.evolutiongaming.skafka.Header
 import com.evolutiongaming.skafka.consumer.ConsumerRecord
 import com.evolutiongaming.skafka.producer.ProducerRecord
+import scodec.bits.ByteVector
 
 object KafkaConverters {
 
@@ -20,6 +21,7 @@ object KafkaConverters {
 
   implicit class ActionOps(val self: Action) extends AnyVal {
 
+    // TODO use BytesVector
     def toProducerRecord: ProducerRecord[Id, Bytes] = {
       val key = self.key
       val actionHeader = self.header
@@ -42,7 +44,7 @@ object KafkaConverters {
 
       ProducerRecord(
         topic = key.topic,
-        value = payload,
+        value = payload.map(_.toArray),
         key = Some(key.id),
         timestamp = Some(self.timestamp),
         headers = header :: headers)
@@ -78,7 +80,7 @@ object KafkaConverters {
                 val value = header.value.fromBytes[String]
                 (header.key, value)
               }
-              val payload = Payload.Binary(value.value)
+              val payload = Payload.Binary(ByteVector.view(value.value))
               Action.Append(key, timestamp, header, payload, headers.toMap)
             }
           case header: ActionHeader.Delete => Some(Action.Delete(key, timestamp, header))

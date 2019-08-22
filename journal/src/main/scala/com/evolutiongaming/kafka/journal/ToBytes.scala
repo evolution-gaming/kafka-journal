@@ -4,41 +4,34 @@ import java.nio.charset.StandardCharsets.UTF_8
 
 import play.api.libs.json.{JsValue, Json}
 import scodec.Encoder
+import scodec.bits.ByteVector
 
 // TODO add F
 trait ToBytes[-A] { self =>
 
   def apply(a: A): Bytes
 
-  final def imap[B](f: B => A): ToBytes[B] = new ToBytes[B] {
-    def apply(b: B) = self(f(b))
-  }
+  final def imap[B](f: B => A): ToBytes[B] = (b: B) => self(f(b))
 }
 
 object ToBytes {
 
   private val Empty = const(Array.empty)
 
-  implicit val BytesToBytes: ToBytes[Bytes] = new ToBytes[Bytes] {
-    def apply(a: Bytes) = a
-  }
+  implicit val BytesToBytes: ToBytes[Bytes] = (a: Bytes) => a
 
-  implicit val StringToBytes: ToBytes[String] = new ToBytes[String] {
-    def apply(a: String) = a.getBytes(UTF_8)
-  }
+  implicit val StringToBytes: ToBytes[String] = (a: String) => a.getBytes(UTF_8)
 
-  implicit val JsValueToBytes: ToBytes[JsValue] = new ToBytes[JsValue] {
-    def apply(a: JsValue) = Json.toBytes(a)
-  }
+  implicit val JsValueToBytes: ToBytes[JsValue] = (a: JsValue) => Json.toBytes(a)
+
+  implicit val BytesVectorToBytes: ToBytes[ByteVector] = _.toArray
 
 
   def apply[A](implicit toBytes: ToBytes[A]): ToBytes[A] = toBytes
 
   def empty[A]: ToBytes[A] = Empty
 
-  def const[A](bytes: Bytes): ToBytes[A] = new ToBytes[A] {
-    def apply(a: A) = bytes
-  }
+  def const[A](bytes: Bytes): ToBytes[A] = (_: A) => bytes
 
 
   implicit def encoderToBytes[A](implicit encoder: Encoder[A]): ToBytes[A] = (a: A) => encoder.encode(a).require.toByteArray

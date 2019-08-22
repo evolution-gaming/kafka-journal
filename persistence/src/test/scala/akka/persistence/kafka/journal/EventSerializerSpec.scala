@@ -4,15 +4,13 @@ import java.io.FileOutputStream
 
 import akka.persistence.PersistentRepr
 import akka.persistence.serialization.Snapshot
-import com.evolutiongaming.kafka.journal.FixEquality.Implicits._
 import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
 import com.evolutiongaming.kafka.journal._
 import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json.{JsString, JsValue}
+import scodec.bits.ByteVector
 
 class EventSerializerSpec extends FunSuite with ActorSuite with Matchers {
-
-  private implicit val fixEquality = FixEquality.array[Byte]()
 
   for {
     (name, payloadType, payload) <- List(
@@ -44,7 +42,7 @@ class EventSerializerSpec extends FunSuite with ActorSuite with Matchers {
 
       val bytes = BytesOf(getClass, name)
       persistentPayload match {
-        case payload: Payload.Binary => payload.value.fix shouldEqual bytes.fix
+        case payload: Payload.Binary => payload.value shouldEqual ByteVector.view(bytes)
         case payload: Payload.Text   => payload.value shouldEqual bytes.fromBytes[String]
         case payload: Payload.Json   => payload.value shouldEqual bytes.fromBytes[JsValue]
       }

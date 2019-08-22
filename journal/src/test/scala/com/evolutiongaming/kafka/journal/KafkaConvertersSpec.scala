@@ -42,11 +42,14 @@ class KafkaConvertersSpec extends FunSuite with Matchers {
     Metadata.Empty,
     Metadata(Json.obj(("key", "value")).some))
 
-  private val payloads = List(
-    Payload.text("text").some,
-    Payload.json(Json.obj(("key", "value"))).some,
-    Payload.binary("bytes").some,
-    none[Payload])
+  private val payloads = {
+    def binary(a: String) = PayloadBinaryFromStr(a)
+    List(
+      Payload.text("text").some,
+      Payload.json(Json.obj(("key", "value"))).some,
+      binary("bytes").some,
+      none[Payload])
+  }
 
   private val events = for {
     tags    <- List(Tags.Empty, Tags("tag"))

@@ -145,7 +145,7 @@ object TopicReplicator { self =>
 
         def append(partitionOffset: PartitionOffset, records: Nel[ActionRecord[Action.Append]]) = {
 
-          val bytes = records.foldLeft(0) { case (bytes, record) => bytes + record.action.payload.size }
+          val bytes = records.foldLeft(0L) { case (bytes, record) => bytes + record.action.payload.size }
 
           val events = for {
             record <- records
@@ -435,7 +435,7 @@ object TopicReplicator { self =>
   trait Metrics[F[_]] {
     import Metrics._
 
-    def append(events: Int, bytes: Int, measurements: Measurements): F[Unit]
+    def append(events: Int, bytes: Long, measurements: Measurements): F[Unit]
 
     def delete(measurements: Measurements): F[Unit]
 
@@ -450,7 +450,7 @@ object TopicReplicator { self =>
 
     def const[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
 
-      def append(events: Int, bytes: Int, measurements: Measurements) = unit
+      def append(events: Int, bytes: Long, measurements: Measurements) = unit
 
       def delete(measurements: Measurements) = unit
 
@@ -533,7 +533,7 @@ object TopicReplicator { self =>
 
           new TopicReplicator.Metrics[F] {
 
-            def append(events: Int, bytes: Int, measurements: Measurements) = {
+            def append(events: Int, bytes: Long, measurements: Measurements) = {
               val partition = measurements.partition.toString
               for {
                 _ <- observeMeasurements("append", measurements)

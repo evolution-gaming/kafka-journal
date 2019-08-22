@@ -6,6 +6,7 @@ import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
 import com.evolutiongaming.kafka.journal.PlayJsonHelper._
 import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
 import play.api.libs.json._
+import scodec.bits.ByteVector
 
 import scala.annotation.tailrec
 
@@ -35,13 +36,15 @@ object EventsSerializer {
       loop(events.toList, Nil) match {
         case Nil =>
           val bytes = events.toBytes
-          (Payload.Binary(bytes), PayloadType.Binary)
+          val byteVector = ByteVector.view(bytes)
+          (Payload.Binary(byteVector), PayloadType.Binary)
 
         case head :: tail =>
           val payload = PayloadJson(Nel(head, tail))
           val json = Json.toJson(payload)
           val bytes = json.toBytes
-          (Payload.Binary(bytes), PayloadType.Json)
+          val byteVector = ByteVector.view(bytes)
+          (Payload.Binary(byteVector), PayloadType.Json)
       }
     }
   }
@@ -51,9 +54,9 @@ object EventsSerializer {
 
     def apply(payload: Payload.Binary, payloadType: PayloadType.BinaryOrJson): Nel[Event] = {
       payloadType match {
-        case PayloadType.Binary => payload.value.fromBytes[Nel[Event]]
+        case PayloadType.Binary => payload.value.toArray.fromBytes[Nel[Event]] // TODO
         case PayloadType.Json   =>
-          val json = payload.value.fromBytes[JsValue]
+          val json = payload.value.toArray.fromBytes[JsValue]
           val payloadJson = json.as[PayloadJson]
           for {
             event <- payloadJson.events

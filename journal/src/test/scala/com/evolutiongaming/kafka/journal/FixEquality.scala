@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.data.{NonEmptyList => Nel}
+import scodec.bits.ByteVector
 
 import scala.collection.concurrent.TrieMap
 
@@ -13,7 +14,7 @@ object FixEquality {
 
   implicit def payloadImpl(implicit F: FixEquality[Bytes]): FixEquality[Payload] = new FixEquality[Payload] {
     def apply(a: Payload) = a match {
-      case a: Payload.Binary => a.copy(value = F(a.value))
+      case a: Payload.Binary => a.copy(value = ByteVector.view(F(a.value.toArray)))
       case a                 => a
     }
   }
