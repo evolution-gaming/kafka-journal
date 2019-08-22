@@ -6,6 +6,7 @@ import java.nio.ByteBuffer
 import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
 import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
 import com.evolutiongaming.kafka.journal.util.ByteBufferHelper._
+import scodec.{Codec, codecs}
 
 import scala.annotation.tailrec
 
@@ -17,7 +18,7 @@ object Tags {
     def apply(tags: Tags) = {
       if (tags.isEmpty) Bytes.Empty
       else {
-        val bytes = tags.map(_.toBytes)
+        val bytes = tags.toList.map(_.toBytes)
         val length = bytes.foldLeft(0) { (length, bytes) => length + IntJ.BYTES + bytes.length }
         val buffer = ByteBuffer.allocate(length)
         bytes.foreach(buffer.writeBytes)
@@ -44,6 +45,11 @@ object Tags {
         loop(Set.empty)
       }
     }
+  }
+
+  implicit val CodecTags: Codec[Tags] = {
+    val codec = codecs.list(codecs.utf8_32).xmap[Tags](_.toSet, _.toList)
+    codecs.variableSizeBytes(codecs.int32, codec)
   }
 
   def apply(tag: Tag, tags: Tag*): Tags = tags.toSet[Tag] + tag

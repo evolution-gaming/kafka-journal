@@ -3,6 +3,8 @@ package com.evolutiongaming.kafka.journal
 import java.nio.charset.StandardCharsets.UTF_8
 
 import play.api.libs.json.{JsValue, Json}
+import scodec.Decoder
+import scodec.bits.BitVector
 
 trait FromBytes[A] { self =>
 
@@ -23,6 +25,14 @@ object FromBytes {
 
   def const[A](a: A): FromBytes[A] = new FromBytes[A] {
     def apply(bytes: Bytes) = a
+  }
+
+
+  implicit def decoderFromBytes[A](implicit decoder: Decoder[A]): FromBytes[A] = {
+    a: Bytes => {
+      val bitVector = BitVector(a)
+      decoder.decode(bitVector).require.value
+    }
   }
 
 

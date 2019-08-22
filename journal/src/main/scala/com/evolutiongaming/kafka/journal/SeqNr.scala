@@ -4,6 +4,7 @@ import cats.kernel.Order
 import com.evolutiongaming.kafka.journal.PlayJsonHelper._
 import com.evolutiongaming.scassandra._
 import play.api.libs.json._
+import scodec.{Attempt, Codec, Err, codecs}
 
 final case class SeqNr(value: Long) extends Ordered[SeqNr] {
 
@@ -66,6 +67,13 @@ object SeqNr {
 
   implicit val OrderSeqNr: Order[SeqNr] = new Order[SeqNr] {
     def compare(x: SeqNr, y: SeqNr) = x compare y
+  }
+
+
+  implicit val CodecSeqNr: Codec[SeqNr] = {
+    val to = (a: Long) => SeqNr.validate(a)(a => Attempt.failure(Err(a)), Attempt.successful)
+    val from = (a: SeqNr) => Attempt.successful(a.value)
+    codecs.int64.exmap(to, from)
   }
 
   

@@ -4,7 +4,7 @@ import akka.persistence.PersistentRepr
 import com.evolutiongaming.kafka.journal.{Bytes, FromBytes, ToBytes}
 import com.evolutiongaming.serialization.SerializedMsg
 import scodec.bits.BitVector
-import scodec.codecs._
+import scodec.{Codec, codecs}
 
 final case class PersistentBinary(
   manifest: Option[String],
@@ -14,23 +14,23 @@ final case class PersistentBinary(
 
 object PersistentBinary {
 
-  private val codec = {
-    val codecSerializedMsg = (int32 :: utf8_32 :: variableSizeBytes(int32, bytes)).as[SerializedMsg]
-    (optional(bool, utf8_32) :: utf8_32 :: codecSerializedMsg).as[PersistentBinary]
+  implicit val CodecPersistentBinary: Codec[PersistentBinary] = {
+    val codec = codecs.optional(codecs.bool, codecs.utf8_32) :: codecs.utf8_32 :: Codec[SerializedMsg]
+    codec.as[PersistentBinary]
   }
 
 
   implicit val ToBytesPersistentBinary: ToBytes[PersistentBinary] = new ToBytes[PersistentBinary] {
 
     def apply(value: PersistentBinary): Bytes = {
-      codec.encode(value).require.toByteArray
+      CodecPersistentBinary.encode(value).require.toByteArray
     }
   }
 
   implicit val FromBytesPersistentBinary: FromBytes[PersistentBinary] = new FromBytes[PersistentBinary] {
 
     def apply(bytes: Bytes) = {
-      codec.decode(BitVector.view(bytes)).require.value
+      CodecPersistentBinary.decode(BitVector.view(bytes)).require.value
     }
   }
 

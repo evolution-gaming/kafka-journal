@@ -3,6 +3,9 @@ package com.evolutiongaming.kafka.journal
 import com.evolutiongaming.kafka.journal.PlayJsonHelper._
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
 import play.api.libs.json._
+import scodec.Codec
+import scodec.bits.ByteVector
+import scodec.codecs.{bytes, utf8}
 
 sealed abstract class Payload extends Product {
   def payloadType: PayloadType
@@ -24,6 +27,7 @@ object Payload {
   def json[A](value: A)(implicit writes: Writes[A]): Payload = Json(value)
 
 
+  // TODO replace with scodec
   final case class Binary(value: Bytes) extends Payload {
 
     def payloadType = PayloadType.Binary
@@ -47,6 +51,9 @@ object Payload {
     implicit val DecodeByNameBinary: DecodeByName[Binary] = DecodeByName[Bytes].map(Binary(_))
 
 
+    implicit val CodecBinary: Codec[Binary] = bytes.xmap[Binary](a => Binary(a.toArray), a => ByteVector(a.value))
+
+
     def apply[A](a: A)(implicit toBytes: ToBytes[A]): Binary = Binary(toBytes(a))
   }
 
@@ -65,6 +72,9 @@ object Payload {
     implicit val EncodeByNameText: EncodeByName[Text] = EncodeByName[String].imap(_.value)
 
     implicit val DecodeByNameText: DecodeByName[Text] = DecodeByName[String].map(Text(_))
+
+
+    implicit val CodecText: Codec[Text] = utf8.as[Payload.Text]
   }
 
 
@@ -87,6 +97,9 @@ object Payload {
     implicit val WritesJson: Writes[Json] = WritesOf[JsValue].contramap(_.value)
 
     implicit val ReadsJson: Reads[Json] = ReadsOf[JsValue].map(Json(_))
+
+
+    implicit val CodecJson: Codec[Json] = JsValueCodec.as[Payload.Json]
 
 
     def apply[A](a: A)(implicit writes: Writes[A]): Json = Json(writes.writes(a))

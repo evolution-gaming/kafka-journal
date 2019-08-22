@@ -1,13 +1,11 @@
 package com.evolutiongaming.kafka.journal
 
-import java.lang.{Byte => ByteJ, Integer => IntJ, Long => LongJ}
-import java.nio.ByteBuffer
-
 import cats.data.{NonEmptyList => Nel}
-import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
+import cats.implicits._
 import com.evolutiongaming.kafka.journal.Tags._
-import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
-import com.evolutiongaming.kafka.journal.util.ByteBufferHelper._
+import com.evolutiongaming.kafka.journal.util.ScodecHelper._
+import scodec.bits.BitVector
+import scodec.{Attempt, Codec, Err, codecs}
 
 final case class Event(
   seqNr: SeqNr,
@@ -16,63 +14,48 @@ final case class Event(
 
 object Event {
 
-  implicit val EventToBytes: ToBytes[Event] = new ToBytes[Event] {
+  implicit val CodecEvent: Codec[Event] = {
+    val payloadCodec = {
 
-    def apply(event: Event): Bytes = {
-      val (payloadType, bytes) = event.payload match {
-        case None          => (0: Byte, Bytes.Empty)
-        case Some(payload) => payload match {
-          case payload: Payload.Binary => (1: Byte, payload.toBytes)
-          case payload: Payload.Json   => (2: Byte, payload.toBytes)
-          case payload: Payload.Text   => (3: Byte, payload.toBytes)
-        }
+      val errEmpty = Err("")
+
+      def codecSome[A](implicit codec: Codec[A]) = {
+        codec.exmap[Option[A]](
+          a => Attempt.successful(a.some),
+          a => Attempt.fromOption(a, errEmpty))
       }
-      val tags = event.tags.toBytes
-      val buffer = ByteBuffer.allocate(LongJ.BYTES + IntJ.BYTES + tags.length + ByteJ.BYTES + IntJ.BYTES + bytes.length)
-      buffer.putLong(event.seqNr.value)
-      buffer.writeBytes(tags)
-      buffer.put(payloadType)
-      buffer.writeBytes(bytes)
-      buffer.array()
+
+      def codecOpt[A](payloadType: Byte, codec: Codec[Option[A]]) = {
+        val bitVector = BitVector.fromByte(payloadType)
+        codecs.constant(bitVector) ~> codecs.variableSizeBytes(codecs.int32, codec)
+      }
+
+      val emptyCodec = codecOpt(0, codecs.provide(none[Payload]))
+
+      val binaryCodec = codecOpt(1, codecSome[Payload.Binary])
+
+      val jsonCodec = codecOpt(2, codecSome[Payload.Json])
+
+      val textCodec = codecOpt(3, codecSome[Payload.Text])
+
+      codecs.choice[Option[Payload]](
+        binaryCodec.upcast,
+        jsonCodec.upcast,
+        textCodec.upcast,
+        emptyCodec)
     }
+
+    (Codec[SeqNr] :: Codec[Tags] :: payloadCodec).as[Event]
+  }
+
+  implicit val CodecEvents: Codec[Nel[Event]] = {
+    val eventsCodec = nelCodec(codecs.listOfN(codecs.int32, codecs.variableSizeBytes(codecs.int32, Codec[Event])))
+    val version = BitVector.fromByte(0)
+    codecs.constant(version) ~> eventsCodec
   }
 
 
-  implicit val EventsToBytes: ToBytes[Nel[Event]] = new ToBytes[Nel[Event]] {
+  implicit val EventsToBytes: ToBytes[Nel[Event]] = ToBytes.encoderToBytes[Nel[Event]]
 
-    def apply(events: Nel[Event]) = {
-      val eventBytes = events.map(_.toBytes)
-
-      val length = eventBytes.foldLeft(ByteJ.BYTES + IntJ.BYTES) { case (length, event) =>
-        length + IntJ.BYTES + event.length
-      }
-
-      val buffer = ByteBuffer.allocate(length)
-      buffer.put(0: Byte) // version
-      buffer.writeNel(eventBytes)
-      buffer.array()
-    }
-  }
-
-  implicit val EventsFromBytes: FromBytes[Nel[Event]] = new FromBytes[Nel[Event]] {
-
-    def apply(bytes: Bytes) = {
-      val buffer = ByteBuffer.wrap(bytes)
-      buffer.get() // version
-      buffer.readNel {
-        val seqNr = SeqNr(buffer.getLong())
-        val tags = buffer.readBytes.fromBytes[Tags]
-        val payloadType = buffer.get()
-        val bytes = buffer.readBytes
-        val payload = payloadType match {
-          case 0 => None
-          case 1 => Some(bytes.fromBytes[Payload.Binary])
-          case 2 => Some(bytes.fromBytes[Payload.Json])
-          case 3 => Some(bytes.fromBytes[Payload.Text])
-          case _ => Some(bytes.fromBytes[Payload.Binary])
-        }
-        Event(seqNr, tags, payload)
-      }
-    }
-  }
+  implicit val EventsFromBytes: FromBytes[Nel[Event]] = FromBytes.decoderFromBytes[Nel[Event]]
 }

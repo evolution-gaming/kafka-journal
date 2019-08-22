@@ -3,6 +3,11 @@ package com.evolutiongaming.kafka.journal
 import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
 import play.api.libs.json._
+import scodec.bits.ByteVector
+import scodec.{Attempt, Codec, codecs}
+
+import scala.util.Try
+
 
 object PlayJsonHelper {
 
@@ -14,6 +19,18 @@ object PlayJsonHelper {
 
   implicit val JsonOptDecode: DecodeByName[Option[JsValue]] = DecodeByName.opt[JsValue]
 
+  val JsValueCodec: Codec[JsValue] = {
+    val fromBytes = (a: ByteVector) => {
+      val jsValue = Try { Json.parse(a.toArray) }
+      Attempt.fromTry(jsValue)
+    }
+    val toBytes = (a: JsValue) => {
+      val bytes = Json.toBytes(a)
+      val byteVector = ByteVector(bytes)
+      Attempt.successful(byteVector)
+    }
+    codecs.bytes.exmap(fromBytes, toBytes)
+  }
 
   object ReadsOf {
     def apply[A](implicit F: Reads[A]): Reads[A] = F

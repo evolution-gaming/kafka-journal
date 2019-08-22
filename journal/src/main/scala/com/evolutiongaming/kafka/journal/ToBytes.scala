@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal
 import java.nio.charset.StandardCharsets.UTF_8
 
 import play.api.libs.json.{JsValue, Json}
+import scodec.Encoder
 
 // TODO add F
 trait ToBytes[-A] { self =>
@@ -30,6 +31,7 @@ object ToBytes {
     def apply(a: JsValue) = Json.toBytes(a)
   }
 
+
   def apply[A](implicit toBytes: ToBytes[A]): ToBytes[A] = toBytes
 
   def empty[A]: ToBytes[A] = Empty
@@ -37,6 +39,9 @@ object ToBytes {
   def const[A](bytes: Bytes): ToBytes[A] = new ToBytes[A] {
     def apply(a: A) = bytes
   }
+
+
+  implicit def encoderToBytes[A](implicit encoder: Encoder[A]): ToBytes[A] = (a: A) => encoder.encode(a).require.toByteArray
 
 
   object Implicits {
