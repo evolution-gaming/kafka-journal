@@ -7,7 +7,7 @@ import cats.data.{NonEmptyList => Nel}
 import cats.effect.{Clock, Resource}
 import cats.implicits._
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
-import com.evolutiongaming.kafka.journal.EventsSerializer._
+import com.evolutiongaming.kafka.journal.PayloadAndType._
 import com.evolutiongaming.kafka.journal.SeqNr.implicits._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
@@ -579,8 +579,9 @@ object JournalSpec {
         def updateOffset = copy(offset = Some(offset))
 
         def onAppend(action: Action.Append) = {
+          val payloadAndType = PayloadAndType(action.payload, action.payloadType)
           val batch = for {
-            event <- EventsFromPayload(action.payload, action.payloadType)
+            event <- EventsFromPayload(payloadAndType)
           } yield {
             val partitionOffset = PartitionOffset(partition, record.offset)
             EventRecord(action, event, partitionOffset)

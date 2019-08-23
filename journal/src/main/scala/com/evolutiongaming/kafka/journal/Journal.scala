@@ -8,7 +8,7 @@ import cats.implicits._
 import cats.temp.par._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
-import com.evolutiongaming.kafka.journal.EventsSerializer._
+import com.evolutiongaming.kafka.journal.PayloadAndType._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords}
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord}
@@ -190,7 +190,8 @@ object Journal {
                   case a: Action.Append =>
                     if (a.range.to < from) l.asLeft[R].pure[F]
                     else {
-                      val events = EventsFromPayload(a.payload, a.payloadType)
+                      val payloadAndType = PayloadAndType(a.payload, a.payloadType)
+                      val events = EventsFromPayload(payloadAndType)
                       events.foldWhileM(l) { case (l, event) =>
                         if (event.seqNr >= from) {
                           val eventRecord = EventRecord(a, event, record.partitionOffset)

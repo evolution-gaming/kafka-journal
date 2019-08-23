@@ -3,11 +3,11 @@ package com.evolutiongaming.kafka.journal
 import java.io.FileOutputStream
 
 import cats.data.{NonEmptyList => Nel}
-import com.evolutiongaming.kafka.journal.EventsSerializer.{EventsFromPayload, EventsToPayload}
+import com.evolutiongaming.kafka.journal.PayloadAndType.{EventsFromPayload, EventsToPayload}
 import org.scalatest.{FunSuite, Matchers}
 import scodec.bits.ByteVector
 
-class EventsSerializerSpec extends FunSuite with Matchers {
+class PayloadAndTypeSpec extends FunSuite with Matchers {
 
   def event(seqNr: Int, payload: Option[Payload] = None): Event = {
     val tags = (0 to seqNr).map(_.toString).toSet
@@ -54,13 +54,14 @@ class EventsSerializerSpec extends FunSuite with Matchers {
       def fromFile(path: String) = ByteVector.view(BytesOf(getClass, path))
 
       def verify(payload: ByteVector, payloadType: PayloadType.BinaryOrJson) = {
-        val actual = EventsFromPayload(Payload.Binary(payload), payloadType)
+        val payloadAndType = PayloadAndType(Payload.Binary(payload), payloadType)
+        val actual = EventsFromPayload(payloadAndType)
         actual shouldEqual events
       }
 
-      val (payload, payloadTypeActual) = EventsToPayload(events)
+      val payloadAndType = EventsToPayload(events)
 
-      payloadType shouldEqual payloadTypeActual
+      payloadType shouldEqual payloadAndType.payloadType
 
       val ext = payloadType.ext
 
@@ -68,7 +69,7 @@ class EventsSerializerSpec extends FunSuite with Matchers {
 
       //      writeToFile(payload.value, path)
 
-      verify(payload.value, payloadType)
+      verify(payloadAndType.payload.value, payloadType)
 
       verify(fromFile(path), payloadType)
     }

@@ -11,7 +11,7 @@ import cats.{Applicative, FlatMap, Monad, ~>}
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
-import com.evolutiongaming.kafka.journal.EventsSerializer._
+import com.evolutiongaming.kafka.journal.PayloadAndType._
 import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
@@ -148,9 +148,10 @@ object TopicReplicator { self =>
           val bytes = records.foldLeft(0L) { case (bytes, record) => bytes + record.action.payload.size }
 
           val events = for {
-            record <- records
-            action  = record.action
-            event  <- EventsFromPayload(action.payload, action.payloadType)
+            record         <- records
+            action          = record.action
+            payloadAndType  = PayloadAndType(action.payload, action.payloadType)
+            event          <- EventsFromPayload(payloadAndType)
           } yield {
             EventRecord(record, event)
           }

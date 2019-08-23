@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import cats.data.{NonEmptyList => Nel}
-import com.evolutiongaming.kafka.journal.EventsSerializer.EventsToPayload
+import com.evolutiongaming.kafka.journal.PayloadAndType.EventsToPayload
 
 sealed abstract class Action extends Product {
 
@@ -27,7 +27,7 @@ object Action {
     key: Key,
     timestamp: Instant,
     header: ActionHeader.Append,
-    payload: Payload.Binary,
+    payload: Payload.Binary, // TODO ByteVector
     headers: Headers
   ) extends User {
 
@@ -37,6 +37,7 @@ object Action {
   }
 
   object Append {
+
     def apply(
       key: Key,
       timestamp: Instant,
@@ -45,10 +46,10 @@ object Action {
       metadata: Metadata,
       headers: Headers
     ): Append = {
-      val (payload, payloadType) = EventsToPayload(events)
+      val payloadAndType = EventsToPayload(events)
       val range = SeqRange(from = events.head.seqNr, to = events.last.seqNr)
-      val header = ActionHeader.Append(range, origin, payloadType, metadata)
-      Action.Append(key, timestamp, header, payload, headers)
+      val header = ActionHeader.Append(range, origin, payloadAndType.payloadType, metadata)
+      Action.Append(key, timestamp, header, payloadAndType.payload, headers)
     }
   }
 
@@ -63,6 +64,7 @@ object Action {
   }
 
   object Delete {
+
     def apply(key: Key, timestamp: Instant, to: SeqNr, origin: Option[Origin]): Delete = {
       val header = ActionHeader.Delete(to, origin)
       Delete(key, timestamp, header)
@@ -80,8 +82,10 @@ object Action {
   }
 
   object Mark {
+
     def apply(key: Key, timestamp: Instant, id: String, origin: Option[Origin]): Mark = {
-      Mark(key, timestamp, ActionHeader.Mark(id, origin))
+      val header = ActionHeader.Mark(id, origin)
+      Mark(key, timestamp, header)
     }
   }
 }

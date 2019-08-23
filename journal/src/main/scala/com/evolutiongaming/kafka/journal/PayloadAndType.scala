@@ -2,31 +2,48 @@ package com.evolutiongaming.kafka.journal
 
 
 import cats.data.{NonEmptyList => Nel}
+import cats.implicits._
 import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
 import com.evolutiongaming.kafka.journal.PlayJsonHelper._
 import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
 import com.evolutiongaming.kafka.journal.util.ScodecHelper._
-import play.api.libs.json.{JsString, JsValue, Json, OFormat, Reads, Writes}
+import play.api.libs.json._
 import scodec.Codec
 import scodec.bits.ByteVector
 
 import scala.annotation.tailrec
 
-object EventsSerializer {
+final case class PayloadAndType(
+  payload: Payload.Binary, // TODO why do we need Payload.Binary
+  payloadType: PayloadType.BinaryOrJson) // TODO why do we need to use PayloadType ?
+
+object PayloadAndType {
 
   object EventsToPayload {
 
-    def apply(events: Nel[Event]): (Payload.Binary, PayloadType.BinaryOrJson) = {
+    def apply(events: Nel[Event]): PayloadAndType = {
 
       @tailrec
       def loop(events: List[Event], json: List[EventJson]): List[EventJson] = {
         events match {
           case Nil          => json.reverse
           case head :: tail =>
-            val result = head.payload.fold[Option[EventJson]](Some(EventJson(head))) {
-              case _: Payload.Binary => None
-              case a: Payload.Text   => Some(EventJson(head, a))
-              case a: Payload.Json   => Some(EventJson(head, a))
+
+            def ofOpt(payloadType: Option[PayloadType.TextOrJson], payload: Option[JsValue]) = {
+              EventJson(head.seqNr, head.tags, payloadType, payload)
+            }
+
+            def of[A : Writes](payloadType: PayloadType.TextOrJson, a: A) = {
+              val jsValue = Json.toJson(a)
+              ofOpt(payloadType.some, jsValue.some)
+            }
+
+            val result = head.payload.fold[Option[EventJson]]{
+              ofOpt(none, none).some
+            } {
+              case _: Payload.Binary => none[EventJson]
+              case a: Payload.Json   => of(PayloadType.Json, a.value).some
+              case a: Payload.Text   => of(PayloadType.Text, a.value).some
             }
             result match {
               case None    => Nil
@@ -39,13 +56,15 @@ object EventsSerializer {
         case Nil =>
           val bytes = events.toBytes
           val byteVector = ByteVector.view(bytes)
-          (Payload.Binary(byteVector), PayloadType.Binary)
+          val binary = Payload.Binary(byteVector)
+          PayloadAndType(binary, PayloadType.Binary)
 
         case head :: tail =>
           val payload = PayloadJson(Nel(head, tail))
           val bytes = payload.toBytes
           val byteVector = ByteVector.view(bytes)
-          (Payload.Binary(byteVector), PayloadType.Json)
+          val binary = Payload.Binary(byteVector)
+          PayloadAndType(binary, PayloadType.Json)
       }
     }
   }
@@ -53,11 +72,14 @@ object EventsSerializer {
 
   object EventsFromPayload {
 
-    def apply(payload: Payload.Binary, payloadType: PayloadType.BinaryOrJson): Nel[Event] = {
-      payloadType match {
-        case PayloadType.Binary => payload.value.toArray.fromBytes[Nel[Event]] // TODO
+    def apply(payloadAndType: PayloadAndType): Nel[Event] = {
+      val payload = payloadAndType.payload.value
+      payloadAndType.payloadType match {
+        case PayloadType.Binary =>
+          payload.toArray.fromBytes[Nel[Event]] // TODO
+          
         case PayloadType.Json   =>
-          val payloadJson = payload.value.toArray.fromBytes[PayloadJson]
+          val payloadJson = payload.toArray.fromBytes[PayloadJson]
           for {
             event <- payloadJson.events
           } yield {
@@ -92,28 +114,6 @@ object EventsSerializer {
     implicit val WritesNelEventJson: Writes[Nel[EventJson]] = nelWrites
 
     implicit val ReadsNelEventJson: Reads[Nel[EventJson]] = nelReads
-
-
-    def apply(event: Event): EventJson = {
-      EventJson(
-        seqNr = event.seqNr,
-        tags = event.tags)
-    }
-
-    def apply(event: Event, payload: Payload.Json): EventJson = {
-      EventJson(
-        seqNr = event.seqNr,
-        tags = event.tags,
-        payload = Some(payload.value))
-    }
-
-    def apply(event: Event, payload: Payload.Text): EventJson = {
-      EventJson(
-        seqNr = event.seqNr,
-        tags = event.tags,
-        payloadType = Some(PayloadType.Text),
-        payload = Some(JsString(payload.value)))
-    }
   }
 
 
