@@ -19,10 +19,12 @@ import com.evolutiongaming.retry.Retry
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.kafka.journal.util.Named
 import com.evolutiongaming.kafka.journal.util.TimeHelper._
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Bytes => _, _}
 import com.evolutiongaming.smetrics.{CollectorRegistry, LabelNames, Quantile, Quantiles}
 import com.evolutiongaming.smetrics.MetricsHelper._
+import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
 
@@ -102,7 +104,7 @@ object TopicReplicator { self =>
 
     def round(
       state: State,
-      consumerRecords: Map[TopicPartition, List[ConsumerRecord[Id, Bytes]]],
+      consumerRecords: Map[TopicPartition, List[ConsumerRecord[Id, ByteVector]]],
       roundStart: Instant): F[(State, Map[TopicPartition, OffsetAndMetadata])] = {
 
       val records = for {
@@ -304,7 +306,7 @@ object TopicReplicator { self =>
 
     def subscribe(topic: Topic): F[Unit]
 
-    def poll: F[ConsumerRecords[Id, Bytes]]
+    def poll: F[ConsumerRecords[Id, ByteVector]]
 
     def commit(offsets: Map[TopicPartition, OffsetAndMetadata]): F[Unit]
 
@@ -316,7 +318,7 @@ object TopicReplicator { self =>
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
     def apply[F[_] : Applicative](
-      consumer: KafkaConsumer[F, Id, Bytes],
+      consumer: KafkaConsumer[F, Id, ByteVector],
       pollTimeout: FiniteDuration
     ): Consumer[F] = new Consumer[F] {
 
@@ -355,7 +357,7 @@ object TopicReplicator { self =>
         autoCommit = false)
 
       for {
-        consumer <- KafkaConsumerOf[F].apply[Id, Bytes](config1)
+        consumer <- KafkaConsumerOf[F].apply[Id, ByteVector](config1)
       } yield {
         Consumer[F](consumer, pollTimeout)
       }

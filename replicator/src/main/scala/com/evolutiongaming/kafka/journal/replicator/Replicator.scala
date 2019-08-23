@@ -13,6 +13,7 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession, ReplicatedCassandra}
 import com.evolutiongaming.kafka.journal.util._
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.Retry
 import com.evolutiongaming.scassandra.CassandraClusterOf
@@ -20,6 +21,7 @@ import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{ClientId, Topic, Bytes => _}
 import com.evolutiongaming.smetrics.{CollectorRegistry, MeasureDuration}
+import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
 
@@ -198,14 +200,14 @@ object Replicator {
 
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
-    def apply[F[_]](consumer: KafkaConsumer[F, Id, Bytes]): Consumer[F] = new Consumer[F] {
+    def apply[F[_]](consumer: KafkaConsumer[F, Id, ByteVector]): Consumer[F] = new Consumer[F] {
       def topics = consumer.topics
     }
 
 
     def of[F[_] : Sync : KafkaConsumerOf : FromTry](config: ConsumerConfig): Resource[F, Consumer[F]] = {
       for {
-        consumer <- KafkaConsumerOf[F].apply[Id, Bytes](config)
+        consumer <- KafkaConsumerOf[F].apply[Id, ByteVector](config)
       } yield {
         Consumer[F](consumer)
       }

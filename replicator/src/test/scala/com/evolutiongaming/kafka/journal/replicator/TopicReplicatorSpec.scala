@@ -17,6 +17,7 @@ import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, Wit
 import com.evolutiongaming.skafka.{Bytes => _, Metadata => _, _}
 import org.scalatest.{Matchers, WordSpec}
 import play.api.libs.json.Json
+import scodec.bits.ByteVector
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
@@ -774,7 +775,7 @@ object TopicReplicatorSpec {
   final case class State(
     topics: List[Topic] = Nil,
     commits: List[Map[TopicPartition, OffsetAndMetadata]] = Nil,
-    records: List[ConsumerRecords[Id, Bytes]] = Nil,
+    records: List[ConsumerRecords[Id, ByteVector]] = Nil,
     stopAfter: Option[Int] = None,
     pointers: Map[Topic, TopicPointers] = Map.empty,
     journal: Map[Key, List[EventRecord]] = Map.empty,
@@ -837,7 +838,7 @@ object TopicReplicatorSpec {
       }
     }
 
-    def poll: (State, ConsumerRecords[Id, Bytes]) = {
+    def poll: (State, ConsumerRecords[Id, ByteVector]) = {
       records match {
         case head :: tail => (copy(records = tail), head)
         case Nil          => (copy(stopAfter = Some(0)), ConsumerRecords(Map.empty))

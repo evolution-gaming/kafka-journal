@@ -22,7 +22,7 @@ object KafkaConverters {
   implicit class ActionOps(val self: Action) extends AnyVal {
 
     // TODO use BytesVector
-    def toProducerRecord: ProducerRecord[Id, Bytes] = {
+    def toProducerRecord: ProducerRecord[Id, ByteVector] = {
       val key = self.key
       val actionHeader = self.header
       val header = Header(`journal.action`, actionHeader.toBytes)
@@ -44,7 +44,7 @@ object KafkaConverters {
 
       ProducerRecord(
         topic = key.topic,
-        value = payload.map(_.toArray),
+        value = payload,
         key = Some(key.id),
         timestamp = Some(self.timestamp),
         headers = header :: headers)
@@ -52,7 +52,7 @@ object KafkaConverters {
   }
 
 
-  implicit class ConsumerRecordOps(val self: ConsumerRecord[Id, Bytes]) extends AnyVal {
+  implicit class ConsumerRecordOps(val self: ConsumerRecord[Id, ByteVector]) extends AnyVal {
 
     def toActionHeader: Option[ActionHeader] = {
       for {
@@ -80,7 +80,7 @@ object KafkaConverters {
                 val value = header.value.fromBytes[String]
                 (header.key, value)
               }
-              val payload = Payload.Binary(ByteVector.view(value.value))
+              val payload = Payload.Binary(value.value)
               Action.Append(key, timestamp, header, payload, headers.toMap)
             }
           case header: ActionHeader.Delete => Some(Action.Delete(key, timestamp, header))

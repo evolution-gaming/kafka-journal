@@ -13,6 +13,7 @@ import com.evolutiongaming.kafka.journal.cache.Cache
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.retry.Retry
 import com.evolutiongaming.kafka.journal.CatsHelper._
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, SerialRef}
 import com.evolutiongaming.random.Random
@@ -21,6 +22,7 @@ import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, Con
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
 import com.evolutiongaming.smetrics.{CollectorRegistry, LabelNames, MeasureDuration, Quantile, Quantiles}
 import com.evolutiongaming.smetrics.MetricsHelper._
+import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
@@ -503,7 +505,7 @@ object HeadCache {
 
     def seek(topic: Topic, offsets: Map[Partition, Offset]): F[Unit]
 
-    def poll(timeout: FiniteDuration): F[ConsumerRecords[Id, Bytes]]
+    def poll(timeout: FiniteDuration): F[ConsumerRecords[Id, ByteVector]]
 
     def partitions(topic: Topic): F[Set[Partition]]
   }
@@ -512,7 +514,7 @@ object HeadCache {
 
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
-    def apply[F[_] : Monad](consumer: KafkaConsumer[F, Id, Bytes]): Consumer[F] = {
+    def apply[F[_] : Monad](consumer: KafkaConsumer[F, Id, ByteVector]): Consumer[F] = {
 
       implicit val monoidUnit = Applicative.monoid[F, Unit]
 
@@ -588,7 +590,7 @@ object HeadCache {
         autoCommit = false)
 
       for {
-        consumer <- KafkaConsumerOf[F].apply[Id, Bytes](config1)
+        consumer <- KafkaConsumerOf[F].apply[Id, ByteVector](config1)
       } yield {
         HeadCache.Consumer[F](consumer)
       }
@@ -627,7 +629,7 @@ object HeadCache {
       onRecords: Map[Partition, List[KafkaRecord]] => F[Unit]
     ): F[Unit] = {
 
-      def kafkaRecords(records: ConsumerRecords[Id, Bytes]) = {
+      def kafkaRecords(records: ConsumerRecords[Id, ByteVector]) = {
         for {
           (partition, records0) <- records.values
           records                = for {
@@ -875,7 +877,7 @@ object HeadCache {
 
   object KafkaRecord {
 
-    def opt(record: ConsumerRecord[Id, Bytes]): Option[KafkaRecord] = {
+    def opt(record: ConsumerRecord[Id, ByteVector]): Option[KafkaRecord] = {
       for {
         key              <- record.key
         id                = key.value

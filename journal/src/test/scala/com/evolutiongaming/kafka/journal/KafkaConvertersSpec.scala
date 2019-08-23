@@ -10,6 +10,7 @@ import com.evolutiongaming.skafka.consumer.{ConsumerRecord, WithSize}
 import com.evolutiongaming.skafka.{TimestampAndType, TimestampType, TopicPartition}
 import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json.Json
+import scodec.bits.ByteVector
 
 class KafkaConvertersSpec extends FunSuite with Matchers {
 
@@ -85,12 +86,12 @@ class KafkaConvertersSpec extends FunSuite with Matchers {
     test(s"toProducerRecord & toActionRecord $action") {
       val producerRecord = action.toProducerRecord
 
-      val consumerRecord = ConsumerRecord[Id, Bytes](
+      val consumerRecord = ConsumerRecord[Id, ByteVector](
         topicPartition = topicPartition,
         offset = partitionOffset.offset,
         timestampAndType = Some(TimestampAndType(timestamp, TimestampType.Create)),
         key = producerRecord.key.map(bytes => WithSize(bytes, bytes.length)),
-        value = producerRecord.value.map(bytes => WithSize(bytes, bytes.length)),
+        value = producerRecord.value.map(bytes => WithSize(bytes, bytes.length.toInt)),
         headers = producerRecord.headers)
 
       val record = ActionRecord(action, partitionOffset)

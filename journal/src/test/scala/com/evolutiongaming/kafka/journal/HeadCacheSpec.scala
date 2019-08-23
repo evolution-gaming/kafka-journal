@@ -13,6 +13,7 @@ import com.evolutiongaming.kafka.journal.HeadCache.Result
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer.ConsumerRecords
 import org.scalatest.{AsyncWordSpec, Matchers}
+import scodec.bits.ByteVector
 
 import scala.collection.immutable.Queue
 import scala.concurrent.duration._
@@ -316,7 +317,7 @@ object HeadCacheSpec {
                 state <- state
               } yield {
                 state.records.dequeueOption match {
-                  case None                    => (state, ConsumerRecords.empty[Id, Bytes])
+                  case None                    => (state, ConsumerRecords.empty[Id, ByteVector])
                   case Some((record, records)) =>
                     val stateUpdated = state.copy(records = records)
                     (stateUpdated, record)
@@ -352,7 +353,7 @@ object HeadCacheSpec {
       assigns: List[Assign] = List.empty,
       seeks: List[Seek] = List.empty,
       topics: Map[Topic, List[Partition]] = Map.empty,
-      records: Queue[ConsumerRecords[Id, Bytes]] = Queue.empty)
+      records: Queue[ConsumerRecords[Id, ByteVector]] = Queue.empty)
 
     object State {
       val Empty: State = State()

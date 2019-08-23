@@ -10,16 +10,18 @@ import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal.PayloadAndType._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
+import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords}
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord}
 import com.evolutiongaming.skafka.{Bytes => _, _}
-import com.evolutiongaming.smetrics.{CollectorRegistry, LabelNames, MeasureDuration, Quantile, Quantiles}
 import com.evolutiongaming.smetrics.MetricsHelper._
-import com.evolutiongaming.sstream.Stream
+import com.evolutiongaming.smetrics._
 import com.evolutiongaming.sstream.FoldWhile.FoldWhileOps
+import com.evolutiongaming.sstream.Stream
 import play.api.libs.json.JsValue
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
+import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
 
@@ -467,7 +469,7 @@ object Journal {
 
 
   trait Producer[F[_]] {
-    def send(record: ProducerRecord[Id, Bytes]): F[PartitionOffset]
+    def send(record: ProducerRecord[Id, ByteVector]): F[PartitionOffset]
   }
 
   object Producer {
@@ -490,25 +492,29 @@ object Journal {
       for {
         kafkaProducer <- KafkaProducerOf[F].apply(config1)
       } yield {
+        import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
         apply(kafkaProducer)
       }
     }
 
-    def apply[F[_] : Sync : FromTry](producer: KafkaProducer[F]): Producer[F] = {
-      new Producer[F] {
-        def send(record: ProducerRecord[Id, Bytes]) = {
-          for {
-            metadata  <- producer.send(record)
-            partition  = metadata.topicPartition.partition
-            offset    <- metadata.offset.fold {
-              val error = JournalError("metadata.offset is missing, make sure ProducerConfig.acks set to One or All")
-              error.raiseError[F, Offset]
-            } {
-              _.pure[F]
-            }
-          } yield {
-            PartitionOffset(partition, offset)
+    def apply[F[_] : Sync : FromTry](
+      producer: KafkaProducer[F]
+    )(implicit
+      toBytesKey: skafka.ToBytes[F, Id],
+      toBytesValue: skafka.ToBytes[F, ByteVector],
+    ): Producer[F] = {
+      record: ProducerRecord[Id, ByteVector] => {
+        for {
+          metadata  <- producer.send(record)
+          partition  = metadata.topicPartition.partition
+          offset    <- metadata.offset.fold {
+            val error = JournalError("metadata.offset is missing, make sure ProducerConfig.acks set to One or All")
+            error.raiseError[F, Offset]
+          } {
+            _.pure[F]
           }
+        } yield {
+          PartitionOffset(partition, offset)
         }
       }
     }
@@ -521,7 +527,7 @@ object Journal {
 
     def seek(partition: TopicPartition, offset: Offset): F[Unit]
 
-    def poll: F[ConsumerRecords[Id, Bytes]]
+    def poll: F[ConsumerRecords[Id, ByteVector]]
   }
 
   object Consumer {
@@ -530,20 +536,21 @@ object Journal {
       config: ConsumerConfig,
       pollTimeout: FiniteDuration
     ): Resource[F, Consumer[F]] = {
+      import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 
       val config1 = config.copy(
         groupId = None,
         autoCommit = false)
 
       for {
-        kafkaConsumer <- KafkaConsumerOf[F].apply[Id, Bytes](config1)
+        kafkaConsumer <- KafkaConsumerOf[F].apply[Id, ByteVector](config1)
       } yield {
         apply[F](kafkaConsumer, pollTimeout)
       }
     }
 
     def apply[F[_]](
-      consumer: KafkaConsumer[F, Id, Bytes],
+      consumer: KafkaConsumer[F, Id, ByteVector],
       pollTimeout: FiniteDuration
     ): Consumer[F] = new Consumer[F] {
 
