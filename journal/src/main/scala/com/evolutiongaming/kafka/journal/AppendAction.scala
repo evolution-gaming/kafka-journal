@@ -3,7 +3,8 @@ package com.evolutiongaming.kafka.journal
 import cats.effect.Sync
 import cats.implicits._
 import cats.~>
-import com.evolutiongaming.kafka.journal.KafkaConverters._
+import com.evolutiongaming.skafka.producer.ProducerRecord
+import scodec.bits.ByteVector
 
 trait AppendAction[F[_]] {
   
@@ -12,10 +13,13 @@ trait AppendAction[F[_]] {
 
 object AppendAction {
 
-  def apply[F[_] : Sync](producer: Journal.Producer[F]): AppendAction[F] = {
+  def apply[F[_] : Sync](
+    producer: Journal.Producer[F])(implicit
+    actionToProducerRecord: Conversion[cats.Id, Action, ProducerRecord[Id, ByteVector]]
+  ): AppendAction[F] = {
     action: Action => {
       val partitionOffset = for {
-        producerRecord  <- Sync[F].delay { action.toProducerRecord }
+        producerRecord  <- Sync[F].delay { actionToProducerRecord(action) } // TODO remove Sync[F].delay
         partitionOffset <- producer.send(producerRecord)
       } yield partitionOffset
       partitionOffset.handleErrorWith { cause =>

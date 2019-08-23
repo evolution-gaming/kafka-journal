@@ -10,6 +10,7 @@ import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal.PayloadAndType._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
+import com.evolutiongaming.kafka.journal.KafkaConversions._
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords}
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord}
@@ -101,6 +102,7 @@ object Journal {
     headCache: HeadCache[F]
   ): Journal[F] = {
 
+    implicit val consumerRecordToActionRecordId = consumerRecordToActionRecord[cats.Id]
     val readActionsOf = ReadActionsOf[F](consumer)
     val appendAction = AppendAction[F](producer)
     apply[F](origin, eventualJournal, readActionsOf, appendAction, headCache)

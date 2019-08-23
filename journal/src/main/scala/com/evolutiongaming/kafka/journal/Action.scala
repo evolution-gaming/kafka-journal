@@ -19,6 +19,33 @@ sealed abstract class Action extends Product {
 
 object Action {
 
+  def append(
+    key: Key,
+    timestamp: Instant,
+    header: ActionHeader.Append,
+    payload: ByteVector,
+    headers: Headers
+  ): Action = {
+    Append(key, timestamp, header, payload, headers)
+  }
+
+  def delete(
+    key: Key,
+    timestamp: Instant,
+    header: ActionHeader.Delete
+  ): Action = {
+    Delete(key, timestamp, header)
+  }
+
+  def mark(
+    key: Key,
+    timestamp: Instant,
+    header: ActionHeader.Mark
+  ): Action = {
+    Mark(key, timestamp, header)
+  }
+
+
   sealed abstract class User extends Action
 
   sealed abstract class System extends Action

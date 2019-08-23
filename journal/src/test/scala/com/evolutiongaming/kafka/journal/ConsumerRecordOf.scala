@@ -1,8 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.data.{NonEmptyList => Nel}
-import com.evolutiongaming.kafka.journal.KafkaConverters._
+import com.evolutiongaming.kafka.journal.Conversion.implicits._
+import com.evolutiongaming.kafka.journal.KafkaConversions._
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, WithSize}
+import com.evolutiongaming.skafka.producer.ProducerRecord
 import com.evolutiongaming.skafka.{Offset, TimestampAndType, TimestampType, TopicPartition}
 import scodec.bits.ByteVector
 
@@ -14,7 +16,7 @@ object ConsumerRecordOf {
     offset: Offset
   ): ConsumerRecord[Id, ByteVector] = {
 
-    val producerRecord = action.toProducerRecord
+    val producerRecord = action.convert[cats.Id, ProducerRecord[Id, ByteVector]]
     val timestampAndType = TimestampAndType(action.timestamp, TimestampType.Create)
     ConsumerRecord[Id, ByteVector](
       topicPartition = topicPartition,

@@ -8,7 +8,6 @@ import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.implicits._
 import cats.temp.par._
-import com.evolutiongaming.kafka.journal.KafkaConverters._
 import com.evolutiongaming.kafka.journal.cache.Cache
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.retry.Retry
@@ -76,7 +75,11 @@ object HeadCache {
     log: Log[F],
     consumer: Resource[F, Consumer[F]],
     metrics: Metrics[F],
-    config: Config = Config.Default): Resource[F, HeadCache[F]] = {
+    config: Config = Config.Default
+  ): Resource[F, HeadCache[F]] = {
+
+    import com.evolutiongaming.kafka.journal.KafkaConversions._
+    implicit val consumerRecordToKafkaRecord = HeadCache.consumerRecordToKafkaRecord(consumerRecordToActionHeader[cats.Id])
 
     val result = for {
       cache <- Cache.of[F, Topic, TopicCache[F]]
@@ -92,7 +95,8 @@ object HeadCache {
             topic = topic,
             config = config,
             consumer = consumer1,
-            metrics = metrics)(Concurrent[F], Eventual[F], Par[F], logTopic, Timer[F], ContextShift[F])
+            metrics = metrics,
+            log = logTopic)
         } yield {
           topicCache
         }
@@ -178,11 +182,14 @@ object HeadCache {
 
     type Listener[F[_]] = Map[Partition, PartitionEntry] => Option[F[Unit]]
 
-    def of[F[_] : Concurrent : Eventual : Par : Log : Timer : ContextShift](
+    def of[F[_] : Concurrent : Eventual : Par : Timer : ContextShift](
       topic: Topic,
       config: Config,
       consumer: Resource[F, Consumer[F]],
-      metrics: Metrics[F]): F[TopicCache[F]] = {
+      metrics: Metrics[F],
+      log: Log[F])(implicit
+      consumerRecordToKafkaRecord: ConsumerRecord[Id, ByteVector] => Option[KafkaRecord]
+    ): F[TopicCache[F]] = {
 
       for {
         pointers  <- Eventual[F].pointers(topic)
@@ -202,7 +209,8 @@ object HeadCache {
               from = pointers.values,
               pollTimeout = config.pollTimeout,
               consumer = consumer,
-              cancel = cancel
+              cancel = cancel,
+              log = log
             ) { records =>
 
               for {
@@ -226,7 +234,7 @@ object HeadCache {
             }
 
             consuming.onError { case error =>
-              Log[F].error(s"consuming failed with $error", error)
+              log.error(s"consuming failed with $error", error)
             } // TODO fail head cache
           }
         }
@@ -239,23 +247,24 @@ object HeadCache {
             _        <- state.update { _.removeUntil(pointers.values).pure[F] }
             after    <- state.get
             removed   = before.size - after.size
-            _        <- if (removed > 0) Log[F].debug(s"remove $removed entries") else ().pure[F]
+            _        <- if (removed > 0) log.debug(s"remove $removed entries") else ().pure[F]
           } yield {}
           cleaning.foreverM[Unit].onError { case error =>
-            Log[F].error(s"cleaning failed with $error", error) // TODO fail head cache
+            log.error(s"cleaning failed with $error", error) // TODO fail head cache
           }
         }
       } yield {
         val release = List(consuming, cleaning).parFoldMap { _.cancel }
-        apply(topic, release, state, metrics)
+        apply(topic, release, state, metrics, log)
       }
     }
 
-    def apply[F[_] : Concurrent : Eventual : Monad : Log](
+    def apply[F[_] : Concurrent : Eventual : Monad](
       topic: Topic,
       release: F[Unit],
       stateRef: SerialRef[F, State[F]],
-      metrics: Metrics[F]
+      metrics: Metrics[F],
+      log: Log[F]
     ): TopicCache[F] = {
 
       // TODO handle case with replicator being down
@@ -310,10 +319,10 @@ object HeadCache {
                   r <- entryOf(entries)
                 } yield for {
                   _ <- deferred.complete(r)
-                  _ <- Log[F].debug(s"remove listener, id: $id, offset: $partition:$offset")
+                  _ <- log.debug(s"remove listener, id: $id, offset: $partition:$offset")
                 } yield {}
               }
-              _        <- Log[F].debug(s"add listener, id: $id, offset: $partition:$offset")
+              _        <- log.debug(s"add listener, id: $id, offset: $partition:$offset")
               state1    = state.copy(listeners = listener :: state.listeners)
               _        <- metrics.listeners(topic, state1.listeners.size)
             } yield {
@@ -343,7 +352,7 @@ object HeadCache {
 
         def close = {
           for {
-            _ <- Log[F].debug("close")
+            _ <- log.debug("close")
             _ <- release // TODO should be idempotent
           } yield {}
         }
@@ -620,13 +629,15 @@ object HeadCache {
 
   object ConsumeTopic {
 
-    def apply[F[_] : Sync : Timer : Log : ContextShift](
+    def apply[F[_] : Sync : Timer : ContextShift](
       topic: Topic,
       from: Map[Partition, Offset],
       pollTimeout: FiniteDuration,
       consumer: Consumer[F], // TODO resource
-      cancel: F[Boolean])(
-      onRecords: Map[Partition, List[KafkaRecord]] => F[Unit]
+      cancel: F[Boolean],
+      log: Log[F])(
+      onRecords: Map[Partition, List[KafkaRecord]] => F[Unit])(implicit
+      consumerRecordToKafkaRecord: ConsumerRecord[Id, ByteVector] => Option[KafkaRecord]
     ): F[Unit] = {
 
       def kafkaRecords(records: ConsumerRecords[Id, ByteVector]) = {
@@ -634,7 +645,7 @@ object HeadCache {
           (partition, records0) <- records.values
           records                = for {
             record <- records0.toList
-            record <- KafkaRecord.opt(record)
+            record <- consumerRecordToKafkaRecord(record)
           } yield record
           if records.nonEmpty
         } yield {
@@ -664,11 +675,11 @@ object HeadCache {
 
           details.decision match {
             case Decision.Retry(delay) =>
-              Log[F].error(s"$prefix, retrying in $delay, error: $error")
+              log.error(s"$prefix, retrying in $delay, error: $error")
 
             case Decision.GiveUp =>
               val retries = details.retries
-              Log[F].error(s"$prefix, retried $retries times, error: $error", error)
+              log.error(s"$prefix, retried $retries times, error: $error", error)
           }
         }
 
@@ -875,15 +886,17 @@ object HeadCache {
     offset: Offset,
     header: ActionHeader)
 
-  object KafkaRecord {
 
-    def opt(record: ConsumerRecord[Id, ByteVector]): Option[KafkaRecord] = {
+  implicit def consumerRecordToKafkaRecord(implicit
+    consumerRecordToActionHeader: Conversion[Option, ConsumerRecord[Id, ByteVector], cats.Id[ActionHeader]]
+  ): ConsumerRecord[Id, ByteVector] => Option[KafkaRecord] = {
+    record: ConsumerRecord[Id, ByteVector] => {
       for {
         key              <- record.key
         id                = key.value
         timestampAndType <- record.timestampAndType
         timestamp         = timestampAndType.timestamp
-        header           <- record.toActionHeader
+        header           <- consumerRecordToActionHeader(record)
       } yield {
         KafkaRecord(id, timestamp, record.offset, header)
       }

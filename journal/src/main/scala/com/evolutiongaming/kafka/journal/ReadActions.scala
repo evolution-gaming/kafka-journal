@@ -1,8 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.FlatMap
+import cats.data.OptionT
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.KafkaConverters._
+import com.evolutiongaming.skafka.consumer.ConsumerRecord
+import scodec.bits.ByteVector
 
 object ReadActions {
 
@@ -10,7 +12,8 @@ object ReadActions {
 
   def apply[F[_] : FlatMap](
     key: Key,
-    consumer: Journal.Consumer[F]
+    consumer: Journal.Consumer[F])(implicit
+    consumerRecordToActionRecord: Conversion[OptionT[cats.Id, ?], ConsumerRecord[Id, ByteVector], ActionRecord[Action]]
   ): Type[F] = {
 
     for {
@@ -18,7 +21,7 @@ object ReadActions {
     } yield for {
       records <- records.values.values
       record  <- records.toList if record.key.exists(_.value == key.id)
-      action  <- record.toActionRecord
+      action  <- consumerRecordToActionRecord(record).value
     } yield action
   }
 }

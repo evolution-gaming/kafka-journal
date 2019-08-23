@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
 
-import cats.data.{NonEmptyList => Nel}
+import cats.data.{OptionT, NonEmptyList => Nel}
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.implicits._
@@ -12,7 +12,7 @@ import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal.PayloadAndType._
-import com.evolutiongaming.kafka.journal.KafkaConverters._
+import com.evolutiongaming.kafka.journal.KafkaConversions._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.retry.Retry
@@ -47,6 +47,8 @@ object TopicReplicator { self =>
     topic: Topic,
     consumer: Resource[F, Consumer[F]]
   ): F[TopicReplicator[F]] = {
+
+    implicit val consumerRecordToActionRecordId = consumerRecordToActionRecord[cats.Id]
 
     def apply(stopRef: StopRef[F], fiber: Fiber[F, Unit])(implicit log: Log[F]) = {
       self.apply[F](stopRef, fiber)
@@ -99,7 +101,8 @@ object TopicReplicator { self =>
     topic: Topic,
     stopRef: StopRef[F],
     consumer: Consumer[F],
-    errorCooldown: FiniteDuration
+    errorCooldown: FiniteDuration)(implicit
+    consumerRecordToActionRecord: Conversion[OptionT[cats.Id, ?], ConsumerRecord[Id, ByteVector], ActionRecord[Action]]
   ): F[Unit] = {
 
     def round(
@@ -110,7 +113,7 @@ object TopicReplicator { self =>
       val records = for {
         records <- consumerRecords.values.toList
         record  <- records
-        action  <- record.toActionRecord
+        action  <- consumerRecordToActionRecord(record).value
       } yield action
 
       val ios = for {

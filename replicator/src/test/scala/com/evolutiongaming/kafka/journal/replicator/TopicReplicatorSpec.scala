@@ -6,7 +6,8 @@ import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.implicits._
 import cats.{Applicative, Monoid, Parallel}
-import com.evolutiongaming.kafka.journal.KafkaConverters._
+import com.evolutiongaming.kafka.journal.Conversion.implicits._
+import com.evolutiongaming.kafka.journal.KafkaConversions._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
@@ -14,6 +15,7 @@ import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, WithSize}
+import com.evolutiongaming.skafka.producer.ProducerRecord
 import com.evolutiongaming.skafka.{Bytes => _, Metadata => _, _}
 import org.scalatest.{Matchers, WordSpec}
 import play.api.libs.json.Json
@@ -584,7 +586,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
     topicPartition: TopicPartition,
     offset: Offset) = {
 
-    val producerRecord = action.toProducerRecord
+    val producerRecord = action.convert[cats.Id, ProducerRecord[Id, ByteVector]]
     ConsumerRecord(
       topicPartition = topicPartition,
       offset = offset,
@@ -768,6 +770,7 @@ object TopicReplicatorSpec {
     val millis = timestamp.toEpochMilli + replicationLatency.toMillis
     implicit val concurrent = ConcurrentOf.fromMonad[StateT]
     implicit val clock = Clock.const[StateT](nanos = 0, millis = millis)
+    implicit val consumerRecordToActionRecordId = consumerRecordToActionRecord[cats.Id]
     TopicReplicator.of[StateT](topic, TopicReplicator.StopRef[StateT], consumer, 1.second)
   }
 

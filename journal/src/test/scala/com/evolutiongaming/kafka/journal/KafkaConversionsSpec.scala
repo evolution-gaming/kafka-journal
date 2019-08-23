@@ -5,14 +5,16 @@ import java.time.temporal.ChronoUnit
 
 import cats.implicits._
 import cats.data.{NonEmptyList => Nel}
-import com.evolutiongaming.kafka.journal.KafkaConverters._
+import com.evolutiongaming.kafka.journal.Conversion.implicits._
+import com.evolutiongaming.kafka.journal.KafkaConversions._
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, WithSize}
+import com.evolutiongaming.skafka.producer.ProducerRecord
 import com.evolutiongaming.skafka.{TimestampAndType, TimestampType, TopicPartition}
 import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json.Json
 import scodec.bits.ByteVector
 
-class KafkaConvertersSpec extends FunSuite with Matchers {
+class KafkaConversionsSpec extends FunSuite with Matchers {
 
   private val key1 = Key(id = "id", topic = "topic")
 
@@ -84,7 +86,7 @@ class KafkaConvertersSpec extends FunSuite with Matchers {
   } {
 
     test(s"toProducerRecord & toActionRecord $action") {
-      val producerRecord = action.toProducerRecord
+      val producerRecord = action.convert[cats.Id, ProducerRecord[Id, ByteVector]]
 
       val consumerRecord = ConsumerRecord[Id, ByteVector](
         topicPartition = topicPartition,
@@ -96,7 +98,8 @@ class KafkaConvertersSpec extends FunSuite with Matchers {
 
       val record = ActionRecord(action, partitionOffset)
 
-      consumerRecord.toActionRecord shouldEqual record.some
+      implicit val function = consumerRecordToActionHeader[cats.Id]
+      consumerRecordToActionRecord[cats.Id].apply(consumerRecord).value shouldEqual record.some
     }
   }
 }

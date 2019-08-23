@@ -4,6 +4,7 @@ import akka.actor.ActorSystem
 import akka.persistence.PersistentRepr
 import cats.MonadError
 import cats.implicits._
+import com.evolutiongaming.catshelper.FromTry
 import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
 import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
 import com.evolutiongaming.kafka.journal._
@@ -30,7 +31,7 @@ object EventSerializer {
     apply[F](SerializedMsgExt(system))
   }
 
-  def apply[F[_]](
+  def apply[F[_] : FromTry](
     serialisation: SerializedMsgConverter/*TODO*/)(implicit
     F: MonadError[F, Throwable]
   ): EventSerializer[F] = new EventSerializer[F] {
