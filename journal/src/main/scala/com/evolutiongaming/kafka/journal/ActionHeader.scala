@@ -10,7 +10,7 @@ object ActionHeader {
 
   implicit val FormatActionHeader: OFormat[ActionHeader] = {
 
-    val AppendFormat = {
+    val appendFormat = {
       val format = Json.format[Append]
       val reads = format orElse new Reads[Append] {
         def reads(json: JsValue) = {
@@ -30,8 +30,8 @@ object ActionHeader {
       }
       OFormat(reads, format)
     }
-    val DeleteFormat = Json.format[Delete]
-    val ReadFormat = Json.format[Mark]
+    val deleteFormat = Json.format[Delete]
+    val readFormat = Json.format[Mark]
 
     new OFormat[ActionHeader] {
 
@@ -40,9 +40,9 @@ object ActionHeader {
           (json \ name).validate(reads)
         }
 
-        read("append", AppendFormat) orElse
-          read("mark", ReadFormat) orElse
-          read("delete", DeleteFormat)
+        read("append", appendFormat) orElse
+          read("mark", readFormat) orElse
+          read("delete", deleteFormat)
       }
 
       def writes(header: ActionHeader): JsObject = {
@@ -53,17 +53,17 @@ object ActionHeader {
         }
 
         header match {
-          case header: Append => write("append", header, AppendFormat)
-          case header: Mark   => write("mark", header, ReadFormat)
-          case header: Delete => write("delete", header, DeleteFormat)
+          case header: Append => write("append", header, appendFormat)
+          case header: Mark   => write("mark", header, readFormat)
+          case header: Delete => write("delete", header, deleteFormat)
         }
       }
     }
   }
 
-  implicit val ToBytesActionHeader: ToBytes[ActionHeader] = ToBytes[JsValue].imap(Json.toJson(_))
+  implicit val ToBytesActionHeader: ToBytes[ActionHeader] = ToBytes.fromWrites
 
-  implicit val FromBytesActionHeader: FromBytes[ActionHeader] = FromBytes[JsValue].map(_.as[ActionHeader])
+  implicit val FromBytesActionHeader: FromBytes[ActionHeader] = FromBytes.fromReads
 
 
   sealed abstract class AppendOrDelete extends ActionHeader

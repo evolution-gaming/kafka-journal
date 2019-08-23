@@ -5,7 +5,9 @@ import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
 import com.evolutiongaming.kafka.journal.PlayJsonHelper._
 import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
-import play.api.libs.json._
+import com.evolutiongaming.kafka.journal.util.ScodecHelper._
+import play.api.libs.json.{JsString, JsValue, Json, OFormat, Reads, Writes}
+import scodec.Codec
 import scodec.bits.ByteVector
 
 import scala.annotation.tailrec
@@ -41,8 +43,7 @@ object EventsSerializer {
 
         case head :: tail =>
           val payload = PayloadJson(Nel(head, tail))
-          val json = Json.toJson(payload)
-          val bytes = json.toBytes
+          val bytes = payload.toBytes
           val byteVector = ByteVector.view(bytes)
           (Payload.Binary(byteVector), PayloadType.Json)
       }
@@ -56,8 +57,7 @@ object EventsSerializer {
       payloadType match {
         case PayloadType.Binary => payload.value.toArray.fromBytes[Nel[Event]] // TODO
         case PayloadType.Json   =>
-          val json = payload.value.toArray.fromBytes[JsValue]
-          val payloadJson = json.as[PayloadJson]
+          val payloadJson = payload.value.toArray.fromBytes[PayloadJson]
           for {
             event <- payloadJson.events
           } yield {
@@ -86,12 +86,12 @@ object EventsSerializer {
 
   object EventJson {
 
-    implicit val FormatEventJson: OFormat[EventJson] = Json.format[EventJson]
+    implicit val FormatEventJson: OFormat[EventJson] = Json.format
 
 
-    implicit val WritesNelEventJson: Writes[Nel[EventJson]] = nelWrites[EventJson]
+    implicit val WritesNelEventJson: Writes[Nel[EventJson]] = nelWrites
 
-    implicit val ReadsNelEventJson: Reads[Nel[EventJson]] = nelReads[EventJson]
+    implicit val ReadsNelEventJson: Reads[Nel[EventJson]] = nelReads
 
 
     def apply(event: Event): EventJson = {
@@ -120,6 +120,15 @@ object EventsSerializer {
   final case class PayloadJson(events: Nel[EventJson])
 
   object PayloadJson {
-    implicit val FormatPayloadJson: OFormat[PayloadJson] = Json.format[PayloadJson]
+
+    implicit val FormatPayloadJson: OFormat[PayloadJson] = Json.format
+
+
+    implicit val CodecPayloadJson: Codec[PayloadJson] = formatCodec
+
+
+    implicit val ToBytesPayloadJson: ToBytes[PayloadJson] = ToBytes.fromWrites
+
+    implicit val FromBytesPayloadJson: FromBytes[PayloadJson] = FromBytes.fromReads
   }
 }

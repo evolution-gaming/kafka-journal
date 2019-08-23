@@ -2,9 +2,9 @@ package com.evolutiongaming.kafka.journal
 
 import java.nio.charset.StandardCharsets.UTF_8
 
-import play.api.libs.json.{JsValue, Json}
+import play.api.libs.json.{JsValue, Json, Reads}
 import scodec.Decoder
-import scodec.bits.{BitVector, ByteVector}
+import scodec.bits.ByteVector
 
 trait FromBytes[A] { self =>
 
@@ -19,7 +19,7 @@ object FromBytes {
 
   implicit val StringFromBytes: FromBytes[String] = (a: Bytes) => new String(a, UTF_8)
 
-  implicit val JsValueFromBytes: FromBytes[JsValue] = (a: Bytes) => Json.parse(a)
+  implicit val JsValueFromBytes: FromBytes[JsValue] = fromReads
 
   implicit val BytesVectorToBytes: FromBytes[ByteVector] = (a: Bytes) => ByteVector.view(a)
 
@@ -29,11 +29,16 @@ object FromBytes {
   def const[A](a: A): FromBytes[A] = (_: Bytes) => a
 
 
-  implicit def decoderFromBytes[A](implicit decoder: Decoder[A]): FromBytes[A] = {
-    a: Bytes => {
-      val bitVector = BitVector(a)
-      decoder.decode(bitVector).require.value
-    }
+  def fromDecoder[A](implicit decoder: Decoder[A]): FromBytes[A] = (a: Bytes) => {
+    val byteVector = ByteVector.view(a)
+    val attempt = decoder.decode(byteVector.toBitVector)
+    attempt.require.value
+  }
+
+
+  def fromReads[A](implicit reads: Reads[A]): FromBytes[A] = (a: Bytes) => {
+    val jsValue = Json.parse(a)
+    jsValue.as(reads)
   }
 
 

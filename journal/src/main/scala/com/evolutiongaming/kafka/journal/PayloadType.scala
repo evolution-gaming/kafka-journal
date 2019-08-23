@@ -23,9 +23,9 @@ object PayloadType {
   }
 
 
-  implicit val WritesPayloadType: Writes[PayloadType] = WritesOf[String].contramap(_.name)
+  implicit val WritesPayloadType: Writes[PayloadType] = Writes.of[String].contramap(_.name)
 
-  implicit val ReadsPayloadType: Reads[PayloadType] = ReadsOf[String].mapResult { a =>
+  implicit val ReadsPayloadType: Reads[PayloadType] = Reads.of[String].mapResult { a =>
     apply(a) match {
       case Some(a) => JsSuccess(a)
       case None    => JsError(s"No PayloadType found by $a")
@@ -46,7 +46,7 @@ object PayloadType {
   sealed abstract class BinaryOrJson extends PayloadType
 
   object BinaryOrJson {
-    implicit val ReadsBinaryOrJson: Reads[BinaryOrJson] = ReadsOf[String].mapResult { a =>
+    implicit val ReadsBinaryOrJson: Reads[BinaryOrJson] = Reads.of[String].mapResult { a =>
       apply(a) match {
         case Some(a: BinaryOrJson) => JsSuccess(a)
         case _                     => JsError(s"No PayloadType.BinaryOrJson found by $a")
@@ -58,7 +58,7 @@ object PayloadType {
   sealed trait TextOrJson extends PayloadType
 
   object TextOrJson {
-    implicit val ReadsTextOrJson: Reads[TextOrJson] = ReadsOf[String].mapResult { a =>
+    implicit val ReadsTextOrJson: Reads[TextOrJson] = Reads.of[String].mapResult { a =>
       apply(a) match {
         case Some(a: TextOrJson) => JsSuccess(a)
         case _                   => JsError(s"No PayloadType.TextOrJson found by $a")

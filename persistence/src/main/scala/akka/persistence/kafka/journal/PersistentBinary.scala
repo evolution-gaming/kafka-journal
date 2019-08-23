@@ -1,9 +1,8 @@
 package akka.persistence.kafka.journal
 
 import akka.persistence.PersistentRepr
-import com.evolutiongaming.kafka.journal.{Bytes, FromBytes, ToBytes}
+import com.evolutiongaming.kafka.journal.{FromBytes, ToBytes}
 import com.evolutiongaming.serialization.SerializedMsg
-import scodec.bits.BitVector
 import scodec.{Codec, codecs}
 
 final case class PersistentBinary(
@@ -20,19 +19,9 @@ object PersistentBinary {
   }
 
 
-  implicit val ToBytesPersistentBinary: ToBytes[PersistentBinary] = new ToBytes[PersistentBinary] {
+  implicit val ToBytesPersistentBinary: ToBytes[PersistentBinary] = ToBytes.fromEncoder
 
-    def apply(value: PersistentBinary): Bytes = {
-      CodecPersistentBinary.encode(value).require.toByteArray
-    }
-  }
-
-  implicit val FromBytesPersistentBinary: FromBytes[PersistentBinary] = new FromBytes[PersistentBinary] {
-
-    def apply(bytes: Bytes) = {
-      CodecPersistentBinary.decode(BitVector.view(bytes)).require.value
-    }
-  }
+  implicit val FromBytesPersistentBinary: FromBytes[PersistentBinary] = FromBytes.fromDecoder
 
 
   def apply(msg: SerializedMsg, persistentRepr: PersistentRepr): PersistentBinary = {

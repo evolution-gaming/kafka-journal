@@ -45,7 +45,7 @@ final case class SeqRange(from: SeqNr, to: SeqNr) {
 
 object SeqRange {
 
-  implicit val Format: OFormat[SeqRange] = Json.format[SeqRange]
+  implicit val Format: OFormat[SeqRange] = Json.format
 
   val All: SeqRange = SeqRange(SeqNr.Min, SeqNr.Max)
 

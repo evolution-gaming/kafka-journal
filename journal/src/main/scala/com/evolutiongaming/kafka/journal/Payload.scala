@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import com.evolutiongaming.kafka.journal.PlayJsonHelper._
+import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
 import play.api.libs.json._
 import scodec.Codec
@@ -8,6 +9,7 @@ import scodec.bits.ByteVector
 import scodec.codecs.{bytes, utf8}
 
 sealed abstract class Payload extends Product {
+
   def payloadType: PayloadType
 }
 
@@ -38,17 +40,18 @@ object Payload {
 
     val Empty: Binary = Binary(ByteVector.empty)
 
-    implicit val ToBytesBinary: ToBytes[Binary] = ToBytes[ByteVector].imap(_.value)
 
-    implicit val FromBytesBinary: FromBytes[Binary] = FromBytes[ByteVector].map(Binary(_))
+    implicit val CodecBinary: Codec[Binary] = bytes.as[Binary]
 
-
+    // TODO remove this
     implicit val EncodeByNameBinary: EncodeByName[Binary] = EncodeByName[Bytes].imap(_.value.toArray)
 
     implicit val DecodeByNameBinary: DecodeByName[Binary] = DecodeByName[Bytes].map(a => Binary(ByteVector.view(a)))
 
 
-    implicit val CodecBinary: Codec[Binary] = bytes.as[Binary]
+    implicit val ToBytesBinary: ToBytes[Binary] = ToBytes.fromEncoder
+
+    implicit val FromBytesBinary: FromBytes[Binary] = FromBytes.fromDecoder
   }
 
 
@@ -58,9 +61,7 @@ object Payload {
 
   object Text {
 
-    implicit val ToBytesText: ToBytes[Text] = ToBytes[String].imap(_.value)
-
-    implicit val FromBytesText: FromBytes[Text] = FromBytes[String].map(Text(_))
+    implicit val CodecText: Codec[Text] = utf8.as[Payload.Text]
     
 
     implicit val EncodeByNameText: EncodeByName[Text] = EncodeByName[String].imap(_.value)
@@ -68,7 +69,9 @@ object Payload {
     implicit val DecodeByNameText: DecodeByName[Text] = DecodeByName[String].map(Text(_))
 
 
-    implicit val CodecText: Codec[Text] = utf8.as[Payload.Text]
+    implicit val ToBytesText: ToBytes[Text] = ToBytes[String].imap(_.value)
+
+    implicit val FromBytesText: FromBytes[Text] = FromBytes[String].map(Text(_))
   }
 
 
@@ -78,22 +81,19 @@ object Payload {
 
   object Json {
 
-    implicit val ToBytesJson: ToBytes[Json] = ToBytes[JsValue].imap(_.value)
+    implicit val FormatJson: Format[Json] = Format.of[JsValue].bimap(Json(_), _.value)
 
-    implicit val FromBytesJson: FromBytes[Json] = FromBytes[JsValue].map(Json(_))
-
-
-    implicit val EncodeByNameJson: EncodeByName[Json] = EncodeByName[JsValue].imap(_.value)
-
-    implicit val DecodeByNameJson: DecodeByName[Json] = DecodeByName[JsValue].map(Json(_))
+    val CodecJson: Codec[Json] = formatCodec
 
 
-    implicit val WritesJson: Writes[Json] = WritesOf[JsValue].contramap(_.value)
+    implicit val ToBytesJson: ToBytes[Json] = ToBytes.fromWrites
 
-    implicit val ReadsJson: Reads[Json] = ReadsOf[JsValue].map(Json(_))
+    implicit val FromBytesJson: FromBytes[Json] = FromBytes.fromReads
 
 
-    implicit val CodecJson: Codec[Json] = JsValueCodec.as[Payload.Json]
+    implicit val EncodeByNameJson: EncodeByName[Json] = encodeByNameFromWrites
+
+    implicit val DecodeByNameJson: DecodeByName[Json] = decodeByNameFromReads
 
 
     def apply[A](a: A)(implicit writes: Writes[A]): Json = Json(writes.writes(a))

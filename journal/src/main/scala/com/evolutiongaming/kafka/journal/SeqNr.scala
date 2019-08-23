@@ -59,9 +59,9 @@ object SeqNr {
   implicit val DecodeRowSeqNr: DecodeRow[SeqNr] = DecodeRow[SeqNr]("seq_nr")
 
 
-  implicit val WritesSeqNr: Writes[SeqNr] = WritesOf[Long].contramap(_.value)
+  implicit val WritesSeqNr: Writes[SeqNr] = Writes.of[Long].contramap(_.value)
 
-  implicit val ReadsSeqNr: Reads[SeqNr] = ReadsOf[Long].mapResult { a =>
+  implicit val ReadsSeqNr: Reads[SeqNr] = Reads.of[Long].mapResult { a =>
     SeqNr.validate(a)(JsError(_), JsSuccess(_))
   }
 

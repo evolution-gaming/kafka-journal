@@ -3,48 +3,17 @@ package com.evolutiongaming.kafka.journal
 import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
 import play.api.libs.json._
-import scodec.bits.ByteVector
-import scodec.{Attempt, Codec, codecs}
-
-import scala.util.Try
 
 
 object PlayJsonHelper {
 
-  implicit val JsonEncode: EncodeByName[JsValue] = EncodeByName[String].imap(Json.stringify)
+  implicit val JsonEncodeByName: EncodeByName[JsValue] = encodeByNameFromWrites
 
-  implicit val JsonDecode: DecodeByName[JsValue] = DecodeByName[String].map(Json.parse)
+  implicit val JsonDecodeByName: DecodeByName[JsValue] = decodeByNameFromReads
 
-  implicit val JsonOptEncode: EncodeByName[Option[JsValue]] = EncodeByName.opt[JsValue]
+  implicit val JsonOptEncodeByName: EncodeByName[Option[JsValue]] = EncodeByName.opt
 
-  implicit val JsonOptDecode: DecodeByName[Option[JsValue]] = DecodeByName.opt[JsValue]
-
-  val JsValueCodec: Codec[JsValue] = {
-    val fromBytes = (a: ByteVector) => {
-      val jsValue = Try { Json.parse(a.toArray) }
-      Attempt.fromTry(jsValue)
-    }
-    val toBytes = (a: JsValue) => {
-      val bytes = Json.toBytes(a)
-      val byteVector = ByteVector.view(bytes)
-      Attempt.successful(byteVector)
-    }
-    codecs.bytes.exmap(fromBytes, toBytes)
-  }
-
-  object ReadsOf {
-    def apply[A](implicit F: Reads[A]): Reads[A] = F
-  }
-
-
-  object WritesOf {
-    def apply[A](implicit F: Writes[A]): Writes[A] = F
-  }
-
-
-  object FormatOf {
-    def apply[A](implicit F: Format[A]): Format[A] = F
-  }
+  implicit val JsonOptDecodeByName: DecodeByName[Option[JsValue]] = DecodeByName.opt
 
 
   implicit def nelReads[T](implicit reads: Reads[List[T]]): Reads[Nel[T]] = {
@@ -66,11 +35,23 @@ object PlayJsonHelper {
   }
 
 
+  def encodeByNameFromWrites[A](implicit writes: Writes[A]): EncodeByName[A] = EncodeByName[String].imap { a =>
+    val jsValue = writes.writes(a)
+    Json.stringify(jsValue)
+  }
+
+  
+  def decodeByNameFromReads[A](implicit reads: Reads[A]): DecodeByName[A] = DecodeByName[String].map { a =>
+    val jsValue = Json.parse(a)
+    jsValue.as(reads)
+  }
+
+
   implicit class FormatOps[A](val self: Format[A]) extends AnyVal {
 
-    def bimap[B](to: B => A)(from: A => JsResult[B]): Format[B] = {
-      val reads = self.mapResult(from)
-      val writes = self.contramap(to)
+    def bimap[B](to: A => B, from: B => A): Format[B] = {
+      val reads = self.map(to)
+      val writes = self.contramap(from)
       Format(reads, writes)
     }
   }

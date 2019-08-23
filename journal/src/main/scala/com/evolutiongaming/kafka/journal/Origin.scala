@@ -2,7 +2,6 @@ package com.evolutiongaming.kafka.journal
 
 import akka.actor.{ActorSystem, ExtendedActorSystem, Extension, ExtensionId}
 import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
-import com.evolutiongaming.kafka.journal.PlayJsonHelper._
 import play.api.libs.json._
 
 final case class Origin(value: String) extends AnyVal {
@@ -19,9 +18,9 @@ object Origin {
   }
 
 
-  implicit val WritesOrigin: Writes[Origin] = WritesOf[String].contramap(_.value)
+  implicit val WritesOrigin: Writes[Origin] = Writes.of[String].contramap(_.value)
 
-  implicit val ReadsOrigin: Reads[Origin] = ReadsOf[String].map(Origin(_))
+  implicit val ReadsOrigin: Reads[Origin] = Reads.of[String].map(Origin(_))
 
 
   implicit val EncodeByNameOrigin: EncodeByName[Origin] = EncodeByName[String].imap((b: Origin) => b.value)

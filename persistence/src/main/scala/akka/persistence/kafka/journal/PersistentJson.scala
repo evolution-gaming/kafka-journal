@@ -11,5 +11,6 @@ final case class PersistentJson(
 
 
 object PersistentJson {
-  implicit val Format: OFormat[PersistentJson] = Json.format[PersistentJson]
+  
+  implicit val Format: OFormat[PersistentJson] = Json.format
 }

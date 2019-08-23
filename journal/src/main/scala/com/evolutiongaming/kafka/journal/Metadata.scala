@@ -11,12 +11,12 @@ object Metadata {
   val Empty: Metadata = Metadata(data = None)
   
 
-  implicit val FormatMetadata: OFormat[Metadata] = Json.format[Metadata]
+  implicit val FormatMetadata: OFormat[Metadata] = Json.format
 
 
-  implicit val EncodeByNameMetadata: EncodeByName[Metadata] = EncodeByName[JsValue].imap(Json.toJson(_))
+  implicit val EncodeByNameMetadata: EncodeByName[Metadata] = encodeByNameFromWrites
 
-  implicit val DecodeByNameMetadata: DecodeByName[Metadata] = DecodeByName[JsValue].map(_.as[Metadata])
+  implicit val DecodeByNameMetadata: DecodeByName[Metadata] = decodeByNameFromReads
 
 
   implicit val EncodeRowMetadata: EncodeRow[Metadata] = EncodeRow("metadata")

@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import java.nio.charset.StandardCharsets.UTF_8
 
-import play.api.libs.json.{JsValue, Json}
+import play.api.libs.json.{JsValue, Json, Writes}
 import scodec.Encoder
 import scodec.bits.ByteVector
 
@@ -22,7 +22,7 @@ object ToBytes {
 
   implicit val StringToBytes: ToBytes[String] = (a: String) => a.getBytes(UTF_8)
 
-  implicit val JsValueToBytes: ToBytes[JsValue] = (a: JsValue) => Json.toBytes(a)
+  implicit val JsValueToBytes: ToBytes[JsValue] = fromWrites
 
   implicit val BytesVectorToBytes: ToBytes[ByteVector] = _.toArray
 
@@ -34,7 +34,16 @@ object ToBytes {
   def const[A](bytes: Bytes): ToBytes[A] = (_: A) => bytes
 
 
-  implicit def encoderToBytes[A](implicit encoder: Encoder[A]): ToBytes[A] = (a: A) => encoder.encode(a).require.toByteArray
+  def fromEncoder[A](implicit encoder: Encoder[A]): ToBytes[A] = (a: A) => {
+    val attempt = encoder.encode(a)
+    attempt.require.toByteArray
+  }
+
+
+  def fromWrites[A](implicit writes: Writes[A]): ToBytes[A] = (a: A) => {
+    val jsValue = writes.writes(a)
+    Json.toBytes(jsValue)
+  }
 
 
   object Implicits {
