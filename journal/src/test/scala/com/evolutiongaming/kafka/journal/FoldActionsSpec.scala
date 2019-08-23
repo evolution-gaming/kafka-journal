@@ -6,6 +6,7 @@ import cats.effect.{ExitCase, Resource, Sync}
 import cats.implicits._
 import com.evolutiongaming.skafka.{Offset, Partition}
 import org.scalatest.{FunSuite, Matchers}
+import scodec.bits.ByteVector
 
 import scala.util.{Failure, Success, Try}
 
@@ -106,7 +107,7 @@ object FoldActionsSpec {
       val range = SeqRange(SeqNr(pointer.seqNr))
       val metadata = Metadata.Empty
       val header = ActionHeader.Append(range, None, PayloadType.Json, metadata)
-      val action = Action.Append(key, timestamp, header, Payload.Binary.Empty, Headers.Empty)
+      val action = Action.Append(key, timestamp, header, ByteVector.empty, Headers.Empty)
       ActionRecord(action, PartitionOffset(offset = pointer.offset))
     }
     val records = appendRecords :+ markRecord

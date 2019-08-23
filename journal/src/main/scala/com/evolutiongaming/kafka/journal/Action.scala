@@ -4,6 +4,7 @@ import java.time.Instant
 
 import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.kafka.journal.PayloadAndType.EventsToPayload
+import scodec.bits.ByteVector
 
 sealed abstract class Action extends Product {
 
@@ -27,7 +28,7 @@ object Action {
     key: Key,
     timestamp: Instant,
     header: ActionHeader.Append,
-    payload: Payload.Binary, // TODO ByteVector
+    payload: ByteVector,
     headers: Headers
   ) extends User {
 

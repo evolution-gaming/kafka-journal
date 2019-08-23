@@ -44,6 +44,7 @@ object Payload {
     implicit val CodecBinary: Codec[Binary] = bytes.as[Binary]
 
     // TODO remove this
+    // TODO use ByteVector
     implicit val EncodeByNameBinary: EncodeByName[Binary] = EncodeByName[Bytes].imap(_.value.toArray)
 
     implicit val DecodeByNameBinary: DecodeByName[Binary] = DecodeByName[Bytes].map(a => Binary(ByteVector.view(a)))

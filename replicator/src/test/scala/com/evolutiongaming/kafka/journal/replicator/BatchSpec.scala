@@ -5,6 +5,7 @@ import java.time.Instant
 import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.kafka.journal._
 import org.scalatest.{FunSuite, Matchers}
+import scodec.bits.ByteVector
 
 class BatchSpec extends FunSuite with Matchers {
   import BatchSpec._
@@ -313,7 +314,7 @@ class BatchSpec extends FunSuite with Matchers {
         payloadType = PayloadType.Binary,
         origin = None,
         metadata = Metadata.Empty),
-      payload = Payload.Binary.Empty,
+      payload = ByteVector.empty,
       headers = Headers.Empty)
   }
 

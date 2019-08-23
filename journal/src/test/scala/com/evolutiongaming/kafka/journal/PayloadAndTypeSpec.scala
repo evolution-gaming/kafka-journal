@@ -54,7 +54,7 @@ class PayloadAndTypeSpec extends FunSuite with Matchers {
       def fromFile(path: String) = ByteVector.view(BytesOf(getClass, path))
 
       def verify(payload: ByteVector, payloadType: PayloadType.BinaryOrJson) = {
-        val payloadAndType = PayloadAndType(Payload.Binary(payload), payloadType)
+        val payloadAndType = PayloadAndType(payload, payloadType)
         val actual = EventsFromPayload(payloadAndType)
         actual shouldEqual events
       }
@@ -69,7 +69,7 @@ class PayloadAndTypeSpec extends FunSuite with Matchers {
 
       //      writeToFile(payload.value, path)
 
-      verify(payloadAndType.payload.value, payloadType)
+      verify(payloadAndType.payload, payloadType)
 
       verify(fromFile(path), payloadType)
     }

@@ -14,8 +14,8 @@ import scodec.bits.ByteVector
 import scala.annotation.tailrec
 
 final case class PayloadAndType(
-  payload: Payload.Binary, // TODO why do we need Payload.Binary
-  payloadType: PayloadType.BinaryOrJson) // TODO why do we need to use PayloadType ?
+  payload: ByteVector,
+  payloadType: PayloadType.BinaryOrJson)
 
 object PayloadAndType {
 
@@ -56,15 +56,13 @@ object PayloadAndType {
         case Nil =>
           val bytes = events.toBytes
           val byteVector = ByteVector.view(bytes)
-          val binary = Payload.Binary(byteVector)
-          PayloadAndType(binary, PayloadType.Binary)
+          PayloadAndType(byteVector, PayloadType.Binary)
 
         case head :: tail =>
           val payload = PayloadJson(Nel(head, tail))
           val bytes = payload.toBytes
           val byteVector = ByteVector.view(bytes)
-          val binary = Payload.Binary(byteVector)
-          PayloadAndType(binary, PayloadType.Json)
+          PayloadAndType(byteVector, PayloadType.Json)
       }
     }
   }
@@ -73,13 +71,13 @@ object PayloadAndType {
   object EventsFromPayload {
 
     def apply(payloadAndType: PayloadAndType): Nel[Event] = {
-      val payload = payloadAndType.payload.value
+      val payload = payloadAndType.payload.toArray // TODO avoid calling this, work with ByteVector
       payloadAndType.payloadType match {
         case PayloadType.Binary =>
-          payload.toArray.fromBytes[Nel[Event]] // TODO
+          payload.fromBytes[Nel[Event]] // TODO avoid using toBytes/fromBytes
           
         case PayloadType.Json   =>
-          val payloadJson = payload.toArray.fromBytes[PayloadJson]
+          val payloadJson = payload.fromBytes[PayloadJson]
           for {
             event <- payloadJson.events
           } yield {
