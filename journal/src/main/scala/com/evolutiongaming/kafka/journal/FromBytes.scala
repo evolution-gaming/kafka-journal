@@ -38,6 +38,7 @@ object FromBytes {
 
   def fromReads[A](implicit reads: Reads[A]): FromBytes[A] = (a: Bytes) => {
     val jsValue = Json.parse(a)
+    // TODO not use `as`
     jsValue.as(reads)
   }
 

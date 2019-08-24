@@ -43,6 +43,7 @@ object PlayJsonHelper {
   
   def decodeByNameFromReads[A](implicit reads: Reads[A]): DecodeByName[A] = DecodeByName[String].map { a =>
     val jsValue = Json.parse(a)
+    // TODO not use `as`
     jsValue.as(reads)
   }
 

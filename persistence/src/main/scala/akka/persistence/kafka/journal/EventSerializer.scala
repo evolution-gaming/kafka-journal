@@ -2,9 +2,10 @@ package akka.persistence.kafka.journal
 
 import akka.actor.ActorSystem
 import akka.persistence.PersistentRepr
-import cats.MonadError
+import cats.effect.{IO, Sync}
 import cats.implicits._
-import com.evolutiongaming.catshelper.FromTry
+import cats.{FlatMap, ~>}
+import com.evolutiongaming.catshelper.{FromTry, ToTry}
 import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
 import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
 import com.evolutiongaming.kafka.journal._
@@ -24,26 +25,33 @@ object EventSerializer {
   // TODO remove
   def unsafe(system: ActorSystem): EventSerializer[cats.Id] = {
     implicit val monadError = MonadErrorOf.throwable[cats.Id]
-    apply[cats.Id](system)
+    val eventSerializer = apply[IO](system)
+    val unsafe = new (IO ~> cats.Id) {
+      def apply[A](fa: IO[A]) = ToTry[IO].apply(fa).get
+    }
+    eventSerializer.mapK(unsafe)
   }
 
-  def apply[F[_]](system: ActorSystem)(implicit F: MonadError[F, Throwable]): EventSerializer[F] = {
-    apply[F](SerializedMsgExt(system))
+  def apply[F[_] : Sync : FromTry](system: ActorSystem): EventSerializer[F] = {
+    apply[F](SerializedMsgExt(system)) // TODO wrap
   }
 
-  def apply[F[_] : FromTry](
-    serialisation: SerializedMsgConverter/*TODO*/)(implicit
-    F: MonadError[F, Throwable]
+  def apply[F[_] : Sync : FromTry](
+    serialisation: SerializedMsgConverter/*TODO*/
   ): EventSerializer[F] = new EventSerializer[F] {
 
     def toEvent(persistentRepr: PersistentRepr) = {
       val (anyRef: AnyRef, tags) = PayloadAndTags(persistentRepr.payload)
 
       def binary(payload: AnyRef) = {
-        val serialized = serialisation.toMsg(payload)
-        val persistent = PersistentBinary(serialized, persistentRepr)
-        val bytes = persistent.toBytes
-        Payload.binary(ByteVector.view(bytes))
+
+        for {
+          serialized <- Sync[F].delay { serialisation.toMsg(payload) }
+          persistent  = PersistentBinary(serialized, persistentRepr)
+          bytes      <- FromTry[F].unsafe { persistent.toBytes }
+        } yield {
+          Payload.binary(ByteVector.view(bytes))
+        }
       }
 
       def json(payload: JsValue, payloadType: Option[PayloadType.TextOrJson] = None) = {
@@ -53,8 +61,11 @@ object EventSerializer {
           writerUuid = persistentRepr.writerUuid,
           payloadType = payloadType,
           payload = payload)
-        val json = Json.toJson(persistent)
-        Payload.json(json)
+        for {
+          json <- FromTry[F].unsafe { Json.toJson(persistent) }
+        } yield {
+          Payload.json(json)
+        }
       }
 
       val payload = anyRef match {
@@ -62,9 +73,12 @@ object EventSerializer {
         case payload: String  => json(JsString(payload), Some(PayloadType.Text))
         case payload          => binary(payload)
       }
-      val seqNr = SeqNr(persistentRepr.sequenceNr)
-      val event = Event(seqNr, tags, Some(payload))
-      event.pure[F]
+      for {
+        payload <- payload
+        seqNr   <- FromTry[F].unsafe { SeqNr(persistentRepr.sequenceNr) }
+      } yield {
+        Event(seqNr, tags, Some(payload))
+      }
     }
 
     def toPersistentRepr(persistenceId: PersistenceId, event: Event) = {
@@ -81,39 +95,61 @@ object EventSerializer {
       }
 
       def binary(payload: ByteVector) = {
-        val persistent = payload.toArray.fromBytes[PersistentBinary]
-        val anyRef = serialisation.fromMsg(persistent.payload).get
-        PersistentRepr(
+        for {
+          persistent <- FromTry[F].unsafe { payload.toArray.fromBytes[PersistentBinary] }
+          anyRef     <- FromTry[F].apply { serialisation.fromMsg(persistent.payload) }
+        } yield {        PersistentRepr(
           payload = anyRef,
           sequenceNr = event.seqNr.value,
           persistenceId = persistenceId,
           manifest = persistent.manifest getOrElse PersistentRepr.Undefined,
           writerUuid = persistent.writerUuid)
+        }
+
       }
 
       def json(payload: JsValue) = {
-        val persistent = payload.as[PersistentJson]
-        val payloadType = persistent.payloadType getOrElse PayloadType.Json
-        val anyRef: AnyRef = payloadType match {
-          case PayloadType.Text => persistent.payload.as[String]
-          case PayloadType.Json => persistent.payload
+
+        for {
+          persistent  <- FromTry[F].unsafe { payload.as[PersistentJson] } // TODO not use `as`
+          payloadType  = persistent.payloadType getOrElse PayloadType.Json
+          anyRef      <- payloadType match {
+            case PayloadType.Text => FromTry[F].unsafe { persistent.payload.as[String] : AnyRef }  // TODO not use `as`
+            case PayloadType.Json => (persistent.payload : AnyRef).pure[F]
+          }
+        } yield {
+          PersistentRepr(
+            payload = anyRef,
+            sequenceNr = event.seqNr.value,
+            persistenceId = persistenceId,
+            manifest = persistent.manifest getOrElse PersistentRepr.Undefined,
+            writerUuid = persistent.writerUuid)
         }
-        PersistentRepr(
-          payload = anyRef,
-          sequenceNr = event.seqNr.value,
-          persistenceId = persistenceId,
-          manifest = persistent.manifest getOrElse PersistentRepr.Undefined,
-          writerUuid = persistent.writerUuid)
       }
 
       for {
         payload        <- payload
         persistentRepr <- payload match {
-          case p: Payload.Binary => binary(p.value).pure[F]
+          case p: Payload.Binary => binary(p.value)
           case _: Payload.Text   => error[PersistentRepr](s"Payload.Text is not supported, persistenceId: $persistenceId, event: $event")
-          case p: Payload.Json   => json(p.value).pure[F]
+          case p: Payload.Json   => json(p.value)
         }
       } yield persistentRepr
+    }
+  }
+
+
+  implicit class EventSerializerOps[F[_]](val self: EventSerializer[F]) extends AnyVal {
+
+    def mapK[G[_] : FlatMap](f: F ~> G): EventSerializer[G] = new EventSerializer[G] {
+
+      def toEvent(persistentRepr: PersistentRepr) = {
+        f(self.toEvent(persistentRepr))
+      }
+
+      def toPersistentRepr(persistenceId: PersistenceId, event: Event) = {
+        f(self.toPersistentRepr(persistenceId, event))
+      }
     }
   }
 }

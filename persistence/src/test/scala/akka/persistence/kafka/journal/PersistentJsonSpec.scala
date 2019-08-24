@@ -17,7 +17,7 @@ class PersistentJsonSpec extends FunSuite with Matchers {
         payloadType = payloadType,
         payload = JsString("payload"))
       val json = Json.toJson(persistent)
-      json.as[PersistentJson] shouldEqual persistent
+      json.as[PersistentJson] shouldEqual persistent // TODO not use `as`
     }
   }
 }
