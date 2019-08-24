@@ -4,12 +4,11 @@ import akka.actor.ActorSystem
 import akka.persistence.PersistentRepr
 import cats.effect.{IO, Sync}
 import cats.implicits._
-import cats.{FlatMap, ~>}
+import cats.~>
 import com.evolutiongaming.catshelper.{FromTry, ToTry}
 import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
 import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.serialization.{SerializedMsgConverter, SerializedMsgExt}
 import play.api.libs.json.{JsString, JsValue, Json}
 import scodec.bits.ByteVector
 
@@ -24,20 +23,21 @@ object EventSerializer {
 
   // TODO remove
   def unsafe(system: ActorSystem): EventSerializer[cats.Id] = {
-    implicit val monadError = MonadErrorOf.throwable[cats.Id]
-    val eventSerializer = apply[IO](system)
+
     val unsafe = new (IO ~> cats.Id) {
       def apply[A](fa: IO[A]) = ToTry[IO].apply(fa).get
     }
+
+    val serializedMsgSerializer = unsafe(SerializedMsgSerializer.of[IO](system))
+
+    val eventSerializer = apply[IO](serializedMsgSerializer)
+
     eventSerializer.mapK(unsafe)
   }
-
-  def apply[F[_] : Sync : FromTry](system: ActorSystem): EventSerializer[F] = {
-    apply[F](SerializedMsgExt(system)) // TODO wrap
-  }
+  
 
   def apply[F[_] : Sync : FromTry](
-    serialisation: SerializedMsgConverter/*TODO*/
+    serializer: SerializedMsgSerializer[F]/*TODO*/
   ): EventSerializer[F] = new EventSerializer[F] {
 
     def toEvent(persistentRepr: PersistentRepr) = {
@@ -46,7 +46,7 @@ object EventSerializer {
       def binary(payload: AnyRef) = {
 
         for {
-          serialized <- Sync[F].delay { serialisation.toMsg(payload) }
+          serialized <- serializer.toMsg(payload)
           persistent  = PersistentBinary(serialized, persistentRepr)
           bytes      <- FromTry[F].unsafe { persistent.toBytes }
         } yield {
@@ -97,15 +97,15 @@ object EventSerializer {
       def binary(payload: ByteVector) = {
         for {
           persistent <- FromTry[F].unsafe { payload.toArray.fromBytes[PersistentBinary] }
-          anyRef     <- FromTry[F].apply { serialisation.fromMsg(persistent.payload) }
-        } yield {        PersistentRepr(
-          payload = anyRef,
-          sequenceNr = event.seqNr.value,
-          persistenceId = persistenceId,
-          manifest = persistent.manifest getOrElse PersistentRepr.Undefined,
-          writerUuid = persistent.writerUuid)
+          anyRef     <- serializer.fromMsg(persistent.payload)
+        } yield {
+          PersistentRepr(
+            payload = anyRef,
+            sequenceNr = event.seqNr.value,
+            persistenceId = persistenceId,
+            manifest = persistent.manifest getOrElse PersistentRepr.Undefined,
+            writerUuid = persistent.writerUuid)
         }
-
       }
 
       def json(payload: JsValue) = {
@@ -141,7 +141,7 @@ object EventSerializer {
 
   implicit class EventSerializerOps[F[_]](val self: EventSerializer[F]) extends AnyVal {
 
-    def mapK[G[_] : FlatMap](f: F ~> G): EventSerializer[G] = new EventSerializer[G] {
+    def mapK[G[_]](f: F ~> G): EventSerializer[G] = new EventSerializer[G] {
 
       def toEvent(persistentRepr: PersistentRepr) = {
         f(self.toEvent(persistentRepr))
