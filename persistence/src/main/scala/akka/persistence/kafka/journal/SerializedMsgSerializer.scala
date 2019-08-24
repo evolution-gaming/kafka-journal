@@ -15,6 +15,14 @@ trait SerializedMsgSerializer[F[_]] {
 
 object SerializedMsgSerializer {
 
+  def of[F[_] : Sync](actorSystem: ActorSystem): F[SerializedMsgSerializer[F]] = {
+    for {
+      converter <- Sync[F].delay { SerializedMsgExt(actorSystem) }
+    } yield {
+      apply(converter)
+    }
+  }
+
   def apply[F[_] : Sync](converter: SerializedMsgConverter): SerializedMsgSerializer[F] = {
 
     new SerializedMsgSerializer[F] {
@@ -29,15 +37,6 @@ object SerializedMsgSerializer {
           a <- Sync[F].fromTry(a)
         } yield a
       }
-    }
-  }
-
-
-  def of[F[_] : Sync](actorSystem: ActorSystem): F[SerializedMsgSerializer[F]] = {
-    for {
-      converter <- Sync[F].delay { SerializedMsgExt(actorSystem) }
-    } yield {
-      apply(converter)
     }
   }
 

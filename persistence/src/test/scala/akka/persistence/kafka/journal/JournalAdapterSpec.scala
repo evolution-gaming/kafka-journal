@@ -19,12 +19,7 @@ class JournalAdapterSpec extends FunSuite with Matchers {
   import JournalAdapterSpec.StateT._
   import JournalAdapterSpec._
 
-  private val eventSerializer = new EventSerializer[cats.Id] {
-
-    def toEvent(persistentRepr: PersistentRepr) = event
-
-    def toPersistentRepr(persistenceId: PersistenceId, event: Event) = persistentRepr
-  }
+  private val eventSerializer = EventSerializer.const[StateT](event, persistentRepr)
 
   private val aws = List(
     AtomicWrite(List(persistentRepr)),

@@ -2,10 +2,10 @@ package akka.persistence.kafka.journal
 
 import akka.actor.ActorSystem
 import akka.persistence.PersistentRepr
-import cats.effect.{IO, Sync}
+import cats.effect.Sync
 import cats.implicits._
-import cats.~>
-import com.evolutiongaming.catshelper.{FromTry, ToTry}
+import cats.{Applicative, ~>}
+import com.evolutiongaming.catshelper.FromTry
 import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
 import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
 import com.evolutiongaming.kafka.journal._
@@ -21,22 +21,26 @@ trait EventSerializer[F[_]] {
 
 object EventSerializer {
 
-  // TODO remove
-  def unsafe(system: ActorSystem): EventSerializer[cats.Id] = {
+  def const[F[_] : Applicative](event: Event, persistentRepr: PersistentRepr): EventSerializer[F] = {
+    new EventSerializer[F] {
 
-    val unsafe = new (IO ~> cats.Id) {
-      def apply[A](fa: IO[A]) = ToTry[IO].apply(fa).get
+      def toEvent(persistentRepr: PersistentRepr) = event.pure[F]
+
+      def toPersistentRepr(persistenceId: PersistenceId, event: Event) = persistentRepr.pure[F]
     }
+  }
 
-    val serializedMsgSerializer = unsafe(SerializedMsgSerializer.of[IO](system))
 
-    val eventSerializer = apply[IO](serializedMsgSerializer)
-
-    eventSerializer.mapK(unsafe)
+  def of[F[_] : Sync : FromTry/*TODO*/](system: ActorSystem): F[EventSerializer[F]] = {
+    for {
+      serializedMsgSerializer <- SerializedMsgSerializer.of[F](system)
+    } yield {
+      apply[F](serializedMsgSerializer)
+    }
   }
   
 
-  def apply[F[_] : Sync : FromTry](
+  def apply[F[_] : Sync : FromTry/*TODO*/](
     serializer: SerializedMsgSerializer[F]/*TODO*/
   ): EventSerializer[F] = new EventSerializer[F] {
 
@@ -88,10 +92,13 @@ object EventSerializer {
         error.raiseError[F, A]
       }
 
-      val payload = event.payload.fold {
-        error[Payload](s"Event.payload is not defined, persistenceId: $persistenceId, event: $event")
-      } {
-        _.pure[F]
+      def persistentRepr(payload: AnyRef, writerUuid: String, manifest: Option[String]) = {
+        PersistentRepr(
+          payload = payload,
+          sequenceNr = event.seqNr.value,
+          persistenceId = persistenceId,
+          manifest = manifest getOrElse PersistentRepr.Undefined,
+          writerUuid = writerUuid)
       }
 
       def binary(payload: ByteVector) = {
@@ -99,17 +106,14 @@ object EventSerializer {
           persistent <- FromTry[F].unsafe { payload.toArray.fromBytes[PersistentBinary] }
           anyRef     <- serializer.fromMsg(persistent.payload)
         } yield {
-          PersistentRepr(
+          persistentRepr(
             payload = anyRef,
-            sequenceNr = event.seqNr.value,
-            persistenceId = persistenceId,
-            manifest = persistent.manifest getOrElse PersistentRepr.Undefined,
+            manifest = persistent.manifest,
             writerUuid = persistent.writerUuid)
         }
       }
 
       def json(payload: JsValue) = {
-
         for {
           persistent  <- FromTry[F].unsafe { payload.as[PersistentJson] } // TODO not use `as`
           payloadType  = persistent.payloadType getOrElse PayloadType.Json
@@ -118,13 +122,17 @@ object EventSerializer {
             case PayloadType.Json => (persistent.payload : AnyRef).pure[F]
           }
         } yield {
-          PersistentRepr(
+          persistentRepr(
             payload = anyRef,
-            sequenceNr = event.seqNr.value,
-            persistenceId = persistenceId,
-            manifest = persistent.manifest getOrElse PersistentRepr.Undefined,
+            manifest = persistent.manifest,
             writerUuid = persistent.writerUuid)
         }
+      }
+
+      val payload = event.payload.fold {
+        error[Payload](s"Event.payload is not defined, persistenceId: $persistenceId, event: $event")
+      } {
+        _.pure[F]
       }
 
       for {

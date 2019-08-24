@@ -5,7 +5,7 @@ import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.effect._
 import cats.implicits._
-import cats.{Parallel, ~>}
+import cats.Parallel
 import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.scassandra.CassandraClusterOf
@@ -13,33 +13,30 @@ import com.evolutiongaming.smetrics.MeasureDuration
 import com.typesafe.config.Config
 
 import scala.collection.immutable.Seq
-import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.util.Try
 
-class KafkaJournal(config: Config) extends AsyncWriteJournal {
+class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
 
   implicit val system       : ActorSystem              = context.system
   implicit val executor     : ExecutionContextExecutor = context.dispatcher
   implicit val contextShift : ContextShift[IO]         = IO.contextShift(executor)
   implicit val parallel     : Parallel[IO, IO.Par]     = IO.ioParallel(contextShift)
   implicit val timer        : Timer[IO]                = IO.timer(executor)
+  implicit val toFuture     : ToFuture[IO]             = ToFuture.ioToFuture
+  implicit val fromFuture   : FromFuture[IO]           = FromFuture.lift(Async[IO], executor)
 
   lazy val (adapter, release): (JournalAdapter[Future], () => Unit) = {
-
-    // TODO remove unsafeRunSync
-    val (adapter, release) = adapterIO.allocated.unsafeRunSync()
-
-    val toFuture = new (IO ~> Future) {
-      def apply[A](fa: IO[A]) = ToFuture[IO].apply(fa)
-    }
-
-    val fromFuture = new (Future ~> IO) {
-      def apply[A](fa: Future[A]) = FromFuture[IO].apply(fa)
-    }
-
-    val adapter1 = adapter.mapK(toFuture, fromFuture)
-    val release1 = () => release.unsafeRunSync() // TODO remove unsafeRunSync
+    val (adapter, release) = await(adapterIO.allocated)
+    val adapter1 = adapter.mapK(toFuture.toFunctionK, fromFuture.toFunctionK)
+    val release1 = () => await(release)
     (adapter1, release1)
+  }
+
+  def await[A](fa: IO[A]): A = {
+    val future = toFuture(fa)
+    Await.result(future, 1.minute)
   }
 
   def logOf: Resource[IO, LogOf[IO]] = Resource.liftF(LogOfFromAkka[IO](system).pure[IO])
@@ -62,9 +59,9 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
     }
   }
 
-  def serializer: Resource[IO, EventSerializer[cats.Id]] = {
-    val serializer = EventSerializer.unsafe(system)
-    Resource.liftF(serializer.pure[IO])
+  def serializer: Resource[IO, EventSerializer[IO]] = {
+    val serializer = EventSerializer.of[IO](system)
+    Resource.liftF(serializer)
   }
 
   def metrics: Resource[IO, JournalAdapter.Metrics[IO]] = {
@@ -141,7 +138,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
   def adapterOf(
     toKey: ToKey,
     origin: Option[Origin],
-    serializer: EventSerializer[cats.Id],
+    serializer: EventSerializer[IO],
     config: KafkaJournalConfig,
     metrics: JournalAdapter.Metrics[IO],
     metadataAndHeadersOf: MetadataAndHeadersOf[IO],

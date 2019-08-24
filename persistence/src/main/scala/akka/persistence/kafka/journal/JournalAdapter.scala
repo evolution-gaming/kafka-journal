@@ -39,7 +39,7 @@ object JournalAdapter {
   def of[F[_] : Concurrent : ContextShift : FromFuture : ToFuture : Par : Timer : LogOf : Runtime : RandomId : FromGFuture : MeasureDuration : ToTry : FromTry](
     toKey: ToKey,
     origin: Option[Origin],
-    serializer: EventSerializer[cats.Id],
+    serializer: EventSerializer[F],
     config: KafkaJournalConfig,
     metrics: Metrics[F],
     log: Log[F],
@@ -107,7 +107,7 @@ object JournalAdapter {
   def apply[F[_] : Monad : Clock](
     journal: Journal[F],
     toKey: ToKey,
-    serializer: EventSerializer[cats.Id],
+    serializer: EventSerializer[F],
     metadataAndHeadersOf: MetadataAndHeadersOf[F]
   ): JournalAdapter[F] = new JournalAdapter[F] {
 
@@ -118,11 +118,13 @@ object JournalAdapter {
       } { prs =>
         val persistenceId = prs.head.persistenceId
         val key = toKey(persistenceId)
-        val events = prs.map(serializer.toEvent)
         for {
-          mah <- metadataAndHeadersOf(key, prs, events)
-          _   <- journal.append(key, events, mah.metadata, mah.headers)
-        } yield List.empty[Try[Unit]]
+          events <- prs.traverse(serializer.toEvent)
+          mah    <- metadataAndHeadersOf(key, prs, events)
+          _      <- journal.append(key, events, mah.metadata, mah.headers)
+        } yield {
+          List.empty[Try[Unit]]
+        }
       }
     }
 
@@ -141,9 +143,9 @@ object JournalAdapter {
           val event = record.event
           val seqNr = event.seqNr
           if (n > 0 && seqNr <= range.to) {
-            val persistentRepr = serializer.toPersistentRepr(persistenceId, event)
             for {
-              _ <- f(persistentRepr)
+              persistentRepr <- serializer.toPersistentRepr(persistenceId, event)
+              _              <- f(persistentRepr)
             } yield {
               (n - 1, Stream.Cmd.take(event))
             }
