@@ -23,6 +23,7 @@ import scodec.bits.ByteVector
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
+import scala.util.Try
 import scala.util.control.NoStackTrace
 
 class TopicReplicatorSpec extends WordSpec with Matchers {
@@ -604,7 +605,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 
   private def appendOf(key: Key, seqNrs: Nel[Int]) = {
     val events = seqNrs.map { seqNr => Event(SeqNr(seqNr.toLong), Set(seqNr.toString)) }
-    Action.Append(key, timestamp = timestamp, Some(origin), events, metadata, headers)
+    Action.Append.of[Try](key, timestamp = timestamp, Some(origin), events, metadata, headers).get
   }
 
   private def markOf(key: Key) = {

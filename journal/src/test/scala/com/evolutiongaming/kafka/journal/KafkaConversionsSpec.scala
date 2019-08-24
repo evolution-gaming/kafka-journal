@@ -14,6 +14,8 @@ import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json.Json
 import scodec.bits.ByteVector
 
+import scala.util.Try
+
 class KafkaConversionsSpec extends FunSuite with Matchers {
 
   private val key1 = Key(id = "id", topic = "topic")
@@ -77,7 +79,7 @@ class KafkaConversionsSpec extends FunSuite with Matchers {
     events   <- events
     headers  <- headers
   } yield {
-    Action.Append(key1, timestamp, origin, events, metadata, headers)
+    Action.Append.of[Try](key1, timestamp, origin, events, metadata, headers).get
   }
 
   for {

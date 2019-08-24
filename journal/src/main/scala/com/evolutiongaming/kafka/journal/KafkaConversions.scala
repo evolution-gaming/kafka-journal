@@ -88,27 +88,35 @@ object KafkaConversions {
   ): Conversion[OptionT[F, ?], ConsumerRecord[Id, ByteVector], ActionRecord[Action]] = {
 
     self: ConsumerRecord[Id, ByteVector] => {
+
       def action(
         key: Key,
         timestamp: Instant,
         header: ActionHeader
       ) = {
-        def append(header: ActionHeader.Append) = for {
-          value <- self.value
-        } yield {
-          val headers = for {
-            header <- self.headers
-            if header.key != `journal.action`
-          } yield {
-            val value = header.value.fromBytes[String] // TODO
-            (header.key, value)
+        def append(header: ActionHeader.Append) = {
+          self.value.traverse { value =>
+            val headers = self.headers
+              .filter { _.key != `journal.action` }
+              .traverse { header =>
+                for {
+                  value <- FromTry[F].unsafe { header.value.fromBytes[String] } // TODO
+                } yield {
+                  (header.key, value)
+                }
+              }
+
+            for {
+              headers <- headers
+            } yield {
+              val payload = value.value
+              Action.append(key, timestamp, header, payload, headers.toMap)
+            }
           }
-          val payload = value.value
-          Action.append(key, timestamp, header, payload, headers.toMap)
         }
 
         header match {
-          case header: ActionHeader.Append => OptionT.fromOption[F](append(header))
+          case header: ActionHeader.Append => OptionT(append(header))
           case header: ActionHeader.Delete => OptionT.pure[F](Action.delete(key, timestamp, header))
           case header: ActionHeader.Mark   => OptionT.pure[F](Action.mark(key, timestamp, header))
         }

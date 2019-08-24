@@ -157,7 +157,7 @@ object Journal {
         for {
           timestamp <- Clock[F].instant
           metadata1  = Metadata(data = metadata)
-          action     = Action.Append(key, timestamp, origin, events, metadata1, headers) // TODO measure
+          action    <- Action.Append.of[F](key, timestamp, origin, events, metadata1, headers) // TODO measure
           result    <- appendAction(action)
         } yield result
       }
@@ -194,16 +194,24 @@ object Journal {
                   case a: Action.Append =>
                     if (a.range.to < from) l.asLeft[R].pure[F]
                     else {
-                      val payloadAndType = PayloadAndType(a.payload, a.payloadType)
-                      val events = EventsFromPayload(payloadAndType)
-                      events.foldWhileM(l) { case (l, event) =>
-                        if (event.seqNr >= from) {
-                          val eventRecord = EventRecord(a, event, record.partitionOffset)
-                          f(l, eventRecord)
-                        } else {
-                          l.asLeft[R].pure[F]
+
+                      def read(events: Nel[Event]) = {
+                        events.foldWhileM(l) { case (l, event) =>
+                          if (event.seqNr >= from) {
+                            val eventRecord = EventRecord(a, event, record.partitionOffset)
+                            f(l, eventRecord)
+                          } else {
+                            l.asLeft[R].pure[F]
+                          }
                         }
                       }
+
+                      val payloadAndType = PayloadAndType(a.payload, a.payloadType)
+
+                      for {
+                        events <- Sync[F].catchNonFatal { EventsFromPayload(payloadAndType) }
+                        result <- read(events)
+                      } yield result
                     }
                 }
               }

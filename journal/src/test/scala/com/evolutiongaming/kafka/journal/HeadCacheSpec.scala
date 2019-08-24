@@ -17,6 +17,7 @@ import scodec.bits.ByteVector
 
 import scala.collection.immutable.Queue
 import scala.concurrent.duration._
+import scala.util.Try
 
 class HeadCacheSpec extends AsyncWordSpec with Matchers {
   import HeadCacheSpec._
@@ -267,7 +268,7 @@ object HeadCacheSpec {
   val headers: Headers = Headers.Empty
 
   def appendOf(key: Key, seqNr: SeqNr): Action.Append  = {
-    Action.Append(key, timestamp, none, Nel.of(Event(seqNr)), metadata, headers)
+    Action.Append.of[Try](key, timestamp, none, Nel.of(Event(seqNr)), metadata, headers).get
   }
 
   def headCacheOf(

@@ -2,7 +2,9 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 
+import cats.ApplicativeError
 import cats.data.{NonEmptyList => Nel}
+import cats.implicits._
 import com.evolutiongaming.kafka.journal.PayloadAndType.EventsToPayload
 import scodec.bits.ByteVector
 
@@ -66,18 +68,22 @@ object Action {
 
   object Append {
 
-    def apply(
+    def of[F[_]](
       key: Key,
       timestamp: Instant,
       origin: Option[Origin],
       events: Nel[Event],
       metadata: Metadata,
-      headers: Headers
-    ): Append = {
-      val payloadAndType = EventsToPayload(events)
-      val range = SeqRange(from = events.head.seqNr, to = events.last.seqNr)
-      val header = ActionHeader.Append(range, origin, payloadAndType.payloadType, metadata)
-      Action.Append(key, timestamp, header, payloadAndType.payload, headers)
+      headers: Headers)(implicit
+      F: ApplicativeError[F, Throwable]/*TODO*/
+    ): F[Append] = {
+      for {
+        payloadAndType <- F.catchNonFatal { EventsToPayload(events) }
+      } yield {
+        val range = SeqRange(from = events.head.seqNr, to = events.last.seqNr)
+        val header = ActionHeader.Append(range, origin, payloadAndType.payloadType, metadata)
+        Action.Append(key, timestamp, header, payloadAndType.payload, headers)
+      }
     }
   }
 
