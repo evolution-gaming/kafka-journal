@@ -18,18 +18,15 @@ import scala.util.Try
 
 class KafkaJournal(config: Config) extends AsyncWriteJournal {
 
-  implicit val system: ActorSystem                = context.system
-  implicit val executor: ExecutionContextExecutor = context.dispatcher
-
-  implicit val contextShift    : ContextShift[IO]     = IO.contextShift(executor)
-  implicit val parallel        : Parallel[IO, IO.Par] = IO.ioParallel(contextShift)
-  implicit val timer           : Timer[IO]            = IO.timer(executor)
-  implicit val logOf           : LogOf[IO]            = LogOfFromAkka[IO](system)
-  implicit val randomId        : RandomId[IO]         = RandomId.uuid[IO]
-  implicit val measureDuration : MeasureDuration[IO]  = MeasureDuration.fromClock(Clock[IO])
+  implicit val system       : ActorSystem              = context.system
+  implicit val executor     : ExecutionContextExecutor = context.dispatcher
+  implicit val contextShift : ContextShift[IO]         = IO.contextShift(executor)
+  implicit val parallel     : Parallel[IO, IO.Par]     = IO.ioParallel(contextShift)
+  implicit val timer        : Timer[IO]                = IO.timer(executor)
 
   lazy val (adapter, release): (JournalAdapter[Future], () => Unit) = {
-    
+
+    // TODO remove unsafeRunSync
     val (adapter, release) = adapterIO.allocated.unsafeRunSync()
 
     val toFuture = new (IO ~> Future) {
@@ -41,19 +38,15 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
     }
 
     val adapter1 = adapter.mapK(toFuture, fromFuture)
-    val release1 = () => release.unsafeRunSync()
+    val release1 = () => release.unsafeRunSync() // TODO remove unsafeRunSync
     (adapter1, release1)
   }
 
-  override def preStart(): Unit = {
-    super.preStart()
-    val _ = adapter
-  }
+  def logOf: Resource[IO, LogOf[IO]] = Resource.liftF(LogOfFromAkka[IO](system).pure[IO])
 
-  override def postStop(): Unit = {
-    release()
-    super.postStop()
-  }
+  def randomId: Resource[IO, RandomId[IO]] = Resource.liftF(RandomId.uuid[IO].pure[IO])
+
+  def measureDuration: Resource[IO, MeasureDuration[IO]] = Resource.liftF(MeasureDuration.fromClock(Clock[IO]).pure[IO])
 
   def toKey: Resource[IO, ToKey] = {
     val toKey = ToKey(config)
@@ -103,8 +96,11 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
 
   def adapterIO(config: KafkaJournalConfig): Resource[IO, JournalAdapter[IO]] = {
     val resource = for {
+      logOf                <- logOf
       log                  <- Resource.liftF(logOf(classOf[KafkaJournal]))
       _                    <- Resource.liftF(log.debug(s"config: $config"))
+      randomId             <- randomId
+      measureDuration      <- measureDuration
       toKey                <- toKey
       origin               <- Resource.liftF(origin)
       metadataAndHeadersOf <- metadataAndHeadersOf
@@ -121,7 +117,10 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
         metadataAndHeadersOf = metadataAndHeadersOf,
         batching             = batching,
         log                  = log,
-        cassandraClusterOf   = cassandraClusterOf)
+        cassandraClusterOf   = cassandraClusterOf)(
+        logOf                = logOf,
+        randomId             = randomId,
+        measureDuration      = measureDuration)
     } yield {
       (adapter, log)
     }
@@ -148,7 +147,10 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
     metadataAndHeadersOf: MetadataAndHeadersOf[IO],
     batching: Batching[IO],
     log: Log[IO],
-    cassandraClusterOf: CassandraClusterOf[IO]
+    cassandraClusterOf: CassandraClusterOf[IO])(implicit
+    logOf: LogOf[IO],
+    randomId: RandomId[IO],
+    measureDuration: MeasureDuration[IO]
   ): Resource[IO, JournalAdapter[IO]] = {
 
     JournalAdapter.of[IO](
@@ -161,6 +163,16 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal {
       batching = batching,
       metadataAndHeadersOf = metadataAndHeadersOf,
       cassandraClusterOf = cassandraClusterOf)
+  }
+
+  override def preStart(): Unit = {
+    super.preStart()
+    val _ = adapter
+  }
+
+  override def postStop(): Unit = {
+    release()
+    super.postStop()
   }
 
   def asyncWriteMessages(atomicWrites: Seq[AtomicWrite]): Future[Seq[Try[Unit]]] = {
