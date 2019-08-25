@@ -585,7 +585,7 @@ object JournalSpec {
         def onAppend(action: Action.Append) = {
           val payloadAndType = PayloadAndType(action.payload, action.payloadType)
           val batch = for {
-            event <- EventsFromPayload[Try](payloadAndType).get
+            event <- payloadAndTypeToEvents[Try].apply(payloadAndType).get
           } yield {
             val partitionOffset = PartitionOffset(partition, record.offset)
             EventRecord(action, event, partitionOffset)

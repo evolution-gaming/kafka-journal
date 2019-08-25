@@ -21,9 +21,8 @@ final case class PayloadAndType(
 
 object PayloadAndType {
 
-  object EventsToPayload {
-
-    def apply[F[_] : Monad : FromTry /*TODO*/](events: Nel[Event]): F[PayloadAndType] = {
+  def eventsToPayloadAndType[F[_] : Monad : FromTry]: Conversion[F, Nel[Event], PayloadAndType] = {
+    events: Nel[Event] => {
 
       def eventJson(head: Event) = {
 
@@ -69,7 +68,7 @@ object PayloadAndType {
               val byteVector = ByteVector.view(bytes)
               PayloadAndType(byteVector, PayloadType.Json)
             }
-          case Nil =>
+          case Nil          =>
             for {
               bytes <- FromTry[F].unsafe { events.toBytes }
             } yield {
@@ -87,9 +86,8 @@ object PayloadAndType {
   }
 
 
-  object EventsFromPayload {
-
-    def apply[F[_] : Monad : FromTry /*TODO*/ ](payloadAndType: PayloadAndType): F[Nel[Event]] = {
+  def payloadAndTypeToEvents[F[_] : Monad : FromTry /*TODO*/ ]: Conversion[F, PayloadAndType, Nel[Event]] = {
+    payloadAndType: PayloadAndType => {
       val payload = payloadAndType.payload.toArray // TODO avoid calling this, work with ByteVector
       payloadAndType.payloadType match {
         case PayloadType.Binary =>
@@ -115,7 +113,6 @@ object PayloadAndType {
                 payload = payload)
             }
           }
-
       }
     }
   }

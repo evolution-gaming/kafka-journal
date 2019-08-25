@@ -114,7 +114,9 @@ object Journal {
     eventual: EventualJournal[F],
     readActionsOf: ReadActionsOf[F],
     appendAction: AppendAction[F],
-    headCache: HeadCache[F]
+    headCache: HeadCache[F])(implicit
+    payloadAndTypeToEvents: Conversion[F, PayloadAndType, Nel[Event]],
+    eventsToPayloadAndType: Conversion[F, Nel[Event], PayloadAndType]
   ): Journal[F] = {
 
     val appendMarker = AppendMarker(appendAction, origin)
@@ -209,7 +211,7 @@ object Journal {
                       val payloadAndType = PayloadAndType(a.payload, a.payloadType)
 
                       for {
-                        events <- EventsFromPayload[F](payloadAndType)
+                        events <- payloadAndTypeToEvents(payloadAndType)
                         result <- read(events)
                       } yield result
                     }

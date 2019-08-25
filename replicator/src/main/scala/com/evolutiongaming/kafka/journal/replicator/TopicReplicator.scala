@@ -12,7 +12,6 @@ import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.kafka.journal.KafkaConversions._
-import com.evolutiongaming.kafka.journal.PayloadAndType._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.util.Named
@@ -61,6 +60,7 @@ object TopicReplicator { self =>
         .resetAfter(5.minutes)
 
       val retry = RetryOf[F](strategy)
+      implicit val payloadAndTypeToEvents = PayloadAndType.payloadAndTypeToEvents[F]
       Concurrent[F].start {
         retry {
           consumer.use { consumer => of(topic, stopRef, consumer, 1.hour) }
@@ -102,7 +102,8 @@ object TopicReplicator { self =>
     stopRef: StopRef[F],
     consumer: Consumer[F],
     errorCooldown: FiniteDuration)(implicit
-    consumerRecordToActionRecord: Conversion[OptionT[cats.Id, ?], ConsumerRecord[Id, ByteVector], ActionRecord[Action]]
+    consumerRecordToActionRecord: Conversion[OptionT[cats.Id, ?], ConsumerRecord[Id, ByteVector], ActionRecord[Action]],
+    payloadAndTypeToEvents: Conversion[F, PayloadAndType, Nel[Event]],
   ): F[Unit] = {
 
     def round(
@@ -156,7 +157,7 @@ object TopicReplicator { self =>
             val action = record.action
             val payloadAndType = PayloadAndType(action.payload, action.payloadType)
             for {
-              events <- EventsFromPayload[F](payloadAndType)
+              events <- payloadAndTypeToEvents(payloadAndType)
             } yield for {
               event <- events
             } yield {

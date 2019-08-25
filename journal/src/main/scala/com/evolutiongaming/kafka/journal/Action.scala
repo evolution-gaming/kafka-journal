@@ -2,11 +2,9 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 
-import cats.Monad
+import cats.Functor
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
-import com.evolutiongaming.catshelper.FromTry
-import com.evolutiongaming.kafka.journal.PayloadAndType.EventsToPayload
 import scodec.bits.ByteVector
 
 sealed abstract class Action extends Product {
@@ -69,16 +67,17 @@ object Action {
 
   object Append {
 
-    def of[F[_] : Monad : FromTry/*TODO*/](
+    def of[F[_] : Functor](
       key: Key,
       timestamp: Instant,
       origin: Option[Origin],
       events: Nel[Event],
       metadata: Metadata,
-      headers: Headers
+      headers: Headers)(implicit
+      eventsToPayloadAndType: Conversion[F, Nel[Event], PayloadAndType]
     ): F[Append] = {
       for {
-        payloadAndType <- EventsToPayload[F](events)
+        payloadAndType <- eventsToPayloadAndType(events)
       } yield {
         val range = SeqRange(from = events.head.seqNr, to = events.last.seqNr)
         val header = ActionHeader.Append(range, origin, payloadAndType.payloadType, metadata)

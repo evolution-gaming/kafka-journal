@@ -3,9 +3,12 @@ package com.evolutiongaming.kafka.journal
 import java.io.FileOutputStream
 
 import cats.data.{NonEmptyList => Nel}
-import com.evolutiongaming.kafka.journal.PayloadAndType.{EventsFromPayload, EventsToPayload}
+import cats.implicits._
+import com.evolutiongaming.kafka.journal.PayloadAndType.{eventsToPayloadAndType, payloadAndTypeToEvents}
 import org.scalatest.{FunSuite, Matchers}
 import scodec.bits.ByteVector
+
+import scala.util.Try
 
 class PayloadAndTypeSpec extends FunSuite with Matchers {
 
@@ -55,11 +58,11 @@ class PayloadAndTypeSpec extends FunSuite with Matchers {
 
       def verify(payload: ByteVector, payloadType: PayloadType.BinaryOrJson) = {
         val payloadAndType = PayloadAndType(payload, payloadType)
-        val actual = EventsFromPayload(payloadAndType)
+        val actual = payloadAndTypeToEvents[Try].apply(payloadAndType).get
         actual shouldEqual events
       }
 
-      val payloadAndType = EventsToPayload(events)
+      val payloadAndType = eventsToPayloadAndType[Try].apply(events).get
 
       payloadType shouldEqual payloadAndType.payloadType
 
