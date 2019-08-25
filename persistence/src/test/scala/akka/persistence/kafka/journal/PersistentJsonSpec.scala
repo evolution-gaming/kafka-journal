@@ -2,7 +2,7 @@ package akka.persistence.kafka.journal
 
 import com.evolutiongaming.kafka.journal.PayloadType
 import org.scalatest.{FunSuite, Matchers}
-import play.api.libs.json.{JsString, Json}
+import play.api.libs.json.{JsString, JsSuccess, Json}
 
 class PersistentJsonSpec extends FunSuite with Matchers {
 
@@ -17,7 +17,7 @@ class PersistentJsonSpec extends FunSuite with Matchers {
         payloadType = payloadType,
         payload = JsString("payload"))
       val json = Json.toJson(persistent)
-      json.as[PersistentJson] shouldEqual persistent // TODO not use `as`
+      json.validate[PersistentJson] shouldEqual JsSuccess(persistent)
     }
   }
 }

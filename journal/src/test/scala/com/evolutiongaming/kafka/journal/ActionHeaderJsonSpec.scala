@@ -43,8 +43,8 @@ class ActionHeaderJsonSpec extends FunSuite with Matchers {
   private def verify(value: ActionHeader, name: String) = {
 
     def verify(json: JsValue) = {
-      val actual = json.as[ActionHeader] // TODO not use `as`
-      actual shouldEqual value
+      val actual = json.validate[ActionHeader]
+      actual shouldEqual JsSuccess(value)
     }
 
     verify(Json.toJson(value))

@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.ApplicativeError
+import cats.effect.IO
 import cats.implicits._
 import play.api.libs.json.{JsResult, JsResultException}
 
@@ -21,4 +22,7 @@ object FromJsResult {
       fa.fold(a => JournalError("play-json error", JsResultException(a).some).raiseError[F, A], _.pure[F])
     }
   }
+
+
+  implicit val ioFromJsResult: FromJsResult[IO] = lift
 }

@@ -31,7 +31,7 @@ object EventSerializer {
   }
 
 
-  def of[F[_] : Sync : FromTry/*TODO*/](system: ActorSystem): F[EventSerializer[F]] = {
+  def of[F[_] : Sync : FromTry/*TODO*/ : FromJsResult](system: ActorSystem): F[EventSerializer[F]] = {
     for {
       serializedMsgSerializer <- SerializedMsgSerializer.of[F](system)
     } yield {
@@ -40,7 +40,7 @@ object EventSerializer {
   }
   
 
-  def apply[F[_] : Sync : FromTry/*TODO*/](
+  def apply[F[_] : Sync : FromTry/*TODO*/ : FromJsResult](
     serializer: SerializedMsgSerializer[F]/*TODO*/
   ): EventSerializer[F] = new EventSerializer[F] {
 
@@ -114,11 +114,11 @@ object EventSerializer {
 
       def json(payload: JsValue) = {
         for {
-          persistent  <- FromTry[F].unsafe { payload.as[PersistentJson] } // TODO not use `as`
+          persistent  <- FromJsResult[F].apply { payload.validate[PersistentJson] }
           payloadType  = persistent.payloadType getOrElse PayloadType.Json
           anyRef      <- payloadType match {
-            case PayloadType.Text => FromTry[F].unsafe { persistent.payload.as[String] : AnyRef }  // TODO not use `as`
-            case PayloadType.Json => (persistent.payload : AnyRef).pure[F]
+            case PayloadType.Text => FromJsResult[F].apply { persistent.payload.validate[String].map(a => a: AnyRef) }
+            case PayloadType.Json => persistent.payload.pure[F]
           }
         } yield {
           persistentRepr(

@@ -124,7 +124,7 @@ object PayloadAndType {
 
                 def text = {
                   for {
-                    str <- FromTry[F].unsafe { payload.as[String] } // TODO not use `as`
+                    str <- FromJsResult[F].apply { payload.validate[String] }
                   } yield {
                     Payload.text(str)
                   }

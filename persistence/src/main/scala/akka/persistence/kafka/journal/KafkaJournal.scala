@@ -25,7 +25,8 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
   implicit val parallel     : Parallel[IO, IO.Par]     = IO.ioParallel(contextShift)
   implicit val timer        : Timer[IO]                = IO.timer(executor)
   implicit val toFuture     : ToFuture[IO]             = ToFuture.ioToFuture
-  implicit val fromFuture   : FromFuture[IO]           = FromFuture.lift(Async[IO], executor)
+  implicit val fromFuture   : FromFuture[IO]           = FromFuture.lift[IO]
+  implicit val fromJsResult : FromJsResult[IO]         = FromJsResult.lift[IO]
 
   lazy val (adapter, release): (JournalAdapter[Future], () => Unit) = {
     val (adapter, release) = await(adapterIO.allocated)
