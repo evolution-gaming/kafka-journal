@@ -4,6 +4,8 @@ import cats.ApplicativeError
 import cats.implicits._
 import scodec.Attempt
 
+import scala.util.Try
+
 trait FromAttempt[F[_]] {
 
   def apply[A](fa: Attempt[A]): F[A]
@@ -20,4 +22,7 @@ object FromAttempt {
       fa.fold(a => JournalError(s"scodec error ${ a.messageWithContext }").raiseError[F, A], _.pure[F])
     }
   }
+
+
+  implicit val tryFromAttempt: FromAttempt[Try] = lift[Try]
 }

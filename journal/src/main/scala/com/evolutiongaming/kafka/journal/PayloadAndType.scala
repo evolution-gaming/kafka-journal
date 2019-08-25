@@ -41,30 +41,27 @@ object PayloadAndType {
           EventJson(head.seqNr, head.tags, payloadType, payload)
         }
 
-        def of[A: Writes](payloadType: PayloadType.TextOrJson, a: A) = {
-          for {
-            jsValue <- FromTry[F].unsafe { Json.toJson(a) } // TODO
-          } yield {
-            ofOpt(payloadType.some, jsValue.some)
-          }
+        def of[A](payloadType: PayloadType.TextOrJson, a: A)(implicit writes: Writes[A]) = {
+          val jsValue = writes.writes(a)
+          ofOpt(payloadType.some, jsValue.some)
         }
 
         head.payload.fold {
-          ofOpt(none, none).pure[F].some
+          ofOpt(none, none).some
         } {
-          case _: Payload.Binary => none[F[EventJson]]
+          case _: Payload.Binary => none[EventJson]
           case a: Payload.Json   => of(PayloadType.Json, a.value).some
           case a: Payload.Text   => of(PayloadType.Text, a.value).some
         }
       }
 
       @tailrec
-      def eventJsons(events: List[Event], json: List[F[EventJson]]): F[List[EventJson]] = {
+      def eventJsons(events: List[Event], result: List[EventJson]): List[EventJson] = {
         events match {
-          case Nil          => json.foldLeftM(List.empty[EventJson]) { (as, a) => a.map { _ :: as } }
+          case Nil          => result.reverse
           case head :: tail => eventJson(head) match {
-            case None    => List.empty[EventJson].pure[F]
-            case Some(x) => eventJsons(tail, x :: json)
+            case None    => List.empty[EventJson]
+            case Some(x) => eventJsons(tail, x :: result)
           }
         }
       }
@@ -90,10 +87,7 @@ object PayloadAndType {
         }
       }
 
-      for {
-        eventJsons     <- eventJsons(events.toList, List.empty)
-        payloadAndType <- payloadAndType(eventJsons)
-      } yield payloadAndType
+      payloadAndType(eventJsons(events.toList, List.empty))
     }
   }
 

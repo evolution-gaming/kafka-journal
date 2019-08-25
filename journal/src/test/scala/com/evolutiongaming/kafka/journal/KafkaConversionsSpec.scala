@@ -73,16 +73,18 @@ class KafkaConversionsSpec extends FunSuite with Matchers {
 
   private val headers = List(Headers.Empty, Headers(("key", "value")))
 
-  private val appends = for {
-    origin   <- origins
-    metadata <- metadata
-    events   <- events
-    headers  <- headers
-  } yield {
+  private val appends = {
     implicit val eventsToBytes = PayloadAndType.eventsToBytes[Try]
     implicit val payloadJsonToBytes = PayloadAndType.payloadJsonToBytes[Try]
     implicit val eventsToPayload = PayloadAndType.eventsToPayload[Try]
-    Action.Append.of[Try](key1, timestamp, origin, events, metadata, headers).get
+    for {
+      origin   <- origins
+      metadata <- metadata
+      events   <- events
+      headers  <- headers
+    } yield {
+      Action.Append.of[Try](key1, timestamp, origin, events, metadata, headers).get
+    }
   }
 
   for {

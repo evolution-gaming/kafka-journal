@@ -604,11 +604,10 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
   }
 
   private def appendOf(key: Key, seqNrs: Nel[Int]) = {
-    val events = seqNrs.map { seqNr => Event(SeqNr(seqNr.toLong), Set(seqNr.toString)) }
-
     implicit val eventsToBytes = PayloadAndType.eventsToBytes[Try]
     implicit val payloadJsonToBytes = PayloadAndType.payloadJsonToBytes[Try]
     implicit val eventsToPayload = PayloadAndType.eventsToPayload[Try]
+    val events = seqNrs.map { seqNr => Event(SeqNr(seqNr.toLong), Set(seqNr.toString)) }
     Action.Append.of[Try](key, timestamp = timestamp, Some(origin), events, metadata, headers).get
   }
 
