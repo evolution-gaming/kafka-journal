@@ -43,7 +43,7 @@ trait TopicReplicator[F[_]] {
 object TopicReplicator { self =>
 
   // TODO should return Resource
-  def of[F[_] : Concurrent : Timer : Par : Metrics : ReplicatedJournal : ContextShift : LogOf](
+  def of[F[_] : Concurrent : Timer : Par : Metrics : ReplicatedJournal : ContextShift : LogOf : FromTry/*TODO*/](
     topic: Topic,
     consumer: Resource[F, Consumer[F]]
   ): F[TopicReplicator[F]] = {
@@ -97,7 +97,7 @@ object TopicReplicator { self =>
   }
 
   //  TODO return error in case failed to connect
-  def of[F[_] : Concurrent : Clock : Par : Metrics : ReplicatedJournal : Log : ContextShift](
+  def of[F[_] : Concurrent : Clock : Par : Metrics : ReplicatedJournal : Log : ContextShift : FromTry/*TODO*/](
     topic: Topic,
     stopRef: StopRef[F],
     consumer: Consumer[F],
@@ -156,7 +156,7 @@ object TopicReplicator { self =>
             val action = record.action
             val payloadAndType = PayloadAndType(action.payload, action.payloadType)
             for {
-              events <- Sync[F].catchNonFatal { EventsFromPayload(payloadAndType) }
+              events <- EventsFromPayload[F](payloadAndType)
             } yield for {
               event <- events
             } yield {

@@ -209,7 +209,7 @@ object Journal {
                       val payloadAndType = PayloadAndType(a.payload, a.payloadType)
 
                       for {
-                        events <- Sync[F].catchNonFatal { EventsFromPayload(payloadAndType) }
+                        events <- EventsFromPayload[F](payloadAndType)
                         result <- read(events)
                       } yield result
                     }

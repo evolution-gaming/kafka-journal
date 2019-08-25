@@ -89,29 +89,33 @@ object PayloadAndType {
 
   object EventsFromPayload {
 
-    def apply(payloadAndType: PayloadAndType): Nel[Event] = {
+    def apply[F[_] : Monad : FromTry /*TODO*/ ](payloadAndType: PayloadAndType): F[Nel[Event]] = {
       val payload = payloadAndType.payload.toArray // TODO avoid calling this, work with ByteVector
       payloadAndType.payloadType match {
         case PayloadType.Binary =>
-          payload.fromBytes[Nel[Event]] // TODO avoid using toBytes/fromBytes
+          FromTry[F].unsafe { payload.fromBytes[Nel[Event]] } // TODO avoid using toBytes/fromBytes
 
         case PayloadType.Json =>
-          val payloadJson = payload.fromBytes[PayloadJson]
           for {
-            event <- payloadJson.events
+            payloadJson <- FromTry[F].unsafe { payload.fromBytes[PayloadJson] }
           } yield {
-            val payloadType = event.payloadType getOrElse PayloadType.Json
-            val payload = event.payload.map { payload =>
-              payloadType match {
-                case PayloadType.Json => Payload.json(payload)
-                case PayloadType.Text => Payload.text(payload.as[String]) // TODO not use `as`
+            for {
+              event <- payloadJson.events
+            } yield {
+              val payloadType = event.payloadType getOrElse PayloadType.Json
+              val payload = event.payload.map { payload =>
+                payloadType match {
+                  case PayloadType.Json => Payload.json(payload)
+                  case PayloadType.Text => Payload.text(payload.as[String]) // TODO not use `as`
+                }
               }
+              Event(
+                seqNr = event.seqNr,
+                tags = event.tags,
+                payload = payload)
             }
-            Event(
-              seqNr = event.seqNr,
-              tags = event.tags,
-              payload = payload)
           }
+
       }
     }
   }

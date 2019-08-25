@@ -13,7 +13,7 @@ import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPoint
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.catshelper.Log
+import com.evolutiongaming.catshelper.{FromTry, Log}
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, WithSize}
 import com.evolutiongaming.skafka.producer.ProducerRecord
 import com.evolutiongaming.skafka.{Bytes => _, Metadata => _, _}
@@ -770,6 +770,9 @@ object TopicReplicatorSpec {
   val topicReplicator: StateT[Unit] = {
     val millis = timestamp.toEpochMilli + replicationLatency.toMillis
     implicit val concurrent = ConcurrentOf.fromMonad[StateT]
+    implicit val fromTry = new FromTry[StateT] {
+      def apply[A](fa: Try[A]) = fa.get.pure[StateT]
+    }
     implicit val clock = Clock.const[StateT](nanos = 0, millis = millis)
     implicit val consumerRecordToActionRecordId = consumerRecordToActionRecord[cats.Id]
     TopicReplicator.of[StateT](topic, TopicReplicator.StopRef[StateT], consumer, 1.second)
