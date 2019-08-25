@@ -606,8 +606,8 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
   private def appendOf(key: Key, seqNrs: Nel[Int]) = {
     val events = seqNrs.map { seqNr => Event(SeqNr(seqNr.toLong), Set(seqNr.toString)) }
 
-    implicit val eventsToByteVector = PayloadAndType.eventsToByteVector[Try]
-    implicit val payloadJsonToByteVector = PayloadAndType.payloadJsonToByteVector[Try]
+    implicit val eventsToBytes = PayloadAndType.eventsToBytes[Try]
+    implicit val payloadJsonToBytes = PayloadAndType.payloadJsonToBytes[Try]
     implicit val eventsToPayloadAndType = PayloadAndType.eventsToPayloadAndType[Try]
     Action.Append.of[Try](key, timestamp = timestamp, Some(origin), events, metadata, headers).get
   }
@@ -779,9 +779,14 @@ object TopicReplicatorSpec {
     }
     implicit val clock = Clock.const[StateT](nanos = 0, millis = millis)
     implicit val consumerRecordToActionRecordId = consumerRecordToActionRecord[cats.Id]
-    implicit val byteVectorToEvents = PayloadAndType.byteVectorToEvents[StateT]
-    implicit val byteVectorToPayloadJson = PayloadAndType.byteVectorToPayloadJson[StateT]
+
+    implicit val fromAttempt = FromAttempt.lift[StateT]
+    implicit val fromJsResult = FromJsResult.lift[StateT]
+
+    implicit val bytesToEvents = PayloadAndType.bytesToEvents[StateT]
+    implicit val bytesToPayloadJson = PayloadAndType.bytesToPayloadJson[StateT]
     implicit val payloadAndTypeToEvents = PayloadAndType.payloadAndTypeToEvents[StateT]
+
     TopicReplicator.of[StateT](topic, TopicReplicator.StopRef[StateT], consumer, 1.second)
   }
 

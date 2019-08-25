@@ -57,14 +57,21 @@ class PayloadAndTypeSpec extends FunSuite with Matchers {
 
       def verify(payload: ByteVector, payloadType: PayloadType.BinaryOrJson) = {
         val payloadAndType = PayloadAndType(payload, payloadType)
-        implicit val byteVectorToEvents = PayloadAndType.byteVectorToEvents[Try]
-        implicit val byteVectorToPayloadJson = PayloadAndType.byteVectorToPayloadJson[Try]
-        val actual = PayloadAndType.payloadAndTypeToEvents[Try].apply(payloadAndType).get
+
+        implicit val fromAttempt = FromAttempt.lift[Try]
+        implicit val fromJsResult = FromJsResult.lift[Try]
+
+        implicit val bytesToEvents = PayloadAndType.bytesToEvents[Try]
+        implicit val bytesToPayloadJson = PayloadAndType.bytesToPayloadJson[Try]
+
+        val payloadAndTypeToEvents = PayloadAndType.payloadAndTypeToEvents[Try]
+
+        val actual = payloadAndTypeToEvents(payloadAndType).get
         actual shouldEqual events
       }
 
-      implicit val eventsToByteVector = PayloadAndType.eventsToByteVector[Try]
-      implicit val payloadJsonToByteVector = PayloadAndType.payloadJsonToByteVector[Try]
+      implicit val eventsToBytes = PayloadAndType.eventsToBytes[Try]
+      implicit val payloadJsonToBytes = PayloadAndType.payloadJsonToBytes[Try]
       val eventsToPayloadAndType = PayloadAndType.eventsToPayloadAndType[Try]
       val payloadAndType = eventsToPayloadAndType(events).get
 

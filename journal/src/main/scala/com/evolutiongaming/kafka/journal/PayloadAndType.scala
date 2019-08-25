@@ -21,17 +21,17 @@ final case class PayloadAndType(
 
 object PayloadAndType {
 
-  def eventsToByteVector[F[_] : FromTry/*TODO*/]: Conversion[F, Nel[Event], Bytes] = {
+  def eventsToBytes[F[_] : FromTry/*TODO*/]: Conversion[F, Nel[Event], Bytes] = {
     a: Nel[Event] => FromTry[F].unsafe { a.toBytes } // TODO
   }
 
-  def payloadJsonToByteVector[F[_] : FromTry/*TODO*/]: Conversion[F, PayloadJson, Bytes] = {
+  def payloadJsonToBytes[F[_] : FromTry/*TODO*/]: Conversion[F, PayloadJson, Bytes] = {
     a: PayloadJson => FromTry[F].unsafe { a.toBytes } // TODO avoid using toBytes/fromBytes
   }
 
   def eventsToPayloadAndType[F[_] : Monad : FromTry](implicit
-    eventsToByteVector: Conversion[F, Nel[Event], Bytes],
-    payloadJsonToByteVector: Conversion[F, PayloadJson, Bytes]
+    eventsToBytes: Conversion[F, Nel[Event], Bytes],
+    payloadJsonToBytes: Conversion[F, PayloadJson, Bytes]
   ): Conversion[F, Nel[Event], PayloadAndType] = {
     events: Nel[Event] => {
 
@@ -75,14 +75,14 @@ object PayloadAndType {
             val events = Nel(head, tail)
             val payload = PayloadJson(events)
             for {
-              bytes <- payloadJsonToByteVector(payload)
+              bytes <- payloadJsonToBytes(payload)
             } yield {
               val byteVector = ByteVector.view(bytes)
               PayloadAndType(byteVector, PayloadType.Json)
             }
           case Nil          =>
             for {
-              bytes <- eventsToByteVector(events)
+              bytes <- eventsToBytes(events)
             } yield {
               val byteVector = ByteVector.view(bytes)
               PayloadAndType(byteVector, PayloadType.Binary)
@@ -98,23 +98,23 @@ object PayloadAndType {
   }
 
 
-  def byteVectorToEvents[F[_] : FromTry/*TODO*/]: Conversion[F, Bytes, Nel[Event]] = {
+  def bytesToEvents[F[_] : FromTry/*TODO*/]: Conversion[F, Bytes, Nel[Event]] = {
     a: Bytes => FromTry[F].unsafe { a.fromBytes[Nel[Event]] } // TODO
   }
 
-  def byteVectorToPayloadJson[F[_] : FromTry/*TODO*/]: Conversion[F, Bytes, PayloadJson] = {
+  def bytesToPayloadJson[F[_] : FromTry/*TODO*/]: Conversion[F, Bytes, PayloadJson] = {
     a: Bytes => FromTry[F].unsafe { a.fromBytes[PayloadJson] } // TODO avoid using toBytes/fromBytes
   }
 
-  def payloadAndTypeToEvents[F[_] : Monad : FromTry /*TODO*/ ](implicit
-    byteVectorToEvents: Conversion[F, Bytes, Nel[Event]],
-    byteVectorToPayloadJson: Conversion[F, Bytes, PayloadJson]
+  def payloadAndTypeToEvents[F[_] : Monad : FromTry /*TODO*/ : FromAttempt : FromJsResult](implicit
+    bytesToEvents: Conversion[F, Bytes, Nel[Event]],
+    bytesToPayloadJson: Conversion[F, Bytes, PayloadJson]
   ): Conversion[F, PayloadAndType, Nel[Event]] = {
 
     payloadAndType: PayloadAndType => {
       val payload = payloadAndType.payload.toArray // TODO avoid calling this, work with ByteVector
       payloadAndType.payloadType match {
-        case PayloadType.Binary => byteVectorToEvents(payload)
+        case PayloadType.Binary => bytesToEvents(payload)
         case PayloadType.Json   =>
 
           def events(payloadJson: PayloadJson) = {
@@ -147,7 +147,7 @@ object PayloadAndType {
           }
 
           for {
-            payloadJson <- byteVectorToPayloadJson(payload)
+            payloadJson <- bytesToPayloadJson(payload)
             events      <- events(payloadJson)
           } yield events
       }
@@ -179,7 +179,7 @@ object PayloadAndType {
     implicit val FormatPayloadJson: OFormat[PayloadJson] = Json.format
 
 
-    implicit val CodecPayloadJson: Codec[PayloadJson] = formatCodec
+    implicit val CodecPayloadJson: Codec[PayloadJson] = formatCodec // TODO not used
 
 
     implicit val ToBytesPayloadJson: ToBytes[PayloadJson] = ToBytes.fromWrites

@@ -79,8 +79,8 @@ class KafkaConversionsSpec extends FunSuite with Matchers {
     events   <- events
     headers  <- headers
   } yield {
-    implicit val eventsToByteVector = PayloadAndType.eventsToByteVector[Try]
-    implicit val payloadJsonToByteVector = PayloadAndType.payloadJsonToByteVector[Try]
+    implicit val eventsToBytes = PayloadAndType.eventsToBytes[Try]
+    implicit val payloadJsonToBytes = PayloadAndType.payloadJsonToBytes[Try]
     implicit val eventsToPayloadAndType = PayloadAndType.eventsToPayloadAndType[Try]
     Action.Append.of[Try](key1, timestamp, origin, events, metadata, headers).get
   }

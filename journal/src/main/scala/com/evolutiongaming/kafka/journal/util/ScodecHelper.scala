@@ -29,7 +29,7 @@ object ScodecHelper {
     }
     val toBytes = (a: A) => {
       val jsValue = format.writes(a)
-      val bytes = Json.toBytes(jsValue)
+      val bytes = Json.toBytes(jsValue) // TODO unsafe
       val byteVector = ByteVector.view(bytes)
       Attempt.successful(byteVector)
     }

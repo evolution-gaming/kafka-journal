@@ -72,12 +72,14 @@ object KafkaConversions {
   }
 
 
-  implicit def consumerRecordToActionHeader[F[_] : FromTry/*TODO*/]: Conversion[Option, ConsumerRecord[Id, ByteVector], F[ActionHeader]] = {
+  implicit def consumerRecordToActionHeader[F[_] : FromTry/*TODO*/](implicit
+    fromBytes: FromBytes[ActionHeader]
+  ): Conversion[Option, ConsumerRecord[Id, ByteVector], F[ActionHeader]] = {
     a: ConsumerRecord[Id, ByteVector] => {
       for {
         header <- a.headers.find { _.key == `journal.action` }
       } yield {
-        FromTry[F].unsafe { header.value.fromBytes[ActionHeader] }
+        FromTry[F].unsafe { fromBytes(header.value) }
       }
     }
   }

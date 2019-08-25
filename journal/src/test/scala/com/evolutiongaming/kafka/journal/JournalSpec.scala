@@ -447,12 +447,15 @@ object JournalSpec {
       implicit val randomId = RandomId.uuid[F]
       implicit val measureDuration = MeasureDuration.fromClock(clock)
 
-      implicit val byteVectorToEvents = PayloadAndType.byteVectorToEvents[F]
-      implicit val byteVectorToPayloadJson = PayloadAndType.byteVectorToPayloadJson[F]
+      implicit val fromAttempt = FromAttempt.lift[F]
+      implicit val fromJsResult = FromJsResult.lift[F]
+
+      implicit val bytesToEvents = PayloadAndType.bytesToEvents[F]
+      implicit val bytesToPayloadJson = PayloadAndType.bytesToPayloadJson[F]
       implicit val payloadAndTypeToEvents = PayloadAndType.payloadAndTypeToEvents[F]
 
-      implicit val eventsToByteVector = PayloadAndType.eventsToByteVector[F]
-      implicit val payloadJsonToByteVector = PayloadAndType.payloadJsonToByteVector[F]
+      implicit val eventsToBytes = PayloadAndType.eventsToBytes[F]
+      implicit val payloadJsonToBytes = PayloadAndType.payloadJsonToBytes[F]
       implicit val eventsToPayloadAndType = PayloadAndType.eventsToPayloadAndType[F]
 
       val journal = Journal[F](None, eventual, readActionsOf, writeAction, headCache)
@@ -588,8 +591,11 @@ object JournalSpec {
 
       def apply(record: ActionRecord[Action], offset: Offset): State = {
 
-        implicit val byteVectorToEvents = PayloadAndType.byteVectorToEvents[Try]
-        implicit val byteVectorToPayloadJson = PayloadAndType.byteVectorToPayloadJson[Try]
+        implicit val fromAttempt = FromAttempt.lift[Try]
+        implicit val fromJsResult = FromJsResult.lift[Try]
+        
+        implicit val bytesToEvents = PayloadAndType.bytesToEvents[Try]
+        implicit val bytesToPayloadJson = PayloadAndType.bytesToPayloadJson[Try]
         implicit val payloadAndTypeToEvents = PayloadAndType.payloadAndTypeToEvents[Try]
 
         def updateOffset = copy(offset = Some(offset))

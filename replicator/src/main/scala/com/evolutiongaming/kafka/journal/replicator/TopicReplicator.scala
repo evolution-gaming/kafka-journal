@@ -60,8 +60,12 @@ object TopicReplicator { self =>
         .resetAfter(5.minutes)
 
       val retry = RetryOf[F](strategy)
-      implicit val byteVectorToEvents = PayloadAndType.byteVectorToEvents[F]
-      implicit val byteVectorToPayloadJson = PayloadAndType.byteVectorToPayloadJson[F]
+
+      implicit val fromAttempt = FromAttempt.lift[F]
+      implicit val fromJsResult = FromJsResult.lift[F]
+
+      implicit val bytesToEvents = PayloadAndType.bytesToEvents[F]
+      implicit val bytesToPayloadJson = PayloadAndType.bytesToPayloadJson[F]
       implicit val payloadAndTypeToEvents = PayloadAndType.payloadAndTypeToEvents[F]
       Concurrent[F].start {
         retry {

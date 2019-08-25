@@ -103,12 +103,15 @@ object Journal {
 
     implicit val consumerRecordToActionRecordId = consumerRecordToActionRecord[cats.Id]
 
-    implicit val byteVectorToEvents = PayloadAndType.byteVectorToEvents[F]
-    implicit val byteVectorToPayloadJson = PayloadAndType.byteVectorToPayloadJson[F]
+    implicit val fromAttempt = FromAttempt.lift[F]
+    implicit val fromJsResult = FromJsResult.lift[F]
+
+    implicit val bytesToEvents = PayloadAndType.bytesToEvents[F]
+    implicit val bytesToPayloadJson = PayloadAndType.bytesToPayloadJson[F]
     implicit val payloadAndTypeToEvents = PayloadAndType.payloadAndTypeToEvents[F]
 
-    implicit val eventsToByteVector = PayloadAndType.eventsToByteVector[F]
-    implicit val payloadJsonToByteVector = PayloadAndType.payloadJsonToByteVector[F]
+    implicit val eventsToBytes = PayloadAndType.eventsToBytes[F]
+    implicit val payloadJsonToBytes = PayloadAndType.payloadJsonToBytes[F]
     implicit val eventsToPayloadAndType = PayloadAndType.eventsToPayloadAndType[F]
     val readActionsOf = ReadActionsOf[F](consumer)
     val appendAction = AppendAction[F](producer)
