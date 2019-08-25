@@ -4,7 +4,6 @@ import java.io.FileOutputStream
 
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.PayloadAndType.{eventsToPayloadAndType, payloadAndTypeToEvents}
 import org.scalatest.{FunSuite, Matchers}
 import scodec.bits.ByteVector
 
@@ -58,11 +57,16 @@ class PayloadAndTypeSpec extends FunSuite with Matchers {
 
       def verify(payload: ByteVector, payloadType: PayloadType.BinaryOrJson) = {
         val payloadAndType = PayloadAndType(payload, payloadType)
-        val actual = payloadAndTypeToEvents[Try].apply(payloadAndType).get
+        implicit val byteVectorToEvents = PayloadAndType.byteVectorToEvents[Try]
+        implicit val byteVectorToPayloadJson = PayloadAndType.byteVectorToPayloadJson[Try]
+        val actual = PayloadAndType.payloadAndTypeToEvents[Try].apply(payloadAndType).get
         actual shouldEqual events
       }
 
-      val payloadAndType = eventsToPayloadAndType[Try].apply(events).get
+      implicit val eventsToByteVector = PayloadAndType.eventsToByteVector[Try]
+      implicit val payloadJsonToByteVector = PayloadAndType.payloadJsonToByteVector[Try]
+      val eventsToPayloadAndType = PayloadAndType.eventsToPayloadAndType[Try]
+      val payloadAndType = eventsToPayloadAndType(events).get
 
       payloadType shouldEqual payloadAndType.payloadType
 

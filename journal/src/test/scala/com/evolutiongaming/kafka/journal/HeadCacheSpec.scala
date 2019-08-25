@@ -268,6 +268,9 @@ object HeadCacheSpec {
   val headers: Headers = Headers.Empty
 
   def appendOf(key: Key, seqNr: SeqNr): Action.Append  = {
+    implicit val eventsToByteVector = PayloadAndType.eventsToByteVector[Try]
+    implicit val payloadJsonToByteVector = PayloadAndType.payloadJsonToByteVector[Try]
+    implicit val eventsToPayloadAndType = PayloadAndType.eventsToPayloadAndType[Try]
     Action.Append.of[Try](key, timestamp, none, Nel.of(Event(seqNr)), metadata, headers).get
   }
 

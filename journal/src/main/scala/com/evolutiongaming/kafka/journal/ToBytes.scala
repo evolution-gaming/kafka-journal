@@ -24,7 +24,7 @@ object ToBytes {
 
   implicit val JsValueToBytes: ToBytes[JsValue] = fromWrites
 
-  implicit val BytesVectorToBytes: ToBytes[ByteVector] = _.toArray
+  implicit val ByteVectorToBytes: ToBytes[ByteVector] = _.toArray
 
 
   def apply[A](implicit toBytes: ToBytes[A]): ToBytes[A] = toBytes

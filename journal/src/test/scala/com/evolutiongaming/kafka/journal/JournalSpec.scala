@@ -7,7 +7,6 @@ import cats.data.{NonEmptyList => Nel}
 import cats.effect.{Clock, Resource}
 import cats.implicits._
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
-import com.evolutiongaming.kafka.journal.PayloadAndType._
 import com.evolutiongaming.kafka.journal.SeqNr.implicits._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
@@ -447,6 +446,15 @@ object JournalSpec {
       implicit val parallel = Parallel.identity[F]
       implicit val randomId = RandomId.uuid[F]
       implicit val measureDuration = MeasureDuration.fromClock(clock)
+
+      implicit val byteVectorToEvents = PayloadAndType.byteVectorToEvents[F]
+      implicit val byteVectorToPayloadJson = PayloadAndType.byteVectorToPayloadJson[F]
+      implicit val payloadAndTypeToEvents = PayloadAndType.payloadAndTypeToEvents[F]
+
+      implicit val eventsToByteVector = PayloadAndType.eventsToByteVector[F]
+      implicit val payloadJsonToByteVector = PayloadAndType.payloadJsonToByteVector[F]
+      implicit val eventsToPayloadAndType = PayloadAndType.eventsToPayloadAndType[F]
+
       val journal = Journal[F](None, eventual, readActionsOf, writeAction, headCache)
         .withLog(log)
         .withMetrics(Journal.Metrics.empty[F])
@@ -580,12 +588,16 @@ object JournalSpec {
 
       def apply(record: ActionRecord[Action], offset: Offset): State = {
 
+        implicit val byteVectorToEvents = PayloadAndType.byteVectorToEvents[Try]
+        implicit val byteVectorToPayloadJson = PayloadAndType.byteVectorToPayloadJson[Try]
+        implicit val payloadAndTypeToEvents = PayloadAndType.payloadAndTypeToEvents[Try]
+
         def updateOffset = copy(offset = Some(offset))
 
         def onAppend(action: Action.Append) = {
           val payloadAndType = PayloadAndType(action.payload, action.payloadType)
           val batch = for {
-            event <- payloadAndTypeToEvents[Try].apply(payloadAndType).get
+            event <- payloadAndTypeToEvents(payloadAndType).get
           } yield {
             val partitionOffset = PartitionOffset(partition, record.offset)
             EventRecord(action, event, partitionOffset)

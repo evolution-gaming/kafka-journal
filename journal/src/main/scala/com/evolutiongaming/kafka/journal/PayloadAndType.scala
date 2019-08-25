@@ -21,7 +21,18 @@ final case class PayloadAndType(
 
 object PayloadAndType {
 
-  def eventsToPayloadAndType[F[_] : Monad : FromTry]: Conversion[F, Nel[Event], PayloadAndType] = {
+  def eventsToByteVector[F[_] : FromTry/*TODO*/]: Conversion[F, Nel[Event], Bytes] = {
+    a: Nel[Event] => FromTry[F].unsafe { a.toBytes } // TODO
+  }
+
+  def payloadJsonToByteVector[F[_] : FromTry/*TODO*/]: Conversion[F, PayloadJson, Bytes] = {
+    a: PayloadJson => FromTry[F].unsafe { a.toBytes } // TODO avoid using toBytes/fromBytes
+  }
+
+  def eventsToPayloadAndType[F[_] : Monad : FromTry](implicit
+    eventsToByteVector: Conversion[F, Nel[Event], Bytes],
+    payloadJsonToByteVector: Conversion[F, PayloadJson, Bytes]
+  ): Conversion[F, Nel[Event], PayloadAndType] = {
     events: Nel[Event] => {
 
       def eventJson(head: Event) = {
@@ -32,7 +43,7 @@ object PayloadAndType {
 
         def of[A: Writes](payloadType: PayloadType.TextOrJson, a: A) = {
           for {
-            jsValue <- FromTry[F].unsafe { Json.toJson(a) }
+            jsValue <- FromTry[F].unsafe { Json.toJson(a) } // TODO
           } yield {
             ofOpt(payloadType.some, jsValue.some)
           }
@@ -63,14 +74,14 @@ object PayloadAndType {
           case head :: tail =>
             val payload = PayloadJson(Nel(head, tail))
             for {
-              bytes <- FromTry[F].unsafe { payload.toBytes }
+              bytes <- payloadJsonToByteVector(payload)
             } yield {
               val byteVector = ByteVector.view(bytes)
               PayloadAndType(byteVector, PayloadType.Json)
             }
           case Nil          =>
             for {
-              bytes <- FromTry[F].unsafe { events.toBytes }
+              bytes <- eventsToByteVector(events)
             } yield {
               val byteVector = ByteVector.view(bytes)
               PayloadAndType(byteVector, PayloadType.Binary)
@@ -86,33 +97,58 @@ object PayloadAndType {
   }
 
 
-  def payloadAndTypeToEvents[F[_] : Monad : FromTry /*TODO*/ ]: Conversion[F, PayloadAndType, Nel[Event]] = {
+  def byteVectorToEvents[F[_] : FromTry/*TODO*/]: Conversion[F, Bytes, Nel[Event]] = {
+    a: Bytes => FromTry[F].unsafe { a.fromBytes[Nel[Event]] } // TODO
+  }
+
+  def byteVectorToPayloadJson[F[_] : FromTry/*TODO*/]: Conversion[F, Bytes, PayloadJson] = {
+    a: Bytes => FromTry[F].unsafe { a.fromBytes[PayloadJson] } // TODO avoid using toBytes/fromBytes
+  }
+
+  def payloadAndTypeToEvents[F[_] : Monad : FromTry /*TODO*/ ](implicit
+    byteVectorToEvents: Conversion[F, Bytes, Nel[Event]],
+    byteVectorToPayloadJson: Conversion[F, Bytes, PayloadJson]
+  ): Conversion[F, PayloadAndType, Nel[Event]] = {
+
     payloadAndType: PayloadAndType => {
       val payload = payloadAndType.payload.toArray // TODO avoid calling this, work with ByteVector
       payloadAndType.payloadType match {
-        case PayloadType.Binary =>
-          FromTry[F].unsafe { payload.fromBytes[Nel[Event]] } // TODO avoid using toBytes/fromBytes
+        case PayloadType.Binary => byteVectorToEvents(payload)
+        case PayloadType.Json   =>
 
-        case PayloadType.Json =>
-          for {
-            payloadJson <- FromTry[F].unsafe { payload.fromBytes[PayloadJson] }
-          } yield {
-            for {
-              event <- payloadJson.events
-            } yield {
+          def events(payloadJson: PayloadJson) = {
+            payloadJson.events.traverse { event =>
               val payloadType = event.payloadType getOrElse PayloadType.Json
-              val payload = event.payload.map { payload =>
+              val payload = event.payload.traverse { payload =>
+
+                def text = {
+                  for {
+                    str <- FromTry[F].unsafe { payload.as[String] } // TODO not use `as`
+                  } yield {
+                    Payload.text(str)
+                  }
+                }
+
                 payloadType match {
-                  case PayloadType.Json => Payload.json(payload)
-                  case PayloadType.Text => Payload.text(payload.as[String]) // TODO not use `as`
+                  case PayloadType.Json => Payload.json(payload).pure[F]
+                  case PayloadType.Text => text
                 }
               }
-              Event(
-                seqNr = event.seqNr,
-                tags = event.tags,
-                payload = payload)
+              for {
+                payload <- payload
+              } yield {
+                Event(
+                  seqNr = event.seqNr,
+                  tags = event.tags,
+                  payload = payload)
+              }
             }
           }
+
+          for {
+            payloadJson <- byteVectorToPayloadJson(payload)
+            events      <- events(payloadJson)
+          } yield events
       }
     }
   }

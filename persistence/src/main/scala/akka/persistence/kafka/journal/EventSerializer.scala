@@ -48,7 +48,6 @@ object EventSerializer {
       val (anyRef: AnyRef, tags) = PayloadAndTags(persistentRepr.payload)
 
       def binary(payload: AnyRef) = {
-
         for {
           serialized <- serializer.toMsg(payload)
           persistent  = PersistentBinary(serialized, persistentRepr)

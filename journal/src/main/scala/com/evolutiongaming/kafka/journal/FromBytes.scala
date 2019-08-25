@@ -21,7 +21,7 @@ object FromBytes {
 
   implicit val JsValueFromBytes: FromBytes[JsValue] = fromReads
 
-  implicit val BytesVectorToBytes: FromBytes[ByteVector] = (a: Bytes) => ByteVector.view(a)
+  implicit val ByteVectorToBytes: FromBytes[ByteVector] = (a: Bytes) => ByteVector.view(a)
 
 
   def apply[A](implicit fromBytes: FromBytes[A]): FromBytes[A] = fromBytes

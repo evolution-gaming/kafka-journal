@@ -8,7 +8,6 @@ import cats.implicits._
 import cats.temp.par._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
-import com.evolutiongaming.kafka.journal.PayloadAndType._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.KafkaConversions._
 import com.evolutiongaming.skafka
@@ -103,6 +102,14 @@ object Journal {
   ): Journal[F] = {
 
     implicit val consumerRecordToActionRecordId = consumerRecordToActionRecord[cats.Id]
+
+    implicit val byteVectorToEvents = PayloadAndType.byteVectorToEvents[F]
+    implicit val byteVectorToPayloadJson = PayloadAndType.byteVectorToPayloadJson[F]
+    implicit val payloadAndTypeToEvents = PayloadAndType.payloadAndTypeToEvents[F]
+
+    implicit val eventsToByteVector = PayloadAndType.eventsToByteVector[F]
+    implicit val payloadJsonToByteVector = PayloadAndType.payloadJsonToByteVector[F]
+    implicit val eventsToPayloadAndType = PayloadAndType.eventsToPayloadAndType[F]
     val readActionsOf = ReadActionsOf[F](consumer)
     val appendAction = AppendAction[F](producer)
     apply[F](origin, eventualJournal, readActionsOf, appendAction, headCache)
