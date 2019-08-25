@@ -72,7 +72,8 @@ object PayloadAndType {
       def payloadAndType(eventJsons: List[EventJson]) = {
         eventJsons match {
           case head :: tail =>
-            val payload = PayloadJson(Nel(head, tail))
+            val events = Nel(head, tail)
+            val payload = PayloadJson(events)
             for {
               bytes <- payloadJsonToByteVector(payload)
             } yield {
