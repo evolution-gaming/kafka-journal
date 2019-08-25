@@ -452,11 +452,11 @@ object JournalSpec {
 
       implicit val bytesToEvents = PayloadAndType.bytesToEvents[F]
       implicit val bytesToPayloadJson = PayloadAndType.bytesToPayloadJson[F]
-      implicit val payloadAndTypeToEvents = PayloadAndType.payloadAndTypeToEvents[F]
+      implicit val payloadToEvents = PayloadAndType.payloadToEvents[F]
 
       implicit val eventsToBytes = PayloadAndType.eventsToBytes[F]
       implicit val payloadJsonToBytes = PayloadAndType.payloadJsonToBytes[F]
-      implicit val eventsToPayloadAndType = PayloadAndType.eventsToPayloadAndType[F]
+      implicit val eventsToPayload = PayloadAndType.eventsToPayload[F]
 
       val journal = Journal[F](None, eventual, readActionsOf, writeAction, headCache)
         .withLog(log)
@@ -596,14 +596,14 @@ object JournalSpec {
         
         implicit val bytesToEvents = PayloadAndType.bytesToEvents[Try]
         implicit val bytesToPayloadJson = PayloadAndType.bytesToPayloadJson[Try]
-        implicit val payloadAndTypeToEvents = PayloadAndType.payloadAndTypeToEvents[Try]
+        implicit val payloadToEvents = PayloadAndType.payloadToEvents[Try]
 
         def updateOffset = copy(offset = Some(offset))
 
         def onAppend(action: Action.Append) = {
           val payloadAndType = PayloadAndType(action.payload, action.payloadType)
           val batch = for {
-            event <- payloadAndTypeToEvents(payloadAndType).get
+            event <- payloadToEvents(payloadAndType).get
           } yield {
             val partitionOffset = PartitionOffset(partition, record.offset)
             EventRecord(action, event, partitionOffset)

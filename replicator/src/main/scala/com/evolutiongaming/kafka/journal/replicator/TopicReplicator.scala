@@ -66,7 +66,7 @@ object TopicReplicator { self =>
 
       implicit val bytesToEvents = PayloadAndType.bytesToEvents[F]
       implicit val bytesToPayloadJson = PayloadAndType.bytesToPayloadJson[F]
-      implicit val payloadAndTypeToEvents = PayloadAndType.payloadAndTypeToEvents[F]
+      implicit val payloadToEvents = PayloadAndType.payloadToEvents[F]
       Concurrent[F].start {
         retry {
           consumer.use { consumer => of(topic, stopRef, consumer, 1.hour) }
@@ -109,7 +109,7 @@ object TopicReplicator { self =>
     consumer: Consumer[F],
     errorCooldown: FiniteDuration)(implicit
     consumerRecordToActionRecord: Conversion[OptionT[cats.Id, ?], ConsumerRecord[Id, ByteVector], ActionRecord[Action]],
-    payloadAndTypeToEvents: Conversion[F, PayloadAndType, Nel[Event]],
+    payloadToEvents: Conversion[F, PayloadAndType, Nel[Event]],
   ): F[Unit] = {
 
     def round(
@@ -163,7 +163,7 @@ object TopicReplicator { self =>
             val action = record.action
             val payloadAndType = PayloadAndType(action.payload, action.payloadType)
             for {
-              events <- payloadAndTypeToEvents(payloadAndType)
+              events <- payloadToEvents(payloadAndType)
             } yield for {
               event <- events
             } yield {

@@ -608,7 +608,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 
     implicit val eventsToBytes = PayloadAndType.eventsToBytes[Try]
     implicit val payloadJsonToBytes = PayloadAndType.payloadJsonToBytes[Try]
-    implicit val eventsToPayloadAndType = PayloadAndType.eventsToPayloadAndType[Try]
+    implicit val eventsToPayload = PayloadAndType.eventsToPayload[Try]
     Action.Append.of[Try](key, timestamp = timestamp, Some(origin), events, metadata, headers).get
   }
 
@@ -785,7 +785,7 @@ object TopicReplicatorSpec {
 
     implicit val bytesToEvents = PayloadAndType.bytesToEvents[StateT]
     implicit val bytesToPayloadJson = PayloadAndType.bytesToPayloadJson[StateT]
-    implicit val payloadAndTypeToEvents = PayloadAndType.payloadAndTypeToEvents[StateT]
+    implicit val payloadToEvents = PayloadAndType.payloadToEvents[StateT]
 
     TopicReplicator.of[StateT](topic, TopicReplicator.StopRef[StateT], consumer, 1.second)
   }

@@ -29,7 +29,7 @@ object PayloadAndType {
     a: PayloadJson => FromTry[F].unsafe { a.toBytes } // TODO avoid using toBytes/fromBytes
   }
 
-  def eventsToPayloadAndType[F[_] : Monad : FromTry](implicit
+  def eventsToPayload[F[_] : Monad : FromTry](implicit
     eventsToBytes: Conversion[F, Nel[Event], Bytes],
     payloadJsonToBytes: Conversion[F, PayloadJson, Bytes]
   ): Conversion[F, Nel[Event], PayloadAndType] = {
@@ -106,7 +106,7 @@ object PayloadAndType {
     a: Bytes => FromTry[F].unsafe { a.fromBytes[PayloadJson] } // TODO avoid using toBytes/fromBytes
   }
 
-  def payloadAndTypeToEvents[F[_] : Monad : FromTry /*TODO*/ : FromAttempt : FromJsResult](implicit
+  def payloadToEvents[F[_] : Monad : FromAttempt : FromJsResult](implicit
     bytesToEvents: Conversion[F, Bytes, Nel[Event]],
     bytesToPayloadJson: Conversion[F, Bytes, PayloadJson]
   ): Conversion[F, PayloadAndType, Nel[Event]] = {

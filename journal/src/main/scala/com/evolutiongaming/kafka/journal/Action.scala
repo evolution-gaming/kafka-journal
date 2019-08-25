@@ -74,10 +74,10 @@ object Action {
       events: Nel[Event],
       metadata: Metadata,
       headers: Headers)(implicit
-      eventsToPayloadAndType: Conversion[F, Nel[Event], PayloadAndType]
+      eventsToPayload: Conversion[F, Nel[Event], PayloadAndType]
     ): F[Append] = {
       for {
-        payloadAndType <- eventsToPayloadAndType(events)
+        payloadAndType <- eventsToPayload(events)
       } yield {
         val range = SeqRange(from = events.head.seqNr, to = events.last.seqNr)
         val header = ActionHeader.Append(range, origin, payloadAndType.payloadType, metadata)

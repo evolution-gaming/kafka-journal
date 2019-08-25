@@ -64,16 +64,16 @@ class PayloadAndTypeSpec extends FunSuite with Matchers {
         implicit val bytesToEvents = PayloadAndType.bytesToEvents[Try]
         implicit val bytesToPayloadJson = PayloadAndType.bytesToPayloadJson[Try]
 
-        val payloadAndTypeToEvents = PayloadAndType.payloadAndTypeToEvents[Try]
+        val payloadToEvents = PayloadAndType.payloadToEvents[Try]
 
-        val actual = payloadAndTypeToEvents(payloadAndType).get
+        val actual = payloadToEvents(payloadAndType).get
         actual shouldEqual events
       }
 
       implicit val eventsToBytes = PayloadAndType.eventsToBytes[Try]
       implicit val payloadJsonToBytes = PayloadAndType.payloadJsonToBytes[Try]
-      val eventsToPayloadAndType = PayloadAndType.eventsToPayloadAndType[Try]
-      val payloadAndType = eventsToPayloadAndType(events).get
+      val eventsToPayload = PayloadAndType.eventsToPayload[Try]
+      val payloadAndType = eventsToPayload(events).get
 
       payloadType shouldEqual payloadAndType.payloadType
 

@@ -108,11 +108,11 @@ object Journal {
 
     implicit val bytesToEvents = PayloadAndType.bytesToEvents[F]
     implicit val bytesToPayloadJson = PayloadAndType.bytesToPayloadJson[F]
-    implicit val payloadAndTypeToEvents = PayloadAndType.payloadAndTypeToEvents[F]
+    implicit val payloadToEvents = PayloadAndType.payloadToEvents[F]
 
     implicit val eventsToBytes = PayloadAndType.eventsToBytes[F]
     implicit val payloadJsonToBytes = PayloadAndType.payloadJsonToBytes[F]
-    implicit val eventsToPayloadAndType = PayloadAndType.eventsToPayloadAndType[F]
+    implicit val eventsToPayload = PayloadAndType.eventsToPayload[F]
     val readActionsOf = ReadActionsOf[F](consumer)
     val appendAction = AppendAction[F](producer)
     apply[F](origin, eventualJournal, readActionsOf, appendAction, headCache)
@@ -125,8 +125,8 @@ object Journal {
     readActionsOf: ReadActionsOf[F],
     appendAction: AppendAction[F],
     headCache: HeadCache[F])(implicit
-    payloadAndTypeToEvents: Conversion[F, PayloadAndType, Nel[Event]],
-    eventsToPayloadAndType: Conversion[F, Nel[Event], PayloadAndType]
+    payloadToEvents: Conversion[F, PayloadAndType, Nel[Event]],
+    eventsToPayload: Conversion[F, Nel[Event], PayloadAndType]
   ): Journal[F] = {
 
     val appendMarker = AppendMarker(appendAction, origin)
@@ -221,7 +221,7 @@ object Journal {
                       val payloadAndType = PayloadAndType(a.payload, a.payloadType)
 
                       for {
-                        events <- payloadAndTypeToEvents(payloadAndType)
+                        events <- payloadToEvents(payloadAndType)
                         result <- read(events)
                       } yield result
                     }
