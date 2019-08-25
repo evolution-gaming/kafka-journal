@@ -74,8 +74,6 @@ class KafkaConversionsSpec extends FunSuite with Matchers {
   private val headers = List(Headers.Empty, Headers(("key", "value")))
 
   private val appends = {
-    implicit val eventsToBytes = PayloadAndType.eventsToBytes[Try]
-    implicit val payloadJsonToBytes = PayloadAndType.payloadJsonToBytes[Try]
     implicit val eventsToPayload = PayloadAndType.eventsToPayload[Try]
     for {
       origin   <- origins
@@ -93,20 +91,22 @@ class KafkaConversionsSpec extends FunSuite with Matchers {
   } {
 
     test(s"toProducerRecord & toActionRecord $action") {
-      val producerRecord = action.convert[cats.Id, ProducerRecord[Id, ByteVector]]
+      for {
+        producerRecord <- action.convert[Try, ProducerRecord[Id, ByteVector]]
+      } yield {
+        val consumerRecord = ConsumerRecord[Id, ByteVector](
+          topicPartition = topicPartition,
+          offset = partitionOffset.offset,
+          timestampAndType = Some(TimestampAndType(timestamp, TimestampType.Create)),
+          key = producerRecord.key.map(bytes => WithSize(bytes, bytes.length)),
+          value = producerRecord.value.map(bytes => WithSize(bytes, bytes.length.toInt)),
+          headers = producerRecord.headers)
 
-      val consumerRecord = ConsumerRecord[Id, ByteVector](
-        topicPartition = topicPartition,
-        offset = partitionOffset.offset,
-        timestampAndType = Some(TimestampAndType(timestamp, TimestampType.Create)),
-        key = producerRecord.key.map(bytes => WithSize(bytes, bytes.length)),
-        value = producerRecord.value.map(bytes => WithSize(bytes, bytes.length.toInt)),
-        headers = producerRecord.headers)
+        val record = ActionRecord(action, partitionOffset)
 
-      val record = ActionRecord(action, partitionOffset)
-
-      implicit val function = consumerRecordToActionHeader[cats.Id]
-      consumerRecordToActionRecord[cats.Id].apply(consumerRecord).value shouldEqual record.some
+        implicit val function = consumerRecordToActionHeader[cats.Id]
+        consumerRecordToActionRecord[cats.Id].apply(consumerRecord).value shouldEqual record.some
+      }
     }
   }
 }

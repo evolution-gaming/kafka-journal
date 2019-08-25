@@ -587,7 +587,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
     topicPartition: TopicPartition,
     offset: Offset) = {
 
-    val producerRecord = action.convert[cats.Id, ProducerRecord[Id, ByteVector]]
+    val producerRecord = action.convert[Try, ProducerRecord[Id, ByteVector]].get
     ConsumerRecord(
       topicPartition = topicPartition,
       offset = offset,
@@ -604,8 +604,6 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
   }
 
   private def appendOf(key: Key, seqNrs: Nel[Int]) = {
-    implicit val eventsToBytes = PayloadAndType.eventsToBytes[Try]
-    implicit val payloadJsonToBytes = PayloadAndType.payloadJsonToBytes[Try]
     implicit val eventsToPayload = PayloadAndType.eventsToPayload[Try]
     val events = seqNrs.map { seqNr => Event(SeqNr(seqNr.toLong), Set(seqNr.toString)) }
     Action.Append.of[Try](key, timestamp = timestamp, Some(origin), events, metadata, headers).get

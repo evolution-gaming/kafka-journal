@@ -1,13 +1,15 @@
 package com.evolutiongaming.kafka.journal
 
-object BytesOf {
+import scodec.bits.ByteVector
 
-  def apply(clazz: Class[_], path: String): Bytes = {
+object ByteVectorOf {
+
+  def apply(clazz: Class[_], path: String): ByteVector = {
     val is = Option(clazz.getResourceAsStream(path)) getOrElse {
       sys.error(s"file not found at $path")
     }
     val bytes = new Bytes(is.available())
     is.read(bytes)
-    bytes
+    ByteVector.view(bytes)
   }
 }

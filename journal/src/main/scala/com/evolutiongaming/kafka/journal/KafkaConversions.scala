@@ -5,10 +5,9 @@ import java.time.Instant
 
 import cats.data.OptionT
 import cats.implicits._
-import cats.{FlatMap, Monad}
+import cats.{Functor, Monad}
 import com.evolutiongaming.catshelper.FromTry
 import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
-import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
 import com.evolutiongaming.skafka.Header
 import com.evolutiongaming.skafka.consumer.ConsumerRecord
 import com.evolutiongaming.skafka.producer.ProducerRecord
@@ -18,20 +17,23 @@ object KafkaConversions {
 
   val `journal.action` = "journal.action"
 
-  
-  implicit def actionHeaderToHeader[F[_] : FlatMap : FromTry/*TODO*/]: Conversion[F, ActionHeader, Header] = {
+
+  implicit def actionHeaderToHeader[F[_] : Functor](implicit
+    actionHeaderToBytes: ToBytes[F, ActionHeader]
+  ): Conversion[F, ActionHeader, Header] = {
     a: ActionHeader => {
       for {
-        bytes <- FromTry[F].unsafe { a.toBytes }
+        bytes <- actionHeaderToBytes(a)
       } yield {
-        Header(`journal.action`, bytes)
+        Header(`journal.action`, bytes.toArray)
       }
     }
   }
 
 
-  implicit def actionToProducerRecord[F[_] : Monad : FromTry/*TODO*/](implicit
-    actionHeaderToHeader: Conversion[F, ActionHeader, Header]
+  implicit def actionToProducerRecord[F[_] : Monad](implicit
+    actionHeaderToHeader: Conversion[F, ActionHeader, Header],
+    stringToBytes: ToBytes[F, String],
   ): Conversion[F, Action, ProducerRecord[Id, ByteVector]] = {
 
     a: Action => {
@@ -40,9 +42,9 @@ object KafkaConversions {
       def headers(a: Action.Append) = {
         a.headers.toList.traverse { case (key, value) =>
           for {
-            bytes <- FromTry[F].unsafe { value.toBytes }
+            bytes <- stringToBytes(value)
           } yield {
-            Header(key, bytes)
+            Header(key, bytes.toArray)
           }
         }
       }

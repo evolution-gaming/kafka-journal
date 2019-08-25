@@ -1,13 +1,12 @@
 package com.evolutiongaming.kafka.journal
 
 
-import cats.Monad
+import cats.{Applicative, Monad}
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.evolutiongaming.catshelper.FromTry
 import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
 import com.evolutiongaming.kafka.journal.PlayJsonHelper._
-import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
 import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import play.api.libs.json._
 import scodec.Codec
@@ -21,17 +20,9 @@ final case class PayloadAndType(
 
 object PayloadAndType {
 
-  def eventsToBytes[F[_] : FromTry/*TODO*/]: Conversion[F, Nel[Event], Bytes] = {
-    a: Nel[Event] => FromTry[F].unsafe { a.toBytes } // TODO
-  }
-
-  def payloadJsonToBytes[F[_] : FromTry/*TODO*/]: Conversion[F, PayloadJson, Bytes] = {
-    a: PayloadJson => FromTry[F].unsafe { a.toBytes } // TODO avoid using toBytes/fromBytes
-  }
-
   def eventsToPayload[F[_] : Monad : FromTry](implicit
-    eventsToBytes: Conversion[F, Nel[Event], Bytes],
-    payloadJsonToBytes: Conversion[F, PayloadJson, Bytes]
+    eventsToBytes: ToBytes[F, Nel[Event]],
+    payloadJsonToBytes: ToBytes[F, PayloadJson]
   ): Conversion[F, Nel[Event], PayloadAndType] = {
     events: Nel[Event] => {
 
@@ -74,15 +65,13 @@ object PayloadAndType {
             for {
               bytes <- payloadJsonToBytes(payload)
             } yield {
-              val byteVector = ByteVector.view(bytes)
-              PayloadAndType(byteVector, PayloadType.Json)
+              PayloadAndType(bytes, PayloadType.Json)
             }
           case Nil          =>
             for {
               bytes <- eventsToBytes(events)
             } yield {
-              val byteVector = ByteVector.view(bytes)
-              PayloadAndType(byteVector, PayloadType.Binary)
+              PayloadAndType(bytes, PayloadType.Binary)
             }
         }
       }
@@ -176,7 +165,7 @@ object PayloadAndType {
     implicit val CodecPayloadJson: Codec[PayloadJson] = formatCodec // TODO not used
 
 
-    implicit val ToBytesPayloadJson: ToBytes[PayloadJson] = ToBytes.fromWrites
+    implicit def toBytesPayloadJson[F[_] : Applicative]: ToBytes[F, PayloadJson] = ToBytes.fromWrites
 
     implicit val FromBytesPayloadJson: FromBytes[PayloadJson] = FromBytes.fromReads
   }

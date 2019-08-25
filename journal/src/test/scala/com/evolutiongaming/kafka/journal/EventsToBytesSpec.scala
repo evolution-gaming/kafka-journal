@@ -6,6 +6,9 @@ import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
 import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
 import org.scalatest.{FunSuite, Matchers}
+import scodec.bits.ByteVector
+
+import scala.util.Try
 
 class EventsToBytesSpec extends FunSuite with Matchers {
 
@@ -50,22 +53,22 @@ class EventsToBytesSpec extends FunSuite with Matchers {
   } {
     test(s"toBytes & fromBytes $name") {
 
-      def verify(bytes: Bytes) = {
-        val actual = bytes.fromBytes[Nel[Event]]
+      def verify(bytes: ByteVector) = {
+        val actual = bytes.toArray.fromBytes[Nel[Event]]
         actual shouldEqual events
       }
 
-      val bytes = events.toBytes
+      val bytes = events.toBytes[Try].get
 
       verify(bytes)
 
-      verify(BytesOf(getClass, s"events-$name.bin"))
+      verify(ByteVectorOf(getClass, s"events-$name.bin"))
     }
   }
 
-  def writeToFile(bytes: Bytes, path: String): Unit = {
+  def writeToFile(bytes: ByteVector, path: String): Unit = {
     val os = new FileOutputStream(path)
-    os.write(bytes)
+    os.write(bytes.toArray)
     os.close()
   }
 }

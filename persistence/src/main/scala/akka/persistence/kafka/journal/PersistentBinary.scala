@@ -1,7 +1,7 @@
 package akka.persistence.kafka.journal
 
 import akka.persistence.PersistentRepr
-import com.evolutiongaming.kafka.journal.{FromBytes, ToBytes}
+import com.evolutiongaming.kafka.journal.{FromAttempt, FromBytes, ToBytes}
 import com.evolutiongaming.serialization.SerializedMsg
 import scodec.{Codec, codecs}
 
@@ -19,7 +19,7 @@ object PersistentBinary {
   }
 
 
-  implicit val ToBytesPersistentBinary: ToBytes[PersistentBinary] = ToBytes.fromEncoder
+  implicit def toBytesPersistentBinary[F[_] : FromAttempt]: ToBytes[F, PersistentBinary] = ToBytes.fromEncoder
 
   implicit val FromBytesPersistentBinary: FromBytes[PersistentBinary] = FromBytes.fromDecoder
 

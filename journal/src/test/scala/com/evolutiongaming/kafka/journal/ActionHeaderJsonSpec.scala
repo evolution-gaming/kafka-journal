@@ -48,6 +48,6 @@ class ActionHeaderJsonSpec extends FunSuite with Matchers {
     }
 
     verify(Json.toJson(value))
-    verify(Json.parse(BytesOf(getClass, s"$name.json")))
+    verify(Json.parse(ByteVectorOf(getClass, s"$name.json").toArray))
   }
 }

@@ -454,8 +454,6 @@ object JournalSpec {
       implicit val bytesToPayloadJson = PayloadAndType.bytesToPayloadJson[F]
       implicit val payloadToEvents = PayloadAndType.payloadToEvents[F]
 
-      implicit val eventsToBytes = PayloadAndType.eventsToBytes[F]
-      implicit val payloadJsonToBytes = PayloadAndType.payloadJsonToBytes[F]
       implicit val eventsToPayload = PayloadAndType.eventsToPayload[F]
 
       val journal = Journal[F](None, eventual, readActionsOf, writeAction, headCache)

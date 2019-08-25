@@ -10,7 +10,6 @@ import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal._
 import org.scalatest.{AsyncFunSuite, Matchers}
 import play.api.libs.json.{JsString, JsValue}
-import scodec.bits.ByteVector
 
 class EventSerializerSpec extends AsyncFunSuite with ActorSuite with Matchers {
 
@@ -37,7 +36,7 @@ class EventSerializerSpec extends AsyncFunSuite with ActorSuite with Matchers {
         _          <- Sync[IO].delay { actual shouldEqual persistentRepr }
         payload1   <- Sync[IO].catchNonFatal { event.payload getOrElse sys.error("Event.payload is not defined") }
         _          <- Sync[IO].delay { payload1.payloadType shouldEqual payloadType }
-        bytes      <- Sync[IO].delay { BytesOf(getClass, name) }
+        bytes      <- Sync[IO].delay { ByteVectorOf(getClass, name) }
       } yield {
         /*persistentPayload match {
         case a: Payload.Binary => writeToFile(a.value, name)
@@ -46,9 +45,9 @@ class EventSerializerSpec extends AsyncFunSuite with ActorSuite with Matchers {
       }*/
 
         payload1 match {
-          case payload: Payload.Binary => payload.value shouldEqual ByteVector.view(bytes)
-          case payload: Payload.Text   => payload.value shouldEqual bytes.fromBytes[String]
-          case payload: Payload.Json   => payload.value shouldEqual bytes.fromBytes[JsValue]
+          case payload: Payload.Binary => payload.value shouldEqual bytes
+          case payload: Payload.Text   => payload.value shouldEqual bytes.toArray.fromBytes[String]
+          case payload: Payload.Json   => payload.value shouldEqual bytes.toArray.fromBytes[JsValue]
         }
       }
 

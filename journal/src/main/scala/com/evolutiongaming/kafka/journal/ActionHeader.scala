@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.Applicative
 import play.api.libs.json._
 
 sealed abstract class ActionHeader extends Product {
@@ -61,7 +62,7 @@ object ActionHeader {
     }
   }
 
-  implicit val ToBytesActionHeader: ToBytes[ActionHeader] = ToBytes.fromWrites
+  implicit def toBytesActionHeader[F[_] : Applicative]: ToBytes[F, ActionHeader] = ToBytes.fromWrites
 
   implicit val FromBytesActionHeader: FromBytes[ActionHeader] = FromBytes.fromReads
 

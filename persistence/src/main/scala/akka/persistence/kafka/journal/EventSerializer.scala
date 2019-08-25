@@ -31,7 +31,7 @@ object EventSerializer {
   }
 
 
-  def of[F[_] : Sync : FromTry/*TODO*/ : FromJsResult](system: ActorSystem): F[EventSerializer[F]] = {
+  def of[F[_] : Sync : FromTry/*TODO*/ : FromAttempt : FromJsResult](system: ActorSystem): F[EventSerializer[F]] = {
     for {
       serializedMsgSerializer <- SerializedMsgSerializer.of[F](system)
     } yield {
@@ -40,7 +40,7 @@ object EventSerializer {
   }
   
 
-  def apply[F[_] : Sync : FromTry/*TODO*/ : FromJsResult](
+  def apply[F[_] : Sync : FromTry/*TODO*/ : FromAttempt : FromJsResult](
     serializer: SerializedMsgSerializer[F]/*TODO*/
   ): EventSerializer[F] = new EventSerializer[F] {
 
@@ -51,9 +51,9 @@ object EventSerializer {
         for {
           serialized <- serializer.toMsg(payload)
           persistent  = PersistentBinary(serialized, persistentRepr)
-          bytes      <- FromTry[F].unsafe { persistent.toBytes }
+          bytes      <- persistent.toBytes[F]
         } yield {
-          Payload.binary(ByteVector.view(bytes))
+          Payload.binary(bytes)
         }
       }
 

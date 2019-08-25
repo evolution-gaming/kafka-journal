@@ -46,6 +46,7 @@ object FromBytes {
   object Implicits {
 
     implicit class FromBytesIdOps(val bytes: Bytes) extends AnyVal {
+      
       def fromBytes[A](implicit fromBytes: FromBytes[A]): A = fromBytes(bytes)
     }
   }

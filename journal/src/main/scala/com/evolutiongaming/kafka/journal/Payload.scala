@@ -50,9 +50,9 @@ object Payload {
     implicit val DecodeByNameBinary: DecodeByName[Binary] = DecodeByName[Bytes].map(a => Binary(ByteVector.view(a)))
 
 
-    implicit val ToBytesBinary: ToBytes[Binary] = ToBytes.fromEncoder
+//    implicit val ToBytesBinary: ToBytes[Binary] = ToBytes.fromEncoder
 
-    implicit val FromBytesBinary: FromBytes[Binary] = FromBytes.fromDecoder
+//    implicit val FromBytesBinary: FromBytes[Binary] = FromBytes.fromDecoder
   }
 
 
@@ -70,9 +70,9 @@ object Payload {
     implicit val DecodeByNameText: DecodeByName[Text] = DecodeByName[String].map(Text(_))
 
 
-    implicit val ToBytesText: ToBytes[Text] = ToBytes[String].imap(_.value)
+//    implicit val ToBytesText: ToBytes[Text] = ToBytes[String].imap(_.value)
 
-    implicit val FromBytesText: FromBytes[Text] = FromBytes[String].map(Text(_))
+//    implicit val FromBytesText: FromBytes[Text] = FromBytes[String].map(Text(_))
   }
 
 
@@ -87,9 +87,9 @@ object Payload {
     val CodecJson: Codec[Json] = formatCodec
 
 
-    implicit val ToBytesJson: ToBytes[Json] = ToBytes.fromWrites
+//    implicit val ToBytesJson: ToBytes[Json] = ToBytes.fromWrites
 
-    implicit val FromBytesJson: FromBytes[Json] = FromBytes.fromReads
+//    implicit val FromBytesJson: FromBytes[Json] = FromBytes.fromReads
 
 
     implicit val EncodeByNameJson: EncodeByName[Json] = encodeByNameFromWrites

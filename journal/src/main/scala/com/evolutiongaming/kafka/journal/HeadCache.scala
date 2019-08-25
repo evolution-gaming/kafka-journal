@@ -79,7 +79,8 @@ object HeadCache {
   ): Resource[F, HeadCache[F]] = {
 
     import com.evolutiongaming.kafka.journal.KafkaConversions._
-    implicit val consumerRecordToKafkaRecord = HeadCache.consumerRecordToKafkaRecord(consumerRecordToActionHeader[cats.Id])
+    implicit val consumerRecordToActionHeaderId = consumerRecordToActionHeader[cats.Id]
+    implicit val consumerRecordToKafkaRecord = HeadCache.consumerRecordToKafkaRecord
 
     val result = for {
       cache <- Cache.of[F, Topic, TopicCache[F]]

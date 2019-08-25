@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.ApplicativeError
+import cats.effect.IO
 import cats.implicits._
 import scodec.Attempt
 
@@ -25,4 +26,6 @@ object FromAttempt {
 
 
   implicit val tryFromAttempt: FromAttempt[Try] = lift[Try]
+
+  implicit val ioFromAttempt: FromAttempt[IO] = lift[IO]
 }

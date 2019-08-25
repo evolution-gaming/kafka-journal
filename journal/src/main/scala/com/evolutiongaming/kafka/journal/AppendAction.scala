@@ -1,8 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.effect.Sync
 import cats.implicits._
-import cats.~>
+import cats.{MonadError, ~>}
 import com.evolutiongaming.skafka.producer.ProducerRecord
 import scodec.bits.ByteVector
 
@@ -13,13 +12,14 @@ trait AppendAction[F[_]] {
 
 object AppendAction {
 
-  def apply[F[_] : Sync](
+  def apply[F[_]](
     producer: Journal.Producer[F])(implicit
-    actionToProducerRecord: Conversion[cats.Id, Action, ProducerRecord[Id, ByteVector]]
+    F: MonadError[F, Throwable],
+    actionToProducerRecord: Conversion[F, Action, ProducerRecord[Id, ByteVector]]
   ): AppendAction[F] = {
     action: Action => {
       val partitionOffset = for {
-        producerRecord  <- Sync[F].delay { actionToProducerRecord(action) } // TODO remove Sync[F].delay
+        producerRecord  <- actionToProducerRecord(action)
         partitionOffset <- producer.send(producerRecord)
       } yield partitionOffset
       partitionOffset.handleErrorWith { cause =>

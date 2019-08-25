@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.implicits._
 import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.kafka.journal.Conversion.implicits._
 import com.evolutiongaming.kafka.journal.KafkaConversions._
@@ -8,15 +9,18 @@ import com.evolutiongaming.skafka.producer.ProducerRecord
 import com.evolutiongaming.skafka.{Offset, TimestampAndType, TimestampType, TopicPartition}
 import scodec.bits.ByteVector
 
+import scala.util.Try
+
 object ConsumerRecordOf {
 
   def apply(
     action: Action,
     topicPartition: TopicPartition,
-    offset: Offset
+    offset: Offset)(implicit
+    fromAttempt: FromAttempt[Try]
   ): ConsumerRecord[Id, ByteVector] = {
-
-    val producerRecord = action.convert[cats.Id, ProducerRecord[Id, ByteVector]]
+    
+    val producerRecord = action.convert[Try, ProducerRecord[Id, ByteVector]].get
     val timestampAndType = TimestampAndType(action.timestamp, TimestampType.Create)
     ConsumerRecord[Id, ByteVector](
       topicPartition = topicPartition,
