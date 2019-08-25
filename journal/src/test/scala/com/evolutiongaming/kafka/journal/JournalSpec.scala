@@ -12,7 +12,7 @@ import com.evolutiongaming.kafka.journal.SeqNr.implicits._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.catshelper.Log
+import com.evolutiongaming.catshelper.{FromTry, Log}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
 import com.evolutiongaming.sstream.Stream
@@ -20,6 +20,7 @@ import org.scalatest.{Assertion, Matchers, WordSpec}
 
 import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 class JournalSpec extends WordSpec with Matchers {
   import JournalSpec._
@@ -437,6 +438,9 @@ object JournalSpec {
       headCache: HeadCache[F]
     ): SeqNrJournal[F] = {
 
+      implicit val fromTry: FromTry[F] = new FromTry[F] {
+        def apply[A](fa: Try[A]) = fa.get.pure[F]
+      }
       implicit val log = Log.empty[F]
       implicit val concurrent = ConcurrentOf.fromMonad[F]
       implicit val clock = Clock.const[F](nanos = 0, millis = timestamp.toEpochMilli)

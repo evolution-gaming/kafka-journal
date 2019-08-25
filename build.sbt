@@ -71,6 +71,7 @@ lazy val journal = (project in file("journal")
     Akka.stream,
     Akka.testkit % Test,
     Akka.slf4j % Test,
+    `cats-helper`,
     Kafka.`kafka-clients`,
     skafka,
     scalatest % Test,
@@ -104,6 +105,7 @@ lazy val persistence = (project in file("persistence")
     `eventual-cassandra`)
   settings (libraryDependencies ++= Seq(
     `akka-serialization`,
+    `cats-helper`,
     Akka.persistence)))
 
 lazy val `tests` = (project in file("tests")
@@ -117,6 +119,7 @@ lazy val `tests` = (project in file("tests")
     persistence % "test->test;compile->compile",
     replicator)
   settings (libraryDependencies ++= Seq(
+    `cats-helper`,
     Kafka.kafka % Test,
     `kafka-launcher` % Test,
     `cassandra-launcher` % Test,
@@ -133,7 +136,7 @@ lazy val replicator = (Project("replicator", file("replicator"))
   dependsOn (
     journal % "test->test;compile->compile", 
     `eventual-cassandra`)
-  settings (libraryDependencies ++= Seq()))
+  settings (libraryDependencies ++= Seq(`cats-helper`)))
 
 lazy val `eventual-cassandra` = (project in file("eventual-cassandra")
   settings (name := "kafka-journal-eventual-cassandra")

@@ -274,7 +274,8 @@ object HeadCacheSpec {
   def headCacheOf(
     consumer: IO[HeadCache.Consumer[IO]],
     config: HeadCache.Config = config)(implicit
-    eventual: HeadCache.Eventual[IO]): Resource[IO, HeadCache[IO]] = {
+    eventual: HeadCache.Eventual[IO]
+  ): Resource[IO, HeadCache[IO]] = {
 
     HeadCache.of[IO](
       log = LogIO,

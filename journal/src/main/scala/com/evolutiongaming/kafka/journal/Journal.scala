@@ -94,7 +94,7 @@ object Journal {
   }
 
 
-  def apply[F[_] : Concurrent : ContextShift : Par : Clock : Log : RandomId](
+  def apply[F[_] : Concurrent : ContextShift : Par : Clock : Log : RandomId : FromTry](
     origin: Option[Origin],
     producer: Producer[F],
     consumer: Resource[F, Consumer[F]],
@@ -109,7 +109,7 @@ object Journal {
   }
 
 
-  def apply[F[_] : Concurrent : Log : Clock : Par : RandomId](
+  def apply[F[_] : Concurrent : Log : Clock : Par : RandomId : FromTry](
     origin: Option[Origin],
     eventual: EventualJournal[F],
     readActionsOf: ReadActionsOf[F],

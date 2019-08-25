@@ -1,8 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
 
+import cats.Monad
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
+import com.evolutiongaming.catshelper.FromTry
 import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
 import com.evolutiongaming.kafka.journal.PlayJsonHelper._
 import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
@@ -21,49 +23,66 @@ object PayloadAndType {
 
   object EventsToPayload {
 
-    def apply(events: Nel[Event]): PayloadAndType = {
+    def apply[F[_] : Monad : FromTry /*TODO*/](events: Nel[Event]): F[PayloadAndType] = {
+
+      def eventJson(head: Event) = {
+
+        def ofOpt(payloadType: Option[PayloadType.TextOrJson], payload: Option[JsValue]) = {
+          EventJson(head.seqNr, head.tags, payloadType, payload)
+        }
+
+        def of[A: Writes](payloadType: PayloadType.TextOrJson, a: A) = {
+          for {
+            jsValue <- FromTry[F].unsafe { Json.toJson(a) }
+          } yield {
+            ofOpt(payloadType.some, jsValue.some)
+          }
+        }
+
+        head.payload.fold {
+          ofOpt(none, none).pure[F].some
+        } {
+          case _: Payload.Binary => none[F[EventJson]]
+          case a: Payload.Json   => of(PayloadType.Json, a.value).some
+          case a: Payload.Text   => of(PayloadType.Text, a.value).some
+        }
+      }
 
       @tailrec
-      def loop(events: List[Event], json: List[EventJson]): List[EventJson] = {
+      def eventJsons(events: List[Event], json: List[F[EventJson]]): F[List[EventJson]] = {
         events match {
-          case Nil          => json.reverse
+          case Nil          => json.foldLeftM(List.empty[EventJson]) { (as, a) => a.map { _ :: as } }
+          case head :: tail => eventJson(head) match {
+            case None    => List.empty[EventJson].pure[F]
+            case Some(x) => eventJsons(tail, x :: json)
+          }
+        }
+      }
+
+      def payloadAndType(eventJsons: List[EventJson]) = {
+        eventJsons match {
           case head :: tail =>
-
-            def ofOpt(payloadType: Option[PayloadType.TextOrJson], payload: Option[JsValue]) = {
-              EventJson(head.seqNr, head.tags, payloadType, payload)
+            val payload = PayloadJson(Nel(head, tail))
+            for {
+              bytes <- FromTry[F].unsafe { payload.toBytes }
+            } yield {
+              val byteVector = ByteVector.view(bytes)
+              PayloadAndType(byteVector, PayloadType.Json)
             }
-
-            def of[A : Writes](payloadType: PayloadType.TextOrJson, a: A) = {
-              val jsValue = Json.toJson(a)
-              ofOpt(payloadType.some, jsValue.some)
-            }
-
-            val result = head.payload.fold[Option[EventJson]]{
-              ofOpt(none, none).some
-            } {
-              case _: Payload.Binary => none[EventJson]
-              case a: Payload.Json   => of(PayloadType.Json, a.value).some
-              case a: Payload.Text   => of(PayloadType.Text, a.value).some
-            }
-            result match {
-              case None    => Nil
-              case Some(x) => loop(tail, x :: json)
+          case Nil =>
+            for {
+              bytes <- FromTry[F].unsafe { events.toBytes }
+            } yield {
+              val byteVector = ByteVector.view(bytes)
+              PayloadAndType(byteVector, PayloadType.Binary)
             }
         }
       }
 
-      loop(events.toList, Nil) match {
-        case Nil =>
-          val bytes = events.toBytes
-          val byteVector = ByteVector.view(bytes)
-          PayloadAndType(byteVector, PayloadType.Binary)
-
-        case head :: tail =>
-          val payload = PayloadJson(Nel(head, tail))
-          val bytes = payload.toBytes
-          val byteVector = ByteVector.view(bytes)
-          PayloadAndType(byteVector, PayloadType.Json)
-      }
+      for {
+        eventJsons     <- eventJsons(events.toList, List.empty)
+        payloadAndType <- payloadAndType(eventJsons)
+      } yield payloadAndType
     }
   }
 
@@ -75,8 +94,8 @@ object PayloadAndType {
       payloadAndType.payloadType match {
         case PayloadType.Binary =>
           payload.fromBytes[Nel[Event]] // TODO avoid using toBytes/fromBytes
-          
-        case PayloadType.Json   =>
+
+        case PayloadType.Json =>
           val payloadJson = payload.fromBytes[PayloadJson]
           for {
             event <- payloadJson.events
