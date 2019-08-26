@@ -2,7 +2,6 @@ package com.evolutiongaming.kafka.journal
 
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
-import cats.effect.concurrent.Semaphore
 import cats.implicits._
 import cats.~>
 import com.evolutiongaming.kafka.journal.util.Named
@@ -36,19 +35,14 @@ object KafkaConsumer {
   def apply[F[_], K, V](implicit F: KafkaConsumer[F, K, V]): KafkaConsumer[F, K, V] = F
 
 
-  def of[F[_] : Concurrent, K, V](
+  def of[F[_] : Sync, K, V](
     consumer: Resource[F, Consumer[F, K, V]]
   ): Resource[F, KafkaConsumer[F, K, V]] = {
 
     val result = for {
-      semaphore <- Semaphore[F](1)
-      result    <- consumer.allocated
+      result <- consumer.allocated
     } yield {
       val (consumer, close0) = result
-
-      val serial = new (F ~> F) {
-        def apply[A](fa: F[A]) = semaphore.withPermit(fa)
-      }
 
       val toError = new Named[F] {
         def apply[A](fa: F[A], method: String) = {
@@ -56,11 +50,9 @@ object KafkaConsumer {
         }
       }
 
-      val close = toError(serial(close0), "close")
+      val close = toError(close0, "close")
 
-      val kafkaConsumer = apply[F, K, V](consumer)
-        .mapK(serial)
-        .mapMethod(toError)
+      val kafkaConsumer = apply[F, K, V](consumer).mapMethod(toError)
 
       (kafkaConsumer, close)
     }
