@@ -213,7 +213,7 @@ object Journal {
                         }
                       }
 
-                      val payloadAndType = PayloadAndType(a.payload, a.payloadType)
+                      val payloadAndType = PayloadAndType(a)
 
                       for {
                         events <- payloadToEvents(payloadAndType)

@@ -159,7 +159,7 @@ object TopicReplicator { self =>
 
           val events = records.flatTraverse { record =>
             val action = record.action
-            val payloadAndType = PayloadAndType(action.payload, action.payloadType)
+            val payloadAndType = PayloadAndType(action)
             for {
               events <- payloadToEvents(payloadAndType)
             } yield for {

@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal
 
 
-import cats.{Applicative, Monad}
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
+import cats.{Applicative, Monad}
 import com.evolutiongaming.kafka.journal.PlayJsonHelper._
 import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import play.api.libs.json._
@@ -17,6 +17,10 @@ final case class PayloadAndType(
   payloadType: PayloadType.BinaryOrJson)
 
 object PayloadAndType {
+
+  def apply(action: Action.Append): PayloadAndType = {
+    PayloadAndType(action.payload, action.header.payloadType)
+  }
 
   def eventsToPayload[F[_] : Monad](implicit
     eventsToBytes: ToBytes[F, Nel[Event]],

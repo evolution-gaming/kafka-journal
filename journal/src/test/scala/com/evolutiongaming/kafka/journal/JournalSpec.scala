@@ -592,7 +592,7 @@ object JournalSpec {
         def updateOffset = copy(offset = Some(offset))
 
         def onAppend(action: Action.Append) = {
-          val payloadAndType = PayloadAndType(action.payload, action.payloadType)
+          val payloadAndType = PayloadAndType(action)
           val batch = for {
             event <- payloadToEvents(payloadAndType).get
           } yield {
