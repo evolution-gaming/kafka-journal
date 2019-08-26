@@ -44,7 +44,7 @@ object ToBytes {
     } yield {
       a.toByteVector
     }
-    FromAttempt[F].apply { bytes }
+    FromAttempt[F].apply(bytes)
   }
 
 

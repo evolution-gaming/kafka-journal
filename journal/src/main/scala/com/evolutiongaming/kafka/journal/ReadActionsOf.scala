@@ -19,7 +19,7 @@ object ReadActionsOf {
 
   def apply[F[_] : Sync : Log](
     consumer: Resource[F, Journal.Consumer[F]])(implicit
-    consumerRecordToActionRecord: Conversion[OptionT[cats.Id, ?], ConsumerRecord[Id, ByteVector], ActionRecord[Action]]
+    consumerRecordToActionRecord: Conversion[OptionT[F, ?], ConsumerRecord[Id, ByteVector], ActionRecord[Action]]
   ): ReadActionsOf[F] = {
     (key: Key, partition: Partition, from: Offset) => {
 

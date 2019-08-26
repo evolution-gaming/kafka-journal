@@ -8,19 +8,19 @@ import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.implicits._
 import cats.temp.par._
-import com.evolutiongaming.kafka.journal.cache.Cache
-import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
-import com.evolutiongaming.retry.Retry
-import com.evolutiongaming.kafka.journal.CatsHelper._
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, SerialRef}
-import com.evolutiongaming.random.Random
+import com.evolutiongaming.kafka.journal.CatsHelper._
+import com.evolutiongaming.kafka.journal.cache.Cache
+import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.EitherHelper._
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+import com.evolutiongaming.random.Random
+import com.evolutiongaming.retry.Retry
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecord, ConsumerRecords}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
-import com.evolutiongaming.smetrics.{CollectorRegistry, LabelNames, MeasureDuration, Quantile, Quantiles}
 import com.evolutiongaming.smetrics.MetricsHelper._
+import com.evolutiongaming.smetrics._
 import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
@@ -52,7 +52,7 @@ object HeadCache {
   }
 
 
-  def of[F[_] : Concurrent : Par : Timer : ContextShift : LogOf : KafkaConsumerOf : MeasureDuration : FromTry](
+  def of[F[_] : Concurrent : Par : Timer : ContextShift : LogOf : KafkaConsumerOf : MeasureDuration : FromTry : FromAttempt : FromJsResult](
     consumerConfig: ConsumerConfig,
     eventualJournal: EventualJournal[F],
     metrics: Option[Metrics[F]]
@@ -71,7 +71,7 @@ object HeadCache {
   }
 
 
-  def of[F[_] : Concurrent : Eventual : Par : Timer : ContextShift](
+  def of[F[_] : Concurrent : Eventual : Par : Timer : ContextShift : FromAttempt : FromJsResult](
     log: Log[F],
     consumer: Resource[F, Consumer[F]],
     metrics: Metrics[F],
@@ -79,8 +79,8 @@ object HeadCache {
   ): Resource[F, HeadCache[F]] = {
 
     import com.evolutiongaming.kafka.journal.KafkaConversions._
-    implicit val consumerRecordToActionHeaderId = consumerRecordToActionHeader[cats.Id]
-    implicit val consumerRecordToKafkaRecord = HeadCache.consumerRecordToKafkaRecord
+    implicit val consumerRecordToActionHeaderId = consumerRecordToActionHeader[F]
+    implicit val consumerRecordToKafkaRecord = HeadCache.consumerRecordToKafkaRecord[F]
 
     val result = for {
       cache <- Cache.of[F, Topic, TopicCache[F]]
@@ -189,7 +189,7 @@ object HeadCache {
       consumer: Resource[F, Consumer[F]],
       metrics: Metrics[F],
       log: Log[F])(implicit
-      consumerRecordToKafkaRecord: ConsumerRecord[Id, ByteVector] => Option[KafkaRecord]
+      consumerRecordToKafkaRecord: ConsumerRecord[Id, ByteVector] => Option[F[KafkaRecord]]
     ): F[TopicCache[F]] = {
 
       for {
@@ -216,7 +216,7 @@ object HeadCache {
 
               for {
                 now     <- Clock[F].millis
-                latency  = records.values.flatten.headOption.fold(0l) { record => now - record.timestamp.toEpochMilli }
+                latency  = records.values.flatMap(_.toList).headOption.fold(0l) { record => now - record.timestamp.toEpochMilli }
                 entries  = partitionEntries(records)
                 state   <- state.modify { state =>
                   val combined = combineAndTrim(state.entries, entries, config.maxSize)
@@ -397,7 +397,7 @@ object HeadCache {
 
 
     private def partitionEntries(
-      records: Map[Partition, List[KafkaRecord]]
+      records: Map[Partition, Nel[KafkaRecord]]
     ): Map[Partition, PartitionEntry] = {
 
       for {
@@ -637,20 +637,29 @@ object HeadCache {
       consumer: Consumer[F], // TODO resource
       cancel: F[Boolean],
       log: Log[F])(
-      onRecords: Map[Partition, List[KafkaRecord]] => F[Unit])(implicit
-      consumerRecordToKafkaRecord: ConsumerRecord[Id, ByteVector] => Option[KafkaRecord]
+      onRecords: Map[Partition, Nel[KafkaRecord]] => F[Unit])(implicit
+      consumerRecordToKafkaRecord: ConsumerRecord[Id, ByteVector] => Option[F[KafkaRecord]]
     ): F[Unit] = {
 
       def kafkaRecords(records: ConsumerRecords[Id, ByteVector]) = {
+        val records1 = records.values.toList.traverse { case (partition, records0) =>
+          val records = records0
+            .toList
+            .traverseFilter { record => consumerRecordToKafkaRecord(record).fold(none[KafkaRecord].pure[F]) {_.map(_.some)} }
+          for {
+            records <- records
+          } yield {
+            (partition.partition, records)
+          }
+        }
+
         for {
-          (partition, records0) <- records.values
-          records                = for {
-            record <- records0.toList
-            record <- consumerRecordToKafkaRecord(record)
-          } yield record
-          if records.nonEmpty
+          records <- records1
+        } yield for {
+          (partition, records) <- records
+          records              <- Nel.fromList(records)
         } yield {
-          (partition.partition, records)
+          (partition, records)
         }
       }
 
@@ -661,8 +670,8 @@ object HeadCache {
           else for {
             _        <- ContextShift[F].shift
             records0 <- consumer.poll(pollTimeout)
-            records   = kafkaRecords(records0)
-            _        <- if (records.isEmpty) ().pure[F] else onRecords(records)
+            records  <- kafkaRecords(records0)
+            _        <- if (records.isEmpty) ().pure[F] else onRecords(records.toMap)
           } yield none[Unit]
         }
       } yield result
@@ -888,9 +897,9 @@ object HeadCache {
     header: ActionHeader)
 
 
-  implicit def consumerRecordToKafkaRecord(implicit
-    consumerRecordToActionHeader: Conversion[Option, ConsumerRecord[Id, ByteVector], cats.Id[ActionHeader]]
-  ): ConsumerRecord[Id, ByteVector] => Option[KafkaRecord] = {
+  implicit def consumerRecordToKafkaRecord[F[_] : Functor](implicit
+    consumerRecordToActionHeader: Conversion[Option, ConsumerRecord[Id, ByteVector], F[ActionHeader]]
+  ): ConsumerRecord[Id, ByteVector] => Option[F[KafkaRecord]] = {
     record: ConsumerRecord[Id, ByteVector] => {
       for {
         key              <- record.key
@@ -898,6 +907,8 @@ object HeadCache {
         timestampAndType <- record.timestampAndType
         timestamp         = timestampAndType.timestamp
         header           <- consumerRecordToActionHeader(record)
+      } yield for {
+        header <- header
       } yield {
         KafkaRecord(id, timestamp, record.offset, header)
       }

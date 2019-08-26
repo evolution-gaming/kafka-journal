@@ -47,7 +47,8 @@ object TopicReplicator { self =>
     consumer: Resource[F, Consumer[F]]
   ): F[TopicReplicator[F]] = {
 
-    implicit val consumerRecordToActionRecordId = consumerRecordToActionRecord[cats.Id]
+    implicit val fromAttempt = FromAttempt.lift[F]
+    implicit val fromJsResult = FromJsResult.lift[F]
 
     def apply(stopRef: StopRef[F], fiber: Fiber[F, Unit])(implicit log: Log[F]) = {
       self.apply[F](stopRef, fiber)
@@ -61,11 +62,6 @@ object TopicReplicator { self =>
 
       val retry = RetryOf[F](strategy)
 
-      implicit val fromAttempt = FromAttempt.lift[F]
-      implicit val fromJsResult = FromJsResult.lift[F]
-
-      implicit val bytesToEvents = PayloadAndType.bytesToEvents[F]
-      implicit val bytesToPayloadJson = PayloadAndType.bytesToPayloadJson[F]
       implicit val payloadToEvents = PayloadAndType.payloadToEvents[F]
       Concurrent[F].start {
         retry {
@@ -108,22 +104,24 @@ object TopicReplicator { self =>
     stopRef: StopRef[F],
     consumer: Consumer[F],
     errorCooldown: FiniteDuration)(implicit
-    consumerRecordToActionRecord: Conversion[OptionT[cats.Id, ?], ConsumerRecord[Id, ByteVector], ActionRecord[Action]],
+    consumerRecordToActionRecord: Conversion[OptionT[F, ?], ConsumerRecord[Id, ByteVector], ActionRecord[Action]],
     payloadToEvents: Conversion[F, PayloadAndType, Nel[Event]],
   ): F[Unit] = {
 
     def round(
       state: State,
       consumerRecords: Map[TopicPartition, List[ConsumerRecord[Id, ByteVector]]],
-      roundStart: Instant): F[(State, Map[TopicPartition, OffsetAndMetadata])] = {
+      roundStart: Instant
+    ): F[(State, Map[TopicPartition, OffsetAndMetadata])] = {
 
       val records = for {
         records <- consumerRecords.values.toList
         record  <- records
-        action  <- consumerRecordToActionRecord(record).value
-      } yield action
+      } yield record
 
       val ios = for {
+        records <- records.traverseFilter { record => consumerRecordToActionRecord(record).value }
+      } yield for {
         (key, records) <- records.groupBy(_.action.key)
       } yield {
 
@@ -238,6 +236,7 @@ object TopicReplicator { self =>
       }
 
       for {
+        ios      <- ios
         _        <- ios.parFold
         pointers <- savePointers
       } yield pointers

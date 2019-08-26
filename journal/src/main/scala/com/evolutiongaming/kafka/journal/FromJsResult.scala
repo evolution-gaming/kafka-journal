@@ -5,6 +5,8 @@ import cats.effect.IO
 import cats.implicits._
 import play.api.libs.json.{JsResult, JsResultException}
 
+import scala.util.Try
+
 
 trait FromJsResult[F[_]] {
 
@@ -23,6 +25,8 @@ object FromJsResult {
     }
   }
 
+
+  implicit val tryFromAttempt: FromJsResult[Try] = lift
 
   implicit val ioFromJsResult: FromJsResult[IO] = lift
 }

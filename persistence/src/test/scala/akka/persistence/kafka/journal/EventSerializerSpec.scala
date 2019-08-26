@@ -11,6 +11,8 @@ import com.evolutiongaming.kafka.journal._
 import org.scalatest.{AsyncFunSuite, Matchers}
 import play.api.libs.json.{JsString, JsValue}
 
+import scala.util.Try
+
 class EventSerializerSpec extends AsyncFunSuite with ActorSuite with Matchers {
 
   for {
@@ -46,8 +48,8 @@ class EventSerializerSpec extends AsyncFunSuite with ActorSuite with Matchers {
 
         payload1 match {
           case payload: Payload.Binary => payload.value shouldEqual bytes
-          case payload: Payload.Text   => payload.value shouldEqual bytes.toArray.fromBytes[String]
-          case payload: Payload.Json   => payload.value shouldEqual bytes.toArray.fromBytes[JsValue]
+          case payload: Payload.Text   => payload.value shouldEqual bytes.fromBytes[Try, String].get
+          case payload: Payload.Json   => payload.value shouldEqual bytes.fromBytes[Try, JsValue].get
         }
       }
 

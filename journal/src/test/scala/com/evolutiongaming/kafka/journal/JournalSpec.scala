@@ -450,8 +450,6 @@ object JournalSpec {
       implicit val fromAttempt = FromAttempt.lift[F]
       implicit val fromJsResult = FromJsResult.lift[F]
 
-      implicit val bytesToEvents = PayloadAndType.bytesToEvents[F]
-      implicit val bytesToPayloadJson = PayloadAndType.bytesToPayloadJson[F]
       implicit val payloadToEvents = PayloadAndType.payloadToEvents[F]
 
       implicit val eventsToPayload = PayloadAndType.eventsToPayload[F]
@@ -592,8 +590,6 @@ object JournalSpec {
         implicit val fromAttempt = FromAttempt.lift[Try]
         implicit val fromJsResult = FromJsResult.lift[Try]
         
-        implicit val bytesToEvents = PayloadAndType.bytesToEvents[Try]
-        implicit val bytesToPayloadJson = PayloadAndType.bytesToPayloadJson[Try]
         implicit val payloadToEvents = PayloadAndType.payloadToEvents[Try]
 
         def updateOffset = copy(offset = Some(offset))

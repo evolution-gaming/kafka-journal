@@ -7,7 +7,7 @@ import com.evolutiongaming.serialization.SerializedMsg
 import org.scalatest.{FunSuite, Matchers}
 import scodec.bits.ByteVector
 
-import scala.util.Try
+import scala.util.{Success, Try}
 
 class PersistentBinaryToBytesSpec extends FunSuite with Matchers {
   import PersistentBinaryToBytesSpec._
@@ -23,8 +23,8 @@ class PersistentBinaryToBytesSpec extends FunSuite with Matchers {
         bytes = "payload".encodeStr))
 
     def verify(bytes: ByteVector) = {
-      val actual = bytes.toArray.fromBytes[PersistentBinary]
-      actual shouldEqual expected
+      val actual = bytes.fromBytes[Try, PersistentBinary]
+      actual shouldEqual Success(expected)
     }
 
     verify(expected.toBytes[Try].get)

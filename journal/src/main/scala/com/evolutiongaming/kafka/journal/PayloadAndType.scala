@@ -5,7 +5,6 @@ import cats.{Applicative, Monad}
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.evolutiongaming.catshelper.FromTry
-import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
 import com.evolutiongaming.kafka.journal.PlayJsonHelper._
 import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import play.api.libs.json._
@@ -81,23 +80,15 @@ object PayloadAndType {
   }
 
 
-  def bytesToEvents[F[_] : FromTry/*TODO*/]: Conversion[F, Bytes, Nel[Event]] = {
-    a: Bytes => FromTry[F].unsafe { a.fromBytes[Nel[Event]] } // TODO
-  }
-
-  def bytesToPayloadJson[F[_] : FromTry/*TODO*/]: Conversion[F, Bytes, PayloadJson] = {
-    a: Bytes => FromTry[F].unsafe { a.fromBytes[PayloadJson] } // TODO avoid using toBytes/fromBytes
-  }
-
   def payloadToEvents[F[_] : Monad : FromAttempt : FromJsResult](implicit
-    bytesToEvents: Conversion[F, Bytes, Nel[Event]],
-    bytesToPayloadJson: Conversion[F, Bytes, PayloadJson]
+    eventsFromBytes: FromBytes[F, Nel[Event]],
+    payloadJsonFromBytes: FromBytes[F, PayloadJson]
   ): Conversion[F, PayloadAndType, Nel[Event]] = {
 
     payloadAndType: PayloadAndType => {
-      val payload = payloadAndType.payload.toArray // TODO avoid calling this, work with ByteVector
+      val payload = payloadAndType.payload
       payloadAndType.payloadType match {
-        case PayloadType.Binary => bytesToEvents(payload)
+        case PayloadType.Binary => eventsFromBytes(payload)
         case PayloadType.Json   =>
 
           def events(payloadJson: PayloadJson) = {
@@ -130,7 +121,7 @@ object PayloadAndType {
           }
 
           for {
-            payloadJson <- bytesToPayloadJson(payload)
+            payloadJson <- payloadJsonFromBytes(payload)
             events      <- events(payloadJson)
           } yield events
       }
@@ -167,6 +158,6 @@ object PayloadAndType {
 
     implicit def toBytesPayloadJson[F[_] : Applicative]: ToBytes[F, PayloadJson] = ToBytes.fromWrites
 
-    implicit val FromBytesPayloadJson: FromBytes[PayloadJson] = FromBytes.fromReads
+    implicit def fromBytesPayloadJson[F[_] : FromJsResult]: FromBytes[F, PayloadJson] = FromBytes.fromReads
   }
 }

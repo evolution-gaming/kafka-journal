@@ -61,9 +61,6 @@ class PayloadAndTypeSpec extends FunSuite with Matchers {
         implicit val fromAttempt = FromAttempt.lift[Try]
         implicit val fromJsResult = FromJsResult.lift[Try]
 
-        implicit val bytesToEvents = PayloadAndType.bytesToEvents[Try]
-        implicit val bytesToPayloadJson = PayloadAndType.bytesToPayloadJson[Try]
-
         val payloadToEvents = PayloadAndType.payloadToEvents[Try]
 
         val actual = payloadToEvents(payloadAndType).get

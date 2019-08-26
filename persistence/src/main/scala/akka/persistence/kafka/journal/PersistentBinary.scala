@@ -21,7 +21,7 @@ object PersistentBinary {
 
   implicit def toBytesPersistentBinary[F[_] : FromAttempt]: ToBytes[F, PersistentBinary] = ToBytes.fromEncoder
 
-  implicit val FromBytesPersistentBinary: FromBytes[PersistentBinary] = FromBytes.fromDecoder
+  implicit def fromBytesPersistentBinary[F[_] : FromAttempt]: FromBytes[F, PersistentBinary] = FromBytes.fromDecoder
 
 
   def apply(msg: SerializedMsg, persistentRepr: PersistentRepr): PersistentBinary = {

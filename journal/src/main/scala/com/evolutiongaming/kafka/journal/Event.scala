@@ -57,5 +57,5 @@ object Event {
 
   implicit def eventsToBytes[F[_] : FromAttempt]: ToBytes[F, Nel[Event]] = ToBytes.fromEncoder
 
-  implicit val EventsFromBytes: FromBytes[Nel[Event]] = FromBytes.fromDecoder
+  implicit def eventsFromBytes[F[_] : FromAttempt]: FromBytes[F, Nel[Event]] = FromBytes.fromDecoder
 }

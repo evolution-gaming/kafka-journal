@@ -104,8 +104,8 @@ class KafkaConversionsSpec extends FunSuite with Matchers {
 
         val record = ActionRecord(action, partitionOffset)
 
-        implicit val function = consumerRecordToActionHeader[cats.Id]
-        consumerRecordToActionRecord[cats.Id].apply(consumerRecord).value shouldEqual record.some
+        implicit val consumerRecordToActionHeaderTry = consumerRecordToActionHeader[Try]
+        consumerRecordToActionRecord[Try].apply(consumerRecord).value shouldEqual record.some
       }
     }
   }

@@ -101,13 +101,9 @@ object Journal {
     headCache: HeadCache[F]
   ): Journal[F] = {
 
-    implicit val consumerRecordToActionRecordId = consumerRecordToActionRecord[cats.Id]
-
     implicit val fromAttempt = FromAttempt.lift[F]
     implicit val fromJsResult = FromJsResult.lift[F]
 
-    implicit val bytesToEvents = PayloadAndType.bytesToEvents[F]
-    implicit val bytesToPayloadJson = PayloadAndType.bytesToPayloadJson[F]
     implicit val payloadToEvents = PayloadAndType.payloadToEvents[F]
 
     implicit val eventsToPayload = PayloadAndType.eventsToPayload[F]

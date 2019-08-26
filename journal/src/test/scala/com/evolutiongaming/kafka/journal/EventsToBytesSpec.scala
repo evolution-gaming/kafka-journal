@@ -8,7 +8,7 @@ import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
 import org.scalatest.{FunSuite, Matchers}
 import scodec.bits.ByteVector
 
-import scala.util.Try
+import scala.util.{Success, Try}
 
 class EventsToBytesSpec extends FunSuite with Matchers {
 
@@ -54,8 +54,8 @@ class EventsToBytesSpec extends FunSuite with Matchers {
     test(s"toBytes & fromBytes $name") {
 
       def verify(bytes: ByteVector) = {
-        val actual = bytes.toArray.fromBytes[Nel[Event]]
-        actual shouldEqual events
+        val actual = bytes.fromBytes[Try, Nel[Event]]
+        actual shouldEqual Success(events)
       }
 
       val bytes = events.toBytes[Try].get

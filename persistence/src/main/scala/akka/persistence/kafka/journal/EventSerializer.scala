@@ -102,7 +102,7 @@ object EventSerializer {
 
       def binary(payload: ByteVector) = {
         for {
-          persistent <- FromTry[F].unsafe { payload.toArray.fromBytes[PersistentBinary] }
+          persistent <- payload.fromBytes[F, PersistentBinary]
           anyRef     <- serializer.fromMsg(persistent.payload)
         } yield {
           persistentRepr(

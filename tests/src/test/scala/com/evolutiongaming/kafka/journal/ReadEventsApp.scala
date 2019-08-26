@@ -35,6 +35,8 @@ object ReadEventsApp extends IOApp {
         implicit val logOf1 = logOf
         implicit val log1 = log
         implicit val measureDuration = MeasureDuration.fromClock(Clock[F])
+        implicit val fromAttempt = FromAttempt.lift[F]
+        implicit val fromJsResult = FromJsResult.lift[F]
         runF[F](executor, log).handleErrorWith { error =>
           log.error(s"failed with $error", error)
         }
@@ -43,7 +45,7 @@ object ReadEventsApp extends IOApp {
 
   }
 
-  private def runF[F[_] : Concurrent : ContextShift : Timer : Clock : FromFuture : ToFuture : Par : LogOf : Log : FromGFuture : MeasureDuration : FromTry : ToTry](
+  private def runF[F[_] : Concurrent : ContextShift : Timer : Clock : FromFuture : ToFuture : Par : LogOf : Log : FromGFuture : MeasureDuration : FromTry : ToTry : FromAttempt : FromJsResult](
     executor: ExecutionContextExecutor,
     log: Log[F],
   ): F[Unit] = {

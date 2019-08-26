@@ -774,14 +774,11 @@ object TopicReplicatorSpec {
     implicit val fromTry = new FromTry[StateT] {
       def apply[A](fa: Try[A]) = fa.get.pure[StateT]
     }
-    implicit val clock = Clock.const[StateT](nanos = 0, millis = millis)
-    implicit val consumerRecordToActionRecordId = consumerRecordToActionRecord[cats.Id]
 
     implicit val fromAttempt = FromAttempt.lift[StateT]
     implicit val fromJsResult = FromJsResult.lift[StateT]
-
-    implicit val bytesToEvents = PayloadAndType.bytesToEvents[StateT]
-    implicit val bytesToPayloadJson = PayloadAndType.bytesToPayloadJson[StateT]
+    
+    implicit val clock = Clock.const[StateT](nanos = 0, millis = millis)
     implicit val payloadToEvents = PayloadAndType.payloadToEvents[StateT]
 
     TopicReplicator.of[StateT](topic, TopicReplicator.StopRef[StateT], consumer, 1.second)

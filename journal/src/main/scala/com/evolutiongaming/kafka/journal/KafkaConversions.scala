@@ -6,8 +6,6 @@ import java.time.Instant
 import cats.data.OptionT
 import cats.implicits._
 import cats.{Functor, Monad}
-import com.evolutiongaming.catshelper.FromTry
-import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
 import com.evolutiongaming.skafka.Header
 import com.evolutiongaming.skafka.consumer.ConsumerRecord
 import com.evolutiongaming.skafka.producer.ProducerRecord
@@ -74,21 +72,23 @@ object KafkaConversions {
   }
 
 
-  implicit def consumerRecordToActionHeader[F[_] : FromTry/*TODO*/](implicit
-    fromBytes: FromBytes[ActionHeader]
+  implicit def consumerRecordToActionHeader[F[_]](implicit
+    fromBytes: FromBytes[F, ActionHeader]
   ): Conversion[Option, ConsumerRecord[Id, ByteVector], F[ActionHeader]] = {
     a: ConsumerRecord[Id, ByteVector] => {
       for {
         header <- a.headers.find { _.key == `journal.action` }
       } yield {
-        FromTry[F].unsafe { fromBytes(header.value) }
+        val byteVector = ByteVector.view(header.value)
+        fromBytes(byteVector)
       }
     }
   }
 
 
-  implicit def consumerRecordToActionRecord[F[_] : Monad : FromTry](implicit
-    consumerRecordToActionHeader: Conversion[Option, ConsumerRecord[Id, ByteVector], F[ActionHeader]]
+  implicit def consumerRecordToActionRecord[F[_] : Monad](implicit
+    consumerRecordToActionHeader: Conversion[Option, ConsumerRecord[Id, ByteVector], F[ActionHeader]],
+    stringFromBytes: FromBytes[F, String],
   ): Conversion[OptionT[F, ?], ConsumerRecord[Id, ByteVector], ActionRecord[Action]] = {
 
     self: ConsumerRecord[Id, ByteVector] => {
@@ -103,8 +103,9 @@ object KafkaConversions {
             val headers = self.headers
               .filter { _.key != `journal.action` }
               .traverse { header =>
+                val bytes = ByteVector.view(header.value)
                 for {
-                  value <- FromTry[F].unsafe { header.value.fromBytes[String] } // TODO
+                  value <- stringFromBytes(bytes)
                 } yield {
                   (header.key, value)
                 }

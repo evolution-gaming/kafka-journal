@@ -64,7 +64,7 @@ object ActionHeader {
 
   implicit def toBytesActionHeader[F[_] : Applicative]: ToBytes[F, ActionHeader] = ToBytes.fromWrites
 
-  implicit val FromBytesActionHeader: FromBytes[ActionHeader] = FromBytes.fromReads
+  implicit def fromBytesActionHeader[F[_] : FromJsResult]: FromBytes[F, ActionHeader] = FromBytes.fromReads
 
 
   sealed abstract class AppendOrDelete extends ActionHeader

@@ -1,53 +1,86 @@
 package com.evolutiongaming.kafka.journal
 
-import java.nio.charset.StandardCharsets.UTF_8
-
-import play.api.libs.json.{JsValue, Json, Reads}
-import scodec.Decoder
+import cats.implicits._
+import cats.{Applicative, Functor, ~>}
+import play.api.libs.json._
 import scodec.bits.ByteVector
+import scodec.{Decoder, codecs}
 
-trait FromBytes[A] { self =>
+import scala.util.control.NonFatal
 
-  def apply(bytes: Bytes): A
 
-  final def map[B](f: A => B): FromBytes[B] = (bytes: Bytes) => f(self(bytes))
+trait FromBytes[F[_], A] {
+
+  def apply(bytes: ByteVector): F[A]
 }
 
 object FromBytes {
 
-  implicit val BytesFromBytes: FromBytes[Bytes] = (a: Bytes) => a
-
-  implicit val StringFromBytes: FromBytes[String] = (a: Bytes) => new String(a, UTF_8)
-
-  implicit val JsValueFromBytes: FromBytes[JsValue] = fromReads
-
-  implicit val ByteVectorToBytes: FromBytes[ByteVector] = (a: Bytes) => ByteVector.view(a)
+  def apply[F[_], A](implicit F: FromBytes[F, A]): FromBytes[F, A] = F
 
 
-  def apply[A](implicit fromBytes: FromBytes[A]): FromBytes[A] = fromBytes
-
-  def const[A](a: A): FromBytes[A] = (_: Bytes) => a
+  def const[F[_] : Applicative, A](a: A): FromBytes[F, A] = (_: ByteVector) => a.pure[F]
 
 
-  def fromDecoder[A](implicit decoder: Decoder[A]): FromBytes[A] = (a: Bytes) => {
-    val byteVector = ByteVector.view(a)
-    val attempt = decoder.decode(byteVector.toBitVector)
-    attempt.require.value
+  implicit def functorFromBytes[F[_] : Functor]: Functor[FromBytes[F, ?]] = new Functor[FromBytes[F, ?]] {
+
+    def map[A, B](fa: FromBytes[F, A])(f: A => B) = (a: ByteVector) => fa(a).map(f)
+  }
+
+  implicit def byteVectorToBytes[F[_] : Applicative]: FromBytes[F, ByteVector] = (a: ByteVector) => a.pure[F]
+
+  implicit def stringFromBytes[F[_] : FromAttempt]: FromBytes[F, String] = (a: ByteVector) => {
+    val as = for {
+      a <- codecs.utf8.decode(a.toBitVector)
+    } yield {
+      a.value
+    }
+    FromAttempt[F].apply(as)
+  }
+
+  implicit def bytesFromBytes[F[_] : Applicative]: FromBytes[F, Bytes] = (a: ByteVector) => a.toArray.pure[F]
+
+  implicit def jsValueFromBytes[F[_] : FromJsResult]: FromBytes[F, JsValue] = fromReads
+
+
+  def fromDecoder[F[_] : FromAttempt, A](implicit decoder: Decoder[A]): FromBytes[F, A] = (a: ByteVector) => {
+    FromAttempt[F].apply {
+      for {
+        a <- decoder.decode(a.toBitVector)
+      } yield {
+        a.value
+      }
+    }
   }
 
 
-  def fromReads[A](implicit reads: Reads[A]): FromBytes[A] = (a: Bytes) => {
-    val jsValue = Json.parse(a)
-    // TODO not use `as`
-    jsValue.as(reads)
+  def fromReads[F[_] : FromJsResult, A](implicit reads: Reads[A]): FromBytes[F, A] = (a: ByteVector) => {
+    val jsValue = try {
+      val jsValue = Json.parse(a.toArray)
+      JsSuccess(jsValue)
+    } catch {
+      case NonFatal(a) => JsError(s"failed to parse json $a")
+    }
+
+    val result = for {
+      a <- jsValue
+      a <- reads.reads(a)
+    } yield a
+    FromJsResult[F].apply(result)
+  }
+
+
+  implicit class FromBytesOps[F[_], A](val self: FromBytes[F, A]) extends AnyVal {
+
+    def mapK[G[_]](f: F ~> G): FromBytes[G, A] = (a: ByteVector) => f(self(a))
   }
 
 
   object Implicits {
 
-    implicit class FromBytesIdOps(val bytes: Bytes) extends AnyVal {
-      
-      def fromBytes[A](implicit fromBytes: FromBytes[A]): A = fromBytes(bytes)
+    implicit class ByteVectorFromBytesOps(val self: ByteVector) extends AnyVal {
+
+      def fromBytes[F[_], A](implicit fromBytes: FromBytes[F, A]): F[A] = fromBytes(self)
     }
   }
 }
