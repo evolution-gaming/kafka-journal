@@ -4,7 +4,7 @@ import akka.actor.ActorSystem
 import akka.persistence.PersistentRepr
 import cats.effect.Sync
 import cats.implicits._
-import cats.{Applicative, ~>}
+import cats.{Applicative, MonadError, ~>}
 import com.evolutiongaming.catshelper.FromTry
 import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
 import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
@@ -40,8 +40,8 @@ object EventSerializer {
   }
   
 
-  def apply[F[_] : Sync : FromTry : FromAttempt : FromJsResult](
-    serializer: SerializedMsgSerializer[F]/*TODO*/
+  def apply[F[_] : FromAttempt : FromJsResult](
+    serializer: SerializedMsgSerializer[F])(implicit F: MonadError[F, Throwable]
   ): EventSerializer[F] = new EventSerializer[F] {
 
     def toEvent(persistentRepr: PersistentRepr) = {
@@ -75,7 +75,7 @@ object EventSerializer {
       }
       for {
         payload <- payload
-        seqNr   <- FromTry[F].unsafe { SeqNr(persistentRepr.sequenceNr) }
+        seqNr   <- MonadError[F, Throwable].catchNonFatal { SeqNr(persistentRepr.sequenceNr) }
       } yield {
         Event(seqNr, tags, Some(payload))
       }
