@@ -4,7 +4,6 @@ package com.evolutiongaming.kafka.journal
 import cats.{Applicative, Monad}
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
-import com.evolutiongaming.catshelper.FromTry
 import com.evolutiongaming.kafka.journal.PlayJsonHelper._
 import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import play.api.libs.json._
@@ -19,7 +18,7 @@ final case class PayloadAndType(
 
 object PayloadAndType {
 
-  def eventsToPayload[F[_] : Monad : FromTry](implicit
+  def eventsToPayload[F[_] : Monad](implicit
     eventsToBytes: ToBytes[F, Nel[Event]],
     payloadJsonToBytes: ToBytes[F, PayloadJson]
   ): Conversion[F, Nel[Event], PayloadAndType] = {

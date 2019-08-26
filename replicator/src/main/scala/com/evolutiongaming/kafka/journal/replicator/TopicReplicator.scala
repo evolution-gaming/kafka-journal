@@ -42,7 +42,7 @@ trait TopicReplicator[F[_]] {
 object TopicReplicator { self =>
 
   // TODO should return Resource
-  def of[F[_] : Concurrent : Timer : Par : Metrics : ReplicatedJournal : ContextShift : LogOf : FromTry/*TODO*/](
+  def of[F[_] : Concurrent : Timer : Par : Metrics : ReplicatedJournal : ContextShift : LogOf : FromTry](
     topic: Topic,
     consumer: Resource[F, Consumer[F]]
   ): F[TopicReplicator[F]] = {
@@ -99,7 +99,7 @@ object TopicReplicator { self =>
   }
 
   //  TODO return error in case failed to connect
-  def of[F[_] : Concurrent : Clock : Par : Metrics : ReplicatedJournal : Log : ContextShift : FromTry/*TODO*/](
+  def of[F[_] : Concurrent : Clock : Par : Metrics : ReplicatedJournal : Log : ContextShift : FromTry](
     topic: Topic,
     stopRef: StopRef[F],
     consumer: Consumer[F],

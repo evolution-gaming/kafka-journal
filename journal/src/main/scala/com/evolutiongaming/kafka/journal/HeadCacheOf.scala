@@ -23,16 +23,15 @@ object HeadCacheOf {
 
   def apply[F[_] : Concurrent : Par : Timer : ContextShift : LogOf : KafkaConsumerOf : MeasureDuration : FromTry : FromAttempt : FromJsResult](
     metrics: Option[HeadCache.Metrics[F]]
-  ): HeadCacheOf[F] = new HeadCacheOf[F] {
-
-    def apply(consumerConfig: ConsumerConfig, eventualJournal: EventualJournal[F]) = {
+  ): HeadCacheOf[F] = {
+    (consumerConfig: ConsumerConfig, eventualJournal: EventualJournal[F]) => {
       HeadCache.of[F](consumerConfig, eventualJournal, metrics)
     }
   }
 
-  def empty[F[_] : Applicative]: HeadCacheOf[F] = new HeadCacheOf[F] {
 
-    def apply(consumerConfig: ConsumerConfig, eventualJournal: EventualJournal[F]) = {
+  def empty[F[_] : Applicative]: HeadCacheOf[F] = {
+    (_: ConsumerConfig, _: EventualJournal[F]) => {
       Resource.pure[F, HeadCache[F]](HeadCache.empty[F])
     }
   }

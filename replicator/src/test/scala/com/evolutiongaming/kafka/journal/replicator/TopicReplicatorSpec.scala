@@ -771,10 +771,7 @@ object TopicReplicatorSpec {
   val topicReplicator: StateT[Unit] = {
     val millis = timestamp.toEpochMilli + replicationLatency.toMillis
     implicit val concurrent = ConcurrentOf.fromMonad[StateT]
-    implicit val fromTry = new FromTry[StateT] {
-      def apply[A](fa: Try[A]) = fa.get.pure[StateT]
-    }
-
+    implicit val fromTry = FromTry.lift[StateT]
     implicit val fromAttempt = FromAttempt.lift[StateT]
     implicit val fromJsResult = FromJsResult.lift[StateT]
     

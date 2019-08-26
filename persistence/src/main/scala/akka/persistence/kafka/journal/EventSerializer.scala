@@ -31,7 +31,7 @@ object EventSerializer {
   }
 
 
-  def of[F[_] : Sync : FromTry/*TODO*/ : FromAttempt : FromJsResult](system: ActorSystem): F[EventSerializer[F]] = {
+  def of[F[_] : Sync : FromTry : FromAttempt : FromJsResult](system: ActorSystem): F[EventSerializer[F]] = {
     for {
       serializedMsgSerializer <- SerializedMsgSerializer.of[F](system)
     } yield {
@@ -40,7 +40,7 @@ object EventSerializer {
   }
   
 
-  def apply[F[_] : Sync : FromTry/*TODO*/ : FromAttempt : FromJsResult](
+  def apply[F[_] : Sync : FromTry : FromAttempt : FromJsResult](
     serializer: SerializedMsgSerializer[F]/*TODO*/
   ): EventSerializer[F] = new EventSerializer[F] {
 
@@ -64,16 +64,13 @@ object EventSerializer {
           writerUuid = persistentRepr.writerUuid,
           payloadType = payloadType,
           payload = payload)
-        for {
-          json <- FromTry[F].unsafe { Json.toJson(persistent) }
-        } yield {
-          Payload.json(json)
-        }
+        val json = Json.toJson(persistent)
+        Payload.json(json)
       }
 
       val payload = anyRef match {
-        case payload: JsValue => json(payload)
-        case payload: String  => json(JsString(payload), Some(PayloadType.Text))
+        case payload: JsValue => json(payload).pure[F]
+        case payload: String  => json(JsString(payload), Some(PayloadType.Text)).pure[F]
         case payload          => binary(payload)
       }
       for {

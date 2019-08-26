@@ -437,16 +437,13 @@ object JournalSpec {
       headCache: HeadCache[F]
     ): SeqNrJournal[F] = {
 
-      implicit val fromTry: FromTry[F] = new FromTry[F] {
-        def apply[A](fa: Try[A]) = fa.get.pure[F]
-      }
       implicit val log = Log.empty[F]
       implicit val concurrent = ConcurrentOf.fromMonad[F]
       implicit val clock = Clock.const[F](nanos = 0, millis = timestamp.toEpochMilli)
       implicit val parallel = Parallel.identity[F]
       implicit val randomId = RandomId.uuid[F]
       implicit val measureDuration = MeasureDuration.fromClock(clock)
-
+      implicit val fromTry = FromTry.lift[F]
       implicit val fromAttempt = FromAttempt.lift[F]
       implicit val fromJsResult = FromJsResult.lift[F]
 
