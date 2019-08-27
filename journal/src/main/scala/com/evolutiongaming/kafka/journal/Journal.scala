@@ -8,6 +8,7 @@ import cats.implicits._
 import cats.temp.par._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
+import com.evolutiongaming.kafka.journal.conversions.{EventsToPayload, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords}
@@ -103,10 +104,6 @@ object Journal {
     implicit val fromAttempt = FromAttempt.lift[F]
     implicit val fromJsResult = FromJsResult.lift[F]
 
-    implicit val payloadToEvents = PayloadAndType.payloadToEvents[F]
-
-    implicit val eventsToPayload = PayloadAndType.eventsToPayload[F]
-
     val readActionsOf = ReadActionsOf[F](consumer)
     val appendAction = AppendAction[F](producer)
     apply[F](origin, eventualJournal, readActionsOf, appendAction, headCache)
@@ -119,8 +116,8 @@ object Journal {
     readActionsOf: ReadActionsOf[F],
     appendAction: AppendAction[F],
     headCache: HeadCache[F])(implicit
-    payloadToEvents: Conversion[F, PayloadAndType, Nel[Event]],
-    eventsToPayload: Conversion[F, Nel[Event], PayloadAndType]
+    payloadToEvents: PayloadToEvents[F],
+    eventsToPayload: EventsToPayload[F]
   ): Journal[F] = {
 
     val appendMarker = AppendMarker(appendAction, origin)

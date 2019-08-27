@@ -5,7 +5,7 @@ import java.time.temporal.ChronoUnit
 
 import cats.implicits._
 import cats.data.{NonEmptyList => Nel}
-import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsumerRecordToActionRecord}
+import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsumerRecordToActionRecord, EventsToPayload}
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, WithSize}
 import com.evolutiongaming.skafka.{TimestampAndType, TimestampType, TopicPartition}
 import org.scalatest.{FunSuite, Matchers}
@@ -76,7 +76,7 @@ class ActionToProducerRecordSpec extends FunSuite with Matchers {
   private val consumerRecordToActionRecord = ConsumerRecordToActionRecord[Try]
 
   private val appends = {
-    implicit val eventsToPayload = PayloadAndType.eventsToPayload[Try]
+    implicit val eventsToPayload = EventsToPayload[Try]
     for {
       origin   <- origins
       metadata <- metadata

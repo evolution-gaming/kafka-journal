@@ -12,7 +12,7 @@ import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.conversions.ConsumerRecordToActionRecord
+import com.evolutiongaming.kafka.journal.conversions.{ConsumerRecordToActionRecord, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.util.Named
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
@@ -62,7 +62,7 @@ object TopicReplicator { self =>
 
       val retry = RetryOf[F](strategy)
 
-      implicit val payloadToEvents = PayloadAndType.payloadToEvents[F]
+      implicit val payloadToEvents = PayloadToEvents[F]
       Concurrent[F].start {
         retry {
           consumer.use { consumer => of(topic, stopRef, consumer, 1.hour) }
@@ -105,7 +105,7 @@ object TopicReplicator { self =>
     consumer: Consumer[F],
     errorCooldown: FiniteDuration)(implicit
     consumerRecordToActionRecord: ConsumerRecordToActionRecord[F],
-    payloadToEvents: Conversion[F, PayloadAndType, Nel[Event]],
+    payloadToEvents: PayloadToEvents[F],
   ): F[Unit] = {
 
     def round(

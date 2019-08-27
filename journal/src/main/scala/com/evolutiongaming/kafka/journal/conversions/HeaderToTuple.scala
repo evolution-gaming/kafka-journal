@@ -25,7 +25,7 @@ object HeaderToTuple {
         (header.key, value)
       }
       result.handleErrorWith { cause =>
-        JournalError(s"headerToTuple failed for $header: $cause", cause.some).raiseError[F, (String, String)]
+        JournalError(s"HeaderToTuple failed for $header: $cause", cause.some).raiseError[F, (String, String)]
       }
     }
   }

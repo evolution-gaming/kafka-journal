@@ -5,6 +5,7 @@ import java.time.Instant
 import cats.Functor
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
+import com.evolutiongaming.kafka.journal.conversions.EventsToPayload
 import scodec.bits.ByteVector
 
 sealed abstract class Action extends Product {
@@ -74,7 +75,7 @@ object Action {
       events: Nel[Event],
       metadata: Metadata,
       headers: Headers)(implicit
-      eventsToPayload: Conversion[F, Nel[Event], PayloadAndType]
+      eventsToPayload: EventsToPayload[F]
     ): F[Append] = {
       for {
         payloadAndType <- eventsToPayload(events)

@@ -4,6 +4,7 @@ import java.io.FileOutputStream
 
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
+import com.evolutiongaming.kafka.journal.conversions.{EventsToPayload, PayloadToEvents}
 import org.scalatest.{FunSuite, Matchers}
 import scodec.bits.ByteVector
 
@@ -61,13 +62,13 @@ class PayloadAndTypeSpec extends FunSuite with Matchers {
         implicit val fromAttempt = FromAttempt.lift[Try]
         implicit val fromJsResult = FromJsResult.lift[Try]
 
-        val payloadToEvents = PayloadAndType.payloadToEvents[Try]
+        val payloadToEvents = PayloadToEvents[Try]
 
         val actual = payloadToEvents(payloadAndType).get
         actual shouldEqual events
       }
 
-      val eventsToPayload = PayloadAndType.eventsToPayload[Try]
+      val eventsToPayload = EventsToPayload[Try]
       val payloadAndType = eventsToPayload(events).get
 
       payloadType shouldEqual payloadAndType.payloadType

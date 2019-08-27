@@ -603,7 +603,6 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
   }
 
   private def appendOf(key: Key, seqNrs: Nel[Int]) = {
-    implicit val eventsToPayload = PayloadAndType.eventsToPayload[Try]
     val events = seqNrs.map { seqNr => Event(SeqNr(seqNr.toLong), Set(seqNr.toString)) }
     Action.Append.of[Try](key, timestamp = timestamp, Some(origin), events, metadata, headers).get
   }
@@ -775,7 +774,6 @@ object TopicReplicatorSpec {
     implicit val fromJsResult = FromJsResult.lift[StateT]
     
     implicit val clock = Clock.const[StateT](nanos = 0, millis = millis)
-    implicit val payloadToEvents = PayloadAndType.payloadToEvents[StateT]
 
     TopicReplicator.of[StateT](topic, TopicReplicator.StopRef[StateT], consumer, 1.second)
   }

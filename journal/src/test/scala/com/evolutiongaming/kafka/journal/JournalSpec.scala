@@ -12,6 +12,7 @@ import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointer
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log}
+import com.evolutiongaming.kafka.journal.conversions.PayloadToEvents
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
 import com.evolutiongaming.sstream.Stream
@@ -447,10 +448,6 @@ object JournalSpec {
       implicit val fromAttempt = FromAttempt.lift[F]
       implicit val fromJsResult = FromJsResult.lift[F]
 
-      implicit val payloadToEvents = PayloadAndType.payloadToEvents[F]
-
-      implicit val eventsToPayload = PayloadAndType.eventsToPayload[F]
-
       val journal = Journal[F](None, eventual, readActionsOf, writeAction, headCache)
         .withLog(log)
         .withMetrics(Journal.Metrics.empty[F])
@@ -586,8 +583,7 @@ object JournalSpec {
 
         implicit val fromAttempt = FromAttempt.lift[Try]
         implicit val fromJsResult = FromJsResult.lift[Try]
-        
-        implicit val payloadToEvents = PayloadAndType.payloadToEvents[Try]
+        implicit val payloadToEvents = PayloadToEvents[Try]
 
         def updateOffset = copy(offset = Some(offset))
 

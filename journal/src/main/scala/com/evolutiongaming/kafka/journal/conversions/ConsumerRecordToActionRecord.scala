@@ -63,7 +63,7 @@ object ConsumerRecordToActionRecord {
       }
 
       val result = OptionT.fromOption[F](opt).flatten.value.handleErrorWith { cause =>
-        JournalError(s"consumerRecordToActionRecord failed for $consumerRecord: $cause", cause.some).raiseError[F, Option[ActionRecord[Action]]]
+        JournalError(s"ConsumerRecordToActionRecord failed for $consumerRecord: $cause", cause.some).raiseError[F, Option[ActionRecord[Action]]]
       }
       OptionT(result)
     }
