@@ -6,8 +6,8 @@ import cats.effect.Sync
 import cats.implicits._
 import cats.{Applicative, MonadError, ~>}
 import com.evolutiongaming.catshelper.FromTry
-import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
-import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
+import com.evolutiongaming.kafka.journal.FromBytes.implicits._
+import com.evolutiongaming.kafka.journal.ToBytes.implicits._
 import com.evolutiongaming.kafka.journal._
 import play.api.libs.json.{JsString, JsValue, Json}
 import scodec.bits.ByteVector

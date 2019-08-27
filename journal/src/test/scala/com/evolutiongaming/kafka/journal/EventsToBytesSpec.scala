@@ -3,8 +3,8 @@ package com.evolutiongaming.kafka.journal
 import java.io.FileOutputStream
 
 import cats.data.{NonEmptyList => Nel}
-import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
-import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
+import com.evolutiongaming.kafka.journal.FromBytes.implicits._
+import com.evolutiongaming.kafka.journal.ToBytes.implicits._
 import org.scalatest.{FunSuite, Matchers}
 import scodec.bits.ByteVector
 

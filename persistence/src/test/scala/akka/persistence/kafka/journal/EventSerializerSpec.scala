@@ -5,7 +5,7 @@ import java.io.FileOutputStream
 import akka.persistence.PersistentRepr
 import akka.persistence.serialization.Snapshot
 import cats.effect.{IO, Sync}
-import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
+import com.evolutiongaming.kafka.journal.FromBytes.implicits._
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal._
 import org.scalatest.{AsyncFunSuite, Matchers}

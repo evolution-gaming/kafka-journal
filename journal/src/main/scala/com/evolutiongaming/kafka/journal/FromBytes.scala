@@ -74,7 +74,7 @@ object FromBytes {
   }
 
 
-  object Implicits {
+  object implicits {
 
     implicit class ByteVectorFromBytesOps(val self: ByteVector) extends AnyVal {
 

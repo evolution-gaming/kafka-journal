@@ -1,7 +1,7 @@
 package akka.persistence.kafka.journal
 
-import com.evolutiongaming.kafka.journal.FromBytes.Implicits._
-import com.evolutiongaming.kafka.journal.ToBytes.Implicits._
+import com.evolutiongaming.kafka.journal.FromBytes.implicits._
+import com.evolutiongaming.kafka.journal.ToBytes.implicits._
 import com.evolutiongaming.kafka.journal.ByteVectorOf
 import com.evolutiongaming.serialization.SerializedMsg
 import org.scalatest.{FunSuite, Matchers}

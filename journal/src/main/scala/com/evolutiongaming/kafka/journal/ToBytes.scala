@@ -60,7 +60,7 @@ object ToBytes {
   }
 
 
-  object Implicits {
+  object implicits {
 
     implicit class ToBytesIdOps[A](val a: A) extends AnyVal {
 
