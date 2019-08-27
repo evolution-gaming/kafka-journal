@@ -1,46 +1,46 @@
 package akka.persistence.kafka.journal
 
+import cats.Applicative
+import cats.implicits._
 import com.evolutiongaming.config.ConfigHelper._
 import com.evolutiongaming.kafka.journal.Key
 import com.evolutiongaming.skafka.Topic
 import com.typesafe.config.Config
 
-trait ToKey {
-  def apply(persistenceId: PersistenceId): Key
+trait ToKey[F[_]] {
+
+  def apply(persistenceId: PersistenceId): F[Key]
 }
 
 object ToKey {
-  
-  val Default: ToKey = ToKey("journal")
 
-  val Identity: ToKey = new ToKey {
-    def apply(persistenceId: PersistenceId) = Key(topic = persistenceId, id = persistenceId)
+  def default[F[_] : Applicative]: ToKey[F] = constantTopic("journal")
+
+
+  def constantTopic[F[_] : Applicative](topic: Topic): ToKey[F] = {
+    persistenceId: PersistenceId => Key(topic = topic, id = persistenceId).pure[F]
   }
 
 
-  def apply(topic: Topic): ToKey = new ToKey {
-    def apply(persistenceId: PersistenceId) = Key(topic = topic, id = persistenceId)
+  def fromConfig[F[_] : Applicative](config: Config): ToKey[F] = {
+    fromConfig[F](config, default[F])
   }
 
-  def apply(config: Config): ToKey = {
-    apply(config, Default)
-  }
-
-  def apply(config: Config, default: => ToKey): ToKey = {
+  def fromConfig[F[_] : Applicative](config: Config, default: => ToKey[F]): ToKey[F] = {
 
     def apply(config: Config) = {
 
       def onSplit() = {
         val separator = config.getOpt[String]("split.separator") getOrElse "-"
         val fallback = apply("split.fallback")
-        ToKey.split(separator, fallback)
+        ToKey.split[F](separator, fallback)
       }
 
       def onConstantTopic() = {
-        config.getOpt[String]("constant-topic.topic").fold(default) { topic => ToKey(topic) }
+        config.getOpt[String]("constant-topic.topic").fold(default)(constantTopic)
       }
 
-      def apply(name: String): ToKey = {
+      def apply(name: String): ToKey[F] = {
         config.getOpt[String](name).fold(default) {
           case "constant-topic" => onConstantTopic()
           case "split"          => onSplit()
@@ -54,15 +54,14 @@ object ToKey {
   }
 
 
-  def split(separator: String, fallback: ToKey): ToKey = new ToKey {
-
-    def apply(persistenceId: PersistenceId): Key = {
+  def split[F[_] : Applicative](separator: String, fallback: ToKey[F]): ToKey[F] = {
+    persistenceId: PersistenceId => {
       persistenceId.lastIndexOf(separator) match {
         case -1  => fallback(persistenceId)
         case idx =>
           val topic = persistenceId.take(idx)
           val id = persistenceId.drop(idx + separator.length)
-          Key(topic = topic, id = id)
+          Key(topic = topic, id = id).pure[F]
       }
     }
   }

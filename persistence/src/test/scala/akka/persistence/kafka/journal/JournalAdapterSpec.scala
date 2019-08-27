@@ -81,7 +81,7 @@ class JournalAdapterSpec extends FunSuite with Matchers {
 object JournalAdapterSpec {
 
   private val timestamp: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS)
-  private val toKey = ToKey.Default
+  private val toKey = ToKey.default[StateT]
   private val key1 = Key(id = "id", topic = "journal")
   private val event = Event(SeqNr.Min)
   private val partitionOffset = PartitionOffset.Empty

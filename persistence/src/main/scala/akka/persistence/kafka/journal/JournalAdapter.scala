@@ -37,7 +37,7 @@ trait JournalAdapter[F[_]] {
 object JournalAdapter {
 
   def of[F[_] : Concurrent : ContextShift : FromFuture : ToFuture : Par : Timer : LogOf : Runtime : RandomId : FromGFuture : MeasureDuration : ToTry : FromTry : FromAttempt : FromJsResult](
-    toKey: ToKey,
+    toKey: ToKey[F],
     origin: Option[Origin],
     serializer: EventSerializer[F],
     config: KafkaJournalConfig,
@@ -106,19 +106,17 @@ object JournalAdapter {
 
   def apply[F[_] : Monad : Clock](
     journal: Journal[F],
-    toKey: ToKey,
+    toKey: ToKey[F],
     serializer: EventSerializer[F],
     metadataAndHeadersOf: MetadataAndHeadersOf[F]
   ): JournalAdapter[F] = new JournalAdapter[F] {
 
     def write(aws: Seq[AtomicWrite]) = {
       val prs = aws.flatMap(_.payload)
-      Nel.fromList(prs.toList).fold {
-        List.empty[Try[Unit]].pure[F]
-      } { prs =>
+      Nel.fromList(prs.toList).foldMapM { prs =>
         val persistenceId = prs.head.persistenceId
-        val key = toKey(persistenceId)
         for {
+          key    <- toKey(persistenceId)
           events <- prs.traverse(serializer.toEvent)
           mah    <- metadataAndHeadersOf(key, prs, events)
           _      <- journal.append(key, events, mah.metadata, mah.headers)
@@ -129,40 +127,45 @@ object JournalAdapter {
     }
 
     def delete(persistenceId: PersistenceId, to: SeqNr) = {
-      val key  = toKey(persistenceId)
-      journal.delete(key, to).void
+      for {
+        key <- toKey(persistenceId)
+        _   <- journal.delete(key, to)
+      } yield {}
     }
 
     def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)(f: PersistentRepr => F[Unit]) = {
 
-      val key = toKey(persistenceId)
-
-      val stream = journal
-        .read(key, range.from)
-        .foldMapCmdM(max) { (n, record) =>
-          val event = record.event
-          val seqNr = event.seqNr
-          if (n > 0 && seqNr <= range.to) {
-            for {
-              persistentRepr <- serializer.toPersistentRepr(persistenceId, event)
-              _              <- f(persistentRepr)
-            } yield {
-              (n - 1, Stream.Cmd.take(event))
+      def stream(key: Key) = {
+        journal
+          .read(key, range.from)
+          .foldMapCmdM(max) { (n, record) =>
+            val event = record.event
+            val seqNr = event.seqNr
+            if (n > 0 && seqNr <= range.to) {
+              for {
+                persistentRepr <- serializer.toPersistentRepr(persistenceId, event)
+                _              <- f(persistentRepr)
+              } yield {
+                (n - 1, Stream.Cmd.take(event))
+              }
+            } else {
+              (n, Stream.Cmd.stop[Event]).pure[F]
             }
-          } else {
-            (n, Stream.Cmd.stop[Event]).pure[F]
           }
-        }
+      }
 
-      stream.drain
+      for {
+        key <- toKey(persistenceId)
+        _   <- stream(key).drain
+      } yield {}
     }
 
     def lastSeqNr(persistenceId: PersistenceId, from: SeqNr) = {
-      val key = toKey(persistenceId)
       for {
+        key     <- toKey(persistenceId)
         pointer <- journal.pointer(key)
       } yield for {
-        pointer <- pointer
+        pointer    <- pointer
         if pointer >= from
       } yield pointer
     }

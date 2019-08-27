@@ -47,8 +47,8 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
 
   def measureDuration: Resource[IO, MeasureDuration[IO]] = Resource.liftF(MeasureDuration.fromClock(Clock[IO]).pure[IO])
 
-  def toKey: Resource[IO, ToKey] = {
-    val toKey = ToKey(config)
+  def toKey: Resource[IO, ToKey[IO]] = {
+    val toKey = ToKey.fromConfig[IO](config)
     Resource.liftF(toKey.pure[IO])
   }
 
@@ -138,7 +138,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
   }
 
   def adapterOf(
-    toKey: ToKey,
+    toKey: ToKey[IO],
     origin: Option[Origin],
     serializer: EventSerializer[IO],
     config: KafkaJournalConfig,
