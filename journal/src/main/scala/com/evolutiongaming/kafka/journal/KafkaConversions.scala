@@ -44,7 +44,7 @@ object KafkaConversions {
         Header(key, value.toArray)
       }
       result.handleErrorWith { cause =>
-        JournalError(s"headerToSkafkaHeader failed for $a: $cause", cause.some).raiseError[F, Header]
+        JournalError(s"tupleToHeader failed for $a: $cause", cause.some).raiseError[F, Header]
       }
   }
 
