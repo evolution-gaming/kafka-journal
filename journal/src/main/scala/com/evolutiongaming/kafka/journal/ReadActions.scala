@@ -21,7 +21,7 @@ object ReadActions {
         records <- records.values.values.toList
         record  <- records.toList if record.key.exists(_.value == key.id)
       } yield record
-      records1.traverseFilter { record => consumerRecordToActionRecord(record).value }
+      records1.traverseFilter(consumerRecordToActionRecord.apply)
     }
 
     for {

@@ -120,7 +120,7 @@ object TopicReplicator { self =>
       } yield record
 
       val ios = for {
-        records <- records.traverseFilter { record => consumerRecordToActionRecord(record).value }
+        records <- records.traverseFilter { record => consumerRecordToActionRecord(record) }
       } yield for {
         (key, records) <- records.groupBy(_.action.key)
       } yield {

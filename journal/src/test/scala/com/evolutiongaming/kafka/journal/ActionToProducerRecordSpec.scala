@@ -106,7 +106,7 @@ class ActionToProducerRecordSpec extends FunSuite with Matchers {
 
         val record = ActionRecord(action, partitionOffset)
 
-        consumerRecordToActionRecord(consumerRecord).value shouldEqual record.some
+        consumerRecordToActionRecord(consumerRecord) shouldEqual record.some
       }
     }
   }

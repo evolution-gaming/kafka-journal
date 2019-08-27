@@ -11,7 +11,7 @@ import scodec.bits.ByteVector
 
 trait ConsumerRecordToActionRecord[F[_]] {
 
-  def apply(consumerRecord: ConsumerRecord[Id, ByteVector]): OptionT[F, ActionRecord[Action]] // TODO change return type
+  def apply(consumerRecord: ConsumerRecord[Id, ByteVector]): F[Option[ActionRecord[Action]]]
 }
 
 object ConsumerRecordToActionRecord {
@@ -48,7 +48,7 @@ object ConsumerRecordToActionRecord {
         }
       }
 
-      val opt = for {
+      val result = for {
         id               <- consumerRecord.key
         timestampAndType <- consumerRecord.timestampAndType
         header           <- consumerRecordToActionHeader(consumerRecord)
@@ -62,10 +62,9 @@ object ConsumerRecordToActionRecord {
         ActionRecord(action, partitionOffset)
       }
 
-      val result = OptionT.fromOption[F](opt).flatten.value.handleErrorWith { cause =>
+      OptionT.fromOption[F](result).flatten.value.handleErrorWith { cause =>
         JournalError(s"ConsumerRecordToActionRecord failed for $consumerRecord: $cause", cause.some).raiseError[F, Option[ActionRecord[Action]]]
       }
-      OptionT(result)
     }
   }
 }
