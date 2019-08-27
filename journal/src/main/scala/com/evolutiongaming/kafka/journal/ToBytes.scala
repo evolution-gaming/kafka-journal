@@ -33,8 +33,6 @@ object ToBytes {
 
   implicit def byteVectorToBytes[F[_] : Applicative]: ToBytes[F, ByteVector] = _.pure[F]
 
-  implicit def bytesToBytes[F[_] : Applicative]: ToBytes[F, Bytes] = (a: Bytes) => ByteVector.view(a).pure[F]
-
   implicit def jsValueToBytes[F[_] : Applicative]: ToBytes[F, JsValue] = fromWrites
 
 

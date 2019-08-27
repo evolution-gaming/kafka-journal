@@ -10,6 +10,7 @@ import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal._
 import org.scalatest.{AsyncFunSuite, Matchers}
 import play.api.libs.json.{JsString, JsValue}
+import scodec.bits.ByteVector
 
 import scala.util.Try
 
@@ -57,10 +58,10 @@ class EventSerializerSpec extends AsyncFunSuite with ActorSuite with Matchers {
     }
   }
 
-  def writeToFile[F[_] : Sync](bytes: Bytes, path: String): F[Unit] = {
+  def writeToFile[F[_] : Sync](bytes: ByteVector, path: String): F[Unit] = {
     Sync[F].delay {
       val os = new FileOutputStream(path)
-      os.write(bytes)
+      os.write(bytes.toArray)
       os.close()
     }
   }

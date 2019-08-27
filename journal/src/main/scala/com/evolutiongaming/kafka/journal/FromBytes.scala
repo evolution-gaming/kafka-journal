@@ -38,8 +38,6 @@ object FromBytes {
     FromAttempt[F].apply(as)
   }
 
-  implicit def bytesFromBytes[F[_] : Applicative]: FromBytes[F, Bytes] = (a: ByteVector) => a.toArray.pure[F]
-
   implicit def jsValueFromBytes[F[_] : FromJsResult]: FromBytes[F, JsValue] = fromReads
 
 

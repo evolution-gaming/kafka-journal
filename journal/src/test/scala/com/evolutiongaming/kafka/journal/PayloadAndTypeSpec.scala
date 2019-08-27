@@ -84,9 +84,9 @@ class PayloadAndTypeSpec extends FunSuite with Matchers {
     }
   }
 
-  def writeToFile(bytes: Bytes, path: String): Unit = {
+  def writeToFile(bytes: ByteVector, path: String): Unit = {
     val os = new FileOutputStream(path)
-    os.write(bytes)
+    os.write(bytes.toArray)
     os.close()
   }
 }

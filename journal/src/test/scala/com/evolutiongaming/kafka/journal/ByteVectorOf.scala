@@ -8,7 +8,7 @@ object ByteVectorOf {
     val is = Option(clazz.getResourceAsStream(path)) getOrElse {
       sys.error(s"file not found at $path")
     }
-    val bytes = new Bytes(is.available())
+    val bytes = new Array[Byte](is.available())
     is.read(bytes)
     ByteVector.view(bytes)
   }

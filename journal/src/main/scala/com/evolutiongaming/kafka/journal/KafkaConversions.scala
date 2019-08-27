@@ -5,7 +5,7 @@ import java.time.Instant
 
 import cats.data.OptionT
 import cats.implicits._
-import cats.{Functor, Monad}
+import cats.{ApplicativeError, MonadError}
 import com.evolutiongaming.skafka.Header
 import com.evolutiongaming.skafka.consumer.ConsumerRecord
 import com.evolutiongaming.skafka.producer.ProducerRecord
@@ -16,41 +16,51 @@ object KafkaConversions {
   val `journal.action` = "journal.action"
 
 
-  implicit def actionHeaderToHeader[F[_] : Functor](implicit
+  implicit def actionHeaderToHeader[F[_]](implicit
+    F: ApplicativeError[F, Throwable],
     actionHeaderToBytes: ToBytes[F, ActionHeader]
   ): Conversion[F, ActionHeader, Header] = {
     a: ActionHeader => {
-      for {
+      val result = for {
         bytes <- actionHeaderToBytes(a)
       } yield {
         Header(`journal.action`, bytes.toArray)
+      }
+      result.handleErrorWith { cause =>
+        JournalError(s"actionHeaderToHeader failed for $a: $cause", cause.some).raiseError[F, Header]
       }
     }
   }
 
 
-  implicit def actionToProducerRecord[F[_] : Monad](implicit
-    actionHeaderToHeader: Conversion[F, ActionHeader, Header],
+  implicit def tupleToHeader[F[_]](implicit
+    F: ApplicativeError[F, Throwable],
     stringToBytes: ToBytes[F, String],
+  ): Conversion[F, (String, String), Header] = {
+    case a @ (key, value) =>
+      val result = for {
+        value <- stringToBytes(value)
+      } yield {
+        Header(key, value.toArray)
+      }
+      result.handleErrorWith { cause =>
+        JournalError(s"headerToSkafkaHeader failed for $a: $cause", cause.some).raiseError[F, Header]
+      }
+  }
+
+
+  implicit def actionToProducerRecord[F[_]](implicit
+    F: MonadError[F, Throwable],
+    actionHeaderToHeader: Conversion[F, ActionHeader, Header],
+    tupleToHeader: Conversion[F, (String, String), Header]
   ): Conversion[F, Action, ProducerRecord[Id, ByteVector]] = {
 
     a: Action => {
       val key = a.key
-
-      def headers(a: Action.Append) = {
-        a.headers.toList.traverse { case (key, value) =>
-          for {
-            bytes <- stringToBytes(value)
-          } yield {
-            Header(key, bytes.toArray)
-          }
-        }
-      }
-
-      for {
+      val result = for {
         header  <- actionHeaderToHeader(a.header)
         headers <- a match {
-          case a: Action.Append => headers(a)
+          case a: Action.Append => a.headers.toList.traverse(tupleToHeader.apply)
           case _: Action.Delete => List.empty[Header].pure[F]
           case _: Action.Mark   => List.empty[Header].pure[F]
         }
@@ -68,11 +78,15 @@ object KafkaConversions {
           timestamp = a.timestamp.some,
           headers = header :: headers)
       }
+      result.handleErrorWith { cause =>
+        JournalError(s"actionToProducerRecord failed for $a: $cause", cause.some).raiseError[F, ProducerRecord[Id, ByteVector]]
+      }
     }
   }
 
 
   implicit def consumerRecordToActionHeader[F[_]](implicit
+    F: ApplicativeError[F, Throwable],
     fromBytes: FromBytes[F, ActionHeader]
   ): Conversion[Option, ConsumerRecord[Id, ByteVector], F[ActionHeader]] = {
     a: ConsumerRecord[Id, ByteVector] => {
@@ -80,36 +94,48 @@ object KafkaConversions {
         header <- a.headers.find { _.key == `journal.action` }
       } yield {
         val byteVector = ByteVector.view(header.value)
-        fromBytes(byteVector)
+        val actionHeader = fromBytes(byteVector)
+        actionHeader.handleErrorWith { cause =>
+          JournalError(s"consumerRecordToActionHeader failed for $a: $cause", cause.some).raiseError[F, ActionHeader]
+        }
       }
     }
   }
 
 
-  implicit def consumerRecordToActionRecord[F[_] : Monad](implicit
-    consumerRecordToActionHeader: Conversion[Option, ConsumerRecord[Id, ByteVector], F[ActionHeader]],
+  implicit def headerToTuple[F[_]](implicit
+    F: ApplicativeError[F, Throwable],
     stringFromBytes: FromBytes[F, String],
+  ): Conversion[F, Header, (String, String)] = {
+    a: Header => {
+      val bytes = ByteVector.view(a.value)
+      val result = for {
+        value <- stringFromBytes(bytes)
+      } yield {
+        (a.key, value)
+      }
+      result.handleErrorWith { cause =>
+        JournalError(s"headerToTuple failed for $a: $cause", cause.some).raiseError[F, (String, String)]
+      }
+    }
+  }
+
+
+  implicit def consumerRecordToActionRecord[F[_]](implicit
+    F: MonadError[F, Throwable],
+    consumerRecordToActionHeader: Conversion[Option, ConsumerRecord[Id, ByteVector], F[ActionHeader]],
+    headerToTuple: Conversion[F, Header, (String, String)],
   ): Conversion[OptionT[F, ?], ConsumerRecord[Id, ByteVector], ActionRecord[Action]] = {
 
-    self: ConsumerRecord[Id, ByteVector] => {
+    consumerRecord: ConsumerRecord[Id, ByteVector] => {
 
-      def action(
-        key: Key,
-        timestamp: Instant,
-        header: ActionHeader
-      ) = {
+      def action(key: Key, timestamp: Instant, header: ActionHeader) = {
+        
         def append(header: ActionHeader.Append) = {
-          self.value.traverse { value =>
-            val headers = self.headers
+          consumerRecord.value.traverse { value =>
+            val headers = consumerRecord.headers
               .filter { _.key != `journal.action` }
-              .traverse { header =>
-                val bytes = ByteVector.view(header.value)
-                for {
-                  value <- stringFromBytes(bytes)
-                } yield {
-                  (header.key, value)
-                }
-              }
+              .traverse(headerToTuple.apply)
 
             for {
               headers <- headers
@@ -127,21 +153,24 @@ object KafkaConversions {
         }
       }
 
-      val result = for {
-        id               <- self.key
-        timestampAndType <- self.timestampAndType
-        header           <- consumerRecordToActionHeader(self)
+      val opt = for {
+        id               <- consumerRecord.key
+        timestampAndType <- consumerRecord.timestampAndType
+        header           <- consumerRecordToActionHeader(consumerRecord)
       } yield for {
         header    <- OptionT.liftF(header)
-        key        = Key(id = id.value, topic = self.topic)
+        key        = Key(id = id.value, topic = consumerRecord.topic)
         timestamp  = timestampAndType.timestamp
         action    <- action(key, timestamp, header)
       } yield {
-        val partitionOffset = PartitionOffset(self)
+        val partitionOffset = PartitionOffset(consumerRecord)
         ActionRecord(action, partitionOffset)
       }
 
-      OptionT.fromOption[F](result).flatten
+      val result = OptionT.fromOption[F](opt).flatten.value.handleErrorWith { cause =>
+        JournalError(s"consumerRecordToActionRecord failed for $consumerRecord: $cause", cause.some).raiseError[F, Option[ActionRecord[Action]]]
+      }
+      OptionT(result)
     }
   }
 }

@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
-import cats.{Applicative, Monad}
+import cats.{Applicative, MonadError}
 import com.evolutiongaming.kafka.journal.PlayJsonHelper._
 import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import play.api.libs.json._
@@ -22,7 +22,8 @@ object PayloadAndType {
     PayloadAndType(action.payload, action.header.payloadType)
   }
 
-  def eventsToPayload[F[_] : Monad](implicit
+  def eventsToPayload[F[_]](implicit
+    F: MonadError[F, Throwable],
     eventsToBytes: ToBytes[F, Nel[Event]],
     payloadJsonToBytes: ToBytes[F, PayloadJson]
   ): Conversion[F, Nel[Event], PayloadAndType] = {
@@ -78,19 +79,22 @@ object PayloadAndType {
         }
       }
 
-      payloadAndType(eventJsons(events.toList, List.empty))
+      payloadAndType(eventJsons(events.toList, List.empty)).handleErrorWith { cause =>
+        JournalError(s"eventsToPayload failed for $events: $cause", cause.some).raiseError[F, PayloadAndType]
+      }
     }
   }
 
 
-  def payloadToEvents[F[_] : Monad : FromAttempt : FromJsResult](implicit
+  def payloadToEvents[F[_] : FromAttempt : FromJsResult](implicit
+    F: MonadError[F, Throwable],
     eventsFromBytes: FromBytes[F, Nel[Event]],
     payloadJsonFromBytes: FromBytes[F, PayloadJson]
   ): Conversion[F, PayloadAndType, Nel[Event]] = {
 
     payloadAndType: PayloadAndType => {
       val payload = payloadAndType.payload
-      payloadAndType.payloadType match {
+      val result = payloadAndType.payloadType match {
         case PayloadType.Binary => eventsFromBytes(payload)
         case PayloadType.Json   =>
 
@@ -127,6 +131,9 @@ object PayloadAndType {
             payloadJson <- payloadJsonFromBytes(payload)
             events      <- events(payloadJson)
           } yield events
+      }
+      result.handleErrorWith { cause =>
+        JournalError(s"payloadToEvents failed for $payloadAndType: $cause", cause.some).raiseError[F, Nel[Event]]
       }
     }
   }

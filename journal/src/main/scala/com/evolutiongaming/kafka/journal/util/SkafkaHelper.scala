@@ -2,9 +2,8 @@ package com.evolutiongaming.kafka.journal.util
 
 import cats.Applicative
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.Bytes
 import com.evolutiongaming.skafka
-import com.evolutiongaming.skafka.Topic
+import com.evolutiongaming.skafka.{Bytes, Topic}
 import scodec.bits.ByteVector
 
 object SkafkaHelper {
