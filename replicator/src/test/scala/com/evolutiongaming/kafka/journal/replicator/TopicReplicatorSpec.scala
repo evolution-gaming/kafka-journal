@@ -8,15 +8,13 @@ import cats.implicits._
 import cats.{Applicative, Monoid, Parallel}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log}
-import com.evolutiongaming.kafka.journal.Conversion.implicits._
-import com.evolutiongaming.kafka.journal.KafkaConversions._
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.conversions.ActionToProducerRecord
 import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, WithSize}
-import com.evolutiongaming.skafka.producer.ProducerRecord
-import com.evolutiongaming.skafka.{Bytes => _, Metadata => _, Header => _, _}
+import com.evolutiongaming.skafka.{Bytes => _, Header => _, Metadata => _, _}
 import org.scalatest.{Matchers, WordSpec}
 import play.api.libs.json.Json
 import scodec.bits.ByteVector
@@ -585,9 +583,10 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
   private def consumerRecordOf(
     action: Action,
     topicPartition: TopicPartition,
-    offset: Offset) = {
+    offset: Offset
+  ) = {
 
-    val producerRecord = action.convert[Try, ProducerRecord[Id, ByteVector]].get
+    val producerRecord = ActionToProducerRecord[Try].apply(action).get
     ConsumerRecord(
       topicPartition = topicPartition,
       offset = offset,

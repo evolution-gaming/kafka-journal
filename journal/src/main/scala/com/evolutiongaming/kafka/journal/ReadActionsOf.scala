@@ -1,13 +1,12 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.data.{OptionT, NonEmptyList => Nel}
+import cats.data.{NonEmptyList => Nel}
 import cats.effect.{Resource, Sync}
 import cats.implicits._
 import cats.~>
 import com.evolutiongaming.catshelper.Log
-import com.evolutiongaming.skafka.consumer.ConsumerRecord
+import com.evolutiongaming.kafka.journal.conversions.ConsumerRecordToActionRecord
 import com.evolutiongaming.skafka.{Offset, Partition, TopicPartition}
-import scodec.bits.ByteVector
 
 
 trait ReadActionsOf[F[_]] {
@@ -19,7 +18,7 @@ object ReadActionsOf {
 
   def apply[F[_] : Sync : Log](
     consumer: Resource[F, Journal.Consumer[F]])(implicit
-    consumerRecordToActionRecord: Conversion[OptionT[F, ?], ConsumerRecord[Id, ByteVector], ActionRecord[Action]]
+    consumerRecordToActionRecord: ConsumerRecordToActionRecord[F]
   ): ReadActionsOf[F] = {
     (key: Key, partition: Partition, from: Offset) => {
 

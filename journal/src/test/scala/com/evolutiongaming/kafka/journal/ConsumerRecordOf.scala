@@ -1,34 +1,34 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.implicits._
+import cats.Functor
 import cats.data.{NonEmptyList => Nel}
-import com.evolutiongaming.kafka.journal.Conversion.implicits._
-import com.evolutiongaming.kafka.journal.KafkaConversions._
+import cats.implicits._
+import com.evolutiongaming.kafka.journal.conversions.ActionToProducerRecord
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, WithSize}
-import com.evolutiongaming.skafka.producer.ProducerRecord
 import com.evolutiongaming.skafka.{Offset, TimestampAndType, TimestampType, TopicPartition}
 import scodec.bits.ByteVector
 
-import scala.util.Try
-
 object ConsumerRecordOf {
 
-  def apply(
+  def apply[F[_] : Functor](
     action: Action,
     topicPartition: TopicPartition,
     offset: Offset)(implicit
-    fromAttempt: FromAttempt[Try]
-  ): ConsumerRecord[Id, ByteVector] = {
-    
-    val producerRecord = action.convert[Try, ProducerRecord[Id, ByteVector]].get
-    val timestampAndType = TimestampAndType(action.timestamp, TimestampType.Create)
-    ConsumerRecord[Id, ByteVector](
-      topicPartition = topicPartition,
-      offset = offset,
-      timestampAndType = Some(timestampAndType),
-      key = producerRecord.key.map(bytes => WithSize(bytes, bytes.length)),
-      value = producerRecord.value.map(bytes => WithSize(bytes, bytes.length.toInt)),
-      headers = producerRecord.headers)
+    actionToProducerRecord: ActionToProducerRecord[F]
+  ): F[ConsumerRecord[Id, ByteVector]] = {
+
+    for {
+      producerRecord <- actionToProducerRecord(action)
+    } yield {
+      val timestampAndType = TimestampAndType(action.timestamp, TimestampType.Create)
+      ConsumerRecord[Id, ByteVector](
+        topicPartition = topicPartition,
+        offset = offset,
+        timestampAndType = Some(timestampAndType),
+        key = producerRecord.key.map(bytes => WithSize(bytes, bytes.length)),
+        value = producerRecord.value.map(bytes => WithSize(bytes, bytes.length.toInt)),
+        headers = producerRecord.headers)
+    }
   }
 }
 

@@ -2,8 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import cats.implicits._
 import cats.{MonadError, ~>}
-import com.evolutiongaming.skafka.producer.ProducerRecord
-import scodec.bits.ByteVector
+import com.evolutiongaming.kafka.journal.conversions.ActionToProducerRecord
 
 trait AppendAction[F[_]] {
   
@@ -15,7 +14,7 @@ object AppendAction {
   def apply[F[_]](
     producer: Journal.Producer[F])(implicit
     F: MonadError[F, Throwable],
-    actionToProducerRecord: Conversion[F, Action, ProducerRecord[Id, ByteVector]]
+    actionToProducerRecord: ActionToProducerRecord[F]
   ): AppendAction[F] = {
     action: Action => {
       val partitionOffset = for {

@@ -11,6 +11,7 @@ import cats.temp.par._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, SerialRef}
 import com.evolutiongaming.kafka.journal.CatsHelper._
+import com.evolutiongaming.kafka.journal.conversions.ConsumerRecordToActionHeader
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.EitherHelper._
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
@@ -78,9 +79,8 @@ object HeadCache {
     config: Config = Config.Default
   ): Resource[F, HeadCache[F]] = {
 
-    import com.evolutiongaming.kafka.journal.KafkaConversions._
-    implicit val consumerRecordToActionHeaderId = consumerRecordToActionHeader[F]
-    implicit val consumerRecordToKafkaRecord = HeadCache.consumerRecordToKafkaRecord[F]
+    implicit val consumerRecordToActionHeader = ConsumerRecordToActionHeader[F]
+    implicit val consumerRecordToKafkaRecord = HeadCache.ConsumerRecordToKafkaRecord[F]
 
     def headCache(cache: Ref[F, F[Cache[F, Topic, TopicCache[F]]]]) = {
 
@@ -191,7 +191,7 @@ object HeadCache {
       consumer: Resource[F, Consumer[F]],
       metrics: Metrics[F],
       log: Log[F])(implicit
-      consumerRecordToKafkaRecord: ConsumerRecord[Id, ByteVector] => Option[F[KafkaRecord]]
+      consumerRecordToKafkaRecord: ConsumerRecordToKafkaRecord[F]
     ): F[TopicCache[F]] = {
 
       for {
@@ -640,7 +640,7 @@ object HeadCache {
       cancel: F[Boolean],
       log: Log[F])(
       onRecords: Map[Partition, Nel[KafkaRecord]] => F[Unit])(implicit
-      consumerRecordToKafkaRecord: ConsumerRecord[Id, ByteVector] => Option[F[KafkaRecord]]
+      consumerRecordToKafkaRecord: ConsumerRecordToKafkaRecord[F]
     ): F[Unit] = {
 
       def kafkaRecords(records: ConsumerRecords[Id, ByteVector]) = {
@@ -906,20 +906,28 @@ object HeadCache {
     header: ActionHeader)
 
 
-  implicit def consumerRecordToKafkaRecord[F[_] : Functor](implicit
-    consumerRecordToActionHeader: Conversion[Option, ConsumerRecord[Id, ByteVector], F[ActionHeader]]
-  ): ConsumerRecord[Id, ByteVector] => Option[F[KafkaRecord]] = {
-    record: ConsumerRecord[Id, ByteVector] => {
-      for {
-        key              <- record.key
-        id                = key.value
-        timestampAndType <- record.timestampAndType
-        timestamp         = timestampAndType.timestamp
-        header           <- consumerRecordToActionHeader(record)
-      } yield for {
-        header <- header
-      } yield {
-        KafkaRecord(id, timestamp, record.offset, header)
+  trait ConsumerRecordToKafkaRecord[F[_]] {
+
+    def apply(consumerRecord: ConsumerRecord[Id, ByteVector]): Option[F[KafkaRecord]]
+  }
+
+  object ConsumerRecordToKafkaRecord {
+
+    implicit def apply[F[_] : Functor](implicit
+      consumerRecordToActionHeader: ConsumerRecordToActionHeader[F]
+    ): ConsumerRecordToKafkaRecord[F] = {
+      record: ConsumerRecord[Id, ByteVector] => {
+        for {
+          key              <- record.key
+          id                = key.value
+          timestampAndType <- record.timestampAndType
+          timestamp         = timestampAndType.timestamp
+          header           <- consumerRecordToActionHeader(record)
+        } yield for {
+          header <- header
+        } yield {
+          KafkaRecord(id, timestamp, record.offset, header)
+        }
       }
     }
   }

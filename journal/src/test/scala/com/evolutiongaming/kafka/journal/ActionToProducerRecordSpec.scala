@@ -5,10 +5,8 @@ import java.time.temporal.ChronoUnit
 
 import cats.implicits._
 import cats.data.{NonEmptyList => Nel}
-import com.evolutiongaming.kafka.journal.Conversion.implicits._
-import com.evolutiongaming.kafka.journal.KafkaConversions._
+import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsumerRecordToActionRecord}
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, WithSize}
-import com.evolutiongaming.skafka.producer.ProducerRecord
 import com.evolutiongaming.skafka.{TimestampAndType, TimestampType, TopicPartition}
 import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json.Json
@@ -16,7 +14,7 @@ import scodec.bits.ByteVector
 
 import scala.util.Try
 
-class KafkaConversionsSpec extends FunSuite with Matchers {
+class ActionToProducerRecordSpec extends FunSuite with Matchers {
 
   private val key1 = Key(id = "id", topic = "topic")
 
@@ -29,6 +27,8 @@ class KafkaConversionsSpec extends FunSuite with Matchers {
   private val origins = List(Origin("origin").some, none[Origin])
 
   private val seqNrs = List(SeqNr.Min, SeqNr.Max)
+
+  private val actionToProducerRecord = ActionToProducerRecord[Try]
 
   private val deletes = for {
     origin <- origins
@@ -73,6 +73,8 @@ class KafkaConversionsSpec extends FunSuite with Matchers {
 
   private val headers = List(Headers.Empty, Headers(("key", "value")))
 
+  private val consumerRecordToActionRecord = ConsumerRecordToActionRecord[Try]
+
   private val appends = {
     implicit val eventsToPayload = PayloadAndType.eventsToPayload[Try]
     for {
@@ -92,7 +94,7 @@ class KafkaConversionsSpec extends FunSuite with Matchers {
 
     test(s"toProducerRecord & toActionRecord $action") {
       for {
-        producerRecord <- action.convert[Try, ProducerRecord[Id, ByteVector]]
+        producerRecord <- actionToProducerRecord(action)
       } yield {
         val consumerRecord = ConsumerRecord[Id, ByteVector](
           topicPartition = topicPartition,
@@ -104,8 +106,7 @@ class KafkaConversionsSpec extends FunSuite with Matchers {
 
         val record = ActionRecord(action, partitionOffset)
 
-        implicit val consumerRecordToActionHeaderTry = consumerRecordToActionHeader[Try]
-        consumerRecordToActionRecord[Try].apply(consumerRecord).value shouldEqual record.some
+        consumerRecordToActionRecord(consumerRecord).value shouldEqual record.some
       }
     }
   }

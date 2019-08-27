@@ -9,6 +9,9 @@ sealed abstract class ActionHeader extends Product {
 
 object ActionHeader {
 
+  val key: String = "journal.action"
+
+
   implicit val FormatActionHeader: OFormat[ActionHeader] = {
 
     val appendFormat = {

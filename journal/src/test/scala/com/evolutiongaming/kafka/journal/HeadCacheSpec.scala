@@ -37,7 +37,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           seqNr <- SeqNr.opt(idx + 1)
         } yield {
           val action = appendOf(key, seqNr)
-          ConsumerRecordOf(action, topicPartition, idx)
+          ConsumerRecordOf[Try](action, topicPartition, idx).get
         }
       }
 
@@ -119,7 +119,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
                 state <- state
               } yield {
                 val action = Action.Mark(key, timestamp, ActionHeader.Mark("mark", None))
-                val record = ConsumerRecordOf(action, topicPartition, marker)
+                val record = ConsumerRecordOf[Try](action, topicPartition, marker).get
                 val records = ConsumerRecordsOf(List(record))
                 state.copy(records = state.records.enqueue(records))
               }
@@ -150,7 +150,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         seqNr <- SeqNr.opt(offset + 1)
       } yield {
         val action = appendOf(key, seqNr)
-        val record = ConsumerRecordOf(action, topicPartition, offset)
+        val record = ConsumerRecordOf[Try](action, topicPartition, offset).get
         ConsumerRecordsOf(List(record))
       }
 
@@ -218,7 +218,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
                 state <- state
               } yield {
                 val action = appendOf(key, SeqNr.Min)
-                val record = ConsumerRecordOf(action, topicPartition, offset)
+                val record = ConsumerRecordOf[Try](action, topicPartition, offset).get
                 val records = ConsumerRecordsOf(List(record))
                 state.copy(records = state.records.enqueue(records))
               }

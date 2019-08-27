@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.Monad
-import cats.data.OptionT
 import cats.implicits._
-import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords}
+import com.evolutiongaming.kafka.journal.conversions.ConsumerRecordToActionRecord
+import com.evolutiongaming.skafka.consumer.ConsumerRecords
 import scodec.bits.ByteVector
 
 object ReadActions {
@@ -13,7 +13,7 @@ object ReadActions {
   def apply[F[_] : Monad](
     key: Key,
     consumer: Journal.Consumer[F])(implicit
-    consumerRecordToActionRecord: Conversion[OptionT[F, ?], ConsumerRecord[Id, ByteVector], ActionRecord[Action]]
+    consumerRecordToActionRecord: ConsumerRecordToActionRecord[F]
   ): Type[F] = {
 
     def actionRecords(records: ConsumerRecords[Id, ByteVector]) = {

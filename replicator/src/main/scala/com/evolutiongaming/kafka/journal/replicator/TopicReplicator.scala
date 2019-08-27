@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
 
-import cats.data.{OptionT, NonEmptyList => Nel}
+import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.implicits._
@@ -11,8 +11,8 @@ import cats.{Applicative, FlatMap, Monad, ~>}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal.CatsHelper._
-import com.evolutiongaming.kafka.journal.KafkaConversions._
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.conversions.ConsumerRecordToActionRecord
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.util.Named
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
@@ -104,7 +104,7 @@ object TopicReplicator { self =>
     stopRef: StopRef[F],
     consumer: Consumer[F],
     errorCooldown: FiniteDuration)(implicit
-    consumerRecordToActionRecord: Conversion[OptionT[F, ?], ConsumerRecord[Id, ByteVector], ActionRecord[Action]],
+    consumerRecordToActionRecord: ConsumerRecordToActionRecord[F],
     payloadToEvents: Conversion[F, PayloadAndType, Nel[Event]],
   ): F[Unit] = {
 
