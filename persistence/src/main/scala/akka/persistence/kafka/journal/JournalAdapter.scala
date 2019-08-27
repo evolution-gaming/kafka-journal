@@ -217,7 +217,7 @@ object JournalAdapter {
   final case class Metrics[F[_]](
     journal: Option[Journal.Metrics[F]] = None,
     eventual: Option[EventualJournal.Metrics[F]] = None,
-    headCache: Option[HeadCache.Metrics[F]] = None,
+    headCache: Option[HeadCacheMetrics[F]] = None,
     producer: Option[ClientId => ProducerMetrics[F]] = None,
     consumer: Option[ClientId => ConsumerMetrics[F]] = None)
 

@@ -24,6 +24,7 @@ object Dependencies {
   val retry                = "com.evolutiongaming"    %% "retry"                 % "0.0.3"
   val sstream              = "com.evolutiongaming"    %% "sstream"               % "0.0.1"
   val skafka               = "com.evolutiongaming"    %% "skafka"                % "6.0.3"
+  val scache               = "com.evolutiongaming"    %% "scache"                % "0.0.10"
 
   object Cats {
     private val version = "1.6.1"

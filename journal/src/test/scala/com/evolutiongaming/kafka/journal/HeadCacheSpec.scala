@@ -12,6 +12,7 @@ import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.HeadCache.Result
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer.ConsumerRecords
+import com.evolutiongaming.smetrics.CollectorRegistry
 import org.scalatest.{AsyncWordSpec, Matchers}
 import scodec.bits.ByteVector
 
@@ -278,11 +279,14 @@ object HeadCacheSpec {
     eventual: HeadCache.Eventual[IO]
   ): Resource[IO, HeadCache[IO]] = {
 
-    HeadCache.of[IO](
-      log = LogIO,
-      config = config,
-      consumer = Resource.liftF(consumer),
-      metrics = HeadCache.Metrics.empty[IO])
+    for {
+      metrics   <- HeadCacheMetrics.of[IO](CollectorRegistry.empty)
+      headCache <- HeadCache.of[IO](
+        log = LogIO,
+        config = config,
+        consumer = Resource.liftF(consumer),
+        metrics = metrics.some)
+    } yield headCache
   }
 
   implicit val LogIO: Log[IO] = Log.empty[IO]

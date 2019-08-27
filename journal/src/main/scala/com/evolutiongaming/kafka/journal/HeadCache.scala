@@ -11,12 +11,12 @@ import cats.temp.par._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, SerialRef}
 import com.evolutiongaming.kafka.journal.CatsHelper._
-import com.evolutiongaming.kafka.journal.cache.Cache
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.EitherHelper._
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.Retry
+import com.evolutiongaming.scache.{Cache, CacheMetered}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecord, ConsumerRecords}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
 import com.evolutiongaming.smetrics.MetricsHelper._
@@ -55,7 +55,7 @@ object HeadCache {
   def of[F[_] : Concurrent : Par : Timer : ContextShift : LogOf : KafkaConsumerOf : MeasureDuration : FromTry : FromAttempt : FromJsResult](
     consumerConfig: ConsumerConfig,
     eventualJournal: EventualJournal[F],
-    metrics: Option[Metrics[F]]
+    metrics: Option[HeadCacheMetrics[F]]
   ): Resource[F, HeadCache[F]] = {
 
     implicit val eventual = Eventual[F](eventualJournal)
@@ -63,18 +63,18 @@ object HeadCache {
     val consumer = Consumer.of[F](consumerConfig)
     for {
       log       <- Resource.liftF(LogOf[F].apply(HeadCache.getClass))
-      headCache <- HeadCache.of[F](log, consumer, metrics getOrElse Metrics.empty[F])
+      headCache <- HeadCache.of[F](log, consumer, metrics)
     } yield {
       val headCache1 = headCache.withLog(log)
-      metrics.fold(headCache1) { metrics => headCache1.withMetrics(metrics) }
+      metrics.fold(headCache1) { metrics => headCache1.withMetrics(metrics.headCache) }
     }
   }
 
 
-  def of[F[_] : Concurrent : Eventual : Par : Timer : ContextShift : FromAttempt : FromJsResult](
+  def of[F[_] : Concurrent : Eventual : Par : Timer : ContextShift : FromAttempt : FromJsResult : MeasureDuration](
     log: Log[F],
     consumer: Resource[F, Consumer[F]],
-    metrics: Metrics[F],
+    metrics: Option[HeadCacheMetrics[F]],
     config: Config = Config.Default
   ): Resource[F, HeadCache[F]] = {
 
@@ -82,10 +82,7 @@ object HeadCache {
     implicit val consumerRecordToActionHeaderId = consumerRecordToActionHeader[F]
     implicit val consumerRecordToKafkaRecord = HeadCache.consumerRecordToKafkaRecord[F]
 
-    val result = for {
-      cache <- Cache.of[F, Topic, TopicCache[F]]
-      cache <- Ref.of(cache.pure[F])
-    } yield {
+    def headCache(cache: Ref[F, F[Cache[F, Topic, TopicCache[F]]]]) = {
 
       def topicCache(topic: Topic) = {
         val logTopic = log.prefixed(topic)
@@ -96,7 +93,7 @@ object HeadCache {
             topic = topic,
             config = config,
             consumer = consumer1,
-            metrics = metrics,
+            metrics = metrics.fold(Metrics.empty[F])(_.headCache),
             log = logTopic)
         } yield {
           topicCache
@@ -135,10 +132,15 @@ object HeadCache {
         }
       }
 
-      (headCache, release)
+      Resource((headCache, release).pure[F])
     }
 
-    Resource(result)
+    for {
+      cache     <- Resource.liftF(Cache.loading[F, Topic, TopicCache[F]])
+      cache     <- metrics.fold(Resource.liftF(cache.pure[F])) { metrics => CacheMetered(cache, metrics.cache) }
+      cache     <- Resource.liftF(Ref.of(cache.pure[F]))
+      headCache <- headCache(cache)
+    } yield headCache
   }
 
 
@@ -802,9 +804,16 @@ object HeadCache {
     }
 
 
+    type Prefix = String
+
+    object Prefix {
+      val Default: Prefix = "headcache"
+    }
+
+
     def of[F[_] : Monad](
       registry: CollectorRegistry[F],
-      prefix: String = "headcache"
+      prefix: Prefix = Prefix.Default
     ): Resource[F, Metrics[F]] = {
 
       val quantiles = Quantiles(

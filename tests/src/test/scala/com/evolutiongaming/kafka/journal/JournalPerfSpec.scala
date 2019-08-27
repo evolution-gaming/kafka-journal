@@ -32,7 +32,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
         headCache <- HeadCache.of[IO](
           config.journal.consumer,
           eventualJournal,
-          HeadCache.Metrics.empty[IO].some)
+          HeadCacheMetrics.empty[IO].some)
         journal = Journal(
           producer = producer,
           origin = Some(origin),

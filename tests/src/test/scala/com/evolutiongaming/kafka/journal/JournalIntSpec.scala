@@ -33,7 +33,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
         HeadCache.of[IO](
           config.journal.consumer,
           eventualJournal,
-          HeadCache.Metrics.empty[IO].some)
+          HeadCacheMetrics.empty[IO].some)
       } else {
         Resource.pure[IO, HeadCache[IO]](HeadCache.empty[IO])
       }

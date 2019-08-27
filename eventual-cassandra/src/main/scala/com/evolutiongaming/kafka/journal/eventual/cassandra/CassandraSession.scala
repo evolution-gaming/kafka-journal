@@ -5,7 +5,8 @@ import cats.effect.Concurrent
 import cats.implicits._
 import com.datastax.driver.core._
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
-import com.evolutiongaming.kafka.journal.cache.Cache
+import com.evolutiongaming.catshelper.Runtime
+import com.evolutiongaming.scache.Cache
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.scassandra.NextHostRetryPolicy
 import com.evolutiongaming.scassandra
@@ -19,7 +20,7 @@ trait CassandraSession[F[_]] {
 
   def execute(statement: Statement): Stream[F, Row]
 
-  def unsafe: scassandra.CassandraSession[F] // TODO remove this
+  def unsafe: scassandra.CassandraSession[F]
 
   final def execute(statement: String): Stream[F, Row] = execute(new SimpleStatement(statement))
 }
@@ -89,9 +90,9 @@ object CassandraSession {
     }
 
 
-    def cachePrepared(implicit F: Concurrent[F]): F[CassandraSession[F]] = {
+    def cachePrepared(implicit F: Concurrent[F], runtime: Runtime[F]): F[CassandraSession[F]] = {
       for {
-        cache <- Cache.of[F, String, PreparedStatement]
+        cache <- Cache.loading[F, String, PreparedStatement]
       } yield {
         new CassandraSession[F] {
 

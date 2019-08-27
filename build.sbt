@@ -24,7 +24,6 @@ lazy val root = (project in file(".")
   aggregate(
     `scalatest-io`,
     `cats-effect-helpers`,
-    cache,
     journal,
     persistence,
     `tests`,
@@ -51,21 +50,11 @@ lazy val `cats-effect-helpers` = (project in file("cats-effect-helpers")
     Cats.effect,
     scalatest % Test)))
 
-lazy val cache = (project in file("cache")
-  settings (name := "kafka-journal-cache")
-  settings commonSettings
-  dependsOn (
-    `cats-effect-helpers`, 
-    `scalatest-io` % "test->compile")
-  settings (libraryDependencies ++= Seq(
-    scalatest % Test,
-    Cats.core,
-    Cats.effect)))
 
 lazy val journal = (project in file("journal")
   settings (name := "kafka-journal")
   settings commonSettings
-  dependsOn (cache, `scalatest-io` % "test->compile")
+  dependsOn (`cats-effect-helpers`, `scalatest-io` % "test->compile")
   settings (libraryDependencies ++= Seq(
     Akka.actor,
     Akka.stream,
@@ -84,6 +73,7 @@ lazy val journal = (project in file("journal")
     hostname,
     `cassandra-driver`,
     scassandra,
+    scache,
     `cassandra-sync`,
     `scala-java8-compat`,
     `cats-par`,
@@ -142,4 +132,4 @@ lazy val `eventual-cassandra` = (project in file("eventual-cassandra")
   settings (name := "kafka-journal-eventual-cassandra")
   settings commonSettings
   dependsOn (journal % "test->test;compile->compile")
-  settings (libraryDependencies ++= Seq(scassandra)))
+  settings (libraryDependencies ++= Seq(scache, scassandra)))
