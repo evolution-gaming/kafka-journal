@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import java.time.Instant
 
 import cats.data.{NonEmptyList => Nel}
-import cats.Parallel
+import cats.{Id, Parallel}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
@@ -235,10 +235,10 @@ object EventualCassandraSpec {
   }
 
 
-  type StateT[A] = cats.data.StateT[cats.Id, State, A]
+  type StateT[A] = cats.data.StateT[Id, State, A]
 
   object StateT {
-    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[cats.Id, State, A](f)
+    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[Id, State, A](f)
   }
 
 

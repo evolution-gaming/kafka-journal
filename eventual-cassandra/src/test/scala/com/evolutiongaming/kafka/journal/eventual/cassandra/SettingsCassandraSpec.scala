@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
+import cats.Id
 import cats.arrow.FunctionK
 import cats.effect.Clock
 import cats.implicits._
@@ -163,10 +164,10 @@ class SettingsCassandraSpec extends FunSuite with Matchers {
   }
 
 
-  type StateT[A] = cats.data.StateT[cats.Id, State, A]
+  type StateT[A] = cats.data.StateT[Id, State, A]
 
   object StateT {
 
-    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[cats.Id, State, A](f)
+    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[Id, State, A](f)
   }
 }

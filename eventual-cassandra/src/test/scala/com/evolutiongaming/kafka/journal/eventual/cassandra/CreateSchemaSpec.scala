@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
+import cats.Id
 import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.scassandra.TableName
 import org.scalatest.{FunSuite, Matchers}
@@ -62,10 +63,10 @@ class CreateSchemaSpec extends FunSuite with Matchers { self =>
   }
 
 
-  type StateT[A] = cats.data.StateT[cats.Id, State, A]
+  type StateT[A] = cats.data.StateT[Id, State, A]
 
   object StateT {
-    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[cats.Id, State, A](f)
+    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[Id, State, A](f)
   }
 
 

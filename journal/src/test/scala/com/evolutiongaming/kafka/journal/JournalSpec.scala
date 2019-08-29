@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 
-import cats.{Monad, Parallel}
+import cats.{Id, Monad, Parallel}
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.{Clock, Resource}
 import cats.implicits._
@@ -466,7 +466,7 @@ object JournalSpec {
   }
 
 
-  type StateT[A] = cats.data.StateT[cats.Id, State, A]
+  type StateT[A] = cats.data.StateT[Id, State, A]
 
   object StateT {
 
@@ -563,7 +563,7 @@ object JournalSpec {
       }
     }
 
-    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[cats.Id, State, A](f)
+    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[Id, State, A](f)
   }
 
 

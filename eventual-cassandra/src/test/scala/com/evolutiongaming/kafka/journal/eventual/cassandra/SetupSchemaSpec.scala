@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
-import cats.Monad
+import cats.{Id, Monad}
 import cats.implicits._
 import com.datastax.driver.core.{Row, Statement}
 import com.evolutiongaming.kafka.journal.util.TestSync
@@ -126,10 +126,10 @@ class SetupSchemaSpec extends FunSuite with Matchers {
   }
 
 
-  type StateT[A] = cats.data.StateT[cats.Id, State, A]
+  type StateT[A] = cats.data.StateT[Id, State, A]
 
   object StateT {
-    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[cats.Id, State, A](f)
+    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[Id, State, A](f)
   }
 
 
