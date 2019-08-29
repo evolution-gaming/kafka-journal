@@ -7,7 +7,7 @@ import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow}
 import com.evolutiongaming.skafka.Topic
 
-final case class Key(id: Id, topic: Topic) {
+final case class Key(id: String, topic: Topic) {
   override def toString = s"$topic:$id"
 }
 
@@ -26,7 +26,7 @@ object Key {
 
     def apply(data: GettableByNameData) = {
       Key(
-        id = data.decode[Id]("id"),
+        id = data.decode[String]("id"),
         topic = data.decode[Topic]("topic"))
     }
   }

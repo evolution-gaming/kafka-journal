@@ -8,7 +8,7 @@ import scodec.bits.ByteVector
 
 trait ConsumerRecordToActionHeader[F[_]] {
 
-  def apply(consumerRecord: ConsumerRecord[Id, ByteVector]): Option[F[ActionHeader]]
+  def apply(consumerRecord: ConsumerRecord[String, ByteVector]): Option[F[ActionHeader]]
 }
 
 object ConsumerRecordToActionHeader {
@@ -18,7 +18,7 @@ object ConsumerRecordToActionHeader {
     fromBytes: FromBytes[F, ActionHeader]
   ): ConsumerRecordToActionHeader[F] = {
 
-    consumerRecord: ConsumerRecord[Id, ByteVector] => {
+    consumerRecord: ConsumerRecord[String, ByteVector] => {
       for {
         header <- consumerRecord.headers.find { _.key == ActionHeader.key }
       } yield {

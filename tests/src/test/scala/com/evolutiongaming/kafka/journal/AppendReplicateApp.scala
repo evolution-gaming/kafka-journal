@@ -101,7 +101,7 @@ object AppendReplicateApp extends IOApp {
 
   private def append[F[_] : Concurrent : Timer : Par](topic: Topic, journal: Journal[F]) = {
 
-    def append(id: Id) = {
+    def append(id: String) = {
 
       def append(seqNr: SeqNr) = {
         val key = Key(id = id, topic = topic)

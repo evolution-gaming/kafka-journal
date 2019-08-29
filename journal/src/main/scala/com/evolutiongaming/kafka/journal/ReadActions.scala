@@ -16,7 +16,7 @@ object ReadActions {
     consumerRecordToActionRecord: ConsumerRecordToActionRecord[F]
   ): Type[F] = {
 
-    def actionRecords(records: ConsumerRecords[Id, ByteVector]) = {
+    def actionRecords(records: ConsumerRecords[String, ByteVector]) = {
       val records1 = for {
         records <- records.values.values.toList
         record  <- records.toList if record.key.exists(_.value == key.id)

@@ -636,10 +636,10 @@ object TopicReplicatorSpec {
 
   def offsetAndMetadata(offset: Offset) = OffsetAndMetadata(offset)
 
-  def keyOf(id: Id) = Key(id = id, topic = topic)
+  def keyOf(id: String) = Key(id = id, topic = topic)
 
   def headOf(
-    id: Id,
+    id: String,
     partition: Partition,
     offset: Offset,
     deleteTo: Option[Int] = None
@@ -782,7 +782,7 @@ object TopicReplicatorSpec {
   final case class State(
     topics: List[Topic] = Nil,
     commits: List[Map[TopicPartition, OffsetAndMetadata]] = Nil,
-    records: List[ConsumerRecords[Id, ByteVector]] = Nil,
+    records: List[ConsumerRecords[String, ByteVector]] = Nil,
     stopAfter: Option[Int] = None,
     pointers: Map[Topic, TopicPointers] = Map.empty,
     journal: Map[Key, List[EventRecord]] = Map.empty,
@@ -845,7 +845,7 @@ object TopicReplicatorSpec {
       }
     }
 
-    def poll: (State, ConsumerRecords[Id, ByteVector]) = {
+    def poll: (State, ConsumerRecords[String, ByteVector]) = {
       records match {
         case head :: tail => (copy(records = tail), head)
         case Nil          => (copy(stopAfter = Some(0)), ConsumerRecords(Map.empty))

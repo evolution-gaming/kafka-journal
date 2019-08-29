@@ -323,7 +323,7 @@ object HeadCacheSpec {
                 state <- state
               } yield {
                 state.records.dequeueOption match {
-                  case None                    => (state, ConsumerRecords.empty[Id, ByteVector])
+                  case None                    => (state, ConsumerRecords.empty[String, ByteVector])
                   case Some((record, records)) =>
                     val stateUpdated = state.copy(records = records)
                     (stateUpdated, record)
@@ -359,7 +359,7 @@ object HeadCacheSpec {
       assigns: List[Assign] = List.empty,
       seeks: List[Seek] = List.empty,
       topics: Map[Topic, List[Partition]] = Map.empty,
-      records: Queue[ConsumerRecords[Id, ByteVector]] = Queue.empty)
+      records: Queue[ConsumerRecords[String, ByteVector]] = Queue.empty)
 
     object State {
       val Empty: State = State()

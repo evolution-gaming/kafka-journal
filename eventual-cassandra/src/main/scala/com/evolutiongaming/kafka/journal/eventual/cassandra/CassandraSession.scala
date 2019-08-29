@@ -72,7 +72,8 @@ object CassandraSession {
 
     def configured(
       retryPolicy: RetryPolicy,
-      trace: Boolean): CassandraSession[F] = new CassandraSession[F] {
+      trace: Boolean
+    ): CassandraSession[F] = new CassandraSession[F] {
 
       def prepare(query: String) = {
         self.prepare(query)

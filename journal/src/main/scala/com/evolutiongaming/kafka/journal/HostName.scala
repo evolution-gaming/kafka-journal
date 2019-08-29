@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 
 final case class HostName(value: String) {
-  override def toString: Id = value
+  override def toString: String = value
 }
 
 object HostName {

@@ -96,7 +96,7 @@ class ActionToProducerRecordSpec extends FunSuite with Matchers {
       for {
         producerRecord <- actionToProducerRecord(action)
       } yield {
-        val consumerRecord = ConsumerRecord[Id, ByteVector](
+        val consumerRecord = ConsumerRecord[String, ByteVector](
           topicPartition = topicPartition,
           offset = partitionOffset.offset,
           timestampAndType = Some(TimestampAndType(timestamp, TimestampType.Create)),

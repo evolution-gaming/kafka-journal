@@ -200,14 +200,14 @@ object Replicator {
 
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
-    def apply[F[_]](consumer: KafkaConsumer[F, Id, ByteVector]): Consumer[F] = new Consumer[F] {
+    def apply[F[_]](consumer: KafkaConsumer[F, String, ByteVector]): Consumer[F] = new Consumer[F] {
       def topics = consumer.topics
     }
 
 
     def of[F[_] : Sync : KafkaConsumerOf : FromTry](config: ConsumerConfig): Resource[F, Consumer[F]] = {
       for {
-        consumer <- KafkaConsumerOf[F].apply[Id, ByteVector](config)
+        consumer <- KafkaConsumerOf[F].apply[String, ByteVector](config)
       } yield {
         Consumer[F](consumer)
       }

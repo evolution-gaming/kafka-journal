@@ -11,7 +11,7 @@ import scodec.bits.ByteVector
 
 trait ConsumerRecordToActionRecord[F[_]] {
 
-  def apply(consumerRecord: ConsumerRecord[Id, ByteVector]): F[Option[ActionRecord[Action]]]
+  def apply(consumerRecord: ConsumerRecord[String, ByteVector]): F[Option[ActionRecord[Action]]]
 }
 
 object ConsumerRecordToActionRecord {
@@ -22,7 +22,7 @@ object ConsumerRecordToActionRecord {
     headerToTuple: HeaderToTuple[F],
   ): ConsumerRecordToActionRecord[F] = {
 
-    consumerRecord: ConsumerRecord[Id, ByteVector] => {
+    consumerRecord: ConsumerRecord[String, ByteVector] => {
 
       def action(key: Key, timestamp: Instant, header: ActionHeader) = {
 

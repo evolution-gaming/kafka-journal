@@ -2,14 +2,14 @@ package com.evolutiongaming.kafka.journal.conversions
 
 import cats.MonadError
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.{Action, Id, JournalError}
+import com.evolutiongaming.kafka.journal.{Action, JournalError}
 import com.evolutiongaming.skafka.Header
 import com.evolutiongaming.skafka.producer.ProducerRecord
 import scodec.bits.ByteVector
 
 trait ActionToProducerRecord[F[_]] {
 
-  def apply(action: Action): F[ProducerRecord[Id, ByteVector]]
+  def apply(action: Action): F[ProducerRecord[String, ByteVector]]
 }
 
 object ActionToProducerRecord {
@@ -44,7 +44,7 @@ object ActionToProducerRecord {
           headers = header :: headers)
       }
       result.handleErrorWith { cause =>
-        JournalError(s"ActionToProducerRecord failed for $action: $cause", cause.some).raiseError[F, ProducerRecord[Id, ByteVector]]
+        JournalError(s"ActionToProducerRecord failed for $action: $cause", cause.some).raiseError[F, ProducerRecord[String, ByteVector]]
       }
     }
   }

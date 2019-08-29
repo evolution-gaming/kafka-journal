@@ -15,13 +15,13 @@ object ConsumerRecordOf {
     topicPartition: TopicPartition,
     offset: Offset)(implicit
     actionToProducerRecord: ActionToProducerRecord[F]
-  ): F[ConsumerRecord[Id, ByteVector]] = {
+  ): F[ConsumerRecord[String, ByteVector]] = {
 
     for {
       producerRecord <- actionToProducerRecord(action)
     } yield {
       val timestampAndType = TimestampAndType(action.timestamp, TimestampType.Create)
-      ConsumerRecord[Id, ByteVector](
+      ConsumerRecord[String, ByteVector](
         topicPartition = topicPartition,
         offset = offset,
         timestampAndType = Some(timestampAndType),

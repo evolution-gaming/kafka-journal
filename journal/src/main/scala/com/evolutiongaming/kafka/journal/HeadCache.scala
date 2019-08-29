@@ -176,7 +176,7 @@ object HeadCache {
 
   trait TopicCache[F[_]] {
 
-    def get(id: Id, partition: Partition, offset: Offset): F[Result]
+    def get(id: String, partition: Partition, offset: Offset): F[Result]
 
     def close: F[Unit]
   }
@@ -274,7 +274,7 @@ object HeadCache {
 
       new TopicCache[F] {
 
-        def get(id: Id, partition: Partition, offset: Offset) = {
+        def get(id: String, partition: Partition, offset: Offset) = {
 
           sealed trait Error
 
@@ -450,7 +450,7 @@ object HeadCache {
     }
 
 
-    final case class Entry(id: Id, offset: Offset, info: JournalInfo.NonEmpty)
+    final case class Entry(id: String, offset: Offset, info: JournalInfo.NonEmpty)
 
     object Entry {
 
@@ -468,7 +468,7 @@ object HeadCache {
     final case class PartitionEntry(
       partition: Partition,
       offset: Offset,
-      entries: Map[Id, Entry],
+      entries: Map[String, Entry],
       trimmed: Option[Offset] /*TODO remove this field*/)
 
     object PartitionEntry {
@@ -517,7 +517,7 @@ object HeadCache {
 
     def seek(topic: Topic, offsets: Map[Partition, Offset]): F[Unit]
 
-    def poll(timeout: FiniteDuration): F[ConsumerRecords[Id, ByteVector]]
+    def poll(timeout: FiniteDuration): F[ConsumerRecords[String, ByteVector]]
 
     def partitions(topic: Topic): F[Set[Partition]]
   }
@@ -526,7 +526,7 @@ object HeadCache {
 
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
-    def apply[F[_] : Monad](consumer: KafkaConsumer[F, Id, ByteVector]): Consumer[F] = {
+    def apply[F[_] : Monad](consumer: KafkaConsumer[F, String, ByteVector]): Consumer[F] = {
 
       implicit val monoidUnit = Applicative.monoid[F, Unit]
 
@@ -602,7 +602,7 @@ object HeadCache {
         autoCommit = false)
 
       for {
-        consumer <- KafkaConsumerOf[F].apply[Id, ByteVector](config1)
+        consumer <- KafkaConsumerOf[F].apply[String, ByteVector](config1)
       } yield {
         HeadCache.Consumer[F](consumer)
       }
@@ -643,7 +643,7 @@ object HeadCache {
       consumerRecordToKafkaRecord: ConsumerRecordToKafkaRecord[F]
     ): F[Unit] = {
 
-      def kafkaRecords(records: ConsumerRecords[Id, ByteVector]) = {
+      def kafkaRecords(records: ConsumerRecords[String, ByteVector]) = {
         val records1 = records.values.toList.traverse { case (partition, records0) =>
           val records = records0
             .toList
@@ -900,7 +900,7 @@ object HeadCache {
 
 
   final case class KafkaRecord(
-    id: Id,
+    id: String,
     timestamp: Instant,
     offset: Offset,
     header: ActionHeader)
@@ -908,7 +908,7 @@ object HeadCache {
 
   trait ConsumerRecordToKafkaRecord[F[_]] {
 
-    def apply(consumerRecord: ConsumerRecord[Id, ByteVector]): Option[F[KafkaRecord]]
+    def apply(consumerRecord: ConsumerRecord[String, ByteVector]): Option[F[KafkaRecord]]
   }
 
   object ConsumerRecordToKafkaRecord {
@@ -916,7 +916,7 @@ object HeadCache {
     implicit def apply[F[_] : Functor](implicit
       consumerRecordToActionHeader: ConsumerRecordToActionHeader[F]
     ): ConsumerRecordToKafkaRecord[F] = {
-      record: ConsumerRecord[Id, ByteVector] => {
+      record: ConsumerRecord[String, ByteVector] => {
         for {
           key              <- record.key
           id                = key.value

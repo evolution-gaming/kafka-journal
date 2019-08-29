@@ -110,7 +110,7 @@ object TopicReplicator { self =>
 
     def round(
       state: State,
-      consumerRecords: Map[TopicPartition, List[ConsumerRecord[Id, ByteVector]]],
+      consumerRecords: Map[TopicPartition, List[ConsumerRecord[String, ByteVector]]],
       roundStart: Instant
     ): F[(State, Map[TopicPartition, OffsetAndMetadata])] = {
 
@@ -319,7 +319,7 @@ object TopicReplicator { self =>
 
     def subscribe(topic: Topic): F[Unit]
 
-    def poll: F[ConsumerRecords[Id, ByteVector]]
+    def poll: F[ConsumerRecords[String, ByteVector]]
 
     def commit(offsets: Map[TopicPartition, OffsetAndMetadata]): F[Unit]
 
@@ -331,7 +331,7 @@ object TopicReplicator { self =>
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
     def apply[F[_] : Applicative](
-      consumer: KafkaConsumer[F, Id, ByteVector],
+      consumer: KafkaConsumer[F, String, ByteVector],
       pollTimeout: FiniteDuration
     ): Consumer[F] = new Consumer[F] {
 
@@ -370,7 +370,7 @@ object TopicReplicator { self =>
         autoCommit = false)
 
       for {
-        consumer <- KafkaConsumerOf[F].apply[Id, ByteVector](config1)
+        consumer <- KafkaConsumerOf[F].apply[String, ByteVector](config1)
       } yield {
         Consumer[F](consumer, pollTimeout)
       }

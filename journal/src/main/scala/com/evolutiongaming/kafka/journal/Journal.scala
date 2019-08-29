@@ -482,7 +482,7 @@ object Journal {
 
 
   trait Producer[F[_]] {
-    def send(record: ProducerRecord[Id, ByteVector]): F[PartitionOffset]
+    def send(record: ProducerRecord[String, ByteVector]): F[PartitionOffset]
   }
 
   object Producer {
@@ -513,10 +513,10 @@ object Journal {
     def apply[F[_] : Sync : FromTry](
       producer: KafkaProducer[F]
     )(implicit
-      toBytesKey: skafka.ToBytes[F, Id],
+      toBytesKey: skafka.ToBytes[F, String],
       toBytesValue: skafka.ToBytes[F, ByteVector],
     ): Producer[F] = {
-      record: ProducerRecord[Id, ByteVector] => {
+      record: ProducerRecord[String, ByteVector] => {
         for {
           metadata  <- producer.send(record)
           partition  = metadata.topicPartition.partition
@@ -540,7 +540,7 @@ object Journal {
 
     def seek(partition: TopicPartition, offset: Offset): F[Unit]
 
-    def poll: F[ConsumerRecords[Id, ByteVector]]
+    def poll: F[ConsumerRecords[String, ByteVector]]
   }
 
   object Consumer {
@@ -556,14 +556,14 @@ object Journal {
         autoCommit = false)
 
       for {
-        kafkaConsumer <- KafkaConsumerOf[F].apply[Id, ByteVector](config1)
+        kafkaConsumer <- KafkaConsumerOf[F].apply[String, ByteVector](config1)
       } yield {
         apply[F](kafkaConsumer, pollTimeout)
       }
     }
 
     def apply[F[_]](
-      consumer: KafkaConsumer[F, Id, ByteVector],
+      consumer: KafkaConsumer[F, String, ByteVector],
       pollTimeout: FiniteDuration
     ): Consumer[F] = new Consumer[F] {
 
