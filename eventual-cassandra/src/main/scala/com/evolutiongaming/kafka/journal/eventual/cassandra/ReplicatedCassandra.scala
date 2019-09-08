@@ -23,11 +23,12 @@ object ReplicatedCassandra {
 
   def of[F[_] : Concurrent : FromFuture : ToFuture : Par : Timer : CassandraCluster : CassandraSession : LogOf : MeasureDuration](
     config: EventualCassandraConfig,
+    origin: Option[Origin],
     metrics: Option[Metrics[F]]
   ): F[ReplicatedJournal[F]] = {
 
     for {
-      schema     <- SetupSchema[F](config.schema)
+      schema     <- SetupSchema[F](config.schema, origin)
       statements <- Statements.of[F](schema)
       log        <- LogOf[F].apply(ReplicatedCassandra.getClass)
     } yield {

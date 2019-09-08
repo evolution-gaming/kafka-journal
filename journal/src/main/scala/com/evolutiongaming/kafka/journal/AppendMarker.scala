@@ -6,6 +6,7 @@ import cats.implicits._
 import com.evolutiongaming.catshelper.ClockHelper._
 
 trait AppendMarker[F[_]] {
+  
   def apply(key: Key): F[Marker]
 }
 
@@ -16,16 +17,14 @@ object AppendMarker {
     origin: Option[Origin]
   ): AppendMarker[F] = {
 
-    new AppendMarker[F] {
-      def apply(key: Key) = {
-        for {
-          id              <- RandomId[F].get
-          timestamp       <- Clock[F].instant
-          action           = Action.Mark(key, timestamp, id, origin)
-          partitionOffset <- appendAction(action)
-        } yield {
-          Marker(id, partitionOffset)
-        }
+    key: Key => {
+      for {
+        id              <- RandomId[F].get
+        timestamp       <- Clock[F].instant
+        action           = Action.Mark(key, timestamp, id, origin)
+        partitionOffset <- appendAction(action)
+      } yield {
+        Marker(id, partitionOffset)
       }
     }
   }

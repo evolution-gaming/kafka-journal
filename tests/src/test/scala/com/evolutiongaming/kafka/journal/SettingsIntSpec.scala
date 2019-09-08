@@ -1,12 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
-import java.time.Instant
-import java.time.temporal.ChronoUnit
-
 import akka.actor.ActorSystem
 import cats.effect._
 import cats.implicits._
 import cats.temp.par.Par
+import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.eventual.cassandra._
@@ -16,6 +14,7 @@ import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.typesafe.config.ConfigFactory
 import org.scalatest.{AsyncWordSpec, BeforeAndAfterAll, Matchers}
+
 
 class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers {
 
@@ -30,6 +29,7 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
 
 
   private def resources[F[_] : Concurrent : LogOf : Par : FromFuture : Timer : ToFuture : ContextShift : FromGFuture](
+    origin: Option[Origin],
     cassandraClusterOf: CassandraClusterOf[F]
   ) = {
 
@@ -39,8 +39,8 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
       cassandraSession: CassandraSession[F]) = {
 
       for {
-        schema   <- SetupSchema[F](config)
-        settings <- SettingsCassandra.of[F](schema)
+        schema   <- SetupSchema[F](config, origin)
+        settings <- SettingsCassandra.of[F](schema, origin)
       } yield settings
     }
 
@@ -75,85 +75,87 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
 
     implicit val logOf = LogOf.empty[F]
 
-    val timestamp = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+    for {
+      origin    <- Origin.hostName[F]
+      timestamp <- Clock[F].instant
+      result    <- resources[F](origin, cassandraClusterOf).use { settings =>
 
-    val setting = Setting(key = "key", value = "value", timestamp = timestamp, origin = Some("origin"))
+        val setting = Setting(key = "key", value = "value", timestamp = timestamp, origin = origin)
 
-    def fix(setting: Setting) = {
-      setting.copy(
-        timestamp = timestamp,
-        origin = Some("origin"))
-    }
+        def fix(setting: Setting) = {
+          setting.copy(
+            timestamp = timestamp)
+        }
+        val all = for {
+          settings <- settings.all.toList
+        } yield for {
+          setting  <- settings
+          if setting.key != "schema-version"
+        } yield {
+          fix(setting)
+        }
 
-    resources[F](cassandraClusterOf).use { settings =>
-
-      val all = for {
-        settings <- settings.all.toList
-      } yield for {
-        setting  <- settings
-        if setting.key != "schema-version"
-      } yield {
-        fix(setting)
-      }
-
-      def get(key: Setting.Key) = for {
-        setting <- settings.get(key)
-      } yield for {
-        setting <- setting
-      } yield {
-        fix(setting)
-      }
-
-      def setIfEmpty(key: Setting.Key, value: Setting.Value) = {
-        for {
-          setting <- settings.setIfEmpty(key, value)
+        def get(key: Setting.Key) = for {
+          setting <- settings.get(key)
         } yield for {
           setting <- setting
         } yield {
           fix(setting)
         }
-      }
 
-      def remove(key: Setting.Key) = {
-        for {
-          setting <- settings.remove(key)
-        } yield for {
-          setting <- setting
-        } yield {
-          fix(setting)
+        def setIfEmpty(key: Setting.Key, value: Setting.Value) = {
+          for {
+            setting <- settings.setIfEmpty(key, value)
+          } yield for {
+            setting <- setting
+          } yield {
+            fix(setting)
+          }
         }
+
+        def remove(key: Setting.Key) = {
+          for {
+            setting <- settings.remove(key)
+          } yield for {
+            setting <- setting
+          } yield {
+            fix(setting)
+          }
+        }
+
+        for {
+          a <- get(setting.key)
+          _ <- Sync[F].delay { a shouldEqual None }
+          a <- all
+          _ <- Sync[F].delay { a shouldEqual Nil }
+          a <- remove(setting.key)
+          _ <- Sync[F].delay { a shouldEqual None }
+
+          a <- settings.set(setting.key, setting.value)
+          _ <- Sync[F].delay { a shouldEqual None }
+          a <- get(setting.key)
+          _ <- Sync[F].delay { a shouldEqual Some(setting) }
+          a <- setIfEmpty(setting.key, setting.value)
+          _ <- Sync[F].delay { a shouldEqual Some(setting) }
+          a <- get(setting.key)
+          _ <- Sync[F].delay { a shouldEqual Some(setting) }
+          a <- all
+          _ <- Sync[F].delay { a shouldEqual List(setting) }
+
+          a <- remove(setting.key)
+          _ <- Sync[F].delay { a shouldEqual Some(setting) }
+          a <- get(setting.key)
+          _ <- Sync[F].delay { a shouldEqual None }
+          a <- all
+          _ <- Sync[F].delay { a shouldEqual Nil }
+          a <- remove(setting.key)
+          _ <- Sync[F].delay { a shouldEqual None }
+          a <- setIfEmpty(setting.key, setting.value)
+          _ <- Sync[F].delay { a shouldEqual None }
+        } yield {}
       }
-
-      for {
-        a <- get(setting.key)
-        _ = a shouldEqual None
-        a <- all
-        _ = a shouldEqual Nil
-        a <- remove(setting.key)
-        _ = a shouldEqual None
-
-        a <- settings.set(setting.key, setting.value)
-        _ = a shouldEqual None
-        a <- get(setting.key)
-        _ = a shouldEqual Some(setting)
-        a <- setIfEmpty(setting.key, setting.value)
-        _ = a shouldEqual Some(setting)
-        a <- get(setting.key)
-        _ = a shouldEqual Some(setting)
-        a <- all
-        _ = a shouldEqual List(setting)
-
-        a <- remove(setting.key)
-        _ = a shouldEqual Some(setting)
-        a <- get(setting.key)
-        _ = a shouldEqual None
-        a <- all
-        _ = a shouldEqual Nil
-        a <- remove(setting.key)
-        _ = a shouldEqual None
-        a <- setIfEmpty(setting.key, setting.value)
-        _ = a shouldEqual None
-      } yield {}
+    } yield {
+      result
     }
   }
 

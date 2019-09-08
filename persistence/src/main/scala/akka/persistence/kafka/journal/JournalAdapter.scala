@@ -97,7 +97,7 @@ object JournalAdapter {
       kafkaProducerOf1  = kafkaProducerOf(blocking)
       kafkaConsumerOf1  = kafkaConsumerOf(blocking)
       headCacheOf1      = headCacheOf(kafkaConsumerOf1)
-      eventualJournal  <- EventualCassandra.of[F](config.cassandra, metrics.eventual, cassandraClusterOf)
+      eventualJournal  <- EventualCassandra.of[F](config.cassandra, origin, metrics.eventual, cassandraClusterOf)
       journal          <- journal(eventualJournal)(kafkaConsumerOf1, kafkaProducerOf1, headCacheOf1)
     } yield {
       JournalAdapter[F](journal, toKey, serializer, metadataAndHeadersOf).withBatching(batching)

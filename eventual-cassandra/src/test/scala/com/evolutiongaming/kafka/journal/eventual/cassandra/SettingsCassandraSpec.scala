@@ -8,7 +8,7 @@ import cats.arrow.FunctionK
 import cats.effect.Clock
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.Setting.Key
-import com.evolutiongaming.kafka.journal.Setting
+import com.evolutiongaming.kafka.journal.{Origin, Setting}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.smetrics.MeasureDuration
@@ -86,7 +86,7 @@ class SettingsCassandraSpec extends FunSuite with Matchers {
   }
 
 
-  private val origin = "hostName"
+  private val origin = Origin("origin")
 
   private val timestamp = Instant.now().truncatedTo(ChronoUnit.MILLIS)
 
@@ -151,7 +151,7 @@ class SettingsCassandraSpec extends FunSuite with Matchers {
 
     implicit val measureDuration = MeasureDuration.fromClock(clock)
 
-    SettingsCassandra[StateT](statements, Some("hostName"))
+    SettingsCassandra[StateT](statements, origin.some)
       .withLog(Log.empty)
       .mapK(FunctionK.id[StateT], FunctionK.id[StateT])
   }

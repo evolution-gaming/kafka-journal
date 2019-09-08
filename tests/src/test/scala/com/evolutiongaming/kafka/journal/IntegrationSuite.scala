@@ -53,11 +53,12 @@ object IntegrationSuite {
       }
 
       for {
-        metrics <- Replicator.Metrics.of[F](CollectorRegistry.empty[F], "clientId")
-        config  <- Resource.liftF(config)
-        result  <- Replicator.of[F](config, cassandraClusterOf, metrics = metrics.some)
-        result1  = result.onError { case e => log.error(s"failed to release replicator with $e", e) }
-        _       <- ResourceOf(Concurrent[F].start(result1))
+        metrics  <- Replicator.Metrics.of[F](CollectorRegistry.empty[F], "clientId")
+        config   <- Resource.liftF(config)
+        hostName <- Resource.liftF(HostName.of[F]())
+        result   <- Replicator.of[F](config, cassandraClusterOf, hostName, metrics.some)
+        result1   = result.onError { case e => log.error(s"failed to release replicator with $e", e) }
+        _        <- ResourceOf(Concurrent[F].start(result1))
       } yield {}
     }
 

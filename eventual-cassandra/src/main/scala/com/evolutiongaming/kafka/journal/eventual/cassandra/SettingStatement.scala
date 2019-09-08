@@ -5,7 +5,7 @@ import java.time.Instant
 import cats.implicits._
 import cats.Monad
 import com.datastax.driver.core.{GettableByNameData, SettableData}
-import com.evolutiongaming.kafka.journal.Setting
+import com.evolutiongaming.kafka.journal.{Origin, Setting}
 import com.evolutiongaming.kafka.journal.Setting.{Key, Value}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.scassandra.syntax._
@@ -32,7 +32,7 @@ object SettingStatement {
         key = data.decode[Key]("key"),
         value = data.decode[Value]("value"),
         timestamp = data.decode[Instant]("timestamp"),
-        origin = data.decode[Option[String]]("origin"))
+        origin = data.decode[Option[Origin]])
     }
   }
 
@@ -70,7 +70,7 @@ object SettingStatement {
               key = key,
               value = row.decode[Value]("value"),
               timestamp = row.decode[Instant]("timestamp"),
-              origin = row.decode[Option[String]]("origin"))
+              origin = row.decode[Option[Origin]])
           }
       }
     }

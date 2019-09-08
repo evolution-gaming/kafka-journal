@@ -20,7 +20,8 @@ object EventualCassandraConfig {
 
   val Default: EventualCassandraConfig = EventualCassandraConfig()
 
-  
+
+  // TODO pure config
   def apply(config: Config): EventualCassandraConfig = apply(config, Default)
 
   def apply(config: Config, default: => EventualCassandraConfig): EventualCassandraConfig = {

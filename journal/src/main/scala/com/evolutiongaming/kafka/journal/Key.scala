@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.FlatMap
+import cats.Functor
 import cats.implicits._
 import com.datastax.driver.core.{GettableByNameData, SettableData}
 import com.evolutiongaming.scassandra.syntax._
@@ -32,7 +32,7 @@ object Key {
   }
 
 
-  def random[F[_] : FlatMap : RandomId](topic: Topic): F[Key] = {
+  def random[F[_] : Functor : RandomId](topic: Topic): F[Key] = {
     for {
       id <- RandomId[F].get
     } yield {

@@ -1,11 +1,13 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
+import cats.arrow.FunctionK
 import cats.effect.concurrent.Semaphore
 import cats.effect.{Concurrent, Sync, Timer}
 import cats.implicits._
+import cats.~>
 import com.evolutiongaming.cassandra
 import com.evolutiongaming.cassandra.sync.AutoCreate
-import com.evolutiongaming.kafka.journal.HostName
+import com.evolutiongaming.kafka.journal.Origin
 
 trait CassandraSync[F[_]] {
   def apply[A](fa: F[A]): F[A]
@@ -18,7 +20,7 @@ object CassandraSync {
 
   def apply[F[_] : Sync : Timer : CassandraSession](
     config: SchemaConfig,
-    semaphore: Semaphore[F]
+    origin: Option[Origin],
   ): CassandraSync[F] = {
 
     val keyspace = config.keyspace
@@ -27,8 +29,7 @@ object CassandraSync {
       keyspace = keyspace.name,
       table = config.locksTable,
       autoCreate = autoCreate,
-      metadata = HostName().map(_.value),
-      semaphore = semaphore)
+      metadata = origin.map(_.value))
   }
 
   def apply[F[_] : Sync : Timer : CassandraSession](
@@ -36,7 +37,6 @@ object CassandraSync {
     table: String,
     autoCreate: AutoCreate,
     metadata: Option[String],
-    semaphore: Semaphore[F],
   ): CassandraSync[F] = {
 
     new CassandraSync[F] {
@@ -51,19 +51,34 @@ object CassandraSync {
 
         for {
           cassandraSync <- cassandraSync
-          result        <- semaphore.withPermit {
-            cassandraSync(id = "kafka-journal", metadata = metadata)(fa)
-          }
+          result        <- cassandraSync(id = "kafka-journal", metadata = metadata)(fa)
         } yield result
       }
     }
   }
 
-  def of[F[_] : Concurrent : Timer : CassandraSession](config: SchemaConfig): F[CassandraSync[F]] = {
+  def of[F[_] : Concurrent : Timer : CassandraSession](
+    config: SchemaConfig,
+    origin: Option[Origin]
+  ): F[CassandraSync[F]] = {
+
     for {
       semaphore <- Semaphore[F](1)
     } yield {
-      apply[F](config, semaphore)
+      val cassandraSync = apply[F](config, origin)
+      val serial = new (F ~> F) {
+        def apply[A](fa: F[A]) = semaphore.withPermit(fa)
+      }
+      cassandraSync.mapK(serial, FunctionK.id)
+    }
+  }
+
+
+  implicit class CassandraSyncOps[F[_]](val self: CassandraSync[F]) extends AnyVal {
+
+    def mapK[G[_]](fg: F ~> G, gf: G ~> F): CassandraSync[G] = new CassandraSync[G] {
+
+      def apply[A](fa: G[A]) = fg(self(gf(fa)))
     }
   }
 }

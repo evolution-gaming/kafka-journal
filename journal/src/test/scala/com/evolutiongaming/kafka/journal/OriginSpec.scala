@@ -2,24 +2,33 @@ package com.evolutiongaming.kafka.journal
 
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
-import org.scalatest.{FunSuite, Matchers}
+import cats.effect.{IO, Sync}
+import com.evolutiongaming.kafka.journal.IOSuite._
+import org.scalatest.{AsyncFunSuite, Matchers}
 
 import scala.concurrent.duration._
 
-class OriginSpec extends FunSuite with Matchers {
+class OriginSpec extends AsyncFunSuite with Matchers {
 
-  test("HostName") {
-    Origin.HostName.isDefined shouldEqual true
+  test("hostName") {
+    val result = for {
+      hostName <- Origin.hostName[IO]
+      result <- Sync[IO].delay { hostName.isDefined shouldEqual true }
+    } yield result
+    result.run()
   }
 
   withSystem { system =>
-    test("AkkaHost") {
-      val origin = Origin.AkkaHost(system)
-      origin.isDefined shouldEqual false
+    test("akkaHost") {
+      val result = for {
+        akkaHost <- Origin.akkaHost[IO](system)
+        result <- Sync[IO].delay { akkaHost.isDefined shouldEqual false }
+      } yield result
+      result.run()
     }
 
     test("AkkaName") {
-      Origin.AkkaName(system) shouldEqual Origin("OriginSpec")
+      Origin.akkaName(system) shouldEqual Origin("OriginSpec")
     }
   }
 

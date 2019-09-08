@@ -27,7 +27,7 @@ import scala.util.control.NoStackTrace
 
 class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers {
 
-  private val origin = Origin.HostName getOrElse Origin("ReplicatorIntSpec")
+  private val origin = Origin("ReplicatorIntSpec")
 
   private val metadata = Metadata(data = Json.obj(("key", "value")).some)
 
@@ -43,7 +43,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       val config = Sync[F].delay { EventualCassandraConfig(conf.getConfig("cassandra")) }
       for {
         config          <- Resource.liftF[F, EventualCassandraConfig](config)
-        eventualJournal <- EventualCassandra.of[F](config, None, cassandraClusterOf)
+        eventualJournal <- EventualCassandra.of[F](config, origin.some, none, cassandraClusterOf)
       } yield eventualJournal
     }
 
@@ -67,7 +67,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       } yield {
         implicit val log1 = log
         Journal[F](
-          origin = Some(origin),
+          origin = origin.some,
           producer = producer,
           consumer = consumer,
           eventualJournal = eventualJournal,
@@ -200,7 +200,6 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       val numberOfEvents = 100
 
       s"replicate append of $numberOfEvents events, seqNr: $seqNr" in {
-
 
         val result = for {
           key        <- Key.random[IO](topic)

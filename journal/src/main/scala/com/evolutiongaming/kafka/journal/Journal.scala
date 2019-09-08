@@ -122,6 +122,8 @@ object Journal {
 
     val appendMarker = AppendMarker(appendAction, origin)
 
+    val appendEvents = AppendEvents(appendAction, origin)
+
     def readActions(key: Key, from: SeqNr): F[(F[JournalInfo], FoldActions[F])] = {
       for {
         pointers <- Concurrent[F].start { eventual.pointers(key.topic) }
@@ -157,12 +159,7 @@ object Journal {
     new Journal[F] {
 
       def append(key: Key, events: Nel[Event], metadata: Option[JsValue], headers: Headers) = {
-        for {
-          timestamp <- Clock[F].instant
-          metadata1  = Metadata(data = metadata)
-          action    <- Action.Append.of[F](key, timestamp, origin, events, metadata1, headers) // TODO measure
-          result    <- appendAction(action)
-        } yield result
+        appendEvents(key, events, metadata, headers)
       }
 
       def read(key: Key, from: SeqNr) = new Stream[F, EventRecord] {

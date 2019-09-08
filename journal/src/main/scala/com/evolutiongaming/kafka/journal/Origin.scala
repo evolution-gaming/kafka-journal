@@ -1,6 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
 import akka.actor.{ActorSystem, ExtendedActorSystem, Extension, ExtensionId}
+import cats.effect.Sync
+import cats.implicits._
 import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
 import play.api.libs.json._
 
@@ -12,10 +14,6 @@ final case class Origin(value: String) extends AnyVal {
 object Origin {
 
   val Empty: Origin = Origin("")
-
-  val HostName: Option[Origin] = {
-    com.evolutiongaming.kafka.journal.HostName() map { hostname => Origin(hostname.value) }
-  }
 
 
   implicit val WritesOrigin: Writes[Origin] = Writes.of[String].contramap(_.value)
@@ -43,11 +41,33 @@ object Origin {
   implicit val DecodeRowOptOrigin: DecodeRow[Option[Origin]] = DecodeRow("origin")
 
 
-  object AkkaHost {
+  def fromHostName(hostName: HostName): Origin = Origin(hostName.value)
+  
 
-    private case class Ext(origin: Option[Origin]) extends Extension
+  def hostName[F[_] : Sync]: F[Option[Origin]] = {
+    for {
+      hostName <- HostName.of[F]()
+    } yield for {
+      hostName <- hostName
+    } yield {
+      fromHostName(hostName)
+    }
+  }
 
-    private object Ext extends ExtensionId[Ext] {
+
+  def akkaName(system: ActorSystem): Origin = Origin(system.name)
+
+
+  def akkaHost[F[_] : Sync](system: ActorSystem): F[Option[Origin]] = {
+    Sync[F].delay { AkkaHost.Ext(system).origin }
+  }
+
+
+  private object AkkaHost {
+
+    case class Ext(origin: Option[Origin]) extends Extension
+
+    object Ext extends ExtensionId[Ext] {
 
       def createExtension(system: ExtendedActorSystem): Ext = {
         val address = system.provider.getDefaultAddress
@@ -59,12 +79,8 @@ object Origin {
       }
     }
 
-    def apply(system: ActorSystem): Option[Origin] = {
-      Ext(system).origin
+    def apply[F[_] : Sync](system: ActorSystem): F[Option[Origin]] = {
+      Sync[F].delay { Ext(system).origin }
     }
-  }
-
-  object AkkaName {
-    def apply(system: ActorSystem): Origin = Origin(system.name)
   }
 }

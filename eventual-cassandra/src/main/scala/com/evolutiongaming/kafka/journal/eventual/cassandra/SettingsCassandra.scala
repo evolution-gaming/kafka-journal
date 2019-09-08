@@ -5,14 +5,14 @@ import cats.effect.Clock
 import cats.implicits._
 import cats.temp.par._
 import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.kafka.journal.{HostName, Setting, Settings}
+import com.evolutiongaming.kafka.journal.{Origin, Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
 
 object SettingsCassandra {
 
   def apply[F[_] : Monad : Clock](
     statements: Statements[F],
-    origin: Option[String],
+    origin: Option[Origin],
   ): Settings[F] = new Settings[F] {
 
     def get(key: K) = {
@@ -54,12 +54,13 @@ object SettingsCassandra {
   }
 
 
-  def of[F[_] : Monad : Par : Clock : CassandraSession](schema: Schema): F[Settings[F]] = {
+  def of[F[_] : Monad : Par : Clock : CassandraSession](
+    schema: Schema,
+    origin: Option[Origin]
+  ): F[Settings[F]] = {
     for {
       statements <- Statements.of[F](schema.setting)
     } yield {
-      val hostName = HostName()
-      val origin = hostName.map(_.value)
       apply(statements, origin)
     }
   }

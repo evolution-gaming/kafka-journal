@@ -36,12 +36,16 @@ object Replicator {
   def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf : KafkaConsumerOf : FromGFuture : MeasureDuration : FromTry](
     config: ReplicatorConfig,
     cassandraClusterOf: CassandraClusterOf[F],
-    hostName: Option[HostName] = HostName(),
+    hostName: Option[HostName],
     metrics: Option[Metrics[F]] = none
   ): Resource[F, F[Unit]] = {
 
-    def replicatedJournal(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
-      ReplicatedCassandra.of[F](config.cassandra, metrics.flatMap(_.journal))
+    def replicatedJournal(implicit
+      cassandraCluster: CassandraCluster[F],
+      cassandraSession: CassandraSession[F]
+    ) = {
+      val origin = hostName.map(Origin.fromHostName)
+      ReplicatedCassandra.of[F](config.cassandra, origin, metrics.flatMap(_.journal))
     }
 
     for {

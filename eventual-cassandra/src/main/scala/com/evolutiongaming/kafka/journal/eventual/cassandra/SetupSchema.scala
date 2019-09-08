@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.effect.{Concurrent, Sync, Timer}
 import cats.implicits._
 import cats.temp.par.Par
-import com.evolutiongaming.kafka.journal.{Setting, Settings}
+import com.evolutiongaming.kafka.journal.{Origin, Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.catshelper.EffectHelper._
 import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
@@ -48,6 +48,7 @@ object SetupSchema { self =>
 
   def apply[F[_] : Concurrent : Par : Timer : CassandraCluster : CassandraSession : FromFuture : ToFuture : LogOf](
     config: SchemaConfig,
+    origin: Option[Origin]
   ): F[Schema] = {
 
     def migrate(
@@ -63,10 +64,10 @@ object SetupSchema { self =>
     def createSchema(implicit cassandraSync: CassandraSync[F]) = CreateSchema(config)
     
     for {
-      cassandraSync   <- CassandraSync.of[F](config)
+      cassandraSync   <- CassandraSync.of[F](config, origin)
       ab              <- createSchema(cassandraSync)
       (schema, fresh)  = ab
-      settings        <- SettingsCassandra.of[F](schema)
+      settings        <- SettingsCassandra.of[F](schema, origin)
       _               <- migrate(schema, fresh)(cassandraSync, settings)
     } yield schema
   }

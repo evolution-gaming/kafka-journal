@@ -18,12 +18,13 @@ object EventualCassandra {
 
   def of[F[_] : Concurrent : Par : Timer : FromFuture : ToFuture : LogOf : FromGFuture : MeasureDuration](
     config: EventualCassandraConfig,
+    origin: Option[Origin],
     metrics: Option[EventualJournal.Metrics[F]],
     cassandraClusterOf: CassandraClusterOf[F],
   ): Resource[F, EventualJournal[F]] = {
 
     def journal(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
-      of(config.schema, metrics)
+      of(config.schema, origin, metrics)
     }
 
     for {
@@ -35,12 +36,13 @@ object EventualCassandra {
 
   def of[F[_] : Concurrent : Par : CassandraCluster : CassandraSession : LogOf : Timer : FromFuture : ToFuture : MeasureDuration](
     schemaConfig: SchemaConfig,
+    origin: Option[Origin],
     metrics: Option[EventualJournal.Metrics[F]]
   ): F[EventualJournal[F]] = {
 
     for {
       log        <- LogOf[F].apply(EventualCassandra.getClass)
-      schema     <- SetupSchema[F](schemaConfig)
+      schema     <- SetupSchema[F](schemaConfig, origin)
       statements <- Statements.of[F](schema)
     } yield {
       val journal = apply[F](statements)

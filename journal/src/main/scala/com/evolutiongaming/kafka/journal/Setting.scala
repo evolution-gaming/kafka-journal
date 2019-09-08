@@ -6,7 +6,7 @@ final case class Setting(
   key: Setting.Key,
   value: Setting.Value,
   timestamp: Instant,
-  origin: Option[String])
+  origin: Option[Origin])
 
 object Setting {
   type Key = String

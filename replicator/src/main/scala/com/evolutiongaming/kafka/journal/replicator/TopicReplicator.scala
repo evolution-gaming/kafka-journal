@@ -212,7 +212,7 @@ object TopicReplicator { self =>
         val offsetsToCommit = for {
           (topicPartition, offset) <- offsets
         } yield {
-          val offsetAndMetadata = OffsetAndMetadata(offset + 1)
+          val offsetAndMetadata = OffsetAndMetadata(offset + 1/*TODO pass metadata*/)
           (topicPartition, offsetAndMetadata)
         }
 

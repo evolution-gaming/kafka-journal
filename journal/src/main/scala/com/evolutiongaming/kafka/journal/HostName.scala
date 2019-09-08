@@ -1,13 +1,22 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.effect.Sync
+
 
 final case class HostName(value: String) {
+
   override def toString: String = value
 }
 
 object HostName {
 
-  private val value = com.evolutiongaming.hostname.HostName().map(HostName(_))
-
-  def apply(): Option[HostName] = value
+  def of[F[_] : Sync](): F[Option[HostName]] = {
+    Sync[F].delay {
+      for {
+        a <- com.evolutiongaming.hostname.HostName()
+      } yield {
+        HostName(a)
+      }
+    }
+  }
 }

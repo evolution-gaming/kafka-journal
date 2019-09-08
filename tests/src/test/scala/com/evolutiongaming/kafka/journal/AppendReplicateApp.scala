@@ -50,7 +50,8 @@ object AppendReplicateApp extends IOApp {
     }
 
     def journal(
-      config: JournalConfig)(implicit
+      config: JournalConfig,
+      hostName: Option[HostName])(implicit
       kafkaConsumerOf: KafkaConsumerOf[F],
       kafkaProducerOf: KafkaProducerOf[F],
       log: Log[F]
@@ -61,7 +62,7 @@ object AppendReplicateApp extends IOApp {
         producer <- Journal.Producer.of[F](config.producer)
       } yield {
         Journal[F](
-          origin = Origin.HostName,
+          origin = hostName.map(Origin.fromHostName),
           producer = producer,
           consumer = consumer,
           eventualJournal = EventualJournal.empty[F],
@@ -69,7 +70,7 @@ object AppendReplicateApp extends IOApp {
       }
     }
 
-    def replicator(implicit kafkaConsumerOf: KafkaConsumerOf[F]) = {
+    def replicator(hostName: Option[HostName])(implicit kafkaConsumerOf: KafkaConsumerOf[F]) = {
       val config = Sync[F].delay {
         val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.replicator")
         ReplicatorConfig(config)
@@ -77,7 +78,7 @@ object AppendReplicateApp extends IOApp {
       for {
         cassandraClusterOf <- Resource.liftF(CassandraClusterOf.of[F])
         config             <- Resource.liftF(config)
-        result             <- Replicator.of[F](config, cassandraClusterOf)
+        result             <- Replicator.of[F](config, cassandraClusterOf, hostName)
       } yield result
     }
 
@@ -87,8 +88,9 @@ object AppendReplicateApp extends IOApp {
       blocking           <- Executors.blocking[F]("kafka-journal-blocking")
       kafkaConsumerOf     = KafkaConsumerOf[F](blocking)
       kafkaProducerOf     = KafkaProducerOf[F](blocking)
-      replicate          <- replicator(kafkaConsumerOf)
-      journal            <- journal(kafkaJournalConfig.journal)(kafkaConsumerOf, kafkaProducerOf, log)
+      hostName           <- Resource.liftF(HostName.of[F]())
+      replicate          <- replicator(hostName)(kafkaConsumerOf)
+      journal            <- journal(kafkaJournalConfig.journal, hostName)(kafkaConsumerOf, kafkaProducerOf, log)
     } yield {
       (journal, replicate)
     }

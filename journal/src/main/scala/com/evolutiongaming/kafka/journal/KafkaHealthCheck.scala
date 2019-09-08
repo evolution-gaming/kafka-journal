@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.implicits._
-import cats.{Applicative, FlatMap, Monad}
+import cats.{Applicative, Functor, Monad}
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.skafka.Topic
@@ -13,16 +13,21 @@ import com.evolutiongaming.skafka.producer.{ProducerConfig, ProducerRecord}
 import scala.concurrent.duration._
 
 trait KafkaHealthCheck[F[_]] {
+
   def error: F[Option[Throwable]]
+
   def done: F[Unit]
 }
 
 object KafkaHealthCheck {
 
   def empty[F[_] : Applicative]: KafkaHealthCheck[F] = new KafkaHealthCheck[F] {
+
     def error = none[Throwable].pure[F]
+
     def done = ().pure[F]
   }
+  
 
   def of[F[_] : Concurrent : ContextShift : Timer : LogOf : KafkaConsumerOf : KafkaProducerOf : RandomId : FromTry](
     config: Config,
@@ -193,7 +198,7 @@ object KafkaHealthCheck {
 
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
-    def apply[F[_] : FlatMap](consumer: KafkaConsumer[F, String, String]): Consumer[F] = {
+    def apply[F[_] : Functor](consumer: KafkaConsumer[F, String, String]): Consumer[F] = {
 
       new Consumer[F] {
 
