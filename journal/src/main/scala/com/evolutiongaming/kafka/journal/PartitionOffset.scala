@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.Show
 import com.datastax.driver.core.{GettableByNameData, SettableData}
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow}
@@ -31,6 +32,10 @@ object PartitionOffset {
       partition = data.decode[Partition]("partition"),
       offset = data.decode[Offset]("offset"))
   }
+
+
+  implicit val showPartitionOffset: Show[PartitionOffset] = Show.fromToString[PartitionOffset]
+  
 
   def apply(record: ConsumerRecord[_, _]): PartitionOffset = {
     PartitionOffset(

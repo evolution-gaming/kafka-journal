@@ -1,0 +1,25 @@
+package com.evolutiongaming.kafka.journal
+
+import cats.ApplicativeError
+import cats.implicits._
+import pureconfig.ConfigReader
+import pureconfig.error.ConfigReaderException
+
+trait FromConfigReaderResult[F[_]] {
+
+  def apply[A](a: ConfigReader.Result[A]): F[A]
+}
+
+object FromConfigReaderResult {
+
+  def apply[F[_]](implicit F: FromConfigReaderResult[F]): FromConfigReaderResult[F] = F
+
+
+  implicit def lift[F[_]](implicit F: ApplicativeError[F, Throwable]): FromConfigReaderResult[F] = {
+    new FromConfigReaderResult[F] {
+      def apply[A](a: ConfigReader.Result[A]) = {
+        a.fold(a => ConfigReaderException(a).raiseError[F, A], _.pure[F])
+      }
+    }
+  }
+}
