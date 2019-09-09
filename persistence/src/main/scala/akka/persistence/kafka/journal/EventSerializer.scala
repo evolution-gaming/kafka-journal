@@ -111,7 +111,7 @@ object EventSerializer {
 
       def json(payload: JsValue) = {
         for {
-          persistent  <- FromJsResult[F].apply { payload.validate[PersistentJson] }
+          persistent  <- FromJsResult[F].apply { payload.validate[PersistentJson[JsValue]] }
           payloadType  = persistent.payloadType getOrElse PayloadType.Json
           anyRef      <- payloadType match {
             case PayloadType.Text => FromJsResult[F].apply { persistent.payload.validate[String].map(a => a: AnyRef) }
