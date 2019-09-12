@@ -2,10 +2,10 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
 
+import cats.Parallel
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.implicits._
-import cats.temp.par.Par
 import com.evolutiongaming.catshelper.{FromFuture, FromTry, LogOf, ToFuture, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
@@ -35,7 +35,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
   private implicit val randomId = RandomId.uuid[IO]
 
-  private def resources[F[_] : Concurrent : LogOf : Par : FromFuture : Timer : ToFuture : ContextShift : RandomId : MeasureDuration : FromTry : ToTry](
+  private def resources[F[_] : Concurrent : LogOf : Parallel : FromFuture : Timer : ToFuture : ContextShift : RandomId : MeasureDuration : FromTry : ToTry](
     cassandraClusterOf: CassandraClusterOf[F]
   ) = {
 

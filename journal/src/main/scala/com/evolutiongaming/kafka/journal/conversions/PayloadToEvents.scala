@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal.conversions
 
-import cats.MonadError
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
+import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolutiongaming.kafka.journal.PayloadAndType.PayloadJson
 import com.evolutiongaming.kafka.journal._
 
@@ -13,8 +13,7 @@ trait PayloadToEvents[F[_]] {
 
 object PayloadToEvents {
 
-  implicit def apply[F[_] : FromAttempt : FromJsResult](implicit
-    F: MonadError[F, Throwable],
+  implicit def apply[F[_] : MonadThrowable : FromAttempt : FromJsResult](implicit
     eventsFromBytes: FromBytes[F, Nel[Event]],
     payloadJsonFromBytes: FromBytes[F, PayloadJson]
   ): PayloadToEvents[F] = {

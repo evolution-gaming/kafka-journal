@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
+import cats.Parallel
 import cats.effect.{Concurrent, Sync, Timer}
 import cats.implicits._
-import cats.temp.par.Par
 import com.evolutiongaming.kafka.journal.{Origin, Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.catshelper.EffectHelper._
@@ -46,7 +46,7 @@ object SetupSchema { self =>
     } yield {}
   }
 
-  def apply[F[_] : Concurrent : Par : Timer : CassandraCluster : CassandraSession : FromFuture : ToFuture : LogOf](
+  def apply[F[_] : Concurrent : Parallel : Timer : CassandraCluster : CassandraSession : FromFuture : ToFuture : LogOf](
     config: SchemaConfig,
     origin: Option[Origin]
   ): F[Schema] = {

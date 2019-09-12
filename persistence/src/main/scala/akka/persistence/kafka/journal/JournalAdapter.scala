@@ -4,8 +4,7 @@ import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.implicits._
-import cats.temp.par.Par
-import cats.{Monad, ~>}
+import cats.{Monad, Parallel, ~>}
 import com.evolutiongaming.catshelper.{FromFuture, FromTry, Log, LogOf, Runtime, ToFuture, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
@@ -36,7 +35,7 @@ trait JournalAdapter[F[_]] {
 
 object JournalAdapter {
 
-  def of[F[_] : Concurrent : ContextShift : FromFuture : ToFuture : Par : Timer : LogOf : Runtime : RandomId : FromGFuture : MeasureDuration : ToTry : FromTry : FromAttempt : FromJsResult](
+  def of[F[_] : Concurrent : ContextShift : FromFuture : ToFuture : Parallel : Timer : LogOf : Runtime : RandomId : FromGFuture : MeasureDuration : ToTry : FromTry : FromAttempt : FromJsResult](
     toKey: ToKey[F],
     origin: Option[Origin],
     serializer: EventSerializer[F],

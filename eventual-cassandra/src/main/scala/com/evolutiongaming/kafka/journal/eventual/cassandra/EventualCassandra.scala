@@ -1,9 +1,8 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.Monad
+import cats.{Monad, Parallel}
 import cats.effect.{Concurrent, Resource, Timer}
 import cats.implicits._
-import cats.temp.par._
 import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
@@ -16,7 +15,7 @@ import com.evolutiongaming.sstream.Stream
 
 object EventualCassandra {
 
-  def of[F[_] : Concurrent : Par : Timer : FromFuture : ToFuture : LogOf : FromGFuture : MeasureDuration](
+  def of[F[_] : Concurrent : Parallel : Timer : FromFuture : ToFuture : LogOf : FromGFuture : MeasureDuration](
     config: EventualCassandraConfig,
     origin: Option[Origin],
     metrics: Option[EventualJournal.Metrics[F]],
@@ -34,7 +33,7 @@ object EventualCassandra {
     } yield journal
   }
 
-  def of[F[_] : Concurrent : Par : CassandraCluster : CassandraSession : LogOf : Timer : FromFuture : ToFuture : MeasureDuration](
+  def of[F[_] : Concurrent : Parallel : CassandraCluster : CassandraSession : LogOf : Timer : FromFuture : ToFuture : MeasureDuration](
     schemaConfig: SchemaConfig,
     origin: Option[Origin],
     metrics: Option[EventualJournal.Metrics[F]]
@@ -52,7 +51,7 @@ object EventualCassandra {
   }
 
 
-  def apply[F[_] : Monad : Par](statements: Statements[F]): EventualJournal[F] = {
+  def apply[F[_] : Monad : Parallel](statements: Statements[F]): EventualJournal[F] = {
 
     new EventualJournal[F] {
 
@@ -140,7 +139,7 @@ object EventualCassandra {
 
     def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 
-    def of[F[_] : Par : Monad : CassandraSession](schema: Schema): F[Statements[F]] = {
+    def of[F[_] : Parallel : Monad : CassandraSession](schema: Schema): F[Statements[F]] = {
       val statements = (
         JournalStatement.SelectRecords.of[F](schema.journal),
         HeadStatement.Select.of[F](schema.head),

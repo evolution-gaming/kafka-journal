@@ -7,8 +7,8 @@ import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.implicits._
-import cats.temp.par._
 import com.evolutiongaming.catshelper.ClockHelper._
+import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, SerialRef}
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.kafka.journal.conversions.ConsumerRecordToActionHeader
@@ -53,7 +53,7 @@ object HeadCache {
   }
 
 
-  def of[F[_] : Concurrent : Par : Timer : ContextShift : LogOf : KafkaConsumerOf : MeasureDuration : FromTry : FromAttempt : FromJsResult](
+  def of[F[_] : Concurrent : Parallel : Timer : ContextShift : LogOf : KafkaConsumerOf : MeasureDuration : FromTry : FromAttempt : FromJsResult](
     consumerConfig: ConsumerConfig,
     eventualJournal: EventualJournal[F],
     metrics: Option[HeadCacheMetrics[F]]
@@ -72,7 +72,7 @@ object HeadCache {
   }
 
 
-  def of[F[_] : Concurrent : Eventual : Par : Timer : ContextShift : FromAttempt : FromJsResult : MeasureDuration](
+  def of[F[_] : Concurrent : Eventual : Parallel : Timer : ContextShift : FromAttempt : FromJsResult : MeasureDuration](
     log: Log[F],
     consumer: Resource[F, Consumer[F]],
     metrics: Option[HeadCacheMetrics[F]],
@@ -111,7 +111,7 @@ object HeadCache {
         }
         c <- c
         v <- c.values
-        _ <- Parallel.foldMap(v.values) { v =>
+        _ <- v.values.parFoldMap { v =>
           for {
             v <- v
             _ <- v.close
@@ -185,7 +185,7 @@ object HeadCache {
 
     type Listener[F[_]] = Map[Partition, PartitionEntry] => Option[F[Unit]]
 
-    def of[F[_] : Concurrent : Eventual : Par : Timer : ContextShift](
+    def of[F[_] : Concurrent : Eventual : Parallel : Timer : ContextShift](
       topic: Topic,
       config: Config,
       consumer: Resource[F, Consumer[F]],

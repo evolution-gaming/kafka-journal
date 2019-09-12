@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import cats.Applicative
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.CatsHelper._
+import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.skafka.{Offset, Partition}
 import com.evolutiongaming.sstream.Stream
 
@@ -17,7 +17,7 @@ object FoldActions {
   }
 
   // TODO add range argument
-  def apply[F[_] : BracketE](
+  def apply[F[_] : BracketThrowable](
     key: Key,
     from: SeqNr,
     marker: Marker,

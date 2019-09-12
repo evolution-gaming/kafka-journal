@@ -5,7 +5,6 @@ import cats.arrow.FunctionK
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.implicits._
-import cats.temp.par._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal.conversions.{EventsToPayload, PayloadToEvents}
@@ -57,7 +56,7 @@ object Journal {
   }
 
 
-  def of[F[_] : Concurrent : ContextShift : Timer : Par : LogOf : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomId : MeasureDuration : FromTry](
+  def of[F[_] : Concurrent : ContextShift : Timer : Parallel : LogOf : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomId : MeasureDuration : FromTry](
     config: JournalConfig,
     origin: Option[Origin],
     eventualJournal: EventualJournal[F],
@@ -93,7 +92,7 @@ object Journal {
   }
 
 
-  def apply[F[_] : Concurrent : ContextShift : Par : Clock : Log : RandomId : FromTry](
+  def apply[F[_] : Concurrent : ContextShift : Parallel : Clock : Log : RandomId : FromTry](
     origin: Option[Origin],
     producer: Producer[F],
     consumer: Resource[F, Consumer[F]],
@@ -110,7 +109,7 @@ object Journal {
   }
 
 
-  def apply[F[_] : Concurrent : Log : Clock : Par : RandomId : FromTry](
+  def apply[F[_] : Concurrent : Log : Clock : Parallel : RandomId : FromTry](
     origin: Option[Origin],
     eventual: EventualJournal[F],
     readActionsOf: ReadActionsOf[F],
