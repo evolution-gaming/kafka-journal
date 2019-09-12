@@ -7,7 +7,7 @@ import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.implicits._
 import cats.temp.par._
-import cats.{Applicative, FlatMap, Monad, ~>}
+import cats.{Applicative, FlatMap, Monad, Parallel, ~>}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal.CatsHelper._
@@ -42,7 +42,7 @@ trait TopicReplicator[F[_]] {
 object TopicReplicator { self =>
 
   // TODO should return Resource
-  def of[F[_] : Concurrent : Timer : Par : Metrics : ReplicatedJournal : ContextShift : LogOf : FromTry](
+  def of[F[_] : Concurrent : Timer : Parallel : Metrics : ReplicatedJournal : ContextShift : LogOf : FromTry](
     topic: Topic,
     consumer: Resource[F, Consumer[F]]
   ): F[TopicReplicator[F]] = {
@@ -99,7 +99,7 @@ object TopicReplicator { self =>
   }
 
   //  TODO return error in case failed to connect
-  def of[F[_] : Concurrent : Clock : Par : Metrics : ReplicatedJournal : Log : ContextShift : FromTry](
+  def of[F[_] : Concurrent : Clock : Parallel : Metrics : ReplicatedJournal : Log : ContextShift : FromTry](
     topic: Topic,
     stopRef: StopRef[F],
     consumer: Consumer[F],

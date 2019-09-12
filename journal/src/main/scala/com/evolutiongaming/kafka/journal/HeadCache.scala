@@ -53,7 +53,7 @@ object HeadCache {
   }
 
 
-  def of[F[_] : Concurrent : Par : Timer : ContextShift : LogOf : KafkaConsumerOf : MeasureDuration : FromTry : FromAttempt : FromJsResult](
+  def of[F[_] : Concurrent : Parallel : Timer : ContextShift : LogOf : KafkaConsumerOf : MeasureDuration : FromTry : FromAttempt : FromJsResult](
     consumerConfig: ConsumerConfig,
     eventualJournal: EventualJournal[F],
     metrics: Option[HeadCacheMetrics[F]]
@@ -72,7 +72,7 @@ object HeadCache {
   }
 
 
-  def of[F[_] : Concurrent : Eventual : Par : Timer : ContextShift : FromAttempt : FromJsResult : MeasureDuration](
+  def of[F[_] : Concurrent : Eventual : Parallel : Timer : ContextShift : FromAttempt : FromJsResult : MeasureDuration](
     log: Log[F],
     consumer: Resource[F, Consumer[F]],
     metrics: Option[HeadCacheMetrics[F]],
@@ -185,7 +185,7 @@ object HeadCache {
 
     type Listener[F[_]] = Map[Partition, PartitionEntry] => Option[F[Unit]]
 
-    def of[F[_] : Concurrent : Eventual : Par : Timer : ContextShift](
+    def of[F[_] : Concurrent : Eventual : Parallel : Timer : ContextShift](
       topic: Topic,
       config: Config,
       consumer: Resource[F, Consumer[F]],

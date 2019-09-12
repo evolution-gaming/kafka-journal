@@ -32,7 +32,7 @@ object CatsHelper {
   }
 
 
-  implicit class ParallelIdOps[M[_], F[_]](val self: Parallel[M, F]) extends AnyVal {
+  implicit class ParallelIdOps[M[_], F[_]](val self: Parallel[M]) extends AnyVal {
 
     def commutativeApplicative: CommutativeApplicative[F] = {
       val applicative = self.applicative

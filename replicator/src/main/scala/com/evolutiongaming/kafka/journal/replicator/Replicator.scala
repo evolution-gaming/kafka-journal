@@ -6,7 +6,7 @@ import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.implicits._
 import cats.temp.par._
-import cats.{Monad, ~>}
+import cats.{Monad, Parallel, ~>}
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.kafka.journal._
@@ -33,7 +33,7 @@ trait Replicator[F[_]] {
 
 object Replicator {
 
-  def of[F[_] : Concurrent : Timer : Par : FromFuture : ToFuture : ContextShift : LogOf : KafkaConsumerOf : FromGFuture : MeasureDuration : FromTry](
+  def of[F[_] : Concurrent : Timer : Parallel : FromFuture : ToFuture : ContextShift : LogOf : KafkaConsumerOf : FromGFuture : MeasureDuration : FromTry](
     config: ReplicatorConfig,
     cassandraClusterOf: CassandraClusterOf[F],
     hostName: Option[HostName],
@@ -56,7 +56,7 @@ object Replicator {
     } yield result
   }
 
-  def of[F[_] : Concurrent : Timer : Par : ContextShift : LogOf : KafkaConsumerOf : MeasureDuration : FromTry](
+  def of[F[_] : Concurrent : Timer : Parallel : ContextShift : LogOf : KafkaConsumerOf : MeasureDuration : FromTry](
     config: ReplicatorConfig,
     metrics: Option[Metrics[F]]/*TODO not used for kafka*/,
     replicatedJournal: ReplicatedJournal[F],
@@ -85,7 +85,7 @@ object Replicator {
     of(Config(config), consumer, topicReplicator)
   }
 
-  def of[F[_] : Concurrent : Timer : Par : ContextShift : LogOf : MeasureDuration](
+  def of[F[_] : Concurrent : Timer : Parallel : ContextShift : LogOf : MeasureDuration](
     config: Config,
     consumer: Resource[F, Consumer[F]],
     topicReplicatorOf: Topic => Resource[F, F[Unit]]): Resource[F, F[Unit]] = {
@@ -136,7 +136,7 @@ object Replicator {
   }
 
 
-  def start[F[_] : Sync : Par : Timer : Log : MeasureDuration](
+  def start[F[_] : Sync : Parallel : Timer : Log : MeasureDuration](
     config: Config,
     consumer: Consumer[F],
     start: Topic => F[Unit],

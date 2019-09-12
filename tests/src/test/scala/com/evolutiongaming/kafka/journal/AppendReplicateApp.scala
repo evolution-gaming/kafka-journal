@@ -2,10 +2,10 @@ package com.evolutiongaming.kafka.journal
 
 import akka.actor.ActorSystem
 import akka.persistence.kafka.journal.KafkaJournalConfig
+import cats.Parallel
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.implicits._
-import cats.temp.par._
 import com.evolutiongaming.catshelper.{FromFuture, FromTry, Log, LogOf, Runtime, ToFuture, ToTry}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
@@ -36,7 +36,7 @@ object AppendReplicateApp extends IOApp {
   }
 
 
-  private def runF[F[_] : Concurrent : Timer : Par : ContextShift : FromFuture : ToFuture : Runtime : FromGFuture : MeasureDuration : FromTry : ToTry](
+  private def runF[F[_] : Concurrent : Timer : Parallel : ContextShift : FromFuture : ToFuture : Runtime : FromGFuture : MeasureDuration : FromTry : ToTry](
     topic: Topic)(implicit
     system: ActorSystem,
   ): F[Unit] = {
@@ -101,7 +101,7 @@ object AppendReplicateApp extends IOApp {
   }
 
 
-  private def append[F[_] : Concurrent : Timer : Par](topic: Topic, journal: Journal[F]) = {
+  private def append[F[_] : Concurrent : Timer : Parallel](topic: Topic, journal: Journal[F]) = {
 
     def append(id: String) = {
 

@@ -6,7 +6,7 @@ import cats.data.{NonEmptyList => Nel}
 import cats.effect.{Concurrent, Sync, Timer}
 import cats.implicits._
 import cats.temp.par._
-import cats.{Applicative, Monad}
+import cats.{Applicative, Monad, Parallel}
 import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.kafka.journal._
@@ -21,7 +21,7 @@ import scala.annotation.tailrec
 // TODO test ReplicatedCassandra
 object ReplicatedCassandra {
 
-  def of[F[_] : Concurrent : FromFuture : ToFuture : Par : Timer : CassandraCluster : CassandraSession : LogOf : MeasureDuration](
+  def of[F[_] : Concurrent : FromFuture : ToFuture : Parallel : Timer : CassandraCluster : CassandraSession : LogOf : MeasureDuration](
     config: EventualCassandraConfig,
     origin: Option[Origin],
     metrics: Option[Metrics[F]]
@@ -38,7 +38,7 @@ object ReplicatedCassandra {
     }
   }
 
-  def apply[F[_] : Sync : Par : Statements](segmentSize: Int): ReplicatedJournal[F] = {
+  def apply[F[_] : Sync : Parallel : Statements](segmentSize: Int): ReplicatedJournal[F] = {
 
     implicit val monoidUnit = Applicative.monoid[F, Unit]
 
@@ -210,7 +210,7 @@ object ReplicatedCassandra {
 
     def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 
-    def of[F[_] : Monad : Par : CassandraSession](schema: Schema): F[Statements[F]] = {
+    def of[F[_] : Monad : Parallel : CassandraSession](schema: Schema): F[Statements[F]] = {
       val statements = (
         JournalStatement.InsertRecords.of[F](schema.journal),
         JournalStatement.DeleteRecords.of[F](schema.journal),

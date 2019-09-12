@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal
 
 import akka.actor.ActorSystem
+import cats.Parallel
 import cats.effect._
 import cats.implicits._
-import cats.temp.par.Par
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal.IOSuite._
@@ -28,7 +28,7 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
   }
 
 
-  private def resources[F[_] : Concurrent : LogOf : Par : FromFuture : Timer : ToFuture : ContextShift : FromGFuture](
+  private def resources[F[_] : Concurrent : LogOf : Parallel : FromFuture : Timer : ToFuture : ContextShift : FromGFuture](
     origin: Option[Origin],
     cassandraClusterOf: CassandraClusterOf[F]
   ) = {
@@ -69,7 +69,7 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
   }
 
 
-  def test[F[_] : Concurrent : Par : FromFuture : ToFuture : Timer : ContextShift : FromGFuture](
+  def test[F[_] : Concurrent : Parallel : FromFuture : ToFuture : Timer : ContextShift : FromGFuture](
     cassandraClusterOf: CassandraClusterOf[F]
   ): F[Unit] = {
 
