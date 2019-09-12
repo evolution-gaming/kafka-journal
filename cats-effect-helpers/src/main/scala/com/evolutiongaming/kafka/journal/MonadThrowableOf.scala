@@ -1,12 +1,13 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.{Monad, MonadError}
+import cats.Monad
+import com.evolutiongaming.catshelper.MonadThrowable
 
 import scala.util.control.NonFatal
 
-object MonadErrorOf {
+object MonadThrowableOf {
 
-  def throwable[F[_]](implicit F: Monad[F]): MonadError[F, Throwable] = new MonadError[F, Throwable] {
+  def apply[F[_]](implicit F: Monad[F]): MonadThrowable[F] = new MonadThrowable[F] {
 
     def flatMap[A, B](fa: F[A])(f: A => F[B]) = F.flatMap(fa)(f)
 

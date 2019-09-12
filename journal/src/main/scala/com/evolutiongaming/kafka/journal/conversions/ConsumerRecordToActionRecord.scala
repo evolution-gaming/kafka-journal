@@ -2,9 +2,9 @@ package com.evolutiongaming.kafka.journal.conversions
 
 import java.time.Instant
 
-import cats.MonadError
 import cats.implicits._
 import cats.data.OptionT
+import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.consumer.ConsumerRecord
 import scodec.bits.ByteVector
@@ -16,8 +16,7 @@ trait ConsumerRecordToActionRecord[F[_]] {
 
 object ConsumerRecordToActionRecord {
 
-  implicit def apply[F[_]](implicit
-    F: MonadError[F, Throwable],
+  implicit def apply[F[_] : MonadThrowable](implicit
     consumerRecordToActionHeader: ConsumerRecordToActionHeader[F],
     headerToTuple: HeaderToTuple[F],
   ): ConsumerRecordToActionRecord[F] = {

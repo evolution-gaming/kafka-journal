@@ -1,11 +1,11 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.effect.{ExitCase, Sync}
-import com.evolutiongaming.kafka.journal.CatsHelper.MonadErrorE
+import com.evolutiongaming.catshelper.MonadThrowable
 
 object SyncOf {
 
-  def apply[F[_]](implicit F: MonadErrorE[F], S: Suspend[F], B: BracketCase[F]): Sync[F] = new Sync[F] {
+  def apply[F[_]](implicit F: MonadThrowable[F], S: Suspend[F], B: BracketCase[F]): Sync[F] = new Sync[F] {
 
     def suspend[A](thunk: => F[A]) = S.suspend(thunk)
 

@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.conversions
 
-import cats.MonadError
 import cats.implicits._
+import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolutiongaming.kafka.journal.{Action, JournalError}
 import com.evolutiongaming.skafka.Header
 import com.evolutiongaming.skafka.producer.ProducerRecord
@@ -14,8 +14,7 @@ trait ActionToProducerRecord[F[_]] {
 
 object ActionToProducerRecord {
 
-  implicit def apply[F[_]](implicit
-    F: MonadError[F, Throwable],
+  implicit def apply[F[_] : MonadThrowable](implicit
     actionHeaderToHeader: ActionHeaderToHeader[F],
     tupleToHeader: TupleToHeader[F]
   ): ActionToProducerRecord[F] = {

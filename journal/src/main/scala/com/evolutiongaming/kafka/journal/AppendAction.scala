@@ -1,7 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.implicits._
-import cats.{MonadError, ~>}
+import cats.~>
+import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolutiongaming.kafka.journal.conversions.ActionToProducerRecord
 
 trait AppendAction[F[_]] {
@@ -11,9 +12,8 @@ trait AppendAction[F[_]] {
 
 object AppendAction {
 
-  def apply[F[_]](
+  def apply[F[_] : MonadThrowable](
     producer: Journal.Producer[F])(implicit
-    F: MonadError[F, Throwable],
     actionToProducerRecord: ActionToProducerRecord[F]
   ): AppendAction[F] = {
     action: Action => {

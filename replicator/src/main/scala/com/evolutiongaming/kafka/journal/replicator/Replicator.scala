@@ -5,8 +5,8 @@ import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.implicits._
-import cats.temp.par._
 import cats.{Monad, Parallel, ~>}
+import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.kafka.journal._

@@ -5,7 +5,6 @@ import cats.arrow.FunctionK
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.implicits._
-import cats.temp.par._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal.conversions.{EventsToPayload, PayloadToEvents}

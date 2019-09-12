@@ -6,11 +6,11 @@ import cats.Parallel
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.implicits._
+import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{FromFuture, FromTry, Log, LogOf, Runtime, ToFuture, ToTry}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
 import com.evolutiongaming.kafka.journal.util._
-import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.Topic

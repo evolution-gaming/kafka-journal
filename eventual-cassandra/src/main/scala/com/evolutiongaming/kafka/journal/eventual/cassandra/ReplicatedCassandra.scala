@@ -5,10 +5,9 @@ import java.time.Instant
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.{Concurrent, Sync, Timer}
 import cats.implicits._
-import cats.temp.par._
 import cats.{Applicative, Monad, Parallel}
+import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
-import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal.Metrics
 import com.evolutiongaming.kafka.journal.eventual._

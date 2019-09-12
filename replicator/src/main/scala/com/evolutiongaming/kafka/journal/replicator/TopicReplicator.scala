@@ -6,9 +6,9 @@ import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.implicits._
-import cats.temp.par._
 import cats.{Applicative, FlatMap, Monad, Parallel, ~>}
 import com.evolutiongaming.catshelper.ClockHelper._
+import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.kafka.journal._

@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.{Monad, Parallel}
 import cats.effect.{Concurrent, Resource, Timer}
 import cats.implicits._
-import cats.temp.par._
 import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._

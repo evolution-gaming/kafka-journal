@@ -7,8 +7,8 @@ import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.implicits._
-import cats.temp.par._
 import com.evolutiongaming.catshelper.ClockHelper._
+import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, SerialRef}
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.kafka.journal.conversions.ConsumerRecordToActionHeader
@@ -111,7 +111,7 @@ object HeadCache {
         }
         c <- c
         v <- c.values
-        _ <- Parallel.foldMap(v.values) { v =>
+        _ <- v.values.parFoldMap { v =>
           for {
             v <- v
             _ <- v.close

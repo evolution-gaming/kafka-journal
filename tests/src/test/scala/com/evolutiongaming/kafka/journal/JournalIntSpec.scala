@@ -8,10 +8,10 @@ import cats.data.{NonEmptyList => Nel}
 import cats.Foldable
 import cats.effect.{IO, Resource}
 import cats.implicits._
+import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
-import com.evolutiongaming.kafka.journal.CatsHelper._
 import org.scalatest.{AsyncWordSpec, Succeeded}
 import play.api.libs.json.Json
 
