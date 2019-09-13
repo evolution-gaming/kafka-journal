@@ -27,7 +27,6 @@ class JournalConfigSpec extends FunSuite with Matchers {
         common = JournalConfig.Default.consumer.common.copy(clientId = Some("clientId")),
         groupId = Some("journal"),
         autoOffsetReset = AutoOffsetReset.Earliest,
-        maxPollRecords = 100,
         autoCommit = false),
       headCache = false)
   }

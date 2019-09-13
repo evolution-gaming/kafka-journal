@@ -52,7 +52,8 @@ class ReplicatorConfigSpec extends FunSuite with Matchers {
           receiveBufferBytes = 1000000),
         groupId = Some("replicator"),
         autoCommit = false,
-        autoOffsetReset = AutoOffsetReset.Earliest),
+        autoOffsetReset = AutoOffsetReset.Earliest,
+        maxPollRecords = 1000),
       cassandra = EventualCassandraConfig(
         client = CassandraConfig(
           name = "replicator",

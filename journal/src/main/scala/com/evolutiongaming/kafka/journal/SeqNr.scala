@@ -18,9 +18,9 @@ final case class SeqNr(value: Long) extends Ordered[SeqNr] {
 
   def min(that: Option[SeqNr]): SeqNr = that.fold(this)(_ min this)
 
-  def next: Option[SeqNr] = map(_ + 1l)
+  def next: Option[SeqNr] = map(_ + 1L)
 
-  def prev: Option[SeqNr] = map(_ - 1l)
+  def prev: Option[SeqNr] = map(_ - 1L)
 
   def in(range: SeqRange): Boolean = range contains this
 
@@ -30,14 +30,17 @@ final case class SeqNr(value: Long) extends Ordered[SeqNr] {
 
   def compare(that: SeqNr): Int = this.value compare that.value
 
-  override def toString: String = value.toString
-
   def map(f: Long => Long): Option[SeqNr] = SeqNr.opt(f(value))
+
+  override def toString: String = value.toString
 }
 
 object SeqNr {
+
   val Max: SeqNr = SeqNr(Long.MaxValue)
-  val Min: SeqNr = SeqNr(1l)
+
+  val Min: SeqNr = SeqNr(1L)
+
 
   implicit val EncodeByNameSeqNr: EncodeByName[SeqNr] = EncodeByName[Long].imap((seqNr: SeqNr) => seqNr.value)
 
@@ -97,11 +100,14 @@ object SeqNr {
 
   object implicits {
 
-    implicit class SeqNrLongOps(val self: Long) extends AnyVal {
+    implicit class LongOpsSeqNr(val self: Long) extends AnyVal {
+
       def toSeqNr: SeqNr = SeqNr(self)
     }
 
-    implicit class SeqNrIntOps(val self: Int) extends AnyVal {
+    
+    implicit class IntOpsSeqNr(val self: Int) extends AnyVal {
+
       def toSeqNr: SeqNr = self.toLong.toSeqNr
     }
   }

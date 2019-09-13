@@ -22,7 +22,6 @@ final case class JournalConfig(
       receiveBufferBytes = 100000),
     groupId = Some("journal"),
     autoOffsetReset = AutoOffsetReset.Earliest,
-    maxPollRecords = 100,
     autoCommit = false),
   headCache: Boolean = true)
 

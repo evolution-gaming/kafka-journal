@@ -20,7 +20,8 @@ final case class ReplicatorConfig(
       receiveBufferBytes = 1000000),
     groupId = Some("replicator"),
     autoOffsetReset = AutoOffsetReset.Earliest,
-    autoCommit = false),
+    autoCommit = false,
+    maxPollRecords = 1000),
   cassandra: EventualCassandraConfig = EventualCassandraConfig(
     client = CassandraConfig(
       name = "replicator",
