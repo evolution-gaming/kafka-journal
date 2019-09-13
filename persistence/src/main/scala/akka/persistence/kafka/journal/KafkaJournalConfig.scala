@@ -5,6 +5,7 @@ import com.evolutiongaming.kafka.journal.Journal.CallTimeThresholds
 import com.evolutiongaming.kafka.journal.JournalConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig
 import com.typesafe.config.Config
+import pureconfig.ConfigSource
 
 import scala.concurrent.duration._
 
@@ -27,7 +28,10 @@ object KafkaJournalConfig {
 
     def get[T: FromConf](name: String) = config.getOpt[T](name)
 
-    val callTimeThresholds = pureconfig.loadConfig[CallTimeThresholds](config, "call-time-thresholds") getOrElse CallTimeThresholds.Default
+    val callTimeThresholds = ConfigSource.fromConfig(config)
+      .at("call-time-thresholds")
+      .load[CallTimeThresholds]
+      .getOrElse(CallTimeThresholds.Default)
 
     KafkaJournalConfig(
       journal = JournalConfig(config),
