@@ -1,5 +1,6 @@
-package com.evolutiongaming.kafka.journal
+package com.evolutiongaming.kafka.journal.util
 
+import cats.MonadError
 import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
 import play.api.libs.json._
@@ -11,9 +12,45 @@ object PlayJsonHelper {
 
   implicit val JsonDecodeByName: DecodeByName[JsValue] = decodeByNameFromReads
 
+
   implicit val JsonOptEncodeByName: EncodeByName[Option[JsValue]] = EncodeByName.opt
 
   implicit val JsonOptDecodeByName: DecodeByName[Option[JsValue]] = DecodeByName.opt
+
+
+  implicit val jsErrorFromStr: FromStr[JsError] = JsError(_)
+
+  implicit val jsErrorToStr: ToStr[JsError] = _.errors.toString()
+
+
+  implicit val jsResultMonadThrowable: MonadError[JsResult, JsError] = new MonadError[JsResult, JsError] {
+
+    def raiseError[A](a: JsError) = a
+
+    def handleErrorWith[A](fa: JsResult[A])(f: JsError => JsResult[A]) = {
+      fa match {
+        case fa: JsSuccess[A] => fa
+        case fa: JsError      => f(fa)
+      }
+    }
+
+    def pure[A](a: A) = JsSuccess(a)
+
+    def flatMap[A, B](fa: JsResult[A])(f: A => JsResult[B]) = fa.flatMap(f)
+
+    def tailRecM[A, B](a: A)(f: A => JsResult[Either[A, B]]): JsResult[B] = {
+      f(a) match {
+        case b: JsError                 => b
+        case b: JsSuccess[Either[A, B]] => b.value match {
+          case Left(b1) => tailRecM(b1)(f)
+          case Right(a) => JsSuccess(a)
+        }
+      }
+    }
+  }
+
+
+  implicit val jsResultMonadString: MonadError[JsResult, String] = MonadString[JsResult, JsError]
 
 
   implicit def nelReads[T](implicit reads: Reads[List[T]]): Reads[Nel[T]] = {
@@ -50,6 +87,7 @@ object PlayJsonHelper {
 
   implicit class FormatOps[A](val self: Format[A]) extends AnyVal {
 
+    // TODO remove
     def bimap[B](to: A => B, from: B => A): Format[B] = {
       val reads = self.map(to)
       val writes = self.contramap(from)

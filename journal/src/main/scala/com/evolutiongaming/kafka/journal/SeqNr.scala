@@ -1,11 +1,18 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.ApplicativeError
+import cats.implicits._
 import cats.kernel.Order
-import com.evolutiongaming.kafka.journal.PlayJsonHelper._
+import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
+import com.evolutiongaming.kafka.journal.util.ScodecHelper._
+import com.evolutiongaming.kafka.journal.util.TryHelper._
 import com.evolutiongaming.scassandra._
 import play.api.libs.json._
-import scodec.{Attempt, Codec, Err, codecs}
+import scodec.{Attempt, Codec, codecs}
 
+import scala.util.Try
+
+// TODO make private
 final case class SeqNr(value: Long) extends Ordered[SeqNr] {
 
   require(SeqNr.isValid(value), SeqNr.invalid(value))
@@ -25,8 +32,6 @@ final case class SeqNr(value: Long) extends Ordered[SeqNr] {
   def in(range: SeqRange): Boolean = range contains this
 
   def to(seqNr: SeqNr): SeqRange = SeqRange(this, seqNr)
-
-  def to: SeqRange = SeqRange(this)
 
   def compare(that: SeqNr): Int = this.value compare that.value
 
@@ -64,9 +69,8 @@ object SeqNr {
 
   implicit val WritesSeqNr: Writes[SeqNr] = Writes.of[Long].contramap(_.value)
 
-  implicit val ReadsSeqNr: Reads[SeqNr] = Reads.of[Long].mapResult { a =>
-    SeqNr.validate(a)(JsError(_), JsSuccess(_))
-  }
+  implicit val ReadsSeqNr: Reads[SeqNr] = Reads.of[Long].mapResult { a => SeqNr.of[JsResult](a) }
+
 
   implicit val OrderSeqNr: Order[SeqNr] = new Order[SeqNr] {
     def compare(x: SeqNr, y: SeqNr) = x compare y
@@ -74,24 +78,26 @@ object SeqNr {
 
 
   implicit val CodecSeqNr: Codec[SeqNr] = {
-    val to = (a: Long) => SeqNr.validate(a)(a => Attempt.failure(Err(a)), Attempt.successful)
+    val to = (a: Long) => SeqNr.of[Attempt](a)
     val from = (a: SeqNr) => Attempt.successful(a.value)
     codecs.int64.exmap(to, from)
   }
 
+
+  def of[F[_]](value: Long)(implicit F: ApplicativeError[F, String]): F[SeqNr] = {
+    // TODO refactor
+    if (value < Min.value) {
+      s"invalid SeqNr $value, it must be greater or equal to $Min".raiseError[F, SeqNr]
+    } else if (value > Max.value) {
+      s"invalid SeqNr $value, it must be less or equal to $Max".raiseError[F, SeqNr]
+    } else {
+      SeqNr(value).pure[F]
+    }
+  }
+
   
-  def validate[T](value: Long)(onError: String => T, onSeqNr: SeqNr => T): T = {
-    if (isValid(value)) onSeqNr(SeqNr(value)) else onError(invalid(value))
-  }
+  def opt(value: Long): Option[SeqNr] = of[Try](value).toOption
 
-  def either(value: Long): Either[String, SeqNr] = validate(value)(Left(_), Right(_))
-
-  val opt: Long => Option[SeqNr] = {
-    val onError = (_: String) => None
-    validate(_)(onError, Some(_))
-  }
-
-  def apply(value: Long, fallback: => SeqNr): SeqNr = validate(value)(_ => fallback, identity)
 
   private def isValid(value: Long) = value > 0 && value <= Long.MaxValue
 

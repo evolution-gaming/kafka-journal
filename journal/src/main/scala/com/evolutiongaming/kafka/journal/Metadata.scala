@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.PlayJsonHelper._
+import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
 import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
 import play.api.libs.json.{JsValue, Json, OFormat}
 

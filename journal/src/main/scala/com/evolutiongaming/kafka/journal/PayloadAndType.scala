@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 
 import cats.data.{NonEmptyList => Nel}
 import cats.Applicative
-import com.evolutiongaming.kafka.journal.PlayJsonHelper._
+import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
 import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import play.api.libs.json._
 import scodec.Codec

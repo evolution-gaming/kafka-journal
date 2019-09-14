@@ -1,8 +1,13 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.implicits._
 import org.scalatest.{FunSuite, Matchers}
 
 class SeqNrSpec extends FunSuite with Matchers {
+
+  test("of") {
+    SeqNr.of[Either[String, ?]](0).isRight shouldEqual false
+  }
 
   test("1 max 2") {
     SeqNr(1) max SeqNr(2) shouldEqual SeqNr(2)
