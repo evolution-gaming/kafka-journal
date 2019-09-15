@@ -57,7 +57,7 @@ class JournalSpec extends WordSpec with Matchers {
       s"append, $name" in {
         createAndAppend { case (journal, _) =>
           for {
-            a <- journal.read(SeqRange.All)
+            a <- journal.read(SeqRange.all)
           } yield {
             a shouldEqual seqNrs
           }
@@ -67,7 +67,7 @@ class JournalSpec extends WordSpec with Matchers {
       s"read, $name" in {
         createAndAppend { case (journal, _) =>
           for {
-            a   <- journal.read(SeqRange.All)
+            a   <- journal.read(SeqRange.all)
             _    = a shouldEqual seqNrs
             last = seqNrLast getOrElse SeqNr.min
             a   <- journal.read(SeqNr.min to last)
@@ -83,7 +83,7 @@ class JournalSpec extends WordSpec with Matchers {
         createAndAppend { case (journal, _) =>
           for {
             _ <- seqNrLast.fold(().pure[F]) { seqNr => journal.delete(seqNr).void }
-            a <- journal.read(SeqRange.All)
+            a <- journal.read(SeqRange.all)
             _  = a shouldEqual Nil
             a <- journal.pointer
           } yield {
@@ -96,7 +96,7 @@ class JournalSpec extends WordSpec with Matchers {
         createAndAppend { case (journal, _) =>
           for {
             _ <- journal.delete(SeqNr.max)
-            a <- journal.read(SeqRange.All)
+            a <- journal.read(SeqRange.all)
             _  = a shouldEqual Nil
             a <- journal.pointer
           } yield {
@@ -110,7 +110,7 @@ class JournalSpec extends WordSpec with Matchers {
           for {
             a <- journal.delete(SeqNr.min)
             _  = a shouldEqual offset.map(_ + 1)
-            a <- journal.read(SeqRange.All)
+            a <- journal.read(SeqRange.all)
             _  = a shouldEqual seqNrs.dropWhile(_ <= SeqNr.min)
             a <- journal.pointer
           } yield {
@@ -138,7 +138,7 @@ class JournalSpec extends WordSpec with Matchers {
           createAndAppend { case (journal, _) =>
             for {
               _      <- journal.delete(seqNr)
-              seqNrs <- journal.read(SeqRange.All)
+              seqNrs <- journal.read(SeqRange.all)
               _       = seqNrs shouldEqual seqNrs.dropWhile(_ <= seqNr)
               seqNr  <- journal.pointer
             } yield {

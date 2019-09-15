@@ -47,6 +47,8 @@ object SeqNr {
 
   implicit val orderingSeqNr: Ordering[SeqNr] = (x: SeqNr, y: SeqNr) => x.value compare y.value
 
+  implicit val orderSeqNr: Order[SeqNr] = Order.fromOrdering
+
 
   implicit val encodeByNameSeqNr: EncodeByName[SeqNr] = EncodeByName[Long].imap((seqNr: SeqNr) => seqNr.value)
 
@@ -71,11 +73,6 @@ object SeqNr {
   implicit val writesSeqNr: Writes[SeqNr] = Writes.of[Long].contramap(_.value)
 
   implicit val readsSeqNr: Reads[SeqNr] = Reads.of[Long].mapResult { a => SeqNr.of[JsResult](a) }
-
-
-  implicit val orderSeqNr: Order[SeqNr] = new Order[SeqNr] {
-    def compare(x: SeqNr, y: SeqNr) = x compare y
-  }
 
 
   implicit val codecSeqNr: Codec[SeqNr] = {

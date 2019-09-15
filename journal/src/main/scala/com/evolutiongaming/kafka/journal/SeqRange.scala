@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.data.{NonEmptyList => Nel}
+import cats.implicits._
 import com.evolutiongaming.kafka.journal.SeqNr.implicits._
 import play.api.libs.json.{Json, OFormat}
 
@@ -45,9 +46,9 @@ final case class SeqRange(from: SeqNr, to: SeqNr) {
 
 object SeqRange {
 
-  implicit val FormatSeqRange: OFormat[SeqRange] = Json.format
+  implicit val formatSeqRange: OFormat[SeqRange] = Json.format
 
-  val All: SeqRange = SeqRange(SeqNr.min, SeqNr.max)
+  val all: SeqRange = SeqRange(SeqNr.min, SeqNr.max)
 
   def apply(value: SeqNr): SeqRange = SeqRange(value, value)
 
