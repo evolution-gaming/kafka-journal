@@ -33,7 +33,6 @@ object ReadEventsApp extends IOApp {
       log    <- logOf(ReadEventsApp.getClass)
       result <- {
         implicit val logOf1 = logOf
-        implicit val log1 = log
         implicit val measureDuration = MeasureDuration.fromClock(Clock[F])
         implicit val fromAttempt = FromAttempt.lift[F]
         implicit val fromJsResult = FromJsResult.lift[F]
@@ -45,7 +44,7 @@ object ReadEventsApp extends IOApp {
 
   }
 
-  private def runF[F[_] : Concurrent : ContextShift : Timer : Clock : FromFuture : ToFuture : Parallel : LogOf : Log : FromGFuture : MeasureDuration : FromTry : ToTry : FromAttempt : FromJsResult](
+  private def runF[F[_] : Concurrent : ContextShift : Timer : Clock : FromFuture : ToFuture : Parallel : LogOf : FromGFuture : MeasureDuration : FromTry : ToTry : FromAttempt : FromJsResult](
     executor: ExecutionContextExecutor,
     log: Log[F],
   ): F[Unit] = {
@@ -89,7 +88,7 @@ object ReadEventsApp extends IOApp {
       producer           <- Journal.Producer.of[F](producerConfig)
     } yield {
       val origin = Origin("ReadEventsApp")
-      val journal = Journal[F](origin.some, producer, consumer, eventualJournal, headCache)
+      val journal = Journal[F](origin.some, producer, consumer, eventualJournal, headCache, log)
       val key = Key(id = "id", topic = "topic")
       for {
         pointer <- journal.pointer(key)

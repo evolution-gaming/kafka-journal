@@ -438,7 +438,6 @@ object JournalSpec {
       headCache: HeadCache[F]
     ): SeqNrJournal[F] = {
 
-      implicit val log = Log.empty[F]
       implicit val concurrent = ConcurrentOf.fromMonad[F]
       implicit val clock = Clock.const[F](nanos = 0, millis = timestamp.toEpochMilli)
       implicit val parallel = Parallel.identity[F]
@@ -447,8 +446,9 @@ object JournalSpec {
       implicit val fromTry = FromTry.lift[F]
       implicit val fromAttempt = FromAttempt.lift[F]
       implicit val fromJsResult = FromJsResult.lift[F]
+      val log = Log.empty[F]
 
-      val journal = Journal[F](None, eventual, readActionsOf, writeAction, headCache)
+      val journal = Journal[F](None, eventual, readActionsOf, writeAction, headCache, log)
         .withLog(log)
         .withMetrics(Journal.Metrics.empty[F])
       SeqNrJournal(journal)

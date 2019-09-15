@@ -16,8 +16,9 @@ trait ReadActionsOf[F[_]] {
 
 object ReadActionsOf {
 
-  def apply[F[_] : Sync : Log](
-    consumer: Resource[F, Journal.Consumer[F]])(implicit
+  def apply[F[_] : Sync/*TODO sync?*/](
+    consumer: Resource[F, Journal.Consumer[F]],
+    log: Log[F])(implicit
     consumerRecordToActionRecord: ConsumerRecordToActionRecord[F]
   ): ReadActionsOf[F] = {
     (key: Key, partition: Partition, from: Offset) => {
@@ -28,7 +29,7 @@ object ReadActionsOf {
         for {
           _ <- consumer.assign(Nel.of(topicPartition))
           _ <- consumer.seek(topicPartition, from)
-          _ <- Log[F].debug(s"$key consuming from $partition:$from")
+          _ <- log.debug(s"$key consuming from $partition:$from")
         } yield {
           ReadActions[F](key, consumer)
         }

@@ -79,42 +79,44 @@ object Journal {
       log       <- Resource.liftF(LogOf[F].apply(Journal.getClass))
       headCache <- headCache
     } yield {
-      implicit val log1 = log
       val journal = apply(
         origin,
         producer,
         consumer,
         eventualJournal,
-        headCache)
+        headCache,
+        log)
       val withLog = journal.withLog(log, callTimeThresholds)
       metrics.fold(withLog) { metrics => withLog.withMetrics(metrics) }
     }
   }
 
 
-  def apply[F[_] : Concurrent : ContextShift : Parallel : Clock : Log : RandomId : FromTry](
+  def apply[F[_] : Concurrent : ContextShift : Parallel : Clock : RandomId : FromTry](
     origin: Option[Origin],
     producer: Producer[F],
     consumer: Resource[F, Consumer[F]],
     eventualJournal: EventualJournal[F],
-    headCache: HeadCache[F]
+    headCache: HeadCache[F],
+    log: Log[F]
   ): Journal[F] = {
 
     implicit val fromAttempt = FromAttempt.lift[F]
     implicit val fromJsResult = FromJsResult.lift[F]
 
-    val readActionsOf = ReadActionsOf[F](consumer)
+    val readActionsOf = ReadActionsOf[F](consumer, log)
     val appendAction = AppendAction[F](producer)
-    apply[F](origin, eventualJournal, readActionsOf, appendAction, headCache)
+    apply[F](origin, eventualJournal, readActionsOf, appendAction, headCache, log)
   }
 
 
-  def apply[F[_] : Concurrent : Log : Clock : Parallel : RandomId : FromTry](
+  def apply[F[_] : Concurrent : Clock : Parallel : RandomId : FromTry](
     origin: Option[Origin],
     eventual: EventualJournal[F],
     readActionsOf: ReadActionsOf[F],
     appendAction: AppendAction[F],
-    headCache: HeadCache[F])(implicit
+    headCache: HeadCache[F],
+    log: Log[F])(implicit
     payloadToEvents: PayloadToEvents[F],
     eventsToPayload: EventsToPayload[F]
   ): Journal[F] = {
@@ -216,23 +218,34 @@ object Journal {
               }
             }
 
-            val fromFixed = deleteTo.fold(from) { deleteTo => from max deleteTo.next }
 
-            for {
-              abc                    <- replicatedSeqNr(fromFixed)
-              (result, from, offset)  = abc match {
-                case Left((l, from, offset))  => (l.asLeft[R], from, offset)
-                case Right((r, from, offset)) => (r.asRight[L], from, offset)
-              }
-              _                      <- Log[F].debug(s"$key read from: $from, offset: $offset")
-              result                 <- from match {
-                case None       => result.pure[F]
-                case Some(from) => result match {
-                  case Left(l)  => events(from, offset, l)
-                  case Right(r) => r.asRight[L].pure[F]
+            def read(from: SeqNr) = {
+              for {
+                abc    <- replicatedSeqNr(from)
+                (result, from, offset) = abc match {
+                  case Left((l, from, offset))  => (l.asLeft[R], from, offset)
+                  case Right((r, from, offset)) => (r.asRight[L], from, offset)
                 }
+                _      <- log.debug(s"$key read from: $from, offset: $offset")
+                result <- from match {
+                  case None       => result.pure[F]
+                  case Some(from) => result match {
+                    case Left(l)  => events(from, offset, l)
+                    case Right(r) => r.asRight[L].pure[F]
+                  }
+                }
+              } yield result
+            }
+
+            deleteTo.fold {
+              read(from)
+            } { deleteTo =>
+              deleteTo.next.fold {
+                l.asLeft[R].pure[F]
+              } { min =>
+                read(min max from)
               }
-            } yield result
+            }
           }
 
           for {
@@ -241,7 +254,7 @@ object Journal {
             // TODO use range after eventualRecords
             // TODO prevent from reading calling consume twice!
             info              <- info
-            _                 <- Log[F].debug(s"$key read info: $info")
+            _                 <- log.debug(s"$key read info: $info")
             result            <- info match {
               case JournalInfo.Empty               => replicated(from)
               case JournalInfo.Append(_, deleteTo) => onNonEmpty(deleteTo, readKafka)
