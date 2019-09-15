@@ -14,15 +14,15 @@ final case class EventualCassandraConfig(
       consistency = ConsistencyLevel.LOCAL_QUORUM,
       fetchSize = 100,
       defaultIdempotence = true)),
-  schema: SchemaConfig = SchemaConfig.Default)
+  schema: SchemaConfig = SchemaConfig.default)
 
 object EventualCassandraConfig {
 
-  val Default: EventualCassandraConfig = EventualCassandraConfig()
+  val default: EventualCassandraConfig = EventualCassandraConfig()
 
 
   // TODO pure config
-  def apply(config: Config): EventualCassandraConfig = apply(config, Default)
+  def apply(config: Config): EventualCassandraConfig = apply(config, default)
 
   def apply(config: Config, default: => EventualCassandraConfig): EventualCassandraConfig = {
 

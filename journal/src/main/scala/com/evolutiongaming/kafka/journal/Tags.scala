@@ -4,9 +4,9 @@ import scodec.{Codec, codecs}
 
 object Tags {
 
-  val Empty: Tags = Set.empty
+  val empty: Tags = Set.empty
 
-  implicit val CodecTags: Codec[Tags] = {
+  implicit val codecTags: Codec[Tags] = {
     val codec = codecs.list(codecs.utf8_32).xmap[Tags](_.toSet, _.toList)
     codecs.variableSizeBytes(codecs.int32, codec)
   }

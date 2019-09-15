@@ -9,12 +9,12 @@ import scodec.{Attempt, Codec, Err, codecs}
 
 final case class Event(
   seqNr: SeqNr,
-  tags: Tags = Tags.Empty,
+  tags: Tags = Tags.empty,
   payload: Option[Payload] = None)
 
 object Event {
 
-  implicit val CodecEvent: Codec[Event] = {
+  implicit val codecEvent: Codec[Event] = {
     val payloadCodec = {
 
       val errEmpty = Err("")
@@ -34,7 +34,7 @@ object Event {
 
       val binaryCodec = codecOpt(1, codecSome[Payload.Binary])
 
-      val jsonCodec = codecOpt(2, codecSome[Payload.Json](Payload.Json.CodecJson))
+      val jsonCodec = codecOpt(2, codecSome[Payload.Json](Payload.Json.codecJson))
 
       val textCodec = codecOpt(3, codecSome[Payload.Text])
 
@@ -48,7 +48,7 @@ object Event {
     (Codec[SeqNr] :: Codec[Tags] :: payloadCodec).as[Event]
   }
 
-  implicit val CodecEvents: Codec[Nel[Event]] = {
+  implicit val codecEvents: Codec[Nel[Event]] = {
     val eventsCodec = nelCodec(codecs.listOfN(codecs.int32, codecs.variableSizeBytes(codecs.int32, Codec[Event])))
     val version = ByteVector.fromByte(0)
     codecs.constant(version) ~> eventsCodec

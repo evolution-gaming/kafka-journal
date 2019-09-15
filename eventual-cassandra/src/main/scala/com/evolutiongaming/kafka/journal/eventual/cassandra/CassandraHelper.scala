@@ -29,7 +29,7 @@ object CassandraHelper {
   }
 
 
-  implicit val MapTextEncodeByName: EncodeByName[Map[String, String]] = {
+  implicit val mapTextEncodeByName: EncodeByName[Map[String, String]] = {
     val text = classOf[String]
     new EncodeByName[Map[String, String]] {
       def apply[B <: SettableData[B]](data: B, name: String, value: Map[String, String]) = {
@@ -38,7 +38,7 @@ object CassandraHelper {
     }
   }
 
-  implicit val MapTextDecodeByName: DecodeByName[Map[String, String]] = {
+  implicit val mapTextDecodeByName: DecodeByName[Map[String, String]] = {
     val text = classOf[String]
     new DecodeByName[Map[String, String]] {
       def apply(data: GettableByNameData, name: String) = {

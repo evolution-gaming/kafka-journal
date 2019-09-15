@@ -32,10 +32,10 @@ final case class ReplicatorConfig(
 
 object ReplicatorConfig {
 
-  val Default: ReplicatorConfig = ReplicatorConfig()
+  val default: ReplicatorConfig = ReplicatorConfig()
 
 
-  def apply(config: Config): ReplicatorConfig = apply(config, Default)
+  def apply(config: Config): ReplicatorConfig = apply(config, default)
 
   def apply(config: Config, default: => ReplicatorConfig): ReplicatorConfig = {
 

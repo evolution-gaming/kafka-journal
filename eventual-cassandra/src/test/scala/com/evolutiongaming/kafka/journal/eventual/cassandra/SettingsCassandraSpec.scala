@@ -18,7 +18,7 @@ import org.scalatest.{FunSuite, Matchers}
 class SettingsCassandraSpec extends FunSuite with Matchers {
 
   test("set") {
-    val (state, prev) = settings.set(setting.key, setting.value).run(State.Empty)
+    val (state, prev) = settings.set(setting.key, setting.value).run(State.empty)
     state shouldEqual State(settings = Map((setting.key, setting)))
     prev shouldEqual None
   }
@@ -31,8 +31,8 @@ class SettingsCassandraSpec extends FunSuite with Matchers {
   }
 
   test("get") {
-    val (state, value) = settings.get(setting.key).run(State.Empty)
-    state shouldEqual State.Empty
+    val (state, value) = settings.get(setting.key).run(State.empty)
+    state shouldEqual State.empty
     value shouldEqual None
   }
 
@@ -46,7 +46,7 @@ class SettingsCassandraSpec extends FunSuite with Matchers {
   test("remove") {
     val initial = State(settings = Map((setting.key, setting)))
     val (state, prev) = settings.remove(setting.key).run(initial)
-    state shouldEqual State.Empty
+    state shouldEqual State.empty
     prev shouldEqual Some(setting)
   }
 
@@ -81,7 +81,7 @@ class SettingsCassandraSpec extends FunSuite with Matchers {
       a <- settings.setIfEmpty(setting.key, setting.value)
       _  = a shouldEqual None
     } yield {}
-    val (state, _) = stateT.run(State.Empty)
+    val (state, _) = stateT.run(State.empty)
     state shouldEqual State(settings = Map((setting.key, setting)))
   }
 
@@ -160,7 +160,7 @@ class SettingsCassandraSpec extends FunSuite with Matchers {
   case class State(settings: Map[Key, Setting])
 
   object State {
-    val Empty: State = State(Map.empty)
+    val empty: State = State(Map.empty)
   }
 
 

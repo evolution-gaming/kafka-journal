@@ -31,7 +31,7 @@ trait Journal[F[_]] {
     key: Key,
     events: Nel[Event],
     metadata: Option[JsValue] = None,
-    headers: Headers = Headers.Empty
+    headers: Headers = Headers.empty
   ): F[PartitionOffset]
 
   def read(key: Key, from: SeqNr = SeqNr.min): Stream[F, EventRecord]
@@ -47,7 +47,7 @@ object Journal {
 
   def empty[F[_] : Applicative]: Journal[F] = new Journal[F] {
 
-    def append(key: Key, events: Nel[Event], metadata: Option[JsValue], headers: Headers) = PartitionOffset.Empty.pure[F]
+    def append(key: Key, events: Nel[Event], metadata: Option[JsValue], headers: Headers) = PartitionOffset.empty.pure[F]
 
     def read(key: Key, from: SeqNr) = Stream.empty
 
@@ -597,7 +597,7 @@ object Journal {
 
     def withLog(
       log: Log[F],
-      config: CallTimeThresholds = CallTimeThresholds.Default)(implicit
+      config: CallTimeThresholds = CallTimeThresholds.default)(implicit
       F: FlatMap[F],
       measureDuration: MeasureDuration[F]
     ): Journal[F] = {
@@ -753,8 +753,8 @@ object Journal {
     delete: FiniteDuration = 1.second)
 
   object CallTimeThresholds {
-    val Default: CallTimeThresholds = CallTimeThresholds()
+    val default: CallTimeThresholds = CallTimeThresholds()
 
-    implicit val ConfigReaderVal: ConfigReader[CallTimeThresholds] = deriveReader[CallTimeThresholds]
+    implicit val configReaderVal: ConfigReader[CallTimeThresholds] = deriveReader[CallTimeThresholds]
   }
 }

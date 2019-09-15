@@ -688,7 +688,7 @@ object TopicReplicatorSpec {
     def topics = Iterable.empty[Topic].pure[StateT]
 
     def pointers(topic: Topic) = {
-      StateT { state => (state, state.pointers.getOrElse(topic, TopicPointers.Empty)) }
+      StateT { state => (state, state.pointers.getOrElse(topic, TopicPointers.empty)) }
     }
 
     def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[EventRecord]) = {
@@ -806,7 +806,7 @@ object TopicReplicatorSpec {
     def stop: State = copy(stopAfter = Some(1))
 
     def save(topic: Topic, pointers: TopicPointers): State = {
-      val updated = self.pointers.getOrElse(topic, TopicPointers.Empty) + pointers
+      val updated = self.pointers.getOrElse(topic, TopicPointers.empty) + pointers
       copy(pointers = self.pointers.updated(topic, updated))
     }
 

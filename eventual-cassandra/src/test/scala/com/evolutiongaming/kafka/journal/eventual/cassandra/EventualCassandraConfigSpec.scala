@@ -7,7 +7,7 @@ class EventualCassandraConfigSpec extends FunSuite with Matchers {
 
   test("apply from empty config") {
     val config = ConfigFactory.empty()
-    EventualCassandraConfig(config) shouldEqual EventualCassandraConfig.Default
+    EventualCassandraConfig(config) shouldEqual EventualCassandraConfig.default
   }
 
   test("apply from config") {

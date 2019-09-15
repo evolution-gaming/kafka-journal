@@ -23,7 +23,7 @@ class EventualCassandraSpec extends EventualJournalSpec {
     } {
       s"segmentSize: $segmentSize, delete: $delete" should {
         test[StateT] { test =>
-          val (_, result) = test(journals(segmentSize, delete)).run(State.Empty)
+          val (_, result) = test(journals(segmentSize, delete)).run(State.empty)
           result.pure[StateT]
         }
       }
@@ -46,7 +46,7 @@ object EventualCassandraSpec {
   val selectPointers: PointerStatement.SelectPointers[StateT] = new PointerStatement.SelectPointers[StateT] {
     def apply(topic: Topic) = {
       StateT { state =>
-        val pointer = state.pointers.getOrElse(topic, TopicPointers.Empty)
+        val pointer = state.pointers.getOrElse(topic, TopicPointers.empty)
         (state, pointer)
       }
     }
@@ -189,7 +189,7 @@ object EventualCassandraSpec {
         def apply(pointer: PointerInsert) = {
           StateT { state =>
             val pointers = state.pointers
-            val topicPointers = pointers.getOrElse(pointer.topic, TopicPointers.Empty)
+            val topicPointers = pointers.getOrElse(pointer.topic, TopicPointers.empty)
             val updated = topicPointers.copy(values = topicPointers.values.updated(pointer.partition, pointer.offset))
             val pointers1 = pointers.updated(pointer.topic, updated)
             (state.copy(pointers = pointers1), ())
@@ -217,7 +217,7 @@ object EventualCassandraSpec {
         selectPointers = selectPointers,
         selectTopics = selectTopics)
 
-      implicit val ConcurrentId = ConcurrentOf.fromMonad[StateT]
+      implicit val concurrentId = ConcurrentOf.fromMonad[StateT]
       ReplicatedCassandra(segmentSize)
     }
 
@@ -231,7 +231,7 @@ object EventualCassandraSpec {
     pointers: Map[Topic, TopicPointers])
 
   object State {
-    val Empty: State = State(journal = Map.empty, heads = Map.empty, pointers = Map.empty)
+    val empty: State = State(journal = Map.empty, heads = Map.empty, pointers = Map.empty)
   }
 
 

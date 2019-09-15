@@ -77,7 +77,7 @@ object HeadCache {
     log: Log[F],
     consumer: Resource[F, Consumer[F]],
     metrics: Option[HeadCacheMetrics[F]],
-    config: Config = Config.Default
+    config: Config = Config.default
   ): Resource[F, HeadCache[F]] = {
 
     implicit val consumerRecordToActionHeader = ConsumerRecordToActionHeader[F]
@@ -154,7 +154,7 @@ object HeadCache {
   }
 
   object Config {
-    val Default: Config = Config()
+    val default: Config = Config()
   }
 
 
@@ -455,7 +455,7 @@ object HeadCache {
 
     object Entry {
 
-      implicit val SemigroupEntry: Semigroup[Entry] = new Semigroup[Entry] {
+      implicit val semigroupEntry: Semigroup[Entry] = new Semigroup[Entry] {
 
         def combine(x: Entry, y: Entry) = {
           val offset = x.offset max y.offset
@@ -474,7 +474,7 @@ object HeadCache {
 
     object PartitionEntry {
 
-      implicit val SemigroupPartitionEntry: Semigroup[PartitionEntry] = new Semigroup[PartitionEntry] {
+      implicit val semigroupPartitionEntry: Semigroup[PartitionEntry] = new Semigroup[PartitionEntry] {
 
         def combine(x: PartitionEntry, y: PartitionEntry) = {
           val entries = x.entries combine y.entries
@@ -623,7 +623,7 @@ object HeadCache {
       def pointers(topic: Topic) = eventualJournal.pointers(topic)
     }
 
-    def empty[F[_] : Applicative]: Eventual[F] = const(Applicative[F].pure(TopicPointers.Empty))
+    def empty[F[_] : Applicative]: Eventual[F] = const(Applicative[F].pure(TopicPointers.empty))
 
     def const[F[_] : Applicative](value: F[TopicPointers]): Eventual[F] = new Eventual[F] {
       def pointers(topic: Topic) = value
@@ -812,13 +812,13 @@ object HeadCache {
     type Prefix = String
 
     object Prefix {
-      val Default: Prefix = "headcache"
+      val default: Prefix = "headcache"
     }
 
 
     def of[F[_] : Monad](
       registry: CollectorRegistry[F],
-      prefix: Prefix = Prefix.Default
+      prefix: Prefix = Prefix.default
     ): Resource[F, Metrics[F]] = {
 
       val quantiles = Quantiles(

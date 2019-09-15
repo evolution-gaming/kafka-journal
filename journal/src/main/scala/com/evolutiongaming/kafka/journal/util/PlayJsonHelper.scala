@@ -8,14 +8,14 @@ import play.api.libs.json._
 
 object PlayJsonHelper {
 
-  implicit val JsonEncodeByName: EncodeByName[JsValue] = encodeByNameFromWrites
+  implicit val jsValueEncodeByName: EncodeByName[JsValue] = encodeByNameFromWrites
 
-  implicit val JsonDecodeByName: DecodeByName[JsValue] = decodeByNameFromReads
+  implicit val jsValueDecodeByName: DecodeByName[JsValue] = decodeByNameFromReads
 
 
-  implicit val JsonOptEncodeByName: EncodeByName[Option[JsValue]] = EncodeByName.opt
+  implicit val jsValueOptEncodeByName: EncodeByName[Option[JsValue]] = EncodeByName.opt
 
-  implicit val JsonOptDecodeByName: DecodeByName[Option[JsValue]] = DecodeByName.opt
+  implicit val jsValueOptDecodeByName: DecodeByName[Option[JsValue]] = DecodeByName.opt
 
 
   implicit val jsErrorFromStr: FromStr[JsError] = JsError(_)

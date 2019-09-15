@@ -8,6 +8,7 @@ object Combinations {
 
   object Type {
     private val Empty: Type[Nothing] = List(Nil)
+
     def empty[T]: Type[T] = Empty
   }
 

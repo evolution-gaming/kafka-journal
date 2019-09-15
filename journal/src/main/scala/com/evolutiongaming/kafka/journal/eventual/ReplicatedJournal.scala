@@ -158,7 +158,7 @@ object ReplicatedJournal {
 
     def topics = Iterable.empty[Topic].pure[F]
 
-    def pointers(topic: Topic) = TopicPointers.Empty.pure[F]
+    def pointers(topic: Topic) = TopicPointers.empty.pure[F]
 
     def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[EventRecord]) = ().pure[F]
 

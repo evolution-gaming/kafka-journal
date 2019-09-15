@@ -186,7 +186,7 @@ object Replicator {
     topicDiscoveryInterval: FiniteDuration = 3.seconds)
 
   object Config {
-    val Default: Config = Config()
+    val default: Config = Config()
 
     def apply(config: ReplicatorConfig): Config = {
       Config(

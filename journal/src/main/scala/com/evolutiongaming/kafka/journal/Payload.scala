@@ -39,14 +39,14 @@ object Payload {
 
   object Binary {
 
-    val Empty: Binary = Binary(ByteVector.empty)
+    val empty: Binary = Binary(ByteVector.empty)
 
 
-    implicit val CodecBinary: Codec[Binary] = bytes.as[Binary]
+    implicit val codecBinary: Codec[Binary] = bytes.as[Binary]
 
-    implicit val EncodeByNameBinary: EncodeByName[Binary] = EncodeByName[Array[Byte]].imap(_.value.toArray)
+    implicit val encodeByNameBinary: EncodeByName[Binary] = EncodeByName[Array[Byte]].imap(_.value.toArray)
 
-    implicit val DecodeByNameBinary: DecodeByName[Binary] = DecodeByName[Array[Byte]].map(a => Binary(ByteVector.view(a)))
+    implicit val decodeByNameBinary: DecodeByName[Binary] = DecodeByName[Array[Byte]].map(a => Binary(ByteVector.view(a)))
   }
 
 
@@ -56,12 +56,12 @@ object Payload {
 
   object Text {
 
-    implicit val CodecText: Codec[Text] = utf8.as[Payload.Text]
+    implicit val codecText: Codec[Text] = utf8.as[Payload.Text]
     
 
-    implicit val EncodeByNameText: EncodeByName[Text] = EncodeByName[String].imap(_.value)
+    implicit val encodeByNameText: EncodeByName[Text] = EncodeByName[String].imap(_.value)
 
-    implicit val DecodeByNameText: DecodeByName[Text] = DecodeByName[String].map(Text(_))
+    implicit val decodeByNameText: DecodeByName[Text] = DecodeByName[String].map(Text(_))
 
 
 //    implicit val ToBytesText: ToBytes[Text] = ToBytes[String].imap(_.value)
@@ -76,9 +76,9 @@ object Payload {
 
   object Json {
 
-    implicit val FormatJson: Format[Json] = Format.of[JsValue].inmap(Json(_), _.value)
+    implicit val formatJson: Format[Json] = Format.of[JsValue].inmap(Json(_), _.value)
 
-    val CodecJson: Codec[Json] = formatCodec
+    val codecJson: Codec[Json] = formatCodec
 
 
 //    implicit val ToBytesJson: ToBytes[Json] = ToBytes.fromWrites
@@ -86,9 +86,9 @@ object Payload {
 //    implicit val FromBytesJson: FromBytes[Json] = FromBytes.fromReads
 
 
-    implicit val EncodeByNameJson: EncodeByName[Json] = encodeByNameFromWrites
+    implicit val encodeByNameJson: EncodeByName[Json] = encodeByNameFromWrites
 
-    implicit val DecodeByNameJson: DecodeByName[Json] = decodeByNameFromReads
+    implicit val decodeByNameJson: DecodeByName[Json] = decodeByNameFromReads
 
 
     def apply[A](a: A)(implicit writes: Writes[A]): Json = Json(writes.writes(a))

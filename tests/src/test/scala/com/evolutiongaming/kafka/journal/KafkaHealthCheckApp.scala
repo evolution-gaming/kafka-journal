@@ -48,7 +48,7 @@ object KafkaHealthCheckApp extends IOApp {
       common = consumerConfig.common)
 
     val kafkaHealthCheck = KafkaHealthCheck.of[F](
-      config = KafkaHealthCheck.Config.Default,
+      config = KafkaHealthCheck.Config.default,
       producerConfig = producerConfig,
       consumerConfig = consumerConfig)
 

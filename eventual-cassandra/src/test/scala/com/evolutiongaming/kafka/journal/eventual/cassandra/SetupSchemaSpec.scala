@@ -17,13 +17,13 @@ import scala.util.control.NoStackTrace
 class SetupSchemaSpec extends FunSuite with Matchers {
 
   test("migrate fresh") {
-    val initial = State.Empty
+    val initial = State.empty
     val (state, _) = migrate(fresh = true).run(initial)
     state shouldEqual initial.copy(version = Some("0"))
   }
 
   test("migrate") {
-    val initial = State.Empty
+    val initial = State.empty
     val (state, _) = migrate(fresh = false).run(initial)
     state shouldEqual initial.copy(
       version = Some("0"),
@@ -31,7 +31,7 @@ class SetupSchemaSpec extends FunSuite with Matchers {
   }
 
   test("not migrate") {
-    val initial = State.Empty.copy(version = Some("0"))
+    val initial = State.empty.copy(version = Some("0"))
     val (state, _) = migrate(fresh = false).run(initial)
     state shouldEqual initial
   }
@@ -122,7 +122,7 @@ class SetupSchemaSpec extends FunSuite with Matchers {
   }
 
   object State {
-    val Empty: State = State(version = None, actions = Nil)
+    val empty: State = State(version = None, actions = Nil)
   }
 
 

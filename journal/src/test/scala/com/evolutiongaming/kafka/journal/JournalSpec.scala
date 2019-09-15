@@ -201,7 +201,7 @@ class JournalSpec extends WordSpec with Matchers {
 
   def test(journal: SeqNrJournal[StateT]) = {
     testF[StateT] { f =>
-      val (_, result) = f(journal).run(State.Empty)
+      val (_, result) = f(journal).run(State.empty)
       result
     }
   }
@@ -458,11 +458,11 @@ object JournalSpec {
 
   final case class State(
     records: Queue[ActionRecord[Action]] = Queue.empty,
-    replicatedState: EventualJournalOf.State = EventualJournalOf.State.Empty,
+    replicatedState: EventualJournalOf.State = EventualJournalOf.State.empty,
     recordsToRead: Queue[ActionRecord[Action]] = Queue.empty)
 
   object State {
-    val Empty: State = State()
+    val empty: State = State()
   }
 
 
@@ -474,7 +474,7 @@ object JournalSpec {
 
       def pointers(topic: Topic) = {
         StateT { state =>
-          val topicPointers = state.replicatedState.offset.fold(TopicPointers.Empty) { offset =>
+          val topicPointers = state.replicatedState.offset.fold(TopicPointers.empty) { offset =>
             val pointers = Map((partition, offset))
             TopicPointers(pointers)
           }
@@ -625,7 +625,7 @@ object JournalSpec {
     }
 
     object State {
-      val Empty: State = State()
+      val empty: State = State()
     }
   }
 

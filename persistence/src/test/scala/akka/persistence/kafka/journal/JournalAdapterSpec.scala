@@ -37,18 +37,18 @@ class JournalAdapterSpec extends FunSuite with Matchers {
   }
 
   test("write") {
-    val (data, result) = journalAdapter.write(aws).run(State.Empty)
+    val (data, result) = journalAdapter.write(aws).run(State.empty)
     result shouldEqual Nil
     data shouldEqual State(appends = List(appendOf(key1, Nel.of(event, event))))
   }
 
   test("delete") {
-    val (data, _) = journalAdapter.delete(persistenceId, SeqNr.max).run(State.Empty)
+    val (data, _) = journalAdapter.delete(persistenceId, SeqNr.max).run(State.empty)
     data shouldEqual State(deletes = List(Delete(key1, SeqNr.max, timestamp)))
   }
 
   test("lastSeqNr") {
-    val (data, result) = journalAdapter.lastSeqNr(persistenceId, SeqNr.max).run(State.Empty)
+    val (data, result) = journalAdapter.lastSeqNr(persistenceId, SeqNr.max).run(State.empty)
     result shouldEqual None
     data shouldEqual State(pointers = List(Pointer(key1)))
   }
@@ -70,7 +70,7 @@ class JournalAdapterSpec extends FunSuite with Matchers {
     }
     val (data, result) = journalAdapter
       .withBatching(grouping)
-      .write(aws).run(State.Empty)
+      .write(aws).run(State.empty)
     result shouldEqual Nil
     data shouldEqual State(appends = List(
       appendOf(key1, Nel.of(event)),
@@ -84,7 +84,7 @@ object JournalAdapterSpec {
   private val toKey = ToKey.default[StateT]
   private val key1 = Key(id = "id", topic = "journal")
   private val event = Event(SeqNr.min)
-  private val partitionOffset = PartitionOffset.Empty
+  private val partitionOffset = PartitionOffset.empty
   private val persistenceId = "id"
   private val persistentRepr = PersistentRepr(None, persistenceId = persistenceId)
   private val metadata = Metadata(Json.obj(("key", "value")).some)
@@ -114,7 +114,7 @@ object JournalAdapterSpec {
     replayed: List[PersistentRepr] = Nil)
 
   object State {
-    val Empty: State = State()
+    val empty: State = State()
   }
 
 
@@ -124,7 +124,7 @@ object JournalAdapterSpec {
 
     implicit val LogStateF: Log[StateT] = Log.empty[StateT]
 
-    implicit val ClockStateF: Clock[StateT] = Clock.const(nanos = 0, millis = timestamp.toEpochMilli) // TODO add Instant as argument
+    implicit val clockStateF: Clock[StateT] = Clock.const(nanos = 0, millis = timestamp.toEpochMilli) // TODO add Instant as argument
 
     implicit val JournalStateF: Journal[StateT] = new Journal[StateT] {
 

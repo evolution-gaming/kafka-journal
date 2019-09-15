@@ -13,32 +13,32 @@ final case class Origin(value: String) extends AnyVal {
 
 object Origin {
 
-  val Empty: Origin = Origin("")
+  val empty: Origin = Origin("")
 
 
-  implicit val WritesOrigin: Writes[Origin] = Writes.of[String].contramap(_.value)
+  implicit val writesOrigin: Writes[Origin] = Writes.of[String].contramap(_.value)
 
-  implicit val ReadsOrigin: Reads[Origin] = Reads.of[String].map(Origin(_))
-
-
-  implicit val EncodeByNameOrigin: EncodeByName[Origin] = EncodeByName[String].imap((b: Origin) => b.value)
-
-  implicit val DecodeByNameOrigin: DecodeByName[Origin] = DecodeByName[String].map(value => Origin(value))
+  implicit val readsOrigin: Reads[Origin] = Reads.of[String].map(Origin(_))
 
 
-  implicit val EncodeByNameOptOrigin: EncodeByName[Option[Origin]] = EncodeByName.opt[Origin]
+  implicit val encodeByNameOrigin: EncodeByName[Origin] = EncodeByName[String].imap((b: Origin) => b.value)
 
-  implicit val DecodeByNameOptOrigin: DecodeByName[Option[Origin]] = DecodeByName.opt[Origin]
-
-
-  implicit val EncodeRowOrigin: EncodeRow[Origin] = EncodeRow("origin")
-
-  implicit val DecodeRowOrigin: DecodeRow[Origin] = DecodeRow("origin")
+  implicit val decodeByNameOrigin: DecodeByName[Origin] = DecodeByName[String].map(value => Origin(value))
 
 
-  implicit val EncodeRowOptOrigin: EncodeRow[Option[Origin]] = EncodeRow("origin")
+  implicit val encodeByNameOptOrigin: EncodeByName[Option[Origin]] = EncodeByName.opt[Origin]
 
-  implicit val DecodeRowOptOrigin: DecodeRow[Option[Origin]] = DecodeRow("origin")
+  implicit val decodeByNameOptOrigin: DecodeByName[Option[Origin]] = DecodeByName.opt[Origin]
+
+
+  implicit val encodeRowOrigin: EncodeRow[Origin] = EncodeRow("origin")
+
+  implicit val decodeRowOrigin: DecodeRow[Origin] = DecodeRow("origin")
+
+
+  implicit val encodeRowOptOrigin: EncodeRow[Option[Origin]] = EncodeRow("origin")
+
+  implicit val decodeRowOptOrigin: DecodeRow[Option[Origin]] = DecodeRow("origin")
 
 
   def fromHostName(hostName: HostName): Origin = Origin(hostName.value)

@@ -14,7 +14,7 @@ import com.evolutiongaming.sstream.Stream
 
 object SettingStatement {
 
-  implicit val EncodeSetting: EncodeRow[Setting] = new EncodeRow[Setting] {
+  implicit val encodeRowSetting: EncodeRow[Setting] = new EncodeRow[Setting] {
 
     def apply[B <: SettableData[B]](data: B, value: Setting) = {
       data
@@ -25,7 +25,7 @@ object SettingStatement {
     }
   }
 
-  implicit val DecodeSetting: DecodeRow[Setting] = new DecodeRow[Setting] {
+  implicit val decodeRowSetting: DecodeRow[Setting] = new DecodeRow[Setting] {
 
     def apply(data: GettableByNameData) = {
       Setting(

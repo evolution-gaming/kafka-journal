@@ -98,7 +98,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
 
       implicit val eventual = HeadCache.Eventual.empty[IO]
 
-      val state = TestConsumer.State.Empty
+      val state = TestConsumer.State.empty
 
       val key = Key(id = "id", topic = topic)
       val result = for {
@@ -264,9 +264,9 @@ object HeadCacheSpec {
     pollTimeout = 3.millis,
     cleanInterval = 100.millis)
 
-  val metadata: Metadata = Metadata.Empty
+  val metadata: Metadata = Metadata.empty
 
-  val headers: Headers = Headers.Empty
+  val headers: Headers = Headers.empty
 
   def appendOf(key: Key, seqNr: SeqNr): Action.Append  = {
     Action.Append.of[Try](key, timestamp, none, Nel.of(Event(seqNr)), metadata, headers).get
@@ -362,7 +362,7 @@ object HeadCacheSpec {
       records: Queue[ConsumerRecords[String, ByteVector]] = Queue.empty)
 
     object State {
-      val Empty: State = State()
+      val empty: State = State()
     }
   }
 }

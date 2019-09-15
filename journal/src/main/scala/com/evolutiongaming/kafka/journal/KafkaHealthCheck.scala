@@ -246,6 +246,6 @@ object KafkaHealthCheck {
     pollTimeout: FiniteDuration = 10.millis)
 
   object Config {
-    val Default: Config = Config()
+    val default: Config = Config()
   }
 }

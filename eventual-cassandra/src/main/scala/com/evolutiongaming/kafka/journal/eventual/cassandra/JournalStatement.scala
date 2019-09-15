@@ -173,7 +173,7 @@ object JournalStatement {
 
               val payloadType = row.decode[Option[PayloadType]]("payload_type")
               val payload = payloadType.map {
-                case PayloadType.Binary => row.decode[Option[Payload.Binary]]("payload_bin") getOrElse Payload.Binary.Empty
+                case PayloadType.Binary => row.decode[Option[Payload.Binary]]("payload_bin") getOrElse Payload.Binary.empty
                 case PayloadType.Text   => row.decode[Payload.Text]("payload_txt")
                 case PayloadType.Json   => row.decode[Payload.Json]("payload_txt")
               }
@@ -184,7 +184,7 @@ object JournalStatement {
                 tags = row.decode[Tags]("tags"),
                 payload = payload)
 
-              val metadata = row.decode[Option[Metadata]]("metadata") getOrElse Metadata.Empty
+              val metadata = row.decode[Option[Metadata]]("metadata") getOrElse Metadata.empty
 
               val headers = row.decode[Headers]
 

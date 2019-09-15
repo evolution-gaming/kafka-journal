@@ -313,9 +313,9 @@ class BatchSpec extends FunSuite with Matchers {
         range = SeqRange(seqNrOf(seqNrs.head), seqNrOf(seqNrs.last)),
         payloadType = PayloadType.Binary,
         origin = None,
-        metadata = Metadata.Empty),
+        metadata = Metadata.empty),
       payload = ByteVector.empty,
-      headers = Headers.Empty)
+      headers = Headers.empty)
   }
 
   def deleteOf(seqNr: Int, origin: String): Action.Delete = {

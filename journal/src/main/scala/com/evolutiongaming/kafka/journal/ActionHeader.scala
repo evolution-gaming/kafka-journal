@@ -12,7 +12,7 @@ object ActionHeader {
   val key: String = "journal.action"
 
 
-  implicit val FormatActionHeader: OFormat[ActionHeader] = {
+  implicit val formatActionHeader: OFormat[ActionHeader] = {
 
     val appendFormat = {
       val format = Json.format[Append]
@@ -28,7 +28,7 @@ object ActionHeader {
               range,
               origin,
               payloadType,
-              metadata getOrElse Metadata.Empty)
+              metadata getOrElse Metadata.empty)
           }
         }
       }

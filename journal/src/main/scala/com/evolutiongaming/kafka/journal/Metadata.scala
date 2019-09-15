@@ -8,18 +8,18 @@ final case class Metadata(data: Option[JsValue])
 
 object Metadata {
 
-  val Empty: Metadata = Metadata(data = None)
+  val empty: Metadata = Metadata(data = None)
   
 
-  implicit val FormatMetadata: OFormat[Metadata] = Json.format
+  implicit val formatMetadata: OFormat[Metadata] = Json.format
 
 
-  implicit val EncodeByNameMetadata: EncodeByName[Metadata] = encodeByNameFromWrites
+  implicit val encodeByNameMetadata: EncodeByName[Metadata] = encodeByNameFromWrites
 
-  implicit val DecodeByNameMetadata: DecodeByName[Metadata] = decodeByNameFromReads
+  implicit val decodeByNameMetadata: DecodeByName[Metadata] = decodeByNameFromReads
 
 
-  implicit val EncodeRowMetadata: EncodeRow[Metadata] = EncodeRow("metadata")
+  implicit val encodeRowMetadata: EncodeRow[Metadata] = EncodeRow("metadata")
 
-  implicit val DecodeRowMetadata: DecodeRow[Metadata] = DecodeRow("metadata")
+  implicit val decodeRowMetadata: DecodeRow[Metadata] = DecodeRow("metadata")
 }

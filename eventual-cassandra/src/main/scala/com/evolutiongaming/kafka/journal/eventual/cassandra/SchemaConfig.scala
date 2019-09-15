@@ -6,7 +6,7 @@ import com.typesafe.config.Config
 
 // make a part of EventualCassandraConfig
 final case class SchemaConfig(
-  keyspace: SchemaConfig.Keyspace = SchemaConfig.Keyspace.Default,
+  keyspace: SchemaConfig.Keyspace = SchemaConfig.Keyspace.default,
   journalTable: String = "journal",
   headTable: String = "metadata",
   pointerTable: String = "pointer",
@@ -17,10 +17,10 @@ final case class SchemaConfig(
 
 object SchemaConfig {
 
-  val Default: SchemaConfig = SchemaConfig()
+  val default: SchemaConfig = SchemaConfig()
 
 
-  def apply(config: Config): SchemaConfig = apply(config, Default)
+  def apply(config: Config): SchemaConfig = apply(config, default)
 
   def apply(config: Config, default: => SchemaConfig): SchemaConfig = {
 
@@ -44,10 +44,10 @@ object SchemaConfig {
 
   object Keyspace {
 
-    val Default: Keyspace = Keyspace()
+    val default: Keyspace = Keyspace()
 
-    
-    def apply(config: Config): Keyspace = apply(config, Default)
+
+    def apply(config: Config): Keyspace = apply(config, default)
 
     def apply(config: Config, default: => Keyspace): Keyspace = {
 

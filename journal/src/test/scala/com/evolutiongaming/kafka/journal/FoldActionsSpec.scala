@@ -105,9 +105,9 @@ object FoldActionsSpec {
       pointer <- pointers
     } yield {
       val range = SeqRange.unsafe(pointer.seqNr)
-      val metadata = Metadata.Empty
+      val metadata = Metadata.empty
       val header = ActionHeader.Append(range, None, PayloadType.Json, metadata)
-      val action = Action.Append(key, timestamp, header, ByteVector.empty, Headers.Empty)
+      val action = Action.Append(key, timestamp, header, ByteVector.empty, Headers.empty)
       ActionRecord(action, PartitionOffset(offset = pointer.offset))
     }
     val records = appendRecords :+ markRecord

@@ -14,7 +14,7 @@ object HeadCacheMetrics {
 
   def of[F[_] : Monad](
     registry: CollectorRegistry[F],
-    prefix: HeadCache.Metrics.Prefix = HeadCache.Metrics.Prefix.Default
+    prefix: HeadCache.Metrics.Prefix = HeadCache.Metrics.Prefix.default
   ): Resource[F, HeadCacheMetrics[F]] = {
     for {
       headCache <- HeadCache.Metrics.of(registry, prefix)

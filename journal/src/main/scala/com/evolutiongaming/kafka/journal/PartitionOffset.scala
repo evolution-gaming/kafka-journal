@@ -17,9 +17,9 @@ final case class PartitionOffset(
 
 object PartitionOffset {
 
-  val Empty: PartitionOffset = PartitionOffset()
+  val empty: PartitionOffset = PartitionOffset()
 
-  implicit val EncodeRowPartitionOffset: EncodeRow[PartitionOffset] = new EncodeRow[PartitionOffset] {
+  implicit val encodeRowPartitionOffset: EncodeRow[PartitionOffset] = new EncodeRow[PartitionOffset] {
 
     def apply[B <: SettableData[B]](data: B, value: PartitionOffset) = {
       data
@@ -28,7 +28,7 @@ object PartitionOffset {
     }
   }
 
-  implicit val DecodeRowPartitionOffset: DecodeRow[PartitionOffset] = (data: GettableByNameData) => {
+  implicit val decodeRowPartitionOffset: DecodeRow[PartitionOffset] = (data: GettableByNameData) => {
     PartitionOffset(
       partition = data.decode[Partition]("partition"),
       offset = data.decode[Offset]("offset"))

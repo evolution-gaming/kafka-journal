@@ -6,7 +6,7 @@ import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow}
 
 object HeadersHelper {
 
-  implicit val HeadersEncodeRow: EncodeRow[Headers] = EncodeRow("headers")
+  implicit val headersEncodeRow: EncodeRow[Headers] = EncodeRow("headers")
 
-  implicit val HeadersDecodeRow: DecodeRow[Headers] = DecodeRow("headers")
+  implicit val headersDecodeRow: DecodeRow[Headers] = DecodeRow("headers")
 }

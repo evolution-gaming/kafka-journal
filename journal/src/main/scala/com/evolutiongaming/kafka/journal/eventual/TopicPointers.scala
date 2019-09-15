@@ -15,5 +15,5 @@ final case class TopicPointers(values: Map[Partition, Offset] = Map.empty) {
 }
 
 object TopicPointers {
-  val Empty: TopicPointers = TopicPointers()
+  val empty: TopicPointers = TopicPointers()
 }

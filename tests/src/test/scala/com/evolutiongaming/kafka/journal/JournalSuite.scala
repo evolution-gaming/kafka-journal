@@ -65,7 +65,7 @@ object JournalSuite {
 
   trait KeyJournal[F[_]] {
 
-    def append(events: Nel[Event], metadata: Option[JsValue] = None, headers: Headers = Headers.Empty): F[PartitionOffset]
+    def append(events: Nel[Event], metadata: Option[JsValue] = None, headers: Headers = Headers.empty): F[PartitionOffset]
 
     def read: F[List[EventRecord]]
 

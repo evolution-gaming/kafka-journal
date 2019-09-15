@@ -12,7 +12,7 @@ class JournalConfigSpec extends FunSuite with Matchers {
 
   test("apply from empty config") {
     val config = ConfigFactory.empty()
-    JournalConfig(config) shouldEqual JournalConfig.Default
+    JournalConfig(config) shouldEqual JournalConfig.default
   }
 
   test("apply from config") {
@@ -20,11 +20,11 @@ class JournalConfigSpec extends FunSuite with Matchers {
     JournalConfig(config) shouldEqual JournalConfig(
       pollTimeout = 1.millis,
       producer = ProducerConfig(
-        common = JournalConfig.Default.producer.common.copy(clientId = Some("clientId")),
+        common = JournalConfig.default.producer.common.copy(clientId = Some("clientId")),
         acks = Acks.All,
         idempotence = true),
       ConsumerConfig(
-        common = JournalConfig.Default.consumer.common.copy(clientId = Some("clientId")),
+        common = JournalConfig.default.consumer.common.copy(clientId = Some("clientId")),
         groupId = Some("journal"),
         autoOffsetReset = AutoOffsetReset.Earliest,
         autoCommit = false),

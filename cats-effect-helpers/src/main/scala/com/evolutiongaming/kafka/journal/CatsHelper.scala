@@ -27,7 +27,7 @@ object CatsHelper {
   }
 
 
-  implicit val FoldableIterable: Foldable[Iterable] = new Foldable[Iterable] {
+  implicit val foldableIterable: Foldable[Iterable] = new Foldable[Iterable] {
 
     def foldLeft[A, B](fa: Iterable[A], b: B)(f: (B, A) => B) = {
       fa.foldLeft(b)(f)
@@ -39,14 +39,14 @@ object CatsHelper {
   }
 
 
-  implicit val FoldableImmutableIterable: Foldable[immutable.Iterable] = new Foldable[immutable.Iterable] {
+  implicit val foldableImmutableIterable: Foldable[immutable.Iterable] = new Foldable[immutable.Iterable] {
 
     def foldLeft[A, B](fa: immutable.Iterable[A], b: B)(f: (B, A) => B) = {
-      FoldableIterable.foldLeft(fa, b)(f)
+      foldableIterable.foldLeft(fa, b)(f)
     }
 
     def foldRight[A, B](fa: immutable.Iterable[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]) = {
-      FoldableIterable.foldRight(fa, lb)(f)
+      foldableIterable.foldRight(fa, lb)(f)
     }
   }
 

@@ -14,7 +14,7 @@ import scala.util.control.NoStackTrace
 class CreateTablesSpec extends FunSuite with Matchers {
 
   test("create 1 table") {
-    val initial = State.Empty
+    val initial = State.empty
     val (state, fresh) = createTables("keyspace", Nel.of(Table("table", "query"))).run(initial)
     fresh shouldEqual true
     state shouldEqual initial.copy(
@@ -26,7 +26,7 @@ class CreateTablesSpec extends FunSuite with Matchers {
   }
 
   test("create 2 tables and ignore 1") {
-    val initial = State.Empty.copy(tables = Set("table1"))
+    val initial = State.empty.copy(tables = Set("table1"))
     val tables = Nel.of(
       Table("table1", "query"),
       Table("table2", "query"),
@@ -43,7 +43,7 @@ class CreateTablesSpec extends FunSuite with Matchers {
   }
 
   test("create 2 tables") {
-    val initial = State.Empty.copy(tables = Set("table1"))
+    val initial = State.empty.copy(tables = Set("table1"))
     val tables = Nel.of(
       Table("table1", "query"),
       Table("table2", "query"))
@@ -59,7 +59,7 @@ class CreateTablesSpec extends FunSuite with Matchers {
   }
 
   test("no create tables") {
-    val initial = State.Empty.copy(tables = Set("table"))
+    val initial = State.empty.copy(tables = Set("table"))
     val tables = Nel.of(Table("table", "query"))
     val (state, fresh) = createTables("keyspace", tables).run(initial)
     fresh shouldEqual false
@@ -139,7 +139,7 @@ class CreateTablesSpec extends FunSuite with Matchers {
     def warn(msg: => String) = ().pure[StateT]
 
     def warn(msg: => String, cause: Throwable) = ().pure[StateT]
-    
+
     def error(msg: => String) = ().pure[StateT]
 
     def error(msg: => String, cause: Throwable) = ().pure[StateT]
@@ -154,7 +154,7 @@ class CreateTablesSpec extends FunSuite with Matchers {
   }
 
   object State {
-    val Empty: State = State("keyspace", Set.empty, List.empty)
+    val empty: State = State("keyspace", Set.empty, List.empty)
   }
 
 

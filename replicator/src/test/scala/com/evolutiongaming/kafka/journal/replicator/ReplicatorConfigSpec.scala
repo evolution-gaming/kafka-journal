@@ -16,7 +16,7 @@ class ReplicatorConfigSpec extends FunSuite with Matchers {
 
   test("apply from empty config") {
     val config = ConfigFactory.empty()
-    ReplicatorConfig(config) shouldEqual ReplicatorConfig.Default
+    ReplicatorConfig(config) shouldEqual ReplicatorConfig.default
   }
 
   test("apply from config") {

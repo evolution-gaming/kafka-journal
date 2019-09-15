@@ -10,7 +10,7 @@ import play.api.libs.json.JsValue
 final case class MetadataAndHeaders(metadata: Option[JsValue], headers: Headers)
 
 object MetadataAndHeaders {
-  val Empty: MetadataAndHeaders = MetadataAndHeaders(none[JsValue], Headers.Empty)
+  val empty: MetadataAndHeaders = MetadataAndHeaders(none[JsValue], Headers.empty)
 }
 
 
@@ -21,7 +21,7 @@ trait MetadataAndHeadersOf[F[_]] {
 
 object MetadataAndHeadersOf {
 
-  def empty[F[_] : Applicative]: MetadataAndHeadersOf[F] = const[F](MetadataAndHeaders.Empty.pure[F])
+  def empty[F[_] : Applicative]: MetadataAndHeadersOf[F] = const[F](MetadataAndHeaders.empty.pure[F])
 
 
   def const[F[_]](value: F[MetadataAndHeaders]): MetadataAndHeadersOf[F] = new MetadataAndHeadersOf[F] {

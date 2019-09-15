@@ -306,10 +306,10 @@ trait EventualJournalSpec extends WordSpec with Matchers {
         withJournals3 { case (eventual, replicated) =>
           for {
             a <- replicated.pointers("unknown")
-            _ = a shouldEqual TopicPointers.Empty
+            _ = a shouldEqual TopicPointers.empty
             a <- eventual.pointers("unknown")
           } yield {
-            a shouldEqual TopicPointers.Empty
+            a shouldEqual TopicPointers.empty
           }
         }
       }
@@ -357,14 +357,14 @@ trait EventualJournalSpec extends WordSpec with Matchers {
     "save empty pointers empty" in {
       withJournals1 { case (eventual, replicated) =>
         for {
-          _ <- replicated.save(topic, TopicPointers.Empty)
+          _ <- replicated.save(topic, TopicPointers.empty)
           a <- replicated.topics
           _ = a shouldEqual Nil
           a <- replicated.pointers(topic)
-          _ = a shouldEqual TopicPointers.Empty
+          _ = a shouldEqual TopicPointers.empty
           a <- eventual.pointers(topic)
         } yield {
-          a shouldEqual TopicPointers.Empty
+          a shouldEqual TopicPointers.empty
         }
       }
     }

@@ -10,7 +10,7 @@ class KafkaJournalConfigSpec extends FunSuite with Matchers {
 
   test("apply from empty config") {
     val config = ConfigFactory.empty()
-    KafkaJournalConfig(config) shouldEqual KafkaJournalConfig.Default
+    KafkaJournalConfig(config) shouldEqual KafkaJournalConfig.default
   }
 
   test("apply from config") {
@@ -29,7 +29,7 @@ class KafkaJournalConfigSpec extends FunSuite with Matchers {
 
   test("apply from reference.conf") {
     val config = ConfigFactory.load().getConfig("evolutiongaming.kafka-journal.persistence.journal")
-    val expected = KafkaJournalConfig.Default
+    val expected = KafkaJournalConfig.default
     KafkaJournalConfig(config) shouldEqual expected
   }
 }

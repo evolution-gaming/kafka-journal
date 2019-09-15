@@ -117,7 +117,7 @@ object EventualJournal {
 
   def empty[F[_] : Applicative]: EventualJournal[F] = new EventualJournal[F] {
 
-    def pointers(topic: Topic) = TopicPointers.Empty.pure[F]
+    def pointers(topic: Topic) = TopicPointers.empty.pure[F]
 
     def read(key: Key, from: SeqNr) = Stream.empty[F, EventRecord]
 

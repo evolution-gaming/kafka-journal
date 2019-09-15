@@ -11,21 +11,21 @@ sealed abstract class PayloadType extends Product {
 
 object PayloadType {
 
-  val Values: Set[PayloadType] = Set(Binary, Text, Json)
+  val values: Set[PayloadType] = Set(Binary, Text, Json)
 
-  private val byName = Values.map(value => (value.name, value)).toMap
+  private val byName = values.map(value => (value.name, value)).toMap
 
 
-  implicit val EncodeImp: EncodeByName[PayloadType] = EncodeByName[String].imap { _.name }
+  implicit val encodeByNamePayloadType: EncodeByName[PayloadType] = EncodeByName[String].imap { _.name }
 
-  implicit val DecodeImp: DecodeByName[PayloadType] = DecodeByName[String].map { name =>
+  implicit val decodeByNamePayloadType: DecodeByName[PayloadType] = DecodeByName[String].map { name =>
     apply(name) getOrElse Binary
   }
 
 
-  implicit val WritesPayloadType: Writes[PayloadType] = Writes.of[String].contramap(_.name)
+  implicit val writesPayloadType: Writes[PayloadType] = Writes.of[String].contramap(_.name)
 
-  implicit val ReadsPayloadType: Reads[PayloadType] = Reads.of[String].mapResult { a =>
+  implicit val readsPayloadType: Reads[PayloadType] = Reads.of[String].mapResult { a =>
     apply(a) match {
       case Some(a) => JsSuccess(a)
       case None    => JsError(s"No PayloadType found by $a")
@@ -46,7 +46,7 @@ object PayloadType {
   sealed abstract class BinaryOrJson extends PayloadType
 
   object BinaryOrJson {
-    implicit val ReadsBinaryOrJson: Reads[BinaryOrJson] = Reads.of[String].mapResult { a =>
+    implicit val readsBinaryOrJson: Reads[BinaryOrJson] = Reads.of[String].mapResult { a =>
       apply(a) match {
         case Some(a: BinaryOrJson) => JsSuccess(a)
         case _                     => JsError(s"No PayloadType.BinaryOrJson found by $a")
@@ -58,7 +58,7 @@ object PayloadType {
   sealed trait TextOrJson extends PayloadType
 
   object TextOrJson {
-    implicit val ReadsTextOrJson: Reads[TextOrJson] = Reads.of[String].mapResult { a =>
+    implicit val readsTextOrJson: Reads[TextOrJson] = Reads.of[String].mapResult { a =>
       apply(a) match {
         case Some(a: TextOrJson) => JsSuccess(a)
         case _                   => JsError(s"No PayloadType.TextOrJson found by $a")

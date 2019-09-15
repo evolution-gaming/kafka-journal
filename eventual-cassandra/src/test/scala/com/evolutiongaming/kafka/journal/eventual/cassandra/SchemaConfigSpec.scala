@@ -9,7 +9,7 @@ class SchemaConfigSpec extends FunSuite with Matchers {
 
   test("apply from empty config") {
     val config = ConfigFactory.empty()
-    SchemaConfig(config) shouldEqual SchemaConfig.Default
+    SchemaConfig(config) shouldEqual SchemaConfig.default
   }
 
   test("apply from config") {

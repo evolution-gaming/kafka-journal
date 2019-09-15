@@ -10,19 +10,19 @@ import pureconfig.ConfigSource
 import scala.concurrent.duration._
 
 final case class KafkaJournalConfig(
-  journal: JournalConfig = JournalConfig.Default,
-  cassandra: EventualCassandraConfig = EventualCassandraConfig.Default,
+  journal: JournalConfig = JournalConfig.default,
+  cassandra: EventualCassandraConfig = EventualCassandraConfig.default,
   startTimeout: FiniteDuration = 1.minute,
   stopTimeout: FiniteDuration = 1.minute,
   maxEventsInBatch: Int = 10,
-  callTimeThresholds: CallTimeThresholds = CallTimeThresholds.Default)
+  callTimeThresholds: CallTimeThresholds = CallTimeThresholds.default)
 
 object KafkaJournalConfig {
 
-  val Default: KafkaJournalConfig = KafkaJournalConfig()
+  val default: KafkaJournalConfig = KafkaJournalConfig()
 
 
-  def apply(config: Config): KafkaJournalConfig = apply(config, Default)
+  def apply(config: Config): KafkaJournalConfig = apply(config, default)
 
   def apply(config: Config, default: => KafkaJournalConfig): KafkaJournalConfig = {
 
@@ -31,7 +31,7 @@ object KafkaJournalConfig {
     val callTimeThresholds = ConfigSource.fromConfig(config)
       .at("call-time-thresholds")
       .load[CallTimeThresholds]
-      .getOrElse(CallTimeThresholds.Default)
+      .getOrElse(CallTimeThresholds.default)
 
     KafkaJournalConfig(
       journal = JournalConfig(config),

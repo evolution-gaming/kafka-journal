@@ -13,7 +13,7 @@ final case class Key(id: String, topic: Topic) {
 
 object Key {
 
-  implicit val EncodeRowKey: EncodeRow[Key] = new EncodeRow[Key] {
+  implicit val encodeRowKey: EncodeRow[Key] = new EncodeRow[Key] {
 
     def apply[B <: SettableData[B]](data: B, value: Key) = {
       data
@@ -22,7 +22,7 @@ object Key {
     }
   }
 
-  implicit val DecodeRowKey: DecodeRow[Key] = new DecodeRow[Key] {
+  implicit val decodeRowKey: DecodeRow[Key] = new DecodeRow[Key] {
 
     def apply(data: GettableByNameData) = {
       Key(

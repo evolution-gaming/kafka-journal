@@ -8,9 +8,9 @@ import org.scalatest.{FunSuite, Matchers}
 class CreateSchemaSpec extends FunSuite with Matchers { self =>
 
   test("create keyspace and tables") {
-    val config = SchemaConfig.Default
+    val config = SchemaConfig.default
     val createSchema = CreateSchema[StateT](config, createKeyspace, createTables)
-    val initial = State.Empty.copy(createTables = true)
+    val initial = State.empty.copy(createTables = true)
     val (state, (schema, fresh)) = createSchema.run(initial)
     state shouldEqual initial.copy(actions = List(Action.CreateTables, Action.CreateKeyspace))
     fresh shouldEqual true
@@ -18,9 +18,9 @@ class CreateSchemaSpec extends FunSuite with Matchers { self =>
   }
 
   test("not create keyspace and tables") {
-    val config = SchemaConfig.Default.copy(autoCreate = false)
+    val config = SchemaConfig.default.copy(autoCreate = false)
     val createSchema = CreateSchema[StateT](config, createKeyspace, createTables)
-    val initial = State.Empty.copy(createTables = true)
+    val initial = State.empty.copy(createTables = true)
     val (state, (schema, fresh)) = createSchema.run(initial)
     state shouldEqual initial.copy(actions = List(Action.CreateKeyspace))
     fresh shouldEqual false
@@ -59,7 +59,7 @@ class CreateSchemaSpec extends FunSuite with Matchers { self =>
   }
 
   object State {
-    val Empty: State = State(createTables = false, actions = Nil)
+    val empty: State = State(createTables = false, actions = Nil)
   }
 
 

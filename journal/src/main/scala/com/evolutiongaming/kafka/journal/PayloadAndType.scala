@@ -29,12 +29,12 @@ object PayloadAndType {
 
   object EventJson {
 
-    implicit val FormatEventJson: OFormat[EventJson] = Json.format
+    implicit val formatEventJson: OFormat[EventJson] = Json.format
 
 
-    implicit val WritesNelEventJson: Writes[Nel[EventJson]] = nelWrites
+    implicit val writesNelEventJson: Writes[Nel[EventJson]] = nelWrites
 
-    implicit val ReadsNelEventJson: Reads[Nel[EventJson]] = nelReads
+    implicit val readsNelEventJson: Reads[Nel[EventJson]] = nelReads
   }
 
 
@@ -42,10 +42,10 @@ object PayloadAndType {
 
   object PayloadJson {
 
-    implicit val FormatPayloadJson: OFormat[PayloadJson] = Json.format
+    implicit val formatPayloadJson: OFormat[PayloadJson] = Json.format
 
 
-    implicit val CodecPayloadJson: Codec[PayloadJson] = formatCodec // TODO not used
+    implicit val codecPayloadJson: Codec[PayloadJson] = formatCodec // TODO not used
 
 
     implicit def toBytesPayloadJson[F[_] : Applicative]: ToBytes[F, PayloadJson] = ToBytes.fromWrites

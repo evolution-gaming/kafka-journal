@@ -20,7 +20,7 @@ class ActionToProducerRecordSpec extends FunSuite with Matchers {
 
   private val timestamp = Instant.now().truncatedTo(ChronoUnit.MILLIS)
 
-  private val partitionOffset = PartitionOffset.Empty
+  private val partitionOffset = PartitionOffset.empty
 
   private val topicPartition = TopicPartition(key1.topic, partitionOffset.partition)
 
@@ -44,7 +44,7 @@ class ActionToProducerRecordSpec extends FunSuite with Matchers {
   }
 
   private val metadata = List(
-    Metadata.Empty,
+    Metadata.empty,
     Metadata(Json.obj(("key", "value")).some))
 
   private val payloads = {
@@ -57,7 +57,7 @@ class ActionToProducerRecordSpec extends FunSuite with Matchers {
   }
 
   private val events = for {
-    tags    <- List(Tags.Empty, Tags("tag"))
+    tags    <- List(Tags.empty, Tags("tag"))
     payload <- payloads
     seqNrs  <- List(
       Nel.of(SeqNr.min),
@@ -71,7 +71,7 @@ class ActionToProducerRecordSpec extends FunSuite with Matchers {
     }
   }
 
-  private val headers = List(Headers.Empty, Headers(("key", "value")))
+  private val headers = List(Headers.empty, Headers(("key", "value")))
 
   private val consumerRecordToActionRecord = ConsumerRecordToActionRecord[Try]
 
