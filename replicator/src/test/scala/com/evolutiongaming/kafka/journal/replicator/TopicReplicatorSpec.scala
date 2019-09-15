@@ -13,6 +13,7 @@ import com.evolutiongaming.kafka.journal.conversions.ActionToProducerRecord
 import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
+import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, WithSize}
 import com.evolutiongaming.skafka.{Bytes => _, Header => _, Metadata => _, _}
 import org.scalatest.{Matchers, WordSpec}
@@ -837,7 +838,7 @@ object TopicReplicatorSpec {
         }
       } else {
         val records = delete(deleteTo)
-        val result = records.headOption.flatMap(_.seqNr.prev) orElse journal.lastOption.map(_.seqNr)
+        val result = records.headOption.flatMap(_.seqNr.prev[Option]) orElse journal.lastOption.map(_.seqNr)
         val head = Head(partitionOffset, deleteTo = result orElse deleteTo1, origin = origin)
         copy(
           journal = self.journal.updated(key, records),

@@ -18,9 +18,6 @@ object ToStr {
   }
 
 
-  implicit val throwableToStr: ToStr[Throwable] = _.getMessage
-
-
   object implicits {
 
     implicit class AnyOpsToStr[A](val self: A) extends AnyVal {

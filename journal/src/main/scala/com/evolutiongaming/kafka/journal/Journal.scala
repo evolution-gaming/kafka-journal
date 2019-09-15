@@ -9,6 +9,7 @@ import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal.conversions.{EventsToPayload, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
+import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords}
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord}
@@ -173,7 +174,7 @@ object Journal {
             eventual.read(key, from).foldWhileM(ss) { case ((l, _, _), record) =>
               val event = record.event
               val offset = record.partitionOffset.offset
-              val from = event.seqNr.next
+              val from = event.seqNr.next[Option]
               f(l, record).map {
                 case Left(l)  => (l, from, offset.some).asLeft[(R, Option[SeqNr], Option[Offset])]
                 case Right(r) => (r, from, offset.some).asRight[(L, Option[SeqNr], Option[Offset])]
@@ -240,7 +241,7 @@ object Journal {
             deleteTo.fold {
               read(from)
             } { deleteTo =>
-              deleteTo.next.fold {
+              deleteTo.next[Option].fold {
                 l.asLeft[R].pure[F]
               } { min =>
                 read(min max from)
@@ -259,7 +260,7 @@ object Journal {
               case JournalInfo.Empty               => replicated(from)
               case JournalInfo.Append(_, deleteTo) => onNonEmpty(deleteTo, readKafka)
               // TODO test this case
-              case JournalInfo.Delete(deleteTo) => deleteTo.next match {
+              case JournalInfo.Delete(deleteTo) => deleteTo.next[Option] match {
                 case None       => l.asLeft[R].pure[F]
                 case Some(next) => replicated(from max next)
               }

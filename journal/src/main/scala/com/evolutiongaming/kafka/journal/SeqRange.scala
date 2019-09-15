@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.SeqNr.implicits._
+import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import play.api.libs.json.{Json, OFormat}
 
 import scala.annotation.tailrec
@@ -30,7 +31,7 @@ final case class SeqRange(from: SeqNr, to: SeqNr) {
   def toNel: Nel[SeqNr] = {
 
     @tailrec
-    def loop(xs: Nel[SeqNr]): Nel[SeqNr] = xs.head.prev match {
+    def loop(xs: Nel[SeqNr]): Nel[SeqNr] = xs.head.prev[Option] match {
       case Some(seqNr) if seqNr >= from => loop(seqNr :: xs)
       case _                            => xs
     }

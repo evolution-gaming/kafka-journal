@@ -3,6 +3,9 @@ package com.evolutiongaming.kafka.journal
 import cats.implicits._
 import cats.{Foldable, Semigroup}
 
+import com.evolutiongaming.kafka.journal.util.OptionHelper._
+
+
 sealed abstract class JournalInfo extends Product {
 
   def apply(header: ActionHeader): JournalInfo
@@ -83,7 +86,7 @@ object JournalInfo {
     def apply(a: ActionHeader): NonEmpty = {
 
       def onAppend(a: ActionHeader.Append) = {
-        val deleteTo = a.range.from.prev.map(_ min self.deleteTo)
+        val deleteTo = a.range.from.prev[Option].map(_ min self.deleteTo)
         Append(a.range.to, deleteTo)
       }
 

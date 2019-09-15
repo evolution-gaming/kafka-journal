@@ -50,7 +50,7 @@ object PlayJsonHelper {
   }
 
 
-  implicit val jsResultMonadString: MonadError[JsResult, String] = MonadString[JsResult, JsError]
+  implicit val jsResultMonadString: MonadString[JsResult] = MonadString[JsResult, JsError]
 
 
   implicit def nelReads[T](implicit reads: Reads[List[T]]): Reads[Nel[T]] = {

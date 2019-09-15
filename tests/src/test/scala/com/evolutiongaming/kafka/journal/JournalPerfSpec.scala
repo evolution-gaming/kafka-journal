@@ -9,6 +9,7 @@ import cats.implicits._
 import cats.effect.{Clock, IO}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{Log, LogOf}
 import org.scalatest.AsyncWordSpec
@@ -74,7 +75,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
 
         val expected = for {
           n <- (0 to events).toList
-          seqNr <- SeqNr.min.map(_ + n)
+          seqNr <- SeqNr.min.map[Option](_ + n)
         } yield Event(seqNr)
 
         for {

@@ -12,6 +12,7 @@ import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
+import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import org.scalatest.{AsyncWordSpec, Succeeded}
 import play.api.libs.json.Json
 
@@ -104,7 +105,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
 
           val events = for {
             n <- (0 until many).toList
-            seqNr <- seqNr.map(_ + n)
+            seqNr <- seqNr.map[Option](_ + n)
           } yield {
             Event(seqNr)
           }
@@ -130,7 +131,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
 
           val expected = for {
             n <- (0 to 10).toList
-            seqNr <- seqNr.map(_ + n)
+            seqNr <- seqNr.map[Option](_ + n)
           } yield Event(seqNr)
 
           val appends = for {
@@ -162,7 +163,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
 
           val seqNrs = {
             val seqNrs = (0 to 2).foldLeft(Nel.of(seqNr)) { (seqNrs, _) =>
-              seqNrs.head.next.fold(seqNrs) { _ :: seqNrs }
+              seqNrs.head.next[Option].fold(seqNrs) { _ :: seqNrs }
             }
             seqNrs.reverse
           }

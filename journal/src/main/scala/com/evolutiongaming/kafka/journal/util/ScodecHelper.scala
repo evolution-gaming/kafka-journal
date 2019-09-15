@@ -47,7 +47,7 @@ object ScodecHelper {
   }
 
 
-  implicit val attemptMonadString: MonadError[Attempt, String] = MonadString[Attempt, Attempt.Failure]
+  implicit val attemptMonadString: MonadString[Attempt] = MonadString[Attempt, Attempt.Failure]
 
 
   def nelCodec[A](codec: Codec[List[A]]): Codec[Nel[A]] = {

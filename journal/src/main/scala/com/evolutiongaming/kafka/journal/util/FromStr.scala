@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.Functor
-import com.evolutiongaming.kafka.journal.JournalError
 
 trait FromStr[A] {
 
@@ -16,9 +15,6 @@ object FromStr {
   implicit val functorFromStr: Functor[FromStr] = new Functor[FromStr] {
     def map[A, B](fa: FromStr[A])(f: A => B) = (a: String) => f(fa(a))
   }
-
-
-  implicit val throwableFromStr: FromStr[Throwable] = JournalError(_)
 
 
   object implicits {

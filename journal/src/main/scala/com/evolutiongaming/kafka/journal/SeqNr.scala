@@ -28,7 +28,7 @@ object SeqNr {
   val max: SeqNr = SeqNr(Long.MaxValue)
 
 
-  implicit val shoSeqNr: Show[SeqNr] = Show.fromToString
+  implicit val showSeqNr: Show[SeqNr] = Show.fromToString
 
 
   implicit val orderingSeqNr: Ordering[SeqNr] = (x: SeqNr, y: SeqNr) => x.value compare y.value
@@ -90,21 +90,15 @@ object SeqNr {
 
   implicit class SeqNrOps(val self: SeqNr) extends AnyVal {
 
-    def next: Option[SeqNr] = map(_ + 1L)
+    def next[F[_] : ApplicativeString]: F[SeqNr] = map[F](_ + 1L)
 
-    def prev: Option[SeqNr] = map(_ - 1L)
-
-    def next1[F[_] : ApplicativeString]: Option[SeqNr] = map(_ + 1L)
-
-    def prev1[F[_] : ApplicativeString]: Option[SeqNr] = map(_ - 1L)
+    def prev[F[_] : ApplicativeString]: F[SeqNr] = map[F](_ - 1L)
 
     def in(range: SeqRange): Boolean = range contains self
 
     def to(seqNr: SeqNr): SeqRange = SeqRange(self, seqNr)
 
-    def map(f: Long => Long): Option[SeqNr] = SeqNr.opt(f(self.value))
-
-    def map1[F[_] : ApplicativeString](f: Long => Long): F[SeqNr] = SeqNr.of[F](f(self.value))
+    def map[F[_] : ApplicativeString](f: Long => Long): F[SeqNr] = SeqNr.of[F](f(self.value))
   }
 
 

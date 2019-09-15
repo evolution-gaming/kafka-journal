@@ -11,6 +11,7 @@ import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal.Metrics
 import com.evolutiongaming.kafka.journal.eventual._
+import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.MeasureDuration
 
@@ -93,7 +94,7 @@ object ReplicatedCassandra {
               partitionOffset = partitionOffset,
               segmentSize = segmentSize,
               seqNr = seqNrLast,
-              deleteTo = events.head.seqNr.prev)
+              deleteTo = events.head.seqNr.prev[Option])
             val origin = events.head.origin
             val insert = () => Statements[F].insertHead(key, timestamp, head, origin)
             (insert, head.segmentSize)
@@ -158,7 +159,7 @@ object ReplicatedCassandra {
             case None           => delete(from = SeqNr.min, deleteTo = deleteToFixed)
             case Some(deleteTo) =>
               if (deleteTo >= deleteToFixed) ().pure[F]
-              else deleteTo.next.foldMap { from => delete(from = from, deleteTo = deleteToFixed) }
+              else deleteTo.next[Option].foldMap { from => delete(from = from, deleteTo = deleteToFixed) }
           }
         }
 

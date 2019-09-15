@@ -9,6 +9,7 @@ import cats.{Applicative, Monad}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.Log
+import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.skafka.{Offset, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
 import org.scalatest.{Assertion, Matchers, WordSpec}
@@ -521,7 +522,7 @@ object EventualJournalSpec {
 
     def next: Option[Pointer] = {
       for {
-        seqNr <- self.seqNr.next
+        seqNr <- self.seqNr.next[Option]
       } yield {
         val partitionOffset = self.partitionOffset
         self.copy(

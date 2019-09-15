@@ -3,10 +3,13 @@ package com.evolutiongaming.kafka.journal
 import cats.implicits._
 import org.scalatest.{FunSuite, Matchers}
 
+import com.evolutiongaming.kafka.journal.util.OptionHelper._
+
+
 class SeqNrSpec extends FunSuite with Matchers {
 
   test("of") {
-    SeqNr.of[Either[String, ?]](0).isRight shouldEqual false
+    SeqNr.of[Option](0) shouldEqual none
   }
 
   test("1 max 2") {
@@ -25,20 +28,20 @@ class SeqNrSpec extends FunSuite with Matchers {
     SeqNr(2) min SeqNr(1) shouldEqual SeqNr(1)
   }
 
-  test("Min.next") {
-    SeqNr.min.next shouldEqual Some(SeqNr(2))
+  test("min.next") {
+    SeqNr.min.next[Option] shouldEqual Some(SeqNr(2))
   }
 
-  test("Max.next") {
-    SeqNr.max.next shouldEqual None
+  test("max.next") {
+    SeqNr.max.next[Option] shouldEqual None
   }
 
-  test("Min.prev") {
-    SeqNr.min.prev shouldEqual None
+  test("min.prev") {
+    SeqNr.min.prev[Option] shouldEqual None
   }
 
-  test("Max.prev") {
-    SeqNr.max.prev shouldEqual Some(SeqNr(Long.MaxValue - 1))
+  test("max.prev") {
+    SeqNr.max.prev[Option] shouldEqual Some(SeqNr(Long.MaxValue - 1))
   }
 
   test("in") {

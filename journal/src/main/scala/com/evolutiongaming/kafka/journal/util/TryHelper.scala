@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.util
 
-import cats.MonadError
 import cats.implicits._
+import com.evolutiongaming.kafka.journal.JournalError
 
 import scala.util.Try
 
@@ -9,5 +9,7 @@ object TryHelper {
 
   implicit val throwableToStr: ToStr[Throwable] = _.getMessage
 
-  implicit val tryMonadString: MonadError[Try, String] = MonadString[Try, Throwable]
+  implicit val throwableFromStr: FromStr[Throwable] = JournalError(_)
+
+  implicit val tryMonadString: MonadString[Try] = MonadString[Try, Throwable]
 }

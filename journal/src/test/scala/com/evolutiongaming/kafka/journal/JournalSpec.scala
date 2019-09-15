@@ -7,12 +7,13 @@ import cats.data.{NonEmptyList => Nel}
 import cats.effect.{Clock, Resource}
 import cats.implicits._
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
+import com.evolutiongaming.kafka.journal.conversions.PayloadToEvents
 import com.evolutiongaming.kafka.journal.SeqNr.implicits._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
+import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log}
-import com.evolutiongaming.kafka.journal.conversions.PayloadToEvents
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
 import com.evolutiongaming.sstream.Stream
@@ -72,7 +73,7 @@ class JournalSpec extends WordSpec with Matchers {
             last = seqNrLast getOrElse SeqNr.min
             a   <- journal.read(SeqNr.min to last)
             _    = a shouldEqual seqNrs
-            a   <- journal.read(SeqNr.min to last.next.getOrElse(last))
+            a   <- journal.read(SeqNr.min to last.next[Option].getOrElse(last))
           } yield {
             a shouldEqual seqNrs
           }

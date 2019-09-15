@@ -6,6 +6,7 @@ import cats.implicits._
 import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
+import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.Topic
@@ -87,7 +88,7 @@ object EventualCassandra {
                   case Right(r) => r.asRight[L].asRight[(SeqNr, Segment, L)]
                   case Left(s)  =>
                     val result = for {
-                      from    <- s.seqNr.next
+                      from    <- s.seqNr.next[Option]
                       segment <- segment.next(from)
                     } yield {
                       (from, segment, s.l).asLeft[Either[L, R]]
@@ -102,7 +103,7 @@ object EventualCassandra {
             case None           => read(from)
             case Some(deleteTo) =>
               if (from > deleteTo) read(from)
-              else deleteTo.next match {
+              else deleteTo.next[Option] match {
                 case Some(from) => read(from)
                 case None       => Stream.empty[F, EventRecord]
               }
