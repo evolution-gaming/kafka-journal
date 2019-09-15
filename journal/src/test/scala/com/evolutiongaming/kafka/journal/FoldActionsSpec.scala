@@ -135,7 +135,7 @@ object FoldActionsSpec {
       }
     }
 
-    val foldActions = FoldActions[StateT](key, SeqNr.Min, marker, replicated, readActionsOf)
+    val foldActions = FoldActions[StateT](key, SeqNr.min, marker, replicated, readActionsOf)
     val (_, result) = foldActions(offset)
       .collect { case ActionRecord(a: Action.Append, partitionOffset) => seqNrAndOffset(a, partitionOffset) }
       .toList

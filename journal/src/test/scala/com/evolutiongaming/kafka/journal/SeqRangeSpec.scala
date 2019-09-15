@@ -46,8 +46,8 @@ class SeqRangeSpec extends FunSuite with Matchers {
     SeqRange(1).toNel.map(_.value) shouldEqual Nel.of(1)
     SeqRange(1, 2).toNel.map(_.value) shouldEqual Nel.of(1, 2)
     SeqRange(1, 4).toNel.map(_.value) shouldEqual Nel.of(1, 2, 3, 4)
-    SeqRange(SeqNr.Min).toNel shouldEqual Nel.of(SeqNr.Min)
-    SeqRange(SeqNr.Max).toNel shouldEqual Nel.of(SeqNr.Max)
+    SeqRange(SeqNr.min).toNel shouldEqual Nel.of(SeqNr.min)
+    SeqRange(SeqNr.max).toNel shouldEqual Nel.of(SeqNr.max)
   }
 
   test("contains") {

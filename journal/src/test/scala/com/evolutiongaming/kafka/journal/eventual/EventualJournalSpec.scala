@@ -73,7 +73,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
     }
 
     for {
-      seqNr <- List(SeqNr.Min, SeqNr(5), SeqNr(10))
+      seqNr <- List(SeqNr.min, SeqNr(5), SeqNr(10))
       size  <- List(0, 1, 2, 5, 10)
       batch <- List(true, false)
     } {
@@ -97,7 +97,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
       val seqNrsAll = {
         val end = pointerLast.fold(seqNr)(_.seqNr)
         val seqNrs = (seqNr to end).toNel
-        (SeqNr.Min :: SeqNr.Max :: seqNrs).distinct
+        (SeqNr.min :: SeqNr.max :: seqNrs).distinct
       }
 
 
@@ -405,12 +405,12 @@ trait EventualJournalSpec extends WordSpec with Matchers {
           _ = a shouldEqual Nil
           a <- eventual.pointer
           _ = a shouldEqual Some(pointerOf(offset = 7, seqNr = event3.seqNr))
-          _ <- replicated.delete(SeqNr.Max, partitionOffsetOf(8))
+          _ <- replicated.delete(SeqNr.max, partitionOffsetOf(8))
           a <- eventual.events()
           _ = a shouldEqual Nil
           a <- eventual.pointer
         } yield {
-          a shouldEqual Some(pointerOf(offset = 8, seqNr = SeqNr.Max))
+          a shouldEqual Some(pointerOf(offset = 8, seqNr = SeqNr.max))
         }
       }
     }
@@ -426,7 +426,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
           _ <- replicated.append(events)
           a <- eventual.pointer
           _ = a shouldEqual Some(events.last.pointer)
-          a <- eventual.events(SeqNr.Min)
+          a <- eventual.events(SeqNr.min)
         } yield {
           a shouldEqual events.toList
         }
@@ -451,7 +451,7 @@ object EventualJournalSpec {
 
   trait Eventual[F[_]] {
 
-    def events(from: SeqNr = SeqNr.Min): F[List[EventRecord]]
+    def events(from: SeqNr = SeqNr.min): F[List[EventRecord]]
 
     def pointer: F[Option[Pointer]]
 
@@ -462,7 +462,7 @@ object EventualJournalSpec {
 
     def apply[F[_] : Monad](journal: EventualJournal[F], key: Key): Eventual[F] = new Eventual[F] {
 
-      def events(from: SeqNr = SeqNr.Min) = {
+      def events(from: SeqNr = SeqNr.min) = {
         journal.read(key, from).toList
       }
 
@@ -537,7 +537,7 @@ object EventualJournalSpec {
 
 
   implicit class PointerObjOps(val self: Pointer.type) extends AnyVal {
-    def min: Pointer = pointerOf(Offset.Min, SeqNr.Min)
+    def min: Pointer = pointerOf(Offset.Min, SeqNr.min)
   }
 
 

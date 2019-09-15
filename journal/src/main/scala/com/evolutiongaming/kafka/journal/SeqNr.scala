@@ -42,19 +42,22 @@ final case class SeqNr(value: Long) extends Ordered[SeqNr] {
 
 object SeqNr {
 
-  val Max: SeqNr = SeqNr(Long.MaxValue)
+  val min: SeqNr = SeqNr(1L)
 
-  val Min: SeqNr = SeqNr(1L)
-
-
-  implicit val EncodeByNameSeqNr: EncodeByName[SeqNr] = EncodeByName[Long].imap((seqNr: SeqNr) => seqNr.value)
-
-  implicit val DecodeByNameSeqNr: DecodeByName[SeqNr] = DecodeByName[Long].map(value => SeqNr(value))
+  val max: SeqNr = SeqNr(Long.MaxValue)
 
 
-  implicit val EncodeByNameOptSeqNr: EncodeByName[Option[SeqNr]] = EncodeByName.opt[SeqNr]
+  implicit val orderingSeqNr: Ordering[SeqNr] = (x: SeqNr, y: SeqNr) => x.value compare y.value
 
-  implicit val DecodeByNameOptSeqNr: DecodeByName[Option[SeqNr]] = DecodeByName[Option[Long]].map { value =>
+
+  implicit val encodeByNameSeqNr: EncodeByName[SeqNr] = EncodeByName[Long].imap((seqNr: SeqNr) => seqNr.value)
+
+  implicit val decodeByNameSeqNr: DecodeByName[SeqNr] = DecodeByName[Long].map(value => SeqNr(value))
+
+
+  implicit val encodeByNameOptSeqNr: EncodeByName[Option[SeqNr]] = EncodeByName.opt[SeqNr]
+
+  implicit val decodeByNameOptSeqNr: DecodeByName[Option[SeqNr]] = DecodeByName[Option[Long]].map { value =>
     for {
       value <- value
       seqNr <- SeqNr.opt(value)
@@ -62,22 +65,22 @@ object SeqNr {
   }
 
 
-  implicit val EncodeRowSeqNr: EncodeRow[SeqNr] = EncodeRow[SeqNr]("seq_nr")
+  implicit val encodeRowSeqNr: EncodeRow[SeqNr] = EncodeRow[SeqNr]("seq_nr")
 
-  implicit val DecodeRowSeqNr: DecodeRow[SeqNr] = DecodeRow[SeqNr]("seq_nr")
-
-
-  implicit val WritesSeqNr: Writes[SeqNr] = Writes.of[Long].contramap(_.value)
-
-  implicit val ReadsSeqNr: Reads[SeqNr] = Reads.of[Long].mapResult { a => SeqNr.of[JsResult](a) }
+  implicit val decodeRowSeqNr: DecodeRow[SeqNr] = DecodeRow[SeqNr]("seq_nr")
 
 
-  implicit val OrderSeqNr: Order[SeqNr] = new Order[SeqNr] {
+  implicit val writesSeqNr: Writes[SeqNr] = Writes.of[Long].contramap(_.value)
+
+  implicit val readsSeqNr: Reads[SeqNr] = Reads.of[Long].mapResult { a => SeqNr.of[JsResult](a) }
+
+
+  implicit val orderSeqNr: Order[SeqNr] = new Order[SeqNr] {
     def compare(x: SeqNr, y: SeqNr) = x compare y
   }
 
 
-  implicit val CodecSeqNr: Codec[SeqNr] = {
+  implicit val codecSeqNr: Codec[SeqNr] = {
     val to = (a: Long) => SeqNr.of[Attempt](a)
     val from = (a: SeqNr) => Attempt.successful(a.value)
     codecs.int64.exmap(to, from)
@@ -86,16 +89,16 @@ object SeqNr {
 
   def of[F[_]](value: Long)(implicit F: ApplicativeError[F, String]): F[SeqNr] = {
     // TODO refactor
-    if (value < Min.value) {
-      s"invalid SeqNr $value, it must be greater or equal to $Min".raiseError[F, SeqNr]
-    } else if (value > Max.value) {
-      s"invalid SeqNr $value, it must be less or equal to $Max".raiseError[F, SeqNr]
+    if (value < min.value) {
+      s"invalid SeqNr $value, it must be greater or equal to $min".raiseError[F, SeqNr]
+    } else if (value > max.value) {
+      s"invalid SeqNr $value, it must be less or equal to $max".raiseError[F, SeqNr]
     } else {
       SeqNr(value).pure[F]
     }
   }
 
-  
+
   def opt(value: Long): Option[SeqNr] = of[Try](value).toOption
 
 
@@ -111,7 +114,7 @@ object SeqNr {
       def toSeqNr: SeqNr = SeqNr(self)
     }
 
-    
+
     implicit class IntOpsSeqNr(val self: Int) extends AnyVal {
 
       def toSeqNr: SeqNr = self.toLong.toSeqNr

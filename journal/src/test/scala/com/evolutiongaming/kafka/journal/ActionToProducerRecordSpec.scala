@@ -26,7 +26,7 @@ class ActionToProducerRecordSpec extends FunSuite with Matchers {
 
   private val origins = List(Origin("origin").some, none[Origin])
 
-  private val seqNrs = List(SeqNr.Min, SeqNr.Max)
+  private val seqNrs = List(SeqNr.min, SeqNr.max)
 
   private val actionToProducerRecord = ActionToProducerRecord[Try]
 
@@ -60,8 +60,8 @@ class ActionToProducerRecordSpec extends FunSuite with Matchers {
     tags    <- List(Tags.Empty, Tags("tag"))
     payload <- payloads
     seqNrs  <- List(
-      Nel.of(SeqNr.Min),
-      Nel.of(SeqNr.Max),
+      Nel.of(SeqNr.min),
+      Nel.of(SeqNr.max),
       Nel.of(SeqNr(1), SeqNr(2), SeqNr(3)))
   } yield {
     for {

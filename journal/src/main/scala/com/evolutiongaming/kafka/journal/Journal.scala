@@ -33,13 +33,13 @@ trait Journal[F[_]] {
     headers: Headers = Headers.Empty
   ): F[PartitionOffset]
 
-  def read(key: Key, from: SeqNr = SeqNr.Min): Stream[F, EventRecord]
+  def read(key: Key, from: SeqNr = SeqNr.min): Stream[F, EventRecord]
 
   // TODO return Pointer and test it
   def pointer(key: Key): F[Option[SeqNr]]
 
   // TODO return Pointer and test it
-  def delete(key: Key, to: SeqNr = SeqNr.Max): F[Option[PartitionOffset]]
+  def delete(key: Key, to: SeqNr = SeqNr.max): F[Option[PartitionOffset]]
 }
 
 object Journal {
@@ -258,7 +258,7 @@ object Journal {
       def pointer(key: Key) = {
         // TODO reimplement, we don't need to call `eventual.pointer` without using it's offset
 
-        val from = SeqNr.Min // TODO remove
+        val from = SeqNr.min // TODO remove
 
         for {
           ab              <- readActions(key, from)

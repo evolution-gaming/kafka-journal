@@ -201,15 +201,15 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     f: PersistentRepr => Unit
   ): Future[Unit] = {
 
-    val seqNrFrom = SeqNr.of[Try](from) getOrElse SeqNr.Min
-    val seqNrTo = SeqNr.of[Try](to) getOrElse SeqNr.Max
+    val seqNrFrom = SeqNr.of[Try](from) getOrElse SeqNr.min
+    val seqNrTo = SeqNr.of[Try](to) getOrElse SeqNr.max
     val range = SeqRange(seqNrFrom, seqNrTo)
     val f1 = (a: PersistentRepr) => Future.fromTry(Try { f(a) })
     adapter.replay(persistenceId, range, max)(f1)
   }
 
   def asyncReadHighestSequenceNr(persistenceId: PersistenceId, from: Long): Future[Long] = {
-    val seqNr = SeqNr.of[Try](from) getOrElse SeqNr.Min
+    val seqNr = SeqNr.of[Try](from) getOrElse SeqNr.min
     for {
       seqNr <- adapter.lastSeqNr(persistenceId, seqNr)
     } yield seqNr match {

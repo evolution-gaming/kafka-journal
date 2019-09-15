@@ -80,7 +80,7 @@ object EventualCassandra {
               val segment = Segment(from, head.segmentSize)
 
               (from, segment, l).tailRecM { case (from, segment, l) =>
-                val range = SeqRange(from, SeqNr.Max) // TODO do we need range here ?
+                val range = SeqRange(from, SeqNr.max) // TODO do we need range here ?
                 for {
                   result <- statement(key, segment.nr, range).foldWhileM[S, R](S(l, from))(ff) // TODO
                 } yield result match {

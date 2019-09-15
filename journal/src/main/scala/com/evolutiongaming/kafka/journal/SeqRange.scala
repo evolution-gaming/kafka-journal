@@ -47,7 +47,7 @@ object SeqRange {
 
   implicit val FormatSeqRange: OFormat[SeqRange] = Json.format
 
-  val All: SeqRange = SeqRange(SeqNr.Min, SeqNr.Max)
+  val All: SeqRange = SeqRange(SeqNr.min, SeqNr.max)
 
   def apply(value: SeqNr): SeqRange = SeqRange(value, value)
 

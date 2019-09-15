@@ -217,7 +217,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
               for {
                 state <- state
               } yield {
-                val action = appendOf(key, SeqNr.Min)
+                val action = appendOf(key, SeqNr.min)
                 val record = ConsumerRecordOf[Try](action, topicPartition, offset).get
                 val records = ConsumerRecordsOf(List(record))
                 state.copy(records = state.records.enqueue(records))
@@ -241,11 +241,11 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
               assigns = List(TestConsumer.Assign(topic, Nel.of(0))),
               seeks = List(TestConsumer.Seek(topic, Map((partition, 0)))),
               topics = Map((topic, List(partition))))
-            r0 shouldEqual Result.valid(JournalInfo.append(SeqNr.Min))
+            r0 shouldEqual Result.valid(JournalInfo.append(SeqNr.min))
             r1 shouldEqual Result.invalid
             r2 shouldEqual Result.invalid
             r3 shouldEqual Result.invalid
-            r4 shouldEqual Result.valid(JournalInfo.append(SeqNr.Min))
+            r4 shouldEqual Result.valid(JournalInfo.append(SeqNr.min))
           }
         }
       } yield {}

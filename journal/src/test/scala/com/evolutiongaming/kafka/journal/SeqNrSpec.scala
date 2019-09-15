@@ -26,30 +26,30 @@ class SeqNrSpec extends FunSuite with Matchers {
   }
 
   test("Min.next") {
-    SeqNr.Min.next shouldEqual Some(SeqNr(2))
+    SeqNr.min.next shouldEqual Some(SeqNr(2))
   }
 
   test("Max.next") {
-    SeqNr.Max.next shouldEqual None
+    SeqNr.max.next shouldEqual None
   }
 
   test("Min.prev") {
-    SeqNr.Min.prev shouldEqual None
+    SeqNr.min.prev shouldEqual None
   }
 
   test("Max.prev") {
-    SeqNr.Max.prev shouldEqual Some(SeqNr(Long.MaxValue - 1))
+    SeqNr.max.prev shouldEqual Some(SeqNr(Long.MaxValue - 1))
   }
 
   test("in") {
-    SeqNr.Min in SeqRange(SeqNr.Min, SeqNr.Max) shouldEqual true
+    SeqNr.min in SeqRange(SeqNr.min, SeqNr.max) shouldEqual true
   }
 
   test("to") {
-    SeqNr.Min to SeqNr.Max shouldEqual SeqRange(SeqNr.Min, SeqNr.Max)
+    SeqNr.min to SeqNr.max shouldEqual SeqRange(SeqNr.min, SeqNr.max)
   }
 
   test("to Min") {
-    SeqNr.Min to SeqNr.Min shouldEqual SeqRange(SeqNr.Min)
+    SeqNr.min to SeqNr.min shouldEqual SeqRange(SeqNr.min)
   }
 }

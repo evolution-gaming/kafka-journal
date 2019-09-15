@@ -73,14 +73,14 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
 
         val expected = for {
           n <- (0 to events).toList
-          seqNr <- SeqNr.Min.map(_ + n)
+          seqNr <- SeqNr.min.map(_ + n)
         } yield Event(seqNr)
 
         for {
           _ <- journal.pointer
           _ <- expected.foldMap { event => journal.append(Nel.of(event)).void }
           _ <- {
-            val otherEvents = for {_ <- 0 to events} yield Event(SeqNr.Min)
+            val otherEvents = for {_ <- 0 to events} yield Event(SeqNr.min)
             otherEvents.toList.foldMap { event =>
               for {
                 _       <- journal.append(Nel.of(event))

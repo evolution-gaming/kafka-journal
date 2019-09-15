@@ -43,25 +43,25 @@ class JournalAdapterSpec extends FunSuite with Matchers {
   }
 
   test("delete") {
-    val (data, _) = journalAdapter.delete(persistenceId, SeqNr.Max).run(State.Empty)
-    data shouldEqual State(deletes = List(Delete(key1, SeqNr.Max, timestamp)))
+    val (data, _) = journalAdapter.delete(persistenceId, SeqNr.max).run(State.Empty)
+    data shouldEqual State(deletes = List(Delete(key1, SeqNr.max, timestamp)))
   }
 
   test("lastSeqNr") {
-    val (data, result) = journalAdapter.lastSeqNr(persistenceId, SeqNr.Max).run(State.Empty)
+    val (data, result) = journalAdapter.lastSeqNr(persistenceId, SeqNr.max).run(State.Empty)
     result shouldEqual None
     data shouldEqual State(pointers = List(Pointer(key1)))
   }
 
   test("replay") {
-    val range = SeqRange(from = SeqNr.Min, to = SeqNr.Max)
+    val range = SeqRange(from = SeqNr.min, to = SeqNr.max)
     val initial = State(events = List(eventRecord))
     val f = (a: PersistentRepr) => StateT { s =>
       val s1 = s.copy(replayed = a :: s.replayed)
       (s1, ())
     }
     val (data, _) = journalAdapter.replay(persistenceId, range, Int.MaxValue)(f).run(initial)
-    data shouldEqual State(reads = List(Read(key1, SeqNr.Min)), replayed = List(persistentRepr))
+    data shouldEqual State(reads = List(Read(key1, SeqNr.min)), replayed = List(persistentRepr))
   }
 
   test("withBatching") {
@@ -83,7 +83,7 @@ object JournalAdapterSpec {
   private val timestamp: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS)
   private val toKey = ToKey.default[StateT]
   private val key1 = Key(id = "id", topic = "journal")
-  private val event = Event(SeqNr.Min)
+  private val event = Event(SeqNr.min)
   private val partitionOffset = PartitionOffset.Empty
   private val persistenceId = "id"
   private val persistentRepr = PersistentRepr(None, persistenceId = persistenceId)

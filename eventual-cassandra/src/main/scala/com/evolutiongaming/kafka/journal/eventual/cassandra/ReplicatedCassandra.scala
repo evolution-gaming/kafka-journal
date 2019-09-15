@@ -155,7 +155,7 @@ object ReplicatedCassandra {
           val deleteToFixed = head.seqNr min deleteTo
 
           head.deleteTo match {
-            case None           => delete(from = SeqNr.Min, deleteTo = deleteToFixed)
+            case None           => delete(from = SeqNr.min, deleteTo = deleteToFixed)
             case Some(deleteTo) =>
               if (deleteTo >= deleteToFixed) ().pure[F]
               else deleteTo.next.foldMap { from => delete(from = from, deleteTo = deleteToFixed) }

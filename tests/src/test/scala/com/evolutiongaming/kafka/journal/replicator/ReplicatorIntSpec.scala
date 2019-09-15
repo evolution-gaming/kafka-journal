@@ -121,7 +121,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
     def read(key: Key)(until: List[EventRecord] => Boolean) = {
       val events = for {
-        events <- eventualJournal.read(key, SeqNr.Min).toList
+        events <- eventualJournal.read(key, SeqNr.min).toList
         events <- {
           if (until(events)) {
             val result = for {

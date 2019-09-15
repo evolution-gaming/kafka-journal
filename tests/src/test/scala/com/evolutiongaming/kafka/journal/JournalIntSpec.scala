@@ -66,7 +66,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
       lazy val (journal0, release) = journalOf(eventual(), headCache).allocated.unsafeRunSync()
 
       for {
-        seqNr <- List(SeqNr.Min, SeqNr(2))
+        seqNr <- List(SeqNr.min, SeqNr(2))
       } {
 
         val name1 = s"seqNr: $seqNr, $name"
@@ -79,7 +79,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             _          = pointer shouldEqual None
             events    <- journal.read
             _          = events shouldEqual Nil
-            offset    <- journal.delete(SeqNr.Max)
+            offset    <- journal.delete(SeqNr.max)
             _          = offset shouldEqual None
             event      = Event(seqNr)
             offset    <- journal.append(Nel.of(event), metadata.data, headers)
@@ -87,7 +87,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             partition  = offset.partition
             events    <- journal.read
             _          = events shouldEqual List(record)
-            offset    <- journal.delete(SeqNr.Max)
+            offset    <- journal.delete(SeqNr.max)
             _          = offset.map(_.partition) shouldEqual Some(partition)
             pointer   <- journal.pointer
             _          = pointer shouldEqual Some(seqNr)
@@ -173,7 +173,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             _          = pointer shouldEqual None
             events    <- journal.read
             _          = events shouldEqual Nil
-            offset    <- journal.delete(SeqNr.Max)
+            offset    <- journal.delete(SeqNr.max)
             _          = offset shouldEqual None
             events     = seqNrs.map { seqNr => Event(seqNr) }
             append     = journal.append(events, metadata.data, headers)

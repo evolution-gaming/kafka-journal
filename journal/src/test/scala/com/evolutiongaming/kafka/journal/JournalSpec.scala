@@ -69,10 +69,10 @@ class JournalSpec extends WordSpec with Matchers {
           for {
             a   <- journal.read(SeqRange.All)
             _    = a shouldEqual seqNrs
-            last = seqNrLast getOrElse SeqNr.Min
-            a   <- journal.read(SeqNr.Min to last)
+            last = seqNrLast getOrElse SeqNr.min
+            a   <- journal.read(SeqNr.min to last)
             _    = a shouldEqual seqNrs
-            a   <- journal.read(SeqNr.Min to last.next.getOrElse(last))
+            a   <- journal.read(SeqNr.min to last.next.getOrElse(last))
           } yield {
             a shouldEqual seqNrs
           }
@@ -95,7 +95,7 @@ class JournalSpec extends WordSpec with Matchers {
       s"delete SeqNr.Max, $name" in {
         createAndAppend { case (journal, _) =>
           for {
-            _ <- journal.delete(SeqNr.Max)
+            _ <- journal.delete(SeqNr.max)
             a <- journal.read(SeqRange.All)
             _  = a shouldEqual Nil
             a <- journal.pointer
@@ -108,10 +108,10 @@ class JournalSpec extends WordSpec with Matchers {
       s"delete SeqNr.Min, $name" in {
         createAndAppend { case (journal, offset) =>
           for {
-            a <- journal.delete(SeqNr.Min)
+            a <- journal.delete(SeqNr.min)
             _  = a shouldEqual offset.map(_ + 1)
             a <- journal.read(SeqRange.All)
-            _  = a shouldEqual seqNrs.dropWhile(_ <= SeqNr.Min)
+            _  = a shouldEqual seqNrs.dropWhile(_ <= SeqNr.min)
             a <- journal.pointer
           } yield {
             a shouldEqual seqNrLast
@@ -150,7 +150,7 @@ class JournalSpec extends WordSpec with Matchers {
         s"read tail, $name" in {
           createAndAppend { case (journal, _) =>
             for {
-              seqNrs <- journal.read(seqNr to SeqNr.Max)
+              seqNrs <- journal.read(seqNr to SeqNr.max)
             } yield {
               seqNrs shouldEqual seqNrs.dropWhile(_ < seqNr)
             }
@@ -162,10 +162,10 @@ class JournalSpec extends WordSpec with Matchers {
     "read SeqNr.Max" in {
       withJournal { journal =>
         for {
-          seqNrs <- journal.read(SeqRange(SeqNr.Max))
+          seqNrs <- journal.read(SeqRange(SeqNr.max))
           _       = seqNrs shouldEqual Nil
           _      <- journal.append(1.toSeqNr)
-          seqNrs <- journal.read(SeqRange(SeqNr.Max))
+          seqNrs <- journal.read(SeqRange(SeqNr.max))
         } yield {
           seqNrs shouldEqual Nil
         }
