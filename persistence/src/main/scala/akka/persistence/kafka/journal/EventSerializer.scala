@@ -75,7 +75,7 @@ object EventSerializer {
       }
       for {
         payload <- payload
-        seqNr   <- MonadError[F, Throwable].catchNonFatal { SeqNr(persistentRepr.sequenceNr) }
+        seqNr   <- MonadError[F, Throwable].catchNonFatal { SeqNr.unsafe(persistentRepr.sequenceNr) }
       } yield {
         Event(seqNr, tags, Some(payload))
       }

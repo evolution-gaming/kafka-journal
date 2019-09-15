@@ -8,7 +8,6 @@ import cats.effect.{Clock, Resource}
 import cats.implicits._
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.conversions.PayloadToEvents
-import com.evolutiongaming.kafka.journal.SeqNr.implicits._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
@@ -30,7 +29,7 @@ class JournalSpec extends WordSpec with Matchers {
   def testF[F[_] : Monad](withJournal: (SeqNrJournal[F] => F[Assertion]) => Assertion): Unit = {
     for {
       size        <- 0 to 5
-      seqNrs       = (1L to size.toLong).toList.map(_.toSeqNr) // TODO convert to SeqRange
+      seqNrs       = (1 to size).toList.map { a => SeqNr.unsafe(a) } // TODO convert to SeqRange
       combination <- Combinations(seqNrs)
     } {
 
@@ -165,7 +164,7 @@ class JournalSpec extends WordSpec with Matchers {
         for {
           seqNrs <- journal.read(SeqRange(SeqNr.max))
           _       = seqNrs shouldEqual Nil
-          _      <- journal.append(1.toSeqNr)
+          _      <- journal.append(SeqNr.unsafe(1))
           seqNrs <- journal.read(SeqRange(SeqNr.max))
         } yield {
           seqNrs shouldEqual Nil
@@ -176,24 +175,24 @@ class JournalSpec extends WordSpec with Matchers {
     "append, delete, append, delete, append, read, lastSeqNr" in {
       withJournal { journal =>
         for {
-          _      <- journal.append(1.toSeqNr)
-          _      <- journal.delete(3.toSeqNr)
-          _      <- journal.append(2.toSeqNr, 3.toSeqNr)
-          _      <- journal.delete(2.toSeqNr)
-          _      <- journal.append(4.toSeqNr)
-          seqNrs <- journal.read(SeqRange(1, 2))
+          _      <- journal.append(SeqNr.unsafe(1))
+          _      <- journal.delete(SeqNr.unsafe(3))
+          _      <- journal.append(SeqNr.unsafe(2), SeqNr.unsafe(3))
+          _      <- journal.delete(SeqNr.unsafe(2))
+          _      <- journal.append(SeqNr.unsafe(4))
+          seqNrs <- journal.read(SeqRange.unsafe(1, 2))
           _       = seqNrs shouldEqual Nil
-          seqNrs <- journal.read(SeqRange(2, 3))
-          _       = seqNrs shouldEqual List(3.toSeqNr)
-          seqNrs <- journal.read(SeqRange(3, 4))
-          _       = seqNrs shouldEqual List(3.toSeqNr, 4.toSeqNr)
-          seqNrs <- journal.read(SeqRange(4, 5))
-          _       = seqNrs shouldEqual List(4.toSeqNr)
-          seqNrs <- journal.read(SeqRange(5, 6))
+          seqNrs <- journal.read(SeqRange.unsafe(2, 3))
+          _       = seqNrs shouldEqual List(SeqNr.unsafe(3))
+          seqNrs <- journal.read(SeqRange.unsafe(3, 4))
+          _       = seqNrs shouldEqual List(SeqNr.unsafe(3), SeqNr.unsafe(4))
+          seqNrs <- journal.read(SeqRange.unsafe(4, 5))
+          _       = seqNrs shouldEqual List(SeqNr.unsafe(4))
+          seqNrs <- journal.read(SeqRange.unsafe(5, 6))
           _       = seqNrs shouldEqual Nil
           seqNr  <- journal.pointer
         } yield {
-          seqNr shouldEqual Some(SeqNr(4))
+          seqNr shouldEqual Some(SeqNr.unsafe(4))
         }
       }
     }

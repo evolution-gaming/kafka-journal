@@ -2,12 +2,15 @@ package com.evolutiongaming.kafka.journal
 
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.SeqNr.implicits._
+import com.evolutiongaming.kafka.journal.util.{ApplicativeString, MonadString}
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
+import com.evolutiongaming.kafka.journal.util.TryHelper._
 import play.api.libs.json.{Json, OFormat}
 
 import scala.annotation.tailrec
+import scala.util.Try
 
+// TODO refactor the way SeqNr done
 final case class SeqRange(from: SeqNr, to: SeqNr) {
 
   require(from <= to, s"from($from) <= to($to)")
@@ -51,9 +54,33 @@ object SeqRange {
 
   val all: SeqRange = SeqRange(SeqNr.min, SeqNr.max)
 
+
   def apply(value: SeqNr): SeqRange = SeqRange(value, value)
 
-  def apply(value: Long): SeqRange = SeqRange(value.toSeqNr)
 
-  def apply(from: Long, to: Long): SeqRange = SeqRange(from = from.toSeqNr, to = to.toSeqNr)
+  def of[F[_] : ApplicativeString](value: Long): F[SeqRange] = {
+    for {
+      seqNr <- SeqNr.of[F](value)
+    } yield {
+      SeqRange(seqNr)
+    }
+  }
+
+  def of[F[_] : MonadString](from: Long, to: Long): F[SeqRange] = {
+    for {
+      from <- SeqNr.of[F](from)
+      to   <- SeqNr.of[F](to)
+    } yield {
+      SeqRange(from, to)
+    }
+  }
+  
+
+  def unsafe[A](value: A)(implicit numeric: Numeric[A]): SeqRange = {
+    of[Try](numeric.toLong(value)).get
+  }
+
+  def unsafe[A](from: A, to: A)(implicit numeric: Numeric[A]): SeqRange = {
+    of[Try](from = numeric.toLong(from), to = numeric.toLong(to)).get
+  }
 }

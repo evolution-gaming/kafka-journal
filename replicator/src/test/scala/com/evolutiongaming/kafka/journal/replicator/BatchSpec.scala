@@ -284,7 +284,7 @@ class BatchSpec extends FunSuite with Matchers {
   def deletes(offset: Int, seqNr: Int, origin: String = ""): Batch.Delete = {
     val partitionOffset = PartitionOffset(offset = offset.toLong)
     val originOpt = originOf(origin)
-    Batch.Delete(partitionOffset, SeqNr(seqNr.toLong), originOpt)
+    Batch.Delete(partitionOffset, SeqNr.unsafe(seqNr), originOpt)
   }
 
   def append(offset: Int, seqNr: Int, seqNrs: Int*): A.Append = {
@@ -299,7 +299,7 @@ class BatchSpec extends FunSuite with Matchers {
     A.Mark(offset = offset)
   }
 
-  def seqNrOf(value: Int) = SeqNr(value.toLong)
+  def seqNrOf(value: Int) = SeqNr.unsafe(value)
 
   def originOf(origin: String): Option[Origin] = {
     if (origin.isEmpty) None else Some(Origin(origin))

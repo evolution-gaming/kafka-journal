@@ -14,7 +14,7 @@ class EventsToBytesSpec extends FunSuite with Matchers {
 
   def event(seqNr: Int, payload: Option[Payload] = None): Event = {
     val tags = (0 to seqNr).map(_.toString).toSet
-    Event(SeqNr(seqNr.toLong), tags, payload)
+    Event(SeqNr.unsafe(seqNr), tags, payload)
   }
 
   def event(seqNr: Int, payload: Payload): Event = {

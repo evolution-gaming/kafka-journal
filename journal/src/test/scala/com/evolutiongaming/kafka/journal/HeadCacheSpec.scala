@@ -26,7 +26,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
   "HeadCache" should {
 
     "return result, records are in cache" in {
-      val offsetLast = 10l
+      val offsetLast = 10L
 
       implicit val eventual = HeadCache.Eventual.empty[IO]
 
@@ -59,7 +59,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
               seeks = List(TestConsumer.Seek(topic, Map((partition, 0)))),
               topics = Map((topic, List(partition))))
 
-            result shouldEqual Result.valid(JournalInfo.append(SeqNr(11)))
+            result shouldEqual Result.valid(JournalInfo.append(SeqNr.unsafe(11)))
           }
         }
       } yield {}
@@ -68,7 +68,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
     }
 
     "return result, all events are already replicated and cache is empty" in {
-      val marker = 10l
+      val marker = 10L
 
       val pointers = Map((partition, marker))
       implicit val eventual = HeadCache.Eventual.const(TopicPointers(pointers).pure[IO])
@@ -94,7 +94,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
     }
 
     "return result, after events are replicated" in {
-      val marker = 100l
+      val marker = 100L
 
       implicit val eventual = HeadCache.Eventual.empty[IO]
 

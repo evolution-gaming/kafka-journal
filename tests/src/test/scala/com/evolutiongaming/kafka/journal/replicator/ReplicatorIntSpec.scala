@@ -274,7 +274,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
   private def event(seqNr: Int, payload: Option[Payload] = None): Event = {
     val tags = (0 to seqNr).map(_.toString).toSet
-    Event(SeqNr(seqNr.toLong), tags, payload)
+    Event(SeqNr.unsafe(seqNr), tags, payload)
   }
 
   private def event(seqNr: Int, payload: Payload): Event = {

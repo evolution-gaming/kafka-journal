@@ -13,23 +13,23 @@ class SeqNrSpec extends FunSuite with Matchers {
   }
 
   test("1 max 2") {
-    SeqNr(1) max SeqNr(2) shouldEqual SeqNr(2)
+    SeqNr.unsafe(1) max SeqNr.unsafe(2) shouldEqual SeqNr.unsafe(2)
   }
 
   test("2 max 1") {
-    SeqNr(2) max SeqNr(1) shouldEqual SeqNr(2)
+    SeqNr.unsafe(2) max SeqNr.unsafe(1) shouldEqual SeqNr.unsafe(2)
   }
 
   test("1 min 2") {
-    SeqNr(1) min SeqNr(2) shouldEqual SeqNr(1)
+    SeqNr.unsafe(1) min SeqNr.unsafe(2) shouldEqual SeqNr.unsafe(1)
   }
 
   test("2 min 1") {
-    SeqNr(2) min SeqNr(1) shouldEqual SeqNr(1)
+    SeqNr.unsafe(2) min SeqNr.unsafe(1) shouldEqual SeqNr.unsafe(1)
   }
 
   test("min.next") {
-    SeqNr.min.next[Option] shouldEqual Some(SeqNr(2))
+    SeqNr.min.next[Option] shouldEqual Some(SeqNr.unsafe(2))
   }
 
   test("max.next") {
@@ -41,7 +41,7 @@ class SeqNrSpec extends FunSuite with Matchers {
   }
 
   test("max.prev") {
-    SeqNr.max.prev[Option] shouldEqual Some(SeqNr(Long.MaxValue - 1))
+    SeqNr.max.prev[Option] shouldEqual Some(SeqNr.unsafe(Long.MaxValue - 1))
   }
 
   test("in") {

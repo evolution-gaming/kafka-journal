@@ -74,7 +74,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
     }
 
     for {
-      seqNr <- List(SeqNr.min, SeqNr(5), SeqNr(10))
+      seqNr <- List(SeqNr.min, SeqNr.unsafe(5), SeqNr.unsafe(10))
       size  <- List(0, 1, 2, 5, 10)
       batch <- List(true, false)
     } {
@@ -378,13 +378,13 @@ trait EventualJournalSpec extends WordSpec with Matchers {
 
           a <- eventual.pointer
           _ = a shouldEqual None
-          event1 = eventOf(pointerOf(offset = 2, seqNr = SeqNr(1)))
+          event1 = eventOf(pointerOf(offset = 2, seqNr = SeqNr.unsafe(1)))
           _ <- replicated.append(Nel.of(event1))
           a <- eventual.events()
           _ = a shouldEqual List(event1)
           a <- eventual.pointer
           _ = a shouldEqual Some(event1.pointer)
-          event2 = eventOf(pointerOf(offset = 3, seqNr = SeqNr(2)))
+          event2 = eventOf(pointerOf(offset = 3, seqNr = SeqNr.unsafe(2)))
           _ <- replicated.append(partitionOffsetOf(4), Nel.of(event2))
           a <- eventual.events()
           _ = a shouldEqual List(event1, event2)
@@ -395,7 +395,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
           _ = a shouldEqual List(event2)
           a <- eventual.pointer
           _ = a shouldEqual Some(pointerOf(offset = 5, seqNr = event2.seqNr))
-          event3 = eventOf(pointerOf(offset = 6, seqNr = SeqNr(3)))
+          event3 = eventOf(pointerOf(offset = 6, seqNr = SeqNr.unsafe(3)))
           _ <- replicated.append(Nel.of(event3))
           a <- eventual.events()
           _ = a shouldEqual List(event2, event3)
@@ -418,9 +418,9 @@ trait EventualJournalSpec extends WordSpec with Matchers {
 
     "append not from beginning" in {
       val events = Nel.of(
-        eventOf(pointerOf(offset = 10, seqNr = SeqNr(5))),
-        eventOf(pointerOf(offset = 10, seqNr = SeqNr(6))),
-        eventOf(pointerOf(offset = 10, seqNr = SeqNr(7))))
+        eventOf(pointerOf(offset = 10, seqNr = SeqNr.unsafe(5))),
+        eventOf(pointerOf(offset = 10, seqNr = SeqNr.unsafe(6))),
+        eventOf(pointerOf(offset = 10, seqNr = SeqNr.unsafe(7))))
 
       withJournals1 { case (eventual, replicated) =>
         for {

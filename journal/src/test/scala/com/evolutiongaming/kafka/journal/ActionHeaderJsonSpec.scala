@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.SeqNr.implicits._
 import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json._
 
@@ -22,14 +21,14 @@ class ActionHeaderJsonSpec extends FunSuite with Matchers {
       (metadataStr, metadata) <- metadata
     } {
       test(s"Append format, origin: $origin, payloadType: $payloadType, metadata: $metadataStr") {
-        val range = SeqRange(1, 5)
+        val range = SeqRange.unsafe(1, 5)
         val header = ActionHeader.Append(range, origin, payloadType, metadata)
         verify(header, s"Append-$originStr-$payloadType-$metadataStr")
       }
     }
 
     test(s"Delete format, origin: $origin") {
-      val seqNr = 3.toSeqNr
+      val seqNr = SeqNr.unsafe(3)
       val header = ActionHeader.Delete(seqNr, origin)
       verify(header, s"Delete-$originStr")
     }

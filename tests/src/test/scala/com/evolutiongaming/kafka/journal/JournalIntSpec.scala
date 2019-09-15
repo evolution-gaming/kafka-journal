@@ -68,7 +68,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
       lazy val (journal0, release) = journalOf(eventual(), headCache).allocated.unsafeRunSync()
 
       for {
-        seqNr <- List(SeqNr.min, SeqNr(2))
+        seqNr <- List(SeqNr.min, SeqNr.unsafe(2))
       } {
 
         val name1 = s"seqNr: $seqNr, $name"

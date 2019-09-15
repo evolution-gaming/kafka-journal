@@ -599,12 +599,12 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 
   private def record(seqNr: Int, partition: Partition, offset: Offset) = {
     val partitionOffset = PartitionOffset(partition = partition, offset = offset)
-    val event = Event(SeqNr(seqNr.toLong), Set(seqNr.toString))
+    val event = Event(SeqNr.unsafe(seqNr), Set(seqNr.toString))
     EventRecord(event, timestamp, partitionOffset, Some(origin), metadata, headers)
   }
 
   private def appendOf(key: Key, seqNrs: Nel[Int]) = {
-    val events = seqNrs.map { seqNr => Event(SeqNr(seqNr.toLong), Set(seqNr.toString)) }
+    val events = seqNrs.map { seqNr => Event(SeqNr.unsafe(seqNr), Set(seqNr.toString)) }
     Action.Append.of[Try](key, timestamp = timestamp, Some(origin), events, metadata, headers).get
   }
 
@@ -613,7 +613,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
   }
 
   private def deleteOf(key: Key, to: Int) = {
-    Action.Delete(key, timestamp, SeqNr(to.toLong), Some(origin))
+    Action.Delete(key, timestamp, SeqNr.unsafe(to), Some(origin))
   }
 }
 

@@ -4,6 +4,7 @@ import cats.Show
 import cats.implicits._
 import cats.kernel.Order
 import com.evolutiongaming.kafka.journal.util.ApplicativeString
+import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
 import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import com.evolutiongaming.kafka.journal.util.TryHelper._
@@ -13,19 +14,16 @@ import scodec.{Attempt, Codec, codecs}
 
 import scala.util.Try
 
-// TODO make private
-final case class SeqNr(value: Long) {
-
-  require(SeqNr.isValid(value), SeqNr.invalid(value))
+sealed abstract class SeqNr(val value: Long) {
 
   override def toString: String = value.toString
 }
 
 object SeqNr {
 
-  val min: SeqNr = SeqNr(1L)
+  val min: SeqNr = new SeqNr(1L) {}
 
-  val max: SeqNr = SeqNr(Long.MaxValue)
+  val max: SeqNr = new SeqNr(Long.MaxValue) {}
 
 
   implicit val showSeqNr: Show[SeqNr] = Show.fromToString
@@ -38,16 +36,16 @@ object SeqNr {
 
   implicit val encodeByNameSeqNr: EncodeByName[SeqNr] = EncodeByName[Long].imap((seqNr: SeqNr) => seqNr.value)
 
-  implicit val decodeByNameSeqNr: DecodeByName[SeqNr] = DecodeByName[Long].map(value => SeqNr(value))
+  implicit val decodeByNameSeqNr: DecodeByName[SeqNr] = DecodeByName[Long].map(value => SeqNr.of[Try](value).get)
 
 
   implicit val encodeByNameOptSeqNr: EncodeByName[Option[SeqNr]] = EncodeByName.opt[SeqNr]
 
   implicit val decodeByNameOptSeqNr: DecodeByName[Option[SeqNr]] = DecodeByName[Option[Long]].map { value =>
     for {
-      value <- value
-      seqNr <- SeqNr.opt(value)
-    } yield seqNr
+      a <- value
+      a <- SeqNr.of[Option](a)
+    } yield a
   }
 
 
@@ -69,23 +67,24 @@ object SeqNr {
 
 
   def of[F[_] : ApplicativeString](value: Long): F[SeqNr] = {
-    // TODO refactor
     if (value < min.value) {
-      s"invalid SeqNr $value, it must be greater or equal to $min".raiseError[F, SeqNr]
+      s"invalid SeqNr of $value, it must be greater or equal to $min".raiseError[F, SeqNr]
     } else if (value > max.value) {
-      s"invalid SeqNr $value, it must be less or equal to $max".raiseError[F, SeqNr]
+      s"invalid SeqNr of $value, it must be less or equal to $max".raiseError[F, SeqNr]
+    } else if (value == min.value) {
+      min.pure[F]
+    } else if (value == max.value) {
+      max.pure[F]
     } else {
-      SeqNr(value).pure[F]
+      new SeqNr(value) {}.pure[F]
     }
   }
 
 
-  def opt(value: Long): Option[SeqNr] = of[Try](value).toOption
+  def opt(value: Long): Option[SeqNr] = of[Option](value)
 
 
-  private def isValid(value: Long) = value > 0 && value <= Long.MaxValue
-
-  private def invalid(value: Long) = s"invalid SeqNr $value, it must be greater than 0"
+  def unsafe[A](value: A)(implicit numeric: Numeric[A]): SeqNr = of[Try](numeric.toLong(value)).get
 
 
   implicit class SeqNrOps(val self: SeqNr) extends AnyVal {
@@ -99,20 +98,5 @@ object SeqNr {
     def to(seqNr: SeqNr): SeqRange = SeqRange(self, seqNr)
 
     def map[F[_] : ApplicativeString](f: Long => Long): F[SeqNr] = SeqNr.of[F](f(self.value))
-  }
-
-
-  object implicits {
-
-    implicit class LongOpsSeqNr(val self: Long) extends AnyVal {
-
-      def toSeqNr: SeqNr = SeqNr(self)
-    }
-
-
-    implicit class IntOpsSeqNr(val self: Int) extends AnyVal {
-
-      def toSeqNr: SeqNr = self.toLong.toSeqNr
-    }
   }
 }

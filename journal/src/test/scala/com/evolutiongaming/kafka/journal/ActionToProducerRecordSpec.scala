@@ -62,7 +62,7 @@ class ActionToProducerRecordSpec extends FunSuite with Matchers {
     seqNrs  <- List(
       Nel.of(SeqNr.min),
       Nel.of(SeqNr.max),
-      Nel.of(SeqNr(1), SeqNr(2), SeqNr(3)))
+      Nel.of(SeqNr.unsafe(1), SeqNr.unsafe(2), SeqNr.unsafe(3)))
   } yield {
     for {
       seqNr <- seqNrs

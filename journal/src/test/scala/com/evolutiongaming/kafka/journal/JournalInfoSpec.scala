@@ -49,23 +49,23 @@ class JournalInfoSpec extends FunSuite with Matchers {
   }
 
   private def append(from: Int, to: Int) = {
-    val range = SeqRange(SeqNr(from.toLong /*TODO try to avoid .toLong ?*/), SeqNr(to.toLong))
+    val range = SeqRange.unsafe(from, to)
     val metadata = Metadata.Empty
     ActionHeader.Append(range, None, PayloadType.Json, metadata)
   }
 
   private def delete(seqNr: Int) = {
-    ActionHeader.Delete(SeqNr(seqNr.toLong), None)
+    ActionHeader.Delete(SeqNr.unsafe(seqNr), None)
   }
 
   private def mark = ActionHeader.Mark("id", None)
 
   private def deleteInfo(seqNr: Int) = {
-    JournalInfo.Delete(SeqNr(seqNr.toLong /*TODO try to avoid .toLong ?*/))
+    JournalInfo.Delete(SeqNr.unsafe(seqNr))
   }
 
   private def appendInfo(seqNr: Int, deleteTo: Option[Int] = None) = {
-    JournalInfo.Append(SeqNr(seqNr.toLong), deleteTo.map(x => SeqNr(x.toLong)))
+    JournalInfo.Append(SeqNr.unsafe(seqNr), deleteTo.map(x => SeqNr.unsafe(x)))
   }
 
   private def Empty = JournalInfo.Empty
