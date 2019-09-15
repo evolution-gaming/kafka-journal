@@ -1,19 +1,19 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Parallel
-import cats.effect.{Concurrent, Sync, Timer}
+import cats.effect.{Concurrent, Timer}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.{Origin, Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.catshelper.EffectHelper._
-import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
+import com.evolutiongaming.catshelper.{BracketThrowable, FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 
 import scala.util.Try
 
 object SetupSchema { self =>
 
-  def migrate[F[_] : Sync : CassandraSession : CassandraSync : Settings](
+  def migrate[F[_] : BracketThrowable : CassandraSession : CassandraSync : Settings](
     schema: Schema,
     fresh: CreateSchema.Fresh
   ): F[Unit] = {

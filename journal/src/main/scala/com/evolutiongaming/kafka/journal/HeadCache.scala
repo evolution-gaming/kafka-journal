@@ -19,6 +19,7 @@ import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.Retry
 import com.evolutiongaming.scache.{Cache, CacheMetered}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecord, ConsumerRecords}
+import com.evolutiongaming.skafka.producer.ProducerLogging.MonadThrowable
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
 import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.smetrics._
@@ -745,7 +746,11 @@ object HeadCache {
     }
 
 
-    def withMetrics(metrics: Metrics[F])(implicit F: Sync[F], measureDuration: MeasureDuration[F]): HeadCache[F] = new HeadCache[F] {
+    def withMetrics(
+      metrics: Metrics[F])(implicit
+      F: MonadThrowable[F],
+      measureDuration: MeasureDuration[F]
+    ): HeadCache[F] = new HeadCache[F] {
 
       def get(key: Key, partition: Partition, offset: Offset) = {
         for {

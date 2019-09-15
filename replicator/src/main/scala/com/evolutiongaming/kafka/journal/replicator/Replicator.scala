@@ -5,7 +5,7 @@ import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.implicits._
-import cats.{Monad, Parallel, ~>}
+import cats.{Applicative, Monad, Parallel, ~>}
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.CatsHelper._
@@ -209,7 +209,7 @@ object Replicator {
     }
 
 
-    def of[F[_] : Sync : KafkaConsumerOf : FromTry](config: ConsumerConfig): Resource[F, Consumer[F]] = {
+    def of[F[_] : Applicative : KafkaConsumerOf : FromTry](config: ConsumerConfig): Resource[F, Consumer[F]] = {
       for {
         consumer <- KafkaConsumerOf[F].apply[String, ByteVector](config)
       } yield {

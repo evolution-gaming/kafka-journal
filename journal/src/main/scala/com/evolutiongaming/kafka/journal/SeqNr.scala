@@ -14,7 +14,7 @@ import scodec.{Attempt, Codec, codecs}
 
 import scala.util.Try
 
-sealed abstract class SeqNr(val value: Long) {
+sealed abstract case class SeqNr(value: Long) {
 
   override def toString: String = value.toString
 }
@@ -79,7 +79,7 @@ object SeqNr {
       new SeqNr(value) {}.pure[F]
     }
   }
-
+  
 
   def opt(value: Long): Option[SeqNr] = of[Option](value)
 

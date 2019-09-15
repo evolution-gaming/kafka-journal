@@ -9,7 +9,7 @@ import cats.implicits._
 import cats.{Applicative, FlatMap, Monad, Parallel, ~>}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
-import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
+import com.evolutiongaming.catshelper.{BracketThrowable, FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.conversions.{ConsumerRecordToActionRecord, PayloadToEvents}
@@ -407,7 +407,7 @@ object TopicReplicator { self =>
 
   object RetryOf {
 
-    def apply[F[_] : Sync : Timer : Log](strategy: Retry.Strategy): Retry[F] = {
+    def apply[F[_] : BracketThrowable : Timer : Log](strategy: Retry.Strategy): Retry[F] = {
 
       def onError(error: Throwable, details: Retry.Details) = {
         details.decision match {

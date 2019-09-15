@@ -177,7 +177,7 @@ object KafkaHealthCheck {
       }
     }
 
-    def of[F[_] : Sync : KafkaProducerOf : FromTry](topic: Topic, config: ProducerConfig): Resource[F, Producer[F]] = {
+    def of[F[_] : Monad : KafkaProducerOf : FromTry](topic: Topic, config: ProducerConfig): Resource[F, Producer[F]] = {
       for {
         producer <- KafkaProducerOf[F].apply(config)
       } yield {
@@ -218,7 +218,7 @@ object KafkaHealthCheck {
       }
     }
 
-    def of[F[_] : Sync : KafkaConsumerOf : FromTry](key: String, config: ConsumerConfig): Resource[F, Consumer[F]] = {
+    def of[F[_] : Monad : KafkaConsumerOf : FromTry](key: String, config: ConsumerConfig): Resource[F, Consumer[F]] = {
       val config1 = {
         val groupId = config.common.clientId.fold(key) { clientId => s"$clientId-$key" }
         config.copy(

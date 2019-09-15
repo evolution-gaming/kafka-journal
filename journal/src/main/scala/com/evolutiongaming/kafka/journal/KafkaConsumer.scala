@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.implicits._
-import cats.~>
+import cats.{Applicative, ~>}
 import com.evolutiongaming.kafka.journal.util.Named
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecords}
@@ -60,7 +60,7 @@ object KafkaConsumer {
   }
 
 
-  def apply[F[_] : Sync, K, V](consumer: Consumer[F, K, V]): KafkaConsumer[F, K, V] = {
+  def apply[F[_] : Applicative, K, V](consumer: Consumer[F, K, V]): KafkaConsumer[F, K, V] = {
     new KafkaConsumer[F, K, V] {
 
       def assign(partitions: Nel[TopicPartition]) = {

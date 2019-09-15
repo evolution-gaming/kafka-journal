@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.{Resource, Sync}
 import cats.implicits._
-import cats.~>
+import cats.{Monad, ~>}
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.conversions.ConsumerRecordToActionRecord
 import com.evolutiongaming.skafka.{Offset, Partition, TopicPartition}
@@ -16,7 +16,7 @@ trait ReadActionsOf[F[_]] {
 
 object ReadActionsOf {
 
-  def apply[F[_] : Sync/*TODO sync?*/](
+  def apply[F[_] : Monad](
     consumer: Resource[F, Journal.Consumer[F]],
     log: Log[F])(implicit
     consumerRecordToActionRecord: ConsumerRecordToActionRecord[F]

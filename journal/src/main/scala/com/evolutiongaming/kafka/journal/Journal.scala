@@ -6,7 +6,7 @@ import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
+import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MonadThrowable}
 import com.evolutiongaming.kafka.journal.conversions.{EventsToPayload, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
@@ -317,7 +317,7 @@ object Journal {
   }
 
 
-  def apply[F[_] : Sync : MeasureDuration](journal: Journal[F], metrics: Metrics[F]): Journal[F] = {
+  def apply[F[_] : MonadThrowable : MeasureDuration](journal: Journal[F], metrics: Metrics[F]): Journal[F] = {
 
     val functionKId = FunctionK.id[F]
 
@@ -492,12 +492,13 @@ object Journal {
 
 
   trait Producer[F[_]] {
+
     def send(record: ProducerRecord[String, ByteVector]): F[PartitionOffset]
   }
 
   object Producer {
 
-    def of[F[_] : Sync : KafkaProducerOf : FromTry](config: ProducerConfig): Resource[F, Producer[F]] = {
+    def of[F[_] : MonadThrowable : KafkaProducerOf : FromTry](config: ProducerConfig): Resource[F, Producer[F]] = {
 
       val acks = config.acks match {
         case Acks.None => Acks.One
@@ -520,7 +521,7 @@ object Journal {
       }
     }
 
-    def apply[F[_] : Sync : FromTry](
+    def apply[F[_] : MonadThrowable : FromTry](
       producer: KafkaProducer[F]
     )(implicit
       toBytesKey: skafka.ToBytes[F, String],
@@ -555,7 +556,7 @@ object Journal {
 
   object Consumer {
 
-    def of[F[_] : Sync : KafkaConsumerOf : FromTry](
+    def of[F[_] : MonadThrowable : KafkaConsumerOf : FromTry](
       config: ConsumerConfig,
       pollTimeout: FiniteDuration
     ): Resource[F, Consumer[F]] = {
@@ -658,7 +659,7 @@ object Journal {
     }
 
 
-    def withLogError(log: Log[F])(implicit F: Sync[F], measureDuration: MeasureDuration[F]): Journal[F] = {
+    def withLogError(log: Log[F])(implicit F: MonadThrowable[F], measureDuration: MeasureDuration[F]): Journal[F] = {
 
       val functionKId = FunctionK.id[F]
 
@@ -715,7 +716,11 @@ object Journal {
     }
 
 
-    def withMetrics(metrics: Metrics[F])(implicit F: Sync[F], measureDuration: MeasureDuration[F]): Journal[F] = {
+    def withMetrics(
+      metrics: Metrics[F])(implicit
+      F: MonadThrowable[F],
+      measureDuration: MeasureDuration[F]
+    ): Journal[F] = {
       Journal(self, metrics)
     }
 
