@@ -4,6 +4,7 @@ import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
 import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
 import play.api.libs.json._
+import play.api.libs.functional.syntax._
 import scodec.Codec
 import scodec.bits.ByteVector
 import scodec.codecs.{bytes, utf8}
@@ -75,7 +76,7 @@ object Payload {
 
   object Json {
 
-    implicit val FormatJson: Format[Json] = Format.of[JsValue].bimap(Json(_), _.value)
+    implicit val FormatJson: Format[Json] = Format.of[JsValue].inmap(Json(_), _.value)
 
     val CodecJson: Codec[Json] = formatCodec
 

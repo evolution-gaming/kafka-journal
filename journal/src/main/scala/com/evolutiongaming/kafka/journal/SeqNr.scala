@@ -13,7 +13,7 @@ import scodec.{Attempt, Codec, codecs}
 import scala.util.Try
 
 // TODO make private
-final case class SeqNr(value: Long) extends Ordered[SeqNr] {
+final case class SeqNr(value: Long) {
 
   require(SeqNr.isValid(value), SeqNr.invalid(value))
 
@@ -32,8 +32,6 @@ final case class SeqNr(value: Long) extends Ordered[SeqNr] {
   def in(range: SeqRange): Boolean = range contains this
 
   def to(seqNr: SeqNr): SeqRange = SeqRange(this, seqNr)
-
-  def compare(that: SeqNr): Int = this.value compare that.value
 
   def map(f: Long => Long): Option[SeqNr] = SeqNr.opt(f(value))
 

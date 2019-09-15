@@ -83,15 +83,4 @@ object PlayJsonHelper {
     // TODO not use `as`
     jsValue.as(reads)
   }
-
-
-  implicit class FormatOps[A](val self: Format[A]) extends AnyVal {
-
-    // TODO remove
-    def bimap[B](to: A => B, from: B => A): Format[B] = {
-      val reads = self.map(to)
-      val writes = self.contramap(from)
-      Format(reads, writes)
-    }
-  }
 }
