@@ -76,14 +76,14 @@ class ActionToProducerRecordSpec extends FunSuite with Matchers {
   private val consumerRecordToActionRecord = ConsumerRecordToActionRecord[Try]
 
   private val appends = {
-    implicit val eventsToPayload = EventsToPayload[Try]
+    val eventsToPayload = EventsToPayload[Try]
     for {
       origin   <- origins
       metadata <- metadata
       events   <- events
       headers  <- headers
     } yield {
-      Action.Append.of[Try](key1, timestamp, origin, events, metadata, headers).get
+      Action.Append.of[Try](key1, timestamp, origin, events, metadata, headers, eventsToPayload).get
     }
   }
 

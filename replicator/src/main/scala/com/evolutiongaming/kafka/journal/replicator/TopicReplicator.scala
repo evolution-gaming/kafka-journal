@@ -62,10 +62,11 @@ object TopicReplicator { self =>
 
       val retry = RetryOf[F](strategy)
 
-      implicit val payloadToEvents = PayloadToEvents[F]
+      val payloadToEvents = PayloadToEvents[F]
+      val consumerRecordToActionRecord = ConsumerRecordToActionRecord[F]
       Concurrent[F].start {
         retry {
-          consumer.use { consumer => of(topic, stopRef, consumer, 1.hour) }
+          consumer.use { consumer => of(topic, stopRef, consumer, 1.hour, consumerRecordToActionRecord, payloadToEvents) }
         }
       }
     }
@@ -103,9 +104,9 @@ object TopicReplicator { self =>
     topic: Topic,
     stopRef: StopRef[F],
     consumer: Consumer[F],
-    errorCooldown: FiniteDuration)(implicit
+    errorCooldown: FiniteDuration,
     consumerRecordToActionRecord: ConsumerRecordToActionRecord[F],
-    payloadToEvents: PayloadToEvents[F],
+    payloadToEvents: PayloadToEvents[F]
   ): F[Unit] = {
 
     def round(

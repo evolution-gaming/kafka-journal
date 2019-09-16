@@ -13,7 +13,7 @@ trait PayloadToEvents[F[_]] {
 
 object PayloadToEvents {
 
-  implicit def apply[F[_] : MonadThrowable : FromAttempt : FromJsResult](implicit
+  def apply[F[_] : MonadThrowable : FromAttempt : FromJsResult](implicit
     eventsFromBytes: FromBytes[F, Nel[Event]],
     payloadJsonFromBytes: FromBytes[F, PayloadJson]
   ): PayloadToEvents[F] = {
@@ -27,14 +27,12 @@ object PayloadToEvents {
           def events(payloadJson: PayloadJson) = {
             payloadJson.events.traverse { event =>
               val payloadType = event.payloadType getOrElse PayloadType.Json
-              val payload = event.payload.traverse { payload =>
+              val payload     = event.payload.traverse { payload =>
 
-                def text = {
-                  for {
-                    str <- FromJsResult[F].apply { payload.validate[String] }
-                  } yield {
-                    Payload.text(str)
-                  }
+                def text = for {
+                  str <- FromJsResult[F].apply { payload.validate[String] }
+                } yield {
+                  Payload.text(str)
                 }
 
                 payloadType match {
@@ -46,8 +44,8 @@ object PayloadToEvents {
                 payload <- payload
               } yield {
                 Event(
-                  seqNr = event.seqNr,
-                  tags = event.tags,
+                  seqNr   = event.seqNr,
+                  tags    = event.tags,
                   payload = payload)
               }
             }
@@ -55,7 +53,7 @@ object PayloadToEvents {
 
           for {
             payloadJson <- payloadJsonFromBytes(payload)
-            events <- events(payloadJson)
+            events      <- events(payloadJson)
           } yield events
       }
       result.handleErrorWith { cause =>

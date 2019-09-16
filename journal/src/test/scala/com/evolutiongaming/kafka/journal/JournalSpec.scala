@@ -7,7 +7,7 @@ import cats.data.{NonEmptyList => Nel}
 import cats.effect.{Clock, Resource}
 import cats.implicits._
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
-import com.evolutiongaming.kafka.journal.conversions.PayloadToEvents
+import com.evolutiongaming.kafka.journal.conversions.{EventsToPayload, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
@@ -448,7 +448,15 @@ object JournalSpec {
       implicit val fromJsResult = FromJsResult.lift[F]
       val log = Log.empty[F]
 
-      val journal = Journal[F](None, eventual, readActionsOf, writeAction, headCache, log)
+      val journal = Journal[F](
+        origin = None,
+        eventual = eventual,
+        readActionsOf = readActionsOf,
+        appendAction = writeAction,
+        headCache = headCache,
+        payloadToEvents = PayloadToEvents[F],
+        eventsToPayload = EventsToPayload[F],
+        log = log)
         .withLog(log)
         .withMetrics(Journal.Metrics.empty[F])
       SeqNrJournal(journal)

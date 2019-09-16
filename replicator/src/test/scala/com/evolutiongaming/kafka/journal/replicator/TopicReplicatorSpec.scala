@@ -9,7 +9,7 @@ import cats.{Applicative, Id, Monoid, Parallel}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log}
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.conversions.ActionToProducerRecord
+import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsumerRecordToActionRecord, EventsToPayload, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
@@ -605,7 +605,16 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 
   private def appendOf(key: Key, seqNrs: Nel[Int]) = {
     val events = seqNrs.map { seqNr => Event(SeqNr.unsafe(seqNr), Set(seqNr.toString)) }
-    Action.Append.of[Try](key, timestamp = timestamp, Some(origin), events, metadata, headers).get
+    val eventsToPayload = EventsToPayload[Try]
+    Action.Append.of[Try](
+      key,
+      timestamp = timestamp,
+      Some(origin),
+      events,
+      metadata,
+      headers,
+      eventsToPayload
+    ).get
   }
 
   private def markOf(key: Key) = {
@@ -776,7 +785,13 @@ object TopicReplicatorSpec {
     
     implicit val clock = Clock.const[StateT](nanos = 0, millis = millis)
 
-    TopicReplicator.of[StateT](topic, TopicReplicator.StopRef[StateT], consumer, 1.second)
+    TopicReplicator.of[StateT](
+      topic = topic,
+      stopRef = TopicReplicator.StopRef[StateT],
+      consumer = consumer,
+      errorCooldown = 1.second,
+      consumerRecordToActionRecord = ConsumerRecordToActionRecord[StateT],
+      payloadToEvents = PayloadToEvents[StateT])
   }
 
 

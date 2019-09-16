@@ -10,6 +10,7 @@ import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.HeadCache.Result
+import com.evolutiongaming.kafka.journal.conversions.EventsToPayload
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer.ConsumerRecords
 import com.evolutiongaming.smetrics.CollectorRegistry
@@ -33,7 +34,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
       val key = Key(id = "id", topic = topic)
       val records = ConsumerRecordsOf {
         for {
-          idx <- (0l to offsetLast).toList
+          idx <- (0L to offsetLast).toList
           seqNr <- SeqNr.opt(idx + 1)
         } yield {
           val action = appendOf(key, seqNr)
@@ -144,9 +145,9 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
     "clean cache after events are being replicated" ignore {
       val key = Key(id = "id", topic = topic)
 
-      val offsetLast = 10l
+      val offsetLast = 10L
       val records = for {
-        offset <- (0l until offsetLast).toList
+        offset <- (0L until offsetLast).toList
         seqNr <- SeqNr.opt(offset + 1)
       } yield {
         val action = appendOf(key, seqNr)
@@ -225,14 +226,14 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
             }
           }
           for {
-          _     <- enqueue(key0, 0l)
-          r0    <- headCache.get(key0, partition, 0l)
-          _     <- enqueue(key1, 1l)
-          r1    <- headCache.get(key0, partition, 1l)
-          r2    <- headCache.get(key1, partition, 1l)
-          _     <- pointers.update(_ ++ Map((partition, 1l)))
-          r3    <- headCache.get(key1, partition, 1l)
-          _     <- enqueue(key0, 2l)
+          _     <- enqueue(key0, 0L)
+          r0    <- headCache.get(key0, partition, 0L)
+          _     <- enqueue(key1, 1L)
+          r1    <- headCache.get(key0, partition, 1L)
+          r2    <- headCache.get(key1, partition, 1L)
+          _     <- pointers.update(_ ++ Map((partition, 1L)))
+          r3    <- headCache.get(key1, partition, 1L)
+          _     <- enqueue(key0, 2L)
           r4    <- headCache.get(key0, partition, 2l)
           state <- ref.get
           state <- state
@@ -269,7 +270,8 @@ object HeadCacheSpec {
   val headers: Headers = Headers.empty
 
   def appendOf(key: Key, seqNr: SeqNr): Action.Append  = {
-    Action.Append.of[Try](key, timestamp, none, Nel.of(Event(seqNr)), metadata, headers).get
+    val eventsToPayload = EventsToPayload[Try]
+    Action.Append.of[Try](key, timestamp, none, Nel.of(Event(seqNr)), metadata, headers, eventsToPayload).get
   }
 
   def headCacheOf(

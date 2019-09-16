@@ -105,9 +105,15 @@ object Journal {
     implicit val fromAttempt = FromAttempt.lift[F]
     implicit val fromJsResult = FromJsResult.lift[F]
 
-    val readActionsOf = ReadActionsOf[F](consumer, log)
-    val appendAction = AppendAction[F](producer)
-    apply[F](origin, eventualJournal, readActionsOf, appendAction, headCache, log)
+    apply[F](
+      origin = origin,
+      eventual = eventualJournal,
+      readActionsOf = ReadActionsOf[F](consumer, log),
+      appendAction = AppendAction[F](producer),
+      headCache = headCache,
+      payloadToEvents = PayloadToEvents[F],
+      eventsToPayload = EventsToPayload[F],
+      log = log)
   }
 
 
@@ -117,14 +123,14 @@ object Journal {
     readActionsOf: ReadActionsOf[F],
     appendAction: AppendAction[F],
     headCache: HeadCache[F],
-    log: Log[F])(implicit
     payloadToEvents: PayloadToEvents[F],
-    eventsToPayload: EventsToPayload[F]
+    eventsToPayload: EventsToPayload[F],
+    log: Log[F]
   ): Journal[F] = {
 
     val appendMarker = AppendMarker(appendAction, origin)
 
-    val appendEvents = AppendEvents(appendAction, origin)
+    val appendEvents = AppendEvents(appendAction, origin, eventsToPayload)
 
     def readActions(key: Key, from: SeqNr): F[(F[JournalInfo], FoldActions[F])] = {
       for {

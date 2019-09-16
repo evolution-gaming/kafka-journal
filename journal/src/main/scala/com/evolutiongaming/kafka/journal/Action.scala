@@ -74,7 +74,7 @@ object Action {
       origin: Option[Origin],
       events: Nel[Event],
       metadata: Metadata,
-      headers: Headers)(implicit
+      headers: Headers,
       eventsToPayload: EventsToPayload[F]
     ): F[Append] = {
       for {

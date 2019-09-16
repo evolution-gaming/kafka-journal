@@ -16,7 +16,7 @@ trait EventsToPayload[F[_]] {
 
 object EventsToPayload {
 
-  implicit def apply[F[_] : MonadThrowable](implicit
+  def apply[F[_] : MonadThrowable](implicit
     eventsToBytes: ToBytes[F, Nel[Event]],
     payloadJsonToBytes: ToBytes[F, PayloadJson]
   ): EventsToPayload[F] = {

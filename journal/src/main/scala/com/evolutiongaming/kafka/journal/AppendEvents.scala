@@ -22,14 +22,14 @@ object AppendEvents {
 
   def apply[F[_] : FlatMap : Clock](
     appendAction: AppendAction[F],
-    origin: Option[Origin])(implicit
+    origin: Option[Origin],
     eventsToPayload: EventsToPayload[F]
   ): AppendEvents[F] = {
     (key: Key, events: Nel[Event], metadata: Option[JsValue], headers: Headers) => {
       for {
         timestamp <- Clock[F].instant
         metadata1  = Metadata(data = metadata)
-        action    <- Action.Append.of[F](key, timestamp, origin, events, metadata1, headers) // TODO measure
+        action    <- Action.Append.of[F](key, timestamp, origin, events, metadata1, headers, eventsToPayload) // TODO measure
         result    <- appendAction(action)
       } yield result
     }
