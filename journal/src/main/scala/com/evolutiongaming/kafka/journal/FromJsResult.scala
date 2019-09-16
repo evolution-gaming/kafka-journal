@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.ApplicativeError
 import cats.effect.IO
 import cats.implicits._
+import com.evolutiongaming.catshelper.ApplicativeThrowable
 import play.api.libs.json.{JsResult, JsResultException}
 
 import scala.util.Try
@@ -18,7 +18,7 @@ object FromJsResult {
   def apply[F[_]](implicit F: FromJsResult[F]): FromJsResult[F] = F
 
 
-  def lift[F[_]](implicit F: ApplicativeError[F, Throwable]): FromJsResult[F] = new FromJsResult[F] {
+  def lift[F[_] : ApplicativeThrowable]: FromJsResult[F] = new FromJsResult[F] {
 
     def apply[A](fa: JsResult[A]) = {
       fa.fold(a => JournalError("play-json error", JsResultException(a).some).raiseError[F, A], _.pure[F])

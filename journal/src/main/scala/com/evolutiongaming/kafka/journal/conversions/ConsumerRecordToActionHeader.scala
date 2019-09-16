@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.conversions
 
-import cats.ApplicativeError
 import cats.implicits._
+import com.evolutiongaming.catshelper.ApplicativeThrowable
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.consumer.ConsumerRecord
 import scodec.bits.ByteVector
@@ -13,8 +13,7 @@ trait ConsumerRecordToActionHeader[F[_]] {
 
 object ConsumerRecordToActionHeader {
 
-  implicit def apply[F[_]](implicit
-    F: ApplicativeError[F, Throwable],
+  implicit def apply[F[_] : ApplicativeThrowable](implicit
     fromBytes: FromBytes[F, ActionHeader]
   ): ConsumerRecordToActionHeader[F] = {
 

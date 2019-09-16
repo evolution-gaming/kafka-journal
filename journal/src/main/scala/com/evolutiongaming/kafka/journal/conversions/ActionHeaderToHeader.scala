@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.conversions
 
-import cats.ApplicativeError
 import cats.implicits._
+import com.evolutiongaming.catshelper.ApplicativeThrowable
 import com.evolutiongaming.kafka.journal.{ActionHeader, JournalError, ToBytes}
 import com.evolutiongaming.skafka.Header
 
@@ -12,8 +12,7 @@ trait ActionHeaderToHeader[F[_]] {
 
 object ActionHeaderToHeader {
 
-  implicit def apply[F[_]](implicit
-    F: ApplicativeError[F, Throwable],
+  implicit def apply[F[_] : ApplicativeThrowable](implicit
     actionHeaderToBytes: ToBytes[F, ActionHeader]
   ): ActionHeaderToHeader[F] = {
     actionHeader: ActionHeader => {

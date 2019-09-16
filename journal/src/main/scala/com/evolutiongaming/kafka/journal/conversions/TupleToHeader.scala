@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.conversions
 
-import cats.ApplicativeError
 import cats.implicits._
+import com.evolutiongaming.catshelper.ApplicativeThrowable
 import com.evolutiongaming.kafka.journal.{JournalError, ToBytes}
 import com.evolutiongaming.skafka.Header
 
@@ -12,8 +12,7 @@ trait TupleToHeader[F[_]] {
 
 object TupleToHeader {
 
-  implicit def apply[F[_]](implicit
-    F: ApplicativeError[F, Throwable],
+  implicit def apply[F[_] : ApplicativeThrowable](implicit
     stringToBytes: ToBytes[F, String],
   ): TupleToHeader[F] = {
     (key, value) =>

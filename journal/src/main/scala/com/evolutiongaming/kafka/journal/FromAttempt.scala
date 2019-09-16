@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.ApplicativeError
 import cats.effect.IO
 import cats.implicits._
+import com.evolutiongaming.catshelper.ApplicativeThrowable
 import scodec.Attempt
 
 import scala.util.Try
@@ -17,7 +17,7 @@ object FromAttempt {
   def apply[F[_]](implicit F: FromAttempt[F]): FromAttempt[F] = F
 
 
-  def lift[F[_]](implicit F: ApplicativeError[F, Throwable]): FromAttempt[F] = new FromAttempt[F] {
+  def lift[F[_] : ApplicativeThrowable]: FromAttempt[F] = new FromAttempt[F] {
 
     def apply[A](fa: Attempt[A]) = {
       fa.fold(a => JournalError(s"scodec error ${ a.messageWithContext }").raiseError[F, A], _.pure[F])
