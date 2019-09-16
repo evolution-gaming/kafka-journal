@@ -13,7 +13,7 @@ trait PayloadToEvents[F[_]] {
 
 object PayloadToEvents {
 
-  def apply[F[_] : MonadThrowable : FromAttempt : FromJsResult](implicit
+  implicit def apply[F[_] : MonadThrowable : FromAttempt : FromJsResult](implicit
     eventsFromBytes: FromBytes[F, Nel[Event]],
     payloadJsonFromBytes: FromBytes[F, PayloadJson]
   ): PayloadToEvents[F] = {
