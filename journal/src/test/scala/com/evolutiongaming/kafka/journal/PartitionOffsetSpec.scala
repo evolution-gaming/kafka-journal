@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.Show
 import cats.data.{NonEmptyList => Nel}
+import cats.implicits._
 import org.scalatest.{FunSuite, Matchers}
 
 class PartitionOffsetSpec extends FunSuite with Matchers {
@@ -21,6 +21,6 @@ class PartitionOffsetSpec extends FunSuite with Matchers {
 
   test("show") {
     val partitionOffset = PartitionOffset(partition = 0, offset = 1)
-    Show[PartitionOffset].show(partitionOffset) shouldEqual "0:1"
+    partitionOffset.show shouldEqual "0:1"
   }
 }

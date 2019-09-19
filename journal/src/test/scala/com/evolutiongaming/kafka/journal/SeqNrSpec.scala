@@ -1,15 +1,19 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.implicits._
-import org.scalatest.{FunSuite, Matchers}
-
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
+import org.scalatest.{FunSuite, Matchers}
 
 
 class SeqNrSpec extends FunSuite with Matchers {
 
   test("of") {
     SeqNr.of[Option](0) shouldEqual none
+  }
+
+  test("show") {
+    SeqNr.min.show shouldEqual "1"
+    SeqNr.max.show shouldEqual "9223372036854775807"
   }
 
   test("1 max 2") {

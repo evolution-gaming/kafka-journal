@@ -18,37 +18,37 @@ class FoldActionsSpec extends FunSuite with Matchers {
 
   test("no offsets") {
     val records = List(
-      Pointer(seqNr = 1l, offset = 11l),
-      Pointer(seqNr = 2l, offset = 12l),
-      Pointer(seqNr = 3l, offset = 13l))
+      Pointer(seqNr = 1L, offset = 11L),
+      Pointer(seqNr = 2L, offset = 12L),
+      Pointer(seqNr = 3L, offset = 13L))
     val result = seqNrs(None, None, records)
-    result shouldEqual List((1l, 11l), (2l, 12l), (3l, 13l))
+    result shouldEqual List((1L, 11L), (2L, 12L), (3L, 13L))
   }
 
   test("replicated offset") {
     val records = List(
-      Pointer(seqNr = 1l, offset = 11l),
-      Pointer(seqNr = 2l, offset = 12l),
-      Pointer(seqNr = 3l, offset = 13l))
-    val result = seqNrs(Some(11l), None, records)
-    result shouldEqual List((2l, 12l), (3l, 13l))
+      Pointer(seqNr = 1L, offset = 11L),
+      Pointer(seqNr = 2L, offset = 12L),
+      Pointer(seqNr = 3L, offset = 13L))
+    val result = seqNrs(Some(11L), None, records)
+    result shouldEqual List((2L, 12L), (3L, 13L))
   }
 
   test("replicated and queried offsets") {
     val records = List(
-      Pointer(seqNr = 1l, offset = 11l),
-      Pointer(seqNr = 2l, offset = 12l),
-      Pointer(seqNr = 3l, offset = 13l))
-    val result = seqNrs(Some(11l), Some(12l), records)
-    result shouldEqual List((3l, 13l))
+      Pointer(seqNr = 1L, offset = 11L),
+      Pointer(seqNr = 2L, offset = 12L),
+      Pointer(seqNr = 3L, offset = 13L))
+    val result = seqNrs(Some(11L), Some(12L), records)
+    result shouldEqual List((3L, 13L))
   }
 
   test("queried offsets covers all kafka records") {
     val records = List(
-      Pointer(seqNr = 1l, offset = 1l),
-      Pointer(seqNr = 2l, offset = 2l),
-      Pointer(seqNr = 3l, offset = 3l))
-    val result = seqNrs(Some(11l), Some(13l), records)
+      Pointer(seqNr = 1L, offset = 1L),
+      Pointer(seqNr = 2L, offset = 2L),
+      Pointer(seqNr = 3L, offset = 3L))
+    val result = seqNrs(Some(11L), Some(13L), records)
     result shouldEqual Nil
   }
 }
@@ -93,7 +93,7 @@ object FoldActionsSpec {
     val key = Key(topic = "topic", id = "id")
 
     val (marker, markRecord) = {
-      val offset = pointers.lastOption.fold(1l) { _.offset + 1 }
+      val offset = pointers.lastOption.fold(1L) { _.offset + 1 }
       val mark = Action.Mark(key, timestamp, ActionHeader.Mark("mark", None))
       val partitionOffset = PartitionOffset(offset = offset)
       val record = ActionRecord(mark, partitionOffset)
