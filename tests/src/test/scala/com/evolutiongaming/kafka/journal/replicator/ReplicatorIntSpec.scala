@@ -11,7 +11,7 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
 import com.evolutiongaming.kafka.journal.CassandraSuite._
-import com.evolutiongaming.retry.Retry
+import com.evolutiongaming.retry.{Retry, Strategy}
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.util.ActorSystemOf
 import com.evolutiongaming.scassandra.CassandraClusterOf
@@ -115,7 +115,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
     val topic = "journal"
 
-    val strategy = Retry.Strategy.const(100.millis).limit(1.minute)
+    val strategy = Strategy.const(100.millis).limit(1.minute)
 
     val Error = new RuntimeException with NoStackTrace
 

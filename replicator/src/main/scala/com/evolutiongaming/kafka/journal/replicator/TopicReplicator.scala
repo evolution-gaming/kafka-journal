@@ -9,7 +9,7 @@ import cats.implicits._
 import cats.{Applicative, FlatMap, Monad, Parallel, ~>}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
-import com.evolutiongaming.catshelper.{BracketThrowable, FromTry, Log, LogOf}
+import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.conversions.{ConsumerRecordToActionRecord, PayloadToEvents}
@@ -18,7 +18,7 @@ import com.evolutiongaming.kafka.journal.util.Named
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.TimeHelper._
 import com.evolutiongaming.random.Random
-import com.evolutiongaming.retry.Retry
+import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Bytes => _, _}
 import com.evolutiongaming.smetrics.MetricsHelper._
@@ -55,12 +55,15 @@ object TopicReplicator { self =>
     }
 
     def start(stopRef: StopRef[F], consumer: Resource[F, Consumer[F]], random: Random.State)(implicit log: Log[F]) = {
-      val strategy = Retry.Strategy
+      
+      val strategy = Strategy
         .fullJitter(100.millis, random)
         .limit(1.minute)
         .resetAfter(5.minutes)
 
-      val retry = RetryOf[F](strategy)
+      val onError = OnError.fromLog(log)
+
+      val retry = Retry(strategy, onError)
 
       val payloadToEvents = PayloadToEvents[F]
       val consumerRecordToActionRecord = ConsumerRecordToActionRecord[F]
@@ -402,25 +405,6 @@ object TopicReplicator { self =>
 
         def assignment = f(self.assignment, "assignment")
       }
-    }
-  }
-
-
-  object RetryOf {
-
-    def apply[F[_] : BracketThrowable : Timer : Log](strategy: Retry.Strategy): Retry[F] = {
-
-      def onError(error: Throwable, details: Retry.Details) = {
-        details.decision match {
-          case Retry.Decision.Retry(delay) =>
-            Log[F].warn(s"failed, retrying in $delay, error: $error")
-
-          case Retry.Decision.GiveUp =>
-            Log[F].error(s"failed after ${ details.retries } retries, error: $error", error)
-        }
-      }
-
-      Retry(strategy, onError)
     }
   }
 

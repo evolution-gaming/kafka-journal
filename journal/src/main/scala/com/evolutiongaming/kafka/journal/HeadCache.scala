@@ -9,17 +9,16 @@ import cats.effect.concurrent.{Deferred, Ref}
 import cats.implicits._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
-import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, SerialRef}
+import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MonadThrowable, SerialRef}
 import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.kafka.journal.conversions.ConsumerRecordToActionHeader
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.EitherHelper._
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.random.Random
-import com.evolutiongaming.retry.Retry
+import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.scache.{Cache, CacheMetered}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecord, ConsumerRecords}
-import com.evolutiongaming.skafka.producer.ProducerLogging.MonadThrowable
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
 import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.smetrics._
@@ -681,21 +680,6 @@ object HeadCache {
 
       val partitionsOf: F[Nel[Partition]] = {
 
-        val onError = (error: Throwable, details: Retry.Details) => {
-          import Retry.Decision
-
-          def prefix = s"consumer.partitions($topic) failed"
-
-          details.decision match {
-            case Decision.Retry(delay) =>
-              log.error(s"$prefix, retrying in $delay, error: $error")
-
-            case Decision.GiveUp =>
-              val retries = details.retries
-              log.error(s"$prefix, retried $retries times, error: $error", error)
-          }
-        }
-
         val partitions = for {
           partitions <- consumer.partitions(topic)
           partitions <- Nel.fromList(partitions.toList) match {
@@ -708,11 +692,11 @@ object HeadCache {
 
         for {
           random     <- Random.State.fromClock[F]()
-          strategy    = Retry.Strategy.fullJitter(3.millis, random).cap(300.millis)
-          partitions <- Retry[F, Throwable](strategy, onError).apply(partitions)
-        } yield {
-          partitions
-        }
+          strategy    = Strategy.fullJitter(3.millis, random).cap(300.millis)
+          onError     = OnError.fromLog(log.prefixed(s"consumer.partitions($topic)"))
+          retry       = Retry(strategy, onError)
+          partitions <- retry(partitions)
+        } yield partitions
       }
 
       for {

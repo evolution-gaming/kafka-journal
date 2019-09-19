@@ -4,7 +4,7 @@ import cats.effect._
 import cats.implicits._
 import cats.kernel.CommutativeMonoid
 import cats.{Applicative, CommutativeApplicative, Eval, Foldable}
-import com.evolutiongaming.catshelper.EffectHelper._
+import com.evolutiongaming.catshelper.CatsHelper._
 
 import scala.collection.immutable
 import scala.concurrent.duration.FiniteDuration

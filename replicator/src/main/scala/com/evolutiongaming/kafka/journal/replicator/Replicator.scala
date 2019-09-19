@@ -12,10 +12,10 @@ import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession, ReplicatedCassandra}
-import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.random.Random
-import com.evolutiongaming.retry.Retry
+import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.consumer._
@@ -110,20 +110,13 @@ object Replicator {
             }
           }
 
-          val strategy = Retry.Strategy.fullJitter(100.millis, random).limit(1.minute)
-
-          def onError(name: String)(error: Throwable, details: Retry.Details) = {
-            details.decision match {
-              case Retry.Decision.Retry(delay) =>
-                log.warn(s"$name failed, retrying in $delay, error: $error")
-
-              case Retry.Decision.GiveUp =>
-                log.error(s"$name failed after ${ details.retries } retries, error: $error", error)
-            }
-          }
+          val strategy = Strategy.fullJitter(100.millis, random).limit(1.minute)
 
           val retry = new Named[F] {
-            def apply[A](fa: F[A], name: String) = Retry(strategy, onError(s"consumer.$name")).apply(fa)
+            def apply[A](fa: F[A], name: String) = {
+              val onError = OnError.fromLog(log.prefixed(s"consumer.$name"))
+              Retry(strategy, onError).apply(fa)
+            }
           }
 
           val consumerRetry = consumer.mapMethod(retry)
