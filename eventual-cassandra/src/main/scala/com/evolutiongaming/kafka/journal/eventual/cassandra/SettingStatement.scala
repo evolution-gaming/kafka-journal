@@ -48,7 +48,9 @@ object SettingStatement {
   }
 
 
-  type Select[F[_]] = Key => F[Option[Setting]]
+  trait Select[F[_]] {
+    def apply(key: Key): F[Option[Setting]]
+  }
 
   object Select {
 
@@ -97,7 +99,9 @@ object SettingStatement {
   }
 
 
-  type Insert[F[_]] = Setting => F[Unit]
+  trait Insert[F[_]] {
+    def apply(setting: Setting): F[Unit]
+  }
 
   object Insert {
 
@@ -116,7 +120,9 @@ object SettingStatement {
   }
 
 
-  type InsertIfEmpty[F[_]] = Setting => F[Boolean]
+  trait InsertIfEmpty[F[_]] {
+    def apply(setting: Setting): F[Boolean]
+  }
 
   object InsertIfEmpty {
 
@@ -139,7 +145,9 @@ object SettingStatement {
   }
 
 
-  type Delete[F[_]] = Key => F[Unit]
+  trait Delete[F[_]] {
+    def apply(key: Key): F[Unit]
+  }
 
   object Delete {
 

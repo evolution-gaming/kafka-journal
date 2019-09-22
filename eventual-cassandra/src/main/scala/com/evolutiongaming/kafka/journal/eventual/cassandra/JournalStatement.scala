@@ -2,9 +2,9 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
+import cats.Monad
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
-import cats.Monad
 import com.datastax.driver.core.BatchStatement
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
@@ -44,7 +44,9 @@ object JournalStatement {
   }
 
 
-  type InsertRecords[F[_]] = (Key, SegmentNr, Nel[EventRecord]) => F[Unit]
+  trait InsertRecords[F[_]] {
+    def apply(key: Key, segment: SegmentNr, events: Nel[EventRecord]): F[Unit]
+  }
 
   // TODO add statement logging
   object InsertRecords {
@@ -203,7 +205,9 @@ object JournalStatement {
   }
 
 
-  type DeleteRecords[F[_]] = (Key, SegmentNr, SeqNr) => F[Unit]
+  trait DeleteRecords[F[_]] {
+    def apply(key: Key, segment: SegmentNr, seqNr: SeqNr):  F[Unit]
+  }
 
   object DeleteRecords {
 

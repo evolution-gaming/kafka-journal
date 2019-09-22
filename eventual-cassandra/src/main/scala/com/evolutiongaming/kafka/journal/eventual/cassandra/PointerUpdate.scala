@@ -16,7 +16,3 @@ final case class PointerInsert(
   offset: Offset,
   created: Instant,
   updated: Instant)
-
-final case class PointerKey(topic: Topic, partition: Partition)
-
-final case class PointerSelect(topic: Topic, partition: Partition)

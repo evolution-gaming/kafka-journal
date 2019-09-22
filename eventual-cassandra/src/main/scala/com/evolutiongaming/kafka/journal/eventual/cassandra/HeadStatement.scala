@@ -34,7 +34,9 @@ object HeadStatement {
   }
 
 
-  type Insert[F[_]] = (Key, Instant, Head, Option[Origin]) => F[Unit]
+  trait Insert[F[_]] {
+    def apply(key: Key, timestamp: Instant, head: Head, origin: Option[Origin]): F[Unit]
+  }
 
   object Insert {
 
@@ -66,7 +68,9 @@ object HeadStatement {
   }
 
 
-  type Select[F[_]] = Key => F[Option[Head]]
+  trait Select[F[_]] {
+    def apply(key: Key): F[Option[Head]]
+  }
 
   object Select {
 
@@ -101,7 +105,9 @@ object HeadStatement {
   }
 
 
-  type Update[F[_]] = (Key, PartitionOffset, Instant, SeqNr, SeqNr) => F[Unit]
+  trait Update[F[_]] {
+    def apply(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: SeqNr): F[Unit]
+  }
 
   // TODO add classes for common operations
   object Update {
@@ -133,7 +139,9 @@ object HeadStatement {
   }
 
 
-  type UpdateSeqNr[F[_]] = (Key, PartitionOffset, Instant, SeqNr) => F[Unit]
+  trait UpdateSeqNr[F[_]] {
+    def apply(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr): F[Unit]
+  }
 
   // TODO TEST statement
   // TODO add classes for common operations
@@ -164,7 +172,9 @@ object HeadStatement {
   }
 
 
-  type UpdateDeleteTo[F[_]] = (Key, PartitionOffset, Instant, SeqNr) => F[Unit]
+  trait UpdateDeleteTo[F[_]] {
+    def apply(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr): F[Unit]
+  }
 
   object UpdateDeleteTo {
 

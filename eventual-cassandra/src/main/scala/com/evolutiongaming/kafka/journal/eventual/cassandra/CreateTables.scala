@@ -53,10 +53,8 @@ object CreateTables { self =>
         }
       }
 
-      val orderTable = Order.by { a: Table => a.name }
-
       for {
-        tables   <- tables.distinct(orderTable).pure[F]
+        tables   <- tables.distinct.pure[F]
         metadata <- CassandraCluster[F].metadata
         keyspace <- metadata.keyspace(keyspace)
         tables1  <- keyspace.fold(tables.toList.pure[F])(missing)
@@ -81,4 +79,8 @@ object CreateTables { self =>
 
 
   final case class Table(name: String, query: String)
+
+  object Table {
+    implicit val orderTable: Order[Table] = Order.by { a: Table => a.name }
+  }
 }

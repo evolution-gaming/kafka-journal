@@ -2,11 +2,11 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Monad
 import cats.implicits._
-import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.scassandra.TableName
-import com.evolutiongaming.skafka.{Offset, Partition, Topic}
+import com.evolutiongaming.scassandra.syntax._
+import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
 
 
 object PointerStatement {
@@ -24,7 +24,9 @@ object PointerStatement {
   }
 
 
-  type Insert[F[_]] = PointerInsert => F[Unit]
+  trait Insert[F[_]] {
+    def apply(pointer: PointerInsert): F[Unit]
+  }
 
   object Insert {
 
@@ -52,7 +54,9 @@ object PointerStatement {
   }
 
 
-  type Update[F[_]] = PointerUpdate => F[Unit]
+  trait Update[F[_]] {
+    def apply(pointer: PointerUpdate): F[Unit]
+  }
 
   // TODO not used
   object Update {
@@ -80,7 +84,9 @@ object PointerStatement {
   }
 
 
-  type Select[F[_]] = PointerSelect => F[Option[Offset]]
+  trait Select[F[_]] {
+    def apply(topicPartition: TopicPartition): F[Option[Offset]]
+  }
 
   // TODO not used
   object Select {
@@ -96,11 +102,11 @@ object PointerStatement {
       for {
         prepared <- query.prepare
       } yield {
-        key: PointerSelect =>
+        topicPartition: TopicPartition =>
           val bound = prepared
             .bind()
-            .encode("topic", key.topic)
-            .encode("partition", key.partition)
+            .encode("topic", topicPartition.topic)
+            .encode("partition", topicPartition.partition)
           for {
             row <- bound.first
           } yield for {
@@ -113,7 +119,9 @@ object PointerStatement {
   }
 
 
-  type SelectPointers[F[_]] = Topic => F[TopicPointers]
+  trait SelectPointers[F[_]] {
+    def apply(topic: Topic): F[TopicPointers]
+  }
 
   object SelectPointers {
 
@@ -150,7 +158,9 @@ object PointerStatement {
   }
 
 
-  type SelectTopics[F[_]] = () => F[List[Topic]]
+  trait SelectTopics[F[_]] {
+    def apply(): F[List[Topic]]
+  }
 
   object SelectTopics {
 
@@ -163,12 +173,10 @@ object PointerStatement {
           val bound = prepared.bind()
           for {
             rows <- bound.execute.toList
+          } yield for {
+            row <- rows
           } yield {
-            for {
-              row <- rows
-            } yield {
-              row.decode[Topic]("topic")
-            }
+            row.decode[Topic]("topic")
           }
         }
       }
