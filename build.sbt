@@ -14,7 +14,7 @@ lazy val commonSettings = Seq(
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   releaseCrossBuild := true,
   testOptions in Test ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM")),
-  libraryDependencies += compilerPlugin("org.typelevel" % "kind-projector" % "0.10.3" cross CrossVersion.binary))
+  libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.binary))
 
 
 lazy val root = (project in file(".")
