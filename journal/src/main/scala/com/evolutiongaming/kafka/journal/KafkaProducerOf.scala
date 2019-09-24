@@ -2,7 +2,6 @@ package com.evolutiongaming.kafka.journal
 
 import cats.Monad
 import cats.effect._
-import com.evolutiongaming.catshelper.FromFuture
 import com.evolutiongaming.skafka.producer.{ProducerConfig, ProducerMetrics, ProducerOf}
 import com.evolutiongaming.smetrics.MeasureDuration
 
@@ -19,7 +18,7 @@ object KafkaProducerOf {
   def apply[F[_]](implicit F: KafkaProducerOf[F]): KafkaProducerOf[F] = F
 
 
-  def apply[F[_] : Sync : ContextShift : FromFuture : MeasureDuration](
+  def apply[F[_] : Effect : ContextShift : MeasureDuration](
     blocking: ExecutionContext,
     metrics: Option[ProducerMetrics[F]] = None
   ): KafkaProducerOf[F] = {
@@ -30,7 +29,7 @@ object KafkaProducerOf {
 
 
   def apply[F[_] : Monad](producerOf: ProducerOf[F]): KafkaProducerOf[F] = {
-    (config: ProducerConfig) => {
+    config: ProducerConfig => {
       for {
         producer <- producerOf(config)
       } yield {

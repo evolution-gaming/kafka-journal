@@ -24,7 +24,7 @@ object ReadEventsApp extends IOApp {
     runF[IO](executor).as(ExitCode.Success)
   }
 
-  private def runF[F[_] : Concurrent : ContextShift : Timer : Clock : FromFuture : ToFuture : Parallel : FromGFuture : FromTry : ToTry](
+  private def runF[F[_] : ConcurrentEffect : ContextShift : Timer : Clock : FromFuture : ToFuture : Parallel : FromGFuture : FromTry : ToTry](
     executor: ExecutionContextExecutor,
   ): F[Unit] = {
 
@@ -44,7 +44,7 @@ object ReadEventsApp extends IOApp {
 
   }
 
-  private def runF[F[_] : Concurrent : ContextShift : Timer : Clock : FromFuture : ToFuture : Parallel : LogOf : FromGFuture : MeasureDuration : FromTry : ToTry : FromAttempt : FromJsResult](
+  private def runF[F[_] : ConcurrentEffect : ContextShift : Timer : Clock : FromFuture : ToFuture : Parallel : LogOf : FromGFuture : MeasureDuration : FromTry : ToTry : FromAttempt : FromJsResult](
     executor: ExecutionContextExecutor,
     log: Log[F],
   ): F[Unit] = {

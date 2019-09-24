@@ -29,7 +29,7 @@ object KafkaHealthCheckApp extends IOApp {
     }
   }
 
-  private def runF[F[_] : Concurrent : Timer : FromFuture : ToFuture : ContextShift : LogOf : FromTry : ToTry : MeasureDuration](
+  private def runF[F[_] : ConcurrentEffect : Timer : FromFuture : ToFuture : ContextShift : LogOf : FromTry : ToTry : MeasureDuration](
     blocking: ExecutionContext
   ) = {
 

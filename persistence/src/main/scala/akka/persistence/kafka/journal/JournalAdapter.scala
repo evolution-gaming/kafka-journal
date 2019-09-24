@@ -35,7 +35,7 @@ trait JournalAdapter[F[_]] {
 
 object JournalAdapter {
 
-  def of[F[_] : Concurrent : ContextShift : FromFuture : ToFuture : Parallel : Timer : LogOf : Runtime : RandomId : FromGFuture : MeasureDuration : ToTry : FromTry : FromAttempt : FromJsResult](
+  def of[F[_] : ConcurrentEffect : ContextShift : FromFuture : ToFuture : Parallel : Timer : LogOf : Runtime : RandomId : FromGFuture : MeasureDuration : ToTry : FromTry : FromAttempt : FromJsResult](
     toKey: ToKey[F],
     origin: Option[Origin],
     serializer: EventSerializer[F],
