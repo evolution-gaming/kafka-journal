@@ -150,7 +150,7 @@ object Replicator {
           if (topicsNew.isEmpty) ().pure[F]
           else Log[F].info {
             val topics = topicsNew.mkString(",")
-            s"discovered new topics in ${ latency }ms: $topics"
+            s"discovered new topics in ${ latency.toMillis }ms: $topics"
           }
         }
       } yield topicsNew

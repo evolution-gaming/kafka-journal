@@ -152,7 +152,7 @@ object TopicReplicator { self =>
             _            <- Metrics[F].delete(measurements)
             _            <- Log[F].info {
               val originStr = origin.fold("") { origin => s", origin: $origin" }
-              s"delete in ${ latency }ms, id: $id, offset: $partitionOffset, deleteTo: $deleteTo$originStr"
+              s"delete in ${ latency.toMillis }ms, id: $id, offset: $partitionOffset, deleteTo: $deleteTo$originStr"
             }
           } yield {}
         }
@@ -188,7 +188,7 @@ object TopicReplicator { self =>
                 else s"seqNrs: ${ events.head.seqNr }..${ events.last.seqNr }"
               val origin = records.head.action.origin
               val originStr = origin.fold("") { origin => s", origin: $origin" }
-              s"append in ${ latency }ms, id: $id, offset: $partitionOffset, $seqNrs$originStr"
+              s"append in ${ latency.toMillis }ms, id: $id, offset: $partitionOffset, $seqNrs$originStr"
             }
           } yield {}
         }
