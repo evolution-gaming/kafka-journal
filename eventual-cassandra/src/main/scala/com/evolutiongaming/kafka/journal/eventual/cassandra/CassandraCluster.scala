@@ -26,7 +26,7 @@ object CassandraCluster {
     def session = {
       for {
         session <- cluster.connect
-        session <- Resource.liftF(CassandraSession.of[F](session))
+        session <- CassandraSession.of[F](session)
       } yield {
         CassandraSession(session, retries)
       }

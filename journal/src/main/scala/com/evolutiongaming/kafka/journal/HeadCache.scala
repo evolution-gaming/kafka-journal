@@ -136,7 +136,7 @@ object HeadCache {
     }
 
     for {
-      cache     <- Resource.liftF(Cache.loading[F, Topic, TopicCache[F]])
+      cache     <- Cache.loading[F, Topic, TopicCache[F]]
       cache     <- metrics.fold(Resource.liftF(cache.pure[F])) { metrics => CacheMetered(cache, metrics.cache) }
       cache     <- Resource.liftF(Ref.of(cache.pure[F]))
       headCache <- headCache(cache)

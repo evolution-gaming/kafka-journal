@@ -72,7 +72,7 @@ object IntegrationSuite {
   }
 
   def startIO(cassandraClusterOf: CassandraClusterOf[IO]): Resource[IO, Unit] = {
-    val logOf = LogOf.slfj4[IO]
+    val logOf = LogOf.slf4j[IO]
     for {
       logOf  <- Resource.liftF(logOf)
       result <- {

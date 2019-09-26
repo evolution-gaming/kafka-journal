@@ -19,7 +19,7 @@ object KafkaHealthCheckApp extends IOApp {
     implicit val measureDuration = MeasureDuration.empty[IO]
 
     for {
-      logOf <- LogOf.slfj4[IO]
+      logOf <- LogOf.slf4j[IO]
       _     <- {
         implicit val logOf1 = logOf
         runF[IO](executor)

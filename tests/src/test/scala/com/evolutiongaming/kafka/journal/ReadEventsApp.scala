@@ -29,7 +29,7 @@ object ReadEventsApp extends IOApp {
   ): F[Unit] = {
 
     for {
-      logOf  <- LogOf.slfj4[F]
+      logOf  <- LogOf.slf4j[F]
       log    <- logOf(ReadEventsApp.getClass)
       result <- {
         implicit val logOf1 = logOf
