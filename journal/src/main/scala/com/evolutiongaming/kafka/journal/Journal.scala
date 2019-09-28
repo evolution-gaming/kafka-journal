@@ -759,8 +759,9 @@ object Journal {
     delete: FiniteDuration = 1.second)
 
   object CallTimeThresholds {
+
     val default: CallTimeThresholds = CallTimeThresholds()
 
-    implicit val configReaderVal: ConfigReader[CallTimeThresholds] = deriveReader[CallTimeThresholds]
+    implicit val configReaderCallTimeThresholds: ConfigReader[CallTimeThresholds] = deriveReader[CallTimeThresholds]
   }
 }

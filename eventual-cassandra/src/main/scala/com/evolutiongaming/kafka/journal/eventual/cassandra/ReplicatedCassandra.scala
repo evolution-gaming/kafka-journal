@@ -4,6 +4,7 @@ import java.time.Instant
 
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.{Concurrent, Sync, Timer}
+import cats.effect.implicits._
 import cats.implicits._
 import cats.{Applicative, Monad, Parallel}
 import com.evolutiongaming.catshelper.ParallelHelper._
@@ -119,59 +120,62 @@ object ReplicatedCassandra {
 
       def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = {
 
-        def saveHead(head: Option[Head]) = {
-          head.fold {
-            val head = Head(
-              partitionOffset = partitionOffset,
-              segmentSize = segmentSize,
-              seqNr = deleteTo,
-              deleteTo = Some(deleteTo))
-            for {
-              _ <- Statements[F].insertHead(key, timestamp, head, origin)
-            } yield head.segmentSize
-          } { head =>
-            val update =
-              if (head.seqNr >= deleteTo) {
-                Statements[F].updateDeleteTo(key, partitionOffset, timestamp, deleteTo)
-              } else {
-                Statements[F].updateHead(key, partitionOffset, timestamp, deleteTo, deleteTo)
-              }
-            for {
-              _ <- update
-            } yield head.segmentSize
-          }
-        }
+        def delete(head: Option[Head]) = {
 
-        def delete(segmentSize: Int, head: Head) = {
-
-          def delete(from: SeqNr, deleteTo: SeqNr) = {
-
-            def segment(seqNr: SeqNr) = SegmentNr(seqNr, segmentSize)
-
-            (segment(from) to segment(deleteTo)).parFoldMap { segment =>
-              Statements[F].deleteRecords(key, segment, deleteTo)
+          def saveHead = {
+            head.fold {
+              val head = Head(
+                partitionOffset = partitionOffset,
+                segmentSize = segmentSize,
+                seqNr = deleteTo,
+                deleteTo = Some(deleteTo))
+              for {
+                _ <- Statements[F].insertHead(key, timestamp, head, origin)
+              } yield head.segmentSize
+            } { head =>
+              val update =
+                if (head.seqNr >= deleteTo) {
+                  Statements[F].updateDeleteTo(key, partitionOffset, timestamp, deleteTo)
+                } else {
+                  Statements[F].updateHead(key, partitionOffset, timestamp, deleteTo, deleteTo)
+                }
+              for {
+                _ <- update
+              } yield head.segmentSize
             }
           }
 
-          val deleteToFixed = head.seqNr min deleteTo
+          def delete(segmentSize: Int)(head: Head) = {
 
-          head.deleteTo match {
-            case None           => delete(from = SeqNr.min, deleteTo = deleteToFixed)
-            case Some(deleteTo) =>
+            def delete(from: SeqNr, deleteTo: SeqNr) = {
+
+              def segment(seqNr: SeqNr) = SegmentNr(seqNr, segmentSize)
+
+              (segment(from) to segment(deleteTo)).parFoldMap { segment =>
+                Statements[F].deleteRecords(key, segment, deleteTo)
+              }
+            }
+
+            val deleteToFixed = head.seqNr min deleteTo
+
+            head.deleteTo.fold {
+              delete(from = SeqNr.min, deleteTo = deleteToFixed)
+            } { deleteTo =>
               if (deleteTo >= deleteToFixed) ().pure[F]
               else deleteTo.next[Option].foldMap { from => delete(from = from, deleteTo = deleteToFixed) }
+            }
           }
+
+          for {
+            segmentSize <- saveHead
+            _           <- head.foldMap[F[Unit]](delete(segmentSize))
+          } yield {}
         }
 
         for {
-          head <- Statements[F].selectHead(key)
-          _    <- Sync[F].uncancelable {
-            for {
-              segmentSize <- saveHead(head)
-              _           <- head.foldMap[F[Unit]](delete(segmentSize, _))
-            } yield {}
-          }
-        } yield {}
+          head   <- Statements[F].selectHead(key)
+          result <- delete(head).uncancelable
+        } yield result
       }
 
 
