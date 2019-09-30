@@ -22,6 +22,8 @@ import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, Con
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
 import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.smetrics._
+import pureconfig.generic.semiauto.deriveReader
+import pureconfig.ConfigReader
 import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
@@ -149,11 +151,13 @@ object HeadCache {
     cleanInterval: FiniteDuration = 3.seconds,
     maxSize: Int = 100000) {
 
-    require(maxSize >= 1, s"maxSize($maxSize) >= 1")
+    require(maxSize >= 1, s"maxSize($maxSize) >= 1") // TODO
   }
 
   object Config {
     val default: Config = Config()
+
+    implicit val configReaderHeadCacheConfig: ConfigReader[Config] = deriveReader
   }
 
 

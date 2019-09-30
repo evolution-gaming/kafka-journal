@@ -52,6 +52,6 @@ object EventualCassandraConfig {
       retries = get[Int]("retries") getOrElse default.retries,
       segmentSize = get[Int]("segment-size") getOrElse default.segmentSize,
       client = get[Config]("client").fold(default.client)(CassandraConfig(_, default.client)),
-      schema = get[Config]("schema").fold(default.schema)(SchemaConfig(_, default.schema)))
+      schema = get[Config]("schema").fold(default.schema)(SchemaConfig.apply1(_, default.schema)))
   }
 }

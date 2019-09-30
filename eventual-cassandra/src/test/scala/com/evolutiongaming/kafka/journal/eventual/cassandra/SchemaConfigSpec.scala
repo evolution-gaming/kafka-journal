@@ -1,15 +1,17 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
+import cats.implicits._
 import com.evolutiongaming.scassandra.ReplicationStrategyConfig
 import com.typesafe.config.ConfigFactory
 import org.scalatest.{FunSuite, Matchers}
+import pureconfig.ConfigSource
 
 
 class SchemaConfigSpec extends FunSuite with Matchers {
 
   test("apply from empty config") {
     val config = ConfigFactory.empty()
-    SchemaConfig(config) shouldEqual SchemaConfig.default
+    ConfigSource.fromConfig(config).load[SchemaConfig] shouldEqual SchemaConfig.default.asRight
   }
 
   test("apply from config") {
@@ -25,6 +27,6 @@ class SchemaConfigSpec extends FunSuite with Matchers {
       settingTable = "table-setting",
       locksTable = "table-locks",
       autoCreate = false)
-    SchemaConfig(config) shouldEqual expected
+    ConfigSource.fromConfig(config).load[SchemaConfig] shouldEqual expected.asRight
   }
 }

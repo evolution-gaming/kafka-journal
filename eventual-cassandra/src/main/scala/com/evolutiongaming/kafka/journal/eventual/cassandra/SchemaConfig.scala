@@ -1,8 +1,13 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
+import cats.implicits._
 import com.evolutiongaming.config.ConfigHelper._
 import com.evolutiongaming.scassandra.ReplicationStrategyConfig
 import com.typesafe.config.Config
+import pureconfig.{ConfigCursor, ConfigReader}
+import pureconfig.error.{ConfigReaderFailures, ThrowableFailure}
+
+import scala.util.Try
 
 // make a part of EventualCassandraConfig
 final case class SchemaConfig(
@@ -20,14 +25,30 @@ object SchemaConfig {
   val default: SchemaConfig = SchemaConfig()
 
 
-  def apply(config: Config): SchemaConfig = apply(config, default)
+  implicit val configReaderSchemaConfig: ConfigReader[SchemaConfig] = {
+    cursor: ConfigCursor => {
+      for {
+        cursor  <- cursor.asObjectCursor
+        journal  = Try { apply1(cursor.value.toConfig, default) }
+        journal <- journal.toEither.leftMap(a => ConfigReaderFailures(ThrowableFailure(a, cursor.location)))
+      } yield journal
+    }
+  }
 
-  def apply(config: Config, default: => SchemaConfig): SchemaConfig = {
+
+  @deprecated("use ConfigReader instead", "0.0.87")
+  def apply(config: Config): SchemaConfig = apply1(config, default)
+
+  @deprecated("use ConfigReader instead", "0.0.87")
+  def apply(config: Config, default: => SchemaConfig): SchemaConfig = apply1(config, default)
+
+
+  def apply1(config: Config, default: => SchemaConfig): SchemaConfig = {
 
     def get[T: FromConf](name: String) = config.getOpt[T](name)
 
     SchemaConfig(
-      keyspace = get[Config]("keyspace").fold(default.keyspace)(Keyspace.apply),
+      keyspace = get[Config]("keyspace").fold(default.keyspace)(Keyspace.apply1(_, default.keyspace)),
       journalTable = get[String]("journal-table") getOrElse default.journalTable,
       headTable = get[String]("head-table") getOrElse default.headTable,
       pointerTable = get[String]("pointer-table") getOrElse default.pointerTable,
@@ -47,9 +68,25 @@ object SchemaConfig {
     val default: Keyspace = Keyspace()
 
 
-    def apply(config: Config): Keyspace = apply(config, default)
+    implicit val configReaderKeyspace: ConfigReader[Keyspace] = {
+      cursor: ConfigCursor => {
+        for {
+          cursor  <- cursor.asObjectCursor
+          journal  = Try { apply1(cursor.value.toConfig, default) }
+          journal <- journal.toEither.leftMap(a => ConfigReaderFailures(ThrowableFailure(a, cursor.location)))
+        } yield journal
+      }
+    }
 
-    def apply(config: Config, default: => Keyspace): Keyspace = {
+
+    @deprecated("use ConfigReader instead", "0.0.87")
+    def apply(config: Config): Keyspace = apply1(config, default)
+
+    @deprecated("use ConfigReader instead", "0.0.87")
+    def apply(config: Config, default: => Keyspace): Keyspace = apply1(config, default)
+
+    
+    def apply1(config: Config, default: => Keyspace): Keyspace = {
 
       def get[T: FromConf](name: String) = config.getOpt[T](name)
 
