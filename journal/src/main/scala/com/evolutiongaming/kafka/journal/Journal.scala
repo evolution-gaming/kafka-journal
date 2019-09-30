@@ -237,8 +237,8 @@ object Journal {
                 result <- from match {
                   case None       => result.pure[F]
                   case Some(from) => result match {
-                    case Left(l)  => events(from, offset, l)
-                    case Right(r) => r.asRight[L].pure[F]
+                    case Left(l)        => events(from, offset, l)
+                    case r: Right[L, R] => r.leftCast[L].pure[F]
                   }
                 }
               } yield result
@@ -266,9 +266,10 @@ object Journal {
               case JournalInfo.Empty               => replicated(from)
               case JournalInfo.Append(_, deleteTo) => onNonEmpty(deleteTo, readKafka)
               // TODO test this case
-              case JournalInfo.Delete(deleteTo) => deleteTo.next[Option] match {
-                case None       => l.asLeft[R].pure[F]
-                case Some(next) => replicated(from max next)
+              case JournalInfo.Delete(deleteTo) => deleteTo.next[Option].fold {
+                l.asLeft[R].pure[F]
+              } { next =>
+                replicated(from max next)
               }
             }
           } yield result

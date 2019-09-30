@@ -46,8 +46,8 @@ object ResultSet {
             fetching <- Concurrent[F].start { fetch }
             result   <- rows.foldWhileM(l)(f)
             result   <- result match {
-              case Left(l) => fetching.join.as(l.asLeft[Either[L, R]])
-              case r       => r.asRight[L].pure[F]
+              case l: Left[L, R]  => fetching.join as l.rightCast[Either[L, R]]
+              case r: Right[L, R] => r.leftCast[L].asRight[L].pure[F]
             }
           } yield result
         }

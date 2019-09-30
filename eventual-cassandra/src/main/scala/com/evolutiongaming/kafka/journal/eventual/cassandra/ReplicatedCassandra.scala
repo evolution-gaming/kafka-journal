@@ -3,23 +3,22 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import java.time.Instant
 
 import cats.data.{NonEmptyList => Nel}
-import cats.effect.{Concurrent, Sync, Timer}
 import cats.effect.implicits._
+import cats.effect.{Concurrent, Timer}
 import cats.implicits._
 import cats.{Applicative, Monad, Parallel}
 import com.evolutiongaming.catshelper.ParallelHelper._
-import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
+import com.evolutiongaming.catshelper.{BracketThrowable, FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal.Metrics
 import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, _}
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
-import com.evolutiongaming.skafka.Topic
+import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.annotation.tailrec
 
 
-// TODO test ReplicatedCassandra
 object ReplicatedCassandra {
 
   def of[F[_] : Concurrent : FromFuture : ToFuture : Parallel : Timer : CassandraCluster : CassandraSession : LogOf : MeasureDuration](
@@ -34,12 +33,12 @@ object ReplicatedCassandra {
       log        <- LogOf[F].apply(ReplicatedCassandra.getClass)
     } yield {
       val journal = apply[F](config.segmentSize, statements)
-      val journal1 = journal.withLog(log)
-      metrics.fold(journal1) { metrics => journal1.withMetrics(metrics) }
+        .withLog(log)
+      metrics.fold(journal) { metrics => journal.withMetrics(metrics) }
     }
   }
 
-  def apply[F[_] : Sync : Parallel](segmentSize: Int, statements: Statements[F]): ReplicatedJournal[F] = {
+  def apply[F[_] : BracketThrowable : Parallel](segmentSize: Int, statements: Statements[F]): ReplicatedJournal[F] = {
 
     implicit val monoidUnit = Applicative.monoid[F, Unit]
 
@@ -87,33 +86,32 @@ object ReplicatedCassandra {
           loop(events.toList, None, ().pure[F])
         }
 
-        def saveHeadAndSegmentSize(head: Option[Head]) = {
+        def appendAndSave(head: Option[Head]) = {
           val seqNrLast = events.last.seqNr
 
-          head.fold {
+          val (save, head1) = head.fold {
             val head = Head(
               partitionOffset = partitionOffset,
               segmentSize = segmentSize,
               seqNr = seqNrLast,
               deleteTo = events.head.seqNr.prev[Option])
             val origin = events.head.origin
-            val insert = () => statements.insertHead(key, timestamp, head, origin)
-            (insert, head.segmentSize)
+            val insert = statements.insertHead(key, timestamp, head, origin)
+            (insert, head)
           } { head =>
-            val update = () => statements.updateSeqNr(key, partitionOffset, timestamp, seqNrLast)
-            (update, head.segmentSize)
+            val update = statements.updateSeqNr(key, partitionOffset, timestamp, seqNrLast)
+            (update, head)
           }
+
+          for {
+            _ <- append(head1.segmentSize)
+            _ <- save
+          } yield {}
         }
 
         for {
-          head                    <- statements.selectHead(key)
-          (saveHead, segmentSize)  = saveHeadAndSegmentSize(head)
-          _                       <- Sync[F].uncancelable {
-            for {
-              _ <- append(segmentSize)
-              _ <- saveHead()
-            } yield {}
-          }
+          head <- statements.selectHead(key)
+          _    <- appendAndSave(head).uncancelable
         } yield {}
       }
 
@@ -180,35 +178,72 @@ object ReplicatedCassandra {
 
 
       def save(topic: Topic, topicPointers: TopicPointers, timestamp: Instant) = {
-        topicPointers.values.toList.parFoldMap { case (partition, offset) =>
-          val insert = PointerInsert(
-            topic = topic,
-            partition = partition,
-            offset = offset,
-            updated = timestamp,
-            created = timestamp)
-          statements.insertPointer(insert)
+
+        def insertOrUpdate(current: Option[Offset], partition: Partition, offset: Offset) = {
+          current.fold {
+            statements.insertPointer(
+              topic = topic,
+              partition = partition,
+              offset = offset,
+              created = timestamp,
+              updated = timestamp)
+          } { _ =>
+            statements.updatePointer(
+              topic = topic,
+              partition = partition,
+              offset = offset,
+              timestamp = timestamp)
+          }
         }
+
+        def saveOne(partition: Partition, offset: Offset) = {
+          for {
+            current <- statements.selectPointer(topic, partition)
+            result  <- insertOrUpdate(current, partition, offset)
+          } yield result
+        }
+
+        def saveMany(pointers: Nel[(Partition, Offset)]) = {
+          val partitions = pointers.map { case (partition, _) => partition }
+          for {
+            current <- statements.selectPointersIn(topic, partitions)
+            result  <- pointers.parFoldMap { case (partition, offset) => insertOrUpdate(current.get(partition), partition, offset) }
+          } yield result
+        }
+
+        Nel
+          .fromList(topicPointers.values.toList)
+          .foldMapM {
+            case Nel((partition, offset), Nil) => saveOne(partition, offset)
+            case pointers                      => saveMany(pointers)
+          }
       }
 
       def pointers(topic: Topic) = {
-        statements.selectPointers(topic)
+        for {
+          pointers <- statements.selectPointers(topic)
+        } yield {
+          TopicPointers(pointers)
+        }
       }
     }
   }
 
 
   final case class Statements[F[_]](
-    insertRecords : JournalStatement.InsertRecords[F],
-    deleteRecords : JournalStatement.DeleteRecords[F],
-    insertHead    : HeadStatement.Insert[F],
-    selectHead    : HeadStatement.Select[F],
-    updateHead    : HeadStatement.Update[F],
-    updateSeqNr   : HeadStatement.UpdateSeqNr[F],
-    updateDeleteTo: HeadStatement.UpdateDeleteTo[F],
-    insertPointer : PointerStatement.Insert[F],
-    selectPointers: PointerStatement.SelectPointers[F],
-    selectTopics  : PointerStatement.SelectTopics[F])
+    insertRecords   : JournalStatement.InsertRecords[F],
+    deleteRecords   : JournalStatement.DeleteRecords[F],
+    insertHead      : HeadStatement.Insert[F],
+    selectHead      : HeadStatement.Select[F],
+    updateHead      : HeadStatement.Update[F],
+    updateSeqNr     : HeadStatement.UpdateSeqNr[F],
+    updateDeleteTo  : HeadStatement.UpdateDeleteTo[F],
+    selectPointer   : PointerStatement.Select[F],
+    selectPointersIn: PointerStatement.SelectIn[F],
+    selectPointers  : PointerStatement.SelectAll[F],
+    insertPointer   : PointerStatement.Insert[F],
+    updatePointer   : PointerStatement.Update[F],
+    selectTopics    : PointerStatement.SelectTopics[F])
 
   object Statements {
 
@@ -223,8 +258,11 @@ object ReplicatedCassandra {
         HeadStatement.Update.of[F](schema.head),
         HeadStatement.UpdateSeqNr.of[F](schema.head),
         HeadStatement.UpdateDeleteTo.of[F](schema.head),
+        PointerStatement.Select.of[F](schema.pointer),
+        PointerStatement.SelectIn.of[F](schema.pointer),
+        PointerStatement.SelectAll.of[F](schema.pointer),
         PointerStatement.Insert.of[F](schema.pointer),
-        PointerStatement.SelectPointers.of[F](schema.pointer),
+        PointerStatement.Update.of[F](schema.pointer),
         PointerStatement.SelectTopics.of[F](schema.pointer))
       statements.parMapN(Statements[F])
     }

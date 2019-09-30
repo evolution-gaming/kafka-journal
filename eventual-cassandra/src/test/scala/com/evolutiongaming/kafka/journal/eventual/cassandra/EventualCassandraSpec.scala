@@ -3,15 +3,15 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import java.time.Instant
 
 import cats.data.{NonEmptyList => Nel}
-import cats.{Id, Parallel}
 import cats.implicits._
+import cats.{Id, Parallel}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualJournalSpec, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
-import com.evolutiongaming.skafka.Topic
-import com.evolutiongaming.sstream.Stream
+import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.sstream.FoldWhile._
+import com.evolutiongaming.sstream.Stream
 
 class EventualCassandraSpec extends EventualJournalSpec {
   import EventualCassandraSpec._
@@ -33,8 +33,8 @@ class EventualCassandraSpec extends EventualJournalSpec {
 
 object EventualCassandraSpec {
 
-  val selectHead: HeadStatement.Select[StateT] = new HeadStatement.Select[StateT] {
-    def apply(key: Key) = {
+  val selectHead: HeadStatement.Select[StateT] = {
+    key: Key => {
       StateT { state =>
         val head = state.heads.get(key)
         (state, head)
@@ -43,17 +43,17 @@ object EventualCassandraSpec {
   }
 
 
-  val selectPointers: PointerStatement.SelectPointers[StateT] = new PointerStatement.SelectPointers[StateT] {
-    def apply(topic: Topic) = {
+  val selectPointers: PointerStatement.SelectAll[StateT] = {
+    topic: Topic => {
       StateT { state =>
         val pointer = state.pointers.getOrElse(topic, TopicPointers.empty)
-        (state, pointer)
+        (state, pointer.values)
       }
     }
   }
 
 
-  implicit val parallel = Parallel.identity[StateT]
+  implicit val parallel: Parallel[StateT] = Parallel.identity[StateT]
 
 
   implicit val eventualJournal: EventualJournal[StateT] = {
@@ -89,9 +89,8 @@ object EventualCassandraSpec {
 
     val replicatedJournal = {
 
-      val insertRecords = new JournalStatement.InsertRecords[StateT] {
-
-        def apply(key: Key, segment: SegmentNr, records: Nel[EventRecord]) = {
+      val insertRecords: JournalStatement.InsertRecords[StateT] = {
+        (key: Key, segment: SegmentNr, records: Nel[EventRecord]) => {
           StateT { state =>
             val journal = state.journal
             val events = journal.events(key, segment)
@@ -103,9 +102,8 @@ object EventualCassandraSpec {
       }
 
 
-      val deleteRecords = new JournalStatement.DeleteRecords[StateT] {
-
-        def apply(key: Key, segment: SegmentNr, seqNr: SeqNr) = {
+      val deleteRecords: JournalStatement.DeleteRecords[StateT] = {
+        (key: Key, segment: SegmentNr, seqNr: SeqNr) => {
           StateT { state =>
             val state1 = {
               if (delete) {
@@ -123,8 +121,8 @@ object EventualCassandraSpec {
       }
 
 
-      val insertHead = new HeadStatement.Insert[StateT] {
-        def apply(key: Key, timestamp: Instant, head: Head, origin: Option[Origin]) = {
+      val insertHead: HeadStatement.Insert[StateT] = {
+        (key: Key, _: Instant, head: Head, _: Option[Origin]) => {
           StateT { state =>
             val state1 = state.copy(heads = state.heads.updated(key, head))
             (state1, ())
@@ -133,8 +131,8 @@ object EventualCassandraSpec {
       }
 
 
-      val updateHead = new HeadStatement.Update[StateT] {
-        def apply(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: SeqNr) = {
+      val updateHead: HeadStatement.Update[StateT] = {
+        (key: Key, partitionOffset: PartitionOffset, _: Instant, seqNr: SeqNr, deleteTo: SeqNr) => {
           StateT { state =>
             val heads = state.heads
             val state1 = for {
@@ -150,9 +148,8 @@ object EventualCassandraSpec {
       }
 
 
-      val updateSeqNr = new HeadStatement.UpdateSeqNr[StateT] {
-
-        def apply(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr) = {
+      val updateSeqNr: HeadStatement.UpdateSeqNr[StateT] = {
+        (key: Key, partitionOffset: PartitionOffset, _: Instant, seqNr: SeqNr) => {
           StateT { state =>
             val heads = state.heads
             val state1 = for {
@@ -167,8 +164,8 @@ object EventualCassandraSpec {
       }
 
 
-      val updateDeleteTo = new HeadStatement.UpdateDeleteTo[StateT] {
-        def apply(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr) = {
+      val updateDeleteTo: HeadStatement.UpdateDeleteTo[StateT] = {
+        (key: Key, partitionOffset: PartitionOffset, _: Instant, deleteTo: SeqNr) => {
           StateT { state =>
             val heads = state.heads
             val state1 = for {
@@ -184,21 +181,68 @@ object EventualCassandraSpec {
       }
 
 
-      val insertPointer = new PointerStatement.Insert[StateT] {
-
-        def apply(pointer: PointerInsert) = {
+      val insertPointer: PointerStatement.Insert[StateT] = {
+        (topic: Topic, partition: Partition, offset: Offset, _: Instant, _: Instant) => {
           StateT { state =>
             val pointers = state.pointers
-            val topicPointers = pointers.getOrElse(pointer.topic, TopicPointers.empty)
-            val updated = topicPointers.copy(values = topicPointers.values.updated(pointer.partition, pointer.offset))
-            val pointers1 = pointers.updated(pointer.topic, updated)
+            val topicPointers = pointers.getOrElse(topic, TopicPointers.empty)
+            val updated = topicPointers.copy(values = topicPointers.values.updated(partition, offset))
+            val pointers1 = pointers.updated(topic, updated)
             (state.copy(pointers = pointers1), ())
           }
         }
       }
 
-      val selectTopics = new PointerStatement.SelectTopics[StateT] {
-        def apply() = {
+
+      val updatePointer: PointerStatement.Update[StateT] = {
+        (topic: Topic, partition: Partition, offset: Offset, _: Instant) => {
+          StateT { state =>
+            val pointers = state.pointers
+            val topicPointers = pointers.getOrElse(topic, TopicPointers.empty)
+            val updated = topicPointers.copy(values = topicPointers.values.updated(partition, offset))
+            val pointers1 = pointers.updated(topic, updated)
+            (state.copy(pointers = pointers1), ())
+          }
+        }
+      }
+
+
+      val selectPointer: PointerStatement.Select[StateT] = {
+        (topic: Topic, partition: Partition) => {
+          StateT { state =>
+            val offset = state
+              .pointers
+              .getOrElse(topic, TopicPointers.empty)
+              .values
+              .get(partition)
+            (state, offset)
+          }
+        }
+      }
+
+
+      val selectPointersIn: PointerStatement.SelectIn[StateT] = {
+        (topic: Topic, partitions: Nel[Partition]) => {
+          StateT { state =>
+            val pointers = state
+              .pointers
+              .getOrElse(topic, TopicPointers.empty)
+              .values
+            val result = for {
+              partition <- partitions.toList
+              offset    <- pointers.get(partition)
+            } yield {
+              (partition, offset)
+            }
+
+            (state, result.toMap)
+          }
+        }
+      }
+
+
+      val selectTopics: PointerStatement.SelectTopics[StateT] = {
+        () => {
           StateT { state =>
             (state, state.pointers.keys.toList)
           }
@@ -213,8 +257,11 @@ object EventualCassandraSpec {
         updateHead = updateHead,
         updateSeqNr = updateSeqNr,
         updateDeleteTo = updateDeleteTo,
-        insertPointer = insertPointer,
+        selectPointer = selectPointer,
+        selectPointersIn = selectPointersIn,
         selectPointers = selectPointers,
+        insertPointer = insertPointer,
+        updatePointer = updatePointer,
         selectTopics = selectTopics)
 
       implicit val concurrentId = ConcurrentOf.fromMonad[StateT]

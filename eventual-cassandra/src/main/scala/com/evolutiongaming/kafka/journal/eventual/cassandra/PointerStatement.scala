@@ -1,12 +1,14 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
+import java.time.Instant
+
 import cats.Monad
+import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
-import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
+import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 
 object PointerStatement {
@@ -25,7 +27,7 @@ object PointerStatement {
 
 
   trait Insert[F[_]] {
-    def apply(pointer: PointerInsert): F[Unit]
+    def apply(topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant): F[Unit]
   }
 
   object Insert {
@@ -40,14 +42,14 @@ object PointerStatement {
       for {
         prepared <- query.prepare
       } yield {
-        pointer: PointerInsert =>
+        (topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant) =>
           val bound = prepared
             .bind()
-            .encode("topic", pointer.topic)
-            .encode("partition", pointer.partition)
-            .encode("offset", pointer.offset)
-            .encode("created", pointer.created)
-            .encode("updated", pointer.updated)
+            .encode("topic", topic)
+            .encode("partition", partition)
+            .encode("offset", offset)
+            .encode("created", created)
+            .encode("updated", updated)
           bound.first.void
       }
     }
@@ -55,40 +57,41 @@ object PointerStatement {
 
 
   trait Update[F[_]] {
-    def apply(pointer: PointerUpdate): F[Unit]
+    def apply(topic: Topic, partition: Partition, offset: Offset, timestamp: Instant): F[Unit]
   }
 
-  // TODO not used
   object Update {
 
     def of[F[_] : Monad : CassandraSession](name: TableName): F[Update[F]] = {
       val query =
         s"""
-           |INSERT INTO ${ name.toCql } (topic, partition, offset, updated)
-           |VALUES (?, ?, ?, ?)
+           |UPDATE ${ name.toCql }
+           |SET offset = ?, updated = ?
+           |WHERE topic = ?
+           |AND partition = ?
            |""".stripMargin
 
       for {
         prepared <- query.prepare
       } yield {
-        pointer: PointerUpdate =>
-          val bound = prepared
+        (topic: Topic, partition: Partition, offset: Offset, timestamp: Instant) =>
+          prepared
             .bind()
-            .encode("topic", pointer.topic)
-            .encode("partition", pointer.partition)
-            .encode("offset", pointer.offset)
-            .encode("updated", pointer.updated)
-          bound.first.void
+            .encode("topic", topic)
+            .encode("partition", partition)
+            .encode("offset", offset)
+            .encode("updated", timestamp)
+            .first
+            .void
       }
     }
   }
 
 
   trait Select[F[_]] {
-    def apply(topicPartition: TopicPartition): F[Option[Offset]]
+    def apply(topic: Topic, partition: Partition): F[Option[Offset]]
   }
 
-  // TODO not used
   object Select {
 
     def of[F[_] : Monad : CassandraSession](name: TableName): F[Select[F]] = {
@@ -102,11 +105,11 @@ object PointerStatement {
       for {
         prepared <- query.prepare
       } yield {
-        topicPartition: TopicPartition =>
+        (topic: Topic, partition: Partition) =>
           val bound = prepared
             .bind()
-            .encode("topic", topicPartition.topic)
-            .encode("partition", topicPartition.partition)
+            .encode("topic", topic)
+            .encode("partition", partition)
           for {
             row <- bound.first
           } yield for {
@@ -119,13 +122,52 @@ object PointerStatement {
   }
 
 
-  trait SelectPointers[F[_]] {
-    def apply(topic: Topic): F[TopicPointers]
+  trait SelectIn[F[_]] {
+    def apply(topic: Topic, partitions: Nel[Partition]): F[Map[Partition, Offset]]
   }
 
-  object SelectPointers {
+  object SelectIn {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[SelectPointers[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[SelectIn[F]] = {
+      val query =
+        s"""
+           |SELECT partition, offset FROM ${ name.toCql }
+           |WHERE topic = ?
+           |AND partition in ?
+           |""".stripMargin
+
+      for {
+        prepared <- query.prepare
+      } yield {
+        (topic: Topic, partitions: Nel[Partition]) =>
+
+          val bound = prepared
+            .bind()
+            .encode("topic", topic)
+            .encode("partition", partitions)
+          for {
+            rows <- bound.execute.toList
+          } yield {
+            rows
+              .map { row =>
+                val partition = row.decode[Partition]("partition")
+                val offset = row.decode[Offset]("offset")
+                (partition, offset)
+              }
+              .toMap
+          }
+      }
+    }
+  }
+
+
+  trait SelectAll[F[_]] {
+    def apply(topic: Topic): F[Map[Partition, Offset]]
+  }
+
+  object SelectAll {
+
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[SelectAll[F]] = {
       val query =
         s"""
            |SELECT partition, offset FROM ${ name.toCql }
@@ -151,7 +193,7 @@ object PointerStatement {
               (partition, offset)
             }
 
-            TopicPointers(pointers.toMap)
+            pointers.toMap
           }
       }
     }

@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Applicative
+import cats.data.{NonEmptyList => Nel}
 import com.datastax.driver.core._
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
 import com.evolutiongaming.sstream.Stream
@@ -43,6 +44,17 @@ object CassandraHelper {
     new DecodeByName[Map[String, String]] {
       def apply(data: GettableByNameData, name: String) = {
         data.getMap(name, text, text).asScala.toMap
+      }
+    }
+  }
+
+
+  implicit val nelIntEncodeByName: EncodeByName[Nel[Int]] = {
+    val integer = classOf[Integer]
+    new EncodeByName[Nel[Int]] {
+      def apply[B <: SettableData[B]](data: B, name: String, value: Nel[Int]) = {
+        val values = value.toList.map(a => (a: Integer)).asJava
+        data.setList(name, values, integer)
       }
     }
   }

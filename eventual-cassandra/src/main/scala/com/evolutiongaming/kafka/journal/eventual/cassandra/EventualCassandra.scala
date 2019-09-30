@@ -57,7 +57,11 @@ object EventualCassandra {
     new EventualJournal[F] {
 
       def pointers(topic: Topic) = {
-        statements.pointers(topic)
+        for {
+          pointers <- statements.pointers(topic)
+        } yield {
+          TopicPointers(pointers)
+        }
       }
 
       def read(key: Key, from: SeqNr): Stream[F, EventRecord] = {
@@ -85,8 +89,8 @@ object EventualCassandra {
                 for {
                   result <- statement(key, segment.nr, range).foldWhileM[S, R](S(l, from))(ff) // TODO
                 } yield result match {
-                  case Right(r) => r.asRight[L].asRight[(SeqNr, Segment, L)]
-                  case Left(s)  =>
+                  case r: Right[S, R] => r.leftCast[L].asRight[(SeqNr, Segment, L)]
+                  case Left(s)        =>
                     val result = for {
                       from    <- s.seqNr.next[Option]
                       segment <- segment.next(from)
@@ -134,7 +138,7 @@ object EventualCassandra {
   final case class Statements[F[_]](
     records: JournalStatement.SelectRecords[F],
     head: HeadStatement.Select[F],
-    pointers: PointerStatement.SelectPointers[F])
+    pointers: PointerStatement.SelectAll[F])
 
   object Statements {
 
@@ -144,7 +148,7 @@ object EventualCassandra {
       val statements = (
         JournalStatement.SelectRecords.of[F](schema.journal),
         HeadStatement.Select.of[F](schema.head),
-        PointerStatement.SelectPointers.of[F](schema.pointer))
+        PointerStatement.SelectAll.of[F](schema.pointer))
       statements.parMapN(Statements[F])
     }
   }

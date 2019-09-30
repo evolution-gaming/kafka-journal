@@ -2,19 +2,19 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 
-import cats.effect.{ExitCase, Resource, Sync}
+import cats.data.IndexedStateT
+import cats.effect.{ExitCase, Resource}
 import cats.implicits._
+import com.evolutiongaming.catshelper.BracketThrowable
+import com.evolutiongaming.kafka.journal.util.BracketFromMonadError
 import com.evolutiongaming.skafka.{Offset, Partition}
 import org.scalatest.{FunSuite, Matchers}
 import scodec.bits.ByteVector
 
-import scala.util.{Failure, Success, Try}
+import scala.util.{Success, Try}
 
 class FoldActionsSpec extends FunSuite with Matchers {
-
   import FoldActionsSpec._
-
-  private implicit val sync = SyncOf[StateT]
 
   test("no offsets") {
     val records = List(
@@ -55,31 +55,27 @@ class FoldActionsSpec extends FunSuite with Matchers {
 
 object FoldActionsSpec {
 
-  implicit val bracketCase: BracketCase[StateT] = new BracketCase[StateT] {
+  implicit val bracket: BracketThrowable[StateT] = new BracketFromMonadError[StateT, Throwable] {
 
-    def bracketCase[A, B](acquire: StateT[A])(use: A => StateT[B])(release: (A, ExitCase[Throwable]) => StateT[Unit]) = {
+    val F = IndexedStateT.catsDataMonadErrorForIndexedStateT(catsStdInstancesForTry)
 
-      def exitCase(b: Try[(State, B)]) = b match {
-        case Success(_) => ExitCase.complete[Throwable]
-        case Failure(e) => ExitCase.error(e)
-      }
+    def bracketCase[A, B](
+      acquire: StateT[A])(
+      use: A => StateT[B])(
+      release: (A, ExitCase[Throwable]) => StateT[Unit]
+    ) = {
 
-      cats.data.StateT { s =>
-        for {
-          sa     <- acquire.run(s)
-          (s, a)  = sa
-          sb      = use(a).run(s)
-          ec      = exitCase(sb)
-          _      <- release(a, ec).run(s)
-          b      <- sb
-        } yield b
-      }
+      def onError(a: A)(e: Throwable) = for {
+        _ <- release(a, ExitCase.error(e))
+        b <- raiseError[B](e)
+      } yield b
+
+      for {
+        a <- acquire
+        b <- handleErrorWith(use(a))(onError(a))
+        _ <- release(a, ExitCase.complete)
+      } yield b
     }
-  }
-
-  
-  implicit val suspend: Suspend[StateT] = new Suspend[StateT] {
-    def suspend[A](thunk: => StateT[A]): StateT[A] = thunk
   }
 
 
@@ -87,7 +83,7 @@ object FoldActionsSpec {
     replicated: Option[Offset],
     offset: Option[Offset],
     pointers: List[Pointer]
-  )(implicit F: Sync[StateT]) = {
+  ) = {
 
     val timestamp = Instant.now()
     val key = Key(topic = "topic", id = "id")
