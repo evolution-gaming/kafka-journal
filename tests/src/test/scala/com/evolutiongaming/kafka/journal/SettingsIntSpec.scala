@@ -9,6 +9,7 @@ import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.eventual.cassandra._
 import com.evolutiongaming.kafka.journal.util.ActorSystemOf
+import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
 import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
@@ -54,11 +55,11 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
     }
 
     def config(system: ActorSystem) = {
-      val config = ConfigSource
+      ConfigSource
         .fromConfig(system.settings.config)
         .at("evolutiongaming.kafka-journal.replicator.cassandra")
         .load[EventualCassandraConfig]
-      FromConfigReaderResult[F].apply { config }
+        .liftTo[F]
     }
 
     for {

@@ -6,6 +6,7 @@ import com.datastax.driver.core.ConsistencyLevel
 import com.evolutiongaming.config.ConfigHelper._
 import com.evolutiongaming.kafka.journal.FromConfigReaderResult
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig
+import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
 import com.evolutiongaming.scassandra.{CassandraConfig, QueryConfig}
 import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
@@ -52,11 +53,11 @@ object ReplicatorConfig {
 
 
   def fromConfig[F[_]: FromConfigReaderResult](config: Config): F[ReplicatorConfig] = {
-    val replicatorConfig = ConfigSource
+    ConfigSource
       .fromConfig(config)
       .at("evolutiongaming.kafka-journal.replicator")
       .load[ReplicatorConfig]
-    FromConfigReaderResult[F].apply { replicatorConfig }
+      .liftTo[F]
   }
 
 

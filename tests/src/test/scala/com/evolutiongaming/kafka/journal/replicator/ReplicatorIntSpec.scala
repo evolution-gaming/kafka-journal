@@ -14,6 +14,7 @@ import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.retry.{Retry, Strategy}
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.util.ActorSystemOf
+import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.skafka.Offset
 import com.evolutiongaming.smetrics.MeasureDuration
@@ -45,8 +46,9 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
         .fromConfig(conf)
         .at("cassandra")
         .load[EventualCassandraConfig]
+        .liftTo[F]
       for {
-        config          <- Resource.liftF(FromConfigReaderResult[F].apply { config })
+        config          <- Resource.liftF(config)
         eventualJournal <- EventualCassandra.of[F](config, origin.some, none, cassandraClusterOf)
       } yield eventualJournal
     }
@@ -57,7 +59,10 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       eventualJournal: EventualJournal[F]
     ) = {
 
-      val config = FromConfigReaderResult[F].apply { ConfigSource.fromConfig(conf).load[JournalConfig]  }
+      val config = ConfigSource
+        .fromConfig(conf)
+        .load[JournalConfig]
+        .liftTo[F]
 
       implicit val kafkaConsumerOf = KafkaConsumerOf[F](blocking)
 
