@@ -205,7 +205,7 @@ object EventualCassandraSpec {
         }
       }
 
-      implicit val statements = ReplicatedCassandra.Statements(
+      val statements = ReplicatedCassandra.Statements(
         insertRecords = insertRecords,
         deleteRecords = deleteRecords,
         insertHead = insertHead,
@@ -218,7 +218,7 @@ object EventualCassandraSpec {
         selectTopics = selectTopics)
 
       implicit val concurrentId = ConcurrentOf.fromMonad[StateT]
-      ReplicatedCassandra(segmentSize)
+      ReplicatedCassandra(segmentSize, statements)
     }
 
     Journals(eventualJournal, replicatedJournal)

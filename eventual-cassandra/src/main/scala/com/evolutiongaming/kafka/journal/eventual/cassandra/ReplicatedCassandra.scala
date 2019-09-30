@@ -11,7 +11,7 @@ import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal.Metrics
-import com.evolutiongaming.kafka.journal.eventual._
+import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, _}
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.MeasureDuration
@@ -33,13 +33,13 @@ object ReplicatedCassandra {
       statements <- Statements.of[F](schema)
       log        <- LogOf[F].apply(ReplicatedCassandra.getClass)
     } yield {
-      implicit val statements1 = statements
-      val journal = apply[F](config.segmentSize)
-      ReplicatedJournal[F](journal, log, metrics)
+      val journal = apply[F](config.segmentSize, statements)
+      val journal1 = journal.withLog(log)
+      metrics.fold(journal1) { metrics => journal1.withMetrics(metrics) }
     }
   }
 
-  def apply[F[_] : Sync : Parallel : Statements](segmentSize: Int): ReplicatedJournal[F] = {
+  def apply[F[_] : Sync : Parallel](segmentSize: Int, statements: Statements[F]): ReplicatedJournal[F] = {
 
     implicit val monoidUnit = Applicative.monoid[F, Unit]
 
@@ -47,7 +47,7 @@ object ReplicatedCassandra {
 
       def topics = {
         for {
-          topics <- Statements[F].selectTopics()
+          topics <- statements.selectTopics()
         } yield topics.sorted
       }
 
@@ -62,7 +62,7 @@ object ReplicatedCassandra {
             result: F[Unit]): F[Unit] = {
 
             def insert(segment: Segment, events: Nel[EventRecord]) = {
-              val next = Statements[F].insertRecords(key, segment.nr, events)
+              val next = statements.insertRecords(key, segment.nr, events)
               for {
                 _ <- result
                 _ <- next
@@ -97,16 +97,16 @@ object ReplicatedCassandra {
               seqNr = seqNrLast,
               deleteTo = events.head.seqNr.prev[Option])
             val origin = events.head.origin
-            val insert = () => Statements[F].insertHead(key, timestamp, head, origin)
+            val insert = () => statements.insertHead(key, timestamp, head, origin)
             (insert, head.segmentSize)
           } { head =>
-            val update = () => Statements[F].updateSeqNr(key, partitionOffset, timestamp, seqNrLast)
+            val update = () => statements.updateSeqNr(key, partitionOffset, timestamp, seqNrLast)
             (update, head.segmentSize)
           }
         }
 
         for {
-          head                    <- Statements[F].selectHead(key)
+          head                    <- statements.selectHead(key)
           (saveHead, segmentSize)  = saveHeadAndSegmentSize(head)
           _                       <- Sync[F].uncancelable {
             for {
@@ -130,14 +130,14 @@ object ReplicatedCassandra {
                 seqNr = deleteTo,
                 deleteTo = Some(deleteTo))
               for {
-                _ <- Statements[F].insertHead(key, timestamp, head, origin)
+                _ <- statements.insertHead(key, timestamp, head, origin)
               } yield head.segmentSize
             } { head =>
               val update =
                 if (head.seqNr >= deleteTo) {
-                  Statements[F].updateDeleteTo(key, partitionOffset, timestamp, deleteTo)
+                  statements.updateDeleteTo(key, partitionOffset, timestamp, deleteTo)
                 } else {
-                  Statements[F].updateHead(key, partitionOffset, timestamp, deleteTo, deleteTo)
+                  statements.updateHead(key, partitionOffset, timestamp, deleteTo, deleteTo)
                 }
               for {
                 _ <- update
@@ -152,7 +152,7 @@ object ReplicatedCassandra {
               def segment(seqNr: SeqNr) = SegmentNr(seqNr, segmentSize)
 
               (segment(from) to segment(deleteTo)).parFoldMap { segment =>
-                Statements[F].deleteRecords(key, segment, deleteTo)
+                statements.deleteRecords(key, segment, deleteTo)
               }
             }
 
@@ -173,7 +173,7 @@ object ReplicatedCassandra {
         }
 
         for {
-          head   <- Statements[F].selectHead(key)
+          head   <- statements.selectHead(key)
           result <- delete(head).uncancelable
         } yield result
       }
@@ -187,12 +187,12 @@ object ReplicatedCassandra {
             offset = offset,
             updated = timestamp,
             created = timestamp)
-          Statements[F].insertPointer(insert)
+          statements.insertPointer(insert)
         }
       }
 
       def pointers(topic: Topic) = {
-        Statements[F].selectPointers(topic)
+        statements.selectPointers(topic)
       }
     }
   }

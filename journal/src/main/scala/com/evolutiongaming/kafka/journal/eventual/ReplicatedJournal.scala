@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual
 import java.time.Instant
 
 import cats.data.{NonEmptyList => Nel}
-import cats.effect.{Clock, Resource}
+import cats.effect.Resource
 import cats.implicits._
 import cats.{Applicative, FlatMap, Monad, ~>}
 import com.evolutiongaming.catshelper.Log
@@ -31,15 +31,6 @@ trait ReplicatedJournal[F[_]] {
 object ReplicatedJournal {
 
   def apply[F[_]](implicit F: ReplicatedJournal[F]): ReplicatedJournal[F] = F
-
-  def apply[F[_] : FlatMap : Clock : MeasureDuration](
-    journal: ReplicatedJournal[F],
-    log: Log[F],
-    metrics: Option[Metrics[F]]
-  ): ReplicatedJournal[F] = {
-    val logging = apply[F](journal, log)
-    metrics.fold(logging) { metrics => ReplicatedJournal[F](logging, metrics) }
-  }
 
   def apply[F[_] : FlatMap : MeasureDuration](journal: ReplicatedJournal[F], log: Log[F]): ReplicatedJournal[F] = {
 
