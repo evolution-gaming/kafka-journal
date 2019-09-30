@@ -46,11 +46,10 @@ object IntegrationSuite {
 
     def replicator(log: Log[F], blocking: ExecutionContext) = {
       implicit val kafkaConsumerOf = KafkaConsumerOf[F](blocking)
-      val config = Sync[F].delay {
-        val config0 = ConfigFactory.load("replicator.conf")
-        val config1 = config0.getConfig("evolutiongaming.kafka-journal.replicator")
-        ReplicatorConfig(config1)
-      }
+      val config = for {
+        config <- Sync[F].delay { ConfigFactory.load("replicator.conf") }
+        config <- ReplicatorConfig.fromConfig[F](config)
+      } yield config
 
       for {
         metrics  <- Replicator.Metrics.of[F](CollectorRegistry.empty[F], "clientId")

@@ -1,9 +1,11 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.implicits._
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig}
 import com.typesafe.config.ConfigFactory
 import org.scalatest.{FunSuite, Matchers}
+import pureconfig.ConfigSource
 
 import scala.concurrent.duration._
 
@@ -12,12 +14,12 @@ class JournalConfigSpec extends FunSuite with Matchers {
 
   test("apply from empty config") {
     val config = ConfigFactory.empty()
-    JournalConfig(config) shouldEqual JournalConfig.default
+    ConfigSource.fromConfig(config).load[JournalConfig] shouldEqual JournalConfig.default.asRight
   }
 
   test("apply from config") {
     val config = ConfigFactory.parseURL(getClass.getResource("journal.conf"))
-    JournalConfig(config) shouldEqual JournalConfig(
+    val expected = JournalConfig(
       pollTimeout = 1.millis,
       producer = ProducerConfig(
         common = JournalConfig.default.producer.common.copy(clientId = Some("clientId")),
@@ -29,5 +31,6 @@ class JournalConfigSpec extends FunSuite with Matchers {
         autoOffsetReset = AutoOffsetReset.Earliest,
         autoCommit = false),
       headCache = false)
+    ConfigSource.fromConfig(config).load[JournalConfig] shouldEqual expected.asRight
   }
 }

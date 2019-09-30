@@ -1,15 +1,20 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import cats.data.{NonEmptyList => Nel}
+import cats.implicits._
 import com.datastax.driver.core.ConsistencyLevel
 import com.evolutiongaming.config.ConfigHelper._
+import com.evolutiongaming.kafka.journal.FromConfigReaderResult
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig
 import com.evolutiongaming.scassandra.{CassandraConfig, QueryConfig}
 import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.typesafe.config.Config
+import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
+import pureconfig.error.{ConfigReaderFailures, ThrowableFailure}
 
 import scala.concurrent.duration._
+import scala.util.Try
 
 final case class ReplicatorConfig(
   topicPrefixes: Nel[String] = Nel.of("journal"),
@@ -35,10 +40,33 @@ object ReplicatorConfig {
   val default: ReplicatorConfig = ReplicatorConfig()
 
 
+  implicit val configReaderReplicatorConfig: ConfigReader[ReplicatorConfig] = {
+    cursor: ConfigCursor => {
+      for {
+        cursor  <- cursor.asObjectCursor
+        journal  = Try { apply1(cursor.value.toConfig, default) }
+        journal <- journal.toEither.leftMap(a => ConfigReaderFailures(ThrowableFailure(a, cursor.location)))
+      } yield journal
+    }
+  }
+
+
+  def fromConfig[F[_]: FromConfigReaderResult](config: Config): F[ReplicatorConfig] = {
+    val replicatorConfig = ConfigSource
+      .fromConfig(config)
+      .at("evolutiongaming.kafka-journal.replicator")
+      .load[ReplicatorConfig]
+    FromConfigReaderResult[F].apply { replicatorConfig }
+  }
+
+
+  @deprecated("use ConfigReader instead", "0.0.87")
   def apply(config: Config): ReplicatorConfig = apply(config, default)
 
-  def apply(config: Config, default: => ReplicatorConfig): ReplicatorConfig = {
+  @deprecated("use ConfigReader instead", "0.0.87")
+  def apply(config: Config, default: => ReplicatorConfig): ReplicatorConfig = apply1(config, default)
 
+  private def apply1(config: Config, default: => ReplicatorConfig): ReplicatorConfig = {
     def get[T: FromConf](name: String) = config.getOpt[T](name)
 
     val topicPrefixes = {
@@ -64,7 +92,7 @@ object ReplicatorConfig {
       topicPrefixes = topicPrefixes,
       topicDiscoveryInterval = get[FiniteDuration]("topic-discovery-interval") getOrElse default.topicDiscoveryInterval,
       consumer = consumer,
-      cassandra = get[Config]("cassandra").fold(default.cassandra)(EventualCassandraConfig.apply(_, default.cassandra)),
+      cassandra = get[Config]("cassandra").fold(default.cassandra)(EventualCassandraConfig.apply1(_, default.cassandra)),
       pollTimeout = get[FiniteDuration]("kafka.consumer.poll-timeout") getOrElse default.pollTimeout)
   }
 }

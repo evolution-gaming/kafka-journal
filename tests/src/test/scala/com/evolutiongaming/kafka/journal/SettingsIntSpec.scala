@@ -14,6 +14,7 @@ import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.typesafe.config.ConfigFactory
 import org.scalatest.{AsyncWordSpec, BeforeAndAfterAll, Matchers}
+import pureconfig.ConfigSource
 
 
 class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers {
@@ -53,10 +54,11 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
     }
 
     def config(system: ActorSystem) = {
-      for {
-        conf   <- Sync[F].delay { system.settings.config.getConfig("evolutiongaming.kafka-journal.replicator") }
-        config <- Sync[F].delay { EventualCassandraConfig(conf.getConfig("cassandra")) }
-      } yield config
+      val config = ConfigSource
+        .fromConfig(system.settings.config)
+        .at("evolutiongaming.kafka-journal.replicator.cassandra")
+        .load[EventualCassandraConfig]
+      FromConfigReaderResult[F].apply { config }
     }
 
     for {

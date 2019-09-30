@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import cats.data.{NonEmptyList => Nel}
+import cats.implicits._
 import com.datastax.driver.core.ConsistencyLevel
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig
 import com.evolutiongaming.scassandra.{CassandraConfig, QueryConfig}
@@ -8,6 +9,7 @@ import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.typesafe.config.ConfigFactory
 import org.scalatest.{FunSuite, Matchers}
+import pureconfig.ConfigSource
 
 import scala.concurrent.duration._
 
@@ -16,7 +18,7 @@ class ReplicatorConfigSpec extends FunSuite with Matchers {
 
   test("apply from empty config") {
     val config = ConfigFactory.empty()
-    ReplicatorConfig(config) shouldEqual ReplicatorConfig.default
+    ConfigSource.fromConfig(config).load[ReplicatorConfig] shouldEqual ReplicatorConfig.default.asRight
   }
 
   test("apply from config") {
@@ -25,7 +27,7 @@ class ReplicatorConfigSpec extends FunSuite with Matchers {
       topicPrefixes = Nel.of("prefix1", "prefix2"),
       topicDiscoveryInterval = 1.minute,
       pollTimeout = 200.millis)
-    ReplicatorConfig(config) shouldEqual expected
+    ConfigSource.fromConfig(config).load[ReplicatorConfig] shouldEqual expected.asRight
   }
 
   test("apply from config with common kafka") {
@@ -40,7 +42,7 @@ class ReplicatorConfigSpec extends FunSuite with Matchers {
         groupId = Some("replicator"),
         autoCommit = false,
         autoOffsetReset = AutoOffsetReset.Earliest))
-    ReplicatorConfig(config) shouldEqual expected
+    ConfigSource.fromConfig(config).load[ReplicatorConfig] shouldEqual expected.asRight
   }
 
   test("apply from reference.conf") {
@@ -60,6 +62,6 @@ class ReplicatorConfigSpec extends FunSuite with Matchers {
           query = QueryConfig(
             consistency = ConsistencyLevel.LOCAL_QUORUM,
             defaultIdempotence = true))))
-    ReplicatorConfig(config) shouldEqual expected
+    ConfigSource.fromConfig(config).load[ReplicatorConfig] shouldEqual expected.asRight
   }
 }

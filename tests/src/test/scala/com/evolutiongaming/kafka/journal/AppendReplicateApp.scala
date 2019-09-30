@@ -73,13 +73,9 @@ object AppendReplicateApp extends IOApp {
     }
 
     def replicator(hostName: Option[HostName])(implicit kafkaConsumerOf: KafkaConsumerOf[F]) = {
-      val config = Sync[F].delay {
-        val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.replicator")
-        ReplicatorConfig(config)
-      }
       for {
         cassandraClusterOf <- Resource.liftF(CassandraClusterOf.of[F])
-        config             <- Resource.liftF(config)
+        config             <- Resource.liftF(ReplicatorConfig.fromConfig[F](system.settings.config))
         result             <- Replicator.of[F](config, cassandraClusterOf, hostName)
       } yield result
     }

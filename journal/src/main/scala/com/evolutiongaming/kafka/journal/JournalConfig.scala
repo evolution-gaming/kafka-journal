@@ -1,12 +1,17 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.implicits._
 import com.evolutiongaming.config.ConfigHelper._
 import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig}
 import com.typesafe.config.Config
+import pureconfig.error.{ConfigReaderFailures, ThrowableFailure}
+import pureconfig.{ConfigCursor, ConfigReader}
 
 import scala.concurrent.duration._
+import scala.util.Try
+
 
 final case class JournalConfig(
   pollTimeout: FiniteDuration = 10.millis,
@@ -29,10 +34,25 @@ object JournalConfig {
 
   val default: JournalConfig = JournalConfig()
 
+  implicit val configReaderJournalConfig: ConfigReader[JournalConfig] = {
+    cursor: ConfigCursor => {
+      for {
+        cursor  <- cursor.asObjectCursor
+        journal  = Try { apply1(cursor.value.toConfig, default) }
+        journal <- journal.toEither.leftMap(a => ConfigReaderFailures(ThrowableFailure(a, cursor.location)))
+      } yield journal
+    }
+  }
 
+
+  @deprecated("use ConfigReader instead", "0.0.87")
   def apply(config: Config): JournalConfig = apply(config, default)
 
-  def apply(config: Config, default: => JournalConfig): JournalConfig = {
+  @deprecated("use ConfigReader instead", "0.0.87")
+  def apply(config: Config, default: => JournalConfig): JournalConfig = apply1(config, default)
+
+  
+  def apply1(config: Config, default: => JournalConfig): JournalConfig = {
 
     def get[T: FromConf](name: String) = config.getOpt[T](name)
 

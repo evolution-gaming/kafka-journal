@@ -20,6 +20,7 @@ import com.evolutiongaming.smetrics.MeasureDuration
 import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.{AsyncWordSpec, BeforeAndAfterAll, Matchers}
 import play.api.libs.json.Json
+import pureconfig.ConfigSource
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
@@ -40,9 +41,12 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
   ) = {
 
     def eventualJournal(conf: Config) = {
-      val config = Sync[F].delay { EventualCassandraConfig(conf.getConfig("cassandra")) }
+      val config = ConfigSource
+        .fromConfig(conf)
+        .at("cassandra")
+        .load[EventualCassandraConfig]
       for {
-        config          <- Resource.liftF[F, EventualCassandraConfig](config)
+        config          <- Resource.liftF(FromConfigReaderResult[F].apply { config })
         eventualJournal <- EventualCassandra.of[F](config, origin.some, none, cassandraClusterOf)
       } yield eventualJournal
     }
@@ -53,7 +57,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       eventualJournal: EventualJournal[F]
     ) = {
 
-      val config = Sync[F].delay { JournalConfig(conf) }
+      val config = FromConfigReaderResult[F].apply { ConfigSource.fromConfig(conf).load[JournalConfig]  }
 
       implicit val kafkaConsumerOf = KafkaConsumerOf[F](blocking)
 
