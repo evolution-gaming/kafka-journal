@@ -41,13 +41,11 @@ object CreateTables { self =>
         }
       }
 
-      def create(tables1: List[Table]) = {
+      def create(tables1: Nel[Table]) = {
         val fresh = tables1.length == tables.length
         for {
-          _ <- log.info(s"tables: ${tables1.map(_.name).mkString(",")}, fresh: $fresh")
-          _ <- CassandraSync[F].apply {
-            tables1.foldMapM { _.query.execute.first.void }
-          }
+          _ <- log.info(s"tables: ${tables1.map(_.name).mkString_(",")}, fresh: $fresh")
+          _ <- CassandraSync[F].apply { tables1.foldMapM { _.query.execute.first.void } }
         } yield {
           tables1.length == tables.length
         }
@@ -58,7 +56,7 @@ object CreateTables { self =>
         metadata <- CassandraCluster[F].metadata
         keyspace <- metadata.keyspace(keyspace)
         tables1  <- keyspace.fold(tables.toList.pure[F])(missing)
-        fresh    <- if (tables1.isEmpty) false.pure[F] else create(tables1)
+        fresh    <- Nel.fromList(tables1).fold(false.pure[F])(create)
       } yield fresh
     }
   }
