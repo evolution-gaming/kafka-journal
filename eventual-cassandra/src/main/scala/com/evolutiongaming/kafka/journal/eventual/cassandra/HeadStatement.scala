@@ -55,7 +55,7 @@ object HeadStatement {
             .bind()
             .encode(key)
             .encode(head.partitionOffset)
-            .encode("segment_size", head.segmentSize)
+            .encode(head.segmentSize)
             .encode(head.seqNr)
             .encodeSome("delete_to", head.deleteTo)
             .encode("created", timestamp)
@@ -95,7 +95,7 @@ object HeadStatement {
           } yield {
             Head(
               partitionOffset = row.decode[PartitionOffset],
-              segmentSize = row.decode[Int]("segment_size"),
+              segmentSize = row.decode[SegmentSize],
               seqNr = row.decode[SeqNr],
               deleteTo = row.decode[Option[SeqNr]]("delete_to"))
           }

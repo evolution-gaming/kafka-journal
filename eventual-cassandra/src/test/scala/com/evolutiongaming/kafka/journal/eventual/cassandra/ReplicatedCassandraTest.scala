@@ -22,7 +22,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
   import ReplicatedCassandraTest._
 
   for {
-    segmentSize <- List(2, 5, 10)
+    segmentSize <- List(SegmentSize.min, SegmentSize.default, SegmentSize.max)
   } {
     test(s"topics, segmentSize: $segmentSize") {
       val journal = ReplicatedCassandra(segmentSize, statements)
@@ -319,7 +319,7 @@ object ReplicatedCassandraTest {
 
   final case class HeadEntry(
     partitionOffset: PartitionOffset,
-    segmentSize: Int,
+    segmentSize: SegmentSize,
     seqNr: SeqNr,
     deleteTo: Option[SeqNr],
     created: Instant,

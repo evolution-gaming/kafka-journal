@@ -56,14 +56,9 @@ object SegmentNr {
   }
 
 
-  def of[F[_] : ApplicativeString](seqNr: SeqNr, size: Int): F[SegmentNr] = {
-    val sizeMin = 2
-    if (size < sizeMin) {
-      s"invalid size of $size, it must be greater or equal to $sizeMin".raiseError[F, SegmentNr]
-    } else {
-      val value = (seqNr.value - 1) / size
-      of[F](value)
-    }
+  def of[F[_] : ApplicativeString](seqNr: SeqNr, segmentSize: SegmentSize): F[SegmentNr] = {
+    val segmentNr = (seqNr.value - 1) / segmentSize.value
+    of[F](segmentNr)
   }
 
 
@@ -75,7 +70,7 @@ object SegmentNr {
 
 
   // TODO stop using this
-  def unsafe(seqNr: SeqNr, size: Int): SegmentNr = of[Try](seqNr, size).get
+  def unsafe(seqNr: SeqNr, segmentSize: SegmentSize): SegmentNr = of[Try](seqNr, segmentSize).get
 
 
   implicit class SegmentNrOps(val self: SegmentNr) extends AnyVal {

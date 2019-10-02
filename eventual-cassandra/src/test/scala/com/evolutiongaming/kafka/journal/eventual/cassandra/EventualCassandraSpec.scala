@@ -18,7 +18,7 @@ class EventualCassandraSpec extends EventualJournalSpec {
 
   "EventualCassandra" when {
     for {
-      segmentSize <- List(2, 10, 1000)
+      segmentSize <- List(SegmentSize.min, SegmentSize.default, SegmentSize.max)
       delete      <- List(true, false)
     } {
       s"segmentSize: $segmentSize, delete: $delete" should {
@@ -85,7 +85,7 @@ object EventualCassandraSpec {
   }
 
 
-  def journals(segmentSize: Int, delete: Boolean): Journals[StateT] = {
+  def journals(segmentSize: SegmentSize, delete: Boolean): Journals[StateT] = {
 
     val replicatedJournal = {
 

@@ -15,6 +15,7 @@ import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
 import pureconfig.error.{ConfigReaderFailures, ThrowableFailure}
 
 import scala.concurrent.duration._
+import scala.reflect.ClassTag
 import scala.util.Try
 
 final case class ReplicatorConfig(
@@ -89,11 +90,18 @@ object ReplicatorConfig {
       config getOrElse default.consumer
     }
 
+    val source = ConfigSource.fromConfig(config)
+
+    def get1[A : ConfigReader : ClassTag](name: String) = {
+      val source1 = source.at(name)
+      source1.value().fold(_ => none[A], _ => source1.loadOrThrow[A].some)
+    }
+
     ReplicatorConfig(
       topicPrefixes = topicPrefixes,
       topicDiscoveryInterval = get[FiniteDuration]("topic-discovery-interval") getOrElse default.topicDiscoveryInterval,
       consumer = consumer,
-      cassandra = get[Config]("cassandra").fold(default.cassandra)(EventualCassandraConfig.apply1(_, default.cassandra)),
+      cassandra = get1[EventualCassandraConfig]("cassandra") getOrElse default.cassandra,
       pollTimeout = get[FiniteDuration]("kafka.consumer.poll-timeout") getOrElse default.pollTimeout)
   }
 }

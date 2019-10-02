@@ -38,7 +38,7 @@ object ReplicatedCassandra {
     }
   }
 
-  def apply[F[_] : BracketThrowable : Parallel](segmentSize: Int, statements: Statements[F]): ReplicatedJournal[F] = {
+  def apply[F[_] : BracketThrowable : Parallel](segmentSize: SegmentSize, statements: Statements[F]): ReplicatedJournal[F] = {
 
     implicit val monoidUnit = Applicative.monoid[F, Unit]
 
@@ -52,7 +52,7 @@ object ReplicatedCassandra {
 
       def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[EventRecord]) = {
 
-        def append(segmentSize: Int) = {
+        def append(segmentSize: SegmentSize) = {
 
           @tailrec
           def loop(
@@ -143,7 +143,7 @@ object ReplicatedCassandra {
             }
           }
 
-          def delete(segmentSize: Int)(head: Head) = {
+          def delete(segmentSize: SegmentSize)(head: Head) = {
 
             def delete(from: SeqNr, deleteTo: SeqNr) = {
 

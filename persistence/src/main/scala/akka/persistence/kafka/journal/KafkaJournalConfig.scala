@@ -10,6 +10,7 @@ import pureconfig.error.{ConfigReaderFailures, ThrowableFailure}
 import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
 
 import scala.concurrent.duration._
+import scala.reflect.ClassTag
 import scala.util.Try
 
 final case class KafkaJournalConfig(
@@ -49,9 +50,16 @@ object KafkaJournalConfig {
       .load[CallTimeThresholds]
       .getOrElse(CallTimeThresholds.default)
 
+    val source = ConfigSource.fromConfig(config)
+
+    def getOrThrow[A : ConfigReader : ClassTag](name: String) = {
+      val source1 = source.at(name)
+      source1.value().fold(_ => none[A], _ => source1.loadOrThrow[A].some)
+    }
+
     KafkaJournalConfig(
       journal = JournalConfig.apply1(config, default.journal),
-      cassandra = get[Config]("cassandra").fold(default.cassandra)(EventualCassandraConfig.apply1(_, default.cassandra)),
+      cassandra = getOrThrow[EventualCassandraConfig]("cassandra") getOrElse default.cassandra,
       startTimeout = get[FiniteDuration]("start-timeout") getOrElse default.startTimeout,
       stopTimeout = get[FiniteDuration]("stop-timeout") getOrElse default.stopTimeout,
       maxEventsInBatch = get[Int]("max-events-in-batch") getOrElse default.maxEventsInBatch,
