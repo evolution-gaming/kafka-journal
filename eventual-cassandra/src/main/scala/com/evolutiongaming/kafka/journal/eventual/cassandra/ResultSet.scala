@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.effect.{Concurrent, Sync}
+import cats.effect.implicits._
 import cats.implicits._
 import com.datastax.driver.core.{Row, ResultSet => ResultSetJ}
 import com.evolutiongaming.scassandra.util.FromGFuture
@@ -43,7 +44,7 @@ object ResultSet {
 
         def fetchAndApply(rows: List[A]) = {
           for {
-            fetching <- Concurrent[F].start { fetch }
+            fetching <- fetch.start
             result   <- rows.foldWhileM(l)(f)
             result   <- result match {
               case l: Left[L, R]  => fetching.join as l.rightCast[Either[L, R]]

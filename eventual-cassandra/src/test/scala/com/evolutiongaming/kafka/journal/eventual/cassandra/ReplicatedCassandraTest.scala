@@ -64,7 +64,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
           (topic1, Map((0, PointerEntry(offset = 0, created = timestamp0, updated = timestamp0))))),
         head = Map(
           (topic0, Map((id, HeadEntry(partitionOffset, segmentSize, SeqNr.min, none, timestamp0, timestamp0, origin.some))))),
-        journal = Map(((key, SegmentNr(0)), Map(((SeqNr.min, timestamp0), record)))))
+        journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))))
       val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
     }

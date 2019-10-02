@@ -147,7 +147,7 @@ object ReplicatedCassandra {
 
             def delete(from: SeqNr, deleteTo: SeqNr) = {
 
-              def segment(seqNr: SeqNr) = SegmentNr(seqNr, segmentSize)
+              def segment(seqNr: SeqNr) = SegmentNr.unsafe(seqNr, segmentSize)
 
               (segment(from) to segment(deleteTo)).parFoldMap { segment =>
                 statements.deleteRecords(key, segment, deleteTo)
