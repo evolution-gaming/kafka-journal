@@ -21,9 +21,20 @@ trait ReplicatedJournal[F[_]] {
 
   def pointers(topic: Topic): F[TopicPointers]
 
-  def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[EventRecord]): F[Unit]
+  def append(
+    key: Key,
+    partitionOffset: PartitionOffset,
+    timestamp: Instant,
+    events: Nel[EventRecord]
+  ): F[Unit]
 
-  def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]): F[Unit]
+  def delete(
+    key: Key,
+    partitionOffset: PartitionOffset,
+    timestamp: Instant,
+    deleteTo: SeqNr,
+    origin: Option[Origin]
+  ): F[Unit]
 
   def save(topic: Topic, pointers: TopicPointers, timestamp: Instant): F[Unit]
 }
@@ -56,7 +67,12 @@ object ReplicatedJournal {
         } yield r
       }
 
-      def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[EventRecord]) = {
+      def append(
+        key: Key,
+        partitionOffset: PartitionOffset,
+        timestamp: Instant,
+        events: Nel[EventRecord]
+      ) = {
         for {
           d <- MeasureDuration[F].start
           r <- journal.append(key, partitionOffset, timestamp, events)
@@ -69,7 +85,13 @@ object ReplicatedJournal {
         } yield r
       }
 
-      def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = {
+      def delete(
+        key: Key,
+        partitionOffset: PartitionOffset,
+        timestamp: Instant,
+        deleteTo: SeqNr,
+        origin: Option[Origin]
+      ) = {
         for {
           d <- MeasureDuration[F].start
           r <- journal.delete(key, partitionOffset, timestamp, deleteTo, origin)
@@ -115,7 +137,12 @@ object ReplicatedJournal {
         } yield r
       }
 
-      def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[EventRecord]) = {
+      def append(
+        key: Key,
+        partitionOffset: PartitionOffset,
+        timestamp: Instant,
+        events: Nel[EventRecord]
+      ) = {
         for {
           d <- MeasureDuration[F].start
           r <- journal.append(key, partitionOffset, timestamp, events)
@@ -124,7 +151,13 @@ object ReplicatedJournal {
         } yield r
       }
 
-      def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = {
+      def delete(
+        key: Key,
+        partitionOffset: PartitionOffset,
+        timestamp: Instant,
+        deleteTo: SeqNr,
+        origin: Option[Origin]
+      ) = {
         for {
           d <- MeasureDuration[F].start
           r <- journal.delete(key, partitionOffset, timestamp, deleteTo, origin)
@@ -151,9 +184,20 @@ object ReplicatedJournal {
 
     def pointers(topic: Topic) = TopicPointers.empty.pure[F]
 
-    def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[EventRecord]) = ().pure[F]
+    def append(
+      key: Key,
+      partitionOffset: PartitionOffset,
+      timestamp: Instant,
+      events: Nel[EventRecord]
+    ) = ().pure[F]
 
-    def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = ().pure[F]
+    def delete(
+      key: Key,
+      partitionOffset: PartitionOffset,
+      timestamp: Instant,
+      deleteTo: SeqNr,
+      origin: Option[Origin]
+    ) = ().pure[F]
 
     def save(topic: Topic, pointers: TopicPointers, timestamp: Instant) = ().pure[F]
   }
@@ -274,11 +318,22 @@ object ReplicatedJournal {
 
       def pointers(topic: Topic) = f(self.pointers(topic))
 
-      def append(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, events: Nel[EventRecord]) = {
+      def append(
+        key: Key,
+        partitionOffset: PartitionOffset,
+        timestamp: Instant,
+        events: Nel[EventRecord]
+      ) = {
         f(self.append(key, partitionOffset, timestamp, events))
       }
 
-      def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = {
+      def delete(
+        key: Key,
+        partitionOffset: PartitionOffset,
+        timestamp: Instant,
+        deleteTo: SeqNr,
+        origin: Option[Origin]
+      ) = {
         f(self.delete(key, partitionOffset, timestamp, deleteTo, origin))
       }
 
