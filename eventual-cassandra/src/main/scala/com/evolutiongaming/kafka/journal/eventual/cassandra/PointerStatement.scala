@@ -133,7 +133,7 @@ object PointerStatement {
         s"""
            |SELECT partition, offset FROM ${ name.toCql }
            |WHERE topic = ?
-           |AND partition in ?
+           |AND partition in :partitions
            |""".stripMargin
 
       for {
@@ -144,7 +144,7 @@ object PointerStatement {
           val bound = prepared
             .bind()
             .encode("topic", topic)
-            .encode("partition", partitions)
+            .encode("partitions", partitions)
           for {
             rows <- bound.execute.toList
           } yield {
