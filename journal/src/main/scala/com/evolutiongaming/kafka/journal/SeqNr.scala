@@ -39,6 +39,11 @@ object SeqNr {
   implicit val decodeByNameSeqNr: DecodeByName[SeqNr] = DecodeByName[Long].map(value => SeqNr.of[Try](value).get)
 
 
+  implicit val encodeByIdxSeqNr: EncodeByIdx[SeqNr] = EncodeByIdx[Long].imap((seqNr: SeqNr) => seqNr.value)
+
+  implicit val decodeByIdxSeqNr: DecodeByIdx[SeqNr] = DecodeByIdx[Long].map(value => SeqNr.of[Try](value).get)
+
+
   implicit val encodeByNameOptSeqNr: EncodeByName[Option[SeqNr]] = EncodeByName.opt[SeqNr]
 
   implicit val decodeByNameOptSeqNr: DecodeByName[Option[SeqNr]] = DecodeByName[Option[Long]].map { value =>

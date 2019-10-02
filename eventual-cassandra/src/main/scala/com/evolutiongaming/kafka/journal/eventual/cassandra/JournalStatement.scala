@@ -48,7 +48,6 @@ object JournalStatement {
     def apply(key: Key, segment: SegmentNr, events: Nel[EventRecord]): F[Unit]
   }
 
-  // TODO add statement logging
   object InsertRecords {
 
     def of[F[_] : Monad : CassandraSession](name: TableName): F[InsertRecords[F]] = {
@@ -163,10 +162,8 @@ object JournalStatement {
               .bind()
               .encode(key)
               .encode(segment)
-              .setLong(3, range.from.value) // TODO
-              .setLong(4, range.to.value) // TODO
-            //              .encodeAt(3, range.from)
-            //              .encodeAt(4, range.to)
+              .encodeAt(3, range.from)
+              .encodeAt(4, range.to)
 
             for {
               row <- bound.execute

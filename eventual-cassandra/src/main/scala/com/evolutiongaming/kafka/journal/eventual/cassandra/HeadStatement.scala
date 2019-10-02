@@ -13,7 +13,6 @@ import com.evolutiongaming.scassandra.syntax._
 
 object HeadStatement {
 
-  // TODO make use of partition and offset
   def createTable(name: TableName): String = {
     s"""
        |CREATE TABLE IF NOT EXISTS ${ name.toCql } (
@@ -109,7 +108,6 @@ object HeadStatement {
     def apply(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: SeqNr): F[Unit]
   }
 
-  // TODO add classes for common operations
   object Update {
 
     def of[F[_] : Monad : CassandraSession](name: TableName): F[Update[F]] = {
@@ -143,8 +141,6 @@ object HeadStatement {
     def apply(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr): F[Unit]
   }
 
-  // TODO TEST statement
-  // TODO add classes for common operations
   object UpdateSeqNr {
 
     def of[F[_] : Monad : CassandraSession](name: TableName): F[UpdateSeqNr[F]] = {
