@@ -1,25 +1,33 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
+import cats.implicits._
 import com.evolutiongaming.kafka.journal.SeqNr
 
 
-final case class Segment(nr: SegmentNr, size: Int) {
-
-  require(size > 1, s"invalid size $size, it must be greater than 1")
-
-  // TODO stop using this
-  def next(seqNr: SeqNr): Option[Segment] = {
-    val segmentNr = SegmentNr.unsafe(seqNr, size)
-    if (segmentNr == nr) None
-    else Some(copy(nr = segmentNr))
-  }
-}
+sealed abstract case class Segment(nr: SegmentNr, size: Int)
 
 object Segment {
 
   // TODO stop using this
-  def apply(seqNr: SeqNr, size: Int): Segment = {
-    val segment = SegmentNr.unsafe(seqNr, size)
-    Segment(segment, size)
+  def unsafe(seqNr: SeqNr, size: Int): Segment = {
+    require(size > 1, s"invalid size $size, it must be greater than 1")
+    val segmentNr = SegmentNr.unsafe(seqNr, size)
+    unsafe(segmentNr, size)
+  }
+
+  // TODO stop using this
+  def unsafe(segmentNr: SegmentNr, size: Int): Segment = {
+    require(size > 1, s"invalid size $size, it must be greater than 1")
+    new Segment(segmentNr, size) {}
+  }
+
+
+  implicit class SegmentOps(val self: Segment) extends AnyVal {
+    // TODO stop using this
+    def nextUnsafe(seqNr: SeqNr): Option[Segment] = {
+      val segmentNr = SegmentNr.unsafe(seqNr, self.size)
+      if (segmentNr == self.nr) none
+      else unsafe(segmentNr, self.size).some
+    }
   }
 }

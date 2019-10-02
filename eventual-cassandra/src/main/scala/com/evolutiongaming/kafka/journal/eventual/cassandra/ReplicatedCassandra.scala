@@ -72,11 +72,11 @@ object ReplicatedCassandra {
               case head :: tail =>
                 val seqNr = head.event.seqNr
                 s match {
-                  case Some((segment, batch)) => segment.next(seqNr) match {
+                  case Some((segment, batch)) => segment.nextUnsafe(seqNr) match {
                     case None       => loop(tail, Some((segment, head :: batch)), result)
                     case Some(next) => loop(tail, Some((next, Nel.of(head))), insert(segment, batch))
                   }
-                  case None                   => loop(tail, Some((Segment(seqNr, segmentSize), Nel.of(head))), result)
+                  case None                   => loop(tail, Some((Segment.unsafe(seqNr, segmentSize), Nel.of(head))), result)
                 }
 
               case Nil => s.fold(result) { case (segment, batch) => insert(segment, batch) }

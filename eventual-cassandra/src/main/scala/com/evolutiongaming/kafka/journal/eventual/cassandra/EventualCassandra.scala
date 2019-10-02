@@ -82,7 +82,7 @@ object EventualCassandra {
                 }
               }
 
-              val segment = Segment(from, head.segmentSize)
+              val segment = Segment.unsafe(from, head.segmentSize)
 
               (from, segment, l).tailRecM { case (from, segment, l) =>
                 val range = SeqRange(from, SeqNr.max) // TODO do we need range here ?
@@ -93,7 +93,7 @@ object EventualCassandra {
                   case Left(s)        =>
                     val result = for {
                       from    <- s.seqNr.next[Option]
-                      segment <- segment.next(from)
+                      segment <- segment.nextUnsafe(from)
                     } yield {
                       (from, segment, s.l).asLeft[Either[L, R]]
                     }
