@@ -1,14 +1,10 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.implicits._
 import com.datastax.driver.core.ConsistencyLevel
 import com.evolutiongaming.scassandra.{CassandraConfig, QueryConfig}
 import com.typesafe.config.Config
-import pureconfig.error.{ConfigReaderFailures, ThrowableFailure}
 import pureconfig.generic.semiauto.deriveReader
-import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
-
-import scala.util.Try
+import pureconfig.{ConfigReader, ConfigSource}
 
 
 final case class EventualCassandraConfig(
@@ -25,18 +21,6 @@ final case class EventualCassandraConfig(
 object EventualCassandraConfig {
 
   val default: EventualCassandraConfig = EventualCassandraConfig()
-
-
-  // TODO move to scassandra
-  private implicit val configReaderCassandraConfig: ConfigReader[CassandraConfig] = {
-    cursor: ConfigCursor => {
-      for {
-        cursor    <- cursor.asObjectCursor
-        cassandra  = Try { CassandraConfig(cursor.value.toConfig) }
-        cassandra <- cassandra.toEither.leftMap(a => ConfigReaderFailures(ThrowableFailure(a, cursor.location)))
-      } yield cassandra
-    }
-  }
 
 
   implicit val configReaderEventualCassandraConfig: ConfigReader[EventualCassandraConfig] = deriveReader

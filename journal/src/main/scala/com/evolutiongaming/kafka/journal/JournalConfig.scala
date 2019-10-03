@@ -38,7 +38,7 @@ object JournalConfig {
     cursor: ConfigCursor => {
       for {
         cursor  <- cursor.asObjectCursor
-        journal  = Try { apply1(cursor.value.toConfig, default) }
+        journal  = Try { fromConfig(cursor.value.toConfig, default) }
         journal <- journal.toEither.leftMap(a => ConfigReaderFailures(ThrowableFailure(a, cursor.location)))
       } yield journal
     }
@@ -49,10 +49,10 @@ object JournalConfig {
   def apply(config: Config): JournalConfig = apply(config, default)
 
   @deprecated("use ConfigReader instead", "0.0.87")
-  def apply(config: Config, default: => JournalConfig): JournalConfig = apply1(config, default)
+  def apply(config: Config, default: => JournalConfig): JournalConfig = fromConfig(config, default)
 
   
-  def apply1(config: Config, default: => JournalConfig): JournalConfig = {
+  def fromConfig(config: Config, default: => JournalConfig): JournalConfig = {
 
     def get[T: FromConf](name: String) = config.getOpt[T](name)
 

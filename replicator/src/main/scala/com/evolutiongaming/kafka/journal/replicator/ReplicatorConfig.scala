@@ -46,7 +46,7 @@ object ReplicatorConfig {
     cursor: ConfigCursor => {
       for {
         cursor  <- cursor.asObjectCursor
-        journal  = Try { apply1(cursor.value.toConfig, default) }
+        journal  = Try { fromConfig(cursor.value.toConfig, default) }
         journal <- journal.toEither.leftMap(a => ConfigReaderFailures(ThrowableFailure(a, cursor.location)))
       } yield journal
     }
@@ -66,9 +66,10 @@ object ReplicatorConfig {
   def apply(config: Config): ReplicatorConfig = apply(config, default)
 
   @deprecated("use ConfigReader instead", "0.0.87")
-  def apply(config: Config, default: => ReplicatorConfig): ReplicatorConfig = apply1(config, default)
+  def apply(config: Config, default: => ReplicatorConfig): ReplicatorConfig = fromConfig(config, default)
 
-  private def apply1(config: Config, default: => ReplicatorConfig): ReplicatorConfig = {
+  private def fromConfig(config: Config, default: => ReplicatorConfig): ReplicatorConfig = {
+
     def get[T: FromConf](name: String) = config.getOpt[T](name)
 
     val topicPrefixes = {

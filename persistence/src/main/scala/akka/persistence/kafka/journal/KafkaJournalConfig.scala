@@ -30,7 +30,7 @@ object KafkaJournalConfig {
     cursor: ConfigCursor => {
       for {
         cursor    <- cursor.asObjectCursor
-        cassandra  = Try { apply1(cursor.value.toConfig, default) }
+        cassandra  = Try { fromConfig(cursor.value.toConfig, default) }
         cassandra <- cassandra.toEither.leftMap(a => ConfigReaderFailures(ThrowableFailure(a, cursor.location)))
       } yield cassandra
     }
@@ -39,9 +39,9 @@ object KafkaJournalConfig {
 
   def apply(config: Config): KafkaJournalConfig = apply(config, default)
 
-  def apply(config: Config, default: => KafkaJournalConfig): KafkaJournalConfig = apply1(config, default)
+  def apply(config: Config, default: => KafkaJournalConfig): KafkaJournalConfig = fromConfig(config, default)
 
-  private def apply1(config: Config, default: => KafkaJournalConfig): KafkaJournalConfig = {
+  private def fromConfig(config: Config, default: => KafkaJournalConfig): KafkaJournalConfig = {
 
     def get[T: FromConf](name: String) = config.getOpt[T](name)
 
@@ -58,7 +58,7 @@ object KafkaJournalConfig {
     }
 
     KafkaJournalConfig(
-      journal = JournalConfig.apply1(config, default.journal),
+      journal = JournalConfig.fromConfig(config, default.journal),
       cassandra = getOrThrow[EventualCassandraConfig]("cassandra") getOrElse default.cassandra,
       startTimeout = get[FiniteDuration]("start-timeout") getOrElse default.startTimeout,
       stopTimeout = get[FiniteDuration]("stop-timeout") getOrElse default.stopTimeout,
