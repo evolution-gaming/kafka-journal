@@ -22,7 +22,7 @@ class SchemaConfigSpec extends FunSuite with Matchers {
         replicationStrategy = ReplicationStrategyConfig.Simple(3),
         autoCreate = false),
       journalTable = "table-journal",
-      headTable = "table-head",
+      metadataTable = "table-metadata",
       pointerTable = "table-pointer",
       settingTable = "table-setting",
       locksTable = "table-locks",

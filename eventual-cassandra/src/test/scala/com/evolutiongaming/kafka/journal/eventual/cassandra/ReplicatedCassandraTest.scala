@@ -75,8 +75,8 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
         pointers = Map(
           (topic0, Map((0, PointerEntry(offset = 1, created = timestamp0, updated = timestamp1)))),
           (topic1, Map((0, PointerEntry(offset = 0, created = timestamp0, updated = timestamp0))))),
-        head = Map(
-          (topic0, Map((id, HeadEntry(
+        metadata = Map(
+          (topic0, Map((id, MetadataEntry(
             partitionOffset = partitionOffset,
             segmentSize = segmentSize,
             seqNr = SeqNr.max,
@@ -114,8 +114,8 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
         pointers = Map(
           (topic0, Map((0, PointerEntry(offset = 1, created = timestamp0, updated = timestamp1)))),
           (topic1, Map((0, PointerEntry(offset = 0, created = timestamp0, updated = timestamp0))))),
-        head = Map(
-          (topic0, Map((id, HeadEntry(partitionOffset, segmentSize, SeqNr.min, none, timestamp0, timestamp0, origin.some))))),
+        metadata = Map(
+          (topic0, Map((id, MetadataEntry(partitionOffset, segmentSize, SeqNr.min, none, timestamp0, timestamp0, origin.some))))),
         journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))))
       val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
@@ -182,9 +182,9 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
         .toMap
 
       val expected = State(
-        head = Map(
+        metadata = Map(
           (topic0, Map(
-            (id0, HeadEntry(
+            (id0, MetadataEntry(
               PartitionOffset(partition = 0, offset = 3),
               segmentSize,
               SeqNr.unsafe(3),
@@ -193,7 +193,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
               timestamp1,
               origin.some)))),
           (topic1, Map(
-            (id1, HeadEntry(
+            (id1, MetadataEntry(
               PartitionOffset(partition = 0, offset = 4),
               segmentSize,
               SeqNr.unsafe(1),
@@ -232,8 +232,8 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
       } yield {}
 
       val expected = State(
-        head = Map(
-          (topic0, Map((id, HeadEntry(
+        metadata = Map(
+          (topic0, Map((id, MetadataEntry(
             PartitionOffset(partition = 0, offset = 2),
             segmentSize,
             SeqNr.max,
@@ -284,10 +284,10 @@ object ReplicatedCassandraTest {
   }
 
 
-  val insertHead: HeadStatement.Insert[StateT] = {
+  val insertMetadata: MetadataStatement.Insert[StateT] = {
     (key: Key, timestamp: Instant, head: Head, origin: Option[Origin]) => {
       StateT.unit { state =>
-        val entry = HeadEntry(
+        val entry = MetadataEntry(
           partitionOffset = head.partitionOffset,
           segmentSize = head.segmentSize,
           seqNr = head.seqNr,
@@ -296,20 +296,20 @@ object ReplicatedCassandraTest {
           updated = timestamp,
           origin = origin)
         val entries = state
-          .head
+          .metadata
           .getOrElse(key.topic, Map.empty)
           .updated(key.id, entry)
-        state.copy(head = state.head.updated(key.topic, entries))
+        state.copy(metadata = state.metadata.updated(key.topic, entries))
       }
     }
   }
 
 
-  val selectHead: HeadStatement.Select[StateT] = {
+  val selectMetadata: MetadataStatement.Select[StateT] = {
     key: Key => {
       StateT.success { state =>
         val head = for {
-          entries <- state.head.get(key.topic)
+          entries <- state.metadata.get(key.topic)
           entry   <- entries.get(key.id)
         } yield {
           Head(
@@ -324,10 +324,10 @@ object ReplicatedCassandraTest {
   }
 
 
-  val updateHead: HeadStatement.Update[StateT] = {
+  val updateMetadata: MetadataStatement.Update[StateT] = {
     (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: SeqNr) => {
       StateT.unit { state =>
-        state.updateHead(key) { entry =>
+        state.updateMetadata(key) { entry =>
           entry.copy(
             partitionOffset = partitionOffset,
             updated = timestamp,
@@ -339,10 +339,10 @@ object ReplicatedCassandraTest {
   }
 
 
-  val updateHeadSeqNr: HeadStatement.UpdateSeqNr[StateT] = {
+  val updateMetadataSeqNr: MetadataStatement.UpdateSeqNr[StateT] = {
     (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr) => {
       StateT.unit { state =>
-        state.updateHead(key) { entry =>
+        state.updateMetadata(key) { entry =>
           entry.copy(
             partitionOffset = partitionOffset,
             updated = timestamp,
@@ -353,10 +353,10 @@ object ReplicatedCassandraTest {
   }
 
 
-  val updateHeadDeleteTo: HeadStatement.UpdateDeleteTo[StateT] = {
+  val updateHeadDeleteTo: MetadataStatement.UpdateDeleteTo[StateT] = {
     (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr) => {
       StateT.unit { state =>
-        state.updateHead(key) { entry =>
+        state.updateMetadata(key) { entry =>
           entry.copy(
             partitionOffset = partitionOffset,
             updated = timestamp,
@@ -456,10 +456,10 @@ object ReplicatedCassandraTest {
   val statements: ReplicatedCassandra.Statements[StateT] = ReplicatedCassandra.Statements(
     insertRecords,
     deleteRecords,
-    insertHead,
-    selectHead,
-    updateHead,
-    updateHeadSeqNr,
+    insertMetadata,
+    selectMetadata,
+    updateMetadata,
+    updateMetadataSeqNr,
     updateHeadDeleteTo,
     selectPointer,
     selectPointersIn,
@@ -494,7 +494,7 @@ object ReplicatedCassandraTest {
 
   implicit val parallel: Parallel[StateT] = Parallel.identity[StateT]
 
-  final case class HeadEntry(
+  final case class MetadataEntry(
     partitionOffset: PartitionOffset,
     segmentSize: SegmentSize,
     seqNr: SeqNr,
@@ -512,7 +512,7 @@ object ReplicatedCassandraTest {
 
   final case class State(
     pointers: Map[Topic, Map[Partition, PointerEntry]] = Map.empty,
-    head: Map[Topic, Map[String, HeadEntry]] = Map.empty,
+    metadata: Map[Topic, Map[String, MetadataEntry]] = Map.empty,
     journal: Map[(Key, SegmentNr), Map[(SeqNr, Instant), EventRecord]] = Map.empty)
 
   object State {
@@ -522,14 +522,14 @@ object ReplicatedCassandraTest {
 
     implicit class StateOps(val self: State) extends AnyVal {
 
-      def updateHead(key: Key)(f: HeadEntry => HeadEntry): State = {
+      def updateMetadata(key: Key)(f: MetadataEntry => MetadataEntry): State = {
         val state = for {
-          entries <- self.head.get(key.topic)
+          entries <- self.metadata.get(key.topic)
           entry   <- entries.get(key.id)
         } yield {
           val entry1 = f(entry)
           val entries1 = entries.updated(key.id, entry1)
-          self.copy(head = self.head.updated(key.topic, entries1))
+          self.copy(metadata = self.metadata.updated(key.topic, entries1))
         }
         state getOrElse self
       }

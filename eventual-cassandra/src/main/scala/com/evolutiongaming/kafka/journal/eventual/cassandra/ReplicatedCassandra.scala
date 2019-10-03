@@ -96,7 +96,7 @@ object ReplicatedCassandra {
               seqNr = seqNrLast,
               deleteTo = events.head.seqNr.prev[Option])
             val origin = events.head.origin
-            val insert = statements.insertHead(key, timestamp, head, origin)
+            val insert = statements.insertMetadata(key, timestamp, head, origin)
             (insert, head)
           } { head =>
             val update = statements.updateSeqNr(key, partitionOffset, timestamp, seqNrLast)
@@ -110,7 +110,7 @@ object ReplicatedCassandra {
         }
 
         for {
-          head <- statements.selectHead(key)
+          head <- statements.selectMetadata(key)
           _    <- appendAndSave(head).uncancelable
         } yield {}
       }
@@ -128,14 +128,14 @@ object ReplicatedCassandra {
                 seqNr = deleteTo,
                 deleteTo = Some(deleteTo))
               for {
-                _ <- statements.insertHead(key, timestamp, head, origin)
+                _ <- statements.insertMetadata(key, timestamp, head, origin)
               } yield head.segmentSize
             } { head =>
               val update =
                 if (head.seqNr >= deleteTo) {
                   statements.updateDeleteTo(key, partitionOffset, timestamp, deleteTo)
                 } else {
-                  statements.updateHead(key, partitionOffset, timestamp, deleteTo, deleteTo)
+                  statements.updateMetadata(key, partitionOffset, timestamp, deleteTo, deleteTo)
                 }
               for {
                 _ <- update
@@ -171,7 +171,7 @@ object ReplicatedCassandra {
         }
 
         for {
-          head   <- statements.selectHead(key)
+          head   <- statements.selectMetadata(key)
           result <- delete(head).uncancelable
         } yield result
       }
@@ -233,11 +233,11 @@ object ReplicatedCassandra {
   final case class Statements[F[_]](
     insertRecords   : JournalStatement.InsertRecords[F],
     deleteRecords   : JournalStatement.DeleteRecords[F],
-    insertHead      : HeadStatement.Insert[F],
-    selectHead      : HeadStatement.Select[F],
-    updateHead      : HeadStatement.Update[F],
-    updateSeqNr     : HeadStatement.UpdateSeqNr[F],
-    updateDeleteTo  : HeadStatement.UpdateDeleteTo[F],
+    insertMetadata  : MetadataStatement.Insert[F],
+    selectMetadata  : MetadataStatement.Select[F],
+    updateMetadata  : MetadataStatement.Update[F],
+    updateSeqNr     : MetadataStatement.UpdateSeqNr[F],
+    updateDeleteTo  : MetadataStatement.UpdateDeleteTo[F],
     selectPointer   : PointerStatement.Select[F],
     selectPointersIn: PointerStatement.SelectIn[F],
     selectPointers  : PointerStatement.SelectAll[F],
@@ -253,11 +253,11 @@ object ReplicatedCassandra {
       val statements = (
         JournalStatement.InsertRecords.of[F](schema.journal),
         JournalStatement.DeleteRecords.of[F](schema.journal),
-        HeadStatement.Insert.of[F](schema.head),
-        HeadStatement.Select.of[F](schema.head),
-        HeadStatement.Update.of[F](schema.head),
-        HeadStatement.UpdateSeqNr.of[F](schema.head),
-        HeadStatement.UpdateDeleteTo.of[F](schema.head),
+        MetadataStatement.Insert.of[F](schema.metadata),
+        MetadataStatement.Select.of[F](schema.metadata),
+        MetadataStatement.Update.of[F](schema.metadata),
+        MetadataStatement.UpdateSeqNr.of[F](schema.metadata),
+        MetadataStatement.UpdateDeleteTo.of[F](schema.metadata),
         PointerStatement.Select.of[F](schema.pointer),
         PointerStatement.SelectIn.of[F](schema.pointer),
         PointerStatement.SelectAll.of[F](schema.pointer),

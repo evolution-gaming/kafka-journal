@@ -11,7 +11,7 @@ import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
 
 
-object HeadStatement {
+object MetadataStatement {
 
   def createTable(name: TableName): String = {
     s"""

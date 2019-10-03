@@ -13,7 +13,7 @@ import scala.util.Try
 final case class SchemaConfig(
   keyspace: SchemaConfig.Keyspace = SchemaConfig.Keyspace.default,
   journalTable: String = "journal",
-  headTable: String = "metadata",
+  metadataTable: String = "metadata",
   pointerTable: String = "pointer",
   settingTable: String = "setting",
   locksTable: String = "locks",
@@ -50,7 +50,7 @@ object SchemaConfig {
     SchemaConfig(
       keyspace = get[Config]("keyspace").fold(default.keyspace)(Keyspace.apply1(_, default.keyspace)),
       journalTable = get[String]("journal-table") getOrElse default.journalTable,
-      headTable = get[String]("head-table") getOrElse default.headTable,
+      metadataTable = get[String]("metadata-table") getOrElse default.metadataTable,
       pointerTable = get[String]("pointer-table") getOrElse default.pointerTable,
       settingTable = get[String]("setting-table") getOrElse default.settingTable,
       locksTable = get[String]("locks-table") getOrElse default.locksTable,

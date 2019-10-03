@@ -66,7 +66,7 @@ object EventualCassandra {
 
       def read(key: Key, from: SeqNr): Stream[F, EventRecord] = {
 
-        def read(statement: JournalStatement.SelectRecords[F], head: Head) = {
+        def read(statement: JournalStatement.SelectRecords[F], metadata: Head) = {
 
           def read(from: SeqNr) = new Stream[F, EventRecord] {
 
@@ -82,7 +82,7 @@ object EventualCassandra {
                 }
               }
 
-              val segment = Segment.unsafe(from, head.segmentSize)
+              val segment = Segment.unsafe(from, metadata.segmentSize)
 
               (from, segment, l).tailRecM { case (from, segment, l) =>
                 val range = SeqRange(from, SeqNr.max) // TODO do we need range here ?
@@ -103,7 +103,7 @@ object EventualCassandra {
             }
           }
 
-          head.deleteTo match {
+          metadata.deleteTo match {
             case None           => read(from)
             case Some(deleteTo) =>
               if (from > deleteTo) read(from)
@@ -115,8 +115,8 @@ object EventualCassandra {
         }
 
         for {
-          head   <- Stream.lift(statements.head(key))
-          result <- head.fold(Stream.empty[F, EventRecord]) { head =>
+          metadata <- Stream.lift(statements.metadata(key))
+          result   <- metadata.fold(Stream.empty[F, EventRecord]) { head =>
             read(statements.records, head)
           }
         } yield result
@@ -124,11 +124,11 @@ object EventualCassandra {
 
       def pointer(key: Key) = {
         for {
-          head <- statements.head(key)
+          metadata <- statements.metadata(key)
         } yield for {
-          head <- head
+          metadata <- metadata
         } yield {
-          Pointer(head.partitionOffset, head.seqNr)
+          Pointer(metadata.partitionOffset, metadata.seqNr)
         }
       }
     }
@@ -137,7 +137,7 @@ object EventualCassandra {
 
   final case class Statements[F[_]](
     records: JournalStatement.SelectRecords[F],
-    head: HeadStatement.Select[F],
+    metadata: MetadataStatement.Select[F],
     pointers: PointerStatement.SelectAll[F])
 
   object Statements {
@@ -147,7 +147,7 @@ object EventualCassandra {
     def of[F[_] : Parallel : Monad : CassandraSession](schema: Schema): F[Statements[F]] = {
       val statements = (
         JournalStatement.SelectRecords.of[F](schema.journal),
-        HeadStatement.Select.of[F](schema.head),
+        MetadataStatement.Select.of[F](schema.metadata),
         PointerStatement.SelectAll.of[F](schema.pointer))
       statements.parMapN(Statements[F])
     }

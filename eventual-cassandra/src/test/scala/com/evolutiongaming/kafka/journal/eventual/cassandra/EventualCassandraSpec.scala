@@ -33,11 +33,11 @@ class EventualCassandraSpec extends EventualJournalSpec {
 
 object EventualCassandraSpec {
 
-  val selectHead: HeadStatement.Select[StateT] = {
+  val selectMetadata: MetadataStatement.Select[StateT] = {
     key: Key => {
       StateT { state =>
-        val head = state.heads.get(key)
-        (state, head)
+        val metadata = state.metadata.get(key)
+        (state, metadata)
       }
     }
   }
@@ -78,7 +78,7 @@ object EventualCassandraSpec {
 
     val statements = EventualCassandra.Statements(
       records = selectRecords,
-      head = selectHead,
+      metadata = selectMetadata,
       pointers = selectPointers)
 
     EventualCassandra[StateT](statements)
@@ -121,25 +121,25 @@ object EventualCassandraSpec {
       }
 
 
-      val insertHead: HeadStatement.Insert[StateT] = {
+      val insertMetadata: MetadataStatement.Insert[StateT] = {
         (key: Key, _: Instant, head: Head, _: Option[Origin]) => {
           StateT { state =>
-            val state1 = state.copy(heads = state.heads.updated(key, head))
+            val state1 = state.copy(metadata = state.metadata.updated(key, head))
             (state1, ())
           }
         }
       }
 
 
-      val updateHead: HeadStatement.Update[StateT] = {
+      val updateMetadata: MetadataStatement.Update[StateT] = {
         (key: Key, partitionOffset: PartitionOffset, _: Instant, seqNr: SeqNr, deleteTo: SeqNr) => {
           StateT { state =>
-            val heads = state.heads
+            val metadata = state.metadata
             val state1 = for {
-              head <- heads.get(key)
+              entry <- metadata.get(key)
             } yield {
-              val head1 = head.copy(partitionOffset = partitionOffset, seqNr = seqNr, deleteTo = Some(deleteTo))
-              state.copy(heads = heads.updated(key, head1))
+              val entry1 = entry.copy(partitionOffset = partitionOffset, seqNr = seqNr, deleteTo = Some(deleteTo))
+              state.copy(metadata = metadata.updated(key, entry1))
             }
 
             (state1 getOrElse state, ())
@@ -148,15 +148,15 @@ object EventualCassandraSpec {
       }
 
 
-      val updateSeqNr: HeadStatement.UpdateSeqNr[StateT] = {
+      val updateSeqNr: MetadataStatement.UpdateSeqNr[StateT] = {
         (key: Key, partitionOffset: PartitionOffset, _: Instant, seqNr: SeqNr) => {
           StateT { state =>
-            val heads = state.heads
+            val metadata = state.metadata
             val state1 = for {
-              head <- heads.get(key)
+              entry <- metadata.get(key)
             } yield {
-              val head1 = head.copy(partitionOffset = partitionOffset, seqNr = seqNr)
-              state.copy(heads = heads.updated(key, head1))
+              val entry1 = entry.copy(partitionOffset = partitionOffset, seqNr = seqNr)
+              state.copy(metadata = metadata.updated(key, entry1))
             }
             (state1 getOrElse state, ())
           }
@@ -164,15 +164,15 @@ object EventualCassandraSpec {
       }
 
 
-      val updateDeleteTo: HeadStatement.UpdateDeleteTo[StateT] = {
+      val updateDeleteTo: MetadataStatement.UpdateDeleteTo[StateT] = {
         (key: Key, partitionOffset: PartitionOffset, _: Instant, deleteTo: SeqNr) => {
           StateT { state =>
-            val heads = state.heads
+            val metadata = state.metadata
             val state1 = for {
-              head <- heads.get(key)
+              entry <- metadata.get(key)
             } yield {
-              val head1 = head.copy(partitionOffset = partitionOffset, deleteTo = Some(deleteTo))
-              state.copy(heads = heads.updated(key, head1))
+              val entry1 = entry.copy(partitionOffset = partitionOffset, deleteTo = Some(deleteTo))
+              state.copy(metadata = metadata.updated(key, entry1))
             }
 
             (state1 getOrElse state, ())
@@ -252,9 +252,9 @@ object EventualCassandraSpec {
       val statements = ReplicatedCassandra.Statements(
         insertRecords = insertRecords,
         deleteRecords = deleteRecords,
-        insertHead = insertHead,
-        selectHead = selectHead,
-        updateHead = updateHead,
+        insertMetadata = insertMetadata,
+        selectMetadata = selectMetadata,
+        updateMetadata = updateMetadata,
         updateSeqNr = updateSeqNr,
         updateDeleteTo = updateDeleteTo,
         selectPointer = selectPointer,
@@ -274,11 +274,11 @@ object EventualCassandraSpec {
 
   final case class State(
     journal: Map[(Key, SegmentNr), List[EventRecord]],
-    heads: Map[Key, Head],
+    metadata: Map[Key, Head],
     pointers: Map[Topic, TopicPointers])
 
   object State {
-    val empty: State = State(journal = Map.empty, heads = Map.empty, pointers = Map.empty)
+    val empty: State = State(journal = Map.empty, metadata = Map.empty, pointers = Map.empty)
   }
 
 
