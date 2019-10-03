@@ -44,7 +44,7 @@ object Payload {
 
     implicit val codecBinary: Codec[Binary] = bytes.as[Binary]
 
-    implicit val encodeByNameBinary: EncodeByName[Binary] = EncodeByName[Array[Byte]].imap(_.value.toArray)
+    implicit val encodeByNameBinary: EncodeByName[Binary] = EncodeByName[Array[Byte]].contramap(_.value.toArray)
 
     implicit val decodeByNameBinary: DecodeByName[Binary] = DecodeByName[Array[Byte]].map(a => Binary(ByteVector.view(a)))
   }
@@ -59,7 +59,7 @@ object Payload {
     implicit val codecText: Codec[Text] = utf8.as[Payload.Text]
     
 
-    implicit val encodeByNameText: EncodeByName[Text] = EncodeByName[String].imap(_.value)
+    implicit val encodeByNameText: EncodeByName[Text] = EncodeByName[String].contramap(_.value)
 
     implicit val decodeByNameText: DecodeByName[Text] = DecodeByName[String].map(Text(_))
 

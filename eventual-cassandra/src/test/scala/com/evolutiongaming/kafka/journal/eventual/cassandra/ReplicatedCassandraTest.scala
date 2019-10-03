@@ -11,7 +11,7 @@ import com.evolutiongaming.catshelper.NelHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.kafka.journal.util.BracketFromMonadError
-import com.evolutiongaming.kafka.journal.util.TimeHelper._
+import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json.Json

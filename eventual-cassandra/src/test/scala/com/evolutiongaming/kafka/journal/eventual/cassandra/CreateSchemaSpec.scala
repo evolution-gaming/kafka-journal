@@ -31,6 +31,7 @@ class CreateSchemaSpec extends FunSuite with Matchers { self =>
   private val schema = Schema(
     journal = TableName(keyspace = "journal", table = "journal"),
     metadata = TableName(keyspace = "journal", table = "metadata"),
+    head = TableName(keyspace = "journal", table = "head"),
     pointer = TableName(keyspace = "journal", table = "pointer"),
     setting = TableName(keyspace = "journal", table = "setting"))
 

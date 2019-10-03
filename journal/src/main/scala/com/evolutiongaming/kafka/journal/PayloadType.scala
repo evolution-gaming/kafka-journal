@@ -16,7 +16,7 @@ object PayloadType {
   private val byName = values.map(value => (value.name, value)).toMap
 
 
-  implicit val encodeByNamePayloadType: EncodeByName[PayloadType] = EncodeByName[String].imap { _.name }
+  implicit val encodeByNamePayloadType: EncodeByName[PayloadType] = EncodeByName[String].contramap { _.name }
 
   implicit val decodeByNamePayloadType: DecodeByName[PayloadType] = DecodeByName[String].map { name =>
     apply(name) getOrElse Binary

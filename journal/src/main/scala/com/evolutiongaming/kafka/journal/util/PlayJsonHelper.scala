@@ -13,9 +13,9 @@ object PlayJsonHelper {
   implicit val jsValueDecodeByName: DecodeByName[JsValue] = decodeByNameFromReads
 
 
-  implicit val jsValueOptEncodeByName: EncodeByName[Option[JsValue]] = EncodeByName.opt
+  implicit val jsValueOptEncodeByName: EncodeByName[Option[JsValue]] = EncodeByName.optEncodeByName
 
-  implicit val jsValueOptDecodeByName: DecodeByName[Option[JsValue]] = DecodeByName.opt
+  implicit val jsValueOptDecodeByName: DecodeByName[Option[JsValue]] = DecodeByName.optDecodeByName
 
 
   implicit val jsErrorFromStr: FromStr[JsError] = JsError(_)
@@ -72,7 +72,7 @@ object PlayJsonHelper {
   }
 
 
-  def encodeByNameFromWrites[A](implicit writes: Writes[A]): EncodeByName[A] = EncodeByName[String].imap { a =>
+  def encodeByNameFromWrites[A](implicit writes: Writes[A]): EncodeByName[A] = EncodeByName[String].contramap { a =>
     val jsValue = writes.writes(a)
     Json.stringify(jsValue)
   }

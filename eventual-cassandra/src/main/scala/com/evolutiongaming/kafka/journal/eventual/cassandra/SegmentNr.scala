@@ -26,7 +26,7 @@ object SegmentNr {
   implicit val showSeqNr: Show[SegmentNr] = Show.fromToString
 
 
-  implicit val encodeByNameSegmentNr: EncodeByName[SegmentNr] = EncodeByName[Long].imap(_.value)
+  implicit val encodeByNameSegmentNr: EncodeByName[SegmentNr] = EncodeByName[Long].contramap(_.value)
 
   implicit val decodeByNameSegmentNr: DecodeByName[SegmentNr] = DecodeByName[Long].map(SegmentNr.unsafe(_))
 

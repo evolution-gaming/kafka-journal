@@ -15,6 +15,11 @@ trait CassandraSync[F[_]] {
 
 object CassandraSync {
 
+  def empty[F[_]]: CassandraSync[F] = new CassandraSync[F] {
+    def apply[A](fa: F[A]) = fa
+  }
+
+
   def apply[F[_]](implicit F: CassandraSync[F]): CassandraSync[F] = F
 
 

@@ -8,7 +8,7 @@ import play.api.libs.json._
 
 final case class Origin(value: String) extends AnyVal {
 
-  override def toString = value
+  override def toString: String = value
 }
 
 object Origin {
@@ -21,14 +21,14 @@ object Origin {
   implicit val readsOrigin: Reads[Origin] = Reads.of[String].map(Origin(_))
 
 
-  implicit val encodeByNameOrigin: EncodeByName[Origin] = EncodeByName[String].imap((b: Origin) => b.value)
+  implicit val encodeByNameOrigin: EncodeByName[Origin] = EncodeByName[String].contramap((b: Origin) => b.value)
 
   implicit val decodeByNameOrigin: DecodeByName[Origin] = DecodeByName[String].map(value => Origin(value))
 
 
-  implicit val encodeByNameOptOrigin: EncodeByName[Option[Origin]] = EncodeByName.opt[Origin]
+  implicit val encodeByNameOptOrigin: EncodeByName[Option[Origin]] = EncodeByName.optEncodeByName
 
-  implicit val decodeByNameOptOrigin: DecodeByName[Option[Origin]] = DecodeByName.opt[Origin]
+  implicit val decodeByNameOptOrigin: DecodeByName[Option[Origin]] = DecodeByName.optDecodeByName
 
 
   implicit val encodeRowOrigin: EncodeRow[Origin] = EncodeRow("origin")
