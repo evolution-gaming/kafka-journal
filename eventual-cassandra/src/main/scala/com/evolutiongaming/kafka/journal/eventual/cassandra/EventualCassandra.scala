@@ -116,9 +116,7 @@ object EventualCassandra {
 
         for {
           metadata <- Stream.lift(statements.metadata(key))
-          result   <- metadata.fold(Stream.empty[F, EventRecord]) { head =>
-            read(statements.records, head)
-          }
+          result   <- metadata.fold(Stream.empty[F, EventRecord]) { head => read(statements.records, head) }
         } yield result
       }
 
