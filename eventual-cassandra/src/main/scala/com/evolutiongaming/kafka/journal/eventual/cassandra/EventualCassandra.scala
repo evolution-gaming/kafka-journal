@@ -66,7 +66,7 @@ object EventualCassandra {
 
       def read(key: Key, from: SeqNr): Stream[F, EventRecord] = {
 
-        def read(statement: JournalStatement.SelectRecords[F], metadata: Head) = {
+        def read(statement: JournalStatements.SelectRecords[F], metadata: Head) = {
 
           def read(from: SeqNr) = new Stream[F, EventRecord] {
 
@@ -134,9 +134,9 @@ object EventualCassandra {
 
 
   final case class Statements[F[_]](
-    records: JournalStatement.SelectRecords[F],
-    metadata: MetadataStatement.Select[F],
-    pointers: PointerStatement.SelectAll[F])
+    records: JournalStatements.SelectRecords[F],
+    metadata: MetadataStatements.Select[F],
+    pointers: PointerStatements.SelectAll[F])
 
   object Statements {
 
@@ -144,9 +144,9 @@ object EventualCassandra {
 
     def of[F[_] : Parallel : Monad : CassandraSession](schema: Schema): F[Statements[F]] = {
       val statements = (
-        JournalStatement.SelectRecords.of[F](schema.journal),
-        MetadataStatement.Select.of[F](schema.metadata),
-        PointerStatement.SelectAll.of[F](schema.pointer))
+        JournalStatements.SelectRecords.of[F](schema.journal),
+        MetadataStatements.Select.of[F](schema.metadata),
+        PointerStatements.SelectAll.of[F](schema.pointer))
       statements.parMapN(Statements[F])
     }
   }

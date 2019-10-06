@@ -250,7 +250,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
 
 object ReplicatedCassandraTest {
 
-  val insertRecords: JournalStatement.InsertRecords[StateT] = {
+  val insertRecords: JournalStatements.InsertRecords[StateT] = {
     (key: Key, segment: SegmentNr, events: Nel[EventRecord]) => {
       StateT.unit { state =>
         val k = (key, segment)
@@ -269,7 +269,7 @@ object ReplicatedCassandraTest {
   }
 
 
-  val deleteRecords: JournalStatement.DeleteRecords[StateT] = {
+  val deleteRecords: JournalStatements.DeleteRecords[StateT] = {
     (key: Key, segment: SegmentNr, seqNr: SeqNr) => {
       StateT.unit { state =>
         val k = (key, segment)
@@ -284,7 +284,7 @@ object ReplicatedCassandraTest {
   }
 
 
-  val insertMetadata: MetadataStatement.Insert[StateT] = {
+  val insertMetadata: MetadataStatements.Insert[StateT] = {
     (key: Key, timestamp: Instant, head: Head, origin: Option[Origin]) => {
       StateT.unit { state =>
         val entry = MetadataEntry(
@@ -305,7 +305,7 @@ object ReplicatedCassandraTest {
   }
 
 
-  val selectMetadata: MetadataStatement.Select[StateT] = {
+  val selectMetadata: MetadataStatements.Select[StateT] = {
     key: Key => {
       StateT.success { state =>
         val head = for {
@@ -324,7 +324,7 @@ object ReplicatedCassandraTest {
   }
 
 
-  val updateMetadata: MetadataStatement.Update[StateT] = {
+  val updateMetadata: MetadataStatements.Update[StateT] = {
     (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: SeqNr) => {
       StateT.unit { state =>
         state.updateMetadata(key) { entry =>
@@ -339,7 +339,7 @@ object ReplicatedCassandraTest {
   }
 
 
-  val updateMetadataSeqNr: MetadataStatement.UpdateSeqNr[StateT] = {
+  val updateMetadataSeqNr: MetadataStatements.UpdateSeqNr[StateT] = {
     (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr) => {
       StateT.unit { state =>
         state.updateMetadata(key) { entry =>
@@ -353,7 +353,7 @@ object ReplicatedCassandraTest {
   }
 
 
-  val updateHeadDeleteTo: MetadataStatement.UpdateDeleteTo[StateT] = {
+  val updateHeadDeleteTo: MetadataStatements.UpdateDeleteTo[StateT] = {
     (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr) => {
       StateT.unit { state =>
         state.updateMetadata(key) { entry =>
@@ -367,7 +367,7 @@ object ReplicatedCassandraTest {
   }
 
 
-  val selectPointer: PointerStatement.Select[StateT] = {
+  val selectPointer: PointerStatements.Select[StateT] = {
     (topic: Topic, partition: Partition) => {
       StateT.success { state =>
         val offset = for {
@@ -382,7 +382,7 @@ object ReplicatedCassandraTest {
   }
 
 
-  val selectPointersIn: PointerStatement.SelectIn[StateT] = {
+  val selectPointersIn: PointerStatements.SelectIn[StateT] = {
     (topic: Topic, partitions: Nel[Partition]) => {
       StateT.success { state =>
         val pointers = state
@@ -400,7 +400,7 @@ object ReplicatedCassandraTest {
   }
 
 
-  val selectPointers: PointerStatement.SelectAll[StateT] = {
+  val selectPointers: PointerStatements.SelectAll[StateT] = {
     topic: Topic => {
       StateT.success { state =>
         val offsets = state
@@ -413,7 +413,7 @@ object ReplicatedCassandraTest {
   }
 
 
-  val insertPointer: PointerStatement.Insert[StateT] = {
+  val insertPointer: PointerStatements.Insert[StateT] = {
     (topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant) => {
       StateT.unit { state =>
         val entry = PointerEntry(
@@ -430,7 +430,7 @@ object ReplicatedCassandraTest {
   }
 
 
-  val updatePointer: PointerStatement.Update[StateT] = {
+  val updatePointer: PointerStatements.Update[StateT] = {
     (topic: Topic, partition: Partition, offset: Offset, timestamp: Instant) => {
       StateT.unit { state =>
         state.updatePointer(topic, partition) { entry =>
@@ -443,7 +443,7 @@ object ReplicatedCassandraTest {
   }
 
 
-  val selectTopics: PointerStatement.SelectTopics[StateT] = {
+  val selectTopics: PointerStatements.SelectTopics[StateT] = {
     () => {
       StateT.success { state =>
         val topics = state.pointers.keys.toList

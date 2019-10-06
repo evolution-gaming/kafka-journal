@@ -13,7 +13,7 @@ import com.evolutiongaming.scassandra.syntax._
 
 
 // TODO add select by topic,LocalDate
-object HeadStatement {
+object HeadStatements {
 
   def createTable(name: TableName): String = {
     s"""

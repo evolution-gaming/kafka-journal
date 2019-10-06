@@ -94,14 +94,14 @@ class SettingsCassandraSpec extends FunSuite with Matchers {
 
   private val settings = {
 
-    val select = new SettingStatement.Select[StateT] {
+    val select = new SettingStatements.Select[StateT] {
       def apply(key: Key) = StateT { state =>
         val setting = state.settings.get(key)
         (state, setting)
       }
     }
 
-    val insert = new SettingStatement.Insert[StateT] {
+    val insert = new SettingStatements.Insert[StateT] {
       def apply(setting: Setting) = {
         StateT { state =>
           val state1 = state.copy(settings = state.settings.updated(setting.key, setting))
@@ -110,7 +110,7 @@ class SettingsCassandraSpec extends FunSuite with Matchers {
       }
     }
 
-    val insertIfEmpty = new SettingStatement.InsertIfEmpty[StateT] {
+    val insertIfEmpty = new SettingStatements.InsertIfEmpty[StateT] {
       def apply(setting: Setting) = {
         StateT { state =>
           state.settings.get(setting.key).fold {
@@ -131,7 +131,7 @@ class SettingsCassandraSpec extends FunSuite with Matchers {
       Stream.lift(stateT).flatten
     }
 
-    val delete = new SettingStatement.Delete[StateT] {
+    val delete = new SettingStatements.Delete[StateT] {
       def apply(key: Key) = {
         StateT { state =>
           val state1 = state.copy(settings = state.settings - key)

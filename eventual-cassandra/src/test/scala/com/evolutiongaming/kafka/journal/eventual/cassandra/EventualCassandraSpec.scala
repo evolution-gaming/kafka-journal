@@ -33,7 +33,7 @@ class EventualCassandraSpec extends EventualJournalSpec {
 
 object EventualCassandraSpec {
 
-  val selectMetadata: MetadataStatement.Select[StateT] = {
+  val selectMetadata: MetadataStatements.Select[StateT] = {
     key: Key => {
       StateT { state =>
         val metadata = state.metadata.get(key)
@@ -43,7 +43,7 @@ object EventualCassandraSpec {
   }
 
 
-  val selectPointers: PointerStatement.SelectAll[StateT] = {
+  val selectPointers: PointerStatements.SelectAll[StateT] = {
     topic: Topic => {
       StateT { state =>
         val pointer = state.pointers.getOrElse(topic, TopicPointers.empty)
@@ -58,7 +58,7 @@ object EventualCassandraSpec {
 
   implicit val eventualJournal: EventualJournal[StateT] = {
 
-    val selectRecords = new JournalStatement.SelectRecords[StateT] {
+    val selectRecords = new JournalStatements.SelectRecords[StateT] {
 
       def apply(key: Key, segment: SegmentNr, range: SeqRange) = new Stream[StateT, EventRecord] {
 
@@ -89,7 +89,7 @@ object EventualCassandraSpec {
 
     val replicatedJournal = {
 
-      val insertRecords: JournalStatement.InsertRecords[StateT] = {
+      val insertRecords: JournalStatements.InsertRecords[StateT] = {
         (key: Key, segment: SegmentNr, records: Nel[EventRecord]) => {
           StateT { state =>
             val journal = state.journal
@@ -102,7 +102,7 @@ object EventualCassandraSpec {
       }
 
 
-      val deleteRecords: JournalStatement.DeleteRecords[StateT] = {
+      val deleteRecords: JournalStatements.DeleteRecords[StateT] = {
         (key: Key, segment: SegmentNr, seqNr: SeqNr) => {
           StateT { state =>
             val state1 = {
@@ -121,7 +121,7 @@ object EventualCassandraSpec {
       }
 
 
-      val insertMetadata: MetadataStatement.Insert[StateT] = {
+      val insertMetadata: MetadataStatements.Insert[StateT] = {
         (key: Key, _: Instant, head: Head, _: Option[Origin]) => {
           StateT { state =>
             val state1 = state.copy(metadata = state.metadata.updated(key, head))
@@ -131,7 +131,7 @@ object EventualCassandraSpec {
       }
 
 
-      val updateMetadata: MetadataStatement.Update[StateT] = {
+      val updateMetadata: MetadataStatements.Update[StateT] = {
         (key: Key, partitionOffset: PartitionOffset, _: Instant, seqNr: SeqNr, deleteTo: SeqNr) => {
           StateT { state =>
             val metadata = state.metadata
@@ -148,7 +148,7 @@ object EventualCassandraSpec {
       }
 
 
-      val updateSeqNr: MetadataStatement.UpdateSeqNr[StateT] = {
+      val updateSeqNr: MetadataStatements.UpdateSeqNr[StateT] = {
         (key: Key, partitionOffset: PartitionOffset, _: Instant, seqNr: SeqNr) => {
           StateT { state =>
             val metadata = state.metadata
@@ -164,7 +164,7 @@ object EventualCassandraSpec {
       }
 
 
-      val updateDeleteTo: MetadataStatement.UpdateDeleteTo[StateT] = {
+      val updateDeleteTo: MetadataStatements.UpdateDeleteTo[StateT] = {
         (key: Key, partitionOffset: PartitionOffset, _: Instant, deleteTo: SeqNr) => {
           StateT { state =>
             val metadata = state.metadata
@@ -181,7 +181,7 @@ object EventualCassandraSpec {
       }
 
 
-      val insertPointer: PointerStatement.Insert[StateT] = {
+      val insertPointer: PointerStatements.Insert[StateT] = {
         (topic: Topic, partition: Partition, offset: Offset, _: Instant, _: Instant) => {
           StateT { state =>
             val pointers = state.pointers
@@ -194,7 +194,7 @@ object EventualCassandraSpec {
       }
 
 
-      val updatePointer: PointerStatement.Update[StateT] = {
+      val updatePointer: PointerStatements.Update[StateT] = {
         (topic: Topic, partition: Partition, offset: Offset, _: Instant) => {
           StateT { state =>
             val pointers = state.pointers
@@ -207,7 +207,7 @@ object EventualCassandraSpec {
       }
 
 
-      val selectPointer: PointerStatement.Select[StateT] = {
+      val selectPointer: PointerStatements.Select[StateT] = {
         (topic: Topic, partition: Partition) => {
           StateT { state =>
             val offset = state
@@ -221,7 +221,7 @@ object EventualCassandraSpec {
       }
 
 
-      val selectPointersIn: PointerStatement.SelectIn[StateT] = {
+      val selectPointersIn: PointerStatements.SelectIn[StateT] = {
         (topic: Topic, partitions: Nel[Partition]) => {
           StateT { state =>
             val pointers = state
@@ -241,7 +241,7 @@ object EventualCassandraSpec {
       }
 
 
-      val selectTopics: PointerStatement.SelectTopics[StateT] = {
+      val selectTopics: PointerStatements.SelectTopics[StateT] = {
         () => {
           StateT { state =>
             (state, state.pointers.keys.toList)

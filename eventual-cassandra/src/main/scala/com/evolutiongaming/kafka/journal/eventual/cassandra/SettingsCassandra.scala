@@ -66,20 +66,20 @@ object SettingsCassandra {
 
 
   final case class Statements[F[_]](
-    select: SettingStatement.Select[F],
-    insert: SettingStatement.Insert[F],
-    insertIfEmpty: SettingStatement.InsertIfEmpty[F],
-    all: SettingStatement.All[F],
-    delete: SettingStatement.Delete[F])
+    select: SettingStatements.Select[F],
+    insert: SettingStatements.Insert[F],
+    insertIfEmpty: SettingStatements.InsertIfEmpty[F],
+    all: SettingStatements.All[F],
+    delete: SettingStatements.Delete[F])
 
   object Statements {
     def of[F[_] : Monad : Parallel : CassandraSession](table: TableName): F[Statements[F]] = {
       val statements = (
-        SettingStatement.Select.of[F](table),
-        SettingStatement.Insert.of[F](table),
-        SettingStatement.InsertIfEmpty.of[F](table),
-        SettingStatement.All.of[F](table),
-        SettingStatement.Delete.of[F](table))
+        SettingStatements.Select.of[F](table),
+        SettingStatements.Insert.of[F](table),
+        SettingStatements.InsertIfEmpty.of[F](table),
+        SettingStatements.All.of[F](table),
+        SettingStatements.Delete.of[F](table))
       statements.parMapN(Statements[F])
     }
   }

@@ -15,7 +15,7 @@ import com.evolutiongaming.sstream.Stream
 import play.api.libs.json.Json
 
 
-object JournalStatement {
+object JournalStatements {
 
   def createTable(name: TableName): String = {
     s"""

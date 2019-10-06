@@ -19,7 +19,7 @@ object SetupSchema { self =>
   ): F[Unit] = {
 
     def addHeaders(table: TableName)(implicit cassandraSync: CassandraSync[F]) = {
-      val query = JournalStatement.addHeaders(table)
+      val query = JournalStatements.addHeaders(table)
       val fa = query.execute.first.redeem[Unit, Throwable](_ => (), _ => ())
       cassandraSync { fa }
     }

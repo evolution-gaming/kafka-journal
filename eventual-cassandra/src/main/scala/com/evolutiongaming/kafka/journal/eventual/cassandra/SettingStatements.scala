@@ -12,7 +12,7 @@ import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow, TableName}
 import com.evolutiongaming.sstream.Stream
 
-object SettingStatement {
+object SettingStatements {
 
   implicit val encodeRowSetting: EncodeRow[Setting] = new EncodeRow[Setting] {
 

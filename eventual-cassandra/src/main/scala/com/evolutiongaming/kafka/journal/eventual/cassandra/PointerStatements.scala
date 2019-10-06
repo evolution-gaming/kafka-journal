@@ -11,7 +11,7 @@ import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 
-object PointerStatement {
+object PointerStatements {
 
   def createTable(name: TableName): String = {
     s"""

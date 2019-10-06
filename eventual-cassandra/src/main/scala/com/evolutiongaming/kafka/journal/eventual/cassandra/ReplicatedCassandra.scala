@@ -134,27 +134,23 @@ object ReplicatedCassandra {
 
         def delete(head: Option[Head]) = {
 
-          def saveHead = {
-            head.fold {
-              val head = Head(
-                partitionOffset = partitionOffset,
-                segmentSize = segmentSize,
-                seqNr = deleteTo,
-                deleteTo = Some(deleteTo))
-              for {
-                _ <- statements.insertMetadata(key, timestamp, head, origin)
-              } yield head.segmentSize
-            } { head =>
-              val update =
-                if (head.seqNr >= deleteTo) {
-                  statements.updateDeleteTo(key, partitionOffset, timestamp, deleteTo)
-                } else {
-                  statements.updateMetadata(key, partitionOffset, timestamp, deleteTo, deleteTo)
-                }
-              for {
-                _ <- update
-              } yield head.segmentSize
-            }
+          def insert = {
+            val head = Head(
+              partitionOffset = partitionOffset,
+              segmentSize = segmentSize,
+              seqNr = deleteTo,
+              deleteTo = Some(deleteTo))
+            statements.insertMetadata(key, timestamp, head, origin) as head.segmentSize
+          }
+
+          def update(head: Head) = {
+            val update =
+              if (head.seqNr >= deleteTo) {
+                statements.updateDeleteTo(key, partitionOffset, timestamp, deleteTo)
+              } else {
+                statements.updateMetadata(key, partitionOffset, timestamp, deleteTo, deleteTo)
+              }
+            update as head.segmentSize
           }
 
           def delete(segmentSize: SegmentSize)(head: Head) = {
@@ -179,7 +175,7 @@ object ReplicatedCassandra {
           }
 
           for {
-            segmentSize <- saveHead
+            segmentSize <- head.fold(insert)(update)
             _           <- head.foldMap[F[Unit]](delete(segmentSize))
           } yield {}
         }
@@ -245,19 +241,19 @@ object ReplicatedCassandra {
 
 
   final case class Statements[F[_]](
-    insertRecords   : JournalStatement.InsertRecords[F],
-    deleteRecords   : JournalStatement.DeleteRecords[F],
-    insertMetadata  : MetadataStatement.Insert[F],
-    selectMetadata  : MetadataStatement.Select[F],
-    updateMetadata  : MetadataStatement.Update[F],
-    updateSeqNr     : MetadataStatement.UpdateSeqNr[F],
-    updateDeleteTo  : MetadataStatement.UpdateDeleteTo[F],
-    selectPointer   : PointerStatement.Select[F],
-    selectPointersIn: PointerStatement.SelectIn[F],
-    selectPointers  : PointerStatement.SelectAll[F],
-    insertPointer   : PointerStatement.Insert[F],
-    updatePointer   : PointerStatement.Update[F],
-    selectTopics    : PointerStatement.SelectTopics[F])
+    insertRecords   : JournalStatements.InsertRecords[F],
+    deleteRecords   : JournalStatements.DeleteRecords[F],
+    insertMetadata  : MetadataStatements.Insert[F],
+    selectMetadata  : MetadataStatements.Select[F],
+    updateMetadata  : MetadataStatements.Update[F],
+    updateSeqNr     : MetadataStatements.UpdateSeqNr[F],
+    updateDeleteTo  : MetadataStatements.UpdateDeleteTo[F],
+    selectPointer   : PointerStatements.Select[F],
+    selectPointersIn: PointerStatements.SelectIn[F],
+    selectPointers  : PointerStatements.SelectAll[F],
+    insertPointer   : PointerStatements.Insert[F],
+    updatePointer   : PointerStatements.Update[F],
+    selectTopics    : PointerStatements.SelectTopics[F])
 
   object Statements {
 
@@ -265,19 +261,19 @@ object ReplicatedCassandra {
 
     def of[F[_] : Monad : Parallel : CassandraSession](schema: Schema): F[Statements[F]] = {
       val statements = (
-        JournalStatement.InsertRecords.of[F](schema.journal),
-        JournalStatement.DeleteRecords.of[F](schema.journal),
-        MetadataStatement.Insert.of[F](schema.metadata),
-        MetadataStatement.Select.of[F](schema.metadata),
-        MetadataStatement.Update.of[F](schema.metadata),
-        MetadataStatement.UpdateSeqNr.of[F](schema.metadata),
-        MetadataStatement.UpdateDeleteTo.of[F](schema.metadata),
-        PointerStatement.Select.of[F](schema.pointer),
-        PointerStatement.SelectIn.of[F](schema.pointer),
-        PointerStatement.SelectAll.of[F](schema.pointer),
-        PointerStatement.Insert.of[F](schema.pointer),
-        PointerStatement.Update.of[F](schema.pointer),
-        PointerStatement.SelectTopics.of[F](schema.pointer))
+        JournalStatements.InsertRecords.of[F](schema.journal),
+        JournalStatements.DeleteRecords.of[F](schema.journal),
+        MetadataStatements.Insert.of[F](schema.metadata),
+        MetadataStatements.Select.of[F](schema.metadata),
+        MetadataStatements.Update.of[F](schema.metadata),
+        MetadataStatements.UpdateSeqNr.of[F](schema.metadata),
+        MetadataStatements.UpdateDeleteTo.of[F](schema.metadata),
+        PointerStatements.Select.of[F](schema.pointer),
+        PointerStatements.SelectIn.of[F](schema.pointer),
+        PointerStatements.SelectAll.of[F](schema.pointer),
+        PointerStatements.Insert.of[F](schema.pointer),
+        PointerStatements.Update.of[F](schema.pointer),
+        PointerStatements.SelectTopics.of[F](schema.pointer))
       statements.parMapN(Statements[F])
     }
   }

@@ -39,15 +39,15 @@ object CreateSchema {
         CreateTables.Table(name = name, query = query(tableName))
       }
 
-      val journal = table(config.journalTable, JournalStatement.createTable)
+      val journal = table(config.journalTable, JournalStatements.createTable)
 
-      val metadata = table(config.metadataTable, MetadataStatement.createTable)
+      val metadata = table(config.metadataTable, MetadataStatements.createTable)
 
-      val head = table(config.headTable, HeadStatement.createTable)
+      val head = table(config.headTable, HeadStatements.createTable)
 
-      val pointer = table(config.pointerTable, PointerStatement.createTable)
+      val pointer = table(config.pointerTable, PointerStatements.createTable)
 
-      val setting = table(config.settingTable, SettingStatement.createTable)
+      val setting = table(config.settingTable, SettingStatements.createTable)
 
       val schema = Schema(
         journal = tableName(journal),
