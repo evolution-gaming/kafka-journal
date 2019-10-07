@@ -5,6 +5,7 @@
       "to": 5
     },
     "payloadType": "json",
+    "expireAfter": "1 day",
     "metadata": {}
   }
 }

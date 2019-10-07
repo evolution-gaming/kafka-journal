@@ -10,6 +10,7 @@ lazy val commonSettings = Seq(
   scalaVersion := crossScalaVersions.value.head,
   crossScalaVersions := Seq(/*"2.13.0", */"2.12.10"),
   scalacOptions in(Compile, doc) ++= Seq("-groups", "-implicits", "-no-link-warnings"),
+  scalacOptsFailOnWarn := Some(false),
   resolvers += Resolver.bintrayRepo("evolutiongaming", "maven"),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   releaseCrossBuild := true,

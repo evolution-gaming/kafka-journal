@@ -150,7 +150,12 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
     def append(key: Key, events: Nel[Event]) = {
       for {
-        partitionOffset <- journal.append(key, events, metadata.data, headers)
+        partitionOffset <- journal.append(
+          key = key,
+          events = events,
+          expireAfter = none, // TODO expireAfter
+          metadata = metadata.data,
+          headers = headers)
       } yield for {
         event <- events
       } yield {
@@ -172,7 +177,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       seqNr <- List(1, 2, 10)
     } {
 
-      s"replicate events and then delete, seqNr: $seqNr" in {
+      s"replicate events and there after delete, seqNr: $seqNr" in {
 
         val result = for {
           key             <- Key.random[IO](topic)
@@ -204,6 +209,10 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
         }
 
         result.run(5.minutes)
+      }
+
+      s"replicate events and there after expire, seqNr: $seqNr" ignore {
+        ().pure[IO].run() // TODO expireAfter: implement
       }
 
       val numberOfEvents = 100

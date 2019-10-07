@@ -8,6 +8,8 @@ import cats.implicits._
 import com.evolutiongaming.kafka.journal.conversions.EventsToPayload
 import scodec.bits.ByteVector
 
+import scala.concurrent.duration.FiniteDuration
+
 sealed abstract class Action extends Product {
 
   def key: Key
@@ -73,16 +75,27 @@ object Action {
       timestamp: Instant,
       origin: Option[Origin],
       events: Nel[Event],
+      expireAfter: Option[FiniteDuration],
       metadata: Metadata,
-      headers: Headers,
+      headers: Headers)(implicit
       eventsToPayload: EventsToPayload[F]
     ): F[Append] = {
       for {
         payloadAndType <- eventsToPayload(events)
       } yield {
         val range = SeqRange(from = events.head.seqNr, to = events.last.seqNr)
-        val header = ActionHeader.Append(range, origin, payloadAndType.payloadType, metadata)
-        Action.Append(key, timestamp, header, payloadAndType.payload, headers)
+        val header = ActionHeader.Append(
+          range = range,
+          origin = origin,
+          payloadType = payloadAndType.payloadType,
+          metadata = metadata,
+          expireAfter = expireAfter)
+        Action.Append(
+          key = key,
+          timestamp = timestamp,
+          header = header,
+          payload = payloadAndType.payload,
+          headers = headers)
       }
     }
   }

@@ -12,6 +12,7 @@ import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json.Json
 import scodec.bits.ByteVector
 
+import scala.concurrent.duration._
 import scala.util.Try
 
 class ActionToProducerRecordSpec extends FunSuite with Matchers {
@@ -76,14 +77,22 @@ class ActionToProducerRecordSpec extends FunSuite with Matchers {
   private val consumerRecordToActionRecord = ConsumerRecordToActionRecord[Try]
 
   private val appends = {
-    val eventsToPayload = EventsToPayload[Try]
+    implicit val eventsToPayload = EventsToPayload[Try]
     for {
-      origin   <- origins
-      metadata <- metadata
-      events   <- events
-      headers  <- headers
+      origin      <- origins
+      metadata    <- metadata
+      events      <- events
+      headers     <- headers
+      expireAfter <- List(1.day.some, none)
     } yield {
-      Action.Append.of[Try](key1, timestamp, origin, events, metadata, headers, eventsToPayload).get
+      Action.Append.of[Try](
+        key = key1,
+        timestamp = timestamp,
+        origin = origin,
+        events = events,
+        expireAfter = expireAfter,
+        metadata = metadata,
+        headers = headers).get
     }
   }
 

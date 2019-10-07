@@ -5,6 +5,7 @@
       "to": 5
     },
     "payloadType": "binary",
+    "expireAfter": "1 day",
     "metadata": {}
   }
 }

@@ -1,9 +1,13 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.Applicative
+import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
 import play.api.libs.json._
 
+import scala.concurrent.duration.FiniteDuration
+
 sealed abstract class ActionHeader extends Product {
+  
   def origin: Option[Origin]
 }
 
@@ -22,13 +26,15 @@ object ActionHeader {
             range       <- (json \ "range").validate[SeqRange]
             origin      <- (json \ "origin").validateOpt[Origin]
             payloadType <- (json \ "payloadType").validate[PayloadType.BinaryOrJson]
+            expireAfter <- (json \ "expireAfter").validateOpt[FiniteDuration]
             metadata    <- (json \ "metadata").validateOpt[Metadata]
           } yield {
             Append(
-              range,
-              origin,
-              payloadType,
-              metadata getOrElse Metadata.empty)
+              range = range,
+              origin = origin,
+              payloadType = payloadType,
+              metadata = metadata getOrElse Metadata.empty,
+              expireAfter = expireAfter)
           }
         }
       }
@@ -77,7 +83,8 @@ object ActionHeader {
     range: SeqRange,
     origin: Option[Origin],
     payloadType: PayloadType.BinaryOrJson,
-    metadata: Metadata
+    expireAfter: Option[FiniteDuration], // TODO expireAfter: change order in other places, add to logging
+    metadata: Metadata,
   ) extends AppendOrDelete
 
 

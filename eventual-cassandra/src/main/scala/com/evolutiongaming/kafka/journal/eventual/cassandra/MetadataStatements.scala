@@ -16,18 +16,18 @@ object MetadataStatements {
   def createTable(name: TableName): String = {
     s"""
        |CREATE TABLE IF NOT EXISTS ${ name.toCql } (
-       |id text,
-       |topic text,
-       |partition int,
-       |offset bigint,
-       |segment_size int,
-       |seq_nr bigint,
-       |delete_to bigint,
-       |created timestamp,
-       |updated timestamp,
-       |origin text,
-       |properties map<text,text>,
-       |metadata text,
+       |id TEXT,
+       |topic TEXT,
+       |partition INT,
+       |offset BIGINT,
+       |segment_size INT,
+       |seq_nr BIGINT,
+       |delete_to BIGINT,
+       |created TIMESTAMP,
+       |updated TIMESTAMP,
+       |origin TEXT,
+       |properties MAP<TEXT,TEXT>,
+       |metadata TEXT,
        |PRIMARY KEY ((topic), id))
        |""".stripMargin
   }

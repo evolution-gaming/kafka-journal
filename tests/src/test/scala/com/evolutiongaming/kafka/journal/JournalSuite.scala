@@ -85,7 +85,12 @@ object JournalSuite {
     ): KeyJournal[F] = new KeyJournal[F] {
 
       def append(events: Nel[Event], metadata: Option[JsValue], headers: Headers) = {
-        journal.append(key, events, metadata, headers)
+        journal.append(
+          key = key,
+          events = events,
+          expireAfter = none, // TODO expireAfter:
+          metadata = metadata,
+          headers = headers)
       }
 
       def read = {

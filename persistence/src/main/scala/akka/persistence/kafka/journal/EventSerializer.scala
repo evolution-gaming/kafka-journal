@@ -76,14 +76,14 @@ object EventSerializer {
 
         val payload = anyRef match {
           case payload: JsValue => json(payload).pure[F]
-          case payload: String  => json(JsString(payload), Some(PayloadType.Text)).pure[F]
+          case payload: String  => json(JsString(payload), PayloadType.Text.some).pure[F]
           case payload          => binary(payload)
         }
         for {
           payload <- payload
           seqNr   <- SeqNr.of[F](persistentRepr.sequenceNr)(applicativeString)
         } yield {
-          Event(seqNr, tags, Some(payload))
+          Event(seqNr, tags, payload.some)
         }
       }
 

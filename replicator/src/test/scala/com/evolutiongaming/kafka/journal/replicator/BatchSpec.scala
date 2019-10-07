@@ -299,7 +299,7 @@ class BatchSpec extends FunSuite with Matchers {
     A.Mark(offset = offset)
   }
 
-  def seqNrOf(value: Int) = SeqNr.unsafe(value)
+  def seqNrOf(value: Int): SeqNr = SeqNr.unsafe(value)
 
   def originOf(origin: String): Option[Origin] = {
     if (origin.isEmpty) None else Some(Origin(origin))
@@ -313,7 +313,8 @@ class BatchSpec extends FunSuite with Matchers {
         range = SeqRange(seqNrOf(seqNrs.head), seqNrOf(seqNrs.last)),
         payloadType = PayloadType.Binary,
         origin = None,
-        metadata = Metadata.empty),
+        metadata = Metadata.empty,
+        expireAfter = None),
       payload = ByteVector.empty,
       headers = Headers.empty)
   }
@@ -353,7 +354,7 @@ object BatchSpec {
   object A {
 
     final case class Append(offset: Int, seqNr: Int, seqNrs: List[Int]) extends A {
-      override def toString = {
+      override def toString: String = {
         val range = seqNrs.lastOption.fold(seqNr.toString) { to => s"$seqNr..$to" }
         s"$productPrefix($offset,$range)"
       }

@@ -270,8 +270,15 @@ object HeadCacheSpec {
   val headers: Headers = Headers.empty
 
   def appendOf(key: Key, seqNr: SeqNr): Action.Append  = {
-    val eventsToPayload = EventsToPayload[Try]
-    Action.Append.of[Try](key, timestamp, none, Nel.of(Event(seqNr)), metadata, headers, eventsToPayload).get
+    implicit val eventsToPayload = EventsToPayload[Try]
+    Action.Append.of[Try](
+      key = key,
+      timestamp = timestamp,
+      origin = none,
+      events = Nel.of(Event(seqNr)),
+      metadata = metadata,
+      headers = headers,
+      expireAfter = none).get
   }
 
   def headCacheOf(

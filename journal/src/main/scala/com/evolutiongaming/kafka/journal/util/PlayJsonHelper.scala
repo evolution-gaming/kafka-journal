@@ -5,6 +5,9 @@ import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
 import play.api.libs.json._
 
+import scala.concurrent.duration._
+import scala.util.Try
+
 
 object PlayJsonHelper {
 
@@ -82,5 +85,30 @@ object PlayJsonHelper {
     val jsValue = Json.parse(a)
     // TODO not use `as`
     jsValue.as(reads)
+  }
+
+  
+  implicit val finiteDurationFormat: Format[FiniteDuration] = new Format[FiniteDuration] {
+
+    def reads(json: JsValue) = {
+      def fromString = for {
+        str <- json.validate[String]
+      } yield {
+        Try { Duration(str).asInstanceOf[FiniteDuration] }
+          .fold[JsResult[FiniteDuration]](
+            a => JsError(s"cannot parse FiniteDuration from $str: $a"),
+            a => JsSuccess(a))
+      }
+
+      def fromNumber = for {
+        a <- json.validate[Long]
+      } yield {
+        a.millis
+      }
+
+      fromString getOrElse fromNumber
+    }
+
+    def writes(a: FiniteDuration) = JsString(a.toString)
   }
 }

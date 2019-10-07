@@ -27,9 +27,15 @@ import scala.concurrent.duration._
 
 trait Journal[F[_]] {
 
+  /**
+   * @param expireAfter Define expireAfter in order to expire whole journal for given entity
+   *                    auxiliaries
+   */
   def append(
     key: Key,
     events: Nel[Event],
+    //    expireAfter: Option[FiniteDuration], // TODO expireAfter: test
+    expireAfter: Option[FiniteDuration] = None, // TODO expireAfter: test
     metadata: Option[JsValue] = None,
     headers: Headers = Headers.empty
   ): F[PartitionOffset]
@@ -47,7 +53,13 @@ object Journal {
 
   def empty[F[_] : Applicative]: Journal[F] = new Journal[F] {
 
-    def append(key: Key, events: Nel[Event], metadata: Option[JsValue], headers: Headers) = PartitionOffset.empty.pure[F]
+    def append(
+      key: Key,
+      events: Nel[Event],
+      expireAfter: Option[FiniteDuration],
+      metadata: Option[JsValue],
+      headers: Headers
+    ) = PartitionOffset.empty.pure[F]
 
     def read(key: Key, from: SeqNr) = Stream.empty
 
@@ -166,8 +178,14 @@ object Journal {
 
     new Journal[F] {
 
-      def append(key: Key, events: Nel[Event], metadata: Option[JsValue], headers: Headers) = {
-        appendEvents(key, events, metadata, headers)
+      def append(
+        key: Key,
+        events: Nel[Event],
+        expireAfter: Option[FiniteDuration],
+        metadata: Option[JsValue],
+        headers: Headers
+      ) = {
+        appendEvents(key, events, expireAfter, metadata, headers)
       }
 
       def read(key: Key, from: SeqNr) = new Stream[F, EventRecord] {
@@ -339,10 +357,17 @@ object Journal {
 
     new Journal[F] {
 
-      def append(key: Key, events: Nel[Event], metadata: Option[JsValue], headers: Headers) = {
+      def append(
+        key: Key,
+        events: Nel[Event],
+        expireAfter: Option[FiniteDuration],
+        metadata: Option[JsValue],
+        headers: Headers
+      ) = {
+        def append = journal.append(key, events, expireAfter, metadata, headers)
         for {
           d <- MeasureDuration[F].start
-          r <- handleError("append", key.topic) { journal.append(key, events, metadata, headers) }
+          r <- handleError("append", key.topic) { append }
           d <- d
           _ <- metrics.append(topic = key.topic, latency = d, events = events.size)
         } yield r
@@ -405,7 +430,7 @@ object Journal {
   object Metrics {
 
     def empty[F[_] : Applicative]: Metrics[F] = const(().pure[F])
-    
+
 
     def const[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
 
@@ -617,10 +642,16 @@ object Journal {
 
       new Journal[F] {
 
-        def append(key: Key, events: Nel[Event], metadata: Option[JsValue], headers: Headers) = {
+        def append(
+          key: Key,
+          events: Nel[Event],
+          expireAfter: Option[FiniteDuration],
+          metadata: Option[JsValue],
+          headers: Headers
+        ) = {
           for {
             d <- MeasureDuration[F].start
-            r <- self.append(key, events, metadata, headers)
+            r <- self.append(key, events, expireAfter, metadata, headers)
             d <- d
             _ <- logDebugOrWarn(d, config.append) {
               val first = events.head.seqNr
@@ -685,9 +716,15 @@ object Journal {
 
       new Journal[F] {
 
-        def append(key: Key, events: Nel[Event], metadata: Option[JsValue], headers: Headers) = {
+        def append(
+          key: Key,
+          events: Nel[Event],
+          expireAfter: Option[FiniteDuration],
+          metadata: Option[JsValue],
+          headers: Headers
+        ) = {
           logError {
-            self.append(key, events, metadata, headers)
+            self.append(key, events, expireAfter, metadata, headers)
           } { (error, latency) =>
             s"$key append failed in ${ latency.toMillis }ms, events: $events, error: $error"
           }
@@ -734,8 +771,14 @@ object Journal {
 
     def mapK[G[_]](to: F ~> G, from: G ~> F): Journal[G] = new Journal[G] {
 
-      def append(key: Key, events: Nel[Event], metadata: Option[JsValue], headers: Headers) = {
-        to(self.append(key, events, metadata, headers))
+      def append(
+        key: Key,
+        events: Nel[Event],
+        expireAfter: Option[FiniteDuration],
+        metadata: Option[JsValue],
+        headers: Headers
+      ) = {
+        to(self.append(key, events, expireAfter, metadata, headers))
       }
 
       def read(key: Key, from1: SeqNr) = {

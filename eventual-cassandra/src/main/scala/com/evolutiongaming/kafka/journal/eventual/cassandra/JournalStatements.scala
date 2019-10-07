@@ -20,20 +20,20 @@ object JournalStatements {
   def createTable(name: TableName): String = {
     s"""
        |CREATE TABLE IF NOT EXISTS ${ name.toCql } (
-       |id text,
-       |topic text,
-       |segment bigint,
-       |seq_nr bigint,
-       |partition int,
-       |offset bigint,
-       |timestamp timestamp,
-       |origin text,
-       |tags set<text>,
-       |metadata text,
-       |payload_type text,
-       |payload_txt text,
-       |payload_bin blob,
-       |headers map<text, text>,
+       |id TEXT,
+       |topic TEXT,
+       |segment BIGINT,
+       |seq_nr BIGINT,
+       |partition INT,
+       |offset BIGINT,
+       |timestamp TIMESTAMP,
+       |origin TEXT,
+       |tags SET<TEXT>,
+       |metadata TEXT,
+       |payload_type TEXT,
+       |payload_txt TEXT,
+       |payload_bin BLOB,
+       |headers MAP<TEXT, TEXT>,
        |PRIMARY KEY ((id, topic, segment), seq_nr, timestamp))
        |""".stripMargin
   }

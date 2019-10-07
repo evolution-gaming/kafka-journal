@@ -52,13 +52,19 @@ Hence we recommend to configure access rights accordingly.
 ```scala
 trait Journal[F[_]] {
 
-  def append(key: Key, events: Nel[Event]): F[PartitionOffset]
+  def append(
+    key: Key,
+    events: Nel[Event],
+    expireAfter: Option[FiniteDuration],
+    metadata: Option[JsValue],
+    headers: Headers,
+  ): F[PartitionOffset]
 
-  def read(key: Key, from: SeqNr): Stream[F, Event]
+  def read(key: Key, from: SeqNr = SeqNr.min): Stream[F, EventRecord]
 
   def pointer(key: Key): F[Option[SeqNr]]
 
-  def delete(key: Key, to: SeqNr): F[Option[PartitionOffset]]
+  def delete(key: Key, to: SeqNr = SeqNr.max): F[Option[PartitionOffset]]
 }
 ```
 

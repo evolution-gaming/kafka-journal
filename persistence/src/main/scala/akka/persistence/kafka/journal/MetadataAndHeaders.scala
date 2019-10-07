@@ -7,10 +7,16 @@ import cats.implicits._
 import com.evolutiongaming.kafka.journal.{Event, Headers, Key}
 import play.api.libs.json.JsValue
 
-final case class MetadataAndHeaders(metadata: Option[JsValue], headers: Headers)
+import scala.concurrent.duration.FiniteDuration
+
+// TODO expireAfter: rename MetadataAndHeaders to EventAux, EventInfo, etc
+final case class MetadataAndHeaders(
+  expireAfter: Option[FiniteDuration],
+  metadata: Option[JsValue],
+  headers: Headers)
 
 object MetadataAndHeaders {
-  val empty: MetadataAndHeaders = MetadataAndHeaders(none[JsValue], Headers.empty)
+  val empty: MetadataAndHeaders = MetadataAndHeaders(none[FiniteDuration], none[JsValue], Headers.empty)
 }
 
 
@@ -24,7 +30,7 @@ object MetadataAndHeadersOf {
   def empty[F[_] : Applicative]: MetadataAndHeadersOf[F] = const[F](MetadataAndHeaders.empty.pure[F])
 
 
-  def const[F[_]](value: F[MetadataAndHeaders]): MetadataAndHeadersOf[F] = new MetadataAndHeadersOf[F] {
-    def apply(key: Key, prs: Nel[PersistentRepr], events: Nel[Event]) = value
+  def const[F[_]](value: F[MetadataAndHeaders]): MetadataAndHeadersOf[F] = {
+    (_: Key, _: Nel[PersistentRepr], _: Nel[Event]) => value
   }
 }

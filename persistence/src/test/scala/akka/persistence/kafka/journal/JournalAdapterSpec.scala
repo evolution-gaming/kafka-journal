@@ -15,6 +15,8 @@ import com.evolutiongaming.sstream.Stream
 import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json.{JsValue, Json}
 
+import scala.concurrent.duration._
+
 class JournalAdapterSpec extends FunSuite with Matchers {
   import JournalAdapterSpec.StateT._
   import JournalAdapterSpec._
@@ -26,14 +28,14 @@ class JournalAdapterSpec extends FunSuite with Matchers {
     AtomicWrite(List(persistentRepr)))
 
   private val metadataAndHeadersOf = {
-    val metadataAndHeaders = MetadataAndHeaders(metadata.data, headers)
+    val metadataAndHeaders = MetadataAndHeaders(expireAfter.some, metadata.data, headers)
     MetadataAndHeadersOf.const(metadataAndHeaders.pure[StateT])
   }
 
   private val journalAdapter = JournalAdapter[StateT](StateT.JournalStateF, toKey, eventSerializer, metadataAndHeadersOf)
 
   private def appendOf(key: Key, events: Nel[Event]) = {
-    Append(key, events, timestamp, metadata, headers)
+    Append(key, events, timestamp, expireAfter.some, metadata, headers)
   }
 
   test("write") {
@@ -80,7 +82,8 @@ class JournalAdapterSpec extends FunSuite with Matchers {
 
 object JournalAdapterSpec {
 
-  private val timestamp: Instant = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+  private val timestamp = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+  private val expireAfter = 1.day
   private val toKey = ToKey.default[StateT]
   private val key1 = Key(id = "id", topic = "journal")
   private val event = Event(SeqNr.min)
@@ -96,6 +99,7 @@ object JournalAdapterSpec {
     key: Key,
     events: Nel[Event],
     timestamp: Instant,
+    expireAfter: Option[FiniteDuration],
     metadata: Metadata,
     headers: Headers)
 
@@ -128,9 +132,15 @@ object JournalAdapterSpec {
 
     implicit val JournalStateF: Journal[StateT] = new Journal[StateT] {
 
-      def append(key: Key, events: Nel[Event], metadata: Option[JsValue], headers: Headers) = {
+      def append(
+        key: Key,
+        events: Nel[Event],
+        expireAfter: Option[FiniteDuration],
+        metadata: Option[JsValue],
+        headers: Headers
+      ) = {
         StateT { s =>
-          val append = Append(key, events, timestamp, Metadata(metadata), headers)
+          val append = Append(key, events, timestamp, expireAfter, Metadata(metadata), headers)
           val s1 = s.copy(appends = append :: s.appends)
           (s1, partitionOffset)
         }

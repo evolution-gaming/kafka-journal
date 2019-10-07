@@ -12,32 +12,40 @@ import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
 
 
-// TODO add select by topic,LocalDate
+// TODO expireAfter: add select by topic,LocalDate
 object HeadStatements {
 
   def createTable(name: TableName): String = {
     s"""
        |CREATE TABLE IF NOT EXISTS ${ name.toCql } (
-       |id text,
-       |topic text,
-       |partition int,
-       |offset bigint,
-       |segment_size int,
-       |seq_nr bigint,
-       |delete_to bigint,
-       |created timestamp,
-       |created_date date,
-       |updated timestamp,
-       |origin text,
-       |properties map<text,text>,
-       |metadata text,
-       |PRIMARY KEY ((topic, segment), id, created_date))
+       |id TEXT,
+       |topic TEXT,
+       |partition INT,
+       |offset BIGINT,
+       |segment_size INT,
+       |seq_nr BIGINT,
+       |delete_to BIGINT,
+       |created TIMESTAMP,
+       |created_date DATE,
+       |updated TIMESTAMP,
+       |expire_on DATE,
+       |expire_after DURATION,
+       |origin TEXT,
+       |properties MAP<TEXT,TEXT>,
+       |metadata TEXT,
+       |PRIMARY KEY ((topic, segment), id, created_date, expire_on))
        |""".stripMargin
   }
 
 
   trait Insert[F[_]] {
-    def apply(key: Key, segment: SegmentNr, timestamp: Instant, head: Head, origin: Option[Origin]): F[Unit]
+    def apply(
+      key: Key,
+      segment: SegmentNr,
+      timestamp: Instant,
+      head: Head,
+      origin: Option[Origin]
+    ): F[Unit]
   }
 
   object Insert {
@@ -46,7 +54,22 @@ object HeadStatements {
 
       val query =
         s"""
-           |INSERT INTO ${ name.toCql } (topic, segment, id, partition, offset, segment_size, seq_nr, delete_to, created, created_date, updated, origin, properties)
+           |INSERT INTO ${ name.toCql } (
+           |topic,
+           |segment,
+           |id,
+           |partition,
+           |offset,
+           |segment_size,
+           |seq_nr,
+           |delete_to,
+           |created,
+           |created_date,
+           |updated,
+           |expire_on,
+           |expire_after
+           |origin,
+           |properties)
            |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            |""".stripMargin
 

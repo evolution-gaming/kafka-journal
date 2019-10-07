@@ -1,7 +1,11 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.implicits._
 import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json._
+
+import scala.concurrent.duration._
+
 
 class ActionHeaderJsonSpec extends FunSuite with Matchers {
 
@@ -16,13 +20,19 @@ class ActionHeaderJsonSpec extends FunSuite with Matchers {
     origin <- origins
   } {
     val originStr = origin.fold("None")(_.toString)
+    val expireAfter = origin.fold { 1.day.some } { _ => none[FiniteDuration] }
     for {
       payloadType             <- payloadTypes
       (metadataStr, metadata) <- metadata
     } {
       test(s"Append format, origin: $origin, payloadType: $payloadType, metadata: $metadataStr") {
         val range = SeqRange.unsafe(1, 5)
-        val header = ActionHeader.Append(range, origin, payloadType, metadata)
+        val header = ActionHeader.Append(
+          range = range,
+          origin = origin,
+          payloadType = payloadType,
+          metadata = metadata,
+          expireAfter = expireAfter)
         verify(header, s"Append-$originStr-$payloadType-$metadataStr")
       }
     }

@@ -40,10 +40,10 @@ object SettingStatements {
     s"""
        |CREATE TABLE IF NOT EXISTS ${ name.toCql } (
        |key text PRIMARY KEY,
-       |value text,
-       |timestamp timestamp,
-       |origin text,
-       |metadata text)
+       |value TEXT,
+       |timestamp TIMESTAMP,
+       |origin TEXT,
+       |metadata TEXT)
        |""".stripMargin
   }
 
