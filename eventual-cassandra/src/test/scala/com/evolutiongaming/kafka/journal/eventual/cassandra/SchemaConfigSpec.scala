@@ -23,7 +23,7 @@ class SchemaConfigSpec extends FunSuite with Matchers {
         autoCreate = false),
       journalTable = "table-journal",
       metadataTable = "table-metadata",
-      headTable = "table-head",
+      headTable = "table-head".some,
       pointerTable = "table-pointer",
       settingTable = "table-setting",
       locksTable = "table-locks",

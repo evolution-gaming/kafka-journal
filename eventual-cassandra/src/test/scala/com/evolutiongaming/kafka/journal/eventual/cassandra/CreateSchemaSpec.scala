@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Id
+import cats.implicits._
 import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.scassandra.TableName
 import org.scalatest.{FunSuite, Matchers}
@@ -31,7 +32,7 @@ class CreateSchemaSpec extends FunSuite with Matchers { self =>
   private val schema = Schema(
     journal = TableName(keyspace = "journal", table = "journal"),
     metadata = TableName(keyspace = "journal", table = "metadata"),
-    head = TableName(keyspace = "journal", table = "head"),
+    head = none,
     pointer = TableName(keyspace = "journal", table = "pointer"),
     setting = TableName(keyspace = "journal", table = "setting"))
 

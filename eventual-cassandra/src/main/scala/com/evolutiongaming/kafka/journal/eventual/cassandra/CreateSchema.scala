@@ -43,7 +43,7 @@ object CreateSchema {
 
       val metadata = table(config.metadataTable, MetadataStatements.createTable)
 
-      val head = table(config.headTable, HeadStatements.createTable)
+      val head = config.headTable.map { table(_, HeadStatements.createTable) }
 
       val pointer = table(config.pointerTable, PointerStatements.createTable)
 
@@ -52,14 +52,13 @@ object CreateSchema {
       val schema = Schema(
         journal = tableName(journal),
         metadata = tableName(metadata),
-        head = tableName(head),
+        head =  head.map(tableName),
         pointer = tableName(pointer),
         setting = tableName(setting))
 
       if (config.autoCreate) {
         for {
-          result <- createTables(keyspace, Nel.of(journal, metadata, pointer, setting))
-//          result <- createTables(keyspace, Nel.of(journal, metadata, pointer, head, setting))
+          result <- createTables(keyspace, Nel.of(journal, metadata, pointer, setting) ++ head.toList)
         } yield {
           (schema, result)
         }

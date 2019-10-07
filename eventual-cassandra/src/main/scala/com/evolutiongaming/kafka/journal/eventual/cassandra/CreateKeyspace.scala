@@ -12,6 +12,9 @@ trait CreateKeyspace[F[_]] {
 
 object CreateKeyspace { self =>
 
+  def empty[F[_] : Applicative]: CreateKeyspace[F] = (_: SchemaConfig.Keyspace) => ().pure[F]
+  
+
   def apply[F[_] : Monad : CassandraCluster : CassandraSession : LogOf]: CreateKeyspace[F] = new CreateKeyspace[F] {
     
     def apply(config: SchemaConfig.Keyspace) = {
@@ -36,10 +39,5 @@ object CreateKeyspace { self =>
         ().pure[F]                          
       }
     }
-  }
-
-
-  def empty[F[_] : Applicative]: CreateKeyspace[F] = new CreateKeyspace[F] {
-    def apply(config: SchemaConfig.Keyspace) = ().pure[F]
   }
 }

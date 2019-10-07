@@ -81,10 +81,10 @@ object ReplicatedCassandra {
                 val seqNr = head.event.seqNr
                 s match {
                   case Some((segment, batch)) => segment.nextUnsafe(seqNr) match {
-                    case None       => loop(tail, Some((segment, head :: batch)), result)
-                    case Some(next) => loop(tail, Some((next, Nel.of(head))), insert(segment, batch))
+                    case None       => loop(tail, (segment, head :: batch).some, result)
+                    case Some(next) => loop(tail, (next, Nel.of(head)).some, insert(segment, batch))
                   }
-                  case None                   => loop(tail, Some((Segment.unsafe(seqNr, segmentSize), Nel.of(head))), result)
+                  case None                   => loop(tail, (Segment.unsafe(seqNr, segmentSize), Nel.of(head)).some, result)
                 }
 
               case Nil => s.fold(result) { case (segment, batch) => insert(segment, batch) }
@@ -139,7 +139,7 @@ object ReplicatedCassandra {
               partitionOffset = partitionOffset,
               segmentSize = segmentSize,
               seqNr = deleteTo,
-              deleteTo = Some(deleteTo))
+              deleteTo = deleteTo.some)
             statements.insertMetadata(key, timestamp, head, origin) as head.segmentSize
           }
 

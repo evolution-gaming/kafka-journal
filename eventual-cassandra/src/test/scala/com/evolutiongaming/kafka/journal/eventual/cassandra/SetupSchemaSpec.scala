@@ -36,12 +36,12 @@ class SetupSchemaSpec extends FunSuite with Matchers {
     state shouldEqual initial
   }
 
-  val timestamp = Instant.now()
+  val timestamp: Instant = Instant.now()
 
   val schema = Schema(
     journal = TableName(keyspace = "journal", table = "journal"),
     metadata = TableName(keyspace = "journal", table = "metadata"),
-    head = TableName(keyspace = "journal", table = "head"),
+    head = TableName(keyspace = "journal", table = "head").some,
     pointer = TableName(keyspace = "journal", table = "pointer"),
     setting = TableName(keyspace = "journal", table = "setting"))
 
