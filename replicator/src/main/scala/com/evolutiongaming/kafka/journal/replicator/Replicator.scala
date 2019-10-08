@@ -59,21 +59,19 @@ object Replicator {
   def of[F[_] : Concurrent : Timer : Parallel : ContextShift : LogOf : KafkaConsumerOf : MeasureDuration : FromTry](
     config: ReplicatorConfig,
     metrics: Option[Metrics[F]]/*TODO not used for kafka*/,
-    replicatedJournal: ReplicatedJournal[F],
+    journal: ReplicatedJournal[F],
     hostName: Option[HostName]): Resource[F, F[Unit]] = {
-
-    implicit val replicatedJournal1 = replicatedJournal
 
     val topicReplicator = (topic: Topic) => {
 
       val consumer = TopicReplicator.Consumer.of[F](topic, config.consumer, config.pollTimeout, hostName)
 
-      implicit val metrics1 = metrics
+      val metrics1 = metrics
         .flatMap(_.replicator)
         .fold(TopicReplicator.Metrics.empty[F])(_.apply(topic))
 
       val result = for {
-        topicReplicator <- TopicReplicator.of[F](topic = topic, consumer = consumer)
+        topicReplicator <- TopicReplicator.of[F](topic, journal, consumer, metrics1)
       } yield {
         (topicReplicator.done, topicReplicator.close)
       }

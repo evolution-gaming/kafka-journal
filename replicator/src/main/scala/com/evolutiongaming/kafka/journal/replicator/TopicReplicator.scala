@@ -5,6 +5,7 @@ import java.time.Instant
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.effect.concurrent.Ref
+import cats.effect.implicits._
 import cats.implicits._
 import cats.{Applicative, FlatMap, Monad, Parallel, ~>}
 import com.evolutiongaming.catshelper.ClockHelper._
@@ -42,9 +43,11 @@ trait TopicReplicator[F[_]] {
 object TopicReplicator { self =>
 
   // TODO should return Resource
-  def of[F[_] : Concurrent : Timer : Parallel : Metrics : ReplicatedJournal : ContextShift : LogOf : FromTry](
+  def of[F[_] : Concurrent : Timer : Parallel : LogOf : FromTry](
     topic: Topic,
-    consumer: Resource[F, Consumer[F]]
+    journal: ReplicatedJournal[F],
+    consumer: Resource[F, Consumer[F]],
+    metrics: Metrics[F]
   ): F[TopicReplicator[F]] = {
 
     implicit val fromAttempt = FromAttempt.lift[F]
@@ -67,11 +70,19 @@ object TopicReplicator { self =>
 
       val payloadToEvents = PayloadToEvents[F]
       val consumerRecordToActionRecord = ConsumerRecordToActionRecord[F]
-      Concurrent[F].start {
-        retry {
-          consumer.use { consumer => of(topic, stopRef, consumer, 1.hour, consumerRecordToActionRecord, payloadToEvents) }
+      retry {
+        consumer.use { consumer =>
+          of(
+            topic,
+            stopRef,
+            consumer,
+            1.hour,
+            consumerRecordToActionRecord,
+            payloadToEvents,
+            journal,
+            metrics)
         }
-      }
+      }.start
     }
 
     for {
@@ -103,20 +114,24 @@ object TopicReplicator { self =>
   }
 
   //  TODO return error in case failed to connect
-  def of[F[_] : Concurrent : Clock : Parallel : Metrics : ReplicatedJournal : Log : ContextShift : FromTry](
+  def of[F[_] : Concurrent : Clock : Parallel : Log : FromTry](
     topic: Topic,
     stopRef: StopRef[F],
     consumer: Consumer[F],
     errorCooldown: FiniteDuration,
     consumerRecordToActionRecord: ConsumerRecordToActionRecord[F],
-    payloadToEvents: PayloadToEvents[F]
+    payloadToEvents: PayloadToEvents[F],
+    journal: ReplicatedJournal[F],
+    metrics: Metrics[F]
   ): F[Unit] = {
+
+    final case class Partition(records: Nel[ConsumerRecord[String, ByteVector]], offset: Offset)
 
     def round(
       state: State,
       consumerRecords: Map[TopicPartition, List[ConsumerRecord[String, ByteVector]]],
       roundStart: Instant
-    ): F[(State, Map[TopicPartition, OffsetAndMetadata])] = {
+    ): F[State] = {
 
       val records = for {
         records <- consumerRecords.values.toList
@@ -146,10 +161,10 @@ object TopicReplicator { self =>
 
         def delete(partitionOffset: PartitionOffset, deleteTo: SeqNr, origin: Option[Origin]) = {
           for {
-            _            <- ReplicatedJournal[F].delete(key, partitionOffset, roundStart, deleteTo, origin)
+            _            <- journal.delete(key, partitionOffset, roundStart, deleteTo, origin)
             measurements <- measurements(1)
             latency       = measurements.replicationLatency
-            _            <- Metrics[F].delete(measurements)
+            _            <- metrics.delete(measurements)
             _            <- Log[F].info {
               val originStr = origin.fold("") { origin => s", origin: $origin" }
               s"delete in ${ latency.toMillis }ms, id: $id, offset: $partitionOffset, deleteTo: $deleteTo$originStr"
@@ -175,9 +190,9 @@ object TopicReplicator { self =>
 
           for {
             events       <- events
-            _            <- ReplicatedJournal[F].append(key, partitionOffset, roundStart, events)
+            _            <- journal.append(key, partitionOffset, roundStart, events)
             measurements <- measurements(records.size)
-            _            <- Metrics[F].append(
+            _            <- metrics.append(
               events = events.length,
               bytes = bytes,
               measurements = measurements)
@@ -204,46 +219,21 @@ object TopicReplicator { self =>
         }
       }
 
-      val savePointers = {
-
-        val offsets = for {
-          (topicPartition, records) <- consumerRecords
-          offset = records.foldLeft(Offset.Min) { (offset, record) => record.offset max offset }
-        } yield {
-          (topicPartition, offset)
-        }
-
-        val offsetsToCommit = for {
-          (topicPartition, offset) <- offsets
-        } yield {
-          val offsetAndMetadata = OffsetAndMetadata(offset + 1/*TODO pass metadata*/)
-          (topicPartition, offsetAndMetadata)
-        }
-
-        val pointers = TopicPointers {
-          for {
-            (topicPartition, offset) <- offsets
-          } yield {
-            (topicPartition.partition, offset)
-          }
-        }
-
-        for {
-          _ <- {
-            if (pointers.values.isEmpty) ().pure[F]
-            else ReplicatedJournal[F].save(topic, pointers, roundStart)
-          }
-        } yield {
-          val state1 = state.copy(pointers = state.pointers + pointers)
-          (state1, offsetsToCommit)
-        }
+      val offsets = for {
+        (topicPartition, records) <- consumerRecords
+        offset = records.foldLeft(Offset.Min) { (offset, record) => record.offset max offset }
+      } yield {
+        (topicPartition.partition, offset)
       }
 
       for {
         ios      <- ios
         _        <- ios.parFold
-        pointers <- savePointers
-      } yield pointers
+        pointers  = TopicPointers(offsets)
+        _        <- if (offsets.isEmpty) ().pure[F] else journal.save(topic, pointers, roundStart)
+      } yield {
+        state.copy(pointers = state.pointers + pointers)
+      }
     }
 
     def ifContinue(fa: F[Either[State, Unit]]) = {
@@ -253,7 +243,16 @@ object TopicReplicator { self =>
       } yield result
     }
 
-    def commit(offsets: Map[TopicPartition, OffsetAndMetadata], state: State) = {
+    def commit(records: Map[TopicPartition, Nel[ConsumerRecord[String, ByteVector]]], state: State) = {
+
+      val offsets = for {
+        (topicPartition, records) <- records
+      } yield {
+        val offset = records.foldLeft(Offset.Min) { (offset, record) => record.offset max offset }
+        val offsetAndMetadata = OffsetAndMetadata(offset + 1/*TODO pass metadata/origin*/)
+        (topicPartition, offsetAndMetadata)
+      }
+
       consumer.commit(offsets)
         .as(state)
         .handleErrorWith { error =>
@@ -270,46 +269,49 @@ object TopicReplicator { self =>
     }
 
     def consume(state: State): F[Either[State, Unit]] = {
+
+      def consume(
+        roundStart: Instant,
+        consumerRecords: Map[TopicPartition, Nel[ConsumerRecord[String, ByteVector]]]
+      ) = {
+        val records = for {
+          (topicPartition, records) <- consumerRecords
+          partition                  = topicPartition.partition
+          offset                     = state.pointers.values.get(partition)
+          records1                   = records.toList
+          result                     = offset.fold(records1) { offset =>
+            for {
+              record <- records1
+              if record.offset > offset
+            } yield record
+          }
+          if result.nonEmpty
+        } yield {
+          (topicPartition, result)
+        }
+
+        for {
+          state    <- if (records.isEmpty) state.pure[F] else round(state, records.toMap, roundStart)
+          state    <- commit(consumerRecords, state)
+          roundEnd <- Clock[F].instant
+          records   = consumerRecords.foldLeft(0) { case (acc, (_, record)) => acc + record.size }
+          _        <- metrics.round(roundEnd diff roundStart, records)
+        } yield state.asLeft[Unit]
+      }
+
+
       ifContinue {
         for {
-          _               <- ContextShift[F].shift
-          roundStart      <- Clock[F].instant
+          timestamp       <- Clock[F].instant
           consumerRecords <- consumer.poll
-          state           <- ifContinue {
-            val records = for {
-              (topicPartition, records) <- consumerRecords.values
-              partition                  = topicPartition.partition
-              offset                     = state.pointers.values.get(partition)
-              records1                   = records.toList
-              result                     = offset.fold(records1) { offset =>
-                for {
-                  record <- records1
-                  if record.offset > offset
-                } yield record
-              }
-              if result.nonEmpty
-            } yield {
-              (topicPartition, result)
-            }
-
-            if (records.isEmpty) state.asLeft[Unit].pure[F]
-            else for {
-              timestamp        <- Clock[F].instant
-              stateAndOffsets  <- round(state, records.toMap, timestamp)
-              (state, offsets)  = stateAndOffsets
-              state            <- commit(offsets, state)
-              roundEnd         <- Clock[F].instant
-              _                <- Metrics[F].round(
-                latency = roundEnd diff roundStart,
-                records = consumerRecords.values.foldLeft(0) { case (acc, (_, record)) => acc + record.size })
-            } yield state.asLeft[Unit]
-          }
+          records          = consumerRecords.values
+          state           <- if (records.isEmpty) state.asLeft[Unit].pure[F] else ifContinue { consume(timestamp, records) }
         } yield state
       }
     }
 
     for {
-      pointers <- ReplicatedJournal[F].pointers(topic)
+      pointers <- journal.pointers(topic)
       _        <- consumer.subscribe(topic)
       _        <- State(pointers, none).tailRecM(consume)
     } yield {}

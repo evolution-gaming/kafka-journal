@@ -20,7 +20,6 @@ import org.scalatest.{Matchers, WordSpec}
 import play.api.libs.json.Json
 import scodec.bits.ByteVector
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.NoStackTrace
@@ -352,7 +351,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           (topicPartitionOf(0), offsetAndMetadata(11)),
           (topicPartitionOf(1), offsetAndMetadata(11)))),
         stopAfter = Some(0),
-        pointers = Map((topic, TopicPointers(Map((0, 10l), (1, 10l))))),
+        pointers = Map((topic, TopicPointers(Map((0, 10L), (1, 10L))))),
         journal = Map(
           (keyOf("0-0"), List(
             record(seqNr = 1, partition = 0, offset = 1),
@@ -541,7 +540,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 
       val data = State(
         records = List(records),
-        pointers = Map((topic, TopicPointers(Map((0, 0l), (1, 1l), (2, 2l))))))
+        pointers = Map((topic, TopicPointers(Map((0, 0L), (1, 1l), (2, 2l))))))
       val (result, _) = topicReplicator.run(data)
 
       result shouldEqual State(
@@ -578,6 +577,30 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           Metrics.Append(partition = 0, events = 3, records = 2),
           Metrics.Append(partition = 2, events = 1, records = 1),
           Metrics.Append(partition = 0, events = 1, records = 1)))
+    }
+
+
+    "ignore already replicated data and commit" in {
+      val partition = 0
+      val key = Key(id = "key", topic = topic)
+      val action = appendOf(key, Nel.of(1))
+
+      val topicPartition = topicPartitionOf(partition)
+      val consumerRecord = consumerRecordOf(action, topicPartition, 0)
+      val consumerRecords = ConsumerRecords(Map((consumerRecord.topicPartition, Nel.of(consumerRecord))))
+
+      val data = State(
+        records = List(consumerRecords),
+        pointers = Map((topic, TopicPointers(Map((0, 0L))))))
+      val (result, _) = topicReplicator.run(data)
+
+      result shouldEqual State(
+        topics = List(topic),
+        commits = List(Map(
+          (topicPartitionOf(0), offsetAndMetadata(1)))),
+        stopAfter = Some(0),
+        pointers = Map((topic, TopicPointers(Map((0, 0L))))),
+        metrics = List(Metrics.Round(records = 1)))
     }
   }
 
@@ -684,14 +707,6 @@ object TopicReplicatorSpec {
   implicit def monoidDataF[A : Monoid]: Monoid[StateT[A]] = Applicative.monoid[StateT, A]
 
 
-  implicit val contextShift: ContextShift[StateT] = new ContextShift[StateT] {
-
-    def shift = ().pure[StateT]
-
-    def evalOn[A](ec: ExecutionContext)(fa: StateT[A]) = fa
-  }
-
-
   implicit val replicatedJournal: ReplicatedJournal[StateT] = new ReplicatedJournal[StateT] {
 
     def topics = Iterable.empty[Topic].pure[StateT]
@@ -791,7 +806,9 @@ object TopicReplicatorSpec {
       consumer = consumer,
       errorCooldown = 1.second,
       consumerRecordToActionRecord = ConsumerRecordToActionRecord[StateT],
-      payloadToEvents = PayloadToEvents[StateT])
+      payloadToEvents = PayloadToEvents[StateT],
+      journal = replicatedJournal,
+      metrics = metrics)
   }
 
 
