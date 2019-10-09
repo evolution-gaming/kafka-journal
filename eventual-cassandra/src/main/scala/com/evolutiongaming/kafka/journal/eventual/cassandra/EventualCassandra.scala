@@ -45,9 +45,10 @@ object EventualCassandra {
       schema     <- SetupSchema[F](schemaConfig, origin)
       statements <- Statements.of[F](schema)
     } yield {
-      val journal = apply[F](statements)
-      val withLog = journal.withLog(log)
-      metrics.fold(withLog) { metrics => withLog.withMetrics(metrics) }
+      val journal = apply[F](statements).withLog(log)
+      metrics
+        .fold(journal) { metrics => journal.withMetrics(metrics) }
+        .enhanceError
     }
   }
 

@@ -6,11 +6,11 @@ import cats.data.{NonEmptyList => Nel}
 import cats.effect.Resource
 import cats.implicits._
 import cats.{Applicative, FlatMap, Monad, ~>}
-import com.evolutiongaming.catshelper.Log
+import com.evolutiongaming.catshelper.{ApplicativeThrowable, Log}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.Topic
-import com.evolutiongaming.smetrics.{CollectorRegistry, LabelNames, MeasureDuration, Quantile, Quantiles}
 import com.evolutiongaming.smetrics.MetricsHelper._
+import com.evolutiongaming.smetrics._
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -350,6 +350,77 @@ object ReplicatedJournal {
 
     def withMetrics(metrics: Metrics[F])(implicit flatMap: FlatMap[F], measureDuration: MeasureDuration[F]): ReplicatedJournal[F] = {
       ReplicatedJournal(self, metrics)
+    }
+
+
+    def enhanceError(implicit F: ApplicativeThrowable[F]): ReplicatedJournal[F] = {
+
+      def error[A](msg: String, cause: Throwable) = {
+        JournalError(s"ReplicatedJournal.$msg failed with $cause", cause.some).raiseError[F, A]
+      }
+
+      new ReplicatedJournal[F] {
+
+        def topics = {
+          self
+            .topics
+            .handleErrorWith { a => error(s"topics", a) }
+        }
+
+        def pointers(topic: Topic) = {
+          self
+            .pointers(topic)
+            .handleErrorWith { a => error(s"pointers topic: $topic", a) }
+        }
+
+        def append(
+          key: Key,
+          partitionOffset: PartitionOffset,
+          timestamp: Instant,
+          events: Nel[EventRecord]
+        ) = {
+          self
+            .append(key, partitionOffset, timestamp, events)
+            .handleErrorWith { a =>
+              error(s"append " +
+                s"key: $key, " +
+                s"offset: $partitionOffset, " +
+                s"timestamp: $timestamp, " +
+                s"events: $events", a)
+            }
+        }
+
+        def delete(
+          key: Key,
+          partitionOffset: PartitionOffset,
+          timestamp: Instant,
+          deleteTo: SeqNr,
+          origin: Option[Origin]
+        ) = {
+          self
+            .delete(key, partitionOffset, timestamp, deleteTo, origin)
+            .handleErrorWith { a =>
+              error(
+                s"delete " +
+                  s"key: $key, " +
+                  s"offset: $partitionOffset, " +
+                  s"timestamp: $timestamp, " +
+                  s"deleteTo: $deleteTo, " +
+                  s"origin: $origin", a)
+            }
+        }
+
+        def save(topic: Topic, pointers: TopicPointers, timestamp: Instant) = {
+          self
+            .save(topic, pointers, timestamp)
+            .handleErrorWith { a =>
+              error(s"save " +
+                s"topic: $topic, " +
+                s"pointers: $pointers, " +
+                s"timestamp: $timestamp", a)
+            }
+        }
+      }
     }
   }
 }

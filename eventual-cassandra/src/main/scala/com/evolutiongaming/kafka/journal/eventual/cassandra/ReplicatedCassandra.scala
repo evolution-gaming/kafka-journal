@@ -34,7 +34,9 @@ object ReplicatedCassandra {
     } yield {
       val journal = apply[F](config.segmentSize, statements)
         .withLog(log)
-      metrics.fold(journal) { metrics => journal.withMetrics(metrics) }
+      metrics
+        .fold(journal) { metrics => journal.withMetrics(metrics) }
+        .enhanceError
     }
   }
 

@@ -4,8 +4,9 @@ import cats._
 import cats.arrow.FunctionK
 import cats.effect.Resource
 import cats.implicits._
-import com.evolutiongaming.catshelper.Log
+import com.evolutiongaming.catshelper.{Log, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.smetrics._
@@ -222,6 +223,34 @@ object EventualJournal {
 
     def withMetrics(metrics: Metrics[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): EventualJournal[F] = {
       EventualJournal(self, metrics)
+    }
+
+    def enhanceError(implicit F: MonadThrowable[F]): EventualJournal[F] = {
+
+      def error[A](msg: String, cause: Throwable) = {
+        JournalError(s"EventualJournal.$msg failed with $cause", cause.some).raiseError[F, A]
+      }
+
+      new EventualJournal[F] {
+
+        def pointers(topic: Topic) = {
+          self
+            .pointers(topic)
+            .handleErrorWith { a => error(s"pointers topic: $topic", a) }
+        }
+
+        def read(key: Key, from: SeqNr) = {
+          self
+            .read(key, from)
+            .handleErrorWith { a: Throwable => Stream.lift(error[EventRecord](s"read key: $key, from: $from", a)) }
+        }
+
+        def pointer(key: Key) = {
+          self
+            .pointer(key)
+            .handleErrorWith { a => error(s"pointer key: $key", a) }
+        }
+      }
     }
   }
 }
