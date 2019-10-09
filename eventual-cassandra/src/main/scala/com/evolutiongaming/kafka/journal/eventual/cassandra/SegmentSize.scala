@@ -32,12 +32,16 @@ object SegmentSize {
 
   implicit val encodeByNameSegmentSize: EncodeByName[SegmentSize] = EncodeByName[Int].contramap((a: SegmentSize) => a.value)
 
-  implicit val decodeByNameSegmentSize: DecodeByName[SegmentSize] = DecodeByName[Int].map(a => SegmentSize.of[Try](a).get)
+  implicit val decodeByNameSegmentSize: DecodeByName[SegmentSize] = DecodeByName[Int].map { a =>
+    SegmentSize.of[Try](a) getOrElse default
+  }
 
 
   implicit val encodeByIdxSegmentSize: EncodeByIdx[SegmentSize] = EncodeByIdx[Int].contramap((a: SegmentSize) => a.value)
 
-  implicit val decodeByIdxSegmentSize: DecodeByIdx[SegmentSize] = DecodeByIdx[Int].map(a => SegmentSize.of[Try](a).get)
+  implicit val decodeByIdxSegmentSize: DecodeByIdx[SegmentSize] = DecodeByIdx[Int].map { a =>
+    SegmentSize.of[Try](a) getOrElse default
+  }
 
 
   implicit val encodeRowSegmentSize: EncodeRow[SegmentSize] = EncodeRow[SegmentSize]("segment_size")
