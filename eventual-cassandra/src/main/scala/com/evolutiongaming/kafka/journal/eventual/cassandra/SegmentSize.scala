@@ -23,11 +23,11 @@ object SegmentSize {
   val default: SegmentSize = new SegmentSize(100000) {}
 
 
-  implicit val show: Show[SegmentSize] = Show.fromToString
+  implicit val showSegmentSize: Show[SegmentSize] = Show.fromToString
 
-  implicit val ordering: Ordering[SegmentSize] = Ordering.by(_.value)
+  implicit val orderingSegmentSize: Ordering[SegmentSize] = Ordering.by(_.value)
 
-  implicit val order: Order[SegmentSize] = Order.fromOrdering
+  implicit val orderSegmentSize: Order[SegmentSize] = Order.fromOrdering
 
 
   implicit val encodeByNameSegmentSize: EncodeByName[SegmentSize] = EncodeByName[Int].contramap((a: SegmentSize) => a.value)

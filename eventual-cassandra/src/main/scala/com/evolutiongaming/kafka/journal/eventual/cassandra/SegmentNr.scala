@@ -38,7 +38,7 @@ object SegmentNr {
 
   implicit val orderingSegmentNr: Ordering[SegmentNr] = Ordering.by(_.value)
 
-  implicit val order: Order[SegmentNr] = Order.fromOrdering
+  implicit val orderSegmentNr: Order[SegmentNr] = Order.fromOrdering
 
 
   def of[F[_] : ApplicativeString](value: Long): F[SegmentNr] = {
