@@ -5,7 +5,7 @@ import cats.effect.concurrent.Ref
 import cats.implicits._
 import cats.{Applicative, Functor, Monad}
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
-import com.evolutiongaming.kafka.journal.CatsHelper._
+import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.evolutiongaming.skafka.producer.{ProducerConfig, ProducerRecord}

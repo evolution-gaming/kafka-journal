@@ -8,10 +8,10 @@ import cats.implicits._
 import cats.{Applicative, Monad, Parallel, ~>}
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper._
-import com.evolutiongaming.kafka.journal.CatsHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession, ReplicatedCassandra}
+import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.random.Random

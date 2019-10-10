@@ -1,4 +1,4 @@
-package com.evolutiongaming.kafka.journal
+package com.evolutiongaming.kafka.journal.util
 
 import cats.effect.concurrent.Ref
 import cats.effect.{Concurrent, Fiber}

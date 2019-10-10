@@ -24,7 +24,6 @@ lazy val root = (project in file(".")
   settings (skip in publish := true)
   aggregate(
     `scalatest-io`,
-    `cats-effect-helpers`,
     journal,
     persistence,
     `tests`,
@@ -41,21 +40,10 @@ lazy val `scalatest-io` = (project in file("scalatest-io")
     Cats.core,
     Cats.effect)))
 
-lazy val `cats-effect-helpers` = (project in file("cats-effect-helpers")
-  settings (name := "kafka-journal-cats-effect-helpers")
-  settings commonSettings
-  dependsOn `scalatest-io` % "test->compile"
-  settings (libraryDependencies ++= Seq(
-    `cats-helper`,
-    Cats.core,
-    Cats.effect,
-    scalatest % Test)))
-
-
 lazy val journal = (project in file("journal")
   settings (name := "kafka-journal")
   settings commonSettings
-  dependsOn (`cats-effect-helpers`, `scalatest-io` % "test->compile")
+  dependsOn (`scalatest-io` % "test->compile")
   settings (libraryDependencies ++= Seq(
     Akka.actor,
     Akka.stream,
