@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import cats.Parallel
 import cats.effect._
+import cats.effect.implicits._
 import cats.implicits._
 import com.evolutiongaming.cassandra.StartCassandra
 import com.evolutiongaming.catshelper.{FromFuture, FromTry, Log, LogOf, Runtime, ToFuture, ToTry}
@@ -57,7 +58,7 @@ object IntegrationSuite {
         hostName <- Resource.liftF(HostName.of[F]())
         result   <- Replicator.of[F](config, cassandraClusterOf, hostName, metrics.some)
         result1   = result.onError { case e => log.error(s"failed to release replicator with $e", e) }
-        _        <- ResourceOf(Concurrent[F].start(result1))
+        _        <- ResourceOf(result1.start)
       } yield {}
     }
 

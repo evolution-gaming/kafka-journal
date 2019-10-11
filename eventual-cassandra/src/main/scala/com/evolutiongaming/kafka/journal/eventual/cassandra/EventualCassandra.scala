@@ -122,6 +122,7 @@ object EventualCassandra {
       }
 
       def pointer(key: Key) = {
+        // TODO optimise this
         for {
           metadata <- statements.metadata(key)
         } yield for {

@@ -114,7 +114,7 @@ object HeadCache {
         }
         c <- c
         v <- c.values
-        _ <- v.values.parFoldMap { v =>
+        _ <- v.values.toList.parFoldMap { v =>
           for {
             v <- v
             _ <- v.close
@@ -547,7 +547,7 @@ object HeadCache {
         }
 
         def seek(topic: Topic, offsets: Map[Partition, Offset]) = {
-          offsets.toIterable.foldMap { case (partition, offset) =>
+          offsets.toList.foldMap { case (partition, offset) =>
             val topicPartition = TopicPartition(topic = topic, partition = partition)
             consumer.seek(topicPartition, offset)
           }

@@ -4,6 +4,7 @@ import cats._
 import cats.arrow.FunctionK
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
+import cats.effect.implicits._
 import cats.implicits._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MonadThrowable}
@@ -146,7 +147,7 @@ object Journal {
 
     def readActions(key: Key, from: SeqNr): F[(F[JournalInfo], FoldActions[F])] = {
       for {
-        pointers <- Concurrent[F].start { eventual.pointers(key.topic) }
+        pointers <- eventual.pointers(key.topic).start // TODO this
         marker   <- appendMarker(key)
         result   <- {
           if (marker.offset == Offset.Min) {
@@ -302,7 +303,7 @@ object Journal {
         for {
           ab              <- readActions(key, from)
           (info, _)        = ab
-          pointer          = Concurrent[F].start { eventual.pointer(key) }
+          pointer          = eventual.pointer(key).start
           ab              <- (info, pointer).parTupled
           (info, pointer)  = ab
           seqNrEventual    = for {

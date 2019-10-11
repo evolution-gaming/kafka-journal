@@ -3,11 +3,8 @@ package com.evolutiongaming.kafka.journal.util
 import cats.effect._
 import cats.implicits._
 import cats.kernel.CommutativeMonoid
-import cats.{Applicative, CommutativeApplicative, Eval, Foldable}
+import cats.{Applicative, CommutativeApplicative}
 import com.evolutiongaming.catshelper.CatsHelper._
-
-import scala.collection.immutable
-import scala.concurrent.duration.FiniteDuration
 
 object CatsHelper {
 
@@ -27,38 +24,10 @@ object CatsHelper {
   }
 
 
-  implicit val foldableIterable: Foldable[Iterable] = new Foldable[Iterable] {
-
-    def foldLeft[A, B](fa: Iterable[A], b: B)(f: (B, A) => B) = {
-      fa.foldLeft(b)(f)
-    }
-
-    def foldRight[A, B](fa: Iterable[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]) = {
-      fa.foldRight(lb)(f)
-    }
-  }
-
-
-  implicit val foldableImmutableIterable: Foldable[immutable.Iterable] = new Foldable[immutable.Iterable] {
-
-    def foldLeft[A, B](fa: immutable.Iterable[A], b: B)(f: (B, A) => B) = {
-      foldableIterable.foldLeft(fa, b)(f)
-    }
-
-    def foldRight[A, B](fa: immutable.Iterable[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]) = {
-      foldableIterable.foldRight(fa, lb)(f)
-    }
-  }
-
-
   implicit class FOps1[F[_], A](val self: F[A]) extends AnyVal {
 
     def error[E](implicit bracket: Bracket[F, E]): F[Option[E]] = {
       self.redeem[Option[E], E](_.some, _ => none[E])
-    }
-
-    def timeout(duration: FiniteDuration)(implicit F: Concurrent[F], timer: Timer[F]): F[A] = {
-      Concurrent.timeout(self, duration)
     }
   }
 

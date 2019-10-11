@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import cats.effect._
 import cats.effect.concurrent.Ref
+import cats.effect.implicits._
 import cats.implicits._
 import cats.{Applicative, Functor, Monad}
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
@@ -66,11 +67,10 @@ object KafkaHealthCheck {
 
     val result = for {
       ref   <- Ref.of[F, Option[Throwable]](None)
-      fiber <- Concurrent[F].start {
-        (producer, consumer).tupled.use { case (producer, consumer) =>
-          run(key, config, stop, producer, consumer, ref.set)
-        }
-      }
+      fiber <- (producer, consumer)
+        .tupled
+        .use { case (producer, consumer) => run(key, config, stop, producer, consumer, ref.set) }
+        .start
     } yield {
       val result = new KafkaHealthCheck[F] {
         def error = ref.get
@@ -124,7 +124,7 @@ object KafkaHealthCheck {
 
       val produceConsume = for {
         _ <- produce(value)
-        _ <- 0l.tailRecM(consume)
+        _ <- 0L.tailRecM(consume)
       } yield {}
 
       produceConsume

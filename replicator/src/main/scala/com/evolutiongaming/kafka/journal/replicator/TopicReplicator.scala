@@ -14,7 +14,6 @@ import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.conversions.{ConsumerRecordToActionRecord, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.Named
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
@@ -221,14 +220,14 @@ object TopicReplicator { self =>
 
       val offsets = for {
         (topicPartition, records) <- consumerRecords
-        offset = records.foldLeft(Offset.Min) { (offset, record) => record.offset max offset }
       } yield {
+        val offset = records.foldLeft(Offset.Min) { (offset, record) => record.offset max offset }
         (topicPartition.partition, offset)
       }
 
       for {
         ios      <- ios
-        _        <- ios.parFold
+        _        <- ios.toList.parFold
         pointers  = TopicPointers(offsets)
         _        <- if (offsets.isEmpty) ().pure[F] else journal.save(topic, pointers, roundStart)
       } yield {
