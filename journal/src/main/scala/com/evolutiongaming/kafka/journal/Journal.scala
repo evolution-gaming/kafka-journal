@@ -11,13 +11,13 @@ import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MonadThrowable}
 import com.evolutiongaming.kafka.journal.conversions.{EventsToPayload, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
+import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords}
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord}
 import com.evolutiongaming.skafka.{Bytes => _, _}
 import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.smetrics._
-import com.evolutiongaming.sstream.FoldWhile.FoldWhileOps
 import com.evolutiongaming.sstream.Stream
 import play.api.libs.json.JsValue
 import pureconfig.ConfigReader
@@ -145,33 +145,44 @@ object Journal {
 
     val appendEvents = AppendEvents(appendAction, origin, eventsToPayload)
 
-    def readActions(key: Key, from: SeqNr): F[(F[JournalInfo], FoldActions[F])] = {
+    def headAndStream(key: Key, from: SeqNr): F[(JournalInfo, Fiber[F, FoldActions[F]])] = {
+
+      def stream = for {
+        pointers <- eventual.pointers(key.topic)
+      } yield {
+        marker: Marker => {
+          val offset = pointers.values.get(marker.partition)
+          FoldActions(key, from, marker, offset, readActionsOf)
+        }
+      }
+
       for {
-        pointers <- eventual.pointers(key.topic).start // TODO this
+        streamOf <- stream.start
         marker   <- appendMarker(key)
         result   <- {
           if (marker.offset == Offset.Min) {
             for {
-              _ <- pointers.cancel
+              _ <- streamOf.cancel
             } yield {
-              (JournalInfo.empty.pure[F], FoldActions.empty[F])
+              (JournalInfo.empty, FoldActions.empty[F].pure[Fiber[F, *]])
             }
           } else {
             for {
-              result   <- headCache.get(key, partition = marker.partition, offset = Offset.Min max marker.offset - 1)
-              pointers <- pointers.join
-              offset    = pointers.values.get(marker.partition)
-            } yield {
+              result <- headCache.get(key, partition = marker.partition, offset = Offset.Min max marker.offset - 1)
+              stream  = streamOf.map { _.apply(marker) }
+              result <- result match {
+                case HeadCache.Result.Valid(head) =>
+                  (head, stream).pure[F]
 
-              val readKafka = FoldActions(key, from, marker, offset, readActionsOf)
-
-              val info = result match {
-                case HeadCache.Result.Valid(info) => info.pure[F]
                 case HeadCache.Result.Invalid     =>
-                  readKafka(None).fold(JournalInfo.empty) { (info, action) => info(action.action.header) }
+                  for {
+                    stream <- stream.join
+                    info   <- stream(none).fold(JournalInfo.empty) { (info, action) => info(action.action.header) }
+                  } yield {
+                    (info, stream.pure[Fiber[F, *]])
+                  }
               }
-              (info, readKafka)
-            }
+            } yield result
           }
         }
       } yield result
@@ -189,155 +200,113 @@ object Journal {
         appendEvents(key, events, expireAfter, metadata, headers)
       }
 
-      def read(key: Key, from: SeqNr) = new Stream[F, EventRecord] {
+      
+      def read(key: Key, from: SeqNr) = {
 
-        def foldWhileM[L, R](l: L)(f: (L, EventRecord) => F[Either[L, R]]) = {
+        def readEventualAndKafka(from: SeqNr, stream: Fiber[F, FoldActions[F]]) = {
 
-          // TODO why do we need this?
-          def replicatedSeqNr(from: SeqNr) = {
-            val ss = (l, from.some, none[Offset])
-            eventual.read(key, from).foldWhileM(ss) { case ((l, _, _), record) =>
-              val event = record.event
-              val offset = record.partitionOffset.offset
-              val from = event.seqNr.next[Option]
-              f(l, record).map {
-                case Left(l)  => (l, from, offset.some).asLeft[(R, Option[SeqNr], Option[Offset])]
-                case Right(r) => (r, from, offset.some).asRight[(L, Option[SeqNr], Option[Offset])]
-              }
-            }
-          }
+          def readKafka(from: SeqNr, offset: Option[Offset], stream: FoldActions[F]) = {
 
-          def replicated(from: SeqNr) = {
-            val events = eventual.read(key, from)
-            events.foldWhileM(l)(f)
-          }
+            val appends = stream(offset)
+              .collect { case a@ActionRecord(_: Action.Append, _) => a.asInstanceOf[ActionRecord[Action.Append]] }
+              .dropWhile { a => a.action.range.to < from }
 
-          def onNonEmpty(deleteTo: Option[SeqNr], readKafka: FoldActions[F]) = {
-
-            def events(from: SeqNr, offset: Option[Offset], l: L) = {
-              readKafka(offset).foldWhileM(l) { (l, record) =>
-                record.action match {
-                  case _: Action.Delete => l.asLeft[R].pure[F]
-                  case a: Action.Append =>
-                    if (a.range.to < from) l.asLeft[R].pure[F]
-                    else {
-
-                      def read(events: Nel[Event]) = {
-                        events.foldWhileM(l) { case (l, event) =>
-                          if (event.seqNr >= from) {
-                            val eventRecord = EventRecord(a, event, record.partitionOffset)
-                            f(l, eventRecord)
-                          } else {
-                            l.asLeft[R].pure[F]
-                          }
-                        }
-                      }
-
-                      val payloadAndType = PayloadAndType(a)
-
-                      for {
-                        events <- payloadToEvents(payloadAndType)
-                        result <- read(events)
-                      } yield result
-                    }
-                }
-              }
-            }
-
-
-            def read(from: SeqNr) = {
-              for {
-                abc    <- replicatedSeqNr(from)
-                (result, from, offset) = abc match {
-                  case Left((l, from, offset))  => (l.asLeft[R], from, offset)
-                  case Right((r, from, offset)) => (r.asRight[L], from, offset)
-                }
-                _      <- log.debug(s"$key read from: $from, offset: $offset")
-                result <- from match {
-                  case None       => result.pure[F]
-                  case Some(from) => result match {
-                    case Left(l)        => events(from, offset, l)
-                    case r: Right[L, R] => r.leftCast[L].pure[F]
-                  }
-                }
-              } yield result
-            }
-
-            deleteTo.fold {
-              read(from)
-            } { deleteTo =>
-              deleteTo.next[Option].fold {
-                l.asLeft[R].pure[F]
-              } { min =>
-                read(min max from)
-              }
+            for {
+              record         <- appends
+              action          = record.action
+              payloadAndType  = PayloadAndType(action)
+              events         <- Stream.lift(payloadToEvents(payloadAndType))
+              event          <- Stream[F].apply(events)
+              if event.seqNr >= from
+            } yield {
+              EventRecord(action, event, record.partitionOffset)
             }
           }
 
           for {
-            ab                <- readActions(key, from)
-            (info, readKafka)  = ab
-            // TODO use range after eventualRecords
-            // TODO prevent from reading calling consume twice!
-            info              <- info
-            _                 <- log.debug(s"$key read info: $info")
-            result            <- info match {
-              case JournalInfo.Empty               => replicated(from)
-              case JournalInfo.Append(_, deleteTo) => onNonEmpty(deleteTo, readKafka)
-              // TODO test this case
-              case JournalInfo.Delete(deleteTo) => deleteTo.next[Option].fold {
-                l.asLeft[R].pure[F]
-              } { next =>
-                replicated(from max next)
-              }
+            stream <- Stream.lift(stream.join)
+            event  <- eventual.read(key, from).flatMapLast { last =>
+              last
+                .fold((from, none[Offset]).some) { event => event.seqNr.next[Option].map { from => (from, event.offset.some) } }
+                .fold(Stream.empty[F, EventRecord]) { case (from, offset) =>  readKafka(from, offset, stream)}
             }
-          } yield result
+          } yield event
         }
+
+        def read(head: JournalInfo, stream: Fiber[F, FoldActions[F]]) = {
+
+          def cancel = Stream.lift(stream.cancel)
+
+          def empty = cancel *> Stream.empty[F, EventRecord]
+
+          def readEventual(from: SeqNr) = cancel *> eventual.read(key, from)
+
+          head match {
+            case JournalInfo.Empty               => readEventual(from)
+            case JournalInfo.Append(_, deleteTo) =>
+              deleteTo.fold {
+                readEventualAndKafka(from, stream)
+              } { deleteTo =>
+                deleteTo.next[Option].fold {empty } { min => readEventualAndKafka(min max from, stream) }
+              }
+
+            case JournalInfo.Delete(deleteTo)    =>
+              deleteTo.next[Option].fold { empty } { min => readEventual(min max from) }
+          }
+        }
+
+        for {
+          headAndStream  <- Stream.lift(headAndStream(key, from))
+          (head, stream)  = headAndStream
+          _              <- Stream.lift(log.debug(s"$key read info: $head"))
+          eventRecord    <- read(head, stream)
+        } yield eventRecord
       }
+
 
       def pointer(key: Key) = {
         // TODO reimplement, we don't need to call `eventual.pointer` without using it's offset
 
+        // TODO specialized query ?
+        def pointerEventual = for {
+          pointer <- eventual.pointer(key)
+        } yield for {
+          pointer <- pointer
+        } yield {
+          pointer.seqNr
+        }
+
+        def pointer(head: JournalInfo) = head match {
+          case JournalInfo.Empty        => pointerEventual
+          case head: JournalInfo.Append => head.seqNr.some.pure[F]
+          case _: JournalInfo.Delete    => pointerEventual
+        }
+
         val from = SeqNr.min // TODO remove
 
         for {
-          ab              <- readActions(key, from)
-          (info, _)        = ab
-          pointer          = eventual.pointer(key).start
-          ab              <- (info, pointer).parTupled
-          (info, pointer)  = ab
-          seqNrEventual    = for {
-            pointer <- pointer.join
-          } yield for {
-            pointer <- pointer
-          } yield {
-            pointer.seqNr
-          }
-          seqNr           <- info match {
-            case JournalInfo.Empty        => seqNrEventual
-            case info: JournalInfo.Append => info.seqNr.some.pure[F]
-            case _: JournalInfo.Delete    => seqNrEventual
-          }
-        } yield seqNr
+          headAndStream  <- headAndStream(key, from)
+          (head, stream)  = headAndStream
+          _              <- stream.cancel
+          pointer        <- pointer(head)
+        } yield pointer
       }
 
+      // TODO not delete already deleted, do not accept deleteTo=2 when already deleteTo=3
       def delete(key: Key, to: SeqNr) = {
+
+        def delete(to: SeqNr) = {
+          for {
+            timestamp <- Clock[F].instant
+            action     = Action.Delete(key, timestamp, to, origin)
+            result    <- appendAction(action)
+          } yield result
+        }
+
         for {
-          seqNr  <- pointer(key)
-          result <- seqNr match {
-            case None        => none[PartitionOffset].pure[F]
-            case Some(seqNr) =>
-              // TODO not delete already deleted, do not accept deleteTo=2 when already deleteTo=3
-              val deleteTo = seqNr min to
-              for {
-                timestamp <- Clock[F].instant
-                action     = Action.Delete(key, timestamp, deleteTo, origin)
-                result    <- appendAction(action)
-              } yield {
-                result.some
-              }
-          }
-        } yield result
+          seqNr   <- pointer(key)
+          pointer <- seqNr.traverse { seqNr => delete(seqNr min to) }
+        } yield pointer
       }
     }
   }

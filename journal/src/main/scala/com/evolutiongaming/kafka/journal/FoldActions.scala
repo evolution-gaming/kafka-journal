@@ -6,6 +6,7 @@ import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.skafka.{Offset, Partition}
 import com.evolutiongaming.sstream.Stream
 
+// TODO rename
 trait FoldActions[F[_]] {
   def apply(offset: Option[Offset]): Stream[F, ActionRecord[Action.User]]
 }

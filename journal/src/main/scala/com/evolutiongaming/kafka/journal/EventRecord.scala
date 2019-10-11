@@ -13,7 +13,8 @@ final case class EventRecord(
   partitionOffset: PartitionOffset,
   origin: Option[Origin] = None,
   metadata: Metadata,
-  headers: Headers) {
+  headers: Headers
+) {
 
   def seqNr: SeqNr = event.seqNr
 

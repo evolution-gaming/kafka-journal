@@ -6,6 +6,7 @@ import cats.{Foldable, Semigroup}
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
 
 
+// TODO rename to HeadInfo
 sealed abstract class JournalInfo extends Product {
 
   def apply(header: ActionHeader): JournalInfo
