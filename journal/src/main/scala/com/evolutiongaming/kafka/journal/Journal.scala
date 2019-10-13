@@ -145,14 +145,14 @@ object Journal {
 
     val appendEvents = AppendEvents(appendAction, origin, eventsToPayload)
 
-    def headAndStream(key: Key, from: SeqNr): F[(HeadInfo, Fiber[F, FoldActions[F]])] = {
+    def headAndStream(key: Key, from: SeqNr): F[(HeadInfo, Fiber[F, StreamActionRecords[F]])] = {
 
       def stream = for {
         pointers <- eventual.pointers(key.topic)
       } yield {
         marker: Marker => {
           val offset = pointers.values.get(marker.partition)
-          FoldActions(key, from, marker, offset, readActionsOf)
+          StreamActionRecords(key, from, marker, offset, readActionsOf)
         }
       }
 
@@ -164,7 +164,7 @@ object Journal {
             for {
               _ <- streamOf.cancel
             } yield {
-              (HeadInfo.empty, FoldActions.empty[F].pure[Fiber[F, *]])
+              (HeadInfo.empty, StreamActionRecords.empty[F].pure[Fiber[F, *]])
             }
           } else {
             for {
@@ -203,9 +203,9 @@ object Journal {
       
       def read(key: Key, from: SeqNr) = {
 
-        def readEventualAndKafka(from: SeqNr, stream: Fiber[F, FoldActions[F]]) = {
+        def readEventualAndKafka(from: SeqNr, stream: Fiber[F, StreamActionRecords[F]]) = {
 
-          def readKafka(from: SeqNr, offset: Option[Offset], stream: FoldActions[F]) = {
+          def readKafka(from: SeqNr, offset: Option[Offset], stream: StreamActionRecords[F]) = {
 
             val appends = stream(offset)
               .collect { case a@ActionRecord(_: Action.Append, _) => a.asInstanceOf[ActionRecord[Action.Append]] }
@@ -233,7 +233,7 @@ object Journal {
           } yield event
         }
 
-        def read(head: HeadInfo, stream: Fiber[F, FoldActions[F]]) = {
+        def read(head: HeadInfo, stream: Fiber[F, StreamActionRecords[F]]) = {
 
           def cancel = Stream.lift(stream.cancel)
 

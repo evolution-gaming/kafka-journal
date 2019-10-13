@@ -13,8 +13,8 @@ import scodec.bits.ByteVector
 
 import scala.util.{Success, Try}
 
-class FoldActionsSpec extends FunSuite with Matchers {
-  import FoldActionsSpec._
+class StreamActionRecordsSpec extends FunSuite with Matchers {
+  import StreamActionRecordsSpec._
 
   test("no offsets") {
     val records = List(
@@ -53,7 +53,7 @@ class FoldActionsSpec extends FunSuite with Matchers {
   }
 }
 
-object FoldActionsSpec {
+object StreamActionRecordsSpec {
 
   implicit val bracket: BracketThrowable[StateT] = new BracketFromMonadError[StateT, Throwable] {
 
@@ -136,8 +136,8 @@ object FoldActionsSpec {
       }
     }
 
-    val foldActions = FoldActions[StateT](key, SeqNr.min, marker, replicated, readActionsOf)
-    val (_, result) = foldActions(offset)
+    val actionRecords = StreamActionRecords[StateT](key, SeqNr.min, marker, replicated, readActionsOf)
+    val (_, result) = actionRecords(offset)
       .collect { case ActionRecord(a: Action.Append, partitionOffset) => seqNrAndOffset(a, partitionOffset) }
       .toList
       .run(State(records))
