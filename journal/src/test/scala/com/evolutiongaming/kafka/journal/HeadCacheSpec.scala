@@ -60,7 +60,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
               seeks = List(TestConsumer.Seek(topic, Map((partition, 0)))),
               topics = Map((topic, List(partition))))
 
-            result shouldEqual Result.valid(JournalInfo.append(SeqNr.unsafe(11)))
+            result shouldEqual Result.valid(HeadInfo.append(SeqNr.unsafe(11)))
           }
         }
       } yield {}
@@ -242,11 +242,11 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
               assigns = List(TestConsumer.Assign(topic, Nel.of(0))),
               seeks = List(TestConsumer.Seek(topic, Map((partition, 0)))),
               topics = Map((topic, List(partition))))
-            r0 shouldEqual Result.valid(JournalInfo.append(SeqNr.min))
+            r0 shouldEqual Result.valid(HeadInfo.append(SeqNr.min))
             r1 shouldEqual Result.invalid
             r2 shouldEqual Result.invalid
             r3 shouldEqual Result.invalid
-            r4 shouldEqual Result.valid(JournalInfo.append(SeqNr.min))
+            r4 shouldEqual Result.valid(HeadInfo.append(SeqNr.min))
           }
         }
       } yield {}

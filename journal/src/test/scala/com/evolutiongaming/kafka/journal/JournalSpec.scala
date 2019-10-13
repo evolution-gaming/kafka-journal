@@ -565,7 +565,7 @@ object JournalSpec {
       def get(key: Key, partition: Partition, offset: Offset) = {
 
         StateT { state =>
-          val info = state.records.foldLeft(JournalInfo.empty) { (info, record) => info(record.action.header) }
+          val info = state.records.foldLeft(HeadInfo.empty) { (info, record) => info(record.action.header) }
           (state, HeadCache.Result.valid(info))
         }
       }

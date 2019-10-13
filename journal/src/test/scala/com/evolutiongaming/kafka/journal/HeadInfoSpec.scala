@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 
 import org.scalatest.{FunSuite, Matchers}
 
-class JournalInfoSpec extends FunSuite with Matchers {
+class HeadInfoSpec extends FunSuite with Matchers {
 
   test("Empty apply Append") {
     Empty(append(1, 2)) shouldEqual appendInfo(2)
@@ -66,12 +66,12 @@ class JournalInfoSpec extends FunSuite with Matchers {
   private def mark = ActionHeader.Mark("id", None)
 
   private def deleteInfo(seqNr: Int) = {
-    JournalInfo.Delete(SeqNr.unsafe(seqNr))
+    HeadInfo.Delete(SeqNr.unsafe(seqNr))
   }
 
   private def appendInfo(seqNr: Int, deleteTo: Option[Int] = None) = {
-    JournalInfo.Append(SeqNr.unsafe(seqNr), deleteTo.map(x => SeqNr.unsafe(x)))
+    HeadInfo.Append(SeqNr.unsafe(seqNr), deleteTo.map(x => SeqNr.unsafe(x)))
   }
 
-  private def Empty = JournalInfo.Empty
+  private def Empty = HeadInfo.Empty
 }

@@ -168,14 +168,14 @@ object HeadCache {
 
     def invalid: Result = Invalid
 
-    def valid(info: JournalInfo): Result = Valid(info)
+    def valid(info: HeadInfo): Result = Valid(info)
 
-    val empty: Result = valid(JournalInfo.empty)
+    val empty: Result = valid(HeadInfo.empty)
 
 
     case object Invalid extends Result
 
-    final case class Valid(info: JournalInfo) extends Result
+    final case class Valid(info: HeadInfo) extends Result
   }
 
 
@@ -412,7 +412,7 @@ object HeadCache {
       } yield {
         val entries = for {
           (id, records)  <- records.groupBy(_.id)
-          (info, offset)  = records.foldLeft((JournalInfo.empty, Offset.Min)) { case ((info, offset), record) =>
+          (info, offset)  = records.foldLeft((HeadInfo.empty, Offset.Min)) { case ((info, offset), record) =>
             val info1 = info(record.header)
             val offset1 = record.header match {
               case _: ActionHeader.AppendOrDelete => record.offset max offset
@@ -421,8 +421,8 @@ object HeadCache {
             (info1, offset1)
           }
           entry          <- info match {
-            case JournalInfo.Empty          => none[Entry]
-            case info: JournalInfo.NonEmpty => Entry(id = id, offset = offset, info).some
+            case HeadInfo.Empty          => none[Entry]
+            case info: HeadInfo.NonEmpty => Entry(id = id, offset = offset, info).some
           }
         } yield {
           (entry.id, entry)
@@ -455,7 +455,7 @@ object HeadCache {
     }
 
 
-    final case class Entry(id: String, offset: Offset, info: JournalInfo.NonEmpty)
+    final case class Entry(id: String, offset: Offset, info: HeadInfo.NonEmpty)
 
     object Entry {
 
@@ -747,10 +747,10 @@ object HeadCache {
           r <- self.get(key, partition, offset).attempt
           d <- d
           result = r match {
-            case Right(Result.Valid(_: JournalInfo.NonEmpty)) => Metrics.Result.NotReplicated
-            case Right(Result.Valid(JournalInfo.Empty))       => Metrics.Result.Replicated
-            case Right(Result.Invalid)                        => Metrics.Result.Invalid
-            case Left(_)                                      => Metrics.Result.Failure
+            case Right(Result.Valid(_: HeadInfo.NonEmpty)) => Metrics.Result.NotReplicated
+            case Right(Result.Valid(HeadInfo.Empty))       => Metrics.Result.Replicated
+            case Right(Result.Invalid)                     => Metrics.Result.Invalid
+            case Left(_)                                   => Metrics.Result.Failure
           }
           _      <- metrics.get(key.topic, d, result)
           r      <- r.fold(_.raiseError[F, Result], _.pure[F])

@@ -6,26 +6,25 @@ import cats.{Foldable, Semigroup}
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
 
 
-// TODO rename to HeadInfo
-sealed abstract class JournalInfo extends Product {
+sealed abstract class HeadInfo extends Product {
 
-  def apply(header: ActionHeader): JournalInfo
+  def apply(header: ActionHeader): HeadInfo
 }
 
-object JournalInfo {
+object HeadInfo {
 
-  def empty: JournalInfo = Empty
+  def empty: HeadInfo = Empty
 
-  def delete(deleteTo: SeqNr): JournalInfo = Delete(deleteTo)
+  def delete(deleteTo: SeqNr): HeadInfo = Delete(deleteTo)
 
-  def append(seqNr: SeqNr, deleteTo: Option[SeqNr] = None): JournalInfo = Append(seqNr, deleteTo)
+  def append(seqNr: SeqNr, deleteTo: Option[SeqNr] = None): HeadInfo = Append(seqNr, deleteTo)
 
-  def apply[T[_] : Foldable](actions: T[ActionHeader]): JournalInfo = {
-    Foldable[T].foldLeft(actions, JournalInfo.empty)(_ apply _)
+  def apply[T[_] : Foldable](actions: T[ActionHeader]): HeadInfo = {
+    Foldable[T].foldLeft(actions, HeadInfo.empty)(_ apply _)
   }
 
 
-  final case object Empty extends JournalInfo { self =>
+  final case object Empty extends HeadInfo { self =>
 
     def apply(a: ActionHeader) = a match {
       case a: ActionHeader.Append => Append(a.range.to, None)
@@ -35,7 +34,7 @@ object JournalInfo {
   }
 
 
-  abstract sealed class NonEmpty extends JournalInfo
+  abstract sealed class NonEmpty extends HeadInfo
 
   object NonEmpty {
 

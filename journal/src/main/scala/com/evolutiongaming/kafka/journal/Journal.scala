@@ -145,7 +145,7 @@ object Journal {
 
     val appendEvents = AppendEvents(appendAction, origin, eventsToPayload)
 
-    def headAndStream(key: Key, from: SeqNr): F[(JournalInfo, Fiber[F, FoldActions[F]])] = {
+    def headAndStream(key: Key, from: SeqNr): F[(HeadInfo, Fiber[F, FoldActions[F]])] = {
 
       def stream = for {
         pointers <- eventual.pointers(key.topic)
@@ -164,7 +164,7 @@ object Journal {
             for {
               _ <- streamOf.cancel
             } yield {
-              (JournalInfo.empty, FoldActions.empty[F].pure[Fiber[F, *]])
+              (HeadInfo.empty, FoldActions.empty[F].pure[Fiber[F, *]])
             }
           } else {
             for {
@@ -177,7 +177,7 @@ object Journal {
                 case HeadCache.Result.Invalid     =>
                   for {
                     stream <- stream.join
-                    info   <- stream(none).fold(JournalInfo.empty) { (info, action) => info(action.action.header) }
+                    info   <- stream(none).fold(HeadInfo.empty) { (info, action) => info(action.action.header) }
                   } yield {
                     (info, stream.pure[Fiber[F, *]])
                   }
@@ -233,7 +233,7 @@ object Journal {
           } yield event
         }
 
-        def read(head: JournalInfo, stream: Fiber[F, FoldActions[F]]) = {
+        def read(head: HeadInfo, stream: Fiber[F, FoldActions[F]]) = {
 
           def cancel = Stream.lift(stream.cancel)
 
@@ -242,15 +242,15 @@ object Journal {
           def readEventual(from: SeqNr) = cancel *> eventual.read(key, from)
 
           head match {
-            case JournalInfo.Empty               => readEventual(from)
-            case JournalInfo.Append(_, deleteTo) =>
+            case HeadInfo.Empty               => readEventual(from)
+            case HeadInfo.Append(_, deleteTo) =>
               deleteTo.fold {
                 readEventualAndKafka(from, stream)
               } { deleteTo =>
                 deleteTo.next[Option].fold {empty } { min => readEventualAndKafka(min max from, stream) }
               }
 
-            case JournalInfo.Delete(deleteTo)    =>
+            case HeadInfo.Delete(deleteTo) =>
               deleteTo.next[Option].fold { empty } { min => readEventual(min max from) }
           }
         }
@@ -276,10 +276,10 @@ object Journal {
           pointer.seqNr
         }
 
-        def pointer(head: JournalInfo) = head match {
-          case JournalInfo.Empty        => pointerEventual
-          case head: JournalInfo.Append => head.seqNr.some.pure[F]
-          case _: JournalInfo.Delete    => pointerEventual
+        def pointer(head: HeadInfo) = head match {
+          case HeadInfo.Empty        => pointerEventual
+          case head: HeadInfo.Append => head.seqNr.some.pure[F]
+          case _: HeadInfo.Delete    => pointerEventual
         }
 
         val from = SeqNr.min // TODO remove
