@@ -16,7 +16,6 @@ import com.evolutiongaming.skafka.consumer.ConsumerMetrics
 import com.evolutiongaming.skafka.producer.ProducerMetrics
 import com.evolutiongaming.skafka.{ClientId, CommonConfig}
 import com.evolutiongaming.smetrics.MeasureDuration
-import com.evolutiongaming.sstream.Stream
 
 import scala.collection.immutable.Seq
 import scala.concurrent.ExecutionContext
@@ -134,29 +133,31 @@ object JournalAdapter {
 
     def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)(f: PersistentRepr => F[Unit]) = {
 
-      def stream(key: Key) = {
+      def replay(key: Key): F[Unit] = {
         journal
           .read(key, range.from)
-          .foldMapCmdM(max) { (n, record) =>
+          .foldWhileM(max) { (max, record) =>
             val event = record.event
             val seqNr = event.seqNr
-            if (n > 0 && seqNr <= range.to) {
+            if (max > 0 && seqNr <= range.to) {
               for {
                 persistentRepr <- serializer.toPersistentRepr(persistenceId, event)
                 _              <- f(persistentRepr)
               } yield {
-                (n - 1, Stream.Cmd.take(event))
+                if (max == 1) ().asRight[Long]
+                else (max - 1).asLeft[Unit]
               }
             } else {
-              (n, Stream.Cmd.stop[Event]).pure[F]
+              ().asRight[Long].pure[F]
             }
           }
+          .void
       }
 
       for {
-        key <- toKey(persistenceId)
-        _   <- stream(key).drain
-      } yield {}
+        key    <- toKey(persistenceId)
+        result <- replay(key)
+      } yield result
     }
 
     def lastSeqNr(persistenceId: PersistenceId, from: SeqNr) = {

@@ -406,15 +406,12 @@ object JournalSpec {
         }
 
         def read(range: SeqRange) = {
-          import Stream.Cmd
-          val stream = journal
+          journal
             .read(key, range.from)
-            .mapCmd { event =>
-              if (event.seqNr < range.from) Cmd.skip
-              else if (event.seqNr <= range.to) Cmd.take(event.seqNr)
-              else Cmd.stop
-            }
-          stream.toList
+            .dropWhile { _.seqNr < range.from }
+            .takeWhile { _.seqNr <= range.to }
+            .map { _.seqNr }
+            .toList
         }
 
         def pointer = journal.pointer(key)

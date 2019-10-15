@@ -38,22 +38,31 @@ object StreamActionRecords {
       else {
         val last = offset max offsetReplicated
         val fromOffset = last.fold(Offset.Min)(_ + 1)
-        val actions = for {
+        val records = for {
           readActions <- Stream[F].apply(readActionsOf(key, partition, fromOffset))
           actions     <- Stream[F].repeat(readActions)
           action      <- Stream[F].apply(actions.toList)
         } yield action
 
-        actions.mapCmd { action =>
-          import Stream.Cmd
+        records.stateless { record =>
 
-          def take(a: Action.User) = Cmd.take(action.copy(action = a))
+          def take(action: Action.User) = {
+            (true, Stream[F].single(record.copy(action = action)))
+          }
 
-          if (action.offset > max) Stream.Cmd.stop
-          else action.action match {
-            case a: Action.Append => if (a.range.to < from) Cmd.skip else take(a)
+          def skip = {
+            (true, Stream[F].empty[ActionRecord[Action.User]])
+          }
+
+          def stop = {
+            (false, Stream[F].empty[ActionRecord[Action.User]])
+          }
+
+          if (record.offset > max) stop
+          else record.action match {
+            case a: Action.Append => if (a.range.to < from) skip else take(a)
             case a: Action.Delete => take(a)
-            case a: Action.Mark   => if (a.id == marker.id) Cmd.stop else Cmd.skip
+            case a: Action.Mark   => if (a.id == marker.id) stop else skip
           }
         }
       }
