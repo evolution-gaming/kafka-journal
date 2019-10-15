@@ -7,20 +7,20 @@ import cats.data.{IndexedStateT, NonEmptyList => Nel}
 import cats.effect.ExitCase
 import cats.implicits._
 import com.evolutiongaming.catshelper.BracketThrowable
-import com.evolutiongaming.catshelper.NelHelper._
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.eventual.TopicPointers
-import com.evolutiongaming.kafka.journal.util.BracketFromMonadError
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
+import com.evolutiongaming.kafka.journal.util.{BracketFromMonadError, TryHelper}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
+import com.evolutiongaming.sstream.FoldWhile._
+import com.evolutiongaming.sstream.Stream
 import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json.Json
 
 import scala.concurrent.duration._
 import scala.util.Try
 
-class ReplicatedCassandraTest extends FunSuite with Matchers {
-  import ReplicatedCassandraTest._
+class EventualCassandraTest extends FunSuite with Matchers {
+  import EventualCassandraTest._
 
   private val timestamp0 = Instant.now()
   private val timestamp1 = timestamp0 + 1.minute
@@ -44,209 +44,115 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
     segmentSize <- List(SegmentSize.min, SegmentSize.default, SegmentSize.max)
   } {
 
-    val journal = ReplicatedCassandra(segmentSize, statements)
+    val journal = EventualCassandra(statements)
 
-    test(s"topics, segmentSize: $segmentSize") {
-      val id = "id"
-      val key = Key(id = id, topic = topic0)
+    test(s"pointers, segmentSize: $segmentSize") {
       val stateT = for {
-        topics <- journal.topics
-        _       = topics.toSet shouldEqual Set.empty
-        _      <- journal.append(key, partitionOffset, timestamp0, Nel.of(record))
-        topics <- journal.topics
-        _       = topics.toSet shouldEqual Set.empty
-        _      <- journal.save(topic0, TopicPointers(Map((0, 0))), timestamp0)
-        topics <- journal.topics
-        _       = topics.toSet shouldEqual Set(topic0)
-        _      <- journal.save(topic0, TopicPointers(Map((0, 1))), timestamp1)
-        topics <- journal.topics
-        _       = topics.toSet shouldEqual Set(topic0)
-        _      <- journal.save(topic1, TopicPointers(Map((0, 0))), timestamp0)
-        topics <- journal.topics
-        _       = topics.toSet shouldEqual Set(topic0, topic1)
-        _      <- journal.delete(key, partitionOffset, timestamp1, SeqNr.max, origin.some)
-        topics <- journal.topics
-        _       = topics.toSet shouldEqual Set(topic0, topic1)
+        pointers <- journal.pointers(topic0)
+        _         = pointers.values shouldEqual Map.empty
+        _        <- insertPointer(topic0, partition = 0, offset = 0, created = timestamp0, updated = timestamp0)
+        pointers <- journal.pointers(topic0)
+        _         = pointers.values shouldEqual Map((0, 0))
+        _        <- updatePointer(topic0, partition = 0, offset = 1, timestamp = timestamp1)
+        pointers <- journal.pointers(topic0)
+        _         = pointers.values shouldEqual Map((0, 1))
+        _        <- insertPointer(topic1, partition = 0, offset = 0, created = timestamp0, updated = timestamp0)
+        pointers <- journal.pointers(topic0)
+        _         = pointers.values shouldEqual Map((0, 1))
       } yield {}
 
       val expected = State(
         pointers = Map(
           (topic0, Map((0, PointerEntry(offset = 1, created = timestamp0, updated = timestamp1)))),
-          (topic1, Map((0, PointerEntry(offset = 0, created = timestamp0, updated = timestamp0))))),
+          (topic1, Map((0, PointerEntry(offset = 0, created = timestamp0, updated = timestamp0))))))
+      val result = stateT.run(State.empty)
+      result shouldEqual (expected, ()).pure[Try]
+    }
+
+
+    test(s"pointer, segmentSize: $segmentSize") {
+      val id = "id"
+      val key = Key(id = id, topic = topic0)
+      val seqNr = SeqNr.min
+      val stateT = for {
+        pointer <- journal.pointer(key)
+        _        = pointer shouldEqual none
+        _       <- insertMetadata(key, timestamp0, Head(partitionOffset, segmentSize, seqNr, none), origin.some)
+        pointer <- journal.pointer(key)
+        _        = pointer shouldEqual Pointer(partitionOffset, seqNr).some
+        _       <- updateMetadata(key, partitionOffset, timestamp1, SeqNr.max, seqNr)
+        pointer <- journal.pointer(key)
+        _        = pointer shouldEqual Pointer(partitionOffset, SeqNr.max).some
+      } yield {
+
+      }
+      val expected = State(
         metadata = Map(
           (topic0, Map((id, MetadataEntry(
             partitionOffset = partitionOffset,
             segmentSize = segmentSize,
             seqNr = SeqNr.max,
-            deleteTo = SeqNr.max.some,
+            deleteTo = SeqNr.min.some,
             created = timestamp0,
             updated = timestamp1,
-            origin = origin.some))))),
-        journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))))
+            origin = origin.some))))))
       val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
     }
 
 
-    test(s"pointers, segmentSize: $segmentSize") {
-      val id = "id"
-      val key = Key(id = id, topic = topic0)
-      val stateT = for {
-        pointers <- journal.pointers(topic0)
-        _         = pointers.values shouldEqual Map.empty
-        _        <- journal.append(key, partitionOffset, timestamp0, Nel.of(record))
-        pointers <- journal.pointers(topic0)
-        _         = pointers.values shouldEqual Map.empty
-        _        <- journal.save(topic0, TopicPointers(Map((0, 0))), timestamp0)
-        pointers <- journal.pointers(topic0)
-        _         = pointers.values shouldEqual Map((0, 0))
-        _        <- journal.save(topic0, TopicPointers(Map((0, 1))), timestamp1)
-        pointers <- journal.pointers(topic0)
-        _         = pointers.values shouldEqual Map((0, 1))
-        _        <- journal.save(topic1, TopicPointers(Map((0, 0))), timestamp0)
-        pointers <- journal.pointers(topic0)
-        _         = pointers.values shouldEqual Map((0, 1))
-      } yield {}
+    for {
+      seqNr <- List(SeqNr.min, SeqNr.unsafe(5), SeqNr.max)
+    } {
+      test(s"read, seqNr: $seqNr, segmentSize: $segmentSize") {
 
-      val expected = State(
-        pointers = Map(
-          (topic0, Map((0, PointerEntry(offset = 1, created = timestamp0, updated = timestamp1)))),
-          (topic1, Map((0, PointerEntry(offset = 0, created = timestamp0, updated = timestamp0))))),
-        metadata = Map(
-          (topic0, Map((id, MetadataEntry(partitionOffset, segmentSize, SeqNr.min, none, timestamp0, timestamp0, origin.some))))),
-        journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))))
-      val result = stateT.run(State.empty)
-      result shouldEqual (expected, ()).pure[Try]
-    }
-
-
-    test(s"append, segmentSize: $segmentSize") {
-      val id0 = "id0"
-      val id1 = "id1"
-      val key0 = Key(id0, topic0)
-      val key1 = Key(id1, topic1)
-      val stateT = for {
-        _ <- journal.append(
-          key = key0,
-          partitionOffset = PartitionOffset(partition = 0, offset = 0),
-          timestamp = timestamp0,
-          events = Nel.of(
-            eventRecordOf(
-              seqNr = SeqNr.unsafe(1),
-              partitionOffset = PartitionOffset(partition = 0, offset = 0))))
-        _ <- journal.append(
-          key = key0,
-          partitionOffset = PartitionOffset(partition = 0, offset = 3),
-          timestamp = timestamp1,
-          events = Nel.of(
-            eventRecordOf(
-              seqNr = SeqNr.unsafe(2),
-              partitionOffset = PartitionOffset(partition = 0, offset = 1)),
-            eventRecordOf(
-              seqNr = SeqNr.unsafe(3),
-              partitionOffset = PartitionOffset(partition = 0, offset = 2))))
-        _ <- journal.append(
-          key = key1,
-          partitionOffset = PartitionOffset(partition = 0, offset = 4),
-          timestamp = timestamp0,
-          events = Nel.of(
-            eventRecordOf(
-              seqNr = SeqNr.unsafe(1),
-              partitionOffset = PartitionOffset(partition = 0, offset = 4))))
-      } yield {}
-
-
-      val events0 = Nel
-        .of(
-          eventRecordOf(
-            seqNr = SeqNr.unsafe(1),
-            partitionOffset = PartitionOffset(partition = 0, offset = 0)),
-          eventRecordOf(
-            seqNr = SeqNr.unsafe(2),
-            partitionOffset = PartitionOffset(partition = 0, offset = 1)),
-          eventRecordOf(
-            seqNr = SeqNr.unsafe(3),
-            partitionOffset = PartitionOffset(partition = 0, offset = 2)))
-        .grouped(segmentSize.value)
-        .zipWithIndex
-        .map { case (events, segmentNr) =>
-          val map = events
-            .map { a => ((a.seqNr, a.timestamp), a) }
-            .toList
-            .toMap
-          ((key0, SegmentNr.unsafe(segmentNr)), map)
+        val id = "id"
+        val key = Key(id = id, topic = topic0)
+        val record1 = {
+          import TryHelper._
+          record.copy(
+            timestamp = timestamp1,
+            event = record.event.copy(seqNr = record.seqNr.next[Try].get),
+            partitionOffset = record.partitionOffset.copy(offset = record.partitionOffset.offset + 1))
         }
-        .toList
-        .toMap
 
-      val expected = State(
-        metadata = Map(
-          (topic0, Map(
-            (id0, MetadataEntry(
-              PartitionOffset(partition = 0, offset = 3),
-              segmentSize,
-              SeqNr.unsafe(3),
-              none,
-              timestamp0,
-              timestamp1,
-              origin.some)))),
-          (topic1, Map(
-            (id1, MetadataEntry(
-              PartitionOffset(partition = 0, offset = 4),
-              segmentSize,
-              SeqNr.unsafe(1),
-              none,
-              timestamp0,
-              timestamp0,
-              origin.some))))),
-        journal = events0 ++ Map(
-          ((key1, SegmentNr.min), Map(
-            ((SeqNr.min, timestamp0), eventRecordOf(
-              seqNr = SeqNr.unsafe(1),
-              partitionOffset = PartitionOffset(partition = 0, offset = 4)))))))
-      val result = stateT.run(State.empty)
-      result shouldEqual (expected, ()).pure[Try]
-    }
+        val stateT = for {
+          records <- journal.read(key, seqNr).toList
+          _        = records shouldEqual List.empty
+          _       <- insertMetadata(key, timestamp0, Head(partitionOffset, segmentSize, record.seqNr, none), origin.some)
+          _       <- insertRecords(key, SegmentNr.min, Nel.of(record))
+          records <- journal.read(key, seqNr).toList
+          _        = records shouldEqual List(record).filter(_.seqNr >= seqNr)
+          _       <- updateMetadataSeqNr(key, partitionOffset, timestamp1, record1.seqNr)
+          _       <- insertRecords(key, SegmentNr.min, Nel.of(record1))
+          records <- journal.read(key, seqNr).toList
+          _        = records shouldEqual List(record, record1).filter(_.seqNr >= seqNr)
+          _       <- updateMetadata(key, partitionOffset, timestamp1, record1.seqNr, record.seqNr)
+          records <- journal.read(key, seqNr).toList
+          _        = records shouldEqual List(record1).filter(_.seqNr >= seqNr)
+        } yield {}
 
-
-    test(s"delete, segmentSize: $segmentSize") {
-      val id = "id"
-      val key = Key(id = id, topic = topic0)
-      val stateT = for {
-        _ <- journal.append(
-          key = key,
-          partitionOffset = PartitionOffset(partition = 0, offset = 1),
-          timestamp = timestamp0,
-          events = Nel.of(
-            eventRecordOf(
-              seqNr = SeqNr.min,
-              partitionOffset = PartitionOffset(partition = 0, offset = 0))))
-        _ <- journal.delete(
-          key = key,
-          partitionOffset = PartitionOffset(partition = 0, offset = 2),
-          timestamp = timestamp1,
-          deleteTo = SeqNr.max,
-          origin = origin.some)
-      } yield {}
-
-      val expected = State(
-        metadata = Map(
-          (topic0, Map((id, MetadataEntry(
-            PartitionOffset(partition = 0, offset = 2),
-            segmentSize,
-            SeqNr.max,
-            SeqNr.max.some,
-            timestamp0,
-            timestamp1,
-            origin.some))))),
-        journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))))
-      val result = stateT.run(State.empty)
-      result shouldEqual (expected, ()).pure[Try]
+        val expected = State(
+          metadata = Map(
+            (topic0, Map((id, MetadataEntry(
+              partitionOffset = partitionOffset,
+              segmentSize = segmentSize,
+              seqNr = record1.seqNr,
+              deleteTo = record.seqNr.some,
+              created = timestamp0,
+              updated = timestamp1,
+              origin = origin.some))))),
+          journal = Map(((key, SegmentNr.min), Map(
+            ((record.seqNr, record.timestamp), record),
+            ((record1.seqNr, record1.timestamp), record1)))))
+        val result = stateT.run(State.empty)
+        result shouldEqual (expected, ()).pure[Try]
+      }
     }
   }
 }
 
-object ReplicatedCassandraTest {
+object EventualCassandraTest {
 
   val insertRecords: JournalStatements.InsertRecords[StateT] = {
     (key: Key, segment: SegmentNr, events: Nel[EventRecord]) => {
@@ -450,21 +356,27 @@ object ReplicatedCassandraTest {
     }
   }
 
+  val selectRecords: JournalStatements.SelectRecords[StateT] = {
+    (key: Key, segment: SegmentNr, range: SeqRange) => {
+      val stateT = StateT.success { state =>
+        val entries = for {
+          journal <- state.journal.get((key, segment)).toList
+          record  <- journal.collect { case (_, entry) if entry.seqNr in range => entry}.toList
+        } yield {
+          record
+        }
+        val stream = Stream[StateT].apply(entries)
+        (state, stream)
+      }
+      Stream.lift(stateT).flatten
+    }
+  }
 
-  val statements: ReplicatedCassandra.Statements[StateT] = ReplicatedCassandra.Statements(
-    insertRecords,
-    deleteRecords,
-    insertMetadata,
+
+  val statements: EventualCassandra.Statements[StateT] = EventualCassandra.Statements(
+    selectRecords,
     selectMetadata,
-    updateMetadata,
-    updateMetadataSeqNr,
-    updateHeadDeleteTo,
-    selectPointer,
-    selectPointersIn,
-    selectPointers,
-    insertPointer,
-    updatePointer,
-    selectTopics)
+    selectPointers)
 
 
   implicit val bracket: BracketThrowable[StateT] = new BracketFromMonadError[StateT, Throwable] {

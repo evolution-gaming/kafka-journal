@@ -82,11 +82,11 @@ trait EventualJournalSpec extends WordSpec with Matchers {
 
       def eventsOf(from: Pointer, size: Int) = {
         for {
-          n <- (0 until size).toList
-          seqNr <- SeqNr.opt(from.seqNr.value + n).toList
-          offset = from.offset + n
+          n       <- (0 until size).toList
+          seqNr   <- SeqNr.opt(from.seqNr.value + n).toList
+          offset   = from.offset + n
+          pointer  = pointerOf(offset, seqNr)
         } yield {
-          val pointer = pointerOf(offset, seqNr)
           eventOf(pointer)
         }
       }
@@ -152,11 +152,11 @@ trait EventualJournalSpec extends WordSpec with Matchers {
         s"deleteTo $deleteTo, $name" in {
           withJournals2 { case (eventual, replicated) =>
             for {
-              _ <- replicated.delete(deleteTo, partitionOffsetNext)
-              expected = events.dropWhile(_.seqNr <= deleteTo)
-              a <- eventual.events()
-              _ = a shouldEqual expected
-              a <- eventual.pointer
+              _        <- replicated.delete(deleteTo, partitionOffsetNext)
+              expected  = events.dropWhile(_.seqNr <= deleteTo)
+              a        <- eventual.events()
+              _         = a shouldEqual expected
+              a         <- eventual.pointer
             } yield {
               a shouldEqual pointerLast.map(_.withPartitionOffset(partitionOffsetNext))
             }
@@ -166,23 +166,23 @@ trait EventualJournalSpec extends WordSpec with Matchers {
         s"deleteTo $deleteTo and then append, $name" in {
           withJournals2 { case (eventual, replicated) =>
             for {
-              _ <- replicated.delete(deleteTo, partitionOffsetNext)
-              expected = events.dropWhile(_.seqNr <= deleteTo)
-              a <- eventual.events()
-              _ = a shouldEqual expected
-              a <- eventual.pointer
-              _ = a shouldEqual pointerLast.map(_.withPartitionOffset(partitionOffsetNext))
-              event = {
+              _        <- replicated.delete(deleteTo, partitionOffsetNext)
+              expected  = events.dropWhile(_.seqNr <= deleteTo)
+              a        <- eventual.events()
+              _         = a shouldEqual expected
+              a        <- eventual.pointer
+              _         = a shouldEqual pointerLast.map(_.withPartitionOffset(partitionOffsetNext))
+              event     = {
                 val seqNr = for {
                   seqNr <- pointerLast
                   seqNr <- seqNr.next
                 } yield seqNr
                 eventOf(seqNr getOrElse Pointer.min)
               }
-              _ <- replicated.append(Nel.of(event))
-              a <- eventual.events()
-              _ = a shouldEqual expected ++ List(event)
-              a <- eventual.pointer
+              _        <- replicated.append(Nel.of(event))
+              a        <- eventual.events()
+              _         = a shouldEqual expected ++ List(event)
+              a        <- eventual.pointer
             } yield {
               a shouldEqual Some(event.pointer)
             }
@@ -191,22 +191,22 @@ trait EventualJournalSpec extends WordSpec with Matchers {
       }
 
       for {
-        pointer <- pointerLast
-        deleteTo = pointer.seqNr
+        pointer  <- pointerLast
+        deleteTo  = pointer.seqNr
       } {
         s"deleteTo $deleteTo and then deleteTo $deleteTo, $name" in {
           withJournals2 { case (eventual, replicated) =>
             for {
-              _ <- replicated.delete(deleteTo, partitionOffsetNext)
-              a <- eventual.events()
-              _ = a shouldEqual Nil
-              a <- eventual.pointer
-              _ = a shouldEqual Some(Pointer(partitionOffsetNext, deleteTo))
-              partitionOffset2 = partitionOffsetNext.next
-              _ <- replicated.delete(deleteTo, partitionOffset2)
-              a <- eventual.events()
-              _ = a shouldEqual Nil
-              a <- eventual.pointer
+              _                <- replicated.delete(deleteTo, partitionOffsetNext)
+              a                <- eventual.events()
+              _                 = a shouldEqual Nil
+              a                <- eventual.pointer
+              _                 = a shouldEqual Some(Pointer(partitionOffsetNext, deleteTo))
+              partitionOffset2  = partitionOffsetNext.next
+              _                <- replicated.delete(deleteTo, partitionOffset2)
+              a                <- eventual.events()
+              _                 = a shouldEqual Nil
+              a                <- eventual.pointer
             } yield {
               a shouldEqual Some(Pointer(partitionOffset2, deleteTo))
             }
@@ -306,7 +306,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
         withJournals3 { case (eventual, replicated) =>
           for {
             a <- replicated.pointers("unknown")
-            _ = a shouldEqual TopicPointers.empty
+            _  = a shouldEqual TopicPointers.empty
             a <- eventual.pointers("unknown")
           } yield {
             a shouldEqual TopicPointers.empty
@@ -325,7 +325,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
           for {
             _ <- replicated.delete(deleteTo, deleteToPointer.partitionOffset)
             a <- eventual.events()
-            _ = a shouldEqual Nil
+            _  = a shouldEqual Nil
             a <- eventual.pointer
           } yield {
             a shouldEqual Some(deleteToPointer)
@@ -336,17 +336,17 @@ trait EventualJournalSpec extends WordSpec with Matchers {
       s"deleteTo $deleteTo on empty journal and then append" in {
         withJournals1 { case (eventual, replicated) =>
           for {
-            _ <- replicated.delete(deleteTo, deleteToPointer.partitionOffset)
-            a <- eventual.events()
-            _ = a shouldEqual Nil
-            event = {
+            _     <- replicated.delete(deleteTo, deleteToPointer.partitionOffset)
+            a     <- eventual.events()
+            _      = a shouldEqual Nil
+            event  = {
               val pointerNext = deleteToPointer.next getOrElse Pointer.min
               eventOf(pointerNext)
             }
-            _ <- replicated.append(Nel.of(event))
-            a <- eventual.events()
-            _ = a shouldEqual List(event)
-            a <- eventual.pointer
+            _     <- replicated.append(Nel.of(event))
+            a     <- eventual.events()
+            _      = a shouldEqual List(event)
+            a     <- eventual.pointer
           } yield {
             a shouldEqual Some(event.pointer)
           }
@@ -359,9 +359,9 @@ trait EventualJournalSpec extends WordSpec with Matchers {
         for {
           _ <- replicated.save(topic, TopicPointers.empty)
           a <- replicated.topics
-          _ = a shouldEqual Nil
+          _  = a shouldEqual Nil
           a <- replicated.pointers(topic)
-          _ = a shouldEqual TopicPointers.empty
+          _  = a shouldEqual TopicPointers.empty
           a <- eventual.pointers(topic)
         } yield {
           a shouldEqual TopicPointers.empty
@@ -373,43 +373,42 @@ trait EventualJournalSpec extends WordSpec with Matchers {
     "delete, append, delete, append, append, delete" in {
       withJournals1 { case (eventual, replicated) =>
         for {
-          a <- eventual.events()
-          _ = a shouldEqual Nil
-
-          a <- eventual.pointer
-          _ = a shouldEqual None
-          event1 = eventOf(pointerOf(offset = 2, seqNr = SeqNr.unsafe(1)))
-          _ <- replicated.append(Nel.of(event1))
-          a <- eventual.events()
-          _ = a shouldEqual List(event1)
-          a <- eventual.pointer
-          _ = a shouldEqual Some(event1.pointer)
-          event2 = eventOf(pointerOf(offset = 3, seqNr = SeqNr.unsafe(2)))
-          _ <- replicated.append(partitionOffsetOf(4), Nel.of(event2))
-          a <- eventual.events()
-          _ = a shouldEqual List(event1, event2)
-          a <- eventual.pointer
-          _ = a shouldEqual Some(pointerOf(offset = 4, seqNr = event2.seqNr))
-          _ <- replicated.delete(event1.seqNr, partitionOffsetOf(5))
-          a <- eventual.events()
-          _ = a shouldEqual List(event2)
-          a <- eventual.pointer
-          _ = a shouldEqual Some(pointerOf(offset = 5, seqNr = event2.seqNr))
-          event3 = eventOf(pointerOf(offset = 6, seqNr = SeqNr.unsafe(3)))
-          _ <- replicated.append(Nel.of(event3))
-          a <- eventual.events()
-          _ = a shouldEqual List(event2, event3)
-          a <- eventual.pointer
-          _ = a shouldEqual Some(event3.pointer)
-          _ <- replicated.delete(event3.seqNr, partitionOffsetOf(7))
-          a <- eventual.events()
-          _ = a shouldEqual Nil
-          a <- eventual.pointer
-          _ = a shouldEqual Some(pointerOf(offset = 7, seqNr = event3.seqNr))
-          _ <- replicated.delete(SeqNr.max, partitionOffsetOf(8))
-          a <- eventual.events()
-          _ = a shouldEqual Nil
-          a <- eventual.pointer
+          a      <- eventual.events()
+          _       = a shouldEqual Nil
+          a      <- eventual.pointer
+          _       = a shouldEqual None
+          event1  = eventOf(pointerOf(offset = 2, seqNr = SeqNr.unsafe(1)))
+          _      <- replicated.append(Nel.of(event1))
+          a      <- eventual.events()
+          _       = a shouldEqual List(event1)
+          a      <- eventual.pointer
+          _       = a shouldEqual Some(event1.pointer)
+          event2  = eventOf(pointerOf(offset = 3, seqNr = SeqNr.unsafe(2)))
+          _      <- replicated.append(partitionOffsetOf(4), Nel.of(event2))
+          a      <- eventual.events()
+          _       = a shouldEqual List(event1, event2)
+          a      <- eventual.pointer
+          _       = a shouldEqual Some(pointerOf(offset = 4, seqNr = event2.seqNr))
+          _      <- replicated.delete(event1.seqNr, partitionOffsetOf(5))
+          a      <- eventual.events()
+          _       = a shouldEqual List(event2)
+          a      <- eventual.pointer
+          _       = a shouldEqual Some(pointerOf(offset = 5, seqNr = event2.seqNr))
+          event3  = eventOf(pointerOf(offset = 6, seqNr = SeqNr.unsafe(3)))
+          _      <- replicated.append(Nel.of(event3))
+          a      <- eventual.events()
+          _       = a shouldEqual List(event2, event3)
+          a      <- eventual.pointer
+          _       = a shouldEqual Some(event3.pointer)
+          _      <- replicated.delete(event3.seqNr, partitionOffsetOf(7))
+          a      <- eventual.events()
+          _       = a shouldEqual Nil
+          a      <- eventual.pointer
+          _       = a shouldEqual Some(pointerOf(offset = 7, seqNr = event3.seqNr))
+          _      <- replicated.delete(SeqNr.max, partitionOffsetOf(8))
+          a      <- eventual.events()
+          _       = a shouldEqual Nil
+          a      <- eventual.pointer
         } yield {
           a shouldEqual Some(pointerOf(offset = 8, seqNr = SeqNr.max))
         }
@@ -426,7 +425,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
         for {
           _ <- replicated.append(events)
           a <- eventual.pointer
-          _ = a shouldEqual Some(events.last.pointer)
+          _  = a shouldEqual Some(events.last.pointer)
           a <- eventual.events(SeqNr.min)
         } yield {
           a shouldEqual events.toList

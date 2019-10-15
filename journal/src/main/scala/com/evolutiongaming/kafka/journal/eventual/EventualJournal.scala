@@ -15,13 +15,12 @@ import com.evolutiongaming.sstream.Stream
 import scala.concurrent.duration.FiniteDuration
 
 trait EventualJournal[F[_]] {
+  
+  def pointer(key: Key): F[Option[Pointer]]
 
   def pointers(topic: Topic): F[TopicPointers]
 
   def read(key: Key, from: SeqNr): Stream[F, EventRecord]
-
-  // TODO not Use Pointer until tested
-  def pointer(key: Key): F[Option[Pointer]]
 }
 
 object EventualJournal {
@@ -71,7 +70,8 @@ object EventualJournal {
 
   def apply[F[_] : FlatMap : MeasureDuration](
     journal: EventualJournal[F],
-    metrics: Metrics[F]): EventualJournal[F] = {
+    metrics: Metrics[F]
+  ): EventualJournal[F] = {
 
     val functionKId = FunctionK.id[F]
 
