@@ -93,7 +93,8 @@ lazy val `tests` = (project in file("tests")
   settings Seq(
     skip in publish := true,
     Test / fork := true,
-    Test / parallelExecution := false)
+    Test / parallelExecution := false,
+    Test / javaOptions ++= Seq("-Xms2G", "-Xmx2G"))
   dependsOn (
     persistence % "test->test;compile->compile",
     replicator)
