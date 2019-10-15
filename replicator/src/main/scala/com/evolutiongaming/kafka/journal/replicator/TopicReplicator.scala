@@ -42,7 +42,7 @@ trait TopicReplicator[F[_]] {
 object TopicReplicator { self =>
 
   // TODO should return Resource
-  def of[F[_] : Concurrent : Timer : Parallel : LogOf : FromTry](
+  def of[F[_] : Concurrent : Timer : Parallel : LogOf : FromTry : ContextShift](
     topic: Topic,
     journal: ReplicatedJournal[F],
     consumer: Resource[F, Consumer[F]],
@@ -56,7 +56,12 @@ object TopicReplicator { self =>
       self.apply[F](stopRef, fiber)
     }
 
-    def start(stopRef: StopRef[F], consumer: Resource[F, Consumer[F]], random: Random.State)(implicit log: Log[F]) = {
+    def start(
+      stopRef: StopRef[F],
+      consumer: Resource[F, Consumer[F]],
+      random: Random.State)(implicit
+      log: Log[F]
+    ) = {
       
       val strategy = Strategy
         .fullJitter(100.millis, random)
@@ -113,7 +118,7 @@ object TopicReplicator { self =>
   }
 
   //  TODO return error in case failed to connect
-  def of[F[_] : Concurrent : Clock : Parallel : Log : FromTry](
+  def of[F[_] : Concurrent : Clock : Parallel : Log : FromTry : ContextShift](
     topic: Topic,
     stopRef: StopRef[F],
     consumer: Consumer[F],
@@ -278,12 +283,7 @@ object TopicReplicator { self =>
           partition                  = topicPartition.partition
           offset                     = state.pointers.values.get(partition)
           records1                   = records.toList
-          result                     = offset.fold(records1) { offset =>
-            for {
-              record <- records1
-              if record.offset > offset
-            } yield record
-          }
+          result                     = offset.fold(records1) { offset => records1.filter(_.offset > offset) }
           if result.nonEmpty
         } yield {
           (topicPartition, result)
@@ -304,7 +304,10 @@ object TopicReplicator { self =>
           timestamp       <- Clock[F].instant
           consumerRecords <- consumer.poll
           records          = consumerRecords.values
-          state           <- if (records.isEmpty) state.asLeft[Unit].pure[F] else ifContinue { consume(timestamp, records) }
+          state           <- {
+            if (records.isEmpty) ContextShift[F].shift *> state.asLeft[Unit].pure[F]
+            else ifContinue { consume(timestamp, records) }
+          }
         } yield state
       }
     }

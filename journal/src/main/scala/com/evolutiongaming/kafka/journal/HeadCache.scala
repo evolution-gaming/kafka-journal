@@ -676,7 +676,7 @@ object HeadCache {
         result <- {
           if (cancel) ().some.pure[F]
           else for {
-            _        <- ContextShift[F].shift
+            _        <- ContextShift[F].shift // TODO shift when empty only
             records0 <- consumer.poll(pollTimeout)
             records  <- kafkaRecords(records0)
             _        <- if (records.isEmpty) ().pure[F] else onRecords(records.toMap)

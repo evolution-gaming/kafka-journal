@@ -3,10 +3,11 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import cats.data.IndexedStateT
-import cats.effect.{ExitCase, Resource}
+import cats.effect.{ContextShift, ExitCase, Resource}
 import cats.implicits._
 import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal.util.BracketFromMonadError
+import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.skafka.{Offset, Partition}
 import org.scalatest.{FunSuite, Matchers}
 import scodec.bits.ByteVector
@@ -136,7 +137,10 @@ object StreamActionRecordsSpec {
       }
     }
 
-    val actionRecords = StreamActionRecords[StateT](key, SeqNr.min, marker, replicated, readActionsOf)
+    val actionRecords = {
+      implicit val contextShift = ContextShift.empty[StateT]
+      StreamActionRecords[StateT](key, SeqNr.min, marker, replicated, readActionsOf)
+    }
     val (_, result) = actionRecords(offset)
       .collect { case ActionRecord(a: Action.Append, partitionOffset) => seqNrAndOffset(a, partitionOffset) }
       .toList

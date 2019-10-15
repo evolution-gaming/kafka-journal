@@ -6,6 +6,8 @@ import cats.kernel.CommutativeMonoid
 import cats.{Applicative, CommutativeApplicative}
 import com.evolutiongaming.catshelper.CatsHelper._
 
+import scala.concurrent.ExecutionContext
+
 object CatsHelper {
 
   implicit class CommutativeApplicativeOps(val self: CommutativeApplicative.type) extends AnyVal {
@@ -36,6 +38,17 @@ object CatsHelper {
 
     def start[B](use: A => F[B])(implicit F: Concurrent[F], cs: ContextShift[F]): F[Fiber[F, B]] = {
       StartResource(self)(use)
+    }
+  }
+
+
+  implicit class ContextShiftObjOps(val self: ContextShift.type) extends AnyVal {
+
+    def empty[F[_] : Applicative]: ContextShift[F] = new ContextShift[F] {
+
+      val shift = ().pure[F]
+
+      def evalOn[A](ec: ExecutionContext)(fa: F[A]) = fa
     }
   }
 }

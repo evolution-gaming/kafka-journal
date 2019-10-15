@@ -4,13 +4,14 @@ import java.time.Instant
 
 import cats.{Id, Monad, Parallel}
 import cats.data.{NonEmptyList => Nel}
-import cats.effect.{Clock, Resource}
+import cats.effect.{Clock, ContextShift, Resource}
 import cats.implicits._
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.conversions.{EventsToPayload, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
+import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
@@ -443,6 +444,7 @@ object JournalSpec {
       implicit val fromTry = FromTry.lift[F]
       implicit val fromAttempt = FromAttempt.lift[F]
       implicit val fromJsResult = FromJsResult.lift[F]
+      implicit val contextShift = ContextShift.empty[F]
       val log = Log.empty[F]
 
       val journal = Journal[F](

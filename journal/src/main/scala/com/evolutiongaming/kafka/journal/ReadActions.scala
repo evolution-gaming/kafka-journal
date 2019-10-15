@@ -8,6 +8,7 @@ import scodec.bits.ByteVector
 
 object ReadActions {
 
+  // TODO list
   type Type[F[_]] = F[Iterable[ActionRecord[Action]]]
 
   def apply[F[_] : Monad](

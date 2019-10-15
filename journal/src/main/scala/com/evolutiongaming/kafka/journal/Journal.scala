@@ -130,7 +130,7 @@ object Journal {
   }
 
 
-  def apply[F[_] : Concurrent : Clock : Parallel : RandomId : FromTry](
+  def apply[F[_] : Concurrent : Clock : Parallel : RandomId : FromTry : ContextShift](
     origin: Option[Origin],
     eventual: EventualJournal[F],
     readActionsOf: ReadActionsOf[F],

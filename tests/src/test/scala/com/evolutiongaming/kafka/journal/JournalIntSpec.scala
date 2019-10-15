@@ -104,7 +104,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
         s"append & read $many, $name1" in {
 
           val events = for {
-            n <- (0 until many).toList
+            n     <- (0 until many).toList
             seqNr <- seqNr.map[Option](_ + n)
           } yield {
             Event(seqNr)
@@ -113,11 +113,11 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
           val result = for {
             key     <- key
             journal  = KeyJournal(key, timestamp, journal0)
-            read = for {
+            read     = for {
               events1 <- journal.read
               _        = events1.map(_.event) shouldEqual events
               pointer <- journal.pointer
-              _ = pointer shouldEqual events.lastOption.map(_.seqNr)
+              _        = pointer shouldEqual events.lastOption.map(_.seqNr)
             } yield {}
             _       <- journal.append(Nel.fromListUnsafe(events))
             reads    = List.fill(10)(read)
@@ -130,7 +130,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
         s"append & read $many in parallel, $name1" in {
 
           val expected = for {
-            n <- (0 to 10).toList
+            n     <- (0 to 10).toList
             seqNr <- seqNr.map[Option](_ + n)
           } yield Event(seqNr)
 

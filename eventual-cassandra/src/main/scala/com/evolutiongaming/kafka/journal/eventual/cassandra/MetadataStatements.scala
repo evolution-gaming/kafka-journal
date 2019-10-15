@@ -85,11 +85,12 @@ object MetadataStatements {
         prepared <- query.prepare
       } yield {
         key: Key =>
-          val bound = prepared
+          val row = prepared
             .bind()
             .encode(key)
+            .first
           for {
-            row <- bound.first
+            row <- row
           } yield for {
             row <- row
           } yield {

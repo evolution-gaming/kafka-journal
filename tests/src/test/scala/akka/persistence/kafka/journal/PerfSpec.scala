@@ -9,4 +9,5 @@ class PerfSpec extends JournalPerfSpec(ConfigFactory.load("perf.conf"))
   def supportsRejectingNonSerializableObjects = false
   override def supportsSerialization = false
   override def eventsCount = 100
+  override def measurementIterations = 5
 }

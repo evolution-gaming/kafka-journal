@@ -14,6 +14,7 @@ import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPoint
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
+import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, WithSize}
 import com.evolutiongaming.skafka.{Bytes => _, Header => _, Metadata => _, _}
 import org.scalatest.{Matchers, WordSpec}
@@ -53,7 +54,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           val records = for {
             (action, idx) <- actions.zipWithIndex
           } yield {
-            val offset = idx + 1l
+            val offset = idx + 1L
             consumerRecordOf(action, topicPartition, offset)
           }
           (topicPartition, Nel.fromListUnsafe(records))
@@ -799,6 +800,7 @@ object TopicReplicatorSpec {
     implicit val fromJsResult = FromJsResult.lift[StateT]
     
     implicit val clock = Clock.const[StateT](nanos = 0, millis = millis)
+    implicit val contextShift = ContextShift.empty[StateT]
 
     TopicReplicator.of[StateT](
       topic = topic,

@@ -6,12 +6,14 @@ import java.time.temporal.ChronoUnit
 
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
-import cats.effect.{Clock, IO}
+import cats.effect.IO
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
-import com.evolutiongaming.catshelper.ClockHelper._
+import com.evolutiongaming.catshelper.NelHelper._
+import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{Log, LogOf}
+import com.evolutiongaming.smetrics.MeasureDuration
 import org.scalatest.AsyncWordSpec
 
 import scala.concurrent.duration._
@@ -50,12 +52,11 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
       durations <- (0 to many).foldLeft(List.empty[Long].pure[IO]) { (durations, _) =>
         for {
           durations <- durations
-          start     <- Clock[IO].millis
+          duration  <- MeasureDuration[IO].start
           _         <- fa
-          end       <- Clock[IO].millis
+          duration  <- duration
         } yield {
-          val duration = end - start
-          duration :: durations
+          duration.toMillis :: durations
         }
       }
     } yield {
@@ -73,17 +74,21 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
 
         val journal = KeyJournal(key, timestamp, journal0)
 
-        val expected = for {
-          n <- (0 to events).toList
-          seqNr <- SeqNr.min.map[Option](_ + n)
-        } yield Event(seqNr)
+        val expected = {
+          val expected = for {
+            n     <- (0 to events).toList
+            seqNr <- SeqNr.min.map[Option](_ + n)
+          } yield {
+            Event(seqNr)
+          }
+          Nel.fromListUnsafe(expected)
+        }
 
-        for {
-          _ <- journal.pointer
-          _ <- expected.foldMap { event => journal.append(Nel.of(event)).void }
-          _ <- {
-            val otherEvents = for {_ <- 0 to events} yield Event(SeqNr.min)
-            otherEvents.toList.foldMap { event =>
+        def appendNoise = {
+          (0 to events)
+            .toList
+            .parFoldMap { _ =>
+              val event = Event(SeqNr.min)
               for {
                 _       <- journal.append(Nel.of(event))
                 key     <- Key.random[IO]("journal")
@@ -91,7 +96,12 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
                 _       <- journal.append(Nel.of(event))
               } yield {}
             }
-          }
+        }
+
+        for {
+          _ <- journal.pointer
+          _ <- expected.grouped(10).foldMap { events => journal.append(events).void }
+          _ <- appendNoise
         } yield {}
       }
 
@@ -100,7 +110,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
 
     for {
       (eventualName, expected, eventual) <- List(
-        ("empty", 2.second, () => EventualJournal.empty[IO]),
+        ("empty"    , 2.second, () => EventualJournal.empty[IO]),
         ("non-empty", 1.second, () => eventual))
     } {
       val name = s"events: $events, eventual: $eventualName"

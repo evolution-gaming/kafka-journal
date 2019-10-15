@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.Applicative
+import cats.effect.ContextShift
 import cats.implicits._
 import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.skafka.{Offset, Partition}
@@ -15,7 +16,7 @@ object StreamActionRecords {
   def empty[F[_] : Applicative]: StreamActionRecords[F] = (_: Option[Offset]) => Stream.empty[F, ActionRecord[Action.User]]
 
   // TODO add range argument
-  def apply[F[_] : BracketThrowable](
+  def apply[F[_] : BracketThrowable : ContextShift](
     key: Key,
     from: SeqNr,
     marker: Marker,
@@ -38,9 +39,11 @@ object StreamActionRecords {
       else {
         val last = offset max offsetReplicated
         val fromOffset = last.fold(Offset.Min)(_ + 1)
+
         val records = for {
           readActions <- Stream[F].apply(readActionsOf(key, partition, fromOffset))
           actions     <- Stream[F].repeat(readActions)
+          _           <- if (actions.isEmpty) Stream.lift(ContextShift[F].shift) else Stream.lift(().pure[F])
           action      <- Stream[F].apply(actions.toList)
         } yield action
 
