@@ -14,7 +14,7 @@ final case class EventualCassandraConfig(
     name = "journal",
     query = QueryConfig(
       consistency = ConsistencyLevel.LOCAL_QUORUM,
-      fetchSize = 100,
+      fetchSize = 1000,
       defaultIdempotence = true)),
   schema: SchemaConfig = SchemaConfig.default)
 
