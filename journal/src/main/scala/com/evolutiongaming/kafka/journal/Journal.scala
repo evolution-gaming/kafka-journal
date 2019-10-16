@@ -121,7 +121,7 @@ object Journal {
     apply[F](
       origin = origin,
       eventual = eventualJournal,
-      readActionsOf = ReadActionsOf[F](consumer, log),
+      consumeActionRecords = ConsumeActionRecords[F](consumer, log),
       appendAction = AppendAction[F](producer),
       headCache = headCache,
       payloadToEvents = PayloadToEvents[F],
@@ -133,7 +133,7 @@ object Journal {
   def apply[F[_] : Concurrent : Clock : Parallel : RandomId : FromTry : ContextShift](
     origin: Option[Origin],
     eventual: EventualJournal[F],
-    readActionsOf: ReadActionsOf[F],
+    consumeActionRecords: ConsumeActionRecords[F],
     appendAction: AppendAction[F],
     headCache: HeadCache[F],
     payloadToEvents: PayloadToEvents[F],
@@ -152,7 +152,7 @@ object Journal {
       } yield {
         marker: Marker => {
           val offset = pointers.values.get(marker.partition)
-          StreamActionRecords(key, from, marker, offset, readActionsOf)
+          StreamActionRecords(key, from, marker, offset, consumeActionRecords)
         }
       }
 

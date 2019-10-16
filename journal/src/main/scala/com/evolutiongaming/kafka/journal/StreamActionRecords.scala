@@ -4,7 +4,7 @@ import cats.Applicative
 import cats.effect.ContextShift
 import cats.implicits._
 import com.evolutiongaming.catshelper.BracketThrowable
-import com.evolutiongaming.skafka.{Offset, Partition}
+import com.evolutiongaming.skafka.Offset
 import com.evolutiongaming.sstream.Stream
 
 trait StreamActionRecords[F[_]] {
@@ -21,7 +21,7 @@ object StreamActionRecords {
     from: SeqNr,
     marker: Marker,
     offsetReplicated: Option[Offset],
-    readActionsOf: ReadActionsOf[F]
+    consumeActionRecords: ConsumeActionRecords[F]
   ): StreamActionRecords[F] = {
 
     // TODO compare partitions !
@@ -41,11 +41,12 @@ object StreamActionRecords {
         val fromOffset = last.fold(Offset.Min)(_ + 1)
 
         val records = for {
-          readActions <- Stream[F].apply(readActionsOf(key, partition, fromOffset))
-          actions     <- Stream[F].repeat(readActions)
-          _           <- if (actions.isEmpty) Stream.lift(ContextShift[F].shift) else Stream.lift(().pure[F])
-          action      <- Stream[F].apply(actions.toList)
-        } yield action
+          records <- Stream[F].apply(consumeActionRecords(key, partition, fromOffset))
+          records <- Stream[F].repeat(records)
+          // TODO ContextShift[F].shift when no records globally but not filtered
+          _       <- if (records.isEmpty) Stream.lift(ContextShift[F].shift) else Stream.lift(().pure[F])
+          records <- Stream[F].apply(records)
+        } yield records
 
         records.stateless { record =>
 
@@ -71,11 +72,4 @@ object StreamActionRecords {
       }
     }
   }
-}
-
-final case class Marker(id: String, partitionOffset: PartitionOffset) {
-
-  def offset: Offset = partitionOffset.offset
-
-  def partition: Partition = partitionOffset.partition
 }

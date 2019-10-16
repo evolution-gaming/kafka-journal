@@ -114,18 +114,16 @@ object StreamActionRecordsSpec {
     }
     val records = appendRecords :+ markRecord
 
-    val readActionsOf = new ReadActionsOf[StateT] {
-
-      def apply(key: Key, partition: Partition, from: Offset) = {
-
-        val readActions: ReadActions.Type[StateT] = StateT { s =>
-          val records = s.records.dropWhile(_.offset < from)
+    val consumeActionRecords: ConsumeActionRecords[StateT] = {
+      (_: Key, _: Partition, from: Offset) => {
+        val actionRecords = StateT { state =>
+          val records = state.records.dropWhile(_.offset < from)
           records match {
-            case h :: t => (s.copy(records = t), List(h))
-            case _      => (s, Nil)
+            case h :: t => (state.copy(records = t), List(h))
+            case _      => (state, Nil)
           }
         }
-        Resource.pure[StateT, ReadActions.Type[StateT]](readActions)
+        Resource.liftF(actionRecords.pure[StateT])
       }
     }
 
@@ -139,7 +137,7 @@ object StreamActionRecordsSpec {
 
     val actionRecords = {
       implicit val contextShift = ContextShift.empty[StateT]
-      StreamActionRecords[StateT](key, SeqNr.min, marker, replicated, readActionsOf)
+      StreamActionRecords[StateT](key, SeqNr.min, marker, replicated, consumeActionRecords)
     }
     val (_, result) = actionRecords(offset)
       .collect { case ActionRecord(a: Action.Append, partitionOffset) => seqNrAndOffset(a, partitionOffset) }
