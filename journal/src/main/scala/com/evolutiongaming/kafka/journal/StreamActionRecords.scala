@@ -1,13 +1,13 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.Applicative
-import cats.effect.ContextShift
 import cats.implicits._
 import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.skafka.Offset
 import com.evolutiongaming.sstream.Stream
 
 trait StreamActionRecords[F[_]] {
+
   def apply(offset: Option[Offset]): Stream[F, ActionRecord[Action.User]]
 }
 
@@ -16,7 +16,7 @@ object StreamActionRecords {
   def empty[F[_] : Applicative]: StreamActionRecords[F] = (_: Option[Offset]) => Stream.empty[F, ActionRecord[Action.User]]
 
   // TODO add range argument
-  def apply[F[_] : BracketThrowable : ContextShift](
+  def apply[F[_] : BracketThrowable](
     key: Key,
     from: SeqNr,
     marker: Marker,
@@ -40,15 +40,7 @@ object StreamActionRecords {
         val last = offset max offsetReplicated
         val fromOffset = last.fold(Offset.Min)(_ + 1)
 
-        val records = for {
-          records <- Stream[F].apply(consumeActionRecords(key, partition, fromOffset))
-          records <- Stream[F].repeat(records)
-          // TODO ContextShift[F].shift when no records globally but not filtered
-          _       <- if (records.isEmpty) Stream.lift(ContextShift[F].shift) else Stream.lift(().pure[F])
-          records <- Stream[F].apply(records)
-        } yield records
-
-        records.stateless { record =>
+        consumeActionRecords(key, partition, fromOffset).stateless { record =>
 
           def take(action: Action.User) = {
             (true, Stream[F].single(record.copy(action = action)))

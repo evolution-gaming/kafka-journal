@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import cats.data.{NonEmptyList => Nel}
-import cats.effect.{Clock, ContextShift, Resource}
+import cats.effect.Clock
 import cats.implicits._
 import cats.{Id, Monad, Parallel}
 import com.evolutiongaming.catshelper.ClockHelper._
@@ -11,7 +11,6 @@ import com.evolutiongaming.catshelper.{FromTry, Log}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.conversions.{EventsToPayload, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
@@ -200,7 +199,7 @@ class JournalSpec extends WordSpec with Matchers {
   }
 
 
-  def test(journal: SeqNrJournal[StateT]) = {
+  def test(journal: SeqNrJournal[StateT]): Unit = {
     testF[StateT] { f =>
       val (_, result) = f(journal).run(State.empty)
       result
@@ -234,14 +233,13 @@ class JournalSpec extends WordSpec with Matchers {
 
         val consumeActionRecords: ConsumeActionRecords[StateT] = {
           (_: Key, _: Partition, from: Offset) => {
-            val stateT = StateT { state =>
+            StateT.stream { state =>
               val records = state.records
                 .dropWhile(_.offset < from)
                 .collect { case action @ ActionRecord(_: Action.Mark, _) => action }
               val state1 = state.copy(recordsToRead = records)
               (state1, StateT.actionRecords)
             }
-            Resource.liftF(stateT)
           }
         }
 
@@ -369,7 +367,7 @@ class JournalSpec extends WordSpec with Matchers {
 
 object JournalSpec {
   val key = Key(topic = "topic", id = "id")
-  val timestamp = Instant.now()
+  val timestamp: Instant = Instant.now()
   val partition: Partition = 0
 
   implicit val ec: ExecutionContext = CurrentThreadExecutionContext
@@ -443,7 +441,6 @@ object JournalSpec {
       implicit val fromTry = FromTry.lift[F]
       implicit val fromAttempt = FromAttempt.lift[F]
       implicit val fromJsResult = FromJsResult.lift[F]
-      implicit val contextShift = ContextShift.empty[F]
       val log = Log.empty[F]
 
       val journal = Journal[F](
@@ -521,22 +518,24 @@ object JournalSpec {
     }
 
 
-    val actionRecords: StateT[List[ActionRecord[Action]]] = StateT { state =>
-      state.recordsToRead.dequeueOption match {
-        case Some((record, records)) => (state.copy(recordsToRead = records), List(record))
-        case None                    => (state, Nil)
+    val actionRecords: Stream[StateT, ActionRecord[Action]] = {
+      val result = StateT { state =>
+        state.recordsToRead.dequeueOption match {
+          case Some((record, records)) => (state.copy(recordsToRead = records), Stream[StateT].single(record))
+          case None                    => (state, Stream[StateT].empty[ActionRecord[Action]])
+        }
       }
+      Stream.repeat(result).flatten
     }
 
 
     val consumeActionRecords: ConsumeActionRecords[StateT] = {
       (_: Key, _: Partition, from: Offset) => {
-        val stateT = StateT { state =>
+        StateT.stream { state =>
           val records = state.records.dropWhile(_.offset < from)
           val state1 = state.copy(recordsToRead = records)
           (state1, actionRecords)
         }
-        Resource.liftF(stateT)
       }
     }
 
@@ -568,6 +567,8 @@ object JournalSpec {
     }
 
     def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[Id, State, A](f)
+
+    def stream[A](f: State => (State, Stream[StateT, A])): Stream[StateT, A] = Stream.lift(apply(f)).flatten
   }
 
 
