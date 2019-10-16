@@ -61,7 +61,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
       }
     }
 
-    def eventOf(pointer: Pointer): EventRecord = {
+    def eventOf(pointer: JournalPointer): EventRecord = {
       val event = Event(pointer.seqNr)
       val metadata = Metadata(data = Some(Json.obj(("key", "value"))))
       val headers = Headers(("key", "value"))
@@ -80,18 +80,18 @@ trait EventualJournalSpec extends WordSpec with Matchers {
     } {
       val name = s"seqNr: $seqNr, events: $size, batch: $batch"
 
-      def eventsOf(from: Pointer, size: Int) = {
+      def eventsOf(from: JournalPointer, size: Int) = {
         for {
           n       <- (0 until size).toList
           seqNr   <- SeqNr.opt(from.seqNr.value + n).toList
           offset   = from.offset + n
-          pointer  = pointerOf(offset, seqNr)
+          pointer  = journalPointerOf(offset, seqNr)
         } yield {
           eventOf(pointer)
         }
       }
 
-      val events = eventsOf(pointerOf(Offset.Min, seqNr), size)
+      val events = eventsOf(journalPointerOf(Offset.Min, seqNr), size)
       val pointers = events.map(_.pointer)
       val pointerLast = pointers.lastOption
       val partitionOffsetNext = pointerLast.fold(partitionOffsetOf(Offset.Min))(_.partitionOffset.next)
@@ -177,7 +177,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
                   seqNr <- pointerLast
                   seqNr <- seqNr.next
                 } yield seqNr
-                eventOf(seqNr getOrElse Pointer.min)
+                eventOf(seqNr getOrElse JournalPointer.min)
               }
               _        <- replicated.append(Nel.of(event))
               a        <- eventual.events()
@@ -201,14 +201,14 @@ trait EventualJournalSpec extends WordSpec with Matchers {
               a                <- eventual.events()
               _                 = a shouldEqual Nil
               a                <- eventual.pointer
-              _                 = a shouldEqual Some(Pointer(partitionOffsetNext, deleteTo))
+              _                 = a shouldEqual Some(JournalPointer(partitionOffsetNext, deleteTo))
               partitionOffset2  = partitionOffsetNext.next
               _                <- replicated.delete(deleteTo, partitionOffset2)
               a                <- eventual.events()
               _                 = a shouldEqual Nil
               a                <- eventual.pointer
             } yield {
-              a shouldEqual Some(Pointer(partitionOffset2, deleteTo))
+              a shouldEqual Some(JournalPointer(partitionOffset2, deleteTo))
             }
           }
         }
@@ -275,7 +275,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
           }
         }
       }
-      
+
       s"topics, $name" in {
         withJournals3 { case (_, replicated) =>
           for {
@@ -318,7 +318,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
     for {
       deleteTo <- List(1, 2, 5)
       deleteTo <- SeqNr.opt(deleteTo.toLong)
-      deleteToPointer = pointerOf(offset = 1, seqNr = deleteTo)
+      deleteToPointer = journalPointerOf(offset = 1, seqNr = deleteTo)
     } {
       s"deleteTo $deleteTo on empty journal" in {
         withJournals1 { case (eventual, replicated) =>
@@ -340,7 +340,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
             a     <- eventual.events()
             _      = a shouldEqual Nil
             event  = {
-              val pointerNext = deleteToPointer.next getOrElse Pointer.min
+              val pointerNext = deleteToPointer.next getOrElse JournalPointer.min
               eventOf(pointerNext)
             }
             _     <- replicated.append(Nel.of(event))
@@ -377,24 +377,24 @@ trait EventualJournalSpec extends WordSpec with Matchers {
           _       = a shouldEqual Nil
           a      <- eventual.pointer
           _       = a shouldEqual None
-          event1  = eventOf(pointerOf(offset = 2, seqNr = SeqNr.unsafe(1)))
+          event1  = eventOf(journalPointerOf(offset = 2, seqNr = SeqNr.unsafe(1)))
           _      <- replicated.append(Nel.of(event1))
           a      <- eventual.events()
           _       = a shouldEqual List(event1)
           a      <- eventual.pointer
           _       = a shouldEqual Some(event1.pointer)
-          event2  = eventOf(pointerOf(offset = 3, seqNr = SeqNr.unsafe(2)))
+          event2  = eventOf(journalPointerOf(offset = 3, seqNr = SeqNr.unsafe(2)))
           _      <- replicated.append(partitionOffsetOf(4), Nel.of(event2))
           a      <- eventual.events()
           _       = a shouldEqual List(event1, event2)
           a      <- eventual.pointer
-          _       = a shouldEqual Some(pointerOf(offset = 4, seqNr = event2.seqNr))
+          _       = a shouldEqual Some(journalPointerOf(offset = 4, seqNr = event2.seqNr))
           _      <- replicated.delete(event1.seqNr, partitionOffsetOf(5))
           a      <- eventual.events()
           _       = a shouldEqual List(event2)
           a      <- eventual.pointer
-          _       = a shouldEqual Some(pointerOf(offset = 5, seqNr = event2.seqNr))
-          event3  = eventOf(pointerOf(offset = 6, seqNr = SeqNr.unsafe(3)))
+          _       = a shouldEqual Some(journalPointerOf(offset = 5, seqNr = event2.seqNr))
+          event3  = eventOf(journalPointerOf(offset = 6, seqNr = SeqNr.unsafe(3)))
           _      <- replicated.append(Nel.of(event3))
           a      <- eventual.events()
           _       = a shouldEqual List(event2, event3)
@@ -404,22 +404,22 @@ trait EventualJournalSpec extends WordSpec with Matchers {
           a      <- eventual.events()
           _       = a shouldEqual Nil
           a      <- eventual.pointer
-          _       = a shouldEqual Some(pointerOf(offset = 7, seqNr = event3.seqNr))
+          _       = a shouldEqual Some(journalPointerOf(offset = 7, seqNr = event3.seqNr))
           _      <- replicated.delete(SeqNr.max, partitionOffsetOf(8))
           a      <- eventual.events()
           _       = a shouldEqual Nil
           a      <- eventual.pointer
         } yield {
-          a shouldEqual Some(pointerOf(offset = 8, seqNr = SeqNr.max))
+          a shouldEqual Some(journalPointerOf(offset = 8, seqNr = SeqNr.max))
         }
       }
     }
 
     "append not from beginning" in {
       val events = Nel.of(
-        eventOf(pointerOf(offset = 10, seqNr = SeqNr.unsafe(5))),
-        eventOf(pointerOf(offset = 10, seqNr = SeqNr.unsafe(6))),
-        eventOf(pointerOf(offset = 10, seqNr = SeqNr.unsafe(7))))
+        eventOf(journalPointerOf(offset = 10, seqNr = SeqNr.unsafe(5))),
+        eventOf(journalPointerOf(offset = 10, seqNr = SeqNr.unsafe(6))),
+        eventOf(journalPointerOf(offset = 10, seqNr = SeqNr.unsafe(7))))
 
       withJournals1 { case (eventual, replicated) =>
         for {
@@ -438,22 +438,22 @@ trait EventualJournalSpec extends WordSpec with Matchers {
 object EventualJournalSpec {
 
   val topic: Topic = "topic"
-  
+
   val key: Key = Key("id", topic)
 
   val timestamp: Instant = Instant.now()
 
   def partitionOffsetOf(offset: Offset): PartitionOffset = PartitionOffset(offset = offset)
 
-  def pointerOf(offset: Offset, seqNr: SeqNr): Pointer = {
-    Pointer(partitionOffsetOf(offset), seqNr)
+  def journalPointerOf(offset: Offset, seqNr: SeqNr): JournalPointer = {
+    JournalPointer(partitionOffsetOf(offset), seqNr)
   }
 
   trait Eventual[F[_]] {
 
     def events(from: SeqNr = SeqNr.min): F[List[EventRecord]]
 
-    def pointer: F[Option[Pointer]]
+    def pointer: F[Option[JournalPointer]]
 
     def pointers(topic: Topic): F[TopicPointers]
   }
@@ -517,9 +517,9 @@ object EventualJournalSpec {
   final case class Journals[F[_]](eventual: EventualJournal[F], replicated: ReplicatedJournal[F])
 
 
-  implicit class PointerOps(val self: Pointer) extends AnyVal {
+  implicit class JournalPointerOps(val self: JournalPointer) extends AnyVal {
 
-    def next: Option[Pointer] = {
+    def next: Option[JournalPointer] = {
       for {
         seqNr <- self.seqNr.next[Option]
       } yield {
@@ -530,14 +530,14 @@ object EventualJournalSpec {
       }
     }
 
-    def withPartitionOffset(partitionOffset: PartitionOffset): Pointer = {
+    def withPartitionOffset(partitionOffset: PartitionOffset): JournalPointer = {
       self.copy(partitionOffset = partitionOffset)
     }
   }
 
 
-  implicit class PointerObjOps(val self: Pointer.type) extends AnyVal {
-    def min: Pointer = pointerOf(Offset.Min, SeqNr.min)
+  implicit class JournalPointerObjOps(val self: JournalPointer.type) extends AnyVal {
+    def min: JournalPointer = journalPointerOf(Offset.Min, SeqNr.min)
   }
 
 

@@ -34,6 +34,7 @@ object MetadataStatements {
 
 
   trait Insert[F[_]] {
+
     def apply(key: Key, timestamp: Instant, head: Head, origin: Option[Origin]): F[Unit]
   }
 
@@ -51,7 +52,7 @@ object MetadataStatements {
         prepared <- query.prepare
       } yield {
         (key: Key, timestamp: Instant, head: Head, origin: Option[Origin]) =>
-          val bound = prepared
+          prepared
             .bind()
             .encode(key)
             .encode(head.partitionOffset)
@@ -61,13 +62,15 @@ object MetadataStatements {
             .encode("created", timestamp)
             .encode("updated", timestamp)
             .encodeSome(origin)
-          bound.first.void
+            .first
+            .void
       }
     }
   }
 
 
   trait Select[F[_]] {
+
     def apply(key: Key): F[Option[Head]]
   }
 
@@ -105,7 +108,44 @@ object MetadataStatements {
   }
 
 
+  trait SelectJournalPointer[F[_]] {
+
+    def apply(key: Key): F[Option[JournalPointer]]
+  }
+
+  object SelectJournalPointer {
+
+    def of[F[_]: Monad : CassandraSession](name: TableName): F[SelectJournalPointer[F]] = {
+      val query =
+        s"""
+           |SELECT partition, offset, seq_nr FROM ${ name.toCql }
+           |WHERE id = ?
+           |AND topic = ?
+           |""".stripMargin
+      for {
+        prepared <- query.prepare
+      } yield {
+        key: Key =>
+          val row = prepared
+            .bind()
+            .encode(key)
+            .first
+          for {
+            row <- row
+          } yield for {
+            row <- row
+          } yield {
+            JournalPointer(
+              partitionOffset = row.decode[PartitionOffset],
+              seqNr = row.decode[SeqNr])
+          }
+      }
+    }
+  }
+
+
   trait Update[F[_]] {
+
     def apply(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: SeqNr): F[Unit]
   }
 
@@ -124,15 +164,15 @@ object MetadataStatements {
         prepared <- query.prepare
       } yield {
         (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: SeqNr) =>
-          val bound = prepared
+          prepared
             .bind()
             .encode(key)
             .encode(partitionOffset)
             .encode(seqNr)
             .encode("delete_to", deleteTo)
             .encode("updated", timestamp)
-
-          bound.first.void
+            .first
+            .void
       }
     }
   }
@@ -157,13 +197,14 @@ object MetadataStatements {
         prepared <- query.prepare
       } yield {
         (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr) =>
-          val bound = prepared
+          prepared
             .bind()
             .encode(key)
             .encode(partitionOffset)
             .encode(seqNr)
             .encode("updated", timestamp)
-          bound.first.void
+            .first
+            .void
       }
     }
   }
@@ -188,13 +229,14 @@ object MetadataStatements {
         prepared <- query.prepare
       } yield {
         (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr) =>
-          val bound = prepared
+          prepared
             .bind()
             .encode(key)
             .encode(partitionOffset)
             .encode("delete_to", deleteTo)
             .encode("updated", timestamp)
-          bound.first.void
+            .first
+            .void
       }
     }
   }

@@ -509,7 +509,7 @@ object JournalSpec {
             offset <- state.replicatedState.offset
           } yield {
             val partitionOffset = PartitionOffset(partition, offset)
-            Pointer(partitionOffset, seqNr)
+            JournalPointer(partitionOffset, seqNr)
           }
 
           (state, pointer)

@@ -57,6 +57,10 @@ object EventualCassandra {
 
     new EventualJournal[F] {
 
+      def pointer(key: Key) = {
+        statements.pointer(key)
+      }
+
       def pointers(topic: Topic) = {
         for {
           pointers <- statements.pointers(topic)
@@ -117,19 +121,8 @@ object EventualCassandra {
 
         for {
           metadata <- Stream.lift(statements.metadata(key))
-          result   <- metadata.fold(Stream.empty[F, EventRecord]) { head => read(statements.records, head) }
+          result   <- metadata.fold(Stream.empty[F, EventRecord]) { metadata => read(statements.records, metadata) }
         } yield result
-      }
-
-      def pointer(key: Key) = {
-        // TODO optimise this
-        for {
-          metadata <- statements.metadata(key)
-        } yield for {
-          metadata <- metadata
-        } yield {
-          Pointer(metadata.partitionOffset, metadata.seqNr)
-        }
       }
     }
   }
@@ -138,6 +131,7 @@ object EventualCassandra {
   final case class Statements[F[_]](
     records: JournalStatements.SelectRecords[F],
     metadata: MetadataStatements.Select[F],
+    pointer: MetadataStatements.SelectJournalPointer[F],
     pointers: PointerStatements.SelectAll[F])
 
   object Statements {
@@ -148,6 +142,7 @@ object EventualCassandra {
       val statements = (
         JournalStatements.SelectRecords.of[F](schema.journal),
         MetadataStatements.Select.of[F](schema.metadata),
+        MetadataStatements.SelectJournalPointer.of[F](schema.metadata),
         PointerStatements.SelectAll.of[F](schema.pointer))
       statements.parMapN(Statements[F])
     }

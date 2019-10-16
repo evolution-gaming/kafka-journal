@@ -22,7 +22,7 @@ final case class EventRecord(
 
   def partition: Partition = partitionOffset.partition
 
-  def pointer: Pointer = Pointer(partitionOffset, event.seqNr)
+  def pointer: JournalPointer = JournalPointer(partitionOffset, event.seqNr)
 }
 
 object EventRecord {

@@ -16,7 +16,7 @@ import scala.concurrent.duration.FiniteDuration
 
 trait EventualJournal[F[_]] {
   
-  def pointer(key: Key): F[Option[Pointer]]
+  def pointer(key: Key): F[Option[JournalPointer]]
 
   def pointers(topic: Topic): F[TopicPointers]
 
@@ -122,7 +122,7 @@ object EventualJournal {
 
     def read(key: Key, from: SeqNr) = Stream.empty[F, EventRecord]
 
-    def pointer(key: Key) = none[Pointer].pure[F]
+    def pointer(key: Key) = none[JournalPointer].pure[F]
   }
 
 

@@ -25,9 +25,8 @@ object SettingStatements {
     }
   }
 
-  implicit val decodeRowSetting: DecodeRow[Setting] = new DecodeRow[Setting] {
-
-    def apply(data: GettableByNameData) = {
+  implicit val decodeRowSetting: DecodeRow[Setting] = {
+    data: GettableByNameData => {
       Setting(
         key = data.decode[Key]("key"),
         value = data.decode[Value]("value"),

@@ -192,7 +192,6 @@ object PointerStatements {
               val offset = row.decode[Offset]("offset")
               (partition, offset)
             }
-
             pointers.toMap
           }
       }

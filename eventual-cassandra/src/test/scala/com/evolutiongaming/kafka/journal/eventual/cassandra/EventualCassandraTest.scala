@@ -79,10 +79,10 @@ class EventualCassandraTest extends FunSuite with Matchers {
         _        = pointer shouldEqual none
         _       <- insertMetadata(key, timestamp0, Head(partitionOffset, segmentSize, seqNr, none), origin.some)
         pointer <- journal.pointer(key)
-        _        = pointer shouldEqual Pointer(partitionOffset, seqNr).some
+        _        = pointer shouldEqual JournalPointer(partitionOffset, seqNr).some
         _       <- updateMetadata(key, partitionOffset, timestamp1, SeqNr.max, seqNr)
         pointer <- journal.pointer(key)
-        _        = pointer shouldEqual Pointer(partitionOffset, SeqNr.max).some
+        _        = pointer shouldEqual JournalPointer(partitionOffset, SeqNr.max).some
       } yield {
 
       }
@@ -223,6 +223,22 @@ object EventualCassandraTest {
             deleteTo = entry.deleteTo)
         }
         (state, head)
+      }
+    }
+  }
+
+  val selectJournalPointer: MetadataStatements.SelectJournalPointer[StateT] = {
+    key: Key => {
+      StateT.success { state =>
+        val pointer = for {
+          entries <- state.metadata.get(key.topic)
+          entry   <- entries.get(key.id)
+        } yield {
+          JournalPointer(
+            partitionOffset = entry.partitionOffset,
+            seqNr = entry.seqNr)
+        }
+        (state, pointer)
       }
     }
   }
@@ -374,9 +390,10 @@ object EventualCassandraTest {
 
 
   val statements: EventualCassandra.Statements[StateT] = EventualCassandra.Statements(
-    selectRecords,
-    selectMetadata,
-    selectPointers)
+    records = selectRecords,
+    metadata = selectMetadata,
+    pointer = selectJournalPointer,
+    pointers = selectPointers)
 
 
   implicit val bracket: BracketThrowable[StateT] = new BracketFromMonadError[StateT, Throwable] {

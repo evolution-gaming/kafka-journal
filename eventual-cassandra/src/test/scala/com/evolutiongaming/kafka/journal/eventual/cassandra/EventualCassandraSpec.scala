@@ -42,6 +42,18 @@ object EventualCassandraSpec {
     }
   }
 
+  val selectPointer: MetadataStatements.SelectJournalPointer[StateT] = {
+    key: Key => {
+      StateT { state =>
+        val pointer = state
+          .metadata
+          .get(key)
+          .map { metadata => JournalPointer(metadata.partitionOffset, metadata.seqNr) }
+        (state, pointer)
+      }
+    }
+  }
+
 
   val selectPointers: PointerStatements.SelectAll[StateT] = {
     topic: Topic => {
@@ -79,6 +91,7 @@ object EventualCassandraSpec {
     val statements = EventualCassandra.Statements(
       records = selectRecords,
       metadata = selectMetadata,
+      pointer = selectPointer,
       pointers = selectPointers)
 
     EventualCassandra[StateT](statements)
