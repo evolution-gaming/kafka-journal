@@ -125,11 +125,7 @@ object HeadStatements {
           } yield for {
             row <- row
           } yield {
-            JournalHead(
-              partitionOffset = row.decode[PartitionOffset],
-              segmentSize = row.decode[SegmentSize],
-              seqNr = row.decode[SeqNr],
-              deleteTo = row.decode[Option[SeqNr]]("delete_to"))
+            row.decode[JournalHead]
           }
       }
     }

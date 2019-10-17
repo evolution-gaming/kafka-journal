@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.{Monad, Parallel}
 import cats.effect.{Concurrent, Resource, Timer}
 import cats.implicits._
+import cats.{Monad, Parallel}
 import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
@@ -73,40 +73,26 @@ object EventualCassandra {
 
         def read(statement: JournalStatements.SelectRecords[F], head: JournalHead) = {
 
-          def read(from: SeqNr) = new Stream[F, EventRecord] {
+          def read(from: SeqNr) = {
 
-            def foldWhileM[L, R](l: L)(f: (L, EventRecord) => F[Either[L, R]]) = {
-
-              case class S(l: L, seqNr: SeqNr)
-
-              val ff = (s: S, record: EventRecord) => {
-                for {
-                  result <- f(s.l, record)
-                } yield {
-                  result.leftMap { l => S(l, record.event.seqNr) }
-                }
-              }
-
-              val segment = Segment.unsafe(from, head.segmentSize)
-
-              (from, segment, l).tailRecM { case (from, segment, l) =>
-                val range = SeqRange(from, SeqNr.max) // TODO do we need range here ?
-                for {
-                  result <- statement(key, segment.nr, range).foldWhileM[S, R](S(l, from))(ff) // TODO
-                } yield result match {
-                  case r: Right[S, R] => r.leftCast[L].asRight[(SeqNr, Segment, L)]
-                  case Left(s)        =>
-                    val result = for {
-                      from    <- s.seqNr.next[Option]
-                      segment <- segment.nextUnsafe(from)
-                    } yield {
-                      (from, segment, s.l).asLeft[Either[L, R]]
-                    }
-                    result getOrElse s.l.asLeft[R].asRight[(SeqNr, Segment, L)]
-                }
-              }
+            def records(from: SeqNr, segment: Segment) = {
+              val range = SeqRange(from, SeqNr.max)
+              statement(key, segment.nr, range).map { record => (record, segment) }
             }
+
+            val segment = Segment.unsafe(from, head.segmentSize)
+            records(from, segment)
+              .chain { case (record, segment) =>
+                for {
+                  from    <- record.seqNr.next[Option]
+                  segment <- segment.nextUnsafe(from) // TODO not use
+                } yield {
+                  records(from, segment)
+                }
+              }
+              .map { case (record, _) => record }
           }
+
 
           head.deleteTo match {
             case None           => read(from)
