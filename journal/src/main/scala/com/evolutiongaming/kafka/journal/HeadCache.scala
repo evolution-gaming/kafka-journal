@@ -649,26 +649,16 @@ object HeadCache {
       consumerRecordToKafkaRecord: ConsumerRecordToKafkaRecord[F]
     ): F[Unit] = {
 
-      def kafkaRecords(records: ConsumerRecords[String, ByteVector]) = {
-        val records1 = records.values.toList.traverse { case (partition, records0) =>
-          val records = records0
-            .toList
-            .traverseFilter { record => consumerRecordToKafkaRecord(record).fold(none[KafkaRecord].pure[F]) {_.map(_.some)} }
-          for {
-            records <- records
-          } yield {
-            (partition.partition, records)
+      def kafkaRecords(records: ConsumerRecords[String, ByteVector]): F[List[(Partition, Nel[KafkaRecord])]] = {
+        records
+          .values
+          .toList
+          .traverseFilter { case (partition, records) =>
+            records
+              .toList
+              .traverseFilter { record => consumerRecordToKafkaRecord(record).sequence }
+              .map { records => Nel.fromList(records).map { records => (partition.partition, records) } }
           }
-        }
-
-        for {
-          records <- records1
-        } yield for {
-          (partition, records) <- records
-          records              <- Nel.fromList(records)
-        } yield {
-          (partition, records)
-        }
       }
 
       val poll = for {
@@ -676,8 +666,8 @@ object HeadCache {
         result <- {
           if (cancel) ().some.pure[F]
           else for {
-            _        <- ContextShift[F].shift // TODO shift when empty only
             records0 <- consumer.poll(pollTimeout)
+            _        <- if (records0.values.isEmpty) ContextShift[F].shift else ().pure[F]
             records  <- kafkaRecords(records0)
             _        <- if (records.isEmpty) ().pure[F] else onRecords(records.toMap)
           } yield none[Unit]
