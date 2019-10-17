@@ -33,7 +33,7 @@ class EventualCassandraSpec extends EventualJournalSpec {
 
 object EventualCassandraSpec {
 
-  val selectMetadata: MetadataStatements.Select[StateT] = {
+  val selectMetadata: MetadataStatements.SelectHead[StateT] = {
     key: Key => {
       StateT { state =>
         val metadata = state.metadata.get(key)
@@ -135,7 +135,7 @@ object EventualCassandraSpec {
 
 
       val insertMetadata: MetadataStatements.Insert[StateT] = {
-        (key: Key, _: Instant, head: Head, _: Option[Origin]) => {
+        (key: Key, _: Instant, head: JournalHead, _: Option[Origin]) => {
           StateT { state =>
             val state1 = state.copy(metadata = state.metadata.updated(key, head))
             (state1, ())
@@ -287,7 +287,7 @@ object EventualCassandraSpec {
 
   final case class State(
     journal: Map[(Key, SegmentNr), List[EventRecord]],
-    metadata: Map[Key, Head],
+    metadata: Map[Key, JournalHead],
     pointers: Map[Topic, TopicPointers])
 
   object State {

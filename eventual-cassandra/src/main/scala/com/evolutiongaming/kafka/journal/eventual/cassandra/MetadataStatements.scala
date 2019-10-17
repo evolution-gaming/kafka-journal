@@ -35,7 +35,7 @@ object MetadataStatements {
 
   trait Insert[F[_]] {
 
-    def apply(key: Key, timestamp: Instant, head: Head, origin: Option[Origin]): F[Unit]
+    def apply(key: Key, timestamp: Instant, head: JournalHead, origin: Option[Origin]): F[Unit]
   }
 
   object Insert {
@@ -51,7 +51,7 @@ object MetadataStatements {
       for {
         prepared <- query.prepare
       } yield {
-        (key: Key, timestamp: Instant, head: Head, origin: Option[Origin]) =>
+        (key: Key, timestamp: Instant, head: JournalHead, origin: Option[Origin]) =>
           prepared
             .bind()
             .encode(key)
@@ -69,14 +69,14 @@ object MetadataStatements {
   }
 
 
-  trait Select[F[_]] {
+  trait SelectHead[F[_]] {
 
-    def apply(key: Key): F[Option[Head]]
+    def apply(key: Key): F[Option[JournalHead]]
   }
 
-  object Select {
+  object SelectHead {
 
-    def of[F[_]: Monad : CassandraSession](name: TableName): F[Select[F]] = {
+    def of[F[_]: Monad : CassandraSession](name: TableName): F[SelectHead[F]] = {
       val query =
         s"""
            |SELECT partition, offset, segment_size, seq_nr, delete_to FROM ${ name.toCql }
@@ -97,7 +97,7 @@ object MetadataStatements {
           } yield for {
             row <- row
           } yield {
-            Head(
+            JournalHead(
               partitionOffset = row.decode[PartitionOffset],
               segmentSize = row.decode[SegmentSize],
               seqNr = row.decode[SeqNr],

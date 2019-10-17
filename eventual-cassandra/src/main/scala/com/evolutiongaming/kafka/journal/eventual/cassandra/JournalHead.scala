@@ -3,8 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import com.evolutiongaming.kafka.journal.{PartitionOffset, SeqNr}
 
 
-// TODO add Origin
-final case class Head(
+final case class JournalHead(
   partitionOffset: PartitionOffset,
   segmentSize: SegmentSize,
   seqNr: SeqNr,

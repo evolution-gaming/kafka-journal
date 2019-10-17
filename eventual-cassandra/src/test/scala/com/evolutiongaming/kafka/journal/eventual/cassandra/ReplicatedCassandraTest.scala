@@ -283,7 +283,7 @@ object ReplicatedCassandraTest {
 
 
   val insertMetadata: MetadataStatements.Insert[StateT] = {
-    (key: Key, timestamp: Instant, head: Head, origin: Option[Origin]) => {
+    (key: Key, timestamp: Instant, head: JournalHead, origin: Option[Origin]) => {
       StateT.unit { state =>
         val entry = MetadataEntry(
           partitionOffset = head.partitionOffset,
@@ -303,14 +303,14 @@ object ReplicatedCassandraTest {
   }
 
 
-  val selectMetadata: MetadataStatements.Select[StateT] = {
+  val selectMetadata: MetadataStatements.SelectHead[StateT] = {
     key: Key => {
       StateT.success { state =>
         val head = for {
           entries <- state.metadata.get(key.topic)
           entry   <- entries.get(key.id)
         } yield {
-          Head(
+          JournalHead(
             partitionOffset = entry.partitionOffset,
             segmentSize = entry.segmentSize,
             seqNr = entry.seqNr,

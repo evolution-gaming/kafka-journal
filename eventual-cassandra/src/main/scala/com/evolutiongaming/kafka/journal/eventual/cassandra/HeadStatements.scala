@@ -39,11 +39,12 @@ object HeadStatements {
 
 
   trait Insert[F[_]] {
+
     def apply(
       key: Key,
       segment: SegmentNr,
       timestamp: Instant,
-      head: Head,
+      head: JournalHead,
       origin: Option[Origin]
     ): F[Unit]
   }
@@ -76,7 +77,7 @@ object HeadStatements {
       for {
         prepared <- query.prepare
       } yield {
-        (key: Key, segment: SegmentNr, timestamp: Instant, head: Head, origin: Option[Origin]) =>
+        (key: Key, segment: SegmentNr, timestamp: Instant, head: JournalHead, origin: Option[Origin]) =>
           prepared
             .bind()
             .encode(key)
@@ -97,7 +98,7 @@ object HeadStatements {
 
 
   trait Select[F[_]] {
-    def apply(key: Key, segment: SegmentNr): F[Option[Head]]
+    def apply(key: Key, segment: SegmentNr): F[Option[JournalHead]]
   }
 
   object Select {
@@ -124,7 +125,7 @@ object HeadStatements {
           } yield for {
             row <- row
           } yield {
-            Head(
+            JournalHead(
               partitionOffset = row.decode[PartitionOffset],
               segmentSize = row.decode[SegmentSize],
               seqNr = row.decode[SeqNr],

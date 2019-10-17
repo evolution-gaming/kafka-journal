@@ -71,7 +71,7 @@ object EventualCassandra {
 
       def read(key: Key, from: SeqNr): Stream[F, EventRecord] = {
 
-        def read(statement: JournalStatements.SelectRecords[F], metadata: Head) = {
+        def read(statement: JournalStatements.SelectRecords[F], head: JournalHead) = {
 
           def read(from: SeqNr) = new Stream[F, EventRecord] {
 
@@ -87,7 +87,7 @@ object EventualCassandra {
                 }
               }
 
-              val segment = Segment.unsafe(from, metadata.segmentSize)
+              val segment = Segment.unsafe(from, head.segmentSize)
 
               (from, segment, l).tailRecM { case (from, segment, l) =>
                 val range = SeqRange(from, SeqNr.max) // TODO do we need range here ?
@@ -108,7 +108,7 @@ object EventualCassandra {
             }
           }
 
-          metadata.deleteTo match {
+          head.deleteTo match {
             case None           => read(from)
             case Some(deleteTo) =>
               if (from > deleteTo) read(from)
@@ -120,8 +120,8 @@ object EventualCassandra {
         }
 
         for {
-          metadata <- Stream.lift(statements.metadata(key))
-          result   <- metadata.fold(Stream.empty[F, EventRecord]) { metadata => read(statements.records, metadata) }
+          head   <- Stream.lift(statements.metadata(key))
+          result <- head.fold(Stream.empty[F, EventRecord]) { head => read(statements.records, head) }
         } yield result
       }
     }
@@ -130,7 +130,7 @@ object EventualCassandra {
 
   final case class Statements[F[_]](
     records: JournalStatements.SelectRecords[F],
-    metadata: MetadataStatements.Select[F],
+    metadata: MetadataStatements.SelectHead[F],
     pointer: MetadataStatements.SelectJournalPointer[F],
     pointers: PointerStatements.SelectAll[F])
 
@@ -141,7 +141,7 @@ object EventualCassandra {
     def of[F[_] : Parallel : Monad : CassandraSession](schema: Schema): F[Statements[F]] = {
       val statements = (
         JournalStatements.SelectRecords.of[F](schema.journal),
-        MetadataStatements.Select.of[F](schema.metadata),
+        MetadataStatements.SelectHead.of[F](schema.metadata),
         MetadataStatements.SelectJournalPointer.of[F](schema.metadata),
         PointerStatements.SelectAll.of[F](schema.pointer))
       statements.parMapN(Statements[F])

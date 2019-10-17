@@ -77,7 +77,7 @@ class EventualCassandraTest extends FunSuite with Matchers {
       val stateT = for {
         pointer <- journal.pointer(key)
         _        = pointer shouldEqual none
-        _       <- insertMetadata(key, timestamp0, Head(partitionOffset, segmentSize, seqNr, none), origin.some)
+        _       <- insertMetadata(key, timestamp0, JournalHead(partitionOffset, segmentSize, seqNr, none), origin.some)
         pointer <- journal.pointer(key)
         _        = pointer shouldEqual JournalPointer(partitionOffset, seqNr).some
         _       <- updateMetadata(key, partitionOffset, timestamp1, SeqNr.max, seqNr)
@@ -119,7 +119,7 @@ class EventualCassandraTest extends FunSuite with Matchers {
         val stateT = for {
           records <- journal.read(key, seqNr).toList
           _        = records shouldEqual List.empty
-          _       <- insertMetadata(key, timestamp0, Head(partitionOffset, segmentSize, record.seqNr, none), origin.some)
+          _       <- insertMetadata(key, timestamp0, JournalHead(partitionOffset, segmentSize, record.seqNr, none), origin.some)
           _       <- insertRecords(key, SegmentNr.min, Nel.of(record))
           records <- journal.read(key, seqNr).toList
           _        = records shouldEqual List(record).filter(_.seqNr >= seqNr)
@@ -189,7 +189,7 @@ object EventualCassandraTest {
 
 
   val insertMetadata: MetadataStatements.Insert[StateT] = {
-    (key: Key, timestamp: Instant, head: Head, origin: Option[Origin]) => {
+    (key: Key, timestamp: Instant, head: JournalHead, origin: Option[Origin]) => {
       StateT.unit { state =>
         val entry = MetadataEntry(
           partitionOffset = head.partitionOffset,
@@ -209,14 +209,14 @@ object EventualCassandraTest {
   }
 
 
-  val selectMetadata: MetadataStatements.Select[StateT] = {
+  val selectMetadata: MetadataStatements.SelectHead[StateT] = {
     key: Key => {
       StateT.success { state =>
         val head = for {
           entries <- state.metadata.get(key.topic)
           entry   <- entries.get(key.id)
         } yield {
-          Head(
+          JournalHead(
             partitionOffset = entry.partitionOffset,
             segmentSize = entry.segmentSize,
             seqNr = entry.seqNr,

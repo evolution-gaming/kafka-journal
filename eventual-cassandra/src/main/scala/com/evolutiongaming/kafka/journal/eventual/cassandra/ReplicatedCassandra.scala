@@ -96,11 +96,11 @@ object ReplicatedCassandra {
           loop(events.toList, None, ().pure[F])
         }
 
-        def appendAndSave(head: Option[Head]) = {
+        def appendAndSave(head: Option[JournalHead]) = {
           val seqNrLast = events.last.seqNr
 
           val (save, head1) = head.fold {
-            val head = Head(
+            val head = JournalHead(
               partitionOffset = partitionOffset,
               segmentSize = segmentSize,
               seqNr = seqNrLast,
@@ -134,10 +134,10 @@ object ReplicatedCassandra {
         origin: Option[Origin]
       ) = {
 
-        def delete(head: Option[Head]) = {
+        def delete(head: Option[JournalHead]) = {
 
           def insert = {
-            val head = Head(
+            val head = JournalHead(
               partitionOffset = partitionOffset,
               segmentSize = segmentSize,
               seqNr = deleteTo,
@@ -145,7 +145,7 @@ object ReplicatedCassandra {
             statements.insertMetadata(key, timestamp, head, origin) as head.segmentSize
           }
 
-          def update(head: Head) = {
+          def update(head: JournalHead) = {
             val update =
               if (head.seqNr >= deleteTo) {
                 statements.updateDeleteTo(key, partitionOffset, timestamp, deleteTo)
@@ -155,7 +155,7 @@ object ReplicatedCassandra {
             update as head.segmentSize
           }
 
-          def delete(segmentSize: SegmentSize)(head: Head) = {
+          def delete(segmentSize: SegmentSize)(head: JournalHead) = {
 
             def delete(from: SeqNr, deleteTo: SeqNr) = {
 
@@ -246,7 +246,7 @@ object ReplicatedCassandra {
     insertRecords   : JournalStatements.InsertRecords[F],
     deleteRecords   : JournalStatements.DeleteRecords[F],
     insertMetadata  : MetadataStatements.Insert[F],
-    selectMetadata  : MetadataStatements.Select[F],
+    selectMetadata  : MetadataStatements.SelectHead[F],
     updateMetadata  : MetadataStatements.Update[F],
     updateSeqNr     : MetadataStatements.UpdateSeqNr[F],
     updateDeleteTo  : MetadataStatements.UpdateDeleteTo[F],
@@ -266,7 +266,7 @@ object ReplicatedCassandra {
         JournalStatements.InsertRecords.of[F](schema.journal),
         JournalStatements.DeleteRecords.of[F](schema.journal),
         MetadataStatements.Insert.of[F](schema.metadata),
-        MetadataStatements.Select.of[F](schema.metadata),
+        MetadataStatements.SelectHead.of[F](schema.metadata),
         MetadataStatements.Update.of[F](schema.metadata),
         MetadataStatements.UpdateSeqNr.of[F](schema.metadata),
         MetadataStatements.UpdateDeleteTo.of[F](schema.metadata),
