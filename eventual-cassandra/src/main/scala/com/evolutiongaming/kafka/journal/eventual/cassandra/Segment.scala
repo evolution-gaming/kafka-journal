@@ -8,18 +8,16 @@ final case class Segment(nr: SegmentNr, size: SegmentSize)
 
 object Segment {
 
-  // TODO stop using this
-  def unsafe(seqNr: SeqNr, size: SegmentSize): Segment = {
-    val segmentNr = SegmentNr.unsafe(seqNr, size)
+  def apply(seqNr: SeqNr, size: SegmentSize): Segment = {
+    val segmentNr = SegmentNr(seqNr, size)
     apply(segmentNr, size)
   }
 
 
   implicit class SegmentOps(val self: Segment) extends AnyVal {
 
-    // TODO stop using this
-    def nextUnsafe(seqNr: SeqNr): Option[Segment] = {
-      val segmentNr = SegmentNr.unsafe(seqNr, self.size)
+    def next(seqNr: SeqNr): Option[Segment] = {
+      val segmentNr = SegmentNr(seqNr, self.size)
       if (segmentNr == self.nr) none
       else self.copy(segmentNr).some
     }

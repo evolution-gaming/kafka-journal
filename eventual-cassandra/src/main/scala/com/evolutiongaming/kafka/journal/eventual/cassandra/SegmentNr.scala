@@ -28,7 +28,7 @@ object SegmentNr {
 
   implicit val encodeByNameSegmentNr: EncodeByName[SegmentNr] = EncodeByName[Long].contramap(_.value)
 
-  implicit val decodeByNameSegmentNr: DecodeByName[SegmentNr] = DecodeByName[Long].map(SegmentNr.unsafe(_))
+  implicit val decodeByNameSegmentNr: DecodeByName[SegmentNr] = DecodeByName[Long].map { a => SegmentNr.of[Try](a).get }
 
 
   implicit val encodeRowSegmentNr: EncodeRow[SegmentNr] = EncodeRow[SegmentNr]("segment")
@@ -56,21 +56,16 @@ object SegmentNr {
   }
 
 
-  def of[F[_] : ApplicativeString](seqNr: SeqNr, segmentSize: SegmentSize): F[SegmentNr] = {
-    val segmentNr = (seqNr.value - 1) / segmentSize.value
-    of[F](segmentNr)
+  def apply(seqNr: SeqNr, segmentSize: SegmentSize): SegmentNr = {
+    val segmentNr = (seqNr.value - SeqNr.min.value) / segmentSize.value
+    new SegmentNr(segmentNr) {}
   }
 
 
   def opt(value: Long): Option[SegmentNr] = of[Option](value)
 
 
-  // TODO stop using this
   def unsafe[A](value: A)(implicit numeric: Numeric[A]): SegmentNr = of[Try](numeric.toLong(value)).get
-
-
-  // TODO stop using this
-  def unsafe(seqNr: SeqNr, segmentSize: SegmentSize): SegmentNr = of[Try](seqNr, segmentSize).get
 
 
   implicit class SegmentNrOps(val self: SegmentNr) extends AnyVal {
@@ -81,7 +76,7 @@ object SegmentNr {
       if (self == segment) Nel.of(segment)
       else {
         val range = Nel.fromListUnsafe((self.value to segment.value).toList) // TODO remove fromListUnsafe
-        range.map { value => SegmentNr.unsafe(value) } // TODO
+        range.map { value => SegmentNr.unsafe(value) } // TODO stop using unsafe
       }
     }
   }

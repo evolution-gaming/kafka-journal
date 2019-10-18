@@ -68,7 +68,8 @@ object ReplicatedCassandra {
           def loop(
             events: List[EventRecord],
             s: Option[(Segment, Nel[EventRecord])],
-            result: F[Unit]): F[Unit] = {
+            result: F[Unit]
+          ): F[Unit] = {
 
             def insert(segment: Segment, events: Nel[EventRecord]) = {
               val next = statements.insertRecords(key, segment.nr, events)
@@ -82,11 +83,11 @@ object ReplicatedCassandra {
               case head :: tail =>
                 val seqNr = head.event.seqNr
                 s match {
-                  case Some((segment, batch)) => segment.nextUnsafe(seqNr) match {
+                  case Some((segment, batch)) => segment.next(seqNr) match {
                     case None       => loop(tail, (segment, head :: batch).some, result)
                     case Some(next) => loop(tail, (next, Nel.of(head)).some, insert(segment, batch))
                   }
-                  case None                   => loop(tail, (Segment.unsafe(seqNr, segmentSize), Nel.of(head)).some, result)
+                  case None                   => loop(tail, (Segment(seqNr, segmentSize), Nel.of(head)).some, result)
                 }
 
               case Nil => s.fold(result) { case (segment, batch) => insert(segment, batch) }
@@ -159,7 +160,7 @@ object ReplicatedCassandra {
 
             def delete(from: SeqNr, deleteTo: SeqNr) = {
 
-              def segment(seqNr: SeqNr) = SegmentNr.unsafe(seqNr, segmentSize)
+              def segment(seqNr: SeqNr) = SegmentNr(seqNr, segmentSize)
 
               (segment(from) to segment(deleteTo)).parFoldMap { segment =>
                 statements.deleteRecords(key, segment, deleteTo)

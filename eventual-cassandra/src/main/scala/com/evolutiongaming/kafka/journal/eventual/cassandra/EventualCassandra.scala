@@ -75,19 +75,18 @@ object EventualCassandra {
 
           def read(from: SeqNr) = {
 
-            def records(from: SeqNr, segment: Segment) = {
+            def read(from: SeqNr, segment: Segment) = {
               val range = SeqRange(from, SeqNr.max)
               statement(key, segment.nr, range).map { record => (record, segment) }
             }
 
-            val segment = Segment.unsafe(from, head.segmentSize)
-            records(from, segment)
+            read(from, Segment(from, head.segmentSize))
               .chain { case (record, segment) =>
                 for {
                   from    <- record.seqNr.next[Option]
-                  segment <- segment.nextUnsafe(from) // TODO not use
+                  segment <- segment.next(from)
                 } yield {
-                  records(from, segment)
+                  read(from, segment)
                 }
               }
               .map { case (record, _) => record }
