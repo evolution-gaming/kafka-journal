@@ -5,6 +5,6 @@ import com.evolutiongaming.scassandra.TableName
 final case class Schema(
   journal: TableName,
   metadata: TableName,
-  head: Option[TableName],
+  metaJournal: Option[TableName],
   pointer: TableName,
   setting: TableName)

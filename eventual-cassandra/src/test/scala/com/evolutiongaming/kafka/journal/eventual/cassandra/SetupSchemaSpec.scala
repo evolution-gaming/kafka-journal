@@ -41,7 +41,7 @@ class SetupSchemaSpec extends FunSuite with Matchers {
   val schema = Schema(
     journal = TableName(keyspace = "journal", table = "journal"),
     metadata = TableName(keyspace = "journal", table = "metadata"),
-    head = TableName(keyspace = "journal", table = "head").some,
+    metaJournal = TableName(keyspace = "journal", table = "head").some,
     pointer = TableName(keyspace = "journal", table = "pointer"),
     setting = TableName(keyspace = "journal", table = "setting"))
 

@@ -13,8 +13,7 @@ import com.evolutiongaming.scassandra.syntax._
 
 
 // TODO expireAfter: add select by topic,LocalDate
-// TODO rename to MetaJournal
-object HeadStatements {
+object MetaJournalStatements {
 
   def createTable(name: TableName): String = {
     s"""
