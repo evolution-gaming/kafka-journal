@@ -388,12 +388,17 @@ object EventualCassandraTest {
     }
   }
 
+  val statements: EventualCassandra.Statements[StateT] = {
 
-  val statements: EventualCassandra.Statements[StateT] = EventualCassandra.Statements(
-    records = selectRecords,
-    metadata = selectMetadata,
-    pointer = selectJournalPointer,
-    pointers = selectPointers)
+    val metaJournalStatements = EventualCassandra.MetaJournalStatements(
+      head = selectMetadata,
+      journalPointer = selectJournalPointer)
+
+    EventualCassandra.Statements(
+      records = selectRecords,
+      metaJournal = metaJournalStatements,
+      pointers = selectPointers)
+  }
 
 
   implicit val bracket: BracketThrowable[StateT] = new BracketFromMonadError[StateT, Throwable] {

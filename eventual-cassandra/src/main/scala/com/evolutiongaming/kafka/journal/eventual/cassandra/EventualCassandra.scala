@@ -58,7 +58,7 @@ object EventualCassandra {
     new EventualJournal[F] {
 
       def pointer(key: Key) = {
-        statements.pointer(key)
+        statements.metaJournal.journalPointer(key)
       }
 
       def pointers(topic: Topic) = {
@@ -105,7 +105,7 @@ object EventualCassandra {
         }
 
         for {
-          head   <- Stream.lift(statements.metadata(key))
+          head   <- Stream.lift(statements.metaJournal.head(key))
           result <- head.fold(Stream.empty[F, EventRecord]) { head => read(statements.records, head) }
         } yield result
       }
@@ -115,21 +115,53 @@ object EventualCassandra {
 
   final case class Statements[F[_]](
     records: JournalStatements.SelectRecords[F],
-    metadata: MetadataStatements.SelectHead[F],
-    pointer: MetadataStatements.SelectJournalPointer[F],
+    metaJournal: MetaJournalStatements[F],
     pointers: PointerStatements.SelectAll[F])
 
   object Statements {
 
     def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 
-    def of[F[_] : Parallel : Monad : CassandraSession](schema: Schema): F[Statements[F]] = {
+    def of[F[_]: Monad: Parallel: CassandraSession](schema: Schema): F[Statements[F]] = {
       val statements = (
         JournalStatements.SelectRecords.of[F](schema.journal),
-        MetadataStatements.SelectHead.of[F](schema.metadata),
-        MetadataStatements.SelectJournalPointer.of[F](schema.metadata),
+        MetaJournalStatements.of[F](schema),
         PointerStatements.SelectAll.of[F](schema.pointer))
       statements.parMapN(Statements[F])
+    }
+  }
+
+
+  trait MetaJournalStatements[F[_]] {
+
+    def head(key: Key): F[Option[JournalHead]]
+
+    def journalPointer(key: Key): F[Option[JournalPointer]]
+  }
+
+  object MetaJournalStatements {
+
+    def of[F[_]: Monad: Parallel: CassandraSession](schema: Schema): F[MetaJournalStatements[F]] = {
+      val statements = (
+        MetadataStatements.SelectHead.of[F](schema.metadata),
+        MetadataStatements.SelectJournalPointer.of[F](schema.metadata))
+      statements.parMapN(apply[F])
+    }
+
+    def apply[F[_]](
+      head: MetadataStatements.SelectHead[F],
+      journalPointer: MetadataStatements.SelectJournalPointer[F]
+    ): MetaJournalStatements[F] = {
+
+      val head1 = head
+      val journalPointer1 = journalPointer
+
+      new MetaJournalStatements[F] {
+
+        def head(key: Key) = head1(key)
+
+        def journalPointer(key: Key) = journalPointer1(key)
+      }
     }
   }
 }

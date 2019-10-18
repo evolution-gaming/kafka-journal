@@ -88,10 +88,13 @@ object EventualCassandraSpec {
       }
     }
 
+    val metaJournalStatements = EventualCassandra.MetaJournalStatements(
+      head = selectMetadata,
+      journalPointer = selectPointer)
+
     val statements = EventualCassandra.Statements(
       records = selectRecords,
-      metadata = selectMetadata,
-      pointer = selectPointer,
+      metaJournal = metaJournalStatements,
       pointers = selectPointers)
 
     EventualCassandra[StateT](statements)
