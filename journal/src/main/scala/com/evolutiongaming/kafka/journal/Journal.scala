@@ -4,7 +4,6 @@ import cats._
 import cats.arrow.FunctionK
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
-import cats.effect.implicits._
 import cats.implicits._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MonadThrowable}
@@ -30,7 +29,6 @@ trait Journal[F[_]] {
 
   /**
    * @param expireAfter Define expireAfter in order to expire whole journal for given entity
-   *                    auxiliaries
    */
   def append(
     key: Key,
@@ -145,45 +143,39 @@ object Journal {
 
     val appendEvents = AppendEvents(appendAction, origin, eventsToPayload)
 
-    def headAndStream(key: Key, from: SeqNr): F[(HeadInfo, Fiber[F, StreamActionRecords[F]])] = {
+    def headAndStream(key: Key, from: SeqNr): F[(HeadInfo, F[StreamActionRecords[F]])] = {
 
-      // TODO not start this query at all
-      def stream = for {
-        pointers <- eventual.pointers(key.topic)
-      } yield {
-        marker: Marker => {
+      def headAndStream(marker: Marker) = {
+
+        val stream = for {
+          pointers <- eventual.pointers(key.topic)
+        } yield {
           val offset = pointers.values.get(marker.partition)
           StreamActionRecords(key, from, marker, offset, consumeActionRecords)
         }
+
+        for {
+          result <- headCache.get(key, partition = marker.partition, offset = Offset.Min max marker.offset - 1)
+          result <- result match {
+            case HeadCache.Result.Valid(head) => (head, stream).pure[F]
+            case HeadCache.Result.Invalid     =>
+              for {
+                stream <- stream
+                info   <- stream(none).fold(HeadInfo.empty) { (info, action) => info(action.action.header) }
+              } yield {
+                (info, stream.pure[F])
+              }
+          }
+        } yield result
       }
 
       for {
-        streamOf <- stream.start
         marker   <- appendMarker(key)
         result   <- {
           if (marker.offset == Offset.Min) {
-            for {
-              _ <- streamOf.cancel
-            } yield {
-              (HeadInfo.empty, StreamActionRecords.empty[F].pure[Fiber[F, *]])
-            }
+            (HeadInfo.empty, StreamActionRecords.empty[F].pure[F]).pure[F]
           } else {
-            for {
-              result <- headCache.get(key, partition = marker.partition, offset = Offset.Min max marker.offset - 1)
-              stream  = streamOf.map { _.apply(marker) }
-              result <- result match {
-                case HeadCache.Result.Valid(head) =>
-                  (head, stream).pure[F]
-
-                case HeadCache.Result.Invalid     =>
-                  for {
-                    stream <- stream.join
-                    info   <- stream(none).fold(HeadInfo.empty) { (info, action) => info(action.action.header) }
-                  } yield {
-                    (info, stream.pure[Fiber[F, *]])
-                  }
-              }
-            } yield result
+            headAndStream(marker)
           }
         }
       } yield result
@@ -204,7 +196,7 @@ object Journal {
       
       def read(key: Key, from: SeqNr) = {
 
-        def readEventualAndKafka(from: SeqNr, stream: Fiber[F, StreamActionRecords[F]]) = {
+        def readEventualAndKafka(from: SeqNr, stream: F[StreamActionRecords[F]]) = {
 
           def readKafka(from: SeqNr, offset: Option[Offset], stream: StreamActionRecords[F]) = {
 
@@ -225,7 +217,7 @@ object Journal {
           }
 
           for {
-            stream <- Stream.lift(stream.join)
+            stream <- Stream.lift(stream)
             event  <- eventual.read(key, from).flatMapLast { last =>
               last
                 .fold((from, none[Offset]).some) { event => event.seqNr.next[Option].map { from => (from, event.offset.some) } }
@@ -234,13 +226,11 @@ object Journal {
           } yield event
         }
 
-        def read(head: HeadInfo, stream: Fiber[F, StreamActionRecords[F]]) = {
+        def read(head: HeadInfo, stream: F[StreamActionRecords[F]]) = {
 
-          def cancel = Stream.lift(stream.cancel)
+          def empty = Stream.empty[F, EventRecord]
 
-          def empty = cancel *> Stream.empty[F, EventRecord]
-
-          def readEventual(from: SeqNr) = cancel *> eventual.read(key, from)
+          def readEventual(from: SeqNr) = eventual.read(key, from)
 
           head match {
             case HeadInfo.Empty               => readEventual(from)
@@ -266,9 +256,8 @@ object Journal {
 
 
       def pointer(key: Key) = {
+        
         // TODO reimplement, we don't need to call `eventual.pointer` without using it's offset
-
-        // TODO specialized query ?
         def pointerEventual = for {
           pointer <- eventual.pointer(key)
         } yield for {
@@ -286,10 +275,9 @@ object Journal {
         val from = SeqNr.min // TODO remove
 
         for {
-          headAndStream  <- headAndStream(key, from)
-          (head, stream)  = headAndStream
-          _              <- stream.cancel
-          pointer        <- pointer(head)
+          headAndStream <- headAndStream(key, from)
+          (head, _)      = headAndStream
+          pointer       <- pointer(head)
         } yield pointer
       }
 
