@@ -451,20 +451,26 @@ object ReplicatedCassandraTest {
   }
 
 
-  val statements: ReplicatedCassandra.Statements[StateT] = ReplicatedCassandra.Statements(
-    insertRecords,
-    deleteRecords,
-    insertMetadata,
-    selectJournalHead,
-    updateMetadata,
-    updateMetadataSeqNr,
-    updateHeadDeleteTo,
-    selectPointer,
-    selectPointersIn,
-    selectPointers,
-    insertPointer,
-    updatePointer,
-    selectTopics)
+  val statements: ReplicatedCassandra.Statements[StateT] = {
+
+    val metadata = ReplicatedCassandra.MetaJournalStatements(
+      selectJournalHead,
+      insertMetadata,
+      updateMetadata,
+      updateMetadataSeqNr,
+      updateHeadDeleteTo)
+
+    ReplicatedCassandra.Statements(
+      insertRecords,
+      deleteRecords,
+      metadata,
+      selectPointer,
+      selectPointersIn,
+      selectPointers,
+      insertPointer,
+      updatePointer,
+      selectTopics)
+  }
 
 
   implicit val bracket: BracketThrowable[StateT] = new BracketFromMonadError[StateT, Throwable] {

@@ -170,7 +170,7 @@ object EventualCassandraSpec {
       }
 
 
-      val updateSeqNr: MetadataStatements.UpdateSeqNr[StateT] = {
+      val updateMetadataSeqNr: MetadataStatements.UpdateSeqNr[StateT] = {
         (key: Key, partitionOffset: PartitionOffset, _: Instant, seqNr: SeqNr) => {
           StateT { state =>
             val metadata = state.metadata
@@ -186,7 +186,7 @@ object EventualCassandraSpec {
       }
 
 
-      val updateDeleteTo: MetadataStatements.UpdateDeleteTo[StateT] = {
+      val updateMetadataDeleteTo: MetadataStatements.UpdateDeleteTo[StateT] = {
         (key: Key, partitionOffset: PartitionOffset, _: Instant, deleteTo: SeqNr) => {
           StateT { state =>
             val metadata = state.metadata
@@ -271,14 +271,17 @@ object EventualCassandraSpec {
         }
       }
 
+      val metadata = ReplicatedCassandra.MetaJournalStatements(
+        selectJournalHead,
+        insertMetadata,
+        updateMetadata,
+        updateMetadataSeqNr,
+        updateMetadataDeleteTo)
+
       val statements = ReplicatedCassandra.Statements(
         insertRecords = insertRecords,
         deleteRecords = deleteRecords,
-        insertMetadata = insertMetadata,
-        selectJournalHead = selectJournalHead,
-        updateMetadata = updateMetadata,
-        updateSeqNr = updateSeqNr,
-        updateDeleteTo = updateDeleteTo,
+        metaJournal = metadata,
         selectPointer = selectPointer,
         selectPointersIn = selectPointersIn,
         selectPointers = selectPointers,
