@@ -19,11 +19,13 @@ class EventualCassandraSpec extends EventualJournalSpec {
   "EventualCassandra" when {
     for {
       segmentSize <- List(SegmentSize.min, SegmentSize.default, SegmentSize.max)
+      segments    <- List(Segments.min, Segments.default)
       delete      <- List(true, false)
     } {
-      s"segmentSize: $segmentSize, delete: $delete" should {
+      s"segmentSize: $segmentSize, delete: $delete, segments: $segments" should {
         test[StateT] { test =>
-          val (_, result) = test(journals(segmentSize, delete)).run(State.empty)
+          val journals = journalsOf(segmentSize, delete, segments)
+          val (_, result) = test(journals).run(State.empty)
           result.pure[StateT]
         }
       }
@@ -33,7 +35,7 @@ class EventualCassandraSpec extends EventualJournalSpec {
 
 object EventualCassandraSpec {
 
-  val selectMetadata: MetadataStatements.SelectHead[StateT] = {
+  val selectJournalHead: MetadataStatements.SelectJournalHead[StateT] = {
     key: Key => {
       StateT { state =>
         val metadata = state.metadata.get(key)
@@ -42,7 +44,7 @@ object EventualCassandraSpec {
     }
   }
 
-  val selectPointer: MetadataStatements.SelectJournalPointer[StateT] = {
+  val selectJournalPointer: MetadataStatements.SelectJournalPointer[StateT] = {
     key: Key => {
       StateT { state =>
         val pointer = state
@@ -68,7 +70,7 @@ object EventualCassandraSpec {
   implicit val parallel: Parallel[StateT] = Parallel.identity[StateT]
 
 
-  implicit val eventualJournal: EventualJournal[StateT] = {
+  def eventualJournal(segments: Segments): EventualJournal[StateT] = {
 
     val selectRecords = new JournalStatements.SelectRecords[StateT] {
 
@@ -89,19 +91,23 @@ object EventualCassandraSpec {
     }
 
     val metaJournalStatements = EventualCassandra.MetaJournalStatements(
-      head = selectMetadata,
-      journalPointer = selectPointer)
+      journalHead = selectJournalHead,
+      journalPointer = selectJournalPointer)
 
     val statements = EventualCassandra.Statements(
       records = selectRecords,
       metaJournal = metaJournalStatements,
       pointers = selectPointers)
 
-    EventualCassandra[StateT](statements)
+    EventualCassandra[StateT](statements, SegmentNrOf(segments))
   }
 
 
-  def journals(segmentSize: SegmentSize, delete: Boolean): Journals[StateT] = {
+  def journalsOf(
+    segmentSize: SegmentSize,
+    delete: Boolean,
+    segments: Segments
+  ): Journals[StateT] = {
 
     val replicatedJournal = {
 
@@ -269,7 +275,7 @@ object EventualCassandraSpec {
         insertRecords = insertRecords,
         deleteRecords = deleteRecords,
         insertMetadata = insertMetadata,
-        selectMetadata = selectMetadata,
+        selectJournalHead = selectJournalHead,
         updateMetadata = updateMetadata,
         updateSeqNr = updateSeqNr,
         updateDeleteTo = updateDeleteTo,
@@ -284,7 +290,7 @@ object EventualCassandraSpec {
       ReplicatedCassandra(segmentSize, statements)
     }
 
-    Journals(eventualJournal, replicatedJournal)
+    Journals(eventualJournal(segments), replicatedJournal)
   }
 
 

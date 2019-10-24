@@ -7,8 +7,8 @@ import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
-import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
+import com.evolutiongaming.scassandra.{CassandraClusterOf, TableName}
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.MeasureDuration
 import com.evolutiongaming.sstream.Stream
@@ -45,7 +45,7 @@ object EventualCassandra {
       schema     <- SetupSchema[F](schemaConfig, origin)
       statements <- Statements.of[F](schema)
     } yield {
-      val journal = apply[F](statements).withLog(log)
+      val journal = apply[F](statements, SegmentNrOf(Segments.default)).withLog(log)
       metrics
         .fold(journal) { metrics => journal.withMetrics(metrics) }
         .enhanceError
@@ -53,12 +53,18 @@ object EventualCassandra {
   }
 
 
-  def apply[F[_] : Monad : Parallel](statements: Statements[F]): EventualJournal[F] = {
+  def apply[F[_] : Monad : Parallel](
+    statements: Statements[F],
+    segmentNrOf: SegmentNrOf[F]
+  ): EventualJournal[F] = {
 
     new EventualJournal[F] {
 
       def pointer(key: Key) = {
-        statements.metaJournal.journalPointer(key)
+        for {
+          segmentNr <- segmentNrOf(key)
+          pointer   <- statements.metaJournal.journalPointer(key, segmentNr)
+        } yield pointer
       }
 
       def pointers(topic: Topic) = {
@@ -105,8 +111,9 @@ object EventualCassandra {
         }
 
         for {
-          head   <- Stream.lift(statements.metaJournal.head(key))
-          result <- head.fold(Stream.empty[F, EventRecord]) { head => read(statements.records, head) }
+          segmentNr <- Stream.lift(segmentNrOf(key))
+          head      <- Stream.lift(statements.metaJournal.journalHead(key, segmentNr))
+          result    <- head.fold(Stream.empty[F, EventRecord]) { head => read(statements.records, head) }
         } yield result
       }
     }
@@ -134,33 +141,109 @@ object EventualCassandra {
 
   trait MetaJournalStatements[F[_]] {
 
-    def head(key: Key): F[Option[JournalHead]]
+    def journalHead(key: Key, segment: SegmentNr): F[Option[JournalHead]]
 
-    def journalPointer(key: Key): F[Option[JournalPointer]]
+    def journalPointer(key: Key, segment: SegmentNr): F[Option[JournalPointer]]
   }
 
   object MetaJournalStatements {
 
-    def of[F[_]: Monad: Parallel: CassandraSession](schema: Schema): F[MetaJournalStatements[F]] = {
+    def of[F[_] : Monad : Parallel : CassandraSession](schema: Schema): F[MetaJournalStatements[F]] = {
+
+      val statements = {
+        val statements = (
+          MetadataStatements.SelectJournalHead.of[F](schema.metadata),
+          MetadataStatements.SelectJournalPointer.of[F](schema.metadata))
+        statements.parMapN(apply[F])
+      }
+
+      schema
+        .metaJournal
+        .fold {
+          statements
+        } { metaJournal =>
+          (of[F](metaJournal), statements).parMapN(apply[F])
+        }
+    }
+
+
+    def of[F[_] : Monad : Parallel : CassandraSession](metaJournal: TableName): F[MetaJournalStatements[F]] = {
       val statements = (
-        MetadataStatements.SelectHead.of[F](schema.metadata),
-        MetadataStatements.SelectJournalPointer.of[F](schema.metadata))
+        cassandra.MetaJournalStatements.SelectJournalHead.of[F](metaJournal),
+        cassandra.MetaJournalStatements.SelectJournalPointer.of[F](metaJournal))
+
       statements.parMapN(apply[F])
     }
 
+
+    def apply[F[_] : Monad](
+      metaJournal: MetaJournalStatements[F],
+      metadata: MetaJournalStatements[F]
+    ): MetaJournalStatements[F] = {
+
+      new MetaJournalStatements[F] {
+
+        def journalHead(key: Key, segment: SegmentNr) = {
+          metaJournal
+            .journalHead(key, segment)
+            .flatMap { journalHead =>
+              journalHead.fold {
+                metadata.journalHead(key, segment)
+              } { journalHead =>
+                journalHead.some.pure[F]
+              }
+            }
+        }
+        
+        def journalPointer(key: Key, segment: SegmentNr) = {
+          metaJournal
+            .journalPointer(key, segment)
+            .flatMap { journalPointer =>
+              journalPointer.fold {
+                metadata.journalPointer(key, segment)
+              } { journalPointer =>
+                journalPointer.some.pure[F]
+              }
+            }
+        }
+      }
+    }
+
+
     def apply[F[_]](
-      head: MetadataStatements.SelectHead[F],
+      journalHead: MetadataStatements.SelectJournalHead[F],
       journalPointer: MetadataStatements.SelectJournalPointer[F]
     ): MetaJournalStatements[F] = {
 
-      val head1 = head
+      val journalHead1 = journalHead
       val journalPointer1 = journalPointer
 
       new MetaJournalStatements[F] {
 
-        def head(key: Key) = head1(key)
+        def journalHead(key: Key, segment: SegmentNr) = journalHead1(key)
 
-        def journalPointer(key: Key) = journalPointer1(key)
+        def journalPointer(key: Key, segment: SegmentNr) = journalPointer1(key)
+      }
+    }
+
+
+    def apply[F[_]](
+      journalHead: cassandra.MetaJournalStatements.SelectJournalHead[F],
+      journalPointer: cassandra.MetaJournalStatements.SelectJournalPointer[F]
+    ): MetaJournalStatements[F] = {
+
+      val journalHead1 = journalHead
+      val journalPointer1 = journalPointer
+
+      new MetaJournalStatements[F] {
+
+        def journalHead(key: Key, segment: SegmentNr) = {
+          journalHead1(key, segment)
+        }
+
+        def journalPointer(key: Key, segment: SegmentNr) = {
+          journalPointer1(key, segment)
+        }
       }
     }
   }

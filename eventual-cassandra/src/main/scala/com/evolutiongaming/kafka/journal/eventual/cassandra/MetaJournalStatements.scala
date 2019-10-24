@@ -97,13 +97,13 @@ object MetaJournalStatements {
   }
 
 
-  trait Select[F[_]] {
+  trait SelectJournalHead[F[_]] {
     def apply(key: Key, segment: SegmentNr): F[Option[JournalHead]]
   }
 
-  object Select {
+  object SelectJournalHead {
 
-    def of[F[_]: Monad : CassandraSession](name: TableName): F[Select[F]] = {
+    def of[F[_]: Monad : CassandraSession](name: TableName): F[SelectJournalHead[F]] = {
       val query =
         s"""
            |SELECT partition, offset, segment_size, seq_nr, delete_to FROM ${ name.toCql }
@@ -116,16 +116,55 @@ object MetaJournalStatements {
         prepared <- query.prepare
       } yield {
         (key: Key, segment: SegmentNr) =>
-          val bound = prepared
+          val row = prepared
             .bind()
-            .encode(segment)
             .encode(key)
+            .encode(segment)
+            .first
           for {
-            row <- bound.first
+            row <- row
           } yield for {
             row <- row
           } yield {
             row.decode[JournalHead]
+          }
+      }
+    }
+  }
+
+
+  trait SelectJournalPointer[F[_]] {
+
+    def apply(key: Key, segment: SegmentNr): F[Option[JournalPointer]]
+  }
+
+  object SelectJournalPointer {
+
+    def of[F[_]: Monad : CassandraSession](name: TableName): F[SelectJournalPointer[F]] = {
+      val query =
+        s"""
+           |SELECT partition, offset, seq_nr FROM ${ name.toCql }
+           |WHERE id = ?
+           |AND topic = ?
+           |AND segment = ?
+           |""".stripMargin
+      for {
+        prepared <- query.prepare
+      } yield {
+        (key: Key, segment: SegmentNr) =>
+          val row = prepared
+            .bind()
+            .encode(key)
+            .encode(segment)
+            .first
+          for {
+            row <- row
+          } yield for {
+            row <- row
+          } yield {
+            JournalPointer(
+              partitionOffset = row.decode[PartitionOffset],
+              seqNr = row.decode[SeqNr])
           }
       }
     }

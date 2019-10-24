@@ -147,6 +147,7 @@ object Journal {
 
     def headAndStream(key: Key, from: SeqNr): F[(HeadInfo, Fiber[F, StreamActionRecords[F]])] = {
 
+      // TODO not start this query at all
       def stream = for {
         pointers <- eventual.pointers(key.topic)
       } yield {

@@ -121,7 +121,7 @@ object ReplicatedCassandra {
         }
 
         for {
-          head <- statements.selectMetadata(key)
+          head <- statements.selectJournalHead(key)
           _    <- appendAndSave(head).uncancelable
         } yield {}
       }
@@ -184,7 +184,7 @@ object ReplicatedCassandra {
         }
 
         for {
-          head   <- statements.selectMetadata(key)
+          head   <- statements.selectJournalHead(key)
           result <- delete(head).uncancelable
         } yield result
       }
@@ -244,19 +244,19 @@ object ReplicatedCassandra {
 
 
   final case class Statements[F[_]](
-    insertRecords   : JournalStatements.InsertRecords[F],
-    deleteRecords   : JournalStatements.DeleteRecords[F],
-    insertMetadata  : MetadataStatements.Insert[F],
-    selectMetadata  : MetadataStatements.SelectHead[F],
-    updateMetadata  : MetadataStatements.Update[F],
-    updateSeqNr     : MetadataStatements.UpdateSeqNr[F],
-    updateDeleteTo  : MetadataStatements.UpdateDeleteTo[F],
-    selectPointer   : PointerStatements.Select[F],
-    selectPointersIn: PointerStatements.SelectIn[F],
-    selectPointers  : PointerStatements.SelectAll[F],
-    insertPointer   : PointerStatements.Insert[F],
-    updatePointer   : PointerStatements.Update[F],
-    selectTopics    : PointerStatements.SelectTopics[F])
+    insertRecords      : JournalStatements.InsertRecords[F],
+    deleteRecords      : JournalStatements.DeleteRecords[F],
+    insertMetadata     : MetadataStatements.Insert[F],
+    selectJournalHead  : MetadataStatements.SelectJournalHead[F],
+    updateMetadata     : MetadataStatements.Update[F],
+    updateSeqNr        : MetadataStatements.UpdateSeqNr[F],
+    updateDeleteTo     : MetadataStatements.UpdateDeleteTo[F],
+    selectPointer      : PointerStatements.Select[F],
+    selectPointersIn   : PointerStatements.SelectIn[F],
+    selectPointers     : PointerStatements.SelectAll[F],
+    insertPointer      : PointerStatements.Insert[F],
+    updatePointer      : PointerStatements.Update[F],
+    selectTopics       : PointerStatements.SelectTopics[F])
 
   object Statements {
 
@@ -267,7 +267,7 @@ object ReplicatedCassandra {
         JournalStatements.InsertRecords.of[F](schema.journal),
         JournalStatements.DeleteRecords.of[F](schema.journal),
         MetadataStatements.Insert.of[F](schema.metadata),
-        MetadataStatements.SelectHead.of[F](schema.metadata),
+        MetadataStatements.SelectJournalHead.of[F](schema.metadata),
         MetadataStatements.Update.of[F](schema.metadata),
         MetadataStatements.UpdateSeqNr.of[F](schema.metadata),
         MetadataStatements.UpdateDeleteTo.of[F](schema.metadata),

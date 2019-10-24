@@ -11,6 +11,7 @@ import pureconfig.{ConfigCursor, ConfigReader}
 import scala.util.Try
 
 sealed abstract case class SegmentSize(value: Int) {
+  
   override def toString: String = value.toString
 }
 

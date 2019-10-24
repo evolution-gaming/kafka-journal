@@ -62,6 +62,12 @@ object SegmentNr {
   }
 
 
+  def apply(hashCode: Int, segments: Segments): SegmentNr = {
+    val segmentNr = math.abs(hashCode.toLong % segments.value)
+    new SegmentNr(segmentNr) {}
+  }
+
+
   def opt(value: Long): Option[SegmentNr] = of[Option](value)
 
 

@@ -303,7 +303,7 @@ object ReplicatedCassandraTest {
   }
 
 
-  val selectMetadata: MetadataStatements.SelectHead[StateT] = {
+  val selectJournalHead: MetadataStatements.SelectJournalHead[StateT] = {
     key: Key => {
       StateT.success { state =>
         val head = for {
@@ -455,7 +455,7 @@ object ReplicatedCassandraTest {
     insertRecords,
     deleteRecords,
     insertMetadata,
-    selectMetadata,
+    selectJournalHead,
     updateMetadata,
     updateMetadataSeqNr,
     updateHeadDeleteTo,

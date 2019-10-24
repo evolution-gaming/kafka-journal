@@ -69,14 +69,14 @@ object MetadataStatements {
   }
 
 
-  trait SelectHead[F[_]] {
+  trait SelectJournalHead[F[_]] {
 
     def apply(key: Key): F[Option[JournalHead]]
   }
 
-  object SelectHead {
+  object SelectJournalHead {
 
-    def of[F[_]: Monad : CassandraSession](name: TableName): F[SelectHead[F]] = {
+    def of[F[_]: Monad : CassandraSession](name: TableName): F[SelectJournalHead[F]] = {
       val query =
         s"""
            |SELECT partition, offset, segment_size, seq_nr, delete_to FROM ${ name.toCql }
