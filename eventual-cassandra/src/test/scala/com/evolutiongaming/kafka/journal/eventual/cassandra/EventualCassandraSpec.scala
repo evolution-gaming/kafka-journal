@@ -7,7 +7,7 @@ import cats.implicits._
 import cats.{Id, Parallel}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
-import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualJournalSpec, TopicPointers}
+import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualJournalSpec, ReplicatedJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.sstream.FoldWhile._
@@ -70,7 +70,7 @@ object EventualCassandraSpec {
   implicit val parallel: Parallel[StateT] = Parallel.identity[StateT]
 
 
-  def eventualJournal(segments: Segments): EventualJournal[StateT] = {
+  def eventualJournalOf(segmentOf: SegmentOf[StateT]): EventualJournal[StateT] = {
 
     val selectRecords = new JournalStatements.SelectRecords[StateT] {
 
@@ -99,9 +99,197 @@ object EventualCassandraSpec {
       metaJournal = metaJournalStatements,
       pointers = selectPointers)
 
-    EventualCassandra[StateT](statements, SegmentNrOf(segments))
+    EventualCassandra[StateT](statements, segmentOf)
   }
 
+
+  def replicatedJournalOf(
+    segmentSize: SegmentSize,
+    delete: Boolean,
+    segmentOf: SegmentOf[StateT]
+  ): ReplicatedJournal[StateT] = {
+
+    val insertRecords: JournalStatements.InsertRecords[StateT] = {
+      (key: Key, segment: SegmentNr, records: Nel[EventRecord]) => {
+        StateT { state =>
+          val journal = state.journal
+          val events = journal.events(key, segment)
+          val updated = events ++ records.toList.sortBy(_.event.seqNr)
+          val state1 = state.copy(journal = journal.updated((key, segment), updated))
+          (state1, ())
+        }
+      }
+    }
+
+
+    val deleteRecords: JournalStatements.DeleteRecords[StateT] = {
+      (key: Key, segment: SegmentNr, seqNr: SeqNr) => {
+        StateT { state =>
+          val state1 = {
+            if (delete) {
+              val journal = state.journal
+              val events = journal.events(key, segment)
+              val updated = events.dropWhile(_.event.seqNr <= seqNr)
+              state.copy(journal = journal.updated((key, segment), updated))
+            } else {
+              state
+            }
+          }
+          (state1, ())
+        }
+      }
+    }
+
+
+    val insertMetadata: MetadataStatements.Insert[StateT] = {
+      (key: Key, _: Instant, head: JournalHead, _: Option[Origin]) => {
+        StateT { state =>
+          val state1 = state.copy(metadata = state.metadata.updated(key, head))
+          (state1, ())
+        }
+      }
+    }
+
+
+    val updateMetadata: MetadataStatements.Update[StateT] = {
+      (key: Key, partitionOffset: PartitionOffset, _: Instant, seqNr: SeqNr, deleteTo: SeqNr) => {
+        StateT { state =>
+          val metadata = state.metadata
+          val state1 = for {
+            entry <- metadata.get(key)
+          } yield {
+            val entry1 = entry.copy(partitionOffset = partitionOffset, seqNr = seqNr, deleteTo = Some(deleteTo))
+            state.copy(metadata = metadata.updated(key, entry1))
+          }
+
+          (state1 getOrElse state, ())
+        }
+      }
+    }
+
+
+    val updateMetadataSeqNr: MetadataStatements.UpdateSeqNr[StateT] = {
+      (key: Key, partitionOffset: PartitionOffset, _: Instant, seqNr: SeqNr) => {
+        StateT { state =>
+          val metadata = state.metadata
+          val state1 = for {
+            entry <- metadata.get(key)
+          } yield {
+            val entry1 = entry.copy(partitionOffset = partitionOffset, seqNr = seqNr)
+            state.copy(metadata = metadata.updated(key, entry1))
+          }
+          (state1 getOrElse state, ())
+        }
+      }
+    }
+
+
+    val updateMetadataDeleteTo: MetadataStatements.UpdateDeleteTo[StateT] = {
+      (key: Key, partitionOffset: PartitionOffset, _: Instant, deleteTo: SeqNr) => {
+        StateT { state =>
+          val metadata = state.metadata
+          val state1 = for {
+            entry <- metadata.get(key)
+          } yield {
+            val entry1 = entry.copy(partitionOffset = partitionOffset, deleteTo = Some(deleteTo))
+            state.copy(metadata = metadata.updated(key, entry1))
+          }
+
+          (state1 getOrElse state, ())
+        }
+      }
+    }
+
+
+    val insertPointer: PointerStatements.Insert[StateT] = {
+      (topic: Topic, partition: Partition, offset: Offset, _: Instant, _: Instant) => {
+        StateT { state =>
+          val pointers = state.pointers
+          val topicPointers = pointers.getOrElse(topic, TopicPointers.empty)
+          val updated = topicPointers.copy(values = topicPointers.values.updated(partition, offset))
+          val pointers1 = pointers.updated(topic, updated)
+          (state.copy(pointers = pointers1), ())
+        }
+      }
+    }
+
+
+    val updatePointer: PointerStatements.Update[StateT] = {
+      (topic: Topic, partition: Partition, offset: Offset, _: Instant) => {
+        StateT { state =>
+          val pointers = state.pointers
+          val topicPointers = pointers.getOrElse(topic, TopicPointers.empty)
+          val updated = topicPointers.copy(values = topicPointers.values.updated(partition, offset))
+          val pointers1 = pointers.updated(topic, updated)
+          (state.copy(pointers = pointers1), ())
+        }
+      }
+    }
+
+
+    val selectPointer: PointerStatements.Select[StateT] = {
+      (topic: Topic, partition: Partition) => {
+        StateT { state =>
+          val offset = state
+            .pointers
+            .getOrElse(topic, TopicPointers.empty)
+            .values
+            .get(partition)
+          (state, offset)
+        }
+      }
+    }
+
+
+    val selectPointersIn: PointerStatements.SelectIn[StateT] = {
+      (topic: Topic, partitions: Nel[Partition]) => {
+        StateT { state =>
+          val pointers = state
+            .pointers
+            .getOrElse(topic, TopicPointers.empty)
+            .values
+          val result = for {
+            partition <- partitions.toList
+            offset    <- pointers.get(partition)
+          } yield {
+            (partition, offset)
+          }
+
+          (state, result.toMap)
+        }
+      }
+    }
+
+
+    val selectTopics: PointerStatements.SelectTopics[StateT] = {
+      () => {
+        StateT { state =>
+          (state, state.pointers.keys.toList)
+        }
+      }
+    }
+
+    val metadata = ReplicatedCassandra.MetaJournalStatements(
+      selectJournalHead,
+      insertMetadata,
+      updateMetadata,
+      updateMetadataSeqNr,
+      updateMetadataDeleteTo)
+
+    val statements = ReplicatedCassandra.Statements(
+      insertRecords = insertRecords,
+      deleteRecords = deleteRecords,
+      metaJournal = metadata,
+      selectPointer = selectPointer,
+      selectPointersIn = selectPointersIn,
+      selectPointers = selectPointers,
+      insertPointer = insertPointer,
+      updatePointer = updatePointer,
+      selectTopics = selectTopics)
+
+    implicit val concurrentId = ConcurrentOf.fromMonad[StateT]
+    ReplicatedCassandra(segmentSize, segmentOf, statements)
+  }
 
   def journalsOf(
     segmentSize: SegmentSize,
@@ -109,191 +297,12 @@ object EventualCassandraSpec {
     segments: Segments
   ): Journals[StateT] = {
 
-    val replicatedJournal = {
+    val segmentOf = SegmentOf[StateT](segments)
 
-      val insertRecords: JournalStatements.InsertRecords[StateT] = {
-        (key: Key, segment: SegmentNr, records: Nel[EventRecord]) => {
-          StateT { state =>
-            val journal = state.journal
-            val events = journal.events(key, segment)
-            val updated = events ++ records.toList.sortBy(_.event.seqNr)
-            val state1 = state.copy(journal = journal.updated((key, segment), updated))
-            (state1, ())
-          }
-        }
-      }
+    val replicatedJournal = replicatedJournalOf(segmentSize, delete, segmentOf)
 
-
-      val deleteRecords: JournalStatements.DeleteRecords[StateT] = {
-        (key: Key, segment: SegmentNr, seqNr: SeqNr) => {
-          StateT { state =>
-            val state1 = {
-              if (delete) {
-                val journal = state.journal
-                val events = journal.events(key, segment)
-                val updated = events.dropWhile(_.event.seqNr <= seqNr)
-                state.copy(journal = journal.updated((key, segment), updated))
-              } else {
-                state
-              }
-            }
-            (state1, ())
-          }
-        }
-      }
-
-
-      val insertMetadata: MetadataStatements.Insert[StateT] = {
-        (key: Key, _: Instant, head: JournalHead, _: Option[Origin]) => {
-          StateT { state =>
-            val state1 = state.copy(metadata = state.metadata.updated(key, head))
-            (state1, ())
-          }
-        }
-      }
-
-
-      val updateMetadata: MetadataStatements.Update[StateT] = {
-        (key: Key, partitionOffset: PartitionOffset, _: Instant, seqNr: SeqNr, deleteTo: SeqNr) => {
-          StateT { state =>
-            val metadata = state.metadata
-            val state1 = for {
-              entry <- metadata.get(key)
-            } yield {
-              val entry1 = entry.copy(partitionOffset = partitionOffset, seqNr = seqNr, deleteTo = Some(deleteTo))
-              state.copy(metadata = metadata.updated(key, entry1))
-            }
-
-            (state1 getOrElse state, ())
-          }
-        }
-      }
-
-
-      val updateMetadataSeqNr: MetadataStatements.UpdateSeqNr[StateT] = {
-        (key: Key, partitionOffset: PartitionOffset, _: Instant, seqNr: SeqNr) => {
-          StateT { state =>
-            val metadata = state.metadata
-            val state1 = for {
-              entry <- metadata.get(key)
-            } yield {
-              val entry1 = entry.copy(partitionOffset = partitionOffset, seqNr = seqNr)
-              state.copy(metadata = metadata.updated(key, entry1))
-            }
-            (state1 getOrElse state, ())
-          }
-        }
-      }
-
-
-      val updateMetadataDeleteTo: MetadataStatements.UpdateDeleteTo[StateT] = {
-        (key: Key, partitionOffset: PartitionOffset, _: Instant, deleteTo: SeqNr) => {
-          StateT { state =>
-            val metadata = state.metadata
-            val state1 = for {
-              entry <- metadata.get(key)
-            } yield {
-              val entry1 = entry.copy(partitionOffset = partitionOffset, deleteTo = Some(deleteTo))
-              state.copy(metadata = metadata.updated(key, entry1))
-            }
-
-            (state1 getOrElse state, ())
-          }
-        }
-      }
-
-
-      val insertPointer: PointerStatements.Insert[StateT] = {
-        (topic: Topic, partition: Partition, offset: Offset, _: Instant, _: Instant) => {
-          StateT { state =>
-            val pointers = state.pointers
-            val topicPointers = pointers.getOrElse(topic, TopicPointers.empty)
-            val updated = topicPointers.copy(values = topicPointers.values.updated(partition, offset))
-            val pointers1 = pointers.updated(topic, updated)
-            (state.copy(pointers = pointers1), ())
-          }
-        }
-      }
-
-
-      val updatePointer: PointerStatements.Update[StateT] = {
-        (topic: Topic, partition: Partition, offset: Offset, _: Instant) => {
-          StateT { state =>
-            val pointers = state.pointers
-            val topicPointers = pointers.getOrElse(topic, TopicPointers.empty)
-            val updated = topicPointers.copy(values = topicPointers.values.updated(partition, offset))
-            val pointers1 = pointers.updated(topic, updated)
-            (state.copy(pointers = pointers1), ())
-          }
-        }
-      }
-
-
-      val selectPointer: PointerStatements.Select[StateT] = {
-        (topic: Topic, partition: Partition) => {
-          StateT { state =>
-            val offset = state
-              .pointers
-              .getOrElse(topic, TopicPointers.empty)
-              .values
-              .get(partition)
-            (state, offset)
-          }
-        }
-      }
-
-
-      val selectPointersIn: PointerStatements.SelectIn[StateT] = {
-        (topic: Topic, partitions: Nel[Partition]) => {
-          StateT { state =>
-            val pointers = state
-              .pointers
-              .getOrElse(topic, TopicPointers.empty)
-              .values
-            val result = for {
-              partition <- partitions.toList
-              offset    <- pointers.get(partition)
-            } yield {
-              (partition, offset)
-            }
-
-            (state, result.toMap)
-          }
-        }
-      }
-
-
-      val selectTopics: PointerStatements.SelectTopics[StateT] = {
-        () => {
-          StateT { state =>
-            (state, state.pointers.keys.toList)
-          }
-        }
-      }
-
-      val metadata = ReplicatedCassandra.MetaJournalStatements(
-        selectJournalHead,
-        insertMetadata,
-        updateMetadata,
-        updateMetadataSeqNr,
-        updateMetadataDeleteTo)
-
-      val statements = ReplicatedCassandra.Statements(
-        insertRecords = insertRecords,
-        deleteRecords = deleteRecords,
-        metaJournal = metadata,
-        selectPointer = selectPointer,
-        selectPointersIn = selectPointersIn,
-        selectPointers = selectPointers,
-        insertPointer = insertPointer,
-        updatePointer = updatePointer,
-        selectTopics = selectTopics)
-
-      implicit val concurrentId = ConcurrentOf.fromMonad[StateT]
-      ReplicatedCassandra(segmentSize, statements)
-    }
-
-    Journals(eventualJournal(segments), replicatedJournal)
+    val eventualJournal = eventualJournalOf(segmentOf)
+    Journals(eventualJournal, replicatedJournal)
   }
 
 

@@ -5,7 +5,8 @@ import cats.effect.{Concurrent, Resource}
 import cats.implicits._
 import com.datastax.driver.core._
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
-import com.evolutiongaming.catshelper.Runtime
+import com.evolutiongaming.catshelper.{MonadThrowable, Runtime}
+import com.evolutiongaming.kafka.journal.JournalError
 import com.evolutiongaming.scache.Cache
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.scassandra.NextHostRetryPolicy
@@ -64,7 +65,9 @@ object CassandraSession {
   def of[F[_] : Concurrent : FromGFuture](
     session: scassandra.CassandraSession[F]
   ): Resource[F, CassandraSession[F]] = {
-    apply[F](session).cachePrepared
+    apply[F](session)
+      .enhanceError
+      .cachePrepared
   }
 
 
@@ -105,6 +108,31 @@ object CassandraSession {
 
           def unsafe = self.unsafe
         }
+      }
+    }
+
+
+    def enhanceError(implicit F: MonadThrowable[F]): CassandraSession[F] = {
+
+      def error[A](msg: String, cause: Throwable) = {
+        JournalError(s"CassandraSession.$msg failed with $cause", cause.some).raiseError[F, A]
+      }
+
+      new CassandraSession[F] {
+
+        def prepare(query: String) = {
+          self
+            .prepare(query)
+            .handleErrorWith { a => error(s"prepare query: $query", a) }
+        }
+
+        def execute(statement: Statement) = {
+          self
+            .execute(statement)
+            .handleErrorWith { a: Throwable => Stream.lift(error[Row](s"execute statement: $statement", a)) }
+        }
+
+        def unsafe = self.unsafe
       }
     }
   }

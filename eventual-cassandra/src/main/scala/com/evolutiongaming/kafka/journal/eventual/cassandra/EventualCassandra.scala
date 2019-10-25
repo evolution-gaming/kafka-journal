@@ -45,7 +45,7 @@ object EventualCassandra {
       schema     <- SetupSchema[F](schemaConfig, origin)
       statements <- Statements.of[F](schema)
     } yield {
-      val journal = apply[F](statements, SegmentNrOf(Segments.default)).withLog(log)
+      val journal = apply[F](statements, SegmentOf(Segments.default)).withLog(log)
       metrics
         .fold(journal) { metrics => journal.withMetrics(metrics) }
         .enhanceError
@@ -55,14 +55,14 @@ object EventualCassandra {
 
   def apply[F[_] : Monad : Parallel](
     statements: Statements[F],
-    segmentNrOf: SegmentNrOf[F]
+    segmentOf: SegmentOf[F]
   ): EventualJournal[F] = {
 
     new EventualJournal[F] {
 
       def pointer(key: Key) = {
         for {
-          segmentNr <- segmentNrOf(key)
+          segmentNr <- segmentOf(key)
           pointer   <- statements.metaJournal.journalPointer(key, segmentNr)
         } yield pointer
       }
@@ -111,7 +111,7 @@ object EventualCassandra {
         }
 
         for {
-          segmentNr <- Stream.lift(segmentNrOf(key))
+          segmentNr <- Stream.lift(segmentOf(key))
           head      <- Stream.lift(statements.metaJournal.journalHead(key, segmentNr))
           result    <- head.fold(Stream.empty[F, EventRecord]) { head => read(statements.records, head) }
         } yield result
@@ -150,7 +150,7 @@ object EventualCassandra {
 
     def of[F[_] : Monad : Parallel : CassandraSession](schema: Schema): F[MetaJournalStatements[F]] = {
 
-      val statements = {
+      val metadata = {
         val statements = (
           MetadataStatements.SelectJournalHead.of[F](schema.metadata),
           MetadataStatements.SelectJournalPointer.of[F](schema.metadata))
@@ -160,9 +160,9 @@ object EventualCassandra {
       schema
         .metaJournal
         .fold {
-          statements
+          metadata
         } { metaJournal =>
-          (of[F](metaJournal), statements).parMapN(apply[F])
+          (of[F](metaJournal), metadata).parMapN(apply[F])
         }
     }
 

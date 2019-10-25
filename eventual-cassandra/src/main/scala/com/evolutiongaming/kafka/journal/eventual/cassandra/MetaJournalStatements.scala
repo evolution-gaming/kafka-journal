@@ -11,15 +11,19 @@ import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
 
+import scala.concurrent.duration.FiniteDuration
+
 
 // TODO expireAfter: add select by topic,LocalDate
 object MetaJournalStatements {
 
+  // TODO add created_date & expire_on as clustering keys
   def createTable(name: TableName): String = {
     s"""
        |CREATE TABLE IF NOT EXISTS ${ name.toCql } (
        |id TEXT,
        |topic TEXT,
+       |segment BIGINT,
        |partition INT,
        |offset BIGINT,
        |segment_size INT,
@@ -33,7 +37,7 @@ object MetaJournalStatements {
        |origin TEXT,
        |properties MAP<TEXT,TEXT>,
        |metadata TEXT,
-       |PRIMARY KEY ((topic, segment), id, created_date, expire_on))
+       |PRIMARY KEY ((topic, segment), id))
        |""".stripMargin
   }
 
@@ -43,8 +47,9 @@ object MetaJournalStatements {
     def apply(
       key: Key,
       segment: SegmentNr,
-      timestamp: Instant,
-      head: JournalHead,
+      created: Instant,
+      updated: Instant,
+      journalHead: JournalHead,
       origin: Option[Origin]
     ): F[Unit]
   }
@@ -68,27 +73,26 @@ object MetaJournalStatements {
            |created_date,
            |updated,
            |expire_on,
-           |expire_after
+           |expire_after,
            |origin,
            |properties)
-           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            |""".stripMargin
 
       for {
         prepared <- query.prepare
       } yield {
-        (key: Key, segment: SegmentNr, timestamp: Instant, head: JournalHead, origin: Option[Origin]) =>
+        (key: Key, segment: SegmentNr, created: Instant, updated: Instant, journalHead: JournalHead, origin: Option[Origin]) =>
           prepared
             .bind()
             .encode(key)
             .encode(segment)
-            .encode(head.partitionOffset)
-            .encode(head.segmentSize)
-            .encode(head.seqNr)
-            .encodeSome("delete_to", head.deleteTo)
-            .encode("created", timestamp)
-            .encode("created_date", timestamp.toLocalDate)
-            .encode("updated", timestamp)
+            .encode(journalHead)
+            .encode("created", created)
+            .encode("created_date", created.toLocalDate)
+            .encode("updated", updated)
+            .encode("expire_on", none[Instant])
+            .encode("expire_after", none[FiniteDuration])
             .encodeSome(origin)
             .first
             .void
@@ -98,6 +102,7 @@ object MetaJournalStatements {
 
 
   trait SelectJournalHead[F[_]] {
+
     def apply(key: Key, segment: SegmentNr): F[Option[JournalHead]]
   }
 
@@ -173,7 +178,14 @@ object MetaJournalStatements {
 
   trait Update[F[_]] {
     
-    def apply(key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: SeqNr): F[Unit]
+    def apply(
+      key: Key,
+      segment: SegmentNr,
+      partitionOffset: PartitionOffset,
+      timestamp: Instant,
+      seqNr: SeqNr,
+      deleteTo: SeqNr
+    ): F[Unit]
   }
 
   object Update {
@@ -208,6 +220,7 @@ object MetaJournalStatements {
 
 
   trait UpdateSeqNr[F[_]] {
+
     def apply(key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr): F[Unit]
   }
 
@@ -242,6 +255,7 @@ object MetaJournalStatements {
 
 
   trait UpdateDeleteTo[F[_]] {
+
     def apply(key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr): F[Unit]
   }
 
@@ -261,14 +275,15 @@ object MetaJournalStatements {
         prepared <- query.prepare
       } yield {
         (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr) =>
-          val bound = prepared
+          prepared
             .bind()
             .encode(key)
             .encode(segment)
             .encode(partitionOffset)
             .encode("delete_to", deleteTo)
             .encode("updated", timestamp)
-          bound.first.void
+            .first
+            .void
       }
     }
   }

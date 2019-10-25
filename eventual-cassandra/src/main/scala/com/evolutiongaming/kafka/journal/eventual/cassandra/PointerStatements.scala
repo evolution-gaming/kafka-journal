@@ -27,6 +27,7 @@ object PointerStatements {
 
 
   trait Insert[F[_]] {
+
     def apply(topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant): F[Unit]
   }
 
@@ -43,14 +44,15 @@ object PointerStatements {
         prepared <- query.prepare
       } yield {
         (topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant) =>
-          val bound = prepared
+          prepared
             .bind()
             .encode("topic", topic)
             .encode("partition", partition)
             .encode("offset", offset)
             .encode("created", created)
             .encode("updated", updated)
-          bound.first.void
+            .first
+            .void
       }
     }
   }
@@ -106,12 +108,13 @@ object PointerStatements {
         prepared <- query.prepare
       } yield {
         (topic: Topic, partition: Partition) =>
-          val bound = prepared
+          val row = prepared
             .bind()
             .encode("topic", topic)
             .encode("partition", partition)
+            .first
           for {
-            row <- bound.first
+            row <- row
           } yield for {
             row <- row
           } yield {
@@ -123,6 +126,7 @@ object PointerStatements {
 
 
   trait SelectIn[F[_]] {
+
     def apply(topic: Topic, partitions: Nel[Partition]): F[Map[Partition, Offset]]
   }
 
@@ -140,13 +144,14 @@ object PointerStatements {
         prepared <- query.prepare
       } yield {
         (topic: Topic, partitions: Nel[Partition]) =>
-
-          val bound = prepared
+          val rows = prepared
             .bind()
             .encode("topic", topic)
             .encode("partitions", partitions)
+            .execute
+            .toList
           for {
-            rows <- bound.execute.toList
+            rows <- rows
           } yield {
             rows
               .map { row =>
@@ -162,6 +167,7 @@ object PointerStatements {
 
 
   trait SelectAll[F[_]] {
+
     def apply(topic: Topic): F[Map[Partition, Offset]]
   }
 
@@ -178,12 +184,13 @@ object PointerStatements {
         prepared <- query.prepare
       } yield {
         topic: Topic =>
-          val bound = prepared
+          val rows = prepared
             .bind()
             .encode("topic", topic)
-
+            .execute
+            .toList
           for {
-            rows <- bound.execute.toList
+            rows <- rows
           } yield {
             val pointers = for {
               row <- rows
@@ -211,9 +218,12 @@ object PointerStatements {
         prepared <- query.prepare
       } yield {
         () => {
-          val bound = prepared.bind()
+          val rows = prepared
+            .bind()
+            .execute
+            .toList
           for {
-            rows <- bound.execute.toList
+            rows <- rows
           } yield for {
             row <- rows
           } yield {

@@ -4,11 +4,13 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.Applicative
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
-import com.datastax.driver.core._
+import com.datastax.driver.core.{Duration => DurationC, _}
+import com.evolutiongaming.kafka.journal.eventual.cassandra.util.FiniteDurationHelper._
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
 import com.evolutiongaming.sstream.Stream
 
 import scala.collection.JavaConverters._
+import scala.concurrent.duration._
 
 object CassandraHelper {
 
@@ -57,5 +59,14 @@ object CassandraHelper {
         data.setList(name, values, integer)
       }
     }
+  }
+
+
+  implicit val finiteDurationEncodeByName: EncodeByName[FiniteDuration] = {
+    EncodeByName[DurationC].contramap(finiteDurationToDuration)
+  }
+
+  implicit val finiteDurationDecodeByName: DecodeByName[FiniteDuration] = {
+    DecodeByName[DurationC].map(durationToFiniteDuration)
   }
 }

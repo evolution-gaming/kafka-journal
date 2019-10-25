@@ -90,7 +90,7 @@ object JournalStatements {
               (None, None, None)
             }
 
-            val result = prepared
+            prepared
               .bind()
               .encode(key)
               .encode(segment)
@@ -104,7 +104,6 @@ object JournalStatements {
               .encodeSome("payload_bin", bin)
               .encode("metadata", record.metadata)
               .encode(record.headers)
-            result
           }
 
           val statement = {
@@ -204,6 +203,7 @@ object JournalStatements {
 
 
   trait DeleteRecords[F[_]] {
+
     def apply(key: Key, segment: SegmentNr, seqNr: SeqNr):  F[Unit]
   }
 
@@ -223,12 +223,13 @@ object JournalStatements {
         prepared <- query.prepare
       } yield {
         (key: Key, segment: SegmentNr, seqNr: SeqNr) =>
-          val bound = prepared
+          prepared
             .bind()
             .encode(key)
             .encode(segment)
             .encode(seqNr)
-          bound.first.void
+            .first
+            .void
       }
     }
   }
