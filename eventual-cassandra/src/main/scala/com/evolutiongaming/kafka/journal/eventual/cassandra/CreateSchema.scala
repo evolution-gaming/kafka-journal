@@ -34,20 +34,20 @@ object CreateSchema {
 
       def tableName(table: CreateTables.Table) = TableName(keyspace = keyspace, table = table.name)
 
-      def table(name: String, query: TableName => String) = {
+      def table(name: String, query: TableName => Nel[String]) = {
         val tableName = TableName(keyspace = keyspace, table = name)
-        CreateTables.Table(name = name, query = query(tableName))
+        CreateTables.Table(name = name, queries = query(tableName))
       }
 
-      val journal = table(config.journalTable, JournalStatements.createTable)
+      val journal = table(config.journalTable, a => Nel.of(JournalStatements.createTable(a)))
 
-      val metadata = table(config.metadataTable, MetadataStatements.createTable)
+      val metadata = table(config.metadataTable, a => Nel.of(MetadataStatements.createTable(a)))
 
       val metaJournal = config.metaJournalTable.map { table(_, MetaJournalStatements.createTable) }
 
-      val pointer = table(config.pointerTable, PointerStatements.createTable)
+      val pointer = table(config.pointerTable, a => Nel.of(PointerStatements.createTable(a)))
 
-      val setting = table(config.settingTable, SettingStatements.createTable)
+      val setting = table(config.settingTable, a => Nel.of(SettingStatements.createTable(a)))
 
       val schema = Schema(
         journal = tableName(journal),

@@ -45,7 +45,7 @@ object CreateTables { self =>
         val fresh = tables1.length == tables.length
         for {
           _ <- log.info(s"tables: ${tables1.map(_.name).mkString_(",")}, fresh: $fresh")
-          _ <- CassandraSync[F].apply { tables1.foldMapM { _.query.execute.first.void } }
+          _ <- CassandraSync[F].apply { tables1.foldMapM { _.queries.foldMapM { _.execute.first.void } } }
         } yield {
           tables1.length == tables.length
         }
@@ -71,14 +71,15 @@ object CreateTables { self =>
   }
 
 
-  def const[F[_]](fresh: F[Fresh]): CreateTables[F] = new CreateTables[F] {
-    def apply(keyspace: String, tables: Nel[Table]) = fresh
-  }
+  def const[F[_]](fresh: F[Fresh]): CreateTables[F] = (_: String, _: Nel[Table]) => fresh
 
 
-  final case class Table(name: String, query: String)
+  final case class Table(name: String, queries: Nel[String])
 
   object Table {
+
     implicit val orderTable: Order[Table] = Order.by { a: Table => a.name }
+
+    def apply(name: String, query: String): Table = Table(name, Nel.of(query))
   }
 }

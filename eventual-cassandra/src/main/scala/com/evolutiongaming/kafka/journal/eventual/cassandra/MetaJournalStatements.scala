@@ -4,6 +4,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import java.time.Instant
 
 import cats.Monad
+import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
@@ -17,28 +18,38 @@ import scala.concurrent.duration.FiniteDuration
 // TODO expireAfter: add select by topic,LocalDate
 object MetaJournalStatements {
 
-  // TODO add created_date & expire_on as clustering keys
-  def createTable(name: TableName): String = {
-    s"""
-       |CREATE TABLE IF NOT EXISTS ${ name.toCql } (
-       |id TEXT,
-       |topic TEXT,
-       |segment BIGINT,
-       |partition INT,
-       |offset BIGINT,
-       |segment_size INT,
-       |seq_nr BIGINT,
-       |delete_to BIGINT,
-       |created TIMESTAMP,
-       |created_date DATE,
-       |updated TIMESTAMP,
-       |expire_on DATE,
-       |expire_after DURATION,
-       |origin TEXT,
-       |properties MAP<TEXT,TEXT>,
-       |metadata TEXT,
-       |PRIMARY KEY ((topic, segment), id))
-       |""".stripMargin
+  def createTable(name: TableName): Nel[String] = {
+
+    val table = s"""
+      |CREATE TABLE IF NOT EXISTS ${ name.toCql } (
+      |id TEXT,
+      |topic TEXT,
+      |segment BIGINT,
+      |partition INT,
+      |offset BIGINT,
+      |segment_size INT,
+      |seq_nr BIGINT,
+      |delete_to BIGINT,
+      |created TIMESTAMP,
+      |created_date DATE,
+      |updated TIMESTAMP,
+      |expire_on DATE,
+      |expire_after DURATION,
+      |origin TEXT,
+      |properties MAP<TEXT,TEXT>,
+      |metadata TEXT,
+      |PRIMARY KEY ((topic, segment), id))
+      |""".stripMargin
+
+    val createdDateIdx = s"""
+      |CREATE INDEX IF NOT EXISTS ${ name.table }_created_date_idx ON ${ name.toCql } (created_date)
+      |""".stripMargin
+
+    val expireOnIdx = s"""
+      |CREATE INDEX IF NOT EXISTS ${ name.table }_expire_on_idx ON ${ name.toCql } (expire_on)
+      |""".stripMargin
+
+    Nel.of(table, createdDateIdx, expireOnIdx)
   }
 
 
@@ -56,7 +67,7 @@ object MetaJournalStatements {
 
   object Insert {
 
-    def of[F[_]: Monad : CassandraSession](name: TableName): F[Insert[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[Insert[F]] = {
 
       val query =
         s"""
@@ -108,7 +119,7 @@ object MetaJournalStatements {
 
   object SelectJournalHead {
 
-    def of[F[_]: Monad : CassandraSession](name: TableName): F[SelectJournalHead[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[SelectJournalHead[F]] = {
       val query =
         s"""
            |SELECT partition, offset, segment_size, seq_nr, delete_to FROM ${ name.toCql }
@@ -145,7 +156,7 @@ object MetaJournalStatements {
 
   object SelectJournalPointer {
 
-    def of[F[_]: Monad : CassandraSession](name: TableName): F[SelectJournalPointer[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[SelectJournalPointer[F]] = {
       val query =
         s"""
            |SELECT partition, offset, seq_nr FROM ${ name.toCql }
@@ -177,7 +188,7 @@ object MetaJournalStatements {
 
 
   trait Update[F[_]] {
-    
+
     def apply(
       key: Key,
       segment: SegmentNr,
