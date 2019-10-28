@@ -27,7 +27,7 @@ object FromBytes {
     def map[A, B](fa: FromBytes[F, A])(f: A => B) = (a: ByteVector) => fa(a).map(f)
   }
 
-  implicit def byteVectorToBytes[F[_] : Applicative]: FromBytes[F, ByteVector] = (a: ByteVector) => a.pure[F]
+  implicit def byteVectorFromBytes[F[_] : Applicative]: FromBytes[F, ByteVector] = (a: ByteVector) => a.pure[F]
 
   implicit def stringFromBytes[F[_] : FromAttempt]: FromBytes[F, String] = (a: ByteVector) => {
     val as = for {
