@@ -33,7 +33,6 @@ trait Journal[F[_]] {
   def append(
     key: Key,
     events: Nel[Event],
-    //    expireAfter: Option[FiniteDuration], // TODO expireAfter: test
     expireAfter: Option[FiniteDuration] = None, // TODO expireAfter: test
     metadata: Option[JsValue] = None,
     headers: Headers = Headers.empty

@@ -35,7 +35,7 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
 
   implicit val randomId: RandomId[IO] = RandomId.uuid[IO]
 
-  lazy val ((eventual, producer), release) = {
+  lazy val ((eventualJournal, producer), release) = {
     implicit val logOf = LogOf.empty[IO]
     val resource = for {
       origin          <- Resource.liftF(Origin.hostName[IO])

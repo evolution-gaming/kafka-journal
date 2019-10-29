@@ -105,13 +105,13 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
         } yield {}
       }
 
-      journalOf(eventual).use(append)
+      journalOf(eventualJournal).use(append)
     }
 
     for {
       (eventualName, expected, eventual) <- List(
         ("empty"    , 2.second, () => EventualJournal.empty[IO]),
-        ("non-empty", 1.second, () => eventual))
+        ("non-empty", 1.second, () => eventualJournal))
     } {
       val name = s"events: $events, eventual: $eventualName"
 

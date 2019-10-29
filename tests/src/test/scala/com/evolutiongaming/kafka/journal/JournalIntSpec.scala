@@ -4,8 +4,8 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
-import cats.data.{NonEmptyList => Nel}
 import cats.Foldable
+import cats.data.{NonEmptyList => Nel}
 import cats.effect.{IO, Resource}
 import cats.implicits._
 import com.evolutiongaming.catshelper.ParallelHelper._
@@ -13,14 +13,15 @@ import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
+import com.evolutiongaming.retry.{Retry, Strategy}
 import org.scalatest.{AsyncWordSpec, Succeeded}
 import play.api.libs.json.Json
 
 import scala.concurrent.duration._
 
 class JournalIntSpec extends AsyncWordSpec with JournalSuite {
-  import JournalSuite._
   import JournalIntSpec._
+  import JournalSuite._
 
   private val journalOf = {
 
@@ -55,17 +56,17 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
   "Journal" should {
 
     for {
-      headCache                <- List(true, false)
-      (eventualName, eventual) <- List(
+      headCache                       <- List(true, false)
+      (eventualName, eventualJournal) <- List(
         ("empty",     () => EventualJournal.empty[IO]),
-        ("non-empty", () => eventual))
+        ("non-empty", () => eventualJournal))
     } {
 
       val name = s"eventual: $eventualName, headCache: $headCache"
 
       val key = Key.random[IO]("journal")
 
-      lazy val (journal0, release) = journalOf(eventual(), headCache).allocated.unsafeRunSync()
+      lazy val (journal0, release) = journalOf(eventualJournal(), headCache).allocated.unsafeRunSync()
 
       for {
         seqNr <- List(SeqNr.min, SeqNr.unsafe(2))
@@ -193,6 +194,27 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             events    <- journal.read
             _          = events shouldEqual Nil
           } yield Succeeded
+
+          result.run(1.minute)
+        }
+      }
+
+      if (headCache) {
+        s"expire records $name" ignore {
+          val result = for {
+            key      <- key
+            _        <- journal0.append(key, Nel.of(Event(SeqNr.min)), 1.second.some)
+            events   <- journal0.read(key).toList
+            _         = events.map(_.seqNr) shouldEqual List(SeqNr.min)
+            strategy  = Strategy.const(100.millis).limit(10.seconds)
+            retry     = Retry(strategy)
+            _        <- retry {
+              for {
+                events <- journal0.read(key).toList
+                _       = events shouldEqual List.empty
+              } yield {}
+            }
+          } yield {}
 
           result.run(1.minute)
         }
