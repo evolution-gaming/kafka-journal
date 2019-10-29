@@ -628,13 +628,13 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
   }
 
   private def appendOf(key: Key, seqNrs: Nel[Int]) = {
-    val events = seqNrs.map { seqNr => Event(SeqNr.unsafe(seqNr), Set(seqNr.toString)) }
     implicit val eventsToPayload = EventsToPayload[Try]
     Action.Append.of[Try](
       key = key,
       timestamp = timestamp,
       origin = Some(origin),
-      events = events,
+      events = Events(
+        events = seqNrs.map { seqNr => Event(SeqNr.unsafe(seqNr), Set(seqNr.toString)) }),
       metadata = metadata,
       headers = headers,
       expireAfter = none // TODO expireAfter:

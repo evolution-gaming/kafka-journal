@@ -186,7 +186,7 @@ object TopicReplicator { self =>
             for {
               events <- payloadToEvents(payloadAndType)
             } yield for {
-              event <- events
+              event <- events.events
             } yield {
               EventRecord(record, event)
             }

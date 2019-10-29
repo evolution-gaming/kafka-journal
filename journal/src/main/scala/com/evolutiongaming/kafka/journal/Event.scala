@@ -1,9 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.Tags._
-import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import scodec.bits.ByteVector
 import scodec.{Attempt, Codec, Err, codecs}
 
@@ -47,15 +45,4 @@ object Event {
 
     (Codec[SeqNr] :: Codec[Tags] :: payloadCodec).as[Event]
   }
-
-  implicit val codecEvents: Codec[Nel[Event]] = {
-    val eventsCodec = nelCodec(codecs.listOfN(codecs.int32, codecs.variableSizeBytes(codecs.int32, Codec[Event])))
-    val version = ByteVector.fromByte(0)
-    codecs.constant(version) ~> eventsCodec
-  }
-
-
-  implicit def eventsToBytes[F[_] : FromAttempt]: ToBytes[F, Nel[Event]] = ToBytes.fromEncoder
-
-  implicit def eventsFromBytes[F[_] : FromAttempt]: FromBytes[F, Nel[Event]] = FromBytes.fromDecoder
 }

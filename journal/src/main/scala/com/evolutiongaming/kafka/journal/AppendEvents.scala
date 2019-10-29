@@ -27,17 +27,16 @@ object AppendEvents {
 
   def apply[F[_] : FlatMap : Clock](
     appendAction: AppendAction[F],
-    origin: Option[Origin],
+    origin: Option[Origin])(implicit
     eventsToPayload: EventsToPayload[F]
   ): AppendEvents[F] = {
-    implicit val eventsToPayload1 = eventsToPayload
     (key, events, expireAfter, metadata, headers) => {
 
       def action(timestamp: Instant) = Action.Append.of[F](
         key = key,
         timestamp = timestamp,
         origin = origin,
-        events = events,
+        events = Events(events),
         expireAfter = expireAfter,
         metadata = Metadata(data = metadata),
         headers = headers)

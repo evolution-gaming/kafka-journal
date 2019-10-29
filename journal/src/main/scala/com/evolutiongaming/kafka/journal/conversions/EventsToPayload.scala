@@ -4,23 +4,23 @@ import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolutiongaming.kafka.journal.PayloadAndType.{EventJson, PayloadJson}
-import com.evolutiongaming.kafka.journal.{Event, JournalError, Payload, PayloadAndType, PayloadType, ToBytes}
+import com.evolutiongaming.kafka.journal.{Event, Events, JournalError, Payload, PayloadAndType, PayloadType, ToBytes}
 import play.api.libs.json.{JsValue, Writes}
 
 import scala.annotation.tailrec
 
 trait EventsToPayload[F[_]] {
   
-  def apply(events: Nel[Event]): F[PayloadAndType]
+  def apply(events: Events): F[PayloadAndType]
 }
 
 object EventsToPayload {
 
   implicit def apply[F[_] : MonadThrowable](implicit
-    eventsToBytes: ToBytes[F, Nel[Event]],
+    eventsToBytes: ToBytes[F, Events],
     payloadJsonToBytes: ToBytes[F, PayloadJson]
   ): EventsToPayload[F] = {
-    events: Nel[Event] => {
+    events: Events => {
 
       def eventJson(head: Event) = {
 
@@ -72,7 +72,7 @@ object EventsToPayload {
         }
       }
 
-      payloadAndType(eventJsons(events.toList, List.empty)).handleErrorWith { cause =>
+      payloadAndType(eventJsons(events.events.toList, List.empty)).handleErrorWith { cause =>
         JournalError(s"EventsToPayload failed for $events: $cause", cause.some).raiseError[F, PayloadAndType]
       }
     }

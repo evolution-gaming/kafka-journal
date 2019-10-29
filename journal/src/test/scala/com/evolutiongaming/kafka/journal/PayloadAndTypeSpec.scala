@@ -25,31 +25,31 @@ class PayloadAndTypeSpec extends FunSuite with Matchers {
 
   for {
     (name, payloadType, events) <- List(
-      ("empty", PayloadType.Json, Nel.of(
-        event(1))),
-      ("binary", PayloadType.Binary, Nel.of(
-        event(1, binary("payload")))),
-      ("text", PayloadType.Json, Nel.of(
-        event(1, Payload.text(""" {"key":"value"} """)))),
-      ("json", PayloadType.Json, Nel.of(
-        event(1, Payload.json("payload")))),
-      ("empty-many", PayloadType.Json, Nel.of(
+      ("empty", PayloadType.Json, Events(Nel.of(
+        event(1)))),
+      ("binary", PayloadType.Binary, Events(Nel.of(
+        event(1, binary("payload"))))),
+      ("text", PayloadType.Json, Events(Nel.of(
+        event(1, Payload.text(""" {"key":"value"} """))))),
+      ("json", PayloadType.Json, Events(Nel.of(
+        event(1, Payload.json("payload"))))),
+      ("empty-many", PayloadType.Json, Events(Nel.of(
         event(1),
-        event(2))),
-      ("binary-many", PayloadType.Binary, Nel.of(
+        event(2)))),
+      ("binary-many", PayloadType.Binary, Events(Nel.of(
         event(1, binary("1")),
-        event(2, binary("2")))),
-      ("text-many", PayloadType.Json, Nel.of(
+        event(2, binary("2"))))),
+      ("text-many", PayloadType.Json, Events(Nel.of(
         event(1, Payload.text("1")),
-        event(2, Payload.text("2")))),
-      ("json-many", PayloadType.Json, Nel.of(
+        event(2, Payload.text("2"))))),
+      ("json-many", PayloadType.Json, Events(Nel.of(
         event(1, Payload.json("1")),
-        event(2, Payload.json("2")))),
-      ("empty-binary-text-json", PayloadType.Binary, Nel.of(
+        event(2, Payload.json("2"))))),
+      ("empty-binary-text-json", PayloadType.Binary, Events(Nel.of(
         event(1),
         event(2, binary("binary")),
         event(3, Payload.text("text")),
-        event(4, Payload.json("json")))))
+        event(4, Payload.json("json"))))))
   } {
 
     test(s"toBytes & fromBytes, events: $name") {

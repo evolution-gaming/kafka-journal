@@ -140,7 +140,8 @@ object Journal {
 
     val appendMarker = AppendMarker(appendAction, origin)
 
-    val appendEvents = AppendEvents(appendAction, origin, eventsToPayload)
+    implicit val eventsToPayload1 = eventsToPayload
+    val appendEvents = AppendEvents(appendAction, origin)
 
     def headAndStream(key: Key, from: SeqNr): F[(HeadInfo, F[StreamActionRecords[F]])] = {
 
@@ -208,7 +209,7 @@ object Journal {
               action          = record.action
               payloadAndType  = PayloadAndType(action)
               events         <- Stream.lift(payloadToEvents(payloadAndType))
-              event          <- Stream[F].apply(events)
+              event          <- Stream[F].apply(events.events)
               if event.seqNr >= from
             } yield {
               EventRecord(action, event, record.partitionOffset)

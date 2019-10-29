@@ -89,7 +89,7 @@ class ActionToProducerRecordSpec extends FunSuite with Matchers {
         key = key1,
         timestamp = timestamp,
         origin = origin,
-        events = events,
+        events = Events(events),
         expireAfter = expireAfter,
         metadata = metadata,
         headers = headers).get

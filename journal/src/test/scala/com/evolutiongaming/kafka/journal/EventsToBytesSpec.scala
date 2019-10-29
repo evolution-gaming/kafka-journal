@@ -25,36 +25,36 @@ class EventsToBytesSpec extends FunSuite with Matchers {
 
   for {
     (name, events) <- List(
-      ("empty", Nel.of(event(1))),
-      ("binary", Nel.of(event(1, binary("binary")))),
-      ("text", Nel.of(event(1, Payload.text("text")))),
-      ("json", Nel.of(event(1, Payload.json("json")))),
-      ("empty-many", Nel.of(
+      ("empty", Events(Nel.of(event(1)))),
+      ("binary", Events(Nel.of(event(1, binary("binary"))))),
+      ("text", Events(Nel.of(event(1, Payload.text("text"))))),
+      ("json", Events(Nel.of(event(1, Payload.json("json"))))),
+      ("empty-many", Events(Nel.of(
         event(1),
         event(2),
-        event(3))),
-      ("binary-many", Nel.of(
+        event(3)))),
+      ("binary-many", Events(Nel.of(
         event(1, binary("1")),
         event(2, binary("2")),
-        event(3, binary("3")))),
-      ("text-many", Nel.of(
+        event(3, binary("3"))))),
+      ("text-many", Events(Nel.of(
         event(1, Payload.text("1")),
         event(2, Payload.text("2")),
-        event(3, Payload.text("3")))),
-      ("json-many", Nel.of(
+        event(3, Payload.text("3"))))),
+      ("json-many", Events(Nel.of(
         event(1, Payload.json("1")),
         event(2, Payload.json("2")),
-        event(3, Payload.json("3")))),
-      ("empty-binary-text-json", Nel.of(
+        event(3, Payload.json("3"))))),
+      ("empty-binary-text-json", Events(Nel.of(
         event(1),
         event(2, binary("binary")),
         event(3, Payload.text("text")),
-        event(4, Payload.json("json")))))
+        event(4, Payload.json("json"))))))
   } {
     test(s"toBytes & fromBytes $name") {
 
       def verify(bytes: ByteVector) = {
-        val actual = bytes.fromBytes[Try, Nel[Event]]
+        val actual = bytes.fromBytes[Try, Events]
         actual shouldEqual Success(events)
       }
 

@@ -275,7 +275,7 @@ object HeadCacheSpec {
       key = key,
       timestamp = timestamp,
       origin = none,
-      events = Nel.of(Event(seqNr)),
+      events = Events(Nel.of(Event(seqNr))),
       metadata = metadata,
       headers = headers,
       expireAfter = none).get

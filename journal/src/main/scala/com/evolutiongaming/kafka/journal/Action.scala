@@ -74,7 +74,7 @@ object Action {
       key: Key,
       timestamp: Instant,
       origin: Option[Origin],
-      events: Nel[Event],
+      events: Events,
       expireAfter: Option[FiniteDuration],
       metadata: Metadata,
       headers: Headers)(implicit
@@ -83,7 +83,7 @@ object Action {
       for {
         payloadAndType <- eventsToPayload(events)
       } yield {
-        val range = SeqRange(from = events.head.seqNr, to = events.last.seqNr)
+        val range = SeqRange(from = events.events.head.seqNr, to = events.events.last.seqNr)
         val header = ActionHeader.Append(
           range = range,
           origin = origin,
