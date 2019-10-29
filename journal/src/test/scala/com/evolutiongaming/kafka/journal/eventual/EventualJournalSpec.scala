@@ -15,6 +15,7 @@ import com.evolutiongaming.smetrics.MeasureDuration
 import org.scalatest.{Assertion, Matchers, WordSpec}
 import play.api.libs.json.Json
 
+
 trait EventualJournalSpec extends WordSpec with Matchers {
   import EventualJournalSpec._
 
@@ -498,7 +499,8 @@ object EventualJournalSpec {
       def topics = journal.topics
 
       def append(partitionOffset: PartitionOffset, events: Nel[EventRecord]) = {
-        journal.append(key, partitionOffset, timestamp, events)
+        // TODO expireAfter: define and test
+        journal.append(key, partitionOffset, timestamp, none, events)
       }
 
       def delete(deleteTo: SeqNr, partitionOffset: PartitionOffset) = {

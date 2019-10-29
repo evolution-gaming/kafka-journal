@@ -25,6 +25,7 @@ trait ReplicatedJournal[F[_]] {
     key: Key,
     partitionOffset: PartitionOffset,
     timestamp: Instant,
+    expireAfter: Option[FiniteDuration],
     events: Nel[EventRecord]
   ): F[Unit]
 
@@ -71,16 +72,20 @@ object ReplicatedJournal {
         key: Key,
         partitionOffset: PartitionOffset,
         timestamp: Instant,
+        expireAfter: Option[FiniteDuration],
         events: Nel[EventRecord]
       ) = {
         for {
           d <- MeasureDuration[F].start
-          r <- journal.append(key, partitionOffset, timestamp, events)
+          r <- journal.append(key, partitionOffset, timestamp, expireAfter, events)
           d <- d
           _ <- Log[F].debug {
             val origin = events.head.origin
             val originStr = origin.fold("") { origin => s", origin: $origin" }
-            s"$key append in ${ d.toMillis }ms, offset: $partitionOffset, events: ${ events.toList.mkString(",") }$originStr"
+            val expireAfterStr = expireAfter.fold("") { expireAfter => s", expireAfter: $expireAfter" }
+            s"$key append in ${ d.toMillis }ms, " +
+              s"offset: $partitionOffset$originStr$expireAfterStr, " +
+              s"events: ${ events.toList.mkString(",") }"
           }
         } yield r
       }
@@ -141,11 +146,12 @@ object ReplicatedJournal {
         key: Key,
         partitionOffset: PartitionOffset,
         timestamp: Instant,
+        expireAfter: Option[FiniteDuration],
         events: Nel[EventRecord]
       ) = {
         for {
           d <- MeasureDuration[F].start
-          r <- journal.append(key, partitionOffset, timestamp, events)
+          r <- journal.append(key, partitionOffset, timestamp, expireAfter, events)
           d <- d
           _ <- metrics.append(topic = key.topic, latency = d, events = events.size)
         } yield r
@@ -188,6 +194,7 @@ object ReplicatedJournal {
       key: Key,
       partitionOffset: PartitionOffset,
       timestamp: Instant,
+      expireAfter: Option[FiniteDuration],
       events: Nel[EventRecord]
     ) = ().pure[F]
 
@@ -322,9 +329,10 @@ object ReplicatedJournal {
         key: Key,
         partitionOffset: PartitionOffset,
         timestamp: Instant,
+        expireAfter: Option[FiniteDuration],
         events: Nel[EventRecord]
       ) = {
-        f(self.append(key, partitionOffset, timestamp, events))
+        f(self.append(key, partitionOffset, timestamp, expireAfter, events))
       }
 
       def delete(
@@ -377,15 +385,17 @@ object ReplicatedJournal {
           key: Key,
           partitionOffset: PartitionOffset,
           timestamp: Instant,
+          expireAfter: Option[FiniteDuration],
           events: Nel[EventRecord]
         ) = {
           self
-            .append(key, partitionOffset, timestamp, events)
+            .append(key, partitionOffset, timestamp, expireAfter, events)
             .handleErrorWith { a =>
               error(s"append " +
                 s"key: $key, " +
                 s"offset: $partitionOffset, " +
                 s"timestamp: $timestamp, " +
+                s"expireAfter: $expireAfter, " +
                 s"events: $events", a)
             }
         }

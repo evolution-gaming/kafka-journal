@@ -192,9 +192,11 @@ object TopicReplicator { self =>
             }
           }
 
+          val expireAfter = records.last.action.header.expireAfter
+
           for {
             events       <- events
-            _            <- journal.append(key, partitionOffset, roundStart, events)
+            _            <- journal.append(key, partitionOffset, roundStart, expireAfter = expireAfter, events)
             measurements <- measurements(records.size)
             _            <- metrics.append(
               events = events.length,

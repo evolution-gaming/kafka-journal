@@ -18,6 +18,7 @@ import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.annotation.tailrec
+import scala.concurrent.duration.FiniteDuration
 
 
 object ReplicatedCassandra {
@@ -61,6 +62,7 @@ object ReplicatedCassandra {
         key: Key,
         partitionOffset: PartitionOffset,
         timestamp: Instant,
+        expireAfter: Option[FiniteDuration],
         events: Nel[EventRecord]
       ) = {
 

@@ -59,7 +59,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
       val stateT = for {
         topics <- journal.topics
         _       = topics.toSet shouldEqual Set.empty
-        _      <- journal.append(key, partitionOffset, timestamp0, Nel.of(record))
+        _      <- journal.append(key, partitionOffset, timestamp0, none/*TODO expireAfter: test*/, Nel.of(record))
         topics <- journal.topics
         _       = topics.toSet shouldEqual Set.empty
         _      <- journal.save(topic0, TopicPointers(Map((0, 0))), timestamp0)
@@ -103,7 +103,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
       val stateT = for {
         pointers <- journal.pointers(topic0)
         _         = pointers.values shouldEqual Map.empty
-        _        <- journal.append(key, partitionOffset, timestamp0, Nel.of(record))
+        _        <- journal.append(key, partitionOffset, timestamp0, expireAfter = none/*TODO expireAfter: test*/, Nel.of(record))
         pointers <- journal.pointers(topic0)
         _         = pointers.values shouldEqual Map.empty
         _        <- journal.save(topic0, TopicPointers(Map((0, 0))), timestamp0)
@@ -149,6 +149,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
           key = key0,
           partitionOffset = PartitionOffset(partition = 0, offset = 0),
           timestamp = timestamp0,
+          expireAfter = none/*TODO expireAfter: test*/,
           events = Nel.of(
             eventRecordOf(
               seqNr = SeqNr.unsafe(1),
@@ -157,6 +158,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
           key = key0,
           partitionOffset = PartitionOffset(partition = 0, offset = 3),
           timestamp = timestamp1,
+          expireAfter = none/*TODO expireAfter: test*/,
           events = Nel.of(
             eventRecordOf(
               seqNr = SeqNr.unsafe(2),
@@ -168,6 +170,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
           key = key1,
           partitionOffset = PartitionOffset(partition = 0, offset = 4),
           timestamp = timestamp0,
+          expireAfter = none/*TODO expireAfter: test*/,
           events = Nel.of(
             eventRecordOf(
               seqNr = SeqNr.unsafe(1),
@@ -239,6 +242,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
           key = key,
           partitionOffset = PartitionOffset(partition = 0, offset = 1),
           timestamp = timestamp0,
+          expireAfter = none/*TODO expireAfter: test*/,
           events = Nel.of(
             eventRecordOf(
               seqNr = SeqNr.min,
