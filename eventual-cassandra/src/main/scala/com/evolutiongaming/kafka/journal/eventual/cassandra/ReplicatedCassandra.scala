@@ -34,7 +34,8 @@ object ReplicatedCassandra {
       statements <- Statements.of[F](schema)
       log        <- LogOf[F].apply(ReplicatedCassandra.getClass)
     } yield {
-      val journal = apply[F](config.segmentSize, SegmentOf(Segments.default), statements)
+      val segmentOf = SegmentOf[F](Segments.default)
+      val journal = apply[F](config.segmentSize, segmentOf, statements)
         .withLog(log)
       metrics
         .fold(journal) { metrics => journal.withMetrics(metrics) }
@@ -49,6 +50,8 @@ object ReplicatedCassandra {
   ): ReplicatedJournal[F] = {
 
     implicit val monoidUnit = Applicative.monoid[F, Unit]
+
+    val metaJournal = statements.metaJournal
 
     new ReplicatedJournal[F] {
 
@@ -101,33 +104,33 @@ object ReplicatedCassandra {
           loop(events.toList, None, ().pure[F])
         }
 
-        def appendAndSave(head: Option[JournalHead], segment: SegmentNr) = {
+        def appendAndSave(journalHead: Option[JournalHead], segment: SegmentNr) = {
           val seqNrLast = events.last.seqNr
 
-          val (save, head1) = head.fold {
-            val head = JournalHead(
+          val (save, journalHead1) = journalHead.fold {
+            val journalHead = JournalHead(
               partitionOffset = partitionOffset,
               segmentSize = segmentSize,
               seqNr = seqNrLast,
               deleteTo = events.head.seqNr.prev[Option])
             val origin = events.head.origin
-            val insert = statements.metaJournal.insert(key, segment, timestamp, head, origin)
-            (insert, head)
-          } { head =>
-            val update = statements.metaJournal.updateSeqNr(key, segment, partitionOffset, timestamp, seqNrLast)
-            (update, head)
+            val insert = metaJournal.insert(key, segment, timestamp, journalHead, origin)
+            (insert, journalHead)
+          } { journalHead =>
+            val update = metaJournal.updateSeqNr(key, segment, partitionOffset, timestamp, seqNrLast)
+            (update, journalHead)
           }
 
           for {
-            _ <- append(head1.segmentSize)
+            _ <- append(journalHead1.segmentSize)
             _ <- save
           } yield {}
         }
 
         for {
-          segment <- segmentOf(key)
-          head    <- statements.metaJournal.journalHead(key, segment)
-          result  <- appendAndSave(head, segment).uncancelable
+          segment     <- segmentOf(key)
+          journalHead <- metaJournal.journalHead(key, segment)
+          result      <- appendAndSave(journalHead, segment).uncancelable
         } yield result
       }
 
@@ -148,15 +151,15 @@ object ReplicatedCassandra {
               segmentSize = segmentSize,
               seqNr = deleteTo,
               deleteTo = deleteTo.some)
-            statements.metaJournal.insert(key, segment, timestamp, head, origin) as head.segmentSize
+            metaJournal.insert(key, segment, timestamp, head, origin) as head.segmentSize
           }
 
           def update(journalHead: JournalHead) = {
             val update =
               if (journalHead.seqNr >= deleteTo) {
-                statements.metaJournal.updateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo)
+                metaJournal.updateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo)
               } else {
-                statements.metaJournal.update(key, segment, partitionOffset, timestamp, deleteTo, deleteTo)
+                metaJournal.update(key, segment, partitionOffset, timestamp, deleteTo, deleteTo)
               }
             update as journalHead.segmentSize
           }
@@ -190,7 +193,7 @@ object ReplicatedCassandra {
 
         for {
           segment <- segmentOf(key)
-          head    <- statements.metaJournal.journalHead(key, segment)
+          head    <- metaJournal.journalHead(key, segment)
           result  <- delete(head, segment).uncancelable
         } yield result
       }

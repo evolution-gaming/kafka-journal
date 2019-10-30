@@ -23,7 +23,7 @@ object Segments {
   val default: Segments = new Segments(100) {}
 
 
-  implicit val showSeqNr: Show[Segments] = Show.fromToString
+  implicit val showSegments: Show[Segments] = Show.fromToString
 
 
   implicit val orderingSegments: Ordering[Segments] = Ordering.by(_.value)
