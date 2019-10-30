@@ -8,19 +8,19 @@ import org.scalatest.{BeforeAndAfterAll, Suite}
 
 trait ActorSuite extends BeforeAndAfterAll { self: Suite =>
 
-  implicit lazy val system: ActorSystem = ActorSystem(getClass.getSimpleName, configOf())
+  implicit lazy val actorSystem: ActorSystem = ActorSystem(getClass.getSimpleName, configOf())
 
   def configOf(): Config = ConfigFactory.load()
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
-    val _ = system
+    val _ = actorSystem
   }
 
   override protected def afterAll(): Unit = {
-    TestKit.shutdownActorSystem(system)
+    TestKit.shutdownActorSystem(actorSystem)
     super.afterAll()
   }
 
-  abstract class ActorScope extends TestKit(system) with ImplicitSender with DefaultTimeout
+  abstract class ActorScope extends TestKit(actorSystem) with ImplicitSender with DefaultTimeout
 }

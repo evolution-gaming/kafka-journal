@@ -33,7 +33,7 @@ class EventSerializerSpec extends AsyncFunSuite with ActorSuite with Matchers {
         writerUuid = "writerUuid")
 
       val fa = for {
-        serializer <- EventSerializer.of[IO](system)
+        serializer <- EventSerializer.of[IO](actorSystem)
         event      <- serializer.toEvent(persistentRepr)
         actual     <- serializer.toPersistentRepr(persistenceId, event)
         _          <- Sync[IO].delay { actual shouldEqual persistentRepr }

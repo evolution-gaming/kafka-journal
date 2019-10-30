@@ -21,16 +21,16 @@ import play.api.libs.json.JsValue
 trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
 
   lazy val config: KafkaJournalConfig = {
-    val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.persistence.journal")
+    val config = actorSystem.settings.config.getConfig("evolutiongaming.kafka-journal.persistence.journal")
     KafkaJournalConfig(config)
   }
 
   implicit val kafkaConsumerOf: KafkaConsumerOf[IO] = KafkaConsumerOf[IO](
-    system.dispatcher,
+    actorSystem.dispatcher,
     ConsumerMetrics.empty[IO].some)
 
   implicit val kafkaProducerOf: KafkaProducerOf[IO] = KafkaProducerOf[IO](
-    system.dispatcher,
+    actorSystem.dispatcher,
     ProducerMetrics.empty[IO].some)
 
   implicit val randomId: RandomId[IO] = RandomId.uuid[IO]

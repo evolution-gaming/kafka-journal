@@ -85,8 +85,8 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             offset    <- journal.delete(SeqNr.max)
             _          = offset shouldEqual None
             event      = Event(seqNr)
-            offset    <- journal.append(Nel.of(event), metadata.data, headers)
-            record     = EventRecord(event, timestamp, offset, origin.some, metadata, headers)
+            offset    <- journal.append(Nel.of(event), recordMetadata.data, headers)
+            record     = EventRecord(event, timestamp, offset, origin.some, recordMetadata, headers)
             partition  = offset.partition
             events    <- journal.read
             _          = events shouldEqual List(record)
@@ -179,11 +179,11 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             offset    <- journal.delete(SeqNr.max)
             _          = offset shouldEqual None
             events     = seqNrs.map { seqNr => Event(seqNr) }
-            append     = journal.append(events, metadata.data, headers)
+            append     = journal.append(events, recordMetadata.data, headers)
             _         <- append
             _         <- append
             offset    <- append
-            records    = events.map { event => EventRecord(event, timestamp, offset, origin.some, metadata, headers) }
+            records    = events.map { event => EventRecord(event, timestamp, offset, origin.some, recordMetadata, headers) }
             partition  = offset.partition
             events    <- journal.read
             _          = events shouldEqual records.toList
@@ -230,7 +230,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
 object JournalIntSpec {
   private val timestamp = Instant.now().truncatedTo(ChronoUnit.MILLIS)
   private val origin = Origin("JournalIntSpec")
-  private val metadata = Metadata(data = Some(Json.obj(("key", "value"))))
+  private val recordMetadata = RecordMetadata(data = Some(Json.obj(("key", "value"))))
   private val headers = Headers(("key", "value"))
 
   implicit class EventRecordOps(val self: EventRecord) extends AnyVal {
