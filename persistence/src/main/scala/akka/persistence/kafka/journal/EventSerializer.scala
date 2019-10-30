@@ -51,7 +51,7 @@ object EventSerializer {
     new EventSerializer[F] {
 
       def toEvent(persistentRepr: PersistentRepr) = {
-        val (anyRef: AnyRef, tags) = PayloadAndTags(persistentRepr.payload)
+        val tagged = PersistentReprPayload(persistentRepr)
 
         def binary(payload: AnyRef) = {
           for {
@@ -74,16 +74,16 @@ object EventSerializer {
           Payload.json(json)
         }
 
-        val payload = anyRef match {
+        val payload = tagged.payload match {
           case payload: JsValue => json(payload).pure[F]
           case payload: String  => json(JsString(payload), PayloadType.Text.some).pure[F]
-          case payload          => binary(payload)
+          case payload: AnyRef  => binary(payload)
         }
         for {
           payload <- payload
           seqNr   <- SeqNr.of[F](persistentRepr.sequenceNr)(applicativeString)
         } yield {
-          Event(seqNr, tags, payload.some)
+          Event(seqNr, tagged.tags, payload.some)
         }
       }
 
