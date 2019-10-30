@@ -641,7 +641,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
   private def record(seqNr: Int, partition: Partition, offset: Offset) = {
     val partitionOffset = PartitionOffset(partition = partition, offset = offset)
     val event = Event(SeqNr.unsafe(seqNr), Set(seqNr.toString))
-    EventRecord(event, timestamp, partitionOffset, Some(origin), metadata, headers)
+    EventRecord(event, timestamp, partitionOffset, Some(origin), recordMetadata, headers)
   }
 
   private def appendOf(key: Key, seqNrs: Nel[Int], expireAfter: Option[FiniteDuration] = none) = {
@@ -652,7 +652,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
       origin = Some(origin),
       events = Events(
         events = seqNrs.map { seqNr => Event(SeqNr.unsafe(seqNr), Set(seqNr.toString)) }),
-      metadata = metadata,
+      metadata = recordMetadata,
       headers = headers,
       expireAfter = expireAfter
     ).get
@@ -675,7 +675,7 @@ object TopicReplicatorSpec {
 
   val origin = Origin("origin")
 
-  val metadata = Metadata(Json.obj(("key", "value")).some)
+  val recordMetadata = RecordMetadata(Json.obj(("key", "value")).some)
 
   val headers = Headers(("key", "value"))
 

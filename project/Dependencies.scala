@@ -23,7 +23,7 @@ object Dependencies {
   val retry                = "com.evolutiongaming"    %% "retry"                 % "1.0.2"
   val sstream              = "com.evolutiongaming"    %% "sstream"               % "0.0.11"
   val skafka               = "com.evolutiongaming"    %% "skafka"                % "7.1.1"
-  val scache               = "com.evolutiongaming"    %% "scache"                % "2.0.1"
+  val scache               = "com.evolutiongaming"    %% "scache"                % "2.0.2"
 
   object Cats {
     private val version = "2.0.0"
@@ -44,7 +44,7 @@ object Dependencies {
   }
 
   object Akka {
-    private val version = "2.5.25"
+    private val version = "2.5.26"
     val actor             = "com.typesafe.akka" %% "akka-actor"           % version
     val testkit           = "com.typesafe.akka" %% "akka-testkit"         % version
     val stream            = "com.typesafe.akka" %% "akka-stream"          % version
@@ -65,7 +65,7 @@ object Dependencies {
   }
 
   object Smetrics {
-    private val version = "0.0.6"
+    private val version = "0.0.7"
     val smetrics   = "com.evolutiongaming" %% "smetrics"            % version
     val prometheus = "com.evolutiongaming" %% "smetrics-prometheus" % version
   }

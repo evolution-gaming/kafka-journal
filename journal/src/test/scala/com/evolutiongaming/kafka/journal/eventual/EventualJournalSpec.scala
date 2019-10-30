@@ -64,13 +64,13 @@ trait EventualJournalSpec extends WordSpec with Matchers {
 
     def eventOf(pointer: JournalPointer): EventRecord = {
       val event = Event(pointer.seqNr)
-      val metadata = Metadata(data = Some(Json.obj(("key", "value"))))
+      val recordMetadata = RecordMetadata(data = Some(Json.obj(("key", "value"))))
       val headers = Headers(("key", "value"))
       EventRecord(
         event = event,
         timestamp = timestamp,
         partitionOffset = pointer.partitionOffset,
-        metadata = metadata,
+        metadata = recordMetadata,
         headers = headers)
     }
 

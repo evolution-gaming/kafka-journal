@@ -102,7 +102,7 @@ object StreamActionRecordsSpec {
       pointer <- pointers
     } yield {
       val range = SeqRange.unsafe(pointer.seqNr)
-      val metadata = Metadata.empty
+      val metadata = RecordMetadata.empty
       val header = ActionHeader.Append(
         range = range,
         origin = none,

@@ -79,9 +79,9 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     Resource.liftF(metrics.pure[IO])
   }
 
-  def metadataAndHeadersOf: Resource[IO, MetadataAndHeadersOf[IO]] = {
-    val metadataAndHeadersOf = MetadataAndHeadersOf.empty[IO]
-    Resource.liftF(metadataAndHeadersOf.pure[IO])
+  def appendMetadataOf: Resource[IO, AppendMetadataOf[IO]] = {
+    val appendMetadataOf = AppendMetadataOf.empty[IO]
+    Resource.liftF(appendMetadataOf.pure[IO])
   }
 
   def batching(config: KafkaJournalConfig): Resource[IO, Batching[IO]] = {
@@ -110,7 +110,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
       measureDuration      <- measureDuration
       toKey                <- toKey
       origin               <- Resource.liftF(origin)
-      metadataAndHeadersOf <- metadataAndHeadersOf
+      metadataAndHeadersOf <- appendMetadataOf
       serializer           <- serializer
       metrics              <- metrics
       batching             <- batching(config)
@@ -121,7 +121,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
         serializer           = serializer,
         config               = config,
         metrics              = metrics,
-        metadataAndHeadersOf = metadataAndHeadersOf,
+        appendMetadataOf = metadataAndHeadersOf,
         batching             = batching,
         log                  = log,
         cassandraClusterOf   = cassandraClusterOf)(
@@ -151,7 +151,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     serializer: EventSerializer[IO],
     config: KafkaJournalConfig,
     metrics: JournalAdapter.Metrics[IO],
-    metadataAndHeadersOf: MetadataAndHeadersOf[IO],
+    appendMetadataOf: AppendMetadataOf[IO],
     batching: Batching[IO],
     log: Log[IO],
     cassandraClusterOf: CassandraClusterOf[IO])(implicit
@@ -168,7 +168,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
       metrics = metrics,
       log = log,
       batching = batching,
-      metadataAndHeadersOf = metadataAndHeadersOf,
+      appendMetadataOf = appendMetadataOf,
       cassandraClusterOf = cassandraClusterOf)
   }
 

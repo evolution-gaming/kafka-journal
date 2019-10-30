@@ -31,7 +31,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
   private val origin = Origin("ReplicatorIntSpec")
 
-  private val metadata = Metadata(data = Json.obj(("key", "value")).some)
+  private val recordMetadata = RecordMetadata(data = Json.obj(("key", "value")).some)
 
   private val headers = Headers(("key", "value"))
 
@@ -154,12 +154,12 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
           key = key,
           events = events,
           expireAfter = none, // TODO expireAfter
-          metadata = metadata.data,
+          metadata = recordMetadata.data,
           headers = headers)
       } yield for {
         event <- events
       } yield {
-        EventRecord(event, timestamp, partitionOffset, Some(origin), metadata, headers)
+        EventRecord(event, timestamp, partitionOffset, Some(origin), recordMetadata, headers)
       }
     }
 

@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal
 import cats.FlatMap
 import cats.implicits._
 import com.evolutiongaming.skafka
+import com.evolutiongaming.skafka.producer
 import com.evolutiongaming.skafka.producer._
 
 trait KafkaProducer[F[_]] {
@@ -11,7 +12,7 @@ trait KafkaProducer[F[_]] {
     record: ProducerRecord[K, V])(implicit
     toBytesK: skafka.ToBytes[F, K],
     toBytesV: skafka.ToBytes[F, V]
-  ): F[RecordMetadata]
+  ): F[producer.RecordMetadata]
 }
 
 object KafkaProducer {

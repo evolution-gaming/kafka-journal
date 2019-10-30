@@ -27,13 +27,13 @@ object ActionHeader {
             origin      <- (json \ "origin").validateOpt[Origin]
             payloadType <- (json \ "payloadType").validate[PayloadType.BinaryOrJson]
             expireAfter <- (json \ "expireAfter").validateOpt[FiniteDuration]
-            metadata    <- (json \ "metadata").validateOpt[Metadata]
+            metadata    <- (json \ "metadata").validateOpt[RecordMetadata]
           } yield {
             Append(
               range = range,
               origin = origin,
               payloadType = payloadType,
-              metadata = metadata getOrElse Metadata.empty,
+              metadata = metadata getOrElse RecordMetadata.empty,
               expireAfter = expireAfter)
           }
         }
@@ -84,7 +84,7 @@ object ActionHeader {
     origin: Option[Origin],
     payloadType: PayloadType.BinaryOrJson,
     expireAfter: Option[FiniteDuration], // TODO expireAfter: change order in other places, add to logging
-    metadata: Metadata,
+    metadata: RecordMetadata, // TODO expireAfter: use HeaderMetadata
   ) extends AppendOrDelete
 
 

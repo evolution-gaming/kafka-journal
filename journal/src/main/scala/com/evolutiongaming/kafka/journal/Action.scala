@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import cats.Functor
-import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.conversions.EventsToPayload
 import scodec.bits.ByteVector
@@ -76,7 +75,7 @@ object Action {
       origin: Option[Origin],
       events: Events,
       expireAfter: Option[FiniteDuration],
-      metadata: Metadata,
+      metadata: RecordMetadata,
       headers: Headers)(implicit
       eventsToPayload: EventsToPayload[F]
     ): F[Append] = {

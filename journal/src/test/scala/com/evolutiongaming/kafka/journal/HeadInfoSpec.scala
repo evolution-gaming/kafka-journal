@@ -50,7 +50,7 @@ class HeadInfoSpec extends FunSuite with Matchers {
 
   private def append(from: Int, to: Int) = {
     val range = SeqRange.unsafe(from, to)
-    val metadata = Metadata.empty
+    val metadata = RecordMetadata.empty
     ActionHeader.Append(
       range = range,
       origin = None,

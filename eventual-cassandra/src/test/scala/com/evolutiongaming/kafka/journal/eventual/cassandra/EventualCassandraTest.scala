@@ -36,7 +36,7 @@ class EventualCassandraTest extends FunSuite with Matchers {
       timestamp = timestamp0,
       partitionOffset = partitionOffset,
       origin = origin.some,
-      metadata = Metadata(Json.obj(("key", "value")).some),
+      metadata = RecordMetadata(Json.obj(("key", "value")).some),
       headers = Headers(("key", "value")))
   }
 

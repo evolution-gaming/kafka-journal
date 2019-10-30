@@ -38,7 +38,7 @@ object AppendEvents {
         origin = origin,
         events = Events(events),
         expireAfter = expireAfter,
-        metadata = Metadata(data = metadata),
+        metadata = RecordMetadata(data = metadata),
         headers = headers)
 
       for {

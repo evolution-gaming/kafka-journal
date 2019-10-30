@@ -11,9 +11,9 @@ class ActionHeaderJsonSpec extends FunSuite with Matchers {
 
   val origins = List(Some(Origin("origin")), None)
   val metadata = List(
-    ("metadata", Metadata(data = Some(Json.obj(("key", "value"))))),
-    ("none"    , Metadata(data = None)),
-    ("legacy"  , Metadata(data = None)))
+    ("metadata", RecordMetadata(data = Some(Json.obj(("key", "value"))))),
+    ("none"    , RecordMetadata(data = None)),
+    ("legacy"  , RecordMetadata(data = None)))
   val payloadTypes = List(PayloadType.Binary, PayloadType.Json)
 
   for {

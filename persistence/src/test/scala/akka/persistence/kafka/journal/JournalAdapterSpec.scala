@@ -27,15 +27,15 @@ class JournalAdapterSpec extends FunSuite with Matchers {
     AtomicWrite(List(persistentRepr)),
     AtomicWrite(List(persistentRepr)))
 
-  private val metadataAndHeadersOf = {
-    val metadataAndHeaders = MetadataAndHeaders(expireAfter.some, metadata.data, headers)
-    MetadataAndHeadersOf.const(metadataAndHeaders.pure[StateT])
+  private val appendMetadataOf = {
+    val metadata = AppendMetadata(expireAfter.some, recordMetadata.data, headers)
+    AppendMetadataOf.const(metadata.pure[StateT])
   }
 
-  private val journalAdapter = JournalAdapter[StateT](StateT.JournalStateF, toKey, eventSerializer, metadataAndHeadersOf)
+  private val journalAdapter = JournalAdapter[StateT](StateT.JournalStateF, toKey, eventSerializer, appendMetadataOf)
 
   private def appendOf(key: Key, events: Nel[Event]) = {
-    Append(key, events, timestamp, expireAfter.some, metadata, headers)
+    Append(key, events, timestamp, expireAfter.some, recordMetadata, headers)
   }
 
   test("write") {
@@ -90,17 +90,17 @@ object JournalAdapterSpec {
   private val partitionOffset = PartitionOffset.empty
   private val persistenceId = "id"
   private val persistentRepr = PersistentRepr(None, persistenceId = persistenceId)
-  private val metadata = Metadata(Json.obj(("key", "value")).some)
+  private val recordMetadata = RecordMetadata(Json.obj(("key", "value")).some)
   private val headers = Headers(("key", "value"))
   private val origin = Origin("origin")
-  private val eventRecord = EventRecord(event, timestamp, partitionOffset, origin.some, metadata, headers)
+  private val eventRecord = EventRecord(event, timestamp, partitionOffset, origin.some, recordMetadata, headers)
 
   final case class Append(
     key: Key,
     events: Nel[Event],
     timestamp: Instant,
     expireAfter: Option[FiniteDuration],
-    metadata: Metadata,
+    metadata: RecordMetadata,
     headers: Headers)
 
   final case class Read(key: Key, from: SeqNr)
@@ -139,9 +139,9 @@ object JournalAdapterSpec {
         metadata: Option[JsValue],
         headers: Headers
       ) = {
-        StateT { s =>
-          val append = Append(key, events, timestamp, expireAfter, Metadata(metadata), headers)
-          val s1 = s.copy(appends = append :: s.appends)
+        StateT { state =>
+          val append = Append(key, events, timestamp, expireAfter, RecordMetadata(metadata), headers)
+          val s1 = state.copy(appends = append :: state.appends)
           (s1, partitionOffset)
         }
       }

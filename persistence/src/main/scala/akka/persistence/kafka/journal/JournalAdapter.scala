@@ -42,7 +42,7 @@ object JournalAdapter {
     metrics: Metrics[F],
     log: Log[F],
     batching: Batching[F],
-    metadataAndHeadersOf: MetadataAndHeadersOf[F],
+    appendMetadataOf: AppendMetadataOf[F],
     cassandraClusterOf: CassandraClusterOf[F]
   ): Resource[F, JournalAdapter[F]] = {
 
@@ -98,7 +98,7 @@ object JournalAdapter {
       eventualJournal  <- EventualCassandra.of[F](config.cassandra, origin, metrics.eventual, cassandraClusterOf)
       journal          <- journal(eventualJournal)(kafkaConsumerOf1, kafkaProducerOf1, headCacheOf1)
     } yield {
-      JournalAdapter[F](journal, toKey, serializer, metadataAndHeadersOf).withBatching(batching)
+      JournalAdapter[F](journal, toKey, serializer, appendMetadataOf).withBatching(batching)
     }
   }
 
@@ -106,7 +106,7 @@ object JournalAdapter {
     journal: Journal[F],
     toKey: ToKey[F],
     serializer: EventSerializer[F],
-    metadataAndHeadersOf: MetadataAndHeadersOf[F]
+    appendMetadataOf: AppendMetadataOf[F]
   ): JournalAdapter[F] = new JournalAdapter[F] {
 
     def write(aws: Seq[AtomicWrite]) = {
@@ -114,10 +114,10 @@ object JournalAdapter {
       Nel.fromList(prs.toList).foldMapM { prs =>
         val persistenceId = prs.head.persistenceId
         for {
-          key    <- toKey(persistenceId)
-          events <- prs.traverse(serializer.toEvent)
-          mah    <- metadataAndHeadersOf(key, prs, events)
-          _      <- journal.append(key, events, mah.expireAfter, mah.metadata, mah.headers)
+          key      <- toKey(persistenceId)
+          events   <- prs.traverse(serializer.toEvent)
+          metadata <- appendMetadataOf(key, prs, events)
+          _        <- journal.append(key, events, metadata.expireAfter, metadata.metadata, metadata.headers) /*TODO expireAfter: pass AppendMetadata directly?*/
         } yield {
           List.empty[Try[Unit]]
         }

@@ -183,7 +183,7 @@ object JournalStatements {
                 tags = row.decode[Tags]("tags"),
                 payload = payload)
 
-              val metadata = row.decode[Option[Metadata]]("metadata") getOrElse Metadata.empty
+              val metadata = row.decode[Option[RecordMetadata]]("metadata") getOrElse RecordMetadata.empty
 
               val headers = row.decode[Headers]
 

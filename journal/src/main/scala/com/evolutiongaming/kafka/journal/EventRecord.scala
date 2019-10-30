@@ -12,7 +12,7 @@ final case class EventRecord(
   timestamp: Instant,
   partitionOffset: PartitionOffset,
   origin: Option[Origin] = None,
-  metadata: Metadata,
+  metadata: RecordMetadata,
   headers: Headers
 ) {
 

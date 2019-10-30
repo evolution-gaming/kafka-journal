@@ -265,7 +265,7 @@ object HeadCacheSpec {
     pollTimeout = 3.millis,
     cleanInterval = 100.millis)
 
-  val metadata: Metadata = Metadata.empty
+  val recordMetadata: RecordMetadata = RecordMetadata.empty
 
   val headers: Headers = Headers.empty
 
@@ -276,7 +276,7 @@ object HeadCacheSpec {
       timestamp = timestamp,
       origin = none,
       events = Events(Nel.of(Event(seqNr))),
-      metadata = metadata,
+      metadata = recordMetadata,
       headers = headers,
       expireAfter = none).get
   }
