@@ -1,0 +1,29 @@
+name: CI
+
+on: [push]
+
+jobs:
+  test:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        scala:
+          - 2.12.10
+#         - 2.13.0
+
+    steps:
+    - uses: actions/checkout@v1
+    - uses: olafurpg/setup-scala@v5
+      with:
+        java-version: openjdk@1.11
+
+    - name: Run tests ${{ matrix.scala }}
+      run: sbt ++${{ matrix.scala }} clean coverage test
+
+    - name: Report test coverage
+      if: success()
+      env:
+        COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+      run: sbt ++${{ matrix.scala }} coverageReport coverageAggregate coveralls
