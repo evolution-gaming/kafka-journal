@@ -62,12 +62,12 @@ object HeadCache {
     metrics: Option[HeadCacheMetrics[F]]
   ): Resource[F, HeadCache[F]] = {
 
-    implicit val eventual = Eventual[F](eventualJournal)
+    val eventual = Eventual[F](eventualJournal)
 
     val consumer = Consumer.of[F](consumerConfig)
     for {
       log       <- Resource.liftF(LogOf[F].apply(HeadCache.getClass))
-      headCache <- HeadCache.of[F](log, consumer, metrics)
+      headCache <- HeadCache.of[F](eventual, log, consumer, metrics)
     } yield {
       val headCache1 = headCache.withLog(log)
       metrics.fold(headCache1) { metrics => headCache1.withMetrics(metrics.headCache) }
@@ -75,7 +75,8 @@ object HeadCache {
   }
 
 
-  def of[F[_] : Concurrent : Eventual : Parallel : Timer : ContextShift : FromAttempt : FromJsResult : MeasureDuration](
+  def of[F[_] : Concurrent : Parallel : Timer : ContextShift : FromAttempt : FromJsResult : MeasureDuration](
+    eventual: Eventual[F],
     log: Log[F],
     consumer: Resource[F, Consumer[F]],
     metrics: Option[HeadCacheMetrics[F]],
@@ -95,6 +96,7 @@ object HeadCache {
           topicCache <- TopicCache.of(
             topic = topic,
             config = config,
+            eventual = eventual,
             consumer = consumer1,
             metrics = metrics.fold(Metrics.empty[F])(_.headCache),
             log = logTopic)
@@ -191,9 +193,10 @@ object HeadCache {
 
     type Listener[F[_]] = Map[Partition, PartitionEntry] => Option[F[Unit]]
 
-    def of[F[_] : Concurrent : Eventual : Parallel : Timer : ContextShift](
+    def of[F[_] : Concurrent : Parallel : Timer : ContextShift](
       topic: Topic,
       config: Config,
+      eventual: Eventual[F],
       consumer: Resource[F, Consumer[F]],
       metrics: Metrics[F],
       log: Log[F])(implicit
@@ -201,7 +204,7 @@ object HeadCache {
     ): F[TopicCache[F]] = {
 
       for {
-        pointers  <- Eventual[F].pointers(topic)
+        pointers  <- eventual.pointers(topic)
         entries    = for {
           (partition, offset) <- pointers.values
         } yield {
@@ -251,7 +254,7 @@ object HeadCache {
         cleaning <- Concurrent[F].start {
           val cleaning = for {
             _        <- Timer[F].sleep(config.cleanInterval)
-            pointers <- Eventual[F].pointers(topic)
+            pointers <- eventual.pointers(topic)
             before   <- state.get
             _        <- state.update { _.removeUntil(pointers.values).pure[F] }
             after    <- state.get
@@ -268,7 +271,7 @@ object HeadCache {
       }
     }
 
-    def apply[F[_] : Concurrent : Eventual : Monad](
+    def apply[F[_] : Concurrent : Monad](
       topic: Topic,
       release: F[Unit],
       stateRef: SerialRef[F, State[F]],
@@ -684,8 +687,6 @@ object HeadCache {
           }
         } yield partitions
 
-        implicit val clock = Timer[F].clock
-
         for {
           random     <- Random.State.fromClock[F]()
           strategy    = Strategy.fullJitter(3.millis, random).cap(300.millis)
@@ -701,7 +702,7 @@ object HeadCache {
         offsets     = for {
           partition <- partitions
         } yield {
-          val offset = from.get(partition).fold(Offset.Min)(_ + 1l)
+          val offset = from.get(partition).fold(Offset.Min)(_ + 1L)
           (partition, offset)
         }
         _          <- consumer.seek(topic, offsets.toList.toMap)

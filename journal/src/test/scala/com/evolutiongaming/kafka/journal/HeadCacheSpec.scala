@@ -29,7 +29,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
     "return result, records are in cache" in {
       val offsetLast = 10L
 
-      implicit val eventual = HeadCache.Eventual.empty[IO]
+      val eventual = HeadCache.Eventual.empty[IO]
 
       val key = Key(id = "id", topic = topic)
       val records = ConsumerRecordsOf {
@@ -49,7 +49,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
       val result = for {
         ref      <- Ref.of[IO, IO[TestConsumer.State]](state.pure[IO])
         consumer  = TestConsumer(ref)
-        _        <- headCacheOf(consumer.pure[IO]).use { headCache =>
+        _        <- headCacheOf(eventual, consumer.pure[IO]).use { headCache =>
           for {
             result <- headCache.get(key = key, partition = partition, offset = offsetLast)
             state  <- ref.get
@@ -82,7 +82,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
       val result = for {
         ref      <- Ref.of[IO, IO[TestConsumer.State]](state.pure[IO])
         consumer  = TestConsumer(ref)
-        _        <- headCacheOf(consumer.pure[IO]).use { headCache =>
+        _        <- headCacheOf(eventual, consumer.pure[IO]).use { headCache =>
           for {
             result <- headCache.get(key = key, partition = partition, offset = marker)
           } yield {
@@ -97,7 +97,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
     "return result, after events are replicated" in {
       val marker = 100L
 
-      implicit val eventual = HeadCache.Eventual.empty[IO]
+      val eventual = HeadCache.Eventual.empty[IO]
 
       val state = TestConsumer.State.empty
 
@@ -105,7 +105,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
       val result = for {
         ref      <- Ref.of[IO, IO[TestConsumer.State]](state.pure[IO])
         consumer  = TestConsumer(ref)
-        _        <- headCacheOf(consumer.pure[IO]).use { headCache =>
+        _        <- headCacheOf(eventual, consumer.pure[IO]).use { headCache =>
           for {
             result <- Concurrent[IO].start { headCache.get(key = key, partition = partition, offset = marker) }
             _      <- ref.update { state =>
@@ -167,8 +167,8 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           val topicPointers = for {
             pointers <- pointers.get
           } yield TopicPointers(pointers)
-          implicit val eventual = HeadCache.Eventual.const(topicPointers)
-          headCacheOf(consumer)
+          val eventual = HeadCache.Eventual.const(topicPointers)
+          headCacheOf(eventual, consumer)
         }
         _ <- headCache.use { headCache =>
           for {
@@ -206,8 +206,8 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           val topicPointers = for {
             pointers <- pointers.get
           } yield TopicPointers(pointers)
-          implicit val eventual = HeadCache.Eventual.const(topicPointers)
-          headCacheOf(consumer.pure[IO], config)
+          val eventual = HeadCache.Eventual.const(topicPointers)
+          headCacheOf(eventual, consumer.pure[IO], config)
         }
         _ <- headCache.use { headCache =>
 
@@ -282,9 +282,9 @@ object HeadCacheSpec {
   }
 
   def headCacheOf(
+    eventual: HeadCache.Eventual[IO],
     consumer: IO[HeadCache.Consumer[IO]],
-    config: HeadCache.Config = config)(implicit
-    eventual: HeadCache.Eventual[IO]
+    config: HeadCache.Config = config
   ): Resource[IO, HeadCache[IO]] = {
 
     for {
@@ -292,6 +292,7 @@ object HeadCacheSpec {
       headCache <- HeadCache.of[IO](
         log = LogIO,
         config = config,
+        eventual = eventual,
         consumer = Resource.liftF(consumer),
         metrics = metrics.some)
     } yield headCache
