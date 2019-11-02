@@ -5,26 +5,26 @@ import java.time.Instant
 import cats._
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
-import cats.effect.concurrent.{Deferred, Ref}
+import cats.effect.concurrent.Deferred
 import cats.implicits._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
-import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MonadThrowable, SerialRef}
+import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.conversions.ConsumerRecordToActionHeader
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
-import com.evolutiongaming.kafka.journal.util.EitherHelper._
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
+import com.evolutiongaming.kafka.journal.util.EitherHelper._
 import com.evolutiongaming.kafka.journal.util.GracefulFiber
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
-import com.evolutiongaming.scache.{Cache, CacheMetered}
+import com.evolutiongaming.scache.Cache
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecord, ConsumerRecords}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
 import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.smetrics._
-import pureconfig.generic.semiauto.deriveReader
 import pureconfig.ConfigReader
+import pureconfig.generic.semiauto.deriveReader
 import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
@@ -50,10 +50,7 @@ trait HeadCache[F[_]] {
 
 object HeadCache {
 
-  def empty[F[_] : Applicative]: HeadCache[F] = new HeadCache[F] {
-
-    def get(key: Key, partition: Partition, offset: Offset) = Result.invalid.pure[F]
-  }
+  def empty[F[_] : Applicative]: HeadCache[F] = (_: Key, _: Partition, _: Offset) => Result.invalid.pure[F]
 
 
   def of[F[_] : Concurrent : Parallel : Timer : ContextShift : LogOf : KafkaConsumerOf : MeasureDuration : FromTry : FromAttempt : FromJsResult](
@@ -86,7 +83,7 @@ object HeadCache {
     implicit val consumerRecordToActionHeader = ConsumerRecordToActionHeader[F]
     implicit val consumerRecordToKafkaRecord = HeadCache.ConsumerRecordToKafkaRecord[F]
 
-    def headCache(cache: Ref[F, F[Cache[F, Topic, TopicCache[F]]]]) = {
+    def headCache(cache: Cache[F, Topic, TopicCache[F]]) = {
 
       def topicCache(topic: Topic) = {
         val logTopic = log.prefixed(topic)
@@ -106,31 +103,20 @@ object HeadCache {
       }
 
       val release = for {
-        _ <- cache.get.flatten
-        c <- cache.modify { c =>
-          val cc = for {
-            _ <- c
-            c <- ClosedError.raiseError[F, Cache[F, Topic, TopicCache[F]]]
-          } yield c
-          (cc, c)
-        }
-        c <- c
-        v <- c.values
+        v <- cache.values
         _ <- v.values.toList.parFoldMap { v =>
           for {
             v <- v
-            _ <- v.close
+            _ <- v.close // TODO not needed, let's rely on LoadingCache
           } yield {}
         }
       } yield {}
 
-      val headCache = new HeadCache[F] {
+      val headCache: HeadCache[F] = new HeadCache[F] {
 
         def get(key: Key, partition: Partition, offset: Offset) = {
           val topic = key.topic
           for {
-            cache      <- cache.get
-            cache      <- cache
             topicCache <- cache.getOrUpdate(topic)(topicCache(topic))
             result     <- topicCache.get(id = key.id, partition = partition, offset = offset)
           } yield result
@@ -140,12 +126,13 @@ object HeadCache {
       Resource((headCache, release).pure[F])
     }
 
-    for {
+    val result = for {
       cache     <- Cache.loading[F, Topic, TopicCache[F]]
-      cache     <- metrics.fold(Resource.liftF(cache.pure[F])) { metrics => CacheMetered(cache, metrics.cache) }
-      cache     <- Resource.liftF(Ref.of(cache.pure[F]))
+      cache     <- metrics.fold(Resource.liftF(cache.pure[F])) { metrics => cache.withMetrics(metrics.cache) }
       headCache <- headCache(cache)
     } yield headCache
+    
+    result.withFence
   }
 
 
@@ -227,7 +214,7 @@ object HeadCache {
 
               for {
                 now     <- Clock[F].millis
-                latency  = records.values.flatMap(_.toList).headOption.fold(0l) { record => now - record.timestamp.toEpochMilli }
+                latency  = records.values.flatMap(_.toList).headOption.fold(0L) { record => now - record.timestamp.toEpochMilli }
                 entries  = partitionEntries(records)
                 state   <- state.modify { state =>
                   val combined = combineAndTrim(state.entries, entries, config.maxSize)
@@ -298,7 +285,7 @@ object HeadCache {
               pe <- entries.get(partition) toRight Error.Invalid
               _  <- pe.offset >= offset trueOr Error.Behind
               r  <- pe.entries.get(id).fold {
-                // TODO Test this
+                // TODO Test this                             
                 // TODO
                 //                  val replicatedTo: Offset =
                 //
@@ -463,9 +450,8 @@ object HeadCache {
 
     object Entry {
 
-      implicit val semigroupEntry: Semigroup[Entry] = new Semigroup[Entry] {
-
-        def combine(x: Entry, y: Entry) = {
+      implicit val semigroupEntry: Semigroup[Entry] = {
+        (x: Entry, y: Entry) => {
           val offset = x.offset max y.offset
           val info = x.info combine y.info
           x.copy(info = info, offset = offset)
@@ -482,9 +468,8 @@ object HeadCache {
 
     object PartitionEntry {
 
-      implicit val semigroupPartitionEntry: Semigroup[PartitionEntry] = new Semigroup[PartitionEntry] {
-
-        def combine(x: PartitionEntry, y: PartitionEntry) = {
+      implicit val semigroupPartitionEntry: Semigroup[PartitionEntry] = {
+        (x: PartitionEntry, y: PartitionEntry) => {
           val entries = x.entries combine y.entries
           val offset = x.offset max y.offset
           x.copy(entries = entries, offset = offset)
@@ -494,9 +479,10 @@ object HeadCache {
 
     final case class State[F[_]](
       entries: Map[Partition, PartitionEntry],
-      listeners: List[Listener[F]]) {
+      listeners: List[Listener[F]]
+    ) {
 
-      def size: Long = entries.values.foldLeft(0l) { _ + _.entries.size }
+      def size: Long = entries.values.foldLeft(0L) { _ + _.entries.size }
 
       def removeUntil(pointers: Map[Partition, Offset]): State[F] = {
         val updated = for {
@@ -587,7 +573,7 @@ object HeadCache {
             _ <- {
               if (r.values.isEmpty) ().pure[F]
               else log.debug {
-                val size = r.values.values.foldLeft(0l) { _ + _.size }
+                val size = r.values.values.foldLeft(0L) { _ + _.size }
                 s"poll timeout: $timeout, result: $size"
               }
             }
@@ -714,9 +700,7 @@ object HeadCache {
 
   case object NoPartitionsError extends RuntimeException("No partitions") with NoStackTrace
 
-  case object ClosedError extends RuntimeException("HeadCache is closed") with NoStackTrace
-
-
+  
   implicit class HeadCacheOps[F[_]](val self: HeadCache[F]) extends AnyVal {
 
     def mapK[G[_]](f: F ~> G): HeadCache[G] = new HeadCache[G] {
@@ -762,6 +746,12 @@ object HeadCache {
         } yield r
       }
     }
+  }
+
+
+  implicit class HeadCacheResourceOps[F[_]](val self: Resource[F, HeadCache[F]]) extends AnyVal {
+
+    def withFence(implicit F: Concurrent[F]): Resource[F, HeadCache[F]] = HeadCacheFenced.of(self)
   }
 
 
