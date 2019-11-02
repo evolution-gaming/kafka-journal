@@ -9,7 +9,6 @@ import cats.implicits._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.kafka.journal.IOSuite._
-import com.evolutiongaming.kafka.journal.HeadCache.Result
 import com.evolutiongaming.kafka.journal.conversions.EventsToPayload
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer.ConsumerRecords
@@ -60,7 +59,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
               seeks = List(TestConsumer.Seek(topic, Map((partition, 0)))),
               topics = Map((topic, List(partition))))
 
-            result shouldEqual Result.valid(HeadInfo.append(SeqNr.unsafe(11)))
+            result shouldEqual HeadInfo.append(SeqNr.unsafe(11)).some
           }
         }
       } yield {}
@@ -86,7 +85,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           for {
             result <- headCache.get(key = key, partition = partition, offset = marker)
           } yield {
-            result shouldEqual Result.empty
+            result shouldEqual HeadInfo.empty.some
           }
         }
       } yield {}
@@ -134,7 +133,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
               seeks = List(TestConsumer.Seek(topic, Map((partition, 0)))),
               topics = Map((topic, List(partition))))
 
-            result shouldEqual Result.empty
+            result shouldEqual HeadInfo.empty.some
           }
         }
       } yield {}
@@ -183,7 +182,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
               seeks = List(TestConsumer.Seek(topic, Map((partition, 0)))),
               topics = Map((topic, List(partition))))
 
-            result shouldEqual Result.empty
+            result shouldEqual HeadInfo.empty.some
           }
         }
 
@@ -242,11 +241,11 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
               assigns = List(TestConsumer.Assign(topic, Nel.of(0))),
               seeks = List(TestConsumer.Seek(topic, Map((partition, 0)))),
               topics = Map((topic, List(partition))))
-            r0 shouldEqual Result.valid(HeadInfo.append(SeqNr.min))
-            r1 shouldEqual Result.invalid
-            r2 shouldEqual Result.invalid
-            r3 shouldEqual Result.invalid
-            r4 shouldEqual Result.valid(HeadInfo.append(SeqNr.min))
+            r0 shouldEqual HeadInfo.append(SeqNr.min).some
+            r1 shouldEqual none
+            r2 shouldEqual none
+            r3 shouldEqual none
+            r4 shouldEqual HeadInfo.append(SeqNr.min).some
           }
         }
       } yield {}

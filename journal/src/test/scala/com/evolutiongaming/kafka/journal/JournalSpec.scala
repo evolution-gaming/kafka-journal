@@ -560,8 +560,8 @@ object JournalSpec {
       (_: Key, _: Partition, _: Offset) => {
 
         StateT { state =>
-          val info = state.records.foldLeft(HeadInfo.empty) { (info, record) => info(record.action.header) }
-          (state, HeadCache.Result.valid(info))
+          val headInfo = state.records.foldLeft(HeadInfo.empty) { (info, record) => info(record.action.header) }
+          (state, headInfo.some)
         }
       }
     }

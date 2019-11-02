@@ -5,6 +5,7 @@ import java.time.Instant
 import cats._
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
+import cats.effect.implicits._
 import cats.effect.concurrent.Deferred
 import cats.implicits._
 import com.evolutiongaming.catshelper.ClockHelper._
@@ -41,16 +42,14 @@ import scala.util.control.NoStackTrace
   * 7. Fail headcache when background tasks failed
   */
 trait HeadCache[F[_]] {
-  import HeadCache._
 
-  // TODO change API
-  def get(key: Key, partition: Partition, offset: Offset): F[Result]
+  def get(key: Key, partition: Partition, offset: Offset): F[Option[HeadInfo]]
 }
 
 
 object HeadCache {
 
-  def empty[F[_] : Applicative]: HeadCache[F] = (_: Key, _: Partition, _: Offset) => Result.invalid.pure[F]
+  def empty[F[_] : Applicative]: HeadCache[F] = (_: Key, _: Partition, _: Offset) => none[HeadInfo].pure[F]
 
 
   def of[F[_] : Concurrent : Parallel : Timer : ContextShift : LogOf : KafkaConsumerOf : MeasureDuration : FromTry : FromAttempt : FromJsResult](
@@ -59,12 +58,12 @@ object HeadCache {
     metrics: Option[HeadCacheMetrics[F]]
   ): Resource[F, HeadCache[F]] = {
 
-    val eventual = Eventual[F](eventualJournal)
+    val eventual = Eventual(eventualJournal)
 
     val consumer = Consumer.of[F](consumerConfig)
     for {
       log       <- Resource.liftF(LogOf[F].apply(HeadCache.getClass))
-      headCache <- HeadCache.of[F](eventual, log, consumer, metrics)
+      headCache <- HeadCache.of(eventual, log, consumer, metrics)
     } yield {
       val headCache1 = headCache.withLog(log)
       metrics.fold(headCache1) { metrics => headCache1.withMetrics(metrics.headCache) }
@@ -97,9 +96,7 @@ object HeadCache {
             consumer = consumer1,
             metrics = metrics.fold(Metrics.empty[F])(_.headCache),
             log = logTopic)
-        } yield {
-          topicCache
-        }
+        } yield topicCache
 
         Releasable.of(topicCache)
       }
@@ -117,8 +114,8 @@ object HeadCache {
     }
 
     val result = for {
-      cache     <- Cache.loading[F, Topic, TopicCache[F]]
-      cache     <- metrics.fold(Resource.liftF(cache.pure[F])) { metrics => cache.withMetrics(metrics.cache) }
+      cache <- Cache.loading[F, Topic, TopicCache[F]]
+      cache <- metrics.fold(Resource.liftF(cache.pure[F])) { metrics => cache.withMetrics(metrics.cache) }
     } yield {
       headCache(cache)
     }
@@ -143,26 +140,9 @@ object HeadCache {
   }
 
 
-  sealed abstract class Result extends Product
-
-  object Result {
-
-    def invalid: Result = Invalid
-
-    def valid(info: HeadInfo): Result = Valid(info)
-
-    val empty: Result = valid(HeadInfo.empty)
-
-
-    case object Invalid extends Result
-
-    final case class Valid(info: HeadInfo) extends Result
-  }
-
-
   trait TopicCache[F[_]] {
 
-    def get(id: String, partition: Partition, offset: Offset): F[Result]
+    def get(id: String, partition: Partition, offset: Offset): F[Option[HeadInfo]]
   }
 
   object TopicCache {
@@ -227,7 +207,7 @@ object HeadCache {
           }
         }
 
-        cleaning <- Concurrent[F].start {
+        cleaning <- {
           val cleaning = for {
             _        <- Timer[F].sleep(config.cleanInterval)
             pointers <- eventual.pointers(topic)
@@ -237,9 +217,10 @@ object HeadCache {
             removed   = before.size - after.size
             _        <- if (removed > 0) log.debug(s"remove $removed entries") else ().pure[F]
           } yield {}
-          cleaning.foreverM[Unit].onError { case error =>
-            log.error(s"cleaning failed with $error", error) // TODO fail head cache
-          }
+          cleaning
+            .foreverM[Unit]
+            .onError { case error => log.error(s"cleaning failed with $error", error) /*TODO fail head cache*/ }
+            .start
         }
       } yield {
         val release = List(consuming, cleaning).parFoldMap { _.cancel }
@@ -271,7 +252,7 @@ object HeadCache {
             case object Behind extends Error
           }
 
-          def entryOf(entries: Map[Partition, PartitionEntry]): Option[Result] = {
+          def entryOf(entries: Map[Partition, PartitionEntry]): Option[Option[HeadInfo]] = {
             val result = for {
               pe <- entries.get(partition) toRight Error.Invalid
               _  <- pe.offset >= offset trueOr Error.Behind
@@ -286,24 +267,24 @@ object HeadCache {
                 for {
                   _ <- pe.trimmed.isEmpty trueOr Error.Trimmed
                 } yield {
-                  Result.empty
+                  HeadInfo.empty.some
                 }
               } { e =>
-                Result.valid(e.info).asRight
+                e.info.some.asRight
               }
             } yield r
 
             result match {
               case Right(result)       => result.some
               case Left(Error.Behind)  => none
-              case Left(Error.Trimmed) => Result.invalid.some
+              case Left(Error.Trimmed) => none.some
               case Left(Error.Invalid) => none
             }
           }
 
           def update(state: State[F]) = {
             for {
-              deferred <- Deferred[F, Result]
+              deferred <- Deferred[F, Option[HeadInfo]]
               listener  = (entries: Map[Partition, PartitionEntry]) => {
                 for {
                   r <- entryOf(entries)
@@ -707,13 +688,13 @@ object HeadCache {
           r <- self.get(key, partition, offset).attempt
           d <- d
           result = r match {
-            case Right(Result.Valid(_: HeadInfo.NonEmpty)) => Metrics.Result.NotReplicated
-            case Right(Result.Valid(HeadInfo.Empty))       => Metrics.Result.Replicated
-            case Right(Result.Invalid)                     => Metrics.Result.Invalid
-            case Left(_)                                   => Metrics.Result.Failure
+            case Right(Some(_: HeadInfo.NonEmpty)) => Metrics.Result.NotReplicated
+            case Right(Some(HeadInfo.Empty))       => Metrics.Result.Replicated
+            case Right(None)                       => Metrics.Result.Invalid
+            case Left(_)                           => Metrics.Result.Failure
           }
           _      <- metrics.get(key.topic, d, result)
-          r      <- r.fold(_.raiseError[F, Result], _.pure[F])
+          r      <- r.fold(_.raiseError[F, Option[HeadInfo]], _.pure[F])
         } yield r
       }
     }
