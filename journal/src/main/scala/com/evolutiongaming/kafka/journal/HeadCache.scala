@@ -17,8 +17,6 @@ import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.EitherHelper._
 import com.evolutiongaming.kafka.journal.util.GracefulFiber
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
-import com.evolutiongaming.random.Random
-import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.scache.{Cache, Releasable}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecord, ConsumerRecords}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
@@ -40,6 +38,7 @@ import scala.util.control.NoStackTrace
   * 5. Clearly handle cases when topic is not yet created, but requests are coming
   * 6. Keep 1000 last seen entries, even if replicated.
   * 7. Fail headcache when background tasks failed
+  * 8. Make sure we release listeners upon close
   */
 trait HeadCache[F[_]] {
 
@@ -172,7 +171,7 @@ object HeadCache {
           // TODO not use `.start` here
           consumer.start { consumer =>
 
-            val consuming = ConsumeTopic(
+            val consuming = HeadCacheConsumer(
               topic = topic,
               from = pointers.values,
               pollTimeout = config.pollTimeout,
@@ -586,79 +585,6 @@ object HeadCache {
 
     def const[F[_] : Applicative](value: F[TopicPointers]): Eventual[F] = new Eventual[F] {
       def pointers(topic: Topic) = value
-    }
-  }
-
-
-  object ConsumeTopic {
-
-    def apply[F[_] : Sync : Timer : ContextShift](
-      topic: Topic,
-      from: Map[Partition, Offset],
-      pollTimeout: FiniteDuration,
-      consumer: Consumer[F], // TODO resource
-      cancel: F[Boolean],
-      log: Log[F])(
-      onRecords: Map[Partition, Nel[KafkaRecord]] => F[Unit])(implicit
-      consumerRecordToKafkaRecord: ConsumerRecordToKafkaRecord[F]
-    ): F[Unit] = {
-
-      def kafkaRecords(records: ConsumerRecords[String, ByteVector]): F[List[(Partition, Nel[KafkaRecord])]] = {
-        records
-          .values
-          .toList
-          .traverseFilter { case (partition, records) =>
-            records
-              .toList
-              .traverseFilter { record => consumerRecordToKafkaRecord(record).sequence }
-              .map { records => Nel.fromList(records).map { records => (partition.partition, records) } }
-          }
-      }
-
-      val poll = for {
-        cancel <- cancel
-        result <- {
-          if (cancel) ().some.pure[F]
-          else for {
-            records0 <- consumer.poll(pollTimeout)
-            _        <- if (records0.values.isEmpty) ContextShift[F].shift else ().pure[F]
-            records  <- kafkaRecords(records0)
-            _        <- if (records.isEmpty) ().pure[F] else onRecords(records.toMap)
-          } yield none[Unit]
-        }
-      } yield result
-
-      val partitionsOf: F[Nel[Partition]] = {
-
-        val partitions = for {
-          partitions <- consumer.partitions(topic)
-          partitions <- Nel.fromList(partitions.toList) match {
-            case Some(a) => a.pure[F]
-            case None    => NoPartitionsError.raiseError[F, Nel[Partition]]
-          }
-        } yield partitions
-
-        for {
-          random     <- Random.State.fromClock[F]()
-          strategy    = Strategy.fullJitter(3.millis, random).cap(300.millis)
-          onError     = OnError.fromLog(log.prefixed(s"consumer.partitions($topic)"))
-          retry       = Retry(strategy, onError)
-          partitions <- retry(partitions)
-        } yield partitions
-      }
-
-      for {
-        partitions <- partitionsOf
-        _          <- consumer.assign(topic, partitions)
-        offsets     = for {
-          partition <- partitions
-        } yield {
-          val offset = from.get(partition).fold(Offset.Min)(_ + 1L)
-          (partition, offset)
-        }
-        _          <- consumer.seek(topic, offsets.toList.toMap)
-        _          <- poll.untilDefinedM
-      } yield {}
     }
   }
 

@@ -343,15 +343,17 @@ object TopicReplicator { self =>
     def apply[F[_] : Applicative](
       consumer: KafkaConsumer[F, String, ByteVector],
       pollTimeout: FiniteDuration
-    ): Consumer[F] = new Consumer[F] {
+    ): Consumer[F] = {
+      new Consumer[F] {
 
-      def subscribe(topic: Topic) = consumer.subscribe(topic)
+        def subscribe(topic: Topic) = consumer.subscribe(topic)
 
-      def poll = consumer.poll(pollTimeout)
+        def poll = consumer.poll(pollTimeout)
 
-      def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = consumer.commit(offsets)
+        def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = consumer.commit(offsets)
 
-      def assignment = consumer.assignment
+        def assignment = consumer.assignment
+      }
     }
 
     def of[F[_] : Sync : KafkaConsumerOf : FromTry](

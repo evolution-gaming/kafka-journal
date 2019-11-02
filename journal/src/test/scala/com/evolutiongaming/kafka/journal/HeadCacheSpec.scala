@@ -225,27 +225,27 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
             }
           }
           for {
-          _     <- enqueue(key0, 0L)
-          r0    <- headCache.get(key0, partition, 0L)
-          _     <- enqueue(key1, 1L)
-          r1    <- headCache.get(key0, partition, 1L)
-          r2    <- headCache.get(key1, partition, 1L)
-          _     <- pointers.update(_ ++ Map((partition, 1L)))
-          r3    <- headCache.get(key1, partition, 1L)
-          _     <- enqueue(key0, 2L)
-          r4    <- headCache.get(key0, partition, 2l)
-          state <- ref.get
-          state <- state
+            _     <- enqueue(key0, 0L)
+            a     <- headCache.get(key0, partition, 0L)
+            _      = a shouldEqual HeadInfo.append(SeqNr.min).some
+            _     <- enqueue(key1, 1L)
+            a     <- headCache.get(key0, partition, 1L)
+            _      = a shouldEqual none
+            a     <- headCache.get(key1, partition, 1L)
+            _      = a shouldEqual none
+            _     <- pointers.update(_ ++ Map((partition, 1L)))
+            a     <- headCache.get(key1, partition, 1L)
+            _      = a shouldEqual none
+            _     <- enqueue(key0, 2L)
+            a     <- headCache.get(key0, partition, 2l)
+            _      = a shouldEqual HeadInfo.append(SeqNr.min).some
+            state <- ref.get
+            state <- state
           } yield {
             state shouldEqual TestConsumer.State(
               assigns = List(TestConsumer.Assign(topic, Nel.of(0))),
               seeks = List(TestConsumer.Seek(topic, Map((partition, 0)))),
               topics = Map((topic, List(partition))))
-            r0 shouldEqual HeadInfo.append(SeqNr.min).some
-            r1 shouldEqual none
-            r2 shouldEqual none
-            r3 shouldEqual none
-            r4 shouldEqual HeadInfo.append(SeqNr.min).some
           }
         }
       } yield {}

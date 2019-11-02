@@ -154,8 +154,8 @@ object KafkaHealthCheck {
       _ <- Timer[F].sleep(config.initial)
       _ <- consumer.subscribe(config.topic)
       _ <- consumer.poll(config.interval)
-      _ <- produceConsume(0l) // warmup
-      _ <- 1l.tailRecM(check)
+      _ <- produceConsume(0L) // warmup
+      _ <- 1L.tailRecM(check)
     } yield {}
   }
 
