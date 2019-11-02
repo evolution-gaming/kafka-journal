@@ -13,9 +13,8 @@ import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.conversions.ConsumerRecordToActionHeader
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.EitherHelper._
-import com.evolutiongaming.kafka.journal.util.GracefulFiber
+import com.evolutiongaming.kafka.journal.util.ResourceOf
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.scache.{Cache, Releasable}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecord, ConsumerRecords}
@@ -27,18 +26,15 @@ import pureconfig.generic.semiauto.deriveReader
 import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
-import scala.util.control.NoStackTrace
 
 /**
   * TODO
   * 1. handle cancellation in case of timeouts and not leak memory
-  * 2. Journal should close HeadCache
-  * 3. Remove half of partition cache on cleanup
-  * 4. Support configuration
-  * 5. Clearly handle cases when topic is not yet created, but requests are coming
-  * 6. Keep 1000 last seen entries, even if replicated.
-  * 7. Fail headcache when background tasks failed
-  * 8. Make sure we release listeners upon close
+  * 2. Remove half of partition cache on cleanup
+  * 3. Clearly handle cases when topic is not yet created, but requests are coming
+  * 4. Keep 1000 last seen entries, even if replicated.
+  * 5. Fail headcache when background tasks failed
+  * 6. Make sure we release listeners upon close
   */
 trait HeadCache[F[_]] {
 
@@ -158,76 +154,77 @@ object HeadCache {
       consumerRecordToKafkaRecord: ConsumerRecordToKafkaRecord[F]
     ): Resource[F, TopicCache[F]] = {
 
-      val topicCache = for {
-        pointers  <- eventual.pointers(topic)
-        entries    = for {
-          (partition, offset) <- pointers.values
-        } yield {
-          val entry = PartitionEntry(partition = partition, offset = offset, entries = Map.empty, trimmed = None)
-          (entry.partition, entry)
-        }
-        state     <- SerialRef[F].of(State[F](entries, List.empty))
-        consuming <- GracefulFiber[F].apply { cancel =>
-          // TODO not use `.start` here
-          consumer.start { consumer =>
+      def consume(state: SerialRef[F, State[F]], pointers: F[Map[Partition, Offset]]) = {
 
-            val consuming = HeadCacheConsumer(
-              topic = topic,
-              from = pointers.values,
-              pollTimeout = config.pollTimeout,
-              consumer = consumer,
-              cancel = cancel,
-              log = log
-            ) { records =>
+        val stream = HeadCacheConsuming(
+          topic = topic,
+          pointers = pointers,
+          pollTimeout = config.pollTimeout,
+          consumer = consumer,
+          log = log)
 
-              for {
-                now     <- Clock[F].millis
-                latency  = records.values.flatMap(_.toList).headOption.fold(0L) { record => now - record.timestamp.toEpochMilli }
-                entries  = partitionEntries(records)
-                state   <- state.modify { state =>
-                  val combined = combineAndTrim(state.entries, entries, config.maxSize)
-                  val (listeners, completed) = runListeners(state.listeners, combined)
-                  for {
-                    _      <- completed.parFold
-                    state1  = state.copy(entries = combined, listeners = listeners)
-                  } yield (state1, state1)
+        stream
+          .foreach { records0 =>
+            val records = records0.toList.toMap
+            for {
+              now     <- Clock[F].millis
+              latency  = records.values.flatMap(_.toList).headOption.fold(0L) { record => now - record.timestamp.toEpochMilli }
+              entries  = partitionEntries(records)
+              state   <- state.modify { state =>
+                val combined = combineAndTrim(state.entries, entries, config.maxSize)
+                val (listeners, completed) = runListeners(state.listeners, combined)
+                for {
+                  _      <- completed.parFold
+                  state1  = state.copy(entries = combined, listeners = listeners)
+                } yield {
+                  (state1, state1)
                 }
-                _       <- metrics.round(
-                  topic = topic,
-                  entries = state.size,
-                  listeners = state.listeners.size,
-                  deliveryLatency = latency.millis)
-              } yield {}
-            }
-
-            consuming.onError { case error =>
-              log.error(s"consuming failed with $error", error)
-            } // TODO fail head cache
+              }
+              _       <- metrics.round(
+                topic = topic,
+                entries = state.size,
+                listeners = state.listeners.size,
+                deliveryLatency = latency.millis)
+            } yield {}
           }
-        }
-
-        cleaning <- {
-          val cleaning = for {
-            _        <- Timer[F].sleep(config.cleanInterval)
-            pointers <- eventual.pointers(topic)
-            before   <- state.get
-            _        <- state.update { _.removeUntil(pointers.values).pure[F] }
-            after    <- state.get
-            removed   = before.size - after.size
-            _        <- if (removed > 0) log.debug(s"remove $removed entries") else ().pure[F]
-          } yield {}
-          cleaning
-            .foreverM[Unit]
-            .onError { case error => log.error(s"cleaning failed with $error", error) /*TODO fail head cache*/ }
-            .start
-        }
-      } yield {
-        val release = List(consuming, cleaning).parFoldMap { _.cancel }
-        val topicCache = apply(topic, state, metrics, log)
-        (topicCache, release)
+          .onError { case error => log.error(s"consuming failed with $error", error)} /*TODO fail head cache*/
       }
 
-      Resource(topicCache)
+      def cleaning(state: SerialRef[F, State[F]]) = {
+        val cleaning = for {
+          _        <- Timer[F].sleep(config.cleanInterval)
+          pointers <- eventual.pointers(topic)
+          before   <- state.get
+          _        <- state.update { _.removeUntil(pointers.values).pure[F] }
+          after    <- state.get
+          removed   = before.size - after.size
+          _        <- if (removed > 0) log.debug(s"remove $removed entries") else ().pure[F]
+        } yield {}
+        cleaning
+          .foreverM[Unit]
+          .onError { case error => log.error(s"cleaning failed with $error", error) /*TODO fail head cache*/ }
+      }
+
+      def state(pointers: TopicPointers) = {
+        val entries = for {
+          (partition, offset) <- pointers.values
+        } yield {
+          val partitionEntry = PartitionEntry(offset = offset, entries = Map.empty, trimmed = None)
+          (partition, partitionEntry)
+        }
+        State[F](entries, List.empty)
+      }
+
+      for {
+        pointers  <- Resource.liftF(eventual.pointers(topic))
+        ref       <- Resource.liftF(SerialRef[F].of(state(pointers)))
+        // TODO add consumer check that we can start it, basically initializing part of HeadCacheConsumer
+        pointers   = ref.get.map(_.pointers)
+        _         <- ResourceOf(consume(ref, pointers).start)
+        _         <- ResourceOf(cleaning(ref).start)
+      } yield {
+        apply(topic, ref, metrics, log)
+      }
     }
 
     def apply[F[_] : Concurrent : Monad](
@@ -386,11 +383,10 @@ object HeadCache {
         // TODO
         val offset = records.foldLeft(Offset.Min) { _ max _.offset }
         val partitionEntry = PartitionEntry(
-          partition = partition,
           offset = offset,
           entries = entries,
           trimmed = None /*TODO*/)
-        (partitionEntry.partition, partitionEntry)
+        (partition, partitionEntry)
       }
     }
 
@@ -425,7 +421,6 @@ object HeadCache {
 
 
     final case class PartitionEntry(
-      partition: Partition,
       offset: Offset,
       entries: Map[String, Entry],
       trimmed: Option[Offset] /*TODO remove this field*/)
@@ -441,30 +436,36 @@ object HeadCache {
       }
     }
 
-    final case class State[F[_]](
-      entries: Map[Partition, PartitionEntry],
-      listeners: List[Listener[F]]
-    ) {
 
-      def size: Long = entries.values.foldLeft(0L) { _ + _.entries.size }
+    final case class State[F[_]](entries: Map[Partition, PartitionEntry], listeners: List[Listener[F]])
 
-      def removeUntil(pointers: Map[Partition, Offset]): State[F] = {
-        val updated = for {
-          (partition, offset) <- pointers
-          partitionEntry <- entries.get(partition)
-        } yield {
+    object State {
+
+      implicit class StateOps[F[_]](val self: State[F]) extends AnyVal {
+
+        def size: Long = self.entries.values.foldLeft(0L) { _ + _.entries.size }
+
+        def removeUntil(pointers: Map[Partition, Offset]): State[F] = {
           val entries = for {
-            (id, entry) <- partitionEntry.entries
-            if entry.offset > offset
+            (partition, offset) <- pointers
+            partitionEntry      <- self.entries.get(partition)
           } yield {
-            (id, entry)
+            val entries = partitionEntry.entries.filter { case (_, entry) => entry.offset > offset }
+            val trimmed = partitionEntry.trimmed.filter(_ > offset)
+            val updated = partitionEntry.copy(entries = entries, trimmed = trimmed)
+            (partition, updated)
           }
-          val trimmed = partitionEntry.trimmed.filter(_ > offset)
-          val updated = partitionEntry.copy(entries = entries, trimmed = trimmed)
-          (partition, updated)
+
+          self.copy(entries = self.entries ++ entries)
         }
 
-        copy(entries = entries ++ updated)
+        def pointers: Map[Partition, Offset] = {
+          for {
+            (partition, entry) <- self.entries
+          } yield {
+            (partition, entry.offset)
+          }
+        }
       }
     }
   }
@@ -589,9 +590,6 @@ object HeadCache {
   }
 
 
-  case object NoPartitionsError extends RuntimeException("No partitions") with NoStackTrace
-
-  
   implicit class HeadCacheOps[F[_]](val self: HeadCache[F]) extends AnyVal {
 
     def mapK[G[_]](f: F ~> G): HeadCache[G] = new HeadCache[G] {

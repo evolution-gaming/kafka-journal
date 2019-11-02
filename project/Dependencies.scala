@@ -21,7 +21,7 @@ object Dependencies {
   val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "1.1.0"
   val random               = "com.evolutiongaming"    %% "random"                % "0.0.6"
   val retry                = "com.evolutiongaming"    %% "retry"                 % "1.0.2"
-  val sstream              = "com.evolutiongaming"    %% "sstream"               % "0.0.11"
+  val sstream              = "com.evolutiongaming"    %% "sstream"               % "0.2.0"
   val skafka               = "com.evolutiongaming"    %% "skafka"                % "7.1.1"
   val scache               = "com.evolutiongaming"    %% "scache"                % "2.1.0"
 
