@@ -18,7 +18,7 @@ import com.evolutiongaming.kafka.journal.util.GracefulFiber
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
-import com.evolutiongaming.scache.Cache
+import com.evolutiongaming.scache.{Cache, Releasable}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecord, ConsumerRecords}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
 import com.evolutiongaming.smetrics.MetricsHelper._
@@ -87,8 +87,8 @@ object HeadCache {
 
       def topicCache(topic: Topic) = {
         val logTopic = log.prefixed(topic)
-        for {
-          _          <- logTopic.info("create")
+        val topicCache = for {
+          _          <- Resource.liftF(logTopic.info("create"))
           consumer1   = consumer.map(Consumer(_, logTopic))
           topicCache <- TopicCache.of(
             topic = topic,
@@ -100,37 +100,28 @@ object HeadCache {
         } yield {
           topicCache
         }
+
+        Releasable.of(topicCache)
       }
 
-      val release = for {
-        v <- cache.values
-        _ <- v.values.toList.parFoldMap { v =>
-          for {
-            v <- v
-            _ <- v.close // TODO not needed, let's rely on LoadingCache
-          } yield {}
-        }
-      } yield {}
-
-      val headCache: HeadCache[F] = new HeadCache[F] {
+      new HeadCache[F] {
 
         def get(key: Key, partition: Partition, offset: Offset) = {
           val topic = key.topic
           for {
-            topicCache <- cache.getOrUpdate(topic)(topicCache(topic))
+            topicCache <- cache.getOrUpdateReleasable(topic)(topicCache(topic))
             result     <- topicCache.get(id = key.id, partition = partition, offset = offset)
           } yield result
         }
       }
-
-      Resource((headCache, release).pure[F])
     }
 
     val result = for {
       cache     <- Cache.loading[F, Topic, TopicCache[F]]
       cache     <- metrics.fold(Resource.liftF(cache.pure[F])) { metrics => cache.withMetrics(metrics.cache) }
-      headCache <- headCache(cache)
-    } yield headCache
+    } yield {
+      headCache(cache)
+    }
     
     result.withFence
   }
@@ -172,8 +163,6 @@ object HeadCache {
   trait TopicCache[F[_]] {
 
     def get(id: String, partition: Partition, offset: Offset): F[Result]
-
-    def close: F[Unit]
   }
 
   object TopicCache {
@@ -188,9 +177,9 @@ object HeadCache {
       metrics: Metrics[F],
       log: Log[F])(implicit
       consumerRecordToKafkaRecord: ConsumerRecordToKafkaRecord[F]
-    ): F[TopicCache[F]] = {
+    ): Resource[F, TopicCache[F]] = {
 
-      for {
+      val topicCache = for {
         pointers  <- eventual.pointers(topic)
         entries    = for {
           (partition, offset) <- pointers.values
@@ -254,13 +243,15 @@ object HeadCache {
         }
       } yield {
         val release = List(consuming, cleaning).parFoldMap { _.cancel }
-        apply(topic, release, state, metrics, log)
+        val topicCache = apply(topic, state, metrics, log)
+        (topicCache, release)
       }
+
+      Resource(topicCache)
     }
 
     def apply[F[_] : Concurrent : Monad](
       topic: Topic,
-      release: F[Unit],
       stateRef: SerialRef[F, State[F]],
       metrics: Metrics[F],
       log: Log[F]
@@ -347,13 +338,6 @@ object HeadCache {
               _.pure[F]
             }
           } yield result
-        }
-
-        def close = {
-          for {
-            _ <- log.debug("close")
-            _ <- release // TODO should be idempotent
-          } yield {}
         }
       }
     }
