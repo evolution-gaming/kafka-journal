@@ -330,11 +330,6 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
       result.run(10.seconds)
     }
 
-    // TODO implement
-    "fail on consumer errors" in {
-      ().pure[IO].run()
-    }
-
     "not leak resources on release" in {
       val consumer   = HeadCache.Consumer.empty[IO]
       val headCache  = headCacheOf(

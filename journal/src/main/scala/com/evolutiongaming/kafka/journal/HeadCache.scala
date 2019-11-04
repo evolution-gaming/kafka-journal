@@ -149,9 +149,20 @@ object HeadCache {
         stream
           .foreach { records0 =>
             val records = records0.toList.toMap
+
+            def measureRound(state: State[F], now: Long) = {
+              val latency = records.values.foldLeft(0L) { case (latency, records) =>
+                latency max now - records.head.timestamp.toEpochMilli
+              }
+              metrics.round(
+                topic = topic,
+                entries = state.size,
+                listeners = state.listeners.size,
+                deliveryLatency = latency.millis)
+            }
+
             for {
               now     <- Clock[F].millis
-              latency  = records.values.flatMap(_.toList).headOption.fold(0L) { record => now - record.timestamp.toEpochMilli }
               entries  = partitionEntries(records)
               state   <- state.modify { state =>
                 val combined = combineAndTrim(state.entries, entries, config.maxSize)
@@ -163,11 +174,7 @@ object HeadCache {
                   (state1, state1)
                 }
               }
-              _       <- metrics.round(
-                topic = topic,
-                entries = state.size,
-                listeners = state.listeners.size,
-                deliveryLatency = latency.millis)
+              _       <- measureRound(state, now)
             } yield {}
           }
           .onError { case error => log.error(s"consuming failed with $error", error)} /*TODO fail head cache*/
@@ -195,7 +202,7 @@ object HeadCache {
           val partitionEntry = PartitionEntry(offset = offset, entries = Map.empty, trimmed = None)
           (partition, partitionEntry)
         }
-        State[F](entries, List.empty)
+        State(entries, Set.empty[Listener[F]])
       }
 
       def stateRef(state: State[F]) = {
@@ -204,13 +211,13 @@ object HeadCache {
         } { stateRef =>
 
           def removeListeners(state: State[F]) = {
-            val state1 = state.copy(listeners = List.empty[Listener[F]])
+            val state1 = state.copy(listeners = Set.empty[Listener[F]])
             (state1, state.listeners)
           }
 
           for {
             listeners <- stateRef.modify { state => removeListeners(state).pure[F] }
-            _         <- listeners.parFoldMap { listener => listener.release }
+            _         <- listeners.toList.parFoldMap { _.release }
           } yield {}
         }
       }
@@ -218,7 +225,6 @@ object HeadCache {
       for {
         pointers <- Resource.liftF(eventual.pointers(topic))
         stateRef <- stateRef(state(pointers))
-        // TODO add consumer check that we can start it, basically initializing part of HeadCacheConsumer
         pointers  = stateRef.get.map(_.pointers)
         _        <- ResourceOf(consume(stateRef, pointers).start)
         _        <- ResourceOf(cleaning(stateRef).start)
@@ -301,10 +307,10 @@ object HeadCache {
               deferred <- Deferred[F, F[Option[HeadInfo]]]
               listener  = listenerOf(deferred)
               _        <- log.debug(s"add listener, id: $id, offset: $partition:$offset")
-              state1    = state.copy(listeners = listener :: state.listeners)
+              state1    = state.copy(listeners = state.listeners + listener)
               _        <- metrics.listeners(topic, state1.listeners.size)
             } yield {
-              val stateNew = state.copy(listeners = listener :: state.listeners)
+              val stateNew = state.copy(listeners = state.listeners + listener)
 
               val result = deferred
                 .get
@@ -368,7 +374,6 @@ object HeadCache {
             if (partitionEntry.entries.size <= maxSizePartition) {
               partitionEntry
             } else {
-              // TODO
               val offset = partitionEntry.entries.values.foldLeft(Offset.Min) { _ max _.offset }
               // TODO remove half
               partitionEntry.copy(entries = Map.empty, trimmed = Some(offset))
@@ -405,7 +410,6 @@ object HeadCache {
           (entry.id, entry)
         }
 
-        // TODO
         val offset = records.foldLeft(Offset.Min) { _ max _.offset }
         val partitionEntry = PartitionEntry(
           offset = offset,
@@ -417,15 +421,15 @@ object HeadCache {
 
 
     private def runListeners[F[_]](
-      listeners: List[Listener[F]],
+      listeners: Set[Listener[F]],
       entries: Map[Partition, PartitionEntry]
-    ): (List[Listener[F]], List[F[Unit]]) = {
+    ): (Set[Listener[F]], List[F[Unit]]) = {
 
-      val zero = (List.empty[Listener[F]], List.empty[F[Unit]])
-      listeners.foldLeft(zero) { case ((listeners, completed), listener) =>
+      val zero = (Set.empty[Listener[F]], List.empty[F[Unit]])
+      listeners.foldLeft(zero) { case ((listeners, results), listener) =>
         listener(entries) match {
-          case None         => (listener :: listeners, completed)
-          case Some(result) => (listeners, result :: completed)
+          case None         => (listeners + listener, results)
+          case Some(result) => (listeners, result :: results)
         }
       }
     }
@@ -462,8 +466,7 @@ object HeadCache {
     }
 
 
-    // TODO List[Listener] -> Set[Listener]
-    final case class State[F[_]](entries: Map[Partition, PartitionEntry], listeners: List[Listener[F]])
+    final case class State[F[_]](entries: Map[Partition, PartitionEntry], listeners: Set[Listener[F]])
 
     object State {
 
@@ -477,7 +480,7 @@ object HeadCache {
             partitionEntry      <- self.entries.get(partition)
           } yield {
             val entries = partitionEntry.entries.filter { case (_, entry) => entry.offset > offset }
-            val trimmed = partitionEntry.trimmed.filter(_ > offset)
+            val trimmed = partitionEntry.trimmed.filter { _ > offset }
             val updated = partitionEntry.copy(entries = entries, trimmed = trimmed)
             (partition, updated)
           }

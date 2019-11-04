@@ -16,7 +16,6 @@ import scodec.bits.ByteVector
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 
-// TODO test
 object HeadCacheConsuming {
 
   def apply[F[_] : BracketThrowable : Timer : ContextShift](
