@@ -63,8 +63,7 @@ object HeadCache {
       log       <- Resource.liftF(LogOf[F].apply(HeadCache.getClass))
       headCache <- HeadCache.of(eventual, log, consumer, metrics)
     } yield {
-      val headCache1 = headCache.withLog(log)
-      metrics.fold(headCache1) { metrics => headCache1.withMetrics(metrics.headCache) }
+      metrics.fold { headCache } { metrics => headCache.withMetrics(metrics.headCache) }
     }
   }
 

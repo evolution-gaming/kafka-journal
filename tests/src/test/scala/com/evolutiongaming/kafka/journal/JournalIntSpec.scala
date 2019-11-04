@@ -32,10 +32,10 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
       val log = Log.empty[IO]
 
       val headCache1 = if (headCache) {
-        HeadCache.of[IO](
+        val headCacheOf = HeadCacheOf[IO](HeadCacheMetrics.empty[IO].some)
+        headCacheOf(
           config.journal.consumer,
-          eventualJournal,
-          HeadCacheMetrics.empty[IO].some)
+          eventualJournal)
       } else {
         Resource.pure[IO, HeadCache[IO]](HeadCache.empty[IO])
       }

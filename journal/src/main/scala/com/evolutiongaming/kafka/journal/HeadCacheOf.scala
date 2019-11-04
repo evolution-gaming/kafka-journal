@@ -33,7 +33,12 @@ object HeadCacheOf {
     metrics: Option[HeadCacheMetrics[F]]
   ): HeadCacheOf[F] = {
     (consumerConfig: ConsumerConfig, eventualJournal: EventualJournal[F]) => {
-      HeadCache.of[F](consumerConfig, eventualJournal, metrics)
+      for {
+        headCache <- HeadCache.of[F](consumerConfig, eventualJournal, metrics)
+        log       <- Resource.liftF(LogOf[F].apply(HeadCache.getClass))
+      } yield {
+        headCache.withLog(log)
+      }
     }
   }
 }
