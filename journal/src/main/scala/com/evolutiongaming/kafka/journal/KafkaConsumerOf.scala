@@ -31,7 +31,7 @@ object KafkaConsumerOf {
   }
 
 
-  def apply[F[_] : Concurrent](
+  def apply[F[_] : Concurrent : ContextShift](
     consumerOf: ConsumerOf[F]
   ): KafkaConsumerOf[F] = new KafkaConsumerOf[F] {
 
@@ -41,7 +41,12 @@ object KafkaConsumerOf {
       fromBytesV: skafka.FromBytes[F, V]
     ) = {
       val consumer = consumerOf[K, V](config)
-      KafkaConsumer.of(consumer)
+      for {
+        consumer <- KafkaConsumer.of(consumer)
+      } yield {
+        // TODO not sure this is really needed, there is something weird with consumer sometimes
+        consumer.withShiftPoll
+      }
     }
   }
 }

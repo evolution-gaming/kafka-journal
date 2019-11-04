@@ -42,7 +42,7 @@ trait TopicReplicator[F[_]] {
 object TopicReplicator { self =>
 
   // TODO should return Resource
-  def of[F[_] : Concurrent : Timer : Parallel : LogOf : FromTry : ContextShift](
+  def of[F[_] : Concurrent : Timer : Parallel : LogOf : FromTry](
     topic: Topic,
     journal: ReplicatedJournal[F],
     consumer: Resource[F, Consumer[F]],
@@ -118,7 +118,7 @@ object TopicReplicator { self =>
   }
 
   //  TODO return error in case failed to connect
-  def of[F[_] : Concurrent : Clock : Parallel : Log : FromTry : ContextShift](
+  def of[F[_] : Concurrent : Clock : Parallel : Log : FromTry](
     topic: Topic,
     stopRef: StopRef[F],
     consumer: Consumer[F],
@@ -307,7 +307,7 @@ object TopicReplicator { self =>
           consumerRecords <- consumer.poll
           records          = consumerRecords.values
           state           <- {
-            if (records.isEmpty) ContextShift[F].shift *> state.asLeft[Unit].pure[F]
+            if (records.isEmpty) state.asLeft[Unit].pure[F]
             else ifContinue { consume(timestamp, records) }
           }
         } yield state

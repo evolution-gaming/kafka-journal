@@ -16,7 +16,7 @@ trait CassandraHealthCheck[F[_]] {
 
 object CassandraHealthCheck {
 
-  def of[F[_] : Concurrent : Timer : ContextShift : LogOf](
+  def of[F[_] : Concurrent : Timer : LogOf](
     session: Resource[F, CassandraSession[F]]
   ): Resource[F, CassandraHealthCheck[F]] = {
 
@@ -37,7 +37,7 @@ object CassandraHealthCheck {
     } yield result
   }
 
-  def of[F[_] : Concurrent : Timer : ContextShift : Log](
+  def of[F[_] : Concurrent : Timer : Log](
     initial: FiniteDuration,
     interval: FiniteDuration,
     statement: Resource[F, Statement[F]]

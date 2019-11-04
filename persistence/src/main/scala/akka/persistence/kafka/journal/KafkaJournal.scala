@@ -116,18 +116,18 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
       batching             <- batching(config)
       cassandraClusterOf   <- cassandraClusterOf
       adapter              <- adapterOf(
-        toKey                = toKey,
-        origin               = origin,
-        serializer           = serializer,
-        config               = config,
-        metrics              = metrics,
-        appendMetadataOf = metadataAndHeadersOf,
-        batching             = batching,
-        log                  = log,
-        cassandraClusterOf   = cassandraClusterOf)(
-        logOf                = logOf,
-        randomId             = randomId,
-        measureDuration      = measureDuration)
+        toKey              = toKey,
+        origin             = origin,
+        serializer         = serializer,
+        config             = config,
+        metrics            = metrics,
+        appendMetadataOf   = metadataAndHeadersOf,
+        batching           = batching,
+        log                = log,
+        cassandraClusterOf = cassandraClusterOf)(
+        logOf              = logOf,
+        randomId           = randomId,
+        measureDuration    = measureDuration)
     } yield {
       (adapter, log)
     }

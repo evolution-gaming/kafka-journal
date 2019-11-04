@@ -67,7 +67,7 @@ object Journal {
   }
 
 
-  def of[F[_] : Concurrent : ContextShift : Timer : Parallel : LogOf : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomId : MeasureDuration : FromTry](
+  def of[F[_] : Concurrent : Timer : Parallel : LogOf : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomId : MeasureDuration : FromTry](
     config: JournalConfig,
     origin: Option[Origin],
     eventualJournal: EventualJournal[F],
@@ -103,7 +103,7 @@ object Journal {
   }
 
 
-  def apply[F[_] : Concurrent : ContextShift : Parallel : Clock : RandomId : FromTry](
+  def apply[F[_] : Concurrent : Parallel : Clock : RandomId : FromTry](
     origin: Option[Origin],
     producer: Producer[F],
     consumer: Resource[F, Consumer[F]],

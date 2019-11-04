@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.data.{NonEmptyList => Nel}
-import cats.effect.{ContextShift, Resource}
+import cats.effect.Resource
 import cats.implicits._
 import cats.~>
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
@@ -19,7 +19,7 @@ trait ConsumeActionRecords[F[_]] {
 
 object ConsumeActionRecords {
 
-  def apply[F[_]: BracketThrowable: ContextShift](
+  def apply[F[_] : BracketThrowable](
     consumer: Resource[F, Journal.Consumer[F]],
     log: Log[F])(implicit
     consumerRecordToActionRecord: ConsumerRecordToActionRecord[F]
@@ -46,7 +46,6 @@ object ConsumeActionRecords {
       def poll(consumer: Journal.Consumer[F]) = {
         for {
           records0 <- consumer.poll
-          _        <- if (records0.values.isEmpty) ContextShift[F].shift else ().pure[F]
           records   = filter(records0.values.values.toList)
           actions  <- records.traverseFilter(consumerRecordToActionRecord.apply)
         } yield actions

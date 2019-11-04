@@ -7,7 +7,7 @@ import cats.implicits._
 
 object StartResource {
 
-  def apply[F[_] : Concurrent : ContextShift, A, B](
+  def apply[F[_] : Concurrent, A, B](
     res: Resource[F, A])(
     use: A => F[B]
   ): F[Fiber[F, B]] = {

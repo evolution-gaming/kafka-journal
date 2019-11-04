@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.implicits._
-import cats.{Applicative, ~>}
+import cats.{Applicative, Monad, ~>}
 import com.evolutiongaming.kafka.journal.util.Named
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecords}
@@ -147,6 +147,34 @@ object KafkaConsumer {
       def partitions(topic: Topic) = f(self.partitions(topic), "partitions")
 
       def assignment = f(self.assignment, "assignment")
+    }
+
+
+    implicit def withShiftPoll(implicit F: Monad[F], contextShift: ContextShift[F]): KafkaConsumer[F, K, V] = {
+
+      new KafkaConsumer[F, K, V] {
+
+        def assign(partitions: Nel[TopicPartition]) = self.assign(partitions)
+
+        def seek(partition: TopicPartition, offset: Offset) = self.seek(partition, offset)
+
+        def subscribe(topic: Topic) = self.subscribe(topic)
+
+        def poll(timeout: FiniteDuration) = {
+          for {
+            a <- self.poll(timeout)
+            _ <- if (a.values.isEmpty) contextShift.shift else ().pure[F]
+          } yield a
+        }
+
+        def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = self.commit(offsets)
+
+        def topics = self.topics
+
+        def partitions(topic: Topic) = self.partitions(topic)
+
+        def assignment = self.assignment
+      }
     }
   }
 }

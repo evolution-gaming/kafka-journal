@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.data.{NonEmptyList => Nel}
-import cats.effect.{ContextShift, Resource, Timer}
+import cats.effect.{Resource, Timer}
 import cats.implicits._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.kafka.journal.HeadCache.{Consumer, ConsumerRecordToKafkaRecord, KafkaRecord}
@@ -18,7 +18,7 @@ import scala.util.control.NoStackTrace
 
 object HeadCacheConsuming {
 
-  def apply[F[_] : BracketThrowable : Timer : ContextShift](
+  def apply[F[_] : BracketThrowable : Timer](
     topic: Topic,
     pointers: F[Map[Partition, Offset]],
     pollTimeout: FiniteDuration,
@@ -42,7 +42,6 @@ object HeadCacheConsuming {
     def poll(consumer: Consumer[F]) = {
       for {
         records <- consumer.poll(pollTimeout)
-        _       <- if (records.values.isEmpty) ContextShift[F].shift else ().pure[F] // TODO remove from here
         records <- kafkaRecords(records)
       } yield {
         Nel.fromList(records)

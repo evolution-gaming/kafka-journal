@@ -30,7 +30,7 @@ object KafkaHealthCheck {
   }
   
 
-  def of[F[_] : Concurrent : ContextShift : Timer : LogOf : KafkaConsumerOf : KafkaProducerOf : RandomId : FromTry](
+  def of[F[_] : Concurrent : Timer : LogOf : KafkaConsumerOf : KafkaProducerOf : RandomId : FromTry](
     config: Config,
     producerConfig: ProducerConfig,
     consumerConfig: ConsumerConfig
@@ -57,7 +57,7 @@ object KafkaHealthCheck {
     Resource.liftF(result).flatten
   }
 
-  def of[F[_] : Concurrent : Timer : ContextShift : Log](
+  def of[F[_] : Concurrent : Timer : Log](
     key: String,
     config: Config,
     stop: F[Boolean],
@@ -82,7 +82,7 @@ object KafkaHealthCheck {
     Resource(result)
   }
 
-  def run[F[_] : Concurrent : Timer : ContextShift : Log](
+  def run[F[_] : Concurrent : Timer : Log](
     key: String,
     config: Config,
     stop: F[Boolean],
@@ -110,7 +110,6 @@ object KafkaHealthCheck {
           found    = records.find { record => record.key.contains(key) && record.value.contains(value) }
           result  <- found.fold {
             for {
-              _ <- ContextShift[F].shift
               _ <- sleep
               _ <- produce(s"$n:$retry")
             } yield {
@@ -139,15 +138,10 @@ object KafkaHealthCheck {
         _      <- set(error)
         _      <- sleep
         stop   <- stop
-        result <- {
-          if (stop) ().asRight[Long].pure[F]
-          else for {
-            _ <- ContextShift[F].shift
-          } yield {
-            (n + 1).asLeft[Unit]
-          }
-        }
-      } yield result
+      } yield {
+        if (stop) ().asRight[Long]
+        else (n + 1).asLeft[Unit]
+      }
     }
 
     for {
