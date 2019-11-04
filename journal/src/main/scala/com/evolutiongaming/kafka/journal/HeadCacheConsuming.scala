@@ -9,7 +9,6 @@ import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.skafka.consumer.ConsumerRecords
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
-import com.evolutiongaming.sstream.FoldWhile._
 import com.evolutiongaming.sstream.Stream
 import scodec.bits.ByteVector
 
@@ -25,7 +24,7 @@ object HeadCacheConsuming {
     consumer: Resource[F, Consumer[F]],
     log: Log[F])(implicit
     consumerRecordToKafkaRecord: ConsumerRecordToKafkaRecord[F]
-  ): Stream[F, Nel[(Partition, Nel[KafkaRecord])]] = {
+  ): Stream[F, List[(Partition, Nel[KafkaRecord])]] = {
 
     def kafkaRecords(records: ConsumerRecords[String, ByteVector]): F[List[(Partition, Nel[KafkaRecord])]] = {
       records
@@ -43,9 +42,7 @@ object HeadCacheConsuming {
       for {
         records <- consumer.poll(pollTimeout)
         records <- kafkaRecords(records)
-      } yield {
-        Nel.fromList(records)
-      }
+      } yield records
     }
 
     def partitions(consumer: Consumer[F]): F[Nel[Partition]] = {
@@ -109,8 +106,7 @@ object HeadCacheConsuming {
       _        <- Stream.around(retry.toFunctionK)
       consumer <- Stream.fromResource(consumer)
       _        <- Stream.lift(seek(consumer))
-      records  <- Stream.repeat(poll(consumer))
-      records  <- Stream[F].apply(records)
+      records  <- Stream.repeat(poll(consumer)) if records.nonEmpty
     } yield records
   }
 

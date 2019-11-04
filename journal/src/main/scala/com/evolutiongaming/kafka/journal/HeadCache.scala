@@ -16,6 +16,7 @@ import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointer
 import com.evolutiongaming.kafka.journal.util.EitherHelper._
 import com.evolutiongaming.kafka.journal.util.ResourceOf
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.scache.{Cache, Releasable}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecord, ConsumerRecords}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
@@ -137,7 +138,8 @@ object HeadCache {
       consumerRecordToKafkaRecord: ConsumerRecordToKafkaRecord[F]
     ): Resource[F, TopicCache[F]] = {
 
-      def consume(state: SerialRef[F, State[F]], pointers: F[Map[Partition, Offset]]) = {
+      // TODO replace SerialRef with Ref
+      def consume(stateRef: SerialRef[F, State[F]], pointers: F[Map[Partition, Offset]]) = {
 
         val stream = HeadCacheConsuming(
           topic = topic,
@@ -148,45 +150,45 @@ object HeadCache {
 
         stream
           .foreach { records0 =>
-            val records = records0.toList.toMap
+            val records = records0.toMap
 
-            def measureRound(state: State[F], now: Long) = {
-              val latency = records.values.foldLeft(0L) { case (latency, records) =>
-                latency max now - records.head.timestamp.toEpochMilli
+            def measureRound(state: State[F], now: Instant) = {
+              val latency = records.values.foldLeft(0.millis) { case (latency, records) =>
+                latency max (now diff records.head.timestamp)
               }
               metrics.round(
                 topic = topic,
                 entries = state.size,
                 listeners = state.listeners.size,
-                deliveryLatency = latency.millis)
+                deliveryLatency = latency)
+            }
+
+            def combineAndRun(state: State[F], entries: Map[Partition, PartitionEntry]) = {
+              val combined = combineAndTrim(state.entries, entries, config.maxSize)
+              val (listeners, completed) = runListeners(state.listeners, combined)
+              val state1  = state.copy(entries = combined, listeners = listeners)
+              (state1, (state1, completed))
             }
 
             for {
-              now     <- Clock[F].millis
+              now     <- Clock[F].instant
               entries  = partitionEntries(records)
-              state   <- state.modify { state =>
-                val combined = combineAndTrim(state.entries, entries, config.maxSize)
-                val (listeners, completed) = runListeners(state.listeners, combined)
-                for {
-                  _      <- completed.parFold
-                  state1  = state.copy(entries = combined, listeners = listeners)
-                } yield {
-                  (state1, state1)
-                }
-              }
+              ab      <- stateRef.modify { state => combineAndRun(state, entries).pure[F] }
+              (state, completed) = ab
+              _       <- completed.parFold
               _       <- measureRound(state, now)
             } yield {}
           }
           .onError { case error => log.error(s"consuming failed with $error", error)} /*TODO fail head cache*/
       }
 
-      def cleaning(state: SerialRef[F, State[F]]) = {
+      def cleaning(stateRef: SerialRef[F, State[F]]) = {
         val cleaning = for {
           _        <- Timer[F].sleep(config.cleanInterval)
           pointers <- eventual.pointers(topic)
-          before   <- state.get
-          _        <- state.update { _.removeUntil(pointers.values).pure[F] }
-          after    <- state.get
+          before   <- stateRef.get
+          _        <- stateRef.update { _.removeUntil(pointers.values).pure[F] }
+          after    <- stateRef.get
           removed   = before.size - after.size
           _        <- if (removed > 0) log.debug(s"remove $removed entries") else ().pure[F]
         } yield {}
@@ -315,7 +317,7 @@ object HeadCache {
               val result = deferred
                 .get
                 .flatten
-                .onCancel { stateRef.update { state => state.copy(listeners = state.listeners.filter(_ != listener) ).pure[F] }  }
+                .onCancel { stateRef.update { state => state.copy(listeners = state.listeners - listener ).pure[F] }  }
               
               (stateNew, result)
             }
