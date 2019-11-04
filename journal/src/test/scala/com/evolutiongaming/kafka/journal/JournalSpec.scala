@@ -19,6 +19,7 @@ import com.evolutiongaming.sstream.Stream
 import org.scalatest.{Assertion, Matchers, WordSpec}
 
 import scala.collection.immutable.Queue
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -212,7 +213,8 @@ class JournalSpec extends WordSpec with Matchers {
     // TODO add case with failing head cache
     for {
       (headCacheStr, headCache) <- List(
-        ("invalid", HeadCache.empty[StateT]),
+        ("invalid", HeadCache.const(HeadCacheError.invalid.asLeft[HeadInfo].pure[StateT])),
+        ("timeout", HeadCache.const(HeadCacheError.timeout(1.second).asLeft[HeadInfo].pure[StateT])),
         ("valid",   StateT.headCache))
     } {
 
@@ -561,7 +563,7 @@ object JournalSpec {
 
         StateT { state =>
           val headInfo = state.records.foldLeft(HeadInfo.empty) { (info, record) => info(record.action.header) }
-          (state, headInfo.some)
+          (state, headInfo.asRight)
         }
       }
     }

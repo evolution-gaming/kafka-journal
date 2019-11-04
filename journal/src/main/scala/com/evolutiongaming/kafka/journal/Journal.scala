@@ -156,15 +156,15 @@ object Journal {
 
         for {
           result <- headCache.get(key, partition = marker.partition, offset = Offset.Min max marker.offset - 1)
-          result <- result.fold {
-            for {
-              stream   <- stream
-              headInfo <- stream(none).fold(HeadInfo.empty) { (info, action) => info(action.action.header) }
-            } yield {
-              (headInfo, stream.pure[F])
-            }
-          } { headInfo =>
-            (headInfo, stream).pure[F]
+          result <- result match {
+            case Right(headInfo) => (headInfo, stream).pure[F]
+            case Left(_)         =>
+              for {
+                stream   <- stream
+                headInfo <- stream(none).fold(HeadInfo.empty) { (info, action) => info(action.action.header) }
+              } yield {
+                (headInfo, stream.pure[F])
+              }
           }
         } yield result
       }

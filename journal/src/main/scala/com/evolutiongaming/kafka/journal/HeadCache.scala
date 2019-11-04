@@ -38,13 +38,18 @@ import scala.concurrent.duration._
   */
 trait HeadCache[F[_]] {
 
-  def get(key: Key, partition: Partition, offset: Offset): F[Option[HeadInfo]]
+  def get(key: Key, partition: Partition, offset: Offset): F[Either[HeadCacheError, HeadInfo]]
 }
 
 
 object HeadCache {
 
-  def empty[F[_] : Applicative]: HeadCache[F] = (_: Key, _: Partition, _: Offset) => none[HeadInfo].pure[F]
+  def empty[F[_] : Applicative]: HeadCache[F] = const(HeadCacheError.invalid.asLeft[HeadInfo].pure[F])
+
+
+  def const[F[_]](value: F[Either[HeadCacheError, HeadInfo]]): HeadCache[F] = {
+    (_: Key, _: Partition, _: Offset) => value
+  }
 
 
   def of[F[_] : Concurrent : Parallel : Timer : ContextShift : LogOf : KafkaConsumerOf : MeasureDuration : FromTry : FromAttempt : FromJsResult](
@@ -119,7 +124,9 @@ object HeadCache {
   }
 
 
+  // TODO extract
   final case class Config(
+    timeout: FiniteDuration = 3.seconds,
     pollTimeout: FiniteDuration = 10.millis,
     cleanInterval: FiniteDuration = 1.second,
     maxSize: Int = 100000
@@ -137,7 +144,7 @@ object HeadCache {
 
   trait TopicCache[F[_]] {
 
-    def get(id: String, partition: Partition, offset: Offset): F[Option[HeadInfo]]
+    def get(id: String, partition: Partition, offset: Offset): F[Either[HeadCacheError, HeadInfo]]
   }
 
   object TopicCache {
@@ -223,15 +230,16 @@ object HeadCache {
         _         <- ResourceOf(consume(ref, pointers).start)
         _         <- ResourceOf(cleaning(ref).start)
       } yield {
-        apply(topic, ref, metrics, log)
+        apply(topic, ref, metrics, log, config.timeout)
       }
     }
 
-    def apply[F[_] : Concurrent : Monad](
+    def apply[F[_] : Concurrent : Timer](
       topic: Topic,
       stateRef: SerialRef[F, State[F]],
       metrics: Metrics[F],
-      log: Log[F]
+      log: Log[F],
+      timeout: FiniteDuration
     ): TopicCache[F] = {
 
       // TODO handle case with replicator being down
@@ -240,7 +248,7 @@ object HeadCache {
 
         def get(id: String, partition: Partition, offset: Offset) = {
 
-          sealed trait Error
+          sealed abstract class Error
 
           object Error {
             case object Trimmed extends Error
@@ -248,11 +256,11 @@ object HeadCache {
             case object Behind extends Error
           }
 
-          def entryOf(entries: Map[Partition, PartitionEntry]): Option[Option[HeadInfo]] = {
+          def headInfoOf(entries: Map[Partition, PartitionEntry]): Option[Option[HeadInfo]] = {
             val result = for {
-              pe <- entries.get(partition) toRight Error.Invalid
-              _  <- pe.offset >= offset trueOr Error.Behind
-              r  <- pe.entries.get(id).fold {
+              partitionEntry <- entries.get(partition) toRight Error.Invalid
+              _              <- partitionEntry.offset >= offset trueOr Error.Behind
+              result         <- partitionEntry.entries.get(id).fold {
                 // TODO Test this                             
                 // TODO
                 //                  val replicatedTo: Offset =
@@ -261,14 +269,14 @@ object HeadCache {
                 //                    Result(None, None).asRight
                 //                  } else if (partitionEntry.trimmed.) {
                 for {
-                  _ <- pe.trimmed.isEmpty trueOr Error.Trimmed
+                  _ <- partitionEntry.trimmed.isEmpty trueOr Error.Trimmed
                 } yield {
                   HeadInfo.empty.some
                 }
-              } { e =>
-                e.info.some.asRight
+              } { entry =>
+                entry.info.some.asRight
               }
-            } yield r
+            } yield result
 
             result match {
               case Right(result)       => result.some
@@ -283,7 +291,7 @@ object HeadCache {
               deferred <- Deferred[F, Option[HeadInfo]]
               listener  = (entries: Map[Partition, PartitionEntry]) => {
                 for {
-                  r <- entryOf(entries)
+                  r <- headInfoOf(entries)
                 } yield for {
                   _ <- deferred.complete(r)
                   _ <- log.debug(s"remove listener, id: $id, offset: $partition:$offset")
@@ -298,12 +306,12 @@ object HeadCache {
             }
           }
 
-          for {
+          val result: F[Option[HeadInfo]] = for {
             state  <- stateRef.get
-            result <- entryOf(state.entries).fold {
+            result <- headInfoOf(state.entries).fold {
               for {
                 result <- stateRef.modify { state =>
-                  entryOf(state.entries).fold {
+                  headInfoOf(state.entries).fold {
                     update(state)
                   } { entry =>
                     (state, entry.pure[F]).pure[F]
@@ -315,6 +323,14 @@ object HeadCache {
               _.pure[F]
             }
           } yield result
+
+          result
+            .race(Timer[F].sleep(timeout))
+            .map {
+              case Left(Some(a)) => a.asRight[HeadCacheError]
+              case Left(None)    => HeadCacheError.invalid.asLeft[HeadInfo]
+              case Right(_)      => HeadCacheError.timeout(timeout).asLeft[HeadInfo]
+            }
         }
       }
     }
@@ -484,6 +500,18 @@ object HeadCache {
 
   object Consumer {
 
+    def empty[F[_] : Applicative]: Consumer[F] = new Consumer[F] {
+
+      def assign(topic: Topic, partitions: Nel[Partition]) = ().pure[F]
+
+      def seek(topic: Topic, offsets: Map[Partition, Offset]) = ().pure[F]
+
+      def poll(timeout: FiniteDuration) = ConsumerRecords.empty[String, ByteVector].pure[F]
+
+      def partitions(topic: Topic) = Set.empty[Partition].pure[F]
+    }
+
+
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
     def apply[F[_] : Monad](consumer: KafkaConsumer[F, String, ByteVector]): Consumer[F] = {
@@ -607,18 +635,24 @@ object HeadCache {
     ): HeadCache[F] = new HeadCache[F] {
 
       def get(key: Key, partition: Partition, offset: Offset) = {
+
+        def result(result: Either[Throwable, Either[HeadCacheError, HeadInfo]]) = {
+          result match {
+            case Right(Right(HeadInfo.Empty))           => Metrics.Result.Replicated
+            case Right(Right(_: HeadInfo.NonEmpty))     => Metrics.Result.NotReplicated
+            case Right(Left(HeadCacheError.Invalid))    => Metrics.Result.Invalid
+            case Right(Left(_: HeadCacheError.Timeout)) => Metrics.Result.Timeout
+            case Left(_)                                => Metrics.Result.Failure
+          }
+        }
+
         for {
           d <- MeasureDuration[F].start
           r <- self.get(key, partition, offset).attempt
           d <- d
-          result = r match {
-            case Right(Some(_: HeadInfo.NonEmpty)) => Metrics.Result.NotReplicated
-            case Right(Some(HeadInfo.Empty))       => Metrics.Result.Replicated
-            case Right(None)                       => Metrics.Result.Invalid
-            case Left(_)                           => Metrics.Result.Failure
-          }
-          _      <- metrics.get(key.topic, d, result)
-          r      <- r.fold(_.raiseError[F, Option[HeadInfo]], _.pure[F])
+          a  = result(r)
+          _ <- metrics.get(key.topic, d, a)
+          r <- r.liftTo[F]
         } yield r
       }
     }
@@ -652,7 +686,6 @@ object HeadCache {
 
     def round(topic: Topic, entries: Long, listeners: Int, deliveryLatency: FiniteDuration): F[Unit]
   }
-
 
   object Metrics {
 
@@ -728,6 +761,7 @@ object HeadCache {
               case Result.Replicated    => "replicated"
               case Result.NotReplicated => "not_replicated"
               case Result.Invalid       => "invalid"
+              case Result.Timeout       => "timeout"
               case Result.Failure       => "failure"
             }
 
@@ -759,6 +793,7 @@ object HeadCache {
       case object Replicated extends Result
       case object NotReplicated extends Result
       case object Invalid extends Result
+      case object Timeout extends Result
       case object Failure extends Result
     }
   }
