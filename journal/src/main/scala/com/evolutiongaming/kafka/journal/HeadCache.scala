@@ -21,8 +21,6 @@ import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, Con
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
 import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.smetrics._
-import pureconfig.ConfigReader
-import pureconfig.generic.semiauto.deriveReader
 import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
@@ -76,7 +74,7 @@ object HeadCache {
     log: Log[F],
     consumer: Resource[F, Consumer[F]],
     metrics: Option[HeadCacheMetrics[F]],
-    config: Config = Config.default
+    config: HeadCacheConfig = HeadCacheConfig.default
   ): Resource[F, HeadCache[F]] = {
 
     implicit val consumerRecordToActionHeader = ConsumerRecordToActionHeader[F]
@@ -124,24 +122,6 @@ object HeadCache {
   }
 
 
-  // TODO extract
-  final case class Config(
-    timeout: FiniteDuration = 3.seconds,
-    pollTimeout: FiniteDuration = 10.millis,
-    cleanInterval: FiniteDuration = 1.second,
-    maxSize: Int = 100000
-  ) {
-
-    require(maxSize >= 1, s"maxSize($maxSize) >= 1") // TODO
-  }
-
-  object Config {
-    val default: Config = Config()
-
-    implicit val configReaderHeadCacheConfig: ConfigReader[Config] = deriveReader
-  }
-
-
   trait TopicCache[F[_]] {
 
     def get(id: String, partition: Partition, offset: Offset): F[Either[HeadCacheError, HeadInfo]]
@@ -153,7 +133,7 @@ object HeadCache {
 
     def of[F[_] : Concurrent : Parallel : Timer : ContextShift](
       topic: Topic,
-      config: Config,
+      config: HeadCacheConfig,
       eventual: Eventual[F],
       consumer: Resource[F, Consumer[F]],
       metrics: Metrics[F],

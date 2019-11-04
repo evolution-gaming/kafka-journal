@@ -320,7 +320,7 @@ object HeadCacheSpec {
   val topic: Topic = "topic"
   val partition: Partition = 0
   val topicPartition: TopicPartition = TopicPartition(topic = topic, partition = partition)
-  val config: HeadCache.Config = HeadCache.Config(
+  val config: HeadCacheConfig = HeadCacheConfig(
     pollTimeout = 3.millis,
     cleanInterval = 100.millis)
 
@@ -347,7 +347,7 @@ object HeadCacheSpec {
   def headCacheOf(
     eventual: HeadCache.Eventual[IO],
     consumer: Resource[IO, HeadCache.Consumer[IO]],
-    config: HeadCache.Config = config
+    config: HeadCacheConfig = config
   ): Resource[IO, HeadCache[IO]] = {
 
     for {
