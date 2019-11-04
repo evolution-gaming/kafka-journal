@@ -12,6 +12,7 @@ import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.conversions.EventsToPayload
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer.ConsumerRecords
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.smetrics.CollectorRegistry
 import org.scalatest.{AsyncWordSpec, Matchers}
 import scodec.bits.ByteVector
@@ -308,9 +309,49 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
       result.run()
     }
 
+    // TODO how to test?
+    "do not leak on cancel" ignore {
+      val consumer   = HeadCache.Consumer.empty[IO]
+      val headCache  = headCacheOf(
+        HeadCache.Eventual.empty,
+        Resource.liftF(consumer.pure[IO]))
+      val result = headCache.use { headCache =>
+        val key = Key(id = "id", topic = topic)
+        for {
+          a <- headCache.get(key, partition, 0L).startEnsure
+          _ <- Timer[IO].sleep(1.second)
+//          _ <- IO { println("1") }
+          _ <- a.cancel
+//          _ <- IO { println("2") }
+          _ <- Timer[IO].sleep(3.seconds)
+        } yield {}
+      }
+
+      result.run(10.seconds)
+    }
+
     // TODO implement
-    "do not leak on cancel" in {
+    "fail on consumer errors" in {
       ().pure[IO].run()
+    }
+
+    "not leak resources on release" in {
+      val consumer   = HeadCache.Consumer.empty[IO]
+      val headCache  = headCacheOf(
+        HeadCache.Eventual.empty,
+        Resource.liftF(consumer.pure[IO]))
+      val result = for {
+        a <- headCache.use { headCache =>
+          val key = Key(id = "id", topic = topic)
+          for {
+            a <- headCache.get(key, partition, 0L).startEnsure
+            _ <- Timer[IO].sleep(100.millis)
+          } yield a
+        }
+        a <- a.join.attempt
+        _  = a shouldEqual HeadCacheReleasedError.asLeft
+      } yield {}
+      result.run()
     }
   }
 }

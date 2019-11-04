@@ -5,8 +5,8 @@ import java.time.Instant
 import cats._
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
-import cats.effect.implicits._
 import cats.effect.concurrent.Deferred
+import cats.effect.implicits._
 import cats.implicits._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
@@ -32,7 +32,6 @@ import scala.concurrent.duration._
   * 3. Clearly handle cases when topic is not yet created, but requests are coming
   * 4. Keep 1000 last seen entries, even if replicated.
   * 5. Fail headcache when background tasks failed
-  * 6. Make sure we release listeners upon close
   */
 trait HeadCache[F[_]] {
 
@@ -128,8 +127,6 @@ object HeadCache {
 
   object TopicCache {
 
-    type Listener[F[_]] = Map[Partition, PartitionEntry] => Option[F[Unit]]
-
     def of[F[_] : Concurrent : Parallel : Timer : ContextShift](
       topic: Topic,
       config: HeadCacheConfig,
@@ -201,15 +198,32 @@ object HeadCache {
         State[F](entries, List.empty)
       }
 
+      def stateRef(state: State[F]) = {
+        Resource.make {
+          SerialRef[F].of(state)
+        } { stateRef =>
+
+          def removeListeners(state: State[F]) = {
+            val state1 = state.copy(listeners = List.empty[Listener[F]])
+            (state1, state.listeners)
+          }
+
+          for {
+            listeners <- stateRef.modify { state => removeListeners(state).pure[F] }
+            _         <- listeners.parFoldMap { listener => listener.release }
+          } yield {}
+        }
+      }
+
       for {
-        pointers  <- Resource.liftF(eventual.pointers(topic))
-        ref       <- Resource.liftF(SerialRef[F].of(state(pointers)))
+        pointers <- Resource.liftF(eventual.pointers(topic))
+        stateRef <- stateRef(state(pointers))
         // TODO add consumer check that we can start it, basically initializing part of HeadCacheConsumer
-        pointers   = ref.get.map(_.pointers)
-        _         <- ResourceOf(consume(ref, pointers).start)
-        _         <- ResourceOf(cleaning(ref).start)
+        pointers  = stateRef.get.map(_.pointers)
+        _        <- ResourceOf(consume(stateRef, pointers).start)
+        _        <- ResourceOf(cleaning(stateRef).start)
       } yield {
-        apply(topic, ref, metrics, log, config.timeout)
+        apply(topic, stateRef, metrics, log, config.timeout)
       }
     }
 
@@ -266,22 +280,38 @@ object HeadCache {
           }
 
           def update(state: State[F]) = {
-            for {
-              deferred <- Deferred[F, Option[HeadInfo]]
-              listener  = (entries: Map[Partition, PartitionEntry]) => {
+
+            def listenerOf(deferred: Deferred[F, F[Option[HeadInfo]]]) = new Listener[F] {
+
+              def apply(entries: Map[Partition, PartitionEntry]) = {
                 for {
                   r <- headInfoOf(entries)
                 } yield for {
-                  _ <- deferred.complete(r)
+                  _ <- deferred.complete(r.pure[F])
                   _ <- log.debug(s"remove listener, id: $id, offset: $partition:$offset")
                 } yield {}
               }
+
+              def release = {
+                deferred.complete(HeadCacheReleasedError.raiseError[F, Option[HeadInfo]])
+              }
+            }
+
+            for {
+              deferred <- Deferred[F, F[Option[HeadInfo]]]
+              listener  = listenerOf(deferred)
               _        <- log.debug(s"add listener, id: $id, offset: $partition:$offset")
               state1    = state.copy(listeners = listener :: state.listeners)
               _        <- metrics.listeners(topic, state1.listeners.size)
             } yield {
               val stateNew = state.copy(listeners = listener :: state.listeners)
-              (stateNew, deferred.get)
+
+              val result = deferred
+                .get
+                .flatten
+                .onCancel { stateRef.update { state => state.copy(listeners = state.listeners.filter(_ != listener) ).pure[F] }  }
+              
+              (stateNew, result)
             }
           }
 
@@ -432,6 +462,7 @@ object HeadCache {
     }
 
 
+    // TODO List[Listener] -> Set[Listener]
     final case class State[F[_]](entries: Map[Partition, PartitionEntry], listeners: List[Listener[F]])
 
     object State {
@@ -462,6 +493,14 @@ object HeadCache {
           }
         }
       }
+    }
+
+
+    trait Listener[F[_]] {
+
+      def apply(entries: Map[Partition, PartitionEntry]): Option[F[Unit]]
+
+      def release: F[Unit]
     }
   }
 
