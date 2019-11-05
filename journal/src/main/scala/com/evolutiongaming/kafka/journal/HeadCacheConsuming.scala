@@ -87,6 +87,7 @@ object HeadCacheConsuming {
       val strategy = Strategy
         .fullJitter(10.millis, random)
         .cap(1.second)
+        .resetAfter(1.minute)
       val onError = OnError.fromLog(log.prefixed("consuming"))
       Retry(strategy, onError)
     }
