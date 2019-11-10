@@ -60,7 +60,8 @@ object Replicator {
     config: ReplicatorConfig,
     metrics: Option[Metrics[F]]/*TODO not used for kafka*/,
     journal: ReplicatedJournal[F],
-    hostName: Option[HostName]): Resource[F, F[Unit]] = {
+    hostName: Option[HostName]
+  ): Resource[F, F[Unit]] = {
 
     val topicReplicator = (topic: Topic) => {
 
@@ -68,14 +69,9 @@ object Replicator {
 
       val metrics1 = metrics
         .flatMap(_.replicator)
-        .fold(TopicReplicator.Metrics.empty[F])(_.apply(topic))
+        .fold { TopicReplicator.Metrics.empty[F] } { metrics => metrics(topic) }
 
-      val result = for {
-        topicReplicator <- TopicReplicator.of[F](topic, journal, consumer, metrics1)
-      } yield {
-        (topicReplicator.done, topicReplicator.close)
-      }
-      Resource(result)
+      TopicReplicator.of(topic, journal, consumer, metrics1)
     }
 
     val consumer = Consumer.of[F](config.consumer)
@@ -86,18 +82,35 @@ object Replicator {
   def of[F[_] : Concurrent : Timer : Parallel : LogOf : MeasureDuration](
     config: Config,
     consumer: Resource[F, Consumer[F]],
-    topicReplicatorOf: Topic => Resource[F, F[Unit]]): Resource[F, F[Unit]] = {
+    topicReplicatorOf: Topic => Resource[F, F[Unit]]
+  ): Resource[F, F[Unit]] = {
 
-    for {
+    def retry(log: Log[F]) = for {
+      random <- Random.State.fromClock[F]()
+    } yield {
+      val strategy = Strategy
+        .fullJitter(100.millis, random)
+        .limit(1.minute)
+      new Named[F] {
+        def apply[A](fa: F[A], name: String) = {
+          val onError = OnError.fromLog(log.prefixed(s"consumer.$name"))
+          val retry = Retry(strategy, onError)
+          retry(fa)
+        }
+      }
+    }
+
+      for {
       consumer <- consumer
       registry <- ResourceRegistry.of[F]
     } yield {
       for {
         log    <- LogOf[F].apply(Replicator.getClass)
-        random <- Random.State.fromClock[F]()
+        retry  <- retry(log)
         error  <- Ref.of[F, F[Unit]](().pure[F])
         result <- {
           val topicReplicator = topicReplicatorOf.andThen { topicReplicator =>
+            // TODO
             registry.allocate {
               val fiber = for {
                 fiber <- topicReplicator.start { _.onError { case e => error.set(e.raiseError[F, Unit]) } }
@@ -108,19 +121,10 @@ object Replicator {
             }
           }
 
-          val strategy = Strategy.fullJitter(100.millis, random).limit(1.minute)
-
-          val retry = new Named[F] {
-            def apply[A](fa: F[A], name: String) = {
-              val onError = OnError.fromLog(log.prefixed(s"consumer.$name"))
-              Retry(strategy, onError).apply(fa)
-            }
-          }
-
-          val consumerRetry = consumer.mapMethod(retry)
+          val consumer1 = consumer.mapMethod(retry)
 
           implicit val log1 = log
-          start(config, consumerRetry, topicReplicator, error.get.flatten)
+          start(config, consumer1, topicReplicator, error.get.flatten)
         }
       } yield result
     }
@@ -131,7 +135,8 @@ object Replicator {
     config: Config,
     consumer: Consumer[F],
     start: Topic => F[Unit],
-    continue: F[Unit]): F[Unit] = {
+    continue: F[Unit]
+  ): F[Unit] = {
 
     type State = Set[Topic]
 

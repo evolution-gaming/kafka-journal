@@ -3,13 +3,12 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import java.time.Instant
 
 import cats.{Id, Parallel}
-import cats.data.{IndexedStateT, NonEmptyList => Nel}
+import cats.data.{IndexedStateT, NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.ExitCase
 import cats.implicits._
 import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.catshelper.NelHelper._
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.kafka.journal.util.BracketFromMonadError
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
@@ -62,13 +61,13 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
         _      <- journal.append(key, partitionOffset, timestamp0, none, Nel.of(record))
         topics <- journal.topics
         _       = topics.toSet shouldEqual Set.empty
-        _      <- journal.save(topic0, TopicPointers(Map((0, 0))), timestamp0)
+        _      <- journal.save(topic0, Nem.of((0, 0)), timestamp0)
         topics <- journal.topics
         _       = topics.toSet shouldEqual Set(topic0)
-        _      <- journal.save(topic0, TopicPointers(Map((0, 1))), timestamp1)
+        _      <- journal.save(topic0, Nem.of((0, 1)), timestamp1)
         topics <- journal.topics
         _       = topics.toSet shouldEqual Set(topic0)
-        _      <- journal.save(topic1, TopicPointers(Map((0, 0))), timestamp0)
+        _      <- journal.save(topic1, Nem.of((0, 0)), timestamp0)
         topics <- journal.topics
         _       = topics.toSet shouldEqual Set(topic0, topic1)
         _      <- journal.delete(key, partitionOffset, timestamp1, SeqNr.max, origin.some)
@@ -106,13 +105,13 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
         _        <- journal.append(key, partitionOffset, timestamp0, expireAfter = none, Nel.of(record))
         pointers <- journal.pointers(topic0)
         _         = pointers.values shouldEqual Map.empty
-        _        <- journal.save(topic0, TopicPointers(Map((0, 0))), timestamp0)
+        _        <- journal.save(topic0, Nem.of((0, 0)), timestamp0)
         pointers <- journal.pointers(topic0)
         _         = pointers.values shouldEqual Map((0, 0))
-        _        <- journal.save(topic0, TopicPointers(Map((0, 1))), timestamp1)
+        _        <- journal.save(topic0, Nem.of((0, 1)), timestamp1)
         pointers <- journal.pointers(topic0)
         _         = pointers.values shouldEqual Map((0, 1))
-        _        <- journal.save(topic1, TopicPointers(Map((0, 0))), timestamp0)
+        _        <- journal.save(topic1, Nem.of((0, 0)), timestamp0)
         pointers <- journal.pointers(topic0)
         _         = pointers.values shouldEqual Map((0, 1))
       } yield {}

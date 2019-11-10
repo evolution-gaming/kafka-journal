@@ -15,27 +15,27 @@ class BatchSpec extends FunSuite with Matchers {
   private val timestamp = Instant.now()
 
   for {
-    (values, expected) <- List[(List[A], List[Batch])](
-      (List(
+    (values, expected) <- List[(Nel[A], List[Batch])](
+      (Nel.of(
         mark(offset = 0)), Nil),
 
-      (List(
+      (Nel.of(
         mark(offset = 0),
         mark(offset = 1)), Nil),
 
-      (List(
+      (Nel.of(
         append(offset = 0, seqNr = 1)),
         List(
           appends(0,
             append(offset = 0, seqNr = 1)))),
 
-      (List(
+      (Nel.of(
         append(offset = 0, seqNr = 1, seqNrs = 2)),
         List(
           appends(0,
             append(offset = 0, seqNr = 1, seqNrs = 2)))),
 
-      (List(
+      (Nel.of(
         append(offset = 0, seqNr = 1, seqNrs = 2),
         append(offset = 1, seqNr = 3, seqNrs = 4)),
         List(
@@ -43,21 +43,21 @@ class BatchSpec extends FunSuite with Matchers {
             append(offset = 0, seqNr = 1, seqNrs = 2),
             append(offset = 1, seqNr = 3, seqNrs = 4)))),
 
-      (List(
+      (Nel.of(
         append(offset = 0, seqNr = 1),
         mark(offset = 1)),
         List(
           appends(1,
             append(offset = 0, seqNr = 1)))),
 
-      (List(
+      (Nel.of(
         mark(offset = 0),
         append(offset = 1, seqNr = 1)),
         List(
           appends(1,
             append(offset = 1, seqNr = 1)))),
 
-      (List(
+      (Nel.of(
         append(offset = 0, seqNr = 1),
         append(offset = 1, seqNr = 2)),
         List(
@@ -65,7 +65,7 @@ class BatchSpec extends FunSuite with Matchers {
             append(offset = 0, seqNr = 1),
             append(offset = 1, seqNr = 2)))),
 
-      (List(
+      (Nel.of(
         mark(offset = 0),
         append(offset = 1, seqNr = 1),
         mark(offset = 2),
@@ -76,24 +76,24 @@ class BatchSpec extends FunSuite with Matchers {
             append(offset = 1, seqNr = 1),
             append(offset = 3, seqNr = 2)))),
 
-      (List(
+      (Nel.of(
         delete(offset = 1, seqNr = 1)),
         List(
           deletes(offset = 1, seqNr = 1))),
 
-      (List(
+      (Nel.of(
         mark(offset = 1),
         delete(offset = 2, seqNr = 1)),
         List(
           deletes(offset = 2, seqNr = 1))),
 
-      (List(
+      (Nel.of(
         delete(offset = 1, seqNr = 1),
         mark(offset = 2)),
         List(
           deletes(offset = 2, seqNr = 1))),
 
-      (List(
+      (Nel.of(
         delete(offset = 1, seqNr = 1),
         append(offset = 2, seqNr = 2)),
         List(
@@ -101,7 +101,7 @@ class BatchSpec extends FunSuite with Matchers {
           appends(2,
             append(offset = 2, seqNr = 2)))),
 
-      (List(
+      (Nel.of(
         append(offset = 1, seqNr = 2),
         delete(offset = 2, seqNr = 1)),
         List(
@@ -109,7 +109,7 @@ class BatchSpec extends FunSuite with Matchers {
             append(offset = 1, seqNr = 2)),
           deletes(offset = 2, seqNr = 1))),
 
-      (List(
+      (Nel.of(
         append(offset = 1, seqNr = 1, seqNrs = 2, 3),
         delete(offset = 2, seqNr = 1)),
         List(
@@ -117,7 +117,7 @@ class BatchSpec extends FunSuite with Matchers {
             append(offset = 1, seqNr = 1, seqNrs = 2, 3)),
           deletes(offset = 2, seqNr = 1))),
 
-      (List(
+      (Nel.of(
         append(offset = 1, seqNr = 1),
         delete(offset = 2, seqNr = 1),
         append(offset = 3, seqNr = 2)),
@@ -126,7 +126,7 @@ class BatchSpec extends FunSuite with Matchers {
           appends(3,
             append(offset = 3, seqNr = 2)))),
 
-      (List(
+      (Nel.of(
         append(offset = 1, seqNr = 1),
         delete(offset = 2, seqNr = 1, origin = "origin1"),
         append(offset = 3, seqNr = 2),
@@ -134,7 +134,7 @@ class BatchSpec extends FunSuite with Matchers {
         List(
           deletes(offset = 4, seqNr = 2, origin = "origin1"))),
 
-      (List(
+      (Nel.of(
         append(offset = 1, seqNr = 1),
         delete(offset = 2, seqNr = 1, origin = "origin"),
         append(offset = 3, seqNr = 2),
@@ -142,7 +142,7 @@ class BatchSpec extends FunSuite with Matchers {
         List(
           deletes(offset = 4, seqNr = 2, origin = "origin"))),
 
-      (List(
+      (Nel.of(
         append(offset = 1, seqNr = 1),
         append(offset = 2, seqNr = 2),
         delete(offset = 3, seqNr = 1, origin = "origin1"),
@@ -150,7 +150,7 @@ class BatchSpec extends FunSuite with Matchers {
         List(
           deletes(offset = 4, seqNr = 2, origin = "origin1"))),
 
-      (List(
+      (Nel.of(
         append(offset = 1, seqNr = 1),
         append(offset = 2, seqNr = 2),
         delete(offset = 3, seqNr = 1),
@@ -158,19 +158,19 @@ class BatchSpec extends FunSuite with Matchers {
         List(
           deletes(offset = 4, seqNr = 2, origin = "origin"))),
 
-      (List(
+      (Nel.of(
         delete(offset = 2, seqNr = 1),
         delete(offset = 3, seqNr = 2)),
         List(
           deletes(offset = 3, seqNr = 2))),
 
-      (List(
+      (Nel.of(
         delete(offset = 2, seqNr = 2, origin = "origin"),
         delete(offset = 3, seqNr = 1)),
         List(
           deletes(offset = 3, seqNr = 2, origin = "origin"))),
 
-      (List(
+      (Nel.of(
         mark(offset = 2),
         delete(offset = 3, seqNr = 1, origin = "origin"),
         mark(offset = 4),
@@ -179,7 +179,7 @@ class BatchSpec extends FunSuite with Matchers {
         List(
           deletes(offset = 6, seqNr = 2, origin = "origin"))),
 
-      (List(
+      (Nel.of(
         append(offset = 0, seqNr = 1),
         delete(offset = 1, seqNr = 1),
         append(offset = 2, seqNr = 2),
@@ -190,7 +190,7 @@ class BatchSpec extends FunSuite with Matchers {
           appends(4,
             append(offset = 4, seqNr = 3)))),
 
-      (List(
+      (Nel.of(
         append(offset = 0, seqNr = 1),
         append(offset = 1, seqNr = 2),
         delete(offset = 2, seqNr = 1),
@@ -202,7 +202,7 @@ class BatchSpec extends FunSuite with Matchers {
           appends(5,
             append(offset = 5, seqNr = 4)))),
 
-      (List(
+      (Nel.of(
         append(offset = 0, seqNr = 1),
         append(offset = 1, seqNr = 2),
         mark(offset = 2),
@@ -219,7 +219,7 @@ class BatchSpec extends FunSuite with Matchers {
             append(offset = 4, seqNr = 3),
             append(offset = 5, seqNr = 4)))),
 
-      (List(
+      (Nel.of(
         append(offset = 0, seqNr = 1),
         append(offset = 1, seqNr = 2),
         append(offset = 2, seqNr = 3),
@@ -241,7 +241,7 @@ class BatchSpec extends FunSuite with Matchers {
           appends(7,
             append(offset = 7, seqNr = 6)))),
 
-      (List(
+      (Nel.of(
         append(offset = 0, seqNr = 1, seqNrs = 2),
         append(offset = 1, seqNr = 3, seqNrs = 4),
         append(offset = 2, seqNr = 5),
@@ -264,10 +264,10 @@ class BatchSpec extends FunSuite with Matchers {
             append(offset = 7, seqNr = 8)))))
   } {
 
-    val name = values.mkString(",")
-    test(s"list for $name") {
+    val name = values.toList.mkString(",")
+    test(s"of $name") {
       val records = values.map(actionRecordOf)
-      val actual = Batch.list(records)
+      val actual = Batch.of(records)
       actual shouldEqual expected
     }
   }

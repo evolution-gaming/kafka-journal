@@ -10,7 +10,7 @@ sealed abstract class Batch extends Product {
 
 object Batch {
 
-  def list(records: List[ActionRecord[Action]]): List[Batch] = {
+  def of(records: Nel[ActionRecord[Action]]): List[Batch] = {
 
     def cut(appends: Appends, delete: Action.Delete) = {
       val append = appends.records.head.action

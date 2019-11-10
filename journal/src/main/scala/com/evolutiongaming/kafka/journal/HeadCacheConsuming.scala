@@ -34,7 +34,7 @@ object HeadCacheConsuming {
           records
             .toList
             .traverseFilter { record => consumerRecordToKafkaRecord(record).sequence }
-            .map { records => Nel.fromList(records).map { records => (partition.partition, records) } }
+            .map { records => records.toNel.map { records => (partition.partition, records) } }
         }
     }
 
@@ -49,7 +49,7 @@ object HeadCacheConsuming {
 
       val partitions = for {
         partitions <- consumer.partitions(topic)
-        partitions <- Nel.fromList(partitions.toList).fold {
+        partitions <- partitions.toList.toNel.fold {
           NoPartitionsError.raiseError[F, Nel[Partition]]
         } { partitions =>
           partitions.pure[F]

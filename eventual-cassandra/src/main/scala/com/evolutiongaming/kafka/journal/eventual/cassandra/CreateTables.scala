@@ -56,7 +56,7 @@ object CreateTables { self =>
         metadata <- CassandraCluster[F].metadata
         keyspace <- metadata.keyspace(keyspace)
         tables1  <- keyspace.fold(tables.toList.pure[F])(missing)
-        fresh    <- Nel.fromList(tables1).fold(false.pure[F])(create)
+        fresh    <- tables1.toNel.fold(false.pure[F])(create)
       } yield fresh
     }
   }

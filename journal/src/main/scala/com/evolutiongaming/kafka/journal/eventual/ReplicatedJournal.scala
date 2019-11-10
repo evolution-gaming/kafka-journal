@@ -2,13 +2,13 @@ package com.evolutiongaming.kafka.journal.eventual
 
 import java.time.Instant
 
-import cats.data.{NonEmptyList => Nel}
+import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.Resource
 import cats.implicits._
 import cats.{Applicative, FlatMap, Monad, ~>}
 import com.evolutiongaming.catshelper.{ApplicativeThrowable, Log}
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.skafka.Topic
+import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.smetrics._
 
@@ -37,7 +37,7 @@ trait ReplicatedJournal[F[_]] {
     origin: Option[Origin]
   ): F[Unit]
 
-  def save(topic: Topic, pointers: TopicPointers, timestamp: Instant): F[Unit]
+  def save(topic: Topic, pointers: Nem[Partition, Offset], timestamp: Instant): F[Unit]
 }
 
 object ReplicatedJournal {
@@ -108,12 +108,12 @@ object ReplicatedJournal {
         } yield r
       }
 
-      def save(topic: Topic, pointers: TopicPointers, timestamp: Instant) = {
+      def save(topic: Topic, pointers: Nem[Partition, Offset], timestamp: Instant) = {
         for {
           d <- MeasureDuration[F].start
           r <- journal.save(topic, pointers, timestamp)
           d <- d
-          _ <- Log[F].debug(s"$topic save in ${ d.toMillis }ms, pointers: $pointers, timestamp: $timestamp")
+          _ <- Log[F].debug(s"$topic save in ${ d.toMillis }ms, pointers: ${pointers.mkString_(",")}, timestamp: $timestamp")
         } yield r
       }
     }
@@ -172,7 +172,7 @@ object ReplicatedJournal {
         } yield r
       }
 
-      def save(topic: Topic, pointers: TopicPointers, timestamp: Instant) = {
+      def save(topic: Topic, pointers: Nem[Partition, Offset], timestamp: Instant) = {
         for {
           d <- MeasureDuration[F].start
           r <- journal.save(topic, pointers, timestamp)
@@ -206,7 +206,7 @@ object ReplicatedJournal {
       origin: Option[Origin]
     ) = ().pure[F]
 
-    def save(topic: Topic, pointers: TopicPointers, timestamp: Instant) = ().pure[F]
+    def save(topic: Topic, pointers: Nem[Partition, Offset], timestamp: Instant) = ().pure[F]
   }
 
 
@@ -345,7 +345,7 @@ object ReplicatedJournal {
         f(self.delete(key, partitionOffset, timestamp, deleteTo, origin))
       }
 
-      def save(topic: Topic, pointers: TopicPointers, timestamp: Instant) = {
+      def save(topic: Topic, pointers: Nem[Partition, Offset], timestamp: Instant) = {
         f(self.save(topic, pointers, timestamp))
       }
     }
@@ -420,7 +420,7 @@ object ReplicatedJournal {
             }
         }
 
-        def save(topic: Topic, pointers: TopicPointers, timestamp: Instant) = {
+        def save(topic: Topic, pointers: Nem[Partition, Offset], timestamp: Instant) = {
           self
             .save(topic, pointers, timestamp)
             .handleErrorWith { a =>

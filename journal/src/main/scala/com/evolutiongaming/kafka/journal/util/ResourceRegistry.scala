@@ -4,7 +4,7 @@ import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.effect.implicits._
 import cats.implicits._
-import cats.{Applicative, Foldable}
+import cats.Applicative
 
 trait ResourceRegistry[F[_]] {
 
@@ -22,7 +22,7 @@ object ResourceRegistry {
       val release = for {
         releases <- releases.get
         ignore    = (_: Throwable) => ()
-        _        <- Foldable[List].foldMap(releases)(_.handleError(ignore))
+        _        <- releases.foldMap { _.handleError(ignore) }
       } yield {}
       (registry, release)
     }

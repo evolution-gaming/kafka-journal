@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
-import cats.data.{NonEmptyList => Nel}
+import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.implicits._
 import cats.effect.{Concurrent, Timer}
 import cats.implicits._
@@ -199,7 +199,7 @@ object ReplicatedCassandra {
       }
 
 
-      def save(topic: Topic, topicPointers: TopicPointers, timestamp: Instant) = {
+      def save(topic: Topic, pointers: Nem[Partition, Offset], timestamp: Instant) = {
 
         def insertOrUpdate(current: Option[Offset], partition: Partition, offset: Offset) = {
           current.fold {
@@ -233,12 +233,10 @@ object ReplicatedCassandra {
           } yield result
         }
 
-        Nel
-          .fromList(topicPointers.values.toList)
-          .foldMapM {
-            case Nel((partition, offset), Nil) => saveOne(partition, offset)
-            case pointers                      => saveMany(pointers)
-          }
+        pointers.toNel match {
+          case Nel((partition, offset), Nil) => saveOne(partition, offset)
+          case pointers                      => saveMany(pointers)
+        }
       }
 
       def pointers(topic: Topic) = {

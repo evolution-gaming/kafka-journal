@@ -2,18 +2,18 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
 
-import cats.data.{NonEmptyList => Nel}
+import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.effect.implicits._
 import cats.implicits._
-import cats.{Applicative, FlatMap, Monad, Parallel, ~>}
+import cats.{Applicative, Monad, Parallel, ~>}
 import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.conversions.{ConsumerRecordToActionRecord, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual._
+import com.evolutiongaming.kafka.journal.util.CollectionHelper._
 import com.evolutiongaming.kafka.journal.util.Named
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
@@ -23,6 +23,7 @@ import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Bytes => _, _}
 import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.smetrics.{CollectorRegistry, LabelNames, Quantile, Quantiles}
+import com.evolutiongaming.sstream.Stream
 import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
@@ -32,37 +33,52 @@ import scala.concurrent.duration._
 // TODO add metric to track replication lag in case it cannot catchup with producers
 // TODO verify that first consumed offset matches to the one expected, otherwise we screwed.
 // TODO should it be Resource ?
-trait TopicReplicator[F[_]] {
+object TopicReplicator {
 
-  def done: F[Unit]
-
-  def close: F[Unit]
-}
-
-object TopicReplicator { self =>
-
-  // TODO should return Resource
   def of[F[_] : Concurrent : Timer : Parallel : LogOf : FromTry](
     topic: Topic,
     journal: ReplicatedJournal[F],
     consumer: Resource[F, Consumer[F]],
     metrics: Metrics[F]
-  ): F[TopicReplicator[F]] = {
+  ): Resource[F, F[Unit]] = {
 
     implicit val fromAttempt = FromAttempt.lift[F]
     implicit val fromJsResult = FromJsResult.lift[F]
+    val payloadToEvents = PayloadToEvents[F]
 
-    def apply(stopRef: StopRef[F], fiber: Fiber[F, Unit])(implicit log: Log[F]) = {
-      self.apply[F](stopRef, fiber)
-    }
-
-    def start(
-      stopRef: StopRef[F],
+    def consume(
+      stop: F[Boolean],
       consumer: Resource[F, Consumer[F]],
-      random: Random.State)(implicit
+      retry: Retry[F],
       log: Log[F]
     ) = {
-      
+
+      val consumerRecordToActionRecord = ConsumerRecordToActionRecord[F]
+      retry {
+        consumer.use { consumer =>
+          of(
+            topic,
+            stop,
+            consumer,
+            1.hour,
+            consumerRecordToActionRecord,
+            payloadToEvents,
+            journal,
+            metrics,
+            log)
+        }
+      }
+    }
+
+    def log = for {
+      log <- LogOf[F].apply(TopicReplicator.getClass)
+    } yield {
+      log prefixed topic
+    }
+
+    def retry(log: Log[F]) = for {
+      random <- Random.State.fromClock[F]()
+    } yield {
       val strategy = Strategy
         .fullJitter(100.millis, random)
         .limit(1.minute)
@@ -70,185 +86,64 @@ object TopicReplicator { self =>
 
       val onError = OnError.fromLog(log)
 
-      val retry = Retry(strategy, onError)
-
-      val payloadToEvents = PayloadToEvents[F]
-      val consumerRecordToActionRecord = ConsumerRecordToActionRecord[F]
-      retry {
-        consumer.use { consumer =>
-          of(
-            topic,
-            stopRef,
-            consumer,
-            1.hour,
-            consumerRecordToActionRecord,
-            payloadToEvents,
-            journal,
-            metrics)
-        }
-      }.start
+      Retry(strategy, onError)
     }
 
     for {
-      log0    <- LogOf[F].apply(TopicReplicator.getClass)
-      log      = log0 prefixed topic
-      stopRef <- StopRef.of[F]
-      random  <- Random.State.fromClock[F]()
-      fiber   <- start(stopRef, consumer, random)(log)
+      log       <- Resource.liftF(log)
+      stopRef   <- Resource.liftF(StopRef.of[F])
+      retry     <- Resource.liftF(retry(log))
+      consuming  = consume(stopRef.get, consumer, retry, log).start
+      consuming <- Resource.make { consuming } { fiber => fiber.join }
+      _         <- Resource.make { ().pure[F] } { _ => stopRef.set } // TODO simplify
     } yield {
-      apply(stopRef, fiber)(log)
+      consuming.join
     }
   }
 
   //  TODO return error in case failed to connect
-  def apply[F[_] : FlatMap : Log](stopRef: StopRef[F], fiber: Fiber[F, Unit]): TopicReplicator[F] = {
-    new TopicReplicator[F] {
-
-      def done = fiber.join
-
-      def close = {
-        for {
-          _ <- Log[F].debug("shutting down")
-          _ <- stopRef.set // TODO remove
-          _ <- fiber.join
-          //            _ <- fiber.cancel // TODO
-        } yield {}
-      }
-    }
-  }
-
-  //  TODO return error in case failed to connect
-  def of[F[_] : Concurrent : Clock : Parallel : Log : FromTry](
+  def of[F[_] : Concurrent : Clock : Parallel : FromTry](
     topic: Topic,
-    stopRef: StopRef[F],
+    stop: F[Boolean],
     consumer: Consumer[F],
     errorCooldown: FiniteDuration,
     consumerRecordToActionRecord: ConsumerRecordToActionRecord[F],
     payloadToEvents: PayloadToEvents[F],
     journal: ReplicatedJournal[F],
-    metrics: Metrics[F]
+    metrics: Metrics[F],
+    log: Log[F]
   ): F[Unit] = {
 
-    final case class Partition(records: Nel[ConsumerRecord[String, ByteVector]], offset: Offset)
+    val replicateRecords = ReplicateRecords(
+      topic = topic,
+      consumerRecordToActionRecord = consumerRecordToActionRecord,
+      journal = journal,
+      metrics = metrics,
+      payloadToEvents = payloadToEvents,
+      log = log)
 
-    def round(
-      state: State,
-      consumerRecords: Map[TopicPartition, List[ConsumerRecord[String, ByteVector]]],
-      roundStart: Instant
-    ): F[State] = {
+    of(
+      topic = topic,
+        stop = stop,
+        consumer = consumer,
+        errorCooldown = errorCooldown,
+        journal = journal,
+        metrics = metrics,
+        replicateRecords = replicateRecords)
+  }
 
-      val records = for {
-        records <- consumerRecords.values.toList
-        record  <- records
-      } yield record
+  //  TODO return error in case failed to connect
+  def of[F[_] : Concurrent : Clock : Parallel : FromTry](
+    topic: Topic,
+    stop: F[Boolean],
+    consumer: Consumer[F],
+    errorCooldown: FiniteDuration,
+    journal: ReplicatedJournal[F],
+    metrics: Metrics[F],
+    replicateRecords: ReplicateRecords[F]
+  ): F[Unit] = {
 
-      val ios = for {
-        records <- records.traverseFilter { record => consumerRecordToActionRecord(record) }
-      } yield for {
-        (key, records) <- records.groupBy(_.action.key)
-      } yield {
-
-        val head = records.head
-        val id = key.id
-
-        def measurements(records: Int) = {
-          for {
-            now <- Clock[F].instant
-          } yield {
-            Metrics.Measurements(
-              partition = head.partition,
-              replicationLatency = now diff head.action.timestamp,
-              deliveryLatency = roundStart diff head.action.timestamp,
-              records = records)
-          }
-        }
-
-        def delete(partitionOffset: PartitionOffset, deleteTo: SeqNr, origin: Option[Origin]) = {
-          for {
-            _            <- journal.delete(key, partitionOffset, roundStart, deleteTo, origin)
-            measurements <- measurements(1)
-            latency       = measurements.replicationLatency
-            _            <- metrics.delete(measurements)
-            _            <- Log[F].info {
-              val originStr = origin.fold("") { origin => s", origin: $origin" }
-              s"delete in ${ latency.toMillis }ms, id: $id, offset: $partitionOffset, deleteTo: $deleteTo$originStr"
-            }
-          } yield {}
-        }
-
-        def append(partitionOffset: PartitionOffset, records: Nel[ActionRecord[Action.Append]]) = {
-
-          val bytes = records.foldLeft(0L) { case (bytes, record) => bytes + record.action.payload.size }
-
-          val events = records.flatTraverse { record =>
-            val action = record.action
-            val payloadAndType = PayloadAndType(action)
-            for {
-              events <- payloadToEvents(payloadAndType)
-            } yield for {
-              event <- events.events
-            } yield {
-              EventRecord(record, event)
-            }
-          }
-
-          val expireAfter = records.last.action.header.expireAfter
-
-          for {
-            events       <- events
-            _            <- journal.append(key, partitionOffset, roundStart, expireAfter = expireAfter, events)
-            measurements <- measurements(records.size)
-            _            <- metrics.append(
-              events = events.length,
-              bytes = bytes,
-              measurements = measurements)
-            latency       = measurements.replicationLatency
-            _            <- Log[F].info {
-              val seqNrs =
-                if (events.tail.isEmpty) s"seqNr: ${ events.head.seqNr }"
-                else s"seqNrs: ${ events.head.seqNr }..${ events.last.seqNr }"
-              val origin = records.head.action.origin
-              val originStr = origin.fold("") { origin => s", origin: $origin" }
-              s"append in ${ latency.toMillis }ms, id: $id, offset: $partitionOffset, $seqNrs$originStr"
-            }
-          } yield {}
-        }
-
-        Batch.list(records).foldLeft(().pure[F]) { (result, batch) =>
-          for {
-            _ <- result
-            _ <- batch match {
-              case batch: Batch.Appends => append(batch.partitionOffset, batch.records)
-              case batch: Batch.Delete  => delete(batch.partitionOffset, batch.seqNr, batch.origin)
-            }
-          } yield {}
-        }
-      }
-
-      val offsets = for {
-        (topicPartition, records) <- consumerRecords
-      } yield {
-        val offset = records.foldLeft(Offset.Min) { (offset, record) => record.offset max offset }
-        (topicPartition.partition, offset)
-      }
-
-      for {
-        ios      <- ios
-        _        <- ios.toList.parFold
-        pointers  = TopicPointers(offsets)
-        _        <- if (offsets.isEmpty) ().pure[F] else journal.save(topic, pointers, roundStart)
-      } yield {
-        state.copy(pointers = state.pointers + pointers)
-      }
-    }
-
-    def ifContinue(fa: F[Either[State, Unit]]) = {
-      for {
-        stop   <- stopRef.get
-        result <- if (stop) ().asRight[State].pure[F] else fa
-      } yield result
-    }
-
+    // TODO def commit
     def commit(records: Map[TopicPartition, Nel[ConsumerRecord[String, ByteVector]]], state: State) = {
 
       val offsets = for {
@@ -274,51 +169,56 @@ object TopicReplicator { self =>
       }
     }
 
-    def consume(state: State): F[Either[State, Unit]] = {
+    def consume(state: F[State]): F[State] = {
 
       def consume(
+        state: State,
         roundStart: Instant,
-        consumerRecords: Map[TopicPartition, Nel[ConsumerRecord[String, ByteVector]]]
+        consumerRecords: Nem[TopicPartition, Nel[ConsumerRecord[String, ByteVector]]]
       ) = {
+
         val records = for {
-          (topicPartition, records) <- consumerRecords
-          partition                  = topicPartition.partition
-          offset                     = state.pointers.values.get(partition)
-          records1                   = records.toList
-          result                     = offset.fold(records1) { offset => records1.filter(_.offset > offset) }
-          if result.nonEmpty
+          (partition, records) <- consumerRecords.toSortedMap
+          offset                = state.pointers.values.get(partition.partition)
+          records              <- offset.fold(records.some) { offset => records.filter { _.offset > offset }.toNel }
         } yield {
-          (topicPartition, result)
+          (partition, records)
         }
 
         for {
-          state    <- if (records.isEmpty) state.pure[F] else round(state, records.toMap, roundStart)
-          state    <- commit(consumerRecords, state)
+          state    <- records.toNem.fold(state.pure[F]) { records => replicateRecords(state, records, roundStart) }
+          state    <- commit(/*TODO*/consumerRecords.toSortedMap, state)
+          records   = consumerRecords.foldLeft(0) { case (acc, records) => acc + records.size }
           roundEnd <- Clock[F].instant
-          records   = consumerRecords.foldLeft(0) { case (acc, (_, record)) => acc + record.size }
           _        <- metrics.round(roundEnd diff roundStart, records)
-        } yield state.asLeft[Unit]
-      }
-
-
-      ifContinue {
-        for {
-          timestamp       <- Clock[F].instant
-          consumerRecords <- consumer.poll
-          records          = consumerRecords.values
-          state           <- {
-            if (records.isEmpty) state.asLeft[Unit].pure[F]
-            else ifContinue { consume(timestamp, records) }
-          }
         } yield state
       }
+
+      for {
+        timestamp       <- Clock[F].instant
+        consumerRecords <- consumer.poll
+        records          = consumerRecords.values
+        state           <- state
+        state           <- records.toNem.fold(state.pure[F]) { records => consume(state, timestamp, records)}
+      } yield state
     }
 
-    for {
-      pointers <- journal.pointers(topic)
-      _        <- consumer.subscribe(topic)
-      _        <- State(pointers, none).tailRecM(consume)
-    } yield {}
+    val stream = for {
+      pointers <- Stream.lift(journal.pointers(topic))
+      _        <- Stream.lift(consumer.subscribe(topic))
+      stateRef <- Stream.lift(Ref.of(State(pointers, none)))
+      state    <- Stream.repeat(consume(stateRef.get))
+      _        <- Stream.lift(stateRef.set(state))
+    } yield state
+
+    stream
+      .foldWhileM(()) { case (l, _) =>
+        stop.map {
+          case true  => 0.asRight[Unit]
+          case false => l.asLeft[Int]
+        }
+      }
+      .void
   }
 
 

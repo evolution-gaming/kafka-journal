@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
 
-import cats.data.{NonEmptyList => Nel}
+import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect._
 import cats.implicits._
 import cats.{Applicative, Id, Monoid, Parallel}
@@ -83,9 +83,9 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
         metrics = List(
           Metrics.Round(records = 8),
           Metrics.Append(partition = 1, events = 3, records = 2),
-          Metrics.Append(partition = 0, events = 2, records = 2),
+          Metrics.Append(partition = 1, events = 2, records = 2),
           Metrics.Append(partition = 0, events = 3, records = 2),
-          Metrics.Append(partition = 1, events = 2, records = 2)))
+          Metrics.Append(partition = 0, events = 2, records = 2)))
     }
 
     "replicate expireAfter" in {
@@ -300,15 +300,15 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           metaJournalOf("2-2", partition = 2, offset = 7)),
         metrics = List(
           Metrics.Round(records = 27),
-          Metrics.Append(partition = 0, events = 3, records = 1),
-          Metrics.Append(partition = 1, events = 2, records = 2),
-          Metrics.Append(partition = 1, events = 3, records = 2),
           Metrics.Append(partition = 2, events = 3, records = 1),
-          Metrics.Append(partition = 0, events = 3, records = 2),
-          Metrics.Append(partition = 2, events = 2, records = 2),
           Metrics.Append(partition = 2, events = 3, records = 2),
-          Metrics.Append(partition = 0, events = 2, records = 2),
-          Metrics.Append(partition = 1, events = 3, records = 1)))
+          Metrics.Append(partition = 2, events = 2, records = 2),
+          Metrics.Append(partition = 1, events = 3, records = 1),
+          Metrics.Append(partition = 1, events = 3, records = 2),
+          Metrics.Append(partition = 1, events = 2, records = 2),
+          Metrics.Append(partition = 0, events = 3, records = 1),
+          Metrics.Append(partition = 0, events = 3, records = 2),
+          Metrics.Append(partition = 0, events = 2, records = 2)))
     }
 
     "replicate appends and deletes" in {
@@ -397,14 +397,14 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           metaJournalOf("1-2", partition = 1, offset = 7)),
         metrics = List(
           Metrics.Round(records = 20),
-          Metrics.Append(partition = 0, events = 3, records = 1),
-          Metrics.Append(partition = 1, events = 2, records = 2),
+          Metrics.Append(partition = 1, events = 3, records = 1),
           Metrics.Delete(partition = 1, actions = 1),
           Metrics.Append(partition = 1, events = 3, records = 2),
+          Metrics.Append(partition = 1, events = 2, records = 2),
+          Metrics.Append(partition = 0, events = 3, records = 1),
           Metrics.Delete(partition = 0, actions = 1),
           Metrics.Append(partition = 0, events = 3, records = 2),
-          Metrics.Append(partition = 0, events = 2, records = 2),
-          Metrics.Append(partition = 1, events = 3, records = 1)))
+          Metrics.Append(partition = 0, events = 2, records = 2)))
     }
 
     "replicate appends and deletes of many polls" in {
@@ -589,10 +589,10 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           metaJournalOf("2-1", partition = 2, offset = 3)),
         metrics = List(
           Metrics.Round(records = 12),
+          Metrics.Append(partition = 2, events = 1, records = 1),
           Metrics.Append(partition = 1, events = 1, records = 1),
           Metrics.Append(partition = 1, events = 1, records = 1),
           Metrics.Append(partition = 0, events = 3, records = 2),
-          Metrics.Append(partition = 2, events = 1, records = 1),
           Metrics.Append(partition = 0, events = 1, records = 1)))
     }
 
@@ -759,9 +759,9 @@ object TopicReplicatorSpec {
       StateT { state => (state.delete(key, deleteTo, partitionOffset, origin), ()) }
     }
 
-    def save(topic: Topic, pointers: TopicPointers, timestamp: Instant) = {
+    def save(topic: Topic, pointers: Nem[Partition, Offset], timestamp: Instant) = {
       StateT { state =>
-        val updated = state.pointers.getOrElse(topic, TopicPointers.empty) + pointers
+        val updated = state.pointers.getOrElse(topic, TopicPointers.empty) + TopicPointers(pointers.toSortedMap)
         val state1 = state.copy(pointers = state.pointers.updated(topic, updated))
         (state1, ())
       }
@@ -769,10 +769,7 @@ object TopicReplicatorSpec {
   }
 
 
-  implicit val log: Log[StateT] = Log.empty[StateT]
-
-
-  implicit val stopRef: TopicReplicator.StopRef[StateT] = new TopicReplicator.StopRef[StateT] {
+  val stopRef: TopicReplicator.StopRef[StateT] = new TopicReplicator.StopRef[StateT] {
 
     def set = StateT { s => (s, ()) }
 
@@ -842,13 +839,14 @@ object TopicReplicatorSpec {
 
     TopicReplicator.of[StateT](
       topic = topic,
-      stopRef = TopicReplicator.StopRef[StateT],
+      stop = stopRef.get,
       consumer = consumer,
       errorCooldown = 1.second,
       consumerRecordToActionRecord = ConsumerRecordToActionRecord[StateT],
       payloadToEvents = PayloadToEvents[StateT],
       journal = replicatedJournal,
-      metrics = metrics)
+      metrics = metrics,
+      log = Log.empty[StateT])
   }
 
 
@@ -874,8 +872,6 @@ object TopicReplicatorSpec {
     def commit(offsets: Map[TopicPartition, OffsetAndMetadata]): State = {
       copy(commits = offsets :: commits)
     }
-
-    def stop: State = copy(stopAfter = Some(1))
 
     def delete(key: Key, deleteTo: SeqNr, partitionOffset: PartitionOffset, origin: Option[Origin]): State = {
 

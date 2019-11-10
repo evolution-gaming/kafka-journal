@@ -1,7 +1,6 @@
 package akka.persistence.kafka.journal
 
 import akka.persistence.{AtomicWrite, PersistentRepr}
-import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.implicits._
 import cats.{Monad, Parallel, ~>}
@@ -111,7 +110,7 @@ object JournalAdapter {
 
     def write(aws: Seq[AtomicWrite]) = {
       val prs = aws.flatMap(_.payload)
-      Nel.fromList(prs.toList).foldMapM { prs =>
+      prs.toList.toNel.foldMapM { prs =>
         val persistenceId = prs.head.persistenceId
         for {
           key      <- toKey(persistenceId)

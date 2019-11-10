@@ -75,7 +75,7 @@ object ReplicatorConfig {
     val topicPrefixes = {
       val prefixes = for {
         prefixes <- get[List[String]]("topic-prefixes")
-        prefixes <- Nel.fromList(prefixes)
+        prefixes <- prefixes.toNel
       } yield prefixes
       prefixes getOrElse default.topicPrefixes
     }

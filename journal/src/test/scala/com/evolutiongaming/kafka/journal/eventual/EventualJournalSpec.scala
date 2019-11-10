@@ -3,14 +3,14 @@ package com.evolutiongaming.kafka.journal.eventual
 import java.time.Instant
 
 import cats.effect.Clock
-import cats.data.{NonEmptyList => Nel}
+import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.implicits._
 import cats.{Applicative, Monad}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
-import com.evolutiongaming.skafka.{Offset, Topic}
+import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
 import org.scalatest.{Assertion, Matchers, WordSpec}
 import play.api.libs.json.Json
@@ -108,7 +108,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
           for {
             _ <- {
               if (batch) {
-                Nel.fromList(events).foldMap { events => replicated.append(events) }
+                events.toNel.foldMap { events => replicated.append(events) }
               } else {
                 events.foldMap { event => replicated.append(Nel.of(event)) }
               }
@@ -137,7 +137,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
           withJournals2 { case (eventual, replicated) =>
             val head = eventsOf(from, size)
             for {
-              _ <- Nel.fromList(head).foldMap { head => replicated.append(head) }
+              _ <- head.toNel.foldMap { head => replicated.append(head) }
               a <- eventual.events()
             } yield {
               a shouldEqual events ++ head
@@ -248,7 +248,8 @@ trait EventualJournalSpec extends WordSpec with Matchers {
     } {
 
       val partitionOffset = PartitionOffset(partition = 1, offset = 1)
-      val pointers = TopicPointers(Map((partitionOffset.partition, partitionOffset.offset)))
+      val pointers = Nem.of((partitionOffset.partition, partitionOffset.offset))
+      val topicPointers = TopicPointers(Map((partitionOffset.partition, partitionOffset.offset)))
 
       val name = s" topics: $size"
 
@@ -271,7 +272,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
             for {
               a <- replicated.pointers(topic)
             } yield {
-              a shouldEqual pointers
+              a shouldEqual topicPointers
             }
           }
         }
@@ -294,10 +295,10 @@ trait EventualJournalSpec extends WordSpec with Matchers {
           withJournals3 { case (eventual, replicated) =>
             for {
               a <- replicated.pointers(topic)
-              _ = a shouldEqual pointers
+              _ = a shouldEqual topicPointers
               a <- eventual.pointers(topic)
             } yield {
-              a shouldEqual pointers
+              a shouldEqual topicPointers
             }
           }
         }
@@ -351,21 +352,6 @@ trait EventualJournalSpec extends WordSpec with Matchers {
           } yield {
             a shouldEqual Some(event.pointer)
           }
-        }
-      }
-    }
-
-    "save empty pointers empty" in {
-      withJournals1 { case (eventual, replicated) =>
-        for {
-          _ <- replicated.save(topic, TopicPointers.empty)
-          a <- replicated.topics
-          _  = a shouldEqual Nil
-          a <- replicated.pointers(topic)
-          _  = a shouldEqual TopicPointers.empty
-          a <- eventual.pointers(topic)
-        } yield {
-          a shouldEqual TopicPointers.empty
         }
       }
     }
@@ -489,7 +475,7 @@ object EventualJournalSpec {
 
     def pointers(topic: Topic): F[TopicPointers]
 
-    def save(topic: Topic, pointers: TopicPointers): F[Unit]
+    def save(topic: Topic, pointers: Nem[Partition, Offset]): F[Unit]
   }
 
   object Replicated {
@@ -509,7 +495,7 @@ object EventualJournalSpec {
 
       def pointers(topic: Topic) = journal.pointers(topic)
 
-      def save(topic: Topic, pointers: TopicPointers) = {
+      def save(topic: Topic, pointers: Nem[Partition, Offset]) = {
         journal.save(topic, pointers, timestamp)
       }
     }

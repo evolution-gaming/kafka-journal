@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal.util
 
 import cats.MonadError
 import cats.data.{NonEmptyList => Nel}
+import cats.implicits._
 import play.api.libs.json.{Format, Json}
 import scodec.bits.ByteVector
 import scodec.{Attempt, Codec, Err, codecs}
@@ -52,8 +53,7 @@ object ScodecHelper {
 
   def nelCodec[A](codec: Codec[List[A]]): Codec[Nel[A]] = {
     val to = (a: List[A]) => {
-      val nel = Nel.fromList(a)
-      Attempt.fromOption(nel, Err("list is empty"))
+      Attempt.fromOption(a.toNel, Err("list is empty"))
     }
     val from = (a: Nel[A]) => Attempt.successful(a.toList)
     codec.exmap(to, from)
