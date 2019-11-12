@@ -69,7 +69,7 @@ object ReplicatedCassandra {
         events: Nel[EventRecord]
       ) = {
 
-        def append(segmentSize: SegmentSize) = {
+        def append(segmentSize: SegmentSize, offset: Option[Offset]) = {
 
           @tailrec
           def loop(
@@ -80,10 +80,7 @@ object ReplicatedCassandra {
 
             def insert(segment: Segment, events: Nel[EventRecord]) = {
               val next = statements.insertRecords(key, segment.nr, events)
-              for {
-                _ <- result
-                _ <- next
-              } yield {}
+              result *> next
             }
 
             events match {
@@ -101,7 +98,12 @@ object ReplicatedCassandra {
             }
           }
 
-          loop(events.toList, None, ().pure[F])
+          val events1 = offset.fold {
+            events.toList
+          } { offset =>
+            events.filter { event => event.partitionOffset.offset > offset }
+          }
+          loop(events1, None, ().pure[F])
         }
 
         def appendAndSave(journalHead: Option[JournalHead], segment: SegmentNr) = {
@@ -121,8 +123,10 @@ object ReplicatedCassandra {
             (update, journalHead)
           }
 
+          val offset = journalHead.map(_.partitionOffset.offset)
+
           for {
-            _ <- append(journalHead1.segmentSize)
+            _ <- append(journalHead1.segmentSize, offset)
             _ <- save
           } yield {}
         }

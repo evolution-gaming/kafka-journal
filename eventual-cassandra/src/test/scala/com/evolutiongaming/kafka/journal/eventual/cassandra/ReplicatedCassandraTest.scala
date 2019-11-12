@@ -2,10 +2,10 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
-import cats.{Id, Parallel}
 import cats.data.{IndexedStateT, NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.ExitCase
 import cats.implicits._
+import cats.{Id, Parallel}
 import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.catshelper.NelHelper._
 import com.evolutiongaming.kafka.journal._
@@ -234,12 +234,12 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
 
     /*TODO expireAfter: test*/
     test(s"append & override expireAfter, $suffix") {
-      val id0 = "id0"
-      val key0 = Key(id0, topic0)
-      val segment = segmentOfId(key0)
+      val id = "id"
+      val key = Key(id, topic0)
+      val segment = segmentOfId(key)
       val stateT = for {
         _ <- journal.append(
-          key = key0,
+          key = key,
           partitionOffset = PartitionOffset(partition = 0, offset = 0),
           timestamp = timestamp0,
           expireAfter = 1.minute.some,
@@ -248,7 +248,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
               seqNr = SeqNr.unsafe(1),
               partitionOffset = PartitionOffset(partition = 0, offset = 0))))
         _ <- journal.append(
-          key = key0,
+          key = key,
           partitionOffset = PartitionOffset(partition = 0, offset = 3),
           timestamp = timestamp1,
           expireAfter = 2.minutes.some,
@@ -280,7 +280,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
             .map { a => ((a.seqNr, a.timestamp), a) }
             .toList
             .toMap
-          ((key0, SegmentNr.unsafe(segmentNr)), map)
+          ((key, SegmentNr.unsafe(segmentNr)), map)
         }
         .toList
         .toMap
@@ -288,7 +288,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
       val expected = State(
         metaJournal = Map(
           ((topic0, segment), Map(
-            (id0, MetaJournalEntry(
+            (id, MetaJournalEntry(
               journalHead = JournalHead(
                 partitionOffset = PartitionOffset(partition = 0, offset = 3),
                 segmentSize = segmentSize,
@@ -300,6 +300,61 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
         journal = events0)
       val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
+    }
+
+
+    test(s"append & skip appended $suffix") {
+      val id = "id"
+      val key = Key(id, topic0)
+      val segment = segmentOfId(key)
+      val stateT = journal.append(
+        key = key,
+        partitionOffset = PartitionOffset(partition = 0, offset = 4),
+        timestamp = timestamp1,
+        expireAfter = none,
+        events = Nel.of(
+          eventRecordOf(
+            seqNr = SeqNr.unsafe(1),
+            partitionOffset = PartitionOffset(partition = 0, offset = 1)),
+          eventRecordOf(
+            seqNr = SeqNr.unsafe(2),
+            partitionOffset = PartitionOffset(partition = 0, offset = 3))))
+
+      val expected = State(
+        metaJournal = Map(
+          ((topic0, segment), Map(
+            (id, MetaJournalEntry(
+              journalHead = JournalHead(
+                partitionOffset = PartitionOffset(partition = 0, offset = 4),
+                segmentSize = segmentSize,
+                seqNr = SeqNr.unsafe(2),
+                deleteTo = none),
+              created = timestamp0,
+              updated = timestamp1,
+              origin = origin.some))))),
+        journal = Map((
+          (key, SegmentNr.min),
+          Map((
+            (SeqNr.unsafe(2), timestamp0),
+            eventRecordOf(
+              seqNr = SeqNr.unsafe(2),
+              partitionOffset = PartitionOffset(partition = 0, offset = 3)))))))
+
+      val initial = State.empty.copy(
+        metaJournal = Map(
+          ((topic0, segment), Map(
+            (id, MetaJournalEntry(
+              journalHead = JournalHead(
+                partitionOffset = PartitionOffset(partition = 0, offset = 2),
+                segmentSize = segmentSize,
+                seqNr = SeqNr.unsafe(1),
+                deleteTo = none),
+              created = timestamp0,
+              updated = timestamp0,
+              origin = origin.some))))))
+
+      val actual = stateT.run(initial)
+      actual shouldEqual (expected, ()).pure[Try]
     }
 
 
