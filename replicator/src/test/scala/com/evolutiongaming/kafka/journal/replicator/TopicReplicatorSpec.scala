@@ -14,6 +14,7 @@ import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPoint
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
+import com.evolutiongaming.retry.Retry
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, WithSize}
 import com.evolutiongaming.skafka.{Bytes => _, Header => _, Metadata => _, _}
 import org.scalatest.{Matchers, WordSpec}
@@ -837,16 +838,25 @@ object TopicReplicatorSpec {
 
     implicit val clock = Clock.const[StateT](nanos = 0, millis = millis)
 
-    TopicReplicator.of[StateT](
+    val stream = TopicReplicator.of[StateT](
       topic = topic,
-      stop = stopRef.get,
-      consumer = consumer,
+      consumer = Resource.liftF(consumer.pure[StateT]),
       errorCooldown = 1.second,
       consumerRecordToActionRecord = ConsumerRecordToActionRecord[StateT],
       payloadToEvents = PayloadToEvents[StateT],
       journal = replicatedJournal,
       metrics = metrics,
-      log = Log.empty[StateT])
+      log = Log.empty[StateT],
+      retry = Retry.empty[StateT])
+
+    stream
+      .foldWhileM(()) { case (l, _) =>
+        stopRef.get.map {
+          case true  => 0.asRight[Unit]
+          case false => l.asLeft[Int]
+        }
+      }
+      .void
   }
 
 

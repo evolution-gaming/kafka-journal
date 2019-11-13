@@ -14,7 +14,7 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.conversions.{ConsumerRecordToActionRecord, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.util.CollectionHelper._
-import com.evolutiongaming.kafka.journal.util.Named
+import com.evolutiongaming.kafka.journal.util.{Named, ResourceOf}
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.random.Random
@@ -47,27 +47,23 @@ object TopicReplicator {
     val payloadToEvents = PayloadToEvents[F]
 
     def consume(
-      stop: F[Boolean],
       consumer: Resource[F, Consumer[F]],
       retry: Retry[F],
       log: Log[F]
     ) = {
 
       val consumerRecordToActionRecord = ConsumerRecordToActionRecord[F]
-      retry {
-        consumer.use { consumer =>
-          of(
-            topic,
-            stop,
-            consumer,
-            1.hour,
-            consumerRecordToActionRecord,
-            payloadToEvents,
-            journal,
-            metrics,
-            log)
-        }
-      }
+      val stream = of(
+        topic = topic,
+        consumer = consumer,
+        errorCooldown = 1.hour,
+        consumerRecordToActionRecord = consumerRecordToActionRecord,
+        payloadToEvents = payloadToEvents,
+        journal = journal,
+        metrics = metrics,
+        log = log,
+        retry = retry)
+      stream.drain
     }
 
     def log = for {
@@ -91,28 +87,23 @@ object TopicReplicator {
 
     for {
       log       <- Resource.liftF(log)
-      stopRef   <- Resource.liftF(StopRef.of[F])
       retry     <- Resource.liftF(retry(log))
-      consuming  = consume(stopRef.get, consumer, retry, log).start
-      consuming <- Resource.make { consuming } { fiber => fiber.join }
-      _         <- Resource.make { ().pure[F] } { _ => stopRef.set } // TODO simplify
-    } yield {
-      consuming.join
-    }
+      consuming  = consume(consumer, retry, log).start
+      consuming <- ResourceOf(consuming)
+    } yield consuming
   }
 
-  //  TODO return error in case failed to connect
   def of[F[_] : Concurrent : Clock : Parallel : FromTry](
     topic: Topic,
-    stop: F[Boolean],
-    consumer: Consumer[F],
+    consumer: Resource[F, Consumer[F]],
     errorCooldown: FiniteDuration,
     consumerRecordToActionRecord: ConsumerRecordToActionRecord[F],
     payloadToEvents: PayloadToEvents[F],
     journal: ReplicatedJournal[F],
     metrics: Metrics[F],
-    log: Log[F]
-  ): F[Unit] = {
+    log: Log[F],
+    retry: Retry[F]
+  ): Stream[F, Unit] = {
 
     val replicateRecords = ReplicateRecords(
       topic = topic,
@@ -124,27 +115,30 @@ object TopicReplicator {
 
     of(
       topic = topic,
-        stop = stop,
         consumer = consumer,
         errorCooldown = errorCooldown,
         journal = journal,
         metrics = metrics,
-        replicateRecords = replicateRecords)
+        replicateRecords = replicateRecords,
+        retry = retry)
   }
 
-  //  TODO return error in case failed to connect
   def of[F[_] : Concurrent : Clock : Parallel : FromTry](
     topic: Topic,
-    stop: F[Boolean],
-    consumer: Consumer[F],
+    consumer: Resource[F, Consumer[F]],
     errorCooldown: FiniteDuration,
     journal: ReplicatedJournal[F],
     metrics: Metrics[F],
-    replicateRecords: ReplicateRecords[F]
-  ): F[Unit] = {
+    replicateRecords: ReplicateRecords[F],
+    retry: Retry[F]
+  ): Stream[F, Unit] = {
 
     // TODO def commit
-    def commit(records: Map[TopicPartition, Nel[ConsumerRecord[String, ByteVector]]], state: State) = {
+    def commit(
+      records: Map[TopicPartition, Nel[ConsumerRecord[String, ByteVector]]],
+      state: State,
+      consumer: Consumer[F]
+    ) = {
 
       val offsets = for {
         (topicPartition, records) <- records
@@ -169,7 +163,7 @@ object TopicReplicator {
       }
     }
 
-    def consume(state: F[State]): F[State] = {
+    def consume(state: F[State], consumer: Consumer[F]): F[State] = {
 
       def consume(
         state: State,
@@ -187,7 +181,7 @@ object TopicReplicator {
 
         for {
           state    <- records.toNem.fold(state.pure[F]) { records => replicateRecords(state, records, roundStart) }
-          state    <- commit(/*TODO*/consumerRecords.toSortedMap, state)
+          state    <- commit(/*TODO*/consumerRecords.toSortedMap, state, consumer)
           records   = consumerRecords.foldLeft(0) { case (acc, records) => acc + records.size }
           roundEnd <- Clock[F].instant
           _        <- metrics.round(roundEnd diff roundStart, records)
@@ -203,22 +197,15 @@ object TopicReplicator {
       } yield state
     }
 
-    val stream = for {
+    for {
+      _        <- Stream.around(retry.toFunctionK)
+      consumer <- Stream.fromResource(consumer)
       pointers <- Stream.lift(journal.pointers(topic))
       _        <- Stream.lift(consumer.subscribe(topic))
       stateRef <- Stream.lift(Ref.of(State(pointers, none)))
-      state    <- Stream.repeat(consume(stateRef.get))
+      state    <- Stream.repeat(consume(stateRef.get, consumer))
       _        <- Stream.lift(stateRef.set(state))
-    } yield state
-
-    stream
-      .foldWhileM(()) { case (l, _) =>
-        stop.map {
-          case true  => 0.asRight[Unit]
-          case false => l.asLeft[Int]
-        }
-      }
-      .void
+    } yield {}
   }
 
 
