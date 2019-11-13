@@ -135,17 +135,17 @@ object TopicReplicator {
 
     // TODO def commit
     def commit(
-      records: Map[TopicPartition, Nel[ConsumerRecord[String, ByteVector]]],
+      records: Nem[TopicPartition, Nel[ConsumerRecord[String, ByteVector]]],
       state: State,
       consumer: Consumer[F]
     ) = {
 
-      val offsets = for {
-        (topicPartition, records) <- records
-      } yield {
-        val offset = records.foldLeft(Offset.Min) { (offset, record) => record.offset max offset }
-        val offsetAndMetadata = OffsetAndMetadata(offset + 1/*TODO pass metadata/origin*/)
-        (topicPartition, offsetAndMetadata)
+      val offsets = records.map { records =>
+        records.foldLeft {
+          Offset.Min
+        } { (offset, record) =>
+          record.offset + 1 max offset
+        }
       }
 
       consumer.commit(offsets)
@@ -181,8 +181,8 @@ object TopicReplicator {
 
         for {
           state    <- records.toNem.fold(state.pure[F]) { records => replicateRecords(state, records, roundStart) }
-          state    <- commit(/*TODO*/consumerRecords.toSortedMap, state, consumer)
-          records   = consumerRecords.foldLeft(0) { case (acc, records) => acc + records.size }
+          state    <- commit(consumerRecords, state, consumer)
+          records   = consumerRecords.foldLeft(0) { case (size, records) => size + records.size }
           roundEnd <- Clock[F].instant
           _        <- metrics.round(roundEnd diff roundStart, records)
         } yield state
@@ -218,7 +218,7 @@ object TopicReplicator {
 
     def poll: F[ConsumerRecords[String, ByteVector]]
 
-    def commit(offsets: Map[TopicPartition, OffsetAndMetadata]): F[Unit]
+    def commit(offsets: Nem[TopicPartition, Offset]): F[Unit]
 
     def assignment: F[Set[TopicPartition]]
   }
@@ -228,16 +228,22 @@ object TopicReplicator {
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
     def apply[F[_] : Applicative](
+      pollTimeout: FiniteDuration,
+      hostName: Option[HostName],
       consumer: KafkaConsumer[F, String, ByteVector],
-      pollTimeout: FiniteDuration
     ): Consumer[F] = {
+      val metadata = hostName.fold { Metadata.empty } { _.value }
       new Consumer[F] {
 
         def subscribe(topic: Topic) = consumer.subscribe(topic)
 
         def poll = consumer.poll(pollTimeout)
 
-        def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = consumer.commit(offsets)
+        def commit(offsets: Nem[TopicPartition, Offset]) = {
+
+          val offsets1 = offsets.map { offset => OffsetAndMetadata(offset, metadata) }
+          consumer.commit(offsets1.toSortedMap)
+        }
 
         def assignment = consumer.assignment
       }
@@ -264,14 +270,14 @@ object TopicReplicator {
 
       val config1 = config.copy(
         common = common.copy(clientId = clientId.some),
-        groupId = Some(groupId),
+        groupId = groupId.some,
         autoOffsetReset = AutoOffsetReset.Earliest,
         autoCommit = false)
 
       for {
         consumer <- KafkaConsumerOf[F].apply[String, ByteVector](config1)
       } yield {
-        Consumer[F](consumer, pollTimeout)
+        Consumer[F](pollTimeout, hostName, consumer)
       }
     }
 
@@ -284,7 +290,7 @@ object TopicReplicator {
 
         def poll = f(self.poll)
 
-        def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = f(self.commit(offsets))
+        def commit(offsets: Nem[TopicPartition, Offset]) = f(self.commit(offsets))
 
         def assignment = f(self.assignment)
       }
@@ -296,7 +302,7 @@ object TopicReplicator {
 
         def poll = f(self.poll, "poll")
 
-        def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = f(self.commit(offsets), "commit")
+        def commit(offsets: Nem[TopicPartition, Offset]) = f(self.commit(offsets), "commit")
 
         def assignment = f(self.assignment, "assignment")
       }

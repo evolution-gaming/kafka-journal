@@ -56,9 +56,9 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 
       result shouldEqual State(
         topics = List(topic),
-        commits = List(Map(
-          (topicPartitionOf(0), offsetAndMetadata(5)),
-          (topicPartitionOf(1), offsetAndMetadata(5)))),
+        commits = List(Nem.of(
+          (topicPartitionOf(0), 5),
+          (topicPartitionOf(1), 5))),
         stopAfter = Some(0),
         pointers = Map((topic, TopicPointers(Map((0, 4L), (1, 4L))))),
         journal = Map(
@@ -103,8 +103,8 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 
       result shouldEqual State(
         topics = List(topic),
-        commits = List(Map(
-          (topicPartitionOf(0), offsetAndMetadata(2)))),
+        commits = List(Nem.of(
+          (topicPartitionOf(0), 2))),
         stopAfter = Some(0),
         pointers = Map((topic, TopicPointers(Map((0, 1L))))),
         journal = Map(
@@ -153,14 +153,14 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
       result shouldEqual State(
         topics = List(topic),
         commits = List(
-          Map((topicPartitionOf(1), offsetAndMetadata(5))),
-          Map((topicPartitionOf(1), offsetAndMetadata(4))),
-          Map((topicPartitionOf(1), offsetAndMetadata(3))),
-          Map((topicPartitionOf(1), offsetAndMetadata(2))),
-          Map((topicPartitionOf(0), offsetAndMetadata(5))),
-          Map((topicPartitionOf(0), offsetAndMetadata(4))),
-          Map((topicPartitionOf(0), offsetAndMetadata(3))),
-          Map((topicPartitionOf(0), offsetAndMetadata(2)))),
+          Nem.of((topicPartitionOf(1), 5)),
+          Nem.of((topicPartitionOf(1), 4)),
+          Nem.of((topicPartitionOf(1), 3)),
+          Nem.of((topicPartitionOf(1), 2)),
+          Nem.of((topicPartitionOf(0), 5)),
+          Nem.of((topicPartitionOf(0), 4)),
+          Nem.of((topicPartitionOf(0), 3)),
+          Nem.of((topicPartitionOf(0), 2))),
         stopAfter = Some(0),
         pointers = Map((topic, TopicPointers(Map((0, 4L), (1, 4L))))),
         journal = Map(
@@ -249,10 +249,10 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 
       result shouldEqual State(
         topics = List(topic),
-        commits = List(Map(
-          (topicPartitionOf(0), offsetAndMetadata(10)),
-          (topicPartitionOf(1), offsetAndMetadata(10)),
-          (topicPartitionOf(2), offsetAndMetadata(10)))),
+        commits = List(Nem.of(
+          (topicPartitionOf(0), 10),
+          (topicPartitionOf(1), 10),
+          (topicPartitionOf(2), 10))),
         stopAfter = Some(0),
         pointers = Map((topic, TopicPointers(Map((0, 9L), (1, 9L), (2, 9L))))),
         journal = Map(
@@ -365,9 +365,9 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 
       result shouldEqual State(
         topics = List(topic),
-        commits = List(Map(
-          (topicPartitionOf(0), offsetAndMetadata(11)),
-          (topicPartitionOf(1), offsetAndMetadata(11)))),
+        commits = List(Nem.of(
+          (topicPartitionOf(0), 11),
+          (topicPartitionOf(1), 11))),
         stopAfter = Some(0),
         pointers = Map((topic, TopicPointers(Map((0, 10L), (1, 10L))))),
         journal = Map(
@@ -462,18 +462,18 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
       result shouldEqual State(
         topics = List(topic),
         commits = List(
-          Map((topicPartitionOf(0), offsetAndMetadata(13))),
-          Map((topicPartitionOf(0), offsetAndMetadata(12))),
-          Map((topicPartitionOf(0), offsetAndMetadata(11))),
-          Map((topicPartitionOf(0), offsetAndMetadata(10))),
-          Map((topicPartitionOf(0), offsetAndMetadata(9))),
-          Map((topicPartitionOf(0), offsetAndMetadata(8))),
-          Map((topicPartitionOf(0), offsetAndMetadata(7))),
-          Map((topicPartitionOf(0), offsetAndMetadata(6))),
-          Map((topicPartitionOf(0), offsetAndMetadata(5))),
-          Map((topicPartitionOf(0), offsetAndMetadata(4))),
-          Map((topicPartitionOf(0), offsetAndMetadata(3))),
-          Map((topicPartitionOf(0), offsetAndMetadata(2)))),
+          Nem.of((topicPartitionOf(0), 13)),
+          Nem.of((topicPartitionOf(0), 12)),
+          Nem.of((topicPartitionOf(0), 11)),
+          Nem.of((topicPartitionOf(0), 10)),
+          Nem.of((topicPartitionOf(0), 9)),
+          Nem.of((topicPartitionOf(0), 8)),
+          Nem.of((topicPartitionOf(0), 7)),
+          Nem.of((topicPartitionOf(0), 6)),
+          Nem.of((topicPartitionOf(0), 5)),
+          Nem.of((topicPartitionOf(0), 4)),
+          Nem.of((topicPartitionOf(0), 3)),
+          Nem.of((topicPartitionOf(0), 2))),
         stopAfter = Some(0),
         pointers = Map(
           (topic, TopicPointers(Map((0, 12L))))),
@@ -563,10 +563,10 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 
       result shouldEqual State(
         topics = List(topic),
-        commits = List(Map(
-          (topicPartitionOf(0), offsetAndMetadata(4)),
-          (topicPartitionOf(1), offsetAndMetadata(4)),
-          (topicPartitionOf(2), offsetAndMetadata(4)))),
+        commits = List(Nem.of(
+          (topicPartitionOf(0), 4),
+          (topicPartitionOf(1), 4),
+          (topicPartitionOf(2), 4))),
         stopAfter = Some(0),
         pointers = Map((topic, TopicPointers(Map((0, 3L), (1, 3L), (2, 3L))))),
         journal = Map(
@@ -614,8 +614,8 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 
       result shouldEqual State(
         topics = List(topic),
-        commits = List(Map(
-          (topicPartitionOf(0), offsetAndMetadata(1)))),
+        commits = List(Nem.of(
+          (topicPartitionOf(0), 1))),
         stopAfter = Some(0),
         pointers = Map((topic, TopicPointers(Map((0, 0L))))),
         metrics = List(Metrics.Round(records = 1)))
@@ -684,8 +684,6 @@ object TopicReplicatorSpec {
   val timestampAndType = TimestampAndType(timestamp, TimestampType.Create)
 
   def topicPartitionOf(partition: Partition) = TopicPartition(topic, partition)
-
-  def offsetAndMetadata(offset: Offset) = OffsetAndMetadata(offset)
 
   def keyOf(id: String) = Key(id = id, topic = topic)
 
@@ -791,7 +789,7 @@ object TopicReplicatorSpec {
 
     def subscribe(topic: Topic) = StateT { s => (s.subscribe(topic), ()) }
 
-    def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = StateT { s => (s.commit(offsets), ()) }
+    def commit(offsets: Nem[TopicPartition, Offset]) = StateT { s => (s.commit(offsets), ()) }
 
     def poll = StateT { _.poll }
 
@@ -862,7 +860,7 @@ object TopicReplicatorSpec {
 
   final case class State(
     topics: List[Topic] = Nil,
-    commits: List[Map[TopicPartition, OffsetAndMetadata]] = Nil,
+    commits: List[Nem[TopicPartition, Offset]] = Nil,
     records: List[ConsumerRecords[String, ByteVector]] = Nil,
     stopAfter: Option[Int] = None,
     pointers: Map[Topic, TopicPointers] = Map.empty,
@@ -879,7 +877,7 @@ object TopicReplicatorSpec {
       copy(topics = topic :: topics)
     }
 
-    def commit(offsets: Map[TopicPartition, OffsetAndMetadata]): State = {
+    def commit(offsets: Nem[TopicPartition, Offset]): State = {
       copy(commits = offsets :: commits)
     }
 

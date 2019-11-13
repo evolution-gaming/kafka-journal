@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.data.{NonEmptyList => Nel}
+import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect._
 import cats.implicits._
 import cats.{Applicative, Monad, ~>}
@@ -21,7 +21,7 @@ trait KafkaConsumer[F[_], K, V] {
 
   def poll(timeout: FiniteDuration): F[ConsumerRecords[K, V]]
 
-  def commit(offsets: Map[TopicPartition, OffsetAndMetadata]): F[Unit]
+  def commit(offsets: Map[TopicPartition, OffsetAndMetadata]/*TODO*/): F[Unit]
 
   def topics: F[Set[Topic]]
 
