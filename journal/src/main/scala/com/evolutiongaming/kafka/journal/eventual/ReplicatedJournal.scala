@@ -6,7 +6,7 @@ import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.Resource
 import cats.implicits._
 import cats.{Applicative, FlatMap, Monad, ~>}
-import com.evolutiongaming.catshelper.{ApplicativeThrowable, Log}
+import com.evolutiongaming.catshelper.{ApplicativeThrowable, BracketThrowable, Log}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MetricsHelper._
@@ -43,6 +43,59 @@ trait ReplicatedJournal[F[_]] {
 object ReplicatedJournal {
 
   def apply[F[_]](implicit F: ReplicatedJournal[F]): ReplicatedJournal[F] = F
+
+
+  def apply[F[_] : BracketThrowable](replicatedJournal: ReplicatedJournal2[F]): ReplicatedJournal[F] = {
+    new ReplicatedJournal[F] {
+
+      def topics = replicatedJournal.topics
+
+      def pointers(topic: Topic) = {
+        replicatedJournal
+          .journal(topic)
+          .use { _.pointers }
+      }
+
+      def append(
+        key: Key,
+        partitionOffset: PartitionOffset,
+        timestamp: Instant,
+        expireAfter: Option[FiniteDuration],
+        events: Nel[EventRecord]
+      ) = {
+        replicatedJournal
+          .journal(key.topic)
+          .use { journal =>
+            journal
+              .journal(key.id)
+              .use { _.append(partitionOffset, timestamp, expireAfter, events) }
+          }
+      }
+
+      def delete(
+        key: Key,
+        partitionOffset: PartitionOffset,
+        timestamp: Instant,
+        deleteTo: SeqNr,
+        origin: Option[Origin]
+      ) = {
+        replicatedJournal
+          .journal(key.topic)
+          .use { journal =>
+            journal
+              .journal(key.id)
+              .use { _.delete(partitionOffset, timestamp, deleteTo, origin) }
+          }
+      }
+
+      def save(topic: Topic, pointers: Nem[Partition, Offset], timestamp: Instant) = {
+        replicatedJournal
+          .journal(topic)
+          .use { _.save(pointers, timestamp) }
+      }
+    }
+  }
+
 
   def apply[F[_] : FlatMap : MeasureDuration](journal: ReplicatedJournal[F], log: Log[F]): ReplicatedJournal[F] = {
 
