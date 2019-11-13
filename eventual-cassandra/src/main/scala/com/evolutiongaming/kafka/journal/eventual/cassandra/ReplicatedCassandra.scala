@@ -147,28 +147,26 @@ object ReplicatedCassandra {
         origin: Option[Origin]
       ) = {
 
-        def delete(head: Option[JournalHead], segment: SegmentNr) = {
+        def insert(segment: SegmentNr) = {
+          val head = JournalHead(
+            partitionOffset = partitionOffset,
+            segmentSize = segmentSize,
+            seqNr = deleteTo,
+            deleteTo = deleteTo.some)
+          metaJournal.insert(key, segment, timestamp, head, origin)
+        }
 
-          def insert = {
-            val head = JournalHead(
-              partitionOffset = partitionOffset,
-              segmentSize = segmentSize,
-              seqNr = deleteTo,
-              deleteTo = deleteTo.some)
-            metaJournal.insert(key, segment, timestamp, head, origin) as head.segmentSize
+        def delete(segment: SegmentNr)(journalHead: JournalHead) = {
+
+          def update = {
+            if (journalHead.seqNr >= deleteTo) {
+              metaJournal.updateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo)
+            } else {
+              metaJournal.update(key, segment, partitionOffset, timestamp, deleteTo, deleteTo)
+            }
           }
 
-          def update(journalHead: JournalHead) = {
-            val update =
-              if (journalHead.seqNr >= deleteTo) {
-                metaJournal.updateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo)
-              } else {
-                metaJournal.update(key, segment, partitionOffset, timestamp, deleteTo, deleteTo)
-              }
-            update as journalHead.segmentSize
-          }
-
-          def delete(segmentSize: SegmentSize)(journalHead: JournalHead) = {
+          def delete = {
 
             def delete(from: SeqNr, deleteTo: SeqNr) = {
 
@@ -189,16 +187,17 @@ object ReplicatedCassandra {
             }
           }
 
-          for {
-            segmentSize <- head.fold(insert)(update)
-            _           <- head.foldMap[F[Unit]](delete(segmentSize))
-          } yield {}
+          if (partitionOffset.offset <= journalHead.partitionOffset.offset) {
+            ().pure[F]
+          } else {
+            (update *> delete).uncancelable
+          }
         }
 
         for {
-          segment <- segmentOf(key)
-          head    <- metaJournal.journalHead(key, segment)
-          result  <- delete(head, segment).uncancelable
+          segment     <- segmentOf(key)
+          journalHead <- metaJournal.journalHead(key, segment)
+          result      <- journalHead.fold { insert(segment) } { delete(segment) }
         } yield result
       }
 

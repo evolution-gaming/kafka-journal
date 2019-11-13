@@ -54,6 +54,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
       val id = "id"
       val key = Key(id = id, topic = topic0)
       val segment = segmentOfId(key)
+      val partitionOffset1 = partitionOffset.copy(offset = partitionOffset.offset + 1)
 
       val stateT = for {
         topics <- journal.topics
@@ -70,7 +71,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
         _      <- journal.save(topic1, Nem.of((0, 0)), timestamp0)
         topics <- journal.topics
         _       = topics.toSet shouldEqual Set(topic0, topic1)
-        _      <- journal.delete(key, partitionOffset, timestamp1, SeqNr.max, origin.some)
+        _      <- journal.delete(key, partitionOffset1, timestamp1, SeqNr.max, origin.some)
         topics <- journal.topics
         _       = topics.toSet shouldEqual Set(topic0, topic1)
       } yield {}
@@ -82,7 +83,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
         metaJournal = Map(
           ((topic0, segment), Map((id, MetaJournalEntry(
             journalHead = JournalHead(
-              partitionOffset = partitionOffset,
+              partitionOffset = partitionOffset1,
               segmentSize = segmentSize,
               seqNr = SeqNr.max,
               deleteTo = SeqNr.max.some),
@@ -394,6 +395,49 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
         journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))))
       val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
+    }
+
+
+    test(s"skip deletions, $suffix") {
+      val id = "id"
+      val key = Key(id = id, topic = topic0)
+      val segment = segmentOfId(key)
+      val stateT = journal.delete(
+        key = key,
+        partitionOffset = PartitionOffset(partition = 0, offset = 1),
+        timestamp = timestamp1,
+        deleteTo = SeqNr.min,
+        origin = origin.some)
+
+      val initial = State.empty.copy(
+        metaJournal = Map(
+          ((topic0, segment), Map(
+            (id, MetaJournalEntry(
+              journalHead = JournalHead(
+                partitionOffset = PartitionOffset(partition = 0, offset = 2),
+                segmentSize = segmentSize,
+                seqNr = SeqNr.min,
+                deleteTo = SeqNr.min.some),
+              created = timestamp0,
+              updated = timestamp0,
+              origin = origin.some))))),
+        journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))))
+
+      val expected = State(
+        metaJournal = Map(
+          ((topic0, segment), Map((id, MetaJournalEntry(
+            journalHead = JournalHead(
+              partitionOffset = PartitionOffset(partition = 0, offset = 2),
+              segmentSize = segmentSize,
+              seqNr = SeqNr.min,
+              deleteTo = SeqNr.min.some),
+            created = timestamp0,
+            updated = timestamp0,
+            origin = origin.some))))),
+        journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))))
+
+      val actual = stateT.run(initial)
+      actual shouldEqual (expected, ()).pure[Try]
     }
   }
 }
