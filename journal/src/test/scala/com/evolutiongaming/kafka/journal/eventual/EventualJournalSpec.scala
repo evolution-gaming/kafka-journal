@@ -2,14 +2,15 @@ package com.evolutiongaming.kafka.journal.eventual
 
 import java.time.Instant
 
-import cats.effect.Clock
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
+import cats.effect.Clock
 import cats.implicits._
-import cats.{Applicative, Monad}
-import com.evolutiongaming.kafka.journal._
+import cats.{Applicative, FlatMap, Monad}
 import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.catshelper.Log
+import com.evolutiongaming.catshelper.{Log, MonadThrowable}
+import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
+import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
 import org.scalatest.{Assertion, Matchers, WordSpec}
@@ -19,7 +20,7 @@ import play.api.libs.json.Json
 trait EventualJournalSpec extends WordSpec with Matchers {
   import EventualJournalSpec._
 
-  def test[F[_] : Monad](withJournals: (Journals[F] => F[Assertion]) => F[Assertion]): Unit = {
+  def test[F[_] : MonadThrowable](withJournals: (Journals[F] => F[Assertion]) => F[Assertion]): Unit = {
 
     val withJournals1 = (key: Key, timestamp: Instant) => {
 
@@ -48,7 +49,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
     test1(withJournals1)
   }
 
-  private def test1[F[_] : Monad](
+  private def test1[F[_] : MonadThrowable](
     withJournals: (Key, Instant) => ((Eventual[F], Replicated[F]) => F[Assertion]) => F[Assertion]
   ): Unit = {
 
@@ -150,7 +151,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
         pointer <- pointers
         deleteTo = pointer.seqNr
       } {
-        s"deleteTo $deleteTo, $name" in {
+        s"delete to $deleteTo, $name" in {
           withJournals2 { case (eventual, replicated) =>
             for {
               _        <- replicated.delete(deleteTo, partitionOffsetNext)
@@ -164,15 +165,15 @@ trait EventualJournalSpec extends WordSpec with Matchers {
           }
         }
 
-        s"deleteTo $deleteTo and then append, $name" in {
+        s"delete to $deleteTo and then append, $name" in {
           withJournals2 { case (eventual, replicated) =>
             for {
               _        <- replicated.delete(deleteTo, partitionOffsetNext)
               expected  = events.dropWhile(_.seqNr <= deleteTo)
               a        <- eventual.events()
               _         = a shouldEqual expected
-              a        <- eventual.pointer
-              _         = a shouldEqual pointerLast.map(_.withPartitionOffset(partitionOffsetNext))
+              pointer  <- eventual.pointer
+              _         = pointer shouldEqual pointerLast.map(_.withPartitionOffset(partitionOffsetNext))
               event     = {
                 val seqNr = for {
                   seqNr <- pointerLast
@@ -180,6 +181,8 @@ trait EventualJournalSpec extends WordSpec with Matchers {
                 } yield seqNr
                 eventOf(seqNr getOrElse JournalPointer.min)
               }
+              pointer  <- pointer.next.getOrError[F]("pointer.next")
+              event    <- event.copy(partitionOffset = pointer.partitionOffset).pure[F]
               _        <- replicated.append(Nel.of(event))
               a        <- eventual.events()
               _         = a shouldEqual expected ++ List(event)
@@ -480,23 +483,29 @@ object EventualJournalSpec {
 
   object Replicated {
 
-    def apply[F[_]](journal: ReplicatedJournal[F], key: Key, timestamp: Instant): Replicated[F] = new Replicated[F] {
+    def apply[F[_] : FlatMap](
+      journal: ReplicatedJournal[F],
+      key: Key,
+      timestamp: Instant
+    ): Replicated[F] = {
+      new Replicated[F] {
 
-      def topics = journal.topics
+        def topics = journal.topics
 
-      def append(partitionOffset: PartitionOffset, events: Nel[EventRecord]) = {
-        // TODO expireAfter: define and test
-        journal.append(key, partitionOffset, timestamp, none, events)
-      }
+        def append(partitionOffset: PartitionOffset, events: Nel[EventRecord]) = {
+          // TODO expireAfter: define and test
+          journal.append(key, partitionOffset, timestamp, none, events)
+        }
 
-      def delete(deleteTo: SeqNr, partitionOffset: PartitionOffset) = {
-        journal.delete(key, partitionOffset, timestamp, deleteTo, None)
-      }
+        def delete(deleteTo: SeqNr, partitionOffset: PartitionOffset) = {
+          journal.delete(key, partitionOffset, timestamp, deleteTo, None)
+        }
 
-      def pointers(topic: Topic) = journal.pointers(topic)
+        def pointers(topic: Topic) = journal.pointers(topic)
 
-      def save(topic: Topic, pointers: Nem[Partition, Offset]) = {
-        journal.save(topic, pointers, timestamp)
+        def save(topic: Topic, pointers: Nem[Partition, Offset]) = {
+          journal.save(topic, pointers, timestamp)
+        }
       }
     }
   }
@@ -524,7 +533,14 @@ object EventualJournalSpec {
   }
 
 
+  implicit class JournalPointerOptionOps(val self: Option[JournalPointer]) extends AnyVal {
+
+    def next: Option[JournalPointer] = self.flatMap(_.next)
+  }
+
+
   implicit class JournalPointerObjOps(val self: JournalPointer.type) extends AnyVal {
+
     def min: JournalPointer = journalPointerOf(Offset.Min, SeqNr.min)
   }
 

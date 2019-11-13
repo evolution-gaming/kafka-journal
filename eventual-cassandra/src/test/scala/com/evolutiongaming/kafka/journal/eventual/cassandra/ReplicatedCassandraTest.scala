@@ -304,7 +304,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
     }
 
 
-    test(s"append & skip appended $suffix") {
+    test(s"do not repeat appends, $suffix") {
       val id = "id"
       val key = Key(id, topic0)
       val segment = segmentOfId(key)
@@ -398,7 +398,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
     }
 
 
-    test(s"skip deletions, $suffix") {
+    test(s"do not repeat deletions, $suffix") {
       val id = "id"
       val key = Key(id = id, topic = topic0)
       val segment = segmentOfId(key)

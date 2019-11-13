@@ -4,7 +4,7 @@ import java.time.Instant
 
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
-import cats.{Id, Parallel}
+import cats.Parallel
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualJournalSpec, ReplicatedJournal, TopicPointers}
@@ -12,6 +12,8 @@ import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.sstream.FoldWhile._
 import com.evolutiongaming.sstream.Stream
+
+import scala.util.Try
 
 class EventualCassandraSpec extends EventualJournalSpec {
   import EventualCassandraSpec._
@@ -25,7 +27,9 @@ class EventualCassandraSpec extends EventualJournalSpec {
       s"segmentSize: $segmentSize, delete: $delete, segments: $segments" should {
         test[StateT] { test =>
           val journals = journalsOf(segmentSize, delete, segments)
-          val (_, result) = test(journals).run(State.empty)
+          val (_, result) = test(journals)
+            .run(State.empty)
+            .get
           result.pure[StateT]
         }
       }
@@ -316,10 +320,10 @@ object EventualCassandraSpec {
   }
 
 
-  type StateT[A] = cats.data.StateT[Id, State, A]
+  type StateT[A] = cats.data.StateT[Try, State, A]
 
   object StateT {
-    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[Id, State, A](f)
+    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[Try, State, A] { a => f(a).pure[Try]}
   }
 
 
