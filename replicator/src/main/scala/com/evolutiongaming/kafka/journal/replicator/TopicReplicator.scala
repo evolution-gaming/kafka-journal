@@ -310,30 +310,6 @@ object TopicReplicator {
   }
 
 
-  trait StopRef[F[_]] {
-
-    def set: F[Unit]
-
-    def get: F[Boolean]
-  }
-
-  object StopRef {
-
-    def apply[F[_]](implicit F: StopRef[F]): StopRef[F] = F
-
-    def of[F[_] : Sync]: F[StopRef[F]] = {
-      for {
-        ref <- Ref.of[F, Boolean](false)
-      } yield {
-        new StopRef[F] {
-          def set = ref.set(true)
-          def get = ref.get
-        }
-      }
-    }
-  }
-
-
   trait Metrics[F[_]] {
     import Metrics._
 

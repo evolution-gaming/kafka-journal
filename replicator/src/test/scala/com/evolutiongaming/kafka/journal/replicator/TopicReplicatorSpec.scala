@@ -768,23 +768,6 @@ object TopicReplicatorSpec {
   }
 
 
-  val stopRef: TopicReplicator.StopRef[StateT] = new TopicReplicator.StopRef[StateT] {
-
-    def set = StateT { s => (s, ()) }
-
-    def get = StateT { s =>
-      s.stopAfter.fold((s, false)) { stopped =>
-        if (stopped <= 0) {
-          (s, true)
-        } else {
-          val s1 = s.copy(stopAfter = Some(stopped - 1))
-          (s1, false)
-        }
-      }
-    }
-  }
-
-
   implicit val consumer: TopicReplicator.Consumer[StateT] = new TopicReplicator.Consumer[StateT] {
 
     def subscribe(topic: Topic) = StateT { s => (s.subscribe(topic), ()) }
@@ -847,9 +830,20 @@ object TopicReplicatorSpec {
       log = Log.empty[StateT],
       retry = Retry.empty[StateT])
 
+    val stop = StateT { state =>
+      state.stopAfter.fold((state, false)) { stopped =>
+        if (stopped <= 0) {
+          (state, true)
+        } else {
+          val state1 = state.copy(stopAfter = Some(stopped - 1))
+          (state1, false)
+        }
+      }
+    }
+
     stream
       .foldWhileM(()) { case (l, _) =>
-        stopRef.get.map {
+        stop.map {
           case true  => 0.asRight[Unit]
           case false => l.asLeft[Int]
         }
