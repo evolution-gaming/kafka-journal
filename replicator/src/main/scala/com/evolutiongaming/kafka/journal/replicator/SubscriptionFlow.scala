@@ -90,7 +90,7 @@ object SubscriptionFlow {
       listener   = rebalanceListenerOf(topicFlow)
       subscribe  = consumer.subscribe(topic, listener)
       _         <- Stream.lift(subscribe)
-      records   <- Stream.repeat(consumer.poll(10.millis/*TODO*/))
+      records   <- Stream.repeat(consumer.poll)
       records   <- Stream[F].apply(records.values.toNem)
       _         <- Stream.lift(topicFlow(records))
     } yield records
@@ -101,7 +101,7 @@ object SubscriptionFlow {
 
     def subscribe(topic: Topic, listener: RebalanceListener[F]): F[Unit]
 
-    def poll(timeout: FiniteDuration): F[ConsumerRecords[String, ByteVector]]
+    def poll: F[ConsumerRecords[String, ByteVector]]
 
     // TODO not pass topicPartition, as topic is constant
     def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]): F[Unit]
@@ -109,7 +109,10 @@ object SubscriptionFlow {
 
   object Consumer {
 
-    def apply[F[_]](consumer: KafkaConsumer[F, String, ByteVector]): Consumer[F] = {
+    def apply[F[_]](
+      consumer: KafkaConsumer[F, String, ByteVector],
+      pollTimeout: FiniteDuration
+    ): Consumer[F] = {
 
       new Consumer[F] {
 
@@ -117,9 +120,7 @@ object SubscriptionFlow {
           consumer.subscribe(topic, listener.some)
         }
 
-        def poll(timeout: FiniteDuration) = {
-          consumer.poll(timeout)
-        }
+        val poll = consumer.poll(pollTimeout)
 
         def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) = {
           consumer.commit(offsets)

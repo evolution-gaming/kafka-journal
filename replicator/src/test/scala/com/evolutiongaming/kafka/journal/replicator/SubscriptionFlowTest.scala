@@ -231,7 +231,7 @@ object SubscriptionFlowTest {
         StateT.unit { _ + Action.Subscribe(topic)(listener) }
       }
 
-      def poll(timeout: FiniteDuration) = {
+      val poll = {
 
         def apply(state: State, command: Command) = {
           command match {

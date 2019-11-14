@@ -57,7 +57,6 @@ object HeadCache {
   ): Resource[F, HeadCache[F]] = {
 
     val eventual = Eventual(eventualJournal)
-
     val consumer = Consumer.of[F](consumerConfig)
     for {
       log       <- Resource.liftF(LogOf[F].apply(HeadCache.getClass))
@@ -141,10 +140,9 @@ object HeadCache {
       // TODO replace SerialRef with Ref
       def consume(stateRef: SerialRef[F, State[F]], pointers: F[Map[Partition, Offset]]) = {
 
-        val stream = HeadCacheConsuming(
+        val stream = HeadCacheConsumption(
           topic = topic,
           pointers = pointers,
-          pollTimeout = config.pollTimeout,
           consumer = consumer,
           log = log)
 
@@ -516,7 +514,7 @@ object HeadCache {
 
     def seek(topic: Topic, offsets: Nem[Partition, Offset]): F[Unit]
 
-    def poll(timeout: FiniteDuration): F[ConsumerRecords[String, ByteVector]]
+    def poll: F[ConsumerRecords[String, ByteVector]]
 
     def partitions(topic: Topic): F[Set[Partition]]
   }
@@ -529,7 +527,7 @@ object HeadCache {
 
       def seek(topic: Topic, offsets: Nem[Partition, Offset]) = ().pure[F]
 
-      def poll(timeout: FiniteDuration) = ConsumerRecords.empty[String, ByteVector].pure[F]
+      def poll = ConsumerRecords.empty[String, ByteVector].pure[F]
 
       def partitions(topic: Topic) = Set.empty[Partition].pure[F]
     }
@@ -537,19 +535,20 @@ object HeadCache {
 
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
-    def apply[F[_] : Monad](consumer: KafkaConsumer[F, String, ByteVector]): Consumer[F] = {
-
-      implicit val monoidUnit = Applicative.monoid[F, Unit]
+    def apply[F[_] : Monad](
+      consumer: KafkaConsumer[F, String, ByteVector],
+      pollTimeout: FiniteDuration
+    ): Consumer[F] = {
 
       new Consumer[F] {
 
         def assign(topic: Topic, partitions: Nel[Partition]) = {
-          val topicPartitions = for {
+          val partitions1 = for {
             partition <- partitions
           } yield {
             TopicPartition(topic = topic, partition)
           }
-          consumer.assign(topicPartitions)
+          consumer.assign(partitions1)
         }
 
         def seek(topic: Topic, offsets: Nem[Partition, Offset]) = {
@@ -559,7 +558,7 @@ object HeadCache {
           }
         }
 
-        def poll(timeout: FiniteDuration) = consumer.poll(timeout)
+        val poll = consumer.poll(pollTimeout)
 
         def partitions(topic: Topic) = consumer.partitions(topic)
       }
@@ -583,14 +582,14 @@ object HeadCache {
           } yield r
         }
 
-        def poll(timeout: FiniteDuration) = {
+        def poll = {
           for {
-            r <- consumer.poll(timeout)
+            r <- consumer.poll
             _ <- {
               if (r.values.isEmpty) ().pure[F]
               else log.debug {
                 val size = r.values.values.foldLeft(0L) { _ + _.size }
-                s"poll timeout: $timeout, result: $size"
+                s"poll result: $size"
               }
             }
           } yield r
@@ -605,7 +604,10 @@ object HeadCache {
       }
     }
 
-    def of[F[_] : Monad : KafkaConsumerOf : FromTry](config: ConsumerConfig): Resource[F, Consumer[F]] = {
+    def of[F[_] : Monad : KafkaConsumerOf : FromTry](
+      config: ConsumerConfig,
+      pollTimeout: FiniteDuration = 10.millis
+    ): Resource[F, Consumer[F]] = {
 
       val config1 = config.copy(
         autoOffsetReset = AutoOffsetReset.Earliest,
@@ -615,13 +617,14 @@ object HeadCache {
       for {
         consumer <- KafkaConsumerOf[F].apply[String, ByteVector](config1)
       } yield {
-        HeadCache.Consumer[F](consumer)
+        HeadCache.Consumer[F](consumer, pollTimeout)
       }
     }
   }
 
 
   trait Eventual[F[_]] {
+
     def pointers(topic: Topic): F[TopicPointers]
   }
 

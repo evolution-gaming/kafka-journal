@@ -15,12 +15,11 @@ import scodec.bits.ByteVector
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 
-object HeadCacheConsuming {
+object HeadCacheConsumption {
 
   def apply[F[_] : BracketThrowable : Timer](
     topic: Topic,
     pointers: F[Map[Partition, Offset]],
-    pollTimeout: FiniteDuration,
     consumer: Resource[F, Consumer[F]],
     log: Log[F])(implicit
     consumerRecordToKafkaRecord: ConsumerRecordToKafkaRecord[F]
@@ -40,7 +39,7 @@ object HeadCacheConsuming {
 
     def poll(consumer: Consumer[F]) = {
       for {
-        records <- consumer.poll(pollTimeout)
+        records <- consumer.poll
         records <- kafkaRecords(records)
       } yield records
     }

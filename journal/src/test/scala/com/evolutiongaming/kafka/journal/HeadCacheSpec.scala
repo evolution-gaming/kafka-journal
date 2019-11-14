@@ -356,9 +356,7 @@ object HeadCacheSpec {
   val topic: Topic = "topic"
   val partition: Partition = 0
   val topicPartition: TopicPartition = TopicPartition(topic = topic, partition = partition)
-  val config: HeadCacheConfig = HeadCacheConfig(
-    pollTimeout = 3.millis,
-    cleanInterval = 100.millis)
+  val config: HeadCacheConfig = HeadCacheConfig(cleanInterval = 100.millis)
 
   val recordMetadata: RecordMetadata = RecordMetadata.empty
 
@@ -417,9 +415,9 @@ object HeadCacheSpec {
           stateRef.update { _.append(Action.Seek(topic, offsets)) }
         }
 
-        def poll(timeout: FiniteDuration) = {
+        val poll = {
           for {
-            _       <- Timer[IO].sleep(timeout)
+            _       <- Timer[IO].sleep(1.milli)
             records <- stateRef.modify { state =>
               state.records.dequeueOption match {
                 case None                    => (state, ConsumerRecords.empty[String, ByteVector].pure[Try])
