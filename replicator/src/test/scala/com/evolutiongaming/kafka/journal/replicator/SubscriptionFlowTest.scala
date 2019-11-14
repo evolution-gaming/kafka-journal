@@ -36,9 +36,10 @@ class SubscriptionFlowTest extends FunSuite with Matchers {
       actions = List(
         Action.ReleaseConsumer,
         Action.ReleaseTopicFlow(topic),
+        Action.Commit(Nem.of((Partition.Min, Offset.Min))),
         Action.Poll(recordsOf(recordOf(partition = 0, offset = 0))),
         Action.AssignPartitions(partitions),
-        Action.Subscribe(topic)(RebalanceListener.empty),
+        Action.Subscribe()(RebalanceListener.empty),
         Action.AcquireTopicFlow(topic),
         Action.AcquireConsumer))
   }
@@ -59,16 +60,17 @@ class SubscriptionFlowTest extends FunSuite with Matchers {
       actions = List(
         Action.ReleaseConsumer,
         Action.ReleaseTopicFlow(topic),
+        Action.Commit(Nem.of((Partition.Min, Offset.Min))),
         Action.Poll(recordsOf(recordOf(partition = 0, offset = 0))),
         Action.AssignPartitions(partitions),
-        Action.Subscribe(topic)(RebalanceListener.empty),
+        Action.Subscribe()(RebalanceListener.empty),
         Action.AcquireTopicFlow(topic),
         Action.AcquireConsumer,
         Action.RetryOnError(Error, OnError.Decision.retry(1.millis)),
         Action.ReleaseConsumer,
         Action.ReleaseTopicFlow(topic),
         Action.AssignPartitions(partitions),
-        Action.Subscribe(topic)(RebalanceListener.empty),
+        Action.Subscribe()(RebalanceListener.empty),
         Action.AcquireTopicFlow(topic),
         Action.AcquireConsumer))
   }
@@ -88,11 +90,12 @@ class SubscriptionFlowTest extends FunSuite with Matchers {
       actions = List(
         Action.ReleaseConsumer,
         Action.ReleaseTopicFlow(topic),
+        Action.Commit(Nem.of((Partition.Min, Offset.Min))),
         Action.Poll(recordsOf(recordOf(partition = 0, offset = 0))),
         Action.RevokePartitions(Nel.of(1, 2)),
         Action.AssignPartitions(Nel.of(2)),
         Action.AssignPartitions(Nel.of(1)),
-        Action.Subscribe(topic)(RebalanceListener.empty),
+        Action.Subscribe()(RebalanceListener.empty),
         Action.AcquireTopicFlow(topic),
         Action.AcquireConsumer))
   }
@@ -208,7 +211,11 @@ object SubscriptionFlowTest {
           }
 
           def apply(records: Records) = {
-            StateT.unit { _ + Action.Poll(records) }
+            StateT.pure { state =>
+              val state1 = state + Action.Poll(records)
+              //  TODO test
+              (state1, Map((Partition.Min, Offset.Min)))
+            }
           }
 
           def revoke(partitions: Nel[Partition]) = {
@@ -226,8 +233,8 @@ object SubscriptionFlowTest {
 
     val consumer: Consumer[StateT] = new Consumer[StateT] {
 
-      def subscribe(topic: Topic, listener: RebalanceListener[StateT]) = {
-        StateT.unit { _ + Action.Subscribe(topic)(listener) }
+      def subscribe(listener: RebalanceListener[StateT]) = {
+        StateT.unit { _ + Action.Subscribe()(listener) }
       }
 
       val poll = {
@@ -238,7 +245,7 @@ object SubscriptionFlowTest {
               state
                 .actions
                 .collectFirst { case action: Action.Subscribe =>
-                  val topicPartitions = partitions.map { partition => TopicPartition(action.topic, partition) }
+                  val topicPartitions = partitions.map { partition => TopicPartition(topic, partition) }
                   action
                     .listener
                     .onPartitionsAssigned(topicPartitions)
@@ -255,7 +262,7 @@ object SubscriptionFlowTest {
               state
                 .actions
                 .collectFirst { case action: Action.Subscribe =>
-                  val topicPartitions = partitions.map { partition => TopicPartition(action.topic, partition) }
+                  val topicPartitions = partitions.map { partition => TopicPartition(topic, partition) }
                   action
                     .listener
                     .onPartitionsRevoked(topicPartitions)
@@ -278,7 +285,7 @@ object SubscriptionFlowTest {
         }
       }
 
-      def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) = {
+      def commit(offsets: Nem[Partition, Offset]) = {
         StateT.unit { _ + Action.Commit(offsets) }
       }
     }
@@ -325,7 +332,7 @@ object SubscriptionFlowTest {
   }
 
 
-  val subscriptionFlow: Stream[StateT, Records] = {
+  val subscriptionFlow: Stream[StateT, Unit] = {
     SubscriptionFlow(topic, consumer, topicFlowOf, retry)
   }
 
@@ -348,9 +355,9 @@ object SubscriptionFlowTest {
     case object ReleaseConsumer extends Action
     final case class AssignPartitions(partitions: Nel[Partition]) extends Action
     final case class RevokePartitions(partitions: Nel[Partition]) extends Action
-    final case class Subscribe(topic: Topic)(val listener: RebalanceListener[StateT]) extends Action
+    final case class Subscribe()(val listener: RebalanceListener[StateT]) extends Action
     final case class Poll(records: Records) extends Action
-    final case class Commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) extends Action
+    final case class Commit(offsets: Nem[Partition, Offset]) extends Action
     final case class RetryOnError(error: Throwable, decision: OnError.Decision) extends Action
   }
 
