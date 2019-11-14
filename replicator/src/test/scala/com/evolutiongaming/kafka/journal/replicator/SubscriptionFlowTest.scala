@@ -6,15 +6,14 @@ import cats.effect.{ExitCase, Resource, Timer}
 import cats.implicits._
 import com.evolutiongaming.catshelper.TimerHelper._
 import com.evolutiongaming.catshelper.BracketThrowable
-import com.evolutiongaming.kafka.journal.ConsumerRecordsOf
-import com.evolutiongaming.kafka.journal.replicator.SubscriptionFlow.{Consumer, Record, Records}
+import com.evolutiongaming.kafka.journal.{ConsRecord, ConsRecords, ConsumerRecordsOf}
+import com.evolutiongaming.kafka.journal.replicator.SubscriptionFlow.{Consumer, Records}
 import com.evolutiongaming.kafka.journal.util.CollectionHelper._
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.skafka._
-import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, RebalanceListener, WithSize}
+import com.evolutiongaming.skafka.consumer.{ConsumerRecords, RebalanceListener, WithSize}
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.{FunSuite, Matchers}
-import scodec.bits.ByteVector
 
 import scala.annotation.tailrec
 import scala.concurrent.duration._
@@ -247,7 +246,7 @@ object SubscriptionFlowTest {
                     .map { case (s, _) => s }
                 }
                 .getOrElse(state)
-                .map { state => (state, ConsumerRecords.empty[String, ByteVector].pure[Try]) }
+                .map { state => (state, ConsRecords.empty.pure[Try]) }
 
             case Command.ProduceRecords(records) =>
               (state, records.pure[Try])
@@ -264,16 +263,16 @@ object SubscriptionFlowTest {
                     .map { case (s, _) => s }
                 }
                 .getOrElse(state)
-                .map { s => (s, ConsumerRecords.empty[String, ByteVector].pure[Try]) }
+                .map { s => (s, ConsRecords.empty.pure[Try]) }
 
             case Command.Fail(error) =>
-              (state, error.raiseError[Try, ConsumerRecords[String, ByteVector]])
+              (state, error.raiseError[Try, ConsRecords])
           }
         }
 
         StateT { state =>
           state.commands match {
-            case Nil                 => (state, ConsumerRecords.empty[String, ByteVector].pure[Try])
+            case Nil                 => (state, ConsRecords.empty.pure[Try])
             case command :: commands => apply(state.copy(commands = commands), command)
           }
         }
@@ -308,8 +307,8 @@ object SubscriptionFlowTest {
   def recordOf(
     partition: Partition,
     offset: Offset,
-  ): Record = {
-    ConsumerRecord(
+  ): ConsRecord = {
+    ConsRecord(
       topicPartition = TopicPartition(topic = topic, partition = partition),
       offset = offset,
       timestampAndType = none,
@@ -318,7 +317,7 @@ object SubscriptionFlowTest {
       headers = List.empty)
   }
 
-  def recordsOf(record: Record, records: Record*): Records = {
+  def recordsOf(record: ConsRecord, records: ConsRecord*): Records = {
     Nel(record, records.toList)
       .groupBy { _.topicPartition }
       .toNem
@@ -334,7 +333,7 @@ object SubscriptionFlowTest {
   sealed abstract class Command
 
   object Command {
-    final case class ProduceRecords(consumerRecords: ConsumerRecords[String, ByteVector]) extends Command
+    final case class ProduceRecords(records: ConsRecords) extends Command
     final case class AssignPartitions(partitions: Nel[Partition]) extends Command
     final case class RevokePartitions(partitions: Nel[Partition]) extends Command
     final case class Fail(error: Throwable) extends Command

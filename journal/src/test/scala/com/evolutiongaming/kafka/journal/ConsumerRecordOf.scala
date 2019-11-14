@@ -5,7 +5,6 @@ import cats.implicits._
 import com.evolutiongaming.kafka.journal.conversions.ActionToProducerRecord
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, WithSize}
 import com.evolutiongaming.skafka.{Offset, TimestampAndType, TimestampType, TopicPartition}
-import scodec.bits.ByteVector
 
 object ConsumerRecordOf {
 
@@ -14,13 +13,13 @@ object ConsumerRecordOf {
     topicPartition: TopicPartition,
     offset: Offset)(implicit
     actionToProducerRecord: ActionToProducerRecord[F]
-  ): F[ConsumerRecord[String, ByteVector]] = {
+  ): F[ConsRecord] = {
 
     for {
       producerRecord <- actionToProducerRecord(action)
     } yield {
       val timestampAndType = TimestampAndType(action.timestamp, TimestampType.Create)
-      ConsumerRecord[String, ByteVector](
+      ConsRecord(
         topicPartition = topicPartition,
         offset = offset,
         timestampAndType = Some(timestampAndType),

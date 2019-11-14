@@ -12,7 +12,7 @@ import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.skafka
-import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords}
+import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord}
 import com.evolutiongaming.skafka.{Bytes => _, _}
 import com.evolutiongaming.smetrics.MetricsHelper._
@@ -542,7 +542,7 @@ object Journal {
 
     def seek(partition: TopicPartition, offset: Offset): F[Unit]
 
-    def poll: F[ConsumerRecords[String, ByteVector]]
+    def poll: F[ConsRecords]
   }
 
   object Consumer {

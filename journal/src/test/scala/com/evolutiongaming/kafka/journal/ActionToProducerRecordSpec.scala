@@ -6,11 +6,10 @@ import java.time.temporal.ChronoUnit
 import cats.implicits._
 import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsumerRecordToActionRecord, EventsToPayload}
-import com.evolutiongaming.skafka.consumer.{ConsumerRecord, WithSize}
+import com.evolutiongaming.skafka.consumer.WithSize
 import com.evolutiongaming.skafka.{TimestampAndType, TimestampType, TopicPartition}
 import org.scalatest.{FunSuite, Matchers}
 import play.api.libs.json.Json
-import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
 import scala.util.Try
@@ -105,7 +104,7 @@ class ActionToProducerRecordSpec extends FunSuite with Matchers {
       for {
         producerRecord <- actionToProducerRecord(action)
       } yield {
-        val consumerRecord = ConsumerRecord[String, ByteVector](
+        val consumerRecord = ConsRecord(
           topicPartition = topicPartition,
           offset = partitionOffset.offset,
           timestampAndType = Some(TimestampAndType(timestamp, TimestampType.Create)),

@@ -11,11 +11,9 @@ import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.conversions.EventsToPayload
 import com.evolutiongaming.skafka._
-import com.evolutiongaming.skafka.consumer.ConsumerRecords
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.smetrics.CollectorRegistry
 import org.scalatest.{AsyncWordSpec, Matchers}
-import scodec.bits.ByteVector
 
 import scala.collection.immutable.Queue
 import scala.concurrent.duration._
@@ -271,7 +269,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
             _     <- enqueue(0L)
             a     <- headCache.get(key, partition, 0L)
             _      = a shouldEqual HeadInfo.append(SeqNr.min).asRight
-            _     <- stateRef.update { _.enqueue(TestError.raiseError[Try, ConsumerRecords[String, ByteVector]]) }
+            _     <- stateRef.update { _.enqueue(TestError.raiseError[Try, ConsRecords]) }
             _     <- enqueue(1L)
             a     <- headCache.get(key, partition, 1L)
             _      = a shouldEqual HeadInfo.append(SeqNr.min).asRight
@@ -420,7 +418,7 @@ object HeadCacheSpec {
             _       <- Timer[IO].sleep(1.milli)
             records <- stateRef.modify { state =>
               state.records.dequeueOption match {
-                case None                    => (state, ConsumerRecords.empty[String, ByteVector].pure[Try])
+                case None                    => (state, ConsRecords.empty.pure[Try])
                 case Some((record, records)) =>
                   val stateUpdated = state.copy(records = records)
                   (stateUpdated, record)
@@ -458,7 +456,7 @@ object HeadCacheSpec {
     final case class State(
       actions: List[Action] = List.empty,
       topics: Map[Topic, List[Partition]] = Map.empty,
-      records: Queue[Try[ConsumerRecords[String, ByteVector]]] = Queue.empty)
+      records: Queue[Try[ConsRecords]] = Queue.empty)
 
     object State {
 
@@ -467,7 +465,7 @@ object HeadCacheSpec {
 
       implicit class StateOps(val self: State) extends AnyVal {
 
-        def enqueue(records: Try[ConsumerRecords[String, ByteVector]]): State = {
+        def enqueue(records: Try[ConsRecords]): State = {
           self.copy(records = self.records.enqueue(records))
         }
 

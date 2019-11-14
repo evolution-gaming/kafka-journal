@@ -6,10 +6,8 @@ import cats.implicits._
 import cats.~>
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.kafka.journal.conversions.ConsumerRecordToActionRecord
-import com.evolutiongaming.skafka.consumer.ConsumerRecord
 import com.evolutiongaming.skafka.{Offset, Partition, TopicPartition}
 import com.evolutiongaming.sstream.Stream
-import scodec.bits.ByteVector
 
 
 trait ConsumeActionRecords[F[_]] {
@@ -36,7 +34,7 @@ object ConsumeActionRecords {
         } yield {}
       }
 
-      def filter(records: List[Nel[ConsumerRecord[String, ByteVector]]]) = {
+      def filter(records: List[Nel[ConsRecord]]) = {
         for {
           records <- records
           record  <- records.toList if record.key.exists { _.value == key.id }

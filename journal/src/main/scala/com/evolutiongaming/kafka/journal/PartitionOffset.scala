@@ -10,8 +10,8 @@ import com.evolutiongaming.skafka.{Offset, Partition}
 
 final case class PartitionOffset(
   partition: Partition = Partition.Min,
-  offset: Offset = Offset.Min) {
-
+  offset: Offset = Offset.Min
+) {
   override def toString = s"$partition:$offset"
 }
 

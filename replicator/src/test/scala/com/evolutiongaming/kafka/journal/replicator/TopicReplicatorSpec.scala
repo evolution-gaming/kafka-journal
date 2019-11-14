@@ -8,7 +8,7 @@ import cats.implicits._
 import cats.{Applicative, Id, Monoid, Parallel}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log}
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.{ConsRecords, _}
 import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsumerRecordToActionRecord, EventsToPayload, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
@@ -19,7 +19,6 @@ import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, Wit
 import com.evolutiongaming.skafka.{Bytes => _, Header => _, Metadata => _, _}
 import org.scalatest.{Matchers, WordSpec}
 import play.api.libs.json.Json
-import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
 import scala.util.Try
@@ -855,7 +854,7 @@ object TopicReplicatorSpec {
   final case class State(
     topics: List[Topic] = Nil,
     commits: List[Nem[TopicPartition, Offset]] = Nil,
-    records: List[ConsumerRecords[String, ByteVector]] = Nil,
+    records: List[ConsRecords] = Nil,
     stopAfter: Option[Int] = None,
     pointers: Map[Topic, TopicPointers] = Map.empty,
     journal: Map[Key, List[EventRecord]] = Map.empty,
@@ -900,7 +899,7 @@ object TopicReplicatorSpec {
       }
     }
 
-    def poll: (State, ConsumerRecords[String, ByteVector]) = {
+    def poll: (State, ConsRecords) = {
       records match {
         case head :: tail => (copy(records = tail), head)
         case Nil          => (copy(stopAfter = Some(0)), ConsumerRecords(Map.empty))

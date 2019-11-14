@@ -133,7 +133,7 @@ object TopicReplicator {
   ): Stream[F, Unit] = {
 
     def commit(
-      records: Nem[TopicPartition, Nel[ConsumerRecord[String, ByteVector]]],
+      records: Nem[TopicPartition, Nel[ConsRecord]],
       state: State,
       consumer: Consumer[F]
     ) = {
@@ -166,7 +166,7 @@ object TopicReplicator {
       def consume(
         state: State,
         roundStart: Instant,
-        consumerRecords: Nem[TopicPartition, Nel[ConsumerRecord[String, ByteVector]]]
+        consumerRecords: Nem[TopicPartition, Nel[ConsRecord]]
       ) = {
 
         val records = for {
@@ -214,7 +214,7 @@ object TopicReplicator {
 
     def subscribe(topic: Topic): F[Unit]
 
-    def poll: F[ConsumerRecords[String, ByteVector]]
+    def poll: F[ConsRecords]
 
     def commit(offsets: Nem[TopicPartition, Offset]): F[Unit]
 

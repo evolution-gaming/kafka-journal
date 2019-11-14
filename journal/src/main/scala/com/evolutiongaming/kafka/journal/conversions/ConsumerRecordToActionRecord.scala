@@ -6,12 +6,10 @@ import cats.implicits._
 import cats.data.OptionT
 import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.skafka.consumer.ConsumerRecord
-import scodec.bits.ByteVector
 
 trait ConsumerRecordToActionRecord[F[_]] {
 
-  def apply(consumerRecord: ConsumerRecord[String, ByteVector]): F[Option[ActionRecord[Action]]]
+  def apply(consumerRecord: ConsRecord): F[Option[ActionRecord[Action]]]
 }
 
 object ConsumerRecordToActionRecord {
@@ -21,7 +19,7 @@ object ConsumerRecordToActionRecord {
     headerToTuple: HeaderToTuple[F],
   ): ConsumerRecordToActionRecord[F] = {
 
-    consumerRecord: ConsumerRecord[String, ByteVector] => {
+    consumerRecord: ConsRecord => {
 
       def action(key: Key, timestamp: Instant, header: ActionHeader) = {
 

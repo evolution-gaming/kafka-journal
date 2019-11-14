@@ -3,12 +3,11 @@ package com.evolutiongaming.kafka.journal.conversions
 import cats.implicits._
 import com.evolutiongaming.catshelper.ApplicativeThrowable
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.skafka.consumer.ConsumerRecord
 import scodec.bits.ByteVector
 
 trait ConsumerRecordToActionHeader[F[_]] {
 
-  def apply(consumerRecord: ConsumerRecord[String, ByteVector]): Option[F[ActionHeader]]
+  def apply(consumerRecord: ConsRecord): Option[F[ActionHeader]]
 }
 
 object ConsumerRecordToActionHeader {
@@ -17,7 +16,7 @@ object ConsumerRecordToActionHeader {
     fromBytes: FromBytes[F, ActionHeader]
   ): ConsumerRecordToActionHeader[F] = {
 
-    consumerRecord: ConsumerRecord[String, ByteVector] => {
+    consumerRecord: ConsRecord => {
       for {
         header <- consumerRecord.headers.find { _.key == ActionHeader.key }
       } yield {

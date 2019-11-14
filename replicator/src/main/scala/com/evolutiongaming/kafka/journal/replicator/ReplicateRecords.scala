@@ -14,9 +14,7 @@ import com.evolutiongaming.kafka.journal.conversions.{ConsumerRecordToActionReco
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.{Metrics, State}
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
-import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Bytes => _, _}
-import scodec.bits.ByteVector
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -25,7 +23,7 @@ trait ReplicateRecords[F[_]] {
 
   def apply(
     state: State,
-    consumerRecords: Nem[TopicPartition, Nel[ConsumerRecord[String, ByteVector]]],
+    consumerRecords: Nem[TopicPartition, Nel[ConsRecord]],
     roundStart: Instant
   ): F[State]
 }
@@ -45,7 +43,7 @@ object ReplicateRecords {
 
       def apply(
         state: State,
-        consumerRecords: Nem[TopicPartition, Nel[ConsumerRecord[String, ByteVector]]],
+        consumerRecords: Nem[TopicPartition, Nel[ConsRecord]],
         roundStart: Instant
       ) = {
 

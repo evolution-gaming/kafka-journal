@@ -4,7 +4,7 @@ import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.{Resource, Timer}
 import cats.implicits._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log, LogOf}
-import com.evolutiongaming.kafka.journal.KafkaConsumer
+import com.evolutiongaming.kafka.journal.{ConsRecord, ConsRecords, KafkaConsumer}
 import com.evolutiongaming.kafka.journal.util.CollectionHelper._
 import com.evolutiongaming.skafka.consumer.{Consumer => _, _}
 import com.evolutiongaming.skafka.{OffsetAndMetadata, Topic, TopicPartition}
@@ -17,9 +17,7 @@ import scala.concurrent.duration._
 
 object SubscriptionFlow {
 
-  type Record = ConsumerRecord[String, ByteVector]
-  
-  type Records = Nem[TopicPartition, Nel[Record]]
+  type Records = Nem[TopicPartition, Nel[ConsRecord]]
 
 
   def apply[F[_] : BracketThrowable : LogOf : Timer](
@@ -101,7 +99,7 @@ object SubscriptionFlow {
 
     def subscribe(topic: Topic, listener: RebalanceListener[F]): F[Unit]
 
-    def poll: F[ConsumerRecords[String, ByteVector]]
+    def poll: F[ConsRecords]
 
     // TODO not pass topicPartition, as topic is constant
     def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]): F[Unit]

@@ -18,7 +18,7 @@ import com.evolutiongaming.kafka.journal.util.ResourceOf
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.scache.{Cache, Releasable}
-import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecord, ConsumerRecords}
+import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
 import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.smetrics._
@@ -514,7 +514,7 @@ object HeadCache {
 
     def seek(topic: Topic, offsets: Nem[Partition, Offset]): F[Unit]
 
-    def poll: F[ConsumerRecords[String, ByteVector]]
+    def poll: F[ConsRecords]
 
     def partitions(topic: Topic): F[Set[Partition]]
   }
@@ -527,7 +527,7 @@ object HeadCache {
 
       def seek(topic: Topic, offsets: Nem[Partition, Offset]) = ().pure[F]
 
-      def poll = ConsumerRecords.empty[String, ByteVector].pure[F]
+      def poll = ConsRecords.empty.pure[F]
 
       def partitions(topic: Topic) = Set.empty[Partition].pure[F]
     }
@@ -834,7 +834,7 @@ object HeadCache {
 
   trait ConsumerRecordToKafkaRecord[F[_]] {
 
-    def apply(consumerRecord: ConsumerRecord[String, ByteVector]): Option[F[KafkaRecord]]
+    def apply(consumerRecord: ConsRecord): Option[F[KafkaRecord]]
   }
 
   object ConsumerRecordToKafkaRecord {
@@ -842,7 +842,7 @@ object HeadCache {
     implicit def apply[F[_] : Functor](implicit
       consumerRecordToActionHeader: ConsumerRecordToActionHeader[F]
     ): ConsumerRecordToKafkaRecord[F] = {
-      record: ConsumerRecord[String, ByteVector] => {
+      record: ConsRecord => {
         for {
           key              <- record.key
           id                = key.value

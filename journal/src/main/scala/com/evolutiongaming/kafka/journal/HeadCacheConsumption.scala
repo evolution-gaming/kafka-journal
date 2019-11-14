@@ -7,10 +7,8 @@ import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.kafka.journal.HeadCache.{Consumer, ConsumerRecordToKafkaRecord, KafkaRecord}
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
-import com.evolutiongaming.skafka.consumer.ConsumerRecords
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.sstream.Stream
-import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
@@ -25,7 +23,7 @@ object HeadCacheConsumption {
     consumerRecordToKafkaRecord: ConsumerRecordToKafkaRecord[F]
   ): Stream[F, List[(Partition, Nel[KafkaRecord])]] = {
 
-    def kafkaRecords(records: ConsumerRecords[String, ByteVector]): F[List[(Partition, Nel[KafkaRecord])]] = {
+    def kafkaRecords(records: ConsRecords): F[List[(Partition, Nel[KafkaRecord])]] = {
       records
         .values
         .toList
