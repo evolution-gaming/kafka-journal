@@ -5,6 +5,7 @@ import cats.effect.{Resource, Timer}
 import cats.implicits._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log, LogOf}
 import com.evolutiongaming.kafka.journal.KafkaConsumer
+import com.evolutiongaming.kafka.journal.util.CollectionHelper._
 import com.evolutiongaming.skafka.consumer.{Consumer => _, _}
 import com.evolutiongaming.skafka.{OffsetAndMetadata, Topic, TopicPartition}
 import com.evolutiongaming.sstream.Stream
@@ -16,11 +17,16 @@ import scala.concurrent.duration._
 
 object SubscriptionFlow {
 
+  type Record = ConsumerRecord[String, ByteVector]
+  
+  type Records = Nem[TopicPartition, Nel[Record]]
+
+
   def apply[F[_] : BracketThrowable : LogOf : Timer](
     topic: Topic,
     consumer: Resource[F, Consumer[F]],
     topicFlowOf: TopicFlowOf[F]
-  ): Stream[F, ConsumerRecords[String, ByteVector]] = {
+  ): Stream[F, Records] = {
 
     def retry(log: Log[F]) = {
 
@@ -59,7 +65,7 @@ object SubscriptionFlow {
     consumer: Resource[F, Consumer[F]],
     topicFlowOf: TopicFlowOf[F],
     retry: Retry[F],
-  ): Stream[F, ConsumerRecords[String, ByteVector]/*TODO decide on return type*/] = {
+  ): Stream[F, Records] = {
 
     def rebalanceListenerOf(topicFlow: TopicFlow[F]) = {
       new RebalanceListener[F] {
@@ -84,11 +90,11 @@ object SubscriptionFlow {
       listener   = rebalanceListenerOf(topicFlow)
       subscribe  = consumer.subscribe(topic, listener)
       _         <- Stream.lift(subscribe)
-      records   <- Stream.repeat(consumer.poll(10.millis/*TODO*/)) if records.values.nonEmpty
+      records   <- Stream.repeat(consumer.poll(10.millis/*TODO*/))
+      records   <- Stream[F].apply(records.values.toNem)
       _         <- Stream.lift(topicFlow(records))
     } yield records
   }
-
 
 
   trait Consumer[F[_]] {

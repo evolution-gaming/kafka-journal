@@ -42,4 +42,8 @@ object ConsumerRecordsOf {
     }
     ConsumerRecords(records1)
   }
+
+  def apply[K, V](records: ConsumerRecord[K, V]*): ConsumerRecords[K, V] = {
+    apply(records.toList)
+  }
 }

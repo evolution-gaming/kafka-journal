@@ -6,7 +6,9 @@ import cats.effect.{ExitCase, Resource, Timer}
 import cats.implicits._
 import com.evolutiongaming.catshelper.TimerHelper._
 import com.evolutiongaming.catshelper.BracketThrowable
-import com.evolutiongaming.kafka.journal.replicator.SubscriptionFlow.Consumer
+import com.evolutiongaming.kafka.journal.ConsumerRecordsOf
+import com.evolutiongaming.kafka.journal.replicator.SubscriptionFlow.{Consumer, Record, Records}
+import com.evolutiongaming.kafka.journal.util.CollectionHelper._
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, RebalanceListener, WithSize}
@@ -27,7 +29,7 @@ class SubscriptionFlowTest extends FunSuite with Matchers {
       Command.AssignPartitions(partitions),
       Command.ProduceRecords(ConsumerRecords.empty),
       Command.ProduceRecords(ConsumerRecords.empty),
-      Command.ProduceRecords(consumerRecords(consumerRecord(partition = 0, offset = 0)))))
+      Command.ProduceRecords(ConsumerRecordsOf(recordOf(partition = 0, offset = 0)))))
 
     val (result, _) = subscriptionFlow.take(1).toList.run(state)
 
@@ -35,7 +37,7 @@ class SubscriptionFlowTest extends FunSuite with Matchers {
       actions = List(
         Action.ReleaseConsumer,
         Action.ReleaseTopicFlow(topic),
-        Action.Poll(consumerRecords(consumerRecord(partition = 0, offset = 0))),
+        Action.Poll(recordsOf(recordOf(partition = 0, offset = 0))),
         Action.AssignPartitions(partitions),
         Action.Subscribe(topic)(RebalanceListener.empty),
         Action.AcquireTopicFlow(topic),
@@ -50,7 +52,7 @@ class SubscriptionFlowTest extends FunSuite with Matchers {
       Command.Fail(Error),
       Command.AssignPartitions(partitions),
       Command.ProduceRecords(ConsumerRecords.empty),
-      Command.ProduceRecords(consumerRecords(consumerRecord(partition = 0, offset = 0)))))
+      Command.ProduceRecords(ConsumerRecordsOf(recordOf(partition = 0, offset = 0)))))
 
     val (result, _) = subscriptionFlow.take(1).toList.run(state)
 
@@ -58,7 +60,7 @@ class SubscriptionFlowTest extends FunSuite with Matchers {
       actions = List(
         Action.ReleaseConsumer,
         Action.ReleaseTopicFlow(topic),
-        Action.Poll(consumerRecords(consumerRecord(partition = 0, offset = 0))),
+        Action.Poll(recordsOf(recordOf(partition = 0, offset = 0))),
         Action.AssignPartitions(partitions),
         Action.Subscribe(topic)(RebalanceListener.empty),
         Action.AcquireTopicFlow(topic),
@@ -79,7 +81,7 @@ class SubscriptionFlowTest extends FunSuite with Matchers {
       Command.ProduceRecords(ConsumerRecords.empty),
       Command.AssignPartitions(Nel.of(2)),
       Command.RevokePartitions(Nel.of(1, 2)),
-      Command.ProduceRecords(consumerRecords(consumerRecord(partition = 0, offset = 0)))))
+      Command.ProduceRecords(ConsumerRecordsOf(recordOf(partition = 0, offset = 0)))))
 
     val (result, _) = subscriptionFlow.take(1).toList.run(state)
 
@@ -87,7 +89,7 @@ class SubscriptionFlowTest extends FunSuite with Matchers {
       actions = List(
         Action.ReleaseConsumer,
         Action.ReleaseTopicFlow(topic),
-        Action.Poll(consumerRecords(consumerRecord(partition = 0, offset = 0))),
+        Action.Poll(recordsOf(recordOf(partition = 0, offset = 0))),
         Action.RevokePartitions(Nel.of(1, 2)),
         Action.AssignPartitions(Nel.of(2)),
         Action.AssignPartitions(Nel.of(1)),
@@ -206,8 +208,8 @@ object SubscriptionFlowTest {
             StateT.unit { _ + Action.AssignPartitions(partitions) }
           }
 
-          def apply(consumerRecords: ConsumerRecords[String, ByteVector]) = {
-            StateT.unit { _ + Action.Poll(consumerRecords) }
+          def apply(records: Records) = {
+            StateT.unit { _ + Action.Poll(records) }
           }
 
           def revoke(partitions: Nel[Partition]) = {
@@ -247,7 +249,8 @@ object SubscriptionFlowTest {
                 .getOrElse(state)
                 .map { state => (state, ConsumerRecords.empty[String, ByteVector].pure[Try]) }
 
-            case Command.ProduceRecords(records) => (state, records.pure[Try])
+            case Command.ProduceRecords(records) =>
+              (state, records.pure[Try])
 
             case Command.RevokePartitions(partitions) =>
               state
@@ -263,7 +266,8 @@ object SubscriptionFlowTest {
                 .getOrElse(state)
                 .map { s => (s, ConsumerRecords.empty[String, ByteVector].pure[Try]) }
 
-            case Command.Fail(error) => (state, error.raiseError[Try, ConsumerRecords[String, ByteVector]])
+            case Command.Fail(error) =>
+              (state, error.raiseError[Try, ConsumerRecords[String, ByteVector]])
           }
         }
 
@@ -301,10 +305,10 @@ object SubscriptionFlowTest {
   }
 
 
-  def consumerRecord(
+  def recordOf(
     partition: Partition,
     offset: Offset,
-  ): ConsumerRecord[String, ByteVector] = {
+  ): Record = {
     ConsumerRecord(
       topicPartition = TopicPartition(topic = topic, partition = partition),
       offset = offset,
@@ -314,16 +318,15 @@ object SubscriptionFlowTest {
       headers = List.empty)
   }
 
-  def consumerRecords(records: ConsumerRecord[String, ByteVector]*): ConsumerRecords[String, ByteVector] = {
-    Nel.fromList(records.toList).fold {
-      ConsumerRecords.empty[String, ByteVector]
-    } { records =>
-      ConsumerRecords(records.groupBy(_.topicPartition))
-    }
+  def recordsOf(record: Record, records: Record*): Records = {
+    Nel(record, records.toList)
+      .groupBy { _.topicPartition }
+      .toNem
+      .get
   }
 
 
-  val subscriptionFlow: Stream[StateT, ConsumerRecords[String, ByteVector]] = {
+  val subscriptionFlow: Stream[StateT, Records] = {
     SubscriptionFlow(topic, consumer, topicFlowOf, retry)
   }
 
@@ -347,7 +350,7 @@ object SubscriptionFlowTest {
     final case class AssignPartitions(partitions: Nel[Partition]) extends Action
     final case class RevokePartitions(partitions: Nel[Partition]) extends Action
     final case class Subscribe(topic: Topic)(val listener: RebalanceListener[StateT]) extends Action
-    final case class Poll(consumerRecords: ConsumerRecords[String, ByteVector]) extends Action
+    final case class Poll(records: Records) extends Action
     final case class Commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) extends Action
     final case class RetryOnError(error: Throwable, decision: OnError.Decision) extends Action
   }
