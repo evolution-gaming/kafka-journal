@@ -6,7 +6,7 @@ import cats.implicits._
 import cats.{Applicative, Monad, ~>}
 import com.evolutiongaming.kafka.journal.util.Named
 import com.evolutiongaming.skafka._
-import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecords}
+import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecords, RebalanceListener}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.util.control.NoStackTrace
@@ -17,7 +17,7 @@ trait KafkaConsumer[F[_], K, V] {
 
   def seek(partition: TopicPartition, offset: Offset): F[Unit]
 
-  def subscribe(topic: Topic): F[Unit]
+  def subscribe(topic: Topic, listener: Option[RebalanceListener[F]]): F[Unit]
 
   def poll(timeout: FiniteDuration): F[ConsumerRecords[K, V]]
 
@@ -71,8 +71,8 @@ object KafkaConsumer {
         consumer.seek(partition, offset)
       }
 
-      def subscribe(topic: Topic) = {
-        consumer.subscribe(Nel.of(topic), None)
+      def subscribe(topic: Topic, listener: Option[RebalanceListener[F]]) = {
+        consumer.subscribe(Nel.of(topic), listener)
       }
 
       def poll(timeout: FiniteDuration) = {
@@ -110,23 +110,26 @@ object KafkaConsumer {
 
   implicit class KafkaConsumerOps[F[_], K, V](val self: KafkaConsumer[F, K, V]) extends AnyVal {
 
-    def mapK[G[_]](f: F ~> G): KafkaConsumer[G, K, V] = new KafkaConsumer[G, K, V] {
+    def mapK[G[_]](fg: F ~> G, gf: G ~> F): KafkaConsumer[G, K, V] = new KafkaConsumer[G, K, V] {
 
-      def assign(partitions: Nel[TopicPartition]) = f(self.assign(partitions))
+      def assign(partitions: Nel[TopicPartition]) = fg(self.assign(partitions))
 
-      def seek(partition: TopicPartition, offset: Offset) = f(self.seek(partition, offset))
+      def seek(partition: TopicPartition, offset: Offset) = fg(self.seek(partition, offset))
 
-      def subscribe(topic: Topic) = f(self.subscribe(topic))
+      def subscribe(topic: Topic, listener: Option[RebalanceListener[G]]) = {
+        val listener1 = listener.map(_.mapK(gf))
+        fg(self.subscribe(topic, listener1))
+      }
 
-      def poll(timeout: FiniteDuration) = f(self.poll(timeout))
+      def poll(timeout: FiniteDuration) = fg(self.poll(timeout))
 
-      def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = f(self.commit(offsets))
+      def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = fg(self.commit(offsets))
 
-      def topics = f(self.topics)
+      def topics = fg(self.topics)
 
-      def partitions(topic: Topic) = f(self.partitions(topic))
+      def partitions(topic: Topic) = fg(self.partitions(topic))
 
-      def assignment = f(self.assignment)
+      def assignment = fg(self.assignment)
     }
 
 
@@ -136,7 +139,9 @@ object KafkaConsumer {
 
       def seek(partition: TopicPartition, offset: Offset) = f(self.seek(partition, offset), "seek")
 
-      def subscribe(topic: Topic) = f(self.subscribe(topic), "subscribe")
+      def subscribe(topic: Topic, listener: Option[RebalanceListener[F]]) = {
+        f(self.subscribe(topic, listener), "subscribe")
+      }
 
       def poll(timeout: FiniteDuration) = f(self.poll(timeout), "poll")
 
@@ -158,7 +163,9 @@ object KafkaConsumer {
 
         def seek(partition: TopicPartition, offset: Offset) = self.seek(partition, offset)
 
-        def subscribe(topic: Topic) = self.subscribe(topic)
+        def subscribe(topic: Topic, listener: Option[RebalanceListener[F]]) = {
+          self.subscribe(topic, listener)
+        }
 
         def poll(timeout: FiniteDuration) = {
           for {

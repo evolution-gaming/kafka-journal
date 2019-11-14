@@ -108,8 +108,7 @@ object SubscriptionFlow {
       new Consumer[F] {
 
         def subscribe(topic: Topic, listener: RebalanceListener[F]) = {
-//          consumer.subscribe(Nel.of(topic), listener.some)
-          ???
+          consumer.subscribe(topic, listener.some)
         }
 
         def poll(timeout: FiniteDuration) = {

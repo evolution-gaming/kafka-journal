@@ -235,7 +235,7 @@ object TopicReplicator {
       val commit1 = commit
       new Consumer[F] {
 
-        def subscribe(topic: Topic) = consumer.subscribe(topic)
+        def subscribe(topic: Topic) = consumer.subscribe(topic, none)
 
         def poll = consumer.poll(pollTimeout)
 

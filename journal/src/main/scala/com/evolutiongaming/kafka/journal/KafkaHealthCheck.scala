@@ -197,7 +197,7 @@ object KafkaHealthCheck {
       new Consumer[F] {
 
         def subscribe(topic: Topic) = {
-          consumer.subscribe(topic)
+          consumer.subscribe(topic, none)
         }
 
         def poll(timeout: FiniteDuration) = {
