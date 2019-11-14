@@ -98,7 +98,7 @@ object HeadCacheConsuming {
         _          <- consumer.assign(topic, partitions)
         pointers   <- pointers
         offsets     = offsetsOf(partitions, pointers)
-        _          <- consumer.seek(topic, offsets.toList.toMap)
+        _          <- consumer.seek(topic, offsets.toNem)
       } yield {}
     }
 

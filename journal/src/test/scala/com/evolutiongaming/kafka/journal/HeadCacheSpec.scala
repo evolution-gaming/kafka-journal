@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 
-import cats.data.{NonEmptyList => Nel}
+import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.concurrent.Ref
 import cats.effect.{Concurrent, IO, Resource, Timer}
 import cats.implicits._
@@ -58,7 +58,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           } yield {
             state shouldEqual TestConsumer.State(
               actions = List(
-                TestConsumer.Action.Seek(topic, Map((partition, 0))),
+                TestConsumer.Action.Seek(topic, Nem.of((partition, 0))),
                 TestConsumer.Action.Assign(topic, Nel.of(partition))),
               topics = Map((topic, List(partition))))
           }
@@ -120,7 +120,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           } yield {
             state shouldEqual TestConsumer.State(
               actions = List(
-                TestConsumer.Action.Seek(topic, Map((partition, 0))),
+                TestConsumer.Action.Seek(topic, Nem.of((partition, 0))),
                 TestConsumer.Action.Assign(topic, Nel.of(partition))),
               topics = Map((topic, List(partition))))
           }
@@ -168,7 +168,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           } yield {
             state shouldEqual TestConsumer.State(
               actions = List(
-                TestConsumer.Action.Seek(topic, Map((partition, 0))),
+                TestConsumer.Action.Seek(topic, Nem.of((partition, 0))),
                 TestConsumer.Action.Assign(topic, Nel.of(partition))),
               topics = Map((topic, List(partition))))
 
@@ -231,7 +231,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           } yield {
             state shouldEqual TestConsumer.State(
               actions = List(
-                TestConsumer.Action.Seek(topic, Map((partition, 0))),
+                TestConsumer.Action.Seek(topic, Nem.of((partition, 0))),
                 TestConsumer.Action.Assign(topic, Nel.of(partition))),
               topics = Map((topic, List(partition))))
           }
@@ -279,10 +279,10 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           } yield {
             state shouldEqual TestConsumer.State(
               actions = List(
-                TestConsumer.Action.Seek(topic, Map((partition, 1))),
+                TestConsumer.Action.Seek(topic, Nem.of((partition, 1))),
                 TestConsumer.Action.Assign(topic, Nel.of(partition)),
                 TestConsumer.Action.Release,
-                TestConsumer.Action.Seek(topic, Map((partition, 0))),
+                TestConsumer.Action.Seek(topic, Nem.of((partition, 0))),
                 TestConsumer.Action.Assign(topic, Nel.of(partition))),
               topics = Map((topic, List(partition))))
           }
@@ -413,7 +413,7 @@ object HeadCacheSpec {
           stateRef.update { _.append(Action.Assign(topic, partitions)) }
         }
 
-        def seek(topic: Topic, offsets: Map[Partition, Offset]) = {
+        def seek(topic: Topic, offsets: Nem[Partition, Offset]) = {
           stateRef.update { _.append(Action.Seek(topic, offsets)) }
         }
 
@@ -451,7 +451,7 @@ object HeadCacheSpec {
 
       final case class Assign(topic: Topic, partitions: Nel[Partition]) extends Action
 
-      final case class Seek(topic: Topic, offsets: Map[Partition, Offset]) extends Action
+      final case class Seek(topic: Topic, offsets: Nem[Partition, Offset]) extends Action
 
       case object Release extends Action
 

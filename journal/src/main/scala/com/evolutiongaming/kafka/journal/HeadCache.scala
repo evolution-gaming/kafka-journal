@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import cats._
-import cats.data.{NonEmptyList => Nel}
+import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect._
 import cats.effect.concurrent.Deferred
 import cats.effect.implicits._
@@ -514,7 +514,7 @@ object HeadCache {
 
     def assign(topic: Topic, partitions: Nel[Partition]): F[Unit]
 
-    def seek(topic: Topic, offsets: Map[Partition, Offset]): F[Unit]
+    def seek(topic: Topic, offsets: Nem[Partition, Offset]): F[Unit]
 
     def poll(timeout: FiniteDuration): F[ConsumerRecords[String, ByteVector]]
 
@@ -527,7 +527,7 @@ object HeadCache {
 
       def assign(topic: Topic, partitions: Nel[Partition]) = ().pure[F]
 
-      def seek(topic: Topic, offsets: Map[Partition, Offset]) = ().pure[F]
+      def seek(topic: Topic, offsets: Nem[Partition, Offset]) = ().pure[F]
 
       def poll(timeout: FiniteDuration) = ConsumerRecords.empty[String, ByteVector].pure[F]
 
@@ -552,8 +552,8 @@ object HeadCache {
           consumer.assign(topicPartitions)
         }
 
-        def seek(topic: Topic, offsets: Map[Partition, Offset]) = {
-          offsets.toList.foldMap { case (partition, offset) =>
+        def seek(topic: Topic, offsets: Nem[Partition, Offset]) = {
+          offsets.toNel.foldMapM { case (partition, offset) =>
             val topicPartition = TopicPartition(topic = topic, partition = partition)
             consumer.seek(topicPartition, offset)
           }
@@ -576,7 +576,7 @@ object HeadCache {
           } yield r
         }
 
-        def seek(topic: Topic, offsets: Map[Partition, Offset]) = {
+        def seek(topic: Topic, offsets: Nem[Partition, Offset]) = {
           for {
             _ <- log.debug(s"seek topic: $topic, offsets: $offsets")
             r <- consumer.seek(topic, offsets)
