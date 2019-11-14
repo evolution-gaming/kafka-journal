@@ -241,7 +241,7 @@ object TopicReplicator {
 
         def commit(offsets: Nem[TopicPartition, Offset]) = {
           val offsets1 = offsets.map { offset => OffsetAndMetadata(offset, metadata) }
-          commit1(offsets1.toSortedMap)
+          commit1(offsets1)
         }
 
         def assignment = consumer.assignment

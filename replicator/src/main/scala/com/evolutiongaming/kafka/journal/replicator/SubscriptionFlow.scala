@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptyList => Nel}
+import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.{Resource, Timer}
 import cats.implicits._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log, LogOf}
@@ -98,7 +98,7 @@ object SubscriptionFlow {
     def poll(timeout: FiniteDuration): F[ConsumerRecords[String, ByteVector]]
 
     // TODO not pass topicPartition, as topic is constant
-    def commit(offsets: Map[TopicPartition, OffsetAndMetadata]): F[Unit]
+    def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]): F[Unit]
   }
 
   object Consumer {
@@ -115,7 +115,7 @@ object SubscriptionFlow {
           consumer.poll(timeout)
         }
 
-        def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = {
+        def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) = {
           consumer.commit(offsets)
         }
       }

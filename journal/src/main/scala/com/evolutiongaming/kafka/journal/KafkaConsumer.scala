@@ -21,7 +21,7 @@ trait KafkaConsumer[F[_], K, V] {
 
   def poll(timeout: FiniteDuration): F[ConsumerRecords[K, V]]
 
-  def commit(offsets: Map[TopicPartition, OffsetAndMetadata]/*TODO*/): F[Unit]
+  def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]): F[Unit]
 
   def topics: F[Set[Topic]]
 
@@ -79,8 +79,8 @@ object KafkaConsumer {
         consumer.poll(timeout)
       }
 
-      def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = {
-        consumer.commit(offsets)
+      def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) = {
+        consumer.commit(offsets.toSortedMap)
       }
 
       def topics: F[Set[Topic]] = {
@@ -123,7 +123,7 @@ object KafkaConsumer {
 
       def poll(timeout: FiniteDuration) = fg(self.poll(timeout))
 
-      def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = fg(self.commit(offsets))
+      def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) = fg(self.commit(offsets))
 
       def topics = fg(self.topics)
 
@@ -145,7 +145,7 @@ object KafkaConsumer {
 
       def poll(timeout: FiniteDuration) = f(self.poll(timeout), "poll")
 
-      def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = f(self.commit(offsets), "commit")
+      def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) = f(self.commit(offsets), "commit")
 
       def topics = f(self.topics, "topics")
 
@@ -174,7 +174,7 @@ object KafkaConsumer {
           } yield a
         }
 
-        def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = self.commit(offsets)
+        def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) = self.commit(offsets)
 
         def topics = self.topics
 

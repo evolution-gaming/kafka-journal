@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import cats.Id
-import cats.data.{NonEmptyList => Nel}
+import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.{ExitCase, Resource, Timer}
 import cats.implicits._
 import com.evolutiongaming.catshelper.TimerHelper._
@@ -275,7 +275,7 @@ object SubscriptionFlowTest {
         }
       }
 
-      def commit(offsets: Map[TopicPartition, OffsetAndMetadata]) = {
+      def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) = {
         StateT.unit { _ + Action.Commit(offsets) }
       }
     }
@@ -348,7 +348,7 @@ object SubscriptionFlowTest {
     final case class RevokePartitions(partitions: Nel[Partition]) extends Action
     final case class Subscribe(topic: Topic)(val listener: RebalanceListener[StateT]) extends Action
     final case class Poll(consumerRecords: ConsumerRecords[String, ByteVector]) extends Action
-    final case class Commit(offsets: Map[TopicPartition, OffsetAndMetadata]) extends Action
+    final case class Commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) extends Action
     final case class RetryOnError(error: Throwable, decision: OnError.Decision) extends Action
   }
 
