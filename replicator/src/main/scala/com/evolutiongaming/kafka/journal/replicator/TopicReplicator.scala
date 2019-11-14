@@ -29,7 +29,6 @@ import scodec.bits.ByteVector
 import scala.concurrent.duration._
 
 
-// TODO partition replicator ?
 // TODO add metric to track replication lag in case it cannot catchup with producers
 // TODO verify that first consumed offset matches to the one expected, otherwise we screwed.
 // TODO should it be Resource ?
@@ -133,7 +132,6 @@ object TopicReplicator {
     retry: Retry[F]
   ): Stream[F, Unit] = {
 
-    // TODO def commit
     def commit(
       records: Nem[TopicPartition, Nel[ConsumerRecord[String, ByteVector]]],
       state: State,
@@ -231,8 +229,10 @@ object TopicReplicator {
       pollTimeout: FiniteDuration,
       hostName: Option[HostName],
       consumer: KafkaConsumer[F, String, ByteVector],
+      commit: Commit[F]
     ): Consumer[F] = {
       val metadata = hostName.fold { Metadata.empty } { _.value }
+      val commit1 = commit
       new Consumer[F] {
 
         def subscribe(topic: Topic) = consumer.subscribe(topic)
@@ -240,9 +240,8 @@ object TopicReplicator {
         def poll = consumer.poll(pollTimeout)
 
         def commit(offsets: Nem[TopicPartition, Offset]) = {
-
           val offsets1 = offsets.map { offset => OffsetAndMetadata(offset, metadata) }
-          consumer.commit(offsets1.toSortedMap)
+          commit1(offsets1.toSortedMap)
         }
 
         def assignment = consumer.assignment
@@ -277,7 +276,8 @@ object TopicReplicator {
       for {
         consumer <- KafkaConsumerOf[F].apply[String, ByteVector](config1)
       } yield {
-        Consumer[F](pollTimeout, hostName, consumer)
+        val commit = Commit.immediate(consumer)
+        Consumer[F](pollTimeout, hostName, consumer, commit)
       }
     }
 
