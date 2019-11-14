@@ -276,7 +276,7 @@ object TopicReplicator {
       for {
         consumer <- KafkaConsumerOf[F].apply[String, ByteVector](config1)
       } yield {
-        val commit = Commit.immediate(consumer)
+        val commit = Commit(consumer)
         Consumer[F](pollTimeout, hostName, consumer, commit)
       }
     }

@@ -10,7 +10,7 @@ trait Commit[F[_]] {
 
 object Commit {
 
-  def immediate[F[_]](kafkaConsumer: KafkaConsumer[F, _, _]): Commit[F] = {
+  def apply[F[_]](kafkaConsumer: KafkaConsumer[F, _, _]): Commit[F] = {
     offsets: Map[TopicPartition, OffsetAndMetadata] => {
       kafkaConsumer.commit(offsets)
     }
