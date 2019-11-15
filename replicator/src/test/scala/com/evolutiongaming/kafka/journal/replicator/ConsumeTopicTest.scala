@@ -5,7 +5,7 @@ import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.{ExitCase, Resource, Timer}
 import cats.implicits._
 import com.evolutiongaming.catshelper.TimerHelper._
-import com.evolutiongaming.catshelper.BracketThrowable
+import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.kafka.journal.{ConsRecord, ConsRecords, ConsumerRecordsOf}
 import com.evolutiongaming.kafka.journal.replicator.ConsumeTopic.Consumer
 import com.evolutiongaming.kafka.journal.util.CollectionHelper._
@@ -338,6 +338,7 @@ object ConsumeTopicTest {
     topic,
     consumer,
     topicFlowOf,
+    Log.empty[StateT],
     retry)
 
 

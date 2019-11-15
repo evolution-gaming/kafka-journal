@@ -4,24 +4,22 @@ import java.time.Instant
 
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect._
-import cats.effect.concurrent.Ref
 import cats.effect.implicits._
 import cats.implicits._
-import cats.{Applicative, Monad, Parallel, ~>}
+import cats.{Applicative, Monad, Parallel}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.conversions.{ConsumerRecordToActionRecord, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.util.CollectionHelper._
+import com.evolutiongaming.kafka.journal.util.ResourceOf
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
-import com.evolutiongaming.kafka.journal.util.{Named, ResourceOf}
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Bytes => _, _}
 import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.smetrics.{CollectorRegistry, LabelNames, Quantile, Quantiles}
-import com.evolutiongaming.sstream.Stream
 import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
@@ -35,7 +33,7 @@ object TopicReplicator {
   def of[F[_] : Concurrent : Timer : Parallel : LogOf : FromTry](
     topic: Topic,
     journal: ReplicatedJournal[F],
-    consumer: Resource[F, Consumer[F]],
+    consumer: Resource[F, ConsumeTopic.Consumer[F]],
     metrics: Metrics[F]
   ): Resource[F, F[Unit]] = {
 
@@ -44,7 +42,7 @@ object TopicReplicator {
     val payloadToEvents = PayloadToEvents[F]
 
     def consume(
-      consumer: Resource[F, Consumer[F]],
+      consumer: Resource[F, ConsumeTopic.Consumer[F]],
       log: Log[F]
     ) = {
 
@@ -74,7 +72,7 @@ object TopicReplicator {
 
   def of[F[_] : Concurrent : Parallel : FromTry : Timer](
     topic: Topic,
-    consumer: Resource[F, Consumer[F]],
+    consumer: Resource[F, ConsumeTopic.Consumer[F]],
     consumerRecordToActionRecord: ConsumerRecordToActionRecord[F],
     payloadToEvents: PayloadToEvents[F],
     journal: ReplicatedJournal[F],
@@ -102,92 +100,72 @@ object TopicReplicator {
   def of[F[_] : Concurrent : Clock : Parallel : FromTry : Timer](
     topic: Topic,
     log: Log[F],
-    consumer: Resource[F, Consumer[F]],
+    consumer: Resource[F, ConsumeTopic.Consumer[F]],
     journal: ReplicatedJournal[F],
     metrics: Metrics[F],
     replicateRecords: ReplicateRecords[F],
   ): F[Unit] = {
 
-    def consume(state: F[State], records: Nem[TopicPartition, Nel[ConsRecord]]): F[State] = {
+    def consume(pointers: Map[Partition, Offset], records: Nem[TopicPartition, Nel[ConsRecord]]): F[Unit] = {
 
       def consume(
-        state: State,
         roundStart: Instant,
         consumerRecords: Nem[TopicPartition, Nel[ConsRecord]]
       ) = {
 
         val records = for {
           (partition, records) <- consumerRecords.toSortedMap
-          offset                = state.pointers.values.get(partition.partition)
+          offset                = pointers.get(partition.partition)
           records              <- offset.fold(records.some) { offset => records.filter { _.offset > offset }.toNel }
         } yield {
           (partition, records)
         }
 
         for {
-          state    <- records.toNem.fold(state.pure[F]) { records => replicateRecords(state, records, roundStart) }
+          _        <- records.toNem.foldMapM { records => replicateRecords(records, roundStart) }
           records   = consumerRecords.foldLeft(0) { case (size, records) => size + records.size }
           roundEnd <- Clock[F].instant
           _        <- metrics.round(roundEnd diff roundStart, records)
-        } yield state
+        } yield {}
       }
 
       for {
         timestamp <- Clock[F].instant
-        state     <- state
-        state     <- consume(state, timestamp, records)
-      } yield {
-        state
-      }
-    }
-
-    val consumer1 = consumer.map { consumer =>
-
-      new ConsumeTopic.Consumer[F] {
-
-        def subscribe(listener: RebalanceListener[F]) = {
-          consumer.subscribe(topic) // TODO pass listener
-        }
-
-        def poll = consumer.poll
-
-        def commit(offsets: Nem[Partition, Offset]) = {
-          val offsets1 = offsets.mapKV { case (partition, offset) =>
-            val partition1 = TopicPartition(topic = topic, partition = partition)
-            (partition1, offset)
-          }
-          consumer.commit(offsets1).handleErrorWith { a => log.error(s"commit failed for $offsets: $a") }
-        }
-      }
+        _         <- consume(timestamp, records)
+      } yield {}
     }
 
     val topicFlowOf: TopicFlowOf[F] = {
       (topic: Topic) => {
         val topicFlowOf = for {
           pointers <- journal.pointers(topic)
-          stateRef <- Ref.of(State(pointers, none))
         } yield {
           new TopicFlow[F] {
 
-            def assign(partitions: Nel[Partition]) = ().pure[F]
+            def assign(partitions: Nel[Partition]) = {
+              log.info(s"assign ${partitions.mkString_(",") }")
+            }
 
-            def apply(records: Nem[TopicPartition, Nel[ConsRecord]]) = {
+            def apply(records: Nem[TopicPartition/*TODO partition*/, Nel[ConsRecord]]) = {
               for {
-                state <- consume(stateRef.get, records)
-                _     <- stateRef.set(state)
+                _ <- consume(pointers.values, records)
               } yield {
-                records.toSortedMap.map { case (partition, records) =>
-                  val offset = records.foldLeft {
-                    Offset.Min
-                  } { (offset, record) =>
-                    record.offset + 1 max offset
+                records
+                  .toSortedMap
+                  .map { case (partition, records) =>
+                    val offset = records.foldLeft {
+                      Offset.Min
+                    } { (offset, record) =>
+                      record.offset + 1 max offset
+                    }
+                    (partition.partition, offset)
                   }
-                  (partition.partition, offset)
-                }
               }
             }
 
-            def revoke(partitions: Nel[Partition]) = ().pure[F]
+            def revoke(partitions: Nel[Partition]) = {
+              log.info(s"revoke ${partitions.mkString_(",") }")
+            }
           }
         }
 
@@ -195,45 +173,23 @@ object TopicReplicator {
       }
     }
 
-    ConsumeTopic(topic, consumer1, topicFlowOf, log)
+    ConsumeTopic(topic, consumer, topicFlowOf, log)
   }
 
 
   final case class State(pointers: TopicPointers, failed: Option[Instant])
 
 
-  trait Consumer[F[_]] {
-
-    def subscribe(topic: Topic): F[Unit]
-
-    def poll: Stream[F, ConsRecords]
-
-    def commit(offsets: Nem[TopicPartition, Offset]): F[Unit]
-  }
-
-  object Consumer {
-
-    def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
+  object ConsumerOf {
 
     def apply[F[_] : Monad](
+      topic: String,
       pollTimeout: FiniteDuration,
       hostName: Option[HostName],
       consumer: KafkaConsumer[F, String, ByteVector],
-      commit: Commit[F]
-    ): Consumer[F] = {
+    ): ConsumeTopic.Consumer[F] = {
       val metadata = hostName.fold { Metadata.empty } { _.value }
-      val commit1 = commit
-      new Consumer[F] {
-
-        def subscribe(topic: Topic) = consumer.subscribe(topic, none)
-
-        def poll = Stream.repeat(consumer.poll(pollTimeout))
-
-        def commit(offsets: Nem[TopicPartition, Offset]) = {
-          val offsets1 = offsets.map { offset => OffsetAndMetadata(offset, metadata) }
-          commit1(offsets1)
-        }
-      }
+      ConsumeTopic.Consumer(topic, pollTimeout, metadata, consumer)
     }
 
     def of[F[_] : Sync : KafkaConsumerOf : FromTry](
@@ -241,7 +197,7 @@ object TopicReplicator {
       config: ConsumerConfig,
       pollTimeout: FiniteDuration,
       hostName: Option[HostName]
-    ): Resource[F, Consumer[F]] = {
+    ): Resource[F, ConsumeTopic.Consumer[F]] = {
 
       val groupId = {
         val prefix = config.groupId getOrElse "replicator"
@@ -264,31 +220,7 @@ object TopicReplicator {
       for {
         consumer <- KafkaConsumerOf[F].apply[String, ByteVector](config1)
       } yield {
-        val commit = Commit(consumer)
-        Consumer[F](pollTimeout, hostName, consumer, commit)
-      }
-    }
-
-
-    implicit class ConsumerOps[F[_]](val self: Consumer[F]) extends AnyVal {
-
-      def mapK[G[_]](fg: F ~> G, gf: G ~> F): Consumer[G] = new Consumer[G] {
-
-        def subscribe(topic: Topic) = fg(self.subscribe(topic))
-
-        def poll = self.poll.mapK(fg, gf)
-
-        def commit(offsets: Nem[TopicPartition, Offset]) = fg(self.commit(offsets))
-      }
-
-
-      def mapMethod(f: Named[F]): Consumer[F] = new Consumer[F] {
-
-        def subscribe(topic: Topic) = f(self.subscribe(topic), "subscribe")
-
-        def poll = self.poll
-
-        def commit(offsets: Nem[TopicPartition, Offset]) = f(self.commit(offsets), "commit")
+        apply(topic, pollTimeout, hostName, consumer)
       }
     }
   }

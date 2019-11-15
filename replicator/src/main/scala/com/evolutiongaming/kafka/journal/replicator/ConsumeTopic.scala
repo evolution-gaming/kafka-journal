@@ -44,7 +44,7 @@ object ConsumeTopic {
 
     for {
       retry  <- retry(log)
-      result <- apply(topic, consumer, topicFlowOf, retry)
+      result <- apply(topic, consumer, topicFlowOf, log, retry)
     } yield result
   }
 
@@ -53,7 +53,8 @@ object ConsumeTopic {
     topic: Topic,
     consumer: Resource[F, Consumer[F]],
     topicFlowOf: TopicFlowOf[F],
-    retry: Retry[F],
+    log: Log[F],
+    retry: Retry[F]
   ): F[Unit] = {
 
     def rebalanceListenerOf(topicFlow: TopicFlow[F]): RebalanceListener[F] = {
@@ -75,12 +76,19 @@ object ConsumeTopic {
         .tupled
         .use { case (consumer, topicFlow) =>
           val listener = rebalanceListenerOf(topicFlow)
+
+          def commit(offsets: Nem[Partition, Offset]) = {
+            consumer
+              .commit(offsets)
+              .handleErrorWith { a => log.error(s"commit failed for $offsets: $a") }
+          }
+
           val consume = consumer
             .poll
             .mapM { records =>
               for {
                 offsets <- records.values.toNem.foldMapM({ records => topicFlow(records) })
-                result  <- offsets.toNem.foldMapM { offsets => consumer.commit(offsets) }
+                result  <- offsets.toNem.foldMapM { offsets => commit(offsets) }
               } yield result
             }
             .drain

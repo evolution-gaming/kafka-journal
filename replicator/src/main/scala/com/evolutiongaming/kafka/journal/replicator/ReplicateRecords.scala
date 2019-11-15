@@ -12,7 +12,7 @@ import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.conversions.{ConsumerRecordToActionRecord, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.{Metrics, State}
+import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.skafka.{Bytes => _, _}
 
@@ -22,10 +22,9 @@ import scala.concurrent.duration.FiniteDuration
 trait ReplicateRecords[F[_]] {
 
   def apply(
-    state: State,
     consumerRecords: Nem[TopicPartition, Nel[ConsRecord]],
     roundStart: Instant
-  ): F[State]
+  ): F[Unit]
 }
 
 object ReplicateRecords {
@@ -42,7 +41,6 @@ object ReplicateRecords {
     new ReplicateRecords[F] {
 
       def apply(
-        state: State,
         consumerRecords: Nem[TopicPartition, Nel[ConsRecord]],
         roundStart: Instant
       ) = {
@@ -154,9 +152,7 @@ object ReplicateRecords {
         for {
           _ <- replicate
           _ <- journal.save(topic, pointers, roundStart)
-        } yield {
-          state.copy(pointers = state.pointers + TopicPointers(pointers.toSortedMap)/*TODO not use it*/)
-        }
+        } yield {}
       }
     }
   }
