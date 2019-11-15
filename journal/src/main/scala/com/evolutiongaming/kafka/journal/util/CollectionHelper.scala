@@ -31,5 +31,12 @@ object CollectionHelper {
         .toNem
         .get
     }
+
+    def mapK[A: Order](f: K => A): Nem[A, V] = {
+      self
+        .toSortedMap.map { case (k, v) => (f(k), v) }
+        .toNem
+        .get
+    }
   }
 }

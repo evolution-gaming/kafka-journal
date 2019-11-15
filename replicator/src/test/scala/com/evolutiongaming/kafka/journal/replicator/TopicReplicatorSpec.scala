@@ -818,7 +818,7 @@ object TopicReplicatorSpec {
 
     implicit val clock = Clock.const[StateT](nanos = 0, millis = millis)
 
-    val stream = TopicReplicator.of[StateT](
+    val stream = TopicReplicator.of1[StateT](
       topic = topic,
       consumer = Resource.liftF(consumer.pure[StateT]),
       errorCooldown = 1.second,
