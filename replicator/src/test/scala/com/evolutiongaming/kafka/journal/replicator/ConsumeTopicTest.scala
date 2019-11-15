@@ -7,7 +7,7 @@ import cats.implicits._
 import com.evolutiongaming.catshelper.TimerHelper._
 import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal.{ConsRecord, ConsRecords, ConsumerRecordsOf}
-import com.evolutiongaming.kafka.journal.replicator.SubscriptionFlow.{Consumer, Records}
+import com.evolutiongaming.kafka.journal.replicator.ConsumeTopic.Consumer
 import com.evolutiongaming.kafka.journal.util.CollectionHelper._
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.skafka._
@@ -20,8 +20,8 @@ import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 import scala.util.{Failure, Success, Try}
 
-class SubscriptionFlowTest extends FunSuite with Matchers {
-  import SubscriptionFlowTest._
+class ConsumeTopicTest extends FunSuite with Matchers {
+  import ConsumeTopicTest._
 
   test("happy path") {
     val state = State(commands = List(
@@ -30,7 +30,7 @@ class SubscriptionFlowTest extends FunSuite with Matchers {
       Command.ProduceRecords(ConsumerRecords.empty),
       Command.ProduceRecords(ConsumerRecordsOf(recordOf(partition = 0, offset = 0)))))
 
-    val (result, _) = subscriptionFlow.take(1).toList.run(state)
+    val (result, _) = subscriptionFlow.run(state)
 
     result shouldEqual State(
       actions = List(
@@ -54,7 +54,7 @@ class SubscriptionFlowTest extends FunSuite with Matchers {
       Command.ProduceRecords(ConsumerRecords.empty),
       Command.ProduceRecords(ConsumerRecordsOf(recordOf(partition = 0, offset = 0)))))
 
-    val (result, _) = subscriptionFlow.take(1).toList.run(state)
+    val (result, _) = subscriptionFlow.run(state)
 
     result shouldEqual State(
       actions = List(
@@ -84,7 +84,7 @@ class SubscriptionFlowTest extends FunSuite with Matchers {
       Command.RevokePartitions(Nel.of(1, 2)),
       Command.ProduceRecords(ConsumerRecordsOf(recordOf(partition = 0, offset = 0)))))
 
-    val (result, _) = subscriptionFlow.take(1).toList.run(state)
+    val (result, _) = subscriptionFlow.run(state)
 
     result shouldEqual State(
       actions = List(
@@ -101,7 +101,7 @@ class SubscriptionFlowTest extends FunSuite with Matchers {
   }
 }
 
-object SubscriptionFlowTest {
+object ConsumeTopicTest {
 
   val topic: Topic = "topic"
 
@@ -200,7 +200,7 @@ object SubscriptionFlowTest {
 
 
   val topicFlowOf: TopicFlowOf[StateT] = {
-    (topic: Topic, _: Consumer[StateT]/*TODO remove*/) => {
+    topic: Topic => {
       val result = StateT.pure { state =>
         val state1 = state + Action.AcquireTopicFlow(topic)
         val release = StateT.unit { _ + Action.ReleaseTopicFlow(topic) }
@@ -210,7 +210,7 @@ object SubscriptionFlowTest {
             StateT.unit { _ + Action.AssignPartitions(partitions) }
           }
 
-          def apply(records: Records) = {
+          def apply(records: Nem[TopicPartition, Nel[ConsRecord]]) = {
             StateT.pure { state =>
               val state1 = state + Action.Poll(records)
               //  TODO test
@@ -253,10 +253,10 @@ object SubscriptionFlowTest {
                     .map { case (s, _) => s }
                 }
                 .getOrElse(state)
-                .map { state => (state, ConsRecords.empty.pure[Try]) }
+                .map { state => (state, ConsRecords.empty.some.pure[Try]) }
 
             case Command.ProduceRecords(records) =>
-              (state, records.pure[Try])
+              (state, records.some.pure[Try])
 
             case Command.RevokePartitions(partitions) =>
               state
@@ -270,19 +270,21 @@ object SubscriptionFlowTest {
                     .map { case (s, _) => s }
                 }
                 .getOrElse(state)
-                .map { s => (s, ConsRecords.empty.pure[Try]) }
+                .map { s => (s, ConsRecords.empty.some.pure[Try]) }
 
             case Command.Fail(error) =>
-              (state, error.raiseError[Try, ConsRecords])
+              (state, error.raiseError[Try, Option[ConsRecords]])
           }
         }
 
-        StateT { state =>
+        val stateT = StateT { state =>
           state.commands match {
-            case Nil                 => (state, ConsRecords.empty.pure[Try])
+            case Nil                 => (state, none[ConsRecords].pure[Try])
             case command :: commands => apply(state.copy(commands = commands), command)
           }
         }
+
+        Stream.whileSome(stateT)
       }
 
       def commit(offsets: Nem[Partition, Offset]) = {
@@ -324,7 +326,7 @@ object SubscriptionFlowTest {
       headers = List.empty)
   }
 
-  def recordsOf(record: ConsRecord, records: ConsRecord*): Records = {
+  def recordsOf(record: ConsRecord, records: ConsRecord*): Nem[TopicPartition, Nel[ConsRecord]] = {
     Nel(record, records.toList)
       .groupBy { _.topicPartition }
       .toNem
@@ -332,9 +334,11 @@ object SubscriptionFlowTest {
   }
 
 
-  val subscriptionFlow: Stream[StateT, Unit] = {
-    SubscriptionFlow(topic, consumer, topicFlowOf, retry)
-  }
+  val subscriptionFlow: StateT[Unit] = ConsumeTopic(
+    topic,
+    consumer,
+    topicFlowOf,
+    retry)
 
 
   sealed abstract class Command
@@ -356,7 +360,7 @@ object SubscriptionFlowTest {
     final case class AssignPartitions(partitions: Nel[Partition]) extends Action
     final case class RevokePartitions(partitions: Nel[Partition]) extends Action
     final case class Subscribe()(val listener: RebalanceListener[StateT]) extends Action
-    final case class Poll(records: Records) extends Action
+    final case class Poll(records: Nem[TopicPartition, Nel[ConsRecord]]) extends Action
     final case class Commit(offsets: Nem[Partition, Offset]) extends Action
     final case class RetryOnError(error: Throwable, decision: OnError.Decision) extends Action
   }

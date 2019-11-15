@@ -9,17 +9,14 @@ import cats.effect.implicits._
 import cats.implicits._
 import cats.{Applicative, Monad, Parallel, ~>}
 import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, Log, LogOf, MonadThrowable}
+import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.conversions.{ConsumerRecordToActionRecord, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.replicator.SubscriptionFlow.Records
 import com.evolutiongaming.kafka.journal.util.CollectionHelper._
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.kafka.journal.util.{Named, ResourceOf}
-import com.evolutiongaming.random.Random
-import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Bytes => _, _}
 import com.evolutiongaming.smetrics.MetricsHelper._
@@ -48,22 +45,18 @@ object TopicReplicator {
 
     def consume(
       consumer: Resource[F, Consumer[F]],
-      retry: Retry[F],
       log: Log[F]
     ) = {
 
       val consumerRecordToActionRecord = ConsumerRecordToActionRecord[F]
-      val stream = of(
+      of(
         topic = topic,
         consumer = consumer,
-        errorCooldown = 1.hour,
         consumerRecordToActionRecord = consumerRecordToActionRecord,
         payloadToEvents = payloadToEvents,
         journal = journal,
         metrics = metrics,
-        log = log,
-        retry = retry)
-      stream.drain
+        log = log)
     }
 
     def log = for {
@@ -72,38 +65,22 @@ object TopicReplicator {
       log prefixed topic
     }
 
-    def retry(log: Log[F]) = for {
-      random <- Random.State.fromClock[F]()
-    } yield {
-      val strategy = Strategy
-        .fullJitter(100.millis, random)
-        .limit(1.minute)
-        .resetAfter(5.minutes)
-
-      val onError = OnError.fromLog(log)
-
-      Retry(strategy, onError)
-    }
-
     for {
       log       <- Resource.liftF(log)
-      retry     <- Resource.liftF(retry(log))
-      consuming  = consume(consumer, retry, log).start
+      consuming  = consume(consumer, log).start
       consuming <- ResourceOf(consuming)
     } yield consuming
   }
 
-  def of[F[_] : Concurrent : Clock : Parallel : FromTry](
+  def of[F[_] : Concurrent : Parallel : FromTry : Timer](
     topic: Topic,
     consumer: Resource[F, Consumer[F]],
-    errorCooldown: FiniteDuration,
     consumerRecordToActionRecord: ConsumerRecordToActionRecord[F],
     payloadToEvents: PayloadToEvents[F],
     journal: ReplicatedJournal[F],
     metrics: Metrics[F],
     log: Log[F],
-    retry: Retry[F]
-  ): Stream[F, Unit] = {
+  ): F[Unit] = {
 
     val replicateRecords = ReplicateRecords(
       topic = topic,
@@ -117,141 +94,21 @@ object TopicReplicator {
       topic = topic,
       log = log,
       consumer = consumer,
-      errorCooldown = errorCooldown,
       journal = journal,
       metrics = metrics,
-      replicateRecords = replicateRecords,
-      retry = retry)
+      replicateRecords = replicateRecords)
   }
 
-
-  def of1[F[_] : Concurrent : Clock : Parallel : FromTry](
-    topic: Topic,
-    consumer: Resource[F, Consumer[F]],
-    errorCooldown: FiniteDuration,
-    consumerRecordToActionRecord: ConsumerRecordToActionRecord[F],
-    payloadToEvents: PayloadToEvents[F],
-    journal: ReplicatedJournal[F],
-    metrics: Metrics[F],
-    log: Log[F],
-    retry: Retry[F]
-  ): Stream[F, Unit] = {
-
-    val replicateRecords = ReplicateRecords(
-      topic = topic,
-      consumerRecordToActionRecord = consumerRecordToActionRecord,
-      journal = journal,
-      metrics = metrics,
-      payloadToEvents = payloadToEvents,
-      log = log)
-
-    of1(
-      topic = topic,
-      consumer = consumer,
-      errorCooldown = errorCooldown,
-      journal = journal,
-      metrics = metrics,
-      replicateRecords = replicateRecords,
-      retry = retry)
-  }
-
-  def of1[F[_] : Concurrent : Clock : Parallel : FromTry](
-    topic: Topic,
-    consumer: Resource[F, Consumer[F]],
-    errorCooldown: FiniteDuration,
-    journal: ReplicatedJournal[F],
-    metrics: Metrics[F],
-    replicateRecords: ReplicateRecords[F],
-    retry: Retry[F]
-  ): Stream[F, Unit] = {
-
-    def commit(
-      records: Nem[TopicPartition, Nel[ConsRecord]],
-      state: State,
-      consumer: Consumer[F]
-    ) = {
-
-      val offsets = records.map { records =>
-        records.foldLeft {
-          Offset.Min
-        } { (offset, record) =>
-          record.offset + 1 max offset
-        }
-      }
-
-      consumer.commit(offsets)
-        .as(state)
-        .handleErrorWith { error =>
-        for {
-          now   <- Clock[F].instant
-          state <- state.failed.fold {
-            state.copy(failed = now.some).pure[F]
-          } { failed =>
-            if (failed + errorCooldown <= now) state.copy(failed = now.some).pure[F]
-            else error.raiseError[F, State]
-          }
-        } yield state
-      }
-    }
-
-    def consume(state: F[State], consumer: Consumer[F]): F[State] = {
-
-      def consume(
-        state: State,
-        roundStart: Instant,
-        consumerRecords: Nem[TopicPartition, Nel[ConsRecord]]
-      ) = {
-
-        val records = for {
-          (partition, records) <- consumerRecords.toSortedMap
-          offset                = state.pointers.values.get(partition.partition)
-          records              <- offset.fold(records.some) { offset => records.filter { _.offset > offset }.toNel }
-        } yield {
-          (partition, records)
-        }
-
-        for {
-          state    <- records.toNem.fold(state.pure[F]) { records => replicateRecords(state, records, roundStart) }
-          state    <- commit(consumerRecords, state, consumer)
-          records   = consumerRecords.foldLeft(0) { case (size, records) => size + records.size }
-          roundEnd <- Clock[F].instant
-          _        <- metrics.round(roundEnd diff roundStart, records)
-        } yield state
-      }
-
-      for {
-        timestamp       <- Clock[F].instant
-        consumerRecords <- consumer.poll
-        records          = consumerRecords.values
-        state           <- state
-        state           <- records.toNem.fold(state.pure[F]) { records => consume(state, timestamp, records)}
-      } yield state
-    }
-
-    for {
-      _        <- Stream.around(retry.toFunctionK)
-      consumer <- Stream.fromResource(consumer)
-      pointers <- Stream.lift(journal.pointers(topic))
-      _        <- Stream.lift(consumer.subscribe(topic))
-      stateRef <- Stream.lift(Ref.of(State(pointers, none)))
-      state    <- Stream.repeat(consume(stateRef.get, consumer))
-      _        <- Stream.lift(stateRef.set(state))
-    } yield {}
-  }
-
-
-  def of[F[_] : Concurrent : Clock : Parallel : FromTry](
+  def of[F[_] : Concurrent : Clock : Parallel : FromTry : Timer](
     topic: Topic,
     log: Log[F],
     consumer: Resource[F, Consumer[F]],
-    errorCooldown: FiniteDuration,
     journal: ReplicatedJournal[F],
     metrics: Metrics[F],
     replicateRecords: ReplicateRecords[F],
-    retry: Retry[F]
-  ): Stream[F, Unit] = {
+  ): F[Unit] = {
 
-    def consume(state: F[State], records: Records): F[State] = {
+    def consume(state: F[State], records: Nem[TopicPartition, Nel[ConsRecord]]): F[State] = {
 
       def consume(
         state: State,
@@ -286,7 +143,7 @@ object TopicReplicator {
 
     val consumer1 = consumer.map { consumer =>
 
-      new SubscriptionFlow.Consumer[F] {
+      new ConsumeTopic.Consumer[F] {
 
         def subscribe(listener: RebalanceListener[F]) = {
           consumer.subscribe(topic) // TODO pass listener
@@ -305,42 +162,40 @@ object TopicReplicator {
     }
 
     val topicFlowOf: TopicFlowOf[F] = {
-      new TopicFlowOf[F] {
-        def apply(topic: Topic, consumer: SubscriptionFlow.Consumer[F]) = {
-          val topicFlowOf = for {
-            pointers <- journal.pointers(topic)
-            stateRef <- Ref.of(State(pointers, none))
-          } yield {
-            new TopicFlow[F] {
+      (topic: Topic) => {
+        val topicFlowOf = for {
+          pointers <- journal.pointers(topic)
+          stateRef <- Ref.of(State(pointers, none))
+        } yield {
+          new TopicFlow[F] {
 
-              def assign(partitions: Nel[Partition]) = ().pure[F]
+            def assign(partitions: Nel[Partition]) = ().pure[F]
 
-              def apply(records: Records) = {
-                for {
-                  state <- consume(stateRef.get, records)
-                  _ <- stateRef.set(state)
-                } yield {
-                  records.toSortedMap.map { case (partition, records) =>
-                    val offset = records.foldLeft {
-                      Offset.Min
-                    } { (offset, record) =>
-                      record.offset + 1 max offset
-                    }
-                    (partition.partition, offset)
+            def apply(records: Nem[TopicPartition, Nel[ConsRecord]]) = {
+              for {
+                state <- consume(stateRef.get, records)
+                _     <- stateRef.set(state)
+              } yield {
+                records.toSortedMap.map { case (partition, records) =>
+                  val offset = records.foldLeft {
+                    Offset.Min
+                  } { (offset, record) =>
+                    record.offset + 1 max offset
                   }
+                  (partition.partition, offset)
                 }
               }
-
-              def revoke(partitions: Nel[Partition]) = ().pure[F]
             }
-          }
 
-          Resource.liftF(topicFlowOf)
+            def revoke(partitions: Nel[Partition]) = ().pure[F]
+          }
         }
+
+        Resource.liftF(topicFlowOf)
       }
     }
 
-    SubscriptionFlow(topic, consumer1, topicFlowOf, retry)
+    ConsumeTopic(topic, consumer1, topicFlowOf, log)
   }
 
 
@@ -351,18 +206,16 @@ object TopicReplicator {
 
     def subscribe(topic: Topic): F[Unit]
 
-    def poll: F[ConsRecords]
+    def poll: Stream[F, ConsRecords]
 
     def commit(offsets: Nem[TopicPartition, Offset]): F[Unit]
-
-    def assignment: F[Set[TopicPartition]]
   }
 
   object Consumer {
 
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
-    def apply[F[_] : Applicative](
+    def apply[F[_] : Monad](
       pollTimeout: FiniteDuration,
       hostName: Option[HostName],
       consumer: KafkaConsumer[F, String, ByteVector],
@@ -374,14 +227,12 @@ object TopicReplicator {
 
         def subscribe(topic: Topic) = consumer.subscribe(topic, none)
 
-        def poll = consumer.poll(pollTimeout)
+        def poll = Stream.repeat(consumer.poll(pollTimeout))
 
         def commit(offsets: Nem[TopicPartition, Offset]) = {
           val offsets1 = offsets.map { offset => OffsetAndMetadata(offset, metadata) }
           commit1(offsets1)
         }
-
-        def assignment = consumer.assignment
       }
     }
 
@@ -421,15 +272,13 @@ object TopicReplicator {
 
     implicit class ConsumerOps[F[_]](val self: Consumer[F]) extends AnyVal {
 
-      def mapK[G[_]](f: F ~> G): Consumer[G] = new Consumer[G] {
+      def mapK[G[_]](fg: F ~> G, gf: G ~> F): Consumer[G] = new Consumer[G] {
 
-        def subscribe(topic: Topic) = f(self.subscribe(topic))
+        def subscribe(topic: Topic) = fg(self.subscribe(topic))
 
-        def poll = f(self.poll)
+        def poll = self.poll.mapK(fg, gf)
 
-        def commit(offsets: Nem[TopicPartition, Offset]) = f(self.commit(offsets))
-
-        def assignment = f(self.assignment)
+        def commit(offsets: Nem[TopicPartition, Offset]) = fg(self.commit(offsets))
       }
 
 
@@ -437,11 +286,9 @@ object TopicReplicator {
 
         def subscribe(topic: Topic) = f(self.subscribe(topic), "subscribe")
 
-        def poll = f(self.poll, "poll")
+        def poll = self.poll
 
         def commit(offsets: Nem[TopicPartition, Offset]) = f(self.commit(offsets), "commit")
-
-        def assignment = f(self.assignment, "assignment")
       }
     }
   }

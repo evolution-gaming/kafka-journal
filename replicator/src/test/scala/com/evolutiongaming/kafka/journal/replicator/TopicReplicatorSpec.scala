@@ -8,12 +8,14 @@ import cats.implicits._
 import cats.{Applicative, Id, Monoid, Parallel}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log}
+import com.evolutiongaming.catshelper.TimerHelper._
 import com.evolutiongaming.kafka.journal.{ConsRecords, _}
 import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsumerRecordToActionRecord, EventsToPayload, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
+import com.evolutiongaming.sstream.Stream
 import com.evolutiongaming.retry.Retry
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, WithSize}
 import com.evolutiongaming.skafka.{Bytes => _, Header => _, Metadata => _, _}
@@ -58,7 +60,6 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
         commits = List(Nem.of(
           (topicPartitionOf(0), 5),
           (topicPartitionOf(1), 5))),
-        stopAfter = Some(0),
         pointers = Map((topic, TopicPointers(Map((0, 4L), (1, 4L))))),
         journal = Map(
           (keyOf("0-0"), List(
@@ -104,7 +105,6 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
         topics = List(topic),
         commits = List(Nem.of(
           (topicPartitionOf(0), 2))),
-        stopAfter = Some(0),
         pointers = Map((topic, TopicPointers(Map((0, 1L))))),
         journal = Map(
           (keyOf("id"), List(
@@ -160,7 +160,6 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           Nem.of((topicPartitionOf(0), 4)),
           Nem.of((topicPartitionOf(0), 3)),
           Nem.of((topicPartitionOf(0), 2))),
-        stopAfter = Some(0),
         pointers = Map((topic, TopicPointers(Map((0, 4L), (1, 4L))))),
         journal = Map(
           (keyOf("0-0"), List(
@@ -252,7 +251,6 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           (topicPartitionOf(0), 10),
           (topicPartitionOf(1), 10),
           (topicPartitionOf(2), 10))),
-        stopAfter = Some(0),
         pointers = Map((topic, TopicPointers(Map((0, 9L), (1, 9L), (2, 9L))))),
         journal = Map(
           (keyOf("0-0"), List(
@@ -367,7 +365,6 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
         commits = List(Nem.of(
           (topicPartitionOf(0), 11),
           (topicPartitionOf(1), 11))),
-        stopAfter = Some(0),
         pointers = Map((topic, TopicPointers(Map((0, 10L), (1, 10L))))),
         journal = Map(
           (keyOf("0-0"), List(
@@ -473,7 +470,6 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           Nem.of((topicPartitionOf(0), 4)),
           Nem.of((topicPartitionOf(0), 3)),
           Nem.of((topicPartitionOf(0), 2))),
-        stopAfter = Some(0),
         pointers = Map(
           (topic, TopicPointers(Map((0, 12L))))),
         journal = Map(
@@ -520,7 +516,6 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
       val (result, _) = topicReplicator.run(data)
       result shouldEqual State(
         topics = List(topic),
-        stopAfter = Some(0),
         pointers = pointers)
     }
 
@@ -566,7 +561,6 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           (topicPartitionOf(0), 4),
           (topicPartitionOf(1), 4),
           (topicPartitionOf(2), 4))),
-        stopAfter = Some(0),
         pointers = Map((topic, TopicPointers(Map((0, 3L), (1, 3L), (2, 3L))))),
         journal = Map(
           (keyOf("0-0"), List(
@@ -615,7 +609,6 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
         topics = List(topic),
         commits = List(Nem.of(
           (topicPartitionOf(0), 1))),
-        stopAfter = Some(0),
         pointers = Map((topic, TopicPointers(Map((0, 0L))))),
         metrics = List(Metrics.Round(records = 1)))
     }
@@ -773,7 +766,15 @@ object TopicReplicatorSpec {
 
     def commit(offsets: Nem[TopicPartition, Offset]) = StateT { s => (s.commit(offsets), ()) }
 
-    def poll = StateT { _.poll }
+    def poll = {
+      val records = StateT { state =>
+        state.records match {
+          case head :: tail => (state.copy(records = tail), head.some)
+          case Nil          => (state, none)
+        }
+      }
+      Stream.whileSome(records)
+    }
 
     def assignment = Set.empty[TopicPartition].pure[StateT]
   }
@@ -816,38 +817,21 @@ object TopicReplicatorSpec {
     implicit val fromAttempt = FromAttempt.lift[StateT]
     implicit val fromJsResult = FromJsResult.lift[StateT]
 
-    implicit val clock = Clock.const[StateT](nanos = 0, millis = millis)
+    implicit val timer: Timer[StateT] = new Timer[StateT] {
 
-    val stream = TopicReplicator.of1[StateT](
+      val clock = Clock.const[StateT](nanos = 0, millis = millis)
+
+      def sleep(duration: FiniteDuration) = ().pure[StateT]
+    }
+
+    TopicReplicator.of[StateT](
       topic = topic,
       consumer = Resource.liftF(consumer.pure[StateT]),
-      errorCooldown = 1.second,
       consumerRecordToActionRecord = ConsumerRecordToActionRecord[StateT],
       payloadToEvents = PayloadToEvents[StateT],
       journal = replicatedJournal,
       metrics = metrics,
-      log = Log.empty[StateT],
-      retry = Retry.empty[StateT])
-
-    val stop = StateT { state =>
-      state.stopAfter.fold((state, false)) { stopped =>
-        if (stopped <= 0) {
-          (state, true)
-        } else {
-          val state1 = state.copy(stopAfter = Some(stopped - 1))
-          (state1, false)
-        }
-      }
-    }
-
-    stream
-      .foldWhileM(()) { case (l, _) =>
-        stop.map {
-          case true  => 0.asRight[Unit]
-          case false => l.asLeft[Int]
-        }
-      }
-      .void
+      log = Log.empty[StateT])
   }
 
 
@@ -855,7 +839,6 @@ object TopicReplicatorSpec {
     topics: List[Topic] = Nil,
     commits: List[Nem[TopicPartition, Offset]] = Nil,
     records: List[ConsRecords] = Nil,
-    stopAfter: Option[Int] = None,
     pointers: Map[Topic, TopicPointers] = Map.empty,
     journal: Map[Key, List[EventRecord]] = Map.empty,
     metaJournal: Map[Key, MetaJournal] = Map.empty,
@@ -896,13 +879,6 @@ object TopicReplicatorSpec {
         copy(
           journal = self.journal.updated(key, records),
           metaJournal = self.metaJournal.updated(key, metaJournal))
-      }
-    }
-
-    def poll: (State, ConsRecords) = {
-      records match {
-        case head :: tail => (copy(records = tail), head)
-        case Nil          => (copy(stopAfter = Some(0)), ConsumerRecords(Map.empty))
       }
     }
   }

@@ -1,10 +1,11 @@
 package com.evolutiongaming.kafka.journal.replicator
 
+import cats.Monad
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.{Resource, Timer}
 import cats.implicits._
-import com.evolutiongaming.catshelper.{BracketThrowable, Log, LogOf}
-import com.evolutiongaming.kafka.journal.{ConsRecord, ConsRecords, KafkaConsumer}
+import com.evolutiongaming.catshelper.{BracketThrowable, Log}
+import com.evolutiongaming.kafka.journal.{ConsRecords, KafkaConsumer}
 import com.evolutiongaming.kafka.journal.util.CollectionHelper._
 import com.evolutiongaming.skafka.consumer.{Consumer => _, _}
 import com.evolutiongaming.skafka.{Offset, OffsetAndMetadata, Partition, Topic, TopicPartition}
@@ -15,16 +16,14 @@ import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
 
-object SubscriptionFlow {
+object ConsumeTopic {
 
-  type Records = Nem[TopicPartition, Nel[ConsRecord]]
-
-
-  def apply[F[_] : BracketThrowable : LogOf : Timer](
+  def apply[F[_] : BracketThrowable : Timer](
     topic: Topic,
     consumer: Resource[F, Consumer[F]],
-    topicFlowOf: TopicFlowOf[F]
-  ): Stream[F, Unit] = {
+    topicFlowOf: TopicFlowOf[F],
+    log: Log[F]
+  ): F[Unit] = {
 
     def retry(log: Log[F]) = {
 
@@ -43,29 +42,21 @@ object SubscriptionFlow {
       } yield retry
     }
 
-    def log = {
-      for {
-        log <- LogOf[F].apply(getClass)
-      } yield {
-        log.prefixed(topic)
-      }
-    }
-
     for {
-      log    <- Stream.lift(log)
-      retry  <- Stream.lift(retry(log))
+      retry  <- retry(log)
       result <- apply(topic, consumer, topicFlowOf, retry)
     } yield result
   }
+
 
   def apply[F[_] : BracketThrowable](
     topic: Topic,
     consumer: Resource[F, Consumer[F]],
     topicFlowOf: TopicFlowOf[F],
     retry: Retry[F],
-  ): Stream[F, Unit] = {
+  ): F[Unit] = {
 
-    def rebalanceListenerOf(topicFlow: TopicFlow[F]) = {
+    def rebalanceListenerOf(topicFlow: TopicFlow[F]): RebalanceListener[F] = {
       new RebalanceListener[F] {
 
         def onPartitionsAssigned(partitions: Nel[TopicPartition]) = {
@@ -79,21 +70,27 @@ object SubscriptionFlow {
         }
       }
     }
+    retry {
+      (consumer, topicFlowOf(topic))
+        .tupled
+        .use { case (consumer, topicFlow) =>
+          val listener = rebalanceListenerOf(topicFlow)
+          val consume = consumer
+            .poll
+            .mapM { records =>
+              for {
+                offsets <- records.values.toNem.foldMapM({ records => topicFlow(records) })
+                result  <- offsets.toNem.foldMapM { offsets => consumer.commit(offsets) }
+              } yield result
+            }
+            .drain
 
-    for {
-      _         <- Stream.around(retry.toFunctionK)
-      consumer  <- Stream.fromResource(consumer)
-      topicFlow  = topicFlowOf(topic, consumer)
-      topicFlow <- Stream.fromResource(topicFlow)
-      listener   = rebalanceListenerOf(topicFlow)
-      subscribe  = consumer.subscribe(listener)
-      _         <- Stream.lift(subscribe)
-      records   <- Stream.repeat(consumer.poll)
-      records   <- Stream[F].apply(records.values.toNem)
-      offsets   <- Stream.lift(topicFlow(records))
-      offsets   <- Stream[F].apply(offsets.toNem)
-      _         <- Stream.lift(consumer.commit(offsets))
-    } yield {}
+          for {
+            _      <- consumer.subscribe(listener)
+            result <- consume
+          } yield result
+        }
+    }
   }
 
 
@@ -101,14 +98,14 @@ object SubscriptionFlow {
 
     def subscribe(listener: RebalanceListener[F]): F[Unit]
 
-    def poll: F[ConsRecords]
+    def poll: Stream[F, ConsRecords]
 
     def commit(offsets: Nem[Partition, Offset]): F[Unit]
   }
 
   object Consumer {
 
-    def apply[F[_]](
+    def apply[F[_] : Monad](
       topic: Topic,
       pollTimeout: FiniteDuration,
       metadata: String,
@@ -121,7 +118,7 @@ object SubscriptionFlow {
           consumer.subscribe(topic, listener.some)
         }
 
-        val poll = consumer.poll(pollTimeout)
+        val poll = Stream.repeat(consumer.poll(pollTimeout))
 
         def commit(offsets: Nem[Partition, Offset]) = {
           val offsets1 = offsets.mapKV { (partition, offset) =>
