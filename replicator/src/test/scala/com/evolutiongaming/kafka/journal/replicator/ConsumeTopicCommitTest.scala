@@ -21,11 +21,11 @@ class ConsumeTopicCommitTest extends AsyncFunSuite with Matchers{
           commitsRef.update { offsets :: _ } *> deferred.complete(())
         }
       }
-      commit  <- ConsumeTopic.Commit.delayed(100.millis, commit)
+      commit  <- ConsumeTopic.Commit.delayed(200.millis, commit)
       _       <- commit(Nem.of((0, 0L)))
       offsets <- commitsRef.get
       _        = offsets shouldEqual List.empty
-      _       <- Timer[IO].sleep(200.millis)
+      _       <- Timer[IO].sleep(400.millis)
       _       <- commit(Nem.of((1, 1L)))
       _       <- deferred.get
       offsets <- commitsRef.get
