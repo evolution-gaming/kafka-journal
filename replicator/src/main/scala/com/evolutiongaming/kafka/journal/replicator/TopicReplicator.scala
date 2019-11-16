@@ -182,17 +182,7 @@ object TopicReplicator {
 
   object ConsumerOf {
 
-    def apply[F[_] : Monad](
-      topic: String,
-      pollTimeout: FiniteDuration,
-      hostName: Option[HostName],
-      consumer: KafkaConsumer[F, String, ByteVector],
-    ): ConsumeTopic.Consumer[F] = {
-      val metadata = hostName.fold { Metadata.empty } { _.value }
-      ConsumeTopic.Consumer(topic, pollTimeout, metadata, consumer)
-    }
-
-    def of[F[_] : Sync : KafkaConsumerOf : FromTry](
+    def of[F[_] : Sync : KafkaConsumerOf : FromTry : Clock](
       topic: Topic,
       config: ConsumerConfig,
       pollTimeout: FiniteDuration,
@@ -219,8 +209,11 @@ object TopicReplicator {
 
       for {
         consumer <- KafkaConsumerOf[F].apply[String, ByteVector](config1)
+        metadata  = hostName.fold { Metadata.empty } { _.value }
+        commit    = ConsumeTopic.Commit(topic, metadata, consumer)
+        commit   <- Resource.liftF(ConsumeTopic.Commit.delayed(1.second, commit))
       } yield {
-        apply(topic, pollTimeout, hostName, consumer)
+        ConsumeTopic.Consumer(topic, pollTimeout, commit, consumer)
       }
     }
   }

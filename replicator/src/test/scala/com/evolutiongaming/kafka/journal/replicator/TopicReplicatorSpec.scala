@@ -764,7 +764,7 @@ object TopicReplicatorSpec {
       StateT { s => (s.subscribe(topic), ()) }
     }
 
-    def commit(offsets: Nem[Partition, Offset]) = {
+    val commit = offsets => {
       StateT.unit { state =>
         state.copy(commits = offsets :: state.commits)
       }

@@ -287,9 +287,7 @@ object ConsumeTopicTest {
         Stream.whileSome(stateT)
       }
 
-      def commit(offsets: Nem[Partition, Offset]) = {
-        StateT.unit { _ + Action.Commit(offsets) }
-      }
+      val commit = offsets => StateT.unit { _ + Action.Commit(offsets) }
     }
 
     val result = StateT.pure { state =>
