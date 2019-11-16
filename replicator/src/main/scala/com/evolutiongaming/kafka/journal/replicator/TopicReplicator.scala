@@ -211,7 +211,7 @@ object TopicReplicator {
         consumer <- KafkaConsumerOf[F].apply[String, ByteVector](config1)
         metadata  = hostName.fold { Metadata.empty } { _.value }
         commit    = ConsumeTopic.Commit(topic, metadata, consumer)
-        commit   <- Resource.liftF(ConsumeTopic.Commit.delayed(1.second, commit))
+        commit   <- Resource.liftF(ConsumeTopic.Commit.delayed(5.seconds, commit))
       } yield {
         ConsumeTopic.Consumer(topic, pollTimeout, commit, consumer)
       }
