@@ -10,18 +10,18 @@ import org.scalatest.{AsyncFunSuite, Matchers}
 
 import scala.concurrent.duration._
 
-class ConsumeTopicCommitTest extends AsyncFunSuite with Matchers{
+class TopicCommitTest extends AsyncFunSuite with Matchers{
 
   test("delayed") {
     val result = for {
       commitsRef <- Ref[IO].of(List.empty[Nem[Partition, Offset]])
       deferred   <- Deferred[IO, Unit]
-      commit = new ConsumeTopic.Commit[IO] {
+      commit = new TopicCommit[IO] {
         def apply(offsets: Nem[Partition, Offset]) = {
           commitsRef.update { offsets :: _ } *> deferred.complete(())
         }
       }
-      commit  <- ConsumeTopic.Commit.delayed(200.millis, commit)
+      commit  <- TopicCommit.delayed(200.millis, commit)
       _       <- commit(Nem.of((0, 0L)))
       offsets <- commitsRef.get
       _        = offsets shouldEqual List.empty

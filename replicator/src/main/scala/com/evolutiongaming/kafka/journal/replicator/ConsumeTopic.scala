@@ -1,22 +1,16 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import java.time.Instant
 
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
-import cats.effect.concurrent.Ref
-import cats.effect.{Clock, Resource, Sync, Timer}
+import cats.effect.{Resource, Timer}
 import cats.implicits._
-import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.kafka.journal.util.CollectionHelper._
-import com.evolutiongaming.kafka.journal.util.TemporalHelper._
-import com.evolutiongaming.kafka.journal.KafkaConsumer
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.skafka.consumer.{Consumer => _, _}
 import com.evolutiongaming.skafka._
 
-import scala.collection.immutable.SortedMap
 import scala.concurrent.duration._
 
 object ConsumeTopic {
@@ -107,69 +101,6 @@ object ConsumeTopic {
             result <- consume
           } yield result
         }
-    }
-  }
-
-
-  trait Commit[F[_]] {
-
-    def apply(offsets: Nem[Partition, Offset]): F[Unit]
-  }
-
-  object Commit {
-
-    def apply[F[_]](
-      topic: Topic,
-      metadata: String,
-      consumer: KafkaConsumer[F, _, _],
-    ): Commit[F] = {
-      (offsets: Nem[Partition, Offset]) => {
-        val offsets1 = offsets.mapKV { (partition, offset) =>
-          val offset1 = OffsetAndMetadata(offset, metadata)
-          val partition1 = TopicPartition(topic, partition)
-          (partition1, offset1)
-        }
-        consumer.commit(offsets1)
-      }
-    }
-
-    def delayed[F[_] : Sync : Clock](
-      delay: FiniteDuration,
-      commit: Commit[F]
-    ): F[Commit[F]] = {
-
-      case class State(until: Instant, offsets: SortedMap[Partition, Offset] = SortedMap.empty)
-
-      for {
-        timestamp <- Clock[F].instant
-        stateRef  <- Ref[F].of(State(timestamp + delay))
-      } yield {
-        new Commit[F] {
-          def apply(offsets: Nem[Partition, Offset]) = {
-
-            def apply(state: State, timestamp: Instant) = {
-              val offsets1 = state.offsets ++ offsets.toSortedMap
-              if (state.until <= timestamp) {
-                offsets1
-                  .toNem
-                  .foldMapM { offsets => commit(offsets) }
-                  .as(State(timestamp + delay))
-              } else {
-                state
-                  .copy(offsets = offsets1)
-                  .pure[F]
-              }
-            }
-
-            for {
-              timestamp <- Clock[F].instant
-              state     <- stateRef.get
-              state     <- apply(state, timestamp)
-              _         <- stateRef.set(state)
-            } yield {}
-          }
-        }
-      }
     }
   }
 }

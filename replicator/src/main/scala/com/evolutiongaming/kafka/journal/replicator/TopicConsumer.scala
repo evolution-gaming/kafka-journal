@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import cats.Monad
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.replicator.ConsumeTopic.Commit
 import com.evolutiongaming.kafka.journal.{ConsRecords, KafkaConsumer}
 import com.evolutiongaming.skafka.consumer.{Consumer => _, _}
 import com.evolutiongaming.skafka._
@@ -20,7 +19,7 @@ trait TopicConsumer[F[_]] {
   // TODO return same topic values
   def poll: Stream[F, ConsRecords]
 
-  def commit: Commit[F]
+  def commit: TopicCommit[F]
 }
 
 object TopicConsumer {
@@ -28,7 +27,7 @@ object TopicConsumer {
   def apply[F[_] : Monad](
     topic: Topic,
     pollTimeout: FiniteDuration,
-    commit: Commit[F],
+    commit: TopicCommit[F],
     consumer: KafkaConsumer[F, String, ByteVector],
   ): TopicConsumer[F] = {
 
