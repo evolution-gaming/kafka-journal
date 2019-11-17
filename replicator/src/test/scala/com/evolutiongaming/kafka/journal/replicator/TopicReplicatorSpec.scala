@@ -773,7 +773,14 @@ object TopicReplicatorSpec {
     def poll = {
       val records = StateT { state =>
         state.records match {
-          case head :: tail => (state.copy(records = tail), head.some)
+          case head :: tail =>
+            val records = for {
+              (partition, records) <- head.values
+            } yield {
+              (partition.partition, records)
+            }
+            (state.copy(records = tail), records.some)
+            
           case Nil          => (state, none)
         }
       }

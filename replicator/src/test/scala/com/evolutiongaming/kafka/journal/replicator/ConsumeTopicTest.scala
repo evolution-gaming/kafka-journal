@@ -6,11 +6,11 @@ import cats.effect.{ExitCase, Resource, Timer}
 import cats.implicits._
 import com.evolutiongaming.catshelper.TimerHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
-import com.evolutiongaming.kafka.journal.{ConsRecord, ConsRecords, ConsumerRecordsOf}
+import com.evolutiongaming.kafka.journal.ConsRecord
 import com.evolutiongaming.kafka.journal.util.CollectionHelper._
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.skafka._
-import com.evolutiongaming.skafka.consumer.{ConsumerRecords, RebalanceListener, WithSize}
+import com.evolutiongaming.skafka.consumer.{RebalanceListener, WithSize}
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.{FunSuite, Matchers}
 
@@ -25,9 +25,9 @@ class ConsumeTopicTest extends FunSuite with Matchers {
   test("happy path") {
     val state = State(commands = List(
       Command.AssignPartitions(partitions),
-      Command.ProduceRecords(ConsumerRecords.empty),
-      Command.ProduceRecords(ConsumerRecords.empty),
-      Command.ProduceRecords(ConsumerRecordsOf(recordOf(partition = 0, offset = 0)))))
+      Command.ProduceRecords(Map.empty),
+      Command.ProduceRecords(Map.empty),
+      Command.ProduceRecords(recordsOf(recordOf(partition = 0, offset = 0)).toSortedMap)))
 
     val (result, _) = subscriptionFlow.run(state)
 
@@ -47,11 +47,11 @@ class ConsumeTopicTest extends FunSuite with Matchers {
   test("retry") {
     val state = State(commands = List(
       Command.AssignPartitions(partitions),
-      Command.ProduceRecords(ConsumerRecords.empty),
+      Command.ProduceRecords(Map.empty),
       Command.Fail(Error),
       Command.AssignPartitions(partitions),
-      Command.ProduceRecords(ConsumerRecords.empty),
-      Command.ProduceRecords(ConsumerRecordsOf(recordOf(partition = 0, offset = 0)))))
+      Command.ProduceRecords(Map.empty),
+      Command.ProduceRecords(recordsOf(recordOf(partition = 0, offset = 0)).toSortedMap)))
 
     val (result, _) = subscriptionFlow.run(state)
 
@@ -78,10 +78,10 @@ class ConsumeTopicTest extends FunSuite with Matchers {
   test("rebalance") {
     val state = State(commands = List(
       Command.AssignPartitions(Nel.of(1)),
-      Command.ProduceRecords(ConsumerRecords.empty),
+      Command.ProduceRecords(Map.empty),
       Command.AssignPartitions(Nel.of(2)),
       Command.RevokePartitions(Nel.of(1, 2)),
-      Command.ProduceRecords(ConsumerRecordsOf(recordOf(partition = 0, offset = 0)))))
+      Command.ProduceRecords(recordsOf(recordOf(partition = 0, offset = 0)).toSortedMap)))
 
     val (result, _) = subscriptionFlow.run(state)
 
@@ -252,7 +252,7 @@ object ConsumeTopicTest {
                     .map { case (s, _) => s }
                 }
                 .getOrElse(state)
-                .map { state => (state, ConsRecords.empty.some.pure[Try]) }
+                .map { state => (state, Map.empty[Partition, Nel[ConsRecord]].some.pure[Try]) }
 
             case Command.ProduceRecords(records) =>
               (state, records.some.pure[Try])
@@ -269,16 +269,16 @@ object ConsumeTopicTest {
                     .map { case (s, _) => s }
                 }
                 .getOrElse(state)
-                .map { s => (s, ConsRecords.empty.some.pure[Try]) }
+                .map { s => (s, Map.empty[Partition, Nel[ConsRecord]].some.pure[Try]) }
 
             case Command.Fail(error) =>
-              (state, error.raiseError[Try, Option[ConsRecords]])
+              (state, error.raiseError[Try, Option[Map[Partition, Nel[ConsRecord]]]])
           }
         }
 
         val stateT = StateT { state =>
           state.commands match {
-            case Nil                 => (state, none[ConsRecords].pure[Try])
+            case Nil                 => (state, none[Map[Partition, Nel[ConsRecord]]].pure[Try])
             case command :: commands => apply(state.copy(commands = commands), command)
           }
         }
@@ -342,7 +342,7 @@ object ConsumeTopicTest {
   sealed abstract class Command
 
   object Command {
-    final case class ProduceRecords(records: ConsRecords) extends Command
+    final case class ProduceRecords(records: Map[Partition, Nel[ConsRecord]]) extends Command
     final case class AssignPartitions(partitions: Nel[Partition]) extends Command
     final case class RevokePartitions(partitions: Nel[Partition]) extends Command
     final case class Fail(error: Throwable) extends Command

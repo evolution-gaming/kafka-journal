@@ -32,10 +32,10 @@ object ConsumeTopic {
       }
 
       for {
-        random <- Random.State.fromClock[F]()
-        strategy = strategyOf(random)
-        onError = OnError.fromLog(log)
-        retry = Retry(strategy, onError)
+        random   <- Random.State.fromClock[F]()
+        strategy  = strategyOf(random)
+        onError   = OnError.fromLog(log)
+        retry     = Retry(strategy, onError)
       } yield retry
     }
 
@@ -84,13 +84,8 @@ object ConsumeTopic {
           val consume = consumer
             .poll
             .mapM { records =>
-
-              val records1 = records
-                .values
-                .map { case (topicPartition, records) => (topicPartition.partition, records) }
-
               for {
-                offsets <- records1.toNem.foldMapM { records => topicFlow(records) }
+                offsets <- records.toNem.foldMapM { records => topicFlow(records) }
                 result  <- offsets.toNem.foldMapM { offsets => commit(offsets) }
               } yield result
             }

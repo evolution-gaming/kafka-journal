@@ -2,10 +2,11 @@ package com.evolutiongaming.kafka.journal.replicator
 
 
 import cats.Monad
+import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.{ConsRecords, KafkaConsumer}
-import com.evolutiongaming.skafka.consumer.{Consumer => _, _}
+import com.evolutiongaming.kafka.journal.{ConsRecord, KafkaConsumer}
 import com.evolutiongaming.skafka._
+import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.sstream.Stream
 import scodec.bits.ByteVector
 
@@ -16,8 +17,7 @@ trait TopicConsumer[F[_]] {
 
   def subscribe(listener: RebalanceListener[F]): F[Unit]
 
-  // TODO return same topic values
-  def poll: Stream[F, ConsRecords]
+  def poll: Stream[F, Map[Partition, Nel[ConsRecord]]]
 
   def commit: TopicCommit[F]
 }
@@ -39,7 +39,16 @@ object TopicConsumer {
         consumer.subscribe(topic, listener.some)
       }
 
-      val poll = Stream.repeat(consumer.poll(pollTimeout))
+      val poll = {
+        val records = for {
+          records <- consumer.poll(pollTimeout)
+        } yield for {
+          (partition, records) <- records.values
+        } yield {
+          (partition.partition, records)
+        }
+        Stream.repeat(records)
+      }
 
       def commit = commit1
     }
