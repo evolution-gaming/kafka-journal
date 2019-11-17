@@ -2,7 +2,6 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
 
-import cats.Monad
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.concurrent.Ref
 import cats.effect.{Clock, Resource, Sync, Timer}
@@ -11,13 +10,11 @@ import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.kafka.journal.util.CollectionHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
-import com.evolutiongaming.kafka.journal.{ConsRecords, KafkaConsumer}
+import com.evolutiongaming.kafka.journal.KafkaConsumer
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.skafka.consumer.{Consumer => _, _}
 import com.evolutiongaming.skafka._
-import com.evolutiongaming.sstream.Stream
-import scodec.bits.ByteVector
 
 import scala.collection.immutable.SortedMap
 import scala.concurrent.duration._
@@ -26,7 +23,7 @@ object ConsumeTopic {
 
   def apply[F[_] : BracketThrowable : Timer](
     topic: Topic,
-    consumer: Resource[F, Consumer[F]],
+    consumer: Resource[F, TopicConsumer[F]],
     topicFlowOf: TopicFlowOf[F],
     log: Log[F]
   ): F[Unit] = {
@@ -57,7 +54,7 @@ object ConsumeTopic {
 
   def apply[F[_] : BracketThrowable](
     topic: Topic,
-    consumer: Resource[F, Consumer[F]],
+    consumer: Resource[F, TopicConsumer[F]],
     topicFlowOf: TopicFlowOf[F],
     log: Log[F],
     retry: Retry[F]
@@ -106,7 +103,7 @@ object ConsumeTopic {
             .drain
 
           for {
-            _ <- consumer.subscribe(listener)
+            _      <- consumer.subscribe(listener)
             result <- consume
           } yield result
         }
@@ -172,41 +169,6 @@ object ConsumeTopic {
             } yield {}
           }
         }
-      }
-    }
-  }
-
-
-  trait Consumer[F[_]] {
-
-    def subscribe(listener: RebalanceListener[F]): F[Unit]
-
-    // TODO return same topic values
-    def poll: Stream[F, ConsRecords]
-
-    def commit: Commit[F]
-  }
-
-  object Consumer {
-
-    def apply[F[_] : Monad](
-      topic: Topic,
-      pollTimeout: FiniteDuration,
-      commit: Commit[F],
-      consumer: KafkaConsumer[F, String, ByteVector],
-    ): Consumer[F] = {
-
-      val commit1 = commit
-
-      new Consumer[F] {
-
-        def subscribe(listener: RebalanceListener[F]) = {
-          consumer.subscribe(topic, listener.some)
-        }
-
-        val poll = Stream.repeat(consumer.poll(pollTimeout))
-
-        def commit = commit1
       }
     }
   }

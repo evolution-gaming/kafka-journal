@@ -33,7 +33,7 @@ object TopicReplicator {
   def of[F[_] : Concurrent : Timer : Parallel : LogOf : FromTry](
     topic: Topic,
     journal: ReplicatedJournal[F],
-    consumer: Resource[F, ConsumeTopic.Consumer[F]],
+    consumer: Resource[F, TopicConsumer[F]],
     metrics: Metrics[F]
   ): Resource[F, F[Unit]] = {
 
@@ -42,7 +42,7 @@ object TopicReplicator {
     val payloadToEvents = PayloadToEvents[F]
 
     def consume(
-      consumer: Resource[F, ConsumeTopic.Consumer[F]],
+      consumer: Resource[F, TopicConsumer[F]],
       log: Log[F]
     ) = {
 
@@ -72,7 +72,7 @@ object TopicReplicator {
 
   def of[F[_] : Concurrent : Parallel : FromTry : Timer](
     topic: Topic,
-    consumer: Resource[F, ConsumeTopic.Consumer[F]],
+    consumer: Resource[F, TopicConsumer[F]],
     consumerRecordToActionRecord: ConsumerRecordToActionRecord[F],
     payloadToEvents: PayloadToEvents[F],
     journal: ReplicatedJournal[F],
@@ -159,7 +159,7 @@ object TopicReplicator {
       config: ConsumerConfig,
       pollTimeout: FiniteDuration,
       hostName: Option[HostName]
-    ): Resource[F, ConsumeTopic.Consumer[F]] = {
+    ): Resource[F, TopicConsumer[F]] = {
 
       val groupId = {
         val prefix = config.groupId getOrElse "replicator"
@@ -185,7 +185,7 @@ object TopicReplicator {
         commit    = ConsumeTopic.Commit(topic, metadata, consumer)
         commit   <- Resource.liftF(ConsumeTopic.Commit.delayed(5.seconds, commit))
       } yield {
-        ConsumeTopic.Consumer(topic, pollTimeout, commit, consumer)
+        TopicConsumer(topic, pollTimeout, commit, consumer)
       }
     }
   }

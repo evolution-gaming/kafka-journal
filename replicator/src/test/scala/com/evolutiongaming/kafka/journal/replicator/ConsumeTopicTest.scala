@@ -7,7 +7,6 @@ import cats.implicits._
 import com.evolutiongaming.catshelper.TimerHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.kafka.journal.{ConsRecord, ConsRecords, ConsumerRecordsOf}
-import com.evolutiongaming.kafka.journal.replicator.ConsumeTopic.Consumer
 import com.evolutiongaming.kafka.journal.util.CollectionHelper._
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.skafka._
@@ -229,9 +228,9 @@ object ConsumeTopicTest {
   }
 
 
-  val consumer: Resource[StateT, Consumer[StateT]] = {
+  val consumer: Resource[StateT, TopicConsumer[StateT]] = {
 
-    val consumer: Consumer[StateT] = new Consumer[StateT] {
+    val consumer: TopicConsumer[StateT] = new TopicConsumer[StateT] {
 
       def subscribe(listener: RebalanceListener[StateT]) = {
         StateT.unit { _ + Action.Subscribe()(listener) }

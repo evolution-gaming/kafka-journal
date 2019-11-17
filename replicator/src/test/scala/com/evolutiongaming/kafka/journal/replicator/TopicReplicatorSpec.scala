@@ -758,7 +758,7 @@ object TopicReplicatorSpec {
   }
 
 
-  implicit val consumer: ConsumeTopic.Consumer[StateT] = new ConsumeTopic.Consumer[StateT] {
+  implicit val consumer: TopicConsumer[StateT] = new TopicConsumer[StateT] {
 
     def subscribe(listener: RebalanceListener[StateT]) = {
       StateT { s => (s.subscribe(topic), ()) }
