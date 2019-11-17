@@ -93,9 +93,14 @@ object ConsumeTopic {
           val consume = consumer
             .poll
             .mapM { records =>
+
+              val records1 = records
+                .values
+                .map { case (topicPartition, records) => (topicPartition.partition, records) }
+
               for {
-                offsets <- records.values.toNem.foldMapM({ records => topicFlow(records) })
-                result <- offsets.toNem.foldMapM { offsets => commit(offsets) }
+                offsets <- records1.toNem.foldMapM { records => topicFlow(records) }
+                result  <- offsets.toNem.foldMapM { offsets => commit(offsets) }
               } yield result
             }
             .drain
@@ -176,6 +181,7 @@ object ConsumeTopic {
 
     def subscribe(listener: RebalanceListener[F]): F[Unit]
 
+    // TODO return same topic values
     def poll: Stream[F, ConsRecords]
 
     def commit: Commit[F]

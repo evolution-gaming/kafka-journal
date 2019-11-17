@@ -88,50 +88,25 @@ object TopicReplicator {
       payloadToEvents = payloadToEvents,
       log = log)
 
-    of(
-      topic = topic,
-      log = log,
-      consumer = consumer,
-      journal = journal,
-      metrics = metrics,
-      replicateRecords = replicateRecords)
-  }
+    def consume(
+      roundStart: Instant,
+      pointers: Map[Partition, Offset],
+      consumerRecords: Nem[Partition, Nel[ConsRecord]]
+    ) = {
 
-  def of[F[_] : Concurrent : Clock : Parallel : FromTry : Timer](
-    topic: Topic,
-    log: Log[F],
-    consumer: Resource[F, ConsumeTopic.Consumer[F]],
-    journal: ReplicatedJournal[F],
-    metrics: Metrics[F],
-    replicateRecords: ReplicateRecords[F],
-  ): F[Unit] = {
-
-    def consume(pointers: Map[Partition, Offset], records: Nem[TopicPartition, Nel[ConsRecord]]): F[Unit] = {
-
-      def consume(
-        roundStart: Instant,
-        consumerRecords: Nem[TopicPartition, Nel[ConsRecord]]
-      ) = {
-
-        val records = for {
-          (partition, records) <- consumerRecords.toSortedMap
-          offset                = pointers.get(partition.partition)
-          records              <- offset.fold(records.some) { offset => records.filter { _.offset > offset }.toNel }
-        } yield {
-          (partition, records)
-        }
-
-        for {
-          _        <- records.toNem.foldMapM { records => replicateRecords(records, roundStart) }
-          records   = consumerRecords.foldLeft(0) { case (size, records) => size + records.size }
-          roundEnd <- Clock[F].instant
-          _        <- metrics.round(roundEnd diff roundStart, records)
-        } yield {}
+      val records = for {
+        (partition, records) <- consumerRecords.toSortedMap
+        offset                = pointers.get(partition)
+        records              <- offset.fold(records.some) { offset => records.filter { _.offset > offset }.toNel }
+      } yield {
+        (partition, records)
       }
 
       for {
-        timestamp <- Clock[F].instant
-        _         <- consume(timestamp, records)
+        _        <- records.toNem.foldMapM { records => replicateRecords(records, roundStart) }
+        records   = consumerRecords.foldLeft(0) { case (size, records) => size + records.size }
+        roundEnd <- Clock[F].instant
+        _        <- metrics.round(roundEnd diff roundStart, records)
       } yield {}
     }
 
@@ -146,20 +121,20 @@ object TopicReplicator {
               log.info(s"assign ${partitions.mkString_(",") }")
             }
 
-            def apply(records: Nem[TopicPartition/*TODO partition*/, Nel[ConsRecord]]) = {
+            def apply(records: Nem[Partition, Nel[ConsRecord]]) = {
               for {
-                _ <- consume(pointers.values, records)
+                timestamp <- Clock[F].instant
+                _         <- consume(timestamp, pointers.values, records)
               } yield {
                 records
-                  .toSortedMap
-                  .map { case (partition, records) =>
-                    val offset = records.foldLeft {
+                  .map { records =>
+                    records.foldLeft {
                       Offset.Min
                     } { (offset, record) =>
                       record.offset + 1 max offset
                     }
-                    (partition.partition, offset)
                   }
+                  .toSortedMap
               }
             }
 
@@ -175,9 +150,6 @@ object TopicReplicator {
 
     ConsumeTopic(topic, consumer, topicFlowOf, log)
   }
-
-
-  final case class State(pointers: TopicPointers, failed: Option[Instant])
 
 
   object ConsumerOf {

@@ -210,7 +210,7 @@ object ConsumeTopicTest {
             StateT.unit { _ + Action.AssignPartitions(partitions) }
           }
 
-          def apply(records: Nem[TopicPartition, Nel[ConsRecord]]) = {
+          def apply(records: Nem[Partition, Nel[ConsRecord]]) = {
             StateT.pure { state =>
               val state1 = state + Action.Poll(records)
               //  TODO test
@@ -324,9 +324,9 @@ object ConsumeTopicTest {
       headers = List.empty)
   }
 
-  def recordsOf(record: ConsRecord, records: ConsRecord*): Nem[TopicPartition, Nel[ConsRecord]] = {
+  def recordsOf(record: ConsRecord, records: ConsRecord*): Nem[Partition, Nel[ConsRecord]] = {
     Nel(record, records.toList)
-      .groupBy { _.topicPartition }
+      .groupBy { _.topicPartition.partition }
       .toNem
       .get
   }
@@ -359,7 +359,7 @@ object ConsumeTopicTest {
     final case class AssignPartitions(partitions: Nel[Partition]) extends Action
     final case class RevokePartitions(partitions: Nel[Partition]) extends Action
     final case class Subscribe()(val listener: RebalanceListener[StateT]) extends Action
-    final case class Poll(records: Nem[TopicPartition, Nel[ConsRecord]]) extends Action
+    final case class Poll(records: Nem[Partition, Nel[ConsRecord]]) extends Action
     final case class Commit(offsets: Nem[Partition, Offset]) extends Action
     final case class RetryOnError(error: Throwable, decision: OnError.Decision) extends Action
   }

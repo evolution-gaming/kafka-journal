@@ -21,10 +21,7 @@ import scala.concurrent.duration.FiniteDuration
 
 trait ReplicateRecords[F[_]] {
 
-  def apply(
-    consumerRecords: Nem[TopicPartition, Nel[ConsRecord]],
-    roundStart: Instant
-  ): F[Unit]
+  def apply(records: Nem[Partition, Nel[ConsRecord]], roundStart: Instant): F[Unit]
 }
 
 object ReplicateRecords {
@@ -40,10 +37,7 @@ object ReplicateRecords {
 
     new ReplicateRecords[F] {
 
-      def apply(
-        consumerRecords: Nem[TopicPartition, Nel[ConsRecord]],
-        roundStart: Instant
-      ) = {
+      def apply(records: Nem[Partition, Nel[ConsRecord]], roundStart: Instant) = {
 
         def apply(records: Nel[ActionRecord[Action]]) = {
           val head = records.head
@@ -124,15 +118,11 @@ object ReplicateRecords {
             }
         }
 
-        val pointers = consumerRecords
-          .toNel
-          .map { case (topicPartition, records) =>
-            val offset = records.foldLeft(Offset.Min) { (offset, record) => record.offset max offset }
-            (topicPartition.partition, offset)
-          }
-          .toNem
+        val pointers = records.map { records =>
+          records.foldLeft(Offset.Min) { (offset, record) => record.offset max offset }
+        }
 
-        val replicate = consumerRecords
+        val replicate = records
           .toSortedMap
           .values
           .toList
