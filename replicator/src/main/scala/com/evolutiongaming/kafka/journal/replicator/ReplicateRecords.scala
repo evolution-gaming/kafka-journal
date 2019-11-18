@@ -21,7 +21,7 @@ import scala.concurrent.duration.FiniteDuration
 
 trait ReplicateRecords[F[_]] {
 
-  def apply(records: Nem[Partition, Nel[ConsRecord]], roundStart: Instant): F[Unit]
+  def apply(records: Nem[Partition, Nel[ConsRecord]], timestamp: Instant): F[Unit]
 }
 
 object ReplicateRecords {
@@ -36,7 +36,7 @@ object ReplicateRecords {
 
     new ReplicateRecords[F] {
 
-      def apply(records: Nem[Partition, Nel[ConsRecord]], roundStart: Instant) = {
+      def apply(records: Nem[Partition, Nel[ConsRecord]], timestamp: Instant) = {
 
         def apply(records: Nel[ActionRecord[Action]]) = {
           val head = records.head
@@ -50,7 +50,7 @@ object ReplicateRecords {
               Metrics.Measurements(
                 partition = head.partition,
                 replicationLatency = now diff head.action.timestamp,
-                deliveryLatency = roundStart diff head.action.timestamp,
+                deliveryLatency = timestamp diff head.action.timestamp,
                 records = records)
             }
           }
@@ -63,7 +63,7 @@ object ReplicateRecords {
             }
 
             for {
-              _            <- journal.journal(id).use { _.delete(partitionOffset, roundStart, deleteTo, origin) } // TODO optimise
+              _            <- journal.journal(id).use { _.delete(partitionOffset, timestamp, deleteTo, origin) } // TODO optimise
               measurements <- measurements(1)
               latency       = measurements.replicationLatency
               _            <- metrics.delete(measurements)
@@ -102,7 +102,7 @@ object ReplicateRecords {
 
             for {
               events       <- events
-              _            <- journal.journal(id).use { _.append(partitionOffset, roundStart, expireAfter, events) } // TODO optimise
+              _            <- journal.journal(id).use { _.append(partitionOffset, timestamp, expireAfter, events) } // TODO optimise
               measurements <- measurements(records.size)
               _            <- metrics.append(events = events.length, bytes = bytes, measurements = measurements)
               _            <- log.info(msg(events, measurements.replicationLatency))
@@ -140,7 +140,7 @@ object ReplicateRecords {
 
         for {
           _ <- replicate
-          _ <- journal.save(pointers, roundStart)
+          _ <- journal.save(pointers, timestamp)
         } yield {}
       }
     }

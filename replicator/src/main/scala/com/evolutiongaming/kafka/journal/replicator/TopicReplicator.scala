@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import java.time.Instant
 
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect._
@@ -15,11 +14,10 @@ import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.util.CollectionHelper._
 import com.evolutiongaming.kafka.journal.util.ResourceOf
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
-import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Bytes => _, _}
 import com.evolutiongaming.smetrics.MetricsHelper._
-import com.evolutiongaming.smetrics.{CollectorRegistry, LabelNames, Quantile, Quantiles}
+import com.evolutiongaming.smetrics.{CollectorRegistry, LabelNames, MeasureDuration, Quantile, Quantiles}
 import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
@@ -27,7 +25,7 @@ import scala.concurrent.duration._
 
 object TopicReplicator {
 
-  def of[F[_] : Concurrent : Timer : Parallel : LogOf : FromTry](
+  def of[F[_] : Concurrent : Timer : Parallel : LogOf : FromTry : MeasureDuration](
     topic: Topic,
     journal: ReplicatedJournal[F],
     consumer: Resource[F, TopicConsumer[F]],
@@ -67,7 +65,7 @@ object TopicReplicator {
     } yield consuming
   }
 
-  def of[F[_] : Concurrent : Parallel : FromTry : Timer](
+  def of[F[_] : Concurrent : Parallel : FromTry : Timer : MeasureDuration](
     topic: Topic,
     consumer: Resource[F, TopicConsumer[F]],
     consumerRecordToActionRecord: ConsumerRecordToActionRecord[F],
@@ -91,25 +89,6 @@ object TopicReplicator {
             payloadToEvents = payloadToEvents,
             log = log)
 
-          def consume(start: Instant, consumerRecords: Nem[Partition, Nel[ConsRecord]]) = {
-
-            val records = for {
-              (partition, records) <- consumerRecords.toSortedMap
-              offset                = pointers.values.get(partition)
-              records              <- offset.fold(records.some) { offset => records.filter { _.offset > offset }.toNel }
-            } yield {
-              (partition, records)
-            }
-
-            for {
-              _       <- records.toNem.foldMapM { records => replicateRecords(records, start) }
-              records  = consumerRecords.foldLeft(0) { case (size, records) => size + records.size }
-              end     <- Clock[F].instant
-              _       <- metrics.round(end diff start, records)
-            } yield {}
-          }
-
-
           new TopicFlow[F] {
 
             def assign(partitions: Nel[Partition]) = {
@@ -117,18 +96,26 @@ object TopicReplicator {
             }
 
             def apply(records: Nem[Partition, Nel[ConsRecord]]) = {
+
+              def records1 = for {
+                (partition, records) <- records.toSortedMap
+                offset                = pointers.values.get(partition)
+                records              <- offset.fold(records.some) { offset => records.filter { _.offset > offset }.toNel }
+              } yield {
+                (partition, records)
+              }
+
               for {
+                duration  <- MeasureDuration[F].start
                 timestamp <- Clock[F].instant
-                _         <- consume(timestamp, records)
+                records1  <- records1.pure[F]
+                _         <- records1.toNem.foldMapM { records => replicateRecords(records, timestamp) }
+                size       = records.foldLeft(0) { case (size, records) => size + records.size }
+                duration  <- duration
+                _         <- metrics.round(duration, size)
               } yield {
                 records
-                  .map { records =>
-                    records.foldLeft {
-                      Offset.Min
-                    } { (offset, record) =>
-                      record.offset + 1 max offset
-                    }
-                  }
+                  .map { _.foldLeft { Offset.Min } { (offset, record) => record.offset + 1 max offset } }
                   .toSortedMap
               }
             }

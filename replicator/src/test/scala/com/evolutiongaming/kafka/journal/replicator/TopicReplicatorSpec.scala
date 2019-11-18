@@ -17,6 +17,7 @@ import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.sstream.Stream
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, RebalanceListener, WithSize}
 import com.evolutiongaming.skafka.{Bytes => _, Header => _, Metadata => _, _}
+import com.evolutiongaming.smetrics.MeasureDuration
 import org.scalatest.{Matchers, WordSpec}
 import play.api.libs.json.Json
 
@@ -845,6 +846,8 @@ object TopicReplicatorSpec {
 
       def sleep(duration: FiniteDuration) = ().pure[StateT]
     }
+
+    implicit val measureDuration = MeasureDuration.fromClock(timer.clock)
 
     TopicReplicator.of[StateT](
       topic = topic,

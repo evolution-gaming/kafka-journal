@@ -59,9 +59,12 @@ object ConsumerRecordToActionRecord {
         ActionRecord(action, partitionOffset)
       }
 
-      OptionT.fromOption[F](result).flatten.value.handleErrorWith { cause =>
-        JournalError(s"ConsumerRecordToActionRecord failed for $consumerRecord: $cause", cause.some).raiseError[F, Option[ActionRecord[Action]]]
-      }
+      OptionT.fromOption[F](result)
+        .flatten
+        .value
+        .handleErrorWith { cause =>
+          JournalError(s"ConsumerRecordToActionRecord failed for $consumerRecord: $cause", cause.some).raiseError[F, Option[ActionRecord[Action]]]
+        }
     }
   }
 }
