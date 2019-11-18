@@ -5,18 +5,18 @@ import cats.effect.Resource
 import cats.implicits._
 import com.evolutiongaming.skafka.Topic
 
-trait ReplicatedJournal2[F[_]] {
+trait ReplicatedJournal[F[_]] {
 
   def topics: F[Iterable[Topic]]
 
   def journal(topic: Topic): Resource[F, ReplicatedTopicJournal[F]]
 }
 
-object ReplicatedJournal2 {
+object ReplicatedJournal {
 
-  def apply[F[_] : Applicative](replicatedJournal: ReplicatedJournalOld[F]): ReplicatedJournal2[F] = {
+  def apply[F[_] : Applicative](replicatedJournal: ReplicatedJournalOld[F]): ReplicatedJournal[F] = {
 
-    new ReplicatedJournal2[F] {
+    new ReplicatedJournal[F] {
 
       def topics = replicatedJournal.topics
 

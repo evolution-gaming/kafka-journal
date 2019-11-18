@@ -45,7 +45,7 @@ object ReplicatedJournalOld {
   def apply[F[_]](implicit F: ReplicatedJournalOld[F]): ReplicatedJournalOld[F] = F
 
 
-  def apply[F[_] : BracketThrowable](replicatedJournal: ReplicatedJournal2[F]): ReplicatedJournalOld[F] = {
+  def apply[F[_] : BracketThrowable](replicatedJournal: ReplicatedJournal[F]): ReplicatedJournalOld[F] = {
     new ReplicatedJournalOld[F] {
 
       def topics = replicatedJournal.topics
