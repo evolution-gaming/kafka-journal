@@ -29,7 +29,7 @@ object ReplicateRecords {
   def apply[F[_] : Monad : Clock : Parallel](
     topic: Topic,
     consumerRecordToActionRecord: ConsumerRecordToActionRecord[F],
-    journal: ReplicatedJournal[F],
+    journal: ReplicatedJournalOld[F],
     metrics: Metrics[F],
     payloadToEvents: PayloadToEvents[F],
     log: Log[F]

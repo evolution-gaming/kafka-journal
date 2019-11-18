@@ -22,7 +22,7 @@ object ReplicatedTopicJournal {
 
   def apply[F[_] : Applicative](
     topic: Topic,
-    replicatedJournal: ReplicatedJournal[F]
+    replicatedJournal: ReplicatedJournalOld[F]
   ): ReplicatedTopicJournal[F] = {
 
     new ReplicatedTopicJournal[F] {

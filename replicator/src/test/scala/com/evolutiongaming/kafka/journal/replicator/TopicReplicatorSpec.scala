@@ -10,7 +10,7 @@ import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log}
 import com.evolutiongaming.kafka.journal.{ConsRecords, _}
 import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsumerRecordToActionRecord, EventsToPayload, PayloadToEvents}
-import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, TopicPointers}
+import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournalOld, TopicPointers}
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
@@ -714,7 +714,7 @@ object TopicReplicatorSpec {
   implicit def monoidDataF[A : Monoid]: Monoid[StateT[A]] = Applicative.monoid[StateT, A]
 
 
-  implicit val replicatedJournal: ReplicatedJournal[StateT] = new ReplicatedJournal[StateT] {
+  implicit val replicatedJournal: ReplicatedJournalOld[StateT] = new ReplicatedJournalOld[StateT] {
 
     def topics = Iterable.empty[Topic].pure[StateT]
 

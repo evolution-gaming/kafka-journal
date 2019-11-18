@@ -29,7 +29,7 @@ object TopicReplicator {
 
   def of[F[_] : Concurrent : Timer : Parallel : LogOf : FromTry](
     topic: Topic,
-    journal: ReplicatedJournal[F],
+    journal: ReplicatedJournalOld[F],
     consumer: Resource[F, TopicConsumer[F]],
     metrics: Metrics[F]
   ): Resource[F, F[Unit]] = {
@@ -72,7 +72,7 @@ object TopicReplicator {
     consumer: Resource[F, TopicConsumer[F]],
     consumerRecordToActionRecord: ConsumerRecordToActionRecord[F],
     payloadToEvents: PayloadToEvents[F],
-    journal: ReplicatedJournal[F],
+    journal: ReplicatedJournalOld[F],
     metrics: Metrics[F],
     log: Log[F],
   ): F[Unit] = {

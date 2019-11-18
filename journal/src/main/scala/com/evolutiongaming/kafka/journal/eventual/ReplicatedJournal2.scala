@@ -14,7 +14,7 @@ trait ReplicatedJournal2[F[_]] {
 
 object ReplicatedJournal2 {
 
-  def apply[F[_] : Applicative](replicatedJournal: ReplicatedJournal[F]): ReplicatedJournal2[F] = {
+  def apply[F[_] : Applicative](replicatedJournal: ReplicatedJournalOld[F]): ReplicatedJournal2[F] = {
 
     new ReplicatedJournal2[F] {
 

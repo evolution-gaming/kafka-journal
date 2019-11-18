@@ -10,8 +10,8 @@ import cats.{Applicative, Monad, Parallel}
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal.Metrics
-import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, _}
+import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournalOld.Metrics
+import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournalOld, _}
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
@@ -27,7 +27,7 @@ object ReplicatedCassandra {
     config: EventualCassandraConfig,
     origin: Option[Origin],
     metrics: Option[Metrics[F]]
-  ): F[ReplicatedJournal[F]] = {
+  ): F[ReplicatedJournalOld[F]] = {
 
     for {
       schema     <- SetupSchema[F](config.schema, origin)
@@ -47,13 +47,13 @@ object ReplicatedCassandra {
     segmentSize: SegmentSize,
     segmentOf: SegmentOf[F],
     statements: Statements[F]
-  ): ReplicatedJournal[F] = {
+  ): ReplicatedJournalOld[F] = {
 
     implicit val monoidUnit = Applicative.monoid[F, Unit]
 
     val metaJournal = statements.metaJournal
 
-    new ReplicatedJournal[F] {
+    new ReplicatedJournalOld[F] {
 
       def topics = {
         for {

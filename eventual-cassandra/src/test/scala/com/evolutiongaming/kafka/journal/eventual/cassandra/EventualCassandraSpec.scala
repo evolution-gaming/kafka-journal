@@ -7,7 +7,7 @@ import cats.implicits._
 import cats.Parallel
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
-import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualJournalSpec, ReplicatedJournal, TopicPointers}
+import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualJournalSpec, ReplicatedJournalOld, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.sstream.FoldWhile._
@@ -111,7 +111,7 @@ object EventualCassandraSpec {
     segmentSize: SegmentSize,
     delete: Boolean,
     segmentOf: SegmentOf[StateT]
-  ): ReplicatedJournal[StateT] = {
+  ): ReplicatedJournalOld[StateT] = {
 
     val insertRecords: JournalStatements.InsertRecords[StateT] = {
       (key: Key, segment: SegmentNr, records: Nel[EventRecord]) => {

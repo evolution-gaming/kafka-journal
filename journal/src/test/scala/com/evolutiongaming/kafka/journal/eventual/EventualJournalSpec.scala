@@ -38,7 +38,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
           val replicated = {
             val journal = journals.replicated
               .withLog(log)
-              .withMetrics(ReplicatedJournal.Metrics.empty[F])
+              .withMetrics(ReplicatedJournalOld.Metrics.empty[F])
             Replicated[F](journal, key, timestamp)
           }
           f(eventual, replicated)
@@ -484,7 +484,7 @@ object EventualJournalSpec {
   object Replicated {
 
     def apply[F[_] : FlatMap](
-      journal: ReplicatedJournal[F],
+      journal: ReplicatedJournalOld[F],
       key: Key,
       timestamp: Instant
     ): Replicated[F] = {
@@ -511,7 +511,7 @@ object EventualJournalSpec {
   }
 
 
-  final case class Journals[F[_]](eventual: EventualJournal[F], replicated: ReplicatedJournal[F])
+  final case class Journals[F[_]](eventual: EventualJournal[F], replicated: ReplicatedJournalOld[F])
 
 
   implicit class JournalPointerOps(val self: JournalPointer) extends AnyVal {

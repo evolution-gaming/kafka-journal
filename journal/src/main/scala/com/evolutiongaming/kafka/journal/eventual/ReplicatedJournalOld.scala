@@ -15,7 +15,7 @@ import com.evolutiongaming.smetrics._
 import scala.concurrent.duration.FiniteDuration
 
 
-trait ReplicatedJournal[F[_]] {
+trait ReplicatedJournalOld[F[_]] {
 
   def topics: F[Iterable[Topic]]
 
@@ -40,13 +40,13 @@ trait ReplicatedJournal[F[_]] {
   def save(topic: Topic, pointers: Nem[Partition, Offset], timestamp: Instant): F[Unit]
 }
 
-object ReplicatedJournal {
+object ReplicatedJournalOld {
 
-  def apply[F[_]](implicit F: ReplicatedJournal[F]): ReplicatedJournal[F] = F
+  def apply[F[_]](implicit F: ReplicatedJournalOld[F]): ReplicatedJournalOld[F] = F
 
 
-  def apply[F[_] : BracketThrowable](replicatedJournal: ReplicatedJournal2[F]): ReplicatedJournal[F] = {
-    new ReplicatedJournal[F] {
+  def apply[F[_] : BracketThrowable](replicatedJournal: ReplicatedJournal2[F]): ReplicatedJournalOld[F] = {
+    new ReplicatedJournalOld[F] {
 
       def topics = replicatedJournal.topics
 
@@ -97,11 +97,11 @@ object ReplicatedJournal {
   }
 
 
-  def apply[F[_] : FlatMap : MeasureDuration](journal: ReplicatedJournal[F], log: Log[F]): ReplicatedJournal[F] = {
+  def apply[F[_] : FlatMap : MeasureDuration](journal: ReplicatedJournalOld[F], log: Log[F]): ReplicatedJournalOld[F] = {
 
     implicit val log1 = log
 
-    new ReplicatedJournal[F] {
+    new ReplicatedJournalOld[F] {
 
       def topics = {
         for {
@@ -173,9 +173,9 @@ object ReplicatedJournal {
   }
 
 
-  def apply[F[_] : FlatMap : MeasureDuration](journal: ReplicatedJournal[F], metrics: Metrics[F]): ReplicatedJournal[F] = {
+  def apply[F[_] : FlatMap : MeasureDuration](journal: ReplicatedJournalOld[F], metrics: Metrics[F]): ReplicatedJournalOld[F] = {
 
-    new ReplicatedJournal[F] {
+    new ReplicatedJournalOld[F] {
 
       def topics = {
         for {
@@ -237,7 +237,7 @@ object ReplicatedJournal {
   }
 
 
-  def empty[F[_] : Applicative]: ReplicatedJournal[F] = new ReplicatedJournal[F] {
+  def empty[F[_] : Applicative]: ReplicatedJournalOld[F] = new ReplicatedJournalOld[F] {
 
     def topics = Iterable.empty[Topic].pure[F]
 
@@ -294,11 +294,11 @@ object ReplicatedJournal {
       def save(topic: Topic, latency: FiniteDuration) = unit
     }
 
-    
+
     def of[F[_] : Monad](
       registry: CollectorRegistry[F],
       prefix: String = "replicated_journal"
-    ): Resource[F, ReplicatedJournal.Metrics[F]] = {
+    ): Resource[F, ReplicatedJournalOld.Metrics[F]] = {
 
       val quantiles = Quantiles(
         Quantile(0.9, 0.05),
@@ -340,7 +340,7 @@ object ReplicatedJournal {
             .observe(latency.toNanos.nanosToSeconds)
         }
 
-        new ReplicatedJournal.Metrics[F] {
+        new ReplicatedJournalOld.Metrics[F] {
 
           def topics(latency: FiniteDuration) = {
             observeLatency(name = "topics", latency = latency)
@@ -370,9 +370,9 @@ object ReplicatedJournal {
   }
 
 
-  implicit class ReplicatedJournalOps[F[_]](val self: ReplicatedJournal[F]) extends AnyVal {
+  implicit class ReplicatedJournalOps[F[_]](val self: ReplicatedJournalOld[F]) extends AnyVal {
 
-    def mapK[G[_]](f: F ~> G): ReplicatedJournal[G] = new ReplicatedJournal[G] {
+    def mapK[G[_]](f: F ~> G): ReplicatedJournalOld[G] = new ReplicatedJournalOld[G] {
 
       def topics = f(self.topics)
 
@@ -404,23 +404,23 @@ object ReplicatedJournal {
     }
 
 
-    def withLog(log: Log[F])(implicit flatMap: FlatMap[F], measureDuration: MeasureDuration[F]): ReplicatedJournal[F] = {
-      ReplicatedJournal[F](self, log)
+    def withLog(log: Log[F])(implicit flatMap: FlatMap[F], measureDuration: MeasureDuration[F]): ReplicatedJournalOld[F] = {
+      ReplicatedJournalOld[F](self, log)
     }
 
 
-    def withMetrics(metrics: Metrics[F])(implicit flatMap: FlatMap[F], measureDuration: MeasureDuration[F]): ReplicatedJournal[F] = {
-      ReplicatedJournal(self, metrics)
+    def withMetrics(metrics: Metrics[F])(implicit flatMap: FlatMap[F], measureDuration: MeasureDuration[F]): ReplicatedJournalOld[F] = {
+      ReplicatedJournalOld(self, metrics)
     }
 
 
-    def enhanceError(implicit F: ApplicativeThrowable[F]): ReplicatedJournal[F] = {
+    def enhanceError(implicit F: ApplicativeThrowable[F]): ReplicatedJournalOld[F] = {
 
       def error[A](msg: String, cause: Throwable) = {
         JournalError(s"ReplicatedJournal.$msg failed with $cause", cause.some).raiseError[F, A]
       }
 
-      new ReplicatedJournal[F] {
+      new ReplicatedJournalOld[F] {
 
         def topics = {
           self
