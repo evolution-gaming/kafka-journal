@@ -29,7 +29,7 @@ object TopicReplicator {
 
   def of[F[_] : Concurrent : Timer : Parallel : LogOf : FromTry](
     topic: Topic,
-    journal: ReplicatedJournalOld[F],
+    journal: ReplicatedJournal[F],
     consumer: Resource[F, TopicConsumer[F]],
     metrics: Metrics[F]
   ): Resource[F, F[Unit]] = {
@@ -72,46 +72,44 @@ object TopicReplicator {
     consumer: Resource[F, TopicConsumer[F]],
     consumerRecordToActionRecord: ConsumerRecordToActionRecord[F],
     payloadToEvents: PayloadToEvents[F],
-    journal: ReplicatedJournalOld[F],
+    journal: ReplicatedJournal[F],
     metrics: Metrics[F],
     log: Log[F],
   ): F[Unit] = {
 
-    val replicateRecords = ReplicateRecords(
-      topic = topic,
-      consumerRecordToActionRecord = consumerRecordToActionRecord,
-      journal = journal,
-      metrics = metrics,
-      payloadToEvents = payloadToEvents,
-      log = log)
-
-    def consume(
-      roundStart: Instant,
-      pointers: Map[Partition, Offset],
-      consumerRecords: Nem[Partition, Nel[ConsRecord]]
-    ) = {
-
-      val records = for {
-        (partition, records) <- consumerRecords.toSortedMap
-        offset                = pointers.get(partition)
-        records              <- offset.fold(records.some) { offset => records.filter { _.offset > offset }.toNel }
-      } yield {
-        (partition, records)
-      }
-
-      for {
-        _        <- records.toNem.foldMapM { records => replicateRecords(records, roundStart) }
-        records   = consumerRecords.foldLeft(0) { case (size, records) => size + records.size }
-        roundEnd <- Clock[F].instant
-        _        <- metrics.round(roundEnd diff roundStart, records)
-      } yield {}
-    }
-
     val topicFlowOf: TopicFlowOf[F] = {
       (topic: Topic) => {
-        val topicFlowOf = for {
-          pointers <- journal.pointers(topic)
+        for {
+          journal  <- journal.journal(topic)
+          pointers <- Resource.liftF(journal.pointers)
         } yield {
+
+          val replicateRecords = ReplicateRecords(
+            consumerRecordToActionRecord = consumerRecordToActionRecord,
+            journal = journal,
+            metrics = metrics,
+            payloadToEvents = payloadToEvents,
+            log = log)
+
+          def consume(start: Instant, consumerRecords: Nem[Partition, Nel[ConsRecord]]) = {
+
+            val records = for {
+              (partition, records) <- consumerRecords.toSortedMap
+              offset                = pointers.values.get(partition)
+              records              <- offset.fold(records.some) { offset => records.filter { _.offset > offset }.toNel }
+            } yield {
+              (partition, records)
+            }
+
+            for {
+              _       <- records.toNem.foldMapM { records => replicateRecords(records, start) }
+              records  = consumerRecords.foldLeft(0) { case (size, records) => size + records.size }
+              end     <- Clock[F].instant
+              _       <- metrics.round(end diff start, records)
+            } yield {}
+          }
+
+
           new TopicFlow[F] {
 
             def assign(partitions: Nel[Partition]) = {
@@ -121,7 +119,7 @@ object TopicReplicator {
             def apply(records: Nem[Partition, Nel[ConsRecord]]) = {
               for {
                 timestamp <- Clock[F].instant
-                _         <- consume(timestamp, pointers.values, records)
+                _         <- consume(timestamp, records)
               } yield {
                 records
                   .map { records =>
@@ -140,8 +138,6 @@ object TopicReplicator {
             }
           }
         }
-
-        Resource.liftF(topicFlowOf)
       }
     }
 

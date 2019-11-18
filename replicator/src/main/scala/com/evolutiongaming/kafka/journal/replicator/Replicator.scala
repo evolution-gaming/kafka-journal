@@ -9,7 +9,7 @@ import cats.{Applicative, Monad, Parallel, ~>}
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournalOld
+import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, ReplicatedJournalOld}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession, ReplicatedCassandra}
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
@@ -45,7 +45,11 @@ object Replicator {
       cassandraSession: CassandraSession[F]
     ) = {
       val origin = hostName.map(Origin.fromHostName)
-      ReplicatedCassandra.of[F](config.cassandra, origin, metrics.flatMap(_.journal))
+      for {
+        replicatedJournal <- ReplicatedCassandra.of[F](config.cassandra, origin, metrics.flatMap(_.journal))
+      } yield {
+        ReplicatedJournal(replicatedJournal)
+      }
     }
 
     for {
@@ -59,7 +63,7 @@ object Replicator {
   def of[F[_] : Concurrent : Timer : Parallel : LogOf : KafkaConsumerOf : MeasureDuration : FromTry](
     config: ReplicatorConfig,
     metrics: Option[Metrics[F]],
-    journal: ReplicatedJournalOld[F],
+    journal: ReplicatedJournal[F],
     hostName: Option[HostName]
   ): Resource[F, F[Unit]] = {
 
@@ -72,7 +76,7 @@ object Replicator {
         hostName)
 
       val metrics1 = metrics
-        .flatMap(_.replicator)
+        .flatMap { _.replicator }
         .fold { TopicReplicator.Metrics.empty[F] } { metrics => metrics(topic) }
 
       TopicReplicator.of(topic, journal, consumer, metrics1)

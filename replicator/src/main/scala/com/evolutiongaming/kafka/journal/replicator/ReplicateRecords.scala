@@ -5,9 +5,9 @@ import java.time.Instant
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect._
 import cats.implicits._
-import cats.{Monad, Parallel}
+import cats.Parallel
 import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.catshelper.Log
+import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.conversions.{ConsumerRecordToActionRecord, PayloadToEvents}
@@ -26,10 +26,9 @@ trait ReplicateRecords[F[_]] {
 
 object ReplicateRecords {
 
-  def apply[F[_] : Monad : Clock : Parallel](
-    topic: Topic,
+  def apply[F[_] : BracketThrowable : Clock : Parallel](
     consumerRecordToActionRecord: ConsumerRecordToActionRecord[F],
-    journal: ReplicatedJournalOld[F],
+    journal: ReplicatedTopicJournal[F],
     metrics: Metrics[F],
     payloadToEvents: PayloadToEvents[F],
     log: Log[F]
@@ -64,7 +63,7 @@ object ReplicateRecords {
             }
 
             for {
-              _            <- journal.delete(key, partitionOffset, roundStart, deleteTo, origin)
+              _            <- journal.journal(id).use { _.delete(partitionOffset, roundStart, deleteTo, origin) } // TODO optimise
               measurements <- measurements(1)
               latency       = measurements.replicationLatency
               _            <- metrics.delete(measurements)
@@ -103,7 +102,7 @@ object ReplicateRecords {
 
             for {
               events       <- events
-              _            <- journal.append(key, partitionOffset, roundStart, expireAfter, events)
+              _            <- journal.journal(id).use { _.append(partitionOffset, roundStart, expireAfter, events) } // TODO optimise
               measurements <- measurements(records.size)
               _            <- metrics.append(events = events.length, bytes = bytes, measurements = measurements)
               _            <- log.info(msg(events, measurements.replicationLatency))
@@ -141,7 +140,7 @@ object ReplicateRecords {
 
         for {
           _ <- replicate
-          _ <- journal.save(topic, pointers, roundStart)
+          _ <- journal.save(pointers, roundStart)
         } yield {}
       }
     }

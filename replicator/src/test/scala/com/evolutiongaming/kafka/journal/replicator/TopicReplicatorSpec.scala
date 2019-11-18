@@ -10,7 +10,7 @@ import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log}
 import com.evolutiongaming.kafka.journal.{ConsRecords, _}
 import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsumerRecordToActionRecord, EventsToPayload, PayloadToEvents}
-import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournalOld, TopicPointers}
+import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, ReplicatedKeyJournal, ReplicatedTopicJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
@@ -60,17 +60,17 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           (1, 5))),
         pointers = Map((topic, TopicPointers(Map((0, 4L), (1, 4L))))),
         journal = Map(
-          (keyOf("0-0"), List(
+          ("0-0", List(
             record(seqNr = 1, partition = 0, offset = 1),
             record(seqNr = 2, partition = 0, offset = 3))),
-          (keyOf("0-1"), List(
+          ("0-1", List(
             record(seqNr = 1, partition = 0, offset = 2),
             record(seqNr = 2, partition = 0, offset = 2),
             record(seqNr = 3, partition = 0, offset = 4))),
-          (keyOf("1-0"), List(
+          ("1-0", List(
             record(seqNr = 1, partition = 1, offset = 1),
             record(seqNr = 2, partition = 1, offset = 3))),
-          (keyOf("1-1"), List(
+          ("1-1", List(
             record(seqNr = 1, partition = 1, offset = 2),
             record(seqNr = 2, partition = 1, offset = 2),
             record(seqNr = 3, partition = 1, offset = 4)))),
@@ -105,7 +105,7 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           (0, 2))),
         pointers = Map((topic, TopicPointers(Map((0, 1L))))),
         journal = Map(
-          (keyOf("id"), List(
+          ("id", List(
             record(seqNr = 1, partition = 0, offset = 0),
             record(seqNr = 2, partition = 0, offset = 1)))),
         metaJournal = Map(
@@ -160,17 +160,17 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           Nem.of((0, 2))),
         pointers = Map((topic, TopicPointers(Map((0, 4L), (1, 4L))))),
         journal = Map(
-          (keyOf("0-0"), List(
+          ("0-0", List(
             record(seqNr = 2, partition = 0, offset = 3),
             record(seqNr = 1, partition = 0, offset = 1))),
-          (keyOf("0-1"), List(
+          ("0-1", List(
             record(seqNr = 3, partition = 0, offset = 4),
             record(seqNr = 1, partition = 0, offset = 2),
             record(seqNr = 2, partition = 0, offset = 2))),
-          (keyOf("1-0"), List(
+          ("1-0", List(
             record(seqNr = 2, partition = 1, offset = 3),
             record(seqNr = 1, partition = 1, offset = 1))),
-          (keyOf("1-1"), List(
+          ("1-1", List(
             record(seqNr = 3, partition = 1, offset = 4),
             record(seqNr = 1, partition = 1, offset = 2),
             record(seqNr = 2, partition = 1, offset = 2)))),
@@ -251,36 +251,36 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           (2, 10))),
         pointers = Map((topic, TopicPointers(Map((0, 9L), (1, 9L), (2, 9L))))),
         journal = Map(
-          (keyOf("0-0"), List(
+          ("0-0", List(
             record(seqNr = 1, partition = 0, offset = 1),
             record(seqNr = 2, partition = 0, offset = 5))),
-          (keyOf("0-1"), List(
+          ("0-1", List(
             record(seqNr = 1, partition = 0, offset = 3),
             record(seqNr = 2, partition = 0, offset = 3),
             record(seqNr = 3, partition = 0, offset = 8))),
-          (keyOf("0-2"), List(
+          ("0-2", List(
             record(seqNr = 1, partition = 0, offset = 7),
             record(seqNr = 2, partition = 0, offset = 7),
             record(seqNr = 3, partition = 0, offset = 7))),
-          (keyOf("1-0"), List(
+          ("1-0", List(
             record(seqNr = 1, partition = 1, offset = 1),
             record(seqNr = 2, partition = 1, offset = 5))),
-          (keyOf("1-1"), List(
+          ("1-1", List(
             record(seqNr = 1, partition = 1, offset = 3),
             record(seqNr = 2, partition = 1, offset = 3),
             record(seqNr = 3, partition = 1, offset = 8))),
-          (keyOf("1-2"), List(
+          ("1-2", List(
             record(seqNr = 1, partition = 1, offset = 7),
             record(seqNr = 2, partition = 1, offset = 7),
             record(seqNr = 3, partition = 1, offset = 7))),
-          (keyOf("2-0"), List(
+          ("2-0", List(
             record(seqNr = 1, partition = 2, offset = 1),
             record(seqNr = 2, partition = 2, offset = 5))),
-          (keyOf("2-1"), List(
+          ("2-1", List(
             record(seqNr = 1, partition = 2, offset = 3),
             record(seqNr = 2, partition = 2, offset = 3),
             record(seqNr = 3, partition = 2, offset = 8))),
-          (keyOf("2-2"), List(
+          ("2-2", List(
             record(seqNr = 1, partition = 2, offset = 7),
             record(seqNr = 2, partition = 2, offset = 7),
             record(seqNr = 3, partition = 2, offset = 7)))),
@@ -365,21 +365,21 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           (1, 11))),
         pointers = Map((topic, TopicPointers(Map((0, 10L), (1, 10L))))),
         journal = Map(
-          (keyOf("0-0"), List(
+          ("0-0", List(
             record(seqNr = 1, partition = 0, offset = 1),
             record(seqNr = 2, partition = 0, offset = 5))),
-          (keyOf("0-1"), List(
+          ("0-1", List(
             record(seqNr = 3, partition = 0, offset = 8))),
-          (keyOf("0-2"), List(
+          ("0-2", List(
             record(seqNr = 1, partition = 0, offset = 7),
             record(seqNr = 2, partition = 0, offset = 7),
             record(seqNr = 3, partition = 0, offset = 7))),
-          (keyOf("1-0"), List(
+          ("1-0", List(
             record(seqNr = 1, partition = 1, offset = 1),
             record(seqNr = 2, partition = 1, offset = 5))),
-          (keyOf("1-1"), List(
+          ("1-1", List(
             record(seqNr = 3, partition = 1, offset = 8))),
-          (keyOf("1-2"), List(
+          ("1-2", List(
             record(seqNr = 1, partition = 1, offset = 7),
             record(seqNr = 2, partition = 1, offset = 7),
             record(seqNr = 3, partition = 1, offset = 7)))),
@@ -471,12 +471,12 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
         pointers = Map(
           (topic, TopicPointers(Map((0, 12L))))),
         journal = Map(
-          (keyOf("0-0"), Nil),
-          (keyOf("0-1"), List(
+          ("0-0", Nil),
+          ("0-1", List(
             record(seqNr = 3, partition = 0, offset = 8),
             record(seqNr = 1, partition = 0, offset = 3),
             record(seqNr = 2, partition = 0, offset = 3))),
-          (keyOf("0-2"), List(
+          ("0-2", List(
             record(seqNr = 1, partition = 0, offset = 7),
             record(seqNr = 2, partition = 0, offset = 7),
             record(seqNr = 3, partition = 0, offset = 7)))),
@@ -561,17 +561,17 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
           (2, 4))),
         pointers = Map((topic, TopicPointers(Map((0, 3L), (1, 3L), (2, 3L))))),
         journal = Map(
-          (keyOf("0-0"), List(
+          ("0-0", List(
             record(seqNr = 2, partition = 0, offset = 2))),
-          (keyOf("0-1"), List(
+          ("0-1", List(
             record(seqNr = 1, partition = 0, offset = 1),
             record(seqNr = 2, partition = 0, offset = 1),
             record(seqNr = 3, partition = 0, offset = 3))),
-          (keyOf("1-0"), List(
+          ("1-0", List(
             record(seqNr = 2, partition = 1, offset = 2))),
-          (keyOf("1-1"), List(
+          ("1-1", List(
             record(seqNr = 3, partition = 1, offset = 3))),
-          (keyOf("2-1"), List(
+          ("2-1", List(
             record(seqNr = 3, partition = 2, offset = 3)))),
         metaJournal = Map(
           metaJournalOf("0-0", partition = 0, offset = 2),
@@ -683,12 +683,11 @@ object TopicReplicatorSpec {
     offset: Offset,
     deleteTo: Option[Int] = none,
     expireAfter: Option[FiniteDuration] = none,
-  ): (Key, MetaJournal) = {
+  ): (String, MetaJournal) = {
     val deleteToSeqNr = deleteTo.flatMap(deleteTo => SeqNr.opt(deleteTo.toLong))
     val partitionOffset = PartitionOffset(partition = partition, offset = offset)
     val metaJournal = MetaJournal(partitionOffset, deleteToSeqNr, expireAfter, origin.some)
-    val key = keyOf(id = id)
-    (key, metaJournal)
+    (id, metaJournal)
   }
 
 
@@ -714,47 +713,61 @@ object TopicReplicatorSpec {
   implicit def monoidDataF[A : Monoid]: Monoid[StateT[A]] = Applicative.monoid[StateT, A]
 
 
-  implicit val replicatedJournal: ReplicatedJournalOld[StateT] = new ReplicatedJournalOld[StateT] {
+  implicit val replicatedJournal: ReplicatedJournal[StateT] = new ReplicatedJournal[StateT] {
+
+    def journal(topic: Topic) = {
+
+      val journal: ReplicatedTopicJournal[StateT] = new ReplicatedTopicJournal[StateT] {
+
+        def pointers = {
+          StateT { state => (state, state.pointers.getOrElse(topic, TopicPointers.empty)) }
+        }
+
+        def journal(id: String) = {
+          val journal = new ReplicatedKeyJournal[StateT] {
+
+            def append(
+              partitionOffset: PartitionOffset,
+              timestamp: Instant,
+              expireAfter: Option[FiniteDuration],
+              events: Nel[EventRecord],
+            ) = {
+              StateT { state =>
+                val records = events.toList ++ state.journal.getOrElse(id, Nil)
+
+                val deleteTo = state.metaJournal.get(id).flatMap(_.deleteTo)
+
+                val metaJournal = MetaJournal(partitionOffset, deleteTo, expireAfter, events.last.origin)
+
+                val state1 = state.copy(
+                  journal = state.journal.updated(id, records),
+                  metaJournal = state.metaJournal.updated(id, metaJournal))
+
+                (state1, ())
+              }
+            }
+
+            def delete(partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = {
+              StateT { state => (state.delete(id, deleteTo, partitionOffset, origin), ()) }
+            }
+          }
+
+          Resource.liftF(journal.pure[StateT])
+        }
+
+        def save(pointers: Nem[Partition, Offset], timestamp: Instant) = {
+          StateT { state =>
+            val updated = state.pointers.getOrElse(topic, TopicPointers.empty) + TopicPointers(pointers.toSortedMap)
+            val state1 = state.copy(pointers = state.pointers.updated(topic, updated))
+            (state1, ())
+          }
+        }
+      }
+
+      Resource.liftF(journal.pure[StateT])
+    }
 
     def topics = Iterable.empty[Topic].pure[StateT]
-
-    def pointers(topic: Topic) = {
-      StateT { state => (state, state.pointers.getOrElse(topic, TopicPointers.empty)) }
-    }
-
-    def append(
-      key: Key,
-      partitionOffset: PartitionOffset,
-      timestamp: Instant,
-      expireAfter: Option[FiniteDuration],
-      events: Nel[EventRecord],
-    ) = {
-      StateT { state =>
-        val records = events.toList ++ state.journal.getOrElse(key, Nil)
-
-        val deleteTo = state.metaJournal.get(key).flatMap(_.deleteTo)
-
-        val metaJournal = MetaJournal(partitionOffset, deleteTo, expireAfter, events.last.origin)
-
-        val state1 = state.copy(
-          journal = state.journal.updated(key, records),
-          metaJournal = state.metaJournal.updated(key, metaJournal))
-
-        (state1, ())
-      }
-    }
-
-    def delete(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = {
-      StateT { state => (state.delete(key, deleteTo, partitionOffset, origin), ()) }
-    }
-
-    def save(topic: Topic, pointers: Nem[Partition, Offset], timestamp: Instant) = {
-      StateT { state =>
-        val updated = state.pointers.getOrElse(topic, TopicPointers.empty) + TopicPointers(pointers.toSortedMap)
-        val state1 = state.copy(pointers = state.pointers.updated(topic, updated))
-        (state1, ())
-      }
-    }
   }
 
 
@@ -849,8 +862,8 @@ object TopicReplicatorSpec {
     commits: List[Nem[Partition, Offset]] = Nil,
     records: List[ConsRecords] = Nil,
     pointers: Map[Topic, TopicPointers] = Map.empty,
-    journal: Map[Key, List[EventRecord]] = Map.empty,
-    metaJournal: Map[Key, MetaJournal] = Map.empty,
+    journal: Map[String, List[EventRecord]] = Map.empty,
+    metaJournal: Map[String, MetaJournal] = Map.empty,
     metrics: List[Metrics] = Nil) { self =>
 
     def +(metrics: Metrics): (State, Unit) = {
@@ -862,16 +875,16 @@ object TopicReplicatorSpec {
       copy(topics = topic :: topics)
     }
 
-    def delete(key: Key, deleteTo: SeqNr, partitionOffset: PartitionOffset, origin: Option[Origin]): State = {
+    def delete(id: String, deleteTo: SeqNr, partitionOffset: PartitionOffset, origin: Option[Origin]): State = {
 
-      def journal = self.journal.getOrElse(key, Nil)
+      def journal = self.journal.getOrElse(id, Nil)
 
       def delete(deleteTo: SeqNr) = journal.dropWhile(_.seqNr <= deleteTo)
 
-      val deleteTo1 = self.metaJournal.get(key).flatMap(_.deleteTo)
+      val deleteTo1 = self.metaJournal.get(id).flatMap(_.deleteTo)
       if (deleteTo1.exists(_ >= deleteTo)) {
-        self.metaJournal.get(key).fold(this) { metaJournal =>
-          copy(metaJournal = self.metaJournal.updated(key, metaJournal.copy(offset = partitionOffset)))
+        self.metaJournal.get(id).fold(this) { metaJournal =>
+          copy(metaJournal = self.metaJournal.updated(id, metaJournal.copy(offset = partitionOffset)))
         }
       } else {
         val records = delete(deleteTo)
@@ -882,8 +895,8 @@ object TopicReplicatorSpec {
           expireAfter = none,
           origin = origin)
         copy(
-          journal = self.journal.updated(key, records),
-          metaJournal = self.metaJournal.updated(key, metaJournal))
+          journal = self.journal.updated(id, records),
+          metaJournal = self.metaJournal.updated(id, metaJournal))
       }
     }
   }
