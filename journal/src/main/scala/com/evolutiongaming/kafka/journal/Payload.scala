@@ -63,10 +63,6 @@ object Payload {
 
     implicit val decodeByNameText: DecodeByName[Text] = DecodeByName[String].map(Text(_))
 
-
-//    implicit val ToBytesText: ToBytes[Text] = ToBytes[String].imap(_.value)
-
-//    implicit val FromBytesText: FromBytes[Text] = FromBytes[String].map(Text(_))
   }
 
 
@@ -79,11 +75,6 @@ object Payload {
     implicit val formatJson: Format[Json] = Format.of[JsValue].inmap(Json(_), _.value)
 
     val codecJson: Codec[Json] = formatCodec
-
-
-//    implicit val ToBytesJson: ToBytes[Json] = ToBytes.fromWrites
-
-//    implicit val FromBytesJson: FromBytes[Json] = FromBytes.fromReads
 
 
     implicit val encodeByNameJson: EncodeByName[Json] = encodeByNameFromWrites
