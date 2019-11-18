@@ -25,9 +25,6 @@ import scodec.bits.ByteVector
 import scala.concurrent.duration._
 
 
-// TODO add metric to track replication lag in case it cannot catchup with producers
-// TODO verify that first consumed offset matches to the one expected, otherwise we screwed.
-// TODO should it be Resource ?
 object TopicReplicator {
 
   def of[F[_] : Concurrent : Timer : Parallel : LogOf : FromTry](
