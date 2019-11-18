@@ -1,12 +1,15 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 
+import java.time.Instant
+
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect._
 import cats.effect.implicits._
 import cats.implicits._
 import cats.{Applicative, Monad, Parallel}
 import com.evolutiongaming.catshelper.ClockHelper._
+import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.conversions.{ConsumerRecordToActionRecord, PayloadToEvents}
@@ -17,7 +20,7 @@ import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Bytes => _, _}
 import com.evolutiongaming.smetrics.MetricsHelper._
-import com.evolutiongaming.smetrics.{CollectorRegistry, LabelNames, MeasureDuration, Quantile, Quantiles}
+import com.evolutiongaming.smetrics._
 import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
@@ -29,7 +32,8 @@ object TopicReplicator {
     topic: Topic,
     journal: ReplicatedJournal[F],
     consumer: Resource[F, TopicConsumer[F]],
-    metrics: Metrics[F]
+    metrics: Metrics[F],
+    cacheOf: CacheOf[F]
   ): Resource[F, F[Unit]] = {
 
     implicit val fromAttempt = FromAttempt.lift[F]
@@ -49,7 +53,8 @@ object TopicReplicator {
         payloadToEvents = payloadToEvents,
         journal = journal,
         metrics = metrics,
-        log = log)
+        log = log,
+        cacheOf = cacheOf)
     }
 
     def log = for {
@@ -73,13 +78,23 @@ object TopicReplicator {
     journal: ReplicatedJournal[F],
     metrics: Metrics[F],
     log: Log[F],
+    cacheOf: CacheOf[F]
   ): F[Unit] = {
+
+    trait PartitionFlow {
+      def apply(timestamp: Instant, records: Nel[ConsRecord]): F[Unit]
+    }
+
+    trait KeyFlow {
+      def apply(timestamp: Instant, records: Nel[ConsRecord]): F[Unit]
+    }
 
     val topicFlowOf: TopicFlowOf[F] = {
       (topic: Topic) => {
         for {
           journal  <- journal.journal(topic)
           pointers <- Resource.liftF(journal.pointers)
+          cache    <- cacheOf[Partition, PartitionFlow](topic)
         } yield {
 
           val replicateRecords = ReplicateRecords(
@@ -88,6 +103,36 @@ object TopicReplicator {
             metrics = metrics,
             payloadToEvents = payloadToEvents,
             log = log)
+
+          def keyFlow: Resource[F, KeyFlow] = {
+
+            val keyFlow: KeyFlow = (timestamp: Instant, records: Nel[ConsRecord]) => {
+              replicateRecords(records, timestamp)
+            }
+
+            Resource.liftF(keyFlow.pure[F])
+          }
+
+
+          def partitionFlow: Resource[F, PartitionFlow] = {
+            for {
+              cache <- cacheOf[String, KeyFlow](topic)
+            } yield {
+              (timestamp: Instant, records: Nel[ConsRecord]) => {
+                records
+                  .groupBy { _.key.map { _.value } }
+                  .toList
+                  .parFoldMap { case (key, records) =>
+                    key.foldMapM { key =>
+                      for {
+                        keyFlow <- cache.getOrUpdate(key) { keyFlow }
+                        result  <- keyFlow(timestamp, records)
+                      } yield result
+                    }
+                  }
+              }
+            }
+          }
 
           new TopicFlow[F] {
 
@@ -105,11 +150,32 @@ object TopicReplicator {
                 (partition, records)
               }
 
+              def replicateTopic(timestamp: Instant, records: Nem[Partition, Nel[ConsRecord]]) = {
+
+                def pointers = records.map { records =>
+                  records.foldLeft(Offset.Min) { (offset, record) => record.offset max offset }
+                }
+
+                def replicate = records
+                  .toNel
+                  .parFoldMap { case (partition, records) =>
+                    for {
+                      partitionFlow <- cache.getOrUpdate(partition) { partitionFlow }
+                      result        <- partitionFlow(timestamp, records)
+                    } yield result
+                  }
+
+                for {
+                  _ <- replicate
+                  _ <- journal.save(pointers, timestamp)
+                } yield {}
+              }
+
               for {
                 duration  <- MeasureDuration[F].start
                 timestamp <- Clock[F].instant
                 records1  <- records1.pure[F]
-                _         <- records1.toNem.foldMapM { records => replicateRecords(records, timestamp) }
+                _         <- records1.toNem.foldMapM { records => replicateTopic(timestamp, records) }
                 size       = records.foldLeft(0) { case (size, records) => size + records.size }
                 duration  <- duration
                 _         <- metrics.round(duration, size)
@@ -121,7 +187,10 @@ object TopicReplicator {
             }
 
             def revoke(partitions: Nel[Partition]) = {
-              log.info(s"revoke ${partitions.mkString_(",") }")
+              for {
+                _ <- log.info(s"revoke ${partitions.mkString_(",") }")
+                _ <- partitions.parTraverse { partition => cache.remove(partition) }
+              } yield {}
             }
           }
         }

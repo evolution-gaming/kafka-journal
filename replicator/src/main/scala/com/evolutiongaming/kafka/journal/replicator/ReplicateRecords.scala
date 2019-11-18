@@ -2,26 +2,24 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
 
-import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
+import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.implicits._
 import cats.Parallel
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
-import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.conversions.{ConsumerRecordToActionRecord, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
-import com.evolutiongaming.skafka.{Bytes => _, _}
 
 import scala.concurrent.duration.FiniteDuration
 
 
 trait ReplicateRecords[F[_]] {
 
-  def apply(records: Nem[Partition, Nel[ConsRecord]], timestamp: Instant): F[Unit]
+  def apply(records: Nel[ConsRecord], timestamp: Instant): F[Unit]
 }
 
 object ReplicateRecords {
@@ -36,7 +34,7 @@ object ReplicateRecords {
 
     new ReplicateRecords[F] {
 
-      def apply(records: Nem[Partition, Nel[ConsRecord]], timestamp: Instant) = {
+      def apply(records: Nel[ConsRecord], timestamp: Instant) = {
 
         def apply(records: Nel[ActionRecord[Action]]) = {
           val head = records.head
@@ -117,30 +115,9 @@ object ReplicateRecords {
             }
         }
 
-        val pointers = records.map { records =>
-          records.foldLeft(Offset.Min) { (offset, record) => record.offset max offset }
-        }
-
-        val replicate = records
-          .toSortedMap
-          .values
-          .toList
-          .parFoldMap { records =>
-            records
-              .groupBy { _.key.map { _.value } }
-              .values
-              .toList
-              .parFoldMap { records =>
-                for {
-                  records <- records.toList.traverseFilter { record => consumerRecordToActionRecord(record) }
-                  result  <- records.toNel.traverse { records => apply(records) }
-                } yield result
-              }
-        }
-
         for {
-          _ <- replicate
-          _ <- journal.save(pointers, timestamp)
+          records <- records.toList.traverseFilter { record => consumerRecordToActionRecord(record) }
+          _       <- records.toNel.traverse { records => apply(records) }
         } yield {}
       }
     }

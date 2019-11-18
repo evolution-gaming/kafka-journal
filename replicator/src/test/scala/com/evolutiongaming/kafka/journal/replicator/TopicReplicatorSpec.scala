@@ -856,7 +856,8 @@ object TopicReplicatorSpec {
       payloadToEvents = PayloadToEvents[StateT],
       journal = replicatedJournal,
       metrics = metrics,
-      log = Log.empty[StateT])
+      log = Log.empty[StateT],
+      cacheOf = CacheOf.empty[StateT])
   }
 
 

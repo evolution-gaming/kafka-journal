@@ -16,6 +16,7 @@ import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
+import com.evolutiongaming.scache.CacheMetrics
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.consumer._
@@ -60,7 +61,7 @@ object Replicator {
     } yield result
   }
 
-  def of[F[_] : Concurrent : Timer : Parallel : LogOf : KafkaConsumerOf : MeasureDuration : FromTry](
+  def of[F[_] : Concurrent : Timer : Parallel : LogOf : KafkaConsumerOf : MeasureDuration : FromTry : Runtime](
     config: ReplicatorConfig,
     metrics: Option[Metrics[F]],
     journal: ReplicatedJournal[F],
@@ -79,7 +80,8 @@ object Replicator {
         .flatMap { _.replicator }
         .fold { TopicReplicator.Metrics.empty[F] } { metrics => metrics(topic) }
 
-      TopicReplicator.of(topic, journal, consumer, metrics1)
+      val cacheOf = CacheOf[F](1.minute, metrics.flatMap(_.cache))
+      TopicReplicator.of(topic, journal, consumer, metrics1, cacheOf)
     }
 
     val consumer = Consumer.of[F](config.consumer)
@@ -242,17 +244,21 @@ object Replicator {
     def replicator: Option[Topic => TopicReplicator.Metrics[F]]
 
     def consumer: Option[ConsumerMetrics[F]]
+
+    def cache: Option[CacheMetrics.Name => CacheMetrics[F]]
   }
 
   object Metrics {
 
     def empty[F[_]]: Metrics[F] = new Metrics[F] {
 
-      def journal = None
+      def journal = none
 
-      def replicator = None
+      def replicator = none
 
-      def consumer = None
+      def consumer = none
+
+      def cache = none
     }
 
 
@@ -261,6 +267,7 @@ object Replicator {
         replicator1 <- TopicReplicator.Metrics.of[F](registry)
         journal1    <- ReplicatedJournalOld.Metrics.of[F](registry)
         consumer1   <- ConsumerMetrics.of[F](registry)
+        cache1      <- CacheMetrics.of[F](registry)
       } yield {
         new Metrics[F] {
 
@@ -269,6 +276,8 @@ object Replicator {
           val replicator = replicator1.some
 
           val consumer = consumer1(clientId).some
+
+          val cache = cache1.some
         }
       }
     }
