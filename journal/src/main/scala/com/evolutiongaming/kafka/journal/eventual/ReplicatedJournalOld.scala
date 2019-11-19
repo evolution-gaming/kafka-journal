@@ -263,6 +263,7 @@ object ReplicatedJournalOld {
   }
 
 
+  // TODO remove
   trait Metrics[F[_]] {
 
     def topics(latency: FiniteDuration): F[Unit]
@@ -276,6 +277,7 @@ object ReplicatedJournalOld {
     def save(topic: Topic, latency: FiniteDuration): F[Unit]
   }
 
+  // TODO remove
   object Metrics {
 
     def empty[F[_] : Applicative]: Metrics[F] = const(().pure[F])
