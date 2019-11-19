@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual
 
 
+
 import cats.effect.Resource
 import cats.implicits._
 import cats.{Applicative, Defer, Monad, ~>}
@@ -14,12 +15,22 @@ import scala.concurrent.duration.FiniteDuration
 
 trait ReplicatedJournal[F[_]] {
 
-  def topics: F[Iterable[Topic]]
+  def topics: F[List[Topic]]
 
   def journal(topic: Topic): Resource[F, ReplicatedTopicJournal[F]]
 }
 
 object ReplicatedJournal {
+
+  def empty[F[_] : Applicative]: ReplicatedJournal[F] = new ReplicatedJournal[F] {
+
+    def topics = List.empty[Topic].pure[F]
+
+    def journal(topic: Topic) = {
+      Resource.liftF(ReplicatedTopicJournal.empty[F].pure[F])
+    }
+  }
+
 
   def apply[F[_] : Applicative](replicatedJournal: ReplicatedJournalOld[F]): ReplicatedJournal[F] = {
 

@@ -17,7 +17,7 @@ import scala.concurrent.duration.FiniteDuration
 
 trait ReplicatedJournalOld[F[_]] {
 
-  def topics: F[Iterable[Topic]]
+  def topics: F[List[Topic]]
 
   def pointers(topic: Topic): F[TopicPointers]
 
@@ -240,7 +240,7 @@ object ReplicatedJournalOld {
 
   def empty[F[_] : Applicative]: ReplicatedJournalOld[F] = new ReplicatedJournalOld[F] {
 
-    def topics = Iterable.empty[Topic].pure[F]
+    def topics = List.empty[Topic].pure[F]
 
     def pointers(topic: Topic) = TopicPointers.empty.pure[F]
 

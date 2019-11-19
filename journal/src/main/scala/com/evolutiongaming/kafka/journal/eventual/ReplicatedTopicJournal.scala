@@ -23,6 +23,18 @@ trait ReplicatedTopicJournal[F[_]] {
 
 object ReplicatedTopicJournal {
 
+  def empty[F[_] : Applicative]: ReplicatedTopicJournal[F] = new ReplicatedTopicJournal[F] {
+
+    def pointers = TopicPointers.empty.pure[F]
+
+    def journal(id: String) = {
+      Resource.liftF(ReplicatedKeyJournal.empty[F].pure[F])
+    }
+
+    def save(pointers: Nem[Partition, Offset], timestamp: Instant) = ().pure[F]
+  }
+
+
   def apply[F[_] : Applicative](
     topic: Topic,
     replicatedJournal: ReplicatedJournalOld[F]

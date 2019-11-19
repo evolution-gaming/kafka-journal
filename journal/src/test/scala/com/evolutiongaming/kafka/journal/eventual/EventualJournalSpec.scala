@@ -465,7 +465,7 @@ object EventualJournalSpec {
 
   trait Replicated[F[_]] {
 
-    def topics: F[Iterable[Topic]]
+    def topics: F[List[Topic]]
 
     final def append(events: Nel[EventRecord]): F[Unit] = {
       val partitionOffset = events.last.partitionOffset // TODO add test for custom offset

@@ -4,7 +4,7 @@ import java.time.Instant
 
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
-import cats.{FlatMap, ~>}
+import cats.{Applicative, FlatMap, ~>}
 import com.evolutiongaming.catshelper.{ApplicativeThrowable, Log}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.Topic
@@ -30,6 +30,24 @@ trait ReplicatedKeyJournal[F[_]] {
 }
 
 object ReplicatedKeyJournal {
+
+  def empty[F[_] : Applicative]: ReplicatedKeyJournal[F] = new ReplicatedKeyJournal[F] {
+
+    def append(
+      partitionOffset: PartitionOffset,
+      timestamp: Instant,
+      expireAfter: Option[FiniteDuration],
+      events: Nel[EventRecord]
+    ) = ().pure[F]
+
+    def delete(
+      partitionOffset: PartitionOffset,
+      timestamp: Instant,
+      deleteTo: SeqNr,
+      origin: Option[Origin]
+    ) = ().pure[F]
+  }
+
 
   def apply[F[_]](key: Key, replicatedJournal: ReplicatedJournalOld[F]): ReplicatedKeyJournal[F] = {
 

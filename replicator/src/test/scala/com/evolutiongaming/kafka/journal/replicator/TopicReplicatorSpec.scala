@@ -768,7 +768,7 @@ object TopicReplicatorSpec {
       Resource.liftF(journal.pure[StateT])
     }
 
-    def topics = Iterable.empty[Topic].pure[StateT]
+    def topics = List.empty[Topic].pure[StateT]
   }
 
 
