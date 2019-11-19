@@ -97,20 +97,21 @@ object TopicReplicator {
           cache    <- cacheOf[Partition, PartitionFlow](topic)
         } yield {
 
-          val replicateRecords = ReplicateRecords(
-            consumerRecordToActionRecord = consumerRecordToActionRecord,
-            journal = journal,
-            metrics = metrics,
-            payloadToEvents = payloadToEvents,
-            log = log)
+          def keyFlow(id: String): Resource[F, KeyFlow] = {
+            for {
+              journal <- journal.journal(id)
+            } yield {
+              val replicateRecords = ReplicateRecords(
+                consumerRecordToActionRecord = consumerRecordToActionRecord,
+                journal = journal,
+                metrics = metrics,
+                payloadToEvents = payloadToEvents,
+                log = log)
 
-          def keyFlow: Resource[F, KeyFlow] = {
-
-            val keyFlow: KeyFlow = (timestamp: Instant, records: Nel[ConsRecord]) => {
-              replicateRecords(records, timestamp)
+              (timestamp: Instant, records: Nel[ConsRecord]) => {
+                replicateRecords(records, timestamp)
+              }
             }
-
-            Resource.liftF(keyFlow.pure[F])
           }
 
 
@@ -125,7 +126,7 @@ object TopicReplicator {
                   .parFoldMap { case (key, records) =>
                     key.foldMapM { key =>
                       for {
-                        keyFlow <- cache.getOrUpdate(key) { keyFlow }
+                        keyFlow <- cache.getOrUpdate(key) { keyFlow(key) }
                         result  <- keyFlow(timestamp, records)
                       } yield result
                     }

@@ -26,7 +26,7 @@ object ReplicateRecords {
 
   def apply[F[_] : BracketThrowable : Clock : Parallel](
     consumerRecordToActionRecord: ConsumerRecordToActionRecord[F],
-    journal: ReplicatedTopicJournal[F],
+    journal: ReplicatedKeyJournal[F],
     metrics: Metrics[F],
     payloadToEvents: PayloadToEvents[F],
     log: Log[F]
@@ -61,7 +61,7 @@ object ReplicateRecords {
             }
 
             for {
-              _            <- journal.journal(id).use { _.delete(partitionOffset, timestamp, deleteTo, origin) } // TODO optimise
+              _            <- journal.delete(partitionOffset, timestamp, deleteTo, origin)
               measurements <- measurements(1)
               latency       = measurements.replicationLatency
               _            <- metrics.delete(measurements)
@@ -100,7 +100,7 @@ object ReplicateRecords {
 
             for {
               events       <- events
-              _            <- journal.journal(id).use { _.append(partitionOffset, timestamp, expireAfter, events) } // TODO optimise
+              _            <- journal.append(partitionOffset, timestamp, expireAfter, events)
               measurements <- measurements(records.size)
               _            <- metrics.append(events = events.length, bytes = bytes, measurements = measurements)
               _            <- log.info(msg(events, measurements.replicationLatency))
