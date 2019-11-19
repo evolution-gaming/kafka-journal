@@ -83,7 +83,7 @@ object ReplicatedKeyJournal {
     def withLog(
       key: Key,
       log: Log[F])(implicit
-      flatMap: FlatMap[F],
+      F: FlatMap[F],
       measureDuration: MeasureDuration[F]
     ): ReplicatedKeyJournal[F] = {
 
@@ -133,7 +133,7 @@ object ReplicatedKeyJournal {
     def withMetrics(
       topic: Topic,
       metrics: ReplicatedJournal.Metrics[F])(implicit
-      flatMap: FlatMap[F],
+      F: FlatMap[F],
       measureDuration: MeasureDuration[F]
     ): ReplicatedKeyJournal[F] = {
       new ReplicatedKeyJournal[F] {
