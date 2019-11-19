@@ -85,7 +85,7 @@ object KafkaConsumer {
 
       def topics: F[Set[Topic]] = {
         for {
-          infos <- consumer.listTopics
+          infos <- consumer.topics
         } yield {
           infos.keySet
         }
