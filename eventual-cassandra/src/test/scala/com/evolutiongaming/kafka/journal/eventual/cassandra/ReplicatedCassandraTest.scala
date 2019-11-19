@@ -3,10 +3,10 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import java.time.Instant
 
 import cats.data.{IndexedStateT, NonEmptyList => Nel, NonEmptyMap => Nem}
-import cats.effect.ExitCase
+import cats.effect.{ExitCase, Sync}
 import cats.implicits._
 import cats.{Id, Parallel}
-import com.evolutiongaming.catshelper.BracketThrowable
+import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.catshelper.NelHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.BracketFromMonadError
@@ -46,7 +46,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
 
     val segmentOfId = SegmentOf[Id](segments)
     val segmentOf = SegmentOf[StateT](segments)
-    val journal = ReplicatedCassandra(segmentSize, segmentOf, statements).toOld
+    val journal = ReplicatedCassandra(segmentSize, segmentOf, statements, Log.empty[StateT]).toOld
 
     val suffix = s"segmentSize: $segmentSize, segments: $segments"
 
@@ -664,7 +664,7 @@ object ReplicatedCassandraTest {
   }
 
 
-  implicit val bracket: BracketThrowable[StateT] = new BracketFromMonadError[StateT, Throwable] {
+  implicit val syncStateT: Sync[StateT] = new Sync[StateT] with BracketFromMonadError[StateT, Throwable] {
 
     val F = IndexedStateT.catsDataMonadErrorForIndexedStateT(catsStdInstancesForTry)
 
@@ -685,6 +685,8 @@ object ReplicatedCassandraTest {
         _ <- release(a, ExitCase.complete)
       } yield b
     }
+
+    def suspend[A](thunk: => StateT[A]) = thunk
   }
 
   implicit val parallel: Parallel[StateT] = Parallel.identity[StateT]

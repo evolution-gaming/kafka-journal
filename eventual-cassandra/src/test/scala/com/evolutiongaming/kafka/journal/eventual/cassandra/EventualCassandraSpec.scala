@@ -6,7 +6,7 @@ import cats.data.{IndexedStateT, NonEmptyList => Nel}
 import cats.implicits._
 import cats.Parallel
 import cats.effect.ExitCase
-import com.evolutiongaming.catshelper.BracketThrowable
+import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualJournalSpec, ReplicatedJournal, TopicPointers}
@@ -318,7 +318,7 @@ object EventualCassandraSpec {
       selectTopics = selectTopics)
 
     implicit val concurrentId = ConcurrentOf.fromMonad[StateT]
-    ReplicatedCassandra(segmentSize, segmentOf, statements)
+    ReplicatedCassandra(segmentSize, segmentOf, statements, Log.empty[StateT])
   }
 
   def journalsOf(
