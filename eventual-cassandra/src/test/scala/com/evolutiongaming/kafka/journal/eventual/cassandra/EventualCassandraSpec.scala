@@ -2,13 +2,15 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
-import cats.data.{NonEmptyList => Nel}
+import cats.data.{IndexedStateT, NonEmptyList => Nel}
 import cats.implicits._
 import cats.Parallel
+import cats.effect.ExitCase
+import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
-import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualJournalSpec, ReplicatedJournalOld, TopicPointers}
-import com.evolutiongaming.kafka.journal.util.ConcurrentOf
+import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualJournalSpec, ReplicatedJournal, TopicPointers}
+import com.evolutiongaming.kafka.journal.util.{BracketFromMonadError, ConcurrentOf}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.sstream.FoldWhile._
 import com.evolutiongaming.sstream.Stream
@@ -71,6 +73,30 @@ object EventualCassandraSpec {
   }
 
 
+  implicit val bracket: BracketThrowable[StateT] = new BracketFromMonadError[StateT, Throwable] {
+
+    val F = IndexedStateT.catsDataMonadErrorForIndexedStateT(catsStdInstancesForTry)
+
+    def bracketCase[A, B](
+      acquire: StateT[A])(
+      use: A => StateT[B])(
+      release: (A, ExitCase[Throwable]) => StateT[Unit]
+    ) = {
+
+      def onError(a: A)(e: Throwable) = for {
+        _ <- release(a, ExitCase.error(e))
+        b <- raiseError[B](e)
+      } yield b
+
+      for {
+        a <- acquire
+        b <- handleErrorWith(use(a))(onError(a))
+        _ <- release(a, ExitCase.complete)
+      } yield b
+    }
+  }
+  
+
   implicit val parallel: Parallel[StateT] = Parallel.identity[StateT]
 
 
@@ -111,7 +137,7 @@ object EventualCassandraSpec {
     segmentSize: SegmentSize,
     delete: Boolean,
     segmentOf: SegmentOf[StateT]
-  ): ReplicatedJournalOld[StateT] = {
+  ): ReplicatedJournal[StateT] = {
 
     val insertRecords: JournalStatements.InsertRecords[StateT] = {
       (key: Key, segment: SegmentNr, records: Nel[EventRecord]) => {

@@ -138,6 +138,9 @@ object ReplicatedJournal {
         }
       }
     }
+
+    // TODO remove
+    def toOld(implicit F: BracketThrowable[F]): ReplicatedJournalOld[F] = ReplicatedJournalOld(self)
   }
 
 

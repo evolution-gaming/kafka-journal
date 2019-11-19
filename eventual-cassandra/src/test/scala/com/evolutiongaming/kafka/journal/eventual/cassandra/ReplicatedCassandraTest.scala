@@ -46,7 +46,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
 
     val segmentOfId = SegmentOf[Id](segments)
     val segmentOf = SegmentOf[StateT](segments)
-    val journal = ReplicatedCassandra(segmentSize, segmentOf, statements)
+    val journal = ReplicatedCassandra(segmentSize, segmentOf, statements).toOld
 
     val suffix = s"segmentSize: $segmentSize, segments: $segments"
 

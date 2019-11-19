@@ -7,7 +7,7 @@ import cats.effect.Clock
 import cats.implicits._
 import cats.{Applicative, FlatMap, Monad}
 import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.catshelper.{Log, MonadThrowable}
+import com.evolutiongaming.catshelper.{BracketThrowable, Log, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
@@ -20,7 +20,7 @@ import play.api.libs.json.Json
 trait EventualJournalSpec extends WordSpec with Matchers {
   import EventualJournalSpec._
 
-  def test[F[_] : MonadThrowable](withJournals: (Journals[F] => F[Assertion]) => F[Assertion]): Unit = {
+  def test[F[_] : BracketThrowable](withJournals: (Journals[F] => F[Assertion]) => F[Assertion]): Unit = {
 
     val withJournals1 = (key: Key, timestamp: Instant) => {
 
@@ -38,7 +38,8 @@ trait EventualJournalSpec extends WordSpec with Matchers {
           val replicated = {
             val journal = journals.replicated
               .withLog(log)
-              .withMetrics(ReplicatedJournalOld.Metrics.empty[F])
+              .withMetrics(ReplicatedJournal.Metrics.empty[F])
+              .toOld
             Replicated[F](journal, key, timestamp)
           }
           f(eventual, replicated)
@@ -511,7 +512,7 @@ object EventualJournalSpec {
   }
 
 
-  final case class Journals[F[_]](eventual: EventualJournal[F], replicated: ReplicatedJournalOld[F])
+  final case class Journals[F[_]](eventual: EventualJournal[F], replicated: ReplicatedJournal[F])
 
 
   implicit class JournalPointerOps(val self: JournalPointer) extends AnyVal {

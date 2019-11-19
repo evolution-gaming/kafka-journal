@@ -9,7 +9,7 @@ import cats.{Applicative, Monad, Parallel, ~>}
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, ReplicatedJournalOld}
+import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession, ReplicatedCassandra}
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
@@ -46,11 +46,7 @@ object Replicator {
       cassandraSession: CassandraSession[F]
     ) = {
       val origin = hostName.map(Origin.fromHostName)
-      for {
-        replicatedJournal <- ReplicatedCassandra.of[F](config.cassandra, origin, metrics.flatMap(_.journal))
-      } yield {
-        ReplicatedJournal(replicatedJournal)
-      }
+      ReplicatedCassandra.of[F](config.cassandra, origin, metrics.flatMap(_.journal))
     }
 
     for {
@@ -239,7 +235,7 @@ object Replicator {
 
   trait Metrics[F[_]] {
 
-    def journal: Option[ReplicatedJournalOld.Metrics[F]]
+    def journal: Option[ReplicatedJournal.Metrics[F]]
 
     def replicator: Option[Topic => TopicReplicator.Metrics[F]]
 
@@ -265,7 +261,7 @@ object Replicator {
     def of[F[_] : Monad](registry: CollectorRegistry[F], clientId: ClientId): Resource[F, Replicator.Metrics[F]] = {
       for {
         replicator1 <- TopicReplicator.Metrics.of[F](registry)
-        journal1    <- ReplicatedJournalOld.Metrics.of[F](registry)
+        journal1    <- ReplicatedJournal.Metrics.of[F](registry)
         consumer1   <- ConsumerMetrics.of[F](registry)
         cache1      <- CacheMetrics.of[F](registry)
       } yield {
