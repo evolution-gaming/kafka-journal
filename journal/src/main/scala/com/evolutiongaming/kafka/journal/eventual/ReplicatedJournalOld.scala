@@ -97,9 +97,10 @@ object ReplicatedJournalOld {
   }
 
 
-  def apply[F[_] : FlatMap : MeasureDuration](journal: ReplicatedJournalOld[F], log: Log[F]): ReplicatedJournalOld[F] = {
-
-    implicit val log1 = log
+  def apply[F[_] : FlatMap : MeasureDuration](
+    journal: ReplicatedJournalOld[F],
+    log: Log[F]
+  ): ReplicatedJournalOld[F] = {
 
     new ReplicatedJournalOld[F] {
 
@@ -108,7 +109,7 @@ object ReplicatedJournalOld {
           d <- MeasureDuration[F].start
           r <- journal.topics
           d <- d
-          _ <- Log[F].debug(s"topics in ${ d.toMillis }ms, r: ${ r.mkString(",") }")
+          _ <- log.debug(s"topics in ${ d.toMillis }ms, r: ${ r.mkString(",") }")
         } yield r
       }
 
@@ -117,7 +118,7 @@ object ReplicatedJournalOld {
           d <- MeasureDuration[F].start
           r <- journal.pointers(topic)
           d <- d
-          _ <- Log[F].debug(s"$topic pointers in ${ d.toMillis }ms, result: $r")
+          _ <- log.debug(s"$topic pointers in ${ d.toMillis }ms, result: $r")
         } yield r
       }
 
@@ -132,7 +133,7 @@ object ReplicatedJournalOld {
           d <- MeasureDuration[F].start
           r <- journal.append(key, partitionOffset, timestamp, expireAfter, events)
           d <- d
-          _ <- Log[F].debug {
+          _ <- log.debug {
             val origin = events.head.origin
             val originStr = origin.fold("") { origin => s", origin: $origin" }
             val expireAfterStr = expireAfter.fold("") { expireAfter => s", expireAfter: $expireAfter" }
@@ -154,7 +155,7 @@ object ReplicatedJournalOld {
           d <- MeasureDuration[F].start
           r <- journal.delete(key, partitionOffset, timestamp, deleteTo, origin)
           d <- d
-          _ <- Log[F].debug {
+          _ <- log.debug {
             val originStr = origin.fold("") { origin => s", origin: $origin" }
             s"$key delete in ${ d.toMillis }ms, offset: $partitionOffset, deleteTo: $deleteTo$originStr"
           }
@@ -166,7 +167,7 @@ object ReplicatedJournalOld {
           d <- MeasureDuration[F].start
           r <- journal.save(topic, pointers, timestamp)
           d <- d
-          _ <- Log[F].debug(s"$topic save in ${ d.toMillis }ms, pointers: ${pointers.mkString_(",")}, timestamp: $timestamp")
+          _ <- log.debug(s"$topic save in ${ d.toMillis }ms, pointers: ${pointers.mkString_(",")}, timestamp: $timestamp")
         } yield r
       }
     }

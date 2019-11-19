@@ -12,11 +12,14 @@ import scala.util.control.NoStackTrace
 class CassandraHealthCheckSpec extends AsyncFunSuite with Matchers {
 
   test("CassandraHealthCheck") {
-    implicit val log = Log.empty[IO]
     val error = (new RuntimeException with NoStackTrace).raiseError[IO, Unit]
-    val healthCheck = CassandraHealthCheck.of[IO](0.seconds, 1.second, Resource.pure[IO, IO[Unit]](error))
+    val healthCheck = CassandraHealthCheck.of[IO](
+      initial = 0.seconds,
+      interval = 1.second,
+      statement = Resource.pure[IO, IO[Unit]](error),
+      log = Log.empty[IO])
     val result = for {
-      error <- healthCheck.use(_.error.untilDefinedM)
+      error <- healthCheck.use { _.error.untilDefinedM }
     } yield {
       error shouldEqual error
     }

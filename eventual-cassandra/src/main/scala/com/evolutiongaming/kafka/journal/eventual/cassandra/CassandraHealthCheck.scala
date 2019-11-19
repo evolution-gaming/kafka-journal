@@ -30,17 +30,15 @@ object CassandraHealthCheck {
 
     for {
       log    <- Resource.liftF(LogOf[F].apply(CassandraHealthCheck.getClass))
-      result <- {
-        implicit val log1 = log
-        of(initial = 10.seconds, interval = 1.second, statement = statement)
-      }
+      result <- of(initial = 10.seconds, interval = 1.second, statement = statement, log = log)
     } yield result
   }
 
-  def of[F[_] : Concurrent : Timer : Log](
+  def of[F[_] : Concurrent : Timer](
     initial: FiniteDuration,
     interval: FiniteDuration,
-    statement: Resource[F, Statement[F]]
+    statement: Resource[F, Statement[F]],
+    log: Log[F]
   ): Resource[F, CassandraHealthCheck[F]] = {
 
     val result = for {
@@ -51,7 +49,7 @@ object CassandraHealthCheck {
           _ <- {
             for {
               e <- statement.error[Throwable]
-              _ <- e.fold(().pure[F]) { e => Log[F].error(s"failed with $e", e) }
+              _ <- e.fold(().pure[F]) { e => log.error(s"failed with $e", e) }
               _ <- ref.set(e)
               _ <- Timer[F].sleep(interval)
             } yield ().asLeft

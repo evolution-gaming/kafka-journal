@@ -41,7 +41,8 @@ class KafkaHealthCheckSpec extends AsyncFunSuite with Matchers {
         interval = 1.second),
       stop = false.pure[IO],
       producer = Resource.pure[IO, KafkaHealthCheck.Producer[IO]](producer),
-      consumer = Resource.pure[IO, KafkaHealthCheck.Consumer[IO]](consumer))
+      consumer = Resource.pure[IO, KafkaHealthCheck.Consumer[IO]](consumer),
+      log = log)
     val result = for {
       error <- healthCheck.use(_.error.untilDefinedM)
     } yield {
@@ -65,7 +66,8 @@ class KafkaHealthCheckSpec extends AsyncFunSuite with Matchers {
         timeout = 100.millis),
       stop = stop,
       producer = Resource.pure[StateT, KafkaHealthCheck.Producer[StateT]](KafkaHealthCheck.Producer[StateT]),
-      consumer = Resource.pure[StateT, KafkaHealthCheck.Consumer[StateT]](KafkaHealthCheck.Consumer[StateT]))
+      consumer = Resource.pure[StateT, KafkaHealthCheck.Consumer[StateT]](KafkaHealthCheck.Consumer[StateT]),
+      log = log)
 
     val initial = State(checks = 2)
     val result = for {
@@ -95,7 +97,7 @@ object KafkaHealthCheckSpec {
 
   object StateT {
 
-    implicit val log: Log[StateT] = {
+    val log: Log[StateT] = {
 
       def add(log: String) = StateT[Unit] { data =>
         val data1 = data.copy(logs = log :: data.logs)

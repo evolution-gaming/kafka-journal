@@ -133,19 +133,19 @@ object Replicator {
 
           val consumer1 = consumer.mapMethod(retry)
 
-          implicit val log1 = log
-          start(config, consumer1, topicReplicator, error.get.flatten)
+          start(config, consumer1, topicReplicator, error.get.flatten, log)
         }
       } yield result
     }
   }
 
 
-  def start[F[_] : Sync : Parallel : Timer : Log : MeasureDuration](
+  def start[F[_] : Sync : Parallel : Timer : MeasureDuration](
     config: Config,
     consumer: Consumer[F],
     start: Topic => F[Unit],
-    continue: F[Unit]
+    continue: F[Unit],
+    log: Log[F]
   ): F[Unit] = {
 
     type State = Set[Topic]
@@ -161,7 +161,7 @@ object Replicator {
         } yield topic
         _ <- {
           if (topicsNew.isEmpty) ().pure[F]
-          else Log[F].info {
+          else log.info {
             val topics = topicsNew.mkString(",")
             s"discovered new topics in ${ latency.toMillis }ms: $topics"
           }
@@ -183,7 +183,7 @@ object Replicator {
       result >>= loop
     }
 
-    loop(Set.empty).void.onError { case e => Log[F].error(s"failed with $e", e) }
+    loop(Set.empty).void.onError { case e => log.error(s"failed with $e", e) }
   }
 
 

@@ -6,7 +6,7 @@ import cats.data.{NonEmptyMap => Nem}
 import cats.effect.Resource
 import cats.implicits._
 import cats.{Applicative, Defer, Monad, ~>}
-import com.evolutiongaming.catshelper.{BracketThrowable, Log}
+import com.evolutiongaming.catshelper.{ApplicativeThrowable, BracketThrowable, Log}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics._
@@ -142,7 +142,7 @@ object ReplicatedTopicJournal {
 
     def enhanceError(
       topic: Topic)(implicit
-      F: BracketThrowable[F]
+      F: ApplicativeThrowable[F]
     ): ReplicatedTopicJournal[F] = {
 
       def error[A](msg: String, cause: Throwable) = {

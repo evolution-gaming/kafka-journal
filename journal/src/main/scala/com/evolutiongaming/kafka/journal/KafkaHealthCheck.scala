@@ -40,7 +40,6 @@ object KafkaHealthCheck {
       log <- LogOf[F].apply(KafkaHealthCheck.getClass)
       key <- RandomId[F].get
     } yield {
-      implicit val log1 = log
 
       val consumer = Consumer.of[F](key, consumerConfig)
       
@@ -51,25 +50,27 @@ object KafkaHealthCheck {
         config = config,
         stop = false.pure[F],
         producer = producer,
-        consumer = consumer)
+        consumer = consumer,
+        log = log)
     }
 
     Resource.liftF(result).flatten
   }
 
-  def of[F[_] : Concurrent : Timer : Log](
+  def of[F[_] : Concurrent : Timer](
     key: String,
     config: Config,
     stop: F[Boolean],
     producer: Resource[F, Producer[F]],
-    consumer: Resource[F, Consumer[F]]
+    consumer: Resource[F, Consumer[F]],
+    log: Log[F]
   ): Resource[F, KafkaHealthCheck[F]] = {
 
     val result = for {
       ref   <- Ref.of[F, Option[Throwable]](None)
       fiber <- (producer, consumer)
         .tupled
-        .use { case (producer, consumer) => run(key, config, stop, producer, consumer, ref.set) }
+        .use { case (producer, consumer) => run(key, config, stop, producer, consumer, ref.set, log) }
         .start
     } yield {
       val result = new KafkaHealthCheck[F] {
@@ -82,13 +83,14 @@ object KafkaHealthCheck {
     Resource(result)
   }
 
-  def run[F[_] : Concurrent : Timer : Log](
+  def run[F[_] : Concurrent : Timer](
     key: String,
     config: Config,
     stop: F[Boolean],
     producer: Producer[F],
     consumer: Consumer[F],
-    set: Option[Throwable] => F[Unit]
+    set: Option[Throwable] => F[Unit],
+    log: Log[F]
   ): F[Unit] = {
 
     val sleep = Timer[F].sleep(config.interval)
@@ -96,7 +98,7 @@ object KafkaHealthCheck {
     def produce(value: String) = {
       val record = Record(key = Some(key), value = Some(value))
       for {
-        _ <- Log[F].debug(s"$key send $value")
+        _ <- log.debug(s"$key send $value")
         _ <- producer.send(record)
       } yield {}
     }
@@ -134,7 +136,7 @@ object KafkaHealthCheck {
     def check(n: Long) = {
       for {
         error  <- produceConsume(n)
-        _      <- error.fold(().pure[F]) { error => Log[F].error(s"$n failed with $error") }
+        _      <- error.fold(().pure[F]) { error => log.error(s"$n failed with $error") }
         _      <- set(error)
         _      <- sleep
         stop   <- stop

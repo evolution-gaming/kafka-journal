@@ -1,8 +1,11 @@
 package com.evolutiongaming.kafka.journal.eventual
 
+
 import cats.effect.Resource
 import cats.implicits._
-import cats.{Applicative, Monad}
+import cats.{Applicative, Defer, Monad, ~>}
+import com.evolutiongaming.catshelper.{ApplicativeThrowable, BracketThrowable, Log}
+import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.smetrics._
@@ -27,6 +30,101 @@ object ReplicatedJournal {
       def journal(topic: Topic) = {
         val replicatedTopicJournal = ReplicatedTopicJournal(topic, replicatedJournal)
         Resource.liftF(replicatedTopicJournal.pure[F])
+      }
+    }
+  }
+
+
+  implicit class ReplicatedJournalOps[F[_]](val self: ReplicatedJournal[F]) extends AnyVal {
+
+    def mapK[G[_]](
+      f: F ~> G)(implicit
+      B: BracketThrowable[F],
+      D: Defer[G],
+      G: Applicative[G]
+    ): ReplicatedJournal[G] = new ReplicatedJournal[G] {
+
+      def topics = f(self.topics)
+
+      def journal(topic: Topic) = {
+        self
+          .journal(topic)
+          .map { _.mapK(f) }
+          .mapK(f)
+      }
+    }
+
+
+    def withLog(
+      log: Log[F])(implicit
+      F: Monad[F],
+      measureDuration: MeasureDuration[F]
+    ): ReplicatedJournal[F] = {
+
+      new ReplicatedJournal[F] {
+
+        def topics = {
+          for {
+            d <- MeasureDuration[F].start
+            r <- self.topics
+            d <- d
+            _ <- log.debug(s"topics in ${ d.toMillis }ms, r: ${ r.mkString(",") }")
+          } yield r
+        }
+
+        def journal(topic: Topic) = {
+          self
+            .journal(topic)
+            .map { _.withLog(topic, log) }
+        }
+      }
+    }
+
+
+    def withMetrics(
+      metrics: Metrics[F])(implicit
+      F: Monad[F],
+      measureDuration: MeasureDuration[F]
+    ): ReplicatedJournal[F] = {
+      new ReplicatedJournal[F] {
+
+        def topics = {
+          for {
+            d <- MeasureDuration[F].start
+            r <- self.topics
+            d <- d
+            _ <- metrics.topics(d)
+          } yield r
+        }
+
+        def journal(topic: Topic) = {
+          self
+            .journal(topic)
+            .map { _.withMetrics(topic, metrics) }
+        }
+      }
+    }
+
+
+    def enhanceError(implicit F: ApplicativeThrowable[F]): ReplicatedJournal[F] = {
+
+      def error[A](msg: String, cause: Throwable) = {
+        JournalError(s"ReplicatedJournal.$msg failed with $cause", cause.some).raiseError[F, A]
+      }
+
+      new ReplicatedJournal[F] {
+
+        def topics = {
+          self
+            .topics
+            .handleErrorWith { a => error(s"topics", a) }
+        }
+
+        def journal(topic: Topic) = {
+          self
+            .journal(topic)
+            .map { _.enhanceError(topic) }
+        }
       }
     }
   }
