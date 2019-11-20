@@ -6,7 +6,7 @@ object Dependencies {
   val `scala-java8-compat` = "org.scala-lang.modules" %% "scala-java8-compat"    % "0.9.0"
   val prometheus           = "io.prometheus"           % "simpleclient"          % "0.6.0"
   val `cassandra-driver`   = "com.datastax.cassandra"  % "cassandra-driver-core" % "3.7.2"
-  val `play-json`          = "com.typesafe.play"      %% "play-json"             % "2.7.4"
+  val `play-json`          = "com.typesafe.play"      %% "play-json"             % "2.8.0"
   val `kind-projector`     = "org.typelevel"           % "kind-projector"        % "0.10.3"
   val `executor-tools`     = "com.evolutiongaming"    %% "executor-tools"        % "1.0.2"
   val `config-tools`       = "com.evolutiongaming"    %% "config-tools"          % "1.0.3"
