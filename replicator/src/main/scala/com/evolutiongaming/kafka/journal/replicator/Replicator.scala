@@ -76,7 +76,7 @@ object Replicator {
         .flatMap { _.replicator }
         .fold { TopicReplicator.Metrics.empty[F] } { metrics => metrics(topic) }
 
-      val cacheOf = CacheOf[F](1.minute, metrics.flatMap(_.cache))
+      val cacheOf = CacheOf[F](config.cacheExpireAfter, metrics.flatMap(_.cache))
       TopicReplicator.of(topic, journal, consumer, metrics1, cacheOf)
     }
 

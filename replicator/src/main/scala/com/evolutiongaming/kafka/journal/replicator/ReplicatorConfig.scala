@@ -21,6 +21,7 @@ import scala.util.Try
 final case class ReplicatorConfig(
   topicPrefixes: Nel[String] = Nel.of("journal"),
   topicDiscoveryInterval: FiniteDuration = 3.seconds,
+  cacheExpireAfter: FiniteDuration = 5.minutes,
   consumer: ConsumerConfig = ConsumerConfig(
     common = CommonConfig(
       clientId = Some("replicator"),
