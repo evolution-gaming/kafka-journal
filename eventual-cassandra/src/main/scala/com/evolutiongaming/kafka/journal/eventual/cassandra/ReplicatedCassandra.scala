@@ -107,10 +107,10 @@ object ReplicatedCassandra {
 
               def check(journalHead: Option[JournalHead], name: => String) = {
 
-                def check(state: Option[State]) = {
+                def check(journalHead: Option[State], state: Option[State]) = {
 
-                  def check(journalHead: JournalHead, state: State) = {
-                    if (journalHead.partitionOffset.offset <= state.offset || journalHead.seqNr <= state.seqNr) {
+                  def check(journalHead: State, state: State) = {
+                    if (journalHead.offset < state.offset || journalHead.seqNr < state.seqNr) {
                       log.warn(s"$key $name unexpected state: journalHead: $journalHead, state: $state")
                     } else {
                       ().pure[F]
@@ -126,10 +126,9 @@ object ReplicatedCassandra {
                 }
 
                 for {
-                  state <- stateRef.get
-                  _     <- check(state)
-                  state  = journalHead.map { journalHead => State(journalHead) }
-                  _     <- stateRef.set(state)
+                  state       <- stateRef.get
+                  journalHead <- journalHead.map { journalHead => State(journalHead) }.pure[F]
+                  _           <- check(journalHead = journalHead, state = state)
                 } yield {}
               }
 
@@ -200,8 +199,10 @@ object ReplicatedCassandra {
                     val offset = journalHead.map(_.partitionOffset.offset)
 
                     for {
-                      _ <- append(journalHead1.segmentSize, offset)
-                      _ <- save
+                      _     <- append(journalHead1.segmentSize, offset)
+                      _     <- save
+                      state  = State(seqNrLast, partitionOffset.offset)
+                      _     <- stateRef.set(state.some)
                     } yield {}
                   }
 
@@ -233,11 +234,20 @@ object ReplicatedCassandra {
                   def delete(segment: SegmentNr)(journalHead: JournalHead) = {
 
                     def update = {
-                      if (journalHead.seqNr >= deleteTo) {
-                        metaJournal.updateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo)
+                      val seqNr = if (journalHead.seqNr >= deleteTo) {
+                        metaJournal
+                          .updateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo)
+                          .as(journalHead.seqNr)
                       } else {
-                        metaJournal.update(key, segment, partitionOffset, timestamp, deleteTo, deleteTo)
+                        metaJournal
+                          .update(key, segment, partitionOffset, timestamp, deleteTo, deleteTo)
+                          .as(deleteTo)
                       }
+                      for {
+                        seqNr <- seqNr
+                        state  = State(seqNr, partitionOffset.offset)
+                        _     <- stateRef.set(state.some)
+                      } yield {}
                     }
 
                     def delete = {
