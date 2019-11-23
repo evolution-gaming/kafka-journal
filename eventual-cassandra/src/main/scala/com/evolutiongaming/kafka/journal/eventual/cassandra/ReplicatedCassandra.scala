@@ -9,7 +9,7 @@ import cats.effect.{Concurrent, Resource, Sync, Timer}
 import cats.implicits._
 import cats.{Applicative, Monad, Parallel}
 import com.evolutiongaming.catshelper.ParallelHelper._
-import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, ToFuture}
+import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
@@ -35,7 +35,7 @@ object ReplicatedCassandra {
       log        <- LogOf[F].apply(ReplicatedCassandra.getClass)
     } yield {
       val segmentOf = SegmentOf[F](Segments.default)
-      val journal = apply[F](config.segmentSize, segmentOf, statements, log)
+      val journal = apply[F](config.segmentSize, segmentOf, statements)
         .withLog(log)
       metrics
         .fold(journal) { metrics => journal.withMetrics(metrics) }
@@ -47,7 +47,6 @@ object ReplicatedCassandra {
     segmentSize: SegmentSize,
     segmentOf: SegmentOf[F],
     statements: Statements[F],
-    log: Log[F]
   ): ReplicatedJournal[F] = {
 
     implicit val monoidUnit = Applicative.monoid[F, Unit]
@@ -81,57 +80,11 @@ object ReplicatedCassandra {
 
             val key = Key(id = id, topic = topic)
 
-            case class State(seqNr: SeqNr, offset: Offset)
-
-            object State {
-              def apply(journalHead: JournalHead): State = {
-                State(seqNr = journalHead.seqNr, offset = journalHead.partitionOffset.offset)
-              }
-            }
-
-            def state = {
-              for {
-                segment     <- segmentOf(key) // TODO reuse
-                journalHead <- metaJournal.journalHead(key, segment)
-              } yield for {
-                journalHead <- journalHead
-              } yield  {
-                State(journalHead)
-              }
-            }
-
             for {
-              state    <- Resource.liftF(state)
-              stateRef <- Resource.liftF(Ref[F].of(state))
+              segment        <- Resource.liftF(segmentOf(key))
+              journalHead    <- Resource.liftF(metaJournal.journalHead(key, segment))
+              journalHeadRef <- Resource.liftF(Ref[F].of(journalHead))
             } yield {
-
-              def check(journalHead: Option[JournalHead], name: => String) = {
-
-                def check(journalHead: Option[State], state: Option[State]) = {
-
-                  def check(journalHead: State, state: State) = {
-                    if (journalHead.offset < state.offset || journalHead.seqNr < state.seqNr) {
-                      log.warn(s"$key $name unexpected state: journalHead: $journalHead, state: $state")
-                    } else {
-                      ().pure[F]
-                    }
-                  }
-
-                  (journalHead, state) match {
-                    case (Some(journalHead), Some(state)) => check(journalHead, state)
-                    case (None, None)                     => ().pure[F]
-                    case (None, Some(state))              => log.warn(s"$key unexpected state during $name journalHead: $journalHead, state: $state")
-                    case (Some(_), None)                  => ().pure[F]
-                  }
-                }
-
-                for {
-                  state       <- stateRef.get
-                  journalHead <- journalHead.map { journalHead => State(journalHead) }.pure[F]
-                  _           <- check(journalHead = journalHead, state = state)
-                } yield {}
-              }
-
 
               new ReplicatedKeyJournal[F] {
 
@@ -180,38 +133,53 @@ object ReplicatedCassandra {
                   }
 
                   def appendAndSave(journalHead: Option[JournalHead], segment: SegmentNr) = {
-                    val seqNrLast = events.last.seqNr
 
-                    val (save, journalHead1) = journalHead.fold {
-                      val journalHead = JournalHead(
-                        partitionOffset = partitionOffset,
-                        segmentSize = segmentSize,
-                        seqNr = seqNrLast,
-                        deleteTo = events.head.seqNr.prev[Option])
-                      val origin = events.head.origin
-                      val insert = metaJournal.insert(key, segment, timestamp, journalHead, origin)
-                      (insert, journalHead)
-                    } { journalHead =>
-                      val update = metaJournal.updateSeqNr(key, segment, partitionOffset, timestamp, seqNrLast)
-                      (update, journalHead)
+                    def appendAndSave = {
+                      val seqNrLast = events.last.seqNr
+
+                      val (save, journalHead1) = journalHead.fold {
+                        val journalHead = JournalHead(
+                          partitionOffset = partitionOffset,
+                          segmentSize = segmentSize,
+                          seqNr = seqNrLast,
+                          deleteTo = events.head.seqNr.prev[Option])
+                        val origin = events.head.origin
+                        val insert = metaJournal.insert(key, segment, timestamp, journalHead, origin)
+                        (insert, journalHead)
+                      } { journalHead =>
+                        val update = metaJournal.updateSeqNr(key, segment, partitionOffset, timestamp, seqNrLast)
+                        val journalHead1 = journalHead.copy(
+                          partitionOffset = partitionOffset,
+                          seqNr = seqNrLast)
+                        (update, journalHead1)
+                      }
+
+                      val offset = journalHead.map { _.partitionOffset.offset }
+
+                      for {
+                        _ <- append(journalHead1.segmentSize, offset)
+                        _ <- save
+                      } yield {
+                        journalHead1.some
+                      }
                     }
 
-                    val offset = journalHead.map(_.partitionOffset.offset)
-
-                    for {
-                      _     <- append(journalHead1.segmentSize, offset)
-                      _     <- save
-                      state  = State(seqNrLast, partitionOffset.offset)
-                      _     <- stateRef.set(state.some)
-                    } yield {}
+                    journalHead.fold {
+                      appendAndSave
+                    } { journalHead =>
+                      if (partitionOffset.offset <= journalHead.partitionOffset.offset) {
+                        none[JournalHead].pure[F]
+                      } else {
+                        appendAndSave
+                      }
+                    }
                   }
 
                   for {
-                    segment     <- segmentOf(key)
-                    journalHead <- metaJournal.journalHead(key, segment)
-                    _           <- check(journalHead, "append")
-                    result      <- appendAndSave(journalHead, segment).uncancelable
-                  } yield result
+                    journalHead <- journalHeadRef.get
+                    journalHead <- appendAndSave(journalHead, segment).uncancelable
+                    _           <- journalHead.traverse { journalHead => journalHeadRef.set(journalHead.some) }
+                  } yield {}
                 }
 
 
@@ -222,32 +190,36 @@ object ReplicatedCassandra {
                   origin: Option[Origin]
                 ) = {
 
-                  def insert(segment: SegmentNr) = {
-                    val head = JournalHead(
+                  def insert = {
+                    val journalHead = JournalHead(
                       partitionOffset = partitionOffset,
                       segmentSize = segmentSize,
                       seqNr = deleteTo,
                       deleteTo = deleteTo.some)
-                    metaJournal.insert(key, segment, timestamp, head, origin)
+                    metaJournal
+                      .insert(key, segment, timestamp, journalHead, origin)
+                      .as(journalHead.some)
                   }
 
-                  def delete(segment: SegmentNr)(journalHead: JournalHead) = {
+                  def delete(journalHead: JournalHead) = {
 
                     def update = {
-                      val seqNr = if (journalHead.seqNr >= deleteTo) {
+                      if (journalHead.seqNr >= deleteTo) {
+                        val journalHead1 = journalHead.copy(
+                          partitionOffset = partitionOffset,
+                          deleteTo = deleteTo.some)
                         metaJournal
                           .updateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo)
-                          .as(journalHead.seqNr)
+                          .as(journalHead1)
                       } else {
+                        val journalHead1 = journalHead.copy(
+                          partitionOffset = partitionOffset,
+                          seqNr = deleteTo,
+                          deleteTo = deleteTo.some)
                         metaJournal
                           .update(key, segment, partitionOffset, timestamp, deleteTo, deleteTo)
-                          .as(deleteTo)
+                          .as(journalHead1)
                       }
-                      for {
-                        seqNr <- seqNr
-                        state  = State(seqNr, partitionOffset.offset)
-                        _     <- stateRef.set(state.some)
-                      } yield {}
                     }
 
                     def delete = {
@@ -272,18 +244,23 @@ object ReplicatedCassandra {
                     }
 
                     if (partitionOffset.offset <= journalHead.partitionOffset.offset) {
-                      ().pure[F]
+                      none[JournalHead].pure[F]
                     } else {
-                      (update *> delete).uncancelable
+                      val result = for {
+                        journalHead <- update
+                        _           <- delete
+                      } yield {
+                        journalHead.some
+                      }
+                      result.uncancelable
                     }
                   }
 
                   for {
-                    segment     <- segmentOf(key)
-                    journalHead <- metaJournal.journalHead(key, segment)
-                    _           <- check(journalHead, "delete")
-                    result      <- journalHead.fold { insert(segment) } { delete(segment) }
-                  } yield result
+                    journalHead <- journalHeadRef.get
+                    journalHead <- journalHead.fold { insert } { delete }
+                    _           <- journalHead.traverse { journalHead => journalHeadRef.set(journalHead.some) }
+                  } yield {}
                 }
               }
             }

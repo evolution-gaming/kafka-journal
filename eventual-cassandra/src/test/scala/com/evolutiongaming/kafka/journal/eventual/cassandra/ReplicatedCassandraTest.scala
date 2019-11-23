@@ -6,7 +6,6 @@ import cats.data.{IndexedStateT, NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.{ExitCase, Sync}
 import cats.implicits._
 import cats.{Id, Parallel}
-import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.catshelper.NelHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.BracketFromMonadError
@@ -46,7 +45,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
 
     val segmentOfId = SegmentOf[Id](segments)
     val segmentOf = SegmentOf[StateT](segments)
-    val journal = ReplicatedCassandra(segmentSize, segmentOf, statements, Log.empty[StateT]).toOld
+    val journal = ReplicatedCassandra(segmentSize, segmentOf, statements).toOld
 
     val suffix = s"segmentSize: $segmentSize, segments: $segments"
 
