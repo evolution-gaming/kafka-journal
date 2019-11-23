@@ -156,12 +156,13 @@ object ReplicatedCassandra {
 
                       val offset = journalHead.map { _.partitionOffset.offset }
 
-                      for {
+                      val result = for {
                         _ <- append(journalHead1.segmentSize, offset)
                         _ <- save
                       } yield {
                         journalHead1.some
                       }
+                      result.uncancelable
                     }
 
                     journalHead.fold {
@@ -177,7 +178,7 @@ object ReplicatedCassandra {
 
                   for {
                     journalHead <- journalHeadRef.get
-                    journalHead <- appendAndSave(journalHead, segment).uncancelable
+                    journalHead <- appendAndSave(journalHead, segment)
                     _           <- journalHead.traverse { journalHead => journalHeadRef.set(journalHead.some) }
                   } yield {}
                 }
