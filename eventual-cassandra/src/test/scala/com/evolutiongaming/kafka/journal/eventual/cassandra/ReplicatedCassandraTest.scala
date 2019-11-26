@@ -438,6 +438,10 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
       val actual = stateT.run(initial)
       actual shouldEqual (expected, ()).pure[Try]
     }
+
+    test("purge") {
+      ???
+    }
   }
 }
 
@@ -555,6 +559,29 @@ object ReplicatedCassandraTest {
     }
   }
 
+
+  val deleteMetaJournal: MetaJournalStatements.Delete[StateT] = {
+    (key: Key, segment: SegmentNr) => {
+      StateT.unit { state =>
+        val k = (key.topic, segment)
+        val state1 = for {
+          entries <- state.metaJournal.get(k)
+          _       <- entries.get(key.id)
+        } yield {
+          val entries1 = entries - key.id
+          val metaJournal = if (entries1.isEmpty) {
+            state.metaJournal - k
+          } else {
+            state.metaJournal.updated(k, entries1)
+          }
+          state.copy(metaJournal = metaJournal)
+        }
+        state1 getOrElse state
+      }
+    }
+  }
+
+
   val selectPointer: PointerStatements.Select[StateT] = {
     (topic: Topic, partition: Partition) => {
       StateT.success { state =>
@@ -648,7 +675,8 @@ object ReplicatedCassandraTest {
       insertMetaJournal,
       updateMetaJournal,
       updateMetaJournalSeqNr,
-      updateMetaJournalDeleteTo)
+      updateMetaJournalDeleteTo,
+      deleteMetaJournal)
 
     ReplicatedCassandra.Statements(
       insertRecords,

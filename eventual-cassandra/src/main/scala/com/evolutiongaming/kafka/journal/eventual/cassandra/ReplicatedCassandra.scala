@@ -350,6 +350,8 @@ object ReplicatedCassandra {
       timestamp: Instant,
       deleteTo: SeqNr
     ): F[Unit]
+
+    def delete(key: Key, segment: SegmentNr): F[Unit]
   }
 
   object MetaJournalStatements {
@@ -361,7 +363,8 @@ object ReplicatedCassandra {
           MetadataStatements.Insert.of[F](schema.metadata),
           MetadataStatements.Update.of[F](schema.metadata),
           MetadataStatements.UpdateSeqNr.of[F](schema.metadata),
-          MetadataStatements.UpdateDeleteTo.of[F](schema.metadata))
+          MetadataStatements.UpdateDeleteTo.of[F](schema.metadata),
+          MetadataStatements.Delete.of[F](schema.metadata))
         statements.parMapN(apply[F])
       }
 
@@ -383,7 +386,8 @@ object ReplicatedCassandra {
         cassandra.MetaJournalStatements.Insert.of[F](metaJournal),
         cassandra.MetaJournalStatements.Update.of[F](metaJournal),
         cassandra.MetaJournalStatements.UpdateSeqNr.of[F](metaJournal),
-        cassandra.MetaJournalStatements.UpdateDeleteTo.of[F](metaJournal))
+        cassandra.MetaJournalStatements.UpdateDeleteTo.of[F](metaJournal),
+        cassandra.MetaJournalStatements.Delete.of[F](metaJournal))
       statements.parMapN(apply[F])
     }
 
@@ -473,6 +477,13 @@ object ReplicatedCassandra {
             _ <- metadata.updateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo)
           } yield {}
         }
+
+        def delete(key: Key, segment: SegmentNr) = {
+          for {
+            _ <- metaJournal.delete(key, segment)
+            _ <- metadata.delete(key, segment)
+          } yield {}
+        }
       }
     }
 
@@ -482,13 +493,15 @@ object ReplicatedCassandra {
       insert           : cassandra.MetaJournalStatements.Insert[F],
       update           : cassandra.MetaJournalStatements.Update[F],
       updateSeqNr      : cassandra.MetaJournalStatements.UpdateSeqNr[F],
-      updateDeleteTo   : cassandra.MetaJournalStatements.UpdateDeleteTo[F]
+      updateDeleteTo   : cassandra.MetaJournalStatements.UpdateDeleteTo[F],
+      delete           : cassandra.MetaJournalStatements.Delete[F]
     ): MetaJournalStatements[F] = {
 
       val inset1 = insert
       val update1 = update
       val updateSeqNr1 = updateSeqNr
       val updateDeleteTo1 = updateDeleteTo
+      val delete1 = delete
 
       new MetaJournalStatements[F] {
 
@@ -534,6 +547,8 @@ object ReplicatedCassandra {
         ) = {
           updateDeleteTo1(key, segment, partitionOffset, timestamp, deleteTo)
         }
+
+        def delete(key: Key, segment: SegmentNr) = delete1(key, segment)
       }
     }
 
@@ -543,13 +558,15 @@ object ReplicatedCassandra {
       insert           : MetadataStatements.Insert[F],
       update           : MetadataStatements.Update[F],
       updateSeqNr      : MetadataStatements.UpdateSeqNr[F],
-      updateDeleteTo   : MetadataStatements.UpdateDeleteTo[F]
+      updateDeleteTo   : MetadataStatements.UpdateDeleteTo[F],
+      delete           : MetadataStatements.Delete[F]
     ): MetaJournalStatements[F] = {
 
       val insert1 = insert
       val update1 = update
       val updateSeqNr1 = updateSeqNr
       val updateDeleteTo1 = updateDeleteTo
+      val delete1 = delete
 
       new MetaJournalStatements[F] {
 
@@ -595,6 +612,8 @@ object ReplicatedCassandra {
         ) = {
           updateDeleteTo1(key, partitionOffset, timestamp, deleteTo)
         }
+
+        def delete(key: Key, segment: SegmentNr) = delete1(key)
       }
     }
   }

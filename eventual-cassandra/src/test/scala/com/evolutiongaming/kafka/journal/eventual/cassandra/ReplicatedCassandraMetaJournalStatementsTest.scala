@@ -3,13 +3,13 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import java.time.Instant
 
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.{Key, Origin, PartitionOffset, SeqNr}
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
+import com.evolutiongaming.kafka.journal.{Key, Origin, PartitionOffset, SeqNr}
 import com.evolutiongaming.skafka.Topic
 import org.scalatest.{FunSuite, Matchers}
 
-import scala.util.Try
 import scala.concurrent.duration._
+import scala.util.Try
 
 class ReplicatedCassandraMetaJournalStatementsTest extends FunSuite with Matchers {
   import ReplicatedCassandraMetaJournalStatementsTest._
@@ -160,6 +160,18 @@ class ReplicatedCassandraMetaJournalStatementsTest extends FunSuite with Matcher
     val (state1, _) = stateT.run(state0).get
     state1 shouldEqual state0
   }
+
+  test("delete") {
+    val key = ReplicatedCassandraMetaJournalStatementsTest.key
+    val stateT = for {
+      a <- metaJournalStatements.insert(key, segment, timestamp0, journalHead, origin.some)
+      _  = a.shouldEqual(())
+      a <- metaJournalStatements.delete(key, segment)
+      _  = a.shouldEqual(())
+    } yield {}
+    val (state, _) = stateT.run(State.empty).get
+    state shouldEqual State.empty
+  }
 }
 
 object ReplicatedCassandraMetaJournalStatementsTest {
@@ -302,6 +314,28 @@ object ReplicatedCassandraMetaJournalStatementsTest {
   }
 
 
+  val deleteMetaJournal: MetaJournalStatements.Delete[StateT] = {
+    (key: Key, segment: SegmentNr) => {
+      StateT.unit { state =>
+        val k = (key.topic, segment)
+        val state1 = for {
+          entries <- state.metaJournal.get(k)
+          _       <- entries.get(key.id)
+        } yield {
+          val entries1 = entries - key.id
+          val metaJournal = if (entries1.isEmpty) {
+            state.metaJournal - k
+          } else {
+            state.metaJournal.updated(k, entries1)
+          }
+          state.copy(metaJournal = metaJournal)
+        }
+        state1 getOrElse state
+      }
+    }
+  }
+
+
   val insertMetadata: MetadataStatements.Insert[StateT] = {
     (key: Key, timestamp: Instant, journalHead: JournalHead, origin: Option[Origin]) => {
       StateT.unit { state =>
@@ -396,12 +430,34 @@ object ReplicatedCassandraMetaJournalStatementsTest {
   }
 
 
+  val deleteMetadata: MetadataStatements.Delete[StateT] = {
+    key: Key => {
+      StateT.unit { state =>
+        val state1 = for {
+          entries <- state.metadata.get(key.topic)
+          _       <- entries.get(key.id)
+        } yield {
+          val entries1 = entries - key.id
+          val metadata = if (entries1.isEmpty) {
+            state.metadata - key.topic
+          } else {
+            state.metadata.updated(key.topic, entries1)
+          }
+          state.copy(metadata = metadata)
+        }
+        state1 getOrElse state
+      }
+    }
+  }
+
+
   val metaJournal: ReplicatedCassandra.MetaJournalStatements[StateT] = ReplicatedCassandra.MetaJournalStatements(
     selectMetaJournalJournalHead,
     insertMetaJournal,
     updateMetaJournal,
     updateMetaJournalSeqNr,
-    updateMetaJournalDeleteTo)
+    updateMetaJournalDeleteTo,
+    deleteMetaJournal)
 
 
   val metadata: ReplicatedCassandra.MetaJournalStatements[StateT] = ReplicatedCassandra.MetaJournalStatements(
@@ -409,7 +465,8 @@ object ReplicatedCassandraMetaJournalStatementsTest {
     insertMetadata,
     updateMetadata,
     updateMetadataSeqNr,
-    updateMetadataDeleteTo)
+    updateMetadataDeleteTo,
+    deleteMetadata)
   
 
   val metaJournalStatements: ReplicatedCassandra.MetaJournalStatements[StateT] = {

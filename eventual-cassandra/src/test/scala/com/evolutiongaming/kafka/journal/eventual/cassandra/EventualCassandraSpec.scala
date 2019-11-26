@@ -2,10 +2,10 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
-import cats.data.{IndexedStateT, NonEmptyList => Nel}
-import cats.implicits._
 import cats.Parallel
+import cats.data.{IndexedStateT, NonEmptyList => Nel}
 import cats.effect.ExitCase
+import cats.implicits._
 import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
@@ -17,6 +17,7 @@ import com.evolutiongaming.sstream.Stream
 
 import scala.util.Try
 
+// TODO test purge
 class EventualCassandraSpec extends EventualJournalSpec {
   import EventualCassandraSpec._
 
@@ -231,6 +232,21 @@ object EventualCassandraSpec {
     }
 
 
+    val deleteMetadata: MetadataStatements.Delete[StateT] = {
+      key: Key => {
+        StateT { state =>
+          val metadata = state.metadata
+          val state1 = for {
+            _ <- metadata.get(key)
+          } yield {
+            state.copy(metadata = metadata - key)
+          }
+          (state1 getOrElse state, ())
+        }
+      }
+    }
+
+
     val insertPointer: PointerStatements.Insert[StateT] = {
       (topic: Topic, partition: Partition, offset: Offset, _: Instant, _: Instant) => {
         StateT { state =>
@@ -304,7 +320,8 @@ object EventualCassandraSpec {
       insertMetadata,
       updateMetadata,
       updateMetadataSeqNr,
-      updateMetadataDeleteTo)
+      updateMetadataDeleteTo,
+      deleteMetadata)
 
     val statements = ReplicatedCassandra.Statements(
       insertRecords = insertRecords,
