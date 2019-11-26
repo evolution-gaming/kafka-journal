@@ -691,7 +691,7 @@ object HeadCache {
           d <- MeasureDuration[F].start
           r <- self.get(key, partition, offset)
           d <- d
-          _      <- log.debug(s"$key get in ${ d.toMillis }ms, offset: $partition:$offset, result: $r")
+          _ <- log.debug(s"$key get in ${ d.toMillis }ms, offset: $partition:$offset, result: $r")
         } yield r
       }
     }
