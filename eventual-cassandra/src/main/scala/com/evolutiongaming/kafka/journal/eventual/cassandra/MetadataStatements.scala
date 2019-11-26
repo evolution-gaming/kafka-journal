@@ -5,10 +5,13 @@ import java.time.Instant
 
 import cats.Monad
 import cats.implicits._
+import com.datastax.driver.core.GettableByNameData
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.scassandra.TableName
+import com.evolutiongaming.scassandra.{DecodeRow, TableName}
 import com.evolutiongaming.scassandra.syntax._
+import com.evolutiongaming.skafka.Topic
+import com.evolutiongaming.sstream.Stream
 
 
 object MetadataStatements {
@@ -94,11 +97,7 @@ object MetadataStatements {
           } yield for {
             row <- row
           } yield {
-            MetaJournalEntry(
-              journalHead = row.decode[JournalHead],
-              created = row.decode[Instant]("created"),
-              updated = row.decode[Instant]("updated"),
-              origin = row.decode[Option[Origin]]("origin"))
+            row.decode[MetaJournalEntry]
           }
       }
     }
@@ -211,6 +210,7 @@ object MetadataStatements {
 
 
   trait UpdateSeqNr[F[_]] {
+
     def apply(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr): F[Unit]
   }
 
@@ -243,6 +243,7 @@ object MetadataStatements {
 
 
   trait UpdateDeleteTo[F[_]] {
+    
     def apply(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr): F[Unit]
   }
 
@@ -269,6 +270,56 @@ object MetadataStatements {
             .encode("updated", timestamp)
             .first
             .void
+      }
+    }
+  }
+
+
+  trait All[F[_]] {
+
+    def apply(topic: Topic): Stream[F, All.Record]
+  }
+
+  object All {
+
+    final case class Record(
+      id: String,
+      journalHead: JournalHead,
+      created: Instant,
+      updated: Instant,
+      origin: Option[Origin])
+
+    object Record {
+
+      implicit val decodeRowEntry: DecodeRow[Record] = {
+        row: GettableByNameData => {
+          Record(
+            id = row.decode[String]("id"),
+            journalHead = row.decode[JournalHead],
+            created = row.decode[Instant]("created"),
+            updated = row.decode[Instant]("updated"),
+            origin = row.decode[Option[Origin]])
+        }
+      }
+    }
+
+
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[All[F]] = {
+      val query =
+        s"""
+           |SELECT id, partition, offset, segment_size, seq_nr, delete_to, created, updated, origin FROM ${ name.toCql }
+           |WHERE topic = ?
+           |""".stripMargin
+
+      for {
+        prepared <- query.prepare
+      } yield {
+        topic: Topic =>
+          prepared
+            .bind()
+            .encode("topic", topic)
+            .execute
+            .map { _.decode[Record] }
       }
     }
   }
