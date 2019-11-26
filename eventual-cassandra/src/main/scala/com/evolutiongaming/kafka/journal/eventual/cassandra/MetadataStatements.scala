@@ -8,8 +8,8 @@ import cats.implicits._
 import com.datastax.driver.core.GettableByNameData
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.scassandra.{DecodeRow, TableName}
 import com.evolutiongaming.scassandra.syntax._
+import com.evolutiongaming.scassandra.{DecodeRow, TableName}
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.sstream.Stream
 
@@ -271,6 +271,35 @@ object MetadataStatements {
             .first
             .void
       }
+    }
+  }
+
+
+  trait Delete[F[_]] {
+
+    def apply(key: Key): F[Unit]
+  }
+
+  object Delete {
+
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[Delete[F]] = {
+      val query =
+        s"""
+           |DELETE FROM ${ name.toCql }
+           |WHERE id = ?
+           |AND topic = ?
+           |""".stripMargin
+
+      query
+        .prepare
+        .map { prepared =>
+          key: Key =>
+            prepared
+              .bind()
+              .encode(key)
+              .first
+              .void
+        }
     }
   }
 

@@ -43,8 +43,17 @@ trait Journal[F[_]] {
   // TODO return Pointer and test it
   def pointer(key: Key): F[Option[SeqNr]]
 
+  /**
+   * Deletes events up to provided SeqNr
+   */
   // TODO return Pointer and test it
   def delete(key: Key, to: SeqNr = SeqNr.max): F[Option[PartitionOffset]]
+
+  /**
+   * Deletes all data with regards to to, consecutive pointer call will return none
+   */
+  // TODO return Pointer and test it
+//  def purge(key: Key): F[Option[PartitionOffset]]
 }
 
 object Journal {
@@ -64,6 +73,8 @@ object Journal {
     def pointer(key: Key) = none[SeqNr].pure[F]
 
     def delete(key: Key, to: SeqNr) = none[PartitionOffset].pure[F]
+
+//    def purge(key: Key) = none[PartitionOffset].pure[F]
   }
 
 
