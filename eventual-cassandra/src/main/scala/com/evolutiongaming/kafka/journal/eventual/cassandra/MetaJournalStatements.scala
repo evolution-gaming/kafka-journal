@@ -298,4 +298,35 @@ object MetaJournalStatements {
       }
     }
   }
+
+
+  trait Delete[F[_]] {
+
+    def apply(key: Key, segment: SegmentNr): F[Unit]
+  }
+
+  object Delete {
+
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[Delete[F]] = {
+      val query =
+        s"""
+           |DELETE FROM ${ name.toCql }
+           |WHERE id = ?
+           |AND topic = ?
+           |AND segment = ?
+           |""".stripMargin
+
+      query
+        .prepare
+        .map { prepared =>
+          (key: Key, segment: SegmentNr) =>
+            prepared
+              .bind()
+              .encode(key)
+              .encode(segment)
+              .first
+              .void
+        }
+    }
+  }
 }
