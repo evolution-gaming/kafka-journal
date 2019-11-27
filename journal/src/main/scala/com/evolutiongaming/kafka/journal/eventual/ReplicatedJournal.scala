@@ -154,6 +154,8 @@ object ReplicatedJournal {
 
     def delete(topic: Topic, latency: FiniteDuration): F[Unit]
 
+    def purge(topic: Topic, latency: FiniteDuration): F[Unit]
+
     def save(topic: Topic, latency: FiniteDuration): F[Unit]
   }
 
@@ -171,6 +173,8 @@ object ReplicatedJournal {
       def append(topic: Topic, latency: FiniteDuration, events: Int) = unit
 
       def delete(topic: Topic, latency: FiniteDuration) = unit
+
+      def purge(topic: Topic, latency: FiniteDuration) = unit
 
       def save(topic: Topic, latency: FiniteDuration) = unit
     }
@@ -240,6 +244,10 @@ object ReplicatedJournal {
 
           def delete(topic: Topic, latency: FiniteDuration) = {
             observeTopicLatency(name = "delete", topic = topic, latency = latency)
+          }
+
+          def purge(topic: Topic, latency: FiniteDuration) = {
+            observeTopicLatency(name = "purge", topic = topic, latency = latency)
           }
 
           def save(topic: Topic, latency: FiniteDuration) = {

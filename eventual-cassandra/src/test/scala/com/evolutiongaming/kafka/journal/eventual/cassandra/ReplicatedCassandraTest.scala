@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
+import cats.arrow.FunctionK
 import cats.data.{IndexedStateT, NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.{ExitCase, Sync}
 import cats.implicits._
@@ -439,8 +440,27 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
       actual shouldEqual (expected, ()).pure[Try]
     }
 
-    test("purge") {
-      ???
+    ignore(s"purge, $suffix") {
+      val id = "id"
+      val key = Key(id, topic0)
+      val stateT = for {
+        _ <- journal.append(
+          key = key,
+          partitionOffset = PartitionOffset(partition = 0, offset = 3),
+          timestamp = timestamp1,
+          expireAfter = none,
+          events = Nel.of(
+            eventRecordOf(
+              seqNr = SeqNr.unsafe(1),
+              partitionOffset = PartitionOffset(partition = 0, offset = 1)),
+            eventRecordOf(
+              seqNr = SeqNr.unsafe(2),
+              partitionOffset = PartitionOffset(partition = 0, offset = 2))))
+        _ <- journal.purge(key)
+      } yield {}
+
+      val actual = stateT.run(State.empty)
+      actual shouldEqual (State.empty, ()).pure[Try]
     }
   }
 }

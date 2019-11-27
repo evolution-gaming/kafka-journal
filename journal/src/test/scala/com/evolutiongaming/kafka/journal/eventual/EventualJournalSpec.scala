@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual
 
 import java.time.Instant
 
+import cats.arrow.FunctionK
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.Clock
 import cats.implicits._
@@ -38,8 +39,10 @@ trait EventualJournalSpec extends WordSpec with Matchers {
           val replicated = {
             val journal = journals.replicated
               .withLog(log)
+              .enhanceError
               .withMetrics(ReplicatedJournal.Metrics.empty[F])
               .toOld
+              .mapK(FunctionK.id)
             Replicated[F](journal, key, timestamp)
           }
           f(eventual, replicated)

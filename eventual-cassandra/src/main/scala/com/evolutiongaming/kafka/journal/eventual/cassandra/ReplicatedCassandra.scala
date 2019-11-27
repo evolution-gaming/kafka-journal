@@ -263,6 +263,11 @@ object ReplicatedCassandra {
                     _           <- journalHead.traverse { journalHead => journalHeadRef.set(journalHead.some) }
                   } yield {}
                 }
+
+                val purge = {
+                  // TODO implement
+                  ().pure[F]
+                }
               }
             }
           }

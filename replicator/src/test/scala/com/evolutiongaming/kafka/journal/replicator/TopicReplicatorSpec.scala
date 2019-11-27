@@ -751,6 +751,15 @@ object TopicReplicatorSpec {
             def delete(partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = {
               StateT { state => (state.delete(id, deleteTo, partitionOffset, origin), ()) }
             }
+
+            def purge = {
+              StateT { state =>
+                val state1 = state.copy(
+                  journal = state.journal - id,
+                  metaJournal = state.metaJournal - id)
+                (state1, ())
+              }
+            }
           }
 
           Resource.liftF(journal.pure[StateT])
@@ -868,7 +877,8 @@ object TopicReplicatorSpec {
     pointers: Map[Topic, TopicPointers] = Map.empty,
     journal: Map[String, List[EventRecord]] = Map.empty,
     metaJournal: Map[String, MetaJournal] = Map.empty,
-    metrics: List[Metrics] = Nil) { self =>
+    metrics: List[Metrics] = Nil
+  ) { self =>
 
     def +(metrics: Metrics): (State, Unit) = {
       val result = copy(metrics = metrics :: self.metrics)

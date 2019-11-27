@@ -27,6 +27,8 @@ trait ReplicatedKeyJournal[F[_]] {
     deleteTo: SeqNr,
     origin: Option[Origin]
   ): F[Unit]
+
+  def purge: F[Unit]
 }
 
 object ReplicatedKeyJournal {
@@ -46,6 +48,8 @@ object ReplicatedKeyJournal {
       deleteTo: SeqNr,
       origin: Option[Origin]
     ) = ().pure[F]
+
+    def purge = ().pure[F]
   }
 
 
@@ -70,6 +74,8 @@ object ReplicatedKeyJournal {
       ) = {
         replicatedJournal.delete(key, partitionOffset, timestamp, deleteTo, origin)
       }
+
+      val purge = replicatedJournal.purge(key)
     }
   }
 
@@ -95,6 +101,8 @@ object ReplicatedKeyJournal {
       ) = {
         f(self.delete(partitionOffset, timestamp, deleteTo, origin))
       }
+
+      def purge = f(self.purge)
     }
 
 
@@ -144,6 +152,15 @@ object ReplicatedKeyJournal {
             }
           } yield r
         }
+
+        val purge = {
+          for {
+            d <- MeasureDuration[F].start
+            r <- self.purge
+            d <- d
+            _ <- log.debug(s"$key purge in ${ d.toMillis }ms")
+          } yield r
+        }
       }
     }
 
@@ -181,6 +198,15 @@ object ReplicatedKeyJournal {
             r <- self.delete(partitionOffset, timestamp, deleteTo, origin)
             d <- d
             _ <- metrics.delete(topic, d)
+          } yield r
+        }
+
+        def purge = {
+          for {
+            d <- MeasureDuration[F].start
+            r <- self.purge
+            d <- d
+            _ <- metrics.purge(topic, d)
           } yield r
         }
       }
@@ -230,6 +256,12 @@ object ReplicatedKeyJournal {
                   s"deleteTo: $deleteTo, " +
                   s"origin: $origin", a)
             }
+        }
+
+        val purge = {
+          self
+            .purge
+            .handleErrorWith { a => error(s"purge $key", a) }
         }
       }
     }

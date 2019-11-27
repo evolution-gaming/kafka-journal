@@ -34,9 +34,12 @@ trait ReplicatedJournalOld[F[_]] {
     origin: Option[Origin]
   ): F[Unit]
 
+  def purge(key: Key): F[Unit]
+
   def save(topic: Topic, pointers: Nem[Partition, Offset], timestamp: Instant): F[Unit]
 }
 
+// TODO rename to Flat
 object ReplicatedJournalOld {
 
   def apply[F[_] : BracketThrowable](replicatedJournal: ReplicatedJournal[F]): ReplicatedJournalOld[F] = {
@@ -82,6 +85,16 @@ object ReplicatedJournalOld {
           }
       }
 
+      def purge(key: Key) = {
+        replicatedJournal
+          .journal(key.topic)
+          .use { journal =>
+            journal
+              .journal(key.id)
+              .use { _.purge }
+          }
+      }
+
       def save(topic: Topic, pointers: Nem[Partition, Offset], timestamp: Instant) = {
         replicatedJournal
           .journal(topic)
@@ -113,11 +126,13 @@ object ReplicatedJournalOld {
       origin: Option[Origin]
     ) = ().pure[F]
 
+    def purge(key: Key) = ().pure[F]
+
     def save(topic: Topic, pointers: Nem[Partition, Offset], timestamp: Instant) = ().pure[F]
   }
 
 
-  implicit class ReplicatedJournalOps[F[_]](val self: ReplicatedJournalOld[F]) extends AnyVal {
+  implicit class ReplicatedJournalOldOps[F[_]](val self: ReplicatedJournalOld[F]) extends AnyVal {
 
     def mapK[G[_]](f: F ~> G): ReplicatedJournalOld[G] = new ReplicatedJournalOld[G] {
 
@@ -144,6 +159,8 @@ object ReplicatedJournalOld {
       ) = {
         f(self.delete(key, partitionOffset, timestamp, deleteTo, origin))
       }
+
+      def purge(key: Key) = f(self.purge(key))
 
       def save(topic: Topic, pointers: Nem[Partition, Offset], timestamp: Instant) = {
         f(self.save(topic, pointers, timestamp))
