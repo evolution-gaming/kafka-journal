@@ -2,7 +2,6 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
 
-import cats.arrow.FunctionK
 import cats.data.{IndexedStateT, NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.{ExitCase, Sync}
 import cats.implicits._
@@ -89,8 +88,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
               deleteTo = SeqNr.max.some),
             created = timestamp0,
             updated = timestamp1,
-            origin = origin.some))))),
-        journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))))
+            origin = origin.some))))))
       val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
     }
@@ -202,6 +200,10 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
         .toMap
 
       val expected = State(
+        actions = List(
+          Action.UpdateSeqNr(key0, segment0, PartitionOffset(partition = 0, offset = 3), timestamp1, SeqNr.unsafe(3))/*,
+          Action.UpdateSeqNr(key1, segment0, PartitionOffset(partition = 0, offset = 4), timestamp0, SeqNr.unsafe(1)),
+          Action.UpdateSeqNr(key0, segment0, PartitionOffset(partition = 0, offset = 0), timestamp0, SeqNr.unsafe(1))*/),
         metaJournal = Map(
           ((topic0, segment0), Map(
             (id0, MetaJournalEntry(
@@ -287,6 +289,8 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
         .toMap
 
       val expected = State(
+        actions = List(
+          Action.UpdateSeqNr(key, segment, PartitionOffset(partition = 0, offset = 3), timestamp1, SeqNr.unsafe(3))),
         metaJournal = Map(
           ((topic0, segment), Map(
             (id, MetaJournalEntry(
@@ -322,6 +326,8 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
             partitionOffset = PartitionOffset(partition = 0, offset = 3))))
 
       val expected = State(
+        actions = List(
+          Action.UpdateSeqNr(key, segment, PartitionOffset(partition = 0, offset = 4), timestamp1, SeqNr.unsafe(2))),
         metaJournal = Map(
           ((topic0, segment), Map(
             (id, MetaJournalEntry(
@@ -391,8 +397,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
               deleteTo = SeqNr.max.some),
             created = timestamp0,
             updated = timestamp1,
-            origin = origin.some))))),
-        journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))))
+            origin = origin.some))))))
       val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
     }
@@ -440,9 +445,10 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
       actual shouldEqual (expected, ()).pure[Try]
     }
 
-    ignore(s"purge, $suffix") {
+    test(s"purge, $suffix") {
       val id = "id"
       val key = Key(id, topic0)
+      val segment = segmentOfId(key)
       val stateT = for {
         _ <- journal.append(
           key = key,
@@ -460,7 +466,11 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
       } yield {}
 
       val actual = stateT.run(State.empty)
-      actual shouldEqual (State.empty, ()).pure[Try]
+      val expected = State(
+        actions = List(
+          Action.Delete(key, segment),
+          Action.UpdateDeleteTo(key, segment, PartitionOffset(partition = 0, offset = 4), timestamp1, SeqNr.unsafe(2))))
+      actual shouldEqual (expected, ()).pure[Try]
     }
   }
 }
@@ -493,7 +503,7 @@ object ReplicatedCassandraTest {
         val journal = state.journal
         val entries = journal
           .getOrElse(k, Map.empty)
-          .filterKeys { case (a, _) => a <= seqNr }
+          .filterKeys { case (a, _) => a > seqNr }
         val journal1 = if (entries.isEmpty) journal - k else journal.updated(k, entries)
         state.copy(journal = journal1)
       }
@@ -553,13 +563,15 @@ object ReplicatedCassandraTest {
   val updateMetaJournalSeqNr: MetaJournalStatements.UpdateSeqNr[StateT] = {
     (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr) => {
       StateT.unit { state =>
-        state.updateMetaJournal(key, segment) { entry =>
-          entry.copy(
-            journalHead = entry.journalHead.copy(
-              partitionOffset = partitionOffset,
-              seqNr = seqNr),
-            updated = timestamp)
-        }
+        state
+          .updateMetaJournal(key, segment) { entry =>
+            entry.copy(
+              journalHead = entry.journalHead.copy(
+                partitionOffset = partitionOffset,
+                seqNr = seqNr),
+              updated = timestamp)
+          }
+          .append(Action.UpdateSeqNr(key, segment, partitionOffset, timestamp, seqNr))
       }
     }
   }
@@ -568,13 +580,15 @@ object ReplicatedCassandraTest {
   val updateMetaJournalDeleteTo: MetaJournalStatements.UpdateDeleteTo[StateT] = {
     (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr) => {
       StateT.unit { state =>
-        state.updateMetaJournal(key, segment) { entry =>
-          entry.copy(
-            journalHead = entry.journalHead.copy(
-              partitionOffset = partitionOffset,
-              deleteTo = deleteTo.some),
-            updated = timestamp)
-        }
+        state
+          .updateMetaJournal(key, segment) { entry =>
+            entry.copy(
+              journalHead = entry.journalHead.copy(
+                partitionOffset = partitionOffset,
+                deleteTo = deleteTo.some),
+              updated = timestamp)
+          }
+          .append(Action.UpdateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo))
       }
     }
   }
@@ -596,7 +610,9 @@ object ReplicatedCassandraTest {
           }
           state.copy(metaJournal = metaJournal)
         }
-        state1 getOrElse state
+        state1
+          .getOrElse(state)
+          .append(Action.Delete(key, segment))
       }
     }
   }
@@ -745,7 +761,32 @@ object ReplicatedCassandraTest {
     updated: Instant)
 
 
+  sealed trait Action
+
+  object Action {
+
+    final case class UpdateSeqNr(
+      key: Key,
+      segment: SegmentNr,
+      partitionOffset: PartitionOffset,
+      timestamp: Instant,
+      seqNr: SeqNr
+    ) extends Action
+
+    final case class UpdateDeleteTo(
+      key: Key,
+      segment: SegmentNr,
+      partitionOffset: PartitionOffset,
+      timestamp: Instant,
+      deleteTo: SeqNr
+    ) extends Action
+
+    final case class Delete(key: Key, segment: SegmentNr) extends Action
+  }
+
+
   final case class State(
+    actions: List[Action] = List.empty,
     pointers: Map[Topic, Map[Partition, PointerEntry]] = Map.empty,
     metaJournal: Map[(Topic, SegmentNr), Map[String, MetaJournalEntry]] = Map.empty,
     journal: Map[(Key, SegmentNr), Map[(SeqNr, Instant), EventRecord]] = Map.empty)
@@ -756,6 +797,8 @@ object ReplicatedCassandraTest {
 
 
     implicit class StateOps(val self: State) extends AnyVal {
+
+      def append(action: Action): State = self.copy(actions = action :: self.actions)
 
       def updateMetaJournal(key: Key, segment: SegmentNr)(f: MetaJournalEntry => MetaJournalEntry): State = {
         val state = for {

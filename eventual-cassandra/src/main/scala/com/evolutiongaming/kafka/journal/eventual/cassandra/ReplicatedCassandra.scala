@@ -80,11 +80,80 @@ object ReplicatedCassandra {
 
             val key = Key(id = id, topic = topic)
 
+            def journalHeadRef(segment: SegmentNr) = {
+              for {
+                journalHead <- metaJournal.journalHead(key, segment)
+                ref         <- Ref[F].of(journalHead)
+              } yield ref
+            }
+
             for {
               segment        <- Resource.liftF(segmentOf(key))
-              journalHead    <- Resource.liftF(metaJournal.journalHead(key, segment))
-              journalHeadRef <- Resource.liftF(Ref[F].of(journalHead))
+              journalHeadRef <- Resource.liftF(journalHeadRef(segment))
             } yield {
+
+              def delete1(
+                journalHead: JournalHead,
+                deleteTo: SeqNr,
+                partitionOffset: PartitionOffset,
+                timestamp: Instant
+              ) = {
+
+                if (partitionOffset.offset <= journalHead.partitionOffset.offset) {
+                  none[JournalHead].pure[F]
+                } else {
+                  def update = {
+                    if (journalHead.seqNr >= deleteTo) {
+                      val journalHead1 = journalHead.copy(
+                        partitionOffset = partitionOffset,
+                        deleteTo = deleteTo.some)
+                      metaJournal
+                        .updateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo)
+                        .as(journalHead1)
+                    } else {
+                      val journalHead1 = journalHead.copy(
+                        partitionOffset = partitionOffset,
+                        seqNr = deleteTo,
+                        deleteTo = deleteTo.some)
+                      metaJournal
+                        .update(key, segment, partitionOffset, timestamp, deleteTo, deleteTo)
+                        .as(journalHead1)
+                    }
+                  }
+
+                  def delete = {
+
+                    def delete(from: SeqNr, deleteTo: SeqNr) = {
+
+                      def segment(seqNr: SeqNr) = SegmentNr(seqNr, segmentSize)
+
+                      (segment(from) to segment(deleteTo)).parFoldMap { segment =>
+                        statements.deleteRecords(key, segment, deleteTo)
+                      }
+                    }
+
+                    val deleteTo1 = journalHead.seqNr min deleteTo
+
+                    journalHead.deleteTo.fold {
+                      delete(from = SeqNr.min, deleteTo = deleteTo1)
+                    } { deleteTo =>
+                      if (deleteTo >= deleteTo1) {
+                        ().pure[F]
+                      } else {
+                        deleteTo.next[Option].foldMap { from => delete(from = from, deleteTo = deleteTo1) }
+                      }
+                    }
+                  }
+
+                  val result = for {
+                    journalHead <- update
+                    _           <- delete
+                  } yield {
+                    journalHead.some
+                  }
+                  result.uncancelable
+                }
+              }
 
               new ReplicatedKeyJournal[F] {
 
@@ -203,66 +272,7 @@ object ReplicatedCassandra {
                   }
 
                   def delete(journalHead: JournalHead) = {
-
-                    def delete = {
-                      
-                      def update = {
-                        if (journalHead.seqNr >= deleteTo) {
-                          val journalHead1 = journalHead.copy(
-                            partitionOffset = partitionOffset,
-                            deleteTo = deleteTo.some)
-                          metaJournal
-                            .updateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo)
-                            .as(journalHead1)
-                        } else {
-                          val journalHead1 = journalHead.copy(
-                            partitionOffset = partitionOffset,
-                            seqNr = deleteTo,
-                            deleteTo = deleteTo.some)
-                          metaJournal
-                            .update(key, segment, partitionOffset, timestamp, deleteTo, deleteTo)
-                            .as(journalHead1)
-                        }
-                      }
-
-                      def delete = {
-
-                        def delete(from: SeqNr, deleteTo: SeqNr) = {
-
-                          def segment(seqNr: SeqNr) = SegmentNr(seqNr, segmentSize)
-
-                          (segment(from) to segment(deleteTo)).parFoldMap { segment =>
-                            statements.deleteRecords(key, segment, deleteTo)
-                          }
-                        }
-
-                        val deleteToFixed = journalHead.seqNr min deleteTo
-
-                        journalHead.deleteTo.fold {
-                          delete(from = SeqNr.min, deleteTo = deleteToFixed)
-                        } { deleteTo =>
-                          if (deleteTo >= deleteToFixed) {
-                            ().pure[F]
-                          } else {
-                            deleteTo.next[Option].foldMap { from => delete(from = from, deleteTo = deleteToFixed) }
-                          }
-                        }
-                      }
-
-                      val result = for {
-                        journalHead <- update
-                        _           <- delete
-                      } yield {
-                        journalHead.some
-                      }
-                      result.uncancelable
-                    }
-
-                    if (partitionOffset.offset <= journalHead.partitionOffset.offset) {
-                      none[JournalHead].pure[F]
-                    } else {
-                      delete
-                    }
+                    delete1(journalHead, deleteTo, partitionOffset, timestamp)
                   }
 
                   for {
@@ -275,16 +285,24 @@ object ReplicatedCassandra {
                 def purge(
                   offset: Offset,
                   timestamp: Instant,
-                  origin: Option[Origin]
+                  origin: Option[Origin] // TODO remove origin
                 ) = {
-                  /*for {
-                    journalHead <- journalHeadRef.get
-                    journalHead <- delete()
-                    _ <- journalHeadRef.set(none)
-                  } yield {}*/
 
-                  // TODO implement
-                  ().pure[F]
+                  def purge(journalHead: JournalHead) = {
+                    val partitionOffset = journalHead
+                      .partitionOffset
+                      .copy(offset = offset)
+                    for {
+                      journalHead <- delete1(journalHead, journalHead.seqNr, partitionOffset, timestamp)
+                      _           <- journalHead.traverse { journalHead => journalHeadRef.set(journalHead.some) }
+                      _           <- metaJournal.delete(key, segment)
+                      _           <- journalHeadRef.set(none)
+                    } yield {}
+                  }
+                  for {
+                    journalHead <- journalHeadRef.get
+                    result      <- journalHead.foldMapM { purge }
+                  } yield result
                 }
               }
             }
