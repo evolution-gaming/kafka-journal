@@ -37,7 +37,7 @@ object ReplicatedTopicJournal {
 
   def apply[F[_] : Applicative](
     topic: Topic,
-    replicatedJournal: ReplicatedJournalOld[F]
+    replicatedJournal: ReplicatedJournalFlat[F]
   ): ReplicatedTopicJournal[F] = {
 
     new ReplicatedTopicJournal[F] {

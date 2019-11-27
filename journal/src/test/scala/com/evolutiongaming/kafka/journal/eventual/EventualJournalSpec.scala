@@ -41,7 +41,7 @@ trait EventualJournalSpec extends WordSpec with Matchers {
               .withLog(log)
               .enhanceError
               .withMetrics(ReplicatedJournal.Metrics.empty[F])
-              .toOld
+              .toFlat
               .mapK(FunctionK.id)
             Replicated[F](journal, key, timestamp)
           }
@@ -488,7 +488,7 @@ object EventualJournalSpec {
   object Replicated {
 
     def apply[F[_] : FlatMap](
-      journal: ReplicatedJournalOld[F],
+      journal: ReplicatedJournalFlat[F],
       key: Key,
       timestamp: Instant
     ): Replicated[F] = {

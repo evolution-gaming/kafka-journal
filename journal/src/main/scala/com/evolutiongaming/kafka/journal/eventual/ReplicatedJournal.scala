@@ -32,7 +32,7 @@ object ReplicatedJournal {
   }
 
 
-  def apply[F[_] : Applicative](replicatedJournal: ReplicatedJournalOld[F]): ReplicatedJournal[F] = {
+  def apply[F[_] : Applicative](replicatedJournal: ReplicatedJournalFlat[F]): ReplicatedJournal[F] = {
 
     new ReplicatedJournal[F] {
 
@@ -139,8 +139,7 @@ object ReplicatedJournal {
       }
     }
 
-    // TODO remove
-    def toOld(implicit F: BracketThrowable[F]): ReplicatedJournalOld[F] = ReplicatedJournalOld(self)
+    def toFlat(implicit F: BracketThrowable[F]): ReplicatedJournalFlat[F] = ReplicatedJournalFlat(self)
   }
 
 

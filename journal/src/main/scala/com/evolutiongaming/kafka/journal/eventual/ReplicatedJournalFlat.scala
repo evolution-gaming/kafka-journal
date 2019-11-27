@@ -12,7 +12,7 @@ import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import scala.concurrent.duration.FiniteDuration
 
 
-trait ReplicatedJournalOld[F[_]] {
+trait ReplicatedJournalFlat[F[_]] {
 
   def topics: F[List[Topic]]
 
@@ -47,11 +47,10 @@ trait ReplicatedJournalOld[F[_]] {
   ): F[Unit]
 }
 
-// TODO rename to Flat
-object ReplicatedJournalOld {
+object ReplicatedJournalFlat {
 
-  def apply[F[_] : BracketThrowable](replicatedJournal: ReplicatedJournal[F]): ReplicatedJournalOld[F] = {
-    new ReplicatedJournalOld[F] {
+  def apply[F[_] : BracketThrowable](replicatedJournal: ReplicatedJournal[F]): ReplicatedJournalFlat[F] = {
+    new ReplicatedJournalFlat[F] {
 
       def topics = replicatedJournal.topics
 
@@ -116,7 +115,7 @@ object ReplicatedJournalOld {
   }
 
 
-  def empty[F[_] : Applicative]: ReplicatedJournalOld[F] = new ReplicatedJournalOld[F] {
+  def empty[F[_] : Applicative]: ReplicatedJournalFlat[F] = new ReplicatedJournalFlat[F] {
 
     def topics = List.empty[Topic].pure[F]
 
@@ -148,9 +147,9 @@ object ReplicatedJournalOld {
   }
 
 
-  implicit class ReplicatedJournalOldOps[F[_]](val self: ReplicatedJournalOld[F]) extends AnyVal {
+  implicit class ReplicatedJournalFlatOps[F[_]](val self: ReplicatedJournalFlat[F]) extends AnyVal {
 
-    def mapK[G[_]](f: F ~> G): ReplicatedJournalOld[G] = new ReplicatedJournalOld[G] {
+    def mapK[G[_]](f: F ~> G): ReplicatedJournalFlat[G] = new ReplicatedJournalFlat[G] {
 
       def topics = f(self.topics)
 

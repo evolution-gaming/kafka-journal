@@ -59,7 +59,7 @@ object ReplicatedKeyJournal {
   }
 
 
-  def apply[F[_]](key: Key, replicatedJournal: ReplicatedJournalOld[F]): ReplicatedKeyJournal[F] = {
+  def apply[F[_]](key: Key, replicatedJournal: ReplicatedJournalFlat[F]): ReplicatedKeyJournal[F] = {
 
     new ReplicatedKeyJournal[F] {
 
