@@ -183,7 +183,7 @@ object ReplicatedCassandra {
                   } yield {}
                 }
 
-
+                // TODO why do we need partition ?
                 def delete(
                   partitionOffset: PartitionOffset,
                   timestamp: Instant,
@@ -204,49 +204,51 @@ object ReplicatedCassandra {
 
                   def delete(journalHead: JournalHead) = {
 
-                    def update = {
-                      if (journalHead.seqNr >= deleteTo) {
-                        val journalHead1 = journalHead.copy(
-                          partitionOffset = partitionOffset,
-                          deleteTo = deleteTo.some)
-                        metaJournal
-                          .updateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo)
-                          .as(journalHead1)
-                      } else {
-                        val journalHead1 = journalHead.copy(
-                          partitionOffset = partitionOffset,
-                          seqNr = deleteTo,
-                          deleteTo = deleteTo.some)
-                        metaJournal
-                          .update(key, segment, partitionOffset, timestamp, deleteTo, deleteTo)
-                          .as(journalHead1)
-                      }
-                    }
-
                     def delete = {
-
-                      def delete(from: SeqNr, deleteTo: SeqNr) = {
-
-                        def segment(seqNr: SeqNr) = SegmentNr(seqNr, segmentSize)
-
-                        (segment(from) to segment(deleteTo)).parFoldMap { segment =>
-                          statements.deleteRecords(key, segment, deleteTo)
+                      
+                      def update = {
+                        if (journalHead.seqNr >= deleteTo) {
+                          val journalHead1 = journalHead.copy(
+                            partitionOffset = partitionOffset,
+                            deleteTo = deleteTo.some)
+                          metaJournal
+                            .updateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo)
+                            .as(journalHead1)
+                        } else {
+                          val journalHead1 = journalHead.copy(
+                            partitionOffset = partitionOffset,
+                            seqNr = deleteTo,
+                            deleteTo = deleteTo.some)
+                          metaJournal
+                            .update(key, segment, partitionOffset, timestamp, deleteTo, deleteTo)
+                            .as(journalHead1)
                         }
                       }
 
-                      val deleteToFixed = journalHead.seqNr min deleteTo
+                      def delete = {
 
-                      journalHead.deleteTo.fold {
-                        delete(from = SeqNr.min, deleteTo = deleteToFixed)
-                      } { deleteTo =>
-                        if (deleteTo >= deleteToFixed) ().pure[F]
-                        else deleteTo.next[Option].foldMap { from => delete(from = from, deleteTo = deleteToFixed) }
+                        def delete(from: SeqNr, deleteTo: SeqNr) = {
+
+                          def segment(seqNr: SeqNr) = SegmentNr(seqNr, segmentSize)
+
+                          (segment(from) to segment(deleteTo)).parFoldMap { segment =>
+                            statements.deleteRecords(key, segment, deleteTo)
+                          }
+                        }
+
+                        val deleteToFixed = journalHead.seqNr min deleteTo
+
+                        journalHead.deleteTo.fold {
+                          delete(from = SeqNr.min, deleteTo = deleteToFixed)
+                        } { deleteTo =>
+                          if (deleteTo >= deleteToFixed) {
+                            ().pure[F]
+                          } else {
+                            deleteTo.next[Option].foldMap { from => delete(from = from, deleteTo = deleteToFixed) }
+                          }
+                        }
                       }
-                    }
 
-                    if (partitionOffset.offset <= journalHead.partitionOffset.offset) {
-                      none[JournalHead].pure[F]
-                    } else {
                       val result = for {
                         journalHead <- update
                         _           <- delete
@@ -254,6 +256,12 @@ object ReplicatedCassandra {
                         journalHead.some
                       }
                       result.uncancelable
+                    }
+
+                    if (partitionOffset.offset <= journalHead.partitionOffset.offset) {
+                      none[JournalHead].pure[F]
+                    } else {
+                      delete
                     }
                   }
 
@@ -264,7 +272,17 @@ object ReplicatedCassandra {
                   } yield {}
                 }
 
-                val purge = {
+                def purge(
+                  offset: Offset,
+                  timestamp: Instant,
+                  origin: Option[Origin]
+                ) = {
+                  /*for {
+                    journalHead <- journalHeadRef.get
+                    journalHead <- delete()
+                    _ <- journalHeadRef.set(none)
+                  } yield {}*/
+
                   // TODO implement
                   ().pure[F]
                 }

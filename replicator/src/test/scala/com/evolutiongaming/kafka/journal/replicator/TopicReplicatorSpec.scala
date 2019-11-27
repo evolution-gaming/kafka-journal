@@ -752,7 +752,11 @@ object TopicReplicatorSpec {
               StateT { state => (state.delete(id, deleteTo, partitionOffset, origin), ()) }
             }
 
-            def purge = {
+            def purge(
+              offset: Offset,
+              timestamp: Instant,
+              origin: Option[Origin]
+            ) = {
               StateT { state =>
                 val state1 = state.copy(
                   journal = state.journal - id,

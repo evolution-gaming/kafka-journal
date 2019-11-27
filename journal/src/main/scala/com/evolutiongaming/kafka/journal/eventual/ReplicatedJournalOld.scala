@@ -34,7 +34,12 @@ trait ReplicatedJournalOld[F[_]] {
     origin: Option[Origin]
   ): F[Unit]
 
-  def purge(key: Key): F[Unit]
+  def purge(
+    key: Key,
+    offset: Offset,
+    timestamp: Instant,
+    origin: Option[Origin]
+  ): F[Unit]
 
   def save(topic: Topic, pointers: Nem[Partition, Offset], timestamp: Instant): F[Unit]
 }
@@ -85,13 +90,18 @@ object ReplicatedJournalOld {
           }
       }
 
-      def purge(key: Key) = {
+      def purge(
+        key: Key,
+        offset: Offset,
+        timestamp: Instant,
+        origin: Option[Origin]
+      ) = {
         replicatedJournal
           .journal(key.topic)
           .use { journal =>
             journal
               .journal(key.id)
-              .use { _.purge }
+              .use { _.purge(offset, timestamp, origin) }
           }
       }
 
@@ -126,7 +136,12 @@ object ReplicatedJournalOld {
       origin: Option[Origin]
     ) = ().pure[F]
 
-    def purge(key: Key) = ().pure[F]
+    def purge(
+      key: Key,
+      offset: Offset,
+      timestamp: Instant,
+      origin: Option[Origin]
+    ) = ().pure[F]
 
     def save(topic: Topic, pointers: Nem[Partition, Offset], timestamp: Instant) = ().pure[F]
   }
@@ -160,7 +175,14 @@ object ReplicatedJournalOld {
         f(self.delete(key, partitionOffset, timestamp, deleteTo, origin))
       }
 
-      def purge(key: Key) = f(self.purge(key))
+      def purge(
+        key: Key,
+        offset: Offset,
+        timestamp: Instant,
+        origin: Option[Origin]
+      ) = {
+        f(self.purge(key, offset, timestamp, origin))
+      }
 
       def save(topic: Topic, pointers: Nem[Partition, Offset], timestamp: Instant) = {
         f(self.save(topic, pointers, timestamp))

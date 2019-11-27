@@ -7,7 +7,7 @@ import cats.implicits._
 import cats.{Applicative, FlatMap, ~>}
 import com.evolutiongaming.catshelper.{ApplicativeThrowable, Log}
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.skafka.Topic
+import com.evolutiongaming.skafka.{Offset, Topic}
 import com.evolutiongaming.smetrics._
 
 import scala.concurrent.duration.FiniteDuration
@@ -28,7 +28,11 @@ trait ReplicatedKeyJournal[F[_]] {
     origin: Option[Origin]
   ): F[Unit]
 
-  def purge: F[Unit]
+  def purge(
+    offset: Offset,
+    timestamp: Instant,
+    origin: Option[Origin]
+  ): F[Unit]
 }
 
 object ReplicatedKeyJournal {
@@ -49,7 +53,11 @@ object ReplicatedKeyJournal {
       origin: Option[Origin]
     ) = ().pure[F]
 
-    def purge = ().pure[F]
+    def purge(
+      offset: Offset,
+      timestamp: Instant,
+      origin: Option[Origin]
+    ) = ().pure[F]
   }
 
 
@@ -75,7 +83,13 @@ object ReplicatedKeyJournal {
         replicatedJournal.delete(key, partitionOffset, timestamp, deleteTo, origin)
       }
 
-      val purge = replicatedJournal.purge(key)
+      def purge(
+        offset: Offset,
+        timestamp: Instant,
+        origin: Option[Origin]
+      ) = {
+        replicatedJournal.purge(key, offset, timestamp, origin)
+      }
     }
   }
 
@@ -102,7 +116,13 @@ object ReplicatedKeyJournal {
         f(self.delete(partitionOffset, timestamp, deleteTo, origin))
       }
 
-      def purge = f(self.purge)
+      def purge(
+        offset: Offset,
+        timestamp: Instant,
+        origin: Option[Origin]
+      ) = {
+        f(self.purge(offset, timestamp, origin))
+      }
     }
 
 
@@ -153,12 +173,19 @@ object ReplicatedKeyJournal {
           } yield r
         }
 
-        val purge = {
+        def purge(
+          offset: Offset,
+          timestamp: Instant,
+          origin: Option[Origin]
+        ) = {
           for {
             d <- MeasureDuration[F].start
-            r <- self.purge
+            r <- self.purge(offset, timestamp, origin)
             d <- d
-            _ <- log.debug(s"$key purge in ${ d.toMillis }ms")
+            _ <- log.debug {
+              val originStr = origin.fold("") { origin => s", origin: $origin" }
+              s"$key purge in ${ d.toMillis }ms, offset: $offset$originStr"
+            }
           } yield r
         }
       }
@@ -201,10 +228,14 @@ object ReplicatedKeyJournal {
           } yield r
         }
 
-        def purge = {
+        def purge(
+          offset: Offset,
+          timestamp: Instant,
+          origin: Option[Origin]
+        ) = {
           for {
             d <- MeasureDuration[F].start
-            r <- self.purge
+            r <- self.purge(offset, timestamp, origin)
             d <- d
             _ <- metrics.purge(topic, d)
           } yield r
@@ -258,10 +289,20 @@ object ReplicatedKeyJournal {
             }
         }
 
-        val purge = {
+        def purge(
+          offset: Offset,
+          timestamp: Instant,
+          origin: Option[Origin]
+        ) = {
           self
-            .purge
-            .handleErrorWith { a => error(s"purge $key", a) }
+            .purge(offset, timestamp, origin)
+            .handleErrorWith { a =>
+              error(s"purge " +
+                s"key: $key, " +
+                s"offset: $offset, " +
+                s"timestamp: $timestamp, " +
+                s"origin: $origin", a)
+            }
         }
       }
     }

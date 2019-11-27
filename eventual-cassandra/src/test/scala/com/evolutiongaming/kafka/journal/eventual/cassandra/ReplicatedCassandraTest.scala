@@ -447,7 +447,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
         _ <- journal.append(
           key = key,
           partitionOffset = PartitionOffset(partition = 0, offset = 3),
-          timestamp = timestamp1,
+          timestamp = timestamp0,
           expireAfter = none,
           events = Nel.of(
             eventRecordOf(
@@ -456,7 +456,7 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
             eventRecordOf(
               seqNr = SeqNr.unsafe(2),
               partitionOffset = PartitionOffset(partition = 0, offset = 2))))
-        _ <- journal.purge(key)
+        _ <- journal.purge(key, 4, timestamp1, origin.some)
       } yield {}
 
       val actual = stateT.run(State.empty)
