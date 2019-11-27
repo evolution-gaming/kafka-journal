@@ -288,15 +288,20 @@ object ReplicatedCassandra {
                 ) = {
 
                   def purge(journalHead: JournalHead) = {
-                    val partitionOffset = journalHead
-                      .partitionOffset
-                      .copy(offset = offset)
-                    for {
-                      journalHead <- delete1(journalHead, journalHead.seqNr, partitionOffset, timestamp)
-                      _           <- journalHead.traverse { journalHead => journalHeadRef.set(journalHead.some) }
-                      _           <- metaJournal.delete(key, segment)
-                      _           <- journalHeadRef.set(none)
-                    } yield {}
+
+                    if (offset > journalHead.partitionOffset.offset) {
+                      val partitionOffset = journalHead
+                        .partitionOffset
+                        .copy(offset = offset)
+                      for {
+                        journalHead <- delete1(journalHead, journalHead.seqNr, partitionOffset, timestamp)
+                        _           <- journalHead.traverse { journalHead => journalHeadRef.set(journalHead.some) }
+                        _           <- metaJournal.delete(key, segment)
+                        _           <- journalHeadRef.set(none)
+                      } yield {}
+                    } else {
+                      ().pure[F]
+                    }
                   }
                   for {
                     journalHead <- journalHeadRef.get
