@@ -76,6 +76,15 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
       } yield {}
 
       val expected = State(
+        actions = List(
+          Action.InsertMetaJournal(
+            key,
+            segment,
+            created = timestamp0,
+            updated = timestamp0,
+            JournalHead(partitionOffset, segmentSize, SeqNr.min, none),
+            origin.some),
+          Action.InsertRecords(key, SegmentNr.min, 1)),
         pointers = Map(
           (topic0, Map((0, PointerEntry(offset = 1, created = timestamp0, updated = timestamp1)))),
           (topic1, Map((0, PointerEntry(offset = 0, created = timestamp0, updated = timestamp0))))),
@@ -116,6 +125,15 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
       } yield {}
 
       val expected = State(
+        actions = List(
+          Action.InsertMetaJournal(
+            key,
+            segment,
+            created = timestamp0,
+            updated = timestamp0,
+            JournalHead(partitionOffset, segmentSize, SeqNr.min, none),
+            origin.some),
+          Action.InsertRecords(key, SegmentNr.min, 1)),
         pointers = Map(
           (topic0, Map((0, PointerEntry(offset = 1, created = timestamp0, updated = timestamp1)))),
           (topic1, Map((0, PointerEntry(offset = 0, created = timestamp0, updated = timestamp0))))),
@@ -199,11 +217,51 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
         .toList
         .toMap
 
+      val actions = if (segmentSize <= SegmentSize.min) {
+        List(
+          Action.InsertMetaJournal(
+            key1,
+            segment1,
+            created = timestamp0,
+            updated = timestamp0,
+            JournalHead(PartitionOffset(partition = 0, offset = 4), segmentSize, SeqNr.min, none),
+            origin.some),
+          Action.InsertRecords(key1, SegmentNr.min, 1),
+          Action.UpdateSeqNr(key0, segment0, PartitionOffset(partition = 0, offset = 3), timestamp1, SeqNr.unsafe(3)),
+          Action.InsertRecords(key0, SegmentNr.unsafe(1), 1),
+          Action.InsertRecords(key0, SegmentNr.min, 1),
+          Action.InsertMetaJournal(
+            key0,
+            segment0,
+            created = timestamp0,
+            updated = timestamp0,
+            JournalHead(partitionOffset, segmentSize, SeqNr.min, none),
+            origin.some),
+          Action.InsertRecords(key0, SegmentNr.min, 1))
+      } else {
+        List(
+          Action.InsertMetaJournal(
+            key1,
+            segment1,
+            created = timestamp0,
+            updated = timestamp0,
+            JournalHead(PartitionOffset(partition = 0, offset = 4), segmentSize, SeqNr.min, none),
+            origin.some),
+          Action.InsertRecords(key1, SegmentNr.min, 1),
+          Action.UpdateSeqNr(key0, segment0, PartitionOffset(partition = 0, offset = 3), timestamp1, SeqNr.unsafe(3)),
+          Action.InsertRecords(key0, SegmentNr.min, 2),
+          Action.InsertMetaJournal(
+            key0,
+            segment0,
+            created = timestamp0,
+            updated = timestamp0,
+            JournalHead(partitionOffset, segmentSize, SeqNr.min, none),
+            origin.some),
+          Action.InsertRecords(key0, SegmentNr.min, 1))
+      }
+
       val expected = State(
-        actions = List(
-          Action.UpdateSeqNr(key0, segment0, PartitionOffset(partition = 0, offset = 3), timestamp1, SeqNr.unsafe(3))/*,
-          Action.UpdateSeqNr(key1, segment0, PartitionOffset(partition = 0, offset = 4), timestamp0, SeqNr.unsafe(1)),
-          Action.UpdateSeqNr(key0, segment0, PartitionOffset(partition = 0, offset = 0), timestamp0, SeqNr.unsafe(1))*/),
+        actions = actions,
         metaJournal = Map(
           ((topic0, segment0), Map(
             (id0, MetaJournalEntry(
@@ -288,9 +346,45 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
         .toList
         .toMap
 
+      val actions = if (segmentSize <= SegmentSize.min) {
+        List(
+          Action.UpdateSeqNr(
+            key,
+            segment,
+            PartitionOffset(partition = 0, offset = 3),
+            timestamp1,
+            SeqNr.unsafe(3)),
+          Action.InsertRecords(key, SegmentNr.unsafe(1), 1),
+          Action.InsertRecords(key, SegmentNr.min, 1),
+          Action.InsertMetaJournal(
+            key,
+            segment,
+            created = timestamp0,
+            updated = timestamp0,
+            JournalHead(partitionOffset, segmentSize, SeqNr.min, none),
+            origin.some),
+          Action.InsertRecords(key, SegmentNr.min, 1))
+      } else {
+        List(
+          Action.UpdateSeqNr(
+            key,
+            segment,
+            PartitionOffset(partition = 0, offset = 3),
+            timestamp1,
+            SeqNr.unsafe(3)),
+          Action.InsertRecords(key, SegmentNr.min, 2),
+          Action.InsertMetaJournal(
+            key,
+            segment,
+            created = timestamp0,
+            updated = timestamp0,
+            JournalHead(partitionOffset, segmentSize, SeqNr.min, none),
+            origin.some),
+          Action.InsertRecords(key, SegmentNr.min, 1))
+      }
+
       val expected = State(
-        actions = List(
-          Action.UpdateSeqNr(key, segment, PartitionOffset(partition = 0, offset = 3), timestamp1, SeqNr.unsafe(3))),
+        actions = actions,
         metaJournal = Map(
           ((topic0, segment), Map(
             (id, MetaJournalEntry(
@@ -327,7 +421,13 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
 
       val expected = State(
         actions = List(
-          Action.UpdateSeqNr(key, segment, PartitionOffset(partition = 0, offset = 4), timestamp1, SeqNr.unsafe(2))),
+          Action.UpdateSeqNr(
+            key,
+            segment,
+            PartitionOffset(partition = 0, offset = 4),
+            timestamp1,
+            SeqNr.unsafe(2)),
+          Action.InsertRecords(key, SegmentNr.min, 1)),
         metaJournal = Map(
           ((topic0, segment), Map(
             (id, MetaJournalEntry(
@@ -388,6 +488,15 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
       } yield {}
 
       val expected = State(
+        actions = List(
+          Action.InsertMetaJournal(
+            key,
+            segment,
+            created = timestamp0,
+            updated = timestamp0,
+            JournalHead(PartitionOffset(partition = 0, offset = 1), segmentSize, SeqNr.min, none),
+            origin.some),
+          Action.InsertRecords(key, SegmentNr.min, 1)),
         metaJournal = Map(
           ((topic0, segment), Map((id, MetaJournalEntry(
             journalHead = JournalHead(
@@ -469,7 +578,66 @@ class ReplicatedCassandraTest extends FunSuite with Matchers {
       val expected = State(
         actions = List(
           Action.Delete(key, segment),
-          Action.UpdateDeleteTo(key, segment, PartitionOffset(partition = 0, offset = 4), timestamp1, SeqNr.unsafe(2))))
+          Action.UpdateDeleteTo(
+            key,
+            segment,
+            PartitionOffset(partition = 0, offset = 4),
+            timestamp1,
+            SeqNr.unsafe(2)),
+          Action.InsertMetaJournal(
+            key,
+            segment,
+            created = timestamp0,
+            updated = timestamp0,
+            JournalHead(PartitionOffset(partition = 0, offset = 3), segmentSize, SeqNr.unsafe(2), none),
+            origin.some),
+          Action.InsertRecords(key, SegmentNr.min, 2)))
+      actual shouldEqual (expected, ()).pure[Try]
+    }
+
+    test(s"ignore purge, $suffix") {
+      val id = "id"
+      val key = Key(id, topic0)
+      val stateT = journal.purge(key, 4, timestamp1)
+      val actual = stateT.run(State.empty)
+      actual shouldEqual (State.empty, ()).pure[Try]
+    }
+
+    test(s"purge meta journal only, $suffix") {
+      val id = "id"
+      val key = Key(id, topic0)
+      val segment = segmentOfId(key)
+      val stateT = for {
+        _ <- journal.append(
+          key = key,
+          partitionOffset = PartitionOffset(partition = 0, offset = 3),
+          timestamp = timestamp0,
+          expireAfter = none,
+          events = Nel.of(
+            eventRecordOf(
+              seqNr = SeqNr.unsafe(1),
+              partitionOffset = PartitionOffset(partition = 0, offset = 1)),
+            eventRecordOf(
+              seqNr = SeqNr.unsafe(2),
+              partitionOffset = PartitionOffset(partition = 0, offset = 2))))
+        _ <- journal.delete(key, PartitionOffset(partition = 0, offset = 4), timestamp0, SeqNr.unsafe(2), origin.some)
+        _ <- journal.purge(key, 5, timestamp1)
+      } yield {}
+
+      val actual = stateT.run(State.empty)
+      val expected = State(
+        actions = List(
+          Action.Delete(key, segment),
+          Action.UpdateDeleteTo(key, segment, PartitionOffset(partition = 0, offset = 5), timestamp1, SeqNr.unsafe(2)),
+          Action.UpdateDeleteTo(key, segment, PartitionOffset(partition = 0, offset = 4), timestamp0, SeqNr.unsafe(2)),
+          Action.InsertMetaJournal(
+            key,
+            segment,
+            created = timestamp0,
+            updated = timestamp0,
+            JournalHead(PartitionOffset(partition = 0, offset = 3), segmentSize, SeqNr.unsafe(2), none),
+            origin.some),
+          Action.InsertRecords(key, SegmentNr.min, 2)))
       actual shouldEqual (expected, ()).pure[Try]
     }
   }
@@ -490,7 +658,9 @@ object ReplicatedCassandraTest {
         }
 
         val journal1 = state.journal.updated(k, entries1)
-        state.copy(journal = journal1)
+        state
+          .copy(journal = journal1)
+          .append(Action.InsertRecords(key, segment, events.size))
       }
     }
   }
@@ -523,7 +693,9 @@ object ReplicatedCassandraTest {
           .metaJournal
           .getOrElse((key.topic, segment), Map.empty)
           .updated(key.id, entry)
-        state.copy(metaJournal = state.metaJournal.updated((key.topic, segment), entries))
+        state
+          .copy(metaJournal = state.metaJournal.updated((key.topic, segment), entries))
+          .append(Action.InsertMetaJournal(key, segment, created, updated, journalHead, origin))
       }
     }
   }
@@ -764,6 +936,17 @@ object ReplicatedCassandraTest {
   sealed trait Action
 
   object Action {
+
+    final case class InsertRecords(key: Key, segment: SegmentNr, records: Int) extends Action
+
+    final case class InsertMetaJournal(
+      key: Key,
+      segment: SegmentNr,
+      created: Instant,
+      updated: Instant,
+      journalHead: JournalHead,
+      origin: Option[Origin]
+    ) extends Action
 
     final case class UpdateSeqNr(
       key: Key,
