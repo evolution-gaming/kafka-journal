@@ -755,7 +755,6 @@ object TopicReplicatorSpec {
             def purge(
               offset: Offset,
               timestamp: Instant,
-              origin: Option[Origin]
             ) = {
               StateT { state =>
                 val state1 = state.copy(

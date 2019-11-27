@@ -284,8 +284,7 @@ object ReplicatedCassandra {
 
                 def purge(
                   offset: Offset,
-                  timestamp: Instant,
-                  origin: Option[Origin] // TODO remove origin
+                  timestamp: Instant
                 ) = {
 
                   def purge(journalHead: JournalHead) = {

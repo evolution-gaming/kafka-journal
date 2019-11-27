@@ -30,8 +30,7 @@ trait ReplicatedKeyJournal[F[_]] {
 
   def purge(
     offset: Offset,
-    timestamp: Instant,
-    origin: Option[Origin]
+    timestamp: Instant
   ): F[Unit]
 }
 
@@ -55,8 +54,7 @@ object ReplicatedKeyJournal {
 
     def purge(
       offset: Offset,
-      timestamp: Instant,
-      origin: Option[Origin]
+      timestamp: Instant
     ) = ().pure[F]
   }
 
@@ -85,10 +83,9 @@ object ReplicatedKeyJournal {
 
       def purge(
         offset: Offset,
-        timestamp: Instant,
-        origin: Option[Origin]
+        timestamp: Instant
       ) = {
-        replicatedJournal.purge(key, offset, timestamp, origin)
+        replicatedJournal.purge(key, offset, timestamp)
       }
     }
   }
@@ -118,10 +115,9 @@ object ReplicatedKeyJournal {
 
       def purge(
         offset: Offset,
-        timestamp: Instant,
-        origin: Option[Origin]
+        timestamp: Instant
       ) = {
-        f(self.purge(offset, timestamp, origin))
+        f(self.purge(offset, timestamp))
       }
     }
 
@@ -175,17 +171,13 @@ object ReplicatedKeyJournal {
 
         def purge(
           offset: Offset,
-          timestamp: Instant,
-          origin: Option[Origin]
+          timestamp: Instant
         ) = {
           for {
             d <- MeasureDuration[F].start
-            r <- self.purge(offset, timestamp, origin)
+            r <- self.purge(offset, timestamp)
             d <- d
-            _ <- log.debug {
-              val originStr = origin.fold("") { origin => s", origin: $origin" }
-              s"$key purge in ${ d.toMillis }ms, offset: $offset$originStr"
-            }
+            _ <- log.debug(s"$key purge in ${ d.toMillis }ms, offset: $offset")
           } yield r
         }
       }
@@ -230,12 +222,11 @@ object ReplicatedKeyJournal {
 
         def purge(
           offset: Offset,
-          timestamp: Instant,
-          origin: Option[Origin]
+          timestamp: Instant
         ) = {
           for {
             d <- MeasureDuration[F].start
-            r <- self.purge(offset, timestamp, origin)
+            r <- self.purge(offset, timestamp)
             d <- d
             _ <- metrics.purge(topic, d)
           } yield r
@@ -291,17 +282,15 @@ object ReplicatedKeyJournal {
 
         def purge(
           offset: Offset,
-          timestamp: Instant,
-          origin: Option[Origin]
+          timestamp: Instant
         ) = {
           self
-            .purge(offset, timestamp, origin)
+            .purge(offset, timestamp)
             .handleErrorWith { a =>
               error(s"purge " +
                 s"key: $key, " +
                 s"offset: $offset, " +
-                s"timestamp: $timestamp, " +
-                s"origin: $origin", a)
+                s"timestamp: $timestamp", a)
             }
         }
       }
