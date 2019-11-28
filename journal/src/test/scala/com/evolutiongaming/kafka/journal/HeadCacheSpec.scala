@@ -51,7 +51,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         _        <- headCacheOf(eventual, consumer).use { headCache =>
           for {
             result <- headCache.get(key = key, partition = partition, offset = offsetLast)
-            _       = result shouldEqual HeadInfo.append(SeqNr.unsafe(11)).asRight
+            _       = result shouldEqual HeadInfo.append(SeqNr.unsafe(11), none).asRight
             state  <- stateRef.get
           } yield {
             state shouldEqual TestConsumer.State(
@@ -213,7 +213,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           for {
             _     <- enqueue(key0, 0L)
             a     <- headCache.get(key0, partition, 0L)
-            _      = a shouldEqual HeadInfo.append(SeqNr.min).asRight
+            _      = a shouldEqual HeadInfo.append(SeqNr.min, none).asRight
             _     <- enqueue(key1, 1L)
             a     <- headCache.get(key0, partition, 1L)
             _      = a shouldEqual HeadCacheError.invalid.asLeft
@@ -224,7 +224,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
             _      = a shouldEqual HeadCacheError.invalid.asLeft
             _     <- enqueue(key0, 2L)
             a     <- headCache.get(key0, partition, 2L)
-            _      = a shouldEqual HeadInfo.append(SeqNr.min).asRight
+            _      = a shouldEqual HeadInfo.append(SeqNr.min, none).asRight
             state <- stateRef.get
           } yield {
             state shouldEqual TestConsumer.State(
@@ -268,11 +268,11 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           for {
             _     <- enqueue(0L)
             a     <- headCache.get(key, partition, 0L)
-            _      = a shouldEqual HeadInfo.append(SeqNr.min).asRight
+            _      = a shouldEqual HeadInfo.append(SeqNr.min, none).asRight
             _     <- stateRef.update { _.enqueue(TestError.raiseError[Try, ConsRecords]) }
             _     <- enqueue(1L)
             a     <- headCache.get(key, partition, 1L)
-            _      = a shouldEqual HeadInfo.append(SeqNr.min).asRight
+            _      = a shouldEqual HeadInfo.append(SeqNr.min, none).asRight
             state <- stateRef.get
           } yield {
             state shouldEqual TestConsumer.State(

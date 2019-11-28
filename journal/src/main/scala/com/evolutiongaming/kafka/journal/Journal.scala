@@ -243,17 +243,23 @@ object Journal {
 
           def readEventual(from: SeqNr) = eventual.read(key, from)
 
+          def onAppend(deleteTo: Option[SeqNr]) = {
+            deleteTo.fold {
+              readEventualAndKafka(from, stream)
+            } { deleteTo =>
+              deleteTo.next[Option].fold(empty) { min => readEventualAndKafka(min max from, stream) }
+            }
+          }
+
+          def onDelete(deleteTo: SeqNr) = {
+            deleteTo.next[Option].fold(empty) { min => readEventual(min max from) }
+          }
+
           head match {
             case HeadInfo.Empty               => readEventual(from)
-            case HeadInfo.Append(_, deleteTo) =>
-              deleteTo.fold {
-                readEventualAndKafka(from, stream)
-              } { deleteTo =>
-                deleteTo.next[Option].fold {empty } { min => readEventualAndKafka(min max from, stream) }
-              }
-
-            case HeadInfo.Delete(deleteTo) =>
-              deleteTo.next[Option].fold { empty } { min => readEventual(min max from) }
+            case HeadInfo.Append(_, deleteTo) => onAppend(deleteTo)
+            case HeadInfo.Delete(deleteTo)    => onDelete(deleteTo)
+            case HeadInfo.Purge               => empty
           }
         }
 
@@ -277,18 +283,19 @@ object Journal {
           pointer.seqNr
         }
 
-        def pointer(head: HeadInfo) = head match {
-          case HeadInfo.Empty        => pointerEventual
-          case head: HeadInfo.Append => head.seqNr.some.pure[F]
-          case _: HeadInfo.Delete    => pointerEventual
+        def pointer(headInfo: HeadInfo) = headInfo match {
+          case HeadInfo.Empty     => pointerEventual
+          case a: HeadInfo.Append => a.seqNr.some.pure[F]
+          case _: HeadInfo.Delete => pointerEventual
+          case HeadInfo.Purge     => none[SeqNr].pure[F]
         }
 
         val from = SeqNr.min // TODO remove
 
         for {
           headAndStream <- headAndStream(key, from)
-          (head, _)      = headAndStream
-          pointer       <- pointer(head)
+          (headInfo, _)  = headAndStream
+          pointer       <- pointer(headInfo)
         } yield pointer
       }
 

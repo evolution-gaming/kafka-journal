@@ -6,15 +6,19 @@ import org.scalatest.{FunSuite, Matchers}
 class HeadInfoSpec extends FunSuite with Matchers {
 
   test("Empty apply Append") {
-    Empty(append(1, 2)) shouldEqual appendInfo(2)
+    HeadInfo.Empty(append(1, 2)) shouldEqual appendInfo(2)
   }
 
   test("Empty apply Delete") {
-    Empty(delete(10)) shouldEqual deleteInfo(10)
+    HeadInfo.Empty(delete(10)) shouldEqual deleteInfo(10)
+  }
+
+  test("Empty apply Purge") {
+    HeadInfo.Empty(purge) shouldEqual HeadInfo.Purge
   }
 
   test("Empty apply Mark") {
-    Empty(mark) shouldEqual Empty
+    HeadInfo.Empty(mark) shouldEqual HeadInfo.Empty
   }
 
   test("NonEmpty apply Append") {
@@ -27,6 +31,10 @@ class HeadInfoSpec extends FunSuite with Matchers {
     appendInfo(2)(delete(1)) shouldEqual appendInfo(2, Some(1))
     appendInfo(2, Some(1))(delete(3)) shouldEqual appendInfo(2, Some(2))
     appendInfo(2, Some(2))(delete(1)) shouldEqual appendInfo(2, Some(2))
+  }
+
+  test("NonEmpty apply Purge") {
+    appendInfo(2)(purge) shouldEqual HeadInfo.Purge
   }
 
   test("NonEmpty apply Mark") {
@@ -42,6 +50,10 @@ class HeadInfoSpec extends FunSuite with Matchers {
   test("DeleteTo apply Delete") {
     deleteInfo(1)(delete(2)) shouldEqual deleteInfo(2)
     deleteInfo(2)(delete(1)) shouldEqual deleteInfo(2)
+  }
+
+  test("DeleteTo apply Purge") {
+    deleteInfo(1)(purge) shouldEqual HeadInfo.Purge
   }
 
   test("DeleteTo apply Mark") {
@@ -65,13 +77,15 @@ class HeadInfoSpec extends FunSuite with Matchers {
 
   private def mark = ActionHeader.Mark("id", None)
 
+  private def purge = ActionHeader.Purge(None)
+
   private def deleteInfo(seqNr: Int) = {
     HeadInfo.Delete(SeqNr.unsafe(seqNr))
   }
 
   private def appendInfo(seqNr: Int, deleteTo: Option[Int] = None) = {
-    HeadInfo.Append(SeqNr.unsafe(seqNr), deleteTo.map(x => SeqNr.unsafe(x)))
+    HeadInfo.Append(
+      seqNr = SeqNr.unsafe(seqNr),
+      deleteTo.map { deleteTo => SeqNr.unsafe(deleteTo) })
   }
-
-  private def Empty = HeadInfo.Empty
 }
