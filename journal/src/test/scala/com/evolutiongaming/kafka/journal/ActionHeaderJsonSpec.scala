@@ -43,6 +43,11 @@ class ActionHeaderJsonSpec extends FunSuite with Matchers {
       verify(header, s"Delete-$originStr")
     }
 
+    test(s"Purge format, origin: $origin") {
+      val header = ActionHeader.Purge(origin)
+      verify(header, s"Purge-$originStr")
+    }
+
     test(s"Mark format, origin: $origin, ") {
       val header = ActionHeader.Mark("id", origin)
       verify(header, s"Mark-$originStr")

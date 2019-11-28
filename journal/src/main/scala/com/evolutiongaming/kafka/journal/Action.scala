@@ -118,6 +118,21 @@ object Action {
   }
 
 
+  /*final case class Purge(
+    key: Key,
+    timestamp: Instant,
+    header: ActionHeader.Purge
+  ) extends User
+
+  object Purge {
+
+    def apply(key: Key, timestamp: Instant, origin: Option[Origin]): Purge = {
+      val header = ActionHeader.Purge(origin)
+      Purge(key, timestamp, header)
+    }
+  }*/
+
+
   final case class Mark(
     key: Key,
     timestamp: Instant,

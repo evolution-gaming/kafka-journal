@@ -41,6 +41,7 @@ object ActionHeader {
       OFormat(reads, format)
     }
     val deleteFormat = Json.format[Delete]
+    val purgeFormat = Json.format[Purge]
     val readFormat = Json.format[Mark]
 
     new OFormat[ActionHeader] {
@@ -52,7 +53,8 @@ object ActionHeader {
 
         read("append", appendFormat) orElse
           read("mark", readFormat) orElse
-          read("delete", deleteFormat)
+          read("delete", deleteFormat) orElse
+          read("purge", purgeFormat)
       }
 
       def writes(header: ActionHeader): JsObject = {
@@ -66,6 +68,7 @@ object ActionHeader {
           case header: Append => write("append", header, appendFormat)
           case header: Mark   => write("mark", header, readFormat)
           case header: Delete => write("delete", header, deleteFormat)
+          case header: Purge  => write("purge", header, purgeFormat)
         }
       }
     }
@@ -90,6 +93,11 @@ object ActionHeader {
 
   final case class Delete(
     to: SeqNr,
+    origin: Option[Origin]
+  ) extends AppendOrDelete
+
+
+  final case class Purge(
     origin: Option[Origin]
   ) extends AppendOrDelete
 
