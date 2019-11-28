@@ -293,12 +293,13 @@ object ReplicatedCassandra {
                       val partitionOffset = journalHead
                         .partitionOffset
                         .copy(offset = offset)
-                      for {
+                      val result = for {
                         journalHead <- delete1(journalHead, journalHead.seqNr, partitionOffset, timestamp)
                         _           <- journalHead.traverse { journalHead => journalHeadRef.set(journalHead.some) }
                         _           <- metaJournal.delete(key, segment)
                         _           <- journalHeadRef.set(none)
                       } yield {}
+                      result.uncancelable
                     } else {
                       ().pure[F]
                     }
