@@ -117,7 +117,9 @@ object StreamActionRecordsSpec {
     val consumeActionRecords: ConsumeActionRecords[StateT] = {
       (_: Key, _: Partition, from: Offset) => {
         val actionRecords = StateT { state =>
-          val records = state.records.dropWhile(_.offset < from)
+          val records = state
+            .records
+            .dropWhile { _.offset < from}
           records match {
             case h :: t => (state.copy(records = t), Stream[StateT].single(h))
             case _      => (state, Stream[StateT].empty[ActionRecord[Action]])

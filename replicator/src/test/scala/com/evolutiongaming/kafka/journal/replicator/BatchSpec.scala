@@ -261,7 +261,58 @@ class BatchSpec extends FunSuite with Matchers {
             append(offset = 5, seqNr = 7)),
           deletes(offset = 6, seqNr = 3),
           appends(7,
-            append(offset = 7, seqNr = 8)))))
+            append(offset = 7, seqNr = 8)))),
+
+      (Nel.of(
+        purge(offset = 0)),
+        List(purges(offset = 0))),
+      
+      (Nel.of(
+        mark(offset = 0),
+        purge(offset = 1)),
+        List(purges(offset = 1))),
+
+      (Nel.of(
+        purge(offset = 0),
+        mark(offset = 1)),
+        List(purges(offset = 1))),
+
+      (Nel.of(
+        purge(offset = 0, origin = "origin"),
+        mark(offset = 1),
+        purge(offset = 2)),
+        List(purges(offset = 2))),
+
+      (Nel.of(
+        purge(offset = 0, origin = "origin0"),
+        mark(offset = 1),
+        purge(offset = 2, origin = "origin")),
+        List(purges(offset = 2, origin = "origin"))),
+
+      (Nel.of(
+        append(offset = 0, seqNr = 1),
+        purge(offset = 1)),
+        List(purges(offset = 1))),
+
+      (Nel.of(
+        purge(offset = 0),
+        append(offset = 1, seqNr = 1)),
+        List(
+          purges(offset = 0),
+          appends(1,
+            append(offset = 1, seqNr = 1)))),
+
+      (Nel.of(
+        delete(offset = 0, seqNr = 1),
+        purge(offset = 1)),
+        List(purges(offset = 1))),
+
+      (Nel.of(
+        purge(offset = 0),
+        delete(offset = 1, seqNr = 1)),
+        List(
+          purges(offset = 0),
+          deletes(offset = 1, seqNr = 1))))
   } {
 
     val name = values.toList.mkString(",")
@@ -287,6 +338,12 @@ class BatchSpec extends FunSuite with Matchers {
     Batch.Delete(partitionOffset, SeqNr.unsafe(seqNr), originOpt)
   }
 
+  def purges(offset: Int, origin: String = ""): Batch.Purge = {
+    val partitionOffset = PartitionOffset(offset = offset.toLong)
+    val originOpt = originOf(origin)
+    Batch.Purge(partitionOffset, originOpt)
+  }
+
   def append(offset: Int, seqNr: Int, seqNrs: Int*): A.Append = {
     A.Append(offset = offset, seqNr = seqNr, seqNrs = seqNrs.toList)
   }
@@ -297,6 +354,10 @@ class BatchSpec extends FunSuite with Matchers {
 
   def mark(offset: Int): A = {
     A.Mark(offset = offset)
+  }
+
+  def purge(offset: Int, origin: String = ""): A = {
+    A.Purge(offset = offset, origin = origin)
   }
 
   def seqNrOf(value: Int): SeqNr = SeqNr.unsafe(value)
@@ -328,6 +389,7 @@ class BatchSpec extends FunSuite with Matchers {
     a match {
       case a: A.Append => appendOf(Nel(a.seqNr, a.seqNrs))
       case a: A.Delete => deleteOf(seqNr = a.seqNr, origin = a.origin)
+      case a: A.Purge  => Action.Purge(keyOf, timestamp, origin = originOf(a.origin))
       case _: A.Mark   => Action.Mark(keyOf, timestamp, ActionHeader.Mark("id", None))
     }
   }
@@ -363,5 +425,7 @@ object BatchSpec {
     final case class Delete(offset: Int, seqNr: Int, origin: String) extends A
 
     final case class Mark(offset: Int) extends A
+
+    final case class Purge(offset: Int, origin: String) extends A
   }
 }

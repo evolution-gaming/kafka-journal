@@ -42,6 +42,7 @@ object ConsumerRecordToActionRecord {
           case header: ActionHeader.Append => OptionT(append(header))
           case header: ActionHeader.Mark   => OptionT.pure[F](Action.mark(key, timestamp, header))
           case header: ActionHeader.Delete => OptionT.pure[F](Action.delete(key, timestamp, header))
+          case header: ActionHeader.Purge  => OptionT.pure[F](Action.purge(key, timestamp, header))
         }
       }
 

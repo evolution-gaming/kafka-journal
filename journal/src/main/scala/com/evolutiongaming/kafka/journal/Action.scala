@@ -40,6 +40,14 @@ object Action {
     Delete(key, timestamp, header)
   }
 
+  def purge(
+    key: Key,
+    timestamp: Instant,
+    header: ActionHeader.Purge
+  ): Action = {
+    Purge(key, timestamp, header)
+  }
+
   def mark(
     key: Key,
     timestamp: Instant,
@@ -118,7 +126,7 @@ object Action {
   }
 
 
-  /*final case class Purge(
+  final case class Purge(
     key: Key,
     timestamp: Instant,
     header: ActionHeader.Purge
@@ -130,7 +138,7 @@ object Action {
       val header = ActionHeader.Purge(origin)
       Purge(key, timestamp, header)
     }
-  }*/
+  }
 
 
   final case class Mark(

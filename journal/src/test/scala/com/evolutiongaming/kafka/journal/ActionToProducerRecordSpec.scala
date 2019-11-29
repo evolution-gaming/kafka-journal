@@ -37,6 +37,12 @@ class ActionToProducerRecordSpec extends FunSuite with Matchers {
     Action.Delete(key1, timestamp, seqNr, origin)
   }
 
+  private val purges = for {
+    origin <- origins
+  } yield {
+    Action.Purge(key1, timestamp, origin)
+  }
+
   private val marks = for {
     origin <- origins
   } yield {
@@ -96,7 +102,7 @@ class ActionToProducerRecordSpec extends FunSuite with Matchers {
   }
 
   for {
-    actions <- List(appends, deletes, marks)
+    actions <- List(appends, deletes, purges, marks)
     action <- actions
   } {
 

@@ -592,7 +592,7 @@ object JournalSpec {
         implicit val fromJsResult = FromJsResult.lift[Try]
         implicit val payloadToEvents = PayloadToEvents[Try]
 
-        def updateOffset = copy(offset = Some(offset))
+        def updateOffset = copy(offset = offset.some)
 
         def onAppend(action: Action.Append) = {
           val payloadAndType = PayloadAndType(action)
@@ -611,22 +611,34 @@ object JournalSpec {
             if (lastSeqNr <= action.to) {
               copy(
                 events = Queue.empty,
-                deleteTo = Some(lastSeqNr),
-                offset = Some(offset))
+                deleteTo = lastSeqNr.some,
+                offset = offset.some)
             } else {
-              val left = events.dropWhile(_.event.seqNr <= action.to)
+              val left = events.dropWhile { _.event.seqNr <= action.to }
               copy(
                 events = left,
-                deleteTo = Some(action.to),
-                offset = Some(offset))
+                deleteTo = action.to.some,
+                offset = offset.some)
             }
           }
         }
 
+        def onPurge = {
+          events
+            .lastOption
+            .fold(updateOffset) { _ =>
+              copy(
+                events = Queue.empty,
+                deleteTo = None,
+                offset = offset.some)
+            }
+        }
+
         record.action match {
           case a: Action.Append => onAppend(a)
-          case a: Action.Delete => onDelete(a)
           case _: Action.Mark   => updateOffset
+          case a: Action.Delete => onDelete(a)
+          case _: Action.Purge  => onPurge
         }
       }
     }
@@ -638,10 +650,12 @@ object JournalSpec {
 
 
   implicit class TestFutureOps[T](val self: Future[T]) extends AnyVal {
+
     def get(): T = self.value.get.get
   }
 
   implicit class QueueOps[T](val self: Queue[T]) extends AnyVal {
+    
     def dropLast(n: Int): Option[Queue[T]] = {
       if (self.size <= n) None
       else Some(self.dropRight(n))

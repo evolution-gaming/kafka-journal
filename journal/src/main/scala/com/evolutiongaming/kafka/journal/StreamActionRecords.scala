@@ -13,7 +13,9 @@ trait StreamActionRecords[F[_]] {
 
 object StreamActionRecords {
 
-  def empty[F[_] : Applicative]: StreamActionRecords[F] = (_: Option[Offset]) => Stream.empty[F, ActionRecord[Action.User]]
+  def empty[F[_] : Applicative]: StreamActionRecords[F] = {
+    _: Option[Offset] => Stream.empty[F, ActionRecord[Action.User]]
+  }
 
   // TODO add range argument
   def apply[F[_] : BracketThrowable](
@@ -27,7 +29,7 @@ object StreamActionRecords {
     // TODO compare partitions !
     val partition = marker.partition
 
-    val replicated = offsetReplicated.exists(_ >= marker.offset)
+    val replicated = offsetReplicated.exists { _ >= marker.offset }
 
     if (replicated) empty[F]
     else (offset: Option[Offset]) => {
@@ -54,11 +56,15 @@ object StreamActionRecords {
             (false, Stream[F].empty[ActionRecord[Action.User]])
           }
 
-          if (record.offset > max) stop
-          else record.action match {
-            case a: Action.Append => if (a.range.to < from) skip else take(a)
-            case a: Action.Delete => take(a)
-            case a: Action.Mark   => if (a.id == marker.id) stop else skip
+          if (record.offset > max) {
+            stop
+          } else {
+            record.action match {
+              case a: Action.Append => if (a.range.to < from) skip else take(a)
+              case a: Action.Mark   => if (a.id == marker.id) stop else skip
+              case a: Action.Delete => take(a)
+              case _: Action.Purge  => stop
+            }
           }
         }
       }
