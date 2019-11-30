@@ -51,7 +51,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         _        <- headCacheOf(eventual, consumer).use { headCache =>
           for {
             result <- headCache.get(key = key, partition = partition, offset = offsetLast)
-            _       = result shouldEqual HeadInfo.append(SeqNr.unsafe(11), none).asRight
+            _       = result shouldEqual HeadInfo.append(SeqNr.unsafe(11), none, 0).asRight
             state  <- stateRef.get
           } yield {
             state shouldEqual TestConsumer.State(
@@ -212,19 +212,19 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           }
           for {
             _     <- enqueue(key0, 0L)
-            a     <- headCache.get(key0, partition, 0L)
-            _      = a shouldEqual HeadInfo.append(SeqNr.min, none).asRight
+            a     <- headCache.get(key0, partition, 0)
+            _      = a shouldEqual HeadInfo.append(SeqNr.min, none, 0).asRight
             _     <- enqueue(key1, 1L)
-            a     <- headCache.get(key0, partition, 1L)
+            a     <- headCache.get(key0, partition, 1)
             _      = a shouldEqual HeadCacheError.invalid.asLeft
-            a     <- headCache.get(key1, partition, 1L)
+            a     <- headCache.get(key1, partition, 1)
             _      = a shouldEqual HeadCacheError.invalid.asLeft
-            _     <- pointers.update(_ ++ Map((partition, 1L)))
-            a     <- headCache.get(key1, partition, 1L)
+            _     <- pointers.update { _ ++ Map((partition, 1L)) }
+            a     <- headCache.get(key1, partition, 1)
             _      = a shouldEqual HeadCacheError.invalid.asLeft
-            _     <- enqueue(key0, 2L)
-            a     <- headCache.get(key0, partition, 2L)
-            _      = a shouldEqual HeadInfo.append(SeqNr.min, none).asRight
+            _     <- enqueue(key0, 2)
+            a     <- headCache.get(key0, partition, 2)
+            _      = a shouldEqual HeadInfo.append(SeqNr.min, none, 0).asRight
             state <- stateRef.get
           } yield {
             state shouldEqual TestConsumer.State(
@@ -267,12 +267,12 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           }
           for {
             _     <- enqueue(0L)
-            a     <- headCache.get(key, partition, 0L)
-            _      = a shouldEqual HeadInfo.append(SeqNr.min, none).asRight
+            a     <- headCache.get(key, partition, 0)
+            _      = a shouldEqual HeadInfo.append(SeqNr.min, none, 0).asRight
             _     <- stateRef.update { _.enqueue(TestError.raiseError[Try, ConsRecords]) }
             _     <- enqueue(1L)
-            a     <- headCache.get(key, partition, 1L)
-            _      = a shouldEqual HeadInfo.append(SeqNr.min, none).asRight
+            a     <- headCache.get(key, partition, 1)
+            _      = a shouldEqual HeadInfo.append(SeqNr.min, none, 0).asRight
             state <- stateRef.get
           } yield {
             state shouldEqual TestConsumer.State(
@@ -318,9 +318,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         for {
           a <- headCache.get(key, partition, 0L).startEnsure
           _ <- Timer[IO].sleep(1.second)
-//          _ <- IO { println("1") }
           _ <- a.cancel
-//          _ <- IO { println("2") }
           _ <- Timer[IO].sleep(3.seconds)
         } yield {}
       }

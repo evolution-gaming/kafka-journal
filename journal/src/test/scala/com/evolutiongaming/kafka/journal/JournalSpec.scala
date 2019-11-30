@@ -562,7 +562,9 @@ object JournalSpec {
       (_: Key, _: Partition, _: Offset) => {
 
         StateT { state =>
-          val headInfo = state.records.foldLeft(HeadInfo.empty) { (info, record) => info(record.action.header) }
+          val headInfo = state
+            .records
+            .foldLeft(HeadInfo.empty) { (info, record) => info(record.action.header, record.offset) }
           (state, headInfo.asRight)
         }
       }

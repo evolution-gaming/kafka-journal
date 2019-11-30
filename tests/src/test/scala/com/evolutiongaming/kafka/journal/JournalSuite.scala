@@ -63,17 +63,20 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
 
 object JournalSuite {
 
+  // TODO move out from tests
   trait KeyJournal[F[_]] {
 
     def append(events: Nel[Event], metadata: Option[JsValue] = None, headers: Headers = Headers.empty): F[PartitionOffset]
 
     def read: F[List[EventRecord]]
 
-    def size: F[Long]
-
     def pointer: F[Option[SeqNr]]
 
     def delete(to: SeqNr): F[Option[PartitionOffset]]
+
+    def purge: F[Option[PartitionOffset]]
+
+    def size: F[Long]
   }
 
   object KeyJournal {
@@ -103,11 +106,13 @@ object JournalSuite {
         }
       }
 
-      def size = journal.read(key).length
-
       def pointer = journal.pointer(key)
 
       def delete(to: SeqNr) = journal.delete(key, to)
+
+      def purge = journal.purge(key)
+
+      def size = journal.read(key).length
     }
   }
 }

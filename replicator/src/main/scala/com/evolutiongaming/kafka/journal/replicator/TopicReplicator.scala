@@ -248,6 +248,8 @@ object TopicReplicator {
 
     def delete(measurements: Measurements): F[Unit]
 
+    def purge(measurements: Measurements): F[Unit]
+
     def round(latency: FiniteDuration, records: Int): F[Unit]
   }
 
@@ -262,6 +264,8 @@ object TopicReplicator {
       def append(events: Int, bytes: Long, measurements: Measurements) = unit
 
       def delete(measurements: Measurements) = unit
+
+      def purge(measurements: Measurements) = unit
 
       def round(duration: FiniteDuration, records: Int) = unit
     }
@@ -353,6 +357,10 @@ object TopicReplicator {
 
             def delete(measurements: Measurements) = {
               observeMeasurements("delete", measurements)
+            }
+
+            def purge(measurements: Measurements) = {
+              observeMeasurements("purge", measurements)
             }
 
             def round(duration: FiniteDuration, records: Int) = {

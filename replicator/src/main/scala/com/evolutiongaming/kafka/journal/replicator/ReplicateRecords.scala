@@ -53,23 +53,6 @@ object ReplicateRecords {
             }
           }
 
-          def delete(partitionOffset: PartitionOffset, deleteTo: SeqNr, origin: Option[Origin]) = {
-
-            def msg(latency: FiniteDuration) = {
-              val originStr = origin.fold("") { origin => s", origin: $origin" }
-              s"delete in ${ latency.toMillis }ms, id: $id, offset: $partitionOffset, deleteTo: $deleteTo$originStr"
-            }
-
-            for {
-              _            <- journal.delete(partitionOffset, timestamp, deleteTo, origin)
-              measurements <- measurements(1)
-              latency       = measurements.replicationLatency
-              _            <- metrics.delete(measurements)
-              _            <- log.info(msg(latency))
-            } yield {}
-          }
-
-
           def append(partitionOffset: PartitionOffset, records: Nel[ActionRecord[Action.Append]]) = {
 
             val bytes = records.foldLeft(0L) { case (bytes, record) => bytes + record.action.payload.size }
@@ -107,11 +90,44 @@ object ReplicateRecords {
             } yield {}
           }
 
+          def delete(partitionOffset: PartitionOffset, deleteTo: SeqNr, origin: Option[Origin]) = {
+
+            def msg(latency: FiniteDuration) = {
+              val originStr = origin.fold("") { origin => s", origin: $origin" }
+              s"delete in ${ latency.toMillis }ms, id: $id, offset: $partitionOffset, deleteTo: $deleteTo$originStr"
+            }
+
+            for {
+              _            <- journal.delete(partitionOffset, timestamp, deleteTo, origin)
+              measurements <- measurements(1)
+              latency       = measurements.replicationLatency
+              _            <- metrics.delete(measurements)
+              _            <- log.info(msg(latency))
+            } yield {}
+          }
+
+          def purge(partitionOffset: PartitionOffset, origin: Option[Origin]) = {
+
+            def msg(latency: FiniteDuration) = {
+              val originStr = origin.fold("") { origin => s", origin: $origin" }
+              s"purge in ${ latency.toMillis }ms, id: $id, offset: $partitionOffset$originStr"
+            }
+
+            for {
+              _            <- journal.purge(partitionOffset.offset, timestamp)
+              measurements <- measurements(1)
+              latency       = measurements.replicationLatency
+              _            <- metrics.purge(measurements)
+              _            <- log.info(msg(latency))
+            } yield {}
+          }
+
           Batch
             .of(records)
             .foldMapM {
               case batch: Batch.Appends => append(batch.partitionOffset, batch.records)
               case batch: Batch.Delete  => delete(batch.partitionOffset, batch.seqNr, batch.origin)
+              case batch: Batch.Purge   => purge(batch.partitionOffset, batch.origin)
             }
         }
 

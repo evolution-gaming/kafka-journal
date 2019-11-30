@@ -395,7 +395,7 @@ object HeadCache {
         val entries = for {
           (id, records)  <- records.groupBy(_.id)
           (info, offset)  = records.foldLeft((HeadInfo.empty, Offset.Min)) { case ((info, offset), record) =>
-            val info1 = info(record.header)
+            val info1 = info(record.header, record.offset)
             val offset1 = record.header match {
               case _: ActionHeader.AppendOrDelete => record.offset max offset
               case _: ActionHeader.Mark           => offset

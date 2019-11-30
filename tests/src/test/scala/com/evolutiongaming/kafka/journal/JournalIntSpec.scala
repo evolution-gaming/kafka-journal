@@ -12,12 +12,14 @@ import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
+import com.evolutiongaming.kafka.journal.util.MonadString
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.retry.{Retry, Strategy}
 import org.scalatest.{AsyncWordSpec, Succeeded}
 import play.api.libs.json.Json
 
 import scala.concurrent.duration._
+import scala.util.Try
 
 class JournalIntSpec extends AsyncWordSpec with JournalSuite {
   import JournalIntSpec._
@@ -74,28 +76,46 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
 
         val name1 = s"seqNr: $seqNr, $name"
 
-        s"append, delete, read, lastSeqNr, $name1" in {
+        s"append, delete, read, purge, lastSeqNr, $name1" in {
           val result = for {
             key       <- key
             journal    = KeyJournal(key, timestamp, journal0)
             pointer   <- journal.pointer
             _          = pointer shouldEqual None
             events    <- journal.read
-            _          = events shouldEqual Nil
-            offset    <- journal.delete(SeqNr.max)
-            _          = offset shouldEqual None
+            _          = events shouldEqual List.empty
+            pointer   <- journal.delete(SeqNr.max)
+            _          = pointer shouldEqual None
             event      = Event(seqNr)
             offset    <- journal.append(Nel.of(event), recordMetadata.data, headers)
             record     = EventRecord(event, timestamp, offset, origin.some, recordMetadata, headers)
             partition  = offset.partition
             events    <- journal.read
             _          = events shouldEqual List(record)
-            offset    <- journal.delete(SeqNr.max)
-            _          = offset.map(_.partition) shouldEqual Some(partition)
+            pointer   <- journal.delete(SeqNr.max)
+            _          = pointer.map { _.partition } shouldEqual partition.some
             pointer   <- journal.pointer
-            _          = pointer shouldEqual Some(seqNr)
+            _          = pointer shouldEqual seqNr.some
             events    <- journal.read
-            _          = events shouldEqual Nil
+            _          = events shouldEqual List.empty
+            pointer   <- journal.purge
+            _          = pointer.map { _.partition } shouldEqual partition.some
+            pointer   <- journal.pointer
+            _          = pointer shouldEqual none
+            events    <- journal.read
+            _          = events shouldEqual List.empty
+            offset    <- journal.append(Nel.of(event), recordMetadata.data, headers)
+            record     = EventRecord(event, timestamp, offset, origin.some, recordMetadata, headers)
+            events    <- journal.read
+            _          = events shouldEqual List(record)
+            pointer   <- journal.delete(SeqNr.max)
+            _          = pointer.map { _.partition } shouldEqual partition.some
+            pointer   <- journal.pointer
+            _          = pointer shouldEqual seqNr.some
+            pointer   <- journal.purge
+            _          = pointer.map { _.partition } shouldEqual partition.some
+            pointer   <- journal.pointer
+            _          = pointer shouldEqual none
           } yield Succeeded
 
           result.run(1.minute)
@@ -188,9 +208,9 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             events    <- journal.read
             _          = events shouldEqual records.toList
             offset    <- journal.delete(seqNrs.last)
-            _          = offset.map(_.partition) shouldEqual Some(partition)
+            _          = offset.map(_.partition) shouldEqual partition.some
             pointer   <- journal.pointer
-            _          = pointer shouldEqual Some(seqNrs.last)
+            _          = pointer shouldEqual seqNrs.last.some
             events    <- journal.read
             _          = events shouldEqual Nil
           } yield Succeeded

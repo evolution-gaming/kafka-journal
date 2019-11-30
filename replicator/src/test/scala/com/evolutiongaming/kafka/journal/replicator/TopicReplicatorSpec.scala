@@ -611,6 +611,28 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
         pointers = Map((topic, TopicPointers(Map((0, 0L))))),
         metrics = List(Metrics.Round(records = 1)))
     }
+
+    "replicate purge" in {
+      val partition = 0
+      val key = Key(id = "id", topic = topic)
+      val topicPartition = topicPartitionOf(partition)
+      val consumerRecords = ConsumerRecordsOf(List(
+        consumerRecordOf(appendOf(key, Nel.of(1)), topicPartition, 0),
+        consumerRecordOf(purgeOf(key), topicPartition, 1)))
+
+      val state = State(
+        records = List(consumerRecords))
+      val (result, _) = topicReplicator.run(state)
+
+      result shouldEqual State(
+        topics = List(topic),
+        commits = List(Nem.of(
+          (0, 2))),
+        pointers = Map((topic, TopicPointers(Map((0, 1L))))),
+        metrics = List(
+          Metrics.Round(records = 2),
+          Metrics.Purge(partition = 0, actions = 1)))
+    }
   }
 
   private def consumerRecordOf(
@@ -655,6 +677,10 @@ class TopicReplicatorSpec extends WordSpec with Matchers {
 
   private def deleteOf(key: Key, to: Int) = {
     Action.Delete(key, timestamp, SeqNr.unsafe(to), Some(origin))
+  }
+
+  private def purgeOf(key: Key) = {
+    Action.Purge(key, timestamp, Some(origin))
   }
 }
 
@@ -703,6 +729,11 @@ object TopicReplicatorSpec {
       records: Int) extends Metrics
 
     final case class Delete(
+      partition: Partition,
+      latency: FiniteDuration = replicationLatency,
+      actions: Int) extends Metrics
+
+    final case class Purge(
       partition: Partition,
       latency: FiniteDuration = replicationLatency,
       actions: Int) extends Metrics
@@ -833,6 +864,15 @@ object TopicReplicatorSpec {
     def delete(measurements: Measurements) = {
       StateT {
         _ + Metrics.Delete(
+          partition = measurements.partition,
+          latency = measurements.replicationLatency,
+          actions = measurements.records)
+      }
+    }
+
+    def purge(measurements: Measurements) = {
+      StateT {
+        _ + Metrics.Purge(
           partition = measurements.partition,
           latency = measurements.replicationLatency,
           actions = measurements.records)

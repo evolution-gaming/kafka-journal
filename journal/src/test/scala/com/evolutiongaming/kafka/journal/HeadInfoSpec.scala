@@ -1,63 +1,64 @@
 package com.evolutiongaming.kafka.journal
 
-
+import cats.implicits._
+import com.evolutiongaming.skafka.Offset
 import org.scalatest.{FunSuite, Matchers}
 
 class HeadInfoSpec extends FunSuite with Matchers {
 
   test("Empty apply Append") {
-    HeadInfo.Empty(append(1, 2)) shouldEqual appendInfo(2)
+    HeadInfo.Empty(append(1, 2), 0) shouldEqual appendInfo(0, 2)
   }
 
   test("Empty apply Delete") {
-    HeadInfo.Empty(delete(10)) shouldEqual deleteInfo(10)
+    HeadInfo.Empty(delete(10), 0) shouldEqual deleteInfo(10)
   }
 
   test("Empty apply Purge") {
-    HeadInfo.Empty(purge) shouldEqual HeadInfo.Purge
+    HeadInfo.Empty(purge, 0) shouldEqual HeadInfo.Purge
   }
 
   test("Empty apply Mark") {
-    HeadInfo.Empty(mark) shouldEqual HeadInfo.Empty
+    HeadInfo.Empty(mark, 0) shouldEqual HeadInfo.Empty
   }
 
   test("NonEmpty apply Append") {
-    appendInfo(1)(append(2, 3)) shouldEqual appendInfo(3)
-    appendInfo(2, Some(1))(append(3, 4)) shouldEqual appendInfo(4, Some(1))
+    appendInfo(0, 1)(append(2, 3), 1) shouldEqual appendInfo(0, 3)
+    appendInfo(0, 2, 1.some)(append(3, 4), 1) shouldEqual appendInfo(0, 4, 1.some)
   }
 
   test("NonEmpty apply Delete") {
-    appendInfo(2)(delete(3)) shouldEqual appendInfo(2, Some(2))
-    appendInfo(2)(delete(1)) shouldEqual appendInfo(2, Some(1))
-    appendInfo(2, Some(1))(delete(3)) shouldEqual appendInfo(2, Some(2))
-    appendInfo(2, Some(2))(delete(1)) shouldEqual appendInfo(2, Some(2))
+    appendInfo(0, 2)(delete(3), 1) shouldEqual appendInfo(0, 2, 2.some)
+    appendInfo(0, 2)(delete(1), 1) shouldEqual appendInfo(0, 2, 1.some)
+    appendInfo(0, 2, 1.some)(delete(3), 1) shouldEqual appendInfo(0, 2, 2.some)
+    appendInfo(0, 2, 2.some)(delete(1), 1) shouldEqual appendInfo(0, 2, 2.some)
   }
 
   test("NonEmpty apply Purge") {
-    appendInfo(2)(purge) shouldEqual HeadInfo.Purge
+    appendInfo(0, 2)(purge, 1) shouldEqual HeadInfo.Purge
   }
 
   test("NonEmpty apply Mark") {
-    appendInfo(2)(mark) shouldEqual appendInfo(2)
+    appendInfo(0, 2)(mark, 1) shouldEqual appendInfo(0, 2)
   }
 
-  test("DeleteTo apply Append") {
-    deleteInfo(1)(append(1, 2)) shouldEqual appendInfo(2)
-    deleteInfo(10)(append(1, 2)) shouldEqual appendInfo(2)
-    deleteInfo(10)(append(2, 3)) shouldEqual appendInfo(3, Some(1))
+  test("Delete apply Append") {
+    deleteInfo(1)(append(1, 2), 1) shouldEqual appendInfo(1, 2)
+    deleteInfo(10)(append(1, 2), 1) shouldEqual appendInfo(1, 2)
+    deleteInfo(10)(append(2, 3), 1) shouldEqual appendInfo(1, 3, 1.some)
   }
 
-  test("DeleteTo apply Delete") {
-    deleteInfo(1)(delete(2)) shouldEqual deleteInfo(2)
-    deleteInfo(2)(delete(1)) shouldEqual deleteInfo(2)
+  test("Delete apply Delete") {
+    deleteInfo(1)(delete(2), 1) shouldEqual deleteInfo(2)
+    deleteInfo(2)(delete(1), 1) shouldEqual deleteInfo(2)
   }
 
-  test("DeleteTo apply Purge") {
-    deleteInfo(1)(purge) shouldEqual HeadInfo.Purge
+  test("Delete apply Purge") {
+    deleteInfo(1)(purge, 1) shouldEqual HeadInfo.Purge
   }
 
-  test("DeleteTo apply Mark") {
-    deleteInfo(1)(mark) shouldEqual deleteInfo(1)
+  test("Delete apply Mark") {
+    deleteInfo(1)(mark, 1) shouldEqual deleteInfo(1)
   }
 
   private def append(from: Int, to: Int) = {
@@ -83,9 +84,10 @@ class HeadInfoSpec extends FunSuite with Matchers {
     HeadInfo.Delete(SeqNr.unsafe(seqNr))
   }
 
-  private def appendInfo(seqNr: Int, deleteTo: Option[Int] = None) = {
+  private def appendInfo(offset: Offset, seqNr: Int, deleteTo: Option[Int] = None) = {
     HeadInfo.Append(
       seqNr = SeqNr.unsafe(seqNr),
-      deleteTo.map { deleteTo => SeqNr.unsafe(deleteTo) })
+      deleteTo = deleteTo.map { deleteTo => SeqNr.unsafe(deleteTo) },
+      offset = offset)
   }
 }

@@ -63,7 +63,7 @@ object StreamActionRecords {
               case a: Action.Append => if (a.range.to < from) skip else take(a)
               case a: Action.Mark   => if (a.id == marker.id) stop else skip
               case a: Action.Delete => take(a)
-              case _: Action.Purge  => stop
+              case a: Action.Purge  => take(a)
             }
           }
         }

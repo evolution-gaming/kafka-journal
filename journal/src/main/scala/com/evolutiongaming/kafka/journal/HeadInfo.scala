@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal
 import cats.implicits._
 import cats.{Foldable, Semigroup}
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
+import com.evolutiongaming.skafka.Offset
 
 
 sealed abstract class HeadInfo extends Product
@@ -13,10 +14,12 @@ object HeadInfo {
 
   def delete(deleteTo: SeqNr): HeadInfo = Delete(deleteTo)
 
-  def append(seqNr: SeqNr, deleteTo: Option[SeqNr]): HeadInfo = Append(seqNr, deleteTo)
+  def append(seqNr: SeqNr, deleteTo: Option[SeqNr], offset: Offset): HeadInfo = {
+    Append(offset, seqNr, deleteTo)
+  }
 
-  def apply[F[_] : Foldable](actions: F[ActionHeader]): HeadInfo = {
-    actions.foldLeft(HeadInfo.empty) { _ apply _ }
+  def apply[F[_] : Foldable](actions: F[(ActionHeader, Offset)]): HeadInfo = {
+    actions.foldLeft(empty) { case (head, (header, offset)) => head(header, offset) }
   }
 
 
@@ -28,15 +31,15 @@ object HeadInfo {
   object NonEmpty {
 
     implicit val semigroupNonEmpty: Semigroup[NonEmpty] = {
-      (x: NonEmpty, y: NonEmpty) => {
+      (a: NonEmpty, b: NonEmpty) => {
 
-        def onDelete(x: Append, y: Delete) = {
-          val deleteTo = x.deleteTo.fold(y.deleteTo) { _ max y.deleteTo }
-          Append(seqNr = x.seqNr, deleteTo = deleteTo.some)
+        def onDelete(a: Append, b: Delete) = {
+          val deleteTo = a.deleteTo.fold(b.deleteTo) { _ max b.deleteTo }
+          Append(a.offset, a.seqNr, deleteTo.some)
         }
 
-        (x, y) match {
-          case (a: Append, b: Append) => Append(a.seqNr max b.seqNr, a.deleteTo max b.deleteTo)
+        (a, b) match {
+          case (a: Append, b: Append) => Append(a.offset min b.offset, a.seqNr max b.seqNr, a.deleteTo max b.deleteTo)
           case (a: Append, b: Delete) => onDelete(a, b)
           case (_: Append, Purge)     => Purge
           case (a: Delete, b: Append) => onDelete(b, a)
@@ -51,10 +54,16 @@ object HeadInfo {
   }
 
 
-  final case class Append(seqNr: SeqNr, deleteTo: Option[SeqNr] = None) extends NonEmpty
+  final case class Append(
+    offset: Offset,
+    seqNr: SeqNr,
+    deleteTo: Option[SeqNr]
+  ) extends NonEmpty
 
 
-  final case class Delete(deleteTo: SeqNr) extends NonEmpty
+  final case class Delete(
+    deleteTo: SeqNr
+  ) extends NonEmpty
 
 
   final case object Purge extends NonEmpty
@@ -64,40 +73,39 @@ object HeadInfo {
 
     def delete(to: SeqNr): HeadInfo = {
 
-      def onAppend(append: Append) = {
-        val deleteTo = append
+      def onAppend(self: Append) = {
+        val deleteTo = self
           .deleteTo
           .fold(to) { _ max to }
-          .min(append.seqNr)
-        Append(
-          seqNr = append.seqNr,
-          deleteTo = deleteTo.some)
+          .min(self.seqNr)
+        self.copy(seqNr = self.seqNr, deleteTo = deleteTo.some)
       }
+
+      def delete = Delete(to)
 
       self match {
         case a: Append => onAppend(a)
         case a: Delete => Delete(a.deleteTo max to)
-        case Empty     => Delete(to)
-        case Purge     => Delete(to)
+        case Empty     => delete
+        case Purge     => delete
       }
     }
 
 
-    def append(range: SeqRange): HeadInfo = {
+    def append(range: SeqRange, offset: Offset): HeadInfo = {
 
-      def onDelete(deleteTo: SeqNr) = {
-        val deleteTo1 = range
-          .from
-          .prev[Option]
-          .map { _ min deleteTo }
-        Append(seqNr = range.to, deleteTo = deleteTo1)
-      }
+      def deleteToOf(deleteTo: SeqNr) = range
+        .from
+        .prev[Option]
+        .map { _ min deleteTo }
+
+      def append = Append(offset, range.to, none)
 
       self match {
         case a: Append => a.copy(seqNr = range.to)
-        case a: Delete => onDelete(a.deleteTo)
-        case Empty     => Append(range.to, none)
-        case Purge     => Append(range.to, none)
+        case a: Delete => Append(offset, range.to, deleteToOf(a.deleteTo))
+        case Empty     => append
+        case Purge     => append
       }
     }
 
@@ -108,9 +116,9 @@ object HeadInfo {
     def purge: HeadInfo = Purge
 
 
-    def apply(header: ActionHeader): HeadInfo = {
+    def apply(header: ActionHeader, offset: Offset): HeadInfo = {
       header match {
-        case a: ActionHeader.Append => append(a.range)
+        case a: ActionHeader.Append => append(a.range, offset)
         case _: ActionHeader.Mark   => mark
         case a: ActionHeader.Delete => delete(a.to)
         case _: ActionHeader.Purge  => purge

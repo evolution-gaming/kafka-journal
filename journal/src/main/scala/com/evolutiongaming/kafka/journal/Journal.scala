@@ -172,7 +172,7 @@ object Journal {
             case Left(_)         =>
               for {
                 stream   <- stream
-                headInfo <- stream(none).fold(HeadInfo.empty) { (info, action) => info(action.action.header) }
+                headInfo <- stream(none).fold(HeadInfo.empty) { (info, action) => info(action.action.header, action.offset) }
               } yield {
                 (headInfo, stream.pure[F])
               }
@@ -207,7 +207,7 @@ object Journal {
       
       def read(key: Key, from: SeqNr) = {
 
-        def readEventualAndKafka(from: SeqNr, stream: F[StreamActionRecords[F]]) = {
+        def readEventualAndKafka(from: SeqNr, stream: F[StreamActionRecords[F]], offset: Offset) = {
 
           def readKafka(from: SeqNr, offset: Option[Offset], stream: StreamActionRecords[F]) = {
 
@@ -231,8 +231,14 @@ object Journal {
             stream <- Stream.lift(stream)
             event  <- eventual.read(key, from).flatMapLast { last =>
               last
-                .fold((from, none[Offset]).some) { event => event.seqNr.next[Option].map { from => (from, event.offset.some) } }
-                .fold(Stream.empty[F, EventRecord]) { case (from, offset) =>  readKafka(from, offset, stream)}
+                .fold((from, none[Offset]).some) { event =>
+                  event.seqNr.next[Option].map { from => (from, event.offset.some) }
+                }
+                .fold(Stream.empty[F, EventRecord]) { case (from, offset1) =>
+                  val offset0 = offset - 1 // TODO refactor this
+                  val offset2 = offset1.fold(offset0) { _ max offset0 }
+                  readKafka(from, offset2.some, stream)
+                }
             }
           } yield event
         }
@@ -243,11 +249,16 @@ object Journal {
 
           def readEventual(from: SeqNr) = eventual.read(key, from)
 
-          def onAppend(deleteTo: Option[SeqNr]) = {
+          def onAppend(offset: Offset, deleteTo: Option[SeqNr]) = {
+
+            def readEventualAndKafka1(from: SeqNr) = readEventualAndKafka(from, stream, offset)
+
             deleteTo.fold {
-              readEventualAndKafka(from, stream)
+              readEventualAndKafka1(from)
             } { deleteTo =>
-              deleteTo.next[Option].fold(empty) { min => readEventualAndKafka(min max from, stream) }
+              deleteTo.next[Option].fold(empty) { min =>
+                readEventualAndKafka1(min max from)
+              }
             }
           }
 
@@ -256,10 +267,10 @@ object Journal {
           }
 
           head match {
-            case HeadInfo.Empty               => readEventual(from)
-            case HeadInfo.Append(_, deleteTo) => onAppend(deleteTo)
-            case HeadInfo.Delete(deleteTo)    => onDelete(deleteTo)
-            case HeadInfo.Purge               => empty
+            case HeadInfo.Empty     => readEventual(from)
+            case a: HeadInfo.Append => onAppend(a.offset, a.deleteTo)
+            case a: HeadInfo.Delete => onDelete(a.deleteTo)
+            case HeadInfo.Purge     => empty
           }
         }
 
@@ -283,11 +294,13 @@ object Journal {
           pointer.seqNr
         }
 
-        def pointer(headInfo: HeadInfo) = headInfo match {
-          case HeadInfo.Empty     => pointerEventual
-          case a: HeadInfo.Append => a.seqNr.some.pure[F]
-          case _: HeadInfo.Delete => pointerEventual
-          case HeadInfo.Purge     => none[SeqNr].pure[F]
+        def pointer(headInfo: HeadInfo) = {
+          headInfo match {
+            case HeadInfo.Empty     => pointerEventual
+            case a: HeadInfo.Append => a.seqNr.some.pure[F]
+            case _: HeadInfo.Delete => pointerEventual
+            case HeadInfo.Purge     => none[SeqNr].pure[F]
+          }
         }
 
         val from = SeqNr.min // TODO remove
@@ -315,7 +328,6 @@ object Journal {
           pointer <- seqNr.traverse { seqNr => delete(seqNr min to) }
         } yield pointer
       }
-
 
       def purge(key: Key): F[Option[PartitionOffset]] = {
         // TODO move usages of Action.scala from Journal.scala to AppendAction
