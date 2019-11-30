@@ -95,6 +95,12 @@ object JournalAdapterSpec {
   private val origin = Origin("origin")
   private val eventRecord = EventRecord(event, timestamp, partitionOffset, origin.some, recordMetadata, headers)
 
+  sealed abstract class Action
+
+  object Action {
+    final case class Purge(key: Key) extends Action
+  }
+
   final case class Append(
     key: Key,
     events: Nel[Event],
@@ -110,15 +116,22 @@ object JournalAdapterSpec {
   final case class Pointer(key: Key)
 
   final case class State(
-    events: List[EventRecord] = Nil,
-    appends: List[Append] = Nil,
-    pointers: List[Pointer] = Nil,
-    deletes: List[Delete] = Nil,
-    reads: List[Read] = Nil,
-    replayed: List[PersistentRepr] = Nil)
+    events: List[EventRecord] = List.empty,
+    appends: List[Append] = List.empty,
+    pointers: List[Pointer] = List.empty,
+    deletes: List[Delete] = List.empty,
+    reads: List[Read] = List.empty,
+    replayed: List[PersistentRepr] = List.empty,
+    actions: List[Action] = List.empty)
 
   object State {
+
     val empty: State = State()
+
+    implicit class StateOps(val self: State) extends AnyVal {
+
+      def append(action: Action): State = self.copy(actions = action :: self.actions)
+    }
   }
 
 
@@ -167,6 +180,13 @@ object JournalAdapterSpec {
         StateT { state =>
           val delete = Delete(key, to, timestamp)
           val state1 = state.copy(deletes = delete :: state.deletes)
+          (state1, none[PartitionOffset])
+        }
+      }
+
+      def purge(key: Key) = {
+        StateT { state =>
+          val state1 = state.append(Action.Purge(key))
           (state1, none[PartitionOffset])
         }
       }

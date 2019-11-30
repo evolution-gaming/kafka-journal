@@ -52,8 +52,8 @@ trait Journal[F[_]] {
   /**
    * Deletes all data with regards to to, consecutive pointer call will return none
    */
-  // TODO return Pointer and test it
-//  def purge(key: Key): F[Option[PartitionOffset]]
+  // TODO test
+  def purge(key: Key): F[Option[PartitionOffset]]
 }
 
 object Journal {
@@ -74,7 +74,7 @@ object Journal {
 
     def delete(key: Key, to: SeqNr) = none[PartitionOffset].pure[F]
 
-//    def purge(key: Key) = none[PartitionOffset].pure[F]
+    def purge(key: Key) = none[PartitionOffset].pure[F]
   }
 
 
@@ -315,75 +315,17 @@ object Journal {
           pointer <- seqNr.traverse { seqNr => delete(seqNr min to) }
         } yield pointer
       }
-    }
-  }
 
 
-  def apply[F[_] : MonadThrowable : MeasureDuration](journal: Journal[F], metrics: Metrics[F]): Journal[F] = {
-
-    val functionKId = FunctionK.id[F]
-
-    def handleError[A](name: String, topic: Topic)(fa: F[A]): F[A] = {
-      fa.handleErrorWith { e =>
+      def purge(key: Key): F[Option[PartitionOffset]] = {
+        // TODO move usages of Action.scala from Journal.scala to AppendAction
         for {
-          _ <- metrics.failure(name, topic)
-          a <- e.raiseError[F, A]
-        } yield a
-      }
-    }
-
-    new Journal[F] {
-
-      def append(
-        key: Key,
-        events: Nel[Event],
-        expireAfter: Option[FiniteDuration],
-        metadata: Option[JsValue],
-        headers: Headers
-      ) = {
-        def append = journal.append(key, events, expireAfter, metadata, headers)
-        for {
-          d <- MeasureDuration[F].start
-          r <- handleError("append", key.topic) { append }
-          d <- d
-          _ <- metrics.append(topic = key.topic, latency = d, events = events.size)
-        } yield r
-      }
-
-      def read(key: Key, from: SeqNr) = {
-        val measure = new (F ~> F) {
-          def apply[A](fa: F[A]) = {
-            for {
-              d <- MeasureDuration[F].start
-              r <- handleError("read", key.topic) { fa }
-              d <- d
-              _ <- metrics.read(topic = key.topic, latency = d)
-            } yield r
-          }
+          timestamp <- Clock[F].instant
+          action     = Action.Purge(key, timestamp, origin)
+          result    <- appendAction(action)
+        } yield {
+          result.some
         }
-
-        for {
-          a <- journal.read(key, from).mapK(measure, functionKId)
-          _ <- Stream.lift(metrics.read(key.topic))
-        } yield a
-      }
-
-      def pointer(key: Key) = {
-        for {
-          d <- MeasureDuration[F].start
-          r <- handleError("pointer", key.topic) { journal.pointer(key) }
-          d <- d
-          _ <- metrics.pointer(key.topic, d)
-        } yield r
-      }
-
-      def delete(key: Key, to: SeqNr) = {
-        for {
-          d <- MeasureDuration[F].start
-          r <- handleError("delete", key.topic) { journal.delete(key, to) }
-          d <- d
-          _ <- metrics.delete(key.topic, d)
-        } yield r
       }
     }
   }
@@ -400,6 +342,8 @@ object Journal {
     def pointer(topic: Topic, latency: FiniteDuration): F[Unit]
 
     def delete(topic: Topic, latency: FiniteDuration): F[Unit]
+
+    def purge(topic: Topic, latency: FiniteDuration): F[Unit]
 
     def failure(name: String, topic: Topic): F[Unit]
   }
@@ -420,6 +364,8 @@ object Journal {
       def pointer(topic: Topic, latency: FiniteDuration) = unit
 
       def delete(topic: Topic, latency: FiniteDuration) = unit
+
+      def purge(topic: Topic, latency: FiniteDuration) = unit
 
       def failure(name: String, topic: Topic) = unit
     }
@@ -489,6 +435,10 @@ object Journal {
 
           def delete(topic: Topic, latency: FiniteDuration) = {
             observeLatency(name = "delete", topic = topic, latency = latency)
+          }
+
+          def purge(topic: Topic, latency: FiniteDuration) = {
+            observeLatency(name = "purge", topic = topic, latency = latency)
           }
 
           def failure(name: String, topic: Topic) = {
@@ -667,7 +617,16 @@ object Journal {
             d <- MeasureDuration[F].start
             r <- self.delete(key, to)
             d <- d
-            _ <- logDebugOrWarn(d, config.delete) { s"$key delete in ${ d.toMillis }ms, to: $to, r: $r" }
+            _ <- logDebugOrWarn(d, config.delete) { s"$key delete in ${ d.toMillis }ms, to: $to, result: $r" }
+          } yield r
+        }
+
+        def purge(key: Key) = {
+          for {
+            d <- MeasureDuration[F].start
+            r <- self.purge(key)
+            d <- d
+            _ <- logDebugOrWarn(d, config.purge) { s"$key purge in ${ d.toMillis }ms, result: $r" }
           } yield r
         }
       }
@@ -733,6 +692,14 @@ object Journal {
             s"$key delete failed in ${ latency.toMillis }ms, to: $to, error: $error"
           }
         }
+
+        def purge(key: Key) = {
+          logError {
+            self.purge(key)
+          } { (error, latency) =>
+            s"$key purge failed in ${ latency.toMillis }ms, error: $error"
+          }
+        }
       }
     }
 
@@ -742,7 +709,80 @@ object Journal {
       F: MonadThrowable[F],
       measureDuration: MeasureDuration[F]
     ): Journal[F] = {
-      Journal(self, metrics)
+      val functionKId = FunctionK.id[F]
+
+      def handleError[A](name: String, topic: Topic)(fa: F[A]): F[A] = {
+        fa.handleErrorWith { e =>
+          for {
+            _ <- metrics.failure(name, topic)
+            a <- e.raiseError[F, A]
+          } yield a
+        }
+      }
+
+      new Journal[F] {
+
+        def append(
+          key: Key,
+          events: Nel[Event],
+          expireAfter: Option[FiniteDuration],
+          metadata: Option[JsValue],
+          headers: Headers
+        ) = {
+          def append = self.append(key, events, expireAfter, metadata, headers)
+          for {
+            d <- MeasureDuration[F].start
+            r <- handleError("append", key.topic) { append }
+            d <- d
+            _ <- metrics.append(topic = key.topic, latency = d, events = events.size)
+          } yield r
+        }
+
+        def read(key: Key, from: SeqNr) = {
+          val measure = new (F ~> F) {
+            def apply[A](fa: F[A]) = {
+              for {
+                d <- MeasureDuration[F].start
+                r <- handleError("read", key.topic) { fa }
+                d <- d
+                _ <- metrics.read(topic = key.topic, latency = d)
+              } yield r
+            }
+          }
+
+          for {
+            a <- self.read(key, from).mapK(measure, functionKId)
+            _ <- Stream.lift(metrics.read(key.topic))
+          } yield a
+        }
+
+        def pointer(key: Key) = {
+          for {
+            d <- MeasureDuration[F].start
+            r <- handleError("pointer", key.topic) { self.pointer(key) }
+            d <- d
+            _ <- metrics.pointer(key.topic, d)
+          } yield r
+        }
+
+        def delete(key: Key, to: SeqNr) = {
+          for {
+            d <- MeasureDuration[F].start
+            r <- handleError("delete", key.topic) { self.delete(key, to) }
+            d <- d
+            _ <- metrics.delete(key.topic, d)
+          } yield r
+        }
+
+        def purge(key: Key) = {
+          for {
+            d <- MeasureDuration[F].start
+            r <- handleError("purge", key.topic) { self.purge(key) }
+            d <- d
+            _ <- metrics.purge(key.topic, d)
+          } yield r
+        }
+      }
     }
 
 
@@ -758,17 +798,13 @@ object Journal {
         to(self.append(key, events, expireAfter, metadata, headers))
       }
 
-      def read(key: Key, from1: SeqNr) = {
-        self.read(key, from1).mapK(to, from)
-      }
+      def read(key: Key, from1: SeqNr) = self.read(key, from1).mapK(to, from)
 
-      def pointer(key: Key) = {
-        to(self.pointer(key))
-      }
+      def pointer(key: Key) = to(self.pointer(key))
 
-      def delete(key: Key, to1: SeqNr) = {
-        to(self.delete(key, to1))
-      }
+      def delete(key: Key, to1: SeqNr) = to(self.delete(key, to1))
+
+      def purge(key: Key) = to(self.purge(key))
     }
   }
 
@@ -777,7 +813,8 @@ object Journal {
     append: FiniteDuration = 500.millis,
     read: FiniteDuration = 5.seconds,
     pointer: FiniteDuration = 1.second,
-    delete: FiniteDuration = 1.second)
+    delete: FiniteDuration = 1.second,
+    purge: FiniteDuration = 1.second)
 
   object CallTimeThresholds {
 
