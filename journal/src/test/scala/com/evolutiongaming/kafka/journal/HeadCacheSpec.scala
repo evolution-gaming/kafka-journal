@@ -224,7 +224,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
             _      = a shouldEqual HeadCacheError.invalid.asLeft
             _     <- enqueue(key0, 2)
             a     <- headCache.get(key0, partition, 2)
-            _      = a shouldEqual HeadInfo.append(SeqNr.min, none, 0).asRight
+            _      = a shouldEqual HeadInfo.append(SeqNr.min, none, 2).asRight
             state <- stateRef.get
           } yield {
             state shouldEqual TestConsumer.State(

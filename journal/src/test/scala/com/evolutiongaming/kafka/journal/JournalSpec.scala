@@ -16,7 +16,7 @@ import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
 import com.evolutiongaming.sstream.Stream
-import org.scalatest.{Assertion, Matchers, WordSpec}
+import org.scalatest.{Assertion, Matchers, Succeeded, WordSpec}
 
 import scala.collection.immutable.Queue
 import scala.concurrent.duration._
@@ -38,22 +38,25 @@ class JournalSpec extends WordSpec with Matchers {
 
       def createAndAppend(f: (SeqNrJournal[F], Option[Offset]) => F[Assertion]) = {
         withJournal { journal =>
-          for {
-            offset <- combination.foldLeft(none[Offset].pure[F]) { (offset, seqNrs) =>
-              for {
-                _      <- offset
-                offset <- journal.append(seqNrs.head, seqNrs.tail: _*)
-              } yield {
-                offset.some
-              }
+          
+          def append(seqNrs: Nel[SeqNr]) = {
+            for {
+              offset <- journal.append(seqNrs.head, seqNrs.tail: _*)
+            } yield {
+              offset.some
             }
+          }
+          for {
+            offset     <- combination.foldLeftM(none[Offset]) { (_, seqNrs) => append(seqNrs) }
             offsetNext  = offset.map(_ + 1)
             result     <- f(journal, offsetNext)
           } yield result
         }
       }
 
-      val name = combination.map(_.toList.mkString("[", ",", "]")).mkString(",")
+      val name = combination
+        .map { _.toList.mkString("[", ",", "]") }
+        .mkString(",")
 
       s"append, $name" in {
         createAndAppend { case (journal, _) =>
@@ -114,9 +117,20 @@ class JournalSpec extends WordSpec with Matchers {
             a <- journal.read(SeqRange.all)
             _  = a shouldEqual seqNrs.dropWhile(_ <= SeqNr.min)
             a <- journal.pointer
-          } yield {
-            a shouldEqual seqNrLast
-          }
+            _  = a shouldEqual seqNrLast
+          } yield Succeeded
+        }
+      }
+
+      s"purge, $name" in {
+        createAndAppend { case (journal, _) =>
+          for {
+            _ <- journal.purge
+            a <- journal.read(SeqRange.all)
+            _  = a shouldEqual List.empty
+            a <- journal.pointer
+            _  = a shouldEqual none
+          } yield Succeeded
         }
       }
 
@@ -124,9 +138,8 @@ class JournalSpec extends WordSpec with Matchers {
         createAndAppend { case (journal, _) =>
           for {
             a <- journal.pointer
-          } yield {
-            a shouldEqual seqNrLast
-          }
+            _  = a shouldEqual seqNrLast
+          } yield Succeeded
         }
       }
 
@@ -173,28 +186,32 @@ class JournalSpec extends WordSpec with Matchers {
       }
     }
 
-    "append, delete, append, delete, append, read, lastSeqNr" in {
+    "append, delete, append, delete, append, read, lastSeqNr, purge" in {
       withJournal { journal =>
         for {
-          _      <- journal.append(SeqNr.unsafe(1))
-          _      <- journal.delete(SeqNr.unsafe(3))
-          _      <- journal.append(SeqNr.unsafe(2), SeqNr.unsafe(3))
-          _      <- journal.delete(SeqNr.unsafe(2))
-          _      <- journal.append(SeqNr.unsafe(4))
-          seqNrs <- journal.read(SeqRange.unsafe(1, 2))
-          _       = seqNrs shouldEqual Nil
-          seqNrs <- journal.read(SeqRange.unsafe(2, 3))
-          _       = seqNrs shouldEqual List(SeqNr.unsafe(3))
-          seqNrs <- journal.read(SeqRange.unsafe(3, 4))
-          _       = seqNrs shouldEqual List(SeqNr.unsafe(3), SeqNr.unsafe(4))
-          seqNrs <- journal.read(SeqRange.unsafe(4, 5))
-          _       = seqNrs shouldEqual List(SeqNr.unsafe(4))
-          seqNrs <- journal.read(SeqRange.unsafe(5, 6))
-          _       = seqNrs shouldEqual Nil
-          seqNr  <- journal.pointer
-        } yield {
-          seqNr shouldEqual Some(SeqNr.unsafe(4))
-        }
+          _       <- journal.append(SeqNr.unsafe(1))
+          _       <- journal.delete(SeqNr.unsafe(3))
+          _       <- journal.append(SeqNr.unsafe(2), SeqNr.unsafe(3))
+          _       <- journal.delete(SeqNr.unsafe(2))
+          _       <- journal.append(SeqNr.unsafe(4))
+          seqNrs  <- journal.read(SeqRange.unsafe(1, 2))
+          _        = seqNrs shouldEqual Nil
+          seqNrs  <- journal.read(SeqRange.unsafe(2, 3))
+          _        = seqNrs shouldEqual List(SeqNr.unsafe(3))
+          seqNrs  <- journal.read(SeqRange.unsafe(3, 4))
+          _        = seqNrs shouldEqual List(SeqNr.unsafe(3), SeqNr.unsafe(4))
+          seqNrs  <- journal.read(SeqRange.unsafe(4, 5))
+          _        = seqNrs shouldEqual List(SeqNr.unsafe(4))
+          seqNrs  <- journal.read(SeqRange.unsafe(5, 6))
+          _        = seqNrs shouldEqual Nil
+          seqNr   <- journal.pointer
+          _        = seqNr shouldEqual Some(SeqNr.unsafe(4))
+          _       <- journal.purge
+          seqNrs  <- journal.read(SeqRange.all)
+          _        = seqNrs shouldEqual Nil
+          pointer <- journal.pointer
+          _        = pointer shouldEqual none
+        } yield Succeeded
       }
     }
   }
@@ -384,6 +401,8 @@ object JournalSpec {
     def pointer: F[Option[SeqNr]]
 
     def delete(to: SeqNr): F[Option[Offset]]
+
+    def purge: F[Option[Offset]]
   }
 
   object SeqNrJournal {
@@ -419,6 +438,16 @@ object JournalSpec {
         def delete(to: SeqNr) = {
           for {
             partitionOffset <- journal.delete(key, to)
+          } yield for {
+            partitionOffset <- partitionOffset
+          } yield {
+            partitionOffset.offset
+          }
+        }
+
+        def purge = {
+          for {
+            partitionOffset <- journal.purge(key)
           } yield for {
             partitionOffset <- partitionOffset
           } yield {
