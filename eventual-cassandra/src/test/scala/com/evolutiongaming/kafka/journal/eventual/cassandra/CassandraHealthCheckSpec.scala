@@ -4,7 +4,8 @@ import cats.effect.{IO, Resource}
 import cats.implicits._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.IOSuite._
-import org.scalatest.{AsyncFunSuite, Matchers}
+import org.scalatest.funsuite.AsyncFunSuite
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace

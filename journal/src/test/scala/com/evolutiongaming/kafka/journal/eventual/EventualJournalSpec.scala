@@ -14,11 +14,13 @@ import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
-import org.scalatest.{Assertion, Matchers, WordSpec}
+import org.scalatest.Assertion
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import play.api.libs.json.Json
 
 
-trait EventualJournalSpec extends WordSpec with Matchers {
+trait EventualJournalSpec extends AnyWordSpec with Matchers {
   import EventualJournalSpec._
 
   def test[F[_] : BracketThrowable](withJournals: (Journals[F] => F[Assertion]) => F[Assertion]): Unit = {

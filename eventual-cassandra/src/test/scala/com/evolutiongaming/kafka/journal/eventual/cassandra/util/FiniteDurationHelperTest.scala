@@ -1,12 +1,13 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra.util
 
-import org.scalatest.{FunSuite, Matchers}
 
 import scala.concurrent.duration._
 import com.datastax.driver.core.{Duration => DurationC}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.util.FiniteDurationHelper._
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-class FiniteDurationHelperTest extends FunSuite with Matchers {
+class FiniteDurationHelperTest extends AnyFunSuite with Matchers {
 
   for {
     (finiteDuration, duration) <- List(

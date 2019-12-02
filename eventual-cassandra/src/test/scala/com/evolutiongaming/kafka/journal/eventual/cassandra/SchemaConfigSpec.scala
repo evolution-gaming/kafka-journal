@@ -3,11 +3,12 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.implicits._
 import com.evolutiongaming.scassandra.ReplicationStrategyConfig
 import com.typesafe.config.ConfigFactory
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 import pureconfig.ConfigSource
 
 
-class SchemaConfigSpec extends FunSuite with Matchers {
+class SchemaConfigSpec extends AnyFunSuite with Matchers {
 
   test("apply from empty config") {
     val config = ConfigFactory.empty()

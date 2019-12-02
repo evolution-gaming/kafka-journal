@@ -14,7 +14,8 @@ import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.skafka.consumer.ConsumerMetrics
 import com.evolutiongaming.skafka.producer.ProducerMetrics
-import org.scalatest.{Matchers, Suite}
+import org.scalatest.Suite
+import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.JsValue
 
 

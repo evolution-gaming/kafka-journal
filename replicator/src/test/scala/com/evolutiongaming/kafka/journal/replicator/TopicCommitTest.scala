@@ -6,7 +6,8 @@ import cats.effect.{Clock, IO}
 import com.evolutiongaming.kafka.journal.IOSuite._
 import cats.effect.concurrent.{Deferred, Ref}
 import com.evolutiongaming.skafka.{Offset, Partition}
-import org.scalatest.{AsyncFunSuite, Matchers}
+import org.scalatest.funsuite.AsyncFunSuite
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 

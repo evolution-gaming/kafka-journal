@@ -111,4 +111,9 @@ object PlayJsonHelper {
 
     def writes(a: FiniteDuration) = JsString(a.toString)
   }
+
+
+  implicit class WritesOps[A](val self: Writes[A]) extends AnyVal {
+    def as[B <: A]: Writes[B] = self.contramap[B](identity)
+  }
 }

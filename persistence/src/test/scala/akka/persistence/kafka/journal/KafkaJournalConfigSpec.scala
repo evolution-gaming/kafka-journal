@@ -2,11 +2,12 @@ package akka.persistence.kafka.journal
 
 import com.evolutiongaming.kafka.journal.Journal.CallTimeThresholds
 import com.typesafe.config.ConfigFactory
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 
-class KafkaJournalConfigSpec extends FunSuite with Matchers {
+class KafkaJournalConfigSpec extends AnyFunSuite with Matchers {
 
   test("apply from empty config") {
     val config = ConfigFactory.empty()

@@ -11,13 +11,14 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.BracketFromMonadError
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.Json
 
 import scala.concurrent.duration._
 import scala.util.Try
 
-class ReplicatedCassandraTest extends FunSuite with Matchers {
+class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
   import ReplicatedCassandraTest._
 
   private val timestamp0 = Instant.now()

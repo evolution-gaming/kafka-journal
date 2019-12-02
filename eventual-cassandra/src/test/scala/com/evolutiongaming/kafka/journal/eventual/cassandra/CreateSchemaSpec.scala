@@ -4,9 +4,10 @@ import cats.Id
 import cats.implicits._
 import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.scassandra.TableName
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-class CreateSchemaSpec extends FunSuite with Matchers { self =>
+class CreateSchemaSpec extends AnyFunSuite with Matchers { self =>
 
   test("create keyspace and tables") {
     val config = SchemaConfig.default

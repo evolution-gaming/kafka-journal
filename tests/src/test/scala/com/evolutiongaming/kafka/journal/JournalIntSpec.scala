@@ -12,14 +12,13 @@ import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
-import com.evolutiongaming.kafka.journal.util.MonadString
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.retry.{Retry, Strategy}
-import org.scalatest.{AsyncWordSpec, Succeeded}
+import org.scalatest.Succeeded
+import org.scalatest.wordspec.AsyncWordSpec
 import play.api.libs.json.Json
 
 import scala.concurrent.duration._
-import scala.util.Try
 
 class JournalIntSpec extends AsyncWordSpec with JournalSuite {
   import JournalIntSpec._

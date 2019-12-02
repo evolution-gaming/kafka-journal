@@ -6,7 +6,8 @@ import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.replicator.Replicator.Consumer
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.skafka.Topic
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace

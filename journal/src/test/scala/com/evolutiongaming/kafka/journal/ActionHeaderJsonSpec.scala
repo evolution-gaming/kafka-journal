@@ -1,13 +1,15 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.implicits._
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 import play.api.libs.json._
 
 import scala.concurrent.duration._
+import scala.util.Try
 
 
-class ActionHeaderJsonSpec extends FunSuite with Matchers {
+class ActionHeaderJsonSpec extends AnyFunSuite with Matchers {
 
   val origins = List(Some(Origin("origin")), None)
   val metadata = List(
@@ -62,6 +64,6 @@ class ActionHeaderJsonSpec extends FunSuite with Matchers {
     }
 
     verify(Json.toJson(value))
-    verify(Json.parse(ByteVectorOf(getClass, s"$name.json").toArray))
+    verify(Json.parse(ByteVectorOf[Try](getClass, s"$name.json").get.toArray))
   }
 }

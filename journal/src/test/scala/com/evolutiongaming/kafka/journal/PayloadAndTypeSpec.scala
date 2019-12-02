@@ -5,12 +5,13 @@ import java.io.FileOutputStream
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.conversions.{EventsToPayload, PayloadToEvents}
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 import scodec.bits.ByteVector
 
 import scala.util.Try
 
-class PayloadAndTypeSpec extends FunSuite with Matchers {
+class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
 
   def event(seqNr: Int, payload: Option[Payload] = None): Event = {
     val tags = (0 to seqNr).map(_.toString).toSet
@@ -54,7 +55,7 @@ class PayloadAndTypeSpec extends FunSuite with Matchers {
 
     test(s"toBytes & fromBytes, events: $name") {
 
-      def fromFile(path: String) = ByteVectorOf(getClass, path)
+      def fromFile(path: String) = ByteVectorOf[Try](getClass, path).get
 
       def verify(payload: ByteVector, payloadType: PayloadType.BinaryOrJson) = {
         val payloadAndType = PayloadAndType(payload, payloadType)

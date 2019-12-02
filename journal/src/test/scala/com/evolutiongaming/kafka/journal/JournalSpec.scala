@@ -16,14 +16,16 @@ import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
 import com.evolutiongaming.sstream.Stream
-import org.scalatest.{Assertion, Matchers, Succeeded, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.{Assertion, Succeeded}
 
 import scala.collection.immutable.Queue
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class JournalSpec extends WordSpec with Matchers {
+class JournalSpec extends AnyWordSpec with Matchers {
   import JournalSpec._
 
   // TODO add test when Kafka missing it's tail comparing to eventual

@@ -1,8 +1,10 @@
 package akka.persistence.kafka.journal
 
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-class GroupByWeightSpec extends FunSuite with Matchers {
+
+class GroupByWeightSpec extends AnyFunSuite with Matchers {
 
   for {
     (weight, value, expected) <- List(

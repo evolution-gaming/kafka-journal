@@ -3,14 +3,16 @@ package com.evolutiongaming.kafka.journal
 import java.io.FileOutputStream
 
 import cats.data.{NonEmptyList => Nel}
+import cats.implicits._
 import com.evolutiongaming.kafka.journal.FromBytes.implicits._
 import com.evolutiongaming.kafka.journal.ToBytes.implicits._
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 import scodec.bits.ByteVector
 
 import scala.util.{Success, Try}
 
-class EventsToBytesSpec extends FunSuite with Matchers {
+class EventsToBytesSpec extends AnyFunSuite with Matchers {
 
   def event(seqNr: Int, payload: Option[Payload] = None): Event = {
     val tags = (0 to seqNr).map(_.toString).toSet
@@ -62,7 +64,7 @@ class EventsToBytesSpec extends FunSuite with Matchers {
 
       verify(bytes)
 
-      verify(ByteVectorOf(getClass, s"events-$name.bin"))
+      verify(ByteVectorOf[Try](getClass, s"events-$name.bin").get)
     }
   }
 

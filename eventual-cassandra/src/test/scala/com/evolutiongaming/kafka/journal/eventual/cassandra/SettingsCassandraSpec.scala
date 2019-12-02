@@ -13,9 +13,10 @@ import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.smetrics.MeasureDuration
 import com.evolutiongaming.sstream.Stream
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-class SettingsCassandraSpec extends FunSuite with Matchers {
+class SettingsCassandraSpec extends AnyFunSuite with Matchers {
 
   test("set") {
     val (state, prev) = settings.set(setting.key, setting.value).run(State.empty)

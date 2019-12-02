@@ -1,9 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.data.{NonEmptyList => Nel}
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-class CombinationsSpec extends FunSuite with Matchers {
+class CombinationsSpec extends AnyFunSuite with Matchers {
 
   test("Nil") {
     Combinations(List.empty[Int]) shouldEqual Combinations.Type.empty

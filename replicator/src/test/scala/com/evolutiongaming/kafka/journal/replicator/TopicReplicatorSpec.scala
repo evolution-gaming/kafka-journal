@@ -18,14 +18,15 @@ import com.evolutiongaming.sstream.Stream
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, RebalanceListener, WithSize}
 import com.evolutiongaming.skafka.{Bytes => _, Header => _, Metadata => _, _}
 import com.evolutiongaming.smetrics.MeasureDuration
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import play.api.libs.json.Json
 
 import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.NoStackTrace
 
-class TopicReplicatorSpec extends WordSpec with Matchers {
+class TopicReplicatorSpec extends AnyWordSpec with Matchers {
   import TopicReplicatorSpec._
 
   "TopicReplicator" should {

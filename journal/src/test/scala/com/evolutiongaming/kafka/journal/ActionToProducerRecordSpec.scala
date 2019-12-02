@@ -8,13 +8,14 @@ import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsumerRecordToActionRecord, EventsToPayload}
 import com.evolutiongaming.skafka.consumer.WithSize
 import com.evolutiongaming.skafka.{TimestampAndType, TimestampType, TopicPartition}
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.Json
 
 import scala.concurrent.duration._
 import scala.util.Try
 
-class ActionToProducerRecordSpec extends FunSuite with Matchers {
+class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
 
   private val key1 = Key(id = "id", topic = "topic")
 

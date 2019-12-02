@@ -2,9 +2,10 @@ package akka.persistence.kafka.journal
 
 import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.Id
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-class BatchingSpec extends FunSuite with Matchers {
+class BatchingSpec extends AnyFunSuite with Matchers {
 
   private val atomicWrite = AtomicWrite(List(PersistentRepr(None, persistenceId = "persistenceId")))
 

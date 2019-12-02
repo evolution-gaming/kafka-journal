@@ -3,11 +3,12 @@ package com.evolutiongaming.kafka.journal.util
 import cats.data.{NonEmptyMap => Nem}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.util.CollectionHelper._
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
 import scala.collection.immutable.SortedMap
 
-class CollectionHelperTest extends FunSuite with Matchers {
+class CollectionHelperTest extends AnyFunSuite with Matchers {
 
   test("toSortedMap") {
     List.empty[(Int, Int)].toSortedMap shouldEqual SortedMap.empty[Int, Int]

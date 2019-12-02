@@ -5,7 +5,7 @@ import akka.persistence._
 import akka.persistence.journal.JournalSpec
 import cats.data.{NonEmptyList => Nel}
 import com.typesafe.config.ConfigFactory
-import org.scalatest.Matchers
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, Promise}

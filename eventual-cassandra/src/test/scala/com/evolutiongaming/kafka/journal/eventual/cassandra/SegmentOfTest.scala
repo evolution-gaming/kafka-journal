@@ -2,9 +2,10 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Id
 import com.evolutiongaming.kafka.journal.Key
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-class SegmentOfTest extends FunSuite with Matchers {
+class SegmentOfTest extends AnyFunSuite with Matchers {
 
   for {
     id                    <- List("id", "ID")

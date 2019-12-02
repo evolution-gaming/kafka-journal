@@ -7,11 +7,12 @@ import com.datastax.driver.core.{Row, Statement}
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CreateTables.Table
 import com.evolutiongaming.sstream.Stream
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
 import scala.util.control.NoStackTrace
 
-class CreateTablesSpec extends FunSuite with Matchers {
+class CreateTablesSpec extends AnyFunSuite with Matchers {
 
   test("create 1 table") {
     val initial = State.empty

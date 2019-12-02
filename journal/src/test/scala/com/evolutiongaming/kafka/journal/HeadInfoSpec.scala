@@ -2,9 +2,10 @@ package com.evolutiongaming.kafka.journal
 
 import cats.implicits._
 import com.evolutiongaming.skafka.Offset
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-class HeadInfoSpec extends FunSuite with Matchers {
+class HeadInfoSpec extends AnyFunSuite with Matchers {
 
   test("Empty apply Append") {
     HeadInfo.Empty(append(1, 2), 0) shouldEqual appendInfo(0, 2)

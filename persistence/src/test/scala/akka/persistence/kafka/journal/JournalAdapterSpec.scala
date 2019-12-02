@@ -12,12 +12,13 @@ import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.sstream.Stream
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.{JsValue, Json}
 
 import scala.concurrent.duration._
 
-class JournalAdapterSpec extends FunSuite with Matchers {
+class JournalAdapterSpec extends AnyFunSuite with Matchers {
   import JournalAdapterSpec.StateT._
   import JournalAdapterSpec._
 

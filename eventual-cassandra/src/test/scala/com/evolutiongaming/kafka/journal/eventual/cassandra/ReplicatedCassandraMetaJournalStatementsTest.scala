@@ -6,12 +6,13 @@ import cats.implicits._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.kafka.journal.{Key, Origin, PartitionOffset, SeqNr}
 import com.evolutiongaming.skafka.Topic
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 import scala.util.Try
 
-class ReplicatedCassandraMetaJournalStatementsTest extends FunSuite with Matchers {
+class ReplicatedCassandraMetaJournalStatementsTest extends AnyFunSuite with Matchers {
   import ReplicatedCassandraMetaJournalStatementsTest._
 
   test("journalHead empty") {

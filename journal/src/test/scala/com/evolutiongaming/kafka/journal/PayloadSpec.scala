@@ -1,10 +1,11 @@
 package com.evolutiongaming.kafka.journal
 
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.JsString
 import scodec.bits.ByteVector
 
-class PayloadSpec extends FunSuite with Matchers {
+class PayloadSpec extends AnyFunSuite with Matchers {
 
   test("apply text") {
     Payload("text") shouldEqual Payload.text("text")

@@ -3,9 +3,10 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import java.time.{Instant, ZoneId, LocalDate => LocalDateJ}
 
 import com.datastax.driver.core.LocalDate
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-class LocalDateTest extends FunSuite with Matchers {
+class LocalDateTest extends AnyFunSuite with Matchers {
 
   test("datastax LocalDate to/from java LocalDate") {
     val localDateJ = LocalDateJ.of(2019, 10, 4)

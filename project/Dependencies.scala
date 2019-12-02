@@ -6,7 +6,7 @@ object Dependencies {
   val `scala-java8-compat` = "org.scala-lang.modules" %% "scala-java8-compat"    % "0.9.0"
   val prometheus           = "io.prometheus"           % "simpleclient"          % "0.6.0"
   val `cassandra-driver`   = "com.datastax.cassandra"  % "cassandra-driver-core" % "3.7.2"
-  val `play-json`          = "com.typesafe.play"      %% "play-json"             % "2.7.4"
+  val `play-json`          = "com.typesafe.play"      %% "play-json"             % "2.8.0"
   val `kind-projector`     = "org.typelevel"           % "kind-projector"        % "0.10.3"
   val `executor-tools`     = "com.evolutiongaming"    %% "executor-tools"        % "1.0.2"
   val `config-tools`       = "com.evolutiongaming"    %% "config-tools"          % "1.0.3"
@@ -38,13 +38,13 @@ object Dependencies {
   }
 
   object Slf4j {
-    private val version = "1.7.28"
+    private val version = "1.7.29"
     val api                = "org.slf4j" % "slf4j-api"        % version
     val `log4j-over-slf4j` = "org.slf4j" % "log4j-over-slf4j" % version
   }
 
   object Akka {
-    private val version = "2.5.26"
+    private val version = "2.6.0"
     val actor             = "com.typesafe.akka" %% "akka-actor"           % version
     val testkit           = "com.typesafe.akka" %% "akka-testkit"         % version
     val stream            = "com.typesafe.akka" %% "akka-stream"          % version
@@ -65,7 +65,7 @@ object Dependencies {
   }
 
   object Smetrics {
-    private val version = "0.0.7"
+    private val version = "0.0.8"
     val smetrics   = "com.evolutiongaming" %% "smetrics"            % version
     val prometheus = "com.evolutiongaming" %% "smetrics-prometheus" % version
   }

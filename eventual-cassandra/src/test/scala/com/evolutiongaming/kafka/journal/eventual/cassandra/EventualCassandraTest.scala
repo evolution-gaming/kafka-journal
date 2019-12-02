@@ -13,13 +13,14 @@ import com.evolutiongaming.kafka.journal.util.{BracketFromMonadError, TryHelper}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.sstream.FoldWhile._
 import com.evolutiongaming.sstream.Stream
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.Json
 
 import scala.concurrent.duration._
 import scala.util.Try
 
-class EventualCassandraTest extends FunSuite with Matchers {
+class EventualCassandraTest extends AnyFunSuite with Matchers {
   import EventualCassandraTest._
 
   private val timestamp0 = Instant.now()

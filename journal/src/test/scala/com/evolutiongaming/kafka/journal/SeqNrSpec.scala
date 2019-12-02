@@ -2,10 +2,11 @@ package com.evolutiongaming.kafka.journal
 
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
 
-class SeqNrSpec extends FunSuite with Matchers {
+class SeqNrSpec extends AnyFunSuite with Matchers {
 
   test("of") {
     SeqNr.of[Option](0) shouldEqual none

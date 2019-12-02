@@ -5,7 +5,8 @@ import cats.effect.concurrent.{Deferred, Ref}
 import cats.implicits._
 import cats.{Applicative, Foldable}
 import com.evolutiongaming.kafka.journal.IOSuite._
-import org.scalatest.{AsyncFunSuite, Matchers}
+import org.scalatest.funsuite.AsyncFunSuite
+import org.scalatest.matchers.should.Matchers
 
 import scala.util.control.NoStackTrace
 

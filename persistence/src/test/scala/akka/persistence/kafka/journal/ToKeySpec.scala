@@ -3,9 +3,10 @@ package akka.persistence.kafka.journal
 import cats.Id
 import com.evolutiongaming.kafka.journal.Key
 import com.typesafe.config.ConfigFactory
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-class ToKeySpec extends FunSuite with Matchers {
+class ToKeySpec extends AnyFunSuite with Matchers {
 
   test("apply from empty config") {
     val config = ConfigFactory.empty()

@@ -1,9 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.JsString
 
-class PayloadTypeSpec extends FunSuite with Matchers {
+class PayloadTypeSpec extends AnyFunSuite with Matchers {
 
   for {
     (ext, payloadType) <- List(

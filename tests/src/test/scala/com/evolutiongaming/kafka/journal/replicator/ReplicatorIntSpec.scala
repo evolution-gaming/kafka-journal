@@ -19,7 +19,9 @@ import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.skafka.Offset
 import com.evolutiongaming.smetrics.MeasureDuration
 import com.typesafe.config.{Config, ConfigFactory}
-import org.scalatest.{AsyncWordSpec, BeforeAndAfterAll, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 import play.api.libs.json.Json
 import pureconfig.ConfigSource
 

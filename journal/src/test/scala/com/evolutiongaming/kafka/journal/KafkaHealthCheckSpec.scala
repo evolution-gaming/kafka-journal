@@ -7,7 +7,8 @@ import com.evolutiongaming.kafka.journal.KafkaHealthCheck.Record
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.skafka.Topic
-import org.scalatest.{AsyncFunSuite, Matchers}
+import org.scalatest.funsuite.AsyncFunSuite
+import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace

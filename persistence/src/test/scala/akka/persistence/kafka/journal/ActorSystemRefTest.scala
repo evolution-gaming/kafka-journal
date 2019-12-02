@@ -5,7 +5,8 @@ import cats.effect.{IO, Sync}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.ActorSuite
 import com.evolutiongaming.kafka.journal.IOSuite._
-import org.scalatest.{AsyncFunSuite, Matchers}
+import org.scalatest.funsuite.AsyncFunSuite
+import org.scalatest.matchers.should.Matchers
 
 class ActorSystemRefTest extends AsyncFunSuite with ActorSuite with Matchers {
   import ActorSystemRefTest._

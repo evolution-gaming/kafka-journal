@@ -2,12 +2,13 @@ package com.evolutiongaming.kafka.journal.util
 
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.util.PlayJsonHelper.{jsResultMonadString => _, _}
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 import play.api.libs.json._
 
 import scala.concurrent.duration._
 
-class FiniteDurationFormatTest extends FunSuite with Matchers {
+class FiniteDurationFormatTest extends AnyFunSuite with Matchers {
 
   for {
     (duration, expected) <- List(

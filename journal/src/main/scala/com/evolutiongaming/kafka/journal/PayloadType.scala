@@ -23,13 +23,20 @@ object PayloadType {
   }
 
 
-  implicit val writesPayloadType: Writes[PayloadType] = Writes.of[String].contramap(_.name)
+  implicit val formatPayloadType: Format[PayloadType] = {
+    val writes = Writes
+      .of[String]
+      .contramap { (a: PayloadType) => a.name }
 
-  implicit val readsPayloadType: Reads[PayloadType] = Reads.of[String].mapResult { a =>
-    apply(a) match {
-      case Some(a) => JsSuccess(a)
-      case None    => JsError(s"No PayloadType found by $a")
-    }
+    val reads = Reads
+      .of[String]
+      .mapResult { a =>
+        apply(a) match {
+          case Some(a) => JsSuccess(a)
+          case None    => JsError(s"No PayloadType found by $a")
+        }
+      }
+    Format(reads, writes)
   }
 
 
@@ -46,11 +53,18 @@ object PayloadType {
   sealed abstract class BinaryOrJson extends PayloadType
 
   object BinaryOrJson {
-    implicit val readsBinaryOrJson: Reads[BinaryOrJson] = Reads.of[String].mapResult { a =>
-      apply(a) match {
-        case Some(a: BinaryOrJson) => JsSuccess(a)
-        case _                     => JsError(s"No PayloadType.BinaryOrJson found by $a")
-      }
+
+    implicit val formatBinaryOrJson: Format[BinaryOrJson] = {
+      val reads = Reads
+        .of[String]
+        .mapResult { a =>
+          apply(a) match {
+            case Some(a: BinaryOrJson) => JsSuccess(a)
+            case _                     => JsError(s"No PayloadType.BinaryOrJson found by $a")
+          }
+        }
+      val writes = formatPayloadType.as[BinaryOrJson]
+      Format(reads, writes)
     }
   }
 
@@ -58,11 +72,18 @@ object PayloadType {
   sealed trait TextOrJson extends PayloadType
 
   object TextOrJson {
-    implicit val readsTextOrJson: Reads[TextOrJson] = Reads.of[String].mapResult { a =>
-      apply(a) match {
-        case Some(a: TextOrJson) => JsSuccess(a)
-        case _                   => JsError(s"No PayloadType.TextOrJson found by $a")
-      }
+
+    implicit val formatTextOrJson: Format[TextOrJson] = {
+      val reads = Reads
+        .of[String]
+        .mapResult { a =>
+          apply(a) match {
+            case Some(a: TextOrJson) => JsSuccess(a)
+            case _                   => JsError(s"No PayloadType.TextOrJson found by $a")
+          }
+        }
+      val writes = formatPayloadType.as[TextOrJson]
+      Format(reads, writes)
     }
   }
 

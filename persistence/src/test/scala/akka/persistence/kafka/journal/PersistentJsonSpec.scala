@@ -1,10 +1,11 @@
 package akka.persistence.kafka.journal
 
 import com.evolutiongaming.kafka.journal.PayloadType
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.{JsSuccess, Json}
 
-class PersistentJsonSpec extends FunSuite with Matchers {
+class PersistentJsonSpec extends AnyFunSuite with Matchers {
 
   for {
     payloadType <- List(Some(PayloadType.Json), Some(PayloadType.Text), None)

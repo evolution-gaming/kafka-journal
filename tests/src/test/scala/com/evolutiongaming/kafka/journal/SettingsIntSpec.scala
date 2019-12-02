@@ -14,7 +14,9 @@ import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.typesafe.config.ConfigFactory
-import org.scalatest.{AsyncWordSpec, BeforeAndAfterAll, Matchers}
+import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.matchers.should.Matchers
 import pureconfig.ConfigSource
 
 

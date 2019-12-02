@@ -9,12 +9,13 @@ import com.evolutiongaming.kafka.journal.util.TestSync
 import com.evolutiongaming.kafka.journal.{Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.sstream.Stream
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
 import scala.util.control.NoStackTrace
 
 
-class SetupSchemaSpec extends FunSuite with Matchers {
+class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
   test("migrate fresh") {
     val initial = State.empty

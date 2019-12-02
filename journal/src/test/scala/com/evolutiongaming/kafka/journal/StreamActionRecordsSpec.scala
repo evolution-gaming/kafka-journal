@@ -9,12 +9,13 @@ import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal.util.BracketFromMonadError
 import com.evolutiongaming.skafka.{Offset, Partition}
 import com.evolutiongaming.sstream.Stream
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 import scodec.bits.ByteVector
 
 import scala.util.{Success, Try}
 
-class StreamActionRecordsSpec extends FunSuite with Matchers {
+class StreamActionRecordsSpec extends AnyFunSuite with Matchers {
   import StreamActionRecordsSpec._
 
   test("no offsets") {

@@ -1,15 +1,17 @@
 package akka.persistence.kafka.journal
 
+import cats.implicits._
 import com.evolutiongaming.kafka.journal.FromBytes.implicits._
 import com.evolutiongaming.kafka.journal.ToBytes.implicits._
 import com.evolutiongaming.kafka.journal.ByteVectorOf
 import com.evolutiongaming.serialization.SerializedMsg
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 import scodec.bits.ByteVector
 
 import scala.util.{Success, Try}
 
-class PersistentBinaryToBytesSpec extends FunSuite with Matchers {
+class PersistentBinaryToBytesSpec extends AnyFunSuite with Matchers {
   import PersistentBinaryToBytesSpec._
 
   test("toBytes & fromBytes") {
@@ -28,7 +30,7 @@ class PersistentBinaryToBytesSpec extends FunSuite with Matchers {
     }
 
     verify(expected.toBytes[Try].get)
-    verify(ByteVectorOf(getClass, "PersistentBinary.bin"))
+    verify(ByteVectorOf[Try](getClass, "PersistentBinary.bin").get)
   }
 }
 

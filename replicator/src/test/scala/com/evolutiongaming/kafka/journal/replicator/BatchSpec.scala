@@ -4,10 +4,11 @@ import java.time.Instant
 
 import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.kafka.journal._
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 import scodec.bits.ByteVector
 
-class BatchSpec extends FunSuite with Matchers {
+class BatchSpec extends AnyFunSuite with Matchers {
   import BatchSpec._
 
   private val keyOf = Key(id = "id", topic = "topic")

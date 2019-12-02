@@ -1,9 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.data.{NonEmptyList => Nel}
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-class SeqRangeSpec extends FunSuite with Matchers {
+class SeqRangeSpec extends AnyFunSuite with Matchers {
 
   private def seqRange(value: Int) = SeqRange(SeqNr.unsafe(value))
 

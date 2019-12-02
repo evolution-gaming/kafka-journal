@@ -12,14 +12,15 @@ import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer.{RebalanceListener, WithSize}
 import com.evolutiongaming.sstream.Stream
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
 import scala.annotation.tailrec
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 import scala.util.{Failure, Success, Try}
 
-class ConsumeTopicTest extends FunSuite with Matchers {
+class ConsumeTopicTest extends AnyFunSuite with Matchers {
   import ConsumeTopicTest._
 
   test("happy path") {

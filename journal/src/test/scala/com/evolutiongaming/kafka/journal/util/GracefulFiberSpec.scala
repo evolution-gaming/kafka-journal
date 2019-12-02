@@ -4,7 +4,8 @@ import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.IOSuite._
-import org.scalatest.{AsyncFunSuite, Matchers}
+import org.scalatest.funsuite.AsyncFunSuite
+import org.scalatest.matchers.should.Matchers
 
 class GracefulFiberSpec extends AsyncFunSuite with Matchers {
 
