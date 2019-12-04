@@ -1,16 +1,16 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.implicits._
 import cats.{Order, Show}
 import com.datastax.driver.core.{GettableByNameData, SettableData}
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow}
 import com.evolutiongaming.skafka.consumer.ConsumerRecord
 import com.evolutiongaming.skafka.{Offset, Partition}
 
 final case class PartitionOffset(
-  partition: Partition = Partition.Min,
-  offset: Offset = Offset.Min
+  partition: Partition = Partition.min,
+  offset: Offset = Offset.min
 ) {
   override def toString = s"$partition:$offset"
 }

@@ -4,6 +4,7 @@ import java.time.Instant
 
 import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.skafka.Offset
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import scodec.bits.ByteVector
@@ -334,13 +335,13 @@ class BatchSpec extends AnyFunSuite with Matchers {
   }
 
   def deletes(offset: Int, seqNr: Int, origin: String = ""): Batch.Delete = {
-    val partitionOffset = PartitionOffset(offset = offset.toLong)
+    val partitionOffset = PartitionOffset(offset = Offset.unsafe(offset))
     val originOpt = originOf(origin)
     Batch.Delete(partitionOffset, SeqNr.unsafe(seqNr), originOpt)
   }
 
   def purges(offset: Int, origin: String = ""): Batch.Purge = {
-    val partitionOffset = PartitionOffset(offset = offset.toLong)
+    val partitionOffset = PartitionOffset(offset = Offset.unsafe(offset))
     val originOpt = originOf(origin)
     Batch.Purge(partitionOffset, originOpt)
   }
@@ -405,7 +406,7 @@ class BatchSpec extends AnyFunSuite with Matchers {
     ActionRecord(action, partitionOffset)
   }
 
-  def partitionOffsetOf(offset: Int): PartitionOffset = PartitionOffset(offset = offset.toLong)
+  def partitionOffsetOf(offset: Int): PartitionOffset = PartitionOffset(offset = Offset.unsafe(offset))
 }
 
 object BatchSpec {

@@ -12,6 +12,7 @@ import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.conversions.{EventsToPayload, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
@@ -50,7 +51,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
           }
           for {
             offset     <- combination.foldLeftM(none[Offset]) { (_, seqNrs) => append(seqNrs) }
-            offsetNext  = offset.map(_ + 1)
+            offsetNext  = offset.map { _.inc[Try].get }
             result     <- f(journal, offsetNext)
           } yield result
         }
@@ -115,7 +116,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
         createAndAppend { case (journal, offset) =>
           for {
             a <- journal.delete(SeqNr.min)
-            _  = a shouldEqual offset.map(_ + 1)
+            _  = a shouldEqual offset.map { _.inc[Try].get }
             a <- journal.read(SeqRange.all)
             _  = a shouldEqual seqNrs.dropWhile(_ <= SeqNr.min)
             a <- journal.pointer
@@ -292,12 +293,12 @@ class JournalSpec extends AnyWordSpec with Matchers {
 
             def apply(action: Action) = {
               StateT { state =>
-                val offset = state.records.size.toLong
+                val offset = Offset.unsafe(state.records.size)
                 val partitionOffset = PartitionOffset(partition = partition, offset = offset)
                 val record = ActionRecord(action, partitionOffset)
                 val records = state.records.enqueue(record)
 
-                val replicatedState = state.replicatedState(record, (offset - n) max 0l)
+                val replicatedState = state.replicatedState(record, Offset.of[Try](offset.value - n) getOrElse Offset.min)
                 val state1 = state.copy(records = records, replicatedState = replicatedState)
                 (state1, partitionOffset)
               }
@@ -323,7 +324,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
 
             def apply(action: Action) = {
               StateT { state =>
-                val offset = state.records.size.toLong
+                val offset = Offset.unsafe(state.records.size)
                 val partitionOffset = PartitionOffset(partition = partition, offset = offset)
                 val record = ActionRecord(action, partitionOffset)
                 val records = state.records.enqueue(record)
@@ -358,7 +359,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
 
             def apply(action: Action) = {
               StateT { state =>
-                val offset = state.records.size.toLong
+                val offset = Offset.unsafe(state.records.size)
                 val partitionOffset = PartitionOffset(partition = partition, offset = offset)
                 val record = ActionRecord(action, partitionOffset)
                 val records = state.records.enqueue(record)
@@ -366,7 +367,9 @@ class JournalSpec extends AnyWordSpec with Matchers {
                 val replicatedState = for {
                   actions <- records.dropLast(n)
                   action <- actions.lastOption
-                } yield state.replicatedState(action, (offset - n) max 0l)
+                } yield {
+                  state.replicatedState(action, Offset.of[Try](offset.value - n) getOrElse Offset.min)
+                }
                 val state1 = state.copy(records = records, replicatedState = replicatedState getOrElse state.replicatedState)
                 (state1, partitionOffset)
               }
@@ -389,7 +392,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
 object JournalSpec {
   val key = Key(topic = "topic", id = "id")
   val timestamp: Instant = Instant.now()
-  val partition: Partition = 0
+  val partition: Partition = Partition.min
 
   implicit val ec: ExecutionContext = CurrentThreadExecutionContext
 
@@ -576,7 +579,7 @@ object JournalSpec {
     val appendAction: AppendAction[StateT] = {
       action: Action => {
         StateT { state =>
-          val offset = state.records.size.toLong
+          val offset = Offset.unsafe(state.records.size)
           val partitionOffset = PartitionOffset(partition = partition, offset = offset)
           val record = ActionRecord(action, partitionOffset)
           val records = state.records.enqueue(record)

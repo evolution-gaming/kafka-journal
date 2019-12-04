@@ -6,6 +6,7 @@ import cats.Monad
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
@@ -47,8 +48,8 @@ object PointerStatements {
           prepared
             .bind()
             .encode("topic", topic)
-            .encode("partition", partition)
-            .encode("offset", offset)
+            .encode(partition)
+            .encode(offset)
             .encode("created", created)
             .encode("updated", updated)
             .first
@@ -147,7 +148,7 @@ object PointerStatements {
           val rows = prepared
             .bind()
             .encode("topic", topic)
-            .encode("partitions", partitions)
+            .encode("partitions", partitions.map(_.value))
             .execute
             .toList
           for {
@@ -155,8 +156,8 @@ object PointerStatements {
           } yield {
             rows
               .map { row =>
-                val partition = row.decode[Partition]("partition")
-                val offset = row.decode[Offset]("offset")
+                val partition = row.decode[Partition]
+                val offset = row.decode[Offset]
                 (partition, offset)
               }
               .toMap

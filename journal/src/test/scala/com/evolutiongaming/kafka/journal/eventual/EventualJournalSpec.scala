@@ -12,12 +12,15 @@ import com.evolutiongaming.catshelper.{BracketThrowable, Log, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import play.api.libs.json.Json
+
+import scala.util.Try
 
 
 trait EventualJournalSpec extends AnyWordSpec with Matchers {
@@ -92,17 +95,17 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
         for {
           n       <- (0 until size).toList
           seqNr   <- SeqNr.opt(from.seqNr.value + n).toList
-          offset   = from.offset + n
+          offset   = from.offset.value + n
           pointer  = journalPointerOf(offset, seqNr)
         } yield {
           eventOf(pointer)
         }
       }
 
-      val events = eventsOf(journalPointerOf(Offset.Min, seqNr), size)
+      val events = eventsOf(journalPointerOf(Offset.min.value, seqNr), size)
       val pointers = events.map(_.pointer)
       val pointerLast = pointers.lastOption
-      val partitionOffsetNext = pointerLast.fold(partitionOffsetOf(Offset.Min))(_.partitionOffset.next)
+      val partitionOffsetNext = pointerLast.fold(partitionOffsetOf(Offset.min))(_.partitionOffset.next)
       val seqNrsAll = {
         val end = pointerLast.fold(seqNr)(_.seqNr)
         val seqNrs = (seqNr to end).toNel
@@ -256,7 +259,7 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
       size <- List(0, 1, 5)
     } {
 
-      val partitionOffset = PartitionOffset(partition = 1, offset = 1)
+      val partitionOffset = PartitionOffset(partition = Partition.unsafe(1), offset = Offset.unsafe(1))
       val pointers = Nem.of((partitionOffset.partition, partitionOffset.offset))
       val topicPointers = TopicPointers(Map((partitionOffset.partition, partitionOffset.offset)))
 
@@ -380,12 +383,12 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
           a      <- eventual.pointer
           _       = a shouldEqual Some(event1.pointer)
           event2  = eventOf(journalPointerOf(offset = 3, seqNr = SeqNr.unsafe(2)))
-          _      <- replicated.append(partitionOffsetOf(4), Nel.of(event2))
+          _      <- replicated.append(partitionOffsetOf(Offset.unsafe(4)), Nel.of(event2))
           a      <- eventual.events()
           _       = a shouldEqual List(event1, event2)
           a      <- eventual.pointer
           _       = a shouldEqual Some(journalPointerOf(offset = 4, seqNr = event2.seqNr))
-          _      <- replicated.delete(event1.seqNr, partitionOffsetOf(5))
+          _      <- replicated.delete(event1.seqNr, partitionOffsetOf(Offset.unsafe(5)))
           a      <- eventual.events()
           _       = a shouldEqual List(event2)
           a      <- eventual.pointer
@@ -396,12 +399,12 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
           _       = a shouldEqual List(event2, event3)
           a      <- eventual.pointer
           _       = a shouldEqual Some(event3.pointer)
-          _      <- replicated.delete(event3.seqNr, partitionOffsetOf(7))
+          _      <- replicated.delete(event3.seqNr, partitionOffsetOf(Offset.unsafe(7)))
           a      <- eventual.events()
           _       = a shouldEqual Nil
           a      <- eventual.pointer
           _       = a shouldEqual Some(journalPointerOf(offset = 7, seqNr = event3.seqNr))
-          _      <- replicated.delete(SeqNr.max, partitionOffsetOf(8))
+          _      <- replicated.delete(SeqNr.max, partitionOffsetOf(Offset.unsafe(8)))
           a      <- eventual.events()
           _       = a shouldEqual Nil
           a      <- eventual.pointer
@@ -441,8 +444,8 @@ object EventualJournalSpec {
 
   def partitionOffsetOf(offset: Offset): PartitionOffset = PartitionOffset(offset = offset)
 
-  def journalPointerOf(offset: Offset, seqNr: SeqNr): JournalPointer = {
-    JournalPointer(partitionOffsetOf(offset), seqNr)
+  def journalPointerOf(offset: Long, seqNr: SeqNr): JournalPointer = {
+    JournalPointer(partitionOffsetOf(Offset.unsafe(offset)), seqNr)
   }
 
   trait Eventual[F[_]] {
@@ -529,7 +532,7 @@ object EventualJournalSpec {
         val partitionOffset = self.partitionOffset
         self.copy(
           seqNr = seqNr,
-          partitionOffset = partitionOffset.copy(offset = partitionOffset.offset + 1))
+          partitionOffset = partitionOffset.copy(offset = partitionOffset.offset.inc[Try].get))
       }
     }
 
@@ -547,11 +550,12 @@ object EventualJournalSpec {
 
   implicit class JournalPointerObjOps(val self: JournalPointer.type) extends AnyVal {
 
-    def min: JournalPointer = journalPointerOf(Offset.Min, SeqNr.min)
+    def min: JournalPointer = journalPointerOf(Offset.min.value, SeqNr.min)
   }
 
 
   implicit class PartitionOffsetOps(val self: PartitionOffset) extends AnyVal {
-    def next: PartitionOffset = self.copy(offset = self.offset + 1)
+
+    def next: PartitionOffset = self.copy(offset = self.offset.inc[Try].get)
   }
 }

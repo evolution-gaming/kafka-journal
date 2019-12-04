@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal
 import cats.Applicative
 import cats.implicits._
 import com.evolutiongaming.catshelper.BracketThrowable
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.skafka.Offset
 import com.evolutiongaming.sstream.Stream
 
@@ -33,41 +34,46 @@ object StreamActionRecords {
 
     if (replicated) empty[F]
     else (offset: Option[Offset]) => {
+      for {
+        max    <- Stream.lift(marker.offset.dec[F])
+        result <- {
+          val replicated = offset.exists { _ >= max }
+          if (replicated) Stream.empty[F, ActionRecord[Action.User]]
+          else {
+            val last = offset max offsetReplicated
+            val fromOffset = last.fold(Offset.min.pure[F]) { _.inc[F] }
+            for {
+              fromOffset <- Stream.lift(fromOffset)
+              result     <- consumeActionRecords(key, partition, fromOffset).stateless { record =>
 
-      val max = marker.offset - 1
+                def take(action: Action.User) = {
+                  (true, Stream[F].single(record.copy(action = action)))
+                }
 
-      val replicated = offset.exists(_ >= max)
-      if (replicated) Stream.empty[F, ActionRecord[Action.User]]
-      else {
-        val last = offset max offsetReplicated
-        val fromOffset = last.fold(Offset.Min)(_ + 1)
+                def skip = {
+                  (true, Stream[F].empty[ActionRecord[Action.User]])
+                }
 
-        consumeActionRecords(key, partition, fromOffset).stateless { record =>
+                def stop = {
+                  (false, Stream[F].empty[ActionRecord[Action.User]])
+                }
 
-          def take(action: Action.User) = {
-            (true, Stream[F].single(record.copy(action = action)))
-          }
+                if (record.offset > max) {
+                  stop
+                } else {
+                  record.action match {
+                    case a: Action.Append => if (a.range.to < from) skip else take(a)
+                    case a: Action.Mark   => if (a.id == marker.id) stop else skip
+                    case a: Action.Delete => take(a)
+                    case a: Action.Purge  => take(a)
+                  }
+                }
+              }
 
-          def skip = {
-            (true, Stream[F].empty[ActionRecord[Action.User]])
-          }
-
-          def stop = {
-            (false, Stream[F].empty[ActionRecord[Action.User]])
-          }
-
-          if (record.offset > max) {
-            stop
-          } else {
-            record.action match {
-              case a: Action.Append => if (a.range.to < from) skip else take(a)
-              case a: Action.Mark   => if (a.id == marker.id) stop else skip
-              case a: Action.Delete => take(a)
-              case a: Action.Purge  => take(a)
-            }
+            } yield result
           }
         }
-      }
+      } yield result
     }
   }
 }

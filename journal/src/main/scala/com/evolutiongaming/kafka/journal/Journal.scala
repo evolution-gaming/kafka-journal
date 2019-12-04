@@ -11,6 +11,7 @@ import com.evolutiongaming.kafka.journal.conversions.{EventsToPayload, PayloadTo
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord}
@@ -24,6 +25,7 @@ import pureconfig.generic.semiauto.deriveReader
 import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
+import scala.util.Try
 
 trait Journal[F[_]] {
 
@@ -165,8 +167,13 @@ object Journal {
           StreamActionRecords(key, from, marker, offset, consumeActionRecords)
         }
 
+        val offset = marker
+          .offset
+          .dec[Try]
+          .getOrElse(Offset.min)
+
         for {
-          result <- headCache.get(key, partition = marker.partition, offset = Offset.Min max marker.offset - 1)
+          result <- headCache.get(key, partition = marker.partition, offset = offset)
           result <- result match {
             case Right(headInfo) => (headInfo, stream).pure[F]
             case Left(_)         =>
@@ -183,7 +190,7 @@ object Journal {
       for {
         marker   <- appendMarker(key)
         result   <- {
-          if (marker.offset == Offset.Min) {
+          if (marker.offset == Offset.min) {
             (HeadInfo.empty, StreamActionRecords.empty[F].pure[F]).pure[F]
           } else {
             headAndStream(marker)
@@ -207,7 +214,7 @@ object Journal {
       
       def read(key: Key, from: SeqNr) = {
 
-        def readEventualAndKafka(from: SeqNr, stream: F[StreamActionRecords[F]], offset: Offset) = {
+        def readEventualAndKafka(from: SeqNr, stream: F[StreamActionRecords[F]], offsetAppend: Offset) = {
 
           def readKafka(from: SeqNr, offset: Option[Offset], stream: StreamActionRecords[F]) = {
 
@@ -229,16 +236,17 @@ object Journal {
 
           for {
             stream <- Stream.lift(stream)
-            event  <- eventual.read(key, from).flatMapLast { last =>
-              last
-                .fold((from, none[Offset]).some) { event =>
-                  event.seqNr.next[Option].map { from => (from, event.offset.some) }
-                }
-                .fold(Stream.empty[F, EventRecord]) { case (from, offset1) =>
-                  val offset0 = offset - 1 // TODO refactor this
-                  val offset2 = offset1.fold(offset0) { _ max offset0 }
-                  readKafka(from, offset2.some, stream)
-                }
+            event  <- eventual
+              .read(key, from)
+              .flatMapLast { last =>
+                last
+                  .fold((from, none[Offset]).some) { event =>
+                    event.seqNr.next[Option].map { from => (from, event.offset.some) }
+                  }
+                  .fold(Stream.empty[F, EventRecord]) { case (from, offsetRecord) =>
+                    val offset = offsetAppend.dec[Try].toOption max offsetRecord // TODO refactor this, pass from offset, rather than from - 1
+                    readKafka(from, offset, stream)
+                  }
             }
           } yield event
         }
@@ -500,7 +508,7 @@ object Journal {
     ): Producer[F] = {
       record: ProducerRecord[String, ByteVector] => {
         for {
-          metadata  <- producer.send(record)
+          metadata  <- producer.send(record)(toBytesKey, toBytesValue)
           partition  = metadata.topicPartition.partition
           offset    <- metadata.offset.fold {
             val error = JournalError("metadata.offset is missing, make sure ProducerConfig.acks set to One or All")

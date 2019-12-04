@@ -374,7 +374,7 @@ object HeadCache {
             if (partitionEntry.entries.size <= maxSizePartition) {
               partitionEntry
             } else {
-              val offset = partitionEntry.entries.values.foldLeft(Offset.Min) { _ max _.offset }
+              val offset = partitionEntry.entries.values.foldLeft(Offset.min) { _ max _.offset }
               // TODO remove half
               partitionEntry.copy(entries = Map.empty, trimmed = Some(offset))
             }
@@ -394,7 +394,7 @@ object HeadCache {
       } yield {
         val entries = for {
           (id, records)  <- records.groupBy(_.id)
-          (info, offset)  = records.foldLeft((HeadInfo.empty, Offset.Min)) { case ((info, offset), record) =>
+          (info, offset)  = records.foldLeft((HeadInfo.empty, Offset.min)) { case ((info, offset), record) =>
             val info1 = info(record.header, record.offset)
             val offset1 = record.header match {
               case _: ActionHeader.AppendOrDelete => record.offset max offset
@@ -410,7 +410,7 @@ object HeadCache {
           (entry.id, entry)
         }
 
-        val offset = records.foldLeft(Offset.Min) { _ max _.offset }
+        val offset = records.foldLeft(Offset.min) { _ max _.offset }
         val partitionEntry = PartitionEntry(
           offset = offset,
           entries = entries,

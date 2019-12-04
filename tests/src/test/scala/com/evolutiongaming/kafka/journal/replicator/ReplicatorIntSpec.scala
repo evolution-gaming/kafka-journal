@@ -189,9 +189,8 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
           expected1       <- append(key, Nel.of(event(seqNr)))
           partitionOffset  = expected1.head.partitionOffset
           partition        = partitionOffset.partition
-          _                = for {
-            offset <- pointers.get(partitionOffset.partition)
-          } partitionOffset.offset should be > offset
+          offset           = pointers.get(partitionOffset.partition)
+          _                = offset.foreach { offset => partitionOffset.offset should be > offset }
           events0         <- read(key)(_.nonEmpty)
           _                = events0 shouldEqual expected1.toList
           pointer1        <- pointer(key)
@@ -275,13 +274,13 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
             pointers     <- topicPointers
             expected     <- append(key, events)
             partition     = expected.head.partitionOffset.partition
-            offsetBefore  = pointers.getOrElse(partition, Offset.Min)
+            offsetBefore  = pointers.getOrElse(partition, Offset.min)
             actual       <- read(key)(_.nonEmpty)
             _             = actual shouldEqual expected.toList
             pointer      <- pointer(key)
             _             = pointer shouldEqual Some(events.last.seqNr)
             pointers     <- topicPointers
-            offsetAfter   = pointers.getOrElse(partition, Offset.Min)
+            offsetAfter   = pointers.getOrElse(partition, Offset.min)
           } yield {
             offsetAfter should be > offsetBefore
           }

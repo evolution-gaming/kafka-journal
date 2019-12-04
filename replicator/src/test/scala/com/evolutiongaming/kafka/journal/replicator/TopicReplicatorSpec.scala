@@ -14,6 +14,7 @@ import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, Replicated
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
+import com.evolutiongaming.kafka.journal.util.CollectionHelper._
 import com.evolutiongaming.sstream.Stream
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, RebalanceListener, WithSize}
 import com.evolutiongaming.skafka.{Bytes => _, Header => _, Metadata => _, _}
@@ -60,7 +61,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
         commits = List(Nem.of(
           (0, 5),
           (1, 5))),
-        pointers = Map((topic, TopicPointers(Map((0, 4L), (1, 4L))))),
+        pointers = Map((topic, Map((0, 4L), (1, 4L)))),
         journal = Map(
           ("0-0", List(
             record(seqNr = 1, partition = 0, offset = 1),
@@ -105,7 +106,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
         topics = List(topic),
         commits = List(Nem.of(
           (0, 2))),
-        pointers = Map((topic, TopicPointers(Map((0, 1L))))),
+        pointers = Map((topic, Map((0, 1L)))),
         journal = Map(
           ("id", List(
             record(seqNr = 1, partition = 0, offset = 0),
@@ -160,7 +161,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
           Nem.of((0, 4)),
           Nem.of((0, 3)),
           Nem.of((0, 2))),
-        pointers = Map((topic, TopicPointers(Map((0, 4L), (1, 4L))))),
+        pointers = Map((topic, Map((0, 4L), (1, 4L)))),
         journal = Map(
           ("0-0", List(
             record(seqNr = 2, partition = 0, offset = 3),
@@ -251,7 +252,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
           (0, 10),
           (1, 10),
           (2, 10))),
-        pointers = Map((topic, TopicPointers(Map((0, 9L), (1, 9L), (2, 9L))))),
+        pointers = Map((topic, Map((0, 9L), (1, 9L), (2, 9L)))),
         journal = Map(
           ("0-0", List(
             record(seqNr = 1, partition = 0, offset = 1),
@@ -365,7 +366,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
         commits = List(Nem.of(
           (0, 11),
           (1, 11))),
-        pointers = Map((topic, TopicPointers(Map((0, 10L), (1, 10L))))),
+        pointers = Map((topic, Map((0, 10L), (1, 10L)))),
         journal = Map(
           ("0-0", List(
             record(seqNr = 1, partition = 0, offset = 1),
@@ -471,7 +472,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
           Nem.of((0, 3)),
           Nem.of((0, 2))),
         pointers = Map(
-          (topic, TopicPointers(Map((0, 12L))))),
+          (topic, Map((0, 12L)))),
         journal = Map(
           ("0-0", Nil),
           ("0-1", List(
@@ -511,7 +512,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
     }
 
     "consume since replicated offset" in {
-      val pointers = Map((topic, TopicPointers(Map((0, 1L), (2, 2L)))))
+      val pointers = Map((topic, Map((0, 1L), (2, 2L))))
       val data = State(pointers = pointers)
       val (result, _) = topicReplicator.run(data)
       result shouldEqual State(
@@ -552,7 +553,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
 
       val data = State(
         records = List(records),
-        pointers = Map((topic, TopicPointers(Map((0, 0L), (1, 1L), (2, 2L))))))
+        pointers = Map((topic, Map((0, 0L), (1, 1L), (2, 2L)))))
       val (result, _) = topicReplicator.run(data)
 
       result shouldEqual State(
@@ -561,7 +562,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
           (0, 4),
           (1, 4),
           (2, 4))),
-        pointers = Map((topic, TopicPointers(Map((0, 3L), (1, 3L), (2, 3L))))),
+        pointers = Map((topic, Map((0, 3L), (1, 3L), (2, 3L)))),
         journal = Map(
           ("0-0", List(
             record(seqNr = 2, partition = 0, offset = 2))),
@@ -602,14 +603,14 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
 
       val data = State(
         records = List(consumerRecords),
-        pointers = Map((topic, TopicPointers(Map((0, 0L))))))
+        pointers = Map((topic, Map((0, 0L)))))
       val (result, _) = topicReplicator.run(data)
 
       result shouldEqual State(
         topics = List(topic),
         commits = List(Nem.of(
           (0, 1))),
-        pointers = Map((topic, TopicPointers(Map((0, 0L))))),
+        pointers = Map((topic, Map((0, 0L)))),
         metrics = List(Metrics.Round(records = 1)))
     }
 
@@ -629,7 +630,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
         topics = List(topic),
         commits = List(Nem.of(
           (0, 2))),
-        pointers = Map((topic, TopicPointers(Map((0, 1L))))),
+        pointers = Map((topic, Map((0, 1L)))),
         metrics = List(
           Metrics.Round(records = 2),
           Metrics.Purge(partition = 0, actions = 1)))
@@ -639,21 +640,21 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
   private def consumerRecordOf(
     action: Action,
     topicPartition: TopicPartition,
-    offset: Offset
+    offset: Long
   ) = {
 
     val producerRecord = ActionToProducerRecord[Try].apply(action).get
     ConsumerRecord(
       topicPartition = topicPartition,
-      offset = offset,
+      offset = Offset.unsafe(offset),
       timestampAndType = Some(timestampAndType),
       key = producerRecord.key.map(WithSize(_)),
       value = producerRecord.value.map(WithSize(_)),
       headers = producerRecord.headers)
   }
 
-  private def record(seqNr: Int, partition: Partition, offset: Offset) = {
-    val partitionOffset = PartitionOffset(partition = partition, offset = offset)
+  private def record(seqNr: Int, partition: Int, offset: Long) = {
+    val partitionOffset = PartitionOffset(Partition.unsafe(partition), Offset.unsafe(offset))
     val event = Event(SeqNr.unsafe(seqNr), Set(seqNr.toString))
     EventRecord(event, timestamp, partitionOffset, Some(origin), recordMetadata, headers)
   }
@@ -701,19 +702,19 @@ object TopicReplicatorSpec {
 
   val timestampAndType = TimestampAndType(timestamp, TimestampType.Create)
 
-  def topicPartitionOf(partition: Partition) = TopicPartition(topic, partition)
+  def topicPartitionOf(partition: Int): TopicPartition = TopicPartition(topic, Partition.unsafe(partition))
 
   def keyOf(id: String) = Key(id = id, topic = topic)
 
   def metaJournalOf(
     id: String,
-    partition: Partition,
-    offset: Offset,
+    partition: Int,
+    offset: Long,
     deleteTo: Option[Int] = none,
     expireAfter: Option[FiniteDuration] = none,
   ): (String, MetaJournal) = {
     val deleteToSeqNr = deleteTo.flatMap(deleteTo => SeqNr.opt(deleteTo.toLong))
-    val partitionOffset = PartitionOffset(partition = partition, offset = offset)
+    val partitionOffset = PartitionOffset(Partition.unsafe(partition), Offset.unsafe(offset))
     val metaJournal = MetaJournal(partitionOffset, deleteToSeqNr, expireAfter, origin.some)
     (id, metaJournal)
   }
@@ -724,22 +725,24 @@ object TopicReplicatorSpec {
   object Metrics {
 
     final case class Append(
-      partition: Partition,
+      partition: Int,
       latency: FiniteDuration = replicationLatency,
       events: Int,
       records: Int) extends Metrics
 
     final case class Delete(
-      partition: Partition,
+      partition: Int,
       latency: FiniteDuration = replicationLatency,
       actions: Int) extends Metrics
 
     final case class Purge(
-      partition: Partition,
+      partition: Int,
       latency: FiniteDuration = replicationLatency,
       actions: Int) extends Metrics
 
-    final case class Round(duration: FiniteDuration = 0.millis, records: Int) extends Metrics
+    final case class Round(
+      duration: FiniteDuration = 0.millis,
+      records: Int) extends Metrics
   }
 
 
@@ -753,7 +756,13 @@ object TopicReplicatorSpec {
       val journal: ReplicatedTopicJournal[StateT] = new ReplicatedTopicJournal[StateT] {
 
         def pointers = {
-          StateT { state => (state, state.pointers.getOrElse(topic, TopicPointers.empty)) }
+          StateT { state =>
+            val pointers = state
+              .pointers
+              .getOrElse(topic, Map.empty)
+              .map { case (partition, offset) => (Partition.unsafe(partition), Offset.unsafe(offset)) }
+            (state, TopicPointers(pointers))
+          }
         }
 
         def journal(id: String) = {
@@ -802,8 +811,13 @@ object TopicReplicatorSpec {
 
         def save(pointers: Nem[Partition, Offset], timestamp: Instant) = {
           StateT { state =>
-            val updated = state.pointers.getOrElse(topic, TopicPointers.empty) + TopicPointers(pointers.toSortedMap)
-            val state1 = state.copy(pointers = state.pointers.updated(topic, updated))
+            val pointers1 = pointers
+              .toSortedMap
+              .map { case (partition, offset) => (partition.value, offset.value)}
+            val pointers2 = state
+              .pointers
+              .getOrElse(topic, Map.empty) ++ pointers1
+            val state1 = state.copy(pointers = state.pointers.updated(topic, pointers2))
             (state1, ())
           }
         }
@@ -824,7 +838,8 @@ object TopicReplicatorSpec {
 
     val commit = offsets => {
       StateT.unit { state =>
-        state.copy(commits = offsets :: state.commits)
+        val offsets1 = offsets.mapKV { case (partition, offset) => ((partition.value, offset.value)) }
+        state.copy(commits = offsets1 :: state.commits)
       }
     }
 
@@ -855,7 +870,7 @@ object TopicReplicatorSpec {
     def append(events: Int, bytes: Long, measurements: Measurements) = {
       StateT {
         _ + Metrics.Append(
-          partition = measurements.partition,
+          partition = measurements.partition.value,
           latency = measurements.replicationLatency,
           events = events,
           records = measurements.records)
@@ -865,7 +880,7 @@ object TopicReplicatorSpec {
     def delete(measurements: Measurements) = {
       StateT {
         _ + Metrics.Delete(
-          partition = measurements.partition,
+          partition = measurements.partition.value,
           latency = measurements.replicationLatency,
           actions = measurements.records)
       }
@@ -874,7 +889,7 @@ object TopicReplicatorSpec {
     def purge(measurements: Measurements) = {
       StateT {
         _ + Metrics.Purge(
-          partition = measurements.partition,
+          partition = measurements.partition.value,
           latency = measurements.replicationLatency,
           actions = measurements.records)
       }
@@ -916,9 +931,9 @@ object TopicReplicatorSpec {
 
   final case class State(
     topics: List[Topic] = Nil,
-    commits: List[Nem[Partition, Offset]] = Nil,
+    commits: List[Nem[Int, Long]] = Nil,
     records: List[ConsRecords] = Nil,
-    pointers: Map[Topic, TopicPointers] = Map.empty,
+    pointers: Map[Topic, Map[Int, Long]] = Map.empty,
     journal: Map[String, List[EventRecord]] = Map.empty,
     metaJournal: Map[String, MetaJournal] = Map.empty,
     metrics: List[Metrics] = Nil

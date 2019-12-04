@@ -10,6 +10,7 @@ import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.kafka.journal.util.{BracketFromMonadError, TryHelper}
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.sstream.FoldWhile._
 import com.evolutiongaming.sstream.Stream
@@ -56,21 +57,21 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
       val stateT = for {
         pointers <- journal.pointers(topic0)
         _         = pointers.values shouldEqual Map.empty
-        _        <- insertPointer(topic0, partition = 0, offset = 0, created = timestamp0, updated = timestamp0)
+        _        <- insertPointer(topic0, Partition.min, Offset.min, created = timestamp0, updated = timestamp0)
         pointers <- journal.pointers(topic0)
-        _         = pointers.values shouldEqual Map((0, 0))
-        _        <- updatePointer(topic0, partition = 0, offset = 1, timestamp = timestamp1)
+        _         = pointers.values shouldEqual Map((Partition.min, Offset.min))
+        _        <- updatePointer(topic0, Partition.min, Offset.unsafe(1), timestamp = timestamp1)
         pointers <- journal.pointers(topic0)
-        _         = pointers.values shouldEqual Map((0, 1))
-        _        <- insertPointer(topic1, partition = 0, offset = 0, created = timestamp0, updated = timestamp0)
+        _         = pointers.values shouldEqual Map((Partition.min, Offset.unsafe(1)))
+        _        <- insertPointer(topic1, Partition.min, Offset.min, created = timestamp0, updated = timestamp0)
         pointers <- journal.pointers(topic0)
-        _         = pointers.values shouldEqual Map((0, 1))
+        _         = pointers.values shouldEqual Map((Partition.min, Offset.unsafe(1)))
       } yield {}
 
       val expected = State(
         pointers = Map(
-          (topic0, Map((0, PointerEntry(offset = 1, created = timestamp0, updated = timestamp1)))),
-          (topic1, Map((0, PointerEntry(offset = 0, created = timestamp0, updated = timestamp0))))))
+          (topic0, Map((Partition.min, PointerEntry(Offset.unsafe(1), created = timestamp0, updated = timestamp1)))),
+          (topic1, Map((Partition.min, PointerEntry(Offset.min, created = timestamp0, updated = timestamp0))))))
       val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
     }
@@ -155,7 +156,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
           record.copy(
             timestamp = timestamp1,
             event = record.event.copy(seqNr = record.seqNr.next[Try].get),
-            partitionOffset = record.partitionOffset.copy(offset = record.partitionOffset.offset + 1))
+            partitionOffset = record.partitionOffset.copy(offset = record.partitionOffset.offset.inc[Try].get))
         }
 
         val stateT = for {
@@ -201,7 +202,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
           record.copy(
             timestamp = timestamp1,
             event = record.event.copy(seqNr = record.seqNr.next[Try].get),
-            partitionOffset = record.partitionOffset.copy(offset = record.partitionOffset.offset + 1))
+            partitionOffset = record.partitionOffset.copy(offset = record.partitionOffset.offset.inc[Try].get))
         }
 
         val stateT = for {

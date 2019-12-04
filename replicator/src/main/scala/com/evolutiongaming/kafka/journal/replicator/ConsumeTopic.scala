@@ -8,8 +8,8 @@ import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.kafka.journal.util.CollectionHelper._
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
-import com.evolutiongaming.skafka.consumer.{Consumer => _, _}
 import com.evolutiongaming.skafka._
+import com.evolutiongaming.skafka.consumer.{Consumer => _, _}
 
 import scala.concurrent.duration._
 
@@ -84,10 +84,14 @@ object ConsumeTopic {
           val consume = consumer
             .poll
             .mapM { records =>
-              for {
-                offsets <- records.toNem.foldMapM { records => topicFlow(records) }
-                result  <- offsets.toNem.foldMapM { offsets => commit(offsets) }
-              } yield result
+              records
+                .toNem
+                .foldMapM { records =>
+                  for {
+                    offsets <- topicFlow(records)
+                    _       <- offsets.toNem.traverse { offsets => commit(offsets) }
+                  } yield {}
+                }
             }
             .drain
 

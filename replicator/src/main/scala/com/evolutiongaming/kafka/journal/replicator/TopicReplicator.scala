@@ -24,6 +24,7 @@ import com.evolutiongaming.smetrics._
 import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
+import scala.util.Try
 
 
 object TopicReplicator {
@@ -154,7 +155,7 @@ object TopicReplicator {
               def replicateTopic(timestamp: Instant, records: Nem[Partition, Nel[ConsRecord]]) = {
 
                 def pointers = records.map { records =>
-                  records.foldLeft(Offset.Min) { (offset, record) => record.offset max offset }
+                  records.foldLeft(Offset.min) { (offset, record) => record.offset max offset }
                 }
 
                 def replicate = records
@@ -182,7 +183,14 @@ object TopicReplicator {
                 _         <- metrics.round(duration, size)
               } yield {
                 records
-                  .map { _.foldLeft { Offset.Min } { (offset, record) => record.offset + 1 max offset } }
+                  .map {
+                    _.foldLeft { Offset.min } { (offset, record) =>
+                      record
+                        .offset
+                        .inc[Try]
+                        .fold(_ => offset, _ max offset)
+                    }
+                  }
                   .toSortedMap
               }
             }

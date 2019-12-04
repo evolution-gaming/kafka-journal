@@ -80,7 +80,7 @@ object KafkaConsumer {
       }
 
       def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) = {
-        consumer.commit(offsets.toSortedMap)
+        consumer.commit(offsets)
       }
 
       def topics: F[Set[Topic]] = {

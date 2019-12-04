@@ -27,18 +27,18 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
   "HeadCache" should {
 
     "return result, records are in cache" in {
-      val offsetLast = 10L
+      val offsetLast = Offset.unsafe(10)
 
       val eventual = HeadCache.Eventual.empty[IO]
 
       val key = Key(id = "id", topic = topic)
       val records = ConsumerRecordsOf {
         for {
-          idx <- (0L to offsetLast).toList
+          idx   <- (0L to offsetLast.value).toList
           seqNr <- SeqNr.opt(idx + 1)
         } yield {
           val action = appendOf(key, seqNr)
-          ConsumerRecordOf[Try](action, topicPartition, idx).get
+          ConsumerRecordOf[Try](action, topicPartition, Offset.unsafe(idx)).get
         }
       }
 
@@ -52,12 +52,12 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         _        <- headCacheOf(eventual, consumer).use { headCache =>
           for {
             result <- headCache.get(key = key, partition = partition, offset = offsetLast)
-            _       = result shouldEqual HeadInfo.append(SeqNr.unsafe(11), none, 0).asRight
+            _       = result shouldEqual HeadInfo.append(SeqNr.unsafe(11), none, Offset.min).asRight
             state  <- stateRef.get
           } yield {
             state shouldEqual TestConsumer.State(
               actions = List(
-                TestConsumer.Action.Seek(topic, Nem.of((partition, 0))),
+                TestConsumer.Action.Seek(topic, Nem.of((partition, Offset.min))),
                 TestConsumer.Action.Assign(topic, Nel.of(partition))),
               topics = Map((topic, List(partition))))
           }
@@ -68,7 +68,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
     }
 
     "return result, all events are already replicated and cache is empty" in {
-      val marker = 10L
+      val marker = Offset.unsafe(10)
 
       val pointers = Map((partition, marker))
       implicit val eventual = HeadCache.Eventual.const(TopicPointers(pointers).pure[IO])
@@ -93,7 +93,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
     }
 
     "return result, after events are replicated" in {
-      val marker = 100L
+      val marker = Offset.unsafe(100)
 
       val eventual = HeadCache.Eventual.empty[IO]
 
@@ -119,7 +119,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           } yield {
             state shouldEqual TestConsumer.State(
               actions = List(
-                TestConsumer.Action.Seek(topic, Nem.of((partition, 0))),
+                TestConsumer.Action.Seek(topic, Nem.of((partition, Offset.min))),
                 TestConsumer.Action.Assign(topic, Nel.of(partition))),
               topics = Map((topic, List(partition))))
           }
@@ -132,18 +132,18 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
     "clean cache after events are being replicated" ignore {
       val key = Key(id = "id", topic = topic)
 
-      val offsetLast = 10L
+      val offsetLast = Offset.unsafe(10)
       val records = for {
-        offset <- (0L until offsetLast).toList
+        offset <- (0L until offsetLast.value).toList
         seqNr  <- SeqNr.opt(offset + 1)
       } yield {
         val action = appendOf(key, seqNr)
-        val record = ConsumerRecordOf[Try](action, topicPartition, offset).get
+        val record = ConsumerRecordOf[Try](action, topicPartition, Offset.unsafe(offset)).get
         ConsumerRecordsOf(List(record)).pure[Try]
       }
 
       val state = TestConsumer.State(
-        topics = Map((topic, List(0))),
+        topics = Map((topic, List(Partition.min))),
         records = Queue(records: _*))
 
       val result = for {
@@ -167,7 +167,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           } yield {
             state shouldEqual TestConsumer.State(
               actions = List(
-                TestConsumer.Action.Seek(topic, Nem.of((partition, 0))),
+                TestConsumer.Action.Seek(topic, Nem.of((partition, Offset.min))),
                 TestConsumer.Action.Assign(topic, Nel.of(partition))),
               topics = Map((topic, List(partition))))
 
@@ -182,7 +182,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
 
     "invalidate cache in case exceeding maxSize" in {
       val state = TestConsumer.State(
-        topics = Map((topic, List(0))))
+        topics = Map((topic, List(Partition.min))))
 
       val config = HeadCacheSpec.config.copy(maxSize = 1)
 
@@ -212,25 +212,25 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
             }
           }
           for {
-            _     <- enqueue(key0, 0L)
-            a     <- headCache.get(key0, partition, 0)
-            _      = a shouldEqual HeadInfo.append(SeqNr.min, none, 0).asRight
-            _     <- enqueue(key1, 1L)
-            a     <- headCache.get(key0, partition, 1)
+            _     <- enqueue(key0, Offset.min)
+            a     <- headCache.get(key0, partition, Offset.min)
+            _      = a shouldEqual HeadInfo.append(SeqNr.min, none, Offset.min).asRight
+            _     <- enqueue(key1, Offset.unsafe(1))
+            a     <- headCache.get(key0, partition, Offset.unsafe(1))
             _      = a shouldEqual HeadCacheError.invalid.asLeft
-            a     <- headCache.get(key1, partition, 1)
+            a     <- headCache.get(key1, partition, Offset.unsafe(1))
             _      = a shouldEqual HeadCacheError.invalid.asLeft
-            _     <- pointers.update { _ ++ Map((partition, 1L)) }
-            a     <- headCache.get(key1, partition, 1)
+            _     <- pointers.update { _ ++ Map((partition, Offset.unsafe(1))) }
+            a     <- headCache.get(key1, partition, Offset.unsafe(1))
             _      = a shouldEqual HeadCacheError.invalid.asLeft
-            _     <- enqueue(key0, 2)
-            a     <- headCache.get(key0, partition, 2)
-            _      = a shouldEqual HeadInfo.append(SeqNr.min, none, 2).asRight
+            _     <- enqueue(key0, Offset.unsafe(2))
+            a     <- headCache.get(key0, partition, Offset.unsafe(2))
+            _      = a shouldEqual HeadInfo.append(SeqNr.min, none, Offset.unsafe(2)).asRight
             state <- stateRef.get
           } yield {
             state shouldEqual TestConsumer.State(
               actions = List(
-                TestConsumer.Action.Seek(topic, Nem.of((partition, 0))),
+                TestConsumer.Action.Seek(topic, Nem.of((partition, Offset.min))),
                 TestConsumer.Action.Assign(topic, Nel.of(partition))),
               topics = Map((topic, List(partition))))
           }
@@ -242,7 +242,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
 
     "retry in case consuming failed" in {
       val state = TestConsumer.State(
-        topics = Map((topic, List(0))))
+        topics = Map((topic, List(Partition.min))))
 
       val result = for {
         pointers  <- Ref.of[IO, Map[Partition, Offset]](Map.empty)
@@ -267,21 +267,21 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
             }
           }
           for {
-            _     <- enqueue(0L)
-            a     <- headCache.get(key, partition, 0)
-            _      = a shouldEqual HeadInfo.append(SeqNr.min, none, 0).asRight
+            _     <- enqueue(Offset.min)
+            a     <- headCache.get(key, partition, Offset.min)
+            _      = a shouldEqual HeadInfo.append(SeqNr.min, none, Offset.min).asRight
             _     <- stateRef.update { _.enqueue(TestError.raiseError[Try, ConsRecords]) }
-            _     <- enqueue(1L)
-            a     <- headCache.get(key, partition, 1)
-            _      = a shouldEqual HeadInfo.append(SeqNr.min, none, 0).asRight
+            _     <- enqueue(Offset.unsafe(1))
+            a     <- headCache.get(key, partition, Offset.unsafe(1))
+            _      = a shouldEqual HeadInfo.append(SeqNr.min, none, Offset.min).asRight
             state <- stateRef.get
           } yield {
             state shouldEqual TestConsumer.State(
               actions = List(
-                TestConsumer.Action.Seek(topic, Nem.of((partition, 1))),
+                TestConsumer.Action.Seek(topic, Nem.of((partition, Offset.unsafe(1)))),
                 TestConsumer.Action.Assign(topic, Nel.of(partition)),
                 TestConsumer.Action.Release,
-                TestConsumer.Action.Seek(topic, Nem.of((partition, 0))),
+                TestConsumer.Action.Seek(topic, Nem.of((partition, Offset.min))),
                 TestConsumer.Action.Assign(topic, Nel.of(partition))),
               topics = Map((topic, List(partition))))
           }
@@ -300,7 +300,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
       val result = headCache.use { headCache =>
         val key = Key(id = "id", topic = topic)
         for {
-          a <- headCache.get(key, partition, 0L).timeout(1.second)
+          a <- headCache.get(key, partition, Offset.min).timeout(1.second)
           _  = a shouldEqual HeadCacheError.timeout(10.millis).asLeft
         } yield {}
       }
@@ -317,7 +317,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
       val result = headCache.use { headCache =>
         val key = Key(id = "id", topic = topic)
         for {
-          a <- headCache.get(key, partition, 0L).startEnsure
+          a <- headCache.get(key, partition, Offset.min).startEnsure
           _ <- Timer[IO].sleep(1.second)
           _ <- a.cancel
           _ <- Timer[IO].sleep(3.seconds)
@@ -336,7 +336,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         a <- headCache.use { headCache =>
           val key = Key(id = "id", topic = topic)
           for {
-            a <- headCache.get(key, partition, 0L).startEnsure
+            a <- headCache.get(key, partition, Offset.min).startEnsure
             _ <- Timer[IO].sleep(100.millis)
           } yield a
         }
@@ -351,7 +351,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
 object HeadCacheSpec {
   val timestamp: Instant = Instant.now()
   val topic: Topic = "topic"
-  val partition: Partition = 0
+  val partition: Partition = Partition.min
   val topicPartition: TopicPartition = TopicPartition(topic = topic, partition = partition)
   val config: HeadCacheConfig = HeadCacheConfig(cleanInterval = 100.millis)
 

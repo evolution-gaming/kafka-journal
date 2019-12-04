@@ -42,14 +42,14 @@ class TopicCommitTest extends AsyncFunSuite with Matchers{
       clockRef   <- Ref[IO].of(0.millis)
       clock       = clockOf(clockRef)
       commit     <- commitOf(deferred, commitsRef)(clock)
-      _          <- commit(Nem.of((0, 0L)))
+      _          <- commit(Nem.of((Partition.min, Offset.min)))
       offsets    <- commitsRef.get
       _           = offsets shouldEqual List.empty
       _          <- clockRef.set(20.millis)
-      _          <- commit(Nem.of((1, 1L)))
+      _          <- commit(Nem.of((Partition.unsafe(1), Offset.unsafe(1))))
       _          <- deferred.get
       offsets    <- commitsRef.get
-      _           = offsets shouldEqual List(Nem.of((0, 0L), (1, 1L)))
+      _           = offsets shouldEqual List(Nem.of((Partition.min, Offset.min), (Partition.unsafe(1), Offset.unsafe(1))))
     } yield {}
     result.run()
   }

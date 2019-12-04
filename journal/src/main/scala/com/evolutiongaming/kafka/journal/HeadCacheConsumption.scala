@@ -5,6 +5,7 @@ import cats.effect.{Resource, Timer}
 import cats.implicits._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.kafka.journal.HeadCache.{Consumer, ConsumerRecordToKafkaRecord, KafkaRecord}
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
@@ -69,12 +70,12 @@ object HeadCacheConsumption {
       } yield partitions
     }
 
-    def offsetsOf(partitions: Nel[Partition], pointers: Map[Partition, Offset]) = {
-      for {
-        partition <- partitions
-        offset     = pointers.get(partition).fold(Offset.Min)(_ + 1L)
-      } yield {
-        (partition, offset)
+    def offsets(partitions: Nel[Partition], pointers: Map[Partition, Offset]) = {
+      partitions.traverse { partition =>
+        pointers
+          .get(partition)
+          .fold(Offset.min.pure[F]) { _.inc[F] }
+          .map { offset => (partition, offset) }
       }
     }
 
@@ -94,7 +95,7 @@ object HeadCacheConsumption {
         partitions <- partitions(consumer)
         _          <- consumer.assign(topic, partitions)
         pointers   <- pointers
-        offsets     = offsetsOf(partitions, pointers)
+        offsets    <- offsets(partitions, pointers)
         _          <- consumer.seek(topic, offsets.toNem)
       } yield {}
     }

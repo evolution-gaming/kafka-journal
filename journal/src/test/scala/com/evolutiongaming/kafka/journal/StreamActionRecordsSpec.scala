@@ -82,8 +82,8 @@ object StreamActionRecordsSpec {
 
 
   private def seqNrs(
-    replicated: Option[Offset],
-    offset: Option[Offset],
+    replicated: Option[Long],
+    offset: Option[Long],
     pointers: List[Pointer]
   ) = {
 
@@ -93,7 +93,7 @@ object StreamActionRecordsSpec {
     val (marker, markRecord) = {
       val offset = pointers.lastOption.fold(1L) { _.offset + 1 }
       val mark = Action.Mark(key, timestamp, ActionHeader.Mark("mark", None))
-      val partitionOffset = PartitionOffset(offset = offset)
+      val partitionOffset = PartitionOffset(offset = Offset.unsafe(offset))
       val record = ActionRecord(mark, partitionOffset)
       val marker = Marker(mark.id, partitionOffset)
       (marker, record)
@@ -111,7 +111,7 @@ object StreamActionRecordsSpec {
         metadata = metadata,
         expireAfter = none)
       val action = Action.Append(key, timestamp, header, ByteVector.empty, Headers.empty)
-      ActionRecord(action, PartitionOffset(offset = pointer.offset))
+      ActionRecord(action, PartitionOffset(offset = Offset.unsafe(pointer.offset)))
     }
     val records = appendRecords :+ markRecord
 
@@ -134,12 +134,12 @@ object StreamActionRecordsSpec {
       for {
         seqNr <- action.range.toNel.toList
       } yield {
-        (seqNr.value, partitionOffset.offset)
+        (seqNr.value, partitionOffset.offset.value)
       }
     }
 
-    val actionRecords = StreamActionRecords[StateT](key, SeqNr.min, marker, replicated, consumeActionRecords)
-    val (_, result) = actionRecords(offset)
+    val actionRecords = StreamActionRecords[StateT](key, SeqNr.min, marker, replicated.map(Offset.unsafe(_)), consumeActionRecords)
+    val (_, result) = actionRecords(offset.map(Offset.unsafe(_)))
       .collect { case ActionRecord(a: Action.Append, partitionOffset) => seqNrAndOffset(a, partitionOffset) }
       .toList
       .run(State(records))
@@ -148,7 +148,7 @@ object StreamActionRecordsSpec {
   }
 
 
-  final case class Pointer(seqNr: Long, offset: Offset)
+  final case class Pointer(seqNr: Long, offset: Long)
 
 
   final case class State(records: List[ActionRecord[Action]])

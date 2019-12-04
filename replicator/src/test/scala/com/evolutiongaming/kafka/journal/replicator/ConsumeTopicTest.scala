@@ -36,7 +36,7 @@ class ConsumeTopicTest extends AnyFunSuite with Matchers {
       actions = List(
         Action.ReleaseConsumer,
         Action.ReleaseTopicFlow(topic),
-        Action.Commit(Nem.of((Partition.Min, Offset.Min))),
+        Action.Commit(Nem.of((Partition.min, Offset.min))),
         Action.Poll(recordsOf(recordOf(partition = 0, offset = 0))),
         Action.AssignPartitions(partitions),
         Action.Subscribe()(RebalanceListener.empty),
@@ -60,7 +60,7 @@ class ConsumeTopicTest extends AnyFunSuite with Matchers {
       actions = List(
         Action.ReleaseConsumer,
         Action.ReleaseTopicFlow(topic),
-        Action.Commit(Nem.of((Partition.Min, Offset.Min))),
+        Action.Commit(Nem.of((Partition.min, Offset.min))),
         Action.Poll(recordsOf(recordOf(partition = 0, offset = 0))),
         Action.AssignPartitions(partitions),
         Action.Subscribe()(RebalanceListener.empty),
@@ -78,10 +78,10 @@ class ConsumeTopicTest extends AnyFunSuite with Matchers {
 
   test("rebalance") {
     val state = State(commands = List(
-      Command.AssignPartitions(Nel.of(1)),
+      Command.AssignPartitions(Nel.of(Partition.unsafe(1))),
       Command.ProduceRecords(Map.empty),
-      Command.AssignPartitions(Nel.of(2)),
-      Command.RevokePartitions(Nel.of(1, 2)),
+      Command.AssignPartitions(Nel.of(Partition.unsafe(2))),
+      Command.RevokePartitions(Nel.of(Partition.unsafe(1), Partition.unsafe(2))),
       Command.ProduceRecords(recordsOf(recordOf(partition = 0, offset = 0)).toSortedMap)))
 
     val (result, _) = subscriptionFlow.run(state)
@@ -90,11 +90,11 @@ class ConsumeTopicTest extends AnyFunSuite with Matchers {
       actions = List(
         Action.ReleaseConsumer,
         Action.ReleaseTopicFlow(topic),
-        Action.Commit(Nem.of((Partition.Min, Offset.Min))),
+        Action.Commit(Nem.of((Partition.min, Offset.min))),
         Action.Poll(recordsOf(recordOf(partition = 0, offset = 0))),
-        Action.RevokePartitions(Nel.of(1, 2)),
-        Action.AssignPartitions(Nel.of(2)),
-        Action.AssignPartitions(Nel.of(1)),
+        Action.RevokePartitions(Nel.of(Partition.unsafe(1), Partition.unsafe(2))),
+        Action.AssignPartitions(Nel.of(Partition.unsafe(2))),
+        Action.AssignPartitions(Nel.of(Partition.unsafe(1))),
         Action.Subscribe()(RebalanceListener.empty),
         Action.AcquireTopicFlow(topic),
         Action.AcquireConsumer))
@@ -107,7 +107,7 @@ object ConsumeTopicTest {
 
   val key: String = "key"
 
-  val partitions: Nel[Partition] = Nel.of(1)
+  val partitions: Nel[Partition] = Nel.of(Partition.unsafe(1))
 
 
   final case class State(
@@ -214,7 +214,7 @@ object ConsumeTopicTest {
             StateT.pure { state =>
               val state1 = state + Action.Poll(records)
               //  TODO test
-              (state1, Map((Partition.Min, Offset.Min)))
+              (state1, Map((Partition.min, Offset.min)))
             }
           }
 
@@ -312,12 +312,14 @@ object ConsumeTopicTest {
 
 
   def recordOf(
-    partition: Partition,
-    offset: Offset,
+    partition: Int,
+    offset: Long,
   ): ConsRecord = {
     ConsRecord(
-      topicPartition = TopicPartition(topic = topic, partition = partition),
-      offset = offset,
+      topicPartition = TopicPartition(
+        topic = topic,
+        partition = Partition.unsafe(partition)),
+      offset = Offset.unsafe(offset),
       timestampAndType = none,
       key = WithSize(key).some,
       value = none,
