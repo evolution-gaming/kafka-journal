@@ -14,7 +14,7 @@ import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, Replicated
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
-import com.evolutiongaming.kafka.journal.util.CollectionHelper._
+import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.sstream.Stream
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, RebalanceListener, WithSize}
 import com.evolutiongaming.skafka.{Bytes => _, Header => _, Metadata => _, _}

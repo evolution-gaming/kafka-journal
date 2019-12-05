@@ -10,7 +10,7 @@ import cats.effect.IO
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
-import com.evolutiongaming.catshelper.NelHelper._
+import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.smetrics.MeasureDuration

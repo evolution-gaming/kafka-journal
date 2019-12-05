@@ -6,7 +6,7 @@ import cats.data.{IndexedStateT, NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.{ExitCase, Sync}
 import cats.implicits._
 import cats.{Id, Parallel}
-import com.evolutiongaming.catshelper.NelHelper._
+import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.BracketFromMonadError
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._

@@ -7,7 +7,7 @@ import cats.implicits._
 import com.evolutiongaming.catshelper.TimerHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.kafka.journal.ConsRecord
-import com.evolutiongaming.kafka.journal.util.CollectionHelper._
+import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer.{RebalanceListener, WithSize}

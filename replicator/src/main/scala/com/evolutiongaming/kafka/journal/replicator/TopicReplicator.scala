@@ -14,7 +14,7 @@ import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.conversions.{ConsumerRecordToActionRecord, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.util.CollectionHelper._
+import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal.util.ResourceOf
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.skafka.consumer._

@@ -7,7 +7,7 @@ import cats.effect.concurrent.Ref
 import cats.effect.{Clock, Sync}
 import cats.implicits._
 import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.kafka.journal.util.CollectionHelper._
+import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.kafka.journal.KafkaConsumer
 import com.evolutiongaming.skafka._
