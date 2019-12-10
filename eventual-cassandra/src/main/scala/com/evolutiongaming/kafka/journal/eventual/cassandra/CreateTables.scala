@@ -46,9 +46,7 @@ object CreateTables { self =>
         for {
           _ <- log.info(s"tables: ${tables1.map(_.name).mkString_(",")}, fresh: $fresh")
           _ <- CassandraSync[F].apply { tables1.foldMapM { _.queries.foldMapM { _.execute.first.void } } }
-        } yield {
-          tables1.length == tables.length
-        }
+        } yield fresh
       }
 
       for {

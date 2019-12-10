@@ -4,7 +4,7 @@ import java.time.Instant
 
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
-import com.evolutiongaming.kafka.journal.{Key, Origin, PartitionOffset, SeqNr}
+import com.evolutiongaming.kafka.journal.{DeleteTo, Key, Origin, PartitionOffset, SeqNr}
 import com.evolutiongaming.skafka.Topic
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -95,7 +95,7 @@ class ReplicatedCassandraMetaJournalStatementsTest extends AnyFunSuite with Matc
     val stateT = for {
       a <- metaJournalStatements.insert(key, segment, timestamp0, journalHead, origin.some)
       _  = a.shouldEqual(())
-      a <- metaJournalStatements.update(key, segment, partitionOffset, timestamp1, SeqNr.max, SeqNr.max)
+      a <- metaJournalStatements.update(key, segment, partitionOffset, timestamp1)(SeqNr.max, SeqNr.max)
       _  = a.shouldEqual(())
     } yield {}
     val journalHead1 = journalHead.copy(seqNr = SeqNr.max, deleteTo = SeqNr.max.some)
@@ -119,7 +119,7 @@ class ReplicatedCassandraMetaJournalStatementsTest extends AnyFunSuite with Matc
     val stateT = for {
       a <- metaJournalStatements.insert(key, segment, timestamp0, journalHead, origin.some)
       _  = a.shouldEqual(())
-      a <- metaJournalStatements.updateSeqNr(key, segment, partitionOffset, timestamp1, SeqNr.max)
+      a <- metaJournalStatements.update(key, segment, partitionOffset, timestamp1)(SeqNr.max)
       _  = a.shouldEqual(())
     } yield {}
     val journalHead1 = journalHead.copy(seqNr = SeqNr.max)
@@ -143,7 +143,7 @@ class ReplicatedCassandraMetaJournalStatementsTest extends AnyFunSuite with Matc
     val stateT = for {
       a <- metaJournalStatements.insert(key, segment, timestamp0, journalHead, origin.some)
       _  = a.shouldEqual(())
-      a <- metaJournalStatements.updateDeleteTo(key, segment, partitionOffset, timestamp1, journalHead.seqNr)
+      a <- metaJournalStatements.update(key, segment, partitionOffset, timestamp1)(DeleteTo(journalHead.seqNr))
       _  = a.shouldEqual(())
     } yield {}
     val journalHead1 = journalHead.copy(deleteTo = journalHead.seqNr.some)
