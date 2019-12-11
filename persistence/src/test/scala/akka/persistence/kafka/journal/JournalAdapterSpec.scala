@@ -11,6 +11,7 @@ import cats.implicits._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -84,7 +85,7 @@ class JournalAdapterSpec extends AnyFunSuite with Matchers {
 object JournalAdapterSpec {
 
   private val timestamp = Instant.now().truncatedTo(ChronoUnit.MILLIS)
-  private val expireAfter = 1.day
+  private val expireAfter = 1.day.toExpireAfter
   private val toKey = ToKey.default[StateT]
   private val key1 = Key(id = "id", topic = "journal")
   private val event = Event(SeqNr.min)
@@ -106,7 +107,7 @@ object JournalAdapterSpec {
     key: Key,
     events: Nel[Event],
     timestamp: Instant,
-    expireAfter: Option[FiniteDuration],
+    expireAfter: Option[ExpireAfter],
     metadata: RecordMetadata,
     headers: Headers)
 
@@ -149,7 +150,7 @@ object JournalAdapterSpec {
       def append(
         key: Key,
         events: Nel[Event],
-        expireAfter: Option[FiniteDuration],
+        expireAfter: Option[ExpireAfter],
         metadata: Option[JsValue],
         headers: Headers
       ) = {

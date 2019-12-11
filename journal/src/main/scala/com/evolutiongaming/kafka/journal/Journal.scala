@@ -35,7 +35,7 @@ trait Journal[F[_]] {
   def append(
     key: Key,
     events: Nel[Event],
-    expireAfter: Option[FiniteDuration] = None, // TODO expireAfter: test
+    expireAfter: Option[ExpireAfter] = None, // TODO expireAfter: test
     metadata: Option[JsValue] = None,
     headers: Headers = Headers.empty
   ): F[PartitionOffset]
@@ -65,7 +65,7 @@ object Journal {
     def append(
       key: Key,
       events: Nel[Event],
-      expireAfter: Option[FiniteDuration],
+      expireAfter: Option[ExpireAfter],
       metadata: Option[JsValue],
       headers: Headers
     ) = PartitionOffset.empty.pure[F]
@@ -204,7 +204,7 @@ object Journal {
       def append(
         key: Key,
         events: Nel[Event],
-        expireAfter: Option[FiniteDuration],
+        expireAfter: Option[ExpireAfter],
         metadata: Option[JsValue],
         headers: Headers
       ) = {
@@ -592,7 +592,7 @@ object Journal {
         def append(
           key: Key,
           events: Nel[Event],
-          expireAfter: Option[FiniteDuration],
+          expireAfter: Option[ExpireAfter],
           metadata: Option[JsValue],
           headers: Headers
         ) = {
@@ -675,7 +675,7 @@ object Journal {
         def append(
           key: Key,
           events: Nel[Event],
-          expireAfter: Option[FiniteDuration],
+          expireAfter: Option[ExpireAfter],
           metadata: Option[JsValue],
           headers: Headers
         ) = {
@@ -745,7 +745,7 @@ object Journal {
         def append(
           key: Key,
           events: Nel[Event],
-          expireAfter: Option[FiniteDuration],
+          expireAfter: Option[ExpireAfter],
           metadata: Option[JsValue],
           headers: Headers
         ) = {
@@ -811,7 +811,7 @@ object Journal {
       def append(
         key: Key,
         events: Nel[Event],
-        expireAfter: Option[FiniteDuration],
+        expireAfter: Option[ExpireAfter],
         metadata: Option[JsValue],
         headers: Headers
       ) = {

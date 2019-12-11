@@ -10,14 +10,13 @@ import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.kafka.journal.conversions.EventsToPayload
 import play.api.libs.json.JsValue
 
-import scala.concurrent.duration.FiniteDuration
 
 trait AppendEvents[F[_]] {
 
   def apply(
     key: Key,
     events: Nel[Event],
-    expireAfter: Option[FiniteDuration],
+    expireAfter: Option[ExpireAfter],
     metadata: Option[JsValue],
     headers: Headers
   ): F[PartitionOffset]

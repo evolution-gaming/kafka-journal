@@ -11,6 +11,7 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.BracketFromMonadError
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -112,7 +113,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val stateT = for {
         pointers <- journal.pointers(topic0)
         _         = pointers.values shouldEqual Map.empty
-        _        <- journal.append(key, partitionOffset, timestamp0, expireAfter = none, Nel.of(record))
+        _        <- journal.append(key, partitionOffset, timestamp0, none[ExpireAfter], Nel.of(record))
         pointers <- journal.pointers(topic0)
         _         = pointers.values shouldEqual Map.empty
         _        <- journal.save(topic0, Nem.of((Partition.min, Offset.min)), timestamp0)
@@ -167,7 +168,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           key = key0,
           partitionOffset = PartitionOffset(Partition.min, Offset.min),
           timestamp = timestamp0,
-          expireAfter = 1.minute.some,
+          expireAfter = 1.minute.toExpireAfter.some,
           events = Nel.of(
             eventRecordOf(
               seqNr = SeqNr.unsafe(1),
@@ -314,7 +315,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           key = key,
           partitionOffset = PartitionOffset(Partition.min, Offset.min),
           timestamp = timestamp0,
-          expireAfter = 1.minute.some,
+          expireAfter = 1.minute.toExpireAfter.some,
           events = Nel.of(
             eventRecordOf(
               seqNr = SeqNr.unsafe(1),
@@ -323,7 +324,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           key = key,
           partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(3)),
           timestamp = timestamp1,
-          expireAfter = 2.minutes.some,
+          expireAfter = 2.minutes.toExpireAfter.some,
           events = Nel.of(
             eventRecordOf(
               seqNr = SeqNr.unsafe(2),

@@ -5,8 +5,10 @@ import cats.Applicative
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.datastax.driver.core.{Duration => DurationC, _}
+import com.evolutiongaming.kafka.journal.ExpireAfter
+import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.util.FiniteDurationHelper._
-import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
+import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
 import com.evolutiongaming.sstream.Stream
 
 import scala.collection.JavaConverters._
@@ -69,4 +71,18 @@ object CassandraHelper {
   implicit val finiteDurationDecodeByName: DecodeByName[FiniteDuration] = {
     DecodeByName[DurationC].map(durationToFiniteDuration)
   }
+
+  implicit val encodeByNameExpireAfter: EncodeByName[ExpireAfter] = EncodeByName[FiniteDuration].contramap { (a: ExpireAfter) => a.duration }
+
+  implicit val decodeByNameExpireAfter: DecodeByName[ExpireAfter] = DecodeByName[FiniteDuration].map { _.toExpireAfter }
+
+
+  implicit val encodeByNameOptExpireAfter: EncodeByName[Option[ExpireAfter]] = EncodeByName.optEncodeByName[ExpireAfter]
+
+  implicit val decodeByNameOptExpireAfter: DecodeByName[Option[ExpireAfter]] = DecodeByName.optDecodeByName[ExpireAfter]
+
+
+  implicit val encodeRowExpireAfter: EncodeRow[ExpireAfter] = EncodeRow[ExpireAfter]("expire_after")
+
+  implicit val decodeRowExpireAfter: DecodeRow[ExpireAfter] = DecodeRow[ExpireAfter]("expire_after")
 }

@@ -6,7 +6,9 @@ import cats.kernel.Order
 import com.evolutiongaming.scassandra._
 import play.api.libs.json._
 
-final case class DeleteTo(seqNr: SeqNr)
+final case class DeleteTo(seqNr: SeqNr) {
+  override def toString: String = seqNr.toString
+}
 
 object DeleteTo {
 

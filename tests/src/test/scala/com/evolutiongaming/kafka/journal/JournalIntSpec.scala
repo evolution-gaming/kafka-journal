@@ -13,6 +13,7 @@ import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
+import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.retry.{Retry, Strategy}
 import org.scalatest.Succeeded
 import org.scalatest.wordspec.AsyncWordSpec
@@ -222,7 +223,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
         s"expire records $name" ignore {
           val result = for {
             key      <- key
-            _        <- journal0.append(key, Nel.of(Event(SeqNr.min)), 1.second.some)
+            _        <- journal0.append(key, Nel.of(Event(SeqNr.min)), 1.second.toExpireAfter.some)
             events   <- journal0.read(key).toList
             _         = events.map(_.seqNr) shouldEqual List(SeqNr.min)
             strategy  = Strategy.const(100.millis).limit(10.seconds)

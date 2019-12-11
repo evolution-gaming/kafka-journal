@@ -14,6 +14,7 @@ import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, Replicated
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
+import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.sstream.Stream
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, RebalanceListener, WithSize}
@@ -95,8 +96,8 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       val key = Key(id = "id", topic = topic)
       val topicPartition = topicPartitionOf(partition)
       val consumerRecords = ConsumerRecordsOf(List(
-        consumerRecordOf(appendOf(key, Nel.of(1), 1.minute.some), topicPartition, 0),
-        consumerRecordOf(appendOf(key, Nel.of(2), 2.minutes.some), topicPartition, 1)))
+        consumerRecordOf(appendOf(key, Nel.of(1), 1.minute.toExpireAfter.some), topicPartition, 0),
+        consumerRecordOf(appendOf(key, Nel.of(2), 2.minutes.toExpireAfter.some), topicPartition, 1)))
 
       val state = State(
         records = List(consumerRecords))
@@ -112,7 +113,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
             record(seqNr = 1, partition = 0, offset = 0),
             record(seqNr = 2, partition = 0, offset = 1)))),
         metaJournal = Map(
-          metaJournalOf("id", partition = 0, offset = 1, expireAfter = 2.minutes.some)),
+          metaJournalOf("id", partition = 0, offset = 1, expireAfter = 2.minutes.toExpireAfter.some)),
         metrics = List(
           Metrics.Round(records = 2),
           Metrics.Append(partition = 0, events = 2, records = 2)))
@@ -659,7 +660,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
     EventRecord(event, timestamp, partitionOffset, Some(origin), recordMetadata, headers)
   }
 
-  private def appendOf(key: Key, seqNrs: Nel[Int], expireAfter: Option[FiniteDuration] = none) = {
+  private def appendOf(key: Key, seqNrs: Nel[Int], expireAfter: Option[ExpireAfter] = none) = {
     implicit val eventsToPayload = EventsToPayload[Try]
     Action.Append.of[Try](
       key = key,
@@ -711,7 +712,7 @@ object TopicReplicatorSpec {
     partition: Int,
     offset: Long,
     deleteTo: Option[Int] = none,
-    expireAfter: Option[FiniteDuration] = none,
+    expireAfter: Option[ExpireAfter] = none,
   ): (String, MetaJournal) = {
     val deleteToSeqNr = deleteTo.flatMap(deleteTo => SeqNr.opt(deleteTo.toLong))
     val partitionOffset = PartitionOffset(Partition.unsafe(partition), Offset.unsafe(offset))
@@ -771,7 +772,7 @@ object TopicReplicatorSpec {
             def append(
               partitionOffset: PartitionOffset,
               timestamp: Instant,
-              expireAfter: Option[FiniteDuration],
+              expireAfter: Option[ExpireAfter],
               events: Nel[EventRecord],
             ) = {
               StateT { state =>
@@ -991,7 +992,7 @@ object TopicReplicatorSpec {
   final case class MetaJournal(
     offset: PartitionOffset,
     deleteTo: Option[SeqNr],
-    expireAfter: Option[FiniteDuration],
+    expireAfter: Option[ExpireAfter],
     origin: Option[Origin])
 
   case object NotImplemented extends RuntimeException with NoStackTrace

@@ -6,6 +6,7 @@ import java.time.temporal.ChronoUnit
 import cats.implicits._
 import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsumerRecordToActionRecord, EventsToPayload}
+import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.skafka.consumer.WithSize
 import com.evolutiongaming.skafka.{TimestampAndType, TimestampType, TopicPartition}
 import org.scalatest.funsuite.AnyFunSuite
@@ -96,7 +97,7 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
         timestamp = timestamp,
         origin = origin,
         events = Events(events),
-        expireAfter = expireAfter,
+        expireAfter = expireAfter.map { _.toExpireAfter },
         metadata = metadata,
         headers = headers).get
     }

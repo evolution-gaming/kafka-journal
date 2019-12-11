@@ -10,14 +10,13 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.{Offset, Topic}
 import com.evolutiongaming.smetrics._
 
-import scala.concurrent.duration.FiniteDuration
 
 trait ReplicatedKeyJournal[F[_]] {
 
   def append(
     partitionOffset: PartitionOffset,
     timestamp: Instant,
-    expireAfter: Option[FiniteDuration],
+    expireAfter: Option[ExpireAfter],
     events: Nel[EventRecord]
   ): F[Unit]
 
@@ -41,7 +40,7 @@ object ReplicatedKeyJournal {
     def append(
       partitionOffset: PartitionOffset,
       timestamp: Instant,
-      expireAfter: Option[FiniteDuration],
+      expireAfter: Option[ExpireAfter],
       events: Nel[EventRecord]
     ) = ().pure[F]
 
@@ -66,7 +65,7 @@ object ReplicatedKeyJournal {
       def append(
         partitionOffset: PartitionOffset,
         timestamp: Instant,
-        expireAfter: Option[FiniteDuration],
+        expireAfter: Option[ExpireAfter],
         events: Nel[EventRecord]
       ) = {
         replicatedJournal.append(key, partitionOffset, timestamp, expireAfter, events)
@@ -98,7 +97,7 @@ object ReplicatedKeyJournal {
       def append(
         partitionOffset: PartitionOffset,
         timestamp: Instant,
-        expireAfter: Option[FiniteDuration],
+        expireAfter: Option[ExpireAfter],
         events: Nel[EventRecord]
       ) = {
         f(self.append(partitionOffset, timestamp, expireAfter, events))
@@ -134,7 +133,7 @@ object ReplicatedKeyJournal {
         def append(
           partitionOffset: PartitionOffset,
           timestamp: Instant,
-          expireAfter: Option[FiniteDuration],
+          expireAfter: Option[ExpireAfter],
           events: Nel[EventRecord]
         ) = {
           for {
@@ -195,7 +194,7 @@ object ReplicatedKeyJournal {
         def append(
           partitionOffset: PartitionOffset,
           timestamp: Instant,
-          expireAfter: Option[FiniteDuration],
+          expireAfter: Option[ExpireAfter],
           events: Nel[EventRecord]
         ) = {
           for {
@@ -246,7 +245,7 @@ object ReplicatedKeyJournal {
         def append(
           partitionOffset: PartitionOffset,
           timestamp: Instant,
-          expireAfter: Option[FiniteDuration],
+          expireAfter: Option[ExpireAfter],
           events: Nel[EventRecord]
         ) = {
           self

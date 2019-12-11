@@ -7,7 +7,6 @@ import cats.implicits._
 import com.evolutiongaming.kafka.journal.conversions.EventsToPayload
 import scodec.bits.ByteVector
 
-import scala.concurrent.duration.FiniteDuration
 
 sealed abstract class Action extends Product {
 
@@ -82,7 +81,7 @@ object Action {
       timestamp: Instant,
       origin: Option[Origin],
       events: Events,
-      expireAfter: Option[FiniteDuration],
+      expireAfter: Option[ExpireAfter],
       metadata: RecordMetadata,
       headers: Headers)(implicit
       eventsToPayload: EventsToPayload[F]

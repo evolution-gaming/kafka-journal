@@ -9,7 +9,6 @@ import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
-import scala.concurrent.duration.FiniteDuration
 
 
 trait ReplicatedJournalFlat[F[_]] {
@@ -22,7 +21,7 @@ trait ReplicatedJournalFlat[F[_]] {
     key: Key,
     partitionOffset: PartitionOffset,
     timestamp: Instant,
-    expireAfter: Option[FiniteDuration],
+    expireAfter: Option[ExpireAfter],
     events: Nel[EventRecord]
   ): F[Unit]
 
@@ -64,7 +63,7 @@ object ReplicatedJournalFlat {
         key: Key,
         partitionOffset: PartitionOffset,
         timestamp: Instant,
-        expireAfter: Option[FiniteDuration],
+        expireAfter: Option[ExpireAfter],
         events: Nel[EventRecord]
       ) = {
         replicatedJournal
@@ -125,7 +124,7 @@ object ReplicatedJournalFlat {
       key: Key,
       partitionOffset: PartitionOffset,
       timestamp: Instant,
-      expireAfter: Option[FiniteDuration],
+      expireAfter: Option[ExpireAfter],
       events: Nel[EventRecord]
     ) = ().pure[F]
 
@@ -159,7 +158,7 @@ object ReplicatedJournalFlat {
         key: Key,
         partitionOffset: PartitionOffset,
         timestamp: Instant,
-        expireAfter: Option[FiniteDuration],
+        expireAfter: Option[ExpireAfter],
         events: Nel[EventRecord]
       ) = {
         f(self.append(key, partitionOffset, timestamp, expireAfter, events))

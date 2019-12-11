@@ -18,7 +18,6 @@ import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.annotation.tailrec
-import scala.concurrent.duration.FiniteDuration
 
 
 object ReplicatedCassandra {
@@ -157,7 +156,7 @@ object ReplicatedCassandra {
                 def append(
                   partitionOffset: PartitionOffset,
                   timestamp: Instant,
-                  expireAfter: Option[FiniteDuration],
+                  expireAfter: Option[ExpireAfter],
                   events: Nel[EventRecord]
                 ) = {
 

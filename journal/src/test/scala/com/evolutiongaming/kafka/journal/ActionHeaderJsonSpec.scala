@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal
 import cats.implicits._
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
+import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import play.api.libs.json._
 
 import scala.concurrent.duration._
@@ -22,7 +23,7 @@ class ActionHeaderJsonSpec extends AnyFunSuite with Matchers {
     origin <- origins
   } {
     val originStr = origin.fold("None")(_.toString)
-    val expireAfter = origin.fold { 1.day.some } { _ => none[FiniteDuration] }
+    val expireAfter = origin.fold { 1.day.toExpireAfter.some } { _ => none[ExpireAfter] }
     for {
       payloadType             <- payloadTypes
       (metadataStr, metadata) <- metadata
