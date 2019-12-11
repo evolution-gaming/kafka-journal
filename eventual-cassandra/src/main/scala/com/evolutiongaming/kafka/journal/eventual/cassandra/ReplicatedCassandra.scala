@@ -94,7 +94,7 @@ object ReplicatedCassandra {
 
               def delete1(
                 journalHead: JournalHead,
-                deleteTo: SeqNr,
+                deleteTo: DeleteTo,
                 partitionOffset: PartitionOffset,
                 timestamp: Instant
               ) = {
@@ -104,40 +104,40 @@ object ReplicatedCassandra {
                 } else {
                   def update = {
                     def update = metaJournal.update(key, segment, partitionOffset, timestamp)
-                    if (journalHead.seqNr >= deleteTo) {
+                    if (journalHead.seqNr >= deleteTo.seqNr) {
                       val journalHead1 = journalHead.copy(
                         partitionOffset = partitionOffset,
                         deleteTo = deleteTo.some)
-                      update(DeleteTo(deleteTo)).as(journalHead1)
+                      update(deleteTo).as(journalHead1)
                     } else {
                       val journalHead1 = journalHead.copy(
                         partitionOffset = partitionOffset,
-                        seqNr = deleteTo,
+                        seqNr = deleteTo.seqNr,
                         deleteTo = deleteTo.some)
-                      update(deleteTo, deleteTo).as(journalHead1)
+                      update(deleteTo.seqNr, deleteTo).as(journalHead1)
                     }
                   }
 
                   def delete = {
 
-                    def delete(from: SeqNr, deleteTo: SeqNr) = {
+                    def delete(from: SeqNr, deleteTo: DeleteTo) = {
 
                       def segment(seqNr: SeqNr) = SegmentNr(seqNr, segmentSize)
 
-                      (segment(from) to segment(deleteTo)).parFoldMap { segment =>
-                        statements.deleteRecords(key, segment, deleteTo)
+                      (segment(from) to segment(deleteTo.seqNr)).parFoldMap { segment =>
+                        statements.deleteRecords(key, segment, deleteTo.seqNr)
                       }
                     }
 
-                    val deleteTo1 = journalHead.seqNr min deleteTo
+                    val deleteTo1 = (journalHead.seqNr min deleteTo.seqNr).toDeleteTo
 
                     journalHead.deleteTo.fold {
-                      delete(from = SeqNr.min, deleteTo = deleteTo1)
+                      delete(SeqNr.min, deleteTo1)
                     } { deleteTo =>
                       if (deleteTo >= deleteTo1) {
                         ().pure[F]
                       } else {
-                        deleteTo.next[Option].foldMap { from => delete(from = from, deleteTo = deleteTo1) }
+                        deleteTo.seqNr.next[Option].foldMap { delete(_, deleteTo1) }
                       }
                     }
                   }
@@ -204,11 +204,16 @@ object ReplicatedCassandra {
                       val seqNrLast = events.last.seqNr
 
                       val (save, journalHead1) = journalHead.fold {
+                        val deleteTo = events
+                          .head
+                          .seqNr
+                          .prev[Option]
+                          .map { _.toDeleteTo }
                         val journalHead = JournalHead(
                           partitionOffset = partitionOffset,
                           segmentSize = segmentSize,
                           seqNr = seqNrLast,
-                          deleteTo = events.head.seqNr.prev[Option])
+                          deleteTo = deleteTo)
                         val origin = events.head.origin
                         val insert = metaJournal.insert(key, segment, timestamp, journalHead, origin)
                         (insert, journalHead)
@@ -262,14 +267,14 @@ object ReplicatedCassandra {
                       partitionOffset = partitionOffset,
                       segmentSize = segmentSize,
                       seqNr = deleteTo,
-                      deleteTo = deleteTo.some)
+                      deleteTo = deleteTo.toDeleteTo.some)
                     metaJournal
                       .insert(key, segment, timestamp, journalHead, origin)
                       .as(journalHead.some)
                   }
 
                   def delete(journalHead: JournalHead) = {
-                    delete1(journalHead, deleteTo, partitionOffset, timestamp)
+                    delete1(journalHead, deleteTo.toDeleteTo, partitionOffset, timestamp)
                   }
 
                   for {
@@ -291,7 +296,7 @@ object ReplicatedCassandra {
                         .partitionOffset
                         .copy(offset = offset)
                       val result = for {
-                        journalHead <- delete1(journalHead, journalHead.seqNr, partitionOffset, timestamp)
+                        journalHead <- delete1(journalHead, journalHead.seqNr.toDeleteTo, partitionOffset, timestamp)
                         _           <- journalHead.traverse { journalHead => journalHeadRef.set(journalHead.some) }
                         _           <- metaJournal.delete(key, segment)
                         _           <- journalHeadRef.set(none)
@@ -387,7 +392,7 @@ object ReplicatedCassandra {
 
       def apply(deleteTo: DeleteTo/*TODO use DeleteTo everywhere*/): F[Unit]
 
-      def apply(seqNr: SeqNr, deleteTo: SeqNr): F[Unit]
+      def apply(seqNr: SeqNr, deleteTo: DeleteTo): F[Unit]
     }
 
     def of[F[_] : Monad : Parallel : CassandraSession](schema: Schema): F[MetaJournalStatements[F]] = {
@@ -494,7 +499,7 @@ object ReplicatedCassandra {
               } yield {}
             }
 
-            def apply(seqNr: SeqNr, deleteTo: SeqNr) = {
+            def apply(seqNr: SeqNr, deleteTo: DeleteTo) = {
               for {
                 _ <- metaJournal1(seqNr, deleteTo)
                 _ <- metadata1(seqNr, deleteTo)
@@ -547,9 +552,9 @@ object ReplicatedCassandra {
 
             def apply(seqNr: SeqNr) = updateSeqNr1(key, segment, partitionOffset, timestamp, seqNr)
 
-            def apply(deleteTo: DeleteTo) = updateDeleteTo1(key, segment, partitionOffset, timestamp, deleteTo.value/*TODO pass DeleteTo*/)
+            def apply(deleteTo: DeleteTo) = updateDeleteTo1(key, segment, partitionOffset, timestamp, deleteTo)
 
-            def apply(seqNr: SeqNr, deleteTo: SeqNr) = update1(key, segment, partitionOffset, timestamp, seqNr, deleteTo)
+            def apply(seqNr: SeqNr, deleteTo: DeleteTo) = update1(key, segment, partitionOffset, timestamp, seqNr, deleteTo)
           }
         }
 
@@ -592,9 +597,9 @@ object ReplicatedCassandra {
 
             def apply(seqNr: SeqNr) = updateSeqNr1(key, partitionOffset, timestamp, seqNr)
 
-            def apply(deleteTo: DeleteTo) = updateDeleteTo1(key, partitionOffset, timestamp, deleteTo.value/*TODO pass DeleteTo*/)
+            def apply(deleteTo: DeleteTo) = updateDeleteTo1(key, partitionOffset, timestamp, deleteTo)
 
-            def apply(seqNr: SeqNr, deleteTo: SeqNr) = update1(key, partitionOffset, timestamp, seqNr, deleteTo)
+            def apply(seqNr: SeqNr, deleteTo: DeleteTo) = update1(key, partitionOffset, timestamp, seqNr, deleteTo)
           }
         }
 

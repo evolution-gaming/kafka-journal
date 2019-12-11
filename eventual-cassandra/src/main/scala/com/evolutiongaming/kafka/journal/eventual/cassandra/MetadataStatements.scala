@@ -177,7 +177,13 @@ object MetadataStatements {
 
   trait Update[F[_]] {
 
-    def apply(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: SeqNr): F[Unit]
+    def apply(
+      key: Key,
+      partitionOffset: PartitionOffset,
+      timestamp: Instant,
+      seqNr: SeqNr,
+      deleteTo: DeleteTo
+    ): F[Unit]
   }
 
   object Update {
@@ -194,13 +200,13 @@ object MetadataStatements {
       for {
         prepared <- query.prepare
       } yield {
-        (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: SeqNr) =>
+        (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: DeleteTo) =>
           prepared
             .bind()
             .encode(key)
             .encode(partitionOffset)
             .encode(seqNr)
-            .encode("delete_to", deleteTo)
+            .encode(deleteTo)
             .encode("updated", timestamp)
             .first
             .void
@@ -244,7 +250,7 @@ object MetadataStatements {
 
   trait UpdateDeleteTo[F[_]] {
     
-    def apply(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr): F[Unit]
+    def apply(key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: DeleteTo): F[Unit]
   }
 
   object UpdateDeleteTo {
@@ -261,12 +267,12 @@ object MetadataStatements {
       for {
         prepared <- query.prepare
       } yield {
-        (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr) =>
+        (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: DeleteTo) =>
           prepared
             .bind()
             .encode(key)
             .encode(partitionOffset)
-            .encode("delete_to", deleteTo)
+            .encode(deleteTo)
             .encode("updated", timestamp)
             .first
             .void

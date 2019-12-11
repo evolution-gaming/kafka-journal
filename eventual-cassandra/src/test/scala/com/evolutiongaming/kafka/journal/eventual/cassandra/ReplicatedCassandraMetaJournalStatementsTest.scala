@@ -27,7 +27,7 @@ class ReplicatedCassandraMetaJournalStatementsTest extends AnyFunSuite with Matc
 
   test("journalHead from metadata") {
     val key = ReplicatedCassandraMetaJournalStatementsTest.key
-    val journalHead1 = journalHead.copy(deleteTo = journalHead.seqNr.some)
+    val journalHead1 = journalHead.copy(deleteTo = journalHead.seqNr.toDeleteTo.some)
     val stateT = for {
       a <- metaJournalStatements.journalHead(key, segment)
       _  = a shouldEqual journalHead1.some
@@ -54,7 +54,7 @@ class ReplicatedCassandraMetaJournalStatementsTest extends AnyFunSuite with Matc
 
   test("journalHead from metaJournal") {
     val key = ReplicatedCassandraMetaJournalStatementsTest.key
-    val journalHead1 = journalHead.copy(deleteTo = journalHead.seqNr.some)
+    val journalHead1 = journalHead.copy(deleteTo = journalHead.seqNr.toDeleteTo.some)
     val stateT = for {
       a <- metaJournalStatements.journalHead(key, segment)
       _  = a shouldEqual journalHead1.some
@@ -95,10 +95,10 @@ class ReplicatedCassandraMetaJournalStatementsTest extends AnyFunSuite with Matc
     val stateT = for {
       a <- metaJournalStatements.insert(key, segment, timestamp0, journalHead, origin.some)
       _  = a.shouldEqual(())
-      a <- metaJournalStatements.update(key, segment, partitionOffset, timestamp1)(SeqNr.max, SeqNr.max)
+      a <- metaJournalStatements.update(key, segment, partitionOffset, timestamp1)(SeqNr.max, SeqNr.max.toDeleteTo)
       _  = a.shouldEqual(())
     } yield {}
-    val journalHead1 = journalHead.copy(seqNr = SeqNr.max, deleteTo = SeqNr.max.some)
+    val journalHead1 = journalHead.copy(seqNr = SeqNr.max, deleteTo = SeqNr.max.toDeleteTo.some)
     val state0 = State(
       metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
         journalHead = journalHead1,
@@ -143,10 +143,10 @@ class ReplicatedCassandraMetaJournalStatementsTest extends AnyFunSuite with Matc
     val stateT = for {
       a <- metaJournalStatements.insert(key, segment, timestamp0, journalHead, origin.some)
       _  = a.shouldEqual(())
-      a <- metaJournalStatements.update(key, segment, partitionOffset, timestamp1)(DeleteTo(journalHead.seqNr))
+      a <- metaJournalStatements.update(key, segment, partitionOffset, timestamp1)(journalHead.seqNr.toDeleteTo)
       _  = a.shouldEqual(())
     } yield {}
-    val journalHead1 = journalHead.copy(deleteTo = journalHead.seqNr.some)
+    val journalHead1 = journalHead.copy(deleteTo = journalHead.seqNr.toDeleteTo.some)
     val state0 = State(
       metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
         journalHead = journalHead1,
@@ -270,7 +270,7 @@ object ReplicatedCassandraMetaJournalStatementsTest {
 
 
   val updateMetaJournal: MetaJournalStatements.Update[StateT] = {
-    (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: SeqNr) => {
+    (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: DeleteTo) => {
       StateT.unit { state =>
         state.updateMetaJournal(key, segment) { entry =>
           entry.copy(
@@ -301,7 +301,7 @@ object ReplicatedCassandraMetaJournalStatementsTest {
 
 
   val updateMetaJournalDeleteTo: MetaJournalStatements.UpdateDeleteTo[StateT] = {
-    (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr) => {
+    (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: DeleteTo) => {
       StateT.unit { state =>
         state.updateMetaJournal(key, segment) { entry =>
           entry.copy(
@@ -386,7 +386,7 @@ object ReplicatedCassandraMetaJournalStatementsTest {
 
 
   val updateMetadata: MetadataStatements.Update[StateT] = {
-    (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: SeqNr) => {
+    (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: DeleteTo) => {
       StateT.unit { state =>
         state.updateMetadata(key) { entry =>
           entry.copy(
@@ -417,7 +417,7 @@ object ReplicatedCassandraMetaJournalStatementsTest {
 
 
   val updateMetadataDeleteTo: MetadataStatements.UpdateDeleteTo[StateT] = {
-    (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr) => {
+    (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: DeleteTo) => {
       StateT.unit { state =>
         state.updateMetadata(key) { entry =>
           entry.copy(

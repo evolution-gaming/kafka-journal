@@ -103,5 +103,7 @@ object SeqNr {
     def to(seqNr: SeqNr): SeqRange = SeqRange(self, seqNr)
 
     def map[F[_] : ApplicativeString](f: Long => Long): F[SeqNr] = SeqNr.of[F](f(self.value))
+
+    def toDeleteTo: DeleteTo = DeleteTo(self)
   }
 }

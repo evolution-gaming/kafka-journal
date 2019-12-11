@@ -102,8 +102,8 @@ object EventualCassandra {
           head.deleteTo match {
             case None           => read(from)
             case Some(deleteTo) =>
-              if (from > deleteTo) read(from)
-              else deleteTo.next[Option] match {
+              if (from > deleteTo.seqNr) read(from)
+              else deleteTo.seqNr.next[Option] match {
                 case Some(from) => read(from)
                 case None       => Stream.empty[F, EventRecord]
               }

@@ -96,7 +96,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               partitionOffset = partitionOffset1,
               segmentSize = segmentSize,
               seqNr = SeqNr.max,
-              deleteTo = SeqNr.max.some),
+              deleteTo = SeqNr.max.toDeleteTo.some),
             created = timestamp0,
             updated = timestamp1,
             origin = origin.some))))))
@@ -514,7 +514,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
               segmentSize = segmentSize,
               seqNr = SeqNr.max,
-              deleteTo = SeqNr.max.some),
+              deleteTo = SeqNr.max.toDeleteTo.some),
             created = timestamp0,
             updated = timestamp1,
             origin = origin.some))))))
@@ -542,7 +542,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                 partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
                 segmentSize = segmentSize,
                 seqNr = SeqNr.min,
-                deleteTo = SeqNr.min.some),
+                deleteTo = SeqNr.min.toDeleteTo.some),
               created = timestamp0,
               updated = timestamp0,
               origin = origin.some))))),
@@ -555,7 +555,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
               segmentSize = segmentSize,
               seqNr = SeqNr.min,
-              deleteTo = SeqNr.min.some),
+              deleteTo = SeqNr.min.toDeleteTo.some),
             created = timestamp0,
             updated = timestamp0,
             origin = origin.some))))),
@@ -772,7 +772,7 @@ object ReplicatedCassandraTest {
 
 
   val updateMetaJournal: MetaJournalStatements.Update[StateT] = {
-    (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: SeqNr) => {
+    (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: DeleteTo) => {
       StateT.unit { state =>
         state.updateMetaJournal(key, segment) { entry =>
           entry.copy(
@@ -805,7 +805,7 @@ object ReplicatedCassandraTest {
 
 
   val updateMetaJournalDeleteTo: MetaJournalStatements.UpdateDeleteTo[StateT] = {
-    (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr) => {
+    (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: DeleteTo) => {
       StateT.unit { state =>
         state
           .updateMetaJournal(key, segment) { entry =>
@@ -815,7 +815,7 @@ object ReplicatedCassandraTest {
                 deleteTo = deleteTo.some),
               updated = timestamp)
           }
-          .append(Action.UpdateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo))
+          .append(Action.UpdateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo.seqNr))
       }
     }
   }

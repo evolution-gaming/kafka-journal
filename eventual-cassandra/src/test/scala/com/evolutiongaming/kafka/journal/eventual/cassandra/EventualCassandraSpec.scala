@@ -183,13 +183,16 @@ object EventualCassandraSpec {
 
 
     val updateMetadata: MetadataStatements.Update[StateT] = {
-      (key: Key, partitionOffset: PartitionOffset, _: Instant, seqNr: SeqNr, deleteTo: SeqNr) => {
+      (key: Key, partitionOffset: PartitionOffset, _: Instant, seqNr: SeqNr, deleteTo: DeleteTo) => {
         StateT { state =>
           val metadata = state.metadata
           val state1 = for {
             entry <- metadata.get(key)
           } yield {
-            val entry1 = entry.copy(partitionOffset = partitionOffset, seqNr = seqNr, deleteTo = Some(deleteTo))
+            val entry1 = entry.copy(
+              partitionOffset = partitionOffset,
+              seqNr = seqNr,
+              deleteTo = deleteTo.some)
             state.copy(metadata = metadata.updated(key, entry1))
           }
 
@@ -216,13 +219,13 @@ object EventualCassandraSpec {
 
 
     val updateMetadataDeleteTo: MetadataStatements.UpdateDeleteTo[StateT] = {
-      (key: Key, partitionOffset: PartitionOffset, _: Instant, deleteTo: SeqNr) => {
+      (key: Key, partitionOffset: PartitionOffset, _: Instant, deleteTo: DeleteTo) => {
         StateT { state =>
           val metadata = state.metadata
           val state1 = for {
             entry <- metadata.get(key)
           } yield {
-            val entry1 = entry.copy(partitionOffset = partitionOffset, deleteTo = Some(deleteTo))
+            val entry1 = entry.copy(partitionOffset = partitionOffset, deleteTo = deleteTo.some)
             state.copy(metadata = metadata.updated(key, entry1))
           }
 

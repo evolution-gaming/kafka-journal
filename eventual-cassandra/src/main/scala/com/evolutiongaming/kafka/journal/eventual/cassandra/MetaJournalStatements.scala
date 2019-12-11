@@ -195,7 +195,7 @@ object MetaJournalStatements {
       partitionOffset: PartitionOffset,
       timestamp: Instant,
       seqNr: SeqNr,
-      deleteTo: SeqNr
+      deleteTo: DeleteTo
     ): F[Unit]
   }
 
@@ -214,14 +214,14 @@ object MetaJournalStatements {
       for {
         prepared <- query.prepare
       } yield {
-        (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: SeqNr) =>
+        (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: DeleteTo) =>
           prepared
             .bind()
             .encode(key)
             .encode(segment)
             .encode(partitionOffset)
             .encode(seqNr)
-            .encode("delete_to", deleteTo)
+            .encode(deleteTo)
             .encode("updated", timestamp)
             .first
             .void
@@ -267,7 +267,7 @@ object MetaJournalStatements {
 
   trait UpdateDeleteTo[F[_]] {
 
-    def apply(key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr): F[Unit]
+    def apply(key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: DeleteTo): F[Unit]
   }
 
   object UpdateDeleteTo {
@@ -285,13 +285,13 @@ object MetaJournalStatements {
       for {
         prepared <- query.prepare
       } yield {
-        (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr) =>
+        (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: DeleteTo) =>
           prepared
             .bind()
             .encode(key)
             .encode(segment)
             .encode(partitionOffset)
-            .encode("delete_to", deleteTo)
+            .encode(deleteTo)
             .encode("updated", timestamp)
             .first
             .void
