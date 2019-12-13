@@ -35,11 +35,12 @@ trait Journal[F[_]] {
   def append(
     key: Key,
     events: Nel[Event],
-    expireAfter: Option[ExpireAfter] = None, // TODO expireAfter: test
+    expireAfter: Option[ExpireAfter] = None, // TODO expiry: test
     metadata: Option[JsValue] = None,
     headers: Headers = Headers.empty
   ): F[PartitionOffset]
 
+  // TODO expiry: make sure expireAfter is used during queries
   def read(key: Key, from: SeqNr = SeqNr.min): Stream[F, EventRecord]
 
   // TODO return Pointer and test it
@@ -54,7 +55,7 @@ trait Journal[F[_]] {
   /**
    * Deletes all data with regards to to, consecutive pointer call will return none
    */
-  // TODO test
+  // TODO expiry: test
   def purge(key: Key): F[Option[PartitionOffset]]
 }
 
@@ -80,7 +81,7 @@ object Journal {
   }
 
 
-  def of[F[_] : Concurrent : Timer : Parallel : LogOf : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomId : MeasureDuration : FromTry](
+  def of[F[_] : Concurrent : Timer : Parallel : LogOf : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomIdOf : MeasureDuration : FromTry](
     config: JournalConfig,
     origin: Option[Origin],
     eventualJournal: EventualJournal[F],
@@ -116,7 +117,7 @@ object Journal {
   }
 
 
-  def apply[F[_] : Concurrent : Parallel : Clock : RandomId : FromTry](
+  def apply[F[_] : Concurrent : Parallel : Clock : RandomIdOf : FromTry](
     origin: Option[Origin],
     producer: Producer[F],
     consumer: Resource[F, Consumer[F]],
@@ -140,7 +141,7 @@ object Journal {
   }
 
 
-  def apply[F[_] : Concurrent : Clock : Parallel : RandomId : FromTry](
+  def apply[F[_] : Concurrent : Clock : Parallel : RandomIdOf : FromTry](
     origin: Option[Origin],
     eventual: EventualJournal[F],
     consumeActionRecords: ConsumeActionRecords[F],
@@ -190,7 +191,7 @@ object Journal {
       for {
         marker   <- appendMarker(key)
         result   <- {
-          if (marker.offset == Offset.min) {
+          if (marker.offset === Offset.min) {
             (HeadInfo.empty, StreamActionRecords.empty[F].pure[F]).pure[F]
           } else {
             headAndStream(marker)
@@ -293,7 +294,7 @@ object Journal {
 
       def pointer(key: Key) = {
         
-        // TODO reimplement, we don't need to call `eventual.pointer` without using it's offset
+        // TODO refactor, we don't need to call `eventual.pointer` without using it's offset
         def pointerEventual = for {
           pointer <- eventual.pointer(key)
         } yield for {
@@ -338,7 +339,7 @@ object Journal {
       }
 
       def purge(key: Key): F[Option[PartitionOffset]] = {
-        // TODO move usages of Action.scala from Journal.scala to AppendAction
+        // TODO expiry: move usages of Action.scala from Journal.scala to AppendAction
         for {
           timestamp <- Clock[F].instant
           action     = Action.Purge(key, timestamp, origin)
@@ -603,7 +604,7 @@ object Journal {
             _ <- logDebugOrWarn(d, config.append) {
               val first = events.head.seqNr
               val last = events.last.seqNr
-              val seqNr = if (first == last) s"seqNr: $first" else s"seqNrs: $first..$last"
+              val seqNr = if (first === last) s"seqNr: $first" else s"seqNrs: $first..$last"
               s"$key append in ${ d.toMillis }ms, $seqNr, result: $r"
             }
           } yield r

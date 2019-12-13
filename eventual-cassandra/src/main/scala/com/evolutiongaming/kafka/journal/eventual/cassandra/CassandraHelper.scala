@@ -5,8 +5,6 @@ import cats.Applicative
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.datastax.driver.core.{Duration => DurationC, _}
-import com.evolutiongaming.kafka.journal.ExpireAfter
-import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.util.FiniteDurationHelper._
 import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
 import com.evolutiongaming.sstream.Stream
@@ -33,6 +31,29 @@ object CassandraHelper {
     def execute[F[_] : CassandraSession]: Stream[F, Row] = {
       CassandraSession[F].execute(self)
     }
+  }
+
+
+  implicit class EncodeRowObjOps(val self: EncodeRow.type) extends AnyVal {
+
+    def empty[A]: EncodeRow[A] = new EncodeRow[A] {
+      
+      def apply[B <: SettableData[B]](data: B, value: A) = data
+    }
+
+
+    def noneAsUnset[A](implicit encode: EncodeRow[A]): EncodeRow[Option[A]] = new EncodeRow[Option[A]] {
+
+      def apply[B <: SettableData[B]](data: B, value: Option[A]) = {
+        value.fold(data) { encode(data, _) }
+      }
+    }
+  }
+
+
+  implicit class DecodeRowObjOps(val self: DecodeRow.type) extends AnyVal {
+
+    def const[A](a: A): DecodeRow[A] = (_: GettableByNameData) => a
   }
 
 
@@ -71,18 +92,4 @@ object CassandraHelper {
   implicit val finiteDurationDecodeByName: DecodeByName[FiniteDuration] = {
     DecodeByName[DurationC].map(durationToFiniteDuration)
   }
-
-  implicit val encodeByNameExpireAfter: EncodeByName[ExpireAfter] = EncodeByName[FiniteDuration].contramap { (a: ExpireAfter) => a.duration }
-
-  implicit val decodeByNameExpireAfter: DecodeByName[ExpireAfter] = DecodeByName[FiniteDuration].map { _.toExpireAfter }
-
-
-  implicit val encodeByNameOptExpireAfter: EncodeByName[Option[ExpireAfter]] = EncodeByName.optEncodeByName[ExpireAfter]
-
-  implicit val decodeByNameOptExpireAfter: DecodeByName[Option[ExpireAfter]] = DecodeByName.optDecodeByName[ExpireAfter]
-
-
-  implicit val encodeRowExpireAfter: EncodeRow[ExpireAfter] = EncodeRow[ExpireAfter]("expire_after")
-
-  implicit val decodeRowExpireAfter: DecodeRow[ExpireAfter] = DecodeRow[ExpireAfter]("expire_after")
 }

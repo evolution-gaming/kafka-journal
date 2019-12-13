@@ -42,7 +42,7 @@ object CreateTables { self =>
       }
 
       def create(tables1: Nel[Table]) = {
-        val fresh = tables1.length == tables.length
+        val fresh = tables1.length === tables.length
         for {
           _ <- log.info(s"tables: ${tables1.map(_.name).mkString_(",")}, fresh: $fresh")
           _ <- CassandraSync[F].apply { tables1.foldMapM { _.queries.foldMapM { _.execute.first.void } } }

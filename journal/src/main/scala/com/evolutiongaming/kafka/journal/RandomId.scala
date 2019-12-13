@@ -1,21 +1,16 @@
 package com.evolutiongaming.kafka.journal
 
-import java.util.UUID
+import cats.kernel.Eq
+import cats.{Order, Show}
 
-import cats.effect.Sync
-
-trait RandomId[F[_]] {
-
-  def get: F[String]
-}
+final case class RandomId(value: String)
 
 object RandomId {
+  implicit val eqRandomId: Eq[RandomId] = Eq.fromUniversalEquals
 
-  def apply[F[_]](implicit F: RandomId[F]): RandomId[F] = F
+  implicit val showRandomId: Show[RandomId] = Show.fromToString
 
+  implicit val orderingRandomId: Ordering[RandomId] = Ordering.by { _.value }
 
-  def uuid[F[_] : Sync]: RandomId[F] = new RandomId[F] {
-
-    def get = Sync[F].delay { UUID.randomUUID().toString }
-  }
+  implicit val orderRandomId: Order[RandomId] = Order.fromOrdering
 }

@@ -53,7 +53,7 @@ object ReadEventsApp extends IOApp {
 
     implicit val kafkaProducerOf = KafkaProducerOf[F](executor)
 
-    implicit val randomId = RandomId.uuid[F]
+    implicit val randomIdOf = RandomIdOf.uuid[F]
 
     val commonConfig = CommonConfig(
       clientId = "ReadEventsApp".some,

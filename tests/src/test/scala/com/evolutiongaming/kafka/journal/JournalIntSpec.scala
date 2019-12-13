@@ -104,7 +104,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             _          = pointer shouldEqual none
             events    <- journal.read
             _          = events shouldEqual List.empty
-            offset    <- journal.append(Nel.of(event), recordMetadata.data, headers)
+            offset    <- journal.append(Nel.of(event), recordMetadata.data, headers, 1.day.toExpireAfter.some)
             record     = EventRecord(event, timestamp, offset, origin.some, recordMetadata, headers)
             events    <- journal.read
             _          = events shouldEqual List(record)

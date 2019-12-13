@@ -1,17 +1,18 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import java.time.Instant
+import java.time.{Instant, LocalDate, ZoneOffset}
 
 import cats.data.{IndexedStateT, NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.{ExitCase, Sync}
 import cats.implicits._
 import cats.{Id, Parallel}
 import com.evolutiongaming.catshelper.DataHelper._
-import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.util.BracketFromMonadError
-import com.evolutiongaming.kafka.journal.util.TemporalHelper._
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
+import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.ExpireOn.implicits._
+import com.evolutiongaming.kafka.journal.util.BracketFromMonadError
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -23,7 +24,7 @@ import scala.util.Try
 class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
   import ReplicatedCassandraTest._
 
-  private val timestamp0 = Instant.now()
+  private val timestamp0 = Instant.parse("2019-12-12T10:10:10.00Z")
   private val timestamp1 = timestamp0 + 1.minute
   private val topic0 = "topic0"
   private val topic1 = "topic1"
@@ -47,8 +48,12 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
   } {
 
     val segmentOfId = SegmentOf[Id](segments)
-    val segmentOf = SegmentOf[StateT](segments)
-    val journal = ReplicatedCassandra(segmentSize, segmentOf, statements).toFlat
+    val journal = ReplicatedCassandra(
+      segmentSize,
+      SegmentOf[StateT](segments),
+      statements,
+      ExpiryService(ZoneOffset.UTC)
+    ).toFlat
 
     val suffix = s"segmentSize: $segmentSize, segments: $segments"
 
@@ -163,12 +168,15 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val key1 = Key(id1, topic1)
       val segment0 = segmentOfId(key0)
       val segment1 = segmentOfId(key1)
+      val expiry = Expiry(
+        1.minute.toExpireAfter,
+        LocalDate.of(2019, 12, 12).toExpireOn)
       val stateT = for {
         _ <- journal.append(
           key = key0,
           partitionOffset = PartitionOffset(Partition.min, Offset.min),
           timestamp = timestamp0,
-          expireAfter = 1.minute.toExpireAfter.some,
+          expireAfter = expiry.after.some,
           events = Nel.of(
             eventRecordOf(
               seqNr = SeqNr.unsafe(1),
@@ -230,6 +238,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             JournalHead(PartitionOffset(Partition.min, Offset.unsafe(4)), segmentSize, SeqNr.min, none),
             origin.some),
           Action.InsertRecords(key1, SegmentNr.min, 1),
+          Action.DeleteExpiry(key0, segment0),
           Action.UpdateSeqNr(
             key0,
             segment0,
@@ -243,7 +252,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment0,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(partitionOffset, segmentSize, SeqNr.min, none),
+            JournalHead(partitionOffset, segmentSize, SeqNr.min, none, expiry.some),
             origin.some),
           Action.InsertRecords(key0, SegmentNr.min, 1))
       } else {
@@ -256,6 +265,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             JournalHead(PartitionOffset(Partition.min, Offset.unsafe(4)), segmentSize, SeqNr.min, none),
             origin.some),
           Action.InsertRecords(key1, SegmentNr.min, 1),
+          Action.DeleteExpiry(key0, segment0),
           Action.UpdateSeqNr(
             key0,
             segment0,
@@ -268,7 +278,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment0,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(partitionOffset, segmentSize, SeqNr.min, none),
+            JournalHead(partitionOffset, segmentSize, SeqNr.min, none, expiry.some),
             origin.some),
           Action.InsertRecords(key0, SegmentNr.min, 1))
       }
@@ -310,12 +320,18 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val id = "id"
       val key = Key(id, topic0)
       val segment = segmentOfId(key)
+      val expiry0 = Expiry(
+        1.minute.toExpireAfter,
+        LocalDate.of(2019, 12, 12).toExpireOn)
+      val expiry1 = Expiry(
+        2.minute.toExpireAfter,
+        LocalDate.of(2019, 12, 12).toExpireOn)
       val stateT = for {
         _ <- journal.append(
           key = key,
           partitionOffset = PartitionOffset(Partition.min, Offset.min),
           timestamp = timestamp0,
-          expireAfter = 1.minute.toExpireAfter.some,
+          expireAfter = expiry0.after.some,
           events = Nel.of(
             eventRecordOf(
               seqNr = SeqNr.unsafe(1),
@@ -324,7 +340,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           key = key,
           partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(3)),
           timestamp = timestamp1,
-          expireAfter = 2.minutes.toExpireAfter.some,
+          expireAfter = expiry1.after.some,
           events = Nel.of(
             eventRecordOf(
               seqNr = SeqNr.unsafe(2),
@@ -360,12 +376,13 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
       val actions = if (segmentSize <= SegmentSize.min) {
         List(
-          Action.UpdateSeqNr(
+          Action.UpdateExpiry(
             key,
             segment,
             PartitionOffset(Partition.min, Offset.unsafe(3)),
             timestamp1,
-            SeqNr.unsafe(3)),
+            SeqNr.unsafe(3),
+            expiry1),
           Action.InsertRecords(key, SegmentNr.unsafe(1), 1),
           Action.InsertRecords(key, SegmentNr.min, 1),
           Action.InsertMetaJournal(
@@ -373,24 +390,25 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(partitionOffset, segmentSize, SeqNr.min, none),
+            JournalHead(partitionOffset, segmentSize, SeqNr.min, none, expiry0.some),
             origin.some),
           Action.InsertRecords(key, SegmentNr.min, 1))
       } else {
         List(
-          Action.UpdateSeqNr(
+          Action.UpdateExpiry(
             key,
             segment,
             PartitionOffset(Partition.min, Offset.unsafe(3)),
             timestamp1,
-            SeqNr.unsafe(3)),
+            SeqNr.unsafe(3),
+            expiry1),
           Action.InsertRecords(key, SegmentNr.min, 2),
           Action.InsertMetaJournal(
             key,
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(partitionOffset, segmentSize, SeqNr.min, none),
+            JournalHead(partitionOffset, segmentSize, SeqNr.min, none, expiry0.some),
             origin.some),
           Action.InsertRecords(key, SegmentNr.min, 1))
       }
@@ -404,11 +422,258 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                 partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(3)),
                 segmentSize = segmentSize,
                 seqNr = SeqNr.unsafe(3),
-                deleteTo = none),
+                deleteTo = none,
+                expiry = expiry1.some),
               created = timestamp0,
               updated = timestamp1,
               origin = origin.some))))),
         journal = events0)
+      val result = stateT.run(State.empty)
+      result shouldEqual (expected, ()).pure[Try]
+    }
+
+
+    test(s"update expiry, $suffix") {
+      val id = "id"
+      val key = Key(id = id, topic = topic0)
+
+      val expiry0 = Expiry(
+        1.minute.toExpireAfter,
+        LocalDate.of(2019, 12, 12).toExpireOn)
+
+      val expiry1 = Expiry(
+        2.minutes.toExpireAfter,
+        LocalDate.of(2019, 12, 12).toExpireOn)
+
+      val segment = segmentOfId(key)
+      val stateT = for {
+        _ <- journal.append(
+          key = key,
+          partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)),
+          timestamp = timestamp0,
+          expireAfter = expiry0.after.some,
+          events = Nel.of(
+            eventRecordOf(
+              seqNr = SeqNr.unsafe(1),
+              partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)))))
+        _ <- journal.append(
+          key = key,
+          partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
+          timestamp = timestamp1,
+          expireAfter = expiry1.after.some,
+          events = Nel.of(
+            eventRecordOf(
+              seqNr = SeqNr.unsafe(2),
+              partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)))))
+      } yield {}
+
+      val expected = State(
+        actions = List(
+          Action.UpdateExpiry(
+            key,
+            segment,
+            PartitionOffset(Partition.min, Offset.unsafe(2)),
+            timestamp1,
+            SeqNr.unsafe(2),
+            expiry1),
+          Action.InsertRecords(key, SegmentNr.min, 1),
+          Action.InsertMetaJournal(
+            key,
+            segment,
+            created = timestamp0,
+            updated = timestamp0,
+            JournalHead(
+              PartitionOffset(Partition.min, Offset.unsafe(1)),
+              segmentSize,
+              SeqNr.unsafe(1),
+              none,
+              expiry0.some),
+            origin.some),
+          Action.InsertRecords(key, SegmentNr.min, 1)),
+        metaJournal = Map(
+          ((topic0, segment), Map((id, MetaJournalEntry(
+            journalHead = JournalHead(
+              partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
+              segmentSize = segmentSize,
+              seqNr = SeqNr.unsafe(2),
+              deleteTo = none,
+              expiry = expiry1.some),
+            created = timestamp0,
+            updated = timestamp1,
+            origin = origin.some))))),
+        journal = Map((
+          (key, SegmentNr.min),
+          Map((
+            (SeqNr.unsafe(1), timestamp0),
+            eventRecordOf(
+              seqNr = SeqNr.unsafe(1),
+              partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)))),
+            (
+              (SeqNr.unsafe(2), timestamp0),
+              eventRecordOf(
+                seqNr = SeqNr.unsafe(2),
+                partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2))))))))
+      val result = stateT.run(State.empty)
+      result shouldEqual (expected, ()).pure[Try]
+    }
+
+
+    test(s"not update expiry, $suffix") {
+      val id = "id"
+      val key = Key(id = id, topic = topic0)
+
+      val expiry = Expiry(
+        1.minute.toExpireAfter,
+        LocalDate.of(2019, 12, 12).toExpireOn)
+
+      val segment = segmentOfId(key)
+      val stateT = for {
+        _ <- journal.append(
+          key = key,
+          partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)),
+          timestamp = timestamp0,
+          expireAfter = expiry.after.some,
+          events = Nel.of(
+            eventRecordOf(
+              seqNr = SeqNr.unsafe(1),
+              partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)))))
+        _ <- journal.append(
+          key = key,
+          partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
+          timestamp = timestamp1,
+          expireAfter = expiry.after.some,
+          events = Nel.of(
+            eventRecordOf(
+              seqNr = SeqNr.unsafe(2),
+              partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)))))
+      } yield {}
+
+      val expected = State(
+        actions = List(
+          Action.UpdateSeqNr(
+            key,
+            segment,
+            PartitionOffset(Partition.min, Offset.unsafe(2)),
+            timestamp1,
+            SeqNr.unsafe(2)),
+          Action.InsertRecords(key, SegmentNr.min, 1),
+          Action.InsertMetaJournal(
+            key,
+            segment,
+            created = timestamp0,
+            updated = timestamp0,
+            JournalHead(
+              PartitionOffset(Partition.min, Offset.unsafe(1)),
+              segmentSize,
+              SeqNr.unsafe(1),
+              none,
+              expiry.some),
+            origin.some),
+          Action.InsertRecords(key, SegmentNr.min, 1)),
+        metaJournal = Map(
+          ((topic0, segment), Map((id, MetaJournalEntry(
+            journalHead = JournalHead(
+              partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
+              segmentSize = segmentSize,
+              seqNr = SeqNr.unsafe(2),
+              deleteTo = none,
+              expiry = expiry.some),
+            created = timestamp0,
+            updated = timestamp1,
+            origin = origin.some))))),
+        journal = Map((
+          (key, SegmentNr.min),
+          Map((
+            (SeqNr.unsafe(1), timestamp0),
+            eventRecordOf(
+              seqNr = SeqNr.unsafe(1),
+              partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)))),
+            (
+              (SeqNr.unsafe(2), timestamp0),
+              eventRecordOf(
+                seqNr = SeqNr.unsafe(2),
+                partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2))))))))
+      val result = stateT.run(State.empty)
+      result shouldEqual (expected, ()).pure[Try]
+    }
+
+
+    test(s"remove expiry, $suffix") {
+      val id = "id"
+      val key = Key(id = id, topic = topic0)
+
+      val expiry = Expiry(
+        1.minute.toExpireAfter,
+        LocalDate.of(2019, 12, 12).toExpireOn)
+
+      val segment = segmentOfId(key)
+      val stateT = for {
+        _ <- journal.append(
+          key = key,
+          partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)),
+          timestamp = timestamp0,
+          expireAfter = expiry.after.some,
+          events = Nel.of(
+            eventRecordOf(
+              seqNr = SeqNr.unsafe(1),
+              partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)))))
+        _ <- journal.append(
+          key = key,
+          partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
+          timestamp = timestamp1,
+          expireAfter = none,
+          events = Nel.of(
+            eventRecordOf(
+              seqNr = SeqNr.unsafe(2),
+              partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)))))
+      } yield {}
+
+      val expected = State(
+        actions = List(
+          Action.DeleteExpiry(key, segment),
+          Action.UpdateSeqNr(
+            key,
+            segment,
+            PartitionOffset(Partition.min, Offset.unsafe(2)),
+            timestamp1,
+            SeqNr.unsafe(2)),
+          Action.InsertRecords(key, SegmentNr.min, 1),
+          Action.InsertMetaJournal(
+            key,
+            segment,
+            created = timestamp0,
+            updated = timestamp0,
+            JournalHead(
+              PartitionOffset(Partition.min, Offset.unsafe(1)),
+              segmentSize,
+              SeqNr.unsafe(1),
+              none,
+              expiry.some),
+            origin.some),
+          Action.InsertRecords(key, SegmentNr.min, 1)),
+        metaJournal = Map(
+          ((topic0, segment), Map((id, MetaJournalEntry(
+            journalHead = JournalHead(
+              partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
+              segmentSize = segmentSize,
+              seqNr = SeqNr.unsafe(2),
+              deleteTo = none,
+              expiry = none),
+            created = timestamp0,
+            updated = timestamp1,
+            origin = origin.some))))),
+        journal = Map((
+          (key, SegmentNr.min),
+          Map((
+            (SeqNr.unsafe(1), timestamp0),
+            eventRecordOf(
+              seqNr = SeqNr.unsafe(1),
+              partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)))),
+            (
+              (SeqNr.unsafe(2), timestamp0),
+              eventRecordOf(
+                seqNr = SeqNr.unsafe(2),
+                partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2))))))))
       val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
     }
@@ -702,7 +967,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 object ReplicatedCassandraTest {
 
   val insertRecords: JournalStatements.InsertRecords[StateT] = {
-    (key: Key, segment: SegmentNr, events: Nel[EventRecord]) => {
+    (key, segment, events) => {
       StateT.unit { state =>
         val k = (key, segment)
         val entries = state
@@ -723,7 +988,7 @@ object ReplicatedCassandraTest {
 
 
   val deleteRecords: JournalStatements.DeleteRecords[StateT] = {
-    (key: Key, segment: SegmentNr, seqNr: SeqNr) => {
+    (key, segment, seqNr) => {
       StateT.unit { state =>
         val k = (key, segment)
         val journal = state.journal
@@ -738,7 +1003,7 @@ object ReplicatedCassandraTest {
 
 
   val insertMetaJournal: MetaJournalStatements.Insert[StateT] = {
-    (key: Key, segment: SegmentNr, created: Instant, updated: Instant, journalHead: JournalHead, origin: Option[Origin]) => {
+    (key, segment, created, updated, journalHead, origin) => {
       StateT.unit { state =>
         val entry = MetaJournalEntry(
           journalHead = journalHead,
@@ -757,8 +1022,8 @@ object ReplicatedCassandraTest {
   }
 
 
-  val selectMetaJournalJournalHead: MetaJournalStatements.SelectJournalHead[StateT] = {
-    (key: Key, segment: SegmentNr) => {
+  val selectMetaJournal: MetaJournalStatements.SelectJournalHead[StateT] = {
+    (key, segment) => {
       StateT.success { state =>
         val journalHead = for {
           entries <- state.metaJournal.get((key.topic, segment))
@@ -773,7 +1038,7 @@ object ReplicatedCassandraTest {
 
 
   val updateMetaJournal: MetaJournalStatements.Update[StateT] = {
-    (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: DeleteTo) => {
+    (key, segment, partitionOffset, timestamp, seqNr, deleteTo) => {
       StateT.unit { state =>
         state.updateMetaJournal(key, segment) { entry =>
           entry.copy(
@@ -788,8 +1053,8 @@ object ReplicatedCassandraTest {
   }
 
 
-  val updateMetaJournalSeqNr: MetaJournalStatements.UpdateSeqNr[StateT] = {
-    (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr) => {
+  val updateSeqNrMetaJournal: MetaJournalStatements.UpdateSeqNr[StateT] = {
+    (key, segment, partitionOffset, timestamp, seqNr) => {
       StateT.unit { state =>
         state
           .updateMetaJournal(key, segment) { entry =>
@@ -805,8 +1070,26 @@ object ReplicatedCassandraTest {
   }
 
 
-  val updateMetaJournalDeleteTo: MetaJournalStatements.UpdateDeleteTo[StateT] = {
-    (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: DeleteTo) => {
+  val updateExpiryMetaJournal: MetaJournalStatements.UpdateExpiry[StateT] = {
+    (key, segment, partitionOffset, timestamp, seqNr, expiry) => {
+      StateT.unit { state =>
+        state
+          .updateMetaJournal(key, segment) { entry =>
+            entry.copy(
+              journalHead = entry.journalHead.copy(
+                partitionOffset = partitionOffset,
+                seqNr = seqNr,
+                expiry = expiry.some),
+              updated = timestamp)
+          }
+          .append(Action.UpdateExpiry(key, segment, partitionOffset, timestamp, seqNr, expiry))
+      }
+    }
+  }
+
+
+  val updateDeleteToMetaJournal: MetaJournalStatements.UpdateDeleteTo[StateT] = {
+    (key, segment, partitionOffset, timestamp, deleteTo) => {
       StateT.unit { state =>
         state
           .updateMetaJournal(key, segment) { entry =>
@@ -816,14 +1099,14 @@ object ReplicatedCassandraTest {
                 deleteTo = deleteTo.some),
               updated = timestamp)
           }
-          .append(Action.UpdateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo.seqNr))
+          .append(Action.UpdateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo.value))
       }
     }
   }
 
 
   val deleteMetaJournal: MetaJournalStatements.Delete[StateT] = {
-    (key: Key, segment: SegmentNr) => {
+    (key, segment) => {
       StateT.unit { state =>
         val k = (key.topic, segment)
         val state1 = for {
@@ -845,9 +1128,21 @@ object ReplicatedCassandraTest {
     }
   }
 
+  val deleteExpiryMetaJournal: MetaJournalStatements.DeleteExpiry[StateT] = {
+    (key, segment) => {
+      StateT.unit { state =>
+        state
+          .updateMetaJournal(key, segment) { entry =>
+            entry.copy(journalHead = entry.journalHead.copy(expiry = none))
+          }
+          .append(Action.DeleteExpiry(key, segment))
+      }
+    }
+  }
+
 
   val selectPointer: PointerStatements.Select[StateT] = {
-    (topic: Topic, partition: Partition) => {
+    (topic, partition) => {
       StateT.success { state =>
         val offset = for {
           pointers <- state.pointers.get(topic)
@@ -862,7 +1157,7 @@ object ReplicatedCassandraTest {
 
 
   val selectPointersIn: PointerStatements.SelectIn[StateT] = {
-    (topic: Topic, partitions: Nel[Partition]) => {
+    (topic, partitions) => {
       StateT.success { state =>
         val pointers = state
           .pointers
@@ -880,7 +1175,7 @@ object ReplicatedCassandraTest {
 
 
   val selectPointers: PointerStatements.SelectAll[StateT] = {
-    topic: Topic => {
+    topic => {
       StateT.success { state =>
         val offsets = state
           .pointers
@@ -893,7 +1188,7 @@ object ReplicatedCassandraTest {
 
 
   val insertPointer: PointerStatements.Insert[StateT] = {
-    (topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant) => {
+    (topic, partition, offset, created, updated) => {
       StateT.unit { state =>
         val entry = PointerEntry(
           offset = offset,
@@ -910,7 +1205,7 @@ object ReplicatedCassandraTest {
 
 
   val updatePointer: PointerStatements.Update[StateT] = {
-    (topic: Topic, partition: Partition, offset: Offset, timestamp: Instant) => {
+    (topic, partition, offset, timestamp) => {
       StateT.unit { state =>
         state.updatePointer(topic, partition) { entry =>
           entry.copy(
@@ -935,12 +1230,14 @@ object ReplicatedCassandraTest {
   val statements: ReplicatedCassandra.Statements[StateT] = {
 
     val metaJournal = ReplicatedCassandra.MetaJournalStatements(
-      selectMetaJournalJournalHead,
+      selectMetaJournal,
       insertMetaJournal,
       updateMetaJournal,
-      updateMetaJournalSeqNr,
-      updateMetaJournalDeleteTo,
-      deleteMetaJournal)
+      updateSeqNrMetaJournal,
+      updateExpiryMetaJournal,
+      updateDeleteToMetaJournal,
+      deleteMetaJournal,
+      deleteExpiryMetaJournal)
 
     ReplicatedCassandra.Statements(
       insertRecords,
@@ -1012,6 +1309,15 @@ object ReplicatedCassandraTest {
       seqNr: SeqNr
     ) extends Action
 
+    final case class UpdateExpiry(
+      key: Key,
+      segment: SegmentNr,
+      partitionOffset: PartitionOffset,
+      timestamp: Instant,
+      seqNr: SeqNr,
+      expiry: Expiry
+    ) extends Action
+
     final case class UpdateDeleteTo(
       key: Key,
       segment: SegmentNr,
@@ -1021,6 +1327,8 @@ object ReplicatedCassandraTest {
     ) extends Action
 
     final case class Delete(key: Key, segment: SegmentNr) extends Action
+
+    final case class DeleteExpiry(key: Key, segment: SegmentNr) extends Action
   }
 
 

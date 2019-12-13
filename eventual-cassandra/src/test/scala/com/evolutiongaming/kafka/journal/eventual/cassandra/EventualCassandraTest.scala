@@ -85,7 +85,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
       val stateT = for {
         pointer     <- journal.pointer(key)
         _            = pointer shouldEqual none
-        journalHead  = JournalHead(partitionOffset, segmentSize, seqNr, none)
+        journalHead  = JournalHead(partitionOffset, segmentSize, seqNr, none, expiry = none/*TODO expiry: expireAfter=none*/)
         _           <- insertMetaJournal(key, segment, timestamp0, timestamp0, journalHead, origin.some)
         pointer     <- journal.pointer(key)
         _            = pointer shouldEqual JournalPointer(partitionOffset, seqNr).some
@@ -102,7 +102,8 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
               partitionOffset = partitionOffset,
               segmentSize = segmentSize,
               seqNr = SeqNr.max,
-              deleteTo = SeqNr.min.toDeleteTo.some),
+              deleteTo = SeqNr.min.toDeleteTo.some,
+              expiry = none/*TODO expiry: expireAfter=none*/),
             created = timestamp0,
             updated = timestamp1,
             origin = origin.some))))))
@@ -118,7 +119,8 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
       val stateT = for {
         pointer <- journal.pointer(key)
         _        = pointer shouldEqual none
-        _       <- insertMetadata(key, timestamp0, JournalHead(partitionOffset, segmentSize, seqNr, none), origin.some)
+        head     = JournalHead(partitionOffset, segmentSize, seqNr, none, expiry = none/*TODO expiry: expireAfter=none*/)
+        _       <- insertMetadata(key, timestamp0, head, origin.some)
         pointer <- journal.pointer(key)
         _        = pointer shouldEqual JournalPointer(partitionOffset, seqNr).some
         _       <- updateMetadata(key, partitionOffset, timestamp1, SeqNr.max, seqNr.toDeleteTo)

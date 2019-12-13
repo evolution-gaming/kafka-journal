@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
+import cats.kernel.Eq
 import cats.{Order, Show}
 import com.evolutiongaming.kafka.journal.SeqNr
 import com.evolutiongaming.kafka.journal.util.ApplicativeString
@@ -22,6 +23,8 @@ object SegmentNr {
 
   val max: SegmentNr = new SegmentNr(Long.MaxValue) {}
 
+
+  implicit val eqSegmentNr: Eq[SegmentNr] = Eq.fromUniversalEquals
 
   implicit val showSeqNr: Show[SegmentNr] = Show.fromToString
 
@@ -46,9 +49,9 @@ object SegmentNr {
       s"invalid SegmentNr of $value, it must be greater or equal to $min".raiseError[F, SegmentNr]
     } else if (value > max.value) {
       s"invalid SegmentNr of $value, it must be less or equal to $max".raiseError[F, SegmentNr]
-    } else if (value == min.value) {
+    } else if (value === min.value) {
       min.pure[F]
-    } else if (value == max.value) {
+    } else if (value === max.value) {
       max.pure[F]
     } else {
       new SegmentNr(value) {}.pure[F]
@@ -79,7 +82,7 @@ object SegmentNr {
     // TODO test this
     // TODO stop using this unsafe
     def to(segment: SegmentNr): Nel[SegmentNr] = {
-      if (self == segment) Nel.of(segment)
+      if (self === segment) Nel.of(segment)
       else {
         val range = Nel.fromListUnsafe((self.value to segment.value).toList) // TODO remove fromListUnsafe
         range.map { value => SegmentNr.unsafe(value) } // TODO stop using unsafe

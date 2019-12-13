@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import java.time.Instant
+import java.time.ZoneOffset
 
 import cats.Parallel
-import cats.data.{IndexedStateT, NonEmptyList => Nel}
+import cats.data.IndexedStateT
 import cats.effect.ExitCase
 import cats.implicits._
 import com.evolutiongaming.catshelper.BracketThrowable
@@ -11,7 +11,7 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualJournalSpec, ReplicatedJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.{BracketFromMonadError, ConcurrentOf}
-import com.evolutiongaming.skafka.{Offset, Partition, Topic}
+import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.sstream.FoldWhile._
 import com.evolutiongaming.sstream.Stream
 
@@ -43,7 +43,7 @@ class EventualCassandraSpec extends EventualJournalSpec {
 object EventualCassandraSpec {
 
   val selectJournalHead: MetadataStatements.SelectJournalHead[StateT] = {
-    key: Key => {
+    key => {
       StateT { state =>
         val metadata = state.metadata.get(key)
         (state, metadata)
@@ -52,7 +52,7 @@ object EventualCassandraSpec {
   }
 
   val selectJournalPointer: MetadataStatements.SelectJournalPointer[StateT] = {
-    key: Key => {
+    key => {
       StateT { state =>
         val pointer = state
           .metadata
@@ -65,7 +65,7 @@ object EventualCassandraSpec {
 
 
   val selectPointers: PointerStatements.SelectAll[StateT] = {
-    topic: Topic => {
+    topic => {
       StateT { state =>
         val pointer = state.pointers.getOrElse(topic, TopicPointers.empty)
         (state, pointer.values)
@@ -141,7 +141,7 @@ object EventualCassandraSpec {
   ): ReplicatedJournal[StateT] = {
 
     val insertRecords: JournalStatements.InsertRecords[StateT] = {
-      (key: Key, segment: SegmentNr, records: Nel[EventRecord]) => {
+      (key, segment, records) => {
         StateT { state =>
           val journal = state.journal
           val events = journal.events(key, segment)
@@ -154,7 +154,7 @@ object EventualCassandraSpec {
 
 
     val deleteRecords: JournalStatements.DeleteRecords[StateT] = {
-      (key: Key, segment: SegmentNr, seqNr: SeqNr) => {
+      (key, segment, seqNr) => {
         StateT { state =>
           val state1 = {
             if (delete) {
@@ -173,7 +173,7 @@ object EventualCassandraSpec {
 
 
     val insertMetadata: MetadataStatements.Insert[StateT] = {
-      (key: Key, _: Instant, head: JournalHead, _: Option[Origin]) => {
+      (key, _, head, _) => {
         StateT { state =>
           val state1 = state.copy(metadata = state.metadata.updated(key, head))
           (state1, ())
@@ -183,7 +183,7 @@ object EventualCassandraSpec {
 
 
     val updateMetadata: MetadataStatements.Update[StateT] = {
-      (key: Key, partitionOffset: PartitionOffset, _: Instant, seqNr: SeqNr, deleteTo: DeleteTo) => {
+      (key, partitionOffset, _, seqNr, deleteTo) => {
         StateT { state =>
           val metadata = state.metadata
           val state1 = for {
@@ -203,7 +203,7 @@ object EventualCassandraSpec {
 
 
     val updateMetadataSeqNr: MetadataStatements.UpdateSeqNr[StateT] = {
-      (key: Key, partitionOffset: PartitionOffset, _: Instant, seqNr: SeqNr) => {
+      (key, partitionOffset, _, seqNr) => {
         StateT { state =>
           val metadata = state.metadata
           val state1 = for {
@@ -219,7 +219,7 @@ object EventualCassandraSpec {
 
 
     val updateMetadataDeleteTo: MetadataStatements.UpdateDeleteTo[StateT] = {
-      (key: Key, partitionOffset: PartitionOffset, _: Instant, deleteTo: DeleteTo) => {
+      (key, partitionOffset, _, deleteTo) => {
         StateT { state =>
           val metadata = state.metadata
           val state1 = for {
@@ -236,7 +236,7 @@ object EventualCassandraSpec {
 
 
     val deleteMetadata: MetadataStatements.Delete[StateT] = {
-      key: Key => {
+      key => {
         StateT { state =>
           val metadata = state.metadata
           val state1 = for {
@@ -251,7 +251,7 @@ object EventualCassandraSpec {
 
 
     val insertPointer: PointerStatements.Insert[StateT] = {
-      (topic: Topic, partition: Partition, offset: Offset, _: Instant, _: Instant) => {
+      (topic, partition, offset, _, _) => {
         StateT { state =>
           val pointers = state.pointers
           val topicPointers = pointers.getOrElse(topic, TopicPointers.empty)
@@ -264,7 +264,7 @@ object EventualCassandraSpec {
 
 
     val updatePointer: PointerStatements.Update[StateT] = {
-      (topic: Topic, partition: Partition, offset: Offset, _: Instant) => {
+      (topic, partition, offset, _) => {
         StateT { state =>
           val pointers = state.pointers
           val topicPointers = pointers.getOrElse(topic, TopicPointers.empty)
@@ -277,7 +277,7 @@ object EventualCassandraSpec {
 
 
     val selectPointer: PointerStatements.Select[StateT] = {
-      (topic: Topic, partition: Partition) => {
+      (topic, partition) => {
         StateT { state =>
           val offset = state
             .pointers
@@ -291,7 +291,7 @@ object EventualCassandraSpec {
 
 
     val selectPointersIn: PointerStatements.SelectIn[StateT] = {
-      (topic: Topic, partitions: Nel[Partition]) => {
+      (topic, partitions) => {
         StateT { state =>
           val pointers = state
             .pointers
@@ -337,8 +337,12 @@ object EventualCassandraSpec {
       updatePointer = updatePointer,
       selectTopics = selectTopics)
 
-    implicit val concurrentId = ConcurrentOf.fromMonad[StateT]
-    ReplicatedCassandra(segmentSize, segmentOf, statements)
+    implicit val concurrentStateT = ConcurrentOf.fromMonad[StateT]
+    ReplicatedCassandra(
+      segmentSize,
+      segmentOf,
+      statements,
+      ExpiryService(ZoneOffset.UTC))
   }
 
   def journalsOf(

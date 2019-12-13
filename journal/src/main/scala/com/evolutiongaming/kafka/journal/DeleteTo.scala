@@ -1,31 +1,34 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.Show
+import cats.{Eq, Show}
 import cats.implicits._
 import cats.kernel.Order
 import com.evolutiongaming.scassandra._
 import play.api.libs.json._
 
-final case class DeleteTo(seqNr: SeqNr) {
-  override def toString: String = seqNr.toString
+final case class DeleteTo(value: SeqNr) {
+
+  override def toString: String = value.toString
 }
 
 object DeleteTo {
 
+  implicit val eqDeleteTo: Eq[DeleteTo] = Eq.fromUniversalEquals
+
   implicit val showDeleteTo: Show[DeleteTo] = Show.fromToString
 
 
-  implicit val orderingDeleteTo: Ordering[DeleteTo] = (a: DeleteTo, b: DeleteTo) => a.seqNr compare b.seqNr
+  implicit val orderingDeleteTo: Ordering[DeleteTo] = (a: DeleteTo, b: DeleteTo) => a.value compare b.value
 
   implicit val orderDeleteTo: Order[DeleteTo] = Order.fromOrdering
 
 
-  implicit val encodeByNameDeleteTo: EncodeByName[DeleteTo] = EncodeByName[SeqNr].contramap { (a: DeleteTo) => a.seqNr }
+  implicit val encodeByNameDeleteTo: EncodeByName[DeleteTo] = EncodeByName[SeqNr].contramap { (a: DeleteTo) => a.value }
 
   implicit val decodeByNameDeleteTo: DecodeByName[DeleteTo] = DecodeByName[SeqNr].map { _.toDeleteTo }
 
 
-  implicit val encodeByIdxDeleteTo: EncodeByIdx[DeleteTo] = EncodeByIdx[SeqNr].contramap { a: DeleteTo => a.seqNr }
+  implicit val encodeByIdxDeleteTo: EncodeByIdx[DeleteTo] = EncodeByIdx[SeqNr].contramap { a: DeleteTo => a.value }
 
   implicit val decodeByIdxDeleteTo: DecodeByIdx[DeleteTo] = DecodeByIdx[SeqNr].map { _.toDeleteTo }
 
@@ -40,7 +43,7 @@ object DeleteTo {
   implicit val decodeRowDeleteTo: DecodeRow[DeleteTo] = DecodeRow[DeleteTo]("delete_to")
 
 
-  implicit val writesDeleteTo: Writes[DeleteTo] = Writes.of[SeqNr].contramap { _.seqNr }
+  implicit val writesDeleteTo: Writes[DeleteTo] = Writes.of[SeqNr].contramap { _.value }
 
   implicit val readsDeleteTo: Reads[DeleteTo] = Reads.of[SeqNr].map { _.toDeleteTo }
 }

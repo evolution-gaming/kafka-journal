@@ -34,7 +34,7 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
     actorSystem.dispatcher,
     ProducerMetrics.empty[IO].some)
 
-  implicit val randomId: RandomId[IO] = RandomId.uuid[IO]
+  implicit val randomIdOf: RandomIdOf[IO] = RandomIdOf.uuid[IO]
 
   lazy val ((eventualJournal, producer), release) = {
     implicit val logOf = LogOf.empty[IO]
@@ -64,10 +64,15 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
 
 object JournalSuite {
 
-  // TODO move out from tests
+  // TODO expiry: move out from tests
   trait KeyJournal[F[_]] {
 
-    def append(events: Nel[Event], metadata: Option[JsValue] = None, headers: Headers = Headers.empty): F[PartitionOffset]
+    def append(
+      events: Nel[Event],
+      metadata: Option[JsValue] = none,
+      headers: Headers = Headers.empty,
+      expireAfter: Option[ExpireAfter] = none
+    ): F[PartitionOffset]
 
     def read: F[List[EventRecord]]
 
@@ -88,11 +93,16 @@ object JournalSuite {
       journal: Journal[F]
     ): KeyJournal[F] = new KeyJournal[F] {
 
-      def append(events: Nel[Event], metadata: Option[JsValue], headers: Headers) = {
+      def append(
+        events: Nel[Event],
+        metadata: Option[JsValue],
+        headers: Headers,
+        expireAfter: Option[ExpireAfter]
+      ) = {
         journal.append(
           key = key,
           events = events,
-          expireAfter = none, // TODO expireAfter:
+          expireAfter = expireAfter,
           metadata = metadata,
           headers = headers)
       }

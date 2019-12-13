@@ -1,5 +1,8 @@
 package akka.persistence.kafka.journal
 
+import cats.implicits._
+
+
 object GroupByWeight {
 
   def apply[A](as: List[A], maxWeight: Int)(weight: A => Int): List[List[A]] = {
@@ -8,7 +11,7 @@ object GroupByWeight {
 
     if (as.isEmpty) Nil
     else if (maxWeight <= 0) List(as)
-    else if (maxWeight == 1) as.map(List(_))
+    else if (maxWeight === 1) as.map(List(_))
     else if (weightOf(as) <= maxWeight) List(as)
     else {
       val bs = as.foldLeft(List.empty[List[A]]) { (bs, a) =>

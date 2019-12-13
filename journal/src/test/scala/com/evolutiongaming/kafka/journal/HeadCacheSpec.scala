@@ -308,7 +308,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
       result.run()
     }
 
-    // TODO how to test?
+    // TODO headcache: how to test?
     "do not leak on cancel" ignore {
       val consumer   = HeadCache.Consumer.empty[IO]
       val headCache  = headCacheOf(

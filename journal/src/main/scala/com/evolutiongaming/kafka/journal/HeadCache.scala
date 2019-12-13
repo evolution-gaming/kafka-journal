@@ -27,7 +27,7 @@ import scodec.bits.ByteVector
 import scala.concurrent.duration._
 
 /**
-  * TODO
+  * TODO headcache:
   * 1. handle cancellation in case of timeouts and not leak memory
   * 2. Remove half of partition cache on cleanup
   * 3. Clearly handle cases when topic is not yet created, but requests are coming
@@ -137,7 +137,7 @@ object HeadCache {
       consumerRecordToKafkaRecord: ConsumerRecordToKafkaRecord[F]
     ): Resource[F, TopicCache[F]] = {
 
-      // TODO replace SerialRef with Ref
+      // TODO headcache: replace SerialRef with Ref
       def consume(stateRef: SerialRef[F, State[F]], pointers: F[Map[Partition, Offset]]) = {
 
         val stream = HeadCacheConsumption(
@@ -177,7 +177,7 @@ object HeadCache {
               _       <- measureRound(state, now)
             } yield {}
           }
-          .onError { case error => log.error(s"consuming failed with $error", error)} /*TODO fail head cache*/
+          .onError { case error => log.error(s"consuming failed with $error", error)} /*TODO headcache: fail head cache*/
       }
 
       def cleaning(stateRef: SerialRef[F, State[F]]) = {
@@ -192,7 +192,7 @@ object HeadCache {
         } yield {}
         cleaning
           .foreverM[Unit]
-          .onError { case error => log.error(s"cleaning failed with $error", error) /*TODO fail head cache*/ }
+          .onError { case error => log.error(s"cleaning failed with $error", error) /*TODO headcache: fail head cache*/ }
       }
 
       def state(pointers: TopicPointers) = {
@@ -241,7 +241,7 @@ object HeadCache {
       timeout: FiniteDuration
     ): TopicCache[F] = {
 
-      // TODO handle case with replicator being down
+      // TODO headcache: handle case with replicator being down
 
       new TopicCache[F] {
 
@@ -260,8 +260,7 @@ object HeadCache {
               partitionEntry <- entries.get(partition) toRight Error.Invalid
               _              <- partitionEntry.offset >= offset trueOr Error.Behind
               result         <- partitionEntry.entries.get(id).fold {
-                // TODO Test this                             
-                // TODO
+                // TODO headcache: Test this
                 //                  val replicatedTo: Offset =
                 //
                 //                  if (offset <= replicatedTo) {
@@ -375,7 +374,7 @@ object HeadCache {
               partitionEntry
             } else {
               val offset = partitionEntry.entries.values.foldLeft(Offset.min) { _ max _.offset }
-              // TODO remove half
+              // TODO headcache: remove half
               partitionEntry.copy(entries = Map.empty, trimmed = Some(offset))
             }
           }
@@ -414,7 +413,7 @@ object HeadCache {
         val partitionEntry = PartitionEntry(
           offset = offset,
           entries = entries,
-          trimmed = None /*TODO*/)
+          trimmed = None /*TODO headcache*/)
         (partition, partitionEntry)
       }
     }
@@ -452,7 +451,7 @@ object HeadCache {
     final case class PartitionEntry(
       offset: Offset,
       entries: Map[String, Entry],
-      trimmed: Option[Offset] /*TODO remove this field*/)
+      trimmed: Option[Offset] /*TODO headcache: remove this field*/)
 
     object PartitionEntry {
 

@@ -30,19 +30,20 @@ object KafkaHealthCheck {
   }
   
 
-  def of[F[_] : Concurrent : Timer : LogOf : KafkaConsumerOf : KafkaProducerOf : RandomId : FromTry](
+  def of[F[_] : Concurrent : Timer : LogOf : KafkaConsumerOf : KafkaProducerOf : RandomIdOf : FromTry](
     config: Config,
     producerConfig: ProducerConfig,
     consumerConfig: ConsumerConfig
   ): Resource[F, KafkaHealthCheck[F]] = {
 
     val result = for {
-      log <- LogOf[F].apply(KafkaHealthCheck.getClass)
-      key <- RandomId[F].get
+      log      <- LogOf[F].apply(KafkaHealthCheck.getClass)
+      randomId <- RandomIdOf[F].apply
     } yield {
+      val key = randomId.value
 
       val consumer = Consumer.of[F](key, consumerConfig)
-      
+
       val producer = Producer.of[F](config.topic, producerConfig)
 
       of(
@@ -109,7 +110,7 @@ object KafkaHealthCheck {
       def consume(retry: Long) = {
         for {
           records <- consumer.poll(config.pollTimeout)
-          found    = records.find { record => record.key.contains(key) && record.value.contains(value) }
+          found    = records.find { record => record.key.contains_(key) && record.value.contains_(value) }
           result  <- found.fold {
             for {
               _ <- sleep

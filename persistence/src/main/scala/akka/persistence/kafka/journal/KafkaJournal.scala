@@ -45,7 +45,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
 
   def logOf: Resource[IO, LogOf[IO]] = Resource.liftF(LogOfFromAkka[IO](system).pure[IO])
 
-  def randomId: Resource[IO, RandomId[IO]] = Resource.liftF(RandomId.uuid[IO].pure[IO])
+  def randomIdOf: Resource[IO, RandomIdOf[IO]] = Resource.liftF(RandomIdOf.uuid[IO].pure[IO])
 
   def measureDuration: Resource[IO, MeasureDuration[IO]] = Resource.liftF(MeasureDuration.fromClock(Clock[IO]).pure[IO])
 
@@ -106,7 +106,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
       logOf                <- logOf
       log                  <- Resource.liftF(logOf(classOf[KafkaJournal]))
       _                    <- Resource.liftF(log.debug(s"config: $config"))
-      randomId             <- randomId
+      randomId             <- randomIdOf
       measureDuration      <- measureDuration
       toKey                <- toKey
       origin               <- Resource.liftF(origin)
@@ -126,7 +126,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
         log                = log,
         cassandraClusterOf = cassandraClusterOf)(
         logOf              = logOf,
-        randomId           = randomId,
+        randomIdOf           = randomId,
         measureDuration    = measureDuration)
     } yield {
       (adapter, log)
@@ -156,7 +156,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     log: Log[IO],
     cassandraClusterOf: CassandraClusterOf[IO])(implicit
     logOf: LogOf[IO],
-    randomId: RandomId[IO],
+    randomIdOf: RandomIdOf[IO],
     measureDuration: MeasureDuration[IO]
   ): Resource[IO, JournalAdapter[IO]] = {
 

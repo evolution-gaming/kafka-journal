@@ -12,15 +12,16 @@ trait AppendMarker[F[_]] {
 
 object AppendMarker {
 
-  def apply[F[_] : FlatMap : RandomId : Clock](
+  def apply[F[_] : FlatMap : RandomIdOf : Clock](
     appendAction: AppendAction[F],
     origin: Option[Origin]
   ): AppendMarker[F] = {
 
     key: Key => {
       for {
-        id              <- RandomId[F].get
+        randomId        <- RandomIdOf[F].apply
         timestamp       <- Clock[F].instant
+        id               = randomId.value
         action           = Action.Mark(key, timestamp, id, origin)
         partitionOffset <- appendAction(action)
       } yield {

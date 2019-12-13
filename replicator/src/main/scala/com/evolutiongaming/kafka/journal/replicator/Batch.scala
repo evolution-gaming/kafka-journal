@@ -118,14 +118,14 @@ object Batch {
   }
 
 
-  // TODO replace partitionOffset with offset
+  // TODO expiry: replace partitionOffset with offset
   final case class Appends(
     partitionOffset: PartitionOffset,
     records: Nel[ActionRecord[Action.Append]]
   ) extends Batch
 
 
-  // TODO replace partitionOffset with offset
+  // TODO expiry: replace partitionOffset with offset
   final case class Delete(
     partitionOffset: PartitionOffset,
     seqNr: SeqNr,
@@ -133,7 +133,7 @@ object Batch {
   ) extends Batch
 
 
-  // TODO replace partitionOffset with offset
+  // TODO expiry: replace partitionOffset with offset
   final case class Purge(
     partitionOffset: PartitionOffset,
     origin: Option[Origin]

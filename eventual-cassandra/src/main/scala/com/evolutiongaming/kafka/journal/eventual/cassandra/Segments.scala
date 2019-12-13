@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 
 import cats.implicits._
+import cats.kernel.Eq
 import cats.{Order, Show}
 import com.evolutiongaming.kafka.journal.util.ApplicativeString
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
@@ -23,6 +24,8 @@ object Segments {
   val default: Segments = new Segments(100) {}
 
 
+  implicit val eqSegments: Eq[Segments] = Eq.fromUniversalEquals
+
   implicit val showSegments: Show[Segments] = Show.fromToString
 
 
@@ -36,9 +39,9 @@ object Segments {
       s"invalid Segments of $value, it must be greater or equal to $min".raiseError[F, Segments]
     } else if (value > max.value) {
       s"invalid Segments of $value, it must be less or equal to $max".raiseError[F, Segments]
-    } else if (value == min.value) {
+    } else if (value === min.value) {
       min.pure[F]
-    } else if (value == max.value) {
+    } else if (value === max.value) {
       max.pure[F]
     } else {
       new Segments(value) {}.pure[F]

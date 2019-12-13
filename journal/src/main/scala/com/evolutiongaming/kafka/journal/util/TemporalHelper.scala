@@ -10,11 +10,14 @@ import scala.concurrent.duration._
 
 object TemporalHelper {
 
-  private val zoneIdUtc = ZoneId.of("UTC")
-
   implicit val instantOrdering: Ordering[Instant] = Ordering.fromLessThan(_ isBefore _)
 
-  implicit val instantOrder: Order[Instant] = Order.fromLessThan(_ isBefore _)
+  implicit val instantOrder: Order[Instant] = Order.fromOrdering
+
+
+  implicit val localDateOrdering: Ordering[LocalDate] = Ordering.fromLessThan(_ isBefore _)
+
+  implicit val localDateOrder: Order[LocalDate] = Order.fromOrdering
 
 
   implicit class TemporalOps[T <: Temporal](val self: T) extends AnyVal {
@@ -40,7 +43,7 @@ object TemporalHelper {
     }
 
 
-    def toLocalDate: LocalDate = LocalDate.ofInstant(self, zoneIdUtc)
+    def toLocalDate(zoneId: ZoneId): LocalDate = LocalDate.ofInstant(self, zoneId)
   }
 
 

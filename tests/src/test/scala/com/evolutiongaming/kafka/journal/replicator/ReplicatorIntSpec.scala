@@ -6,15 +6,16 @@ import cats.Parallel
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.implicits._
-import com.evolutiongaming.catshelper.{FromFuture, FromTry, LogOf, ToFuture, ToTry}
+import com.evolutiongaming.catshelper._
+import com.evolutiongaming.kafka.journal.CassandraSuite._
+import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
+import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
-import com.evolutiongaming.kafka.journal.CassandraSuite._
-import com.evolutiongaming.retry.{Retry, Strategy}
-import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.util.ActorSystemOf
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
+import com.evolutiongaming.retry.{Retry, Strategy}
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.skafka.Offset
 import com.evolutiongaming.smetrics.MeasureDuration
@@ -37,9 +38,9 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
   private val headers = Headers(("key", "value"))
 
-  private implicit val randomId = RandomId.uuid[IO]
+  private implicit val randomIdOf = RandomIdOf.uuid[IO]
 
-  private def resources[F[_] : ConcurrentEffect : LogOf : Parallel : FromFuture : Timer : ToFuture : ContextShift : RandomId : MeasureDuration : FromTry : ToTry](
+  private def resources[F[_] : ConcurrentEffect : LogOf : Parallel : FromFuture : Timer : ToFuture : ContextShift : RandomIdOf : MeasureDuration : FromTry : ToTry](
     cassandraClusterOf: CassandraClusterOf[F]
   ) = {
 
@@ -150,12 +151,12 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       Retry[IO, Throwable](strategy).apply(events)
     }
 
-    def append(key: Key, events: Nel[Event]) = {
+    def append(key: Key, events: Nel[Event], expireAfter: Option[ExpireAfter] = none) = {
       for {
         partitionOffset <- journal.append(
           key = key,
           events = events,
-          expireAfter = none, // TODO expireAfter
+          expireAfter = expireAfter,
           metadata = recordMetadata.data,
           headers = headers)
       } yield for {
@@ -165,7 +166,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       }
     }
 
-    def pointer(key: Key) = journal.pointer(key)
+    def pointerOf(key: Key) = journal.pointer(key)
 
     def topicPointers = {
       for {
@@ -175,45 +176,84 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       }
     }
 
+    "replicate events and expire" in {
+      val result = for {
+        key       <- Key.random[IO](topic)
+        expected0 <- append(key, Nel.of(event(1)))
+        events    <- read(key)(_.nonEmpty)
+        _          = events shouldEqual expected0.toList
+        expected1 <- append(key, Nel.of(event(2)), 1.day.toExpireAfter.some)
+        events    <- read(key)(_.size == 2)
+        _          = events shouldEqual expected0.toList ++ expected1.toList
+        // TODO expiry: implement actual expiration test
+      } yield {}
+      result.run(5.minutes)
+    }
+
+    "replicate events and not expire" in {
+      val result = for {
+        key       <- Key.random[IO](topic)
+        expected0 <- append(key, Nel.of(event(1)), 1.day.toExpireAfter.some)
+        events    <- read(key)(_.nonEmpty)
+        _          = events shouldEqual expected0.toList
+        expected1 <- append(key, Nel.of(event(2)))
+        events    <- read(key)(_.size == 2)
+        _          = events shouldEqual expected0.toList ++ expected1.toList
+        // TODO expiry: how to verify
+      } yield {}
+      result.run(5.minutes)
+    }
+
+    "purge" in {
+      val result = for {
+        key      <- Key.random[IO](topic)
+        expected <- append(key, Nel.of(event(1)))
+        events   <- read(key)(_.nonEmpty)
+        _         = events shouldEqual expected.toList
+        pointer  <- pointerOf(key)
+        _         = pointer shouldEqual expected.last.seqNr.some
+        pointer  <- journal.purge(key)
+        _         = pointer.map { _.partition } shouldEqual expected.head.partition.some
+        events   <- read(key)(_.isEmpty)
+        _         = events shouldEqual Nil
+        pointer  <- pointerOf(key)
+        _         = pointer shouldEqual none
+      } yield {}
+      result.run(5.minutes)
+    }
+
     for {
       seqNr <- List(1, 2, 10)
     } {
 
       s"replicate events and there after delete, seqNr: $seqNr" in {
-
         val result = for {
           key             <- Key.random[IO](topic)
-          pointer0        <- pointer(key)
+          pointer0        <- pointerOf(key)
           _                = pointer0 shouldEqual None
           pointers        <- topicPointers
-          expected1       <- append(key, Nel.of(event(seqNr)))
-          partitionOffset  = expected1.head.partitionOffset
+          expected        <- append(key, Nel.of(event(seqNr)))
+          partitionOffset  = expected.head.partitionOffset
           partition        = partitionOffset.partition
           offset           = pointers.get(partitionOffset.partition)
           _                = offset.foreach { offset => partitionOffset.offset should be > offset }
-          events0         <- read(key)(_.nonEmpty)
-          _                = events0 shouldEqual expected1.toList
-          pointer1        <- pointer(key)
-          _                = pointer1 shouldEqual Some(expected1.last.seqNr)
-          pointer2        <- journal.delete(key, expected1.last.event.seqNr).map(_.map(_.partition))
-          _                = pointer2 shouldEqual Some(partition)
-          events1         <- read(key)(_.isEmpty)
-          _                = events1 shouldEqual Nil
-          pointer3        <- pointer(key)
-          _                = pointer3 shouldEqual Some(expected1.last.seqNr)
-          expected2       <- append(key, Nel.of(event(seqNr + 1), event(seqNr + 2)))
-          events2         <- read(key)(_.nonEmpty)
-          _                = events2 shouldEqual expected2.toList
-          pointer4        <- pointer(key)
-        } yield {
-          pointer4 shouldEqual Some(expected2.last.seqNr)
-        }
-
+          events          <- read(key)(_.nonEmpty)
+          _                = events shouldEqual expected.toList
+          pointer         <- pointerOf(key)
+          _                = pointer shouldEqual Some(expected.last.seqNr)
+          pointer         <- journal.delete(key, expected.last.event.seqNr).map(_.map(_.partition))
+          _                = pointer shouldEqual Some(partition)
+          events          <- read(key)(_.isEmpty)
+          _                = events shouldEqual Nil
+          pointer         <- pointerOf(key)
+          _                = pointer shouldEqual Some(expected.last.seqNr)
+          expected        <- append(key, Nel.of(event(seqNr + 1), event(seqNr + 2)))
+          events          <- read(key)(_.nonEmpty)
+          _                = events shouldEqual expected.toList
+          pointer4        <- pointerOf(key)
+          _                = pointer4 shouldEqual Some(expected.last.seqNr)
+        } yield {}
         result.run(5.minutes)
-      }
-
-      s"replicate events and there after expire, seqNr: $seqNr" ignore {
-        ().pure[IO].run() // TODO expireAfter: implement
       }
 
       val numberOfEvents = 100
@@ -230,7 +270,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
           expected   <- append(key, Nel.fromListUnsafe(events))
           actual     <- read(key)(_.nonEmpty)
           _           = actual shouldEqual expected.toList
-          pointer    <- pointer(key)
+          pointer    <- pointerOf(key)
           _           = pointer shouldEqual Some(events.last.seqNr)
         } yield {}
 
@@ -277,7 +317,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
             offsetBefore  = pointers.getOrElse(partition, Offset.min)
             actual       <- read(key)(_.nonEmpty)
             _             = actual shouldEqual expected.toList
-            pointer      <- pointer(key)
+            pointer      <- pointerOf(key)
             _             = pointer shouldEqual Some(events.last.seqNr)
             pointers     <- topicPointers
             offsetAfter   = pointers.getOrElse(partition, Offset.min)

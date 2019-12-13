@@ -18,7 +18,7 @@ object Segment {
 
     def next(seqNr: SeqNr): Option[Segment] = {
       val segmentNr = SegmentNr(seqNr, self.size)
-      if (segmentNr == self.nr) none
+      if (segmentNr === self.nr) none
       else self.copy(segmentNr).some
     }
   }

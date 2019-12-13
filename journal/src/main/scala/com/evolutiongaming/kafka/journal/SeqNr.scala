@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import cats.Show
 import cats.implicits._
-import cats.kernel.Order
+import cats.kernel.{Eq, Order}
 import com.evolutiongaming.kafka.journal.util.ApplicativeString
 import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
@@ -26,6 +26,8 @@ object SeqNr {
   val max: SeqNr = new SeqNr(Long.MaxValue) {}
 
 
+  implicit val eqSeqNr: Eq[SeqNr] = Eq.fromUniversalEquals
+  
   implicit val showSeqNr: Show[SeqNr] = Show.fromToString
 
 
@@ -76,9 +78,9 @@ object SeqNr {
       s"invalid SeqNr of $value, it must be greater or equal to $min".raiseError[F, SeqNr]
     } else if (value > max.value) {
       s"invalid SeqNr of $value, it must be less or equal to $max".raiseError[F, SeqNr]
-    } else if (value == min.value) {
+    } else if (value === min.value) {
       min.pure[F]
-    } else if (value == max.value) {
+    } else if (value === max.value) {
       max.pure[F]
     } else {
       new SeqNr(value) {}.pure[F]

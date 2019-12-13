@@ -142,8 +142,8 @@ object ReplicatedKeyJournal {
             d <- d
             _ <- log.debug {
               val origin = events.head.origin
-              val originStr = origin.fold("") { origin => s", origin: $origin" }
-              val expireAfterStr = expireAfter.fold("") { expireAfter => s", expireAfter: $expireAfter" }
+              val originStr = origin.foldMap { origin => s", origin: $origin" }
+              val expireAfterStr = expireAfter.foldMap { expireAfter => s", expireAfter: $expireAfter" }
               s"$key append in ${ d.toMillis }ms, " +
                 s"offset: $partitionOffset$originStr$expireAfterStr, " +
                 s"events: ${ events.toList.mkString(",") }"
@@ -162,7 +162,7 @@ object ReplicatedKeyJournal {
             r <- self.delete(partitionOffset, timestamp, deleteTo, origin)
             d <- d
             _ <- log.debug {
-              val originStr = origin.fold("") { origin => s", origin: $origin" }
+              val originStr = origin.foldMap { origin => s", origin: $origin" }
               s"$key delete in ${ d.toMillis }ms, offset: $partitionOffset, deleteTo: $deleteTo$originStr"
             }
           } yield r

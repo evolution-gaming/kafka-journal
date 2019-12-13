@@ -1,28 +1,30 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.Show
-import cats.kernel.Order
+import cats.kernel.{Eq, Order}
 import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
 import play.api.libs.json.{Reads, Writes}
 
 import scala.concurrent.duration.FiniteDuration
 
-final case class ExpireAfter(duration: FiniteDuration) {
+final case class ExpireAfter(value: FiniteDuration) {
 
-  override def toString: String = duration.toString()
+  override def toString: String = value.toString()
 }
 
 object ExpireAfter {
 
+  implicit val eqExpireAfter: Eq[ExpireAfter] = Eq.fromUniversalEquals
+
   implicit val showExpireAfter: Show[ExpireAfter] = Show.fromToString
 
 
-  implicit val orderingExpireAfter: Ordering[ExpireAfter] = (a: ExpireAfter, b: ExpireAfter) => a.duration compare b.duration
+  implicit val orderingExpireAfter: Ordering[ExpireAfter] = (a, b) => a.value compare b.value
 
   implicit val orderExpireAfter: Order[ExpireAfter] = Order.fromOrdering
 
 
-  implicit val writesExpireAfter: Writes[ExpireAfter] = Writes.of[FiniteDuration].contramap { _.duration }
+  implicit val writesExpireAfter: Writes[ExpireAfter] = Writes.of[FiniteDuration].contramap { _.value }
 
   implicit val readsExpireAfter: Reads[ExpireAfter] = Reads.of[FiniteDuration].map { a => ExpireAfter(a) }
 

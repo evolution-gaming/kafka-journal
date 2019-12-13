@@ -43,7 +43,7 @@ final case class SeqRange(from: SeqNr, to: SeqNr) {
   }
 
   override def toString: String = {
-    if (from == to) from.toString
+    if (from === to) from.toString
     else s"$from..$to"
   }
 }

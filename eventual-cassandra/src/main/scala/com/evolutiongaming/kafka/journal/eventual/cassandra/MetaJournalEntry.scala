@@ -15,7 +15,7 @@ final case class MetaJournalEntry(
 
 object MetaJournalEntry {
 
-  implicit val decodeRowMetaJournalEntry: DecodeRow[MetaJournalEntry] = {
+  implicit def decodeRowMetaJournalEntry(implicit decode: DecodeRow[JournalHead]): DecodeRow[MetaJournalEntry] = {
     row: GettableByNameData => {
       MetaJournalEntry(
         journalHead = row.decode[JournalHead],
@@ -25,7 +25,7 @@ object MetaJournalEntry {
     }
   }
 
-  implicit val encodeRowMetaJournalEntry: EncodeRow[MetaJournalEntry] = {
+  implicit def encodeRowMetaJournalEntry(implicit encode: EncodeRow[JournalHead]): EncodeRow[MetaJournalEntry] = {
     new EncodeRow[MetaJournalEntry] {
       def apply[B <: SettableData[B]](data: B, value: MetaJournalEntry) = {
         data

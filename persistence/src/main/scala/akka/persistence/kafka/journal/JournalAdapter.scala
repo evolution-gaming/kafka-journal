@@ -33,7 +33,7 @@ trait JournalAdapter[F[_]] {
 
 object JournalAdapter {
 
-  def of[F[_] : ConcurrentEffect : ContextShift : FromFuture : ToFuture : Parallel : Timer : LogOf : Runtime : RandomId : FromGFuture : MeasureDuration : ToTry : FromTry : FromAttempt : FromJsResult](
+  def of[F[_] : ConcurrentEffect : ContextShift : FromFuture : ToFuture : Parallel : Timer : LogOf : Runtime : RandomIdOf : FromGFuture : MeasureDuration : ToTry : FromTry : FromAttempt : FromJsResult](
     toKey: ToKey[F],
     origin: Option[Origin],
     serializer: EventSerializer[F],
@@ -116,7 +116,7 @@ object JournalAdapter {
           key      <- toKey(persistenceId)
           events   <- prs.traverse(serializer.toEvent)
           metadata <- appendMetadataOf(key, prs, events)
-          _        <- journal.append(key, events, metadata.expireAfter, metadata.metadata, metadata.headers) /*TODO expireAfter: pass AppendMetadata directly?*/
+          _        <- journal.append(key, events, metadata.expireAfter, metadata.metadata, metadata.headers) /*TODO expiry: pass AppendMetadata directly?*/
         } yield {
           List.empty[Try[Unit]]
         }
@@ -143,7 +143,7 @@ object JournalAdapter {
                 persistentRepr <- serializer.toPersistentRepr(persistenceId, event)
                 _              <- f(persistentRepr)
               } yield {
-                if (max == 1) ().asRight[Long]
+                if (max === 1) ().asRight[Long]
                 else (max - 1).asLeft[Unit]
               }
             } else {

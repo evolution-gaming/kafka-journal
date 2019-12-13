@@ -76,8 +76,8 @@ object ReplicateRecords {
                 if (events.tail.isEmpty) s"seqNr: ${ events.head.seqNr }"
                 else s"seqNrs: ${ events.head.seqNr }..${ events.last.seqNr }"
               val origin = records.head.action.origin
-              val originStr = origin.fold("") { origin => s", origin: $origin" }
-              val expireAfterStr = expireAfter.fold("") { expireAfter => s", expireAfter: $expireAfter" }
+              val originStr = origin.foldMap { origin => s", origin: $origin" }
+              val expireAfterStr = expireAfter.foldMap { expireAfter => s", expireAfter: $expireAfter" }
               s"append in ${ latency.toMillis }ms, id: $id, offset: $partitionOffset, $seqNrs$originStr$expireAfterStr"
             }
 
@@ -93,7 +93,7 @@ object ReplicateRecords {
           def delete(partitionOffset: PartitionOffset, deleteTo: SeqNr, origin: Option[Origin]) = {
 
             def msg(latency: FiniteDuration) = {
-              val originStr = origin.fold("") { origin => s", origin: $origin" }
+              val originStr = origin.foldMap { origin => s", origin: $origin" }
               s"delete in ${ latency.toMillis }ms, id: $id, offset: $partitionOffset, deleteTo: $deleteTo$originStr"
             }
 
@@ -109,7 +109,7 @@ object ReplicateRecords {
           def purge(partitionOffset: PartitionOffset, origin: Option[Origin]) = {
 
             def msg(latency: FiniteDuration) = {
-              val originStr = origin.fold("") { origin => s", origin: $origin" }
+              val originStr = origin.foldMap { origin => s", origin: $origin" }
               s"purge in ${ latency.toMillis }ms, id: $id, offset: $partitionOffset$originStr"
             }
 

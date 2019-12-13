@@ -37,7 +37,7 @@ object ConsumeActionRecords {
       def filter(records: List[Nel[ConsRecord]]) = {
         for {
           records <- records
-          record  <- records.toList if record.key.exists { _.value == key.id }
+          record  <- records.toList if record.key.exists { _.value === key.id }
         } yield record
       }
 

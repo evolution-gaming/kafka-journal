@@ -502,7 +502,7 @@ object EventualJournalSpec {
         def topics = journal.topics
 
         def append(partitionOffset: PartitionOffset, events: Nel[EventRecord]) = {
-          // TODO expireAfter: define and test
+          // TODO expiry: define and test
           journal.append(key, partitionOffset, timestamp, none, events)
         }
 

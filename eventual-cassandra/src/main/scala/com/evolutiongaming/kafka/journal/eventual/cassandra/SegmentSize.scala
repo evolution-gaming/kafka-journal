@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.implicits._
-import cats.{Order, Show}
+import cats.{Eq, Order, Show}
 import com.evolutiongaming.kafka.journal.util.ApplicativeString
 import com.evolutiongaming.kafka.journal.util.TryHelper._
 import com.evolutiongaming.scassandra.{DecodeByIdx, DecodeByName, DecodeRow, EncodeByIdx, EncodeByName, EncodeRow}
@@ -24,7 +24,10 @@ object SegmentSize {
   val default: SegmentSize = new SegmentSize(100000) {}
 
 
+  implicit val eqSegmentSize: Eq[SegmentSize] = Eq.fromUniversalEquals
+
   implicit val showSegmentSize: Show[SegmentSize] = Show.fromToString
+
 
   implicit val orderingSegmentSize: Ordering[SegmentSize] = Ordering.by(_.value)
 
@@ -66,9 +69,9 @@ object SegmentSize {
       s"invalid SegmentSize of $value, it must be greater or equal to $min".raiseError[F, SegmentSize]
     } else if (value > max.value) {
       s"invalid SegmentSize of $value, it must be less or equal to $max".raiseError[F, SegmentSize]
-    } else if (value == min.value) {
+    } else if (value === min.value) {
       min.pure[F]
-    } else if (value == max.value) {
+    } else if (value=== max.value) {
       max.pure[F]
     } else {
       new SegmentSize(value) {}.pure[F]

@@ -10,21 +10,23 @@ final case class JournalHead(
   partitionOffset: PartitionOffset,
   segmentSize: SegmentSize,
   seqNr: SeqNr,
-  deleteTo: Option[DeleteTo])
+  deleteTo: Option[DeleteTo],
+  expiry: Option[Expiry] = None/*TODO expiry: expireAfter=none*/)
 
 object JournalHead {
 
-  implicit val decodeRowJournalHead: DecodeRow[JournalHead] = {
+  implicit def decodeRowJournalHead(implicit decode: DecodeRow[Option[Expiry]]): DecodeRow[JournalHead] = {
     row: GettableByNameData => {
       JournalHead(
         partitionOffset = row.decode[PartitionOffset],
         segmentSize = row.decode[SegmentSize],
         seqNr = row.decode[SeqNr],
-        deleteTo = row.decode[Option[DeleteTo]]("delete_to")) // TODO why require "delete_to" ?
+        deleteTo = row.decode[Option[DeleteTo]]("delete_to"),
+        expiry = row.decode[Option[Expiry]])
     }
   }
 
-  implicit val encodeRowJournalHead: EncodeRow[JournalHead] = {
+  implicit def encodeRowJournalHead(implicit encode: EncodeRow[Option[Expiry]]): EncodeRow[JournalHead] = {
     new EncodeRow[JournalHead] {
       def apply[B <: SettableData[B]](data: B, value: JournalHead) = {
         data
@@ -32,6 +34,7 @@ object JournalHead {
           .encode(value.segmentSize)
           .encode(value.seqNr)
           .encodeSome(value.deleteTo)
+          .encode(value.expiry)
       }
     }
   }

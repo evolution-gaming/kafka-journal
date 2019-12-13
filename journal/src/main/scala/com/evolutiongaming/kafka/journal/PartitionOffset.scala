@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.{Order, Show}
+import cats.{Eq, Order, Show}
 import com.datastax.driver.core.{GettableByNameData, SettableData}
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.scassandra.syntax._
@@ -34,6 +34,8 @@ object PartitionOffset {
       offset = data.decode[Offset]("offset"))
   }
 
+
+  implicit val eqPartitionOffset: Eq[PartitionOffset] = Eq.fromUniversalEquals
 
   implicit val showPartitionOffset: Show[PartitionOffset] = Show.fromToString[PartitionOffset]
 

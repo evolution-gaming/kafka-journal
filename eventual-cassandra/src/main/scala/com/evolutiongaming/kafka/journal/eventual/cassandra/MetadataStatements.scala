@@ -9,12 +9,17 @@ import com.datastax.driver.core.GettableByNameData
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.scassandra.syntax._
-import com.evolutiongaming.scassandra.{DecodeRow, TableName}
+import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow, TableName}
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.sstream.Stream
 
 
 object MetadataStatements {
+
+  private implicit val encodeRowExpiry: EncodeRow[Option[Expiry]] = EncodeRow.empty
+
+  private implicit val decodeRowExpiry: DecodeRow[Option[Expiry]] = DecodeRow.const(none[Expiry])
+
 
   def createTable(name: TableName): String = {
     s"""

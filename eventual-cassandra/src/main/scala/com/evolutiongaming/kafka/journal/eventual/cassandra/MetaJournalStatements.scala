@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 
-import java.time.Instant
+import java.time.{Instant, ZoneOffset}
 
 import cats.Monad
 import cats.data.{NonEmptyList => Nel}
@@ -12,10 +12,8 @@ import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
 
-import scala.concurrent.duration.FiniteDuration
 
-
-// TODO expireAfter: add select by topic,LocalDate
+// TODO expiry: add select by topic,LocalDate
 object MetaJournalStatements {
 
   def createTable(name: TableName): Nel[String] = {
@@ -33,8 +31,8 @@ object MetaJournalStatements {
       |created TIMESTAMP,
       |created_date DATE,
       |updated TIMESTAMP,
-      |expire_on DATE,
       |expire_after DURATION,
+      |expire_on DATE,
       |origin TEXT,
       |properties MAP<TEXT,TEXT>,
       |metadata TEXT,
@@ -83,8 +81,8 @@ object MetaJournalStatements {
            |created,
            |created_date,
            |updated,
-           |expire_on,
            |expire_after,
+           |expire_on,
            |origin,
            |properties)
            |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -100,10 +98,8 @@ object MetaJournalStatements {
             .encode(segment)
             .encode(journalHead)
             .encode("created", created)
-            .encode("created_date", created.toLocalDate)
+            .encode("created_date", created.toLocalDate(ZoneOffset.UTC))
             .encode("updated", updated)
-            .encode("expire_on", none[Instant])
-            .encode("expire_after", none[FiniteDuration])
             .encodeSome(origin)
             .first
             .void
@@ -122,7 +118,7 @@ object MetaJournalStatements {
     def of[F[_] : Monad : CassandraSession](name: TableName): F[SelectJournalHead[F]] = {
       val query =
         s"""
-           |SELECT partition, offset, segment_size, seq_nr, delete_to FROM ${ name.toCql }
+           |SELECT partition, offset, segment_size, seq_nr, delete_to, expire_after, expire_on FROM ${ name.toCql }
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?
@@ -231,8 +227,13 @@ object MetaJournalStatements {
 
 
   trait UpdateSeqNr[F[_]] {
-
-    def apply(key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr): F[Unit]
+    def apply(
+      key: Key,
+      segment: SegmentNr,
+      partitionOffset: PartitionOffset,
+      timestamp: Instant,
+      seqNr: SeqNr
+    ): F[Unit]
   }
 
   object UpdateSeqNr {
@@ -258,6 +259,49 @@ object MetaJournalStatements {
             .encode(partitionOffset)
             .encode(seqNr)
             .encode("updated", timestamp)
+            .first
+            .void
+      }
+    }
+  }
+
+
+  trait UpdateExpiry[F[_]] {
+
+    def apply(
+      key: Key,
+      segment: SegmentNr,
+      partitionOffset: PartitionOffset,
+      timestamp: Instant,
+      seqNr: SeqNr,
+      expiry: Expiry
+    ): F[Unit]
+  }
+
+  object UpdateExpiry {
+
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[UpdateExpiry[F]] = {
+      val query =
+        s"""
+           |UPDATE ${ name.toCql }
+           |SET partition = ?, offset = ?, seq_nr = ?, updated = ?, expire_after = ?, expire_on = ?
+           |WHERE id = ?
+           |AND topic = ?
+           |AND segment = ?
+           |""".stripMargin
+
+      for {
+        prepared <- query.prepare
+      } yield {
+        (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, expiry: Expiry) =>
+          prepared
+            .bind()
+            .encode(key)
+            .encode(segment)
+            .encode(partitionOffset)
+            .encode(seqNr)
+            .encode("updated", timestamp)
+            .encode(expiry)
             .first
             .void
       }
@@ -311,6 +355,37 @@ object MetaJournalStatements {
       val query =
         s"""
            |DELETE FROM ${ name.toCql }
+           |WHERE id = ?
+           |AND topic = ?
+           |AND segment = ?
+           |""".stripMargin
+      query
+        .prepare
+        .map { prepared =>
+          (key: Key, segment: SegmentNr) =>
+            prepared
+              .bind()
+              .encode(key)
+              .encode(segment)
+              .first
+              .void
+        }
+    }
+  }
+
+
+  trait DeleteExpiry[F[_]] {
+    
+    def apply(key: Key, segment: SegmentNr): F[Unit]
+  }
+
+  object DeleteExpiry {
+
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[DeleteExpiry[F]] = {
+
+      val query =
+        s"""
+           |DELETE expire_after, expire_on FROM ${ name.toCql }
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?
