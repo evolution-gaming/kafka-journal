@@ -49,6 +49,7 @@ object ActionHeader {
           (json \ name).validate(reads)
         }
 
+        // TODO expiry: make sure we can roll out new actions without client update
         read("append", appendFormat) orElse
           read("mark", readFormat) orElse
           read("delete", deleteFormat) orElse

@@ -4,218 +4,228 @@ import java.time.{Instant, LocalDate}
 
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.ExpireOn.implicits._
-import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.ExpireOn.implicits._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.ReplicatedCassandra.MetaJournalStatements.ByKey
+import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.skafka.Topic
-import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.WordSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 import scala.util.Try
 
-class ReplicatedCassandraMetaJournalStatementsTest extends AnyFunSuite with Matchers {
+class ReplicatedCassandraMetaJournalStatementsTest extends WordSpec with Matchers {
   import ReplicatedCassandraMetaJournalStatementsTest._
 
-  test("journalHead empty") {
-    val key = ReplicatedCassandraMetaJournalStatementsTest.key
-    val stateT = for {
-      a <- metaJournalStatements.journalHead(key, segment)
-      _  = a shouldEqual none
-    } yield {}
-    val (state, _) = stateT.run(State.empty).get
-    state shouldEqual State.empty
-  }
+  "byKey" when {
 
-  test("journalHead from metadata") {
-    val key = ReplicatedCassandraMetaJournalStatementsTest.key
-    val journalHead1 = journalHead.copy(deleteTo = journalHead.seqNr.toDeleteTo.some)
-    val stateT = for {
-      a <- metaJournalStatements.journalHead(key, segment)
-      _  = a shouldEqual journalHead1.some
-    } yield {}
-    val state0 = State(
-      metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
-        journalHead = journalHead1,
-        created = timestamp0,
-        updated = timestamp1,
-        origin = origin.some))))))
-    val (state1, _) = stateT.run(state0).get
-    val expected = State(
-      metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
-        journalHead = journalHead1,
-        created = timestamp0,
-        updated = timestamp1,
-        origin = origin.some))))),
-      metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
-        journalHead = journalHead1,
-        created = timestamp0,
-        updated = timestamp1,
-        origin = origin.some))))))
-    state1 shouldEqual expected
-  }
+    "journalHead" should {
 
-  test("journalHead from metaJournal") {
-    val key = ReplicatedCassandraMetaJournalStatementsTest.key
-    val journalHead1 = journalHead.copy(deleteTo = journalHead.seqNr.toDeleteTo.some)
-    val stateT = for {
-      a <- metaJournalStatements.journalHead(key, segment)
-      _  = a shouldEqual journalHead1.some
-    } yield {}
-    val expected = State(
-      metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
-        journalHead = journalHead1,
-        created = timestamp0,
-        updated = timestamp1,
-        origin = origin.some))))))
-    val (state1, _) = stateT.run(expected).get
-    state1 shouldEqual expected
-  }
+      "empty" in {
+        val stateT = for {
+          a <- byKey.journalHead
+          _  = a shouldEqual none
+        } yield {}
+        val (state, _) = stateT.run(State.empty).get
+        state shouldEqual State.empty
+      }
 
-  test("insert") {
-    val key = ReplicatedCassandraMetaJournalStatementsTest.key
-    val stateT = for {
-      a <- metaJournalStatements.insert(key, segment, timestamp0, journalHead, origin.some)
-      _  = a.shouldEqual(())
-    } yield {}
-    val expected = State(
-      metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
-        journalHead = journalHead,
-        created = timestamp0,
-        updated = timestamp0,
-        origin = origin.some))))),
-      metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
-        journalHead = journalHead,
-        created = timestamp0,
-        updated = timestamp0,
-        origin = origin.some))))))
-    val (state1, _) = stateT.run(expected).get
-    state1 shouldEqual expected
-  }
+      "from metadata" in {
+        val key = ReplicatedCassandraMetaJournalStatementsTest.key
+        val journalHead1 = journalHead.copy(deleteTo = journalHead.seqNr.toDeleteTo.some)
+        val stateT = for {
+          a <- byKey.journalHead
+          _  = a shouldEqual journalHead1.some
+        } yield {}
+        val state0 = State(
+          metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
+            journalHead = journalHead1,
+            created = timestamp0,
+            updated = timestamp1,
+            origin = origin.some))))))
+        val (state1, _) = stateT.run(state0).get
+        val expected = State(
+          metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
+            journalHead = journalHead1,
+            created = timestamp0,
+            updated = timestamp1,
+            origin = origin.some))))),
+          metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
+            journalHead = journalHead1,
+            created = timestamp0,
+            updated = timestamp1,
+            origin = origin.some))))))
+        state1 shouldEqual expected
+      }
 
-  test("update") {
-    val key = ReplicatedCassandraMetaJournalStatementsTest.key
-    val stateT = for {
-      _ <- metaJournalStatements.insert(key, segment, timestamp0, journalHead, origin.some)
-      a <- metaJournalStatements.update(key, segment, partitionOffset, timestamp1)(SeqNr.max, SeqNr.max.toDeleteTo)
-      _  = a.shouldEqual(())
-    } yield {}
-    val journalHead1 = journalHead.copy(seqNr = SeqNr.max, deleteTo = SeqNr.max.toDeleteTo.some)
-    val expected = State(
-      metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
-        journalHead = journalHead1,
-        created = timestamp0,
-        updated = timestamp1,
-        origin = origin.some))))),
-      metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
-        journalHead = journalHead1,
-        created = timestamp0,
-        updated = timestamp1,
-        origin = origin.some))))))
-    val (state1, _) = stateT.run(expected).get
-    state1 shouldEqual expected
-  }
+      "from metaJournal" in {
+        val key = ReplicatedCassandraMetaJournalStatementsTest.key
+        val journalHead1 = journalHead.copy(deleteTo = journalHead.seqNr.toDeleteTo.some)
+        val stateT = for {
+          a <- byKey.journalHead
+          _  = a shouldEqual journalHead1.some
+        } yield {}
+        val expected = State(
+          metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
+            journalHead = journalHead1,
+            created = timestamp0,
+            updated = timestamp1,
+            origin = origin.some))))))
+        val (state1, _) = stateT.run(expected).get
+        state1 shouldEqual expected
+      }
+    }
 
-  test("updateSeqNr") {
-    val key = ReplicatedCassandraMetaJournalStatementsTest.key
-    val stateT = for {
-      _ <- metaJournalStatements.insert(key, segment, timestamp0, journalHead, origin.some)
-      a <- metaJournalStatements.update(key, segment, partitionOffset, timestamp1)(SeqNr.max)
-      _  = a.shouldEqual(())
-    } yield {}
-    val journalHead1 = journalHead.copy(seqNr = SeqNr.max)
-    val expected = State(
-      metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
-        journalHead = journalHead1,
-        created = timestamp0,
-        updated = timestamp1,
-        origin = origin.some))))),
-      metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
-        journalHead = journalHead1,
-        created = timestamp0,
-        updated = timestamp1,
-        origin = origin.some))))))
-    val (state1, _) = stateT.run(expected).get
-    state1 shouldEqual expected
-  }
+    "insert" in {
+      val key = ReplicatedCassandraMetaJournalStatementsTest.key
+      val stateT = for {
+        a <- byKey.insert(timestamp0, journalHead, origin.some)
+        _  = a.shouldEqual(())
+      } yield {}
+      val expected = State(
+        metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
+          journalHead = journalHead,
+          created = timestamp0,
+          updated = timestamp0,
+          origin = origin.some))))),
+        metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
+          journalHead = journalHead,
+          created = timestamp0,
+          updated = timestamp0,
+          origin = origin.some))))))
+      val (state1, _) = stateT.run(expected).get
+      state1 shouldEqual expected
+    }
 
-  test("updateExpiry") {
-    val key = ReplicatedCassandraMetaJournalStatementsTest.key
-    val stateT = for {
-      _ <- metaJournalStatements.insert(key, segment, timestamp0, journalHead, origin.some)
-      a <- metaJournalStatements.update(key, segment, partitionOffset, timestamp1)(SeqNr.max, expiry)
-      _  = a.shouldEqual(())
-    } yield {}
-    val expected = State(
-      metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
-        journalHead = journalHead.copy(seqNr = SeqNr.max),
-        created = timestamp0,
-        updated = timestamp1,
-        origin = origin.some))))),
-      metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
-        journalHead = journalHead.copy(seqNr = SeqNr.max, expiry = expiry.some),
-        created = timestamp0,
-        updated = timestamp1,
-        origin = origin.some))))))
-    val (state1, _) = stateT.run(expected).get
-    state1 shouldEqual expected
-  }
+    "update" should {
 
-  test("updateDeleteTo") {
-    val key = ReplicatedCassandraMetaJournalStatementsTest.key
-    val stateT = for {
-      _ <- metaJournalStatements.insert(key, segment, timestamp0, journalHead, origin.some)
-      a <- metaJournalStatements.update(key, segment, partitionOffset, timestamp1)(journalHead.seqNr.toDeleteTo)
-      _  = a.shouldEqual(())
-    } yield {}
-    val journalHead1 = journalHead.copy(deleteTo = journalHead.seqNr.toDeleteTo.some)
-    val expected = State(
-      metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
-        journalHead = journalHead1,
-        created = timestamp0,
-        updated = timestamp1,
-        origin = origin.some))))),
-      metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
-        journalHead = journalHead1,
-        created = timestamp0,
-        updated = timestamp1,
-        origin = origin.some))))))
-    val (state1, _) = stateT.run(expected).get
-    state1 shouldEqual expected
-  }
+      val update = byKey.update(partitionOffset, timestamp1)
 
-  test("delete") {
-    val key = ReplicatedCassandraMetaJournalStatementsTest.key
-    val stateT = for {
-      _ <- metaJournalStatements.insert(key, segment, timestamp0, journalHead, origin.some)
-      a <- metaJournalStatements.delete(key, segment)
-      _  = a.shouldEqual(())
-    } yield {}
-    val (state, _) = stateT.run(State.empty).get
-    state shouldEqual State.empty
-  }
+      "update" in {
+        val key = ReplicatedCassandraMetaJournalStatementsTest.key
+        val stateT = for {
+          _ <- byKey.insert(timestamp0, journalHead, origin.some)
+          a <- update(SeqNr.max, SeqNr.max.toDeleteTo)
+          _  = a.shouldEqual(())
+        } yield {}
+        val journalHead1 = journalHead.copy(seqNr = SeqNr.max, deleteTo = SeqNr.max.toDeleteTo.some)
+        val expected = State(
+          metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
+            journalHead = journalHead1,
+            created = timestamp0,
+            updated = timestamp1,
+            origin = origin.some))))),
+          metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
+            journalHead = journalHead1,
+            created = timestamp0,
+            updated = timestamp1,
+            origin = origin.some))))))
+        val (state1, _) = stateT.run(expected).get
+        state1 shouldEqual expected
+      }
 
-  test("deleteExpiry") {
-    val key = ReplicatedCassandraMetaJournalStatementsTest.key
-    val stateT = for {
-      _ <- metaJournalStatements.insert(key, segment, timestamp0, journalHead, origin.some)
-      _ <- metaJournalStatements.update(key, segment, partitionOffset, timestamp1)(SeqNr.min, expiry)
-      a <- metaJournalStatements.deleteExpiry(key, segment)
-      _  = a.shouldEqual(())
-    } yield {}
-    val (state, _) = stateT.run(State.empty).get
-    val expected = State(
-      metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
-        journalHead = journalHead,
-        created = timestamp0,
-        updated = timestamp1,
-        origin = origin.some))))),
-      metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
-        journalHead = journalHead,
-        created = timestamp0,
-        updated = timestamp1,
-        origin = origin.some))))))
-    state shouldEqual expected
+      "seqNr" in {
+        val key = ReplicatedCassandraMetaJournalStatementsTest.key
+        val stateT = for {
+          _ <- byKey.insert(timestamp0, journalHead, origin.some)
+          a <- update(SeqNr.max)
+          _  = a.shouldEqual(())
+        } yield {}
+        val journalHead1 = journalHead.copy(seqNr = SeqNr.max)
+        val expected = State(
+          metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
+            journalHead = journalHead1,
+            created = timestamp0,
+            updated = timestamp1,
+            origin = origin.some))))),
+          metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
+            journalHead = journalHead1,
+            created = timestamp0,
+            updated = timestamp1,
+            origin = origin.some))))))
+        val (state1, _) = stateT.run(expected).get
+        state1 shouldEqual expected
+      }
+
+      "expiry" in {
+        val key = ReplicatedCassandraMetaJournalStatementsTest.key
+        val stateT = for {
+          _ <- byKey.insert(timestamp0, journalHead, origin.some)
+          a <- update(SeqNr.max, expiry)
+          _  = a.shouldEqual(())
+        } yield {}
+        val expected = State(
+          metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
+            journalHead = journalHead.copy(seqNr = SeqNr.max),
+            created = timestamp0,
+            updated = timestamp1,
+            origin = origin.some))))),
+          metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
+            journalHead = journalHead.copy(seqNr = SeqNr.max, expiry = expiry.some),
+            created = timestamp0,
+            updated = timestamp1,
+            origin = origin.some))))))
+        val (state1, _) = stateT.run(expected).get
+        state1 shouldEqual expected
+      }
+
+      "deleteTo" in {
+        val key = ReplicatedCassandraMetaJournalStatementsTest.key
+        val stateT = for {
+          _ <- byKey.insert(timestamp0, journalHead, origin.some)
+          a <- update(journalHead.seqNr.toDeleteTo)
+          _  = a.shouldEqual(())
+        } yield {}
+        val journalHead1 = journalHead.copy(deleteTo = journalHead.seqNr.toDeleteTo.some)
+        val expected = State(
+          metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
+            journalHead = journalHead1,
+            created = timestamp0,
+            updated = timestamp1,
+            origin = origin.some))))),
+          metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
+            journalHead = journalHead1,
+            created = timestamp0,
+            updated = timestamp1,
+            origin = origin.some))))))
+        val (state1, _) = stateT.run(expected).get
+        state1 shouldEqual expected
+      }
+    }
+
+    "delete" in {
+      val stateT = for {
+        _ <- byKey.insert(timestamp0, journalHead, origin.some)
+        a <- byKey.delete
+        _  = a.shouldEqual(())
+      } yield {}
+      val (state, _) = stateT.run(State.empty).get
+      state shouldEqual State.empty
+    }
+
+    "deleteExpiry" in {
+      val key = ReplicatedCassandraMetaJournalStatementsTest.key
+      val stateT = for {
+        _ <- byKey.insert(timestamp0, journalHead, origin.some)
+        _ <- byKey.update(partitionOffset, timestamp1)(SeqNr.min, expiry)
+        a <- byKey.deleteExpiry
+        _  = a.shouldEqual(())
+      } yield {}
+      val (state, _) = stateT.run(State.empty).get
+      val expected = State(
+        metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
+          journalHead = journalHead,
+          created = timestamp0,
+          updated = timestamp1,
+          origin = origin.some))))),
+        metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
+          journalHead = journalHead,
+          created = timestamp0,
+          updated = timestamp1,
+          origin = origin.some))))))
+      state shouldEqual expected
+    }
   }
 }
 
@@ -547,7 +557,7 @@ object ReplicatedCassandraMetaJournalStatementsTest {
     updateSeqNrMetadata,
     updateDeleteToMetadata,
     deleteMetadata)
-  
+
 
   val metaJournalStatements: ReplicatedCassandra.MetaJournalStatements[StateT] = {
     ReplicatedCassandra.MetaJournalStatements(
@@ -556,4 +566,6 @@ object ReplicatedCassandraMetaJournalStatementsTest {
       selectMetadata = selectMetadata,
       insertMetaJournal = insertMetaJournal)
   }
+
+  val byKey: ByKey[StateT] = metaJournalStatements(key, segment)
 }

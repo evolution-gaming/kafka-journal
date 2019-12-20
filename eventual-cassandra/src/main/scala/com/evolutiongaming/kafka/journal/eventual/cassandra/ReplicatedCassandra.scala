@@ -52,29 +52,22 @@ object ReplicatedCassandra {
 
     implicit val monoidUnit = Applicative.monoid[F, Unit]
 
-    val metaJournal = statements.metaJournal
-
     new ReplicatedJournal[F] {
 
       def topics = {
-        for {
-          topics <- statements.selectTopics()
-        } yield {
-          topics.sorted
-        }
+        statements
+          .selectTopics()
+          .map { _.sorted }
       }
-
 
       def journal(topic: Topic) = {
 
         val journal: ReplicatedTopicJournal[F] = new ReplicatedTopicJournal[F] {
 
           val pointers = {
-            for {
-              pointers <- statements.selectPointers(topic)
-            } yield {
-              TopicPointers(pointers)
-            }
+            statements
+              .selectPointers(topic)
+              .map { a => TopicPointers(a) }
           }
 
           def journal(id: String) = {
@@ -83,7 +76,7 @@ object ReplicatedCassandra {
 
             def journalHeadRef(segment: SegmentNr) = {
               for {
-                journalHead <- metaJournal.journalHead(key, segment)
+                journalHead <- statements.metaJournal(key, segment).journalHead
                 ref         <- Ref[F].of(journalHead)
               } yield ref
             }
@@ -92,6 +85,8 @@ object ReplicatedCassandra {
               segment        <- Resource.liftF(segmentOf(key))
               journalHeadRef <- Resource.liftF(journalHeadRef(segment))
             } yield {
+
+              def metaJournal = statements.metaJournal(key, segment)
 
               def delete1(
                 journalHead: JournalHead,
@@ -104,7 +99,7 @@ object ReplicatedCassandra {
                   none[JournalHead].pure[F]
                 } else {
                   def update = {
-                    def update = metaJournal.update(key, segment, partitionOffset, timestamp)
+                    def update = metaJournal.update(partitionOffset, timestamp)
                     if (journalHead.seqNr >= deleteTo.value) {
                       val journalHead1 = journalHead.copy(
                         partitionOffset = partitionOffset,
@@ -199,7 +194,7 @@ object ReplicatedCassandra {
                     loop(events1, None, ().pure[F])
                   }
 
-                  def appendAndSave(journalHead: Option[JournalHead], segment: SegmentNr) = {
+                  def appendAndSave(journalHead: Option[JournalHead]) = {
 
                     def appendAndSave = {
                       val seqNrLast = events.last.seqNr
@@ -225,12 +220,12 @@ object ReplicatedCassandra {
                               deleteTo = deleteTo,
                               expiry = expiry)
                             val origin = events.head.origin
-                            val insert = metaJournal.insert(key, segment, timestamp, journalHead, origin)
+                            val insert = metaJournal.insert(timestamp, journalHead, origin)
                             (insert, journalHead)
                           }
                       } { journalHead =>
 
-                        def updateOf = metaJournal.update(key, segment, partitionOffset, timestamp)
+                        def updateOf = metaJournal.update(partitionOffset, timestamp)
 
                         expiryService
                           .action(journalHead.expiry, expireAfter, timestamp)
@@ -245,7 +240,7 @@ object ReplicatedCassandra {
                               case ExpiryService.Action.Remove =>
                                 val update = for {
                                   _ <- updateOf(seqNrLast)
-                                  _ <- metaJournal.deleteExpiry(key, segment)
+                                  _ <- metaJournal.deleteExpiry
                                 } yield {}
                                 (none[Expiry], update)
                             }
@@ -283,12 +278,11 @@ object ReplicatedCassandra {
 
                   for {
                     journalHead <- journalHeadRef.get
-                    journalHead <- appendAndSave(journalHead, segment)
+                    journalHead <- appendAndSave(journalHead)
                     _           <- journalHead.traverse { journalHead => journalHeadRef.set(journalHead.some) }
                   } yield {}
                 }
 
-                // TODO expiry: why do we need partition ?
                 def delete(
                   partitionOffset: PartitionOffset,
                   timestamp: Instant,
@@ -304,7 +298,7 @@ object ReplicatedCassandra {
                       deleteTo = deleteTo.toDeleteTo.some,
                       expiry = none/*TODO expiry: what if we have this in context of deletion*/)
                     metaJournal
-                      .insert(key, segment, timestamp, journalHead, origin)
+                      .insert(timestamp, journalHead, origin)
                       .as(journalHead.some)
                   }
 
@@ -333,7 +327,7 @@ object ReplicatedCassandra {
                       val result = for {
                         journalHead <- delete1(journalHead, journalHead.seqNr.toDeleteTo, partitionOffset, timestamp)
                         _           <- journalHead.traverse { journalHead => journalHeadRef.set(journalHead.some) }
-                        _           <- metaJournal.delete(key, segment)
+                        _           <- metaJournal.delete
                         _           <- journalHeadRef.set(none)
                       } yield {}
                       result.uncancelable
@@ -400,41 +394,10 @@ object ReplicatedCassandra {
   trait MetaJournalStatements[F[_]] {
     import MetaJournalStatements._
 
-    // TODO expiry: refactor, all methods take same arguments
-    def journalHead(key: Key, segment: SegmentNr): F[Option[JournalHead]]
-
-    def insert(
-      key: Key,
-      segment: SegmentNr,
-      timestamp: Instant,
-      journalHead: JournalHead,
-      origin: Option[Origin]
-    ): F[Unit]
-
-    def update(
-      key: Key,
-      segment: SegmentNr,
-      partitionOffset: PartitionOffset,
-      timestamp: Instant
-    ): Update[F]
-
-    def delete(key: Key, segment: SegmentNr): F[Unit]
-
-    def deleteExpiry(key: Key, segment: SegmentNr): F[Unit]
+    def apply(key: Key, segment: SegmentNr): ByKey[F]
   }
 
   object MetaJournalStatements {
-
-    trait Update[F[_]] {
-
-      def apply(seqNr: SeqNr): F[Unit]
-
-      def apply(seqNr: SeqNr, expiry: Expiry): F[Unit]
-
-      def apply(deleteTo: DeleteTo/*TODO expiry: use DeleteTo everywhere*/): F[Unit]
-
-      def apply(seqNr: SeqNr, deleteTo: DeleteTo): F[Unit]
-    }
 
     def of[F[_] : Monad : Parallel : CassandraSession](schema: Schema): F[MetaJournalStatements[F]] = {
       val metadata = {
@@ -483,89 +446,93 @@ object ReplicatedCassandra {
 
       new MetaJournalStatements[F] {
 
-        def journalHead(key: Key, segment: SegmentNr) = {
-          metaJournal
-            .journalHead(key, segment)
-            .flatMap { journalHead =>
-              journalHead.fold {
-                selectMetadata(key).flatMap { entry =>
-                  entry.traverse { entry =>
-                    val journalHead = entry.journalHead
-                    insertMetaJournal(
-                      key = key,
-                      segment = segment,
-                      created = entry.created,
-                      updated = entry.updated,
-                      journalHead = journalHead,
-                      origin = entry.origin
-                    ) as journalHead
+        def apply(key: Key, segment: SegmentNr) = {
+
+          def metaJournal1 = metaJournal(key, segment)
+
+          def metadata1 = metadata(key, segment)
+
+          new ByKey[F] {
+
+            def journalHead = {
+              metaJournal1
+                .journalHead
+                .flatMap { journalHead =>
+                  journalHead.fold {
+                    selectMetadata(key).flatMap { entry =>
+                      entry.traverse { entry =>
+                        val journalHead = entry.journalHead
+                        insertMetaJournal(
+                          key = key,
+                          segment = segment,
+                          created = entry.created,
+                          updated = entry.updated,
+                          journalHead = journalHead,
+                          origin = entry.origin
+                        ) as journalHead
+                      }
+                    }
+                  } { journalHead =>
+                    journalHead.some.pure[F]
                   }
                 }
-              } { journalHead =>
-                journalHead.some.pure[F]
+            }
+
+            def insert(timestamp: Instant, journalHead: JournalHead, origin: Option[Origin]) = {
+              for {
+                _ <- metadata1.insert(timestamp, journalHead, origin)
+                _ <- metaJournal1.insert(timestamp, journalHead, origin)
+              } yield {}
+            }
+
+            def update(partitionOffset: PartitionOffset, timestamp: Instant) = {
+
+              def metaJournal = metaJournal1.update(partitionOffset, timestamp)
+
+              def metadata = metadata1.update(partitionOffset, timestamp)
+
+              new ByKey.Update[F] {
+
+                def apply(seqNr: SeqNr) = {
+                  for {
+                    _ <- metaJournal(seqNr)
+                    _ <- metadata(seqNr)
+                  } yield {}
+                }
+
+                def apply(seqNr: SeqNr, expiry: Expiry) = {
+                  for {
+                    _ <- metaJournal(seqNr, expiry)
+                    _ <- metadata(seqNr, expiry)
+                  } yield {}
+                }
+
+                def apply(deleteTo: DeleteTo) = {
+                  for {
+                    _ <- metaJournal(deleteTo)
+                    _ <- metadata(deleteTo)
+                  } yield {}
+                }
+
+                def apply(seqNr: SeqNr, deleteTo: DeleteTo) = {
+                  for {
+                    _ <- metaJournal(seqNr, deleteTo)
+                    _ <- metadata(seqNr, deleteTo)
+                  } yield {}
+                }
               }
             }
-        }
 
-        def insert(
-          key: Key,
-          segment: SegmentNr,
-          timestamp: Instant,
-          journalHead: JournalHead,
-          origin: Option[Origin]
-        ) = {
-          for {
-            _ <- metadata.insert(key, segment, timestamp, journalHead, origin)
-            _ <- metaJournal.insert(key, segment, timestamp, journalHead, origin)
-          } yield {}
-        }
-
-        def update(key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant) = {
-
-          def metaJournal1 = metaJournal.update(key, segment, partitionOffset, timestamp)
-
-          def metadata1 = metadata.update(key, segment, partitionOffset, timestamp)
-
-          new Update[F] {
-
-            def apply(seqNr: SeqNr) = {
+            def delete = {
               for {
-                _ <- metaJournal1(seqNr)
-                _ <- metadata1(seqNr)
+                _ <- metaJournal1.delete
+                _ <- metadata1.delete
               } yield {}
             }
 
-            def apply(seqNr: SeqNr, expiry: Expiry) = {
-              for {
-                _ <- metaJournal1(seqNr, expiry)
-                _ <- metadata1(seqNr, expiry)
-              } yield {}
-            }
-
-            def apply(deleteTo: DeleteTo) = {
-              for {
-                _ <- metaJournal1(deleteTo)
-                _ <- metadata1(deleteTo)
-              } yield {}
-            }
-
-            def apply(seqNr: SeqNr, deleteTo: DeleteTo) = {
-              for {
-                _ <- metaJournal1(seqNr, deleteTo)
-                _ <- metadata1(seqNr, deleteTo)
-              } yield {}
-            }
+            def deleteExpiry = metaJournal1.deleteExpiry
           }
         }
-
-        def delete(key: Key, segment: SegmentNr) = {
-          for {
-            _ <- metaJournal.delete(key, segment)
-            _ <- metadata.delete(key, segment)
-          } yield {}
-        }
-        
-        def deleteExpiry(key: Key, segment: SegmentNr) = metaJournal.deleteExpiry(key, segment)
       }
     }
 
@@ -588,42 +555,41 @@ object ReplicatedCassandra {
 
       new MetaJournalStatements[F] {
 
-        def journalHead(key: Key, segment: SegmentNr) = selectJournalHead(key, segment)
+        def apply(key: Key, segment: SegmentNr) = {
+          new ByKey[F] {
 
-        def insert(
-          key: Key,
-          segment: SegmentNr,
-          timestamp: Instant,
-          journalHead: JournalHead,
-          origin: Option[Origin]
-        ) = {
-          inset1(key, segment, timestamp, timestamp, journalHead, origin)
-        }
+            def journalHead = selectJournalHead(key, segment)
 
-        def update(key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant) = {
-          new Update[F] {
-
-            def apply(seqNr: SeqNr) = {
-              updateSeqNr(key, segment, partitionOffset, timestamp, seqNr)
+            def insert(timestamp: Instant, journalHead: JournalHead, origin: Option[Origin]) = {
+              inset1(key, segment, timestamp, timestamp, journalHead, origin)
             }
 
-            def apply(seqNr: SeqNr, expiry: Expiry) = {
-              updateExpiry(key, segment, partitionOffset, timestamp, seqNr, expiry)
+            def update(partitionOffset: PartitionOffset, timestamp: Instant) = {
+              new ByKey.Update[F] {
+
+                def apply(seqNr: SeqNr) = {
+                  updateSeqNr(key, segment, partitionOffset, timestamp, seqNr)
+                }
+
+                def apply(seqNr: SeqNr, expiry: Expiry) = {
+                  updateExpiry(key, segment, partitionOffset, timestamp, seqNr, expiry)
+                }
+
+                def apply(deleteTo: DeleteTo) = {
+                  updateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo)
+                }
+
+                def apply(seqNr: SeqNr, deleteTo: DeleteTo) = {
+                  update1(key, segment, partitionOffset, timestamp, seqNr, deleteTo)
+                }
+              }
             }
 
-            def apply(deleteTo: DeleteTo) = {
-              updateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo)
-            }
+            def delete = delete1(key, segment)
 
-            def apply(seqNr: SeqNr, deleteTo: DeleteTo) = {
-              update1(key, segment, partitionOffset, timestamp, seqNr, deleteTo)
-            }
+            def deleteExpiry = deleteExpiry1(key, segment)
           }
         }
-
-        def delete(key: Key, segment: SegmentNr) = delete1(key, segment)
-
-        def deleteExpiry(key: Key, segment: SegmentNr) = deleteExpiry1(key, segment)
       }
     }
 
@@ -642,43 +608,71 @@ object ReplicatedCassandra {
       val delete1 = delete
 
       new MetaJournalStatements[F] {
+        
+        def apply(key: Key, segment: SegmentNr) = {
+          new ByKey[F] {
 
-        def journalHead(key: Key, segment: SegmentNr) = selectJournalHead(key)
+            def journalHead = selectJournalHead(key)
 
-        def insert(
-          key: Key,
-          segment: SegmentNr,
-          timestamp: Instant,
-          journalHead: JournalHead,
-          origin: Option[Origin]
-        ) = {
-          insert1(key, timestamp, journalHead, origin)
-        }
-
-        def update(key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant) = {
-          new Update[F] {
-
-            def apply(seqNr: SeqNr) = {
-              updateSeqNr(key, partitionOffset, timestamp, seqNr)
+            def insert(timestamp: Instant, journalHead: JournalHead, origin: Option[Origin]) = {
+              insert1(key, timestamp, journalHead, origin)
             }
 
-            def apply(seqNr: SeqNr, expiry: Expiry) = {
-              updateSeqNr(key, partitionOffset, timestamp, seqNr)
+            def update(partitionOffset: PartitionOffset, timestamp: Instant) = {
+              new ByKey.Update[F] {
+
+                def apply(seqNr: SeqNr) = {
+                  updateSeqNr(key, partitionOffset, timestamp, seqNr)
+                }
+
+                def apply(seqNr: SeqNr, expiry: Expiry) = {
+                  updateSeqNr(key, partitionOffset, timestamp, seqNr)
+                }
+
+                def apply(deleteTo: DeleteTo) = {
+                  updateDeleteTo(key, partitionOffset, timestamp, deleteTo)
+                }
+
+                def apply(seqNr: SeqNr, deleteTo: DeleteTo) = {
+                  update1(key, partitionOffset, timestamp, seqNr, deleteTo)
+                }
+              }
             }
 
-            def apply(deleteTo: DeleteTo) = {
-              updateDeleteTo(key, partitionOffset, timestamp, deleteTo)
-            }
+            def delete = delete1(key)
 
-            def apply(seqNr: SeqNr, deleteTo: DeleteTo) = {
-              update1(key, partitionOffset, timestamp, seqNr, deleteTo)
-            }
+            def deleteExpiry = ().pure[F]
           }
         }
+      }
+    }
 
-        def delete(key: Key, segment: SegmentNr) = delete1(key)
 
-        def deleteExpiry(key: Key, segment: SegmentNr) = ().pure[F]
+    trait ByKey[F[_]] {
+      import ByKey._
+      
+      def journalHead: F[Option[JournalHead]]
+
+      def insert(timestamp: Instant, journalHead: JournalHead, origin: Option[Origin]): F[Unit]
+
+      def update(partitionOffset: PartitionOffset, timestamp: Instant): Update[F]
+
+      def delete: F[Unit]
+
+      def deleteExpiry: F[Unit]
+    }
+
+
+    object ByKey {
+      trait Update[F[_]] {
+
+        def apply(seqNr: SeqNr): F[Unit]
+
+        def apply(seqNr: SeqNr, expiry: Expiry): F[Unit]
+
+        def apply(deleteTo: DeleteTo/*TODO expiry: use DeleteTo everywhere*/): F[Unit]
+
+        def apply(seqNr: SeqNr, deleteTo: DeleteTo): F[Unit]
       }
     }
   }
