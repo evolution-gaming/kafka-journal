@@ -158,7 +158,7 @@ object ReplicatedTopicJournal {
     ): ReplicatedTopicJournal[F] = {
 
       def error[A](msg: String, cause: Throwable) = {
-        JournalError(s"ReplicatedTopicJournal.$msg failed with $cause", cause.some).raiseError[F, A]
+        JournalError(s"ReplicatedTopicJournal.$msg failed with $cause", cause).raiseError[F, A]
       }
 
       new ReplicatedTopicJournal[F] {

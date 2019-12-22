@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import cats._
-import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
+import cats.data.{OptionT, NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect._
 import cats.effect.concurrent.Deferred
 import cats.effect.implicits._
@@ -11,8 +11,9 @@ import cats.implicits._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper._
-import com.evolutiongaming.kafka.journal.conversions.ConsumerRecordToActionHeader
+import com.evolutiongaming.kafka.journal.conversions.ConsRecordToActionHeader
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
+import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.EitherHelper._
 import com.evolutiongaming.kafka.journal.util.ResourceOf
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
@@ -27,13 +28,13 @@ import scodec.bits.ByteVector
 import scala.concurrent.duration._
 
 /**
-  * TODO headcache:
-  * 1. handle cancellation in case of timeouts and not leak memory
-  * 2. Remove half of partition cache on cleanup
-  * 3. Clearly handle cases when topic is not yet created, but requests are coming
-  * 4. Keep 1000 last seen entries, even if replicated.
-  * 5. Fail headcache when background tasks failed
-  */
+ * TODO headcache:
+ * 1. handle cancellation in case of timeouts and not leak memory
+ * 2. Remove half of partition cache on cleanup
+ * 3. Clearly handle cases when topic is not yet created, but requests are coming
+ * 4. Keep 1000 last seen entries, even if replicated.
+ * 5. Fail headcache when background tasks failed
+ */
 trait HeadCache[F[_]] {
 
   def get(key: Key, partition: Partition, offset: Offset): F[Either[HeadCacheError, HeadInfo]]
@@ -75,8 +76,8 @@ object HeadCache {
     config: HeadCacheConfig = HeadCacheConfig.default
   ): Resource[F, HeadCache[F]] = {
 
-    implicit val consumerRecordToActionHeader = ConsumerRecordToActionHeader[F]
-    implicit val consumerRecordToKafkaRecord = HeadCache.ConsumerRecordToKafkaRecord[F]
+    implicit val consRecordToActionHeader = ConsRecordToActionHeader[F]
+    implicit val consRecordToKafkaRecord = HeadCache.ConsRecordToKafkaRecord[F]
 
     def headCache(cache: Cache[F, Topic, TopicCache[F]]) = {
 
@@ -115,7 +116,7 @@ object HeadCache {
     } yield {
       headCache(cache)
     }
-    
+
     result.withFence
   }
 
@@ -134,7 +135,7 @@ object HeadCache {
       consumer: Resource[F, Consumer[F]],
       metrics: Metrics[F],
       log: Log[F])(implicit
-      consumerRecordToKafkaRecord: ConsumerRecordToKafkaRecord[F]
+      consRecordToKafkaRecord: ConsRecordToKafkaRecord[F]
     ): Resource[F, TopicCache[F]] = {
 
       // TODO headcache: replace SerialRef with Ref
@@ -675,7 +676,7 @@ object HeadCache {
           d <- MeasureDuration[F].start
           r <- self.get(key, partition, offset).attempt
           d <- d
-          a  = result(r)
+          a = result(r)
           _ <- metrics.get(key.topic, d, a)
           r <- r.liftTo[F]
         } yield r
@@ -715,7 +716,7 @@ object HeadCache {
   object Metrics {
 
     def empty[F[_] : Applicative]: Metrics[F] = const(().pure[F])
-    
+
 
     def const[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
 
@@ -744,37 +745,37 @@ object HeadCache {
         Quantile(0.99, 0.005))
 
       val getLatencySummary = registry.summary(
-        name      = s"${ prefix }_get_latency",
-        help      = "HeadCache get latency in seconds",
+        name = s"${ prefix }_get_latency",
+        help = "HeadCache get latency in seconds",
         quantiles = quantiles,
-        labels    = LabelNames("topic", "result"))
+        labels = LabelNames("topic", "result"))
 
       val getResultCounter = registry.counter(
-        name   = s"${ prefix }_get_results",
-        help   = "HeadCache `get` call result: replicated, not_replicated, invalid or failure",
+        name = s"${ prefix }_get_results",
+        help = "HeadCache `get` call result: replicated, not_replicated, invalid or failure",
         labels = LabelNames("topic", "result"))
 
       val entriesGauge = registry.gauge(
-        name   = s"${ prefix }_entries",
-        help   = "HeadCache entries",
+        name = s"${ prefix }_entries",
+        help = "HeadCache entries",
         labels = LabelNames("topic"))
 
       val listenersGauge = registry.gauge(
-        name   = s"${ prefix }_listeners",
-        help   = "HeadCache listeners",
+        name = s"${ prefix }_listeners",
+        help = "HeadCache listeners",
         labels = LabelNames("topic"))
 
       val deliveryLatencySummary = registry.summary(
-        name      = s"${ prefix }_delivery_latency",
-        help      = "HeadCache kafka delivery latency in seconds",
+        name = s"${ prefix }_delivery_latency",
+        help = "HeadCache kafka delivery latency in seconds",
         quantiles = quantiles,
-        labels    = LabelNames("topic"))
+        labels = LabelNames("topic"))
 
       for {
-        getLatencySummary      <- getLatencySummary
-        getResultCounter       <- getResultCounter
-        entriesGauge           <- entriesGauge
-        listenersGauge         <- listenersGauge
+        getLatencySummary <- getLatencySummary
+        getResultCounter <- getResultCounter
+        entriesGauge <- entriesGauge
+        listenersGauge <- listenersGauge
         deliveryLatencySummary <- deliveryLatencySummary
       } yield {
 
@@ -831,27 +832,28 @@ object HeadCache {
     header: ActionHeader)
 
 
-  trait ConsumerRecordToKafkaRecord[F[_]] {
+  trait ConsRecordToKafkaRecord[F[_]] {
 
-    def apply(consumerRecord: ConsRecord): Option[F[KafkaRecord]]
+    def apply(consRecord: ConsRecord): OptionT[F, KafkaRecord]
   }
 
-  object ConsumerRecordToKafkaRecord {
+  object ConsRecordToKafkaRecord {
 
-    implicit def apply[F[_] : Functor](implicit
-      consumerRecordToActionHeader: ConsumerRecordToActionHeader[F]
-    ): ConsumerRecordToKafkaRecord[F] = {
+    implicit def apply[F[_] : Monad](implicit
+      consRecordToActionHeader: ConsRecordToActionHeader[F]
+    ): ConsRecordToKafkaRecord[F] = {
       record: ConsRecord => {
+
         for {
-          key              <- record.key
-          id                = key.value
-          timestampAndType <- record.timestampAndType
-          timestamp         = timestampAndType.timestamp
-          header           <- consumerRecordToActionHeader(record)
-        } yield for {
-          header <- header
+          key              <- record.key.toOptionT[F]
+          timestampAndType <- record.timestampAndType.toOptionT[F]
+          header           <- consRecordToActionHeader(record)
         } yield {
-          KafkaRecord(id, timestamp, record.offset, header)
+          KafkaRecord(
+            key.value,
+            timestampAndType.timestamp,
+            record.offset,
+            header)
         }
       }
     }

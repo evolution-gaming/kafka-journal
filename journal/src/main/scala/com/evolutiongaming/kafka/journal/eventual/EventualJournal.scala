@@ -228,7 +228,7 @@ object EventualJournal {
     def enhanceError(implicit F: MonadThrowable[F]): EventualJournal[F] = {
 
       def error[A](msg: String, cause: Throwable) = {
-        JournalError(s"EventualJournal.$msg failed with $cause", cause.some).raiseError[F, A]
+        JournalError(s"EventualJournal.$msg failed with $cause", cause).raiseError[F, A]
       }
 
       new EventualJournal[F] {

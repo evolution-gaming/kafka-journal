@@ -45,7 +45,8 @@ object ActionToProducerRecord {
           headers = header :: headers)
       }
       result.handleErrorWith { cause =>
-        JournalError(s"ActionToProducerRecord failed for $action: $cause", cause.some).raiseError[F, ProducerRecord[String, ByteVector]]
+        JournalError(s"ActionToProducerRecord failed for $action: $cause", cause)
+          .raiseError[F, ProducerRecord[String, ByteVector]]
       }
     }
   }

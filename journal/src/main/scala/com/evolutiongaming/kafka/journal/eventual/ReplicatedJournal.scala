@@ -120,7 +120,7 @@ object ReplicatedJournal {
     def enhanceError(implicit F: ApplicativeThrowable[F]): ReplicatedJournal[F] = {
 
       def error[A](msg: String, cause: Throwable) = {
-        JournalError(s"ReplicatedJournal.$msg failed with $cause", cause.some).raiseError[F, A]
+        JournalError(s"ReplicatedJournal.$msg failed with $cause", cause).raiseError[F, A]
       }
 
       new ReplicatedJournal[F] {

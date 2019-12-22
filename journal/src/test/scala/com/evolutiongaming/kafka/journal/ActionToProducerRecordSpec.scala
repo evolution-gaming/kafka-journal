@@ -5,7 +5,7 @@ import java.time.temporal.ChronoUnit
 
 import cats.implicits._
 import cats.data.{NonEmptyList => Nel}
-import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsumerRecordToActionRecord, EventsToPayload}
+import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsRecordToActionRecord, EventsToPayload}
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.skafka.consumer.WithSize
 import com.evolutiongaming.skafka.{TimestampAndType, TimestampType, TopicPartition}
@@ -81,7 +81,7 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
 
   private val headers = List(Headers.empty, Headers(("key", "value")))
 
-  private val consumerRecordToActionRecord = ConsumerRecordToActionRecord[Try]
+  private val consRecordToActionRecord = ConsRecordToActionRecord[Try]
 
   private val appends = {
     implicit val eventsToPayload = EventsToPayload[Try]
@@ -112,7 +112,7 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
       for {
         producerRecord <- actionToProducerRecord(action)
       } yield {
-        val consumerRecord = ConsRecord(
+        val consRecord = ConsRecord(
           topicPartition = topicPartition,
           offset = partitionOffset.offset,
           timestampAndType = Some(TimestampAndType(timestamp, TimestampType.Create)),
@@ -122,7 +122,7 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
 
         val record = ActionRecord(action, partitionOffset)
 
-        consumerRecordToActionRecord(consumerRecord) shouldEqual record.some
+        consRecordToActionRecord(consRecord) shouldEqual record.some
       }
     }
   }

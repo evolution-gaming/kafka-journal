@@ -22,7 +22,7 @@ object TupleToHeader {
         Header(key, value.toArray)
       }
       result.handleErrorWith { cause =>
-        JournalError(s"TupleToHeader failed for $key:$value: $cause", cause.some).raiseError[F, Header]
+        JournalError(s"TupleToHeader failed for $key:$value: $cause", cause).raiseError[F, Header]
       }
   }
 }

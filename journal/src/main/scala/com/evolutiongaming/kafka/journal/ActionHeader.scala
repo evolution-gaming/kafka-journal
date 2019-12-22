@@ -1,7 +1,9 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.Applicative
-import play.api.libs.json._
+import cats.implicits._
+import play.api.libs.json._ // TODO expiry: replace with _
+import com.evolutiongaming.kafka.journal.util.PlayJsonHelper.jsResultMonadError // TODO expiry:
 
 
 sealed abstract class ActionHeader extends Product {
@@ -14,7 +16,7 @@ object ActionHeader {
   val key: String = "journal.action"
 
 
-  implicit val formatActionHeader: OFormat[ActionHeader] = {
+  implicit val formatOptActionHeader: OFormat[Option[ActionHeader]] = {
 
     val appendFormat = {
       val format = Json.format[Append]
@@ -42,28 +44,34 @@ object ActionHeader {
     val purgeFormat = Json.format[Purge]
     val readFormat = Json.format[Mark]
 
-    new OFormat[ActionHeader] {
+    new OFormat[Option[ActionHeader]] {
 
-      def reads(json: JsValue): JsResult[ActionHeader] = {
-        def read[T](name: String, reads: Reads[T]) = {
-          (json \ name).validate(reads)
+      def reads(json: JsValue) = {
+
+        def read[A](name: String, reads: Reads[A]) = {
+          (json \ name)
+            .validate[JsObject]
+            .asOpt
+            .map { _.validate(reads) }
         }
 
-        // TODO expiry: make sure we can roll out new actions without client update
-        read("append", appendFormat) orElse
-          read("mark", readFormat) orElse
-          read("delete", deleteFormat) orElse
-          read("purge", purgeFormat)
+        read("append", appendFormat)
+          .orElse(read("mark", readFormat))
+          .orElse(read("delete", deleteFormat))
+          .orElse(read("purge", purgeFormat))
+          .sequence
       }
 
-      def writes(header: ActionHeader): JsObject = {
+      def writes(header: Option[ActionHeader]): JsObject = {
 
-        def write[T](name: String, value: T, writes: Writes[T]) = {
+        def write[A](name: String, value: A, writes: Writes[A]) = {
           val json = writes.writes(value)
-          Json.obj(name -> json)
+          Json.obj((name, json))
         }
 
-        header match {
+        header.fold {
+          Json.obj()
+        } {
           case header: Append => write("append", header, appendFormat)
           case header: Mark   => write("mark", header, readFormat)
           case header: Delete => write("delete", header, deleteFormat)
@@ -73,9 +81,12 @@ object ActionHeader {
     }
   }
 
+  implicit val writesActionHeader: Writes[ActionHeader] = formatOptActionHeader.contramap { a: ActionHeader => a.some }
+
+
   implicit def toBytesActionHeader[F[_] : Applicative]: ToBytes[F, ActionHeader] = ToBytes.fromWrites
 
-  implicit def fromBytesActionHeader[F[_] : FromJsResult]: FromBytes[F, ActionHeader] = FromBytes.fromReads
+  implicit def fromBytesOptActionHeader[F[_] : FromJsResult]: FromBytes[F, Option[ActionHeader]] = FromBytes.fromReads
 
 
   sealed abstract class AppendOrDelete extends ActionHeader

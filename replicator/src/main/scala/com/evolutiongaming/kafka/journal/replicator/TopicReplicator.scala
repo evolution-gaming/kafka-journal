@@ -12,7 +12,7 @@ import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.conversions.{ConsumerRecordToActionRecord, PayloadToEvents}
+import com.evolutiongaming.kafka.journal.conversions.{ConsRecordToActionRecord, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal.util.ResourceOf
@@ -46,11 +46,11 @@ object TopicReplicator {
       log: Log[F]
     ) = {
 
-      val consumerRecordToActionRecord = ConsumerRecordToActionRecord[F]
+      val consRecordToActionRecord = ConsRecordToActionRecord[F]
       of(
         topic = topic,
         consumer = consumer,
-        consumerRecordToActionRecord = consumerRecordToActionRecord,
+        consRecordToActionRecord = consRecordToActionRecord,
         payloadToEvents = payloadToEvents,
         journal = journal,
         metrics = metrics,
@@ -74,7 +74,7 @@ object TopicReplicator {
   def of[F[_] : Concurrent : Parallel : FromTry : Timer : MeasureDuration](
     topic: Topic,
     consumer: Resource[F, TopicConsumer[F]],
-    consumerRecordToActionRecord: ConsumerRecordToActionRecord[F],
+    consRecordToActionRecord: ConsRecordToActionRecord[F],
     payloadToEvents: PayloadToEvents[F],
     journal: ReplicatedJournal[F],
     metrics: Metrics[F],
@@ -103,7 +103,7 @@ object TopicReplicator {
               journal <- journal.journal(id)
             } yield {
               val replicateRecords = ReplicateRecords(
-                consumerRecordToActionRecord = consumerRecordToActionRecord,
+                consRecordToActionRecord = consRecordToActionRecord,
                 journal = journal,
                 metrics = metrics,
                 payloadToEvents = payloadToEvents,

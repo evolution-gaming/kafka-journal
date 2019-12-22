@@ -190,6 +190,8 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       result.run(5.minutes)
     }
 
+    // TODO expiry: replicator should handle random message and not fail, headcache as well
+
     "replicate events and not expire" in {
       val result = for {
         key       <- Key.random[IO](topic)

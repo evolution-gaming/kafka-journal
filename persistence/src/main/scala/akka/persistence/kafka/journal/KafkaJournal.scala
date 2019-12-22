@@ -3,12 +3,12 @@ package akka.persistence.kafka.journal
 import akka.actor.ActorSystem
 import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.{AtomicWrite, PersistentRepr}
+import cats.Parallel
 import cats.effect._
 import cats.implicits._
-import cats.Parallel
-import cats.data.OptionT
 import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.TryHelper._
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.smetrics.MeasureDuration
@@ -64,9 +64,11 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
 
     def akkaName = Origin.akkaName(system)
 
-    val origin = OptionT(hostName) orElse OptionT(akkaHost) getOrElse akkaName
-
-    origin.map(_.some)
+    hostName
+      .toOptionT
+      .orElse(akkaHost.toOptionT)
+      .orElse(akkaName.some.toOptionT[IO])
+      .value
   }
 
   def serializer: Resource[IO, EventSerializer[IO]] = {

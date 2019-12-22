@@ -115,7 +115,7 @@ object CassandraSession {
     def enhanceError(implicit F: MonadThrowable[F]): CassandraSession[F] = {
 
       def error[A](msg: String, cause: Throwable) = {
-        JournalError(s"CassandraSession.$msg failed with $cause", cause.some).raiseError[F, A]
+        JournalError(s"CassandraSession.$msg failed with $cause", cause).raiseError[F, A]
       }
 
       new CassandraSession[F] {

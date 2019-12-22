@@ -9,7 +9,7 @@ import cats.{Applicative, Id, Monoid, Parallel}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log}
 import com.evolutiongaming.kafka.journal.{ConsRecords, _}
-import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsumerRecordToActionRecord, EventsToPayload, PayloadToEvents}
+import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsRecordToActionRecord, EventsToPayload, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, ReplicatedKeyJournal, ReplicatedTopicJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
@@ -921,7 +921,7 @@ object TopicReplicatorSpec {
     TopicReplicator.of[StateT](
       topic = topic,
       consumer = Resource.liftF(consumer.pure[StateT]),
-      consumerRecordToActionRecord = ConsumerRecordToActionRecord[StateT],
+      consRecordToActionRecord = ConsRecordToActionRecord[StateT],
       payloadToEvents = PayloadToEvents[StateT],
       journal = replicatedJournal,
       metrics = metrics,

@@ -237,7 +237,7 @@ object ReplicatedKeyJournal {
     def enhanceError(key: Key)(implicit F: ApplicativeThrowable[F]): ReplicatedKeyJournal[F] = {
 
       def error[A](msg: String, cause: Throwable) = {
-        JournalError(s"ReplicatedKeyJournal.$msg failed with $cause", cause.some).raiseError[F, A]
+        JournalError(s"ReplicatedKeyJournal.$msg failed with $cause", cause).raiseError[F, A]
       }
 
       new ReplicatedKeyJournal[F] {

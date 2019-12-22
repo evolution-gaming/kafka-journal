@@ -9,7 +9,7 @@ import cats.Parallel
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.conversions.{ConsumerRecordToActionRecord, PayloadToEvents}
+import com.evolutiongaming.kafka.journal.conversions.{ConsRecordToActionRecord, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
@@ -25,7 +25,7 @@ trait ReplicateRecords[F[_]] {
 object ReplicateRecords {
 
   def apply[F[_] : BracketThrowable : Clock : Parallel](
-    consumerRecordToActionRecord: ConsumerRecordToActionRecord[F],
+    consRecordToActionRecord: ConsRecordToActionRecord[F],
     journal: ReplicatedKeyJournal[F],
     metrics: Metrics[F],
     payloadToEvents: PayloadToEvents[F],
@@ -132,7 +132,7 @@ object ReplicateRecords {
         }
 
         for {
-          records <- records.toList.traverseFilter { record => consumerRecordToActionRecord(record) }
+          records <- records.toList.traverseFilter { a => consRecordToActionRecord(a).value }
           _       <- records.toNel.traverse { records => apply(records) }
         } yield {}
       }

@@ -5,7 +5,7 @@ import cats.effect.Resource
 import cats.implicits._
 import cats.~>
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
-import com.evolutiongaming.kafka.journal.conversions.ConsumerRecordToActionRecord
+import com.evolutiongaming.kafka.journal.conversions.ConsRecordToActionRecord
 import com.evolutiongaming.skafka.{Offset, Partition, TopicPartition}
 import com.evolutiongaming.sstream.Stream
 
@@ -20,7 +20,7 @@ object ConsumeActionRecords {
   def apply[F[_] : BracketThrowable](
     consumer: Resource[F, Journal.Consumer[F]],
     log: Log[F])(implicit
-    consumerRecordToActionRecord: ConsumerRecordToActionRecord[F]
+    consRecordToActionRecord: ConsRecordToActionRecord[F]
   ): ConsumeActionRecords[F] = {
     (key: Key, partition: Partition, from: Offset) => {
 
@@ -45,7 +45,7 @@ object ConsumeActionRecords {
         for {
           records0 <- consumer.poll
           records   = filter(records0.values.values.toList)
-          actions  <- records.traverseFilter(consumerRecordToActionRecord.apply)
+          actions  <- records.traverseFilter { a => consRecordToActionRecord(a).value }
         } yield actions
       }
 

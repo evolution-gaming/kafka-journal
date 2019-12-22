@@ -4,6 +4,7 @@ import cats.implicits._
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
+import com.evolutiongaming.kafka.journal.util.PlayJsonHelper.jsResultMonadError // TODO expiry: remove jsResultMonadString
 import play.api.libs.json._
 
 import scala.concurrent.duration._
@@ -51,20 +52,31 @@ class ActionHeaderJsonSpec extends AnyFunSuite with Matchers {
       verify(header, s"Purge-$originStr")
     }
 
-    test(s"Mark format, origin: $origin, ") {
+    test(s"Mark format, origin: $origin") {
       val header = ActionHeader.Mark("id", origin)
       verify(header, s"Mark-$originStr")
     }
   }
 
+  test("not supported ActionHeader") {
+    val json = Json.obj(("new", Json.obj()))
+    json.validate[Option[ActionHeader]] shouldEqual none[ActionHeader].pure[JsResult]
+  }
+
   private def verify(value: ActionHeader, name: String) = {
 
     def verify(json: JsValue) = {
-      val actual = json.validate[ActionHeader]
-      actual shouldEqual JsSuccess(value)
+      val actual = json.validate[Option[ActionHeader]]
+      actual shouldEqual value.some.pure[JsResult]
     }
 
     verify(Json.toJson(value))
-    verify(Json.parse(ByteVectorOf[Try](getClass, s"$name.json").get.toArray))
+
+    val json = for {
+      byteVector <- ByteVectorOf[Try](getClass, s"$name.json")
+      json       <- Try { Json.parse(byteVector.toArray) }
+    } yield json
+
+    verify(json.get)
   }
 }

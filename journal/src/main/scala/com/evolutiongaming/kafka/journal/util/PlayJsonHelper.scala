@@ -5,6 +5,7 @@ import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
 import play.api.libs.json._
 
+import scala.annotation.tailrec
 import scala.concurrent.duration._
 import scala.util.Try
 
@@ -26,7 +27,7 @@ object PlayJsonHelper {
   implicit val jsErrorToStr: ToStr[JsError] = _.errors.toString()
 
 
-  implicit val jsResultMonadThrowable: MonadError[JsResult, JsError] = new MonadError[JsResult, JsError] {
+  implicit val jsResultMonadError: MonadError[JsResult, JsError] = new MonadError[JsResult, JsError] {
 
     def raiseError[A](a: JsError) = a
 
@@ -41,18 +42,20 @@ object PlayJsonHelper {
 
     def flatMap[A, B](fa: JsResult[A])(f: A => JsResult[B]) = fa.flatMap(f)
 
+    @tailrec
     def tailRecM[A, B](a: A)(f: A => JsResult[Either[A, B]]): JsResult[B] = {
       f(a) match {
-        case b: JsError                 => b
         case b: JsSuccess[Either[A, B]] => b.value match {
-          case Left(b1) => tailRecM(b1)(f)
           case Right(a) => JsSuccess(a)
+          case Left(b)  => tailRecM(b)(f)
         }
+        case b: JsError                 => b
       }
     }
   }
 
 
+  // TODO expiry: delete
   implicit val jsResultMonadString: MonadString[JsResult] = MonadString[JsResult, JsError]
 
 

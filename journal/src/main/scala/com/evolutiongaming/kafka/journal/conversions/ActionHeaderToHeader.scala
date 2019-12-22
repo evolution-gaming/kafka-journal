@@ -22,7 +22,7 @@ object ActionHeaderToHeader {
         Header(ActionHeader.key, bytes.toArray)
       }
       result.handleErrorWith { cause =>
-        JournalError(s"ActionHeaderToHeader failed for $actionHeader: $cause", cause.some).raiseError[F, Header]
+        JournalError(s"ActionHeaderToHeader failed for $actionHeader: $cause", cause).raiseError[F, Header]
       }
     }
   }

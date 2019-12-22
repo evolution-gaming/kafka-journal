@@ -58,7 +58,7 @@ object PayloadToEvents {
           }
       }
       result.handleErrorWith { cause =>
-        JournalError(s"PayloadToEvents failed for $payloadAndType: $cause", cause.some).raiseError[F, Events]
+        JournalError(s"PayloadToEvents failed for $payloadAndType: $cause").raiseError[F, Events]
       }
     }
   }

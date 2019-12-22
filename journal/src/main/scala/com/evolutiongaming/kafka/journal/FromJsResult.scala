@@ -22,7 +22,7 @@ object FromJsResult {
 
     def apply[A](fa: JsResult[A]) = {
       fa.fold(
-        a => JournalError(s"FromJsResult failed: $a", JsResultException(a).some).raiseError[F, A],
+        a => JournalError(s"FromJsResult failed: $a", JsResultException(a)).raiseError[F, A],
         a => a.pure[F])
     }
   }

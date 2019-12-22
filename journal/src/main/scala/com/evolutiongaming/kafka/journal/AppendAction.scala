@@ -22,7 +22,7 @@ object AppendAction {
         partitionOffset <- producer.send(producerRecord)
       } yield partitionOffset
       partitionOffset.handleErrorWith { cause =>
-        val error = JournalError(s"failed to append $action", cause.some)
+        val error = JournalError(s"failed to append $action", cause)
         error.raiseError[F, PartitionOffset]
       }
     }

@@ -4,7 +4,7 @@ import cats.data.{NonEmptyList => Nel}
 import cats.effect.{Resource, Timer}
 import cats.implicits._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
-import com.evolutiongaming.kafka.journal.HeadCache.{Consumer, ConsumerRecordToKafkaRecord, KafkaRecord}
+import com.evolutiongaming.kafka.journal.HeadCache.{Consumer, ConsRecordToKafkaRecord, KafkaRecord}
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
@@ -21,7 +21,7 @@ object HeadCacheConsumption {
     pointers: F[Map[Partition, Offset]],
     consumer: Resource[F, Consumer[F]],
     log: Log[F])(implicit
-    consumerRecordToKafkaRecord: ConsumerRecordToKafkaRecord[F]
+    consRecordToKafkaRecord: ConsRecordToKafkaRecord[F]
   ): Stream[F, List[(Partition, Nel[KafkaRecord])]] = {
 
     def kafkaRecords(records: ConsRecords): F[List[(Partition, Nel[KafkaRecord])]] = {
@@ -31,7 +31,7 @@ object HeadCacheConsumption {
         .traverseFilter { case (partition, records) =>
           records
             .toList
-            .traverseFilter { record => consumerRecordToKafkaRecord(record).sequence }
+            .traverseFilter { record => consRecordToKafkaRecord(record).value }
             .map { records => records.toNel.map { records => (partition.partition, records) } }
         }
     }
