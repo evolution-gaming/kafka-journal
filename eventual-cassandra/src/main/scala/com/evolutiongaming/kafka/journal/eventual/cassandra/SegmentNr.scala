@@ -3,11 +3,10 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import cats.kernel.Eq
-import cats.{Order, Show}
+import cats.{Applicative, Id, Order, Show}
 import com.evolutiongaming.kafka.journal.SeqNr
-import com.evolutiongaming.kafka.journal.util.ApplicativeString
-import com.evolutiongaming.kafka.journal.util.OptionHelper._
-import com.evolutiongaming.kafka.journal.util.TryHelper._
+import com.evolutiongaming.kafka.journal.util.Fail
+import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
 
 import scala.util.Try
@@ -44,11 +43,11 @@ object SegmentNr {
   implicit val orderSegmentNr: Order[SegmentNr] = Order.fromOrdering
 
 
-  def of[F[_] : ApplicativeString](value: Long): F[SegmentNr] = {
+  def of[F[_] : Applicative : Fail](value: Long): F[SegmentNr] = {
     if (value < min.value) {
-      s"invalid SegmentNr of $value, it must be greater or equal to $min".raiseError[F, SegmentNr]
+      s"invalid SegmentNr of $value, it must be greater or equal to $min".fail[F, SegmentNr]
     } else if (value > max.value) {
-      s"invalid SegmentNr of $value, it must be less or equal to $max".raiseError[F, SegmentNr]
+      s"invalid SegmentNr of $value, it must be less or equal to $max".fail[F, SegmentNr]
     } else if (value === min.value) {
       min.pure[F]
     } else if (value === max.value) {
@@ -74,7 +73,7 @@ object SegmentNr {
   def opt(value: Long): Option[SegmentNr] = of[Option](value)
 
 
-  def unsafe[A](value: A)(implicit numeric: Numeric[A]): SegmentNr = of[Try](numeric.toLong(value)).get
+  def unsafe[A](value: A)(implicit numeric: Numeric[A]): SegmentNr = of[Id](numeric.toLong(value))
 
 
   implicit class SegmentNrOps(val self: SegmentNr) extends AnyVal {
