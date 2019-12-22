@@ -9,7 +9,6 @@ import cats.implicits._
 import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
-import com.evolutiongaming.kafka.journal.util.TryHelper._
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.smetrics.MeasureDuration
 import com.typesafe.config.Config
@@ -203,15 +202,15 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     f: PersistentRepr => Unit
   ): Future[Unit] = {
 
-    val seqNrFrom = SeqNr.of[Try](from) getOrElse SeqNr.min
-    val seqNrTo = SeqNr.of[Try](to) getOrElse SeqNr.max
+    val seqNrFrom = SeqNr.of[Option](from) getOrElse SeqNr.min
+    val seqNrTo = SeqNr.of[Option](to) getOrElse SeqNr.max
     val range = SeqRange(seqNrFrom, seqNrTo)
     val f1 = (a: PersistentRepr) => Future.fromTry(Try { f(a) })
     adapter.replay(persistenceId, range, max)(f1)
   }
 
   def asyncReadHighestSequenceNr(persistenceId: PersistenceId, from: Long): Future[Long] = {
-    val seqNr = SeqNr.of[Try](from) getOrElse SeqNr.min
+    val seqNr = SeqNr.of[Option](from) getOrElse SeqNr.min
     for {
       seqNr <- adapter.lastSeqNr(persistenceId, seqNr)
     } yield seqNr match {

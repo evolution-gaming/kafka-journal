@@ -11,7 +11,6 @@ import com.evolutiongaming.catshelper.{FromFuture, FromTry, Log, LogOf, Runtime,
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
 import com.evolutiongaming.kafka.journal.util._
-import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.Topic

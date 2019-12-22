@@ -6,7 +6,6 @@ import cats.{Monad, Parallel}
 import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.scassandra.{CassandraClusterOf, TableName}
 import com.evolutiongaming.skafka.Topic

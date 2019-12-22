@@ -157,7 +157,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
           import TryHelper._
           record.copy(
             timestamp = timestamp1,
-            event = record.event.copy(seqNr = record.seqNr.next[Try].get),
+            event = record.event.copy(seqNr = record.seqNr.next[Id]),
             partitionOffset = record.partitionOffset.copy(offset = record.partitionOffset.offset.inc[Try].get))
         }
 
@@ -203,7 +203,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
           import TryHelper._
           record.copy(
             timestamp = timestamp1,
-            event = record.event.copy(seqNr = record.seqNr.next[Try].get),
+            event = record.event.copy(seqNr = record.seqNr.next[Id]),
             partitionOffset = record.partitionOffset.copy(offset = record.partitionOffset.offset.inc[Try].get))
         }
 

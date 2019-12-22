@@ -5,6 +5,7 @@ import com.evolutiongaming.kafka.journal.JournalError
 
 import scala.util.Try
 
+// TODO expiry: remove
 object TryHelper {
 
   implicit val throwableToStr: ToStr[Throwable] = _.getMessage

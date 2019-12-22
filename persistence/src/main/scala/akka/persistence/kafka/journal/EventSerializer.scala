@@ -9,8 +9,6 @@ import com.evolutiongaming.catshelper.{FromTry, MonadThrowable}
 import com.evolutiongaming.kafka.journal.FromBytes.implicits._
 import com.evolutiongaming.kafka.journal.ToBytes.implicits._
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.util.ApplicativeString
-import com.evolutiongaming.kafka.journal.util.TryHelper._
 import play.api.libs.json.{JsString, JsValue, Json}
 import scodec.bits.ByteVector
 
@@ -46,8 +44,6 @@ object EventSerializer {
     serializer: SerializedMsgSerializer[F]
   ): EventSerializer[F] = {
 
-    val applicativeString = ApplicativeString[F, Throwable]
-    
     new EventSerializer[F] {
 
       def toEvent(persistentRepr: PersistentRepr) = {
@@ -81,7 +77,7 @@ object EventSerializer {
         }
         for {
           payload <- payload
-          seqNr   <- SeqNr.of[F](persistentRepr.sequenceNr)(applicativeString)
+          seqNr   <- SeqNr.of[F](persistentRepr.sequenceNr)
         } yield {
           Event(seqNr, tagged.tags, payload.some)
         }

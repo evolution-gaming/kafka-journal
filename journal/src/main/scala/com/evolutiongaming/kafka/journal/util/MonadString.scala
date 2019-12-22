@@ -4,6 +4,7 @@ import cats.MonadError
 import com.evolutiongaming.kafka.journal.util.FromStr.implicits._
 import com.evolutiongaming.kafka.journal.util.ToStr.implicits._
 
+// TODO expiry: remove
 object MonadString {
 
   def apply[F[_], E: ToStr : FromStr](implicit F: MonadError[F, E]): MonadString[F] = {

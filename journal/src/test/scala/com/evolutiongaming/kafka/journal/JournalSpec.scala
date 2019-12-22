@@ -13,7 +13,6 @@ import com.evolutiongaming.kafka.journal.conversions.{EventsToPayload, PayloadTo
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
-import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
 import com.evolutiongaming.sstream.Stream

@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal.util
 
 import cats.Functor
 
+// TODO expiry: remove
 trait FromStr[A] {
 
   def apply(a: String): A

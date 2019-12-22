@@ -7,6 +7,7 @@ import play.api.libs.json.{Format, Json}
 import scodec.bits.ByteVector
 import scodec.{Attempt, Codec, Err, codecs}
 
+import scala.annotation.tailrec
 import scala.util.Try
 
 object ScodecHelper {
@@ -35,6 +36,7 @@ object ScodecHelper {
 
       def flatMap[A, B](fa: Attempt[A])(f: A => Attempt[B]) = fa.flatMap(f)
 
+      @tailrec
       def tailRecM[A, B](a: A)(f: A => Attempt[Either[A, B]]): Attempt[B] = {
         f(a) match {
           case b: Failure                  => b
@@ -46,9 +48,6 @@ object ScodecHelper {
       }
     }
   }
-
-
-  implicit val attemptMonadString: MonadString[Attempt] = MonadString[Attempt, Attempt.Failure]
 
 
   def nelCodec[A](codec: Codec[List[A]]): Codec[Nel[A]] = {

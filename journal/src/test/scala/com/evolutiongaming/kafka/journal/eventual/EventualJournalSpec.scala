@@ -10,7 +10,6 @@ import cats.{Applicative, FlatMap, Monad}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}

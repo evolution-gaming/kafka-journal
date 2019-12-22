@@ -2,7 +2,6 @@ package com.evolutiongaming.kafka.journal
 
 import cats.implicits._
 import cats.{Foldable, Semigroup}
-import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.skafka.Offset
 
 

@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal.util
 
 import cats.implicits._
 
+// TODO expiry: remove
 object OptionHelper {
 
   implicit val optionToStr: ToStr[Unit] = _ => ""

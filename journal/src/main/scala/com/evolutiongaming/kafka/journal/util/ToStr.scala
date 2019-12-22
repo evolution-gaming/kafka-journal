@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal.util
 
 import cats.Contravariant
 
+// TODO expiry: remove
 trait ToStr[A] {
 
   def apply(a: A): String

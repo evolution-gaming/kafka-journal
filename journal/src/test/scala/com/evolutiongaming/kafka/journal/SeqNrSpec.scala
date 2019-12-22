@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 

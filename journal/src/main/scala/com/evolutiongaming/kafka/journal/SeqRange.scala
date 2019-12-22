@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.{Applicative, Id, Monad}
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.util.{ApplicativeString, MonadString}
-import com.evolutiongaming.kafka.journal.util.OptionHelper._
+import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.TryHelper._
 import play.api.libs.json.{Json, OFormat}
 
@@ -58,7 +58,7 @@ object SeqRange {
   def apply(value: SeqNr): SeqRange = SeqRange(value, value)
 
 
-  def of[F[_] : ApplicativeString](value: Long): F[SeqRange] = {
+  def of[F[_] : Applicative : Fail](value: Long): F[SeqRange] = {
     for {
       seqNr <- SeqNr.of[F](value)
     } yield {
@@ -66,7 +66,7 @@ object SeqRange {
     }
   }
 
-  def of[F[_] : MonadString](from: Long, to: Long): F[SeqRange] = {
+  def of[F[_] : Monad : Fail](from: Long, to: Long): F[SeqRange] = {
     for {
       from <- SeqNr.of[F](from)
       to   <- SeqNr.of[F](to)
@@ -77,10 +77,10 @@ object SeqRange {
   
 
   def unsafe[A](value: A)(implicit numeric: Numeric[A]): SeqRange = {
-    of[Try](numeric.toLong(value)).get
+    of[Id](numeric.toLong(value))
   }
 
   def unsafe[A](from: A, to: A)(implicit numeric: Numeric[A]): SeqRange = {
-    of[Try](from = numeric.toLong(from), to = numeric.toLong(to)).get
+    of[Id](from = numeric.toLong(from), to = numeric.toLong(to))
   }
 }

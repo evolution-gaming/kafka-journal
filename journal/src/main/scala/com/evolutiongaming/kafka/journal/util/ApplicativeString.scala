@@ -4,6 +4,7 @@ import cats.ApplicativeError
 import com.evolutiongaming.kafka.journal.util.FromStr.implicits._
 import com.evolutiongaming.kafka.journal.util.ToStr.implicits._
 
+// TODO expiry: remove
 object ApplicativeString {
 
   def apply[F[_], E: ToStr : FromStr](implicit F: ApplicativeError[F, E]): ApplicativeString[F] = {

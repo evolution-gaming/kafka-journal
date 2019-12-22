@@ -13,7 +13,6 @@ import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, Co
 import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, ReplicatedKeyJournal, ReplicatedTopicJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
-import com.evolutiongaming.kafka.journal.util.OptionHelper._
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.sstream.Stream

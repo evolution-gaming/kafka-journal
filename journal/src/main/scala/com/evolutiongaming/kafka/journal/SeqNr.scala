@@ -1,13 +1,12 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.Show
+import cats.{Applicative, Id, MonadError, Show}
 import cats.implicits._
 import cats.kernel.{Eq, Order}
-import com.evolutiongaming.kafka.journal.util.ApplicativeString
-import com.evolutiongaming.kafka.journal.util.OptionHelper._
-import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
+import com.evolutiongaming.kafka.journal.util.{ApplicativeString, Fail}
+import com.evolutiongaming.kafka.journal.util.PlayJsonHelper.{jsResultMonadString => _, _} // TODO expiry: remove
 import com.evolutiongaming.kafka.journal.util.ScodecHelper._
-import com.evolutiongaming.kafka.journal.util.TryHelper._
+import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 import com.evolutiongaming.scassandra._
 import play.api.libs.json._
 import scodec.{Attempt, Codec, codecs}
@@ -38,12 +37,12 @@ object SeqNr {
 
   implicit val encodeByNameSeqNr: EncodeByName[SeqNr] = EncodeByName[Long].contramap((seqNr: SeqNr) => seqNr.value)
 
-  implicit val decodeByNameSeqNr: DecodeByName[SeqNr] = DecodeByName[Long].map(value => SeqNr.of[Try](value).get)
+  implicit val decodeByNameSeqNr: DecodeByName[SeqNr] = DecodeByName[Long].map(value => SeqNr.of[Id](value))
 
 
   implicit val encodeByIdxSeqNr: EncodeByIdx[SeqNr] = EncodeByIdx[Long].contramap((seqNr: SeqNr) => seqNr.value)
 
-  implicit val decodeByIdxSeqNr: DecodeByIdx[SeqNr] = DecodeByIdx[Long].map(value => SeqNr.of[Try](value).get)
+  implicit val decodeByIdxSeqNr: DecodeByIdx[SeqNr] = DecodeByIdx[Long].map(value => SeqNr.of[Id](value))
 
 
   implicit val encodeByNameOptSeqNr: EncodeByName[Option[SeqNr]] = EncodeByName.optEncodeByName[SeqNr]
@@ -51,7 +50,7 @@ object SeqNr {
   implicit val decodeByNameOptSeqNr: DecodeByName[Option[SeqNr]] = DecodeByName[Option[Long]].map { value =>
     for {
       a <- value
-      a <- SeqNr.of[Option](a)
+      a <- SeqNr.opt(a)
     } yield a
   }
 
@@ -73,11 +72,11 @@ object SeqNr {
   }
 
 
-  def of[F[_] : ApplicativeString](value: Long): F[SeqNr] = {
+  def of[F[_] : Applicative : Fail](value: Long): F[SeqNr] = {
     if (value < min.value) {
-      s"invalid SeqNr of $value, it must be greater or equal to $min".raiseError[F, SeqNr]
+      s"invalid SeqNr of $value, it must be greater or equal to $min".fail[F, SeqNr]
     } else if (value > max.value) {
-      s"invalid SeqNr of $value, it must be less or equal to $max".raiseError[F, SeqNr]
+      s"invalid SeqNr of $value, it must be less or equal to $max".fail[F, SeqNr]
     } else if (value === min.value) {
       min.pure[F]
     } else if (value === max.value) {
@@ -96,15 +95,15 @@ object SeqNr {
 
   implicit class SeqNrOps(val self: SeqNr) extends AnyVal {
 
-    def next[F[_] : ApplicativeString]: F[SeqNr] = map[F](_ + 1L)
+    def next[F[_] : Applicative : Fail]: F[SeqNr] = map[F](_ + 1L)
 
-    def prev[F[_] : ApplicativeString]: F[SeqNr] = map[F](_ - 1L)
+    def prev[F[_] : Applicative : Fail]: F[SeqNr] = map[F](_ - 1L)
 
     def in(range: SeqRange): Boolean = range contains self
 
     def to(seqNr: SeqNr): SeqRange = SeqRange(self, seqNr)
 
-    def map[F[_] : ApplicativeString](f: Long => Long): F[SeqNr] = SeqNr.of[F](f(self.value))
+    def map[F[_] : Applicative : Fail](f: Long => Long): F[SeqNr] = SeqNr.of[F](f(self.value))
 
     def toDeleteTo: DeleteTo = DeleteTo(self)
   }
