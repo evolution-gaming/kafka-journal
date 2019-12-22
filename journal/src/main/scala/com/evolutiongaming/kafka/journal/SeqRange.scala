@@ -4,11 +4,9 @@ import cats.{Applicative, Id, Monad}
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.TryHelper._
 import play.api.libs.json.{Json, OFormat}
 
 import scala.annotation.tailrec
-import scala.util.Try
 
 // TODO refactor the way SeqNr done
 final case class SeqRange(from: SeqNr, to: SeqNr) {

@@ -9,7 +9,7 @@ import cats.implicits._
 import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
-import com.evolutiongaming.kafka.journal.util.{BracketFromMonadError, TryHelper}
+import com.evolutiongaming.kafka.journal.util.BracketFromMonadError
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.sstream.FoldWhile._
@@ -154,7 +154,6 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
         val key = Key(id = id, topic = topic0)
         val segment = segmentOf(key)
         val record1 = {
-          import TryHelper._
           record.copy(
             timestamp = timestamp1,
             event = record.event.copy(seqNr = record.seqNr.next[Id]),
@@ -200,7 +199,6 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
         val id = "id"
         val key = Key(id = id, topic = topic0)
         val record1 = {
-          import TryHelper._
           record.copy(
             timestamp = timestamp1,
             event = record.event.copy(seqNr = record.seqNr.next[Id]),

@@ -31,6 +31,9 @@ object Fail {
   }
 
 
+  // TODO expiry: implement for try
+  
+
   def apply[F[_]](implicit F: Fail[F]): Fail[F] = F
 
 

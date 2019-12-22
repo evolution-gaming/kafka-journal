@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.{Applicative, Id, MonadError, Show}
+import cats.{Applicative, Id, Show}
 import cats.implicits._
 import cats.kernel.{Eq, Order}
-import com.evolutiongaming.kafka.journal.util.{ApplicativeString, Fail}
+import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.PlayJsonHelper.{jsResultMonadString => _, _} // TODO expiry: remove
 import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import com.evolutiongaming.kafka.journal.util.Fail.implicits._
