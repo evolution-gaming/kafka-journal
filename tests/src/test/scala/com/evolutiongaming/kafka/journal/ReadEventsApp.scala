@@ -6,6 +6,7 @@ import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.evolutiongaming.catshelper.{FromFuture, FromTry, Log, LogOf, ToFuture, ToTry}
 import com.evolutiongaming.kafka.journal.eventual.cassandra._
+import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.scassandra.{AuthenticationConfig, CassandraClusterOf, CassandraConfig}
 import com.evolutiongaming.skafka.CommonConfig
@@ -24,7 +25,7 @@ object ReadEventsApp extends IOApp {
     runF[IO](executor).as(ExitCode.Success)
   }
 
-  private def runF[F[_] : ConcurrentEffect : ContextShift : Timer : Clock : FromFuture : ToFuture : Parallel : FromGFuture : FromTry : ToTry](
+  private def runF[F[_] : ConcurrentEffect : ContextShift : Timer : Clock : FromFuture : ToFuture : Parallel : FromGFuture : FromTry : ToTry : Fail](
     executor: ExecutionContextExecutor,
   ): F[Unit] = {
 
@@ -44,7 +45,7 @@ object ReadEventsApp extends IOApp {
 
   }
 
-  private def runF[F[_] : ConcurrentEffect : ContextShift : Timer : Clock : FromFuture : ToFuture : Parallel : LogOf : FromGFuture : MeasureDuration : FromTry : ToTry : FromAttempt : FromJsResult](
+  private def runF[F[_] : ConcurrentEffect : ContextShift : Timer : Clock : FromFuture : ToFuture : Parallel : LogOf : FromGFuture : MeasureDuration : FromTry : ToTry : FromAttempt : FromJsResult : Fail](
     executor: ExecutionContextExecutor,
     log: Log[F],
   ): F[Unit] = {

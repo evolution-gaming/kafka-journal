@@ -34,7 +34,7 @@ trait Replicator[F[_]] {
 
 object Replicator {
 
-  def of[F[_] : Concurrent : Timer : Parallel : FromFuture : ToFuture : LogOf : KafkaConsumerOf : FromGFuture : MeasureDuration : FromTry](
+  def of[F[_] : Concurrent : Timer : Parallel : FromFuture : ToFuture : LogOf : KafkaConsumerOf : FromGFuture : MeasureDuration : FromTry : Fail](
     config: ReplicatorConfig,
     cassandraClusterOf: CassandraClusterOf[F],
     hostName: Option[HostName],
@@ -57,7 +57,7 @@ object Replicator {
     } yield result
   }
 
-  def of[F[_] : Concurrent : Timer : Parallel : LogOf : KafkaConsumerOf : MeasureDuration : FromTry : Runtime](
+  def of[F[_] : Concurrent : Timer : Parallel : LogOf : KafkaConsumerOf : MeasureDuration : FromTry : Runtime : Fail](
     config: ReplicatorConfig,
     metrics: Option[Metrics[F]],
     journal: ReplicatedJournal[F],

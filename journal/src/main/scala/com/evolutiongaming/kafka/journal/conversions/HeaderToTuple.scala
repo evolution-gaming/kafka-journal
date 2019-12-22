@@ -18,14 +18,11 @@ object HeaderToTuple {
   ): HeaderToTuple[F] = {
     header: Header => {
       val bytes = ByteVector.view(header.value)
-      val result = for {
-        value <- stringFromBytes(bytes)
-      } yield {
-        (header.key, value)
-      }
-      result.handleErrorWith { cause =>
-        JournalError(s"HeaderToTuple failed for $header: $cause").raiseError[F, (String, String)]
-      }
+      stringFromBytes(bytes)
+        .map { value => (header.key, value) }
+        .handleErrorWith { cause =>
+          JournalError(s"HeaderToTuple failed for $header: $cause", cause).raiseError[F, (String, String)]
+        }
     }
   }
 }

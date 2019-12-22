@@ -15,7 +15,7 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.conversions.{ConsRecordToActionRecord, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.catshelper.DataHelper._
-import com.evolutiongaming.kafka.journal.util.ResourceOf
+import com.evolutiongaming.kafka.journal.util.{Fail, ResourceOf}
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Bytes => _, _}
@@ -29,7 +29,7 @@ import scala.util.Try
 
 object TopicReplicator {
 
-  def of[F[_] : Concurrent : Timer : Parallel : LogOf : FromTry : MeasureDuration](
+  def of[F[_] : Concurrent : Timer : Parallel : LogOf : FromTry : MeasureDuration : Fail](
     topic: Topic,
     journal: ReplicatedJournal[F],
     consumer: Resource[F, TopicConsumer[F]],

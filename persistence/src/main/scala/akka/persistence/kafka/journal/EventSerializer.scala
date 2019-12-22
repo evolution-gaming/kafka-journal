@@ -4,9 +4,11 @@ import akka.actor.ActorSystem
 import akka.persistence.PersistentRepr
 import cats.effect.Sync
 import cats.implicits._
-import cats.{Applicative, ~>}
-import com.evolutiongaming.catshelper.{FromTry, MonadThrowable}
+import cats.{Applicative, Monad, ~>}
+import com.evolutiongaming.catshelper.FromTry
 import com.evolutiongaming.kafka.journal.FromBytes.implicits._
+import com.evolutiongaming.kafka.journal.util.Fail
+import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 import com.evolutiongaming.kafka.journal.ToBytes.implicits._
 import com.evolutiongaming.kafka.journal._
 import play.api.libs.json.{JsString, JsValue, Json}
@@ -32,6 +34,7 @@ object EventSerializer {
 
 
   def of[F[_] : Sync : FromTry : FromAttempt : FromJsResult](system: ActorSystem): F[EventSerializer[F]] = {
+    implicit val fail = Fail.lift[F]
     for {
       serializedMsgSerializer <- SerializedMsgSerializer.of[F](system)
     } yield {
@@ -40,7 +43,7 @@ object EventSerializer {
   }
   
 
-  def apply[F[_] : MonadThrowable : FromAttempt : FromJsResult](
+  def apply[F[_] : Monad : FromAttempt : FromJsResult : Fail](
     serializer: SerializedMsgSerializer[F]
   ): EventSerializer[F] = {
 
@@ -85,11 +88,6 @@ object EventSerializer {
 
       def toPersistentRepr(persistenceId: PersistenceId, event: Event) = {
 
-        def error[A](msg: String) = {
-          val error = JournalError(msg)
-          error.raiseError[F, A]
-        }
-
         def persistentRepr(payload: AnyRef, writerUuid: String, manifest: Option[String]) = {
           PersistentRepr(
             payload = payload,
@@ -128,7 +126,7 @@ object EventSerializer {
         }
 
         val payload = event.payload.fold {
-          error[Payload](s"Event.payload is not defined, persistenceId: $persistenceId, event: $event")
+          s"Event.payload is not defined, persistenceId: $persistenceId, event: $event".fail[F, Payload]
         } {
           _.pure[F]
         }
@@ -137,7 +135,7 @@ object EventSerializer {
           payload        <- payload
           persistentRepr <- payload match {
             case p: Payload.Binary => binary(p.value)
-            case _: Payload.Text   => error[PersistentRepr](s"Payload.Text is not supported, persistenceId: $persistenceId, event: $event")
+            case _: Payload.Text   => s"Payload.Text is not supported, persistenceId: $persistenceId, event: $event".fail[F, PersistentRepr]
             case p: Payload.Json   => json(p.value)
           }
         } yield persistentRepr

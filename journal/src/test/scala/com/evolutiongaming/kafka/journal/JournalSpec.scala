@@ -11,7 +11,7 @@ import com.evolutiongaming.catshelper.{FromTry, Log}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.conversions.{EventsToPayload, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
-import com.evolutiongaming.kafka.journal.util.ConcurrentOf
+import com.evolutiongaming.kafka.journal.util.{ConcurrentOf, Fail}
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
@@ -476,6 +476,7 @@ object JournalSpec {
       implicit val randomIdOf = RandomIdOf.uuid[F]
       implicit val measureDuration = MeasureDuration.fromClock(clock)
       implicit val fromTry = FromTry.lift[F]
+      implicit val fail = Fail.lift[F]
       implicit val fromAttempt = FromAttempt.lift[F]
       implicit val fromJsResult = FromJsResult.lift[F]
       val log = Log.empty[F]

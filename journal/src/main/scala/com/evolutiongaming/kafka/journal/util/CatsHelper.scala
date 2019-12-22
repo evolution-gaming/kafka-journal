@@ -5,9 +5,8 @@ import cats.effect._
 import cats.implicits._
 import cats.kernel.CommutativeMonoid
 import cats.{Applicative, CommutativeApplicative}
-import com.evolutiongaming.catshelper.ApplicativeThrowable
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.kafka.journal.JournalError
+import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 
 import scala.concurrent.ExecutionContext
 
@@ -64,9 +63,9 @@ object CatsHelper {
 
   implicit class OptionOpsCatsHelper[A](val self: Option[A]) extends AnyVal {
 
-    def getOrError[F[_]: ApplicativeThrowable](name: => String): F[A] = {
+    def getOrError[F[_]: Applicative : Fail](name: => String): F[A] = {
       self.fold {
-        JournalError(s"$name is not defined").raiseError[F, A]
+        s"$name is not defined".fail[F, A]
       } { a =>
         a.pure[F]
       }

@@ -36,7 +36,7 @@ object AppendReplicateApp extends IOApp {
   }
 
 
-  private def runF[F[_] : ConcurrentEffect : Timer : Parallel : ContextShift : FromFuture : ToFuture : Runtime : FromGFuture : MeasureDuration : FromTry : ToTry](
+  private def runF[F[_] : ConcurrentEffect : Timer : Parallel : ContextShift : FromFuture : ToFuture : Runtime : FromGFuture : MeasureDuration : FromTry : ToTry : Fail](
     topic: Topic)(implicit
     system: ActorSystem,
   ): F[Unit] = {

@@ -8,7 +8,7 @@ import com.evolutiongaming.catshelper.{FromFuture, FromTry, Log, LogOf, Runtime,
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
-import com.evolutiongaming.kafka.journal.util.Executors
+import com.evolutiongaming.kafka.journal.util.{Executors, Fail}
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.consumer.ConsumerMetrics
@@ -33,7 +33,7 @@ trait JournalAdapter[F[_]] {
 
 object JournalAdapter {
 
-  def of[F[_] : ConcurrentEffect : ContextShift : FromFuture : ToFuture : Parallel : Timer : LogOf : Runtime : RandomIdOf : FromGFuture : MeasureDuration : ToTry : FromTry : FromAttempt : FromJsResult](
+  def of[F[_] : ConcurrentEffect : ContextShift : FromFuture : ToFuture : Parallel : Timer : LogOf : Runtime : RandomIdOf : FromGFuture : MeasureDuration : ToTry : FromTry : FromAttempt : FromJsResult : Fail](
     toKey: ToKey[F],
     origin: Option[Origin],
     serializer: EventSerializer[F],

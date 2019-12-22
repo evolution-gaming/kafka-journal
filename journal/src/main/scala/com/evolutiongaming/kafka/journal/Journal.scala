@@ -9,6 +9,8 @@ import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MonadThrowable}
 import com.evolutiongaming.kafka.journal.conversions.{EventsToPayload, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
+import com.evolutiongaming.kafka.journal.util.Fail
+import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.skafka
@@ -80,7 +82,7 @@ object Journal {
   }
 
 
-  def of[F[_] : Concurrent : Timer : Parallel : LogOf : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomIdOf : MeasureDuration : FromTry](
+  def of[F[_] : Concurrent : Timer : Parallel : LogOf : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomIdOf : MeasureDuration : FromTry : Fail](
     config: JournalConfig,
     origin: Option[Origin],
     eventualJournal: EventualJournal[F],
@@ -116,7 +118,7 @@ object Journal {
   }
 
 
-  def apply[F[_] : Concurrent : Parallel : Clock : RandomIdOf : FromTry](
+  def apply[F[_] : Concurrent : Parallel : Clock : RandomIdOf : FromTry : Fail](
     origin: Option[Origin],
     producer: Producer[F],
     consumer: Resource[F, Consumer[F]],
@@ -124,7 +126,6 @@ object Journal {
     headCache: HeadCache[F],
     log: Log[F]
   ): Journal[F] = {
-
     implicit val fromAttempt = FromAttempt.lift[F]
     implicit val fromJsResult = FromJsResult.lift[F]
 
@@ -477,7 +478,7 @@ object Journal {
 
   object Producer {
 
-    def of[F[_] : MonadThrowable : KafkaProducerOf : FromTry](config: ProducerConfig): Resource[F, Producer[F]] = {
+    def of[F[_] : Monad : KafkaProducerOf : FromTry : Fail](config: ProducerConfig): Resource[F, Producer[F]] = {
 
       val acks = config.acks match {
         case Acks.None => Acks.One
@@ -500,7 +501,7 @@ object Journal {
       }
     }
 
-    def apply[F[_] : MonadThrowable : FromTry](
+    def apply[F[_] : Monad : FromTry : Fail](
       producer: KafkaProducer[F]
     )(implicit
       toBytesKey: skafka.ToBytes[F, String],
@@ -511,8 +512,7 @@ object Journal {
           metadata  <- producer.send(record)(toBytesKey, toBytesValue)
           partition  = metadata.topicPartition.partition
           offset    <- metadata.offset.fold {
-            val error = JournalError("metadata.offset is missing, make sure ProducerConfig.acks set to One or All")
-            error.raiseError[F, Offset]
+            "metadata.offset is missing, make sure ProducerConfig.acks set to One or All".fail[F, Offset]
           } {
             _.pure[F]
           }

@@ -19,7 +19,7 @@ import scala.concurrent.ExecutionContext
 
 object IntegrationSuite {
 
-  def startF[F[_] : Concurrent : Timer : Parallel : FromFuture : ToFuture : ContextShift : LogOf : Runtime : MeasureDuration : FromTry : ToTry](
+  def startF[F[_] : Concurrent : Timer : Parallel : FromFuture : ToFuture : ContextShift : LogOf : Runtime : MeasureDuration : FromTry : ToTry : Fail](
     cassandraClusterOf: CassandraClusterOf[F]
   ): Resource[F, Unit] = {
 

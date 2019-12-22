@@ -11,6 +11,7 @@ import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
+import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
@@ -25,7 +26,7 @@ import scala.util.Try
 trait EventualJournalSpec extends AnyWordSpec with Matchers {
   import EventualJournalSpec._
 
-  def test[F[_] : BracketThrowable](withJournals: (Journals[F] => F[Assertion]) => F[Assertion]): Unit = {
+  def test[F[_] : BracketThrowable : Fail](withJournals: (Journals[F] => F[Assertion]) => F[Assertion]): Unit = {
 
     val withJournals1 = (key: Key, timestamp: Instant) => {
 
@@ -57,7 +58,7 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
     test1(withJournals1)
   }
 
-  private def test1[F[_] : MonadThrowable](
+  private def test1[F[_] : MonadThrowable : Fail](
     withJournals: (Key, Instant) => ((Eventual[F], Replicated[F]) => F[Assertion]) => F[Assertion]
   ): Unit = {
 

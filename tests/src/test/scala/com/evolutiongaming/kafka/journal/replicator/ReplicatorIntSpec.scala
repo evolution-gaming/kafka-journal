@@ -13,7 +13,7 @@ import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
-import com.evolutiongaming.kafka.journal.util.ActorSystemOf
+import com.evolutiongaming.kafka.journal.util.{ActorSystemOf, Fail}
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
 import com.evolutiongaming.retry.{Retry, Strategy}
 import com.evolutiongaming.scassandra.CassandraClusterOf
@@ -40,7 +40,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
   private implicit val randomIdOf = RandomIdOf.uuid[IO]
 
-  private def resources[F[_] : ConcurrentEffect : LogOf : Parallel : FromFuture : Timer : ToFuture : ContextShift : RandomIdOf : MeasureDuration : FromTry : ToTry](
+  private def resources[F[_] : ConcurrentEffect : LogOf : Parallel : FromFuture : Timer : ToFuture : ContextShift : RandomIdOf : MeasureDuration : FromTry : ToTry : Fail](
     cassandraClusterOf: CassandraClusterOf[F]
   ) = {
 

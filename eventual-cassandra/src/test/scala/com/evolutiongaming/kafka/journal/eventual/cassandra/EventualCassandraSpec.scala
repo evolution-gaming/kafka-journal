@@ -10,7 +10,7 @@ import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualJournalSpec, ReplicatedJournal, TopicPointers}
-import com.evolutiongaming.kafka.journal.util.{BracketFromMonadError, ConcurrentOf}
+import com.evolutiongaming.kafka.journal.util.{BracketFromMonadError, ConcurrentOf, Fail}
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.sstream.FoldWhile._
 import com.evolutiongaming.sstream.Stream
@@ -74,7 +74,7 @@ object EventualCassandraSpec {
   }
 
 
-  implicit val bracket: BracketThrowable[StateT] = new BracketFromMonadError[StateT, Throwable] {
+  implicit val bracketStateT: BracketThrowable[StateT] = new BracketFromMonadError[StateT, Throwable] {
 
     val F = IndexedStateT.catsDataMonadErrorForIndexedStateT(catsStdInstancesForTry)
 
@@ -96,9 +96,12 @@ object EventualCassandraSpec {
       } yield b
     }
   }
+
+
+  implicit val failStateT: Fail[StateT] = Fail.lift[StateT]
   
 
-  implicit val parallel: Parallel[StateT] = Parallel.identity[StateT]
+  implicit val parallelStateT: Parallel[StateT] = Parallel.identity[StateT]
 
 
   def eventualJournalOf(segmentOf: SegmentOf[StateT]): EventualJournal[StateT] = {

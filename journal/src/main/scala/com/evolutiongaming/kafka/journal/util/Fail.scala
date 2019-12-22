@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.Id
+import cats.effect.IO
 import cats.implicits._
 import com.evolutiongaming.catshelper.ApplicativeThrowable
 import com.evolutiongaming.kafka.journal.JournalError
@@ -42,13 +43,11 @@ object Fail {
   implicit val tryFail: Fail[Try] = new Fail[Try] {
     def fail[A](a: String) = Failure(JournalError(a))
   }
+  
+  implicit val ioFail: Fail[IO] = lift[IO]
 
 
-  // TODO expiry: implement for try
-
-
-
-  implicit def fromApplicativeThrowable[F[_] : ApplicativeThrowable]: Fail[F] = {
+  def lift[F[_] : ApplicativeThrowable]: Fail[F] = {
     new Fail[F] {
       def fail[A](a: String) = JournalError(a).raiseError[F, A]
     }

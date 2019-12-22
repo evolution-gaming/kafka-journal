@@ -12,7 +12,7 @@ import com.evolutiongaming.kafka.journal.{ConsRecords, _}
 import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsRecordToActionRecord, EventsToPayload, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual.{ReplicatedJournal, ReplicatedKeyJournal, ReplicatedTopicJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
-import com.evolutiongaming.kafka.journal.util.ConcurrentOf
+import com.evolutiongaming.kafka.journal.util.{ConcurrentOf, Fail}
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.sstream.Stream
@@ -862,7 +862,7 @@ object TopicReplicatorSpec {
   }
 
 
-  implicit val parallel: Parallel[StateT] = Parallel.identity[StateT]
+  implicit val parallelStateT: Parallel[StateT] = Parallel.identity[StateT]
 
 
   implicit val metrics: TopicReplicator.Metrics[StateT] = new TopicReplicator.Metrics[StateT] {
@@ -904,6 +904,7 @@ object TopicReplicatorSpec {
   val topicReplicator: StateT[Unit] = {
     val millis = timestamp.toEpochMilli + replicationLatency.toMillis
     implicit val concurrent = ConcurrentOf.fromMonad[StateT]
+    implicit val fail = Fail.lift[StateT]
     implicit val fromTry = FromTry.lift[StateT]
     implicit val fromAttempt = FromAttempt.lift[StateT]
     implicit val fromJsResult = FromJsResult.lift[StateT]

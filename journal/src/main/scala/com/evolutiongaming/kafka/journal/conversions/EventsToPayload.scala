@@ -47,8 +47,8 @@ object EventsToPayload {
         events match {
           case Nil          => result.reverse
           case head :: tail => eventJson(head) match {
-            case None    => List.empty[EventJson]
             case Some(x) => eventJsons(tail, x :: result)
+            case None    => List.empty[EventJson]
           }
         }
       }
