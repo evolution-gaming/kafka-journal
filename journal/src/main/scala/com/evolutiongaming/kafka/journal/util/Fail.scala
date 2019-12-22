@@ -7,12 +7,17 @@ import com.evolutiongaming.kafka.journal.JournalError
 import play.api.libs.json.{JsError, JsResult}
 import scodec.{Attempt, Err}
 
+import scala.util.{Failure, Try}
+
 trait Fail[F[_]] {
 
   def fail[A](a: String): F[A]
 }
 
 object Fail {
+
+  def apply[F[_]](implicit F: Fail[F]): Fail[F] = F
+  
 
   implicit val idFail: Fail[Id] = new Fail[Id] {
     def fail[A](a: String) = throw JournalError(a)
@@ -30,11 +35,17 @@ object Fail {
     def fail[A](a: String) = none[A]
   }
 
+  implicit val eitherFail: Fail[Either[String, *]] = new Fail[Either[String, *]] {
+    def fail[A](a: String) = a.asLeft[A]
+  }
+
+  implicit val tryFail: Fail[Try] = new Fail[Try] {
+    def fail[A](a: String) = Failure(JournalError(a))
+  }
+
 
   // TODO expiry: implement for try
-  
 
-  def apply[F[_]](implicit F: Fail[F]): Fail[F] = F
 
 
   implicit def fromApplicativeThrowable[F[_] : ApplicativeThrowable]: Fail[F] = {

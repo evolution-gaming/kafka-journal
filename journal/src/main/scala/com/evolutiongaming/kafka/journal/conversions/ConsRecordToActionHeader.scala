@@ -22,7 +22,7 @@ object ConsRecordToActionHeader {
     consRecord: ConsRecord => {
       def header = consRecord
         .headers
-        .find { _.key == ActionHeader.key }
+        .find { _.key === ActionHeader.key }
 
       def actionHeader(header: Header) = {
         val byteVector = ByteVector.view(header.value)

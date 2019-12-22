@@ -4,14 +4,13 @@ import cats.{Applicative, Id, Show}
 import cats.implicits._
 import cats.kernel.{Eq, Order}
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.PlayJsonHelper.{jsResultMonadString => _, _} // TODO expiry: remove
+import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
 import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 import com.evolutiongaming.scassandra._
 import play.api.libs.json._
 import scodec.{Attempt, Codec, codecs}
 
-import scala.util.Try
 
 sealed abstract case class SeqNr(value: Long) {
 
@@ -90,7 +89,7 @@ object SeqNr {
   def opt(value: Long): Option[SeqNr] = of[Option](value)
 
 
-  def unsafe[A](value: A)(implicit numeric: Numeric[A]): SeqNr = of[Try](numeric.toLong(value)).get
+  def unsafe[A](value: A)(implicit numeric: Numeric[A]): SeqNr = of[Id](numeric.toLong(value))
 
 
   implicit class SeqNrOps(val self: SeqNr) extends AnyVal {

@@ -117,7 +117,7 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
             val sender = this.sender()
             val last = events.last
             persistAll(events.toList) { event =>
-              if (event == last) sender.tell(event, self)
+              if (event === last) sender.tell(event, self)
             }
         }
       }

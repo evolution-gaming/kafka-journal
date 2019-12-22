@@ -22,11 +22,6 @@ object PlayJsonHelper {
   implicit val jsValueOptDecodeByName: DecodeByName[Option[JsValue]] = DecodeByName.optDecodeByName
 
 
-  implicit val jsErrorFromStr: FromStr[JsError] = JsError(_)
-
-  implicit val jsErrorToStr: ToStr[JsError] = _.errors.toString()
-
-
   implicit val jsResultMonadError: MonadError[JsResult, JsError] = new MonadError[JsResult, JsError] {
 
     def raiseError[A](a: JsError) = a
@@ -53,10 +48,6 @@ object PlayJsonHelper {
       }
     }
   }
-
-
-  // TODO expiry: delete
-  implicit val jsResultMonadString: MonadString[JsResult] = MonadString[JsResult, JsError]
 
 
   implicit def nelReads[T](implicit reads: Reads[List[T]]): Reads[Nel[T]] = {

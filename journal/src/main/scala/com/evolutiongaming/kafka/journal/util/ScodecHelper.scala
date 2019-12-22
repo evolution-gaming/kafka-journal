@@ -12,11 +12,6 @@ import scala.util.Try
 
 object ScodecHelper {
 
-  implicit val attemptFailureFromStr: FromStr[Attempt.Failure] = (a: String) => Attempt.Failure(Err(a))
-
-  implicit val attemptFailureToStr: ToStr[Attempt.Failure] = (a: Attempt.Failure) => a.cause.messageWithContext
-
-
   implicit val attemptMonadError: MonadError[Attempt, Attempt.Failure] = {
 
     import Attempt._

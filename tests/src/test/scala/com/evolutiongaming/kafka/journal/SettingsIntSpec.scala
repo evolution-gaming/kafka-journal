@@ -95,7 +95,7 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
           settings <- settings.all.toList
         } yield for {
           setting  <- settings
-          if setting.key != "schema-version"
+          if setting.key =!= "schema-version"
         } yield {
           fix(setting)
         }

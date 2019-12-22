@@ -30,7 +30,7 @@ object ConsRecordToActionRecord {
             .value
             .traverse { value =>
               val headers = consRecord.headers
-                .filter { _.key != ActionHeader.key }
+                .filter { _.key =!= ActionHeader.key }
                 .traverse { header => headerToTuple(header) }
 
               for {

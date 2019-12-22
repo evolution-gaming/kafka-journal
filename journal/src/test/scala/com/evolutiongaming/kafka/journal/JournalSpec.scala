@@ -369,7 +369,9 @@ class JournalSpec extends AnyWordSpec with Matchers {
                 } yield {
                   state.replicatedState(action, Offset.of[Try](offset.value - n) getOrElse Offset.min)
                 }
-                val state1 = state.copy(records = records, replicatedState = replicatedState getOrElse state.replicatedState)
+                val state1 = state.copy(
+                  records = records,
+                  replicatedState = replicatedState getOrElse state.replicatedState)
                 (state1, partitionOffset)
               }
             }
