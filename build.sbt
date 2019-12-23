@@ -85,7 +85,8 @@ lazy val persistence = (project in file("persistence")
   settings (libraryDependencies ++= Seq(
     `akka-serialization`,
     `cats-helper`,
-    Akka.persistence)))
+    Akka.persistence,
+    `akka-test-actor` % Test)))
 
 lazy val `tests` = (project in file("tests")
   settings (name := "kafka-journal-tests")

@@ -41,12 +41,12 @@ class EventSerializerSpec extends AsyncFunSuite with ActorSuite with Matchers {
         _          <- Sync[IO].delay { actual shouldEqual persistentRepr }
         payload    <- event.payload.getOrError[IO]("Event.payload is not defined")
         _           = payload.payloadType shouldEqual payloadType
-        bytes      <- ByteVectorOf[IO](getClass, name)
-        /*_ <- payload match {
+        /*_          <- payload match {
           case a: Payload.Binary => writeToFile(a.value, name)
-          case _: Payload.Text   => ().pure[IO]
-          case _: Payload.Json   => ().pure[IO]
+          case _: Payload.Text   => IO.unit
+          case _: Payload.Json   => IO.unit
         }*/
+        bytes      <- ByteVectorOf[IO](getClass, name)
       } yield {
         payload match {
           case payload: Payload.Binary => payload.value shouldEqual bytes
