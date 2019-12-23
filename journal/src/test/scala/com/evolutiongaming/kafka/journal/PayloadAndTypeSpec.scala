@@ -26,31 +26,49 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
 
   for {
     (name, payloadType, events) <- List(
-      ("empty", PayloadType.Json, Events(Nel.of(
-        event(1)))),
-      ("binary", PayloadType.Binary, Events(Nel.of(
-        event(1, binary("payload"))))),
-      ("text", PayloadType.Json, Events(Nel.of(
-        event(1, Payload.text(""" {"key":"value"} """))))),
-      ("json", PayloadType.Json, Events(Nel.of(
-        event(1, Payload.json("payload"))))),
-      ("empty-many", PayloadType.Json, Events(Nel.of(
-        event(1),
-        event(2)))),
-      ("binary-many", PayloadType.Binary, Events(Nel.of(
-        event(1, binary("1")),
-        event(2, binary("2"))))),
-      ("text-many", PayloadType.Json, Events(Nel.of(
-        event(1, Payload.text("1")),
-        event(2, Payload.text("2"))))),
-      ("json-many", PayloadType.Json, Events(Nel.of(
-        event(1, Payload.json("1")),
-        event(2, Payload.json("2"))))),
-      ("empty-binary-text-json", PayloadType.Binary, Events(Nel.of(
-        event(1),
-        event(2, binary("binary")),
-        event(3, Payload.text("text")),
-        event(4, Payload.json("json"))))))
+      ("empty", PayloadType.Json, Events(
+        Nel.of(
+          event(1)),
+        Events.Metadata.empty/*TODO expiry: pass metadata*/)),
+      ("binary", PayloadType.Binary, Events(
+        Nel.of(
+          event(1, binary("payload"))),
+        Events.Metadata.empty/*TODO expiry: pass metadata*/)),
+      ("text", PayloadType.Json, Events(
+        Nel.of(
+          event(1, Payload.text(""" {"key":"value"} """))),
+        Events.Metadata.empty/*TODO expiry: pass metadata*/)),
+      ("json", PayloadType.Json, Events(
+        Nel.of(
+          event(1, Payload.json("payload"))),
+        Events.Metadata.empty/*TODO expiry: pass metadata*/)),
+      ("empty-many", PayloadType.Json, Events(
+        Nel.of(
+          event(1),
+          event(2)),
+        Events.Metadata.empty/*TODO expiry: pass metadata*/)),
+      ("binary-many", PayloadType.Binary, Events(
+        Nel.of(
+          event(1, binary("1")),
+          event(2, binary("2"))),
+        Events.Metadata.empty/*TODO expiry: pass metadata*/)),
+      ("text-many", PayloadType.Json, Events(
+        Nel.of(
+          event(1, Payload.text("1")),
+          event(2, Payload.text("2"))),
+        Events.Metadata.empty/*TODO expiry: pass metadata*/)),
+      ("json-many", PayloadType.Json, Events(
+        Nel.of(
+          event(1, Payload.json("1")),
+          event(2, Payload.json("2"))),
+        Events.Metadata.empty/*TODO expiry: pass metadata*/)),
+      ("empty-binary-text-json", PayloadType.Binary, Events(
+        Nel.of(
+          event(1),
+          event(2, binary("binary")),
+          event(3, Payload.text("text")),
+          event(4, Payload.json("json"))),
+        Events.Metadata.empty/*TODO expiry: pass metadata*/)))
   } {
 
     test(s"toBytes & fromBytes, events: $name") {

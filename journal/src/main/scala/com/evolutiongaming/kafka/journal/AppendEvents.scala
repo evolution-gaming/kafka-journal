@@ -35,7 +35,7 @@ object AppendEvents {
         key = key,
         timestamp = timestamp,
         origin = origin,
-        events = Events(events),
+        events = Events(events, Events.Metadata.empty/*TODO expiry: pass metadata*/),
         expireAfter = expireAfter,
         metadata = RecordMetadata(data = metadata),
         headers = headers)
