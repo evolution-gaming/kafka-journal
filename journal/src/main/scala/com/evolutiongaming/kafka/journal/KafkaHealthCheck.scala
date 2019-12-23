@@ -97,7 +97,7 @@ object KafkaHealthCheck {
     val sleep = Timer[F].sleep(config.interval)
 
     def produce(value: String) = {
-      val record = Record(key = Some(key), value = Some(value))
+      val record = Record(key = key.some, value = value.some)
       for {
         _ <- log.debug(s"$key send $value")
         _ <- producer.send(record)
@@ -219,7 +219,7 @@ object KafkaHealthCheck {
       val config1 = {
         val groupId = config.common.clientId.fold(key) { clientId => s"$clientId-$key" }
         config.copy(
-          groupId = Some(groupId),
+          groupId = groupId.some,
           autoOffsetReset = AutoOffsetReset.Latest)
       }
 

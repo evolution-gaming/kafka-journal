@@ -45,7 +45,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
         headCache <- headCache1
         journal   = Journal[IO](
           producer = producer,
-          origin = Some(origin),
+          origin = origin.some,
           consumer = consumer,
           eventualJournal = eventualJournal,
           headCache = headCache,
@@ -249,7 +249,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
 object JournalIntSpec {
   private val timestamp = Instant.now().truncatedTo(ChronoUnit.MILLIS)
   private val origin = Origin("JournalIntSpec")
-  private val recordMetadata = RecordMetadata(data = Some(Json.obj(("key", "value"))))
+  private val recordMetadata = RecordMetadata(data = Json.obj(("key", "value")).some)
   private val headers = Headers(("key", "value"))
 
   implicit class EventRecordOps(val self: EventRecord) extends AnyVal {

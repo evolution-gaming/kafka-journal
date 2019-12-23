@@ -36,7 +36,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
       } yield {
         Journal(
           producer = producer,
-          origin = Some(origin),
+          origin = origin.some,
           consumer = consumer,
           eventualJournal = eventualJournal,
           headCache = headCache,

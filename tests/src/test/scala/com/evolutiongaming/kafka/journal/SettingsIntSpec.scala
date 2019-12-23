@@ -52,7 +52,7 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
       val config = Sync[F].delay { ConfigFactory.load("replicator.conf") }
       for {
         config <- Resource.liftF(config)
-        system <- ActorSystemOf[F](getClass.getSimpleName, Some(config))
+        system <- ActorSystemOf[F](getClass.getSimpleName, config.some)
       } yield system
     }
 
@@ -139,16 +139,16 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
           a <- settings.set(setting.key, setting.value)
           _ <- Sync[F].delay { a shouldEqual None }
           a <- get(setting.key)
-          _ <- Sync[F].delay { a shouldEqual Some(setting) }
+          _ <- Sync[F].delay { a shouldEqual setting.some }
           a <- setIfEmpty(setting.key, setting.value)
-          _ <- Sync[F].delay { a shouldEqual Some(setting) }
+          _ <- Sync[F].delay { a shouldEqual setting.some }
           a <- get(setting.key)
-          _ <- Sync[F].delay { a shouldEqual Some(setting) }
+          _ <- Sync[F].delay { a shouldEqual setting.some }
           a <- all
           _ <- Sync[F].delay { a shouldEqual List(setting) }
 
           a <- remove(setting.key)
-          _ <- Sync[F].delay { a shouldEqual Some(setting) }
+          _ <- Sync[F].delay { a shouldEqual setting.some }
           a <- get(setting.key)
           _ <- Sync[F].delay { a shouldEqual None }
           a <- all

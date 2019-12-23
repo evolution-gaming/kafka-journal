@@ -48,7 +48,7 @@ class SettingsCassandraSpec extends AnyFunSuite with Matchers {
     val initial = State(settings = Map((setting.key, setting)))
     val (state, prev) = settings.remove(setting.key).run(initial)
     state shouldEqual State.empty
-    prev shouldEqual Some(setting)
+    prev shouldEqual setting.some
   }
 
   test("set, get, all, remove") {
@@ -63,16 +63,16 @@ class SettingsCassandraSpec extends AnyFunSuite with Matchers {
       a <- settings.set(setting.key, setting.value)
       _  = a shouldEqual None
       a <- settings.get(setting.key)
-      _  = a shouldEqual Some(setting)
+      _  = a shouldEqual setting.some
       a <- settings.setIfEmpty(setting.key, setting.value)
-      _  = a shouldEqual Some(setting)
+      _  = a shouldEqual setting.some
       a <- settings.get(setting.key)
-      _  = a shouldEqual Some(setting)
+      _  = a shouldEqual setting.some
       a <- settings.all.toList
       _  = a shouldEqual List(setting)
 
       a <- settings.remove(setting.key)
-      _  = a shouldEqual Some(setting)
+      _  = a shouldEqual setting.some
       a <- settings.get(setting.key)
       _  = a shouldEqual None
       a <- settings.all.toList
@@ -91,7 +91,7 @@ class SettingsCassandraSpec extends AnyFunSuite with Matchers {
 
   private val timestamp = Instant.now().truncatedTo(ChronoUnit.MILLIS)
 
-  private val setting = Setting(key = "key", value = "value", timestamp = timestamp, origin = Some(origin))
+  private val setting = Setting(key = "key", value = "value", timestamp = timestamp, origin = origin.some)
 
   private val settings = {
 

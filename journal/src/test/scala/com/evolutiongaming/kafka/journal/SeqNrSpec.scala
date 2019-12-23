@@ -45,7 +45,7 @@ class SeqNrSpec extends AnyFunSuite with Matchers {
   }
 
   test("max.prev") {
-    SeqNr.max.prev[Option] shouldEqual Some(SeqNr.unsafe(Long.MaxValue - 1))
+    SeqNr.max.prev[Option] shouldEqual SeqNr.unsafe(Long.MaxValue - 1).some
   }
 
   test("in") {

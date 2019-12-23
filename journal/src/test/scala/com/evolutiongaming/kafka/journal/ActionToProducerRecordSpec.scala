@@ -115,7 +115,7 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
         val consRecord = ConsRecord(
           topicPartition = topicPartition,
           offset = partitionOffset.offset,
-          timestampAndType = Some(TimestampAndType(timestamp, TimestampType.Create)),
+          timestampAndType = TimestampAndType(timestamp, TimestampType.Create).some,
           key = producerRecord.key.map(bytes => WithSize(bytes, bytes.length)),
           value = producerRecord.value.map(bytes => WithSize(bytes, bytes.length.toInt)),
           headers = producerRecord.headers)

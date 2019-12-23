@@ -490,7 +490,7 @@ object Journal {
         idempotence = true,
         retries = config.retries max 10,
         common = config.common.copy(
-          clientId = Some(config.common.clientId getOrElse "journal"),
+          clientId = config.common.clientId.getOrElse("journal").some,
           sendBufferBytes = config.common.sendBufferBytes max 1000000))
 
       for {

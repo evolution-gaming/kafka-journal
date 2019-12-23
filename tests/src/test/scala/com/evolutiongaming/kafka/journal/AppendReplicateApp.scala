@@ -104,7 +104,7 @@ object AppendReplicateApp extends IOApp {
 
       def append(seqNr: SeqNr) = {
         val key = Key(id = id, topic = topic)
-        val event = Event(seqNr, payload = Some(Payload("AppendReplicateApp")))
+        val event = Event(seqNr, payload = Payload("AppendReplicateApp").some)
 
         for {
           _      <- journal.append(key, Nel.of(event))

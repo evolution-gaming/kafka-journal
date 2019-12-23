@@ -32,7 +32,7 @@ class StreamActionRecordsSpec extends AnyFunSuite with Matchers {
       Pointer(seqNr = 1L, offset = 11L),
       Pointer(seqNr = 2L, offset = 12L),
       Pointer(seqNr = 3L, offset = 13L))
-    val result = seqNrs(Some(11L), None, records)
+    val result = seqNrs(11L.some, None, records)
     result shouldEqual List((2L, 12L), (3L, 13L))
   }
 
@@ -41,7 +41,7 @@ class StreamActionRecordsSpec extends AnyFunSuite with Matchers {
       Pointer(seqNr = 1L, offset = 11L),
       Pointer(seqNr = 2L, offset = 12L),
       Pointer(seqNr = 3L, offset = 13L))
-    val result = seqNrs(Some(11L), Some(12L), records)
+    val result = seqNrs(11L.some, 12L.some, records)
     result shouldEqual List((3L, 13L))
   }
 
@@ -50,7 +50,7 @@ class StreamActionRecordsSpec extends AnyFunSuite with Matchers {
       Pointer(seqNr = 1L, offset = 1L),
       Pointer(seqNr = 2L, offset = 2L),
       Pointer(seqNr = 3L, offset = 3L))
-    val result = seqNrs(Some(11L), Some(13L), records)
+    val result = seqNrs(11L.some, 13L.some, records)
     result shouldEqual Nil
   }
 }

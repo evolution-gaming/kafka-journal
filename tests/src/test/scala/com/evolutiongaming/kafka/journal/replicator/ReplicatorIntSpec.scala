@@ -91,7 +91,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       val config = Sync[F].delay { ConfigFactory.load("replicator.conf") }
       for {
         config <- Resource.liftF(config)
-        system <- ActorSystemOf[F](getClass.getSimpleName, Some(config))
+        system <- ActorSystemOf[F](getClass.getSimpleName, config.some)
       } yield system
     }
 
@@ -162,7 +162,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       } yield for {
         event <- events
       } yield {
-        EventRecord(event, timestamp, partitionOffset, Some(origin), recordMetadata, headers)
+        EventRecord(event, timestamp, partitionOffset, origin.some, recordMetadata, headers)
       }
     }
 
@@ -242,18 +242,18 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
           events          <- read(key)(_.nonEmpty)
           _                = events shouldEqual expected.toList
           pointer         <- pointerOf(key)
-          _                = pointer shouldEqual Some(expected.last.seqNr)
+          _                = pointer shouldEqual expected.last.seqNr.some
           pointer         <- journal.delete(key, expected.last.event.seqNr).map(_.map(_.partition))
-          _                = pointer shouldEqual Some(partition)
+          _                = pointer shouldEqual partition.some
           events          <- read(key)(_.isEmpty)
           _                = events shouldEqual Nil
           pointer         <- pointerOf(key)
-          _                = pointer shouldEqual Some(expected.last.seqNr)
+          _                = pointer shouldEqual expected.last.seqNr.some
           expected        <- append(key, Nel.of(event(seqNr + 1), event(seqNr + 2)))
           events          <- read(key)(_.nonEmpty)
           _                = events shouldEqual expected.toList
           pointer4        <- pointerOf(key)
-          _                = pointer4 shouldEqual Some(expected.last.seqNr)
+          _                = pointer4 shouldEqual expected.last.seqNr.some
         } yield {}
         result.run(5.minutes)
       }
@@ -273,7 +273,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
           actual     <- read(key)(_.nonEmpty)
           _           = actual shouldEqual expected.toList
           pointer    <- pointerOf(key)
-          _           = pointer shouldEqual Some(events.last.seqNr)
+          _           = pointer shouldEqual events.last.seqNr.some
         } yield {}
 
         result.run(5.minutes)
@@ -320,7 +320,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
             actual       <- read(key)(_.nonEmpty)
             _             = actual shouldEqual expected.toList
             pointer      <- pointerOf(key)
-            _             = pointer shouldEqual Some(events.last.seqNr)
+            _             = pointer shouldEqual events.last.seqNr.some
             pointers     <- topicPointers
             offsetAfter   = pointers.getOrElse(partition, Offset.min)
           } yield {
@@ -339,6 +339,6 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
   }
 
   private def event(seqNr: Int, payload: Payload): Event = {
-    event(seqNr, Some(payload))
+    event(seqNr, payload.some)
   }
 }

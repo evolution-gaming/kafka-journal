@@ -76,7 +76,7 @@ class KafkaHealthCheckSpec extends AsyncFunSuite with Matchers {
     } yield {
       val (data, _) = ab
       data shouldEqual State(
-        subscribed = Some("topic"),
+        subscribed = "topic".some,
         logs = List(
           "debug key send 2:0",
           "debug key send 2",
@@ -120,7 +120,7 @@ object KafkaHealthCheckSpec {
 
       def subscribe(topic: Topic) = {
         StateT { data =>
-          val data1 = data.copy(subscribed = Some(topic))
+          val data1 = data.copy(subscribed = topic.some)
           (data1, ())
         }
       }

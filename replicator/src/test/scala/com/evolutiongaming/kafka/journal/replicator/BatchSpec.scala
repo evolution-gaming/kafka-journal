@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal.replicator
 import java.time.Instant
 
 import cats.data.{NonEmptyList => Nel}
+import cats.implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.Offset
 import org.scalatest.funsuite.AnyFunSuite
@@ -365,7 +366,7 @@ class BatchSpec extends AnyFunSuite with Matchers {
   def seqNrOf(value: Int): SeqNr = SeqNr.unsafe(value)
 
   def originOf(origin: String): Option[Origin] = {
-    if (origin.isEmpty) None else Some(Origin(origin))
+    if (origin.isEmpty) none else Origin(origin).some
   }
 
   def appendOf(seqNrs: Nel[Int]): Action.Append = {

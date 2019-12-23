@@ -23,12 +23,12 @@ class JournalConfigSpec extends AnyFunSuite with Matchers {
     val expected = JournalConfig(
       pollTimeout = 1.millis,
       producer = ProducerConfig(
-        common = JournalConfig.default.producer.common.copy(clientId = Some("clientId")),
+        common = JournalConfig.default.producer.common.copy(clientId = "clientId".some),
         acks = Acks.All,
         idempotence = true),
       ConsumerConfig(
-        common = JournalConfig.default.consumer.common.copy(clientId = Some("clientId")),
-        groupId = Some("journal"),
+        common = JournalConfig.default.consumer.common.copy(clientId = "clientId".some),
+        groupId = "journal".some,
         autoOffsetReset = AutoOffsetReset.Earliest,
         autoCommit = false),
       headCache = false)

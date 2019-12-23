@@ -38,9 +38,9 @@ class ReplicatorConfigSpec extends AnyFunSuite with Matchers {
       consumer = ConsumerConfig(
         maxPollRecords = 10,
         common = CommonConfig(
-          clientId = Some("clientId"),
+          clientId = "clientId".some,
           receiveBufferBytes = 1000000),
-        groupId = Some("replicator"),
+        groupId = "replicator".some,
         autoCommit = false,
         autoOffsetReset = AutoOffsetReset.Earliest))
     ConfigSource.fromConfig(config).load[ReplicatorConfig] shouldEqual expected.asRight
@@ -51,9 +51,9 @@ class ReplicatorConfigSpec extends AnyFunSuite with Matchers {
     val expected = ReplicatorConfig(
       consumer = ConsumerConfig(
         common = CommonConfig(
-          clientId = Some("replicator"),
+          clientId = "replicator".some,
           receiveBufferBytes = 1000000),
-        groupId = Some("replicator"),
+        groupId = "replicator".some,
         autoCommit = false,
         autoOffsetReset = AutoOffsetReset.Earliest,
         maxPollRecords = 1000),

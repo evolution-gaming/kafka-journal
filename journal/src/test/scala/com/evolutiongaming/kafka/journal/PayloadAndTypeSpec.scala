@@ -19,7 +19,7 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
   }
 
   def event(seqNr: Int, payload: Payload): Event = {
-    event(seqNr, Some(payload))
+    event(seqNr, payload.some)
   }
 
   def binary(a: String) = PayloadBinaryFromStr(a)

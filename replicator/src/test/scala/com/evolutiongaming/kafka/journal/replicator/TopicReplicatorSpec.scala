@@ -388,10 +388,10 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
             record(seqNr = 3, partition = 1, offset = 7)))),
         metaJournal = Map(
           metaJournalOf("0-0", partition = 0, offset = 10),
-          metaJournalOf("0-1", partition = 0, offset = 9, deleteTo = Some(2)),
+          metaJournalOf("0-1", partition = 0, offset = 9, deleteTo = 2.some),
           metaJournalOf("0-2", partition = 0, offset = 7),
           metaJournalOf("1-0", partition = 1, offset = 10),
-          metaJournalOf("1-1", partition = 1, offset = 9, deleteTo = Some(2)),
+          metaJournalOf("1-1", partition = 1, offset = 9, deleteTo = 2.some),
           metaJournalOf("1-2", partition = 1, offset = 7)),
         metrics = List(
           Metrics.Round(records = 20),
@@ -484,8 +484,8 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
             record(seqNr = 2, partition = 0, offset = 7),
             record(seqNr = 3, partition = 0, offset = 7)))),
         metaJournal = Map(
-          metaJournalOf("0-0", partition = 0, offset = 11, deleteTo = Some(1)),
-          metaJournalOf("0-1", partition = 0, offset = 12, deleteTo = Some(2)),
+          metaJournalOf("0-0", partition = 0, offset = 11, deleteTo = 1.some),
+          metaJournalOf("0-1", partition = 0, offset = 12, deleteTo = 2.some),
           metaJournalOf("0-2", partition = 0, offset = 7)),
         metrics = List(
           Metrics.Round(records = 1),
@@ -647,7 +647,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
     ConsumerRecord(
       topicPartition = topicPartition,
       offset = Offset.unsafe(offset),
-      timestampAndType = Some(timestampAndType),
+      timestampAndType = timestampAndType.some,
       key = producerRecord.key.map(WithSize(_)),
       value = producerRecord.value.map(WithSize(_)),
       headers = producerRecord.headers)
@@ -656,7 +656,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
   private def record(seqNr: Int, partition: Int, offset: Long) = {
     val partitionOffset = PartitionOffset(Partition.unsafe(partition), Offset.unsafe(offset))
     val event = Event(SeqNr.unsafe(seqNr), Set(seqNr.toString))
-    EventRecord(event, timestamp, partitionOffset, Some(origin), recordMetadata, headers)
+    EventRecord(event, timestamp, partitionOffset, origin.some, recordMetadata, headers)
   }
 
   private def appendOf(key: Key, seqNrs: Nel[Int], expireAfter: Option[ExpireAfter] = none) = {
@@ -664,7 +664,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
     Action.Append.of[Try](
       key = key,
       timestamp = timestamp,
-      origin = Some(origin),
+      origin = origin.some,
       events = Events(
         events = seqNrs.map { seqNr => Event(SeqNr.unsafe(seqNr), Set(seqNr.toString)) },
         Events.Metadata.empty/*TODO expiry: pass metadata*/),
@@ -675,15 +675,15 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
   }
 
   private def markOf(key: Key) = {
-    Action.Mark(key, timestamp, "id", Some(origin))
+    Action.Mark(key, timestamp, "id", origin.some)
   }
 
   private def deleteOf(key: Key, to: Int) = {
-    Action.Delete(key, timestamp, SeqNr.unsafe(to), Some(origin))
+    Action.Delete(key, timestamp, SeqNr.unsafe(to), origin.some)
   }
 
   private def purgeOf(key: Key) = {
-    Action.Purge(key, timestamp, Some(origin))
+    Action.Purge(key, timestamp, origin.some)
   }
 }
 

@@ -20,19 +20,19 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
   test("migrate fresh") {
     val initial = State.empty
     val (state, _) = migrate(fresh = true).run(initial)
-    state shouldEqual initial.copy(version = Some("0"))
+    state shouldEqual initial.copy(version = "0".some)
   }
 
   test("migrate") {
     val initial = State.empty
     val (state, _) = migrate(fresh = false).run(initial)
     state shouldEqual initial.copy(
-      version = Some("0"),
+      version = "0".some,
       actions = List(Action.SyncEnd, Action.Query, Action.SyncStart))
   }
 
   test("not migrate") {
-    val initial = State.empty.copy(version = Some("0"))
+    val initial = State.empty.copy(version = "0".some)
     val (state, _) = migrate(fresh = false).run(initial)
     state shouldEqual initial
   }
@@ -72,7 +72,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
               val setting = settingOf(key, version)
               (state, setting.some)
             case None          =>
-              val state1 = state.copy(version = Some(value))
+              val state1 = state.copy(version = value.some)
               (state1, none[Setting])
           }
         }

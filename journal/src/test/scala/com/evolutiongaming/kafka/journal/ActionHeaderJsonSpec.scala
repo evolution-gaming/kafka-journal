@@ -13,11 +13,11 @@ import scala.util.Try
 
 class ActionHeaderJsonSpec extends AnyFunSuite with Matchers {
 
-  val origins = List(Some(Origin("origin")), None)
+  val origins = List(Origin("origin").some, none)
   val metadata = List(
-    ("metadata", RecordMetadata(data = Some(Json.obj(("key", "value"))))),
-    ("none"    , RecordMetadata(data = None)),
-    ("legacy"  , RecordMetadata(data = None)))
+    ("metadata", RecordMetadata(data = Json.obj(("key", "value")).some)),
+    ("none"    , RecordMetadata(data = none)),
+    ("legacy"  , RecordMetadata(data = none)))
   val payloadTypes = List(PayloadType.Binary, PayloadType.Json)
 
   for {

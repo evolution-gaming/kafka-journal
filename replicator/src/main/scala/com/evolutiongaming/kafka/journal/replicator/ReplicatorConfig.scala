@@ -24,9 +24,9 @@ final case class ReplicatorConfig(
   cacheExpireAfter: FiniteDuration = 5.minutes,
   consumer: ConsumerConfig = ConsumerConfig(
     common = CommonConfig(
-      clientId = Some("replicator"),
+      clientId = "replicator".some,
       receiveBufferBytes = 1000000),
-    groupId = Some("replicator"),
+    groupId = "replicator".some,
     autoOffsetReset = AutoOffsetReset.Earliest,
     autoCommit = false,
     maxPollRecords = 1000),

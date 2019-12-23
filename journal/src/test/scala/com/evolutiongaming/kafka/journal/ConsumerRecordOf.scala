@@ -22,7 +22,7 @@ object ConsumerRecordOf {
       ConsRecord(
         topicPartition = topicPartition,
         offset = offset,
-        timestampAndType = Some(timestampAndType),
+        timestampAndType = timestampAndType.some,
         key = producerRecord.key.map(bytes => WithSize(bytes, bytes.length)),
         value = producerRecord.value.map(bytes => WithSize(bytes, bytes.length.toInt)),
         headers = producerRecord.headers)

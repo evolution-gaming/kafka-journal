@@ -207,7 +207,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
           seqNrs  <- journal.read(SeqRange.unsafe(5, 6))
           _        = seqNrs shouldEqual Nil
           seqNr   <- journal.pointer
-          _        = seqNr shouldEqual Some(SeqNr.unsafe(4))
+          _        = seqNr shouldEqual SeqNr.unsafe(4).some
           _       <- journal.purge
           seqNrs  <- journal.read(SeqRange.all)
           _        = seqNrs shouldEqual Nil
@@ -640,7 +640,7 @@ object JournalSpec {
             val partitionOffset = PartitionOffset(partition, record.offset)
             EventRecord(action, event, partitionOffset)
           }
-          copy(events = events.enqueue(batch.toList), offset = Some(offset))
+          copy(events = events.enqueue(batch.toList), offset = offset.some)
         }
 
         def onDelete(action: Action.Delete) = {
@@ -695,8 +695,8 @@ object JournalSpec {
   implicit class QueueOps[T](val self: Queue[T]) extends AnyVal {
     
     def dropLast(n: Int): Option[Queue[T]] = {
-      if (self.size <= n) None
-      else Some(self.dropRight(n))
+      if (self.size <= n) none
+      else self.dropRight(n).some
     }
   }
 }

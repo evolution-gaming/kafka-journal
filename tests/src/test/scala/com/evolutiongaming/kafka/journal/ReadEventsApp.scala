@@ -77,9 +77,9 @@ object ReadEventsApp extends IOApp {
         autoCreate = false),
       client = CassandraConfig(
         contactPoints = com.evolutiongaming.nel.Nel("127.0.0.1"),
-        authentication = Some(AuthenticationConfig(
+        authentication = AuthenticationConfig(
           username = "username",
-          password = "password"))))
+          password = "password").some))
 
     val journal = for {
       cassandraClusterOf <- Resource.liftF(CassandraClusterOf.of[F])
