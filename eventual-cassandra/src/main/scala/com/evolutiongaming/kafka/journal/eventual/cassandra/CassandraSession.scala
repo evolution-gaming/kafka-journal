@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.FlatMap
 import cats.effect.{Concurrent, Resource}
 import cats.implicits._
-import com.datastax.driver.core._
+import com.datastax.driver.core.{ResultSet => _, _}
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
 import com.evolutiongaming.catshelper.{MonadThrowable, Runtime}
 import com.evolutiongaming.kafka.journal.JournalError

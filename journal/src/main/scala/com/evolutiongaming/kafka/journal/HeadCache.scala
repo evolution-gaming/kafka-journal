@@ -393,7 +393,7 @@ object HeadCache {
         (partition, records) <- records
       } yield {
         val entries = for {
-          (id, records)  <- records.groupBy(_.id)
+          (id, records)  <- records.toList.groupBy { _.id }
           (info, offset)  = records.foldLeft((HeadInfo.empty, Offset.min)) { case ((info, offset), record) =>
             val info1 = info(record.header, record.offset)
             val offset1 = record.header match {

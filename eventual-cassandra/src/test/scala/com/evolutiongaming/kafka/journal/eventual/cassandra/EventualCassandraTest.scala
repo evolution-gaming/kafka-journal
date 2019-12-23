@@ -270,7 +270,7 @@ object EventualCassandraTest {
         val journal = state.journal
         val entries = journal
           .getOrElse(k, Map.empty)
-          .filterKeys { case (a, _) => a <= seqNr }
+          .filter { case ((a, _), _) => a <= seqNr }
         val journal1 = if (entries.isEmpty) journal - k else journal.updated(k, entries)
         state.copy(journal = journal1)
       }

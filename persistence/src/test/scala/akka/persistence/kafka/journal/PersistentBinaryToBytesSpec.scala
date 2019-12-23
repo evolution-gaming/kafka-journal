@@ -37,6 +37,11 @@ class PersistentBinaryToBytesSpec extends AnyFunSuite with Matchers {
 object PersistentBinaryToBytesSpec {
 
   implicit class StrOps(val self: String) extends AnyVal {
-    def encodeStr: ByteVector = ByteVector.encodeUtf8(self).right.get
+    
+    def encodeStr: ByteVector = {
+      ByteVector
+        .encodeUtf8(self)
+        .fold(throw _, identity)
+    }
   }
 }

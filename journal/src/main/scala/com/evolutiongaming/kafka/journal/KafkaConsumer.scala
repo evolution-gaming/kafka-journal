@@ -92,13 +92,13 @@ object KafkaConsumer {
       }
 
       def partitions(topic: Topic) = {
-        for {
-          infos <- consumer.partitions(topic)
-        } yield for {
-          info <- infos.to[Set]
-        } yield {
-          info.partition
-        }
+        consumer
+          .partitions(topic)
+          .map { infos =>
+            infos
+              .map { _.partition }
+              .toSet
+          }
       }
 
       def assignment = {

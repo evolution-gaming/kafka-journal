@@ -6,7 +6,7 @@ jdk:
   - openjdk11
 
 scala:
-#  - 2.13.1
+  - 2.13.1
   - 2.12.10
 
 script: sbt --warn ++$TRAVIS_SCALA_VERSION clean coverage test
