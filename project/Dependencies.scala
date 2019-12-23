@@ -13,12 +13,12 @@ object Dependencies {
   val `akka-serialization` = "com.evolutiongaming"    %% "akka-serialization"    % "1.0.3"
   val nel                  = "com.evolutiongaming"    %% "nel"                   % "1.3.4"
   val `future-helper`      = "com.evolutiongaming"    %% "future-helper"         % "1.0.6"
-  val `kafka-launcher`     = "com.evolutiongaming"    %% "kafka-launcher"        % "0.0.8"
+  val `kafka-launcher`     = "com.evolutiongaming"    %% "kafka-launcher"        % "0.0.9"
   val `cassandra-launcher` = "com.evolutiongaming"    %% "cassandra-launcher"    % "0.0.3"
   val hostname             = "com.evolutiongaming"    %% "hostname"              % "0.1.2"
   val scassandra           = "com.evolutiongaming"    %% "scassandra"            % "2.0.4"
   val `cassandra-sync`     = "com.evolutiongaming"    %% "cassandra-sync"        % "1.0.5"
-  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "1.2.0"
+  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "1.4.0"
   val random               = "com.evolutiongaming"    %% "random"                % "0.0.6"
   val retry                = "com.evolutiongaming"    %% "retry"                 % "1.0.2"
   val sstream              = "com.evolutiongaming"    %% "sstream"               % "0.2.0"
@@ -39,13 +39,13 @@ object Dependencies {
   }
 
   object Slf4j {
-    private val version = "1.7.29"
+    private val version = "1.7.30"
     val api                = "org.slf4j" % "slf4j-api"        % version
     val `log4j-over-slf4j` = "org.slf4j" % "log4j-over-slf4j" % version
   }
 
   object Akka {
-    private val version = "2.5.26"
+    private val version = "2.5.27"
     val actor             = "com.typesafe.akka" %% "akka-actor"           % version
     val testkit           = "com.typesafe.akka" %% "akka-testkit"         % version
     val stream            = "com.typesafe.akka" %% "akka-stream"          % version
@@ -55,7 +55,7 @@ object Dependencies {
   }
   
   object Kafka {
-    private val version = "2.3.1"
+    private val version = "2.4.0"
     val kafka           = "org.apache.kafka" %% "kafka"         % version
     val `kafka-clients` = "org.apache.kafka" %  "kafka-clients" % version
   }
@@ -72,7 +72,7 @@ object Dependencies {
   }
 
   object Pureconfig {
-    private val version = "0.12.1"
+    private val version = "0.12.2"
     val pureconfig = "com.github.pureconfig" %% "pureconfig"      % version
     val cats       = "com.github.pureconfig" %% "pureconfig-cats" % version
   }
