@@ -11,9 +11,10 @@ import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
+import com.evolutiongaming.skafka.Topic
+import com.evolutiongaming.sstream.Stream
 
 
-// TODO expiry: add select by topic,LocalDate
 object MetaJournalStatements {
 
   def createTable(name: TableName): Nel[String] = {
@@ -179,6 +180,38 @@ object MetaJournalStatements {
               seqNr = row.decode[SeqNr])
           }
       }
+    }
+  }
+
+
+  trait SelectByTopicAndExpireOn[F[_]] {
+
+    def apply(topic: Topic, segment: SegmentNr, expireOn: ExpireOn): Stream[F, JournalHead]
+  }
+
+  object SelectByTopicAndExpireOn {
+
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[SelectByTopicAndExpireOn[F]] = {
+      val query =
+        s"""
+           |SELECT partition, offset, segment_size, seq_nr, delete_to, expire_after, expire_on FROM ${ name.toCql }
+           |WHERE topic = ?
+           |AND segment = ?
+           |AND expire_on = ?
+           |""".stripMargin
+
+      query
+        .prepare
+        .map { prepared =>
+          (topic: Topic, segment: SegmentNr, expireOn: ExpireOn) =>
+            prepared
+              .bind()
+              .encode("topic", topic)
+              .encode(segment)
+              .encode(expireOn)
+              .execute
+              .map { _.decode[JournalHead] }
+        }
     }
   }
 

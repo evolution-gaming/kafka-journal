@@ -23,11 +23,6 @@ object Expiry {
   implicit val showExpiry: Show[Expiry] = Show.fromToString
   
 
-  implicit val encodeByNameExpireOn: EncodeByName[ExpireOn] = EncodeByName[LocalDate].contramap { a: ExpireOn => a.value }
-
-  implicit val decodeByNameExpireOn: DecodeByName[ExpireOn] = DecodeByName[LocalDate].map { _.toExpireOn }
-
-
   implicit val encodeByNameOptExpireOn: EncodeByName[Option[ExpireOn]] = EncodeByName.optEncodeByName[ExpireOn]
 
   implicit val decodeByNameOptExpireOn: DecodeByName[Option[ExpireOn]] = DecodeByName.optDecodeByName[ExpireOn]
@@ -59,7 +54,7 @@ object Expiry {
     def apply[B <: SettableData[B]](data: B, a: Expiry) = {
       data
         .encode("expire_after", a.after)
-        .encode("expire_on", a.on)
+        .encode(a.on)
     }
   }
 

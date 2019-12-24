@@ -5,7 +5,10 @@ import java.time.LocalDate
 import cats.Show
 import cats.implicits._
 import cats.kernel.{Eq, Order}
+import com.datastax.driver.core.SettableData
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
+import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName, EncodeRow}
+import com.evolutiongaming.scassandra.syntax._
 
 final case class ExpireOn(value: LocalDate) {
 
@@ -22,6 +25,18 @@ object ExpireOn {
   implicit val orderingExpireOn: Ordering[ExpireOn] = (a: ExpireOn, b: ExpireOn) => a.value compare b.value
 
   implicit val orderExpireOn: Order[ExpireOn] = Order.fromOrdering
+
+
+  implicit val encodeByNameExpireOn: EncodeByName[ExpireOn] = EncodeByName[LocalDate].contramap { a: ExpireOn => a.value }
+
+  implicit val decodeByNameExpireOn: DecodeByName[ExpireOn] = DecodeByName[LocalDate].map { a => ExpireOn(a) }
+
+
+  implicit val encodeRowExpireOn: EncodeRow[ExpireOn] = new EncodeRow[ExpireOn] {
+    def apply[B <: SettableData[B]](data: B, a: ExpireOn) = {
+      data.encode("expire_on", a)
+    }
+  }
 
 
   object implicits {
