@@ -315,12 +315,12 @@ object MetadataStatements {
   }
 
 
-  trait All[F[_]] {
+  trait SelectByTopic[F[_]] {
 
-    def apply(topic: Topic): Stream[F, All.Record]
+    def apply(topic: Topic): Stream[F, SelectByTopic.Record]
   }
 
-  object All {
+  object SelectByTopic {
 
     final case class Record(
       id: String,
@@ -344,7 +344,7 @@ object MetadataStatements {
     }
 
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[All[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[SelectByTopic[F]] = {
       val query =
         s"""
            |SELECT id, partition, offset, segment_size, seq_nr, delete_to, created, updated, origin FROM ${ name.toCql }
