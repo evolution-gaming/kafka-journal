@@ -1,6 +1,6 @@
 package akka.persistence.kafka.journal
 
-import com.evolutiongaming.kafka.journal.Journals.CallTimeThresholds
+import com.evolutiongaming.kafka.journal.Journal.CallTimeThresholds
 import com.typesafe.config.ConfigFactory
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers

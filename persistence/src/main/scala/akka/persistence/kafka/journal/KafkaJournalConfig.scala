@@ -2,7 +2,7 @@ package akka.persistence.kafka.journal
 
 import cats.implicits._
 import com.evolutiongaming.config.ConfigHelper._
-import com.evolutiongaming.kafka.journal.Journals.CallTimeThresholds
+import com.evolutiongaming.kafka.journal.Journal.CallTimeThresholds
 import com.evolutiongaming.kafka.journal.JournalConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig
 import com.typesafe.config.Config

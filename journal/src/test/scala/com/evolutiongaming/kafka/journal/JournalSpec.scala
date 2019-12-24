@@ -491,7 +491,7 @@ object JournalSpec {
         eventsToPayload = EventsToPayload[F],
         log = log)
         .withLog(log)
-        .withMetrics(Journals.Metrics.empty[F])
+        .withMetrics(JournalMetrics.empty[F])
       SeqNrJournal(journal)
     }
   }
