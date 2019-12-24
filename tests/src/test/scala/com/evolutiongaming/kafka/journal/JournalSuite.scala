@@ -64,8 +64,7 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
 
 object JournalSuite {
 
-  // TODO expiry: move out from tests
-  trait KeyJournal[F[_]] {
+  trait JournalTest[F[_]] {
 
     def append(
       events: Nel[Event],
@@ -85,13 +84,12 @@ object JournalSuite {
     def size: F[Long]
   }
 
-  object KeyJournal {
+  object JournalTest {
 
     def apply[F[_] : Monad : Clock](
-      key: Key,
-      timestamp: Instant,
-      journals: Journals[F]
-    ): KeyJournal[F] = new KeyJournal[F] {
+      journal: Journal[F],
+      timestamp: Instant
+    ): JournalTest[F] = new JournalTest[F] {
 
       def append(
         events: Nel[Event],
@@ -99,7 +97,7 @@ object JournalSuite {
         headers: Headers,
         expireAfter: Option[ExpireAfter]
       ) = {
-        journals(key).append(
+        journal.append(
           events = events,
           expireAfter = expireAfter,
           metadata = metadata,
@@ -108,7 +106,7 @@ object JournalSuite {
 
       def read = {
         for {
-          records <- journals(key).read().toList
+          records <-journal.read().toList
         } yield for {
           record <- records
         } yield {
@@ -116,13 +114,13 @@ object JournalSuite {
         }
       }
 
-      def pointer = journals(key).pointer
+      def pointer =journal.pointer
 
-      def delete(to: DeleteTo) = journals(key).delete(to)
+      def delete(to: DeleteTo) = journal.delete(to)
 
-      def purge = journals(key).purge
+      def purge = journal.purge
 
-      def size = journals(key).read().length
+      def size = journal.read().length
     }
   }
 }

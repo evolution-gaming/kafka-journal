@@ -68,7 +68,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
       val key = Key.random[IO]("journal")
 
       // TODO expiry: refactor to reuse journal and remove KeyJournal
-      lazy val (journals0, release) = journalsOf(eventualJournal(), headCache).allocated.unsafeRunSync()
+      lazy val (journals, release) = journalsOf(eventualJournal(), headCache).allocated.unsafeRunSync()
 
       for {
         seqNr <- List(SeqNr.min, SeqNr.unsafe(2))
@@ -79,7 +79,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
         s"append, delete, read, purge, lastSeqNr, $name1" in {
           val result = for {
             key       <- key
-            journal    = KeyJournal(key, timestamp, journals0)
+            journal    = JournalTest(journals(key), timestamp)
             pointer   <- journal.pointer
             _          = pointer shouldEqual None
             events    <- journal.read
@@ -133,7 +133,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
 
           val result = for {
             key     <- key
-            journal  = KeyJournal(key, timestamp, journals0)
+            journal  = JournalTest(journals(key), timestamp)
             read     = for {
               events1 <- journal.read
               _        = events1.map(_.event) shouldEqual events
@@ -157,7 +157,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
 
           val appends = for {
             key     <- key
-            journal  = KeyJournal(key, timestamp, journals0)
+            journal  = JournalTest(journals(key), timestamp)
             events  <- journal.read
             _        = events shouldEqual Nil
             pointer <- journal.pointer
@@ -191,7 +191,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
 
           val result = for {
             key       <- key
-            journal    = KeyJournal(key, timestamp, journals0)
+            journal    = JournalTest(journals(key), timestamp)
             pointer   <- journal.pointer
             _          = pointer shouldEqual None
             events    <- journal.read
@@ -223,14 +223,14 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
         s"expire records $name" ignore {
           val result = for {
             key      <- key
-            _        <- journals0(key).append(Nel.of(Event(SeqNr.min)), 1.second.toExpireAfter.some)
-            events   <- journals0(key).read().toList
+            _        <- journals(key).append(Nel.of(Event(SeqNr.min)), 1.second.toExpireAfter.some)
+            events   <- journals(key).read().toList
             _         = events.map(_.seqNr) shouldEqual List(SeqNr.min)
             strategy  = Strategy.const(100.millis).limit(10.seconds)
             retry     = Retry(strategy)
             _        <- retry {
               for {
-                events <- journals0(key).read().toList
+                events <- journals(key).read().toList
                 _       = events shouldEqual List.empty
               } yield {}
             }

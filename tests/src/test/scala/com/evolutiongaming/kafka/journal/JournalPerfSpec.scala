@@ -70,7 +70,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
 
       def append(journals: Journals[IO]) = {
 
-        val journal = KeyJournal(key, timestamp, journals)
+        val journal = JournalTest(journals(key), timestamp)
 
         val expected = {
           val expected = for {
@@ -90,7 +90,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
               for {
                 _       <- journal.append(Nel.of(event))
                 key     <- Key.random[IO]("journal")
-                journal  = KeyJournal(key, timestamp, journals)
+                journal  = JournalTest(journals(key), timestamp)
                 _       <- journal.append(Nel.of(event))
               } yield {}
             }
@@ -114,8 +114,8 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
       val name = s"events: $events, eventual: $eventualName"
 
       lazy val (journal, release) = {
-        val (journal, release) = journalOf(eventual()).allocated.unsafeRunSync()
-        (KeyJournal(key, timestamp, journal), release)
+        val (journals, release) = journalOf(eventual()).allocated.unsafeRunSync()
+        (JournalTest(journals(key), timestamp), release)
       }
 
       s"measure pointer $many times, $name" in {
