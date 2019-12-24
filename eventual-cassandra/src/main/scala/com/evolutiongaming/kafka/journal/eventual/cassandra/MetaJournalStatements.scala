@@ -89,22 +89,22 @@ object MetaJournalStatements {
            |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            |""".stripMargin
 
-      for {
-        prepared <- query.prepare
-      } yield {
-        (key: Key, segment: SegmentNr, created: Instant, updated: Instant, journalHead: JournalHead, origin: Option[Origin]) =>
-          prepared
-            .bind()
-            .encode(key)
-            .encode(segment)
-            .encode(journalHead)
-            .encode("created", created)
-            .encode("created_date", created.toLocalDate(ZoneOffset.UTC))
-            .encode("updated", updated)
-            .encodeSome(origin)
-            .first
-            .void
-      }
+      query
+        .prepare
+        .map { prepared =>
+          (key: Key, segment: SegmentNr, created: Instant, updated: Instant, journalHead: JournalHead, origin: Option[Origin]) =>
+            prepared
+              .bind()
+              .encode(key)
+              .encode(segment)
+              .encode(journalHead)
+              .encode("created", created)
+              .encode("created_date", created.toLocalDate(ZoneOffset.UTC))
+              .encode("updated", updated)
+              .encodeSome(origin)
+              .first
+              .void
+        }
     }
   }
 
@@ -125,23 +125,23 @@ object MetaJournalStatements {
            |AND segment = ?
            |""".stripMargin
 
-      for {
-        prepared <- query.prepare
-      } yield {
-        (key: Key, segment: SegmentNr) =>
-          val row = prepared
-            .bind()
-            .encode(key)
-            .encode(segment)
-            .first
-          for {
-            row <- row
-          } yield for {
-            row <- row
-          } yield {
-            row.decode[JournalHead]
-          }
-      }
+      query
+        .prepare
+        .map { prepared =>
+          (key: Key, segment: SegmentNr) =>
+            val row = prepared
+              .bind()
+              .encode(key)
+              .encode(segment)
+              .first
+            for {
+              row <- row
+            } yield for {
+              row <- row
+            } yield {
+              row.decode[JournalHead]
+            }
+        }
     }
   }
 
@@ -161,25 +161,25 @@ object MetaJournalStatements {
            |AND topic = ?
            |AND segment = ?
            |""".stripMargin
-      for {
-        prepared <- query.prepare
-      } yield {
-        (key: Key, segment: SegmentNr) =>
-          val row = prepared
-            .bind()
-            .encode(key)
-            .encode(segment)
-            .first
-          for {
-            row <- row
-          } yield for {
-            row <- row
-          } yield {
-            JournalPointer(
-              partitionOffset = row.decode[PartitionOffset],
-              seqNr = row.decode[SeqNr])
-          }
-      }
+      query
+        .prepare
+        .map { prepared =>
+          (key: Key, segment: SegmentNr) =>
+            val row = prepared
+              .bind()
+              .encode(key)
+              .encode(segment)
+              .first
+            for {
+              row <- row
+            } yield for {
+              row <- row
+            } yield {
+              JournalPointer(
+                partitionOffset = row.decode[PartitionOffset],
+                seqNr = row.decode[SeqNr])
+            }
+        }
     }
   }
 
@@ -272,21 +272,21 @@ object MetaJournalStatements {
            |AND segment = ?
            |""".stripMargin
 
-      for {
-        prepared <- query.prepare
-      } yield {
-        (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: DeleteTo) =>
-          prepared
-            .bind()
-            .encode(key)
-            .encode(segment)
-            .encode(partitionOffset)
-            .encode(seqNr)
-            .encode(deleteTo)
-            .encode("updated", timestamp)
-            .first
-            .void
-      }
+      query
+        .prepare
+        .map { prepared =>
+          (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: DeleteTo) =>
+            prepared
+              .bind()
+              .encode(key)
+              .encode(segment)
+              .encode(partitionOffset)
+              .encode(seqNr)
+              .encode(deleteTo)
+              .encode("updated", timestamp)
+              .first
+              .void
+        }
     }
   }
 
@@ -313,20 +313,20 @@ object MetaJournalStatements {
            |AND segment = ?
            |""".stripMargin
 
-      for {
-        prepared <- query.prepare
-      } yield {
-        (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr) =>
-          prepared
-            .bind()
-            .encode(key)
-            .encode(segment)
-            .encode(partitionOffset)
-            .encode(seqNr)
-            .encode("updated", timestamp)
-            .first
-            .void
-      }
+      query
+        .prepare
+        .map { prepared =>
+          (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr) =>
+            prepared
+              .bind()
+              .encode(key)
+              .encode(segment)
+              .encode(partitionOffset)
+              .encode(seqNr)
+              .encode("updated", timestamp)
+              .first
+              .void
+        }
     }
   }
 
@@ -355,21 +355,21 @@ object MetaJournalStatements {
            |AND segment = ?
            |""".stripMargin
 
-      for {
-        prepared <- query.prepare
-      } yield {
-        (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, expiry: Expiry) =>
-          prepared
-            .bind()
-            .encode(key)
-            .encode(segment)
-            .encode(partitionOffset)
-            .encode(seqNr)
-            .encode("updated", timestamp)
-            .encode(expiry)
-            .first
-            .void
-      }
+      query
+        .prepare
+        .map { prepared =>
+          (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, expiry: Expiry) =>
+            prepared
+              .bind()
+              .encode(key)
+              .encode(segment)
+              .encode(partitionOffset)
+              .encode(seqNr)
+              .encode("updated", timestamp)
+              .encode(expiry)
+              .first
+              .void
+        }
     }
   }
 
@@ -391,20 +391,20 @@ object MetaJournalStatements {
            |AND segment = ?
            |""".stripMargin
 
-      for {
-        prepared <- query.prepare
-      } yield {
-        (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: DeleteTo) =>
-          prepared
-            .bind()
-            .encode(key)
-            .encode(segment)
-            .encode(partitionOffset)
-            .encode(deleteTo)
-            .encode("updated", timestamp)
-            .first
-            .void
-      }
+      query
+        .prepare
+        .map { prepared =>
+          (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: DeleteTo) =>
+            prepared
+              .bind()
+              .encode(key)
+              .encode(segment)
+              .encode(partitionOffset)
+              .encode(deleteTo)
+              .encode("updated", timestamp)
+              .first
+              .void
+        }
     }
   }
 
