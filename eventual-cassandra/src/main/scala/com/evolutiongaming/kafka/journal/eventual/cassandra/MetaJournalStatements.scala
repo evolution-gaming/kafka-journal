@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 
-import java.time.{Instant, ZoneOffset}
+import java.time.{Instant, LocalDate, ZoneOffset}
 
 import cats.Monad
 import cats.data.{NonEmptyList => Nel}
@@ -209,6 +209,38 @@ object MetaJournalStatements {
               .encode("topic", topic)
               .encode(segment)
               .encode(expireOn)
+              .execute
+              .map { _.decode[JournalHead] }
+        }
+    }
+  }
+
+
+  trait SelectByTopicAndCreated[F[_]] {
+
+    def apply(topic: Topic, segment: SegmentNr, created: LocalDate): Stream[F, JournalHead]
+  }
+
+  object SelectByTopicAndCreated {
+
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[SelectByTopicAndCreated[F]] = {
+      val query =
+        s"""
+           |SELECT partition, offset, segment_size, seq_nr, delete_to, expire_after, expire_on FROM ${ name.toCql }
+           |WHERE topic = ?
+           |AND segment = ?
+           |AND created_date = ?
+           |""".stripMargin
+
+      query
+        .prepare
+        .map { prepared =>
+          (topic: Topic, segment: SegmentNr, created: LocalDate) =>
+            prepared
+              .bind()
+              .encode("topic", topic)
+              .encode(segment)
+              .encode("created_date", created)
               .execute
               .map { _.decode[JournalHead] }
         }
