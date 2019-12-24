@@ -50,21 +50,36 @@ Hence we recommend to configure access rights accordingly.
 ## Api
 
 ```scala
+trait Journals[F[_]] {
+
+  def apply(key: Key): Journal[F]
+}
+
 trait Journal[F[_]] {
 
+  /**
+   * @param expireAfter Define expireAfter in order to expire whole journal for given entity
+   */
   def append(
-    key: Key,
     events: Nel[Event],
-    expireAfter: Option[FiniteDuration],
+    expireAfter: Option[ExpireAfter],
     metadata: Option[JsValue],
-    headers: Headers,
+    headers: Headers
   ): F[PartitionOffset]
 
-  def read(key: Key, from: SeqNr = SeqNr.min): Stream[F, EventRecord]
+  def read(from: SeqNr): Stream[F, EventRecord]
 
-  def pointer(key: Key): F[Option[SeqNr]]
+  def pointer: F[Option[SeqNr]]
 
-  def delete(key: Key, to: SeqNr = SeqNr.max): F[Option[PartitionOffset]]
+  /**
+   * Deletes events up to provided SeqNr
+   */
+  def delete(to: DeleteTo): F[Option[PartitionOffset]]
+
+  /**
+   * Deletes all data with regards to to, consecutive pointer call will return none
+   */
+  def purge: F[Option[PartitionOffset]]
 }
 ```
 
