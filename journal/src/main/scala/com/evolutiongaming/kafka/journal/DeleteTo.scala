@@ -13,6 +13,11 @@ final case class DeleteTo(value: SeqNr) {
 
 object DeleteTo {
 
+  val min: DeleteTo = SeqNr.min.toDeleteTo
+
+  val max: DeleteTo = SeqNr.max.toDeleteTo
+
+
   implicit val eqDeleteTo: Eq[DeleteTo] = Eq.fromUniversalEquals
 
   implicit val showDeleteTo: Show[DeleteTo] = Show.fromToString

@@ -90,17 +90,17 @@ object Settings {
       }
     }
 
-    def mapK[G[_]](to: F ~> G, from: G ~> F): Settings[G] = new Settings[G] {
+    def mapK[G[_]](fg: F ~> G, gf: G ~> F): Settings[G] = new Settings[G] {
 
-      def get(key: K) = to(self.get(key))
+      def get(key: K) = fg(self.get(key))
 
-      def set(key: K, value: V) = to(self.set(key, value))
+      def set(key: K, value: V) = fg(self.set(key, value))
 
-      def setIfEmpty(key: K, value: V) = to(self.setIfEmpty(key, value))
+      def setIfEmpty(key: K, value: V) = fg(self.setIfEmpty(key, value))
 
-      def remove(key: K) = to(self.remove(key))
+      def remove(key: K) = fg(self.remove(key))
 
-      def all = self.all.mapK(to, from)
+      def all = self.all.mapK(fg, gf)
     }
   }
 }

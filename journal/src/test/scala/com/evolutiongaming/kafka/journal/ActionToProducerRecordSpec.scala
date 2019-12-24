@@ -36,7 +36,7 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
     origin <- origins
     seqNr  <- seqNrs
   } yield {
-    Action.Delete(key1, timestamp, seqNr, origin)
+    Action.Delete(key1, timestamp, seqNr.toDeleteTo, origin)
   }
 
   private val purges = for {

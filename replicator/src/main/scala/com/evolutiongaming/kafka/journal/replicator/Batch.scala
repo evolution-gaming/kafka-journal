@@ -15,7 +15,7 @@ object Batch {
 
     def cut(appends: Appends, delete: Action.Delete) = {
       val append = appends.records.head.action
-      append.range.to <= delete.to
+      append.range.to <= delete.to.value
     }
 
     records
@@ -24,7 +24,7 @@ object Batch {
 
         def appendsOf(records: Nel[ActionRecord[Action.Append]]) = Appends(partitionOffset, records)
 
-        def deleteOf(seqNr: SeqNr, origin: Option[Origin]) = Delete(partitionOffset, seqNr, origin)
+        def deleteOf(to: DeleteTo, origin: Option[Origin]) = Delete(partitionOffset, to, origin)
 
         def purgeOf(origin: Option[Origin]) = Purge(partitionOffset, origin)
 
@@ -70,7 +70,7 @@ object Batch {
               b.copy(partitionOffset = partitionOffset) :: tail
 
             case (b: Delete, a: Action.Delete) =>
-              if (a.to > b.seqNr) {
+              if (a.to > b.to) {
                 if (tail.collectFirst { case b: Appends => cut(b, a) } getOrElse false) {
                   val delete = deleteOf(a.to, origin orElse a.origin)
                   delete :: Nil
@@ -128,7 +128,7 @@ object Batch {
   // TODO expiry: replace partitionOffset with offset
   final case class Delete(
     partitionOffset: PartitionOffset,
-    seqNr: SeqNr,
+    to: DeleteTo,
     origin: Option[Origin]
   ) extends Batch
 

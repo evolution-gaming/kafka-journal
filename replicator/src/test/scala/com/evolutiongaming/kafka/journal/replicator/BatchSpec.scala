@@ -336,15 +336,16 @@ class BatchSpec extends AnyFunSuite with Matchers {
   }
 
   def deletes(offset: Int, seqNr: Int, origin: String = ""): Batch.Delete = {
-    val partitionOffset = PartitionOffset(offset = Offset.unsafe(offset))
-    val originOpt = originOf(origin)
-    Batch.Delete(partitionOffset, SeqNr.unsafe(seqNr), originOpt)
+    Batch.Delete(
+      PartitionOffset(offset = Offset.unsafe(offset)),
+      SeqNr.unsafe(seqNr).toDeleteTo,
+      originOf(origin))
   }
 
   def purges(offset: Int, origin: String = ""): Batch.Purge = {
-    val partitionOffset = PartitionOffset(offset = Offset.unsafe(offset))
-    val originOpt = originOf(origin)
-    Batch.Purge(partitionOffset, originOpt)
+    Batch.Purge(
+      PartitionOffset(offset = Offset.unsafe(offset)),
+      originOf(origin))
   }
 
   def append(offset: Int, seqNr: Int, seqNrs: Int*): A.Append = {
@@ -384,8 +385,11 @@ class BatchSpec extends AnyFunSuite with Matchers {
   }
 
   def deleteOf(seqNr: Int, origin: String): Action.Delete = {
-    val originOpt = originOf(origin)
-    Action.Delete(keyOf, timestamp, seqNrOf(seqNr), originOpt)
+    Action.Delete(
+      keyOf,
+      timestamp,
+      seqNrOf(seqNr).toDeleteTo,
+      originOf(origin))
   }
 
   def actionOf(a: A): Action = {

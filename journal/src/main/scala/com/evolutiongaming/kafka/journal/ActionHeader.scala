@@ -102,7 +102,7 @@ object ActionHeader {
 
 
   final case class Delete(
-    to: SeqNr,
+    to: DeleteTo,
     origin: Option[Origin]
   ) extends AppendOrDelete
 

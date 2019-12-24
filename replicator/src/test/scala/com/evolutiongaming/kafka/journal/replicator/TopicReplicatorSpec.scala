@@ -679,7 +679,11 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
   }
 
   private def deleteOf(key: Key, to: Int) = {
-    Action.Delete(key, timestamp, SeqNr.unsafe(to), origin.some)
+    Action.Delete(
+      key,
+      timestamp,
+      SeqNr.unsafe(to).toDeleteTo,
+      origin.some)
   }
 
   private def purgeOf(key: Key) = {
@@ -714,9 +718,14 @@ object TopicReplicatorSpec {
     deleteTo: Option[Int] = none,
     expireAfter: Option[ExpireAfter] = none,
   ): (String, MetaJournal) = {
-    val deleteToSeqNr = deleteTo.flatMap(deleteTo => SeqNr.opt(deleteTo.toLong))
-    val partitionOffset = PartitionOffset(Partition.unsafe(partition), Offset.unsafe(offset))
-    val metaJournal = MetaJournal(partitionOffset, deleteToSeqNr, expireAfter, origin.some)
+    val deleteToSeqNr = deleteTo
+      .flatMap { deleteTo => SeqNr.opt(deleteTo.toLong) }
+      .map { _.toDeleteTo }
+    val metaJournal = MetaJournal(
+      PartitionOffset(Partition.unsafe(partition), Offset.unsafe(offset)),
+      deleteToSeqNr,
+      expireAfter,
+      origin.some)
     (id, metaJournal)
   }
 
@@ -790,7 +799,7 @@ object TopicReplicatorSpec {
               }
             }
 
-            def delete(partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: SeqNr, origin: Option[Origin]) = {
+            def delete(partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: DeleteTo, origin: Option[Origin]) = {
               StateT { state => (state.delete(id, deleteTo, partitionOffset, origin), ()) }
             }
 
@@ -950,11 +959,11 @@ object TopicReplicatorSpec {
       copy(topics = topic :: topics)
     }
 
-    def delete(id: String, deleteTo: SeqNr, partitionOffset: PartitionOffset, origin: Option[Origin]): State = {
+    def delete(id: String, deleteTo: DeleteTo, partitionOffset: PartitionOffset, origin: Option[Origin]): State = {
 
       def journal = self.journal.getOrElse(id, Nil)
 
-      def delete(deleteTo: SeqNr) = journal.dropWhile(_.seqNr <= deleteTo)
+      def delete(deleteTo: DeleteTo) = journal.dropWhile { _.seqNr <= deleteTo.value }
 
       val deleteTo1 = self.metaJournal.get(id).flatMap(_.deleteTo)
       if (deleteTo1.exists(_ >= deleteTo)) {
@@ -966,7 +975,7 @@ object TopicReplicatorSpec {
         val result = records.headOption.flatMap(_.seqNr.prev[Option]) orElse journal.lastOption.map(_.seqNr)
         val metaJournal = MetaJournal(
           offset = partitionOffset,
-          deleteTo = result orElse deleteTo1,
+          deleteTo = result.map { _.toDeleteTo } orElse deleteTo1,
           expireAfter = none,
           origin = origin)
         copy(
@@ -992,7 +1001,7 @@ object TopicReplicatorSpec {
 
   final case class MetaJournal(
     offset: PartitionOffset,
-    deleteTo: Option[SeqNr],
+    deleteTo: Option[DeleteTo],
     expireAfter: Option[ExpireAfter],
     origin: Option[Origin])
 

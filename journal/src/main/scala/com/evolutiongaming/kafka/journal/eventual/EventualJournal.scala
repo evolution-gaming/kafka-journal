@@ -208,13 +208,13 @@ object EventualJournal {
 
   implicit class EventualJournalOps[F[_]](val self: EventualJournal[F]) extends AnyVal {
 
-    def mapK[G[_]](to: F ~> G, from: G ~> F): EventualJournal[G] = new EventualJournal[G] {
+    def mapK[G[_]](fg: F ~> G, gf: G ~> F): EventualJournal[G] = new EventualJournal[G] {
 
-      def pointers(topic: Topic) = to(self.pointers(topic))
+      def pointers(topic: Topic) = fg(self.pointers(topic))
 
-      def read(key: Key, from1: SeqNr) = self.read(key, from1).mapK(to, from)
+      def read(key: Key, from1: SeqNr) = self.read(key, from1).mapK(fg, gf)
 
-      def pointer(key: Key) = to(self.pointer(key))
+      def pointer(key: Key) = fg(self.pointer(key))
     }
 
     def withLog(log: Log[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): EventualJournal[F] = {

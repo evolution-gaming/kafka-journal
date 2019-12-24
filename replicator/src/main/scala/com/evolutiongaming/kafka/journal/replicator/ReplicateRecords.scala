@@ -90,7 +90,7 @@ object ReplicateRecords {
             } yield {}
           }
 
-          def delete(partitionOffset: PartitionOffset, deleteTo: SeqNr, origin: Option[Origin]) = {
+          def delete(partitionOffset: PartitionOffset, deleteTo: DeleteTo, origin: Option[Origin]) = {
 
             def msg(latency: FiniteDuration) = {
               val originStr = origin.foldMap { origin => s", origin: $origin" }
@@ -126,7 +126,7 @@ object ReplicateRecords {
             .of(records)
             .foldMapM {
               case batch: Batch.Appends => append(batch.partitionOffset, batch.records)
-              case batch: Batch.Delete  => delete(batch.partitionOffset, batch.seqNr, batch.origin)
+              case batch: Batch.Delete  => delete(batch.partitionOffset, batch.to, batch.origin)
               case batch: Batch.Purge   => purge(batch.partitionOffset, batch.origin)
             }
         }

@@ -51,7 +51,7 @@ trait Journal[F[_]] {
    * Deletes events up to provided SeqNr
    */
   // TODO return Pointer and test it
-  def delete(key: Key, to: SeqNr = SeqNr.max): F[Option[PartitionOffset]]
+  def delete(key: Key, to: DeleteTo = DeleteTo.max): F[Option[PartitionOffset]]
 
   /**
    * Deletes all data with regards to to, consecutive pointer call will return none
@@ -76,7 +76,7 @@ object Journal {
 
     def pointer(key: Key) = none[SeqNr].pure[F]
 
-    def delete(key: Key, to: SeqNr) = none[PartitionOffset].pure[F]
+    def delete(key: Key, to: DeleteTo) = none[PartitionOffset].pure[F]
 
     def purge(key: Key) = none[PartitionOffset].pure[F]
   }
@@ -258,21 +258,25 @@ object Journal {
 
           def readEventual(from: SeqNr) = eventual.read(key, from)
 
-          def onAppend(offset: Offset, deleteTo: Option[SeqNr]) = {
+          def onAppend(offset: Offset, deleteTo: Option[DeleteTo]) = {
 
             def readEventualAndKafka1(from: SeqNr) = readEventualAndKafka(from, stream, offset)
 
             deleteTo.fold {
               readEventualAndKafka1(from)
             } { deleteTo =>
-              deleteTo.next[Option].fold(empty) { min =>
-                readEventualAndKafka1(min max from)
-              }
+              deleteTo
+                .value
+                .next[Option]
+                .fold(empty) { min => readEventualAndKafka1(min max from) }
             }
           }
 
-          def onDelete(deleteTo: SeqNr) = {
-            deleteTo.next[Option].fold(empty) { min => readEventual(min max from) }
+          def onDelete(deleteTo: DeleteTo) = {
+            deleteTo
+              .value
+              .next[Option]
+              .fold(empty) { min => readEventual(min max from) }
           }
 
           head match {
@@ -322,9 +326,9 @@ object Journal {
       }
 
       // TODO not delete already deleted, do not accept deleteTo=2 when already deleteTo=3
-      def delete(key: Key, to: SeqNr) = {
+      def delete(key: Key, to: DeleteTo) = {
 
-        def delete(to: SeqNr) = {
+        def delete(to: DeleteTo) = {
           for {
             timestamp <- Clock[F].instant
             action     = Action.Delete(key, timestamp, to, origin)
@@ -334,7 +338,7 @@ object Journal {
 
         for {
           seqNr   <- pointer(key)
-          pointer <- seqNr.traverse { seqNr => delete(seqNr min to) }
+          pointer <- seqNr.traverse { seqNr => delete(seqNr.toDeleteTo min to) }
         } yield pointer
       }
 
@@ -632,7 +636,7 @@ object Journal {
           } yield r
         }
 
-        def delete(key: Key, to: SeqNr) = {
+        def delete(key: Key, to: DeleteTo) = {
           for {
             d <- MeasureDuration[F].start
             r <- self.delete(key, to)
@@ -705,7 +709,7 @@ object Journal {
           }
         }
 
-        def delete(key: Key, to: SeqNr) = {
+        def delete(key: Key, to: DeleteTo) = {
           logError {
             self.delete(key, to)
           } { (error, latency) =>
@@ -785,7 +789,7 @@ object Journal {
           } yield r
         }
 
-        def delete(key: Key, to: SeqNr) = {
+        def delete(key: Key, to: DeleteTo) = {
           for {
             d <- MeasureDuration[F].start
             r <- handleError("delete", key.topic) { self.delete(key, to) }
@@ -806,7 +810,7 @@ object Journal {
     }
 
 
-    def mapK[G[_]](to: F ~> G, from: G ~> F): Journal[G] = new Journal[G] {
+    def mapK[G[_]](fg: F ~> G, gf: G ~> F): Journal[G] = new Journal[G] {
 
       def append(
         key: Key,
@@ -815,16 +819,16 @@ object Journal {
         metadata: Option[JsValue],
         headers: Headers
       ) = {
-        to(self.append(key, events, expireAfter, metadata, headers))
+        fg(self.append(key, events, expireAfter, metadata, headers))
       }
 
-      def read(key: Key, from1: SeqNr) = self.read(key, from1).mapK(to, from)
+      def read(key: Key, from1: SeqNr) = self.read(key, from1).mapK(fg, gf)
 
-      def pointer(key: Key) = to(self.pointer(key))
+      def pointer(key: Key) = fg(self.pointer(key))
 
-      def delete(key: Key, to1: SeqNr) = to(self.delete(key, to1))
+      def delete(key: Key, to: DeleteTo) = fg(self.delete(key, to))
 
-      def purge(key: Key) = to(self.purge(key))
+      def purge(key: Key) = fg(self.purge(key))
     }
   }
 

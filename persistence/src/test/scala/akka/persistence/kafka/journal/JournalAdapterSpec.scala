@@ -47,8 +47,8 @@ class JournalAdapterSpec extends AnyFunSuite with Matchers {
   }
 
   test("delete") {
-    val (data, _) = journalAdapter.delete(persistenceId, SeqNr.max).run(State.empty)
-    data shouldEqual State(deletes = List(Delete(key1, SeqNr.max, timestamp)))
+    val (data, _) = journalAdapter.delete(persistenceId, DeleteTo.max).run(State.empty)
+    data shouldEqual State(deletes = List(Delete(key1, DeleteTo.max, timestamp)))
   }
 
   test("lastSeqNr") {
@@ -113,7 +113,7 @@ object JournalAdapterSpec {
 
   final case class Read(key: Key, from: SeqNr)
 
-  final case class Delete(key: Key, to: SeqNr, timestamp: Instant)
+  final case class Delete(key: Key, to: DeleteTo, timestamp: Instant)
 
   final case class Pointer(key: Key)
 
@@ -178,7 +178,7 @@ object JournalAdapterSpec {
         }
       }
 
-      def delete(key: Key, to: SeqNr) = {
+      def delete(key: Key, to: DeleteTo) = {
         StateT { state =>
           val delete = Delete(key, to, timestamp)
           val state1 = state.copy(deletes = delete :: state.deletes)

@@ -113,12 +113,12 @@ object Action {
     header: ActionHeader.Delete
   ) extends User {
 
-    def to: SeqNr = header.to
+    def to: DeleteTo = header.to
   }
 
   object Delete {
 
-    def apply(key: Key, timestamp: Instant, to: SeqNr, origin: Option[Origin]): Delete = {
+    def apply(key: Key, timestamp: Instant, to: DeleteTo, origin: Option[Origin]): Delete = {
       val header = ActionHeader.Delete(to, origin)
       Delete(key, timestamp, header)
     }

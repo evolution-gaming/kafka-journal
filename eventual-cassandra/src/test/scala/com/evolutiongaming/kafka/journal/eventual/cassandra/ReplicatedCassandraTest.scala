@@ -78,7 +78,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         _      <- journal.save(topic1, Nem.of((Partition.min, Offset.min)), timestamp0)
         topics <- journal.topics
         _       = topics.toSet shouldEqual Set(topic0, topic1)
-        _      <- journal.delete(key, partitionOffset1, timestamp1, SeqNr.max, origin.some)
+        _      <- journal.delete(key, partitionOffset1, timestamp1, SeqNr.max.toDeleteTo, origin.some)
         topics <- journal.topics
         _       = topics.toSet shouldEqual Set(topic0, topic1)
       } yield {}
@@ -760,7 +760,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           key = key,
           partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
           timestamp = timestamp1,
-          deleteTo = SeqNr.max,
+          deleteTo = SeqNr.max.toDeleteTo,
           origin = origin.some)
       } yield {}
 
@@ -797,7 +797,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         key = key,
         partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)),
         timestamp = timestamp1,
-        deleteTo = SeqNr.min,
+        deleteTo = SeqNr.min.toDeleteTo,
         origin = origin.some)
 
       val initial = State.empty.copy(
@@ -860,7 +860,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             PartitionOffset(Partition.min, Offset.unsafe(4)),
             timestamp1,
-            SeqNr.unsafe(2)),
+            SeqNr.unsafe(2).toDeleteTo),
           Action.InsertMetaJournal(
             key,
             segment,
@@ -931,7 +931,12 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             eventRecordOf(
               seqNr = SeqNr.unsafe(2),
               partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)))))
-        _ <- journal.delete(key, PartitionOffset(Partition.min, Offset.unsafe(4)), timestamp0, SeqNr.unsafe(2), origin.some)
+        _ <- journal.delete(
+          key,
+          PartitionOffset(Partition.min, Offset.unsafe(4)),
+          timestamp0,
+          SeqNr.unsafe(2).toDeleteTo,
+          origin.some)
         _ <- journal.purge(key, Offset.unsafe(5), timestamp1)
       } yield {}
 
@@ -944,13 +949,13 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             PartitionOffset(Partition.min, Offset.unsafe(5)),
             timestamp1,
-            SeqNr.unsafe(2)),
+            SeqNr.unsafe(2).toDeleteTo),
           Action.UpdateDeleteTo(
             key,
             segment,
             PartitionOffset(Partition.min, Offset.unsafe(4)),
             timestamp0,
-            SeqNr.unsafe(2)),
+            SeqNr.unsafe(2).toDeleteTo),
           Action.InsertMetaJournal(
             key,
             segment,
@@ -1099,7 +1104,7 @@ object ReplicatedCassandraTest {
                 deleteTo = deleteTo.some),
               updated = timestamp)
           }
-          .append(Action.UpdateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo.value))
+          .append(Action.UpdateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo))
       }
     }
   }
@@ -1323,7 +1328,7 @@ object ReplicatedCassandraTest {
       segment: SegmentNr,
       partitionOffset: PartitionOffset,
       timestamp: Instant,
-      deleteTo: SeqNr
+      deleteTo: DeleteTo
     ) extends Action
 
     final case class Delete(key: Key, segment: SegmentNr) extends Action

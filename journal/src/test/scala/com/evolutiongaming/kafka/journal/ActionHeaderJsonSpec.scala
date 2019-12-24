@@ -43,7 +43,7 @@ class ActionHeaderJsonSpec extends AnyFunSuite with Matchers {
 
     test(s"Delete format, origin: $origin") {
       val seqNr = SeqNr.unsafe(3)
-      val header = ActionHeader.Delete(seqNr, origin)
+      val header = ActionHeader.Delete(seqNr.toDeleteTo, origin)
       verify(header, s"Delete-$originStr")
     }
 

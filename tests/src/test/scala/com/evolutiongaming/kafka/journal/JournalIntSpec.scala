@@ -83,7 +83,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             _          = pointer shouldEqual None
             events    <- journal.read
             _          = events shouldEqual List.empty
-            pointer   <- journal.delete(SeqNr.max)
+            pointer   <- journal.delete(DeleteTo.max)
             _          = pointer shouldEqual None
             event      = Event(seqNr)
             offset    <- journal.append(Nel.of(event), recordMetadata.data, headers)
@@ -91,7 +91,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             partition  = offset.partition
             events    <- journal.read
             _          = events shouldEqual List(record)
-            pointer   <- journal.delete(SeqNr.max)
+            pointer   <- journal.delete(DeleteTo.max)
             _          = pointer.map { _.partition } shouldEqual partition.some
             pointer   <- journal.pointer
             _          = pointer shouldEqual seqNr.some
@@ -107,7 +107,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             record     = EventRecord(event, timestamp, offset, origin.some, recordMetadata, headers)
             events    <- journal.read
             _          = events shouldEqual List(record)
-            pointer   <- journal.delete(SeqNr.max)
+            pointer   <- journal.delete(DeleteTo.max)
             _          = pointer.map { _.partition } shouldEqual partition.some
             pointer   <- journal.pointer
             _          = pointer shouldEqual seqNr.some
@@ -195,7 +195,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             _          = pointer shouldEqual None
             events    <- journal.read
             _          = events shouldEqual Nil
-            offset    <- journal.delete(SeqNr.max)
+            offset    <- journal.delete(DeleteTo.max)
             _          = offset shouldEqual None
             events     = seqNrs.map { seqNr => Event(seqNr) }
             append     = journal.append(events, recordMetadata.data, headers)
@@ -206,7 +206,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             partition  = offset.partition
             events    <- journal.read
             _          = events shouldEqual records.toList
-            offset    <- journal.delete(seqNrs.last)
+            offset    <- journal.delete(seqNrs.last.toDeleteTo)
             _          = offset.map(_.partition) shouldEqual partition.some
             pointer   <- journal.pointer
             _          = pointer shouldEqual seqNrs.last.some

@@ -285,7 +285,7 @@ object ReplicatedCassandra {
                 def delete(
                   partitionOffset: PartitionOffset,
                   timestamp: Instant,
-                  deleteTo: SeqNr,
+                  deleteTo: DeleteTo,
                   origin: Option[Origin]
                 ) = {
 
@@ -293,8 +293,8 @@ object ReplicatedCassandra {
                     val journalHead = JournalHead(
                       partitionOffset = partitionOffset,
                       segmentSize = segmentSize,
-                      seqNr = deleteTo,
-                      deleteTo = deleteTo.toDeleteTo.some,
+                      seqNr = deleteTo.value,
+                      deleteTo = deleteTo.some,
                       expiry = none/*TODO expiry: what if we have this in context of deletion*/)
                     metaJournal
                       .insert(timestamp, journalHead, origin)
@@ -302,7 +302,7 @@ object ReplicatedCassandra {
                   }
 
                   def delete(journalHead: JournalHead) = {
-                    delete1(journalHead, deleteTo.toDeleteTo, partitionOffset, timestamp)
+                    delete1(journalHead, deleteTo, partitionOffset, timestamp)
                   }
 
                   for {
@@ -669,7 +669,7 @@ object ReplicatedCassandra {
 
         def apply(seqNr: SeqNr, expiry: Expiry): F[Unit]
 
-        def apply(deleteTo: DeleteTo/*TODO expiry: use DeleteTo everywhere*/): F[Unit]
+        def apply(deleteTo: DeleteTo): F[Unit]
 
         def apply(seqNr: SeqNr, deleteTo: DeleteTo): F[Unit]
       }

@@ -88,7 +88,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
       s"delete all, $name" in {
         createAndAppend { case (journal, _) =>
           for {
-            _ <- seqNrLast.fold(().pure[F]) { seqNr => journal.delete(seqNr).void }
+            _ <- seqNrLast.fold(().pure[F]) { seqNr => journal.delete(seqNr.toDeleteTo).void }
             a <- journal.read(SeqRange.all)
             _  = a shouldEqual Nil
             a <- journal.pointer
@@ -101,7 +101,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
       s"delete SeqNr.Max, $name" in {
         createAndAppend { case (journal, _) =>
           for {
-            _ <- journal.delete(SeqNr.max)
+            _ <- journal.delete(DeleteTo.max)
             a <- journal.read(SeqRange.all)
             _  = a shouldEqual Nil
             a <- journal.pointer
@@ -114,7 +114,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
       s"delete SeqNr.Min, $name" in {
         createAndAppend { case (journal, offset) =>
           for {
-            a <- journal.delete(SeqNr.min)
+            a <- journal.delete(DeleteTo.min)
             _  = a shouldEqual offset.map { _.inc[Try].get }
             a <- journal.read(SeqRange.all)
             _  = a shouldEqual seqNrs.dropWhile(_ <= SeqNr.min)
@@ -153,7 +153,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
         s"delete except last, $name" in {
           createAndAppend { case (journal, _) =>
             for {
-              _      <- journal.delete(seqNr)
+              _      <- journal.delete(seqNr.toDeleteTo)
               seqNrs <- journal.read(SeqRange.all)
               _       = seqNrs shouldEqual seqNrs.dropWhile(_ <= seqNr)
               seqNr  <- journal.pointer
@@ -192,9 +192,9 @@ class JournalSpec extends AnyWordSpec with Matchers {
       withJournal { journal =>
         for {
           _       <- journal.append(SeqNr.unsafe(1))
-          _       <- journal.delete(SeqNr.unsafe(3))
+          _       <- journal.delete(SeqNr.unsafe(3).toDeleteTo)
           _       <- journal.append(SeqNr.unsafe(2), SeqNr.unsafe(3))
-          _       <- journal.delete(SeqNr.unsafe(2))
+          _       <- journal.delete(SeqNr.unsafe(2).toDeleteTo)
           _       <- journal.append(SeqNr.unsafe(4))
           seqNrs  <- journal.read(SeqRange.unsafe(1, 2))
           _        = seqNrs shouldEqual Nil
@@ -406,7 +406,7 @@ object JournalSpec {
 
     def pointer: F[Option[SeqNr]]
 
-    def delete(to: SeqNr): F[Option[Offset]]
+    def delete(to: DeleteTo): F[Option[Offset]]
 
     def purge: F[Option[Offset]]
   }
@@ -441,7 +441,7 @@ object JournalSpec {
 
         def pointer = journal.pointer(key)
 
-        def delete(to: SeqNr) = {
+        def delete(to: DeleteTo) = {
           for {
             partitionOffset <- journal.delete(key, to)
           } yield for {
@@ -543,7 +543,7 @@ object JournalSpec {
 
           val seqNr = state.replicatedState.events.lastOption.map(_.event.seqNr)
           val pointer = for {
-            seqNr <- seqNr max state.replicatedState.deleteTo
+            seqNr  <- seqNr max state.replicatedState.deleteTo.map { _.value }
             offset <- state.replicatedState.offset
           } yield {
             val partitionOffset = PartitionOffset(partition, offset)
@@ -617,7 +617,7 @@ object JournalSpec {
 
     final case class State(
       events: Queue[EventRecord] = Queue.empty,
-      deleteTo: Option[SeqNr] = None,
+      deleteTo: Option[DeleteTo] = None,
       offset: Option[Offset] = None) {
 
       def apply(record: ActionRecord[Action]): State = {
@@ -646,13 +646,13 @@ object JournalSpec {
         def onDelete(action: Action.Delete) = {
           events.lastOption.fold(updateOffset) { last =>
             val lastSeqNr = last.event.seqNr
-            if (lastSeqNr <= action.to) {
+            if (lastSeqNr <= action.to.value) {
               copy(
                 events = Queue.empty,
-                deleteTo = lastSeqNr.some,
+                deleteTo = lastSeqNr.toDeleteTo.some,
                 offset = offset.some)
             } else {
-              val left = events.dropWhile { _.event.seqNr <= action.to }
+              val left = events.dropWhile { _.event.seqNr <= action.to.value }
               copy(
                 events = left,
                 deleteTo = action.to.some,

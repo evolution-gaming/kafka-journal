@@ -189,7 +189,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
 
   def asyncDeleteMessagesTo(persistenceId: PersistenceId, to: Long): Future[Unit] = {
     SeqNr.opt(to) match {
-      case Some(to) => adapter.delete(persistenceId, to)
+      case Some(to) => adapter.delete(persistenceId, to.toDeleteTo)
       case None     => Future.unit
     }
   }

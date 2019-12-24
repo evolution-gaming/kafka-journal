@@ -243,7 +243,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
           _                = events shouldEqual expected.toList
           pointer         <- pointerOf(key)
           _                = pointer shouldEqual expected.last.seqNr.some
-          pointer         <- journal.delete(key, expected.last.event.seqNr).map(_.map(_.partition))
+          pointer         <- journal.delete(key, expected.last.event.seqNr.toDeleteTo).map(_.map(_.partition))
           _                = pointer shouldEqual partition.some
           events          <- read(key)(_.isEmpty)
           _                = events shouldEqual Nil

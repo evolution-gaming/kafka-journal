@@ -11,9 +11,9 @@ object HeadInfo {
 
   def empty: HeadInfo = Empty
 
-  def delete(deleteTo: SeqNr): HeadInfo = Delete(deleteTo)
+  def delete(deleteTo: DeleteTo): HeadInfo = Delete(deleteTo)
 
-  def append(seqNr: SeqNr, deleteTo: Option[SeqNr], offset: Offset): HeadInfo = {
+  def append(seqNr: SeqNr, deleteTo: Option[DeleteTo], offset: Offset): HeadInfo = {
     Append(offset, seqNr, deleteTo)
   }
 
@@ -56,12 +56,12 @@ object HeadInfo {
   final case class Append(
     offset: Offset,
     seqNr: SeqNr,
-    deleteTo: Option[SeqNr]
+    deleteTo: Option[DeleteTo]
   ) extends NonEmpty
 
 
   final case class Delete(
-    deleteTo: SeqNr
+    deleteTo: DeleteTo
   ) extends NonEmpty
 
 
@@ -70,13 +70,13 @@ object HeadInfo {
 
   implicit class HeadInfoOps(val self: HeadInfo) extends AnyVal {
 
-    def delete(to: SeqNr): HeadInfo = {
+    def delete(to: DeleteTo): HeadInfo = {
 
       def onAppend(self: Append) = {
         val deleteTo = self
           .deleteTo
           .fold(to) { _ max to }
-          .min(self.seqNr)
+          .min(self.seqNr.toDeleteTo)
         self.copy(seqNr = self.seqNr, deleteTo = deleteTo.some)
       }
 
@@ -93,10 +93,10 @@ object HeadInfo {
 
     def append(range: SeqRange, offset: Offset): HeadInfo = {
 
-      def deleteToOf(deleteTo: SeqNr) = range
+      def deleteToOf(deleteTo: DeleteTo) = range
         .from
         .prev[Option]
-        .map { _ min deleteTo }
+        .map { _.toDeleteTo min deleteTo }
 
       def append = Append(offset, range.to, none)
 

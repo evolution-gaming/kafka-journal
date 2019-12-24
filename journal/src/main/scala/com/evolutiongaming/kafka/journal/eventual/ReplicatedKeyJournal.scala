@@ -23,7 +23,7 @@ trait ReplicatedKeyJournal[F[_]] {
   def delete(
     partitionOffset: PartitionOffset,
     timestamp: Instant,
-    deleteTo: SeqNr,
+    deleteTo: DeleteTo,
     origin: Option[Origin]
   ): F[Unit]
 
@@ -47,7 +47,7 @@ object ReplicatedKeyJournal {
     def delete(
       partitionOffset: PartitionOffset,
       timestamp: Instant,
-      deleteTo: SeqNr,
+      deleteTo: DeleteTo,
       origin: Option[Origin]
     ) = ().pure[F]
 
@@ -74,7 +74,7 @@ object ReplicatedKeyJournal {
       def delete(
         partitionOffset: PartitionOffset,
         timestamp: Instant,
-        deleteTo: SeqNr,
+        deleteTo: DeleteTo,
         origin: Option[Origin]
       ) = {
         replicatedJournal.delete(key, partitionOffset, timestamp, deleteTo, origin)
@@ -106,7 +106,7 @@ object ReplicatedKeyJournal {
       def delete(
         partitionOffset: PartitionOffset,
         timestamp: Instant,
-        deleteTo: SeqNr,
+        deleteTo: DeleteTo,
         origin: Option[Origin]
       ) = {
         f(self.delete(partitionOffset, timestamp, deleteTo, origin))
@@ -154,7 +154,7 @@ object ReplicatedKeyJournal {
         def delete(
           partitionOffset: PartitionOffset,
           timestamp: Instant,
-          deleteTo: SeqNr,
+          deleteTo: DeleteTo,
           origin: Option[Origin]
         ) = {
           for {
@@ -208,7 +208,7 @@ object ReplicatedKeyJournal {
         def delete(
           partitionOffset: PartitionOffset,
           timestamp: Instant,
-          deleteTo: SeqNr,
+          deleteTo: DeleteTo,
           origin: Option[Origin]
         ) = {
           for {
@@ -263,7 +263,7 @@ object ReplicatedKeyJournal {
         def delete(
           partitionOffset: PartitionOffset,
           timestamp: Instant,
-          deleteTo: SeqNr,
+          deleteTo: DeleteTo,
           origin: Option[Origin]
         ) = {
           self

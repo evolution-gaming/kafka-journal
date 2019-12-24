@@ -61,9 +61,9 @@ object ConsumeActionRecords {
 
   implicit class ConsumeActionRecordsOps[F[_]](val self: ConsumeActionRecords[F]) extends AnyVal {
 
-    def mapK[G[_]](to: F ~> G, from: G ~> F): ConsumeActionRecords[G] = {
+    def mapK[G[_]](fg: F ~> G, gf: G ~> F): ConsumeActionRecords[G] = {
       (key: Key, partition: Partition, from1: Offset) => {
-        self(key, partition, from1).mapK[G](to, from)
+        self(key, partition, from1).mapK[G](fg, gf)
       }
     }
   }

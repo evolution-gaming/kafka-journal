@@ -29,7 +29,7 @@ trait ReplicatedJournalFlat[F[_]] {
     key: Key,
     partitionOffset: PartitionOffset,
     timestamp: Instant,
-    deleteTo: SeqNr,
+    deleteTo: DeleteTo,
     origin: Option[Origin]
   ): F[Unit]
 
@@ -79,7 +79,7 @@ object ReplicatedJournalFlat {
         key: Key,
         partitionOffset: PartitionOffset,
         timestamp: Instant,
-        deleteTo: SeqNr,
+        deleteTo: DeleteTo,
         origin: Option[Origin]
       ) = {
         replicatedJournal
@@ -132,7 +132,7 @@ object ReplicatedJournalFlat {
       key: Key,
       partitionOffset: PartitionOffset,
       timestamp: Instant,
-      deleteTo: SeqNr,
+      deleteTo: DeleteTo,
       origin: Option[Origin]
     ) = ().pure[F]
 
@@ -168,7 +168,7 @@ object ReplicatedJournalFlat {
         key: Key,
         partitionOffset: PartitionOffset,
         timestamp: Instant,
-        deleteTo: SeqNr,
+        deleteTo: DeleteTo,
         origin: Option[Origin]
       ) = {
         f(self.delete(key, partitionOffset, timestamp, deleteTo, origin))

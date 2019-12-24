@@ -24,7 +24,7 @@ trait JournalAdapter[F[_]] {
 
   def write(aws: Seq[AtomicWrite]): F[List[Try[Unit]]]
 
-  def delete(persistenceId: PersistenceId, to: SeqNr): F[Unit]
+  def delete(persistenceId: PersistenceId, to: DeleteTo): F[Unit]
 
   def lastSeqNr(persistenceId: PersistenceId, from: SeqNr): F[Option[SeqNr]]
 
@@ -123,7 +123,7 @@ object JournalAdapter {
       }
     }
 
-    def delete(persistenceId: PersistenceId, to: SeqNr) = {
+    def delete(persistenceId: PersistenceId, to: DeleteTo) = {
       for {
         key <- toKey(persistenceId)
         _   <- journal.delete(key, to)
@@ -177,7 +177,7 @@ object JournalAdapter {
 
       def write(aws: Seq[AtomicWrite]) = fg(self.write(aws))
 
-      def delete(persistenceId: PersistenceId, to: SeqNr) = fg(self.delete(persistenceId, to))
+      def delete(persistenceId: PersistenceId, to: DeleteTo) = fg(self.delete(persistenceId, to))
 
       def lastSeqNr(persistenceId: PersistenceId, from: SeqNr) = fg(self.lastSeqNr(persistenceId, from))
 
@@ -205,7 +205,7 @@ object JournalAdapter {
         }
       }
 
-      def delete(persistenceId: PersistenceId, to: SeqNr) = self.delete(persistenceId, to)
+      def delete(persistenceId: PersistenceId, to: DeleteTo) = self.delete(persistenceId, to)
 
       def lastSeqNr(persistenceId: PersistenceId, from: SeqNr) = self.lastSeqNr(persistenceId, from)
 

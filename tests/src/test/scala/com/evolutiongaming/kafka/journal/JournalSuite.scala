@@ -78,7 +78,7 @@ object JournalSuite {
 
     def pointer: F[Option[SeqNr]]
 
-    def delete(to: SeqNr): F[Option[PartitionOffset]]
+    def delete(to: DeleteTo): F[Option[PartitionOffset]]
 
     def purge: F[Option[PartitionOffset]]
 
@@ -119,7 +119,7 @@ object JournalSuite {
 
       def pointer = journal.pointer(key)
 
-      def delete(to: SeqNr) = journal.delete(key, to)
+      def delete(to: DeleteTo) = journal.delete(key, to)
 
       def purge = journal.purge(key)
 
