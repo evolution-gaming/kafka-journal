@@ -116,7 +116,7 @@ object JournalAdapter {
           key      <- toKey(persistenceId)
           events   <- prs.traverse(serializer.toEvent)
           metadata <- appendMetadataOf(key, prs, events)
-          _        <- journals.append(key, events, metadata.expireAfter, metadata.metadata, metadata.headers) /*TODO expiry: pass AppendMetadata directly?*/
+          _        <- journals(key).append(events, metadata.expireAfter, metadata.metadata, metadata.headers) /*TODO expiry: pass AppendMetadata directly?*/
         } yield {
           List.empty[Try[Unit]]
         }
@@ -126,15 +126,15 @@ object JournalAdapter {
     def delete(persistenceId: PersistenceId, to: DeleteTo) = {
       for {
         key <- toKey(persistenceId)
-        _   <- journals.delete(key, to)
+        _   <- journals(key).delete(to)
       } yield {}
     }
 
     def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)(f: PersistentRepr => F[Unit]) = {
 
       def replay(key: Key): F[Unit] = {
-        journals
-          .read(key, range.from)
+        journals(key)
+          .read(range.from)
           .foldWhileM(max) { (max, record) =>
             val event = record.event
             val seqNr = event.seqNr
@@ -162,7 +162,7 @@ object JournalAdapter {
     def lastSeqNr(persistenceId: PersistenceId, from: SeqNr) = {
       for {
         key     <- toKey(persistenceId)
-        pointer <- journals.pointer(key)
+        pointer <- journals(key).pointer
       } yield for {
         pointer    <- pointer
         if pointer >= from

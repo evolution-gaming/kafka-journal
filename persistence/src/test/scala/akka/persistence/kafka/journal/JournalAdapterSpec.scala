@@ -147,49 +147,51 @@ object JournalAdapterSpec {
 
     implicit val JournalsStateF: Journals[StateT] = new Journals[StateT] {
 
-      def append(
-        key: Key,
-        events: Nel[Event],
-        expireAfter: Option[ExpireAfter],
-        metadata: Option[JsValue],
-        headers: Headers
-      ) = {
-        StateT { state =>
-          val append = Append(key, events, timestamp, expireAfter, RecordMetadata(metadata), headers)
-          val s1 = state.copy(appends = append :: state.appends)
-          (s1, partitionOffset)
-        }
-      }
+      def apply(key: Key) = new Journal[StateT] {
 
-      def read(key: Key, from: SeqNr) = {
-        val stream = StateT { state =>
-          val stream = Stream[StateT].apply(state.events)
-          val read = Read(key, from)
-          val state1 = state.copy(reads = read :: state.reads, events = Nil)
-          (state1, stream)
+        def append(
+          events: Nel[Event],
+          expireAfter: Option[ExpireAfter],
+          metadata: Option[JsValue],
+          headers: Headers
+        ) = {
+          StateT { state =>
+            val append = Append(key, events, timestamp, expireAfter, RecordMetadata(metadata), headers)
+            val s1 = state.copy(appends = append :: state.appends)
+            (s1, partitionOffset)
+          }
         }
-        Stream.lift(stream).flatten
-      }
 
-      def pointer(key: Key) = {
-        StateT { state =>
-          val state1 = state.copy(pointers = Pointer(key) :: state.pointers)
-          (state1, none[SeqNr])
+        def read(from: SeqNr) = {
+          val stream = StateT { state =>
+            val stream = Stream[StateT].apply(state.events)
+            val read = Read(key, from)
+            val state1 = state.copy(reads = read :: state.reads, events = Nil)
+            (state1, stream)
+          }
+          Stream.lift(stream).flatten
         }
-      }
 
-      def delete(key: Key, to: DeleteTo) = {
-        StateT { state =>
-          val delete = Delete(key, to, timestamp)
-          val state1 = state.copy(deletes = delete :: state.deletes)
-          (state1, none[PartitionOffset])
+        def pointer = {
+          StateT { state =>
+            val state1 = state.copy(pointers = Pointer(key) :: state.pointers)
+            (state1, none[SeqNr])
+          }
         }
-      }
 
-      def purge(key: Key) = {
-        StateT { state =>
-          val state1 = state.append(Action.Purge(key))
-          (state1, none[PartitionOffset])
+        def delete(to: DeleteTo) = {
+          StateT { state =>
+            val delete = Delete(key, to, timestamp)
+            val state1 = state.copy(deletes = delete :: state.deletes)
+            (state1, none[PartitionOffset])
+          }
+        }
+
+        def purge = {
+          StateT { state =>
+            val state1 = state.append(Action.Purge(key))
+            (state1, none[PartitionOffset])
+          }
         }
       }
     }

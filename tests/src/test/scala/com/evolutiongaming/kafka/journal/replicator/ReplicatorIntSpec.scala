@@ -105,7 +105,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
     }
   }
 
-  lazy val ((eventualJournal, journal), release) = {
+  lazy val ((eventualJournal, journals), release) = {
     implicit val logOf = LogOf.empty[IO]
     resources[IO](cassandraClusterOf).allocated.unsafeRunSync()
   }
@@ -153,12 +153,11 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
     def append(key: Key, events: Nel[Event], expireAfter: Option[ExpireAfter] = none) = {
       for {
-        partitionOffset <- journal.append(
-          key = key,
-          events = events,
-          expireAfter = expireAfter,
-          metadata = recordMetadata.data,
-          headers = headers)
+        partitionOffset <- journals(key).append(
+          events,
+          expireAfter,
+          recordMetadata.data,
+          headers)
       } yield for {
         event <- events
       } yield {
@@ -166,7 +165,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       }
     }
 
-    def pointerOf(key: Key) = journal.pointer(key)
+    def pointerOf(key: Key) = journals(key).pointer
 
     def topicPointers = {
       for {
@@ -214,7 +213,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
         _         = events shouldEqual expected.toList
         pointer  <- pointerOf(key)
         _         = pointer shouldEqual expected.last.seqNr.some
-        pointer  <- journal.purge(key)
+        pointer  <- journals(key).purge
         _         = pointer.map { _.partition } shouldEqual expected.head.partition.some
         events   <- read(key)(_.isEmpty)
         _         = events shouldEqual Nil
@@ -243,7 +242,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
           _                = events shouldEqual expected.toList
           pointer         <- pointerOf(key)
           _                = pointer shouldEqual expected.last.seqNr.some
-          pointer         <- journal.delete(key, expected.last.event.seqNr.toDeleteTo).map(_.map(_.partition))
+          pointer         <- journals(key).delete(expected.last.event.seqNr.toDeleteTo).map(_.map(_.partition))
           _                = pointer shouldEqual partition.some
           events          <- read(key)(_.isEmpty)
           _                = events shouldEqual Nil

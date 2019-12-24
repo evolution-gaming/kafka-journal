@@ -107,7 +107,7 @@ object AppendReplicateApp extends IOApp {
         val event = Event(seqNr, payload = Payload("AppendReplicateApp").some)
 
         for {
-          _      <- journals.append(key, Nel.of(event))
+          _      <- journals(key).append(Nel.of(event))
           result <- seqNr.next[Option].fold(().asRight[SeqNr].pure[F]) { seqNr =>
             for {
               _ <- Timer[F].sleep(100.millis)

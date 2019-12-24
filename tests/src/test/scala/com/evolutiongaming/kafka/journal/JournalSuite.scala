@@ -99,8 +99,7 @@ object JournalSuite {
         headers: Headers,
         expireAfter: Option[ExpireAfter]
       ) = {
-        journals.append(
-          key = key,
+        journals(key).append(
           events = events,
           expireAfter = expireAfter,
           metadata = metadata,
@@ -109,7 +108,7 @@ object JournalSuite {
 
       def read = {
         for {
-          records <- journals.read(key).toList
+          records <- journals(key).read().toList
         } yield for {
           record <- records
         } yield {
@@ -117,13 +116,13 @@ object JournalSuite {
         }
       }
 
-      def pointer = journals.pointer(key)
+      def pointer = journals(key).pointer
 
-      def delete(to: DeleteTo) = journals.delete(key, to)
+      def delete(to: DeleteTo) = journals(key).delete(to)
 
-      def purge = journals.purge(key)
+      def purge = journals(key).purge
 
-      def size = journals.read(key).length
+      def size = journals(key).read().length
     }
   }
 }

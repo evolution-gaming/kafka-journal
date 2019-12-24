@@ -89,11 +89,12 @@ object ReadEventsApp extends IOApp {
       producer           <- Journals.Producer.of[F](producerConfig)
     } yield {
       val origin = Origin("ReadEventsApp")
-      val journal = Journals[F](origin.some, producer, consumer, eventualJournal, headCache, log)
+      val journals = Journals[F](origin.some, producer, consumer, eventualJournal, headCache, log)
       val key = Key(id = "id", topic = "topic")
+      val journal = journals(key) // TODO expiry: refactor all places like this one to use remember journals(key)
       for {
-        pointer <- journal.pointer(key)
-        seqNrs  <- journal.read(key).map(_.seqNr).toList
+        pointer <- journal.pointer
+        seqNrs  <- journal.read().map(_.seqNr).toList
         _       <- log.info(s"pointer: $pointer")
         _       <- log.info(s"seqNrs: $seqNrs")
       } yield {}

@@ -414,6 +414,10 @@ object JournalSpec {
   object SeqNrJournal {
 
     def apply[F[_] : Monad](journals: Journals[F]): SeqNrJournal[F] = {
+      apply(journals(key))
+    }
+
+    def apply[F[_] : Monad](journal: Journal[F]): SeqNrJournal[F] = {
 
       new SeqNrJournal[F] {
 
@@ -424,26 +428,26 @@ object JournalSpec {
             Event(seqNr)
           }
           for {
-            partitionOffset <- journals.append(key, events)
+            partitionOffset <- journal.append(events)
           } yield {
             partitionOffset.offset
           }
         }
 
         def read(range: SeqRange) = {
-          journals
-            .read(key, range.from)
+          journal
+            .read(range.from)
             .dropWhile { _.seqNr < range.from }
             .takeWhile { _.seqNr <= range.to }
             .map { _.seqNr }
             .toList
         }
 
-        def pointer = journals.pointer(key)
+        def pointer = journal.pointer
 
         def delete(to: DeleteTo) = {
           for {
-            partitionOffset <- journals.delete(key, to)
+            partitionOffset <- journal.delete(to)
           } yield for {
             partitionOffset <- partitionOffset
           } yield {
@@ -453,7 +457,7 @@ object JournalSpec {
 
         def purge = {
           for {
-            partitionOffset <- journals.purge(key)
+            partitionOffset <- journal.purge
           } yield for {
             partitionOffset <- partitionOffset
           } yield {

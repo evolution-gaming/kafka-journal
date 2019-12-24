@@ -17,12 +17,9 @@ import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord}
 import com.evolutiongaming.skafka.{Bytes => _, _}
-import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.smetrics._
 import com.evolutiongaming.sstream.Stream
 import play.api.libs.json.JsValue
-import pureconfig.ConfigReader
-import pureconfig.generic.semiauto.deriveReader
 import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
@@ -30,56 +27,15 @@ import scala.util.Try
 
 trait Journals[F[_]] {
 
-  /**
-   * @param expireAfter Define expireAfter in order to expire whole journal for given entity
-   */
-  def append(
-    key: Key,
-    events: Nel[Event],
-    expireAfter: Option[ExpireAfter] = None, // TODO expiry: test
-    metadata: Option[JsValue] = None,
-    headers: Headers = Headers.empty
-  ): F[PartitionOffset]
-
-  // TODO expiry: make sure expireAfter is used during queries
-  def read(key: Key, from: SeqNr = SeqNr.min): Stream[F, EventRecord]
-
-  // TODO return Pointer and test it
-  def pointer(key: Key): F[Option[SeqNr]]
-
-  /**
-   * Deletes events up to provided SeqNr
-   */
-  // TODO return Pointer and test it
-  def delete(key: Key, to: DeleteTo = DeleteTo.max): F[Option[PartitionOffset]]
-
-  /**
-   * Deletes all data with regards to to, consecutive pointer call will return none
-   */
-  // TODO expiry: test
-  def purge(key: Key): F[Option[PartitionOffset]]
+  def apply(key: Key): Journal[F]
 }
 
 object Journals {
 
-  def empty[F[_] : Applicative]: Journals[F] = new Journals[F] {
+  def empty[F[_] : Applicative]: Journals[F] = const(Journal.empty[F])
 
-    def append(
-      key: Key,
-      events: Nel[Event],
-      expireAfter: Option[ExpireAfter],
-      metadata: Option[JsValue],
-      headers: Headers
-    ) = PartitionOffset.empty.pure[F]
 
-    def read(key: Key, from: SeqNr) = Stream.empty
-
-    def pointer(key: Key) = none[SeqNr].pure[F]
-
-    def delete(key: Key, to: DeleteTo) = none[PartitionOffset].pure[F]
-
-    def purge(key: Key) = none[PartitionOffset].pure[F]
-  }
+  def const[F[_]](journal: Journal[F]): Journals[F] = (_: Key) => journal
 
 
   def of[F[_] : Concurrent : Timer : Parallel : LogOf : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomIdOf : MeasureDuration : FromTry : Fail](
@@ -202,154 +158,156 @@ object Journals {
 
     new Journals[F] {
 
-      def append(
-        key: Key,
-        events: Nel[Event],
-        expireAfter: Option[ExpireAfter],
-        metadata: Option[JsValue],
-        headers: Headers
-      ) = {
-        appendEvents(key, events, expireAfter, metadata, headers)
-      }
+      def apply(key: Key) = new Journal[F] {
 
-
-      def read(key: Key, from: SeqNr) = {
-
-        def readEventualAndKafka(from: SeqNr, stream: F[StreamActionRecords[F]], offsetAppend: Offset) = {
-
-          def readKafka(from: SeqNr, offset: Option[Offset], stream: StreamActionRecords[F]) = {
-
-            val appends = stream(offset)
-              .collect { case a@ActionRecord(_: Action.Append, _) => a.asInstanceOf[ActionRecord[Action.Append]] }
-              .dropWhile { a => a.action.range.to < from }
-
-            for {
-              record         <- appends
-              action          = record.action
-              payloadAndType  = PayloadAndType(action)
-              events         <- Stream.lift(payloadToEvents(payloadAndType))
-              event          <- Stream[F].apply(events.events)
-              if event.seqNr >= from
-            } yield {
-              EventRecord(action, event, record.partitionOffset)
-            }
-          }
-
-          for {
-            stream <- Stream.lift(stream)
-            event  <- eventual
-              .read(key, from)
-              .flatMapLast { last =>
-                last
-                  .fold((from, none[Offset]).some) { event =>
-                    event.seqNr.next[Option].map { from => (from, event.offset.some) }
-                  }
-                  .fold(Stream.empty[F, EventRecord]) { case (from, offsetRecord) =>
-                    val offset = offsetAppend.dec[Try].toOption max offsetRecord // TODO refactor this, pass from offset, rather than from - 1
-                    readKafka(from, offset, stream)
-                  }
-            }
-          } yield event
+        def append(
+          events: Nel[Event],
+          expireAfter: Option[ExpireAfter],
+          metadata: Option[JsValue],
+          headers: Headers
+        ) = {
+          appendEvents(key, events, expireAfter, metadata, headers)
         }
 
-        def read(head: HeadInfo, stream: F[StreamActionRecords[F]]) = {
 
-          def empty = Stream.empty[F, EventRecord]
+        def read(from: SeqNr) = {
 
-          def readEventual(from: SeqNr) = eventual.read(key, from)
+          def readEventualAndKafka(from: SeqNr, stream: F[StreamActionRecords[F]], offsetAppend: Offset) = {
 
-          def onAppend(offset: Offset, deleteTo: Option[DeleteTo]) = {
+            def readKafka(from: SeqNr, offset: Option[Offset], stream: StreamActionRecords[F]) = {
 
-            def readEventualAndKafka1(from: SeqNr) = readEventualAndKafka(from, stream, offset)
+              val appends = stream(offset)
+                .collect { case a@ActionRecord(_: Action.Append, _) => a.asInstanceOf[ActionRecord[Action.Append]] }
+                .dropWhile { a => a.action.range.to < from }
 
-            deleteTo.fold {
-              readEventualAndKafka1(from)
-            } { deleteTo =>
+              for {
+                record         <- appends
+                action          = record.action
+                payloadAndType  = PayloadAndType(action)
+                events         <- Stream.lift(payloadToEvents(payloadAndType))
+                event          <- Stream[F].apply(events.events)
+                if event.seqNr >= from
+              } yield {
+                EventRecord(action, event, record.partitionOffset)
+              }
+            }
+
+            for {
+              stream <- Stream.lift(stream)
+              event  <- eventual
+                .read(key, from)
+                .flatMapLast { last =>
+                  last
+                    .fold((from, none[Offset]).some) { event =>
+                      event.seqNr.next[Option].map { from => (from, event.offset.some) }
+                    }
+                    .fold(Stream.empty[F, EventRecord]) { case (from, offsetRecord) =>
+                      val offset = offsetAppend.dec[Try].toOption max offsetRecord // TODO refactor this, pass from offset, rather than from - 1
+                      readKafka(from, offset, stream)
+                    }
+              }
+            } yield event
+          }
+
+          def read(head: HeadInfo, stream: F[StreamActionRecords[F]]) = {
+
+            def empty = Stream.empty[F, EventRecord]
+
+            def readEventual(from: SeqNr) = eventual.read(key, from)
+
+            def onAppend(offset: Offset, deleteTo: Option[DeleteTo]) = {
+
+              def readEventualAndKafka1(from: SeqNr) = readEventualAndKafka(from, stream, offset)
+
+              deleteTo.fold {
+                readEventualAndKafka1(from)
+              } { deleteTo =>
+                deleteTo
+                  .value
+                  .next[Option]
+                  .fold(empty) { min => readEventualAndKafka1(min max from) }
+              }
+            }
+
+            def onDelete(deleteTo: DeleteTo) = {
               deleteTo
                 .value
                 .next[Option]
-                .fold(empty) { min => readEventualAndKafka1(min max from) }
+                .fold(empty) { min => readEventual(min max from) }
+            }
+
+            head match {
+              case HeadInfo.Empty     => readEventual(from)
+              case a: HeadInfo.Append => onAppend(a.offset, a.deleteTo)
+              case a: HeadInfo.Delete => onDelete(a.deleteTo)
+              case HeadInfo.Purge     => empty
             }
           }
 
-          def onDelete(deleteTo: DeleteTo) = {
-            deleteTo
-              .value
-              .next[Option]
-              .fold(empty) { min => readEventual(min max from) }
-          }
-
-          head match {
-            case HeadInfo.Empty     => readEventual(from)
-            case a: HeadInfo.Append => onAppend(a.offset, a.deleteTo)
-            case a: HeadInfo.Delete => onDelete(a.deleteTo)
-            case HeadInfo.Purge     => empty
-          }
+          for {
+            headAndStream  <- Stream.lift(headAndStream(key, from))
+            (head, stream)  = headAndStream
+            _              <- Stream.lift(log.debug(s"$key read info: $head"))
+            eventRecord    <- read(head, stream)
+          } yield eventRecord
         }
 
-        for {
-          headAndStream  <- Stream.lift(headAndStream(key, from))
-          (head, stream)  = headAndStream
-          _              <- Stream.lift(log.debug(s"$key read info: $head"))
-          eventRecord    <- read(head, stream)
-        } yield eventRecord
-      }
 
+        def pointer = {
 
-      def pointer(key: Key) = {
-
-        // TODO refactor, we don't need to call `eventual.pointer` without using it's offset
-        def pointerEventual = for {
-          pointer <- eventual.pointer(key)
-        } yield for {
-          pointer <- pointer
-        } yield {
-          pointer.seqNr
-        }
-
-        def pointer(headInfo: HeadInfo) = {
-          headInfo match {
-            case HeadInfo.Empty     => pointerEventual
-            case a: HeadInfo.Append => a.seqNr.some.pure[F]
-            case _: HeadInfo.Delete => pointerEventual
-            case HeadInfo.Purge     => none[SeqNr].pure[F]
+          // TODO refactor, we don't need to call `eventual.pointer` without using it's offset
+          def pointerEventual = for {
+            pointer <- eventual.pointer(key)
+          } yield for {
+            pointer <- pointer
+          } yield {
+            pointer.seqNr
           }
+
+          def pointer(headInfo: HeadInfo) = {
+            headInfo match {
+              case HeadInfo.Empty     => pointerEventual
+              case a: HeadInfo.Append => a.seqNr.some.pure[F]
+              case _: HeadInfo.Delete => pointerEventual
+              case HeadInfo.Purge     => none[SeqNr].pure[F]
+            }
+          }
+
+          val from = SeqNr.min // TODO remove
+
+          for {
+            headAndStream <- headAndStream(key, from)
+            (headInfo, _)  = headAndStream
+            pointer       <- pointer(headInfo)
+          } yield pointer
         }
 
-        val from = SeqNr.min // TODO remove
-
-        for {
-          headAndStream <- headAndStream(key, from)
-          (headInfo, _)  = headAndStream
-          pointer       <- pointer(headInfo)
-        } yield pointer
-      }
-
-      // TODO not delete already deleted, do not accept deleteTo=2 when already deleteTo=3
-      def delete(key: Key, to: DeleteTo) = {
-
+        // TODO not delete already deleted, do not accept deleteTo=2 when already deleteTo=3
         def delete(to: DeleteTo) = {
+
+          def delete(to: DeleteTo) = {
+            for {
+              timestamp <- Clock[F].instant
+              action     = Action.Delete(key, timestamp, to, origin)
+              result    <- appendAction(action)
+            } yield result
+          }
+
+          for {
+            seqNr   <- pointer
+            pointer <- seqNr.traverse { seqNr => delete(seqNr.toDeleteTo min to) }
+          } yield pointer
+        }
+
+        def purge: F[Option[PartitionOffset]] = {
+          // TODO expiry: move usages of Action.scala from Journal.scala to AppendAction
           for {
             timestamp <- Clock[F].instant
-            action     = Action.Delete(key, timestamp, to, origin)
+            action     = Action.Purge(key, timestamp, origin)
             result    <- appendAction(action)
-          } yield result
-        }
-
-        for {
-          seqNr   <- pointer(key)
-          pointer <- seqNr.traverse { seqNr => delete(seqNr.toDeleteTo min to) }
-        } yield pointer
-      }
-
-      def purge(key: Key): F[Option[PartitionOffset]] = {
-        // TODO expiry: move usages of Action.scala from Journal.scala to AppendAction
-        for {
-          timestamp <- Clock[F].instant
-          action     = Action.Purge(key, timestamp, origin)
-          result    <- appendAction(action)
-        } yield {
-          result.some
+          } yield {
+            result.some
+          }
         }
       }
     }
@@ -465,147 +423,16 @@ object Journals {
       F: FlatMap[F],
       measureDuration: MeasureDuration[F]
     ): Journals[F] = {
-
-      val functionKId = FunctionK.id[F]
-
-      def logDebugOrWarn(latency: FiniteDuration, threshold: FiniteDuration)(msg: => String) = {
-        if (latency >= threshold) log.warn(msg) else log.debug(msg)
-      }
-
-      new Journals[F] {
-
-        def append(
-          key: Key,
-          events: Nel[Event],
-          expireAfter: Option[ExpireAfter],
-          metadata: Option[JsValue],
-          headers: Headers
-        ) = {
-          for {
-            d <- MeasureDuration[F].start
-            r <- self.append(key, events, expireAfter, metadata, headers)
-            d <- d
-            _ <- logDebugOrWarn(d, config.append) {
-              val first = events.head.seqNr
-              val last = events.last.seqNr
-              val seqNr = if (first === last) s"seqNr: $first" else s"seqNrs: $first..$last"
-              s"$key append in ${ d.toMillis }ms, $seqNr, result: $r"
-            }
-          } yield r
-        }
-
-        def read(key: Key, from: SeqNr) = {
-          val logging = new (F ~> F) {
-            def apply[A](fa: F[A]) = {
-              for {
-                d <- MeasureDuration[F].start
-                r <- fa
-                d <- d
-                _ <- logDebugOrWarn(d, config.read) { s"$key read in ${ d.toMillis }ms, from: $from, result: $r" }
-              } yield r
-            }
-          }
-          self.read(key, from).mapK(logging, functionKId)
-        }
-
-        def pointer(key: Key) = {
-          for {
-            d <- MeasureDuration[F].start
-            r <- self.pointer(key)
-            d <- d
-            _ <- logDebugOrWarn(d, config.pointer) { s"$key pointer in ${ d.toMillis }ms, result: $r" }
-          } yield r
-        }
-
-        def delete(key: Key, to: DeleteTo) = {
-          for {
-            d <- MeasureDuration[F].start
-            r <- self.delete(key, to)
-            d <- d
-            _ <- logDebugOrWarn(d, config.delete) { s"$key delete in ${ d.toMillis }ms, to: $to, result: $r" }
-          } yield r
-        }
-
-        def purge(key: Key) = {
-          for {
-            d <- MeasureDuration[F].start
-            r <- self.purge(key)
-            d <- d
-            _ <- logDebugOrWarn(d, config.purge) { s"$key purge in ${ d.toMillis }ms, result: $r" }
-          } yield r
-        }
-      }
+      key: Key => self(key).withLog(key, log, config)
     }
 
 
-    def withLogError(log: Log[F])(implicit F: MonadThrowable[F], measureDuration: MeasureDuration[F]): Journals[F] = {
-
-      val functionKId = FunctionK.id[F]
-
-      def logError[A](fa: F[A])(f: (Throwable, FiniteDuration) => String) = {
-        for {
-          d <- MeasureDuration[F].start
-          r <- fa.handleErrorWith { error =>
-            for {
-              d <- d
-              _ <- log.error(f(error, d), error)
-              r <- error.raiseError[F, A]
-            } yield r
-          }
-        } yield r
-      }
-
-      new Journals[F] {
-
-        def append(
-          key: Key,
-          events: Nel[Event],
-          expireAfter: Option[ExpireAfter],
-          metadata: Option[JsValue],
-          headers: Headers
-        ) = {
-          logError {
-            self.append(key, events, expireAfter, metadata, headers)
-          } { (error, latency) =>
-            s"$key append failed in ${ latency.toMillis }ms, events: $events, error: $error"
-          }
-        }
-
-        def read(key: Key, from: SeqNr) = {
-          val logging = new (F ~> F) {
-            def apply[A](fa: F[A]) = {
-              logError(fa) { (error, latency) =>
-                s"$key read failed in ${ latency.toMillis }ms, from: $from, error: $error"
-              }
-            }
-          }
-          self.read(key, from).mapK(logging, functionKId)
-        }
-
-        def pointer(key: Key) = {
-          logError {
-            self.pointer(key)
-          } { (error, latency) =>
-            s"$key pointer failed in ${ latency.toMillis }ms, error: $error"
-          }
-        }
-
-        def delete(key: Key, to: DeleteTo) = {
-          logError {
-            self.delete(key, to)
-          } { (error, latency) =>
-            s"$key delete failed in ${ latency.toMillis }ms, to: $to, error: $error"
-          }
-        }
-
-        def purge(key: Key) = {
-          logError {
-            self.purge(key)
-          } { (error, latency) =>
-            s"$key purge failed in ${ latency.toMillis }ms, error: $error"
-          }
-        }
-      }
+    def withLogError(
+      log: Log[F])(implicit
+      F: MonadThrowable[F],
+      measureDuration: MeasureDuration[F]
+    ): Journals[F] = {
+      key: Key => self(key).withLogError(key, log)
     }
 
 
@@ -614,102 +441,12 @@ object Journals {
       F: MonadThrowable[F],
       measureDuration: MeasureDuration[F]
     ): Journals[F] = {
-      val functionKId = FunctionK.id[F]
-
-      def handleError[A](name: String, topic: Topic)(fa: F[A]): F[A] = {
-        fa.handleErrorWith { e =>
-          for {
-            _ <- metrics.failure(name, topic)
-            a <- e.raiseError[F, A]
-          } yield a
-        }
-      }
-
-      new Journals[F] {
-
-        def append(
-          key: Key,
-          events: Nel[Event],
-          expireAfter: Option[ExpireAfter],
-          metadata: Option[JsValue],
-          headers: Headers
-        ) = {
-          def append = self.append(key, events, expireAfter, metadata, headers)
-          for {
-            d <- MeasureDuration[F].start
-            r <- handleError("append", key.topic) { append }
-            d <- d
-            _ <- metrics.append(topic = key.topic, latency = d, events = events.size)
-          } yield r
-        }
-
-        def read(key: Key, from: SeqNr) = {
-          val measure = new (F ~> F) {
-            def apply[A](fa: F[A]) = {
-              for {
-                d <- MeasureDuration[F].start
-                r <- handleError("read", key.topic) { fa }
-                d <- d
-                _ <- metrics.read(topic = key.topic, latency = d)
-              } yield r
-            }
-          }
-
-          for {
-            a <- self.read(key, from).mapK(measure, functionKId)
-            _ <- Stream.lift(metrics.read(key.topic))
-          } yield a
-        }
-
-        def pointer(key: Key) = {
-          for {
-            d <- MeasureDuration[F].start
-            r <- handleError("pointer", key.topic) { self.pointer(key) }
-            d <- d
-            _ <- metrics.pointer(key.topic, d)
-          } yield r
-        }
-
-        def delete(key: Key, to: DeleteTo) = {
-          for {
-            d <- MeasureDuration[F].start
-            r <- handleError("delete", key.topic) { self.delete(key, to) }
-            d <- d
-            _ <- metrics.delete(key.topic, d)
-          } yield r
-        }
-
-        def purge(key: Key) = {
-          for {
-            d <- MeasureDuration[F].start
-            r <- handleError("purge", key.topic) { self.purge(key) }
-            d <- d
-            _ <- metrics.purge(key.topic, d)
-          } yield r
-        }
-      }
+      key: Key => self(key).withMetrics(key.topic, metrics)
     }
 
 
-    def mapK[G[_]](fg: F ~> G, gf: G ~> F): Journals[G] = new Journals[G] {
-
-      def append(
-        key: Key,
-        events: Nel[Event],
-        expireAfter: Option[ExpireAfter],
-        metadata: Option[JsValue],
-        headers: Headers
-      ) = {
-        fg(self.append(key, events, expireAfter, metadata, headers))
-      }
-
-      def read(key: Key, from: SeqNr) = self.read(key, from).mapK(fg, gf)
-
-      def pointer(key: Key) = fg(self.pointer(key))
-
-      def delete(key: Key, to: DeleteTo) = fg(self.delete(key, to))
-
-      def purge(key: Key) = fg(self.purge(key))
+    def mapK[G[_]](fg: F ~> G, gf: G ~> F): Journals[G] = {
+      key: Key => self(key).mapK(fg, gf)
     }
   }
 }
