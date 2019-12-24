@@ -73,11 +73,11 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
       for {
         config   <- Resource.liftF(config)
-        producer <- Journal.Producer.of[F](config.producer)
-        consumer  = Journal.Consumer.of[F](config.consumer, config.pollTimeout)
-        log      <- Resource.liftF(LogOf[F].apply(Journal.getClass))
+        producer <- Journals.Producer.of[F](config.producer)
+        consumer  = Journals.Consumer.of[F](config.consumer, config.pollTimeout)
+        log      <- Resource.liftF(LogOf[F].apply(Journals.getClass))
       } yield {
-        Journal[F](
+        Journals[F](
           origin = origin.some,
           producer = producer,
           consumer = consumer,

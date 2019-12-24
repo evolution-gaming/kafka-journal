@@ -34,7 +34,7 @@ class JournalAdapterSpec extends AnyFunSuite with Matchers {
     AppendMetadataOf.const(metadata.pure[StateT])
   }
 
-  private val journalAdapter = JournalAdapter[StateT](StateT.JournalStateF, toKey, eventSerializer, appendMetadataOf)
+  private val journalAdapter = JournalAdapter[StateT](StateT.JournalsStateF, toKey, eventSerializer, appendMetadataOf)
 
   private def appendOf(key: Key, events: Nel[Event]) = {
     Append(key, events, timestamp, expireAfter.some, recordMetadata, headers)
@@ -145,7 +145,7 @@ object JournalAdapterSpec {
 
     implicit val clockStateF: Clock[StateT] = Clock.const(nanos = 0, millis = timestamp.toEpochMilli) // TODO add Instant as argument
 
-    implicit val JournalStateF: Journal[StateT] = new Journal[StateT] {
+    implicit val JournalsStateF: Journals[StateT] = new Journals[StateT] {
 
       def append(
         key: Key,

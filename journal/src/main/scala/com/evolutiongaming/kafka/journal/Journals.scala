@@ -28,7 +28,7 @@ import scodec.bits.ByteVector
 import scala.concurrent.duration._
 import scala.util.Try
 
-trait Journal[F[_]] {
+trait Journals[F[_]] {
 
   /**
    * @param expireAfter Define expireAfter in order to expire whole journal for given entity
@@ -60,9 +60,9 @@ trait Journal[F[_]] {
   def purge(key: Key): F[Option[PartitionOffset]]
 }
 
-object Journal {
+object Journals {
 
-  def empty[F[_] : Applicative]: Journal[F] = new Journal[F] {
+  def empty[F[_] : Applicative]: Journals[F] = new Journals[F] {
 
     def append(
       key: Key,
@@ -88,7 +88,7 @@ object Journal {
     eventualJournal: EventualJournal[F],
     metrics: Option[Metrics[F]],
     callTimeThresholds: CallTimeThresholds
-  ): Resource[F, Journal[F]] = {
+  ): Resource[F, Journals[F]] = {
 
     val consumer = Consumer.of[F](config.consumer, config.pollTimeout)
 
@@ -102,7 +102,7 @@ object Journal {
 
     for {
       producer  <- Producer.of[F](config.producer)
-      log       <- Resource.liftF(LogOf[F].apply(Journal.getClass))
+      log       <- Resource.liftF(LogOf[F].apply(Journals.getClass))
       headCache <- headCache
     } yield {
       val journal = apply(
@@ -125,7 +125,7 @@ object Journal {
     eventualJournal: EventualJournal[F],
     headCache: HeadCache[F],
     log: Log[F]
-  ): Journal[F] = {
+  ): Journals[F] = {
     implicit val fromAttempt = FromAttempt.lift[F]
     implicit val fromJsResult = FromJsResult.lift[F]
 
@@ -150,7 +150,7 @@ object Journal {
     payloadToEvents: PayloadToEvents[F],
     eventsToPayload: EventsToPayload[F],
     log: Log[F]
-  ): Journal[F] = {
+  ): Journals[F] = {
 
     val appendMarker = AppendMarker(appendAction, origin)
 
@@ -200,7 +200,7 @@ object Journal {
       } yield result
     }
 
-    new Journal[F] {
+    new Journals[F] {
 
       def append(
         key: Key,
@@ -212,7 +212,7 @@ object Journal {
         appendEvents(key, events, expireAfter, metadata, headers)
       }
 
-      
+
       def read(key: Key, from: SeqNr) = {
 
         def readEventualAndKafka(from: SeqNr, stream: F[StreamActionRecords[F]], offsetAppend: Offset) = {
@@ -297,7 +297,7 @@ object Journal {
 
 
       def pointer(key: Key) = {
-        
+
         // TODO refactor, we don't need to call `eventual.pointer` without using it's offset
         def pointerEventual = for {
           pointer <- eventual.pointer(key)
@@ -399,7 +399,7 @@ object Journal {
     def of[F[_] : Monad](
       registry: CollectorRegistry[F],
       prefix: String = "journal"
-    ): Resource[F, Journal.Metrics[F]] = {
+    ): Resource[F, Journals.Metrics[F]] = {
 
       val latencySummary = registry.summary(
         name = s"${ prefix }_topic_latency",
@@ -437,7 +437,7 @@ object Journal {
           eventsSummary.labels(topic, name).observe(events.toDouble)
         }
 
-        new Journal.Metrics[F] {
+        new Journals.Metrics[F] {
 
           def append(topic: Topic, latency: FiniteDuration, events: Int) = {
             for {
@@ -576,14 +576,14 @@ object Journal {
   }
 
 
-  implicit class JournalOps[F[_]](val self: Journal[F]) extends AnyVal {
+  implicit class JournalOps[F[_]](val self: Journals[F]) extends AnyVal {
 
     def withLog(
       log: Log[F],
       config: CallTimeThresholds = CallTimeThresholds.default)(implicit
       F: FlatMap[F],
       measureDuration: MeasureDuration[F]
-    ): Journal[F] = {
+    ): Journals[F] = {
 
       val functionKId = FunctionK.id[F]
 
@@ -591,7 +591,7 @@ object Journal {
         if (latency >= threshold) log.warn(msg) else log.debug(msg)
       }
 
-      new Journal[F] {
+      new Journals[F] {
 
         def append(
           key: Key,
@@ -657,7 +657,7 @@ object Journal {
     }
 
 
-    def withLogError(log: Log[F])(implicit F: MonadThrowable[F], measureDuration: MeasureDuration[F]): Journal[F] = {
+    def withLogError(log: Log[F])(implicit F: MonadThrowable[F], measureDuration: MeasureDuration[F]): Journals[F] = {
 
       val functionKId = FunctionK.id[F]
 
@@ -674,7 +674,7 @@ object Journal {
         } yield r
       }
 
-      new Journal[F] {
+      new Journals[F] {
 
         def append(
           key: Key,
@@ -732,7 +732,7 @@ object Journal {
       metrics: Metrics[F])(implicit
       F: MonadThrowable[F],
       measureDuration: MeasureDuration[F]
-    ): Journal[F] = {
+    ): Journals[F] = {
       val functionKId = FunctionK.id[F]
 
       def handleError[A](name: String, topic: Topic)(fa: F[A]): F[A] = {
@@ -744,7 +744,7 @@ object Journal {
         }
       }
 
-      new Journal[F] {
+      new Journals[F] {
 
         def append(
           key: Key,
@@ -810,7 +810,7 @@ object Journal {
     }
 
 
-    def mapK[G[_]](fg: F ~> G, gf: G ~> F): Journal[G] = new Journal[G] {
+    def mapK[G[_]](fg: F ~> G, gf: G ~> F): Journals[G] = new Journals[G] {
 
       def append(
         key: Key,

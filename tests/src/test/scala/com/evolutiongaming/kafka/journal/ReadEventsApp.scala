@@ -67,7 +67,7 @@ object ReadEventsApp extends IOApp {
 
     val consumerConfig = ConsumerConfig(common = commonConfig)
 
-    val consumer = Journal.Consumer.of[F](consumerConfig, 100.millis)
+    val consumer = Journals.Consumer.of[F](consumerConfig, 100.millis)
 
     val eventualCassandraConfig = EventualCassandraConfig(
       schema = SchemaConfig(
@@ -86,10 +86,10 @@ object ReadEventsApp extends IOApp {
       origin             <- Resource.liftF(Origin.hostName[F])
       eventualJournal    <- EventualCassandra.of[F](eventualCassandraConfig, origin, none, cassandraClusterOf)
       headCache          <- HeadCache.of[F](consumerConfig, eventualJournal, none)
-      producer           <- Journal.Producer.of[F](producerConfig)
+      producer           <- Journals.Producer.of[F](producerConfig)
     } yield {
       val origin = Origin("ReadEventsApp")
-      val journal = Journal[F](origin.some, producer, consumer, eventualJournal, headCache, log)
+      val journal = Journals[F](origin.some, producer, consumer, eventualJournal, headCache, log)
       val key = Key(id = "id", topic = "topic")
       for {
         pointer <- journal.pointer(key)

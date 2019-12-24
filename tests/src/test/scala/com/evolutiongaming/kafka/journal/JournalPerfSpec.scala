@@ -26,7 +26,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
   private val timestamp = Instant.now().truncatedTo(ChronoUnit.MILLIS)
 
   private val journalOf = {
-    val consumer = Journal.Consumer.of[IO](config.journal.consumer, config.journal.pollTimeout)
+    val consumer = Journals.Consumer.of[IO](config.journal.consumer, config.journal.pollTimeout)
     eventualJournal: EventualJournal[IO] => {
       implicit val logOf = LogOf.empty[IO]
       val log = Log.empty[IO]
@@ -34,7 +34,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
       for {
         headCache <- headCacheOf(config.journal.consumer, eventualJournal)
       } yield {
-        Journal(
+        Journals(
           producer = producer,
           origin = origin.some,
           consumer = consumer,
@@ -68,9 +68,9 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
 
     lazy val append = {
 
-      def append(journal0: Journal[IO]) = {
+      def append(journals: Journals[IO]) = {
 
-        val journal = KeyJournal(key, timestamp, journal0)
+        val journal = KeyJournal(key, timestamp, journals)
 
         val expected = {
           val expected = for {
@@ -90,7 +90,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
               for {
                 _       <- journal.append(Nel.of(event))
                 key     <- Key.random[IO]("journal")
-                journal  = KeyJournal(key, timestamp, journal0)
+                journal  = KeyJournal(key, timestamp, journals)
                 _       <- journal.append(Nel.of(event))
               } yield {}
             }

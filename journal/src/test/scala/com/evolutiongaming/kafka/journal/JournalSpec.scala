@@ -413,7 +413,7 @@ object JournalSpec {
 
   object SeqNrJournal {
 
-    def apply[F[_] : Monad](journal: Journal[F]): SeqNrJournal[F] = {
+    def apply[F[_] : Monad](journals: Journals[F]): SeqNrJournal[F] = {
 
       new SeqNrJournal[F] {
 
@@ -424,14 +424,14 @@ object JournalSpec {
             Event(seqNr)
           }
           for {
-            partitionOffset <- journal.append(key, events)
+            partitionOffset <- journals.append(key, events)
           } yield {
             partitionOffset.offset
           }
         }
 
         def read(range: SeqRange) = {
-          journal
+          journals
             .read(key, range.from)
             .dropWhile { _.seqNr < range.from }
             .takeWhile { _.seqNr <= range.to }
@@ -439,11 +439,11 @@ object JournalSpec {
             .toList
         }
 
-        def pointer = journal.pointer(key)
+        def pointer = journals.pointer(key)
 
         def delete(to: DeleteTo) = {
           for {
-            partitionOffset <- journal.delete(key, to)
+            partitionOffset <- journals.delete(key, to)
           } yield for {
             partitionOffset <- partitionOffset
           } yield {
@@ -453,7 +453,7 @@ object JournalSpec {
 
         def purge = {
           for {
-            partitionOffset <- journal.purge(key)
+            partitionOffset <- journals.purge(key)
           } yield for {
             partitionOffset <- partitionOffset
           } yield {
@@ -481,7 +481,7 @@ object JournalSpec {
       implicit val fromJsResult = FromJsResult.lift[F]
       val log = Log.empty[F]
 
-      val journal = Journal[F](
+      val journal = Journals[F](
         origin = None,
         eventual = eventual,
         consumeActionRecords = consumeActionRecords,
@@ -491,7 +491,7 @@ object JournalSpec {
         eventsToPayload = EventsToPayload[F],
         log = log)
         .withLog(log)
-        .withMetrics(Journal.Metrics.empty[F])
+        .withMetrics(Journals.Metrics.empty[F])
       SeqNrJournal(journal)
     }
   }

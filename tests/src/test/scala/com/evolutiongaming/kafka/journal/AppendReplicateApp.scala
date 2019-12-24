@@ -57,11 +57,11 @@ object AppendReplicateApp extends IOApp {
       kafkaProducerOf: KafkaProducerOf[F]
     ) = {
 
-      val consumer = Journal.Consumer.of[F](config.consumer, config.pollTimeout)
+      val consumer = Journals.Consumer.of[F](config.consumer, config.pollTimeout)
       for {
-        producer <- Journal.Producer.of[F](config.producer)
+        producer <- Journals.Producer.of[F](config.producer)
       } yield {
-        Journal[F](
+        Journals[F](
           origin = hostName.map(Origin.fromHostName),
           producer = producer,
           consumer = consumer,
@@ -80,7 +80,7 @@ object AppendReplicateApp extends IOApp {
     }
 
     val resource = for {
-      log                <- Resource.liftF(LogOf[F].apply(Journal.getClass))
+      log                <- Resource.liftF(LogOf[F].apply(Journals.getClass))
       kafkaJournalConfig <- Resource.liftF(kafkaJournalConfig)
       blocking           <- Executors.blocking[F]("kafka-journal-blocking")
       kafkaConsumerOf     = KafkaConsumerOf[F](blocking)
@@ -98,7 +98,7 @@ object AppendReplicateApp extends IOApp {
   }
 
 
-  private def append[F[_] : Concurrent : Timer : Parallel](topic: Topic, journal: Journal[F]) = {
+  private def append[F[_] : Concurrent : Timer : Parallel](topic: Topic, journals: Journals[F]) = {
 
     def append(id: String) = {
 
@@ -107,7 +107,7 @@ object AppendReplicateApp extends IOApp {
         val event = Event(seqNr, payload = Payload("AppendReplicateApp").some)
 
         for {
-          _      <- journal.append(key, Nel.of(event))
+          _      <- journals.append(key, Nel.of(event))
           result <- seqNr.next[Option].fold(().asRight[SeqNr].pure[F]) { seqNr =>
             for {
               _ <- Timer[F].sleep(100.millis)

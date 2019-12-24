@@ -26,7 +26,7 @@ import scala.util.Try
 trait EventualJournalSpec extends AnyWordSpec with Matchers {
   import EventualJournalSpec._
 
-  def test[F[_] : BracketThrowable : Fail](withJournals: (Journals[F] => F[Assertion]) => F[Assertion]): Unit = {
+  def test[F[_] : BracketThrowable : Fail](withJournals: (EventualAndReplicated[F] => F[Assertion]) => F[Assertion]): Unit = {
 
     val withJournals1 = (key: Key, timestamp: Instant) => {
 
@@ -521,7 +521,9 @@ object EventualJournalSpec {
   }
 
 
-  final case class Journals[F[_]](eventual: EventualJournal[F], replicated: ReplicatedJournal[F])
+  final case class EventualAndReplicated[F[_]](
+    eventual: EventualJournal[F],
+    replicated: ReplicatedJournal[F])
 
 
   implicit class JournalPointerOps(val self: JournalPointer) extends AnyVal {

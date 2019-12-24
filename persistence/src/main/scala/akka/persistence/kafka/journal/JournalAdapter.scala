@@ -78,7 +78,7 @@ object JournalAdapter {
       headCacheOf: HeadCacheOf[F]) = {
 
       for {
-        journal <- Journal.of[F](
+        journal <- Journals.of[F](
           origin = origin,
           config = config.journal,
           eventualJournal = eventualJournal,
@@ -102,7 +102,7 @@ object JournalAdapter {
   }
 
   def apply[F[_] : Monad : Clock](
-    journal: Journal[F],
+    journals: Journals[F],
     toKey: ToKey[F],
     serializer: EventSerializer[F],
     appendMetadataOf: AppendMetadataOf[F]
@@ -116,7 +116,7 @@ object JournalAdapter {
           key      <- toKey(persistenceId)
           events   <- prs.traverse(serializer.toEvent)
           metadata <- appendMetadataOf(key, prs, events)
-          _        <- journal.append(key, events, metadata.expireAfter, metadata.metadata, metadata.headers) /*TODO expiry: pass AppendMetadata directly?*/
+          _        <- journals.append(key, events, metadata.expireAfter, metadata.metadata, metadata.headers) /*TODO expiry: pass AppendMetadata directly?*/
         } yield {
           List.empty[Try[Unit]]
         }
@@ -126,14 +126,14 @@ object JournalAdapter {
     def delete(persistenceId: PersistenceId, to: DeleteTo) = {
       for {
         key <- toKey(persistenceId)
-        _   <- journal.delete(key, to)
+        _   <- journals.delete(key, to)
       } yield {}
     }
 
     def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)(f: PersistentRepr => F[Unit]) = {
 
       def replay(key: Key): F[Unit] = {
-        journal
+        journals
           .read(key, range.from)
           .foldWhileM(max) { (max, record) =>
             val event = record.event
@@ -162,7 +162,7 @@ object JournalAdapter {
     def lastSeqNr(persistenceId: PersistenceId, from: SeqNr) = {
       for {
         key     <- toKey(persistenceId)
-        pointer <- journal.pointer(key)
+        pointer <- journals.pointer(key)
       } yield for {
         pointer    <- pointer
         if pointer >= from
@@ -217,7 +217,7 @@ object JournalAdapter {
 
 
   final case class Metrics[F[_]](
-    journal: Option[Journal.Metrics[F]] = None,
+    journal: Option[Journals.Metrics[F]] = None,
     eventual: Option[EventualJournal.Metrics[F]] = None,
     headCache: Option[HeadCacheMetrics[F]] = None,
     producer: Option[ClientId => ProducerMetrics[F]] = None,

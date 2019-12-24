@@ -352,14 +352,14 @@ object EventualCassandraSpec {
     segmentSize: SegmentSize,
     delete: Boolean,
     segments: Segments
-  ): Journals[StateT] = {
+  ): EventualAndReplicated[StateT] = {
 
     val segmentOf = SegmentOf[StateT](segments)
 
     val replicatedJournal = replicatedJournalOf(segmentSize, delete, segmentOf)
 
     val eventualJournal = eventualJournalOf(segmentOf)
-    Journals(eventualJournal, replicatedJournal)
+    EventualAndReplicated(eventualJournal, replicatedJournal)
   }
 
 

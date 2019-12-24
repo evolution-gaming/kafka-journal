@@ -18,7 +18,7 @@ trait ConsumeActionRecords[F[_]] {
 object ConsumeActionRecords {
 
   def apply[F[_] : BracketThrowable](
-    consumer: Resource[F, Journal.Consumer[F]],
+    consumer: Resource[F, Journals.Consumer[F]],
     log: Log[F])(implicit
     consRecordToActionRecord: ConsRecordToActionRecord[F]
   ): ConsumeActionRecords[F] = {
@@ -26,7 +26,7 @@ object ConsumeActionRecords {
 
       val topicPartition = TopicPartition(topic = key.topic, partition = partition)
 
-      def seek(consumer: Journal.Consumer[F]) = {
+      def seek(consumer: Journals.Consumer[F]) = {
         for {
           _ <- consumer.assign(Nel.of(topicPartition))
           _ <- consumer.seek(topicPartition, from)
@@ -41,7 +41,7 @@ object ConsumeActionRecords {
         } yield record
       }
 
-      def poll(consumer: Journal.Consumer[F]) = {
+      def poll(consumer: Journals.Consumer[F]) = {
         for {
           records0 <- consumer.poll
           records   = filter(records0.values.values.toList)

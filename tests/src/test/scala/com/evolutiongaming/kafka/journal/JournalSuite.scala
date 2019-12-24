@@ -41,7 +41,7 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
     val resource = for {
       origin          <- Resource.liftF(Origin.hostName[IO])
       eventualJournal <- EventualCassandra.of[IO](config.cassandra, origin, none, cassandraClusterOf)
-      producer        <- Journal.Producer.of[IO](config.journal.producer)
+      producer        <- Journals.Producer.of[IO](config.journal.producer)
     } yield {
       (eventualJournal, producer)
     }
@@ -90,7 +90,7 @@ object JournalSuite {
     def apply[F[_] : Monad : Clock](
       key: Key,
       timestamp: Instant,
-      journal: Journal[F]
+      journals: Journals[F]
     ): KeyJournal[F] = new KeyJournal[F] {
 
       def append(
@@ -99,7 +99,7 @@ object JournalSuite {
         headers: Headers,
         expireAfter: Option[ExpireAfter]
       ) = {
-        journal.append(
+        journals.append(
           key = key,
           events = events,
           expireAfter = expireAfter,
@@ -109,7 +109,7 @@ object JournalSuite {
 
       def read = {
         for {
-          records <- journal.read(key).toList
+          records <- journals.read(key).toList
         } yield for {
           record <- records
         } yield {
@@ -117,13 +117,13 @@ object JournalSuite {
         }
       }
 
-      def pointer = journal.pointer(key)
+      def pointer = journals.pointer(key)
 
-      def delete(to: DeleteTo) = journal.delete(key, to)
+      def delete(to: DeleteTo) = journals.delete(key, to)
 
-      def purge = journal.purge(key)
+      def purge = journals.purge(key)
 
-      def size = journal.read(key).length
+      def size = journals.read(key).length
     }
   }
 }

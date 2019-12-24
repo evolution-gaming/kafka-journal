@@ -13,7 +13,7 @@ trait AppendAction[F[_]] {
 object AppendAction {
 
   def apply[F[_] : MonadThrowable](
-    producer: Journal.Producer[F])(implicit
+    producer: Journals.Producer[F])(implicit
     actionToProducerRecord: ActionToProducerRecord[F]
   ): AppendAction[F] = {
     action: Action => {

@@ -26,7 +26,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
 
   private val journalOf = {
 
-    val consumer = Journal.Consumer.of[IO](config.journal.consumer, config.journal.pollTimeout)
+    val consumer = Journals.Consumer.of[IO](config.journal.consumer, config.journal.pollTimeout)
 
     (eventualJournal: EventualJournal[IO], headCache: Boolean) => {
       implicit val logOf = LogOf.empty[IO]
@@ -43,7 +43,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
 
       for {
         headCache <- headCache1
-        journal   = Journal[IO](
+        journal   = Journals[IO](
           producer = producer,
           origin = origin.some,
           consumer = consumer,
