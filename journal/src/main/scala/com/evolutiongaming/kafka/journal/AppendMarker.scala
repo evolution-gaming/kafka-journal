@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal
 import cats.FlatMap
 import cats.effect.Clock
 import cats.implicits._
-import com.evolutiongaming.catshelper.ClockHelper._
 
 trait AppendMarker[F[_]] {
   
@@ -13,19 +12,15 @@ trait AppendMarker[F[_]] {
 object AppendMarker {
 
   def apply[F[_] : FlatMap : RandomIdOf : Clock](
-    appendAction: AppendAction[F],
-    origin: Option[Origin]
+    produce: Produce[F],
   ): AppendMarker[F] = {
 
     key: Key => {
       for {
         randomId        <- RandomIdOf[F].apply
-        timestamp       <- Clock[F].instant
-        id               = randomId.value
-        action           = Action.Mark(key, timestamp, id, origin)
-        partitionOffset <- appendAction(action)
+        partitionOffset <- produce.mark(key, randomId)
       } yield {
-        Marker(id, partitionOffset)
+        Marker(randomId.value, partitionOffset)
       }
     }
   }

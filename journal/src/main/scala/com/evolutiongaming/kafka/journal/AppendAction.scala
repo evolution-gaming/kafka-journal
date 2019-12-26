@@ -31,8 +31,6 @@ object AppendAction {
 
   implicit class AppendActionOps[F[_]](val self: AppendAction[F]) extends AnyVal {
 
-    def mapK[G[_]](f: F ~> G): AppendAction[G] = new AppendAction[G] {
-      def apply(action: Action) = f(self(action))
-    }
+    def mapK[G[_]](f: F ~> G): AppendAction[G] = (action: Action) => f(self(action))
   }
 }

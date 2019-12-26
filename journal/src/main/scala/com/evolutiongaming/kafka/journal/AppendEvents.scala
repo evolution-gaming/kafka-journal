@@ -1,12 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
-import java.time.Instant
-
-import cats.FlatMap
+import cats.Monad
 import cats.data.{NonEmptyList => Nel}
-import cats.effect.Clock
 import cats.implicits._
-import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.kafka.journal.conversions.EventsToPayload
 import play.api.libs.json.JsValue
 
@@ -24,26 +20,17 @@ trait AppendEvents[F[_]] {
 
 object AppendEvents {
 
-  def apply[F[_] : FlatMap : Clock](
-    appendAction: AppendAction[F],
-    origin: Option[Origin])(implicit
+  def apply[F[_] : Monad](
+    send: Produce[F])(implicit
     eventsToPayload: EventsToPayload[F]
   ): AppendEvents[F] = {
-    (key, events, expireAfter, metadata, headers) => {
-
-      def action(timestamp: Instant) = Action.Append.of[F](
-        key = key,
-        timestamp = timestamp,
-        origin = origin,
-        events = Events(events, Events.Metadata.empty/*TODO expiry: pass metadata*/),
-        expireAfter = expireAfter,
-        metadata = RecordMetadata(data = metadata),
-        headers = headers)
-
+    (key, events0, expireAfter, metadata, headers) => {
+      val events = Events(events0, Events.Metadata.empty /*TODO expiry: pass metadata*/)
+      val range = SeqRange(from = events0.head.seqNr, to = events0.last.seqNr)
       for {
-        timestamp <- Clock[F].instant
-        action    <- action(timestamp) // TODO measure
-        result    <- appendAction(action)
+        payloadAndType <- eventsToPayload(events)
+        recordMetadata  = RecordMetadata(metadata)
+        result         <- send.append(key, range, payloadAndType, expireAfter, recordMetadata, headers)
       } yield result
     }
   }

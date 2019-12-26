@@ -108,10 +108,13 @@ object Journals {
     log: Log[F]
   ): Journals[F] = {
 
-    val appendMarker = AppendMarker(appendAction, origin)
+    // TODO expiry: move usages of Action.scala from Journal.scala to AppendAction
+    val produce = Produce(appendAction, origin)
+
+    val appendMarker = AppendMarker(produce)
 
     implicit val eventsToPayload1 = eventsToPayload
-    val appendEvents = AppendEvents(appendAction, origin)
+    val appendEvents = AppendEvents(produce)
 
     def headAndStream(key: Key, from: SeqNr): F[(HeadInfo, F[StreamActionRecords[F]])] = {
 
@@ -284,30 +287,16 @@ object Journals {
 
         // TODO not delete already deleted, do not accept deleteTo=2 when already deleteTo=3
         def delete(to: DeleteTo) = {
-
-          def delete(to: DeleteTo) = {
-            for {
-              timestamp <- Clock[F].instant
-              action     = Action.Delete(key, timestamp, to, origin)
-              result    <- appendAction(action)
-            } yield result
-          }
-
           for {
             seqNr   <- pointer
-            pointer <- seqNr.traverse { seqNr => delete(seqNr.toDeleteTo min to) }
+            pointer <- seqNr.traverse { seqNr => produce.delete(key, seqNr.toDeleteTo min to) }
           } yield pointer
         }
 
         def purge: F[Option[PartitionOffset]] = {
-          // TODO expiry: move usages of Action.scala from Journal.scala to AppendAction
-          for {
-            timestamp <- Clock[F].instant
-            action     = Action.Purge(key, timestamp, origin)
-            result    <- appendAction(action)
-          } yield {
-            result.some
-          }
+          produce
+            .purge(key)
+            .map { _.some }
         }
       }
     }
