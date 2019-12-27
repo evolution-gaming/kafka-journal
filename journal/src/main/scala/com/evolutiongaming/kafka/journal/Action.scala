@@ -151,7 +151,7 @@ object Action {
 
   object Mark {
 
-    def apply(key: Key, timestamp: Instant, id: String/*TODO expiry: pass randomId?*/, origin: Option[Origin]): Mark = {
+    def apply(key: Key, timestamp: Instant, id: String, origin: Option[Origin]): Mark = {
       val header = ActionHeader.Mark(id, origin)
       Mark(key, timestamp, header)
     }

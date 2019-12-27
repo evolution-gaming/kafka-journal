@@ -295,7 +295,7 @@ object ReplicatedCassandra {
                       segmentSize = segmentSize,
                       seqNr = deleteTo.value,
                       deleteTo = deleteTo.some,
-                      expiry = none/*TODO expiry: what if we have this in context of deletion*/)
+                      expiry = none)
                     metaJournal
                       .insert(timestamp, journalHead, origin)
                       .as(journalHead.some)

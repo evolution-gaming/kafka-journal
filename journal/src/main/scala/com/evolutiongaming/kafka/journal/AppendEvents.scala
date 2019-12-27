@@ -21,7 +21,7 @@ trait AppendEvents[F[_]] {
 object AppendEvents {
 
   def apply[F[_] : Monad](
-    send: Produce[F])(implicit
+    produce: Produce[F])(implicit
     eventsToPayload: EventsToPayload[F]
   ): AppendEvents[F] = {
     (key, events0, expireAfter, metadata, headers) => {
@@ -30,7 +30,7 @@ object AppendEvents {
       for {
         payloadAndType <- eventsToPayload(events)
         recordMetadata  = RecordMetadata(metadata)
-        result         <- send.append(key, range, payloadAndType, expireAfter, recordMetadata, headers)
+        result         <- produce.append(key, range, payloadAndType, expireAfter, recordMetadata, headers)
       } yield result
     }
   }
