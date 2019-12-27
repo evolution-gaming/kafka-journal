@@ -86,10 +86,9 @@ object Journals {
     implicit val fromJsResult = FromJsResult.lift[F]
 
     apply[F](
-      origin = origin,
       eventual = eventualJournal,
       consumeActionRecords = ConsumeActionRecords[F](consumer, log),
-      appendAction = AppendAction[F](producer),
+      produce = Produce[F](producer, origin),
       headCache = headCache,
       payloadToEvents = PayloadToEvents[F],
       eventsToPayload = EventsToPayload[F],
@@ -98,21 +97,16 @@ object Journals {
 
 
   def apply[F[_] : Concurrent : Clock : Parallel : RandomIdOf : FromTry](
-    origin: Option[Origin],
     eventual: EventualJournal[F],
     consumeActionRecords: ConsumeActionRecords[F],
-    appendAction: AppendAction[F],
+    produce: Produce[F],
     headCache: HeadCache[F],
     payloadToEvents: PayloadToEvents[F],
     eventsToPayload: EventsToPayload[F],
     log: Log[F]
   ): Journals[F] = {
 
-    // TODO expiry: move usages of Action.scala from Journal.scala to AppendAction
-    val produce = Produce(appendAction, origin)
-
     val appendMarker = AppendMarker(produce)
-
     implicit val eventsToPayload1 = eventsToPayload
     val appendEvents = AppendEvents(produce)
 

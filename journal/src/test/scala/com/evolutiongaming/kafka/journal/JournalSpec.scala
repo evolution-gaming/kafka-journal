@@ -243,7 +243,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
         val journal = SeqNrJournal(
           EventualJournal.empty[StateT],
           StateT.consumeActionRecords,
-          StateT.appendAction,
+          StateT.produceAction,
           headCache)
 
         test(journal)
@@ -267,7 +267,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
         val journal = SeqNrJournal(
           StateT.eventualJournal,
           consumeActionRecords,
-          StateT.appendAction,
+          StateT.produceAction,
           headCache)
 
         test(journal)
@@ -278,7 +278,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
         val journal = SeqNrJournal(
           StateT.eventualJournal,
           StateT.consumeActionRecords,
-          StateT.appendAction,
+          StateT.produceAction,
           headCache)
 
         test(journal)
@@ -288,7 +288,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
         n <- 1 to 3
       } {
         s"kafka and eventual journals are consistent, however eventual offset is $n behind, $name" should {
-          val appendAction = new AppendAction[StateT] {
+          val produceAction = new ProduceAction[StateT] {
 
             def apply(action: Action) = {
               StateT { state =>
@@ -307,7 +307,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
           val journal = SeqNrJournal(
             StateT.eventualJournal,
             StateT.consumeActionRecords,
-            appendAction,
+            produceAction,
             headCache)
 
           test(journal)
@@ -319,7 +319,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
       } {
         s"eventual journal is $n actions behind the kafka journal, $name" should {
 
-          val appendAction = new AppendAction[StateT] {
+          val produceAction = new ProduceAction[StateT] {
 
             def apply(action: Action) = {
               StateT { state =>
@@ -341,7 +341,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
           val journal = SeqNrJournal(
             StateT.eventualJournal,
             StateT.consumeActionRecords,
-            appendAction,
+            produceAction,
             headCache)
 
           test(journal)
@@ -354,7 +354,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
       } {
         s"eventual journal is $n actions behind and pointer is $nn behind the kafka journal, $name" should {
 
-          val appendAction = new AppendAction[StateT] {
+          val produceAction = new ProduceAction[StateT] {
 
             def apply(action: Action) = {
               StateT { state =>
@@ -380,7 +380,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
           val journal = SeqNrJournal(
             StateT.eventualJournal,
             StateT.consumeActionRecords,
-            appendAction,
+            produceAction,
             headCache)
 
           test(journal)
@@ -470,7 +470,7 @@ object JournalSpec {
     def apply[F[_] : Monad](
       eventual: EventualJournal[F],
       consumeActionRecords: ConsumeActionRecords[F],
-      writeAction: AppendAction[F],
+      produceAction: ProduceAction[F],
       headCache: HeadCache[F]
     ): SeqNrJournal[F] = {
 
@@ -486,10 +486,9 @@ object JournalSpec {
       val log = Log.empty[F]
 
       val journal = Journals[F](
-        origin = None,
         eventual = eventual,
         consumeActionRecords = consumeActionRecords,
-        appendAction = writeAction,
+        produce = Produce(produceAction, none),
         headCache = headCache,
         payloadToEvents = PayloadToEvents[F],
         eventsToPayload = EventsToPayload[F],
@@ -582,7 +581,7 @@ object JournalSpec {
     }
 
 
-    val appendAction: AppendAction[StateT] = {
+    val produceAction: ProduceAction[StateT] = {
       action: Action => {
         StateT { state =>
           val offset = Offset.unsafe(state.records.size)

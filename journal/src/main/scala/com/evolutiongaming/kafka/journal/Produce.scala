@@ -7,6 +7,7 @@ import cats.implicits._
 import cats.~>
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.MonadThrowable
+import com.evolutiongaming.kafka.journal.conversions.ActionToProducerRecord
 import com.evolutiongaming.skafka.{Bytes => _}
 
 trait Produce[F[_]] {
@@ -30,12 +31,21 @@ trait Produce[F[_]] {
 object Produce {
 
   def apply[F[_] : MonadThrowable : Clock](
-    appendAction: AppendAction[F],
+    producer: Journals.Producer[F],
+    origin: Option[Origin])(implicit
+    actionToProducerRecord: ActionToProducerRecord[F]
+  ): Produce[F] = {
+    val produceAction = ProduceAction(producer)
+    apply(produceAction, origin)
+  }
+
+  def apply[F[_] : MonadThrowable : Clock](
+    produceAction: ProduceAction[F],
     origin: Option[Origin]
   ): Produce[F] = {
 
     def send(action: Action) = {
-      appendAction(action).handleErrorWith { cause =>
+      produceAction(action).handleErrorWith { cause =>
         val error = JournalError(s"failed to produce $action", cause)
         error.raiseError[F, PartitionOffset]
       }
