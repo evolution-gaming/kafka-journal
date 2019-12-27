@@ -52,8 +52,8 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
   }
 
   private val metadata = List(
-    RecordMetadata.empty,
-    RecordMetadata(Json.obj(("key", "value")).some))
+    HeaderMetadata.empty,
+    HeaderMetadata(Json.obj(("key", "value")).some))
 
   private val payloads = {
     def binary(a: String) = PayloadBinaryFromStr(a)

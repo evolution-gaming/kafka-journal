@@ -103,12 +103,11 @@ object StreamActionRecordsSpec {
       pointer <- pointers
     } yield {
       val range = SeqRange.unsafe(pointer.seqNr)
-      val metadata = RecordMetadata.empty
       val header = ActionHeader.Append(
         range = range,
         origin = none,
         payloadType = PayloadType.Json,
-        metadata = metadata,
+        metadata = HeaderMetadata.empty,
         expireAfter = none)
       val action = Action.Append(key, timestamp, header, ByteVector.empty, Headers.empty)
       ActionRecord(action, PartitionOffset(offset = Offset.unsafe(pointer.offset)))

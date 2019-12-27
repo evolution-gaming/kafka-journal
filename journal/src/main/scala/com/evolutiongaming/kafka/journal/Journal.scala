@@ -23,7 +23,7 @@ trait Journal[F[_]] {
   def append(
     events: Nel[Event],
     expireAfter: Option[ExpireAfter] = None, // TODO expiry: test
-    metadata: Option[JsValue] = None,
+    metadata: Option[JsValue] = None, // TODO expiry: split on header metadata and payload metadata
     headers: Headers = Headers.empty
   ): F[PartitionOffset]
 

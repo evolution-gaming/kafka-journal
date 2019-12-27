@@ -29,7 +29,7 @@ object AppendEvents {
       val range = SeqRange(from = events0.head.seqNr, to = events0.last.seqNr)
       for {
         payloadAndType <- eventsToPayload(events)
-        recordMetadata  = RecordMetadata(metadata)
+        recordMetadata  = RecordMetadata(HeaderMetadata(metadata), PayloadMetadata.empty)
         result         <- produce.append(key, range, payloadAndType, expireAfter, recordMetadata, headers)
       } yield result
     }

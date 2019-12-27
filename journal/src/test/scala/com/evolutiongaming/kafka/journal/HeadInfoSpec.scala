@@ -63,13 +63,11 @@ class HeadInfoSpec extends AnyFunSuite with Matchers {
   }
 
   private def append(from: Int, to: Int) = {
-    val range = SeqRange.unsafe(from, to)
-    val metadata = RecordMetadata.empty
     ActionHeader.Append(
-      range = range,
+      range = SeqRange.unsafe(from, to),
       origin = None,
       payloadType = PayloadType.Json,
-      metadata = metadata,
+      metadata = HeaderMetadata.empty,
       expireAfter = None)
   }
 

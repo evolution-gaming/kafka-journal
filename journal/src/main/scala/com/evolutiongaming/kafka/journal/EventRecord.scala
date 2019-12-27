@@ -37,7 +37,9 @@ object EventRecord {
       timestamp = action.timestamp,
       partitionOffset = partitionOffset,
       origin = action.origin,
-      metadata = action.header.metadata,
+      metadata = RecordMetadata(
+        header = action.header.metadata,
+        payload = PayloadMetadata.empty/*TODO expiry: pass PayloadMetadata*/),
       headers = action.headers)
   }
 }

@@ -355,7 +355,7 @@ object HeadCacheSpec {
   val topicPartition: TopicPartition = TopicPartition(topic = topic, partition = partition)
   val config: HeadCacheConfig = HeadCacheConfig(cleanInterval = 100.millis)
 
-  val recordMetadata: RecordMetadata = RecordMetadata.empty
+  val recordMetadata: HeaderMetadata = HeaderMetadata.empty
 
   val headers: Headers = Headers.empty
 

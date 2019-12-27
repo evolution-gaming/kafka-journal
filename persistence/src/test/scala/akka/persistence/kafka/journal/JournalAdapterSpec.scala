@@ -30,7 +30,7 @@ class JournalAdapterSpec extends AnyFunSuite with Matchers {
     AtomicWrite(List(persistentRepr)))
 
   private val appendMetadataOf = {
-    val metadata = AppendMetadata(expireAfter.some, recordMetadata.data, headers)
+    val metadata = AppendMetadata(expireAfter.some, recordMetadata.header.data, headers)
     AppendMetadataOf.const(metadata.pure[StateT])
   }
 
@@ -92,7 +92,9 @@ object JournalAdapterSpec {
   private val partitionOffset = PartitionOffset.empty
   private val persistenceId = "id"
   private val persistentRepr = PersistentRepr(None, persistenceId = persistenceId)
-  private val recordMetadata = RecordMetadata(Json.obj(("key", "value")).some)
+  private val recordMetadata = RecordMetadata(
+    HeaderMetadata(Json.obj(("key", "value")).some),
+    PayloadMetadata.empty)
   private val headers = Headers(("key", "value"))
   private val origin = Origin("origin")
   private val eventRecord = EventRecord(event, timestamp, partitionOffset, origin.some, recordMetadata, headers)
@@ -156,7 +158,8 @@ object JournalAdapterSpec {
           headers: Headers
         ) = {
           StateT { state =>
-            val append = Append(key, events, timestamp, expireAfter, RecordMetadata(metadata), headers)
+            val recordMetadata = RecordMetadata(HeaderMetadata(metadata), PayloadMetadata.empty)
+            val append = Append(key, events, timestamp, expireAfter, recordMetadata, headers)
             val s1 = state.copy(appends = append :: state.appends)
             (s1, partitionOffset)
           }

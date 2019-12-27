@@ -82,7 +82,7 @@ object Action {
       origin: Option[Origin],
       events: Events,
       expireAfter: Option[ExpireAfter],
-      metadata: RecordMetadata,
+      metadata: HeaderMetadata,
       headers: Headers)(implicit
       eventsToPayload: EventsToPayload[F]
     ): F[Append] = {

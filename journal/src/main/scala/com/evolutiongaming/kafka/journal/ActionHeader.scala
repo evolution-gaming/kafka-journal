@@ -2,8 +2,8 @@ package com.evolutiongaming.kafka.journal
 
 import cats.Applicative
 import cats.implicits._
-import play.api.libs.json._
 import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
+import play.api.libs.json._
 
 
 sealed abstract class ActionHeader extends Product {
@@ -22,18 +22,26 @@ object ActionHeader {
       val format = Json.format[Append]
       val reads = format orElse new Reads[Append] {
         def reads(json: JsValue) = {
+
+          def metadata = {
+            (json \ "metadata").validate[JsObject] match {
+              case JsSuccess(a, _) => a.validate[HeaderMetadata]
+              case _: JsError      => HeaderMetadata.empty.pure[JsResult]
+            }
+          }
+
           for {
             range       <- (json \ "range").validate[SeqRange]
             origin      <- (json \ "origin").validateOpt[Origin]
             payloadType <- (json \ "payloadType").validate[PayloadType.BinaryOrJson]
             expireAfter <- (json \ "expireAfter").validateOpt[ExpireAfter]
-            metadata    <- (json \ "metadata").validateOpt[RecordMetadata]
+            metadata    <- metadata
           } yield {
             Append(
               range = range,
               origin = origin,
               payloadType = payloadType,
-              metadata = metadata getOrElse RecordMetadata.empty,
+              metadata = metadata,
               expireAfter = expireAfter)
           }
         }
@@ -97,7 +105,7 @@ object ActionHeader {
     origin: Option[Origin],
     payloadType: PayloadType.BinaryOrJson,
     expireAfter: Option[ExpireAfter], // TODO expiry: change order in other places, add to logging
-    metadata: RecordMetadata, // TODO expiry: use HeaderMetadata
+    metadata: HeaderMetadata, // TODO expiry: use HeaderMetadata
   ) extends AppendOrDelete
 
 

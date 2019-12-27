@@ -86,7 +86,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             pointer   <- journal.delete(DeleteTo.max)
             _          = pointer shouldEqual None
             event      = Event(seqNr)
-            offset    <- journal.append(Nel.of(event), recordMetadata.data, headers)
+            offset    <- journal.append(Nel.of(event), recordMetadata.header.data, headers)
             record     = EventRecord(event, timestamp, offset, origin.some, recordMetadata, headers)
             partition  = offset.partition
             events    <- journal.read
@@ -103,7 +103,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             _          = pointer shouldEqual none
             events    <- journal.read
             _          = events shouldEqual List.empty
-            offset    <- journal.append(Nel.of(event), recordMetadata.data, headers, 1.day.toExpireAfter.some)
+            offset    <- journal.append(Nel.of(event), recordMetadata.header.data, headers, 1.day.toExpireAfter.some)
             record     = EventRecord(event, timestamp, offset, origin.some, recordMetadata, headers)
             events    <- journal.read
             _          = events shouldEqual List(record)
@@ -198,7 +198,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             offset    <- journal.delete(DeleteTo.max)
             _          = offset shouldEqual None
             events     = seqNrs.map { seqNr => Event(seqNr) }
-            append     = journal.append(events, recordMetadata.data, headers)
+            append     = journal.append(events, recordMetadata.header.data, headers)
             _         <- append
             _         <- append
             offset    <- append
@@ -250,7 +250,9 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
 object JournalIntSpec {
   private val timestamp = Instant.now().truncatedTo(ChronoUnit.MILLIS)
   private val origin = Origin("JournalIntSpec")
-  private val recordMetadata = RecordMetadata(data = Json.obj(("key", "value")).some)
+  private val recordMetadata = RecordMetadata(
+    HeaderMetadata(Json.obj(("key", "value")).some),
+    PayloadMetadata.empty)
   private val headers = Headers(("key", "value"))
 
   implicit class EventRecordOps(val self: EventRecord) extends AnyVal {

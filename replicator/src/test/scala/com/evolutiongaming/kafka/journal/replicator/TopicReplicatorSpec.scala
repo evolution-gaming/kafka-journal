@@ -668,7 +668,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       events = Events(
         events = seqNrs.map { seqNr => Event(SeqNr.unsafe(seqNr), Set(seqNr.toString)) },
         PayloadMetadata.empty/*TODO expiry: pass metadata*/),
-      metadata = recordMetadata,
+      metadata = recordMetadata.header,
       headers = headers,
       expireAfter = expireAfter
     ).get
@@ -699,7 +699,9 @@ object TopicReplicatorSpec {
 
   val origin = Origin("origin")
 
-  val recordMetadata = RecordMetadata(Json.obj(("key", "value")).some)
+  val recordMetadata = RecordMetadata(
+    HeaderMetadata(Json.obj(("key", "value")).some),
+    PayloadMetadata.empty)
 
   val headers = Headers(("key", "value"))
 

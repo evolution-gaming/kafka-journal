@@ -1,32 +1,13 @@
 package com.evolutiongaming.kafka.journal
 
 import cats._
-import cats.arrow.FunctionK
-import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.implicits._
-import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MonadThrowable}
-import com.evolutiongaming.kafka.journal.conversions.{EventsToPayload, PayloadToEvents}
-import com.evolutiongaming.kafka.journal.eventual.EventualJournal
-import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.Fail.implicits._
-import com.evolutiongaming.kafka.journal.util.StreamHelper._
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
-import com.evolutiongaming.skafka
-import com.evolutiongaming.skafka.consumer.ConsumerConfig
-import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord}
-import com.evolutiongaming.skafka.{Bytes => _, _}
+import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.smetrics._
-import com.evolutiongaming.sstream.Stream
-import play.api.libs.json.JsValue
-import pureconfig.ConfigReader
-import pureconfig.generic.semiauto.deriveReader
-import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
-import scala.util.Try
 
 
 trait JournalMetrics[F[_]] {
