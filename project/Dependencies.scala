@@ -24,7 +24,7 @@ object Dependencies {
   val sstream              = "com.evolutiongaming"    %% "sstream"               % "0.2.0"
   val skafka               = "com.evolutiongaming"    %% "skafka"                % "8.0.2"
   val scache               = "com.evolutiongaming"    %% "scache"                % "2.1.1"
-  val `akka-test-actor`    = "com.evolutiongaming"    %% "akka-test-actor"       % "0.0.2"
+  val `akka-test-actor`    = "com.evolutiongaming"    %% "akka-test-actor"       % "0.1.0"
 
   object Cats {
     private val version = "2.0.0"
