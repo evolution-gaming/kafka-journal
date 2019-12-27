@@ -10,7 +10,7 @@ import play.api.libs.json.{Json, OFormat}
 import scodec.bits.ByteVector
 import scodec.{Codec, codecs}
 
-final case class Events(events: Nel[Event], metadata: Events.Metadata)
+final case class Events(events: Nel[Event], metadata: PayloadMetadata)
 
 object Events {
 
@@ -18,10 +18,10 @@ object Events {
     val eventsCodec = nelCodec(codecs.listOfN(codecs.int32, codecs.variableSizeBytes(codecs.int32, Codec[Event])))
 
     val default = (codecs.ignore(ByteJ.SIZE) ~> eventsCodec)
-      .xmap[Events](a => Events(a, Metadata.empty), _.events)
+      .xmap[Events](a => Events(a, PayloadMetadata.empty), _.events)
 
     val version0 = (codecs.constant(ByteVector.fromByte(0)) ~> eventsCodec)
-      .xmap[Events](a => Events(a, Metadata.empty), _.events)
+      .xmap[Events](a => Events(a, PayloadMetadata.empty), _.events)
 
     codecs.choice(version0, default)
   }
@@ -29,18 +29,4 @@ object Events {
   implicit def eventsToBytes[F[_] : FromAttempt]: ToBytes[F, Events] = ToBytes.fromEncoder
 
   implicit def eventsFromBytes[F[_] : FromAttempt]: FromBytes[F, Events] = FromBytes.fromDecoder
-
-
-  final case class Metadata(expireAfter: Option[ExpireAfter])
-
-  object Metadata {
-
-    val empty: Metadata = Metadata(none)
-
-    implicit val formatMetadata: OFormat[Metadata] = Json.format
-
-    implicit def toBytesMetadata[F[_] : Applicative]: ToBytes[F, Metadata] = ToBytes.fromWrites
-
-    implicit def fromBytesMetadata[F[_] : FromJsResult]: FromBytes[F, Metadata] = FromBytes.fromReads
-  }
 }

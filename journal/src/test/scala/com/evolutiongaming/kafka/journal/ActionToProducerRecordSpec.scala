@@ -96,7 +96,7 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
         key = key1,
         timestamp = timestamp,
         origin = origin,
-        events = Events(events, Events.Metadata.empty/*TODO expiry: pass metadata*/),
+        events = Events(events, PayloadMetadata.empty/*TODO expiry: pass metadata*/),
         expireAfter = expireAfter.map { _.toExpireAfter },
         metadata = metadata,
         headers = headers).get

@@ -365,7 +365,7 @@ object HeadCacheSpec {
       key = key,
       timestamp = timestamp,
       origin = none,
-      events = Events(Nel.of(Event(seqNr)), Events.Metadata.empty),
+      events = Events(Nel.of(Event(seqNr)), PayloadMetadata.empty),
       metadata = recordMetadata,
       headers = headers,
       expireAfter = none).get

@@ -15,10 +15,10 @@ class EventsTest extends FunSuite with Matchers {
       val eventsCodec = nelCodec(codecs.listOfN(codecs.int32, codecs.variableSizeBytes(codecs.int32, Codec[Event])))
       val version = ByteVector.fromByte(100)
       (codecs.constant(version) ~> eventsCodec)
-        .xmap[Events](a => Events(a, Events.Metadata.empty), _.events)
+        .xmap[Events](a => Events(a, PayloadMetadata.empty), _.events)
     }
 
-    val events = Events(Nel.of(Event(SeqNr.min)), Events.Metadata.empty)
+    val events = Events(Nel.of(Event(SeqNr.min)), PayloadMetadata.empty)
     val actual = for {
       bits   <- codec.encode(events)
       result <- Events.codecEvents.decode(bits)

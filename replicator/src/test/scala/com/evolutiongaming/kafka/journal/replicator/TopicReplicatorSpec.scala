@@ -667,7 +667,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       origin = origin.some,
       events = Events(
         events = seqNrs.map { seqNr => Event(SeqNr.unsafe(seqNr), Set(seqNr.toString)) },
-        Events.Metadata.empty/*TODO expiry: pass metadata*/),
+        PayloadMetadata.empty/*TODO expiry: pass metadata*/),
       metadata = recordMetadata,
       headers = headers,
       expireAfter = expireAfter

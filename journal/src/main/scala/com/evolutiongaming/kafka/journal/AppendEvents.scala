@@ -25,7 +25,7 @@ object AppendEvents {
     eventsToPayload: EventsToPayload[F]
   ): AppendEvents[F] = {
     (key, events0, expireAfter, metadata, headers) => {
-      val events = Events(events0, Events.Metadata.empty /*TODO expiry: pass metadata*/)
+      val events = Events(events0, PayloadMetadata.empty /*TODO expiry: pass metadata*/)
       val range = SeqRange(from = events0.head.seqNr, to = events0.last.seqNr)
       for {
         payloadAndType <- eventsToPayload(events)
