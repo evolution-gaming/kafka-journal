@@ -151,9 +151,9 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       Retry[IO, Throwable](strategy).apply(events)
     }
 
-    def append(key: Key, events: Nel[Event], expireAfter: Option[ExpireAfter] = none) = {
+    def append(journal: Journal[IO], events: Nel[Event], expireAfter: Option[ExpireAfter] = none) = {
       for {
-        partitionOffset <- journals(key).append(
+        partitionOffset <- journal.append(
           events,
           expireAfter,
           recordMetadata.data,
@@ -164,8 +164,6 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
         EventRecord(event, timestamp, partitionOffset, origin.some, recordMetadata, headers)
       }
     }
-
-    def pointerOf(key: Key) = journals(key).pointer
 
     def topicPointers = {
       for {
@@ -178,10 +176,11 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
     "replicate events and expire" in {
       val result = for {
         key       <- Key.random[IO](topic)
-        expected0 <- append(key, Nel.of(event(1)))
+        journal    = journals(key)
+        expected0 <- append(journal, Nel.of(event(1)))
         events    <- read(key)(_.nonEmpty)
         _          = events shouldEqual expected0.toList
-        expected1 <- append(key, Nel.of(event(2)), 1.day.toExpireAfter.some)
+        expected1 <- append(journal, Nel.of(event(2)), 1.day.toExpireAfter.some)
         events    <- read(key)(_.size == 2)
         _          = events shouldEqual expected0.toList ++ expected1.toList
         // TODO expiry: implement actual expiration test
@@ -194,10 +193,11 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
     "replicate events and not expire" in {
       val result = for {
         key       <- Key.random[IO](topic)
-        expected0 <- append(key, Nel.of(event(1)), 1.day.toExpireAfter.some)
+        journal    = journals(key)
+        expected0 <- append(journal, Nel.of(event(1)), 1.day.toExpireAfter.some)
         events    <- read(key)(_.nonEmpty)
         _          = events shouldEqual expected0.toList
-        expected1 <- append(key, Nel.of(event(2)))
+        expected1 <- append(journal, Nel.of(event(2)))
         events    <- read(key)(_.size == 2)
         _          = events shouldEqual expected0.toList ++ expected1.toList
         // TODO expiry: how to verify
@@ -208,16 +208,17 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
     "purge" in {
       val result = for {
         key      <- Key.random[IO](topic)
-        expected <- append(key, Nel.of(event(1)))
+        journal   = journals(key)
+        expected <- append(journal, Nel.of(event(1)))
         events   <- read(key)(_.nonEmpty)
         _         = events shouldEqual expected.toList
-        pointer  <- pointerOf(key)
+        pointer  <- journal.pointer
         _         = pointer shouldEqual expected.last.seqNr.some
-        pointer  <- journals(key).purge
+        pointer  <- journal.purge
         _         = pointer.map { _.partition } shouldEqual expected.head.partition.some
         events   <- read(key)(_.isEmpty)
         _         = events shouldEqual Nil
-        pointer  <- pointerOf(key)
+        pointer  <- journal.pointer
         _         = pointer shouldEqual none
       } yield {}
       result.run(5.minutes)
@@ -230,28 +231,29 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       s"replicate events and there after delete, seqNr: $seqNr" in {
         val result = for {
           key             <- Key.random[IO](topic)
-          pointer0        <- pointerOf(key)
+          journal          = journals(key)
+          pointer0        <- journal.pointer
           _                = pointer0 shouldEqual None
           pointers        <- topicPointers
-          expected        <- append(key, Nel.of(event(seqNr)))
+          expected        <- append(journal, Nel.of(event(seqNr)))
           partitionOffset  = expected.head.partitionOffset
           partition        = partitionOffset.partition
           offset           = pointers.get(partitionOffset.partition)
           _                = offset.foreach { offset => partitionOffset.offset should be > offset }
           events          <- read(key)(_.nonEmpty)
           _                = events shouldEqual expected.toList
-          pointer         <- pointerOf(key)
+          pointer         <- journal.pointer
           _                = pointer shouldEqual expected.last.seqNr.some
-          pointer         <- journals(key).delete(expected.last.event.seqNr.toDeleteTo).map(_.map(_.partition))
+          pointer         <- journal.delete(expected.last.event.seqNr.toDeleteTo).map(_.map(_.partition))
           _                = pointer shouldEqual partition.some
           events          <- read(key)(_.isEmpty)
           _                = events shouldEqual Nil
-          pointer         <- pointerOf(key)
+          pointer         <- journal.pointer
           _                = pointer shouldEqual expected.last.seqNr.some
-          expected        <- append(key, Nel.of(event(seqNr + 1), event(seqNr + 2)))
+          expected        <- append(journal, Nel.of(event(seqNr + 1), event(seqNr + 2)))
           events          <- read(key)(_.nonEmpty)
           _                = events shouldEqual expected.toList
-          pointer4        <- pointerOf(key)
+          pointer4        <- journal.pointer
           _                = pointer4 shouldEqual expected.last.seqNr.some
         } yield {}
         result.run(5.minutes)
@@ -263,15 +265,16 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
         val result = for {
           key        <- Key.random[IO](topic)
+          journal     = journals(key)
           events     = for {
             n <- (0 until numberOfEvents).toList
           } yield {
             event(seqNr + n, Payload("kafka-journal"))
           }
-          expected   <- append(key, Nel.fromListUnsafe(events))
+          expected   <- append(journal, Nel.fromListUnsafe(events))
           actual     <- read(key)(_.nonEmpty)
           _           = actual shouldEqual expected.toList
-          pointer    <- pointerOf(key)
+          pointer    <- journal.pointer
           _           = pointer shouldEqual events.last.seqNr.some
         } yield {}
 
@@ -312,13 +315,14 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
           
           val result = for {
             key          <- Key.random[IO](topic)
+            journal       = journals(key)
             pointers     <- topicPointers
-            expected     <- append(key, events)
+            expected     <- append(journal, events)
             partition     = expected.head.partitionOffset.partition
             offsetBefore  = pointers.getOrElse(partition, Offset.min)
             actual       <- read(key)(_.nonEmpty)
             _             = actual shouldEqual expected.toList
-            pointer      <- pointerOf(key)
+            pointer      <- journal.pointer
             _             = pointer shouldEqual events.last.seqNr.some
             pointers     <- topicPointers
             offsetAfter   = pointers.getOrElse(partition, Offset.min)

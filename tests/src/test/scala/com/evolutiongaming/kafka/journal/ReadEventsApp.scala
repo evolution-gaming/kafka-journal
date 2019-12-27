@@ -91,7 +91,7 @@ object ReadEventsApp extends IOApp {
       val origin = Origin("ReadEventsApp")
       val journals = Journals[F](origin.some, producer, consumer, eventualJournal, headCache, log)
       val key = Key(id = "id", topic = "topic")
-      val journal = journals(key) // TODO expiry: refactor all places like this one to use remember journals(key)
+      val journal = journals(key)
       for {
         pointer <- journal.pointer
         seqNrs  <- journal.read().map(_.seqNr).toList

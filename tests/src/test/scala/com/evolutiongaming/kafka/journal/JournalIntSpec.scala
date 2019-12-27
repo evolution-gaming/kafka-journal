@@ -67,7 +67,6 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
 
       val key = Key.random[IO]("journal")
 
-      // TODO expiry: refactor to reuse journal and remove KeyJournal
       lazy val (journals, release) = journalsOf(eventualJournal(), headCache).allocated.unsafeRunSync()
 
       for {
@@ -223,14 +222,15 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
         s"expire records $name" ignore {
           val result = for {
             key      <- key
-            _        <- journals(key).append(Nel.of(Event(SeqNr.min)), 1.second.toExpireAfter.some)
-            events   <- journals(key).read().toList
+            journal   = journals(key)
+            _        <- journal.append(Nel.of(Event(SeqNr.min)), 1.second.toExpireAfter.some)
+            events   <- journal.read().toList
             _         = events.map(_.seqNr) shouldEqual List(SeqNr.min)
             strategy  = Strategy.const(100.millis).limit(10.seconds)
             retry     = Retry(strategy)
             _        <- retry {
               for {
-                events <- journals(key).read().toList
+                events <- journal.read().toList
                 _       = events shouldEqual List.empty
               } yield {}
             }
