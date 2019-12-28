@@ -5,11 +5,14 @@ import java.io.FileOutputStream
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.conversions.{EventsToPayload, PayloadToEvents}
+import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
+import play.api.libs.json.Json
 import scodec.bits.ByteVector
 
 import scala.util.Try
+import scala.concurrent.duration._
 
 class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
 
@@ -22,53 +25,61 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
     event(seqNr, payload.some)
   }
 
-  def binary(a: String) = PayloadBinaryFromStr(a)
+  def binary(a: String): Payload.Binary = PayloadBinaryFromStr(a)
+
+  private implicit val fromAttempt = FromAttempt.lift[Try]
+  
+  private implicit val fromJsResult = FromJsResult.lift[Try]
+
+  private val payloadMetadata = PayloadMetadata(
+    1.day.toExpireAfter.some,
+    Json.obj(("key", "value")).some)
 
   for {
     (name, payloadType, events) <- List(
       ("empty", PayloadType.Json, Events(
         Nel.of(
           event(1)),
-        PayloadMetadata.empty/*TODO expiry: pass metadata*/)),
+        PayloadMetadata.empty)),
       ("binary", PayloadType.Binary, Events(
         Nel.of(
           event(1, binary("payload"))),
-        PayloadMetadata.empty/*TODO expiry: pass metadata*/)),
+        PayloadMetadata.empty)),
       ("text", PayloadType.Json, Events(
         Nel.of(
           event(1, Payload.text(""" {"key":"value"} """))),
-        PayloadMetadata.empty/*TODO expiry: pass metadata*/)),
+        PayloadMetadata.empty)),
       ("json", PayloadType.Json, Events(
         Nel.of(
           event(1, Payload.json("payload"))),
-        PayloadMetadata.empty/*TODO expiry: pass metadata*/)),
+        PayloadMetadata.empty)),
       ("empty-many", PayloadType.Json, Events(
         Nel.of(
           event(1),
           event(2)),
-        PayloadMetadata.empty/*TODO expiry: pass metadata*/)),
+        payloadMetadata)),
       ("binary-many", PayloadType.Binary, Events(
         Nel.of(
           event(1, binary("1")),
           event(2, binary("2"))),
-        PayloadMetadata.empty/*TODO expiry: pass metadata*/)),
+        payloadMetadata)),
       ("text-many", PayloadType.Json, Events(
         Nel.of(
           event(1, Payload.text("1")),
           event(2, Payload.text("2"))),
-        PayloadMetadata.empty/*TODO expiry: pass metadata*/)),
+        payloadMetadata)),
       ("json-many", PayloadType.Json, Events(
         Nel.of(
           event(1, Payload.json("1")),
           event(2, Payload.json("2"))),
-        PayloadMetadata.empty/*TODO expiry: pass metadata*/)),
+        payloadMetadata)),
       ("empty-binary-text-json", PayloadType.Binary, Events(
         Nel.of(
           event(1),
           event(2, binary("binary")),
           event(3, Payload.text("text")),
           event(4, Payload.json("json"))),
-        PayloadMetadata.empty/*TODO expiry: pass metadata*/)))
+        payloadMetadata)))
   } {
 
     test(s"toBytes & fromBytes, events: $name") {
@@ -77,14 +88,8 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
 
       def verify(payload: ByteVector, payloadType: PayloadType.BinaryOrJson) = {
         val payloadAndType = PayloadAndType(payload, payloadType)
-
-        implicit val fromAttempt = FromAttempt.lift[Try]
-        implicit val fromJsResult = FromJsResult.lift[Try]
-
         val payloadToEvents = PayloadToEvents[Try]
-
-        val actual = payloadToEvents(payloadAndType).get
-        actual shouldEqual events
+        payloadToEvents(payloadAndType) shouldEqual events.pure[Try]
       }
 
       val eventsToPayload = EventsToPayload[Try]
@@ -96,7 +101,7 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
 
       val path = s"Payload-$name.$ext"
 
-      //      writeToFile(payload.value, path)
+//      writeToFile(payloadAndType.payload, path)
 
       verify(payloadAndType.payload, payloadType)
 

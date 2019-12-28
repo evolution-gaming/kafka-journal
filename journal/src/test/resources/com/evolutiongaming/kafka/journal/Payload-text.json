@@ -1,14 +1,1 @@
-{
-  "events": [
-    {
-      "seqNr": 1,
-      "tags": [
-        "0",
-        "1"
-      ],
-      "text": true,
-      "payloadType": "text",
-      "payload": " {\"key\":\"value\"} "
-    }
-  ]
-}
+{"events":[{"seqNr":1,"tags":["0","1"],"payloadType":"text","payload":" {\"key\":\"value\"} "}],"metadata":{}}

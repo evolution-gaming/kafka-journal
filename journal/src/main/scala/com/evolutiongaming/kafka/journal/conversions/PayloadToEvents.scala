@@ -54,7 +54,7 @@ object PayloadToEvents {
             payloadJson <- payloadJsonFromBytes(payload)
             events      <- events(payloadJson)
           } yield {
-            Events(events, PayloadMetadata.empty/*TODO expiry: pass metadata*/)
+            Events(events, payloadJson.metadata)
           }
       }
       result.handleErrorWith { cause =>

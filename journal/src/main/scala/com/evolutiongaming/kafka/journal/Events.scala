@@ -23,7 +23,12 @@ object Events {
     val version0 = (codecs.constant(ByteVector.fromByte(0)) ~> eventsCodec)
       .xmap[Events](a => Events(a, PayloadMetadata.empty), _.events)
 
-    codecs.choice(version0, default)
+    val metadataCodec: Codec[PayloadMetadata] = formatCodec[PayloadMetadata]
+
+    val version1 = (codecs.constant(ByteVector.fromByte(1)) ~> (eventsCodec :: metadataCodec))
+      .as[Events]
+
+    codecs.choice(version1, version0, default)
   }
 
   implicit def eventsToBytes[F[_] : FromAttempt]: ToBytes[F, Events] = ToBytes.fromEncoder

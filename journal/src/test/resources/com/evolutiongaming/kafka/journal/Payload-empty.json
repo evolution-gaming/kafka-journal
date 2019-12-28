@@ -1,11 +1,1 @@
-{
-  "events": [
-    {
-      "seqNr": 1,
-      "tags": [
-        "0",
-        "1"
-      ]
-    }
-  ]
-}
+{"events":[{"seqNr":1,"tags":["0","1"]}],"metadata":{}}

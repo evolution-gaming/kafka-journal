@@ -53,11 +53,13 @@ object EventsToPayload {
         }
       }
 
+      def metadata = events.metadata
+
       def payloadAndType(eventJsons: List[EventJson]) = {
         eventJsons match {
           case head :: tail =>
             val events = Nel(head, tail)
-            val payload = PayloadJson(events)
+            val payload = PayloadJson(events, metadata)
             for {
               bytes <- payloadJsonToBytes(payload)
             } yield {

@@ -38,7 +38,7 @@ object PayloadAndType {
   }
 
 
-  final case class PayloadJson(events: Nel[EventJson])
+  final case class PayloadJson(events: Nel[EventJson], metadata: PayloadMetadata)
 
   object PayloadJson {
 
