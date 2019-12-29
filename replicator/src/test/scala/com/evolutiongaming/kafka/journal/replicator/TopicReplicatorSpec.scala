@@ -109,8 +109,8 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
         pointers = Map((topic, Map((0, 1L)))),
         journal = Map(
           ("id", List(
-            record(seqNr = 1, partition = 0, offset = 0),
-            record(seqNr = 2, partition = 0, offset = 1)))),
+            record(seqNr = 1, partition = 0, offset = 0, 1.minute.toExpireAfter.some),
+            record(seqNr = 2, partition = 0, offset = 1, 2.minutes.toExpireAfter.some)))),
         metaJournal = Map(
           metaJournalOf("id", partition = 0, offset = 1, expireAfter = 2.minutes.toExpireAfter.some)),
         metrics = List(
@@ -653,10 +653,21 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       headers = producerRecord.headers)
   }
 
-  private def record(seqNr: Int, partition: Int, offset: Long) = {
+  private def record(
+    seqNr: Int,
+    partition: Int,
+    offset: Long,
+    expireAfter: Option[ExpireAfter] = none
+  ) = {
     val partitionOffset = PartitionOffset(Partition.unsafe(partition), Offset.unsafe(offset))
     val event = Event(SeqNr.unsafe(seqNr), Set(seqNr.toString))
-    EventRecord(event, timestamp, partitionOffset, origin.some, recordMetadata, headers)
+    EventRecord(
+      event,
+      timestamp,
+      partitionOffset,
+      origin.some,
+      recordMetadata.withExpireAfter(expireAfter),
+      headers)
   }
 
   private def appendOf(key: Key, seqNrs: Nel[Int], expireAfter: Option[ExpireAfter] = none) = {
@@ -667,7 +678,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       origin = origin.some,
       events = Events(
         events = seqNrs.map { seqNr => Event(SeqNr.unsafe(seqNr), Set(seqNr.toString)) },
-        PayloadMetadata.empty/*TODO expiry: pass metadata*/),
+        PayloadMetadata.empty),
       metadata = recordMetadata.header,
       headers = headers,
       expireAfter = expireAfter
@@ -697,17 +708,17 @@ object TopicReplicatorSpec {
 
   val timestamp: Instant = Instant.now()
 
-  val origin = Origin("origin")
+  val origin: Origin = Origin("origin")
 
-  val recordMetadata = RecordMetadata(
+  val recordMetadata: RecordMetadata = RecordMetadata(
     HeaderMetadata(Json.obj(("key", "value")).some),
     PayloadMetadata.empty)
 
-  val headers = Headers(("key", "value"))
+  val headers: Headers = Headers(("key", "value"))
 
   val replicationLatency: FiniteDuration = 10.millis
 
-  val timestampAndType = TimestampAndType(timestamp, TimestampType.Create)
+  val timestampAndType: TimestampAndType = TimestampAndType(timestamp, TimestampType.Create)
 
   def topicPartitionOf(partition: Int): TopicPartition = TopicPartition(topic, Partition.unsafe(partition))
 

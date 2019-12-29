@@ -104,8 +104,8 @@ object ActionHeader {
     range: SeqRange,
     origin: Option[Origin],
     payloadType: PayloadType.BinaryOrJson,
-    expireAfter: Option[ExpireAfter], // TODO expiry: change order in other places, add to logging
-    metadata: HeaderMetadata, // TODO expiry: use HeaderMetadata
+    expireAfter: Option[ExpireAfter], // TODO expiry: remove after 01-02-2020
+    metadata: HeaderMetadata,
   ) extends AppendOrDelete
 
 

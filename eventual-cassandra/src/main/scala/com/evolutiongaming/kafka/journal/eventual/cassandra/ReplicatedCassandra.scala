@@ -294,8 +294,7 @@ object ReplicatedCassandra {
                       partitionOffset = partitionOffset,
                       segmentSize = segmentSize,
                       seqNr = deleteTo.value,
-                      deleteTo = deleteTo.some,
-                      expiry = none)
+                      deleteTo = deleteTo.some)
                     metaJournal
                       .insert(timestamp, journalHead, origin)
                       .as(journalHead.some)

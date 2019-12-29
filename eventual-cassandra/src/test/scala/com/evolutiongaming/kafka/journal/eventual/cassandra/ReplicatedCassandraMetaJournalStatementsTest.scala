@@ -236,7 +236,7 @@ object ReplicatedCassandraMetaJournalStatementsTest {
   val key: Key = Key(id = "id", topic = "topic")
   val segment: SegmentNr = SegmentNr.min
   val partitionOffset: PartitionOffset = PartitionOffset.empty
-  val journalHead: JournalHead = JournalHead(partitionOffset, SegmentSize.default, SeqNr.min, none)
+  val journalHead: JournalHead = JournalHead(partitionOffset, SegmentSize.default, SeqNr.min)
   val origin: Origin = Origin("origin")
   val expiry: Expiry = Expiry(
     1.day.toExpireAfter,

@@ -92,7 +92,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(partitionOffset, segmentSize, SeqNr.min, none),
+            JournalHead(partitionOffset, segmentSize, SeqNr.min),
             origin.some),
           Action.InsertRecords(key, SegmentNr.min, 1)),
         pointers = Map(
@@ -141,7 +141,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(partitionOffset, segmentSize, SeqNr.min, none),
+            JournalHead(partitionOffset, segmentSize, SeqNr.min),
             origin.some),
           Action.InsertRecords(key, SegmentNr.min, 1)),
         pointers = Map(
@@ -152,8 +152,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             journalHead = JournalHead(
               partitionOffset = partitionOffset,
               segmentSize = segmentSize,
-              seqNr = SeqNr.min,
-              deleteTo = none),
+              seqNr = SeqNr.min),
             created = timestamp0,
             updated = timestamp0,
             origin = origin.some))))),
@@ -237,7 +236,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment1,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(4)), segmentSize, SeqNr.min, none),
+            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(4)), segmentSize, SeqNr.min),
             origin.some),
           Action.InsertRecords(key1, SegmentNr.min, 1),
           Action.DeleteExpiry(key0, segment0),
@@ -264,7 +263,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment1,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(4)), segmentSize, SeqNr.min, none),
+            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(4)), segmentSize, SeqNr.min),
             origin.some),
           Action.InsertRecords(key1, SegmentNr.min, 1),
           Action.DeleteExpiry(key0, segment0),
@@ -294,7 +293,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                 partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(3)),
                 segmentSize = segmentSize,
                 seqNr = SeqNr.unsafe(3),
-                deleteTo = none),
+                deleteTo = none,
+                expiry = none),
               created = timestamp0,
               updated = timestamp1,
               origin = origin.some)))),
@@ -303,8 +303,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               journalHead = JournalHead(
                 partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(4)),
                 segmentSize = segmentSize,
-                seqNr = SeqNr.unsafe(1),
-                deleteTo = none),
+                seqNr = SeqNr.unsafe(1)),
               created = timestamp0,
               updated = timestamp0,
               origin = origin.some))))),
@@ -658,9 +657,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             journalHead = JournalHead(
               partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
               segmentSize = segmentSize,
-              seqNr = SeqNr.unsafe(2),
-              deleteTo = none,
-              expiry = none),
+              seqNr = SeqNr.unsafe(2)),
             created = timestamp0,
             updated = timestamp1,
             origin = origin.some))))),
@@ -713,8 +710,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               journalHead = JournalHead(
                 partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(4)),
                 segmentSize = segmentSize,
-                seqNr = SeqNr.unsafe(2),
-                deleteTo = none),
+                seqNr = SeqNr.unsafe(2)),
               created = timestamp0,
               updated = timestamp1,
               origin = origin.some))))),
@@ -733,8 +729,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               journalHead = JournalHead(
                 partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
                 segmentSize = segmentSize,
-                seqNr = SeqNr.unsafe(1),
-                deleteTo = none),
+                seqNr = SeqNr.unsafe(1)),
               created = timestamp0,
               updated = timestamp0,
               origin = origin.some))))))
@@ -773,7 +768,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(1)), segmentSize, SeqNr.min, none),
+            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(1)), segmentSize, SeqNr.min),
             origin.some),
           Action.InsertRecords(key, SegmentNr.min, 1)),
         metaJournal = Map(
@@ -782,7 +777,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
               segmentSize = segmentSize,
               seqNr = SeqNr.max,
-              deleteTo = SeqNr.max.toDeleteTo.some),
+              deleteTo = SeqNr.max.toDeleteTo.some,
+              expiry = none),
             created = timestamp0,
             updated = timestamp1,
             origin = origin.some))))))
@@ -810,7 +806,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                 partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
                 segmentSize = segmentSize,
                 seqNr = SeqNr.min,
-                deleteTo = SeqNr.min.toDeleteTo.some),
+                deleteTo = SeqNr.min.toDeleteTo.some,
+                expiry = none),
               created = timestamp0,
               updated = timestamp0,
               origin = origin.some))))),
@@ -823,7 +820,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
               segmentSize = segmentSize,
               seqNr = SeqNr.min,
-              deleteTo = SeqNr.min.toDeleteTo.some),
+              deleteTo = SeqNr.min.toDeleteTo.some,
+              expiry = none),
             created = timestamp0,
             updated = timestamp0,
             origin = origin.some))))),
@@ -868,7 +866,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(3)), segmentSize, SeqNr.unsafe(2), none),
+            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(3)), segmentSize, SeqNr.unsafe(2)),
             origin.some),
           Action.InsertRecords(key, SegmentNr.min, 2)))
       actual shouldEqual (expected, ()).pure[Try]
@@ -890,7 +888,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(partitionOffset, segmentSize, SeqNr.min, none),
+            JournalHead(partitionOffset, segmentSize, SeqNr.min),
             origin.some),
           Action.InsertRecords(key, SegmentNr.min, 1)),
         metaJournal = Map(
@@ -898,8 +896,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             journalHead = JournalHead(
               partitionOffset = partitionOffset,
               segmentSize = segmentSize,
-              seqNr = SeqNr.min,
-              deleteTo = none),
+              seqNr = SeqNr.min),
             created = timestamp0,
             updated = timestamp0,
             origin = origin.some))))),
@@ -963,7 +960,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(3)), segmentSize, SeqNr.unsafe(2), none),
+            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(3)), segmentSize, SeqNr.unsafe(2)),
             origin.some),
           Action.InsertRecords(key, SegmentNr.min, 2)))
       actual shouldEqual (expected, ()).pure[Try]

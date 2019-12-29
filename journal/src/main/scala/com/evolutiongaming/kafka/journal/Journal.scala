@@ -22,7 +22,6 @@ trait Journal[F[_]] {
     headers: Headers = Headers.empty
   ): F[PartitionOffset]
 
-  // TODO expiry: make sure expireAfter is used during queries
   def read(from: SeqNr = SeqNr.min): Stream[F, EventRecord]
 
   // TODO return Pointer and test it

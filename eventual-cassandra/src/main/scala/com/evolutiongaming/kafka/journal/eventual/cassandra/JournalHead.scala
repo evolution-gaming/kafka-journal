@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
+import cats.implicits._
 import com.datastax.driver.core.{GettableByNameData, SettableData}
 import com.evolutiongaming.kafka.journal.{DeleteTo, PartitionOffset, SeqNr}
 import com.evolutiongaming.scassandra.syntax._
@@ -10,8 +11,8 @@ final case class JournalHead(
   partitionOffset: PartitionOffset,
   segmentSize: SegmentSize,
   seqNr: SeqNr,
-  deleteTo: Option[DeleteTo],
-  expiry: Option[Expiry] = None/*TODO expiry: expireAfter=none*/)
+  deleteTo: Option[DeleteTo] = none,
+  expiry: Option[Expiry] = none)
 
 object JournalHead {
 

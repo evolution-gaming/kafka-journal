@@ -116,7 +116,7 @@ object JournalAdapter {
           key      <- toKey(persistenceId)
           events   <- prs.traverse(serializer.toEvent)
           metadata <- appendMetadataOf(key, prs, events)
-          _        <- journals(key).append(events, metadata.metadata, metadata.headers) /*TODO expiry: pass AppendMetadata directly?*/
+          _        <- journals(key).append(events, metadata.metadata, metadata.headers)
         } yield {
           List.empty[Try[Unit]]
         }
