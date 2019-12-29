@@ -12,7 +12,6 @@ import scala.concurrent.duration._
 
 trait JournalMetrics[F[_]] {
 
-  // TODO expiry: remove topic from all methods
   def append(topic: Topic, latency: FiniteDuration, events: Int): F[Unit]
 
   def read(topic: Topic, latency: FiniteDuration): F[Unit]
@@ -25,7 +24,7 @@ trait JournalMetrics[F[_]] {
 
   def purge(topic: Topic, latency: FiniteDuration): F[Unit]
 
-  def failure(name: String, topic: Topic): F[Unit]
+  def failure(topic: Topic, name: String): F[Unit]
 }
 
 object JournalMetrics {
@@ -47,7 +46,7 @@ object JournalMetrics {
 
     def purge(topic: Topic, latency: FiniteDuration) = unit
 
-    def failure(name: String, topic: Topic) = unit
+    def failure(topic: Topic, name: String) = unit
   }
 
 
@@ -121,7 +120,7 @@ object JournalMetrics {
           observeLatency(name = "purge", topic = topic, latency = latency)
         }
 
-        def failure(name: String, topic: Topic) = {
+        def failure(topic: Topic, name: String) = {
           resultCounter.labels(topic, name, "failure").inc()
         }
       }

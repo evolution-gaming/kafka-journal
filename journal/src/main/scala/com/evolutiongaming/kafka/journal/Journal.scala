@@ -215,7 +215,7 @@ object Journal {
       def handleError[A](name: String, topic: Topic)(fa: F[A]): F[A] = {
         fa.handleErrorWith { e =>
           for {
-            _ <- metrics.failure(name, topic)
+            _ <- metrics.failure(topic = topic, name = name)
             a <- e.raiseError[F, A]
           } yield a
         }
