@@ -1,11 +1,9 @@
 package akka.persistence.kafka.journal
 
-import com.evolutiongaming.kafka.journal.{ExpireAfter, Headers}
-import play.api.libs.json.JsValue
+import com.evolutiongaming.kafka.journal.{Headers, RecordMetadata}
 
 final case class AppendMetadata(
-  expireAfter: Option[ExpireAfter] = None,
-  metadata: Option[JsValue] = None,
+  metadata: RecordMetadata = RecordMetadata.empty,
   headers: Headers = Headers.empty)
 
 object AppendMetadata {

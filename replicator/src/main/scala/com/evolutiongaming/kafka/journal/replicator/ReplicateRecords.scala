@@ -65,7 +65,7 @@ object ReplicateRecords {
               } yield for {
                 event <- events.events
               } yield {
-                EventRecord(record, event)
+                EventRecord(record, event, events.metadata)
               }
             }
 

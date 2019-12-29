@@ -28,10 +28,10 @@ object PayloadToEvents {
               val payloadType = event.payloadType getOrElse PayloadType.Json
               val payload     = event.payload.traverse { payload =>
 
-                def text = for {
-                  str <- FromJsResult[F].apply { payload.validate[String] }
-                } yield {
-                  Payload.text(str)
+                def text = {
+                  FromJsResult[F]
+                    .apply { payload.validate[String] }
+                    .map { str => Payload.text(str) }
                 }
 
                 payloadType match {

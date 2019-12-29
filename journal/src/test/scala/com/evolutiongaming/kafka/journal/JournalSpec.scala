@@ -637,11 +637,12 @@ object JournalSpec {
 
         def onAppend(action: Action.Append) = {
           val payloadAndType = PayloadAndType(action)
+          val events1 = payloadToEvents(payloadAndType).get
           val batch = for {
-            event <- payloadToEvents(payloadAndType).get.events
+            event <- events1.events
           } yield {
             val partitionOffset = PartitionOffset(partition, record.offset)
-            EventRecord(action, event, partitionOffset)
+            EventRecord(action, event, partitionOffset, events1.metadata)
           }
           copy(events = events.enqueue(batch.toList), offset = offset.some)
         }

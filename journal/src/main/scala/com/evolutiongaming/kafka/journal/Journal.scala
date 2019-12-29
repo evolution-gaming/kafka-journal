@@ -9,7 +9,6 @@ import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.skafka.{Bytes => _, _}
 import com.evolutiongaming.smetrics._
 import com.evolutiongaming.sstream.Stream
-import play.api.libs.json.JsValue
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
 
@@ -17,13 +16,9 @@ import scala.concurrent.duration._
 
 trait Journal[F[_]] {
 
-  /**
-   * @param expireAfter Define expireAfter in order to expire whole journal for given entity
-   */
   def append(
     events: Nel[Event],
-    expireAfter: Option[ExpireAfter] = None, // TODO expiry: test
-    metadata: Option[JsValue] = None, // TODO expiry: split on header metadata and payload metadata
+    metadata: RecordMetadata = RecordMetadata.empty,
     headers: Headers = Headers.empty
   ): F[PartitionOffset]
 
@@ -50,12 +45,7 @@ object Journal {
 
   def empty[F[_] : Applicative]: Journal[F] = new Journal[F] {
 
-    def append(
-      events: Nel[Event],
-      expireAfter: Option[ExpireAfter],
-      metadata: Option[JsValue],
-      headers: Headers
-    ) = PartitionOffset.empty.pure[F]
+    def append(events: Nel[Event], metadata: RecordMetadata, headers: Headers) = PartitionOffset.empty.pure[F]
 
     def read(from: SeqNr) = Stream.empty
 
@@ -85,21 +75,17 @@ object Journal {
 
       new Journal[F] {
 
-        def append(
-          events: Nel[Event],
-          expireAfter: Option[ExpireAfter],
-          metadata: Option[JsValue],
-          headers: Headers
-        ) = {
+        def append(events: Nel[Event], metadata: RecordMetadata, headers: Headers) = {
           for {
             d <- MeasureDuration[F].start
-            r <- self.append(events, expireAfter, metadata, headers)
+            r <- self.append(events, metadata, headers)
             d <- d
             _ <- logDebugOrWarn(d, config.append) {
               val first = events.head.seqNr
               val last = events.last.seqNr
+              val expireAfterStr = metadata.payload.expireAfter.foldMap { expireAfter => s", expireAfter: $expireAfter" }
               val seqNr = if (first === last) s"seqNr: $first" else s"seqNrs: $first..$last"
-              s"$key append in ${ d.toMillis }ms, $seqNr, result: $r"
+              s"$key append in ${ d.toMillis }ms, $seqNr$expireAfterStr, result: $r"
             }
           } yield r
         }
@@ -172,14 +158,9 @@ object Journal {
 
       new Journal[F] {
 
-        def append(
-          events: Nel[Event],
-          expireAfter: Option[ExpireAfter],
-          metadata: Option[JsValue],
-          headers: Headers
-        ) = {
+        def append(events: Nel[Event], metadata: RecordMetadata, headers: Headers) = {
           logError {
-            self.append(events, expireAfter, metadata, headers)
+            self.append(events, metadata, headers)
           } { (error, latency) =>
             s"$key append failed in ${ latency.toMillis }ms, events: $events, error: $error"
           }
@@ -242,13 +223,8 @@ object Journal {
 
       new Journal[F] {
 
-        def append(
-          events: Nel[Event],
-          expireAfter: Option[ExpireAfter],
-          metadata: Option[JsValue],
-          headers: Headers
-        ) = {
-          def append = self.append(events, expireAfter, metadata, headers)
+        def append(events: Nel[Event], metadata: RecordMetadata, headers: Headers) = {
+          def append = self.append(events, metadata, headers)
           for {
             d <- MeasureDuration[F].start
             r <- handleError("append", topic) { append }
@@ -307,13 +283,8 @@ object Journal {
 
     def mapK[G[_]](fg: F ~> G, gf: G ~> F): Journal[G] = new Journal[G] {
 
-      def append(
-        events: Nel[Event],
-        expireAfter: Option[ExpireAfter],
-        metadata: Option[JsValue],
-        headers: Headers
-      ) = {
-        fg(self.append(events, expireAfter, metadata, headers))
+      def append(events: Nel[Event], metadata: RecordMetadata, headers: Headers) = {
+        fg(self.append(events, metadata, headers))
       }
 
       def read(from: SeqNr) = self.read(from).mapK(fg, gf)

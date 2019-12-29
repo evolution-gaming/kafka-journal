@@ -5,8 +5,8 @@ import cats.implicits.none
 import play.api.libs.json.{JsValue, Json, OFormat}
 
 final case class PayloadMetadata(
-  expireAfter: Option[ExpireAfter],
-  data: Option[JsValue])
+  expireAfter: Option[ExpireAfter] = none,
+  data: Option[JsValue] = none)
 
 object PayloadMetadata {
 

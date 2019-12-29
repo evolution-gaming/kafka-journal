@@ -138,12 +138,9 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
         events <- eventualJournal.read(key, SeqNr.min).toList
         events <- {
           if (until(events)) {
-            val result = for {
-              event <- events
-            } yield {
-              event.copy(timestamp = timestamp)
-            }
-            result.pure[IO]
+            events
+              .map { event => event.copy(timestamp = timestamp) }
+              .pure[IO]
           } else {
             Error.raiseError[IO, List[EventRecord]]
           }
@@ -154,16 +151,13 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
     }
 
     def append(journal: Journal[IO], events: Nel[Event], expireAfter: Option[ExpireAfter] = none) = {
+      val recordMetadata1 = recordMetadata.withExpireAfter(expireAfter)
       for {
-        partitionOffset <- journal.append(
-          events,
-          expireAfter,
-          recordMetadata.header.data,
-          headers)
+        partitionOffset <- journal.append(events, recordMetadata1, headers)
       } yield for {
         event <- events
       } yield {
-        EventRecord(event, timestamp, partitionOffset, origin.some, recordMetadata, headers)
+        EventRecord(event, timestamp, partitionOffset, origin.some, recordMetadata1, headers)
       }
     }
 

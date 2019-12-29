@@ -68,9 +68,8 @@ object JournalSuite {
 
     def append(
       events: Nel[Event],
-      metadata: Option[JsValue] = none,
-      headers: Headers = Headers.empty,
-      expireAfter: Option[ExpireAfter] = none
+      metadata: RecordMetadata = RecordMetadata.empty,
+      headers: Headers = Headers.empty
     ): F[PartitionOffset]
 
     def read: F[List[EventRecord]]
@@ -91,17 +90,8 @@ object JournalSuite {
       timestamp: Instant
     ): JournalTest[F] = new JournalTest[F] {
 
-      def append(
-        events: Nel[Event],
-        metadata: Option[JsValue],
-        headers: Headers,
-        expireAfter: Option[ExpireAfter]
-      ) = {
-        journal.append(
-          events = events,
-          expireAfter = expireAfter,
-          metadata = metadata,
-          headers = headers)
+      def append(events: Nel[Event], metadata: RecordMetadata, headers: Headers) = {
+        journal.append(events, metadata, headers)
       }
 
       def read = {

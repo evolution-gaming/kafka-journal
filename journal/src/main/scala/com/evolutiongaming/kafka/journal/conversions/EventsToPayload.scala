@@ -60,17 +60,9 @@ object EventsToPayload {
           case head :: tail =>
             val events = Nel(head, tail)
             val payload = PayloadJson(events, metadata)
-            for {
-              bytes <- payloadJsonToBytes(payload)
-            } yield {
-              PayloadAndType(bytes, PayloadType.Json)
-            }
+            payloadJsonToBytes(payload).map { PayloadAndType(_, PayloadType.Json) }
           case Nil          =>
-            for {
-              bytes <- eventsToBytes(events)
-            } yield {
-              PayloadAndType(bytes, PayloadType.Binary)
-            }
+            eventsToBytes(events).map { PayloadAndType(_, PayloadType.Binary) }
         }
       }
 

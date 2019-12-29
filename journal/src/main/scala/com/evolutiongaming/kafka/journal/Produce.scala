@@ -16,8 +16,8 @@ trait Produce[F[_]] {
     key: Key,
     range: SeqRange,
     payloadAndType: PayloadAndType,
-    expireAfter: Option[ExpireAfter], // TODO expiry: remove from there as expireAfter should be part of payload
-    metadata: RecordMetadata,
+    expireAfter: Option[ExpireAfter], // TODO expiry: remove from here as expireAfter should be part of payload
+    metadata: HeaderMetadata,
     headers: Headers
   ): F[PartitionOffset]
 
@@ -57,8 +57,8 @@ object Produce {
         key: Key,
         range: SeqRange,
         payloadAndType: PayloadAndType,
-        expireAfter: Option[ExpireAfter],
-        metadata: RecordMetadata,
+        expireAfter: Option[ExpireAfter]/*TODO expiry remove*/,
+        metadata: HeaderMetadata,
         headers: Headers
       ) = {
 
@@ -71,7 +71,7 @@ object Produce {
               range = range,
               origin = origin,
               payloadType = payloadAndType.payloadType,
-              metadata = metadata.header,
+              metadata = metadata,
               expireAfter = expireAfter),
             payloadAndType.payload,
             headers)
@@ -121,7 +121,7 @@ object Produce {
         range: SeqRange,
         payloadAndType: PayloadAndType,
         expireAfter: Option[ExpireAfter], // TODO expiry: remove from there as expireAfter should be part of payload
-        metadata: RecordMetadata,
+        metadata: HeaderMetadata,
         headers: Headers
       ) = {
         f(self.append(key, range, payloadAndType, expireAfter, metadata, headers))

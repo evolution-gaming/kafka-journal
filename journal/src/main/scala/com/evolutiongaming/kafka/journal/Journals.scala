@@ -157,15 +157,9 @@ object Journals {
 
       def apply(key: Key) = new Journal[F] {
 
-        def append(
-          events: Nel[Event],
-          expireAfter: Option[ExpireAfter],
-          metadata: Option[JsValue],
-          headers: Headers
-        ) = {
-          appendEvents(key, events, expireAfter, metadata, headers)
+        def append(events: Nel[Event], metadata: RecordMetadata, headers: Headers) = {
+          appendEvents(key, events, metadata, headers)
         }
-
 
         def read(from: SeqNr) = {
 
@@ -185,7 +179,7 @@ object Journals {
                 event          <- Stream[F].apply(events.events)
                 if event.seqNr >= from
               } yield {
-                EventRecord(action, event, record.partitionOffset)
+                EventRecord(action, event, record.partitionOffset, events.metadata)
               }
             }
 

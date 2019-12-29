@@ -5,12 +5,12 @@ import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, En
 import play.api.libs.json._
 
 final case class RecordMetadata(
-  header: HeaderMetadata,
-  payload: PayloadMetadata)
+  header: HeaderMetadata = HeaderMetadata.empty,
+  payload: PayloadMetadata = PayloadMetadata.empty)
 
 object RecordMetadata {
 
-  val empty: RecordMetadata = RecordMetadata(HeaderMetadata.empty, PayloadMetadata.empty)
+  val empty: RecordMetadata = RecordMetadata()
 
 
   implicit val formatRecordMetadata: OFormat[RecordMetadata] = {
@@ -42,4 +42,12 @@ object RecordMetadata {
   implicit val encodeRowRecordMetadata: EncodeRow[RecordMetadata] = EncodeRow("metadata")
 
   implicit val decodeRowRecordMetadata: DecodeRow[RecordMetadata] = DecodeRow("metadata")
+
+
+  implicit class RecordMetadataOps(val self: RecordMetadata) extends AnyVal {
+
+    def withExpireAfter(expireAfter: Option[ExpireAfter]): RecordMetadata = {
+      self.copy(payload = self.payload.copy(expireAfter = expireAfter))
+    }
+  }
 }

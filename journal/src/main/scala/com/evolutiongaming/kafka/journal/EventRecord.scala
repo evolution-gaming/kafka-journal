@@ -27,11 +27,20 @@ final case class EventRecord(
 
 object EventRecord {
 
-  def apply(record: ActionRecord[Action.Append], event: Event): EventRecord = {
-    apply(record.action, event, record.partitionOffset)
+  def apply(
+    record: ActionRecord[Action.Append],
+    event: Event,
+    metadata: PayloadMetadata
+  ): EventRecord = {
+    apply(record.action, event, record.partitionOffset, metadata)
   }
 
-  def apply(action: Action.Append, event: Event, partitionOffset: PartitionOffset): EventRecord = {
+  def apply(
+    action: Action.Append,
+    event: Event,
+    partitionOffset: PartitionOffset,
+    metadata: PayloadMetadata,
+  ): EventRecord = {
     EventRecord(
       event = event,
       timestamp = action.timestamp,
@@ -39,7 +48,7 @@ object EventRecord {
       origin = action.origin,
       metadata = RecordMetadata(
         header = action.header.metadata,
-        payload = PayloadMetadata.empty/*TODO expiry: pass PayloadMetadata*/),
+        payload = metadata),
       headers = action.headers)
   }
 }

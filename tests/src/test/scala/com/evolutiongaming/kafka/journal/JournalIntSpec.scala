@@ -86,7 +86,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             pointer   <- journal.delete(DeleteTo.max)
             _          = pointer shouldEqual None
             event      = Event(seqNr)
-            offset    <- journal.append(Nel.of(event), recordMetadata.header.data, headers)
+            offset    <- journal.append(Nel.of(event), recordMetadata, headers)
             record     = EventRecord(event, timestamp, offset, origin.some, recordMetadata, headers)
             partition  = offset.partition
             events    <- journal.read
@@ -103,8 +103,9 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             _          = pointer shouldEqual none
             events    <- journal.read
             _          = events shouldEqual List.empty
-            offset    <- journal.append(Nel.of(event), recordMetadata.header.data, headers, 1.day.toExpireAfter.some)
-            record     = EventRecord(event, timestamp, offset, origin.some, recordMetadata, headers)
+            metadata   = recordMetadata.withExpireAfter(1.day.toExpireAfter.some)
+            offset    <- journal.append(Nel.of(event), metadata, headers)
+            record     = EventRecord(event, timestamp, offset, origin.some, metadata, headers)
             events    <- journal.read
             _          = events shouldEqual List(record)
             pointer   <- journal.delete(DeleteTo.max)
@@ -198,7 +199,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             offset    <- journal.delete(DeleteTo.max)
             _          = offset shouldEqual None
             events     = seqNrs.map { seqNr => Event(seqNr) }
-            append     = journal.append(events, recordMetadata.header.data, headers)
+            append     = journal.append(events, recordMetadata, headers)
             _         <- append
             _         <- append
             offset    <- append
@@ -223,7 +224,8 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
           val result = for {
             key      <- key
             journal   = journals(key)
-            _        <- journal.append(Nel.of(Event(SeqNr.min)), 1.second.toExpireAfter.some)
+            metadata  = RecordMetadata(payload = PayloadMetadata(1.second.toExpireAfter.some))
+            _        <- journal.append(Nel.of(Event(SeqNr.min)), metadata)
             events   <- journal.read().toList
             _         = events.map(_.seqNr) shouldEqual List(SeqNr.min)
             strategy  = Strategy.const(100.millis).limit(10.seconds)
