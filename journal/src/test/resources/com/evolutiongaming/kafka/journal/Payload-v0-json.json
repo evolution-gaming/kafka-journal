@@ -6,9 +6,8 @@
         "0",
         "1"
       ],
-      "payloadType": "text",
-      "payload": " {\"key\":\"value\"} "
+      "payloadType": "json",
+      "payload": "payload"
     }
-  ],
-  "metadata": {}
+  ]
 }

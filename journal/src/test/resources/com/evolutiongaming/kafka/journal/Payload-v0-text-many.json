@@ -5,7 +5,9 @@
       "tags": [
         "0",
         "1"
-      ]
+      ],
+      "payloadType": "text",
+      "payload": "1"
     },
     {
       "seqNr": 2,
@@ -13,13 +15,9 @@
         "0",
         "1",
         "2"
-      ]
+      ],
+      "payloadType": "text",
+      "payload": "2"
     }
-  ],
-  "metadata": {
-    "expireAfter": "1 day",
-    "data": {
-      "key": "value"
-    }
-  }
+  ]
 }

@@ -5,10 +5,7 @@
       "tags": [
         "0",
         "1"
-      ],
-      "payloadType": "json",
-      "payload": "payload"
+      ]
     }
-  ],
-  "metadata": {}
+  ]
 }

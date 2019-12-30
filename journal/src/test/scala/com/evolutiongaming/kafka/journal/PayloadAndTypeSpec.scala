@@ -35,6 +35,10 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
     1.day.toExpireAfter.some,
     Json.obj(("key", "value")).some)
 
+  private val eventsToPayload = EventsToPayload[Try]
+
+  private val payloadToEvents = PayloadToEvents[Try]
+
   for {
     (name, payloadType, events) <- List(
       ("empty", PayloadType.Json, Events(
@@ -88,11 +92,9 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
 
       def verify(payload: ByteVector, payloadType: PayloadType.BinaryOrJson) = {
         val payloadAndType = PayloadAndType(payload, payloadType)
-        val payloadToEvents = PayloadToEvents[Try]
         payloadToEvents(payloadAndType) shouldEqual events.pure[Try]
       }
 
-      val eventsToPayload = EventsToPayload[Try]
       val payloadAndType = eventsToPayload(events).get
 
       payloadType shouldEqual payloadAndType.payloadType
@@ -106,6 +108,48 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
       verify(payloadAndType.payload, payloadType)
 
       verify(fromFile(path), payloadType)
+    }
+  }
+
+  for {
+    (name, payloadType, events) <- List(
+      ("empty", PayloadType.Json, Events(
+        Nel.of(
+          event(1)),
+        PayloadMetadata.empty)),
+      ("text", PayloadType.Json, Events(
+        Nel.of(
+          event(1, Payload.text(""" {"key":"value"} """))),
+        PayloadMetadata.empty)),
+      ("json", PayloadType.Json, Events(
+        Nel.of(
+          event(1, Payload.json("payload"))),
+        PayloadMetadata.empty)),
+      ("empty-many", PayloadType.Json, Events(
+        Nel.of(
+          event(1),
+          event(2)),
+        PayloadMetadata.empty)),
+      ("text-many", PayloadType.Json, Events(
+        Nel.of(
+          event(1, Payload.text("1")),
+          event(2, Payload.text("2"))),
+        PayloadMetadata.empty)),
+      ("json-many", PayloadType.Json, Events(
+        Nel.of(
+          event(1, Payload.json("1")),
+          event(2, Payload.json("2"))),
+        PayloadMetadata.empty)))
+  } {
+
+    test(s"fromBytes, events: $name") {
+      val ext = payloadType.ext
+      val actual = for {
+        payload        <- ByteVectorOf[Try](getClass, s"Payload-v0-$name.$ext")
+        payloadAndType  = PayloadAndType(payload, payloadType)
+        events         <- payloadToEvents(payloadAndType)
+      } yield events
+      actual shouldEqual events.pure[Try]
     }
   }
 

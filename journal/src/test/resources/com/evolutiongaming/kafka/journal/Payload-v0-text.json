@@ -9,6 +9,5 @@
       "payloadType": "text",
       "payload": " {\"key\":\"value\"} "
     }
-  ],
-  "metadata": {}
+  ]
 }

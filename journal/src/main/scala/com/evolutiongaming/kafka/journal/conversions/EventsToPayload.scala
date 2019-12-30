@@ -59,7 +59,7 @@ object EventsToPayload {
         eventJsons match {
           case head :: tail =>
             val events = Nel(head, tail)
-            val payload = PayloadJson(events, metadata)
+            val payload = PayloadJson(events, metadata.some)
             payloadJsonToBytes(payload).map { PayloadAndType(_, PayloadType.Json) }
           case Nil          =>
             eventsToBytes(events).map { PayloadAndType(_, PayloadType.Binary) }

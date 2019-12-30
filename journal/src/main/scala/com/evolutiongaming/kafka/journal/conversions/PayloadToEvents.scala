@@ -54,7 +54,9 @@ object PayloadToEvents {
             payloadJson <- payloadJsonFromBytes(payload)
             events      <- events(payloadJson)
           } yield {
-            Events(events, payloadJson.metadata)
+            Events(
+              events,
+              payloadJson.metadata getOrElse PayloadMetadata.empty)
           }
       }
       result.handleErrorWith { cause =>

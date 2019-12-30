@@ -15,11 +15,5 @@
         "2"
       ]
     }
-  ],
-  "metadata": {
-    "expireAfter": "1 day",
-    "data": {
-      "key": "value"
-    }
-  }
+  ]
 }
