@@ -104,30 +104,30 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
 
   def adapterIO(config: KafkaJournalConfig): Resource[IO, JournalAdapter[IO]] = {
     val resource = for {
-      logOf                <- logOf
-      log                  <- Resource.liftF(logOf(classOf[KafkaJournal]))
-      _                    <- Resource.liftF(log.debug(s"config: $config"))
-      randomId             <- randomIdOf
-      measureDuration      <- measureDuration
-      toKey                <- toKey
-      origin               <- Resource.liftF(origin)
-      metadataAndHeadersOf <- appendMetadataOf
-      serializer           <- serializer
-      metrics              <- metrics
-      batching             <- batching(config)
-      cassandraClusterOf   <- cassandraClusterOf
-      adapter              <- adapterOf(
+      logOf              <- logOf
+      log                <- Resource.liftF(logOf(classOf[KafkaJournal]))
+      _                  <- Resource.liftF(log.debug(s"config: $config"))
+      randomId           <- randomIdOf
+      measureDuration    <- measureDuration
+      toKey              <- toKey
+      origin             <- Resource.liftF(origin)
+      appendMetadataOf   <- appendMetadataOf
+      serializer         <- serializer
+      metrics            <- metrics
+      batching           <- batching(config)
+      cassandraClusterOf <- cassandraClusterOf
+      adapter            <- adapterOf(
         toKey              = toKey,
         origin             = origin,
         serializer         = serializer,
         config             = config,
         metrics            = metrics,
-        appendMetadataOf   = metadataAndHeadersOf,
+        appendMetadataOf   = appendMetadataOf,
         batching           = batching,
         log                = log,
         cassandraClusterOf = cassandraClusterOf)(
         logOf              = logOf,
-        randomIdOf           = randomId,
+        randomIdOf         = randomId,
         measureDuration    = measureDuration)
     } yield {
       (adapter, log)
