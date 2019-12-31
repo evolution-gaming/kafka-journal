@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
 
+import cats.Applicative
 import cats.data.{NonEmptyMap => Nem}
 import cats.effect.concurrent.Ref
 import cats.effect.{Clock, Sync}
@@ -22,12 +23,14 @@ trait TopicCommit[F[_]] {
 
 object TopicCommit {
 
+  def empty[F[_] : Applicative]: TopicCommit[F] = (_: Nem[Partition, Offset]) => ().pure[F]
+
   def apply[F[_]](
     topic: Topic,
     metadata: String,
     consumer: KafkaConsumer[F, _, _],
   ): TopicCommit[F] = {
-    (offsets: Nem[Partition, Offset]) => {
+    offsets: Nem[Partition, Offset] => {
       val offsets1 = offsets.mapKV { (partition, offset) =>
         val offset1 = OffsetAndMetadata(offset, metadata)
         val partition1 = TopicPartition(topic, partition)
