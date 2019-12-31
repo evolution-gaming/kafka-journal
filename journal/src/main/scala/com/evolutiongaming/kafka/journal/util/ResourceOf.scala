@@ -1,16 +1,13 @@
 package com.evolutiongaming.kafka.journal.util
 
-import cats.effect.{Fiber, Resource, Sync}
-import cats.implicits._
+import cats.Applicative
+import cats.effect.{Fiber, Resource}
 
 object ResourceOf {
 
-  def apply[F[_] : Sync, A](fiber: F[Fiber[F, A]]): Resource[F, F[A]] = {
-    val result = for {
-      fiber <- fiber
-    } yield {
-      (fiber.join, fiber.cancel)
-    }
-    Resource(result)
+  def apply[F[_] : Applicative, A](fiber: F[Fiber[F, A]]): Resource[F, F[A]] = {
+    Resource
+      .make { fiber } { _.cancel }
+      .map { _.join }
   }
 }
