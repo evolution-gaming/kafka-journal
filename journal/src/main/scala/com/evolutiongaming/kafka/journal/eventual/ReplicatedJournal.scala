@@ -15,6 +15,7 @@ import scala.concurrent.duration.FiniteDuration
 
 trait ReplicatedJournal[F[_]] {
 
+  // TODO expiry: SortedSet
   def topics: F[List[Topic]]
 
   def journal(topic: Topic): Resource[F, ReplicatedTopicJournal[F]]
