@@ -11,12 +11,12 @@ import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.smetrics._
 
+import scala.collection.immutable.SortedSet
 import scala.concurrent.duration.FiniteDuration
 
 trait ReplicatedJournal[F[_]] {
 
-  // TODO expiry: SortedSet
-  def topics: F[List[Topic]]
+  def topics: F[SortedSet[Topic]]
 
   def journal(topic: Topic): Resource[F, ReplicatedTopicJournal[F]]
 }
@@ -25,7 +25,7 @@ object ReplicatedJournal {
 
   def empty[F[_] : Applicative]: ReplicatedJournal[F] = new ReplicatedJournal[F] {
 
-    def topics = List.empty[Topic].pure[F]
+    def topics = SortedSet.empty[Topic].pure[F]
 
     def journal(topic: Topic) = {
       Resource.liftF(ReplicatedTopicJournal.empty[F].pure[F])

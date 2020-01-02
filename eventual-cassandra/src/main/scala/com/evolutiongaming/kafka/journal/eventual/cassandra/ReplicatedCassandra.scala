@@ -8,6 +8,7 @@ import cats.effect.implicits._
 import cats.effect.{Concurrent, Resource, Sync, Timer}
 import cats.implicits._
 import cats.{Applicative, Monad, Parallel}
+import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal._
@@ -56,7 +57,7 @@ object ReplicatedCassandra {
       def topics = {
         statements
           .selectTopics()
-          .map { _.sorted }
+          .map { _.toSortedSet }
       }
 
       def journal(topic: Topic) = {

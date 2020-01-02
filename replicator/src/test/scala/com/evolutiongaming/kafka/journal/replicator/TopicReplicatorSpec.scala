@@ -23,6 +23,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import play.api.libs.json.Json
 
+import scala.collection.immutable.SortedSet
 import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.NoStackTrace
@@ -849,7 +850,7 @@ object TopicReplicatorSpec {
       Resource.liftF(journal.pure[StateT])
     }
 
-    def topics = List.empty[Topic].pure[StateT]
+    def topics = SortedSet.empty[Topic].pure[StateT]
   }
 
 

@@ -8,6 +8,7 @@ import cats.effect.Clock
 import cats.implicits._
 import cats.{Applicative, FlatMap, Monad}
 import com.evolutiongaming.catshelper.ClockHelper._
+import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
@@ -20,6 +21,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import play.api.libs.json.Json
 
+import scala.collection.immutable.SortedSet
 import scala.util.Try
 
 
@@ -296,7 +298,7 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
           for {
             a <- replicated.topics
           } yield {
-            a shouldEqual topics
+            a shouldEqual topics.toSortedSet
           }
         }
       }
@@ -476,7 +478,7 @@ object EventualJournalSpec {
 
   trait Replicated[F[_]] {
 
-    def topics: F[List[Topic]]
+    def topics: F[SortedSet[Topic]]
 
     final def append(events: Nel[EventRecord]): F[Unit] = {
       val partitionOffset = events.last.partitionOffset // TODO add test for custom offset

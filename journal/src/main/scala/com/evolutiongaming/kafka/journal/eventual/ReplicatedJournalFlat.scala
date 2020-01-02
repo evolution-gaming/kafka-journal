@@ -9,11 +9,13 @@ import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
+import scala.collection.immutable.SortedSet
+
 
 
 trait ReplicatedJournalFlat[F[_]] {
 
-  def topics: F[List[Topic]]
+  def topics: F[SortedSet[Topic]]
 
   def pointers(topic: Topic): F[TopicPointers]
 
@@ -116,7 +118,7 @@ object ReplicatedJournalFlat {
 
   def empty[F[_] : Applicative]: ReplicatedJournalFlat[F] = new ReplicatedJournalFlat[F] {
 
-    def topics = List.empty[Topic].pure[F]
+    def topics = SortedSet.empty[Topic].pure[F]
 
     def pointers(topic: Topic) = TopicPointers.empty.pure[F]
 

@@ -17,7 +17,7 @@ import com.evolutiongaming.sstream.Stream
 
 import scala.util.Try
 
-// TODO test purge
+// TODO expiry: test purge
 class EventualCassandraSpec extends EventualJournalSpec {
   import EventualCassandraSpec._
 
