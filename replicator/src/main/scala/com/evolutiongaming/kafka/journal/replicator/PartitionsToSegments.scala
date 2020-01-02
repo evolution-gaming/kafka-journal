@@ -23,7 +23,7 @@ object PartitionsToSegments {
     segments: Segments = Segments.default
   ): F[PartitionsToSegments] = {
 
-    (SegmentNr.min.value until segments.value)
+    (SegmentNr.min.value until segments.value.toLong)
       .toList
       .traverse { segment => SegmentNr.of[F](segment) }
       .map { segmentNrs =>
@@ -31,7 +31,7 @@ object PartitionsToSegments {
           if (partitions >= segments.value) {
             (a: Partition, b: SegmentNr) => a.value % segments.value.toLong === b.value
           } else {
-            (a: Partition, b: SegmentNr) => b.value % partitions === a.value
+            (a: Partition, b: SegmentNr) => b.value % partitions === a.value.toLong
           }
         }
 
