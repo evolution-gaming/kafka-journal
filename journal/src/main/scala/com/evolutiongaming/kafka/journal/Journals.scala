@@ -1,11 +1,9 @@
 package com.evolutiongaming.kafka.journal
 
 import cats._
-import cats.arrow.FunctionK
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.implicits._
-import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MonadThrowable}
 import com.evolutiongaming.kafka.journal.conversions.{EventsToPayload, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
@@ -19,7 +17,6 @@ import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord
 import com.evolutiongaming.skafka.{Bytes => _, _}
 import com.evolutiongaming.smetrics._
 import com.evolutiongaming.sstream.Stream
-import play.api.libs.json.JsValue
 import scodec.bits.ByteVector
 
 import scala.concurrent.duration._

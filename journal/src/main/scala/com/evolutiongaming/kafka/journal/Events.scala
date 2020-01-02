@@ -1,12 +1,9 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.data.{NonEmptyList => Nel}
-import cats.implicits._
 import java.lang.{Byte => ByteJ}
 
-import cats.Applicative
 import com.evolutiongaming.kafka.journal.util.ScodecHelper._
-import play.api.libs.json.{Json, OFormat}
 import scodec.bits.ByteVector
 import scodec.{Codec, codecs}
 

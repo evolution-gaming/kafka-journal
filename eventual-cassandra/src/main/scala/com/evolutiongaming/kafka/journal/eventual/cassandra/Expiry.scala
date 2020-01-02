@@ -1,7 +1,5 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import java.time.LocalDate
-
 import cats.Show
 import cats.kernel.Eq
 import com.datastax.driver.core.{GettableByNameData, SettableData}
