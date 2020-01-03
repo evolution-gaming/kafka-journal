@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats._
-import cats.data.{NonEmptyList => Nel}
+import cats.data.{NonEmptyList => Nel, NonEmptySet => Nes}
 import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MonadThrowable}
@@ -343,7 +343,7 @@ object Journals {
 
   trait Consumer[F[_]] {
 
-    def assign(partitions: Nel[TopicPartition]): F[Unit]
+    def assign(partitions: Nes[TopicPartition]): F[Unit]
 
     def seek(partition: TopicPartition, offset: Offset): F[Unit]
 
@@ -374,7 +374,7 @@ object Journals {
       pollTimeout: FiniteDuration
     ): Consumer[F] = new Consumer[F] {
 
-      def assign(partitions: Nel[TopicPartition]) = {
+      def assign(partitions: Nes[TopicPartition]) = {
         consumer.assign(partitions)
       }
 

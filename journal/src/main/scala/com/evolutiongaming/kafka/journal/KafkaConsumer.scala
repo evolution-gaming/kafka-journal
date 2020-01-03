@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
+import cats.data.{NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.effect._
 import cats.implicits._
 import cats.{Applicative, Monad, ~>}
@@ -13,7 +13,7 @@ import scala.util.control.NoStackTrace
 
 trait KafkaConsumer[F[_], K, V] {
 
-  def assign(partitions: Nel[TopicPartition]): F[Unit]
+  def assign(partitions: Nes[TopicPartition]): F[Unit]
 
   def seek(partition: TopicPartition, offset: Offset): F[Unit]
 
@@ -63,7 +63,7 @@ object KafkaConsumer {
   def apply[F[_] : Applicative, K, V](consumer: Consumer[F, K, V]): KafkaConsumer[F, K, V] = {
     new KafkaConsumer[F, K, V] {
 
-      def assign(partitions: Nel[TopicPartition]) = {
+      def assign(partitions: Nes[TopicPartition]) = {
         consumer.assign(partitions)
       }
 
@@ -72,7 +72,7 @@ object KafkaConsumer {
       }
 
       def subscribe(topic: Topic, listener: Option[RebalanceListener[F]]) = {
-        consumer.subscribe(Nel.of(topic), listener)
+        consumer.subscribe(Nes.of(topic), listener)
       }
 
       def poll(timeout: FiniteDuration) = {
@@ -112,7 +112,7 @@ object KafkaConsumer {
 
     def mapK[G[_]](fg: F ~> G, gf: G ~> F): KafkaConsumer[G, K, V] = new KafkaConsumer[G, K, V] {
 
-      def assign(partitions: Nel[TopicPartition]) = fg(self.assign(partitions))
+      def assign(partitions: Nes[TopicPartition]) = fg(self.assign(partitions))
 
       def seek(partition: TopicPartition, offset: Offset) = fg(self.seek(partition, offset))
 
@@ -135,7 +135,7 @@ object KafkaConsumer {
 
     def mapMethod(f: Named[F]): KafkaConsumer[F, K, V] = new KafkaConsumer[F, K, V] {
 
-      def assign(partitions: Nel[TopicPartition]) = f(self.assign(partitions), "assign")
+      def assign(partitions: Nes[TopicPartition]) = f(self.assign(partitions), "assign")
 
       def seek(partition: TopicPartition, offset: Offset) = f(self.seek(partition, offset), "seek")
 
@@ -159,7 +159,7 @@ object KafkaConsumer {
 
       new KafkaConsumer[F, K, V] {
 
-        def assign(partitions: Nel[TopicPartition]) = self.assign(partitions)
+        def assign(partitions: Nes[TopicPartition]) = self.assign(partitions)
 
         def seek(partition: TopicPartition, offset: Offset) = self.seek(partition, offset)
 

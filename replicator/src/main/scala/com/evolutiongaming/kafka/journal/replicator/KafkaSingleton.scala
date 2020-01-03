@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
+import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.effect.concurrent.Ref
 import cats.effect.implicits._
 import cats.effect.{Concurrent, Resource, Sync, Timer}
@@ -87,7 +87,7 @@ object KafkaSingleton {
     val partition = Partition.min
     new TopicFlow[F] {
 
-      def assign(partitions: Nel[Partition]) = {
+      def assign(partitions: Nes[Partition]) = {
         if (partitions contains_ partition) {
           a
             .allocated
@@ -106,7 +106,7 @@ object KafkaSingleton {
         Map.empty[Partition, Offset].pure[F]
       }
 
-      def revoke(partitions: Nel[Partition]) = {
+      def revoke(partitions: Nes[Partition]) = {
         if (partitions contains_ partition) {
           ref
             .getAndSet(none[F[Unit]])

@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptyList => Nel}
+import cats.data.{NonEmptySet => Nes}
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, IO, Resource, Timer}
 import cats.implicits._
@@ -49,23 +49,23 @@ class KafkaSingletonTest extends AsyncFunSuite with Matchers {
           _  = a shouldEqual none[Unit]
           a <- allocated.get
           _  = a shouldEqual false
-          _ <- listener.onPartitionsAssigned(Nel.of(topicPartition(Partition.max)))
+          _ <- listener.onPartitionsAssigned(Nes.of(topicPartition(Partition.max)))
           a <- singleton.get
           _  = a shouldEqual none[Unit]
           a <- allocated.get
           _  = a shouldEqual false
-          _ <- listener.onPartitionsAssigned(Nel.of(topicPartition(Partition.min)))
+          _ <- listener.onPartitionsAssigned(Nes.of(topicPartition(Partition.min)))
           _ <- Timer[F].sleep(10.millis)
           a <- singleton.get
           _  = a shouldEqual ().some
           a <- allocated.get
           _  = a shouldEqual true
-          _ <- listener.onPartitionsRevoked(Nel.of(topicPartition(Partition.max)))
+          _ <- listener.onPartitionsRevoked(Nes.of(topicPartition(Partition.max)))
           a <- singleton.get
           _  = a shouldEqual ().some
           a <- allocated.get
           _  = a shouldEqual true
-          _ <- listener.onPartitionsRevoked(Nel.of(topicPartition(Partition.min)))
+          _ <- listener.onPartitionsRevoked(Nes.of(topicPartition(Partition.min)))
           _ <- Timer[F].sleep(10.millis)
           a <- singleton.get
           _  = a shouldEqual none[Unit]

@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import cats.Id
-import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
+import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.effect.{ExitCase, Resource, Timer}
 import cats.implicits._
 import com.evolutiongaming.catshelper.TimerHelper._
@@ -78,10 +78,10 @@ class ConsumeTopicTest extends AnyFunSuite with Matchers {
 
   test("rebalance") {
     val state = State(commands = List(
-      Command.AssignPartitions(Nel.of(Partition.unsafe(1))),
+      Command.AssignPartitions(Nes.of(Partition.unsafe(1))),
       Command.ProduceRecords(Map.empty),
-      Command.AssignPartitions(Nel.of(Partition.unsafe(2))),
-      Command.RevokePartitions(Nel.of(Partition.unsafe(1), Partition.unsafe(2))),
+      Command.AssignPartitions(Nes.of(Partition.unsafe(2))),
+      Command.RevokePartitions(Nes.of(Partition.unsafe(1), Partition.unsafe(2))),
       Command.ProduceRecords(recordsOf(recordOf(partition = 0, offset = 0)).toSortedMap)))
 
     val (result, _) = subscriptionFlow.run(state)
@@ -92,9 +92,9 @@ class ConsumeTopicTest extends AnyFunSuite with Matchers {
         Action.ReleaseTopicFlow(topic),
         Action.Commit(Nem.of((Partition.min, Offset.min))),
         Action.Poll(recordsOf(recordOf(partition = 0, offset = 0))),
-        Action.RevokePartitions(Nel.of(Partition.unsafe(1), Partition.unsafe(2))),
-        Action.AssignPartitions(Nel.of(Partition.unsafe(2))),
-        Action.AssignPartitions(Nel.of(Partition.unsafe(1))),
+        Action.RevokePartitions(Nes.of(Partition.unsafe(1), Partition.unsafe(2))),
+        Action.AssignPartitions(Nes.of(Partition.unsafe(2))),
+        Action.AssignPartitions(Nes.of(Partition.unsafe(1))),
         Action.Subscribe()(RebalanceListener.empty),
         Action.AcquireTopicFlow(topic),
         Action.AcquireConsumer))
@@ -107,7 +107,7 @@ object ConsumeTopicTest {
 
   val key: String = "key"
 
-  val partitions: Nel[Partition] = Nel.of(Partition.unsafe(1))
+  val partitions: Nes[Partition] = Nes.of(Partition.min)
 
 
   final case class State(
@@ -206,7 +206,7 @@ object ConsumeTopicTest {
         val release = StateT.unit { _ + Action.ReleaseTopicFlow(topic) }
         val topicFlow: TopicFlow[StateT] = new TopicFlow[StateT] {
 
-          def assign(partitions: Nel[Partition]) = {
+          def assign(partitions: Nes[Partition]) = {
             StateT.unit { _ + Action.AssignPartitions(partitions) }
           }
 
@@ -218,7 +218,7 @@ object ConsumeTopicTest {
             }
           }
 
-          def revoke(partitions: Nel[Partition]) = {
+          def revoke(partitions: Nes[Partition]) = {
             StateT.unit { _ + Action.RevokePartitions(partitions) }
           }
         }
@@ -346,8 +346,8 @@ object ConsumeTopicTest {
 
   object Command {
     final case class ProduceRecords(records: Map[Partition, Nel[ConsRecord]]) extends Command
-    final case class AssignPartitions(partitions: Nel[Partition]) extends Command
-    final case class RevokePartitions(partitions: Nel[Partition]) extends Command
+    final case class AssignPartitions(partitions: Nes[Partition]) extends Command
+    final case class RevokePartitions(partitions: Nes[Partition]) extends Command
     final case class Fail(error: Throwable) extends Command
   }
 
@@ -358,8 +358,8 @@ object ConsumeTopicTest {
     final case class ReleaseTopicFlow(topic: Topic) extends Action
     case object AcquireConsumer extends Action
     case object ReleaseConsumer extends Action
-    final case class AssignPartitions(partitions: Nel[Partition]) extends Action
-    final case class RevokePartitions(partitions: Nel[Partition]) extends Action
+    final case class AssignPartitions(partitions: Nes[Partition]) extends Action
+    final case class RevokePartitions(partitions: Nes[Partition]) extends Action
     final case class Subscribe()(val listener: RebalanceListener[StateT]) extends Action
     final case class Poll(records: Nem[Partition, Nel[ConsRecord]]) extends Action
     final case class Commit(offsets: Nem[Partition, Offset]) extends Action

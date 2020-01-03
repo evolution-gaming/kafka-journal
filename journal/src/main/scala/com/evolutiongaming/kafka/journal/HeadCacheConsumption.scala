@@ -1,9 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.data.{NonEmptyList => Nel}
+import cats.data.{NonEmptyList => Nel, NonEmptySet => Nes}
 import cats.effect.{Resource, Timer}
 import cats.implicits._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
+import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal.HeadCache.{Consumer, ConsRecordToKafkaRecord, KafkaRecord}
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.random.Random
@@ -43,7 +44,7 @@ object HeadCacheConsumption {
       } yield records
     }
 
-    def partitions(consumer: Consumer[F]): F[Nel[Partition]] = {
+    def partitions(consumer: Consumer[F]): F[Nes[Partition]] = {
 
       val partitions = for {
         partitions <- consumer.partitions(topic)
@@ -52,7 +53,9 @@ object HeadCacheConsumption {
         } { partitions =>
           partitions.pure[F]
         }
-      } yield partitions
+      } yield {
+        partitions.toNes
+      }
 
       val retry = for {
         random <- Random.State.fromClock[F]()
@@ -70,8 +73,8 @@ object HeadCacheConsumption {
       } yield partitions
     }
 
-    def offsets(partitions: Nel[Partition], pointers: Map[Partition, Offset]) = {
-      partitions.traverse { partition =>
+    def offsets(partitions: Nes[Partition], pointers: Map[Partition, Offset]) = {
+      partitions.toNel.traverse { partition =>
         pointers
           .get(partition)
           .fold(Offset.min.pure[F]) { _.inc[F] }

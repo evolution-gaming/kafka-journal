@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 
-import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
+import cats.data.{NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.effect.{Resource, Timer}
 import cats.implicits._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
@@ -57,12 +57,12 @@ object ConsumeTopic {
     def rebalanceListenerOf(topicFlow: TopicFlow[F]): RebalanceListener[F] = {
       new RebalanceListener[F] {
 
-        def onPartitionsAssigned(partitions: Nel[TopicPartition]) = {
+        def onPartitionsAssigned(partitions: Nes[TopicPartition]) = {
           val partitions1 = partitions.map { _.partition }
           topicFlow.assign(partitions1)
         }
 
-        def onPartitionsRevoked(partitions: Nel[TopicPartition]) = {
+        def onPartitionsRevoked(partitions: Nes[TopicPartition]) = {
           val partitions1 = partitions.map { _.partition }
           topicFlow.revoke(partitions1)
         }

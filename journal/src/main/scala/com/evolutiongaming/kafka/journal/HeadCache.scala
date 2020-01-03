@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import cats._
-import cats.data.{OptionT, NonEmptyList => Nel, NonEmptyMap => Nem}
+import cats.data.{OptionT, NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.effect._
 import cats.effect.concurrent.Deferred
 import cats.effect.implicits._
@@ -510,7 +510,7 @@ object HeadCache {
 
   trait Consumer[F[_]] {
 
-    def assign(topic: Topic, partitions: Nel[Partition]): F[Unit]
+    def assign(topic: Topic, partitions: Nes[Partition]): F[Unit]
 
     def seek(topic: Topic, offsets: Nem[Partition, Offset]): F[Unit]
 
@@ -523,7 +523,7 @@ object HeadCache {
 
     def empty[F[_] : Applicative]: Consumer[F] = new Consumer[F] {
 
-      def assign(topic: Topic, partitions: Nel[Partition]) = ().pure[F]
+      def assign(topic: Topic, partitions: Nes[Partition]) = ().pure[F]
 
       def seek(topic: Topic, offsets: Nem[Partition, Offset]) = ().pure[F]
 
@@ -542,10 +542,8 @@ object HeadCache {
 
       new Consumer[F] {
 
-        def assign(topic: Topic, partitions: Nel[Partition]) = {
-          val partitions1 = for {
-            partition <- partitions
-          } yield {
+        def assign(topic: Topic, partitions: Nes[Partition]) = {
+          val partitions1 = partitions.map { partition =>
             TopicPartition(topic = topic, partition)
           }
           consumer.assign(partitions1)
@@ -568,7 +566,7 @@ object HeadCache {
 
       new Consumer[F] {
 
-        def assign(topic: Topic, partitions: Nel[Partition]) = {
+        def assign(topic: Topic, partitions: Nes[Partition]) = {
           for {
             _ <- log.debug(s"assign topic: $topic, partitions: $partitions")
             r <- consumer.assign(topic, partitions)

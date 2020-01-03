@@ -16,7 +16,6 @@ import com.evolutiongaming.skafka.consumer.ConsumerMetrics
 import com.evolutiongaming.skafka.producer.ProducerMetrics
 import org.scalatest.Suite
 import org.scalatest.matchers.should.Matchers
-import play.api.libs.json.JsValue
 
 
 trait JournalSuite extends ActorSuite with Matchers { self: Suite =>

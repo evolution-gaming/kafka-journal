@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.data.{NonEmptyList => Nel}
+import cats.data.{NonEmptyList => Nel, NonEmptySet => Nes}
 import cats.effect.Resource
 import cats.implicits._
 import cats.~>
@@ -28,7 +28,7 @@ object ConsumeActionRecords {
 
       def seek(consumer: Journals.Consumer[F]) = {
         for {
-          _ <- consumer.assign(Nel.of(topicPartition))
+          _ <- consumer.assign(Nes.of(topicPartition))
           _ <- consumer.seek(topicPartition, from)
           _ <- log.debug(s"$key consuming from $partition:$from")
         } yield {}

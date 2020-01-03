@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
 
-import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
+import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.effect._
 import cats.effect.implicits._
 import cats.implicits._
@@ -138,7 +138,7 @@ object TopicReplicator {
 
           new TopicFlow[F] {
 
-            def assign(partitions: Nel[Partition]) = {
+            def assign(partitions: Nes[Partition]) = {
               log.info(s"assign ${partitions.mkString_(",") }")
             }
 
@@ -195,10 +195,10 @@ object TopicReplicator {
               }
             }
 
-            def revoke(partitions: Nel[Partition]) = {
+            def revoke(partitions: Nes[Partition]) = {
               for {
                 _ <- log.info(s"revoke ${partitions.mkString_(",") }")
-                _ <- partitions.parTraverse { partition => cache.remove(partition) }
+                _ <- partitions.toNel.parTraverse { partition => cache.remove(partition) }
               } yield {}
             }
           }
