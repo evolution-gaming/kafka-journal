@@ -63,12 +63,6 @@ object ReplicatorConfig {
   }
 
 
-  @deprecated("use ConfigReader instead", "0.0.87")
-  def apply(config: Config): ReplicatorConfig = apply(config, default)
-
-  @deprecated("use ConfigReader instead", "0.0.87")
-  def apply(config: Config, default: => ReplicatorConfig): ReplicatorConfig = fromConfig(config, default)
-
   private def fromConfig(config: Config, default: => ReplicatorConfig): ReplicatorConfig = {
 
     def get[T: FromConf](name: String) = config.getOpt[T](name)

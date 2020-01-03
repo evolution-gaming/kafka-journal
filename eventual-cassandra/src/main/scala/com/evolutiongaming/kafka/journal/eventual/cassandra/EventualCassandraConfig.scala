@@ -2,9 +2,8 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import com.datastax.driver.core.ConsistencyLevel
 import com.evolutiongaming.scassandra.{CassandraConfig, QueryConfig}
-import com.typesafe.config.Config
 import pureconfig.generic.semiauto.deriveReader
-import pureconfig.{ConfigReader, ConfigSource}
+import pureconfig.ConfigReader
 
 
 final case class EventualCassandraConfig(
@@ -24,8 +23,4 @@ object EventualCassandraConfig {
 
 
   implicit val configReaderEventualCassandraConfig: ConfigReader[EventualCassandraConfig] = deriveReader
-
-
-  @deprecated("use ConfigReader instead", "0.0.87")
-  def apply(config: Config): EventualCassandraConfig = ConfigSource.fromConfig(config).loadOrThrow[EventualCassandraConfig]
 }

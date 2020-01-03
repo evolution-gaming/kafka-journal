@@ -2,10 +2,10 @@ package akka.persistence.kafka.journal
 
 import cats.Applicative
 import cats.implicits._
-import com.evolutiongaming.config.ConfigHelper._
 import com.evolutiongaming.kafka.journal.Key
 import com.evolutiongaming.skafka.Topic
 import com.typesafe.config.Config
+import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
 
 trait ToKey[F[_]] {
 
@@ -22,38 +22,6 @@ object ToKey {
   }
 
 
-  def fromConfig[F[_] : Applicative](config: Config): ToKey[F] = {
-    fromConfig[F](config, default[F])
-  }
-
-  def fromConfig[F[_] : Applicative](config: Config, default: => ToKey[F]): ToKey[F] = {
-
-    def apply(config: Config) = {
-
-      def onSplit() = {
-        val separator = config.getOpt[String]("split.separator") getOrElse "-"
-        val fallback = apply("split.fallback")
-        ToKey.split[F](separator, fallback)
-      }
-
-      def onConstantTopic() = {
-        config.getOpt[String]("constant-topic.topic").fold(default)(constantTopic)
-      }
-
-      def apply(name: String): ToKey[F] = {
-        config.getOpt[String](name).fold(default) {
-          case "constant-topic" => onConstantTopic()
-          case "split"          => onSplit()
-        }
-      }
-
-      apply("impl")
-    }
-
-    config.getOpt[Config]("persistence-id-to-key").fold(default)(apply)
-  }
-
-
   def split[F[_] : Applicative](separator: String, fallback: ToKey[F]): ToKey[F] = {
     persistenceId: PersistenceId => {
       persistenceId.lastIndexOf(separator) match {
@@ -64,5 +32,57 @@ object ToKey {
           Key(topic = topic, id = id).pure[F]
       }
     }
+  }
+
+
+  implicit def configReaderReplicatorConfig[F[_] : Applicative]: ConfigReader[ToKey[F]] = {
+    cursor: ConfigCursor => {
+      cursor
+        .asObjectCursor
+        .flatMap { cursor =>
+          val source = ConfigSource.fromConfig(cursor.value.toConfig)
+
+          def onSplit = {
+            val separator = source
+              .at("split.separator")
+              .load[String]
+              .getOrElse("-")
+            val fallback = apply("split.fallback") getOrElse default[F]
+            ToKey.split[F](separator, fallback)
+          }
+
+          def onConstantTopic = {
+            source
+              .at("constant-topic.topic")
+              .load[String]
+              .map { a => constantTopic[F](a) }
+          }
+
+          def apply(name: String): ConfigReader.Result[ToKey[F]] = {
+            source
+              .at(name)
+              .load[String]
+              .flatMap {
+                case "constant-topic" => onConstantTopic
+                case "split"          => onSplit.pure[ConfigReader.Result]
+              }
+          }
+
+          apply("impl")
+        }
+    }
+  }
+
+
+  def fromConfig[F[_] : Applicative](config: Config): ToKey[F] = {
+    fromConfig[F](config, default[F])
+  }
+
+  def fromConfig[F[_] : Applicative](config: Config, default: => ToKey[F]): ToKey[F] = {
+    ConfigSource
+      .fromConfig(config)
+      .at("persistence-id-to-key")
+      .load[ToKey[F]]
+      .getOrElse(default)
   }
 }

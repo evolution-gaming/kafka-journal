@@ -45,13 +45,6 @@ object JournalConfig {
   }
 
 
-  @deprecated("use ConfigReader instead", "0.0.87")
-  def apply(config: Config): JournalConfig = apply(config, default)
-
-  @deprecated("use ConfigReader instead", "0.0.87")
-  def apply(config: Config, default: => JournalConfig): JournalConfig = fromConfig(config, default)
-
-  
   def fromConfig(config: Config, default: => JournalConfig): JournalConfig = {
 
     def get[T: FromConf](name: String) = config.getOpt[T](name)
