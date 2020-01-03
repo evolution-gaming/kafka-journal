@@ -4,14 +4,14 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import akka.persistence.kafka.journal.KafkaJournalConfig
-import cats.data.{NonEmptyList => Nel}
 import cats.Monad
-import cats.implicits._
+import cats.data.{NonEmptyList => Nel}
 import cats.effect.{Clock, IO, Resource}
+import cats.implicits._
 import com.evolutiongaming.catshelper.LogOf
-import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
-import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.CassandraSuite._
+import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.skafka.consumer.ConsumerMetrics
 import com.evolutiongaming.skafka.producer.ProducerMetrics
 import org.scalatest.Suite
@@ -51,8 +51,8 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
   override def beforeAll() = {
     super.beforeAll()
     IntegrationSuite.start()
-//    eventual
-//    producer
+    //    eventual
+    //    producer
   }
 
   override def afterAll() = {
@@ -95,7 +95,7 @@ object JournalSuite {
 
       def read = {
         for {
-          records <-journal.read().toList
+          records <- journal.read().toList
         } yield for {
           record <- records
         } yield {
@@ -103,7 +103,7 @@ object JournalSuite {
         }
       }
 
-      def pointer =journal.pointer
+      def pointer = journal.pointer
 
       def delete(to: DeleteTo) = journal.delete(to)
 
