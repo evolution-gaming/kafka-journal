@@ -1,13 +1,12 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.implicits._
-import com.evolutiongaming.config.ConfigHelper._
 import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig}
 import com.typesafe.config.Config
 import pureconfig.error.{ConfigReaderFailures, ThrowableFailure}
-import pureconfig.{ConfigCursor, ConfigReader}
+import pureconfig.{ConfigCursor, ConfigReader, ConfigSource, Derivation}
 
 import scala.concurrent.duration._
 import scala.util.Try
@@ -47,20 +46,25 @@ object JournalConfig {
 
   def fromConfig(config: Config, default: => JournalConfig): JournalConfig = {
 
-    def get[T: FromConf](name: String) = config.getOpt[T](name)
+    val source = ConfigSource.fromConfig(config)
+
+    def get[A](name: String)(implicit reader: Derivation[ConfigReader[A]]) = {
+      source.at(name).load[A]
+    }
 
     def kafka(name: String) = {
-      for {
-        common <- get[Config]("kafka")
-      } yield {
-        common.getOpt[Config](name).fold(common)(_.withFallback(common))
+      get[Config]("kafka").map { kafka =>
+        ConfigSource.fromConfig(kafka)
+          .at(name)
+          .load[Config]
+          .fold(_ => kafka, _.withFallback(kafka))
       }
     }
 
     JournalConfig(
       pollTimeout = get[FiniteDuration]("poll-timeout") getOrElse default.pollTimeout,
-      producer = kafka("producer").fold(default.producer)(ProducerConfig(_, default.producer)),
-      consumer = kafka("consumer").fold(default.consumer)(ConsumerConfig(_, default.consumer)),
+      producer = kafka("producer").fold(_ => default.producer, ProducerConfig(_, default.producer)),
+      consumer = kafka("consumer").fold(_ => default.consumer, ConsumerConfig(_, default.consumer)),
       headCache = get[Boolean]("head-cache.enabled") getOrElse default.headCache)
   }
 }
