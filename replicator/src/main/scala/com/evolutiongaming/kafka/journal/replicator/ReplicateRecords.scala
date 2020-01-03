@@ -69,9 +69,7 @@ object ReplicateRecords {
               }
             }
 
-            val expireAfter = records.last.action.header.expireAfter
-
-            def msg(events: Nel[EventRecord], latency: FiniteDuration) = {
+            def msg(events: Nel[EventRecord], latency: FiniteDuration, expireAfter: Option[ExpireAfter]) = {
               val seqNrs =
                 if (events.tail.isEmpty) s"seqNr: ${ events.head.seqNr }"
                 else s"seqNrs: ${ events.head.seqNr }..${ events.last.seqNr }"
@@ -83,10 +81,11 @@ object ReplicateRecords {
 
             for {
               events       <- events
+              expireAfter   = events.last.metadata.payload.expireAfter
               _            <- journal.append(partitionOffset, timestamp, expireAfter, events)
               measurements <- measurements(records.size)
               _            <- metrics.append(events = events.length, bytes = bytes, measurements = measurements)
-              _            <- log.info(msg(events, measurements.replicationLatency))
+              _            <- log.info(msg(events, measurements.replicationLatency, expireAfter))
             } yield {}
           }
 

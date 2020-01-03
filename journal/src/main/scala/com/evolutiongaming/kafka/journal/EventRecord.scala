@@ -41,7 +41,6 @@ object EventRecord {
     partitionOffset: PartitionOffset,
     metadata: PayloadMetadata,
   ): EventRecord = {
-    val expireAfter = metadata.expireAfter orElse action.header.expireAfter
     EventRecord(
       event = event,
       timestamp = action.timestamp,
@@ -49,7 +48,7 @@ object EventRecord {
       origin = action.origin,
       metadata = RecordMetadata(
         header = action.header.metadata,
-        payload = metadata.copy(expireAfter = expireAfter)),
+        payload = metadata),
       headers = action.headers)
   }
 }

@@ -67,8 +67,7 @@ class HeadInfoSpec extends AnyFunSuite with Matchers {
       range = SeqRange.unsafe(from, to),
       origin = None,
       payloadType = PayloadType.Json,
-      metadata = HeaderMetadata.empty,
-      expireAfter = None)
+      metadata = HeaderMetadata.empty)
   }
 
   private def delete(seqNr: Int) = {

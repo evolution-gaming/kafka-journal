@@ -34,15 +34,9 @@ object ActionHeader {
             range       <- (json \ "range").validate[SeqRange]
             origin      <- (json \ "origin").validateOpt[Origin]
             payloadType <- (json \ "payloadType").validate[PayloadType.BinaryOrJson]
-            expireAfter <- (json \ "expireAfter").validateOpt[ExpireAfter]
             metadata    <- metadata
           } yield {
-            Append(
-              range = range,
-              origin = origin,
-              payloadType = payloadType,
-              metadata = metadata,
-              expireAfter = expireAfter)
+            Append(range, origin, payloadType, metadata)
           }
         }
       }
@@ -104,7 +98,6 @@ object ActionHeader {
     range: SeqRange,
     origin: Option[Origin],
     payloadType: PayloadType.BinaryOrJson,
-    expireAfter: Option[ExpireAfter], // TODO expiry: remove after 01-02-2020
     metadata: HeaderMetadata,
   ) extends AppendOrDelete
 

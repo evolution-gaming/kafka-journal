@@ -27,7 +27,7 @@ object AppendEvents {
       val range = SeqRange(from = events0.head.seqNr, to = events0.last.seqNr)
       for {
         payloadAndType <- eventsToPayload(events)
-        result         <- produce.append(key, range, payloadAndType, metadata.payload.expireAfter, metadata.header, headers)
+        result         <- produce.append(key, range, payloadAndType, metadata.header, headers)
       } yield result
     }
   }

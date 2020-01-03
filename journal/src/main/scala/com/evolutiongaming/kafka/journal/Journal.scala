@@ -204,7 +204,7 @@ object Journal {
 
 
     def withMetrics(
-      topic: Topic/*TODO expiry: remove maybe?*/,
+      topic: Topic,
       metrics: JournalMetrics[F])(implicit
       F: MonadThrowable[F],
       measureDuration: MeasureDuration[F]

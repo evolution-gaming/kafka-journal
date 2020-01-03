@@ -81,7 +81,6 @@ object Action {
       timestamp: Instant,
       origin: Option[Origin],
       events: Events,
-      expireAfter: Option[ExpireAfter],
       metadata: HeaderMetadata,
       headers: Headers)(implicit
       eventsToPayload: EventsToPayload[F]
@@ -94,8 +93,7 @@ object Action {
           range = range,
           origin = origin,
           payloadType = payloadAndType.payloadType,
-          metadata = metadata,
-          expireAfter = expireAfter)
+          metadata = metadata)
         Append(
           key = key,
           timestamp = timestamp,

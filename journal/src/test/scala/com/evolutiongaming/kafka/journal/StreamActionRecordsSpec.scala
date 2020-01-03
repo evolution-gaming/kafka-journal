@@ -107,8 +107,7 @@ object StreamActionRecordsSpec {
         range = range,
         origin = none,
         payloadType = PayloadType.Json,
-        metadata = HeaderMetadata.empty,
-        expireAfter = none)
+        metadata = HeaderMetadata.empty)
       val action = Action.Append(key, timestamp, header, ByteVector.empty, Headers.empty)
       ActionRecord(action, PartitionOffset(offset = Offset.unsafe(pointer.offset)))
     }

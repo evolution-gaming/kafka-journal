@@ -83,25 +83,29 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
 
   private val consRecordToActionRecord = ConsRecordToActionRecord[Try]
 
-  private val payloadMetadata = PayloadMetadata(
-    1.day.toExpireAfter.some,
-    Json.obj(("key1", "value1")).some)
+  private val payloadMetadatas = for {
+    expireAfter <- List(1.day.some, none)
+    metadata    <- List(Json.obj(("key1", "value1")).some, none)
+  } yield {
+    PayloadMetadata(
+      expireAfter.map { _.toExpireAfter },
+      metadata)
+  }
 
   private val appends = {
     implicit val eventsToPayload = EventsToPayload[Try]
     for {
-      origin      <- origins
-      metadata    <- metadata
-      events      <- events
-      headers     <- headers
-      expireAfter <- List(1.day.some, none)
+      origin          <- origins
+      metadata        <- metadata
+      events          <- events
+      headers         <- headers
+      payloadMetadata <- payloadMetadatas
     } yield {
       Action.Append.of[Try](
         key = key1,
         timestamp = timestamp,
         origin = origin,
         events = Events(events, payloadMetadata),
-        expireAfter = expireAfter.map { _.toExpireAfter },
         metadata = metadata,
         headers = headers).get
     }

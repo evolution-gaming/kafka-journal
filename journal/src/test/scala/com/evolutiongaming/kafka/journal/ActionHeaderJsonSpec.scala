@@ -25,7 +25,6 @@ class ActionHeaderJsonSpec extends AnyFunSuite with Matchers {
     origin <- origins
   } {
     val originStr = origin.fold("None")(_.toString)
-    val expireAfter = origin.fold { 1.day.toExpireAfter.some } { _ => none[ExpireAfter] }
     for {
       payloadType             <- payloadTypes
       (metadataStr, metadata) <- metadata
@@ -36,8 +35,7 @@ class ActionHeaderJsonSpec extends AnyFunSuite with Matchers {
           range = range,
           origin = origin,
           payloadType = payloadType,
-          metadata = metadata,
-          expireAfter = expireAfter)
+          metadata = metadata)
         verify(header, s"Append-$originStr-$payloadType-$metadataStr")
       }
     }
