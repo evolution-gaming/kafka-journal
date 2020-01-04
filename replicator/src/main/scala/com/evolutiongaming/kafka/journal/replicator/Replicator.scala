@@ -68,7 +68,7 @@ object Replicator {
 
       val consumer = TopicReplicator.ConsumerOf.of[F](
         topic,
-        config.consumer,
+        config.kafka.consumer,
         config.pollTimeout,
         hostName)
 
@@ -80,7 +80,7 @@ object Replicator {
       TopicReplicator.of(topic, journal, consumer, metrics1, cacheOf)
     }
 
-    val consumer = Consumer.of[F](config.consumer)
+    val consumer = Consumer.of[F](config.kafka.consumer)
 
     of(Config(config), consumer, topicReplicator)
   }

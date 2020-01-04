@@ -2,15 +2,10 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
-import com.datastax.driver.core.ConsistencyLevel
-import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig
-import com.evolutiongaming.scassandra.{CassandraConfig, QueryConfig}
-import com.evolutiongaming.skafka.CommonConfig
-import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.typesafe.config.ConfigFactory
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
-import pureconfig.ConfigSource
+import pureconfig.{ConfigReader, ConfigSource}
 
 import scala.concurrent.duration._
 
@@ -19,7 +14,8 @@ class ReplicatorConfigSpec extends AnyFunSuite with Matchers {
 
   test("apply from empty config") {
     val config = ConfigFactory.empty()
-    ConfigSource.fromConfig(config).load[ReplicatorConfig] shouldEqual ReplicatorConfig.default.asRight
+    val expected = ReplicatorConfig.default
+    ConfigSource.fromConfig(config).load[ReplicatorConfig] shouldEqual expected.pure[ConfigReader.Result]
   }
 
   test("apply from config") {
@@ -28,41 +24,31 @@ class ReplicatorConfigSpec extends AnyFunSuite with Matchers {
       topicPrefixes = Nel.of("prefix1", "prefix2"),
       topicDiscoveryInterval = 1.minute,
       pollTimeout = 200.millis)
-    ConfigSource.fromConfig(config).load[ReplicatorConfig] shouldEqual expected.asRight
+    ConfigSource.fromConfig(config).load[ReplicatorConfig] shouldEqual expected.pure[ConfigReader.Result]
   }
 
   test("apply from config with common kafka") {
-    val config = ConfigFactory.parseURL(getClass.getResource("replicator_kafka.conf"))
+    val config = ConfigFactory.parseURL(getClass.getResource("replicator-kafka.conf"))
+    val default = ReplicatorConfig.default
     val expected = ReplicatorConfig(
       topicPrefixes = Nel.of("prefix"),
-      consumer = ConsumerConfig(
-        maxPollRecords = 10,
-        common = CommonConfig(
-          clientId = "clientId".some,
-          receiveBufferBytes = 1000000),
-        groupId = "replicator".some,
-        autoCommit = false,
-        autoOffsetReset = AutoOffsetReset.Earliest))
-    ConfigSource.fromConfig(config).load[ReplicatorConfig] shouldEqual expected.asRight
+      kafka = default.kafka.copy(
+        producer = default.kafka.producer.copy(
+          common = default.kafka.producer.common.copy(
+            clientId = "clientId".some)),
+        consumer = default.kafka.consumer.copy(
+          maxPollRecords = 10,
+          common = default.kafka.consumer.common.copy(
+            clientId = "clientId".some))))
+    ConfigSource.fromConfig(config).load[ReplicatorConfig] shouldEqual expected.pure[ConfigReader.Result]
   }
 
   test("apply from reference.conf") {
-    val config = ConfigFactory.load().getConfig("evolutiongaming.kafka-journal.replicator")
-    val expected = ReplicatorConfig(
-      consumer = ConsumerConfig(
-        common = CommonConfig(
-          clientId = "replicator".some,
-          receiveBufferBytes = 1000000),
-        groupId = "replicator".some,
-        autoCommit = false,
-        autoOffsetReset = AutoOffsetReset.Earliest,
-        maxPollRecords = 1000),
-      cassandra = EventualCassandraConfig(
-        client = CassandraConfig(
-          name = "replicator",
-          query = QueryConfig(
-            consistency = ConsistencyLevel.LOCAL_QUORUM,
-            defaultIdempotence = true))))
-    ConfigSource.fromConfig(config).load[ReplicatorConfig] shouldEqual expected.asRight
+    val config = ConfigFactory.load()
+    val expected = ReplicatorConfig.default
+    ConfigSource
+      .fromConfig(config)
+      .at("evolutiongaming.kafka-journal.replicator")
+      .load[ReplicatorConfig] shouldEqual expected.pure[ConfigReader.Result]
   }
 }
