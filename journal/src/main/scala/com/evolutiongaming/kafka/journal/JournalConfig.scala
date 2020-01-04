@@ -48,9 +48,7 @@ object JournalConfig {
 
     val source = ConfigSource.fromConfig(config)
 
-    def get[A](name: String)(implicit reader: Derivation[ConfigReader[A]]) = {
-      source.at(name).load[A]
-    }
+    def get[A : ConfigReader](name: String) = source.at(name).load[A]
 
     def kafka(name: String) = {
       get[Config]("kafka").map { kafka =>

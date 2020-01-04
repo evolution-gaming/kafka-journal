@@ -3,19 +3,18 @@ package com.evolutiongaming.kafka.journal.replicator
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.datastax.driver.core.ConsistencyLevel
-import com.evolutiongaming.config.ConfigHelper._
 import com.evolutiongaming.kafka.journal.FromConfigReaderResult
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
 import com.evolutiongaming.scassandra.{CassandraConfig, QueryConfig}
 import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
+import com.evolutiongaming.skafka.producer.ProducerConfig
 import com.typesafe.config.Config
 import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
 import pureconfig.error.{ConfigReaderFailures, ThrowableFailure}
 
 import scala.concurrent.duration._
-import scala.reflect.ClassTag
 import scala.util.Try
 
 final case class ReplicatorConfig(
@@ -65,39 +64,33 @@ object ReplicatorConfig {
 
   private def fromConfig(config: Config, default: => ReplicatorConfig): ReplicatorConfig = {
 
-    def get[T: FromConf](name: String) = config.getOpt[T](name)
+    val source = ConfigSource.fromConfig(config)
+
+    def get[A : ConfigReader](name: String) = source.at(name).load[A]
 
     val topicPrefixes = {
       val prefixes = for {
-        prefixes <- get[List[String]]("topic-prefixes")
+        prefixes <- get[List[String]]("topic-prefixes").toOption
         prefixes <- prefixes.toNel
       } yield prefixes
       prefixes getOrElse default.topicPrefixes
     }
 
-    def consumer = {
-      val config = for {
-        kafka <- get[Config]("kafka")
-        consumer <- kafka.getOpt[Config]("consumer")
-      } yield {
-        val config = consumer withFallback kafka
-        ConsumerConfig(config, default.consumer)
+    def kafka(name: String) = {
+      get[Config]("kafka").map { kafka =>
+        ConfigSource.fromConfig(kafka)
+          .at(name)
+          .load[Config]
+          .fold(_ => kafka, _.withFallback(kafka))
       }
-      config getOrElse default.consumer
-    }
-
-    val source = ConfigSource.fromConfig(config)
-
-    def get1[A : ConfigReader : ClassTag](name: String) = {
-      val source1 = source.at(name)
-      source1.value().fold(_ => none[A], _ => source1.loadOrThrow[A].some)
     }
 
     ReplicatorConfig(
       topicPrefixes = topicPrefixes,
       topicDiscoveryInterval = get[FiniteDuration]("topic-discovery-interval") getOrElse default.topicDiscoveryInterval,
-      consumer = consumer,
-      cassandra = get1[EventualCassandraConfig]("cassandra") getOrElse default.cassandra,
+//      producer = kafka("producer").fold(_ => default.producer, ProducerConfig(_, default.producer)),
+      consumer = kafka("consumer").fold(_ => default.consumer, ConsumerConfig(_, default.consumer)),
+      cassandra = get[EventualCassandraConfig]("cassandra") getOrElse default.cassandra,
       pollTimeout = get[FiniteDuration]("kafka.consumer.poll-timeout") getOrElse default.pollTimeout)
   }
 }
