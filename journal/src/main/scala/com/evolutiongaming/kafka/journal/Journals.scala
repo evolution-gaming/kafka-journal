@@ -43,18 +43,18 @@ object Journals {
     callTimeThresholds: Journal.CallTimeThresholds
   ): Resource[F, Journals[F]] = {
 
-    val consumer = Consumer.of[F](config.consumer, config.pollTimeout)
+    val consumer = Consumer.of[F](config.kafka.consumer, config.pollTimeout)
 
     val headCache = {
-      if (config.headCache) {
-        HeadCacheOf[F].apply(config.consumer, eventualJournal)
+      if (config.headCache.enabled) {
+        HeadCacheOf[F].apply(config.kafka.consumer, eventualJournal)
       } else {
         Resource.pure[F, HeadCache[F]](HeadCache.empty[F])
       }
     }
 
     for {
-      producer  <- Producer.of[F](config.producer)
+      producer  <- Producer.of[F](config.kafka.producer)
       log       <- Resource.liftF(LogOf[F].apply(Journals.getClass))
       headCache <- headCache
     } yield {

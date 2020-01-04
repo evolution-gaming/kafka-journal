@@ -8,6 +8,7 @@ import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraCon
 import com.typesafe.config.Config
 import pureconfig.error.{ConfigReaderFailures, ThrowableFailure}
 import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
+import pureconfig.generic.semiauto.deriveReader
 
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
@@ -26,7 +27,7 @@ object KafkaJournalConfig {
   val default: KafkaJournalConfig = KafkaJournalConfig()
 
 
-  implicit val configReaderKafkaJournalConfig: ConfigReader[KafkaJournalConfig] = {
+  /*implicit val configReaderKafkaJournalConfig: ConfigReader[KafkaJournalConfig] = {
     cursor: ConfigCursor => {
       for {
         cursor    <- cursor.asObjectCursor
@@ -34,14 +35,18 @@ object KafkaJournalConfig {
         cassandra <- cassandra.toEither.leftMap(a => ConfigReaderFailures(ThrowableFailure(a, cursor.location)))
       } yield cassandra
     }
-  }
 
 
-  def apply(config: Config): KafkaJournalConfig = apply(config, default)
+  }*/
 
-  def apply(config: Config, default: => KafkaJournalConfig): KafkaJournalConfig = fromConfig(config, default)
+  implicit val configReaderKafkaJournalConfig: ConfigReader[KafkaJournalConfig] = deriveReader
 
-  private def fromConfig(config: Config, default: => KafkaJournalConfig): KafkaJournalConfig = {
+
+//  def apply(config: Config): KafkaJournalConfig = apply(config, default)
+
+//  def apply(config: Config, default: => KafkaJournalConfig): KafkaJournalConfig = fromConfig(config, default)
+
+  /*private def fromConfig(config: Config, default: => KafkaJournalConfig): KafkaJournalConfig = {
 
     def get[T: FromConf](name: String) = config.getOpt[T](name)
 
@@ -57,6 +62,8 @@ object KafkaJournalConfig {
       source1.value().fold(_ => none[A], _ => source1.loadOrThrow[A].some)
     }
 
+    source
+
     KafkaJournalConfig(
       journal = JournalConfig.fromConfig(config, default.journal),
       cassandra = getOrThrow[EventualCassandraConfig]("cassandra") getOrElse default.cassandra,
@@ -64,5 +71,5 @@ object KafkaJournalConfig {
       stopTimeout = get[FiniteDuration]("stop-timeout") getOrElse default.stopTimeout,
       maxEventsInBatch = get[Int]("max-events-in-batch") getOrElse default.maxEventsInBatch,
       callTimeThresholds = callTimeThresholds)
-  }
+  }*/
 }

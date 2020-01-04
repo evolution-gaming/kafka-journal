@@ -9,9 +9,11 @@ import cats.implicits._
 import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
+import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.smetrics.MeasureDuration
 import com.typesafe.config.Config
+import pureconfig.ConfigSource
 
 import scala.collection.immutable.Seq
 import scala.concurrent.duration._
@@ -53,7 +55,12 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     Resource.liftF(toKey.pure[IO])
   }
 
-  def kafkaJournalConfig: IO[KafkaJournalConfig] = KafkaJournalConfig(config).pure[IO]
+  def kafkaJournalConfig: IO[KafkaJournalConfig] = {
+    ConfigSource
+      .fromConfig(config)
+      .load[KafkaJournalConfig]
+      .liftTo[IO]
+  }
 
   def origin: IO[Option[Origin]] = {
 

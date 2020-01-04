@@ -10,12 +10,14 @@ import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{FromFuture, FromTry, Log, LogOf, Runtime, ToFuture, ToTry}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
+import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
 import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.MeasureDuration
 import com.typesafe.config.ConfigFactory
+import pureconfig.ConfigSource
 
 import scala.concurrent.duration._
 
@@ -44,10 +46,11 @@ object AppendReplicateApp extends IOApp {
     implicit val logOf = LogOfFromAkka[F](system)
     implicit val randomIdOf = RandomIdOf.uuid[F]
 
-    val kafkaJournalConfig = Sync[F].delay {
-      val config = system.settings.config.getConfig("evolutiongaming.kafka-journal.persistence.journal")
-      KafkaJournalConfig(config)
-    }
+    val kafkaJournalConfig = ConfigSource
+      .fromConfig(system.settings.config)
+      .at("evolutiongaming.kafka-journal.persistence.journal")
+      .load[KafkaJournalConfig]
+      .liftTo[F]
 
     def journal(
       config: JournalConfig,
@@ -57,14 +60,13 @@ object AppendReplicateApp extends IOApp {
       kafkaProducerOf: KafkaProducerOf[F]
     ) = {
 
-      val consumer = Journals.Consumer.of[F](config.consumer, config.pollTimeout)
       for {
-        producer <- Journals.Producer.of[F](config.producer)
+        producer <- Journals.Producer.of[F](config.kafka.producer)
       } yield {
         Journals[F](
           origin = hostName.map(Origin.fromHostName),
           producer = producer,
-          consumer = consumer,
+          consumer = Journals.Consumer.of[F](config.kafka.consumer, config.pollTimeout),
           eventualJournal = EventualJournal.empty[F],
           headCache = HeadCache.empty[F],
           log = log)

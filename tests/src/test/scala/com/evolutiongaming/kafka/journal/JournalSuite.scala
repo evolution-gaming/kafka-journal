@@ -12,17 +12,21 @@ import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
+import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
 import com.evolutiongaming.skafka.consumer.ConsumerMetrics
 import com.evolutiongaming.skafka.producer.ProducerMetrics
 import org.scalatest.Suite
 import org.scalatest.matchers.should.Matchers
+import pureconfig.{ConfigReader, ConfigSource}
 
 
 trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
 
-  lazy val config: KafkaJournalConfig = {
-    val config = actorSystem.settings.config.getConfig("evolutiongaming.kafka-journal.persistence.journal")
-    KafkaJournalConfig(config)
+  lazy val config: ConfigReader.Result[KafkaJournalConfig] = {
+    ConfigSource
+      .fromConfig(actorSystem.settings.config)
+      .at("evolutiongaming.kafka-journal.persistence.journal")
+      .load[KafkaJournalConfig]
   }
 
   implicit val kafkaConsumerOf: KafkaConsumerOf[IO] = KafkaConsumerOf[IO](
@@ -38,9 +42,10 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
   lazy val ((eventualJournal, producer), release) = {
     implicit val logOf = LogOf.empty[IO]
     val resource = for {
+      config          <- Resource.liftF(config.liftTo[IO])
       origin          <- Resource.liftF(Origin.hostName[IO])
       eventualJournal <- EventualCassandra.of[IO](config.cassandra, origin, none, cassandraClusterOf)
-      producer        <- Journals.Producer.of[IO](config.journal.producer)
+      producer        <- Journals.Producer.of[IO](config.journal.kafka.producer)
     } yield {
       (eventualJournal, producer)
     }

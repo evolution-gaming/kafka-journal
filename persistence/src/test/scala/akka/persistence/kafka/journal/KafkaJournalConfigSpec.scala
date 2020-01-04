@@ -1,9 +1,11 @@
 package akka.persistence.kafka.journal
 
+import cats.implicits._
 import com.evolutiongaming.kafka.journal.Journal.CallTimeThresholds
 import com.typesafe.config.ConfigFactory
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
+import pureconfig.{ConfigReader, ConfigSource}
 
 import scala.concurrent.duration._
 
@@ -11,7 +13,10 @@ class KafkaJournalConfigSpec extends AnyFunSuite with Matchers {
 
   test("apply from empty config") {
     val config = ConfigFactory.empty()
-    KafkaJournalConfig(config) shouldEqual KafkaJournalConfig.default
+    val expected = KafkaJournalConfig.default
+    ConfigSource
+      .fromConfig(config)
+      .load[KafkaJournalConfig] shouldEqual expected.pure[ConfigReader.Result]
   }
 
   test("apply from config") {
@@ -22,15 +27,19 @@ class KafkaJournalConfigSpec extends AnyFunSuite with Matchers {
       maxEventsInBatch = 3,
       callTimeThresholds = CallTimeThresholds(
         append = 1.millis,
-          read = 2.millis,
-          pointer = 3.millis,
-          delete = 4.millis))
-    KafkaJournalConfig(config) shouldEqual expected
+        read = 2.millis,
+        pointer = 3.millis,
+        delete = 4.millis))
+    ConfigSource
+      .fromConfig(config)
+      .load[KafkaJournalConfig] shouldEqual expected.pure[ConfigReader.Result]
   }
 
   test("apply from reference.conf") {
     val config = ConfigFactory.load().getConfig("evolutiongaming.kafka-journal.persistence.journal")
     val expected = KafkaJournalConfig.default
-    KafkaJournalConfig(config) shouldEqual expected
+    ConfigSource
+      .fromConfig(config)
+      .load[KafkaJournalConfig] shouldEqual expected.pure[ConfigReader.Result]
   }
 }

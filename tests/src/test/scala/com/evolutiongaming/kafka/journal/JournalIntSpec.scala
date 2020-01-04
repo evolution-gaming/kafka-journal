@@ -4,6 +4,7 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
+import akka.persistence.kafka.journal.KafkaJournalConfig
 import cats.Foldable
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.{IO, Resource}
@@ -13,6 +14,7 @@ import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
+import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
 import com.evolutiongaming.retry.{Retry, Strategy}
 import org.scalatest.Succeeded
 import org.scalatest.wordspec.AsyncWordSpec
@@ -26,24 +28,24 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
 
   private val journalsOf = {
 
-    val consumer = Journals.Consumer.of[IO](config.journal.consumer, config.journal.pollTimeout)
-
     (eventualJournal: EventualJournal[IO], headCache: Boolean) => {
       implicit val logOf = LogOf.empty[IO]
       val log = Log.empty[IO]
 
-      val headCache1 = if (headCache) {
+      def headCacheOf(config: KafkaJournalConfig) = if (headCache) {
         val headCacheOf = HeadCacheOf[IO](HeadCacheMetrics.empty[IO].some)
         headCacheOf(
-          config.journal.consumer,
+          config.journal.kafka.consumer,
           eventualJournal)
       } else {
         Resource.pure[IO, HeadCache[IO]](HeadCache.empty[IO])
       }
 
       for {
-        headCache <- headCache1
-        journal   = Journals[IO](
+        config    <- Resource.liftF(config.liftTo[IO])
+        consumer   = Journals.Consumer.of[IO](config.journal.kafka.consumer, config.journal.pollTimeout)
+        headCache <- headCacheOf(config)
+        journal    = Journals[IO](
           producer = producer,
           origin = origin.some,
           consumer = consumer,

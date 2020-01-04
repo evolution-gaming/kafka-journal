@@ -51,7 +51,7 @@ object JournalAdapter {
       val consumerMetrics = for {
         metrics <- metrics.consumer
       } yield {
-        val clientId = clientIdOf(config.journal.consumer.common)
+        val clientId = clientIdOf(config.journal.kafka.consumer.common)
         metrics(clientId)
       }
       KafkaConsumerOf[F](blocking, consumerMetrics)
@@ -61,7 +61,7 @@ object JournalAdapter {
       val producerMetrics = for {
         metrics <- metrics.producer
       } yield {
-        val clientId = clientIdOf(config.journal.producer.common)
+        val clientId = clientIdOf(config.journal.kafka.producer.common)
         metrics(clientId)
       }
       KafkaProducerOf[F](blocking, producerMetrics)
