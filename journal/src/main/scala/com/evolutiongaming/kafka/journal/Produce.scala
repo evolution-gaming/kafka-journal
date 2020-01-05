@@ -60,7 +60,6 @@ object Produce {
         headers: Headers
       ) = {
 
-        // TODO expiry: use metadata.payload
         def actionOf(timestamp: Instant) = {
           Action.Append(
             key,

@@ -1,0 +1,179 @@
+package com.evolutiongaming.kafka.journal.replicator
+
+import cats.data.{NonEmptySet => Nes}
+import cats.effect.{Clock, Resource}
+import cats.implicits._
+import cats.{Applicative, Monad, ~>}
+import com.evolutiongaming.catshelper.DataHelper._
+import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, Log, MonadThrowable}
+import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraSession, ExpireOn, MetaJournalStatements, SegmentNr}
+import com.evolutiongaming.kafka.journal.util.Fail
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+import com.evolutiongaming.scassandra.TableName
+import com.evolutiongaming.skafka.Topic
+import com.evolutiongaming.skafka.producer.ProducerConfig
+import com.evolutiongaming.smetrics.MetricsHelper._
+import com.evolutiongaming.smetrics._
+import com.evolutiongaming.sstream.Stream
+
+import scala.concurrent.duration.FiniteDuration
+
+trait PurgeExpired[F[_]] {
+
+  def apply(topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]): F[Long]
+}
+
+object PurgeExpired {
+
+
+  def of[F[_] : MonadThrowable : KafkaProducerOf : CassandraSession : FromTry : Fail : Clock](
+    origin: Option[Origin],
+    producerConfig: ProducerConfig,
+    tableName: TableName,
+  ): Resource[F, PurgeExpired[F]] = {
+
+    implicit val fromAttempt = FromAttempt.lift[F]
+
+    for {
+      producer      <- KafkaProducerOf[F].apply(producerConfig)
+      selectExpired  = MetaJournalStatements.IdByTopicAndExpireOn.of[F](tableName)
+      selectExpired <- Resource.liftF(selectExpired)
+    } yield {
+      val produce = Produce(Journals.Producer(producer), origin)
+      apply(selectExpired, produce)
+    }
+  }
+
+
+  def apply[F[_] : Monad](
+    selectExpired: MetaJournalStatements.IdByTopicAndExpireOn[F],
+    produce: Produce[F]
+  ): PurgeExpired[F] = {
+
+    new PurgeExpired[F] {
+
+      def apply(topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]) = {
+        val result = for {
+          segment <- Stream[F].apply(segments.toNel)
+          id <- selectExpired(topic, segment, expireOn)
+          key = Key(id = id, topic = topic)
+          _ <- Stream.lift(produce.purge(key))
+        } yield {}
+        result.length
+      }
+    }
+  }
+
+
+  implicit class PurgeExpiredOps[F[_]](val self: PurgeExpired[F]) extends AnyVal {
+
+    def mapK[G[_]](f: F ~> G): PurgeExpired[G] = new PurgeExpired[G] {
+
+      def apply(topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]) = {
+        f(self(topic, expireOn, segments))
+      }
+    }
+
+
+    def withLog(
+      log: Log[F])(implicit
+      F: Monad[F],
+      measureDuration: MeasureDuration[F]
+    ): PurgeExpired[F] = new PurgeExpired[F] {
+
+      def apply(topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]) = {
+        for {
+          d <- MeasureDuration[F].start
+          r <- self(topic, expireOn, segments)
+          d <- d
+          _ <- log.debug(s"apply in ${ d.toMillis }ms, topic: $topic, expireOn: $expireOn, segments: ${ segments.mkString_(",") }, result: $r")
+        } yield r
+      }
+    }
+
+
+    def withMetrics(
+      metrics: Metrics[F])(implicit
+      F: Monad[F],
+      measureDuration: MeasureDuration[F]
+    ): PurgeExpired[F] = new PurgeExpired[F] {
+
+      def apply(topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]) = {
+        for {
+          d <- MeasureDuration[F].start
+          r <- self(topic, expireOn, segments)
+          d <- d
+          _ <- metrics(topic, d, r)
+        } yield r
+      }
+    }
+
+
+    def enhanceError(implicit F: ApplicativeThrowable[F]): PurgeExpired[F] = {
+
+      def error[A](msg: String, cause: Throwable) = {
+        JournalError(s"PurgeExpired.$msg failed with $cause", cause).raiseError[F, A]
+      }
+
+      new PurgeExpired[F] {
+
+        def apply(topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]) = {
+          self(topic, expireOn, segments).handleErrorWith { a =>
+            error(s"apply topic: $topic, expireOn: $expireOn, segments: ${ segments.mkString_(",") }", a)
+          }
+        }
+      }
+    }
+  }
+
+
+  trait Metrics[F[_]] {
+
+    def apply(topic: Topic, latency: FiniteDuration, count: Long): F[Unit]
+  }
+
+  object Metrics {
+
+    def empty[F[_] : Applicative]: Metrics[F] = const(().pure[F])
+
+    def const[F[_]](unit: F[Unit]): Metrics[F] = (_: Topic, _: FiniteDuration, _: Long) => unit
+
+
+    def of[F[_] : Monad](
+      registry: CollectorRegistry[F],
+      prefix: String = "purge_expired"
+    ): Resource[F, Metrics[F]] = {
+
+      val latencySummary = registry.summary(
+        name = s"${ prefix }_latency",
+        help = "Purge expired latency in seconds",
+        quantiles = Quantiles(
+          Quantile(0.9, 0.05),
+          Quantile(0.99, 0.005)),
+        labels = LabelNames("topic"))
+
+      val journalsCounter = registry.summary(
+        name = s"${ prefix }_journals",
+        help = "Number of expired journals",
+        quantiles = Quantiles.Empty,
+        labels = LabelNames("topic"))
+
+      for {
+        latencySummary  <- latencySummary
+        journalsCounter <- journalsCounter
+      } yield {
+
+        new Metrics[F] {
+
+          def apply(topic: Topic, latency: FiniteDuration, count: Long) = {
+            for {
+              _ <- latencySummary.labels(topic).observe(latency.toNanos.nanosToSeconds)
+              _ <- journalsCounter.labels(topic).observe(count.toDouble)
+            } yield {}
+          }
+        }
+      }
+    }
+  }
+}

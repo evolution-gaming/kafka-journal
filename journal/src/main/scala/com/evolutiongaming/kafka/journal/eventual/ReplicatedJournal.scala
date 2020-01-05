@@ -71,24 +71,21 @@ object ReplicatedJournal {
       log: Log[F])(implicit
       F: Monad[F],
       measureDuration: MeasureDuration[F]
-    ): ReplicatedJournal[F] = {
+    ): ReplicatedJournal[F] = new ReplicatedJournal[F] {
 
-      new ReplicatedJournal[F] {
+      def topics = {
+        for {
+          d <- MeasureDuration[F].start
+          r <- self.topics
+          d <- d
+          _ <- log.debug(s"topics in ${ d.toMillis }ms, r: ${ r.mkString(",") }")
+        } yield r
+      }
 
-        def topics = {
-          for {
-            d <- MeasureDuration[F].start
-            r <- self.topics
-            d <- d
-            _ <- log.debug(s"topics in ${ d.toMillis }ms, r: ${ r.mkString(",") }")
-          } yield r
-        }
-
-        def journal(topic: Topic) = {
-          self
-            .journal(topic)
-            .map { _.withLog(topic, log) }
-        }
+      def journal(topic: Topic) = {
+        self
+          .journal(topic)
+          .map { _.withLog(topic, log) }
       }
     }
 
@@ -97,23 +94,21 @@ object ReplicatedJournal {
       metrics: Metrics[F])(implicit
       F: Monad[F],
       measureDuration: MeasureDuration[F]
-    ): ReplicatedJournal[F] = {
-      new ReplicatedJournal[F] {
+    ): ReplicatedJournal[F] = new ReplicatedJournal[F] {
 
-        def topics = {
-          for {
-            d <- MeasureDuration[F].start
-            r <- self.topics
-            d <- d
-            _ <- metrics.topics(d)
-          } yield r
-        }
+      def topics = {
+        for {
+          d <- MeasureDuration[F].start
+          r <- self.topics
+          d <- d
+          _ <- metrics.topics(d)
+        } yield r
+      }
 
-        def journal(topic: Topic) = {
-          self
-            .journal(topic)
-            .map { _.withMetrics(topic, metrics) }
-        }
+      def journal(topic: Topic) = {
+        self
+          .journal(topic)
+          .map { _.withMetrics(topic, metrics) }
       }
     }
 

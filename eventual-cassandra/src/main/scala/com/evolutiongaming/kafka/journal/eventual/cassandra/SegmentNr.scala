@@ -27,6 +27,11 @@ object SegmentNr {
   implicit val showSeqNr: Show[SegmentNr] = Show.fromToString
 
 
+  implicit val orderingSegmentNr: Ordering[SegmentNr] = Ordering.by(_.value)
+
+  implicit val orderSegmentNr: Order[SegmentNr] = Order.fromOrdering
+
+
   implicit val encodeByNameSegmentNr: EncodeByName[SegmentNr] = EncodeByName[Long].contramap(_.value)
 
   implicit val decodeByNameSegmentNr: DecodeByName[SegmentNr] = DecodeByName[Long].map { a => SegmentNr.of[Id](a) }
@@ -35,11 +40,6 @@ object SegmentNr {
   implicit val encodeRowSegmentNr: EncodeRow[SegmentNr] = EncodeRow[SegmentNr]("segment")
 
   implicit val decodeRowSegmentNr: DecodeRow[SegmentNr] = DecodeRow[SegmentNr]("segment")
-
-
-  implicit val orderingSegmentNr: Ordering[SegmentNr] = Ordering.by(_.value)
-
-  implicit val orderSegmentNr: Order[SegmentNr] = Order.fromOrdering
 
 
   def of[F[_] : Applicative : Fail](value: Long): F[SegmentNr] = {

@@ -184,17 +184,17 @@ object MetaJournalStatements {
   }
 
 
-  trait SelectByTopicAndExpireOn[F[_]] {
+  trait IdByTopicAndExpireOn[F[_]] {
 
-    def apply(topic: Topic, segment: SegmentNr, expireOn: ExpireOn): Stream[F, JournalHead]
+    def apply(topic: Topic, segment: SegmentNr, expireOn: ExpireOn): Stream[F, String]
   }
 
-  object SelectByTopicAndExpireOn {
+  object IdByTopicAndExpireOn {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[SelectByTopicAndExpireOn[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[IdByTopicAndExpireOn[F]] = {
       val query =
         s"""
-           |SELECT partition, offset, segment_size, seq_nr, delete_to, expire_after, expire_on FROM ${ name.toCql }
+           |SELECT id FROM ${ name.toCql }
            |WHERE topic = ?
            |AND segment = ?
            |AND expire_on = ?
@@ -210,23 +210,23 @@ object MetaJournalStatements {
               .encode(segment)
               .encode(expireOn)
               .execute
-              .map { _.decode[JournalHead] }
+              .map { _.decode[String]("id") }
         }
     }
   }
 
 
-  trait SelectByTopicAndCreated[F[_]] {
+  trait IdByTopicAndCreated[F[_]] {
 
-    def apply(topic: Topic, segment: SegmentNr, created: LocalDate): Stream[F, JournalHead]
+    def apply(topic: Topic, segment: SegmentNr, created: LocalDate): Stream[F, String]
   }
 
-  object SelectByTopicAndCreated {
+  object IdByTopicAndCreated {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[SelectByTopicAndCreated[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[IdByTopicAndCreated[F]] = {
       val query =
         s"""
-           |SELECT partition, offset, segment_size, seq_nr, delete_to, expire_after, expire_on FROM ${ name.toCql }
+           |SELECT id FROM ${ name.toCql }
            |WHERE topic = ?
            |AND segment = ?
            |AND created_date = ?
@@ -242,7 +242,7 @@ object MetaJournalStatements {
               .encode(segment)
               .encode("created_date", created)
               .execute
-              .map { _.decode[JournalHead] }
+              .map { _.decode[String]("id") }
         }
     }
   }

@@ -41,25 +41,26 @@ object PointerStatements {
            |VALUES (?, ?, ?, ?, ?)
            |""".stripMargin
 
-      for {
-        prepared <- query.prepare
-      } yield {
-        (topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant) =>
-          prepared
-            .bind()
-            .encode("topic", topic)
-            .encode(partition)
-            .encode(offset)
-            .encode("created", created)
-            .encode("updated", updated)
-            .first
-            .void
-      }
+      query
+        .prepare
+        .map { prepared =>
+          (topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant) =>
+            prepared
+              .bind()
+              .encode("topic", topic)
+              .encode(partition)
+              .encode(offset)
+              .encode("created", created)
+              .encode("updated", updated)
+              .first
+              .void
+        }
     }
   }
 
 
   trait Update[F[_]] {
+    
     def apply(topic: Topic, partition: Partition, offset: Offset, timestamp: Instant): F[Unit]
   }
 
@@ -74,24 +75,25 @@ object PointerStatements {
            |AND partition = ?
            |""".stripMargin
 
-      for {
-        prepared <- query.prepare
-      } yield {
-        (topic: Topic, partition: Partition, offset: Offset, timestamp: Instant) =>
-          prepared
-            .bind()
-            .encode("topic", topic)
-            .encode("partition", partition)
-            .encode("offset", offset)
-            .encode("updated", timestamp)
-            .first
-            .void
-      }
+      query
+        .prepare
+        .map { prepared =>
+          (topic: Topic, partition: Partition, offset: Offset, timestamp: Instant) =>
+            prepared
+              .bind()
+              .encode("topic", topic)
+              .encode("partition", partition)
+              .encode("offset", offset)
+              .encode("updated", timestamp)
+              .first
+              .void
+        }
     }
   }
 
 
   trait Select[F[_]] {
+    
     def apply(topic: Topic, partition: Partition): F[Option[Offset]]
   }
 
@@ -105,23 +107,17 @@ object PointerStatements {
            |AND partition = ?
            |""".stripMargin
 
-      for {
-        prepared <- query.prepare
-      } yield {
-        (topic: Topic, partition: Partition) =>
-          val row = prepared
-            .bind()
-            .encode("topic", topic)
-            .encode("partition", partition)
-            .first
-          for {
-            row <- row
-          } yield for {
-            row <- row
-          } yield {
-            row.decode[Offset]("offset")
-          }
-      }
+      query
+        .prepare
+        .map { prepared =>
+          (topic: Topic, partition: Partition) =>
+            prepared
+              .bind()
+              .encode("topic", topic)
+              .encode("partition", partition)
+              .first
+              .map { _.map { _.decode[Offset]("offset") } }
+        }
     }
   }
 
@@ -141,28 +137,26 @@ object PointerStatements {
            |AND partition in :partitions
            |""".stripMargin
 
-      for {
-        prepared <- query.prepare
-      } yield {
-        (topic: Topic, partitions: Nel[Partition]) =>
-          val rows = prepared
-            .bind()
-            .encode("topic", topic)
-            .encode("partitions", partitions.map(_.value))
-            .execute
-            .toList
-          for {
-            rows <- rows
-          } yield {
-            rows
-              .map { row =>
-                val partition = row.decode[Partition]
-                val offset = row.decode[Offset]
-                (partition, offset)
+      query
+        .prepare
+        .map { prepared =>
+          (topic: Topic, partitions: Nel[Partition]) =>
+            prepared
+              .bind()
+              .encode("topic", topic)
+              .encode("partitions", partitions.map(_.value))
+              .execute
+              .toList
+              .map { rows =>
+                rows
+                  .map { row =>
+                    val partition = row.decode[Partition]
+                    val offset = row.decode[Offset]
+                    (partition, offset)
+                  }
+                  .toMap
               }
-              .toMap
-          }
-      }
+        }
     }
   }
 
@@ -181,28 +175,25 @@ object PointerStatements {
            |WHERE topic = ?
            |""".stripMargin
 
-      for {
-        prepared <- query.prepare
-      } yield {
-        topic: Topic =>
-          val rows = prepared
-            .bind()
-            .encode("topic", topic)
-            .execute
-            .toList
-          for {
-            rows <- rows
-          } yield {
-            val pointers = for {
-              row <- rows
-            } yield {
-              val partition = row.decode[Partition]("partition")
-              val offset = row.decode[Offset]("offset")
-              (partition, offset)
-            }
-            pointers.toMap
-          }
-      }
+      query
+        .prepare
+        .map { prepared =>
+          topic: Topic =>
+            prepared
+              .bind()
+              .encode("topic", topic)
+              .execute
+              .toList
+              .map { rows =>
+                rows
+                  .map { row =>
+                    val partition = row.decode[Partition]("partition")
+                    val offset = row.decode[Offset]("offset")
+                    (partition, offset)
+                  }
+                  .toMap
+              }
+        }
     }
   }
 
@@ -215,23 +206,17 @@ object PointerStatements {
 
     def of[F[_] : Monad : CassandraSession](name: TableName): F[SelectTopics[F]] = {
       val query = s"""SELECT DISTINCT topic FROM ${ name.toCql }""".stripMargin
-      for {
-        prepared <- query.prepare
-      } yield {
-        () => {
-          val rows = prepared
-            .bind()
-            .execute
-            .toList
-          for {
-            rows <- rows
-          } yield for {
-            row <- rows
-          } yield {
-            row.decode[Topic]("topic")
+      query
+        .prepare
+        .map { prepared =>
+          () => {
+            prepared
+              .bind()
+              .execute
+              .toList
+              .map { _.map { _.decode[Topic]("topic") } }
           }
         }
-      }
     }
   }
 }
