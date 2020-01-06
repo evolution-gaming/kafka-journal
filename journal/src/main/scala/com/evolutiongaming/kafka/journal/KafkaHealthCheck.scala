@@ -30,11 +30,9 @@ object KafkaHealthCheck {
   }
   
 
-  // TODO pass KafkaConfig
   def of[F[_] : Concurrent : Timer : LogOf : KafkaConsumerOf : KafkaProducerOf : RandomIdOf : FromTry](
     config: Config,
-    producerConfig: ProducerConfig,
-    consumerConfig: ConsumerConfig
+    kafkaConfig: KafkaConfig
   ): Resource[F, KafkaHealthCheck[F]] = {
 
     val result = for {
@@ -43,9 +41,9 @@ object KafkaHealthCheck {
     } yield {
       val key = randomId.value
 
-      val consumer = Consumer.of[F](key, consumerConfig)
+      val consumer = Consumer.of[F](key, kafkaConfig.consumer)
 
-      val producer = Producer.of[F](config.topic, producerConfig)
+      val producer = Producer.of[F](config.topic, kafkaConfig.producer)
 
       of(
         key = key,
