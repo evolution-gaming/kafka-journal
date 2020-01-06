@@ -60,9 +60,9 @@ object PurgeExpired {
       def apply(topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]) = {
         val result = for {
           segment <- Stream[F].apply(segments.toNel)
-          id <- selectExpired(topic, segment, expireOn)
-          key = Key(id = id, topic = topic)
-          _ <- Stream.lift(produce.purge(key))
+          id  <- selectExpired(topic, segment, expireOn)
+          key  = Key(id = id, topic = topic)
+          _   <- Stream.lift(produce.purge(key))
         } yield {}
         result.length
       }
