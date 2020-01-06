@@ -3,11 +3,9 @@ package com.evolutiongaming.kafka.journal
 import cats.implicits._
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
-import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
 import play.api.libs.json._
 
-import scala.concurrent.duration._
 import scala.util.Try
 
 

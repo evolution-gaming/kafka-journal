@@ -27,10 +27,11 @@ trait PurgeExpired[F[_]] {
 object PurgeExpired {
 
 
-  def of[F[_] : MonadThrowable : KafkaProducerOf : CassandraSession : FromTry : Fail : Clock](
+  def of[F[_] : MonadThrowable : KafkaProducerOf : CassandraSession : FromTry : Fail : Clock : MeasureDuration](
     origin: Option[Origin],
     producerConfig: ProducerConfig,
     tableName: TableName,
+    metrics: Option[Metrics[F]]
   ): Resource[F, PurgeExpired[F]] = {
 
     implicit val fromAttempt = FromAttempt.lift[F]
@@ -41,7 +42,10 @@ object PurgeExpired {
       selectExpired <- Resource.liftF(selectExpired)
     } yield {
       val produce = Produce(Journals.Producer(producer), origin)
-      apply(selectExpired, produce)
+      val purgeExpired = apply(selectExpired, produce)
+      metrics
+        .fold { purgeExpired } { metrics => purgeExpired.withMetrics(metrics) }
+        .enhanceError
     }
   }
 
