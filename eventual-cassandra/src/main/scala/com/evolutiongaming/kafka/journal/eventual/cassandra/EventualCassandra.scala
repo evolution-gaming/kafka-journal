@@ -156,13 +156,7 @@ object EventualCassandra {
         statements.parMapN(apply[F])
       }
 
-      schema
-        .metaJournal
-        .fold {
-          metadata
-        } { metaJournal =>
-          (of[F](metaJournal), metadata).parMapN(apply[F])
-        }
+      (of[F](schema.metaJournal), metadata).parMapN(apply[F])
     }
 
 

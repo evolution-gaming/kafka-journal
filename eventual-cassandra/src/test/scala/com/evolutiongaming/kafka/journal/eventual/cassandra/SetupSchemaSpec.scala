@@ -39,10 +39,10 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
   val timestamp: Instant = Instant.now()
 
-  val schema = Schema(
+  val schema: Schema = Schema(
     journal = TableName(keyspace = "journal", table = "journal"),
     metadata = TableName(keyspace = "journal", table = "metadata"),
-    metaJournal = TableName(keyspace = "journal", table = "head").some,
+    metaJournal = TableName(keyspace = "journal", table = "metaJournal"),
     pointer = TableName(keyspace = "journal", table = "pointer"),
     setting = TableName(keyspace = "journal", table = "setting"))
 
@@ -113,7 +113,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
   }
 
 
-  def migrate(fresh: Boolean)(implicit monad: Monad[StateT]) = {
+  def migrate(fresh: Boolean)(implicit monad: Monad[StateT]): StateT[Unit] = {
     implicit val sync = TestSync[StateT](monad)
     SetupSchema.migrate[StateT](schema, fresh)
   }

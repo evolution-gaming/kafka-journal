@@ -43,7 +43,7 @@ object CreateSchema {
 
       val metadata = table(config.metadataTable, a => Nel.of(MetadataStatements.createTable(a)))
 
-      val metaJournal = config.metaJournalTable.map { table(_, MetaJournalStatements.createTable) }
+      val metaJournal = table(config.metaJournalTable, a => MetaJournalStatements.createTable(a))
 
       val pointer = table(config.pointerTable, a => Nel.of(PointerStatements.createTable(a)))
 
@@ -52,13 +52,13 @@ object CreateSchema {
       val schema = Schema(
         journal = tableName(journal),
         metadata = tableName(metadata),
-        metaJournal =  metaJournal.map(tableName),
+        metaJournal = tableName(metaJournal),
         pointer = tableName(pointer),
         setting = tableName(setting))
 
       if (config.autoCreate) {
         for {
-          result <- createTables(keyspace, Nel.of(journal, metadata, pointer, setting) ++ metaJournal.toList)
+          result <- createTables(keyspace, Nel.of(journal, metadata, pointer, setting, metaJournal))
         } yield {
           (schema, result)
         }

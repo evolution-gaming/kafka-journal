@@ -9,7 +9,7 @@ final case class SchemaConfig(
   keyspace: SchemaConfig.Keyspace = SchemaConfig.Keyspace.default,
   journalTable: String = "journal",
   metadataTable: String = "metadata",
-  metaJournalTable: Option[String] = None,
+  metaJournalTable: String = "metajournal",
   pointerTable: String = "pointer",
   settingTable: String = "setting",
   locksTable: String = "locks",

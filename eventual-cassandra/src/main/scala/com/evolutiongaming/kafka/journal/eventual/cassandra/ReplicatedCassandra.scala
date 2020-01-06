@@ -410,15 +410,9 @@ object ReplicatedCassandra {
         statements.parMapN(apply[F])
       }
 
-      schema
-        .metaJournal
-        .fold {
-          metadata
-        } { metaJournal =>
-          val select = MetadataStatements.Select.of[F](schema.metadata)
-          val insert = cassandra.MetaJournalStatements.Insert.of[F](metaJournal)
-          (of[F](metaJournal), metadata, select, insert).parMapN(apply[F])
-        }
+       val select = MetadataStatements.Select.of[F](schema.metadata)
+       val insert = cassandra.MetaJournalStatements.Insert.of[F](schema.metaJournal)
+       (of[F](schema.metaJournal), metadata, select, insert).parMapN(apply[F])
     }
 
 

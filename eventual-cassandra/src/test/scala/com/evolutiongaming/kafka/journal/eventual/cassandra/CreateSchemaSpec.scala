@@ -33,7 +33,7 @@ class CreateSchemaSpec extends AnyFunSuite with Matchers { self =>
   private val schema = Schema(
     journal = TableName(keyspace = "journal", table = "journal"),
     metadata = TableName(keyspace = "journal", table = "metadata"),
-    metaJournal = none,
+    metaJournal = TableName(keyspace = "journal", table = "metajournal"),
     pointer = TableName(keyspace = "journal", table = "pointer"),
     setting = TableName(keyspace = "journal", table = "setting"))
 
