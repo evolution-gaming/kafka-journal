@@ -18,7 +18,7 @@ class ResourceRefTest extends AsyncFunSuite with Matchers {
     val result = for {
       ref0 <- Ref[IO].of(false)
       ref1 <- Ref[IO].of(false)
-      _    <- ResourceRef.of(resourceOf(0, ref0)).use { ref =>
+      ref  <- ResourceRef.of(resourceOf(0, ref0)).use { ref =>
         for {
           a <- ref.get
           _  = a shouldEqual 0
@@ -31,11 +31,13 @@ class ResourceRefTest extends AsyncFunSuite with Matchers {
           _  = a shouldEqual false
           a <- ref1.get
           _  = a shouldEqual true
-        } yield {}
+        } yield ref
       }
       a <- ref1.get
       _  = a shouldEqual false
       _ <- ().pure[IO]
+      a <- ref.get.attempt
+      _  = a shouldEqual ResourceReleasedError.asLeft
     } yield {}
     result.run()
   }

@@ -30,6 +30,7 @@ object KafkaHealthCheck {
   }
   
 
+  // TODO pass KafkaConfig
   def of[F[_] : Concurrent : Timer : LogOf : KafkaConsumerOf : KafkaProducerOf : RandomIdOf : FromTry](
     config: Config,
     producerConfig: ProducerConfig,

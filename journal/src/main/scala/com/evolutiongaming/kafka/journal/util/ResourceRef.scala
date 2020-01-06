@@ -5,6 +5,8 @@ import cats.effect.implicits._
 import cats.effect.{Resource, Sync}
 import cats.implicits._
 
+import scala.util.control.NoStackTrace
+
 trait ResourceRef[F[_], A] {
 
   def get: F[A]
@@ -25,10 +27,12 @@ object ResourceRef {
         for {
           ab           <- resource.allocated
           (a, release)  = ab
-          ref          <- Ref[F].of(State(a, release))
+          ref          <- Ref[F].of(State(a, release).some)
         } yield ref
       } { ref =>
-        ref.get.flatMap { _.release }
+        ref
+          .getAndSet(none)
+          .flatMap { _.foldMapM { _.release } }
       }
       .map { ref =>
         new ResourceRef[F, A] {
@@ -36,13 +40,19 @@ object ResourceRef {
           def get = {
             ref
               .get
-              .map { _.a }
+              .flatMap {
+                case Some(state) => state.a.pure[F]
+                case None        => ResourceReleasedError.raiseError[F, A]
+              }
           }
 
           def set(a: A, release: F[Unit]) = {
             ref
-              .getAndSet(State(a, release))
-              .flatMap { _.release }
+              .modify {
+                case Some(state) => (State(a, release).some, state.release )
+                case None        => (none, ResourceReleasedError.raiseError[F, Unit])
+              }
+              .flatten
               .uncancelable
           }
 
@@ -55,3 +65,5 @@ object ResourceRef {
       }
   }
 }
+
+case object ResourceReleasedError extends RuntimeException("Resource released") with NoStackTrace
