@@ -3,8 +3,8 @@ package akka.persistence.kafka.journal
 import com.evolutiongaming.kafka.journal.Journal.CallTimeThresholds
 import com.evolutiongaming.kafka.journal.JournalConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig
-import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
+import pureconfig.{ConfigCursor, ConfigReader, ConfigSource, Derivation}
 
 import scala.concurrent.duration._
 
@@ -20,5 +20,21 @@ object KafkaJournalConfig {
 
   val default: KafkaJournalConfig = KafkaJournalConfig()
 
-  implicit val configReaderKafkaJournalConfig: ConfigReader[KafkaJournalConfig] = deriveReader
+  implicit val configReaderKafkaJournalConfig: ConfigReader[KafkaJournalConfig] = {
+
+    val configReader = deriveReader[KafkaJournalConfig]
+
+    cursor: ConfigCursor => {
+      cursor.value
+      for {
+        cursor  <- cursor.asObjectCursor
+        config   = cursor.value.toConfig
+        source   = ConfigSource.fromConfig(config)
+        config  <- source.load(Derivation.Successful(configReader))
+        journal <- source.load[JournalConfig]
+      } yield {
+        config.copy(journal = journal)
+      }
+    }
+  }
 }

@@ -2,6 +2,7 @@ package akka.persistence.kafka.journal
 
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.Journal.CallTimeThresholds
+import com.evolutiongaming.kafka.journal.{JournalConfig, KafkaConfig}
 import com.typesafe.config.ConfigFactory
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -29,17 +30,21 @@ class KafkaJournalConfigSpec extends AnyFunSuite with Matchers {
         append = 1.millis,
         read = 2.millis,
         pointer = 3.millis,
-        delete = 4.millis))
+        delete = 4.millis),
+      journal = JournalConfig(
+        headCache = JournalConfig.HeadCache(enabled = false),
+        kafka = KafkaConfig("client-id")))
     ConfigSource
       .fromConfig(config)
       .load[KafkaJournalConfig] shouldEqual expected.pure[ConfigReader.Result]
   }
 
   test("apply from reference.conf") {
-    val config = ConfigFactory.load().getConfig("evolutiongaming.kafka-journal.persistence.journal")
+    val config = ConfigFactory.load()
     val expected = KafkaJournalConfig.default
     ConfigSource
       .fromConfig(config)
+      .at("evolutiongaming.kafka-journal.persistence.journal")
       .load[KafkaJournalConfig] shouldEqual expected.pure[ConfigReader.Result]
   }
 }
