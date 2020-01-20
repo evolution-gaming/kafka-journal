@@ -37,11 +37,11 @@ object PurgeExpired {
     implicit val fromAttempt = FromAttempt.lift[F]
 
     for {
-      producer      <- KafkaProducerOf[F].apply(producerConfig)
+      producer      <- Journals.Producer.of[F](producerConfig)
       selectExpired  = MetaJournalStatements.IdByTopicAndExpireOn.of[F](tableName)
       selectExpired <- Resource.liftF(selectExpired)
     } yield {
-      val produce = Produce(Journals.Producer(producer), origin)
+      val produce = Produce(producer, origin)
       val purgeExpired = apply(selectExpired, produce)
       metrics
         .fold { purgeExpired } { metrics => purgeExpired.withMetrics(metrics) }
@@ -60,9 +60,9 @@ object PurgeExpired {
       def apply(topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]) = {
         val result = for {
           segment <- Stream[F].apply(segments.toNel)
-          id  <- selectExpired(topic, segment, expireOn)
-          key  = Key(id = id, topic = topic)
-          _   <- Stream.lift(produce.purge(key))
+          id      <- selectExpired(topic, segment, expireOn)
+          key      = Key(id = id, topic = topic)
+          _       <- Stream.lift(produce.purge(key))
         } yield {}
         result.length
       }
