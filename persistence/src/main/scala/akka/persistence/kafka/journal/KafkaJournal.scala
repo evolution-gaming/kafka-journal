@@ -102,6 +102,13 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     Resource.liftF(cassandraClusterOf)
   }
 
+  def jsValueCodec(config: KafkaJournalConfig): JsValueCodec = {
+    config.serialization.jsonCodec match {
+      case SerializationConfig.JsonCoded.PlayJson => JsValueCodec.playJson
+      case SerializationConfig.JsonCoded.Jsoniter => JsValueCodec.jsoniter
+    }
+  }
+
   def adapterIO: Resource[IO, JournalAdapter[IO]] = {
     for {
       config  <- Resource.liftF(kafkaJournalConfig)
@@ -135,7 +142,8 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
         cassandraClusterOf = cassandraClusterOf)(
         logOf              = logOf,
         randomIdOf         = randomId,
-        measureDuration    = measureDuration)
+        measureDuration    = measureDuration,
+        jsValueCodec       = jsValueCodec(config))
     } yield {
       (adapter, log)
     }
@@ -165,7 +173,8 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     cassandraClusterOf: CassandraClusterOf[IO])(implicit
     logOf: LogOf[IO],
     randomIdOf: RandomIdOf[IO],
-    measureDuration: MeasureDuration[IO]
+    measureDuration: MeasureDuration[IO],
+    jsValueCodec: JsValueCodec
   ): Resource[IO, JournalAdapter[IO]] = {
 
     JournalAdapter.of[IO](

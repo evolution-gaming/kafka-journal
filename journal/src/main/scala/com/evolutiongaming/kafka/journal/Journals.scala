@@ -41,7 +41,7 @@ object Journals {
     eventualJournal: EventualJournal[F],
     metrics: Option[JournalMetrics[F]],
     callTimeThresholds: Journal.CallTimeThresholds
-  ): Resource[F, Journals[F]] = {
+  )(implicit jsValueCodec: JsValueCodec): Resource[F, Journals[F]] = {
 
     val consumer = Consumer.of[F](config.kafka.consumer, config.pollTimeout)
 
@@ -78,7 +78,7 @@ object Journals {
     eventualJournal: EventualJournal[F],
     headCache: HeadCache[F],
     log: Log[F]
-  ): Journals[F] = {
+  )(implicit jsValueCodec: JsValueCodec): Journals[F] = {
     implicit val fromAttempt = FromAttempt.lift[F]
     implicit val fromJsResult = FromJsResult.lift[F]
 

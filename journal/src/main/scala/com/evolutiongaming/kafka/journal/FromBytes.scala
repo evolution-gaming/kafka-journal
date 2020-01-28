@@ -6,9 +6,6 @@ import play.api.libs.json._
 import scodec.bits.ByteVector
 import scodec.{Decoder, codecs}
 
-import scala.util.control.NonFatal
-
-
 trait FromBytes[F[_], A] {
 
   def apply(bytes: ByteVector): F[A]
@@ -38,8 +35,6 @@ object FromBytes {
     FromAttempt[F].apply(as)
   }
 
-  implicit def jsValueFromBytes[F[_] : FromJsResult]: FromBytes[F, JsValue] = fromReads
-
 
   def fromDecoder[F[_] : FromAttempt, A](implicit decoder: Decoder[A]): FromBytes[F, A] = (a: ByteVector) => {
     FromAttempt[F].apply {
@@ -52,16 +47,9 @@ object FromBytes {
   }
 
 
-  def fromReads[F[_] : FromJsResult, A](implicit reads: Reads[A]): FromBytes[F, A] = (a: ByteVector) => {
-    val jsValue = try {
-      val jsValue = Json.parse(a.toArray)
-      JsSuccess(jsValue)
-    } catch {
-      case NonFatal(a) => JsError(s"failed to parse json $a")
-    }
-
+  def fromReads[F[_] : FromJsResult, A](implicit reads: Reads[A], jsValueCodec: JsValueCodec): FromBytes[F, A] = (a: ByteVector) => {
     val result = for {
-      a <- jsValue
+      a <- jsValueCodec.decode(a)
       a <- reads.reads(a)
     } yield a
     FromJsResult[F].apply(result)

@@ -12,6 +12,7 @@ import com.evolutiongaming.skafka.{TimestampAndType, TimestampType, TopicPartiti
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.Json
+import JsValueCodec.Implicits.default
 
 import scala.concurrent.duration._
 import scala.util.Try

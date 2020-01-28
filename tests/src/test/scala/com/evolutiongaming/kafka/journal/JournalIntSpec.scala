@@ -19,6 +19,7 @@ import com.evolutiongaming.retry.{Retry, Strategy}
 import org.scalatest.Succeeded
 import org.scalatest.wordspec.AsyncWordSpec
 import play.api.libs.json.Json
+import JsValueCodec.Implicits.default
 
 import scala.concurrent.duration._
 

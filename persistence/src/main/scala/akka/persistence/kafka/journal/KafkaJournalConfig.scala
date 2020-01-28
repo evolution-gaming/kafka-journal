@@ -14,7 +14,8 @@ final case class KafkaJournalConfig(
   startTimeout: FiniteDuration = 1.minute,
   stopTimeout: FiniteDuration = 1.minute,
   maxEventsInBatch: Int = 10,
-  callTimeThresholds: CallTimeThresholds = CallTimeThresholds.default)
+  callTimeThresholds: CallTimeThresholds = CallTimeThresholds.default,
+  serialization: SerializationConfig = SerializationConfig.default)
 
 object KafkaJournalConfig {
 

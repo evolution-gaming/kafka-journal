@@ -43,7 +43,7 @@ object JournalAdapter {
     batching: Batching[F],
     appendMetadataOf: AppendMetadataOf[F],
     cassandraClusterOf: CassandraClusterOf[F]
-  ): Resource[F, JournalAdapter[F]] = {
+  )(implicit jsValueCodec: JsValueCodec): Resource[F, JournalAdapter[F]] = {
 
     def clientIdOf(config: CommonConfig) = config.clientId getOrElse "journal"
 

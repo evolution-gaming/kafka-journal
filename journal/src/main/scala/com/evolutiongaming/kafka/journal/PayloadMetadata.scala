@@ -14,7 +14,7 @@ object PayloadMetadata {
 
   implicit val formatPayloadMetadata: OFormat[PayloadMetadata] = Json.format
 
-  implicit def toBytesPayloadMetadata[F[_] : Applicative]: ToBytes[F, PayloadMetadata] = ToBytes.fromWrites
+  implicit def toBytesPayloadMetadata[F[_] : Applicative](implicit jsValueCodec: JsValueCodec): ToBytes[F, PayloadMetadata] = ToBytes.fromWrites
 
-  implicit def fromBytesPayloadMetadata[F[_] : FromJsResult]: FromBytes[F, PayloadMetadata] = FromBytes.fromReads
+  implicit def fromBytesPayloadMetadata[F[_] : FromJsResult](implicit jsValueCodec: JsValueCodec): FromBytes[F, PayloadMetadata] = FromBytes.fromReads
 }

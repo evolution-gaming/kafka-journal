@@ -33,9 +33,6 @@ object ToBytes {
 
   implicit def byteVectorToBytes[F[_] : Applicative]: ToBytes[F, ByteVector] = _.pure[F]
 
-  implicit def jsValueToBytes[F[_] : Applicative]: ToBytes[F, JsValue] = fromWrites
-
-
   def fromEncoder[F[_] : FromAttempt, A](implicit encoder: Encoder[A]): ToBytes[F, A] = (a: A) => {
     val bytes = for {
       a <- encoder.encode(a)
@@ -46,10 +43,9 @@ object ToBytes {
   }
 
 
-  def fromWrites[F[_] : Applicative, A](implicit writes: Writes[A]): ToBytes[F, A] = (a: A) => {
+  def fromWrites[F[_] : Applicative, A](implicit writes: Writes[A], jsValueCodec: JsValueCodec): ToBytes[F, A] = (a: A) => {
     val jsValue = writes.writes(a)
-    val bytes = Json.toBytes(jsValue)
-    val byteVector = ByteVector.view(bytes)
+    val byteVector = jsValueCodec.encode(jsValue)
     byteVector.pure[F]
   }
 

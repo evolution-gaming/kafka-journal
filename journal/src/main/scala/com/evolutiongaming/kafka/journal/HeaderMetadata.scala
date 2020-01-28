@@ -12,7 +12,7 @@ object HeaderMetadata {
 
   implicit val formatHeaderMetadata: OFormat[HeaderMetadata] = Json.format
 
-  implicit def toBytesHeaderMetadata[F[_] : Applicative]: ToBytes[F, HeaderMetadata] = ToBytes.fromWrites
+  implicit def toBytesHeaderMetadata[F[_] : Applicative](implicit jsValueCodec: JsValueCodec): ToBytes[F, HeaderMetadata] = ToBytes.fromWrites
 
-  implicit def fromBytesHeaderMetadata[F[_] : FromJsResult]: FromBytes[F, HeaderMetadata] = FromBytes.fromReads
+  implicit def fromBytesHeaderMetadata[F[_] : FromJsResult](implicit jsValueCodec: JsValueCodec): FromBytes[F, HeaderMetadata] = FromBytes.fromReads
 }

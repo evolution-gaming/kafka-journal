@@ -18,6 +18,7 @@ import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.MeasureDuration
 import com.typesafe.config.ConfigFactory
 import pureconfig.ConfigSource
+import JsValueCodec.Implicits.default
 
 import scala.concurrent.duration._
 

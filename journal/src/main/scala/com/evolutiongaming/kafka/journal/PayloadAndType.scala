@@ -48,8 +48,8 @@ object PayloadAndType {
     implicit val codecPayloadJson: Codec[PayloadJson] = formatCodec // TODO not used
 
 
-    implicit def toBytesPayloadJson[F[_] : Applicative]: ToBytes[F, PayloadJson] = ToBytes.fromWrites
+    implicit def toBytesPayloadJson[F[_] : Applicative](implicit jsValueCodec: JsValueCodec): ToBytes[F, PayloadJson] = ToBytes.fromWrites
 
-    implicit def fromBytesPayloadJson[F[_] : FromJsResult]: FromBytes[F, PayloadJson] = FromBytes.fromReads
+    implicit def fromBytesPayloadJson[F[_] : FromJsResult](implicit jsValueCodec: JsValueCodec): FromBytes[F, PayloadJson] = FromBytes.fromReads
   }
 }
