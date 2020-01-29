@@ -6,8 +6,13 @@ import scodec.bits.ByteVector
 
 import scala.util.{Failure, Success, Try}
 
-trait JsValueCodec {
+trait JsValueCodec extends JsValueEncoder with JsValueDecoder
+
+trait JsValueEncoder {
   def encode(value: JsValue): ByteVector
+}
+
+trait JsValueDecoder {
   def decode(bytes: ByteVector): JsResult[JsValue]
 }
 

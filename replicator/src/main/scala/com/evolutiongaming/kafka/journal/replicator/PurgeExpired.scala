@@ -32,7 +32,7 @@ object PurgeExpired {
     producerConfig: ProducerConfig,
     tableName: TableName,
     metrics: Option[Metrics[F]]
-  )(implicit jsValueCodec: JsValueCodec): Resource[F, PurgeExpired[F]] = {
+  )(implicit jsValueEncoder: JsValueEncoder): Resource[F, PurgeExpired[F]] = {
 
     implicit val fromAttempt = FromAttempt.lift[F]
 

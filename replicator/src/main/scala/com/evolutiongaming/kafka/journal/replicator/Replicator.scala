@@ -39,7 +39,7 @@ object Replicator {
     cassandraClusterOf: CassandraClusterOf[F],
     hostName: Option[HostName],
     metrics: Option[Metrics[F]] = none
-  )(implicit jsValueCodec: JsValueCodec): Resource[F, F[Unit]] = {
+  )(implicit jsValueDecoder: JsValueDecoder): Resource[F, F[Unit]] = {
 
     def replicatedJournal(implicit
       cassandraCluster: CassandraCluster[F],
@@ -62,7 +62,7 @@ object Replicator {
     metrics: Option[Metrics[F]],
     journal: ReplicatedJournal[F],
     hostName: Option[HostName]
-  )(implicit jsValueCodec: JsValueCodec): Resource[F, F[Unit]] = {
+  )(implicit jsValueDecoder: JsValueDecoder): Resource[F, F[Unit]] = {
 
     val topicReplicator = (topic: Topic) => {
 

@@ -86,9 +86,9 @@ object ActionHeader {
   implicit val writesActionHeader: Writes[ActionHeader] = formatOptActionHeader.contramap { a: ActionHeader => a.some }
 
 
-  implicit def toBytesActionHeader[F[_] : Applicative](implicit jsCodec: JsValueCodec): ToBytes[F, ActionHeader] = ToBytes.fromWrites
+  implicit def toBytesActionHeader[F[_] : Applicative](implicit encoder: JsValueEncoder): ToBytes[F, ActionHeader] = ToBytes.fromWrites
 
-  implicit def fromBytesOptActionHeader[F[_] : FromJsResult](implicit jsCodec: JsValueCodec): FromBytes[F, Option[ActionHeader]] = FromBytes.fromReads
+  implicit def fromBytesOptActionHeader[F[_] : FromJsResult](implicit decoder: JsValueDecoder): FromBytes[F, Option[ActionHeader]] = FromBytes.fromReads
 
 
   sealed abstract class AppendOrDelete extends ActionHeader

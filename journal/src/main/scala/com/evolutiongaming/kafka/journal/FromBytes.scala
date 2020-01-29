@@ -47,9 +47,9 @@ object FromBytes {
   }
 
 
-  def fromReads[F[_] : FromJsResult, A](implicit reads: Reads[A], jsValueCodec: JsValueCodec): FromBytes[F, A] = (a: ByteVector) => {
+  def fromReads[F[_] : FromJsResult, A](implicit reads: Reads[A], decoder: JsValueDecoder): FromBytes[F, A] = (a: ByteVector) => {
     val result = for {
-      a <- jsValueCodec.decode(a)
+      a <- decoder.decode(a)
       a <- reads.reads(a)
     } yield a
     FromJsResult[F].apply(result)

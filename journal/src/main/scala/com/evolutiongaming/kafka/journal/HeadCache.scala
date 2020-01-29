@@ -55,7 +55,7 @@ object HeadCache {
     consumerConfig: ConsumerConfig,
     eventualJournal: EventualJournal[F],
     metrics: Option[HeadCacheMetrics[F]]
-  )(implicit jsValueCodec: JsValueCodec): Resource[F, HeadCache[F]] = {
+  )(implicit jsValueDecoder: JsValueDecoder): Resource[F, HeadCache[F]] = {
 
     val eventual = Eventual(eventualJournal)
     val consumer = Consumer.of[F](consumerConfig)
@@ -74,7 +74,7 @@ object HeadCache {
     consumer: Resource[F, Consumer[F]],
     metrics: Option[HeadCacheMetrics[F]],
     config: HeadCacheConfig = HeadCacheConfig.default
-  )(implicit jsValueCodec: JsValueCodec): Resource[F, HeadCache[F]] = {
+  )(implicit jsValueDecoder: JsValueDecoder): Resource[F, HeadCache[F]] = {
 
     implicit val consRecordToActionHeader = ConsRecordToActionHeader[F]
     implicit val consRecordToKafkaRecord = HeadCache.ConsRecordToKafkaRecord[F]
