@@ -27,12 +27,12 @@ trait PurgeExpired[F[_]] {
 object PurgeExpired {
 
 
-  def of[F[_] : MonadThrowable : KafkaProducerOf : CassandraSession : FromTry : Fail : Clock : MeasureDuration](
+  def of[F[_] : MonadThrowable : KafkaProducerOf : CassandraSession : FromTry : Fail : Clock : MeasureDuration : JsValueCodec.Encode](
     origin: Option[Origin],
     producerConfig: ProducerConfig,
     tableName: TableName,
     metrics: Option[Metrics[F]]
-  )(implicit jsValueEncoder: JsValueEncoder): Resource[F, PurgeExpired[F]] = {
+  ): Resource[F, PurgeExpired[F]] = {
 
     implicit val fromAttempt = FromAttempt.lift[F]
 

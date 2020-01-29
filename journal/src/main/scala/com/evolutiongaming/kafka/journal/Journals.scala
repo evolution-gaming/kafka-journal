@@ -35,13 +35,13 @@ object Journals {
   def const[F[_]](journal: Journal[F]): Journals[F] = (_: Key) => journal
 
 
-  def of[F[_] : Concurrent : Timer : Parallel : LogOf : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomIdOf : MeasureDuration : FromTry : Fail](
+  def of[F[_] : Concurrent : Timer : Parallel : LogOf : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomIdOf : MeasureDuration : FromTry : Fail : JsValueCodec.Encode : JsValueCodec.Decode](
     config: JournalConfig,
     origin: Option[Origin],
     eventualJournal: EventualJournal[F],
     metrics: Option[JournalMetrics[F]],
     callTimeThresholds: Journal.CallTimeThresholds
-  )(implicit jsValueCodec: JsValueCodec): Resource[F, Journals[F]] = {
+  ): Resource[F, Journals[F]] = {
 
     val consumer = Consumer.of[F](config.kafka.consumer, config.pollTimeout)
 
@@ -71,14 +71,14 @@ object Journals {
   }
 
 
-  def apply[F[_] : Concurrent : Parallel : Clock : RandomIdOf : FromTry : Fail](
+  def apply[F[_] : Concurrent : Parallel : Clock : RandomIdOf : FromTry : Fail : JsValueCodec.Encode : JsValueCodec.Decode](
     origin: Option[Origin],
     producer: Producer[F],
     consumer: Resource[F, Consumer[F]],
     eventualJournal: EventualJournal[F],
     headCache: HeadCache[F],
     log: Log[F]
-  )(implicit jsValueCodec: JsValueCodec): Journals[F] = {
+  ): Journals[F] = {
     implicit val fromAttempt = FromAttempt.lift[F]
     implicit val fromJsResult = FromJsResult.lift[F]
 

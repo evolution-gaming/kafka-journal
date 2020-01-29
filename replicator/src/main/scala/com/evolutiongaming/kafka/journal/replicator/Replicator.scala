@@ -34,12 +34,12 @@ trait Replicator[F[_]] {
 
 object Replicator {
 
-  def of[F[_] : Concurrent : Timer : Parallel : FromFuture : ToFuture : LogOf : KafkaConsumerOf : FromGFuture : MeasureDuration : FromTry : Fail](
+  def of[F[_] : Concurrent : Timer : Parallel : FromFuture : ToFuture : LogOf : KafkaConsumerOf : FromGFuture : MeasureDuration : FromTry : Fail : JsValueCodec.Decode](
     config: ReplicatorConfig,
     cassandraClusterOf: CassandraClusterOf[F],
     hostName: Option[HostName],
     metrics: Option[Metrics[F]] = none
-  )(implicit jsValueDecoder: JsValueDecoder): Resource[F, F[Unit]] = {
+  ): Resource[F, F[Unit]] = {
 
     def replicatedJournal(implicit
       cassandraCluster: CassandraCluster[F],
@@ -57,12 +57,12 @@ object Replicator {
     } yield result
   }
 
-  def of[F[_] : Concurrent : Timer : Parallel : LogOf : KafkaConsumerOf : MeasureDuration : FromTry : Runtime : Fail](
+  def of[F[_] : Concurrent : Timer : Parallel : LogOf : KafkaConsumerOf : MeasureDuration : FromTry : Runtime : Fail : JsValueCodec.Decode](
     config: ReplicatorConfig,
     metrics: Option[Metrics[F]],
     journal: ReplicatedJournal[F],
     hostName: Option[HostName]
-  )(implicit jsValueDecoder: JsValueDecoder): Resource[F, F[Unit]] = {
+  ): Resource[F, F[Unit]] = {
 
     val topicReplicator = (topic: Topic) => {
 

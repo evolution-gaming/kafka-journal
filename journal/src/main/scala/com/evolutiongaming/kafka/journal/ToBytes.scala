@@ -43,10 +43,9 @@ object ToBytes {
   }
 
 
-  def fromWrites[F[_] : Applicative, A](implicit writes: Writes[A], encoder: JsValueEncoder): ToBytes[F, A] = (a: A) => {
+  def fromWrites[F[_] : Applicative, A](implicit writes: Writes[A], encode: JsValueCodec.Encode[F]): ToBytes[F, A] = (a: A) => {
     val jsValue = writes.writes(a)
-    val byteVector = encoder.encode(jsValue)
-    byteVector.pure[F]
+    encode.toBytes(jsValue)
   }
 
 

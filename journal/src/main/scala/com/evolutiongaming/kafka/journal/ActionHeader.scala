@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.Applicative
+import cats.{Applicative, Monad}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
 import play.api.libs.json._
@@ -86,9 +86,9 @@ object ActionHeader {
   implicit val writesActionHeader: Writes[ActionHeader] = formatOptActionHeader.contramap { a: ActionHeader => a.some }
 
 
-  implicit def toBytesActionHeader[F[_] : Applicative](implicit encoder: JsValueEncoder): ToBytes[F, ActionHeader] = ToBytes.fromWrites
+  implicit def toBytesActionHeader[F[_] : Applicative: JsValueCodec.Encode]: ToBytes[F, ActionHeader] = ToBytes.fromWrites
 
-  implicit def fromBytesOptActionHeader[F[_] : FromJsResult](implicit decoder: JsValueDecoder): FromBytes[F, Option[ActionHeader]] = FromBytes.fromReads
+  implicit def fromBytesOptActionHeader[F[_] : Monad : FromJsResult : JsValueCodec.Decode]: FromBytes[F, Option[ActionHeader]] = FromBytes.fromReads
 
 
   sealed abstract class AppendOrDelete extends ActionHeader

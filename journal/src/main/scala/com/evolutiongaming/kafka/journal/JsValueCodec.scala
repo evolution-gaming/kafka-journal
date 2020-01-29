@@ -1,54 +1,70 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.Applicative
+import cats.implicits._
+import com.evolutiongaming.catshelper.FromTry
 import com.evolutiongaming.jsonitertool.PlayJsonJsoniter
-import play.api.libs.json.{JsError, JsResult, JsSuccess, JsValue, Json}
+import play.api.libs.json.{JsValue, Json}
 import scodec.bits.ByteVector
 
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
-trait JsValueCodec extends JsValueEncoder with JsValueDecoder
-
-trait JsValueEncoder {
-  def encode(value: JsValue): ByteVector
-}
-
-trait JsValueDecoder {
-  def decode(bytes: ByteVector): JsResult[JsValue]
-}
+case class JsValueCodec[F[_]](encode: JsValueCodec.Encode[F], decode: JsValueCodec.Decode[F])
 
 object JsValueCodec {
 
-  def apply()(implicit ev: JsValueCodec): JsValueCodec = ev
+  def apply[F[_]](implicit ev: JsValueCodec[F]): JsValueCodec[F] = ev
 
-  def playJson: JsValueCodec = new JsValueCodec {
+  case class Encode[F[_]](toBytes: ToBytes[F, JsValue])
 
-    def encode(value: JsValue): ByteVector =
-      ByteVector(Json.toBytes(value))
-
-    def decode(bytes: ByteVector): JsResult[JsValue] = toJsResult {
-      Try(Json.parse(bytes.toArray))
-    }
-
+  object Encode {
+    implicit def fromCodec[F[_]](implicit codec: JsValueCodec[F]): Encode[F] = codec.encode
   }
 
-  def jsoniter: JsValueCodec = new JsValueCodec {
+  case class Decode[F[_]](fromBytes: FromBytes[F, JsValue])
 
-    def encode(value: JsValue): ByteVector =
-      ByteVector(PlayJsonJsoniter.serialize(value))
-
-    def decode(bytes: ByteVector): JsResult[JsValue] = toJsResult {
-      PlayJsonJsoniter.deserialize(bytes.toArray)
-    }
+  object Decode {
+    implicit def fromCodec[F[_]](implicit codec: JsValueCodec[F]): Decode[F] = codec.decode
   }
+
+  def playJson[F[_] : Applicative : FromTry]: JsValueCodec[F] = JsValueCodec(
+
+    encode = Encode { value =>
+      ByteVector(Json.toBytes(value)).pure[F]
+    },
+
+    decode = Decode { bytes =>
+      lift {
+        Try(Json.parse(bytes.toArray))
+      }
+    }
+  )
+
+  def jsoniter[F[_] : Applicative : FromTry]: JsValueCodec[F] = JsValueCodec(
+
+    encode = Encode { value =>
+      ByteVector(PlayJsonJsoniter.serialize(value)).pure[F]
+    },
+
+    decode = Decode { bytes =>
+      lift {
+        PlayJsonJsoniter.deserialize(bytes.toArray)
+      }
+    }
+  )
 
   object Implicits {
-    implicit val default: JsValueCodec = JsValueCodec.playJson
+
+    implicit def default[F[_] : Applicative : FromTry]: JsValueCodec[F] = JsValueCodec.playJson
   }
 
+  class JsonParsingError(cause: Throwable) extends Throwable(s"failed to parse json ${cause.getMessage}", cause)
+
   @inline
-  private def toJsResult(result: Try[JsValue]): JsResult[JsValue] =
-    result match {
-      case Success(value) => JsSuccess(value)
-      case Failure(e)     => JsError(s"failed to parse json $e")
+  private def lift[F[_]: FromTry](result: Try[JsValue]): F[JsValue] =
+    FromTry[F].apply {
+      result.adaptErr {
+        case e => new JsonParsingError(e)
+      }
     }
 }

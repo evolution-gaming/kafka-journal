@@ -33,7 +33,11 @@ trait JournalAdapter[F[_]] {
 
 object JournalAdapter {
 
-  def of[F[_] : ConcurrentEffect : ContextShift : FromFuture : ToFuture : Parallel : Timer : LogOf : Runtime : RandomIdOf : FromGFuture : MeasureDuration : ToTry : FromTry : FromAttempt : FromJsResult : Fail](
+  def of[
+    F[_] : ConcurrentEffect : ContextShift : FromFuture : ToFuture : Parallel : Timer : LogOf : Runtime :
+    RandomIdOf : FromGFuture : MeasureDuration : ToTry : FromTry : FromAttempt : FromJsResult : Fail :
+    JsValueCodec.Encode : JsValueCodec.Decode
+  ](
     toKey: ToKey[F],
     origin: Option[Origin],
     serializer: EventSerializer[F],
@@ -43,7 +47,7 @@ object JournalAdapter {
     batching: Batching[F],
     appendMetadataOf: AppendMetadataOf[F],
     cassandraClusterOf: CassandraClusterOf[F]
-  )(implicit jsValueCodec: JsValueCodec): Resource[F, JournalAdapter[F]] = {
+  ): Resource[F, JournalAdapter[F]] = {
 
     def clientIdOf(config: CommonConfig) = config.clientId getOrElse "journal"
 

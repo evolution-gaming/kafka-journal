@@ -29,13 +29,13 @@ import scala.util.Try
 
 object TopicReplicator {
 
-  def of[F[_] : Concurrent : Timer : Parallel : LogOf : FromTry :  MeasureDuration : Fail](
+  def of[F[_] : Concurrent : Timer : Parallel : LogOf : FromTry :  MeasureDuration : Fail : JsValueCodec.Decode](
     topic: Topic,
     journal: ReplicatedJournal[F],
     consumer: Resource[F, TopicConsumer[F]],
     metrics: Metrics[F],
     cacheOf: CacheOf[F]
-  )(implicit jsValueDecoder: JsValueDecoder): Resource[F, F[Unit]] = {
+  ): Resource[F, F[Unit]] = {
 
     implicit val fromAttempt = FromAttempt.lift[F]
     implicit val fromJsResult = FromJsResult.lift[F]

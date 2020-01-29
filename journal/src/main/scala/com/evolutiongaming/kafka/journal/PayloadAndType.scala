@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 
 import cats.data.{NonEmptyList => Nel}
-import cats.Applicative
+import cats.{Applicative, Monad}
 import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
 import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import play.api.libs.json._
@@ -48,8 +48,8 @@ object PayloadAndType {
     implicit val codecPayloadJson: Codec[PayloadJson] = formatCodec // TODO not used
 
 
-    implicit def toBytesPayloadJson[F[_] : Applicative](implicit encoder: JsValueEncoder): ToBytes[F, PayloadJson] = ToBytes.fromWrites
+    implicit def toBytesPayloadJson[F[_] : Applicative: JsValueCodec.Encode]: ToBytes[F, PayloadJson] = ToBytes.fromWrites
 
-    implicit def fromBytesPayloadJson[F[_] : FromJsResult](implicit decoder: JsValueDecoder): FromBytes[F, PayloadJson] = FromBytes.fromReads
+    implicit def fromBytesPayloadJson[F[_] : Monad : FromJsResult: JsValueCodec.Decode]: FromBytes[F, PayloadJson] = FromBytes.fromReads
   }
 }

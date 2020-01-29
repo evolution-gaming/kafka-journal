@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.implicits._
-import cats.{Applicative, Functor, ~>}
+import cats.{Applicative, Functor, Monad, ~>}
 import play.api.libs.json._
 import scodec.bits.ByteVector
 import scodec.{Decoder, codecs}
@@ -47,12 +47,11 @@ object FromBytes {
   }
 
 
-  def fromReads[F[_] : FromJsResult, A](implicit reads: Reads[A], decoder: JsValueDecoder): FromBytes[F, A] = (a: ByteVector) => {
-    val result = for {
-      a <- decoder.decode(a)
-      a <- reads.reads(a)
+  def fromReads[F[_] : Monad : FromJsResult, A](implicit reads: Reads[A], decode: JsValueCodec.Decode[F]): FromBytes[F, A] = (a: ByteVector) => {
+    for {
+      a <- decode.fromBytes(a)
+      a <- FromJsResult[F].apply(reads.reads(a))
     } yield a
-    FromJsResult[F].apply(result)
   }
 
 

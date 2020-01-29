@@ -3,7 +3,7 @@ package akka.persistence.kafka.journal
 import akka.actor.ActorSystem
 import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.{AtomicWrite, PersistentRepr}
-import cats.Parallel
+import cats.{Applicative, Parallel}
 import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, ToFuture}
@@ -102,12 +102,13 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     Resource.liftF(cassandraClusterOf)
   }
 
-  def jsValueCodec(config: KafkaJournalConfig): JsValueCodec = {
-    config.serialization.jsonCodec match {
-      case SerializationConfig.JsonCoded.PlayJson => JsValueCodec.playJson
-      case SerializationConfig.JsonCoded.Jsoniter => JsValueCodec.jsoniter
+  def jsValueCodec(config: KafkaJournalConfig): IO[JsValueCodec[IO]] =
+    IO.pure {
+      config.serialization.jsonCodec match {
+        case SerializationConfig.JsonCoded.PlayJson => JsValueCodec.playJson
+        case SerializationConfig.JsonCoded.Jsoniter => JsValueCodec.jsoniter
+      }
     }
-  }
 
   def adapterIO: Resource[IO, JournalAdapter[IO]] = {
     for {
@@ -130,6 +131,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
       metrics            <- metrics
       batching           <- batching(config)
       cassandraClusterOf <- cassandraClusterOf
+      jsValueCodec       <- Resource.liftF(jsValueCodec(config))
       adapter            <- adapterOf(
         toKey              = toKey,
         origin             = origin,
@@ -143,7 +145,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
         logOf              = logOf,
         randomIdOf         = randomId,
         measureDuration    = measureDuration,
-        jsValueCodec       = jsValueCodec(config))
+        jsValueCodec       = jsValueCodec)
     } yield {
       (adapter, log)
     }
@@ -174,7 +176,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     logOf: LogOf[IO],
     randomIdOf: RandomIdOf[IO],
     measureDuration: MeasureDuration[IO],
-    jsValueCodec: JsValueCodec
+    jsValueCodec: JsValueCodec[IO]
   ): Resource[IO, JournalAdapter[IO]] = {
 
     JournalAdapter.of[IO](
