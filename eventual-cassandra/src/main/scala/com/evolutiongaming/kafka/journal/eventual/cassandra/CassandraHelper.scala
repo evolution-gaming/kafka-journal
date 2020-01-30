@@ -9,7 +9,7 @@ import com.evolutiongaming.kafka.journal.eventual.cassandra.util.FiniteDurationH
 import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
 import com.evolutiongaming.sstream.Stream
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.duration._
 
 object CassandraHelper {
