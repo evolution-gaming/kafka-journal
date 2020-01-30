@@ -33,7 +33,9 @@ class KafkaJournalConfigSpec extends AnyFunSuite with Matchers {
         delete = 4.millis),
       journal = JournalConfig(
         headCache = JournalConfig.HeadCache(enabled = false),
-        kafka = KafkaConfig("client-id")))
+        kafka = KafkaConfig("client-id")),
+      jsonCodec = KafkaJournalConfig.JsonCodec.Jsoniter,
+    )
     ConfigSource
       .fromConfig(config)
       .load[KafkaJournalConfig] shouldEqual expected.pure[ConfigReader.Result]

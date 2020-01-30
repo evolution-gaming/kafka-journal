@@ -131,7 +131,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
       metrics            <- metrics
       batching           <- batching(config)
       cassandraClusterOf <- cassandraClusterOf
-      jsonCodec       <- Resource.liftF(jsonCodec(config))
+      jsonCodec          <- Resource.liftF(jsonCodec(config))
       adapter            <- adapterOf(
         toKey              = toKey,
         origin             = origin,
