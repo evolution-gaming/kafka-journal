@@ -43,7 +43,7 @@ lazy val `scalatest-io` = (project in file("scalatest-io")
 lazy val journal = (project in file("journal")
   settings (name := "kafka-journal")
   settings commonSettings
-  dependsOn (`scalatest-io` % "test->compile")
+  dependsOn (`scalatest-io` % Test)
   settings (libraryDependencies ++= Seq(
     Akka.actor,
     Akka.stream,
@@ -58,6 +58,7 @@ lazy val journal = (project in file("journal")
     retry,
     `cats-helper`,
     `play-json`,
+    `play-json-jsoniter`,
     `future-helper`,
     hostname,
     `cassandra-driver`,

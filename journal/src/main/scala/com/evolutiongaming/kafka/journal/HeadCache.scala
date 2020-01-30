@@ -51,7 +51,10 @@ object HeadCache {
   }
 
 
-  def of[F[_] : Concurrent : Parallel : Timer : LogOf : KafkaConsumerOf : MeasureDuration : FromTry : FromAttempt : FromJsResult](
+  def of[
+    F[_] : Concurrent : Parallel : Timer : LogOf : KafkaConsumerOf : MeasureDuration : FromTry : FromAttempt :
+    FromJsResult : JsonCodec.Decode
+  ](
     consumerConfig: ConsumerConfig,
     eventualJournal: EventualJournal[F],
     metrics: Option[HeadCacheMetrics[F]]
@@ -68,7 +71,7 @@ object HeadCache {
   }
 
 
-  def of[F[_] : Concurrent : Parallel : Timer : FromAttempt : FromJsResult : MeasureDuration](
+  def of[F[_] : Concurrent : Parallel : Timer : FromAttempt : FromJsResult : MeasureDuration : JsonCodec.Decode](
     eventual: Eventual[F],
     log: Log[F],
     consumer: Resource[F, Consumer[F]],

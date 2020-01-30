@@ -22,6 +22,7 @@ import com.evolutiongaming.smetrics.MeasureDuration
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import play.api.libs.json.Json
+import TestJsonCodec.instance
 
 import scala.collection.immutable.SortedSet
 import scala.concurrent.duration._

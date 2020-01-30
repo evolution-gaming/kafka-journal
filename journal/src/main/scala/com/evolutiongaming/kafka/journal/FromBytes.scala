@@ -1,13 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.implicits._
-import cats.{Applicative, Functor, ~>}
+import cats.{Applicative, Functor, Monad, ~>}
 import play.api.libs.json._
 import scodec.bits.ByteVector
 import scodec.{Decoder, codecs}
-
-import scala.util.control.NonFatal
-
 
 trait FromBytes[F[_], A] {
 
@@ -38,8 +35,6 @@ object FromBytes {
     FromAttempt[F].apply(as)
   }
 
-  implicit def jsValueFromBytes[F[_] : FromJsResult]: FromBytes[F, JsValue] = fromReads
-
 
   def fromDecoder[F[_] : FromAttempt, A](implicit decoder: Decoder[A]): FromBytes[F, A] = (a: ByteVector) => {
     FromAttempt[F].apply {
@@ -51,20 +46,15 @@ object FromBytes {
     }
   }
 
-
-  def fromReads[F[_] : FromJsResult, A](implicit reads: Reads[A]): FromBytes[F, A] = (a: ByteVector) => {
-    val jsValue = try {
-      val jsValue = Json.parse(a.toArray)
-      JsSuccess(jsValue)
-    } catch {
-      case NonFatal(a) => JsError(s"failed to parse json $a")
-    }
-
-    val result = for {
-      a <- jsValue
-      a <- reads.reads(a)
-    } yield a
-    FromJsResult[F].apply(result)
+  def fromReads[F[_]: Monad: FromJsResult, A](
+    implicit reads: Reads[A],
+    decode: JsonCodec.Decode[F]
+  ): FromBytes[F, A] = {
+    bytes =>
+      for {
+        a <- decode.fromBytes(bytes)
+        a <- FromJsResult[F].apply(reads.reads(a))
+      } yield a
   }
 
 
