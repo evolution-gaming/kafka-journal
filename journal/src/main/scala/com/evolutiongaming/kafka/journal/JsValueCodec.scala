@@ -58,13 +58,11 @@ object JsValueCodec {
     implicit def default[F[_] : Applicative : FromTry]: JsValueCodec[F] = JsValueCodec.playJson
   }
 
-  class JsonParsingError(cause: Throwable) extends Throwable(s"failed to parse json ${cause.getMessage}", cause)
-
   @inline
   private def lift[F[_]: FromTry](result: Try[JsValue]): F[JsValue] =
     FromTry[F].apply {
       result.adaptErr {
-        case e => new JsonParsingError(e)
+        case e => JournalError(s"Failed to parse json: ${e.getMessage}", e)
       }
     }
 }
