@@ -53,11 +53,6 @@ object JsonCodec {
     }
   )
 
-  object Implicits {
-
-    implicit def default[F[_] : Applicative : FromTry]: JsonCodec[F] = JsonCodec.playJson
-  }
-
   @inline
   private def lift[F[_]: FromTry](result: Try[JsValue]): F[JsValue] =
     FromTry[F].apply {

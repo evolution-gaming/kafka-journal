@@ -15,7 +15,7 @@ import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.smetrics.CollectorRegistry
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
-import JsonCodec.Implicits.default
+import TestJsonCodec.instance
 
 import scala.collection.immutable.Queue
 import scala.concurrent.duration._

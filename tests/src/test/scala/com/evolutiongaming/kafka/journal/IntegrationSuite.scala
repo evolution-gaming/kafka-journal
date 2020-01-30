@@ -13,7 +13,7 @@ import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.smetrics.{CollectorRegistry, MeasureDuration}
 import com.typesafe.config.ConfigFactory
-import JsonCodec.Implicits.default
+import TestJsonCodec.instance
 
 import scala.concurrent.ExecutionContext
 

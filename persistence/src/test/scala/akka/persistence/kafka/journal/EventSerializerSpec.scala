@@ -13,7 +13,7 @@ import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.JsString
 import scodec.bits.ByteVector
-import JsonCodec.Implicits.default
+import TestJsonCodec.instance
 import cats.implicits._
 
 import scala.util.Try

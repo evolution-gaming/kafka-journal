@@ -15,7 +15,7 @@ import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.smetrics.MeasureDuration
 import org.scalatest.wordspec.AsyncWordSpec
-import JsonCodec.Implicits.default
+import TestJsonCodec.instance
 
 import scala.concurrent.duration._
 

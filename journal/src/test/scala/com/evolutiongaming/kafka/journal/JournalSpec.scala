@@ -19,7 +19,7 @@ import com.evolutiongaming.sstream.Stream
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.{Assertion, Succeeded}
-import JsonCodec.Implicits.default
+import TestJsonCodec.instance
 
 import scala.collection.immutable.Queue
 import scala.concurrent.duration._
