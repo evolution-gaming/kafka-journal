@@ -9,25 +9,25 @@ import scodec.bits.ByteVector
 
 import scala.util.Try
 
-final case class JsValueCodec[F[_]](encode: JsValueCodec.Encode[F], decode: JsValueCodec.Decode[F])
+final case class JsonCodec[F[_]](encode: JsonCodec.Encode[F], decode: JsonCodec.Decode[F])
 
-object JsValueCodec {
+object JsonCodec {
 
-  def apply[F[_]](implicit ev: JsValueCodec[F]): JsValueCodec[F] = ev
+  def apply[F[_]](implicit ev: JsonCodec[F]): JsonCodec[F] = ev
 
   final case class Encode[F[_]](toBytes: ToBytes[F, JsValue])
 
   object Encode {
-    implicit def fromCodec[F[_]](implicit codec: JsValueCodec[F]): Encode[F] = codec.encode
+    implicit def fromCodec[F[_]](implicit codec: JsonCodec[F]): Encode[F] = codec.encode
   }
 
   final case class Decode[F[_]](fromBytes: FromBytes[F, JsValue])
 
   object Decode {
-    implicit def fromCodec[F[_]](implicit codec: JsValueCodec[F]): Decode[F] = codec.decode
+    implicit def fromCodec[F[_]](implicit codec: JsonCodec[F]): Decode[F] = codec.decode
   }
 
-  def playJson[F[_] : Applicative : FromTry]: JsValueCodec[F] = JsValueCodec(
+  def playJson[F[_] : Applicative : FromTry]: JsonCodec[F] = JsonCodec(
 
     encode = Encode { value =>
       ByteVector(Json.toBytes(value)).pure[F]
@@ -40,7 +40,7 @@ object JsValueCodec {
     }
   )
 
-  def jsoniter[F[_] : Applicative : FromTry]: JsValueCodec[F] = JsValueCodec(
+  def jsoniter[F[_] : Applicative : FromTry]: JsonCodec[F] = JsonCodec(
 
     encode = Encode { value =>
       ByteVector(PlayJsonJsoniter.serialize(value)).pure[F]
@@ -55,7 +55,7 @@ object JsValueCodec {
 
   object Implicits {
 
-    implicit def default[F[_] : Applicative : FromTry]: JsValueCodec[F] = JsValueCodec.playJson
+    implicit def default[F[_] : Applicative : FromTry]: JsonCodec[F] = JsonCodec.playJson
   }
 
   @inline

@@ -29,7 +29,7 @@ import scala.util.Try
 
 object TopicReplicator {
 
-  def of[F[_] : Concurrent : Timer : Parallel : LogOf : FromTry :  MeasureDuration : Fail : JsValueCodec.Decode](
+  def of[F[_] : Concurrent : Timer : Parallel : LogOf : FromTry :  MeasureDuration : Fail : JsonCodec.Decode](
     topic: Topic,
     journal: ReplicatedJournal[F],
     consumer: Resource[F, TopicConsumer[F]],

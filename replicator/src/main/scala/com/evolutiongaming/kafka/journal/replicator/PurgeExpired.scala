@@ -27,7 +27,7 @@ trait PurgeExpired[F[_]] {
 object PurgeExpired {
 
 
-  def of[F[_] : MonadThrowable : KafkaProducerOf : CassandraSession : FromTry : Fail : Clock : MeasureDuration : JsValueCodec.Encode](
+  def of[F[_] : MonadThrowable : KafkaProducerOf : CassandraSession : FromTry : Fail : Clock : MeasureDuration : JsonCodec.Encode](
     origin: Option[Origin],
     producerConfig: ProducerConfig,
     tableName: TableName,

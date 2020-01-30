@@ -31,7 +31,7 @@ object HeadCacheOf {
 
   def apply[
     F[_] : Concurrent : Parallel : Timer : LogOf : KafkaConsumerOf : MeasureDuration : FromTry : FromAttempt :
-    FromJsResult : JsValueCodec.Decode
+    FromJsResult : JsonCodec.Decode
   ](
     metrics: Option[HeadCacheMetrics[F]]
   ): HeadCacheOf[F] = {

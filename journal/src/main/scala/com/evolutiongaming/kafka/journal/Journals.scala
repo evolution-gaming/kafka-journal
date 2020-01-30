@@ -35,7 +35,10 @@ object Journals {
   def const[F[_]](journal: Journal[F]): Journals[F] = (_: Key) => journal
 
 
-  def of[F[_] : Concurrent : Timer : Parallel : LogOf : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomIdOf : MeasureDuration : FromTry : Fail : JsValueCodec.Encode : JsValueCodec.Decode](
+  def of[
+    F[_] : Concurrent : Timer : Parallel : LogOf : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomIdOf :
+    MeasureDuration : FromTry : Fail : JsonCodec
+  ](
     config: JournalConfig,
     origin: Option[Origin],
     eventualJournal: EventualJournal[F],
@@ -71,7 +74,7 @@ object Journals {
   }
 
 
-  def apply[F[_] : Concurrent : Parallel : Clock : RandomIdOf : FromTry : Fail : JsValueCodec.Encode : JsValueCodec.Decode](
+  def apply[F[_] : Concurrent : Parallel : Clock : RandomIdOf : FromTry : Fail : JsonCodec.Encode : JsonCodec.Decode](
     origin: Option[Origin],
     producer: Producer[F],
     consumer: Resource[F, Consumer[F]],

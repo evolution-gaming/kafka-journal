@@ -10,7 +10,7 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.Json
 import scodec.bits.ByteVector
-import JsValueCodec.Implicits.default
+import JsonCodec.Implicits.default
 
 import scala.util.Try
 import scala.concurrent.duration._

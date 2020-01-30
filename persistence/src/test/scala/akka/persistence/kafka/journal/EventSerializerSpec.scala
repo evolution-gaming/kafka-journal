@@ -13,7 +13,7 @@ import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.JsString
 import scodec.bits.ByteVector
-import JsValueCodec.Implicits.default
+import JsonCodec.Implicits.default
 import cats.implicits._
 
 import scala.util.Try
@@ -53,7 +53,7 @@ class EventSerializerSpec extends AsyncFunSuite with ActorSuite with Matchers {
         payload match {
           case payload: Payload.Binary => payload.value shouldEqual bytes
           case payload: Payload.Text   => payload.value shouldEqual bytes.fromBytes[Try, String].get
-          case payload: Payload.Json   => payload.value shouldEqual JsValueCodec[Try].decode.fromBytes(bytes).get
+          case payload: Payload.Json   => payload.value shouldEqual JsonCodec[Try].decode.fromBytes(bytes).get
         }
       }
 
