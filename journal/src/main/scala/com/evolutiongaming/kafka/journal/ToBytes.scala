@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import cats.implicits._
 import cats.{Applicative, Contravariant, ~>}
-import play.api.libs.json.{JsValue, Json, Writes}
+import play.api.libs.json.Writes
 import scodec.bits.ByteVector
 import scodec.{Encoder, codecs}
 
