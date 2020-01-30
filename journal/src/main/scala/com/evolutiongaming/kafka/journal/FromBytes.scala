@@ -46,12 +46,15 @@ object FromBytes {
     }
   }
 
-
-  def fromReads[F[_] : Monad : FromJsResult, A](implicit reads: Reads[A], decode: JsValueCodec.Decode[F]): FromBytes[F, A] = (a: ByteVector) => {
-    for {
-      a <- decode.fromBytes(a)
-      a <- FromJsResult[F].apply(reads.reads(a))
-    } yield a
+  def fromReads[F[_]: Monad: FromJsResult, A](
+    implicit reads: Reads[A],
+    decode: JsValueCodec.Decode[F]
+  ): FromBytes[F, A] = {
+    bytes =>
+      for {
+        a <- decode.fromBytes(bytes)
+        a <- FromJsResult[F].apply(reads.reads(a))
+      } yield a
   }
 
 
