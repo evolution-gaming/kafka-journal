@@ -3,7 +3,7 @@ package akka.persistence.kafka.journal
 import akka.actor.ActorSystem
 import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.{AtomicWrite, PersistentRepr}
-import cats.{Applicative, Parallel}
+import cats.Parallel
 import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, ToFuture}
@@ -102,7 +102,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     Resource.liftF(cassandraClusterOf)
   }
 
-  def jsValueCodec(config: KafkaJournalConfig): IO[JsonCodec[IO]] =
+  def jsonCodec(config: KafkaJournalConfig): IO[JsonCodec[IO]] =
     IO.pure {
       config.jsonCodec match {
         case KafkaJournalConfig.JsonCodec.PlayJson => JsonCodec.playJson
@@ -131,7 +131,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
       metrics            <- metrics
       batching           <- batching(config)
       cassandraClusterOf <- cassandraClusterOf
-      jsValueCodec       <- Resource.liftF(jsValueCodec(config))
+      jsonCodec       <- Resource.liftF(jsonCodec(config))
       adapter            <- adapterOf(
         toKey              = toKey,
         origin             = origin,
@@ -145,7 +145,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
         logOf              = logOf,
         randomIdOf         = randomId,
         measureDuration    = measureDuration,
-        jsValueCodec       = jsValueCodec)
+        jsonCodec       = jsonCodec)
     } yield {
       (adapter, log)
     }
@@ -176,7 +176,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     logOf: LogOf[IO],
     randomIdOf: RandomIdOf[IO],
     measureDuration: MeasureDuration[IO],
-    jsValueCodec: JsonCodec[IO]
+    jsonCodec: JsonCodec[IO]
   ): Resource[IO, JournalAdapter[IO]] = {
 
     JournalAdapter.of[IO](
