@@ -1,10 +1,12 @@
 package com.evolutiongaming.kafka.journal.conversions
 
+import cats.Monad
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolutiongaming.kafka.journal.PayloadAndType.{EventJson, PayloadJson}
 import com.evolutiongaming.kafka.journal.{Event, Events, JournalError, Payload, PayloadAndType, PayloadType, ToBytes}
+import com.evolutiongaming.smetrics.MeasureDuration
 import play.api.libs.json.{JsValue, Writes}
 
 import scala.annotation.tailrec
@@ -69,6 +71,22 @@ object EventsToPayload {
       payloadAndType(eventJsons(events.events.toList, List.empty)).handleErrorWith { cause =>
         JournalError(s"EventsToPayload failed for $events: $cause", cause).raiseError[F, PayloadAndType]
       }
+    }
+  }
+
+  implicit class EventsToPayloadOps[F[_]](val self: EventsToPayload[F]) extends AnyVal {
+    def withMetrics(
+      metrics: EventsToPayloadMetrics[F]
+    )(
+      implicit F: Monad[F], measureDuration: MeasureDuration[F]
+    ): EventsToPayload[F] = {
+      events =>
+        for {
+          d <- MeasureDuration[F].start
+          r <- self(events)
+          d <- d
+          _ <- metrics(events, r, d)
+        } yield r
     }
   }
 }

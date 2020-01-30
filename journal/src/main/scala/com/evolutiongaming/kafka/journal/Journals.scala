@@ -5,7 +5,7 @@ import cats.data.{NonEmptyList => Nel, NonEmptySet => Nes}
 import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MonadThrowable}
-import com.evolutiongaming.kafka.journal.conversions.{EventsToPayload, PayloadToEvents}
+import com.evolutiongaming.kafka.journal.conversions.{ConversionMetrics, EventsToPayload, PayloadToEvents, PayloadToEventsMetrics}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.Fail.implicits._
@@ -42,7 +42,8 @@ object Journals {
     config: JournalConfig,
     origin: Option[Origin],
     eventualJournal: EventualJournal[F],
-    metrics: Option[JournalMetrics[F]],
+    journalMetrics: Option[JournalMetrics[F]],
+    conversionMetrics: Option[ConversionMetrics[F]],
     callTimeThresholds: Journal.CallTimeThresholds
   ): Resource[F, Journals[F]] = {
 
@@ -67,31 +68,42 @@ object Journals {
         consumer,
         eventualJournal,
         headCache,
-        log)
+        log,
+        conversionMetrics
+      )
       val withLog = journal.withLog(log, callTimeThresholds)
-      metrics.fold(withLog) { metrics => withLog.withMetrics(metrics) }
+      journalMetrics.fold(withLog) { metrics => withLog.withMetrics(metrics) }
     }
   }
 
 
-  def apply[F[_] : Concurrent : Parallel : Clock : RandomIdOf : FromTry : Fail : JsonCodec.Encode : JsonCodec.Decode](
+  def apply[F[_] : Concurrent : Parallel : Clock : RandomIdOf : FromTry : Fail : JsonCodec : MeasureDuration](
     origin: Option[Origin],
     producer: Producer[F],
     consumer: Resource[F, Consumer[F]],
     eventualJournal: EventualJournal[F],
     headCache: HeadCache[F],
-    log: Log[F]
+    log: Log[F],
+    conversionMetrics: Option[ConversionMetrics[F]]
   ): Journals[F] = {
     implicit val fromAttempt = FromAttempt.lift[F]
     implicit val fromJsResult = FromJsResult.lift[F]
+
+    val payloadToEvents = conversionMetrics.fold(PayloadToEvents[F]) { metrics =>
+      PayloadToEvents[F].withMetrics(metrics.payloadToEvents)
+    }
+
+    val eventsToPayload = conversionMetrics.fold(EventsToPayload[F]) { metrics =>
+      EventsToPayload[F].withMetrics(metrics.eventsToPayload)
+    }
 
     apply[F](
       eventual = eventualJournal,
       consumeActionRecords = ConsumeActionRecords[F](consumer, log),
       produce = Produce[F](producer, origin),
       headCache = headCache,
-      payloadToEvents = PayloadToEvents[F],
-      eventsToPayload = EventsToPayload[F],
+      payloadToEvents = payloadToEvents,
+      eventsToPayload = eventsToPayload,
       log = log)
   }
 

@@ -86,7 +86,9 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
           consumer = consumer,
           eventualJournal = eventualJournal,
           headCache = HeadCache.empty[F],
-          log = log)
+          log = log,
+          conversionMetrics = none
+        )
       }
     }
 

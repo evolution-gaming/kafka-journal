@@ -70,7 +70,9 @@ object AppendReplicateApp extends IOApp {
           consumer = Journals.Consumer.of[F](config.kafka.consumer, config.pollTimeout),
           eventualJournal = EventualJournal.empty[F],
           headCache = HeadCache.empty[F],
-          log = log)
+          log = log,
+          conversionMetrics = none
+        )
       }
     }
 

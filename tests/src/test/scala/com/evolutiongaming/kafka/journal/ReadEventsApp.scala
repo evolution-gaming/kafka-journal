@@ -90,7 +90,7 @@ object ReadEventsApp extends IOApp {
       producer           <- Journals.Producer.of[F](producerConfig)
     } yield {
       val origin = Origin("ReadEventsApp")
-      val journals = Journals[F](origin.some, producer, consumer, eventualJournal, headCache, log)
+      val journals = Journals[F](origin.some, producer, consumer, eventualJournal, headCache, log, none)
       val key = Key(id = "id", topic = "topic")
       val journal = journals(key)
       for {

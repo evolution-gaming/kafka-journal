@@ -43,7 +43,9 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
           consumer = consumer,
           eventualJournal = eventualJournal,
           headCache = headCache,
-          log = log)
+          log = log,
+          conversionMetrics = none
+        )
       }
     }
   }
