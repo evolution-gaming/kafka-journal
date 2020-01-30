@@ -19,7 +19,6 @@ import com.evolutiongaming.smetrics.MeasureDuration
 import com.typesafe.config.ConfigFactory
 import pureconfig.ConfigSource
 import TestJsonCodec.instance
-import com.evolutiongaming.kafka.journal.conversions.PayloadToEventsMetrics
 
 import scala.concurrent.duration._
 

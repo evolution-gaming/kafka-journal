@@ -26,7 +26,6 @@ import org.scalatest.wordspec.AsyncWordSpec
 import play.api.libs.json.Json
 import pureconfig.ConfigSource
 import TestJsonCodec.instance
-import com.evolutiongaming.kafka.journal.conversions.PayloadToEventsMetrics
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
