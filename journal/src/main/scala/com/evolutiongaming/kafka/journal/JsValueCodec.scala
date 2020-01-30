@@ -9,19 +9,19 @@ import scodec.bits.ByteVector
 
 import scala.util.Try
 
-case class JsValueCodec[F[_]](encode: JsValueCodec.Encode[F], decode: JsValueCodec.Decode[F])
+final case class JsValueCodec[F[_]](encode: JsValueCodec.Encode[F], decode: JsValueCodec.Decode[F])
 
 object JsValueCodec {
 
   def apply[F[_]](implicit ev: JsValueCodec[F]): JsValueCodec[F] = ev
 
-  case class Encode[F[_]](toBytes: ToBytes[F, JsValue])
+  final case class Encode[F[_]](toBytes: ToBytes[F, JsValue])
 
   object Encode {
     implicit def fromCodec[F[_]](implicit codec: JsValueCodec[F]): Encode[F] = codec.encode
   }
 
-  case class Decode[F[_]](fromBytes: FromBytes[F, JsValue])
+  final case class Decode[F[_]](fromBytes: FromBytes[F, JsValue])
 
   object Decode {
     implicit def fromCodec[F[_]](implicit codec: JsValueCodec[F]): Decode[F] = codec.decode
