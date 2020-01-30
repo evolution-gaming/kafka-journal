@@ -104,9 +104,9 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
 
   def jsValueCodec(config: KafkaJournalConfig): IO[JsonCodec[IO]] =
     IO.pure {
-      config.serialization.jsonCodec match {
-        case SerializationConfig.JsonCoded.PlayJson => JsonCodec.playJson
-        case SerializationConfig.JsonCoded.Jsoniter => JsonCodec.jsoniter
+      config.jsonCodec match {
+        case KafkaJournalConfig.JsonCodec.PlayJson => JsonCodec.playJson
+        case KafkaJournalConfig.JsonCodec.Jsoniter => JsonCodec.jsoniter
       }
     }
 

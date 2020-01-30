@@ -3,7 +3,7 @@ package akka.persistence.kafka.journal
 import com.evolutiongaming.kafka.journal.Journal.CallTimeThresholds
 import com.evolutiongaming.kafka.journal.JournalConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig
-import pureconfig.generic.semiauto.deriveReader
+import pureconfig.generic.semiauto.{deriveEnumerationReader, deriveReader}
 import pureconfig.{ConfigCursor, ConfigReader, ConfigSource, Derivation}
 
 import scala.concurrent.duration._
@@ -15,7 +15,7 @@ final case class KafkaJournalConfig(
   stopTimeout: FiniteDuration = 1.minute,
   maxEventsInBatch: Int = 10,
   callTimeThresholds: CallTimeThresholds = CallTimeThresholds.default,
-  serialization: SerializationConfig = SerializationConfig.default)
+  jsonCodec: KafkaJournalConfig.JsonCodec = KafkaJournalConfig.JsonCodec.PlayJson)
 
 object KafkaJournalConfig {
 
@@ -36,5 +36,14 @@ object KafkaJournalConfig {
         config.copy(journal = journal)
       }
     }
+  }
+
+  sealed trait JsonCodec
+
+  object JsonCodec {
+    case object PlayJson extends JsonCodec
+    case object Jsoniter extends JsonCodec
+
+    implicit val configReaderJsonCodec: ConfigReader[JsonCodec] = deriveEnumerationReader
   }
 }
