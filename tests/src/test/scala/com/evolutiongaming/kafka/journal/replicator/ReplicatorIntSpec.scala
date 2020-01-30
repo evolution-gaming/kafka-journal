@@ -26,6 +26,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 import play.api.libs.json.Json
 import pureconfig.ConfigSource
 import TestJsonCodec.instance
+import com.evolutiongaming.kafka.journal.conversions.PayloadToEventsMetrics
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
@@ -86,7 +87,9 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
           consumer = consumer,
           eventualJournal = eventualJournal,
           headCache = HeadCache.empty[F],
-          log = log)
+          log = log,
+          conversionMetrics = none
+        )
       }
     }
 

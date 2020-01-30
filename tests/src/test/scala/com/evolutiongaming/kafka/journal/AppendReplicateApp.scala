@@ -19,6 +19,7 @@ import com.evolutiongaming.smetrics.MeasureDuration
 import com.typesafe.config.ConfigFactory
 import pureconfig.ConfigSource
 import TestJsonCodec.instance
+import com.evolutiongaming.kafka.journal.conversions.PayloadToEventsMetrics
 
 import scala.concurrent.duration._
 
@@ -70,7 +71,9 @@ object AppendReplicateApp extends IOApp {
           consumer = Journals.Consumer.of[F](config.kafka.consumer, config.pollTimeout),
           eventualJournal = EventualJournal.empty[F],
           headCache = HeadCache.empty[F],
-          log = log)
+          log = log,
+          conversionMetrics = none
+        )
       }
     }
 

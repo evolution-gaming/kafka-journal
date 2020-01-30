@@ -6,6 +6,7 @@ import cats.implicits._
 import cats.{Monad, Parallel, ~>}
 import com.evolutiongaming.catshelper.{FromFuture, FromTry, Log, LogOf, Runtime, ToFuture, ToTry}
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.conversions.{ConversionMetrics, EventsToPayload, PayloadToEventsMetrics}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.kafka.journal.util.{Executors, Fail}
@@ -85,7 +86,8 @@ object JournalAdapter {
           origin = origin,
           config = config.journal,
           eventualJournal = eventualJournal,
-          metrics = metrics.journal,
+          journalMetrics = metrics.journal,
+          conversionMetrics = metrics.conversion,
           callTimeThresholds = config.callTimeThresholds)
       } yield {
         journal.withLogError(log)
@@ -224,7 +226,9 @@ object JournalAdapter {
     eventual: Option[EventualJournal.Metrics[F]] = None,
     headCache: Option[HeadCacheMetrics[F]] = None,
     producer: Option[ClientId => ProducerMetrics[F]] = None,
-    consumer: Option[ClientId => ConsumerMetrics[F]] = None)
+    consumer: Option[ClientId => ConsumerMetrics[F]] = None,
+    conversion: Option[ConversionMetrics[F]] = None
+  )
 
   object Metrics {
     def empty[F[_]]: Metrics[F] = Metrics[F]()

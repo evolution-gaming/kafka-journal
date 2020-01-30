@@ -1,9 +1,11 @@
 package com.evolutiongaming.kafka.journal.conversions
 
+import cats.Monad
 import cats.implicits._
 import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolutiongaming.kafka.journal.PayloadAndType.PayloadJson
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.smetrics.MeasureDuration
 
 trait PayloadToEvents[F[_]] {
 
@@ -62,6 +64,22 @@ object PayloadToEvents {
       result.handleErrorWith { cause =>
         JournalError(s"PayloadToEvents failed for $payloadAndType: $cause", cause).raiseError[F, Events]
       }
+    }
+  }
+
+  implicit class PayloadToEventsOps[F[_]](val self: PayloadToEvents[F]) extends AnyVal {
+    def withMetrics(
+      metrics: PayloadToEventsMetrics[F]
+    )(
+      implicit F: Monad[F], measureDuration: MeasureDuration[F]
+    ): PayloadToEvents[F] = {
+      payloadAndType =>
+        for {
+          d <- MeasureDuration[F].start
+          r <- self(payloadAndType)
+          d <- d
+          _ <- metrics(payloadAndType, d)
+        } yield r
     }
   }
 }
