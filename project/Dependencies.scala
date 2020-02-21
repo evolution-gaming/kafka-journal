@@ -2,7 +2,7 @@ import sbt._
 
 object Dependencies {
 
-  val scalatest            = "org.scalatest"          %% "scalatest"             % "3.0.8"
+  val scalatest            = "org.scalatest"          %% "scalatest"             % "3.1.1"
   val `scala-java8-compat` = "org.scala-lang.modules" %% "scala-java8-compat"    % "0.9.0"
   val prometheus           = "io.prometheus"           % "simpleclient"          % "0.6.0"
   val `cassandra-driver`   = "com.datastax.cassandra"  % "cassandra-driver-core" % "3.7.2"
