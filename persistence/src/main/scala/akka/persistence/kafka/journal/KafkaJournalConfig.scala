@@ -13,7 +13,7 @@ final case class KafkaJournalConfig(
   cassandra: EventualCassandraConfig = EventualCassandraConfig.default,
   startTimeout: FiniteDuration = 1.minute,
   stopTimeout: FiniteDuration = 1.minute,
-  maxEventsInBatch: Int = 10,
+  maxEventsInBatch: Int = 100,
   callTimeThresholds: CallTimeThresholds = CallTimeThresholds.default,
   jsonCodec: KafkaJournalConfig.JsonCodec = KafkaJournalConfig.JsonCodec.PlayJson)
 
