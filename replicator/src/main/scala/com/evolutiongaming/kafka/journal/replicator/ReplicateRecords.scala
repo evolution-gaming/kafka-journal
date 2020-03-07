@@ -60,8 +60,11 @@ object ReplicateRecords {
             val events = records.flatTraverse { record =>
               val action = record.action
               val payloadAndType = PayloadAndType(action)
+              val events = payloadToEvents(payloadAndType).handleErrorWith { cause =>
+                JournalError(s"ReplicateRecords failed for $action: $cause", cause).raiseError[F, Events]
+              }
               for {
-                events <- payloadToEvents(payloadAndType)
+                events <- events
               } yield for {
                 event <- events.events
               } yield {
