@@ -21,8 +21,8 @@ object TupleToHeader {
       } yield {
         Header(key, value.toArray)
       }
-      result.handleErrorWith { cause =>
-        JournalError(s"TupleToHeader failed for $key:$value: $cause", cause).raiseError[F, Header]
+      result.adaptErr { case e =>
+        JournalError(s"TupleToHeader failed for $key:$value: $e", e)
       }
   }
 }

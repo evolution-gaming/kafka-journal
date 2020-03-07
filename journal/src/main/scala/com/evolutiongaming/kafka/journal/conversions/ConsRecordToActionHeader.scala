@@ -26,9 +26,8 @@ object ConsRecordToActionHeader {
 
       def actionHeader(header: Header) = {
         val byteVector = ByteVector.view(header.value)
-        fromBytes(byteVector).handleErrorWith { cause =>
-          JournalError(s"ConsRecordToActionHeader failed for $consRecord: $cause", cause)
-            .raiseError[F, Option[ActionHeader]]
+        fromBytes(byteVector).adaptError { case e =>
+          JournalError(s"ConsRecordToActionHeader failed for $consRecord: $e", e)
         }
       }
 

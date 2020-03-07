@@ -120,12 +120,9 @@ object PurgeExpired {
         JournalError(s"PurgeExpired.$msg failed with $cause", cause).raiseError[F, A]
       }
 
-      new PurgeExpired[F] {
-
-        def apply(topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]) = {
-          self(topic, expireOn, segments).handleErrorWith { a =>
-            error(s"apply topic: $topic, expireOn: $expireOn, segments: ${ segments.mkString_(",") }", a)
-          }
+      (topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]) => {
+        self(topic, expireOn, segments).handleErrorWith { a =>
+          error(s"apply topic: $topic, expireOn: $expireOn, segments: ${ segments.mkString_(",") }", a)
         }
       }
     }

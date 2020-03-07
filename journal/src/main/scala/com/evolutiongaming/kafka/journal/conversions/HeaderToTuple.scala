@@ -20,9 +20,7 @@ object HeaderToTuple {
       val bytes = ByteVector.view(header.value)
       stringFromBytes(bytes)
         .map { value => (header.key, value) }
-        .handleErrorWith { cause =>
-          JournalError(s"HeaderToTuple failed for $header: $cause", cause).raiseError[F, (String, String)]
-        }
+        .adaptErr { case e => JournalError(s"HeaderToTuple failed for $header: $e", e) }
     }
   }
 }

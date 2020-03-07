@@ -21,8 +21,8 @@ object ActionHeaderToHeader {
       } yield {
         Header(ActionHeader.key, bytes.toArray)
       }
-      result.handleErrorWith { cause =>
-        JournalError(s"ActionHeaderToHeader failed for $actionHeader: $cause", cause).raiseError[F, Header]
+      result.adaptErr { case e =>
+        JournalError(s"ActionHeaderToHeader failed for $actionHeader: $e", e)
       }
     }
   }

@@ -44,9 +44,8 @@ object Produce {
   ): Produce[F] = {
 
     def send(action: Action) = {
-      produceAction(action).handleErrorWith { cause =>
-        val error = JournalError(s"failed to produce $action", cause)
-        error.raiseError[F, PartitionOffset]
+      produceAction(action).adaptError { case e =>
+        JournalError(s"failed to produce $action", e)
       }
     }
 

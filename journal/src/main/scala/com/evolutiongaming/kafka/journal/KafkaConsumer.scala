@@ -46,7 +46,7 @@ object KafkaConsumer {
 
       val toError = new Named[F] {
         def apply[A](fa: F[A], method: String) = {
-          fa.handleErrorWith { e => KafkaConsumerError(s"consumer.$method", e).raiseError[F, A] }
+          fa.adaptError { case e => KafkaConsumerError(s"consumer.$method", e) }
         }
       }
 

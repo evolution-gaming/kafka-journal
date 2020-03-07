@@ -68,8 +68,8 @@ object EventsToPayload {
         }
       }
 
-      payloadAndType(eventJsons(events.events.toList, List.empty)).handleErrorWith { cause =>
-        JournalError(s"EventsToPayload failed for $events: $cause", cause).raiseError[F, PayloadAndType]
+      payloadAndType(eventJsons(events.events.toList, List.empty)).adaptError { case e =>
+        JournalError(s"EventsToPayload failed for $events: $e", e)
       }
     }
   }
