@@ -59,7 +59,7 @@ object ReplicateRecords {
             val action = record.action
             val payloadAndType = PayloadAndType(action)
             val events = payloadToEvents(payloadAndType).adaptError { case e =>
-              JournalError(s"ReplicateRecords failed for $action: $e", e)
+              JournalError(s"ReplicateRecords failed for id: $id, offset: $partitionOffset: $e", e)
             }
             for {
               events <- events
