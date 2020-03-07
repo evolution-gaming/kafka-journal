@@ -64,8 +64,8 @@ object ConsRecordToActionRecord {
 
       result
         .value
-        .adaptError { cause =>
-          JournalError(s"ConsRecordToActionRecord failed for $consRecord: $cause", cause)
+        .adaptError { case e =>
+          JournalError(s"ConsRecordToActionRecord failed for $consRecord: $e", e)
         }
         .toOptionT
     }

@@ -61,8 +61,8 @@ object PayloadToEvents {
               payloadJson.metadata getOrElse PayloadMetadata.empty)
           }
       }
-      result.adaptError { cause =>
-        JournalError(s"PayloadToEvents failed for $payloadAndType: $cause", cause)
+      result.adaptError { case e =>
+        JournalError(s"PayloadToEvents failed for $payloadAndType: $e", e)
       }
     }
   }
