@@ -12,7 +12,7 @@ final case class Events(events: Nel[Event], metadata: PayloadMetadata)
 object Events {
 
   implicit val codecEvents: Codec[Events] = {
-    val eventsCodec = nelCodec(codecs.listOfN(codecs.int32, codecs.variableSizeBytes(codecs.int32, Codec[Event])))
+    val eventsCodec = nelCodec(codecs.listOfN(codecs.int32, codecs.variableSizeBytes(codecs.int32, Event.codecEvent)))
 
     val default = (codecs.ignore(ByteJ.SIZE) ~> eventsCodec)
       .xmap[Events](a => Events(a, PayloadMetadata.empty), _.events)

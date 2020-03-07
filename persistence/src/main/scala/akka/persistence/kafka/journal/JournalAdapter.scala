@@ -6,7 +6,7 @@ import cats.implicits._
 import cats.{Monad, Parallel, ~>}
 import com.evolutiongaming.catshelper.{FromFuture, FromTry, Log, LogOf, Runtime, ToFuture, ToTry}
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.conversions.{ConversionMetrics, EventsToPayload, PayloadToEventsMetrics}
+import com.evolutiongaming.kafka.journal.conversions.ConversionMetrics
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.kafka.journal.util.{Executors, Fail}

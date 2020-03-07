@@ -9,7 +9,6 @@ import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, Log, Monad
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraSession, ExpireOn, MetaJournalStatements, SegmentNr}
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.skafka.producer.ProducerConfig

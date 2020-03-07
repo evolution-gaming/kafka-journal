@@ -6,13 +6,13 @@ import com.evolutiongaming.kafka.journal.util.ScodecHelper.{nelCodec, _}
 import org.scalatest.FunSuite
 import org.scalatest.matchers.should.Matchers
 import scodec.bits.ByteVector
-import scodec.{Attempt, Codec, codecs}
+import scodec.{Attempt, codecs}
 
 class EventsTest extends FunSuite with Matchers {
 
   test("decode newer version") {
     val codec = {
-      val eventsCodec = nelCodec(codecs.listOfN(codecs.int32, codecs.variableSizeBytes(codecs.int32, Codec[Event])))
+      val eventsCodec = nelCodec(codecs.listOfN(codecs.int32, codecs.variableSizeBytes(codecs.int32, Event.codecEvent)))
       val version = ByteVector.fromByte(100)
       (codecs.constant(version) ~> eventsCodec)
         .xmap[Events](a => Events(a, PayloadMetadata.empty), _.events)

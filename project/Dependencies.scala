@@ -18,12 +18,12 @@ object Dependencies {
   val hostname             = "com.evolutiongaming"    %% "hostname"              % "0.1.2"
   val scassandra           = "com.evolutiongaming"    %% "scassandra"            % "3.0.0"
   val `cassandra-sync`     = "com.evolutiongaming"    %% "cassandra-sync"        % "1.0.5"
-  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "1.5.2"
+  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "1.6.0"
   val random               = "com.evolutiongaming"    %% "random"                % "0.0.6"
   val retry                = "com.evolutiongaming"    %% "retry"                 % "1.0.2"
   val sstream              = "com.evolutiongaming"    %% "sstream"               % "0.2.0"
   val skafka               = "com.evolutiongaming"    %% "skafka"                % "9.0.2"
-  val scache               = "com.evolutiongaming"    %% "scache"                % "2.1.1"
+  val scache               = "com.evolutiongaming"    %% "scache"                % "2.2.0"
   val `akka-test-actor`    = "com.evolutiongaming"    %% "akka-test-actor"       % "0.0.2"
 
   object Cats {
@@ -45,7 +45,7 @@ object Dependencies {
   }
 
   object Akka {
-    private val version = "2.5.27"
+    private val version = "2.5.29"
     val actor             = "com.typesafe.akka" %% "akka-actor"           % version
     val testkit           = "com.typesafe.akka" %% "akka-testkit"         % version
     val stream            = "com.typesafe.akka" %% "akka-stream"          % version
@@ -66,13 +66,13 @@ object Dependencies {
   }
 
   object Smetrics {
-    private val version = "0.0.8"
+    private val version = "0.1.0"
     val smetrics   = "com.evolutiongaming" %% "smetrics"            % version
     val prometheus = "com.evolutiongaming" %% "smetrics-prometheus" % version
   }
 
   object Pureconfig {
-    private val version = "0.12.2"
+    private val version = "0.12.3"
     val pureconfig = "com.github.pureconfig" %% "pureconfig"      % version
     val cats       = "com.github.pureconfig" %% "pureconfig-cats" % version
   }

@@ -19,14 +19,14 @@ class PersistenceTckSerializer extends SerializerWithStringManifest {
 
   def toBinary(a: AnyRef): Array[Byte] = {
     a match {
-      case a: Cmd => Codec[Cmd].encode(a).require.toByteArray
+      case a: Cmd => cmdCodec.encode(a).require.toByteArray
       case _      => illegalArgument(s"Cannot serialize message of ${ a.getClass } in ${ getClass.getName }")
     }
   }
 
   def fromBinary(bytes: Array[Byte], manifest: String): AnyRef = {
     manifest match {
-      case `cmdManifest` => Codec[Cmd].decode(BitVector.view(bytes)).require.value
+      case `cmdManifest` => cmdCodec.decode(BitVector.view(bytes)).require.value
       case _             => notSerializable(s"Cannot deserialize message for manifest $manifest in ${ getClass.getName }")
     }
   }

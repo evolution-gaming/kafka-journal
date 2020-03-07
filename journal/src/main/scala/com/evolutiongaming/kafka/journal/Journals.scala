@@ -5,7 +5,7 @@ import cats.data.{NonEmptyList => Nel, NonEmptySet => Nes}
 import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MonadThrowable}
-import com.evolutiongaming.kafka.journal.conversions.{ConversionMetrics, EventsToPayload, PayloadToEvents, PayloadToEventsMetrics}
+import com.evolutiongaming.kafka.journal.conversions.{ConversionMetrics, EventsToPayload, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.Fail.implicits._

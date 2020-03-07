@@ -14,7 +14,7 @@ final case class PersistentBinary(
 object PersistentBinary {
 
   implicit val codecPersistentBinary: Codec[PersistentBinary] = {
-    val codec = codecs.optional(codecs.bool, codecs.utf8_32) :: codecs.utf8_32 :: Codec[SerializedMsg]
+    val codec = codecs.optional(codecs.bool, codecs.utf8_32) :: codecs.utf8_32 :: SerializedMsg.CodecSerializedMsg
     codec.as[PersistentBinary]
   }
 

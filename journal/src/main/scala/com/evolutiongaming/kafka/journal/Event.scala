@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.Tags._
 import scodec.bits.ByteVector
 import scodec.{Attempt, Codec, Err, codecs}
 
@@ -43,6 +42,6 @@ object Event {
         emptyCodec)
     }
 
-    (Codec[SeqNr] :: Codec[Tags] :: payloadCodec).as[Event]
+    (SeqNr.codecSeqNr :: Tags.codecTags :: payloadCodec).as[Event]
   }
 }
