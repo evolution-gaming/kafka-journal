@@ -1,9 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.Applicative
-import com.evolutiongaming.catshelper.FromTry
+import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry}
 
 object TestJsonCodec {
 
-  implicit def instance[F[_] : Applicative : FromTry]: JsonCodec[F] = JsonCodec.playJson
+  implicit def instance[F[_] : ApplicativeThrowable : FromTry]: JsonCodec[F] = JsonCodec.default[F]
 }

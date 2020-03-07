@@ -15,7 +15,7 @@ final case class KafkaJournalConfig(
   stopTimeout: FiniteDuration = 1.minute,
   maxEventsInBatch: Int = 100,
   callTimeThresholds: CallTimeThresholds = CallTimeThresholds.default,
-  jsonCodec: KafkaJournalConfig.JsonCodec = KafkaJournalConfig.JsonCodec.PlayJson)
+  jsonCodec: KafkaJournalConfig.JsonCodec = KafkaJournalConfig.JsonCodec.Default)
 
 object KafkaJournalConfig {
 
@@ -41,6 +41,7 @@ object KafkaJournalConfig {
   sealed trait JsonCodec
 
   object JsonCodec {
+    case object Default  extends JsonCodec
     case object PlayJson extends JsonCodec
     case object Jsoniter extends JsonCodec
 
