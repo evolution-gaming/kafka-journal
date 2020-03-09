@@ -35,8 +35,8 @@ object JsonCodec {
 
   def default[F[_] : ApplicativeThrowable : FromTry]: JsonCodec[F] = {
     JsonCodec(
-      encode = Encode.jsoniter,
-      decode = Decode.jsoniter fallbackTo Decode.playJson)
+      encode = Encode.jsoniter[F] fallbackTo Encode.playJson,
+      decode = Decode.jsoniter[F] fallbackTo Decode.playJson)
   }
 
 
@@ -57,6 +57,22 @@ object JsonCodec {
     def jsoniter[F[_] : Applicative : FromTry]: Encode[F] = {
       Encode { value =>
         ByteVector(PlayJsonJsoniter.serialize(value)).pure[F]
+      }
+    }
+
+
+    implicit class EncodeOps[F[_]](val self: Encode[F]) extends AnyVal {
+
+      def fallbackTo(encode: Encode[F])(implicit F: ApplicativeThrowable[F]): Encode[F] = {
+        Encode { jsValue =>
+          self
+            .toBytes(jsValue)
+            .handleErrorWith { e =>
+              encode
+                .toBytes(jsValue)
+                .adaptErr { case _ => e }
+            }
+        }
       }
     }
   }
