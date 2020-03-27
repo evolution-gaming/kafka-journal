@@ -1,7 +1,9 @@
 package com.evolutiongaming.kafka.journal.util
 
+import cats.implicits._
 import cats.MonadError
 import cats.data.{NonEmptyList => Nel}
+import com.evolutiongaming.jsonitertool.PlayJsonJsoniter
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
 import play.api.libs.json._
 
@@ -71,12 +73,12 @@ object PlayJsonHelper {
 
   def encodeByNameFromWrites[A](implicit writes: Writes[A]): EncodeByName[A] = EncodeByName[String].contramap { a =>
     val jsValue = writes.writes(a)
-    Json.stringify(jsValue)
+    PlayJsonJsoniter.serializeToStr(jsValue)
   }
 
   
   def decodeByNameFromReads[A](implicit reads: Reads[A]): DecodeByName[A] = DecodeByName[String].map { a =>
-    val jsValue = Json.parse(a)
+    val jsValue = PlayJsonJsoniter.deserializeFromStr(a) getOrElse Json.parse(a)
     // TODO not use `as`
     jsValue.as(reads)
   }

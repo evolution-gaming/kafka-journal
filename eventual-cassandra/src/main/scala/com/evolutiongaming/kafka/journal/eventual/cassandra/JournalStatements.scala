@@ -6,13 +6,13 @@ import cats.Monad
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.datastax.driver.core.BatchStatement
+import com.evolutiongaming.jsonitertool.PlayJsonJsoniter
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.HeadersHelper._
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.sstream.Stream
-import play.api.libs.json.Json
 
 
 object JournalStatements {
@@ -82,7 +82,7 @@ object JournalStatements {
               val (text, bytes) = payload match {
                 case payload: Payload.Binary => (None, Some(payload))
                 case payload: Payload.Text   => (Some(payload.value), None)
-                case payload: Payload.Json   => (Some(Json.stringify(payload.value)), None)
+                case payload: Payload.Json   => (Some(PlayJsonJsoniter.serializeToStr(payload.value)), None)
               }
               val payloadType = payload.payloadType
               (Some(payloadType): Option[PayloadType], text, bytes)
