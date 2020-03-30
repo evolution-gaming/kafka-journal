@@ -29,6 +29,9 @@ object ToBytes {
   }
 
 
+  def mapK[F[_], G[_], A](f: F ~> G)(toBytes: ToBytes[F, A]): ToBytes[G, A] = a => f(toBytes(a))
+
+
   implicit def stringToBytes[F[_] : FromAttempt]: ToBytes[F, String] = fromEncoder(FromAttempt[F], codecs.utf8)
 
   implicit def byteVectorToBytes[F[_] : Applicative]: ToBytes[F, ByteVector] = _.pure[F]

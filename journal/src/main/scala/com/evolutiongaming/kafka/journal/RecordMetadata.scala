@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
+import com.evolutiongaming.catshelper.ToTry
 import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
 import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
 import play.api.libs.json._
@@ -34,12 +35,14 @@ object RecordMetadata {
   }
 
 
-  implicit val encodeByNameRecordMetadata: EncodeByName[RecordMetadata] = encodeByNameFromWrites
+  implicit def encodeByNameRecordMetadata[F[_] : ToTry : JsonCodec.Encode]: EncodeByName[RecordMetadata] =
+    encodeByNameFromWrites
 
   implicit val decodeByNameRecordMetadata: DecodeByName[RecordMetadata] = decodeByNameFromReads
 
 
-  implicit val encodeRowRecordMetadata: EncodeRow[RecordMetadata] = EncodeRow("metadata")
+  implicit def encodeRowRecordMetadata[F[_] : ToTry : JsonCodec.Encode]: EncodeRow[RecordMetadata] =
+    EncodeRow("metadata")
 
   implicit val decodeRowRecordMetadata: DecodeRow[RecordMetadata] = DecodeRow("metadata")
 
