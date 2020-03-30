@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
+import com.evolutiongaming.catshelper.ToTry
 import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
 import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
@@ -79,7 +80,7 @@ object Payload {
     val codecJson: Codec[Json] = formatCodec
 
 
-    implicit val encodeByNameJson: EncodeByName[Json] = encodeByNameFromWrites
+    implicit def encodeByNameJson[F[_] : ToTry : JsonCodec.Encode]: EncodeByName[Json] = encodeByNameFromWrites
 
     implicit val decodeByNameJson: DecodeByName[Json] = decodeByNameFromReads
 

@@ -3,7 +3,9 @@ package com.evolutiongaming.kafka.journal.util
 import cats.implicits._
 import cats.MonadError
 import cats.data.{NonEmptyList => Nel}
+import com.evolutiongaming.catshelper.ToTry
 import com.evolutiongaming.jsonitertool.PlayJsonJsoniter
+import com.evolutiongaming.kafka.journal.JsonCodec
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
 import play.api.libs.json._
 
@@ -14,12 +16,14 @@ import scala.util.Try
 
 object PlayJsonHelper {
 
-  implicit val jsValueEncodeByName: EncodeByName[JsValue] = encodeByNameFromWrites
+  implicit def jsValueEncodeByName[F[_] : ToTry : JsonCodec.Encode]: EncodeByName[JsValue] =
+    encodeByNameFromWrites
 
   implicit val jsValueDecodeByName: DecodeByName[JsValue] = decodeByNameFromReads
 
 
-  implicit val jsValueOptEncodeByName: EncodeByName[Option[JsValue]] = EncodeByName.optEncodeByName
+  implicit def jsValueOptEncodeByName[F[_] : ToTry : JsonCodec.Encode]: EncodeByName[Option[JsValue]] =
+    EncodeByName.optEncodeByName
 
   implicit val jsValueOptDecodeByName: DecodeByName[Option[JsValue]] = DecodeByName.optDecodeByName
 
@@ -71,10 +75,11 @@ object PlayJsonHelper {
   }
 
 
-  def encodeByNameFromWrites[A](implicit writes: Writes[A]): EncodeByName[A] = EncodeByName[String].contramap { a =>
-    val jsValue = writes.writes(a)
-    PlayJsonJsoniter.serializeToStr(jsValue)
-  }
+  def encodeByNameFromWrites[F[_], A](implicit writes: Writes[A], toTry: ToTry[F], encode: JsonCodec.Encode[F]): EncodeByName[A] =
+    EncodeByName[String].contramap { a =>
+      val jsValue = writes.writes(a)
+      toTry(encode.toStr(jsValue)).get
+    }
 
   
   def decodeByNameFromReads[A](implicit reads: Reads[A]): DecodeByName[A] = DecodeByName[String].map { a =>

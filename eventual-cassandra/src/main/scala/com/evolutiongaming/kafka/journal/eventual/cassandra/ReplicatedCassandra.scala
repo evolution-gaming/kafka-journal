@@ -10,7 +10,7 @@ import cats.implicits._
 import cats.{Applicative, Monad, Parallel}
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
-import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
+import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.scassandra.TableName
@@ -22,7 +22,14 @@ import scala.annotation.tailrec
 
 object ReplicatedCassandra {
 
-  def of[F[_] : Concurrent : FromFuture : ToFuture : Parallel : Timer : CassandraCluster : CassandraSession : LogOf : MeasureDuration](
+  def of[
+    F[_]
+    : Concurrent : Parallel : Timer
+    : FromFuture : ToFuture : ToTry : LogOf
+    : CassandraCluster : CassandraSession
+    : MeasureDuration
+    : JsonCodec.Encode
+  ](
     config: EventualCassandraConfig,
     origin: Option[Origin],
     metrics: Option[ReplicatedJournal.Metrics[F]],
@@ -686,7 +693,7 @@ object ReplicatedCassandra {
 
     def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 
-    def of[F[_] : Monad : Parallel : CassandraSession](schema: Schema): F[Statements[F]] = {
+    def of[F[_] : Monad : Parallel : CassandraSession : ToTry : JsonCodec.Encode](schema: Schema): F[Statements[F]] = {
       val statements = (
         JournalStatements.InsertRecords.of[F](schema.journal),
         JournalStatements.DeleteRecords.of[F](schema.journal),

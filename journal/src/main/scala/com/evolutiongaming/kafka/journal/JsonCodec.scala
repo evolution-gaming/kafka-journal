@@ -40,7 +40,7 @@ object JsonCodec {
   }
 
 
-  final case class Encode[F[_]](toBytes: ToBytes[F, JsValue])
+  final case class Encode[F[_]](toBytes: ToBytes[F, JsValue], toStr: JsValue => F[String])
 
   object Encode {
 
@@ -48,31 +48,42 @@ object JsonCodec {
 
 
     def playJson[F[_] : Applicative : FromTry]: Encode[F] = {
-      Encode { value =>
-        ByteVector(Json.toBytes(value)).pure[F]
-      }
+      Encode(
+        toBytes = value => ByteVector(Json.toBytes(value)).pure[F],
+        toStr = value => Json.stringify(value).pure[F]
+      )
     }
 
 
     def jsoniter[F[_] : Applicative : FromTry]: Encode[F] = {
-      Encode { value =>
-        ByteVector(PlayJsonJsoniter.serialize(value)).pure[F]
-      }
+      Encode(
+        toBytes = value => ByteVector(PlayJsonJsoniter.serialize(value)).pure[F],
+        toStr = value => PlayJsonJsoniter.serializeToStr(value).pure[F]
+      )
     }
 
 
     implicit class EncodeOps[F[_]](val self: Encode[F]) extends AnyVal {
 
       def fallbackTo(encode: Encode[F])(implicit F: ApplicativeThrowable[F]): Encode[F] = {
-        Encode { jsValue =>
+        Encode(
+          toBytes = jsValue =>
           self
             .toBytes(jsValue)
             .handleErrorWith { e =>
               encode
                 .toBytes(jsValue)
                 .adaptErr { case _ => e }
-            }
-        }
+            },
+          toStr = jsValue =>
+            self
+              .toStr(jsValue)
+              .handleErrorWith { e =>
+                encode
+                  .toStr(jsValue)
+                  .adaptErr { case _ => e }
+              }
+        )
       }
     }
   }

@@ -6,6 +6,7 @@ import cats.Monad
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.datastax.driver.core.BatchStatement
+import com.evolutiongaming.catshelper.ToTry
 import com.evolutiongaming.jsonitertool.PlayJsonJsoniter
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
@@ -50,7 +51,7 @@ object JournalStatements {
 
   object InsertRecords {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[InsertRecords[F]] = {
+    def of[F[_] : Monad : CassandraSession : ToTry : JsonCodec.Encode](name: TableName): F[InsertRecords[F]] = {
       val query =
         s"""
            |INSERT INTO ${ name.toCql } (
