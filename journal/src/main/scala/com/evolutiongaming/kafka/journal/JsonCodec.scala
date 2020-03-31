@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.implicits._
-import cats.Applicative
+import cats.{Applicative, ~>}
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry}
+import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, MonadThrowable}
 import com.evolutiongaming.jsonitertool.PlayJsonJsoniter
 import play.api.libs.json.{JsValue, Json}
 import scodec.bits.ByteVector
@@ -40,7 +40,7 @@ object JsonCodec {
   }
 
 
-  final case class Encode[F[_]](toBytes: ToBytes[F, JsValue], toStr: JsValue => F[String])
+  final case class Encode[F[_]](toBytes: ToBytes[F, JsValue])
 
   object Encode {
 
@@ -48,43 +48,40 @@ object JsonCodec {
 
 
     def playJson[F[_] : Applicative : FromTry]: Encode[F] = {
-      Encode(
-        toBytes = value => ByteVector(Json.toBytes(value)).pure[F],
-        toStr = value => Json.stringify(value).pure[F]
-      )
+      Encode { value =>
+        ByteVector(Json.toBytes(value)).pure[F]
+      }
     }
 
 
     def jsoniter[F[_] : Applicative : FromTry]: Encode[F] = {
-      Encode(
-        toBytes = value => ByteVector(PlayJsonJsoniter.serialize(value)).pure[F],
-        toStr = value => PlayJsonJsoniter.serializeToStr(value).pure[F]
-      )
+      Encode { value =>
+        ByteVector(PlayJsonJsoniter.serialize(value)).pure[F]
+      }
     }
 
 
     implicit class EncodeOps[F[_]](val self: Encode[F]) extends AnyVal {
 
+      def mapK[G[_]](f: F ~> G): Encode[G] = Encode(self.toBytes.mapK(f))
+
       def fallbackTo(encode: Encode[F])(implicit F: ApplicativeThrowable[F]): Encode[F] = {
-        Encode(
-          toBytes = jsValue =>
+        Encode { jsValue =>
           self
             .toBytes(jsValue)
             .handleErrorWith { e =>
               encode
                 .toBytes(jsValue)
                 .adaptErr { case _ => e }
-            },
-          toStr = jsValue =>
-            self
-              .toStr(jsValue)
-              .handleErrorWith { e =>
-                encode
-                  .toStr(jsValue)
-                  .adaptErr { case _ => e }
-              }
-        )
+            }
+        }
       }
+
+      def toStr(value: JsValue)(implicit F: MonadThrowable[F]): F[String] =
+        for {
+          bytes <- self.toBytes(value)
+          str   <- bytes.decodeUtf8.liftTo[F]
+        } yield str
     }
   }
 
@@ -116,6 +113,8 @@ object JsonCodec {
 
     implicit class DecodeOps[F[_]](val self: Decode[F]) extends AnyVal {
 
+      def mapK[G[_]](f: F ~> G): Decode[G] = Decode(self.fromBytes.mapK(f))
+
       def fallbackTo(decode: Decode[F])(implicit F: ApplicativeThrowable[F]): Decode[F] = {
         Decode { bytes =>
           self
@@ -127,6 +126,12 @@ object JsonCodec {
             }
         }
       }
+
+      def fromStr(str: String)(implicit F: MonadThrowable[F]): F[JsValue] =
+        for {
+          bytes <- ByteVector.encodeUtf8(str).liftTo[F]
+          value <- self.fromBytes(bytes)
+        } yield value
     }
   }
 

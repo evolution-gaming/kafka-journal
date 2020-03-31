@@ -41,6 +41,7 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
 
   lazy val ((eventualJournal, producer), release) = {
     implicit val logOf = LogOf.empty[IO]
+    implicit val jsonCodec = JsonCodec.jsoniter[IO]
     val resource = for {
       config          <- Resource.liftF(config.liftTo[IO])
       origin          <- Resource.liftF(Origin.hostName[IO])

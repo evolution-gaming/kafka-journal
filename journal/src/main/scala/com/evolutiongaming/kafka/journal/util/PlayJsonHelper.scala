@@ -1,13 +1,17 @@
 package com.evolutiongaming.kafka.journal.util
 
+import java.nio.charset.StandardCharsets
+
 import cats.implicits._
 import cats.MonadError
+import cats.arrow.FunctionK
 import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.catshelper.ToTry
-import com.evolutiongaming.jsonitertool.PlayJsonJsoniter
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.kafka.journal.JsonCodec
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
 import play.api.libs.json._
+import scodec.bits.ByteVector
 
 import scala.annotation.tailrec
 import scala.concurrent.duration._
@@ -16,16 +20,18 @@ import scala.util.Try
 
 object PlayJsonHelper {
 
-  implicit def jsValueEncodeByName[F[_] : ToTry : JsonCodec.Encode]: EncodeByName[JsValue] =
+  implicit def jsValueEncodeByName(implicit encode: JsonCodec.Encode[Try]): EncodeByName[JsValue] =
     encodeByNameFromWrites
 
-  implicit val jsValueDecodeByName: DecodeByName[JsValue] = decodeByNameFromReads
+  implicit def jsValueDecodeByName(implicit decode: JsonCodec.Decode[Try]): DecodeByName[JsValue] =
+    decodeByNameFromReads
 
 
-  implicit def jsValueOptEncodeByName[F[_] : ToTry : JsonCodec.Encode]: EncodeByName[Option[JsValue]] =
+  implicit def jsValueOptEncodeByName(implicit encode: JsonCodec.Encode[Try]): EncodeByName[Option[JsValue]] =
     EncodeByName.optEncodeByName
 
-  implicit val jsValueOptDecodeByName: DecodeByName[Option[JsValue]] = DecodeByName.optDecodeByName
+  implicit def jsValueOptDecodeByName(implicit decode: JsonCodec.Decode[Try]): DecodeByName[Option[JsValue]] =
+    DecodeByName.optDecodeByName
 
 
   implicit val jsResultMonadError: MonadError[JsResult, JsError] = new MonadError[JsResult, JsError] {
@@ -75,17 +81,20 @@ object PlayJsonHelper {
   }
 
 
-  def encodeByNameFromWrites[F[_], A](implicit writes: Writes[A], toTry: ToTry[F], encode: JsonCodec.Encode[F]): EncodeByName[A] =
+  def encodeByNameFromWrites[A](implicit writes: Writes[A], encode: JsonCodec.Encode[Try]): EncodeByName[A] = {
     EncodeByName[String].contramap { a =>
       val jsValue = writes.writes(a)
-      toTry(encode.toStr(jsValue)).get
+      encode.toStr(jsValue).get
     }
+  }
 
   
-  def decodeByNameFromReads[A](implicit reads: Reads[A]): DecodeByName[A] = DecodeByName[String].map { a =>
-    val jsValue = PlayJsonJsoniter.deserializeFromStr(a) getOrElse Json.parse(a)
-    // TODO not use `as`
-    jsValue.as(reads)
+  def decodeByNameFromReads[A](implicit reads: Reads[A], decode: JsonCodec.Decode[Try]): DecodeByName[A] = {
+    DecodeByName[String].map { str =>
+      val jsValue = decode.fromStr(str).get
+      // TODO not use `as`
+      jsValue.as(reads)
+    }
   }
 
   
