@@ -84,14 +84,14 @@ object PlayJsonHelper {
   def encodeByNameFromWrites[A](implicit writes: Writes[A], encode: JsonCodec.Encode[Try]): EncodeByName[A] = {
     EncodeByName[String].contramap { a =>
       val jsValue = writes.writes(a)
-      encode.toString(jsValue).get
+      encode.toStr(jsValue).get
     }
   }
 
   
   def decodeByNameFromReads[A](implicit reads: Reads[A], decode: JsonCodec.Decode[Try]): DecodeByName[A] = {
     DecodeByName[String].map { str =>
-      val jsValue = decode.fromString(str).get
+      val jsValue = decode.fromStr(str).get
       // TODO not use `as`
       jsValue.as(reads)
     }

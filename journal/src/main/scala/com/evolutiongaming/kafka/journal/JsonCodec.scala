@@ -77,7 +77,7 @@ object JsonCodec {
         }
       }
 
-      def toString(value: JsValue)(implicit F: MonadThrowable[F]): F[String] =
+      def toStr(value: JsValue)(implicit F: MonadThrowable[F]): F[String] =
         for {
           bytes <- self.toBytes(value)
           str   <- bytes.decodeUtf8.liftTo[F]
@@ -127,7 +127,7 @@ object JsonCodec {
         }
       }
 
-      def fromString(str: String)(implicit F: MonadThrowable[F]): F[JsValue] =
+      def fromStr(str: String)(implicit F: MonadThrowable[F]): F[JsValue] =
         for {
           bytes <- ByteVector.encodeUtf8(str).liftTo[F]
           value <- self.fromBytes(bytes)
