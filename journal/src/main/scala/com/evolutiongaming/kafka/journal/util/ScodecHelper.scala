@@ -4,6 +4,7 @@ import cats.MonadError
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.evolutiongaming.jsonitertool.PlayJsonJsoniter
+import com.evolutiongaming.kafka.journal.JsonCodec
 import play.api.libs.json.Format
 import scodec.bits.ByteVector
 import scodec.{Attempt, Codec, Err, codecs}
@@ -55,9 +56,9 @@ object ScodecHelper {
   }
 
 
-  def formatCodec[A](implicit format: Format[A]): Codec[A] = {
-    val fromBytes = (a: ByteVector) => {
-      val jsValue = PlayJsonJsoniter.deserialize(a.toArray)
+  def formatCodec[A](implicit format: Format[A], jsonCodec: JsonCodec[Try]): Codec[A] = {
+    val fromBytes = (bytes: ByteVector) => {
+      val jsValue = jsonCodec.decode.fromBytes(bytes)
       for {
         a <- Attempt.fromTry(jsValue)
         a <- format.reads(a).fold(a => Attempt.failure(Err(a.toString())), Attempt.successful)
@@ -65,9 +66,8 @@ object ScodecHelper {
     }
     val toBytes = (a: A) => {
       val jsValue = format.writes(a)
-      val bytes = Try { PlayJsonJsoniter.serialize(jsValue) }
-      val byteVector = bytes.map(ByteVector.view)
-      Attempt.fromTry(byteVector)
+      val bytes = jsonCodec.encode.toBytes(jsValue)
+      Attempt.fromTry(bytes)
     }
     codecs.bytes.exmap(fromBytes, toBytes)
   }

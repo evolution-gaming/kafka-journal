@@ -4,7 +4,7 @@ import cats._
 import cats.data.{NonEmptyList => Nel, NonEmptySet => Nes}
 import cats.effect._
 import cats.implicits._
-import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MonadThrowable}
+import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MonadThrowable, ToTry}
 import com.evolutiongaming.kafka.journal.conversions.{ConversionMetrics, EventsToPayload, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.util.Fail
@@ -36,8 +36,12 @@ object Journals {
 
 
   def of[
-    F[_] : Concurrent : Timer : Parallel : LogOf : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomIdOf :
-    MeasureDuration : FromTry : Fail : JsonCodec
+    F[_]
+    : Concurrent : Parallel : Timer
+    : FromTry : ToTry : Fail : LogOf
+    : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomIdOf
+    : MeasureDuration
+    : JsonCodec
   ](
     config: JournalConfig,
     origin: Option[Origin],
@@ -77,7 +81,7 @@ object Journals {
   }
 
 
-  def apply[F[_] : Concurrent : Parallel : Clock : RandomIdOf : FromTry : Fail : JsonCodec : MeasureDuration](
+  def apply[F[_] : Concurrent : Parallel : Clock : RandomIdOf : FromTry : ToTry : Fail : JsonCodec : MeasureDuration](
     origin: Option[Origin],
     producer: Producer[F],
     consumer: Resource[F, Consumer[F]],

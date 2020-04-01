@@ -79,7 +79,7 @@ object Payload {
 
     implicit val formatJson: Format[Json] = Format.of[JsValue].inmap(Json(_), _.value)
 
-    val codecJson: Codec[Json] = formatCodec
+    def codecJson(implicit jsonCodec: JsonCodec[Try]): Codec[Json] = formatCodec
 
 
     implicit def encodeByNameJson(implicit encode: JsonCodec.Encode[Try]): EncodeByName[Json] = encodeByNameFromWrites

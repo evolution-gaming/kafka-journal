@@ -3,15 +3,18 @@ package com.evolutiongaming.kafka.journal
 import cats.data.{NonEmptyList => Nel}
 import java.lang.{Byte => ByteJ}
 
+import com.evolutiongaming.catshelper.ToTry
 import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import scodec.bits.ByteVector
 import scodec.{Codec, codecs}
+
+import scala.util.Try
 
 final case class Events(events: Nel[Event], metadata: PayloadMetadata)
 
 object Events {
 
-  implicit val codecEvents: Codec[Events] = {
+  implicit def codecEvents(implicit jsonCodec: JsonCodec[Try]): Codec[Events] = {
     val eventsCodec = nelCodec(codecs.listOfN(codecs.int32, codecs.variableSizeBytes(codecs.int32, Event.codecEvent)))
 
     val default = (codecs.ignore(ByteJ.SIZE) ~> eventsCodec)
@@ -28,7 +31,9 @@ object Events {
     codecs.choice(version1, version0, default)
   }
 
-  implicit def eventsToBytes[F[_] : FromAttempt]: ToBytes[F, Events] = ToBytes.fromEncoder
+  implicit def eventsToBytes[F[_] : FromAttempt](implicit jsonCodec: JsonCodec[Try]): ToBytes[F, Events] =
+    ToBytes.fromEncoder
 
-  implicit def eventsFromBytes[F[_] : FromAttempt]: FromBytes[F, Events] = FromBytes.fromDecoder
+  implicit def eventsFromBytes[F[_] : FromAttempt](implicit jsonCodec: JsonCodec[Try]): FromBytes[F, Events] =
+    FromBytes.fromDecoder
 }

@@ -10,7 +10,7 @@ import cats.implicits._
 import cats.{Applicative, Monad, Parallel}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
-import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
+import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.conversions.{ConsRecordToActionRecord, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual._
@@ -29,7 +29,13 @@ import scala.util.Try
 
 object TopicReplicator {
 
-  def of[F[_] : Concurrent : Timer : Parallel : LogOf : FromTry :  MeasureDuration : Fail : JsonCodec.Decode](
+  def of[
+    F[_]
+    : Concurrent : Timer : Parallel
+    : FromTry : ToTry : LogOf : Fail
+    : MeasureDuration
+    : JsonCodec
+  ](
     topic: Topic,
     journal: ReplicatedJournal[F],
     consumer: Resource[F, TopicConsumer[F]],

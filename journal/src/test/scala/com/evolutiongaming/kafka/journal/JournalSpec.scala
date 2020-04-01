@@ -7,7 +7,7 @@ import cats.effect.Clock
 import cats.implicits._
 import cats.{Id, Monad, Parallel}
 import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.catshelper.{FromTry, Log}
+import com.evolutiongaming.catshelper.{FromTry, Log, ToTry}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.conversions.{EventsToPayload, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
