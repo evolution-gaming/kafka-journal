@@ -7,7 +7,6 @@ import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.datastax.driver.core.BatchStatement
 import com.evolutiongaming.catshelper.ToTry
-import com.evolutiongaming.jsonitertool.PlayJsonJsoniter
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.HeadersHelper._
@@ -54,7 +53,7 @@ object JournalStatements {
 
     def of[F[_] : Monad : CassandraSession : ToTry : JsonCodec.Encode](name: TableName): F[InsertRecords[F]] = {
 
-      implicit val encodeTry: JsonCodec.Encode[Try] = implicitly[JsonCodec.Encode[F]].mapK(ToTry.functionK)
+      val encodeTry: JsonCodec.Encode[Try] = implicitly
 
       val encodeByNameRecordMetadata = EncodeByName[RecordMetadata]
 
@@ -89,7 +88,7 @@ object JournalStatements {
               val (text, bytes) = payload match {
                 case payload: Payload.Binary => (None, Some(payload))
                 case payload: Payload.Text   => (Some(payload.value), None)
-                case payload: Payload.Json   => (Some(PlayJsonJsoniter.serializeToStr(payload.value)), None)
+                case payload: Payload.Json   => (Some(encodeTry.toStr(payload.value).get), None)
               }
               val payloadType = payload.payloadType
               (Some(payloadType): Option[PayloadType], text, bytes)

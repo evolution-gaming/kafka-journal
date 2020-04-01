@@ -55,6 +55,8 @@ object JsonCodec {
 
     implicit def fromCodec[F[_]](implicit codec: JsonCodec[F]): Encode[F] = codec.encode
 
+    implicit def encodeTry[F[_] : ToTry](implicit encode: Encode[F]): Encode[Try] = encode.mapK(ToTry.functionK)
+
 
     def playJson[F[_] : Applicative : FromTry]: Encode[F] = {
       Encode { value =>
