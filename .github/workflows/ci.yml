@@ -38,3 +38,11 @@ jobs:
       env:
         COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
       run: sbt ++${{ matrix.scala }} coverageReport coverageAggregate coveralls
+
+    - name: Slack Notification
+      uses: homoluctus/slatify@master
+      if: failure() && github.ref == 'refs/heads/master'
+      with:
+        type: ${{ job.status }}
+        job_name: Build
+        url: ${{ secrets.SLACK_WEBHOOK }}
