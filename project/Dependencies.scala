@@ -2,12 +2,12 @@ import sbt._
 
 object Dependencies {
 
+  val prometheus           = "io.prometheus"           % "simpleclient"          % "0.6.0"
   val scalatest            = "org.scalatest"          %% "scalatest"             % "3.0.8"
   val `scala-java8-compat` = "org.scala-lang.modules" %% "scala-java8-compat"    % "0.9.1"
-  val prometheus           = "io.prometheus"           % "simpleclient"          % "0.6.0"
+  val `kind-projector`     = "org.typelevel"           % "kind-projector"        % "0.11.0"
   val `cassandra-driver`   = "com.datastax.cassandra"  % "cassandra-driver-core" % "3.7.2"
   val `play-json`          = "com.typesafe.play"      %% "play-json"             % "2.7.4"
-  val `kind-projector`     = "org.typelevel"           % "kind-projector"        % "0.11.0"
   val `play-json-jsoniter` = "com.evolutiongaming"    %% "play-json-jsoniter"    % "0.6.1"
   val `executor-tools`     = "com.evolutiongaming"    %% "executor-tools"        % "1.0.2"
   val `config-tools`       = "com.evolutiongaming"    %% "config-tools"          % "1.0.3"
@@ -22,7 +22,7 @@ object Dependencies {
   val random               = "com.evolutiongaming"    %% "random"                % "0.0.6"
   val retry                = "com.evolutiongaming"    %% "retry"                 % "1.0.2"
   val sstream              = "com.evolutiongaming"    %% "sstream"               % "0.2.0"
-  val skafka               = "com.evolutiongaming"    %% "skafka"                % "9.0.2"
+  val skafka               = "com.evolutiongaming"    %% "skafka"                % "9.1.0"
   val scache               = "com.evolutiongaming"    %% "scache"                % "2.2.0"
   val `akka-test-actor`    = "com.evolutiongaming"    %% "akka-test-actor"       % "0.0.2"
 
@@ -45,7 +45,7 @@ object Dependencies {
   }
 
   object Akka {
-    private val version = "2.5.29"
+    private val version = "2.5.31"
     val actor             = "com.typesafe.akka" %% "akka-actor"           % version
     val testkit           = "com.typesafe.akka" %% "akka-testkit"         % version
     val stream            = "com.typesafe.akka" %% "akka-stream"          % version
@@ -55,7 +55,7 @@ object Dependencies {
   }
   
   object Kafka {
-    private val version = "2.4.0"
+    private val version = "2.4.1"
     val kafka           = "org.apache.kafka" %% "kafka"         % version
     val `kafka-clients` = "org.apache.kafka" %  "kafka-clients" % version
   }
