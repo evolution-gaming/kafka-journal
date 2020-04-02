@@ -53,7 +53,7 @@ object JournalStatements {
 
     def of[F[_] : Monad : CassandraSession : ToTry : JsonCodec.Encode](name: TableName): F[InsertRecords[F]] = {
 
-      implicit val encodeTry: JsonCodec.Encode[Try] = implicitly[JsonCodec.Encode[F]].mapK(ToTry.functionK)
+      implicit val encodeTry: JsonCodec.Encode[Try] = JsonCodec.Encode.summon[F].mapK(ToTry.functionK)
 
       val encodeByNameRecordMetadata = EncodeByName[RecordMetadata]
 
@@ -136,7 +136,7 @@ object JournalStatements {
 
     def of[F[_] : Monad : CassandraSession : ToTry : JsonCodec.Decode](name: TableName): F[SelectRecords[F]] = {
 
-      implicit val encodeTry: JsonCodec.Decode[Try] = implicitly[JsonCodec.Decode[F]].mapK(ToTry.functionK)
+      implicit val encodeTry: JsonCodec.Decode[Try] = JsonCodec.Decode.summon[F].mapK(ToTry.functionK)
 
       val decodeByNameJson = DecodeByName[Payload.Json]
 

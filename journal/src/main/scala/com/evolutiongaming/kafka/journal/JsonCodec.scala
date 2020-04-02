@@ -16,7 +16,7 @@ final case class JsonCodec[F[_]](
 
 object JsonCodec {
 
-  def apply[F[_]](implicit F: JsonCodec[F]): JsonCodec[F] = F
+  def summon[F[_]](implicit F: JsonCodec[F]): JsonCodec[F] = F
 
 
   def playJson[F[_] : Applicative : FromTry]: JsonCodec[F] = {
@@ -49,6 +49,8 @@ object JsonCodec {
   final case class Encode[F[_]](toBytes: ToBytes[F, JsValue])
 
   object Encode {
+
+    def summon[F[_]](implicit F: Encode[F]): Encode[F] = F
 
     implicit def fromCodec[F[_]](implicit codec: JsonCodec[F]): Encode[F] = codec.encode
 
@@ -95,6 +97,8 @@ object JsonCodec {
   final case class Decode[F[_]](fromBytes: FromBytes[F, JsValue])
 
   object Decode {
+
+    def summon[F[_]](implicit F: Decode[F]): Decode[F] = F
 
     implicit def fromCodec[F[_]](implicit codec: JsonCodec[F]): Decode[F] = codec.decode
 

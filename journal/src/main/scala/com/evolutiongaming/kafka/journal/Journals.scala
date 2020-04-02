@@ -92,7 +92,7 @@ object Journals {
   ): Journals[F] = {
     implicit val fromAttempt: FromAttempt[F]   = FromAttempt.lift[F]
     implicit val fromJsResult: FromJsResult[F] = FromJsResult.lift[F]
-    implicit val jsonCodec: JsonCodec[Try]     = JsonCodec[F].mapK(ToTry.functionK)
+    implicit val jsonCodec: JsonCodec[Try]     = JsonCodec.summon[F].mapK(ToTry.functionK)
 
     val payloadToEvents = conversionMetrics.fold(PayloadToEvents[F]) { metrics =>
       PayloadToEvents[F].withMetrics(metrics.payloadToEvents)
