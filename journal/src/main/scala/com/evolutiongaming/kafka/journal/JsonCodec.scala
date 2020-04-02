@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import cats.implicits._
 import cats.{Applicative, ~>}
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, MonadThrowable, ToTry}
+import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, MonadThrowable}
 import com.evolutiongaming.jsonitertool.PlayJsonJsoniter
 import play.api.libs.json.{JsValue, Json}
 import scodec.bits.ByteVector
@@ -40,9 +40,6 @@ object JsonCodec {
   }
 
 
-  implicit def jsonCodecTry[F[_] : ToTry](implicit codec: JsonCodec[F]): JsonCodec[Try] = codec.mapK(ToTry.functionK)
-
-
   implicit class JsonCodecOps[F[_]](val self: JsonCodec[F]) extends AnyVal {
 
     def mapK[G[_]](f: F ~> G): JsonCodec[G] = JsonCodec(self.encode.mapK(f), self.decode.mapK(f))
@@ -54,8 +51,6 @@ object JsonCodec {
   object Encode {
 
     implicit def fromCodec[F[_]](implicit codec: JsonCodec[F]): Encode[F] = codec.encode
-
-    implicit def encodeTry[F[_] : ToTry](implicit encode: Encode[F]): Encode[Try] = encode.mapK(ToTry.functionK)
 
 
     def playJson[F[_] : Applicative : FromTry]: Encode[F] = {
