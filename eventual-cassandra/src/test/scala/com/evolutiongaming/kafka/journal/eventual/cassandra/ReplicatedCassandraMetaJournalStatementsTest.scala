@@ -214,11 +214,6 @@ class ReplicatedCassandraMetaJournalStatementsTest extends WordSpec with Matcher
       } yield {}
       val (state, _) = stateT.run(State.empty).get
       val expected = State(
-        metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
-          journalHead = journalHead,
-          created = timestamp0,
-          updated = timestamp1,
-          origin = origin.some))))),
         metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
           journalHead = journalHead,
           created = timestamp0,
@@ -424,24 +419,6 @@ object ReplicatedCassandraMetaJournalStatementsTest {
   }
 
 
-  val insertMetadata: MetadataStatements.Insert[StateT] = {
-    (key, timestamp, journalHead, origin) => {
-      StateT.unit { state =>
-        val entry = MetaJournalEntry(
-          journalHead = journalHead,
-          created = timestamp,
-          updated = timestamp,
-          origin = origin)
-        val entries = state
-          .metadata
-          .getOrElse(key.topic, Map.empty)
-          .updated(key.id, entry)
-        state.copy(metadata = state.metadata.updated(key.topic, entries))
-      }
-    }
-  }
-
-
   val selectJournalHeadMetadata: MetadataStatements.SelectJournalHead[StateT] = {
     key => {
       StateT.success { state =>
@@ -552,7 +529,6 @@ object ReplicatedCassandraMetaJournalStatementsTest {
 
   val metadata: ReplicatedCassandra.MetaJournalStatements[StateT] = ReplicatedCassandra.MetaJournalStatements(
     selectJournalHeadMetadata,
-    insertMetadata,
     updateMetadata,
     updateSeqNrMetadata,
     updateDeleteToMetadata,

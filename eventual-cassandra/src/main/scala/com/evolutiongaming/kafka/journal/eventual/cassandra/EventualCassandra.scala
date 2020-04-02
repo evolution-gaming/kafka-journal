@@ -179,24 +179,18 @@ object EventualCassandra {
         def journalHead(key: Key, segment: SegmentNr) = {
           metaJournal
             .journalHead(key, segment)
-            .flatMap { journalHead =>
-              journalHead.fold {
-                metadata.journalHead(key, segment)
-              } { journalHead =>
-                journalHead.some.pure[F]
-              }
+            .flatMap {
+              case Some(journalHead) => journalHead.some.pure[F]
+              case None              => metadata.journalHead(key, segment)
             }
         }
         
         def journalPointer(key: Key, segment: SegmentNr) = {
           metaJournal
             .journalPointer(key, segment)
-            .flatMap { journalPointer =>
-              journalPointer.fold {
-                metadata.journalPointer(key, segment)
-              } { journalPointer =>
-                journalPointer.some.pure[F]
-              }
+            .flatMap {
+              case Some(journalPointer) => journalPointer.some.pure[F]
+              case None                 => metadata.journalPointer(key, segment)
             }
         }
       }

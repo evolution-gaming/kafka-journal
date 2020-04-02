@@ -409,7 +409,6 @@ object ReplicatedCassandra {
       val metadata = {
         val statements = (
           MetadataStatements.SelectJournalHead.of[F](schema.metadata),
-          MetadataStatements.Insert.of[F](schema.metadata),
           MetadataStatements.Update.of[F](schema.metadata),
           MetadataStatements.UpdateSeqNr.of[F](schema.metadata),
           MetadataStatements.UpdateDeleteTo.of[F](schema.metadata),
@@ -479,10 +478,7 @@ object ReplicatedCassandra {
             }
 
             def insert(timestamp: Instant, journalHead: JournalHead, origin: Option[Origin]) = {
-              for {
-                _ <- metadata1.insert(timestamp, journalHead, origin)
-                _ <- metaJournal1.insert(timestamp, journalHead, origin)
-              } yield {}
+              metaJournal1.insert(timestamp, journalHead, origin)
             }
 
             def update(partitionOffset: PartitionOffset, timestamp: Instant) = {
@@ -596,14 +592,12 @@ object ReplicatedCassandra {
 
     def apply[F[_] : Applicative](
       selectJournalHead: MetadataStatements.SelectJournalHead[F],
-      insert           : MetadataStatements.Insert[F],
       update           : MetadataStatements.Update[F],
       updateSeqNr      : MetadataStatements.UpdateSeqNr[F],
       updateDeleteTo   : MetadataStatements.UpdateDeleteTo[F],
       delete           : MetadataStatements.Delete[F]
     ): MetaJournalStatements[F] = {
 
-      val insert1 = insert
       val update1 = update
       val delete1 = delete
 
@@ -615,7 +609,7 @@ object ReplicatedCassandra {
             def journalHead = selectJournalHead(key)
 
             def insert(timestamp: Instant, journalHead: JournalHead, origin: Option[Origin]) = {
-              insert1(key, timestamp, journalHead, origin)
+              ().pure[F]
             }
 
             def update(partitionOffset: PartitionOffset, timestamp: Instant) = {
