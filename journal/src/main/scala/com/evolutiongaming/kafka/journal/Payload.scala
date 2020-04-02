@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.catshelper.ToTry
 import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
 import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}

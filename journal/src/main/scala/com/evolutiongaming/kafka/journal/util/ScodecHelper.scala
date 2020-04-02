@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal.util
 import cats.MonadError
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
-import com.evolutiongaming.jsonitertool.PlayJsonJsoniter
 import com.evolutiongaming.kafka.journal.JsonCodec
 import play.api.libs.json.Format
 import scodec.bits.ByteVector

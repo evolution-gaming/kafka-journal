@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal
 import cats.data.{NonEmptyList => Nel}
 import java.lang.{Byte => ByteJ}
 
-import com.evolutiongaming.catshelper.ToTry
 import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import scodec.bits.ByteVector
 import scodec.{Codec, codecs}

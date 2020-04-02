@@ -1,17 +1,11 @@
 package com.evolutiongaming.kafka.journal.util
 
-import java.nio.charset.StandardCharsets
-
 import cats.implicits._
 import cats.MonadError
-import cats.arrow.FunctionK
 import cats.data.{NonEmptyList => Nel}
-import com.evolutiongaming.catshelper.ToTry
-import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.kafka.journal.JsonCodec
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
 import play.api.libs.json._
-import scodec.bits.ByteVector
 
 import scala.annotation.tailrec
 import scala.concurrent.duration._
