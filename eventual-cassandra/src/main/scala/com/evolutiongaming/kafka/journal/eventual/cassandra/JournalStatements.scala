@@ -53,7 +53,7 @@ object JournalStatements {
 
     def of[F[_] : Monad : CassandraSession : ToTry : JsonCodec.Encode](name: TableName): F[InsertRecords[F]] = {
 
-      val encodeTry: JsonCodec.Encode[Try] = implicitly
+      implicit val encodeTry: JsonCodec.Encode[Try] = implicitly[JsonCodec.Encode[F]].mapK(ToTry.functionK)
 
       val encodeByNameRecordMetadata = EncodeByName[RecordMetadata]
 
