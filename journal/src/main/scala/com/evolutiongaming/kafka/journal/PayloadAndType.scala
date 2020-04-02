@@ -9,6 +9,8 @@ import play.api.libs.json._
 import scodec.Codec
 import scodec.bits.ByteVector
 
+import scala.util.Try
+
 
 final case class PayloadAndType(
   payload: ByteVector,
@@ -45,7 +47,7 @@ object PayloadAndType {
     implicit val formatPayloadJson: OFormat[PayloadJson] = Json.format
 
 
-    implicit val codecPayloadJson: Codec[PayloadJson] = formatCodec // TODO not used
+    implicit def codecPayloadJson(implicit jsonCodec: JsonCodec[Try]): Codec[PayloadJson] = formatCodec // TODO not used
 
 
     implicit def toBytesPayloadJson[F[_] : Applicative: JsonCodec.Encode]: ToBytes[F, PayloadJson] =

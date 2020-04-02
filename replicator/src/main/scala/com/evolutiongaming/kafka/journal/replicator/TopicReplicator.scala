@@ -10,7 +10,7 @@ import cats.implicits._
 import cats.{Applicative, Monad, Parallel}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
-import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
+import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.conversions.{ConsRecordToActionRecord, PayloadToEvents}
 import com.evolutiongaming.kafka.journal.eventual._
@@ -29,7 +29,13 @@ import scala.util.Try
 
 object TopicReplicator {
 
-  def of[F[_] : Concurrent : Timer : Parallel : LogOf : FromTry :  MeasureDuration : Fail : JsonCodec.Decode](
+  def of[
+    F[_]
+    : Concurrent : Timer : Parallel
+    : FromTry : ToTry : LogOf : Fail
+    : MeasureDuration
+    : JsonCodec
+  ](
     topic: Topic,
     journal: ReplicatedJournal[F],
     consumer: Resource[F, TopicConsumer[F]],
@@ -37,8 +43,10 @@ object TopicReplicator {
     cacheOf: CacheOf[F]
   ): Resource[F, F[Unit]] = {
 
-    implicit val fromAttempt = FromAttempt.lift[F]
-    implicit val fromJsResult = FromJsResult.lift[F]
+    implicit val fromAttempt: FromAttempt[F]   = FromAttempt.lift[F]
+    implicit val fromJsResult: FromJsResult[F] = FromJsResult.lift[F]
+    implicit val jsonCodec: JsonCodec[Try]     = JsonCodec.summon[F].mapK(ToTry.functionK)
+
     val payloadToEvents = PayloadToEvents[F]
 
     def consume(

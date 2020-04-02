@@ -4,6 +4,8 @@ import cats.implicits._
 import scodec.bits.ByteVector
 import scodec.{Attempt, Codec, Err, codecs}
 
+import scala.util.Try
+
 final case class Event(
   seqNr: SeqNr,
   tags: Tags = Tags.empty,
@@ -11,7 +13,10 @@ final case class Event(
 
 object Event {
 
-  implicit val codecEvent: Codec[Event] = {
+  implicit def codecEvent(implicit jsonCodec: JsonCodec[Try]): Codec[Event] = {
+
+    val codecJson: Codec[Payload.Json] = Payload.Json.codecJson
+
     val payloadCodec = {
 
       val errEmpty = Err("")
@@ -31,7 +36,7 @@ object Event {
 
       val binaryCodec = codecOpt(1, codecSome[Payload.Binary])
 
-      val jsonCodec = codecOpt(2, codecSome[Payload.Json](Payload.Json.codecJson))
+      val jsonCodec = codecOpt(2, codecSome[Payload.Json](codecJson))
 
       val textCodec = codecOpt(3, codecSome[Payload.Text])
 

@@ -7,14 +7,14 @@ import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.datastax.driver.core.BatchStatement
 import com.evolutiongaming.catshelper.ToTry
-import com.evolutiongaming.jsonitertool.PlayJsonJsoniter
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.HeadersHelper._
-import com.evolutiongaming.scassandra.TableName
+import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName, TableName}
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.sstream.Stream
 
+import scala.util.Try
 
 object JournalStatements {
 
@@ -52,6 +52,11 @@ object JournalStatements {
   object InsertRecords {
 
     def of[F[_] : Monad : CassandraSession : ToTry : JsonCodec.Encode](name: TableName): F[InsertRecords[F]] = {
+
+      implicit val encodeTry: JsonCodec.Encode[Try] = JsonCodec.Encode.summon[F].mapK(ToTry.functionK)
+
+      val encodeByNameRecordMetadata = EncodeByName[RecordMetadata]
+
       val query =
         s"""
            |INSERT INTO ${ name.toCql } (
@@ -83,7 +88,7 @@ object JournalStatements {
               val (text, bytes) = payload match {
                 case payload: Payload.Binary => (None, Some(payload))
                 case payload: Payload.Text   => (Some(payload.value), None)
-                case payload: Payload.Json   => (Some(PlayJsonJsoniter.serializeToStr(payload.value)), None)
+                case payload: Payload.Json   => (Some(encodeTry.toStr(payload.value).get), None)
               }
               val payloadType = payload.payloadType
               (Some(payloadType): Option[PayloadType], text, bytes)
@@ -103,7 +108,7 @@ object JournalStatements {
               .encodeSome("payload_type", payloadType)
               .encodeSome("payload_txt", txt)
               .encodeSome("payload_bin", bin)
-              .encode("metadata", record.metadata)
+              .encode("metadata", record.metadata)(encodeByNameRecordMetadata)
               .encode(record.headers)
           }
 
@@ -129,7 +134,11 @@ object JournalStatements {
 
   object SelectRecords {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[SelectRecords[F]] = {
+    def of[F[_] : Monad : CassandraSession : ToTry : JsonCodec.Decode](name: TableName): F[SelectRecords[F]] = {
+
+      implicit val encodeTry: JsonCodec.Decode[Try] = JsonCodec.Decode.summon[F].mapK(ToTry.functionK)
+
+      val decodeByNameJson = DecodeByName[Payload.Json]
 
       val query =
         s"""
@@ -175,7 +184,7 @@ object JournalStatements {
               val payload = payloadType.map {
                 case PayloadType.Binary => row.decode[Option[Payload.Binary]]("payload_bin") getOrElse Payload.Binary.empty
                 case PayloadType.Text   => row.decode[Payload.Text]("payload_txt")
-                case PayloadType.Json   => row.decode[Payload.Json]("payload_txt")
+                case PayloadType.Json   => row.decode[Payload.Json]("payload_txt")(decodeByNameJson)
               }
 
               val seqNr = row.decode[SeqNr]

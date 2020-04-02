@@ -10,6 +10,8 @@ import scodec.Codec
 import scodec.bits.ByteVector
 import scodec.codecs.{bytes, utf8}
 
+import scala.util.Try
+
 sealed abstract class Payload extends Product {
 
   def payloadType: PayloadType
@@ -77,12 +79,12 @@ object Payload {
 
     implicit val formatJson: Format[Json] = Format.of[JsValue].inmap(Json(_), _.value)
 
-    val codecJson: Codec[Json] = formatCodec
+    def codecJson(implicit jsonCodec: JsonCodec[Try]): Codec[Json] = formatCodec
 
 
-    implicit def encodeByNameJson[F[_] : ToTry : JsonCodec.Encode]: EncodeByName[Json] = encodeByNameFromWrites
+    implicit def encodeByNameJson(implicit encode: JsonCodec.Encode[Try]): EncodeByName[Json] = encodeByNameFromWrites
 
-    implicit val decodeByNameJson: DecodeByName[Json] = decodeByNameFromReads
+    implicit def decodeByNameJson(implicit decode: JsonCodec.Decode[Try]): DecodeByName[Json] = decodeByNameFromReads
 
 
     def apply[A](a: A)(implicit writes: Writes[A]): Json = Json(writes.writes(a))

@@ -8,9 +8,12 @@ import org.scalatest.matchers.should.Matchers
 import scodec.bits.ByteVector
 import scodec.{Attempt, codecs}
 
+import scala.util.Try
+
 class EventsTest extends FunSuite with Matchers {
 
   test("decode newer version") {
+    implicit val jsonCodec = JsonCodec.jsoniter[Try]
     val codec = {
       val eventsCodec = nelCodec(codecs.listOfN(codecs.int32, codecs.variableSizeBytes(codecs.int32, Event.codecEvent)))
       val version = ByteVector.fromByte(100)

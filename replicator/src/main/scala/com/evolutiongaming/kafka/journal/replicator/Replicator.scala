@@ -65,7 +65,13 @@ object Replicator {
     } yield result
   }
 
-  def of[F[_] : Concurrent : Timer : Parallel : LogOf : KafkaConsumerOf : MeasureDuration : FromTry : Runtime : Fail : JsonCodec.Decode](
+  def of[
+    F[_]
+    : Concurrent : Timer : Parallel
+    : Runtime : FromTry : ToTry : Fail : LogOf
+    : KafkaConsumerOf : MeasureDuration
+    : JsonCodec
+  ](
     config: ReplicatorConfig,
     metrics: Option[Metrics[F]],
     journal: ReplicatedJournal[F],

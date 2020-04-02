@@ -32,6 +32,9 @@ class EventsToBytesSpec extends AnyFunSuite with Matchers {
     1.day.toExpireAfter.some,
     Json.obj(("key", "value")).some)
 
+  implicit val jsonCodec: JsonCodec[Try] = JsonCodec.jsoniter
+
+
   for {
     (name, events) <- List(
       ("empty", Events(

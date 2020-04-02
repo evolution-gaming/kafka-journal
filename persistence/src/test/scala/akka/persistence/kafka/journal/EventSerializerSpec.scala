@@ -53,7 +53,7 @@ class EventSerializerSpec extends AsyncFunSuite with ActorSuite with Matchers {
         payload match {
           case payload: Payload.Binary => payload.value shouldEqual bytes
           case payload: Payload.Text   => payload.value shouldEqual bytes.fromBytes[Try, String].get
-          case payload: Payload.Json   => payload.value shouldEqual JsonCodec[Try].decode.fromBytes(bytes).get
+          case payload: Payload.Json   => payload.value shouldEqual JsonCodec.summon[Try].decode.fromBytes(bytes).get
         }
       }
 
