@@ -57,14 +57,18 @@ object JsonCodec {
 
     def playJson[F[_] : Applicative : FromTry]: Encode[F] = {
       Encode { value =>
-        ByteVector(Json.toBytes(value)).pure[F]
+        FromTry[F].unsafe {
+          ByteVector.view(Json.toBytes(value))
+        }
       }
     }
 
 
     def jsoniter[F[_] : Applicative : FromTry]: Encode[F] = {
       Encode { value =>
-        ByteVector(PlayJsonJsoniter.serialize(value)).pure[F]
+        FromTry[F].unsafe {
+          ByteVector.view(PlayJsonJsoniter.serialize(value))
+        }
       }
     }
 
