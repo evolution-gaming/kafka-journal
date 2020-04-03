@@ -1,5 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
+import java.nio.charset.StandardCharsets
+
 import cats.implicits._
 import cats.{Applicative, ~>}
 import com.evolutiongaming.catshelper.CatsHelper._
@@ -92,7 +94,7 @@ object JsonCodec {
       def toStr(value: JsValue)(implicit F: MonadThrowable[F]): F[String] =
         for {
           bytes <- self.toBytes(value)
-          str   <- bytes.decodeUtf8.liftTo[F]
+          str   <- bytes.decodeString(StandardCharsets.UTF_8).liftTo[F]
         } yield str
     }
   }
@@ -143,7 +145,7 @@ object JsonCodec {
 
       def fromStr(str: String)(implicit F: MonadThrowable[F]): F[JsValue] =
         for {
-          bytes <- ByteVector.encodeUtf8(str).liftTo[F]
+          bytes <- ByteVector.encodeString(str)(StandardCharsets.UTF_8).liftTo[F]
           value <- self.fromBytes(bytes)
         } yield value
     }
