@@ -82,7 +82,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
             n     <- (0 to events).toList
             seqNr <- SeqNr.min.map[Option](_ + n)
           } yield {
-            Event(seqNr)
+            event(seqNr)
           }
           Nel.fromListUnsafe(expected)
         }
@@ -91,12 +91,12 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
           (0 to events)
             .toList
             .parFoldMap { _ =>
-              val event = Event(SeqNr.min)
+              val e = event(SeqNr.min)
               for {
-                _       <- journal.append(Nel.of(event))
+                _       <- journal.append(Nel.of(e))
                 key     <- Key.random[IO]("journal")
                 journal  = JournalTest(journals(key), timestamp)
-                _       <- journal.append(Nel.of(event))
+                _       <- journal.append(Nel.of(e))
               } yield {}
             }
         }
@@ -150,4 +150,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
       }
     }
   }
+
+  private def event(seqNr: SeqNr) =
+    Event[Payload](seqNr)
 }

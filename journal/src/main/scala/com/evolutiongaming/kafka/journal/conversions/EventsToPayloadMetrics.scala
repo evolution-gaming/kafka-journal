@@ -15,13 +15,15 @@ import scala.concurrent.duration.FiniteDuration
 
 trait EventsToPayloadMetrics[F[_]] {
 
-  def apply(events: Events, payloadAndType: PayloadAndType, latency: FiniteDuration): F[Unit]
+  def apply[A](events: Events[A], payloadAndType: PayloadAndType, latency: FiniteDuration): F[Unit]
 }
 
 object EventsToPayloadMetrics {
 
-  def empty[F[_]: Applicative]: EventsToPayloadMetrics[F] =
-    (_, _, _) => Applicative[F].unit
+  def empty[F[_]: Applicative]: EventsToPayloadMetrics[F] = new EventsToPayloadMetrics[F] {
+    override def apply[A](events: Events[A], payloadAndType: PayloadAndType, latency: FiniteDuration): F[Unit] =
+      Applicative[F].unit
+  }
 
   def of[F[_]: Monad](
     registry: CollectorRegistry[F],
@@ -40,7 +42,7 @@ object EventsToPayloadMetrics {
     } yield {
       new EventsToPayloadMetrics[F] {
 
-        def apply(events: Events, payloadAndType: PayloadAndType, latency: FiniteDuration): F[Unit] =
+        def apply[A](events: Events[A], payloadAndType: PayloadAndType, latency: FiniteDuration): F[Unit] =
           durationSummary
             .labels(payloadAndType.payloadType.name)
             .observe(latency.toNanos.nanosToSeconds)

@@ -1,23 +1,27 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.Functor
 import cats.implicits._
 import scodec.bits.ByteVector
 import scodec.{Attempt, Codec, Err, codecs}
 
 import scala.util.Try
 
-final case class Event(
+final case class Event[A](
   seqNr: SeqNr,
   tags: Tags = Tags.empty,
-  payload: Option[Payload] = None)
+  payload: Option[A] = None)
 
 object Event {
 
-  implicit def codecEvent(implicit jsonCodec: JsonCodec[Try]): Codec[Event] = {
+  implicit def codecEvent[A](implicit payloadCodec: Codec[Option[A]]): Codec[Event[A]] =
+    (SeqNr.codecSeqNr :: Tags.codecTags :: payloadCodec).as[Event[A]]
+
+  implicit def codecEventPayload(implicit jsonCodec: JsonCodec[Try]): Codec[Event[Payload]] = {
 
     val codecJson: Codec[Payload.Json] = Payload.Json.codecJson
 
-    val payloadCodec = {
+    implicit val payloadCodec: Codec[Option[Payload]] = {
 
       val errEmpty = Err("")
 
@@ -47,6 +51,10 @@ object Event {
         emptyCodec)
     }
 
-    (SeqNr.codecSeqNr :: Tags.codecTags :: payloadCodec).as[Event]
+    codecEvent[Payload]
+  }
+
+  implicit val eventFunctor: Functor[Event] = new Functor[Event] {
+    override def map[A, B](fa: Event[A])(f: A => B): Event[B] = fa.copy(payload = fa.payload.map(f))
   }
 }

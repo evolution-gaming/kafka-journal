@@ -162,23 +162,23 @@ object ReplicatedCassandra {
 
                 new ReplicatedKeyJournal[F] {
 
-                  def append(
+                  def append[A](
                     partitionOffset: PartitionOffset,
                     timestamp: Instant,
                     expireAfter: Option[ExpireAfter],
-                    events: Nel[EventRecord]
-                  ) = {
+                    events: Nel[EventRecord[A]]
+                  )(implicit W: EventualWrite[F, A]) = {
 
                     def append(segmentSize: SegmentSize, offset: Option[Offset]) = {
 
                       @tailrec
                       def loop(
-                        events: List[EventRecord],
-                        s: Option[(Segment, Nel[EventRecord])],
+                        events: List[EventRecord[A]],
+                        s: Option[(Segment, Nel[EventRecord[A]])],
                         result: F[Unit]
                       ): F[Unit] = {
 
-                        def insert(segment: Segment, events: Nel[EventRecord]) = {
+                        def insert(segment: Segment, events: Nel[EventRecord[A]]) = {
                           val next = statements.insertRecords(key, segment.nr, events)
                           result *> next
                         }

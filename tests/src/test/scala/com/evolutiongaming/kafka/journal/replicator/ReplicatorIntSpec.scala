@@ -136,16 +136,16 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
     val Error = new RuntimeException with NoStackTrace
 
-    def read(key: Key)(until: List[EventRecord] => Boolean) = {
+    def read(key: Key)(until: List[EventRecord[Payload]] => Boolean) = {
       val events = for {
-        events <- eventualJournal.read(key, SeqNr.min).toList
+        events <- eventualJournal.read[Payload](key, SeqNr.min).toList
         events <- {
           if (until(events)) {
             events
               .map { event => event.copy(timestamp = timestamp) }
               .pure[IO]
           } else {
-            Error.raiseError[IO, List[EventRecord]]
+            Error.raiseError[IO, List[EventRecord[Payload]]]
           }
         }
       } yield events
@@ -153,7 +153,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       Retry[IO, Throwable](strategy).apply(events)
     }
 
-    def append(journal: Journal[IO], events: Nel[Event], expireAfter: Option[ExpireAfter] = none) = {
+    def append(journal: Journal[IO], events: Nel[Event[Payload]], expireAfter: Option[ExpireAfter] = none) = {
       val recordMetadata1 = recordMetadata.withExpireAfter(expireAfter)
       for {
         partitionOffset <- journal.append(events, recordMetadata1, headers)
@@ -335,12 +335,12 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
     }
   }
 
-  private def event(seqNr: Int, payload: Option[Payload] = None): Event = {
+  private def event(seqNr: Int, payload: Option[Payload] = None): Event[Payload] = {
     val tags = (0 to seqNr).map(_.toString).toSet
     Event(SeqNr.unsafe(seqNr), tags, payload)
   }
 
-  private def event(seqNr: Int, payload: Payload): Event = {
+  private def event(seqNr: Int, payload: Payload): Event[Payload] = {
     event(seqNr, payload.some)
   }
 }

@@ -19,6 +19,7 @@ import com.evolutiongaming.smetrics.MeasureDuration
 import com.typesafe.config.ConfigFactory
 import pureconfig.ConfigSource
 import TestJsonCodec.instance
+import com.evolutiongaming.kafka.journal.conversions.KafkaWrite
 
 import scala.concurrent.duration._
 
@@ -39,13 +40,14 @@ object AppendReplicateApp extends IOApp {
   }
 
 
-  private def runF[F[_] : ConcurrentEffect : Timer : Parallel : ContextShift : FromFuture : ToFuture : Runtime : FromGFuture : MeasureDuration : FromTry : ToTry : Fail](
+  private def runF[F[_] : ConcurrentEffect : Timer : Parallel : ContextShift : FromFuture : ToFuture : Runtime : FromGFuture : MeasureDuration : FromTry : FromAttempt : ToTry : Fail](
     topic: Topic)(implicit
     system: ActorSystem,
   ): F[Unit] = {
 
     implicit val logOf = LogOfFromAkka[F](system)
     implicit val randomIdOf = RandomIdOf.uuid[F]
+    implicit val kafkaWrite = KafkaWrite[F, Payload]
 
     val kafkaJournalConfig = ConfigSource
       .fromConfig(system.settings.config)
@@ -103,7 +105,7 @@ object AppendReplicateApp extends IOApp {
   }
 
 
-  private def append[F[_] : Concurrent : Timer : Parallel](topic: Topic, journals: Journals[F]) = {
+  private def append[F[_] : Concurrent : Timer : Parallel](topic: Topic, journals: Journals[F])(implicit W: KafkaWrite[F, Payload]) = {
 
     def append(id: String) = {
 

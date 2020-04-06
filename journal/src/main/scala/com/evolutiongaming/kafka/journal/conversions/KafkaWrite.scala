@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.conversions
 
-import cats.Monad
+import cats.{Monad, ~>}
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.evolutiongaming.catshelper.MonadThrowable
@@ -11,20 +11,22 @@ import play.api.libs.json.{JsValue, Writes}
 
 import scala.annotation.tailrec
 
-trait EventsToPayload[F[_]] {
-  
-  def apply(events: Events): F[PayloadAndType]
+trait KafkaWrite[F[_], A] {
+
+  def writeKafka(events: Events[A]): F[PayloadAndType]
 }
 
-object EventsToPayload {
+object KafkaWrite {
 
-  implicit def apply[F[_] : MonadThrowable](implicit
-    eventsToBytes: ToBytes[F, Events],
+  def apply[F[_], A](implicit W: KafkaWrite[F, A]): KafkaWrite[F, A] = W
+
+  implicit def forPayload[F[_] : MonadThrowable](implicit
+    eventsToBytes: ToBytes[F, Events[Payload]],
     payloadJsonToBytes: ToBytes[F, PayloadJson]
-  ): EventsToPayload[F] = {
-    events: Events => {
+  ): KafkaWrite[F, Payload] = {
+    events: Events[Payload] => {
 
-      def eventJson(head: Event) = {
+      def eventJson(head: Event[Payload]) = {
 
         def ofOpt(payloadType: Option[PayloadType.TextOrJson], payload: Option[JsValue]) = {
           EventJson(head.seqNr, head.tags, payloadType, payload)
@@ -45,7 +47,7 @@ object EventsToPayload {
       }
 
       @tailrec
-      def eventJsons(events: List[Event], result: List[EventJson]): List[EventJson] = {
+      def eventJsons(events: List[Event[Payload]], result: List[EventJson]): List[EventJson] = {
         events match {
           case Nil          => result.reverse
           case head :: tail => eventJson(head) match {
@@ -69,24 +71,27 @@ object EventsToPayload {
       }
 
       payloadAndType(eventJsons(events.events.toList, List.empty)).adaptError { case e =>
-        JournalError(s"EventsToPayload failed for $events: $e", e)
+        JournalError(s"KafkaWrite failed for $events: $e", e)
       }
     }
   }
 
-  implicit class EventsToPayloadOps[F[_]](val self: EventsToPayload[F]) extends AnyVal {
+  implicit class KafkaWriteOps[F[_], A](val self: KafkaWrite[F, A]) extends AnyVal {
     def withMetrics(
       metrics: EventsToPayloadMetrics[F]
     )(
       implicit F: Monad[F], measureDuration: MeasureDuration[F]
-    ): EventsToPayload[F] = {
+    ): KafkaWrite[F, A] = {
       events =>
         for {
           d <- MeasureDuration[F].start
-          r <- self(events)
+          r <- self.writeKafka(events)
           d <- d
           _ <- metrics(events, r, d)
         } yield r
     }
+
+    def mapK[G[_]](fg: F ~> G): KafkaWrite[G, A] =
+      (events: Events[A]) => fg(self.writeKafka(events))
   }
 }

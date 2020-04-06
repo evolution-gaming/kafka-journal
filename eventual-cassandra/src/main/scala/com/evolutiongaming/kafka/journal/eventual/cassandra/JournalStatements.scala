@@ -5,14 +5,16 @@ import java.time.Instant
 import cats.Monad
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
-import com.datastax.driver.core.BatchStatement
+import com.datastax.driver.core.{BatchStatement, Row, Statement}
 import com.evolutiongaming.catshelper.ToTry
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.eventual.{EventualPayloadAndType, EventualRead, EventualWrite}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.HeadersHelper._
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName, TableName}
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.sstream.Stream
+import scodec.bits.ByteVector
 
 import scala.util.Try
 
@@ -46,7 +48,7 @@ object JournalStatements {
 
 
   trait InsertRecords[F[_]] {
-    def apply(key: Key, segment: SegmentNr, events: Nel[EventRecord]): F[Unit]
+    def apply[A](key: Key, segment: SegmentNr, events: Nel[EventRecord[A]])(implicit W: EventualWrite[F, A]): F[Unit]
   }
 
   object InsertRecords {
@@ -54,6 +56,9 @@ object JournalStatements {
     def of[F[_] : Monad : CassandraSession : ToTry : JsonCodec.Encode](name: TableName): F[InsertRecords[F]] = {
 
       implicit val encodeTry: JsonCodec.Encode[Try] = JsonCodec.Encode.summon[F].mapK(ToTry.functionK)
+
+      implicit val encodeByNameByteVector: EncodeByName[ByteVector] = EncodeByName[Array[Byte]]
+        .contramap { _.toArray }
 
       val encodeByNameRecordMetadata = EncodeByName[RecordMetadata]
 
@@ -80,48 +85,56 @@ object JournalStatements {
       for {
         prepared <- query.prepare
       } yield {
-        (key: Key, segment: SegmentNr, events: Nel[EventRecord]) =>
+        new InsertRecords[F] {
+          override def apply[A](key: Key, segment: SegmentNr, events: Nel[EventRecord[A]])(
+            implicit W: EventualWrite[F, A]): F[Unit] = {
 
-          def statementOf(record: EventRecord) = {
-            val event = record.event
-            val (payloadType, txt, bin) = event.payload.map { payload =>
-              val (text, bytes) = payload match {
-                case payload: Payload.Binary => (None, Some(payload))
-                case payload: Payload.Text   => (Some(payload.value), None)
-                case payload: Payload.Json   => (Some(encodeTry.toStr(payload.value).get), None)
-              }
-              val payloadType = payload.payloadType
-              (Some(payloadType): Option[PayloadType], text, bytes)
-            } getOrElse {
-              (None, None, None)
+            def writePayload(payload: A) =
+              W.writeEventual(payload)
+                .map { payloadAndType =>
+                  val (text, bytes) = payloadAndType.payload.fold(
+                    text => (text.some, none),
+                    bytes => (none, bytes.some)
+                  )
+                  (payloadAndType.payloadType.some, text, bytes)
+                }
+
+            def statementOf(record: EventRecord[A]) = {
+              val event = record.event
+              event.payload
+                .map(writePayload)
+                .getOrElse((none[PayloadType], none[String], none[ByteVector]).pure[F])
+                .map { case (payloadType, txt, bin) =>
+                  prepared
+                    .bind()
+                    .encode(key)
+                    .encode(segment)
+                    .encode(event.seqNr)
+                    .encode(record.partitionOffset)
+                    .encode("timestamp", record.timestamp)
+                    .encodeSome(record.origin)
+                    .encode("tags", event.tags)
+                    .encodeSome("payload_type", payloadType)
+                    .encodeSome("payload_txt", txt)
+                    .encodeSome("payload_bin", bin)
+                    .encode("metadata", record.metadata)(encodeByNameRecordMetadata)
+                    .encode(record.headers)
+                }
             }
 
-            prepared
-              .bind()
-              .encode(key)
-              .encode(segment)
-              .encode(event.seqNr)
-              .encode(record.partitionOffset)
-              .encode("timestamp", record.timestamp)
-              .encodeSome(record.origin)
-              .encode("tags", event.tags)
-              .encodeSome("payload_type", payloadType)
-              .encodeSome("payload_txt", txt)
-              .encodeSome("payload_bin", bin)
-              .encode("metadata", record.metadata)(encodeByNameRecordMetadata)
-              .encode(record.headers)
-          }
-
-          val statement = {
-            if (events.tail.isEmpty) {
-              statementOf(events.head)
-            } else {
-              events.foldLeft(new BatchStatement()) { (batch, event) =>
-                batch.add(statementOf(event))
+            val statement = {
+              if (events.tail.isEmpty) {
+                statementOf(events.head).widen[Statement]
+              } else {
+                events.foldM(new BatchStatement()) { (batch, event) =>
+                  statementOf(event).map(batch.add)
+                }
+                  .widen[Statement]
               }
             }
+            statement.flatMap(_.first).void
           }
-          statement.first.void
+        }
       }
     }
   }
@@ -129,7 +142,7 @@ object JournalStatements {
 
   trait SelectRecords[F[_]] {
 
-    def apply(key: Key, segment: SegmentNr, range: SeqRange): Stream[F, EventRecord]
+    def apply[A](key: Key, segment: SegmentNr, range: SeqRange)(implicit R: EventualRead[F, A]): Stream[F, EventRecord[A]]
   }
 
   object SelectRecords {
@@ -137,8 +150,8 @@ object JournalStatements {
     def of[F[_] : Monad : CassandraSession : ToTry : JsonCodec.Decode](name: TableName): F[SelectRecords[F]] = {
 
       implicit val encodeTry: JsonCodec.Decode[Try] = JsonCodec.Decode.summon[F].mapK(ToTry.functionK)
-
-      val decodeByNameJson = DecodeByName[Payload.Json]
+      implicit val decodeByNameByteVector: DecodeByName[ByteVector] = DecodeByName[Array[Byte]]
+        .map { a => ByteVector.view(a) }
 
       val query =
         s"""
@@ -166,7 +179,17 @@ object JournalStatements {
       } yield {
         new SelectRecords[F] {
 
-          def apply(key: Key, segment: SegmentNr, range: SeqRange) = {
+          def apply[A](key: Key, segment: SegmentNr, range: SeqRange)(implicit R: EventualRead[F, A]) = {
+
+            def readPayload(row: Row): F[Option[A]] = {
+              val payloadType = row.decode[Option[PayloadType]]("payload_type")
+              val payloadTxt = row.decode[Option[String]]("payload_txt")
+              val payloadBin = row.decode[Option[ByteVector]]("payload_bin") getOrElse ByteVector.empty
+
+              payloadType
+                .map(EventualPayloadAndType(payloadTxt.toLeft(payloadBin), _))
+                .traverse(R.readEventual)
+            }
 
             val bound = prepared
               .bind()
@@ -177,15 +200,9 @@ object JournalStatements {
 
             for {
               row <- bound.execute
+              payload <- Stream.lift(readPayload(row))
             } yield {
               val partitionOffset = row.decode[PartitionOffset]
-
-              val payloadType = row.decode[Option[PayloadType]]("payload_type")
-              val payload = payloadType.map {
-                case PayloadType.Binary => row.decode[Option[Payload.Binary]]("payload_bin") getOrElse Payload.Binary.empty
-                case PayloadType.Text   => row.decode[Payload.Text]("payload_txt")
-                case PayloadType.Json   => row.decode[Payload.Json]("payload_txt")(decodeByNameJson)
-              }
 
               val seqNr = row.decode[SeqNr]
               val event = Event(

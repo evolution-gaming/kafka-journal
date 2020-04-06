@@ -12,7 +12,7 @@ import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, ToTry}
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.conversions.{ConsRecordToActionRecord, PayloadToEvents}
+import com.evolutiongaming.kafka.journal.conversions.{ConsRecordToActionRecord, KafkaRead}
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal.util.{Fail, ResourceOf}
@@ -47,7 +47,8 @@ object TopicReplicator {
     implicit val fromJsResult: FromJsResult[F] = FromJsResult.lift[F]
     implicit val jsonCodec: JsonCodec[Try]     = JsonCodec.summon[F].mapK(ToTry.functionK)
 
-    val payloadToEvents = PayloadToEvents[F]
+    val kafkaRead = KafkaRead[F, Payload]
+    val eventualWrite = EventualWrite[F, Payload]
 
     def consume(
       consumer: Resource[F, TopicConsumer[F]],
@@ -59,7 +60,8 @@ object TopicReplicator {
         topic = topic,
         consumer = consumer,
         consRecordToActionRecord = consRecordToActionRecord,
-        payloadToEvents = payloadToEvents,
+        kafkaRead = kafkaRead,
+        eventualWrite = eventualWrite,
         journal = journal,
         metrics = metrics,
         log = log,
@@ -79,11 +81,12 @@ object TopicReplicator {
     } yield consuming
   }
 
-  def of[F[_] : Concurrent : Parallel : FromTry : Timer : MeasureDuration](
+  def of[F[_] : Concurrent : Parallel : FromTry : Timer : MeasureDuration, A](
     topic: Topic,
     consumer: Resource[F, TopicConsumer[F]],
     consRecordToActionRecord: ConsRecordToActionRecord[F],
-    payloadToEvents: PayloadToEvents[F],
+    kafkaRead: KafkaRead[F, A],
+    eventualWrite: EventualWrite[F, A],
     journal: ReplicatedJournal[F],
     metrics: Metrics[F],
     log: Log[F],
@@ -114,7 +117,8 @@ object TopicReplicator {
                 consRecordToActionRecord = consRecordToActionRecord,
                 journal = journal,
                 metrics = metrics,
-                payloadToEvents = payloadToEvents,
+                kafkaRead,
+                eventualWrite,
                 log = log)
 
               (timestamp: Instant, records: Nel[ConsRecord]) => {

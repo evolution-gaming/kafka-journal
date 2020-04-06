@@ -20,7 +20,7 @@ trait EventualJournal[F[_]] {
 
   def pointers(topic: Topic): F[TopicPointers]
 
-  def read(key: Key, from: SeqNr): Stream[F, EventRecord]
+  def read[A](key: Key, from: SeqNr)(implicit R: EventualRead[F, A]): Stream[F, EventRecord[A]]
 }
 
 object EventualJournal {
@@ -42,9 +42,9 @@ object EventualJournal {
         } yield r
       }
 
-      def read(key: Key, from: SeqNr) = {
+      def read[A](key: Key, from: SeqNr)(implicit R: EventualRead[F, A]) = {
         val logging = new (F ~> F) {
-          def apply[A](fa: F[A]) = {
+          def apply[B](fa: F[B]) = {
             for {
               d <- MeasureDuration[F].start
               r <- fa
@@ -53,7 +53,7 @@ object EventualJournal {
             } yield r
           }
         }
-        journal.read(key, from).mapK(logging, functionKId)
+        journal.read[A](key, from).mapK(logging, functionKId)
       }
 
       def pointer(key: Key) = {
@@ -86,9 +86,9 @@ object EventualJournal {
         } yield r
       }
 
-      def read(key: Key, from: SeqNr) = {
+      def read[A](key: Key, from: SeqNr)(implicit R: EventualRead[F, A]) = {
         val measure = new (F ~> F) {
-          def apply[A](fa: F[A]) = {
+          def apply[B](fa: F[B]) = {
             for {
               d <- MeasureDuration[F].start
               r <- fa
@@ -99,7 +99,7 @@ object EventualJournal {
         }
 
         for {
-          a <- journal.read(key, from).mapK(measure, functionKId)
+          a <- journal.read[A](key, from).mapK(measure, functionKId)
           _ <- Stream.lift(metrics.read(key.topic))
         } yield a
       }
@@ -120,7 +120,7 @@ object EventualJournal {
 
     def pointers(topic: Topic) = TopicPointers.empty.pure[F]
 
-    def read(key: Key, from: SeqNr) = Stream.empty[F, EventRecord]
+    def read[A](key: Key, from: SeqNr)(implicit R: EventualRead[F, A]) = Stream.empty[F, EventRecord[A]]
 
     def pointer(key: Key) = none[JournalPointer].pure[F]
   }
@@ -212,7 +212,8 @@ object EventualJournal {
 
       def pointers(topic: Topic) = fg(self.pointers(topic))
 
-      def read(key: Key, from1: SeqNr) = self.read(key, from1).mapK(fg, gf)
+      def read[A](key: Key, from1: SeqNr)(implicit R: EventualRead[G, A]) =
+        self.read[A](key, from1)(R.mapK(gf)).mapK(fg, gf)
 
       def pointer(key: Key) = fg(self.pointer(key))
     }
@@ -222,7 +223,7 @@ object EventualJournal {
     }
 
     def withMetrics(metrics: Metrics[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): EventualJournal[F] = {
-      EventualJournal(self, metrics)
+      EventualJournal[F](self, metrics)
     }
 
     def enhanceError(implicit F: MonadThrowable[F]): EventualJournal[F] = {
@@ -239,10 +240,10 @@ object EventualJournal {
             .handleErrorWith { a => error(s"pointers topic: $topic", a) }
         }
 
-        def read(key: Key, from: SeqNr) = {
+        def read[A](key: Key, from: SeqNr)(implicit R: EventualRead[F, A]) = {
           self
-            .read(key, from)
-            .handleErrorWith { a: Throwable => Stream.lift(error[EventRecord](s"read key: $key, from: $from", a)) }
+            .read[A](key, from)
+            .handleErrorWith { a: Throwable => Stream.lift(error[EventRecord[A]](s"read key: $key, from: $from", a)) }
         }
 
         def pointer(key: Key) = {

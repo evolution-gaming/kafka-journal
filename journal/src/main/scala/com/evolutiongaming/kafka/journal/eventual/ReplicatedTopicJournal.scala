@@ -64,23 +64,24 @@ object ReplicatedTopicJournal {
   implicit class ReplicatedTopicJournalOps[F[_]](val self: ReplicatedTopicJournal[F]) extends AnyVal {
 
     def mapK[G[_]](
-      f: F ~> G)(implicit
+      fg: F ~> G,
+      gf: G ~> F)(implicit
       B: BracketThrowable[F],
       D: Defer[G],
       G: Applicative[G]
     ): ReplicatedTopicJournal[G] = new ReplicatedTopicJournal[G] {
 
-      def pointers = f(self.pointers)
+      def pointers = fg(self.pointers)
 
       def journal(id: String) = {
         self
           .journal(id)
-          .map(_.mapK(f))
-          .mapK(f)
+          .map(_.mapK(fg, gf))
+          .mapK(fg)
       }
 
       def save(pointers: Nem[Partition, Offset], timestamp: Instant) = {
-        f(self.save(pointers, timestamp))
+        fg(self.save(pointers, timestamp))
       }
     }
 

@@ -14,12 +14,12 @@ import com.evolutiongaming.smetrics._
 
 trait ReplicatedKeyJournal[F[_]] {
 
-  def append(
+  def append[A](
     partitionOffset: PartitionOffset,
     timestamp: Instant,
     expireAfter: Option[ExpireAfter],
-    events: Nel[EventRecord]
-  ): F[Changed]
+    events: Nel[EventRecord[A]]
+  )(implicit W: EventualWrite[F, A]): F[Changed]
 
   def delete(
     partitionOffset: PartitionOffset,
@@ -41,12 +41,12 @@ object ReplicatedKeyJournal {
 
   def empty[F[_] : Applicative]: ReplicatedKeyJournal[F] = new ReplicatedKeyJournal[F] {
 
-    def append(
+    def append[A](
       partitionOffset: PartitionOffset,
       timestamp: Instant,
       expireAfter: Option[ExpireAfter],
-      events: Nel[EventRecord]
-    ) = false.pure[F]
+      events: Nel[EventRecord[A]]
+    )(implicit W: EventualWrite[F, A]) = false.pure[F]
 
     def delete(
       partitionOffset: PartitionOffset,
@@ -66,12 +66,12 @@ object ReplicatedKeyJournal {
 
     new ReplicatedKeyJournal[F] {
 
-      def append(
+      def append[A](
         partitionOffset: PartitionOffset,
         timestamp: Instant,
         expireAfter: Option[ExpireAfter],
-        events: Nel[EventRecord]
-      ) = {
+        events: Nel[EventRecord[A]]
+      )(implicit W: EventualWrite[F, A]) = {
         replicatedJournal.append(key, partitionOffset, timestamp, expireAfter, events)
       }
 
@@ -96,15 +96,15 @@ object ReplicatedKeyJournal {
 
   implicit class ReplicatedKeyJournalOps[F[_]](val self: ReplicatedKeyJournal[F]) extends AnyVal {
 
-    def mapK[G[_]](f: F ~> G): ReplicatedKeyJournal[G] = new ReplicatedKeyJournal[G] {
+    def mapK[G[_]](fg: F ~> G, gf: G ~> F): ReplicatedKeyJournal[G] = new ReplicatedKeyJournal[G] {
 
-      def append(
+      def append[A](
         partitionOffset: PartitionOffset,
         timestamp: Instant,
         expireAfter: Option[ExpireAfter],
-        events: Nel[EventRecord]
-      ) = {
-        f(self.append(partitionOffset, timestamp, expireAfter, events))
+        events: Nel[EventRecord[A]]
+      )(implicit W: EventualWrite[G, A]) = {
+        fg(self.append(partitionOffset, timestamp, expireAfter, events)(W.mapK(gf)))
       }
 
       def delete(
@@ -113,14 +113,14 @@ object ReplicatedKeyJournal {
         deleteTo: DeleteTo,
         origin: Option[Origin]
       ) = {
-        f(self.delete(partitionOffset, timestamp, deleteTo, origin))
+        fg(self.delete(partitionOffset, timestamp, deleteTo, origin))
       }
 
       def purge(
         offset: Offset,
         timestamp: Instant
       ) = {
-        f(self.purge(offset, timestamp))
+        fg(self.purge(offset, timestamp))
       }
     }
 
@@ -134,12 +134,12 @@ object ReplicatedKeyJournal {
 
       new ReplicatedKeyJournal[F] {
 
-        def append(
+        def append[A](
           partitionOffset: PartitionOffset,
           timestamp: Instant,
           expireAfter: Option[ExpireAfter],
-          events: Nel[EventRecord]
-        ) = {
+          events: Nel[EventRecord[A]]
+        )(implicit W: EventualWrite[F, A]) = {
           for {
             d <- MeasureDuration[F].start
             r <- self.append(partitionOffset, timestamp, expireAfter, events)
@@ -195,12 +195,12 @@ object ReplicatedKeyJournal {
     ): ReplicatedKeyJournal[F] = {
       new ReplicatedKeyJournal[F] {
 
-        def append(
+        def append[A](
           partitionOffset: PartitionOffset,
           timestamp: Instant,
           expireAfter: Option[ExpireAfter],
-          events: Nel[EventRecord]
-        ) = {
+          events: Nel[EventRecord[A]]
+        )(implicit W: EventualWrite[F, A]) = {
           for {
             d <- MeasureDuration[F].start
             r <- self.append(partitionOffset, timestamp, expireAfter, events)
@@ -246,12 +246,12 @@ object ReplicatedKeyJournal {
 
       new ReplicatedKeyJournal[F] {
 
-        def append(
+        def append[A](
           partitionOffset: PartitionOffset,
           timestamp: Instant,
           expireAfter: Option[ExpireAfter],
-          events: Nel[EventRecord]
-        ) = {
+          events: Nel[EventRecord[A]]
+        )(implicit W: EventualWrite[F, A]) = {
           self
             .append(partitionOffset, timestamp, expireAfter, events)
             .handleErrorWith { a =>

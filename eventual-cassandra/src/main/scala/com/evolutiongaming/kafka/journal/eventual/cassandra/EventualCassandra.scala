@@ -88,7 +88,7 @@ object EventualCassandra {
         }
       }
 
-      def read(key: Key, from: SeqNr): Stream[F, EventRecord] = {
+      def read[A](key: Key, from: SeqNr)(implicit R: EventualRead[F, A]): Stream[F, EventRecord[A]] = {
 
         def read(statement: JournalStatements.SelectRecords[F], head: JournalHead) = {
 
@@ -96,7 +96,7 @@ object EventualCassandra {
 
             def read(from: SeqNr, segment: Segment) = {
               val range = SeqRange(from, SeqNr.max)
-              statement(key, segment.nr, range).map { record => (record, segment) }
+              statement[A](key, segment.nr, range).map { record => (record, segment) }
             }
 
             read(from, Segment(from, head.segmentSize))
@@ -118,7 +118,7 @@ object EventualCassandra {
               if (from > deleteTo.value) read(from)
               else deleteTo.value.next[Option] match {
                 case Some(from) => read(from)
-                case None       => Stream.empty[F, EventRecord]
+                case None       => Stream.empty[F, EventRecord[A]]
               }
           }
         }
@@ -126,7 +126,7 @@ object EventualCassandra {
         for {
           segmentNr <- Stream.lift(segmentOf(key))
           head      <- Stream.lift(statements.metaJournal.journalHead(key, segmentNr))
-          result    <- head.fold(Stream.empty[F, EventRecord]) { head => read(statements.records, head) }
+          result    <- head.fold(Stream.empty[F, EventRecord[A]]) { head => read(statements.records, head) }
         } yield result
       }
     }

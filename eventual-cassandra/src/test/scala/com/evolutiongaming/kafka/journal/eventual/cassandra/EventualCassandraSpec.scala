@@ -3,13 +3,13 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import java.time.ZoneOffset
 
 import cats.Parallel
-import cats.data.IndexedStateT
+import cats.data.{IndexedStateT, NonEmptyList}
 import cats.effect.ExitCase
 import cats.implicits._
-import com.evolutiongaming.catshelper.BracketThrowable
+import com.evolutiongaming.catshelper.{BracketThrowable, FromTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
-import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualJournalSpec, ReplicatedJournal, TopicPointers}
+import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualJournalSpec, EventualPayloadAndType, EventualRead, EventualWrite, ReplicatedJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.{BracketFromMonadError, ConcurrentOf, Fail}
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.sstream.FoldWhile._
@@ -28,7 +28,7 @@ class EventualCassandraSpec extends EventualJournalSpec {
       delete      <- List(true, false)
     } {
       s"segmentSize: $segmentSize, delete: $delete, segments: $segments" should {
-        test[StateT] { test =>
+        test[StateT, Payload] { test =>
           val journals = journalsOf(segmentSize, delete, segments)
           val (_, result) = test(journals)
             .run(State.empty)
@@ -103,25 +103,42 @@ object EventualCassandraSpec {
 
   implicit val parallelStateT: Parallel[StateT] = Parallel.identity[StateT]
 
+  implicit val fromAttemptStateT: FromAttempt[StateT] = FromAttempt.lift[StateT]
+
+  implicit val fromJsResultStateT: FromJsResult[StateT] = FromJsResult.lift[StateT]
+
+  implicit val fromTryStateT: FromTry[StateT] = FromTry.lift[StateT]
+
+  implicit val jsonCodecStateT: JsonCodec[StateT] = JsonCodec.default[StateT]
+
+  implicit val jsonCodecTry: JsonCodec[Try] = JsonCodec.default[Try]
+
+  implicit val eventualReadStateT: EventualRead[StateT, Payload] = EventualRead.forPayload
+
+  implicit val eventualWriteStateT: EventualWrite[StateT, Payload] = EventualWrite.forPayload
 
   def eventualJournalOf(segmentOf: SegmentOf[StateT]): EventualJournal[StateT] = {
 
     val selectRecords = new JournalStatements.SelectRecords[StateT] {
 
-      def apply(key: Key, segment: SegmentNr, range: SeqRange) = new Stream[StateT, EventRecord] {
+      def apply[A](key: Key, segment: SegmentNr, range: SeqRange)(implicit R: EventualRead[StateT, A]) =
+        new Stream[StateT, EventRecord[A]] {
 
-        def foldWhileM[L, R](l: L)(f: (L, EventRecord) => StateT[Either[L, R]]) = {
-          StateT { state =>
-            val events = state.journal.events(key, segment)
-            val result = events.foldWhileM[StateT, L, R](l) { (l, event) =>
-              val seqNr = event.event.seqNr
-              if (range contains seqNr) f(l, event)
-              else l.asLeft[R].pure[StateT]
-            }
-            (state, result)
-          }.flatten
+          def foldWhileM[L, R](l: L)(f: (L, EventRecord[A]) => StateT[Either[L, R]]) = {
+            StateT { state =>
+              val events = state.journal.events(key, segment)
+              val result = events.foldWhileM[StateT, L, R](l) { (l, event) =>
+                val seqNr = event.event.seqNr
+                event.event.payload.traverse(R.readEventual)
+                  .flatMap { payload =>
+                    if (range contains seqNr) f(l, event.copy(event = event.event.copy(payload = payload)))
+                    else l.asLeft[R].pure[StateT]
+                  }
+              }
+              (state, result)
+            }.flatten
+          }
         }
-      }
     }
 
     val metaJournalStatements = EventualCassandra.MetaJournalStatements(
@@ -143,15 +160,26 @@ object EventualCassandraSpec {
     segmentOf: SegmentOf[StateT]
   ): ReplicatedJournal[StateT] = {
 
-    val insertRecords: JournalStatements.InsertRecords[StateT] = {
-      (key, segment, records) => {
-        StateT { state =>
-          val journal = state.journal
-          val events = journal.events(key, segment)
-          val updated = events ++ records.toList.sortBy(_.event.seqNr)
-          val state1 = state.copy(journal = journal.updated((key, segment), updated))
-          (state1, ())
+    val insertRecords: JournalStatements.InsertRecords[StateT] = new JournalStatements.InsertRecords[StateT] {
+      override def apply[A](key: Key, segment: SegmentNr, records: NonEmptyList[EventRecord[A]])(
+        implicit W: EventualWrite[StateT, A]): StateT[Unit] = {
+
+        val eventualRecords = records.traverse { record =>
+          record.event.payload.traverse(W.writeEventual).map { payload =>
+            record.copy(event = record.event.copy(payload = payload))
+          }
         }
+
+        for {
+          eventual <- eventualRecords
+          _ <- StateT { state =>
+            val journal = state.journal
+            val events = journal.events(key, segment)
+            val updated = events ++ eventual.toList.sortBy(_.event.seqNr)
+            val state1 = state.copy(journal = journal.updated((key, segment), updated))
+            (state1, ())
+          }
+        } yield ()
       }
     }
 
@@ -397,7 +425,7 @@ object EventualCassandraSpec {
 
 
   final case class State(
-    journal: Map[(Key, SegmentNr), List[EventRecord]],
+    journal: Map[(Key, SegmentNr), List[EventRecord[EventualPayloadAndType]]],
     metaJournal: Map[Key, JournalHead],
     pointers: Map[Topic, TopicPointers])
 
@@ -413,9 +441,9 @@ object EventualCassandraSpec {
   }
 
 
-  implicit class JournalOps(val self: Map[(Key, SegmentNr), List[EventRecord]]) extends AnyVal {
+  implicit class JournalOps[A](val self: Map[(Key, SegmentNr), List[EventRecord[A]]]) extends AnyVal {
 
-    def events(key: Key, segment: SegmentNr): List[EventRecord] = {
+    def events(key: Key, segment: SegmentNr): List[EventRecord[A]] = {
       val composite = (key, segment)
       self.getOrElse(composite, Nil)
     }

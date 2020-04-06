@@ -11,6 +11,7 @@ import cats.implicits._
 import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.conversions.KafkaWrite
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
 import com.evolutiongaming.skafka.consumer.ConsumerMetrics
@@ -71,13 +72,13 @@ object JournalSuite {
 
   trait JournalTest[F[_]] {
 
-    def append(
-      events: Nel[Event],
+    def append[A](
+      events: Nel[Event[A]],
       metadata: RecordMetadata = RecordMetadata.empty,
       headers: Headers = Headers.empty
-    ): F[PartitionOffset]
+    )(implicit W: KafkaWrite[F, A]): F[PartitionOffset]
 
-    def read: F[List[EventRecord]]
+    def read[A](implicit R: JournalRead[F, A]): F[List[EventRecord[A]]]
 
     def pointer: F[Option[SeqNr]]
 
@@ -85,7 +86,7 @@ object JournalSuite {
 
     def purge: F[Option[PartitionOffset]]
 
-    def size: F[Long]
+    def size[A](implicit R: JournalRead[F, A]): F[Long]
   }
 
   object JournalTest {
@@ -95,11 +96,11 @@ object JournalSuite {
       timestamp: Instant
     ): JournalTest[F] = new JournalTest[F] {
 
-      def append(events: Nel[Event], metadata: RecordMetadata, headers: Headers) = {
+      def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(implicit W: KafkaWrite[F, A]) = {
         journal.append(events, metadata, headers)
       }
 
-      def read = {
+      def read[A](implicit R: JournalRead[F, A]) = {
         for {
           records <- journal.read().toList
         } yield for {
@@ -115,7 +116,7 @@ object JournalSuite {
 
       def purge = journal.purge
 
-      def size = journal.read().length
+      def size[A](implicit R: JournalRead[F, A]) = journal.read().length
     }
   }
 }

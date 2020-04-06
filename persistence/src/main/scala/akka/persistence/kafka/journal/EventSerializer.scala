@@ -14,26 +14,26 @@ import com.evolutiongaming.kafka.journal._
 import play.api.libs.json.{JsString, JsValue, Json}
 import scodec.bits.ByteVector
 
-trait EventSerializer[F[_]] {
+trait EventSerializer[F[_], A] {
 
-  def toEvent(persistentRepr: PersistentRepr): F[Event]
+  def toEvent(persistentRepr: PersistentRepr): F[Event[A]]
   
-  def toPersistentRepr(persistenceId: PersistenceId, event: Event): F[PersistentRepr]
+  def toPersistentRepr(persistenceId: PersistenceId, event: Event[A]): F[PersistentRepr]
 }
 
 object EventSerializer {
 
-  def const[F[_] : Applicative](event: Event, persistentRepr: PersistentRepr): EventSerializer[F] = {
-    new EventSerializer[F] {
+  def const[F[_] : Applicative, A](event: Event[A], persistentRepr: PersistentRepr): EventSerializer[F, A] = {
+    new EventSerializer[F, A] {
 
       def toEvent(persistentRepr: PersistentRepr) = event.pure[F]
 
-      def toPersistentRepr(persistenceId: PersistenceId, event: Event) = persistentRepr.pure[F]
+      def toPersistentRepr(persistenceId: PersistenceId, event: Event[A]) = persistentRepr.pure[F]
     }
   }
 
 
-  def of[F[_] : Sync : FromTry : FromAttempt : FromJsResult](system: ActorSystem): F[EventSerializer[F]] = {
+  def of[F[_] : Sync : FromTry : FromAttempt : FromJsResult](system: ActorSystem): F[EventSerializer[F, Payload]] = {
     implicit val fail = Fail.lift[F]
     for {
       serializedMsgSerializer <- SerializedMsgSerializer.of[F](system)
@@ -41,13 +41,13 @@ object EventSerializer {
       apply[F](serializedMsgSerializer)
     }
   }
-  
+
 
   def apply[F[_] : Monad : FromAttempt : FromJsResult : Fail](
     serializer: SerializedMsgSerializer[F]
-  ): EventSerializer[F] = {
+  ): EventSerializer[F, Payload] = {
 
-    new EventSerializer[F] {
+    new EventSerializer[F, Payload] {
 
       def toEvent(persistentRepr: PersistentRepr) = {
         val tagged = PersistentReprPayload(persistentRepr)
@@ -86,7 +86,7 @@ object EventSerializer {
         }
       }
 
-      def toPersistentRepr(persistenceId: PersistenceId, event: Event) = {
+      def toPersistentRepr(persistenceId: PersistenceId, event: Event[Payload]) = {
 
         def persistentRepr(payload: AnyRef, writerUuid: String, manifest: Option[String]) = {
           PersistentRepr(
@@ -143,16 +143,15 @@ object EventSerializer {
     }
   }
 
+  implicit class EventSerializerOps[F[_], A](val self: EventSerializer[F, A]) extends AnyVal {
 
-  implicit class EventSerializerOps[F[_]](val self: EventSerializer[F]) extends AnyVal {
-
-    def mapK[G[_]](f: F ~> G): EventSerializer[G] = new EventSerializer[G] {
+    def mapK[G[_]](f: F ~> G): EventSerializer[G, A] = new EventSerializer[G, A] {
 
       def toEvent(persistentRepr: PersistentRepr) = {
         f(self.toEvent(persistentRepr))
       }
 
-      def toPersistentRepr(persistenceId: PersistenceId, event: Event) = {
+      def toPersistentRepr(persistenceId: PersistenceId, event: Event[A]) = {
         f(self.toPersistentRepr(persistenceId, event))
       }
     }

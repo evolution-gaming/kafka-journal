@@ -29,7 +29,9 @@ import scala.util.Try
 trait EventualJournalSpec extends AnyWordSpec with Matchers {
   import EventualJournalSpec._
 
-  def test[F[_] : BracketThrowable : Fail](withJournals: (EventualAndReplicated[F] => F[Assertion]) => F[Assertion]): Unit = {
+  def test[F[_] : BracketThrowable : Fail, A](
+    withJournals: (EventualAndReplicated[F] => F[Assertion]) => F[Assertion]
+  )(implicit W: EventualWrite[F, A], R: EventualRead[F, A]): Unit = {
 
     val withJournals1 = (key: Key, timestamp: Instant) => {
 
@@ -50,7 +52,7 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
               .enhanceError
               .withMetrics(ReplicatedJournal.Metrics.empty[F])
               .toFlat
-              .mapK(FunctionK.id)
+              .mapK(FunctionK.id, FunctionK.id)
             Replicated[F](journal, key, timestamp)
           }
           f(eventual, replicated)
@@ -58,12 +60,12 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
       }
     }
 
-    test1(withJournals1)
+    test1[F, A](withJournals1)
   }
 
-  private def test1[F[_] : MonadThrowable : Fail](
+  private def test1[F[_] : MonadThrowable : Fail, A](
     withJournals: (Key, Instant) => ((Eventual[F], Replicated[F]) => F[Assertion]) => F[Assertion]
-  ): Unit = {
+  )(implicit W: EventualWrite[F, A], R: EventualRead[F, A]): Unit = {
 
     implicit val monoidUnit = Applicative.monoid[F, Unit]
 
@@ -75,8 +77,8 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
       }
     }
 
-    def eventOf(pointer: JournalPointer): EventRecord = {
-      val event = Event(pointer.seqNr)
+    def eventOf(pointer: JournalPointer): EventRecord[A] = {
+      val event = Event[A](pointer.seqNr)
       val headers = Headers(("key", "value"))
       EventRecord(
         event = event,
@@ -455,7 +457,7 @@ object EventualJournalSpec {
 
   trait Eventual[F[_]] {
 
-    def events(from: SeqNr = SeqNr.min): F[List[EventRecord]]
+    def events[A](from: SeqNr = SeqNr.min)(implicit R: EventualRead[F, A]): F[List[EventRecord[A]]]
 
     def pointer: F[Option[JournalPointer]]
 
@@ -466,8 +468,8 @@ object EventualJournalSpec {
 
     def apply[F[_] : Monad](journal: EventualJournal[F], key: Key): Eventual[F] = new Eventual[F] {
 
-      def events(from: SeqNr = SeqNr.min) = {
-        journal.read(key, from).toList
+      def events[A](from: SeqNr = SeqNr.min)(implicit R: EventualRead[F, A]) = {
+        journal.read[A](key, from).toList
       }
 
       def pointer = journal.pointer(key)
@@ -481,12 +483,12 @@ object EventualJournalSpec {
 
     def topics: F[SortedSet[Topic]]
 
-    final def append(events: Nel[EventRecord]): F[Unit] = {
+    final def append[A](events: Nel[EventRecord[A]])(implicit W: EventualWrite[F, A]): F[Unit] = {
       val partitionOffset = events.last.partitionOffset // TODO add test for custom offset
       append(partitionOffset, events)
     }
 
-    def append(partitionOffset: PartitionOffset, events: Nel[EventRecord]): F[Unit]
+    def append[A](partitionOffset: PartitionOffset, events: Nel[EventRecord[A]])(implicit W: EventualWrite[F, A]): F[Unit]
 
     def delete(deleteTo: DeleteTo, partitionOffset: PartitionOffset): F[Unit]
 
@@ -506,7 +508,7 @@ object EventualJournalSpec {
 
         def topics = journal.topics
 
-        def append(partitionOffset: PartitionOffset, events: Nel[EventRecord]) = {
+        def append[A](partitionOffset: PartitionOffset, events: Nel[EventRecord[A]])(implicit W: EventualWrite[F, A]) = {
           // TODO expiry: define expireAfter and test
           journal.append(key, partitionOffset, timestamp, none, events).void
         }

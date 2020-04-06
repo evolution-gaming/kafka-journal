@@ -1,23 +1,25 @@
 package com.evolutiongaming.kafka.journal.conversions
 
-import cats.Monad
+import cats.{Monad, ~>}
 import cats.implicits._
 import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolutiongaming.kafka.journal.PayloadAndType.PayloadJson
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.smetrics.MeasureDuration
 
-trait PayloadToEvents[F[_]] {
+trait KafkaRead[F[_], A] {
 
-  def apply(payloadAndType: PayloadAndType): F[Events]
+  def readKafka(payloadAndType: PayloadAndType): F[Events[A]]
 }
 
-object PayloadToEvents {
+object KafkaRead {
 
-  implicit def apply[F[_] : MonadThrowable : FromAttempt : FromJsResult](implicit
-    eventsFromBytes: FromBytes[F, Events],
+  def apply[F[_], A](implicit R: KafkaRead[F, A]): KafkaRead[F, A] = R
+
+  implicit def forPayload[F[_] : MonadThrowable : FromAttempt : FromJsResult](implicit
+    eventsFromBytes: FromBytes[F, Events[Payload]],
     payloadJsonFromBytes: FromBytes[F, PayloadJson]
-  ): PayloadToEvents[F] = {
+  ): KafkaRead[F, Payload] = {
 
     payloadAndType: PayloadAndType => {
       val payload = payloadAndType.payload
@@ -62,24 +64,27 @@ object PayloadToEvents {
           }
       }
       result.adaptError { case e =>
-        JournalError(s"PayloadToEvents failed for $payloadAndType: $e", e)
+        JournalError(s"KafkaRead failed for $payloadAndType: $e", e)
       }
     }
   }
 
-  implicit class PayloadToEventsOps[F[_]](val self: PayloadToEvents[F]) extends AnyVal {
+  implicit class KafkaReadOps[F[_], A](val self: KafkaRead[F, A]) extends AnyVal {
     def withMetrics(
       metrics: PayloadToEventsMetrics[F]
     )(
       implicit F: Monad[F], measureDuration: MeasureDuration[F]
-    ): PayloadToEvents[F] = {
+    ): KafkaRead[F, A] = {
       payloadAndType =>
         for {
           d <- MeasureDuration[F].start
-          r <- self(payloadAndType)
+          r <- self.readKafka(payloadAndType)
           d <- d
           _ <- metrics(payloadAndType, d)
         } yield r
     }
+
+    def mapK[G[_]](fg: F ~> G): KafkaRead[G, A] =
+      payloadAndType => fg(self.readKafka(payloadAndType))
   }
 }

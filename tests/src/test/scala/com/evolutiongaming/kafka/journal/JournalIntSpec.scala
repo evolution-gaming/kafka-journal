@@ -90,9 +90,9 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             _          = events shouldEqual List.empty
             pointer   <- journal.delete(DeleteTo.max)
             _          = pointer shouldEqual None
-            event      = Event(seqNr)
-            offset    <- journal.append(Nel.of(event), recordMetadata, headers)
-            record     = EventRecord(event, timestamp, offset, origin.some, recordMetadata, headers)
+            anEvent    = event(seqNr)
+            offset    <- journal.append(Nel.of(anEvent), recordMetadata, headers)
+            record     = EventRecord(anEvent, timestamp, offset, origin.some, recordMetadata, headers)
             partition  = offset.partition
             events    <- journal.read
             _          = events shouldEqual List(record)
@@ -109,8 +109,8 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             events    <- journal.read
             _          = events shouldEqual List.empty
             metadata   = recordMetadata.withExpireAfter(1.day.toExpireAfter.some)
-            offset    <- journal.append(Nel.of(event), metadata, headers)
-            record     = EventRecord(event, timestamp, offset, origin.some, metadata, headers)
+            offset    <- journal.append(Nel.of(anEvent), metadata, headers)
+            record     = EventRecord(anEvent, timestamp, offset, origin.some, metadata, headers)
             events    <- journal.read
             _          = events shouldEqual List(record)
             pointer   <- journal.delete(DeleteTo.max)
@@ -133,7 +133,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             n     <- (0 until many).toList
             seqNr <- seqNr.map[Option](_ + n)
           } yield {
-            Event(seqNr)
+            event(seqNr)
           }
 
           val result = for {
@@ -158,7 +158,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
           val expected = for {
             n     <- (0 to 10).toList
             seqNr <- seqNr.map[Option](_ + n)
-          } yield Event(seqNr)
+          } yield event(seqNr)
 
           val appends = for {
             key     <- key
@@ -203,7 +203,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             _          = events shouldEqual Nil
             offset    <- journal.delete(DeleteTo.max)
             _          = offset shouldEqual None
-            events     = seqNrs.map { seqNr => Event(seqNr) }
+            events     = seqNrs.map { seqNr => event(seqNr) }
             append     = journal.append(events, recordMetadata, headers)
             _         <- append
             _         <- append
@@ -230,7 +230,7 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
             key      <- key
             journal   = journals(key)
             metadata  = RecordMetadata(payload = PayloadMetadata(1.second.toExpireAfter.some))
-            _        <- journal.append(Nel.of(Event(SeqNr.min)), metadata)
+            _        <- journal.append(Nel.of(event(SeqNr.min)), metadata)
             events   <- journal.read().toList
             _         = events.map(_.seqNr) shouldEqual List(SeqNr.min)
             strategy  = Strategy.const(100.millis).limit(10.seconds)
@@ -252,6 +252,9 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
       }
     }
   }
+
+  private def event(seqNr: SeqNr) =
+    Event[Payload](seqNr)
 }
 
 object JournalIntSpec {
@@ -262,7 +265,7 @@ object JournalIntSpec {
     PayloadMetadata.empty)
   private val headers = Headers(("key", "value"))
 
-  implicit class EventRecordOps(val self: EventRecord) extends AnyVal {
-    def fix: EventRecord = self.copy(timestamp = timestamp)
+  implicit class EventRecordOps[A](val self: EventRecord[A]) extends AnyVal {
+    def fix: EventRecord[A] = self.copy(timestamp = timestamp)
   }
 }
