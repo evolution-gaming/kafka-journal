@@ -18,18 +18,17 @@ object Dependencies {
   val hostname             = "com.evolutiongaming"    %% "hostname"              % "0.1.2"
   val scassandra           = "com.evolutiongaming"    %% "scassandra"            % "3.0.0"
   val `cassandra-sync`     = "com.evolutiongaming"    %% "cassandra-sync"        % "1.0.5"
-  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "1.7.1"
-  val random               = "com.evolutiongaming"    %% "random"                % "0.0.6"
-  val retry                = "com.evolutiongaming"    %% "retry"                 % "1.0.3"
+  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "2.0.0"
+  val random               = "com.evolutiongaming"    %% "random"                % "0.0.7"
+  val retry                = "com.evolutiongaming"    %% "retry"                 % "1.0.4"
   val sstream              = "com.evolutiongaming"    %% "sstream"               % "0.2.0"
   val skafka               = "com.evolutiongaming"    %% "skafka"                % "9.1.1"
-  val scache               = "com.evolutiongaming"    %% "scache"                % "2.2.0"
+  val scache               = "com.evolutiongaming"    %% "scache"                % "2.2.1"
   val `akka-test-actor`    = "com.evolutiongaming"    %% "akka-test-actor"       % "0.0.2"
 
   object Cats {
-    private val version = "2.0.0"
-    val core   = "org.typelevel" %% "cats-core"   % version
-    val effect = "org.typelevel" %% "cats-effect" % "2.0.0"
+    val core   = "org.typelevel" %% "cats-core"   % "2.1.1"
+    val effect = "org.typelevel" %% "cats-effect" % "2.1.2"
   }
 
   object Logback {
@@ -61,12 +60,12 @@ object Dependencies {
   }
 
   object Scodec {
-    val core = "org.scodec" %% "scodec-core" % "1.11.4"
+    val core = "org.scodec" %% "scodec-core" % "1.11.7"
     val bits = "org.scodec" %% "scodec-bits" % "1.1.14"
   }
 
   object Smetrics {
-    private val version = "0.1.0"
+    private val version = "0.1.1"
     val smetrics   = "com.evolutiongaming" %% "smetrics"            % version
     val prometheus = "com.evolutiongaming" %% "smetrics-prometheus" % version
   }

@@ -4,11 +4,9 @@ import cats.data.OptionT
 import cats.effect._
 import cats.implicits._
 import cats.kernel.CommutativeMonoid
-import cats.{Applicative, CommutativeApplicative}
-import com.evolutiongaming.catshelper.CatsHelper._
+import cats.{Applicative, ApplicativeError, CommutativeApplicative}
 import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 
-import scala.concurrent.ExecutionContext
 
 object CatsHelper {
 
@@ -30,8 +28,8 @@ object CatsHelper {
 
   implicit class FOpsCatsHelper[F[_], A](val self: F[A]) extends AnyVal {
 
-    def error[E](implicit bracket: Bracket[F, E]): F[Option[E]] = {
-      self.redeem[Option[E], E](_.some, _ => none[E])
+    def error[E](implicit F: ApplicativeError[F, E]): F[Option[E]] = {
+      self.redeem[Option[E]](_.some, _ => none[E])
     }
   }
 
@@ -46,17 +44,6 @@ object CatsHelper {
 
     def start[B](use: A => F[B])(implicit F: Concurrent[F]): F[Fiber[F, B]] = {
       StartResource(self)(use)
-    }
-  }
-
-
-  implicit class ContextShiftObjCatsHelpers(val self: ContextShift.type) extends AnyVal {
-
-    def empty[F[_] : Applicative]: ContextShift[F] = new ContextShift[F] {
-
-      val shift = ().pure[F]
-
-      def evalOn[A](ec: ExecutionContext)(fa: F[A]) = fa
     }
   }
 
