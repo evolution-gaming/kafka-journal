@@ -116,7 +116,9 @@ object JournalAdapter {
     appendMetadataOf: AppendMetadataOf[F]
   ): JournalAdapter[F] = new JournalAdapter[F] {
 
-    implicit val RW = journalReadWrite
+    implicit val kafkaRead = journalReadWrite.kafkaRead
+    implicit val kafkaWrite = journalReadWrite.kafkaWrite
+    implicit val eventualRead = journalReadWrite.eventualRead
 
     def write(aws: Seq[AtomicWrite]) = {
       val prs = aws.flatMap(_.payload)

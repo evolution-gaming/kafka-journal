@@ -5,7 +5,8 @@ import cats.arrow.FunctionK
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.evolutiongaming.catshelper.{Log, MonadThrowable}
-import com.evolutiongaming.kafka.journal.conversions.KafkaWrite
+import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
+import com.evolutiongaming.kafka.journal.eventual.EventualRead
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.skafka.{Bytes => _, _}
 import com.evolutiongaming.smetrics._
@@ -21,9 +22,12 @@ trait Journal[F[_]] {
     events: Nel[Event[A]],
     metadata: RecordMetadata = RecordMetadata.empty,
     headers: Headers = Headers.empty
-  )(implicit W: KafkaWrite[F, A]): F[PartitionOffset]
+  )(implicit kafkaWrite: KafkaWrite[F, A]): F[PartitionOffset]
 
-  def read[A](from: SeqNr = SeqNr.min)(implicit R: JournalRead[F, A]): Stream[F, EventRecord[A]]
+  def read[A](from: SeqNr = SeqNr.min)(implicit
+    kafkaRead: KafkaRead[F, A],
+    eventualRead: EventualRead[F, A]
+  ): Stream[F, EventRecord[A]]
 
   // TODO return Pointer and test it
   def pointer: F[Option[SeqNr]]
@@ -46,9 +50,9 @@ object Journal {
   def empty[F[_] : Applicative]: Journal[F] = new Journal[F] {
 
     def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
-      implicit W: KafkaWrite[F, A]) = PartitionOffset.empty.pure[F]
+      implicit kafkaWrite: KafkaWrite[F, A]) = PartitionOffset.empty.pure[F]
 
-    def read[A](from: SeqNr)(implicit R: JournalRead[F, A]) = Stream.empty
+    def read[A](from: SeqNr)(implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A]) = Stream.empty
 
     def pointer = none[SeqNr].pure[F]
 
@@ -76,7 +80,8 @@ object Journal {
 
       new Journal[F] {
 
-        def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(implicit W: KafkaWrite[F, A]) = {
+        def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
+          implicit kafkaWrite: KafkaWrite[F, A]) = {
           for {
             d <- MeasureDuration[F].start
             r <- self.append(events, metadata, headers)
@@ -91,7 +96,7 @@ object Journal {
           } yield r
         }
 
-        def read[A](from: SeqNr)(implicit R: JournalRead[F, A]) = {
+        def read[A](from: SeqNr)(implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A]) = {
           val logging = new (F ~> F) {
             def apply[B](fa: F[B]) = {
               for {
@@ -159,7 +164,8 @@ object Journal {
 
       new Journal[F] {
 
-        def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(implicit W: KafkaWrite[F, A]) = {
+        def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
+          implicit kafkaWrite: KafkaWrite[F, A]) = {
           logError {
             self.append(events, metadata, headers)
           } { (error, latency) =>
@@ -167,7 +173,7 @@ object Journal {
           }
         }
 
-        def read[A](from: SeqNr)(implicit R: JournalRead[F, A]) = {
+        def read[A](from: SeqNr)(implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A]) = {
           val logging = new (F ~> F) {
             def apply[B](fa: F[B]) = {
               logError(fa) { (error, latency) =>
@@ -224,7 +230,8 @@ object Journal {
 
       new Journal[F] {
 
-        def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(implicit W: KafkaWrite[F, A]) = {
+        def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
+          implicit kafkaWrite: KafkaWrite[F, A]) = {
           def append = self.append(events, metadata, headers)
           for {
             d <- MeasureDuration[F].start
@@ -234,7 +241,7 @@ object Journal {
           } yield r
         }
 
-        def read[A](from: SeqNr)(implicit R: JournalRead[F, A]) = {
+        def read[A](from: SeqNr)(implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A]) = {
           val measure = new (F ~> F) {
             def apply[B](fa: F[B]) = {
               for {
@@ -284,11 +291,13 @@ object Journal {
 
     def mapK[G[_]](fg: F ~> G, gf: G ~> F): Journal[G] = new Journal[G] {
 
-      def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(implicit W: KafkaWrite[G, A]) = {
-        fg(self.append(events, metadata, headers)(W.mapK(gf)))
+      def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
+        implicit kafkaWrite: KafkaWrite[G, A]) = {
+        fg(self.append(events, metadata, headers)(kafkaWrite.mapK(gf)))
       }
 
-      def read[A](from: SeqNr)(implicit R: JournalRead[G, A]) = self.read[A](from)(R.mapK(gf)).mapK(fg, gf)
+      def read[A](from: SeqNr)(implicit kafkaRead: KafkaRead[G, A], eventualRead: EventualRead[G, A]) =
+        self.read[A](from)(kafkaRead.mapK(gf), eventualRead.mapK(gf)).mapK(fg, gf)
 
       def pointer = fg(self.pointer)
 

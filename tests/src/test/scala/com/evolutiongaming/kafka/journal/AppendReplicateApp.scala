@@ -105,7 +105,8 @@ object AppendReplicateApp extends IOApp {
   }
 
 
-  private def append[F[_] : Concurrent : Timer : Parallel](topic: Topic, journals: Journals[F])(implicit W: KafkaWrite[F, Payload]) = {
+  private def append[F[_] : Concurrent : Timer : Parallel](topic: Topic, journals: Journals[F])(
+    implicit kafkaWrite: KafkaWrite[F, Payload]) = {
 
     def append(id: String) = {
 

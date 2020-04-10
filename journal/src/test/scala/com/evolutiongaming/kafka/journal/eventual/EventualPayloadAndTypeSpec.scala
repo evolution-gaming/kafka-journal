@@ -27,16 +27,16 @@ class EventualPayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherVa
     )
   } {
     test(s"toEventual & fromEventual, payload: $name") {
-      val eventual = eventualWrite.writeEventual(payload).get
+      val eventual = eventualWrite(payload).get
 
-      eventualRead.readEventual(eventual) shouldBe Success(payload)
+      eventualRead(eventual) shouldBe Success(payload)
     }
   }
 
   test("toEventual: binary") {
     val payload = PayloadBinaryFromStr("binary")
 
-    val eventual = eventualWrite.writeEventual(payload).get
+    val eventual = eventualWrite(payload).get
 
     eventual shouldBe EventualPayloadAndType(Right(payload.value), PayloadType.Binary)
   }
@@ -44,7 +44,7 @@ class EventualPayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherVa
   test("toEventual: text") {
     val payload = Payload.Text("text")
 
-    val eventual = eventualWrite.writeEventual(payload).get
+    val eventual = eventualWrite(payload).get
 
     eventual shouldBe EventualPayloadAndType(Left("text"), PayloadType.Text)
   }
@@ -52,7 +52,7 @@ class EventualPayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherVa
   test("toEventual: json") {
     val payload = Payload.Json(PlayJson.obj("key" -> "value"))
 
-    val eventual = eventualWrite.writeEventual(payload).get
+    val eventual = eventualWrite(payload).get
 
     eventual shouldBe EventualPayloadAndType(Left("""{"key":"value"}"""), PayloadType.Json)
   }

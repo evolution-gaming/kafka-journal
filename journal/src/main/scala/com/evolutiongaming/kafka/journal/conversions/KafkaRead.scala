@@ -9,12 +9,12 @@ import com.evolutiongaming.smetrics.MeasureDuration
 
 trait KafkaRead[F[_], A] {
 
-  def readKafka(payloadAndType: PayloadAndType): F[Events[A]]
+  def apply(payloadAndType: PayloadAndType): F[Events[A]]
 }
 
 object KafkaRead {
 
-  def apply[F[_], A](implicit R: KafkaRead[F, A]): KafkaRead[F, A] = R
+  def apply[F[_], A](implicit kafkaRead: KafkaRead[F, A]): KafkaRead[F, A] = kafkaRead
 
   implicit def forPayload[F[_] : MonadThrowable : FromAttempt : FromJsResult](implicit
     eventsFromBytes: FromBytes[F, Events[Payload]],
@@ -78,13 +78,13 @@ object KafkaRead {
       payloadAndType =>
         for {
           d <- MeasureDuration[F].start
-          r <- self.readKafka(payloadAndType)
+          r <- self(payloadAndType)
           d <- d
           _ <- metrics(payloadAndType, d)
         } yield r
     }
 
     def mapK[G[_]](fg: F ~> G): KafkaRead[G, A] =
-      payloadAndType => fg(self.readKafka(payloadAndType))
+      payloadAndType => fg(self(payloadAndType))
   }
 }

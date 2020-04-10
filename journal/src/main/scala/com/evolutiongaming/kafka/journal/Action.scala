@@ -83,10 +83,10 @@ object Action {
       events: Events[A],
       metadata: HeaderMetadata,
       headers: Headers)(implicit
-      W: KafkaWrite[F, A]
+      kafkaWrite: KafkaWrite[F, A]
     ): F[Append] = {
       for {
-        payloadAndType <- W.writeKafka(events)
+        payloadAndType <- kafkaWrite(events)
       } yield {
         val range = SeqRange(from = events.events.head.seqNr, to = events.events.last.seqNr)
         val header = ActionHeader.Append(

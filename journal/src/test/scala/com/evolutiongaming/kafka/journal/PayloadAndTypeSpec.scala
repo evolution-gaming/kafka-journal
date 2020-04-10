@@ -93,10 +93,10 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
 
       def verify(payload: ByteVector, payloadType: PayloadType.BinaryOrJson) = {
         val payloadAndType = PayloadAndType(payload, payloadType)
-        kafkaRead.readKafka(payloadAndType) shouldEqual events.pure[Try]
+        kafkaRead(payloadAndType) shouldEqual events.pure[Try]
       }
 
-      val payloadAndType = kafkaWrite.writeKafka(events).get
+      val payloadAndType = kafkaWrite(events).get
 
       payloadType shouldEqual payloadAndType.payloadType
 
@@ -148,7 +148,7 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
       val actual = for {
         payload        <- ByteVectorOf[Try](getClass, s"Payload-v0-$name.$ext")
         payloadAndType  = PayloadAndType(payload, payloadType)
-        events         <- kafkaRead.readKafka(payloadAndType)
+        events         <- kafkaRead(payloadAndType)
       } yield events
       actual shouldEqual events.pure[Try]
     }

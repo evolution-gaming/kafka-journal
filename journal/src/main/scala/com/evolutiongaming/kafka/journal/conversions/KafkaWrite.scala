@@ -13,12 +13,12 @@ import scala.annotation.tailrec
 
 trait KafkaWrite[F[_], A] {
 
-  def writeKafka(events: Events[A]): F[PayloadAndType]
+  def apply(events: Events[A]): F[PayloadAndType]
 }
 
 object KafkaWrite {
 
-  def apply[F[_], A](implicit W: KafkaWrite[F, A]): KafkaWrite[F, A] = W
+  def apply[F[_], A](implicit kafkaWrite: KafkaWrite[F, A]): KafkaWrite[F, A] = kafkaWrite
 
   implicit def forPayload[F[_] : MonadThrowable](implicit
     eventsToBytes: ToBytes[F, Events[Payload]],
@@ -85,13 +85,13 @@ object KafkaWrite {
       events =>
         for {
           d <- MeasureDuration[F].start
-          r <- self.writeKafka(events)
+          r <- self(events)
           d <- d
           _ <- metrics(events, r, d)
         } yield r
     }
 
     def mapK[G[_]](fg: F ~> G): KafkaWrite[G, A] =
-      (events: Events[A]) => fg(self.writeKafka(events))
+      (events: Events[A]) => fg(self(events))
   }
 }

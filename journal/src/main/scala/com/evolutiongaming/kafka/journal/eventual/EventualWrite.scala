@@ -8,13 +8,13 @@ import scodec.bits.ByteVector
 
 trait EventualWrite[F[_], A] {
 
-  def writeEventual(payload: A): F[EventualPayloadAndType]
+  def apply(payload: A): F[EventualPayloadAndType]
 
 }
 
 object EventualWrite {
 
-  def apply[F[_], A](implicit W: EventualWrite[F, A]): EventualWrite[F, A] = W
+  def apply[F[_], A](implicit eventualWrite: EventualWrite[F, A]): EventualWrite[F, A] = eventualWrite
 
   implicit def forPayload[F[_] : MonadThrowable](implicit encode: JsonCodec.Encode[F]): EventualWrite[F, Payload] =
     payload => {

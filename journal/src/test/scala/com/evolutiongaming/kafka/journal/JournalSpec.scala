@@ -9,7 +9,7 @@ import cats.{Id, Monad, Parallel}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
-import com.evolutiongaming.kafka.journal.conversions.KafkaRead
+import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualPayloadAndType, EventualRead, EventualWrite, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.{ConcurrentOf, Fail}
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
@@ -414,11 +414,19 @@ object JournalSpec {
 
   object SeqNrJournal {
 
-    def apply[F[_] : Monad, A](journals: Journals[F])(implicit RW: JournalReadWrite[F, A]): SeqNrJournal[F] = {
+    def apply[F[_] : Monad, A](journals: Journals[F])(implicit
+      kafkaRead: KafkaRead[F, A],
+      eventualRead: EventualRead[F, A],
+      kafkaWrite: KafkaWrite[F, A],
+    ): SeqNrJournal[F] = {
       apply(journals(key))
     }
 
-    def apply[F[_] : Monad, A](journal: Journal[F])(implicit RW: JournalReadWrite[F, A]): SeqNrJournal[F] = {
+    def apply[F[_] : Monad, A](journal: Journal[F])(implicit
+      kafkaRead: KafkaRead[F, A],
+      eventualRead: EventualRead[F, A],
+      kafkaWrite: KafkaWrite[F, A],
+    ): SeqNrJournal[F] = {
 
       new SeqNrJournal[F] {
 
@@ -639,12 +647,12 @@ object JournalSpec {
 
         def onAppend(action: Action.Append) = {
           val payloadAndType = PayloadAndType(action)
-          val events1 = kafkaRead.readKafka(payloadAndType).get
+          val events1 = kafkaRead(payloadAndType).get
           val batch = for {
             event <- events1.events
           } yield {
             val partitionOffset = PartitionOffset(partition, record.offset)
-            EventRecord(action, event.map(eventualWrite.writeEventual(_).get), partitionOffset, events1.metadata)
+            EventRecord(action, event.map(eventualWrite(_).get), partitionOffset, events1.metadata)
           }
           copy(events = events.enqueue(batch.toList), offset = offset.some)
         }

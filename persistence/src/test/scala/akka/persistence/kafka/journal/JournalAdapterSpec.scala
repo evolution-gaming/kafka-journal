@@ -11,8 +11,8 @@ import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
-import com.evolutiongaming.kafka.journal.conversions.KafkaWrite
-import com.evolutiongaming.kafka.journal.eventual.{EventualPayloadAndType, EventualWrite}
+import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
+import com.evolutiongaming.kafka.journal.eventual.{EventualPayloadAndType, EventualRead, EventualWrite}
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -28,7 +28,7 @@ class JournalAdapterSpec extends AnyFunSuite with Matchers {
   import JournalAdapterSpec._
 
   private val eventSerializer = EventSerializer.const[StateT, Payload](event, persistentRepr)
-  private val journalReadWrite = JournalReadWrite[StateT, Payload]
+  private val journalReadWrite = JournalReadWrite.of[StateT, Payload]
 
   private val aws = List(
     AtomicWrite(List(persistentRepr)),
@@ -42,7 +42,7 @@ class JournalAdapterSpec extends AnyFunSuite with Matchers {
   private val journalAdapter = JournalAdapter[StateT, Payload](StateT.JournalsStateF, toKey, eventSerializer, journalReadWrite, appendMetadataOf)
 
   private def appendOf(key: Key, events: Nel[Event[Payload]]) = {
-    val payloadAndMetadata = KafkaWrite[Try, Payload].writeKafka(Events(events, recordMetadata.payload)).get
+    val payloadAndMetadata = KafkaWrite[Try, Payload].apply(Events(events, recordMetadata.payload)).get
     Append(key, payloadAndMetadata, recordMetadata, headers)
   }
 
@@ -65,7 +65,7 @@ class JournalAdapterSpec extends AnyFunSuite with Matchers {
 
   test("replay") {
     val range = SeqRange(from = SeqNr.min, to = SeqNr.max)
-    val initial = State(events = List(eventRecord.map(EventualWrite[Try, Payload].writeEventual(_).get)))
+    val initial = State(events = List(eventRecord.map(EventualWrite[Try, Payload].apply(_).get)))
     val f = (a: PersistentRepr) => StateT { s =>
       val s1 = s.copy(replayed = a :: s.replayed)
       (s1, ())
@@ -163,9 +163,10 @@ object JournalAdapterSpec {
 
       def apply(key: Key) = new Journal[StateT] {
 
-        def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(implicit W: KafkaWrite[StateT, A]) =
+        def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
+          implicit kafkaWrite: KafkaWrite[StateT, A]) =
           for {
-            payloadAndType <- W.writeKafka(Events(events, metadata.payload))
+            payloadAndType <- kafkaWrite(Events(events, metadata.payload))
             append = Append(key, payloadAndType, metadata, headers)
             offset <- StateT { state =>
               val s1 = state.copy(appends = append :: state.appends)
@@ -173,9 +174,9 @@ object JournalAdapterSpec {
             }
           } yield offset
 
-        def read[A](from: SeqNr)(implicit R: JournalRead[StateT, A]) = {
+        def read[A](from: SeqNr)(implicit kafkaRead: KafkaRead[StateT, A], eventualRead: EventualRead[StateT, A]) = {
           val stream = StateT {  state =>
-            val events = state.events.traverse(_.traverse(R.readEventual))
+            val events = state.events.traverse(_.traverse(eventualRead.apply))
 
             val read = Read(key, from)
             val state1 = state.copy(reads = read :: state.reads, events = Nil)

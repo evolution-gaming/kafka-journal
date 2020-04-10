@@ -59,12 +59,12 @@ object ReplicateRecords {
           val events = records.flatTraverse { record =>
             val action = record.action
             val payloadAndType = PayloadAndType(action)
-            val events = kafkaRead.readKafka(payloadAndType).adaptError { case e =>
+            val events = kafkaRead(payloadAndType).adaptError { case e =>
               JournalError(s"ReplicateRecords failed for id: $id, offset: $partitionOffset: $e", e)
             }
             for {
               events <- events
-              eventualEvents <- events.events.traverse(_.traverse(eventualWrite.writeEventual))
+              eventualEvents <- events.events.traverse(_.traverse(eventualWrite.apply))
             } yield for {
               event <- eventualEvents
             } yield {

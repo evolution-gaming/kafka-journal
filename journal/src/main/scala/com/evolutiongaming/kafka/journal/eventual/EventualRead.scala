@@ -9,13 +9,13 @@ import scala.util.Try
 
 trait EventualRead[F[_], A] {
 
-  def readEventual(payloadAndType: EventualPayloadAndType): F[A]
+  def apply(payloadAndType: EventualPayloadAndType): F[A]
 
 }
 
 object EventualRead {
 
-  def apply[F[_], A](implicit R: EventualRead[F, A]): EventualRead[F, A] = R
+  def apply[F[_], A](implicit eventualRead: EventualRead[F, A]): EventualRead[F, A] = eventualRead
 
   implicit def forPayload[F[_] : MonadThrowable](implicit decode: JsonCodec.Decode[Try]): EventualRead[F, Payload] =
     payloadAndType => {
@@ -39,7 +39,7 @@ object EventualRead {
   implicit class EventualReadOps[F[_], A](val self: EventualRead[F, A]) extends AnyVal {
 
     def mapK[G[_]](fg: F ~> G): EventualRead[G, A] =
-      payloadAndType => fg(self.readEventual(payloadAndType))
+      payloadAndType => fg(self(payloadAndType))
   }
 
 }

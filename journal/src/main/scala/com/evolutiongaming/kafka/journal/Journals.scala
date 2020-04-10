@@ -6,7 +6,7 @@ import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MonadThrowable, ToTry}
 import com.evolutiongaming.kafka.journal.conversions.{ConversionMetrics, KafkaRead, KafkaWrite}
-import com.evolutiongaming.kafka.journal.eventual.EventualJournal
+import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualRead}
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
@@ -115,14 +115,14 @@ object Journals {
     val appendMarker = AppendMarker(produce)
     val appendEvents = AppendEvents(produce)
 
-    def kafkaWriteWithMetrics[A](implicit W: KafkaWrite[F, A]) =
-      conversionMetrics.fold(W) { metrics =>
-        W.withMetrics(metrics.eventsToPayload)
+    def kafkaWriteWithMetrics[A](implicit kafkaWrite: KafkaWrite[F, A]) =
+      conversionMetrics.fold(kafkaWrite) { metrics =>
+        kafkaWrite.withMetrics(metrics.eventsToPayload)
     }
 
-    def kafkaReadWithMetrics[A](implicit R: KafkaRead[F, A]) =
-      conversionMetrics.fold(R) { metrics =>
-        R.withMetrics(metrics.payloadToEvents)
+    def kafkaReadWithMetrics[A](implicit kafkaRead: KafkaRead[F, A]) =
+      conversionMetrics.fold(kafkaRead) { metrics =>
+        kafkaRead.withMetrics(metrics.payloadToEvents)
       }
 
     def headAndStream(key: Key, from: SeqNr): F[(HeadInfo, F[StreamActionRecords[F]])] = {
@@ -172,14 +172,15 @@ object Journals {
 
       def apply(key: Key) = new Journal[F] {
 
-        def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(implicit W: KafkaWrite[F, A]) = {
+        def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
+          implicit kafkaWrite: KafkaWrite[F, A]) = {
           appendEvents(key, events, metadata, headers)(kafkaWriteWithMetrics)
         }
 
-        def read[A](from: SeqNr)(implicit R: JournalRead[F, A]) = {
+        def read[A](from: SeqNr)(implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A]) = {
 
           def readEventual(from: SeqNr) = eventual.read(key, from)
-            .mapM(_.traverse(R.readEventual))
+            .mapM(_.traverse(eventualRead.apply))
 
           def readEventualAndKafka(from: SeqNr, stream: F[StreamActionRecords[F]], offsetAppend: Offset) = {
 
@@ -193,7 +194,7 @@ object Journals {
                 record         <- appends
                 action          = record.action
                 payloadAndType  = PayloadAndType(action)
-                events         <- Stream.lift(kafkaReadWithMetrics.readKafka(payloadAndType))
+                events         <- Stream.lift(kafkaReadWithMetrics.apply(payloadAndType))
                 event          <- Stream[F].apply(events.events)
                 if event.seqNr >= from
               } yield {
