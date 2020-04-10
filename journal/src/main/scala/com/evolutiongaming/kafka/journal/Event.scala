@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.Functor
+import cats._
 import cats.implicits._
 import scodec.bits.ByteVector
 import scodec.{Attempt, Codec, Err, codecs}
@@ -54,7 +54,15 @@ object Event {
     codecEvent[Payload]
   }
 
-  implicit val eventFunctor: Functor[Event] = new Functor[Event] {
-    override def map[A, B](fa: Event[A])(f: A => B): Event[B] = fa.copy(payload = fa.payload.map(f))
+  implicit val traverse: Traverse[Event] = new Traverse[Event] {
+    override def traverse[G[_] : Applicative, A, B](fa: Event[A])(f: A => G[B]): G[Event[B]] =
+      fa.payload.traverse(f)
+        .map(newPayload => fa.copy(payload = newPayload))
+
+    override def foldLeft[A, B](fa: Event[A], b: B)(f: (B, A) => B): B =
+      fa.payload.fold(b)(a => f(b, a))
+
+    override def foldRight[A, B](fa: Event[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] =
+      fa.payload.fold(lb)(a => f(a, lb))
   }
 }

@@ -50,20 +50,19 @@ object ReplicatedJournal {
   implicit class ReplicatedJournalOps[F[_]](val self: ReplicatedJournal[F]) extends AnyVal {
 
     def mapK[G[_]](
-      fg: F ~> G,
-      gf: G ~> F)(implicit
+      f: F ~> G)(implicit
       B: BracketThrowable[F],
       D: Defer[G],
       G: Applicative[G]
     ): ReplicatedJournal[G] = new ReplicatedJournal[G] {
 
-      def topics = fg(self.topics)
+      def topics = f(self.topics)
 
       def journal(topic: Topic) = {
         self
           .journal(topic)
-          .map { _.mapK(fg, gf) }
-          .mapK(fg)
+          .map { _.mapK(f) }
+          .mapK(f)
       }
     }
 

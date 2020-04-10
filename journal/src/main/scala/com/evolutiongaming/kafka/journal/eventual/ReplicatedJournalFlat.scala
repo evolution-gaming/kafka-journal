@@ -20,13 +20,13 @@ trait ReplicatedJournalFlat[F[_]] {
 
   def pointers(topic: Topic): F[TopicPointers]
 
-  def append[A](
+  def append(
     key: Key,
     partitionOffset: PartitionOffset,
     timestamp: Instant,
     expireAfter: Option[ExpireAfter],
-    events: Nel[EventRecord[A]]
-  )(implicit W: EventualWrite[F, A]): F[Changed]
+    events: Nel[EventRecord[EventualPayloadAndType]]
+  ): F[Changed]
 
   def delete(
     key: Key,
@@ -64,13 +64,13 @@ object ReplicatedJournalFlat {
           .use { _.pointers }
       }
 
-      def append[A](
+      def append(
         key: Key,
         partitionOffset: PartitionOffset,
         timestamp: Instant,
         expireAfter: Option[ExpireAfter],
-        events: Nel[EventRecord[A]]
-      )(implicit W: EventualWrite[F, A]) = {
+        events: Nel[EventRecord[EventualPayloadAndType]]
+      ) = {
         replicatedJournal
           .journal(key.topic)
           .use { journal =>
@@ -125,13 +125,13 @@ object ReplicatedJournalFlat {
 
     def pointers(topic: Topic) = TopicPointers.empty.pure[F]
 
-    def append[A](
+    def append(
       key: Key,
       partitionOffset: PartitionOffset,
       timestamp: Instant,
       expireAfter: Option[ExpireAfter],
-      events: Nel[EventRecord[A]]
-    )(implicit W: EventualWrite[F, A]) = false.pure[F]
+      events: Nel[EventRecord[EventualPayloadAndType]]
+    ) = false.pure[F]
 
     def delete(
       key: Key,
@@ -157,20 +157,20 @@ object ReplicatedJournalFlat {
 
   implicit class ReplicatedJournalFlatOps[F[_]](val self: ReplicatedJournalFlat[F]) extends AnyVal {
 
-    def mapK[G[_]](fg: F ~> G, gf: G ~> F): ReplicatedJournalFlat[G] = new ReplicatedJournalFlat[G] {
+    def mapK[G[_]](f: F ~> G): ReplicatedJournalFlat[G] = new ReplicatedJournalFlat[G] {
 
-      def topics = fg(self.topics)
+      def topics = f(self.topics)
 
-      def pointers(topic: Topic) = fg(self.pointers(topic))
+      def pointers(topic: Topic) = f(self.pointers(topic))
 
-      def append[A](
+      def append(
         key: Key,
         partitionOffset: PartitionOffset,
         timestamp: Instant,
         expireAfter: Option[ExpireAfter],
-        events: Nel[EventRecord[A]]
-      )(implicit W: EventualWrite[G, A]) = {
-        fg(self.append(key, partitionOffset, timestamp, expireAfter, events)(W.mapK(gf)))
+        events: Nel[EventRecord[EventualPayloadAndType]]
+      ) = {
+        f(self.append(key, partitionOffset, timestamp, expireAfter, events))
       }
 
       def delete(
@@ -180,7 +180,7 @@ object ReplicatedJournalFlat {
         deleteTo: DeleteTo,
         origin: Option[Origin]
       ) = {
-        fg(self.delete(key, partitionOffset, timestamp, deleteTo, origin))
+        f(self.delete(key, partitionOffset, timestamp, deleteTo, origin))
       }
 
       def purge(
@@ -188,11 +188,11 @@ object ReplicatedJournalFlat {
         offset: Offset,
         timestamp: Instant
       ) = {
-        fg(self.purge(key, offset, timestamp))
+        f(self.purge(key, offset, timestamp))
       }
 
       def save(topic: Topic, pointers: Nem[Partition, Offset], timestamp: Instant) = {
-        fg(self.save(topic, pointers, timestamp))
+        f(self.save(topic, pointers, timestamp))
       }
     }
   }

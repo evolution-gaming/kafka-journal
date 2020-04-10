@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual
 
 import cats.implicits._
-import cats.~>
 import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolutiongaming.kafka.journal.{JournalError, JsonCodec, Payload}
 import scodec.bits.ByteVector
@@ -32,10 +31,4 @@ object EventualWrite {
         }
     }
 
-  implicit class EventualWriteOps[F[_], A](val self: EventualWrite[F, A]) extends AnyVal {
-
-    def mapK[G[_]](fg: F ~> G): EventualWrite[G, A] =
-      payload => fg(self.writeEventual(payload))
-
-  }
 }

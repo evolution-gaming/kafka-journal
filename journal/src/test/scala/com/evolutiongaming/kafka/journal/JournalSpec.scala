@@ -527,17 +527,11 @@ object JournalSpec {
         }
       }
 
-      def read[A](key: Key, from: SeqNr)(implicit R: EventualRead[StateT, A]) = {
+      def read(key: Key, from: SeqNr) = {
         val events = StateT { state =>
-          val events = state.replicatedState.events.toList
-            .filter(_.seqNr >= from)
-            .traverse { record =>
-              record.event.payload.traverse(R.readEventual).map { payload =>
-                record.copy(event = record.event.copy(payload = payload))
-              }
-            }
+          val events = state.replicatedState.events.toList.filter(_.seqNr >= from)
           (state, events)
-        }.flatten
+        }
 
         for {
           events <- Stream.lift(events)

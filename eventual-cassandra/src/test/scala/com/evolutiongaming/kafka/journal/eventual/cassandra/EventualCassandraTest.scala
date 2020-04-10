@@ -6,9 +6,9 @@ import cats.{Id, Parallel}
 import cats.data.{IndexedStateT, NonEmptyList => Nel}
 import cats.effect.ExitCase
 import cats.implicits._
-import com.evolutiongaming.catshelper.{BracketThrowable, FromTry}
+import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.eventual.{EventualPayloadAndType, EventualRead, EventualWrite}
+import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.kafka.journal.util.BracketFromMonadError
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
@@ -35,7 +35,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
 
   private def eventRecordOf(seqNr: SeqNr, partitionOffset: PartitionOffset) = {
     EventRecord(
-      event = Event[Payload](seqNr),
+      event = Event[EventualPayloadAndType](seqNr),
       timestamp = timestamp0,
       partitionOffset = partitionOffset,
       origin = origin.some,
@@ -192,8 +192,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
               origin = origin.some))))),
           journal = Map(((key, SegmentNr.min), Map(
             ((record.seqNr, record.timestamp), record),
-            ((record1.seqNr, record1.timestamp), record1)))).asEventual
-        )
+            ((record1.seqNr, record1.timestamp), record1)))))
         val result = stateT.run(State.empty)
         result shouldEqual (expected, ()).pure[Try]
       }
@@ -239,8 +238,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
               origin = origin.some))))),
           journal = Map(((key, SegmentNr.min), Map(
             ((record.seqNr, record.timestamp), record),
-            ((record1.seqNr, record1.timestamp), record1)))).asEventual
-        )
+            ((record1.seqNr, record1.timestamp), record1)))))
         val result = stateT.run(State.empty)
         result shouldEqual (expected, ()).pure[Try]
       }
@@ -250,32 +248,21 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
 
 object EventualCassandraTest {
 
-  val insertRecords: JournalStatements.InsertRecords[StateT] = new JournalStatements.InsertRecords[StateT] {
-    override def apply[A](key: Key, segment: SegmentNr, events: Nel[EventRecord[A]])(
-      implicit W: EventualWrite[StateT, A]): StateT[Unit] = {
+  val insertRecords: JournalStatements.InsertRecords[StateT] = {
+    (key: Key, segment: SegmentNr, events: Nel[EventRecord[EventualPayloadAndType]]) => {
+      StateT.unit { state =>
+        val k = (key, segment)
+        val entries = state
+          .journal
+          .getOrElse(k, Map.empty)
 
-      val eventualEvents = events.traverse { event =>
-        event.event.payload.traverse(W.writeEventual).map { payload =>
-          event.copy(event = event.event.copy(payload = payload))
+        val entries1 = events.foldLeft(entries) { (entries, event) =>
+          entries.updated((event.seqNr, event.timestamp), event)
         }
+
+        val journal1 = state.journal.updated(k, entries1)
+        state.copy(journal = journal1)
       }
-
-      for {
-        eventual <- eventualEvents
-        _ <- StateT.unit { state =>
-          val k = (key, segment)
-          val entries = state
-            .journal
-            .getOrElse(k, Map.empty)
-
-          val entries1 = eventual.foldLeft(entries) { (entries, event) =>
-            entries.updated((event.seqNr, event.timestamp), event)
-          }
-
-          val journal1 = state.journal.updated(k, entries1)
-          state.copy(journal = journal1)
-        }
-      } yield ()
     }
   }
 
@@ -574,10 +561,8 @@ object EventualCassandraTest {
     }
   }
 
-  val selectRecords: JournalStatements.SelectRecords[StateT] = new JournalStatements.SelectRecords[StateT] {
-    override def apply[A](key: Key, segment: SegmentNr, range: SeqRange)(
-      implicit R: EventualRead[StateT, A]): Stream[StateT, EventRecord[A]] = {
-
+  val selectRecords: JournalStatements.SelectRecords[StateT] = {
+    (key: Key, segment: SegmentNr, range: SeqRange) => {
       val stateT = StateT.success { state =>
         val entries = for {
           journal <- state.journal.get((key, segment)).toList
@@ -585,14 +570,9 @@ object EventualCassandraTest {
         } yield {
           record
         }
-        val eventualEntries = entries.traverse { entry =>
-          entry.event.payload.traverse(R.readEventual).map { payload =>
-            entry.copy(event = entry.event.copy(payload = payload))
-          }
-        }
-        val stream = eventualEntries.map(Stream[StateT].apply(_))
+        val stream = Stream[StateT].apply(entries)
         (state, stream)
-      }.flatten
+      }
       Stream.lift(stateT).flatten
     }
   }
@@ -619,16 +599,6 @@ object EventualCassandraTest {
       } yield b
     }
   }
-
-  implicit val fromTry: FromTry[StateT] = FromTry.lift[StateT]
-
-  implicit val jsonCodecStateT: JsonCodec[StateT] = JsonCodec.default[StateT]
-
-  implicit val jsonCodecTry: JsonCodec[Try] = JsonCodec.default[Try]
-
-  implicit val eventualRead: EventualRead[StateT, Payload] = EventualRead.forPayload
-
-  implicit val eventualWrite: EventualWrite[StateT, Payload] = EventualWrite.forPayload
 
   implicit val parallel: Parallel[StateT] = Parallel.identity[StateT]
 
@@ -717,11 +687,5 @@ object EventualCassandraTest {
     def success[A](f: State => (State, A)): StateT[A] = apply { s => f(s).pure[Try] }
 
     def unit(f: State => State): StateT[Unit] = success[Unit] { a => (f(a), ()) }
-  }
-
-  implicit class JournalOps[A](val journal: Map[(Key, SegmentNr), Map[(SeqNr, Instant), EventRecord[A]]]) extends AnyVal {
-
-    def asEventual(implicit W: EventualWrite[Try, A]): Map[(Key, SegmentNr), Map[(SeqNr, Instant), EventRecord[EventualPayloadAndType]]] =
-      journal.view.mapValues(_.view.mapValues(_.map(W.writeEventual(_).get)).toMap).toMap
   }
 }

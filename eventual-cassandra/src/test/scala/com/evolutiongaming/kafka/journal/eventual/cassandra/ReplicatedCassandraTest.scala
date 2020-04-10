@@ -7,10 +7,9 @@ import cats.effect.{ExitCase, Sync}
 import cats.implicits._
 import cats.{Id, Parallel}
 import com.evolutiongaming.catshelper.DataHelper._
-import com.evolutiongaming.catshelper.FromTry
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.eventual.{EventualPayloadAndType, EventualWrite}
+import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.eventual.cassandra.ExpireOn.implicits._
 import com.evolutiongaming.kafka.journal.util.BracketFromMonadError
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
@@ -36,7 +35,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
   private def eventRecordOf(seqNr: SeqNr, partitionOffset: PartitionOffset) = {
     EventRecord(
-      event = Event[Payload](seqNr),
+      event = Event[EventualPayloadAndType](seqNr),
       timestamp = timestamp0,
       partitionOffset = partitionOffset,
       origin = origin.some,
@@ -201,8 +200,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             created = timestamp0,
             updated = timestamp0,
             origin = origin.some))))),
-        journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))).asEventual
-      )
+        journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))))
       val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
     }
@@ -353,12 +351,11 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               created = timestamp0,
               updated = timestamp0,
               origin = origin.some))))),
-        journal = (events0 ++ Map(
+        journal = events0 ++ Map(
           ((key1, SegmentNr.min), Map(
             ((SeqNr.min, timestamp0), eventRecordOf(
               seqNr = SeqNr.unsafe(1),
-              partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(4)))))))).asEventual
-      )
+              partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(4))))))))
       val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
     }
@@ -475,7 +472,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               created = timestamp0,
               updated = timestamp1,
               origin = origin.some))))),
-        journal = events0.asEventual)
+        journal = events0)
       val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
     }
@@ -560,7 +557,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               (SeqNr.unsafe(2), timestamp0),
               eventRecordOf(
                 seqNr = SeqNr.unsafe(2),
-                partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2))))))).asEventual)
+                partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2))))))))
       val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
     }
@@ -640,7 +637,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               (SeqNr.unsafe(2), timestamp0),
               eventRecordOf(
                 seqNr = SeqNr.unsafe(2),
-                partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2))))))).asEventual)
+                partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2))))))))
       val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
     }
@@ -719,7 +716,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               (SeqNr.unsafe(2), timestamp0),
               eventRecordOf(
                 seqNr = SeqNr.unsafe(2),
-                partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2))))))).asEventual)
+                partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2))))))))
       val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
     }
@@ -767,7 +764,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             (SeqNr.unsafe(2), timestamp0),
             eventRecordOf(
               seqNr = SeqNr.unsafe(2),
-              partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(3))))))).asEventual)
+              partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(3))))))))
 
       val initial = State.empty.copy(
         metaJournal = Map(
@@ -858,7 +855,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               created = timestamp0,
               updated = timestamp0,
               origin = origin.some))))),
-        journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))).asEventual)
+        journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))))
 
       val expected = State(
         metaJournal = Map(
@@ -872,7 +869,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             created = timestamp0,
             updated = timestamp0,
             origin = origin.some))))),
-        journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))).asEventual)
+        journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))))
 
       val actual = stateT.run(initial)
       actual shouldEqual (expected, false).pure[Try]
@@ -949,7 +946,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             created = timestamp0,
             updated = timestamp0,
             origin = origin.some))))),
-        journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))).asEventual)
+        journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))))
       val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
     }
@@ -1021,34 +1018,23 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
 object ReplicatedCassandraTest {
 
-  val insertRecords: JournalStatements.InsertRecords[StateT] = new JournalStatements.InsertRecords[StateT] {
-    override def apply[A](key: Key, segment: SegmentNr, events: Nel[EventRecord[A]])(
-      implicit W: EventualWrite[StateT, A]): StateT[Unit] = {
+  val insertRecords: JournalStatements.InsertRecords[StateT] = {
+    (key, segment, events) => {
+      StateT.unit { state =>
+        val k = (key, segment)
+        val entries = state
+          .journal
+          .getOrElse(k, Map.empty)
 
-      val eventualEvents = events.traverse { event =>
-        event.event.payload.traverse(W.writeEventual).map { payload =>
-          event.copy(event = event.event.copy(payload = payload))
+        val entries1 = events.foldLeft(entries) { (entries, event) =>
+          entries.updated((event.seqNr, event.timestamp), event)
         }
+
+        val journal1 = state.journal.updated(k, entries1)
+        state
+          .copy(journal = journal1)
+          .append(Action.InsertRecords(key, segment, events.size))
       }
-
-      for {
-        eventual <- eventualEvents
-        _ <- StateT.unit { state =>
-          val k = (key, segment)
-          val entries = state
-            .journal
-            .getOrElse(k, Map.empty)
-
-          val entries1 = eventual.foldLeft(entries) { (entries, event) =>
-              entries.updated((event.seqNr, event.timestamp), event)
-            }
-
-          val journal1 = state.journal.updated(k, entries1)
-          state
-            .copy(journal = journal1)
-            .append(Action.InsertRecords(key, segment, events.size))
-        }
-      } yield ()
     }
   }
 
@@ -1343,14 +1329,6 @@ object ReplicatedCassandraTest {
     def suspend[A](thunk: => StateT[A]) = thunk
   }
 
-  implicit val fromTry: FromTry[StateT] = FromTry.lift[StateT]
-
-  implicit val jsonCodec: JsonCodec[StateT] = JsonCodec.default[StateT]
-
-  implicit val jsonCodecTry: JsonCodec[Try] = JsonCodec.default[Try]
-
-  implicit val eventualWrite: EventualWrite[StateT, Payload] = EventualWrite.forPayload
-
   implicit val parallel: Parallel[StateT] = Parallel.identity[StateT]
 
 
@@ -1457,12 +1435,5 @@ object ReplicatedCassandraTest {
     def success[A](f: State => (State, A)): StateT[A] = apply { s => f(s).pure[Try] }
 
     def unit(f: State => State): StateT[Unit] = success[Unit] { a => (f(a), ()) }
-  }
-
-  implicit class JournalOps[A](val journal: Map[(Key, SegmentNr), Map[(SeqNr, Instant), EventRecord[A]]]) extends AnyVal {
-
-    def asEventual(implicit W: EventualWrite[Try, A]): Map[(Key, SegmentNr), Map[(SeqNr, Instant), EventRecord[EventualPayloadAndType]]] =
-      journal.view.mapValues(_.view.mapValues(_.map(W.writeEventual(_).get)).toMap).toMap
-
   }
 }

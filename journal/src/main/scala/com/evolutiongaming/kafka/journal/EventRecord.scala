@@ -2,7 +2,8 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 
-import cats.Functor
+import cats._
+import cats.implicits._
 import com.evolutiongaming.skafka.{Offset, Partition}
 
 /**
@@ -53,8 +54,14 @@ object EventRecord {
       headers = action.headers)
   }
 
-  implicit val functorEventRecord: Functor[EventRecord] = new Functor[EventRecord] {
-    override def map[A, B](fa: EventRecord[A])(f: A => B): EventRecord[B] =
-      fa.copy(event = Functor[Event].map(fa.event)(f))
+  implicit val traverse: Traverse[EventRecord] = new Traverse[EventRecord] {
+    override def traverse[G[_] : Applicative, A, B](fa: EventRecord[A])(f: A => G[B]): G[EventRecord[B]] =
+      fa.event.traverse(f).map(e => fa.copy(event = e))
+
+    override def foldLeft[A, B](fa: EventRecord[A], b: B)(f: (B, A) => B): B =
+      fa.event.foldLeft(b)(f)
+
+    override def foldRight[A, B](fa: EventRecord[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] =
+      fa.event.foldRight(lb)(f)
   }
 }

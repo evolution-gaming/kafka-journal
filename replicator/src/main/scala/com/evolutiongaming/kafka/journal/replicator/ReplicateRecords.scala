@@ -64,14 +64,15 @@ object ReplicateRecords {
             }
             for {
               events <- events
+              eventualEvents <- events.events.traverse(_.traverse(eventualWrite.writeEventual))
             } yield for {
-              event <- events.events
+              event <- eventualEvents
             } yield {
               EventRecord(record, event, events.metadata)
             }
           }
 
-          def msg(events: Nel[EventRecord[A]], latency: FiniteDuration, expireAfter: Option[ExpireAfter]) = {
+          def msg(events: Nel[EventRecord[EventualPayloadAndType]], latency: FiniteDuration, expireAfter: Option[ExpireAfter]) = {
             val seqNrs =
               if (events.tail.isEmpty) s"seqNr: ${ events.head.seqNr }"
               else s"seqNrs: ${ events.head.seqNr }..${ events.last.seqNr }"
@@ -81,7 +82,7 @@ object ReplicateRecords {
             s"append in ${ latency.toMillis }ms, id: $id, offset: $partitionOffset, $seqNrs$originStr$expireAfterStr"
           }
 
-          def measure(events: Nel[EventRecord[A]], expireAfter: Option[ExpireAfter]) = {
+          def measure(events: Nel[EventRecord[EventualPayloadAndType]], expireAfter: Option[ExpireAfter]) = {
             for {
               measurements <- measurements(records.size)
               _            <- metrics.append(events = events.length, bytes = bytes, measurements = measurements)
@@ -92,7 +93,7 @@ object ReplicateRecords {
           for {
             events       <- events
             expireAfter   = events.last.metadata.payload.expireAfter
-            appended     <- journal.append(partitionOffset, timestamp, expireAfter, events)(eventualWrite)
+            appended     <- journal.append(partitionOffset, timestamp, expireAfter, events)
             _            <- if (appended) measure(events, expireAfter) else Applicative[F].unit
           } yield {}
         }

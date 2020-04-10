@@ -11,7 +11,7 @@ import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.eventual.EventualJournal
+import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualRead}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
 import com.evolutiongaming.kafka.journal.util.{ActorSystemOf, Fail}
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
@@ -136,9 +136,13 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
     val Error = new RuntimeException with NoStackTrace
 
+    val eventualRead = EventualRead[IO, Payload]
+
     def read(key: Key)(until: List[EventRecord[Payload]] => Boolean) = {
       val events = for {
-        events <- eventualJournal.read[Payload](key, SeqNr.min).toList
+        events <- eventualJournal.read(key, SeqNr.min)
+            .mapM(_.traverse(eventualRead.readEventual))
+            .toList
         events <- {
           if (until(events)) {
             events

@@ -175,11 +175,7 @@ object JournalAdapterSpec {
 
         def read[A](from: SeqNr)(implicit R: JournalRead[StateT, A]) = {
           val stream = StateT {  state =>
-            val events = state.events.traverse { event =>
-              event.event.payload.traverse(R.readEventual).map { payload =>
-                event.copy(event = event.event.copy(payload = payload))
-              }
-            }
+            val events = state.events.traverse(_.traverse(R.readEventual))
 
             val read = Read(key, from)
             val state1 = state.copy(reads = read :: state.reads, events = Nil)

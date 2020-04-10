@@ -793,37 +793,27 @@ object TopicReplicatorSpec {
         def journal(id: String) = {
           val journal = new ReplicatedKeyJournal[StateT] {
 
-            def append[A](
+            def append(
               partitionOffset: PartitionOffset,
               timestamp: Instant,
               expireAfter: Option[ExpireAfter],
-              events: Nel[EventRecord[A]],
-            )(implicit W: EventualWrite[StateT, A]) = {
+              events: Nel[EventRecord[EventualPayloadAndType]],
+            ) = {
+              StateT { state =>
+                val records = events.toList ++ state.journal.getOrElse(id, Nil)
 
-              val eventualEvents = events.traverse { event =>
-                event.event.payload.traverse(W.writeEventual).map { payload =>
-                  event.copy(event = event.event.copy(payload = payload))
-                }
+                val deleteTo = state.metaJournal.get(id).flatMap(_.deleteTo)
+
+                val metaJournal = MetaJournal(partitionOffset, deleteTo, expireAfter, events.last.origin)
+
+                val state1 = state.copy(
+                  journal = state.journal.updated(id, records),
+                  metaJournal = state.metaJournal.updated(id, metaJournal))
+
+                val updated = state.metaJournal.get(id).fold(true) { journalHead => partitionOffset.offset > journalHead.offset.offset }
+
+                (state1, updated)
               }
-
-              for {
-                eventual <- eventualEvents
-                updated <- StateT { state =>
-                  val records = eventual.toList ++ state.journal.getOrElse(id, Nil)
-
-                  val deleteTo = state.metaJournal.get(id).flatMap(_.deleteTo)
-
-                  val metaJournal = MetaJournal(partitionOffset, deleteTo, expireAfter, events.last.origin)
-
-                  val state1 = state.copy(
-                    journal = state.journal.updated(id, records),
-                    metaJournal = state.metaJournal.updated(id, metaJournal))
-
-                  val updated = state.metaJournal.get(id).fold(true) { journalHead => partitionOffset.offset > journalHead.offset.offset }
-
-                  (state1, updated)
-                }
-              } yield updated
             }
 
             def delete(partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: DeleteTo, origin: Option[Origin]) = {

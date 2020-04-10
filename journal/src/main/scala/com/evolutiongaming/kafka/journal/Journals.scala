@@ -178,6 +178,9 @@ object Journals {
 
         def read[A](from: SeqNr)(implicit R: JournalRead[F, A]) = {
 
+          def readEventual(from: SeqNr) = eventual.read(key, from)
+            .mapM(_.traverse(R.readEventual))
+
           def readEventualAndKafka(from: SeqNr, stream: F[StreamActionRecords[F]], offsetAppend: Offset) = {
 
             def readKafka(from: SeqNr, offset: Option[Offset], stream: StreamActionRecords[F]) = {
@@ -200,8 +203,7 @@ object Journals {
 
             for {
               stream <- Stream.lift(stream)
-              event  <- eventual
-                .read[A](key, from)
+              event  <- readEventual(from)
                 .flatMapLast { last =>
                   last
                     .fold((from, none[Offset]).some) { event =>
@@ -218,8 +220,6 @@ object Journals {
           def read(head: HeadInfo, stream: F[StreamActionRecords[F]]) = {
 
             def empty = Stream.empty[F, EventRecord[A]]
-
-            def readEventual(from: SeqNr) = eventual.read(key, from)
 
             def onAppend(offset: Offset, deleteTo: Option[DeleteTo]) = {
 
