@@ -28,3 +28,5 @@ ignore
 
 scripts/tmp
 ignored/
+
+.java-version
