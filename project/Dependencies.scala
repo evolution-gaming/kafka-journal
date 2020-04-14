@@ -75,4 +75,11 @@ object Dependencies {
     val pureconfig = "com.github.pureconfig" %% "pureconfig"      % version
     val cats       = "com.github.pureconfig" %% "pureconfig-cats" % version
   }
+
+  object Circe {
+    private val version = "0.13.0"
+    val core    = "io.circe" %% "circe-core"    % version
+    val generic = "io.circe" %% "circe-generic" % version
+    val jawn    = "io.circe" %% "circe-jawn"    % version
+  }
 }

@@ -46,8 +46,11 @@ object Payload {
 
   }
 
+  sealed abstract class TextOrJson extends Payload {
+    def payloadType: PayloadType.TextOrJson
+  }
 
-  final case class Text(value: String) extends Payload {
+  final case class Text(value: String) extends TextOrJson {
     def payloadType = PayloadType.Text
   }
 
@@ -58,7 +61,7 @@ object Payload {
   }
 
 
-  final case class Json(value: JsValue) extends Payload {
+  final case class Json(value: JsValue) extends TextOrJson {
     def payloadType = PayloadType.Json
   }
 

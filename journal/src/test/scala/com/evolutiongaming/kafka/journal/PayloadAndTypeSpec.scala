@@ -98,7 +98,7 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
 
       val payloadAndType = kafkaWrite(events).get
 
-      payloadType shouldEqual payloadAndType.payloadType
+      payloadAndType.payloadType shouldEqual payloadType
 
       val ext = payloadType.ext
 
