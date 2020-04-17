@@ -5,8 +5,8 @@ import akka.persistence.kafka.journal._
 import cats.effect.{IO, Resource}
 import cats.implicits._
 import com.evolutiongaming.catshelper.MonadThrowable
-import com.evolutiongaming.kafka.journal.circe.codecs._
-import com.evolutiongaming.kafka.journal.circe.instances._
+import com.evolutiongaming.kafka.journal.circe.Codecs._
+import com.evolutiongaming.kafka.journal.circe.Instances._
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.circe.KafkaJournalCirce.JsonEventSerializer

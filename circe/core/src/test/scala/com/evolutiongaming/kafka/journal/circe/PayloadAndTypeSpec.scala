@@ -6,7 +6,7 @@ import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.circe.instances._
+import com.evolutiongaming.kafka.journal.circe.Instances._
 import com.evolutiongaming.kafka.journal.conversions._
 import io.circe.{Json => CirceJson}
 import org.scalatest.EitherValues

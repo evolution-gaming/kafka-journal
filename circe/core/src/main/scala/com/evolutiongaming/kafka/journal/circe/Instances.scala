@@ -6,7 +6,7 @@ import cats.implicits._
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.PayloadAndType._
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.circe.codecs._
+import com.evolutiongaming.kafka.journal.circe.Codecs._
 import com.evolutiongaming.kafka.journal.conversions._
 import com.evolutiongaming.kafka.journal.eventual.EventualRead
 import io.circe._
@@ -14,7 +14,7 @@ import io.circe.jawn._
 import io.circe.syntax._
 import scodec.bits.ByteVector
 
-object instances {
+object Instances {
 
   implicit def kafkaWrite[F[_] : MonadThrowable](
     implicit payloadJsonToBytes: ToBytes[F, PayloadJson[Json]]

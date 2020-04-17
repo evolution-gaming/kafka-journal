@@ -10,7 +10,7 @@ import play.api.libs.json.JsValue
 
 import scala.concurrent.duration._
 
-object codecs {
+object Codecs {
 
   implicit val finiteDurationEncoder: Encoder[FiniteDuration] = Encoder.encodeString.contramap(_.toString)
   implicit val finiteDurationDecoder: Decoder[FiniteDuration] = Decoder.decodeString.emap { str =>
