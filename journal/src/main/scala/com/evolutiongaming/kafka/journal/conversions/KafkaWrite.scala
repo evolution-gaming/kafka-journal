@@ -109,7 +109,7 @@ object KafkaWrite {
 
   implicit class KafkaWriteOps[F[_], A](val self: KafkaWrite[F, A]) extends AnyVal {
     def withMetrics(
-      metrics: EventsToPayloadMetrics[F]
+      metrics: KafkaWriteMetrics[F]
     )(
       implicit F: Monad[F], measureDuration: MeasureDuration[F]
     ): KafkaWrite[F, A] = {

@@ -117,12 +117,12 @@ object Journals {
 
     def kafkaWriteWithMetrics[A](implicit kafkaWrite: KafkaWrite[F, A]) =
       conversionMetrics.fold(kafkaWrite) { metrics =>
-        kafkaWrite.withMetrics(metrics.eventsToPayload)
+        kafkaWrite.withMetrics(metrics.kafkaWrite)
     }
 
     def kafkaReadWithMetrics[A](implicit kafkaRead: KafkaRead[F, A]) =
       conversionMetrics.fold(kafkaRead) { metrics =>
-        kafkaRead.withMetrics(metrics.payloadToEvents)
+        kafkaRead.withMetrics(metrics.kafkaRead)
       }
 
     def headAndStream(key: Key, from: SeqNr): F[(HeadInfo, F[StreamActionRecords[F]])] = {

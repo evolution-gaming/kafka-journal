@@ -104,7 +104,7 @@ object KafkaRead {
 
   implicit class KafkaReadOps[F[_], A](val self: KafkaRead[F, A]) extends AnyVal {
     def withMetrics(
-      metrics: PayloadToEventsMetrics[F]
+      metrics: KafkaReadMetrics[F]
     )(
       implicit F: Monad[F], measureDuration: MeasureDuration[F]
     ): KafkaRead[F, A] = {
