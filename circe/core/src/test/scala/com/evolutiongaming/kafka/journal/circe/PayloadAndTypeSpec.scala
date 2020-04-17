@@ -24,11 +24,11 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherValues {
   private implicit val fromAttempt: FromAttempt[Try] = FromAttempt.lift[Try]
   private implicit val fromJsResult: FromJsResult[Try] = FromJsResult.lift[Try]
 
-  private val playKafkaWrite = KafkaWrite[Try, Payload]
-  private val playKafkaRead = KafkaRead[Try, Payload]
+  private val playKafkaWrite = KafkaWrite.summon[Try, Payload]
+  private val playKafkaRead = KafkaRead.summon[Try, Payload]
 
-  private val circeKafkaRead = KafkaRead[Try, CirceJson]
-  private val circeKafkaWrite = KafkaWrite[Try, CirceJson]
+  private val circeKafkaRead = KafkaRead.summon[Try, CirceJson]
+  private val circeKafkaWrite = KafkaWrite.summon[Try, CirceJson]
 
   private val payloadMetadata = PayloadMetadata(
     ExpireAfter(1.day).some,

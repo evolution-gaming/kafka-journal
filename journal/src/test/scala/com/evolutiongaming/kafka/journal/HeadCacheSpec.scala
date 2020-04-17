@@ -361,7 +361,7 @@ object HeadCacheSpec {
   val headers: Headers = Headers.empty
 
   def appendOf(key: Key, seqNr: SeqNr): Action.Append  = {
-    implicit val kafkaWrite = KafkaWrite[Try, Payload]
+    implicit val kafkaWrite = KafkaWrite.summon[Try, Payload]
     Action.Append.of[Try, Payload](
       key = key,
       timestamp = timestamp,

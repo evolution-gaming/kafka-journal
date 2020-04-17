@@ -18,7 +18,7 @@ trait KafkaWrite[F[_], A] {
 
 object KafkaWrite {
 
-  def apply[F[_], A](implicit kafkaWrite: KafkaWrite[F, A]): KafkaWrite[F, A] = kafkaWrite
+  def summon[F[_], A](implicit kafkaWrite: KafkaWrite[F, A]): KafkaWrite[F, A] = kafkaWrite
 
   implicit def forPayload[F[_] : MonadThrowable](implicit
     eventsToBytes: ToBytes[F, Events[Payload]],

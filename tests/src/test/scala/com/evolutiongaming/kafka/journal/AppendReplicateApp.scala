@@ -47,7 +47,6 @@ object AppendReplicateApp extends IOApp {
 
     implicit val logOf = LogOfFromAkka[F](system)
     implicit val randomIdOf = RandomIdOf.uuid[F]
-    implicit val kafkaWrite = KafkaWrite[F, Payload]
 
     val kafkaJournalConfig = ConfigSource
       .fromConfig(system.settings.config)

@@ -640,8 +640,8 @@ object JournalSpec {
         implicit val fromAttempt = FromAttempt.lift[Try]
         implicit val fromJsResult = FromJsResult.lift[Try]
 
-        val kafkaRead = KafkaRead[Try, Payload]
-        val eventualWrite = EventualWrite[Try, Payload]
+        val kafkaRead = KafkaRead.summon[Try, Payload]
+        val eventualWrite = EventualWrite.summon[Try, Payload]
 
         def updateOffset = copy(offset = offset.some)
 

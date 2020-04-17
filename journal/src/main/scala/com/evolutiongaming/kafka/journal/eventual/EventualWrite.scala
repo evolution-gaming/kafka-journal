@@ -14,7 +14,7 @@ trait EventualWrite[F[_], A] {
 
 object EventualWrite {
 
-  def apply[F[_], A](implicit eventualWrite: EventualWrite[F, A]): EventualWrite[F, A] = eventualWrite
+  def summon[F[_], A](implicit eventualWrite: EventualWrite[F, A]): EventualWrite[F, A] = eventualWrite
 
   implicit def forPayload[F[_] : MonadThrowable](implicit encode: JsonCodec.Encode[F]): EventualWrite[F, Payload] =
     payload => {

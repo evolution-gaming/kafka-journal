@@ -17,7 +17,7 @@ trait EventualRead[F[_], A] {
 
 object EventualRead {
 
-  def apply[F[_], A](implicit eventualRead: EventualRead[F, A]): EventualRead[F, A] = eventualRead
+  def summon[F[_], A](implicit eventualRead: EventualRead[F, A]): EventualRead[F, A] = eventualRead
 
   implicit def forPayload[F[_] : MonadThrowable](implicit decode: JsonCodec.Decode[Try]): EventualRead[F, Payload] = {
     implicit val fail: Fail[F] = Fail.lift[F]

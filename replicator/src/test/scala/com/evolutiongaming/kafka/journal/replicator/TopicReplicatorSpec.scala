@@ -674,7 +674,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
   }
 
   private def appendOf(key: Key, seqNrs: Nel[Int], expireAfter: Option[ExpireAfter] = none) = {
-    implicit val kafkaWrite = KafkaWrite[Try, Payload]
+    implicit val kafkaWrite = KafkaWrite.summon[Try, Payload]
     Action.Append.of[Try, Payload](
       key = key,
       timestamp = timestamp,
@@ -952,8 +952,8 @@ object TopicReplicatorSpec {
     }
 
     implicit val measureDuration = MeasureDuration.fromClock(timer.clock)
-    val kafkaRead = KafkaRead[StateT, Payload]
-    val eventualWrite = EventualWrite[StateT, Payload]
+    val kafkaRead = KafkaRead.summon[StateT, Payload]
+    val eventualWrite = EventualWrite.summon[StateT, Payload]
 
     TopicReplicator.of[StateT, Payload](
       topic = topic,

@@ -94,7 +94,7 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
   }
 
   private val appends = {
-    implicit val kafkaWrite = KafkaWrite[Try, Payload]
+    implicit val kafkaWrite = KafkaWrite.summon[Try, Payload]
     for {
       origin          <- origins
       metadata        <- metadata

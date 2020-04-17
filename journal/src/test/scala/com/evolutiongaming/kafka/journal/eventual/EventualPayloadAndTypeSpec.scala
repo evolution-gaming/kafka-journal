@@ -15,8 +15,8 @@ class EventualPayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherVa
 
   implicit val jsonCodec: JsonCodec[Try] = JsonCodec.default[Try]
 
-  private val eventualWrite = EventualWrite[Try, Payload]
-  private val eventualRead = EventualRead[Try, Payload]
+  private val eventualWrite = EventualWrite.summon[Try, Payload]
+  private val eventualRead = EventualRead.summon[Try, Payload]
 
   for {
     (name, payload) <- List(

@@ -36,9 +36,9 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
     1.day.toExpireAfter.some,
     Json.obj(("key", "value")).some)
 
-  private val kafkaWrite = KafkaWrite[Try, Payload]
+  private val kafkaWrite = KafkaWrite.summon[Try, Payload]
 
-  private val kafkaRead = KafkaRead[Try, Payload]
+  private val kafkaRead = KafkaRead.summon[Try, Payload]
 
   for {
     (name, payloadType, events) <- List(

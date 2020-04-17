@@ -47,8 +47,8 @@ object TopicReplicator {
     implicit val fromJsResult: FromJsResult[F] = FromJsResult.lift[F]
     implicit val jsonCodec: JsonCodec[Try]     = JsonCodec.summon[F].mapK(ToTry.functionK)
 
-    val kafkaRead = KafkaRead[F, Payload]
-    val eventualWrite = EventualWrite[F, Payload]
+    val kafkaRead = KafkaRead.summon[F, Payload]
+    val eventualWrite = EventualWrite.summon[F, Payload]
 
     def consume(
       consumer: Resource[F, TopicConsumer[F]],

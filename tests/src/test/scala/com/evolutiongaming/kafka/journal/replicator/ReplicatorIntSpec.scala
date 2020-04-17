@@ -136,7 +136,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
     val Error = new RuntimeException with NoStackTrace
 
-    val eventualRead = EventualRead[IO, Payload]
+    val eventualRead = EventualRead.summon[IO, Payload]
 
     def read(key: Key)(until: List[EventRecord[Payload]] => Boolean) = {
       val events = for {

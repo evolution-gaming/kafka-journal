@@ -42,7 +42,7 @@ class JournalAdapterSpec extends AnyFunSuite with Matchers {
   private val journalAdapter = JournalAdapter[StateT, Payload](StateT.JournalsStateF, toKey, eventSerializer, journalReadWrite, appendMetadataOf)
 
   private def appendOf(key: Key, events: Nel[Event[Payload]]) = {
-    val payloadAndMetadata = KafkaWrite[Try, Payload].apply(Events(events, recordMetadata.payload)).get
+    val payloadAndMetadata = KafkaWrite.summon[Try, Payload].apply(Events(events, recordMetadata.payload)).get
     Append(key, payloadAndMetadata, recordMetadata, headers)
   }
 
@@ -65,7 +65,7 @@ class JournalAdapterSpec extends AnyFunSuite with Matchers {
 
   test("replay") {
     val range = SeqRange(from = SeqNr.min, to = SeqNr.max)
-    val initial = State(events = List(eventRecord.map(EventualWrite[Try, Payload].apply(_).get)))
+    val initial = State(events = List(eventRecord.map(EventualWrite.summon[Try, Payload].apply(_).get)))
     val f = (a: PersistentRepr) => StateT { s =>
       val s1 = s.copy(replayed = a :: s.replayed)
       (s1, ())

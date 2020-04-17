@@ -16,8 +16,8 @@ import scala.util.Try
 
 class EventualPayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherValues {
 
-  private val playEventualWrite = EventualWrite[Try, Payload]
-  private val circeEventualRead = EventualRead[Try, CirceJson]
+  private val playEventualWrite = EventualWrite.summon[Try, Payload]
+  private val circeEventualRead = EventualRead.summon[Try, CirceJson]
 
   for {
     (playPayload, circePayload) <- List(

@@ -16,7 +16,7 @@ trait KafkaRead[F[_], A] {
 
 object KafkaRead {
 
-  def apply[F[_], A](implicit kafkaRead: KafkaRead[F, A]): KafkaRead[F, A] = kafkaRead
+  def summon[F[_], A](implicit kafkaRead: KafkaRead[F, A]): KafkaRead[F, A] = kafkaRead
 
   implicit def forPayload[F[_] : MonadThrowable : FromAttempt : FromJsResult](implicit
     eventsFromBytes: FromBytes[F, Events[Payload]],
