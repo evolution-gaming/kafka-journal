@@ -54,7 +54,7 @@ object EventRecord {
       headers = action.headers)
   }
 
-  implicit val traverse: Traverse[EventRecord] = new Traverse[EventRecord] {
+  implicit val traverseEventRecord: Traverse[EventRecord] = new Traverse[EventRecord] {
     override def traverse[G[_] : Applicative, A, B](fa: EventRecord[A])(f: A => G[B]): G[EventRecord[B]] =
       fa.event.traverse(f).map(e => fa.copy(event = e))
 

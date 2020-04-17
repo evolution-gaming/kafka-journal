@@ -54,7 +54,7 @@ object Event {
     codecEvent[Payload]
   }
 
-  implicit val traverse: Traverse[Event] = new Traverse[Event] {
+  implicit val traverseEvent: Traverse[Event] = new Traverse[Event] {
     override def traverse[G[_] : Applicative, A, B](fa: Event[A])(f: A => G[B]): G[Event[B]] =
       fa.payload.traverse(f)
         .map(newPayload => fa.copy(payload = newPayload))
