@@ -507,11 +507,11 @@ object EventualJournalSpec {
 
         def append(partitionOffset: PartitionOffset, events: Nel[EventRecord]) = {
           // TODO expiry: define expireAfter and test
-          journal.append(key, partitionOffset, timestamp, none, events)
+          journal.append(key, partitionOffset, timestamp, none, events).map(_ => ())
         }
 
         def delete(deleteTo: DeleteTo, partitionOffset: PartitionOffset) = {
-          journal.delete(key, partitionOffset, timestamp, deleteTo, None)
+          journal.delete(key, partitionOffset, timestamp, deleteTo, None).map(_ => ())
         }
 
         def pointers(topic: Topic) = journal.pointers(topic)

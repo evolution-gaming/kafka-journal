@@ -18,19 +18,19 @@ trait ReplicatedKeyJournal[F[_]] {
     timestamp: Instant,
     expireAfter: Option[ExpireAfter],
     events: Nel[EventRecord]
-  ): F[Unit]
+  ): F[Boolean]
 
   def delete(
     partitionOffset: PartitionOffset,
     timestamp: Instant,
     deleteTo: DeleteTo,
     origin: Option[Origin]
-  ): F[Unit]
+  ): F[Boolean]
 
   def purge(
     offset: Offset,
     timestamp: Instant
-  ): F[Unit]
+  ): F[Boolean]
 }
 
 object ReplicatedKeyJournal {
@@ -42,19 +42,19 @@ object ReplicatedKeyJournal {
       timestamp: Instant,
       expireAfter: Option[ExpireAfter],
       events: Nel[EventRecord]
-    ) = ().pure[F]
+    ) = false.pure[F]
 
     def delete(
       partitionOffset: PartitionOffset,
       timestamp: Instant,
       deleteTo: DeleteTo,
       origin: Option[Origin]
-    ) = ().pure[F]
+    ) = false.pure[F]
 
     def purge(
       offset: Offset,
       timestamp: Instant
-    ) = ().pure[F]
+    ) = false.pure[F]
   }
 
 

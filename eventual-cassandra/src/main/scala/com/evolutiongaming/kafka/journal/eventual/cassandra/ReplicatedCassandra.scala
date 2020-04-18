@@ -287,7 +287,7 @@ object ReplicatedCassandra {
                     journalHead <- journalHeadRef.get
                     journalHead <- appendAndSave(journalHead)
                     _           <- journalHead.traverse { journalHead => journalHeadRef.set(journalHead.some) }
-                  } yield {}
+                  } yield journalHead.isDefined
                 }
 
                 def delete(
@@ -316,7 +316,7 @@ object ReplicatedCassandra {
                     journalHead <- journalHeadRef.get
                     journalHead <- journalHead.fold { insert } { delete }
                     _           <- journalHead.traverse { journalHead => journalHeadRef.set(journalHead.some) }
-                  } yield {}
+                  } yield journalHead.isDefined
                 }
 
                 def purge(
@@ -335,15 +335,15 @@ object ReplicatedCassandra {
                         _           <- journalHead.traverse { journalHead => journalHeadRef.set(journalHead.some) }
                         _           <- metaJournal.delete
                         _           <- journalHeadRef.set(none)
-                      } yield {}
+                      } yield journalHead.isDefined
                       result.uncancelable
                     } else {
-                      ().pure[F]
+                      false.pure[F]
                     }
                   }
                   for {
                     journalHead <- journalHeadRef.get
-                    result      <- journalHead.foldMapM { purge }
+                    result      <- journalHead.fold(false.pure[F]) { purge }
                   } yield result
                 }
               }

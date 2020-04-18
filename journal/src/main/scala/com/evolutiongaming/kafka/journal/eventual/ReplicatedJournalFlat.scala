@@ -25,7 +25,7 @@ trait ReplicatedJournalFlat[F[_]] {
     timestamp: Instant,
     expireAfter: Option[ExpireAfter],
     events: Nel[EventRecord]
-  ): F[Unit]
+  ): F[Boolean]
 
   def delete(
     key: Key,
@@ -33,13 +33,13 @@ trait ReplicatedJournalFlat[F[_]] {
     timestamp: Instant,
     deleteTo: DeleteTo,
     origin: Option[Origin]
-  ): F[Unit]
+  ): F[Boolean]
 
   def purge(
     key: Key,
     offset: Offset,
     timestamp: Instant
-  ): F[Unit]
+  ): F[Boolean]
 
   def save(
     topic: Topic,
@@ -128,7 +128,7 @@ object ReplicatedJournalFlat {
       timestamp: Instant,
       expireAfter: Option[ExpireAfter],
       events: Nel[EventRecord]
-    ) = ().pure[F]
+    ) = false.pure[F]
 
     def delete(
       key: Key,
@@ -136,13 +136,13 @@ object ReplicatedJournalFlat {
       timestamp: Instant,
       deleteTo: DeleteTo,
       origin: Option[Origin]
-    ) = ().pure[F]
+    ) = false.pure[F]
 
     def purge(
       key: Key,
       offset: Offset,
       timestamp: Instant
-    ) = ().pure[F]
+    ) = false.pure[F]
 
     def save(topic: Topic, pointers: Nem[Partition, Offset], timestamp: Instant) = ().pure[F]
   }
