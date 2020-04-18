@@ -1,15 +1,16 @@
-package com.evolutiongaming.kafka.journal.circe
+package akka.persistence.kafka.journal.circe
 
 import akka.persistence.kafka.journal.EventSerializer.PersistentRepresentation
 import akka.persistence.kafka.journal._
+import akka.persistence.kafka.journal.circe.KafkaJournalCirce._
 import cats.effect.{IO, Resource}
 import cats.implicits._
 import com.evolutiongaming.catshelper.MonadThrowable
+import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.circe.Codecs._
+import com.evolutiongaming.kafka.journal.circe.FromCirceResult
 import com.evolutiongaming.kafka.journal.circe.Instances._
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.circe.KafkaJournalCirce.JsonEventSerializer
 import com.typesafe.config.Config
 import io.circe._
 import io.circe.generic.semiauto._

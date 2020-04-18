@@ -12,7 +12,7 @@ import cats.implicits._
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.kafka.journal.IOSuite._
-import com.evolutiongaming.kafka.journal.eventual.EventualJournal
+import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualRead}
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
 import com.evolutiongaming.retry.{Retry, Strategy}
@@ -20,12 +20,19 @@ import org.scalatest.Succeeded
 import org.scalatest.wordspec.AsyncWordSpec
 import play.api.libs.json.Json
 import TestJsonCodec.instance
+import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 
 import scala.concurrent.duration._
 
-class JournalIntSpec extends AsyncWordSpec with JournalSuite {
+abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
   import JournalIntSpec._
   import JournalSuite._
+
+  def event(seqNr: SeqNr): Event[A]
+
+  implicit val kafkaRead: KafkaRead[IO, A]
+  implicit val kafkaWrite: KafkaWrite[IO, A]
+  implicit val eventualRead: EventualRead[IO, A]
 
   private val journalsOf = {
 
@@ -253,8 +260,6 @@ class JournalIntSpec extends AsyncWordSpec with JournalSuite {
     }
   }
 
-  private def event(seqNr: SeqNr) =
-    Event[Payload](seqNr)
 }
 
 object JournalIntSpec {

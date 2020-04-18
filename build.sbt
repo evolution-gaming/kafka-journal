@@ -101,6 +101,7 @@ lazy val `tests` = (project in file("tests")
     Test / javaOptions ++= Seq("-Xms3G", "-Xmx3G"))
   dependsOn (
     persistence % "test->test;compile->compile",
+    `persistence-circe`,
     replicator)
   settings (libraryDependencies ++= Seq(
     `cats-helper`,

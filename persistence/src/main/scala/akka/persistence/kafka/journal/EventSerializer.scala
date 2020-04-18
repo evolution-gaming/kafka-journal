@@ -144,8 +144,8 @@ object EventSerializer {
         Event(seqNr, tagged.tags, payload.some)
       }
 
-      result.adaptErr {
-        case e => JournalError(s"ToEvent error, persistenceId: ${persistentRepr.persistenceId}", e)
+      result.adaptErr { case e =>
+        JournalError(s"ToEvent error, persistenceId: ${persistentRepr.persistenceId}: $e", e)
       }
     }
 
@@ -171,8 +171,8 @@ object EventSerializer {
         persistentPayload <- fromEventPayload(payload)
       } yield persistentRepr(persistentPayload)
 
-      result.adaptErr {
-        case e => JournalError(s"ToPersistentRepr error, persistenceId: $persistenceId, event: $event", e)
+      result.adaptErr { case e =>
+        JournalError(s"ToPersistentRepr error, persistenceId: $persistenceId, event: $event: $e", e)
       }
     }
   }
