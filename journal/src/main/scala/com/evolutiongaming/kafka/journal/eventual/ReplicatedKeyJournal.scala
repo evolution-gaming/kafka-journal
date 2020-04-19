@@ -7,6 +7,7 @@ import cats.implicits._
 import cats.{Applicative, FlatMap, ~>}
 import com.evolutiongaming.catshelper.{ApplicativeThrowable, Log}
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.eventual.ReplicatedKeyJournal.Changed
 import com.evolutiongaming.skafka.{Offset, Topic}
 import com.evolutiongaming.smetrics._
 
@@ -18,22 +19,24 @@ trait ReplicatedKeyJournal[F[_]] {
     timestamp: Instant,
     expireAfter: Option[ExpireAfter],
     events: Nel[EventRecord]
-  ): F[Unit]
+  ): F[Changed]
 
   def delete(
     partitionOffset: PartitionOffset,
     timestamp: Instant,
     deleteTo: DeleteTo,
     origin: Option[Origin]
-  ): F[Unit]
+  ): F[Changed]
 
   def purge(
     offset: Offset,
     timestamp: Instant
-  ): F[Unit]
+  ): F[Changed]
 }
 
 object ReplicatedKeyJournal {
+
+  type Changed = Boolean
 
   def empty[F[_] : Applicative]: ReplicatedKeyJournal[F] = new ReplicatedKeyJournal[F] {
 
@@ -42,19 +45,19 @@ object ReplicatedKeyJournal {
       timestamp: Instant,
       expireAfter: Option[ExpireAfter],
       events: Nel[EventRecord]
-    ) = ().pure[F]
+    ) = false.pure[F]
 
     def delete(
       partitionOffset: PartitionOffset,
       timestamp: Instant,
       deleteTo: DeleteTo,
       origin: Option[Origin]
-    ) = ().pure[F]
+    ) = false.pure[F]
 
     def purge(
       offset: Offset,
       timestamp: Instant
-    ) = ().pure[F]
+    ) = false.pure[F]
   }
 
 

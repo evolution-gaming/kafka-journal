@@ -735,7 +735,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               origin = origin.some))))))
 
       val actual = stateT.run(initial)
-      actual shouldEqual (expected, ()).pure[Try]
+      actual shouldEqual (expected, true).pure[Try]
     }
 
 
@@ -828,7 +828,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))))
 
       val actual = stateT.run(initial)
-      actual shouldEqual (expected, ()).pure[Try]
+      actual shouldEqual (expected, false).pure[Try]
     }
 
     test(s"purge, $suffix") {
@@ -910,7 +910,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val key = Key(id, topic0)
       val stateT = journal.purge(key, Offset.unsafe(4), timestamp1)
       val actual = stateT.run(State.empty)
-      actual shouldEqual (State.empty, ()).pure[Try]
+      actual shouldEqual (State.empty, false).pure[Try]
     }
 
     test(s"purge meta journal only, $suffix") {

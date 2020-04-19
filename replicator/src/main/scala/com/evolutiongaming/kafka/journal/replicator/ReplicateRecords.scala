@@ -5,7 +5,7 @@ import java.time.Instant
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.implicits._
-import cats.Parallel
+import cats.{Applicative, Parallel}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.kafka.journal._
@@ -80,13 +80,19 @@ object ReplicateRecords {
             s"append in ${ latency.toMillis }ms, id: $id, offset: $partitionOffset, $seqNrs$originStr$expireAfterStr"
           }
 
+          def measure(events: Nel[EventRecord], expireAfter: Option[ExpireAfter]) = {
+            for {
+              measurements <- measurements(records.size)
+              _            <- metrics.append(events = events.length, bytes = bytes, measurements = measurements)
+              _            <- log.info(msg(events, measurements.replicationLatency, expireAfter))
+            } yield {}
+          }
+
           for {
             events       <- events
             expireAfter   = events.last.metadata.payload.expireAfter
-            _            <- journal.append(partitionOffset, timestamp, expireAfter, events)
-            measurements <- measurements(records.size)
-            _            <- metrics.append(events = events.length, bytes = bytes, measurements = measurements)
-            _            <- log.info(msg(events, measurements.replicationLatency, expireAfter))
+            appended     <- journal.append(partitionOffset, timestamp, expireAfter, events)
+            _            <- if (appended) measure(events, expireAfter) else Applicative[F].unit
           } yield {}
         }
 
@@ -97,12 +103,18 @@ object ReplicateRecords {
             s"delete in ${ latency.toMillis }ms, id: $id, offset: $partitionOffset, deleteTo: $deleteTo$originStr"
           }
 
+          def measure() = {
+            for {
+              measurements <- measurements(1)
+              latency       = measurements.replicationLatency
+              _            <- metrics.delete(measurements)
+              _            <- log.info(msg(latency))
+            } yield {}
+          }
+
           for {
-            _            <- journal.delete(partitionOffset, timestamp, deleteTo, origin)
-            measurements <- measurements(1)
-            latency       = measurements.replicationLatency
-            _            <- metrics.delete(measurements)
-            _            <- log.info(msg(latency))
+            deleted <- journal.delete(partitionOffset, timestamp, deleteTo, origin)
+            _       <- if (deleted) measure() else Applicative[F].unit
           } yield {}
         }
 
@@ -113,12 +125,19 @@ object ReplicateRecords {
             s"purge in ${ latency.toMillis }ms, id: $id, offset: $partitionOffset$originStr"
           }
 
+          def measure() = {
+            for {
+              measurements <- measurements(1)
+              latency       = measurements.replicationLatency
+              _            <- metrics.purge(measurements)
+              _            <- log.info(msg(latency))
+            } yield {}
+          }
+
           for {
-            _            <- journal.purge(partitionOffset.offset, timestamp)
-            measurements <- measurements(1)
-            latency       = measurements.replicationLatency
-            _            <- metrics.purge(measurements)
-            _            <- log.info(msg(latency))
+            purged <- journal.purge(partitionOffset.offset, timestamp)
+            _      <- if (purged) measure() else Applicative[F].unit // measure() //
+
           } yield {}
         }
 

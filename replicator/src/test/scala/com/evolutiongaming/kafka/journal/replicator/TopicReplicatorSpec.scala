@@ -625,7 +625,8 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
         consumerRecordOf(purgeOf(key), topicPartition, 1)))
 
       val state = State(
-        records = List(consumerRecords))
+        records = List(consumerRecords),
+        metaJournal = Map(metaJournalOf(key.id, partition = 0, offset = 0)))
       val (result, _) = topicReplicator.run(state)
 
       result shouldEqual State(
@@ -809,12 +810,19 @@ object TopicReplicatorSpec {
                   journal = state.journal.updated(id, records),
                   metaJournal = state.metaJournal.updated(id, metaJournal))
 
-                (state1, ())
+                val updated = state.metaJournal.get(id).fold(true) { journalHead => partitionOffset.offset > journalHead.offset.offset}
+
+                (state1, updated)
               }
             }
 
             def delete(partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: DeleteTo, origin: Option[Origin]) = {
-              StateT { state => (state.delete(id, deleteTo, partitionOffset, origin), ()) }
+              StateT { state =>
+
+                val deleted = state.metaJournal.get(id).fold(true) { journalHead => partitionOffset.offset > journalHead.offset.offset }
+
+                (state.delete(id, deleteTo, partitionOffset, origin), deleted)
+              }
             }
 
             def purge(
@@ -825,7 +833,10 @@ object TopicReplicatorSpec {
                 val state1 = state.copy(
                   journal = state.journal - id,
                   metaJournal = state.metaJournal - id)
-                (state1, ())
+
+                val purged = state.metaJournal.get(id).fold(false) { journalHead => offset > journalHead.offset.offset }
+
+                (state1, purged)
               }
             }
           }
