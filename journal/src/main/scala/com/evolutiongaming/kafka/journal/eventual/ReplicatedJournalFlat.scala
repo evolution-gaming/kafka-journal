@@ -7,6 +7,7 @@ import cats.implicits._
 import cats.{Applicative, ~>}
 import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournalFlat.Changed
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 import scala.collection.immutable.SortedSet
@@ -25,7 +26,7 @@ trait ReplicatedJournalFlat[F[_]] {
     timestamp: Instant,
     expireAfter: Option[ExpireAfter],
     events: Nel[EventRecord]
-  ): F[Boolean]
+  ): F[Changed]
 
   def delete(
     key: Key,
@@ -33,13 +34,13 @@ trait ReplicatedJournalFlat[F[_]] {
     timestamp: Instant,
     deleteTo: DeleteTo,
     origin: Option[Origin]
-  ): F[Boolean]
+  ): F[Changed]
 
   def purge(
     key: Key,
     offset: Offset,
     timestamp: Instant
-  ): F[Boolean]
+  ): F[Changed]
 
   def save(
     topic: Topic,
@@ -49,6 +50,8 @@ trait ReplicatedJournalFlat[F[_]] {
 }
 
 object ReplicatedJournalFlat {
+
+  type Changed = Boolean
 
   def apply[F[_] : BracketThrowable](replicatedJournal: ReplicatedJournal[F]): ReplicatedJournalFlat[F] = {
     new ReplicatedJournalFlat[F] {
