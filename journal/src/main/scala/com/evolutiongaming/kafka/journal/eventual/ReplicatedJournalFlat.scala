@@ -46,7 +46,7 @@ trait ReplicatedJournalFlat[F[_]] {
     topic: Topic,
     pointers: Nem[Partition, Offset],
     timestamp: Instant
-  ): F[Unit]
+  ): F[Changed]
 }
 
 object ReplicatedJournalFlat {
@@ -147,7 +147,11 @@ object ReplicatedJournalFlat {
       timestamp: Instant
     ) = false.pure[F]
 
-    def save(topic: Topic, pointers: Nem[Partition, Offset], timestamp: Instant) = ().pure[F]
+    def save(
+      topic: Topic,
+      pointers: Nem[Partition, Offset],
+      timestamp: Instant
+    ) = false.pure[F]
   }
 
 

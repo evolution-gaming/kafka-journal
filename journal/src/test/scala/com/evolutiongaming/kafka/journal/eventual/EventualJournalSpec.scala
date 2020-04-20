@@ -14,6 +14,7 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+import com.evolutiongaming.kafka.journal.eventual.ReplicatedTopicJournal.Changed
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
 import org.scalatest.Assertion
@@ -273,7 +274,7 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
       def withJournals3(f: (Eventual[F], Replicated[F]) => F[Assertion]): F[Assertion] = {
         withJournals1 { case (eventual, replicated) =>
           for {
-            _      <- topics.toList.foldMapM { topic => replicated.save(topic, pointers) }
+            _      <- topics.toList.foldMapM { topic => replicated.save(topic, pointers).void }
             result <- f(eventual, replicated)
           } yield result
         }
@@ -491,7 +492,7 @@ object EventualJournalSpec {
 
     def pointers(topic: Topic): F[TopicPointers]
 
-    def save(topic: Topic, pointers: Nem[Partition, Offset]): F[Unit]
+    def save(topic: Topic, pointers: Nem[Partition, Offset]): F[Changed]
   }
 
   object Replicated {

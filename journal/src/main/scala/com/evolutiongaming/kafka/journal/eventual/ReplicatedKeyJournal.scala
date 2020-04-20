@@ -38,6 +38,7 @@ object ReplicatedKeyJournal {
 
   type Changed = Boolean
 
+
   def empty[F[_] : Applicative]: ReplicatedKeyJournal[F] = new ReplicatedKeyJournal[F] {
 
     def append(

@@ -853,7 +853,7 @@ object TopicReplicatorSpec {
               .pointers
               .getOrElse(topic, Map.empty) ++ pointers1
             val state1 = state.copy(pointers = state.pointers.updated(topic, pointers2))
-            (state1, ())
+            (state1, true)
           }
         }
       }

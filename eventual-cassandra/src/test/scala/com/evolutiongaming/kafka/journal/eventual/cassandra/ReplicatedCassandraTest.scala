@@ -113,6 +113,49 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     }
 
 
+    test(s"save, $suffix") {
+      val stateT = for {
+        changed <- journal.save(topic0, Nem.of((Partition.min, Offset.min)), timestamp0)
+        _        = changed shouldEqual true
+        changed <- journal.save(topic0, Nem.of((Partition.min, Offset.min)), timestamp0)
+        _        = changed shouldEqual false
+        changed <- journal.save(topic0, Nem.of((Partition.min, Offset.unsafe(1))), timestamp0)
+        _        = changed shouldEqual true
+        changed <- journal.save(topic0, Nem.of((Partition.min, Offset.unsafe(1))), timestamp0)
+        _        = changed shouldEqual false
+        changed <- journal.save(
+          topic0,
+          Nem.of(
+            (Partition.min, Offset.unsafe(1)),
+            (Partition.unsafe(1), Offset.min)),
+          timestamp0)
+        _        = changed shouldEqual true
+        changed <- journal.save(
+          topic0,
+          Nem.of(
+            (Partition.min, Offset.unsafe(1)),
+            (Partition.unsafe(1), Offset.min)),
+          timestamp0)
+        _        = changed shouldEqual false
+        changed <- journal.save(
+          topic0,
+          Nem.of(
+            (Partition.min, Offset.unsafe(2)),
+            (Partition.unsafe(1), Offset.unsafe(2))),
+          timestamp1)
+        _        = changed shouldEqual true
+      } yield {}
+
+      val expected = State(
+        pointers = Map(
+          (topic0, Map(
+            (Partition.min, PointerEntry(Offset.unsafe(2), created = timestamp0, updated = timestamp1)),
+            (Partition.unsafe(1), PointerEntry(Offset.unsafe(2), created = timestamp0, updated = timestamp1))))))
+      val result = stateT.run(State.empty)
+      result shouldEqual (expected, ()).pure[Try]
+    }
+
+
     test(s"pointers, $suffix") {
       val id = "id"
       val key = Key(id = id, topic = topic0)
@@ -831,6 +874,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       actual shouldEqual (expected, false).pure[Try]
     }
 
+
     test(s"purge, $suffix") {
       val id = "id"
       val key = Key(id, topic0)
@@ -872,6 +916,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       actual shouldEqual (expected, ()).pure[Try]
     }
 
+
     test(s"not repeat purge, $suffix") {
       val id = "id"
       val key = Key(id = id, topic = topic0)
@@ -905,6 +950,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       result shouldEqual (expected, ()).pure[Try]
     }
 
+
     test(s"ignore purge, $suffix") {
       val id = "id"
       val key = Key(id, topic0)
@@ -912,6 +958,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val actual = stateT.run(State.empty)
       actual shouldEqual (State.empty, false).pure[Try]
     }
+
 
     test(s"purge meta journal only, $suffix") {
       val id = "id"

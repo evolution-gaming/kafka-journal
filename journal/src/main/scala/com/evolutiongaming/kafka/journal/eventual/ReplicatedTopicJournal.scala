@@ -13,15 +13,19 @@ import com.evolutiongaming.smetrics._
 
 
 trait ReplicatedTopicJournal[F[_]] {
+  import ReplicatedTopicJournal._
 
   def pointers: F[TopicPointers]
 
   def journal(id: String): Resource[F, ReplicatedKeyJournal[F]]
 
-  def save(pointers: Nem[Partition, Offset], timestamp: Instant): F[Unit]
+  def save(pointers: Nem[Partition, Offset], timestamp: Instant): F[Changed]
 }
 
 object ReplicatedTopicJournal {
+
+  type Changed = Boolean
+
 
   def empty[F[_] : Applicative]: ReplicatedTopicJournal[F] = new ReplicatedTopicJournal[F] {
 
@@ -31,7 +35,7 @@ object ReplicatedTopicJournal {
       Resource.liftF(ReplicatedKeyJournal.empty[F].pure[F])
     }
 
-    def save(pointers: Nem[Partition, Offset], timestamp: Instant) = ().pure[F]
+    def save(pointers: Nem[Partition, Offset], timestamp: Instant) = false.pure[F]
   }
 
 

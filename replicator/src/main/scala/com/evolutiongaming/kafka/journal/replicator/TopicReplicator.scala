@@ -191,8 +191,8 @@ object TopicReplicator {
                 _         <- metrics.round(duration, size)
               } yield {
                 records
-                  .map {
-                    _.foldLeft { Offset.min } { (offset, record) =>
+                  .map { records =>
+                    records.foldLeft { Offset.min } { (offset, record) =>
                       record
                         .offset
                         .inc[Try]
