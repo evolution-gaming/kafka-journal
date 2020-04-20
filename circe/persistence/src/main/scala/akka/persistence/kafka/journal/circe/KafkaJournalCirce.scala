@@ -64,12 +64,14 @@ object KafkaJournalCirce {
       }
 
       def fromEventPayload(json: Json): F[PersistentRepresentation] = {
+        val fromCirceResult = FromCirceResult.summon[F]
+
         for {
-          persistentJson <- FromCirceResult[F].apply(json.as[PersistentJson[Json]])
+          persistentJson <- fromCirceResult(json.as[PersistentJson[Json]])
           payloadType = persistentJson.payloadType getOrElse PayloadType.Json
           payload = persistentJson.payload
           anyRef <- payloadType match {
-            case PayloadType.Text => FromCirceResult[F].apply(payload.as[String]).widen[AnyRef]
+            case PayloadType.Text => fromCirceResult(payload.as[String]).widen[AnyRef]
             case PayloadType.Json => payload.pure[F].widen[AnyRef]
           }
         } yield {

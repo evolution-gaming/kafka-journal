@@ -153,7 +153,7 @@ class JsonEventSerializerSpec extends AsyncFunSuite with ActorSuite with Matcher
     for {
       bytes <- ByteVectorOf[IO](EventSerializer.getClass, name)
       str   <- bytes.decodeString(StandardCharsets.UTF_8).liftTo[IO]
-      json  <- FromCirceResult[IO].apply(parse(str))
+      json  <- FromCirceResult.summon[IO].apply(parse(str))
     } yield json
 
 }

@@ -27,7 +27,7 @@ object Instances {
     KafkaRead.readJson(payloadJsonFromBytes, (json: EventJsonPayloadAndType[Json]) => json.payload.pure[F])
 
   implicit def eventualRead[F[_] : MonadThrowable]: EventualRead[F, Json] =
-    EventualRead.readJson(str => FromCirceResult[F].apply(parse(str)))
+    EventualRead.readJson(str => FromCirceResult.summon[F].apply(parse(str)))
 
   implicit def payloadJsonToBytes[F[_]: FromTry]: ToBytes[F, PayloadJson[Json]] = fromEncoder
 
@@ -42,7 +42,7 @@ object Instances {
 
   private def fromDecoder[F[_] : ApplicativeThrowable, A : Decoder]: FromBytes[F, A] =
     bytes =>
-      FromCirceResult[F].apply(decodeByteBuffer[A](bytes.toByteBuffer))
+      FromCirceResult.summon[F].apply(decodeByteBuffer[A](bytes.toByteBuffer))
         .adaptErr { case e => JournalError(s"Failed to parse $bytes json: $e", e) }
 
 }
