@@ -44,7 +44,6 @@ object ReplicateRecords {
             now <- Clock[F].instant
           } yield {
             Metrics.Measurements(
-              partition = head.partition,
               replicationLatency = now diff head.action.timestamp,
               deliveryLatency = timestamp diff head.action.timestamp,
               records = records)

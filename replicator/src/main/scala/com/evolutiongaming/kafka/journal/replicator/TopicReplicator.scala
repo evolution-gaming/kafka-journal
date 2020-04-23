@@ -300,31 +300,31 @@ object TopicReplicator {
         name      = s"${ prefix }_replication_latency",
         help      = "Replication latency in seconds",
         quantiles = quantiles,
-        labels    = LabelNames("topic", "partition", "type"))
+        labels    = LabelNames("topic", "type"))
 
       val deliverySummary = registry.summary(
         name      = s"${ prefix }_delivery_latency",
         help      = "Delivery latency in seconds",
         quantiles = quantiles,
-        labels    = LabelNames("topic", "partition", "type"))
+        labels    = LabelNames("topic", "type"))
 
       val eventsSummary = registry.summary(
         name      = s"${ prefix }_events",
         help      = "Number of events replicated",
         quantiles = Quantiles.Empty,
-        labels    = LabelNames("topic", "partition"))
+        labels    = LabelNames("topic"))
 
       val bytesSummary = registry.summary(
         name      = s"${ prefix }_bytes",
         help      = "Number of bytes replicated",
         quantiles = Quantiles.Empty,
-        labels    = LabelNames("topic", "partition"))
+        labels    = LabelNames("topic"))
 
       val recordsSummary = registry.summary(
         name      = s"${ prefix }_records",
         help      = "Number of kafka records processed",
         quantiles = Quantiles.Empty,
-        labels    = LabelNames("topic", "partition"))
+        labels    = LabelNames("topic"))
 
       val roundSummary = registry.summary(
         name      = s"${ prefix }_round_duration",
@@ -351,23 +351,20 @@ object TopicReplicator {
         topic: Topic => {
 
           def observeMeasurements(name: String, measurements: Measurements) = {
-
-            val partition = measurements.partition.toString
             for {
-              _ <- replicationSummary.labels(topic, partition, name).observe(measurements.replicationLatency.toNanos.nanosToSeconds)
-              _ <- deliverySummary.labels(topic, partition, name).observe(measurements.deliveryLatency.toNanos.nanosToSeconds)
-              _ <- recordsSummary.labels(topic, partition).observe(measurements.records.toDouble)
+              _ <- replicationSummary.labels(topic, name).observe(measurements.replicationLatency.toNanos.nanosToSeconds)
+              _ <- deliverySummary.labels(topic, name).observe(measurements.deliveryLatency.toNanos.nanosToSeconds)
+              _ <- recordsSummary.labels(topic).observe(measurements.records.toDouble)
             } yield {}
           }
 
           new TopicReplicator.Metrics[F] {
 
             def append(events: Int, bytes: Long, measurements: Measurements) = {
-              val partition = measurements.partition.toString
               for {
                 _ <- observeMeasurements("append", measurements)
-                _ <- eventsSummary.labels(topic, partition).observe(events.toDouble)
-                _ <- bytesSummary.labels(topic, partition).observe(bytes.toDouble)
+                _ <- eventsSummary.labels(topic).observe(events.toDouble)
+                _ <- bytesSummary.labels(topic).observe(bytes.toDouble)
               } yield {}
             }
 
@@ -392,7 +389,6 @@ object TopicReplicator {
 
 
     final case class Measurements(
-      partition: Partition,
       replicationLatency: FiniteDuration,
       deliveryLatency: FiniteDuration,
       records: Int)
