@@ -36,11 +36,13 @@ object JournalAdapter {
 
   def of[
     F[_] : ConcurrentEffect : ContextShift : FromFuture : ToFuture : Parallel : Timer : LogOf : Runtime : RandomIdOf :
-    FromGFuture : MeasureDuration : ToTry : FromTry : FromAttempt : FromJsResult : Fail : JsonCodec
+    FromGFuture : MeasureDuration : ToTry : FromTry : FromAttempt : FromJsResult : Fail : JsonCodec,
+    A
   ](
     toKey: ToKey[F],
     origin: Option[Origin],
-    serializer: EventSerializer[F],
+    serializer: EventSerializer[F, A],
+    journalReadWrite: JournalReadWrite[F, A],
     config: KafkaJournalConfig,
     metrics: Metrics[F],
     log: Log[F],
@@ -102,16 +104,21 @@ object JournalAdapter {
       eventualJournal  <- EventualCassandra.of[F](config.cassandra, origin, metrics.eventual, cassandraClusterOf)
       journal          <- journal(eventualJournal)(kafkaConsumerOf1, kafkaProducerOf1, headCacheOf1)
     } yield {
-      JournalAdapter[F](journal, toKey, serializer, appendMetadataOf).withBatching(batching)
+      JournalAdapter[F, A](journal, toKey, serializer, journalReadWrite, appendMetadataOf).withBatching(batching)
     }
   }
 
-  def apply[F[_] : Monad : Clock](
+  def apply[F[_] : Monad : Clock, A](
     journals: Journals[F],
     toKey: ToKey[F],
-    serializer: EventSerializer[F],
+    serializer: EventSerializer[F, A],
+    journalReadWrite: JournalReadWrite[F, A],
     appendMetadataOf: AppendMetadataOf[F]
   ): JournalAdapter[F] = new JournalAdapter[F] {
+
+    implicit val kafkaRead = journalReadWrite.kafkaRead
+    implicit val kafkaWrite = journalReadWrite.kafkaWrite
+    implicit val eventualRead = journalReadWrite.eventualRead
 
     def write(aws: Seq[AtomicWrite]) = {
       val prs = aws.flatMap(_.payload)
@@ -140,7 +147,7 @@ object JournalAdapter {
 
       def replay(key: Key): F[Unit] = {
         journals(key)
-          .read(range.from)
+          .read[A](range.from)
           .foldWhileM(max) { (max, record) =>
             val event = record.event
             val seqNr = event.seqNr

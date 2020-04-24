@@ -9,7 +9,7 @@ import cats.implicits._
 import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
-import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualJournalSpec, ReplicatedJournal, TopicPointers}
+import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.util.{BracketFromMonadError, ConcurrentOf, Fail}
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.sstream.FoldWhile._
@@ -108,9 +108,9 @@ object EventualCassandraSpec {
 
     val selectRecords = new JournalStatements.SelectRecords[StateT] {
 
-      def apply(key: Key, segment: SegmentNr, range: SeqRange) = new Stream[StateT, EventRecord] {
+      def apply(key: Key, segment: SegmentNr, range: SeqRange) = new Stream[StateT, EventRecord[EventualPayloadAndType]] {
 
-        def foldWhileM[L, R](l: L)(f: (L, EventRecord) => StateT[Either[L, R]]) = {
+        def foldWhileM[L, R](l: L)(f: (L, EventRecord[EventualPayloadAndType]) => StateT[Either[L, R]]) = {
           StateT { state =>
             val events = state.journal.events(key, segment)
             val result = events.foldWhileM[StateT, L, R](l) { (l, event) =>
@@ -397,7 +397,7 @@ object EventualCassandraSpec {
 
 
   final case class State(
-    journal: Map[(Key, SegmentNr), List[EventRecord]],
+    journal: Map[(Key, SegmentNr), List[EventRecord[EventualPayloadAndType]]],
     metaJournal: Map[Key, JournalHead],
     pointers: Map[Topic, TopicPointers])
 
@@ -413,9 +413,9 @@ object EventualCassandraSpec {
   }
 
 
-  implicit class JournalOps(val self: Map[(Key, SegmentNr), List[EventRecord]]) extends AnyVal {
+  implicit class JournalOps[A](val self: Map[(Key, SegmentNr), List[EventRecord[A]]]) extends AnyVal {
 
-    def events(key: Key, segment: SegmentNr): List[EventRecord] = {
+    def events(key: Key, segment: SegmentNr): List[EventRecord[A]] = {
       val composite = (key, segment)
       self.getOrElse(composite, Nil)
     }

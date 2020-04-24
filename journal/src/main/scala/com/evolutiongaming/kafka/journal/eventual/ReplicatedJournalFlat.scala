@@ -25,7 +25,7 @@ trait ReplicatedJournalFlat[F[_]] {
     partitionOffset: PartitionOffset,
     timestamp: Instant,
     expireAfter: Option[ExpireAfter],
-    events: Nel[EventRecord]
+    events: Nel[EventRecord[EventualPayloadAndType]]
   ): F[Changed]
 
   def delete(
@@ -69,7 +69,7 @@ object ReplicatedJournalFlat {
         partitionOffset: PartitionOffset,
         timestamp: Instant,
         expireAfter: Option[ExpireAfter],
-        events: Nel[EventRecord]
+        events: Nel[EventRecord[EventualPayloadAndType]]
       ) = {
         replicatedJournal
           .journal(key.topic)
@@ -130,7 +130,7 @@ object ReplicatedJournalFlat {
       partitionOffset: PartitionOffset,
       timestamp: Instant,
       expireAfter: Option[ExpireAfter],
-      events: Nel[EventRecord]
+      events: Nel[EventRecord[EventualPayloadAndType]]
     ) = false.pure[F]
 
     def delete(
@@ -168,7 +168,7 @@ object ReplicatedJournalFlat {
         partitionOffset: PartitionOffset,
         timestamp: Instant,
         expireAfter: Option[ExpireAfter],
-        events: Nel[EventRecord]
+        events: Nel[EventRecord[EventualPayloadAndType]]
       ) = {
         f(self.append(key, partitionOffset, timestamp, expireAfter, events))
       }

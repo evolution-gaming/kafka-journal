@@ -13,20 +13,22 @@ import com.evolutiongaming.smetrics.{
 
 import scala.concurrent.duration.FiniteDuration
 
-trait EventsToPayloadMetrics[F[_]] {
+trait KafkaWriteMetrics[F[_]] {
 
-  def apply(events: Events, payloadAndType: PayloadAndType, latency: FiniteDuration): F[Unit]
+  def apply[A](events: Events[A], payloadAndType: PayloadAndType, latency: FiniteDuration): F[Unit]
 }
 
-object EventsToPayloadMetrics {
+object KafkaWriteMetrics {
 
-  def empty[F[_]: Applicative]: EventsToPayloadMetrics[F] =
-    (_, _, _) => Applicative[F].unit
+  def empty[F[_]: Applicative]: KafkaWriteMetrics[F] = new KafkaWriteMetrics[F] {
+    override def apply[A](events: Events[A], payloadAndType: PayloadAndType, latency: FiniteDuration): F[Unit] =
+      Applicative[F].unit
+  }
 
   def of[F[_]: Monad](
     registry: CollectorRegistry[F],
     prefix: String = "journal"
-  ): Resource[F, EventsToPayloadMetrics[F]] = {
+  ): Resource[F, KafkaWriteMetrics[F]] = {
 
     val durationSummary = registry.summary(
       name = s"${prefix}_events_to_payload_duration",
@@ -38,9 +40,9 @@ object EventsToPayloadMetrics {
     for {
       durationSummary <- durationSummary
     } yield {
-      new EventsToPayloadMetrics[F] {
+      new KafkaWriteMetrics[F] {
 
-        def apply(events: Events, payloadAndType: PayloadAndType, latency: FiniteDuration): F[Unit] =
+        def apply[A](events: Events[A], payloadAndType: PayloadAndType, latency: FiniteDuration): F[Unit] =
           durationSummary
             .labels(payloadAndType.payloadType.name)
             .observe(latency.toNanos.nanosToSeconds)

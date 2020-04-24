@@ -9,7 +9,7 @@ import cats.{Applicative, Parallel}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.conversions.{ConsRecordToActionRecord, PayloadToEvents}
+import com.evolutiongaming.kafka.journal.conversions.{ConsRecordToActionRecord, KafkaRead}
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
@@ -24,11 +24,12 @@ trait ReplicateRecords[F[_]] {
 
 object ReplicateRecords {
 
-  def apply[F[_] : BracketThrowable : Clock : Parallel](
+  def apply[F[_] : BracketThrowable : Clock : Parallel, A](
     consRecordToActionRecord: ConsRecordToActionRecord[F],
     journal: ReplicatedKeyJournal[F],
     metrics: Metrics[F],
-    payloadToEvents: PayloadToEvents[F],
+    kafkaRead: KafkaRead[F, A],
+    eventualWrite: EventualWrite[F, A],
     log: Log[F]
   ): ReplicateRecords[F] = {
 
@@ -57,19 +58,20 @@ object ReplicateRecords {
           val events = records.flatTraverse { record =>
             val action = record.action
             val payloadAndType = PayloadAndType(action)
-            val events = payloadToEvents(payloadAndType).adaptError { case e =>
+            val events = kafkaRead(payloadAndType).adaptError { case e =>
               JournalError(s"ReplicateRecords failed for id: $id, offset: $partitionOffset: $e", e)
             }
             for {
               events <- events
+              eventualEvents <- events.events.traverse(_.traverse(eventualWrite.apply))
             } yield for {
-              event <- events.events
+              event <- eventualEvents
             } yield {
               EventRecord(record, event, events.metadata)
             }
           }
 
-          def msg(events: Nel[EventRecord], latency: FiniteDuration, expireAfter: Option[ExpireAfter]) = {
+          def msg(events: Nel[EventRecord[EventualPayloadAndType]], latency: FiniteDuration, expireAfter: Option[ExpireAfter]) = {
             val seqNrs =
               if (events.tail.isEmpty) s"seqNr: ${ events.head.seqNr }"
               else s"seqNrs: ${ events.head.seqNr }..${ events.last.seqNr }"
@@ -79,7 +81,7 @@ object ReplicateRecords {
             s"append in ${ latency.toMillis }ms, id: $id, offset: $partitionOffset, $seqNrs$originStr$expireAfterStr"
           }
 
-          def measure(events: Nel[EventRecord], expireAfter: Option[ExpireAfter]) = {
+          def measure(events: Nel[EventRecord[EventualPayloadAndType]], expireAfter: Option[ExpireAfter]) = {
             for {
               measurements <- measurements(records.size)
               _            <- metrics.append(events = events.length, bytes = bytes, measurements = measurements)

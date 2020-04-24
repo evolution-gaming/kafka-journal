@@ -1,8 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
 import com.evolutiongaming.kafka.journal.util.ScodecHelper._
-import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import scodec.Codec
@@ -46,31 +44,24 @@ object Payload {
 
     implicit val codecBinary: Codec[Binary] = bytes.as[Binary]
 
-    implicit val encodeByNameBinary: EncodeByName[Binary] = EncodeByName[Array[Byte]]
-      .contramap { _.value.toArray }
-
-    implicit val decodeByNameBinary: DecodeByName[Binary] = DecodeByName[Array[Byte]]
-      .map { a => Binary(ByteVector.view(a)) }
   }
 
+  sealed abstract class TextOrJson extends Payload {
+    def payloadType: PayloadType.TextOrJson
+  }
 
-  final case class Text(value: String) extends Payload {
+  final case class Text(value: String) extends TextOrJson {
     def payloadType = PayloadType.Text
   }
 
   object Text {
 
     implicit val codecText: Codec[Text] = utf8.as[Payload.Text]
-    
-
-    implicit val encodeByNameText: EncodeByName[Text] = EncodeByName[String].contramap(_.value)
-
-    implicit val decodeByNameText: DecodeByName[Text] = DecodeByName[String].map(Text(_))
 
   }
 
 
-  final case class Json(value: JsValue) extends Payload {
+  final case class Json(value: JsValue) extends TextOrJson {
     def payloadType = PayloadType.Json
   }
 
@@ -79,12 +70,6 @@ object Payload {
     implicit val formatJson: Format[Json] = Format.of[JsValue].inmap(Json(_), _.value)
 
     def codecJson(implicit jsonCodec: JsonCodec[Try]): Codec[Json] = formatCodec
-
-
-    implicit def encodeByNameJson(implicit encode: JsonCodec.Encode[Try]): EncodeByName[Json] = encodeByNameFromWrites
-
-    implicit def decodeByNameJson(implicit decode: JsonCodec.Decode[Try]): DecodeByName[Json] = decodeByNameFromReads
-
 
     def apply[A](a: A)(implicit writes: Writes[A]): Json = Json(writes.writes(a))
   }

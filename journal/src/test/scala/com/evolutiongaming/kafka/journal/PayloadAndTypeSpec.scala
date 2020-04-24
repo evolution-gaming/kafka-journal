@@ -4,7 +4,7 @@ import java.io.FileOutputStream
 
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.conversions.{EventsToPayload, PayloadToEvents}
+import com.evolutiongaming.kafka.journal.conversions.{KafkaWrite, KafkaRead}
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -17,12 +17,12 @@ import scala.concurrent.duration._
 
 class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
 
-  def event(seqNr: Int, payload: Option[Payload] = None): Event = {
+  def event(seqNr: Int, payload: Option[Payload] = None): Event[Payload] = {
     val tags = (0 to seqNr).map(_.toString).toSet
     Event(SeqNr.unsafe(seqNr), tags, payload)
   }
 
-  def event(seqNr: Int, payload: Payload): Event = {
+  def event(seqNr: Int, payload: Payload): Event[Payload] = {
     event(seqNr, payload.some)
   }
 
@@ -36,9 +36,9 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
     1.day.toExpireAfter.some,
     Json.obj(("key", "value")).some)
 
-  private val eventsToPayload = EventsToPayload[Try]
+  private val kafkaWrite = KafkaWrite.summon[Try, Payload]
 
-  private val payloadToEvents = PayloadToEvents[Try]
+  private val kafkaRead = KafkaRead.summon[Try, Payload]
 
   for {
     (name, payloadType, events) <- List(
@@ -93,12 +93,12 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
 
       def verify(payload: ByteVector, payloadType: PayloadType.BinaryOrJson) = {
         val payloadAndType = PayloadAndType(payload, payloadType)
-        payloadToEvents(payloadAndType) shouldEqual events.pure[Try]
+        kafkaRead(payloadAndType) shouldEqual events.pure[Try]
       }
 
-      val payloadAndType = eventsToPayload(events).get
+      val payloadAndType = kafkaWrite(events).get
 
-      payloadType shouldEqual payloadAndType.payloadType
+      payloadAndType.payloadType shouldEqual payloadType
 
       val ext = payloadType.ext
 
@@ -148,7 +148,7 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
       val actual = for {
         payload        <- ByteVectorOf[Try](getClass, s"Payload-v0-$name.$ext")
         payloadAndType  = PayloadAndType(payload, payloadType)
-        events         <- payloadToEvents(payloadAndType)
+        events         <- kafkaRead(payloadAndType)
       } yield events
       actual shouldEqual events.pure[Try]
     }

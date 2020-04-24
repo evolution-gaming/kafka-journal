@@ -18,7 +18,7 @@ trait ReplicatedKeyJournal[F[_]] {
     partitionOffset: PartitionOffset,
     timestamp: Instant,
     expireAfter: Option[ExpireAfter],
-    events: Nel[EventRecord]
+    events: Nel[EventRecord[EventualPayloadAndType]]
   ): F[Changed]
 
   def delete(
@@ -45,7 +45,7 @@ object ReplicatedKeyJournal {
       partitionOffset: PartitionOffset,
       timestamp: Instant,
       expireAfter: Option[ExpireAfter],
-      events: Nel[EventRecord]
+      events: Nel[EventRecord[EventualPayloadAndType]]
     ) = false.pure[F]
 
     def delete(
@@ -70,7 +70,7 @@ object ReplicatedKeyJournal {
         partitionOffset: PartitionOffset,
         timestamp: Instant,
         expireAfter: Option[ExpireAfter],
-        events: Nel[EventRecord]
+        events: Nel[EventRecord[EventualPayloadAndType]]
       ) = {
         replicatedJournal.append(key, partitionOffset, timestamp, expireAfter, events)
       }
@@ -102,7 +102,7 @@ object ReplicatedKeyJournal {
         partitionOffset: PartitionOffset,
         timestamp: Instant,
         expireAfter: Option[ExpireAfter],
-        events: Nel[EventRecord]
+        events: Nel[EventRecord[EventualPayloadAndType]]
       ) = {
         f(self.append(partitionOffset, timestamp, expireAfter, events))
       }
@@ -138,7 +138,7 @@ object ReplicatedKeyJournal {
           partitionOffset: PartitionOffset,
           timestamp: Instant,
           expireAfter: Option[ExpireAfter],
-          events: Nel[EventRecord]
+          events: Nel[EventRecord[EventualPayloadAndType]]
         ) = {
           for {
             d <- MeasureDuration[F].start
@@ -199,7 +199,7 @@ object ReplicatedKeyJournal {
           partitionOffset: PartitionOffset,
           timestamp: Instant,
           expireAfter: Option[ExpireAfter],
-          events: Nel[EventRecord]
+          events: Nel[EventRecord[EventualPayloadAndType]]
         ) = {
           for {
             d <- MeasureDuration[F].start
@@ -250,7 +250,7 @@ object ReplicatedKeyJournal {
           partitionOffset: PartitionOffset,
           timestamp: Instant,
           expireAfter: Option[ExpireAfter],
-          events: Nel[EventRecord]
+          events: Nel[EventRecord[EventualPayloadAndType]]
         ) = {
           self
             .append(partitionOffset, timestamp, expireAfter, events)

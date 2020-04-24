@@ -5,7 +5,7 @@ import java.time.temporal.ChronoUnit
 
 import cats.implicits._
 import cats.data.{NonEmptyList => Nel}
-import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsRecordToActionRecord, EventsToPayload}
+import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsRecordToActionRecord, KafkaWrite}
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.skafka.consumer.WithSize
 import com.evolutiongaming.skafka.{TimestampAndType, TimestampType, TopicPartition}
@@ -94,7 +94,7 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
   }
 
   private val appends = {
-    implicit val eventsToPayload = EventsToPayload[Try]
+    implicit val kafkaWrite = KafkaWrite.summon[Try, Payload]
     for {
       origin          <- origins
       metadata        <- metadata
@@ -102,7 +102,7 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
       headers         <- headers
       payloadMetadata <- payloadMetadatas
     } yield {
-      Action.Append.of[Try](
+      Action.Append.of[Try, Payload](
         key = key1,
         timestamp = timestamp,
         origin = origin,

@@ -9,7 +9,7 @@ import cats.implicits._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.kafka.journal.IOSuite._
-import com.evolutiongaming.kafka.journal.conversions.EventsToPayload
+import com.evolutiongaming.kafka.journal.conversions.KafkaWrite
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.smetrics.CollectorRegistry
@@ -361,8 +361,8 @@ object HeadCacheSpec {
   val headers: Headers = Headers.empty
 
   def appendOf(key: Key, seqNr: SeqNr): Action.Append  = {
-    implicit val eventsToPayload = EventsToPayload[Try]
-    Action.Append.of[Try](
+    implicit val kafkaWrite = KafkaWrite.summon[Try, Payload]
+    Action.Append.of[Try, Payload](
       key = key,
       timestamp = timestamp,
       origin = none,

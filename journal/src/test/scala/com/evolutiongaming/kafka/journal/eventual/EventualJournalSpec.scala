@@ -75,8 +75,8 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
       }
     }
 
-    def eventOf(pointer: JournalPointer): EventRecord = {
-      val event = Event(pointer.seqNr)
+    def eventOf(pointer: JournalPointer): EventRecord[EventualPayloadAndType] = {
+      val event = Event[EventualPayloadAndType](pointer.seqNr)
       val headers = Headers(("key", "value"))
       EventRecord(
         event = event,
@@ -455,7 +455,7 @@ object EventualJournalSpec {
 
   trait Eventual[F[_]] {
 
-    def events(from: SeqNr = SeqNr.min): F[List[EventRecord]]
+    def events(from: SeqNr = SeqNr.min): F[List[EventRecord[EventualPayloadAndType]]]
 
     def pointer: F[Option[JournalPointer]]
 
@@ -481,12 +481,12 @@ object EventualJournalSpec {
 
     def topics: F[SortedSet[Topic]]
 
-    final def append(events: Nel[EventRecord]): F[Unit] = {
+    final def append(events: Nel[EventRecord[EventualPayloadAndType]]): F[Unit] = {
       val partitionOffset = events.last.partitionOffset // TODO add test for custom offset
       append(partitionOffset, events)
     }
 
-    def append(partitionOffset: PartitionOffset, events: Nel[EventRecord]): F[Unit]
+    def append(partitionOffset: PartitionOffset, events: Nel[EventRecord[EventualPayloadAndType]]): F[Unit]
 
     def delete(deleteTo: DeleteTo, partitionOffset: PartitionOffset): F[Unit]
 
@@ -506,7 +506,7 @@ object EventualJournalSpec {
 
         def topics = journal.topics
 
-        def append(partitionOffset: PartitionOffset, events: Nel[EventRecord]) = {
+        def append(partitionOffset: PartitionOffset, events: Nel[EventRecord[EventualPayloadAndType]]) = {
           // TODO expiry: define expireAfter and test
           journal.append(key, partitionOffset, timestamp, none, events).void
         }

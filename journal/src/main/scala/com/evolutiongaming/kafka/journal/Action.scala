@@ -4,7 +4,7 @@ import java.time.Instant
 
 import cats.Functor
 import cats.implicits._
-import com.evolutiongaming.kafka.journal.conversions.EventsToPayload
+import com.evolutiongaming.kafka.journal.conversions.KafkaWrite
 import scodec.bits.ByteVector
 
 
@@ -76,17 +76,17 @@ object Action {
 
   object Append {
 
-    def of[F[_] : Functor](
+    def of[F[_] : Functor, A](
       key: Key,
       timestamp: Instant,
       origin: Option[Origin],
-      events: Events,
+      events: Events[A],
       metadata: HeaderMetadata,
       headers: Headers)(implicit
-      eventsToPayload: EventsToPayload[F]
+      kafkaWrite: KafkaWrite[F, A]
     ): F[Append] = {
       for {
-        payloadAndType <- eventsToPayload(events)
+        payloadAndType <- kafkaWrite(events)
       } yield {
         val range = SeqRange(from = events.events.head.seqNr, to = events.events.last.seqNr)
         val header = ActionHeader.Append(

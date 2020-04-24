@@ -8,19 +8,19 @@ import com.evolutiongaming.smetrics.{CollectorRegistry, LabelNames, Quantile, Qu
 
 import scala.concurrent.duration.FiniteDuration
 
-trait PayloadToEventsMetrics[F[_]] {
+trait KafkaReadMetrics[F[_]] {
 
   def apply(payloadAndType: PayloadAndType, latency: FiniteDuration): F[Unit]
 }
 
-object PayloadToEventsMetrics {
+object KafkaReadMetrics {
 
-  def empty[F[_]: Applicative]: PayloadToEventsMetrics[F] = (_, _) => Applicative[F].unit
+  def empty[F[_]: Applicative]: KafkaReadMetrics[F] = (_, _) => Applicative[F].unit
 
   def of[F[_]: Monad](
     registry: CollectorRegistry[F],
     prefix: String = "journal"
-  ): Resource[F, PayloadToEventsMetrics[F]] = {
+  ): Resource[F, KafkaReadMetrics[F]] = {
 
     val durationSummary = registry.summary(
       name = s"${prefix}_payload_to_events_duration",
@@ -32,7 +32,7 @@ object PayloadToEventsMetrics {
     for {
       durationSummary <- durationSummary
     } yield {
-      new PayloadToEventsMetrics[F] {
+      new KafkaReadMetrics[F] {
 
         def apply(payloadAndType: PayloadAndType, latency: FiniteDuration): F[Unit] =
           durationSummary

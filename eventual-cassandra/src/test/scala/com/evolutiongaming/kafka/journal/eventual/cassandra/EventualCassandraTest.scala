@@ -8,6 +8,7 @@ import cats.effect.ExitCase
 import cats.implicits._
 import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.kafka.journal.util.BracketFromMonadError
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
@@ -34,7 +35,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
 
   private def eventRecordOf(seqNr: SeqNr, partitionOffset: PartitionOffset) = {
     EventRecord(
-      event = Event(seqNr),
+      event = Event[EventualPayloadAndType](seqNr),
       timestamp = timestamp0,
       partitionOffset = partitionOffset,
       origin = origin.some,
@@ -248,7 +249,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
 object EventualCassandraTest {
 
   val insertRecords: JournalStatements.InsertRecords[StateT] = {
-    (key: Key, segment: SegmentNr, events: Nel[EventRecord]) => {
+    (key: Key, segment: SegmentNr, events: Nel[EventRecord[EventualPayloadAndType]]) => {
       StateT.unit { state =>
         val k = (key, segment)
         val entries = state
@@ -629,7 +630,7 @@ object EventualCassandraTest {
     pointers: Map[Topic, Map[Partition, PointerEntry]] = Map.empty,
     metadata: Map[Topic, Map[String, MetaJournalEntry]] = Map.empty,
     metaJournal: Map[(Topic, SegmentNr), Map[String, MetaJournalEntry]] = Map.empty,
-    journal: Map[(Key, SegmentNr), Map[(SeqNr, Instant), EventRecord]] = Map.empty)
+    journal: Map[(Key, SegmentNr), Map[(SeqNr, Instant), EventRecord[EventualPayloadAndType]]] = Map.empty)
 
   object State {
 

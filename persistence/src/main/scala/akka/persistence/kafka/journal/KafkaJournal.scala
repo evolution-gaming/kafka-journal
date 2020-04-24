@@ -6,7 +6,7 @@ import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.Parallel
 import cats.effect._
 import cats.implicits._
-import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, ToFuture}
+import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, ToFuture, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
@@ -77,9 +77,20 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
       .value
   }
 
-  def serializer: Resource[IO, EventSerializer[IO]] = {
+  def serializer: Resource[IO, EventSerializer[IO, Payload]] = {
     val serializer = EventSerializer.of[IO](system)
     Resource.liftF(serializer)
+  }
+
+  def journalReadWrite(config: KafkaJournalConfig): IO[JournalReadWrite[IO, Payload]] = {
+    for {
+      jsonCodec <- jsonCodec(config)
+    } yield {
+      implicit val codec = jsonCodec
+      implicit val codecTry = jsonCodec.mapK(ToTry.functionK)
+
+      JournalReadWrite.of[IO, Payload]
+    }
   }
 
   def metrics: Resource[IO, JournalAdapter.Metrics[IO]] = {
@@ -113,12 +124,27 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
 
   def adapterIO: Resource[IO, JournalAdapter[IO]] = {
     for {
-      config  <- Resource.liftF(kafkaJournalConfig)
-      adapter <- adapterIO(config)
+      serializer       <- serializer
+      config           <- Resource.liftF(kafkaJournalConfig)
+      journalReadWrite <- Resource.liftF(journalReadWrite(config))
+      adapter          <- adapterIO(config, serializer, journalReadWrite)
     } yield adapter
   }
 
-  def adapterIO(config: KafkaJournalConfig): Resource[IO, JournalAdapter[IO]] = {
+  def adapterIO[A](
+    serializer: EventSerializer[IO, A],
+    journalReadWrite: JournalReadWrite[IO, A]
+  ): Resource[IO, JournalAdapter[IO]] =
+    for {
+      config  <- Resource.liftF(kafkaJournalConfig)
+      adapter <- adapterIO(config, serializer, journalReadWrite)
+    } yield adapter
+
+  def adapterIO[A](
+    config: KafkaJournalConfig,
+    serializer: EventSerializer[IO, A],
+    journalReadWrite: JournalReadWrite[IO, A]
+  ): Resource[IO, JournalAdapter[IO]] = {
     val resource = for {
       logOf              <- logOf
       log                <- Resource.liftF(logOf(classOf[KafkaJournal]))
@@ -128,7 +154,6 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
       toKey              <- toKey
       origin             <- Resource.liftF(origin)
       appendMetadataOf   <- appendMetadataOf
-      serializer         <- serializer
       metrics            <- metrics
       batching           <- batching(config)
       cassandraClusterOf <- cassandraClusterOf
@@ -137,6 +162,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
         toKey              = toKey,
         origin             = origin,
         serializer         = serializer,
+        journalReadWrite   = journalReadWrite,
         config             = config,
         metrics            = metrics,
         appendMetadataOf   = appendMetadataOf,
@@ -146,7 +172,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
         logOf              = logOf,
         randomIdOf         = randomId,
         measureDuration    = measureDuration,
-        jsonCodec       = jsonCodec)
+        jsonCodec          = jsonCodec)
     } yield {
       (adapter, log)
     }
@@ -164,10 +190,11 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     Resource(result)
   }
 
-  def adapterOf(
+  def adapterOf[A](
     toKey: ToKey[IO],
     origin: Option[Origin],
-    serializer: EventSerializer[IO],
+    serializer: EventSerializer[IO, A],
+    journalReadWrite: JournalReadWrite[IO, A],
     config: KafkaJournalConfig,
     metrics: JournalAdapter.Metrics[IO],
     appendMetadataOf: AppendMetadataOf[IO],
@@ -180,10 +207,11 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     jsonCodec: JsonCodec[IO]
   ): Resource[IO, JournalAdapter[IO]] = {
 
-    JournalAdapter.of[IO](
+    JournalAdapter.of[IO, A](
       toKey = toKey,
       origin = origin,
       serializer = serializer,
+      journalReadWrite = journalReadWrite,
       config = config,
       metrics = metrics,
       log = log,

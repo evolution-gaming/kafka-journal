@@ -17,12 +17,12 @@ import scala.concurrent.duration._
 
 class EventsToBytesSpec extends AnyFunSuite with Matchers {
 
-  def event(seqNr: Int, payload: Option[Payload] = None): Event = {
+  def event(seqNr: Int, payload: Option[Payload] = None): Event[Payload] = {
     val tags = (0 to seqNr).map(_.toString).toSet
     Event(SeqNr.unsafe(seqNr), tags, payload)
   }
 
-  def event(seqNr: Int, payload: Payload): Event = {
+  def event(seqNr: Int, payload: Payload): Event[Payload] = {
     event(seqNr, payload.some)
   }
 
@@ -88,7 +88,7 @@ class EventsToBytesSpec extends AnyFunSuite with Matchers {
     test(s"toBytes & fromBytes $name") {
 
       def verify(bytes: ByteVector) = {
-        val actual = bytes.fromBytes[Try, Events]
+        val actual = bytes.fromBytes[Try, Events[Payload]]
         actual shouldEqual events.pure[Try]
       }
 
@@ -156,7 +156,7 @@ class EventsToBytesSpec extends AnyFunSuite with Matchers {
     test(s"fromBytes $name") {
       val actual = for {
         bytes  <- ByteVectorOf[Try](getClass, s"v0-events-$name.bin")
-        events <- bytes.fromBytes[Try, Events]
+        events <- bytes.fromBytes[Try, Events[Payload]]
       } yield events
 
       actual shouldEqual events.pure[Try]

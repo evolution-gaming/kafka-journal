@@ -23,37 +23,40 @@ object PayloadAndType {
   }
 
 
-  final case class EventJson(
+  final case class EventJson[A](
     seqNr: SeqNr,
     tags: Tags,
     payloadType: Option[PayloadType.TextOrJson] = None,
-    payload: Option[JsValue] = None)
+    payload: Option[A] = None)
 
   object EventJson {
 
-    implicit val formatEventJson: OFormat[EventJson] = Json.format
+    implicit val formatEventJson: OFormat[EventJson[JsValue]] = Json.format
 
 
-    implicit val writesNelEventJson: Writes[Nel[EventJson]] = nelWrites
+    implicit val writesNelEventJson: Writes[Nel[EventJson[JsValue]]] = nelWrites
 
-    implicit val readsNelEventJson: Reads[Nel[EventJson]] = nelReads
+    implicit val readsNelEventJson: Reads[Nel[EventJson[JsValue]]] = nelReads
   }
 
 
-  final case class PayloadJson(events: Nel[EventJson], metadata: Option[PayloadMetadata])
+  final case class EventJsonPayloadAndType[A](payload: A, payloadType: PayloadType.TextOrJson)
+
+
+  final case class PayloadJson[A](events: Nel[EventJson[A]], metadata: Option[PayloadMetadata])
 
   object PayloadJson {
 
-    implicit val formatPayloadJson: OFormat[PayloadJson] = Json.format
+    implicit val formatPayloadJson: OFormat[PayloadJson[JsValue]] = Json.format
 
 
-    implicit def codecPayloadJson(implicit jsonCodec: JsonCodec[Try]): Codec[PayloadJson] = formatCodec // TODO not used
+    implicit def codecPayloadJson(implicit jsonCodec: JsonCodec[Try]): Codec[PayloadJson[JsValue]] = formatCodec // TODO not used
 
 
-    implicit def toBytesPayloadJson[F[_] : Applicative: JsonCodec.Encode]: ToBytes[F, PayloadJson] =
+    implicit def toBytesPayloadJson[F[_] : Applicative: JsonCodec.Encode]: ToBytes[F, PayloadJson[JsValue]] =
       ToBytes.fromWrites
 
-    implicit def fromBytesPayloadJson[F[_] : Monad : FromJsResult: JsonCodec.Decode]: FromBytes[F, PayloadJson] =
+    implicit def fromBytesPayloadJson[F[_] : Monad : FromJsResult: JsonCodec.Decode]: FromBytes[F, PayloadJson[JsValue]] =
       FromBytes.fromReads
   }
 }

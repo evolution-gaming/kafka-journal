@@ -20,7 +20,7 @@ trait EventualJournal[F[_]] {
 
   def pointers(topic: Topic): F[TopicPointers]
 
-  def read(key: Key, from: SeqNr): Stream[F, EventRecord]
+  def read(key: Key, from: SeqNr): Stream[F, EventRecord[EventualPayloadAndType]]
 }
 
 object EventualJournal {
@@ -120,7 +120,7 @@ object EventualJournal {
 
     def pointers(topic: Topic) = TopicPointers.empty.pure[F]
 
-    def read(key: Key, from: SeqNr) = Stream.empty[F, EventRecord]
+    def read(key: Key, from: SeqNr) = Stream.empty[F, EventRecord[EventualPayloadAndType]]
 
     def pointer(key: Key) = none[JournalPointer].pure[F]
   }
@@ -242,7 +242,7 @@ object EventualJournal {
         def read(key: Key, from: SeqNr) = {
           self
             .read(key, from)
-            .handleErrorWith { a: Throwable => Stream.lift(error[EventRecord](s"read key: $key, from: $from", a)) }
+            .handleErrorWith { a: Throwable => Stream.lift(error[EventRecord[EventualPayloadAndType]](s"read key: $key, from: $from", a)) }
         }
 
         def pointer(key: Key) = {

@@ -28,7 +28,9 @@ lazy val root = (project in file(".")
     persistence,
     `tests`,
     replicator,
-    `eventual-cassandra`))
+    `eventual-cassandra`,
+    `journal-circe`,
+    `persistence-circe`))
 
 lazy val `scalatest-io` = (project in file("scalatest-io")
   settings (name := "kafka-journal-scalatest-io")
@@ -99,6 +101,7 @@ lazy val `tests` = (project in file("tests")
     Test / javaOptions ++= Seq("-Xms3G", "-Xmx3G"))
   dependsOn (
     persistence % "test->test;compile->compile",
+    `persistence-circe`,
     replicator)
   settings (libraryDependencies ++= Seq(
     `cats-helper`,
@@ -125,3 +128,14 @@ lazy val `eventual-cassandra` = (project in file("eventual-cassandra")
   settings commonSettings
   dependsOn (journal % "test->test;compile->compile")
   settings (libraryDependencies ++= Seq(scache, scassandra)))
+
+lazy val `journal-circe` = (project in file("circe/core")
+  settings (name := "kafka-journal-circe")
+  settings commonSettings
+  dependsOn (journal % "test->test;compile->compile")
+  settings (libraryDependencies ++= Seq(Circe.core, Circe.generic, Circe.jawn)))
+
+lazy val `persistence-circe` = (project in file("circe/persistence")
+  settings (name := "kafka-journal-persistence-circe")
+  settings commonSettings
+  dependsOn (`journal-circe`, persistence % "test->test;compile->compile"))

@@ -9,6 +9,7 @@ import cats.{Id, Parallel}
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.eventual.cassandra.ExpireOn.implicits._
 import com.evolutiongaming.kafka.journal.util.BracketFromMonadError
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
@@ -34,7 +35,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
   private def eventRecordOf(seqNr: SeqNr, partitionOffset: PartitionOffset) = {
     EventRecord(
-      event = Event(seqNr),
+      event = Event[EventualPayloadAndType](seqNr),
       timestamp = timestamp0,
       partitionOffset = partitionOffset,
       origin = origin.some,
@@ -1387,7 +1388,7 @@ object ReplicatedCassandraTest {
     actions: List[Action] = List.empty,
     pointers: Map[Topic, Map[Partition, PointerEntry]] = Map.empty,
     metaJournal: Map[(Topic, SegmentNr), Map[String, MetaJournalEntry]] = Map.empty,
-    journal: Map[(Key, SegmentNr), Map[(SeqNr, Instant), EventRecord]] = Map.empty)
+    journal: Map[(Key, SegmentNr), Map[(SeqNr, Instant), EventRecord[EventualPayloadAndType]]] = Map.empty)
 
   object State {
 

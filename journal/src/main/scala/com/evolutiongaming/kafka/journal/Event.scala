@@ -1,23 +1,27 @@
 package com.evolutiongaming.kafka.journal
 
+import cats._
 import cats.implicits._
 import scodec.bits.ByteVector
 import scodec.{Attempt, Codec, Err, codecs}
 
 import scala.util.Try
 
-final case class Event(
+final case class Event[A](
   seqNr: SeqNr,
   tags: Tags = Tags.empty,
-  payload: Option[Payload] = None)
+  payload: Option[A] = None)
 
 object Event {
 
-  implicit def codecEvent(implicit jsonCodec: JsonCodec[Try]): Codec[Event] = {
+  implicit def codecEvent[A](implicit payloadCodec: Codec[Option[A]]): Codec[Event[A]] =
+    (SeqNr.codecSeqNr :: Tags.codecTags :: payloadCodec).as[Event[A]]
+
+  implicit def codecEventPayload(implicit jsonCodec: JsonCodec[Try]): Codec[Event[Payload]] = {
 
     val codecJson: Codec[Payload.Json] = Payload.Json.codecJson
 
-    val payloadCodec = {
+    implicit val payloadCodec: Codec[Option[Payload]] = {
 
       val errEmpty = Err("")
 
@@ -47,6 +51,18 @@ object Event {
         emptyCodec)
     }
 
-    (SeqNr.codecSeqNr :: Tags.codecTags :: payloadCodec).as[Event]
+    codecEvent[Payload]
+  }
+
+  implicit val traverseEvent: Traverse[Event] = new Traverse[Event] {
+    override def traverse[G[_] : Applicative, A, B](fa: Event[A])(f: A => G[B]): G[Event[B]] =
+      fa.payload.traverse(f)
+        .map(newPayload => fa.copy(payload = newPayload))
+
+    override def foldLeft[A, B](fa: Event[A], b: B)(f: (B, A) => B): B =
+      fa.payload.fold(b)(a => f(b, a))
+
+    override def foldRight[A, B](fa: Event[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] =
+      fa.payload.fold(lb)(a => f(a, lb))
   }
 }

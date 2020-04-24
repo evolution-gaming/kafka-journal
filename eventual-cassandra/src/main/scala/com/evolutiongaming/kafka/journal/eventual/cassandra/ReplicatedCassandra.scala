@@ -166,19 +166,19 @@ object ReplicatedCassandra {
                     partitionOffset: PartitionOffset,
                     timestamp: Instant,
                     expireAfter: Option[ExpireAfter],
-                    events: Nel[EventRecord]
+                    events: Nel[EventRecord[EventualPayloadAndType]]
                   ) = {
 
                     def append(segmentSize: SegmentSize, offset: Option[Offset]) = {
 
                       @tailrec
                       def loop(
-                        events: List[EventRecord],
-                        s: Option[(Segment, Nel[EventRecord])],
+                        events: List[EventRecord[EventualPayloadAndType]],
+                        s: Option[(Segment, Nel[EventRecord[EventualPayloadAndType]])],
                         result: F[Unit]
                       ): F[Unit] = {
 
-                        def insert(segment: Segment, events: Nel[EventRecord]) = {
+                        def insert(segment: Segment, events: Nel[EventRecord[EventualPayloadAndType]]) = {
                           val next = statements.insertRecords(key, segment.nr, events)
                           result *> next
                         }

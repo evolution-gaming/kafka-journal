@@ -9,8 +9,8 @@ import cats.{Id, Monad, Parallel}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
-import com.evolutiongaming.kafka.journal.conversions.{EventsToPayload, PayloadToEvents}
-import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
+import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
+import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualPayloadAndType, EventualRead, EventualWrite, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.{ConcurrentOf, Fail}
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
@@ -41,7 +41,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
 
       def createAndAppend(f: (SeqNrJournal[F], Option[Offset]) => F[Assertion]) = {
         withJournal { journal =>
-          
+
           def append(seqNrs: Nel[SeqNr]) = {
             for {
               offset <- journal.append(seqNrs.head, seqNrs.tail: _*)
@@ -414,11 +414,19 @@ object JournalSpec {
 
   object SeqNrJournal {
 
-    def apply[F[_] : Monad](journals: Journals[F]): SeqNrJournal[F] = {
+    def apply[F[_] : Monad, A](journals: Journals[F])(implicit
+      kafkaRead: KafkaRead[F, A],
+      eventualRead: EventualRead[F, A],
+      kafkaWrite: KafkaWrite[F, A],
+    ): SeqNrJournal[F] = {
       apply(journals(key))
     }
 
-    def apply[F[_] : Monad](journal: Journal[F]): SeqNrJournal[F] = {
+    def apply[F[_] : Monad, A](journal: Journal[F])(implicit
+      kafkaRead: KafkaRead[F, A],
+      eventualRead: EventualRead[F, A],
+      kafkaWrite: KafkaWrite[F, A],
+    ): SeqNrJournal[F] = {
 
       new SeqNrJournal[F] {
 
@@ -426,7 +434,7 @@ object JournalSpec {
           val events = for {
             seqNr <- Nel.of(seqNr, seqNrs: _*)
           } yield {
-            Event(seqNr)
+            Event[A](seqNr)
           }
           for {
             partitionOffset <- journal.append(events)
@@ -491,9 +499,8 @@ object JournalSpec {
         consumeActionRecords = consumeActionRecords,
         produce = Produce(produceAction, none),
         headCache = headCache,
-        payloadToEvents = PayloadToEvents[F],
-        eventsToPayload = EventsToPayload[F],
-        log = log)
+        log = log,
+        conversionMetrics = none)
         .withLog(log)
         .withMetrics(JournalMetrics.empty[F])
       SeqNrJournal(journal)
@@ -620,7 +627,7 @@ object JournalSpec {
   object EventualJournalOf {
 
     final case class State(
-      events: Queue[EventRecord] = Queue.empty,
+      events: Queue[EventRecord[EventualPayloadAndType]] = Queue.empty,
       deleteTo: Option[DeleteTo] = None,
       offset: Option[Offset] = None) {
 
@@ -632,18 +639,20 @@ object JournalSpec {
 
         implicit val fromAttempt = FromAttempt.lift[Try]
         implicit val fromJsResult = FromJsResult.lift[Try]
-        implicit val payloadToEvents = PayloadToEvents[Try]
+
+        val kafkaRead = KafkaRead.summon[Try, Payload]
+        val eventualWrite = EventualWrite.summon[Try, Payload]
 
         def updateOffset = copy(offset = offset.some)
 
         def onAppend(action: Action.Append) = {
           val payloadAndType = PayloadAndType(action)
-          val events1 = payloadToEvents(payloadAndType).get
+          val events1 = kafkaRead(payloadAndType).get
           val batch = for {
             event <- events1.events
           } yield {
             val partitionOffset = PartitionOffset(partition, record.offset)
-            EventRecord(action, event, partitionOffset, events1.metadata)
+            EventRecord(action, event.map(eventualWrite(_).get), partitionOffset, events1.metadata)
           }
           copy(events = events.enqueue(batch.toList), offset = offset.some)
         }
@@ -698,7 +707,7 @@ object JournalSpec {
   }
 
   implicit class QueueOps[T](val self: Queue[T]) extends AnyVal {
-    
+
     def dropLast(n: Int): Option[Queue[T]] = {
       if (self.size <= n) none
       else self.dropRight(n).some
