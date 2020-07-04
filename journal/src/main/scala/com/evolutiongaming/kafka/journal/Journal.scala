@@ -29,19 +29,16 @@ trait Journal[F[_]] {
     eventualRead: EventualRead[F, A]
   ): Stream[F, EventRecord[A]]
 
-  // TODO return Pointer and test it
   def pointer: F[Option[SeqNr]]
 
   /**
    * Deletes events up to provided SeqNr
    */
-  // TODO return Pointer and test it
   def delete(to: DeleteTo = DeleteTo.max): F[Option[PartitionOffset]]
 
   /**
-   * Deletes all data with regards to to, consecutive pointer call will return none
+   * Deletes all data with regards to key, consecutive pointer call will return none
    */
-  // TODO expiry: test
   def purge: F[Option[PartitionOffset]]
 }
 
