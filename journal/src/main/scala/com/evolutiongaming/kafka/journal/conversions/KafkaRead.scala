@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.conversions
 
-import cats.{Monad, ~>}
 import cats.implicits._
+import cats.{Monad, ~>}
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.PayloadAndType._
 import com.evolutiongaming.kafka.journal._
@@ -18,7 +18,7 @@ object KafkaRead {
 
   def summon[F[_], A](implicit kafkaRead: KafkaRead[F, A]): KafkaRead[F, A] = kafkaRead
 
-  implicit def forPayload[F[_] : MonadThrowable : FromAttempt : FromJsResult](implicit
+  implicit def payloadKafkaRead[F[_]: MonadThrowable: FromAttempt: FromJsResult](implicit
     eventsFromBytes: FromBytes[F, Events[Payload]],
     payloadJsonFromBytes: FromBytes[F, PayloadJson[JsValue]]
   ): KafkaRead[F, Payload] = {
@@ -51,7 +51,7 @@ object KafkaRead {
     }
   }
 
-  def readJson[F[_] : MonadThrowable, A, B](
+  def readJson[F[_]: MonadThrowable, A, B](
     payloadJsonFromBytes: FromBytes[F, PayloadJson[A]],
     fromEventJsonPayload: EventJsonPayloadAndType[A] => F[B]
   ): KafkaRead[F, B] = {
@@ -69,8 +69,8 @@ object KafkaRead {
             payload <- payload
           } yield {
             Event(
-              seqNr   = event.seqNr,
-              tags    = event.tags,
+              seqNr = event.seqNr,
+              tags = event.tags,
               payload = payload)
           }
         }
@@ -97,7 +97,7 @@ object KafkaRead {
     }
   }
 
-  private def withErrorAdapted[F[_] : ApplicativeThrowable, A](payloadAndType: PayloadAndType)(fa: F[A]): F[A] =
+  private def withErrorAdapted[F[_]: ApplicativeThrowable, A](payloadAndType: PayloadAndType)(fa: F[A]): F[A] =
     fa.adaptErr { case e =>
       JournalError(s"KafkaRead failed for $payloadAndType: $e", e)
     }

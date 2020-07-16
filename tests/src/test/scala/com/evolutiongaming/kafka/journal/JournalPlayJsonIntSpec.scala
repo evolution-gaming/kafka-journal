@@ -12,7 +12,7 @@ class JournalPlayJsonIntSpec extends JournalIntSpec[Payload] {
   override def event(seqNr: SeqNr): Event[Payload] =
     Event(seqNr, payload = Payload.json(Json.obj("key" -> "value")).some)
 
-  override implicit val kafkaRead: KafkaRead[IO, Payload] = KafkaRead.forPayload[IO]
-  override implicit val kafkaWrite: KafkaWrite[IO, Payload] = KafkaWrite.forPayload[IO]
-  override implicit val eventualRead: EventualRead[IO, Payload] = EventualRead.forPayload[IO]
+  override implicit val kafkaRead: KafkaRead[IO, Payload] = KafkaRead.payloadKafkaRead[IO]
+  override implicit val kafkaWrite: KafkaWrite[IO, Payload] = KafkaWrite.payloadKafkaWrite[IO]
+  override implicit val eventualRead: EventualRead[IO, Payload] = EventualRead.payloadEventualRead[IO]
 }

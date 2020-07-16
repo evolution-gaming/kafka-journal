@@ -57,7 +57,7 @@ object JsonCodec {
     implicit def fromCodec[F[_]](implicit codec: JsonCodec[F]): Encode[F] = codec.encode
 
 
-    def playJson[F[_] : Applicative : FromTry]: Encode[F] = {
+    def playJson[F[_]: Applicative: FromTry]: Encode[F] = {
       Encode { value =>
         FromTry[F].unsafe {
           ByteVector.view(Json.toBytes(value))

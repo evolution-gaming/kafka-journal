@@ -18,7 +18,7 @@ object FromJsResult {
   def apply[F[_]](implicit F: FromJsResult[F]): FromJsResult[F] = F
 
 
-  def lift[F[_] : ApplicativeThrowable]: FromJsResult[F] = new FromJsResult[F] {
+  def lift[F[_]: ApplicativeThrowable]: FromJsResult[F] = new FromJsResult[F] {
 
     def apply[A](fa: JsResult[A]) = {
       fa.fold(

@@ -108,81 +108,83 @@ object JournalAdapter {
     }
   }
 
-  def apply[F[_] : Monad : Clock, A](
+  def apply[F[_]: Monad: Clock, A](
     journals: Journals[F],
     toKey: ToKey[F],
     serializer: EventSerializer[F, A],
     journalReadWrite: JournalReadWrite[F, A],
     appendMetadataOf: AppendMetadataOf[F]
-  ): JournalAdapter[F] = new JournalAdapter[F] {
+  ): JournalAdapter[F] = {
 
     implicit val kafkaRead = journalReadWrite.kafkaRead
     implicit val kafkaWrite = journalReadWrite.kafkaWrite
     implicit val eventualRead = journalReadWrite.eventualRead
 
-    def write(aws: Seq[AtomicWrite]) = {
-      val prs = aws.flatMap(_.payload)
-      prs.toList.toNel.foldMapM { prs =>
-        val persistenceId = prs.head.persistenceId
-        for {
-          key      <- toKey(persistenceId)
-          events   <- prs.traverse(serializer.toEvent)
-          metadata <- appendMetadataOf(key, prs, events)
-          journal   = journals(key)
-          _        <- journal.append(events, metadata.metadata, metadata.headers)
-        } yield {
-          List.empty[Try[Unit]]
+    new JournalAdapter[F] {
+
+      def write(aws: Seq[AtomicWrite]) = {
+        val prs = aws.flatMap(_.payload)
+        prs.toList.toNel.foldMapM { prs =>
+          val persistenceId = prs.head.persistenceId
+          for {
+            key      <- toKey(persistenceId)
+            events   <- prs.traverse(serializer.toEvent)
+            metadata <- appendMetadataOf(key, prs, events)
+            journal   = journals(key)
+            _        <- journal.append(events, metadata.metadata, metadata.headers)
+          } yield {
+            List.empty[Try[Unit]]
+          }
         }
       }
-    }
 
-    def delete(persistenceId: PersistenceId, to: DeleteTo) = {
-      for {
-        key <- toKey(persistenceId)
-        _   <- journals(key).delete(to)
-      } yield {}
-    }
-
-    def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)(f: PersistentRepr => F[Unit]) = {
-
-      def replay(key: Key): F[Unit] = {
-        journals(key)
-          .read[A](range.from)
-          .foldWhileM(max) { (max, record) =>
-            val event = record.event
-            val seqNr = event.seqNr
-            if (max > 0 && seqNr <= range.to) {
-              for {
-                persistentRepr <- serializer.toPersistentRepr(persistenceId, event)
-                _              <- f(persistentRepr)
-              } yield {
-                if (max === 1) ().asRight[Long]
-                else (max - 1).asLeft[Unit]
-              }
-            } else {
-              ().asRight[Long].pure[F]
-            }
-          }
-          .void
+      def delete(persistenceId: PersistenceId, to: DeleteTo) = {
+        for {
+          key <- toKey(persistenceId)
+          _   <- journals(key).delete(to)
+        } yield {}
       }
 
-      for {
-        key    <- toKey(persistenceId)
-        result <- replay(key)
-      } yield result
-    }
+      def replay(persistenceId: PersistenceId, range: SeqRange, max: Long)(f: PersistentRepr => F[Unit]) = {
 
-    def lastSeqNr(persistenceId: PersistenceId, from: SeqNr) = {
-      for {
-        key     <- toKey(persistenceId)
-        pointer <- journals(key).pointer
-      } yield for {
-        pointer    <- pointer
-        if pointer >= from
-      } yield pointer
+        def replay(key: Key): F[Unit] = {
+          journals(key)
+            .read[A](range.from)
+            .foldWhileM(max) { (max, record) =>
+              val event = record.event
+              val seqNr = event.seqNr
+              if (max > 0 && seqNr <= range.to) {
+                for {
+                  persistentRepr <- serializer.toPersistentRepr(persistenceId, event)
+                  _              <- f(persistentRepr)
+                } yield {
+                  if (max === 1) ().asRight[Long]
+                  else (max - 1).asLeft[Unit]
+                }
+              } else {
+                ().asRight[Long].pure[F]
+              }
+            }
+            .void
+        }
+
+        for {
+          key    <- toKey(persistenceId)
+          result <- replay(key)
+        } yield result
+      }
+
+      def lastSeqNr(persistenceId: PersistenceId, from: SeqNr) = {
+        for {
+          key     <- toKey(persistenceId)
+          pointer <- journals(key).pointer
+        } yield for {
+          pointer    <- pointer
+          if pointer >= from
+        } yield pointer
+      }
     }
   }
-
 
   implicit class JournalAdapterOps[F[_]](val self: JournalAdapter[F]) extends AnyVal {
 

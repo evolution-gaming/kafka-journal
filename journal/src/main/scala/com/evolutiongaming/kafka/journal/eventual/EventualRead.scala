@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual
 
-import cats.~>
 import cats.implicits._
+import cats.~>
 import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.Fail.implicits._
@@ -19,7 +19,7 @@ object EventualRead {
 
   def summon[F[_], A](implicit eventualRead: EventualRead[F, A]): EventualRead[F, A] = eventualRead
 
-  implicit def forPayload[F[_] : MonadThrowable](implicit decode: JsonCodec.Decode[Try]): EventualRead[F, Payload] = {
+  implicit def payloadEventualRead[F[_]: MonadThrowable](implicit decode: JsonCodec.Decode[Try]): EventualRead[F, Payload] = {
     implicit val fail: Fail[F] = Fail.lift[F]
 
     payloadAndType => {
@@ -39,7 +39,7 @@ object EventualRead {
     }
   }
 
-  def readJson[F[_] : MonadThrowable, A](parsePayload: String => F[A]): EventualRead[F, A] = {
+  def readJson[F[_]: MonadThrowable, A](parsePayload: String => F[A]): EventualRead[F, A] = {
     implicit val fail: Fail[F] = Fail.lift[F]
 
     payloadAndType => {
@@ -54,7 +54,7 @@ object EventualRead {
     }
   }
 
-  private def liftError[F[_] : MonadThrowable, A](payloadAndType: EventualPayloadAndType)(fa: F[A]): F[A] =
+  private def liftError[F[_]: MonadThrowable, A](payloadAndType: EventualPayloadAndType)(fa: F[A]): F[A] =
     fa.adaptError { case e =>
       JournalError(s"EventualRead failed for $payloadAndType: $e", e)
     }

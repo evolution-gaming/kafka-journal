@@ -20,7 +20,7 @@ object KafkaWrite {
 
   def summon[F[_], A](implicit kafkaWrite: KafkaWrite[F, A]): KafkaWrite[F, A] = kafkaWrite
 
-  implicit def forPayload[F[_] : MonadThrowable](implicit
+  implicit def payloadKafkaWrite[F[_] : MonadThrowable](implicit
     eventsToBytes: ToBytes[F, Events[Payload]],
     payloadJsonToBytes: ToBytes[F, PayloadJson[JsValue]]
   ): KafkaWrite[F, Payload] = {
