@@ -19,7 +19,7 @@ object EventualRead {
 
   def summon[F[_], A](implicit eventualRead: EventualRead[F, A]): EventualRead[F, A] = eventualRead
 
-  implicit def payloadEventualRead[F[_]: MonadThrowable](implicit decode: JsonCodec.Decode[Try]): EventualRead[F, Payload] = {
+  implicit def payloadEventualRead[F[_]: MonadThrowable](implicit decode: JsonCodec.Decode[F]): EventualRead[F, Payload] = {
     implicit val fail: Fail[F] = Fail.lift[F]
 
     payloadAndType => {
@@ -33,7 +33,7 @@ object EventualRead {
         }
 
         case PayloadType.Json =>
-          val jsonEventualRead = EventualRead.readJson(decode.fromStr(_).liftTo[F].map(Payload(_)))
+          val jsonEventualRead = EventualRead.readJson(decode.fromStr(_).map(Payload(_)))
           jsonEventualRead(payloadAndType)
       }
     }

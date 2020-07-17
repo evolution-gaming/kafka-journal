@@ -88,7 +88,6 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     } yield {
       implicit val jsonCodec1 = jsonCodec
       implicit val jsonCodecTry = jsonCodec.mapK(ToTry.functionK)
-
       JournalReadWrite.of[IO, Payload]
     }
   }

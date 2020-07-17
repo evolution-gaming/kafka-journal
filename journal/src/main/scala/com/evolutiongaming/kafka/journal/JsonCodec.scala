@@ -21,21 +21,21 @@ object JsonCodec {
   def summon[F[_]](implicit F: JsonCodec[F]): JsonCodec[F] = F
 
 
-  def playJson[F[_] : Applicative : FromTry]: JsonCodec[F] = {
+  def playJson[F[_]: Applicative: FromTry]: JsonCodec[F] = {
     JsonCodec(
       encode = Encode.playJson,
       decode = Decode.playJson)
   }
 
 
-  def jsoniter[F[_] : Applicative : FromTry]: JsonCodec[F] = {
+  def jsoniter[F[_]: Applicative: FromTry]: JsonCodec[F] = {
     JsonCodec(
       encode = Encode.jsoniter,
       decode = Decode.jsoniter)
   }
 
 
-  def default[F[_] : ApplicativeThrowable : FromTry]: JsonCodec[F] = {
+  def default[F[_]: ApplicativeThrowable: FromTry]: JsonCodec[F] = {
     JsonCodec(
       encode = Encode.jsoniter[F] fallbackTo Encode.playJson,
       decode = Decode.jsoniter[F] fallbackTo Decode.playJson)
@@ -66,7 +66,7 @@ object JsonCodec {
     }
 
 
-    def jsoniter[F[_] : Applicative : FromTry]: Encode[F] = {
+    def jsoniter[F[_]: Applicative: FromTry]: Encode[F] = {
       Encode { value =>
         FromTry[F].unsafe {
           ByteVector.view(PlayJsonJsoniter.serialize(value))
@@ -109,7 +109,7 @@ object JsonCodec {
     implicit def fromCodec[F[_]](implicit codec: JsonCodec[F]): Decode[F] = codec.decode
 
 
-    def playJson[F[_] : FromTry]: Decode[F] = {
+    def playJson[F[_]: FromTry]: Decode[F] = {
       Decode { bytes =>
         lift(bytes) {
           Try { Json.parse(bytes.toArray) }
@@ -118,7 +118,7 @@ object JsonCodec {
     }
 
 
-    def jsoniter[F[_] : FromTry]: Decode[F] = {
+    def jsoniter[F[_]: FromTry]: Decode[F] = {
       Decode { bytes =>
         lift(bytes) {
           PlayJsonJsoniter.deserialize(bytes.toArray)
@@ -152,7 +152,7 @@ object JsonCodec {
   }
 
 
-  private def lift[F[_] : FromTry](bytes: ByteVector)(result: Try[JsValue]): F[JsValue] = {
+  private def lift[F[_]: FromTry](bytes: ByteVector)(result: Try[JsValue]): F[JsValue] = {
     result
       .adaptErr { case e => JournalError(s"Failed to parse $bytes json: $e", e) }
       .fromTry[F]
