@@ -22,7 +22,7 @@ object Dependencies {
   val random               = "com.evolutiongaming"    %% "random"                % "0.0.7"
   val retry                = "com.evolutiongaming"    %% "retry"                 % "1.0.4"
   val sstream              = "com.evolutiongaming"    %% "sstream"               % "0.2.1"
-  val skafka               = "com.evolutiongaming"    %% "skafka"                % "9.1.5"
+  val skafka               = "com.evolutiongaming"    %% "skafka"                % "10.0.0"
   val scache               = "com.evolutiongaming"    %% "scache"                % "2.2.1"
   val `akka-test-actor`    = "com.evolutiongaming"    %% "akka-test-actor"       % "0.0.2"
 
