@@ -5,9 +5,7 @@ import cats.effect.{Fiber, Resource}
 
 object ResourceOf {
 
-  def apply[F[_] : Applicative, A](fiber: F[Fiber[F, A]]): Resource[F, F[A]] = {
-    Resource
-      .make { fiber } { _.cancel }
-      .map { _.join }
+  def apply[F[_]: Applicative, A](fiber: F[Fiber[F, A]]): Resource[F, Fiber[F, A]] = {
+    Resource.make { fiber } { _.cancel }
   }
 }

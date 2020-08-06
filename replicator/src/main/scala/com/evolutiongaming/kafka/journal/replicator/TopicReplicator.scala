@@ -77,8 +77,10 @@ object TopicReplicator {
     for {
       log       <- Resource.liftF(log)
       consuming  = consume(consumer, log).start
-      consuming <- ResourceOf(consuming)
-    } yield consuming
+      fiber     <- ResourceOf(consuming)
+    } yield {
+      fiber.join
+    }
   }
 
   def of[F[_] : Concurrent : Parallel : FromTry : Timer : MeasureDuration, A](
