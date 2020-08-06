@@ -1,7 +1,5 @@
 package akka.persistence.kafka.journal.circe
 
-import java.nio.charset.StandardCharsets
-
 import akka.persistence.PersistentRepr
 import akka.persistence.journal.Tagged
 import akka.persistence.kafka.journal.EventSerializer
@@ -10,6 +8,7 @@ import cats.implicits._
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.circe._
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import io.circe.Json
 import io.circe.jawn._
 import org.scalatest.EitherValues
@@ -152,7 +151,7 @@ class JsonEventSerializerSpec extends AsyncFunSuite with ActorSuite with Matcher
   private def readJsonFromFile(name: String): IO[Json] =
     for {
       bytes <- ByteVectorOf[IO](EventSerializer.getClass, name)
-      str   <- bytes.decodeString(StandardCharsets.UTF_8).liftTo[IO]
+      str   <- bytes.decodeStr.liftTo[IO]
       json  <- FromCirceResult.summon[IO].apply(parse(str))
     } yield json
 

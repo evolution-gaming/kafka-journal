@@ -7,6 +7,7 @@ import cats.{Applicative, ~>}
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, MonadThrowable}
 import com.evolutiongaming.jsonitertool.PlayJsonJsoniter
+import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import play.api.libs.json.{JsValue, Json}
 import scodec.bits.ByteVector
 
@@ -60,7 +61,8 @@ object JsonCodec {
     def playJson[F[_]: Applicative: FromTry]: Encode[F] = {
       Encode { value =>
         FromTry[F].unsafe {
-          ByteVector.view(Json.toBytes(value))
+          val bytes = Json.toBytes(value)
+          ByteVector.view(bytes)
         }
       }
     }
@@ -69,7 +71,8 @@ object JsonCodec {
     def jsoniter[F[_]: Applicative: FromTry]: Encode[F] = {
       Encode { value =>
         FromTry[F].unsafe {
-          ByteVector.view(PlayJsonJsoniter.serialize(value))
+          val bytes = PlayJsonJsoniter.serialize(value)
+          ByteVector.view(bytes)
         }
       }
     }
@@ -94,7 +97,7 @@ object JsonCodec {
       def toStr(value: JsValue)(implicit F: MonadThrowable[F]): F[String] =
         for {
           bytes <- self.toBytes(value)
-          str   <- bytes.decodeString(StandardCharsets.UTF_8).liftTo[F]
+          str   <- bytes.decodeStr.liftTo[F]
         } yield str
     }
   }
@@ -110,19 +113,18 @@ object JsonCodec {
 
 
     def playJson[F[_]: FromTry]: Decode[F] = {
-      Decode { bytes =>
-        lift(bytes) {
-          Try { Json.parse(bytes.toArray) }
-        }
+      Decode { byteVector =>
+        val bytes = byteVector.toArray
+        Try { Json.parse(bytes) }.adapt(byteVector)
       }
     }
 
 
     def jsoniter[F[_]: FromTry]: Decode[F] = {
-      Decode { bytes =>
-        lift(bytes) {
-          PlayJsonJsoniter.deserialize(bytes.toArray)
-        }
+      Decode { byteVector =>
+        PlayJsonJsoniter
+          .deserialize(byteVector.toArray)
+          .adapt(byteVector)
       }
     }
 
@@ -152,9 +154,17 @@ object JsonCodec {
   }
 
 
-  private def lift[F[_]: FromTry](bytes: ByteVector)(result: Try[JsValue]): F[JsValue] = {
-    result
-      .adaptErr { case e => JournalError(s"Failed to parse $bytes json: $e", e) }
-      .fromTry[F]
+  private implicit class TryOps[A](val self: Try[A]) extends AnyVal {
+
+    def adapt[F[_]: FromTry](byteVector: ByteVector): F[A] = {
+      self
+        .adaptErr { case e =>
+          val str = byteVector
+            .decodeStr
+            .getOrElse { byteVector.toString() }
+          JournalError(s"failed to parse $str: $e", e)
+        }
+        .fromTry[F]
+    }
   }
 }

@@ -1,5 +1,7 @@
 package com.evolutiongaming.kafka.journal.util
 
+import java.nio.charset.{CharacterCodingException, StandardCharsets}
+
 import cats.MonadError
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
@@ -69,5 +71,11 @@ object ScodecHelper {
       Attempt.fromTry(bytes)
     }
     codecs.bytes.exmap(fromBytes, toBytes)
+  }
+
+
+  implicit class ByteVectorOps(val self: ByteVector) extends AnyVal {
+
+    def decodeStr: Either[CharacterCodingException, String] = self.decodeString(StandardCharsets.UTF_8)
   }
 }
