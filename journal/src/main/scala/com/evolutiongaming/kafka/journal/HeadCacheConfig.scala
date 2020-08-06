@@ -7,7 +7,7 @@ import scala.concurrent.duration._
 
 final case class HeadCacheConfig(
   timeout: FiniteDuration = 3.seconds,
-  cleanInterval: FiniteDuration = 1.second,
+  cleanInterval: FiniteDuration = 100.millis,
   maxSize: Int = 100000)
 
 
