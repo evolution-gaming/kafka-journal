@@ -5,7 +5,7 @@ import java.time.Instant
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect._
 import cats.implicits._
-import cats.{Applicative, Id, Monoid, Parallel}
+import cats.{Applicative, Monoid, Parallel}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log}
 import com.evolutiongaming.kafka.journal.{ConsRecords, _}

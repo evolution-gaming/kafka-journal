@@ -18,6 +18,9 @@ import com.evolutiongaming.kafka.journal.util.EitherHelper._
 import com.evolutiongaming.kafka.journal.util.ResourceOf
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
+import com.evolutiongaming.random.Random
+import com.evolutiongaming.retry.Strategy
+import com.evolutiongaming.retry.Retry.implicits._
 import com.evolutiongaming.scache.{Cache, Releasable}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
@@ -185,6 +188,7 @@ object HeadCache {
       }
 
       def cleaning(stateRef: SerialRef[F, State[F]]) = {
+
         val cleaning = for {
           _        <- Timer[F].sleep(config.cleanInterval)
           pointers <- eventual.pointers(topic)
@@ -194,9 +198,18 @@ object HeadCache {
           removed   = before.size - after.size
           _        <- if (removed > 0) log.debug(s"remove $removed entries") else ().pure[F]
         } yield {}
-        cleaning
-          .foreverM[Unit]
-          .onError { case error => log.error(s"cleaning failed with $error", error) /*TODO headcache: fail head cache*/ }
+
+        for {
+          random   <- Random.State.fromClock[F]()
+          strategy  = Strategy
+            .exponential(10.millis)
+            .cap(3.seconds)
+            .jitter(random)
+          _        <- cleaning
+            .retry(strategy)
+            .handleErrorWith { e => log.error(s"cleaning failed with $e", e) }
+            .foreverM[Unit]
+        } yield {}
       }
 
       def state(pointers: TopicPointers) = {

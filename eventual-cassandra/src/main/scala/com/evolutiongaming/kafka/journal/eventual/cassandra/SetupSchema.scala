@@ -5,7 +5,6 @@ import cats.effect.{Concurrent, Timer}
 import cats.implicits._
 import com.evolutiongaming.kafka.journal.{Origin, Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
-import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 

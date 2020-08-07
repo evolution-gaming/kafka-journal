@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import cats.data.{NonEmptyMap => Nem}
-import cats.implicits._
 import cats.effect.{Clock, IO}
 import com.evolutiongaming.kafka.journal.IOSuite._
 import cats.effect.concurrent.{Deferred, Ref}

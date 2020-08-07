@@ -61,7 +61,8 @@ object HeadCacheConsumption {
         random <- Random.State.fromClock[F]()
       } yield {
         val strategy = Strategy
-          .fullJitter(10.millis, random)
+          .exponential(10.millis)
+          .jitter(random)
           .limit(1.minute)
         val onError = OnError.fromLog(log.prefixed(s"consumer.partitions"))
         Retry(strategy, onError)
@@ -86,7 +87,8 @@ object HeadCacheConsumption {
       random <- Random.State.fromClock[F]()
     } yield {
       val strategy = Strategy
-        .fullJitter(10.millis, random)
+        .exponential(10.millis)
+        .jitter(random)
         .cap(1.second)
         .resetAfter(1.minute)
       val onError = OnError.fromLog(log.prefixed("consuming"))

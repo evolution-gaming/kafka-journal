@@ -109,7 +109,8 @@ object Replicator {
       random <- Random.State.fromClock[F]()
     } yield {
       val strategy = Strategy
-        .fullJitter(100.millis, random)
+        .exponential(100.millis)
+        .jitter(random)
         .limit(1.minute)
       new Named[F] {
         def apply[A](fa: F[A], name: String) = {

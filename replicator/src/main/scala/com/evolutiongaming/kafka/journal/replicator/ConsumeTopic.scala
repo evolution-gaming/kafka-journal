@@ -26,7 +26,8 @@ object ConsumeTopic {
 
       def strategyOf(random: Random.State) = {
         Strategy
-          .fullJitter(100.millis, random)
+          .exponential(100.millis)
+          .jitter(random)
           .limit(1.minute)
           .resetAfter(5.minutes)
       }

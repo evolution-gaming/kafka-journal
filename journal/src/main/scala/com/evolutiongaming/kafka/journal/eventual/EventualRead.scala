@@ -7,7 +7,6 @@ import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 import com.evolutiongaming.kafka.journal.{JournalError, JsonCodec, Payload, PayloadType}
 
-import scala.util.Try
 
 trait EventualRead[F[_], A] {
 
