@@ -86,9 +86,8 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     for {
       jsonCodec <- jsonCodec(config)
     } yield {
-      implicit val codec = jsonCodec
-      implicit val codecTry = jsonCodec.mapK(ToTry.functionK)
-
+      implicit val jsonCodec1 = jsonCodec
+      implicit val jsonCodecTry = jsonCodec.mapK(ToTry.functionK)
       JournalReadWrite.of[IO, Payload]
     }
   }
@@ -113,14 +112,14 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     Resource.liftF(cassandraClusterOf)
   }
 
-  def jsonCodec(config: KafkaJournalConfig): IO[JsonCodec[IO]] =
-    IO.pure {
-      config.jsonCodec match {
-        case KafkaJournalConfig.JsonCodec.Default  => JsonCodec.default
-        case KafkaJournalConfig.JsonCodec.PlayJson => JsonCodec.playJson
-        case KafkaJournalConfig.JsonCodec.Jsoniter => JsonCodec.jsoniter
-      }
+  def jsonCodec(config: KafkaJournalConfig): IO[JsonCodec[IO]] = {
+    val codec: JsonCodec[IO] = config.jsonCodec match {
+      case KafkaJournalConfig.JsonCodec.Default  => JsonCodec.default
+      case KafkaJournalConfig.JsonCodec.PlayJson => JsonCodec.playJson
+      case KafkaJournalConfig.JsonCodec.Jsoniter => JsonCodec.jsoniter
     }
+    codec.pure[IO]
+  }
 
   def adapterIO: Resource[IO, JournalAdapter[IO]] = {
     for {

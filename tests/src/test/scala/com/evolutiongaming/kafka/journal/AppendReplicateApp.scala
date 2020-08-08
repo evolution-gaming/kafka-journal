@@ -8,6 +8,8 @@ import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{FromFuture, FromTry, Log, LogOf, Runtime, ToFuture, ToTry}
+import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
+import com.evolutiongaming.kafka.journal.conversions.KafkaWrite
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
@@ -18,8 +20,6 @@ import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.MeasureDuration
 import com.typesafe.config.ConfigFactory
 import pureconfig.ConfigSource
-import TestJsonCodec.instance
-import com.evolutiongaming.kafka.journal.conversions.KafkaWrite
 
 import scala.concurrent.duration._
 
@@ -40,7 +40,22 @@ object AppendReplicateApp extends IOApp {
   }
 
 
-  private def runF[F[_] : ConcurrentEffect : Timer : Parallel : ContextShift : FromFuture : ToFuture : Runtime : FromGFuture : MeasureDuration : FromTry : FromAttempt : ToTry : Fail](
+  private def runF[
+    F[_]:
+    ConcurrentEffect:
+    Timer:
+    Parallel:
+    ContextShift:
+    FromFuture:
+    ToFuture:
+    Runtime:
+    FromGFuture:
+    MeasureDuration:
+    FromAttempt:
+    FromTry:
+    ToTry:
+    Fail
+  ](
     topic: Topic)(implicit
     system: ActorSystem,
   ): F[Unit] = {
@@ -104,8 +119,11 @@ object AppendReplicateApp extends IOApp {
   }
 
 
-  private def append[F[_] : Concurrent : Timer : Parallel](topic: Topic, journals: Journals[F])(
-    implicit kafkaWrite: KafkaWrite[F, Payload]) = {
+  private def append[F[_]: Concurrent: Timer: Parallel](
+    topic: Topic,
+    journals: Journals[F])(implicit
+    kafkaWrite: KafkaWrite[F, Payload]
+  ) = {
 
     def append(id: String) = {
 
