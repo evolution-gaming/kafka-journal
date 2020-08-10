@@ -14,6 +14,8 @@ trait TopicFlow[F[_]] {
   def apply(records: Nem[Partition, Nel[ConsRecord]]): F[Map[Partition, Offset]]
 
   def revoke(partitions: Nes[Partition]): F[Unit]
+
+  def lose(partitions: Nes[Partition]): F[Unit]
 }
 
 object TopicFlow {
@@ -25,6 +27,8 @@ object TopicFlow {
     def apply(records: Nem[Partition, Nel[ConsRecord]]) = Map.empty[Partition, Offset].pure[F]
 
     def revoke(partitions: Nes[Partition]) = ().pure[F]
+
+    def lose(partitions: Nes[Partition]) = ().pure[F]
   }
 
 
@@ -37,6 +41,8 @@ object TopicFlow {
       def apply(records: Nem[Partition, Nel[ConsRecord]]) = f(self(records))
 
       def revoke(partitions: Nes[Partition]) = f(self.revoke(partitions))
+
+      def lose(partitions: Nes[Partition]) = f(self.lose(partitions))
     }
   }
 }

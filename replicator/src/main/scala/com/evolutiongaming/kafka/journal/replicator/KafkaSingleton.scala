@@ -85,6 +85,18 @@ object KafkaSingleton {
     a: Resource[F, Unit]
   ): TopicFlow[F] = {
     val partition = Partition.min
+
+    def revokeOrLose(partitions: Nes[Partition]) = {
+      if (partitions contains_ partition) {
+        ref
+          .getAndSet(none[F[Unit]])
+          .flatMap { _.foldMapM(identity) }
+          .uncancelable
+      } else {
+        ().pure[F]
+      }
+    }
+
     new TopicFlow[F] {
 
       def assign(partitions: Nes[Partition]) = {
@@ -106,16 +118,9 @@ object KafkaSingleton {
         Map.empty[Partition, Offset].pure[F]
       }
 
-      def revoke(partitions: Nes[Partition]) = {
-        if (partitions contains_ partition) {
-          ref
-            .getAndSet(none[F[Unit]])
-            .flatMap { _.foldMapM(identity) }
-            .uncancelable
-        } else {
-          ().pure[F]
-        }
-      }
+      def revoke(partitions: Nes[Partition]) = revokeOrLose(partitions)
+
+      def lose(partitions: Nes[Partition]) = revokeOrLose(partitions)
     }
   }
 }

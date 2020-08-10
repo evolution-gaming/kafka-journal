@@ -213,13 +213,16 @@ object ConsumeTopicTest {
           def apply(records: Nem[Partition, Nel[ConsRecord]]) = {
             StateT.pure { state =>
               val state1 = state + Action.Poll(records)
-              //  TODO test
               (state1, Map((Partition.min, Offset.min)))
             }
           }
 
           def revoke(partitions: Nes[Partition]) = {
             StateT.unit { _ + Action.RevokePartitions(partitions) }
+          }
+
+          def lose(partitions: Nes[Partition]) = {
+            StateT.unit { _ + Action.LosePartitions(partitions) }
           }
         }
         (state1, (topicFlow, release))
@@ -360,6 +363,7 @@ object ConsumeTopicTest {
     case object ReleaseConsumer extends Action
     final case class AssignPartitions(partitions: Nes[Partition]) extends Action
     final case class RevokePartitions(partitions: Nes[Partition]) extends Action
+    final case class LosePartitions(partitions: Nes[Partition]) extends Action
     final case class Subscribe()(val listener: RebalanceListener[StateT]) extends Action
     final case class Poll(records: Nem[Partition, Nel[ConsRecord]]) extends Action
     final case class Commit(offsets: Nem[Partition, Offset]) extends Action

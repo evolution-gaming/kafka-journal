@@ -67,6 +67,10 @@ object ConsumeTopic {
           val partitions1 = partitions.map { _.partition }
           topicFlow.revoke(partitions1)
         }
+        def onPartitionsLost(partitions: Nes[TopicPartition]) = {
+          val partitions1 = partitions.map { _.partition }
+          topicFlow.lose(partitions1)
+        }
       }
     }
 

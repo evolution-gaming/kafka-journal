@@ -6,7 +6,7 @@ object Dependencies {
   val scalatest            = "org.scalatest"          %% "scalatest"             % "3.0.8"
   val `scala-java8-compat` = "org.scala-lang.modules" %% "scala-java8-compat"    % "0.9.1"
   val `kind-projector`     = "org.typelevel"           % "kind-projector"        % "0.11.0"
-  val `cassandra-driver`   = "com.datastax.cassandra"  % "cassandra-driver-core" % "3.10.0"
+  val `cassandra-driver`   = "com.datastax.cassandra"  % "cassandra-driver-core" % "3.10.1"
   val `play-json`          = "com.typesafe.play"      %% "play-json"             % "2.7.4"
   val `play-json-jsoniter` = "com.evolutiongaming"    %% "play-json-jsoniter"    % "0.7.1"
   val `executor-tools`     = "com.evolutiongaming"    %% "executor-tools"        % "1.0.2"
@@ -18,11 +18,11 @@ object Dependencies {
   val hostname             = "com.evolutiongaming"    %% "hostname"              % "0.1.2"
   val scassandra           = "com.evolutiongaming"    %% "scassandra"            % "3.0.2"
   val `cassandra-sync`     = "com.evolutiongaming"    %% "cassandra-sync"        % "1.0.8"
-  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "2.0.6"
+  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "2.1.0"
   val random               = "com.evolutiongaming"    %% "random"                % "0.0.7"
   val retry                = "com.evolutiongaming"    %% "retry"                 % "2.0.0"
   val sstream              = "com.evolutiongaming"    %% "sstream"               % "0.2.1"
-  val skafka               = "com.evolutiongaming"    %% "skafka"                % "10.0.0"
+  val skafka               = "com.evolutiongaming"    %% "skafka"                % "11.0.0"
   val scache               = "com.evolutiongaming"    %% "scache"                % "2.2.1"
   val `akka-test-actor`    = "com.evolutiongaming"    %% "akka-test-actor"       % "0.0.2"
 
@@ -54,7 +54,7 @@ object Dependencies {
   }
   
   object Kafka {
-    private val version = "2.5.0"
+    private val version = "2.5.1"
     val kafka           = "org.apache.kafka" %% "kafka"         % version
     val `kafka-clients` = "org.apache.kafka" %  "kafka-clients" % version
   }

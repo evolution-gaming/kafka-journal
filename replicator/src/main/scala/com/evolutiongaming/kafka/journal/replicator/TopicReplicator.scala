@@ -150,6 +150,10 @@ object TopicReplicator {
             }
           }
 
+          def remove(partitions: Nes[Partition]) = {
+            partitions.toNel.parTraverse { partition => cache.remove(partition) }
+          }
+
           new TopicFlow[F] {
 
             def assign(partitions: Nes[Partition]) = {
@@ -212,7 +216,14 @@ object TopicReplicator {
             def revoke(partitions: Nes[Partition]) = {
               for {
                 _ <- log.info(s"revoke ${partitions.mkString_(",") }")
-                _ <- partitions.toNel.parTraverse { partition => cache.remove(partition) }
+                _ <- remove(partitions)
+              } yield {}
+            }
+
+            def lose(partitions: Nes[Partition]) = {
+              for {
+                _ <- log.info(s"lose ${partitions.mkString_(",") }")
+                _ <- remove(partitions)
               } yield {}
             }
           }
