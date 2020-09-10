@@ -5,7 +5,7 @@ import cats.effect.{Concurrent, Resource, Timer}
 import cats.implicits._
 import com.evolutiongaming.catshelper.{BracketThrowable, Runtime}
 import com.evolutiongaming.scache
-import com.evolutiongaming.scache.{CacheMetrics, Releasable}
+import com.evolutiongaming.scache.{CacheMetrics, ExpiringCache, Releasable}
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.MeasureDuration
 
@@ -40,8 +40,9 @@ object CacheOf {
   ): CacheOf[F] = {
     new CacheOf[F] {
       def apply[K, V](topic: Topic) = {
+        val config = ExpiringCache.Config[F, K, V](expireAfter)
         for {
-          cache <- scache.Cache.expiring[F, K, V](expireAfter)
+          cache <- scache.Cache.expiring(config)
           cache <- cacheMetrics.fold { Resource.liftF(cache.pure[F]) } { cacheMetrics => cache.withMetrics(cacheMetrics(topic)) }
         } yield {
           new Cache[F, K, V] {
