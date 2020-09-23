@@ -248,6 +248,36 @@ object MetaJournalStatements {
   }
 
 
+  trait IdByTopicAndSegment[F[_]] {
+
+    def apply(topic: Topic, segment: SegmentNr): Stream[F, String]
+  }
+
+  object IdByTopicAndSegment {
+
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[IdByTopicAndSegment[F]] = {
+      val query =
+        s"""
+           |SELECT id FROM ${ name.toCql }
+           |WHERE topic = ?
+           |AND segment = ?
+           |""".stripMargin
+
+      query
+        .prepare
+        .map { prepared =>
+          (topic: Topic, segment: SegmentNr) =>
+            prepared
+              .bind()
+              .encode("topic", topic)
+              .encode(segment)
+              .execute
+              .map { _.decode[String]("id") }
+        }
+    }
+  }
+
+
   trait Update[F[_]] {
 
     def apply(
