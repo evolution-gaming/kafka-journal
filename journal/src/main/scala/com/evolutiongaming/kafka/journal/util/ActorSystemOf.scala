@@ -8,9 +8,10 @@ import com.typesafe.config.Config
 
 object ActorSystemOf {
 
-  def apply[F[_] : Sync : FromFuture](
+  def apply[F[_]: Sync: FromFuture](
     name: String,
-    config: Option[Config] = None): Resource[F, ActorSystem] = {
+    config: Option[Config] = None
+  ): Resource[F, ActorSystem] = {
 
     val system = Sync[F].delay { config.fold(ActorSystem(name)) { config => ActorSystem(name, config) } }
 
@@ -21,7 +22,7 @@ object ActorSystemOf {
   }
 
 
-  def apply[F[_] : Sync : FromFuture](system: ActorSystem): Resource[F, ActorSystem] = {
+  def apply[F[_]: Sync: FromFuture](system: ActorSystem): Resource[F, ActorSystem] = {
     val release = FromFuture[F].apply { system.terminate() }.void
     val result = (system, release).pure[F]
     Resource(result)
