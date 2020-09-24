@@ -6,7 +6,7 @@ import cats.data.{NonEmptyMap => Nem}
 import cats.effect.Resource
 import cats.implicits._
 import cats.{Applicative, Defer, Monad, ~>}
-import com.evolutiongaming.catshelper.{ApplicativeThrowable, BracketThrowable, Log}
+import com.evolutiongaming.catshelper.{ApplicativeThrowable, BracketThrowable, Log, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics._
@@ -158,11 +158,11 @@ object ReplicatedTopicJournal {
 
     def enhanceError(
       topic: Topic)(implicit
-      F: ApplicativeThrowable[F]
+      F: MonadThrowable[F]
     ): ReplicatedTopicJournal[F] = {
 
-      def error[A](msg: String, cause: Throwable) = {
-        JournalError(s"ReplicatedTopicJournal.$msg failed with $cause", cause).raiseError[F, A]
+      def journalError[A](msg: String, cause: Throwable) = {
+        JournalError(s"ReplicatedTopicJournal.$msg failed with $cause", cause)
       }
 
       new ReplicatedTopicJournal[F] {
@@ -170,20 +170,22 @@ object ReplicatedTopicJournal {
         def pointers = {
           self
             .pointers
-            .handleErrorWith { a => error(s"pointers topic: $topic", a) }
+            .adaptError { case a => journalError(s"pointers topic: $topic", a) }
         }
 
         def journal(id: String) = {
+          val key = Key(id = id, topic = topic)
           self
             .journal(id)
-            .map { _.enhanceError(Key(id = id, topic = topic)) }
+            .map { _.enhanceError(key) }
+            .adaptError { case a => journalError(s"journal key: $key", a) }
         }
 
         def save(pointers: Nem[Partition, Offset], timestamp: Instant) = {
           self
             .save(pointers, timestamp)
-            .handleErrorWith { a =>
-              error(s"save " +
+            .adaptError { case a =>
+              journalError(s"save " +
                 s"topic: $topic, " +
                 s"pointers: $pointers, " +
                 s"timestamp: $timestamp", a)

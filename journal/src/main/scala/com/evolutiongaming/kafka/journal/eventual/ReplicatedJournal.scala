@@ -5,7 +5,7 @@ package com.evolutiongaming.kafka.journal.eventual
 import cats.effect.Resource
 import cats.implicits._
 import cats.{Applicative, Defer, Monad, ~>}
-import com.evolutiongaming.catshelper.{ApplicativeThrowable, BracketThrowable, Log}
+import com.evolutiongaming.catshelper.{ApplicativeThrowable, BracketThrowable, Log, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.MetricsHelper._
@@ -113,10 +113,10 @@ object ReplicatedJournal {
     }
 
 
-    def enhanceError(implicit F: ApplicativeThrowable[F]): ReplicatedJournal[F] = {
+    def enhanceError(implicit F: MonadThrowable[F]): ReplicatedJournal[F] = {
 
-      def error[A](msg: String, cause: Throwable) = {
-        JournalError(s"ReplicatedJournal.$msg failed with $cause", cause).raiseError[F, A]
+      def journalError[A](msg: String, cause: Throwable) = {
+        JournalError(s"ReplicatedJournal.$msg failed with $cause", cause)
       }
 
       new ReplicatedJournal[F] {
@@ -124,13 +124,14 @@ object ReplicatedJournal {
         def topics = {
           self
             .topics
-            .handleErrorWith { a => error(s"topics", a) }
+            .adaptError { case a => journalError(s"topics", a) }
         }
 
         def journal(topic: Topic) = {
           self
             .journal(topic)
             .map { _.enhanceError(topic) }
+            .adaptError { case a => journalError(s"journal, topic: $topic", a) }
         }
       }
     }
