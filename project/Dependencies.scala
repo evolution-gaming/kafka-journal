@@ -7,7 +7,7 @@ object Dependencies {
   val `scala-java8-compat` = "org.scala-lang.modules" %% "scala-java8-compat"    % "0.9.1"
   val `kind-projector`     = "org.typelevel"           % "kind-projector"        % "0.11.0"
   val `cassandra-driver`   = "com.datastax.cassandra"  % "cassandra-driver-core" % "3.10.1"
-  val `play-json`          = "com.typesafe.play"      %% "play-json"             % "2.7.4"
+  val `play-json`          = "com.typesafe.play"      %% "play-json"             % "2.9.1"
   val `play-json-jsoniter` = "com.evolutiongaming"    %% "play-json-jsoniter"    % "0.7.1"
   val `executor-tools`     = "com.evolutiongaming"    %% "executor-tools"        % "1.0.2"
   val `config-tools`       = "com.evolutiongaming"    %% "config-tools"          % "1.0.3"
@@ -18,17 +18,17 @@ object Dependencies {
   val hostname             = "com.evolutiongaming"    %% "hostname"              % "0.1.2"
   val scassandra           = "com.evolutiongaming"    %% "scassandra"            % "3.0.2"
   val `cassandra-sync`     = "com.evolutiongaming"    %% "cassandra-sync"        % "1.0.8"
-  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "2.1.1"
+  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "2.1.2"
   val random               = "com.evolutiongaming"    %% "random"                % "0.0.7"
-  val retry                = "com.evolutiongaming"    %% "retry"                 % "2.0.0"
+  val retry                = "com.evolutiongaming"    %% "retry"                 % "2.1.0"
   val sstream              = "com.evolutiongaming"    %% "sstream"               % "0.2.1"
   val skafka               = "com.evolutiongaming"    %% "skafka"                % "11.0.0"
   val scache               = "com.evolutiongaming"    %% "scache"                % "2.3.1"
   val `akka-test-actor`    = "com.evolutiongaming"    %% "akka-test-actor"       % "0.0.2"
 
   object Cats {
-    val core   = "org.typelevel" %% "cats-core"   % "2.1.1"
-    val effect = "org.typelevel" %% "cats-effect" % "2.1.4"
+    val core   = "org.typelevel" %% "cats-core"   % "2.2.0"
+    val effect = "org.typelevel" %% "cats-effect" % "2.2.0"
   }
 
   object Logback {

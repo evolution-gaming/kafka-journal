@@ -58,7 +58,7 @@ object TopicCommit {
             val offsets1 = state.offsets ++ offsets.toSortedMap
             if (state.until <= timestamp) {
               offsets1
-                .toNem
+                .toNem()
                 .foldMapM { offsets => commit(offsets) }
                 .as(State(timestamp + delay))
             } else {

@@ -332,7 +332,7 @@ object ConsumeTopicTest {
   def recordsOf(record: ConsRecord, records: ConsRecord*): Nem[Partition, Nel[ConsRecord]] = {
     Nel(record, records.toList)
       .groupBy { _.topicPartition.partition }
-      .toNem
+      .toNem()
       .get
   }
 
