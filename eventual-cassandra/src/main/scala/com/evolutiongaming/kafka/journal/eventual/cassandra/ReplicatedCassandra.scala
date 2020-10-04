@@ -541,7 +541,12 @@ object ReplicatedCassandra {
               }
             }
 
-            def delete = metaJournal1.delete
+            def delete = {
+              for {
+                _ <- deleteMetadata(key)
+                a <- metaJournal1.delete
+              } yield a
+            }
 
             def deleteExpiry = metaJournal1.deleteExpiry
           }
