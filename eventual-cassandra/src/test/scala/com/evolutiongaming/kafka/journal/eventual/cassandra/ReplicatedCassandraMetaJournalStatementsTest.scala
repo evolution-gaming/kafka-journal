@@ -46,11 +46,6 @@ class ReplicatedCassandraMetaJournalStatementsTest extends WordSpec with Matcher
             origin = origin.some))))))
         val (state1, _) = stateT.run(state0).get
         val expected = State(
-          metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
-            journalHead = journalHead1,
-            created = timestamp0,
-            updated = timestamp1,
-            origin = origin.some))))),
           metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
             journalHead = journalHead1,
             created = timestamp0,
@@ -449,52 +444,6 @@ object ReplicatedCassandraMetaJournalStatementsTest {
   }
 
 
-  val updateMetadata: MetadataStatements.Update[StateT] = {
-    (key, partitionOffset, timestamp, seqNr, deleteTo) => {
-      StateT.unit { state =>
-        state.updateMetadata(key) { entry =>
-          entry.copy(
-            journalHead = entry.journalHead.copy(
-              partitionOffset = partitionOffset,
-              seqNr = seqNr,
-              deleteTo = deleteTo.some),
-            updated = timestamp)
-        }
-      }
-    }
-  }
-
-
-  val updateSeqNrMetadata: MetadataStatements.UpdateSeqNr[StateT] = {
-    (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr) => {
-      StateT.unit { state =>
-        state.updateMetadata(key) { entry =>
-          entry.copy(
-            journalHead = entry.journalHead.copy(
-              partitionOffset = partitionOffset,
-              seqNr = seqNr),
-            updated = timestamp)
-        }
-      }
-    }
-  }
-
-
-  val updateDeleteToMetadata: MetadataStatements.UpdateDeleteTo[StateT] = {
-    (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: DeleteTo) => {
-      StateT.unit { state =>
-        state.updateMetadata(key) { entry =>
-          entry.copy(
-            journalHead = entry.journalHead.copy(
-              partitionOffset = partitionOffset,
-              deleteTo = deleteTo.some),
-            updated = timestamp)
-        }
-      }
-    }
-  }
-
-
   val deleteMetadata: MetadataStatements.Delete[StateT] = {
     key => {
       StateT.unit { state =>
@@ -527,19 +476,11 @@ object ReplicatedCassandraMetaJournalStatementsTest {
     deleteExpiryMetaJournal)
 
 
-  val metadata: ReplicatedCassandra.MetaJournalStatements[StateT] = ReplicatedCassandra.MetaJournalStatements(
-    selectJournalHeadMetadata,
-    updateMetadata,
-    updateSeqNrMetadata,
-    updateDeleteToMetadata,
-    deleteMetadata)
-
-
   val metaJournalStatements: ReplicatedCassandra.MetaJournalStatements[StateT] = {
     ReplicatedCassandra.MetaJournalStatements(
       metaJournal = metaJournal,
-      metadata = metadata,
       selectMetadata = selectMetadata,
+      deleteMetadata = deleteMetadata,
       insertMetaJournal = insertMetaJournal)
   }
 

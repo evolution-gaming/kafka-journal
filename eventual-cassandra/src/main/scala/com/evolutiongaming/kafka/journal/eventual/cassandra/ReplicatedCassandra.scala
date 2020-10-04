@@ -25,9 +25,9 @@ object ReplicatedCassandra {
 
   def of[
     F[_]
-    : Concurrent : Parallel : Timer
-    : FromFuture : ToFuture : ToTry : LogOf
-    : CassandraCluster : CassandraSession
+    : Concurrent: Parallel: Timer
+    : FromFuture: ToFuture: ToTry: LogOf
+    : CassandraCluster: CassandraSession
     : MeasureDuration
     : JsonCodec.Encode
   ](
@@ -51,7 +51,7 @@ object ReplicatedCassandra {
     }
   }
 
-  def apply[F[_] : Sync : Parallel](
+  def apply[F[_]: Sync: Parallel](
     segmentSize: SegmentSize,
     segmentOf: SegmentOf[F],
     statements: Statements[F],
@@ -112,6 +112,7 @@ object ReplicatedCassandra {
                   } else {
                     def update = {
                       def update = metaJournal.update(partitionOffset, timestamp)
+
                       if (journalHead.seqNr >= deleteTo.value) {
                         val journalHead1 = journalHead.copy(
                           partitionOffset = partitionOffset,
@@ -152,7 +153,7 @@ object ReplicatedCassandra {
 
                     val result = for {
                       journalHead <- update
-                      _           <- delete
+                      _ <- delete
                     } yield {
                       journalHead.some
                     }
@@ -346,6 +347,7 @@ object ReplicatedCassandra {
                         false.pure[F]
                       }
                     }
+
                     for {
                       journalHead <- journalHeadRef.get
                       result      <- journalHead.fold(false.pure[F]) { purge }
@@ -454,24 +456,15 @@ object ReplicatedCassandra {
 
   object MetaJournalStatements {
 
-    def of[F[_] : Monad : Parallel : CassandraSession](schema: Schema): F[MetaJournalStatements[F]] = {
-      val metadata = {
-        val statements = (
-          MetadataStatements.SelectJournalHead.of[F](schema.metadata),
-          MetadataStatements.Update.of[F](schema.metadata),
-          MetadataStatements.UpdateSeqNr.of[F](schema.metadata),
-          MetadataStatements.UpdateDeleteTo.of[F](schema.metadata),
-          MetadataStatements.Delete.of[F](schema.metadata))
-        statements.parMapN(apply[F])
-      }
-
-       val select = MetadataStatements.Select.of[F](schema.metadata)
-       val insert = cassandra.MetaJournalStatements.Insert.of[F](schema.metaJournal)
-       (of[F](schema.metaJournal), metadata, select, insert).parMapN(apply[F])
+    def of[F[_]: Monad: Parallel: CassandraSession](schema: Schema): F[MetaJournalStatements[F]] = {
+      val select = MetadataStatements.Select.of[F](schema.metadata)
+      val delete = MetadataStatements.Delete.of[F](schema.metadata)
+      val insert = cassandra.MetaJournalStatements.Insert.of[F](schema.metaJournal)
+      (of[F](schema.metaJournal), select, delete, insert).parMapN(apply[F])
     }
 
 
-    def of[F[_] : Monad : Parallel : CassandraSession](metaJournal: TableName): F[MetaJournalStatements[F]] = {
+    def of[F[_]: Monad: Parallel: CassandraSession](metaJournal: TableName): F[MetaJournalStatements[F]] = {
       val statements = (
         cassandra.MetaJournalStatements.SelectJournalHead.of[F](metaJournal),
         cassandra.MetaJournalStatements.Insert.of[F](metaJournal),
@@ -485,10 +478,10 @@ object ReplicatedCassandra {
     }
 
 
-    def apply[F[_] : Monad](
-      metaJournal      : MetaJournalStatements[F],
-      metadata         : MetaJournalStatements[F],
-      selectMetadata   : MetadataStatements.Select[F],
+    def apply[F[_]: Monad](
+      metaJournal: MetaJournalStatements[F],
+      selectMetadata: MetadataStatements.Select[F],
+      deleteMetadata: MetadataStatements.Delete[F],
       insertMetaJournal: cassandra.MetaJournalStatements.Insert[F]
     ): MetaJournalStatements[F] = {
 
@@ -497,8 +490,6 @@ object ReplicatedCassandra {
         def apply(key: Key, segment: SegmentNr) = {
 
           def metaJournal1 = metaJournal(key, segment)
-
-          def metadata1 = metadata(key, segment)
 
           new ByKey[F] {
 
@@ -510,14 +501,18 @@ object ReplicatedCassandra {
                     selectMetadata(key).flatMap { entry =>
                       entry.traverse { entry =>
                         val journalHead = entry.journalHead
-                        insertMetaJournal(
+                        def insert = insertMetaJournal(
                           key = key,
                           segment = segment,
                           created = entry.created,
                           updated = entry.updated,
                           journalHead = journalHead,
                           origin = entry.origin
-                        ) as journalHead
+                        )
+                        for {
+                          _ <- insert
+                          _ <- deleteMetadata(key)
+                        } yield journalHead
                       }
                     }
                   } { journalHead =>
@@ -534,46 +529,19 @@ object ReplicatedCassandra {
 
               def metaJournal = metaJournal1.update(partitionOffset, timestamp)
 
-              def metadata = metadata1.update(partitionOffset, timestamp)
-
               new ByKey.Update[F] {
 
-                def apply(seqNr: SeqNr) = {
-                  for {
-                    _ <- metaJournal(seqNr)
-                    _ <- metadata(seqNr)
-                  } yield {}
-                }
+                def apply(seqNr: SeqNr) = metaJournal(seqNr)
 
-                def apply(seqNr: SeqNr, expiry: Expiry) = {
-                  for {
-                    _ <- metaJournal(seqNr, expiry)
-                    _ <- metadata(seqNr, expiry)
-                  } yield {}
-                }
+                def apply(seqNr: SeqNr, expiry: Expiry) = metaJournal(seqNr, expiry)
 
-                def apply(deleteTo: DeleteTo) = {
-                  for {
-                    _ <- metaJournal(deleteTo)
-                    _ <- metadata(deleteTo)
-                  } yield {}
-                }
+                def apply(deleteTo: DeleteTo) = metaJournal(deleteTo)
 
-                def apply(seqNr: SeqNr, deleteTo: DeleteTo) = {
-                  for {
-                    _ <- metaJournal(seqNr, deleteTo)
-                    _ <- metadata(seqNr, deleteTo)
-                  } yield {}
-                }
+                def apply(seqNr: SeqNr, deleteTo: DeleteTo) = metaJournal(seqNr, deleteTo)
               }
             }
 
-            def delete = {
-              for {
-                _ <- metaJournal1.delete
-                _ <- metadata1.delete
-              } yield {}
-            }
+            def delete = metaJournal1.delete
 
             def deleteExpiry = metaJournal1.deleteExpiry
           }
@@ -584,13 +552,13 @@ object ReplicatedCassandra {
 
     def apply[F[_]](
       selectJournalHead: cassandra.MetaJournalStatements.SelectJournalHead[F],
-      insert           : cassandra.MetaJournalStatements.Insert[F],
-      update           : cassandra.MetaJournalStatements.Update[F],
-      updateSeqNr      : cassandra.MetaJournalStatements.UpdateSeqNr[F],
-      updateExpiry     : cassandra.MetaJournalStatements.UpdateExpiry[F],
-      updateDeleteTo   : cassandra.MetaJournalStatements.UpdateDeleteTo[F],
-      delete           : cassandra.MetaJournalStatements.Delete[F],
-      deleteExpiry     : cassandra.MetaJournalStatements.DeleteExpiry[F]
+      insert: cassandra.MetaJournalStatements.Insert[F],
+      update: cassandra.MetaJournalStatements.Update[F],
+      updateSeqNr: cassandra.MetaJournalStatements.UpdateSeqNr[F],
+      updateExpiry: cassandra.MetaJournalStatements.UpdateExpiry[F],
+      updateDeleteTo: cassandra.MetaJournalStatements.UpdateDeleteTo[F],
+      delete: cassandra.MetaJournalStatements.Delete[F],
+      deleteExpiry: cassandra.MetaJournalStatements.DeleteExpiry[F]
     ): MetaJournalStatements[F] = {
 
       val inset1 = insert
@@ -639,61 +607,9 @@ object ReplicatedCassandra {
     }
 
 
-    def apply[F[_] : Applicative](
-      selectJournalHead: MetadataStatements.SelectJournalHead[F],
-      update           : MetadataStatements.Update[F],
-      updateSeqNr      : MetadataStatements.UpdateSeqNr[F],
-      updateDeleteTo   : MetadataStatements.UpdateDeleteTo[F],
-      delete           : MetadataStatements.Delete[F]
-    ): MetaJournalStatements[F] = {
-
-      val update1 = update
-      val delete1 = delete
-
-      new MetaJournalStatements[F] {
-        
-        def apply(key: Key, segment: SegmentNr) = {
-          new ByKey[F] {
-
-            def journalHead = selectJournalHead(key)
-
-            def insert(timestamp: Instant, journalHead: JournalHead, origin: Option[Origin]) = {
-              ().pure[F]
-            }
-
-            def update(partitionOffset: PartitionOffset, timestamp: Instant) = {
-              new ByKey.Update[F] {
-
-                def apply(seqNr: SeqNr) = {
-                  updateSeqNr(key, partitionOffset, timestamp, seqNr)
-                }
-
-                def apply(seqNr: SeqNr, expiry: Expiry) = {
-                  updateSeqNr(key, partitionOffset, timestamp, seqNr)
-                }
-
-                def apply(deleteTo: DeleteTo) = {
-                  updateDeleteTo(key, partitionOffset, timestamp, deleteTo)
-                }
-
-                def apply(seqNr: SeqNr, deleteTo: DeleteTo) = {
-                  update1(key, partitionOffset, timestamp, seqNr, deleteTo)
-                }
-              }
-            }
-
-            def delete = delete1(key)
-
-            def deleteExpiry = ().pure[F]
-          }
-        }
-      }
-    }
-
-
     trait ByKey[F[_]] {
       import ByKey._
-      
+
       def journalHead: F[Option[JournalHead]]
 
       def insert(timestamp: Instant, journalHead: JournalHead, origin: Option[Origin]): F[Unit]
@@ -722,21 +638,21 @@ object ReplicatedCassandra {
 
 
   final case class Statements[F[_]](
-    insertRecords   : JournalStatements.InsertRecords[F],
-    deleteRecords   : JournalStatements.DeleteRecords[F],
-    metaJournal     : MetaJournalStatements[F],
-    selectPointer   : PointerStatements.Select[F],
+    insertRecords: JournalStatements.InsertRecords[F],
+    deleteRecords: JournalStatements.DeleteRecords[F],
+    metaJournal: MetaJournalStatements[F],
+    selectPointer: PointerStatements.Select[F],
     selectPointersIn: PointerStatements.SelectIn[F],
-    selectPointers  : PointerStatements.SelectAll[F],
-    insertPointer   : PointerStatements.Insert[F],
-    updatePointer   : PointerStatements.Update[F],
-    selectTopics    : PointerStatements.SelectTopics[F])
+    selectPointers: PointerStatements.SelectAll[F],
+    insertPointer: PointerStatements.Insert[F],
+    updatePointer: PointerStatements.Update[F],
+    selectTopics: PointerStatements.SelectTopics[F])
 
   object Statements {
 
     def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 
-    def of[F[_] : Monad : Parallel : CassandraSession : ToTry : JsonCodec.Encode](schema: Schema): F[Statements[F]] = {
+    def of[F[_]: Monad: Parallel: CassandraSession: ToTry: JsonCodec.Encode](schema: Schema): F[Statements[F]] = {
       val statements = (
         JournalStatements.InsertRecords.of[F](schema.journal),
         JournalStatements.DeleteRecords.of[F](schema.journal),

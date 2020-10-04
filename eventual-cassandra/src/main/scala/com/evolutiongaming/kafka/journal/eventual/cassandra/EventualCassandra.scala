@@ -17,8 +17,8 @@ object EventualCassandra {
 
   def of[
     F[_]
-    : Concurrent : Parallel : Timer
-    : FromFuture : ToFuture : ToTry: LogOf
+    : Concurrent: Parallel: Timer
+    : FromFuture: ToFuture: ToTry: LogOf
     : FromGFuture
     : MeasureDuration
     : JsonCodec.Decode
@@ -42,9 +42,9 @@ object EventualCassandra {
 
   def of[
     F[_]
-    : Concurrent : Parallel : Timer
-    : FromFuture : ToFuture : ToTry : LogOf
-    : CassandraCluster : CassandraSession
+    : Concurrent: Parallel: Timer
+    : FromFuture: ToFuture: ToTry: LogOf
+    : CassandraCluster: CassandraSession
     : MeasureDuration
     : JsonCodec.Decode
   ](
@@ -66,7 +66,7 @@ object EventualCassandra {
   }
 
 
-  def apply[F[_] : Monad : Parallel](
+  def apply[F[_]: Monad: Parallel](
     statements: Statements[F],
     segmentOf: SegmentOf[F]
   ): EventualJournal[F] = {
@@ -144,7 +144,7 @@ object EventualCassandra {
 
     def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 
-    def of[F[_]: Monad : Parallel : CassandraSession : ToTry : JsonCodec.Decode](schema: Schema): F[Statements[F]] = {
+    def of[F[_]: Monad: Parallel: CassandraSession: ToTry: JsonCodec.Decode](schema: Schema): F[Statements[F]] = {
       val statements = (
         JournalStatements.SelectRecords.of[F](schema.journal),
         MetaJournalStatements.of[F](schema),
@@ -163,7 +163,7 @@ object EventualCassandra {
 
   object MetaJournalStatements {
 
-    def of[F[_] : Monad : Parallel : CassandraSession](schema: Schema): F[MetaJournalStatements[F]] = {
+    def of[F[_]: Monad: Parallel: CassandraSession](schema: Schema): F[MetaJournalStatements[F]] = {
 
       val metadata = {
         val statements = (
@@ -176,7 +176,7 @@ object EventualCassandra {
     }
 
 
-    def of[F[_] : Monad : Parallel : CassandraSession](metaJournal: TableName): F[MetaJournalStatements[F]] = {
+    def of[F[_]: Monad: Parallel: CassandraSession](metaJournal: TableName): F[MetaJournalStatements[F]] = {
       val statements = (
         cassandra.MetaJournalStatements.SelectJournalHead.of[F](metaJournal),
         cassandra.MetaJournalStatements.SelectJournalPointer.of[F](metaJournal))
@@ -185,7 +185,7 @@ object EventualCassandra {
     }
 
 
-    def apply[F[_] : Monad](
+    def apply[F[_]: Monad](
       metaJournal: MetaJournalStatements[F],
       metadata: MetaJournalStatements[F]
     ): MetaJournalStatements[F] = {
@@ -200,7 +200,7 @@ object EventualCassandra {
               case None              => metadata.journalHead(key, segment)
             }
         }
-        
+
         def journalPointer(key: Key, segment: SegmentNr) = {
           metaJournal
             .journalPointer(key, segment)
