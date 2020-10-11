@@ -6,7 +6,8 @@ import java.time.temporal.ChronoUnit
 
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
-import cats.effect.{IO, Resource}
+import cats.effect.IO
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
@@ -33,7 +34,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
       val log = Log.empty[IO]
       val headCacheOf = HeadCacheOf[IO](HeadCacheMetrics.empty[IO].some)
       for {
-        config    <- Resource.liftF(config.liftTo[IO])
+        config    <- config.liftTo[IO].toResource
         consumer   = Journals.Consumer.of[IO](config.journal.kafka.consumer, config.journal.pollTimeout)
         headCache <- headCacheOf(config.journal.kafka.consumer, eventualJournal)
       } yield {

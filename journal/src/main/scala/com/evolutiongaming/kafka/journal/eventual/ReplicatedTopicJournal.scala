@@ -6,7 +6,8 @@ import cats.data.{NonEmptyMap => Nem}
 import cats.effect.Resource
 import cats.implicits._
 import cats.{Applicative, Defer, Monad, ~>}
-import com.evolutiongaming.catshelper.{ApplicativeThrowable, BracketThrowable, Log, MonadThrowable}
+import com.evolutiongaming.catshelper.CatsHelper._
+import com.evolutiongaming.catshelper.{BracketThrowable, Log, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics._
@@ -32,7 +33,10 @@ object ReplicatedTopicJournal {
     def pointers = TopicPointers.empty.pure[F]
 
     def journal(id: String) = {
-      Resource.liftF(ReplicatedKeyJournal.empty[F].pure[F])
+      ReplicatedKeyJournal
+        .empty[F]
+        .pure[F]
+        .toResource
     }
 
     def save(pointers: Nem[Partition, Offset], timestamp: Instant) = false.pure[F]
@@ -50,8 +54,9 @@ object ReplicatedTopicJournal {
 
       def journal(id: String) = {
         val key = Key(id = id, topic = topic)
-        val replicatedKeyJournal = ReplicatedKeyJournal(key, replicatedJournal)
-        Resource.liftF(replicatedKeyJournal.pure[F])
+        ReplicatedKeyJournal(key, replicatedJournal)
+          .pure[F]
+          .toResource
       }
 
       def save(pointers: Nem[Partition, Offset], timestamp: Instant) = {

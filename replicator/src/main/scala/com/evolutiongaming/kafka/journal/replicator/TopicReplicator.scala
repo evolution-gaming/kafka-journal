@@ -8,6 +8,7 @@ import cats.effect._
 import cats.effect.implicits._
 import cats.implicits._
 import cats.{Applicative, Monad, Parallel}
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, ToTry}
@@ -75,7 +76,7 @@ object TopicReplicator {
     }
 
     for {
-      log       <- Resource.liftF(log)
+      log       <- log.toResource
       consuming  = consume(consumer, log).start
       fiber     <- ResourceOf(consuming)
     } yield {
@@ -107,7 +108,7 @@ object TopicReplicator {
       (topic: Topic) => {
         for {
           journal  <- journal.journal(topic)
-          pointers <- Resource.liftF(journal.pointers)
+          pointers <- journal.pointers.toResource
           cache    <- cacheOf[Partition, PartitionFlow](topic)
         } yield {
 
@@ -266,7 +267,7 @@ object TopicReplicator {
         consumer <- KafkaConsumerOf[F].apply[String, ByteVector](config1)
         metadata  = hostName.fold { Metadata.empty } { _.value }
         commit    = TopicCommit(topic, metadata, consumer)
-        commit   <- Resource.liftF(TopicCommit.delayed(5.seconds, commit))
+        commit   <- TopicCommit.delayed(5.seconds, commit).toResource
       } yield {
         TopicConsumer(topic, pollTimeout, commit, consumer)
       }

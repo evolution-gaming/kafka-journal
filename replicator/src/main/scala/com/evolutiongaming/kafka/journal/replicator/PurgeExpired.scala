@@ -5,6 +5,7 @@ import cats.effect.{Clock, Resource}
 import cats.implicits._
 import cats.{Applicative, Monad, ~>}
 import com.evolutiongaming.catshelper.DataHelper._
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, Log, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraSession, ExpireOn, MetaJournalStatements, SegmentNr}
@@ -38,7 +39,7 @@ object PurgeExpired {
     for {
       producer      <- Journals.Producer.of[F](producerConfig)
       selectExpired  = MetaJournalStatements.IdByTopicAndExpireOn.of[F](tableName)
-      selectExpired <- Resource.liftF(selectExpired)
+      selectExpired <- selectExpired.toResource
     } yield {
       val produce = Produce(producer, origin)
       val purgeExpired = apply(selectExpired, produce)

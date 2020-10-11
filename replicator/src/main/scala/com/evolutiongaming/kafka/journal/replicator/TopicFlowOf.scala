@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal.replicator
 import cats.effect.{Bracket, Resource}
 import cats.implicits._
 import cats.{Applicative, Defer, ~>}
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.skafka.Topic
 
 trait TopicFlowOf[F[_]] {
@@ -12,7 +13,7 @@ trait TopicFlowOf[F[_]] {
 
 object TopicFlowOf {
 
-  def empty[F[_] : Applicative]: TopicFlowOf[F] = (_: Topic) => Resource.liftF(TopicFlow.empty[F].pure[F])
+  def empty[F[_] : Applicative]: TopicFlowOf[F] = (_: Topic) => TopicFlow.empty[F].pure[F].toResource
 
 
   implicit class TopicFlowOfOps[F[_]](val self: TopicFlowOf[F]) extends AnyVal {

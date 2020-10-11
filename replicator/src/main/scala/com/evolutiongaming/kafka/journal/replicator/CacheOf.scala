@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal.replicator
 import cats.Parallel
 import cats.effect.{Concurrent, Resource, Timer}
 import cats.implicits._
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, Runtime}
 import com.evolutiongaming.scache
 import com.evolutiongaming.scache.{CacheMetrics, ExpiringCache, Releasable}
@@ -29,7 +30,9 @@ object CacheOf {
         def remove(key: K) = ().pure[F]
       }
 
-      Resource.liftF(cache.pure[F])
+      cache
+        .pure[F]
+        .toResource
     }
   }
 
@@ -43,7 +46,7 @@ object CacheOf {
         val config = ExpiringCache.Config[F, K, V](expireAfter)
         for {
           cache <- scache.Cache.expiring(config)
-          cache <- cacheMetrics.fold { Resource.liftF(cache.pure[F]) } { cacheMetrics => cache.withMetrics(cacheMetrics(topic)) }
+          cache <- cacheMetrics.fold { cache.pure[Resource[F,*]] } { cacheMetrics => cache.withMetrics(cacheMetrics(topic)) }
         } yield {
           new Cache[F, K, V] {
 

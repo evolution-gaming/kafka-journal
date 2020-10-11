@@ -6,6 +6,7 @@ import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect._
 import cats.implicits._
 import cats.{Applicative, Monoid, Parallel}
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log}
 import com.evolutiongaming.kafka.journal.{ConsRecords, _}
@@ -838,7 +839,7 @@ object TopicReplicatorSpec {
             }
           }
 
-          Resource.liftF(journal.pure[StateT])
+          journal.pure[StateT].toResource
         }
 
         def save(pointers: Nem[Partition, Offset], timestamp: Instant) = {
@@ -855,7 +856,7 @@ object TopicReplicatorSpec {
         }
       }
 
-      Resource.liftF(journal.pure[StateT])
+      journal.pure[StateT].toResource
     }
 
     def topics = SortedSet.empty[Topic].pure[StateT]
@@ -951,7 +952,7 @@ object TopicReplicatorSpec {
 
     TopicReplicator.of[StateT, Payload](
       topic = topic,
-      consumer = Resource.liftF(consumer.pure[StateT]),
+      consumer = consumer.pure[StateT].toResource,
       consRecordToActionRecord = ConsRecordToActionRecord[StateT],
       kafkaRead = kafkaRead,
       eventualWrite = eventualWrite,

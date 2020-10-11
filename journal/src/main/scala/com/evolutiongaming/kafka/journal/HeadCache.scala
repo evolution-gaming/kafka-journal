@@ -8,13 +8,13 @@ import cats.effect._
 import cats.effect.concurrent.Deferred
 import cats.effect.implicits._
 import cats.implicits._
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.conversions.ConsRecordToActionHeader
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
-import com.evolutiongaming.kafka.journal.util.EitherHelper._
 import com.evolutiongaming.kafka.journal.util.ResourceOf
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
@@ -66,7 +66,7 @@ object HeadCache {
     val eventual = Eventual(eventualJournal)
     val consumer = Consumer.of[F](consumerConfig)
     for {
-      log       <- Resource.liftF(LogOf[F].apply(HeadCache.getClass))
+      log       <- LogOf[F].apply(HeadCache.getClass).toResource
       headCache <- HeadCache.of(eventual, log, consumer, metrics)
     } yield {
       metrics.fold { headCache } { metrics => headCache.withMetrics(metrics.headCache) }
@@ -90,7 +90,7 @@ object HeadCache {
       def topicCache(topic: Topic) = {
         val logTopic = log.prefixed(topic)
         val topicCache = for {
-          _          <- Resource.liftF(logTopic.info("create"))
+          _          <- logTopic.info("create").toResource
           consumer1   = consumer.map(Consumer(_, logTopic))
           topicCache <- TopicCache.of(
             topic = topic,
@@ -118,7 +118,7 @@ object HeadCache {
 
     val result = for {
       cache <- Cache.loading[F, Topic, TopicCache[F]]
-      cache <- metrics.fold(Resource.liftF(cache.pure[F])) { metrics => cache.withMetrics(metrics.cache) }
+      cache <- metrics.fold(cache.pure[Resource[F, *]]) { metrics => cache.withMetrics(metrics.cache) }
     } yield {
       headCache(cache)
     }
@@ -240,7 +240,7 @@ object HeadCache {
       }
 
       for {
-        pointers <- Resource.liftF(eventual.pointers(topic))
+        pointers <- eventual.pointers(topic).toResource
         stateRef <- stateRef(state(pointers))
         pointers  = stateRef.get.map(_.pointers)
         _        <- ResourceOf(consume(stateRef, pointers).start)

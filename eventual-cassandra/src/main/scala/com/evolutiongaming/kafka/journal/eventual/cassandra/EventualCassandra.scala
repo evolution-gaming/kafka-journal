@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.effect.{Concurrent, Resource, Timer}
 import cats.implicits._
 import cats.{Monad, Parallel}
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
@@ -36,7 +37,7 @@ object EventualCassandra {
     for {
       cassandraCluster <- CassandraCluster.of[F](config.client, cassandraClusterOf, config.retries)
       cassandraSession <- cassandraCluster.session
-      journal          <- Resource.liftF(journal(cassandraCluster, cassandraSession))
+      journal          <- journal(cassandraCluster, cassandraSession).toResource
     } yield journal
   }
 

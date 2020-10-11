@@ -5,6 +5,7 @@ import cats.effect.concurrent.Ref
 import cats.effect.implicits._
 import cats.implicits._
 import cats.{Applicative, Functor, Monad}
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.skafka.Topic
@@ -54,7 +55,9 @@ object KafkaHealthCheck {
         log = log)
     }
 
-    Resource.liftF(result).flatten
+    result
+      .toResource
+      .flatten
   }
 
   def of[F[_] : Concurrent : Timer](

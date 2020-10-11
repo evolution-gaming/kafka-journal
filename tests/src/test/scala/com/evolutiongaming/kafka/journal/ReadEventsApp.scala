@@ -4,6 +4,7 @@ import cats.Parallel
 import cats.effect._
 import cats.data.{NonEmptyList => Nel}
 import cats.implicits._
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, FromTry, Log, LogOf, ToFuture, ToTry}
 import com.evolutiongaming.kafka.journal.eventual.cassandra._
 import com.evolutiongaming.kafka.journal.util.Fail
@@ -83,8 +84,8 @@ object ReadEventsApp extends IOApp {
           password = "password").some))
 
     val journal = for {
-      cassandraClusterOf <- Resource.liftF(CassandraClusterOf.of[F])
-      origin             <- Resource.liftF(Origin.hostName[F])
+      cassandraClusterOf <- CassandraClusterOf.of[F].toResource
+      origin             <- Origin.hostName[F].toResource
       eventualJournal    <- EventualCassandra.of[F](eventualCassandraConfig, origin, none, cassandraClusterOf)
       headCache          <- HeadCache.of[F](consumerConfig, eventualJournal, none)
       producer           <- Journals.Producer.of[F](producerConfig)

@@ -6,8 +6,9 @@ import java.time.Instant
 import akka.persistence.kafka.journal.KafkaJournalConfig
 import cats.Monad
 import cats.data.{NonEmptyList => Nel}
-import cats.effect.{Clock, IO, Resource}
+import cats.effect.{Clock, IO}
 import cats.implicits._
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.kafka.journal.IOSuite._
@@ -45,8 +46,8 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
     implicit val logOf = LogOf.empty[IO]
     implicit val jsonCodec = JsonCodec.jsoniter[IO]
     val resource = for {
-      config          <- Resource.liftF(config.liftTo[IO])
-      origin          <- Resource.liftF(Origin.hostName[IO])
+      config          <- config.liftTo[IO].toResource
+      origin          <- Origin.hostName[IO].toResource
       eventualJournal <- EventualCassandra.of[IO](config.cassandra, origin, none, cassandraClusterOf)
       producer        <- Journals.Producer.of[IO](config.journal.kafka.producer)
     } yield {

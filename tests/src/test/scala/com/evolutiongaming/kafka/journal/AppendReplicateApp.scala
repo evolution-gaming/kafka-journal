@@ -6,6 +6,7 @@ import cats.Parallel
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.implicits._
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{FromFuture, FromTry, Log, LogOf, Runtime, ToFuture, ToTry}
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
@@ -94,19 +95,19 @@ object AppendReplicateApp extends IOApp {
 
     def replicator(hostName: Option[HostName])(implicit kafkaConsumerOf: KafkaConsumerOf[F]) = {
       for {
-        cassandraClusterOf <- Resource.liftF(CassandraClusterOf.of[F])
-        config             <- Resource.liftF(ReplicatorConfig.fromConfig[F](system.settings.config))
+        cassandraClusterOf <- CassandraClusterOf.of[F].toResource
+        config             <- ReplicatorConfig.fromConfig[F](system.settings.config).toResource
         result             <- Replicator.of[F](config, cassandraClusterOf, hostName)
       } yield result
     }
 
     val resource = for {
-      log                <- Resource.liftF(LogOf[F].apply(Journals.getClass))
-      kafkaJournalConfig <- Resource.liftF(kafkaJournalConfig)
+      log                <- LogOf[F].apply(Journals.getClass).toResource
+      kafkaJournalConfig <- kafkaJournalConfig.toResource
       blocking           <- Executors.blocking[F]("kafka-journal-blocking")
       kafkaConsumerOf     = KafkaConsumerOf[F](blocking)
       kafkaProducerOf     = KafkaProducerOf[F](blocking)
-      hostName           <- Resource.liftF(HostName.of[F]())
+      hostName           <- HostName.of[F]().toResource
       replicate          <- replicator(hostName)(kafkaConsumerOf)
       journal            <- journal(kafkaJournalConfig.journal, hostName, log)(kafkaConsumerOf, kafkaProducerOf)
     } yield {

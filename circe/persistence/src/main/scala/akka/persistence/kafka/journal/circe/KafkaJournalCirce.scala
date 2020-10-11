@@ -5,6 +5,7 @@ import akka.persistence.kafka.journal._
 import akka.persistence.kafka.journal.circe.KafkaJournalCirce._
 import cats.effect.{IO, Resource}
 import cats.implicits._
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.circe.Codecs._
@@ -21,18 +22,21 @@ class KafkaJournalCirce(config: Config) extends KafkaJournal(config) {
   override def adapterIO: Resource[IO, JournalAdapter[IO]] = {
     for {
       serializer       <- circeEventSerializer
-      journalReadWrite <- Resource.liftF(circeJournalReadWrite)
+      journalReadWrite <- circeJournalReadWrite.toResource
       adapter          <- adapterIO(serializer, journalReadWrite)
     } yield adapter
   }
 
   def circeEventSerializer: Resource[IO, EventSerializer[IO, Json]] = {
-    val serializer = JsonEventSerializer.of[IO].pure[IO]
-    Resource.liftF(serializer)
+    JsonEventSerializer
+      .of[IO]
+      .pure[Resource[IO, *]]
   }
 
   def circeJournalReadWrite: IO[JournalReadWrite[IO, Json]] =
-    JournalReadWrite.of[IO, Json].pure[IO]
+    JournalReadWrite
+      .of[IO, Json]
+      .pure[IO]
 }
 
 object KafkaJournalCirce {

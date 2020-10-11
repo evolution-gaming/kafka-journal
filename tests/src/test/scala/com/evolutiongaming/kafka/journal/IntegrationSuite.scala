@@ -5,6 +5,7 @@ import cats.effect._
 import cats.effect.implicits._
 import cats.implicits._
 import com.evolutiongaming.cassandra.StartCassandra
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, FromTry, Log, LogOf, Runtime, ToFuture, ToTry}
 import com.evolutiongaming.kafka.StartKafka
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
@@ -55,8 +56,8 @@ object IntegrationSuite {
 
       for {
         metrics  <- Replicator.Metrics.of[F](CollectorRegistry.empty[F], "clientId")
-        config   <- Resource.liftF(config)
-        hostName <- Resource.liftF(HostName.of[F]())
+        config   <- config.toResource
+        hostName <- HostName.of[F]().toResource
         result   <- Replicator.of[F](config, cassandraClusterOf, hostName, metrics.some)
         result1   = result.onError { case e => log.error(s"failed to release replicator with $e", e) }
         _        <- ResourceOf(result1.start)
@@ -64,7 +65,7 @@ object IntegrationSuite {
     }
 
     for {
-      log      <- Resource.liftF(LogOf[F].apply(IntegrationSuite.getClass))
+      log      <- LogOf[F].apply(IntegrationSuite.getClass).toResource
       _        <- cassandra(log)
       _        <- kafka(log)
       blocking <- Executors.blocking[F]("kafka-journal-blocking")
@@ -75,7 +76,7 @@ object IntegrationSuite {
   def startIO(cassandraClusterOf: CassandraClusterOf[IO]): Resource[IO, Unit] = {
     val logOf = LogOf.slf4j[IO]
     for {
-      logOf  <- Resource.liftF(logOf)
+      logOf  <- logOf.toResource
       result <- {
         implicit val logOf1 = logOf
         startF[IO](cassandraClusterOf)

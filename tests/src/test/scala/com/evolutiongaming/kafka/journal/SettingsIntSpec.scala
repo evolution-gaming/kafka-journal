@@ -4,6 +4,7 @@ import akka.actor.ActorSystem
 import cats.Parallel
 import cats.effect._
 import cats.implicits._
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal.IOSuite._
@@ -51,7 +52,7 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
     val system = {
       val config = Sync[F].delay { ConfigFactory.load("replicator.conf") }
       for {
-        config <- Resource.liftF(config)
+        config <- config.toResource
         system <- ActorSystemOf[F](getClass.getSimpleName, config.some)
       } yield system
     }
@@ -66,10 +67,10 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
 
     for {
       system           <- system
-      config           <- Resource.liftF(config(system))
+      config           <- config(system).toResource
       cassandraCluster <- CassandraCluster.of[F](config.client, cassandraClusterOf, config.retries)
       cassandraSession <- cassandraCluster.session
-      settings         <- Resource.liftF(settings(config.schema)(cassandraCluster, cassandraSession))
+      settings         <- settings(config.schema)(cassandraCluster, cassandraSession).toResource
     } yield settings
   }
 

@@ -6,6 +6,7 @@ import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.Parallel
 import cats.effect._
 import cats.implicits._
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, ToFuture, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
@@ -44,15 +45,16 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     Await.result(future, 1.minute)
   }
 
-  def logOf: Resource[IO, LogOf[IO]] = Resource.liftF(LogOfFromAkka[IO](system).pure[IO])
+  def logOf: Resource[IO, LogOf[IO]] = LogOfFromAkka[IO](system).pure[Resource[IO, *]]
 
-  def randomIdOf: Resource[IO, RandomIdOf[IO]] = Resource.liftF(RandomIdOf.uuid[IO].pure[IO])
+  def randomIdOf: Resource[IO, RandomIdOf[IO]] = RandomIdOf.uuid[IO].pure[Resource[IO, *]]
 
-  def measureDuration: Resource[IO, MeasureDuration[IO]] = Resource.liftF(MeasureDuration.fromClock(Clock[IO]).pure[IO])
+  def measureDuration: Resource[IO, MeasureDuration[IO]] = MeasureDuration.fromClock(Clock[IO]).pure[Resource[IO, *]]
 
   def toKey: Resource[IO, ToKey[IO]] = {
-    val toKey = ToKey.fromConfig[IO](config)
-    Resource.liftF(toKey.pure[IO])
+    ToKey
+      .fromConfig[IO](config)
+      .pure[Resource[IO, *]]
   }
 
   def kafkaJournalConfig: IO[KafkaJournalConfig] = {
@@ -78,8 +80,9 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
   }
 
   def serializer: Resource[IO, EventSerializer[IO, Payload]] = {
-    val serializer = EventSerializer.of[IO](system)
-    Resource.liftF(serializer)
+    EventSerializer
+      .of[IO](system)
+      .toResource
   }
 
   def journalReadWrite(config: KafkaJournalConfig): IO[JournalReadWrite[IO, Payload]] = {
@@ -93,23 +96,27 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
   }
 
   def metrics: Resource[IO, JournalAdapter.Metrics[IO]] = {
-    val metrics = JournalAdapter.Metrics.empty[IO]
-    Resource.liftF(metrics.pure[IO])
+    JournalAdapter.Metrics
+      .empty[IO]
+      .pure[Resource[IO, *]]
   }
 
   def appendMetadataOf: Resource[IO, AppendMetadataOf[IO]] = {
-    val appendMetadataOf = AppendMetadataOf.empty[IO]
-    Resource.liftF(appendMetadataOf.pure[IO])
+    AppendMetadataOf
+      .empty[IO]
+      .pure[Resource[IO, *]]
   }
 
   def batching(config: KafkaJournalConfig): Resource[IO, Batching[IO]] = {
-    val batching = Batching.byNumberOfEvents[IO](config.maxEventsInBatch)
-    Resource.liftF(batching.pure[IO])
+    Batching
+      .byNumberOfEvents[IO](config.maxEventsInBatch)
+      .pure[Resource[IO, *]]
   }
 
   def cassandraClusterOf: Resource[IO, CassandraClusterOf[IO]] = {
-    val cassandraClusterOf = CassandraClusterOf.of[IO]
-    Resource.liftF(cassandraClusterOf)
+    CassandraClusterOf
+      .of[IO]
+      .toResource
   }
 
   def jsonCodec(config: KafkaJournalConfig): IO[JsonCodec[IO]] = {
@@ -124,8 +131,8 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
   def adapterIO: Resource[IO, JournalAdapter[IO]] = {
     for {
       serializer       <- serializer
-      config           <- Resource.liftF(kafkaJournalConfig)
-      journalReadWrite <- Resource.liftF(journalReadWrite(config))
+      config           <- kafkaJournalConfig.toResource
+      journalReadWrite <- journalReadWrite(config).toResource
       adapter          <- adapterIO(config, serializer, journalReadWrite)
     } yield adapter
   }
@@ -135,7 +142,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     journalReadWrite: JournalReadWrite[IO, A]
   ): Resource[IO, JournalAdapter[IO]] =
     for {
-      config  <- Resource.liftF(kafkaJournalConfig)
+      config  <- kafkaJournalConfig.toResource
       adapter <- adapterIO(config, serializer, journalReadWrite)
     } yield adapter
 
@@ -146,17 +153,17 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
   ): Resource[IO, JournalAdapter[IO]] = {
     val resource = for {
       logOf              <- logOf
-      log                <- Resource.liftF(logOf(classOf[KafkaJournal]))
-      _                  <- Resource.liftF(log.debug(s"config: $config"))
+      log                <- logOf(classOf[KafkaJournal]).toResource
+      _                  <- log.debug(s"config: $config").toResource
       randomId           <- randomIdOf
       measureDuration    <- measureDuration
       toKey              <- toKey
-      origin             <- Resource.liftF(origin)
+      origin             <- origin.toResource
       appendMetadataOf   <- appendMetadataOf
       metrics            <- metrics
       batching           <- batching(config)
       cassandraClusterOf <- cassandraClusterOf
-      jsonCodec          <- Resource.liftF(jsonCodec(config))
+      jsonCodec          <- jsonCodec(config).toResource
       adapter            <- adapterOf(
         toKey              = toKey,
         origin             = origin,

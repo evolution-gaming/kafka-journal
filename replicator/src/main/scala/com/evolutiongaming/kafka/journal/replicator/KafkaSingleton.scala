@@ -5,6 +5,7 @@ import cats.effect.concurrent.Ref
 import cats.effect.implicits._
 import cats.effect.{Concurrent, Resource, Sync, Timer}
 import cats.implicits._
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, FromTry, Log}
 import com.evolutiongaming.kafka.journal.util.ResourceOf
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
@@ -49,12 +50,12 @@ object KafkaSingleton {
 
     def a(ref: Ref[F, Option[A]]) = for {
       a <- singleton
-      _ <- Resource.liftF(ref.set(a.some))
+      _ <- ref.set(a.some).toResource
       _ <- Resource(((), ref.set(none[A])).pure[F])
     } yield {}
 
     for {
-      ref <- Resource.liftF(Ref[F].of(none[A]))
+      ref <- Ref[F].of(none[A]).toResource
       _   <- ResourceOf(ConsumeTopic(topic, consumer, topicFlowOf(a(ref)), log).start)
     } yield {
       new KafkaSingleton[F, A] {

@@ -4,6 +4,7 @@ import cats.data.{NonEmptySet => Nes}
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, IO, Resource, Timer}
 import cats.implicits._
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.skafka.consumer.RebalanceListener
@@ -38,11 +39,11 @@ class KafkaSingletonTest extends AsyncFunSuite with Matchers {
     def topicPartition(partition: Partition) = TopicPartition(topic, partition)
 
     val result = for {
-      listener  <- Resource.liftF(Deferred[F, RebalanceListener[F]])
-      allocated <- Resource.liftF(Ref[F].of(false))
+      listener  <- Deferred[F, RebalanceListener[F]].toResource
+      allocated <- Ref[F].of(false).toResource
       resource   = Resource.make { allocated.set(true) } { _ => allocated.set(false) }
       singleton <- KafkaSingleton.of(topic, consumer(listener).pure[Resource[F, *]], resource, Log.empty[F])
-      listener  <- Resource.liftF(listener.get)
+      listener  <- listener.get.toResource
       _         <- Resource.liftF {
         for {
           a <- singleton.get

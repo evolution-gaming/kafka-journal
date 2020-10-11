@@ -9,6 +9,7 @@ import cats.Foldable
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.{IO, Resource}
 import cats.implicits._
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.kafka.journal.IOSuite._
@@ -50,7 +51,7 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
       }
 
       for {
-        config    <- Resource.liftF(config.liftTo[IO])
+        config    <- config.liftTo[IO].toResource
         consumer   = Journals.Consumer.of[IO](config.journal.kafka.consumer, config.journal.pollTimeout)
         headCache <- headCacheOf(config)
         journal    = Journals[IO](

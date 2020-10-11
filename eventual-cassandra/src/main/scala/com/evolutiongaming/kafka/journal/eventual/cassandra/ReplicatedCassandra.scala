@@ -5,7 +5,7 @@ import java.time.Instant
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.concurrent.Ref
 import cats.effect.implicits._
-import cats.effect.{Concurrent, Resource, Sync, Timer}
+import cats.effect.{Concurrent, Sync, Timer}
 import cats.implicits._
 import cats.{Applicative, Monad, Parallel}
 import com.evolutiongaming.catshelper.CatsHelper._
@@ -94,8 +94,8 @@ object ReplicatedCassandra {
               }
 
               for {
-                segment        <- Resource.liftF(segmentOf(key))
-                journalHeadRef <- Resource.liftF(journalHeadRef(segment))
+                segment        <- segmentOf(key).toResource
+                journalHeadRef <- journalHeadRef(segment).toResource
               } yield {
 
                 def metaJournal = statements.metaJournal(key, segment)

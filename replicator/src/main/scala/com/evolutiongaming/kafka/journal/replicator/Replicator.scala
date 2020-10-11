@@ -6,12 +6,12 @@ import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.implicits._
 import cats.{Applicative, Monad, Parallel, ~>}
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession, ReplicatedCassandra}
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.random.Random
@@ -60,7 +60,7 @@ object Replicator {
     for {
       cassandraCluster  <- CassandraCluster.of(config.cassandra.client, cassandraClusterOf, config.cassandra.retries)
       cassandraSession  <- cassandraCluster.session
-      replicatedJournal <- Resource.liftF(replicatedJournal(cassandraCluster, cassandraSession))
+      replicatedJournal <- replicatedJournal(cassandraCluster, cassandraSession).toResource
       result            <- of(config, metrics, replicatedJournal, hostName)
     } yield result
   }
@@ -134,7 +134,7 @@ object Replicator {
             // TODO
             registry.allocate {
               val fiber = for {
-                fiber <- topicReplicator.start { _.onError { case e => error.set(e.raiseError[F, Unit]) } }
+                fiber <- StartResource(topicReplicator) { _.onError { case e => error.set(e.raiseError[F, Unit]) } }
               } yield {
                 ((), fiber.cancel)
               }

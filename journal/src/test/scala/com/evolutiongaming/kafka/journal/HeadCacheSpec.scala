@@ -296,7 +296,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
       val consumer   = HeadCache.Consumer.empty[IO]
       val headCache  = headCacheOf(
         HeadCache.Eventual.empty, 
-        Resource.liftF(consumer.pure[IO]),
+        consumer.pure[IO].toResource,
         config.copy(timeout = 10.millis))
       val result = headCache.use { headCache =>
         val key = Key(id = "id", topic = topic)
@@ -314,7 +314,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
       val consumer   = HeadCache.Consumer.empty[IO]
       val headCache  = headCacheOf(
         HeadCache.Eventual.empty,
-        Resource.liftF(consumer.pure[IO]))
+        consumer.pure[IO].toResource)
       val result = headCache.use { headCache =>
         val key = Key(id = "id", topic = topic)
         for {
@@ -332,7 +332,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
       val consumer   = HeadCache.Consumer.empty[IO]
       val headCache  = headCacheOf(
         HeadCache.Eventual.empty,
-        Resource.liftF(consumer.pure[IO]))
+        consumer.pure[IO].toResource)
       val result = for {
         a <- headCache.use { headCache =>
           val key = Key(id = "id", topic = topic)

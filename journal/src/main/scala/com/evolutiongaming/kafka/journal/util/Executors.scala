@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal.util
 import java.util.concurrent.ScheduledExecutorService
 
 import cats.effect.{Resource, Sync}
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.Runtime
 import com.evolutiongaming.kafka.journal.execution.{ForkJoinPoolOf, ScheduledExecutorServiceOf, ThreadFactoryOf, ThreadPoolOf}
 
@@ -14,7 +15,7 @@ object Executors {
     name: String,
   ): Resource[F, ExecutionContextExecutorService] = {
     for {
-      threadFactory <- Resource.liftF(ThreadFactoryOf[F](name))
+      threadFactory <- ThreadFactoryOf[F](name).toResource
       threadPool    <- ThreadPoolOf[F](2, Int.MaxValue, threadFactory)
     } yield {
       ExecutionContext.fromExecutorService(threadPool)
@@ -26,7 +27,7 @@ object Executors {
     name: String,
   ): Resource[F, ExecutionContextExecutorService] = {
     for {
-      cores        <- Resource.liftF(Runtime[F].availableCores)
+      cores        <- Runtime[F].availableCores.toResource
       parallelism   = cores + 1
       forkJoinPool <- ForkJoinPoolOf[F](name, parallelism)
     } yield {
@@ -40,7 +41,7 @@ object Executors {
     parallelism: Int
   ): Resource[F, ScheduledExecutorService] = {
     for {
-      threadFactory <- Resource.liftF(ThreadFactoryOf[F](name))
+      threadFactory <- ThreadFactoryOf[F](name).toResource
       result        <- ScheduledExecutorServiceOf[F](parallelism, threadFactory)
     } yield result
   }

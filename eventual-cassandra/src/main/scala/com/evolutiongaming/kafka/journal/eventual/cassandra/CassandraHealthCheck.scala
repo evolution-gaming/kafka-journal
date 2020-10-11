@@ -4,7 +4,8 @@ import cats.Monad
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.implicits._
-import com.evolutiongaming.catshelper.{Log, LogOf}
+import com.evolutiongaming.catshelper.CatsHelper._
+import com.evolutiongaming.catshelper.{Log, LogOf, Schedule}
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 
@@ -24,12 +25,12 @@ object CassandraHealthCheck {
       session   <- session
       statement <- {
         implicit val session1 = session
-        Resource.liftF(Statement.of[F])
+        Statement.of[F].toResource
       }
     } yield statement
 
     for {
-      log    <- Resource.liftF(LogOf[F].apply(CassandraHealthCheck.getClass))
+      log    <- LogOf[F].apply(CassandraHealthCheck.getClass).toResource
       result <- of(initial = 10.seconds, interval = 1.second, statement = statement, log = log)
     } yield result
   }
@@ -41,28 +42,21 @@ object CassandraHealthCheck {
     log: Log[F]
   ): Resource[F, CassandraHealthCheck[F]] = {
 
-    val result = for {
-      ref   <- Ref.of[F, Option[Throwable]](none)
-      fiber <- statement.start { statement =>
+    for {
+      ref       <- Ref.of[F, Option[Throwable]](none).toResource
+      statement <- statement
+      _         <- Schedule(initial, interval) {
         for {
-          _ <- Timer[F].sleep(initial)
-          _ <- {
-            for {
-              e <- statement.error[Throwable]
-              _ <- e.fold(().pure[F]) { e => log.error(s"failed with $e", e) }
-              _ <- ref.set(e)
-              _ <- Timer[F].sleep(interval)
-            } yield ().asLeft
-          }.foreverM[Unit]
+          e <- statement.error[Throwable]
+          _ <- e.foldMapM { e => log.error(s"failed with $e", e) }
+          _ <- ref.set(e)
         } yield {}
       }
     } yield {
-      val result = new CassandraHealthCheck[F] {
+      new CassandraHealthCheck[F] {
         def error = ref.get
       }
-      (result, fiber.cancel)
     }
-    Resource(result)
   }
 
 

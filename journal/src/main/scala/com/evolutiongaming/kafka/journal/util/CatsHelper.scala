@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.data.OptionT
-import cats.effect._
 import cats.implicits._
 import cats.kernel.CommutativeMonoid
 import cats.{Applicative, ApplicativeError, CommutativeApplicative}
@@ -37,14 +36,6 @@ object CatsHelper {
   implicit class FOptionOpsCatsHelper[F[_], A](val self: F[Option[A]]) extends AnyVal {
     
     def toOptionT: OptionT[F, A] = OptionT(self)
-  }
-
-
-  implicit class ResourceOpsCatsHelper[F[_], A](val self: Resource[F, A]) extends AnyVal {
-
-    def start[B](use: A => F[B])(implicit F: Concurrent[F]): F[Fiber[F, B]] = {
-      StartResource(self)(use)
-    }
   }
 
 

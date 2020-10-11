@@ -6,6 +6,7 @@ import cats.Parallel
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.implicits._
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
@@ -54,7 +55,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
         .load[EventualCassandraConfig]
         .liftTo[F]
       for {
-        config          <- Resource.liftF(config)
+        config          <- config.toResource
         eventualJournal <- EventualCassandra.of[F](config, origin.some, none, cassandraClusterOf)
       } yield eventualJournal
     }
@@ -75,10 +76,10 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       implicit val kafkaProducerOf = KafkaProducerOf[F](blocking)
 
       for {
-        config   <- Resource.liftF(config)
+        config   <- config.toResource
         producer <- Journals.Producer.of[F](config.kafka.producer)
         consumer  = Journals.Consumer.of[F](config.kafka.consumer, config.pollTimeout)
-        log      <- Resource.liftF(LogOf[F].apply(Journals.getClass))
+        log      <- LogOf[F].apply(Journals.getClass).toResource
       } yield {
         Journals[F](
           origin = origin.some,
@@ -95,14 +96,14 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
     val system = {
       val config = Sync[F].delay { ConfigFactory.load("replicator.conf") }
       for {
-        config <- Resource.liftF(config)
+        config <- config.toResource
         system <- ActorSystemOf[F](getClass.getSimpleName, config.some)
       } yield system
     }
 
     for {
       system          <- system
-      conf            <- Resource.liftF(Sync[F].delay { system.settings.config.getConfig("evolutiongaming.kafka-journal.replicator") })
+      conf            <- Sync[F].delay { system.settings.config.getConfig("evolutiongaming.kafka-journal.replicator") }.toResource
       eventualJournal <- eventualJournal(conf)
       journal         <- journal(conf, system.dispatcher, eventualJournal)
     } yield {

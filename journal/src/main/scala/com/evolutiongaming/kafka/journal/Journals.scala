@@ -4,6 +4,7 @@ import cats._
 import cats.data.{NonEmptyList => Nel, NonEmptySet => Nes}
 import cats.effect._
 import cats.implicits._
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MonadThrowable, ToTry}
 import com.evolutiongaming.kafka.journal.conversions.{ConversionMetrics, KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualRead}
@@ -63,7 +64,7 @@ object Journals {
 
     for {
       producer  <- Producer.of[F](config.kafka.producer)
-      log       <- Resource.liftF(LogOf[F].apply(Journals.getClass))
+      log       <- LogOf[F].apply(Journals.getClass).toResource
       headCache <- headCache
     } yield {
       val journal = apply(

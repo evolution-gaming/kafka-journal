@@ -1,11 +1,11 @@
 package com.evolutiongaming.kafka.journal.eventual
 
 
-
 import cats.effect.Resource
 import cats.implicits._
 import cats.{Applicative, Defer, Monad, ~>}
-import com.evolutiongaming.catshelper.{ApplicativeThrowable, BracketThrowable, Log, MonadThrowable}
+import com.evolutiongaming.catshelper.CatsHelper._
+import com.evolutiongaming.catshelper.{BracketThrowable, Log, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.MetricsHelper._
@@ -28,7 +28,10 @@ object ReplicatedJournal {
     def topics = SortedSet.empty[Topic].pure[F]
 
     def journal(topic: Topic) = {
-      Resource.liftF(ReplicatedTopicJournal.empty[F].pure[F])
+      ReplicatedTopicJournal
+        .empty[F]
+        .pure[F]
+        .toResource
     }
   }
 
@@ -41,7 +44,7 @@ object ReplicatedJournal {
 
       def journal(topic: Topic) = {
         val replicatedTopicJournal = ReplicatedTopicJournal(topic, replicatedJournal)
-        Resource.liftF(replicatedTopicJournal.pure[F])
+        replicatedTopicJournal.pure[F].toResource
       }
     }
   }
