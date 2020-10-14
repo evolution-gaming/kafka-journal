@@ -267,7 +267,7 @@ object EventualCassandraTest {
   }
 
 
-  val deleteRecords: JournalStatements.DeleteRecords[StateT] = {
+  val deleteRecords: JournalStatements.Delete[StateT] = {
     (key: Key, segment: SegmentNr, seqNr: SeqNr) => {
       StateT.unit { state =>
         val k = (key, segment)

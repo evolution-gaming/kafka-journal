@@ -644,7 +644,7 @@ object ReplicatedCassandra {
 
   final case class Statements[F[_]](
     insertRecords: JournalStatements.InsertRecords[F],
-    deleteRecords: JournalStatements.DeleteRecords[F],
+    deleteRecords: JournalStatements.Delete[F],
     metaJournal: MetaJournalStatements[F],
     selectPointer: PointerStatements.Select[F],
     selectPointersIn: PointerStatements.SelectIn[F],
@@ -660,7 +660,7 @@ object ReplicatedCassandra {
     def of[F[_]: Monad: Parallel: CassandraSession: ToTry: JsonCodec.Encode](schema: Schema): F[Statements[F]] = {
       val statements = (
         JournalStatements.InsertRecords.of[F](schema.journal),
-        JournalStatements.DeleteRecords.of[F](schema.journal),
+        JournalStatements.Delete.of[F](schema.journal),
         MetaJournalStatements.of[F](schema),
         PointerStatements.Select.of[F](schema.pointer),
         PointerStatements.SelectIn.of[F](schema.pointer),

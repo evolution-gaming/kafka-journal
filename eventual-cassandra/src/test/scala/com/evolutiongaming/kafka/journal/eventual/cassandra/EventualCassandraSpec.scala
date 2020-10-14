@@ -156,7 +156,7 @@ object EventualCassandraSpec {
     }
 
 
-    val deleteRecords: JournalStatements.DeleteRecords[StateT] = {
+    val deleteRecords: JournalStatements.Delete[StateT] = {
       (key, segment, seqNr) => {
         StateT { state =>
           val state1 = {
