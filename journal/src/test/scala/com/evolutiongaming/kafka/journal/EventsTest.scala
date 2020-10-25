@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.data.{NonEmptyList => Nel}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.Event._
 import com.evolutiongaming.kafka.journal.util.ScodecHelper.{nelCodec, _}
 import org.scalatest.FunSuite

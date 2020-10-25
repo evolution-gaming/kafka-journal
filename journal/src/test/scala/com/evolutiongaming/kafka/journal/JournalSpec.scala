@@ -4,7 +4,7 @@ import java.time.Instant
 
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.Clock
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Id, Monad, Parallel}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log}

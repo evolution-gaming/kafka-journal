@@ -1,6 +1,6 @@
 package akka.persistence.kafka.journal
 
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.FromBytes.implicits._
 import com.evolutiongaming.kafka.journal.ToBytes.implicits._
 import com.evolutiongaming.kafka.journal.ByteVectorOf

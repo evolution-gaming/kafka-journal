@@ -1,6 +1,6 @@
 package akka.persistence.kafka.journal
 
-import cats.implicits._
+import cats.syntax.all._
 
 
 object GroupByWeight {

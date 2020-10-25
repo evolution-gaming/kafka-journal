@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.circe
 
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.PayloadAndType._
 import com.evolutiongaming.kafka.journal.PayloadType.TextOrJson
 import com.evolutiongaming.kafka.journal._

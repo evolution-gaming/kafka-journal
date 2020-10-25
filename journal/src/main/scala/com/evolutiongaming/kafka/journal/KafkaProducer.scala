@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.FlatMap
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.producer
 import com.evolutiongaming.skafka.producer._

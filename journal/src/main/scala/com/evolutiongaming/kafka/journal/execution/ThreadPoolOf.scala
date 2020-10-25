@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.execution
 import java.util.concurrent.{SynchronousQueue, ThreadFactory, ThreadPoolExecutor}
 
 import cats.effect.{Resource, Sync}
-import cats.implicits._
+import cats.syntax.all._
 
 import scala.concurrent.duration._
 

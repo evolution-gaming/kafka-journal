@@ -5,7 +5,7 @@ import java.time.Instant
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.effect.concurrent.Ref
 import cats.effect.{Concurrent, IO, Resource, Timer}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.kafka.journal.IOSuite._

@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.Functor
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.conversions.ActionToProducerRecord
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, WithSize}
 import com.evolutiongaming.skafka.{Offset, TimestampAndType, TimestampType, TopicPartition}

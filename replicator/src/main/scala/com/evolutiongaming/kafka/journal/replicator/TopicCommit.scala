@@ -6,7 +6,7 @@ import cats.Applicative
 import cats.data.{NonEmptyMap => Nem}
 import cats.effect.concurrent.Ref
 import cats.effect.{Clock, Sync}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._

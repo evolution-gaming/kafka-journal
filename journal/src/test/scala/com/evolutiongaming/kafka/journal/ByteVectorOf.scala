@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.Monad
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.Fail
 import scodec.bits.ByteVector

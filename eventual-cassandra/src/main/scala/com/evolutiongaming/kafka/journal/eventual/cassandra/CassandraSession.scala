@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.FlatMap
 import cats.effect.{Concurrent, Resource}
-import cats.implicits._
+import cats.syntax.all._
 import com.datastax.driver.core.{ResultSet => _, _}
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
 import com.evolutiongaming.catshelper.{MonadThrowable, Runtime}

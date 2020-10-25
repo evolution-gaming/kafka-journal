@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.util
 
-import cats.implicits._
+import cats.syntax.all._
 import cats.MonadError
 import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.kafka.journal.JsonCodec

@@ -5,7 +5,7 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 
 import cats.data.{NonEmptyList => Nel}
-import cats.implicits._
+import cats.syntax.all._
 import cats.effect.IO
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal

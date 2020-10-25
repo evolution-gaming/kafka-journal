@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import cats.{Applicative, Id, Monad}
 import cats.data.{NonEmptyList => Nel}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.util.Fail
 import play.api.libs.json.{Json, OFormat}
 

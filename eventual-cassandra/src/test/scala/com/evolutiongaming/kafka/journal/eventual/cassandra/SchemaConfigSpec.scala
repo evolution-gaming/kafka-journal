@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.scassandra.ReplicationStrategyConfig
 import com.typesafe.config.ConfigFactory
 import org.scalatest.funsuite.AnyFunSuite

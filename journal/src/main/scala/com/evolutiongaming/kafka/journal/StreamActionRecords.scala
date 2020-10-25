@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.Applicative
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.skafka.Offset

@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import java.time.Instant
 
 import cats.{Id, Monad}
-import cats.implicits._
+import cats.syntax.all._
 import com.datastax.driver.core.{Row, Statement}
 import com.evolutiongaming.kafka.journal.util.TestSync
 import com.evolutiongaming.kafka.journal.{Setting, Settings}

@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.effect.{Concurrent, Sync}
 import cats.effect.implicits._
-import cats.implicits._
+import cats.syntax.all._
 import com.datastax.driver.core.{Row, ResultSet => ResultSetJ}
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.sstream.Stream

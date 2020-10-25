@@ -5,7 +5,7 @@ import java.time.Instant
 import cats.arrow.FunctionK
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.Clock
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Applicative, FlatMap, Monad}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.DataHelper._

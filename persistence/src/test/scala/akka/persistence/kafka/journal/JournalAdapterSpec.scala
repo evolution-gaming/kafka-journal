@@ -6,7 +6,7 @@ import java.time.temporal.ChronoUnit
 import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.Clock
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log}
 import com.evolutiongaming.kafka.journal._

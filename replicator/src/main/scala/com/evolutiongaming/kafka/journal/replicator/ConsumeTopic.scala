@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import cats.data.{NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.effect.{Resource, Timer}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.random.Random

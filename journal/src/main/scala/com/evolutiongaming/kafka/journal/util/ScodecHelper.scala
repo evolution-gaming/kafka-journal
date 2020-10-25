@@ -4,7 +4,7 @@ import java.nio.charset.{CharacterCodingException, StandardCharsets}
 
 import cats.MonadError
 import cats.data.{NonEmptyList => Nel}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.JsonCodec
 import play.api.libs.json.Format
 import scodec.bits.ByteVector

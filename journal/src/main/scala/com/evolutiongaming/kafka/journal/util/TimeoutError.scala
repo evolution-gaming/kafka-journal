@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.effect.Sync
-import cats.implicits._
+import cats.syntax.all._
 
 import scala.concurrent.TimeoutException
 import scala.util.control.NoStackTrace

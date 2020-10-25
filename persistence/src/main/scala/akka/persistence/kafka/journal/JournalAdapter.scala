@@ -2,7 +2,7 @@ package akka.persistence.kafka.journal
 
 import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.effect._
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Monad, Parallel, ~>}
 import com.evolutiongaming.catshelper.{FromFuture, FromTry, Log, LogOf, Runtime, ToFuture, ToTry}
 import com.evolutiongaming.kafka.journal._

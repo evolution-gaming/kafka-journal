@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import cats.effect.{IO, Resource}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.replicator.Replicator.Consumer
 import com.evolutiongaming.kafka.journal.IOSuite._

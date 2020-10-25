@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import akka.actor.{ActorSystem, ExtendedActorSystem, Extension, ExtensionId}
 import cats.effect.Sync
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
 import play.api.libs.json._
 

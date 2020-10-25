@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.ApplicativeThrowable
 import pureconfig.ConfigReader
 import pureconfig.error.ConfigReaderException

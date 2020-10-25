@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.{Applicative, Id, Show}
-import cats.implicits._
+import cats.syntax.all._
 import cats.kernel.{Eq, Order}
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._

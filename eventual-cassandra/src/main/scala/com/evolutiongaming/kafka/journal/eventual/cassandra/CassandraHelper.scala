@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Applicative
 import cats.data.{NonEmptyList => Nel}
-import cats.implicits._
+import cats.syntax.all._
 import com.datastax.driver.core.{Duration => DurationC, _}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.util.FiniteDurationHelper._
 import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}

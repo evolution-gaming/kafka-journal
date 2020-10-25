@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual
 
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.skafka.{Offset, Partition}
 
 final case class TopicPointers(values: Map[Partition, Offset] = Map.empty) {

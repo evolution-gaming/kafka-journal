@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Parallel
 import cats.effect.{Concurrent, Timer}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.{Origin, Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.catshelper.{BracketThrowable, FromFuture, LogOf, ToFuture}

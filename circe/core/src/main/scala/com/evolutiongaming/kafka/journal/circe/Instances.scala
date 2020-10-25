@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.circe
 
 import java.nio.charset.StandardCharsets
 
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.PayloadAndType._
 import com.evolutiongaming.kafka.journal._

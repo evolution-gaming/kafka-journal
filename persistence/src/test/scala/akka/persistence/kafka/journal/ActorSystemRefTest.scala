@@ -2,7 +2,7 @@ package akka.persistence.kafka.journal
 
 import cats.arrow.FunctionK
 import cats.effect.{IO, Sync}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.ActorSuite
 import com.evolutiongaming.kafka.journal.IOSuite._
 import org.scalatest.funsuite.AsyncFunSuite

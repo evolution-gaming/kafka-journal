@@ -6,7 +6,7 @@ import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.concurrent.Ref
 import cats.effect.implicits._
 import cats.effect.{Concurrent, Sync, Timer}
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Applicative, Monad, Parallel}
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.DataHelper._

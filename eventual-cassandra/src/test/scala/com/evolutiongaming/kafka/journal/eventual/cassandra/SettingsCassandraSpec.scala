@@ -6,7 +6,7 @@ import java.time.temporal.ChronoUnit
 import cats.Id
 import cats.arrow.FunctionK
 import cats.effect.Clock
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.Setting.Key
 import com.evolutiongaming.kafka.journal.{Origin, Setting}
 import com.evolutiongaming.catshelper.ClockHelper._

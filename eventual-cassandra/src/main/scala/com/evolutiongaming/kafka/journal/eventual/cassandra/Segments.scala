@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 
-import cats.implicits._
+import cats.syntax.all._
 import cats.kernel.Eq
 import cats.{Applicative, Id, Order, Show}
 import com.evolutiongaming.kafka.journal.util.Fail

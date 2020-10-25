@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import java.nio.charset.StandardCharsets
 
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Applicative, ~>}
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, MonadThrowable}

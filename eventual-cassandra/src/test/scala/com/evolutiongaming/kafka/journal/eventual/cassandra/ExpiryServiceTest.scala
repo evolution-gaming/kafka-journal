@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import java.time.{Instant, LocalDate, ZoneOffset}
 
 import cats.effect.ExitCase
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Id, catsInstancesForId}
 import com.evolutiongaming.kafka.journal.ExpireAfter
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._

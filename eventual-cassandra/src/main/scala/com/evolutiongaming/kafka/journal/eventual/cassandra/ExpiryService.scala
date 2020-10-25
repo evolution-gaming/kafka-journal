@@ -4,7 +4,7 @@ import java.time.{Instant, LocalDate, ZoneId}
 import java.util.TimeZone
 
 import cats.effect.Sync
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Monad, ~>}
 import com.evolutiongaming.catshelper.{BracketThrowable, Log, LogOf}
 import com.evolutiongaming.kafka.journal.ExpireAfter

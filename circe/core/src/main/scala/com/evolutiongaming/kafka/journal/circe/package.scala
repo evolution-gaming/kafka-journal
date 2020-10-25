@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.Eval
-import cats.implicits._
+import cats.syntax.all._
 import io.circe.Json
 import play.api.libs.json._
 

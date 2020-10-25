@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.util
 
-import cats.implicits._
+import cats.syntax.all._
 import cats.{MonadError, StackSafeMonad}
 import com.evolutiongaming.sstream.Stream
 import com.evolutiongaming.sstream.Stream.StreamOps

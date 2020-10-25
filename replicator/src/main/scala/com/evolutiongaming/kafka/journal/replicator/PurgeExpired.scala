@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import cats.data.{NonEmptySet => Nes}
 import cats.effect.{Clock, Resource}
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Applicative, Monad, ~>}
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.catshelper.CatsHelper._

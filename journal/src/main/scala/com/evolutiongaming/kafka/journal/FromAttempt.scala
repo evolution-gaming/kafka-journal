@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import cats.Applicative
 import cats.effect.IO
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 import scodec.Attempt

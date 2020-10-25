@@ -2,7 +2,7 @@ package akka.persistence.kafka.journal
 
 import akka.actor.ActorSystem
 import cats.effect.Sync
-import cats.implicits._
+import cats.syntax.all._
 import cats.~>
 import com.evolutiongaming.serialization.{SerializedMsg, SerializedMsgConverter, SerializedMsgExt}
 

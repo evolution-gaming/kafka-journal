@@ -5,7 +5,7 @@ import java.time.Instant
 import cats.Parallel
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.CassandraSuite._

@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Foldable, Semigroup}
 import com.evolutiongaming.skafka.Offset
 

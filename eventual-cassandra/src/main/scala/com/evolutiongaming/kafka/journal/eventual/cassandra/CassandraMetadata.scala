@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.FlatMap
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.scassandra
 
 trait CassandraMetadata[F[_]] {

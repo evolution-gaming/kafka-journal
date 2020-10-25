@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.{Applicative, Parallel}
-import cats.implicits._
+import cats.syntax.all._
 import cats.effect.{Concurrent, Resource, Timer}
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromTry, LogOf}

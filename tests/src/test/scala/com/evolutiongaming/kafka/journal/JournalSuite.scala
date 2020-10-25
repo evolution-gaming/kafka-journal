@@ -7,7 +7,7 @@ import akka.persistence.kafka.journal.KafkaJournalConfig
 import cats.Monad
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.{Clock, IO}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.CassandraSuite._

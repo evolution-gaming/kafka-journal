@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import cats.effect._
-import cats.implicits._
+import cats.syntax.all._
 import cats.~>
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.MonadThrowable

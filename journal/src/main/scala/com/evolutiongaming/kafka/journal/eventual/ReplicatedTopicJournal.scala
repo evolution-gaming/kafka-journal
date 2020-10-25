@@ -4,7 +4,7 @@ import java.time.Instant
 
 import cats.data.{NonEmptyMap => Nem}
 import cats.effect.Resource
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Applicative, Defer, Monad, ~>}
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log, MonadThrowable}

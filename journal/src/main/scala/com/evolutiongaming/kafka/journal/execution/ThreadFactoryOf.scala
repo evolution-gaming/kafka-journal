@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.execution
 import java.util.concurrent.{ThreadFactory, Executors => ExecutorsJ}
 
 import cats.effect.Sync
-import cats.implicits._
+import cats.syntax.all._
 
 object ThreadFactoryOf {
 

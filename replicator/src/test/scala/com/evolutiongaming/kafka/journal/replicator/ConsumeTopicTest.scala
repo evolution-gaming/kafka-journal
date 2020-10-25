@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.replicator
 import cats.Id
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.effect.{ExitCase, Resource, Timer}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.TimerHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.kafka.journal.ConsRecord

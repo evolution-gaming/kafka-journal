@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.implicits._
+import cats.syntax.all._
 import org.scalatest.FunSuite
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.{JsString, Json}

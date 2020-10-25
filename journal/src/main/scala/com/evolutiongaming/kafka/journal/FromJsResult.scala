@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.effect.IO
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.ApplicativeThrowable
 import play.api.libs.json.{JsResult, JsResultException}
 

@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import java.time.LocalDate
 
 import cats.Show
-import cats.implicits._
+import cats.syntax.all._
 import cats.kernel.{Eq, Order}
 import com.datastax.driver.core.SettableData
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._

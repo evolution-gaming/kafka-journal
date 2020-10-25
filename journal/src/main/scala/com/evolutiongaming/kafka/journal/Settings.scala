@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.arrow.FunctionK
-import cats.implicits._
+import cats.syntax.all._
 import cats.{FlatMap, ~>}
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.smetrics.MeasureDuration

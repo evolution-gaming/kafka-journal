@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.effect.{Concurrent, Resource, Timer}
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Monad, Parallel}
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture, ToTry}

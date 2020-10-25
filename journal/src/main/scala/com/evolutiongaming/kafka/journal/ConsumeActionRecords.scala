@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import cats.data.{NonEmptyList => Nel, NonEmptySet => Nes}
 import cats.effect.Resource
-import cats.implicits._
+import cats.syntax.all._
 import cats.~>
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.kafka.journal.conversions.ConsRecordToActionRecord

@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import cats._
 import cats.arrow.FunctionK
 import cats.data.{NonEmptyList => Nel}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.{Log, MonadThrowable}
 import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.EventualRead

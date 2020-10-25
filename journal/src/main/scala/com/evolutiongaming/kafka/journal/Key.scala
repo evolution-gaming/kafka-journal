@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.implicits._
+import cats.syntax.all._
 import cats.kernel.Eq
 import cats.{Functor, Order, Show}
 import com.datastax.driver.core.{GettableByNameData, SettableData}

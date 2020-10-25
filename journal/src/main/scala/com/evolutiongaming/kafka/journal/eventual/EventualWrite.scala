@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual
 
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolutiongaming.kafka.journal.{JournalError, JsonCodec, Payload}
 import scodec.bits.ByteVector

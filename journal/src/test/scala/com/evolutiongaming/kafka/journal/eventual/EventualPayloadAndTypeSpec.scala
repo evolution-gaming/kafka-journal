@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual
 
 
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal._
 import org.scalatest.EitherValues
 import org.scalatest.funsuite.AnyFunSuite

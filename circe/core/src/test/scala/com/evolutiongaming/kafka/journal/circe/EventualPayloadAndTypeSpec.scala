@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.circe
 
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.circe.Instances._

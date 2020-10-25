@@ -5,7 +5,7 @@ import java.time.{Instant, LocalDate, ZoneOffset}
 
 import cats.Monad
 import cats.data.{NonEmptyList => Nel}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._

@@ -4,7 +4,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import java.time.Instant
 
 import cats.Monad
-import cats.implicits._
+import cats.syntax.all._
 import com.datastax.driver.core.GettableByNameData
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._

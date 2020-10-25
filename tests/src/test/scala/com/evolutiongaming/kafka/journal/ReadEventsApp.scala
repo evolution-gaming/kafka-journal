@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import cats.Parallel
 import cats.effect._
 import cats.data.{NonEmptyList => Nel}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, FromTry, Log, LogOf, ToFuture, ToTry}
 import com.evolutiongaming.kafka.journal.eventual.cassandra._

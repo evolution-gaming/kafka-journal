@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.util
 
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers

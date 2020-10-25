@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.{Applicative, Monad}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
 import play.api.libs.json._
 

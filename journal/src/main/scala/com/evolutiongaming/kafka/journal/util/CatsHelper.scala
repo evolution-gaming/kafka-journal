@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.data.OptionT
-import cats.implicits._
+import cats.syntax.all._
 import cats.kernel.CommutativeMonoid
 import cats.{Applicative, ApplicativeError, CommutativeApplicative}
 import com.evolutiongaming.kafka.journal.util.Fail.implicits._

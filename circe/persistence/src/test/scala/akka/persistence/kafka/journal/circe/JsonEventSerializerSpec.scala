@@ -4,7 +4,7 @@ import akka.persistence.PersistentRepr
 import akka.persistence.journal.Tagged
 import akka.persistence.kafka.journal.EventSerializer
 import cats.effect.IO
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.circe._
 import com.evolutiongaming.kafka.journal._

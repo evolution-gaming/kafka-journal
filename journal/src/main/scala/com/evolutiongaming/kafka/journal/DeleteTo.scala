@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.{Eq, Show}
-import cats.implicits._
+import cats.syntax.all._
 import cats.kernel.Order
 import com.evolutiongaming.scassandra._
 import play.api.libs.json._

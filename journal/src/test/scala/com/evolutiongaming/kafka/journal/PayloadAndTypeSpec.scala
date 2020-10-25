@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import java.io.FileOutputStream
 
 import cats.data.{NonEmptyList => Nel}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.conversions.{KafkaWrite, KafkaRead}
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import org.scalatest.funsuite.AnyFunSuite

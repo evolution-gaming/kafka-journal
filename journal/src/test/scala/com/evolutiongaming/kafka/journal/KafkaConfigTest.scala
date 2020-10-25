@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.evolutiongaming.skafka.producer.{Acks, CompressionType, ProducerConfig}

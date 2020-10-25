@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
-import cats.implicits._
+import cats.syntax.all._
 import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsRecordToActionRecord, KafkaWrite}
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._

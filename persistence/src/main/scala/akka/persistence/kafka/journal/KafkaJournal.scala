@@ -5,7 +5,7 @@ import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.Parallel
 import cats.effect._
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, ToFuture, ToTry}
 import com.evolutiongaming.kafka.journal._

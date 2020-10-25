@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import cats.data.{NonEmptyList => Nel}
-import cats.implicits._
+import cats.syntax.all._
 import com.datastax.driver.core.ConsistencyLevel
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper._

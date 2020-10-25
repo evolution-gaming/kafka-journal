@@ -4,7 +4,7 @@ import akka.persistence.kafka.journal.EventSerializer.PersistentRepresentation
 import akka.persistence.kafka.journal._
 import akka.persistence.kafka.journal.circe.KafkaJournalCirce._
 import cats.effect.{IO, Resource}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolutiongaming.kafka.journal._

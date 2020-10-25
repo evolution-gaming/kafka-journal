@@ -3,7 +3,7 @@ package akka.persistence.kafka.journal
 import akka.actor.ActorSystem
 import akka.persistence.PersistentRepr
 import cats.effect.Sync
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Applicative, ~>}
 import com.evolutiongaming.catshelper.{FromTry, MonadThrowable}
 import com.evolutiongaming.kafka.journal.FromBytes.implicits._

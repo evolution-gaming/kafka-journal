@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Applicative, Functor, Monad, ~>}
 import play.api.libs.json._
 import scodec.bits.ByteVector

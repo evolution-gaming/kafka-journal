@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.effect.IO
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.EventualRead
 import TestJsonCodec.instance

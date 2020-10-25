@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.util
 
-import cats.implicits._
+import cats.syntax.all._
 
 import scala.util.Either
 

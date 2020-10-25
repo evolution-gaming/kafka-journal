@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.conversions
 
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Monad, ~>}
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.PayloadAndType._

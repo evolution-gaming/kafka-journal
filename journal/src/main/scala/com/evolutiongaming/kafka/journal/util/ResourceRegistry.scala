@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.util
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.effect.implicits._
-import cats.implicits._
+import cats.syntax.all._
 import cats.Applicative
 
 trait ResourceRegistry[F[_]] {

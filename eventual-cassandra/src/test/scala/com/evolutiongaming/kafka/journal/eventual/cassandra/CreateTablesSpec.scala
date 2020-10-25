@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Id
 import cats.data.{NonEmptyList => Nel}
-import cats.implicits._
+import cats.syntax.all._
 import com.datastax.driver.core.{Row, Statement}
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CreateTables.Table

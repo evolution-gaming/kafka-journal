@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.util
 
 import cats.effect.concurrent.Ref
 import cats.effect.{Concurrent, Fiber}
-import cats.implicits._
+import cats.syntax.all._
 
 
 trait GracefulFiber[F[_]] {

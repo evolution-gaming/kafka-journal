@@ -1,6 +1,6 @@
 package akka.persistence.kafka.journal
 
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.Journal.CallTimeThresholds
 import com.evolutiongaming.kafka.journal.{JournalConfig, KafkaConfig}
 import com.typesafe.config.ConfigFactory

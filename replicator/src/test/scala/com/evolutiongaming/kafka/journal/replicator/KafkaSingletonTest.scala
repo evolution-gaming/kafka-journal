@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.replicator
 import cats.data.{NonEmptySet => Nes}
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, IO, Resource, Timer}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.IOSuite._

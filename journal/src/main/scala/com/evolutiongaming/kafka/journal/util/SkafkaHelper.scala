@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.Applicative
-import cats.implicits._
+import cats.syntax.all._
 import com.datastax.driver.core.{GettableByNameData, SettableData}
 import com.evolutiongaming.catshelper.ApplicativeThrowable
 import com.evolutiongaming.scassandra.syntax._

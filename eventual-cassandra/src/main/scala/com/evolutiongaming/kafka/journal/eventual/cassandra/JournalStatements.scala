@@ -4,7 +4,7 @@ import java.time.Instant
 
 import cats.Monad
 import cats.data.{NonEmptyList => Nel}
-import cats.implicits._
+import cats.syntax.all._
 import com.datastax.driver.core.{BatchStatement, Row}
 import com.evolutiongaming.catshelper.ToTry
 import com.evolutiongaming.kafka.journal._

@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.effect._
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.KafkaHealthCheck.Record
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf

@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import cats.effect.{Bracket, Resource}
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Applicative, Defer, ~>}
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.skafka.Topic

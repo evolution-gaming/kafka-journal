@@ -4,7 +4,7 @@ package com.evolutiongaming.kafka.journal.replicator
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.effect.concurrent.Ref
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Applicative, Monad, Parallel, ~>}
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._

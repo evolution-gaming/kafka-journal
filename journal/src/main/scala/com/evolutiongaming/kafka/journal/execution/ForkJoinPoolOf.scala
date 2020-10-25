@@ -4,7 +4,7 @@ import java.util.concurrent.ForkJoinPool
 import java.util.concurrent.ForkJoinPool.ForkJoinWorkerThreadFactory
 
 import cats.effect.{Resource, Sync}
-import cats.implicits._
+import cats.syntax.all._
 
 
 object ForkJoinPoolOf {

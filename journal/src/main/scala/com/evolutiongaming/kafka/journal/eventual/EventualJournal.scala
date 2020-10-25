@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual
 import cats._
 import cats.arrow.FunctionK
 import cats.effect.Resource
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.{Log, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.StreamHelper._

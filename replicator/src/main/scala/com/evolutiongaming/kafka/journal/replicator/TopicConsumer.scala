@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import cats.Monad
 import cats.data.{NonEmptyList => Nel}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.{ConsRecord, KafkaConsumer}
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer._

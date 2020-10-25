@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.effect.{Concurrent, Resource}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.FromFuture
 import com.evolutiongaming.scassandra.{CassandraClusterOf, CassandraConfig}
 import com.evolutiongaming.scassandra

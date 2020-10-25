@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.conversions
 
 import cats.data.OptionT
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._

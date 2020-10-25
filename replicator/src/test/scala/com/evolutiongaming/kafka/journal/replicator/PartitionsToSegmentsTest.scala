@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import cats.data.{NonEmptySet => Nes}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{SegmentNr, Segments}
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.skafka.Partition

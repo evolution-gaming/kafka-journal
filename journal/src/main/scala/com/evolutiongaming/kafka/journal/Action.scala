@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import cats.Functor
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.conversions.KafkaWrite
 import scodec.bits.ByteVector
 

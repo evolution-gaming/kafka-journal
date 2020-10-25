@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual
 
 import cats.Applicative
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.PayloadType
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.Fail.implicits._

@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.implicits._
+import cats.syntax.all._
 import com.datastax.driver.core.{GettableByNameData, SettableData}
 import com.evolutiongaming.kafka.journal.{DeleteTo, PartitionOffset, SeqNr}
 import com.evolutiongaming.scassandra.syntax._

@@ -3,7 +3,7 @@ package akka.persistence.kafka.journal
 import akka.persistence.PersistentRepr
 import cats.Applicative
 import cats.data.{NonEmptyList => Nel}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.{Event, Key}
 
 

@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.util
 
 import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Applicative, Foldable}
 import com.evolutiongaming.kafka.journal.IOSuite._
 import org.scalatest.funsuite.AsyncFunSuite

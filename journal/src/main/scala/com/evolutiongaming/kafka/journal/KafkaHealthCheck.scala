@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.effect.implicits._
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Applicative, Functor, Monad}
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}

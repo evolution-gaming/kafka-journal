@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import cats._
 import cats.effect._
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.smetrics._

@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import cats.data.{NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.effect._
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Applicative, Monad, ~>}
 import com.evolutiongaming.kafka.journal.util.Named
 import com.evolutiongaming.skafka._

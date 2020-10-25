@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.implicits._
+import cats.syntax.all._
 import cats.{Applicative, Eq, Id, Order, Show}
 import com.evolutiongaming.scassandra.{DecodeByIdx, DecodeByName, DecodeRow, EncodeByIdx, EncodeByName, EncodeRow}
 import com.evolutiongaming.kafka.journal.util.Fail

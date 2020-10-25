@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import cats.FlatMap
 import cats.effect.Clock
-import cats.implicits._
+import cats.syntax.all._
 
 trait AppendMarker[F[_]] {
   
