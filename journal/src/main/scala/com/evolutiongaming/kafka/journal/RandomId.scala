@@ -3,7 +3,9 @@ package com.evolutiongaming.kafka.journal
 import cats.kernel.Eq
 import cats.{Order, Show}
 
-final case class RandomId(value: String)
+final case class RandomId(value: String) {
+  override def toString = value
+}
 
 object RandomId {
   implicit val eqRandomId: Eq[RandomId] = Eq.fromUniversalEquals
