@@ -34,7 +34,7 @@ object PointerStatements {
 
   object Insert {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[Insert[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName): F[Insert[F]] = {
       val query =
         s"""
            |INSERT INTO ${ name.toCql } (topic, partition, offset, created, updated)
@@ -60,13 +60,13 @@ object PointerStatements {
 
 
   trait Update[F[_]] {
-    
+
     def apply(topic: Topic, partition: Partition, offset: Offset, timestamp: Instant): F[Unit]
   }
 
   object Update {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[Update[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName): F[Update[F]] = {
       val query =
         s"""
            |UPDATE ${ name.toCql }
@@ -93,13 +93,13 @@ object PointerStatements {
 
 
   trait Select[F[_]] {
-    
+
     def apply(topic: Topic, partition: Partition): F[Option[Offset]]
   }
 
   object Select {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[Select[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName): F[Select[F]] = {
       val query =
         s"""
            |SELECT offset FROM ${ name.toCql }
@@ -129,7 +129,7 @@ object PointerStatements {
 
   object SelectIn {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[SelectIn[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName): F[SelectIn[F]] = {
       val query =
         s"""
            |SELECT partition, offset FROM ${ name.toCql }
@@ -168,7 +168,7 @@ object PointerStatements {
 
   object SelectAll {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[SelectAll[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName): F[SelectAll[F]] = {
       val query =
         s"""
            |SELECT partition, offset FROM ${ name.toCql }
@@ -204,7 +204,7 @@ object PointerStatements {
 
   object SelectTopics {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[SelectTopics[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName): F[SelectTopics[F]] = {
       val query = s"""SELECT DISTINCT topic FROM ${ name.toCql }""".stripMargin
       query
         .prepare
@@ -216,6 +216,29 @@ object PointerStatements {
               .toList
               .map { _.map { _.decode[Topic]("topic") } }
           }
+        }
+    }
+  }
+
+
+  trait Delete[F[_]] {
+
+    def apply(topic: Topic): F[Unit]
+  }
+
+  object Delete {
+
+    def of[F[_]: Monad: CassandraSession](name: TableName): F[Delete[F]] = {
+      s"""DELETE FROM ${ name.toCql } WHERE topic = ?"""
+        .prepare
+        .map { prepared =>
+          topic: Topic =>
+            prepared
+              .bind()
+              .encode("topic", topic)
+              .execute
+              .first
+              .void
         }
     }
   }
