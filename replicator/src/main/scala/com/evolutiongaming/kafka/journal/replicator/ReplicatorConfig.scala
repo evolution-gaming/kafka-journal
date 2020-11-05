@@ -15,7 +15,7 @@ import scala.concurrent.duration._
 final case class ReplicatorConfig(
   topicPrefixes: Nel[String] = Nel.of("journal"),
   topicDiscoveryInterval: FiniteDuration = 3.seconds,
-  cacheExpireAfter: FiniteDuration = 5.minutes,
+  cacheExpireAfter: FiniteDuration = 1.minute,
   kafka: KafkaConfig = KafkaConfig("replicator"),
   cassandra: EventualCassandraConfig = EventualCassandraConfig(
     client = CassandraConfig(
