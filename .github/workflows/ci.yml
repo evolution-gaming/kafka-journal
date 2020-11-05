@@ -21,7 +21,7 @@ jobs:
         path: ~/.cache/coursier/v1
         key: ${{ runner.os }}-coursier-${{ hashFiles('**/build.sbt') }}
 
-    - uses: actions/cache@v1
+    - uses: actions/cache@v2
       with:
         path: ~/.sbt
         key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.properties') }}
