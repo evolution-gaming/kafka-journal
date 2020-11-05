@@ -16,30 +16,35 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - uses: actions/cache@v2
-      with:
-        path: ~/.cache/coursier/v1
-        key: ${{ runner.os }}-coursier-${{ hashFiles('**/build.sbt') }}
+#    - uses: coursier/cache-action@v3
+    - name: cache coursier
+      uses: coursier/cache-action@v3
+#      uses: actions/cache@v2
+#      with:
+#        path: ~/.cache/coursier/v1
+#        key: ${{ runner.os }}-coursier-${{ hashFiles('**/build.sbt') }}
 
-    - uses: actions/cache@v2
+    - name: cache sbt
+      uses: actions/cache@v2
       with:
         path: ~/.sbt
         key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.properties') }}
 
-    - uses: olafurpg/setup-scala@v10
+    - name: scala
+      uses: olafurpg/setup-scala@v10
       with:
         java-version: openjdk@1.11
 
-    - name: Run tests ${{ matrix.scala }}
+    - name: tests ${{ matrix.scala }}
       run: sbt ++${{ matrix.scala }} clean coverage test
 
-    - name: Report test coverage
+    - name: test coverage
       if: success()
       env:
         COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
       run: sbt ++${{ matrix.scala }} coverageReport coverageAggregate coveralls
 
-    - name: Slack Notification
+    - name: slack
       uses: homoluctus/slatify@master
       if: failure() && github.ref == 'refs/heads/master'
       with:
