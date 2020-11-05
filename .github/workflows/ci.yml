@@ -14,9 +14,9 @@ jobs:
           - 2.12.10
 
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
 
-    - uses: actions/cache@v1
+    - uses: actions/cache@v2
       with:
         path: ~/.cache/coursier/v1
         key: ${{ runner.os }}-coursier-${{ hashFiles('**/build.sbt') }}
@@ -26,7 +26,7 @@ jobs:
         path: ~/.sbt
         key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.properties') }}
 
-    - uses: olafurpg/setup-scala@v5
+    - uses: olafurpg/setup-scala@v10
       with:
         java-version: openjdk@1.11
 
