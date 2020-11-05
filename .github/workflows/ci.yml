@@ -23,7 +23,7 @@ jobs:
       with:
         java-version: openjdk@1.11
 
-    - name: tests ${{ matrix.scala }}
+    - name: build ${{ matrix.scala }}
       run: sbt ++${{ matrix.scala }} clean coverage test
 
     - name: test coverage
