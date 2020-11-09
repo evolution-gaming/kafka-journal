@@ -4,14 +4,14 @@ import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.Event._
 import com.evolutiongaming.kafka.journal.util.ScodecHelper.{nelCodec, _}
-import org.scalatest.FunSuite
 import org.scalatest.matchers.should.Matchers
 import scodec.bits.ByteVector
 import scodec.{Attempt, codecs}
 
 import scala.util.Try
+import org.scalatest.funsuite.AnyFunSuite
 
-class EventsTest extends FunSuite with Matchers {
+class EventsTest extends AnyFunSuite with Matchers {
 
   test("decode newer version") {
     implicit val jsonCodec = JsonCodec.jsoniter[Try]

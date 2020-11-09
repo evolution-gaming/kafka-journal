@@ -1,5 +1,5 @@
 package org.scalatest.funsuite
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
-trait AnyFunSuite extends FunSuite
+trait AnyFunSuite extends AnyFunSuite

@@ -9,13 +9,13 @@ import com.evolutiongaming.kafka.journal.eventual.cassandra.ExpireOn.implicits._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.ReplicatedCassandra.MetaJournalStatements.ByKey
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.skafka.Topic
-import org.scalatest.WordSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 import scala.util.Try
+import org.scalatest.wordspec.AnyWordSpec
 
-class ReplicatedCassandraMetaJournalStatementsTest extends WordSpec with Matchers {
+class ReplicatedCassandraMetaJournalStatementsTest extends AnyWordSpec with Matchers {
   import ReplicatedCassandraMetaJournalStatementsTest._
 
   "byKey" when {
