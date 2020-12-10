@@ -16,7 +16,7 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.conversions.{ConsRecordToActionRecord, KafkaRead}
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.catshelper.DataHelper._
-import com.evolutiongaming.kafka.journal.util.{Fail, ResourceOf}
+import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Bytes => _, _}
@@ -76,12 +76,9 @@ object TopicReplicator {
     }
 
     for {
-      log       <- log.toResource
-      consuming  = consume(consumer, log).start
-      fiber     <- ResourceOf(consuming)
-    } yield {
-      fiber.join
-    }
+      log  <- log.toResource
+      done <- consume(consumer, log).background
+    } yield done
   }
 
   def of[F[_] : Concurrent : Parallel : FromTry : Timer : MeasureDuration, A](
