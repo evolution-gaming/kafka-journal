@@ -7,7 +7,6 @@ import cats.effect.{Concurrent, Resource, Sync, Timer}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, FromTry, Log}
-import com.evolutiongaming.kafka.journal.util.ResourceOf
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.{ConsRecord, KafkaConsumerOf}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
@@ -56,7 +55,7 @@ object KafkaSingleton {
 
     for {
       ref <- Ref[F].of(none[A]).toResource
-      _   <- ResourceOf(ConsumeTopic(topic, consumer, topicFlowOf(a(ref)), log).start)
+      _   <- ConsumeTopic(topic, consumer, topicFlowOf(a(ref)), log).background
     } yield {
       new KafkaSingleton[F, A] {
         def get = ref.get

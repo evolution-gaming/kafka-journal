@@ -59,8 +59,7 @@ object IntegrationSuite {
         config   <- config.toResource
         hostName <- HostName.of[F]().toResource
         result   <- Replicator.of[F](config, cassandraClusterOf, hostName, metrics.some)
-        result1   = result.onError { case e => log.error(s"failed to release replicator with $e", e) }
-        _        <- ResourceOf(result1.start)
+        _        <- result.onError { case e => log.error(s"failed to release replicator with $e", e) }.background
       } yield {}
     }
 

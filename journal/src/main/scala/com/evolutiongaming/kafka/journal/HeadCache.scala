@@ -15,7 +15,6 @@ import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.conversions.ConsRecordToActionHeader
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
-import com.evolutiongaming.kafka.journal.util.ResourceOf
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.random.Random
@@ -243,8 +242,8 @@ object HeadCache {
         pointers <- eventual.pointers(topic).toResource
         stateRef <- stateRef(state(pointers))
         pointers  = stateRef.get.map(_.pointers)
-        _        <- ResourceOf(consume(stateRef, pointers).start)
-        _        <- ResourceOf(cleaning(stateRef).start)
+        _        <- consume(stateRef, pointers).background
+        _        <- cleaning(stateRef).background
       } yield {
         apply(topic, stateRef, metrics, log, config.timeout)
       }

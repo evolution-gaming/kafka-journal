@@ -16,26 +16,14 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-#    - uses: coursier/cache-action@v3
-    - name: cache coursier
-      uses: coursier/cache-action@v3
-#      uses: actions/cache@v2
-#      with:
-#        path: ~/.cache/coursier/v1
-#        key: ${{ runner.os }}-coursier-${{ hashFiles('**/build.sbt') }}
-
-#    - name: cache sbt
-#      uses: actions/cache@v2
-#      with:
-#        path: ~/.sbt
-#        key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.properties') }}
+    - uses: coursier/cache-action@v3
 
     - name: scala
       uses: olafurpg/setup-scala@v10
       with:
         java-version: openjdk@1.11
 
-    - name: tests ${{ matrix.scala }}
+    - name: build ${{ matrix.scala }}
       run: sbt ++${{ matrix.scala }} clean coverage test
 
     - name: test coverage
