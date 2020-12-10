@@ -5,10 +5,10 @@ object Dependencies {
   val prometheus           = "io.prometheus"           % "simpleclient"          % "0.6.0"
   val scalatest            = "org.scalatest"          %% "scalatest"             % "3.0.9"
   val `scala-java8-compat` = "org.scala-lang.modules" %% "scala-java8-compat"    % "0.9.1"
-  val `kind-projector`     = "org.typelevel"           % "kind-projector"        % "0.11.0"
+  val `kind-projector`     = "org.typelevel"           % "kind-projector"        % "0.11.2"
   val `cassandra-driver`   = "com.datastax.cassandra"  % "cassandra-driver-core" % "3.10.1"
   val `play-json`          = "com.typesafe.play"      %% "play-json"             % "2.9.1"
-  val `play-json-jsoniter` = "com.evolutiongaming"    %% "play-json-jsoniter"    % "0.7.1"
+  val `play-json-jsoniter` = "com.evolutiongaming"    %% "play-json-jsoniter"    % "0.9.0"
   val `executor-tools`     = "com.evolutiongaming"    %% "executor-tools"        % "1.0.2"
   val `config-tools`       = "com.evolutiongaming"    %% "config-tools"          % "1.0.3"
   val `akka-serialization` = "com.evolutiongaming"    %% "akka-serialization"    % "1.0.3"
@@ -27,8 +27,8 @@ object Dependencies {
   val `akka-test-actor`    = "com.evolutiongaming"    %% "akka-test-actor"       % "0.0.2"
 
   object Cats {
-    val core   = "org.typelevel" %% "cats-core"   % "2.2.0"
-    val effect = "org.typelevel" %% "cats-effect" % "2.2.0"
+    val core   = "org.typelevel" %% "cats-core"   % "2.3.0"
+    val effect = "org.typelevel" %% "cats-effect" % "2.3.0"
   }
 
   object Logback {

@@ -14,7 +14,6 @@ import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.JsString
 import scodec.bits.ByteVector
 import TestJsonCodec.instance
-import cats.syntax.all._
 
 import scala.util.Try
 

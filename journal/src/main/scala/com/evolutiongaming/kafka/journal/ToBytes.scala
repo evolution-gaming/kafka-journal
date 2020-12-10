@@ -23,7 +23,7 @@ object ToBytes {
   def empty[F[_] : Applicative, A]: ToBytes[F, A] = const(ByteVector.empty)
 
 
-  implicit def contravariantToBytes[F[_]]: Contravariant[ToBytes[F, ?]] = new Contravariant[ToBytes[F, ?]] {
+  implicit def contravariantToBytes[F[_]]: Contravariant[ToBytes[F, *]] = new Contravariant[ToBytes[F, *]] {
 
     def contramap[A, B](fa: ToBytes[F, A])(f: B => A) = (a: B) => fa(f(a))
   }
