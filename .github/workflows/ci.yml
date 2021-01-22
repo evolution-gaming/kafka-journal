@@ -14,28 +14,28 @@ jobs:
           - 2.12.10
 
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - uses: coursier/cache-action@v3
+      - uses: coursier/cache-action@v5
 
-    - name: scala
-      uses: olafurpg/setup-scala@v10
-      with:
-        java-version: openjdk@1.11
+      - name: scala
+        uses: olafurpg/setup-scala@v10
+        with:
+          java-version: openjdk@1.11
 
-    - name: build ${{ matrix.scala }}
-      run: sbt ++${{ matrix.scala }} clean coverage test
+      - name: build ${{ matrix.scala }}
+        run: sbt ++${{ matrix.scala }} clean coverage test
 
-    - name: test coverage
-      if: success()
-      env:
-        COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
-      run: sbt ++${{ matrix.scala }} coverageReport coverageAggregate coveralls
+      - name: test coverage
+        if: success()
+        env:
+          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+        run: sbt ++${{ matrix.scala }} coverageReport coverageAggregate coveralls
 
-    - name: slack
-      uses: homoluctus/slatify@master
-      if: failure() && github.ref == 'refs/heads/master'
-      with:
-        type: ${{ job.status }}
-        job_name: Build
-        url: ${{ secrets.SLACK_WEBHOOK }}
+      - name: slack
+        uses: homoluctus/slatify@master
+        if: failure() && github.ref == 'refs/heads/master'
+        with:
+          type: ${{ job.status }}
+          job_name: Build
+          url: ${{ secrets.SLACK_WEBHOOK }}
