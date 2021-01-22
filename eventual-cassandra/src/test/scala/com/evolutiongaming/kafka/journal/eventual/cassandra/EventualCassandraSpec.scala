@@ -156,7 +156,7 @@ object EventualCassandraSpec {
     }
 
 
-    val deleteRecords: JournalStatements.Delete[StateT] = {
+    val deleteRecords: JournalStatements.DeleteTo[StateT] = {
       (key, segment, seqNr) => {
         StateT { state =>
           val state1 = {
@@ -364,7 +364,7 @@ object EventualCassandraSpec {
 
     val statements = ReplicatedCassandra.Statements(
       insertRecords = insertRecords,
-      deleteRecords = deleteRecords,
+      deleteRecordsTo = deleteRecords,
       metaJournal = metaJournal,
       selectPointer = selectPointer,
       selectPointersIn = selectPointersIn,

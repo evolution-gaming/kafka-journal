@@ -219,14 +219,14 @@ object JournalStatements {
   }
 
 
-  trait Delete[F[_]] {
+  trait DeleteTo[F[_]] {
 
     def apply(key: Key, segment: SegmentNr, seqNr: SeqNr):  F[Unit]
   }
 
-  object Delete {
+  object DeleteTo {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[Delete[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[DeleteTo[F]] = {
       val query =
         s"""
            |DELETE FROM ${ name.toCql }

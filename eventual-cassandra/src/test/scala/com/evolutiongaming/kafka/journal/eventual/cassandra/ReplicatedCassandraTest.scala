@@ -1039,7 +1039,7 @@ object ReplicatedCassandraTest {
   }
 
 
-  val deleteRecords: JournalStatements.Delete[StateT] = {
+  val deleteRecords: JournalStatements.DeleteTo[StateT] = {
     (key, segment, seqNr) => {
       StateT.unit { state =>
         val k = (key, segment)
