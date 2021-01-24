@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.data.{NonEmptyList => Nel}
 import cats.kernel.Eq
 import cats.syntax.all._
 import cats.{Applicative, Id, Monad, Order, Show}
@@ -8,8 +7,6 @@ import com.evolutiongaming.kafka.journal.SeqNr
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
-
-import scala.annotation.tailrec
 
 
 sealed abstract case class SegmentNr(value: Long) {

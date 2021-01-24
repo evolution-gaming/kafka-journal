@@ -19,7 +19,7 @@ import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.Json
 
 import scala.concurrent.duration._
-import scala.util.{Failure, Try}
+import scala.util.Try
 
 class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
   import ReplicatedCassandraTest._
