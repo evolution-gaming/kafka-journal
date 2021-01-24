@@ -221,7 +221,7 @@ object JournalStatements {
 
   trait DeleteTo[F[_]] {
 
-    def apply(key: Key, segment: SegmentNr, seqNr: SeqNr):  F[Unit]
+    def apply(key: Key, segmentNr: SegmentNr, seqNr: SeqNr):  F[Unit]
   }
 
   object DeleteTo {
@@ -239,12 +239,43 @@ object JournalStatements {
       for {
         prepared <- query.prepare
       } yield {
-        (key: Key, segment: SegmentNr, seqNr: SeqNr) =>
+        (key: Key, segmentNr: SegmentNr, seqNr: SeqNr) =>
           prepared
             .bind()
             .encode(key)
-            .encode(segment)
+            .encode(segmentNr)
             .encode(seqNr)
+            .first
+            .void
+      }
+    }
+  }
+
+
+  trait Delete[F[_]] {
+
+    def apply(key: Key, segmentNr: SegmentNr):  F[Unit]
+  }
+
+  object Delete {
+
+    def of[F[_] : Monad : CassandraSession](name: TableName): F[Delete[F]] = {
+      val query =
+        s"""
+           |DELETE FROM ${ name.toCql }
+           |WHERE id = ?
+           |AND topic = ?
+           |AND segment = ?
+           |""".stripMargin
+
+      for {
+        prepared <- query.prepare
+      } yield {
+        (key: Key, segmentNr: SegmentNr) =>
+          prepared
+            .bind()
+            .encode(key)
+            .encode(segmentNr)
             .first
             .void
       }

@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.{Instant, LocalDate, ZoneOffset}
-
 import cats.data.{IndexedStateT, NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.{ExitCase, Sync}
 import cats.implicits._
@@ -11,7 +10,7 @@ import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.eventual.cassandra.ExpireOn.implicits._
-import com.evolutiongaming.kafka.journal.util.BracketFromMonadError
+import com.evolutiongaming.kafka.journal.util.{BracketFromMonadError, Fail}
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
@@ -20,7 +19,7 @@ import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.Json
 
 import scala.concurrent.duration._
-import scala.util.Try
+import scala.util.{Failure, Try}
 
 class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
   import ReplicatedCassandraTest._
@@ -1039,7 +1038,7 @@ object ReplicatedCassandraTest {
   }
 
 
-  val deleteRecords: JournalStatements.DeleteTo[StateT] = {
+  val deleteRecordsTo: JournalStatements.DeleteTo[StateT] = {
     (key, segment, seqNr) => {
       StateT.unit { state =>
         val k = (key, segment)
@@ -1049,6 +1048,16 @@ object ReplicatedCassandraTest {
           .filter { case ((a, _), _) => a > seqNr }
         val journal1 = if (entries.isEmpty) journal - k else journal.updated(k, entries)
         state.copy(journal = journal1)
+      }
+    }
+  }
+
+
+  val deleteRecords: JournalStatements.Delete[StateT] = {
+    (key, segment) => {
+      StateT.unit { state =>
+        val k = (key, segment)
+        state.copy(journal = state.journal - k)
       }
     }
   }
@@ -1293,6 +1302,7 @@ object ReplicatedCassandraTest {
 
     ReplicatedCassandra.Statements(
       insertRecords,
+      deleteRecordsTo,
       deleteRecords,
       metaJournal,
       selectPointer,
@@ -1301,6 +1311,13 @@ object ReplicatedCassandraTest {
       insertPointer,
       updatePointer,
       selectTopics)
+  }
+
+
+  implicit val failStatT: Fail[StateT] = new Fail[StateT] {
+    def fail[A](a: String): StateT[A] = {
+      StateT { _ => JournalError(a).raiseError[Try, (State, A)] }
+    }
   }
 
 

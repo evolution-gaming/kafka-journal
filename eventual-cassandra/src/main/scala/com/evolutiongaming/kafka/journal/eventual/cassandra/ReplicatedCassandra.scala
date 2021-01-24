@@ -1,7 +1,5 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import java.time.Instant
-
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.concurrent.Ref
 import cats.effect.implicits._
@@ -14,10 +12,12 @@ import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
+import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
 
+import java.time.Instant
 import scala.annotation.tailrec
 
 
@@ -26,7 +26,7 @@ object ReplicatedCassandra {
   def of[
     F[_]
     : Concurrent: Parallel: Timer
-    : FromFuture: ToFuture: ToTry: LogOf
+    : FromFuture: ToFuture: ToTry: LogOf: Fail
     : CassandraCluster: CassandraSession
     : MeasureDuration
     : JsonCodec.Encode
@@ -51,7 +51,7 @@ object ReplicatedCassandra {
     }
   }
 
-  def apply[F[_]: Sync: Parallel](
+  def apply[F[_]: Sync: Parallel: Fail](
     segmentSize: SegmentSize,
     segmentOf: SegmentOf[F],
     statements: Statements[F],
@@ -131,11 +131,30 @@ object ReplicatedCassandra {
 
                       def delete(from: SeqNr, deleteTo: DeleteTo) = {
 
-                        def segment(seqNr: SeqNr) = SegmentNr(seqNr, segmentSize)
+                        def segmentNr(seqNr: SeqNr) = SegmentNr(seqNr, segmentSize)
 
-                        (segment(from) to segment(deleteTo.value)).parFoldMap { segment =>
-                          statements.deleteRecordsTo(key, segment, deleteTo.value)
-                        }
+                        segmentNr(from)
+                          .to[F](segmentNr(deleteTo.value))
+                          .flatMap { segmentNrs =>
+                            val deletes = if (journalHead.seqNr <= deleteTo.value) {
+                              segmentNrs
+                                .foldLeft(List.empty[F[Unit]]) { (result, a) =>
+                                  statements.deleteRecords(key, a) :: result
+                                }
+                            } else {
+                              @tailrec def loop(as: List[SegmentNr], result: List[F[Unit]]): List[F[Unit]] = {
+                                as match {
+                                  case Nil      => result
+                                  case a :: Nil => statements.deleteRecordsTo(key, a, deleteTo.value) :: result
+                                  case a :: as  => loop(as, statements.deleteRecords(key, a) :: result)
+                                }
+                              }
+
+                              loop(segmentNrs, List.empty)
+                            }
+
+                            deletes.parSequence_
+                          }
                       }
 
                       val deleteTo1 = (journalHead.seqNr min deleteTo.value).toDeleteTo
@@ -146,14 +165,17 @@ object ReplicatedCassandra {
                         if (deleteTo >= deleteTo1) {
                           ().pure[F]
                         } else {
-                          deleteTo.value.next[Option].foldMap { delete(_, deleteTo1) }
+                          deleteTo
+                            .value
+                            .next[Option]
+                            .foldMap { from => delete(from, deleteTo1) }
                         }
                       }
                     }
 
                     val result = for {
                       journalHead <- update
-                      _ <- delete
+                      _           <- delete
                     } yield {
                       journalHead.some
                     }
@@ -331,7 +353,6 @@ object ReplicatedCassandra {
                   ) = {
 
                     def purge(journalHead: JournalHead) = {
-
                       if (offset > journalHead.partitionOffset.offset) {
                         val partitionOffset = journalHead
                           .partitionOffset
@@ -645,6 +666,7 @@ object ReplicatedCassandra {
   final case class Statements[F[_]](
     insertRecords: JournalStatements.InsertRecords[F],
     deleteRecordsTo: JournalStatements.DeleteTo[F],
+    deleteRecords: JournalStatements.Delete[F],
     metaJournal: MetaJournalStatements[F],
     selectPointer: PointerStatements.Select[F],
     selectPointersIn: PointerStatements.SelectIn[F],
@@ -661,6 +683,7 @@ object ReplicatedCassandra {
       val statements = (
         JournalStatements.InsertRecords.of[F](schema.journal),
         JournalStatements.DeleteTo.of[F](schema.journal),
+        JournalStatements.Delete.of[F](schema.journal),
         MetaJournalStatements.of[F](schema),
         PointerStatements.Select.of[F](schema.pointer),
         PointerStatements.SelectIn.of[F](schema.pointer),

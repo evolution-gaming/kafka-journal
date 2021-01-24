@@ -156,7 +156,7 @@ object EventualCassandraSpec {
     }
 
 
-    val deleteRecords: JournalStatements.DeleteTo[StateT] = {
+    val deleteRecordsTo: JournalStatements.DeleteTo[StateT] = {
       (key, segment, seqNr) => {
         StateT { state =>
           val state1 = {
@@ -165,6 +165,21 @@ object EventualCassandraSpec {
               val events = journal.events(key, segment)
               val updated = events.dropWhile(_.event.seqNr <= seqNr)
               state.copy(journal = journal.updated((key, segment), updated))
+            } else {
+              state
+            }
+          }
+          (state1, ())
+        }
+      }
+    }
+
+    val deleteRecords: JournalStatements.Delete[StateT] = {
+      (key, segment) => {
+        StateT { state =>
+          val state1 = {
+            if (delete) {
+              state.copy(journal = state.journal.updated((key, segment), List.empty))
             } else {
               state
             }
@@ -364,7 +379,8 @@ object EventualCassandraSpec {
 
     val statements = ReplicatedCassandra.Statements(
       insertRecords = insertRecords,
-      deleteRecordsTo = deleteRecords,
+      deleteRecordsTo = deleteRecordsTo,
+      deleteRecords = deleteRecords,
       metaJournal = metaJournal,
       selectPointer = selectPointer,
       selectPointersIn = selectPointersIn,

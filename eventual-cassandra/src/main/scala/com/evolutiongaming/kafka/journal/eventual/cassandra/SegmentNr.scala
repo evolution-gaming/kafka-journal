@@ -1,13 +1,15 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
 import cats.kernel.Eq
-import cats.{Applicative, Id, Order, Show}
+import cats.syntax.all._
+import cats.{Applicative, Id, Monad, Order, Show}
 import com.evolutiongaming.kafka.journal.SeqNr
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
+
+import scala.annotation.tailrec
 
 
 sealed abstract case class SegmentNr(value: Long) {
@@ -24,7 +26,7 @@ object SegmentNr {
 
   implicit val eqSegmentNr: Eq[SegmentNr] = Eq.fromUniversalEquals
 
-  implicit val showSeqNr: Show[SegmentNr] = Show.fromToString
+  implicit val showSegmentNr: Show[SegmentNr] = Show.fromToString
 
 
   implicit val orderingSegmentNr: Ordering[SegmentNr] = Ordering.by(_.value)
@@ -77,14 +79,28 @@ object SegmentNr {
 
   implicit class SegmentNrOps(val self: SegmentNr) extends AnyVal {
     
-    // TODO test this
     // TODO stop using this unsafe
-    def to(segment: SegmentNr): Nel[SegmentNr] = {
-      if (self === segment) Nel.of(segment)
+    def to[F[_]: Monad: Fail](segmentNr: SegmentNr): F[List[SegmentNr]] = {
+      if (self === segmentNr) List(segmentNr).pure[F]
+      else if (self > segmentNr) List.empty[SegmentNr].pure[F]
       else {
-        val range = Nel.fromListUnsafe((self.value to segment.value).toList) // TODO remove fromListUnsafe
-        range.map { value => SegmentNr.unsafe(value) } // TODO stop using unsafe
+        def loop(a: SegmentNr, as: List[SegmentNr]): F[List[SegmentNr]] = {
+          if (a === self) {
+            (a :: as).pure[F]
+          } else {
+            a
+              .prev[F]
+              .flatMap { b => loop(b, a :: as) }
+          }
+        }
+        loop(segmentNr, List.empty)
       }
     }
+
+    def map[F[_]: Applicative: Fail](f: Long => Long): F[SegmentNr] = SegmentNr.of[F](f(self.value))
+
+    def next[F[_]: Applicative: Fail]: F[SegmentNr] = map[F](_ + 1L)
+
+    def prev[F[_]: Applicative: Fail]: F[SegmentNr] = map[F](_ - 1L)
   }
 }

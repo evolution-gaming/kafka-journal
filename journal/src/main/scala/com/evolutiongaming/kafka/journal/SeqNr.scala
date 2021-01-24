@@ -1,12 +1,12 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.{Applicative, Id, Show}
-import cats.syntax.all._
 import cats.kernel.{Eq, Order}
+import cats.syntax.all._
+import cats.{Applicative, Id, Show}
 import com.evolutiongaming.kafka.journal.util.Fail
+import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
 import com.evolutiongaming.kafka.journal.util.ScodecHelper._
-import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 import com.evolutiongaming.scassandra._
 import play.api.libs.json._
 import scodec.{Attempt, Codec, codecs}
@@ -25,7 +25,7 @@ object SeqNr {
 
 
   implicit val eqSeqNr: Eq[SeqNr] = Eq.fromUniversalEquals
-  
+
   implicit val showSeqNr: Show[SeqNr] = Show.fromToString
 
 
@@ -71,7 +71,7 @@ object SeqNr {
   }
 
 
-  def of[F[_] : Applicative : Fail](value: Long): F[SeqNr] = {
+  def of[F[_]: Applicative: Fail](value: Long): F[SeqNr] = {
     if (value < min.value) {
       s"invalid SeqNr of $value, it must be greater or equal to $min".fail[F, SeqNr]
     } else if (value > max.value) {
@@ -84,7 +84,7 @@ object SeqNr {
       new SeqNr(value) {}.pure[F]
     }
   }
-  
+
 
   def opt(value: Long): Option[SeqNr] = of[Option](value)
 
@@ -94,15 +94,15 @@ object SeqNr {
 
   implicit class SeqNrOps(val self: SeqNr) extends AnyVal {
 
-    def next[F[_] : Applicative : Fail]: F[SeqNr] = map[F](_ + 1L)
+    def next[F[_]: Applicative: Fail]: F[SeqNr] = map[F](_ + 1L)
 
-    def prev[F[_] : Applicative : Fail]: F[SeqNr] = map[F](_ - 1L)
+    def prev[F[_]: Applicative: Fail]: F[SeqNr] = map[F](_ - 1L)
 
     def in(range: SeqRange): Boolean = range contains self
 
     def to(seqNr: SeqNr): SeqRange = SeqRange(self, seqNr)
 
-    def map[F[_] : Applicative : Fail](f: Long => Long): F[SeqNr] = SeqNr.of[F](f(self.value))
+    def map[F[_]: Applicative: Fail](f: Long => Long): F[SeqNr] = SeqNr.of[F](f(self.value))
 
     def toDeleteTo: DeleteTo = DeleteTo(self)
   }
