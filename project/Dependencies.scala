@@ -28,7 +28,7 @@ object Dependencies {
 
   object Cats {
     val core   = "org.typelevel" %% "cats-core"   % "2.3.0"
-    val effect = "org.typelevel" %% "cats-effect" % "2.3.1"
+    val effect = "org.typelevel" %% "cats-effect" % "2.3.3"
   }
 
   object Logback {
