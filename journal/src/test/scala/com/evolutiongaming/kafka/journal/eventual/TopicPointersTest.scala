@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal.eventual
 
 import com.evolutiongaming.skafka.{Offset, Partition}
-import org.scalatest.FunSuite
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.funsuite.AnyFunSuite
 
-class TopicPointersTest extends FunSuite with Matchers {
+class TopicPointersTest extends AnyFunSuite with Matchers {
 
   test("merge") {
 

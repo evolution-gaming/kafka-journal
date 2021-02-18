@@ -1,3 +1,4 @@
 package org.scalatest.funsuite
 
-trait AsyncFunSuite extends org.scalatest.AsyncFunSuite
+import org.scalatest
+trait AsyncFunSuite extends scalatest.funsuite.AsyncFunSuite

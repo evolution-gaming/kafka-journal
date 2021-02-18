@@ -1,3 +1,4 @@
 package org.scalatest.matchers.should
 
-trait Matchers extends org.scalatest.Matchers
+import org.scalatest.matchers
+trait Matchers extends matchers.should.Matchers
