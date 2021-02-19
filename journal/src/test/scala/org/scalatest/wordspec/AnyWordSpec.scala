@@ -1,3 +1,4 @@
 package org.scalatest.wordspec
 
-trait AnyWordSpec extends org.scalatest.WordSpec
+import org.scalatest
+trait AnyWordSpec extends scalatest.wordspec.AnyWordSpec

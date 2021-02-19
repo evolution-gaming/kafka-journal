@@ -1,3 +1,4 @@
 package org.scalatest.wordspec
 
-trait AsyncWordSpec extends org.scalatest.AsyncWordSpec
+import org.scalatest
+trait AsyncWordSpec extends scalatest.wordspec.AsyncWordSpec

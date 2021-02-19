@@ -3,13 +3,13 @@ package com.evolutiongaming.kafka.journal
 import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
-import org.scalatest.FunSuite
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.{JsResult, Json}
 
 import scala.concurrent.duration._
+import org.scalatest.funsuite.AnyFunSuite
 
-class RecordMetadataTest extends FunSuite with Matchers {
+class RecordMetadataTest extends AnyFunSuite with Matchers {
 
   for {
     (metadata, json) <- List(
