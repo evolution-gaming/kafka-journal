@@ -20,7 +20,7 @@ object SegmentSize {
 
   val max: SegmentSize = new SegmentSize(Int.MaxValue) {}
 
-  val default: SegmentSize = new SegmentSize(100000) {}
+  val default: SegmentSize = new SegmentSize(10000) {}
 
 
   implicit val eqSegmentSize: Eq[SegmentSize] = Eq.fromUniversalEquals
