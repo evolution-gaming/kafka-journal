@@ -24,7 +24,7 @@ class EventualCassandraSpec extends EventualJournalSpec {
   "EventualCassandra" when {
     for {
       segmentSize <- List(SegmentSize.min, SegmentSize.default, SegmentSize.max)
-      segments    <- List(Segments.min, Segments.default)
+      segments    <- List(Segments.min, Segments.old)
       delete      <- List(true, false)
     } {
       s"segmentSize: $segmentSize, delete: $delete, segments: $segments" should {

@@ -19,7 +19,7 @@ object Segments {
 
   val max: Segments = new Segments(Int.MaxValue) {}
 
-  val default: Segments = new Segments(100) {}
+  val old: Segments = new Segments(100) {}
 
 
   implicit val eqSegments: Eq[Segments] = Eq.fromUniversalEquals

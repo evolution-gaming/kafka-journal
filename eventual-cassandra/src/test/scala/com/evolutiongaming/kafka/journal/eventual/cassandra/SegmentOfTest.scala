@@ -10,9 +10,9 @@ class SegmentOfTest extends AnyFunSuite with Matchers {
   for {
     id                    <- List("id", "ID")
     (segments, segmentNr) <- List(
-      (Segments.min,     SegmentNr.min),
-      (Segments.default, SegmentNr.unsafe(55)),
-      (Segments.max,     SegmentNr.unsafe(3355)))
+      (Segments.min, SegmentNr.min),
+      (Segments.old, SegmentNr.unsafe(55)),
+      (Segments.max, SegmentNr.unsafe(3355)))
   } yield {
     test(s"id: $id, segments: $segments, segmentNr: $segmentNr") {
       val segmentOf = SegmentOf[Id](segments)

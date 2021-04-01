@@ -59,7 +59,7 @@ object EventualCassandra {
       schema     <- SetupSchema[F](schemaConfig, origin)
       statements <- Statements.of[F](schema)
     } yield {
-      val journal = apply[F](statements, SegmentOf(Segments.default)).withLog(log)
+      val journal = apply[F](statements, SegmentOf(Segments.old)).withLog(log)
       metrics
         .fold(journal) { metrics => journal.withMetrics(metrics) }
         .enhanceError
@@ -124,11 +124,16 @@ object EventualCassandra {
           }
         }
 
+        def journalHead = for {
+          segmentNr   <- segmentOf(key)
+          journalHead <- statements.metaJournal.journalHead(key, segmentNr)
+        } yield journalHead
+
         for {
-          segmentNr <- Stream.lift(segmentOf(key))
-          head      <- Stream.lift(statements.metaJournal.journalHead(key, segmentNr))
-          result    <- head.fold(Stream.empty[F, EventRecord[EventualPayloadAndType]]) { head =>
-            read(statements.records, head)
+          journalHead <- Stream.lift { journalHead }
+          result      <- journalHead match {
+            case Some(journalHead) => read(statements.records, journalHead)
+            case None              => Stream.empty[F, EventRecord[EventualPayloadAndType]]
           }
         } yield result
       }

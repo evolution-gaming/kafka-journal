@@ -47,7 +47,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
 
   for {
     segmentSize <- List(SegmentSize.min, SegmentSize.default, SegmentSize.max)
-    segments    <- List(Segments.min, Segments.default)
+    segments    <- List(Segments.min, Segments.old)
   } {
 
     val segmentOf = SegmentOf[Id](segments)

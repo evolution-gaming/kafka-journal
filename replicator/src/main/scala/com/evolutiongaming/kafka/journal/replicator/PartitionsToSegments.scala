@@ -20,7 +20,7 @@ object PartitionsToSegments {
 
   def of[F[_] : Monad : Fail](
     partitions: Int,
-    segments: Segments = Segments.default
+    segments: Segments = Segments.old
   ): F[PartitionsToSegments] = {
 
     (SegmentNr.min.value until segments.value.toLong)

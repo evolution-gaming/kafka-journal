@@ -42,7 +42,7 @@ object ReplicatedCassandra {
       log           <- LogOf[F].apply(ReplicatedCassandra.getClass)
       expiryService <- ExpiryService.of[F]
     } yield {
-      val segmentOf = SegmentOf[F](Segments.default)
+      val segmentOf = SegmentOf[F](Segments.old)
       val journal = apply[F](config.segmentSize, segmentOf, statements, expiryService)
         .withLog(log)
       metrics
