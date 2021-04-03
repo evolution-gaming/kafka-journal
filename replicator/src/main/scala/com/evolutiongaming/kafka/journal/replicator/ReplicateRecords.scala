@@ -11,7 +11,6 @@ import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.conversions.{ConsRecordToActionRecord, KafkaRead}
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 
 import scala.concurrent.duration.FiniteDuration
@@ -27,7 +26,7 @@ object ReplicateRecords {
   def apply[F[_] : BracketThrowable : Clock : Parallel, A](
     consRecordToActionRecord: ConsRecordToActionRecord[F],
     journal: ReplicatedKeyJournal[F],
-    metrics: Metrics[F],
+    metrics: TopicReplicatorMetrics[F],
     kafkaRead: KafkaRead[F, A],
     eventualWrite: EventualWrite[F, A],
     log: Log[F]
@@ -44,7 +43,7 @@ object ReplicateRecords {
           for {
             now <- Clock[F].instant
           } yield {
-            Metrics.Measurements(
+            TopicReplicatorMetrics.Measurements(
               replicationLatency = now diff head.action.timestamp,
               deliveryLatency = timestamp diff head.action.timestamp,
               records = records)

@@ -88,7 +88,7 @@ object Replicator {
 
       val metrics1 = metrics
         .flatMap { _.replicator }
-        .fold { TopicReplicator.Metrics.empty[F] } { metrics => metrics(topic) }
+        .fold { TopicReplicatorMetrics.empty[F] } { metrics => metrics(topic) }
 
       val cacheOf = CacheOf[F](config.cacheExpireAfter, metrics.flatMap(_.cache))
       TopicReplicator.of(topic, journal, consumer, metrics1, cacheOf)
@@ -252,7 +252,7 @@ object Replicator {
 
     def journal: Option[ReplicatedJournal.Metrics[F]]
 
-    def replicator: Option[Topic => TopicReplicator.Metrics[F]]
+    def replicator: Option[Topic => TopicReplicatorMetrics[F]]
 
     def consumer: Option[ConsumerMetrics[F]]
 
@@ -275,7 +275,7 @@ object Replicator {
 
     def of[F[_] : Monad](registry: CollectorRegistry[F], clientId: ClientId): Resource[F, Replicator.Metrics[F]] = {
       for {
-        replicator1 <- TopicReplicator.Metrics.of[F](registry)
+        replicator1 <- TopicReplicatorMetrics.of[F](registry)
         journal1    <- ReplicatedJournal.Metrics.of[F](registry)
         consumer1   <- ConsumerMetrics.of[F](registry)
         cache1      <- CacheMetrics.of[F](registry)

@@ -12,7 +12,7 @@ import com.evolutiongaming.catshelper.{FromTry, Log}
 import com.evolutiongaming.kafka.journal.{ConsRecords, _}
 import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsRecordToActionRecord, KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.{EventualPayloadAndType, EventualWrite, ReplicatedJournal, ReplicatedKeyJournal, ReplicatedTopicJournal, TopicPointers}
-import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
+import com.evolutiongaming.kafka.journal.replicator.TopicReplicatorMetrics.Measurements
 import com.evolutiongaming.kafka.journal.util.{ConcurrentOf, Fail}
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.catshelper.DataHelper._
@@ -898,7 +898,7 @@ object TopicReplicatorSpec {
   implicit val parallelStateT: Parallel[StateT] = Parallel.identity[StateT]
 
 
-  implicit val metrics: TopicReplicator.Metrics[StateT] = new TopicReplicator.Metrics[StateT] {
+  implicit val metrics: TopicReplicatorMetrics[StateT] = new TopicReplicatorMetrics[StateT] {
 
     def append(events: Int, bytes: Long, measurements: Measurements) = {
       StateT {
