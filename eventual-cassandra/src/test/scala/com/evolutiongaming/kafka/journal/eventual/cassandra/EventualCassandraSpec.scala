@@ -124,7 +124,10 @@ object EventualCassandraSpec {
       }
     }
 
+    implicit val concurrentStateT = ConcurrentOf.fromMonad[StateT]
+
     val metaJournalStatements = EventualCassandra.MetaJournalStatements(
+      segmentNrsOf = SegmentNrsOf(segmentOf),
       journalHead = selectJournalHead,
       journalPointer = selectJournalPointer)
 
@@ -133,7 +136,7 @@ object EventualCassandraSpec {
       metaJournal = metaJournalStatements,
       pointers = selectPointers)
 
-    EventualCassandra[StateT](statements, segmentOf)
+    EventualCassandra[StateT](statements)
   }
 
 

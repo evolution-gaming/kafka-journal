@@ -21,6 +21,7 @@ object Segments {
 
   val old: Segments = new Segments(100) {}
 
+  val default: Segments = new Segments(10000) {}
 
   implicit val eqSegments: Eq[Segments] = Eq.fromUniversalEquals
 

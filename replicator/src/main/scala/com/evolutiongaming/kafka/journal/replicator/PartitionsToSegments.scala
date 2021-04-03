@@ -18,7 +18,7 @@ trait PartitionsToSegments {
 
 object PartitionsToSegments {
 
-  def of[F[_] : Monad : Fail](
+  def of[F[_]: Monad: Fail](
     partitions: Int,
     segments: Segments = Segments.old
   ): F[PartitionsToSegments] = {
