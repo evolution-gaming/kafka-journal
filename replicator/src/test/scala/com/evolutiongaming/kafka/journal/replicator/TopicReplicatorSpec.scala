@@ -680,6 +680,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       key = key,
       timestamp = timestamp,
       origin = origin.some,
+      version = version.some,
       events = Events(
         events = seqNrs.map { seqNr => Event(SeqNr.unsafe(seqNr), Set(seqNr.toString)) },
         recordMetadata.payload.copy(expireAfter = expireAfter)),
@@ -689,7 +690,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
   }
 
   private def markOf(key: Key) = {
-    Action.Mark(key, timestamp, "id", origin.some)
+    Action.Mark(key, timestamp, "id", origin.some, version.some)
   }
 
   private def deleteOf(key: Key, to: Int) = {
@@ -697,11 +698,12 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       key,
       timestamp,
       SeqNr.unsafe(to).toDeleteTo,
-      origin.some)
+      origin.some,
+      version.some)
   }
 
   private def purgeOf(key: Key) = {
-    Action.Purge(key, timestamp, origin.some)
+    Action.Purge(key, timestamp, origin.some, version.some)
   }
 }
 
@@ -712,6 +714,8 @@ object TopicReplicatorSpec {
   val timestamp: Instant = Instant.now()
 
   val origin: Origin = Origin("origin")
+
+  val version: Version = Version.current
 
   val recordMetadata: RecordMetadata = RecordMetadata(
     HeaderMetadata(Json.obj(("key", "value")).some),

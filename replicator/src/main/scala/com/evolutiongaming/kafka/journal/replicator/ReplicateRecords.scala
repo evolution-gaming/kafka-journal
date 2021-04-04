@@ -1,7 +1,5 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import java.time.Instant
-
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.syntax.all._
@@ -13,6 +11,7 @@ import com.evolutiongaming.kafka.journal.conversions.{ConsRecordToActionRecord, 
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 
+import java.time.Instant
 import scala.concurrent.duration.FiniteDuration
 
 
@@ -23,7 +22,7 @@ trait ReplicateRecords[F[_]] {
 
 object ReplicateRecords {
 
-  def apply[F[_] : BracketThrowable : Clock : Parallel, A](
+  def apply[F[_]: BracketThrowable: Clock: Parallel, A](
     consRecordToActionRecord: ConsRecordToActionRecord[F],
     journal: ReplicatedKeyJournal[F],
     metrics: TopicReplicatorMetrics[F],
@@ -70,14 +69,20 @@ object ReplicateRecords {
             }
           }
 
-          def msg(events: Nel[EventRecord[EventualPayloadAndType]], latency: FiniteDuration, expireAfter: Option[ExpireAfter]) = {
+          def msg(
+            events: Nel[EventRecord[EventualPayloadAndType]],
+            latency: FiniteDuration,
+            expireAfter: Option[ExpireAfter]
+          ) = {
             val seqNrs =
               if (events.tail.isEmpty) s"seqNr: ${ events.head.seqNr }"
               else s"seqNrs: ${ events.head.seqNr }..${ events.last.seqNr }"
             val origin = records.head.action.origin
             val originStr = origin.foldMap { origin => s", origin: $origin" }
+            val version = records.last.action.version
+            val versionStr = version.fold("none") { _.toString }
             val expireAfterStr = expireAfter.foldMap { expireAfter => s", expireAfter: $expireAfter" }
-            s"append in ${ latency.toMillis }ms, id: $id, offset: $partitionOffset, $seqNrs$originStr$expireAfterStr"
+            s"append in ${ latency.toMillis }ms, id: $id, offset: $partitionOffset, $seqNrs$originStr, version: $versionStr$expireAfterStr"
           }
 
           def measure(events: Nel[EventRecord[EventualPayloadAndType]], expireAfter: Option[ExpireAfter]) = {
@@ -96,11 +101,12 @@ object ReplicateRecords {
           } yield {}
         }
 
-        def delete(partitionOffset: PartitionOffset, deleteTo: DeleteTo, origin: Option[Origin]) = {
+        def delete(partitionOffset: PartitionOffset, deleteTo: DeleteTo, origin: Option[Origin], version: Option[Version]) = {
 
           def msg(latency: FiniteDuration) = {
             val originStr = origin.foldMap { origin => s", origin: $origin" }
-            s"delete in ${ latency.toMillis }ms, id: $id, offset: $partitionOffset, deleteTo: $deleteTo$originStr"
+            val versionStr = version.fold("none") { _.toString }
+            s"delete in ${ latency.toMillis }ms, id: $id, offset: $partitionOffset, deleteTo: $deleteTo$originStr, version: $versionStr"
           }
 
           def measure() = {
@@ -118,11 +124,12 @@ object ReplicateRecords {
           } yield {}
         }
 
-        def purge(partitionOffset: PartitionOffset, origin: Option[Origin]) = {
+        def purge(partitionOffset: PartitionOffset, origin: Option[Origin], version: Option[Version]) = {
 
           def msg(latency: FiniteDuration) = {
             val originStr = origin.foldMap { origin => s", origin: $origin" }
-            s"purge in ${ latency.toMillis }ms, id: $id, offset: $partitionOffset$originStr"
+            val versionStr = version.fold("none") { _.toString }
+            s"purge in ${ latency.toMillis }ms, id: $id, offset: $partitionOffset$originStr, version: $versionStr"
           }
 
           def measure() = {
@@ -145,8 +152,8 @@ object ReplicateRecords {
           .of(records)
           .foldMapM {
             case batch: Batch.Appends => append(batch.partitionOffset, batch.records)
-            case batch: Batch.Delete  => delete(batch.partitionOffset, batch.to, batch.origin)
-            case batch: Batch.Purge   => purge(batch.partitionOffset, batch.origin)
+            case batch: Batch.Delete  => delete(batch.partitionOffset, batch.to, batch.origin, batch.version)
+            case batch: Batch.Purge   => purge(batch.partitionOffset, batch.origin, batch.version)
           }
       }
 

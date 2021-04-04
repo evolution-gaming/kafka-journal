@@ -32,6 +32,7 @@ class ActionHeaderJsonSpec extends AnyFunSuite with Matchers {
         val header = ActionHeader.Append(
           range = range,
           origin = origin,
+          version = none,
           payloadType = payloadType,
           metadata = metadata)
         verify(header, s"Append-$originStr-$payloadType-$metadataStr")
@@ -40,17 +41,17 @@ class ActionHeaderJsonSpec extends AnyFunSuite with Matchers {
 
     test(s"Delete format, origin: $origin") {
       val seqNr = SeqNr.unsafe(3)
-      val header = ActionHeader.Delete(seqNr.toDeleteTo, origin)
+      val header = ActionHeader.Delete(seqNr.toDeleteTo, origin, Version("0.0.1").some)
       verify(header, s"Delete-$originStr")
     }
 
     test(s"Purge format, origin: $origin") {
-      val header = ActionHeader.Purge(origin)
+      val header = ActionHeader.Purge(origin, none)
       verify(header, s"Purge-$originStr")
     }
 
     test(s"Mark format, origin: $origin") {
-      val header = ActionHeader.Mark("id", origin)
+      val header = ActionHeader.Mark("id", origin, none)
       verify(header, s"Mark-$originStr")
     }
   }

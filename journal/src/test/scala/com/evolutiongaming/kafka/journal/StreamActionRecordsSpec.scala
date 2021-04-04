@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
-
 import cats.data.IndexedStateT
 import cats.effect.ExitCase
 import cats.implicits._
+import cats.syntax.all.none
 import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal.util.BracketFromMonadError
 import com.evolutiongaming.skafka.{Offset, Partition}
@@ -92,7 +92,7 @@ object StreamActionRecordsSpec {
 
     val (marker, markRecord) = {
       val offset = pointers.lastOption.fold(1L) { _.offset + 1 }
-      val mark = Action.Mark(key, timestamp, ActionHeader.Mark("mark", None))
+      val mark = Action.Mark(key, timestamp, ActionHeader.Mark("mark", none, Version.current.some))
       val partitionOffset = PartitionOffset(offset = Offset.unsafe(offset))
       val record = ActionRecord(mark, partitionOffset)
       val marker = Marker(mark.id, partitionOffset)
@@ -106,6 +106,7 @@ object StreamActionRecordsSpec {
       val header = ActionHeader.Append(
         range = range,
         origin = none,
+        version = Version.current.some,
         payloadType = PayloadType.Json,
         metadata = HeaderMetadata.empty)
       val action = Action.Append(key, timestamp, header, ByteVector.empty, Headers.empty)

@@ -40,7 +40,8 @@ object Produce {
 
   def apply[F[_] : MonadThrowable : Clock](
     produceAction: ProduceAction[F],
-    origin: Option[Origin]
+    origin: Option[Origin],
+    version: Version = Version.current
   ): Produce[F] = {
 
     def send(action: Action) = {
@@ -66,6 +67,7 @@ object Produce {
             ActionHeader.Append(
               range = range,
               origin = origin,
+              version = version.some,
               payloadType = payloadAndType.payloadType,
               metadata = metadata),
             payloadAndType.payload,
@@ -82,7 +84,7 @@ object Produce {
       def delete(key: Key, to: DeleteTo) = {
         for {
           timestamp <- Clock[F].instant
-          action     = Action.Delete(key, timestamp, to, origin)
+          action     = Action.Delete(key, timestamp, to, origin, version.some)
           result    <- send(action)
         } yield result
       }
@@ -90,7 +92,7 @@ object Produce {
       def purge(key: Key) = {
         for {
           timestamp <- Clock[F].instant
-          action     = Action.Purge(key, timestamp, origin)
+          action     = Action.Purge(key, timestamp, origin, version.some)
           result    <- send(action)
         } yield result
       }
@@ -99,7 +101,7 @@ object Produce {
         for {
           timestamp <- Clock[F].instant
           id         = randomId.value
-          action     = Action.Mark(key, timestamp, id, origin)
+          action     = Action.Mark(key, timestamp, id, origin, version.some)
           result    <- send(action)
         } yield result
       }
