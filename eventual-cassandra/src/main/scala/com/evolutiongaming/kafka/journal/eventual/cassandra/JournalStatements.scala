@@ -111,6 +111,7 @@ object JournalStatements {
               .encode(record.partitionOffset)
               .encode("timestamp", record.timestamp)
               .encodeSome(record.origin)
+              .encodeSome(record.version)
               .encode("tags", event.tags)
               .encodeSome("payload_type", payloadType)
               .encodeSome("payload_txt", txt)
@@ -212,6 +213,7 @@ object JournalStatements {
                 event = event,
                 timestamp = row.decode[Instant]("timestamp"),
                 origin = row.decode[Option[Origin]],
+                version = row.decode[Option[Version]],
                 partitionOffset = partitionOffset,
                 metadata = metadata,
                 headers = headers)

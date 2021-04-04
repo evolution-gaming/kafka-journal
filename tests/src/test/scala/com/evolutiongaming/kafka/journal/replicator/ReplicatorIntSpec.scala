@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
-
 import cats.Parallel
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
@@ -35,6 +34,7 @@ import scala.util.control.NoStackTrace
 class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers {
 
   private val origin = Origin("ReplicatorIntSpec")
+  private val version = Version.current
 
   private val recordMetadata = RecordMetadata(
     HeaderMetadata(Json.obj(("key", "value")).some),
@@ -165,7 +165,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       } yield for {
         event <- events
       } yield {
-        EventRecord(event, timestamp, partitionOffset, origin.some, recordMetadata1, headers)
+        EventRecord(event, timestamp, partitionOffset, origin.some, version.some, recordMetadata1, headers)
       }
     }
 

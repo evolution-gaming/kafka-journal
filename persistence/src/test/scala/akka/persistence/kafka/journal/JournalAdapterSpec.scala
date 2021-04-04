@@ -103,7 +103,15 @@ object JournalAdapterSpec {
     PayloadMetadata(expireAfter.some))
   private val headers = Headers(("key", "value"))
   private val origin = Origin("origin")
-  private val eventRecord = EventRecord(event, timestamp, partitionOffset, origin.some, recordMetadata, headers)
+  private val version = Version.current
+  private val eventRecord = EventRecord(
+    event,
+    timestamp,
+    partitionOffset,
+    origin.some,
+    version.some,
+    recordMetadata,
+    headers)
 
   sealed abstract class Action
 

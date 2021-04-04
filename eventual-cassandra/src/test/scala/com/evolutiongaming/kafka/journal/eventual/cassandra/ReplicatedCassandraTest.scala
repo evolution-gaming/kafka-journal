@@ -4,6 +4,7 @@ import java.time.{Instant, LocalDate, ZoneOffset}
 import cats.data.{IndexedStateT, NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.{ExitCase, Sync}
 import cats.implicits._
+import cats.syntax.all.none
 import cats.{Id, Parallel}
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
@@ -30,6 +31,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
   private val topic1 = "topic1"
   private val partitionOffset = PartitionOffset.empty
   private val origin = Origin("origin")
+  private val version = Version.current
   private val record = eventRecordOf(SeqNr.min, partitionOffset)
 
   private def eventRecordOf(seqNr: SeqNr, partitionOffset: PartitionOffset) = {
@@ -38,6 +40,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       timestamp = timestamp0,
       partitionOffset = partitionOffset,
       origin = origin.some,
+      version = version.some,
       metadata = RecordMetadata(
         HeaderMetadata(Json.obj(("key", "value")).some),
         PayloadMetadata.empty),

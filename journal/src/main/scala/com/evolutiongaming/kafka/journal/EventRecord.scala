@@ -13,7 +13,8 @@ final case class EventRecord[A](
   event: Event[A],
   timestamp: Instant,
   partitionOffset: PartitionOffset,
-  origin: Option[Origin] = None,
+  origin: Option[Origin],
+  version: Option[Version],
   metadata: RecordMetadata,
   headers: Headers
 ) {
@@ -48,6 +49,7 @@ object EventRecord {
       timestamp = action.timestamp,
       partitionOffset = partitionOffset,
       origin = action.origin,
+      version = action.version,
       metadata = RecordMetadata(
         header = action.header.metadata,
         payload = metadata),

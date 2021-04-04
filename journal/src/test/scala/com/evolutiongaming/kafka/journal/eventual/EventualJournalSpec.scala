@@ -85,7 +85,9 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
         metadata = RecordMetadata(
           HeaderMetadata(Json.obj(("key", "value")).some),
           PayloadMetadata.empty),
-        headers = headers)
+        headers = headers,
+        origin = none,
+        version = none)
     }
 
     for {

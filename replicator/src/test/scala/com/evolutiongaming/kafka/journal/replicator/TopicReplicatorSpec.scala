@@ -670,6 +670,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       timestamp,
       partitionOffset,
       origin.some,
+      version.some,
       recordMetadata.withExpireAfter(expireAfter),
       headers)
   }

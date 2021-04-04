@@ -5,6 +5,7 @@ import cats.{Id, Parallel}
 import cats.data.{IndexedStateT, NonEmptyList => Nel}
 import cats.effect.ExitCase
 import cats.implicits._
+import cats.syntax.all.none
 import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
@@ -30,6 +31,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
   private val topic1 = "topic1"
   private val partitionOffset = PartitionOffset.empty
   private val origin = Origin("origin")
+  private val version = Version.current
   private val record = eventRecordOf(SeqNr.min, partitionOffset)
 
   private def eventRecordOf(seqNr: SeqNr, partitionOffset: PartitionOffset) = {
@@ -38,6 +40,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
       timestamp = timestamp0,
       partitionOffset = partitionOffset,
       origin = origin.some,
+      version = version.some,
       metadata = RecordMetadata(
         HeaderMetadata(Json.obj(("key", "value")).some),
         PayloadMetadata.empty),
