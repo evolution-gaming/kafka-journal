@@ -31,6 +31,7 @@ object JournalStatements {
        |offset BIGINT,
        |timestamp TIMESTAMP,
        |origin TEXT,
+       |version TEXT,
        |tags SET<TEXT>,
        |metadata TEXT,
        |payload_type TEXT,
@@ -46,6 +47,9 @@ object JournalStatements {
     s"ALTER TABLE ${ table.toCql } ADD headers map<text, text>"
   }
 
+  def addVersion(table: TableName): String = {
+    s"ALTER TABLE ${ table.toCql } ADD version TEXT"
+  }
 
   trait InsertRecords[F[_]] {
     def apply(key: Key, segment: SegmentNr, events: Nel[EventRecord[EventualPayloadAndType]]): F[Unit]
