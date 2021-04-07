@@ -1,4 +1,11 @@
 import Dependencies._
+import sbt.librarymanagement.MavenRepository
+
+def artifactory(owner: String, repo: String) = {
+  MavenRepository(
+    s"artifactory-$owner-$repo",
+    s"https://$owner.jfrog.io/artifactory/$repo")
+}
 
 lazy val commonSettings = Seq(
   organization := "com.evolutiongaming",
@@ -11,7 +18,7 @@ lazy val commonSettings = Seq(
   crossScalaVersions := Seq("2.13.3", "2.12.10"),
   scalacOptions in(Compile, doc) ++= Seq("-groups", "-implicits", "-no-link-warnings"),
   scalacOptsFailOnWarn := Some(false),
-  resolvers += Resolver.bintrayRepo("evolutiongaming", "maven"),
+  resolvers += artifactory("evolutiongaming", "maven"),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   releaseCrossBuild := true,
   testOptions in Test ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM")),
