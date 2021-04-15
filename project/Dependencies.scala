@@ -19,7 +19,7 @@ object Dependencies {
   val scassandra           = "com.evolutiongaming"    %% "scassandra"            % "3.0.2"
   val `cassandra-sync`     = "com.evolutiongaming"    %% "cassandra-sync"        % "1.0.8"
   val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "2.1.4"
-  val random               = "com.evolutiongaming"    %% "random"                % "0.0.7"
+  val random               = "com.evolutiongaming"    %% "random"                % "0.1.0"
   val retry                = "com.evolutiongaming"    %% "retry"                 % "2.1.0"
   val sstream              = "com.evolutiongaming"    %% "sstream"               % "0.2.1"
   val skafka               = "com.evolutiongaming"    %% "skafka"                % "11.0.0"
