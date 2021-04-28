@@ -2,7 +2,7 @@ externalResolvers += Resolver.bintrayIvyRepo("evolutiongaming", "sbt-plugins")
 
 addSbtPlugin("org.foundweekends" % "sbt-bintray" % "0.6.1")
 
-addSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.6.1")
+addSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.7.0")
 
 addSbtPlugin("org.scoverage" % "sbt-coveralls" % "1.2.7")
 
