@@ -2,7 +2,7 @@
 [![Build Status](https://github.com/evolution-gaming/kafka-journal/workflows/CI/badge.svg)](https://github.com/evolution-gaming/kafka-journal/actions?query=workflow%3ACI)
 [![Coverage Status](https://coveralls.io/repos/evolution-gaming/kafka-journal/badge.svg)](https://coveralls.io/r/evolution-gaming/kafka-journal)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/fab03059b5f94fa5b1e7ad7bddfe8b07)](https://www.codacy.com/app/evolution-gaming/kafka-journal?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=evolution-gaming/kafka-journal&amp;utm_campaign=Badge_Grade)
-[![version](https://api.bintray.com/packages/evolutiongaming/maven/kafka-journal/images/download.svg) ](https://bintray.com/evolutiongaming/maven/kafka-journal/_latestVersion) [![License: MIT](https://img.shields.io/badge/License-MIT-yellowgreen.svg)](https://opensource.org/licenses/MIT)
+[![Version](https://img.shields.io/badge/version-click-blue)](https://evolution.jfrog.io/artifactory/api/search/latestVersion?g=com.evolutiongaming&a=kafka-journal_2.13&repos=public)
 [![Chat](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/evolution-gaming/kafka-journal)
 
 > Stream data from two sources where one is eventually consistent and the other one loses its tail
@@ -117,15 +117,15 @@ Unfortunately akka persistence `snapshot` plugin is not implemented yet.
 ## Setup
 
 ```scala
-resolvers += Resolver.bintrayRepo("evolutiongaming", "maven")
+addSbtPlugin("com.evolution" % "sbt-artifactory-plugin" % "0.0.2")
 
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal" % "0.0.99"
+libraryDependencies += "com.evolutiongaming" %% "kafka-journal" % "0.0.153"
 
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal-persistence" % "0.0.99"
+libraryDependencies += "com.evolutiongaming" %% "kafka-journal-persistence" % "0.0.153"
 
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal-replicator" % "0.0.99"
+libraryDependencies += "com.evolutiongaming" %% "kafka-journal-replicator" % "0.0.153"
 
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal-eventual-cassandra" % "0.0.99"
+libraryDependencies += "com.evolutiongaming" %% "kafka-journal-eventual-cassandra" % "0.0.153"
 ```
 
 
