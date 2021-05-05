@@ -100,7 +100,7 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
             _          = pointer shouldEqual None
             anEvent    = event(seqNr)
             offset    <- journal.append(Nel.of(anEvent), recordMetadata, headers)
-            record     = EventRecord(anEvent, timestamp, offset, origin.some, recordMetadata, headers)
+            record     = EventRecord(anEvent, timestamp, offset, origin.some, version.some, recordMetadata, headers)
             partition  = offset.partition
             events    <- journal.read
             _          = events shouldEqual List(record)
@@ -118,7 +118,7 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
             _          = events shouldEqual List.empty
             metadata   = recordMetadata.withExpireAfter(1.day.toExpireAfter.some)
             offset    <- journal.append(Nel.of(anEvent), metadata, headers)
-            record     = EventRecord(anEvent, timestamp, offset, origin.some, metadata, headers)
+            record     = EventRecord(anEvent, timestamp, offset, origin.some, version.some, metadata, headers)
             events    <- journal.read
             _          = events shouldEqual List(record)
             pointer   <- journal.delete(DeleteTo.max)
@@ -216,7 +216,7 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
             _         <- append
             _         <- append
             offset    <- append
-            records    = events.map { event => EventRecord(event, timestamp, offset, origin.some, recordMetadata, headers) }
+            records    = events.map { event => EventRecord(event, timestamp, offset, origin.some, version.some, recordMetadata, headers) }
             partition  = offset.partition
             events    <- journal.read
             _          = events shouldEqual records.toList
@@ -266,6 +266,7 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
 object JournalIntSpec {
   private val timestamp = Instant.now().truncatedTo(ChronoUnit.MILLIS)
   private val origin = Origin("JournalIntSpec")
+  private val version = Version.current
   private val recordMetadata = RecordMetadata(
     HeaderMetadata(Json.obj(("key", "value")).some),
     PayloadMetadata.empty)

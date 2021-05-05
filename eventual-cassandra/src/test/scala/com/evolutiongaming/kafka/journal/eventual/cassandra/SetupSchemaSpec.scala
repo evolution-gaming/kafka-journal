@@ -20,19 +20,27 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
   test("migrate fresh") {
     val initial = State.empty
     val (state, _) = migrate(fresh = true).run(initial)
-    state shouldEqual initial.copy(version = "0".some)
+    state shouldEqual initial.copy(version = "1".some)
   }
 
   test("migrate") {
     val initial = State.empty
     val (state, _) = migrate(fresh = false).run(initial)
     state shouldEqual initial.copy(
-      version = "0".some,
+      version = "1".some,
+      actions = List(Action.SyncEnd, Action.Query, Action.Query, Action.SyncStart))
+  }
+
+  test("migrate 0") {
+    val initial = State.empty.copy(version = "0".some)
+    val (state, _) = migrate(fresh = false).run(initial)
+    state shouldEqual initial.copy(
+      version = "1".some,
       actions = List(Action.SyncEnd, Action.Query, Action.SyncStart))
   }
 
   test("not migrate") {
-    val initial = State.empty.copy(version = "0".some)
+    val initial = State.empty.copy(version = "1".some)
     val (state, _) = migrate(fresh = false).run(initial)
     state shouldEqual initial
   }
@@ -63,7 +71,12 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
         }
       }
 
-      def set(key: K, value: V) = throw NotImplemented
+      def set(key: K, value: V) = {
+        StateT { state =>
+          val setting = state.version.map { version => settingOf(key, version) }
+          (state.copy(version = value.some), setting)
+        }
+      }
 
       def setIfEmpty(key: K, value: V) = {
         StateT { state =>
@@ -115,7 +128,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
   def migrate(fresh: Boolean)(implicit monad: Monad[StateT]): StateT[Unit] = {
     implicit val sync = TestSync[StateT](monad)
-    SetupSchema.migrate[StateT](schema, fresh)
+    SetupSchema.migrate[StateT](schema, fresh, settings, cassandraSync)
   }
 
   case class State(version: Option[String], actions: List[Action]) {

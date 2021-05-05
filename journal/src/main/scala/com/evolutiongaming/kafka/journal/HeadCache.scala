@@ -1,11 +1,9 @@
 package com.evolutiongaming.kafka.journal
 
-import java.time.Instant
-
 import cats._
 import cats.data.{OptionT, NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.effect._
-import cats.effect.concurrent.Deferred
+import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.implicits._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
@@ -14,12 +12,11 @@ import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.conversions.ConsRecordToActionHeader
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.random.Random
-import com.evolutiongaming.retry.Strategy
 import com.evolutiongaming.retry.Retry.implicits._
+import com.evolutiongaming.retry.Strategy
 import com.evolutiongaming.scache.{Cache, Releasable}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
@@ -27,6 +24,7 @@ import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.smetrics._
 import scodec.bits.ByteVector
 
+import java.time.Instant
 import scala.concurrent.duration._
 
 /**
@@ -143,8 +141,7 @@ object HeadCache {
       consRecordToKafkaRecord: ConsRecordToKafkaRecord[F]
     ): Resource[F, TopicCache[F]] = {
 
-      // TODO headcache: replace SerialRef with Ref
-      def consume(stateRef: SerialRef[F, State[F]], pointers: F[Map[Partition, Offset]]) = {
+      def consume(stateRef: Ref[F, State[F]], pointers: F[Map[Partition, Offset]]) = {
 
         val stream = HeadCacheConsumption(
           topic = topic,
@@ -177,7 +174,7 @@ object HeadCache {
             for {
               now     <- Clock[F].instant
               entries  = partitionEntries(records)
-              ab      <- stateRef.modify { state => combineAndRun(state, entries).pure[F] }
+              ab      <- stateRef.modify { state => combineAndRun(state, entries) }
               (state, completed) = ab
               _       <- completed.parFold
               _       <- measureRound(state, now)
@@ -186,13 +183,13 @@ object HeadCache {
           .onError { case error => log.error(s"consuming failed with $error", error)} /*TODO headcache: fail head cache*/
       }
 
-      def cleaning(stateRef: SerialRef[F, State[F]]) = {
+      def cleaning(stateRef: Ref[F, State[F]]) = {
 
         val cleaning = for {
           _        <- Timer[F].sleep(config.cleanInterval)
           pointers <- eventual.pointers(topic)
           before   <- stateRef.get
-          _        <- stateRef.update { _.removeUntil(pointers.values).pure[F] }
+          _        <- stateRef.update { _.removeUntil(pointers.values) }
           after    <- stateRef.get
           removed   = before.size - after.size
           _        <- if (removed > 0) log.debug(s"remove $removed entries") else ().pure[F]
@@ -223,7 +220,7 @@ object HeadCache {
 
       def stateRef(state: State[F]) = {
         Resource.make {
-          SerialRef[F].of(state)
+          Ref[F].of(state)
         } { stateRef =>
 
           def removeListeners(state: State[F]) = {
@@ -232,7 +229,7 @@ object HeadCache {
           }
 
           for {
-            listeners <- stateRef.modify { state => removeListeners(state).pure[F] }
+            listeners <- stateRef.modify { state => removeListeners(state) }
             _         <- listeners.toList.parFoldMap { _.release }
           } yield {}
         }
@@ -251,7 +248,7 @@ object HeadCache {
 
     def apply[F[_] : Concurrent : Timer](
       topic: Topic,
-      stateRef: SerialRef[F, State[F]],
+      stateRef: Ref[F, State[F]],
       metrics: Metrics[F],
       log: Log[F],
       timeout: FiniteDuration
@@ -300,7 +297,7 @@ object HeadCache {
             }
           }
 
-          def update(state: State[F]) = {
+          def addListener(state: State[F]) = {
 
             def listenerOf(deferred: Deferred[F, F[Option[HeadInfo]]]) = new Listener[F] {
 
@@ -321,38 +318,34 @@ object HeadCache {
             for {
               deferred <- Deferred[F, F[Option[HeadInfo]]]
               listener  = listenerOf(deferred)
-              _        <- log.debug(s"add listener, id: $id, offset: $partition:$offset")
-              state1    = state.copy(listeners = state.listeners + listener)
-              _        <- metrics.listeners(topic, state1.listeners.size)
             } yield {
               val stateNew = state.copy(listeners = state.listeners + listener)
 
               val result = deferred
                 .get
                 .flatten
-                .onCancel { stateRef.update { state => state.copy(listeners = state.listeners - listener ).pure[F] }  }
+                .onCancel { stateRef.update { state => state.copy(listeners = state.listeners - listener ) }  }
               
               (stateNew, result)
             }
           }
 
-          val result: F[Option[HeadInfo]] = for {
-            state  <- stateRef.get
-            result <- headInfoOf(state.entries).fold {
-              for {
-                result <- stateRef.modify { state =>
-                  headInfoOf(state.entries).fold {
-                    update(state)
-                  } { entry =>
-                    (state, entry.pure[F]).pure[F]
-                  }
-                }
-                result <- result
-              } yield result
-            } {
-              _.pure[F]
+          def logListener(state: State[F]) =
+            log.debug(s"add listener, id: $id, offset: $partition:$offset") *>
+              metrics.listeners(topic, state.listeners.size)
+
+          def result: F[Option[HeadInfo]] =
+            stateRef.access.flatMap {
+              case (state, set) =>
+                headInfoOf(state.entries).fold {
+                  for {
+                    next         <- addListener(state)
+                    (state, res) = next
+                    isSet        <- set(state)
+                    res          <- if (isSet) logListener(state) *> res else result
+                  } yield res
+                }(_.pure[F])
             }
-          } yield result
 
           result
             .race(Timer[F].sleep(timeout))

@@ -1,6 +1,7 @@
 {
   "delete": {
     "to": 3,
-    "origin": "origin"
+    "origin": "origin",
+    "version": "0.0.1"
   }
 }

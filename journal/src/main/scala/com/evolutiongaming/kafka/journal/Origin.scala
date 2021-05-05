@@ -21,9 +21,9 @@ object Origin {
   implicit val readsOrigin: Reads[Origin] = Reads.of[String].map(Origin(_))
 
 
-  implicit val encodeByNameOrigin: EncodeByName[Origin] = EncodeByName[String].contramap((b: Origin) => b.value)
+  implicit val encodeByNameOrigin: EncodeByName[Origin] = EncodeByName[String].contramap((a: Origin) => a.value)
 
-  implicit val decodeByNameOrigin: DecodeByName[Origin] = DecodeByName[String].map(value => Origin(value))
+  implicit val decodeByNameOrigin: DecodeByName[Origin] = DecodeByName[String].map(a => Origin(a))
 
 
   implicit val encodeByNameOptOrigin: EncodeByName[Option[Origin]] = EncodeByName.optEncodeByName

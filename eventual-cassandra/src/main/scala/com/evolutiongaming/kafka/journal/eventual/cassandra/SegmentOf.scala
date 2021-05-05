@@ -11,9 +11,9 @@ trait SegmentOf[F[_]] {
 
 object SegmentOf {
 
-  def const[F[_] : Applicative](segmentNr: SegmentNr): SegmentOf[F] = (_: Key) => segmentNr.pure[F]
+  def const[F[_]: Applicative](segmentNr: SegmentNr): SegmentOf[F] = (_: Key) => segmentNr.pure[F]
 
-  def apply[F[_] : Applicative](segments: Segments): SegmentOf[F] = {
+  def apply[F[_]: Applicative](segments: Segments): SegmentOf[F] = {
     key: Key => {
       val hashCode = key.id.toLowerCase.hashCode
       val segmentNr = SegmentNr(hashCode, segments)
@@ -23,7 +23,7 @@ object SegmentOf {
 
 
   implicit class SegmentOfOps[F[_]](val self: SegmentOf[F]) extends AnyVal {
-    
+
     def mapK[G[_]](f: F ~> G): SegmentOf[G] = (key: Key) => f(self(key))
   }
 }

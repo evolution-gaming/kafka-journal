@@ -1,16 +1,16 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
-
 import cats.{Id, Parallel}
 import cats.data.{IndexedStateT, NonEmptyList => Nel}
 import cats.effect.ExitCase
 import cats.implicits._
+import cats.syntax.all.none
 import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
-import com.evolutiongaming.kafka.journal.util.BracketFromMonadError
+import com.evolutiongaming.kafka.journal.util.{BracketFromMonadError, ConcurrentOf}
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.sstream.FoldWhile._
@@ -31,6 +31,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
   private val topic1 = "topic1"
   private val partitionOffset = PartitionOffset.empty
   private val origin = Origin("origin")
+  private val version = Version.current
   private val record = eventRecordOf(SeqNr.min, partitionOffset)
 
   private def eventRecordOf(seqNr: SeqNr, partitionOffset: PartitionOffset) = {
@@ -39,6 +40,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
       timestamp = timestamp0,
       partitionOffset = partitionOffset,
       origin = origin.some,
+      version = version.some,
       metadata = RecordMetadata(
         HeaderMetadata(Json.obj(("key", "value")).some),
         PayloadMetadata.empty),
@@ -47,12 +49,11 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
 
   for {
     segmentSize <- List(SegmentSize.min, SegmentSize.default, SegmentSize.max)
-    segments    <- List(Segments.min, Segments.default)
+    segments    <- List(Segments.min, Segments.old)
   } {
-
     val segmentOf = SegmentOf[Id](segments)
-
-    val journal = EventualCassandra(statements, SegmentOf[StateT](segments))
+    val statements = statementsOf(SegmentNrsOf(first = segments, Segments.default))
+    val journal = EventualCassandra(statements)
 
     val suffix = s"segmentSize: $segmentSize, segments: $segments"
 
@@ -603,10 +604,13 @@ object EventualCassandraTest {
   implicit val parallel: Parallel[StateT] = Parallel.identity[StateT]
 
 
-  val statements: EventualCassandra.Statements[StateT] = {
+  def statementsOf(segmentNrsOf: SegmentNrsOf[StateT]): EventualCassandra.Statements[StateT] = {
+
+    implicit val concurrentStateT = ConcurrentOf.fromMonad[StateT]
 
     val metaJournalStatements = EventualCassandra.MetaJournalStatements(
       metaJournal = EventualCassandra.MetaJournalStatements(
+        segmentNrsOf = segmentNrsOf,
         journalHead = selectJournalHead0,
         journalPointer = selectJournalPointer0),
       metadata = EventualCassandra.MetaJournalStatements(

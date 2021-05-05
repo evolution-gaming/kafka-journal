@@ -339,13 +339,15 @@ class BatchSpec extends AnyFunSuite with Matchers {
     Batch.Delete(
       PartitionOffset(offset = Offset.unsafe(offset)),
       SeqNr.unsafe(seqNr).toDeleteTo,
-      originOf(origin))
+      originOf(origin),
+      version = none)
   }
 
   def purges(offset: Int, origin: String = ""): Batch.Purge = {
     Batch.Purge(
       PartitionOffset(offset = Offset.unsafe(offset)),
-      originOf(origin))
+      originOf(origin),
+      version = none)
   }
 
   def append(offset: Int, seqNr: Int, seqNrs: Int*): A.Append = {
@@ -377,7 +379,8 @@ class BatchSpec extends AnyFunSuite with Matchers {
       header = ActionHeader.Append(
         range = SeqRange(seqNrOf(seqNrs.head), seqNrOf(seqNrs.last)),
         payloadType = PayloadType.Binary,
-        origin = None,
+        origin = none,
+        version = none,
         metadata = HeaderMetadata.empty),
       payload = ByteVector.empty,
       headers = Headers.empty)
@@ -388,15 +391,16 @@ class BatchSpec extends AnyFunSuite with Matchers {
       keyOf,
       timestamp,
       seqNrOf(seqNr).toDeleteTo,
-      originOf(origin))
+      originOf(origin),
+      version = none)
   }
 
   def actionOf(a: A): Action = {
     a match {
       case a: A.Append => appendOf(Nel(a.seqNr, a.seqNrs))
       case a: A.Delete => deleteOf(seqNr = a.seqNr, origin = a.origin)
-      case a: A.Purge  => Action.Purge(keyOf, timestamp, origin = originOf(a.origin))
-      case _: A.Mark   => Action.Mark(keyOf, timestamp, ActionHeader.Mark("id", None))
+      case a: A.Purge  => Action.Purge(keyOf, timestamp, origin = originOf(a.origin), version = none)
+      case _: A.Mark   => Action.Mark(keyOf, timestamp, ActionHeader.Mark("id", none, version = none))
     }
   }
 

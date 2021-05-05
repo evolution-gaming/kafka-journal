@@ -17,6 +17,8 @@ sealed abstract class Action extends Product {
   def header: ActionHeader
 
   def origin: Option[Origin] = header.origin
+
+  def version: Option[Version] = header.version
 }
 
 object Action {
@@ -80,6 +82,7 @@ object Action {
       key: Key,
       timestamp: Instant,
       origin: Option[Origin],
+      version: Option[Version],
       events: Events[A],
       metadata: HeaderMetadata,
       headers: Headers)(implicit
@@ -93,7 +96,8 @@ object Action {
           range = range,
           origin = origin,
           payloadType = payloadAndType.payloadType,
-          metadata = metadata)
+          metadata = metadata,
+          version = version)
         Append(
           key = key,
           timestamp = timestamp,
@@ -116,8 +120,14 @@ object Action {
 
   object Delete {
 
-    def apply(key: Key, timestamp: Instant, to: DeleteTo, origin: Option[Origin]): Delete = {
-      val header = ActionHeader.Delete(to, origin)
+    def apply(
+      key: Key,
+      timestamp: Instant,
+      to: DeleteTo,
+      origin: Option[Origin],
+      version: Option[Version]
+    ): Delete = {
+      val header = ActionHeader.Delete(to, origin, version)
       Delete(key, timestamp, header)
     }
   }
@@ -131,8 +141,8 @@ object Action {
 
   object Purge {
 
-    def apply(key: Key, timestamp: Instant, origin: Option[Origin]): Purge = {
-      val header = ActionHeader.Purge(origin)
+    def apply(key: Key, timestamp: Instant, origin: Option[Origin], version: Option[Version]): Purge = {
+      val header = ActionHeader.Purge(origin, version)
       Purge(key, timestamp, header)
     }
   }
@@ -149,8 +159,14 @@ object Action {
 
   object Mark {
 
-    def apply(key: Key, timestamp: Instant, id: String, origin: Option[Origin]): Mark = {
-      val header = ActionHeader.Mark(id, origin)
+    def apply(
+      key: Key,
+      timestamp: Instant,
+      id: String,
+      origin: Option[Origin],
+      version: Option[Version]
+    ): Mark = {
+      val header = ActionHeader.Mark(id, origin, version)
       Mark(key, timestamp, header)
     }
   }

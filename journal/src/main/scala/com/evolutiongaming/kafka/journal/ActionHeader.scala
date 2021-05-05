@@ -9,6 +9,8 @@ import play.api.libs.json._
 sealed abstract class ActionHeader extends Product {
   
   def origin: Option[Origin]
+
+  def version: Option[Version]
 }
 
 object ActionHeader {
@@ -33,10 +35,11 @@ object ActionHeader {
           for {
             range       <- (json \ "range").validate[SeqRange]
             origin      <- (json \ "origin").validateOpt[Origin]
+            version     <- (json \ "version").validateOpt[Version]
             payloadType <- (json \ "payloadType").validate[PayloadType.BinaryOrJson]
             metadata    <- metadata
           } yield {
-            Append(range, origin, payloadType, metadata)
+            Append(range, origin, version, payloadType, metadata)
           }
         }
       }
@@ -97,6 +100,7 @@ object ActionHeader {
   final case class Append(
     range: SeqRange,
     origin: Option[Origin],
+    version: Option[Version],
     payloadType: PayloadType.BinaryOrJson,
     metadata: HeaderMetadata,
   ) extends AppendOrDelete
@@ -104,17 +108,20 @@ object ActionHeader {
 
   final case class Delete(
     to: DeleteTo,
-    origin: Option[Origin]
+    origin: Option[Origin],
+    version: Option[Version]
   ) extends AppendOrDelete
 
 
   final case class Purge(
-    origin: Option[Origin]
+    origin: Option[Origin],
+    version: Option[Version]
   ) extends AppendOrDelete
 
 
   final case class Mark(
     id: String,
-    origin: Option[Origin]
+    origin: Option[Origin],
+    version: Option[Version]
   ) extends ActionHeader
 }

@@ -31,6 +31,7 @@ object JournalStatements {
        |offset BIGINT,
        |timestamp TIMESTAMP,
        |origin TEXT,
+       |version TEXT,
        |tags SET<TEXT>,
        |metadata TEXT,
        |payload_type TEXT,
@@ -46,6 +47,9 @@ object JournalStatements {
     s"ALTER TABLE ${ table.toCql } ADD headers map<text, text>"
   }
 
+  def addVersion(table: TableName): String = {
+    s"ALTER TABLE ${ table.toCql } ADD version TEXT"
+  }
 
   trait InsertRecords[F[_]] {
     def apply(key: Key, segment: SegmentNr, events: Nel[EventRecord[EventualPayloadAndType]]): F[Unit]
@@ -73,13 +77,14 @@ object JournalStatements {
            |offset,
            |timestamp,
            |origin,
+           |version,
            |tags,
            |payload_type,
            |payload_txt,
            |payload_bin,
            |metadata,
            |headers)
-           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            |""".stripMargin
 
       for {
@@ -107,6 +112,7 @@ object JournalStatements {
               .encode(record.partitionOffset)
               .encode("timestamp", record.timestamp)
               .encodeSome(record.origin)
+              .encodeSome(record.version)
               .encode("tags", event.tags)
               .encodeSome("payload_type", payloadType)
               .encodeSome("payload_txt", txt)
@@ -151,6 +157,7 @@ object JournalStatements {
            |offset,
            |timestamp,
            |origin,
+           |version,
            |tags,
            |payload_type,
            |payload_txt,
@@ -208,6 +215,7 @@ object JournalStatements {
                 event = event,
                 timestamp = row.decode[Instant]("timestamp"),
                 origin = row.decode[Option[Origin]],
+                version = row.decode[Option[Version]],
                 partitionOffset = partitionOffset,
                 metadata = metadata,
                 headers = headers)

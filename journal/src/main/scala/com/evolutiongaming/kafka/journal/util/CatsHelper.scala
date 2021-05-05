@@ -1,8 +1,10 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.data.OptionT
-import cats.syntax.all._
+import cats.effect.syntax.all._
+import cats.effect.{Concurrent, ExitCase}
 import cats.kernel.CommutativeMonoid
+import cats.syntax.all._
 import cats.{Applicative, ApplicativeError, CommutativeApplicative}
 import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 
@@ -36,6 +38,21 @@ object CatsHelper {
   implicit class FOptionOpsCatsHelper[F[_], A](val self: F[Option[A]]) extends AnyVal {
     
     def toOptionT: OptionT[F, A] = OptionT(self)
+
+    def orElsePar[B >: A](fa: F[Option[B]])(implicit F: Concurrent[F]): F[Option[B]] = {
+      for {
+        fiber <- fa.start
+        value <- self.guaranteeCase {
+          case ExitCase.Completed => ().pure[F]
+          case ExitCase.Canceled  => fiber.cancel
+          case ExitCase.Error(_)  => fiber.cancel
+        }
+        value <- value match {
+          case Some(value) => fiber.cancel.as(value.some)
+          case None        => fiber.join
+        }
+      } yield value
+    }
   }
 
 

@@ -29,27 +29,32 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
 
   private val origins = List(Origin("origin").some, none[Origin])
 
+  private val versions = List(Version.current.some, none[Version])
+
   private val seqNrs = List(SeqNr.min, SeqNr.max)
 
   private val actionToProducerRecord = ActionToProducerRecord[Try]
 
   private val deletes = for {
-    origin <- origins
-    seqNr  <- seqNrs
+    origin  <- origins
+    version <- versions
+    seqNr   <- seqNrs
   } yield {
-    Action.Delete(key1, timestamp, seqNr.toDeleteTo, origin)
+    Action.Delete(key1, timestamp, seqNr.toDeleteTo, origin, version)
   }
 
   private val purges = for {
-    origin <- origins
+    origin  <- origins
+    version <- versions
   } yield {
-    Action.Purge(key1, timestamp, origin)
+    Action.Purge(key1, timestamp, origin, version)
   }
 
   private val marks = for {
-    origin <- origins
+    origin  <- origins
+    version <- versions
   } yield {
-    Action.Mark(key1, timestamp, "id", origin)
+    Action.Mark(key1, timestamp, "id", origin, version)
   }
 
   private val metadata = List(
@@ -97,6 +102,7 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
     implicit val kafkaWrite = KafkaWrite.summon[Try, Payload]
     for {
       origin          <- origins
+      version         <- versions
       metadata        <- metadata
       events          <- events
       headers         <- headers
@@ -106,6 +112,7 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
         key = key1,
         timestamp = timestamp,
         origin = origin,
+        version = version,
         events = Events(events, payloadMetadata),
         metadata = metadata,
         headers = headers).get

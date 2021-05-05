@@ -12,7 +12,7 @@ import com.evolutiongaming.catshelper.{FromTry, Log}
 import com.evolutiongaming.kafka.journal.{ConsRecords, _}
 import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsRecordToActionRecord, KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.{EventualPayloadAndType, EventualWrite, ReplicatedJournal, ReplicatedKeyJournal, ReplicatedTopicJournal, TopicPointers}
-import com.evolutiongaming.kafka.journal.replicator.TopicReplicator.Metrics.Measurements
+import com.evolutiongaming.kafka.journal.replicator.TopicReplicatorMetrics.Measurements
 import com.evolutiongaming.kafka.journal.util.{ConcurrentOf, Fail}
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.catshelper.DataHelper._
@@ -670,6 +670,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       timestamp,
       partitionOffset,
       origin.some,
+      version.some,
       recordMetadata.withExpireAfter(expireAfter),
       headers)
   }
@@ -680,6 +681,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       key = key,
       timestamp = timestamp,
       origin = origin.some,
+      version = version.some,
       events = Events(
         events = seqNrs.map { seqNr => Event(SeqNr.unsafe(seqNr), Set(seqNr.toString)) },
         recordMetadata.payload.copy(expireAfter = expireAfter)),
@@ -689,7 +691,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
   }
 
   private def markOf(key: Key) = {
-    Action.Mark(key, timestamp, "id", origin.some)
+    Action.Mark(key, timestamp, "id", origin.some, version.some)
   }
 
   private def deleteOf(key: Key, to: Int) = {
@@ -697,11 +699,12 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       key,
       timestamp,
       SeqNr.unsafe(to).toDeleteTo,
-      origin.some)
+      origin.some,
+      version.some)
   }
 
   private def purgeOf(key: Key) = {
-    Action.Purge(key, timestamp, origin.some)
+    Action.Purge(key, timestamp, origin.some, version.some)
   }
 }
 
@@ -712,6 +715,8 @@ object TopicReplicatorSpec {
   val timestamp: Instant = Instant.now()
 
   val origin: Origin = Origin("origin")
+
+  val version: Version = Version.current
 
   val recordMetadata: RecordMetadata = RecordMetadata(
     HeaderMetadata(Json.obj(("key", "value")).some),
@@ -898,7 +903,7 @@ object TopicReplicatorSpec {
   implicit val parallelStateT: Parallel[StateT] = Parallel.identity[StateT]
 
 
-  implicit val metrics: TopicReplicator.Metrics[StateT] = new TopicReplicator.Metrics[StateT] {
+  implicit val metrics: TopicReplicatorMetrics[StateT] = new TopicReplicatorMetrics[StateT] {
 
     def append(events: Int, bytes: Long, measurements: Measurements) = {
       StateT {

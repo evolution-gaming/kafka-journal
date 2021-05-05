@@ -1,4 +1,5 @@
 import Dependencies._
+import sbt.librarymanagement.MavenRepository
 
 lazy val commonSettings = Seq(
   organization := "com.evolutiongaming",
@@ -6,22 +7,21 @@ lazy val commonSettings = Seq(
   startYear := Some(2018),
   organizationName := "Evolution Gaming",
   organizationHomepage := Some(url("http://evolutiongaming.com")),
-  bintrayOrganization := Some("evolutiongaming"),
+  publishTo := Some(Resolver.evolutionReleases),
   scalaVersion := crossScalaVersions.value.head,
-  crossScalaVersions := Seq("2.13.3", "2.12.13"),
-  scalacOptions in(Compile, doc) ++= Seq("-groups", "-implicits", "-no-link-warnings"),
+  crossScalaVersions := Seq("2.13.5", "2.12.10"),
+  Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
   scalacOptsFailOnWarn := Some(false),
-  resolvers += Resolver.bintrayRepo("evolutiongaming", "maven"),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   releaseCrossBuild := true,
-  testOptions in Test ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM")),
+  Test / testOptions ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM")),
   libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full))
 
 
 lazy val root = (project in file(".")
   settings (name := "kafka-journal")
   settings commonSettings
-  settings (skip in publish := true)
+  settings (publish / skip  := true)
   aggregate(
     `scalatest-io`,
     journal,
@@ -35,7 +35,7 @@ lazy val root = (project in file(".")
 lazy val `scalatest-io` = (project in file("scalatest-io")
   settings (name := "kafka-journal-scalatest-io")
   settings commonSettings
-  settings (skip in publish := true)
+  settings (publish / skip  := true)
   settings (libraryDependencies ++= Seq(
     scalatest,
     Smetrics.smetrics,
@@ -95,7 +95,7 @@ lazy val `tests` = (project in file("tests")
   settings (name := "kafka-journal-tests")
   settings commonSettings
   settings Seq(
-    skip in publish := true,
+    publish / skip  := true,
     Test / fork := true,
     Test / parallelExecution := false,
     Test / javaOptions ++= Seq("-Xms3G", "-Xmx3G"))
