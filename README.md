@@ -50,7 +50,7 @@ We may share same kafka consumer for many simultaneous recoveries
 * Client allowed to `read` + `write` kafka and `read` cassandra
 * Replicator allowed to `read` kafka and `read` + `write` cassandra
 
-Hence we recommend to configure access rights accordingly.
+Hence, we recommend configuring access rights accordingly.
 
 ## Api
 
@@ -77,12 +77,12 @@ trait Journal[F[_]] {
   def pointer: F[Option[SeqNr]]
 
   /**
-   * Deletes events up to provided SeqNr
+   * Deletes events up to provided SeqNr, consecutive pointer call will return last seen value  
    */
   def delete(to: DeleteTo): F[Option[PartitionOffset]]
 
   /**
-   * Deletes all data with regards to to, consecutive pointer call will return none
+   * Deletes all data with regards to journal, consecutive pointer call will return none
    */
   def purge: F[Option[PartitionOffset]]
 }
@@ -92,7 +92,7 @@ trait Journal[F[_]] {
 
 ### Kafka exceptions in logs
 
-Kafka client is tend to log some exceptions at `error` level, however in reality those are harmless in case of operation retried successfully.
+Kafka client tends to log some exceptions at `error` level, however in reality those are harmless in case of operation retried successfully.
 Retriable exceptions usually extend [RetriableException](https://github.com/apache/kafka/blob/trunk/clients/src/main/java/org/apache/kafka/common/errors/RetriableException.java)
 
 Here is the list of known error logs you may ignore:
