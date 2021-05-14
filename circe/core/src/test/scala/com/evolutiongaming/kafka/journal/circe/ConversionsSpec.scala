@@ -2,8 +2,8 @@ package com.evolutiongaming.kafka.journal.circe
 
 import cats.syntax.all._
 import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.Matchers
 import play.api.libs.json._
+import org.scalatest.matchers.should.Matchers
 
 class ConversionsSpec extends AnyFunSuite with Matchers {
 

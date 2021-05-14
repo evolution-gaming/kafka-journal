@@ -1,13 +1,13 @@
 package com.evolutiongaming.kafka.journal
 
-import org.scalatest.FunSuite
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.{JsString, Json}
 import scodec.bits.ByteVector
 
 import scala.util.{Failure, Try}
+import org.scalatest.funsuite.AnyFunSuite
 
-class JsonCodecTest extends FunSuite with Matchers {
+class JsonCodecTest extends AnyFunSuite with Matchers {
 
   private val malformed = ByteVector.view(Json.toBytes(JsString("\ud83d\ude18\ud83d")))
 
