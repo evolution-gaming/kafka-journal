@@ -7,7 +7,7 @@ import cats.{Applicative, Id, Order, Show}
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 
-/** The maximum number of segment in Cassandra table.
+/** The maximum number of segments in Cassandra table.
   *
   * When [[Segments]] is used then the segment column value is determined by
   * consistent hashing of the key column. I.e. there always no more than
