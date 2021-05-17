@@ -6,11 +6,14 @@ import com.evolutiongaming.kafka.journal.{DeleteTo, PartitionOffset, SeqNr}
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow}
 
-/** Represent metadata of the latest journal event saved to Cassandra.
+/** Represents metadata of particular journal.
   *
-  * @param partitionOffset the offset where the event is located in Kafka
-  * @param segmentSize the last segmentSize used to write a journal
-  * @param seqNr the sequence number of the last event in journal
+  * One piece of information could be found here is the metadata of last action
+  * stored to Cassandra.
+  *
+  * @param partitionOffset the offset where the last stored journal action is located in Kafka
+  * @param segmentSize the segmentSize used to write a journal to Cassandra
+  * @param seqNr the sequence number of the last event in journal stored in Cassandra
   * @param deleteTo the last sequence number deleted from journal if any
   */
 final case class JournalHead(

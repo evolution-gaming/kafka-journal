@@ -7,7 +7,24 @@ import cats.{Applicative, Id, Order, Show}
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 
-
+/** The maximum number of segment in Cassandra table.
+  *
+  * When [[Segments]] is used then the segment column value is determined by
+  * consistent hashing of the key column. I.e. there always no more than
+  * [[Segements#value]] different values.
+  *
+  * The logic itself could be found in [[SegmentNr]] class constructors
+  * (apply methods).
+  *
+  * The only place where such approach is used right now is a metajournal
+  * specified by [[SchemaConfig#metaJournalTable]]. This allows the fair
+  * distribution of the journal keys between the Cassandra partitions.
+  *
+  * The value is not end-user configurable and, currently, set in
+  * [[EventualCassandra]].
+  *
+  * @see [[SegmentSize]] for alternative way used for some other tables.
+  */
 sealed abstract case class Segments(value: Int) {
 
   override def toString: String = value.toString
