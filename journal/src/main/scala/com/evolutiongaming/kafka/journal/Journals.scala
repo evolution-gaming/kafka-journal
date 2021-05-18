@@ -5,7 +5,7 @@ import cats.data.{NonEmptyList => Nel, NonEmptySet => Nes}
 import cats.effect._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MonadThrowable, ToTry}
+import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MonadThrowable}
 import com.evolutiongaming.kafka.journal.conversions.{ConversionMetrics, KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualRead}
 import com.evolutiongaming.kafka.journal.util.Fail
@@ -38,8 +38,8 @@ object Journals {
 
   def of[
     F[_]
-    : Concurrent : Parallel : Timer
-    : FromTry : ToTry : Fail : LogOf
+    : Concurrent : Timer
+    : FromTry : Fail : LogOf
     : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomIdOf
     : MeasureDuration
     : JsonCodec
@@ -82,7 +82,7 @@ object Journals {
   }
 
 
-  def apply[F[_] : Concurrent : Parallel : Clock : RandomIdOf : FromTry : ToTry : Fail : JsonCodec : MeasureDuration](
+  def apply[F[_] : Concurrent : Clock : RandomIdOf : Fail : JsonCodec : MeasureDuration](
     origin: Option[Origin],
     producer: Producer[F],
     consumer: Resource[F, Consumer[F]],
@@ -104,7 +104,7 @@ object Journals {
   }
 
 
-  def apply[F[_] : Concurrent : Clock : Parallel : RandomIdOf : FromTry : MeasureDuration](
+  def apply[F[_] : Concurrent : RandomIdOf : MeasureDuration](
     eventual: EventualJournal[F],
     consumeActionRecords: ConsumeActionRecords[F],
     produce: Produce[F],
@@ -338,7 +338,7 @@ object Journals {
       }
     }
 
-    def apply[F[_] : Monad : FromTry : Fail](
+    def apply[F[_] : Monad : Fail](
       producer: KafkaProducer[F]
     )(implicit
       toBytesKey: skafka.ToBytes[F, String],

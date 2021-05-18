@@ -9,7 +9,7 @@ import cats.{Applicative, Monad, Parallel}
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
-import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture, ToTry}
+import com.evolutiongaming.catshelper.{LogOf, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.util.Fail
@@ -26,7 +26,7 @@ object ReplicatedCassandra {
   def of[
     F[_]
     : Concurrent: Parallel: Timer
-    : FromFuture: ToFuture: ToTry: LogOf: Fail
+    : ToTry: LogOf: Fail
     : CassandraCluster: CassandraSession
     : MeasureDuration
     : JsonCodec.Encode

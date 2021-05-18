@@ -4,7 +4,7 @@ import cats.effect.{Concurrent, Resource, Timer}
 import cats.syntax.all._
 import cats.{Monad, Parallel}
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture, ToTry}
+import com.evolutiongaming.catshelper.{LogOf, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
@@ -20,7 +20,7 @@ object EventualCassandra {
   def of[
     F[_]
     : Concurrent: Parallel: Timer
-    : FromFuture: ToFuture: ToTry: LogOf
+    : ToTry: LogOf
     : FromGFuture
     : MeasureDuration
     : JsonCodec.Decode
@@ -45,7 +45,7 @@ object EventualCassandra {
   def of[
     F[_]
     : Concurrent: Parallel: Timer
-    : FromFuture: ToFuture: ToTry: LogOf
+    : ToTry: LogOf
     : CassandraCluster: CassandraSession
     : MeasureDuration
     : JsonCodec.Decode
@@ -69,7 +69,7 @@ object EventualCassandra {
   }
 
 
-  def apply[F[_]: Monad: Parallel](statements: Statements[F]): EventualJournal[F] = {
+  def apply[F[_]: Monad](statements: Statements[F]): EventualJournal[F] = {
 
     new EventualJournal[F] {
 

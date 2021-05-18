@@ -5,7 +5,7 @@ import java.time.Instant
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.Clock
 import cats.syntax.all._
-import cats.{Id, Monad, Parallel}
+import cats.{Id, Monad}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
@@ -485,7 +485,6 @@ object JournalSpec {
 
       implicit val concurrent = ConcurrentOf.fromMonad[F]
       implicit val clock = Clock.const[F](nanos = 0, millis = timestamp.toEpochMilli)
-      implicit val parallel = Parallel.identity[F]
       implicit val randomIdOf = RandomIdOf.uuid[F]
       implicit val measureDuration = MeasureDuration.fromClock(clock)
       implicit val fromTry = FromTry.lift[F]

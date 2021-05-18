@@ -8,7 +8,7 @@ import cats.effect._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
-import com.evolutiongaming.catshelper.{FromFuture, FromTry, Log, LogOf, Runtime, ToFuture, ToTry}
+import com.evolutiongaming.catshelper.{FromFuture, FromTry, Log, LogOf, ToFuture, ToTry}
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.conversions.KafkaWrite
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
@@ -49,7 +49,6 @@ object AppendReplicateApp extends IOApp {
     ContextShift:
     FromFuture:
     ToFuture:
-    Runtime:
     FromGFuture:
     MeasureDuration:
     FromAttempt:

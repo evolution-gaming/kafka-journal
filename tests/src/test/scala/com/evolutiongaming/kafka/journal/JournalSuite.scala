@@ -6,7 +6,7 @@ import java.time.Instant
 import akka.persistence.kafka.journal.KafkaJournalConfig
 import cats.Monad
 import cats.data.{NonEmptyList => Nel}
-import cats.effect.{Clock, IO}
+import cats.effect.IO
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.LogOf
@@ -93,7 +93,7 @@ object JournalSuite {
 
   object JournalTest {
 
-    def apply[F[_] : Monad : Clock](
+    def apply[F[_] : Monad](
       journal: Journal[F],
       timestamp: Instant
     ): JournalTest[F] = new JournalTest[F] {
