@@ -32,7 +32,7 @@ object ConcurrentOf {
 
       def asyncF[A](k: (Either[Throwable, A] => Unit) => F[Unit]) = F.asyncF(k)
 
-      def suspend[A](thunk: => F[A]) = F.suspend(thunk)
+      def suspend[A](thunk: => F[A]) = F.defer(thunk)
 
       def bracketCase[A, B](acquire: F[A])(use: A => F[B])(release: (A, ExitCase[Throwable]) => F[Unit]) = {
         F.bracketCase(acquire)(use)(release)
