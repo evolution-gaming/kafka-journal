@@ -16,9 +16,9 @@ object Dependencies {
   val `kafka-launcher`     = "com.evolutiongaming"    %% "kafka-launcher"        % "0.0.10"
   val `cassandra-launcher` = "com.evolutiongaming"    %% "cassandra-launcher"    % "0.0.4"
   val hostname             = "com.evolutiongaming"    %% "hostname"              % "0.1.2"
-  val scassandra           = "com.evolutiongaming"    %% "scassandra"            % "3.0.2"
-  val `cassandra-sync`     = "com.evolutiongaming"    %% "cassandra-sync"        % "1.0.8"
-  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "2.1.4"
+  val scassandra           = "com.evolutiongaming"    %% "scassandra"            % "3.2.1"
+  val `cassandra-sync`     = "com.evolutiongaming"    %% "cassandra-sync"        % "1.1.0"
+  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "2.3.0"
   val random               = "com.evolutiongaming"    %% "random"                % "0.0.7"
   val retry                = "com.evolutiongaming"    %% "retry"                 % "2.1.0"
   val sstream              = "com.evolutiongaming"    %% "sstream"               % "0.2.1"
@@ -27,8 +27,8 @@ object Dependencies {
   val `akka-test-actor`    = "com.evolutiongaming"    %% "akka-test-actor"       % "0.0.2"
 
   object Cats {
-    val core   = "org.typelevel" %% "cats-core"   % "2.3.0"
-    val effect = "org.typelevel" %% "cats-effect" % "2.3.1"
+    val core   = "org.typelevel" %% "cats-core"   % "2.4.2"
+    val effect = "org.typelevel" %% "cats-effect" % "2.3.3"
   }
 
   object Logback {
