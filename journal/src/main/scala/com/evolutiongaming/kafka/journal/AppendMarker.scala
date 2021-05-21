@@ -1,17 +1,16 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.FlatMap
-import cats.effect.Clock
 import cats.syntax.all._
 
 trait AppendMarker[F[_]] {
-  
+
   def apply(key: Key): F[Marker]
 }
 
 object AppendMarker {
 
-  def apply[F[_] : FlatMap : RandomIdOf : Clock](
+  def apply[F[_] : FlatMap : RandomIdOf](
     produce: Produce[F],
   ): AppendMarker[F] = {
 

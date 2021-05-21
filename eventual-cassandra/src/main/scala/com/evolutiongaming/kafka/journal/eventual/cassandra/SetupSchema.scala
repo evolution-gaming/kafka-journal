@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.Parallel
 import cats.effect.{Concurrent, Timer}
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.{BracketThrowable, FromFuture, LogOf, ToFuture}
+import com.evolutiongaming.catshelper.{BracketThrowable, LogOf}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.{Origin, Settings}
 import com.evolutiongaming.scassandra.TableName
@@ -75,7 +75,7 @@ object SetupSchema { self =>
     } yield {}
   }
 
-  def apply[F[_]: Concurrent: Parallel: Timer: CassandraCluster: CassandraSession: FromFuture: ToFuture: LogOf](
+  def apply[F[_]: Concurrent: Parallel: Timer: CassandraCluster: CassandraSession: LogOf](
     config: SchemaConfig,
     origin: Option[Origin]
   ): F[Schema] = {
