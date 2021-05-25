@@ -23,7 +23,9 @@ trait ReplicatedJournal[F[_]] {
 
 object ReplicatedJournal {
 
-  def empty[F[_] : Applicative]: ReplicatedJournal[F] = new ReplicatedJournal[F] {
+  private sealed abstract class Empty
+
+  def empty[F[_] : Applicative]: ReplicatedJournal[F] = new Empty with ReplicatedJournal[F] {
 
     def topics = SortedSet.empty[Topic].pure[F]
 
@@ -35,10 +37,16 @@ object ReplicatedJournal {
     }
   }
 
+  @deprecated("use `fromFlat` instead", "2021-05-25")
+  def apply[F[_]: Applicative](replicatedJournal: ReplicatedJournalFlat[F]): ReplicatedJournal[F] = {
+    fromFlat(replicatedJournal)
+  }
 
-  def apply[F[_] : Applicative](replicatedJournal: ReplicatedJournalFlat[F]): ReplicatedJournal[F] = {
+  private sealed abstract class FromFlat
 
-    new ReplicatedJournal[F] {
+  def fromFlat[F[_]: Applicative](replicatedJournal: ReplicatedJournalFlat[F]): ReplicatedJournal[F] = {
+
+    new FromFlat with ReplicatedJournal[F] {
 
       def topics = replicatedJournal.topics
 
@@ -49,6 +57,14 @@ object ReplicatedJournal {
     }
   }
 
+  private sealed abstract class MapK
+
+  private sealed abstract class WithLog
+
+  private sealed abstract class WithMetrics
+
+  private sealed abstract class WithEnhanceError
+
 
   implicit class ReplicatedJournalOps[F[_]](val self: ReplicatedJournal[F]) extends AnyVal {
 
@@ -57,7 +73,7 @@ object ReplicatedJournal {
       B: BracketThrowable[F],
       D: Defer[G],
       G: Applicative[G]
-    ): ReplicatedJournal[G] = new ReplicatedJournal[G] {
+    ): ReplicatedJournal[G] = new MapK with ReplicatedJournal[G] {
 
       def topics = f(self.topics)
 
@@ -74,7 +90,7 @@ object ReplicatedJournal {
       log: Log[F])(implicit
       F: Monad[F],
       measureDuration: MeasureDuration[F]
-    ): ReplicatedJournal[F] = new ReplicatedJournal[F] {
+    ): ReplicatedJournal[F] = new WithLog with ReplicatedJournal[F] {
 
       def topics = {
         for {
@@ -97,7 +113,7 @@ object ReplicatedJournal {
       metrics: Metrics[F])(implicit
       F: Monad[F],
       measureDuration: MeasureDuration[F]
-    ): ReplicatedJournal[F] = new ReplicatedJournal[F] {
+    ): ReplicatedJournal[F] = new WithMetrics with ReplicatedJournal[F] {
 
       def topics = {
         for {
@@ -122,7 +138,7 @@ object ReplicatedJournal {
         JournalError(s"ReplicatedJournal.$msg failed with $cause", cause)
       }
 
-      new ReplicatedJournal[F] {
+      new WithEnhanceError with ReplicatedJournal[F] {
 
         def topics = {
           self

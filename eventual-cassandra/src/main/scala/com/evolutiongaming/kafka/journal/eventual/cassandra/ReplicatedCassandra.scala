@@ -23,6 +23,8 @@ import scala.annotation.tailrec
 
 object ReplicatedCassandra {
 
+  private sealed abstract class Main
+
   def of[
     F[_]
     : Concurrent: Parallel: Timer
@@ -60,7 +62,7 @@ object ReplicatedCassandra {
 
     implicit val monoidUnit = Applicative.monoid[F, Unit]
 
-    new ReplicatedJournal[F] {
+    new Main with ReplicatedJournal[F] {
 
       def topics = {
         statements
