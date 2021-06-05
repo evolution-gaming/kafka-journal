@@ -77,7 +77,7 @@ object SegmentNr {
   def fromSegments(segments: Segments): List[SegmentNr] = {
     min
       .value
-      .until(segments.value)
+      .until(segments.value.toLong)
       .map { a => new SegmentNr(a) {} }
       .toList
   }

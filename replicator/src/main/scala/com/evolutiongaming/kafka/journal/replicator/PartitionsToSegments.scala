@@ -1,11 +1,9 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.Monad
 import cats.data.{NonEmptySet => Nes}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{SegmentNr, Segments}
-import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.skafka.Partition
 
 import scala.collection.immutable.SortedSet
@@ -18,10 +16,7 @@ trait PartitionsToSegments {
 
 object PartitionsToSegments {
 
-  def apply[F[_]: Monad](
-    partitions: Int,
-    segments: Segments = Segments.old
-  ): PartitionsToSegments = {
+  def apply(partitions: Int, segments: Segments = Segments.old): PartitionsToSegments = {
     val segmentNrs = segments
       .segmentNrs
       .toSortedSet

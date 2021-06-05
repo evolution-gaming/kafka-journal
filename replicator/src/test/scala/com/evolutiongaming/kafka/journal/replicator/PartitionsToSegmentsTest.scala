@@ -25,7 +25,7 @@ class PartitionsToSegmentsTest extends AnyFunSuite with Matchers {
         segmentNrs           <- segmentNrs.toList.traverse { a => SegmentNr.of[Try](a.toLong) }
         partitionNrs         <- partitionNrs.toNel.traverse { a => Partition.of[Try](a) }
       } yield {
-        val partitionsToSegments = PartitionsToSegments[Try](partitions, Segments.old)
+        val partitionsToSegments = PartitionsToSegments(partitions, Segments.old)
         val actual = partitionsToSegments(partitionNrs.toNes)
         actual shouldEqual segmentNrs.toSortedSet
       }

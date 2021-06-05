@@ -6,18 +6,17 @@ import cats.effect._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
+import com.evolutiongaming.catshelper.{FromFuture, LogOf}
+import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.eventual.cassandra._
 import com.evolutiongaming.kafka.journal.util.ActorSystemOf
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
-import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.scassandra.CassandraClusterOf
-import com.evolutiongaming.scassandra.util.FromGFuture
 import com.typesafe.config.ConfigFactory
-import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
 import pureconfig.ConfigSource
 
 
@@ -33,7 +32,7 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
   }
 
 
-  private def resources[F[_] : Concurrent : LogOf : Parallel : FromFuture : Timer : ToFuture : ContextShift : FromGFuture](
+  private def resources[F[_]: Concurrent: LogOf: Parallel: FromFuture: Timer](
     origin: Option[Origin],
     cassandraClusterOf: CassandraClusterOf[F]
   ) = {
@@ -75,9 +74,7 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
   }
 
 
-  def test[F[_] : Concurrent : Parallel : FromFuture : ToFuture : Timer : ContextShift : FromGFuture](
-    cassandraClusterOf: CassandraClusterOf[F]
-  ): F[Unit] = {
+  def test[F[_]: Concurrent: Parallel: FromFuture: Timer](cassandraClusterOf: CassandraClusterOf[F]): F[Unit] = {
 
     implicit val logOf = LogOf.empty[F]
 

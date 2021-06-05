@@ -193,7 +193,7 @@ object EventualCassandra {
     }
 
 
-    def of[F[_]: Concurrent: Parallel: CassandraSession](
+    def of[F[_]: Concurrent: CassandraSession](
       metaJournal: TableName,
       segmentNrsOf: SegmentNrsOf[F],
       segments: Segments,

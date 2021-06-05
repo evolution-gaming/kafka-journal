@@ -5,7 +5,7 @@ import akka.persistence.PersistentRepr
 import cats.effect.Sync
 import cats.syntax.all._
 import cats.{Applicative, ~>}
-import com.evolutiongaming.catshelper.{FromTry, MonadThrowable}
+import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolutiongaming.kafka.journal.FromBytes.implicits._
 import com.evolutiongaming.kafka.journal.ToBytes.implicits._
 import com.evolutiongaming.kafka.journal._
@@ -35,7 +35,7 @@ object EventSerializer {
   }
 
 
-  def of[F[_]: Sync: FromTry: FromAttempt: FromJsResult](system: ActorSystem): F[EventSerializer[F, Payload]] = {
+  def of[F[_]: Sync: FromAttempt: FromJsResult](system: ActorSystem): F[EventSerializer[F, Payload]] = {
     for {
       serializedMsgSerializer <- SerializedMsgSerializer.of[F](system)
     } yield {

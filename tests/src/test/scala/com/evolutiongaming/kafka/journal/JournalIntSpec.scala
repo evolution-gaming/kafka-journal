@@ -265,7 +265,7 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
     s"ids" in {
       val result = for {
         ids    <- eventualJournal.ids("journal").toList
-        result <- IO { ids should not be empty }
+        _      <- IO { ids should not be empty }
         result <- IO { ids.distinct shouldEqual ids }
       } yield result
       result.run(1.minute)
