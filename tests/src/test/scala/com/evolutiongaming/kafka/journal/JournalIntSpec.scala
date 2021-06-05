@@ -80,7 +80,9 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
 
       val key = Key.random[IO]("journal")
 
-      lazy val (journals, release) = journalsOf(eventualJournal(), headCache).allocated.unsafeRunSync()
+      lazy val (journals, release) = journalsOf(eventualJournal(), headCache)
+        .allocated
+        .unsafeRunSync()
 
       for {
         seqNr <- List(SeqNr.min, SeqNr.unsafe(2))
@@ -259,8 +261,16 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
         release.run(1.minute)
       }
     }
-  }
 
+    s"ids" in {
+      val result = for {
+        ids    <- eventualJournal.ids("journal").toList
+        result <- IO { ids should not be empty }
+        result <- IO { ids.distinct shouldEqual ids }
+      } yield result
+      result.run(1.minute)
+    }
+  }
 }
 
 object JournalIntSpec {

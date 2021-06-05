@@ -18,30 +18,27 @@ trait PartitionsToSegments {
 
 object PartitionsToSegments {
 
-  def of[F[_]: Monad: Fail](
+  def apply[F[_]: Monad](
     partitions: Int,
     segments: Segments = Segments.old
-  ): F[PartitionsToSegments] = {
-
-    (SegmentNr.min.value until segments.value.toLong)
-      .toList
-      .traverse { segment => SegmentNr.of[F](segment) }
-      .map { segmentNrs =>
-        val filter = {
-          if (partitions >= segments.value) {
-            (a: Partition, b: SegmentNr) => a.value % segments.value.toLong === b.value
-          } else {
-            (a: Partition, b: SegmentNr) => b.value % partitions === a.value.toLong
-          }
-        }
-
-        partitions: Nes[Partition] => {
-          for {
-            partition <- partitions.toSortedSet
-            segmentNr <- segmentNrs.toSortedSet
-            if filter(partition, segmentNr)
-          } yield segmentNr
-        }
+  ): PartitionsToSegments = {
+    val segmentNrs = segments
+      .segmentNrs
+      .toSortedSet
+    val filter = {
+      if (partitions >= segments.value) {
+        (a: Partition, b: SegmentNr) => a.value % segments.value.toLong === b.value
+      } else {
+        (a: Partition, b: SegmentNr) => b.value % partitions === a.value.toLong
       }
+    }
+
+    partitions: Nes[Partition] => {
+      for {
+        partition <- partitions.toSortedSet
+        segmentNr <- segmentNrs
+        if filter(partition, segmentNr)
+      } yield segmentNr
+    }
   }
 }

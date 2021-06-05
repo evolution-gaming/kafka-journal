@@ -1,8 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 
-import java.time.Instant
-
 import cats.Monad
 import cats.syntax.all._
 import com.datastax.driver.core.GettableByNameData
@@ -12,6 +10,8 @@ import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow, TableName}
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.sstream.Stream
+
+import java.time.Instant
 
 
 object MetadataStatements {
@@ -48,7 +48,7 @@ object MetadataStatements {
 
   object Insert {
 
-    def of[F[_]: Monad : CassandraSession](name: TableName): F[Insert[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName): F[Insert[F]] = {
 
       val query =
         s"""
@@ -81,7 +81,7 @@ object MetadataStatements {
 
   object Select {
 
-    def of[F[_]: Monad : CassandraSession](name: TableName): F[Select[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName): F[Select[F]] = {
       val query =
         s"""
            |SELECT partition, offset, segment_size, seq_nr, delete_to, created, updated, origin FROM ${ name.toCql }
@@ -116,7 +116,7 @@ object MetadataStatements {
 
   object SelectJournalHead {
 
-    def of[F[_]: Monad : CassandraSession](name: TableName): F[SelectJournalHead[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName): F[SelectJournalHead[F]] = {
       val query =
         s"""
            |SELECT partition, offset, segment_size, seq_nr, delete_to FROM ${ name.toCql }
@@ -151,7 +151,7 @@ object MetadataStatements {
 
   object SelectJournalPointer {
 
-    def of[F[_]: Monad : CassandraSession](name: TableName): F[SelectJournalPointer[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName): F[SelectJournalPointer[F]] = {
       val query =
         s"""
            |SELECT partition, offset, seq_nr FROM ${ name.toCql }
@@ -193,7 +193,7 @@ object MetadataStatements {
 
   object Update {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[Update[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName): F[Update[F]] = {
       val query =
         s"""
            |UPDATE ${ name.toCql }
@@ -227,7 +227,7 @@ object MetadataStatements {
 
   object UpdateSeqNr {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[UpdateSeqNr[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName): F[UpdateSeqNr[F]] = {
       val query =
         s"""
            |UPDATE ${ name.toCql }
@@ -260,7 +260,7 @@ object MetadataStatements {
 
   object UpdateDeleteTo {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[UpdateDeleteTo[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName): F[UpdateDeleteTo[F]] = {
       val query =
         s"""
            |UPDATE ${ name.toCql }
@@ -293,7 +293,7 @@ object MetadataStatements {
 
   object Delete {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[Delete[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName): F[Delete[F]] = {
       val query =
         s"""
            |DELETE FROM ${ name.toCql }
@@ -344,7 +344,7 @@ object MetadataStatements {
     }
 
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[SelectByTopic[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName): F[SelectByTopic[F]] = {
       val query =
         s"""
            |SELECT id, partition, offset, segment_size, seq_nr, delete_to, created, updated, origin FROM ${ name.toCql }
@@ -360,6 +360,28 @@ object MetadataStatements {
             .encode("topic", topic)
             .execute
             .map { _.decode[Record] }
+      }
+    }
+  }
+
+
+  trait SelectIds[F[_]] {
+
+    def apply(topic: Topic): Stream[F, String]
+  }
+
+  object SelectIds {
+
+    def of[F[_]: Monad: CassandraSession](name: TableName): F[SelectIds[F]] = {
+      for {
+        prepared <- s"SELECT id FROM ${ name.toCql } WHERE topic = ?".prepare
+      } yield {
+        topic: Topic =>
+          prepared
+            .bind()
+            .encode("topic", topic)
+            .execute
+            .map { _.decode[String]("id") }
       }
     }
   }

@@ -7,10 +7,10 @@ import cats.syntax.all._
 import cats.{Applicative, ~>}
 import com.evolutiongaming.catshelper.{FromTry, MonadThrowable}
 import com.evolutiongaming.kafka.journal.FromBytes.implicits._
-import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 import com.evolutiongaming.kafka.journal.ToBytes.implicits._
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.util.Fail
+import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 import play.api.libs.json.{JsString, JsValue, Json}
 import scodec.bits.ByteVector
 
@@ -25,7 +25,7 @@ object EventSerializer {
 
   final case class PersistentRepresentation(payload: Any, writerUuid: String, manifest: Option[String])
 
-  def const[F[_] : Applicative, A](event: Event[A], persistentRepr: PersistentRepr): EventSerializer[F, A] = {
+  def const[F[_]: Applicative, A](event: Event[A], persistentRepr: PersistentRepr): EventSerializer[F, A] = {
     new EventSerializer[F, A] {
 
       def toEvent(persistentRepr: PersistentRepr) = event.pure[F]
@@ -35,7 +35,7 @@ object EventSerializer {
   }
 
 
-  def of[F[_] : Sync : FromTry : FromAttempt : FromJsResult](system: ActorSystem): F[EventSerializer[F, Payload]] = {
+  def of[F[_]: Sync: FromTry: FromAttempt: FromJsResult](system: ActorSystem): F[EventSerializer[F, Payload]] = {
     for {
       serializedMsgSerializer <- SerializedMsgSerializer.of[F](system)
     } yield {
@@ -44,7 +44,7 @@ object EventSerializer {
   }
 
 
-  def apply[F[_] : MonadThrowable : FromAttempt : FromJsResult](
+  def apply[F[_]: MonadThrowable: FromAttempt: FromJsResult](
     serializer: SerializedMsgSerializer[F]
   ): EventSerializer[F, Payload] = {
 
@@ -119,7 +119,7 @@ object EventSerializer {
     EventSerializer(toEventPayload, fromEventPayload)
   }
 
-  def apply[F[_] : MonadThrowable, A](
+  def apply[F[_]: MonadThrowable, A](
     toEventPayload: PersistentRepresentation => F[A],
     fromEventPayload: A => F[PersistentRepresentation]
   ): EventSerializer[F, A] = new EventSerializer[F, A] {

@@ -519,8 +519,10 @@ object ReplicatedCassandra {
             def journalHead = {
               metaJournal1
                 .journalHead
-                .flatMap { journalHead =>
-                  journalHead.fold {
+                .flatMap {
+                  case Some(journalHead) =>
+                    journalHead.some.pure[F]
+                  case None =>
                     selectMetadata(key).flatMap { entry =>
                       entry.traverse { entry =>
                         val journalHead = entry.journalHead
@@ -538,9 +540,6 @@ object ReplicatedCassandra {
                         } yield journalHead
                       }
                     }
-                  } { journalHead =>
-                    journalHead.some.pure[F]
-                  }
                 }
             }
 

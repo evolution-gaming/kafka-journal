@@ -36,8 +36,8 @@ object Replicator {
 
   def of[
     F[_]
-    : Concurrent : Parallel : Timer
-    : FromFuture : ToFuture : FromTry : ToTry : Fail : LogOf
+    : Concurrent: Parallel: Timer
+    : FromFuture: ToFuture: FromTry: ToTry: Fail: LogOf
     : KafkaConsumerOf
     : FromGFuture
     : MeasureDuration

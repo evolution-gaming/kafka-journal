@@ -11,7 +11,7 @@ import com.evolutiongaming.kafka.journal.util.Fail.implicits._
   *
   * When [[Segments]] is used then the segment column value is determined by
   * consistent hashing of the key column. I.e. there always no more than
-  * [[Segements#value]] different values.
+  * [[Segments#value]] different values.
   *
   * The logic itself could be found in [[SegmentNr]] class constructors
   * (apply methods).
@@ -69,4 +69,9 @@ object Segments {
 
 
   def unsafe[A](value: A)(implicit numeric: Numeric[A]): Segments = of[Id](numeric.toInt(value))
+
+
+  implicit class SegmentsOps(val self: Segments) extends AnyVal {
+    def segmentNrs: List[SegmentNr] = SegmentNr.fromSegments(self)
+  }
 }

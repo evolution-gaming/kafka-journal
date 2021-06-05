@@ -54,7 +54,9 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
       (eventualJournal, producer)
     }
 
-    resource.allocated.unsafeRunSync()
+    resource
+      .allocated
+      .unsafeRunSync()
   }
 
   override def beforeAll() = {

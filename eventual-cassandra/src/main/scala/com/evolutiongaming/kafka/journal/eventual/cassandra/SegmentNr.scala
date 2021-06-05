@@ -41,7 +41,7 @@ object SegmentNr {
   implicit val decodeRowSegmentNr: DecodeRow[SegmentNr] = DecodeRow[SegmentNr]("segment")
 
 
-  def of[F[_] : Applicative : Fail](value: Long): F[SegmentNr] = {
+  def of[F[_]: Applicative: Fail](value: Long): F[SegmentNr] = {
     if (value < min.value) {
       s"invalid SegmentNr of $value, it must be greater or equal to $min".fail[F, SegmentNr]
     } else if (value > max.value) {
@@ -74,30 +74,39 @@ object SegmentNr {
   def unsafe[A](value: A)(implicit numeric: Numeric[A]): SegmentNr = of[Id](numeric.toLong(value))
 
 
+  def fromSegments(segments: Segments): List[SegmentNr] = {
+    min
+      .value
+      .until(segments.value)
+      .map { a => new SegmentNr(a) {} }
+      .toList
+  }
+
+
   implicit class SegmentNrOps(val self: SegmentNr) extends AnyVal {
     
-    // TODO stop using this unsafe
     def to[F[_]: Monad: Fail](segmentNr: SegmentNr): F[List[SegmentNr]] = {
       if (self === segmentNr) List(segmentNr).pure[F]
       else if (self > segmentNr) List.empty[SegmentNr].pure[F]
       else {
-        def loop(a: SegmentNr, as: List[SegmentNr]): F[List[SegmentNr]] = {
-          if (a === self) {
-            (a :: as).pure[F]
+        (segmentNr, List.empty[SegmentNr]).tailRecM { case (segmentNr, segmentNrs) =>
+          if (segmentNr === self) {
+            (segmentNr :: segmentNrs)
+              .asRight[(SegmentNr, List[SegmentNr])]
+              .pure[F]
           } else {
-            a
+            segmentNr
               .prev[F]
-              .flatMap { b => loop(b, a :: as) }
+              .map { prev => (prev, segmentNr :: segmentNrs).asLeft[List[SegmentNr]] }
           }
         }
-        loop(segmentNr, List.empty)
       }
     }
 
     def map[F[_]: Applicative: Fail](f: Long => Long): F[SegmentNr] = SegmentNr.of[F](f(self.value))
 
-    def next[F[_]: Applicative: Fail]: F[SegmentNr] = map[F](_ + 1L)
+    def next[F[_]: Applicative: Fail]: F[SegmentNr] = map { _ + 1L }
 
-    def prev[F[_]: Applicative: Fail]: F[SegmentNr] = map[F](_ - 1L)
+    def prev[F[_]: Applicative: Fail]: F[SegmentNr] = map { _ - 1L }
   }
 }

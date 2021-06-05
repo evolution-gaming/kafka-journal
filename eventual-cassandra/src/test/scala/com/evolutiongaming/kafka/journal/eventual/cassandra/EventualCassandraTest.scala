@@ -1,17 +1,16 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import java.time.Instant
-import cats.{Id, Parallel}
 import cats.data.{IndexedStateT, NonEmptyList => Nel}
 import cats.effect.ExitCase
 import cats.implicits._
 import cats.syntax.all.none
+import cats.{Id, Parallel}
 import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.kafka.journal.util.{BracketFromMonadError, ConcurrentOf}
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.sstream.FoldWhile._
 import com.evolutiongaming.sstream.Stream
@@ -19,6 +18,7 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.Json
 
+import java.time.Instant
 import scala.concurrent.duration._
 import scala.util.Try
 
@@ -52,7 +52,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
     segments    <- List(Segments.min, Segments.old)
   } {
     val segmentOf = SegmentOf[Id](segments)
-    val statements = statementsOf(SegmentNrsOf(first = segments, Segments.default))
+    val statements = statementsOf(SegmentNrsOf(first = segments, Segments.default), Segments.default)
     val journal = EventualCassandra(statements)
 
     val suffix = s"segmentSize: $segmentSize, segments: $segments"
@@ -244,6 +244,32 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
         result shouldEqual (expected, ()).pure[Try]
       }
     }
+
+    test(s"ids, $suffix") {
+      val id0 = "id0"
+      val id1 = "id1"
+
+      def idsOf = journal
+        .ids(topic0)
+        .toList
+        .map { _.sorted }
+
+      val stateT = for {
+        ids  <- idsOf
+        _     = ids shouldEqual List.empty
+        head  = JournalHead(partitionOffset, segmentSize, SeqNr.min)
+        _    <- insertMetadata(Key(id = id0, topic = topic0), timestamp0, head, origin.some)
+        ids  <- idsOf
+        _     = ids shouldEqual List(id0)
+        _    <- insertMetaJournal(Key(id = id1, topic = topic0), SegmentNr.min, timestamp0, timestamp0, head, origin.some)
+        ids  <- idsOf
+        _     = ids shouldEqual List(id0, id1)
+      } yield {}
+
+      stateT
+        .run(State.empty)
+        .map { case (_, a) => a } shouldEqual ().pure[Try]
+    }
   }
 }
 
@@ -371,6 +397,23 @@ object EventualCassandraTest {
     }
   }
 
+  val selectIds0: MetaJournalStatements.SelectIds[StateT] = {
+    (topic, segmentNr) => {
+      Stream
+        .lift {
+          StateT.success { state =>
+            val ids = state
+              .metaJournal
+              .get((topic, segmentNr))
+              .toList
+              .flatMap { _.keys.toList }
+            (state, Stream[StateT].apply(ids))
+          }
+        }
+        .flatten
+    }
+  }
+
   val selectJournalPointer1: MetadataStatements.SelectJournalPointer[StateT] = {
     key: Key => {
       StateT.success { state =>
@@ -384,6 +427,23 @@ object EventualCassandraTest {
         }
         (state, pointer)
       }
+    }
+  }
+
+  val selectIds1: MetadataStatements.SelectIds[StateT] = {
+    topic => {
+      Stream
+        .lift {
+          StateT.success { state =>
+            val ids = state
+              .metadata
+              .get(topic)
+              .toList
+              .flatMap { _.keys.toList }
+            (state, Stream[StateT].apply(ids))
+          }
+        }
+        .flatten
     }
   }
 
@@ -604,18 +664,21 @@ object EventualCassandraTest {
   implicit val parallel: Parallel[StateT] = Parallel.identity[StateT]
 
 
-  def statementsOf(segmentNrsOf: SegmentNrsOf[StateT]): EventualCassandra.Statements[StateT] = {
+  def statementsOf(segmentNrsOf: SegmentNrsOf[StateT], segments: Segments): EventualCassandra.Statements[StateT] = {
 
     implicit val concurrentStateT = ConcurrentOf.fromMonad[StateT]
 
     val metaJournalStatements = EventualCassandra.MetaJournalStatements(
-      metaJournal = EventualCassandra.MetaJournalStatements(
+      metaJournal = EventualCassandra.MetaJournalStatements.fromMetaJournal(
         segmentNrsOf = segmentNrsOf,
         journalHead = selectJournalHead0,
-        journalPointer = selectJournalPointer0),
-      metadata = EventualCassandra.MetaJournalStatements(
+        journalPointer = selectJournalPointer0,
+        ids = selectIds0,
+        segments = segments),
+      metadata = EventualCassandra.MetaJournalStatements.fromMetadata(
         journalHead = selectJournalHead1,
-        journalPointer = selectJournalPointer1))
+        journalPointer = selectJournalPointer1,
+        ids = selectIds1))
 
     EventualCassandra.Statements(
       records = selectRecords,
