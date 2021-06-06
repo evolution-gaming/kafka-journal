@@ -22,7 +22,7 @@ trait KafkaSingleton[F[_], A] {
 
 object KafkaSingleton {
 
-  def of[F[_] : Concurrent : Timer : KafkaConsumerOf : FromTry, A](
+  def of[F[_]: Concurrent: Timer: KafkaConsumerOf: FromTry, A](
     topic: Topic,
     groupId: String,
     singleton: Resource[F, A],
@@ -38,9 +38,9 @@ object KafkaSingleton {
       .map { consumer => TopicConsumer(topic, 10.millis, TopicCommit.empty[F], consumer) }
     of(topic, consumer, singleton, log)
   }
-  
 
-  def of[F[_] : Concurrent : Timer, A](
+
+  def of[F[_]: Concurrent: Timer, A](
     topic: Topic,
     consumer: Resource[F, TopicConsumer[F]],
     singleton: Resource[F, A],
