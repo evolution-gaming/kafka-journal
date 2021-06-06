@@ -86,7 +86,7 @@ object KafkaSingleton {
   ): TopicFlow[F] = {
     val partition = Partition.min
 
-    def revokeOrLose(partitions: Nes[Partition]) = {
+    def revokeOrLoose(partitions: Nes[Partition]) = {
       if (partitions contains_ partition) {
         ref
           .getAndSet(none[F[Unit]])
@@ -118,9 +118,9 @@ object KafkaSingleton {
         Map.empty[Partition, Offset].pure[F]
       }
 
-      def revoke(partitions: Nes[Partition]) = revokeOrLose(partitions)
+      def revoke(partitions: Nes[Partition]) = revokeOrLoose(partitions)
 
-      def lose(partitions: Nes[Partition]) = revokeOrLose(partitions)
+      def lose(partitions: Nes[Partition]) = revokeOrLoose(partitions)
     }
   }
 }
