@@ -1,6 +1,6 @@
 addSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.7.3")
 
-addSbtPlugin("org.scoverage" % "sbt-coveralls" % "1.2.7")
+addSbtPlugin("org.scoverage" % "sbt-coveralls" % "1.3.1")
 
 addSbtPlugin("com.github.sbt" % "sbt-release" % "1.0.15")
 
