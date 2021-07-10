@@ -24,7 +24,7 @@ trait TopicConsumer[F[_]] {
 
 object TopicConsumer {
 
-  def apply[F[_] : Monad](
+  def apply[F[_]: Monad](
     topic: Topic,
     pollTimeout: FiniteDuration,
     commit: TopicCommit[F],

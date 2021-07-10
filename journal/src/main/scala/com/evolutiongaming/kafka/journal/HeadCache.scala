@@ -837,6 +837,7 @@ object HeadCache {
 
   trait ConsRecordToKafkaRecord[F[_]] {
 
+    // TODO ConsumerRecord[String, Unit]
     def apply(consRecord: ConsRecord): OptionT[F, KafkaRecord]
   }
 
