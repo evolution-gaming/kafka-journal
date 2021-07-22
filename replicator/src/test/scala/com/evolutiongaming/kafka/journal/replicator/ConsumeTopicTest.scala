@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import cats.Id
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
-import cats.effect.{ExitCase, Resource, Timer}
+import cats.effect.{ExitCase, Resource}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.TimerHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
@@ -19,6 +19,7 @@ import scala.annotation.tailrec
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 import scala.util.{Failure, Success, Try}
+import cats.effect.Temporal
 
 class ConsumeTopicTest extends AnyFunSuite with Matchers {
   import ConsumeTopicTest._
@@ -309,7 +310,7 @@ object ConsumeTopicTest {
         StateT.unit { _ + Action.RetryOnError(error, decision) }
       }
     }
-    implicit val timer = Timer.empty[StateT]
+    implicit val timer = Temporal.empty[StateT]
     Retry(strategy, onError)
   }
 

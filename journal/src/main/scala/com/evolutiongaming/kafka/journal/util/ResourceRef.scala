@@ -1,11 +1,11 @@
 package com.evolutiongaming.kafka.journal.util
 
-import cats.effect.concurrent.Ref
 import cats.effect.implicits._
 import cats.effect.{Resource, Sync}
 import cats.syntax.all._
 
 import scala.util.control.NoStackTrace
+import cats.effect.Ref
 
 trait ResourceRef[F[_], A] {
 

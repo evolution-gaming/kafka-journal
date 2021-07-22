@@ -3,8 +3,7 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
-import cats.effect.concurrent.Ref
-import cats.effect.{Concurrent, IO, Resource, Timer}
+import cats.effect.{Concurrent, IO, Resource}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
@@ -21,6 +20,7 @@ import scala.collection.immutable.Queue
 import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.NoStackTrace
+import cats.effect.{ Ref, Temporal }
 
 class HeadCacheSpec extends AsyncWordSpec with Matchers {
   import HeadCacheSpec._
@@ -319,9 +319,9 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         val key = Key(id = "id", topic = topic)
         for {
           a <- headCache.get(key, partition, Offset.min).startEnsure
-          _ <- Timer[IO].sleep(1.second)
+          _ <- Temporal[IO].sleep(1.second)
           _ <- a.cancel
-          _ <- Timer[IO].sleep(3.seconds)
+          _ <- Temporal[IO].sleep(3.seconds)
         } yield {}
       }
 
@@ -338,7 +338,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           val key = Key(id = "id", topic = topic)
           for {
             a <- headCache.get(key, partition, Offset.min).startEnsure
-            _ <- Timer[IO].sleep(100.millis)
+            _ <- Temporal[IO].sleep(100.millis)
           } yield a
         }
         a <- a.join.attempt
@@ -415,7 +415,7 @@ object HeadCacheSpec {
 
         val poll = {
           for {
-            _       <- Timer[IO].sleep(1.milli)
+            _       <- Temporal[IO].sleep(1.milli)
             records <- stateRef.modify { state =>
               state.records.dequeueOption match {
                 case None                    => (state, ConsRecords.empty.pure[Try])

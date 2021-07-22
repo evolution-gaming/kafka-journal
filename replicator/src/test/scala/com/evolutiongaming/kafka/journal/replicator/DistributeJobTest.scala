@@ -2,7 +2,6 @@ package com.evolutiongaming.kafka.journal.replicator
 
 
 import cats.data.{NonEmptyMap => Nem, NonEmptySet => Nes}
-import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{IO, Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.LogOf
@@ -15,6 +14,7 @@ import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration.FiniteDuration
+import cats.effect.{ Deferred, Ref }
 
 class DistributeJobTest extends AsyncFunSuite with Matchers {
   import DistributeJobTest._
