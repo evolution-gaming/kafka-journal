@@ -33,7 +33,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
   def testF[F[_] : Monad](withJournal: (SeqNrJournal[F] => F[Assertion]) => Assertion): Unit = {
     for {
       size        <- 0 to 5
-      seqNrs       = (1 to size).toList.map { a => SeqNr.unsafe(a) } // TODO convert to SeqRange
+      seqNrs       = (1 to size).toList.map { a => SeqNr.unsafe(a) }
       combination <- Combinations(seqNrs)
     } {
 
@@ -562,6 +562,10 @@ object JournalSpec {
 
           (state, pointer)
         }
+      }
+
+      def ids(topic: Topic) = {
+        Stream[StateT].single(key.id)
       }
     }
 

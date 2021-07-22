@@ -34,15 +34,7 @@ trait Replicator[F[_]] {
 
 object Replicator {
 
-  def of[
-    F[_]
-    : Concurrent : Parallel : Timer
-    : FromFuture : ToFuture : FromTry : ToTry : Fail : LogOf
-    : KafkaConsumerOf
-    : FromGFuture
-    : MeasureDuration
-    : JsonCodec
-  ](
+  def of[F[_]: Concurrent: Parallel: Timer: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: FromGFuture: MeasureDuration: JsonCodec](
     config: ReplicatorConfig,
     cassandraClusterOf: CassandraClusterOf[F],
     hostName: Option[HostName],

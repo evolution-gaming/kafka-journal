@@ -6,7 +6,6 @@ import cats.effect.{ExitCase, Sync}
 import cats.implicits._
 import cats.syntax.all.none
 import cats.{Id, Parallel}
-import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType

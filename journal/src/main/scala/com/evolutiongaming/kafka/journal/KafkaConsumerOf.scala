@@ -21,7 +21,7 @@ object KafkaConsumerOf {
 
   def apply[F[_]](implicit F: KafkaConsumerOf[F]): KafkaConsumerOf[F] = F
 
-  def apply[F[_] : Concurrent : ContextShift : ToTry : ToFuture : MeasureDuration](
+  def apply[F[_]: Concurrent: ContextShift: ToTry: ToFuture: MeasureDuration](
     executorBlocking: ExecutionContext,
     metrics: Option[ConsumerMetrics[F]] = None
   ): KafkaConsumerOf[F] = {
@@ -31,9 +31,9 @@ object KafkaConsumerOf {
   }
 
 
-  def apply[F[_] : Concurrent : ContextShift](
-    consumerOf: ConsumerOf[F]
-  ): KafkaConsumerOf[F] = new KafkaConsumerOf[F] {
+  private sealed abstract class Main
+
+  def apply[F[_]: Concurrent](consumerOf: ConsumerOf[F]): KafkaConsumerOf[F] = new Main with KafkaConsumerOf[F] {
 
     def apply[K, V](
       config: ConsumerConfig)(implicit
@@ -41,12 +41,7 @@ object KafkaConsumerOf {
       fromBytesV: skafka.FromBytes[F, V]
     ) = {
       val consumer = consumerOf[K, V](config)
-      for {
-        consumer <- KafkaConsumer.of(consumer)
-      } yield {
-        // TODO not sure this is really needed, there is something weird with consumer sometimes
-        consumer.withShiftPoll
-      }
+      KafkaConsumer.of(consumer)
     }
   }
 }

@@ -18,7 +18,7 @@ object KafkaRead {
 
   def summon[F[_], A](implicit kafkaRead: KafkaRead[F, A]): KafkaRead[F, A] = kafkaRead
 
-  implicit def payloadKafkaRead[F[_]: MonadThrowable: FromAttempt: FromJsResult](implicit
+  implicit def payloadKafkaRead[F[_]: MonadThrowable: FromJsResult](implicit
     eventsFromBytes: FromBytes[F, Events[Payload]],
     payloadJsonFromBytes: FromBytes[F, PayloadJson[JsValue]]
   ): KafkaRead[F, Payload] = {

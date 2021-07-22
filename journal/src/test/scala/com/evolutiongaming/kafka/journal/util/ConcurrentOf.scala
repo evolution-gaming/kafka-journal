@@ -3,6 +3,8 @@ package com.evolutiongaming.kafka.journal.util
 import cats.Monad
 import cats.effect._
 
+import scala.annotation.nowarn
+
 object ConcurrentOf {
 
   def fromAsync[F[_]](implicit F: Async[F]): Concurrent[F] = {
@@ -32,7 +34,8 @@ object ConcurrentOf {
 
       def asyncF[A](k: (Either[Throwable, A] => Unit) => F[Unit]) = F.asyncF(k)
 
-      def suspend[A](thunk: => F[A]) = F.suspend(thunk)
+      @nowarn("cat=deprecation")
+      def suspend[A](thunk: => F[A]) = F.defer(thunk)
 
       def bracketCase[A, B](acquire: F[A])(use: A => F[B])(release: (A, ExitCase[Throwable]) => F[Unit]) = {
         F.bracketCase(acquire)(use)(release)

@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.replicator
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.syntax.all._
-import cats.{Applicative, Parallel}
+import cats.Applicative
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.kafka.journal._
@@ -22,7 +22,7 @@ trait ReplicateRecords[F[_]] {
 
 object ReplicateRecords {
 
-  def apply[F[_]: BracketThrowable: Clock: Parallel, A](
+  def apply[F[_]: BracketThrowable: Clock, A](
     consRecordToActionRecord: ConsRecordToActionRecord[F],
     journal: ReplicatedKeyJournal[F],
     metrics: TopicReplicatorMetrics[F],

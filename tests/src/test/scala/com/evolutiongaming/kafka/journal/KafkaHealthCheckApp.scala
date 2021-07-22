@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.effect._
 import cats.data.{NonEmptyList => Nel}
+import cats.effect._
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.{FromFuture, FromTry, LogOf, ToFuture, ToTry}
+import com.evolutiongaming.catshelper.{FromTry, LogOf, ToFuture, ToTry}
 import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.ProducerConfig
@@ -29,7 +29,7 @@ object KafkaHealthCheckApp extends IOApp {
     }
   }
 
-  private def runF[F[_] : ConcurrentEffect : Timer : FromFuture : ToFuture : ContextShift : LogOf : FromTry : ToTry : MeasureDuration](
+  private def runF[F[_]: ConcurrentEffect: Timer: ToFuture: ContextShift: LogOf: FromTry: ToTry: MeasureDuration](
     blocking: ExecutionContext
   ) = {
 

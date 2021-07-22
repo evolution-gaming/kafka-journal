@@ -60,8 +60,10 @@ object KafkaConsumer {
   }
 
 
+  private sealed abstract class Main
+
   def apply[F[_] : Applicative, K, V](consumer: Consumer[F, K, V]): KafkaConsumer[F, K, V] = {
-    new KafkaConsumer[F, K, V] {
+    new Main with KafkaConsumer[F, K, V] {
 
       def assign(partitions: Nes[TopicPartition]) = {
         consumer.assign(partitions)
@@ -108,9 +110,15 @@ object KafkaConsumer {
   }
 
 
+  private sealed abstract class MapK
+
+  private sealed abstract class MapMethod
+
+  private sealed abstract class ShiftPoll
+
   implicit class KafkaConsumerOps[F[_], K, V](val self: KafkaConsumer[F, K, V]) extends AnyVal {
 
-    def mapK[G[_]](fg: F ~> G, gf: G ~> F): KafkaConsumer[G, K, V] = new KafkaConsumer[G, K, V] {
+    def mapK[G[_]](fg: F ~> G, gf: G ~> F): KafkaConsumer[G, K, V] = new MapK with KafkaConsumer[G, K, V] {
 
       def assign(partitions: Nes[TopicPartition]) = fg(self.assign(partitions))
 
@@ -133,7 +141,7 @@ object KafkaConsumer {
     }
 
 
-    def mapMethod(f: Named[F]): KafkaConsumer[F, K, V] = new KafkaConsumer[F, K, V] {
+    def mapMethod(f: Named[F]): KafkaConsumer[F, K, V] = new MapMethod with KafkaConsumer[F, K, V] {
 
       def assign(partitions: Nes[TopicPartition]) = f(self.assign(partitions), "assign")
 
@@ -155,9 +163,9 @@ object KafkaConsumer {
     }
 
 
-    implicit def withShiftPoll(implicit F: Monad[F], contextShift: ContextShift[F]): KafkaConsumer[F, K, V] = {
+    def shiftPoll(implicit F: Monad[F], contextShift: ContextShift[F]): KafkaConsumer[F, K, V] = {
 
-      new KafkaConsumer[F, K, V] {
+      new ShiftPoll with KafkaConsumer[F, K, V] {
 
         def assign(partitions: Nes[TopicPartition]) = self.assign(partitions)
 
@@ -170,7 +178,7 @@ object KafkaConsumer {
         def poll(timeout: FiniteDuration) = {
           for {
             a <- self.poll(timeout)
-            _ <- if (a.values.isEmpty) contextShift.shift else ().pure[F]
+            _ <- contextShift.shift
           } yield a
         }
 
