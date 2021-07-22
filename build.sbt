@@ -1,15 +1,18 @@
 import Dependencies._
-import sbt.librarymanagement.MavenRepository
+
+ThisBuild / versionScheme := Some("early-semver")
+
+ThisBuild / evictionErrorLevel := Level.Warn
 
 lazy val commonSettings = Seq(
   organization := "com.evolutiongaming",
   homepage := Some(new URL("http://github.com/evolution-gaming/kafka-journal")),
   startYear := Some(2018),
-  organizationName := "Evolution Gaming",
-  organizationHomepage := Some(url("http://evolutiongaming.com")),
+  organizationName := "Evolution",
+  organizationHomepage := Some(url("http://evolution.com")),
   publishTo := Some(Resolver.evolutionReleases),
   scalaVersion := crossScalaVersions.value.head,
-  crossScalaVersions := Seq("2.13.5", "2.12.10"),
+  crossScalaVersions := Seq("2.13.6", "2.12.10"),
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
   scalacOptsFailOnWarn := Some(false),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),

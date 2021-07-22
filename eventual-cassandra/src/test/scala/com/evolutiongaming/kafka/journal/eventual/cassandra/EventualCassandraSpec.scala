@@ -1,7 +1,5 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import java.time.ZoneOffset
-
 import cats.Parallel
 import cats.data.IndexedStateT
 import cats.effect.ExitCase
@@ -15,6 +13,7 @@ import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.sstream.FoldWhile._
 import com.evolutiongaming.sstream.Stream
 
+import java.time.ZoneOffset
 import scala.util.Try
 
 // TODO expiry: test purge
@@ -73,6 +72,27 @@ object EventualCassandraSpec {
     }
   }
 
+  val selectIds: MetaJournalStatements.SelectIds[StateT] = {
+    (topic, segmentNr) => {
+      if (segmentNr === SegmentNr.min) {
+        Stream
+          .lift {
+            StateT { state =>
+              val ids = state
+                .metaJournal
+                .keys
+                .toList
+                .collect { case key if key.topic === topic => key.id }
+              (state, Stream[StateT].apply(ids))
+            }
+          }
+          .flatten
+      } else {
+        Stream.empty[StateT, String]
+      }
+    }
+  }
+
 
   implicit val bracketStateT: BracketThrowable[StateT] = new BracketFromMonadError[StateT, Throwable] {
 
@@ -104,7 +124,7 @@ object EventualCassandraSpec {
   implicit val parallelStateT: Parallel[StateT] = Parallel.identity[StateT]
 
 
-  def eventualJournalOf(segmentOf: SegmentOf[StateT]): EventualJournal[StateT] = {
+  def eventualJournalOf(segmentOf: SegmentOf[StateT], segments: Segments): EventualJournal[StateT] = {
 
     val selectRecords = new JournalStatements.SelectRecords[StateT] {
 
@@ -126,10 +146,12 @@ object EventualCassandraSpec {
 
     implicit val concurrentStateT = ConcurrentOf.fromMonad[StateT]
 
-    val metaJournalStatements = EventualCassandra.MetaJournalStatements(
+    val metaJournalStatements = EventualCassandra.MetaJournalStatements.fromMetaJournal(
       segmentNrsOf = SegmentNrsOf(segmentOf),
       journalHead = selectJournalHead,
-      journalPointer = selectJournalPointer)
+      journalPointer = selectJournalPointer,
+      ids = selectIds,
+      segments = segments)
 
     val statements = EventualCassandra.Statements(
       records = selectRecords,
@@ -410,7 +432,7 @@ object EventualCassandraSpec {
 
     val replicatedJournal = replicatedJournalOf(segmentSize, delete, segmentOf)
 
-    val eventualJournal = eventualJournalOf(segmentOf)
+    val eventualJournal = eventualJournalOf(segmentOf, segments)
     EventualAndReplicated(eventualJournal, replicatedJournal)
   }
 

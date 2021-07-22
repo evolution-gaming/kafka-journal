@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.FlatMap
 import cats.effect.{Concurrent, Resource}
 import cats.syntax.all._
 import com.datastax.driver.core.{ResultSet => _, _}
@@ -32,7 +31,7 @@ object CassandraSession {
   def apply[F[_]](implicit F: CassandraSession[F]): CassandraSession[F] = F
 
 
-  def apply[F[_] : FlatMap](
+  def apply[F[_]](
     session: CassandraSession[F],
     retries: Int,
     trace: Boolean = false

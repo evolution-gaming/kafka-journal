@@ -104,7 +104,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
 
         for {
           _ <- journal.pointer
-          _ <- expected.grouped(10).foldMap { events => journal.append(events).void }
+          _ <- expected.groupedNel(10).foldMap { events => journal.append(events).void }
           _ <- appendNoise
         } yield {}
       }

@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual
 
 import java.time.Instant
-
 import cats.arrow.FunctionK
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.Clock
@@ -29,7 +28,7 @@ import scala.util.Try
 trait EventualJournalSpec extends AnyWordSpec with Matchers {
   import EventualJournalSpec._
 
-  def test[F[_] : BracketThrowable : Fail](withJournals: (EventualAndReplicated[F] => F[Assertion]) => F[Assertion]): Unit = {
+  def test[F[_]: BracketThrowable: Fail](withJournals: (EventualAndReplicated[F] => F[Assertion]) => F[Assertion]): Unit = {
 
     val withJournals1 = (key: Key, timestamp: Instant) => {
 
@@ -61,7 +60,7 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
     test1(withJournals1)
   }
 
-  private def test1[F[_] : MonadThrowable : Fail](
+  private def test1[F[_]: MonadThrowable : Fail](
     withJournals: (Key, Instant) => ((Eventual[F], Replicated[F]) => F[Assertion]) => F[Assertion]
   ): Unit = {
 
@@ -438,6 +437,22 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
         }
       }
     }
+
+    "ids" in {
+      withJournals1 { case (eventual, replicated) =>
+        for {
+          ids   <- eventual.ids(topic)
+          _      = ids shouldEqual List.empty
+          event  = eventOf(journalPointerOf(offset = 2, seqNr = SeqNr.unsafe(1)))
+          _     <- replicated.append(Nel.of(event))
+          ids   <- eventual.ids(topic)
+          _      = ids shouldEqual List(key.id)
+          ids   <- eventual.ids("unknown")
+        } yield {
+          ids shouldEqual List.empty
+        }
+      }
+    }
   }
 }
 
@@ -462,6 +477,8 @@ object EventualJournalSpec {
     def pointer: F[Option[JournalPointer]]
 
     def pointers(topic: Topic): F[TopicPointers]
+
+    def ids(topic: Topic): F[List[String]]
   }
 
   object Eventual {
@@ -475,6 +492,8 @@ object EventualJournalSpec {
       def pointer = journal.pointer(key)
 
       def pointers(topic: Topic) = journal.pointers(topic)
+
+      def ids(topic: Topic) = journal.ids(topic).toList.map { _.sorted }
     }
   }
 

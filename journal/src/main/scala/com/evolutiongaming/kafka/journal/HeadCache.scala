@@ -43,7 +43,7 @@ trait HeadCache[F[_]] {
 
 object HeadCache {
 
-  def empty[F[_] : Applicative]: HeadCache[F] = const(HeadCacheError.invalid.asLeft[HeadInfo].pure[F])
+  def empty[F[_]: Applicative]: HeadCache[F] = const(HeadCacheError.invalid.asLeft[HeadInfo].pure[F])
 
 
   def const[F[_]](value: F[Either[HeadCacheError, HeadInfo]]): HeadCache[F] = {
@@ -51,10 +51,7 @@ object HeadCache {
   }
 
 
-  def of[
-    F[_] : Concurrent : Parallel : Timer : LogOf : KafkaConsumerOf : MeasureDuration : FromTry : FromAttempt :
-    FromJsResult : JsonCodec.Decode
-  ](
+  def of[F[_]: Concurrent: Parallel: Timer: LogOf: KafkaConsumerOf: MeasureDuration: FromTry: FromJsResult: JsonCodec.Decode](
     consumerConfig: ConsumerConfig,
     eventualJournal: EventualJournal[F],
     metrics: Option[HeadCacheMetrics[F]]
@@ -71,7 +68,7 @@ object HeadCache {
   }
 
 
-  def of[F[_] : Concurrent : Parallel : Timer : FromAttempt : FromJsResult : MeasureDuration : JsonCodec.Decode](
+  def of[F[_]: Concurrent: Parallel: Timer: FromJsResult: MeasureDuration: JsonCodec.Decode](
     eventual: Eventual[F],
     log: Log[F],
     consumer: Resource[F, Consumer[F]],
@@ -131,7 +128,7 @@ object HeadCache {
 
   object TopicCache {
 
-    def of[F[_] : Concurrent : Parallel : Timer](
+    def of[F[_]: Concurrent: Parallel: Timer](
       topic: Topic,
       config: HeadCacheConfig,
       eventual: Eventual[F],
@@ -246,7 +243,7 @@ object HeadCache {
       }
     }
 
-    def apply[F[_] : Concurrent : Timer](
+    def apply[F[_]: Concurrent: Timer](
       topic: Topic,
       stateRef: Ref[F, State[F]],
       metrics: Metrics[F],
@@ -529,7 +526,7 @@ object HeadCache {
 
   object Consumer {
 
-    def empty[F[_] : Applicative]: Consumer[F] = new Consumer[F] {
+    def empty[F[_]: Applicative]: Consumer[F] = new Consumer[F] {
 
       def assign(topic: Topic, partitions: Nes[Partition]) = ().pure[F]
 
@@ -543,7 +540,7 @@ object HeadCache {
 
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
-    def apply[F[_] : Monad](
+    def apply[F[_]: Monad](
       consumer: KafkaConsumer[F, String, ByteVector],
       pollTimeout: FiniteDuration
     ): Consumer[F] = {
@@ -570,7 +567,7 @@ object HeadCache {
       }
     }
 
-    def apply[F[_] : Monad](consumer: Consumer[F], log: Log[F]): Consumer[F] = {
+    def apply[F[_]: Monad](consumer: Consumer[F], log: Log[F]): Consumer[F] = {
 
       new Consumer[F] {
 
@@ -610,7 +607,7 @@ object HeadCache {
       }
     }
 
-    def of[F[_] : Monad : KafkaConsumerOf : FromTry](
+    def of[F[_]: Monad: KafkaConsumerOf: FromTry](
       config: ConsumerConfig,
       pollTimeout: FiniteDuration = 10.millis
     ): Resource[F, Consumer[F]] = {
@@ -642,9 +639,9 @@ object HeadCache {
       def pointers(topic: Topic) = eventualJournal.pointers(topic)
     }
 
-    def empty[F[_] : Applicative]: Eventual[F] = const(Applicative[F].pure(TopicPointers.empty))
+    def empty[F[_]: Applicative]: Eventual[F] = const(TopicPointers.empty.pure[F])
 
-    def const[F[_] : Applicative](value: F[TopicPointers]): Eventual[F] = new Eventual[F] {
+    def const[F[_]](value: F[TopicPointers]): Eventual[F] = new Eventual[F] {
       def pointers(topic: Topic) = value
     }
   }
@@ -721,7 +718,7 @@ object HeadCache {
 
   object Metrics {
 
-    def empty[F[_] : Applicative]: Metrics[F] = const(().pure[F])
+    def empty[F[_]: Applicative]: Metrics[F] = const(().pure[F])
 
 
     def const[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
@@ -741,7 +738,7 @@ object HeadCache {
     }
 
 
-    def of[F[_] : Monad](
+    def of[F[_]: Monad](
       registry: CollectorRegistry[F],
       prefix: Prefix = Prefix.default
     ): Resource[F, Metrics[F]] = {
@@ -840,12 +837,13 @@ object HeadCache {
 
   trait ConsRecordToKafkaRecord[F[_]] {
 
+    // TODO ConsumerRecord[String, Unit]
     def apply(consRecord: ConsRecord): OptionT[F, KafkaRecord]
   }
 
   object ConsRecordToKafkaRecord {
 
-    implicit def apply[F[_] : Monad](implicit
+    implicit def apply[F[_]: Monad](implicit
       consRecordToActionHeader: ConsRecordToActionHeader[F]
     ): ConsRecordToKafkaRecord[F] = {
       record: ConsRecord => {

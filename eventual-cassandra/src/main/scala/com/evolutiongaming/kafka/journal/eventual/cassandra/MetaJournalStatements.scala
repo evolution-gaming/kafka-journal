@@ -1,8 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 
-import java.time.{Instant, LocalDate, ZoneOffset}
-
 import cats.Monad
 import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
@@ -13,6 +11,8 @@ import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.sstream.Stream
+
+import java.time.{Instant, LocalDate, ZoneOffset}
 
 
 object MetaJournalStatements {
@@ -489,14 +489,37 @@ object MetaJournalStatements {
       query
         .prepare
         .map { prepared =>
-          (key: Key, segment: SegmentNr) =>
+          (key: Key, segmentNr: SegmentNr) =>
             prepared
               .bind()
               .encode(key)
-              .encode(segment)
+              .encode(segmentNr)
               .first
               .void
         }
+    }
+  }
+
+
+  trait SelectIds[F[_]] {
+
+    def apply(topic: Topic, segmentNr: SegmentNr): Stream[F, String]
+  }
+
+  object SelectIds {
+
+    def of[F[_]: Monad: CassandraSession](name: TableName): F[SelectIds[F]] = {
+      for {
+        prepared <- s"SELECT id FROM ${ name.toCql } WHERE topic = ? AND segment = ?".prepare
+      } yield {
+        (topic: Topic, segmentNr: SegmentNr) =>
+          prepared
+            .bind()
+            .encode("topic", topic)
+            .encode(segmentNr)
+            .execute
+            .map { _.decode[String]("id") }
+      }
     }
   }
 }

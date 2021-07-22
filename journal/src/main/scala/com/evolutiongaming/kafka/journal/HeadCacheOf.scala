@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.{Applicative, Parallel}
-import cats.syntax.all._
 import cats.effect.{Concurrent, Resource, Timer}
+import cats.syntax.all._
+import cats.{Applicative, Parallel}
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromTry, LogOf}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
@@ -30,10 +30,7 @@ object HeadCacheOf {
   def apply[F[_]](implicit F: HeadCacheOf[F]): HeadCacheOf[F] = F
 
 
-  def apply[
-    F[_] : Concurrent : Parallel : Timer : LogOf : KafkaConsumerOf : MeasureDuration : FromTry : FromAttempt :
-    FromJsResult : JsonCodec.Decode
-  ](
+  def apply[F[_]: Concurrent: Parallel: Timer: LogOf: KafkaConsumerOf: MeasureDuration: FromTry: FromJsResult: JsonCodec.Decode](
     metrics: Option[HeadCacheMetrics[F]]
   ): HeadCacheOf[F] = {
     (consumerConfig: ConsumerConfig, eventualJournal: EventualJournal[F]) => {

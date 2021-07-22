@@ -2,7 +2,6 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.effect.{Concurrent, Resource}
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.FromFuture
 import com.evolutiongaming.scassandra.{CassandraClusterOf, CassandraConfig}
 import com.evolutiongaming.scassandra
 import com.evolutiongaming.scassandra.util.FromGFuture
@@ -41,7 +40,7 @@ object CassandraCluster {
     }
   }
 
-  def of[F[_] : Concurrent : FromFuture : FromGFuture](
+  def of[F[_] : Concurrent : FromGFuture](
     config: CassandraConfig,
     cassandraClusterOf: CassandraClusterOf[F],
     retries: Int,
