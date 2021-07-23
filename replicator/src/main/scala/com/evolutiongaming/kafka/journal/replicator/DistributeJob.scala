@@ -12,7 +12,7 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.Retry.implicits._
 import com.evolutiongaming.retry.{OnError, Strategy}
-import com.evolutiongaming.skafka.{Bytes, Partition, TopicPartition}
+import com.evolutiongaming.skafka.{Bytes, Partition, Topic, TopicPartition}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, RebalanceListener}
 
 import scala.concurrent.duration._
@@ -30,15 +30,15 @@ object DistributeJob {
   type Assigned = Boolean
 
   def apply[F[_]: Concurrent: FromTry: LogOf: Timer: Parallel](
-    origin: Origin,
-    topic: String,
+    groupId: String,
+    topic: Topic,
     consumerConfig: ConsumerConfig,
     kafkaConsumerOf: KafkaConsumerOf[F]
   ): Resource[F, DistributeJob[F]] = {
 
     val consumerConfig1 = consumerConfig.copy(
       autoCommit = true,
-      groupId = s"$origin-distributed-jobs".some,
+      groupId = groupId.some,
       autoOffsetReset = AutoOffsetReset.Latest)
 
     type Job = Map[Partition, Assigned] => Option[Resource[F, Unit]]

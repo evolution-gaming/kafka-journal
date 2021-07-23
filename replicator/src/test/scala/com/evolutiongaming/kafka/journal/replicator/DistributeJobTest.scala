@@ -62,7 +62,7 @@ class DistributeJobTest extends AsyncFunSuite with Matchers {
       }
       result <- {
         val result = for {
-          distributeJobs <- DistributeJob[IO](Origin("origin"), topic, consumerConfig, kafkaConsumerOf)
+          distributeJobs <- DistributeJob[IO](groupId = "groupId", topic = topic, consumerConfig, kafkaConsumerOf)
           jobOf = (name: String, partition: Partition) => {
             distributeJobs(name) { partitions =>
               if (partitions.getOrElse(partition, false)) {
