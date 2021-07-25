@@ -12,17 +12,15 @@ import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.conversions.ConsRecordToActionHeader
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.Retry.implicits._
 import com.evolutiongaming.retry.Strategy
 import com.evolutiongaming.scache.{Cache, Releasable}
-import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
+import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecord, ConsumerRecords}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
 import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.smetrics._
-import scodec.bits.ByteVector
 
 import java.time.Instant
 import scala.concurrent.duration._
@@ -519,7 +517,7 @@ object HeadCache {
 
     def seek(topic: Topic, offsets: Nem[Partition, Offset]): F[Unit]
 
-    def poll: F[ConsRecords]
+    def poll: F[ConsumerRecords[String, Unit]]
 
     def partitions(topic: Topic): F[Set[Partition]]
   }
@@ -532,7 +530,7 @@ object HeadCache {
 
       def seek(topic: Topic, offsets: Nem[Partition, Offset]) = ().pure[F]
 
-      def poll = ConsRecords.empty.pure[F]
+      def poll = ConsumerRecords.empty[String, Unit].pure[F]
 
       def partitions(topic: Topic) = Set.empty[Partition].pure[F]
     }
@@ -541,7 +539,7 @@ object HeadCache {
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
     def apply[F[_]: Monad](
-      consumer: KafkaConsumer[F, String, ByteVector],
+      consumer: KafkaConsumer[F, String, Unit],
       pollTimeout: FiniteDuration
     ): Consumer[F] = {
 
@@ -618,7 +616,7 @@ object HeadCache {
         autoCommit = false)
 
       for {
-        consumer <- KafkaConsumerOf[F].apply[String, ByteVector](config1)
+        consumer <- KafkaConsumerOf[F].apply[String, Unit](config1)
       } yield {
         HeadCache.Consumer[F](consumer, pollTimeout)
       }
@@ -837,8 +835,7 @@ object HeadCache {
 
   trait ConsRecordToKafkaRecord[F[_]] {
 
-    // TODO ConsumerRecord[String, Unit]
-    def apply(consRecord: ConsRecord): OptionT[F, KafkaRecord]
+    def apply(record: ConsumerRecord[String, Unit]): OptionT[F, KafkaRecord]
   }
 
   object ConsRecordToKafkaRecord {
@@ -846,7 +843,7 @@ object HeadCache {
     implicit def apply[F[_]: Monad](implicit
       consRecordToActionHeader: ConsRecordToActionHeader[F]
     ): ConsRecordToKafkaRecord[F] = {
-      record: ConsRecord => {
+      record: ConsumerRecord[String, Unit] => {
 
         for {
           key              <- record.key.toOptionT[F]

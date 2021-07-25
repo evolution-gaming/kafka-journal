@@ -23,8 +23,8 @@ object ConsumerRecordOf {
         topicPartition = topicPartition,
         offset = offset,
         timestampAndType = timestampAndType.some,
-        key = producerRecord.key.map(bytes => WithSize(bytes, bytes.length)),
-        value = producerRecord.value.map(bytes => WithSize(bytes, bytes.length.toInt)),
+        key = producerRecord.key.map { bytes => WithSize(bytes, bytes.length) },
+        value = producerRecord.value.map { bytes => WithSize(bytes, bytes.length.toInt) },
         headers = producerRecord.headers)
     }
   }

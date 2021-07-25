@@ -5,10 +5,11 @@ import cats.effect.{Resource, Timer}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.catshelper.DataHelper._
-import com.evolutiongaming.kafka.journal.HeadCache.{Consumer, ConsRecordToKafkaRecord, KafkaRecord}
+import com.evolutiongaming.kafka.journal.HeadCache.{ConsRecordToKafkaRecord, Consumer, KafkaRecord}
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
+import com.evolutiongaming.skafka.consumer.ConsumerRecords
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.sstream.Stream
 
@@ -25,7 +26,7 @@ object HeadCacheConsumption {
     consRecordToKafkaRecord: ConsRecordToKafkaRecord[F]
   ): Stream[F, List[(Partition, Nel[KafkaRecord])]] = {
 
-    def kafkaRecords(records: ConsRecords): F[List[(Partition, Nel[KafkaRecord])]] = {
+    def kafkaRecords(records: ConsumerRecords[String, Unit]): F[List[(Partition, Nel[KafkaRecord])]] = {
       records
         .values
         .toList

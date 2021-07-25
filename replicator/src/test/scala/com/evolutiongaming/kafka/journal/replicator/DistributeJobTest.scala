@@ -7,7 +7,7 @@ import cats.effect.{IO, Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.IOSuite._
-import com.evolutiongaming.kafka.journal.{KafkaConsumer, KafkaConsumerOf, Origin}
+import com.evolutiongaming.kafka.journal.{KafkaConsumer, KafkaConsumerOf}
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.{Offset, OffsetAndMetadata, Partition, Topic, TopicPartition}
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords, RebalanceListener}

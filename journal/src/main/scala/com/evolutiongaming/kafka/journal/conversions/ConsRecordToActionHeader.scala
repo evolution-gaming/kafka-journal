@@ -6,28 +6,29 @@ import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.skafka.Header
+import com.evolutiongaming.skafka.consumer.ConsumerRecord
 import scodec.bits.ByteVector
 
 trait ConsRecordToActionHeader[F[_]] {
 
-  def apply(consRecord: ConsRecord): OptionT[F, ActionHeader]
+  def apply[A](record: ConsumerRecord[String, A]): OptionT[F, ActionHeader]
 }
 
 object ConsRecordToActionHeader {
 
   implicit def apply[F[_] : MonadThrowable](implicit
     fromBytes: FromBytes[F, Option[ActionHeader]]
-  ): ConsRecordToActionHeader[F] = {
+  ): ConsRecordToActionHeader[F] = new ConsRecordToActionHeader[F] {
 
-    consRecord: ConsRecord => {
-      def header = consRecord
+    def apply[A](record: ConsumerRecord[String, A]) = {
+      def header = record
         .headers
         .find { _.key === ActionHeader.key }
 
       def actionHeader(header: Header) = {
         val byteVector = ByteVector.view(header.value)
         fromBytes(byteVector).adaptError { case e =>
-          JournalError(s"ConsRecordToActionHeader failed for $consRecord: $e", e)
+          JournalError(s"ConsRecordToActionHeader failed for $record: $e", e)
         }
       }
 
@@ -35,7 +36,6 @@ object ConsRecordToActionHeader {
         header       <- header.toOptionT[F]
         actionHeader <- actionHeader(header).toOptionT
       } yield actionHeader
-
     }
   }
 }

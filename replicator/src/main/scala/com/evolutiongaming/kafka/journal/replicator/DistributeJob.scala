@@ -12,7 +12,7 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.Retry.implicits._
 import com.evolutiongaming.retry.{OnError, Strategy}
-import com.evolutiongaming.skafka.{Bytes, Partition, Topic, TopicPartition}
+import com.evolutiongaming.skafka.{Partition, Topic, TopicPartition}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, RebalanceListener}
 
 import scala.concurrent.duration._
@@ -104,7 +104,7 @@ object DistributeJob {
           .uncancelable
       }
       resource = for {
-        consumer <- kafkaConsumerOf[String, Bytes](consumerConfig1)
+        consumer <- kafkaConsumerOf[String, Unit](consumerConfig1)
         partitionsAll <- consumer.partitions(topic).toResource
         active = (deferred: Deferred[F, String => F[Unit]], jobs: Map[String, (Job, Release)], partitions: Map[Partition, Assigned]) => {
           val jobs1 = jobs.map { case (name, (job, _)) =>

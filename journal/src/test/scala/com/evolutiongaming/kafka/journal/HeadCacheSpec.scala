@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
-
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.effect.concurrent.Ref
 import cats.effect.{Concurrent, IO, Resource, Timer}
@@ -9,13 +8,14 @@ import cats.syntax.all._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.kafka.journal.IOSuite._
-import com.evolutiongaming.kafka.journal.conversions.KafkaWrite
+import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, KafkaWrite}
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.smetrics.CollectorRegistry
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import TestJsonCodec.instance
+import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords}
 
 import scala.collection.immutable.Queue
 import scala.concurrent.duration._
@@ -39,7 +39,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           seqNr <- SeqNr.opt(idx + 1)
         } yield {
           val action = appendOf(key, seqNr)
-          ConsumerRecordOf[Try](action, topicPartition, Offset.unsafe(idx)).get
+          consumerRecordOf(action, topicPartition, Offset.unsafe(idx))
         }
       }
 
@@ -110,7 +110,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
             _      <- stateRef.update { _.copy(topics = Map((topic, List(partition)))) }
             _      <- stateRef.update { state =>
               val action = Action.Mark(key, timestamp, ActionHeader.Mark("mark", none, Version.current.some))
-              val record = ConsumerRecordOf[Try](action, topicPartition, marker).get
+              val record = consumerRecordOf(action, topicPartition, marker)
               val records = ConsumerRecordsOf(List(record))
               state.enqueue(records.pure[Try])
             }
@@ -139,7 +139,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         seqNr  <- SeqNr.opt(offset + 1)
       } yield {
         val action = appendOf(key, seqNr)
-        val record = ConsumerRecordOf[Try](action, topicPartition, Offset.unsafe(offset)).get
+        val record = consumerRecordOf(action, topicPartition, Offset.unsafe(offset))
         ConsumerRecordsOf(List(record)).pure[Try]
       }
 
@@ -207,7 +207,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           val enqueue = (key: Key, offset: Offset) => {
             stateRef.update { state =>
               val action = appendOf(key, SeqNr.min)
-              val record = ConsumerRecordOf[Try](action, topicPartition, offset).get
+              val record = consumerRecordOf(action, topicPartition, offset)
               val records = ConsumerRecordsOf(List(record))
               state.enqueue(records.pure[Try])
             }
@@ -262,7 +262,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           val enqueue = (offset: Offset) => {
             stateRef.update { state =>
               val action = appendOf(key, SeqNr.min)
-              val record = ConsumerRecordOf[Try](action, topicPartition, offset).get
+              val record = consumerRecordOf(action, topicPartition, offset)
               val records = ConsumerRecordsOf(List(record))
               state.enqueue(records.pure[Try])
             }
@@ -271,7 +271,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
             _     <- enqueue(Offset.min)
             a     <- headCache.get(key, partition, Offset.min)
             _      = a shouldEqual HeadInfo.append(SeqNr.min, none, Offset.min).asRight
-            _     <- stateRef.update { _.enqueue(TestError.raiseError[Try, ConsRecords]) }
+            _     <- stateRef.update { _.enqueue(TestError.raiseError[Try, ConsumerRecords[String, Unit]]) }
             _     <- enqueue(Offset.unsafe(1))
             a     <- headCache.get(key, partition, Offset.unsafe(1))
             _      = a shouldEqual HeadInfo.append(SeqNr.min, none, Offset.min).asRight
@@ -360,6 +360,17 @@ object HeadCacheSpec {
 
   val headers: Headers = Headers.empty
 
+  def consumerRecordOf(
+    action: Action,
+    topicPartition: TopicPartition,
+    offset: Offset)(implicit
+    actionToProducerRecord: ActionToProducerRecord[Try]
+  ): ConsumerRecord[String, Unit] = {
+    ConsumerRecordOf[Try](action, topicPartition, offset)
+      .get
+      .void
+  }
+
   def appendOf(key: Key, seqNr: SeqNr): Action.Append  = {
     implicit val kafkaWrite = KafkaWrite.summon[Try, Payload]
     Action.Append.of[Try, Payload](
@@ -418,16 +429,14 @@ object HeadCacheSpec {
             _       <- Timer[IO].sleep(1.milli)
             records <- stateRef.modify { state =>
               state.records.dequeueOption match {
-                case None                    => (state, ConsRecords.empty.pure[Try])
+                case None                    => (state, ConsumerRecords.empty[String, Unit].pure[Try])
                 case Some((record, records)) =>
                   val stateUpdated = state.copy(records = records)
                   (stateUpdated, record)
               }
             }
             records <- IO.fromTry(records)
-          } yield {
-            records
-          }
+          } yield records
         }
 
         def partitions(topic: Topic) = {
@@ -456,7 +465,7 @@ object HeadCacheSpec {
     final case class State(
       actions: List[Action] = List.empty,
       topics: Map[Topic, List[Partition]] = Map.empty,
-      records: Queue[Try[ConsRecords]] = Queue.empty)
+      records: Queue[Try[ConsumerRecords[String, Unit]]] = Queue.empty)
 
     object State {
 
@@ -465,7 +474,7 @@ object HeadCacheSpec {
 
       implicit class StateOps(val self: State) extends AnyVal {
 
-        def enqueue(records: Try[ConsRecords]): State = {
+        def enqueue(records: Try[ConsumerRecords[String, Unit]]): State = {
           self.copy(records = self.records.enqueue(records))
         }
 
