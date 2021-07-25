@@ -10,6 +10,7 @@ import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecords, Rebalance
 
 import scala.concurrent.duration.FiniteDuration
 import scala.util.control.NoStackTrace
+import cats.effect.Spawn
 
 trait KafkaConsumer[F[_], K, V] {
 
@@ -163,7 +164,7 @@ object KafkaConsumer {
     }
 
 
-    def shiftPoll(implicit F: Monad[F], contextShift: ContextShift[F]): KafkaConsumer[F, K, V] = {
+    def shiftPoll(implicit F: Monad[F]): KafkaConsumer[F, K, V] = {
 
       new ShiftPoll with KafkaConsumer[F, K, V] {
 
@@ -178,7 +179,7 @@ object KafkaConsumer {
         def poll(timeout: FiniteDuration) = {
           for {
             a <- self.poll(timeout)
-            _ <- contextShift.shift
+            _ <- Spawn[F].cede
           } yield a
         }
 

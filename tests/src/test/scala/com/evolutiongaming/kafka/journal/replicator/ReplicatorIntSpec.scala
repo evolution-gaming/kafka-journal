@@ -30,6 +30,7 @@ import TestJsonCodec.instance
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
+import cats.effect.Temporal
 
 class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers {
 
@@ -44,7 +45,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
   private implicit val randomIdOf = RandomIdOf.uuid[IO]
 
-  private def resources[F[_] : ConcurrentEffect : LogOf : Parallel : FromFuture : Timer : ToFuture : ContextShift : RandomIdOf : MeasureDuration : FromTry : ToTry : Fail](
+  private def resources[F[_] : ConcurrentEffect : LogOf : Parallel : FromFuture : Temporal : ToFuture : ContextShift : RandomIdOf : MeasureDuration : FromTry : ToTry : Fail](
     cassandraClusterOf: CassandraClusterOf[F]
   ) = {
 

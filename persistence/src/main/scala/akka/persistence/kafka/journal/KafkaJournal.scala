@@ -20,6 +20,7 @@ import scala.collection.immutable.Seq
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.util.Try
+import cats.effect.Temporal
 
 class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
 
@@ -27,7 +28,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
   implicit val executor     : ExecutionContextExecutor = context.dispatcher
   implicit val contextShift : ContextShift[IO]         = IO.contextShift(executor)
   implicit val parallel     : Parallel[IO]             = IO.ioParallel(contextShift)
-  implicit val timer        : Timer[IO]                = IO.timer(executor)
+  implicit val timer        : Temporal[IO]                = IO.timer(executor)
   implicit val toFuture     : ToFuture[IO]             = ToFuture.ioToFuture
   implicit val fromFuture   : FromFuture[IO]           = FromFuture.lift[IO]
   implicit val fromAttempt  : FromAttempt[IO]          = FromAttempt.lift[IO]

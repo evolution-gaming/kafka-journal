@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal
 import cats._
 import cats.data.{OptionT, NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.effect._
-import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.implicits._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
@@ -26,6 +25,7 @@ import scodec.bits.ByteVector
 
 import java.time.Instant
 import scala.concurrent.duration._
+import cats.effect.{ Deferred, Ref, Temporal }
 
 /**
  * TODO headcache:
@@ -51,7 +51,7 @@ object HeadCache {
   }
 
 
-  def of[F[_]: Concurrent: Parallel: Timer: LogOf: KafkaConsumerOf: MeasureDuration: FromTry: FromJsResult: JsonCodec.Decode](
+  def of[F[_]: Concurrent: Parallel: Temporal: LogOf: KafkaConsumerOf: MeasureDuration: FromTry: FromJsResult: JsonCodec.Decode](
     consumerConfig: ConsumerConfig,
     eventualJournal: EventualJournal[F],
     metrics: Option[HeadCacheMetrics[F]]
@@ -68,7 +68,7 @@ object HeadCache {
   }
 
 
-  def of[F[_]: Concurrent: Parallel: Timer: FromJsResult: MeasureDuration: JsonCodec.Decode](
+  def of[F[_]: Concurrent: Parallel: Temporal: FromJsResult: MeasureDuration: JsonCodec.Decode](
     eventual: Eventual[F],
     log: Log[F],
     consumer: Resource[F, Consumer[F]],
@@ -128,7 +128,7 @@ object HeadCache {
 
   object TopicCache {
 
-    def of[F[_]: Concurrent: Parallel: Timer](
+    def of[F[_]: Concurrent: Parallel: Temporal](
       topic: Topic,
       config: HeadCacheConfig,
       eventual: Eventual[F],
@@ -183,7 +183,7 @@ object HeadCache {
       def cleaning(stateRef: Ref[F, State[F]]) = {
 
         val cleaning = for {
-          _        <- Timer[F].sleep(config.cleanInterval)
+          _        <- Temporal[F].sleep(config.cleanInterval)
           pointers <- eventual.pointers(topic)
           before   <- stateRef.get
           _        <- stateRef.update { _.removeUntil(pointers.values) }
@@ -243,7 +243,7 @@ object HeadCache {
       }
     }
 
-    def apply[F[_]: Concurrent: Timer](
+    def apply[F[_]: Concurrent: Temporal](
       topic: Topic,
       stateRef: Ref[F, State[F]],
       metrics: Metrics[F],
@@ -345,7 +345,7 @@ object HeadCache {
             }
 
           result
-            .race(Timer[F].sleep(timeout))
+            .race(Temporal[F].sleep(timeout))
             .map {
               case Left(Some(a)) => a.asRight[HeadCacheError]
               case Left(None)    => HeadCacheError.invalid.asLeft[HeadInfo]

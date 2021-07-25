@@ -18,6 +18,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import pureconfig.ConfigSource
+import cats.effect.Temporal
 
 
 class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers {
@@ -32,7 +33,7 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
   }
 
 
-  private def resources[F[_]: Concurrent: LogOf: Parallel: FromFuture: Timer](
+  private def resources[F[_]: Concurrent: LogOf: Parallel: FromFuture: Temporal](
     origin: Option[Origin],
     cassandraClusterOf: CassandraClusterOf[F]
   ) = {
@@ -74,7 +75,7 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
   }
 
 
-  def test[F[_]: Concurrent: Parallel: FromFuture: Timer](cassandraClusterOf: CassandraClusterOf[F]): F[Unit] = {
+  def test[F[_]: Concurrent: Parallel: FromFuture: Temporal](cassandraClusterOf: CassandraClusterOf[F]): F[Unit] = {
 
     implicit val logOf = LogOf.empty[F]
 

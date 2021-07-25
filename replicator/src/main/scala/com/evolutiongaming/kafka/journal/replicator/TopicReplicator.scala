@@ -25,11 +25,12 @@ import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
 import scala.util.Try
+import cats.effect.Temporal
 
 
 object TopicReplicator {
 
-  def of[F[_]: Concurrent: Timer: Parallel: ToTry: LogOf: Fail: MeasureDuration: JsonCodec](
+  def of[F[_]: Concurrent: Temporal: Parallel: ToTry: LogOf: Fail: MeasureDuration: JsonCodec](
     topic: Topic,
     journal: ReplicatedJournal[F],
     consumer: Resource[F, TopicConsumer[F]],
@@ -74,7 +75,7 @@ object TopicReplicator {
     } yield done
   }
 
-  def of[F[_]: Concurrent: Parallel: Timer: MeasureDuration, A](
+  def of[F[_]: Concurrent: Parallel: Temporal: MeasureDuration, A](
     topic: Topic,
     consumer: Resource[F, TopicConsumer[F]],
     consRecordToActionRecord: ConsRecordToActionRecord[F],
