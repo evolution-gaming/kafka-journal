@@ -6,7 +6,7 @@ import cats.effect.{IO, Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.IOSuite._
-import com.evolutiongaming.kafka.journal.{KafkaConsumer, KafkaConsumerOf, Origin}
+import com.evolutiongaming.kafka.journal.{KafkaConsumer, KafkaConsumerOf}
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.{Offset, OffsetAndMetadata, Partition, Topic, TopicPartition}
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords, RebalanceListener}
@@ -62,7 +62,7 @@ class DistributeJobTest extends AsyncFunSuite with Matchers {
       }
       result <- {
         val result = for {
-          distributeJobs <- DistributeJob[IO](Origin("origin"), topic, consumerConfig, kafkaConsumerOf)
+          distributeJobs <- DistributeJob[IO](groupId = "groupId", topic = topic, consumerConfig, kafkaConsumerOf)
           jobOf = (name: String, partition: Partition) => {
             distributeJobs(name) { partitions =>
               if (partitions.getOrElse(partition, false)) {
