@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.{Instant, LocalDate}
-
 import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.kafka.journal._
@@ -9,13 +8,13 @@ import com.evolutiongaming.kafka.journal.eventual.cassandra.ExpireOn.implicits._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.ReplicatedCassandra.MetaJournalStatements.ByKey
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.skafka.Topic
-import org.scalatest.WordSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.duration._
 import scala.util.Try
 
-class ReplicatedCassandraMetaJournalStatementsTest extends WordSpec with Matchers {
+class ReplicatedCassandraMetaJournalStatementsTest extends AnyWordSpec with Matchers {
   import ReplicatedCassandraMetaJournalStatementsTest._
 
   "byKey" when {

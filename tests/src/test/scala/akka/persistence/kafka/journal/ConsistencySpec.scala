@@ -5,15 +5,13 @@ import akka.persistence._
 import akka.persistence.journal.JournalSpec
 import cats.data.{NonEmptyList => Nel}
 import com.typesafe.config.ConfigFactory
-import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, Promise}
 
 
 class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
-  with KafkaPluginSpec
-  with Matchers {
+  with KafkaPluginSpec {
 
   implicit lazy val system: ActorSystem = ActorSystem("ConsistencySpec", config.withFallback(JournalSpec.config))
 

@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.{Instant, LocalDate, ZoneOffset}
-
 import cats.effect.ExitCase
 import cats.syntax.all._
 import cats.{Id, catsInstancesForId}
@@ -10,13 +9,13 @@ import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.ExpireOn.implicits._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.ExpiryService.Action
 import com.evolutiongaming.kafka.journal.util.BracketFromMonad
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 import scala.util.control.NonFatal
 
-class ExpiryServiceTest extends FunSuite with Matchers {
+class ExpiryServiceTest extends AnyFunSuite with Matchers {
   import ExpiryServiceTest._
 
   test("expireOn") {

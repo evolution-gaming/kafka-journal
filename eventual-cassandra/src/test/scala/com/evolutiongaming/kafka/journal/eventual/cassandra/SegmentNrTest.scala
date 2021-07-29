@@ -1,11 +1,11 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import scala.util.Try
 
-class SegmentNrTest extends FunSuite with Matchers {
+class SegmentNrTest extends AnyFunSuite with Matchers {
 
   test("next") {
     val result = for {
