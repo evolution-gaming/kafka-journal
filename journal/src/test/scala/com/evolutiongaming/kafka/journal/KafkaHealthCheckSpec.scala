@@ -106,12 +106,12 @@ object KafkaHealthCheckSpec {
       }
 
       new Log[StateT] {
-        def debug(msg: => String) = add(s"debug $msg")
-        def info(msg: => String) = add(s"info $msg")
-        def warn(msg: => String) = add(s"warn $msg")
-        def warn(msg: => String, cause: Throwable) = add(s"warn $msg $cause")
-        def error(msg: => String) = add(s"error $msg")
-        def error(msg: => String, cause: Throwable) = add(s"error $msg $cause")
+        def debug(msg: => String, mdc: Log.Mdc) = add(s"debug $msg")
+        def info(msg: => String, mdc: Log.Mdc) = add(s"info $msg")
+        def warn(msg: => String, mdc: Log.Mdc) = add(s"warn $msg")
+        def warn(msg: => String, cause: Throwable, mdc: Log.Mdc) = add(s"warn $msg $cause")
+        def error(msg: => String, mdc: Log.Mdc) = add(s"error $msg")
+        def error(msg: => String, cause: Throwable, mdc: Log.Mdc) = add(s"error $msg $cause")
       }
     }
 

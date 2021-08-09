@@ -128,22 +128,22 @@ class CreateTablesSpec extends AnyFunSuite with Matchers {
 
   private val log = new Log[StateT] {
 
-    def debug(msg: => String) = ().pure[StateT]
+    def debug(msg: => String, mdc: Log.Mdc) = ().pure[StateT]
 
-    def info(msg: => String) = {
+    def info(msg: => String, mdc: Log.Mdc) = {
       StateT { state =>
         val state1 = state.add(Action.Log(msg))
         (state1, ())
       }
     }
 
-    def warn(msg: => String) = ().pure[StateT]
+    def warn(msg: => String, mdc: Log.Mdc) = ().pure[StateT]
 
-    def warn(msg: => String, cause: Throwable) = ().pure[StateT]
+    def warn(msg: => String, cause: Throwable, mdc: Log.Mdc) = ().pure[StateT]
 
-    def error(msg: => String) = ().pure[StateT]
+    def error(msg: => String, mdc: Log.Mdc) = ().pure[StateT]
 
-    def error(msg: => String, cause: Throwable) = ().pure[StateT]
+    def error(msg: => String, cause: Throwable, mdc: Log.Mdc) = ().pure[StateT]
   }
 
 
