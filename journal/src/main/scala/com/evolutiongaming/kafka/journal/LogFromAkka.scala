@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal
 import akka.event.LoggingAdapter
 import cats.effect.Sync
 import com.evolutiongaming.catshelper.Log
-import org.slf4j.MDC
 
 object LogFromAkka {
 
@@ -11,49 +10,39 @@ object LogFromAkka {
 
     def debug(msg: => String, mdc: Log.Mdc) = {
       Sync[F].delay {
-        if (log.isDebugEnabled) withMDC(mdc) { log.debug(msg) }
+        if (log.isDebugEnabled) log.debug(msg, mdc)
       }
     }
 
     def info(msg: => String, mdc: Log.Mdc) = {
       Sync[F].delay {
-        if (log.isInfoEnabled) withMDC(mdc) { log.info(msg) }
+        if (log.isInfoEnabled) log.info(msg, mdc)
       }
     }
 
     def warn(msg: => String, mdc: Log.Mdc) = {
       Sync[F].delay {
-        if (log.isWarningEnabled) withMDC(mdc) { log.warning(msg) }
+        if (log.isWarningEnabled) log.warning(msg, mdc)
       }
     }
 
     def warn(msg: => String, cause: Throwable, mdc: Log.Mdc) = {
       Sync[F].delay {
-        if (log.isWarningEnabled) withMDC(mdc) { log.warning(s"$msg: $cause") }
+        if (log.isWarningEnabled) log.warning(s"$msg: $cause", mdc)
       }
     }
 
     def error(msg: => String, mdc: Log.Mdc) = {
       Sync[F].delay {
-        if (log.isErrorEnabled) withMDC(mdc) { log.error(msg) }
+        if (log.isErrorEnabled) log.error(msg, mdc)
       }
     }
 
     def error(msg: => String, cause: Throwable, mdc: Log.Mdc) = {
       Sync[F].delay {
-        if (log.isErrorEnabled) withMDC(mdc) { log.error(cause, msg) }
+        if (log.isErrorEnabled) log.error(cause, msg, mdc)
       }
     }
 
-    def withMDC(mdc: Log.Mdc)(log: => Unit): Unit =
-      mdc.context match {
-        case None => log
-        case Some(mdc) =>
-          val backup = MDC.getCopyOfContextMap
-          MDC.clear()
-          mdc.toSortedMap foreach { case (k, v) => MDC.put(k, v) }
-          log
-          MDC.setContextMap(backup)
-    }
   }
 }
