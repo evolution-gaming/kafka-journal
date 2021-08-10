@@ -1,9 +1,5 @@
 import Dependencies._
 
-ThisBuild / versionScheme := Some("early-semver")
-
-ThisBuild / evictionErrorLevel := Level.Warn
-
 lazy val commonSettings = Seq(
   organization := "com.evolutiongaming",
   homepage := Some(new URL("http://github.com/evolution-gaming/kafka-journal")),
@@ -18,7 +14,9 @@ lazy val commonSettings = Seq(
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   releaseCrossBuild := true,
   Test / testOptions ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM")),
-  libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full))
+  libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full),
+  libraryDependencySchemes ++= Seq("org.scala-lang.modules" %% "scala-java8-compat" % "always"),
+  versionScheme := Some("early-semver"))
 
 
 lazy val root = (project in file(".")

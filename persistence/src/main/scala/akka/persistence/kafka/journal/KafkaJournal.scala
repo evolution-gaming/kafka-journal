@@ -13,6 +13,8 @@ import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.retry.Retry.implicits._
+import com.evolutiongaming.retry.{OnError, Strategy}
 import com.typesafe.config.Config
 import pureconfig.ConfigSource
 
@@ -33,16 +35,11 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
   implicit val fromAttempt  : FromAttempt[IO]          = FromAttempt.lift[IO]
   implicit val fromJsResult : FromJsResult[IO]         = FromJsResult.lift[IO]
 
-  lazy val (adapter, release): (JournalAdapter[Future], () => Unit) = {
-    val (adapter, release) = await(adapterIO.allocated)
-    val adapter1 = adapter.mapK(toFuture.toFunctionK, fromFuture.toFunctionK)
-    val release1 = () => await(release)
-    (adapter1, release1)
-  }
-
-  def await[A](fa: IO[A]): A = {
-    val future = toFuture(fa)
-    Await.result(future, 1.minute)
+  val adapter: Future[(JournalAdapter[Future], IO[Unit])] = {
+    adapterIO
+      .map { _.mapK(toFuture.toFunctionK, fromFuture.toFunctionK) }
+      .allocated
+      .toFuture
   }
 
   def logOf: Resource[IO, LogOf[IO]] = LogOfFromAkka[IO](system).pure[Resource[IO, *]]
@@ -140,60 +137,77 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
   def adapterIO[A](
     serializer: EventSerializer[IO, A],
     journalReadWrite: JournalReadWrite[IO, A]
-  ): Resource[IO, JournalAdapter[IO]] =
+  ): Resource[IO, JournalAdapter[IO]] = {
     for {
       config  <- kafkaJournalConfig.toResource
       adapter <- adapterIO(config, serializer, journalReadWrite)
     } yield adapter
+  }
 
   def adapterIO[A](
     config: KafkaJournalConfig,
     serializer: EventSerializer[IO, A],
     journalReadWrite: JournalReadWrite[IO, A]
   ): Resource[IO, JournalAdapter[IO]] = {
-    val resource = for {
-      logOf              <- logOf
-      log                <- logOf(classOf[KafkaJournal]).toResource
-      _                  <- log.debug(s"config: $config").toResource
-      randomId           <- randomIdOf
-      measureDuration    <- measureDuration
-      toKey              <- toKey
-      origin             <- origin.toResource
-      appendMetadataOf   <- appendMetadataOf
-      metrics            <- metrics
-      batching           <- batching(config)
-      cassandraClusterOf <- cassandraClusterOf
-      jsonCodec          <- jsonCodec(config).toResource
-      adapter            <- adapterOf(
-        toKey              = toKey,
-        origin             = origin,
-        serializer         = serializer,
-        journalReadWrite   = journalReadWrite,
-        config             = config,
-        metrics            = metrics,
-        appendMetadataOf   = appendMetadataOf,
-        batching           = batching,
-        log                = log,
-        cassandraClusterOf = cassandraClusterOf)(
-        logOf              = logOf,
-        randomIdOf         = randomId,
-        measureDuration    = measureDuration,
-        jsonCodec          = jsonCodec)
-    } yield {
-      (adapter, log)
-    }
+    for {
+      logOf   <- logOf
+      log     <- logOf(classOf[KafkaJournal]).toResource
+      _       <- log.debug(s"config: $config").toResource
+      adapter <- Resource {
+        val adapter = for {
+          randomId           <- randomIdOf
+          measureDuration    <- measureDuration
+          toKey              <- toKey
+          origin             <- origin.toResource
+          appendMetadataOf   <- appendMetadataOf
+          metrics            <- metrics
+          batching           <- batching(config)
+          cassandraClusterOf <- cassandraClusterOf
+          jsonCodec          <- jsonCodec(config).toResource
+          adapter            <- adapterOf(
+            toKey              = toKey,
+            origin             = origin,
+            serializer         = serializer,
+            journalReadWrite   = journalReadWrite,
+            config             = config,
+            metrics            = metrics,
+            appendMetadataOf   = appendMetadataOf,
+            batching           = batching,
+            log                = log,
+            cassandraClusterOf = cassandraClusterOf)(
+            logOf              = logOf,
+            randomIdOf         = randomId,
+            measureDuration    = measureDuration,
+            jsonCodec          = jsonCodec)
+        } yield adapter
+        val strategy = Strategy
+          .fibonacci(100.millis)
+          .cap(config.startTimeout)
+        val onError: OnError[IO, Throwable] = {
+          (error, status, decision) => {
+            decision match {
+              case OnError.Decision.Retry(delay) =>
+                log.warn(s"allocate failed, retrying in $delay, error: $error")
 
-    val result = for {
-      a <- resource.allocated.timeout(config.startTimeout)
-    } yield {
-      val ((adapter, log), release) = a
-      val release1 = release.timeout(config.startTimeout).handleErrorWith { error =>
-        log.error(s"release failed with $error", error)
+              case OnError.Decision.GiveUp =>
+                val retries = status.retries
+                val duration = status.delay
+                log.error(s"allocate failed after $retries retries within $duration: $error", error)
+            }
+          }
+        }
+        adapter
+          .allocated
+          .retry(strategy, onError)
+          .timeout(config.startTimeout)
+          .map { case (adapter, release0) =>
+            val release = release0
+              .timeout(config.startTimeout)
+              .handleErrorWith { error => log.error(s"release failed with $error", error) }
+            (adapter, release)
+          }
       }
-      (adapter, release1)
-    }
-
-    Resource(result)
+    } yield adapter
   }
 
   def adapterOf[A](
@@ -226,23 +240,19 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
       cassandraClusterOf = cassandraClusterOf)
   }
 
-  override def preStart(): Unit = {
-    super.preStart()
-    val _ = adapter
-  }
-
   override def postStop(): Unit = {
-    release()
+    val future = adapter.flatMap { case (_, release) => release.toFuture }
+    Await.result(future, 1.minute)
     super.postStop()
   }
 
   def asyncWriteMessages(atomicWrites: Seq[AtomicWrite]): Future[Seq[Try[Unit]]] = {
-    Future { adapter.write(atomicWrites) }.flatten
+    adapter.flatMap { case (adapter, _) => adapter.write(atomicWrites) }
   }
 
   def asyncDeleteMessagesTo(persistenceId: PersistenceId, to: Long): Future[Unit] = {
     SeqNr.opt(to) match {
-      case Some(to) => adapter.delete(persistenceId, to.toDeleteTo)
+      case Some(to) => adapter.flatMap { case (adapter, _) => adapter.delete(persistenceId, to.toDeleteTo) }
       case None     => Future.unit
     }
   }
@@ -254,21 +264,26 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     max: Long)(
     f: PersistentRepr => Unit
   ): Future[Unit] = {
-
-    val seqNrFrom = SeqNr.of[Option](from) getOrElse SeqNr.min
-    val seqNrTo = SeqNr.of[Option](to) getOrElse SeqNr.max
+    val seqNrFrom = SeqNr
+      .of[Option](from)
+      .getOrElse(SeqNr.min)
+    val seqNrTo = SeqNr
+      .of[Option](to)
+      .getOrElse(SeqNr.max)
     val range = SeqRange(seqNrFrom, seqNrTo)
     val f1 = (a: PersistentRepr) => Future.fromTry(Try { f(a) })
-    adapter.replay(persistenceId, range, max)(f1)
+    adapter.flatMap { case (adapter, _) => adapter.replay(persistenceId, range, max)(f1) }
   }
 
   def asyncReadHighestSequenceNr(persistenceId: PersistenceId, from: Long): Future[Long] = {
-    val seqNr = SeqNr.of[Option](from) getOrElse SeqNr.min
-    for {
-      seqNr <- adapter.lastSeqNr(persistenceId, seqNr)
-    } yield seqNr match {
-      case Some(seqNr) => seqNr.value
-      case None        => from
-    }
+    val seqNr = SeqNr
+      .of[Option](from)
+      .getOrElse(SeqNr.min)
+    adapter
+      .flatMap { case (adapter, _) => adapter.lastSeqNr(persistenceId, seqNr) }
+      .map {
+        case Some(seqNr) => seqNr.value
+        case None        => from
+      }
   }
 }
