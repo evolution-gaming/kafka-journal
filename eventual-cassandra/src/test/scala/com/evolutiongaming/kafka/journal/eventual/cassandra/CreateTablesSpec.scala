@@ -128,6 +128,8 @@ class CreateTablesSpec extends AnyFunSuite with Matchers {
 
   private val log = new Log[StateT] {
 
+    def trace(msg: => String, mdc: Log.Mdc) = ().pure[StateT]
+
     def debug(msg: => String, mdc: Log.Mdc) = ().pure[StateT]
 
     def info(msg: => String, mdc: Log.Mdc) = {

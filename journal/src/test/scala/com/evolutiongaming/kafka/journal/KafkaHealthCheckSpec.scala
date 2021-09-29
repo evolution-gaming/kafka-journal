@@ -106,6 +106,7 @@ object KafkaHealthCheckSpec {
       }
 
       new Log[StateT] {
+        def trace(msg: => String, mdc: Log.Mdc) = add(s"trace $msg")
         def debug(msg: => String, mdc: Log.Mdc) = add(s"debug $msg")
         def info(msg: => String, mdc: Log.Mdc) = add(s"info $msg")
         def warn(msg: => String, mdc: Log.Mdc) = add(s"warn $msg")
