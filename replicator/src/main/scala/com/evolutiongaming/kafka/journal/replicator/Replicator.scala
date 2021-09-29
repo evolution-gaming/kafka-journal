@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
-import cats.effect.concurrent.Ref
 import cats.syntax.all._
 import cats.{Applicative, Monad, Parallel, ~>}
 import com.evolutiongaming.catshelper.CatsHelper._
@@ -25,6 +24,7 @@ import com.evolutiongaming.smetrics.{CollectorRegistry, MeasureDuration}
 import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
+import cats.effect.{ Ref, Temporal }
 
 // TODO TEST
 trait Replicator[F[_]] {
@@ -34,7 +34,7 @@ trait Replicator[F[_]] {
 
 object Replicator {
 
-  def of[F[_]: Concurrent: Parallel: Timer: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: FromGFuture: MeasureDuration: JsonCodec](
+  def of[F[_]: Concurrent: Parallel: Temporal: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: FromGFuture: MeasureDuration: JsonCodec](
     config: ReplicatorConfig,
     cassandraClusterOf: CassandraClusterOf[F],
     hostName: Option[HostName],
@@ -59,7 +59,7 @@ object Replicator {
 
   def of[
     F[_]
-    : Concurrent : Timer : Parallel
+    : Concurrent : Temporal : Parallel
     : Runtime : FromTry : ToTry : Fail : LogOf
     : KafkaConsumerOf : MeasureDuration
     : JsonCodec
@@ -91,7 +91,7 @@ object Replicator {
     of(Config(config), consumer, topicReplicator)
   }
 
-  def of[F[_] : Concurrent : Timer : Parallel : LogOf : MeasureDuration](
+  def of[F[_] : Concurrent : Temporal : Parallel : LogOf : MeasureDuration](
     config: Config,
     consumer: Resource[F, Consumer[F]],
     topicReplicatorOf: Topic => Resource[F, F[Unit]]
@@ -143,7 +143,7 @@ object Replicator {
   }
 
 
-  def start[F[_] : Sync : Parallel : Timer : MeasureDuration](
+  def start[F[_] : Sync : Parallel : Temporal : MeasureDuration](
     config: Config,
     consumer: Consumer[F],
     start: Topic => F[Unit],
@@ -172,7 +172,7 @@ object Replicator {
       } yield topicsNew
     }
 
-    val sleep = Timer[F].sleep(config.topicDiscoveryInterval)
+    val sleep = Temporal[F].sleep(config.topicDiscoveryInterval)
 
     def loop(state: State): F[State] = {
       val result = for {
