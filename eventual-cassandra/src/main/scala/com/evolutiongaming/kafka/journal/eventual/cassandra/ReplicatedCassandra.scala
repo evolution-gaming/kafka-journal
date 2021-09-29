@@ -133,16 +133,15 @@ object ReplicatedCassandra {
 
                       def delete(from: SeqNr, deleteTo: DeleteTo) = {
 
-                        def segmentNr(seqNr: SeqNr) = SegmentNr(seqNr, segmentSize)
+                        def segmentNr(seqNr: SeqNr) = SegmentNr(seqNr, journalHead.segmentSize)
 
                         segmentNr(from)
                           .to[F](segmentNr(deleteTo.value))
                           .flatMap { segmentNrs =>
                             val deletes = if (journalHead.seqNr <= deleteTo.value) {
-                              segmentNrs
-                                .foldLeft(List.empty[F[Unit]]) { (result, a) =>
-                                  statements.deleteRecords(key, a) :: result
-                                }
+                              segmentNrs.foldLeft(List.empty[F[Unit]]) { (result, a) =>
+                                statements.deleteRecords(key, a) :: result
+                              }
                             } else {
                               @tailrec def loop(as: List[SegmentNr], result: List[F[Unit]]): List[F[Unit]] = {
                                 as match {
@@ -155,7 +154,7 @@ object ReplicatedCassandra {
                               loop(segmentNrs, List.empty)
                             }
 
-                            deletes.parSequence_
+                            deletes.parFoldMapA(identity)
                           }
                       }
 
