@@ -16,7 +16,7 @@ trait PartitionsToSegments {
 
 object PartitionsToSegments {
 
-  def apply(partitions: Int, segments: Segments = Segments.old): PartitionsToSegments = {
+  def apply(partitions: Int, segments: Segments = Segments.default): PartitionsToSegments = {
     val segmentNrs = segments
       .segmentNrs
       .toSortedSet

@@ -58,7 +58,7 @@ object EventualCassandra {
     for {
       log          <- LogOf[F].apply(EventualCassandra.getClass)
       schema       <- SetupSchema[F](schemaConfig, origin)
-      segmentNrsOf  = SegmentNrsOf[F](first = Segments.old, second = Segments.default)
+      segmentNrsOf  = SegmentNrsOf[F](first = Segments.default, second = Segments.old)
       statements   <- Statements.of(schema, segmentNrsOf, Segments.default)
     } yield {
       val journal = apply[F](statements).withLog(log)

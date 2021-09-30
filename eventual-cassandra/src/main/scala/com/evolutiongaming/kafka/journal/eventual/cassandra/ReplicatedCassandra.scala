@@ -95,9 +95,9 @@ object ReplicatedCassandra {
                 } yield ref
               }
 
-              for {
-                segment        <- segmentOf(key).toResource
-                journalHeadRef <- journalHeadRef(segment).toResource
+              val result = for {
+                segment        <- segmentOf(key)
+                journalHeadRef <- journalHeadRef(segment)
               } yield {
 
                 def metaJournal = statements.metaJournal(key, segment)
@@ -381,6 +381,8 @@ object ReplicatedCassandra {
                   }
                 }
               }
+
+              result.toResource
             }
 
 
