@@ -23,12 +23,15 @@ class EventualCassandraSpec extends EventualJournalSpec {
   "EventualCassandra" when {
     for {
       segmentSize <- List(SegmentSize.min, SegmentSize.default, SegmentSize.max)
-      segments    <- List(Segments.min, Segments.old)
+      segments    <- List(
+        (Segments.min, Segments.old),
+        (Segments.old, Segments.default))
       delete      <- List(true, false)
     } {
       s"segmentSize: $segmentSize, delete: $delete, segments: $segments" should {
         test[StateT] { test =>
-          val journals = journalsOf(segmentSize, delete, segments)
+          val (segmentsFirst, segmentsSecond) = segments
+          val journals = journalsOf(segmentSize, delete, segmentsFirst = segmentsFirst, segmentsSecond = segmentsSecond)
           val (_, result) = test(journals)
             .run(State.empty)
             .get
@@ -124,7 +127,7 @@ object EventualCassandraSpec {
   implicit val parallelStateT: Parallel[StateT] = Parallel.identity[StateT]
 
 
-  def eventualJournalOf(segmentOf: SegmentOf[StateT], segments: Segments): EventualJournal[StateT] = {
+  def eventualJournalOf(segmentNrsOf: SegmentNrsOf[StateT], segments: Segments): EventualJournal[StateT] = {
 
     val selectRecords = new JournalStatements.SelectRecords[StateT] {
 
@@ -147,7 +150,7 @@ object EventualCassandraSpec {
     implicit val concurrentStateT = ConcurrentOf.fromMonad[StateT]
 
     val metaJournalStatements = EventualCassandra.MetaJournalStatements.fromMetaJournal(
-      segmentNrsOf = SegmentNrsOf(segmentOf),
+      segmentNrsOf = segmentNrsOf,
       journalHead = selectJournalHead,
       journalPointer = selectJournalPointer,
       ids = selectIds,
@@ -165,7 +168,7 @@ object EventualCassandraSpec {
   def replicatedJournalOf(
     segmentSize: SegmentSize,
     delete: Boolean,
-    segmentOf: SegmentOf[StateT]
+    segmentNrsOf: SegmentNrsOf[StateT]
   ): ReplicatedJournal[StateT] = {
 
     val insertRecords: JournalStatements.InsertRecords[StateT] = {
@@ -417,7 +420,7 @@ object EventualCassandraSpec {
     implicit val concurrentStateT = ConcurrentOf.fromMonad[StateT]
     ReplicatedCassandra(
       segmentSize,
-      segmentOf,
+      segmentNrsOf,
       statements,
       ExpiryService(ZoneOffset.UTC))
   }
@@ -425,14 +428,12 @@ object EventualCassandraSpec {
   def journalsOf(
     segmentSize: SegmentSize,
     delete: Boolean,
-    segments: Segments
+    segmentsFirst: Segments,
+    segmentsSecond: Segments
   ): EventualAndReplicated[StateT] = {
-
-    val segmentOf = SegmentOf[StateT](segments)
-
-    val replicatedJournal = replicatedJournalOf(segmentSize, delete, segmentOf)
-
-    val eventualJournal = eventualJournalOf(segmentOf, segments)
+    val segmentNrsOf = SegmentNrsOf[StateT](first = segmentsFirst, second = segmentsSecond)
+    val replicatedJournal = replicatedJournalOf(segmentSize, delete, segmentNrsOf)
+    val eventualJournal = eventualJournalOf(segmentNrsOf, segmentsFirst max segmentsSecond)
     EventualAndReplicated(eventualJournal, replicatedJournal)
   }
 

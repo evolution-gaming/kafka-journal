@@ -48,13 +48,16 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
   for {
     segmentSize <- List(SegmentSize.min, SegmentSize.default, SegmentSize.max)
-    segments    <- List(Segments.min, Segments.old)
+    segments    <- List(
+      (Segments.min, Segments.old),
+      (Segments.old, Segments.default))
   } {
-
-    val segmentOfId = SegmentOf[Id](segments)
+    val (segmentsFirst, segmentsSecond) = segments
+    val segmentNrsOf = SegmentNrsOf[StateT](first = segmentsFirst, second = segmentsSecond)
+    val segmentOfId = SegmentOf[Id](segmentsFirst)
     val journal = ReplicatedCassandra(
       segmentSize,
-      SegmentOf[StateT](segments),
+      segmentNrsOf,
       statements,
       ExpiryService(ZoneOffset.UTC)
     ).toFlat

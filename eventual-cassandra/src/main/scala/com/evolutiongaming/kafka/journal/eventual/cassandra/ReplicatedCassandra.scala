@@ -12,6 +12,7 @@ import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{LogOf, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
+import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
@@ -44,7 +45,7 @@ object ReplicatedCassandra {
       log           <- LogOf[F].apply(ReplicatedCassandra.getClass)
       expiryService <- ExpiryService.of[F]
     } yield {
-      val segmentOf = SegmentOf[F](Segments.old)
+      val segmentOf = SegmentNrsOf[F](Segments.old, Segments.default)
       val journal = apply[F](config.segmentSize, segmentOf, statements, expiryService)
         .withLog(log)
       metrics
@@ -55,7 +56,7 @@ object ReplicatedCassandra {
 
   def apply[F[_]: Sync: Parallel: Fail](
     segmentSize: SegmentSize,
-    segmentOf: SegmentOf[F],
+    segmentNrsOf: SegmentNrsOf[F],
     statements: Statements[F],
     expiryService: ExpiryService[F],
   ): ReplicatedJournal[F] = {
@@ -88,19 +89,42 @@ object ReplicatedCassandra {
 
               val key = Key(id = id, topic = topic)
 
-              def journalHeadRef(segmentNr: SegmentNr) = {
+              def journalHeadRef = {
+
+                def head(segmentNr: SegmentNr) = {
+                  statements
+                    .metaJournal(key, segmentNr)
+                    .journalHead
+                    .toOptionT
+                    .map { a => (a, segmentNr) }
+                }
+
                 for {
-                  journalHead <- statements.metaJournal(key, segmentNr).journalHead
-                  ref         <- Ref[F].of(journalHead)
-                } yield ref
+                  segmentNrs <- segmentNrsOf(key)
+                  result     <- head(segmentNrs.first)
+                    .orElse {
+                      segmentNrs
+                        .second
+                        .toOptionT[F]
+                        .flatMap { segmentNr => head(segmentNr) }
+                    }
+                    .value
+                  (head, segmentNr) = result match {
+                    case Some((head, segmentNr)) => (head.some, segmentNr)
+                    case None                    => (none[JournalHead], segmentNrs.first)
+                  }
+                  ref        <- Ref[F].of(head)
+                } yield {
+                  (ref, segmentNr)
+                }
               }
 
               val result = for {
-                segment        <- segmentOf(key)
-                journalHeadRef <- journalHeadRef(segment)
+                value <- journalHeadRef
               } yield {
+                val (journalHeadRef, segmentNr) = value
 
-                def metaJournal = statements.metaJournal(key, segment)
+                def metaJournal = statements.metaJournal(key, segmentNr)
 
                 def delete1(
                   journalHead: JournalHead,
