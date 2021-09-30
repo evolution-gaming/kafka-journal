@@ -155,7 +155,7 @@ object ReplicatedCassandra {
                               loop(segmentNrs, List.empty)
                             }
 
-                            deletes.parFoldMapA(identity)
+                            deletes.parFoldMapA { _.uncancelable }
                           }
                       }
 
