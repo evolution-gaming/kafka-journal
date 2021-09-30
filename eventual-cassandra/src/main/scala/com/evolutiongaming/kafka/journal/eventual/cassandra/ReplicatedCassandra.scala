@@ -106,7 +106,8 @@ object ReplicatedCassandra {
                   journalHead: JournalHead,
                   deleteTo: DeleteTo,
                   partitionOffset: PartitionOffset,
-                  timestamp: Instant
+                  timestamp: Instant,
+                  purge: Boolean
                 ) = {
 
                   if (partitionOffset.offset <= journalHead.partitionOffset.offset) {
@@ -163,7 +164,9 @@ object ReplicatedCassandra {
                       journalHead.deleteTo.fold {
                         delete(SeqNr.min, deleteTo1)
                       } { deleteTo =>
-                        if (deleteTo >= deleteTo1) {
+                        if (purge) {
+                          delete(SeqNr.min, deleteTo1)
+                        } else if (deleteTo >= deleteTo1) {
                           ().pure[F]
                         } else {
                           deleteTo
@@ -325,27 +328,25 @@ object ReplicatedCassandra {
                     deleteTo: DeleteTo,
                     origin: Option[Origin]
                   ) = {
-
-                    def insert = {
-                      val journalHead = JournalHead(
-                        partitionOffset = partitionOffset,
-                        segmentSize = segmentSize,
-                        seqNr = deleteTo.value,
-                        deleteTo = deleteTo.some)
-                      metaJournal
-                        .insert(timestamp, journalHead, origin)
-                        .as(journalHead.some)
-                    }
-
-                    def delete(journalHead: JournalHead) = {
-                      delete1(journalHead, deleteTo, partitionOffset, timestamp)
-                    }
-
                     for {
                       journalHead <- journalHeadRef.get
-                      journalHead <- journalHead.fold { insert } { delete }
+                      journalHead <- journalHead match {
+                        case Some(journalHead) =>
+                          delete1(journalHead, deleteTo, partitionOffset, timestamp, purge = false)
+                        case None              =>
+                          val journalHead = JournalHead(
+                            partitionOffset = partitionOffset,
+                            segmentSize = segmentSize,
+                            seqNr = deleteTo.value,
+                            deleteTo = deleteTo.some)
+                          metaJournal
+                            .insert(timestamp, journalHead, origin)
+                            .as(journalHead.some)
+                      }
                       _           <- journalHead.traverse { journalHead => journalHeadRef.set(journalHead.some) }
-                    } yield journalHead.isDefined
+                    } yield {
+                      journalHead.isDefined
+                    }
                   }
 
                   def purge(
@@ -358,12 +359,15 @@ object ReplicatedCassandra {
                         val partitionOffset = journalHead
                           .partitionOffset
                           .copy(offset = offset)
+                        val deleteTo = journalHead.seqNr.toDeleteTo
                         val result = for {
-                          journalHead <- delete1(journalHead, journalHead.seqNr.toDeleteTo, partitionOffset, timestamp)
-                          _           <- journalHead.traverse { journalHead => journalHeadRef.set(journalHead.some) }
+                          journalHead <- delete1(journalHead, deleteTo, partitionOffset, timestamp, purge = true)
+                          _           <- journalHead.foldMapM { journalHead => journalHeadRef.set(journalHead.some) }
                           _           <- metaJournal.delete
                           _           <- journalHeadRef.set(none)
-                        } yield journalHead.isDefined
+                        } yield {
+                          journalHead.isDefined
+                        }
                         result.uncancelable
                       } else {
                         false.pure[F]
