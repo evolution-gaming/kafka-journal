@@ -179,19 +179,8 @@ object EventualCassandra {
       segmentNrsOf: SegmentNrsOf[F],
       segments: Segments
     ): F[MetaJournalStatements[F]] = {
-      val metadata = for {
-        selectJournalHead    <- MetadataStatements.SelectJournalHead.of[F](schema.metadata)
-        selectJournalPointer <- MetadataStatements.SelectJournalPointer.of[F](schema.metadata)
-        selectIds            <- MetadataStatements.SelectIds.of[F](schema.metadata)
-      } yield {
-        fromMetadata(selectJournalHead, selectJournalPointer, selectIds)
-      }
-
-      val metaJournal = of(schema.metaJournal, segmentNrsOf, segments)
-
-      (metaJournal, metadata).parMapN(apply[F])
+      of(schema.metaJournal, segmentNrsOf, segments)
     }
-
 
     def of[F[_]: Concurrent: CassandraSession](
       metaJournal: TableName,
@@ -206,59 +195,6 @@ object EventualCassandra {
         fromMetaJournal(segmentNrsOf, selectJournalHead, selectJournalPointer, selectIds, segments)
       }
     }
-
-
-    private sealed abstract class Main
-
-    def apply[F[_]: Concurrent](
-      metaJournal: MetaJournalStatements[F],
-      metadata: MetaJournalStatements[F]
-    ): MetaJournalStatements[F] = {
-      new Main with MetaJournalStatements[F] {
-
-        def journalHead(key: Key) = {
-          metaJournal
-            .journalHead(key)
-            .orElsePar { metadata.journalHead(key) }
-        }
-
-        def journalPointer(key: Key) = {
-          metaJournal
-            .journalPointer(key)
-            .orElsePar { metadata.journalPointer(key) }
-        }
-
-        def ids(topic: Topic) = {
-          metaJournal
-            .ids(topic)
-            .concat(metadata.ids(topic))
-        }
-      }
-    }
-
-
-    private sealed abstract class FromMetadata
-
-    def fromMetadata[F[_]](
-      journalHead: MetadataStatements.SelectJournalHead[F],
-      journalPointer: MetadataStatements.SelectJournalPointer[F],
-      ids: MetadataStatements.SelectIds[F]
-    ): MetaJournalStatements[F] = {
-      val journalHead1 = journalHead
-      val journalPointer1 = journalPointer
-      val ids1 = ids
-      new FromMetadata with MetaJournalStatements[F] {
-
-        def journalHead(key: Key) = journalHead1(key)
-
-        def journalPointer(key: Key) = journalPointer1(key)
-
-        def ids(topic: Topic) = ids1(topic)
-      }
-    }
-
-
-    private sealed abstract class FromMetaJournal
 
     def fromMetaJournal[F[_]: Concurrent](
       segmentNrsOf: SegmentNrsOf[F],
@@ -279,7 +215,7 @@ object EventualCassandra {
         } yield result
       }
 
-      new FromMetaJournal with MetaJournalStatements[F] {
+      new Main with MetaJournalStatements[F] {
 
         def journalHead(key: Key) = {
           firstOrSecond(key) {  segmentNr => journalHead1(key, segmentNr) }

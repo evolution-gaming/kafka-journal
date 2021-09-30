@@ -52,7 +52,8 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
     segments    <- List(Segments.min, Segments.old)
   } {
     val segmentOf = SegmentOf[Id](segments)
-    val statements = statementsOf(SegmentNrsOf(first = segments, Segments.default), Segments.default)
+    val segmentNrsOf = SegmentNrsOf[StateT](first = segments, Segments.default)
+    val statements = statementsOf(segmentNrsOf, Segments.default)
     val journal = EventualCassandra(statements)
 
     val suffix = s"segmentSize: $segmentSize, segments: $segments"
@@ -114,40 +115,6 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
       result shouldEqual (expected, ()).pure[Try]
     }
 
-
-    test(s"pointer from metadata, $suffix") {
-      val id = "id"
-      val key = Key(id = id, topic = topic0)
-      val seqNr = SeqNr.min
-      val stateT = for {
-        pointer <- journal.pointer(key)
-        _        = pointer shouldEqual none
-        head     = JournalHead(partitionOffset, segmentSize, seqNr)
-        _       <- insertMetadata(key, timestamp0, head, origin.some)
-        pointer <- journal.pointer(key)
-        _        = pointer shouldEqual JournalPointer(partitionOffset, seqNr).some
-        _       <- updateMetadata(key, partitionOffset, timestamp1, SeqNr.max, seqNr.toDeleteTo)
-        pointer <- journal.pointer(key)
-        _        = pointer shouldEqual JournalPointer(partitionOffset, SeqNr.max).some
-      } yield {
-
-      }
-      val expected = State(
-        metadata = Map(
-          (topic0, Map((id, MetaJournalEntry(
-            journalHead  = JournalHead(
-              partitionOffset = partitionOffset,
-              segmentSize = segmentSize,
-              seqNr = SeqNr.max,
-              deleteTo = SeqNr.min.toDeleteTo.some),
-            created = timestamp0,
-            updated = timestamp1,
-            origin = origin.some))))))
-      val result = stateT.run(State.empty)
-      result shouldEqual (expected, ()).pure[Try]
-    }
-
-
     for {
       seqNr <- List(SeqNr.min, SeqNr.unsafe(5), SeqNr.max)
     } {
@@ -197,52 +164,6 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
         val result = stateT.run(State.empty)
         result shouldEqual (expected, ()).pure[Try]
       }
-
-      test(s"read from metadata, seqNr: $seqNr, $suffix") {
-
-        val id = "id"
-        val key = Key(id = id, topic = topic0)
-        val record1 = {
-          record.copy(
-            timestamp = timestamp1,
-            event = record.event.copy(seqNr = record.seqNr.next[Id]),
-            partitionOffset = record.partitionOffset.copy(offset = record.partitionOffset.offset.inc[Try].get))
-        }
-
-        val stateT = for {
-          records <- journal.read(key, seqNr).toList
-          _        = records shouldEqual List.empty
-          head     = JournalHead(partitionOffset, segmentSize, record.seqNr)
-          _       <- insertMetadata(key, timestamp0, head, origin.some)
-          _       <- insertRecords(key, SegmentNr.min, Nel.of(record))
-          records <- journal.read(key, seqNr).toList
-          _        = records shouldEqual List(record).filter(_.seqNr >= seqNr)
-          _       <- updateMetadataSeqNr(key, partitionOffset, timestamp1, record1.seqNr)
-          _       <- insertRecords(key, SegmentNr.min, Nel.of(record1))
-          records <- journal.read(key, seqNr).toList
-          _        = records shouldEqual List(record, record1).filter(_.seqNr >= seqNr)
-          _       <- updateMetadata(key, partitionOffset, timestamp1, record1.seqNr, record.seqNr.toDeleteTo)
-          records <- journal.read(key, seqNr).toList
-          _        = records shouldEqual List(record1).filter(_.seqNr >= seqNr)
-        } yield {}
-
-        val expected = State(
-          metadata = Map(
-            (topic0, Map((id, MetaJournalEntry(
-              journalHead  = JournalHead(
-                partitionOffset = partitionOffset,
-                segmentSize = segmentSize,
-                seqNr = record1.seqNr,
-                deleteTo = record.seqNr.toDeleteTo.some),
-              created = timestamp0,
-              updated = timestamp1,
-              origin = origin.some))))),
-          journal = Map(((key, SegmentNr.min), Map(
-            ((record.seqNr, record.timestamp), record),
-            ((record1.seqNr, record1.timestamp), record1)))))
-        val result = stateT.run(State.empty)
-        result shouldEqual (expected, ()).pure[Try]
-      }
     }
 
     test(s"ids, $suffix") {
@@ -258,7 +179,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
         ids  <- idsOf
         _     = ids shouldEqual List.empty
         head  = JournalHead(partitionOffset, segmentSize, SeqNr.min)
-        _    <- insertMetadata(Key(id = id0, topic = topic0), timestamp0, head, origin.some)
+        _    <- insertMetaJournal(Key(id = id0, topic = topic0), SegmentNr.min, timestamp0, timestamp0, head, origin.some)
         ids  <- idsOf
         _     = ids shouldEqual List(id0)
         _    <- insertMetaJournal(Key(id = id1, topic = topic0), SegmentNr.min, timestamp0, timestamp0, head, origin.some)
@@ -309,27 +230,6 @@ object EventualCassandraTest {
   }
 
 
-  val insertMetadata: MetadataStatements.Insert[StateT] = {
-    (key: Key, timestamp: Instant, head: JournalHead, origin: Option[Origin]) => {
-      StateT.unit { state =>
-        val entry = MetaJournalEntry(
-          journalHead  = JournalHead(
-            partitionOffset = head.partitionOffset,
-            segmentSize = head.segmentSize,
-            seqNr = head.seqNr,
-            deleteTo = head.deleteTo),
-          created = timestamp,
-          updated = timestamp,
-          origin = origin)
-        val entries = state
-          .metadata
-          .getOrElse(key.topic, Map.empty)
-          .updated(key.id, entry)
-        state.copy(metadata = state.metadata.updated(key.topic, entries))
-      }
-    }
-  }
-
   val insertMetaJournal: MetaJournalStatements.Insert[StateT] = {
     (key: Key, segment: SegmentNr, created: Instant, updated: Instant, head: JournalHead, origin: Option[Origin]) => {
       StateT.unit { state =>
@@ -366,21 +266,6 @@ object EventualCassandraTest {
     }
   }
 
-  val selectJournalHead1: MetadataStatements.SelectJournalHead[StateT] = {
-    key: Key => {
-      StateT.success { state =>
-        val head = for {
-          entries <- state.metadata.get(key.topic)
-          entry   <- entries.get(key.id)
-        } yield {
-          entry.journalHead
-        }
-        (state, head)
-      }
-    }
-  }
-
-
   val selectJournalPointer0: MetaJournalStatements.SelectJournalPointer[StateT] = {
     (key: Key, segment: SegmentNr) => {
       StateT.success { state =>
@@ -414,55 +299,6 @@ object EventualCassandraTest {
     }
   }
 
-  val selectJournalPointer1: MetadataStatements.SelectJournalPointer[StateT] = {
-    key: Key => {
-      StateT.success { state =>
-        val pointer = for {
-          entries <- state.metadata.get(key.topic)
-          entry   <- entries.get(key.id)
-        } yield {
-          JournalPointer(
-            partitionOffset = entry.journalHead.partitionOffset,
-            seqNr = entry.journalHead.seqNr)
-        }
-        (state, pointer)
-      }
-    }
-  }
-
-  val selectIds1: MetadataStatements.SelectIds[StateT] = {
-    topic => {
-      Stream
-        .lift {
-          StateT.success { state =>
-            val ids = state
-              .metadata
-              .get(topic)
-              .toList
-              .flatMap { _.keys.toList }
-            (state, Stream[StateT].apply(ids))
-          }
-        }
-        .flatten
-    }
-  }
-
-
-  val updateMetadata: MetadataStatements.Update[StateT] = {
-    (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: DeleteTo) => {
-      StateT.unit { state =>
-        state.updateMetadata(key) { entry =>
-          entry.copy(
-            journalHead = entry.journalHead.copy(
-              partitionOffset = partitionOffset,
-              seqNr = seqNr,
-              deleteTo = deleteTo.some),
-            updated = timestamp)
-        }
-      }
-    }
-  }
-
   val updateMetaJournal: MetaJournalStatements.Update[StateT] = {
     (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: DeleteTo) => {
       StateT.unit { state =>
@@ -478,21 +314,6 @@ object EventualCassandraTest {
     }
   }
 
-
-  val updateMetadataSeqNr: MetadataStatements.UpdateSeqNr[StateT] = {
-    (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr) => {
-      StateT.unit { state =>
-        state.updateMetadata(key) { entry =>
-          entry.copy(
-            journalHead = entry.journalHead.copy(
-              partitionOffset = partitionOffset,
-              seqNr = seqNr),
-            updated = timestamp)
-        }
-      }
-    }
-  }
-
   val updateMetaJournalSeqNr: MetaJournalStatements.UpdateSeqNr[StateT] = {
     (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr) => {
       StateT.unit { state =>
@@ -501,21 +322,6 @@ object EventualCassandraTest {
             journalHead = entry.journalHead.copy(
               partitionOffset = partitionOffset,
               seqNr = seqNr),
-            updated = timestamp)
-        }
-      }
-    }
-  }
-
-
-  val updateMetadataDeleteTo: MetadataStatements.UpdateDeleteTo[StateT] = {
-    (key: Key, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: DeleteTo) => {
-      StateT.unit { state =>
-        state.updateMetadata(key) { entry =>
-          entry.copy(
-            journalHead = entry.journalHead.copy(
-              partitionOffset = partitionOffset,
-              deleteTo = deleteTo.some),
             updated = timestamp)
         }
       }
@@ -668,17 +474,12 @@ object EventualCassandraTest {
 
     implicit val concurrentStateT = ConcurrentOf.fromMonad[StateT]
 
-    val metaJournalStatements = EventualCassandra.MetaJournalStatements(
-      metaJournal = EventualCassandra.MetaJournalStatements.fromMetaJournal(
-        segmentNrsOf = segmentNrsOf,
-        journalHead = selectJournalHead0,
-        journalPointer = selectJournalPointer0,
-        ids = selectIds0,
-        segments = segments),
-      metadata = EventualCassandra.MetaJournalStatements.fromMetadata(
-        journalHead = selectJournalHead1,
-        journalPointer = selectJournalPointer1,
-        ids = selectIds1))
+    val metaJournalStatements = EventualCassandra.MetaJournalStatements.fromMetaJournal(
+      segmentNrsOf = segmentNrsOf,
+      journalHead = selectJournalHead0,
+      journalPointer = selectJournalPointer0,
+      ids = selectIds0,
+      segments = segments)
 
     EventualCassandra.Statements(
       records = selectRecords,
