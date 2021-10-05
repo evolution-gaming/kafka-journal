@@ -71,7 +71,7 @@ object Dependencies {
   }
 
   object Pureconfig {
-    private val version = "0.12.3"
+    private val version = "0.17.0"
     val pureconfig = "com.github.pureconfig" %% "pureconfig"      % version
     val cats       = "com.github.pureconfig" %% "pureconfig-cats" % version
   }
