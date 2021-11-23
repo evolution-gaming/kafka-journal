@@ -9,6 +9,7 @@ import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromFuture, LogOf}
 import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra._
 import com.evolutiongaming.kafka.journal.util.ActorSystemOf
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
@@ -41,6 +42,10 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
       config: SchemaConfig)(implicit
       cassandraCluster: CassandraCluster[F],
       cassandraSession: CassandraSession[F]) = {
+
+      val consistencyConfig = ConsistencyConfig.default
+      implicit val rc = consistencyConfig.read
+      implicit val wc = consistencyConfig.write
 
       for {
         schema   <- SetupSchema[F](config, origin)

@@ -7,6 +7,7 @@ import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{LogOf, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.scassandra.{CassandraClusterOf, TableName}
@@ -32,6 +33,8 @@ object EventualCassandra {
   ): Resource[F, EventualJournal[F]] = {
 
     def journal(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
+      implicit val c = config.consistencyConfig.read
+      implicit val w = config.consistencyConfig.write
       of(config.schema, origin, metrics)
     }
 
@@ -52,8 +55,8 @@ object EventualCassandra {
   ](
     schemaConfig: SchemaConfig,
     origin: Option[Origin],
-    metrics: Option[EventualJournal.Metrics[F]]
-  ): F[EventualJournal[F]] = {
+    metrics: Option[EventualJournal.Metrics[F]],
+  )(implicit c: ConsistencyConfig.Read, w: ConsistencyConfig.Write): F[EventualJournal[F]] = {
 
     for {
       log          <- LogOf[F].apply(EventualCassandra.getClass)
@@ -147,11 +150,11 @@ object EventualCassandra {
 
     def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 
-    def of[F[_]: Concurrent: Parallel: CassandraSession: ToTry: JsonCodec.Decode](
+    def of[F[_]: Concurrent: CassandraSession: ToTry: JsonCodec.Decode](
       schema: Schema,
       segmentNrsOf: SegmentNrsOf[F],
-      segments: Segments
-    ): F[Statements[F]] = {
+      segments: Segments,
+    )(implicit c: ConsistencyConfig.Read): F[Statements[F]] = {
       for {
         selectRecords  <- JournalStatements.SelectRecords.of[F](schema.journal)
         metaJournal    <- MetaJournalStatements.of(schema, segmentNrsOf, segments)
@@ -174,11 +177,11 @@ object EventualCassandra {
 
   object MetaJournalStatements {
 
-    def of[F[_]: Concurrent: Parallel: CassandraSession](
+    def of[F[_]: Concurrent: CassandraSession](
       schema: Schema,
       segmentNrsOf: SegmentNrsOf[F],
       segments: Segments
-    ): F[MetaJournalStatements[F]] = {
+    )(implicit r: ConsistencyConfig.Read): F[MetaJournalStatements[F]] = {
       of(schema.metaJournal, segmentNrsOf, segments)
     }
 
@@ -186,7 +189,7 @@ object EventualCassandra {
       metaJournal: TableName,
       segmentNrsOf: SegmentNrsOf[F],
       segments: Segments,
-    ): F[MetaJournalStatements[F]] = {
+    )(implicit r: ConsistencyConfig.Read): F[MetaJournalStatements[F]] = {
       for {
         selectJournalHead    <- cassandra.MetaJournalStatements.SelectJournalHead.of[F](metaJournal)
         selectJournalPointer <- cassandra.MetaJournalStatements.SelectJournalPointer.of[F](metaJournal)

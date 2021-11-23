@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
-
 import cats.Monad
 import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
@@ -10,6 +9,7 @@ import com.evolutiongaming.catshelper.ToTry
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.HeadersHelper._
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName, TableName}
 import com.evolutiongaming.scassandra.syntax._
@@ -57,7 +57,7 @@ object JournalStatements {
 
   object InsertRecords {
 
-    def of[F[_] : Monad : CassandraSession : ToTry : JsonCodec.Encode](name: TableName): F[InsertRecords[F]] = {
+    def of[F[_] : Monad : CassandraSession : ToTry : JsonCodec.Encode](name: TableName)(implicit consistency: ConsistencyConfig.Write): F[InsertRecords[F]] = {
 
       implicit val encodeTry: JsonCodec.Encode[Try] = JsonCodec.Encode.summon[F].mapK(ToTry.functionK)
 
@@ -119,6 +119,7 @@ object JournalStatements {
               .encodeSome("payload_bin", bin)
               .encode("metadata", record.metadata)(encodeByNameRecordMetadata)
               .encode(record.headers)
+              .setConsistencyLevel(consistency.value)
           }
 
           val statement = {
@@ -143,7 +144,7 @@ object JournalStatements {
 
   object SelectRecords {
 
-    def of[F[_] : Monad : CassandraSession : ToTry : JsonCodec.Decode](name: TableName): F[SelectRecords[F]] = {
+    def of[F[_] : Monad : CassandraSession : ToTry : JsonCodec.Decode](name: TableName)(implicit consistency: ConsistencyConfig.Read): F[SelectRecords[F]] = {
 
       implicit val encodeTry: JsonCodec.Decode[Try] = JsonCodec.Decode.summon[F].mapK(ToTry.functionK)
       implicit val decodeByNameByteVector: DecodeByName[ByteVector] = DecodeByName[Array[Byte]]
@@ -193,6 +194,7 @@ object JournalStatements {
               .encode(segment)
               .encodeAt(3, range.from)
               .encodeAt(4, range.to)
+              .setConsistencyLevel(consistency.value)
 
             for {
               row <- bound.execute
@@ -234,7 +236,7 @@ object JournalStatements {
 
   object DeleteTo {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[DeleteTo[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName)(implicit consistency: ConsistencyConfig.Write): F[DeleteTo[F]] = {
       val query =
         s"""
            |DELETE FROM ${ name.toCql }
@@ -253,6 +255,7 @@ object JournalStatements {
             .encode(key)
             .encode(segmentNr)
             .encode(seqNr)
+            .setConsistencyLevel(consistency.value)
             .first
             .void
       }
@@ -267,7 +270,7 @@ object JournalStatements {
 
   object Delete {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[Delete[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName)(implicit consistency: ConsistencyConfig.Write): F[Delete[F]] = {
       val query =
         s"""
            |DELETE FROM ${ name.toCql }
@@ -284,6 +287,7 @@ object JournalStatements {
             .bind()
             .encode(key)
             .encode(segmentNr)
+            .setConsistencyLevel(consistency.value)
             .first
             .void
       }

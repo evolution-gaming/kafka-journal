@@ -1,9 +1,10 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.{Monad, Parallel}
 import cats.effect.Clock
 import cats.syntax.all._
+import cats.{Monad, Parallel}
 import com.evolutiongaming.catshelper.ClockHelper._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.{Origin, Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
 
@@ -56,7 +57,7 @@ object SettingsCassandra {
   def of[F[_] : Monad : Parallel : Clock : CassandraSession](
     schema: Schema,
     origin: Option[Origin]
-  ): F[Settings[F]] = {
+  )(implicit r: ConsistencyConfig.Read, w: ConsistencyConfig.Write): F[Settings[F]] = {
     for {
       statements <- Statements.of[F](schema.setting)
     } yield {
@@ -73,7 +74,7 @@ object SettingsCassandra {
     delete: SettingStatements.Delete[F])
 
   object Statements {
-    def of[F[_] : Monad : Parallel : CassandraSession](table: TableName): F[Statements[F]] = {
+    def of[F[_] : Monad : Parallel : CassandraSession](table: TableName)(implicit r: ConsistencyConfig.Read, w: ConsistencyConfig.Write): F[Statements[F]] = {
       val statements = (
         SettingStatements.Select.of[F](table),
         SettingStatements.Insert.of[F](table),

@@ -5,6 +5,7 @@ import cats.effect.{Concurrent, Timer}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.{BracketThrowable, LogOf}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.{Origin, Settings}
 import com.evolutiongaming.scassandra.TableName
 
@@ -78,7 +79,7 @@ object SetupSchema { self =>
   def apply[F[_]: Concurrent: Parallel: Timer: CassandraCluster: CassandraSession: LogOf](
     config: SchemaConfig,
     origin: Option[Origin]
-  ): F[Schema] = {
+  )(implicit r: ConsistencyConfig.Read, w: ConsistencyConfig.Write): F[Schema] = {
 
     def createSchema(implicit cassandraSync: CassandraSync[F]) = CreateSchema(config)
 

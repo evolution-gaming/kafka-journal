@@ -12,6 +12,7 @@ import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{LogOf, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.scassandra.TableName
@@ -38,6 +39,9 @@ object ReplicatedCassandra {
     origin: Option[Origin],
     metrics: Option[ReplicatedJournal.Metrics[F]],
   ): F[ReplicatedJournal[F]] = {
+
+    implicit val w: ConsistencyConfig.Write = config.consistencyConfig.write
+    implicit val r: ConsistencyConfig.Read = config.consistencyConfig.read
 
     for {
       schema        <- SetupSchema[F](config.schema, origin)
@@ -508,7 +512,7 @@ object ReplicatedCassandra {
 
   object MetaJournalStatements {
 
-    def of[F[_]: Monad: CassandraSession](schema: Schema): F[MetaJournalStatements[F]] = {
+    def of[F[_]: Monad: CassandraSession](schema: Schema)(implicit w: ConsistencyConfig.Write, r: ConsistencyConfig.Read): F[MetaJournalStatements[F]] = {
       for {
         selectMetadata <- MetadataStatements.Select.of[F](schema.metadata)
         deleteMetadata <- MetadataStatements.Delete.of[F](schema.metadata)
@@ -520,7 +524,8 @@ object ReplicatedCassandra {
     }
 
 
-    def of[F[_]: Monad: CassandraSession](metaJournal: TableName): F[MetaJournalStatements[F]] = {
+    def of[F[_]: Monad: CassandraSession](metaJournal: TableName)(implicit w: ConsistencyConfig.Write, r: ConsistencyConfig.Read): F[MetaJournalStatements[F]] = {
+
       for {
         selectJournalHead <- cassandra.MetaJournalStatements.SelectJournalHead.of[F](metaJournal)
         insert            <- cassandra.MetaJournalStatements.Insert.of[F](metaJournal)
@@ -719,7 +724,7 @@ object ReplicatedCassandra {
 
     def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 
-    def of[F[_]: Monad: Parallel: CassandraSession: ToTry: JsonCodec.Encode](schema: Schema): F[Statements[F]] = {
+    def of[F[_]: Monad: Parallel: CassandraSession: ToTry: JsonCodec.Encode](schema: Schema)(implicit r: ConsistencyConfig.Read, w: ConsistencyConfig.Write): F[Statements[F]] = {
       val statements = (
         JournalStatements.InsertRecords.of[F](schema.journal),
         JournalStatements.DeleteTo.of[F](schema.journal),
