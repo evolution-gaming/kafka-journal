@@ -4,12 +4,12 @@ object Dependencies {
 
   val prometheus           = "io.prometheus"           % "simpleclient"          % "0.6.0"
   val scalatest            = "org.scalatest"          %% "scalatest"             % "3.2.10"
-  val `scala-java8-compat` = "org.scala-lang.modules" %% "scala-java8-compat"    % "1.0.1"
+  val `scala-java8-compat` = "org.scala-lang.modules" %% "scala-java8-compat"    % "1.0.2"
   val `kind-projector`     = "org.typelevel"           % "kind-projector"        % "0.13.2"
   val `cassandra-driver`   = "com.datastax.cassandra"  % "cassandra-driver-core" % "3.11.0"
   val `play-json`          = "com.typesafe.play"      %% "play-json"             % "2.9.2"
   val `play-json-jsoniter` = "com.evolutiongaming"    %% "play-json-jsoniter"    % "0.9.3"
-  val `executor-tools`     = "com.evolutiongaming"    %% "executor-tools"        % "1.0.2"
+  val `executor-tools`     = "com.evolutiongaming"    %% "executor-tools"        % "1.0.3"
   val `config-tools`       = "com.evolutiongaming"    %% "config-tools"          % "1.0.3"
   val `akka-serialization` = "com.evolutiongaming"    %% "akka-serialization"    % "1.0.4"
   val `future-helper`      = "com.evolutiongaming"    %% "future-helper"         % "1.0.6"
@@ -18,11 +18,11 @@ object Dependencies {
   val hostname             = "com.evolutiongaming"    %% "hostname"              % "0.2.0"
   val scassandra           = "com.evolutiongaming"    %% "scassandra"            % "3.2.1"
   val `cassandra-sync`     = "com.evolutiongaming"    %% "cassandra-sync"        % "1.1.0"
-  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "2.5.0"
+  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "2.7.0"
   val random               = "com.evolutiongaming"    %% "random"                % "0.1.1"
   val retry                = "com.evolutiongaming"    %% "retry"                 % "2.1.1"
   val sstream              = "com.evolutiongaming"    %% "sstream"               % "0.2.1"
-  val skafka               = "com.evolutiongaming"    %% "skafka"                % "11.6.0"
+  val skafka               = "com.evolutiongaming"    %% "skafka"                % "11.7.0"
   val scache               = "com.evolutiongaming"    %% "scache"                % "3.2.1"
   val `akka-test-actor`    = "com.evolutiongaming"    %% "akka-test-actor"       % "0.1.0"
 
@@ -32,7 +32,7 @@ object Dependencies {
   }
 
   object Logback {
-    private val version = "1.2.6"
+    private val version = "1.2.7"
     val core    = "ch.qos.logback" % "logback-core"    % version
     val classic = "ch.qos.logback" % "logback-classic" % version
   }
@@ -54,7 +54,7 @@ object Dependencies {
   }
   
   object Kafka {
-    private val version = "2.7.1"
+    private val version = "2.7.2"
     val kafka           = "org.apache.kafka" %% "kafka"         % version
     val `kafka-clients` = "org.apache.kafka" %  "kafka-clients" % version
   }
