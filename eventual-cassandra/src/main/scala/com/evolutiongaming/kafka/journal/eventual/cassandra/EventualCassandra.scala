@@ -147,7 +147,7 @@ object EventualCassandra {
 
     def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 
-    def of[F[_]: Concurrent: Parallel: CassandraSession: ToTry: JsonCodec.Decode](
+    def of[F[_]: Concurrent: CassandraSession: ToTry: JsonCodec.Decode](
       schema: Schema,
       segmentNrsOf: SegmentNrsOf[F],
       segments: Segments
@@ -174,7 +174,7 @@ object EventualCassandra {
 
   object MetaJournalStatements {
 
-    def of[F[_]: Concurrent: Parallel: CassandraSession](
+    def of[F[_]: Concurrent: CassandraSession](
       schema: Schema,
       segmentNrsOf: SegmentNrsOf[F],
       segments: Segments
