@@ -27,7 +27,7 @@ object Dependencies {
   val `akka-test-actor`    = "com.evolutiongaming"    %% "akka-test-actor"       % "0.1.0"
 
   object Cats {
-    val core   = "org.typelevel" %% "cats-core"   % "2.6.1"
+    val core   = "org.typelevel" %% "cats-core"   % "2.7.0"
     val effect = "org.typelevel" %% "cats-effect" % "2.5.4"
   }
 
