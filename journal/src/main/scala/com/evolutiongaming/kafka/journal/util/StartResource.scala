@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.effect._
-import cats.effect.concurrent.Deferred
 import cats.effect.implicits._
 import cats.syntax.all._
+import cats.effect.Deferred
 
 object StartResource {
 

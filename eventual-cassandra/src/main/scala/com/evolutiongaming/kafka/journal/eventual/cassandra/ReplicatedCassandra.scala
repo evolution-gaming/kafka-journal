@@ -1,9 +1,8 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
-import cats.effect.concurrent.Ref
 import cats.effect.implicits._
-import cats.effect.{Concurrent, Sync, Timer}
+import cats.effect.{Concurrent, Sync}
 import cats.syntax.all._
 import cats.{Applicative, Monad, Parallel}
 import com.evolutiongaming.catshelper.CatsHelper._
@@ -20,6 +19,7 @@ import com.evolutiongaming.smetrics.MeasureDuration
 
 import java.time.Instant
 import scala.annotation.tailrec
+import cats.effect.{ Ref, Temporal }
 
 
 object ReplicatedCassandra {
@@ -28,7 +28,7 @@ object ReplicatedCassandra {
 
   def of[
     F[_]
-    : Concurrent: Parallel: Timer
+    : Concurrent: Parallel: Temporal
     : ToTry: LogOf: Fail
     : CassandraCluster: CassandraSession
     : MeasureDuration

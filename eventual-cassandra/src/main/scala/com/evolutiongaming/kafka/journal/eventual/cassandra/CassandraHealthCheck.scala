@@ -2,7 +2,6 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Monad
 import cats.effect._
-import cats.effect.concurrent.Ref
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{Log, LogOf, Schedule}
@@ -10,6 +9,7 @@ import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 
 import scala.concurrent.duration._
+import cats.effect.{ Ref, Temporal }
 
 trait CassandraHealthCheck[F[_]] {
   def error: F[Option[Throwable]]
@@ -17,7 +17,7 @@ trait CassandraHealthCheck[F[_]] {
 
 object CassandraHealthCheck {
 
-  def of[F[_] : Concurrent : Timer : LogOf](
+  def of[F[_] : Concurrent : Temporal : LogOf](
     session: Resource[F, CassandraSession[F]]
   ): Resource[F, CassandraHealthCheck[F]] = {
 
@@ -35,7 +35,7 @@ object CassandraHealthCheck {
     } yield result
   }
 
-  def of[F[_] : Concurrent : Timer](
+  def of[F[_] : Concurrent : Temporal](
     initial: FiniteDuration,
     interval: FiniteDuration,
     statement: Resource[F, Statement[F]],

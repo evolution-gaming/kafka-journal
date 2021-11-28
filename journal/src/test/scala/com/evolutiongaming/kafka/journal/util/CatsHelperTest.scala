@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal.util
 
-import cats.effect.concurrent.Deferred
 import cats.effect.{ExitCase, IO}
 import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.IOSuite._
@@ -9,6 +8,7 @@ import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import scala.util.control.NoStackTrace
+import cats.effect.Deferred
 
 class CatsHelperTest extends AsyncFunSuite with Matchers {
 
