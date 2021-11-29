@@ -20,7 +20,7 @@ object CassandraHealthCheck {
 
   def of[F[_] : Concurrent : Timer : LogOf](
     session: Resource[F, CassandraSession[F]]
-  )(implicit c: ConsistencyConfig.Read): Resource[F, CassandraHealthCheck[F]] = {
+  )(implicit consistencyConfig: ConsistencyConfig.Read): Resource[F, CassandraHealthCheck[F]] = {
 
     val statement = for {
       session   <- session

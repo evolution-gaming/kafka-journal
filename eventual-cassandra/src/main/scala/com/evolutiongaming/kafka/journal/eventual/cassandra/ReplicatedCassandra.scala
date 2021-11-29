@@ -40,8 +40,7 @@ object ReplicatedCassandra {
     metrics: Option[ReplicatedJournal.Metrics[F]],
   ): F[ReplicatedJournal[F]] = {
 
-    implicit val w: ConsistencyConfig.Write = config.consistencyConfig.write
-    implicit val r: ConsistencyConfig.Read = config.consistencyConfig.read
+    implicit val consistencyConfig: ConsistencyConfig = config.consistencyConfig
 
     for {
       schema        <- SetupSchema[F](config.schema, origin)
@@ -512,7 +511,10 @@ object ReplicatedCassandra {
 
   object MetaJournalStatements {
 
-    def of[F[_]: Monad: CassandraSession](schema: Schema)(implicit w: ConsistencyConfig.Write, r: ConsistencyConfig.Read): F[MetaJournalStatements[F]] = {
+    def of[F[_]: Monad: CassandraSession](schema: Schema)(implicit consistencyConfig: ConsistencyConfig): F[MetaJournalStatements[F]] = {
+      implicit val readConfig = consistencyConfig.read
+      implicit val writeConfig = consistencyConfig.write
+
       for {
         selectMetadata <- MetadataStatements.Select.of[F](schema.metadata)
         deleteMetadata <- MetadataStatements.Delete.of[F](schema.metadata)
@@ -524,7 +526,9 @@ object ReplicatedCassandra {
     }
 
 
-    def of[F[_]: Monad: CassandraSession](metaJournal: TableName)(implicit w: ConsistencyConfig.Write, r: ConsistencyConfig.Read): F[MetaJournalStatements[F]] = {
+    def of[F[_]: Monad: CassandraSession](metaJournal: TableName)(implicit consistencyConfig: ConsistencyConfig): F[MetaJournalStatements[F]] = {
+      implicit val readConfig = consistencyConfig.read
+      implicit val writeConfig = consistencyConfig.write
 
       for {
         selectJournalHead <- cassandra.MetaJournalStatements.SelectJournalHead.of[F](metaJournal)
@@ -724,7 +728,10 @@ object ReplicatedCassandra {
 
     def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 
-    def of[F[_]: Monad: Parallel: CassandraSession: ToTry: JsonCodec.Encode](schema: Schema)(implicit r: ConsistencyConfig.Read, w: ConsistencyConfig.Write): F[Statements[F]] = {
+    def of[F[_]: Monad: Parallel: CassandraSession: ToTry: JsonCodec.Encode](schema: Schema)(implicit consistencyConfig: ConsistencyConfig): F[Statements[F]] = {
+      implicit val readConfig = consistencyConfig.read
+      implicit val writeConfig = consistencyConfig.write
+
       val statements = (
         JournalStatements.InsertRecords.of[F](schema.journal),
         JournalStatements.DeleteTo.of[F](schema.journal),

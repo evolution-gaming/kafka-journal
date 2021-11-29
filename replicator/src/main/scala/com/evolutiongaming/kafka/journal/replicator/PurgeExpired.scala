@@ -33,7 +33,7 @@ object PurgeExpired {
     producerConfig: ProducerConfig,
     tableName: TableName,
     metrics: Option[Metrics[F]]
-  )(implicit r: ConsistencyConfig.Read): Resource[F, PurgeExpired[F]] = {
+  )(implicit consistencyConfig: ConsistencyConfig.Read): Resource[F, PurgeExpired[F]] = {
 
     implicit val fromAttempt = FromAttempt.lift[F]
 

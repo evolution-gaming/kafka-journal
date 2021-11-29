@@ -79,7 +79,7 @@ object SetupSchema { self =>
   def apply[F[_]: Concurrent: Parallel: Timer: CassandraCluster: CassandraSession: LogOf](
     config: SchemaConfig,
     origin: Option[Origin]
-  )(implicit r: ConsistencyConfig.Read, w: ConsistencyConfig.Write): F[Schema] = {
+  )(implicit consistencyConfig: ConsistencyConfig): F[Schema] = {
 
     def createSchema(implicit cassandraSync: CassandraSync[F]) = CreateSchema(config)
 

@@ -53,7 +53,10 @@ object SettingStatements {
 
   object Select {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName)(implicit consistency: ConsistencyConfig.Read): F[Select[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName)(
+      implicit consistencyConfig: ConsistencyConfig.Read
+    ): F[Select[F]] = {
+
       val query = s"SELECT value, timestamp, origin FROM ${ name.toCql } WHERE key = ?"
       for {
         prepared <- query.prepare
@@ -62,7 +65,7 @@ object SettingStatements {
           val bound = prepared
             .bind()
             .encode("key", key)
-            .setConsistencyLevel(consistency.value)
+            .setConsistencyLevel(consistencyConfig.value)
           for {
             row <- bound.first
           } yield for {
@@ -83,12 +86,15 @@ object SettingStatements {
 
   object All {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName)(implicit consistency: ConsistencyConfig.Read): F[All[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName)(
+      implicit consistencyConfig: ConsistencyConfig.Read
+    ): F[All[F]] = {
+
       val query = s"SELECT key, value, timestamp, origin FROM ${ name.toCql }"
       for {
         prepared <- query.prepare
       } yield {
-        val bound = prepared.setConsistencyLevel(consistency.value).bind()
+        val bound = prepared.setConsistencyLevel(consistencyConfig.value).bind()
         for {
           row <- bound.execute
         } yield {
@@ -105,7 +111,10 @@ object SettingStatements {
 
   object Insert {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName)(implicit consistency: ConsistencyConfig.Write): F[Insert[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName)(
+      implicit consistencyConfig: ConsistencyConfig.Write
+    ): F[Insert[F]] = {
+
       val query = s"INSERT INTO ${ name.toCql } (key, value, timestamp, origin) VALUES (?, ?, ?, ?)"
       for {
         prepared <- query.prepare
@@ -114,7 +123,7 @@ object SettingStatements {
           val bound = prepared
             .bind()
             .encode(setting)
-            .setConsistencyLevel(consistency.value)
+            .setConsistencyLevel(consistencyConfig.value)
           bound.first.void
       }
     }
@@ -127,7 +136,10 @@ object SettingStatements {
 
   object InsertIfEmpty {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName)(implicit consistency: ConsistencyConfig.Write): F[InsertIfEmpty[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName)(
+      implicit consistencyConfig: ConsistencyConfig.Write
+    ): F[InsertIfEmpty[F]] = {
+
       val query = s"INSERT INTO ${ name.toCql } (key, value, timestamp, origin) VALUES (?, ?, ?, ?) IF NOT EXISTS"
       for {
         prepared <- query.prepare
@@ -136,7 +148,7 @@ object SettingStatements {
           val bound = prepared
             .bind()
             .encode(setting)
-            .setConsistencyLevel(consistency.value)
+            .setConsistencyLevel(consistencyConfig.value)
           for {
             row <- bound.first
           } yield {
@@ -153,7 +165,10 @@ object SettingStatements {
 
   object Delete {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName)(implicit consistency: ConsistencyConfig.Write): F[Delete[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName)(
+      implicit consistencyConfig: ConsistencyConfig.Write
+    ): F[Delete[F]] = {
+
       val query = s"DELETE FROM ${ name.toCql } WHERE key = ?"
       for {
         prepared <- query.prepare
@@ -162,7 +177,7 @@ object SettingStatements {
           val bound = prepared
             .bind()
             .encode("key", key)
-            .setConsistencyLevel(consistency.value)
+            .setConsistencyLevel(consistencyConfig.value)
           bound.first.void
       }
     }

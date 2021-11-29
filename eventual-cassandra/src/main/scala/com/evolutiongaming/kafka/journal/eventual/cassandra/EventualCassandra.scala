@@ -33,8 +33,7 @@ object EventualCassandra {
   ): Resource[F, EventualJournal[F]] = {
 
     def journal(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
-      implicit val c = config.consistencyConfig.read
-      implicit val w = config.consistencyConfig.write
+      implicit val consistencyConfig = config.consistencyConfig
       of(config.schema, origin, metrics)
     }
 
@@ -56,7 +55,9 @@ object EventualCassandra {
     schemaConfig: SchemaConfig,
     origin: Option[Origin],
     metrics: Option[EventualJournal.Metrics[F]],
-  )(implicit c: ConsistencyConfig.Read, w: ConsistencyConfig.Write): F[EventualJournal[F]] = {
+  )(implicit consistencyConfig: ConsistencyConfig): F[EventualJournal[F]] = {
+
+    implicit val readConfig: ConsistencyConfig.Read = consistencyConfig.read
 
     for {
       log          <- LogOf[F].apply(EventualCassandra.getClass)
@@ -154,7 +155,7 @@ object EventualCassandra {
       schema: Schema,
       segmentNrsOf: SegmentNrsOf[F],
       segments: Segments,
-    )(implicit c: ConsistencyConfig.Read): F[Statements[F]] = {
+    )(implicit consistencyConfig: ConsistencyConfig.Read): F[Statements[F]] = {
       for {
         selectRecords  <- JournalStatements.SelectRecords.of[F](schema.journal)
         metaJournal    <- MetaJournalStatements.of(schema, segmentNrsOf, segments)

@@ -49,7 +49,7 @@ object MetadataStatements {
 
   object Insert {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName)(implicit consistency: ConsistencyConfig.Write): F[Insert[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName)(implicit consistencyConfig: ConsistencyConfig.Write): F[Insert[F]] = {
 
       val query =
         s"""
@@ -68,7 +68,7 @@ object MetadataStatements {
             .encode("created", timestamp)
             .encode("updated", timestamp)
             .encodeSome(origin)
-            .setConsistencyLevel(consistency.value)
+            .setConsistencyLevel(consistencyConfig.value)
             .first
             .void
       }
@@ -83,7 +83,10 @@ object MetadataStatements {
 
   object Select {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName)(implicit consistency: ConsistencyConfig.Read): F[Select[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName)(
+      implicit consistencyConfig: ConsistencyConfig.Read
+    ): F[Select[F]] = {
+
       val query =
         s"""
            |SELECT partition, offset, segment_size, seq_nr, delete_to, created, updated, origin FROM ${ name.toCql }
@@ -98,7 +101,7 @@ object MetadataStatements {
           val row = prepared
             .bind()
             .encode(key)
-            .setConsistencyLevel(consistency.value)
+            .setConsistencyLevel(consistencyConfig.value)
             .first
           for {
             row <- row
@@ -119,7 +122,10 @@ object MetadataStatements {
 
   object SelectJournalHead {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName)(implicit consistency: ConsistencyConfig.Read): F[SelectJournalHead[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName)(
+      implicit consistencyConfig: ConsistencyConfig.Read
+    ): F[SelectJournalHead[F]] = {
+
       val query =
         s"""
            |SELECT partition, offset, segment_size, seq_nr, delete_to FROM ${ name.toCql }
@@ -134,7 +140,7 @@ object MetadataStatements {
           val row = prepared
             .bind()
             .encode(key)
-            .setConsistencyLevel(consistency.value)
+            .setConsistencyLevel(consistencyConfig.value)
             .first
           for {
             row <- row
@@ -155,7 +161,10 @@ object MetadataStatements {
 
   object SelectJournalPointer {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName)(implicit consistency: ConsistencyConfig.Read): F[SelectJournalPointer[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName)(
+      implicit consistencyConfig: ConsistencyConfig.Read
+    ): F[SelectJournalPointer[F]] = {
+
       val query =
         s"""
            |SELECT partition, offset, seq_nr FROM ${ name.toCql }
@@ -169,7 +178,7 @@ object MetadataStatements {
           val row = prepared
             .bind()
             .encode(key)
-            .setConsistencyLevel(consistency.value)
+            .setConsistencyLevel(consistencyConfig.value)
             .first
           for {
             row <- row
@@ -198,7 +207,10 @@ object MetadataStatements {
 
   object Update {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName)(implicit consistency: ConsistencyConfig.Write): F[Update[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName)(
+      implicit consistencyConfig: ConsistencyConfig.Write
+    ): F[Update[F]] = {
+
       val query =
         s"""
            |UPDATE ${ name.toCql }
@@ -218,7 +230,7 @@ object MetadataStatements {
             .encode(seqNr)
             .encode(deleteTo)
             .encode("updated", timestamp)
-            .setConsistencyLevel(consistency.value)
+            .setConsistencyLevel(consistencyConfig.value)
             .first
             .void
       }
@@ -233,7 +245,10 @@ object MetadataStatements {
 
   object UpdateSeqNr {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName)(implicit consistency: ConsistencyConfig.Write): F[UpdateSeqNr[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName)(
+      implicit consistencyConfig: ConsistencyConfig.Write
+    ): F[UpdateSeqNr[F]] = {
+
       val query =
         s"""
            |UPDATE ${ name.toCql }
@@ -252,7 +267,7 @@ object MetadataStatements {
             .encode(partitionOffset)
             .encode(seqNr)
             .encode("updated", timestamp)
-            .setConsistencyLevel(consistency.value)
+            .setConsistencyLevel(consistencyConfig.value)
             .first
             .void
       }
@@ -267,7 +282,10 @@ object MetadataStatements {
 
   object UpdateDeleteTo {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName)(implicit consistency: ConsistencyConfig.Write): F[UpdateDeleteTo[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName)(
+      implicit consistencyConfig: ConsistencyConfig.Write
+    ): F[UpdateDeleteTo[F]] = {
+
       val query =
         s"""
            |UPDATE ${ name.toCql }
@@ -286,7 +304,7 @@ object MetadataStatements {
             .encode(partitionOffset)
             .encode(deleteTo)
             .encode("updated", timestamp)
-            .setConsistencyLevel(consistency.value)
+            .setConsistencyLevel(consistencyConfig.value)
             .first
             .void
       }
@@ -301,7 +319,10 @@ object MetadataStatements {
 
   object Delete {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName)(implicit consistency: ConsistencyConfig.Write): F[Delete[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName)(
+      implicit consistencyConfig: ConsistencyConfig.Write
+    ): F[Delete[F]] = {
+
       val query =
         s"""
            |DELETE FROM ${ name.toCql }
@@ -316,7 +337,7 @@ object MetadataStatements {
             prepared
               .bind()
               .encode(key)
-              .setConsistencyLevel(consistency.value)
+              .setConsistencyLevel(consistencyConfig.value)
               .first
               .void
         }
@@ -353,7 +374,10 @@ object MetadataStatements {
     }
 
 
-    def of[F[_]: Monad: CassandraSession](name: TableName, consistency: ConsistencyConfig.Read): F[SelectByTopic[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName)(
+      implicit consistencyConfig: ConsistencyConfig.Read
+    ): F[SelectByTopic[F]] = {
+
       val query =
         s"""
            |SELECT id, partition, offset, segment_size, seq_nr, delete_to, created, updated, origin FROM ${ name.toCql }
@@ -367,7 +391,7 @@ object MetadataStatements {
           prepared
             .bind()
             .encode("topic", topic)
-            .setConsistencyLevel(consistency.value)
+            .setConsistencyLevel(consistencyConfig.value)
             .execute
             .map { _.decode[Record] }
       }
@@ -382,7 +406,7 @@ object MetadataStatements {
 
   object SelectIds {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName, consistency: ConsistencyConfig.Read): F[SelectIds[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName)(implicit consistencyConfig: ConsistencyConfig.Read): F[SelectIds[F]] = {
       for {
         prepared <- s"SELECT id FROM ${ name.toCql } WHERE topic = ?".prepare
       } yield {
@@ -390,7 +414,7 @@ object MetadataStatements {
           prepared
             .bind()
             .encode("topic", topic)
-            .setConsistencyLevel(consistency.value)
+            .setConsistencyLevel(consistencyConfig.value)
             .execute
             .map { _.decode[String]("id") }
       }
