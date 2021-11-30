@@ -40,11 +40,9 @@ object ReplicatedCassandra {
     metrics: Option[ReplicatedJournal.Metrics[F]],
   ): F[ReplicatedJournal[F]] = {
 
-    implicit val consistencyConfig: ConsistencyConfig = config.consistencyConfig
-
     for {
-      schema        <- SetupSchema[F](config.schema, origin)
-      statements    <- Statements.of[F](schema)
+      schema        <- SetupSchema[F](config.schema, origin, config.consistencyConfig)
+      statements    <- Statements.of[F](schema, config.consistencyConfig)
       log           <- LogOf[F].apply(ReplicatedCassandra.getClass)
       expiryService <- ExpiryService.of[F]
     } yield {
@@ -511,34 +509,36 @@ object ReplicatedCassandra {
 
   object MetaJournalStatements {
 
-    def of[F[_]: Monad: CassandraSession](schema: Schema)(implicit consistencyConfig: ConsistencyConfig): F[MetaJournalStatements[F]] = {
-      implicit val readConfig = consistencyConfig.read
-      implicit val writeConfig = consistencyConfig.write
+    def of[F[_]: Monad: CassandraSession](
+      schema: Schema,
+      consistencyConfig: ConsistencyConfig
+    ): F[MetaJournalStatements[F]] = {
 
       for {
-        selectMetadata <- MetadataStatements.Select.of[F](schema.metadata)
-        deleteMetadata <- MetadataStatements.Delete.of[F](schema.metadata)
-        insertMetadata <- cassandra.MetaJournalStatements.Insert.of[F](schema.metaJournal)
-        metaJournal    <- of[F](schema.metaJournal)
+        selectMetadata <- MetadataStatements.Select.of[F](schema.metadata, consistencyConfig.read)
+        deleteMetadata <- MetadataStatements.Delete.of[F](schema.metadata, consistencyConfig.write)
+        insertMetadata <- cassandra.MetaJournalStatements.Insert.of[F](schema.metaJournal, consistencyConfig.write)
+        metaJournal    <- of[F](schema.metaJournal, consistencyConfig)
       } yield {
         apply(metaJournal, selectMetadata, deleteMetadata, insertMetadata)
       }
     }
 
 
-    def of[F[_]: Monad: CassandraSession](metaJournal: TableName)(implicit consistencyConfig: ConsistencyConfig): F[MetaJournalStatements[F]] = {
-      implicit val readConfig = consistencyConfig.read
-      implicit val writeConfig = consistencyConfig.write
+    def of[F[_]: Monad: CassandraSession](
+      metaJournal: TableName,
+      consistencyConfig: ConsistencyConfig
+    ): F[MetaJournalStatements[F]] = {
 
       for {
-        selectJournalHead <- cassandra.MetaJournalStatements.SelectJournalHead.of[F](metaJournal)
-        insert            <- cassandra.MetaJournalStatements.Insert.of[F](metaJournal)
-        update            <- cassandra.MetaJournalStatements.Update.of[F](metaJournal)
-        updateSeqNr       <- cassandra.MetaJournalStatements.UpdateSeqNr.of[F](metaJournal)
-        updateExpiry      <- cassandra.MetaJournalStatements.UpdateExpiry.of[F](metaJournal)
-        updateDeleteTo    <- cassandra.MetaJournalStatements.UpdateDeleteTo.of[F](metaJournal)
-        delete            <- cassandra.MetaJournalStatements.Delete.of[F](metaJournal)
-        deleteExpiry      <- cassandra.MetaJournalStatements.DeleteExpiry.of[F](metaJournal)
+        selectJournalHead <- cassandra.MetaJournalStatements.SelectJournalHead.of[F](metaJournal, consistencyConfig.read)
+        insert            <- cassandra.MetaJournalStatements.Insert.of[F](metaJournal, consistencyConfig.write)
+        update            <- cassandra.MetaJournalStatements.Update.of[F](metaJournal, consistencyConfig.write)
+        updateSeqNr       <- cassandra.MetaJournalStatements.UpdateSeqNr.of[F](metaJournal, consistencyConfig.write)
+        updateExpiry      <- cassandra.MetaJournalStatements.UpdateExpiry.of[F](metaJournal, consistencyConfig.write)
+        updateDeleteTo    <- cassandra.MetaJournalStatements.UpdateDeleteTo.of[F](metaJournal, consistencyConfig.write)
+        delete            <- cassandra.MetaJournalStatements.Delete.of[F](metaJournal, consistencyConfig.write)
+        deleteExpiry      <- cassandra.MetaJournalStatements.DeleteExpiry.of[F](metaJournal, consistencyConfig.write)
       } yield {
         apply(selectJournalHead, insert, update, updateSeqNr, updateExpiry, updateDeleteTo, delete, deleteExpiry)
       }
@@ -728,21 +728,22 @@ object ReplicatedCassandra {
 
     def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 
-    def of[F[_]: Monad: Parallel: CassandraSession: ToTry: JsonCodec.Encode](schema: Schema)(implicit consistencyConfig: ConsistencyConfig): F[Statements[F]] = {
-      implicit val readConfig = consistencyConfig.read
-      implicit val writeConfig = consistencyConfig.write
+    def of[F[_]: Monad: Parallel: CassandraSession: ToTry: JsonCodec.Encode](
+      schema: Schema,
+      consistencyConfig: ConsistencyConfig
+    ): F[Statements[F]] = {
 
       val statements = (
-        JournalStatements.InsertRecords.of[F](schema.journal),
-        JournalStatements.DeleteTo.of[F](schema.journal),
-        JournalStatements.Delete.of[F](schema.journal),
-        MetaJournalStatements.of[F](schema),
-        PointerStatements.Select.of[F](schema.pointer),
-        PointerStatements.SelectIn.of[F](schema.pointer),
-        PointerStatements.SelectAll.of[F](schema.pointer),
-        PointerStatements.Insert.of[F](schema.pointer),
-        PointerStatements.Update.of[F](schema.pointer),
-        PointerStatements.SelectTopics.of[F](schema.pointer))
+        JournalStatements.InsertRecords.of[F](schema.journal, consistencyConfig.write),
+        JournalStatements.DeleteTo.of[F](schema.journal, consistencyConfig.write),
+        JournalStatements.Delete.of[F](schema.journal, consistencyConfig.write),
+        MetaJournalStatements.of[F](schema, consistencyConfig),
+        PointerStatements.Select.of[F](schema.pointer, consistencyConfig.read),
+        PointerStatements.SelectIn.of[F](schema.pointer, consistencyConfig.read),
+        PointerStatements.SelectAll.of[F](schema.pointer, consistencyConfig.read),
+        PointerStatements.Insert.of[F](schema.pointer, consistencyConfig.write),
+        PointerStatements.Update.of[F](schema.pointer, consistencyConfig.write),
+        PointerStatements.SelectTopics.of[F](schema.pointer, consistencyConfig.read))
       statements.parMapN(Statements[F])
     }
   }

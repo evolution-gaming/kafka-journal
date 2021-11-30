@@ -34,8 +34,9 @@ object PointerStatements {
 
   object Insert {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName)(
-      implicit consistencyConfig: ConsistencyConfig.Write
+    def of[F[_]: Monad: CassandraSession](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Write
     ): F[Insert[F]] = {
 
       val query =
@@ -70,9 +71,7 @@ object PointerStatements {
 
   object Update {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName)(
-      implicit consistencyConfig: ConsistencyConfig.Write
-    ): F[Update[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: ConsistencyConfig.Write): F[Update[F]] = {
 
       val query =
         s"""
@@ -107,9 +106,7 @@ object PointerStatements {
 
   object Select {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName)(
-      implicit consistencyConfig: ConsistencyConfig.Read
-    ): F[Select[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: ConsistencyConfig.Read): F[Select[F]] = {
 
       val query =
         s"""
@@ -141,8 +138,9 @@ object PointerStatements {
 
   object SelectIn {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName)(
-      implicit consistencyConfig: ConsistencyConfig.Read
+    def of[F[_]: Monad: CassandraSession](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Read
     ): F[SelectIn[F]] = {
 
       val query =
@@ -184,8 +182,9 @@ object PointerStatements {
 
   object SelectAll {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName)(
-      implicit consistencyConfig: ConsistencyConfig.Read
+    def of[F[_]: Monad: CassandraSession](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Read
     ): F[SelectAll[F]] = {
 
       val query =
@@ -224,8 +223,9 @@ object PointerStatements {
 
   object SelectTopics {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName)(
-      implicit consistencyConfig: ConsistencyConfig.Read
+    def of[F[_]: Monad: CassandraSession](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Read
     ): F[SelectTopics[F]] = {
 
       val query = s"""SELECT DISTINCT topic FROM ${ name.toCql }""".stripMargin
@@ -252,8 +252,9 @@ object PointerStatements {
 
   object Delete {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName)(
-      implicit consistencyConfig: ConsistencyConfig.Write
+    def of[F[_]: Monad: CassandraSession](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Write
     ): F[Delete[F]] = {
 
       s"""DELETE FROM ${ name.toCql } WHERE topic = ?"""

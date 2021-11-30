@@ -32,14 +32,15 @@ object PurgeExpired {
     origin: Option[Origin],
     producerConfig: ProducerConfig,
     tableName: TableName,
-    metrics: Option[Metrics[F]]
-  )(implicit consistencyConfig: ConsistencyConfig.Read): Resource[F, PurgeExpired[F]] = {
+    metrics: Option[Metrics[F]],
+    consistencyConfig: ConsistencyConfig.Read
+  ): Resource[F, PurgeExpired[F]] = {
 
     implicit val fromAttempt = FromAttempt.lift[F]
 
     for {
       producer      <- Journals.Producer.of[F](producerConfig)
-      selectExpired  = MetaJournalStatements.IdByTopicAndExpireOn.of[F](tableName)
+      selectExpired  = MetaJournalStatements.IdByTopicAndExpireOn.of[F](tableName, consistencyConfig)
       selectExpired <- selectExpired.toResource
     } yield {
       val produce = Produce(producer, origin)

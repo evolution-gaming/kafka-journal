@@ -19,14 +19,15 @@ trait CassandraHealthCheck[F[_]] {
 object CassandraHealthCheck {
 
   def of[F[_] : Concurrent : Timer : LogOf](
-    session: Resource[F, CassandraSession[F]]
-  )(implicit consistencyConfig: ConsistencyConfig.Read): Resource[F, CassandraHealthCheck[F]] = {
+    session: Resource[F, CassandraSession[F]],
+    consistencyConfig: ConsistencyConfig.Read
+  ): Resource[F, CassandraHealthCheck[F]] = {
 
     val statement = for {
       session   <- session
       statement <- {
         implicit val session1 = session
-        Statement.of[F].toResource
+        Statement.of[F](consistencyConfig).toResource
       }
     } yield statement
 
@@ -65,7 +66,7 @@ object CassandraHealthCheck {
 
   object Statement {
 
-    def of[F[_] : Monad : CassandraSession](implicit consistency: ConsistencyConfig.Read): F[Statement[F]] = {
+    def of[F[_] : Monad : CassandraSession](consistency: ConsistencyConfig.Read): F[Statement[F]] = {
       for {
         prepared <- "SELECT now() FROM system.local".prepare
       } yield {

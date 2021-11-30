@@ -56,10 +56,11 @@ object SettingsCassandra {
 
   def of[F[_] : Monad : Parallel : Clock : CassandraSession](
     schema: Schema,
-    origin: Option[Origin]
-  )(implicit consistencyConfig: ConsistencyConfig): F[Settings[F]] = {
+    origin: Option[Origin],
+    consistencyConfig: ConsistencyConfig
+  ): F[Settings[F]] = {
     for {
-      statements <- Statements.of[F](schema.setting)
+      statements <- Statements.of[F](schema.setting, consistencyConfig)
     } yield {
       apply(statements, origin)
     }
@@ -74,16 +75,17 @@ object SettingsCassandra {
     delete: SettingStatements.Delete[F])
 
   object Statements {
-    def of[F[_] : Monad : Parallel : CassandraSession](table: TableName)(implicit consistencyConfig: ConsistencyConfig): F[Statements[F]] = {
-      implicit val readConfig = consistencyConfig.read
-      implicit val writeConfig = consistencyConfig.write
+    def of[F[_] : Monad : Parallel : CassandraSession](
+      table: TableName,
+      consistencyConfig: ConsistencyConfig
+    ): F[Statements[F]] = {
 
       val statements = (
-        SettingStatements.Select.of[F](table),
-        SettingStatements.Insert.of[F](table),
-        SettingStatements.InsertIfEmpty.of[F](table),
-        SettingStatements.All.of[F](table),
-        SettingStatements.Delete.of[F](table))
+        SettingStatements.Select.of[F](table, consistencyConfig.read),
+        SettingStatements.Insert.of[F](table, consistencyConfig.write),
+        SettingStatements.InsertIfEmpty.of[F](table, consistencyConfig.write),
+        SettingStatements.All.of[F](table, consistencyConfig.read),
+        SettingStatements.Delete.of[F](table, consistencyConfig.write))
       statements.parMapN(Statements[F])
     }
   }

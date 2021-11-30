@@ -33,8 +33,7 @@ object EventualCassandra {
   ): Resource[F, EventualJournal[F]] = {
 
     def journal(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
-      implicit val consistencyConfig = config.consistencyConfig
-      of(config.schema, origin, metrics)
+      of(config.schema, origin, metrics, config.consistencyConfig)
     }
 
     for {
@@ -55,15 +54,14 @@ object EventualCassandra {
     schemaConfig: SchemaConfig,
     origin: Option[Origin],
     metrics: Option[EventualJournal.Metrics[F]],
-  )(implicit consistencyConfig: ConsistencyConfig): F[EventualJournal[F]] = {
-
-    implicit val readConfig: ConsistencyConfig.Read = consistencyConfig.read
+    consistencyConfig: ConsistencyConfig
+  ): F[EventualJournal[F]] = {
 
     for {
       log          <- LogOf[F].apply(EventualCassandra.getClass)
-      schema       <- SetupSchema[F](schemaConfig, origin)
+      schema       <- SetupSchema[F](schemaConfig, origin, consistencyConfig)
       segmentNrsOf  = SegmentNrsOf[F](first = Segments.default, second = Segments.old)
-      statements   <- Statements.of(schema, segmentNrsOf, Segments.default)
+      statements   <- Statements.of(schema, segmentNrsOf, Segments.default, consistencyConfig.read)
     } yield {
       val journal = apply[F](statements).withLog(log)
       metrics
@@ -155,11 +153,12 @@ object EventualCassandra {
       schema: Schema,
       segmentNrsOf: SegmentNrsOf[F],
       segments: Segments,
-    )(implicit consistencyConfig: ConsistencyConfig.Read): F[Statements[F]] = {
+      consistencyConfig: ConsistencyConfig.Read
+    ): F[Statements[F]] = {
       for {
-        selectRecords  <- JournalStatements.SelectRecords.of[F](schema.journal)
-        metaJournal    <- MetaJournalStatements.of(schema, segmentNrsOf, segments)
-        selectPointers <- PointerStatements.SelectAll.of[F](schema.pointer)
+        selectRecords  <- JournalStatements.SelectRecords.of[F](schema.journal, consistencyConfig)
+        metaJournal    <- MetaJournalStatements.of(schema, segmentNrsOf, segments, consistencyConfig)
+        selectPointers <- PointerStatements.SelectAll.of[F](schema.pointer, consistencyConfig)
       } yield {
         Statements(selectRecords, metaJournal, selectPointers)
       }
@@ -181,20 +180,22 @@ object EventualCassandra {
     def of[F[_]: Concurrent: CassandraSession](
       schema: Schema,
       segmentNrsOf: SegmentNrsOf[F],
-      segments: Segments
-    )(implicit r: ConsistencyConfig.Read): F[MetaJournalStatements[F]] = {
-      of(schema.metaJournal, segmentNrsOf, segments)
+      segments: Segments,
+      consistencyConfig: ConsistencyConfig.Read
+    ): F[MetaJournalStatements[F]] = {
+      of(schema.metaJournal, segmentNrsOf, segments, consistencyConfig)
     }
 
     def of[F[_]: Concurrent: CassandraSession](
       metaJournal: TableName,
       segmentNrsOf: SegmentNrsOf[F],
       segments: Segments,
-    )(implicit r: ConsistencyConfig.Read): F[MetaJournalStatements[F]] = {
+      consistencyConfig: ConsistencyConfig.Read
+    ): F[MetaJournalStatements[F]] = {
       for {
-        selectJournalHead    <- cassandra.MetaJournalStatements.SelectJournalHead.of[F](metaJournal)
-        selectJournalPointer <- cassandra.MetaJournalStatements.SelectJournalPointer.of[F](metaJournal)
-        selectIds            <- cassandra.MetaJournalStatements.SelectIds.of[F](metaJournal)
+        selectJournalHead    <- cassandra.MetaJournalStatements.SelectJournalHead.of[F](metaJournal, consistencyConfig)
+        selectJournalPointer <- cassandra.MetaJournalStatements.SelectJournalPointer.of[F](metaJournal, consistencyConfig)
+        selectIds            <- cassandra.MetaJournalStatements.SelectIds.of[F](metaJournal, consistencyConfig)
       } yield {
         fromMetaJournal(segmentNrsOf, selectJournalHead, selectJournalPointer, selectIds, segments)
       }

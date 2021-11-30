@@ -57,8 +57,9 @@ object JournalStatements {
 
   object InsertRecords {
 
-    def of[F[_] : Monad : CassandraSession : ToTry : JsonCodec.Encode](name: TableName)(
-      implicit consistencyConfig: ConsistencyConfig.Write
+    def of[F[_] : Monad : CassandraSession : ToTry : JsonCodec.Encode](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Write
     ): F[InsertRecords[F]] = {
 
       implicit val encodeTry: JsonCodec.Encode[Try] = JsonCodec.Encode.summon[F].mapK(ToTry.functionK)
@@ -146,9 +147,9 @@ object JournalStatements {
 
   object SelectRecords {
 
-    def of[F[_] : Monad : CassandraSession : ToTry : JsonCodec.Decode](name: TableName)(
-      implicit consistencyConfig: ConsistencyConfig.Read
-    ): F[SelectRecords[F]] = {
+    def of[F[_] : Monad : CassandraSession : ToTry : JsonCodec.Decode](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Read): F[SelectRecords[F]] = {
 
       implicit val encodeTry: JsonCodec.Decode[Try] = JsonCodec.Decode.summon[F].mapK(ToTry.functionK)
       implicit val decodeByNameByteVector: DecodeByName[ByteVector] = DecodeByName[Array[Byte]]
@@ -240,8 +241,9 @@ object JournalStatements {
 
   object DeleteTo {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName)(
-      implicit consistencyConfig: ConsistencyConfig.Write
+    def of[F[_] : Monad : CassandraSession](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Write
     ): F[DeleteTo[F]] = {
 
       val query =
@@ -277,8 +279,9 @@ object JournalStatements {
 
   object Delete {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName)(
-      implicit consistencyConfig: ConsistencyConfig.Write
+    def of[F[_] : Monad : CassandraSession](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Write
     ): F[Delete[F]] = {
 
       val query =

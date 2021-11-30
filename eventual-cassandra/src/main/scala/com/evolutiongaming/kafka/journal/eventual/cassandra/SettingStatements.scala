@@ -53,8 +53,9 @@ object SettingStatements {
 
   object Select {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName)(
-      implicit consistencyConfig: ConsistencyConfig.Read
+    def of[F[_] : Monad : CassandraSession](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Read
     ): F[Select[F]] = {
 
       val query = s"SELECT value, timestamp, origin FROM ${ name.toCql } WHERE key = ?"
@@ -86,9 +87,7 @@ object SettingStatements {
 
   object All {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName)(
-      implicit consistencyConfig: ConsistencyConfig.Read
-    ): F[All[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName, consistencyConfig: ConsistencyConfig.Read): F[All[F]] = {
 
       val query = s"SELECT key, value, timestamp, origin FROM ${ name.toCql }"
       for {
@@ -111,8 +110,9 @@ object SettingStatements {
 
   object Insert {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName)(
-      implicit consistencyConfig: ConsistencyConfig.Write
+    def of[F[_] : Monad : CassandraSession](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Write
     ): F[Insert[F]] = {
 
       val query = s"INSERT INTO ${ name.toCql } (key, value, timestamp, origin) VALUES (?, ?, ?, ?)"
@@ -136,8 +136,9 @@ object SettingStatements {
 
   object InsertIfEmpty {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName)(
-      implicit consistencyConfig: ConsistencyConfig.Write
+    def of[F[_] : Monad : CassandraSession](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Write
     ): F[InsertIfEmpty[F]] = {
 
       val query = s"INSERT INTO ${ name.toCql } (key, value, timestamp, origin) VALUES (?, ?, ?, ?) IF NOT EXISTS"
@@ -165,8 +166,9 @@ object SettingStatements {
 
   object Delete {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName)(
-      implicit consistencyConfig: ConsistencyConfig.Write
+    def of[F[_] : Monad : CassandraSession](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Write
     ): F[Delete[F]] = {
 
       val query = s"DELETE FROM ${ name.toCql } WHERE key = ?"
