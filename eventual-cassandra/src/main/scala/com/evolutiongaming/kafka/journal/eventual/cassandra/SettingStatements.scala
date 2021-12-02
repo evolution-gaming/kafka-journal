@@ -1,13 +1,13 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
-
 import cats.syntax.all._
 import cats.Monad
 import com.datastax.driver.core.{GettableByNameData, SettableData}
 import com.evolutiongaming.kafka.journal.{Origin, Setting}
 import com.evolutiongaming.kafka.journal.Setting.{Key, Value}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow, TableName}
 import com.evolutiongaming.sstream.Stream
@@ -53,7 +53,11 @@ object SettingStatements {
 
   object Select {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[Select[F]] = {
+    def of[F[_] : Monad : CassandraSession](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Read
+    ): F[Select[F]] = {
+
       val query = s"SELECT value, timestamp, origin FROM ${ name.toCql } WHERE key = ?"
       for {
         prepared <- query.prepare
@@ -62,6 +66,7 @@ object SettingStatements {
           val bound = prepared
             .bind()
             .encode("key", key)
+            .setConsistencyLevel(consistencyConfig.value)
           for {
             row <- bound.first
           } yield for {
@@ -82,12 +87,13 @@ object SettingStatements {
 
   object All {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[All[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName, consistencyConfig: ConsistencyConfig.Read): F[All[F]] = {
+
       val query = s"SELECT key, value, timestamp, origin FROM ${ name.toCql }"
       for {
         prepared <- query.prepare
       } yield {
-        val bound = prepared.bind()
+        val bound = prepared.setConsistencyLevel(consistencyConfig.value).bind()
         for {
           row <- bound.execute
         } yield {
@@ -104,7 +110,11 @@ object SettingStatements {
 
   object Insert {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[Insert[F]] = {
+    def of[F[_] : Monad : CassandraSession](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Write
+    ): F[Insert[F]] = {
+
       val query = s"INSERT INTO ${ name.toCql } (key, value, timestamp, origin) VALUES (?, ?, ?, ?)"
       for {
         prepared <- query.prepare
@@ -113,6 +123,7 @@ object SettingStatements {
           val bound = prepared
             .bind()
             .encode(setting)
+            .setConsistencyLevel(consistencyConfig.value)
           bound.first.void
       }
     }
@@ -125,7 +136,11 @@ object SettingStatements {
 
   object InsertIfEmpty {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[InsertIfEmpty[F]] = {
+    def of[F[_] : Monad : CassandraSession](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Write
+    ): F[InsertIfEmpty[F]] = {
+
       val query = s"INSERT INTO ${ name.toCql } (key, value, timestamp, origin) VALUES (?, ?, ?, ?) IF NOT EXISTS"
       for {
         prepared <- query.prepare
@@ -134,6 +149,7 @@ object SettingStatements {
           val bound = prepared
             .bind()
             .encode(setting)
+            .setConsistencyLevel(consistencyConfig.value)
           for {
             row <- bound.first
           } yield {
@@ -150,7 +166,11 @@ object SettingStatements {
 
   object Delete {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName): F[Delete[F]] = {
+    def of[F[_] : Monad : CassandraSession](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Write
+    ): F[Delete[F]] = {
+
       val query = s"DELETE FROM ${ name.toCql } WHERE key = ?"
       for {
         prepared <- query.prepare
@@ -159,6 +179,7 @@ object SettingStatements {
           val bound = prepared
             .bind()
             .encode("key", key)
+            .setConsistencyLevel(consistencyConfig.value)
           bound.first.void
       }
     }

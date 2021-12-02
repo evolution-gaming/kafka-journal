@@ -1,11 +1,11 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.Instant
-
 import cats.Monad
 import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
@@ -34,7 +34,11 @@ object PointerStatements {
 
   object Insert {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName): F[Insert[F]] = {
+    def of[F[_]: Monad: CassandraSession](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Write
+    ): F[Insert[F]] = {
+
       val query =
         s"""
            |INSERT INTO ${ name.toCql } (topic, partition, offset, created, updated)
@@ -52,6 +56,7 @@ object PointerStatements {
               .encode(offset)
               .encode("created", created)
               .encode("updated", updated)
+              .setConsistencyLevel(consistencyConfig.value)
               .first
               .void
         }
@@ -66,7 +71,8 @@ object PointerStatements {
 
   object Update {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName): F[Update[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: ConsistencyConfig.Write): F[Update[F]] = {
+
       val query =
         s"""
            |UPDATE ${ name.toCql }
@@ -85,6 +91,7 @@ object PointerStatements {
               .encode("partition", partition)
               .encode("offset", offset)
               .encode("updated", timestamp)
+              .setConsistencyLevel(consistencyConfig.value)
               .first
               .void
         }
@@ -99,7 +106,8 @@ object PointerStatements {
 
   object Select {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName): F[Select[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: ConsistencyConfig.Read): F[Select[F]] = {
+
       val query =
         s"""
            |SELECT offset FROM ${ name.toCql }
@@ -115,6 +123,7 @@ object PointerStatements {
               .bind()
               .encode("topic", topic)
               .encode("partition", partition)
+              .setConsistencyLevel(consistencyConfig.value)
               .first
               .map { _.map { _.decode[Offset]("offset") } }
         }
@@ -129,7 +138,11 @@ object PointerStatements {
 
   object SelectIn {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName): F[SelectIn[F]] = {
+    def of[F[_]: Monad: CassandraSession](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Read
+    ): F[SelectIn[F]] = {
+
       val query =
         s"""
            |SELECT partition, offset FROM ${ name.toCql }
@@ -145,6 +158,7 @@ object PointerStatements {
               .bind()
               .encode("topic", topic)
               .encode("partitions", partitions.map(_.value))
+              .setConsistencyLevel(consistencyConfig.value)
               .execute
               .toList
               .map { rows =>
@@ -168,7 +182,11 @@ object PointerStatements {
 
   object SelectAll {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName): F[SelectAll[F]] = {
+    def of[F[_]: Monad: CassandraSession](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Read
+    ): F[SelectAll[F]] = {
+
       val query =
         s"""
            |SELECT partition, offset FROM ${ name.toCql }
@@ -182,6 +200,7 @@ object PointerStatements {
             prepared
               .bind()
               .encode("topic", topic)
+              .setConsistencyLevel(consistencyConfig.value)
               .execute
               .toList
               .map { rows =>
@@ -204,7 +223,11 @@ object PointerStatements {
 
   object SelectTopics {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName): F[SelectTopics[F]] = {
+    def of[F[_]: Monad: CassandraSession](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Read
+    ): F[SelectTopics[F]] = {
+
       val query = s"""SELECT DISTINCT topic FROM ${ name.toCql }""".stripMargin
       query
         .prepare
@@ -212,6 +235,7 @@ object PointerStatements {
           () => {
             prepared
               .bind()
+              .setConsistencyLevel(consistencyConfig.value)
               .execute
               .toList
               .map { _.map { _.decode[Topic]("topic") } }
@@ -228,7 +252,11 @@ object PointerStatements {
 
   object Delete {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName): F[Delete[F]] = {
+    def of[F[_]: Monad: CassandraSession](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Write
+    ): F[Delete[F]] = {
+
       s"""DELETE FROM ${ name.toCql } WHERE topic = ?"""
         .prepare
         .map { prepared =>
@@ -236,6 +264,7 @@ object PointerStatements {
             prepared
               .bind()
               .encode("topic", topic)
+              .setConsistencyLevel(consistencyConfig.value)
               .execute
               .first
               .void
