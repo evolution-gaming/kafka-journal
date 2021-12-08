@@ -134,7 +134,7 @@ object JournalStatements {
               }
             }
           }
-          statement.first.void
+          statement.setConsistencyLevel(consistencyConfig.value).first.void
       }
     }
   }
