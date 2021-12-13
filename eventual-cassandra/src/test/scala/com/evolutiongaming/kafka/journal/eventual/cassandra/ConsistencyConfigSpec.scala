@@ -1,28 +1,29 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.syntax.all._
+import com.datastax.driver.core.ConsistencyLevel
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
+import com.typesafe.config.ConfigFactory
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import pureconfig.ConfigSource
 
 class ConsistencyConfigSpec extends AnyFunSuite with Matchers {
 
-  test("configReader") {
+  test("apply from empty config") {
     ConfigSource
       .empty
       .load[ConsistencyConfig] shouldEqual ConsistencyConfig.default.asRight
   }
 
-  /*test("Read.configReader") {
-    ConfigSource
-      .empty
-      .load[ConsistencyConfig.Read] shouldEqual ConsistencyConfig.Read.default.asRight
-  }*/
+  test("apply from config") {
+    val config = ConfigFactory.parseURL(getClass.getResource("consistency-config.conf"))
+    val expected = ConsistencyConfig(
+      ConsistencyConfig.Read(ConsistencyLevel.QUORUM),
+      ConsistencyConfig.Write(ConsistencyLevel.EACH_QUORUM))
 
-  /*test("Write.configReader") {
     ConfigSource
-      .empty
-      .load[ConsistencyConfig.Write] shouldEqual ConsistencyConfig.Write.default.asRight
-  }*/
+      .fromConfig(config)
+      .load[ConsistencyConfig] shouldEqual expected.asRight
+  }
 }
