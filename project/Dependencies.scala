@@ -8,7 +8,7 @@ object Dependencies {
   val `kind-projector`     = "org.typelevel"           % "kind-projector"        % "0.13.2"
   val `cassandra-driver`   = "com.datastax.cassandra"  % "cassandra-driver-core" % "3.11.0"
   val `play-json`          = "com.typesafe.play"      %% "play-json"             % "2.9.2"
-  val `play-json-jsoniter` = "com.evolutiongaming"    %% "play-json-jsoniter"    % "0.9.3"
+  val `play-json-jsoniter` = "com.evolutiongaming"    %% "play-json-jsoniter"    % "0.10.0"
   val `executor-tools`     = "com.evolutiongaming"    %% "executor-tools"        % "1.0.3"
   val `config-tools`       = "com.evolutiongaming"    %% "config-tools"          % "1.0.3"
   val `akka-serialization` = "com.evolutiongaming"    %% "akka-serialization"    % "1.0.4"
@@ -16,7 +16,7 @@ object Dependencies {
   val `kafka-launcher`     = "com.evolutiongaming"    %% "kafka-launcher"        % "0.0.11"
   val `cassandra-launcher` = "com.evolutiongaming"    %% "cassandra-launcher"    % "0.0.4"
   val hostname             = "com.evolutiongaming"    %% "hostname"              % "0.2.0"
-  val scassandra           = "com.evolutiongaming"    %% "scassandra"            % "3.2.1"
+  val scassandra           = "com.evolutiongaming"    %% "scassandra"            % "3.3.0"
   val `cassandra-sync`     = "com.evolutiongaming"    %% "cassandra-sync"        % "1.1.0"
   val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "2.7.0"
   val random               = "com.evolutiongaming"    %% "random"                % "0.1.1"
@@ -65,7 +65,7 @@ object Dependencies {
   }
 
   object Smetrics {
-    private val version = "0.3.2"
+    private val version = "0.3.3"
     val smetrics   = "com.evolutiongaming" %% "smetrics"            % version
     val prometheus = "com.evolutiongaming" %% "smetrics-prometheus" % version
   }
