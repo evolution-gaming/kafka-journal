@@ -4,7 +4,6 @@ import java.time.Instant
 
 import cats.Applicative
 import cats.data.{NonEmptyMap => Nem}
-import cats.effect.concurrent.Ref
 import cats.effect.{Clock, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.ClockHelper._
@@ -15,6 +14,7 @@ import com.evolutiongaming.skafka._
 
 import scala.collection.immutable.SortedMap
 import scala.concurrent.duration._
+import cats.effect.Ref
 
 trait TopicCommit[F[_]] {
 

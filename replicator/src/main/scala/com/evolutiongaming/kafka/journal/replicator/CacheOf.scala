@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import cats.Parallel
-import cats.effect.{Concurrent, Resource, Timer}
+import cats.effect.{Concurrent, Resource}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, Runtime}
@@ -11,6 +11,7 @@ import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.concurrent.duration.FiniteDuration
+import cats.effect.Temporal
 
 trait CacheOf[F[_]] {
 
@@ -37,7 +38,7 @@ object CacheOf {
   }
 
 
-  def apply[F[_] : Concurrent : Timer : Runtime : Parallel : MeasureDuration](
+  def apply[F[_] : Concurrent : Temporal : Runtime : Parallel : MeasureDuration](
     expireAfter: FiniteDuration,
     cacheMetrics: Option[CacheMetrics.Name => CacheMetrics[F]]
   ): CacheOf[F] = {
