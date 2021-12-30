@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.effect._
-import cats.effect.concurrent.{Deferred, Ref}
 import com.evolutiongaming.kafka.journal.IOSuite._
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
+import cats.effect.{ Deferred, Ref }
 
 class StartResourceSpec extends AsyncFunSuite with Matchers {
 

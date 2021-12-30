@@ -30,7 +30,7 @@ object ConcurrentOf {
         }
       }
 
-      def async[A](k: (Either[Throwable, A] => Unit) => Unit) = F.async(k)
+      def async[A](k: (Either[Throwable, A] => Unit) => Unit) = F.async_(k)
 
       def asyncF[A](k: (Either[Throwable, A] => Unit) => F[Unit]) = F.asyncF(k)
 

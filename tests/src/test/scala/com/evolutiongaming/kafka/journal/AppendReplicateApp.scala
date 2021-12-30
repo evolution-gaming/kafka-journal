@@ -23,6 +23,7 @@ import com.typesafe.config.ConfigFactory
 import pureconfig.ConfigSource
 
 import scala.concurrent.duration._
+import cats.effect.Temporal
 
 object AppendReplicateApp extends IOApp {
 
@@ -44,7 +45,7 @@ object AppendReplicateApp extends IOApp {
   private def runF[
     F[_]:
     ConcurrentEffect:
-    Timer:
+    Temporal:
     Parallel:
     ContextShift:
     ToFuture:
@@ -118,7 +119,7 @@ object AppendReplicateApp extends IOApp {
   }
 
 
-  private def append[F[_]: Concurrent: Timer: Parallel](
+  private def append[F[_]: Concurrent: Temporal: Parallel](
     topic: Topic,
     journals: Journals[F])(implicit
     kafkaWrite: KafkaWrite[F, Payload]
@@ -134,7 +135,7 @@ object AppendReplicateApp extends IOApp {
           _      <- journals(key).append(Nel.of(event))
           result <- seqNr.next[Option].fold(().asRight[SeqNr].pure[F]) { seqNr =>
             for {
-              _ <- Timer[F].sleep(100.millis)
+              _ <- Temporal[F].sleep(100.millis)
             } yield {
               seqNr.asLeft[Unit]
             }

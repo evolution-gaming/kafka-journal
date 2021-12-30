@@ -29,6 +29,7 @@ import scala.collection.immutable.SortedSet
 import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.NoStackTrace
+import cats.effect.Temporal
 
 class TopicReplicatorSpec extends AnyWordSpec with Matchers {
   import TopicReplicatorSpec._
@@ -944,7 +945,7 @@ object TopicReplicatorSpec {
     implicit val fromAttempt = FromAttempt.lift[StateT]
     implicit val fromJsResult = FromJsResult.lift[StateT]
 
-    implicit val timer: Timer[StateT] = new Timer[StateT] {
+    implicit val timer: Temporal[StateT] = new Temporal[StateT] {
 
       val clock = Clock.const[StateT](nanos = 0, millis = millis)
 

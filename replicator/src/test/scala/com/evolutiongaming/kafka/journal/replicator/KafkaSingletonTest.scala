@@ -1,8 +1,7 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import cats.data.{NonEmptySet => Nes}
-import cats.effect.concurrent.{Deferred, Ref}
-import cats.effect.{Concurrent, IO, Resource, Timer}
+import cats.effect.{Concurrent, IO, Resource}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.Log
@@ -14,6 +13,7 @@ import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
+import cats.effect.{ Deferred, Ref, Temporal }
 
 class KafkaSingletonTest extends AsyncFunSuite with Matchers {
 
@@ -21,7 +21,7 @@ class KafkaSingletonTest extends AsyncFunSuite with Matchers {
     `allocate & release when partition assigned or revoked`[IO]().run()
   }
 
-  private def `allocate & release when partition assigned or revoked`[F[_] : Concurrent : Timer](): F[Unit] = {
+  private def `allocate & release when partition assigned or revoked`[F[_] : Concurrent : Temporal](): F[Unit] = {
 
     val topic = "topic"
 
@@ -56,7 +56,7 @@ class KafkaSingletonTest extends AsyncFunSuite with Matchers {
           a <- allocated.get
           _  = a shouldEqual false
           _ <- listener.onPartitionsAssigned(Nes.of(topicPartition(Partition.min)))
-          _ <- Timer[F].sleep(10.millis)
+          _ <- Temporal[F].sleep(10.millis)
           a <- singleton.get
           _  = a shouldEqual ().some
           a <- allocated.get
@@ -67,7 +67,7 @@ class KafkaSingletonTest extends AsyncFunSuite with Matchers {
           a <- allocated.get
           _  = a shouldEqual true
           _ <- listener.onPartitionsRevoked(Nes.of(topicPartition(Partition.min)))
-          _ <- Timer[F].sleep(10.millis)
+          _ <- Temporal[F].sleep(10.millis)
           a <- singleton.get
           _  = a shouldEqual none[Unit]
           a <- allocated.get
