@@ -17,11 +17,12 @@ import com.typesafe.config.ConfigFactory
 import TestJsonCodec.instance
 
 import scala.concurrent.ExecutionContext
+import cats.effect.Temporal
 
 
 object IntegrationSuite {
 
-  def startF[F[_]: Concurrent: Timer: Parallel: ToFuture: ContextShift: LogOf: MeasureDuration: FromTry: ToTry: Fail](
+  def startF[F[_]: Concurrent: Temporal: Parallel: ToFuture: ContextShift: LogOf: MeasureDuration: FromTry: ToTry: Fail](
     cassandraClusterOf: CassandraClusterOf[F]
   ): Resource[F, Unit] = {
 

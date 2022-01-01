@@ -22,6 +22,7 @@ import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
 import scala.util.Try
+import cats.effect.Temporal
 
 trait Journals[F[_]] {
 
@@ -38,7 +39,7 @@ object Journals {
 
   def of[
     F[_]
-    : Concurrent : Timer
+    : Concurrent : Temporal
     : FromTry : Fail : LogOf
     : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomIdOf
     : MeasureDuration
