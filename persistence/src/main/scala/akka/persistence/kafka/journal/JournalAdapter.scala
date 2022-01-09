@@ -20,6 +20,7 @@ import com.evolutiongaming.smetrics.MeasureDuration
 import scala.collection.immutable.Seq
 import scala.concurrent.ExecutionContext
 import scala.util.Try
+import cats.effect.Temporal
 
 trait JournalAdapter[F[_]] {
 
@@ -35,7 +36,7 @@ trait JournalAdapter[F[_]] {
 object JournalAdapter {
 
   def of[
-    F[_]: ConcurrentEffect: ContextShift: ToFuture: Parallel: Timer: LogOf: RandomIdOf:
+    F[_]: ConcurrentEffect: ContextShift: ToFuture: Parallel: Temporal: LogOf: RandomIdOf:
     FromGFuture: MeasureDuration: ToTry: FromTry: FromJsResult: Fail: JsonCodec,
     A
   ](

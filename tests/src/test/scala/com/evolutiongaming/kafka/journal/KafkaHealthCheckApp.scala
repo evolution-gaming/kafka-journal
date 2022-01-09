@@ -10,6 +10,7 @@ import com.evolutiongaming.skafka.producer.ProducerConfig
 import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.concurrent.ExecutionContext
+import cats.effect.Temporal
 
 object KafkaHealthCheckApp extends IOApp {
 
@@ -29,7 +30,7 @@ object KafkaHealthCheckApp extends IOApp {
     }
   }
 
-  private def runF[F[_]: ConcurrentEffect: Timer: ToFuture: ContextShift: LogOf: FromTry: ToTry: MeasureDuration](
+  private def runF[F[_]: ConcurrentEffect: Temporal: ToFuture: ContextShift: LogOf: FromTry: ToTry: MeasureDuration](
     blocking: ExecutionContext
   ) = {
 

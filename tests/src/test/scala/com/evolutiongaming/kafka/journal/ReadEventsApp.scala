@@ -18,6 +18,7 @@ import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
+import cats.effect.Temporal
 
 object ReadEventsApp extends IOApp {
 
@@ -27,7 +28,7 @@ object ReadEventsApp extends IOApp {
     runF[IO](executor).as(ExitCode.Success)
   }
 
-  private def runF[F[_]: ConcurrentEffect: ContextShift: Timer: Clock: ToFuture: Parallel: FromGFuture: FromTry: ToTry: Fail](
+  private def runF[F[_]: ConcurrentEffect: ContextShift: Temporal: Clock: ToFuture: Parallel: FromGFuture: FromTry: ToTry: Fail](
     executor: ExecutionContextExecutor,
   ): F[Unit] = {
 
@@ -47,7 +48,7 @@ object ReadEventsApp extends IOApp {
 
   }
 
-  private def runF[F[_]: ConcurrentEffect: ContextShift: Timer: Clock: ToFuture: Parallel: LogOf: FromGFuture: MeasureDuration: FromTry: ToTry: FromAttempt: FromJsResult: Fail](
+  private def runF[F[_]: ConcurrentEffect: ContextShift: Temporal: Clock: ToFuture: Parallel: LogOf: FromGFuture: MeasureDuration: FromTry: ToTry: FromAttempt: FromJsResult: Fail](
     executor: ExecutionContextExecutor,
     log: Log[F],
   ): F[Unit] = {
