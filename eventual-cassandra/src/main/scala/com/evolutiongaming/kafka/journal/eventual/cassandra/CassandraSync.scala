@@ -1,8 +1,9 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.arrow.FunctionK
-import cats.effect.concurrent.Semaphore
-import cats.effect.{Concurrent, Sync, Timer}
+import cats.effect.kernel.Temporal
+import cats.effect.std.Semaphore
+import cats.effect.{Concurrent, Sync}
 import cats.syntax.all._
 import cats.~>
 import com.evolutiongaming.cassandra
@@ -23,7 +24,7 @@ object CassandraSync {
   def apply[F[_]](implicit F: CassandraSync[F]): CassandraSync[F] = F
 
 
-  def apply[F[_] : Sync : Timer : CassandraSession](
+  def apply[F[_] : Temporal : CassandraSession](
     config: SchemaConfig,
     origin: Option[Origin],
   ): CassandraSync[F] = {
@@ -37,7 +38,7 @@ object CassandraSync {
       metadata = origin.map(_.value))
   }
 
-  def apply[F[_] : Sync : Timer : CassandraSession](
+  def apply[F[_] : Temporal : CassandraSession](
     keyspace: String,
     table: String,
     autoCreate: AutoCreate,
@@ -62,7 +63,7 @@ object CassandraSync {
     }
   }
 
-  def of[F[_] : Concurrent : Timer : CassandraSession](
+  def of[F[_] : Temporal : CassandraSession](
     config: SchemaConfig,
     origin: Option[Origin]
   ): F[CassandraSync[F]] = {
@@ -72,7 +73,7 @@ object CassandraSync {
     } yield {
       val cassandraSync = apply[F](config, origin)
       val serial = new (F ~> F) {
-        def apply[A](fa: F[A]) = semaphore.withPermit(fa)
+        def apply[A](fa: F[A]) = semaphore.permit.use(_ => fa)
       }
       cassandraSync.mapK(serial, FunctionK.id)
     }

@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.replicator
 
 
 import cats.data.{NonEmptyMap => Nem, NonEmptySet => Nes}
-import cats.effect.concurrent.{Deferred, Ref}
+import cats.effect.{Deferred, Ref}
 import cats.effect.{IO, Resource, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.LogOf
@@ -43,7 +43,7 @@ class DistributeJobTest extends AsyncFunSuite with Matchers {
             def assign(partitions: Nes[TopicPartition]) = ().pure[IO]
             def seek(partition: TopicPartition, offset: Offset) = ().pure[IO]
             def subscribe(topic: Topic, listener: Option[RebalanceListener[IO]]) = {
-              listener.foldMapM { listener => deferred.complete(listener) }
+              listener.foldMapM { listener => deferred.complete(listener).void }
             }
             def poll(timeout: FiniteDuration) = {
               IO

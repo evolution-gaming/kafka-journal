@@ -6,5 +6,7 @@ import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.scassandra.CassandraClusterOf
 
 object CassandraSuite {
+  import cats.effect.unsafe.implicits.global
+
   implicit lazy val cassandraClusterOf: CassandraClusterOf[IO] = CassandraClusterOf.of[IO].toTry.get
 }

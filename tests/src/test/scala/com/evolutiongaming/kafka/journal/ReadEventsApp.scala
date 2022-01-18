@@ -3,8 +3,8 @@ package com.evolutiongaming.kafka.journal
 import cats.Parallel
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
+import cats.effect.syntax.resource._
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.eventual.cassandra._
@@ -22,12 +22,12 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 object ReadEventsApp extends IOApp {
 
   def run(args: List[String]): IO[ExitCode] = {
-    implicit val parallel = IO.ioParallel
+    import cats.effect.unsafe.implicits.global
     implicit val executor = ExecutionContext.global
     runF[IO](executor).as(ExitCode.Success)
   }
 
-  private def runF[F[_]: ConcurrentEffect: ContextShift: Timer: Clock: ToFuture: Parallel: FromGFuture: FromTry: ToTry: Fail](
+  private def runF[F[_]: Async: ToFuture: Parallel: FromGFuture: FromTry: ToTry: Fail](
     executor: ExecutionContextExecutor,
   ): F[Unit] = {
 
@@ -47,7 +47,7 @@ object ReadEventsApp extends IOApp {
 
   }
 
-  private def runF[F[_]: ConcurrentEffect: ContextShift: Timer: Clock: ToFuture: Parallel: LogOf: FromGFuture: MeasureDuration: FromTry: ToTry: FromAttempt: FromJsResult: Fail](
+  private def runF[F[_]: Async: ToFuture: Parallel: LogOf: FromGFuture: MeasureDuration: FromTry: ToTry: FromAttempt: FromJsResult: Fail](
     executor: ExecutionContextExecutor,
     log: Log[F],
   ): F[Unit] = {

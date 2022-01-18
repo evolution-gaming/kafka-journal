@@ -17,6 +17,7 @@ object KafkaHealthCheckApp extends IOApp {
 
     implicit val executor = ExecutionContext.global
     implicit val measureDuration = MeasureDuration.empty[IO]
+    import cats.effect.unsafe.implicits.global
 
     for {
       logOf <- LogOf.slf4j[IO]
@@ -29,7 +30,7 @@ object KafkaHealthCheckApp extends IOApp {
     }
   }
 
-  private def runF[F[_]: ConcurrentEffect: Timer: ToFuture: ContextShift: LogOf: FromTry: ToTry: MeasureDuration](
+  private def runF[F[_]: Async: ToFuture: LogOf: FromTry: ToTry: MeasureDuration](
     blocking: ExecutionContext
   ) = {
 

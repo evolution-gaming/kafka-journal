@@ -3,10 +3,10 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
-import cats.effect.concurrent.Ref
+import cats.effect.Ref
+import cats.effect.syntax.resource._
 import cats.syntax.all._
 import cats.{Applicative, Monad, Parallel, ~>}
-import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal._
@@ -15,7 +15,7 @@ import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, C
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.random.Random
-import com.evolutiongaming.retry.{OnError, Retry, Strategy}
+import com.evolutiongaming.retry.{OnError, Retry, Sleep, Strategy}
 import com.evolutiongaming.scache.CacheMetrics
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
@@ -34,7 +34,7 @@ trait Replicator[F[_]] {
 
 object Replicator {
 
-  def of[F[_]: Concurrent: Parallel: Timer: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: FromGFuture: MeasureDuration: JsonCodec](
+  def of[F[_]: Async: Parallel: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: FromGFuture: MeasureDuration: JsonCodec](
     config: ReplicatorConfig,
     cassandraClusterOf: CassandraClusterOf[F],
     hostName: Option[HostName],
@@ -59,7 +59,7 @@ object Replicator {
 
   def of[
     F[_]
-    : Concurrent : Timer : Parallel
+    : Temporal : Parallel : Clock
     : Runtime : FromTry : ToTry : Fail : LogOf
     : KafkaConsumerOf : MeasureDuration
     : JsonCodec
@@ -70,31 +70,31 @@ object Replicator {
     hostName: Option[HostName]
   ): Resource[F, F[Unit]] = {
 
-    val topicReplicator = (topic: Topic) => {
+    val topicReplicator: Topic => Resource[F, F[Outcome[F, Throwable, Unit]]] =
+      (topic: Topic) => {
+        val consumer = TopicReplicator.ConsumerOf.of[F](
+          topic,
+          config.kafka.consumer,
+          config.pollTimeout,
+          hostName)
 
-      val consumer = TopicReplicator.ConsumerOf.of[F](
-        topic,
-        config.kafka.consumer,
-        config.pollTimeout,
-        hostName)
+        val metrics1 = metrics
+          .flatMap { _.replicator }
+          .fold { TopicReplicatorMetrics.empty[F] } { metrics => metrics(topic) }
 
-      val metrics1 = metrics
-        .flatMap { _.replicator }
-        .fold { TopicReplicatorMetrics.empty[F] } { metrics => metrics(topic) }
-
-      val cacheOf = CacheOf[F](config.cacheExpireAfter, metrics.flatMap(_.cache))
-      TopicReplicator.of(topic, journal, consumer, metrics1, cacheOf)
+        val cacheOf = CacheOf[F](config.cacheExpireAfter, metrics.flatMap(_.cache))
+        TopicReplicator.of(topic, journal, consumer, metrics1, cacheOf)
     }
 
     val consumer = Consumer.of[F](config.kafka.consumer)
 
-    of(Config(config), consumer, topicReplicator)
+    of[F](config = Config(config), consumer = consumer, topicReplicatorOf = topicReplicator)
   }
 
-  def of[F[_] : Concurrent : Timer : Parallel : LogOf : MeasureDuration](
+  def of[F[_] : Concurrent : Clock : Sleep : Parallel : LogOf : MeasureDuration](
     config: Config,
     consumer: Resource[F, Consumer[F]],
-    topicReplicatorOf: Topic => Resource[F, F[Unit]]
+    topicReplicatorOf: Topic => Resource[F, F[Outcome[F, Throwable, Unit]]]
   ): Resource[F, F[Unit]] = {
 
     def retry(log: Log[F]) = for {
@@ -126,7 +126,13 @@ object Replicator {
             // TODO
             registry.allocate {
               val fiber = for {
-                fiber <- StartResource(topicReplicator) { _.onError { case e => error.set(e.raiseError[F, Unit]) } }
+                fiber <- StartResource(topicReplicator) { outcomeF: F[Outcome[F, Throwable, Unit]] =>
+                  outcomeF.flatTap {
+                    case Outcome.Errored(e) => error.set(e.raiseError[F, Unit])
+                    case _                  => Concurrent[F].unit
+                  }
+                  .onError { case e => error.set(e.raiseError[F, Unit]) }
+                }
               } yield {
                 ((), fiber.cancel)
               }
@@ -143,7 +149,7 @@ object Replicator {
   }
 
 
-  def start[F[_] : Sync : Parallel : Timer : MeasureDuration](
+  def start[F[_]: Concurrent: Sleep : Parallel : MeasureDuration](
     config: Config,
     consumer: Consumer[F],
     start: Topic => F[Unit],
@@ -172,7 +178,7 @@ object Replicator {
       } yield topicsNew
     }
 
-    val sleep = Timer[F].sleep(config.topicDiscoveryInterval)
+    val sleep = Sleep[F].sleep(config.topicDiscoveryInterval)
 
     def loop(state: State): F[State] = {
       val result = for {

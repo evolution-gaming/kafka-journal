@@ -1,10 +1,11 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.arrow.FunctionK
 import cats.effect._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.KafkaHealthCheck.Record
-import com.evolutiongaming.kafka.journal.util.ConcurrentOf
+import com.evolutiongaming.kafka.journal.util.{ConcurrentOf, TestTemporal}
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.skafka.Topic
 import org.scalatest.funsuite.AsyncFunSuite
@@ -13,7 +14,10 @@ import org.scalatest.matchers.should.Matchers
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 
+import TestTemporal._
+
 class KafkaHealthCheckSpec extends AsyncFunSuite with Matchers {
+
   import KafkaHealthCheckSpec.StateT._
   import KafkaHealthCheckSpec._
 
@@ -53,10 +57,9 @@ class KafkaHealthCheckSpec extends AsyncFunSuite with Matchers {
   }
 
   test("periodic healthcheck") {
-    implicit val concurrent = ConcurrentOf.fromAsync[StateT]
-    val stop = StateT { data =>
+    val stop = apply { data =>
       val data1 = data.copy(checks = data.checks - 1)
-      (data1, data1.checks <= 0)
+      (data1, data1.checks <= 0).pure[IO]
     }
     val healthCheck = KafkaHealthCheck.of[StateT](
       key = "key",
@@ -102,16 +105,22 @@ object KafkaHealthCheckSpec {
 
       def add(log: String) = StateT[Unit] { data =>
         val data1 = data.copy(logs = log :: data.logs)
-        (data1, ())
+        (data1, ()).pure[IO]
       }
 
       new Log[StateT] {
         def trace(msg: => String, mdc: Log.Mdc) = add(s"trace $msg")
+
         def debug(msg: => String, mdc: Log.Mdc) = add(s"debug $msg")
+
         def info(msg: => String, mdc: Log.Mdc) = add(s"info $msg")
+
         def warn(msg: => String, mdc: Log.Mdc) = add(s"warn $msg")
+
         def warn(msg: => String, cause: Throwable, mdc: Log.Mdc) = add(s"warn $msg $cause")
+
         def error(msg: => String, mdc: Log.Mdc) = add(s"error $msg")
+
         def error(msg: => String, cause: Throwable, mdc: Log.Mdc) = add(s"error $msg $cause")
       }
     }
@@ -120,18 +129,18 @@ object KafkaHealthCheckSpec {
     implicit val consumer: KafkaHealthCheck.Consumer[StateT] = new KafkaHealthCheck.Consumer[StateT] {
 
       def subscribe(topic: Topic) = {
-        StateT { data =>
+        apply { data =>
           val data1 = data.copy(subscribed = topic.some)
-          (data1, ())
+          (data1, ()).pure[IO]
         }
       }
 
       def poll(timeout: FiniteDuration) = {
         StateT { data =>
           if (data.records.size >= 2) {
-            (data.copy(records = List.empty), data.records)
+            (data.copy(records = List.empty), data.records).pure[IO]
           } else {
-            (data, List.empty)
+            (data, List.empty).pure[IO]
           }
         }
       }
@@ -148,13 +157,14 @@ object KafkaHealthCheckSpec {
       }
     }
 
-    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[IO, State, A](data => f(data).pure[IO])
+    def apply[A](f: State => IO[(State, A)]): StateT[A] = cats.data.StateT[IO, State, A](data => f(data))
+
   }
 
 
   final case class State(
-    checks: Int = 0,
-    subscribed: Option[Topic] = None,
-    logs: List[String] = List.empty,
-    records: List[Record] = List.empty)
+                          checks: Int = 0,
+                          subscribed: Option[Topic] = None,
+                          logs: List[String] = List.empty,
+                          records: List[Record] = List.empty)
 }

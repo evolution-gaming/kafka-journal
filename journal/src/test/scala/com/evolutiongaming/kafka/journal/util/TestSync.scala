@@ -1,38 +1,45 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.Monad
-import cats.effect.{ExitCase, Sync}
+import cats.effect.Sync
+import cats.effect.kernel.{CancelScope, Poll}
 
+import scala.concurrent.duration.FiniteDuration
 import scala.util.control.NonFatal
 
 object TestSync {
 
   def apply[F[_]](implicit F: Monad[F]): Sync[F] = new Sync[F] {
+    override def suspend[A](hint: Sync.Type)(thunk: => A): F[A] = F.pure(thunk)
 
-    def suspend[A](thunk: => F[A]) = thunk
+    override def monotonic: F[FiniteDuration] = ???
 
-    def bracketCase[A, B](acquire: F[A])(use: A => F[B])(release: (A, ExitCase[Throwable]) => F[Unit]) = {
-      flatMap(acquire) { a =>
-        try {
-          val b = use(a)
-          try release(a, ExitCase.Completed) catch { case NonFatal(_) => }
-          b
-        } catch {
-          case NonFatal(e) =>
-            release(a, ExitCase.Error(e))
-            raiseError(e)
-        }
-      }
+    override def realTime: F[FiniteDuration] = ???
+
+    override def rootCancelScope: CancelScope = CancelScope.Uncancelable
+
+    override def forceR[A, B](fa: F[A])(fb: F[B]): F[B] = {
+      try { fa } catch { case NonFatal(_) => () }
+      fb
     }
 
-    def raiseError[A](e: Throwable) = throw e
+    override def uncancelable[A](body: Poll[F] => F[A]): F[A] = body(new Poll[F] {
+      override def apply[X](fa: F[X]): F[X] = fa
+    })
 
-    def handleErrorWith[A](fa: F[A])(f: Throwable => F[A]) = try fa catch { case NonFatal(e) => f(e) }
+    override def canceled: F[Unit] = F.pure(())
 
-    def flatMap[A, B](fa: F[A])(f: A => F[B]) = F.flatMap(fa)(f)
+    override def onCancel[A](fa: F[A], fin: F[Unit]): F[A] = fa
 
-    def tailRecM[A, B](a: A)(f: A => F[Either[A, B]]) = F.tailRecM(a)(f)
+    override def raiseError[A](e: Throwable): F[A] = throw e
 
-    def pure[A](a: A) = F.pure(a)
+    override def handleErrorWith[A](fa: F[A])(f: Throwable => F[A]): F[A] =
+      try { fa } catch { case NonFatal(e) => f(e) }
+
+    override def flatMap[A, B](fa: F[A])(f: A => F[B]): F[B] = F.flatMap(fa)(f)
+
+    override def tailRecM[A, B](a: A)(f: A => F[Either[A, B]]): F[B] = F.tailRecM(a)(f)
+
+    override def pure[A](x: A): F[A] = F.pure(x)
   }
 }

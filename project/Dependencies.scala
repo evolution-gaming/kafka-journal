@@ -16,19 +16,19 @@ object Dependencies {
   val `kafka-launcher`     = "com.evolutiongaming"    %% "kafka-launcher"        % "0.0.11"
   val `cassandra-launcher` = "com.evolutiongaming"    %% "cassandra-launcher"    % "0.0.4"
   val hostname             = "com.evolutiongaming"    %% "hostname"              % "0.2.0"
-  val scassandra           = "com.evolutiongaming"    %% "scassandra"            % "3.3.0"
-  val `cassandra-sync`     = "com.evolutiongaming"    %% "cassandra-sync"        % "1.1.0"
-  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "2.7.2"
-  val random               = "com.evolutiongaming"    %% "random"                % "0.1.1"
-  val retry                = "com.evolutiongaming"    %% "retry"                 % "2.1.1"
-  val sstream              = "com.evolutiongaming"    %% "sstream"               % "0.2.1"
-  val skafka               = "com.evolutiongaming"    %% "skafka"                % "11.8.0"
-  val scache               = "com.evolutiongaming"    %% "scache"                % "3.2.1"
+  val scassandra           = "com.evolutiongaming"    %% "scassandra"            % "4.0.1"
+  val `cassandra-sync`     = "com.evolutiongaming"    %% "cassandra-sync"        % "2.0.0"
+  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "3.0.1"
+  val random               = "com.evolutiongaming"    %% "random"                % "1.0.0"
+  val retry                = "com.evolutiongaming"    %% "retry"                 % "3.0.1"
+  val sstream              = "com.evolutiongaming"    %% "sstream"               % "1.0.1"
+  val skafka               = "com.evolutiongaming"    %% "skafka"                % "12.0.0"
+  val scache               = "com.evolutiongaming"    %% "scache"                % "4.0.0"
   val `akka-test-actor`    = "com.evolutiongaming"    %% "akka-test-actor"       % "0.1.0"
 
   object Cats {
     val core   = "org.typelevel" %% "cats-core"   % "2.7.0"
-    val effect = "org.typelevel" %% "cats-effect" % "2.5.4"
+    val effect = "org.typelevel" %% "cats-effect" % "3.3.4"
   }
 
   object Logback {
@@ -65,7 +65,7 @@ object Dependencies {
   }
 
   object Smetrics {
-    private val version = "0.3.3"
+    private val version = "1.0.1"
     val smetrics   = "com.evolutiongaming" %% "smetrics"            % version
     val prometheus = "com.evolutiongaming" %% "smetrics-prometheus" % version
   }

@@ -1,13 +1,13 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.Id
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
-import cats.effect.{ExitCase, Resource, Timer}
+import cats.effect.unsafe.implicits.global
+import cats.effect.{IO, Resource}
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.TimerHelper._
-import com.evolutiongaming.catshelper.{BracketThrowable, Log}
-import com.evolutiongaming.kafka.journal.ConsRecord
 import com.evolutiongaming.catshelper.DataHelper._
+import com.evolutiongaming.catshelper.Log
+import com.evolutiongaming.kafka.journal.ConsRecord
+import com.evolutiongaming.kafka.journal.util.TestTemporal.temporalTry
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer.{RebalanceListener, WithSize}
@@ -15,12 +15,12 @@ import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
-import scala.annotation.tailrec
 import scala.concurrent.duration._
+import scala.util.Try
 import scala.util.control.NoStackTrace
-import scala.util.{Failure, Success, Try}
 
 class ConsumeTopicTest extends AnyFunSuite with Matchers {
+
   import ConsumeTopicTest._
 
   test("happy path") {
@@ -30,7 +30,7 @@ class ConsumeTopicTest extends AnyFunSuite with Matchers {
       Command.ProduceRecords(Map.empty),
       Command.ProduceRecords(recordsOf(recordOf(partition = 0, offset = 0)).toSortedMap)))
 
-    val (result, _) = subscriptionFlow.run(state)
+    val (result, _) = subscriptionFlow.run(state).unsafeRunSync()
 
     result shouldEqual State(
       actions = List(
@@ -39,7 +39,7 @@ class ConsumeTopicTest extends AnyFunSuite with Matchers {
         Action.Commit(Nem.of((Partition.min, Offset.min))),
         Action.Poll(recordsOf(recordOf(partition = 0, offset = 0))),
         Action.AssignPartitions(partitions),
-        Action.Subscribe()(RebalanceListener.empty),
+        Action.Subscribe()(RebalanceListener.empty[StateT]),
         Action.AcquireTopicFlow(topic),
         Action.AcquireConsumer))
   }
@@ -54,7 +54,7 @@ class ConsumeTopicTest extends AnyFunSuite with Matchers {
       Command.ProduceRecords(Map.empty),
       Command.ProduceRecords(recordsOf(recordOf(partition = 0, offset = 0)).toSortedMap)))
 
-    val (result, _) = subscriptionFlow.run(state)
+    val (result, _) = subscriptionFlow.run(state).unsafeRunSync()
 
     result shouldEqual State(
       actions = List(
@@ -84,7 +84,7 @@ class ConsumeTopicTest extends AnyFunSuite with Matchers {
       Command.RevokePartitions(Nes.of(Partition.unsafe(1), Partition.unsafe(2))),
       Command.ProduceRecords(recordsOf(recordOf(partition = 0, offset = 0)).toSortedMap)))
 
-    val (result, _) = subscriptionFlow.run(state)
+    val (result, _) = subscriptionFlow.run(state).unsafeRunSync()
 
     result shouldEqual State(
       actions = List(
@@ -95,7 +95,7 @@ class ConsumeTopicTest extends AnyFunSuite with Matchers {
         Action.RevokePartitions(Nes.of(Partition.unsafe(1), Partition.unsafe(2))),
         Action.AssignPartitions(Nes.of(Partition.unsafe(2))),
         Action.AssignPartitions(Nes.of(Partition.unsafe(1))),
-        Action.Subscribe()(RebalanceListener.empty),
+        Action.Subscribe()(RebalanceListener.empty[StateT]),
         Action.AcquireTopicFlow(topic),
         Action.AcquireConsumer))
   }
@@ -111,26 +111,28 @@ object ConsumeTopicTest {
 
 
   final case class State(
-    commands: List[Command] = List.empty,
-    actions: List[Action] = List.empty,
-  ) {
+                          commands: List[Command] = List.empty,
+                          actions: List[Action] = List.empty,
+                        ) {
 
     def +(action: Action): State = copy(actions = action :: actions)
   }
 
 
-  type StateT[A] = cats.data.StateT[Id, State, Try[A]]
+  type StateT[A] = cats.data.StateT[IO, State, Try[A]]
 
   object StateT {
 
-    def apply[A](f: State => (State, Try[A])): StateT[A] = {
-      cats.data.StateT[Id, State, Try[A]](f)
+    def apply[A](f: State => IO[(State, Try[A])]): StateT[A] = {
+      cats.data.StateT[IO, State, Try[A]](f)
     }
 
     def pure[A](f: State => (State, A)): StateT[A] = {
       apply { state =>
-        val (state1, a) = f(state)
-        (state1, a.pure[Try])
+        IO.delay {
+          val (state1, a) = f(state)
+          (state1, a.pure[Try])
+        }
       }
     }
 
@@ -138,76 +140,19 @@ object ConsumeTopicTest {
   }
 
 
-  implicit val bracketStateT: BracketThrowable[StateT] = new BracketThrowable[StateT] {
-
-    def bracketCase[A, B](
-      acquire: StateT[A])(
-      use: A => StateT[B])(
-      release: (A, ExitCase[Throwable]) => StateT[Unit]
-    ) = {
-
-      StateT { s =>
-        val (s1, a) = acquire.run(s)
-        a.fold(
-          a => (s1, a.raiseError[Try, B]),
-          a => {
-            val (s2, b) = use(a).run(s1)
-            val exitCase = b.fold(
-              b => ExitCase.error(b),
-              _ => ExitCase.complete)
-            val (s3, _) = release(a, exitCase).run(s2)
-            (s3, b)
-          })
-      }
-    }
-
-    def raiseError[A](a: Throwable) = {
-      StateT { s => (s, a.raiseError[Try, A]) }
-    }
-
-    def handleErrorWith[A](fa: StateT[A])(f: Throwable => StateT[A]) = {
-      StateT { s =>
-        val (s1, a) = fa.run(s)
-        a.fold(
-          a => f(a).run(s1),
-          a => (s1, a.pure[Try]))
-      }
-    }
-
-    def flatMap[A, B](fa: StateT[A])(f: A => StateT[B]) = {
-      StateT { s =>
-        val (s1, a) = fa.run(s)
-        a.fold(a => (s1, a.raiseError[Try, B]), a => f(a).run(s1))
-      }
-    }
-
-    def tailRecM[A, B](a: A)(f: A => StateT[Either[A, B]]) = {
-      @tailrec
-      def apply(s: State, a: A): (State, Try[B]) = {
-        val (s1, b) = f(a).run(s)
-        b match {
-          case Success(Right(b)) => (s1, b.pure[Try])
-          case Success(Left(b))  => apply(s1, b)
-          case Failure(b)        => (s1, b.raiseError[Try, B])
-        }
-      }
-
-      StateT { s => apply(s, a) }
-    }
-
-    def pure[A](a: A) = StateT.pure { s => (s, a) }
-  }
-
-
   val topicFlowOf: TopicFlowOf[StateT] = {
     topic: Topic => {
       val result = StateT.pure { state =>
         val state1 = state + Action.AcquireTopicFlow(topic)
-        val release = StateT.unit { _ + Action.ReleaseTopicFlow(topic) }
+        val release = StateT.unit {
+          _ + Action.ReleaseTopicFlow(topic)
+        }
         val topicFlow: TopicFlow[StateT] = new TopicFlow[StateT] {
 
           def assign(partitions: Nes[Partition]) = {
-            StateT.unit { _ + Action.AssignPartitions(partitions) }
+            StateT.unit {
+              _ + Action.AssignPartitions(partitions)
+            }
           }
 
           def apply(records: Nem[Partition, Nel[ConsRecord]]) = {
@@ -218,11 +163,15 @@ object ConsumeTopicTest {
           }
 
           def revoke(partitions: Nes[Partition]) = {
-            StateT.unit { _ + Action.RevokePartitions(partitions) }
+            StateT.unit {
+              _ + Action.RevokePartitions(partitions)
+            }
           }
 
           def lose(partitions: Nes[Partition]) = {
-            StateT.unit { _ + Action.LosePartitions(partitions) }
+            StateT.unit {
+              _ + Action.LosePartitions(partitions)
+            }
           }
         }
         (state1, (topicFlow, release))
@@ -237,7 +186,9 @@ object ConsumeTopicTest {
     val consumer: TopicConsumer[StateT] = new TopicConsumer[StateT] {
 
       def subscribe(listener: RebalanceListener[StateT]) = {
-        StateT.unit { _ + Action.Subscribe()(listener) }
+        StateT.unit {
+          _ + Action.Subscribe()(listener)
+        }
       }
 
       val poll = {
@@ -255,11 +206,11 @@ object ConsumeTopicTest {
                     .run(state)
                     .map { case (s, _) => s }
                 }
-                .getOrElse(state)
+                .getOrElse(state.pure[IO])
                 .map { state => (state, Map.empty[Partition, Nel[ConsRecord]].some.pure[Try]) }
 
             case Command.ProduceRecords(records) =>
-              (state, records.some.pure[Try])
+              IO.pure((state, records.some.pure[Try]))
 
             case Command.RevokePartitions(partitions) =>
               state
@@ -272,17 +223,17 @@ object ConsumeTopicTest {
                     .run(state)
                     .map { case (s, _) => s }
                 }
-                .getOrElse(state)
+                .getOrElse(state.pure[IO])
                 .map { s => (s, Map.empty[Partition, Nel[ConsRecord]].some.pure[Try]) }
 
             case Command.Fail(error) =>
-              (state, error.raiseError[Try, Option[Map[Partition, Nel[ConsRecord]]]])
+              IO.delay((state, error.raiseError[Try, Option[Map[Partition, Nel[ConsRecord]]]]))
           }
         }
 
         val stateT = StateT { state =>
           state.commands match {
-            case Nil                 => (state, none[Map[Partition, Nel[ConsRecord]]].pure[Try])
+            case Nil => IO.delay((state, none[Map[Partition, Nel[ConsRecord]]].pure[Try]))
             case command :: commands => apply(state.copy(commands = commands), command)
           }
         }
@@ -290,12 +241,16 @@ object ConsumeTopicTest {
         Stream.whileSome(stateT)
       }
 
-      val commit = offsets => StateT.unit { _ + Action.Commit(offsets) }
+      val commit = offsets => StateT.unit {
+        _ + Action.Commit(offsets)
+      }
     }
 
     val result = StateT.pure { state =>
       val state1 = state + Action.AcquireConsumer
-      val release = StateT.unit { _ + Action.ReleaseConsumer }
+      val release = StateT.unit {
+        _ + Action.ReleaseConsumer
+      }
       (state1, (consumer, release))
     }
     Resource(result)
@@ -306,18 +261,19 @@ object ConsumeTopicTest {
     val strategy = Strategy.const(1.millis)
     val onError = new OnError[StateT, Throwable] {
       def apply(error: Throwable, status: Retry.Status, decision: OnError.Decision) = {
-        StateT.unit { _ + Action.RetryOnError(error, decision) }
+        StateT.unit {
+          _ + Action.RetryOnError(error, decision)
+        }
       }
     }
-    implicit val timer = Timer.empty[StateT]
     Retry(strategy, onError)
   }
 
 
   def recordOf(
-    partition: Int,
-    offset: Long,
-  ): ConsRecord = {
+                partition: Int,
+                offset: Long,
+              ): ConsRecord = {
     ConsRecord(
       topicPartition = TopicPartition(
         topic = topic,
@@ -331,7 +287,9 @@ object ConsumeTopicTest {
 
   def recordsOf(record: ConsRecord, records: ConsRecord*): Nem[Partition, Nel[ConsRecord]] = {
     Nel(record, records.toList)
-      .groupBy { _.topicPartition.partition }
+      .groupBy {
+        _.topicPartition.partition
+      }
       .toNem()
       .get
   }
@@ -349,8 +307,11 @@ object ConsumeTopicTest {
 
   object Command {
     final case class ProduceRecords(records: Map[Partition, Nel[ConsRecord]]) extends Command
+
     final case class AssignPartitions(partitions: Nes[Partition]) extends Command
+
     final case class RevokePartitions(partitions: Nes[Partition]) extends Command
+
     final case class Fail(error: Throwable) extends Command
   }
 
@@ -358,15 +319,25 @@ object ConsumeTopicTest {
 
   object Action {
     final case class AcquireTopicFlow(topic: Topic) extends Action
+
     final case class ReleaseTopicFlow(topic: Topic) extends Action
+
     case object AcquireConsumer extends Action
+
     case object ReleaseConsumer extends Action
+
     final case class AssignPartitions(partitions: Nes[Partition]) extends Action
+
     final case class RevokePartitions(partitions: Nes[Partition]) extends Action
+
     final case class LosePartitions(partitions: Nes[Partition]) extends Action
+
     final case class Subscribe()(val listener: RebalanceListener[StateT]) extends Action
+
     final case class Poll(records: Nem[Partition, Nel[ConsRecord]]) extends Action
+
     final case class Commit(offsets: Nem[Partition, Offset]) extends Action
+
     final case class RetryOnError(error: Throwable, decision: OnError.Decision) extends Action
   }
 

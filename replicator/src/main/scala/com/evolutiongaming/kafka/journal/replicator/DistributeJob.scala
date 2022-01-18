@@ -1,17 +1,17 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.Parallel
+import cats.{Defer, Parallel}
 import cats.data.{NonEmptySet => Nes}
-import cats.effect.concurrent.{Deferred, Ref}
+import cats.effect.kernel.Clock
+import cats.effect.{Concurrent, Deferred, Outcome, Ref, Resource, Sync}
 import cats.effect.syntax.all._
-import cats.effect.{Concurrent, ExitCase, Resource, Sync, Timer}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromTry, LogOf}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.Retry.implicits._
-import com.evolutiongaming.retry.{OnError, Strategy}
+import com.evolutiongaming.retry.{OnError, Sleep, Strategy}
 import com.evolutiongaming.skafka.{Partition, Topic, TopicPartition}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, RebalanceListener}
 
@@ -29,7 +29,7 @@ object DistributeJob {
 
   type Assigned = Boolean
 
-  def apply[F[_]: Concurrent: FromTry: LogOf: Timer: Parallel](
+  def apply[F[_]: Concurrent: Defer: Clock: Sleep: FromTry: LogOf: Parallel](
     groupId: String,
     topic: Topic,
     consumerConfig: ConsumerConfig,
@@ -70,12 +70,13 @@ object DistributeJob {
         .limit(1.hour)
         .resetAfter(5.minutes)
       onError = OnError.fromLog(log)
-      deferred <- Deferred.tryable[F, Either[Throwable, Unit]].toResource
+      deferred <- Deferred[F, Either[Throwable, Unit]].toResource
       launched = (a: Either[Throwable, Unit]) => deferred
         .complete(a)
+        .void
         .handleError { _ => () }
       release = (jobs: Map[String, (Job, Release)]) => {
-        Sync[F].defer {
+        Defer[F].defer {
           jobs
             .toList
             .parFoldMapA { case (name, (_, release)) =>
@@ -111,7 +112,7 @@ object DistributeJob {
             val release = deferred.get.flatMap { _.apply(name) }
             (name, (job, release))
           }
-          val effect = Sync[F].defer {
+          val effect = Defer[F].defer {
             for {
               releases <- jobs
                 .toList
@@ -141,7 +142,7 @@ object DistributeJob {
               result   <- deferred.complete(release)
             } yield result
           }
-          (S.Active(partitions, jobs1), effect)
+          (S.Active(partitions, jobs1), effect.void)
         }
         listener = new RebalanceListener[F] {
           def onPartitionsAssigned(topicPartitions: Nes[TopicPartition]) = {
@@ -181,7 +182,7 @@ object DistributeJob {
                   } else {
                     val partitions = s.partitions ++ partitionsRevoked.map { (_, false) }.toIterable
                     if (s.partitions === partitions) {
-                      val effect = Sync[F].defer {
+                      val effect = Defer[F].defer {
                         s
                           .jobs
                           .toList
@@ -215,9 +216,9 @@ object DistributeJob {
       _ <- resource
         .use(identity)
         .guaranteeCase {
-          case ExitCase.Canceled  => launched(().asRight)
-          case ExitCase.Error(a)  => launched(a.asLeft)
-          case ExitCase.Completed => launched(().asRight)
+          case Outcome.Canceled()   => launched(().asRight)
+          case Outcome.Errored(a)   => launched(a.asLeft)
+          case Outcome.Succeeded(_) => launched(().asRight)
         }
         .retry(strategy, onError)
         .background
@@ -245,14 +246,14 @@ object DistributeJob {
                     case None    =>
                       val (effect, release) = job(s.partitions) match {
                         case Some(job) =>
-                          val effect = Sync[F].defer {
+                          val effect = Defer[F].defer {
                             for {
                               a <- job
                                 .allocated
                                 .attempt
                               a <- a match {
                                 case Right(((), a)) =>
-                                  d.complete(a)
+                                  d.complete(a).void
                                 case Left(a)        =>
                                   for {
                                     _ <- d.complete(unit)

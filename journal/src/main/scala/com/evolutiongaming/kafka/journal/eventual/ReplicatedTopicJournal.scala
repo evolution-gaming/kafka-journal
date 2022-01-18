@@ -1,16 +1,17 @@
 package com.evolutiongaming.kafka.journal.eventual
 
-import java.time.Instant
-
+import cats.data.NonEmptyMap._
 import cats.data.{NonEmptyMap => Nem}
 import cats.effect.Resource
+import cats.effect.syntax.all._
 import cats.syntax.all._
 import cats.{Applicative, Defer, Monad, ~>}
-import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics._
+
+import java.time.Instant
 
 
 trait ReplicatedTopicJournal[F[_]] {
@@ -71,6 +72,7 @@ object ReplicatedTopicJournal {
     def mapK[G[_]](
       f: F ~> G)(implicit
       B: BracketThrowable[F],
+      GT: BracketThrowable[G],
       D: Defer[G],
       G: Applicative[G]
     ): ReplicatedTopicJournal[G] = new ReplicatedTopicJournal[G] {

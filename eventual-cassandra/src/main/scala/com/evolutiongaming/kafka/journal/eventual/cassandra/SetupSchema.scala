@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.Parallel
-import cats.effect.{Concurrent, Timer}
+import cats.effect.kernel.Temporal
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.{BracketThrowable, LogOf}
+import cats.{MonadThrow, Parallel}
+import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.{Origin, Settings}
@@ -13,7 +13,7 @@ import scala.util.Try
 
 object SetupSchema { self =>
 
-  def migrate[F[_]: BracketThrowable: CassandraSession](
+  def migrate[F[_]: MonadThrow: CassandraSession](
     schema: Schema,
     fresh: CreateSchema.Fresh,
     settings: Settings[F],
@@ -76,7 +76,7 @@ object SetupSchema { self =>
     } yield {}
   }
 
-  def apply[F[_]: Concurrent: Parallel: Timer: CassandraCluster: CassandraSession: LogOf](
+  def apply[F[_]: Temporal : Parallel : CassandraCluster: CassandraSession: LogOf](
     config: SchemaConfig,
     origin: Option[Origin],
     consistencyConfig: ConsistencyConfig

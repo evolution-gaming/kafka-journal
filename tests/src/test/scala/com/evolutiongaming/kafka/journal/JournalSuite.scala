@@ -1,14 +1,12 @@
 package com.evolutiongaming.kafka.journal
 
 
-import java.time.Instant
-
 import akka.persistence.kafka.journal.KafkaJournalConfig
 import cats.Monad
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.IO
+import cats.effect.syntax.resource._
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.kafka.journal.IOSuite._
@@ -22,8 +20,12 @@ import org.scalatest.Suite
 import org.scalatest.matchers.should.Matchers
 import pureconfig.{ConfigReader, ConfigSource}
 
+import java.time.Instant
+
 
 trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
+
+  import cats.effect.unsafe.implicits.global
 
   lazy val config: ConfigReader.Result[KafkaJournalConfig] = {
     ConfigSource

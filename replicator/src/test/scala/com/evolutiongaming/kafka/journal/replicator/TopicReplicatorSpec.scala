@@ -1,12 +1,11 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
-
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect._
+import cats.effect.syntax.resource._
 import cats.syntax.all._
 import cats.{Applicative, Monoid, Parallel}
-import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log}
 import com.evolutiongaming.kafka.journal.{ConsRecords, _}
@@ -24,6 +23,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import play.api.libs.json.Json
 import TestJsonCodec.instance
+import com.evolutiongaming.retry.Sleep
 
 import scala.collection.immutable.SortedSet
 import scala.concurrent.duration._
@@ -944,14 +944,15 @@ object TopicReplicatorSpec {
     implicit val fromAttempt = FromAttempt.lift[StateT]
     implicit val fromJsResult = FromJsResult.lift[StateT]
 
-    implicit val timer: Timer[StateT] = new Timer[StateT] {
-
-      val clock = Clock.const[StateT](nanos = 0, millis = millis)
-
-      def sleep(duration: FiniteDuration) = ().pure[StateT]
+    implicit val clock = Clock.const[StateT](nanos = 0, millis = millis)
+    implicit val sleep = new Sleep[StateT] {
+      def sleep(time: FiniteDuration): StateT[Unit] = ().pure[StateT]
+      def applicative: Applicative[StateT] = Applicative[StateT]
+      def monotonic: StateT[FiniteDuration] = clock.monotonic
+      def realTime: StateT[FiniteDuration] = clock.realTime
     }
 
-    implicit val measureDuration = MeasureDuration.fromClock(timer.clock)
+    implicit val measureDuration = MeasureDuration.fromClock(clock)
     val kafkaRead = KafkaRead.summon[StateT, Payload]
     val eventualWrite = EventualWrite.summon[StateT, Payload]
 

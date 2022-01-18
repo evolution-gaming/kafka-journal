@@ -21,7 +21,7 @@ object KafkaConsumerOf {
 
   def apply[F[_]](implicit F: KafkaConsumerOf[F]): KafkaConsumerOf[F] = F
 
-  def apply[F[_]: Concurrent: ContextShift: ToTry: ToFuture: MeasureDuration](
+  def apply[F[_]: Async: ToTry: ToFuture: MeasureDuration](
     executorBlocking: ExecutionContext,
     metrics: Option[ConsumerMetrics[F]] = None
   ): KafkaConsumerOf[F] = {
@@ -33,7 +33,7 @@ object KafkaConsumerOf {
 
   private sealed abstract class Main
 
-  def apply[F[_]: Concurrent](consumerOf: ConsumerOf[F]): KafkaConsumerOf[F] = new Main with KafkaConsumerOf[F] {
+  def apply[F[_]: Async](consumerOf: ConsumerOf[F]): KafkaConsumerOf[F] = new Main with KafkaConsumerOf[F] {
 
     def apply[K, V](
       config: ConsumerConfig)(implicit

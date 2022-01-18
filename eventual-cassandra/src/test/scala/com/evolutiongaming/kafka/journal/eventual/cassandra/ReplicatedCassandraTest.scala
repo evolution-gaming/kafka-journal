@@ -2,7 +2,8 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.{Instant, LocalDate, ZoneOffset}
 import cats.data.{IndexedStateT, NonEmptyList => Nel, NonEmptyMap => Nem}
-import cats.effect.{ExitCase, Sync}
+import cats.effect.{Poll, Sync}
+import cats.effect.kernel.CancelScope
 import cats.implicits._
 import cats.syntax.all.none
 import cats.{Id, Parallel}
@@ -10,7 +11,7 @@ import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.eventual.cassandra.ExpireOn.implicits._
-import com.evolutiongaming.kafka.journal.util.{BracketFromMonadError, Fail}
+import com.evolutiongaming.kafka.journal.util.{Fail, MonadCancelFromMonadError}
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
@@ -1326,29 +1327,27 @@ object ReplicatedCassandraTest {
   }
 
 
-  implicit val syncStateT: Sync[StateT] = new Sync[StateT] with BracketFromMonadError[StateT, Throwable] {
+  implicit val syncStateT: Sync[StateT] = new Sync[StateT] with MonadCancelFromMonadError[StateT, Throwable] {
 
     val F = IndexedStateT.catsDataMonadErrorForIndexedStateT(catsStdInstancesForTry)
 
-    def bracketCase[A, B](
-      acquire: StateT[A])(
-      use: A => StateT[B])(
-      release: (A, ExitCase[Throwable]) => StateT[Unit]
-    ) = {
+    override def rootCancelScope: CancelScope = CancelScope.Uncancelable
 
-      def onError(a: A)(e: Throwable) = for {
-        _ <- release(a, ExitCase.error(e))
-        b <- raiseError[B](e)
-      } yield b
+    override def forceR[A, B](fa: StateT[A])(fb: StateT[B]): StateT[B] = fa.redeemWith(_ => fb, _ => fb)
 
-      for {
-        a <- acquire
-        b <- handleErrorWith(use(a))(onError(a))
-        _ <- release(a, ExitCase.complete)
-      } yield b
-    }
+    override def uncancelable[A](body: Poll[StateT] => StateT[A]): StateT[A] = body(new Poll[StateT] {
+      override def apply[X](fa: StateT[X]): StateT[X] = fa
+    })
 
-    def suspend[A](thunk: => StateT[A]) = thunk
+    override def canceled: StateT[Unit] = ().pure[StateT]
+
+    override def onCancel[A](fa: StateT[A], fin: StateT[Unit]): StateT[A] = fa
+
+    override def suspend[A](hint: Sync.Type)(thunk: => A): StateT[A] = cats.data.StateT.pure(thunk)
+
+    override def monotonic: StateT[FiniteDuration] = ???
+
+    override def realTime: StateT[FiniteDuration] = ???
   }
 
   implicit val parallel: Parallel[StateT] = Parallel.identity[StateT]

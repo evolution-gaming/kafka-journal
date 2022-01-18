@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal
 import cats._
 import cats.data.{OptionT, NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.effect._
-import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.implicits._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
@@ -15,7 +14,7 @@ import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointer
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.Retry.implicits._
-import com.evolutiongaming.retry.Strategy
+import com.evolutiongaming.retry.{Sleep, Strategy}
 import com.evolutiongaming.scache.{Cache, Releasable}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecord, ConsumerRecords}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
@@ -49,7 +48,7 @@ object HeadCache {
   }
 
 
-  def of[F[_]: Concurrent: Parallel: Timer: LogOf: KafkaConsumerOf: MeasureDuration: FromTry: FromJsResult: JsonCodec.Decode](
+  def of[F[_]: Temporal: Runtime: LogOf: KafkaConsumerOf: MeasureDuration: FromTry: FromJsResult: JsonCodec.Decode](
     consumerConfig: ConsumerConfig,
     eventualJournal: EventualJournal[F],
     metrics: Option[HeadCacheMetrics[F]]
@@ -66,7 +65,7 @@ object HeadCache {
   }
 
 
-  def of[F[_]: Concurrent: Parallel: Timer: FromJsResult: MeasureDuration: JsonCodec.Decode](
+  def of[F[_]: Temporal: Runtime: FromJsResult: MeasureDuration: JsonCodec.Decode](
     eventual: Eventual[F],
     log: Log[F],
     consumer: Resource[F, Consumer[F]],
@@ -126,7 +125,7 @@ object HeadCache {
 
   object TopicCache {
 
-    def of[F[_]: Concurrent: Parallel: Timer](
+    def of[F[_]: Temporal](
       topic: Topic,
       config: HeadCacheConfig,
       eventual: Eventual[F],
@@ -181,7 +180,7 @@ object HeadCache {
       def cleaning(stateRef: Ref[F, State[F]]) = {
 
         val cleaning = for {
-          _        <- Timer[F].sleep(config.cleanInterval)
+          _        <- Sleep[F].sleep(config.cleanInterval)
           pointers <- eventual.pointers(topic)
           before   <- stateRef.get
           _        <- stateRef.update { _.removeUntil(pointers.values) }
@@ -241,7 +240,7 @@ object HeadCache {
       }
     }
 
-    def apply[F[_]: Concurrent: Timer](
+    def apply[F[_]: Temporal](
       topic: Topic,
       stateRef: Ref[F, State[F]],
       metrics: Metrics[F],
@@ -306,7 +305,7 @@ object HeadCache {
               }
 
               def release = {
-                deferred.complete(HeadCacheReleasedError.raiseError[F, Option[HeadInfo]])
+                deferred.complete(HeadCacheReleasedError.raiseError[F, Option[HeadInfo]]).void
               }
             }
 
@@ -343,7 +342,7 @@ object HeadCache {
             }
 
           result
-            .race(Timer[F].sleep(timeout))
+            .race(Sleep[F].sleep(timeout))
             .map {
               case Left(Some(a)) => a.asRight[HeadCacheError]
               case Left(None)    => HeadCacheError.invalid.asLeft[HeadInfo]

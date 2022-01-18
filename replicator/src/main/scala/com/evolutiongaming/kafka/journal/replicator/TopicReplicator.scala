@@ -2,13 +2,11 @@ package com.evolutiongaming.kafka.journal.replicator
 
 
 import java.time.Instant
-
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.effect._
 import cats.effect.implicits._
 import cats.implicits._
 import cats.Parallel
-import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, ToTry}
@@ -18,6 +16,7 @@ import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+import com.evolutiongaming.retry.Sleep
 import com.evolutiongaming.skafka.consumer._
 import com.evolutiongaming.skafka.{Bytes => _, _}
 import com.evolutiongaming.smetrics._
@@ -29,13 +28,13 @@ import scala.util.Try
 
 object TopicReplicator {
 
-  def of[F[_]: Concurrent: Timer: Parallel: ToTry: LogOf: Fail: MeasureDuration: JsonCodec](
+  def of[F[_]: Concurrent: Clock: Sleep: ToTry: LogOf: Fail: MeasureDuration: JsonCodec](
     topic: Topic,
     journal: ReplicatedJournal[F],
     consumer: Resource[F, TopicConsumer[F]],
     metrics: TopicReplicatorMetrics[F],
     cacheOf: CacheOf[F]
-  ): Resource[F, F[Unit]] = {
+  ): Resource[F, F[Outcome[F, Throwable, Unit]]] = {
 
     implicit val fromAttempt: FromAttempt[F]   = FromAttempt.lift[F]
     implicit val fromJsResult: FromJsResult[F] = FromJsResult.lift[F]
@@ -74,7 +73,7 @@ object TopicReplicator {
     } yield done
   }
 
-  def of[F[_]: Concurrent: Parallel: Timer: MeasureDuration, A](
+  def of[F[_]: Concurrent: Clock: Sleep: MeasureDuration, A](
     topic: Topic,
     consumer: Resource[F, TopicConsumer[F]],
     consRecordToActionRecord: ConsRecordToActionRecord[F],
@@ -228,7 +227,7 @@ object TopicReplicator {
 
   object ConsumerOf {
 
-    def of[F[_] : Sync : KafkaConsumerOf : FromTry : Clock](
+    def of[F[_]: Concurrent : KafkaConsumerOf : FromTry : Clock](
       topic: Topic,
       config: ConsumerConfig,
       pollTimeout: FiniteDuration,

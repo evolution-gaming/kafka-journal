@@ -5,6 +5,8 @@ import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.Parallel
 import cats.effect._
+import cats.effect.unsafe.{IORuntime, IORuntimeConfig}
+import cats.effect.syntax.resource._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, ToFuture, ToTry}
@@ -27,9 +29,19 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
 
   implicit val system       : ActorSystem              = context.system
   implicit val executor     : ExecutionContextExecutor = context.dispatcher
-  implicit val contextShift : ContextShift[IO]         = IO.contextShift(executor)
-  implicit val parallel     : Parallel[IO]             = IO.ioParallel(contextShift)
-  implicit val timer        : Timer[IO]                = IO.timer(executor)
+
+  private val (blocking, blockingShutdown)   = IORuntime.createDefaultBlockingExecutionContext()
+  private val (scheduler, schedulerShutdown) = IORuntime.createDefaultScheduler()
+  implicit val ioRuntime: IORuntime = IORuntime(
+    compute = executor,
+    blocking = blocking,
+    scheduler = scheduler,
+    shutdown = () => {
+      blockingShutdown()
+      schedulerShutdown()
+    },
+    config = IORuntimeConfig()
+  )
   implicit val toFuture     : ToFuture[IO]             = ToFuture.ioToFuture
   implicit val fromFuture   : FromFuture[IO]           = FromFuture.lift[IO]
   implicit val fromAttempt  : FromAttempt[IO]          = FromAttempt.lift[IO]

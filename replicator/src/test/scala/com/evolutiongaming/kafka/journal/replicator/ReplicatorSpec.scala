@@ -1,5 +1,7 @@
 package com.evolutiongaming.kafka.journal.replicator
 
+import cats.effect
+import cats.effect.kernel.Outcome
 import cats.effect.{IO, Resource}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.LogOf
@@ -26,12 +28,12 @@ class ReplicatorSpec extends AsyncWordSpec with Matchers {
         def topics = Set("journal").pure[IO]
       }
 
-      val start = (_: Topic) => Resource.pure[IO, IO[Unit]](error.raiseError[IO, Unit])
+      val start = (_: Topic) => Resource.pure[IO, IO[Outcome[IO, Throwable, Unit]]](Outcome.errored[IO, Throwable, Unit](error).pure[IO])
       val result = for {
-        result <- Replicator.of(
-          Replicator.Config(topicDiscoveryInterval = 0.millis),
-          Resource.pure[IO, Consumer[IO]](consumer),
-          start).use(identity).attempt
+        result <- Replicator.of[IO](
+          config = Replicator.Config(topicDiscoveryInterval = 0.millis),
+          consumer = Resource.pure[IO, Consumer[IO]](consumer),
+          topicReplicatorOf = start).use(identity).attempt
       } yield {
         result shouldEqual error.asLeft
       }

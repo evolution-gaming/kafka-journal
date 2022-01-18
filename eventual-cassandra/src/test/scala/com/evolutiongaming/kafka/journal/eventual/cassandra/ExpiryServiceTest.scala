@@ -1,18 +1,21 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
+import cats.effect.Poll
+import cats.effect.kernel.CancelScope
+
 import java.time.{Instant, LocalDate, ZoneOffset}
-import cats.effect.ExitCase
 import cats.syntax.all._
 import cats.{Id, catsInstancesForId}
 import com.evolutiongaming.kafka.journal.ExpireAfter
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.ExpireOn.implicits._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.ExpiryService.Action
-import com.evolutiongaming.kafka.journal.util.BracketFromMonad
+import com.evolutiongaming.kafka.journal.util.MonadCancelFromMonad
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
+import scala.util.Try
 import scala.util.control.NonFatal
 
 class ExpiryServiceTest extends AnyFunSuite with Matchers {
@@ -67,27 +70,25 @@ class ExpiryServiceTest extends AnyFunSuite with Matchers {
 
 object ExpiryServiceTest {
 
-  implicit val bracketId: BracketFromMonad[Id, Throwable] = new BracketFromMonad[Id, Throwable] {
+  implicit val bracketId: MonadCancelFromMonad[Id, Throwable] = new MonadCancelFromMonad[Id, Throwable] {
 
     def F = catsInstancesForId
 
-    def bracketCase[A, B](acquire: Id[A])(use: A => Id[B])(release: (A, ExitCase[Throwable]) => Id[Unit]) = {
-      flatMap(acquire) { a =>
-        try {
-          val b = use(a)
-          try release(a, ExitCase.Completed) catch { case NonFatal(_) => }
-          b
-        } catch {
-          case NonFatal(e) =>
-            release(a, ExitCase.Error(e))
-            raiseError(e)
-        }
-      }
-    }
+    override def rootCancelScope: CancelScope = CancelScope.Uncancelable
 
-    def raiseError[A](a: Throwable) = throw a
+    override def forceR[A, B](fa: Id[A])(fb: Id[B]): Id[B] = Try(fa).fold(_ => fb, _ => fb)
 
-    def handleErrorWith[A](fa: Id[A])(f: Throwable => Id[A]) = fa
+    override def uncancelable[A](body: Poll[Id] => Id[A]): Id[A] = body(new Poll[Id] {
+      override def apply[X](fa: Id[X]): Id[X] = fa
+    })
+
+    override def canceled: Id[Unit] = ().pure[Id]
+
+    override def onCancel[A](fa: Id[A], fin: Id[Unit]): Id[A] = fa
+
+    override def raiseError[A](e: Throwable): Id[A] = throw e
+
+    override def handleErrorWith[A](fa: Id[A])(f: Throwable => Id[A]): Id[A] = try { fa } catch { case NonFatal(e) => f(e) }
   }
 
   val timestamp: Instant = Instant.parse("2019-12-11T10:10:10.00Z")

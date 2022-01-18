@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.Parallel
-import cats.effect.{Clock, Concurrent, ContextShift, IO, Timer}
+import cats.effect.unsafe.implicits.global
+import cats.effect.{Clock, IO}
 import com.evolutiongaming.smetrics.MeasureDuration
 import org.scalatest.Succeeded
 
@@ -12,11 +12,6 @@ object IOSuite {
   val Timeout: FiniteDuration = 5.seconds
 
   implicit val executor: ExecutionContextExecutor = ExecutionContext.global
-
-  implicit val contextShiftIO: ContextShift[IO]     = IO.contextShift(executor)
-  implicit val concurrentIO: Concurrent[IO]         = IO.ioConcurrentEffect
-  implicit val timerIO: Timer[IO]                   = IO.timer(executor)
-  implicit val parallel: Parallel[IO]               = IO.ioParallel
   implicit val measureDuration: MeasureDuration[IO] = MeasureDuration.fromClock(Clock[IO])
 
   def runIO[A](io: IO[A], timeout: FiniteDuration = Timeout): Future[Succeeded.type] = {

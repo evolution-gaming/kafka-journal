@@ -1,23 +1,22 @@
 package com.evolutiongaming.kafka.journal
 
 
-import java.time.Instant
-import java.time.temporal.ChronoUnit
-
 import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
 import cats.effect.IO
-import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.kafka.journal.eventual.EventualJournal
-import com.evolutiongaming.kafka.journal.IOSuite._
-import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
+import cats.effect.syntax.resource._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{Log, LogOf}
+import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
+import com.evolutiongaming.kafka.journal.eventual.EventualJournal
+import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
 import com.evolutiongaming.smetrics.MeasureDuration
 import org.scalatest.wordspec.AsyncWordSpec
-import TestJsonCodec.instance
 
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import scala.concurrent.duration._
 
 class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
@@ -27,6 +26,8 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
   private val events = 1000
   private val origin = Origin("JournalPerfSpec")
   private val timestamp = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+
+  import cats.effect.unsafe.implicits.global
 
   private val journalOf = {
     eventualJournal: EventualJournal[IO] => {

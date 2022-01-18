@@ -5,16 +5,17 @@ import akka.persistence.kafka.journal.KafkaJournalConfig
 import cats.Parallel
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
+import cats.effect.syntax.resource._
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
-import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, ToFuture, ToTry}
+import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.conversions.KafkaWrite
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
 import com.evolutiongaming.kafka.journal.util._
+import com.evolutiongaming.retry.Sleep
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.Topic
@@ -27,11 +28,11 @@ import scala.concurrent.duration._
 object AppendReplicateApp extends IOApp {
 
   def run(args: List[String]): IO[ExitCode] = {
+    import cats.effect.unsafe.implicits.global
+
     val config = ConfigFactory.load("AppendReplicate.conf")
     val system = ActorSystem("AppendReplicateApp", config)
     implicit val ec = system.dispatcher
-    implicit val timer = IO.timer(ec)
-    implicit val parallel = IO.ioParallel
     implicit val measureDuration = MeasureDuration.fromClock(Clock[IO])
 
     val topic = "journal.AppendReplicate"
@@ -43,10 +44,8 @@ object AppendReplicateApp extends IOApp {
 
   private def runF[
     F[_]:
-    ConcurrentEffect:
-    Timer:
+    Async:
     Parallel:
-    ContextShift:
     ToFuture:
     FromGFuture:
     MeasureDuration:
@@ -118,7 +117,7 @@ object AppendReplicateApp extends IOApp {
   }
 
 
-  private def append[F[_]: Concurrent: Timer: Parallel](
+  private def append[F[_]: Concurrent: Sleep: Parallel](
     topic: Topic,
     journals: Journals[F])(implicit
     kafkaWrite: KafkaWrite[F, Payload]
@@ -134,7 +133,7 @@ object AppendReplicateApp extends IOApp {
           _      <- journals(key).append(Nel.of(event))
           result <- seqNr.next[Option].fold(().asRight[SeqNr].pure[F]) { seqNr =>
             for {
-              _ <- Timer[F].sleep(100.millis)
+              _ <- Sleep[F].sleep(100.millis)
             } yield {
               seqNr.asLeft[Unit]
             }

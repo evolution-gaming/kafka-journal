@@ -1,8 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.Apply
-import cats.effect.concurrent.Ref
-import cats.effect.{Concurrent, Resource}
+import cats.effect.{Concurrent, Ref, Resource}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.skafka.{Offset, Partition}

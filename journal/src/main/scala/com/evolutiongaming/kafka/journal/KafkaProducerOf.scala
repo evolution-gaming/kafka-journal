@@ -19,11 +19,11 @@ object KafkaProducerOf {
   def apply[F[_]](implicit F: KafkaProducerOf[F]): KafkaProducerOf[F] = F
 
 
-  def apply[F[_]: Concurrent: ContextShift: MeasureDuration: ToTry](
+  def apply[F[_]: Async: MeasureDuration: ToTry](
     blocking: ExecutionContext,
     metrics: Option[ProducerMetrics[F]] = None
   ): KafkaProducerOf[F] = {
-    val producerOf = ProducerOf.apply1(blocking, metrics)
+    val producerOf = ProducerOf.apply(blocking, metrics)
     apply(producerOf)
   }
 

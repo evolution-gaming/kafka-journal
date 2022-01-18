@@ -21,7 +21,7 @@ import scala.concurrent.ExecutionContext
 
 object IntegrationSuite {
 
-  def startF[F[_]: Concurrent: Timer: Parallel: ToFuture: ContextShift: LogOf: MeasureDuration: FromTry: ToTry: Fail](
+  def startF[F[_]: Async: ToFuture: LogOf: MeasureDuration: FromTry: ToTry: Fail](
     cassandraClusterOf: CassandraClusterOf[F]
   ): Resource[F, Unit] = {
 
@@ -73,6 +73,8 @@ object IntegrationSuite {
   }
 
   def startIO(cassandraClusterOf: CassandraClusterOf[IO]): Resource[IO, Unit] = {
+    import cats.effect.unsafe.implicits.global
+
     val logOf = LogOf.slf4j[IO]
     for {
       logOf  <- logOf.toResource
@@ -84,6 +86,8 @@ object IntegrationSuite {
   }
 
   private lazy val started: Unit = {
+    import cats.effect.unsafe.implicits.global
+
     val (_, release) = startIO(CassandraSuite.cassandraClusterOf).allocated.unsafeRunSync()
 
     val _ = sys.addShutdownHook { release.unsafeRunSync() }

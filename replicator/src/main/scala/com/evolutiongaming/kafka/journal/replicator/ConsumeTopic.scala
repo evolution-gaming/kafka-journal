@@ -2,12 +2,13 @@ package com.evolutiongaming.kafka.journal.replicator
 
 
 import cats.data.{NonEmptySet => Nes}
-import cats.effect.{Resource, Timer}
+import cats.effect.Resource
+import cats.effect.kernel.Clock
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.random.Random
-import com.evolutiongaming.retry.{OnError, Retry, Strategy}
+import com.evolutiongaming.retry.{OnError, Retry, Sleep, Strategy}
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer.{Consumer => _, _}
 
@@ -15,7 +16,7 @@ import scala.concurrent.duration._
 
 object ConsumeTopic {
 
-  def apply[F[_]: BracketThrowable: Timer](
+  def apply[F[_]: BracketThrowable: Clock: Sleep](
     topic: Topic,
     consumer: Resource[F, TopicConsumer[F]],
     topicFlowOf: TopicFlowOf[F],

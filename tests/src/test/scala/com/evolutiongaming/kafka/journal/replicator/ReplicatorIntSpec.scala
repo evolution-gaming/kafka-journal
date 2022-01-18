@@ -4,8 +4,8 @@ import java.time.Instant
 import cats.Parallel
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
+import cats.effect.syntax.resource._
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
@@ -33,6 +33,8 @@ import scala.util.control.NoStackTrace
 
 class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers {
 
+  import cats.effect.unsafe.implicits.global
+
   private val origin = Origin("ReplicatorIntSpec")
   private val version = Version.current
 
@@ -44,7 +46,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
   private implicit val randomIdOf = RandomIdOf.uuid[IO]
 
-  private def resources[F[_] : ConcurrentEffect : LogOf : Parallel : FromFuture : Timer : ToFuture : ContextShift : RandomIdOf : MeasureDuration : FromTry : ToTry : Fail](
+  private def resources[F[_]: Async : LogOf : Parallel : FromFuture : ToFuture : RandomIdOf : MeasureDuration : FromTry : ToTry : Fail](
     cassandraClusterOf: CassandraClusterOf[F]
   ) = {
 

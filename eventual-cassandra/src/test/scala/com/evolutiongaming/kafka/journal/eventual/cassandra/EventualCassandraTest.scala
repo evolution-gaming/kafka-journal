@@ -1,16 +1,15 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.data.{IndexedStateT, NonEmptyList => Nel}
-import cats.effect.ExitCase
+import cats.Id
+import cats.data.{NonEmptyList => Nel}
+import cats.effect.IO
 import cats.implicits._
 import cats.syntax.all.none
-import cats.{Id, Parallel}
-import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
-import com.evolutiongaming.kafka.journal.util.{BracketFromMonadError, ConcurrentOf}
+import com.evolutiongaming.kafka.journal.util.TestTemporal._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.sstream.FoldWhile._
 import com.evolutiongaming.sstream.Stream
@@ -24,6 +23,8 @@ import scala.util.Try
 
 class EventualCassandraTest extends AnyFunSuite with Matchers {
   import EventualCassandraTest._
+
+  import cats.effect.unsafe.implicits.global
 
   private val timestamp0 = Instant.now()
   private val timestamp1 = timestamp0 + 1.minute
@@ -77,8 +78,8 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
         pointers = Map(
           (topic0, Map((Partition.min, PointerEntry(Offset.unsafe(1), created = timestamp0, updated = timestamp1)))),
           (topic1, Map((Partition.min, PointerEntry(Offset.min, created = timestamp0, updated = timestamp0))))))
-      val result = stateT.run(State.empty)
-      result shouldEqual (expected, ()).pure[Try]
+      val result = stateT.run(State.empty).unsafeRunSync()
+      result shouldEqual (expected, ())
     }
 
 
@@ -111,8 +112,8 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
             created = timestamp0,
             updated = timestamp1,
             origin = origin.some))))))
-      val result = stateT.run(State.empty)
-      result shouldEqual (expected, ()).pure[Try]
+      val result = stateT.run(State.empty).unsafeRunSync()
+      result shouldEqual (expected, ())
     }
 
     for {
@@ -161,8 +162,8 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
           journal = Map(((key, SegmentNr.min), Map(
             ((record.seqNr, record.timestamp), record),
             ((record1.seqNr, record1.timestamp), record1)))))
-        val result = stateT.run(State.empty)
-        result shouldEqual (expected, ()).pure[Try]
+        val result = stateT.run(State.empty).unsafeRunSync()
+        result shouldEqual (expected, ())
       }
     }
 
@@ -189,7 +190,8 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
 
       stateT
         .run(State.empty)
-        .map { case (_, a) => a } shouldEqual ().pure[Try]
+        .map { case (_, a) => a }
+        .unsafeRunSync() shouldEqual ()
     }
   }
 }
@@ -444,36 +446,8 @@ object EventualCassandraTest {
     }
   }
 
-  implicit val bracket: BracketThrowable[StateT] = new BracketFromMonadError[StateT, Throwable] {
-
-    val F = IndexedStateT.catsDataMonadErrorForIndexedStateT(catsStdInstancesForTry)
-
-    def bracketCase[A, B](
-      acquire: StateT[A])(
-      use: A => StateT[B])(
-      release: (A, ExitCase[Throwable]) => StateT[Unit]
-    ) = {
-
-      def onError(a: A)(e: Throwable) = for {
-        _ <- release(a, ExitCase.error(e))
-        b <- raiseError[B](e)
-      } yield b
-
-      for {
-        a <- acquire
-        b <- handleErrorWith(use(a))(onError(a))
-        _ <- release(a, ExitCase.complete)
-      } yield b
-    }
-  }
-
-  implicit val parallel: Parallel[StateT] = Parallel.identity[StateT]
-
 
   def statementsOf(segmentNrsOf: SegmentNrsOf[StateT], segments: Segments): EventualCassandra.Statements[StateT] = {
-
-    implicit val concurrentStateT = ConcurrentOf.fromMonad[StateT]
-
     val metaJournalStatements = EventualCassandra.MetaJournalStatements.fromMetaJournal(
       segmentNrsOf = segmentNrsOf,
       journalHead = selectJournalHead0,
@@ -546,13 +520,13 @@ object EventualCassandraTest {
   }
 
 
-  type StateT[A] = cats.data.StateT[Try, State, A]
+  type StateT[A] = cats.data.StateT[IO, State, A]
 
   object StateT {
 
-    def apply[A](f: State => Try[(State, A)]): StateT[A] = cats.data.StateT[Try, State, A](f)
+    def apply[A](f: State => IO[(State, A)]): StateT[A] = cats.data.StateT[IO, State, A](f)
 
-    def success[A](f: State => (State, A)): StateT[A] = apply { s => f(s).pure[Try] }
+    def success[A](f: State => (State, A)): StateT[A] = apply { s => f(s).pure[IO] }
 
     def unit(f: State => State): StateT[Unit] = success[Unit] { a => (f(a), ()) }
   }

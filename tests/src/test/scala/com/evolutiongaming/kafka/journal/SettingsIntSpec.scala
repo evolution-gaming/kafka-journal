@@ -4,8 +4,7 @@ import akka.actor.ActorSystem
 import cats.Parallel
 import cats.effect._
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.ClockHelper._
+import cats.effect.syntax.resource._
 import com.evolutiongaming.catshelper.{FromFuture, LogOf}
 import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.kafka.journal.IOSuite._
@@ -33,7 +32,7 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
   }
 
 
-  private def resources[F[_]: Concurrent: LogOf: Parallel: FromFuture: Timer](
+  private def resources[F[_]: Async: LogOf: Parallel: FromFuture](
     origin: Option[Origin],
     cassandraClusterOf: CassandraClusterOf[F]
   ) = {
@@ -75,13 +74,13 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
   }
 
 
-  def test[F[_]: Concurrent: Parallel: FromFuture: Timer](cassandraClusterOf: CassandraClusterOf[F]): F[Unit] = {
+  def test[F[_]: Async: Parallel: FromFuture](cassandraClusterOf: CassandraClusterOf[F]): F[Unit] = {
 
     implicit val logOf = LogOf.empty[F]
 
     for {
       origin    <- Origin.hostName[F]
-      timestamp <- Clock[F].instant
+      timestamp <- Clock[F].realTimeInstant
       result    <- resources[F](origin, cassandraClusterOf).use { settings =>
 
         val setting = Setting(key = "key", value = "value", timestamp = timestamp, origin = origin)

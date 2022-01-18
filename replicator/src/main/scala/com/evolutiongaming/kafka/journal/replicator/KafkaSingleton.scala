@@ -1,14 +1,15 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
-import cats.effect.concurrent.Ref
+import cats.effect.Ref
 import cats.effect.implicits._
-import cats.effect.{Concurrent, Resource, Sync, Timer}
+import cats.effect.kernel.Clock
+import cats.effect.{Concurrent, Resource, Sync}
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, FromTry, Log}
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.{ConsRecord, KafkaConsumerOf}
+import com.evolutiongaming.retry.Sleep
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import scodec.bits.ByteVector
@@ -22,7 +23,7 @@ trait KafkaSingleton[F[_], A] {
 
 object KafkaSingleton {
 
-  def of[F[_]: Concurrent: Timer: KafkaConsumerOf: FromTry, A](
+  def of[F[_]: Concurrent: Clock: Sleep: KafkaConsumerOf: FromTry, A](
     topic: Topic,
     groupId: String,
     singleton: Resource[F, A],
@@ -40,7 +41,7 @@ object KafkaSingleton {
   }
 
 
-  def of[F[_]: Concurrent: Timer, A](
+  def of[F[_]: Concurrent: Clock: Sleep, A](
     topic: Topic,
     consumer: Resource[F, TopicConsumer[F]],
     singleton: Resource[F, A],
@@ -64,7 +65,7 @@ object KafkaSingleton {
   }
 
 
-  def topicFlowOf[F[_] : Sync, A](a: Resource[F, Unit]): TopicFlowOf[F] = {
+  def topicFlowOf[F[_] : Concurrent, A](a: Resource[F, Unit]): TopicFlowOf[F] = {
     _: Topic => {
       Resource
         .make {

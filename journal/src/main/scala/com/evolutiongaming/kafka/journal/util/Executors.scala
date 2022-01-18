@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.util
 import java.util.concurrent.ScheduledExecutorService
 
 import cats.effect.{Resource, Sync}
-import com.evolutiongaming.catshelper.CatsHelper._
+import cats.effect.syntax.resource._
 import com.evolutiongaming.catshelper.Runtime
 import com.evolutiongaming.kafka.journal.execution.{ForkJoinPoolOf, ScheduledExecutorServiceOf, ThreadFactoryOf, ThreadPoolOf}
 

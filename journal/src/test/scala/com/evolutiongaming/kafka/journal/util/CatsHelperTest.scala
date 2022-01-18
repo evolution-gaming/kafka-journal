@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal.util
 
-import cats.effect.concurrent.Deferred
-import cats.effect.{ExitCase, IO}
+import cats.effect.{Deferred, IO, Outcome}
 import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
@@ -26,14 +25,14 @@ class CatsHelperTest extends AsyncFunSuite with Matchers {
 
       d0 <- Deferred[IO, Unit]
       d1 <- Deferred[IO, Option[Int]]
-      d2 <- Deferred[IO, ExitCase[Throwable]]
+      d2 <- Deferred[IO, Outcome[IO, Throwable, Option[Int]]]
       a  <- d1
         .get
         .orElsePar {
           d0
             .complete(())
             .productR { IO.never.as(1.some) }
-            .guaranteeCase { a => d2.complete(a) }
+            .guaranteeCase { a => d2.complete(a).void }
         }
         .start
       _  <- d0.get
@@ -41,11 +40,11 @@ class CatsHelperTest extends AsyncFunSuite with Matchers {
       a  <- a.join
       _  <- IO { a shouldEqual 0.some }
       a  <- d2.get
-      _  <- IO { a shouldEqual ExitCase.Canceled }
+      _  <- IO { a shouldEqual Outcome.canceled }
 
       d0 <- Deferred[IO, Unit]
       d1 <- Deferred[IO, Either[Throwable, Option[Int]]]
-      d2 <- Deferred[IO, ExitCase[Throwable]]
+      d2 <- Deferred[IO, Outcome[IO, Throwable, Option[Int]]]
       a  <- d1
        .get
        .rethrow
@@ -53,7 +52,7 @@ class CatsHelperTest extends AsyncFunSuite with Matchers {
          d0
            .complete(())
            .productR { IO.never.as(1.some) }
-           .guaranteeCase { a => d2.complete(a) }
+           .guaranteeCase { a => d2.complete(a).void }
        }
        .start
       _  <- d0.get
@@ -62,7 +61,7 @@ class CatsHelperTest extends AsyncFunSuite with Matchers {
       a  <- a.join.attempt
       _  <- IO { a shouldEqual e.asLeft }
       a  <- d2.get
-      _  <- IO { a shouldEqual ExitCase.Canceled }
+      _  <- IO { a shouldEqual Outcome.canceled }
     } yield {}
     result.run()
   }

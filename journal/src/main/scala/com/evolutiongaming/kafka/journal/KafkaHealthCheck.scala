@@ -1,17 +1,16 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.effect._
-import cats.effect.concurrent.Ref
 import cats.effect.implicits._
 import cats.syntax.all._
 import cats.{Applicative, Functor, Monad}
-import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.evolutiongaming.skafka.producer.{ProducerConfig, ProducerRecord}
 
+import scala.concurrent.CancellationException
 import scala.concurrent.duration._
 
 trait KafkaHealthCheck[F[_]] {
@@ -31,7 +30,7 @@ object KafkaHealthCheck {
   }
   
 
-  def of[F[_] : Concurrent : Timer : LogOf : KafkaConsumerOf : KafkaProducerOf : RandomIdOf : FromTry](
+  def of[F[_] : Temporal : LogOf : KafkaConsumerOf : KafkaProducerOf : RandomIdOf : FromTry](
     config: Config,
     kafkaConfig: KafkaConfig
   ): Resource[F, KafkaHealthCheck[F]] = {
@@ -60,7 +59,7 @@ object KafkaHealthCheck {
       .flatten
   }
 
-  def of[F[_] : Concurrent : Timer](
+  def of[F[_] : Temporal](
     key: String,
     config: Config,
     stop: F[Boolean],
@@ -78,7 +77,11 @@ object KafkaHealthCheck {
     } yield {
       val result = new KafkaHealthCheck[F] {
         def error = ref.get
-        def done = fiber.join
+        def done = fiber.join.flatMap {
+          case Outcome.Succeeded(_) => Temporal[F].unit
+          case Outcome.Errored(e)   => Temporal[F].raiseError(e)
+          case Outcome.Canceled()   => Temporal[F].raiseError(new CancellationException("HealthCheck cancelled"))
+        }
       }
       (result, fiber.cancel)
     }
@@ -86,7 +89,7 @@ object KafkaHealthCheck {
     Resource(result)
   }
 
-  def run[F[_] : Concurrent : Timer](
+  def run[F[_] : Temporal](
     key: String,
     config: Config,
     stop: F[Boolean],
@@ -96,7 +99,7 @@ object KafkaHealthCheck {
     log: Log[F]
   ): F[Unit] = {
 
-    val sleep = Timer[F].sleep(config.interval)
+    val sleep = Temporal[F].sleep(config.interval)
 
     def produce(value: String) = {
       val record = Record(key = key.some, value = value.some)
@@ -150,7 +153,7 @@ object KafkaHealthCheck {
     }
 
     for {
-      _ <- Timer[F].sleep(config.initial)
+      _ <- Temporal[F].sleep(config.initial)
       _ <- consumer.subscribe(config.topic)
       _ <- consumer.poll(config.interval)
       _ <- produceConsume(0L) // warmup

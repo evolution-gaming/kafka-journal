@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.util
 
 import cats.MonadError
 
-trait BracketFromMonadError[F[_], E] extends BracketFromMonad[F, E] {
+trait MonadCancelFromMonadError[F[_], E] extends MonadCancelFromMonad[F, E] {
 
   def F: MonadError[F, E]
 
