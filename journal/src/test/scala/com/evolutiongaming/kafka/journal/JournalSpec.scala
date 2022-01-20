@@ -1,16 +1,17 @@
 package com.evolutiongaming.kafka.journal
 
-import java.time.Instant
+import cats.Monad
 import cats.data.{NonEmptyList => Nel}
+import cats.effect.kernel.Sync
 import cats.effect.{Clock, IO}
 import cats.syntax.all._
-import cats.{Id, Monad}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
+import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
-import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualPayloadAndType, EventualRead, EventualWrite, TopicPointers}
-import com.evolutiongaming.kafka.journal.util.{ConcurrentOf, Fail}
+import com.evolutiongaming.kafka.journal.eventual._
+import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
@@ -18,9 +19,8 @@ import com.evolutiongaming.sstream.Stream
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.{Assertion, Succeeded}
-import TestJsonCodec.instance
-import cats.effect.kernel.{CancelScope, Poll, Sync}
 
+import java.time.Instant
 import scala.collection.immutable.Queue
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}

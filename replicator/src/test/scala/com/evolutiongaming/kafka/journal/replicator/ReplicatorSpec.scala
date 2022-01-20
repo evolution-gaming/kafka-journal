@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.effect
 import cats.effect.kernel.Outcome
 import cats.effect.{IO, Resource}
 import cats.syntax.all._

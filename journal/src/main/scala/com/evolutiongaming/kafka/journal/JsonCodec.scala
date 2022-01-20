@@ -1,9 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
-import java.nio.charset.StandardCharsets
-
 import cats.syntax.all._
-import cats.{Applicative, ~>}
+import cats.~>
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, MonadThrowable}
 import com.evolutiongaming.jsonitertool.PlayJsonJsoniter
@@ -11,6 +9,7 @@ import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import play.api.libs.json.{JsValue, Json}
 import scodec.bits.ByteVector
 
+import java.nio.charset.StandardCharsets
 import scala.util.Try
 
 final case class JsonCodec[F[_]](
@@ -22,14 +21,14 @@ object JsonCodec {
   def summon[F[_]](implicit F: JsonCodec[F]): JsonCodec[F] = F
 
 
-  def playJson[F[_]: Applicative: FromTry]: JsonCodec[F] = {
+  def playJson[F[_]: FromTry]: JsonCodec[F] = {
     JsonCodec(
       encode = Encode.playJson,
       decode = Decode.playJson)
   }
 
 
-  def jsoniter[F[_]: Applicative: FromTry]: JsonCodec[F] = {
+  def jsoniter[F[_]: FromTry]: JsonCodec[F] = {
     JsonCodec(
       encode = Encode.jsoniter,
       decode = Decode.jsoniter)
@@ -58,7 +57,7 @@ object JsonCodec {
     implicit def fromCodec[F[_]](implicit codec: JsonCodec[F]): Encode[F] = codec.encode
 
 
-    def playJson[F[_]: Applicative: FromTry]: Encode[F] = {
+    def playJson[F[_]: FromTry]: Encode[F] = {
       Encode { value =>
         FromTry[F].unsafe {
           val bytes = Json.toBytes(value)
@@ -68,7 +67,7 @@ object JsonCodec {
     }
 
 
-    def jsoniter[F[_]: Applicative: FromTry]: Encode[F] = {
+    def jsoniter[F[_]: FromTry]: Encode[F] = {
       Encode { value =>
         FromTry[F].unsafe {
           val bytes = PlayJsonJsoniter.serialize(value)

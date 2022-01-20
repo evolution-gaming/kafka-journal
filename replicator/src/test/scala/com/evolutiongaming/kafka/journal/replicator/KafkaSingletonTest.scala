@@ -21,7 +21,7 @@ class KafkaSingletonTest extends AsyncFunSuite with Matchers {
     `allocate & release when partition assigned or revoked`[IO]().run()
   }
 
-  private def `allocate & release when partition assigned or revoked`[F[_] : Concurrent: Clock: Sleep](): F[Unit] = {
+  private def `allocate & release when partition assigned or revoked`[F[_] : Concurrent: Sleep](): F[Unit] = {
 
     val topic = "topic"
 

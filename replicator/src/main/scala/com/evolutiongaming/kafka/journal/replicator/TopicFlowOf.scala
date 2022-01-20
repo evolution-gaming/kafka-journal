@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal.replicator
 
+import cats.effect.syntax.resource._
 import cats.effect.{MonadCancel, Resource}
 import cats.syntax.all._
-import cats.{Applicative, Defer, ~>}
-import cats.effect.syntax.resource._
+import cats.{Applicative, ~>}
 import com.evolutiongaming.skafka.Topic
 
 trait TopicFlowOf[F[_]] {
@@ -21,9 +21,7 @@ object TopicFlowOf {
     def mapK[G[_]](f: F ~> G)
                   (implicit
                    B: MonadCancel[F, Throwable],
-                   BG: MonadCancel[G, Throwable],
-                   D: Defer[G],
-                   G: Applicative[G]): TopicFlowOf[G] = {
+                   BG: MonadCancel[G, Throwable]): TopicFlowOf[G] = {
       topic: Topic => self(topic).map(_.mapK(f)).mapK(f)
     }
   }

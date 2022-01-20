@@ -5,7 +5,7 @@ import cats.data.{NonEmptyMap => Nem}
 import cats.effect.Resource
 import cats.effect.syntax.all._
 import cats.syntax.all._
-import cats.{Applicative, Defer, Monad, ~>}
+import cats.{Applicative, Monad, ~>}
 import com.evolutiongaming.catshelper.{BracketThrowable, Log, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
@@ -72,9 +72,7 @@ object ReplicatedTopicJournal {
     def mapK[G[_]](
       f: F ~> G)(implicit
       B: BracketThrowable[F],
-      GT: BracketThrowable[G],
-      D: Defer[G],
-      G: Applicative[G]
+      GT: BracketThrowable[G]
     ): ReplicatedTopicJournal[G] = new ReplicatedTopicJournal[G] {
 
       def pointers = f(self.pointers)

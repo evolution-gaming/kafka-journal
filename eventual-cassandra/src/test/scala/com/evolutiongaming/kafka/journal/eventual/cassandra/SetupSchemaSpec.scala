@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.Monad
 import cats.implicits.catsStdInstancesForTry
 import cats.syntax.all._
 import com.datastax.driver.core.{Row, Statement}
@@ -127,7 +126,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers with TryValues {
   }
 
 
-  def migrate(fresh: Boolean)(implicit monad: Monad[StateT]): StateT[Unit] = {
+  def migrate(fresh: Boolean): StateT[Unit] = {
     SetupSchema.migrate[StateT](schema, fresh, settings, cassandraSync)
   }
 

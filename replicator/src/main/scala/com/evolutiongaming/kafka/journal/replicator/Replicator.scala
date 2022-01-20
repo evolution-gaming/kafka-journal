@@ -59,7 +59,7 @@ object Replicator {
 
   def of[
     F[_]
-    : Temporal : Parallel : Clock
+    : Temporal : Parallel
     : Runtime : FromTry : ToTry : Fail : LogOf
     : KafkaConsumerOf : MeasureDuration
     : JsonCodec
@@ -91,7 +91,7 @@ object Replicator {
     of[F](config = Config(config), consumer = consumer, topicReplicatorOf = topicReplicator)
   }
 
-  def of[F[_] : Concurrent : Clock : Sleep : Parallel : LogOf : MeasureDuration](
+  def of[F[_] : Concurrent : Sleep : Parallel : LogOf : MeasureDuration](
     config: Config,
     consumer: Resource[F, Consumer[F]],
     topicReplicatorOf: Topic => Resource[F, F[Outcome[F, Throwable, Unit]]]

@@ -1,7 +1,5 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.arrow.FunctionK
-
 import java.time.Instant
 import cats.data.IndexedStateT
 import cats.effect.kernel.{CancelScope, Poll}
@@ -65,13 +63,13 @@ object StreamActionRecordsSpec {
 
     override def rootCancelScope: CancelScope = CancelScope.Uncancelable
 
-    override def forceR[A, B](fa: StateT[A])(fb: StateT[B]): StateT[B] = fa.redeemWith(_ => fb, _ => fb)
+    override def forceR[A, B](fa: StateT[A])(fb: StateT[B]): StateT[B] = F.redeemWith(fa)(_ => fb, _ => fb)
 
     override def uncancelable[A](body: Poll[StateT] => StateT[A]): StateT[A] = body(new Poll[StateT] {
       override def apply[X](fa: StateT[X]): StateT[X] = fa
     })
 
-    override def canceled: StateT[Unit] = ().pure[StateT]
+    override def canceled: StateT[Unit] = F.unit
 
     override def onCancel[A](fa: StateT[A], fin: StateT[Unit]): StateT[A] = fa
   }

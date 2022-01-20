@@ -1,19 +1,17 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.{Defer, Parallel}
 import cats.data.{NonEmptySet => Nes}
-import cats.effect.kernel.Clock
-import cats.effect.{Concurrent, Deferred, Outcome, Ref, Resource, Sync}
 import cats.effect.syntax.all._
+import cats.effect._
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.CatsHelper._
+import cats.{Defer, Parallel}
 import com.evolutiongaming.catshelper.{FromTry, LogOf}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.Retry.implicits._
 import com.evolutiongaming.retry.{OnError, Sleep, Strategy}
-import com.evolutiongaming.skafka.{Partition, Topic, TopicPartition}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, RebalanceListener}
+import com.evolutiongaming.skafka.{Partition, Topic, TopicPartition}
 
 import scala.concurrent.duration._
 
@@ -29,7 +27,7 @@ object DistributeJob {
 
   type Assigned = Boolean
 
-  def apply[F[_]: Concurrent: Defer: Clock: Sleep: FromTry: LogOf: Parallel](
+  def apply[F[_]: Concurrent: Defer: Sleep: FromTry: LogOf: Parallel](
     groupId: String,
     topic: Topic,
     consumerConfig: ConsumerConfig,

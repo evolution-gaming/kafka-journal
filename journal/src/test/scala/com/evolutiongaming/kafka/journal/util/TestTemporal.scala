@@ -147,7 +147,7 @@ object TestTemporal {
         override def cancel: ST[Unit] = St.liftF(IO.unit.as(Success(())))
 
         override def join: ST[Outcome[ST, Throwable, A]] = {
-          fa.map(a => Success(Outcome.succeeded[ST, Throwable, A](of(s => IO.pure(s, a)))))
+          fa.map(a => Success(Outcome.succeeded[ST, Throwable, A](of(s => IO.pure((s, a))))))
         }
       }
 

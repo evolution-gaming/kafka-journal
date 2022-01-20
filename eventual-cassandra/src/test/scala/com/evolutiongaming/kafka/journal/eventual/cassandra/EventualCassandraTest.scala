@@ -79,7 +79,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
           (topic0, Map((Partition.min, PointerEntry(Offset.unsafe(1), created = timestamp0, updated = timestamp1)))),
           (topic1, Map((Partition.min, PointerEntry(Offset.min, created = timestamp0, updated = timestamp0))))))
       val result = stateT.run(State.empty).unsafeRunSync()
-      result shouldEqual (expected, ())
+      result shouldEqual ((expected, ()))
     }
 
 
@@ -113,7 +113,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
             updated = timestamp1,
             origin = origin.some))))))
       val result = stateT.run(State.empty).unsafeRunSync()
-      result shouldEqual (expected, ())
+      result shouldEqual ((expected, ()))
     }
 
     for {
@@ -163,7 +163,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
             ((record.seqNr, record.timestamp), record),
             ((record1.seqNr, record1.timestamp), record1)))))
         val result = stateT.run(State.empty).unsafeRunSync()
-        result shouldEqual (expected, ())
+        result shouldEqual ((expected, ()))
       }
     }
 
@@ -191,7 +191,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
       stateT
         .run(State.empty)
         .map { case (_, a) => a }
-        .unsafeRunSync() shouldEqual ()
+        .unsafeRunSync() shouldEqual (())
     }
   }
 }

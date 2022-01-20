@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import cats.Parallel
+import cats.effect.Resource
 import cats.effect.kernel.Temporal
 import cats.effect.syntax.resource._
-import cats.effect.{Concurrent, Resource}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.{BracketThrowable, Runtime}
 import com.evolutiongaming.scache

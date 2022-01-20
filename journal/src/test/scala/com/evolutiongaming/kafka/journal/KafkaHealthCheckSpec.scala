@@ -5,7 +5,6 @@ import cats.syntax.all._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.KafkaHealthCheck.Record
-import com.evolutiongaming.kafka.journal.util.TestTemporal
 import com.evolutiongaming.kafka.journal.util.TestTemporal._
 import com.evolutiongaming.skafka.Topic
 import org.scalatest.funsuite.AsyncFunSuite

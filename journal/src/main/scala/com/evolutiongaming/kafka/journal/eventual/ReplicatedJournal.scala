@@ -4,7 +4,7 @@ package com.evolutiongaming.kafka.journal.eventual
 import cats.effect.Resource
 import cats.effect.syntax.all._
 import cats.syntax.all._
-import cats.{Applicative, Defer, Monad, ~>}
+import cats.{Applicative, Monad, ~>}
 import com.evolutiongaming.catshelper.{BracketThrowable, Log, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.Topic
@@ -71,9 +71,7 @@ object ReplicatedJournal {
     def mapK[G[_]](
       f: F ~> G)(implicit
       B: BracketThrowable[F],
-      GT: BracketThrowable[G],
-      D: Defer[G],
-      G: Applicative[G]
+      GT: BracketThrowable[G]
     ): ReplicatedJournal[G] = new MapK with ReplicatedJournal[G] {
 
       def topics = f(self.topics)

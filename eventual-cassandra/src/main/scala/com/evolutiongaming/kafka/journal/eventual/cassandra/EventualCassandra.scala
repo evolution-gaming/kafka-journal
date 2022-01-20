@@ -1,11 +1,11 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.effect.kernel.{Async, Temporal}
+import cats.effect.syntax.resource._
 import cats.effect.{Concurrent, Resource}
 import cats.syntax.all._
 import cats.{Monad, Parallel}
-import cats.effect.syntax.resource._
-import com.evolutiongaming.catshelper.{LogOf, Runtime, ToTry}
+import com.evolutiongaming.catshelper.{LogOf, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig

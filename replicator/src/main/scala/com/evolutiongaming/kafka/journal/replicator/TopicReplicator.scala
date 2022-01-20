@@ -6,7 +6,6 @@ import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.effect._
 import cats.effect.implicits._
 import cats.implicits._
-import cats.Parallel
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, ToTry}
@@ -28,7 +27,7 @@ import scala.util.Try
 
 object TopicReplicator {
 
-  def of[F[_]: Concurrent: Clock: Sleep: ToTry: LogOf: Fail: MeasureDuration: JsonCodec](
+  def of[F[_]: Concurrent: Sleep: ToTry: LogOf: Fail: MeasureDuration: JsonCodec](
     topic: Topic,
     journal: ReplicatedJournal[F],
     consumer: Resource[F, TopicConsumer[F]],
@@ -73,7 +72,7 @@ object TopicReplicator {
     } yield done
   }
 
-  def of[F[_]: Concurrent: Clock: Sleep: MeasureDuration, A](
+  def of[F[_]: Concurrent: Sleep: MeasureDuration, A](
     topic: Topic,
     consumer: Resource[F, TopicConsumer[F]],
     consRecordToActionRecord: ConsRecordToActionRecord[F],
