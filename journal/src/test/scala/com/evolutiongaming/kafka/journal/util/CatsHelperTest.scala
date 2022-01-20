@@ -38,7 +38,7 @@ class CatsHelperTest extends AsyncFunSuite with Matchers {
       _  <- d0.get
       _  <- d1.complete(0.some)
       a  <- a.join
-      _  <- IO { a shouldEqual 0.some }
+      _  <- IO { a shouldEqual Outcome.succeeded(IO.pure(0.some)) }
       a  <- d2.get
       _  <- IO { a shouldEqual Outcome.canceled }
 
@@ -59,7 +59,7 @@ class CatsHelperTest extends AsyncFunSuite with Matchers {
       e   = new RuntimeException with NoStackTrace
       _  <- d1.complete(e.asLeft)
       a  <- a.join.attempt
-      _  <- IO { a shouldEqual e.asLeft }
+      _  <- IO { a shouldEqual Right(Outcome.errored(e)) }
       a  <- d2.get
       _  <- IO { a shouldEqual Outcome.canceled }
     } yield {}

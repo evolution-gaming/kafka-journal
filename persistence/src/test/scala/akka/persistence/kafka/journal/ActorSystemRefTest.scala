@@ -1,7 +1,7 @@
 package akka.persistence.kafka.journal
 
 import cats.arrow.FunctionK
-import cats.effect.{IO, Sync}
+import cats.effect.{IO, Outcome, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.ActorSuite
 import com.evolutiongaming.kafka.journal.IOSuite._
@@ -18,7 +18,7 @@ class ActorSystemRefTest extends AsyncFunSuite with ActorSuite with Matchers {
       a   <- ref.get.start
       _   <- ref.set(0)
       a   <- a.join
-      _    = a shouldEqual 0
+      _    = a shouldEqual Outcome.Succeeded(IO.pure(0))
       a   <- ref.get
       _    = a shouldEqual 0
       a   <- ref.set(0).attempt

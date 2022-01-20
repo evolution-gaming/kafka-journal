@@ -1,10 +1,12 @@
 package com.evolutiongaming.kafka.journal.util
 
+import cats.Monad
 import cats.arrow.FunctionK
-import cats.effect.kernel.{Poll, Unique}
 import cats.effect._
+import cats.effect.kernel.{Poll, Unique}
 import cats.syntax.all._
 
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 
@@ -27,7 +29,11 @@ object TestTemporal {
 
     override def realTime: StateT[S, FiniteDuration] = St.liftF(IO.realTime)
 
-    override def ref[A](a: A): ST[Ref[ST, A]] = of(s => Ref.of[StateT[S, *], A](a).run(s))
+    override def ref[A](a: A): ST[Ref[ST, A]] = St.liftF {
+      Ref.of[IO, A](a).map(_.mapK[ST](new FunctionK[IO, ST] {
+        override def apply[X](fa: IO[X]): ST[X] = St.liftF(fa)
+      }))
+    }
 
     override def deferred[A1]: ST[Deferred[ST, A1]] = St.liftF {
       Deferred[IO, A1].map(_.mapK[ST](new FunctionK[IO, ST] {
@@ -36,21 +42,32 @@ object TestTemporal {
     }
 
 
+    // We don't allow parallelism as parallel fibers will all have their own state and it will become inconsistent
     override def start[A](fa: StateT[S, A]): StateT[S, Fiber[StateT[S, *], Throwable, A]] = of { s =>
-      fa.run(s).map(_._2).start.map { fiber =>
-        val stateFiber = new Fiber[StateT[S, *], Throwable, A] {
-          override def cancel: StateT[S, Unit] = St.liftF(fiber.cancel)
+      val stateFiber = new Fiber[StateT[S, *], Throwable, A] {
+        val cancelled = new AtomicBoolean(false)
 
-          override def join: StateT[S, Outcome[StateT[S, *], Throwable, A]] =
-            St.liftF(fiber.join.map {
-              case Outcome.Succeeded(fa) => Outcome.succeeded[StateT[S, *], Throwable, A](St.liftF(fa))
-              case Outcome.Errored(e) => Outcome.errored(e)
-              case Outcome.Canceled() => Outcome.canceled
-            })
+        override def cancel: StateT[S, Unit] = St.liftF(IO.delay(cancelled.set(true)))
+
+        override def join: StateT[S, Outcome[StateT[S, *], Throwable, A]] = {
+          if (cancelled.get()) St.pure(Outcome.canceled[StateT[S, *], Throwable, A])
+          else fa.map(a => Outcome.succeeded[StateT[S, *], Throwable, A](pure(a))).handleErrorWith(e => raiseError(e))
         }
-        (s, stateFiber)
       }
+
+      IO.pure((s, stateFiber))
     }
+
+
+    override def racePair[A, B](fa: StateT[S, A], fb: StateT[S, B]): StateT[S, Either[
+      (Outcome[StateT[S, *], Throwable, A], Fiber[StateT[S, *], Throwable, B]),
+      (Fiber[StateT[S, *], Throwable, A], Outcome[StateT[S, *], Throwable, B])
+    ]] =
+      for {
+        fa <- start(fa)
+        fb <- start(fb)
+        result <- fa.join.map(outcome => Left((outcome, fb)))
+      } yield result
 
     override def never[A]: StateT[S, A] = St.liftF(IO.never)
 
@@ -78,14 +95,19 @@ object TestTemporal {
       fa.run(s).handleErrorWith(e => f(e).run(s))
     }
 
-    override def flatMap[A, B](fa: StateT[S, A])(f: A => StateT[S, B]): StateT[S, B] = fa.flatMap(f)
+    override def flatMap[A, B](fa: StateT[S, A])(f: A => StateT[S, B]): StateT[S, B] = St { s =>
+      fa.run(s).flatMap {
+        case (s1, a1) => f(a1).run(s1)
+      }
+    }
 
     override def tailRecM[A, B](a: A)(f: A => StateT[S, Either[A, B]]): StateT[S, B] = of { s =>
-      (a, s).tailRecM { case (a1, s1) =>
-        f(a1).run(s1).map {
-          case (s2, Left(a2)) => Left((a2, s2))
-          case (s2, Right(b)) => Right((s2, b))
-        }
+      Monad[IO].tailRecM((a, s)) {
+        case (a1, s1) =>
+          f(a1).run(s1).map {
+            case (s2, Left(a2)) => Left((a2, s2))
+            case (s2, Right(b)) => Right((s2, b))
+          }
       }
     }
 
@@ -107,7 +129,11 @@ object TestTemporal {
 
     override def realTime: ST[FiniteDuration] = St.liftF(IO.realTime.map(Success(_)))
 
-    override def ref[A](a: A): ST[Ref[ST, A]] = of(s => Ref.of[ST, A](a).run(s))
+    override def ref[A](a: A): ST[Ref[ST, A]] = St.liftF {
+      Ref.of[IO, A](a).map(_.mapK[ST](new FunctionK[IO, ST] {
+        override def apply[X](fa: IO[X]): ST[X] = St.liftF(fa.map(Success(_)))
+      }).pure[Try])
+    }
 
     override def deferred[A1]: ST[Deferred[ST, A1]] = St.liftF {
       Deferred[IO, A1].map(_.mapK[ST](new FunctionK[IO, ST] {
@@ -115,20 +141,17 @@ object TestTemporal {
       })).map(Success(_))
     }
 
+    // We don't allow parallelism as parallel fibers will all have their own state and it will become inconsistent
     override def start[A](fa: ST[A]): ST[Fiber[ST, Throwable, A]] = of { s =>
-      fa.run(s).map(_._2).start.map { fiber =>
-        val stateFiber: Fiber[ST, Throwable, A] = new Fiber[ST, Throwable, A] {
-          override def cancel: ST[Unit] = St.liftF(fiber.cancel.map(Success(_)))
+      val stateFiber = new Fiber[ST, Throwable, A] {
+        override def cancel: ST[Unit] = St.liftF(IO.unit.as(Success(())))
 
-          override def join: ST[Outcome[ST, Throwable, A]] =
-            St.liftF(fiber.join.map {
-              case Outcome.Succeeded(fa) => Success(Outcome.succeeded[ST, Throwable, A](St.liftF(fa)))
-              case Outcome.Errored(e)    => Failure(e)
-              case Outcome.Canceled()    => Success(Outcome.canceled)
-            })
+        override def join: ST[Outcome[ST, Throwable, A]] = {
+          fa.map(a => Success(Outcome.succeeded[ST, Throwable, A](of(s => IO.pure(s, a)))))
         }
-        (s, Success(stateFiber))
       }
+
+      IO.pure((s, Success(stateFiber)))
     }
 
     override def never[A]: ST[A] = St.liftF(IO.never)
@@ -167,9 +190,9 @@ object TestTemporal {
     override def tailRecM[A, B](a: A)(f: A => ST[Either[A, B]]): ST[B] = of { s =>
       (a, s).tailRecM { case (a1, s1) =>
         f(a1).run(s1).map {
-          case (s2, Success(Left(a2)))  => Left((a2, s2))
-          case (s2, Success(Right(b)))  => Right((s2, Success(b)))
-          case (s2, Failure(e))         => Right((s2, Failure(e)))
+          case (s2, Success(Left(a2))) => Left((a2, s2))
+          case (s2, Success(Right(b))) => Right((s2, Success(b)))
+          case (s2, Failure(e)) => Right((s2, Failure(e)))
         }
       }
     }

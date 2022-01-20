@@ -1,30 +1,31 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import java.time.Instant
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect._
 import cats.effect.syntax.resource._
+import cats.effect.unsafe.implicits.global
 import cats.syntax.all._
 import cats.{Applicative, Monoid, Parallel}
 import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.catshelper.{FromTry, Log}
-import com.evolutiongaming.kafka.journal.{ConsRecords, _}
-import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsRecordToActionRecord, KafkaRead, KafkaWrite}
-import com.evolutiongaming.kafka.journal.eventual.{EventualPayloadAndType, EventualWrite, ReplicatedJournal, ReplicatedKeyJournal, ReplicatedTopicJournal, TopicPointers}
-import com.evolutiongaming.kafka.journal.replicator.TopicReplicatorMetrics.Measurements
-import com.evolutiongaming.kafka.journal.util.{ConcurrentOf, Fail}
-import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.catshelper.DataHelper._
-import com.evolutiongaming.sstream.Stream
+import com.evolutiongaming.catshelper.{FromTry, Log}
+import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
+import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
+import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsRecordToActionRecord, KafkaRead, KafkaWrite}
+import com.evolutiongaming.kafka.journal.eventual._
+import com.evolutiongaming.kafka.journal.replicator.TopicReplicatorMetrics.Measurements
+import com.evolutiongaming.kafka.journal.util.{Fail, TestTemporal}
+import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.retry.Sleep
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, RebalanceListener, WithSize}
 import com.evolutiongaming.skafka.{Bytes => _, Header => _, Metadata => _, _}
 import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.sstream.Stream
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import play.api.libs.json.Json
-import TestJsonCodec.instance
-import com.evolutiongaming.retry.Sleep
 
+import java.time.Instant
 import scala.collection.immutable.SortedSet
 import scala.concurrent.duration._
 import scala.util.Try
@@ -36,6 +37,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
   "TopicReplicator" should {
 
     "replicate appends" in {
+
       val records = {
         val records = for {
           partition      <- 0 to 1
@@ -57,7 +59,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
 
       val data = State(records = List(records))
 
-      val (result, _) = topicReplicator.run(data).get
+      val (result, _) = topicReplicator.run(data).unsafeRunSync()
 
       result shouldEqual State(
         topics = List(topic),
@@ -103,7 +105,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
 
       val state = State(
         records = List(consumerRecords))
-      val (result, _) = topicReplicator.run(state).get
+      val (result, _) = topicReplicator.run(state).unsafeRunSync()
 
       result shouldEqual State(
         topics = List(topic),
@@ -151,7 +153,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       } yield record
 
       val data = State(records = records)
-      val (result, _) = topicReplicator.run(data).get
+      val (result, _) = topicReplicator.run(data).unsafeRunSync()
 
       result shouldEqual State(
         topics = List(topic),
@@ -247,7 +249,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       }
 
       val data = State(records = List(records))
-      val (result, _) = topicReplicator.run(data).get
+      val (result, _) = topicReplicator.run(data).unsafeRunSync()
 
       result shouldEqual State(
         topics = List(topic),
@@ -362,7 +364,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       }
 
       val data = State(records = List(records))
-      val (result, _) = topicReplicator.run(data).get
+      val (result, _) = topicReplicator.run(data).unsafeRunSync()
 
       result shouldEqual State(
         topics = List(topic),
@@ -457,7 +459,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       } yield result
 
       val data = State(records = records)
-      val (result, _) = topicReplicator.run(data).get
+      val (result, _) = topicReplicator.run(data).unsafeRunSync()
 
       result shouldEqual State(
         topics = List(topic),
@@ -517,7 +519,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
     "consume since replicated offset" in {
       val pointers = Map((topic, Map((0, 1L), (2, 2L))))
       val data = State(pointers = pointers)
-      val (result, _) = topicReplicator.run(data).get
+      val (result, _) = topicReplicator.run(data).unsafeRunSync()
       result shouldEqual State(
         topics = List(topic),
         pointers = pointers)
@@ -557,7 +559,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       val data = State(
         records = List(records),
         pointers = Map((topic, Map((0, 0L), (1, 1L), (2, 2L)))))
-      val (result, _) = topicReplicator.run(data).get
+      val (result, _) = topicReplicator.run(data).unsafeRunSync()
 
       result shouldEqual State(
         topics = List(topic),
@@ -607,7 +609,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       val data = State(
         records = List(consumerRecords),
         pointers = Map((topic, Map((0, 0L)))))
-      val (result, _) = topicReplicator.run(data).get
+      val (result, _) = topicReplicator.run(data).unsafeRunSync()
 
       result shouldEqual State(
         topics = List(topic),
@@ -628,7 +630,7 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       val state = State(
         records = List(consumerRecords),
         metaJournal = Map(metaJournalOf(key.id, partition = 0, offset = 0)))
-      val (result, _) = topicReplicator.run(state).get
+      val (result, _) = topicReplicator.run(state).unsafeRunSync()
 
       result shouldEqual State(
         topics = List(topic),
@@ -785,11 +787,13 @@ object TopicReplicatorSpec {
 
         def pointers = {
           StateT { state =>
-            val pointers = state
-              .pointers
-              .getOrElse(topic, Map.empty)
-              .map { case (partition, offset) => (Partition.unsafe(partition), Offset.unsafe(offset)) }
-            (state, TopicPointers(pointers))
+            IO.delay {
+              val pointers = state
+                .pointers
+                .getOrElse(topic, Map.empty)
+                .map { case (partition, offset) => (Partition.unsafe(partition), Offset.unsafe(offset)) }
+              (state, TopicPointers(pointers))
+            }
           }
         }
 
@@ -803,28 +807,31 @@ object TopicReplicatorSpec {
               events: Nel[EventRecord[EventualPayloadAndType]],
             ) = {
               StateT { state =>
-                val records = events.toList ++ state.journal.getOrElse(id, Nil)
+                IO.delay {
+                  val records = events.toList ++ state.journal.getOrElse(id, Nil)
 
-                val deleteTo = state.metaJournal.get(id).flatMap(_.deleteTo)
+                  val deleteTo = state.metaJournal.get(id).flatMap(_.deleteTo)
 
-                val metaJournal = MetaJournal(partitionOffset, deleteTo, expireAfter, events.last.origin)
+                  val metaJournal = MetaJournal(partitionOffset, deleteTo, expireAfter, events.last.origin)
 
-                val state1 = state.copy(
-                  journal = state.journal.updated(id, records),
-                  metaJournal = state.metaJournal.updated(id, metaJournal))
+                  val state1 = state.copy(
+                    journal = state.journal.updated(id, records),
+                    metaJournal = state.metaJournal.updated(id, metaJournal))
 
-                val updated = state.metaJournal.get(id).fold(true) { journalHead => partitionOffset.offset > journalHead.offset.offset }
+                  val updated = state.metaJournal.get(id).fold(true) { journalHead => partitionOffset.offset > journalHead.offset.offset }
 
-                (state1, updated)
+                  (state1, updated)
+                }
               }
             }
 
             def delete(partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: DeleteTo, origin: Option[Origin]) = {
               StateT { state =>
+                IO.delay {
+                  val deleted = state.metaJournal.get(id).fold(true) { journalHead => partitionOffset.offset > journalHead.offset.offset }
 
-                val deleted = state.metaJournal.get(id).fold(true) { journalHead => partitionOffset.offset > journalHead.offset.offset }
-
-                (state.delete(id, deleteTo, partitionOffset, origin), deleted)
+                  (state.delete(id, deleteTo, partitionOffset, origin), deleted)
+                }
               }
             }
 
@@ -833,13 +840,15 @@ object TopicReplicatorSpec {
               timestamp: Instant,
             ) = {
               StateT { state =>
-                val state1 = state.copy(
-                  journal = state.journal - id,
-                  metaJournal = state.metaJournal - id)
+                IO.delay {
+                  val state1 = state.copy(
+                    journal = state.journal - id,
+                    metaJournal = state.metaJournal - id)
 
-                val purged = state.metaJournal.get(id).fold(false) { journalHead => offset > journalHead.offset.offset }
+                  val purged = state.metaJournal.get(id).fold(false) { journalHead => offset > journalHead.offset.offset }
 
-                (state1, purged)
+                  (state1, purged)
+                }
               }
             }
           }
@@ -849,14 +858,16 @@ object TopicReplicatorSpec {
 
         def save(pointers: Nem[Partition, Offset], timestamp: Instant) = {
           StateT { state =>
-            val pointers1 = pointers
-              .toSortedMap
-              .map { case (partition, offset) => (partition.value, offset.value)}
-            val pointers2 = state
-              .pointers
-              .getOrElse(topic, Map.empty) ++ pointers1
-            val state1 = state.copy(pointers = state.pointers.updated(topic, pointers2))
-            (state1, true)
+            IO.delay {
+              val pointers1 = pointers
+                .toSortedMap
+                .map { case (partition, offset) => (partition.value, offset.value)}
+              val pointers2 = state
+                .pointers
+                .getOrElse(topic, Map.empty) ++ pointers1
+              val state1 = state.copy(pointers = state.pointers.updated(topic, pointers2))
+              (state1, true)
+            }
           }
         }
       }
@@ -871,7 +882,9 @@ object TopicReplicatorSpec {
   implicit val consumer: TopicConsumer[StateT] = new TopicConsumer[StateT] {
 
     def subscribe(listener: RebalanceListener[StateT]) = {
-      StateT { s => (s.subscribe(topic), ()) }
+      StateT { s =>
+        IO.delay((s.subscribe(topic), ()))
+      }
     }
 
     val commit = offsets => {
@@ -883,16 +896,18 @@ object TopicReplicatorSpec {
 
     def poll = {
       val records = StateT { state =>
-        state.records match {
-          case head :: tail =>
-            val records = for {
-              (partition, records) <- head.values
-            } yield {
-              (partition.partition, records)
-            }
-            (state.copy(records = tail), records.some)
-            
-          case Nil          => (state, none)
+        IO.delay {
+          state.records match {
+            case head :: tail =>
+              val records = for {
+                (partition, records) <- head.values
+              } yield {
+                (partition.partition, records)
+              }
+              (state.copy(records = tail), records.some)
+
+            case Nil          => (state, none)
+          }
         }
       }
       Stream.whileSome(records)
@@ -906,39 +921,50 @@ object TopicReplicatorSpec {
   implicit val metrics: TopicReplicatorMetrics[StateT] = new TopicReplicatorMetrics[StateT] {
 
     def append(events: Int, bytes: Long, measurements: Measurements) = {
-      StateT {
-        _ + Metrics.Append(
-          latency = measurements.replicationLatency,
-          events = events,
-          records = measurements.records)
+      StateT { s =>
+        IO.delay {
+          s + Metrics.Append(
+            latency = measurements.replicationLatency,
+            events = events,
+            records = measurements.records)
+        }
       }
     }
 
     def delete(measurements: Measurements) = {
-      StateT {
-        _ + Metrics.Delete(
-          latency = measurements.replicationLatency,
-          actions = measurements.records)
+      StateT { s =>
+        IO.delay {
+          s + Metrics.Delete(
+            latency = measurements.replicationLatency,
+            actions = measurements.records)
+        }
       }
     }
 
     def purge(measurements: Measurements) = {
-      StateT {
-        _ + Metrics.Purge(
-          latency = measurements.replicationLatency,
-          actions = measurements.records)
+      StateT { s =>
+        IO.delay {
+          s + Metrics.Purge(
+            latency = measurements.replicationLatency,
+            actions = measurements.records)
+        }
       }
     }
 
     def round(duration: FiniteDuration, records: Int) = {
-      StateT { _ + Metrics.Round(duration = duration, records = records) }
+      StateT { s =>
+        IO.delay {
+          s + Metrics.Round(duration = duration, records = records)
+        }
+      }
     }
   }
 
 
   val topicReplicator: StateT[Unit] = {
+    implicit val F: Concurrent[StateT] = TestTemporal.temporal[State]
+
     val millis = timestamp.toEpochMilli + replicationLatency.toMillis
-    implicit val concurrent = ConcurrentOf.fromMonad[StateT]
     implicit val fail = Fail.lift[StateT]
     implicit val fromTry = FromTry.lift[StateT]
     implicit val fromAttempt = FromAttempt.lift[StateT]
@@ -952,7 +978,7 @@ object TopicReplicatorSpec {
       def realTime: StateT[FiniteDuration] = clock.realTime
     }
 
-    implicit val measureDuration = MeasureDuration.fromClock(clock)
+    implicit val measureDuration = MeasureDuration.fromClock(Clock[StateT])
     val kafkaRead = KafkaRead.summon[StateT, Payload]
     val eventualWrite = EventualWrite.summon[StateT, Payload]
 
@@ -1015,15 +1041,17 @@ object TopicReplicatorSpec {
   }
 
 
-  type StateT[A] = cats.data.StateT[Try, State, A]
+  type StateT[A] = cats.data.StateT[IO, State, A]
 
   object StateT {
 
-    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[Try, State, A](a => f(a).pure[Try])
+    def apply[A](f: State => IO[(State, A)]): StateT[A] = cats.data.StateT[IO, State, A](a => f(a))
 
     def unit(f: State => State): StateT[Unit] = apply { state =>
-      val state1 = f(state)
-      (state1, ())
+      IO.delay {
+        val state1 = f(state)
+        (state1, ())
+      }
     }
   }
 

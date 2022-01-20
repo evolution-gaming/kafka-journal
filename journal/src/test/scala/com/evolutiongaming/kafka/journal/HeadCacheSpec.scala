@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
-import cats.effect.{Concurrent, IO, Ref, Resource, Temporal}
+import cats.effect.{Concurrent, IO, Outcome, Ref, Resource, Temporal}
 import cats.effect.syntax.resource._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.Log
@@ -116,7 +116,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
               state.enqueue(records.pure[Try])
             }
             result <- result.join
-            _       = result shouldEqual HeadInfo.empty.asRight
+            _       = result shouldEqual Outcome.succeeded(IO.pure(HeadInfo.empty.asRight))
             state  <- stateRef.get
           } yield {
             state shouldEqual TestConsumer.State(
@@ -343,7 +343,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
           } yield a
         }
         a <- a.join.attempt
-        _  = a shouldEqual HeadCacheReleasedError.asLeft
+        _  = a shouldEqual Right(Outcome.errored(HeadCacheReleasedError))
       } yield {}
       result.run()
     }
