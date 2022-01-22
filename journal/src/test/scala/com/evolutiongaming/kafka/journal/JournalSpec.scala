@@ -302,7 +302,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
 
                 val replicatedState = state.replicatedState(record, Offset.of[Try](offset.value - n) getOrElse Offset.min)
                 val state1 = state.copy(records = records, replicatedState = replicatedState)
-                (state1, partitionOffset).pure[IO]
+                (state1, partitionOffset)
               }
             }
           }
@@ -336,7 +336,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
                   action <- actions.lastOption
                 } yield state.replicatedState(action)
                 val state1 = state.copy(records = records, replicatedState = replicatedState getOrElse state.replicatedState)
-                (state1, partitionOffset).pure[IO]
+                (state1, partitionOffset)
               }
             }
           }
@@ -375,7 +375,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
                 val state1 = state.copy(
                   records = records,
                   replicatedState = replicatedState getOrElse state.replicatedState)
-                (state1, partitionOffset).pure[IO]
+                (state1, partitionOffset)
               }
             }
           }
@@ -530,14 +530,14 @@ object JournalSpec {
             TopicPointers(pointers)
           }
 
-          (state, topicPointers).pure[IO]
+          (state, topicPointers)
         }
       }
 
       def read(key: Key, from: SeqNr) = {
         val events = StateT { state =>
           val events = state.replicatedState.events.toList.filter(_.seqNr >= from)
-          (state, events).pure[IO]
+          (state, events)
         }
 
         for {
@@ -560,7 +560,7 @@ object JournalSpec {
             JournalPointer(partitionOffset, seqNr)
           }
 
-          (state, pointer).pure[IO]
+          (state, pointer)
         }
       }
 
@@ -575,7 +575,7 @@ object JournalSpec {
         (state.recordsToRead.dequeueOption match {
           case Some((record, records)) => (state.copy(recordsToRead = records), Stream[StateT].single(record))
           case None                    => (state, Stream[StateT].empty[ActionRecord[Action]])
-        }).pure[IO]
+        })
       }
       Stream.repeat(result).flatten
     }
@@ -602,7 +602,7 @@ object JournalSpec {
 
           val replicatedState = state.replicatedState(record)
           val state1 = state.copy(records = records, replicatedState = replicatedState)
-          (state1, partitionOffset).pure[IO]
+          (state1, partitionOffset)
         }
       }
     }
@@ -615,14 +615,16 @@ object JournalSpec {
           val headInfo = state
             .records
             .foldLeft(HeadInfo.empty) { (info, record) => info(record.action.header, record.offset) }
-          (state, headInfo.asRight).pure[IO]
+          (state, headInfo.asRight)
         }
       }
     }
 
-    def apply[A](f: State => IO[(State, A)]): StateT[A] = cats.data.StateT[IO, State, A](f)
+    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[IO, State, A](s => IO.delay(f(s)))
 
-    def stream[A](f: State => IO[(State, Stream[StateT, A])]): Stream[StateT, A] = Stream.lift(apply(f)).flatten
+    def of[A](f: State => IO[(State, A)]): StateT[A] = cats.data.StateT[IO, State, A](s => f(s))
+
+    def stream[A](f: State => IO[(State, Stream[StateT, A])]): Stream[StateT, A] = Stream.lift(of(f)).flatten
   }
 
 

@@ -787,13 +787,11 @@ object TopicReplicatorSpec {
 
         def pointers = {
           StateT { state =>
-            IO.delay {
-              val pointers = state
-                .pointers
-                .getOrElse(topic, Map.empty)
-                .map { case (partition, offset) => (Partition.unsafe(partition), Offset.unsafe(offset)) }
-              (state, TopicPointers(pointers))
-            }
+            val pointers = state
+              .pointers
+              .getOrElse(topic, Map.empty)
+              .map { case (partition, offset) => (Partition.unsafe(partition), Offset.unsafe(offset)) }
+            (state, TopicPointers(pointers))
           }
         }
 
@@ -807,31 +805,27 @@ object TopicReplicatorSpec {
               events: Nel[EventRecord[EventualPayloadAndType]],
             ) = {
               StateT { state =>
-                IO.delay {
-                  val records = events.toList ++ state.journal.getOrElse(id, Nil)
+                val records = events.toList ++ state.journal.getOrElse(id, Nil)
 
-                  val deleteTo = state.metaJournal.get(id).flatMap(_.deleteTo)
+                val deleteTo = state.metaJournal.get(id).flatMap(_.deleteTo)
 
-                  val metaJournal = MetaJournal(partitionOffset, deleteTo, expireAfter, events.last.origin)
+                val metaJournal = MetaJournal(partitionOffset, deleteTo, expireAfter, events.last.origin)
 
-                  val state1 = state.copy(
-                    journal = state.journal.updated(id, records),
-                    metaJournal = state.metaJournal.updated(id, metaJournal))
+                val state1 = state.copy(
+                  journal = state.journal.updated(id, records),
+                  metaJournal = state.metaJournal.updated(id, metaJournal))
 
-                  val updated = state.metaJournal.get(id).fold(true) { journalHead => partitionOffset.offset > journalHead.offset.offset }
+                val updated = state.metaJournal.get(id).fold(true) { journalHead => partitionOffset.offset > journalHead.offset.offset }
 
-                  (state1, updated)
-                }
+                (state1, updated)
               }
             }
 
             def delete(partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: DeleteTo, origin: Option[Origin]) = {
               StateT { state =>
-                IO.delay {
-                  val deleted = state.metaJournal.get(id).fold(true) { journalHead => partitionOffset.offset > journalHead.offset.offset }
+                val deleted = state.metaJournal.get(id).fold(true) { journalHead => partitionOffset.offset > journalHead.offset.offset }
 
-                  (state.delete(id, deleteTo, partitionOffset, origin), deleted)
-                }
+                (state.delete(id, deleteTo, partitionOffset, origin), deleted)
               }
             }
 
@@ -840,15 +834,13 @@ object TopicReplicatorSpec {
               timestamp: Instant,
             ) = {
               StateT { state =>
-                IO.delay {
-                  val state1 = state.copy(
-                    journal = state.journal - id,
-                    metaJournal = state.metaJournal - id)
+                val state1 =state.copy(
+                  journal = state.journal - id,
+                  metaJournal = state.metaJournal - id)
 
-                  val purged = state.metaJournal.get(id).fold(false) { journalHead => offset > journalHead.offset.offset }
+                val purged = state.metaJournal.get(id).fold(false) { journalHead => offset > journalHead.offset.offset }
 
-                  (state1, purged)
-                }
+                (state1, purged)
               }
             }
           }
@@ -858,16 +850,14 @@ object TopicReplicatorSpec {
 
         def save(pointers: Nem[Partition, Offset], timestamp: Instant) = {
           StateT { state =>
-            IO.delay {
-              val pointers1 = pointers
-                .toSortedMap
-                .map { case (partition, offset) => (partition.value, offset.value)}
-              val pointers2 = state
-                .pointers
-                .getOrElse(topic, Map.empty) ++ pointers1
-              val state1 = state.copy(pointers = state.pointers.updated(topic, pointers2))
-              (state1, true)
-            }
+            val pointers1 = pointers
+              .toSortedMap
+              .map { case (partition, offset) => (partition.value, offset.value)}
+            val pointers2 = state
+              .pointers
+              .getOrElse(topic, Map.empty) ++ pointers1
+            val state1 = state.copy(pointers = state.pointers.updated(topic, pointers2))
+            (state1, true)
           }
         }
       }
@@ -883,7 +873,7 @@ object TopicReplicatorSpec {
 
     def subscribe(listener: RebalanceListener[StateT]) = {
       StateT { s =>
-        IO.delay((s.subscribe(topic), ()))
+        (s.subscribe(topic), ())
       }
     }
 
@@ -896,18 +886,16 @@ object TopicReplicatorSpec {
 
     def poll = {
       val records = StateT { state =>
-        IO.delay {
-          state.records match {
-            case head :: tail =>
-              val records = for {
-                (partition, records) <- head.values
-              } yield {
-                (partition.partition, records)
-              }
-              (state.copy(records = tail), records.some)
+        state.records match {
+          case head :: tail =>
+            val records = for {
+              (partition, records) <- head.values
+            } yield {
+              (partition.partition, records)
+            }
+            (state.copy(records = tail), records.some)
 
-            case Nil          => (state, none)
-          }
+          case Nil          => (state, none)
         }
       }
       Stream.whileSome(records)
@@ -922,40 +910,32 @@ object TopicReplicatorSpec {
 
     def append(events: Int, bytes: Long, measurements: Measurements) = {
       StateT { s =>
-        IO.delay {
-          s + Metrics.Append(
-            latency = measurements.replicationLatency,
-            events = events,
-            records = measurements.records)
+        s + Metrics.Append(
+          latency = measurements.replicationLatency,
+          events = events,
+          records = measurements.records)
         }
-      }
     }
 
     def delete(measurements: Measurements) = {
       StateT { s =>
-        IO.delay {
-          s + Metrics.Delete(
-            latency = measurements.replicationLatency,
-            actions = measurements.records)
+        s + Metrics.Delete(
+          latency = measurements.replicationLatency,
+          actions = measurements.records)
         }
-      }
     }
 
     def purge(measurements: Measurements) = {
       StateT { s =>
-        IO.delay {
-          s + Metrics.Purge(
-            latency = measurements.replicationLatency,
-            actions = measurements.records)
+        s + Metrics.Purge(
+          latency = measurements.replicationLatency,
+          actions = measurements.records)
         }
-      }
     }
 
     def round(duration: FiniteDuration, records: Int) = {
       StateT { s =>
-        IO.delay {
-          s + Metrics.Round(duration = duration, records = records)
-        }
+        s + Metrics.Round(duration = duration, records = records)
       }
     }
   }
@@ -1045,13 +1025,11 @@ object TopicReplicatorSpec {
 
   object StateT {
 
-    def apply[A](f: State => IO[(State, A)]): StateT[A] = cats.data.StateT[IO, State, A](a => f(a))
+    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[IO, State, A](a => IO.delay(f(a)))
 
     def unit(f: State => State): StateT[Unit] = apply { state =>
-      IO.delay {
-        val state1 = f(state)
-        (state1, ())
-      }
+      val state1 = f(state)
+      (state1, ())
     }
   }
 

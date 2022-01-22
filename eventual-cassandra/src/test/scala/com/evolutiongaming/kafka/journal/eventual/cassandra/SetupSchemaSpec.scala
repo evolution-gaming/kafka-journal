@@ -67,14 +67,14 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers with TryValues {
           } yield {
             settingOf(key, version)
           }
-          (state, setting).pure
+          (state, setting)
         }
       }
 
       def set(key: K, value: V) = {
         StateT { state =>
           val setting = state.version.map { version => settingOf(key, version) }
-          (state.copy(version = value.some), setting).pure
+          (state.copy(version = value.some), setting)
         }
       }
 
@@ -83,10 +83,10 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers with TryValues {
           state.version match {
             case Some(version) =>
               val setting = settingOf(key, version)
-              (state, setting.some).pure
+              (state, setting.some)
             case None =>
               val state1 = state.copy(version = value.some)
-              (state1, none[Setting]).pure
+              (state1, none[Setting])
           }
         }
       }
@@ -105,7 +105,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers with TryValues {
       val stateT = StateT { state =>
         val state1 = state.add(Action.Query)
         val rows = Stream.empty[StateT, Row]
-        (state1, rows).pure
+        (state1, rows)
       }
       Stream.lift(stateT).flatten
     }
@@ -120,7 +120,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers with TryValues {
         val state1 = state.add(Action.SyncStart)
         val (state2, a) = fa.run(state1).get
         val state3 = state2.add(Action.SyncEnd)
-        (state3, a).pure
+        (state3, a)
       }
     }
   }
@@ -143,7 +143,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers with TryValues {
   type StateT[A] = cats.data.StateT[Try, State, A]
 
   object StateT {
-    def apply[A](f: State => Try[(State, A)]): StateT[A] = cats.data.StateT[Try, State, A](f)
+    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[Try, State, A](s => Try(f(s)))
   }
 
 

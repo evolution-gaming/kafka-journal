@@ -123,16 +123,18 @@ object ConsumeTopicTest {
 
   object StateT {
 
-    def apply[A](f: State => IO[(State, Try[A])]): StateT[A] = {
-      cats.data.StateT[IO, State, Try[A]](f)
+    def of[A](f: State => IO[(State, Try[A])]): StateT[A] = {
+      cats.data.StateT[IO, State, Try[A]](s => f(s))
+    }
+
+    def apply[A](f: State => (State, Try[A])): StateT[A] = {
+      cats.data.StateT[IO, State, Try[A]](s => IO.delay(f(s)))
     }
 
     def pure[A](f: State => (State, A)): StateT[A] = {
       apply { state =>
-        IO.delay {
-          val (state1, a) = f(state)
-          (state1, a.pure[Try])
-        }
+        val (state1, a) = f(state)
+        (state1, a.pure[Try])
       }
     }
 
@@ -231,9 +233,9 @@ object ConsumeTopicTest {
           }
         }
 
-        val stateT = StateT { state =>
+        val stateT = StateT.of { state =>
           state.commands match {
-            case Nil => IO.delay((state, none[Map[Partition, Nel[ConsRecord]]].pure[Try]))
+            case Nil => (state, none[Map[Partition, Nel[ConsRecord]]].pure[Try]).pure[IO]
             case command :: commands => apply(state.copy(commands = commands), command)
           }
         }

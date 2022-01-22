@@ -55,10 +55,8 @@ class KafkaHealthCheckSpec extends AsyncFunSuite with Matchers {
 
   test("periodic healthcheck") {
     val stop = apply { data =>
-      IO.delay {
-        val data1 = data.copy(checks = data.checks - 1)
-        (data1, data1.checks <= 0)
-      }
+      val data1 = data.copy(checks = data.checks - 1)
+      (data1, data1.checks <= 0)
     }
     val healthCheck = KafkaHealthCheck.of[StateT](
       key = "key",
@@ -103,10 +101,8 @@ object KafkaHealthCheckSpec {
     val log: Log[StateT] = {
 
       def add(log: String) = StateT[Unit] { data =>
-        IO.delay {
-          val data1 = data.copy(logs = log :: data.logs)
-          (data1, ())
-        }
+        val data1 = data.copy(logs = log :: data.logs)
+        (data1, ())
       }
 
       new Log[StateT] {
@@ -131,21 +127,17 @@ object KafkaHealthCheckSpec {
 
       def subscribe(topic: Topic) = {
         apply { data =>
-          IO.delay {
-            val data1 = data.copy(subscribed = topic.some)
-            (data1, ())
-          }
+          val data1 = data.copy(subscribed = topic.some)
+          (data1, ())
         }
       }
 
       def poll(timeout: FiniteDuration) = {
         StateT { data =>
-          IO.delay {
-            if (data.records.size >= 2) {
-              (data.copy(records = List.empty), data.records)
-            } else {
-              (data, List.empty)
-            }
+          if (data.records.size >= 2) {
+            (data.copy(records = List.empty), data.records)
+          } else {
+            (data, List.empty)
           }
         }
       }
@@ -162,7 +154,7 @@ object KafkaHealthCheckSpec {
       }
     }
 
-    def apply[A](f: State => IO[(State, A)]): StateT[A] = cats.data.StateT[IO, State, A](data => f(data))
+    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[IO, State, A](data => IO.delay(f(data)))
 
   }
 
