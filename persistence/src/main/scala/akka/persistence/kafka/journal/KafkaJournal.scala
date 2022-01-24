@@ -29,8 +29,8 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
   implicit val system       : ActorSystem              = context.system
   implicit val executor     : ExecutionContextExecutor = context.dispatcher
 
-  private val (blocking, blockingShutdown)   = IORuntime.createDefaultBlockingExecutionContext()
-  private val (scheduler, schedulerShutdown) = IORuntime.createDefaultScheduler()
+  private val (blocking, blockingShutdown)   = IORuntime.createDefaultBlockingExecutionContext("kafka-journal-blocking")
+  private val (scheduler, schedulerShutdown) = IORuntime.createDefaultScheduler("kafka-journal-scheduler")
   implicit val ioRuntime: IORuntime = IORuntime(
     compute = executor,
     blocking = blocking,
