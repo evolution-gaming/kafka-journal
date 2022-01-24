@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.{Instant, LocalDate, ZoneOffset}
+import java.util.concurrent.TimeUnit
 import cats.data.{IndexedStateT, NonEmptyList => Nel, NonEmptyMap => Nem}
 import cats.effect.{Poll, Sync}
 import cats.effect.kernel.CancelScope
@@ -1345,9 +1346,9 @@ object ReplicatedCassandraTest {
 
     override def suspend[A](hint: Sync.Type)(thunk: => A): StateT[A] = cats.data.StateT.pure(thunk)
 
-    override def monotonic: StateT[FiniteDuration] = ???
+    override def monotonic: StateT[FiniteDuration] = cats.data.StateT.pure(FiniteDuration(System.nanoTime(), TimeUnit.NANOSECONDS))
 
-    override def realTime: StateT[FiniteDuration] = ???
+    override def realTime: StateT[FiniteDuration] = cats.data.StateT.pure(FiniteDuration(System.currentTimeMillis(), TimeUnit.MILLISECONDS))
   }
 
   implicit val parallel: Parallel[StateT] = Parallel.identity[StateT]
