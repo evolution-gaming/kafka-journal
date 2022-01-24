@@ -12,14 +12,14 @@ import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer.{RebalanceListener, WithSize}
 import com.evolutiongaming.sstream.Stream
-import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.NoStackTrace
 
-class ConsumeTopicTest extends AnyFunSuite with Matchers {
+class ConsumeTopicTest extends AsyncFunSuite with Matchers {
 
   import ConsumeTopicTest._
 
@@ -30,18 +30,19 @@ class ConsumeTopicTest extends AnyFunSuite with Matchers {
       Command.ProduceRecords(Map.empty),
       Command.ProduceRecords(recordsOf(recordOf(partition = 0, offset = 0)).toSortedMap)))
 
-    val (result, _) = subscriptionFlow.run(state).unsafeRunSync()
-
-    result shouldEqual State(
-      actions = List(
-        Action.ReleaseConsumer,
-        Action.ReleaseTopicFlow(topic),
-        Action.Commit(Nem.of((Partition.min, Offset.min))),
-        Action.Poll(recordsOf(recordOf(partition = 0, offset = 0))),
-        Action.AssignPartitions(partitions),
-        Action.Subscribe()(RebalanceListener.empty[StateT]),
-        Action.AcquireTopicFlow(topic),
-        Action.AcquireConsumer))
+    subscriptionFlow.run(state).unsafeToFuture().map {
+      case (result, _) => 
+        result shouldEqual State(
+          actions = List(
+            Action.ReleaseConsumer,
+            Action.ReleaseTopicFlow(topic),
+            Action.Commit(Nem.of((Partition.min, Offset.min))),
+            Action.Poll(recordsOf(recordOf(partition = 0, offset = 0))),
+            Action.AssignPartitions(partitions),
+            Action.Subscribe()(RebalanceListener.empty[StateT]),
+            Action.AcquireTopicFlow(topic),
+            Action.AcquireConsumer))
+    }
   }
 
 
@@ -54,25 +55,26 @@ class ConsumeTopicTest extends AnyFunSuite with Matchers {
       Command.ProduceRecords(Map.empty),
       Command.ProduceRecords(recordsOf(recordOf(partition = 0, offset = 0)).toSortedMap)))
 
-    val (result, _) = subscriptionFlow.run(state).unsafeRunSync()
-
-    result shouldEqual State(
-      actions = List(
-        Action.ReleaseConsumer,
-        Action.ReleaseTopicFlow(topic),
-        Action.Commit(Nem.of((Partition.min, Offset.min))),
-        Action.Poll(recordsOf(recordOf(partition = 0, offset = 0))),
-        Action.AssignPartitions(partitions),
-        Action.Subscribe()(RebalanceListener.empty),
-        Action.AcquireTopicFlow(topic),
-        Action.AcquireConsumer,
-        Action.RetryOnError(Error, OnError.Decision.retry(1.millis)),
-        Action.ReleaseConsumer,
-        Action.ReleaseTopicFlow(topic),
-        Action.AssignPartitions(partitions),
-        Action.Subscribe()(RebalanceListener.empty),
-        Action.AcquireTopicFlow(topic),
-        Action.AcquireConsumer))
+    subscriptionFlow.run(state).unsafeToFuture().map {
+      case (result, _) =>
+        result shouldEqual State(
+          actions = List(
+            Action.ReleaseConsumer,
+            Action.ReleaseTopicFlow(topic),
+            Action.Commit(Nem.of((Partition.min, Offset.min))),
+            Action.Poll(recordsOf(recordOf(partition = 0, offset = 0))),
+            Action.AssignPartitions(partitions),
+            Action.Subscribe()(RebalanceListener.empty),
+            Action.AcquireTopicFlow(topic),
+            Action.AcquireConsumer,
+            Action.RetryOnError(Error, OnError.Decision.retry(1.millis)),
+            Action.ReleaseConsumer,
+            Action.ReleaseTopicFlow(topic),
+            Action.AssignPartitions(partitions),
+            Action.Subscribe()(RebalanceListener.empty),
+            Action.AcquireTopicFlow(topic),
+            Action.AcquireConsumer))
+    }
   }
 
 
@@ -84,20 +86,21 @@ class ConsumeTopicTest extends AnyFunSuite with Matchers {
       Command.RevokePartitions(Nes.of(Partition.unsafe(1), Partition.unsafe(2))),
       Command.ProduceRecords(recordsOf(recordOf(partition = 0, offset = 0)).toSortedMap)))
 
-    val (result, _) = subscriptionFlow.run(state).unsafeRunSync()
-
-    result shouldEqual State(
-      actions = List(
-        Action.ReleaseConsumer,
-        Action.ReleaseTopicFlow(topic),
-        Action.Commit(Nem.of((Partition.min, Offset.min))),
-        Action.Poll(recordsOf(recordOf(partition = 0, offset = 0))),
-        Action.RevokePartitions(Nes.of(Partition.unsafe(1), Partition.unsafe(2))),
-        Action.AssignPartitions(Nes.of(Partition.unsafe(2))),
-        Action.AssignPartitions(Nes.of(Partition.unsafe(1))),
-        Action.Subscribe()(RebalanceListener.empty[StateT]),
-        Action.AcquireTopicFlow(topic),
-        Action.AcquireConsumer))
+    subscriptionFlow.run(state).unsafeToFuture().map {
+      case (result, _) =>
+        result shouldEqual State(
+          actions = List(
+            Action.ReleaseConsumer,
+            Action.ReleaseTopicFlow(topic),
+            Action.Commit(Nem.of((Partition.min, Offset.min))),
+            Action.Poll(recordsOf(recordOf(partition = 0, offset = 0))),
+            Action.RevokePartitions(Nes.of(Partition.unsafe(1), Partition.unsafe(2))),
+            Action.AssignPartitions(Nes.of(Partition.unsafe(2))),
+            Action.AssignPartitions(Nes.of(Partition.unsafe(1))),
+            Action.Subscribe()(RebalanceListener.empty[StateT]),
+            Action.AcquireTopicFlow(topic),
+            Action.AcquireConsumer))
+    }
   }
 }
 

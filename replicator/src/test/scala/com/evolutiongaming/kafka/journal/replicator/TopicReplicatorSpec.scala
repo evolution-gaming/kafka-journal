@@ -22,7 +22,7 @@ import com.evolutiongaming.skafka.{Bytes => _, Header => _, Metadata => _, _}
 import com.evolutiongaming.smetrics.MeasureDuration
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.wordspec.AsyncWordSpec
 import play.api.libs.json.Json
 
 import java.time.Instant
@@ -31,7 +31,7 @@ import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.NoStackTrace
 
-class TopicReplicatorSpec extends AnyWordSpec with Matchers {
+class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
   import TopicReplicatorSpec._
 
   "TopicReplicator" should {
@@ -59,40 +59,41 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
 
       val data = State(records = List(records))
 
-      val (result, _) = topicReplicator.run(data).unsafeRunSync()
-
-      result shouldEqual State(
-        topics = List(topic),
-        commits = List(Nem.of(
-          (0, 5),
-          (1, 5))),
-        pointers = Map((topic, Map((0, 4L), (1, 4L)))),
-        journal = Map(
-          ("0-0", List(
-            record(seqNr = 1, partition = 0, offset = 1),
-            record(seqNr = 2, partition = 0, offset = 3))),
-          ("0-1", List(
-            record(seqNr = 1, partition = 0, offset = 2),
-            record(seqNr = 2, partition = 0, offset = 2),
-            record(seqNr = 3, partition = 0, offset = 4))),
-          ("1-0", List(
-            record(seqNr = 1, partition = 1, offset = 1),
-            record(seqNr = 2, partition = 1, offset = 3))),
-          ("1-1", List(
-            record(seqNr = 1, partition = 1, offset = 2),
-            record(seqNr = 2, partition = 1, offset = 2),
-            record(seqNr = 3, partition = 1, offset = 4)))),
-        metaJournal = Map(
-          metaJournalOf("0-0", partition = 0, offset = 3),
-          metaJournalOf("0-1", partition = 0, offset = 4),
-          metaJournalOf("1-0", partition = 1, offset = 3),
-          metaJournalOf("1-1", partition = 1, offset = 4)),
-        metrics = List(
-          Metrics.Round(records = 8),
-          Metrics.Append(events = 3, records = 2),
-          Metrics.Append(events = 2, records = 2),
-          Metrics.Append(events = 3, records = 2),
-          Metrics.Append(events = 2, records = 2)))
+      topicReplicator.run(data).unsafeToFuture().map {
+        case (result, _) =>
+          result shouldEqual State(
+            topics = List(topic),
+            commits = List(Nem.of(
+              (0, 5),
+              (1, 5))),
+            pointers = Map((topic, Map((0, 4L), (1, 4L)))),
+            journal = Map(
+              ("0-0", List(
+                record(seqNr = 1, partition = 0, offset = 1),
+                record(seqNr = 2, partition = 0, offset = 3))),
+              ("0-1", List(
+                record(seqNr = 1, partition = 0, offset = 2),
+                record(seqNr = 2, partition = 0, offset = 2),
+                record(seqNr = 3, partition = 0, offset = 4))),
+              ("1-0", List(
+                record(seqNr = 1, partition = 1, offset = 1),
+                record(seqNr = 2, partition = 1, offset = 3))),
+              ("1-1", List(
+                record(seqNr = 1, partition = 1, offset = 2),
+                record(seqNr = 2, partition = 1, offset = 2),
+                record(seqNr = 3, partition = 1, offset = 4)))),
+            metaJournal = Map(
+              metaJournalOf("0-0", partition = 0, offset = 3),
+              metaJournalOf("0-1", partition = 0, offset = 4),
+              metaJournalOf("1-0", partition = 1, offset = 3),
+              metaJournalOf("1-1", partition = 1, offset = 4)),
+            metrics = List(
+              Metrics.Round(records = 8),
+              Metrics.Append(events = 3, records = 2),
+              Metrics.Append(events = 2, records = 2),
+              Metrics.Append(events = 3, records = 2),
+              Metrics.Append(events = 2, records = 2)))
+      }
     }
 
     "replicate expireAfter" in {
@@ -105,22 +106,24 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
 
       val state = State(
         records = List(consumerRecords))
-      val (result, _) = topicReplicator.run(state).unsafeRunSync()
 
-      result shouldEqual State(
-        topics = List(topic),
-        commits = List(Nem.of(
-          (0, 2))),
-        pointers = Map((topic, Map((0, 1L)))),
-        journal = Map(
-          ("id", List(
-            record(seqNr = 1, partition = 0, offset = 0, 1.minute.toExpireAfter.some),
-            record(seqNr = 2, partition = 0, offset = 1, 2.minutes.toExpireAfter.some)))),
-        metaJournal = Map(
-          metaJournalOf("id", partition = 0, offset = 1, expireAfter = 2.minutes.toExpireAfter.some)),
-        metrics = List(
-          Metrics.Round(records = 2),
-          Metrics.Append(events = 2, records = 2)))
+      topicReplicator.run(state).unsafeToFuture().map {
+        case (result, _) =>
+          result shouldEqual State(
+            topics = List(topic),
+            commits = List(Nem.of(
+              (0, 2))),
+            pointers = Map((topic, Map((0, 1L)))),
+            journal = Map(
+              ("id", List(
+                record(seqNr = 1, partition = 0, offset = 0, 1.minute.toExpireAfter.some),
+                record(seqNr = 2, partition = 0, offset = 1, 2.minutes.toExpireAfter.some)))),
+            metaJournal = Map(
+              metaJournalOf("id", partition = 0, offset = 1, expireAfter = 2.minutes.toExpireAfter.some)),
+            metrics = List(
+              Metrics.Round(records = 2),
+              Metrics.Append(events = 2, records = 2)))
+      }
     }
 
     "replicate appends of many polls" in {
@@ -153,57 +156,60 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       } yield record
 
       val data = State(records = records)
-      val (result, _) = topicReplicator.run(data).unsafeRunSync()
 
-      result shouldEqual State(
-        topics = List(topic),
-        commits = List(
-          Nem.of((1, 5)),
-          Nem.of((1, 4)),
-          Nem.of((1, 3)),
-          Nem.of((1, 2)),
-          Nem.of((0, 5)),
-          Nem.of((0, 4)),
-          Nem.of((0, 3)),
-          Nem.of((0, 2))),
-        pointers = Map((topic, Map((0, 4L), (1, 4L)))),
-        journal = Map(
-          ("0-0", List(
-            record(seqNr = 2, partition = 0, offset = 3),
-            record(seqNr = 1, partition = 0, offset = 1))),
-          ("0-1", List(
-            record(seqNr = 3, partition = 0, offset = 4),
-            record(seqNr = 1, partition = 0, offset = 2),
-            record(seqNr = 2, partition = 0, offset = 2))),
-          ("1-0", List(
-            record(seqNr = 2, partition = 1, offset = 3),
-            record(seqNr = 1, partition = 1, offset = 1))),
-          ("1-1", List(
-            record(seqNr = 3, partition = 1, offset = 4),
-            record(seqNr = 1, partition = 1, offset = 2),
-            record(seqNr = 2, partition = 1, offset = 2)))),
-        metaJournal = Map(
-          metaJournalOf("0-0", partition = 0, offset = 3),
-          metaJournalOf("0-1", partition = 0, offset = 4),
-          metaJournalOf("1-0", partition = 1, offset = 3),
-          metaJournalOf("1-1", partition = 1, offset = 4)),
-        metrics = List(
-          Metrics.Round(records = 1),
-          Metrics.Append(events = 1, records = 1),
-          Metrics.Round(records = 1),
-          Metrics.Append(events = 1, records = 1),
-          Metrics.Round(records = 1),
-          Metrics.Append(events = 2, records = 1),
-          Metrics.Round(records = 1),
-          Metrics.Append(events = 1, records = 1),
-          Metrics.Round(records = 1),
-          Metrics.Append(events = 1, records = 1),
-          Metrics.Round(records = 1),
-          Metrics.Append(events = 1, records = 1),
-          Metrics.Round(records = 1),
-          Metrics.Append(events = 2, records = 1),
-          Metrics.Round(records = 1),
-          Metrics.Append(events = 1, records = 1)))
+      topicReplicator.run(data).unsafeToFuture().map {
+        case (result, _) =>
+          result shouldEqual State(
+            topics = List(topic),
+            commits = List(
+              Nem.of((1, 5)),
+              Nem.of((1, 4)),
+              Nem.of((1, 3)),
+              Nem.of((1, 2)),
+              Nem.of((0, 5)),
+              Nem.of((0, 4)),
+              Nem.of((0, 3)),
+              Nem.of((0, 2))),
+            pointers = Map((topic, Map((0, 4L), (1, 4L)))),
+            journal = Map(
+              ("0-0", List(
+                record(seqNr = 2, partition = 0, offset = 3),
+                record(seqNr = 1, partition = 0, offset = 1))),
+              ("0-1", List(
+                record(seqNr = 3, partition = 0, offset = 4),
+                record(seqNr = 1, partition = 0, offset = 2),
+                record(seqNr = 2, partition = 0, offset = 2))),
+              ("1-0", List(
+                record(seqNr = 2, partition = 1, offset = 3),
+                record(seqNr = 1, partition = 1, offset = 1))),
+              ("1-1", List(
+                record(seqNr = 3, partition = 1, offset = 4),
+                record(seqNr = 1, partition = 1, offset = 2),
+                record(seqNr = 2, partition = 1, offset = 2)))),
+            metaJournal = Map(
+              metaJournalOf("0-0", partition = 0, offset = 3),
+              metaJournalOf("0-1", partition = 0, offset = 4),
+              metaJournalOf("1-0", partition = 1, offset = 3),
+              metaJournalOf("1-1", partition = 1, offset = 4)),
+            metrics = List(
+              Metrics.Round(records = 1),
+              Metrics.Append(events = 1, records = 1),
+              Metrics.Round(records = 1),
+              Metrics.Append(events = 1, records = 1),
+              Metrics.Round(records = 1),
+              Metrics.Append(events = 2, records = 1),
+              Metrics.Round(records = 1),
+              Metrics.Append(events = 1, records = 1),
+              Metrics.Round(records = 1),
+              Metrics.Append(events = 1, records = 1),
+              Metrics.Round(records = 1),
+              Metrics.Append(events = 1, records = 1),
+              Metrics.Round(records = 1),
+              Metrics.Append(events = 2, records = 1),
+              Metrics.Round(records = 1),
+              Metrics.Append(events = 1, records = 1)))
+      }
+
     }
 
     "replicate appends and ignore marks" in {
@@ -249,70 +255,71 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       }
 
       val data = State(records = List(records))
-      val (result, _) = topicReplicator.run(data).unsafeRunSync()
-
-      result shouldEqual State(
-        topics = List(topic),
-        commits = List(Nem.of(
-          (0, 10),
-          (1, 10),
-          (2, 10))),
-        pointers = Map((topic, Map((0, 9L), (1, 9L), (2, 9L)))),
-        journal = Map(
-          ("0-0", List(
-            record(seqNr = 1, partition = 0, offset = 1),
-            record(seqNr = 2, partition = 0, offset = 5))),
-          ("0-1", List(
-            record(seqNr = 1, partition = 0, offset = 3),
-            record(seqNr = 2, partition = 0, offset = 3),
-            record(seqNr = 3, partition = 0, offset = 8))),
-          ("0-2", List(
-            record(seqNr = 1, partition = 0, offset = 7),
-            record(seqNr = 2, partition = 0, offset = 7),
-            record(seqNr = 3, partition = 0, offset = 7))),
-          ("1-0", List(
-            record(seqNr = 1, partition = 1, offset = 1),
-            record(seqNr = 2, partition = 1, offset = 5))),
-          ("1-1", List(
-            record(seqNr = 1, partition = 1, offset = 3),
-            record(seqNr = 2, partition = 1, offset = 3),
-            record(seqNr = 3, partition = 1, offset = 8))),
-          ("1-2", List(
-            record(seqNr = 1, partition = 1, offset = 7),
-            record(seqNr = 2, partition = 1, offset = 7),
-            record(seqNr = 3, partition = 1, offset = 7))),
-          ("2-0", List(
-            record(seqNr = 1, partition = 2, offset = 1),
-            record(seqNr = 2, partition = 2, offset = 5))),
-          ("2-1", List(
-            record(seqNr = 1, partition = 2, offset = 3),
-            record(seqNr = 2, partition = 2, offset = 3),
-            record(seqNr = 3, partition = 2, offset = 8))),
-          ("2-2", List(
-            record(seqNr = 1, partition = 2, offset = 7),
-            record(seqNr = 2, partition = 2, offset = 7),
-            record(seqNr = 3, partition = 2, offset = 7)))),
-        metaJournal = Map(
-          metaJournalOf("0-0", partition = 0, offset = 9),
-          metaJournalOf("0-1", partition = 0, offset = 8),
-          metaJournalOf("0-2", partition = 0, offset = 7),
-          metaJournalOf("1-0", partition = 1, offset = 9),
-          metaJournalOf("1-1", partition = 1, offset = 8),
-          metaJournalOf("1-2", partition = 1, offset = 7),
-          metaJournalOf("2-0", partition = 2, offset = 9),
-          metaJournalOf("2-1", partition = 2, offset = 8),
-          metaJournalOf("2-2", partition = 2, offset = 7)),
-        metrics = List(
-          Metrics.Round(records = 27),
-          Metrics.Append(events = 3, records = 1),
-          Metrics.Append(events = 3, records = 2),
-          Metrics.Append(events = 2, records = 2),
-          Metrics.Append(events = 3, records = 1),
-          Metrics.Append(events = 3, records = 2),
-          Metrics.Append(events = 2, records = 2),
-          Metrics.Append(events = 3, records = 1),
-          Metrics.Append(events = 3, records = 2),
-          Metrics.Append(events = 2, records = 2)))
+      topicReplicator.run(data).unsafeToFuture().map {
+        case (result, _) =>
+          result shouldEqual State(
+            topics = List(topic),
+            commits = List(Nem.of(
+              (0, 10),
+              (1, 10),
+              (2, 10))),
+            pointers = Map((topic, Map((0, 9L), (1, 9L), (2, 9L)))),
+            journal = Map(
+              ("0-0", List(
+                record(seqNr = 1, partition = 0, offset = 1),
+                record(seqNr = 2, partition = 0, offset = 5))),
+              ("0-1", List(
+                record(seqNr = 1, partition = 0, offset = 3),
+                record(seqNr = 2, partition = 0, offset = 3),
+                record(seqNr = 3, partition = 0, offset = 8))),
+              ("0-2", List(
+                record(seqNr = 1, partition = 0, offset = 7),
+                record(seqNr = 2, partition = 0, offset = 7),
+                record(seqNr = 3, partition = 0, offset = 7))),
+              ("1-0", List(
+                record(seqNr = 1, partition = 1, offset = 1),
+                record(seqNr = 2, partition = 1, offset = 5))),
+              ("1-1", List(
+                record(seqNr = 1, partition = 1, offset = 3),
+                record(seqNr = 2, partition = 1, offset = 3),
+                record(seqNr = 3, partition = 1, offset = 8))),
+              ("1-2", List(
+                record(seqNr = 1, partition = 1, offset = 7),
+                record(seqNr = 2, partition = 1, offset = 7),
+                record(seqNr = 3, partition = 1, offset = 7))),
+              ("2-0", List(
+                record(seqNr = 1, partition = 2, offset = 1),
+                record(seqNr = 2, partition = 2, offset = 5))),
+              ("2-1", List(
+                record(seqNr = 1, partition = 2, offset = 3),
+                record(seqNr = 2, partition = 2, offset = 3),
+                record(seqNr = 3, partition = 2, offset = 8))),
+              ("2-2", List(
+                record(seqNr = 1, partition = 2, offset = 7),
+                record(seqNr = 2, partition = 2, offset = 7),
+                record(seqNr = 3, partition = 2, offset = 7)))),
+            metaJournal = Map(
+              metaJournalOf("0-0", partition = 0, offset = 9),
+              metaJournalOf("0-1", partition = 0, offset = 8),
+              metaJournalOf("0-2", partition = 0, offset = 7),
+              metaJournalOf("1-0", partition = 1, offset = 9),
+              metaJournalOf("1-1", partition = 1, offset = 8),
+              metaJournalOf("1-2", partition = 1, offset = 7),
+              metaJournalOf("2-0", partition = 2, offset = 9),
+              metaJournalOf("2-1", partition = 2, offset = 8),
+              metaJournalOf("2-2", partition = 2, offset = 7)),
+            metrics = List(
+              Metrics.Round(records = 27),
+              Metrics.Append(events = 3, records = 1),
+              Metrics.Append(events = 3, records = 2),
+              Metrics.Append(events = 2, records = 2),
+              Metrics.Append(events = 3, records = 1),
+              Metrics.Append(events = 3, records = 2),
+              Metrics.Append(events = 2, records = 2),
+              Metrics.Append(events = 3, records = 1),
+              Metrics.Append(events = 3, records = 2),
+              Metrics.Append(events = 2, records = 2)))
+      }
     }
 
     "replicate appends and deletes" in {
@@ -364,50 +371,51 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       }
 
       val data = State(records = List(records))
-      val (result, _) = topicReplicator.run(data).unsafeRunSync()
-
-      result shouldEqual State(
-        topics = List(topic),
-        commits = List(Nem.of(
-          (0, 11),
-          (1, 11))),
-        pointers = Map((topic, Map((0, 10L), (1, 10L)))),
-        journal = Map(
-          ("0-0", List(
-            record(seqNr = 1, partition = 0, offset = 1),
-            record(seqNr = 2, partition = 0, offset = 5))),
-          ("0-1", List(
-            record(seqNr = 3, partition = 0, offset = 8))),
-          ("0-2", List(
-            record(seqNr = 1, partition = 0, offset = 7),
-            record(seqNr = 2, partition = 0, offset = 7),
-            record(seqNr = 3, partition = 0, offset = 7))),
-          ("1-0", List(
-            record(seqNr = 1, partition = 1, offset = 1),
-            record(seqNr = 2, partition = 1, offset = 5))),
-          ("1-1", List(
-            record(seqNr = 3, partition = 1, offset = 8))),
-          ("1-2", List(
-            record(seqNr = 1, partition = 1, offset = 7),
-            record(seqNr = 2, partition = 1, offset = 7),
-            record(seqNr = 3, partition = 1, offset = 7)))),
-        metaJournal = Map(
-          metaJournalOf("0-0", partition = 0, offset = 10),
-          metaJournalOf("0-1", partition = 0, offset = 9, deleteTo = 2.some),
-          metaJournalOf("0-2", partition = 0, offset = 7),
-          metaJournalOf("1-0", partition = 1, offset = 10),
-          metaJournalOf("1-1", partition = 1, offset = 9, deleteTo = 2.some),
-          metaJournalOf("1-2", partition = 1, offset = 7)),
-        metrics = List(
-          Metrics.Round(records = 20),
-          Metrics.Append(events = 3, records = 1),
-          Metrics.Delete(actions = 1),
-          Metrics.Append(events = 3, records = 2),
-          Metrics.Append(events = 2, records = 2),
-          Metrics.Append(events = 3, records = 1),
-          Metrics.Delete(actions = 1),
-          Metrics.Append(events = 3, records = 2),
-          Metrics.Append(events = 2, records = 2)))
+      topicReplicator.run(data).unsafeToFuture().map {
+        case (result, _) =>
+          result shouldEqual State(
+            topics = List(topic),
+            commits = List(Nem.of(
+              (0, 11),
+              (1, 11))),
+            pointers = Map((topic, Map((0, 10L), (1, 10L)))),
+            journal = Map(
+              ("0-0", List(
+                record(seqNr = 1, partition = 0, offset = 1),
+                record(seqNr = 2, partition = 0, offset = 5))),
+              ("0-1", List(
+                record(seqNr = 3, partition = 0, offset = 8))),
+              ("0-2", List(
+                record(seqNr = 1, partition = 0, offset = 7),
+                record(seqNr = 2, partition = 0, offset = 7),
+                record(seqNr = 3, partition = 0, offset = 7))),
+              ("1-0", List(
+                record(seqNr = 1, partition = 1, offset = 1),
+                record(seqNr = 2, partition = 1, offset = 5))),
+              ("1-1", List(
+                record(seqNr = 3, partition = 1, offset = 8))),
+              ("1-2", List(
+                record(seqNr = 1, partition = 1, offset = 7),
+                record(seqNr = 2, partition = 1, offset = 7),
+                record(seqNr = 3, partition = 1, offset = 7)))),
+            metaJournal = Map(
+              metaJournalOf("0-0", partition = 0, offset = 10),
+              metaJournalOf("0-1", partition = 0, offset = 9, deleteTo = 2.some),
+              metaJournalOf("0-2", partition = 0, offset = 7),
+              metaJournalOf("1-0", partition = 1, offset = 10),
+              metaJournalOf("1-1", partition = 1, offset = 9, deleteTo = 2.some),
+              metaJournalOf("1-2", partition = 1, offset = 7)),
+            metrics = List(
+              Metrics.Round(records = 20),
+              Metrics.Append(events = 3, records = 1),
+              Metrics.Delete(actions = 1),
+              Metrics.Append(events = 3, records = 2),
+              Metrics.Append(events = 2, records = 2),
+              Metrics.Append(events = 3, records = 1),
+              Metrics.Delete(actions = 1),
+              Metrics.Append(events = 3, records = 2),
+              Metrics.Append(events = 2, records = 2)))
+      }
     }
 
     "replicate appends and deletes of many polls" in {
@@ -459,70 +467,73 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       } yield result
 
       val data = State(records = records)
-      val (result, _) = topicReplicator.run(data).unsafeRunSync()
-
-      result shouldEqual State(
-        topics = List(topic),
-        commits = List(
-          Nem.of((0, 13)),
-          Nem.of((0, 12)),
-          Nem.of((0, 11)),
-          Nem.of((0, 10)),
-          Nem.of((0, 9)),
-          Nem.of((0, 8)),
-          Nem.of((0, 7)),
-          Nem.of((0, 6)),
-          Nem.of((0, 5)),
-          Nem.of((0, 4)),
-          Nem.of((0, 3)),
-          Nem.of((0, 2))),
-        pointers = Map(
-          (topic, Map((0, 12L)))),
-        journal = Map(
-          ("0-0", Nil),
-          ("0-1", List(
-            record(seqNr = 3, partition = 0, offset = 8),
-            record(seqNr = 1, partition = 0, offset = 3),
-            record(seqNr = 2, partition = 0, offset = 3))),
-          ("0-2", List(
-            record(seqNr = 1, partition = 0, offset = 7),
-            record(seqNr = 2, partition = 0, offset = 7),
-            record(seqNr = 3, partition = 0, offset = 7)))),
-        metaJournal = Map(
-          metaJournalOf("0-0", partition = 0, offset = 11, deleteTo = 1.some),
-          metaJournalOf("0-1", partition = 0, offset = 12, deleteTo = 2.some),
-          metaJournalOf("0-2", partition = 0, offset = 7)),
-        metrics = List(
-          Metrics.Round(records = 1),
-          Metrics.Delete(actions = 1),
-          Metrics.Round(records = 1),
-          Metrics.Delete(actions = 1),
-          Metrics.Round(records = 1),
-          Metrics.Delete(actions = 1),
-          Metrics.Round(records = 1),
-          Metrics.Delete(actions = 1),
-          Metrics.Round(records = 1),
-          Metrics.Append(events = 1, records = 1),
-          Metrics.Round(records = 1),
-          Metrics.Append(events = 3, records = 1),
-          Metrics.Round(records = 1),
-          Metrics.Round(records = 1),
-          Metrics.Append(events = 1, records = 1),
-          Metrics.Round(records = 1),
-          Metrics.Round(records = 1),
-          Metrics.Append(events = 2, records = 1),
-          Metrics.Round(records = 1),
-          Metrics.Round(records = 1),
-          Metrics.Append(events = 1, records = 1)))
+      topicReplicator.run(data).unsafeToFuture().map {
+        case (result, _) =>
+          result shouldEqual State(
+            topics = List(topic),
+            commits = List(
+              Nem.of((0, 13)),
+              Nem.of((0, 12)),
+              Nem.of((0, 11)),
+              Nem.of((0, 10)),
+              Nem.of((0, 9)),
+              Nem.of((0, 8)),
+              Nem.of((0, 7)),
+              Nem.of((0, 6)),
+              Nem.of((0, 5)),
+              Nem.of((0, 4)),
+              Nem.of((0, 3)),
+              Nem.of((0, 2))),
+            pointers = Map(
+              (topic, Map((0, 12L)))),
+            journal = Map(
+              ("0-0", Nil),
+              ("0-1", List(
+                record(seqNr = 3, partition = 0, offset = 8),
+                record(seqNr = 1, partition = 0, offset = 3),
+                record(seqNr = 2, partition = 0, offset = 3))),
+              ("0-2", List(
+                record(seqNr = 1, partition = 0, offset = 7),
+                record(seqNr = 2, partition = 0, offset = 7),
+                record(seqNr = 3, partition = 0, offset = 7)))),
+            metaJournal = Map(
+              metaJournalOf("0-0", partition = 0, offset = 11, deleteTo = 1.some),
+              metaJournalOf("0-1", partition = 0, offset = 12, deleteTo = 2.some),
+              metaJournalOf("0-2", partition = 0, offset = 7)),
+            metrics = List(
+              Metrics.Round(records = 1),
+              Metrics.Delete(actions = 1),
+              Metrics.Round(records = 1),
+              Metrics.Delete(actions = 1),
+              Metrics.Round(records = 1),
+              Metrics.Delete(actions = 1),
+              Metrics.Round(records = 1),
+              Metrics.Delete(actions = 1),
+              Metrics.Round(records = 1),
+              Metrics.Append(events = 1, records = 1),
+              Metrics.Round(records = 1),
+              Metrics.Append(events = 3, records = 1),
+              Metrics.Round(records = 1),
+              Metrics.Round(records = 1),
+              Metrics.Append(events = 1, records = 1),
+              Metrics.Round(records = 1),
+              Metrics.Round(records = 1),
+              Metrics.Append(events = 2, records = 1),
+              Metrics.Round(records = 1),
+              Metrics.Round(records = 1),
+              Metrics.Append(events = 1, records = 1)))
+      }
     }
 
     "consume since replicated offset" in {
       val pointers = Map((topic, Map((0, 1L), (2, 2L))))
       val data = State(pointers = pointers)
-      val (result, _) = topicReplicator.run(data).unsafeRunSync()
-      result shouldEqual State(
-        topics = List(topic),
-        pointers = pointers)
+      topicReplicator.run(data).unsafeToFuture().map {
+        case (result, _) =>
+          result shouldEqual State(
+            topics = List(topic),
+            pointers = pointers)
+      }
     }
 
     "ignore already replicated data" in {
@@ -559,41 +570,42 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       val data = State(
         records = List(records),
         pointers = Map((topic, Map((0, 0L), (1, 1L), (2, 2L)))))
-      val (result, _) = topicReplicator.run(data).unsafeRunSync()
-
-      result shouldEqual State(
-        topics = List(topic),
-        commits = List(Nem.of(
-          (0, 4),
-          (1, 4),
-          (2, 4))),
-        pointers = Map((topic, Map((0, 3L), (1, 3L), (2, 3L)))),
-        journal = Map(
-          ("0-0", List(
-            record(seqNr = 2, partition = 0, offset = 2))),
-          ("0-1", List(
-            record(seqNr = 1, partition = 0, offset = 1),
-            record(seqNr = 2, partition = 0, offset = 1),
-            record(seqNr = 3, partition = 0, offset = 3))),
-          ("1-0", List(
-            record(seqNr = 2, partition = 1, offset = 2))),
-          ("1-1", List(
-            record(seqNr = 3, partition = 1, offset = 3))),
-          ("2-1", List(
-            record(seqNr = 3, partition = 2, offset = 3)))),
-        metaJournal = Map(
-          metaJournalOf("0-0", partition = 0, offset = 2),
-          metaJournalOf("0-1", partition = 0, offset = 3),
-          metaJournalOf("1-0", partition = 1, offset = 2),
-          metaJournalOf("1-1", partition = 1, offset = 3),
-          metaJournalOf("2-1", partition = 2, offset = 3)),
-        metrics = List(
-          Metrics.Round(records = 12),
-          Metrics.Append(events = 1, records = 1),
-          Metrics.Append(events = 1, records = 1),
-          Metrics.Append(events = 1, records = 1),
-          Metrics.Append(events = 3, records = 2),
-          Metrics.Append(events = 1, records = 1)))
+      topicReplicator.run(data).unsafeToFuture().map {
+        case (result, _) =>
+          result shouldEqual State(
+            topics = List(topic),
+            commits = List(Nem.of(
+              (0, 4),
+              (1, 4),
+              (2, 4))),
+            pointers = Map((topic, Map((0, 3L), (1, 3L), (2, 3L)))),
+            journal = Map(
+              ("0-0", List(
+                record(seqNr = 2, partition = 0, offset = 2))),
+              ("0-1", List(
+                record(seqNr = 1, partition = 0, offset = 1),
+                record(seqNr = 2, partition = 0, offset = 1),
+                record(seqNr = 3, partition = 0, offset = 3))),
+              ("1-0", List(
+                record(seqNr = 2, partition = 1, offset = 2))),
+              ("1-1", List(
+                record(seqNr = 3, partition = 1, offset = 3))),
+              ("2-1", List(
+                record(seqNr = 3, partition = 2, offset = 3)))),
+            metaJournal = Map(
+              metaJournalOf("0-0", partition = 0, offset = 2),
+              metaJournalOf("0-1", partition = 0, offset = 3),
+              metaJournalOf("1-0", partition = 1, offset = 2),
+              metaJournalOf("1-1", partition = 1, offset = 3),
+              metaJournalOf("2-1", partition = 2, offset = 3)),
+            metrics = List(
+              Metrics.Round(records = 12),
+              Metrics.Append(events = 1, records = 1),
+              Metrics.Append(events = 1, records = 1),
+              Metrics.Append(events = 1, records = 1),
+              Metrics.Append(events = 3, records = 2),
+              Metrics.Append(events = 1, records = 1)))
+      }
     }
 
 
@@ -609,14 +621,15 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       val data = State(
         records = List(consumerRecords),
         pointers = Map((topic, Map((0, 0L)))))
-      val (result, _) = topicReplicator.run(data).unsafeRunSync()
-
-      result shouldEqual State(
-        topics = List(topic),
-        commits = List(Nem.of(
-          (0, 1))),
-        pointers = Map((topic, Map((0, 0L)))),
-        metrics = List(Metrics.Round(records = 1)))
+      topicReplicator.run(data).unsafeToFuture().map {
+        case (result, _) =>
+          result shouldEqual State(
+            topics = List(topic),
+            commits = List(Nem.of(
+              (0, 1))),
+            pointers = Map((topic, Map((0, 0L)))),
+            metrics = List(Metrics.Round(records = 1)))
+      }
     }
 
     "replicate purge" in {
@@ -630,16 +643,17 @@ class TopicReplicatorSpec extends AnyWordSpec with Matchers {
       val state = State(
         records = List(consumerRecords),
         metaJournal = Map(metaJournalOf(key.id, partition = 0, offset = 0)))
-      val (result, _) = topicReplicator.run(state).unsafeRunSync()
-
-      result shouldEqual State(
-        topics = List(topic),
-        commits = List(Nem.of(
-          (0, 2))),
-        pointers = Map((topic, Map((0, 1L)))),
-        metrics = List(
-          Metrics.Round(records = 2),
-          Metrics.Purge(actions = 1)))
+      topicReplicator.run(state).unsafeToFuture().map {
+        case (result, _) =>
+          result shouldEqual State(
+            topics = List(topic),
+            commits = List(Nem.of(
+              (0, 2))),
+            pointers = Map((topic, Map((0, 1L)))),
+            metrics = List(
+              Metrics.Round(records = 2),
+              Metrics.Purge(actions = 1)))
+      }
     }
   }
 
