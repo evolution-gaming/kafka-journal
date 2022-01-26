@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import cats.data.{NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.effect._
 import cats.syntax.all._
-import cats.{Applicative, Monad, ~>}
+import cats.{Applicative, ~>}
 import com.evolutiongaming.kafka.journal.util.Named
 import com.evolutiongaming.skafka._
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecords, RebalanceListener}
@@ -163,7 +163,7 @@ object KafkaConsumer {
     }
 
 
-    def shiftPoll(implicit F: Monad[F], contextShift: ContextShift[F]): KafkaConsumer[F, K, V] = {
+    def shiftPoll(implicit F: Temporal[F]): KafkaConsumer[F, K, V] = {
 
       new ShiftPoll with KafkaConsumer[F, K, V] {
 
@@ -178,7 +178,7 @@ object KafkaConsumer {
         def poll(timeout: FiniteDuration) = {
           for {
             a <- self.poll(timeout)
-            _ <- contextShift.shift
+            _ <- F.cede
           } yield a
         }
 

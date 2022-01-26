@@ -1,9 +1,10 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.effect.{Concurrent, Resource, Timer}
+import cats.effect.kernel.{Async, Temporal}
+import cats.effect.syntax.resource._
+import cats.effect.{Concurrent, Resource}
 import cats.syntax.all._
 import cats.{Monad, Parallel}
-import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{LogOf, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
@@ -20,7 +21,8 @@ object EventualCassandra {
 
   def of[
     F[_]
-    : Concurrent: Parallel: Timer
+    : Async
+    : Parallel
     : ToTry: LogOf
     : FromGFuture
     : MeasureDuration
@@ -45,7 +47,8 @@ object EventualCassandra {
 
   def of[
     F[_]
-    : Concurrent: Parallel: Timer
+    : Temporal
+    : Parallel
     : ToTry: LogOf
     : CassandraCluster: CassandraSession
     : MeasureDuration

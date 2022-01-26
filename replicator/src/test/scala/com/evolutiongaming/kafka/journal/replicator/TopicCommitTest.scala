@@ -1,9 +1,10 @@
 package com.evolutiongaming.kafka.journal.replicator
 
+import cats.Applicative
 import cats.data.{NonEmptyMap => Nem}
 import cats.effect.{Clock, IO}
 import com.evolutiongaming.kafka.journal.IOSuite._
-import cats.effect.concurrent.{Deferred, Ref}
+import cats.effect.{Deferred, Ref}
 import com.evolutiongaming.skafka.{Offset, Partition}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -21,7 +22,7 @@ class TopicCommitTest extends AsyncFunSuite with Matchers{
     ) = {
       val commit = new TopicCommit[IO] {
         def apply(offsets: Nem[Partition, Offset]) = {
-          commitsRef.update { offsets :: _ } *> deferred.complete(())
+          commitsRef.update { offsets :: _ } *> deferred.complete(()).void
         }
       }
 
@@ -30,8 +31,11 @@ class TopicCommitTest extends AsyncFunSuite with Matchers{
 
     def clockOf(ref: Ref[IO, FiniteDuration]): Clock[IO] = {
       new Clock[IO] {
-        def realTime(unit: TimeUnit): IO[Long] = monotonic(unit)
-        def monotonic(unit: TimeUnit): IO[Long] = ref.get.map { _.toUnit(unit).toLong }
+        override def applicative: Applicative[IO] = Applicative[IO]
+
+        override def monotonic: IO[FiniteDuration] = ref.get
+
+        override def realTime: IO[FiniteDuration] = monotonic
       }
     }
 

@@ -4,8 +4,8 @@ import java.time.Instant
 import cats.Parallel
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
+import cats.effect.syntax.resource._
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
@@ -27,11 +27,12 @@ import play.api.libs.json.Json
 import pureconfig.ConfigSource
 import TestJsonCodec.instance
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 
 class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers {
+
+  import cats.effect.unsafe.implicits.global
 
   private val origin = Origin("ReplicatorIntSpec")
   private val version = Version.current
@@ -44,7 +45,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
   private implicit val randomIdOf = RandomIdOf.uuid[IO]
 
-  private def resources[F[_] : ConcurrentEffect : LogOf : Parallel : FromFuture : Timer : ToFuture : ContextShift : RandomIdOf : MeasureDuration : FromTry : ToTry : Fail](
+  private def resources[F[_]: Async : LogOf : Parallel : FromFuture : ToFuture : RandomIdOf : MeasureDuration : FromTry : ToTry : Fail](
     cassandraClusterOf: CassandraClusterOf[F]
   ) = {
 
@@ -62,7 +63,6 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
     def journal(
       conf: Config,
-      blocking: ExecutionContext,
       eventualJournal: EventualJournal[F]
     ) = {
 
@@ -71,9 +71,9 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
         .load[JournalConfig]
         .liftTo[F]
 
-      implicit val kafkaConsumerOf = KafkaConsumerOf[F](blocking)
+      implicit val kafkaConsumerOf = KafkaConsumerOf[F]()
 
-      implicit val kafkaProducerOf = KafkaProducerOf[F](blocking)
+      implicit val kafkaProducerOf = KafkaProducerOf[F]()
 
       for {
         config   <- config.toResource
@@ -105,7 +105,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       system          <- system
       conf            <- Sync[F].delay { system.settings.config.getConfig("evolutiongaming.kafka-journal.replicator") }.toResource
       eventualJournal <- eventualJournal(conf)
-      journal         <- journal(conf, system.dispatcher, eventualJournal)
+      journal         <- journal(conf, eventualJournal)
     } yield {
       (eventualJournal, journal)
     }

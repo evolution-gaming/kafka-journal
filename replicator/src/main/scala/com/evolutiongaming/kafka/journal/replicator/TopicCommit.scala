@@ -1,11 +1,10 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import java.time.Instant
-
 import cats.Applicative
 import cats.data.{NonEmptyMap => Nem}
-import cats.effect.concurrent.Ref
-import cats.effect.{Clock, Sync}
+import cats.effect.kernel.Concurrent
+import cats.effect.{Clock, Ref}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.DataHelper._
@@ -40,7 +39,7 @@ object TopicCommit {
     }
   }
 
-  def delayed[F[_] : Sync : Clock](
+  def delayed[F[_] : Concurrent : Clock](
     delay: FiniteDuration,
     commit: TopicCommit[F]
   ): F[TopicCommit[F]] = {

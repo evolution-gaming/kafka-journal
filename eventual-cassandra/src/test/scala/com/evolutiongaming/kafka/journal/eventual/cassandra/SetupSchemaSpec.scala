@@ -1,31 +1,31 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import java.time.Instant
-
-import cats.{Id, Monad}
+import cats.implicits.catsStdInstancesForTry
 import cats.syntax.all._
 import com.datastax.driver.core.{Row, Statement}
-import com.evolutiongaming.kafka.journal.util.TestSync
 import com.evolutiongaming.kafka.journal.{Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.sstream.Stream
+import org.scalatest.TryValues
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
+import java.time.Instant
+import scala.util.Try
 import scala.util.control.NoStackTrace
 
 
-class SetupSchemaSpec extends AnyFunSuite with Matchers {
+class SetupSchemaSpec extends AnyFunSuite with Matchers with TryValues {
 
   test("migrate fresh") {
     val initial = State.empty
-    val (state, _) = migrate(fresh = true).run(initial)
+    val (state, _) = migrate(fresh = true).run(initial).success.value
     state shouldEqual initial.copy(version = "1".some)
   }
 
   test("migrate") {
     val initial = State.empty
-    val (state, _) = migrate(fresh = false).run(initial)
+    val (state, _) = migrate(fresh = false).run(initial).success.value
     state shouldEqual initial.copy(
       version = "1".some,
       actions = List(Action.SyncEnd, Action.Query, Action.Query, Action.SyncStart))
@@ -33,7 +33,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
   test("migrate 0") {
     val initial = State.empty.copy(version = "0".some)
-    val (state, _) = migrate(fresh = false).run(initial)
+    val (state, _) = migrate(fresh = false).run(initial).success.value
     state shouldEqual initial.copy(
       version = "1".some,
       actions = List(Action.SyncEnd, Action.Query, Action.SyncStart))
@@ -41,7 +41,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
   test("not migrate") {
     val initial = State.empty.copy(version = "1".some)
-    val (state, _) = migrate(fresh = false).run(initial)
+    val (state, _) = migrate(fresh = false).run(initial).success.value
     state shouldEqual initial
   }
 
@@ -84,7 +84,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
             case Some(version) =>
               val setting = settingOf(key, version)
               (state, setting.some)
-            case None          =>
+            case None =>
               val state1 = state.copy(version = value.some)
               (state1, none[Setting])
           }
@@ -118,7 +118,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
     def apply[A](fa: StateT[A]) = {
       StateT { state =>
         val state1 = state.add(Action.SyncStart)
-        val (state2, a) = fa.run(state1)
+        val (state2, a) = fa.run(state1).get
         val state3 = state2.add(Action.SyncEnd)
         (state3, a)
       }
@@ -126,8 +126,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
   }
 
 
-  def migrate(fresh: Boolean)(implicit monad: Monad[StateT]): StateT[Unit] = {
-    implicit val sync = TestSync[StateT](monad)
+  def migrate(fresh: Boolean): StateT[Unit] = {
     SetupSchema.migrate[StateT](schema, fresh, settings, cassandraSync)
   }
 
@@ -141,10 +140,10 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
   }
 
 
-  type StateT[A] = cats.data.StateT[Id, State, A]
+  type StateT[A] = cats.data.StateT[Try, State, A]
 
   object StateT {
-    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[Id, State, A](f)
+    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[Try, State, A](s => Try(f(s)))
   }
 
 
@@ -152,7 +151,9 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
   object Action {
     case object SyncStart extends Action
+
     case object SyncEnd extends Action
+
     case object Query extends Action
   }
 

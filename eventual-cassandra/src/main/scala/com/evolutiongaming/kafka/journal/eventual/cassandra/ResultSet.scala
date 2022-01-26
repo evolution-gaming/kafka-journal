@@ -1,17 +1,18 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.effect.{Concurrent, Sync}
+import cats.effect.Sync
 import cats.effect.implicits._
+import cats.effect.kernel.{Async, Spawn}
 import cats.syntax.all._
 import com.datastax.driver.core.{Row, ResultSet => ResultSetJ}
 import com.evolutiongaming.scassandra.util.FromGFuture
-import com.evolutiongaming.sstream.Stream
 import com.evolutiongaming.sstream.FoldWhile._
+import com.evolutiongaming.sstream.Stream
 
 
 object ResultSet {
 
-  def apply[F[_] : Concurrent : FromGFuture](resultSet: ResultSetJ): Stream[F, Row] = {
+  def apply[F[_] : Async : FromGFuture](resultSet: ResultSetJ): Stream[F, Row] = {
 
     val iterator = resultSet.iterator()
 
@@ -24,7 +25,7 @@ object ResultSet {
     apply[F, Row](fetch, fetched, next)
   }
 
-  def apply[F[_] : Concurrent, A](
+  def apply[F[_] : Spawn, A](
     fetch: F[Unit],
     fetched: F[Boolean],
     next: F[List[A]]
@@ -47,7 +48,7 @@ object ResultSet {
             fetching <- fetch.start
             result   <- rows.foldWhileM(l)(f)
             result   <- result match {
-              case l: Left[L, R]  => fetching.join as l.rightCast[Either[L, R]]
+              case l: Left[L, R]  => fetching.joinWithNever as l.rightCast[Either[L, R]]
               case r: Right[L, R] => r.leftCast[L].asRight[L].pure[F]
             }
           } yield result

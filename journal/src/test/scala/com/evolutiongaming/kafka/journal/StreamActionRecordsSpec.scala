@@ -2,11 +2,11 @@ package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
 import cats.data.IndexedStateT
-import cats.effect.ExitCase
+import cats.effect.kernel.{CancelScope, Poll}
 import cats.implicits._
 import cats.syntax.all.none
 import com.evolutiongaming.catshelper.BracketThrowable
-import com.evolutiongaming.kafka.journal.util.BracketFromMonadError
+import com.evolutiongaming.kafka.journal.util.MonadCancelFromMonadError
 import com.evolutiongaming.skafka.{Offset, Partition}
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AnyFunSuite
@@ -57,27 +57,21 @@ class StreamActionRecordsSpec extends AnyFunSuite with Matchers {
 
 object StreamActionRecordsSpec {
 
-  implicit val bracket: BracketThrowable[StateT] = new BracketFromMonadError[StateT, Throwable] {
+  implicit val bracket: BracketThrowable[StateT] = new MonadCancelFromMonadError[StateT, Throwable] {
 
     val F = IndexedStateT.catsDataMonadErrorForIndexedStateT(catsStdInstancesForTry)
 
-    def bracketCase[A, B](
-      acquire: StateT[A])(
-      use: A => StateT[B])(
-      release: (A, ExitCase[Throwable]) => StateT[Unit]
-    ) = {
+    override def rootCancelScope: CancelScope = CancelScope.Uncancelable
 
-      def onError(a: A)(e: Throwable) = for {
-        _ <- release(a, ExitCase.error(e))
-        b <- raiseError[B](e)
-      } yield b
+    override def forceR[A, B](fa: StateT[A])(fb: StateT[B]): StateT[B] = F.redeemWith(fa)(_ => fb, _ => fb)
 
-      for {
-        a <- acquire
-        b <- handleErrorWith(use(a))(onError(a))
-        _ <- release(a, ExitCase.complete)
-      } yield b
-    }
+    override def uncancelable[A](body: Poll[StateT] => StateT[A]): StateT[A] = body(new Poll[StateT] {
+      override def apply[X](fa: StateT[X]): StateT[X] = fa
+    })
+
+    override def canceled: StateT[Unit] = F.unit
+
+    override def onCancel[A](fa: StateT[A], fin: StateT[Unit]): StateT[A] = fa
   }
 
 

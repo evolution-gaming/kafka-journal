@@ -1,17 +1,17 @@
 package com.evolutiongaming.kafka.journal
 
-import java.time.Instant
-
+import cats.Monad
 import cats.data.{NonEmptyList => Nel}
-import cats.effect.Clock
+import cats.effect.kernel.Sync
+import cats.effect.{Clock, IO}
 import cats.syntax.all._
-import cats.{Id, Monad}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
+import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
-import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualPayloadAndType, EventualRead, EventualWrite, TopicPointers}
-import com.evolutiongaming.kafka.journal.util.{ConcurrentOf, Fail}
+import com.evolutiongaming.kafka.journal.eventual._
+import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
@@ -19,8 +19,8 @@ import com.evolutiongaming.sstream.Stream
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.{Assertion, Succeeded}
-import TestJsonCodec.instance
 
+import java.time.Instant
 import scala.collection.immutable.Queue
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -221,8 +221,10 @@ class JournalSpec extends AnyWordSpec with Matchers {
 
 
   def test(journal: SeqNrJournal[StateT]): Unit = {
+    import cats.effect.unsafe.implicits.global
+
     testF[StateT] { f =>
-      val (_, result) = f(journal).run(State.empty)
+      val (_, result) = f(journal).run(State.empty).unsafeRunSync()
       result
     }
   }
@@ -260,7 +262,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
                 .dropWhile(_.offset < from)
                 .collect { case action @ ActionRecord(_: Action.Mark, _) => action }
               val state1 = state.copy(recordsToRead = records)
-              (state1, StateT.actionRecords)
+              (state1, StateT.actionRecords).pure[IO]
             }
           }
         }
@@ -476,14 +478,12 @@ object JournalSpec {
       }
     }
 
-    def apply[F[_] : Monad](
+    def apply[F[_] : Sync](
       eventual: EventualJournal[F],
       consumeActionRecords: ConsumeActionRecords[F],
       produceAction: ProduceAction[F],
       headCache: HeadCache[F]
     ): SeqNrJournal[F] = {
-
-      implicit val concurrent = ConcurrentOf.fromMonad[F]
       implicit val clock = Clock.const[F](nanos = 0, millis = timestamp.toEpochMilli)
       implicit val randomIdOf = RandomIdOf.uuid[F]
       implicit val measureDuration = MeasureDuration.fromClock(clock)
@@ -517,7 +517,7 @@ object JournalSpec {
   }
 
 
-  type StateT[A] = cats.data.StateT[Id, State, A]
+  type StateT[A] = cats.data.StateT[IO, State, A]
 
   object StateT {
 
@@ -572,10 +572,10 @@ object JournalSpec {
 
     val actionRecords: Stream[StateT, ActionRecord[Action]] = {
       val result = StateT { state =>
-        state.recordsToRead.dequeueOption match {
+        (state.recordsToRead.dequeueOption match {
           case Some((record, records)) => (state.copy(recordsToRead = records), Stream[StateT].single(record))
           case None                    => (state, Stream[StateT].empty[ActionRecord[Action]])
-        }
+        })
       }
       Stream.repeat(result).flatten
     }
@@ -586,7 +586,7 @@ object JournalSpec {
         StateT.stream { state =>
           val records = state.records.dropWhile(_.offset < from)
           val state1 = state.copy(recordsToRead = records)
-          (state1, actionRecords)
+          (state1, actionRecords).pure[IO]
         }
       }
     }
@@ -620,9 +620,11 @@ object JournalSpec {
       }
     }
 
-    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[Id, State, A](f)
+    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[IO, State, A](s => IO.delay(f(s)))
 
-    def stream[A](f: State => (State, Stream[StateT, A])): Stream[StateT, A] = Stream.lift(apply(f)).flatten
+    def of[A](f: State => IO[(State, A)]): StateT[A] = cats.data.StateT[IO, State, A](s => f(s))
+
+    def stream[A](f: State => IO[(State, Stream[StateT, A])]): Stream[StateT, A] = Stream.lift(of(f)).flatten
   }
 
 

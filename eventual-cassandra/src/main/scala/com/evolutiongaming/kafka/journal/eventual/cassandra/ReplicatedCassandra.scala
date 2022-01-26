@@ -1,12 +1,10 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
-import cats.effect.concurrent.Ref
 import cats.effect.implicits._
-import cats.effect.{Concurrent, Sync, Timer}
+import cats.effect.{Async, Ref, Sync}
 import cats.syntax.all._
 import cats.{Applicative, Monad, Parallel}
-import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{LogOf, ToTry}
@@ -29,7 +27,7 @@ object ReplicatedCassandra {
 
   def of[
     F[_]
-    : Concurrent: Parallel: Timer
+    : Async
     : ToTry: LogOf: Fail
     : CassandraCluster: CassandraSession
     : MeasureDuration

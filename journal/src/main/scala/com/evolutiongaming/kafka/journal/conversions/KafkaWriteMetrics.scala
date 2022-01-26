@@ -1,15 +1,10 @@
 package com.evolutiongaming.kafka.journal.conversions
 
+import cats.Applicative
 import cats.effect.Resource
-import cats.{Applicative, Monad}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.smetrics.MetricsHelper._
-import com.evolutiongaming.smetrics.{
-  CollectorRegistry,
-  LabelNames,
-  Quantile,
-  Quantiles
-}
+import com.evolutiongaming.smetrics.{CollectorRegistry, LabelNames, Quantile, Quantiles}
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -25,7 +20,7 @@ object KafkaWriteMetrics {
       Applicative[F].unit
   }
 
-  def of[F[_]: Monad](
+  def of[F[_]](
     registry: CollectorRegistry[F],
     prefix: String = "journal"
   ): Resource[F, KafkaWriteMetrics[F]] = {

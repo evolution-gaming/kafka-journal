@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.Monad
-import cats.effect.Bracket
+import cats.effect.MonadCancel
 
-trait BracketFromMonad[F[_], E] extends Bracket[F, E] {
+trait MonadCancelFromMonad[F[_], E] extends MonadCancel[F, E] {
 
   def F: Monad[F]
 

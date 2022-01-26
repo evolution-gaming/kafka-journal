@@ -1,9 +1,10 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import cats.Parallel
-import cats.effect.{Concurrent, Resource, Timer}
+import cats.effect.Resource
+import cats.effect.kernel.Temporal
+import cats.effect.syntax.resource._
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{BracketThrowable, Runtime}
 import com.evolutiongaming.scache
 import com.evolutiongaming.scache.{CacheMetrics, ExpiringCache, Releasable}
@@ -37,7 +38,7 @@ object CacheOf {
   }
 
 
-  def apply[F[_] : Concurrent : Timer : Runtime : Parallel : MeasureDuration](
+  def apply[F[_] : Temporal : Runtime : Parallel : MeasureDuration](
     expireAfter: FiniteDuration,
     cacheMetrics: Option[CacheMetrics.Name => CacheMetrics[F]]
   ): CacheOf[F] = {

@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.effect._
-import cats.effect.concurrent.Ref
+import cats.effect.Ref
 import cats.effect.implicits._
 import cats.syntax.all._
 import cats.Applicative
@@ -29,7 +29,7 @@ object ResourceRegistry {
     Resource(result)
   }
 
-  def apply[F[_] : Sync](releases: Ref[F, List[F[Unit]]]): ResourceRegistry[F] = {
+  def apply[F[_] : Concurrent](releases: Ref[F, List[F[Unit]]]): ResourceRegistry[F] = {
     new ResourceRegistry[F] {
       def allocate[B](resource: Resource[F, B]) = {
         resource.allocated.bracketCase { case (b, release) =>
@@ -38,9 +38,9 @@ object ResourceRegistry {
           } yield b
         } { case ((_, release), exitCase) =>
           exitCase match {
-            case ExitCase.Completed           => ().pure[F]
-            case _: ExitCase.Error[Throwable] => release
-            case ExitCase.Canceled            => release
+            case Outcome.Succeeded(_) => ().pure[F]
+            case Outcome.Errored(_)   => release
+            case Outcome.Canceled()   => release
           }
         }
       }

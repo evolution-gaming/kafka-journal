@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.effect._
-import cats.effect.concurrent.Ref
+import cats.effect.Ref
 import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.IOSuite._
 import org.scalatest.funsuite.AsyncFunSuite

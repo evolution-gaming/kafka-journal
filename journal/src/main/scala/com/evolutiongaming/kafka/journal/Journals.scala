@@ -3,8 +3,8 @@ package com.evolutiongaming.kafka.journal
 import cats._
 import cats.data.{NonEmptyList => Nel, NonEmptySet => Nes}
 import cats.effect._
+import cats.effect.syntax.all._
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MonadThrowable}
 import com.evolutiongaming.kafka.journal.conversions.{ConversionMetrics, KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualRead}
@@ -38,7 +38,7 @@ object Journals {
 
   def of[
     F[_]
-    : Concurrent : Timer
+    : Clock
     : FromTry : Fail : LogOf
     : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomIdOf
     : MeasureDuration
@@ -50,7 +50,7 @@ object Journals {
     journalMetrics: Option[JournalMetrics[F]],
     conversionMetrics: Option[ConversionMetrics[F]],
     callTimeThresholds: Journal.CallTimeThresholds
-  ): Resource[F, Journals[F]] = {
+  )(implicit F: MonadCancel[F, Throwable]): Resource[F, Journals[F]] = {
 
     val consumer = Consumer.of[F](config.kafka.consumer, config.pollTimeout)
 
@@ -82,7 +82,7 @@ object Journals {
   }
 
 
-  def apply[F[_] : Concurrent : Clock : RandomIdOf : Fail : JsonCodec : MeasureDuration](
+  def apply[F[_]: Clock : RandomIdOf : Fail : JsonCodec : MeasureDuration](
     origin: Option[Origin],
     producer: Producer[F],
     consumer: Resource[F, Consumer[F]],
@@ -90,7 +90,7 @@ object Journals {
     headCache: HeadCache[F],
     log: Log[F],
     conversionMetrics: Option[ConversionMetrics[F]]
-  ): Journals[F] = {
+  )(implicit F: MonadCancel[F, Throwable]): Journals[F] = {
     implicit val fromAttempt: FromAttempt[F]   = FromAttempt.lift[F]
     implicit val fromJsResult: FromJsResult[F] = FromJsResult.lift[F]
 
@@ -104,14 +104,14 @@ object Journals {
   }
 
 
-  def apply[F[_] : Concurrent : RandomIdOf : MeasureDuration](
+  def apply[F[_] : RandomIdOf : MeasureDuration](
     eventual: EventualJournal[F],
     consumeActionRecords: ConsumeActionRecords[F],
     produce: Produce[F],
     headCache: HeadCache[F],
     log: Log[F],
     conversionMetrics: Option[ConversionMetrics[F]]
-  ): Journals[F] = {
+  )(implicit F: MonadCancel[F, Throwable]): Journals[F] = {
 
     val appendMarker = AppendMarker(produce)
     val appendEvents = AppendEvents(produce)

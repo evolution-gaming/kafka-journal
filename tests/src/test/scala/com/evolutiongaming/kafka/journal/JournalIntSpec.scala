@@ -8,8 +8,8 @@ import akka.persistence.kafka.journal.KafkaJournalConfig
 import cats.Foldable
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.{IO, Resource}
+import cats.effect.syntax.resource._
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.kafka.journal.IOSuite._
@@ -34,6 +34,8 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
   implicit val kafkaRead: KafkaRead[IO, A]
   implicit val kafkaWrite: KafkaWrite[IO, A]
   implicit val eventualRead: EventualRead[IO, A]
+
+  import cats.effect.unsafe.implicits.global
 
   private val journalsOf = {
 
@@ -244,7 +246,7 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
             events   <- journal.read().toList
             _         = events.map(_.seqNr) shouldEqual List(SeqNr.min)
             strategy  = Strategy.const(100.millis).limit(10.seconds)
-            retry     = Retry(strategy)
+            retry     = Retry[IO, Throwable](strategy)
             _        <- retry {
               for {
                 events <- journal.read().toList

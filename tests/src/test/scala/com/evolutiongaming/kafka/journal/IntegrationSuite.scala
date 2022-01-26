@@ -1,27 +1,23 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.Parallel
 import cats.effect._
 import cats.effect.implicits._
 import cats.syntax.all._
 import com.evolutiongaming.cassandra.StartCassandra
-import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, ToFuture, ToTry}
+import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.StartKafka
+import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
 import com.evolutiongaming.kafka.journal.util._
-import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.smetrics.{CollectorRegistry, MeasureDuration}
 import com.typesafe.config.ConfigFactory
-import TestJsonCodec.instance
-
-import scala.concurrent.ExecutionContext
 
 
 object IntegrationSuite {
 
-  def startF[F[_]: Concurrent: Timer: Parallel: ToFuture: ContextShift: LogOf: MeasureDuration: FromTry: ToTry: Fail](
+  def startF[F[_]: Async: ToFuture: LogOf: MeasureDuration: FromTry: ToTry: Fail](
     cassandraClusterOf: CassandraClusterOf[F]
   ): Resource[F, Unit] = {
 
@@ -47,8 +43,8 @@ object IntegrationSuite {
       }
     }
 
-    def replicator(log: Log[F], blocking: ExecutionContext) = {
-      implicit val kafkaConsumerOf = KafkaConsumerOf[F](blocking)
+    def replicator(log: Log[F]) = {
+      implicit val kafkaConsumerOf = KafkaConsumerOf[F]()
       val config = for {
         config <- Sync[F].delay { ConfigFactory.load("replicator.conf") }
         config <- ReplicatorConfig.fromConfig[F](config)
@@ -67,12 +63,13 @@ object IntegrationSuite {
       log      <- LogOf[F].apply(IntegrationSuite.getClass).toResource
       _        <- cassandra(log)
       _        <- kafka(log)
-      blocking <- Executors.blocking[F]("kafka-journal-blocking")
-      _        <- replicator(log, blocking)
+      _        <- replicator(log)
     } yield {}
   }
 
   def startIO(cassandraClusterOf: CassandraClusterOf[IO]): Resource[IO, Unit] = {
+    import cats.effect.unsafe.implicits.global
+
     val logOf = LogOf.slf4j[IO]
     for {
       logOf  <- logOf.toResource
@@ -84,6 +81,8 @@ object IntegrationSuite {
   }
 
   private lazy val started: Unit = {
+    import cats.effect.unsafe.implicits.global
+
     val (_, release) = startIO(CassandraSuite.cassandraClusterOf).allocated.unsafeRunSync()
 
     val _ = sys.addShutdownHook { release.unsafeRunSync() }

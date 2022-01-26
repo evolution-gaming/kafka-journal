@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.conversions
 
+import cats.Applicative
 import cats.effect.Resource
-import cats.{Applicative, Monad}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.smetrics.{CollectorRegistry, LabelNames, Quantile, Quantiles}
@@ -17,7 +17,7 @@ object KafkaReadMetrics {
 
   def empty[F[_]: Applicative]: KafkaReadMetrics[F] = (_, _) => Applicative[F].unit
 
-  def of[F[_]: Monad](
+  def of[F[_]](
     registry: CollectorRegistry[F],
     prefix: String = "journal"
   ): Resource[F, KafkaReadMetrics[F]] = {

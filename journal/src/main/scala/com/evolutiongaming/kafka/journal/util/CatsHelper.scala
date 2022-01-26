@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.util
 
 import cats.data.OptionT
 import cats.effect.syntax.all._
-import cats.effect.{Concurrent, ExitCase}
+import cats.effect.{Concurrent, Outcome}
 import cats.kernel.CommutativeMonoid
 import cats.syntax.all._
 import cats.{Applicative, ApplicativeError, CommutativeApplicative}
@@ -43,13 +43,13 @@ object CatsHelper {
       for {
         fiber <- fa.start
         value <- self.guaranteeCase {
-          case ExitCase.Completed => ().pure[F]
-          case ExitCase.Canceled  => fiber.cancel
-          case ExitCase.Error(_)  => fiber.cancel
+          case Outcome.Succeeded(_)   => ().pure[F]
+          case Outcome.Canceled()     => fiber.cancel
+          case Outcome.Errored(_)     => fiber.cancel
         }
         value <- value match {
           case Some(value) => fiber.cancel.as(value.some)
-          case None        => fiber.join
+          case None        => fiber.joinWithNever
         }
       } yield value
     }

@@ -1,24 +1,24 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Parallel
-import cats.data.IndexedStateT
-import cats.effect.ExitCase
+import cats.effect.IO
 import cats.implicits._
-import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.util.{BracketFromMonadError, ConcurrentOf, Fail}
+import com.evolutiongaming.kafka.journal.util.Fail
+import com.evolutiongaming.kafka.journal.util.TestTemporal._
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.sstream.FoldWhile._
 import com.evolutiongaming.sstream.Stream
 
 import java.time.ZoneOffset
-import scala.util.Try
 
 // TODO expiry: test purge
 class EventualCassandraSpec extends EventualJournalSpec {
   import EventualCassandraSpec._
+  import cats.effect.unsafe.implicits.global
+
 
   "EventualCassandra" when {
     for {
@@ -34,7 +34,7 @@ class EventualCassandraSpec extends EventualJournalSpec {
           val journals = journalsOf(segmentSize, delete, segmentsFirst = segmentsFirst, segmentsSecond = segmentsSecond)
           val (_, result) = test(journals)
             .run(State.empty)
-            .get
+            .unsafeRunSync()
           result.pure[StateT]
         }
       }
@@ -96,36 +96,9 @@ object EventualCassandraSpec {
     }
   }
 
-
-  implicit val bracketStateT: BracketThrowable[StateT] = new BracketFromMonadError[StateT, Throwable] {
-
-    val F = IndexedStateT.catsDataMonadErrorForIndexedStateT(catsStdInstancesForTry)
-
-    def bracketCase[A, B](
-      acquire: StateT[A])(
-      use: A => StateT[B])(
-      release: (A, ExitCase[Throwable]) => StateT[Unit]
-    ) = {
-
-      def onError(a: A)(e: Throwable) = for {
-        _ <- release(a, ExitCase.error(e))
-        b <- raiseError[B](e)
-      } yield b
-
-      for {
-        a <- acquire
-        b <- handleErrorWith(use(a))(onError(a))
-        _ <- release(a, ExitCase.complete)
-      } yield b
-    }
-  }
-
-
   implicit val failStateT: Fail[StateT] = Fail.lift[StateT]
 
-
   implicit val parallelStateT: Parallel[StateT] = Parallel.identity[StateT]
-
 
   def eventualJournalOf(segmentNrsOf: SegmentNrsOf[StateT], segments: Segments): EventualJournal[StateT] = {
 
@@ -146,8 +119,6 @@ object EventualCassandraSpec {
         }
       }
     }
-
-    implicit val concurrentStateT = ConcurrentOf.fromMonad[StateT]
 
     val metaJournalStatements = EventualCassandra.MetaJournalStatements.fromMetaJournal(
       segmentNrsOf = segmentNrsOf,
@@ -417,7 +388,6 @@ object EventualCassandraSpec {
       updatePointer = updatePointer,
       selectTopics = selectTopics)
 
-    implicit val concurrentStateT = ConcurrentOf.fromMonad[StateT]
     ReplicatedCassandra(
       segmentSize,
       segmentNrsOf,
@@ -448,10 +418,10 @@ object EventualCassandraSpec {
   }
 
 
-  type StateT[A] = cats.data.StateT[Try, State, A]
+  type StateT[A] = cats.data.StateT[IO, State, A]
 
   object StateT {
-    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[Try, State, A] { a => f(a).pure[Try]}
+    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[IO, State, A] { a => IO.delay(f(a)) }
   }
 
 
