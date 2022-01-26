@@ -4,17 +4,15 @@ import cats.effect._
 import cats.effect.implicits._
 import cats.syntax.all._
 import com.evolutiongaming.cassandra.StartCassandra
-import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, ToFuture, ToTry}
+import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.StartKafka
+import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
 import com.evolutiongaming.kafka.journal.util._
-import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.smetrics.{CollectorRegistry, MeasureDuration}
 import com.typesafe.config.ConfigFactory
-import TestJsonCodec.instance
-
-import scala.concurrent.ExecutionContext
 
 
 object IntegrationSuite {
@@ -45,8 +43,8 @@ object IntegrationSuite {
       }
     }
 
-    def replicator(log: Log[F], blocking: ExecutionContext) = {
-      implicit val kafkaConsumerOf = KafkaConsumerOf[F](blocking)
+    def replicator(log: Log[F]) = {
+      implicit val kafkaConsumerOf = KafkaConsumerOf[F]()
       val config = for {
         config <- Sync[F].delay { ConfigFactory.load("replicator.conf") }
         config <- ReplicatorConfig.fromConfig[F](config)
@@ -65,8 +63,7 @@ object IntegrationSuite {
       log      <- LogOf[F].apply(IntegrationSuite.getClass).toResource
       _        <- cassandra(log)
       _        <- kafka(log)
-      blocking <- Executors.blocking[F]("kafka-journal-blocking")
-      _        <- replicator(log, blocking)
+      _        <- replicator(log)
     } yield {}
   }
 

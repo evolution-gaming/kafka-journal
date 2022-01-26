@@ -6,8 +6,6 @@ import com.evolutiongaming.catshelper.ToTry
 import com.evolutiongaming.skafka.producer.{ProducerConfig, ProducerMetrics, ProducerOf}
 import com.evolutiongaming.smetrics.MeasureDuration
 
-import scala.concurrent.ExecutionContext
-
 
 trait KafkaProducerOf[F[_]] {
 
@@ -18,12 +16,10 @@ object KafkaProducerOf {
 
   def apply[F[_]](implicit F: KafkaProducerOf[F]): KafkaProducerOf[F] = F
 
-
   def apply[F[_]: Async: MeasureDuration: ToTry](
-    blocking: ExecutionContext,
     metrics: Option[ProducerMetrics[F]] = None
   ): KafkaProducerOf[F] = {
-    val producerOf = ProducerOf.apply(blocking, metrics)
+    val producerOf = ProducerOf.apply1(metrics)
     apply(producerOf)
   }
 

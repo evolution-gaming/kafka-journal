@@ -17,19 +17,17 @@ import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig}
 import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
+import scala.concurrent.ExecutionContext
 
 object ReadEventsApp extends IOApp {
 
   def run(args: List[String]): IO[ExitCode] = {
     import cats.effect.unsafe.implicits.global
     implicit val executor = ExecutionContext.global
-    runF[IO](executor).as(ExitCode.Success)
+    runF[IO].as(ExitCode.Success)
   }
 
-  private def runF[F[_]: Async: ToFuture: Parallel: FromGFuture: FromTry: ToTry: Fail](
-    executor: ExecutionContextExecutor,
-  ): F[Unit] = {
+  private def runF[F[_]: Async: ToFuture: Parallel: FromGFuture: FromTry: ToTry: Fail]: F[Unit] = {
 
     for {
       logOf  <- LogOf.slf4j[F]
@@ -39,7 +37,7 @@ object ReadEventsApp extends IOApp {
         implicit val measureDuration = MeasureDuration.fromClock(Clock[F])
         implicit val fromAttempt = FromAttempt.lift[F]
         implicit val fromJsResult = FromJsResult.lift[F]
-        runF[F](executor, log).handleErrorWith { error =>
+        runF[F](log).handleErrorWith { error =>
           log.error(s"failed with $error", error)
         }
       }
@@ -48,13 +46,12 @@ object ReadEventsApp extends IOApp {
   }
 
   private def runF[F[_]: Async: ToFuture: Parallel: LogOf: FromGFuture: MeasureDuration: FromTry: ToTry: FromAttempt: FromJsResult: Fail](
-    executor: ExecutionContextExecutor,
     log: Log[F],
   ): F[Unit] = {
 
-    implicit val kafkaConsumerOf = KafkaConsumerOf[F](executor)
+    implicit val kafkaConsumerOf = KafkaConsumerOf[F]()
 
-    implicit val kafkaProducerOf = KafkaProducerOf[F](executor)
+    implicit val kafkaProducerOf = KafkaProducerOf[F]()
 
     implicit val randomIdOf = RandomIdOf.uuid[F]
 

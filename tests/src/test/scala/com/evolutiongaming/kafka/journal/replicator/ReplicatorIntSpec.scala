@@ -27,7 +27,6 @@ import play.api.libs.json.Json
 import pureconfig.ConfigSource
 import TestJsonCodec.instance
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
 
@@ -64,7 +63,6 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
     def journal(
       conf: Config,
-      blocking: ExecutionContext,
       eventualJournal: EventualJournal[F]
     ) = {
 
@@ -73,9 +71,9 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
         .load[JournalConfig]
         .liftTo[F]
 
-      implicit val kafkaConsumerOf = KafkaConsumerOf[F](blocking)
+      implicit val kafkaConsumerOf = KafkaConsumerOf[F]()
 
-      implicit val kafkaProducerOf = KafkaProducerOf[F](blocking)
+      implicit val kafkaProducerOf = KafkaProducerOf[F]()
 
       for {
         config   <- config.toResource
@@ -107,7 +105,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       system          <- system
       conf            <- Sync[F].delay { system.settings.config.getConfig("evolutiongaming.kafka-journal.replicator") }.toResource
       eventualJournal <- eventualJournal(conf)
-      journal         <- journal(conf, system.dispatcher, eventualJournal)
+      journal         <- journal(conf, eventualJournal)
     } yield {
       (eventualJournal, journal)
     }

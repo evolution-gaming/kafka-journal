@@ -35,11 +35,9 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
   }
 
   implicit val kafkaConsumerOf: KafkaConsumerOf[IO] = KafkaConsumerOf[IO](
-    actorSystem.dispatcher,
     ConsumerMetrics.empty[IO].some)
 
   implicit val kafkaProducerOf: KafkaProducerOf[IO] = KafkaProducerOf[IO](
-    actorSystem.dispatcher,
     ProducerMetrics.empty[IO].some)
 
   implicit val randomIdOf: RandomIdOf[IO] = RandomIdOf.uuid[IO]
