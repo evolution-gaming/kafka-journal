@@ -56,7 +56,7 @@ class KafkaSingletonTest extends AsyncFunSuite with Matchers {
           a <- allocated.get
           _  = a shouldEqual false
           _ <- listener.onPartitionsAssigned(Nes.of(topicPartition(Partition.min)))
-          _ <- Timer[F].sleep(10.millis)
+          _ <- Timer[F].sleep(100.millis)
           a <- singleton.get
           _  = a shouldEqual ().some
           a <- allocated.get
@@ -67,7 +67,7 @@ class KafkaSingletonTest extends AsyncFunSuite with Matchers {
           a <- allocated.get
           _  = a shouldEqual true
           _ <- listener.onPartitionsRevoked(Nes.of(topicPartition(Partition.min)))
-          _ <- Timer[F].sleep(10.millis)
+          _ <- Timer[F].sleep(100.millis)
           a <- singleton.get
           _  = a shouldEqual none[Unit]
           a <- allocated.get
