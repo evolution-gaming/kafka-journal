@@ -9,7 +9,7 @@ import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.skafka._
-import com.evolutiongaming.skafka.consumer.{Consumer => _, _}
+import com.evolutiongaming.skafka.consumer.RebalanceListener
 
 import scala.concurrent.duration._
 

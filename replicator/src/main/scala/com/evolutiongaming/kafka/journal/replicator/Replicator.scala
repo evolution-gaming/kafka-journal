@@ -19,7 +19,7 @@ import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.scache.CacheMetrics
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
-import com.evolutiongaming.skafka.consumer._
+import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerMetrics}
 import com.evolutiongaming.skafka.{ClientId, Topic, Bytes => _}
 import com.evolutiongaming.smetrics.{CollectorRegistry, MeasureDuration}
 import scodec.bits.ByteVector
