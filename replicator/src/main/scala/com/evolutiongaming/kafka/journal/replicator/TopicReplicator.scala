@@ -1,7 +1,5 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-
-import java.time.Instant
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.effect._
 import cats.effect.implicits._
@@ -16,14 +14,14 @@ import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.retry.Sleep
-import com.evolutiongaming.skafka.consumer._
-import com.evolutiongaming.skafka.{Bytes => _, _}
+import com.evolutiongaming.skafka.{Metadata, Offset, Partition, Topic}
+import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.evolutiongaming.smetrics._
 import scodec.bits.ByteVector
 
+import java.time.Instant
 import scala.concurrent.duration._
 import scala.util.Try
-
 
 object TopicReplicator {
 
@@ -262,5 +260,3 @@ object TopicReplicator {
     }
   }
 }
-
-

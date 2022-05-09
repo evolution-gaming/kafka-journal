@@ -2,7 +2,6 @@ import sbt._
 
 object Dependencies {
 
-  val prometheus           = "io.prometheus"           % "simpleclient"          % "0.6.0"
   val scalatest            = "org.scalatest"          %% "scalatest"             % "3.2.10"
   val `scala-java8-compat` = "org.scala-lang.modules" %% "scala-java8-compat"    % "1.0.2"
   val `kind-projector`     = "org.typelevel"           % "kind-projector"        % "0.13.2"
