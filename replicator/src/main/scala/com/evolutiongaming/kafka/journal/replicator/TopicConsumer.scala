@@ -6,7 +6,7 @@ import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.{ConsRecord, KafkaConsumer}
 import com.evolutiongaming.skafka._
-import com.evolutiongaming.skafka.consumer._
+import com.evolutiongaming.skafka.consumer.RebalanceListener
 import com.evolutiongaming.sstream.Stream
 import scodec.bits.ByteVector
 
