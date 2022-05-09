@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-
 import cats.data.{NonEmptySet => Nes}
 import cats.effect.Resource
 import cats.syntax.all._
@@ -9,7 +8,7 @@ import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.{OnError, Retry, Sleep, Strategy}
 import com.evolutiongaming.skafka._
-import com.evolutiongaming.skafka.consumer.{Consumer => _, _}
+import com.evolutiongaming.skafka.consumer.RebalanceListener
 
 import scala.concurrent.duration._
 
