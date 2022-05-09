@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-
 import cats.data.{NonEmptySet => Nes}
 import cats.effect.{Resource, Timer}
 import cats.syntax.all._
