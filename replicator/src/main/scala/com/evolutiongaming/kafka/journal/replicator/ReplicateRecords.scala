@@ -34,17 +34,18 @@ object ReplicateRecords {
     (records: Nel[ConsRecord], timestamp: Instant) => {
 
       def apply(records: Nel[ActionRecord[Action]]) = {
-        val head = records.head
-        val key = head.action.key
+        val record = records.last
+        val key = record.action.key
         val id = key.id
 
         def measurements(records: Int) = {
           for {
             now <- Clock[F].instant
           } yield {
+            val timestamp1 = record.action.timestamp
             TopicReplicatorMetrics.Measurements(
-              replicationLatency = now diff head.action.timestamp,
-              deliveryLatency = timestamp diff head.action.timestamp,
+              replicationLatency = now diff timestamp1,
+              deliveryLatency = timestamp diff timestamp1,
               records = records)
           }
         }
@@ -60,8 +61,8 @@ object ReplicateRecords {
               JournalError(s"ReplicateRecords failed for id: $id, offset: $partitionOffset: $e", e)
             }
             for {
-              events <- events
-              eventualEvents <- events.events.traverse(_.traverse(eventualWrite.apply))
+              events         <- events
+              eventualEvents <- events.events.traverse { _.traverse { a => eventualWrite(a) } }
             } yield for {
               event <- eventualEvents
             } yield {
@@ -88,17 +89,17 @@ object ReplicateRecords {
           def measure(events: Nel[EventRecord[EventualPayloadAndType]], expireAfter: Option[ExpireAfter]) = {
             for {
               measurements <- measurements(records.size)
-              _            <- metrics.append(events = events.length, bytes = bytes, measurements = measurements)
+              result       <- metrics.append(events = events.length, bytes = bytes, measurements = measurements)
               _            <- log.info(msg(events, measurements.replicationLatency, expireAfter))
-            } yield {}
+            } yield result
           }
 
           for {
             events       <- events
             expireAfter   = events.last.metadata.payload.expireAfter
             appended     <- journal.append(partitionOffset, timestamp, expireAfter, events)
-            _            <- if (appended) measure(events, expireAfter) else Applicative[F].unit
-          } yield {}
+            result       <- if (appended) measure(events, expireAfter) else Applicative[F].unit
+          } yield result
         }
 
         def delete(partitionOffset: PartitionOffset, deleteTo: DeleteTo, origin: Option[Origin], version: Option[Version]) = {
@@ -114,14 +115,14 @@ object ReplicateRecords {
               measurements <- measurements(1)
               latency       = measurements.replicationLatency
               _            <- metrics.delete(measurements)
-              _            <- log.info(msg(latency))
-            } yield {}
+              result       <- log.info(msg(latency))
+            } yield result
           }
 
           for {
             deleted <- journal.delete(partitionOffset, timestamp, deleteTo, origin)
-            _       <- if (deleted) measure() else Applicative[F].unit
-          } yield {}
+            result  <- if (deleted) measure() else Applicative[F].unit
+          } yield result
         }
 
         def purge(partitionOffset: PartitionOffset, origin: Option[Origin], version: Option[Version]) = {
@@ -137,15 +138,14 @@ object ReplicateRecords {
               measurements <- measurements(1)
               latency       = measurements.replicationLatency
               _            <- metrics.purge(measurements)
-              _            <- log.info(msg(latency))
-            } yield {}
+              result       <- log.info(msg(latency))
+            } yield result
           }
 
           for {
             purged <- journal.purge(partitionOffset.offset, timestamp)
-            _      <- if (purged) measure() else Applicative[F].unit // measure() //
-
-          } yield {}
+            result <- if (purged) measure() else Applicative[F].unit
+          } yield result
         }
 
         Batch
@@ -159,8 +159,8 @@ object ReplicateRecords {
 
       for {
         records <- records.toList.traverseFilter { a => consRecordToActionRecord(a).value }
-        _       <- records.toNel.traverse { records => apply(records) }
-      } yield {}
+        result  <- records.toNel.foldMapM { records => apply(records) }
+      } yield result
     }
   }
 }
