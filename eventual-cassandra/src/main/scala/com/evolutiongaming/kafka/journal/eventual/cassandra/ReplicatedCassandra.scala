@@ -212,7 +212,8 @@ object ReplicatedCassandra {
                   }
                 }
 
-                new ReplicatedKeyJournal[F] {
+                class Main
+                new Main with ReplicatedKeyJournal[F] {
 
                   def append(
                     partitionOffset: PartitionOffset,
@@ -544,9 +545,6 @@ object ReplicatedCassandra {
       }
     }
 
-
-    private sealed abstract class Main
-
     def apply[F[_]: Monad](
       metaJournal: MetaJournalStatements[F],
       selectMetadata: MetadataStatements.Select[F],
@@ -554,13 +552,15 @@ object ReplicatedCassandra {
       insertMetaJournal: cassandra.MetaJournalStatements.Insert[F]
     ): MetaJournalStatements[F] = {
 
+      class Main
+
       new Main with MetaJournalStatements[F] {
 
         def apply(key: Key, segment: SegmentNr) = {
 
           def metaJournal1 = metaJournal(key, segment)
 
-          new ByKey[F] {
+          new Main with ByKey[F] {
 
             def journalHead = {
               metaJournal1
@@ -597,7 +597,7 @@ object ReplicatedCassandra {
 
               def metaJournal = metaJournal1.update(partitionOffset, timestamp)
 
-              new ByKey.Update[F] {
+              new Main with ByKey.Update[F] {
 
                 def apply(seqNr: SeqNr) = metaJournal(seqNr)
 
@@ -644,7 +644,7 @@ object ReplicatedCassandra {
       new MetaJournal with MetaJournalStatements[F] {
 
         def apply(key: Key, segment: SegmentNr) = {
-          new ByKey[F] {
+          new MetaJournal with ByKey[F] {
 
             def journalHead = selectJournalHead(key, segment)
 
@@ -653,7 +653,7 @@ object ReplicatedCassandra {
             }
 
             def update(partitionOffset: PartitionOffset, timestamp: Instant) = {
-              new ByKey.Update[F] {
+              new MetaJournal with ByKey.Update[F] {
 
                 def apply(seqNr: SeqNr) = {
                   updateSeqNr(key, segment, partitionOffset, timestamp, seqNr)
