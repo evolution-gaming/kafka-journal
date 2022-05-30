@@ -10,11 +10,11 @@ jobs:
     strategy:
       matrix:
         scala:
-          - 2.13.7
+          - 2.13.8
           - 2.12.15
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - uses: coursier/cache-action@v6
 
