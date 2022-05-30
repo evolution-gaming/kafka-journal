@@ -39,32 +39,37 @@ object ReplicatedKeyJournal {
   type Changed = Boolean
 
 
-  def empty[F[_] : Applicative]: ReplicatedKeyJournal[F] = new ReplicatedKeyJournal[F] {
+  def empty[F[_]: Applicative]: ReplicatedKeyJournal[F] = const(false.pure[F])
 
-    def append(
-      partitionOffset: PartitionOffset,
-      timestamp: Instant,
-      expireAfter: Option[ExpireAfter],
-      events: Nel[EventRecord[EventualPayloadAndType]]
-    ) = false.pure[F]
+  def const[F[_]](value: F[Boolean]): ReplicatedKeyJournal[F] = {
+    class Const
+    new Const with ReplicatedKeyJournal[F] {
 
-    def delete(
-      partitionOffset: PartitionOffset,
-      timestamp: Instant,
-      deleteTo: DeleteTo,
-      origin: Option[Origin]
-    ) = false.pure[F]
+      def append(
+        partitionOffset: PartitionOffset,
+        timestamp: Instant,
+        expireAfter: Option[ExpireAfter],
+        events: Nel[EventRecord[EventualPayloadAndType]]
+      ) = value
 
-    def purge(
-      offset: Offset,
-      timestamp: Instant
-    ) = false.pure[F]
+      def delete(
+        partitionOffset: PartitionOffset,
+        timestamp: Instant,
+        deleteTo: DeleteTo,
+        origin: Option[Origin]
+      ) = value
+
+      def purge(
+        offset: Offset,
+        timestamp: Instant
+      ) = value
+    }
   }
 
 
   def apply[F[_]](key: Key, replicatedJournal: ReplicatedJournalFlat[F]): ReplicatedKeyJournal[F] = {
-
-    new ReplicatedKeyJournal[F] {
+    class Flat
+    new Flat with ReplicatedKeyJournal[F] {
 
       def append(
         partitionOffset: PartitionOffset,
@@ -93,34 +98,41 @@ object ReplicatedKeyJournal {
     }
   }
 
+  private abstract sealed class WithLog
+
+  private abstract sealed class WithMetrics
+
+  private abstract sealed class MapK
 
   implicit class ReplicatedKeyJournalOps[F[_]](val self: ReplicatedKeyJournal[F]) extends AnyVal {
 
-    def mapK[G[_]](f: F ~> G): ReplicatedKeyJournal[G] = new ReplicatedKeyJournal[G] {
+    def mapK[G[_]](f: F ~> G): ReplicatedKeyJournal[G] = {
+      new MapK with ReplicatedKeyJournal[G] {
 
-      def append(
-        partitionOffset: PartitionOffset,
-        timestamp: Instant,
-        expireAfter: Option[ExpireAfter],
-        events: Nel[EventRecord[EventualPayloadAndType]]
-      ) = {
-        f(self.append(partitionOffset, timestamp, expireAfter, events))
-      }
+        def append(
+          partitionOffset: PartitionOffset,
+          timestamp: Instant,
+          expireAfter: Option[ExpireAfter],
+          events: Nel[EventRecord[EventualPayloadAndType]]
+        ) = {
+          f(self.append(partitionOffset, timestamp, expireAfter, events))
+        }
 
-      def delete(
-        partitionOffset: PartitionOffset,
-        timestamp: Instant,
-        deleteTo: DeleteTo,
-        origin: Option[Origin]
-      ) = {
-        f(self.delete(partitionOffset, timestamp, deleteTo, origin))
-      }
+        def delete(
+          partitionOffset: PartitionOffset,
+          timestamp: Instant,
+          deleteTo: DeleteTo,
+          origin: Option[Origin]
+        ) = {
+          f(self.delete(partitionOffset, timestamp, deleteTo, origin))
+        }
 
-      def purge(
-        offset: Offset,
-        timestamp: Instant
-      ) = {
-        f(self.purge(offset, timestamp))
+        def purge(
+          offset: Offset,
+          timestamp: Instant
+        ) = {
+          f(self.purge(offset, timestamp))
+        }
       }
     }
 
@@ -132,7 +144,7 @@ object ReplicatedKeyJournal {
       measureDuration: MeasureDuration[F]
     ): ReplicatedKeyJournal[F] = {
 
-      new ReplicatedKeyJournal[F] {
+      new WithLog with ReplicatedKeyJournal[F] {
 
         def append(
           partitionOffset: PartitionOffset,
@@ -193,7 +205,7 @@ object ReplicatedKeyJournal {
       F: FlatMap[F],
       measureDuration: MeasureDuration[F]
     ): ReplicatedKeyJournal[F] = {
-      new ReplicatedKeyJournal[F] {
+      new WithMetrics with ReplicatedKeyJournal[F] {
 
         def append(
           partitionOffset: PartitionOffset,
