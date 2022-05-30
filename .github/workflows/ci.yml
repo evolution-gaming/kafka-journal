@@ -21,7 +21,7 @@ jobs:
       - name: scala
         uses: olafurpg/setup-scala@v11
         with:
-          java-version: openjdk@1.11
+          java-version: 17
 
       - name: build ${{ matrix.scala }}
         run: sbt ++${{ matrix.scala }} clean coverage test
