@@ -1,3 +1,2 @@
 -J-Xms4G
 -J-Xmx4G
--J--add-opens=java.base/java.io=ALL-UNNAMED

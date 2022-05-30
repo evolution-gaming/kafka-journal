@@ -99,7 +99,7 @@ lazy val `tests` = (project in file("tests")
     publish / skip  := true,
     Test / fork := true,
     Test / parallelExecution := false,
-    Test / javaOptions ++= Seq("-Xms3G", "-Xmx3G", "--add-opens=java.base/java.io=ALL-UNNAMED"))
+    Test / javaOptions ++= Seq("-Xms3G", "-Xmx3G"))
   dependsOn (
     persistence % "test->test;compile->compile",
     `persistence-circe`,
