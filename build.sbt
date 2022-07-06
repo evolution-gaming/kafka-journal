@@ -15,7 +15,9 @@ lazy val commonSettings = Seq(
   releaseCrossBuild := true,
   Test / testOptions ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM")),
   libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full),
-  libraryDependencySchemes ++= Seq("org.scala-lang.modules" %% "scala-java8-compat" % "always"),
+  libraryDependencySchemes ++= Seq(
+    "org.scala-lang.modules" %% "scala-java8-compat" % "always",
+    "org.scala-lang.modules" %% "scala-xml"          % "always"),
   versionScheme := Some("early-semver"))
 
 
