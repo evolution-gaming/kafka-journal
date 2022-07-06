@@ -21,13 +21,13 @@ object Dependencies {
   val random               = "com.evolutiongaming"    %% "random"                % "1.0.0"
   val retry                = "com.evolutiongaming"    %% "retry"                 % "3.0.1"
   val sstream              = "com.evolutiongaming"    %% "sstream"               % "1.0.1"
-  val skafka               = "com.evolutiongaming"    %% "skafka"                % "12.1.3"
+  val skafka               = "com.evolutiongaming"    %% "skafka"                % "13.0.0"
   val scache               = "com.evolutiongaming"    %% "scache"                % "4.0.0"
   val `akka-test-actor`    = "com.evolutiongaming"    %% "akka-test-actor"       % "0.1.0"
 
   object Cats {
-    val core   = "org.typelevel" %% "cats-core"   % "2.7.0"
-    val effect = "org.typelevel" %% "cats-effect" % "3.3.12"
+    val core   = "org.typelevel" %% "cats-core"   % "2.8.0"
+    val effect = "org.typelevel" %% "cats-effect" % "3.3.13"
   }
 
   object Logback {
@@ -43,7 +43,7 @@ object Dependencies {
   }
 
   object Akka {
-    private val version = "2.6.8"
+    private val version = "2.6.9"
     val actor             = "com.typesafe.akka" %% "akka-actor"           % version
     val testkit           = "com.typesafe.akka" %% "akka-testkit"         % version
     val stream            = "com.typesafe.akka" %% "akka-stream"          % version
@@ -64,7 +64,7 @@ object Dependencies {
   }
 
   object Smetrics {
-    private val version = "1.0.2"
+    private val version = "1.0.4"
     val smetrics   = "com.evolutiongaming" %% "smetrics"            % version
     val prometheus = "com.evolutiongaming" %% "smetrics-prometheus" % version
   }
