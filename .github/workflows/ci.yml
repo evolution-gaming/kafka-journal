@@ -28,10 +28,10 @@ jobs:
 
       - name: test coverage
         if: success()
+        run: sbt ++${{ matrix.scala }} coverageAggregate coveralls
         env:
           COVERALLS_REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COVERALLS_FLAG_NAME: Scala ${{ matrix.scala }}
-        run: sbt ++${{ matrix.scala }} coverageReport coverageAggregate coveralls
 
       - name: slack
         uses: homoluctus/slatify@master
