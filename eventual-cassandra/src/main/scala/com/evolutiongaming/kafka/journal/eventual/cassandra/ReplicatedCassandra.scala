@@ -621,7 +621,8 @@ object ReplicatedCassandra {
 
             def delete = {
               for {
-                _ <- deleteMetadata(key)
+                a <- selectMetadata(key)
+                _ <- a.foldMapM { _ => deleteMetadata(key) }
                 a <- metaJournal1.delete
               } yield a
             }
