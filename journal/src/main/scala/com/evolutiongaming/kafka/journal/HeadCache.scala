@@ -360,30 +360,20 @@ object HeadCache {
       maxSize: Int
     ): Map[Partition, PartitionEntry] = {
 
-      def sizeOf(map: Map[Partition, PartitionEntry]) = {
-        map.values.foldLeft(0L) { _ + _.entries.size }
-      }
-
       val combined = x combine y
-      if (sizeOf(combined) <= maxSize) {
-        combined
-      } else {
-        val partitions = combined.size
-        val maxSizePartition = maxSize / partitions max 1
-        for {
-          (partition, partitionEntry) <- combined
-        } yield {
-          val updated = {
-            if (partitionEntry.entries.size <= maxSizePartition) {
-              partitionEntry
-            } else {
-              val offset = partitionEntry.entries.values.foldLeft(Offset.min) { _ max _.offset }
-              // TODO headcache: remove half
-              partitionEntry.copy(entries = Map.empty, trimmed = Some(offset))
-            }
+      for {
+        (partition, partitionEntry) <- combined
+      } yield {
+        val updated = {
+          if (partitionEntry.entries.size <= maxSize) {
+            partitionEntry
+          } else {
+            val offset = partitionEntry.entries.values.foldLeft(Offset.min) { _ max _.offset }
+            // TODO headcache: remove half
+            partitionEntry.copy(entries = Map.empty, trimmed = offset.some)
           }
-          (partition, updated)
         }
+        (partition, updated)
       }
     }
 
