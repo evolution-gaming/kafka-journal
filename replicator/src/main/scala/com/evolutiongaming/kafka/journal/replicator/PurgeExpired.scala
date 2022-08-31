@@ -151,9 +151,7 @@ object PurgeExpired {
       val latencySummary = registry.summary(
         name = s"${ prefix }_latency",
         help = "Purge expired latency in seconds",
-        quantiles = Quantiles(
-          Quantile(0.9, 0.05),
-          Quantile(0.99, 0.005)),
+        quantiles = Quantiles.Default,
         labels = LabelNames("topic"))
 
       val journalsCounter = registry.summary(

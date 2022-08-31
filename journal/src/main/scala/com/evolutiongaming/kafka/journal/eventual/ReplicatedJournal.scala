@@ -199,20 +199,16 @@ object ReplicatedJournal {
       prefix: String = "replicated_journal"
     ): Resource[F, Metrics[F]] = {
 
-      val quantiles = Quantiles(
-        Quantile(0.9, 0.05),
-        Quantile(0.99, 0.005))
-
       val latencySummary = registry.summary(
         name      = s"${ prefix }_latency",
         help      = "Journal call latency in seconds",
-        quantiles = quantiles,
+        quantiles = Quantiles.Default,
         labels    = LabelNames("type"))
 
       val topicLatencySummary = registry.summary(
         name      = s"${ prefix }_topic_latency",
         help      = "Journal topic call latency in seconds",
-        quantiles = quantiles,
+        quantiles = Quantiles.Default,
         labels    = LabelNames("topic", "type"))
 
       val eventsSummary = registry.summary(

@@ -9,7 +9,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
 object IOSuite {
-  val Timeout: FiniteDuration = 5.seconds
+  val Timeout: FiniteDuration = 1.minute
 
   implicit val executor: ExecutionContextExecutor = ExecutionContext.global
   implicit val measureDuration: MeasureDuration[IO] = MeasureDuration.fromClock(Clock[IO])

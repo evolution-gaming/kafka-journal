@@ -124,8 +124,7 @@ object TopicReplicator {
               (timestamp: Instant, records: Nel[ConsRecord]) => {
                 records
                   .groupBy { _.key.map { _.value } }
-                  .toList
-                  .parFoldMap { case (key, records) =>
+                  .parFoldMapTraversable { case (key, records) =>
                     key.foldMapM { key =>
                       for {
                         keyFlow <- cache.getOrUpdate(key) { keyFlow(key) }

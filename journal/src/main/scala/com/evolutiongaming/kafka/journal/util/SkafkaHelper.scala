@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.util
 
-import cats.Applicative
+import cats.{Applicative, ApplicativeThrow, Hash}
 import cats.syntax.all._
 import com.datastax.driver.core.{GettableByNameData, SettableData}
 import com.evolutiongaming.catshelper.ApplicativeThrowable
@@ -63,5 +63,12 @@ object SkafkaHelper {
     def apply[B <: SettableData[B]](data: B, offset: Offset) = {
       data.encode("offset", offset.value)
     }
+  }
+
+  implicit val hashPartition: Hash[Partition] = Hash.by { _.value }
+
+
+  implicit class PartitionOps(val self: Partition) extends AnyVal {
+    def inc[F[_]: ApplicativeThrow]: F[Partition] = Partition.of[F](self.value + 1)
   }
 }

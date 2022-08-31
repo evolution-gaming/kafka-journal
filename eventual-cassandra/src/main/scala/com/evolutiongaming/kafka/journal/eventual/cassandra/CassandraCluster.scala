@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
+import cats.Parallel
 import cats.effect.Resource
 import cats.effect.kernel.Async
 import cats.syntax.all._
@@ -18,7 +19,7 @@ object CassandraCluster {
 
   def apply[F[_]](implicit F: CassandraCluster[F]): CassandraCluster[F] = F
 
-  def apply[F[_] : Async : FromGFuture](
+  def apply[F[_]: Async: Parallel: FromGFuture](
     cluster: scassandra.CassandraCluster[F],
     retries: Int
   ): CassandraCluster[F] = new CassandraCluster[F] {
@@ -41,7 +42,7 @@ object CassandraCluster {
     }
   }
 
-  def of[F[_] : Async : FromGFuture](
+  def of[F[_]: Async: Parallel: FromGFuture](
     config: CassandraConfig,
     cassandraClusterOf: CassandraClusterOf[F],
     retries: Int,
