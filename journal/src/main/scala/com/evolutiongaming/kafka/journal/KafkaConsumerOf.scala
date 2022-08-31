@@ -31,17 +31,18 @@ object KafkaConsumerOf {
   }
 
 
-  private sealed abstract class Main
+  def apply[F[_]: Concurrent](consumerOf: ConsumerOf[F]): KafkaConsumerOf[F] = {
+    class Main
+    new Main with KafkaConsumerOf[F] {
 
-  def apply[F[_]: Concurrent](consumerOf: ConsumerOf[F]): KafkaConsumerOf[F] = new Main with KafkaConsumerOf[F] {
-
-    def apply[K, V](
-      config: ConsumerConfig)(implicit
-      fromBytesK: skafka.FromBytes[F, K],
-      fromBytesV: skafka.FromBytes[F, V]
-    ) = {
-      val consumer = consumerOf[K, V](config)
-      KafkaConsumer.of(consumer)
+      def apply[K, V](
+        config: ConsumerConfig)(implicit
+        fromBytesK: skafka.FromBytes[F, K],
+        fromBytesV: skafka.FromBytes[F, V]
+      ) = {
+        val consumer = consumerOf[K, V](config)
+        KafkaConsumer.of(consumer)
+      }
     }
   }
 }

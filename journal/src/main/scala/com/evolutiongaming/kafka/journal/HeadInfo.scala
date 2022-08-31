@@ -13,7 +13,7 @@ object HeadInfo {
 
   def delete(deleteTo: DeleteTo): HeadInfo = Delete(deleteTo)
 
-  def append(seqNr: SeqNr, deleteTo: Option[DeleteTo], offset: Offset): HeadInfo = {
+  def append(offset: Offset, seqNr: SeqNr, deleteTo: Option[DeleteTo]): HeadInfo = {
     Append(offset, seqNr, deleteTo)
   }
 

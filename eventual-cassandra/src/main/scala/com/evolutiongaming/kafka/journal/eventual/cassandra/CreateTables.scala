@@ -29,7 +29,7 @@ object CreateTables { self =>
 
       def missing(keyspace: KeyspaceMetadata[F]) = {
         for {
-          tables <- tables.toList.foldLeftM(List.empty[Table]) { (create, table) =>
+          tables <- tables.foldLeftM(List.empty[Table]) { (create, table) =>
             for {
               metadata <- keyspace.table(table.name)
             } yield {

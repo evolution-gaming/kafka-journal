@@ -58,9 +58,7 @@ object JournalMetrics {
     val latencySummary = registry.summary(
       name = s"${ prefix }_topic_latency",
       help = "Journal call latency in seconds",
-      quantiles = Quantiles(
-        Quantile(0.9, 0.05),
-        Quantile(0.99, 0.005)),
+      quantiles = Quantiles.Default,
       labels = LabelNames("topic", "type"))
 
     val eventsSummary = registry.summary(

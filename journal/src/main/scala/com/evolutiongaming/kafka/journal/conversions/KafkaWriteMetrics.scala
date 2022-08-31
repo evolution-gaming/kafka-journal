@@ -4,12 +4,7 @@ import cats.effect.Resource
 import cats.{Applicative, Monad}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.smetrics.MetricsHelper._
-import com.evolutiongaming.smetrics.{
-  CollectorRegistry,
-  LabelNames,
-  Quantile,
-  Quantiles
-}
+import com.evolutiongaming.smetrics.{CollectorRegistry, LabelNames, Quantiles}
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -33,7 +28,7 @@ object KafkaWriteMetrics {
     val durationSummary = registry.summary(
       name = s"${prefix}_events_to_payload_duration",
       help = "Journal events to payload conversion duration in seconds",
-      quantiles = Quantiles(Quantile(0.9, 0.05), Quantile(0.99, 0.005)),
+      quantiles = Quantiles.Default,
       labels = LabelNames("payload_type")
     )
 

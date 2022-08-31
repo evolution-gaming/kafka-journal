@@ -22,7 +22,6 @@ import org.scalatest.{Assertion, Succeeded}
 import TestJsonCodec.instance
 
 import scala.collection.immutable.Queue
-import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -233,8 +232,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
     // TODO add case with failing head cache
     for {
       (headCacheStr, headCache) <- List(
-        ("invalid", HeadCache.const(HeadCacheError.invalid.asLeft[HeadInfo].pure[StateT])),
-        ("timeout", HeadCache.const(HeadCacheError.timeout(1.second).asLeft[HeadInfo].pure[StateT])),
+        ("invalid", HeadCache.const(none[HeadInfo].pure[StateT])),
         ("valid",   StateT.headCache))
     } {
 
@@ -615,7 +613,7 @@ object JournalSpec {
           val headInfo = state
             .records
             .foldLeft(HeadInfo.empty) { (info, record) => info(record.action.header, record.offset) }
-          (state, headInfo.asRight)
+          (state, headInfo.some)
         }
       }
     }

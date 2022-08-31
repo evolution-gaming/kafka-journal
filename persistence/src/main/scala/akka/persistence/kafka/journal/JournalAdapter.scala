@@ -232,12 +232,12 @@ object JournalAdapter {
 
 
   final case class Metrics[F[_]](
-    journal: Option[JournalMetrics[F]] = None,
-    eventual: Option[EventualJournal.Metrics[F]] = None,
-    headCache: Option[HeadCacheMetrics[F]] = None,
-    producer: Option[ClientId => ProducerMetrics[F]] = None,
-    consumer: Option[ClientId => ConsumerMetrics[F]] = None,
-    conversion: Option[ConversionMetrics[F]] = None
+    journal: Option[JournalMetrics[F]] = none,
+    eventual: Option[EventualJournal.Metrics[F]] = none,
+    headCache: Option[HeadCacheMetrics[F]] = none,
+    producer: Option[ClientId => ProducerMetrics[F]] = none,
+    consumer: Option[ClientId => ConsumerMetrics[F]] = none,
+    conversion: Option[ConversionMetrics[F]] = none
   )
 
   object Metrics {

@@ -9,10 +9,9 @@ final case class HeadCacheMetrics[F[_]](headCache: HeadCache.Metrics[F], cache: 
 
 object HeadCacheMetrics {
 
-  def empty[F[_] : Applicative]: HeadCacheMetrics[F] = apply(HeadCache.Metrics.empty, CacheMetrics.empty)
+  def empty[F[_]: Applicative]: HeadCacheMetrics[F] = apply(HeadCache.Metrics.empty, CacheMetrics.empty)
 
-
-  def of[F[_] : Monad](
+  def of[F[_]: Monad](
     registry: CollectorRegistry[F],
     prefix: HeadCache.Metrics.Prefix = HeadCache.Metrics.Prefix.default
   ): Resource[F, HeadCacheMetrics[F]] = {

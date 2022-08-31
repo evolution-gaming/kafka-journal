@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
+import cats.Parallel
 import cats.effect.{Concurrent, Resource}
 import cats.syntax.all._
 import com.datastax.driver.core.{ResultSet => _, _}
@@ -61,7 +62,7 @@ object CassandraSession {
   }
 
 
-  def of[F[_] : Concurrent : FromGFuture](
+  def of[F[_]: Concurrent: Parallel: FromGFuture](
     session: scassandra.CassandraSession[F]
   ): Resource[F, CassandraSession[F]] = {
     apply[F](session)
@@ -93,9 +94,13 @@ object CassandraSession {
     }
 
 
-    def cachePrepared(implicit F: Concurrent[F], runtime: Runtime[F]): Resource[F, CassandraSession[F]] = {
+    def cachePrepared(implicit
+      F: Concurrent[F],
+      parallel: Parallel[F],
+      runtime: Runtime[F]
+    ): Resource[F, CassandraSession[F]] = {
       for {
-        cache <- Cache.loading[F, String, PreparedStatement]
+        cache <- Cache.loading1[F, String, PreparedStatement]
       } yield {
         new CassandraSession[F] {
 

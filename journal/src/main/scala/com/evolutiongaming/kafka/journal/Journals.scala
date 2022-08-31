@@ -127,43 +127,41 @@ object Journals {
       }
 
     def headAndStream(key: Key, from: SeqNr): F[(HeadInfo, F[StreamActionRecords[F]])] = {
-
-      def headAndStream(marker: Marker) = {
-
-        val stream = for {
-          pointers <- eventual.pointers(key.topic)
-        } yield {
-          val offset = pointers.values.get(marker.partition)
-          StreamActionRecords(key, from, marker, offset, consumeActionRecords)
-        }
-
-        val offset = marker
-          .offset
-          .dec[Try]
-          .getOrElse(Offset.min)
-
-        for {
-          result <- headCache.get(key, partition = marker.partition, offset = offset)
-          result <- result match {
-            case Right(headInfo) => (headInfo, stream).pure[F]
-            case Left(_)         =>
-              for {
-                stream   <- stream
-                headInfo <- stream(none).fold(HeadInfo.empty) { (info, action) => info(action.action.header, action.offset) }
-              } yield {
-                (headInfo, stream.pure[F])
-              }
-          }
-        } yield result
-      }
-
       for {
         marker   <- appendMarker(key)
         result   <- {
           if (marker.offset === Offset.min) {
             (HeadInfo.empty, StreamActionRecords.empty[F].pure[F]).pure[F]
           } else {
-            headAndStream(marker)
+            def stream = eventual
+              .pointers(key.topic)
+              .map { pointers =>
+                val offset = pointers
+                  .values
+                  .get(marker.partition)
+                StreamActionRecords(key, from, marker, offset, consumeActionRecords)
+              }
+
+            val offset = marker
+              .offset
+              .dec[Try]
+              .getOrElse(Offset.min)
+
+            headCache
+              .get(key, partition = marker.partition, offset = offset)
+              .flatMap {
+                case Some(headInfo) =>
+                  (headInfo, stream).pure[F]
+                case None         =>
+                  for {
+                    stream   <- stream
+                    headInfo <- stream(none).fold(HeadInfo.empty) { (info, action) =>
+                      info(action.action.header, action.offset)
+                    }
+                  } yield {
+                    (headInfo, stream.pure[F])
+                  }
+              }
           }
         }
       } yield result
