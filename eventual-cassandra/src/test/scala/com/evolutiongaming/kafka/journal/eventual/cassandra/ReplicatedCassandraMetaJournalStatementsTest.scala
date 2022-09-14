@@ -30,29 +30,6 @@ class ReplicatedCassandraMetaJournalStatementsTest extends AnyWordSpec with Matc
         state shouldEqual State.empty
       }
 
-      "from metadata" in {
-        val key = ReplicatedCassandraMetaJournalStatementsTest.key
-        val journalHead1 = journalHead.copy(deleteTo = journalHead.seqNr.toDeleteTo.some)
-        val stateT = for {
-          a <- byKey.journalHead
-          _  = a shouldEqual journalHead1.some
-        } yield {}
-        val state0 = State(
-          metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
-            journalHead = journalHead1,
-            created = timestamp0,
-            updated = timestamp1,
-            origin = origin.some))))))
-        val (state1, _) = stateT.run(state0).get
-        val expected = State(
-          metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
-            journalHead = journalHead1,
-            created = timestamp0,
-            updated = timestamp1,
-            origin = origin.some))))))
-        state1 shouldEqual expected
-      }
-
       "from metaJournal" in {
         val key = ReplicatedCassandraMetaJournalStatementsTest.key
         val journalHead1 = journalHead.copy(deleteTo = journalHead.seqNr.toDeleteTo.some)
@@ -427,43 +404,6 @@ object ReplicatedCassandraMetaJournalStatementsTest {
     }
   }
 
-
-  val selectMetadata: MetadataStatements.Select[StateT] = {
-    key => {
-      StateT.success { state =>
-        val entry = for {
-          entries <- state.metadata.get(key.topic)
-          entry   <- entries.get(key.id)
-        } yield {
-          entry
-        }
-        (state, entry)
-      }
-    }
-  }
-
-
-  val deleteMetadata: MetadataStatements.Delete[StateT] = {
-    key => {
-      StateT.unit { state =>
-        val state1 = for {
-          entries <- state.metadata.get(key.topic)
-          _       <- entries.get(key.id)
-        } yield {
-          val entries1 = entries - key.id
-          val metadata = if (entries1.isEmpty) {
-            state.metadata - key.topic
-          } else {
-            state.metadata.updated(key.topic, entries1)
-          }
-          state.copy(metadata = metadata)
-        }
-        state1 getOrElse state
-      }
-    }
-  }
-
-
   val metaJournal: ReplicatedCassandra.MetaJournalStatements[StateT] = ReplicatedCassandra.MetaJournalStatements(
     selectMetaJournal,
     insertMetaJournal,
@@ -478,8 +418,6 @@ object ReplicatedCassandraMetaJournalStatementsTest {
   val metaJournalStatements: ReplicatedCassandra.MetaJournalStatements[StateT] = {
     ReplicatedCassandra.MetaJournalStatements(
       metaJournal = metaJournal,
-      selectMetadata = selectMetadata,
-      deleteMetadata = deleteMetadata,
       insertMetaJournal = insertMetaJournal)
   }
 
