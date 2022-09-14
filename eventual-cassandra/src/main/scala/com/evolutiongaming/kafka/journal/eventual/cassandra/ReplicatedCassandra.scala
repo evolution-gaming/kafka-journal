@@ -526,12 +526,10 @@ object ReplicatedCassandra {
     ): F[MetaJournalStatements[F]] = {
 
       for {
-        selectMetadata <- MetadataStatements.Select.of[F](schema.metadata, consistencyConfig.read)
-        deleteMetadata <- MetadataStatements.Delete.of[F](schema.metadata, consistencyConfig.write)
         insertMetadata <- cassandra.MetaJournalStatements.Insert.of[F](schema.metaJournal, consistencyConfig.write)
         metaJournal    <- of[F](schema.metaJournal, consistencyConfig)
       } yield {
-        apply(metaJournal, selectMetadata, deleteMetadata, insertMetadata)
+        apply(metaJournal, insertMetadata)
       }
     }
 
@@ -557,8 +555,6 @@ object ReplicatedCassandra {
 
     def apply[F[_]: Monad](
       metaJournal: MetaJournalStatements[F],
-      selectMetadata: MetadataStatements.Select[F],
-      deleteMetadata: MetadataStatements.Delete[F],
       insertMetaJournal: cassandra.MetaJournalStatements.Insert[F]
     ): MetaJournalStatements[F] = {
 
@@ -573,30 +569,7 @@ object ReplicatedCassandra {
           new Main with ByKey[F] {
 
             def journalHead = {
-              metaJournal1
-                .journalHead
-                .flatMap {
-                  case Some(journalHead) =>
-                    journalHead.some.pure[F]
-                  case None =>
-                    selectMetadata(key).flatMap { entry =>
-                      entry.traverse { entry =>
-                        val journalHead = entry.journalHead
-                        def insert = insertMetaJournal(
-                          key = key,
-                          segment = segment,
-                          created = entry.created,
-                          updated = entry.updated,
-                          journalHead = journalHead,
-                          origin = entry.origin
-                        )
-                        for {
-                          _ <- insert
-                          _ <- deleteMetadata(key)
-                        } yield journalHead
-                      }
-                    }
-                }
+              metaJournal1.journalHead
             }
 
             def insert(timestamp: Instant, journalHead: JournalHead, origin: Option[Origin]) = {
@@ -619,13 +592,7 @@ object ReplicatedCassandra {
               }
             }
 
-            def delete = {
-              for {
-                a <- selectMetadata(key)
-                _ <- a.foldMapM { _ => deleteMetadata(key) }
-                a <- metaJournal1.delete
-              } yield a
-            }
+            def delete = metaJournal1.delete
 
             def deleteExpiry = metaJournal1.deleteExpiry
           }
