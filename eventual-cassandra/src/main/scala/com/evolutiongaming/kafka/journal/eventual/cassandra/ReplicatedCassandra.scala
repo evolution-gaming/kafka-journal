@@ -524,13 +524,7 @@ object ReplicatedCassandra {
       schema: Schema,
       consistencyConfig: ConsistencyConfig
     ): F[MetaJournalStatements[F]] = {
-
-      for {
-        insertMetadata <- cassandra.MetaJournalStatements.Insert.of[F](schema.metaJournal, consistencyConfig.write)
-        metaJournal    <- of[F](schema.metaJournal, consistencyConfig)
-      } yield {
-        apply(metaJournal, insertMetadata)
-      }
+      of[F](schema.metaJournal, consistencyConfig)
     }
 
 
@@ -552,54 +546,6 @@ object ReplicatedCassandra {
         apply(selectJournalHead, insert, update, updateSeqNr, updateExpiry, updateDeleteTo, delete, deleteExpiry)
       }
     }
-
-    def apply[F[_]: Monad](
-      metaJournal: MetaJournalStatements[F],
-      insertMetaJournal: cassandra.MetaJournalStatements.Insert[F]
-    ): MetaJournalStatements[F] = {
-
-      class Main
-
-      new Main with MetaJournalStatements[F] {
-
-        def apply(key: Key, segment: SegmentNr) = {
-
-          def metaJournal1 = metaJournal(key, segment)
-
-          new Main with ByKey[F] {
-
-            def journalHead = {
-              metaJournal1.journalHead
-            }
-
-            def insert(timestamp: Instant, journalHead: JournalHead, origin: Option[Origin]) = {
-              metaJournal1.insert(timestamp, journalHead, origin)
-            }
-
-            def update(partitionOffset: PartitionOffset, timestamp: Instant) = {
-
-              def metaJournal = metaJournal1.update(partitionOffset, timestamp)
-
-              new Main with ByKey.Update[F] {
-
-                def apply(seqNr: SeqNr) = metaJournal(seqNr)
-
-                def apply(seqNr: SeqNr, expiry: Expiry) = metaJournal(seqNr, expiry)
-
-                def apply(deleteTo: DeleteTo) = metaJournal(deleteTo)
-
-                def apply(seqNr: SeqNr, deleteTo: DeleteTo) = metaJournal(seqNr, deleteTo)
-              }
-            }
-
-            def delete = metaJournal1.delete
-
-            def deleteExpiry = metaJournal1.deleteExpiry
-          }
-        }
-      }
-    }
-
 
     private sealed abstract class MetaJournal
 
