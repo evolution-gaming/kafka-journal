@@ -5,10 +5,10 @@ import cats.effect.Resource
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.catshelper.DataHelper._
-import com.evolutiongaming.kafka.journal.HeadCache.{ConsRecordToKafkaRecord, Consumer, KafkaRecord}
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+import com.evolutiongaming.kafka.journal.TopicCache.Consumer
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.{OnError, Retry, Sleep, Strategy}
+import com.evolutiongaming.retry.Retry.implicits._
 import com.evolutiongaming.skafka.consumer.ConsumerRecords
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.sstream.Stream
@@ -21,97 +21,60 @@ object HeadCacheConsumption {
   def apply[F[_] : BracketThrowable : Sleep](
     topic: Topic,
     pointers: F[Map[Partition, Offset]],
-    consumer: Resource[F, Consumer[F]],
-    log: Log[F])(implicit
-    consRecordToKafkaRecord: ConsRecordToKafkaRecord[F]
-  ): Stream[F, List[(Partition, Nel[KafkaRecord])]] = {
+    consumer: Resource[F, TopicCache.Consumer[F]],
+    log: Log[F]
+  ): Stream[F, ConsumerRecords[String, Unit]] = {
 
-    def kafkaRecords(records: ConsumerRecords[String, Unit]): F[List[(Partition, Nel[KafkaRecord])]] = {
-      records
-        .values
-        .toList
-        .traverseFilter { case (partition, records) =>
-          records
-            .toList
-            .traverseFilter { record => consRecordToKafkaRecord(record).value }
-            .map { records => records.toNel.map { records => (partition.partition, records) } }
-        }
-    }
-
-    def poll(consumer: Consumer[F]) = {
-      for {
-        records <- consumer.poll
-        records <- kafkaRecords(records)
-      } yield records
-    }
-
-    def partitions(consumer: Consumer[F]): F[Nes[Partition]] = {
-
+    def partitions(consumer: Consumer[F], random: Random.State): F[Nes[Partition]] = {
       val partitions = for {
         partitions <- consumer.partitions(topic)
-        partitions <- partitions.toList.toNel.fold {
-          NoPartitionsError.raiseError[F, Nel[Partition]]
-        } { partitions =>
-          partitions.pure[F]
-        }
+        partitions <- partitions
+          .toList
+          .toNel
+          .fold { NoPartitionsError.raiseError[F, Nel[Partition]] } { _.pure[F] }
       } yield {
         partitions.toNes
       }
 
-      val retry = for {
-        random <- Random.State.fromClock[F]()
-      } yield {
-        val strategy = Strategy
-          .exponential(10.millis)
-          .jitter(random)
-          .limit(1.minute)
-        val onError = OnError.fromLog(log.prefixed(s"consumer.partitions"))
-        Retry(strategy, onError)
-      }
-
-      for {
-        retry      <- retry
-        partitions <- retry(partitions)
-      } yield partitions
-    }
-
-    def offsets(partitions: Nes[Partition], pointers: Map[Partition, Offset]) = {
-      partitions.toNel.traverse { partition =>
-        pointers
-          .get(partition)
-          .fold(Offset.min.pure[F]) { _.inc[F] }
-          .map { offset => (partition, offset) }
-      }
-    }
-
-    val retry = for {
-      random <- Random.State.fromClock[F]()
-    } yield {
       val strategy = Strategy
         .exponential(10.millis)
         .jitter(random)
-        .cap(1.second)
-        .resetAfter(1.minute)
-      val onError = OnError.fromLog(log.prefixed("consuming"))
-      Retry(strategy, onError)
+        .limit(1.minute)
+      val onError = OnError.fromLog(log.prefixed(s"consumer.partitions"))
+      partitions.retry(strategy, onError)
     }
 
-    def seek(consumer: Consumer[F]) = {
+    def seek(consumer: Consumer[F], random: Random.State) = {
       for {
-        partitions <- partitions(consumer)
+        partitions <- partitions(consumer, random)
         _          <- consumer.assign(topic, partitions)
         pointers   <- pointers
-        offsets    <- offsets(partitions, pointers)
-        _          <- consumer.seek(topic, offsets.toNem)
-      } yield {}
+        offsets     = partitions
+          .toNel
+          .map { partition =>
+            val offset = pointers.getOrElse(partition, Offset.min)
+            (partition, offset)
+          }
+          .toNem
+        result     <- consumer.seek(topic, offsets)
+      } yield result
     }
 
     for {
-      retry    <- Stream.lift(retry)
+      random   <- Stream.lift { Random.State.fromClock[F]() }
+      retry     = {
+        val strategy = Strategy
+          .exponential(10.millis)
+          .jitter(random)
+          .cap(1.second)
+          .resetAfter(1.minute)
+        val onError = OnError.fromLog(log.prefixed("consuming"))
+        Retry(strategy, onError)
+      }
       _        <- Stream.around(retry.toFunctionK)
       consumer <- Stream.fromResource(consumer)
-      _        <- Stream.lift(seek(consumer))
-      records  <- Stream.repeat(poll(consumer)) if records.nonEmpty
+      _        <- Stream.lift(seek(consumer, random))
+      records  <- Stream.repeat(consumer.poll) if records.values.nonEmpty
     } yield records
   }
 

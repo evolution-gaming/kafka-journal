@@ -45,20 +45,16 @@ object TopicReplicatorMetrics {
     prefix: String = "replicator"
   ): Resource[F, Topic => TopicReplicatorMetrics[F]] = {
 
-    val quantiles = Quantiles(
-      Quantile(0.9, 0.05),
-      Quantile(0.99, 0.005))
-
     val replicationSummary = registry.summary(
       name      = s"${ prefix }_replication_latency",
       help      = "Replication latency in seconds",
-      quantiles = quantiles,
+      quantiles = Quantiles.Default,
       labels    = LabelNames("topic", "type"))
 
     val deliverySummary = registry.summary(
       name      = s"${ prefix }_delivery_latency",
       help      = "Delivery latency in seconds",
-      quantiles = quantiles,
+      quantiles = Quantiles.Default,
       labels    = LabelNames("topic", "type"))
 
     val eventsSummary = registry.summary(
@@ -82,7 +78,7 @@ object TopicReplicatorMetrics {
     val roundSummary = registry.summary(
       name      = s"${ prefix }_round_duration",
       help      = "Replication round duration",
-      quantiles = quantiles,
+      quantiles = Quantiles.Default,
       labels    = LabelNames("topic"))
 
     val roundRecordsSummary = registry.summary(

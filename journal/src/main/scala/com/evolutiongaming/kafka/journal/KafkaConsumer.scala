@@ -59,10 +59,8 @@ object KafkaConsumer {
     Resource(result)
   }
 
-
-  private sealed abstract class Main
-
   def apply[F[_] : Applicative, K, V](consumer: Consumer[F, K, V]): KafkaConsumer[F, K, V] = {
+    class Main
     new Main with KafkaConsumer[F, K, V] {
 
       def assign(partitions: Nes[TopicPartition]) = {
@@ -86,11 +84,9 @@ object KafkaConsumer {
       }
 
       def topics: F[Set[Topic]] = {
-        for {
-          infos <- consumer.topics
-        } yield {
-          infos.keySet
-        }
+        consumer
+          .topics
+          .map { _.keySet }
       }
 
       def partitions(topic: Topic) = {

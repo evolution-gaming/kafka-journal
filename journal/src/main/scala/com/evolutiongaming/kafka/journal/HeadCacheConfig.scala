@@ -6,9 +6,10 @@ import pureconfig.generic.semiauto.deriveReader
 import scala.concurrent.duration._
 
 final case class HeadCacheConfig(
-  timeout: FiniteDuration = 3.seconds,
-  cleanInterval: FiniteDuration = 100.millis,
-  maxSize: Int = 10000)
+  timeout: FiniteDuration = 10.seconds,
+  expiry: FiniteDuration = 10.minutes,
+  removeInterval: FiniteDuration = 100.millis,
+  partition: HeadCacheConfig.Partition = HeadCacheConfig.Partition.default)
 
 
 object HeadCacheConfig {
@@ -16,4 +17,12 @@ object HeadCacheConfig {
   val default: HeadCacheConfig = HeadCacheConfig()
 
   implicit val configReaderHeadCacheConfig: ConfigReader[HeadCacheConfig] = deriveReader
+
+  final case class Partition(maxSize: Int = 10000, dropUponLimit: Double = 0.1)
+
+  object Partition {
+    val default: Partition = Partition()
+
+    implicit val configReaderPartition: ConfigReader[Partition] = deriveReader
+  }
 }
