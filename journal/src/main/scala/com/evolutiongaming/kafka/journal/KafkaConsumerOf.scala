@@ -21,12 +21,12 @@ object KafkaConsumerOf {
 
   def apply[F[_]](implicit F: KafkaConsumerOf[F]): KafkaConsumerOf[F] = F
 
-  def apply[F[_]: Concurrent: ContextShift: ToTry: ToFuture: MeasureDuration](
+  def apply[F[_]: Concurrent: ContextShift: Timer: ToTry: ToFuture: MeasureDuration](
     executorBlocking: ExecutionContext,
     metrics: Option[ConsumerMetrics[F]] = None
   ): KafkaConsumerOf[F] = {
 
-    val consumerOf = ConsumerOf(executorBlocking, metrics)
+    val consumerOf = ConsumerOf.apply1(executorBlocking, metrics)
     apply(consumerOf)
   }
 
