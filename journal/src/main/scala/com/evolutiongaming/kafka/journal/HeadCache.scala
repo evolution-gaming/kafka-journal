@@ -234,7 +234,7 @@ object HeadCache {
         labels = LabelNames("topic", "result", "now"))
 
       val getResultCounter = registry.counter(
-        name = s"${ prefix }_get_results",
+        name = s"${ prefix }_get_result",
         help = "HeadCache `get` call result: replicated, not_replicated, invalid or failure",
         labels = LabelNames("topic", "result"))
 
@@ -248,8 +248,8 @@ object HeadCache {
         help = "HeadCache listeners",
         labels = LabelNames("topic"))
 
-      val lagSummary = registry.summary(
-        name = s"${ prefix }_delivery_latency",
+      val ageSummary = registry.summary(
+        name = s"${ prefix }_records_age",
         help = "HeadCache time difference between record timestamp and now in seconds",
         quantiles = Quantiles.Default,
         labels = LabelNames("topic"))
@@ -265,7 +265,7 @@ object HeadCache {
         getResultCounter  <- getResultCounter
         entriesGauge      <- entriesGauge
         listenersGauge    <- listenersGauge
-        ageSummary        <- lagSummary
+        ageSummary        <- ageSummary
         diffSummary       <- diffSummary
       } yield {
 
