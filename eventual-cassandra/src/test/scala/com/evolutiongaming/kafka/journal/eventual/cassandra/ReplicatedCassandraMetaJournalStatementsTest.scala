@@ -404,7 +404,7 @@ object ReplicatedCassandraMetaJournalStatementsTest {
     }
   }
 
-  val metaJournal: ReplicatedCassandra.MetaJournalStatements[StateT] = ReplicatedCassandra.MetaJournalStatements(
+  val metaJournalStatements: ReplicatedCassandra.MetaJournalStatements[StateT] = ReplicatedCassandra.MetaJournalStatements(
     selectMetaJournal,
     insertMetaJournal,
     updateMetaJournal,
@@ -413,13 +413,6 @@ object ReplicatedCassandraMetaJournalStatementsTest {
     updateDeleteToMetaJournal,
     deleteMetaJournal,
     deleteExpiryMetaJournal)
-
-
-  val metaJournalStatements: ReplicatedCassandra.MetaJournalStatements[StateT] = {
-    ReplicatedCassandra.MetaJournalStatements(
-      metaJournal = metaJournal,
-      insertMetaJournal = insertMetaJournal)
-  }
 
   val byKey: ByKey[StateT] = metaJournalStatements(key, segment)
 }
