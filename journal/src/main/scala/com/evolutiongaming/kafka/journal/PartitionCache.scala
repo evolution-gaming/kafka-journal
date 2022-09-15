@@ -63,29 +63,6 @@ object PartitionCache {
 
         def get(id: String, offset: Offset) = {
 
-          def resultOf(entries: Entries) = {
-            if (offset >= entries.bounds.min) {
-              if (offset <= entries.bounds.max) {
-                val headInfo = entries
-                  .values
-                  .get(id)
-                  .map { _.headInfo }
-                  .getOrElse { HeadInfo.empty }
-                Result
-                  .Now
-                  .value(headInfo)
-                  .some
-              } else {
-                none[Result.Now]
-              }
-            } else {
-              Result
-                .Now
-                .limited
-                .some
-            }
-          }
-
           def listener: F[Listener[F]] = {
             val key = Key(id, offset)
             cache
@@ -120,46 +97,34 @@ object PartitionCache {
                         .rethrow
                     }
 
-                    def added(entries: Entries) = {
-                      resultOf(entries).foldMapM { result => complete(result) }
-                    }
-
-                    def removed(state: State) = {
-                      if (state.ahead(offset)) {
-                        complete(Result.Now.ahead)
-                      } else {
-                        ().pure[F]
-                      }
+                    def updated(state: State) = {
+                      state
+                        .result(id, offset)
+                        .foldMapM { result => complete(result) }
                     }
                   }
                 }
               }
           }
 
-            stateRef
-              .get
-              .rethrow
-              .flatMap { state =>
-                if (state.ahead(offset)) {
-                  Result
-                    .ahead[F]
+          stateRef
+            .get
+            .rethrow
+            .flatMap { state =>
+              state.result(id, offset) match {
+                case Right(a)    =>
+                  a
+                    .toResult[F]
                     .pure[F]
-                } else {
-                  state.entries match {
-                    case Some(entries) =>
-                      resultOf(entries) match {
-                        case Some(result) =>
-                          result
-                            .toResult[F]
-                            .pure[F]
-                        case None         =>
-                          listener.map { listener => Result.behind(listener.get) }
-                      }
-                    case None          =>
-                      listener.map { listener => Result.empty(listener.get) }
+                case Left(entries) =>
+                  listener.map { listener =>
+                    entries match {
+                      case Some(_) => Result.behind(listener.get)
+                      case None    => Result.empty(listener.get)
+                    }
                   }
-                }
               }
+            }
         }
 
         def offset = {
@@ -224,7 +189,7 @@ object PartitionCache {
                           set(state1).flatMap {
                             case true  =>
                               cache
-                                .foldMap1 { _.added(entriesNotLimited) }
+                                .foldMapPar1 { _.updated(state.copy(entries = entriesNotLimited.some)) }
                                 .as {
                                   state
                                     .entries
@@ -234,7 +199,6 @@ object PartitionCache {
                                         next = bounds.max)
                                     }
                                     .asRight[Int]
-
                                 }
                             case false =>
                               (counter + 1)
@@ -294,7 +258,7 @@ object PartitionCache {
                           set(state1.asRight).flatMap {
                             case true  =>
                               cache
-                                .foldMap1 { _.removed(state1) }
+                                .foldMapPar1 { _.updated(state1) }
                                 .as {
                                   state
                                     .offset
@@ -401,9 +365,7 @@ object PartitionCache {
   private trait Listener[F[_]] {
     def get: F[Result.Now]
 
-    def added(entries: Entries): F[Unit]
-
-    def removed(state: State): F[Unit]
+    def updated(state: State): F[Unit]
   }
 
   final case class Meters(listeners: Int, entries: Int)
@@ -521,6 +483,47 @@ object PartitionCache {
           .offset
           .exists { _ >= offset }
       }
+
+      def result(id: String, offset: Offset): Either[Option[Entries], Result.Now] = {
+        val ahead = self
+          .offset
+          .exists { _ >= offset }
+        if (ahead) {
+          Result
+            .Now
+            .ahead
+            .asRight[Option[Entries]]
+        } else {
+          self
+            .entries
+            .fold {
+              none[Entries].asLeft[Result.Now]
+            } { entries =>
+              if (offset >= entries.bounds.min) {
+                if (offset <= entries.bounds.max) {
+                  val headInfo = entries
+                    .values
+                    .get(id)
+                    .map { _.headInfo }
+                    .getOrElse { HeadInfo.empty }
+                  Result
+                    .Now
+                    .value(headInfo)
+                    .asRight[Option[Entries]]
+                } else {
+                  entries
+                    .some
+                    .asLeft[Result.Now]
+                }
+              } else {
+                Result
+                  .Now
+                  .limited
+                  .asRight[Option[Entries]]
+              }
+            }
+        }
+      }
     }
   }
 
@@ -531,7 +534,7 @@ object PartitionCache {
   }
 
   private implicit class CacheOps[F[_], K, V](val self: Cache[F, K, V]) extends AnyVal {
-    def foldMap1[A](f: V => F[A])(implicit F: Sync[F], commutativeMonoid: CommutativeMonoid[A]): F[A] = {
+    def foldMapPar1[A](f: V => F[A])(implicit F: Sync[F], commutativeMonoid: CommutativeMonoid[A]): F[A] = {
       self.foldMapPar {
         case (_, Right(a)) =>
           f(a)
