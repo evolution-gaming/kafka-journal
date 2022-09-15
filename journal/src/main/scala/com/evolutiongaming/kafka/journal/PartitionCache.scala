@@ -429,6 +429,12 @@ object PartitionCache {
 
     val Empty: Diff = Diff(0)
 
+    def of(diffs: List[Diff]): Option[Diff] = {
+      diffs
+        .toNel
+        .map { diffs => Diff(diffs.foldMap { _.value } / diffs.size) }
+    }
+
     def of(prev: Offset, next: Offset): Option[Diff] = {
       of(
         prev = prev.value,
