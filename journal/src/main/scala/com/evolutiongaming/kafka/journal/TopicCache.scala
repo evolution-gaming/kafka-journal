@@ -5,7 +5,6 @@ import cats.data.{NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.effect._
 import cats.effect.syntax.all._
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
@@ -60,14 +59,17 @@ object TopicCache {
         .flatMap { pointers =>
           pointers
             .values
-            .parFoldMapTraversable { case (partition, offset) =>
+            .toList
+            .parTraverseFilter { case (partition, offset) =>
               partitionCacheOf(partition).flatMap { _.remove(offset) }
             }
         }
-        .flatMap { diff =>
-          diff.foldMapM { diff =>
-            metrics.foldMapM { _.storage(topic, diff.value) }
-          }
+        .flatMap { diffs =>
+          PartitionCache.Diff
+            .of(diffs)
+            .foldMapM { diff =>
+              metrics.foldMapM { _.storage(topic, diff.value) }
+            }
         }
 
       _        <- remove.toResource
@@ -104,7 +106,8 @@ object TopicCache {
             now    <- Clock[F].millis
             result <- records
               .values
-              .parFoldMapTraversable { case (topicPartition, records) =>
+              .toList
+              .parTraverseFilter { case (topicPartition, records) =>
                 records
                   .toList
                   .traverseFilter { record =>
@@ -126,23 +129,34 @@ object TopicCache {
                       }
                   }
               }
-              .flatMap { diff =>
+              .flatMap { diffs =>
                 metrics.foldMapM { metrics =>
-                  diff.foldMapM { diff =>
-                    records
-                      .values
-                      .foldLeft(none[Long]) { case (timestamp, (_, records)) =>
-                        records.foldLeft(timestamp) { case (timestamp, value) =>
-                          value
-                            .timestampAndType
-                            .map { _.timestamp.toEpochMilli }
-                            .min(timestamp)
+                  PartitionCache.Diff
+                    .of(diffs)
+                    .foldMapM { diff =>
+                      records
+                        .values
+                        .foldLeft(none[Long]) { case (timestamp, (_, records)) =>
+                          records
+                            .foldLeft(timestamp) { case (timestamp, record) =>
+                              record
+                                .timestampAndType
+                                .fold {
+                                  timestamp
+                                } { timestampAndType =>
+                                  val timestamp1 = timestampAndType
+                                    .timestamp
+                                    .toEpochMilli
+                                  timestamp
+                                    .fold { timestamp1 } { _.min(timestamp1) }
+                                    .some
+                                }
+                            }
                         }
-                      }
-                      .foldMapM { timestamp =>
-                        metrics.consumer(topic, age = (now - timestamp).millis, diff = diff.value)
-                      }
-                  }
+                        .foldMapM { timestamp =>
+                          metrics.consumer(topic, age = (now - timestamp).millis, diff = diff.value)
+                        }
+                    }
                 }
               }
           } yield result

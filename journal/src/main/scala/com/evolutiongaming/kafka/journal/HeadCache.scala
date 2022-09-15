@@ -235,8 +235,8 @@ object HeadCache {
 
       val getResultCounter = registry.counter(
         name = s"${ prefix }_get_result",
-        help = "HeadCache `get` call result: replicated, not_replicated, invalid or failure",
-        labels = LabelNames("topic", "result"))
+        help = "HeadCache `get` call result counter",
+        labels = LabelNames("topic", "result", "now"))
 
       val entriesGauge = registry.gauge(
         name = s"${ prefix }_entries",
@@ -279,7 +279,7 @@ object HeadCache {
                 .labels(topic, result, nowLabel)
                 .observe(latency.toNanos.nanosToSeconds)
               a <- getResultCounter
-                .labels(topic, result)
+                .labels(topic, result, nowLabel)
                 .inc()
             } yield a
           }
