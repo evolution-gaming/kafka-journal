@@ -5,7 +5,6 @@ import cats.data.{NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.effect._
 import cats.effect.syntax.all._
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.conversions.ConsRecordToActionHeader
 import com.evolutiongaming.kafka.journal.util.CacheHelper._
@@ -109,16 +108,18 @@ object TopicCache {
               .parTraverseFilter { case (topicPartition, records) =>
                 records
                   .toList
-                  .traverseFilter { record =>
+                  .traverse { record =>
                     record
                       .key
-                      .toOptionT[F]
-                      .flatMap { key =>
-                        consRecordToActionHeader(record).map { header =>
-                          PartitionCache.Record(key.value, record.offset, header)
-                        }
+                      .traverseFilter { key =>
+                        consRecordToActionHeader
+                          .apply(record)
+                          .map { header => PartitionCache.Record.Data(key.value, header) }
+                          .value
                       }
-                      .value
+                      .map { data =>
+                        PartitionCache.Record(record.offset, data)
+                      }
                   }
                   .flatMap { records =>
                     records
