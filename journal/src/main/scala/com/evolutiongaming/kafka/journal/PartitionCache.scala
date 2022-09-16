@@ -182,13 +182,11 @@ object PartitionCache {
                       entriesNotLimited
                         .limit(maxSize, dropUponLimit)
                         .flatMap { entries =>
-                          val state1 = state
-                            .copy(entries = entries)
-                            .asRight
-                          set(state1).flatMap {
+                          val state1 = state.copy(entries = entries.some)
+                          set(state1.asRight).flatMap {
                             case true  =>
                               cache
-                                .foldMapPar1 { _.updated(state.copy(entries = entriesNotLimited.some)) }
+                                .foldMapPar1 { _.updated(state1.copy(entries = entriesNotLimited.some)) }
                                 .as {
                                   state
                                     .entries
@@ -448,11 +446,9 @@ object PartitionCache {
     }
 
     implicit class EntriesOps(val self: Entries) extends AnyVal {
-      def limit[F[_]: MonadThrow](maxSize: Int, dropUponLimit: Double): F[Option[Entries]] = {
+      def limit[F[_]: MonadThrow](maxSize: Int, dropUponLimit: Double): F[Entries] = {
         if (self.values.size <= maxSize) {
-          self
-            .some
-            .pure[F]
+          self.pure[F]
         } else {
           val drop = (maxSize * dropUponLimit).toInt
           val take = (maxSize - drop).max(1)
@@ -467,9 +463,7 @@ object PartitionCache {
               min = entry.offset,
               max = self.bounds.max)
             .map { bounds =>
-              Entries
-                .apply(bounds, values.toMap)
-                .some
+              Entries(bounds, values.toMap)
             }
         }
       }
