@@ -110,16 +110,18 @@ object TopicCache {
               .parTraverseFilter { case (topicPartition, records) =>
                 records
                   .toList
-                  .traverseFilter { record =>
+                  .traverse { record =>
                     record
                       .key
-                      .toOptionT[F]
-                      .flatMap { key =>
-                        consRecordToActionHeader(record).map { header =>
-                          PartitionCache.Record(key.value, record.offset, header)
-                        }
+                      .traverseFilter { key =>
+                        consRecordToActionHeader
+                          .apply(record)
+                          .map { header => PartitionCache.Record.Data(key.value, header) }
+                          .value
                       }
-                      .value
+                      .map { data =>
+                        PartitionCache.Record(record.offset, data)
+                      }
                   }
                   .flatMap { records =>
                     records

@@ -91,6 +91,21 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
       .run()
   }
 
+  test("get HeadInfo.empty if no entries") {
+    partitionCacheOf()
+      .use { cache =>
+        for {
+          a <- cache.remove(offset0)
+          _ <- IO { a shouldEqual none }
+          a <- cache.add(Record(offset1, none))
+          _ <- IO { a shouldEqual none }
+          a <- cache.get(id0, offset1)
+          _ <- IO { a shouldEqual Result.value(HeadInfo.empty) }
+        } yield a
+      }
+      .run()
+  }
+
   test("get HeadInfo.append") {
     partitionCacheOf()
       .use { cache =>

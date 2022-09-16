@@ -78,15 +78,15 @@ object EventualCassandra {
     new Main with EventualJournal[F] {
 
       def pointer(key: Key) = {
-        statements.metaJournal.journalPointer(key)
+        statements
+          .metaJournal
+          .journalPointer(key)
       }
 
       def pointers(topic: Topic) = {
-        for {
-          pointers <- statements.pointers(topic)
-        } yield {
-          TopicPointers(pointers)
-        }
+        statements
+          .pointers(topic)
+          .map { pointers => TopicPointers(pointers) }
       }
 
       def read(key: Key, from: SeqNr) = {

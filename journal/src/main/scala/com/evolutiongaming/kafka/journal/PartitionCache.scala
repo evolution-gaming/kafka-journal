@@ -156,14 +156,13 @@ object PartitionCache {
                 .offset
             )
             values   = for {
-              (id, records) <- records
+              (id, values) <- records
                 .toList
-                .groupBy { _.id }
-              offset = records
-                .maxBy { _.offset }
-                .offset
-              info = records.foldLeft(HeadInfo.empty) { (info, record) => info(record.header, record.offset) }
-              entry <- info match {
+                .collect { case Record(offset, Some(data)) => (offset, data) }
+                .groupBy { case (_, record) => record.id }
+              (offset, _)    = values.maxBy { case (offset, _) => offset }
+              info           = values.foldLeft(HeadInfo.empty) { case (info, (offset, data)) => info(data.header, offset) }
+              entry        <- info match {
                 case HeadInfo.Empty       => none[Entry]
                 case a: HeadInfo.NonEmpty => Entry(offset = offset, a).some
               }
@@ -233,18 +232,14 @@ object PartitionCache {
                           val bounds = entries.bounds
                           if (offset >= bounds.min) {
                             if (offset < bounds.max) {
-                              val values = entries
-                                .values
-                                .filter { case (_, entry) => entry.offset > offset }
-                              if (values.nonEmpty) {
-                                for {
-                                  min    <- offset.inc[F]
-                                  bounds <- Bounds.of[F](min = min, max = bounds.max)
-                                } yield {
-                                  Entries(bounds = bounds, values = values).some
-                                }
-                              } else {
-                                none[Entries].pure[F]
+                              for {
+                                offset <- offset.inc[F]
+                                bounds <- bounds.withMin(offset)
+                              } yield {
+                                val values = entries
+                                  .values
+                                  .filter { case (_, entry) => entry.offset >= bounds.min }
+                                Entries(bounds = bounds, values = values).some
                               }
                             } else {
                               none[Entries].pure[F]
@@ -419,8 +414,15 @@ object PartitionCache {
     }
   }
 
+  final case class Record(offset: Offset, data: Option[Record.Data])
 
-  final case class Record(id: String, offset: Offset, header: ActionHeader)
+  object Record {
+
+    final case class Data(id: String, header: ActionHeader)
+    def apply(id: String, offset: Offset, header: ActionHeader): Record = {
+      apply(offset, Data(id, header).some)
+    }
+  }
 
   private final case class Entry(offset: Offset, headInfo: HeadInfo.NonEmpty)
 
@@ -487,10 +489,7 @@ object PartitionCache {
       }
 
       def result(id: String, offset: Offset): Either[Option[Entries], Result.Now] = {
-        val ahead = self
-          .offset
-          .exists { _ >= offset }
-        if (ahead) {
+        if (self.ahead(offset)) {
           Result
             .Now
             .ahead

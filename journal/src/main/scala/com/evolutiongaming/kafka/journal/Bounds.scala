@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.{ApplicativeThrow, Eq, Order, Semigroup}
+import cats.{ApplicativeThrow, Order, Semigroup}
 import cats.syntax.all._
 
 import scala.util.Try
@@ -24,7 +24,7 @@ object Bounds {
   def of[F[_]]: OfApply[F] = new OfApply[F]()
 
   private[Bounds] final class OfApply[F[_]](val b: Boolean = false) extends AnyVal {
-    def apply[A: Eq: Order](min: A, max: A)(implicit F: ApplicativeThrow[F]): F[Bounds[A]] = {
+    def apply[A: Order](min: A, max: A)(implicit F: ApplicativeThrow[F]): F[Bounds[A]] = {
       if (min === max) {
         Bounds(min).pure[F]
       } else if (min > max) {
@@ -57,11 +57,19 @@ object Bounds {
       case a: Two[A] => a.max
     }
 
+    def withMax[F[_]: ApplicativeThrow](a: A)(implicit order: Order[A]): F[Bounds[A]] = {
+      Bounds.of[F](min = self.min, max = a)
+    }
+
+    def withMin[F[_]: ApplicativeThrow](a: A)(implicit order: Order[A]): F[Bounds[A]] = {
+      Bounds.of[F](min = a, max = self.max)
+    }
+
     def <(a: A)(implicit order: Order[A]): Boolean = self.max < a
 
     def >(a: A)(implicit order: Order[A]): Boolean = self.min > a
 
-    def contains(a: A)(implicit order: Order[A], eq: Eq[A]): Boolean = self match {
+    def contains(a: A)(implicit order: Order[A]): Boolean = self match {
       case self: One[A] => self.value === a
       case self: Two[A] => self.min <= a && self.max >= a
     }
