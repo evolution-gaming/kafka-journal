@@ -506,6 +506,27 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
       .run()
   }
 
+  test("get Result.value even if within limited range") {
+    partitionCacheOf(maxSize = 2, dropUponLimit = 0.4)
+      .use { cache =>
+        for {
+          a <- cache.add(Nel.of(
+            Record(id0, offset0, actionHeaderOf(seqNr0)),
+            Record(id1, offset1, actionHeaderOf(seqNr0)),
+            Record(id0, offset2, actionHeaderOf(seqNr1)),
+            Record(id2, offset3, actionHeaderOf(seqNr0)),
+          ))
+          _ <- IO { a shouldEqual none }
+          a <- cache.get(id0, offset0)
+          _ <- IO { a shouldEqual Result.value(HeadInfo.append(offset0, seqNr1, none)) }
+          a <- cache.get(id1, offset1)
+          _ <- IO { a shouldEqual Result.limited }
+          a <- cache.get(id2, offset3)
+          _ <- IO { a shouldEqual Result.value(HeadInfo.append(offset3, seqNr0, none)) }
+        } yield {}
+      }
+      .run()
+  }
 
   test("marks do not impact limits") {
     partitionCacheOf(maxSize = 2, dropUponLimit = 0.5)

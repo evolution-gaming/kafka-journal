@@ -498,11 +498,14 @@ object PartitionCache {
             .fold {
               none[Entries].asLeft[Result.Now]
             } { entries =>
+              def entry = {
+                entries
+                  .values
+                  .get(id)
+              }
               if (offset >= entries.bounds.min) {
                 if (offset <= entries.bounds.max) {
-                  val headInfo = entries
-                    .values
-                    .get(id)
+                  val headInfo = entry
                     .map { _.headInfo }
                     .getOrElse { HeadInfo.empty }
                   Result
@@ -515,9 +518,16 @@ object PartitionCache {
                     .asLeft[Result.Now]
                 }
               } else {
-                Result
-                  .Now
-                  .limited
+                entry
+                  .fold {
+                    Result
+                      .Now
+                      .limited
+                  } { entry =>
+                    Result
+                      .Now
+                      .value(entry.headInfo)
+                  }
                   .asRight[Option[Entries]]
               }
             }
