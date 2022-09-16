@@ -142,13 +142,8 @@ object Journals {
                 StreamActionRecords(key, from, marker, offset, consumeActionRecords)
               }
 
-            val offset = marker
-              .offset
-              .dec[Try]
-              .getOrElse { marker.offset }
-
             headCache
-              .get(key, partition = marker.partition, offset = offset)
+              .get(key, partition = marker.partition, offset = marker.offset)
               .flatMap {
                 case Some(headInfo) =>
                   (headInfo, stream).pure[F]
