@@ -6,7 +6,7 @@ import pureconfig.generic.semiauto.deriveReader
 import scala.concurrent.duration._
 
 final case class HeadCacheConfig(
-  timeout: FiniteDuration = 10.seconds,
+  timeout: FiniteDuration = 1.second,
   expiry: FiniteDuration = 10.minutes,
   removeInterval: FiniteDuration = 100.millis,
   partition: HeadCacheConfig.Partition = HeadCacheConfig.Partition.default)
