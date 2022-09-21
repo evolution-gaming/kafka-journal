@@ -8,11 +8,11 @@ import cats.syntax.all._
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
+import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.kafka.journal.conversions.ConsRecordToActionHeader
 import com.evolutiongaming.kafka.journal.util.CacheHelper._
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.HeadCache.Eventual
-import com.evolutiongaming.kafka.journal.PartitionCache.Result
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.Retry.implicits._
 import com.evolutiongaming.retry.Strategy
@@ -59,16 +59,24 @@ object TopicCache {
         .flatMap { pointers =>
           pointers
             .values
-            .toList
-            .parTraverseFilter { case (partition, offset) =>
-              partitionCacheOf(partition).flatMap { _.remove(offset) }
+            .parFoldMap1 { case (partition, offset) =>
+              partitionCacheOf
+                .apply(partition)
+                .flatMap { cache =>
+                  cache
+                    .remove(offset)
+                    .map {
+                      case Some(a) => Sample(a.value)
+                      case None    => Sample.Empty
+                    }
+                }
             }
         }
-        .flatMap { diffs =>
-          PartitionCache.Diff
-            .of(diffs)
+        .flatMap { sample =>
+          sample
+            .avg
             .foldMapM { diff =>
-              metrics.foldMapM { _.storage(topic, diff.value) }
+              metrics.foldMapM { _.storage(topic, diff) }
             }
         }
 
@@ -106,8 +114,7 @@ object TopicCache {
             now    <- Clock[F].millis
             result <- records
               .values
-              .toList
-              .parTraverseFilter { case (topicPartition, records) =>
+              .parFoldMap1 { case (topicPartition, records) =>
                 records
                   .toList
                   .traverse { record =>
@@ -127,14 +134,23 @@ object TopicCache {
                     records
                       .toNel
                       .foldMapM { records =>
-                        partitionCacheOf(topicPartition.partition).flatMap { _.add(records) }
+                        partitionCacheOf
+                          .apply(topicPartition.partition)
+                          .flatMap { cache =>
+                            cache
+                              .add(records)
+                              .map {
+                                case Some(a) => Sample(a.value)
+                                case None    => Sample.Empty
+                              }
+                          }
                       }
                   }
               }
-              .flatMap { diffs =>
+              .flatMap { sample =>
                 metrics.foldMapM { metrics =>
-                  PartitionCache.Diff
-                    .of(diffs)
+                  sample
+                    .avg
                     .foldMapM { diff =>
                       records
                         .values
@@ -156,7 +172,7 @@ object TopicCache {
                             }
                         }
                         .foldMapM { timestamp =>
-                          metrics.consumer(topic, age = (now - timestamp).millis, diff = diff.value)
+                          metrics.consumer(topic, age = (now - timestamp).millis, diff = diff)
                         }
                     }
                 }
@@ -321,6 +337,33 @@ object TopicCache {
     }
   }
 
+
+  private final case class Sample(sum: Long, count: Int)
+
+  private object Sample {
+
+    def apply(value: Long): Sample = Sample(sum = value, count = 1)
+
+    val Empty: Sample = Sample(0L, 0)
+
+    implicit val monoidSample: Monoid[Sample] = new Monoid[Sample] {
+
+      def empty = Empty
+
+      def combine(a: Sample, b: Sample) = {
+        Sample(
+          sum = a.sum.combine(b.sum),
+          count = a.count.combine(b.count))
+      }
+    }
+
+    implicit class SampleOps(val self: Sample) extends AnyVal {
+      def avg: Option[Long] = {
+        if (self.count > 0) (self.sum / self.count).some else none
+      }
+    }
+  }
+
   private sealed abstract class WithMetrics
 
   private sealed abstract class WithLog
@@ -336,6 +379,7 @@ object TopicCache {
       new WithMetrics with TopicCache[F] {
 
         def get(id: String, partition: Partition, offset: Offset) = {
+          import com.evolutiongaming.kafka.journal.PartitionCache.Result
           for {
             d <- MeasureDuration[F].start
             f = (result: Either[Throwable, Result.Now], hit: Boolean) => {

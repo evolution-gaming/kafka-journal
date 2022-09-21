@@ -178,7 +178,7 @@ object Replicator {
       val result = for {
         topics <- newTopics(state)
         _      <- continue
-        _      <- topics.parFoldMap(start)
+        _      <- topics.parFoldMap1(start)
         _      <- continue
         _      <- sleep
         _      <- continue

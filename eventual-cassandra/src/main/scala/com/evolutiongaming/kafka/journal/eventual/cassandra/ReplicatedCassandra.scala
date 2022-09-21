@@ -178,7 +178,7 @@ object ReplicatedCassandra {
                                 loop(segmentNrs, List.empty)
                               }
 
-                              deletes.parFoldMapA { _.uncancelable }
+                              deletes.parFoldMap1 { _.uncancelable }
                             }
                         }
 
@@ -444,11 +444,12 @@ object ReplicatedCassandra {
               }
 
               for {
-                pointers  <- pointers.toNel.pure[F]
+                pointers  <- pointers.toSortedMap.pure[F]
                 pointers0 <- pointersRef.get
                 pointers0 <- {
                   pointers
                     .collect { case (partition, _) if !pointers0.values.contains(partition) => partition }
+                    .toList
                     .toNel
                     .fold {
                       pointers0.pure[F]
@@ -484,7 +485,7 @@ object ReplicatedCassandra {
                     }
                 }
 
-                changed  <- pointers.parFoldMap { case (partition, offset) =>
+                changed  <- pointers.parFoldMap1 { case (partition, offset) =>
                   pointers0
                     .values
                     .get(partition)
@@ -499,7 +500,7 @@ object ReplicatedCassandra {
                     }
                 }
 
-                pointers <- TopicPointers(pointers.toList.toMap).pure[F]
+                pointers <- TopicPointers(pointers).pure[F]
                 changed  <- (changed > 0).pure[F]
                 _        <- if (changed) pointersRef.update { _.merge(pointers) } else ().pure[F]
               } yield {
