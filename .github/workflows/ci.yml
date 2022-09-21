@@ -11,7 +11,7 @@ jobs:
       matrix:
         scala:
           - 2.13.8
-          - 2.12.15
+          - 2.12.17
 
     steps:
       - uses: actions/checkout@v3
@@ -21,7 +21,7 @@ jobs:
       - name: scala
         uses: olafurpg/setup-scala@v11
         with:
-          java-version: openjdk@1.11
+          java-version: 17
 
       - name: build ${{ matrix.scala }}
         run: sbt ++${{ matrix.scala }} clean coverage test

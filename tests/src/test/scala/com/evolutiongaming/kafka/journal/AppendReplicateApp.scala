@@ -143,6 +143,8 @@ object AppendReplicateApp extends IOApp {
       SeqNr.min.tailRecM(append)
     }
 
-    (0 to 10).toList.parFoldMap { id => append(id.toString) }
+    (0 to 10)
+      .toList
+      .parFoldMap1 { id => append(id.toString) }
   }
 }

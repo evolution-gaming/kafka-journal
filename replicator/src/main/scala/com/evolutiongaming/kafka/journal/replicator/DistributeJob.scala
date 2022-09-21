@@ -6,6 +6,7 @@ import cats.effect._
 import cats.syntax.all._
 import cats.{Defer, Parallel}
 import com.evolutiongaming.catshelper.{FromTry, LogOf}
+import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.Retry.implicits._
@@ -75,11 +76,9 @@ object DistributeJob {
         .handleError { _ => () }
       release = (jobs: Map[String, (Job, Release)]) => {
         Defer[F].defer {
-          jobs
-            .toList
-            .parFoldMapA { case (name, (_, release)) =>
-              release.handleErrorWith { a => log.error(s"release failed, job: $name, error: $a", a) }
-            }
+          jobs.parFoldMap1 { case (name, (_, release)) =>
+            release.handleErrorWith { a => log.error(s"release failed, job: $name, error: $a", a) }
+          }
         }
       }
       ref <- Resource.make {
@@ -183,8 +182,7 @@ object DistributeJob {
                       val effect = Defer[F].defer {
                         s
                           .jobs
-                          .toList
-                          .parFoldMapA { case (name, (_, release)) =>
+                          .parFoldMap1 { case (name, (_, release)) =>
                             release.handleErrorWith { a => log.error(s"release failed, job: $name, error: $a", a) }
                           }
                       }

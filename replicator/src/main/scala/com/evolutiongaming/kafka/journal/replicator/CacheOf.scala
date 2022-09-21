@@ -20,20 +20,23 @@ trait CacheOf[F[_]] {
 
 object CacheOf {
 
-  def empty[F[_] : BracketThrowable]: CacheOf[F] = new CacheOf[F] {
+  def empty[F[_] : BracketThrowable]: CacheOf[F] = {
+    class Empty
+    new Empty with CacheOf[F] {
 
-    def apply[K, V](topic: Topic) = {
+      def apply[K, V](topic: Topic) = {
 
-      val cache = new Cache[F, K, V] {
+        val cache = new Cache[F, K, V] {
 
-        def getOrUpdate(key: K)(value: => Resource[F, V]) = value.use(_.pure[F])
+          def getOrUpdate(key: K)(value: => Resource[F, V]) = value.use(_.pure[F])
 
-        def remove(key: K) = ().pure[F]
+          def remove(key: K) = ().pure[F]
+        }
+
+        cache
+          .pure[F]
+          .toResource
       }
-
-      cache
-        .pure[F]
-        .toResource
     }
   }
 
@@ -42,7 +45,8 @@ object CacheOf {
     expireAfter: FiniteDuration,
     cacheMetrics: Option[CacheMetrics.Name => CacheMetrics[F]]
   ): CacheOf[F] = {
-    new CacheOf[F] {
+    class Main
+    new Main with CacheOf[F] {
       def apply[K, V](topic: Topic) = {
         val config = ExpiringCache.Config[F, K, V](expireAfter)
         for {

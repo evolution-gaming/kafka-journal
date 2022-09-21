@@ -124,7 +124,7 @@ object TopicReplicator {
               (timestamp: Instant, records: Nel[ConsRecord]) => {
                 records
                   .groupBy { _.key.map { _.value } }
-                  .parFoldMapTraversable { case (key, records) =>
+                  .parFoldMap1 { case (key, records) =>
                     key.foldMapM { key =>
                       for {
                         keyFlow <- cache.getOrUpdate(key) { keyFlow(key) }
@@ -137,7 +137,7 @@ object TopicReplicator {
           }
 
           def remove(partitions: Nes[Partition]) = {
-            partitions.toNel.parTraverse { partition => cache.remove(partition) }
+            partitions.parFoldMap1 { partition => cache.remove(partition) }
           }
 
           new TopicFlow[F] {
@@ -159,17 +159,19 @@ object TopicReplicator {
               def replicateTopic(timestamp: Instant, records: Nem[Partition, Nel[ConsRecord]]) = {
 
                 def pointers = records.map { records =>
-                  records.foldLeft(Offset.min) { (offset, record) => record.offset max offset }
+                  records
+                    .maximumBy { _.offset }
+                    .offset
                 }
 
-                def replicate = records
-                  .toNel
-                  .parFoldMap { case (partition, records) =>
+                def replicate = {
+                  records.parFoldMap1 { case (partition, records) =>
                     for {
                       partitionFlow <- cache.getOrUpdate(partition) { partitionFlow }
                       result        <- partitionFlow(timestamp, records)
                     } yield result
                   }
+                }
 
                 for {
                   _ <- replicate
@@ -202,15 +204,15 @@ object TopicReplicator {
             def revoke(partitions: Nes[Partition]) = {
               for {
                 _ <- log.info(s"revoke ${partitions.mkString_(",") }")
-                _ <- remove(partitions)
-              } yield {}
+                a <- remove(partitions)
+              } yield a
             }
 
             def lose(partitions: Nes[Partition]) = {
               for {
                 _ <- log.info(s"lose ${partitions.mkString_(",") }")
-                _ <- remove(partitions)
-              } yield {}
+                a <- remove(partitions)
+              } yield a
             }
           }
         }

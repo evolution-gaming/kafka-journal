@@ -92,7 +92,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
         def appendNoise = {
           (0 to events)
             .toList
-            .parFoldMap { _ =>
+            .parFoldMap1 { _ =>
               val e = event(SeqNr.min)
               for {
                 _       <- journal.append(Nel.of(e))

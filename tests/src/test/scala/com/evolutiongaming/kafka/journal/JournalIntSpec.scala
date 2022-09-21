@@ -188,13 +188,11 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
               _        = events.map(_.event) shouldEqual expected
             } yield {}
           }
-
-          val result = for {
-            reads <- List.fill(10)(appends).parSequence
-            _     <- reads.parFold
-          } yield {}
-
-          result.run(1.minute)
+          List
+            .fill(10)(appends)
+            .parSequence
+            .flatMap { _.parFold1 }
+            .run(1.minute)
         }
 
         s"append duplicates $name1" ignore {
