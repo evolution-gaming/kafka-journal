@@ -20,7 +20,14 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
   test("migrate fresh") {
     val initial = State.empty
     val (state, _) = migrate(fresh = true).run(initial)
-    state shouldEqual initial.copy(version = "1".some)
+    state shouldEqual initial.copy(
+      version = "1".some,
+      actions = List(
+        Action.SyncEnd,
+        Action.SetSetting("schema-version", "1"),
+        Action.GetSetting("schema-version"),
+        Action.SyncStart,
+        Action.GetSetting("schema-version")))
   }
 
   test("migrate") {
@@ -28,7 +35,15 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
     val (state, _) = migrate(fresh = false).run(initial)
     state shouldEqual initial.copy(
       version = "1".some,
-      actions = List(Action.SyncEnd, Action.Query, Action.Query, Action.SyncStart))
+      actions = List(
+        Action.SyncEnd,
+        Action.SetSetting("schema-version", "1"),
+        Action.Query,
+        Action.SetSetting("schema-version", "0"),
+        Action.Query,
+        Action.GetSetting("schema-version"),
+        Action.SyncStart,
+        Action.GetSetting("schema-version")))
   }
 
   test("migrate 0") {
@@ -36,13 +51,19 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
     val (state, _) = migrate(fresh = false).run(initial)
     state shouldEqual initial.copy(
       version = "1".some,
-      actions = List(Action.SyncEnd, Action.Query, Action.SyncStart))
+      actions = List(
+        Action.SyncEnd,
+        Action.SetSetting("schema-version", "1"),
+        Action.Query,
+        Action.GetSetting("schema-version"),
+        Action.SyncStart,
+        Action.GetSetting("schema-version")))
   }
 
   test("not migrate") {
     val initial = State.empty.copy(version = "1".some)
     val (state, _) = migrate(fresh = false).run(initial)
-    state shouldEqual initial
+    state shouldEqual initial.copy(actions = List(Action.GetSetting("schema-version")))
   }
 
   val timestamp: Instant = Instant.now()
@@ -67,14 +88,18 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
           } yield {
             settingOf(key, version)
           }
-          (state, setting)
+          val state1 = state.copy(actions = Action.GetSetting(key) :: state.actions)
+          (state1, setting)
         }
       }
 
       def set(key: K, value: V) = {
         StateT { state =>
           val setting = state.version.map { version => settingOf(key, version) }
-          (state.copy(version = value.some), setting)
+          val state1 = state.copy(
+            version = value.some,
+            actions = Action.SetSetting(key, value) :: state.actions)
+          (state1, setting)
         }
       }
 
@@ -85,7 +110,9 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
               val setting = settingOf(key, version)
               (state, setting.some)
             case None          =>
-              val state1 = state.copy(version = value.some)
+              val state1 = state.copy(
+                version = value.some,
+                actions = Action.SetSetting(key, value) :: state.actions)
               (state1, none[Setting])
           }
         }
@@ -152,8 +179,14 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
   object Action {
     case object SyncStart extends Action
+
     case object SyncEnd extends Action
+
     case object Query extends Action
+
+    final case class GetSetting(key: String) extends Action
+
+    final case class SetSetting(key: String, value: String) extends Action
   }
 
 

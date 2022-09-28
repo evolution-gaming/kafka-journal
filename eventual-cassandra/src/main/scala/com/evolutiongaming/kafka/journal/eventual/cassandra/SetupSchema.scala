@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Parallel
+import cats.data.{NonEmptyList => Nel}
 import cats.effect.{Concurrent, Timer}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.{BracketThrowable, LogOf}
@@ -25,7 +26,8 @@ object SetupSchema { self =>
         .addHeaders(table)
         .execute
         .first
-        .redeem[Unit](_ => (), _ => ())
+        .void
+        .handleError { _ => () }
     }
 
     def addVersion(table: TableName) = {
@@ -33,47 +35,77 @@ object SetupSchema { self =>
         .addVersion(table)
         .execute
         .first
-        .redeem[Unit](_ => (), _ => ())
+        .void
+        .handleError { _ => () }
     }
 
     val schemaVersion = "schema-version"
 
-    def migrate(version: Option[Int]) = {
-      version match {
-        case None =>
-          for {
-            _ <- {
-              if (fresh) {
-                ().pure[F]
-              } else {
-                cassandraSync {
-                  for {
-                    _ <- addHeaders(schema.journal)
-                    _ <- addVersion(schema.journal)
-                  } yield {}
-                }
-              }
-            }
-            _ <- settings.setIfEmpty(schemaVersion, "1")
-          } yield {}
-        case Some(0) =>
-          for {
-            _ <- cassandraSync { addVersion(schema.journal) }
-            _ <- settings.set(schemaVersion, "1")
-          } yield {}
-        case Some(_) =>
-          ().pure[F]
-      }
+    val migrations = Nel.of(
+      addHeaders(schema.journal),
+      addVersion(schema.journal))
+
+    def setVersion(version: Int) = {
+      settings
+        .set("schema-version", version.toString)
+        .void
     }
 
-    for {
-      setting <- settings.get(schemaVersion)
-      version  = for {
-        setting <- setting
-        version <- Try(setting.value.toInt).toOption
-      } yield version
-      _       <- migrate(version)
-    } yield {}
+    def migrate = {
+
+      def migrate(version: Int) = {
+        migrations
+          .toList
+          .drop(version + 1)
+          .toNel
+          .map { migrations =>
+            migrations
+              .foldLeftM(version) { (version, migration) =>
+                val version1 = version + 1
+                for {
+                  _ <- migration
+                  _ <- setVersion(version1)
+                } yield version1
+              }
+              .void
+          }
+      }
+
+      settings
+        .get(schemaVersion)
+        .map { setting =>
+          setting
+            .flatMap { a =>
+              Try
+                .apply { a.value.toInt }
+                .toOption
+            }
+            .fold {
+              if (fresh) {
+                val version = migrations.size - 1
+                if (version >= 0) {
+                  setVersion(version).some
+                } else {
+                  none[F[Unit]]
+                }
+              } else {
+                migrate(-1)
+              }
+            } { version =>
+              migrate(version)
+            }
+        }
+    }
+
+    migrate.flatMap { migrate1 =>
+      migrate1.foldMapM { _ =>
+        cassandraSync {
+          migrate.flatMap { migrate =>
+            migrate.foldMapM(identity)
+          }
+        }
+      }
+    }
   }
 
   def apply[F[_]: Concurrent: Parallel: Timer: CassandraCluster: CassandraSession: LogOf](
