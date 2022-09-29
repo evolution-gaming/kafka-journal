@@ -8,7 +8,7 @@ import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.{Origin, Settings}
-import com.evolutiongaming.scassandra.TableName
+import com.evolutiongaming.scassandra.ToCql.implicits._
 
 import scala.util.Try
 
@@ -21,29 +21,36 @@ object SetupSchema { self =>
     cassandraSync: CassandraSync[F]
   ): F[Unit] = {
 
-    def addHeaders(table: TableName) = {
+    def addHeaders = {
       JournalStatements
-        .addHeaders(table)
+        .addHeaders(schema.journal)
         .execute
         .first
         .void
         .handleError { _ => () }
     }
 
-    def addVersion(table: TableName) = {
+    def addVersion = {
       JournalStatements
-        .addVersion(table)
+        .addVersion(schema.journal)
         .execute
         .first
         .void
         .handleError { _ => () }
+    }
+
+    def dropMetadata = {
+      s"DROP TABLE IF EXISTS ${ schema.metadata.toCql }"
+        .execute
+        .first
     }
 
     val schemaVersion = "schema-version"
 
     val migrations = Nel.of(
-      addHeaders(schema.journal),
-      addVersion(schema.journal))
+      addHeaders,
+      addVersion,
+      dropMetadata)
 
     def setVersion(version: Int) = {
       settings

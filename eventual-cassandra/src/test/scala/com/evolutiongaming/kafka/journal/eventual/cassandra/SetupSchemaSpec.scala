@@ -6,7 +6,6 @@ import com.datastax.driver.core.{Row, Statement}
 import com.evolutiongaming.kafka.journal.{Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.sstream.Stream
-import org.scalatest.TryValues
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -15,7 +14,8 @@ import scala.util.Try
 import scala.util.control.NoStackTrace
 
 
-class SetupSchemaSpec extends AnyFunSuite with Matchers with TryValues {
+class SetupSchemaSpec extends AnyFunSuite with Matchers {
+  import SetupSchemaSpec._
 
   test("migrate fresh") {
     val initial = State.empty
@@ -23,10 +23,10 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers with TryValues {
       .run(initial)
       .get
     state shouldEqual initial.copy(
-      version = "1".some,
+      version = "2".some,
       actions = List(
         Action.SyncEnd,
-        Action.SetSetting("schema-version", "1"),
+        Action.SetSetting("schema-version", "2"),
         Action.GetSetting("schema-version"),
         Action.SyncStart,
         Action.GetSetting("schema-version")))
@@ -38,9 +38,11 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers with TryValues {
       .run(initial)
       .get
     state shouldEqual initial.copy(
-      version = "1".some,
+      version = "2".some,
       actions = List(
         Action.SyncEnd,
+        Action.SetSetting("schema-version", "2"),
+        Action.Query,
         Action.SetSetting("schema-version", "1"),
         Action.Query,
         Action.SetSetting("schema-version", "0"),
@@ -56,9 +58,11 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers with TryValues {
       .run(initial)
       .get
     state shouldEqual initial.copy(
-      version = "1".some,
+      version = "2".some,
       actions = List(
         Action.SyncEnd,
+        Action.SetSetting("schema-version", "2"),
+        Action.Query,
         Action.SetSetting("schema-version", "1"),
         Action.Query,
         Action.GetSetting("schema-version"),
@@ -67,7 +71,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers with TryValues {
   }
 
   test("not migrate") {
-    val initial = State.empty.copy(version = "1".some)
+    val initial = State.empty.copy(version = "2".some)
     val (state, _) = migrate(fresh = false)
       .run(initial)
       .get
@@ -181,7 +185,10 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers with TryValues {
     def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[Try, State, A](s => Try(f(s)))
   }
 
+  case object NotImplemented extends RuntimeException with NoStackTrace
+}
 
+object SetupSchemaSpec {
   sealed trait Action extends Product
 
   object Action {
@@ -195,7 +202,4 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers with TryValues {
 
     final case class SetSetting(key: String, value: String) extends Action
   }
-
-
-  case object NotImplemented extends RuntimeException with NoStackTrace
 }

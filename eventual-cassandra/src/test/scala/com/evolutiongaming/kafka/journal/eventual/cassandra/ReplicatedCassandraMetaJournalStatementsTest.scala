@@ -389,21 +389,6 @@ object ReplicatedCassandraMetaJournalStatementsTest {
     }
   }
 
-
-  val selectJournalHeadMetadata: MetadataStatements.SelectJournalHead[StateT] = {
-    key => {
-      StateT.success { state =>
-        val journalHead = for {
-          entries <- state.metadata.get(key.topic)
-          entry   <- entries.get(key.id)
-        } yield {
-          entry.journalHead
-        }
-        (state, journalHead)
-      }
-    }
-  }
-
   val metaJournalStatements: ReplicatedCassandra.MetaJournalStatements[StateT] = ReplicatedCassandra.MetaJournalStatements(
     selectMetaJournal,
     insertMetaJournal,
