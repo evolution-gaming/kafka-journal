@@ -16,15 +16,16 @@ import scala.util.control.NoStackTrace
 
 
 class SetupSchemaSpec extends AnyFunSuite with Matchers {
+  import SetupSchemaSpec._
 
   test("migrate fresh") {
     val initial = State.empty
     val (state, _) = migrate(fresh = true).run(initial)
     state shouldEqual initial.copy(
-      version = "1".some,
+      version = "2".some,
       actions = List(
         Action.SyncEnd,
-        Action.SetSetting("schema-version", "1"),
+        Action.SetSetting("schema-version", "2"),
         Action.GetSetting("schema-version"),
         Action.SyncStart,
         Action.GetSetting("schema-version")))
@@ -34,9 +35,11 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
     val initial = State.empty
     val (state, _) = migrate(fresh = false).run(initial)
     state shouldEqual initial.copy(
-      version = "1".some,
+      version = "2".some,
       actions = List(
         Action.SyncEnd,
+        Action.SetSetting("schema-version", "2"),
+        Action.Query,
         Action.SetSetting("schema-version", "1"),
         Action.Query,
         Action.SetSetting("schema-version", "0"),
@@ -50,9 +53,11 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
     val initial = State.empty.copy(version = "0".some)
     val (state, _) = migrate(fresh = false).run(initial)
     state shouldEqual initial.copy(
-      version = "1".some,
+      version = "2".some,
       actions = List(
         Action.SyncEnd,
+        Action.SetSetting("schema-version", "2"),
+        Action.Query,
         Action.SetSetting("schema-version", "1"),
         Action.Query,
         Action.GetSetting("schema-version"),
@@ -61,7 +66,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
   }
 
   test("not migrate") {
-    val initial = State.empty.copy(version = "1".some)
+    val initial = State.empty.copy(version = "2".some)
     val (state, _) = migrate(fresh = false).run(initial)
     state shouldEqual initial.copy(actions = List(Action.GetSetting("schema-version")))
   }
@@ -174,7 +179,10 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
     def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[Id, State, A](f)
   }
 
+  case object NotImplemented extends RuntimeException with NoStackTrace
+}
 
+object SetupSchemaSpec {
   sealed trait Action extends Product
 
   object Action {
@@ -188,7 +196,4 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
     final case class SetSetting(key: String, value: String) extends Action
   }
-
-
-  case object NotImplemented extends RuntimeException with NoStackTrace
 }
