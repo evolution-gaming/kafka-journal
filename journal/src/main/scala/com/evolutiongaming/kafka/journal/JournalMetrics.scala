@@ -32,21 +32,24 @@ object JournalMetrics {
   def empty[F[_] : Applicative]: JournalMetrics[F] = const(().pure[F])
 
 
-  def const[F[_]](unit: F[Unit]): JournalMetrics[F] = new JournalMetrics[F] {
+  def const[F[_]](unit: F[Unit]): JournalMetrics[F] = {
+    class Const
+    new Const with JournalMetrics[F] {
 
-    def append(topic: Topic, latency: FiniteDuration, events: Int) = unit
+      def append(topic: Topic, latency: FiniteDuration, events: Int) = unit
 
-    def read(topic: Topic, latency: FiniteDuration) = unit
+      def read(topic: Topic, latency: FiniteDuration) = unit
 
-    def read(topic: Topic) = unit
+      def read(topic: Topic) = unit
 
-    def pointer(topic: Topic, latency: FiniteDuration) = unit
+      def pointer(topic: Topic, latency: FiniteDuration) = unit
 
-    def delete(topic: Topic, latency: FiniteDuration) = unit
+      def delete(topic: Topic, latency: FiniteDuration) = unit
 
-    def purge(topic: Topic, latency: FiniteDuration) = unit
+      def purge(topic: Topic, latency: FiniteDuration) = unit
 
-    def failure(topic: Topic, name: String) = unit
+      def failure(topic: Topic, name: String) = unit
+    }
   }
 
 
@@ -89,7 +92,8 @@ object JournalMetrics {
         eventsSummary.labels(topic, name).observe(events.toDouble)
       }
 
-      new JournalMetrics[F] {
+      class Main
+      new Main with JournalMetrics[F] {
 
         def append(topic: Topic, latency: FiniteDuration, events: Int) = {
           for {
