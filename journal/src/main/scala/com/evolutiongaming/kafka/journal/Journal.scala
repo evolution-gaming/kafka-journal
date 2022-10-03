@@ -44,20 +44,30 @@ trait Journal[F[_]] {
 
 object Journal {
 
-  def empty[F[_] : Applicative]: Journal[F] = new Journal[F] {
+  def empty[F[_] : Applicative]: Journal[F] = {
+    class Main
+    new Main with Journal[F] {
 
-    def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
-      implicit kafkaWrite: KafkaWrite[F, A]) = PartitionOffset.empty.pure[F]
+      def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
+        implicit kafkaWrite: KafkaWrite[F, A]) = PartitionOffset.empty.pure[F]
 
-    def read[A](from: SeqNr)(implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A]) = Stream.empty
+      def read[A](from: SeqNr)(implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A]) = Stream.empty
 
-    def pointer = none[SeqNr].pure[F]
+      def pointer = none[SeqNr].pure[F]
 
-    def delete(to: DeleteTo) = none[PartitionOffset].pure[F]
+      def delete(to: DeleteTo) = none[PartitionOffset].pure[F]
 
-    def purge = none[PartitionOffset].pure[F]
+      def purge = none[PartitionOffset].pure[F]
+    }
   }
 
+  private sealed abstract class WithLog
+
+  private sealed abstract class WithLogError
+
+  private sealed abstract class MapK
+
+  private sealed abstract class WithMetrics
 
   implicit class JournalOps[F[_]](val self: Journal[F]) extends AnyVal {
 
@@ -75,7 +85,7 @@ object Journal {
         if (latency >= threshold) log.warn(msg) else log.debug(msg)
       }
 
-      new Journal[F] {
+      new WithLog with Journal[F] {
 
         def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
           implicit kafkaWrite: KafkaWrite[F, A]) = {
@@ -159,7 +169,7 @@ object Journal {
         } yield r
       }
 
-      new Journal[F] {
+      new WithLogError with Journal[F] {
 
         def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
           implicit kafkaWrite: KafkaWrite[F, A]) = {
@@ -225,7 +235,7 @@ object Journal {
         }
       }
 
-      new Journal[F] {
+      new WithMetrics with Journal[F] {
 
         def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
           implicit kafkaWrite: KafkaWrite[F, A]) = {
@@ -286,21 +296,23 @@ object Journal {
     }
 
 
-    def mapK[G[_]](fg: F ~> G, gf: G ~> F): Journal[G] = new Journal[G] {
+    def mapK[G[_]](fg: F ~> G, gf: G ~> F): Journal[G] = {
+      new MapK with Journal[G] {
 
-      def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
-        implicit kafkaWrite: KafkaWrite[G, A]) = {
-        fg(self.append(events, metadata, headers)(kafkaWrite.mapK(gf)))
+        def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
+          implicit kafkaWrite: KafkaWrite[G, A]) = {
+          fg(self.append(events, metadata, headers)(kafkaWrite.mapK(gf)))
+        }
+
+        def read[A](from: SeqNr)(implicit kafkaRead: KafkaRead[G, A], eventualRead: EventualRead[G, A]) =
+          self.read[A](from)(kafkaRead.mapK(gf), eventualRead.mapK(gf)).mapK(fg, gf)
+
+        def pointer = fg(self.pointer)
+
+        def delete(to: DeleteTo) = fg(self.delete(to))
+
+        def purge = fg(self.purge)
       }
-
-      def read[A](from: SeqNr)(implicit kafkaRead: KafkaRead[G, A], eventualRead: EventualRead[G, A]) =
-        self.read[A](from)(kafkaRead.mapK(gf), eventualRead.mapK(gf)).mapK(fg, gf)
-
-      def pointer = fg(self.pointer)
-
-      def delete(to: DeleteTo) = fg(self.delete(to))
-
-      def purge = fg(self.purge)
     }
   }
 
