@@ -187,74 +187,76 @@ object Journals {
                 .mapM { _.traverse(eventualRead.apply) }
             }
 
-            def readEventualAndKafka(from: SeqNr, stream: F[StreamActionRecords[F]], offsetAppend: Offset) = {
-              for {
-                stream <- Stream.lift(stream)
-                read    = (from: SeqNr, offset0: Option[Offset]) => {
-                  // TODO refactor this, pass from offset, rather than from - 1
-                  val offset = offsetAppend
-                    .dec[Try]
-                    .toOption
-                    .max { offset0 }
-                  for {
-                    record         <- stream(offset)
-                      .collect { case a @ ActionRecord(_: Action.Append, _) => a.asInstanceOf[ActionRecord[Action.Append]] }
-                      .dropWhile { a => a.action.range.to < from }
-                    action          = record.action
-                    payloadAndType  = PayloadAndType(action)
-                    events         <- Stream.lift(kafkaReadWithMetrics.apply(payloadAndType))
-                    event          <- Stream[F].apply(events.events)
-                    if event.seqNr >= from
-                  } yield {
-                    EventRecord(action, event, record.partitionOffset, events.metadata)
-                  }
-                }
-                event  <- readEventual(from).flatMapLast {
-                  case Some(event) =>
-                    event
-                      .seqNr
-                      .next[Option]
-                      .fold {
-                        Stream.empty[F, EventRecord[A]]
-                      } { seqNr =>
-                        read(seqNr, event.offset.some)
-                      }
-                  case None =>
-                    read(from, none)
-                }
-              } yield event
-            }
 
             def read(head: HeadInfo, stream: F[StreamActionRecords[F]]) = {
 
               def empty = Stream.empty[F, EventRecord[A]]
 
-              def onAppend(offset: Offset, deleteTo: Option[DeleteTo]) = {
+              head match {
+                case HeadInfo.Empty     =>
+                  readEventual(from)
 
-                def readEventualAndKafka1(from: SeqNr) = readEventualAndKafka(from, stream, offset)
+                case a: HeadInfo.Append =>
 
-                deleteTo.fold {
-                  readEventualAndKafka1(from)
-                } { deleteTo =>
-                  deleteTo
+                  def read(from: SeqNr) = {
+                    for {
+                      stream    <- Stream.lift(stream)
+                      readKafka  = (from: SeqNr, offset0: Option[Offset]) => {
+                        // TODO refactor this, pass from offset, rather than from - 1
+                        val offset = a
+                          .offset
+                          .dec[Try]
+                          .toOption
+                          .max { offset0 }
+                        for {
+                          record         <- stream(offset)
+                            .collect { case a @ ActionRecord(_: Action.Append, _) => a.asInstanceOf[ActionRecord[Action.Append]] }
+                            .dropWhile { a => a.action.range.to < from }
+                          action          = record.action
+                          payloadAndType  = PayloadAndType(action)
+                          events         <- Stream.lift(kafkaReadWithMetrics.apply(payloadAndType))
+                          event          <- Stream[F].apply(events.events)
+                          if event.seqNr >= from
+                        } yield {
+                          EventRecord(action, event, record.partitionOffset, events.metadata)
+                        }
+                      }
+                      event     <- readEventual(from).flatMapLast {
+                        case Some(event) =>
+                          event
+                            .seqNr
+                            .next[Option]
+                            .fold {
+                              Stream.empty[F, EventRecord[A]]
+                            } { seqNr =>
+                              readKafka(seqNr, event.offset.some)
+                            }
+                        case None        =>
+                          readKafka(from, none)
+                      }
+                    } yield event
+                  }
+
+                  a
+                    .deleteTo
+                    .fold {
+                      read(from)
+                    } { deleteTo =>
+                      deleteTo
+                        .value
+                        .next[Option]
+                        .fold(empty) { min => read(min max from) }
+                    }
+
+                case a: HeadInfo.Delete =>
+                  a
+                    .deleteTo
                     .value
                     .next[Option]
-                    .fold(empty) { min => readEventualAndKafka1(min max from) }
-                }
-              }
+                    .fold(empty) { min => readEventual(min max from) }
 
-              def onDelete(deleteTo: DeleteTo) = {
-                deleteTo
-                  .value
-                  .next[Option]
-                  .fold(empty) { min => readEventual(min max from) }
-              }
-
-              head match {
-                case HeadInfo.Empty     => readEventual(from)
-                case a: HeadInfo.Append => onAppend(a.offset, a.deleteTo)
-                case a: HeadInfo.Delete => onDelete(a.deleteTo)
-                case HeadInfo.Purge     => empty
+                case HeadInfo.Purge     =>
+                  empty
               }
             }
 
