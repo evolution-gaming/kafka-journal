@@ -5,6 +5,7 @@ import cats.data.{NonEmptyList => Nel}
 import cats.effect.kernel.Sync
 import cats.effect.{Clock, IO}
 import cats.syntax.all._
+import cats.effect.unsafe.implicits.global
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
@@ -174,7 +175,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
       }
     }
 
-    "read SeqNr.Max" in {
+    s"read SeqNr.Max" in {
       withJournal { journal =>
         for {
           seqNrs <- journal.read(SeqRange(SeqNr.max))
@@ -187,7 +188,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
       }
     }
 
-    "append, delete, append, delete, append, read, lastSeqNr, purge" in {
+    s"append, delete, append, delete, append, read, lastSeqNr, purge" in {
       withJournal { journal =>
         for {
           _       <- journal.append(SeqNr.unsafe(1))
@@ -216,7 +217,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
       }
     }
 
-    "read record completely" in {
+    s"read record completely" in {
       withJournal { journal =>
         for {
           _ <- journal.append(SeqNr.unsafe(1), SeqNr.unsafe(2))
@@ -227,7 +228,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
       }
     }
 
-    "read record partially" in {
+    s"read record partially" in {
       withJournal { journal =>
         for {
           _ <- journal.append(SeqNr.unsafe(1), SeqNr.unsafe(2))
@@ -239,38 +240,52 @@ class JournalSpec extends AnyWordSpec with Matchers {
     }
   }
 
-
-  def test(journal: SeqNrJournal[StateT]): Unit = {
-    import cats.effect.unsafe.implicits.global
-
-    testF[StateT] { f =>
-      f(journal)
-        .run(State.empty)
-        .map { case (_, result) => result }
-        .unsafeRunSync()
-    }
-  }
-
-
   "Journal" when {
 
-    // TODO add case with failing head cache
     for {
       (headCacheStr, headCache) <- List(
         ("invalid", HeadCache.const(none[HeadInfo].pure[StateT])),
         ("valid",   StateT.headCache))
+
+//      (eventualJournalStr, eventualJournalF) <- List(
+//        ("normal", identity[EventualJournal[StateT]](_)),
+//        ("duplicates", identity[EventualJournal[StateT]](_)))
+
+      (kafkaJournalStr, consumeActionRecordsOf) <- List(
+        ("without duplicates", (a: ConsumeActionRecords[StateT]) => a),
+        ("with duplicates", (a: ConsumeActionRecords[StateT]) => a.withDuplicates))
     } {
 
-      val name = s"headCache: $headCacheStr"
+      def test(
+        eventual: EventualJournal[StateT],
+        consumeActionRecords: ConsumeActionRecords[StateT],
+        produceAction: ProduceAction[StateT],
+        headCache: HeadCache[StateT]
+      ): Unit = {
+        val journal = SeqNrJournal(
+          eventual,
+          consumeActionRecordsOf(consumeActionRecords),
+          produceAction,
+          headCache)
+
+        testF[StateT] { f =>
+          f(journal)
+            .run(State.empty)
+            .map { case (_, result) => result }
+            .unsafeRunSync()
+        }
+      }
+
+      //      val name = s"headCache: $headCacheStr, kafkaJournal: $kafkaJournalStr, eventualJournal: $eventualJournalStr"
+
+      val name = s"headCache: $headCacheStr, kafkaJournal: $kafkaJournalStr"
 
       s"eventual journal is empty, $name" should {
-        val journal = SeqNrJournal(
+        test(
           EventualJournal.empty[StateT],
           StateT.consumeActionRecords,
           StateT.produceAction,
           headCache)
-
-        test(journal)
       }
 
       s"kafka journal is empty, $name" should {
@@ -287,24 +302,20 @@ class JournalSpec extends AnyWordSpec with Matchers {
           }
         }
 
-        val journal = SeqNrJournal(
+        test(
           StateT.eventualJournal,
           consumeActionRecords,
           StateT.produceAction,
           headCache)
-
-        test(journal)
       }
 
 
       s"kafka and eventual journals are consistent, $name" should {
-        val journal = SeqNrJournal(
+        test(
           StateT.eventualJournal,
           StateT.consumeActionRecords,
           StateT.produceAction,
           headCache)
-
-        test(journal)
       }
 
       for {
@@ -327,13 +338,11 @@ class JournalSpec extends AnyWordSpec with Matchers {
             }
           }
 
-          val journal = SeqNrJournal(
+          test(
             StateT.eventualJournal,
             StateT.consumeActionRecords,
             produceAction,
             headCache)
-
-          test(journal)
         }
       }
 
@@ -361,13 +370,11 @@ class JournalSpec extends AnyWordSpec with Matchers {
             }
           }
 
-          val journal = SeqNrJournal(
+          test(
             StateT.eventualJournal,
             StateT.consumeActionRecords,
             produceAction,
             headCache)
-
-          test(journal)
         }
       }
 
@@ -400,13 +407,11 @@ class JournalSpec extends AnyWordSpec with Matchers {
             }
           }
 
-          val journal = SeqNrJournal(
+          test(
             StateT.eventualJournal,
             StateT.consumeActionRecords,
             produceAction,
             headCache)
-
-          test(journal)
         }
       }
     }
@@ -414,7 +419,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
 }
 
 object JournalSpec {
-  val key = Key(topic = "topic", id = "id")
+  val key: Key = Key(topic = "topic", id = "id")
   val timestamp: Instant = Instant.now()
   val partition: Partition = Partition.min
 
@@ -740,6 +745,21 @@ object JournalSpec {
     def dropLast(n: Int): Option[Queue[T]] = {
       if (self.size <= n) none
       else self.dropRight(n).some
+    }
+  }
+
+
+  implicit class ConsumeActionRecordsOps[F[_]](val self: ConsumeActionRecords[F]) extends AnyVal {
+    def withDuplicates(implicit F: Monad[F]): ConsumeActionRecords[F] = new ConsumeActionRecords[F] {
+      def apply(key: Key, partition: Partition, from: Offset) = {
+        self
+          .apply(key, partition, from)
+          .flatMap { a =>
+            List
+              .fill(2)(a)
+              .toStream1[F]
+          }
+      }
     }
   }
 }

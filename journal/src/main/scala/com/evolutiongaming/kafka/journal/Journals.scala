@@ -266,12 +266,23 @@ object Journals {
               }
             }
 
-            for {
+            val stream = for {
               headAndStream  <- headAndStream(key, from).toStream
               (head, stream)  = headAndStream
               _              <- log.debug(s"$key read info: $head").toStream
               eventRecord    <- read(head, stream)
             } yield eventRecord
+
+            stream.stateful(from) { case (seqNr, a) =>
+              if (seqNr <= a.seqNr) {
+                val seqNr1 = a
+                  .seqNr
+                  .next[Option]
+                (seqNr1, Stream[F].single(a))
+              } else {
+                (seqNr.some, Stream[F].empty)
+              }
+            }
           }
 
 
