@@ -747,13 +747,6 @@ object JournalSpec {
       def apply(key: Key, partition: Partition, from: Offset) = {
         self
           .apply(key, partition, from)
-<<<<<<< HEAD
-          .flatMap { a =>
-            List
-              .fill(2)(a)
-              .toStream1[F]
-          }
-=======
           .withDuplicates
       }
     }
@@ -782,7 +775,6 @@ object JournalSpec {
         List
           .fill(2)(a)
           .toStream1[F]
->>>>>>> 38c1f191 (ensure kafka-journal filters out duplicates)
       }
     }
   }
