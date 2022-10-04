@@ -6,6 +6,7 @@ import cats.syntax.all._
 import com.datastax.driver.core.{Row, Statement}
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CreateTables.Table
+import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -103,12 +104,14 @@ class CreateTablesSpec extends AnyFunSuite with Matchers {
     def prepare(query: String) = throw NotImplemented
 
     def execute(statement: Statement) = {
-      val stateT = StateT { state =>
-        val state1 = state.add(Action.Query)
-        val rows = Stream.empty[StateT, Row]
-        (state1, rows)
-      }
-      Stream.lift(stateT).flatten
+      StateT
+        .apply { state =>
+          val state1 = state.add(Action.Query)
+          val rows = Stream.empty[StateT, Row]
+          (state1, rows)
+        }
+        .toStream
+        .flatten
     }
 
     def unsafe = throw NotImplemented

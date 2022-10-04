@@ -6,6 +6,7 @@ import cats.syntax.all._
 import cats.~>
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.kafka.journal.conversions.ConsRecordToActionRecord
+import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, TopicPartition}
 import com.evolutiongaming.sstream.Stream
 
@@ -50,10 +51,10 @@ object ConsumeActionRecords {
       }
 
       for {
-        consumer <- Stream.fromResource(consumer)
-        _        <- Stream.lift(seek(consumer))
+        consumer <- consumer.toStream
+        _        <- seek(consumer).toStream
         records  <- Stream.repeat(poll(consumer))
-        record   <- Stream[F].apply(records)
+        record   <- records.toStream1[F]
       } yield record
     }
   }

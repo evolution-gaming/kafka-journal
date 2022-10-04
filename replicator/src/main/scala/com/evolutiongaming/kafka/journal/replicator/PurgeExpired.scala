@@ -11,12 +11,12 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraSession, ExpireOn, MetaJournalStatements, SegmentNr}
 import com.evolutiongaming.kafka.journal.util.Fail
+import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.skafka.producer.ProducerConfig
 import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.smetrics._
-import com.evolutiongaming.sstream.Stream
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -61,11 +61,11 @@ object PurgeExpired {
 
       def apply(topic: Topic, expireOn: ExpireOn, segments: Nes[SegmentNr]) = {
         val result = for {
-          segment <- Stream[F].apply(segments.toNel)
+          segment <- segments.toNel.toStream1[F]
           id      <- selectExpired(topic, segment, expireOn)
           key      = Key(id = id, topic = topic)
-          _       <- Stream.lift(produce.purge(key))
-        } yield {}
+          result  <- produce.purge(key).toStream
+        } yield result
         result.length
       }
     }

@@ -1,8 +1,9 @@
 package com.evolutiongaming.kafka.journal.util
 
+import cats.effect.{MonadCancel, Resource}
 import cats.syntax.all._
-import cats.{MonadError, StackSafeMonad}
-import com.evolutiongaming.sstream.Stream
+import cats.{FlatMap, Monad, MonadError, StackSafeMonad}
+import com.evolutiongaming.sstream.{FoldWhile, Stream}
 import com.evolutiongaming.sstream.Stream.StreamOps
 
 object StreamHelper {
@@ -17,9 +18,19 @@ object StreamHelper {
 
       override def map[A, B](fa: Stream[F, A])(f: A => B) = StreamOps(fa).map(f)
 
-      def raiseError[A](a: E) = Stream.lift(a.raiseError[F, A])
+      def raiseError[A](a: E) = a.raiseError[F, A].toStream
 
       def handleErrorWith[A](fa: Stream[F, A])(f: E => Stream[F, A]) = StreamOps(fa).handleErrorWith(f)
     }
+  }
+
+  implicit class OpsStreamHelper[F[_], A](val self: F[A]) extends AnyVal {
+    def toStream1[M[_]](implicit M: Monad[M], G: FoldWhile[F]): Stream[M, A] = Stream[M].apply(self)
+
+    def toStream(implicit F: FlatMap[F]): Stream[F, A] = Stream.lift { self }
+  }
+
+  implicit class ResourceOpsStreamHelper[F[_], A](val self: Resource[F, A]) extends AnyVal {
+    def toStream(implicit F: MonadCancel[F, Throwable]): Stream[F, A] = Stream.fromResource(self)
   }
 }

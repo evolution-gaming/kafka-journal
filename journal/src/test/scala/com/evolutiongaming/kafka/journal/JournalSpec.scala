@@ -13,6 +13,7 @@ import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MeasureDuration
 import com.evolutiongaming.sstream.Stream
@@ -42,11 +43,9 @@ class JournalSpec extends AnyWordSpec with Matchers {
         withJournal { journal =>
 
           def append(seqNrs: Nel[SeqNr]) = {
-            for {
-              offset <- journal.append(seqNrs.head, seqNrs.tail: _*)
-            } yield {
-              offset.some
-            }
+            journal
+              .append(seqNrs.head, seqNrs.tail: _*)
+              .map { _.some }
           }
           for {
             offset     <- combination.foldLeftM(none[Offset]) { (_, seqNrs) => append(seqNrs) }
@@ -216,6 +215,28 @@ class JournalSpec extends AnyWordSpec with Matchers {
         } yield Succeeded
       }
     }
+
+    "read record completely" in {
+      withJournal { journal =>
+        for {
+          _ <- journal.append(SeqNr.unsafe(1), SeqNr.unsafe(2))
+          a <- journal.read(SeqRange.unsafe(1, 2))
+        } yield {
+          a shouldEqual List(SeqNr.unsafe(1), SeqNr.unsafe(2))
+        }
+      }
+    }
+
+    "read record partially" in {
+      withJournal { journal =>
+        for {
+          _ <- journal.append(SeqNr.unsafe(1), SeqNr.unsafe(2))
+          a <- journal.read(SeqRange.unsafe(2))
+        } yield {
+          a shouldEqual List(SeqNr.unsafe(2))
+        }
+      }
+    }
   }
 
 
@@ -223,8 +244,10 @@ class JournalSpec extends AnyWordSpec with Matchers {
     import cats.effect.unsafe.implicits.global
 
     testF[StateT] { f =>
-      val (_, result) = f(journal).run(State.empty).unsafeRunSync()
-      result
+      f(journal)
+        .run(State.empty)
+        .map { case (_, result) => result }
+        .unsafeRunSync()
     }
   }
 
@@ -250,14 +273,13 @@ class JournalSpec extends AnyWordSpec with Matchers {
         test(journal)
       }
 
-
       s"kafka journal is empty, $name" should {
 
         val consumeActionRecords: ConsumeActionRecords[StateT] = {
           (_: Key, _: Partition, from: Offset) => {
             StateT.stream { state =>
               val records = state.records
-                .dropWhile(_.offset < from)
+                .dropWhile { _.offset < from }
                 .collect { case action @ ActionRecord(_: Action.Mark, _) => action }
               val state1 = state.copy(recordsToRead = records)
               (state1, StateT.actionRecords).pure[IO]
@@ -539,7 +561,7 @@ object JournalSpec {
         }
 
         for {
-          events <- Stream.lift(events)
+          events <- events.toStream
           event <- Stream[StateT].apply(events)
         } yield {
           event
@@ -575,14 +597,18 @@ object JournalSpec {
           case None                    => (state, Stream[StateT].empty[ActionRecord[Action]])
         })
       }
-      Stream.repeat(result).flatten
+      Stream
+        .repeat(result)
+        .flatten
     }
 
 
     val consumeActionRecords: ConsumeActionRecords[StateT] = {
       (_: Key, _: Partition, from: Offset) => {
         StateT.stream { state =>
-          val records = state.records.dropWhile(_.offset < from)
+          val records = state
+            .records
+            .dropWhile { _.offset < from }
           val state1 = state.copy(recordsToRead = records)
           (state1, actionRecords).pure[IO]
         }
@@ -622,7 +648,7 @@ object JournalSpec {
 
     def of[A](f: State => IO[(State, A)]): StateT[A] = cats.data.StateT[IO, State, A](s => f(s))
 
-    def stream[A](f: State => IO[(State, Stream[StateT, A])]): Stream[StateT, A] = Stream.lift(of(f)).flatten
+    def stream[A](f: State => IO[(State, Stream[StateT, A])]): Stream[StateT, A] = of(f).toStream.flatten
   }
 
 
@@ -649,7 +675,7 @@ object JournalSpec {
         def updateOffset = copy(offset = offset.some)
 
         def onAppend(action: Action.Append) = {
-          val payloadAndType = PayloadAndType(action)
+          val payloadAndType = action.toPayloadAndType
           val events1 = kafkaRead(payloadAndType).get
           val batch = for {
             event <- events1.events

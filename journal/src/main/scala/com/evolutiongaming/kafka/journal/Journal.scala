@@ -262,7 +262,7 @@ object Journal {
 
           for {
             a <- self.read[A](from).mapK(measure, functionKId)
-            _ <- Stream.lift(metrics.read(topic))
+            _ <- metrics.read(topic).toStream
           } yield a
         }
 

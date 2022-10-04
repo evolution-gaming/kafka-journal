@@ -6,6 +6,7 @@ import cats.syntax.all._
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal.TopicCache.Consumer
+import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.{OnError, Retry, Sleep, Strategy}
 import com.evolutiongaming.retry.Retry.implicits._
@@ -61,7 +62,7 @@ object HeadCacheConsumption {
     }
 
     for {
-      random   <- Stream.lift { Random.State.fromClock[F]() }
+      random   <- Random.State.fromClock[F]().toStream
       retry     = {
         val strategy = Strategy
           .exponential(10.millis)
@@ -72,8 +73,8 @@ object HeadCacheConsumption {
         Retry(strategy, onError)
       }
       _        <- Stream.around(retry.toFunctionK)
-      consumer <- Stream.fromResource(consumer)
-      _        <- Stream.lift(seek(consumer, random))
+      consumer <- consumer.toStream
+      _        <- seek(consumer, random).toStream
       records  <- Stream.repeat(consumer.poll) if records.values.nonEmpty
     } yield records
   }

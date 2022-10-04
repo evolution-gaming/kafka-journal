@@ -9,6 +9,7 @@ import cats.effect.Clock
 import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.Setting.Key
 import com.evolutiongaming.kafka.journal.{Origin, Setting}
+import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.smetrics.MeasureDuration
@@ -125,11 +126,13 @@ class SettingsCassandraSpec extends AnyFunSuite with Matchers {
     }
 
     val all = {
-      val stateT = StateT { state =>
-        val stream = Stream[StateT].apply(state.settings.values.toList)
-        (state, stream)
-      }
-      Stream.lift(stateT).flatten
+      StateT
+        .apply { state =>
+          val stream = Stream[StateT].apply(state.settings.values.toList)
+          (state, stream)
+        }
+        .toStream
+        .flatten
     }
 
     val delete = new SettingStatements.Delete[StateT] {

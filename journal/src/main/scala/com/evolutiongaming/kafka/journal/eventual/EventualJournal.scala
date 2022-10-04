@@ -240,7 +240,7 @@ object EventualJournal {
 
           for {
             a <- self.read(key, from).mapK(measure, functionKId)
-            _ <- Stream.lift(metrics.read(key.topic))
+            _ <- metrics.read(key.topic).toStream
           } yield a
         }
 
@@ -287,7 +287,7 @@ object EventualJournal {
         def read(key: Key, from: SeqNr) = {
           self
             .read(key, from)
-            .handleErrorWith { a: Throwable => Stream.lift(error[EventRecord[EventualPayloadAndType]](s"read key: $key, from: $from", a)) }
+            .handleErrorWith { a: Throwable => error[EventRecord[EventualPayloadAndType]](s"read key: $key, from: $from", a).toStream }
         }
 
         def pointer(key: Key) = {
@@ -299,7 +299,7 @@ object EventualJournal {
         def ids(topic: Topic) = {
           self
             .ids(topic)
-            .handleErrorWith { a => Stream.lift(error[String](s"ids topic: $topic", a)) }
+            .handleErrorWith { a => error[String](s"ids topic: $topic", a).toStream }
         }
       }
     }

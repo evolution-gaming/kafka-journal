@@ -8,6 +8,7 @@ import cats.syntax.all.none
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.kafka.journal.util.TestTemporal._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
@@ -442,7 +443,7 @@ object EventualCassandraTest {
         val stream = Stream[StateT].apply(entries)
         (state, stream)
       }
-      Stream.lift(stateT).flatten
+      stateT.toStream.flatten
     }
   }
 
