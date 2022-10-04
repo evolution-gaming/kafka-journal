@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.util
 
-import cats.effect.{MonadCancel, Resource}
+import cats.effect.{Bracket, Resource}
 import cats.syntax.all._
 import cats.{FlatMap, Monad, MonadError, StackSafeMonad}
 import com.evolutiongaming.sstream.{FoldWhile, Stream}
@@ -31,6 +31,6 @@ object StreamHelper {
   }
 
   implicit class ResourceOpsStreamHelper[F[_], A](val self: Resource[F, A]) extends AnyVal {
-    def toStream(implicit F: MonadCancel[F, Throwable]): Stream[F, A] = Stream.fromResource(self)
+    def toStream(implicit F: Bracket[F, Throwable]): Stream[F, A] = Stream.fromResource(self)
   }
 }
