@@ -245,15 +245,10 @@ class JournalSpec extends AnyWordSpec with Matchers {
     for {
       (headCacheStr, headCache) <- List(
         ("invalid", HeadCache.const(none[HeadInfo].pure[StateT])),
-        ("valid",   StateT.headCache))
-
-//      (eventualJournalStr, eventualJournalF) <- List(
-//        ("normal", identity[EventualJournal[StateT]](_)),
-//        ("duplicates", identity[EventualJournal[StateT]](_)))
-
-      (kafkaJournalStr, consumeActionRecordsOf) <- List(
-        ("without duplicates", (a: ConsumeActionRecords[StateT]) => a),
-        ("with duplicates", (a: ConsumeActionRecords[StateT]) => a.withDuplicates))
+        ("valid"  , StateT.headCache))
+      (duplicatesStr, consumeActionRecordsOf, eventualJournalOf) <- List(
+        ("off", (a: ConsumeActionRecords[StateT]) => a               , (a: EventualJournal[StateT]) => a),
+        ("on" , (a: ConsumeActionRecords[StateT]) => a.withDuplicates, (a: EventualJournal[StateT]) => a.withDuplicates))
     } {
 
       def test(
@@ -263,7 +258,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
         headCache: HeadCache[StateT]
       ): Unit = {
         val journal = SeqNrJournal(
-          eventual,
+          eventualJournalOf(eventual),
           consumeActionRecordsOf(consumeActionRecords),
           produceAction,
           headCache)
@@ -276,9 +271,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
         }
       }
 
-      //      val name = s"headCache: $headCacheStr, kafkaJournal: $kafkaJournalStr, eventualJournal: $eventualJournalStr"
-
-      val name = s"headCache: $headCacheStr, kafkaJournal: $kafkaJournalStr"
+      val name = s"headCache: $headCacheStr, duplicates: $duplicatesStr"
 
       s"eventual journal is empty, $name" should {
         test(
@@ -754,11 +747,42 @@ object JournalSpec {
       def apply(key: Key, partition: Partition, from: Offset) = {
         self
           .apply(key, partition, from)
+<<<<<<< HEAD
           .flatMap { a =>
             List
               .fill(2)(a)
               .toStream1[F]
           }
+=======
+          .withDuplicates
+      }
+    }
+  }
+
+  implicit class EventualJournalOps[F[_]](val self: EventualJournal[F]) extends AnyVal {
+    def withDuplicates(implicit F: Monad[F]): EventualJournal[F] = new EventualJournal[F] {
+
+      def pointer(key: Key) = self.pointer(key)
+
+      def pointers(topic: Topic) = self.pointers(topic)
+
+      def read(key: Key, from: SeqNr) = {
+        self
+          .read(key, from)
+          .withDuplicates
+      }
+
+      def ids(topic: Topic) = self.ids(topic)
+    }
+  }
+
+  implicit class StreamOps[F[_], A](val self: Stream[F, A]) extends AnyVal {
+    def withDuplicates(implicit F: Monad[F]): Stream[F, A] = {
+      self.flatMap { a =>
+        List
+          .fill(2)(a)
+          .toStream1[F]
+>>>>>>> 38c1f191 (ensure kafka-journal filters out duplicates)
       }
     }
   }
