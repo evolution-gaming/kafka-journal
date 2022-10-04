@@ -13,6 +13,7 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.{EventualPayloadAndType, EventualRead, EventualWrite}
+import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -194,7 +195,7 @@ object JournalAdapterSpec {
             .flatten
             .map { Stream[StateT].apply(_) }
 
-          Stream.lift(stream).flatten
+          stream.toStream.flatten
         }
 
         def pointer = {

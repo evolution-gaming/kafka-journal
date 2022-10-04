@@ -198,10 +198,10 @@ object Journals {
 
                 case a: HeadInfo.Append =>
 
-                  def read(from: SeqNr) = {
+                  def read(seqNr: SeqNr) = {
                     for {
-                      stream    <- Stream.lift(stream)
-                      readKafka  = (from: SeqNr, offset0: Option[Offset]) => {
+                      stream    <- stream.toStream
+                      readKafka  = (seqNr: SeqNr, offset0: Option[Offset]) => {
                         // TODO refactor this, pass from offset, rather than from - 1
                         val offset = a
                           .offset
@@ -209,30 +209,36 @@ object Journals {
                           .toOption
                           .max { offset0 }
                         for {
-                          record         <- stream(offset)
-                            .collect { case a @ ActionRecord(_: Action.Append, _) => a.asInstanceOf[ActionRecord[Action.Append]] }
-                            .dropWhile { a => a.action.range.to < from }
-                          action          = record.action
-                          payloadAndType  = PayloadAndType(action)
-                          events         <- Stream.lift(kafkaReadWithMetrics.apply(payloadAndType))
-                          event          <- Stream[F].apply(events.events)
-                          if event.seqNr >= from
+                          record <- stream(offset)
+                          action <- record.action match {
+                            case a: Action.Append => Stream[F].single(a)
+                            case _: Action.Delete => Stream[F].empty
+                            case _: Action.Purge  => Stream[F].empty
+                          }
+                          if action.range.to >= seqNr
+                          events <- kafkaReadWithMetrics
+                            .apply(action.toPayloadAndType)
+                            .toStream
+                          event  <- events
+                            .events
+                            .toStream1[F]
+                          if event.seqNr >= seqNr
                         } yield {
                           EventRecord(action, event, record.partitionOffset, events.metadata)
                         }
                       }
-                      event     <- readEventual(from).flatMapLast {
+                      event     <- readEventual(seqNr).flatMapLast {
                         case Some(event) =>
                           event
                             .seqNr
                             .next[Option]
                             .fold {
-                              Stream.empty[F, EventRecord[A]]
+                              Stream[F].empty[EventRecord[A]]
                             } { seqNr =>
                               readKafka(seqNr, event.offset.some)
                             }
                         case None        =>
-                          readKafka(from, none)
+                          readKafka(seqNr, none)
                       }
                     } yield event
                   }
@@ -261,9 +267,9 @@ object Journals {
             }
 
             for {
-              headAndStream  <- Stream.lift(headAndStream(key, from))
+              headAndStream  <- headAndStream(key, from).toStream
               (head, stream)  = headAndStream
-              _              <- Stream.lift(log.debug(s"$key read info: $head"))
+              _              <- log.debug(s"$key read info: $head").toStream
               eventRecord    <- read(head, stream)
             } yield eventRecord
           }
@@ -272,38 +278,32 @@ object Journals {
           def pointer = {
 
             // TODO refactor, we don't need to call `eventual.pointer` without using it's offset
-            def pointerEventual = for {
-              pointer <- eventual.pointer(key)
-            } yield for {
-              pointer <- pointer
-            } yield {
-              pointer.seqNr
+            def pointerEventual = {
+              eventual
+                .pointer(key)
+                .map { pointer =>
+                  pointer.map { _.seqNr }
+                }
             }
-
-            def pointer(headInfo: HeadInfo) = {
-              headInfo match {
+            for {
+              headAndStream <- headAndStream(key, SeqNr.min)
+              (headInfo, _)  = headAndStream
+              pointer       <- headInfo match {
                 case HeadInfo.Empty     => pointerEventual
                 case a: HeadInfo.Append => a.seqNr.some.pure[F]
                 case _: HeadInfo.Delete => pointerEventual
                 case HeadInfo.Purge     => none[SeqNr].pure[F]
               }
-            }
-
-            val from = SeqNr.min // TODO remove
-
-            for {
-              headAndStream <- headAndStream(key, from)
-              (headInfo, _)  = headAndStream
-              pointer       <- pointer(headInfo)
             } yield pointer
           }
 
           // TODO not delete already deleted, do not accept deleteTo=2 when already deleteTo=3
           def delete(to: DeleteTo) = {
-            for {
-              seqNr   <- pointer
-              pointer <- seqNr.traverse { seqNr => produce.delete(key, seqNr.toDeleteTo min to) }
-            } yield pointer
+            pointer.flatMap { seqNr =>
+              seqNr.traverse { seqNr =>
+                produce.delete(key, seqNr.toDeleteTo min to)
+              }
+            }
           }
 
           def purge: F[Option[PartitionOffset]] = {

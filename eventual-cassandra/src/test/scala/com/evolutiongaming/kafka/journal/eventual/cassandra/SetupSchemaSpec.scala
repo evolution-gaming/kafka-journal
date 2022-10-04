@@ -7,6 +7,7 @@ import cats.syntax.all._
 import com.datastax.driver.core.{Row, Statement}
 import com.evolutiongaming.kafka.journal.util.TestSync
 import com.evolutiongaming.kafka.journal.{Setting, Settings}
+import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AnyFunSuite
@@ -139,7 +140,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
         val rows = Stream.empty[StateT, Row]
         (state1, rows)
       }
-      Stream.lift(stateT).flatten
+      stateT.toStream.flatten
     }
 
     def unsafe = throw NotImplemented

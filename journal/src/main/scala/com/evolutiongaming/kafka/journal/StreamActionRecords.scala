@@ -4,6 +4,7 @@ import cats.Applicative
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.skafka.Offset
 import com.evolutiongaming.sstream.Stream
 
@@ -35,15 +36,16 @@ object StreamActionRecords {
     if (replicated) empty[F]
     else (offset: Option[Offset]) => {
       for {
-        max    <- Stream.lift(marker.offset.dec[F])
+        max    <- marker.offset.dec[F].toStream
         result <- {
           val replicated = offset.exists { _ >= max }
           if (replicated) Stream.empty[F, ActionRecord[Action.User]]
           else {
-            val last = offset max offsetReplicated
-            val fromOffset = last.fold(Offset.min.pure[F]) { _.inc[F] }
             for {
-              fromOffset <- Stream.lift(fromOffset)
+              fromOffset <- offset
+                .max(offsetReplicated)
+                .fold(Offset.min.pure[F]) { _.inc[F] }
+                .toStream
               result     <- consumeActionRecords(key, partition, fromOffset).stateless { record =>
 
                 def take(action: Action.User) = {

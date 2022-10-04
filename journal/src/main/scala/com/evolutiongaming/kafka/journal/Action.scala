@@ -106,6 +106,10 @@ object Action {
           headers = headers)
       }
     }
+
+    implicit class AppendOps(val self: Append) extends AnyVal {
+      def toPayloadAndType: PayloadAndType = PayloadAndType(self.payload, self.header.payloadType)
+    }
   }
 
 

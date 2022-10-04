@@ -10,6 +10,7 @@ import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.scassandra.util.FromGFuture
+import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.scassandra.{CassandraClusterOf, TableName}
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.MeasureDuration
@@ -125,7 +126,7 @@ object EventualCassandra {
         }
 
         for {
-          journalHead <- Stream.lift { statements.metaJournal.journalHead(key) }
+          journalHead <- statements.metaJournal.journalHead(key).toStream
           result      <- journalHead match {
             case Some(journalHead) => read(statements.records, journalHead)
             case None              => Stream.empty[F, EventRecord[EventualPayloadAndType]]
@@ -232,7 +233,7 @@ object EventualCassandra {
 
         def ids(topic: Topic) = {
           for {
-            segmentNr <- Stream.from(segments.segmentNrs)
+            segmentNr <- segments.segmentNrs.toStream1[F]
             id        <- ids1(topic, segmentNr)
           } yield id
         }

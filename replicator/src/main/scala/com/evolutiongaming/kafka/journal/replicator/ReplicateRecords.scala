@@ -56,7 +56,7 @@ object ReplicateRecords {
 
           val events = records.flatTraverse { record =>
             val action = record.action
-            val payloadAndType = PayloadAndType(action)
+            val payloadAndType = action.toPayloadAndType
             val events = kafkaRead(payloadAndType).adaptError { case e =>
               JournalError(s"ReplicateRecords failed for id: $id, offset: $partitionOffset: $e", e)
             }

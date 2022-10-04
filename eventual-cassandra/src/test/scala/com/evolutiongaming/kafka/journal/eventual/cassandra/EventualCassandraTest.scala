@@ -9,6 +9,7 @@ import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.kafka.journal.util.{BracketFromMonadError, ConcurrentOf}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
@@ -440,7 +441,7 @@ object EventualCassandraTest {
         val stream = Stream[StateT].apply(entries)
         (state, stream)
       }
-      Stream.lift(stateT).flatten
+      stateT.toStream.flatten
     }
   }
 

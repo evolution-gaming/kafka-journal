@@ -7,6 +7,7 @@ import com.datastax.driver.core.{ResultSet => _, _}
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
 import com.evolutiongaming.catshelper.{MonadThrowable, Runtime}
 import com.evolutiongaming.kafka.journal.JournalError
+import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.scache.Cache
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.scassandra.NextHostRetryPolicy
@@ -52,7 +53,7 @@ object CassandraSession {
       def execute(statement: Statement): Stream[F, Row] = {
         val execute = session.execute(statement)
         for {
-          resultSet <- Stream.lift(execute)
+          resultSet <- execute.toStream
           row       <- ResultSet[F](resultSet)
         } yield row
       }
@@ -133,7 +134,7 @@ object CassandraSession {
         def execute(statement: Statement) = {
           self
             .execute(statement)
-            .handleErrorWith { a: Throwable => Stream.lift(error[Row](s"execute statement: $statement", a)) }
+            .handleErrorWith { a: Throwable => error[Row](s"execute statement: $statement", a).toStream }
         }
 
         def unsafe = self.unsafe

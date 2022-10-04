@@ -18,11 +18,6 @@ final case class PayloadAndType(
 
 object PayloadAndType {
 
-  def apply(action: Action.Append): PayloadAndType = {
-    PayloadAndType(action.payload, action.header.payloadType)
-  }
-
-
   final case class EventJson[A](
     seqNr: SeqNr,
     tags: Tags,
