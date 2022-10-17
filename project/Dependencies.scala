@@ -15,7 +15,7 @@ object Dependencies {
   val `kafka-launcher`     = "com.evolutiongaming"    %% "kafka-launcher"        % "0.0.12"
   val `cassandra-launcher` = "com.evolutiongaming"    %% "cassandra-launcher"    % "0.0.4"
   val hostname             = "com.evolutiongaming"    %% "hostname"              % "0.2.0"
-  val scassandra           = "com.evolutiongaming"    %% "scassandra"            % "4.0.1"
+  val scassandra           = "com.evolutiongaming"    %% "scassandra"            % "4.1.0"
   val `cassandra-sync`     = "com.evolutiongaming"    %% "cassandra-sync"        % "2.0.0"
   val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "3.2.0"
   val random               = "com.evolutiongaming"    %% "random"                % "1.0.0"
