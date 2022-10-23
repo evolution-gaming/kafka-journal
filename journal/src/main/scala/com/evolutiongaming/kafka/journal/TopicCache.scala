@@ -10,7 +10,6 @@ import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.kafka.journal.conversions.ConsRecordToActionHeader
-import com.evolutiongaming.kafka.journal.util.CacheHelper._
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.HeadCache.Eventual
 import com.evolutiongaming.random.Random

@@ -7,7 +7,7 @@ object Dependencies {
   val `kind-projector`     = "org.typelevel"           % "kind-projector"        % "0.13.2"
   val `cassandra-driver`   = "com.datastax.cassandra"  % "cassandra-driver-core" % "3.11.2"
   val `play-json`          = "com.typesafe.play"      %% "play-json"             % "2.9.3"
-  val `play-json-jsoniter` = "com.evolutiongaming"    %% "play-json-jsoniter"    % "0.10.1"
+  val `play-json-jsoniter` = "com.evolutiongaming"    %% "play-json-jsoniter"    % "0.10.2"
   val `executor-tools`     = "com.evolutiongaming"    %% "executor-tools"        % "1.0.3"
   val `config-tools`       = "com.evolutiongaming"    %% "config-tools"          % "1.0.3"
   val `akka-serialization` = "com.evolutiongaming"    %% "akka-serialization"    % "1.0.4"
@@ -22,7 +22,7 @@ object Dependencies {
   val retry                = "com.evolutiongaming"    %% "retry"                 % "2.1.1"
   val sstream              = "com.evolutiongaming"    %% "sstream"               % "0.2.1"
   val skafka               = "com.evolutiongaming"    %% "skafka"                % "11.13.2"
-  val scache               = "com.evolutiongaming"    %% "scache"                % "3.5.0"
+  val scache               = "com.evolutiongaming"    %% "scache"                % "3.6.0"
   val `akka-test-actor`    = "com.evolutiongaming"    %% "akka-test-actor"       % "0.1.0"
 
   object Cats {
