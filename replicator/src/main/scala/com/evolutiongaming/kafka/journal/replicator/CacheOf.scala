@@ -7,7 +7,7 @@ import cats.effect.syntax.resource._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.{BracketThrowable, Runtime}
 import com.evolutiongaming.scache
-import com.evolutiongaming.scache.{CacheMetrics, ExpiringCache, Releasable}
+import com.evolutiongaming.scache.{CacheMetrics, ExpiringCache}
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.smetrics.MeasureDuration
 
@@ -56,7 +56,7 @@ object CacheOf {
           new Cache[F, K, V] {
 
             def getOrUpdate(key: K)(value: => Resource[F, V]) = {
-              cache.getOrUpdateReleasable(key) { Releasable.of(value) }
+              cache.getOrUpdateResource(key) { value }
             }
 
             def remove(key: K) = cache.remove(key).flatten.void

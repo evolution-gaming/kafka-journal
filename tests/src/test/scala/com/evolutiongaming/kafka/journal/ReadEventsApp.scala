@@ -17,13 +17,11 @@ import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig}
 import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext
 
 object ReadEventsApp extends IOApp {
 
   def run(args: List[String]): IO[ExitCode] = {
     import cats.effect.unsafe.implicits.global
-    implicit val executor = ExecutionContext.global
     runF[IO].as(ExitCode.Success)
   }
 

@@ -8,7 +8,6 @@ import cats.syntax.all._
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.kafka.journal.conversions.ConsRecordToActionHeader
-import com.evolutiongaming.kafka.journal.util.CacheHelper._
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.HeadCache.Eventual
 import com.evolutiongaming.random.Random

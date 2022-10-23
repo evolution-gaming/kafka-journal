@@ -9,7 +9,6 @@ import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.PartitionCache.Result
 import com.evolutiongaming.kafka.journal.conversions.ConsRecordToActionHeader
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
-import com.evolutiongaming.kafka.journal.util.CacheHelper._
 import com.evolutiongaming.scache.{Cache, ExpiringCache}
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}

@@ -32,7 +32,6 @@ object AppendReplicateApp extends IOApp {
 
     val config = ConfigFactory.load("AppendReplicate.conf")
     val system = ActorSystem("AppendReplicateApp", config)
-    implicit val ec = system.dispatcher
     implicit val measureDuration = MeasureDuration.fromClock(Clock[IO])
 
     val topic = "journal.AppendReplicate"

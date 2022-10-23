@@ -7,7 +7,6 @@ import cats.effect.syntax.all._
 import cats.kernel.CommutativeMonoid
 import cats.syntax.all._
 import com.evolutiongaming.catshelper._
-import com.evolutiongaming.kafka.journal.util.CacheHelper._
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.scache.Cache
 import com.evolutiongaming.skafka.Offset
