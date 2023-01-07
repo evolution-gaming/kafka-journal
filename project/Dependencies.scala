@@ -2,7 +2,7 @@ import sbt._
 
 object Dependencies {
 
-  val scalatest            = "org.scalatest"          %% "scalatest"             % "3.2.13"
+  val scalatest            = "org.scalatest"          %% "scalatest"             % "3.2.15"
   val `scala-java8-compat` = "org.scala-lang.modules" %% "scala-java8-compat"    % "1.0.2"
   val `kind-projector`     = "org.typelevel"           % "kind-projector"        % "0.13.2"
   val `cassandra-driver`   = "com.datastax.cassandra"  % "cassandra-driver-core" % "3.11.2"
