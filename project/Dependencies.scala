@@ -17,7 +17,7 @@ object Dependencies {
   val hostname             = "com.evolutiongaming"    %% "hostname"              % "0.2.0"
   val scassandra           = "com.evolutiongaming"    %% "scassandra"            % "4.1.0"
   val `cassandra-sync`     = "com.evolutiongaming"    %% "cassandra-sync"        % "2.0.0"
-  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "3.2.0"
+  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "3.4.0"
   val random               = "com.evolutiongaming"    %% "random"                % "1.0.0"
   val retry                = "com.evolutiongaming"    %% "retry"                 % "3.0.1"
   val sstream              = "com.evolutiongaming"    %% "sstream"               % "1.0.1"
@@ -26,18 +26,18 @@ object Dependencies {
   val `akka-test-actor`    = "com.evolutiongaming"    %% "akka-test-actor"       % "0.1.0"
 
   object Cats {
-    val core   = "org.typelevel" %% "cats-core"   % "2.8.0"
-    val effect = "org.typelevel" %% "cats-effect" % "3.3.14"
+    val core   = "org.typelevel" %% "cats-core"   % "2.9.0"
+    val effect = "org.typelevel" %% "cats-effect" % "3.4.4"
   }
 
   object Logback {
-    private val version = "1.2.11"
+    private val version = "1.4.5"
     val core    = "ch.qos.logback" % "logback-core"    % version
     val classic = "ch.qos.logback" % "logback-classic" % version
   }
 
   object Slf4j {
-    private val version = "1.7.36"
+    private val version = "2.0.5"
     val api                = "org.slf4j" % "slf4j-api"        % version
     val `log4j-over-slf4j` = "org.slf4j" % "log4j-over-slf4j" % version
   }
