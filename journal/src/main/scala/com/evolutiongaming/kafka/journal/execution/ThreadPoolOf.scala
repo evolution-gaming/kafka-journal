@@ -13,7 +13,7 @@ object ThreadPoolOf {
     minSize: Int,
     maxSize: Int,
     threadFactory: ThreadFactory,
-    keepAlive: FiniteDuration = 1.minute,
+    keepAlive: FiniteDuration = 5.minute,
   ): Resource[F, ThreadPoolExecutor] = {
 
     val result = for {
