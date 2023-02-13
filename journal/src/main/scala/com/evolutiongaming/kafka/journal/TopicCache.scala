@@ -13,10 +13,10 @@ import com.evolutiongaming.kafka.journal.HeadCache.Eventual
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.Retry.implicits._
 import com.evolutiongaming.retry.{Sleep, Strategy}
-import com.evolutiongaming.scache.Cache
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecords}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
 import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolution.scache.Cache
 
 import scala.concurrent.duration._
 
@@ -42,7 +42,7 @@ object TopicCache {
       consumer <- consumer
         .map { _.withLog(log) }
         .pure[Resource[F, *]]
-      cache    <- Cache.loading1[F, Partition, PartitionCache[F]]
+      cache    <- Cache.loading[F, Partition, PartitionCache[F]]
       partitionCacheOf = (partition: Partition) => {
         cache.getOrUpdateResource(partition) {
           PartitionCache.of(
@@ -56,7 +56,7 @@ object TopicCache {
         .flatMap { pointers =>
           pointers
             .values
-            .parFoldMap1 { case (partition, offset) =>
+            .foldMapM { case (partition, offset) =>
               partitionCacheOf
                 .apply(partition)
                 .flatMap { cache =>
@@ -113,7 +113,6 @@ object TopicCache {
               .values
               .parFoldMap1 { case (topicPartition, records) =>
                 records
-                  .toList
                   .traverse { record =>
                     record
                       .key
@@ -128,18 +127,14 @@ object TopicCache {
                       }
                   }
                   .flatMap { records =>
-                    records
-                      .toNel
-                      .foldMapM { records =>
-                        partitionCacheOf
-                          .apply(topicPartition.partition)
-                          .flatMap { cache =>
-                            cache
-                              .add(records)
-                              .map {
-                                case Some(a) => Sample(a.value)
-                                case None    => Sample.Empty
-                              }
+                    partitionCacheOf
+                      .apply(topicPartition.partition)
+                      .flatMap { cache =>
+                        cache
+                          .add(records)
+                          .map {
+                            case Some(a) => Sample(a.value)
+                            case None    => Sample.Empty
                           }
                       }
                   }
@@ -193,7 +188,7 @@ object TopicCache {
       _ <- metrics.foldMapM { metrics =>
         val result = for {
           _ <- Temporal[F].sleep(1.minute)
-          a <- cache.foldMapPar { case (_, value) => value.foldMapM { _.meters } }
+          a <- cache.foldMap { case (_, value) => value.foldMapM { _.meters } }
           a <- metrics.meters(topic, entries = a.entries, listeners = a.listeners)
         } yield a
         result
@@ -434,6 +429,20 @@ object TopicCache {
             d <- d
             _ <- log.debug(s"get in ${ d.toMillis }ms, id: $id, offset: $partition:$offset, result: $a")
           } yield a
+        }
+      }
+    }
+  }
+
+  private implicit class MapOps[K, V](val self: Map[K, V]) extends AnyVal {
+
+    def foldMapM[F[_]: Monad, A: Monoid](f: (K, V) => F[A]): F[A] = {
+      self.foldLeft(Monoid[A].empty.pure[F]) { case (a, (k, v)) =>
+        for {
+          a <- a
+          b <- f(k, v)
+        } yield {
+          a.combine(b)
         }
       }
     }
