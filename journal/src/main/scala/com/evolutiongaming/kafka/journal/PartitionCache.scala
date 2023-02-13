@@ -9,8 +9,8 @@ import cats.kernel.CommutativeMonoid
 import cats.syntax.all._
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
-import com.evolutiongaming.scache.Cache
 import com.evolutiongaming.skafka.Offset
+import com.evolution.scache.Cache
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -55,7 +55,7 @@ object PartitionCache {
       } { ref =>
         ref.set(ReleasedError.asLeft)
       }
-      cache    <- Cache.loading1[F, Key, Listener[F]]
+      cache    <- Cache.loading[F, Key, Listener[F]]
     } yield {
 
       class Main
@@ -187,7 +187,7 @@ object PartitionCache {
                           set(state1.asRight).flatMap {
                             case true  =>
                               cache
-                                .foldMapPar1 { _.updated(state1.copy(entries = entriesNotLimited.some)) }
+                                .foldMap1 { _.updated(state1.copy(entries = entriesNotLimited.some)) }
                                 .as {
                                   state
                                     .entries
@@ -252,7 +252,7 @@ object PartitionCache {
                           set(state1.asRight).flatMap {
                             case true  =>
                               cache
-                                .foldMapPar1 { _.updated(state1) }
+                                .foldMap1 { _.updated(state1) }
                                 .as {
                                   state
                                     .offset
@@ -532,8 +532,8 @@ object PartitionCache {
   }
 
   private implicit class CacheOps[F[_], K, V](val self: Cache[F, K, V]) extends AnyVal {
-    def foldMapPar1[A](f: V => F[A])(implicit F: Sync[F], commutativeMonoid: CommutativeMonoid[A]): F[A] = {
-      self.foldMapPar {
+    def foldMap1[A](f: V => F[A])(implicit F: Sync[F], commutativeMonoid: CommutativeMonoid[A]): F[A] = {
+      self.foldMap {
         case (_, Right(a)) =>
           f(a)
         case (_, Left(a))  =>
