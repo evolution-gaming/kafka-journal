@@ -16,12 +16,12 @@ import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.{OnError, Retry, Sleep, Strategy}
-import com.evolutiongaming.scache.CacheMetrics
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerMetrics}
 import com.evolutiongaming.skafka.{ClientId, Topic, Bytes => _}
 import com.evolutiongaming.smetrics.{CollectorRegistry, MeasureDuration}
+import com.evolution.scache.CacheMetrics
 import scodec.bits.ByteVector
 
 import scala.concurrent.duration._

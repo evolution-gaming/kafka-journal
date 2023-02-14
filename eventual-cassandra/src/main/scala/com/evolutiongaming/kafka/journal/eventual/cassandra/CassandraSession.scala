@@ -9,12 +9,12 @@ import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
 import com.evolutiongaming.catshelper.{MonadThrowable, Runtime}
 import com.evolutiongaming.kafka.journal.JournalError
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
-import com.evolutiongaming.scache.Cache
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.scassandra.NextHostRetryPolicy
 import com.evolutiongaming.scassandra
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.sstream.Stream
+import com.evolution.scache.Cache
 
 
 trait CassandraSession[F[_]] {
@@ -102,7 +102,7 @@ object CassandraSession {
       runtime: Runtime[F]
     ): Resource[F, CassandraSession[F]] = {
       for {
-        cache <- Cache.loading1[F, String, PreparedStatement]
+        cache <- Cache.loading[F, String, PreparedStatement]
       } yield {
         new CassandraSession[F] {
 
