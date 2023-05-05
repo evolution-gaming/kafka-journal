@@ -40,7 +40,7 @@ object ToKey {
       cursor
         .asObjectCursor
         .flatMap { cursor =>
-          val source = ConfigSource.fromConfig(cursor.value.toConfig)
+          val source = ConfigSource.fromConfig(cursor.objValue.toConfig)
 
           def onSplit = {
             val separator = source

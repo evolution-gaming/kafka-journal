@@ -4,7 +4,7 @@ import com.evolutiongaming.kafka.journal.Journal.CallTimeThresholds
 import com.evolutiongaming.kafka.journal.JournalConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig
 import pureconfig.generic.semiauto.{deriveEnumerationReader, deriveReader}
-import pureconfig.{ConfigCursor, ConfigReader, ConfigSource, Derivation}
+import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
 
 import scala.concurrent.duration._
 
@@ -28,9 +28,9 @@ object KafkaJournalConfig {
     cursor: ConfigCursor => {
       for {
         cursor  <- cursor.asObjectCursor
-        config   = cursor.value.toConfig
+        config   = cursor.objValue.toConfig
         source   = ConfigSource.fromConfig(config)
-        config  <- source.load(Derivation.Successful(configReader))
+        config  <- source.load(configReader)
         journal <- source.load[JournalConfig]
       } yield {
         config.copy(journal = journal)
