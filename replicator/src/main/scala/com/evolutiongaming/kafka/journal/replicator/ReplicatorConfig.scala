@@ -35,7 +35,7 @@ object ReplicatorConfig {
     cursor: ConfigCursor => {
       cursor
         .asObjectCursor
-        .map { cursor => fromConfig(cursor.value.toConfig, default) }
+        .map { cursor => fromConfig(cursor.objValue.toConfig, default) }
     }
   }
 
