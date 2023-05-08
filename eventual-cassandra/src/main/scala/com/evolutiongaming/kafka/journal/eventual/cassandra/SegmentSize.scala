@@ -76,7 +76,7 @@ object SegmentSize {
       for {
         value       <- cursor.asInt
         segmentSize  = of[Either[String, *]](value)
-        segmentSize <- segmentSize.leftMap(a => ConfigReaderFailures(CannotParse(a, cursor.location)))
+        segmentSize <- segmentSize.leftMap(a => ConfigReaderFailures(CannotParse(a, cursor.origin)))
       } yield segmentSize
     }
   }

@@ -45,7 +45,7 @@ object KafkaConfig {
       for {
         cursor <- cursor.asObjectCursor
       } yield {
-        val config = cursor.value.toConfig
+        val config = cursor.objValue.toConfig
         val source = ConfigSource.fromConfig(config)
 
         def at(name: String) = {
