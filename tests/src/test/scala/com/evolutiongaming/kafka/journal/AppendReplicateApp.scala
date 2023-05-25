@@ -8,7 +8,7 @@ import cats.effect._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
-import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, ToFuture, ToTry}
+import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MeasureDuration, ToFuture, ToTry}
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.conversions.KafkaWrite
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
@@ -18,7 +18,6 @@ import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.Topic
-import com.evolutiongaming.smetrics.MeasureDuration
 import com.typesafe.config.ConfigFactory
 import pureconfig.ConfigSource
 

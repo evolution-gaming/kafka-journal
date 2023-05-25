@@ -6,13 +6,13 @@ import cats.effect.implicits._
 import cats.syntax.all._
 import com.evolutiongaming.cassandra.StartCassandra
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, ToFuture, ToTry}
+import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MeasureDuration, ToFuture, ToTry}
 import com.evolutiongaming.kafka.StartKafka
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
 import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.scassandra.CassandraClusterOf
-import com.evolutiongaming.smetrics.{CollectorRegistry, MeasureDuration}
+import com.evolutiongaming.smetrics.CollectorRegistry
 import com.typesafe.config.ConfigFactory
 import TestJsonCodec.instance
 

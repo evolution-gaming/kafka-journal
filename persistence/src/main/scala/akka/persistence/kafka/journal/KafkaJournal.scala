@@ -7,12 +7,11 @@ import cats.Parallel
 import cats.effect._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, ToFuture, ToTry}
+import com.evolutiongaming.catshelper.{FromFuture, Log, LogOf, MeasureDuration, ToFuture, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
 import com.evolutiongaming.scassandra.CassandraClusterOf
-import com.evolutiongaming.smetrics.MeasureDuration
 import com.evolutiongaming.retry.Retry.implicits._
 import com.evolutiongaming.retry.{OnError, Strategy}
 import com.typesafe.config.Config

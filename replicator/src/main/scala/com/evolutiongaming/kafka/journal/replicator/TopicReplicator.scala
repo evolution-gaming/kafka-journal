@@ -8,7 +8,7 @@ import cats.Parallel
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
-import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, ToTry}
+import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MeasureDuration, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.conversions.{ConsRecordToActionRecord, KafkaRead}
 import com.evolutiongaming.kafka.journal.eventual._
@@ -17,7 +17,6 @@ import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.skafka.{Metadata, Offset, Partition, Topic}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
-import com.evolutiongaming.smetrics._
 import scodec.bits.ByteVector
 
 import java.time.Instant

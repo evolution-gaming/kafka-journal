@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.{Applicative, Monad}
+import cats.Monad
 import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
 import play.api.libs.json._
@@ -89,7 +89,7 @@ object ActionHeader {
   implicit val writesActionHeader: Writes[ActionHeader] = formatOptActionHeader.contramap { a: ActionHeader => a.some }
 
 
-  implicit def toBytesActionHeader[F[_] : Applicative: JsonCodec.Encode]: ToBytes[F, ActionHeader] = ToBytes.fromWrites
+  implicit def toBytesActionHeader[F[_]: JsonCodec.Encode]: ToBytes[F, ActionHeader] = ToBytes.fromWrites
 
   implicit def fromBytesOptActionHeader[F[_] : Monad : FromJsResult : JsonCodec.Decode]: FromBytes[F, Option[ActionHeader]] = FromBytes.fromReads
 

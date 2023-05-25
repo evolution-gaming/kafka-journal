@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.{Applicative, Monad}
+import cats.Monad
 import cats.implicits.none
 import com.evolutiongaming.kafka.journal.util.ScodecHelper.formatCodec
 import play.api.libs.json.{JsValue, Json, OFormat}
@@ -21,7 +21,7 @@ object PayloadMetadata {
   implicit def metadataCodec(implicit jsonCodec: JsonCodec[Try]): Codec[PayloadMetadata] =
     formatCodec[PayloadMetadata]
 
-  implicit def toBytesPayloadMetadata[F[_] : Applicative : JsonCodec.Encode]: ToBytes[F, PayloadMetadata] =
+  implicit def toBytesPayloadMetadata[F[_] : JsonCodec.Encode]: ToBytes[F, PayloadMetadata] =
     ToBytes.fromWrites
 
   implicit def fromBytesPayloadMetadata[F[_] : Monad : FromJsResult : JsonCodec.Decode]: FromBytes[F, PayloadMetadata] =

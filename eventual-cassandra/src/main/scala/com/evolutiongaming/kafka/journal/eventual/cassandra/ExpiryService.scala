@@ -2,14 +2,12 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.{Instant, LocalDate, ZoneId}
 import java.util.TimeZone
-
 import cats.effect.Sync
 import cats.syntax.all._
 import cats.{Monad, ~>}
-import com.evolutiongaming.catshelper.{BracketThrowable, Log, LogOf}
+import com.evolutiongaming.catshelper.{BracketThrowable, Log, LogOf, MeasureDuration}
 import com.evolutiongaming.kafka.journal.ExpireAfter
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
-import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.concurrent.duration.FiniteDuration
 

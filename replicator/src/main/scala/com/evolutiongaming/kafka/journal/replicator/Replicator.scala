@@ -20,7 +20,7 @@ import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerMetrics}
 import com.evolutiongaming.skafka.{ClientId, Topic, Bytes => _}
-import com.evolutiongaming.smetrics.{CollectorRegistry, MeasureDuration}
+import com.evolutiongaming.smetrics.CollectorRegistry
 import com.evolution.scache.CacheMetrics
 import scodec.bits.ByteVector
 
