@@ -11,8 +11,7 @@ import com.evolutiongaming.kafka.journal.Setting.Key
 import com.evolutiongaming.kafka.journal.{Origin, Setting}
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.catshelper.Log
-import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.catshelper.{Log, MeasureDuration}
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers

@@ -6,10 +6,9 @@ import cats.effect.Resource
 import cats.effect.syntax.all._
 import cats.syntax.all._
 import cats.{Applicative, Monad, ~>}
-import com.evolutiongaming.catshelper.{BracketThrowable, Log, MonadThrowable}
+import com.evolutiongaming.catshelper.{BracketThrowable, Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
-import com.evolutiongaming.smetrics._
 
 import java.time.Instant
 

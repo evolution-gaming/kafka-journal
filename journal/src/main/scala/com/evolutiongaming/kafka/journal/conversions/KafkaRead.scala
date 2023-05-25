@@ -6,7 +6,6 @@ import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.PayloadAndType._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.smetrics.MeasureDuration
 import play.api.libs.json.JsValue
 
 trait KafkaRead[F[_], A] {

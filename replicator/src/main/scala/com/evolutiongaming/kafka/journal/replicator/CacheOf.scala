@@ -5,9 +5,8 @@ import cats.effect.Resource
 import cats.effect.kernel.Temporal
 import cats.effect.syntax.resource._
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.{BracketThrowable, Runtime}
+import com.evolutiongaming.catshelper.{BracketThrowable, MeasureDuration, Runtime}
 import com.evolutiongaming.skafka.Topic
-import com.evolutiongaming.smetrics.MeasureDuration
 import com.evolution.scache
 import com.evolution.scache.{CacheMetrics, ExpiringCache}
 

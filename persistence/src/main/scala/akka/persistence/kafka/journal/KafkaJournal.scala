@@ -15,7 +15,6 @@ import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
 import com.evolutiongaming.retry.Retry.implicits._
 import com.evolutiongaming.retry.{OnError, Strategy}
 import com.evolutiongaming.scassandra.CassandraClusterOf
-import com.evolutiongaming.smetrics.MeasureDuration
 import com.typesafe.config.Config
 import pureconfig.ConfigSource
 

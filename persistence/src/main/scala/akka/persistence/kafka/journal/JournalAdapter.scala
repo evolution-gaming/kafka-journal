@@ -15,7 +15,6 @@ import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.consumer.ConsumerMetrics
 import com.evolutiongaming.skafka.producer.ProducerMetrics
 import com.evolutiongaming.skafka.{ClientId, CommonConfig}
-import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.util.Try
 

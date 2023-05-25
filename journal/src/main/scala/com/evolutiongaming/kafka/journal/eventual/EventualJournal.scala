@@ -4,7 +4,7 @@ import cats._
 import cats.arrow.FunctionK
 import cats.effect.Resource
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.{Log, MonadThrowable}
+import com.evolutiongaming.catshelper.{Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.skafka.Topic
