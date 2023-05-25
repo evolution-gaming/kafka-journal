@@ -6,7 +6,7 @@ import cats.effect.syntax.resource._
 import cats.syntax.all._
 import cats.{Applicative, Monad, ~>}
 import com.evolutiongaming.catshelper.DataHelper._
-import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, Log, MonadThrowable}
+import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraSession, ExpireOn, MetaJournalStatements, SegmentNr}

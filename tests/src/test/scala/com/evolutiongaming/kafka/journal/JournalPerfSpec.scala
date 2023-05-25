@@ -7,12 +7,11 @@ import cats.effect.syntax.resource._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
-import com.evolutiongaming.catshelper.{Log, LogOf}
+import com.evolutiongaming.catshelper.{Log, LogOf, MeasureDuration}
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
-import com.evolutiongaming.smetrics.MeasureDuration
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.Instant

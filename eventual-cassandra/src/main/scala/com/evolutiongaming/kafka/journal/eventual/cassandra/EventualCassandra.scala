@@ -5,7 +5,7 @@ import cats.effect.syntax.resource._
 import cats.effect.{Concurrent, Resource}
 import cats.syntax.all._
 import cats.{Monad, Parallel}
-import com.evolutiongaming.catshelper.{LogOf, ToTry}
+import com.evolutiongaming.catshelper.{LogOf, MeasureDuration, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
@@ -14,7 +14,6 @@ import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.scassandra.{CassandraClusterOf, TableName}
 import com.evolutiongaming.skafka.Topic
-import com.evolutiongaming.smetrics.MeasureDuration
 import com.evolutiongaming.sstream.Stream
 
 

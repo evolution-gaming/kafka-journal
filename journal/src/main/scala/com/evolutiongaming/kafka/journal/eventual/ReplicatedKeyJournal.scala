@@ -1,15 +1,13 @@
 package com.evolutiongaming.kafka.journal.eventual
 
 import java.time.Instant
-
 import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
 import cats.{Applicative, FlatMap, ~>}
-import com.evolutiongaming.catshelper.{ApplicativeThrowable, Log}
+import com.evolutiongaming.catshelper.{ApplicativeThrowable, Log, MeasureDuration}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedKeyJournal.Changed
 import com.evolutiongaming.skafka.{Offset, Topic}
-import com.evolutiongaming.smetrics._
 
 
 trait ReplicatedKeyJournal[F[_]] {

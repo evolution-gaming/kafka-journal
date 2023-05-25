@@ -2,9 +2,8 @@ package com.evolutiongaming.kafka.journal
 
 import cats.Monad
 import cats.effect._
-import com.evolutiongaming.catshelper.ToTry
+import com.evolutiongaming.catshelper.{MeasureDuration, ToTry}
 import com.evolutiongaming.skafka.producer.{ProducerConfig, ProducerMetrics, ProducerOf}
-import com.evolutiongaming.smetrics.MeasureDuration
 
 
 trait KafkaProducerOf[F[_]] {

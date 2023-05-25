@@ -15,7 +15,6 @@ import com.evolutiongaming.retry.Retry.implicits._
 import com.evolutiongaming.retry.{Sleep, Strategy}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecords}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
-import com.evolutiongaming.smetrics.MeasureDuration
 import com.evolution.scache.Cache
 
 import scala.concurrent.duration._
