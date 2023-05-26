@@ -85,6 +85,12 @@ object ReplicatedCassandra {
                 .flatTap { pointers => pointersRef.update { _.merge(pointers) } }
             }
 
+            def pointer(partition: Partition): F[Option[Offset]] = {
+              statements
+                .selectPointer(topic, partition)
+                .flatTap { offset => pointersRef.update { _.append(partition, offset) } }
+            }
+
             def journal(id: String) = {
 
               val key = Key(id = id, topic = topic)

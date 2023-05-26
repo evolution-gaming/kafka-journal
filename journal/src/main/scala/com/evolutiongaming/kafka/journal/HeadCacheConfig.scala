@@ -9,7 +9,8 @@ final case class HeadCacheConfig(
   timeout: FiniteDuration = 1.second,
   expiry: FiniteDuration = 10.minutes,
   removeInterval: FiniteDuration = 100.millis,
-  partition: HeadCacheConfig.Partition = HeadCacheConfig.Partition.default)
+  partition: HeadCacheConfig.Partition = HeadCacheConfig.Partition.default,
+  reloadPartitionSetInterval: FiniteDuration = 5.minutes)
 
 
 object HeadCacheConfig {

@@ -12,6 +12,7 @@ import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.scassandra.{CassandraClusterOf, TableName}
+import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.sstream.Stream
 
@@ -136,6 +137,10 @@ object EventualCassandra {
       def ids(topic: Topic) = {
         statements.metaJournal.ids(topic)
       }
+
+      def offset(topic: Topic, partition: Partition): F[Option[Offset]] = {
+        statements.pointer(topic, partition)
+      }
     }
   }
 
@@ -143,7 +148,8 @@ object EventualCassandra {
   final case class Statements[F[_]](
     records: JournalStatements.SelectRecords[F],
     metaJournal: MetaJournalStatements[F],
-    pointers: PointerStatements.SelectAll[F])
+    pointers: PointerStatements.SelectAll[F],
+    pointer: PointerStatements.Select[F])
 
   object Statements {
 
@@ -159,8 +165,9 @@ object EventualCassandra {
         selectRecords  <- JournalStatements.SelectRecords.of[F](schema.journal, consistencyConfig)
         metaJournal    <- MetaJournalStatements.of(schema, segmentNrsOf, segments, consistencyConfig)
         selectPointers <- PointerStatements.SelectAll.of[F](schema.pointer, consistencyConfig)
+        selectPointer  <- PointerStatements.Select.of[F](schema.pointer, consistencyConfig)
       } yield {
-        Statements(selectRecords, metaJournal, selectPointers)
+        Statements(selectRecords, metaJournal, selectPointers, selectPointer)
       }
     }
   }

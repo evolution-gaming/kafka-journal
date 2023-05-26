@@ -93,9 +93,8 @@ object TopicReplicator {
     val topicFlowOf: TopicFlowOf[F] = {
       (topic: Topic) => {
         for {
-          journal  <- journal.journal(topic)
-          pointers <- journal.pointers.toResource
-          cache    <- cacheOf[Partition, PartitionFlow](topic)
+          journal <- journal.journal(topic)
+          cache <- cacheOf[Partition, PartitionFlow](topic)
         } yield {
 
           def keyFlow(id: String): Resource[F, KeyFlow] = {
@@ -128,7 +127,7 @@ object TopicReplicator {
                     key.foldMapM { key =>
                       for {
                         keyFlow <- cache.getOrUpdate(key) { keyFlow(key) }
-                        result  <- keyFlow(timestamp, records)
+                        result <- keyFlow(timestamp, records)
                       } yield result
                     }
                   }
@@ -148,13 +147,17 @@ object TopicReplicator {
 
             def apply(records: Nem[Partition, Nel[ConsRecord]]) = {
 
-              def records1 = for {
-                (partition, records) <- records.toSortedMap
-                offset                = pointers.values.get(partition)
-                records              <- offset.fold(records.some) { offset => records.filter { _.offset > offset }.toNel }
-              } yield {
-                (partition, records)
-              }
+              def records1 =
+                records.toSortedMap.toList.flatTraverse {
+                  case (partition, records) =>
+                    journal.pointer(partition).map { offset =>
+                      for {
+                        records <- offset.fold(records.some) { offset => records.filter { _.offset > offset }.toNel }.toList
+                      } yield {
+                        (partition, records)
+                      }
+                    }
+                }.map(_.toSortedMap)
 
               def replicateTopic(timestamp: Instant, records: Nem[Partition, Nel[ConsRecord]]) = {
 

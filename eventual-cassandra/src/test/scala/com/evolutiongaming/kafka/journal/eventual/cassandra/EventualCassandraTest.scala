@@ -485,7 +485,8 @@ object EventualCassandraTest {
     EventualCassandra.Statements(
       records = selectRecords,
       metaJournal = metaJournalStatements,
-      pointers = selectPointers)
+      pointers = selectPointers,
+      pointer = selectPointer)
   }
 
 
