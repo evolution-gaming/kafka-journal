@@ -7,7 +7,7 @@ import cats.syntax.all._
 import com.evolutiongaming.catshelper.{Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
-import com.evolutiongaming.skafka.Topic
+import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.smetrics._
 import com.evolutiongaming.sstream.Stream
@@ -15,10 +15,12 @@ import com.evolutiongaming.sstream.Stream
 import scala.concurrent.duration.FiniteDuration
 
 trait EventualJournal[F[_]] {
-  
+
   def pointer(key: Key): F[Option[JournalPointer]]
 
   def pointers(topic: Topic): F[TopicPointers]
+
+  def offset(topic: Topic, partition: Partition): F[Option[Offset]]
 
   def read(key: Key, from: SeqNr): Stream[F, EventRecord[EventualPayloadAndType]]
 
@@ -40,12 +42,16 @@ object EventualJournal {
     def pointer(key: Key) = none[JournalPointer].pure[F]
 
     def ids(topic: Topic) = Stream.empty[F, String]
+
+    def offset(topic: Topic, partition: Partition): F[Option[Offset]] = none[Offset].pure[F]
   }
 
 
   trait Metrics[F[_]] {
 
     def pointers(topic: Topic, latency: FiniteDuration): F[Unit]
+
+    def offset(topic: Topic, latency: FiniteDuration): F[Unit]
 
     def read(topic: Topic, latency: FiniteDuration): F[Unit]
 
@@ -74,6 +80,8 @@ object EventualJournal {
       def pointer(topic: Topic, latency: FiniteDuration) = unit
 
       def ids(topic: Topic, latency: FiniteDuration) = unit
+
+      def offset(topic: Topic, latency: FiniteDuration): F[Unit] = unit
     }
 
 
@@ -128,6 +136,10 @@ object EventualJournal {
           def ids(topic: Topic, latency: FiniteDuration) = {
             observeLatency(name = "ids", topic = topic, latency = latency)
           }
+
+          def offset(topic: Topic, latency: FiniteDuration): F[Unit] = {
+            observeLatency(name = "offset", topic = topic, latency = latency)
+          }
         }
       }
     }
@@ -153,6 +165,8 @@ object EventualJournal {
       def pointer(key: Key) = fg(self.pointer(key))
 
       def ids(topic: Topic) = self.ids(topic).mapK(fg, gf)
+
+      def offset(topic: Topic, partition: Partition): G[Option[Offset]] = fg(self.offset(topic, partition))
     }
 
 
@@ -207,6 +221,16 @@ object EventualJournal {
           }
           self.ids(topic).mapK(logging, functionKId)
         }
+
+        def offset(topic: Topic, partition: Partition): F[Option[Offset]] = {
+          for {
+            d <- MeasureDuration[F].start
+            r <- self.offset(topic, partition)
+            d <- d
+            _ <- log.debug(s"$topic $partition offset in ${d.toMillis}ms, result: $r")
+          } yield r
+        }
+
       }
     }
 
@@ -266,6 +290,16 @@ object EventualJournal {
           }
           self.ids(topic).mapK(measure, functionKId)
         }
+
+        def offset(topic: Topic, partition: Partition): F[Option[Offset]] = {
+          for {
+            d <- MeasureDuration[F].start
+            r <- self.offset(topic, partition)
+            d <- d
+            _ <- metrics.pointers(topic, d)
+          } yield r
+        }
+
       }
     }
 
@@ -300,6 +334,14 @@ object EventualJournal {
           self
             .ids(topic)
             .handleErrorWith { a => error[String](s"ids topic: $topic", a).toStream }
+        }
+
+        def offset(topic: Topic, partition: Partition): F[Option[Offset]] = {
+          self
+            .offset(topic, partition)
+            .handleErrorWith { a =>
+              error(s"offset topic: $topic, partition $partition", a)
+            }
         }
       }
     }

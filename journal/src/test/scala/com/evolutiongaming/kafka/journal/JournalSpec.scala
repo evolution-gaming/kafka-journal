@@ -551,6 +551,12 @@ object JournalSpec {
         }
       }
 
+      def offset(topic: Topic, partition: Partition): StateT[Option[Offset]] = {
+        StateT { state =>
+          (state, state.replicatedState.offset)
+        }
+      }
+
       def read(key: Key, from: SeqNr) = {
         val events = StateT { state =>
           val events = state.replicatedState.events.toList.filter(_.seqNr >= from)
@@ -757,6 +763,8 @@ object JournalSpec {
       def pointer(key: Key) = self.pointer(key)
 
       def pointers(topic: Topic) = self.pointers(topic)
+
+      def offset(topic: Topic, partition: Partition): F[Option[Offset]] = self.offset(topic, partition)
 
       def read(key: Key, from: SeqNr) = {
         self
