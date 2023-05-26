@@ -4,10 +4,9 @@ import cats.effect.{Concurrent, Resource, Timer}
 import cats.{Applicative, Parallel}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{FromTry, LogOf, Runtime}
+import com.evolutiongaming.catshelper.{FromTry, LogOf, MeasureDuration, Runtime}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
-import com.evolutiongaming.smetrics.MeasureDuration
 
 trait HeadCacheOf[F[_]] {
 

@@ -46,7 +46,7 @@ object ToBytes {
   }
 
 
-  def fromWrites[F[_]: Applicative, A](implicit writes: Writes[A], encode: JsonCodec.Encode[F]): ToBytes[F, A] = {
+  def fromWrites[F[_], A](implicit writes: Writes[A], encode: JsonCodec.Encode[F]): ToBytes[F, A] = {
     (a: A) => {
       val jsValue = writes.writes(a)
       encode.toBytes(jsValue)

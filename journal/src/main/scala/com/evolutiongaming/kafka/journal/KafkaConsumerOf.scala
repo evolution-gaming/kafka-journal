@@ -1,10 +1,9 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.effect._
-import com.evolutiongaming.catshelper.{ToFuture, ToTry}
+import com.evolutiongaming.catshelper.{MeasureDuration, ToFuture, ToTry}
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerMetrics, ConsumerOf}
-import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.concurrent.ExecutionContext
 
