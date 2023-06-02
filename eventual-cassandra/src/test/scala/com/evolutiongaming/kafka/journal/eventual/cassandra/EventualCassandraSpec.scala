@@ -66,15 +66,6 @@ object EventualCassandraSpec {
   }
 
 
-  val selectPointers: PointerStatements.SelectAll[StateT] = {
-    topic => {
-      StateT { state =>
-        val pointer = state.pointers.getOrElse(topic, TopicPointers.empty)
-        (state, pointer.values)
-      }
-    }
-  }
-
   val selectPointer: PointerStatements.Select[StateT] = {
     (topic, partition) => {
       StateT { state =>
@@ -143,7 +134,6 @@ object EventualCassandraSpec {
     val statements = EventualCassandra.Statements(
       records = selectRecords,
       metaJournal = metaJournalStatements,
-      pointers = selectPointers,
       pointer = selectPointer)
 
     EventualCassandra[StateT](statements)
@@ -383,7 +373,6 @@ object EventualCassandraSpec {
       metaJournal = metaJournal,
       selectPointer = selectPointer,
       selectPointersIn = selectPointersIn,
-      selectPointers = selectPointers,
       insertPointer = insertPointer,
       updatePointer = updatePointer,
       selectTopics = selectTopics)

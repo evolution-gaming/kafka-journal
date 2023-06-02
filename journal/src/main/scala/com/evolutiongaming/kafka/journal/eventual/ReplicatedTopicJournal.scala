@@ -16,8 +16,6 @@ import java.time.Instant
 trait ReplicatedTopicJournal[F[_]] {
   import ReplicatedTopicJournal._
 
-  def pointers: F[TopicPointers]
-
   def pointer(partition: Partition): F[Option[Offset]]
 
   def journal(id: String): Resource[F, ReplicatedKeyJournal[F]]
@@ -31,8 +29,6 @@ object ReplicatedTopicJournal {
 
 
   def empty[F[_]: Applicative]: ReplicatedTopicJournal[F] = new ReplicatedTopicJournal[F] {
-
-    def pointers = TopicPointers.empty.pure[F]
 
     def pointer(partition: Partition): F[Option[Offset]] = none[Offset].pure[F]
 
@@ -53,8 +49,6 @@ object ReplicatedTopicJournal {
   ): ReplicatedTopicJournal[F] = {
 
     new ReplicatedTopicJournal[F] {
-
-      def pointers = replicatedJournal.pointers(topic)
 
       def pointer(partition: Partition): F[Option[Offset]] = replicatedJournal.pointer(topic, partition)
 
@@ -80,8 +74,6 @@ object ReplicatedTopicJournal {
       GT: BracketThrowable[G]
     ): ReplicatedTopicJournal[G] = new ReplicatedTopicJournal[G] {
 
-      def pointers = f(self.pointers)
-
       def pointer(partition: Partition): G[Option[Offset]] = f(self.pointer(partition))
 
       def journal(id: String) = {
@@ -105,15 +97,6 @@ object ReplicatedTopicJournal {
     ): ReplicatedTopicJournal[F] = {
 
       new ReplicatedTopicJournal[F] {
-
-        def pointers = {
-          for {
-            d <- MeasureDuration[F].start
-            r <- self.pointers
-            d <- d
-            _ <- log.debug(s"$topic pointers in ${ d.toMillis }ms, result: $r")
-          } yield r
-        }
 
         def pointer(partition: Partition): F[Option[Offset]] = {
           for {
@@ -150,15 +133,6 @@ object ReplicatedTopicJournal {
     ): ReplicatedTopicJournal[F] = {
       new ReplicatedTopicJournal[F] {
 
-        def pointers = {
-          for {
-            d <- MeasureDuration[F].start
-            r <- self.pointers
-            d <- d
-            _ <- metrics.pointers(d)
-          } yield r
-        }
-
         def pointer(partition: Partition): F[Option[Offset]] = {
           for {
             d <- MeasureDuration[F].start
@@ -191,17 +165,11 @@ object ReplicatedTopicJournal {
       F: MonadThrowable[F]
     ): ReplicatedTopicJournal[F] = {
 
-      def journalError[A](msg: String, cause: Throwable) = {
+      def journalError(msg: String, cause: Throwable) = {
         JournalError(s"ReplicatedTopicJournal.$msg failed with $cause", cause)
       }
 
       new ReplicatedTopicJournal[F] {
-
-        def pointers = {
-          self
-            .pointers
-            .adaptError { case a => journalError(s"pointers topic: $topic", a) }
-        }
 
         def pointer(partition: Partition): F[Option[Offset]] = {
           self
