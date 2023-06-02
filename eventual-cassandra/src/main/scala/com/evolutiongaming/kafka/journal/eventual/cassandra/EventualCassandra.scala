@@ -83,12 +83,6 @@ object EventualCassandra {
           .journalPointer(key)
       }
 
-      def pointers(topic: Topic) = {
-        statements
-          .pointers(topic)
-          .map { pointers => TopicPointers(pointers) }
-      }
-
       def read(key: Key, from: SeqNr) = {
 
         def read(statement: JournalStatements.SelectRecords[F], head: JournalHead) = {
@@ -147,7 +141,6 @@ object EventualCassandra {
   final case class Statements[F[_]](
     records: JournalStatements.SelectRecords[F],
     metaJournal: MetaJournalStatements[F],
-    pointers: PointerStatements.SelectAll[F],
     pointer: PointerStatements.Select[F])
 
   object Statements {
@@ -163,10 +156,9 @@ object EventualCassandra {
       for {
         selectRecords  <- JournalStatements.SelectRecords.of[F](schema.journal, consistencyConfig)
         metaJournal    <- MetaJournalStatements.of(schema, segmentNrsOf, segments, consistencyConfig)
-        selectPointers <- PointerStatements.SelectAll.of[F](schema.pointer, consistencyConfig)
         selectPointer  <- PointerStatements.Select.of[F](schema.pointer, consistencyConfig)
       } yield {
-        Statements(selectRecords, metaJournal, selectPointers, selectPointer)
+        Statements(selectRecords, metaJournal, selectPointer)
       }
     }
   }

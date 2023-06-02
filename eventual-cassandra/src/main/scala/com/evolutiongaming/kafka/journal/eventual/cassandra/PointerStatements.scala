@@ -175,47 +175,6 @@ object PointerStatements {
     }
   }
 
-  trait SelectAll[F[_]] {
-
-    def apply(topic: Topic): F[Map[Partition, Offset]]
-  }
-
-  object SelectAll {
-
-    def of[F[_]: Monad: CassandraSession](
-      name: TableName,
-      consistencyConfig: ConsistencyConfig.Read
-    ): F[SelectAll[F]] = {
-
-      val query =
-        s"""
-           |SELECT partition, offset FROM ${ name.toCql }
-           |WHERE topic = ?
-           |""".stripMargin
-
-      query
-        .prepare
-        .map { prepared =>
-          topic: Topic =>
-            prepared
-              .bind()
-              .encode("topic", topic)
-              .setConsistencyLevel(consistencyConfig.value)
-              .execute
-              .toList
-              .map { rows =>
-                rows
-                  .map { row =>
-                    val partition = row.decode[Partition]("partition")
-                    val offset = row.decode[Offset]("offset")
-                    (partition, offset)
-                  }
-                  .toMap
-              }
-        }
-    }
-  }
-
 
   trait SelectTopics[F[_]] {
     def apply(): F[List[Topic]]

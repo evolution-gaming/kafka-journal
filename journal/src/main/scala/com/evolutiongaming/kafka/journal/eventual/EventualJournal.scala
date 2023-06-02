@@ -18,8 +18,6 @@ trait EventualJournal[F[_]] {
 
   def pointer(key: Key): F[Option[JournalPointer]]
 
-  def pointers(topic: Topic): F[TopicPointers]
-
   def offset(topic: Topic, partition: Partition): F[Option[Offset]]
 
   def read(key: Key, from: SeqNr): Stream[F, EventRecord[EventualPayloadAndType]]
@@ -35,8 +33,6 @@ object EventualJournal {
 
   def empty[F[_]: Applicative]: EventualJournal[F] = new Empty with EventualJournal[F] {
 
-    def pointers(topic: Topic) = TopicPointers.empty.pure[F]
-
     def read(key: Key, from: SeqNr) = Stream.empty[F, EventRecord[EventualPayloadAndType]]
 
     def pointer(key: Key) = none[JournalPointer].pure[F]
@@ -48,8 +44,6 @@ object EventualJournal {
 
 
   trait Metrics[F[_]] {
-
-    def pointers(topic: Topic, latency: FiniteDuration): F[Unit]
 
     def offset(topic: Topic, latency: FiniteDuration): F[Unit]
 
@@ -70,8 +64,6 @@ object EventualJournal {
     private sealed abstract class Const
 
     def const[F[_]](unit: F[Unit]): Metrics[F] = new Const with Metrics[F] {
-
-      def pointers(topic: Topic, latency: FiniteDuration) = unit
 
       def read(topic: Topic, latency: FiniteDuration) = unit
 
@@ -117,10 +109,6 @@ object EventualJournal {
 
         new Main with Metrics[F] {
 
-          def pointers(topic: Topic, latency: FiniteDuration) = {
-            observeLatency(name = "pointers", topic = topic, latency = latency)
-          }
-
           def read(topic: Topic, latency: FiniteDuration) = {
             observeLatency(name = "read", topic = topic, latency = latency)
           }
@@ -158,8 +146,6 @@ object EventualJournal {
 
     def mapK[G[_]](fg: F ~> G, gf: G ~> F): EventualJournal[G] = new MapK with EventualJournal[G] {
 
-      def pointers(topic: Topic) = fg(self.pointers(topic))
-
       def read(key: Key, from1: SeqNr) = self.read(key, from1).mapK(fg, gf)
 
       def pointer(key: Key) = fg(self.pointer(key))
@@ -175,15 +161,6 @@ object EventualJournal {
       val functionKId = FunctionK.id[F]
 
       new WithLog with EventualJournal[F] {
-
-        def pointers(topic: Topic) = {
-          for {
-            d <- MeasureDuration[F].start
-            r <- self.pointers(topic)
-            d <- d
-            _ <- log.debug(s"$topic pointers in ${ d.toMillis }ms, result: $r")
-          } yield r
-        }
 
         def read(key: Key, from: SeqNr) = {
           val logging = new (F ~> F) {
@@ -241,15 +218,6 @@ object EventualJournal {
 
       new WithMetrics with EventualJournal[F] {
 
-        def pointers(topic: Topic) = {
-          for {
-            d <- MeasureDuration[F].start
-            r <- self.pointers(topic)
-            d <- d
-            _ <- metrics.pointers(topic, d)
-          } yield r
-        }
-
         def read(key: Key, from: SeqNr) = {
           val measure = new (F ~> F) {
             def apply[A](fa: F[A]) = {
@@ -296,7 +264,7 @@ object EventualJournal {
             d <- MeasureDuration[F].start
             r <- self.offset(topic, partition)
             d <- d
-            _ <- metrics.pointers(topic, d)
+            _ <- metrics.offset(topic, d)
           } yield r
         }
 
@@ -311,12 +279,6 @@ object EventualJournal {
       }
 
       new EnhanceError with EventualJournal[F] {
-
-        def pointers(topic: Topic) = {
-          self
-            .pointers(topic)
-            .handleErrorWith { a => error(s"pointers topic: $topic", a) }
-        }
 
         def read(key: Key, from: SeqNr) = {
           self
