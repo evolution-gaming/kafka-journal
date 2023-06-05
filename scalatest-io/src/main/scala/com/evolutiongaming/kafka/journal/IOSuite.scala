@@ -25,14 +25,5 @@ object IOSuite {
 
   implicit class IOOps[A](val self: IO[A]) extends AnyVal {
     def run(timeout: FiniteDuration = Timeout): Future[Succeeded.type] = runIO(self, timeout)
-
-    def eventually: IO[A] = {
-      def attempt: IO[A] = self.attempt.flatMap {
-        case Left(_)  => IO.sleep(10.millis) >> attempt
-        case Right(a) => IO.pure(a)
-      }
-
-      attempt
-    }
   }
 }

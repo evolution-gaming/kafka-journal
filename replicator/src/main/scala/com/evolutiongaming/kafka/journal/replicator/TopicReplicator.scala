@@ -185,7 +185,7 @@ object TopicReplicator {
               for {
                 duration  <- MeasureDuration[F].start
                 timestamp <- Clock[F].instant
-                records1  <- records1.pure[F]
+                records1  <- records1
                 _         <- records1.toNem().foldMapM { records => replicateTopic(timestamp, records) }
                 size       = records.foldLeft(0) { case (size, records) => size + records.size }
                 duration  <- duration
