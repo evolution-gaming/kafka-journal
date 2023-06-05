@@ -18,7 +18,6 @@ import com.evolutiongaming.retry.Strategy
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecords}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
 import com.evolution.scache.Cache
-import com.evolutiongaming.kafka.journal.util.ExpiringRef
 
 import scala.concurrent.duration._
 
@@ -44,11 +43,11 @@ object TopicCache {
       consumer <- consumer
         .map { _.withLog(log) }
         .pure[Resource[F, *]]
-      partitions = consumer
+      partitions <- consumer
         .use { consumer =>
           consumer.partitions(topic)
         }
-      partitions <- ExpiringRef.of[F, Set[Partition]](partitions, config.reloadPartitionSetInterval)(Temporal[F], log)
+        .toResource
       cache <- Cache.loading[F, Partition, PartitionCache[F]]
       partitionCacheOf = (partition: Partition) => {
         cache.getOrUpdateResource(partition) {
@@ -60,19 +59,15 @@ object TopicCache {
       }
       remove =
         partitions
-          .get
-          .flatMap { partitions =>
-            partitions
-              .foldMapM { partition =>
-                for {
-                  offset <- eventual.pointer(topic, partition)
-                  cache <- partitionCacheOf(partition)
-                  diff <- offset.flatTraverse(cache.remove)
-                } yield diff match {
-                  case Some(a) => Sample(a.value)
-                  case None    => Sample.Empty
-                }
-              }
+          .foldMapM { partition =>
+            for {
+              offset <- eventual.pointer(topic, partition)
+              cache <- partitionCacheOf(partition)
+              diff <- offset.flatTraverse(cache.remove)
+            } yield diff match {
+              case Some(a) => Sample(a.value)
+              case None    => Sample.Empty
+            }
           }
           .flatMap { sample =>
             sample.avg
@@ -450,17 +445,4 @@ object TopicCache {
 
   }
 
-  private implicit class MapOps[K, V](val self: Map[K, V]) extends AnyVal {
-
-    def foldMapM[F[_]: Monad, A: Monoid](f: (K, V) => F[A]): F[A] = {
-      self.foldLeft(Monoid[A].empty.pure[F]) { case (a, (k, v)) =>
-        for {
-          a <- a
-          b <- f(k, v)
-        } yield {
-          a.combine(b)
-        }
-      }
-    }
-  }
 }
