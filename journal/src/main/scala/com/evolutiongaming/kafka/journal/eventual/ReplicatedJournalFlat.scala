@@ -18,8 +18,6 @@ trait ReplicatedJournalFlat[F[_]] {
 
   def topics: F[SortedSet[Topic]]
 
-  def pointers(topic: Topic): F[TopicPointers]
-
   def pointer(topic: Topic, partition: Partition): F[Option[Offset]]
 
   def append(
@@ -59,12 +57,6 @@ object ReplicatedJournalFlat {
     new ReplicatedJournalFlat[F] {
 
       def topics = replicatedJournal.topics
-
-      def pointers(topic: Topic) = {
-        replicatedJournal
-          .journal(topic)
-          .use { _.pointers }
-      }
 
       def pointer(topic: Topic, partition: Partition): F[Option[Offset]] = {
         replicatedJournal
@@ -131,8 +123,6 @@ object ReplicatedJournalFlat {
 
     def topics = SortedSet.empty[Topic].pure[F]
 
-    def pointers(topic: Topic) = TopicPointers.empty.pure[F]
-
     def pointer(topic: Topic, partition: Partition): F[Option[Offset]] = none[Offset].pure[F]
 
     def append(
@@ -170,8 +160,6 @@ object ReplicatedJournalFlat {
     def mapK[G[_]](f: F ~> G): ReplicatedJournalFlat[G] = new ReplicatedJournalFlat[G] {
 
       def topics = f(self.topics)
-
-      def pointers(topic: Topic) = f(self.pointers(topic))
 
       def pointer(topic: Topic, partition: Partition): G[Option[Offset]] = f(self.pointer(topic, partition))
 

@@ -540,17 +540,6 @@ object JournalSpec {
 
     val eventualJournal: EventualJournal[StateT] = new EventualJournal[StateT] {
 
-      def pointers(topic: Topic) = {
-        StateT { state =>
-          val topicPointers = state.replicatedState.offset.fold(TopicPointers.empty) { offset =>
-            val pointers = Map((partition, offset))
-            TopicPointers(pointers)
-          }
-
-          (state, topicPointers)
-        }
-      }
-
       def offset(topic: Topic, partition: Partition): StateT[Option[Offset]] = {
         StateT { state =>
           (state, state.replicatedState.offset)
@@ -761,8 +750,6 @@ object JournalSpec {
     def withDuplicates(implicit F: Monad[F]): EventualJournal[F] = new EventualJournal[F] {
 
       def pointer(key: Key) = self.pointer(key)
-
-      def pointers(topic: Topic) = self.pointers(topic)
 
       def offset(topic: Topic, partition: Partition): F[Option[Offset]] = self.offset(topic, partition)
 
