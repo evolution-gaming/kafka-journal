@@ -54,7 +54,7 @@ object Dependencies {
   }
   
   object Kafka {
-    private val version = "3.4.0"
+    private val version = "3.4.1"
     val kafka           = "org.apache.kafka" %% "kafka"         % version
     val `kafka-clients` = "org.apache.kafka" %  "kafka-clients" % version
   }
