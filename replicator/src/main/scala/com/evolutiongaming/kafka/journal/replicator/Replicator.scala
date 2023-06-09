@@ -20,7 +20,8 @@ import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerMetrics}
 import com.evolutiongaming.skafka.{ClientId, Topic, Bytes => _}
-import com.evolutiongaming.smetrics.{CollectorRegistry, MeasureDuration}
+import com.evolutiongaming.smetrics
+import com.evolutiongaming.smetrics.CollectorRegistry
 import com.evolution.scache.CacheMetrics
 import scodec.bits.ByteVector
 
@@ -34,7 +35,18 @@ trait Replicator[F[_]] {
 
 object Replicator {
 
-  def of[F[_]: Async: Parallel: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: FromGFuture: MeasureDuration: JsonCodec](
+  @deprecated("Use `of1` instead", "2.2.0")
+  def of[F[_]: Async: Parallel: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: FromGFuture: smetrics.MeasureDuration: JsonCodec](
+    config: ReplicatorConfig,
+    cassandraClusterOf: CassandraClusterOf[F],
+    hostName: Option[HostName],
+    metrics: Option[Metrics[F]] = none
+  ): Resource[F, F[Unit]] = {
+    implicit val md: MeasureDuration[F] = smetrics.MeasureDuration[F].toCatsHelper
+    of1(config, cassandraClusterOf, hostName, metrics)
+  }
+
+  def of1[F[_]: Async: Parallel: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: FromGFuture: MeasureDuration: JsonCodec](
     config: ReplicatorConfig,
     cassandraClusterOf: CassandraClusterOf[F],
     hostName: Option[HostName],
@@ -46,18 +58,35 @@ object Replicator {
       cassandraSession: CassandraSession[F]
     ) = {
       val origin = hostName.map(Origin.fromHostName)
-      ReplicatedCassandra.of[F](config.cassandra, origin, metrics.flatMap(_.journal))
+      ReplicatedCassandra.of1[F](config.cassandra, origin, metrics.flatMap(_.journal))
     }
 
     for {
       cassandraCluster  <- CassandraCluster.of(config.cassandra.client, cassandraClusterOf, config.cassandra.retries)
       cassandraSession  <- cassandraCluster.session
       replicatedJournal <- replicatedJournal(cassandraCluster, cassandraSession).toResource
-      result            <- of(config, metrics, replicatedJournal, hostName)
+      result            <- of1(config, metrics, replicatedJournal, hostName)
     } yield result
   }
 
+  @deprecated("Use `of1` instead", "2.2.0")
   def of[
+    F[_]
+    : Temporal : Parallel
+    : Runtime : FromTry : ToTry : Fail : LogOf
+    : KafkaConsumerOf : smetrics.MeasureDuration
+    : JsonCodec
+  ](
+    config: ReplicatorConfig,
+    metrics: Option[Metrics[F]],
+    journal: ReplicatedJournal[F],
+    hostName: Option[HostName]
+  ): Resource[F, F[Unit]] = {
+    implicit val md: MeasureDuration[F] = smetrics.MeasureDuration[F].toCatsHelper
+    of1(config, metrics, journal, hostName)
+  }
+
+  def of1[
     F[_]
     : Temporal : Parallel
     : Runtime : FromTry : ToTry : Fail : LogOf
@@ -82,16 +111,26 @@ object Replicator {
           .flatMap { _.replicator }
           .fold { TopicReplicatorMetrics.empty[F] } { metrics => metrics(topic) }
 
-        val cacheOf = CacheOf[F](config.cacheExpireAfter, metrics.flatMap(_.cache))
-        TopicReplicator.of(topic, journal, consumer, metrics1, cacheOf)
+        val cacheOf = CacheOf.apply1[F](config.cacheExpireAfter, metrics.flatMap(_.cache))
+        TopicReplicator.of1(topic, journal, consumer, metrics1, cacheOf)
     }
 
     val consumer = Consumer.of[F](config.kafka.consumer)
 
-    of[F](config = Config(config), consumer = consumer, topicReplicatorOf = topicReplicator)
+    of1[F](config = Config(config), consumer = consumer, topicReplicatorOf = topicReplicator)
   }
 
-  def of[F[_] : Concurrent : Sleep : Parallel : LogOf : MeasureDuration](
+  @deprecated("Use `of1` instead", "2.2.0")
+  def of[F[_] : Concurrent : Sleep : Parallel : LogOf : smetrics.MeasureDuration](
+    config: Config,
+    consumer: Resource[F, Consumer[F]],
+    topicReplicatorOf: Topic => Resource[F, F[Outcome[F, Throwable, Unit]]]
+  ): Resource[F, F[Unit]] = {
+    implicit val md: MeasureDuration[F] = smetrics.MeasureDuration[F].toCatsHelper
+    of1(config, consumer, topicReplicatorOf)
+  }
+
+  def of1[F[_] : Concurrent : Sleep : Parallel : LogOf : MeasureDuration](
     config: Config,
     consumer: Resource[F, Consumer[F]],
     topicReplicatorOf: Topic => Resource[F, F[Outcome[F, Throwable, Unit]]]
@@ -142,14 +181,25 @@ object Replicator {
 
           val consumer1 = consumer.mapMethod(retry)
 
-          start(config, consumer1, topicReplicator, error.get.flatten, log)
+          start1(config, consumer1, topicReplicator, error.get.flatten, log)
         }
       } yield result
     }
   }
 
+  @deprecated("Use `start1` instead", "2.2.0")
+  def start[F[_]: Concurrent: Sleep : Parallel : smetrics.MeasureDuration](
+    config: Config,
+    consumer: Consumer[F],
+    start: Topic => F[Unit],
+    continue: F[Unit],
+    log: Log[F]
+  ): F[Unit] = {
+    implicit val md: MeasureDuration[F] = smetrics.MeasureDuration[F].toCatsHelper
+    start1(config, consumer, start, continue, log)
+  }
 
-  def start[F[_]: Concurrent: Sleep : Parallel : MeasureDuration](
+  def start1[F[_]: Concurrent: Sleep : Parallel : MeasureDuration](
     config: Config,
     consumer: Consumer[F],
     start: Topic => F[Unit],

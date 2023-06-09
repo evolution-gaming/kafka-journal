@@ -14,7 +14,6 @@ import com.evolutiongaming.scassandra.{AuthenticationConfig, CassandraClusterOf,
 import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig}
-import com.evolutiongaming.smetrics.MeasureDuration
 
 import scala.concurrent.duration._
 
@@ -47,9 +46,9 @@ object ReadEventsApp extends IOApp {
     log: Log[F],
   ): F[Unit] = {
 
-    implicit val kafkaConsumerOf = KafkaConsumerOf[F]()
+    implicit val kafkaConsumerOf = KafkaConsumerOf.apply1[F]()
 
-    implicit val kafkaProducerOf = KafkaProducerOf[F]()
+    implicit val kafkaProducerOf = KafkaProducerOf.apply1[F]()
 
     implicit val randomIdOf = RandomIdOf.uuid[F]
 
@@ -81,12 +80,12 @@ object ReadEventsApp extends IOApp {
     val journal = for {
       cassandraClusterOf <- CassandraClusterOf.of[F].toResource
       origin             <- Origin.hostName[F].toResource
-      eventualJournal    <- EventualCassandra.of[F](eventualCassandraConfig, origin, none, cassandraClusterOf)
-      headCache          <- HeadCache.of[F](consumerConfig, eventualJournal, none)
+      eventualJournal    <- EventualCassandra.of1[F](eventualCassandraConfig, origin, none, cassandraClusterOf)
+      headCache          <- HeadCache.of1[F](consumerConfig, eventualJournal, none)
       producer           <- Journals.Producer.of[F](producerConfig)
     } yield {
       val origin = Origin("ReadEventsApp")
-      val journals = Journals[F](origin.some, producer, consumer, eventualJournal, headCache, log, none)
+      val journals = Journals.apply1[F](origin.some, producer, consumer, eventualJournal, headCache, log, none)
       val key = Key(id = "id", topic = "topic")
       val journal = journals(key)
       for {

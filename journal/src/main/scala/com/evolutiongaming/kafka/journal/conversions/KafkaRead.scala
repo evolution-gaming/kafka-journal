@@ -6,7 +6,7 @@ import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.PayloadAndType._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.smetrics
 import play.api.libs.json.JsValue
 
 trait KafkaRead[F[_], A] {
@@ -103,7 +103,17 @@ object KafkaRead {
     }
 
   implicit class KafkaReadOps[F[_], A](val self: KafkaRead[F, A]) extends AnyVal {
+
+    @deprecated("Use `withMetrics1` instead", "2.2.0")
     def withMetrics(
+      metrics: KafkaReadMetrics[F]
+    )(
+      implicit F: Monad[F], measureDuration: smetrics.MeasureDuration[F]
+    ): KafkaRead[F, A] = {
+      withMetrics1(metrics)(F, measureDuration.toCatsHelper)
+    }
+
+    def withMetrics1(
       metrics: KafkaReadMetrics[F]
     )(
       implicit F: Monad[F], measureDuration: MeasureDuration[F]

@@ -7,7 +7,7 @@ import cats.effect.{Clock, IO}
 import cats.syntax.all._
 import cats.effect.unsafe.implicits.global
 import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.catshelper.{FromTry, Log}
+import com.evolutiongaming.catshelper.{FromTry, Log, MeasureDuration}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
@@ -16,7 +16,6 @@ import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
-import com.evolutiongaming.smetrics.MeasureDuration
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -511,15 +510,15 @@ object JournalSpec {
       implicit val fromJsResult = FromJsResult.lift[F]
       val log = Log.empty[F]
 
-      val journal = Journals[F](
+      val journal = Journals.apply1[F](
         eventual = eventual,
         consumeActionRecords = consumeActionRecords,
         produce = Produce(produceAction, none),
         headCache = headCache,
         log = log,
         conversionMetrics = none)
-        .withLog(log)
-        .withMetrics(JournalMetrics.empty[F])
+        .withLog1(log)
+        .withMetrics1(JournalMetrics.empty[F])
       SeqNrJournal(journal)
     }
   }
@@ -681,7 +680,7 @@ object JournalSpec {
             val partitionOffset = PartitionOffset(partition, record.offset)
             EventRecord(action, event.map(eventualWrite(_).get), partitionOffset, events1.metadata)
           }
-          copy(events = events.enqueue(batch.toList), offset = offset.some)
+          copy(events = events.enqueueAll(batch.toList), offset = offset.some)
         }
 
         def onDelete(action: Action.Delete) = {

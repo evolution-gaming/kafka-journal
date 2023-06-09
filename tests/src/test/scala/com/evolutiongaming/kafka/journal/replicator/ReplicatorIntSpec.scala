@@ -18,7 +18,6 @@ import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
 import com.evolutiongaming.retry.{Retry, Strategy}
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.skafka.Offset
-import com.evolutiongaming.smetrics.MeasureDuration
 import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
@@ -57,7 +56,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
         .liftTo[F]
       for {
         config          <- config.toResource
-        eventualJournal <- EventualCassandra.of[F](config, origin.some, none, cassandraClusterOf)
+        eventualJournal <- EventualCassandra.of1[F](config, origin.some, none, cassandraClusterOf)
       } yield eventualJournal
     }
 
@@ -71,9 +70,9 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
         .load[JournalConfig]
         .liftTo[F]
 
-      implicit val kafkaConsumerOf = KafkaConsumerOf[F]()
+      implicit val kafkaConsumerOf = KafkaConsumerOf.apply1[F]()
 
-      implicit val kafkaProducerOf = KafkaProducerOf[F]()
+      implicit val kafkaProducerOf = KafkaProducerOf.apply1[F]()
 
       for {
         config   <- config.toResource
@@ -81,7 +80,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
         consumer  = Journals.Consumer.of[F](config.kafka.consumer, config.pollTimeout)
         log      <- LogOf[F].apply(Journals.getClass).toResource
       } yield {
-        Journals[F](
+        Journals.apply1[F](
           origin = origin.some,
           producer = producer,
           consumer = consumer,

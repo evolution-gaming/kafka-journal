@@ -6,7 +6,7 @@ import cats.effect.syntax.resource._
 import cats.syntax.all._
 import cats.{Applicative, Monad, ~>}
 import com.evolutiongaming.catshelper.DataHelper._
-import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, Log, MonadThrowable}
+import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraSession, ExpireOn, MetaJournalStatements, SegmentNr}
@@ -15,8 +15,9 @@ import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.skafka.producer.ProducerConfig
+import com.evolutiongaming.smetrics
 import com.evolutiongaming.smetrics.MetricsHelper._
-import com.evolutiongaming.smetrics._
+import com.evolutiongaming.smetrics.{MeasureDuration => _, _}
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -27,8 +28,19 @@ trait PurgeExpired[F[_]] {
 
 object PurgeExpired {
 
+  @deprecated("Use `of1` instead", "2.2.0")
+  def of[F[_] : MonadThrowable : KafkaProducerOf : CassandraSession : FromTry : Fail : Clock : smetrics.MeasureDuration : JsonCodec.Encode](
+    origin: Option[Origin],
+    producerConfig: ProducerConfig,
+    tableName: TableName,
+    metrics: Option[Metrics[F]],
+    consistencyConfig: ConsistencyConfig.Read
+  ): Resource[F, PurgeExpired[F]] = {
+    implicit val md: MeasureDuration[F] = smetrics.MeasureDuration[F].toCatsHelper
+    of1(origin, producerConfig, tableName, metrics, consistencyConfig)
+  }
 
-  def of[F[_] : MonadThrowable : KafkaProducerOf : CassandraSession : FromTry : Fail : Clock : MeasureDuration : JsonCodec.Encode](
+  def of1[F[_] : MonadThrowable : KafkaProducerOf : CassandraSession : FromTry : Fail : Clock : MeasureDuration : JsonCodec.Encode](
     origin: Option[Origin],
     producerConfig: ProducerConfig,
     tableName: TableName,
@@ -46,7 +58,7 @@ object PurgeExpired {
       val produce = Produce(producer, origin)
       val purgeExpired = apply(selectExpired, produce)
       metrics
-        .fold { purgeExpired } { metrics => purgeExpired.withMetrics(metrics) }
+        .fold { purgeExpired } { metrics => purgeExpired.withMetrics1(metrics) }
         .enhanceError
     }
   }
@@ -81,8 +93,16 @@ object PurgeExpired {
       }
     }
 
-
+    @deprecated("Use `withLog1` instead", "2.2.0")
     def withLog(
+      log: Log[F])(implicit
+      F: Monad[F],
+      measureDuration: smetrics.MeasureDuration[F]
+    ): PurgeExpired[F] = {
+      withLog1(log)(F, measureDuration.toCatsHelper)
+    }
+
+    def withLog1(
       log: Log[F])(implicit
       F: Monad[F],
       measureDuration: MeasureDuration[F]
@@ -98,8 +118,16 @@ object PurgeExpired {
       }
     }
 
-
+    @deprecated("Use `withMetrics1` instead", "2.2.0")
     def withMetrics(
+      metrics: Metrics[F])(implicit
+      F: Monad[F],
+      measureDuration: smetrics.MeasureDuration[F]
+    ): PurgeExpired[F] = {
+      withMetrics1(metrics)(F, measureDuration.toCatsHelper)
+    }
+
+    def withMetrics1(
       metrics: Metrics[F])(implicit
       F: Monad[F],
       measureDuration: MeasureDuration[F]

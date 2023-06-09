@@ -11,7 +11,7 @@ import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
 import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.scassandra.CassandraClusterOf
-import com.evolutiongaming.smetrics.{CollectorRegistry, MeasureDuration}
+import com.evolutiongaming.smetrics.CollectorRegistry
 import com.typesafe.config.ConfigFactory
 
 
@@ -44,7 +44,7 @@ object IntegrationSuite {
     }
 
     def replicator(log: Log[F]) = {
-      implicit val kafkaConsumerOf = KafkaConsumerOf[F]()
+      implicit val kafkaConsumerOf = KafkaConsumerOf.apply1[F]()
       val config = for {
         config <- Sync[F].delay { ConfigFactory.load("replicator.conf") }
         config <- ReplicatorConfig.fromConfig[F](config)
@@ -54,7 +54,7 @@ object IntegrationSuite {
         metrics  <- Replicator.Metrics.of[F](CollectorRegistry.empty[F], "clientId")
         config   <- config.toResource
         hostName <- HostName.of[F]().toResource
-        result   <- Replicator.of[F](config, cassandraClusterOf, hostName, metrics.some)
+        result   <- Replicator.of1[F](config, cassandraClusterOf, hostName, metrics.some)
         _        <- result.onError { case e => log.error(s"failed to release replicator with $e", e) }.background
       } yield {}
     }

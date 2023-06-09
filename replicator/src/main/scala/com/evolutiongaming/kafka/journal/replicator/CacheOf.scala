@@ -5,9 +5,9 @@ import cats.effect.Resource
 import cats.effect.kernel.Temporal
 import cats.effect.syntax.resource._
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.{BracketThrowable, Runtime}
+import com.evolutiongaming.catshelper.{BracketThrowable, MeasureDuration, Runtime}
 import com.evolutiongaming.skafka.Topic
-import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.smetrics
 import com.evolution.scache
 import com.evolution.scache.{CacheMetrics, ExpiringCache}
 
@@ -40,8 +40,16 @@ object CacheOf {
     }
   }
 
+  @deprecated("Use `of1` instead", "2.2.0")
+  def apply[F[_] : Temporal : Runtime : Parallel : smetrics.MeasureDuration](
+    expireAfter: FiniteDuration,
+    cacheMetrics: Option[CacheMetrics.Name => CacheMetrics[F]]
+  ): CacheOf[F] = {
+    implicit val md: MeasureDuration[F] = smetrics.MeasureDuration[F].toCatsHelper
+    apply1(expireAfter, cacheMetrics)
+  }
 
-  def apply[F[_] : Temporal : Runtime : Parallel : MeasureDuration](
+  def apply1[F[_] : Temporal : Runtime : Parallel : MeasureDuration](
     expireAfter: FiniteDuration,
     cacheMetrics: Option[CacheMetrics.Name => CacheMetrics[F]]
   ): CacheOf[F] = {
@@ -51,7 +59,7 @@ object CacheOf {
         val config = ExpiringCache.Config[F, K, V](expireAfter)
         for {
           cache <- scache.Cache.expiring(config)
-          cache <- cacheMetrics.fold { cache.pure[Resource[F,*]] } { cacheMetrics => cache.withMetrics(cacheMetrics(topic)) }
+          cache <- cacheMetrics.fold { cache.pure[Resource[F,*]] } { cacheMetrics => cache.withMetrics1(cacheMetrics(topic)) }
         } yield {
           new Cache[F, K, V] {
 

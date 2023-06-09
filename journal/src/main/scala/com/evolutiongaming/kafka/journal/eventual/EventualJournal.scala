@@ -4,12 +4,13 @@ import cats._
 import cats.arrow.FunctionK
 import cats.effect.Resource
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.{Log, MonadThrowable}
+import com.evolutiongaming.catshelper.{Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.skafka.Topic
+import com.evolutiongaming.smetrics
 import com.evolutiongaming.smetrics.MetricsHelper._
-import com.evolutiongaming.smetrics._
+import com.evolutiongaming.smetrics.{MeasureDuration => _, _}
 import com.evolutiongaming.sstream.Stream
 
 import scala.concurrent.duration.FiniteDuration
@@ -155,8 +156,12 @@ object EventualJournal {
       def ids(topic: Topic) = self.ids(topic).mapK(fg, gf)
     }
 
+    @deprecated("Use `withLog1` instead", "2.2.0")
+    def withLog(log: Log[F])(implicit F: FlatMap[F], measureDuration: smetrics.MeasureDuration[F]): EventualJournal[F] = {
+      withLog1(log)(F, measureDuration.toCatsHelper)
+    }
 
-    def withLog(log: Log[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): EventualJournal[F] = {
+    def withLog1(log: Log[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): EventualJournal[F] = {
 
       val functionKId = FunctionK.id[F]
 
@@ -210,8 +215,12 @@ object EventualJournal {
       }
     }
 
+    @deprecated("Use `withMetrics1` instead", "2.2.0")
+    def withMetrics(metrics: Metrics[F])(implicit F: FlatMap[F], measureDuration: smetrics.MeasureDuration[F]): EventualJournal[F] = {
+      withMetrics1(metrics)(F, measureDuration.toCatsHelper)
+    }
 
-    def withMetrics(metrics: Metrics[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): EventualJournal[F] = {
+    def withMetrics1(metrics: Metrics[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): EventualJournal[F] = {
 
       val functionKId = FunctionK.id[F]
 

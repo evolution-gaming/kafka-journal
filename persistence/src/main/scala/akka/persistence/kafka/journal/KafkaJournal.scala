@@ -15,7 +15,7 @@ import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
 import com.evolutiongaming.retry.Retry.implicits._
 import com.evolutiongaming.retry.{OnError, Strategy}
 import com.evolutiongaming.scassandra.CassandraClusterOf
-import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.smetrics
 import com.typesafe.config.Config
 import pureconfig.ConfigSource
 
@@ -57,7 +57,11 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
 
   def randomIdOf: Resource[IO, RandomIdOf[IO]] = RandomIdOf.uuid[IO].pure[Resource[IO, *]]
 
-  def measureDuration: Resource[IO, MeasureDuration[IO]] = MeasureDuration.fromClock(Clock[IO]).pure[Resource[IO, *]]
+  @deprecated("Use `measureDuration1` instead", "2.2.0")
+  def measureDuration: Resource[IO, smetrics.MeasureDuration[IO]] =
+    smetrics.MeasureDuration.fromClock(Clock[IO]).pure[Resource[IO, *]]
+
+  def measureDuration1: Resource[IO, MeasureDuration[IO]] = MeasureDuration.fromClock(Clock[IO]).pure[Resource[IO, *]]
 
   def toKey: Resource[IO, ToKey[IO]] = {
     ToKey
@@ -167,7 +171,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
       adapter <- Resource {
         val adapter = for {
           randomId           <- randomIdOf
-          measureDuration    <- measureDuration
+          measureDuration    <- measureDuration1
           toKey              <- toKey
           origin             <- origin.toResource
           appendMetadataOf   <- appendMetadataOf
@@ -175,7 +179,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
           batching           <- batching(config)
           cassandraClusterOf <- cassandraClusterOf
           jsonCodec          <- jsonCodec(config).toResource
-          adapter            <- adapterOf(
+          adapter            <- adapterOf1(
             toKey              = toKey,
             origin             = origin,
             serializer         = serializer,
@@ -221,7 +225,39 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     } yield adapter
   }
 
+  @deprecated("Use `adapterOf1` instead", "2.2.0")
   def adapterOf[A](
+    toKey: ToKey[IO],
+    origin: Option[Origin],
+    serializer: EventSerializer[IO, A],
+    journalReadWrite: JournalReadWrite[IO, A],
+    config: KafkaJournalConfig,
+    metrics: JournalAdapter.Metrics[IO],
+    appendMetadataOf: AppendMetadataOf[IO],
+    batching: Batching[IO],
+    log: Log[IO],
+    cassandraClusterOf: CassandraClusterOf[IO])(implicit
+    logOf: LogOf[IO],
+    randomIdOf: RandomIdOf[IO],
+    measureDuration: smetrics.MeasureDuration[IO],
+    jsonCodec: JsonCodec[IO]
+  ): Resource[IO, JournalAdapter[IO]] = {
+    implicit val md: MeasureDuration[IO] = smetrics.MeasureDuration[IO].toCatsHelper
+    adapterOf1(
+      toKey,
+      origin,
+      serializer,
+      journalReadWrite,
+      config,
+      metrics,
+      appendMetadataOf,
+      batching,
+      log,
+      cassandraClusterOf,
+    )
+  }
+
+  def adapterOf1[A](
     toKey: ToKey[IO],
     origin: Option[Origin],
     serializer: EventSerializer[IO, A],
@@ -238,7 +274,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     jsonCodec: JsonCodec[IO]
   ): Resource[IO, JournalAdapter[IO]] = {
 
-    JournalAdapter.of[IO, A](
+    JournalAdapter.of1[IO, A](
       toKey = toKey,
       origin = origin,
       serializer = serializer,

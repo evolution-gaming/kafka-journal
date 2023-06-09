@@ -42,6 +42,7 @@ lazy val `scalatest-io` = (project in file("scalatest-io")
   settings (libraryDependencies ++= Seq(
     scalatest,
     Smetrics.smetrics,
+    `cats-helper`,
     Cats.core,
     Cats.effect)))
 
