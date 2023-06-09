@@ -76,11 +76,10 @@ object ReplicatedCassandra {
         } yield {
           new ReplicatedTopicJournal[F] {
 
-            val pointers = {
+            def pointer(partition: Partition): F[Option[Offset]] = {
               statements
-                .selectPointers(topic)
-                .map { a => TopicPointers(a) }
-                .flatTap { pointers => pointersRef.update { _.merge(pointers) } }
+                .selectPointer(topic, partition)
+                .flatTap { offset => pointersRef.update { _.append(partition, offset) } }
             }
 
             def journal(id: String) = {
@@ -643,7 +642,6 @@ object ReplicatedCassandra {
     metaJournal: MetaJournalStatements[F],
     selectPointer: PointerStatements.Select[F],
     selectPointersIn: PointerStatements.SelectIn[F],
-    selectPointers: PointerStatements.SelectAll[F],
     insertPointer: PointerStatements.Insert[F],
     updatePointer: PointerStatements.Update[F],
     selectTopics: PointerStatements.SelectTopics[F])
@@ -664,7 +662,6 @@ object ReplicatedCassandra {
         MetaJournalStatements.of[F](schema, consistencyConfig),
         PointerStatements.Select.of[F](schema.pointer, consistencyConfig.read),
         PointerStatements.SelectIn.of[F](schema.pointer, consistencyConfig.read),
-        PointerStatements.SelectAll.of[F](schema.pointer, consistencyConfig.read),
         PointerStatements.Insert.of[F](schema.pointer, consistencyConfig.write),
         PointerStatements.Update.of[F](schema.pointer, consistencyConfig.write),
         PointerStatements.SelectTopics.of[F](schema.pointer, consistencyConfig.read))

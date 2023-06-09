@@ -3,13 +3,13 @@ package com.evolutiongaming.kafka.journal
 import cats.data.{NonEmptyList => Nel, NonEmptySet => Nes}
 import cats.effect.Resource
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.catshelper.DataHelper._
+import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.kafka.journal.TopicCache.Consumer
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.random.Random
-import com.evolutiongaming.retry.{OnError, Retry, Sleep, Strategy}
 import com.evolutiongaming.retry.Retry.implicits._
+import com.evolutiongaming.retry.{OnError, Retry, Sleep, Strategy}
 import com.evolutiongaming.skafka.consumer.ConsumerRecords
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.sstream.Stream
@@ -19,7 +19,7 @@ import scala.util.control.NoStackTrace
 
 object HeadCacheConsumption {
 
-  def apply[F[_] : BracketThrowable : Sleep](
+  def apply[F[_]: BracketThrowable: Sleep](
     topic: Topic,
     pointers: F[Map[Partition, Offset]],
     consumer: Resource[F, TopicCache.Consumer[F]],
@@ -48,22 +48,22 @@ object HeadCacheConsumption {
     def seek(consumer: Consumer[F], random: Random.State) = {
       for {
         partitions <- partitions(consumer, random)
-        _          <- consumer.assign(topic, partitions)
-        pointers   <- pointers
-        offsets     = partitions
+        _ <- consumer.assign(topic, partitions)
+        pointers <- pointers
+        offsets = partitions
           .toNel
           .map { partition =>
             val offset = pointers.getOrElse(partition, Offset.min)
             (partition, offset)
           }
           .toNem
-        result     <- consumer.seek(topic, offsets)
+        result <- consumer.seek(topic, offsets)
       } yield result
     }
 
     for {
-      random   <- Random.State.fromClock[F]().toStream
-      retry     = {
+      random <- Random.State.fromClock[F]().toStream
+      retry = {
         val strategy = Strategy
           .exponential(10.millis)
           .jitter(random)
@@ -72,10 +72,10 @@ object HeadCacheConsumption {
         val onError = OnError.fromLog(log.prefixed("consuming"))
         Retry(strategy, onError)
       }
-      _        <- Stream.around(retry.toFunctionK)
+      _ <- Stream.around(retry.toFunctionK)
       consumer <- consumer.toStream
-      _        <- seek(consumer, random).toStream
-      records  <- Stream.repeat(consumer.poll) if records.values.nonEmpty
+      _ <- seek(consumer, random).toStream
+      records <- Stream.repeat(consumer.poll) if records.values.nonEmpty
     } yield records
   }
 

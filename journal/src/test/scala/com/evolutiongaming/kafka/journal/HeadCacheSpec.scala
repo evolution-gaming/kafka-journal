@@ -60,7 +60,8 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
             state shouldEqual TestConsumer.State(
               actions = List(
                 TestConsumer.Action.Seek(topic, Nem.of((partition, Offset.min))),
-                TestConsumer.Action.Assign(topic, Nes.of(partition))),
+                TestConsumer.Action.Assign(topic, Nes.of(partition)),
+                TestConsumer.Action.Release),
               topics = Map((topic, List(partition))))
           }
         }
@@ -122,7 +123,8 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
             state shouldEqual TestConsumer.State(
               actions = List(
                 TestConsumer.Action.Seek(topic, Nem.of((partition, Offset.min))),
-                TestConsumer.Action.Assign(topic, Nes.of(partition))),
+                TestConsumer.Action.Assign(topic, Nes.of(partition)),
+                TestConsumer.Action.Release),
               topics = Map((topic, List(partition))))
           }
         }
@@ -173,7 +175,8 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
                 TestConsumer.Action.Assign(topic, Nes.of(partition)),
                 TestConsumer.Action.Release,
                 TestConsumer.Action.Seek(topic, Nem.of((partition, Offset.min))),
-                TestConsumer.Action.Assign(topic, Nes.of(partition))),
+                TestConsumer.Action.Assign(topic, Nes.of(partition)),
+                TestConsumer.Action.Release),
               topics = Map((topic, List(partition))))
           }
         }

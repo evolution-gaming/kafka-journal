@@ -92,9 +92,8 @@ object TopicReplicator {
     val topicFlowOf: TopicFlowOf[F] = {
       (topic: Topic) => {
         for {
-          journal  <- journal.journal(topic)
-          pointers <- journal.pointers.toResource
-          cache    <- cacheOf[Partition, PartitionFlow](topic)
+          journal <- journal.journal(topic)
+          cache   <- cacheOf[Partition, PartitionFlow](topic)
         } yield {
 
           def keyFlow(id: String): Resource[F, KeyFlow] = {
@@ -147,13 +146,17 @@ object TopicReplicator {
 
             def apply(records: Nem[Partition, Nel[ConsRecord]]) = {
 
-              def records1 = for {
-                (partition, records) <- records.toSortedMap
-                offset                = pointers.values.get(partition)
-                records              <- offset.fold(records.some) { offset => records.filter { _.offset > offset }.toNel }
-              } yield {
-                (partition, records)
-              }
+              def records1 =
+                records.toSortedMap.toList.flatTraverse {
+                  case (partition, records) =>
+                    journal.pointer(partition).map { offset =>
+                      for {
+                        records <- offset.fold(records.some) { offset => records.filter { _.offset > offset }.toNel }.toList
+                      } yield {
+                        (partition, records)
+                      }
+                    }
+                }.map(_.toSortedMap)
 
               def replicateTopic(timestamp: Instant, records: Nem[Partition, Nel[ConsRecord]]) = {
 
@@ -181,7 +184,7 @@ object TopicReplicator {
               for {
                 duration  <- MeasureDuration[F].start
                 timestamp <- Clock[F].instant
-                records1  <- records1.pure[F]
+                records1  <- records1
                 _         <- records1.toNem().foldMapM { records => replicateTopic(timestamp, records) }
                 size       = records.foldLeft(0) { case (size, records) => size + records.size }
                 duration  <- duration

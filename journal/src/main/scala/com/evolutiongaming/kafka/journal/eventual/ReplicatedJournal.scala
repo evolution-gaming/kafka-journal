@@ -164,6 +164,8 @@ object ReplicatedJournal {
 
     def pointers(latency: FiniteDuration): F[Unit]
 
+    def pointer(latency: FiniteDuration): F[Unit]
+
     def append(topic: Topic, latency: FiniteDuration, events: Int): F[Unit]
 
     def delete(topic: Topic, latency: FiniteDuration): F[Unit]
@@ -183,6 +185,8 @@ object ReplicatedJournal {
       def topics(latency: FiniteDuration) = unit
 
       def pointers(latency: FiniteDuration) = unit
+
+      def pointer(latency: FiniteDuration) = unit
 
       def append(topic: Topic, latency: FiniteDuration, events: Int) = unit
 
@@ -243,6 +247,10 @@ object ReplicatedJournal {
 
           def pointers(latency: FiniteDuration) = {
             observeLatency(name = "pointers", latency = latency)
+          }
+
+          def pointer(latency: FiniteDuration): F[Unit] = {
+            observeLatency(name = "pointer", latency = latency)
           }
 
           def append(topic: Topic, latency: FiniteDuration, events: Int) = {
