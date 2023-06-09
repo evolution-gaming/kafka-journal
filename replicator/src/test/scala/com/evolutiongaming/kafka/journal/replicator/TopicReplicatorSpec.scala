@@ -792,6 +792,17 @@ object TopicReplicatorSpec {
           }
         }
 
+        def pointer(partition: Partition): StateT[Option[Offset]] = {
+          StateT { state =>
+            val offset = state
+              .pointers
+              .getOrElse(topic, Map.empty)
+              .get(partition.value)
+              .map(Offset.unsafe[Long])
+            (state, offset)
+          }
+        }
+
         def journal(id: String) = {
           val journal = new ReplicatedKeyJournal[StateT] {
 

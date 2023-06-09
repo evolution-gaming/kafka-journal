@@ -61,17 +61,17 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
 
     test(s"pointers, $suffix") {
       val stateT = for {
-        pointers <- journal.pointers(topic0)
-        _         = pointers.values shouldEqual Map.empty
+        offset   <- journal.offset(topic0, Partition.min)
+        _         = offset shouldEqual none
         _        <- insertPointer(topic0, Partition.min, Offset.min, created = timestamp0, updated = timestamp0)
-        pointers <- journal.pointers(topic0)
-        _         = pointers.values shouldEqual Map((Partition.min, Offset.min))
+        offset   <- journal.offset(topic0, Partition.min)
+        _         = offset shouldEqual Offset.min.some
         _        <- updatePointer(topic0, Partition.min, Offset.unsafe(1), timestamp = timestamp1)
-        pointers <- journal.pointers(topic0)
-        _         = pointers.values shouldEqual Map((Partition.min, Offset.unsafe(1)))
+        offset   <- journal.offset(topic0, Partition.min)
+        _         = offset shouldEqual Offset.unsafe(1).some
         _        <- insertPointer(topic1, Partition.min, Offset.min, created = timestamp0, updated = timestamp0)
-        pointers <- journal.pointers(topic0)
-        _         = pointers.values shouldEqual Map((Partition.min, Offset.unsafe(1)))
+        offset   <- journal.offset(topic0, Partition.min)
+        _         = offset shouldEqual Offset.unsafe(1).some
       } yield {}
 
       val expected = State(
@@ -377,19 +377,6 @@ object EventualCassandraTest {
   }
 
 
-  val selectPointers: PointerStatements.SelectAll[StateT] = {
-    topic: Topic => {
-      StateT.success { state =>
-        val offsets = state
-          .pointers
-          .getOrElse(topic, Map.empty)
-          .map { case (partition, entry) => (partition, entry.offset) }
-        (state, offsets)
-      }
-    }
-  }
-
-
   val insertPointer: PointerStatements.Insert[StateT] = {
     (topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant) => {
       StateT.unit { state =>
@@ -485,7 +472,7 @@ object EventualCassandraTest {
     EventualCassandra.Statements(
       records = selectRecords,
       metaJournal = metaJournalStatements,
-      pointers = selectPointers)
+      pointer = selectPointer)
   }
 
 

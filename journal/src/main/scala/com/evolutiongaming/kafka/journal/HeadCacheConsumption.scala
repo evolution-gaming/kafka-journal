@@ -3,13 +3,13 @@ package com.evolutiongaming.kafka.journal
 import cats.data.{NonEmptyList => Nel, NonEmptySet => Nes}
 import cats.effect.{Resource, Timer}
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.catshelper.DataHelper._
+import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.kafka.journal.TopicCache.Consumer
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.random.Random
-import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.retry.Retry.implicits._
+import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.skafka.consumer.ConsumerRecords
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.sstream.Stream
@@ -19,7 +19,7 @@ import scala.util.control.NoStackTrace
 
 object HeadCacheConsumption {
 
-  def apply[F[_] : BracketThrowable : Timer](
+  def apply[F[_]: BracketThrowable: Timer](
     topic: Topic,
     pointers: F[Map[Partition, Offset]],
     consumer: Resource[F, TopicCache.Consumer[F]],

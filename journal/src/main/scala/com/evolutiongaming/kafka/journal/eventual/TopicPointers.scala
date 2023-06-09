@@ -22,6 +22,13 @@ object TopicPointers {
       self.copy(self.values ++ pointers.values)
     }
 
+    def append(partition: Partition, offset: Option[Offset]): TopicPointers = {
+      offset match {
+        case Some(offset) => TopicPointers(self.values.updated(partition, offset))
+        case None         => self
+      }
+    }
+
     def merge(pointers: TopicPointers): TopicPointers = {
       val result = for {
         key    <- pointers.values.keySet ++ self.values.keySet

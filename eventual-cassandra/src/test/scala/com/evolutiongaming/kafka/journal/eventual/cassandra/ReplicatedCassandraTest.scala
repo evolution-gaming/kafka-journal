@@ -166,20 +166,20 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val key = Key(id = id, topic = topic0)
       val segment = segmentOfId(key)
       val stateT = for {
-        pointers <- journal.pointers(topic0)
-        _         = pointers.values shouldEqual Map.empty
+        offset   <- journal.pointer(topic0, Partition.min)
+        _         = offset shouldEqual none
         _        <- journal.append(key, partitionOffset, timestamp0, none[ExpireAfter], Nel.of(record))
-        pointers <- journal.pointers(topic0)
-        _         = pointers.values shouldEqual Map.empty
+        offset   <- journal.pointer(topic0, Partition.min)
+        _         = offset shouldEqual none
         _        <- journal.save(topic0, Nem.of((Partition.min, Offset.min)), timestamp0)
-        pointers <- journal.pointers(topic0)
-        _         = pointers.values shouldEqual Map((Partition.min, Offset.min))
+        offset   <- journal.pointer(topic0, Partition.min)
+        _         = offset shouldEqual Offset.min.some
         _        <- journal.save(topic0, Nem.of((Partition.min, Offset.unsafe(1))), timestamp1)
-        pointers <- journal.pointers(topic0)
-        _         = pointers.values shouldEqual Map((Partition.min, Offset.unsafe(1)))
+        offset   <- journal.pointer(topic0, Partition.min)
+        _         = offset shouldEqual Offset.unsafe(1).some
         _        <- journal.save(topic1, Nem.of((Partition.min, Offset.min)), timestamp0)
-        pointers <- journal.pointers(topic0)
-        _         = pointers.values shouldEqual Map((Partition.min, Offset.unsafe(1)))
+        offset   <- journal.pointer(topic0, Partition.min)
+        _         = offset shouldEqual Offset.unsafe(1).some
       } yield {}
 
       val expected = State(
@@ -1240,19 +1240,6 @@ object ReplicatedCassandraTest {
   }
 
 
-  val selectPointers: PointerStatements.SelectAll[StateT] = {
-    topic => {
-      StateT.success { state =>
-        val offsets = state
-          .pointers
-          .getOrElse(topic, Map.empty)
-          .map { case (partition, entry) => (partition, entry.offset) }
-        (state, offsets)
-      }
-    }
-  }
-
-
   val insertPointer: PointerStatements.Insert[StateT] = {
     (topic, partition, offset, created, updated) => {
       StateT.unit { state =>
@@ -1312,7 +1299,6 @@ object ReplicatedCassandraTest {
       metaJournal,
       selectPointer,
       selectPointersIn,
-      selectPointers,
       insertPointer,
       updatePointer,
       selectTopics)
