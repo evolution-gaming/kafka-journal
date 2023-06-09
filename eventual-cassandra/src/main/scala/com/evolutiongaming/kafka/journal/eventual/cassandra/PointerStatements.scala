@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import java.time.Instant
 import cats.Monad
 import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
@@ -10,6 +9,8 @@ import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
+
+import java.time.Instant
 
 
 object PointerStatements {
@@ -166,48 +167,6 @@ object PointerStatements {
                   .map { row =>
                     val partition = row.decode[Partition]
                     val offset = row.decode[Offset]
-                    (partition, offset)
-                  }
-                  .toMap
-              }
-        }
-    }
-  }
-
-
-  trait SelectAll[F[_]] {
-
-    def apply(topic: Topic): F[Map[Partition, Offset]]
-  }
-
-  object SelectAll {
-
-    def of[F[_]: Monad: CassandraSession](
-      name: TableName,
-      consistencyConfig: ConsistencyConfig.Read
-    ): F[SelectAll[F]] = {
-
-      val query =
-        s"""
-           |SELECT partition, offset FROM ${ name.toCql }
-           |WHERE topic = ?
-           |""".stripMargin
-
-      query
-        .prepare
-        .map { prepared =>
-          topic: Topic =>
-            prepared
-              .bind()
-              .encode("topic", topic)
-              .setConsistencyLevel(consistencyConfig.value)
-              .execute
-              .toList
-              .map { rows =>
-                rows
-                  .map { row =>
-                    val partition = row.decode[Partition]("partition")
-                    val offset = row.decode[Offset]("offset")
                     (partition, offset)
                   }
                   .toMap

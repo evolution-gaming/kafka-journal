@@ -48,7 +48,7 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
     val resource = for {
       config          <- config.liftTo[IO].toResource
       origin          <- Origin.hostName[IO].toResource
-      eventualJournal <- EventualCassandra.of1[IO](config.cassandra, origin, none, cassandraClusterOf)
+      eventualJournal <- EventualCassandra.of[IO](config.cassandra, origin, none, cassandraClusterOf)
       producer        <- Journals.Producer.of[IO](config.journal.kafka.producer)
     } yield {
       (eventualJournal, producer)

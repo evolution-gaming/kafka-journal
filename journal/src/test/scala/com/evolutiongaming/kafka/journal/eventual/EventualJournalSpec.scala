@@ -38,8 +38,8 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
           implicit val measureDuration = MeasureDuration.fromClock(clock)
           val eventual = {
             val journal = journals.eventual
-              .withLog1(log)
-              .withMetrics1(EventualJournal.Metrics.empty[F])
+              .withLog(log)
+              .withMetrics(EventualJournal.Metrics.empty[F])
             Eventual[F](journal, key)
           }
           val replicated = {
@@ -282,13 +282,15 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
 
       for {
         topic <- topics
+        topicPointer <- topicPointers.values
       } {
-        s"save pointers, $name, topic: $topic" in {
+        s"save pointer, $name, topic: $topic" in {
           withJournals3 { case (_, replicated) =>
+            val (partition, offset) = topicPointer
             for {
-              a <- replicated.pointers(topic)
+              a <- replicated.pointer(topic, partition)
             } yield {
-              a shouldEqual topicPointers
+              a shouldEqual offset.some
             }
           }
         }
@@ -306,15 +308,17 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
 
       for {
         topic <- topics
+        topicPointer <- topicPointers.values
       } {
-        s"read pointers for $topic, $name " in {
+        s"read pointer for $topic, $name " in {
           withJournals3 { case (eventual, replicated) =>
+            val (partition, offset) = topicPointer
             for {
-              a <- replicated.pointers(topic)
-              _ = a shouldEqual topicPointers
-              a <- eventual.pointers(topic)
+              a <- replicated.pointer(topic, partition)
+              _ = a shouldEqual offset.some
+              a <- eventual.offset(topic, partition)
             } yield {
-              a shouldEqual topicPointers
+              a shouldEqual offset.some
             }
           }
         }
@@ -323,11 +327,11 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
       s"read pointers for unknown, $name " in {
         withJournals3 { case (eventual, replicated) =>
           for {
-            a <- replicated.pointers("unknown")
-            _  = a shouldEqual TopicPointers.empty
-            a <- eventual.pointers("unknown")
+            a <- replicated.pointer("unknown", partitionOffset.partition)
+            _  = a shouldEqual none
+            a <- eventual.offset("unknown", partitionOffset.partition)
           } yield {
-            a shouldEqual TopicPointers.empty
+            a shouldEqual none
           }
         }
       }
@@ -475,7 +479,7 @@ object EventualJournalSpec {
 
     def pointer: F[Option[JournalPointer]]
 
-    def pointers(topic: Topic): F[TopicPointers]
+    def offset(topic: Topic, partition: Partition): F[Option[Offset]]
 
     def ids(topic: Topic): F[List[String]]
   }
@@ -490,7 +494,9 @@ object EventualJournalSpec {
 
       def pointer = journal.pointer(key)
 
-      def pointers(topic: Topic) = journal.pointers(topic)
+      def offset(topic: Topic, partition: Partition): F[Option[Offset]] = {
+        journal.offset(topic, partition)
+      }
 
       def ids(topic: Topic) = journal.ids(topic).toList.map { _.sorted }
     }
@@ -510,7 +516,7 @@ object EventualJournalSpec {
 
     def delete(deleteTo: DeleteTo, partitionOffset: PartitionOffset): F[Unit]
 
-    def pointers(topic: Topic): F[TopicPointers]
+    def pointer(topic: Topic, partition: Partition): F[Option[Offset]]
 
     def save(topic: Topic, pointers: Nem[Partition, Offset]): F[Changed]
   }
@@ -535,7 +541,9 @@ object EventualJournalSpec {
           journal.delete(key, partitionOffset, timestamp, deleteTo, None).void
         }
 
-        def pointers(topic: Topic) = journal.pointers(topic)
+        def pointer(topic: Topic, partition: Partition) = {
+          journal.pointer(topic, partition)
+        }
 
         def save(topic: Topic, pointers: Nem[Partition, Offset]) = {
           journal.save(topic, pointers, timestamp)

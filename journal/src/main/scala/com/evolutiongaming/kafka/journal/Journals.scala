@@ -10,8 +10,8 @@ import com.evolutiongaming.kafka.journal.conversions.{ConversionMetrics, KafkaRe
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualRead}
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.Fail.implicits._
-import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord}
@@ -183,14 +183,10 @@ object Journals {
             (HeadInfo.empty, StreamActionRecords.empty[F].pure[F]).pure[F]
           } else {
             def stream = eventual
-              .pointers(key.topic)
-              .map { pointers =>
-                val offset = pointers
-                  .values
-                  .get(marker.partition)
+              .offset(key.topic, marker.partition)
+              .map { offset =>
                 StreamActionRecords(key, from, marker, offset, consumeActionRecords)
               }
-
             headCache
               .get(key, partition = marker.partition, offset = marker.offset)
               .flatMap {

@@ -7,19 +7,18 @@ import cats.syntax.all._
 import com.evolutiongaming.catshelper.{Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
-import com.evolutiongaming.skafka.Topic
-import com.evolutiongaming.smetrics
+import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MetricsHelper._
-import com.evolutiongaming.smetrics.{MeasureDuration => _, _}
+import com.evolutiongaming.smetrics._
 import com.evolutiongaming.sstream.Stream
 
 import scala.concurrent.duration.FiniteDuration
 
 trait EventualJournal[F[_]] {
-  
+
   def pointer(key: Key): F[Option[JournalPointer]]
 
-  def pointers(topic: Topic): F[TopicPointers]
+  def offset(topic: Topic, partition: Partition): F[Option[Offset]]
 
   def read(key: Key, from: SeqNr): Stream[F, EventRecord[EventualPayloadAndType]]
 
@@ -34,19 +33,19 @@ object EventualJournal {
 
   def empty[F[_]: Applicative]: EventualJournal[F] = new Empty with EventualJournal[F] {
 
-    def pointers(topic: Topic) = TopicPointers.empty.pure[F]
-
     def read(key: Key, from: SeqNr) = Stream.empty[F, EventRecord[EventualPayloadAndType]]
 
     def pointer(key: Key) = none[JournalPointer].pure[F]
 
     def ids(topic: Topic) = Stream.empty[F, String]
+
+    def offset(topic: Topic, partition: Partition): F[Option[Offset]] = none[Offset].pure[F]
   }
 
 
   trait Metrics[F[_]] {
 
-    def pointers(topic: Topic, latency: FiniteDuration): F[Unit]
+    def offset(topic: Topic, latency: FiniteDuration): F[Unit]
 
     def read(topic: Topic, latency: FiniteDuration): F[Unit]
 
@@ -66,8 +65,6 @@ object EventualJournal {
 
     def const[F[_]](unit: F[Unit]): Metrics[F] = new Const with Metrics[F] {
 
-      def pointers(topic: Topic, latency: FiniteDuration) = unit
-
       def read(topic: Topic, latency: FiniteDuration) = unit
 
       def read(topic: Topic) = unit
@@ -75,6 +72,8 @@ object EventualJournal {
       def pointer(topic: Topic, latency: FiniteDuration) = unit
 
       def ids(topic: Topic, latency: FiniteDuration) = unit
+
+      def offset(topic: Topic, latency: FiniteDuration): F[Unit] = unit
     }
 
 
@@ -110,10 +109,6 @@ object EventualJournal {
 
         new Main with Metrics[F] {
 
-          def pointers(topic: Topic, latency: FiniteDuration) = {
-            observeLatency(name = "pointers", topic = topic, latency = latency)
-          }
-
           def read(topic: Topic, latency: FiniteDuration) = {
             observeLatency(name = "read", topic = topic, latency = latency)
           }
@@ -128,6 +123,10 @@ object EventualJournal {
 
           def ids(topic: Topic, latency: FiniteDuration) = {
             observeLatency(name = "ids", topic = topic, latency = latency)
+          }
+
+          def offset(topic: Topic, latency: FiniteDuration): F[Unit] = {
+            observeLatency(name = "offset", topic = topic, latency = latency)
           }
         }
       }
@@ -147,34 +146,21 @@ object EventualJournal {
 
     def mapK[G[_]](fg: F ~> G, gf: G ~> F): EventualJournal[G] = new MapK with EventualJournal[G] {
 
-      def pointers(topic: Topic) = fg(self.pointers(topic))
-
       def read(key: Key, from1: SeqNr) = self.read(key, from1).mapK(fg, gf)
 
       def pointer(key: Key) = fg(self.pointer(key))
 
       def ids(topic: Topic) = self.ids(topic).mapK(fg, gf)
+
+      def offset(topic: Topic, partition: Partition): G[Option[Offset]] = fg(self.offset(topic, partition))
     }
 
-    @deprecated("Use `withLog1` instead", "2.2.0")
-    def withLog(log: Log[F])(implicit F: FlatMap[F], measureDuration: smetrics.MeasureDuration[F]): EventualJournal[F] = {
-      withLog1(log)(F, measureDuration.toCatsHelper)
-    }
 
-    def withLog1(log: Log[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): EventualJournal[F] = {
+    def withLog(log: Log[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): EventualJournal[F] = {
 
       val functionKId = FunctionK.id[F]
 
       new WithLog with EventualJournal[F] {
-
-        def pointers(topic: Topic) = {
-          for {
-            d <- MeasureDuration[F].start
-            r <- self.pointers(topic)
-            d <- d
-            _ <- log.debug(s"$topic pointers in ${ d.toMillis }ms, result: $r")
-          } yield r
-        }
 
         def read(key: Key, from: SeqNr) = {
           val logging = new (F ~> F) {
@@ -212,28 +198,25 @@ object EventualJournal {
           }
           self.ids(topic).mapK(logging, functionKId)
         }
+
+        def offset(topic: Topic, partition: Partition): F[Option[Offset]] = {
+          for {
+            d <- MeasureDuration[F].start
+            r <- self.offset(topic, partition)
+            d <- d
+            _ <- log.debug(s"$topic $partition offset in ${d.toMillis}ms, result: $r")
+          } yield r
+        }
+
       }
     }
 
-    @deprecated("Use `withMetrics1` instead", "2.2.0")
-    def withMetrics(metrics: Metrics[F])(implicit F: FlatMap[F], measureDuration: smetrics.MeasureDuration[F]): EventualJournal[F] = {
-      withMetrics1(metrics)(F, measureDuration.toCatsHelper)
-    }
 
-    def withMetrics1(metrics: Metrics[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): EventualJournal[F] = {
+    def withMetrics(metrics: Metrics[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): EventualJournal[F] = {
 
       val functionKId = FunctionK.id[F]
 
       new WithMetrics with EventualJournal[F] {
-
-        def pointers(topic: Topic) = {
-          for {
-            d <- MeasureDuration[F].start
-            r <- self.pointers(topic)
-            d <- d
-            _ <- metrics.pointers(topic, d)
-          } yield r
-        }
 
         def read(key: Key, from: SeqNr) = {
           val measure = new (F ~> F) {
@@ -275,6 +258,16 @@ object EventualJournal {
           }
           self.ids(topic).mapK(measure, functionKId)
         }
+
+        def offset(topic: Topic, partition: Partition): F[Option[Offset]] = {
+          for {
+            d <- MeasureDuration[F].start
+            r <- self.offset(topic, partition)
+            d <- d
+            _ <- metrics.offset(topic, d)
+          } yield r
+        }
+
       }
     }
 
@@ -286,12 +279,6 @@ object EventualJournal {
       }
 
       new EnhanceError with EventualJournal[F] {
-
-        def pointers(topic: Topic) = {
-          self
-            .pointers(topic)
-            .handleErrorWith { a => error(s"pointers topic: $topic", a) }
-        }
 
         def read(key: Key, from: SeqNr) = {
           self
@@ -309,6 +296,14 @@ object EventualJournal {
           self
             .ids(topic)
             .handleErrorWith { a => error[String](s"ids topic: $topic", a).toStream }
+        }
+
+        def offset(topic: Topic, partition: Partition): F[Option[Offset]] = {
+          self
+            .offset(topic, partition)
+            .handleErrorWith { a =>
+              error(s"offset topic: $topic, partition $partition", a)
+            }
         }
       }
     }

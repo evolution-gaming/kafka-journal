@@ -136,7 +136,7 @@ object HeadCache {
 
   trait Eventual[F[_]] {
 
-    def pointers(topic: Topic): F[TopicPointers]
+    def pointer(topic: Topic, partition: Partition): F[Option[Offset]]
   }
 
   object Eventual {
@@ -146,16 +146,16 @@ object HeadCache {
     def apply[F[_]](eventualJournal: EventualJournal[F]): Eventual[F] = {
       class Main
       new Main with HeadCache.Eventual[F] {
-        def pointers(topic: Topic) = eventualJournal.pointers(topic)
+        def pointer(topic: Topic, partition: Partition): F[Option[Offset]] = eventualJournal.offset(topic, partition)
       }
     }
 
     def empty[F[_]: Applicative]: Eventual[F] = const(TopicPointers.empty.pure[F])
 
-    def const[F[_]](value: F[TopicPointers]): Eventual[F] = {
+    def const[F[_]: Applicative](value: F[TopicPointers]): Eventual[F] = {
       class Const
       new Const with Eventual[F] {
-        def pointers(topic: Topic) = value
+        def pointer(topic: Topic, partition: Partition): F[Option[Offset]] = value.map(_.values.get(partition))
       }
     }
   }

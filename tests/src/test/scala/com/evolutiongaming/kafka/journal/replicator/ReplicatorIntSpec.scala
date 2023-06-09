@@ -56,7 +56,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
         .liftTo[F]
       for {
         config          <- config.toResource
-        eventualJournal <- EventualCassandra.of1[F](config, origin.some, none, cassandraClusterOf)
+        eventualJournal <- EventualCassandra.of[F](config, origin.some, none, cassandraClusterOf)
       } yield eventualJournal
     }
 
@@ -168,14 +168,6 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       }
     }
 
-    def topicPointers = {
-      for {
-        pointers <- eventualJournal.pointers(topic)
-      } yield {
-        pointers.values
-      }
-    }
-
     "replicate events and expire" in {
       val result = for {
         key       <- Key.random[IO](topic)
@@ -237,11 +229,10 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
           journal          = journals(key)
           pointer0        <- journal.pointer
           _                = pointer0 shouldEqual None
-          pointers        <- topicPointers
           expected        <- append(journal, Nel.of(event(seqNr)))
           partitionOffset  = expected.head.partitionOffset
           partition        = partitionOffset.partition
-          offset           = pointers.get(partitionOffset.partition)
+          offset          <- eventualJournal.offset(topic, partitionOffset.partition)
           _                = offset.foreach { offset => partitionOffset.offset should be > offset }
           events          <- read(key)(_.nonEmpty)
           _                = events shouldEqual expected.toList
@@ -319,16 +310,14 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
           val result = for {
             key          <- Key.random[IO](topic)
             journal       = journals(key)
-            pointers     <- topicPointers
             expected     <- append(journal, events)
             partition     = expected.head.partitionOffset.partition
-            offsetBefore  = pointers.getOrElse(partition, Offset.min)
+            offsetBefore <- eventualJournal.offset(topic, partition).map(_.getOrElse(Offset.min))
             actual       <- read(key)(_.nonEmpty)
             _             = actual shouldEqual expected.toList
             pointer      <- journal.pointer
             _             = pointer shouldEqual events.last.seqNr.some
-            pointers     <- topicPointers
-            offsetAfter   = pointers.getOrElse(partition, Offset.min)
+            offsetAfter  <- eventualJournal.offset(topic, partition).map(_.getOrElse(Offset.min))
           } yield {
             offsetAfter should be > offsetBefore
           }
