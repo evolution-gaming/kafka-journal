@@ -17,13 +17,13 @@ object Dependencies {
   val hostname             = "com.evolutiongaming"    %% "hostname"              % "0.2.0"
   val scassandra           = "com.evolutiongaming"    %% "scassandra"            % "3.5.0"
   val `cassandra-sync`     = "com.evolutiongaming"    %% "cassandra-sync"        % "1.1.0"
-  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "2.10.0"
+  val `cats-helper`        = "com.evolutiongaming"    %% "cats-helper"           % "2.11.0"
   val random               = "com.evolutiongaming"    %% "random"                % "0.1.1"
   val retry                = "com.evolutiongaming"    %% "retry"                 % "2.1.1"
   val sstream              = "com.evolutiongaming"    %% "sstream"               % "0.2.1"
-  val skafka               = "com.evolutiongaming"    %% "skafka"                % "11.14.0"
+  val skafka               = "com.evolutiongaming"    %% "skafka"                % "11.15.1"
   val scache0              = "com.evolutiongaming"    %% "scache"                % "3.6.0"
-  val scache1              = "com.evolution"          %% "scache"                % "3.7.0"
+  val scache1              = "com.evolution"          %% "scache"                % "3.7.2"
   val `akka-test-actor`    = "com.evolutiongaming"    %% "akka-test-actor"       % "0.1.0"
 
   object Cats {
@@ -65,7 +65,7 @@ object Dependencies {
   }
 
   object Smetrics {
-    private val version = "0.3.6"
+    private val version = "0.4.2"
     val smetrics   = "com.evolutiongaming" %% "smetrics"            % version
     val prometheus = "com.evolutiongaming" %% "smetrics-prometheus" % version
   }

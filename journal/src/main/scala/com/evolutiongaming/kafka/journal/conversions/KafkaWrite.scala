@@ -3,10 +3,10 @@ package com.evolutiongaming.kafka.journal.conversions
 import cats.{Monad, ~>}
 import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.MonadThrowable
+import com.evolutiongaming.catshelper.{MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal.PayloadAndType._
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.smetrics
 import play.api.libs.json.{JsValue, Json, Writes}
 
 import scala.annotation.tailrec
@@ -108,7 +108,17 @@ object KafkaWrite {
     }
 
   implicit class KafkaWriteOps[F[_], A](val self: KafkaWrite[F, A]) extends AnyVal {
+
+    @deprecated("Use `withMetrics1` instead", "0.2.1")
     def withMetrics(
+      metrics: KafkaWriteMetrics[F]
+    )(
+      implicit F: Monad[F], measureDuration: smetrics.MeasureDuration[F]
+    ): KafkaWrite[F, A] = {
+      withMetrics1(metrics)(F, measureDuration.toCatsHelper)
+    }
+
+    def withMetrics1(
       metrics: KafkaWriteMetrics[F]
     )(
       implicit F: Monad[F], measureDuration: MeasureDuration[F]

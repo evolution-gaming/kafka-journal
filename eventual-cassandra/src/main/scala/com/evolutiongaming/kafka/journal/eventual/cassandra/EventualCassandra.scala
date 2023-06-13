@@ -4,7 +4,7 @@ import cats.effect.{Concurrent, Resource, Timer}
 import cats.syntax.all._
 import cats.{Monad, Parallel}
 import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper.{LogOf, ToTry}
+import com.evolutiongaming.catshelper.{LogOf, MeasureDuration, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
@@ -13,15 +13,33 @@ import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.scassandra.{CassandraClusterOf, TableName}
 import com.evolutiongaming.skafka.Topic
-import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.smetrics
 import com.evolutiongaming.sstream.Stream
 
 
 object EventualCassandra {
 
+  @deprecated("Use `of1` instead", "0.2.1")
   def of[
     F[_]
-    : Concurrent: Parallel: Timer
+    : Concurrent : Parallel : Timer
+    : ToTry: LogOf
+    : FromGFuture
+    : smetrics.MeasureDuration
+    : JsonCodec.Decode
+  ](
+    config: EventualCassandraConfig,
+    origin: Option[Origin],
+    metrics: Option[EventualJournal.Metrics[F]],
+    cassandraClusterOf: CassandraClusterOf[F],
+  ): Resource[F, EventualJournal[F]] = {
+    implicit val md: MeasureDuration[F] = smetrics.MeasureDuration[F].toCatsHelper
+    of1(config, origin, metrics, cassandraClusterOf)
+  }
+
+  def of1[
+    F[_]
+    : Concurrent : Parallel : Timer
     : ToTry: LogOf
     : FromGFuture
     : MeasureDuration
@@ -34,7 +52,7 @@ object EventualCassandra {
   ): Resource[F, EventualJournal[F]] = {
 
     def journal(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
-      of(config.schema, origin, metrics, config.consistencyConfig)
+      of1(config.schema, origin, metrics, config.consistencyConfig)
     }
 
     for {
@@ -44,7 +62,25 @@ object EventualCassandra {
     } yield journal
   }
 
+  @deprecated("Use `of1` instead", "0.2.1")
   def of[
+    F[_]
+    : Concurrent: Parallel: Timer
+    : ToTry: LogOf
+    : CassandraCluster: CassandraSession
+    : smetrics.MeasureDuration
+    : JsonCodec.Decode
+  ](
+    schemaConfig: SchemaConfig,
+    origin: Option[Origin],
+    metrics: Option[EventualJournal.Metrics[F]],
+    consistencyConfig: ConsistencyConfig
+  ): F[EventualJournal[F]] = {
+    implicit val md: MeasureDuration[F] = smetrics.MeasureDuration[F].toCatsHelper
+    of1(schemaConfig, origin, metrics, consistencyConfig)
+  }
+
+  def of1[
     F[_]
     : Concurrent: Parallel: Timer
     : ToTry: LogOf
@@ -64,9 +100,9 @@ object EventualCassandra {
       segmentNrsOf  = SegmentNrsOf[F](first = Segments.default, second = Segments.old)
       statements   <- Statements.of(schema, segmentNrsOf, Segments.default, consistencyConfig.read)
     } yield {
-      val journal = apply[F](statements).withLog(log)
+      val journal = apply[F](statements).withLog1(log)
       metrics
-        .fold(journal) { metrics => journal.withMetrics(metrics) }
+        .fold(journal) { metrics => journal.withMetrics1(metrics) }
         .enhanceError
     }
   }

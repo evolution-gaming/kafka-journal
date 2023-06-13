@@ -1,15 +1,14 @@
 package com.evolutiongaming.kafka.journal.eventual
 
 import java.time.Instant
-
 import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
 import cats.{Applicative, FlatMap, ~>}
-import com.evolutiongaming.catshelper.{ApplicativeThrowable, Log}
+import com.evolutiongaming.catshelper.{ApplicativeThrowable, Log, MeasureDuration}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedKeyJournal.Changed
 import com.evolutiongaming.skafka.{Offset, Topic}
-import com.evolutiongaming.smetrics._
+import com.evolutiongaming.smetrics
 
 
 trait ReplicatedKeyJournal[F[_]] {
@@ -136,8 +135,17 @@ object ReplicatedKeyJournal {
       }
     }
 
-
+    @deprecated("Use `withLog1` instead", "0.2.1")
     def withLog(
+      key: Key,
+      log: Log[F])(implicit
+      F: FlatMap[F],
+      measureDuration: smetrics.MeasureDuration[F]
+    ): ReplicatedKeyJournal[F] = {
+      withLog1(key, log)(F, measureDuration.toCatsHelper)
+    }
+
+    def withLog1(
       key: Key,
       log: Log[F])(implicit
       F: FlatMap[F],
@@ -198,8 +206,17 @@ object ReplicatedKeyJournal {
       }
     }
 
-
+    @deprecated("Use `withMetrics1` instead", "0.2.1")
     def withMetrics(
+      topic: Topic,
+      metrics: ReplicatedJournal.Metrics[F])(implicit
+      F: FlatMap[F],
+      measureDuration: smetrics.MeasureDuration[F]
+    ): ReplicatedKeyJournal[F] = {
+      withMetrics1(topic, metrics)(F, measureDuration.toCatsHelper)
+    }
+
+    def withMetrics1(
       topic: Topic,
       metrics: ReplicatedJournal.Metrics[F])(implicit
       F: FlatMap[F],

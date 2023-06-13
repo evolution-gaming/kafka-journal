@@ -2,14 +2,13 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.{Instant, LocalDate, ZoneId}
 import java.util.TimeZone
-
 import cats.effect.Sync
 import cats.syntax.all._
 import cats.{Monad, ~>}
-import com.evolutiongaming.catshelper.{BracketThrowable, Log, LogOf}
+import com.evolutiongaming.catshelper.{BracketThrowable, Log, LogOf, MeasureDuration}
 import com.evolutiongaming.kafka.journal.ExpireAfter
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
-import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.smetrics
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -36,13 +35,19 @@ object ExpiryService {
     }
   }
 
-  def of[F[_] : Sync : LogOf : MeasureDuration]: F[ExpiryService[F]] = {
+  @deprecated("Use `of1` instead", "0.2.1")
+  def of[F[_] : Sync : LogOf : smetrics.MeasureDuration]: F[ExpiryService[F]] = {
+    implicit val md: MeasureDuration[F] = smetrics.MeasureDuration[F].toCatsHelper
+    of1
+  }
+
+  def of1[F[_] : Sync : LogOf : MeasureDuration]: F[ExpiryService[F]] = {
     for {
       zoneId <- Sync[F].delay { TimeZone.getDefault.toZoneId }
       log    <- LogOf[F].apply(ExpiryService.getClass)
       _      <- log.debug(s"zoneId: $zoneId")
     } yield {
-      apply[F](zoneId).withLog(log)
+      apply[F](zoneId).withLog1(log)
     }
   }
 
@@ -111,8 +116,16 @@ object ExpiryService {
       }
     }
 
-
+    @deprecated("Use `withLog1` instead", "0.2.1")
     def withLog(
+      log: Log[F])(implicit
+      F: Monad[F],
+      measureDuration: smetrics.MeasureDuration[F]
+    ): ExpiryService[F] = {
+      withLog1(log)(F, measureDuration.toCatsHelper)
+    }
+
+    def withLog1(
       log: Log[F])(implicit
       F: Monad[F],
       measureDuration: MeasureDuration[F]
