@@ -3,11 +3,10 @@ package com.evolutiongaming.kafka.journal
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.{FromTry, LogOf, ToFuture, ToTry}
+import com.evolutiongaming.catshelper.{FromTry, LogOf, MeasureDuration, ToFuture, ToTry}
 import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.ProducerConfig
-import com.evolutiongaming.smetrics.MeasureDuration
 
 
 object KafkaHealthCheckApp extends IOApp {
@@ -30,9 +29,9 @@ object KafkaHealthCheckApp extends IOApp {
 
   private def runF[F[_]: Async: ToFuture: LogOf: FromTry: ToTry: MeasureDuration] = {
 
-    implicit val kafkaConsumerOf = KafkaConsumerOf[F]()
+    implicit val kafkaConsumerOf = KafkaConsumerOf.apply1[F]()
 
-    implicit val kafkaProducerOf = KafkaProducerOf[F]()
+    implicit val kafkaProducerOf = KafkaProducerOf.apply1[F]()
 
     implicit val randomIdOf = RandomIdOf.uuid[F]
 

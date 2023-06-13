@@ -6,10 +6,10 @@ import cats.effect.Resource
 import cats.effect.syntax.all._
 import cats.syntax.all._
 import cats.{Applicative, Monad, ~>}
-import com.evolutiongaming.catshelper.{BracketThrowable, Log, MonadThrowable}
+import com.evolutiongaming.catshelper.{BracketThrowable, Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
-import com.evolutiongaming.smetrics._
+import com.evolutiongaming.smetrics
 
 import java.time.Instant
 
@@ -89,8 +89,17 @@ object ReplicatedTopicJournal {
       }
     }
 
-
+    @deprecated("Use `withLog1` instead", "2.2.0")
     def withLog(
+      topic: Topic,
+      log: Log[F])(implicit
+      F: Monad[F],
+      measureDuration: smetrics.MeasureDuration[F]
+    ): ReplicatedTopicJournal[F] = {
+      withLog1(topic, log)(F, measureDuration.toCatsHelper)
+    }
+
+    def withLog1(
       topic: Topic,
       log: Log[F])(implicit
       F: Monad[F],
@@ -111,7 +120,7 @@ object ReplicatedTopicJournal {
         def journal(id: String) = {
           self
             .journal(id)
-            .map { _.withLog(Key(id = id, topic = topic), log) }
+            .map { _.withLog1(Key(id = id, topic = topic), log) }
         }
 
         def save(pointers: Nem[Partition, Offset], timestamp: Instant) = {
@@ -146,7 +155,7 @@ object ReplicatedTopicJournal {
         def journal(id: String) = {
           self
             .journal(id)
-            .map { _.withMetrics(topic, metrics) }
+            .map { _.withMetrics1(topic, metrics) }
         }
 
         def save(pointers: Nem[Partition, Offset], timestamp: Instant) = {

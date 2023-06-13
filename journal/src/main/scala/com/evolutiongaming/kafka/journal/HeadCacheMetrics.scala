@@ -15,6 +15,11 @@ object HeadCacheMetrics {
 
   @deprecated("use another `apply` instead", "2023-02-13")
   def apply[F[_]](headCache: HeadCache.Metrics[F], cache: com.evolutiongaming.scache.CacheMetrics[F]): HeadCacheMetrics[F] = {
+    throw new Exception("Deprecated, use another `apply` instead")
+  }
+
+  @deprecated("Use another `apply` instead", "2023-02-13")
+  def apply[F[_]: Applicative](headCache: HeadCache.Metrics[F], cache: com.evolutiongaming.scache.CacheMetrics[F]): HeadCacheMetrics[F] = {
     apply(headCache, cache.toCacheMetrics)
   }
 
@@ -32,7 +37,7 @@ object HeadCacheMetrics {
 
 
   private implicit class CacheMetrics0Ops[F[_]](val self: com.evolutiongaming.scache.CacheMetrics[F]) extends AnyVal {
-    def toCacheMetrics: CacheMetrics[F] = {
+    def toCacheMetrics(implicit F: Applicative[F]): CacheMetrics[F] = {
       new CacheMetrics[F] {
         def get(hit: Boolean) = self.get(hit)
 
@@ -41,6 +46,8 @@ object HeadCacheMetrics {
         def life(time: FiniteDuration) = self.life(time)
 
         def put = self.put
+
+        def modify(entryExisted: Boolean, directive: CacheMetrics.Directive): F[Unit] = F.unit
 
         def size(size: Int) = self.size(size)
 

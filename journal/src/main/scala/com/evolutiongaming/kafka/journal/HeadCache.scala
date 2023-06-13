@@ -12,8 +12,9 @@ import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointer
 import com.evolution.scache.{Cache, ExpiringCache}
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
+import com.evolutiongaming.smetrics
 import com.evolutiongaming.smetrics.MetricsHelper._
-import com.evolutiongaming.smetrics._
+import com.evolutiongaming.smetrics.{MeasureDuration => _, _}
 
 import scala.concurrent.duration._
 
@@ -40,27 +41,47 @@ object HeadCache {
     }
   }
 
+  @deprecated("Use `of1` instead", "2.2.0")
+  def of[F[_]: Async: Parallel: Runtime: LogOf: KafkaConsumerOf: smetrics.MeasureDuration: FromTry: FromJsResult: JsonCodec.Decode](
+    consumerConfig: ConsumerConfig,
+    eventualJournal: EventualJournal[F],
+    metrics: Option[HeadCacheMetrics[F]]
+  ): Resource[F, HeadCache[F]] = {
+    implicit val md: MeasureDuration[F] = smetrics.MeasureDuration[F].toCatsHelper
+    of1(consumerConfig, eventualJournal, metrics)
+  }
 
-  def of[F[_]: Async: Parallel: Runtime: LogOf: KafkaConsumerOf: MeasureDuration: FromTry: FromJsResult: JsonCodec.Decode](
+  def of1[F[_]: Async: Parallel: Runtime: LogOf: KafkaConsumerOf: MeasureDuration: FromTry: FromJsResult: JsonCodec.Decode](
     consumerConfig: ConsumerConfig,
     eventualJournal: EventualJournal[F],
     metrics: Option[HeadCacheMetrics[F]]
   ): Resource[F, HeadCache[F]] = {
     for {
       log    <- LogOf[F].apply(HeadCache.getClass).toResource
-      result <- HeadCache.of(
+      result <- HeadCache.of1(
         Eventual(eventualJournal),
         log,
         TopicCache.Consumer.of[F](consumerConfig),
         metrics)
       result <- result.withFence
     } yield {
-      result.withLog(log)
+      result.withLog1(log)
     }
   }
 
+  @deprecated("Use `of1` instead", "2.2.0")
+  def of[F[_]: Async: Parallel: Runtime: FromJsResult: smetrics.MeasureDuration: JsonCodec.Decode](
+    eventual: Eventual[F],
+    log: Log[F],
+    consumer: Resource[F, TopicCache.Consumer[F]],
+    metrics: Option[HeadCacheMetrics[F]],
+    config: HeadCacheConfig = HeadCacheConfig.default
+  ): Resource[F, HeadCache[F]] = {
+    implicit val md: MeasureDuration[F] = smetrics.MeasureDuration[F].toCatsHelper
+    of1(eventual, log, consumer, metrics, config)
+  }
 
-  def of[F[_]: Async: Parallel: Runtime: FromJsResult: MeasureDuration: JsonCodec.Decode](
+  def of1[F[_]: Async: Parallel: Runtime: FromJsResult: MeasureDuration: JsonCodec.Decode](
     eventual: Eventual[F],
     log: Log[F],
     consumer: Resource[F, TopicCache.Consumer[F]],
@@ -71,7 +92,7 @@ object HeadCache {
     val consRecordToActionHeader = ConsRecordToActionHeader[F]
     for {
       cache <- Cache.expiring(ExpiringCache.Config[F, Topic, TopicCache[F]](expireAfterRead = config.expiry))
-      cache <- metrics.fold(cache.pure[Resource[F, *]]) { metrics => cache.withMetrics(metrics.cache) }
+      cache <- metrics.fold(cache.pure[Resource[F, *]]) { metrics => cache.withMetrics1(metrics.cache) }
     } yield {
       class Main
       new Main with HeadCache[F] {
@@ -92,7 +113,7 @@ object HeadCache {
                   metrics.map { _.headCache })
                 .map { cache =>
                   metrics
-                    .fold(cache) { metrics => cache.withMetrics(topic, metrics.headCache) }
+                    .fold(cache) { metrics => cache.withMetrics1(topic, metrics.headCache) }
                     .withLog(log1)
                 }
             }
@@ -152,7 +173,12 @@ object HeadCache {
       }
     }
 
-    def withLog(log: Log[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): HeadCache[F] = {
+    @deprecated("Use `withLog1` instead", "2.2.0")
+    def withLog(log: Log[F])(implicit F: FlatMap[F], measureDuration: smetrics.MeasureDuration[F]): HeadCache[F] = {
+      withLog1(log)(F, measureDuration.toCatsHelper)
+    }
+
+    def withLog1(log: Log[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): HeadCache[F] = {
       new WithLog with HeadCache[F] {
 
         def get(key: Key, partition: Partition, offset: Offset) = {

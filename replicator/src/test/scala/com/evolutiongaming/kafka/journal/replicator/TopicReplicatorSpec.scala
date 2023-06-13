@@ -8,7 +8,7 @@ import cats.syntax.all._
 import cats.{Applicative, Monoid, Parallel}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.DataHelper._
-import com.evolutiongaming.catshelper.{FromTry, Log}
+import com.evolutiongaming.catshelper.{FromTry, Log, MeasureDuration}
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsRecordToActionRecord, KafkaRead, KafkaWrite}
@@ -19,7 +19,6 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.retry.Sleep
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, RebalanceListener, WithSize}
 import com.evolutiongaming.skafka.{Bytes => _, Header => _, Metadata => _, _}
-import com.evolutiongaming.smetrics.MeasureDuration
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -976,7 +975,7 @@ object TopicReplicatorSpec {
     val kafkaRead = KafkaRead.summon[StateT, Payload]
     val eventualWrite = EventualWrite.summon[StateT, Payload]
 
-    TopicReplicator.of[StateT, Payload](
+    TopicReplicator.of1[StateT, Payload](
       topic = topic,
       consumer = consumer.pure[StateT].toResource,
       consRecordToActionRecord = ConsRecordToActionRecord[StateT],

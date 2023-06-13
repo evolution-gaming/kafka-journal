@@ -5,7 +5,7 @@ import cats.data.{NonEmptyList => Nel, NonEmptySet => Nes}
 import cats.effect._
 import cats.effect.syntax.all._
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MonadThrowable}
+import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal.conversions.{ConversionMetrics, KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualRead}
 import com.evolutiongaming.kafka.journal.util.Fail
@@ -16,7 +16,7 @@ import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord}
 import com.evolutiongaming.skafka.{Bytes => _, _}
-import com.evolutiongaming.smetrics._
+import com.evolutiongaming.smetrics
 import com.evolutiongaming.sstream.Stream
 import scodec.bits.ByteVector
 
@@ -40,8 +40,27 @@ object Journals {
     }
   }
 
-
+  @deprecated("Use `of1` instead", "2.2.0")
   def of[
+    F[_]
+    : Clock
+    : FromTry : Fail : LogOf
+    : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomIdOf
+    : smetrics.MeasureDuration
+    : JsonCodec
+  ](
+    config: JournalConfig,
+    origin: Option[Origin],
+    eventualJournal: EventualJournal[F],
+    journalMetrics: Option[JournalMetrics[F]],
+    conversionMetrics: Option[ConversionMetrics[F]],
+    callTimeThresholds: Journal.CallTimeThresholds
+  )(implicit F: MonadCancel[F, Throwable]): Resource[F, Journals[F]] = {
+    implicit val md: MeasureDuration[F] = smetrics.MeasureDuration[F].toCatsHelper
+    of1(config, origin, eventualJournal, journalMetrics, conversionMetrics, callTimeThresholds)
+  }
+
+  def of1[
     F[_]
     : Clock
     : FromTry : Fail : LogOf
@@ -72,7 +91,7 @@ object Journals {
       log       <- LogOf[F].apply(Journals.getClass).toResource
       headCache <- headCache
     } yield {
-      val journal = apply(
+      val journal = apply1(
         origin,
         producer,
         consumer,
@@ -81,13 +100,26 @@ object Journals {
         log,
         conversionMetrics
       )
-      val withLog = journal.withLog(log, callTimeThresholds)
-      journalMetrics.fold(withLog) { metrics => withLog.withMetrics(metrics) }
+      val withLog = journal.withLog1(log, callTimeThresholds)
+      journalMetrics.fold(withLog) { metrics => withLog.withMetrics1(metrics) }
     }
   }
 
+  @deprecated("Use `apply1` instead", "2.2.0")
+  def apply[F[_]: Clock : RandomIdOf : Fail : JsonCodec : smetrics.MeasureDuration](
+    origin: Option[Origin],
+    producer: Producer[F],
+    consumer: Resource[F, Consumer[F]],
+    eventualJournal: EventualJournal[F],
+    headCache: HeadCache[F],
+    log: Log[F],
+    conversionMetrics: Option[ConversionMetrics[F]]
+  )(implicit F: MonadCancel[F, Throwable]): Journals[F] = {
+    implicit val md: MeasureDuration[F] = smetrics.MeasureDuration[F].toCatsHelper
+    apply1(origin, producer, consumer, eventualJournal, headCache, log, conversionMetrics)
+  }
 
-  def apply[F[_]: Clock : RandomIdOf : Fail : JsonCodec : MeasureDuration](
+  def apply1[F[_]: Clock : RandomIdOf : Fail : JsonCodec : MeasureDuration](
     origin: Option[Origin],
     producer: Producer[F],
     consumer: Resource[F, Consumer[F]],
@@ -99,7 +131,7 @@ object Journals {
     implicit val fromAttempt: FromAttempt[F]   = FromAttempt.lift[F]
     implicit val fromJsResult: FromJsResult[F] = FromJsResult.lift[F]
 
-    apply[F](
+    apply1[F](
       eventual = eventualJournal,
       consumeActionRecords = ConsumeActionRecords[F](consumer, log),
       produce = Produce[F](producer, origin),
@@ -108,8 +140,20 @@ object Journals {
       conversionMetrics = conversionMetrics)
   }
 
+  @deprecated("Use `apply1` instead", "2.2.0")
+  def apply[F[_] : RandomIdOf : smetrics.MeasureDuration](
+    eventual: EventualJournal[F],
+    consumeActionRecords: ConsumeActionRecords[F],
+    produce: Produce[F],
+    headCache: HeadCache[F],
+    log: Log[F],
+    conversionMetrics: Option[ConversionMetrics[F]]
+  )(implicit F: MonadCancel[F, Throwable]): Journals[F] = {
+    implicit val md: MeasureDuration[F] = smetrics.MeasureDuration[F].toCatsHelper
+    apply1(eventual, consumeActionRecords, produce, headCache, log, conversionMetrics)
+  }
 
-  def apply[F[_] : RandomIdOf : MeasureDuration](
+  def apply1[F[_] : RandomIdOf : MeasureDuration](
     eventual: EventualJournal[F],
     consumeActionRecords: ConsumeActionRecords[F],
     produce: Produce[F],
@@ -123,12 +167,12 @@ object Journals {
 
     def kafkaWriteWithMetrics[A](implicit kafkaWrite: KafkaWrite[F, A]) =
       conversionMetrics.fold(kafkaWrite) { metrics =>
-        kafkaWrite.withMetrics(metrics.kafkaWrite)
+        kafkaWrite.withMetrics1(metrics.kafkaWrite)
     }
 
     def kafkaReadWithMetrics[A](implicit kafkaRead: KafkaRead[F, A]) =
       conversionMetrics.fold(kafkaRead) { metrics =>
-        kafkaRead.withMetrics(metrics.kafkaRead)
+        kafkaRead.withMetrics1(metrics.kafkaRead)
       }
 
     def headAndStream(key: Key, from: SeqNr): F[(HeadInfo, F[StreamActionRecords[F]])] = {
@@ -431,31 +475,57 @@ object Journals {
 
   implicit class JournalsOps[F[_]](val self: Journals[F]) extends AnyVal {
 
+    @deprecated("Use `withLog1` instead", "2.2.0")
     def withLog(
+      log: Log[F],
+      config: Journal.CallTimeThresholds = Journal.CallTimeThresholds.default)(implicit
+      F: FlatMap[F],
+      measureDuration: smetrics.MeasureDuration[F]
+    ): Journals[F] = {
+      withLog1(log, config)(F, measureDuration.toCatsHelper)
+    }
+
+    def withLog1(
       log: Log[F],
       config: Journal.CallTimeThresholds = Journal.CallTimeThresholds.default)(implicit
       F: FlatMap[F],
       measureDuration: MeasureDuration[F]
     ): Journals[F] = {
-      key: Key => self(key).withLog(key, log, config)
+      key: Key => self(key).withLog1(key, log, config)
     }
 
-
+    @deprecated("Use `withLogError1` instead", "2.2.0")
     def withLogError(
+      log: Log[F])(implicit
+      F: MonadThrowable[F],
+      measureDuration: smetrics.MeasureDuration[F]
+    ): Journals[F] = {
+      withLogError1(log)(F, measureDuration.toCatsHelper)
+    }
+
+    def withLogError1(
       log: Log[F])(implicit
       F: MonadThrowable[F],
       measureDuration: MeasureDuration[F]
     ): Journals[F] = {
-      key: Key => self(key).withLogError(key, log)
+      key: Key => self(key).withLogError1(key, log)
     }
 
-
+    @deprecated("Use `withLogError1` instead", "2.2.0")
     def withMetrics(
+      metrics: JournalMetrics[F])(implicit
+      F: MonadThrowable[F],
+      measureDuration: smetrics.MeasureDuration[F]
+    ): Journals[F] = {
+      withMetrics1(metrics)(F, measureDuration.toCatsHelper)
+    }
+
+    def withMetrics1(
       metrics: JournalMetrics[F])(implicit
       F: MonadThrowable[F],
       measureDuration: MeasureDuration[F]
     ): Journals[F] = {
-      key: Key => self(key).withMetrics(key.topic, metrics)
+      key: Key => self(key).withMetrics1(key.topic, metrics)
     }
 
 

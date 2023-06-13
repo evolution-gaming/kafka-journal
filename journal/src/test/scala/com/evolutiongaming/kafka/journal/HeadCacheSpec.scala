@@ -285,7 +285,7 @@ object HeadCacheSpec {
 
     for {
       metrics   <- HeadCacheMetrics.of[IO](CollectorRegistry.empty)
-      headCache <- HeadCache.of[IO](
+      headCache <- HeadCache.of1[IO](
         log = LogIO,
         config = config,
         eventual = eventual,

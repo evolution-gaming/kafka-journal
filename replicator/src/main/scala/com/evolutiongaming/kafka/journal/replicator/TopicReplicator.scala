@@ -6,7 +6,7 @@ import cats.effect.implicits._
 import cats.implicits._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
-import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, ToTry}
+import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MeasureDuration, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.conversions.{ConsRecordToActionRecord, KafkaRead}
 import com.evolutiongaming.kafka.journal.eventual._
@@ -16,7 +16,7 @@ import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.retry.Sleep
 import com.evolutiongaming.skafka.{Metadata, Offset, Partition, Topic}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
-import com.evolutiongaming.smetrics._
+import com.evolutiongaming.smetrics
 import scodec.bits.ByteVector
 
 import java.time.Instant
@@ -25,7 +25,19 @@ import scala.util.Try
 
 object TopicReplicator {
 
-  def of[F[_]: Concurrent: Sleep: ToTry: LogOf: Fail: MeasureDuration: JsonCodec](
+  @deprecated("Use `of1` instead", "2.2.0")
+  def of[F[_]: Concurrent: Sleep: ToTry: LogOf: Fail: smetrics.MeasureDuration: JsonCodec](
+    topic: Topic,
+    journal: ReplicatedJournal[F],
+    consumer: Resource[F, TopicConsumer[F]],
+    metrics: TopicReplicatorMetrics[F],
+    cacheOf: CacheOf[F]
+  ): Resource[F, F[Outcome[F, Throwable, Unit]]] = {
+    implicit val md: MeasureDuration[F] = smetrics.MeasureDuration[F].toCatsHelper
+    of1(topic, journal, consumer, metrics, cacheOf)
+  }
+
+  def of1[F[_]: Concurrent: Sleep: ToTry: LogOf: Fail: MeasureDuration: JsonCodec](
     topic: Topic,
     journal: ReplicatedJournal[F],
     consumer: Resource[F, TopicConsumer[F]],
@@ -46,7 +58,7 @@ object TopicReplicator {
     ) = {
 
       val consRecordToActionRecord = ConsRecordToActionRecord[F]
-      of(
+      of1(
         topic = topic,
         consumer = consumer,
         consRecordToActionRecord = consRecordToActionRecord,
@@ -70,7 +82,23 @@ object TopicReplicator {
     } yield done
   }
 
-  def of[F[_]: Concurrent: Sleep: MeasureDuration, A](
+  @deprecated("Use `of1` instead", "2.2.0")
+  def of[F[_]: Concurrent: Sleep: smetrics.MeasureDuration, A](
+    topic: Topic,
+    consumer: Resource[F, TopicConsumer[F]],
+    consRecordToActionRecord: ConsRecordToActionRecord[F],
+    kafkaRead: KafkaRead[F, A],
+    eventualWrite: EventualWrite[F, A],
+    journal: ReplicatedJournal[F],
+    metrics: TopicReplicatorMetrics[F],
+    log: Log[F],
+    cacheOf: CacheOf[F]
+  ): F[Unit] = {
+    implicit val md: MeasureDuration[F] = smetrics.MeasureDuration[F].toCatsHelper
+    of1(topic, consumer, consRecordToActionRecord, kafkaRead, eventualWrite, journal, metrics, log, cacheOf)
+  }
+
+  def of1[F[_]: Concurrent: Sleep: MeasureDuration, A](
     topic: Topic,
     consumer: Resource[F, TopicConsumer[F]],
     consRecordToActionRecord: ConsRecordToActionRecord[F],

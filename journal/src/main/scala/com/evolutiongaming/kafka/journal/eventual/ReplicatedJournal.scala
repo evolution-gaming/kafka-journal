@@ -5,11 +5,12 @@ import cats.effect.Resource
 import cats.effect.syntax.all._
 import cats.syntax.all._
 import cats.{Applicative, Monad, ~>}
-import com.evolutiongaming.catshelper.{BracketThrowable, Log, MonadThrowable}
+import com.evolutiongaming.catshelper.{BracketThrowable, Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.Topic
+import com.evolutiongaming.smetrics
 import com.evolutiongaming.smetrics.MetricsHelper._
-import com.evolutiongaming.smetrics._
+import com.evolutiongaming.smetrics.{MeasureDuration => _, _}
 
 import scala.collection.immutable.SortedSet
 import scala.concurrent.duration.FiniteDuration
@@ -84,8 +85,16 @@ object ReplicatedJournal {
       }
     }
 
-
+    @deprecated("Use `withLog1` instead", "2.2.0")
     def withLog(
+      log: Log[F])(implicit
+      F: Monad[F],
+      measureDuration: smetrics.MeasureDuration[F]
+    ): ReplicatedJournal[F] = {
+      withLog1(log)(F, measureDuration.toCatsHelper)
+    }
+
+    def withLog1(
       log: Log[F])(implicit
       F: Monad[F],
       measureDuration: MeasureDuration[F]
@@ -103,7 +112,7 @@ object ReplicatedJournal {
       def journal(topic: Topic) = {
         self
           .journal(topic)
-          .map { _.withLog(topic, log) }
+          .map { _.withLog1(topic, log) }
       }
     }
 

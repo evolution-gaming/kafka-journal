@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import cats.effect.unsafe.implicits.global
 import cats.effect.{Clock, IO}
-import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.catshelper.MeasureDuration
 import org.scalatest.Succeeded
 
 import scala.concurrent.duration._
