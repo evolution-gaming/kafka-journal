@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.Monad
+import cats.{Monad, Parallel}
 import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
@@ -34,6 +34,14 @@ object PointerStatements {
   }
 
   object Insert {
+
+    def apply[F[_]: Monad: Parallel: CassandraSession](
+      legacy: Insert[F],
+      insert: Insert[F],
+    ): Insert[F] = {
+      (topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant) =>
+        legacy(topic, partition, offset, created, updated) &> insert(topic, partition, offset, created, updated)
+    }
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
@@ -71,6 +79,14 @@ object PointerStatements {
   }
 
   object Update {
+
+    def apply[F[_]: Monad: Parallel: CassandraSession](
+      legacy: Update[F],
+      update: Update[F],
+    ): Update[F] = {
+      (topic: Topic, partition: Partition, offset: Offset, timestamp: Instant) =>
+        legacy(topic, partition, offset, timestamp) &> update(topic, partition, offset, timestamp)
+    }
 
     def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: ConsistencyConfig.Write): F[Update[F]] = {
 
@@ -203,31 +219,4 @@ object PointerStatements {
     }
   }
 
-
-  trait Delete[F[_]] {
-
-    def apply(topic: Topic): F[Unit]
-  }
-
-  object Delete {
-
-    def of[F[_]: Monad: CassandraSession](
-      name: TableName,
-      consistencyConfig: ConsistencyConfig.Write
-    ): F[Delete[F]] = {
-
-      s"""DELETE FROM ${ name.toCql } WHERE topic = ?"""
-        .prepare
-        .map { prepared =>
-          topic: Topic =>
-            prepared
-              .bind()
-              .encode("topic", topic)
-              .setConsistencyLevel(consistencyConfig.value)
-              .execute
-              .first
-              .void
-        }
-    }
-  }
 }

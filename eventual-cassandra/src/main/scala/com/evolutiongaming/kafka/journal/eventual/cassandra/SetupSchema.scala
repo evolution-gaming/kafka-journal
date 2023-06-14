@@ -43,6 +43,8 @@ object SetupSchema { self =>
       s"DROP TABLE IF EXISTS ${ schema.metadata.toCql }"
         .execute
         .first
+        .void
+        .handleError { _ => () }
     }
 
     val schemaVersion = "schema-version"

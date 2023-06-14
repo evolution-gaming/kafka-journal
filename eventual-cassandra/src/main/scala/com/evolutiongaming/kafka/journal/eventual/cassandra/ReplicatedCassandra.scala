@@ -660,11 +660,17 @@ object ReplicatedCassandra {
         JournalStatements.DeleteTo.of[F](schema.journal, consistencyConfig.write),
         JournalStatements.Delete.of[F](schema.journal, consistencyConfig.write),
         MetaJournalStatements.of[F](schema, consistencyConfig),
-        PointerStatements.Select.of[F](schema.pointer, consistencyConfig.read),
-        PointerStatements.SelectIn.of[F](schema.pointer, consistencyConfig.read),
-        PointerStatements.Insert.of[F](schema.pointer, consistencyConfig.write),
-        PointerStatements.Update.of[F](schema.pointer, consistencyConfig.write),
-        PointerStatements.SelectTopics.of[F](schema.pointer, consistencyConfig.read))
+        PointerStatements.Select.of[F](schema.pointer2, consistencyConfig.read),
+        PointerStatements.SelectIn.of[F](schema.pointer2, consistencyConfig.read),
+        for {
+          legacy <- PointerStatements.Insert.of[F](schema.pointer, consistencyConfig.write)
+          insert <- PointerStatements.Insert.of[F](schema.pointer2, consistencyConfig.write)
+        } yield PointerStatements.Insert(legacy, insert),
+        for {
+          legacy <- PointerStatements.Update.of[F](schema.pointer, consistencyConfig.write)
+          update <- PointerStatements.Update.of[F](schema.pointer2, consistencyConfig.write)
+        } yield PointerStatements.Update(legacy, update),
+        PointerStatements2.SelectTopics.of[F](schema.pointer2, consistencyConfig.read))
       statements.parMapN(Statements[F])
     }
   }

@@ -86,6 +86,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
     metadata = TableName(keyspace = "journal", table = "metadata"),
     metaJournal = TableName(keyspace = "journal", table = "metaJournal"),
     pointer = TableName(keyspace = "journal", table = "pointer"),
+    pointer2 = TableName(keyspace = "journal", table = "pointer2"),
     setting = TableName(keyspace = "journal", table = "setting"))
 
   implicit val settings: Settings[StateT] = {
