@@ -9,7 +9,7 @@ import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.skafka.{Partition, Topic}
 
-object PointerStatements2 {
+object Pointer2Statements {
 
   def createTable(name: TableName): String = {
     s"""

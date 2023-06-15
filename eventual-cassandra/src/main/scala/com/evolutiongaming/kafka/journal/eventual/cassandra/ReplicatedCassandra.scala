@@ -666,7 +666,7 @@ object ReplicatedCassandra {
         } yield PointerStatements.Select(legacy, select),
         for {
           legacy <- PointerStatements.SelectIn.of[F](schema.pointer, consistencyConfig.read)
-          select <- PointerStatements2.SelectIn.of[F](schema.pointer2, consistencyConfig.read)
+          select <- Pointer2Statements.SelectIn.of[F](schema.pointer2, consistencyConfig.read)
         } yield PointerStatements.SelectIn(legacy, select),
         for {
           legacy <- PointerStatements.Insert.of[F](schema.pointer, consistencyConfig.write)
@@ -678,7 +678,7 @@ object ReplicatedCassandra {
         } yield PointerStatements.Update(legacy, update),
         for {
           legacy <- PointerStatements.SelectTopics.of[F](schema.pointer, consistencyConfig.read)
-          select <- PointerStatements2.SelectTopics.of[F](schema.pointer2, consistencyConfig.read)
+          select <- Pointer2Statements.SelectTopics.of[F](schema.pointer2, consistencyConfig.read)
         } yield PointerStatements.SelectTopics(legacy, select))
       statements.parMapN(Statements[F])
     }

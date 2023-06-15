@@ -45,7 +45,7 @@ object CreateSchema {
 
       val pointer = table(config.pointerTable, a => Nel.of(PointerStatements.createTable(a)))
 
-      val pointer2 = table(config.pointerTable2, a => Nel.of(PointerStatements2.createTable(a)))
+      val pointer2 = table(config.pointer2Table, a => Nel.of(Pointer2Statements.createTable(a)))
 
       val setting = table(config.settingTable, a => Nel.of(SettingStatements.createTable(a)))
 
