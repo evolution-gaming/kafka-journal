@@ -47,12 +47,21 @@ object SetupSchema { self =>
         .handleError { _ => () }
     }
 
+    def createPointer2 = {
+      Pointer2Statements.createTable(schema.pointer2)
+        .execute
+        .first
+        .void
+        .handleError { _ => () }
+    }
+
     val schemaVersion = "schema-version"
 
     val migrations = Nel.of(
       addHeaders,
       addVersion,
-      dropMetadata)
+      dropMetadata,
+      createPointer2)
 
     def setVersion(version: Int) = {
       settings

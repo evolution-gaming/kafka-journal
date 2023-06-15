@@ -35,7 +35,7 @@ object PointerStatements {
 
   object Insert {
 
-    def apply[F[_]: Monad: Parallel: CassandraSession](
+    def apply[F[_]: Parallel](
       legacy: Insert[F],
       insert: Insert[F],
     ): Insert[F] = {
@@ -80,7 +80,7 @@ object PointerStatements {
 
   object Update {
 
-    def apply[F[_]: Monad: Parallel: CassandraSession](
+    def apply[F[_]: Parallel](
       legacy: Update[F],
       update: Update[F],
     ): Update[F] = {
@@ -123,7 +123,7 @@ object PointerStatements {
 
   object Select {
 
-    def apply[F[_]: Monad: CassandraSession](
+    def apply[F[_]: Monad](
       legacy: Select[F],
       select: Select[F],
     ): Select[F] = {
@@ -166,7 +166,7 @@ object PointerStatements {
 
   object SelectIn {
 
-    def apply[F[_]: Monad: CassandraSession](
+    def apply[F[_]: Monad](
       legacy: SelectIn[F],
       select: SelectIn[F],
     ): SelectIn[F] = {
@@ -220,14 +220,15 @@ object PointerStatements {
 
   object SelectTopics {
 
-    def apply[F[_]: Monad: CassandraSession](
+    def apply[F[_]: Monad](
       legacy: SelectTopics[F],
       select: SelectTopics[F],
     ): SelectTopics[F] = {
-      () => for {
-        topics <- select()
-        topics <- if (topics.isEmpty) legacy() else topics.pure[F]
-      } yield topics
+      () =>
+        for {
+          topics <- select()
+          topics <- if (topics.isEmpty) legacy() else topics.pure[F]
+        } yield topics
     }
 
     def of[F[_]: Monad: CassandraSession](
