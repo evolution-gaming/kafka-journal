@@ -123,6 +123,17 @@ object PointerStatements {
 
   object Select {
 
+    def apply[F[_]: Monad: CassandraSession](
+      legacy: Select[F],
+      select: Select[F],
+    ): Select[F] = {
+      (topic: Topic, partition: Partition) =>
+        for {
+          offset <- select(topic, partition)
+          offset <- offset.fold(legacy(topic, partition))(_.some.pure[F])
+        } yield offset
+    }
+
     def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: ConsistencyConfig.Read): F[Select[F]] = {
 
       val query =
@@ -154,6 +165,17 @@ object PointerStatements {
   }
 
   object SelectIn {
+
+    def apply[F[_]: Monad: CassandraSession](
+      legacy: SelectIn[F],
+      select: SelectIn[F],
+    ): SelectIn[F] = {
+      (topic: Topic, partitions: Nel[Partition]) =>
+        for {
+          offsets <- select(topic, partitions)
+          offsets <- if (offsets.isEmpty) legacy(topic, partitions) else offsets.pure[F]
+        } yield offsets
+    }
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
@@ -197,6 +219,16 @@ object PointerStatements {
   }
 
   object SelectTopics {
+
+    def apply[F[_]: Monad: CassandraSession](
+      legacy: SelectTopics[F],
+      select: SelectTopics[F],
+    ): SelectTopics[F] = {
+      () => for {
+        topics <- select()
+        topics <- if (topics.isEmpty) legacy() else topics.pure[F]
+      } yield topics
+    }
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,

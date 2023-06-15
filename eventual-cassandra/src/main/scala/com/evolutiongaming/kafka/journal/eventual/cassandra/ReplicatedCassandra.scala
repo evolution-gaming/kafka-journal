@@ -660,8 +660,14 @@ object ReplicatedCassandra {
         JournalStatements.DeleteTo.of[F](schema.journal, consistencyConfig.write),
         JournalStatements.Delete.of[F](schema.journal, consistencyConfig.write),
         MetaJournalStatements.of[F](schema, consistencyConfig),
-        PointerStatements.Select.of[F](schema.pointer2, consistencyConfig.read),
-        PointerStatements.SelectIn.of[F](schema.pointer2, consistencyConfig.read),
+        for {
+          legacy <- PointerStatements.Select.of[F](schema.pointer, consistencyConfig.read)
+          select <- PointerStatements.Select.of[F](schema.pointer2, consistencyConfig.read)
+        } yield PointerStatements.Select(legacy, select),
+        for {
+          legacy <- PointerStatements.SelectIn.of[F](schema.pointer, consistencyConfig.read)
+          select <- PointerStatements2.SelectIn.of[F](schema.pointer2, consistencyConfig.read)
+        } yield PointerStatements.SelectIn(legacy, select),
         for {
           legacy <- PointerStatements.Insert.of[F](schema.pointer, consistencyConfig.write)
           insert <- PointerStatements.Insert.of[F](schema.pointer2, consistencyConfig.write)
@@ -670,7 +676,10 @@ object ReplicatedCassandra {
           legacy <- PointerStatements.Update.of[F](schema.pointer, consistencyConfig.write)
           update <- PointerStatements.Update.of[F](schema.pointer2, consistencyConfig.write)
         } yield PointerStatements.Update(legacy, update),
-        PointerStatements2.SelectTopics.of[F](schema.pointer2, consistencyConfig.read))
+        for {
+          legacy <- PointerStatements.SelectTopics.of[F](schema.pointer, consistencyConfig.read)
+          select <- PointerStatements2.SelectTopics.of[F](schema.pointer2, consistencyConfig.read)
+        } yield PointerStatements.SelectTopics(legacy, select))
       statements.parMapN(Statements[F])
     }
   }

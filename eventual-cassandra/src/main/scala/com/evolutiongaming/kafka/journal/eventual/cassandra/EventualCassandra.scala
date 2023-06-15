@@ -159,7 +159,10 @@ object EventualCassandra {
       for {
         selectRecords  <- JournalStatements.SelectRecords.of[F](schema.journal, consistencyConfig)
         metaJournal    <- MetaJournalStatements.of(schema, segmentNrsOf, segments, consistencyConfig)
-        selectPointer  <- PointerStatements.Select.of[F](schema.pointer2, consistencyConfig)
+        selectPointer  <- for {
+          legacy <- PointerStatements.Select.of[F](schema.pointer, consistencyConfig)
+          select <- PointerStatements.Select.of[F](schema.pointer2, consistencyConfig)
+        } yield PointerStatements.Select(legacy, select)
       } yield {
         Statements(selectRecords, metaJournal, selectPointer)
       }
