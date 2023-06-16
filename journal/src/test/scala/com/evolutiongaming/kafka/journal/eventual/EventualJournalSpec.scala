@@ -8,14 +8,13 @@ import cats.syntax.all._
 import cats.{Applicative, FlatMap, Monad}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.DataHelper._
-import com.evolutiongaming.catshelper.{BracketThrowable, Log, MonadThrowable}
+import com.evolutiongaming.catshelper.{BracketThrowable, Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedTopicJournal.Changed
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
-import com.evolutiongaming.smetrics.MeasureDuration
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -39,13 +38,13 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
           implicit val measureDuration = MeasureDuration.fromClock(clock)
           val eventual = {
             val journal = journals.eventual
-              .withLog(log)
-              .withMetrics(EventualJournal.Metrics.empty[F])
+              .withLog1(log)
+              .withMetrics1(EventualJournal.Metrics.empty[F])
             Eventual[F](journal, key)
           }
           val replicated = {
             val journal = journals.replicated
-              .withLog(log)
+              .withLog1(log)
               .enhanceError
               .withMetrics(ReplicatedJournal.Metrics.empty[F])
               .toFlat

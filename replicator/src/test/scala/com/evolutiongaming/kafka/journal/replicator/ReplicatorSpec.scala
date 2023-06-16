@@ -28,7 +28,7 @@ class ReplicatorSpec extends AsyncWordSpec with Matchers {
 
       val start = (_: Topic) => Resource.pure[IO, IO[Unit]](error.raiseError[IO, Unit])
       val result = for {
-        result <- Replicator.of(
+        result <- Replicator.of1(
           Replicator.Config(topicDiscoveryInterval = 0.millis),
           Resource.pure[IO, Consumer[IO]](consumer),
           start).use(identity).attempt

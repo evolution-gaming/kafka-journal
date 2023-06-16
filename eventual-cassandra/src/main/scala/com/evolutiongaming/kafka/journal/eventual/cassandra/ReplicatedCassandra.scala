@@ -9,7 +9,7 @@ import cats.{Applicative, Monad, Parallel}
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
-import com.evolutiongaming.catshelper.{LogOf, ToTry}
+import com.evolutiongaming.catshelper.{LogOf, MeasureDuration, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
@@ -17,7 +17,7 @@ import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
-import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.smetrics
 
 import java.time.Instant
 import scala.annotation.tailrec
@@ -27,7 +27,24 @@ object ReplicatedCassandra {
 
   private sealed abstract class Main
 
+  @deprecated("Use `of1` instead", "0.2.1")
   def of[
+    F[_]
+    : Concurrent: Parallel: Timer
+    : ToTry: LogOf: Fail
+    : CassandraCluster: CassandraSession
+    : smetrics.MeasureDuration
+    : JsonCodec.Encode
+  ](
+    config: EventualCassandraConfig,
+    origin: Option[Origin],
+    metrics: Option[ReplicatedJournal.Metrics[F]],
+  ): F[ReplicatedJournal[F]] = {
+    implicit val md: MeasureDuration[F] = smetrics.MeasureDuration[F].toCatsHelper
+    of1(config, origin, metrics)
+  }
+
+  def of1[
     F[_]
     : Concurrent: Parallel: Timer
     : ToTry: LogOf: Fail
@@ -44,11 +61,11 @@ object ReplicatedCassandra {
       schema        <- SetupSchema[F](config.schema, origin, config.consistencyConfig)
       statements    <- Statements.of[F](schema, config.consistencyConfig)
       log           <- LogOf[F].apply(ReplicatedCassandra.getClass)
-      expiryService <- ExpiryService.of[F]
+      expiryService <- ExpiryService.of1[F]
     } yield {
       val segmentOf = SegmentNrsOf[F](first = Segments.default, second = Segments.old)
       val journal = apply[F](config.segmentSize, segmentOf, statements, expiryService)
-        .withLog(log)
+        .withLog1(log)
       metrics
         .fold(journal) { metrics => journal.withMetrics(metrics) }
         .enhanceError

@@ -2,9 +2,9 @@ package com.evolutiongaming.kafka.journal
 
 import cats.Monad
 import cats.effect._
-import com.evolutiongaming.catshelper.ToTry
+import com.evolutiongaming.catshelper.{MeasureDuration, ToTry}
 import com.evolutiongaming.skafka.producer.{ProducerConfig, ProducerMetrics, ProducerOf}
-import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.smetrics
 
 import scala.concurrent.ExecutionContext
 
@@ -18,12 +18,20 @@ object KafkaProducerOf {
 
   def apply[F[_]](implicit F: KafkaProducerOf[F]): KafkaProducerOf[F] = F
 
-
-  def apply[F[_]: Concurrent: ContextShift: MeasureDuration: ToTry](
+  @deprecated("Use `apply1` instead", "0.2.1")
+  def apply[F[_]: Concurrent: ContextShift: smetrics.MeasureDuration: ToTry](
     blocking: ExecutionContext,
     metrics: Option[ProducerMetrics[F]] = None
   ): KafkaProducerOf[F] = {
-    val producerOf = ProducerOf.apply1(blocking, metrics)
+    implicit val md: MeasureDuration[F] = smetrics.MeasureDuration[F].toCatsHelper
+    apply1(blocking, metrics)
+  }
+
+  def apply1[F[_]: Concurrent: ContextShift: MeasureDuration: ToTry](
+    blocking: ExecutionContext,
+    metrics: Option[ProducerMetrics[F]] = None
+  ): KafkaProducerOf[F] = {
+    val producerOf = ProducerOf.apply2(blocking, metrics)
     apply(producerOf)
   }
 

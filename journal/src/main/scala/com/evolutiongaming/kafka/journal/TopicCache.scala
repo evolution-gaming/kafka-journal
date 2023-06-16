@@ -17,7 +17,7 @@ import com.evolutiongaming.retry.Retry.implicits._
 import com.evolutiongaming.retry.Strategy
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecords}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
-import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.smetrics
 import com.evolution.scache.Cache
 
 import scala.concurrent.duration._
@@ -364,7 +364,17 @@ object TopicCache {
 
   implicit class TopicCacheOps[F[_]](val self: TopicCache[F]) extends AnyVal {
 
+    @deprecated("Use `withMetrics1` instead", "0.2.1")
     def withMetrics(
+      topic: Topic,
+      metrics: HeadCache.Metrics[F])(implicit
+      F: MonadThrowable[F],
+      measureDuration: smetrics.MeasureDuration[F]
+    ): TopicCache[F] = {
+      withMetrics1(topic, metrics)(F, measureDuration.toCatsHelper)
+    }
+
+    def withMetrics1(
       topic: Topic,
       metrics: HeadCache.Metrics[F])(implicit
       F: MonadThrowable[F],

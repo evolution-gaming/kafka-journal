@@ -4,12 +4,12 @@ import cats._
 import cats.arrow.FunctionK
 import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.{Log, MonadThrowable}
+import com.evolutiongaming.catshelper.{Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.EventualRead
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.skafka.{Bytes => _, _}
-import com.evolutiongaming.smetrics._
+import com.evolutiongaming.smetrics
 import com.evolutiongaming.sstream.Stream
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
@@ -71,7 +71,18 @@ object Journal {
 
   implicit class JournalOps[F[_]](val self: Journal[F]) extends AnyVal {
 
+    @deprecated("Use `withLog1` instead", "0.2.1")
     def withLog(
+      key: Key,
+      log: Log[F],
+      config: CallTimeThresholds = CallTimeThresholds.default)(implicit
+      F: FlatMap[F],
+      measureDuration: smetrics.MeasureDuration[F]
+    ): Journal[F] = {
+      withLog1(key, log, config)(F, measureDuration.toCatsHelper)
+    }
+
+    def withLog1(
       key: Key,
       log: Log[F],
       config: CallTimeThresholds = CallTimeThresholds.default)(implicit
@@ -146,8 +157,17 @@ object Journal {
       }
     }
 
-
+    @deprecated("Use `withLogError1` instead", "0.2.1")
     def withLogError(
+      key: Key,
+      log: Log[F])(implicit
+      F: MonadThrowable[F],
+      measureDuration: smetrics.MeasureDuration[F]
+    ): Journal[F] = {
+      withLogError1(key, log)(F, measureDuration.toCatsHelper)
+    }
+
+    def withLogError1(
       key: Key,
       log: Log[F])(implicit
       F: MonadThrowable[F],
@@ -217,8 +237,17 @@ object Journal {
       }
     }
 
-
+    @deprecated("Use `withMetrics1` instead", "0.2.1")
     def withMetrics(
+      topic: Topic,
+      metrics: JournalMetrics[F])(implicit
+      F: MonadThrowable[F],
+      measureDuration: smetrics.MeasureDuration[F]
+    ): Journal[F] = {
+      withMetrics1(topic, metrics)(F, measureDuration.toCatsHelper)
+    }
+
+    def withMetrics1(
       topic: Topic,
       metrics: JournalMetrics[F])(implicit
       F: MonadThrowable[F],

@@ -3,8 +3,8 @@ package com.evolutiongaming.kafka.journal
 import cats.arrow.FunctionK
 import cats.syntax.all._
 import cats.{FlatMap, ~>}
-import com.evolutiongaming.catshelper.Log
-import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.catshelper.{Log, MeasureDuration}
+import com.evolutiongaming.smetrics
 import com.evolutiongaming.sstream.Stream
 
 
@@ -32,7 +32,12 @@ object Settings {
 
   implicit class SettingsOps[F[_]](val self: Settings[F]) extends AnyVal {
 
-    def withLog(log: Log[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): Settings[F] = {
+    @deprecated("Use `withLog1` instead", "0.2.1")
+    def withLog(log: Log[F])(implicit F: FlatMap[F], measureDuration: smetrics.MeasureDuration[F]): Settings[F] = {
+      withLog1(log)(F, measureDuration.toCatsHelper)
+    }
+
+    def withLog1(log: Log[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): Settings[F] = {
 
       val functionKId = FunctionK.id[F]
 

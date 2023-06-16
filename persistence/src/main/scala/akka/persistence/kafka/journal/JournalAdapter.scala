@@ -15,7 +15,7 @@ import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.consumer.ConsumerMetrics
 import com.evolutiongaming.skafka.producer.ProducerMetrics
 import com.evolutiongaming.skafka.{ClientId, CommonConfig}
-import com.evolutiongaming.smetrics.MeasureDuration
+import com.evolutiongaming.smetrics
 
 import scala.collection.immutable.Seq
 import scala.concurrent.ExecutionContext
@@ -34,7 +34,28 @@ trait JournalAdapter[F[_]] {
 
 object JournalAdapter {
 
+  @deprecated("Use `of1` instead", "0.2.1")
   def of[
+    F[_]: ConcurrentEffect: ContextShift: ToFuture: Parallel: Timer: LogOf: RandomIdOf:
+    FromGFuture: smetrics.MeasureDuration: ToTry: FromTry: FromJsResult: Fail: JsonCodec,
+    A
+  ](
+    toKey: ToKey[F],
+    origin: Option[Origin],
+    serializer: EventSerializer[F, A],
+    journalReadWrite: JournalReadWrite[F, A],
+    config: KafkaJournalConfig,
+    metrics: Metrics[F],
+    log: Log[F],
+    batching: Batching[F],
+    appendMetadataOf: AppendMetadataOf[F],
+    cassandraClusterOf: CassandraClusterOf[F]
+  ): Resource[F, JournalAdapter[F]] = {
+    implicit val md: MeasureDuration[F] = smetrics.MeasureDuration[F].toCatsHelper
+    of1(toKey, origin, serializer, journalReadWrite, config, metrics, log, batching, appendMetadataOf, cassandraClusterOf)
+  }
+
+  def of1[
     F[_]: ConcurrentEffect: ContextShift: ToFuture: Parallel: Timer: LogOf: RandomIdOf:
     FromGFuture: MeasureDuration: ToTry: FromTry: FromJsResult: Fail: JsonCodec,
     A
@@ -60,7 +81,7 @@ object JournalAdapter {
         val clientId = clientIdOf(config.journal.kafka.consumer.common)
         metrics(clientId)
       }
-      KafkaConsumerOf[F](blocking, consumerMetrics)
+      KafkaConsumerOf.apply1[F](blocking, consumerMetrics)
     }
 
     def kafkaProducerOf(blocking: ExecutionContext) = {
@@ -70,11 +91,11 @@ object JournalAdapter {
         val clientId = clientIdOf(config.journal.kafka.producer.common)
         metrics(clientId)
       }
-      KafkaProducerOf[F](blocking, producerMetrics)
+      KafkaProducerOf.apply1[F](blocking, producerMetrics)
     }
 
     def headCacheOf(implicit kafkaConsumerOf: KafkaConsumerOf[F]): HeadCacheOf[F] = {
-      HeadCacheOf[F](metrics.headCache)
+      HeadCacheOf.apply1[F](metrics.headCache)
     }
 
     def journal(
@@ -84,7 +105,7 @@ object JournalAdapter {
       headCacheOf: HeadCacheOf[F]) = {
 
       for {
-        journal <- Journals.of[F](
+        journal <- Journals.of1[F](
           origin = origin,
           config = config.journal,
           eventualJournal = eventualJournal,
@@ -92,7 +113,7 @@ object JournalAdapter {
           conversionMetrics = metrics.conversion,
           callTimeThresholds = config.callTimeThresholds)
       } yield {
-        journal.withLogError(log)
+        journal.withLogError1(log)
       }
     }
 
@@ -101,7 +122,7 @@ object JournalAdapter {
       kafkaProducerOf1  = kafkaProducerOf(blocking)
       kafkaConsumerOf1  = kafkaConsumerOf(blocking)
       headCacheOf1      = headCacheOf(kafkaConsumerOf1)
-      eventualJournal  <- EventualCassandra.of[F](config.cassandra, origin, metrics.eventual, cassandraClusterOf)
+      eventualJournal  <- EventualCassandra.of1[F](config.cassandra, origin, metrics.eventual, cassandraClusterOf)
       journal          <- journal(eventualJournal)(kafkaConsumerOf1, kafkaProducerOf1, headCacheOf1)
     } yield {
       JournalAdapter[F, A](journal, toKey, serializer, journalReadWrite, appendMetadataOf).withBatching(batching)

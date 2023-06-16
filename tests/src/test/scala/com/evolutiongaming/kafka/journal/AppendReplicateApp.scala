@@ -8,7 +8,7 @@ import cats.effect._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
-import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, ToFuture, ToTry}
+import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MeasureDuration, ToFuture, ToTry}
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.conversions.KafkaWrite
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
@@ -18,7 +18,6 @@ import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.Topic
-import com.evolutiongaming.smetrics.MeasureDuration
 import com.typesafe.config.ConfigFactory
 import pureconfig.ConfigSource
 
@@ -79,7 +78,7 @@ object AppendReplicateApp extends IOApp {
       for {
         producer <- Journals.Producer.of[F](config.kafka.producer)
       } yield {
-        Journals[F](
+        Journals.apply1[F](
           origin = hostName.map(Origin.fromHostName),
           producer = producer,
           consumer = Journals.Consumer.of[F](config.kafka.consumer, config.pollTimeout),
@@ -95,7 +94,7 @@ object AppendReplicateApp extends IOApp {
       for {
         cassandraClusterOf <- CassandraClusterOf.of[F].toResource
         config             <- ReplicatorConfig.fromConfig[F](system.settings.config).toResource
-        result             <- Replicator.of[F](config, cassandraClusterOf, hostName)
+        result             <- Replicator.of1[F](config, cassandraClusterOf, hostName)
       } yield result
     }
 
@@ -103,8 +102,8 @@ object AppendReplicateApp extends IOApp {
       log                <- LogOf[F].apply(Journals.getClass).toResource
       kafkaJournalConfig <- kafkaJournalConfig.toResource
       blocking           <- Executors.blocking[F]("kafka-journal-blocking")
-      kafkaConsumerOf     = KafkaConsumerOf[F](blocking)
-      kafkaProducerOf     = KafkaProducerOf[F](blocking)
+      kafkaConsumerOf     = KafkaConsumerOf.apply1[F](blocking)
+      kafkaProducerOf     = KafkaProducerOf.apply1[F](blocking)
       hostName           <- HostName.of[F]().toResource
       replicate          <- replicator(hostName)(kafkaConsumerOf)
       journal            <- journal(kafkaJournalConfig.journal, hostName, log)(kafkaConsumerOf, kafkaProducerOf)

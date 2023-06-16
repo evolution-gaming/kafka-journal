@@ -7,7 +7,7 @@ import cats.effect.Clock
 import cats.syntax.all._
 import cats.{Id, Monad}
 import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.catshelper.{FromTry, Log}
+import com.evolutiongaming.catshelper.{FromTry, Log, MeasureDuration}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualPayloadAndType, EventualRead, EventualWrite, TopicPointers}
@@ -15,7 +15,6 @@ import com.evolutiongaming.kafka.journal.util.{ConcurrentOf, Fail}
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
-import com.evolutiongaming.smetrics.MeasureDuration
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -510,15 +509,15 @@ object JournalSpec {
       implicit val fromJsResult = FromJsResult.lift[F]
       val log = Log.empty[F]
 
-      val journal = Journals[F](
+      val journal = Journals.apply1[F](
         eventual = eventual,
         consumeActionRecords = consumeActionRecords,
         produce = Produce(produceAction, none),
         headCache = headCache,
         log = log,
         conversionMetrics = none)
-        .withLog(log)
-        .withMetrics(JournalMetrics.empty[F])
+        .withLog1(log)
+        .withMetrics1(JournalMetrics.empty[F])
       SeqNrJournal(journal)
     }
   }
