@@ -36,11 +36,11 @@ object PointerStatements {
   object Insert {
 
     def apply[F[_]: Parallel](
-      legacy: Insert[F],
-      insert: Insert[F],
+      first: Insert[F],
+      second: Insert[F],
     ): Insert[F] = {
       (topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant) =>
-        legacy(topic, partition, offset, created, updated) &> insert(topic, partition, offset, created, updated)
+        first(topic, partition, offset, created, updated).parProductR(second(topic, partition, offset, created, updated))
     }
 
     def of[F[_]: Monad: CassandraSession](
@@ -81,11 +81,11 @@ object PointerStatements {
   object Update {
 
     def apply[F[_]: Parallel](
-      legacy: Update[F],
-      update: Update[F],
+      first: Update[F],
+      second: Update[F],
     ): Update[F] = {
       (topic: Topic, partition: Partition, offset: Offset, timestamp: Instant) =>
-        legacy(topic, partition, offset, timestamp) &> update(topic, partition, offset, timestamp)
+        first(topic, partition, offset, timestamp).parProductR(second(topic, partition, offset, timestamp))
     }
 
     def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: ConsistencyConfig.Write): F[Update[F]] = {
@@ -124,13 +124,13 @@ object PointerStatements {
   object Select {
 
     def apply[F[_]: Monad](
-      legacy: Select[F],
       select: Select[F],
+      fallback: Select[F],
     ): Select[F] = {
       (topic: Topic, partition: Partition) =>
         for {
           offset <- select(topic, partition)
-          offset <- offset.fold(legacy(topic, partition))(_.some.pure[F])
+          offset <- offset.fold(fallback(topic, partition))(_.some.pure[F])
         } yield offset
     }
 
@@ -167,13 +167,13 @@ object PointerStatements {
   object SelectIn {
 
     def apply[F[_]: Monad](
-      legacy: SelectIn[F],
       select: SelectIn[F],
+      fallback: SelectIn[F],
     ): SelectIn[F] = {
       (topic: Topic, partitions: Nel[Partition]) =>
         for {
           offsets <- select(topic, partitions)
-          offsets <- if (offsets.isEmpty) legacy(topic, partitions) else offsets.pure[F]
+          offsets <- if (offsets.isEmpty) fallback(topic, partitions) else offsets.pure[F]
         } yield offsets
     }
 
@@ -221,13 +221,13 @@ object PointerStatements {
   object SelectTopics {
 
     def apply[F[_]: Monad](
-      legacy: SelectTopics[F],
       select: SelectTopics[F],
+      fallback: SelectTopics[F],
     ): SelectTopics[F] = {
       () =>
         for {
           topics <- select()
-          topics <- if (topics.isEmpty) legacy() else topics.pure[F]
+          topics <- if (topics.isEmpty) fallback() else topics.pure[F]
         } yield topics
     }
 

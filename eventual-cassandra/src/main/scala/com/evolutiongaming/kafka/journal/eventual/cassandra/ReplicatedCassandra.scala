@@ -661,25 +661,25 @@ object ReplicatedCassandra {
         JournalStatements.Delete.of[F](schema.journal, consistencyConfig.write),
         MetaJournalStatements.of[F](schema, consistencyConfig),
         for {
-          legacy <- PointerStatements.Select.of[F](schema.pointer, consistencyConfig.read)
-          select <- PointerStatements.Select.of[F](schema.pointer2, consistencyConfig.read)
-        } yield PointerStatements.Select(legacy, select),
+          select   <- PointerStatements.Select.of[F](schema.pointer2, consistencyConfig.read)
+          fallback <- PointerStatements.Select.of[F](schema.pointer, consistencyConfig.read)
+        } yield PointerStatements.Select(select, fallback),
         for {
-          legacy <- PointerStatements.SelectIn.of[F](schema.pointer, consistencyConfig.read)
-          select <- Pointer2Statements.SelectIn.of[F](schema.pointer2, consistencyConfig.read)
-        } yield PointerStatements.SelectIn(legacy, select),
+          select   <- Pointer2Statements.SelectIn.of[F](schema.pointer2, consistencyConfig.read)
+          fallback <- PointerStatements.SelectIn.of[F](schema.pointer, consistencyConfig.read)
+        } yield PointerStatements.SelectIn(select, fallback),
         for {
-          legacy <- PointerStatements.Insert.of[F](schema.pointer, consistencyConfig.write)
-          insert <- PointerStatements.Insert.of[F](schema.pointer2, consistencyConfig.write)
-        } yield PointerStatements.Insert(legacy, insert),
+          first  <- PointerStatements.Insert.of[F](schema.pointer, consistencyConfig.write)
+          second <- PointerStatements.Insert.of[F](schema.pointer2, consistencyConfig.write)
+        } yield PointerStatements.Insert(first, second),
         for {
-          legacy <- PointerStatements.Update.of[F](schema.pointer, consistencyConfig.write)
-          update <- PointerStatements.Update.of[F](schema.pointer2, consistencyConfig.write)
-        } yield PointerStatements.Update(legacy, update),
+          first  <- PointerStatements.Update.of[F](schema.pointer, consistencyConfig.write)
+          second <- PointerStatements.Update.of[F](schema.pointer2, consistencyConfig.write)
+        } yield PointerStatements.Update(first, second),
         for {
-          legacy <- PointerStatements.SelectTopics.of[F](schema.pointer, consistencyConfig.read)
-          select <- Pointer2Statements.SelectTopics.of[F](schema.pointer2, consistencyConfig.read)
-        } yield PointerStatements.SelectTopics(legacy, select))
+          select   <- Pointer2Statements.SelectTopics.of[F](schema.pointer2, consistencyConfig.read)
+          fallback <- PointerStatements.SelectTopics.of[F](schema.pointer, consistencyConfig.read)
+        } yield PointerStatements.SelectTopics(select, fallback))
       statements.parMapN(Statements[F])
     }
   }
