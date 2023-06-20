@@ -18,6 +18,7 @@ lazy val commonSettings = Seq(
   libraryDependencySchemes ++= Seq(
     "org.scala-lang.modules" %% "scala-java8-compat" % "always",
     "org.scala-lang.modules" %% "scala-xml"          % "always"),
+  autoAPIMappings := true,
   versionScheme := Some("early-semver"))
 
 
@@ -88,7 +89,7 @@ lazy val persistence = (project in file("persistence")
   settings (name := "kafka-journal-persistence")
   settings commonSettings
   dependsOn (
-    journal % "test->test;compile->compile", 
+    journal % "test->test;compile->compile",
     `eventual-cassandra`)
   settings (libraryDependencies ++= Seq(
     `akka-serialization`,
@@ -124,7 +125,7 @@ lazy val replicator = (Project("replicator", file("replicator"))
   settings (name := "kafka-journal-replicator")
   settings commonSettings
   dependsOn (
-    journal % "test->test;compile->compile", 
+    journal % "test->test;compile->compile",
     `eventual-cassandra`)
   settings (libraryDependencies ++= Seq(`cats-helper`)))
 
