@@ -17,11 +17,30 @@ import com.evolutiongaming.smetrics._
 
 import scala.concurrent.duration._
 
-/**
- * TODO headcache:
- * 1. Keep 1000 last seen entries, even if replicated.
- * 2. Fail headcache when background tasks failed
- */
+/** Metainfo of last meaningful event written Kafka, but not yet replicated to Cassandra.
+  *
+  * The implementation subcribes to all Kafka events and periodically polls
+  * Cassandra to remove the events, which already replicated.
+  *
+  * Normally, when a given journal is being recovered, we do something like
+  * following:
+  *
+  *   1. Take over the ownership of the journal, meaning nobody write to it
+  *      except us.
+  *   1. Write a special marker to Kafka, encountring which, while reading, will
+  *      mean there are no more events (because we own the journal).
+  *   1. Read all events present, i.e. already replicated, in Cassandra.
+  *   1. Read remaning events from Kafka up until our marker is encountered.
+  *
+  * Maintaining a cache of last meaningful events, which are yet to replicate
+  * (i.e. without technical messages like our marker), allows us to either
+  * bypass the step (4) entirely, in case the list of such events is empty,
+  * or use the higher offset starting with the first non-replicated event.
+  *
+  * TODO headcache:
+  * 1. Keep 1000 last seen entries, even if replicated.
+  * 2. Fail headcache when background tasks failed
+  */
 trait HeadCache[F[_]] {
 
   def get(key: Key, partition: Partition, offset: Offset): F[Option[HeadInfo]]

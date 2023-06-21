@@ -9,6 +9,18 @@ import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
 
 import scala.concurrent.duration._
 
+/** Configuration of Kafka client used to store the journal.
+  *
+  * The configuration uses standard consumer and producer configuration from
+  * skafka. It is highly recommended to keep the default settings unless some
+  * internal issue is to be worked around as the logic of persistence plugin may
+  * depend on some of these settings.
+  *
+  * @param producer
+  *   Producer configuration used to write journal to Kafka.
+  * @param consumer
+  *   Consumer configuration used to read journal on recovery.
+  */
 final case class KafkaConfig(
   producer: ProducerConfig,
   consumer: ConsumerConfig)
