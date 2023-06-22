@@ -660,11 +660,26 @@ object ReplicatedCassandra {
         JournalStatements.DeleteTo.of[F](schema.journal, consistencyConfig.write),
         JournalStatements.Delete.of[F](schema.journal, consistencyConfig.write),
         MetaJournalStatements.of[F](schema, consistencyConfig),
-        PointerStatements.Select.of[F](schema.pointer, consistencyConfig.read),
-        PointerStatements.SelectIn.of[F](schema.pointer, consistencyConfig.read),
-        PointerStatements.Insert.of[F](schema.pointer, consistencyConfig.write),
-        PointerStatements.Update.of[F](schema.pointer, consistencyConfig.write),
-        PointerStatements.SelectTopics.of[F](schema.pointer, consistencyConfig.read))
+        for {
+          select   <- PointerStatements.Select.of[F](schema.pointer2, consistencyConfig.read)
+          fallback <- PointerStatements.Select.of[F](schema.pointer, consistencyConfig.read)
+        } yield PointerStatements.Select(select, fallback),
+        for {
+          select   <- Pointer2Statements.SelectIn.of[F](schema.pointer2, consistencyConfig.read)
+          fallback <- PointerStatements.SelectIn.of[F](schema.pointer, consistencyConfig.read)
+        } yield PointerStatements.SelectIn(select, fallback),
+        for {
+          first  <- PointerStatements.Insert.of[F](schema.pointer, consistencyConfig.write)
+          second <- PointerStatements.Insert.of[F](schema.pointer2, consistencyConfig.write)
+        } yield PointerStatements.Insert(first, second),
+        for {
+          first  <- PointerStatements.Update.of[F](schema.pointer, consistencyConfig.write)
+          second <- PointerStatements.Update.of[F](schema.pointer2, consistencyConfig.write)
+        } yield PointerStatements.Update(first, second),
+        for {
+          select   <- Pointer2Statements.SelectTopics.of[F](schema.pointer2, consistencyConfig.read)
+          fallback <- PointerStatements.SelectTopics.of[F](schema.pointer, consistencyConfig.read)
+        } yield PointerStatements.SelectTopics(select, fallback))
       statements.parMapN(Statements[F])
     }
   }
