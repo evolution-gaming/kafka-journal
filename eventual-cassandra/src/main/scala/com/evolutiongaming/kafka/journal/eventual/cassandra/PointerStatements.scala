@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.Monad
+import cats.{Monad, Parallel}
 import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
@@ -34,6 +34,14 @@ object PointerStatements {
   }
 
   object Insert {
+
+    def apply[F[_]: Parallel](
+      first: Insert[F],
+      second: Insert[F],
+    ): Insert[F] = {
+      (topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant) =>
+        first(topic, partition, offset, created, updated).parProductR(second(topic, partition, offset, created, updated))
+    }
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
@@ -72,6 +80,14 @@ object PointerStatements {
 
   object Update {
 
+    def apply[F[_]: Parallel](
+      first: Update[F],
+      second: Update[F],
+    ): Update[F] = {
+      (topic: Topic, partition: Partition, offset: Offset, timestamp: Instant) =>
+        first(topic, partition, offset, timestamp).parProductR(second(topic, partition, offset, timestamp))
+    }
+
     def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: ConsistencyConfig.Write): F[Update[F]] = {
 
       val query =
@@ -107,6 +123,17 @@ object PointerStatements {
 
   object Select {
 
+    def apply[F[_]: Monad](
+      select: Select[F],
+      fallback: Select[F],
+    ): Select[F] = {
+      (topic: Topic, partition: Partition) =>
+        for {
+          offset <- select(topic, partition)
+          offset <- offset.fold(fallback(topic, partition))(_.some.pure[F])
+        } yield offset
+    }
+
     def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: ConsistencyConfig.Read): F[Select[F]] = {
 
       val query =
@@ -138,6 +165,17 @@ object PointerStatements {
   }
 
   object SelectIn {
+
+    def apply[F[_]: Monad](
+      select: SelectIn[F],
+      fallback: SelectIn[F],
+    ): SelectIn[F] = {
+      (topic: Topic, partitions: Nel[Partition]) =>
+        for {
+          offsets <- select(topic, partitions)
+          offsets <- if (offsets.isEmpty) fallback(topic, partitions) else offsets.pure[F]
+        } yield offsets
+    }
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
@@ -182,6 +220,17 @@ object PointerStatements {
 
   object SelectTopics {
 
+    def apply[F[_]: Monad](
+      select: SelectTopics[F],
+      fallback: SelectTopics[F],
+    ): SelectTopics[F] = {
+      () =>
+        for {
+          topics <- select()
+          topics <- if (topics.isEmpty) fallback() else topics.pure[F]
+        } yield topics
+    }
+
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
       consistencyConfig: ConsistencyConfig.Read
@@ -203,31 +252,4 @@ object PointerStatements {
     }
   }
 
-
-  trait Delete[F[_]] {
-
-    def apply(topic: Topic): F[Unit]
-  }
-
-  object Delete {
-
-    def of[F[_]: Monad: CassandraSession](
-      name: TableName,
-      consistencyConfig: ConsistencyConfig.Write
-    ): F[Delete[F]] = {
-
-      s"""DELETE FROM ${ name.toCql } WHERE topic = ?"""
-        .prepare
-        .map { prepared =>
-          topic: Topic =>
-            prepared
-              .bind()
-              .encode("topic", topic)
-              .setConsistencyLevel(consistencyConfig.value)
-              .execute
-              .first
-              .void
-        }
-    }
-  }
 }
