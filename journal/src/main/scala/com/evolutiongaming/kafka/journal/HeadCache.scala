@@ -17,28 +17,11 @@ import com.evolutiongaming.smetrics._
 
 import scala.concurrent.duration._
 
-/** Metainfo of last events written Kafka, but not yet replicated to Cassandra.
-  *
-  * The implementation subcribes to all Kafka events and periodically polls
-  * Cassandra to remove the events, which already replicated.
-  *
-  * Normally, when a given journal is being recovered, we do something like
-  * following:
-  *
-  *   1. Assume we own the journal, meaning nobody is writing to it except us.
-  *      The functionality is not part of the plugin and usually handled by
-  *      external party such as Akka Cluster.
-  *   1. Write a special marker to Kafka, encountring which, while reading, will
-  *      mean there are no more events (because we own the journal).
-  *   1. Read all events present, i.e. already replicated, in Cassandra.
-  *   1. Read remaning events from Kafka up until our marker is encountered.
-  *
-  * ??? document when documentation for internals is complete ???
-  *
-  * TODO headcache:
-  * 1. Keep 1000 last seen entries, even if replicated.
-  * 2. Fail headcache when background tasks failed
-  */
+/**
+ * TODO headcache:
+ * 1. Keep 1000 last seen entries, even if replicated.
+ * 2. Fail headcache when background tasks failed
+ */
 trait HeadCache[F[_]] {
 
   def get(key: Key, partition: Partition, offset: Offset): F[Option[HeadInfo]]
