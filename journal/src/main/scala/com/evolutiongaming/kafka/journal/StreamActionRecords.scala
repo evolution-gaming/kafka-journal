@@ -51,7 +51,7 @@ object StreamActionRecords {
     * @param from
     *   [[SeqNr]] of journal event to start reading from.
     * @param marker
-    *   Marker to read the events until. No events will be read after market is
+    *   Marker to read the events until. No events will be read after marker is
     *   encountered.
     * @param offsetReplicated
     *   Last known offset replicated to Cassandra, if any. No events will be
