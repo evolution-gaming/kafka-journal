@@ -27,7 +27,7 @@ object StreamActionRecords {
     *
     * I.e. the following order is expected:
     * {{{
-    * key.topic: ...offsetReplicated...from...offset...marker...
+    * marker.partition: ...offsetReplicated...from...offset...marker...
     * }}}
     *
     * If `offset` parameter passed to [[StreamActionRecords#apply]] is outside
