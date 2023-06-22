@@ -19,8 +19,40 @@ object StreamActionRecords {
     _: Option[Offset] => Stream.empty[F, ActionRecord[Action.User]]
   }
 
-  // TODO add range argument
+  /** Creates a reader for events not yet replicated to Cassandra.
+    *
+    * When [[StreamActionRecords#apply]] is called, the reader will stream
+    * messages starting with passed `offset` parameter, but not older than
+    * `offsetReplicated` and `seqNr`, and not later than passed `marker`.
+    *
+    * I.e. the following order is expected:
+    * {{{
+    * key.topic: ...offsetReplicated...from...offset...marker...
+    * }}}
+    *
+    * If `offset` parameter passed to [[StreamActionRecords#apply]] is outside
+    * of these bounds, then empty stream will be returned indicating that there
+    * is no unreplicated message with such offset.
+    *
+    * This is a main optimization comparing to what [[ConsumeActionRecords]]
+    * does, in addition to filtering out [[Action.System]] records, so
+    * previously sent markers etc. are not included.
+    *
+    * @param key
+    *   Journal identifier.
+    * @param from
+    *   [[SeqNr]] of journal event to start reading from.
+    * @param marker
+    *   Marker to read the events until. No events will be read after market is
+    *   encountered.
+    * @param offsetReplicated
+    *   Last known offset replicated to Cassandra, if any. No events will be
+    *   read before this offset.
+    * @param consumeActionRecords
+    *   Underlying reader of Kafka records.
+    */
   def apply[F[_] : BracketThrowable](
+    // TODO add range argument
     key: Key,
     from: SeqNr,
     marker: Marker,
