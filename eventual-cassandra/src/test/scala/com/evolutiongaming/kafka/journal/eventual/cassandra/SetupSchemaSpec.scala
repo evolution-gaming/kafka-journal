@@ -23,10 +23,10 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
     val initial = State.empty
     val (state, _) = migrate(fresh = true).run(initial)
     state shouldEqual initial.copy(
-      version = "2".some,
+      version = "3".some,
       actions = List(
         Action.SyncEnd,
-        Action.SetSetting("schema-version", "2"),
+        Action.SetSetting("schema-version", "3"),
         Action.GetSetting("schema-version"),
         Action.SyncStart,
         Action.GetSetting("schema-version")))
@@ -36,9 +36,11 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
     val initial = State.empty
     val (state, _) = migrate(fresh = false).run(initial)
     state shouldEqual initial.copy(
-      version = "2".some,
+      version = "3".some,
       actions = List(
         Action.SyncEnd,
+        Action.SetSetting("schema-version", "3"),
+        Action.Query,
         Action.SetSetting("schema-version", "2"),
         Action.Query,
         Action.SetSetting("schema-version", "1"),
@@ -54,9 +56,11 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
     val initial = State.empty.copy(version = "0".some)
     val (state, _) = migrate(fresh = false).run(initial)
     state shouldEqual initial.copy(
-      version = "2".some,
+      version = "3".some,
       actions = List(
         Action.SyncEnd,
+        Action.SetSetting("schema-version", "3"),
+        Action.Query,
         Action.SetSetting("schema-version", "2"),
         Action.Query,
         Action.SetSetting("schema-version", "1"),
@@ -67,7 +71,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
   }
 
   test("not migrate") {
-    val initial = State.empty.copy(version = "2".some)
+    val initial = State.empty.copy(version = "3".some)
     val (state, _) = migrate(fresh = false).run(initial)
     state shouldEqual initial.copy(actions = List(Action.GetSetting("schema-version")))
   }
@@ -79,6 +83,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
     metadata = TableName(keyspace = "journal", table = "metadata"),
     metaJournal = TableName(keyspace = "journal", table = "metaJournal"),
     pointer = TableName(keyspace = "journal", table = "pointer"),
+    pointer2 = TableName(keyspace = "journal", table = "pointer2"),
     setting = TableName(keyspace = "journal", table = "setting"))
 
   implicit val settings: Settings[StateT] = {

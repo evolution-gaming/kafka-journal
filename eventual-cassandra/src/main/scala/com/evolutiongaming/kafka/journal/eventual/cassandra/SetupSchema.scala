@@ -43,6 +43,16 @@ object SetupSchema { self =>
       s"DROP TABLE IF EXISTS ${ schema.metadata.toCql }"
         .execute
         .first
+        .void
+        .handleError { _ => () }
+    }
+
+    def createPointer2 = {
+      Pointer2Statements.createTable(schema.pointer2)
+        .execute
+        .first
+        .void
+        .handleError { _ => () }
     }
 
     val schemaVersion = "schema-version"
@@ -50,7 +60,8 @@ object SetupSchema { self =>
     val migrations = Nel.of(
       addHeaders,
       addVersion,
-      dropMetadata)
+      dropMetadata,
+      createPointer2)
 
     def setVersion(version: Int) = {
       settings

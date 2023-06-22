@@ -7,4 +7,5 @@ final case class Schema(
   metadata: TableName,
   metaJournal: TableName,
   pointer: TableName,
+  pointer2: TableName,
   setting: TableName)

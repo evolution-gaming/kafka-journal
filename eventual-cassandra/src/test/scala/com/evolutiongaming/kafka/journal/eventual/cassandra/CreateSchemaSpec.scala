@@ -34,6 +34,7 @@ class CreateSchemaSpec extends AnyFunSuite with Matchers { self =>
     metadata = TableName(keyspace = "journal", table = "metadata"),
     metaJournal = TableName(keyspace = "journal", table = "metajournal"),
     pointer = TableName(keyspace = "journal", table = "pointer"),
+    pointer2 = TableName(keyspace = "journal", table = "pointer2"),
     setting = TableName(keyspace = "journal", table = "setting"))
 
   val createTables: CreateTables[StateT] = new CreateTables[StateT] {
