@@ -10,6 +10,14 @@ import com.evolutiongaming.sstream.Stream
 
 trait StreamActionRecords[F[_]] {
 
+  /** Creates a stream of events from Kafka starting with specified offset.
+    *
+    * @param offset
+    *   The offset to start the reading from. If `None` then reading will start
+    *   from the beginning, which could either be the begining of Kafka topic
+    *   partion, or another offset, if the stream implementation limits it to
+    *   some newer offset.
+    */
   def apply(offset: Option[Offset]): Stream[F, ActionRecord[Action.User]]
 }
 
@@ -21,7 +29,7 @@ object StreamActionRecords {
 
   /** Creates a reader for events not yet replicated to Cassandra.
     *
-    * When [[StreamActionRecords#apply]] is called, the reader will stream
+    * When [[StreamActionRecords!#apply]] is called, the reader will stream
     * messages starting with passed `offset` parameter, but not older than
     * `offsetReplicated` and `seqNr`, and not later than passed `marker`.
     *
@@ -30,7 +38,7 @@ object StreamActionRecords {
     * marker.partition: ...offsetReplicated...from...offset...marker...
     * }}}
     *
-    * If `offset` parameter passed to [[StreamActionRecords#apply]] is outside
+    * If `offset` parameter passed to [[StreamActionRecords!#apply]] is outside
     * of these bounds, then empty stream will be returned indicating that there
     * is no unreplicated message with such offset.
     *
