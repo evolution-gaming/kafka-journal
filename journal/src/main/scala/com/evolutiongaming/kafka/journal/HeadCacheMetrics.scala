@@ -5,18 +5,11 @@ import cats.{Applicative, Monad}
 import com.evolutiongaming.smetrics.CollectorRegistry
 import com.evolution.scache.CacheMetrics
 
-import scala.concurrent.duration.FiniteDuration
-
 final case class HeadCacheMetrics[F[_]](headCache: HeadCache.Metrics[F], cache: CacheMetrics[F])
 
 object HeadCacheMetrics {
 
   def empty[F[_]: Applicative]: HeadCacheMetrics[F] = apply(HeadCache.Metrics.empty, CacheMetrics.empty)
-
-  @deprecated("use another `apply` instead", "2023-02-13")
-  def apply[F[_]](headCache: HeadCache.Metrics[F], cache: com.evolutiongaming.scache.CacheMetrics[F]): HeadCacheMetrics[F] = {
-    apply(headCache, cache.toCacheMetrics)
-  }
 
   def of[F[_]: Monad](
     registry: CollectorRegistry[F],
@@ -30,30 +23,4 @@ object HeadCacheMetrics {
     }
   }
 
-
-  private implicit class CacheMetrics0Ops[F[_]](val self: com.evolutiongaming.scache.CacheMetrics[F]) extends AnyVal {
-    def toCacheMetrics: CacheMetrics[F] = {
-      new CacheMetrics[F] {
-        def get(hit: Boolean) = self.get(hit)
-
-        def load(time: FiniteDuration, success: Boolean) = self.load(time, success)
-
-        def life(time: FiniteDuration) = self.life(time)
-
-        def put = self.put
-
-        def size(size: Int) = self.size(size)
-
-        def size(latency: FiniteDuration) = self.size(latency)
-
-        def values(latency: FiniteDuration) = self.values(latency)
-
-        def keys(latency: FiniteDuration) = self.keys(latency)
-
-        def clear(latency: FiniteDuration) = self.clear(latency)
-
-        def foldMap(latency: FiniteDuration) = self.foldMap(latency)
-      }
-    }
-  }
 }

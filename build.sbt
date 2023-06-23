@@ -70,8 +70,7 @@ lazy val journal = (project in file("journal")
     hostname,
     `cassandra-driver`,
     scassandra,
-    scache0,
-    scache1,
+    scache,
     `cassandra-sync`,
     `scala-java8-compat`,
     Pureconfig.pureconfig,
@@ -133,7 +132,7 @@ lazy val `eventual-cassandra` = (project in file("eventual-cassandra")
   settings (name := "kafka-journal-eventual-cassandra")
   settings commonSettings
   dependsOn (journal % "test->test;compile->compile")
-  settings (libraryDependencies ++= Seq(scache0, scache1, scassandra)))
+  settings (libraryDependencies ++= Seq(scache, scassandra)))
 
 lazy val `journal-circe` = (project in file("circe/core")
   settings (name := "kafka-journal-circe")
