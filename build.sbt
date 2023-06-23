@@ -126,7 +126,10 @@ lazy val replicator = (Project("replicator", file("replicator"))
   dependsOn (
     journal % "test->test;compile->compile",
     `eventual-cassandra`)
-  settings (libraryDependencies ++= Seq(`cats-helper`)))
+  settings (libraryDependencies ++= Seq(
+    `cats-helper`,
+    Logback.core % Test,
+    Logback.classic % Test)))
 
 lazy val `eventual-cassandra` = (project in file("eventual-cassandra")
   settings (name := "kafka-journal-eventual-cassandra")
