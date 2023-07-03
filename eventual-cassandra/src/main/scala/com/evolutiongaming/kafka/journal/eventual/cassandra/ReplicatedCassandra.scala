@@ -687,12 +687,12 @@ object ReplicatedCassandra {
           fallback <- PointerStatements.SelectIn.of[F](schema.pointer, consistencyConfig.read)
         } yield PointerStatements.SelectIn(select, fallback),
         for {
-          first  <- PointerStatements.Insert.of[F](schema.pointer, consistencyConfig.write)
-          second <- PointerStatements.Insert.of[F](schema.pointer2, consistencyConfig.write)
+          first  <- PointerStatements.Insert.of[F](schema.pointer2, consistencyConfig.write)
+          second <- PointerStatements.Insert.of[F](schema.pointer, consistencyConfig.write)
         } yield PointerStatements.Insert(first, second),
         for {
-          first  <- PointerStatements.Update.of[F](schema.pointer, consistencyConfig.write)
-          second <- PointerStatements.Update.of[F](schema.pointer2, consistencyConfig.write)
+          first  <- PointerStatements.Update.of[F](schema.pointer2, consistencyConfig.write)
+          second <- PointerStatements.Update.of[F](schema.pointer, consistencyConfig.write)
         } yield PointerStatements.Update(first, second),
         for {
           select   <- Pointer2Statements.SelectTopics.of[F](schema.pointer2, consistencyConfig.read)

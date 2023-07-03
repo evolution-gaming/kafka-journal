@@ -233,7 +233,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
           partitionOffset  = expected.head.partitionOffset
           partition        = partitionOffset.partition
           offset          <- eventualJournal.offset(topic, partitionOffset.partition)
-          _                = offset.foreach { offset => partitionOffset.offset should be > offset }
+          _                = offset.foreach { offset => partitionOffset.offset should be >= offset }
           events          <- read(key)(_.nonEmpty)
           _                = events shouldEqual expected.toList
           pointer         <- journal.pointer
