@@ -14,14 +14,69 @@ import com.evolutiongaming.sstream.Stream
 
 import scala.concurrent.duration.FiniteDuration
 
+/** Reader of the replicated journal (Cassandra by default).
+  *
+  * This allows to access the data replicated from Kafka to Cassandara. Note,
+  * that all the methods of this class have eventual nature, i.e. there could be
+  * newer events already in Kafka, but not yet replicated to Cassandra.
+  *
+  * There could be other non-Cassandra implementations of this interface.
+  */
 trait EventualJournal[F[_]] {
 
+  /** Gets a [[PartitionOffset]] and [[SeqNr]] for specific journal [[Key]].
+    *
+    * @param key
+    *   Unique identifier of a journal including a topic where it is stored
+    *   in Kafka.
+    * @return
+    *   [[JournalPointer]] containing a partition, an offset and sequence
+    *   number.
+    */
   def pointer(key: Key): F[Option[JournalPointer]]
 
+  /** Gets the last replicated offset for a partition topic.
+    *
+    * @param topic
+    *   Kafka topic.
+    * @param partition
+    *   Topic partition to get offset for.
+    * @return
+    *   Partition offset, or `None` if such topic/partition pair never
+    *   replicated.
+    */
   def offset(topic: Topic, partition: Partition): F[Option[Offset]]
 
+  /** Reads the replicated event journal.
+    *
+    * Streams all events already replicated to a storage (Cassandra by default).
+    * It does not keep streaming forever and ends the stream when the last
+    * replicated event is read.
+    *
+    * While it is possible to keep streaming forever by polling this method from
+    * time to time, the recommended way is to read Kafka instead.
+    *
+    * @param key
+    *   Unique identifier of a journal including a topic where it is stored in
+    *   Kafka.
+    * @param from
+    *   First [[SeqNr]] to read.
+    * @return
+    *   Stream of events found replicated to Cassandra ordered by [[SeqNr]].
+    */
   def read(key: Key, from: SeqNr): Stream[F, EventRecord[EventualPayloadAndType]]
 
+  /** Streams ids of journals replicated from a given topic.
+    *
+    * Streams all ids already replicated to a storage (Cassandra by default). It
+    * does not keep streaming forever and ends the stream when the last
+    * replicated journal is found.
+    *
+    * @param topic
+    *   Kafka topic name where the journals are being stored in.
+    * @return
+    *   Stream of ids found replicated to Cassandra.
+    */
   def ids(topic: Topic): Stream[F, String]
 }
 
