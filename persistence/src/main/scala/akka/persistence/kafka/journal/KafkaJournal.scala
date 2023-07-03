@@ -23,6 +23,27 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.util.Try
 
+/** Main entry point to Kafka Journal implementation.
+  *
+  * The users are not expected to instantiate it directly, but should enable the
+  * plugin in respective `application.conf` instead like this:
+  * {{{
+  * akka.persistence.journal.plugin = "evolutiongaming.kafka-journal.persistence.journal"
+  * }}}
+  *
+  * This is achieved by having a special `reference.conf` file inside of the
+  * library JAR, which contains the required configuration understandable by
+  * Akka Persistence.
+  *
+  * This is also possible to override the setting for specific persistence
+  * actors by overriding [[PersistentActor#journalPluginId]].
+  *
+  * @param config
+  *   Contains configuration coming from `application.conf` file, including
+  *   [[KafkaJournalConfig]] parameters, and also selection of [[ToKey]]
+  *   implementation. See the documentation for appropriate classes for more
+  *   details.
+  */
 class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
 
   implicit val system       : ActorSystem              = context.system
