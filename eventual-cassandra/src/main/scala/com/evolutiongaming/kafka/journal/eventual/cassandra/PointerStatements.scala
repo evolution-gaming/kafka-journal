@@ -35,12 +35,12 @@ object PointerStatements {
 
   object Insert {
 
-    def apply[F[_]: Parallel](
+    def apply[F[_]: Monad](
       first: Insert[F],
       second: Insert[F],
     ): Insert[F] = {
       (topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant) =>
-        first(topic, partition, offset, created, updated).parProductR(second(topic, partition, offset, created, updated))
+        first(topic, partition, offset, created, updated) >> second(topic, partition, offset, created, updated)
     }
 
     def of[F[_]: Monad: CassandraSession](
