@@ -4,7 +4,7 @@ import cats.Parallel
 import cats.effect._
 import cats.effect.implicits._
 import cats.syntax.all._
-import com.evolutiongaming.cassandra.StartCassandra
+import com.dimafeng.testcontainers.CassandraContainer
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MeasureDuration, ToFuture, ToTry}
 import com.evolutiongaming.kafka.StartKafka
@@ -13,6 +13,7 @@ import com.evolutiongaming.kafka.journal.util._
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.smetrics.CollectorRegistry
+import com.github.dockerjava.api.model.{ExposedPort, HostConfig, PortBinding, Ports}
 import com.typesafe.config.ConfigFactory
 import TestJsonCodec.instance
 
@@ -26,10 +27,14 @@ object IntegrationSuite {
   ): Resource[F, Unit] = {
 
     def cassandra(log: Log[F]) = Resource {
+      // To ensure all default '127.0.0.1:9042' configurations work, we need to bind to the host's 9042 port manually
+      val cassandra = CassandraContainer().configure(_.withCreateContainerCmdModifier(cmd => cmd.withHostConfig(
+        new HostConfig().withPortBindings(new PortBinding(Ports.Binding.bindPort(9042), new ExposedPort(9042)))
+      )))
       for {
-        cassandra <- Sync[F].delay { StartCassandra() }
+        _ <- Sync[F].delay { cassandra.start() }
       } yield {
-        val release = Sync[F].delay { cassandra() }.onError { case e =>
+        val release = Sync[F].delay { cassandra.stop() }.onError { case e =>
           log.error(s"failed to release cassandra with $e", e)
         }
         (().pure[F], release)
