@@ -24,14 +24,14 @@ import scala.concurrent.duration.FiniteDuration
   */
 trait EventualJournal[F[_]] {
 
-  /** Gets a [[PartitionOffset]] and [[SeqNr]] for specific journal [[Key]].
+  /** Gets a last replicated [[PartitionOffset]] and [[SeqNr]] for specific journal [[Key]].
     *
     * @param key
     *   Unique identifier of a journal including a topic where it is stored
     *   in Kafka.
     * @return
     *   [[JournalPointer]] containing a partition, an offset and sequence
-    *   number.
+    *   number of a last replicated event.
     */
   def pointer(key: Key): F[Option[JournalPointer]]
 
