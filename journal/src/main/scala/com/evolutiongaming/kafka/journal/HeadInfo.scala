@@ -4,7 +4,27 @@ import cats.syntax.all._
 import cats.{Foldable, Semigroup}
 import com.evolutiongaming.skafka.Offset
 
-
+/** Minimal metainformation about the non-replicated events in a journal.
+  *
+  * If journal has a non-deleted events pending a replication, it will contain
+  * [[Offset]] of the _first_ (i.e. oldest) event and [[SeqNr]] of the _last_
+  * (i.e. newest) event in a form of [[HeadInfo.Append]] class, with
+  * [[HeadInfo.Append#deleteTo]] specifying the part to be deleted, if any.
+  *
+  * If the journal was purged or all events were deleted, it will be
+  * [[HeadInfo.Purge]] or [[HeadInfo.Delete]], accordingly.
+  *
+  * Having this information (by preparing it using [[HeadCache]]) allows one to
+  * avoid re-reading Kafka during recovery, if it is [[HeadInfo.Empty]], or
+  * start reading Kafka topic partition much later, by skipping events unrelated
+  * to the journal.
+  *
+  * @see
+  *   [[HeadCache]] for more details on how this information is being
+  *   prefetched.
+  * @see
+  *   [[Journals]] for more details on how it is used.
+  */
 sealed abstract class HeadInfo extends Product
 
 object HeadInfo {
@@ -22,9 +42,21 @@ object HeadInfo {
   }
 
 
+  /** There are no non-replicated events in Kafka for specific journal,
+    *
+    * Having this state means it is safe to assume the journal is fully
+    * replicated to a storage (i.e. Cassandra).
+    *
+    * In other words, one can read it from Cassandra only and not look into
+    * Kafka.
+    */
   final case object Empty extends HeadInfo
 
-
+  /** There are new non-replicated events in Kafka for specific journal,
+    *
+    * Having this state means it is not enough to read Cassandra to get a full
+    * journal. One has to read Kafka also.
+    */
   abstract sealed class NonEmpty extends HeadInfo
 
   object NonEmpty {
