@@ -29,10 +29,68 @@ sealed abstract class HeadInfo extends Product
 
 object HeadInfo {
 
+  /** There are no non-replicated events in Kafka for specific journal.
+    *
+    * [[HeadInfo#empty]] is equivalent to [[HeadInfo.Empty]], but the inferred
+    * type will be `HeadInfo` rather than `HeadInfo.Empty`, which might be a
+    * little more convenient in some cases.
+    *
+    * Example:
+    * {{{
+    * scala> import com.evolutiongaming.kafka.journal.HeadInfo
+    *
+    * scala> HeadInfo.Empty
+    * val res0: HeadInfo.Empty.type = Empty
+    *
+    * scala> HeadInfo.empty
+    * val res1: HeadInfo = Empty
+    * }}}
+    *
+    * @see [[HeadInfo.Empty]] for more details.
+    */
   def empty: HeadInfo = Empty
 
+  /** The only non-replicated records are delete actions.
+    *
+    * [[HeadInfo#delete]] is equivalent to [[HeadInfo.Delete]], but the inferred
+    * type will be `HeadInfo` rather than `HeadInfo.Delete`, which might be a
+    * little more convenient in some cases.
+    *
+    * Example:
+    * {{{
+    * scala> import com.evolutiongaming.kafka.journal.HeadInfo
+    *
+    * scala> HeadInfo.Delete(DeleteTo(SeqNr.min))
+    * val res1: HeadInfo.Delete = Delete(1)
+    *
+    * scala> HeadInfo.delete(DeleteTo(SeqNr.min))
+    * val res0: HeadInfo = Delete(1)
+    * }}}
+    *
+    * @see [[HeadInfo.Delete]] for more details.
+    */
   def delete(deleteTo: DeleteTo): HeadInfo = Delete(deleteTo)
 
+  /** There are new appended events in Kafka, which did not replicate yet.
+    *
+    * [[HeadInfo#append]] is equivalent to [[HeadInfo.Append]], but the inferred
+    * type will be `HeadInfo` rather than `HeadInfo.Append`, which might be a
+    * little more convenient in some cases.
+    *
+    * Example:
+    * {{{
+    * scala> import com.evolutiongaming.kafka.journal._
+    * scala> import com.evolutiongaming.skafka.Offset
+    *
+    * scala> HeadInfo.Append(Offset.min, SeqNr.min, None)
+    * val res0: HeadInfo.Append = Append(0,1,None)
+    *
+    * scala> HeadInfo.append(Offset.min, SeqNr.min, None)
+    * val res1: HeadInfo = Append(0,1,None)
+    * }}}
+    *
+    * @see [[HeadInfo.Append]] for more details.
+    */
   def append(offset: Offset, seqNr: SeqNr, deleteTo: Option[DeleteTo]): HeadInfo = {
     Append(offset, seqNr, deleteTo)
   }
@@ -42,7 +100,7 @@ object HeadInfo {
   }
 
 
-  /** There are no non-replicated events in Kafka for specific journal,
+  /** There are no non-replicated events in Kafka for specific journal.
     *
     * Having this state means it is safe to assume the journal is fully
     * replicated to a storage (i.e. Cassandra).
@@ -52,7 +110,7 @@ object HeadInfo {
     */
   final case object Empty extends HeadInfo
 
-  /** There are new non-replicated events in Kafka for specific journal,
+  /** There are new non-replicated events in Kafka for specific journal.
     *
     * Having this state means it is not enough to read Cassandra to get a full
     * journal. One has to read Kafka also.
