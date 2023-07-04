@@ -84,7 +84,22 @@ object HeadInfo {
     }
   }
 
-
+  /** There are new appended events in Kafka, which did not replicate yet.
+    *
+    * The fields will be located like following inside of the Kafka topic
+    * partition:
+    * {{{
+    * [offset][deleted events][deleteTo][non-replicated events][seqNr]
+    * }}}
+    *
+    * @param offset
+    *   [[Offset]] of the _first_ non-replicated event, which might be,
+    *   optionally, deleted.
+    * @param seqNr
+    *   [[SeqNr]] of the _last_ non-replicated event.
+    * @param deleteTo
+    *   [[SeqNr]] of the _last_ deleted event, if any.
+    */
   final case class Append(
     offset: Offset,
     seqNr: SeqNr,
