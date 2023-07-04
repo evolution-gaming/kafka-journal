@@ -106,7 +106,21 @@ object HeadInfo {
     deleteTo: Option[DeleteTo]
   ) extends NonEmpty
 
-
+  /** The only non-replicated records are these requiring events to be deleted.
+    *
+    * The events itself already replicated to Cassandra, so it should be enough
+    * to read them from Cassandra starting from the first non-deleted event,
+    * i.e. there is no need to read Kafka in this case.
+    *
+    * The fields will be located like following inside of the Kafka topic
+    * partition:
+    * {{{
+    * [deleted events][deleteTo][replicated events]
+    * }}}
+    *
+    * @param deleteTo
+    *   [[SeqNr]] of the _last_ deleted event.
+    */
   final case class Delete(
     deleteTo: DeleteTo
   ) extends NonEmpty
