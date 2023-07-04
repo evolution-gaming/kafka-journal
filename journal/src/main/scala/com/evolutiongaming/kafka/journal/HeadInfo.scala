@@ -106,14 +106,14 @@ object HeadInfo {
     deleteTo: Option[DeleteTo]
   ) extends NonEmpty
 
-  /** The only non-replicated records are these requiring events to be deleted.
+  /** The only non-replicated records are delete actions.
     *
     * The events itself already replicated to Cassandra, so it should be enough
     * to read them from Cassandra starting from the first non-deleted event,
     * i.e. there is no need to read Kafka in this case.
     *
-    * The fields will be located like following inside of the Kafka topic
-    * partition:
+    * The `deleteTo` field will be located like following inside of the Kafka
+    * topic partition:
     * {{{
     * [deleted events][deleteTo][replicated events]
     * }}}
@@ -125,7 +125,11 @@ object HeadInfo {
     deleteTo: DeleteTo
   ) extends NonEmpty
 
-
+  /** The last non-replicated record was a journal purge action.
+    *
+    * It means there is no need to read either Cassandra or Kafka as journal was
+    * purged.
+    */
   final case object Purge extends NonEmpty
 
 
