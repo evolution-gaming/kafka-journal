@@ -95,6 +95,7 @@ object HeadInfo {
     Append(offset, seqNr, deleteTo)
   }
 
+  /** Calls [[HeadInfo#apply]] until all incoming actions are handled */
   def apply[F[_] : Foldable](actions: F[(ActionHeader, Offset)]): HeadInfo = {
     actions.foldLeft(empty) { case (head, (header, offset)) => head(header, offset) }
   }
@@ -193,6 +194,10 @@ object HeadInfo {
 
   implicit class HeadInfoOps(val self: HeadInfo) extends AnyVal {
 
+    /** A journal tail was dropped.
+      *
+      * We update the range of deleted non-replicated events.
+      */
     def delete(to: DeleteTo): HeadInfo = {
 
       def onAppend(self: Append) = {
@@ -214,6 +219,11 @@ object HeadInfo {
     }
 
 
+    /** A new event was appended.
+      *
+      * We update last saved [[SeqNr]], but ignore [[Offset]] unless this is a
+      * first event in our list of non-replicted events.
+      */
     def append(range: SeqRange, offset: Offset): HeadInfo = {
 
       def deleteToOf(deleteTo: DeleteTo) = range
@@ -232,12 +242,24 @@ object HeadInfo {
     }
 
 
+    /** A journal marker was found, which does not change [[HeadInfo]] state.
+      *
+      * The marker only matters during recovery, to validate that all journal
+      * events were read. There is no, currently, a reason to track if markers
+      * made by previous recoveries did replicate.
+      */
     def mark: HeadInfo = self
 
 
+    /** A journal purge was performed, all previous events could be ignored */
     def purge: HeadInfo = Purge
 
 
+    /** Update [[HeadInfo]] with a next event coming from Kafka.
+      *
+      * Note, that no actual event body is required, only [[ActionHeader]] and
+      * [[Offset]] of the new record.
+      */
     def apply(header: ActionHeader, offset: Offset): HeadInfo = {
       header match {
         case a: ActionHeader.Append => append(a.range, offset)
