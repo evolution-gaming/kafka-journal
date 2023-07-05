@@ -5,7 +5,23 @@ import cats.syntax.all._
 
 import scala.util.Try
 
-/** Bounded interval (also called inclusive range) of two values of type `A` */
+/** Bounded interval (also called inclusive range) of two values of type `A`.
+  *
+  * The interesting property of [[Bounds]] is that, when `combine` method is
+  * called with a second interval, then larger interval is created, which
+  * includes both even if these intervals do not overlap, i.e. including the
+  * gap between the intervals.
+  *
+  * Example:
+  * {{{
+  * val bounds1: Bounds[Int] = 10..20
+  * val bounds2: Bounds[Int] = 50..70
+  *
+  * scala> import cats.syntax.all._
+  * scala> bounds1.combine(bounds2)
+  * val res0: Bounds[Int] = 10..70
+  * }}}
+  */
 sealed trait Bounds[+A]
 
 object Bounds {
