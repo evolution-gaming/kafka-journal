@@ -489,6 +489,19 @@ object PartitionCache {
     }
   }
 
+  /** Metainformation of, potentially, non-replicated Kafka record.
+    *
+    * The `data` field might empty if Kafka record does not contain header with
+    * [[ActionHeader#key]]. Such records will be silently ignored by
+    * [[PartitionCache#add]] method.
+    *
+    * @param offset
+    *   [[Offset]] of the record.
+    * @param data
+    *   Actual metainformation including journal identifier and the purpose of
+    *   the record, i.e. if it is append, delete etc., but not including an
+    *   event payload.
+    */
   final case class Record(offset: Offset, data: Option[Record.Data])
 
   object Record {
