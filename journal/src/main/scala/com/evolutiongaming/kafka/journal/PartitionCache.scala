@@ -438,9 +438,9 @@ object PartitionCache {
   /** Entries for all journals related to one partition.
     *
     * @param bounds
-    *   Part of the partition containing non-replicated events. Corresponds to a
-    *   first non-replicated offset and the last offset seen by
-    *   [[PartitionCache]].
+    *   Part of the Kafka topic partition containing non-replicated events.
+    *   Corresponds to a first non-replicated offset and the last Kafka offset
+    *   seen by [[PartitionCache]].
     * @param values
     *   Journal specific entries. All offsets stored there are meant to be
     *   within `bounds` interval.
@@ -481,6 +481,15 @@ object PartitionCache {
     }
   }
 
+  /** Actual state of [[PartitionCache]].
+    *
+    * @param offset
+    *   The last _replicated_ offset seen by [[PartitionCache]] in Cassandra (or
+    *   another long term storage).
+    * @param entries
+    *   Information about non-replicated events seen by [[PartitionCache]] in
+    *   Kafka.
+    */
   private final case class State(offset: Option[Offset], entries: Option[Entries])
 
   private object State {
