@@ -407,18 +407,74 @@ object PartitionCache {
   }
 
 
+  /** Difference between two numerical values.
+    *
+    * Essentially it is just a wrapped [[Long]] value with a smart constructor
+    * and, therefore some guaranteed properties, if constructor is used, i.e.
+    * value being non-negative.
+    *
+    * The main benefit of this class is to avoid mix up with other numerical
+    * values and to ensure correct calculation from the two input numbers.
+    *
+    * Example:
+    * {{{
+    * scala> import cats.syntax.all._
+    * scala> import com.evolutiongaming.kafka.journal.PartitionCache.Diff
+    *
+    * scala> Diff.of(10, 20)
+    * val res0: Option[Diff] = Some(Diff(10))
+    *
+    * scala> Diff.of(20, 10)
+    * val res1: Option[Diff] = None
+    *
+    * scala> Diff.of(10, 10)
+    * val res2: Option[Diff] = None
+    *
+    * scala> Diff(10).combine(Diff(20))
+    * val res3: Diff = Diff(30)
+    * }}}
+    *
+    * @param value
+    *   Actual difference between the two numbers.
+    */
   final case class Diff(value: Long)
 
   object Diff {
 
+    /** Empty [[Diff]] value.
+      *
+      * It is used for [[CommutativeMonoid]] definition (i.e. to allow to
+      * combine [[Diff]] values) and cannot be constructed using a smart
+      * constructor.
+      */
     val Empty: Diff = Diff(0)
 
+    /** Calculate the difference between two offsets.
+      *
+      * @param prev
+      *   Smaller (or older) offset.
+      * @param next
+      *   Larger (or newer) offset.
+      * @return
+      *   Difference between the offsets, or `None` if `prev` is larger or equal
+      *   to `next`.
+      */
     def of(prev: Offset, next: Offset): Option[Diff] = {
       of(
         prev = prev.value,
         next = next.value)
     }
 
+    /** Calculate the difference between two numbers.
+      *
+      * @param prev
+      *   Smaller number.
+      * @param next
+      *   Larger number.
+      * @return
+      *   Difference between the offsets, or `None` if `prev` is larger or equal
+      *   to `next`.
+      */
     def of(prev: Long, next: Long): Option[Diff] = {
       if (prev < next) {
         Diff(next - prev).some
@@ -472,8 +528,8 @@ object PartitionCache {
     *   Corresponds to a first non-replicated offset and the last Kafka offset
     *   seen by [[PartitionCache]].
     * @param values
-    *   Journal specific entries. All offsets stored there are meant to be
-    *   within `bounds` interval.
+    *   Journal specific entries (i.e. the key is journal id). All offsets
+    *   stored there are meant to be within `bounds` interval.
     */
   private final case class Entries(bounds: Bounds[Offset], values: Map[String, Entry])
 
