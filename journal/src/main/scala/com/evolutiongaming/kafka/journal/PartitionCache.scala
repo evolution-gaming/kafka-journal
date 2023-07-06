@@ -14,14 +14,44 @@ import com.evolution.scache.Cache
 import scala.concurrent.duration.FiniteDuration
 
 
+/** Maintains an information about all non-replicated Kafka records.
+  *
+  * The class itself does not read Kafka or poll Cassandra (or other long term
+  * storage), it relies on the information incoming through
+  * [[PartitionCache#add]] (for Kafka updates), and [[PartitionCache#remove]]
+  * (for Cassandra updates).
+  */
 trait PartitionCache[F[_]] {
 
   def get(id: String, offset: Offset): F[PartitionCache.Result[F]]
 
   def offset: F[Option[Offset]]
 
+  /** Inform this cache about a batch of, potentially, non-replicated events.
+    *
+    * The method is intended to be called after the information is received from
+    * Kafka. It is possible that part or all of these events are already
+    * replicated.
+    *
+    * @param records
+    *   Metainformation of the incoming records.
+    * @return
+    *   Number of additional records marked as non-replicated after the method
+    *   was called. `None` if no new records were counted as non-replicated or
+    *   if this is the first call on an empty cache.
+    */
   def add(records: Nel[PartitionCache.Record]): F[Option[PartitionCache.Diff]]
 
+  /** Inform this cache about the latest offset replicated to Cassandra.
+    *
+    * @param offset
+    *   All events with offset less or equal to the parameter are now replicated
+    *   to Cassandra (or other long term storage).
+    * @return
+    *   Number of additional records marked as replicated after the method was
+    *   called. `None` if such offset or later was already removed or not
+    *   present in the cache in the first place.
+    */
   def remove(offset: Offset): F[Option[PartitionCache.Diff]]
 
   def meters: F[PartitionCache.Meters]
