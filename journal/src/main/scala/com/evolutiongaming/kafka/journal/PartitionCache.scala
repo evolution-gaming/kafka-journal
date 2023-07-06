@@ -413,6 +413,14 @@ object PartitionCache {
     }
   }
 
+  /** Cache entry for a single journal (i.e. single journal id).
+    *
+    * @param offset
+    *   [[Offset]] of _last_ (i.e. newest) non-replicated record related to this
+    *   journal, which was also seen by [[PartitionCache]].
+    * @param headInfo
+    *   [[HeadInfo]] of this journal.
+    */
   private final case class Entry(offset: Offset, headInfo: HeadInfo.NonEmpty)
 
   private object Entry {
@@ -427,6 +435,16 @@ object PartitionCache {
     implicit val orderingEntry: Ordering[Entry] = Ordering.by { (a: Entry) => a.offset }(Offset.orderingOffset.reverse)
   }
 
+  /** Entries for all journals related to one partition.
+    *
+    * @param bounds
+    *   Part of the partition containing non-replicated events. Corresponds to a
+    *   first non-replicated offset and the last offset seen by
+    *   [[PartitionCache]].
+    * @param values
+    *   Journal specific entries. All offsets stored there are meant to be
+    *   within `bounds` interval.
+    */
   private final case class Entries(bounds: Bounds[Offset], values: Map[String, Entry])
 
   private object Entries {
