@@ -343,39 +343,131 @@ object PartitionCache {
     }
   }
 
+  /** State of the non-replicated journal head comparing to a given offset. */
   sealed trait Result[+F[_]]
 
   object Result {
 
+    /** [[PartitionCache]] has seen given offset in Kafka, but not Cassandra.
+      *
+      * Same as [[Now.Value]], but returns [[Result]].
+      *
+      * @see [[Now.Value]] for more details.
+      */
     def value[F[_]](value: HeadInfo): Result[F] = Now.value(value)
 
+    /** [[PartitionCache]] has seen given offset in Cassandra.
+      *
+      * Same as [[Now.Ahead]], but returns [[Result]].
+      *
+      * @see [[Now.Ahead]] for more details.
+      */
     def ahead[F[_]]: Result[F] = Now.ahead
 
+    /** [[HeadInfo]] was dropped because maximum cache size was reached.
+      *
+      * Same as [[Now.Limited]], but returns [[Result]].
+      *
+      * @see [[Now.Limited]] for more details.
+      */
     def limited[F[_]]: Result[F] = Now.limited
 
+    /** The timeout occured while waiting for the [[HeadInfo]] value to load.
+      *
+      * Same as [[Now.Timeout]], but returns [[Result]].
+      *
+      * @see [[Now.Timeout]] for more details.
+      */
     def timeout[F[_]](duration: FiniteDuration): Result[F] = Now.timeout(duration)
 
     def behind[F[_]](value: F[Now]): Result[F] = Later.behind(value)
 
     def empty[F[_]](value: F[Now]): Result[F] = Later.empty(value)
 
+    /** [[PartitionCache]] already seen such [[Offset]] in Kafka or Cassandra.
+      *
+      * In other words, it means that this offset was either already replicated,
+      * or has the latest [[HeadInfo]] information inside of [[PartitionCache]].
+      */
     sealed trait Now extends Result[Nothing]
 
     object Now {
+
+      /** [[PartitionCache]] has seen given offset in Kafka, but not Cassandra.
+        *
+        * Same as [[Now.Value]], but returns [[Now]].
+        *
+        * @see [[Now.Value]] for more details.
+        */
       def value(value: HeadInfo): Now = Value(value)
 
+      /** [[PartitionCache]] has seen given offset in Cassandra.
+        *
+        * Same as [[Now.Ahead]], but returns [[Now]].
+        */
       def ahead: Now = Ahead
 
+      /** [[HeadInfo]] was dropped because maximum cache size was reached.
+        *
+        * Same as [[Now.Limited]], but returns [[Now]].
+        *
+        * @see [[Now.Limited]] for more details.
+        */
       def limited: Now = Limited
 
+      /** The timeout occured while waiting for the [[HeadInfo]] value to load.
+        *
+        * Same as [[Now.Timeout]], but returns [[Now]].
+        *
+        * @see [[Now.Timeout]] for more details.
+        */
       def timeout(duration: FiniteDuration): Now = Timeout(duration)
 
+      /** [[PartitionCache]] has seen given offset in Kafka, but not Cassandra.
+        *
+        * In other words, the journal is not fully replicated, but we have
+        * [[HeadInfo]] in cache to be used for optimization purposes.
+        *
+        * @param value Actual [[HeadInfo]] for the given journal.
+        */
       final case class Value(value: HeadInfo) extends Now
 
+      /** [[PartitionCache]] has seen given offset in Cassandra.
+        *
+        * In other words, the journal is already fully replicated to a long term
+        * storage.
+        */
       final case object Ahead extends Now
 
+      /** [[HeadInfo]] was dropped because maximum cache size was reached.
+        *
+        * In other words, [[PartitionCache]] has seen given offset in Kafka, but
+        * we could not return a [[HeadInfo]] value to be used, and it has to be
+        * calcuated again.
+        */
       final case object Limited extends Now
 
+      /** The timeout occured while waiting for the [[HeadInfo]] value to load.
+        *
+        * When [[PartitionCache#get]] is called and [[HeadInfo]] is not yet
+        * available in the cache, the returned `F[Result]` value will try to
+        * wait until either [[PartitionCache#add]] or [[PartitionCache#remove]]
+        * will bring the required information into [[PartitionCache]].
+        *
+        * This avoids reading Kafka in parallel as, usually, the consumer
+        * calling these methods on [[PartitionCache]] is already processing
+        * these records.
+        *
+        * Saying that, if consumer is too slow (during Kafka rebalancing?), and
+        * the information does not quickly replicate to Cassandra either, then
+        * we want to report a timeout allowing the caller to handle the
+        * situation by itself.
+        *
+        * @param duration
+        *   The value of a timeout exceeded while waiting for a value to appear.
+        *   In future it may become an actual time passed since
+        *   [[PartitionCache#get]] call.
+        */
       final case class Timeout(duration: FiniteDuration) extends Now
 
       implicit class NowOps(val self: Now) extends AnyVal {
