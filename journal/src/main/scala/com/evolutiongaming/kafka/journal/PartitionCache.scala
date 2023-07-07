@@ -387,7 +387,8 @@ object PartitionCache {
     /** [[PartitionCache]] already seen such [[Offset]] in Kafka or Cassandra.
       *
       * In other words, it means that this offset was either already replicated,
-      * or has the latest [[HeadInfo]] information inside of [[PartitionCache]].
+      * or had the latest [[HeadInfo]] information inside of [[PartitionCache]]
+      * when [[PartitionCache#get]] was called.
       */
     sealed trait Now extends Result[Nothing]
 
@@ -476,6 +477,19 @@ object PartitionCache {
       }
     }
 
+    /** [[PartitionCache]] did not already see [[Offset]] in Kafka or Cassandra.
+      *
+      * When [[PartitionCache#get]] was called, the offset was not seen by
+      * [[PartitionCache]] yet.
+      *
+      * The caller may still try to get [[HeadInfo]] without calculating it
+      * themselves if [[PartitionCache]] gets the information, before configured
+      * timeout kicks in, by calling [[Later#value]].
+      *
+      * @see
+      *   [[Now.Timeout]] on more details of how this timeout works and why it
+      *   is required.
+      */
     sealed trait Later[F[_]] extends Result[F]
 
     object Later {
