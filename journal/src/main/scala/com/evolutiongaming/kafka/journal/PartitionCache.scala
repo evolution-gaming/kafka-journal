@@ -23,6 +23,23 @@ import scala.concurrent.duration.FiniteDuration
   */
 trait PartitionCache[F[_]] {
 
+  /** Get the information about a state of a journal stored in this partition.
+    *
+    * @param id
+    *   Journal id
+    * @param offset
+    *   Current [[Offset]], i.e. maximum offset where Kafka records related to a
+    *   journal are located. The usual way to get such an offset is to write a
+    *   "marker" record to Kafka patition and use the offset of the marker as a
+    *   current one.
+    *
+    * @return
+    *   [[PartitionCache.Result]] with either the current state or indication of
+    *   a reason why such state is not present in a cache.
+    *
+    * @see
+    *   [[PartitionCache.Result]] for more details on possible results.
+    */
   def get(id: String, offset: Offset): F[PartitionCache.Result[F]]
 
   /** Last offset seen by [[PartitionCache]] either in Kafka or Cassandra.
