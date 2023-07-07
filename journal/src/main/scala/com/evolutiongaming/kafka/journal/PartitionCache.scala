@@ -25,6 +25,19 @@ trait PartitionCache[F[_]] {
 
   def get(id: String, offset: Offset): F[PartitionCache.Result[F]]
 
+  /** Last offset seen by [[PartitionCache]] either in Kafka or Cassandra.
+    *
+    * Such a value is useful, because there is no point to read Kafka for new
+    * non-replicated events earlier than this offset.
+    *
+    * I.e. if we seen it in Cassandra, it means the events are already
+    * replicated, and if we seen in Kafka, it means we already handled them in
+    * our [[#add]] method.
+    *
+    * @return
+    *   Last [[Offset]] seen by [[PartitionCache]], or `None`, if cache is
+    *   empty.
+    */
   def offset: F[Option[Offset]]
 
   /** Inform this cache about a batch of, potentially, non-replicated events.
