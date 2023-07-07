@@ -506,7 +506,22 @@ object PartitionCache {
 
   object Record {
 
+    /** Metainformation of a single Kafka record.
+      *
+      * @param id
+      *   Journal identifier.
+      * @param header
+      *   Metainformation, including the purpose such as if this record appended
+      *   events, deleted them or purged the journal.
+      */
     final case class Data(id: String, header: ActionHeader)
+
+    /** Convenience constructor, for records where `data` is strictly defined.
+      *
+      * At the moment of writing it was used in tests only.
+      *
+      * @see [[Record]] for more details.
+      */
     def apply(id: String, offset: Offset, header: ActionHeader): Record = {
       apply(offset, Data(id, header).some)
     }
