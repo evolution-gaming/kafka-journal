@@ -801,12 +801,37 @@ object PartitionCache {
 
   private object State {
     implicit class StateOps(val self: State) extends AnyVal {
+
+      /** Checks if current state is ahead of Cassandra.
+        *
+        * @param offset
+        *   The current offset (offset of the marker).
+        *
+        * @see
+        *   [[Result.Now.Ahead]] for more details.
+        */
       def ahead(offset: Offset): Boolean = {
         self
           .offset
           .exists { _ >= offset }
       }
 
+      /** Get a [[HeadInfo]] entry for a specific journal.
+        *
+        * The journal is expected to be stored in the partition related to this
+        * cache.
+        *
+        * @param id
+        *   The uniqued identifier of a journal within a partition.
+        * @param offset
+        *   Current offset (i.e. offset of the marker).
+        * @return
+        *   [[Result.Now]] if such entry is found in cache, or `Option[Entries]`
+        *   if the entry was not found. Note that [[Entries]] contain values for
+        *   all journals, not only one specified by `id`. At the time of
+        *   writing, this value is not used directly, and only checked for
+        *   `None` or `Some(_)`.
+        */
       def result(id: String, offset: Offset): Either[Option[Entries], Result.Now] = {
         if (self.ahead(offset)) {
           Result
@@ -858,9 +883,12 @@ object PartitionCache {
   }
 
   implicit class PartitionCacheOps[F[_]](val self: PartitionCache[F]) extends AnyVal {
+
+    /** Same as [[PartitionCache#add]], but make it a bit less verbose */
     def add(record: Record, records: Record*): F[Option[Diff]] = {
       self.add(Nel.of(record, records: _*))
     }
+
   }
 
   private implicit class CacheOps[F[_], K, V](val self: Cache[F, K, V]) extends AnyVal {
