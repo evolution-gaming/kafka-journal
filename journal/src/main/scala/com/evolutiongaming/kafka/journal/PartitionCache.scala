@@ -482,6 +482,11 @@ object PartitionCache {
 
       implicit class NowOps(val self: Now) extends AnyVal {
 
+        /** Widens [[Now]] to [[Result]].
+          *
+          * This might be, potentially, more performant than calling
+          * `pure[F].widen[Result]`.
+          */
         def toResult[F[_]]: Result[F] = self
       }
     }
@@ -542,14 +547,27 @@ object PartitionCache {
       final case class Empty[F[_]](value: F[Now]) extends Later[F]
 
       implicit class LaterOps[F[_]](val self: Later[F]) extends AnyVal {
+
+        /** Placholder for deferred entry */
         def value: F[Now] = self match {
           case Behind(a) => a
           case Empty(a)  => a
         }
+
       }
     }
 
     implicit class ResultOps[F[_]](val self: Result[F]) extends AnyVal {
+
+      /** Converts both [[Now]] and [[Later]] to [[Now]].
+        *
+        * Roughly speaking, the only case when a caller may care if [[Now]] was
+        * immediately available or had to wait a bit for be loaded is metrics.
+        *
+        * In other cases, it might be fine to treat them as the same result.
+        *
+        * @see [[Result.Now.Timeout]] for more details.
+        */
       def toNow(implicit F: Monad[F]): F[Now] = {
         self match {
           case a: Now      => a.pure[F]
