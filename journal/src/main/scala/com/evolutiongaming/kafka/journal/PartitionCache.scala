@@ -380,8 +380,16 @@ object PartitionCache {
       */
     def timeout[F[_]](duration: FiniteDuration): Result[F] = Now.timeout(duration)
 
+    /** The cache was behind Kafka when [[PartitionCache#get]] got called.
+      *
+      * Same as [[Later.Behind]], but returns [[Result]]
+      */
     def behind[F[_]](value: F[Now]): Result[F] = Later.behind(value)
 
+    /** The cache was empty when [[PartitionCache#get]] got called.
+      *
+      * Same as [[Later.Empty]], but returns [[Result]]
+      */
     def empty[F[_]](value: F[Now]): Result[F] = Later.empty(value)
 
     /** [[PartitionCache]] already seen such [[Offset]] in Kafka or Cassandra.
@@ -495,12 +503,42 @@ object PartitionCache {
 
     object Later {
 
+      /** The cache was behind Kafka when [[PartitionCache#get]] got called.
+        *
+        * Same as [[Behind]], but returns [[Result]]
+        */
       def behind[F[_]](value: F[Now]): Result[F] = Behind(value)
 
+      /** The cache was empty when [[PartitionCache#get]] got called.
+        *
+        * Same as [[Empty]], but returns [[Result]]
+        */
       def empty[F[_]](value: F[Now]): Result[F] = Empty(value)
 
+      /** The cache was behind Kafka when [[PartitionCache#get]] got called.
+        *
+        * It was also behind Casssandra or [[Now.Ahead]] would have returned.
+        *
+        * The caller may try to wait for an actual [[HeadInfo]] by calling
+        * [[Empty#value]].
+        *
+        * @param value
+        *   Placeholder for deferred entry.
+        * @see
+        *   [[Later]] for more details.
+        */
       final case class Behind[F[_]](value: F[Now]) extends Later[F]
 
+      /** The cache was empty when [[PartitionCache#get]] got called.
+        *
+        * The caller may try to wait for it to get filled by calling
+        * [[Empty#value]].
+        *
+        * @param value
+        *   Placeholder for deferred entry.
+        * @see
+        *   [[Later]] for more details.
+        */
       final case class Empty[F[_]](value: F[Now]) extends Later[F]
 
       implicit class LaterOps[F[_]](val self: Later[F]) extends AnyVal {
