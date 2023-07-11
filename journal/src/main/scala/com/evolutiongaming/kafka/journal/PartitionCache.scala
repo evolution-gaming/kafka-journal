@@ -128,6 +128,9 @@ object PartitionCache {
     timeout: FiniteDuration
   ): Resource[F, PartitionCache[F]] = {
 
+    // Key of a [[Listener]] waiting for data to load, including
+    // journal identifier and current Kafka offset (or marker offset)
+    // at the time of [[PartitionCache#get]] call.
     final case class Key(id: String, offset: Offset)
 
     for {
