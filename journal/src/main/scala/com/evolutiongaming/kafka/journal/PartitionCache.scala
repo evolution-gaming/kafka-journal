@@ -89,6 +89,27 @@ trait PartitionCache[F[_]] {
 
 object PartitionCache {
 
+  /** Creates [[PartitionCache]] using configured parameters.
+    *
+    * The parameters are, usually, configured in [[HeadCacheConfig]], but could
+    * also be set directly, i.e. for unit testing purposes.
+    *
+    * @param maxSize
+    *   Maximum number of journals to store in the cache.
+    * @param dropUponLimit
+    *   Proportion of number of journals to drop if `maxSize` is reached. Value
+    *   outside of the range of `0.01` to `1.0` will be ignored. `0.01` means
+    *   that 1% of journals will get dropped, and `1.0` means that 100% of
+    *   journals will get dropped.
+    * @param timeout
+    *   Duration to wait in [[Result.Now.Later]] returned by [[Partition#get]]
+    *   if entry is not found in a cache.
+    * @return
+    *   Resource which will configure a [[PartitionCache]] with the passed
+    *   parameters. Instance of `Resource[PartitionCache]` are, obviously,
+    *   reusable and there is no need to call [[PartitionCache#of]] each time if
+    *   parameters did not change.
+    */
   def of[F[_]: Async: Runtime: Parallel](
     maxSize: Int = 10000,
     dropUponLimit: Double = 0.1,
@@ -100,6 +121,7 @@ object PartitionCache {
       timeout = timeout)
   }
 
+  /** Same as [[#of]], but without default parameters */
   private def main[F[_]: Async: Runtime: Parallel](
     maxSize: Int,
     dropUponLimit: Double,
@@ -884,7 +906,7 @@ object PartitionCache {
 
   implicit class PartitionCacheOps[F[_]](val self: PartitionCache[F]) extends AnyVal {
 
-    /** Same as [[PartitionCache#add]], but make it a bit less verbose */
+    /** Same as [[PartitionCache#add]], but makes it a bit less verbose */
     def add(record: Record, records: Record*): F[Option[Diff]] = {
       self.add(Nel.of(record, records: _*))
     }
