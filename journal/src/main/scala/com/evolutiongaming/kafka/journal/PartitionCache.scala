@@ -84,6 +84,14 @@ trait PartitionCache[F[_]] {
     */
   def remove(offset: Offset): F[Option[PartitionCache.Diff]]
 
+  /** Runtime parameters that could be used for metrics.
+    *
+    * The call might be relatively expensive if there are a lot of
+    * non-replicated journals, so it might be worth to call it outside of the
+    * large loops. I.e. call it once a minute to update the metrics.
+    *
+    * @see [[PartitionCache.Meters]] for more details.
+    */
   def meters: F[PartitionCache.Meters]
 }
 
@@ -622,6 +630,15 @@ object PartitionCache {
     def updated(state: State): F[Unit]
   }
 
+  /** Runtime parameters that could be used for metrics.
+    *
+    * @param listeners
+    *   Number of listeners waiting after [[PartitionCache#get]] call. Too many
+    *   of them might mean that cache is not being loaded fast enough.
+    * @param entries
+    *   Number of distinct journal store in a cache. If it is too close to
+    *   maximum configured number, the cache might not work efficiently.
+    */
   final case class Meters(listeners: Int, entries: Int)
 
   object Meters {
@@ -803,6 +820,11 @@ object PartitionCache {
     }
 
     implicit class EntriesOps(val self: Entries) extends AnyVal {
+
+      /** Drops proportion of entries if number is higher than `maxSize`.
+        *
+        * @see [[PartitionCache#of]] for details on the meaning of parameters.
+        */
       def limit[F[_]: MonadThrow](maxSize: Int, dropUponLimit: Double): F[Entries] = {
         if (self.values.size <= maxSize) {
           self.pure[F]
