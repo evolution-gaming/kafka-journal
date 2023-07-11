@@ -451,9 +451,10 @@ object PartitionCache {
       /** The timeout occured while waiting for the [[HeadInfo]] value to load.
         *
         * When [[PartitionCache#get]] is called and [[HeadInfo]] is not yet
-        * available in the cache, the returned `F[Result]` value will try to
-        * wait until either [[PartitionCache#add]] or [[PartitionCache#remove]]
-        * will bring the required information into [[PartitionCache]].
+        * available in the cache, the returned `F[Result]` will contain
+        * [[Result.Later]], with value, which will try to wait until either
+        * [[PartitionCache#add]] or [[PartitionCache#remove]] will bring the
+        * required information into [[PartitionCache]].
         *
         * This avoids reading Kafka in parallel as, usually, the consumer
         * calling these methods on [[PartitionCache]] is already processing
