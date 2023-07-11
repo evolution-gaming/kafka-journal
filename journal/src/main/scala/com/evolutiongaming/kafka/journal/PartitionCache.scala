@@ -599,9 +599,23 @@ object PartitionCache {
     }
   }
 
+  /** Listener waiting for latest [[HeadInfo]] to appear in the cache.
+    *
+    * When [[PartitionCache#get]] cannot find an actual entry for a given
+    * journal, it sets up an expiring listener (or deferred value), which
+    * returns an actual information if it gets into a cache in a timely manner,
+    * or [[Result.Now.Timeout]] if the configured timeout expires.
+    */
   private trait Listener[F[_]] {
+
+    /** Actual information or [[Result.Now.Timeout]]. */
     def get: F[Result.Now]
 
+    /** Up-to-date information received by [[PartitionCache]].
+      *
+      * If the method is called before a timeout happened, then next call to
+      * [[#get]] will return the required entry.
+      */
     def updated(state: State): F[Unit]
   }
 
