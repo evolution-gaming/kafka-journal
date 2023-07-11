@@ -89,6 +89,27 @@ trait PartitionCache[F[_]] {
 
 object PartitionCache {
 
+  /** Creates [[PartitionCache]] using configured parameters.
+    *
+    * The parameters are, usually, configured in [[HeadCacheConfig]], but could
+    * also be set directly, i.e. for unit testing purposes.
+    *
+    * @param maxSize
+    *   Maximum number of journals to store in the cache.
+    * @param dropUponLimit
+    *   Proportion of number of journals to drop if `maxSize` is reached. Value
+    *   outside of the range of `0.01` to `1.0` will be ignored. `0.01` means
+    *   that 1% of journals will get dropped, and `1.0` means that 100% of
+    *   journals will get dropped.
+    * @param timeout
+    *   Duration to wait in [[Result.Now.Later]] returned by [[Partition#get]]
+    *   if entry is not found in a cache.
+    * @return
+    *   Resource which will configure a [[PartitionCache]] with the passed
+    *   parameters. Instance of `Resource[PartitionCache]` are, obviously,
+    *   reusable and there is no need to call [[PartitionCache#of]] each time if
+    *   parameters did not change.
+    */
   def of[F[_]: Async: Runtime: Parallel](
     maxSize: Int = 10000,
     dropUponLimit: Double = 0.1,
@@ -100,12 +121,16 @@ object PartitionCache {
       timeout = timeout)
   }
 
+  /** Same as [[#of]], but without default parameters */
   private def main[F[_]: Async: Runtime: Parallel](
     maxSize: Int,
     dropUponLimit: Double,
     timeout: FiniteDuration
   ): Resource[F, PartitionCache[F]] = {
 
+    // Key of a [[Listener]] waiting for data to load, including
+    // journal identifier and current Kafka offset (or marker offset)
+    // at the time of [[PartitionCache#get]] call.
     final case class Key(id: String, offset: Offset)
 
     for {
@@ -380,14 +405,23 @@ object PartitionCache {
       */
     def timeout[F[_]](duration: FiniteDuration): Result[F] = Now.timeout(duration)
 
+    /** The cache was behind Kafka when [[PartitionCache#get]] got called.
+      *
+      * Same as [[Later.Behind]], but returns [[Result]]
+      */
     def behind[F[_]](value: F[Now]): Result[F] = Later.behind(value)
 
+    /** The cache was empty when [[PartitionCache#get]] got called.
+      *
+      * Same as [[Later.Empty]], but returns [[Result]]
+      */
     def empty[F[_]](value: F[Now]): Result[F] = Later.empty(value)
 
     /** [[PartitionCache]] already seen such [[Offset]] in Kafka or Cassandra.
       *
       * In other words, it means that this offset was either already replicated,
-      * or has the latest [[HeadInfo]] information inside of [[PartitionCache]].
+      * or had the latest [[HeadInfo]] information inside of [[PartitionCache]]
+      * when [[PartitionCache#get]] was called.
       */
     sealed trait Now extends Result[Nothing]
 
@@ -450,9 +484,10 @@ object PartitionCache {
       /** The timeout occured while waiting for the [[HeadInfo]] value to load.
         *
         * When [[PartitionCache#get]] is called and [[HeadInfo]] is not yet
-        * available in the cache, the returned `F[Result]` value will try to
-        * wait until either [[PartitionCache#add]] or [[PartitionCache#remove]]
-        * will bring the required information into [[PartitionCache]].
+        * available in the cache, the returned `F[Result]` will contain
+        * [[Result.Later]], with value, which will try to wait until either
+        * [[PartitionCache#add]] or [[PartitionCache#remove]] will bring the
+        * required information into [[PartitionCache]].
         *
         * This avoids reading Kafka in parallel as, usually, the consumer
         * calling these methods on [[PartitionCache]] is already processing
@@ -472,31 +507,92 @@ object PartitionCache {
 
       implicit class NowOps(val self: Now) extends AnyVal {
 
+        /** Widens [[Now]] to [[Result]].
+          *
+          * This might be, potentially, more performant than calling
+          * `pure[F].widen[Result]`.
+          */
         def toResult[F[_]]: Result[F] = self
       }
     }
 
+    /** [[PartitionCache]] did not already see [[Offset]] in Kafka or Cassandra.
+      *
+      * When [[PartitionCache#get]] was called, the offset was not seen by
+      * [[PartitionCache]] yet.
+      *
+      * The caller may still try to get [[HeadInfo]] without calculating it
+      * themselves if [[PartitionCache]] gets the information, before configured
+      * timeout kicks in, by calling [[Later#value]].
+      *
+      * @see
+      *   [[Now.Timeout]] on more details of how this timeout works and why it
+      *   is required.
+      */
     sealed trait Later[F[_]] extends Result[F]
 
     object Later {
 
+      /** The cache was behind Kafka when [[PartitionCache#get]] got called.
+        *
+        * Same as [[Behind]], but returns [[Result]]
+        */
       def behind[F[_]](value: F[Now]): Result[F] = Behind(value)
 
+      /** The cache was empty when [[PartitionCache#get]] got called.
+        *
+        * Same as [[Empty]], but returns [[Result]]
+        */
       def empty[F[_]](value: F[Now]): Result[F] = Empty(value)
 
+      /** The cache was behind Kafka when [[PartitionCache#get]] got called.
+        *
+        * It was also behind Casssandra or [[Now.Ahead]] would have returned.
+        *
+        * The caller may try to wait for an actual [[HeadInfo]] by calling
+        * [[Empty#value]].
+        *
+        * @param value
+        *   Placeholder for deferred entry.
+        * @see
+        *   [[Later]] for more details.
+        */
       final case class Behind[F[_]](value: F[Now]) extends Later[F]
 
+      /** The cache was empty when [[PartitionCache#get]] got called.
+        *
+        * The caller may try to wait for it to get filled by calling
+        * [[Empty#value]].
+        *
+        * @param value
+        *   Placeholder for deferred entry.
+        * @see
+        *   [[Later]] for more details.
+        */
       final case class Empty[F[_]](value: F[Now]) extends Later[F]
 
       implicit class LaterOps[F[_]](val self: Later[F]) extends AnyVal {
+
+        /** Placholder for deferred entry */
         def value: F[Now] = self match {
           case Behind(a) => a
           case Empty(a)  => a
         }
+
       }
     }
 
     implicit class ResultOps[F[_]](val self: Result[F]) extends AnyVal {
+
+      /** Converts both [[Now]] and [[Later]] to [[Now]].
+        *
+        * Roughly speaking, the only case when a caller may care if [[Now]] was
+        * immediately available or had to wait a bit for be loaded is metrics.
+        *
+        * In other cases, it might be fine to treat them as the same result.
+        *
+        * @see [[Result.Now.Timeout]] for more details.
+        */
       def toNow(implicit F: Monad[F]): F[Now] = {
         self match {
           case a: Now      => a.pure[F]
@@ -506,9 +602,23 @@ object PartitionCache {
     }
   }
 
+  /** Listener waiting for latest [[HeadInfo]] to appear in the cache.
+    *
+    * When [[PartitionCache#get]] cannot find an actual entry for a given
+    * journal, it sets up an expiring listener (or deferred value), which
+    * returns an actual information if it gets into a cache in a timely manner,
+    * or [[Result.Now.Timeout]] if the configured timeout expires.
+    */
   private trait Listener[F[_]] {
+
+    /** Actual information or [[Result.Now.Timeout]]. */
     def get: F[Result.Now]
 
+    /** Up-to-date information received by [[PartitionCache]].
+      *
+      * If the method is called before a timeout happened, then next call to
+      * [[#get]] will return the required entry.
+      */
     def updated(state: State): F[Unit]
   }
 
@@ -730,12 +840,37 @@ object PartitionCache {
 
   private object State {
     implicit class StateOps(val self: State) extends AnyVal {
+
+      /** Checks if current state is ahead of Cassandra.
+        *
+        * @param offset
+        *   The current offset (offset of the marker).
+        *
+        * @see
+        *   [[Result.Now.Ahead]] for more details.
+        */
       def ahead(offset: Offset): Boolean = {
         self
           .offset
           .exists { _ >= offset }
       }
 
+      /** Get a [[HeadInfo]] entry for a specific journal.
+        *
+        * The journal is expected to be stored in the partition related to this
+        * cache.
+        *
+        * @param id
+        *   The uniqued identifier of a journal within a partition.
+        * @param offset
+        *   Current offset (i.e. offset of the marker).
+        * @return
+        *   [[Result.Now]] if such entry is found in cache, or `Option[Entries]`
+        *   if the entry was not found. Note that [[Entries]] contain values for
+        *   all journals, not only one specified by `id`. At the time of
+        *   writing, this value is not used directly, and only checked for
+        *   `None` or `Some(_)`.
+        */
       def result(id: String, offset: Offset): Either[Option[Entries], Result.Now] = {
         if (self.ahead(offset)) {
           Result
@@ -787,9 +922,12 @@ object PartitionCache {
   }
 
   implicit class PartitionCacheOps[F[_]](val self: PartitionCache[F]) extends AnyVal {
+
+    /** Same as [[PartitionCache#add]], but makes it a bit less verbose */
     def add(record: Record, records: Record*): F[Option[Diff]] = {
       self.add(Nel.of(record, records: _*))
     }
+
   }
 
   private implicit class CacheOps[F[_], K, V](val self: Cache[F, K, V]) extends AnyVal {
