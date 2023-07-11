@@ -820,6 +820,11 @@ object PartitionCache {
     }
 
     implicit class EntriesOps(val self: Entries) extends AnyVal {
+
+      /** Drops proportion of entries if number is higher than `maxSize`.
+        *
+        * @see [[PartitionCache#of]] for details on the meaning of parameters.
+        */
       def limit[F[_]: MonadThrow](maxSize: Int, dropUponLimit: Double): F[Entries] = {
         if (self.values.size <= maxSize) {
           self.pure[F]
