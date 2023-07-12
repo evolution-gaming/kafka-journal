@@ -113,6 +113,10 @@ object HeadCache {
   }
 
 
+  /** Lighweight wrapper over [[EventualJournal]].
+    *
+    * Allows easier stubbing in unit tests.
+    */
   trait Eventual[F[_]] {
 
     def pointer(topic: Topic, partition: Partition): F[Option[Offset]]
