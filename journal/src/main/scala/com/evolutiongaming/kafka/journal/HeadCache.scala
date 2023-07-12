@@ -190,7 +190,7 @@ object HeadCache {
   /** Provides methods to update the metrics for [[HeadCache]] internals */
   trait Metrics[F[_]] {
 
-    /** Report duration and result of [[TopicCache#get]].
+    /** Report duration and result of cache hits, i.e. [[TopicCache#get]].
       *
       * @param topic
       *   Topic journal is being stored in.
@@ -216,8 +216,30 @@ object HeadCache {
       */
     def meters(topic: Topic, entries: Int, listeners: Int): F[Unit]
 
+    /** Report the latency and number of records coming from Kafka.
+      *
+      * I.e. how long it took for a next element in a stream returned by
+      * [[HeadCacheConsumption#apply]] to get from a journal writer to this
+      * cache.
+      *
+      * @param topic
+      *   Topic being read by [[HeadCacheConsumption]].
+      * @param age
+      *   Time it took for an element to reach [[HeadCache]].
+      * @param diff
+      *   The number of elements added to cache by this batch, i.e. returned by
+      *   [[PartitionCache#add]].
+      */
     def consumer(topic: Topic, age: FiniteDuration, diff: Long): F[Unit]
 
+    /** Report the number of records coming from Cassandra.
+      *
+      * @param topic
+      *   Topic being read by [[Eventual]].
+      * @param diff
+      *   The number of elements remove from cache by this batch, i.e. returned
+      *   by [[PartitionCache#remove]].
+      */
     def storage(topic: Topic, diff: Long): F[Unit]
   }
 
