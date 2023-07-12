@@ -636,7 +636,7 @@ object PartitionCache {
     *   Number of listeners waiting after [[PartitionCache#get]] call. Too many
     *   of them might mean that cache is not being loaded fast enough.
     * @param entries
-    *   Number of distinct journal store in a cache. If it is too close to
+    *   Number of distinct journal stored in a cache. If it is too close to
     *   maximum configured number, the cache might not work efficiently.
     */
   final case class Meters(listeners: Int, entries: Int)

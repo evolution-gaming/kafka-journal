@@ -187,10 +187,33 @@ object HeadCache {
   }
 
 
+  /** Provides methods to update the metrics for [[HeadCache]] internals */
   trait Metrics[F[_]] {
 
+    /** Report duration and result of [[TopicCache#get]].
+      *
+      * @param topic
+      *   Topic journal is being stored in.
+      * @param latency
+      *   Duration of [[TopicCache#get]] call.
+      * @param result
+      *   Result of the call, i.e. "ahead", "limited", "timeout" or "failure".
+      * @param now
+      *   If result was [[PartitionCache.Result.Now]], i.e. entry was already in
+      *   cache.
+      */
     def get(topic: Topic, latency: FiniteDuration, result: String, now: Boolean): F[Unit]
 
+    /** Report health of all [[PartitionCache]] instances related to a topic.
+      *
+      * @param topic
+      *   Topic which these [[PartitionCache]] instances are related to. Too
+      *   many of them might mean that cache is not being loaded fast enough.
+      * @param entries
+      *   Number of distinct journal stored in a topic cache. If it is too close
+      *   to [[HeadCacheConfig.Partition#maxSize]] multiplied by number of
+      *   partitions, the cache might not work efficiently.
+      */
     def meters(topic: Topic, entries: Int, listeners: Int): F[Unit]
 
     def consumer(topic: Topic, age: FiniteDuration, diff: Long): F[Unit]
