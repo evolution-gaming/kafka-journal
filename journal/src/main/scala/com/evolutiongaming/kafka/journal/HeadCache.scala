@@ -119,7 +119,12 @@ object HeadCache {
     */
   trait Eventual[F[_]] {
 
+    /** Gets the last replicated offset for a partition topic.
+      *
+      * @see [[EventualJournal#offset]] for more details.
+      */
     def pointer(topic: Topic, partition: Partition): F[Option[Offset]]
+
   }
 
   object Eventual {
