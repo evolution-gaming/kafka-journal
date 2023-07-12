@@ -19,9 +19,34 @@ import com.evolution.scache.Cache
 
 import scala.concurrent.duration._
 
-
+/** Maintains an information about non-replicated Kafka records in a topic.
+  *
+  * The implementation reads both Kafka and Cassandra by itself, continously
+  * refreshing the information.
+  */
 trait TopicCache[F[_]] {
 
+  /** Get the information about a state of a journal stored in the topic.
+    *
+    * @param id
+    *   Journal id
+    * @param partition
+    *   Partition where journal is stored to. The usual way to get such an
+    *   offset is to write a "marker" record to Kafka patition and use the
+    *   parrtition of the marker as a current one.
+    * @param offset
+    *   Current [[Offset]], i.e. maximum offset where Kafka records related to a
+    *   journal are located. The usual way to get such an offset is to write a
+    *   "marker" record to Kafka patition and use the offset of the marker as a
+    *   current one.
+    *
+    * @return
+    *   [[PartitionCache.Result]] with either the current state or indication of
+    *   a reason why such state is not present in a cache.
+    *
+    * @see
+    *   [[PartitionCache.Result]] for more details on possible results.
+    */
   def get(id: String, partition: Partition, offset: Offset): F[PartitionCache.Result[F]]
 }
 
@@ -204,19 +229,50 @@ object TopicCache {
     }
   }
 
+  /** Lighweight wrapper over [[KafkaConsumer]].
+    *
+    * Allows easier stubbing in unit tests and provides a little bit more
+    * convenient [[TopicCache]]-specific API.
+    */
   trait Consumer[F[_]] {
 
+   /** Assigns specific topic partitions to a consumer.
+     *
+     * I.e. consumer groups will not be used.
+     *
+     * @see
+     *   [[KafkaConsumer#assign]] for more details.
+     */
     def assign(topic: Topic, partitions: Nes[Partition]): F[Unit]
 
+    /** Moves fetching position to a different offset(s).
+      *
+      * The read will start from the new offsets the next time [[#poll]] is
+      * called.
+      *
+      * @see
+      *   [[KafkaConsumer#seek]] for more details.
+      */
     def seek(topic: Topic, offsets: Nem[Partition, Offset]): F[Unit]
 
+    /** Fetch data from the previously assigned partitions.
+      *
+      * @see
+      *   [[KafkaConsumer#poll]] for more details.
+      */
     def poll: F[ConsumerRecords[String, Unit]]
 
+    /** Get the set of partitions for a given topic.
+      *
+      * @see
+      *   [[KafkaConsumer#partitions]] for more details.
+      */
     def partitions(topic: Topic): F[Set[Partition]]
   }
 
   object Consumer {
 
+    /** Stub implemenation of [[Consumer]], which never returns any records. */
     def empty[F[_]: Applicative]: Consumer[F] = {
       class Empty
       new Empty with Consumer[F] {
@@ -234,6 +290,11 @@ object TopicCache {
 
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
+    /** Wraps existing [[KafkaConsumer]] into [[Consumer]] API.
+      *
+      * @param consumer Previously created [[KafkaConsumer]].
+      * @param pollTimeout The timeout to use for [[KafkaConsumer#poll]].
+      */
     def apply[F[_]: Monad](
       consumer: KafkaConsumer[F, String, Unit],
       pollTimeout: FiniteDuration
@@ -262,6 +323,16 @@ object TopicCache {
       }
     }
 
+    /** Creates a new [[KafkaConsumer]] and wraps it into [[Consumer]] API.
+      *
+      * @param config
+      *   Kafka configuration in form of [[ConsumerConfig]]. It is used to get
+      *   Kafka address, mostly, and some important parameters will be ignored,
+      *   as these need to be set to spcific values for the cache to work. I.e.
+      *   `autoOffsetReset`, `groupId` and `autoCommit` will not be used.
+      * @param pollTimeout
+      *   The timeout to use for [[KafkaConsumer#poll]].
+      */
     def of[F[_]: Monad: KafkaConsumerOf: FromTry](
       config: ConsumerConfig,
       pollTimeout: FiniteDuration = 10.millis

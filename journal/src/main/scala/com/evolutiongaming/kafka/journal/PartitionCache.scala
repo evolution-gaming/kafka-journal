@@ -14,7 +14,7 @@ import com.evolution.scache.Cache
 import scala.concurrent.duration.FiniteDuration
 
 
-/** Maintains an information about all non-replicated Kafka records.
+/** Maintains an information about non-replicated Kafka records in a partition.
   *
   * The class itself does not read Kafka or poll Cassandra (or other long term
   * storage), it relies on the information incoming through
