@@ -31,9 +31,9 @@ trait TopicCache[F[_]] {
     * @param id
     *   Journal id
     * @param partition
-    *   Partition where journal is stored to. The usual way to get such an
-    *   offset is to write a "marker" record to Kafka patition and use the
-    *   parrtition of the marker as a current one.
+    *   Partition where journal is stored to. The usual way to get the partition
+    *   is to write a "marker" record to Kafka topic and use the partition of
+    *   the marker as a current one.
     * @param offset
     *   Current [[Offset]], i.e. maximum offset where Kafka records related to a
     *   journal are located. The usual way to get such an offset is to write a
