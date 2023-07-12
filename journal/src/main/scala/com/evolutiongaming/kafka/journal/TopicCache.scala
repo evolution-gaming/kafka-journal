@@ -397,12 +397,35 @@ object TopicCache {
   }
 
 
+  /** Cumulative average of some data stream.
+    *
+    * If one has to calcuate an average for a large list of numbers, one does
+    * not have to keep all these numbers in a memory. It is enough to keep sum
+    * of them and the count.
+    *
+    * @param sum
+    *   Sum of all numbers seen.
+    * @param count
+    *   Number of all numbers seen.
+    *
+    * Example:
+    * {{{
+    * scala> import cats.syntax.all._
+    * scala> (1L to 100L).toList.map(Sample(_)).combineAll.avg
+    * val res0: Option[Long] = Some(50)
+    * }}}
+    *
+    * @see
+    *   https://en.wikipedia.org/wiki/Moving_average#Cumulative_average
+    */
   private final case class Sample(sum: Long, count: Int)
 
   private object Sample {
 
+    /** Single number in a stream we are calculating average for */
     def apply(value: Long): Sample = Sample(sum = value, count = 1)
 
+    /** Initial state of cumulative average, i.e. no numbers registered */
     val Empty: Sample = Sample(0L, 0)
 
     implicit val monoidSample: Monoid[Sample] = new Monoid[Sample] {
@@ -417,6 +440,11 @@ object TopicCache {
     }
 
     implicit class SampleOps(val self: Sample) extends AnyVal {
+
+      /** Average of the all numbers seen, or `None` if no numbers were added.
+        *
+        * @return Average of all numbers seen, rounded down.
+        */
       def avg: Option[Long] = {
         if (self.count > 0) (self.sum / self.count).some else none
       }
