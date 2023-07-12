@@ -52,6 +52,29 @@ trait TopicCache[F[_]] {
 
 object TopicCache {
 
+  /** Creates [[TopicCache]] using configured parameters and data sources.
+    *
+    * @param eventual
+    *   Cassandra data source.
+    * @param topic
+    *   Topic stored in this cache.
+    * @param log
+    *   Logger used to write debug logs to.
+    * @param consumer
+    *   Kafka data source.
+    * @param config
+    *   [[HeadCache]] configuration.
+    * @param consRecordToActionHeader
+    *   Function used to parse records coming from `consumer`. Only headers will
+    *   be parsed, and the payload will be ignored.
+    * @param metrics
+    *   Interface to report the metrics to.
+    * @return
+    *   Resource which will configure a [[TopicCache]] with the passed
+    *   parameters. Instance of `Resource[TopicCache]` are, obviously, reusable
+    *   and there is no need to call [[TopicCache#of]] each time if parameters
+    *   did not change.
+    */
   def of[F[_]: Async: Parallel: Runtime](
     eventual: Eventual[F],
     topic: Topic,
