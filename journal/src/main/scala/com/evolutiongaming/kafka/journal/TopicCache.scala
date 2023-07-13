@@ -351,7 +351,7 @@ object TopicCache {
       * @param config
       *   Kafka configuration in form of [[ConsumerConfig]]. It is used to get
       *   Kafka address, mostly, and some important parameters will be ignored,
-      *   as these need to be set to spcific values for the cache to work. I.e.
+      *   as these need to be set to specific values for the cache to work. I.e.
       *   `autoOffsetReset`, `groupId` and `autoCommit` will not be used.
       * @param pollTimeout
       *   The timeout to use for [[KafkaConsumer#poll]].

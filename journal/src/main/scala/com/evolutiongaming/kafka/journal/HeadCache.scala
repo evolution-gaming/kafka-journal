@@ -212,12 +212,14 @@ object HeadCache {
     /** Report health of all [[PartitionCache]] instances related to a topic.
       *
       * @param topic
-      *   Topic which these [[PartitionCache]] instances are related to. Too
-      *   many of them might mean that cache is not being loaded fast enough.
+      *   Topic which these [[PartitionCache]] instances are related to.
       * @param entries
-      *   Number of distinct journal stored in a topic cache. If it is too close
-      *   to [[HeadCacheConfig.Partition#maxSize]] multiplied by number of
+      *   Number of distinct journals stored in a topic cache. If it is too
+      *   close to [[HeadCacheConfig.Partition#maxSize]] multiplied by number of
       *   partitions, the cache might not work efficiently.
+      * @param listeners
+      *   Number of listeners waiting after [[PartitionCache#get]] call. Too
+      *   many of them might mean that cache is not being loaded fast enough.
       */
     def meters(topic: Topic, entries: Int, listeners: Int): F[Unit]
 
