@@ -480,6 +480,7 @@ object TopicCache {
 
   implicit class TopicCacheOps[F[_]](val self: TopicCache[F]) extends AnyVal {
 
+    /** Wrap instance in a class, which logs metrics to [[HeadCache.Metrics]] */
     def withMetrics(
       topic: Topic,
       metrics: HeadCache.Metrics[F])(implicit
@@ -537,6 +538,11 @@ object TopicCache {
       }
     }
 
+    /** Log debug messages on every call to a cache.
+      *
+      * The messages will go to DEBUG level, so it is also necessary to enable
+      * it in logger configuration.
+      */
     def withLog(log: Log[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): TopicCache[F] = {
       new WithLog with TopicCache[F] {
 
