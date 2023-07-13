@@ -554,6 +554,22 @@ object TopicCache {
 
   private implicit class SetOps[A](val self: Set[A]) extends AnyVal {
 
+    /** Aggregate all values in a set to something else using [[Monoid]].
+      *
+      * In other words, provides `foldMapM` method to `Set`.
+      *
+      * The method is not provided directly by `cats-core`,
+      * because it is unlawful.
+      *
+      * It is possible to achieve the same using `alleycats-core`
+      * library like this, so the method might not be removed in future:
+      * {{{
+      * scala> import cats.syntax.all._
+      * scala> import alleycats.std.all._
+      * scala> Set(1, 2, 3).foldMapM(_.some)
+      * val res0: Option[Int] = Some(6)
+      * }}}
+      */
     def foldMapM[F[_]: Monad, B: Monoid](f: A => F[B]): F[B] = {
       self.foldLeft(Monoid[B].empty.pure[F]) { case (b0, a) =>
         for {
