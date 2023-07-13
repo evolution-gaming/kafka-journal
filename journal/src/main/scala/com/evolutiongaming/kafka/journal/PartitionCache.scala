@@ -953,6 +953,29 @@ object PartitionCache {
   }
 
   private implicit class CacheOps[F[_], K, V](val self: Cache[F, K, V]) extends AnyVal {
+
+    /** Aggregate all succesfully loaded or loading values to something else.
+      *
+      * If an error happens when value is loaded, then it is ignored.
+      *
+      * Example: calculate sum of all even loaded or loading `Int` values:
+      * {{{
+      * cache.foldMap { value =>
+      *   if (value % 2 == 0) value else 0
+      * }
+      * }}}
+      *
+      * @tparam A
+      *   Type to map the key/values to, and aggregate with. It requires
+      *   [[CommutativeMonoid]] to be present to be able to sum up the values,
+      *   without having a guarantee about the order of the values being
+      *   aggregates as the order may be random depending on a cache
+      *   implementation.
+      *
+      * @return
+      *   Result of the aggregation, i.e. all mapped values combined using
+      *   passed [[CommutativeMonoid]].
+      */
     def foldMap1[A](f: V => F[A])(implicit F: Sync[F], commutativeMonoid: CommutativeMonoid[A]): F[A] = {
       self.foldMap {
         case (_, Right(a)) =>
