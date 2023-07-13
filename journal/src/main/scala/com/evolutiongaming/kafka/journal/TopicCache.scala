@@ -375,6 +375,11 @@ object TopicCache {
 
     implicit class ConsumerOps[F[_]](val self: Consumer[F]) extends AnyVal {
 
+      /** Log debug messages on every call to the class methods.
+        *
+        * The messages will go to DEBUG level, so it is also necessary to enable
+        * it in logger configuration.
+        */
       def withLog(log: Log[F])(implicit F: Monad[F]): Consumer[F] = {
         new WithLog with Consumer[F] {
 
