@@ -22,9 +22,9 @@ import scala.concurrent.duration._
   * The implementation subcribes to all events in Kafka and periodically polls
   * Cassandra to remove information about the events, which already replicated.
   *
-  * The cache does not store the events themselves, but only an offset of the
-  * first event, the sequence number of last event, and a range of events to
-  * be deleted.
+  * The returned entries do not contain the events themselves, but only an
+  * offset of the first non-repliacted event, the sequence number of last event,
+  * range of events to be deleted etc.
   *
   * TODO headcache:
   * 1. Keep 1000 last seen entries, even if replicated.
@@ -50,7 +50,7 @@ trait HeadCache[F[_]] {
     *   current one.
     *
     * @return
-    *   [[HeadInfo]]] with the current metainformation about non-replicated
+    *   [[HeadInfo]] with the current metainformation about non-replicated
     *   events, or `None` if it was not present in [[HeadCache]] and could not
     *   be loaded either.
     */
