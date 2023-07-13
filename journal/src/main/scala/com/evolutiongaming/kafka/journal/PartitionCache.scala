@@ -14,7 +14,7 @@ import com.evolution.scache.Cache
 import scala.concurrent.duration.FiniteDuration
 
 
-/** Maintains an information about all non-replicated Kafka records.
+/** Maintains an information about non-replicated Kafka records in a partition.
   *
   * The class itself does not read Kafka or poll Cassandra (or other long term
   * storage), it relies on the information incoming through
@@ -636,7 +636,7 @@ object PartitionCache {
     *   Number of listeners waiting after [[PartitionCache#get]] call. Too many
     *   of them might mean that cache is not being loaded fast enough.
     * @param entries
-    *   Number of distinct journal store in a cache. If it is too close to
+    *   Number of distinct journals stored in a cache. If it is too close to
     *   maximum configured number, the cache might not work efficiently.
     */
   final case class Meters(listeners: Int, entries: Int)
@@ -953,6 +953,29 @@ object PartitionCache {
   }
 
   private implicit class CacheOps[F[_], K, V](val self: Cache[F, K, V]) extends AnyVal {
+
+    /** Aggregate all succesfully loaded or loading values to something else.
+      *
+      * If an error happens when value is loaded, then it is ignored.
+      *
+      * Example: calculate sum of all even loaded or loading `Int` values:
+      * {{{
+      * cache.foldMap { value =>
+      *   if (value % 2 == 0) value else 0
+      * }
+      * }}}
+      *
+      * @tparam A
+      *   Type to map the key/values to, and aggregate with. It requires
+      *   [[CommutativeMonoid]] to be present to be able to sum up the values,
+      *   without having a guarantee about the order of the values being
+      *   aggregates as the order may be random depending on a cache
+      *   implementation.
+      *
+      * @return
+      *   Result of the aggregation, i.e. all mapped values combined using
+      *   passed [[CommutativeMonoid]].
+      */
     def foldMap1[A](f: V => F[A])(implicit F: Sync[F], commutativeMonoid: CommutativeMonoid[A]): F[A] = {
       self.foldMap {
         case (_, Right(a)) =>
