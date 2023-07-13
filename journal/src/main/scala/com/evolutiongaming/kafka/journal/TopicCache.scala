@@ -573,7 +573,7 @@ object TopicCache {
       * because it is unlawful.
       *
       * It is possible to achieve the same using `alleycats-core`
-      * library like this, so the method might not be removed in future:
+      * library like this, so the method might be removed in future:
       * {{{
       * scala> import cats.syntax.all._
       * scala> import alleycats.std.all._

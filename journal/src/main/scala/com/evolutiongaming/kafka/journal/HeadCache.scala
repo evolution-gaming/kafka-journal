@@ -17,13 +17,43 @@ import com.evolutiongaming.smetrics._
 
 import scala.concurrent.duration._
 
-/**
- * TODO headcache:
- * 1. Keep 1000 last seen entries, even if replicated.
- * 2. Fail headcache when background tasks failed
- */
+/** Metainfo of events written to Kafka, but not yet replicated to Cassandra.
+  *
+  * The implementation subcribes to all events in Kafka and periodically polls
+  * Cassandra to remove information about the events, which already replicated.
+  *
+  * The cache does not store the events themselves, but only an offset of the
+  * first event, the sequence number of last event, and a range of events to
+  * be deleted.
+  *
+  * TODO headcache:
+  * 1. Keep 1000 last seen entries, even if replicated.
+  * 2. Fail headcache when background tasks failed
+  *
+  * @see [[HeadInfo]] for more details on the purpose of the stored data.
+  */
 trait HeadCache[F[_]] {
 
+  /** Get the information about a state of a journal stored in the cache.
+    *
+    * @param key
+    *   Journal key including a Kafka topic where journal is stored and
+    *   a journal identifier.
+    * @param partition
+    *   Partition where journal is stored to. The usual way to get the partition
+    *   is to write a "marker" record to Kafka topic and use the partition of
+    *   the marker as a current one.
+    * @param offset
+    *   Current [[Offset]], i.e. maximum offset where Kafka records related to a
+    *   journal are located. The usual way to get such an offset is to write a
+    *   "marker" record to Kafka patition and use the offset of the marker as a
+    *   current one.
+    *
+    * @return
+    *   [[HeadInfo]]] with the current metainformation about non-replicated
+    *   events, or `None` if it was not present in [[HeadCache]] and could not
+    *   be loaded either.
+    */
   def get(key: Key, partition: Partition, offset: Offset): F[Option[HeadInfo]]
 }
 
