@@ -71,6 +71,26 @@ object HeadCache {
   }
 
 
+  /** Creates new cache using a passed configuration and Cassandra reader.
+    *
+    * @param consumerConfig
+    *   Kafka consumer configuration used to find new non-replicated journal
+    *   events. Some of the parameters will be ignored. See
+    *   [[TopicCache.Consumer#of]] for more details.
+    * @param eventualJournal
+    *   Cassandra (or other long term storage) data source used to remove
+    *   replicated events from the cache. Usually created by calling
+    *   [[EventualCassandra#of]].
+    * @param metrics
+    *   Interface to report the metrics to. The intended way to configure it is
+    *   overriding [[KafkaJournal#metrics]] in a custom implementation of
+    *   [[KafkaJournal]].
+    * @return
+    *   Resource which will configure a [[HeadCache]] with the passed
+    *   parameters. Instance of `Resource[HeadCache]` are, obviously, reusable
+    *   and there is no need to call [[HeadCache#of]] each time if parameters
+    *   did not change.
+    */
   def of[F[_]: Async: Parallel: Runtime: LogOf: KafkaConsumerOf: MeasureDuration: FromTry: FromJsResult: JsonCodec.Decode](
     consumerConfig: ConsumerConfig,
     eventualJournal: EventualJournal[F],
