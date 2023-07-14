@@ -60,9 +60,11 @@ trait HeadCache[F[_]] {
 
 object HeadCache {
 
+  /** Disable cache and always return `None` */
   def empty[F[_]: Applicative]: HeadCache[F] = const(none[HeadInfo].pure[F])
 
 
+  /** Disable cache and always return a predefined value */
   def const[F[_]](value: F[Option[HeadInfo]]): HeadCache[F] = {
     class Const
     new Const with HeadCache[F] {
@@ -212,6 +214,7 @@ object HeadCache {
 
     def apply[F[_]](implicit F: Eventual[F]): Eventual[F] = F
 
+    /** Wrap [[EventualJournal]] into [[Eventual]] */
     def apply[F[_]](eventualJournal: EventualJournal[F]): Eventual[F] = {
       class Main
       new Main with HeadCache.Eventual[F] {
@@ -219,8 +222,16 @@ object HeadCache {
       }
     }
 
+    /** Always return `None` as an offset, i.e. pretend nothing ever replicates.
+      *
+      * Only useful for testing purposes.
+      */
     def empty[F[_]: Applicative]: Eventual[F] = const(TopicPointers.empty.pure[F])
 
+    /** Ignore topic and specify offset to return by partition.
+      *
+      * Only useful for testing purposes.
+      */
     def const[F[_]: Applicative](value: F[TopicPointers]): Eventual[F] = {
       class Const
       new Const with Eventual[F] {
@@ -242,6 +253,11 @@ object HeadCache {
       }
     }
 
+    /** Log debug messages on every call to the class methods.
+      *
+      * The messages will go to DEBUG level, so it is also necessary to enable
+      * it in logger configuration.
+      */
     def withLog(log: Log[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): HeadCache[F] = {
       new WithLog with HeadCache[F] {
 
@@ -256,6 +272,14 @@ object HeadCache {
       }
     }
 
+    /** Prevents cache methods to be used after `Resource` was released.
+      *
+      * [[ReleasedError]] will be raised if [[HeadCache#get]] is called after
+      * resource is released.
+      *
+      * It may prevent certain kind of bugs, when several caches are,
+      * accidentially, alive and working.
+      */
     def withFence(implicit F: Sync[F]): Resource[F, HeadCache[F]] = {
       Resource
         .make { Ref[F].of(().pure[F]) } { _.set(ReleasedError.raiseError[F, Unit]) }
@@ -333,9 +357,14 @@ object HeadCache {
 
   object Metrics {
 
+    /** Does not do anything, ignores metric reports */
     def empty[F[_]: Applicative]: Metrics[F] = const(().pure[F])
 
 
+    /** Calls a passed effect when metrics are reported.
+      *
+      * May only be useful for tests, as the reported parameters are ignored.
+      */
     def const[F[_]](unit: F[Unit]): Metrics[F] = {
       class Const
       new Const with Metrics[F] {
@@ -358,6 +387,29 @@ object HeadCache {
     }
 
 
+    /** Registers a default set of metrics to a passed collector registry.
+      *
+      * Note, that creating this metrics several times with the same collector
+      * registry may cause errors unless previous [[Metrics]] instance was not
+      * released yet.
+      *
+      * The following metrics will be registered by default, but it is possible
+      * to override the default `headcache` prefix to something else.
+      *
+      * {{{
+      * headcache_get_latency HeadCache get latency in seconds
+      * headcache_get_result  HeadCache `get` call result counter
+      * headcache_entries     HeadCache entries
+      * headcache_listeners   HeadCache listeners
+      * headcache_records_age HeadCache time difference between record timestamp and now in seconds
+      * headcache_diff        HeadCache offset difference between state and source
+      * }}}
+      *
+      * @param registry
+      *   smetrics collector registry.
+      * @param prefix
+      *   Prefix to use for the registered metrics.
+      */
     def of[F[_]: Monad](
       registry: CollectorRegistry[F],
       prefix: Prefix = Prefix.default
