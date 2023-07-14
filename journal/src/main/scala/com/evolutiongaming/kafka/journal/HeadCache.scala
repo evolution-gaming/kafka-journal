@@ -71,7 +71,11 @@ object HeadCache {
   }
 
 
-  /** Creates new cache using a passed configuration and Cassandra reader.
+  /** Creates new cache using a Kafka configuration and Cassandra reader.
+    *
+    * The created instances will report metrics to `metrics` and also will do
+    * the debug logging. There is no need to call [[HeadCache#withLogs]] on
+    * them.
     *
     * @param consumerConfig
     *   Kafka consumer configuration used to find new non-replicated journal
@@ -109,7 +113,34 @@ object HeadCache {
     }
   }
 
-
+  /** Creates new cache using Kafka and Cassandra data sources.
+    *
+    * The method also allows to change the default configuration in form of
+    * [[HeadCacheConfig]], i.e. to make the polling faster for testing purposes.
+    *
+    * @param eventual
+    *   Cassandra data source.
+    * @param log
+    *   Logger to use for [[TopicCache#withLog]]. Note, that only [[TopicCache]]
+    *   debug logging will be affected by this. One needs to call
+    *   [[HeadCache#withLog]] if debug logging for [[TopicCache]] is required.
+    * @param consumer
+    *   Kakfa data source factory. The reason why it is factory (i.e.
+    *   `Resource`) is that [[HeadCache]] will try to recreate consumer in case
+    *   of the failure.
+    * @param metrics
+    *   Interface to report the metrics to. The intended way to configure it is
+    *   overriding [[KafkaJournal#metrics]] in a custom implementation of
+    *   [[KafkaJournal]].
+    * @param config
+    *   Cache configuration. It is recommended to keep it default, and only
+    *   change it for unit testing purposes.
+    * @return
+    *   Resource which will configure a [[HeadCache]] with the passed
+    *   parameters. Instance of `Resource[HeadCache]` are, obviously, reusable
+    *   and there is no need to call [[HeadCache#of]] each time if parameters
+    *   did not change.
+    */
   def of[F[_]: Async: Parallel: Runtime: FromJsResult: MeasureDuration: JsonCodec.Decode](
     eventual: Eventual[F],
     log: Log[F],

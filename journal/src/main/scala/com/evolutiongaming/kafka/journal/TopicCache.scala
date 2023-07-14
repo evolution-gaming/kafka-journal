@@ -61,7 +61,9 @@ object TopicCache {
     * @param log
     *   Logger used to write debug logs to.
     * @param consumer
-    *   Kafka data source.
+    *   Kafka data source factory. The reason why it is factory (i.e.
+    *   `Resource`) is that [[HeadCache]] will try to recreate consumer in case
+    *   of the failure.
     * @param config
     *   [[HeadCache]] configuration.
     * @param consRecordToActionHeader
