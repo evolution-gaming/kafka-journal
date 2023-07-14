@@ -125,7 +125,7 @@ object HeadCache {
     * @param log
     *   Logger to use for [[TopicCache#withLog]]. Note, that only [[TopicCache]]
     *   debug logging will be affected by this. One needs to call
-    *   [[HeadCache#withLog]] if debug logging for [[TopicCache]] is required.
+    *   [[HeadCache#withLog]] if debug logging for [[HeadCache]] is required.
     * @param consumer
     *   Kakfa data source factory. The reason why it is factory (i.e.
     *   `Resource`) is that [[HeadCache]] will try to recreate consumer in case
