@@ -21,7 +21,7 @@ object HeadCacheConsumption {
 
   /** Streams records from Kafka topic with error handling and retries.
     *
-    * If a consumer fails then the it will be recreated, so the consumption is
+    * If a consumer fails then it will be recreated, so the consumption is
     * continued. The retry procedure will happen with some random jitter to
     * ensure different nodes do not intefere with each other.
     *
