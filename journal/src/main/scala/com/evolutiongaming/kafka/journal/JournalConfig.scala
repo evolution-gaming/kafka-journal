@@ -36,7 +36,17 @@ object JournalConfig {
     deriveReader[JournalConfig]
   }
 
-
+  /** Configuration of head cache.
+    *
+    * @param enabled
+    *   The head cache will be used on journal recovery if `true`. Every
+    *   recovery may need to read both Cassandra (or other long term storage)
+    *   and Kafka otherwise.
+    *
+    * @see
+    *   [[com.evolutiongaming.kafka.journal.HeadCache]] for more details on what
+    *   is head cache and how it works.
+    */
   final case class HeadCache(enabled: Boolean = true)
 
   object HeadCache {
