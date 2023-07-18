@@ -5,7 +5,22 @@ import com.evolutiongaming.scassandra.{CassandraConfig, QueryConfig}
 import pureconfig.generic.semiauto.deriveReader
 import pureconfig.ConfigReader
 
-
+/** Cassandra-specific configuration used by a plugin.
+  *
+  * Specifies long time storage configuration and Cassandra client parameters.
+  *
+  * @param retries
+  *   Number of retries in
+  *   [[com.evolutiongaming.scassandra.NextHostRetryPolicy]].
+  * @param segmentSize
+  *   Number of records per one segment. See [[SegmentSize]] for more details.
+  * @param client
+  *   Cassandra client configuration, see [[CassandraConfig]] for more details.
+  * @param schema
+  *   Schema of Cassandra database, i.e. keyspace, names of the tables etc.
+  * @param consistencyConfig
+  *   Consistency levels to use for read and write statements to Cassandra.
+  */
 final case class EventualCassandraConfig(
   retries: Int = 100,
   segmentSize: SegmentSize = SegmentSize.default,
