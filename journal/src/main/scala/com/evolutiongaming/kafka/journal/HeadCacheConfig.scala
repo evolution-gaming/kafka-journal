@@ -7,6 +7,12 @@ import scala.concurrent.duration._
 
 /** Configuration of [[HeadCache]].
   *
+  * This configuration, at the moment of writing, is not configurable using
+  * `application.conf` files etc. If the changes to defaults are really
+  * necessary, the recommended way is to extend [[KafkaJournal]] class
+  * and override [[KafkaJournal#adapterOf]], or create a pull request against
+  * this repository with a more configurable version.
+  *
   * @param timeout
   *   Duration to wait until [[HeadInfo]] appears in cache from either Kafka
   *   consumer or Cassandra poller before returning `None` in [[HeadCache#get]].
@@ -20,7 +26,7 @@ import scala.concurrent.duration._
   *   How often Cassandra is being polled for the information about already
   *   replicated records.
   * @param partition
-  *   Partition cache configuration as described in [[Partition]].
+  *   Partition cache configuration as described in [[HeadCacheConfig.Partition]].
   */
 final case class HeadCacheConfig(
   timeout: FiniteDuration = 1.second,
