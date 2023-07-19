@@ -23,8 +23,13 @@ import scala.concurrent.duration._
   * Cassandra to remove information about the events, which already replicated.
   *
   * The returned entries do not contain the events themselves, but only an
-  * offset of the first non-repliacted event, the sequence number of last event,
+  * offset of the first non-replicated event, the sequence number of last event,
   * range of events to be deleted etc.
+  *
+  * The consuming/polling of the records will stop after a configured timeout
+  * (i.e. [[HeadCacheConfig#expiry]]) for the topics where no activity /
+  * recoveries happen. It will restart when the new calls to a cache come for
+  * these topics again.
   *
   * TODO headcache:
   * 1. Keep 1000 last seen entries, even if replicated.
