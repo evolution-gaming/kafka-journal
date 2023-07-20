@@ -10,6 +10,10 @@ import scala.concurrent.duration._
 
 /** Configuration for [[KafkaJournal]].
   *
+  * This case class specifies configuration that could be set using
+  * `application.conf` (see `reference.conf` for an example of such
+  * configuration).
+  *
   * @param journal
   *   Kafka-specific configuration used by a plugin.
   * @param cassandra
@@ -40,6 +44,8 @@ import scala.concurrent.duration._
   *   vice-versa. This parameter is only relevant if default [[KafkaJournal]] is
   *   used, i.e. it is not taken into account if Circe JSON or other custom
   *   serialization is used.
+  *
+  * @see [[KafkaJournal]] for more details.
   */
 final case class KafkaJournalConfig(
   journal: JournalConfig = JournalConfig.default,
