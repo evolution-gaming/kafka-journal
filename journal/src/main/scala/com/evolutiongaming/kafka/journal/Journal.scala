@@ -4,6 +4,7 @@ import cats._
 import cats.arrow.FunctionK
 import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
+import com.evolutiongaming.catshelper.Runtime
 import com.evolutiongaming.catshelper.{Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.EventualRead
@@ -11,7 +12,7 @@ import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.skafka.{Bytes => _, _}
 import com.evolutiongaming.sstream.Stream
 import pureconfig.ConfigReader
-import pureconfig.generic.semiauto.deriveReader
+import pureconfig.generic.semiauto._
 
 import scala.concurrent.duration._
 
@@ -328,5 +329,35 @@ object Journal {
     val default: CallTimeThresholds = CallTimeThresholds()
 
     implicit val configReaderCallTimeThresholds: ConfigReader[CallTimeThresholds] = deriveReader[CallTimeThresholds]
+  }
+
+  sealed trait ConsumerPoolSize {
+
+    def calculate[F[_]: Runtime: Applicative]: F[Int] =
+      this match {
+        case ConsumerPoolSize.Fixed(size) =>
+          size.pure[F]
+        case ConsumerPoolSize.ScaleWithCpus(scale) =>
+          Runtime[F].availableCores.map { cores =>
+            math.max(1, math.ceil(cores.toDouble * scale)).toInt
+          }
+      }
+  }
+
+  object ConsumerPoolSize {
+
+    final case class ScaleWithCpus(scale: Double) extends ConsumerPoolSize
+
+    object ScaleWithCpus {
+      implicit val configReader: ConfigReader[ScaleWithCpus] = deriveReader
+    }
+
+    final case class Fixed(size: Int) extends ConsumerPoolSize
+
+    object Fixed {
+      implicit val configReader: ConfigReader[Fixed] = deriveReader
+    }
+
+    implicit val configReader: ConfigReader[ConsumerPoolSize] = deriveReader
   }
 }
