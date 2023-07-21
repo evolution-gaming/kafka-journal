@@ -1,6 +1,6 @@
 package akka.persistence.kafka.journal
 
-import com.evolutiongaming.kafka.journal.Journal.CallTimeThresholds
+import com.evolutiongaming.kafka.journal.Journal.{CallTimeThresholds, ConsumerPoolConfig}
 import com.evolutiongaming.kafka.journal.JournalConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig
 import pureconfig.generic.semiauto.{deriveEnumerationReader, deriveReader}
@@ -15,7 +15,9 @@ final case class KafkaJournalConfig(
   stopTimeout: FiniteDuration = 1.minute,
   maxEventsInBatch: Int = 100,
   callTimeThresholds: CallTimeThresholds = CallTimeThresholds.default,
-  jsonCodec: KafkaJournalConfig.JsonCodec = KafkaJournalConfig.JsonCodec.Default)
+  jsonCodec: KafkaJournalConfig.JsonCodec = KafkaJournalConfig.JsonCodec.Default,
+  consumerPool: Option[ConsumerPoolConfig] = None,
+)
 
 object KafkaJournalConfig {
 
