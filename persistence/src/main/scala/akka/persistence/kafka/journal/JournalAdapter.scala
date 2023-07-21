@@ -5,6 +5,7 @@ import cats.effect._
 import cats.syntax.all._
 import cats.{Monad, Parallel, ~>}
 import com.evolutiongaming.catshelper._
+import com.evolutiongaming.kafka.journal.Journal.ConsumerPoolSize
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.conversions.ConversionMetrics
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
@@ -82,14 +83,31 @@ object JournalAdapter {
       kafkaProducerOf: KafkaProducerOf[F],
       headCacheOf: HeadCacheOf[F]) = {
 
+      val journal = config.recoveryConsumerPoolSize match {
+        case Some(consumerPoolConfig) =>
+          Journals.make[F](
+            origin = origin,
+            config = config.journal,
+            eventualJournal = eventualJournal,
+            journalMetrics = metrics.journal,
+            conversionMetrics = metrics.conversion,
+            consumerPoolSize = consumerPoolConfig,
+            consumerPoolMetrics = metrics.consumerPool,
+            callTimeThresholds = config.callTimeThresholds
+          )
+        case None =>
+          Journals.of[F](
+            origin = origin,
+            config = config.journal,
+            eventualJournal = eventualJournal,
+            journalMetrics = metrics.journal,
+            conversionMetrics = metrics.conversion,
+            callTimeThresholds = config.callTimeThresholds
+          )
+      }
+
       for {
-        journal <- Journals.of[F](
-          origin = origin,
-          config = config.journal,
-          eventualJournal = eventualJournal,
-          journalMetrics = metrics.journal,
-          conversionMetrics = metrics.conversion,
-          callTimeThresholds = config.callTimeThresholds)
+        journal <- journal
       } yield {
         journal.withLogError(log)
       }
@@ -236,7 +254,8 @@ object JournalAdapter {
     headCache: Option[HeadCacheMetrics[F]] = none,
     producer: Option[ClientId => ProducerMetrics[F]] = none,
     consumer: Option[ClientId => ConsumerMetrics[F]] = none,
-    conversion: Option[ConversionMetrics[F]] = none
+    conversion: Option[ConversionMetrics[F]] = none,
+    consumerPool: Option[RecoveryConsumerPoolMetrics[F]] = none,
   )
 
   object Metrics {

@@ -6,9 +6,10 @@ import cats.effect._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MeasureDuration, MonadThrowable}
+import com.evolutiongaming.kafka.journal.Journal.ConsumerPoolSize
 import com.evolutiongaming.kafka.journal.conversions.{ConversionMetrics, KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualRead}
-import com.evolutiongaming.kafka.journal.util.Fail
+import com.evolutiongaming.kafka.journal.util.{Fail, ResourcePool}
 import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
@@ -39,7 +40,7 @@ object Journals {
     }
   }
 
-
+  @deprecated("use `make`", "2023-07-26")
   def of[
     F[_]
     : Concurrent : Timer
@@ -85,8 +86,57 @@ object Journals {
     }
   }
 
+  def make[
+    F[_]
+    : Async
+    : FromTry : Fail : LogOf
+    : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomIdOf
+    : MeasureDuration
+    : JsonCodec
+  ](
+     config: JournalConfig,
+     origin: Option[Origin],
+     eventualJournal: EventualJournal[F],
+     journalMetrics: Option[JournalMetrics[F]],
+     conversionMetrics: Option[ConversionMetrics[F]],
+     consumerPoolSize: ConsumerPoolSize,
+     consumerPoolMetrics: Option[RecoveryConsumerPoolMetrics[F]],
+     callTimeThresholds: Journal.CallTimeThresholds
+   ): Resource[F, Journals[F]] = {
 
-  def apply[F[_] : Concurrent : Clock : RandomIdOf : Fail : JsonCodec : MeasureDuration](
+    val consumer = Consumer.of[F](config.kafka.consumer, config.pollTimeout)
+
+    val headCache = {
+      if (config.headCache.enabled) {
+        HeadCacheOf[F].apply(config.kafka.consumer, eventualJournal)
+      } else {
+        Resource.pure[F, HeadCache[F]](HeadCache.empty[F])
+      }
+    }
+
+    for {
+      producer <- Producer.of[F](config.kafka.producer)
+      log <- LogOf[F].apply(Journals.getClass).toResource
+      headCache <- headCache
+      journal <- make(
+        origin,
+        producer,
+        consumer,
+        eventualJournal,
+        headCache,
+        consumerPoolSize,
+        consumerPoolMetrics,
+        log,
+        conversionMetrics
+      )
+    } yield {
+      val withLog = journal.withLog(log, callTimeThresholds)
+      journalMetrics.fold(withLog) { metrics => withLog.withMetrics(metrics) }
+    }
+  }
+
+  @deprecated("use `make`", "2023-07-26")
+  def apply[F[_]: Concurrent: Clock: RandomIdOf: Fail: JsonCodec: MeasureDuration](
     origin: Option[Origin],
     producer: Producer[F],
     consumer: Resource[F, Consumer[F]],
@@ -107,6 +157,41 @@ object Journals {
       conversionMetrics = conversionMetrics)
   }
 
+  def make[
+    F[_]
+    : Async
+    : FromTry : Fail : LogOf
+    : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomIdOf
+    : MeasureDuration
+    : JsonCodec
+  ](
+     origin: Option[Origin],
+     producer: Producer[F],
+     consumer: Resource[F, Consumer[F]],
+     eventualJournal: EventualJournal[F],
+     headCache: HeadCache[F],
+     consumerPoolSize: ConsumerPoolSize,
+     consumerPoolMetrics: Option[RecoveryConsumerPoolMetrics[F]],
+     log: Log[F],
+     conversionMetrics: Option[ConversionMetrics[F]]
+  ): Resource[F, Journals[F]] = {
+    implicit val fromAttempt: FromAttempt[F]   = FromAttempt.lift[F]
+    implicit val fromJsResult: FromJsResult[F] = FromJsResult.lift[F]
+
+    for {
+      poolSize    <- consumerPoolSize.calculate.toResource
+      _           <- log.debug(s"Creating a consumer pool of size $poolSize").toResource
+      pool        <- ResourcePool.fixedSize[F, Consumer[F]](consumer, poolSize)
+      poolMetrics = consumerPoolMetrics.getOrElse(RecoveryConsumerPoolMetrics.empty(Async[F]))
+    } yield apply[F](
+        eventual = eventualJournal,
+        consumeActionRecords = ConsumeActionRecords.of[F](pool, poolMetrics, log),
+        produce = Produce[F](producer, origin),
+        headCache = headCache,
+        log = log,
+        conversionMetrics = conversionMetrics
+    )
+  }
 
   def apply[F[_] : Concurrent : RandomIdOf : MeasureDuration](
     eventual: EventualJournal[F],
