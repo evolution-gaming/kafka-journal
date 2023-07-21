@@ -38,6 +38,25 @@ import scala.util.Try
   * This is also possible to override the setting for specific persistence
   * actors by overriding [[PersistentActor#journalPluginId]].
   *
+  * In the cases, when the configuration provided by [[KafkaJournalConfig]] does
+  * not provide enough flexibility, it might be useful to extend
+  * [[KafkaJournal]] itself and then override the necessary methods such as
+  * [[KafkaJournal#adapterIO]] or [[KafkaJournal#metrics]].
+  * {{{
+  * class KafkaJournalCirce(config: Config) extends KafkaJournal(config) {
+  *   override def adapterIO: Resource[IO, JournalAdapter[IO]] =
+  *     adapterIO(customSerializer, customJournalReadWrite)
+  * }
+  * }}}
+  *
+  * In this case the custom implementation could be used to replace the original
+  * class by adding the following to `application.conf`:
+  * {{{
+  * evolutiongaming.kafka-journal.persistence.journal {
+  *   class = "akka.persistence.kafka.journal.circe.KafkaJournalCirce"
+  * }
+  * }}}
+  *
   * @param config
   *   Contains configuration coming from `application.conf` file, including
   *   [[KafkaJournalConfig]] parameters, and also selection of [[ToKey]]
