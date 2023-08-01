@@ -745,7 +745,7 @@ object JournalSpec {
 
 
   implicit class ConsumeActionRecordsOps[F[_]](val self: ConsumeActionRecords[F]) extends AnyVal {
-    def withDuplicates(implicit F: Monad[F]): ConsumeActionRecords[F] = new ConsumeActionRecords[F] {
+    def withDuplicates(implicit monac: Monad[F]): ConsumeActionRecords[F] = new ConsumeActionRecords[F] {
       def apply(key: Key, partition: Partition, from: Offset) = {
         self
           .apply(key, partition, from)
@@ -755,7 +755,7 @@ object JournalSpec {
   }
 
   implicit class EventualJournalOps[F[_]](val self: EventualJournal[F]) extends AnyVal {
-    def withDuplicates(implicit F: Monad[F]): EventualJournal[F] = new EventualJournal[F] {
+    def withDuplicates(implicit monad: Monad[F]): EventualJournal[F] = new EventualJournal[F] {
 
       def pointer(key: Key) = self.pointer(key)
 
