@@ -71,45 +71,47 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
 
     val key = Key.random[IO]("journal").unsafeRunSync()
 
-    lazy val append = {
+    def append(journals: Journals[IO]) = {
 
-      def append(journals: Journals[IO]) = {
+      val journal = JournalTest(journals(key), timestamp)
 
-        val journal = JournalTest(journals(key), timestamp)
-
-        val expected = {
-          val expected = for {
-            n     <- (0 to events).toList
-            seqNr <- SeqNr.min.map[Option](_ + n)
-          } yield {
-            event(seqNr)
-          }
-          Nel.fromListUnsafe(expected)
+      val expected = {
+        val expected = for {
+          n     <- (0 until events).toList
+          seqNr <- SeqNr.min.map[Option](_ + n)
+        } yield {
+          event(seqNr)
         }
-
-        def appendNoise = {
-          (0 to events)
-            .toList
-            .parFoldMap1 { _ =>
-              val e = event(SeqNr.min)
-              for {
-                _       <- journal.append(Nel.of(e))
-                key     <- Key.random[IO]("journal")
-                journal  = JournalTest(journals(key), timestamp)
-                _       <- journal.append(Nel.of(e))
-              } yield {}
-            }
-        }
-
-        for {
-          _ <- journal.pointer
-          _ <- expected.groupedNel(10).foldMap { events => journal.append(events).void }
-          _ <- appendNoise
-        } yield {}
+        Nel.fromListUnsafe(expected)
       }
 
-      journalOf(eventualJournal).use(append)
+      def appendNoise = {
+        (1 to events)
+          .toList
+          .parFoldMap1 { n =>
+            val e = event(SeqNr.unsafe(events + n))
+            for {
+              _       <- journal.append(Nel.of(e))
+              key     <- Key.random[IO]("journal")
+              journal  = JournalTest(journals(key), timestamp)
+              _       <- journal.append(Nel.of(e))
+            } yield {}
+          }
+      }
+
+      for {
+        _ <- journal.pointer
+        _ <- expected.groupedNel(10).foldMap { events => journal.append(events).void }
+        _ <- appendNoise
+      } yield {}
     }
+
+    val appendToJournal = for {
+      _ <- awaitResources
+      _ <- journalOf(eventualJournal).use(append)
+    } yield {}
+
+    appendToJournal.start.void.unsafeRunSync()
 
     for {
       (eventualName, expected, eventual) <- List(
@@ -125,7 +127,6 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
 
       s"measure pointer $many times, $name" in {
         val result = for {
-          _       <- append
           _       <- journal.pointer
           average <- measure { journal.pointer }
         } yield {
