@@ -239,82 +239,13 @@ class JournalSpec extends AnyWordSpec with Matchers {
 
   "Journal" when {
 
-    "eventual journal has duplicated seqNr" should {
-      val journal = SeqNrJournal(
-        StateT.eventualJournal.withDuplicates,
-        StateT.consumeActionRecords,
-        StateT.produceAction,
-        StateT.headCache)
-
-      for {
-        size <- 1 to 5
-        seqNrs = (1 to size).toList.map { a => SeqNr.unsafe(a) }
-        combination <- Combinations(seqNrs)
-      } {
-
-        val seqNrLast = seqNrs.lastOption
-
-        def createAndAppend(f: (SeqNrJournal[StateT], Option[Offset]) => StateT[Assertion]): Assertion = {
-            def append(seqNrs: Nel[SeqNr]) = {
-              journal
-                .append(seqNrs.head, seqNrs.tail: _*)
-                .map { _.some }
-            }
-
-            val result = for {
-              offset <- combination.foldLeftM(none[Offset]) { (_, seqNrs) => append(seqNrs) }
-              offsetNext = offset.map { _.inc[Try].get }
-              result <- f(journal, offsetNext)
-            } yield result
-
-          result
-            .run(State.empty)
-            .map { case (_, result) => result }
-            .unsafeRunSync()
-        }
-
-        val name = combination
-          .map { _.toList.mkString("[", ",", "]") }
-          .mkString(",")
-
-        s"append, $name" in {
-          assertThrows[JournalError] {
-            createAndAppend { case (journal, _) =>
-              for {
-                a <- journal.read(SeqRange.all)
-              } yield {
-                a shouldEqual seqNrs
-              }
-            }
-          }
-        }
-
-        s"read, $name" in {
-          assertThrows[JournalError] {
-            createAndAppend { case (journal, _) =>
-              for {
-                a <- journal.read(SeqRange.all)
-                _ = a shouldEqual seqNrs
-                last = seqNrLast getOrElse SeqNr.min
-                a <- journal.read(SeqNr.min to last)
-                _ = a shouldEqual seqNrs
-                a <- journal.read(SeqNr.min to last.next[Option].getOrElse(last))
-              } yield {
-                a shouldEqual seqNrs
-              }
-            }
-          }
-        }
-      }
-    }
-
     for {
       (headCacheStr, headCache) <- List(
         ("invalid", HeadCache.const(none[HeadInfo].pure[StateT])),
         ("valid"  , StateT.headCache))
       (duplicatesStr, consumeActionRecordsOf, eventualJournalOf) <- List(
         ("off", (a: ConsumeActionRecords[StateT]) => a               , (a: EventualJournal[StateT]) => a),
-        ("Kafka on" , (a: ConsumeActionRecords[StateT]) => a.withDuplicates, (a: EventualJournal[StateT]) => a))
+        ("on" , (a: ConsumeActionRecords[StateT]) => a.withDuplicates, (a: EventualJournal[StateT]) => a))
     } {
 
       def test(
@@ -811,22 +742,6 @@ object JournalSpec {
     }
   }
 
-  implicit class EventualJournalOps[F[_]](val self: EventualJournal[F]) extends AnyVal {
-    def withDuplicates(implicit F: Monad[F]): EventualJournal[F] = new EventualJournal[F] {
-
-      def pointer(key: Key) = self.pointer(key)
-
-      def offset(topic: Topic, partition: Partition): F[Option[Offset]] = self.offset(topic, partition)
-
-      def read(key: Key, from: SeqNr) = {
-        self
-          .read(key, from)
-          .withDuplicates
-      }
-
-      def ids(topic: Topic) = self.ids(topic)
-    }
-  }
 
   implicit class StreamOps[F[_], A](val self: Stream[F, A]) extends AnyVal {
     def withDuplicates(implicit F: Monad[F]): Stream[F, A] = {
