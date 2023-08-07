@@ -180,18 +180,6 @@ object Journals {
               eventual
                 .read(key, from)
                 .mapM { _.traverse(eventualRead.apply) }
-                .stateful(from) { case (seqNr, a) =>
-                  if (seqNr <= a.seqNr) {
-                    val seqNr1 = a
-                      .seqNr
-                      .next[Option]
-                    (seqNr1, Stream[F].single(a))
-                  } else {
-                    val msg = s"Data integrity violated: seqNr $seqNr duplicated in multiple records from eventual journal for key $key"
-                    val err = new JournalError(msg)
-                    (seqNr.some, err.raiseError[F, EventRecord[A]].toStream)
-                  }
-                }
             }
 
 
