@@ -3,8 +3,8 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.Id
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.IO
-import cats.implicits._
-import cats.syntax.all.none
+import cats.syntax.all._
+import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
@@ -412,7 +412,7 @@ object EventualCassandraTest {
   val selectTopics: PointerStatements.SelectTopics[StateT] = {
     () => {
       StateT.success { state =>
-        val topics = state.pointers.keys.toList
+        val topics = state.pointers.keySet.toSortedSet
         (state, topics)
       }
     }

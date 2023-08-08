@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.Parallel
 import cats.effect.IO
 import cats.implicits._
+import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
 import com.evolutiongaming.kafka.journal.eventual._
@@ -351,7 +352,7 @@ object EventualCassandraSpec {
     val selectTopics: PointerStatements.SelectTopics[StateT] = {
       () => {
         StateT { state =>
-          (state, state.pointers.keys.toList)
+          (state, state.pointers.keySet.toSortedSet)
         }
       }
     }
