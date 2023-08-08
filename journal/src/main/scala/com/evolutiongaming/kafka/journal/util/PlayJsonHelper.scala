@@ -85,9 +85,10 @@ object PlayJsonHelper {
   
   def decodeByNameFromReads[A](implicit reads: Reads[A], decode: JsonCodec.Decode[Try]): DecodeByName[A] = {
     DecodeByName[String].map { str =>
-      val jsValue = decode.fromStr(str).get
-      // TODO not use `as`
-      jsValue.as(reads)
+      decode
+        .fromStr(str)
+        .get
+        .as(reads) // TODO not use `as`
     }
   }
 

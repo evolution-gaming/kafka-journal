@@ -9,7 +9,7 @@ import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, MeasureDuration}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
-import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualPayloadAndType, EventualRead, EventualWrite, TopicPointers}
+import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualPayloadAndType, EventualRead, EventualWrite}
 import com.evolutiongaming.kafka.journal.util.{ConcurrentOf, Fail}
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
@@ -429,7 +429,7 @@ object JournalSpec {
 
   object SeqNrJournal {
 
-    def apply[F[_] : Monad, A](journals: Journals[F])(implicit
+    def apply[F[_], A](journals: Journals[F])(implicit
       F: MonadError[F, Throwable],
       kafkaRead: KafkaRead[F, A],
       eventualRead: EventualRead[F, A],
@@ -438,7 +438,7 @@ object JournalSpec {
       apply(journals(key))
     }
 
-    def apply[F[_] : Monad, A](journal: Journal[F])(implicit
+    def apply[F[_], A](journal: Journal[F])(implicit
       F: MonadError[F, Throwable],
       kafkaRead: KafkaRead[F, A],
       eventualRead: EventualRead[F, A],

@@ -37,25 +37,6 @@ object ReplicatedJournal {
     }
   }
 
-  @deprecated("use `fromFlat` instead", "2021-05-25")
-  def apply[F[_]: Applicative](replicatedJournal: ReplicatedJournalFlat[F]): ReplicatedJournal[F] = {
-    fromFlat(replicatedJournal)
-  }
-
-  private sealed abstract class FromFlat
-
-  def fromFlat[F[_]: Applicative](replicatedJournal: ReplicatedJournalFlat[F]): ReplicatedJournal[F] = {
-
-    new FromFlat with ReplicatedJournal[F] {
-
-      def topics = replicatedJournal.topics
-
-      def journal(topic: Topic) = {
-        val replicatedTopicJournal = ReplicatedTopicJournal(topic, replicatedJournal)
-        replicatedTopicJournal.pure[F].toResource
-      }
-    }
-  }
 
   private sealed abstract class MapK
 
@@ -163,17 +144,17 @@ object ReplicatedJournal {
 
     def topics(latency: FiniteDuration): F[Unit]
 
-    def pointers(latency: FiniteDuration): F[Unit]
+    def offset(latency: FiniteDuration): F[Unit]
 
-    def pointer(latency: FiniteDuration): F[Unit]
+    def offsetUpdate(topic: Topic, latency: FiniteDuration): F[Unit]
+
+    def offsetCreate(topic: Topic, latency: FiniteDuration): F[Unit]
 
     def append(topic: Topic, latency: FiniteDuration, events: Int): F[Unit]
 
     def delete(topic: Topic, latency: FiniteDuration): F[Unit]
 
     def purge(topic: Topic, latency: FiniteDuration): F[Unit]
-
-    def save(topic: Topic, latency: FiniteDuration): F[Unit]
   }
 
   object Metrics {
@@ -181,21 +162,24 @@ object ReplicatedJournal {
     def empty[F[_] : Applicative]: Metrics[F] = const(().pure[F])
 
 
-    def const[F[_]](unit: F[Unit]): Metrics[F] = new Metrics[F] {
+    def const[F[_]](unit: F[Unit]): Metrics[F] = {
+      class Const
+      new Const with Metrics[F] {
 
-      def topics(latency: FiniteDuration) = unit
+        def topics(latency: FiniteDuration) = unit
 
-      def pointers(latency: FiniteDuration) = unit
+        def offset(latency: FiniteDuration) = unit
 
-      def pointer(latency: FiniteDuration) = unit
+        def offsetUpdate(topic: Topic, latency: FiniteDuration) = unit
 
-      def append(topic: Topic, latency: FiniteDuration, events: Int) = unit
+        def offsetCreate(topic: Topic, latency: FiniteDuration) = unit
 
-      def delete(topic: Topic, latency: FiniteDuration) = unit
+        def append(topic: Topic, latency: FiniteDuration, events: Int) = unit
 
-      def purge(topic: Topic, latency: FiniteDuration) = unit
+        def delete(topic: Topic, latency: FiniteDuration) = unit
 
-      def save(topic: Topic, latency: FiniteDuration) = unit
+        def purge(topic: Topic, latency: FiniteDuration) = unit
+      }
     }
 
 
@@ -240,18 +224,24 @@ object ReplicatedJournal {
             .observe(latency.toNanos.nanosToSeconds)
         }
 
-        new Metrics[F] {
+        class Main
+
+        new Main with Metrics[F] {
 
           def topics(latency: FiniteDuration) = {
             observeLatency(name = "topics", latency = latency)
           }
 
-          def pointers(latency: FiniteDuration) = {
-            observeLatency(name = "pointers", latency = latency)
+          def offset(latency: FiniteDuration): F[Unit] = {
+            observeLatency(name = "offset", latency = latency)
           }
 
-          def pointer(latency: FiniteDuration): F[Unit] = {
-            observeLatency(name = "pointer", latency = latency)
+          def offsetUpdate(topic: Topic, latency: FiniteDuration) = {
+            observeLatency(name = "offsetUpdate", latency = latency)
+          }
+
+          def offsetCreate(topic: Topic, latency: FiniteDuration) = {
+            observeLatency(name = "offsetCreate", latency = latency)
           }
 
           def append(topic: Topic, latency: FiniteDuration, events: Int) = {
@@ -267,10 +257,6 @@ object ReplicatedJournal {
 
           def purge(topic: Topic, latency: FiniteDuration) = {
             observeTopicLatency(name = "purge", topic = topic, latency = latency)
-          }
-
-          def save(topic: Topic, latency: FiniteDuration) = {
-            observeTopicLatency(name = "save", topic = topic, latency = latency)
           }
         }
       }

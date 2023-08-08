@@ -327,17 +327,16 @@ class BatchSpec extends AnyFunSuite with Matchers {
   }
 
   def appends(offset: Int, a: A.Append, as: A.Append*): Batch.Appends = {
-    val partitionOffset = partitionOffsetOf(offset)
     val appends = Nel(a, as.toList).map { a =>
       val action = appendOf(Nel(a.seqNr, a.seqNrs))
       actionRecordOf(action, a.offset)
     }
-    Batch.Appends(partitionOffset, appends)
+    Batch.Appends(Offset.unsafe(offset), appends)
   }
 
   def deletes(offset: Int, seqNr: Int, origin: String = ""): Batch.Delete = {
     Batch.Delete(
-      PartitionOffset(offset = Offset.unsafe(offset)),
+      Offset.unsafe(offset),
       SeqNr.unsafe(seqNr).toDeleteTo,
       originOf(origin),
       version = none)
@@ -345,7 +344,7 @@ class BatchSpec extends AnyFunSuite with Matchers {
 
   def purges(offset: Int, origin: String = ""): Batch.Purge = {
     Batch.Purge(
-      PartitionOffset(offset = Offset.unsafe(offset)),
+      Offset.unsafe(offset),
       originOf(origin),
       version = none)
   }
@@ -410,11 +409,8 @@ class BatchSpec extends AnyFunSuite with Matchers {
   }
 
   def actionRecordOf[T <: Action](action: T, offset: Int): ActionRecord[T] = {
-    val partitionOffset = partitionOffsetOf(offset)
-    ActionRecord(action, partitionOffset)
+    ActionRecord(action, PartitionOffset(offset = Offset.unsafe(offset)))
   }
-
-  def partitionOffsetOf(offset: Int): PartitionOffset = PartitionOffset(offset = Offset.unsafe(offset))
 }
 
 object BatchSpec {

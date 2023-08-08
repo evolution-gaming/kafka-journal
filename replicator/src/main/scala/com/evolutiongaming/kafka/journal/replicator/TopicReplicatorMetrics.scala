@@ -28,15 +28,18 @@ object TopicReplicatorMetrics {
 
   def empty[F[_] : Applicative]: TopicReplicatorMetrics[F] = const(Applicative[F].unit)
 
-  def const[F[_]](unit: F[Unit]): TopicReplicatorMetrics[F] = new TopicReplicatorMetrics[F] {
+  def const[F[_]](unit: F[Unit]): TopicReplicatorMetrics[F] = {
+    class Const
+    new Const with TopicReplicatorMetrics[F] {
 
-    def append(events: Int, bytes: Long, measurements: Measurements) = unit
+      def append(events: Int, bytes: Long, measurements: Measurements) = unit
 
-    def delete(measurements: Measurements) = unit
+      def delete(measurements: Measurements) = unit
 
-    def purge(measurements: Measurements) = unit
+      def purge(measurements: Measurements) = unit
 
-    def round(duration: FiniteDuration, records: Int) = unit
+      def round(duration: FiniteDuration, records: Int) = unit
+    }
   }
 
 
@@ -107,7 +110,8 @@ object TopicReplicatorMetrics {
           } yield {}
         }
 
-        new TopicReplicatorMetrics[F] {
+        class Main
+        new Main with TopicReplicatorMetrics[F] {
 
           def append(events: Int, bytes: Long, measurements: Measurements) = {
             for {

@@ -345,7 +345,7 @@ object EventualCassandraTest {
   }
 
 
-  val selectPointer: PointerStatements.Select[StateT] = {
+  val selectOffset: PointerStatements.SelectOffset[StateT] = {
     (topic: Topic, partition: Partition) => {
       StateT.success { state =>
         val offset = for {
@@ -359,24 +359,9 @@ object EventualCassandraTest {
     }
   }
 
-
-  val selectPointersIn: PointerStatements.SelectIn[StateT] = {
-    (topic: Topic, partitions: Nel[Partition]) => {
-      StateT.success { state =>
-        val pointers = state
-          .pointers
-          .getOrElse(topic, Map.empty)
-        val offsets = for {
-          partition <- partitions.toList
-          pointer   <- pointers.get(partition)
-        } yield {
-          (partition, pointer.offset)
-        }
-        (state, offsets.toMap)
-      }
-    }
+  val selectOffset2: Pointer2Statements.SelectOffset[StateT] = {
+    (_, _) => none[Offset].pure[StateT]
   }
-
 
   val insertPointer: PointerStatements.Insert[StateT] = {
     (topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant) => {
@@ -471,9 +456,10 @@ object EventualCassandraTest {
       segments = segments)
 
     EventualCassandra.Statements(
-      records = selectRecords,
-      metaJournal = metaJournalStatements,
-      pointer = selectPointer)
+      selectRecords,
+      metaJournalStatements,
+      selectOffset,
+      selectOffset2)
   }
 
 

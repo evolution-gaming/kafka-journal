@@ -10,11 +10,12 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.util.{BracketFromMonadError, ConcurrentOf, Fail}
-import com.evolutiongaming.skafka.Topic
+import com.evolutiongaming.skafka.{Offset, Topic}
 import com.evolutiongaming.sstream.FoldWhile._
 import com.evolutiongaming.sstream.Stream
 
-import java.time.ZoneOffset
+import java.time.{Instant, ZoneOffset}
+import scala.collection.immutable.SortedSet
 import scala.util.Try
 
 // TODO expiry: test purge
@@ -67,7 +68,7 @@ object EventualCassandraSpec {
   }
 
 
-  val selectPointer: PointerStatements.Select[StateT] = {
+  val selectOffset: PointerStatements.SelectOffset[StateT] = {
     (topic, partition) => {
       StateT { state =>
         val offset = state
@@ -78,6 +79,18 @@ object EventualCassandraSpec {
         (state, offset)
       }
     }
+  }
+
+  val selectOffset2: Pointer2Statements.SelectOffset[StateT] = {
+    (_, _) => none[Offset].pure[StateT]
+  }
+
+  val selectPointer: PointerStatements.Select[StateT] = {
+    (_, _) => PointerStatements.Select.Result(Instant.EPOCH.some).some.pure[StateT]
+  }
+
+  val selectPointer2: Pointer2Statements.Select[StateT] = {
+    (_, _) => none[Pointer2Statements.Select.Result].pure[StateT]
   }
 
   val selectIds: MetaJournalStatements.SelectIds[StateT] = {
@@ -162,9 +175,10 @@ object EventualCassandraSpec {
       segments = segments)
 
     val statements = EventualCassandra.Statements(
-      records = selectRecords,
-      metaJournal = metaJournalStatements,
-      pointer = selectPointer)
+      selectRecords,
+      metaJournalStatements,
+      selectOffset,
+      selectOffset2)
 
     EventualCassandra[StateT](statements)
   }
@@ -344,6 +358,9 @@ object EventualCassandraSpec {
       }
     }
 
+    val insertPointer2: Pointer2Statements.Insert[StateT] = {
+      (_, _, _, _, _) => ().pure[StateT]
+    }
 
     val updatePointer: PointerStatements.Update[StateT] = {
       (topic, partition, offset, _) => {
@@ -357,26 +374,13 @@ object EventualCassandraSpec {
       }
     }
 
-
-    val selectPointersIn: PointerStatements.SelectIn[StateT] = {
-      (topic, partitions) => {
-        StateT { state =>
-          val pointers = state
-            .pointers
-            .getOrElse(topic, TopicPointers.empty)
-            .values
-          val result = for {
-            partition <- partitions.toList
-            offset    <- pointers.get(partition)
-          } yield {
-            (partition, offset)
-          }
-
-          (state, result.toMap)
-        }
-      }
+    val updatePointer2: Pointer2Statements.Update[StateT] = {
+      (_, _, _, _) => ().pure[StateT]
     }
 
+    val updatePointerCreated2: Pointer2Statements.UpdateCreated[StateT] = {
+      (_, _, _, _, _) => ().pure[StateT]
+    }
 
     val selectTopics: PointerStatements.SelectTopics[StateT] = {
       () => {
@@ -384,6 +388,10 @@ object EventualCassandraSpec {
           (state, state.pointers.keySet.toSortedSet)
         }
       }
+    }
+
+    val selectTopics2: Pointer2Statements.SelectTopics[StateT] = {
+      () => SortedSet.empty[Topic].pure[StateT]
     }
 
     val metaJournal = ReplicatedCassandra.MetaJournalStatements(
@@ -397,15 +405,21 @@ object EventualCassandraSpec {
       deleteMetaJournalExpiry)
 
     val statements = ReplicatedCassandra.Statements(
-      insertRecords = insertRecords,
-      deleteRecordsTo = deleteRecordsTo,
-      deleteRecords = deleteRecords,
-      metaJournal = metaJournal,
-      selectPointer = selectPointer,
-      selectPointersIn = selectPointersIn,
-      insertPointer = insertPointer,
-      updatePointer = updatePointer,
-      selectTopics = selectTopics)
+      insertRecords,
+      deleteRecordsTo,
+      deleteRecords,
+      metaJournal,
+      selectOffset,
+      selectOffset2,
+      selectPointer,
+      selectPointer2,
+      insertPointer,
+      insertPointer2,
+      updatePointer,
+      updatePointer2,
+      updatePointerCreated2,
+      selectTopics,
+      selectTopics2)
 
     implicit val concurrentStateT = ConcurrentOf.fromMonad[StateT]
     ReplicatedCassandra(

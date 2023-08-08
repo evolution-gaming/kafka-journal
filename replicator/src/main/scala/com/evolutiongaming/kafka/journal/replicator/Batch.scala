@@ -3,10 +3,11 @@ package com.evolutiongaming.kafka.journal.replicator
 import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.skafka.Offset
 
 sealed abstract class Batch extends Product {
-  
-  def partitionOffset: PartitionOffset
+
+  def offset: Offset
 }
 
 object Batch {
@@ -20,18 +21,18 @@ object Batch {
 
     records
       .foldLeft(List.empty[Batch]) { (bs, record) =>
-        val partitionOffset = record.partitionOffset
+        val offset = record.partitionOffset.offset
 
         def appendsOf(records: Nel[ActionRecord[Action.Append]]) = {
-          Appends(partitionOffset, records)
+          Appends(offset, records)
         }
 
         def deleteOf(to: DeleteTo, origin: Option[Origin], version: Option[Version]) = {
-          Delete(partitionOffset, to, origin, version)
+          Delete(offset, to, origin, version)
         }
 
         def purgeOf(origin: Option[Origin], version: Option[Version]) = {
-          Purge(partitionOffset, origin, version)
+          Purge(offset, origin, version)
         }
 
         def actionRecord[A <: Action](a: A) = record.copy(action = a)
@@ -85,7 +86,7 @@ object Batch {
               appendsOf(Nel.of(actionRecord(a))) :: b :: tail
 
             case (b: Delete, _: Action.Mark) =>
-              b.copy(partitionOffset = partitionOffset) :: tail
+              b.copy(offset = offset) :: tail
 
             case (b: Delete, a: Action.Delete) =>
               if (a.to > b.to) {
@@ -98,7 +99,7 @@ object Batch {
                 }
               } else {
                 val delete = b.copy(
-                  partitionOffset = partitionOffset,
+                  offset = offset,
                   origin = b.origin orElse a.origin,
                   version = b.version orElse a.version)
                 delete :: tail
@@ -111,7 +112,7 @@ object Batch {
               appendsOf(Nel.of(actionRecord(a))) :: b :: Nil
 
             case (b: Purge, _: Action.Mark) =>
-              b.copy(partitionOffset = partitionOffset) :: Nil
+              b.copy(offset = offset) :: Nil
 
             case (b: Purge, a: Action.Delete) =>
               deleteOf(a.to, a.origin, a.version) :: b :: Nil
@@ -139,25 +140,22 @@ object Batch {
   }
 
 
-  // TODO expiry: replace partitionOffset with offset
   final case class Appends(
-    partitionOffset: PartitionOffset,
+    offset: Offset,
     records: Nel[ActionRecord[Action.Append]]
   ) extends Batch
 
 
-  // TODO expiry: replace partitionOffset with offset
   final case class Delete(
-    partitionOffset: PartitionOffset,
+    offset: Offset,
     to: DeleteTo,
     origin: Option[Origin],
     version: Option[Version]
   ) extends Batch
 
 
-  // TODO expiry: replace partitionOffset with offset
   final case class Purge(
-    partitionOffset: PartitionOffset,
+    offset: Offset,
     origin: Option[Origin],
     version: Option[Version]
   ) extends Batch
