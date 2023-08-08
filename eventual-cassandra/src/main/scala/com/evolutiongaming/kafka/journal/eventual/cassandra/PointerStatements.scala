@@ -2,7 +2,9 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.{Monad, Parallel}
 import cats.data.{NonEmptyList => Nel}
+import cats.kernel.Semigroup
 import cats.syntax.all._
+import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
@@ -11,6 +13,7 @@ import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 import java.time.Instant
+import scala.collection.immutable.SortedSet
 
 
 object PointerStatements {
@@ -113,8 +116,8 @@ object PointerStatements {
 
     implicit class UpdateOps[F[_]](val self: Update[F]) extends AnyVal {
 
-      def par(other: Update[F])(implicit F: Monad[F], P: Parallel[F]): Update[F] = {
-        (topic: Topic, partition: Partition, offset: Offset, timestamp: Instant) =>
+      def both(other: Update[F])(implicit F: Monad[F], P: Parallel[F]): Update[F] = {
+        (topic, partition, offset, timestamp) =>
           self(topic, partition, offset, timestamp)
             .parProduct(other(topic, partition, offset, timestamp))
             .map { case (a, b) => a.combine(b) }
@@ -211,20 +214,19 @@ object PointerStatements {
 
     implicit class SelectInOps[F[_]](val self: SelectIn[F]) extends AnyVal {
 
-      def orElse(other: SelectIn[F])(implicit F: Monad[F]): SelectIn[F] = {
-        (topic: Topic, partitions: Nel[Partition]) => {
-          for {
-            offsets <- self(topic, partitions)
-            offsets <- if (offsets.isEmpty) other(topic, partitions) else offsets.pure[F]
-          } yield offsets
-        }
+      def both(other: SelectIn[F])(implicit F: Monad[F], P: Parallel[F]): SelectIn[F] = {
+        implicit val semigroup: Semigroup[Offset] = _ max _
+        (topic, partitions) =>
+          self(topic, partitions)
+            .parProduct(other(topic, partitions))
+            .map { case (a, b) => a.combine(b) }
       }
     }
   }
 
 
   trait SelectTopics[F[_]] {
-    def apply(): F[List[Topic]]
+    def apply(): F[SortedSet[Topic]]
   }
 
   object SelectTopics {
@@ -244,19 +246,22 @@ object PointerStatements {
               .setConsistencyLevel(consistencyConfig.value)
               .execute
               .toList
-              .map { _.map { _.decode[Topic]("topic") } }
+              .map { records =>
+                records
+                  .map { _.decode[Topic]("topic") }
+                  .toSortedSet
+              }
           }
         }
     }
 
     implicit class SelectTopicsOps[F[_]](val self: SelectTopics[F]) extends AnyVal {
 
-      def orElse(other: SelectTopics[F])(implicit F: Monad[F]): SelectTopics[F] = {
+      def both(other: SelectTopics[F])(implicit F: Monad[F], P: Parallel[F]): SelectTopics[F] = {
         () =>
-          for {
-            topics <- self()
-            topics <- if (topics.isEmpty) other() else topics.pure[F]
-          } yield topics
+          self()
+            .parProduct(other())
+            .map { case (a, b) => a ++ b }
       }
     }
   }
