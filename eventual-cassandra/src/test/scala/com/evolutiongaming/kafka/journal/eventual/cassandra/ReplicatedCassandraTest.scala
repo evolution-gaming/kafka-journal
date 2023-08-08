@@ -8,6 +8,7 @@ import cats.effect.kernel.CancelScope
 import cats.implicits._
 import cats.syntax.all.none
 import cats.{Id, Parallel}
+import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
@@ -1275,7 +1276,7 @@ object ReplicatedCassandraTest {
   val selectTopics: PointerStatements.SelectTopics[StateT] = {
     () => {
       StateT.success { state =>
-        val topics = state.pointers.keys.toList
+        val topics = state.pointers.keySet.toSortedSet
         (state, topics)
       }
     }

@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
 import cats.{Monad, Parallel}
+import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.scassandra.TableName
@@ -37,11 +38,15 @@ object Pointer2Statements {
             partitions
               .toList
               .parFlatTraverse { partition =>
-                select(topic, partition).map { offset =>
-                  offset.toList.map { offset => partition -> offset }
-                }
+                select
+                  .apply(topic, partition)
+                  .map { offset =>
+                    offset
+                      .toList
+                      .map { offset => partition -> offset }
+                  }
               }
-              .map(_.toMap)
+              .map { _.toMap }
           }
         }
 
@@ -66,7 +71,11 @@ object Pointer2Statements {
               .setConsistencyLevel(consistencyConfig.value)
               .execute
               .toList
-              .map { _.map { _.decode[Topic]("topic") }.distinct }
+              .map { records =>
+                records
+                  .map { _.decode[Topic]("topic") }
+                  .toSortedSet
+              }
           }
         }
     }
