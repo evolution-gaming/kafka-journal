@@ -35,14 +35,6 @@ object PointerStatements {
 
   object Insert {
 
-    def apply[F[_]: Monad](
-      first: Insert[F],
-      second: Insert[F],
-    ): Insert[F] = {
-      (topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant) =>
-        first(topic, partition, offset, created, updated) >> second(topic, partition, offset, created, updated)
-    }
-
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
       consistencyConfig: ConsistencyConfig.Write
@@ -70,6 +62,19 @@ object PointerStatements {
               .void
         }
     }
+
+    implicit class InsertOps[F[_]](val self: Insert[F]) extends AnyVal {
+
+      def andThen(other: Insert[F])(implicit F: Monad[F]): Insert[F] = {
+        (topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant) =>
+          for {
+            a <- self(topic, partition, offset, created, updated)
+            b <- other(topic, partition, offset, created, updated)
+          } yield {
+            a.combine(b)
+          }
+      }
+    }
   }
 
 
@@ -79,14 +84,6 @@ object PointerStatements {
   }
 
   object Update {
-
-    def apply[F[_]: Parallel](
-      first: Update[F],
-      second: Update[F],
-    ): Update[F] = {
-      (topic: Topic, partition: Partition, offset: Offset, timestamp: Instant) =>
-        first(topic, partition, offset, timestamp).parProductR(second(topic, partition, offset, timestamp))
-    }
 
     def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: ConsistencyConfig.Write): F[Update[F]] = {
 
@@ -113,6 +110,16 @@ object PointerStatements {
               .void
         }
     }
+
+    implicit class UpdateOps[F[_]](val self: Update[F]) extends AnyVal {
+
+      def par(other: Update[F])(implicit F: Monad[F], P: Parallel[F]): Update[F] = {
+        (topic: Topic, partition: Partition, offset: Offset, timestamp: Instant) =>
+          self(topic, partition, offset, timestamp)
+            .parProduct(other(topic, partition, offset, timestamp))
+            .map { case (a, b) => a.combine(b) }
+      }
+    }
   }
 
 
@@ -122,17 +129,6 @@ object PointerStatements {
   }
 
   object Select {
-
-    def apply[F[_]: Monad](
-      select: Select[F],
-      fallback: Select[F],
-    ): Select[F] = {
-      (topic: Topic, partition: Partition) =>
-        for {
-          offset <- select(topic, partition)
-          offset <- offset.fold(fallback(topic, partition))(_.some.pure[F])
-        } yield offset
-    }
 
     def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: ConsistencyConfig.Read): F[Select[F]] = {
 
@@ -156,6 +152,18 @@ object PointerStatements {
               .map { _.map { _.decode[Offset]("offset") } }
         }
     }
+
+    implicit class SelectOps[F[_]](val self: Select[F]) extends AnyVal {
+
+      def orElse(other: Select[F])(implicit F: Monad[F]): Select[F] = {
+        (topic: Topic, partition: Partition) => {
+          for {
+            offset <- self(topic, partition)
+            offset <- offset.fold(other(topic, partition))(_.some.pure[F])
+          } yield offset
+        }
+      }
+    }
   }
 
 
@@ -165,17 +173,6 @@ object PointerStatements {
   }
 
   object SelectIn {
-
-    def apply[F[_]: Monad](
-      select: SelectIn[F],
-      fallback: SelectIn[F],
-    ): SelectIn[F] = {
-      (topic: Topic, partitions: Nel[Partition]) =>
-        for {
-          offsets <- select(topic, partitions)
-          offsets <- if (offsets.isEmpty) fallback(topic, partitions) else offsets.pure[F]
-        } yield offsets
-    }
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
@@ -211,6 +208,18 @@ object PointerStatements {
               }
         }
     }
+
+    implicit class SelectInOps[F[_]](val self: SelectIn[F]) extends AnyVal {
+
+      def orElse(other: SelectIn[F])(implicit F: Monad[F]): SelectIn[F] = {
+        (topic: Topic, partitions: Nel[Partition]) => {
+          for {
+            offsets <- self(topic, partitions)
+            offsets <- if (offsets.isEmpty) other(topic, partitions) else offsets.pure[F]
+          } yield offsets
+        }
+      }
+    }
   }
 
 
@@ -219,17 +228,6 @@ object PointerStatements {
   }
 
   object SelectTopics {
-
-    def apply[F[_]: Monad](
-      select: SelectTopics[F],
-      fallback: SelectTopics[F],
-    ): SelectTopics[F] = {
-      () =>
-        for {
-          topics <- select()
-          topics <- if (topics.isEmpty) fallback() else topics.pure[F]
-        } yield topics
-    }
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
@@ -249,6 +247,17 @@ object PointerStatements {
               .map { _.map { _.decode[Topic]("topic") } }
           }
         }
+    }
+
+    implicit class SelectTopicsOps[F[_]](val self: SelectTopics[F]) extends AnyVal {
+
+      def orElse(other: SelectTopics[F])(implicit F: Monad[F]): SelectTopics[F] = {
+        () =>
+          for {
+            topics <- self()
+            topics <- if (topics.isEmpty) other() else topics.pure[F]
+          } yield topics
+      }
     }
   }
 
