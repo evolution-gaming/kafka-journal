@@ -114,9 +114,10 @@ object TopicReplicator {
                     partitionFlow <- cache.getOrUpdate(partition) {
                       for {
                         journal   <- journal(partition)
+                        offsets    = journal.offsets
                         offsetRef <- Resource.eval {
                           for {
-                            offset <- journal.offsets.get
+                            offset <- offsets.get
                             ref    <- Ref.of(offset)
                           } yield ref
                         }
@@ -166,14 +167,16 @@ object TopicReplicator {
                                   .maximumBy { _.offset }
                                   .offset
                                 offset.fold {
-                                  journal
-                                    .offsets
-                                    .create(offset1, timestamp)
+                                  for {
+                                    a <- offsets.create(offset1, timestamp)
+                                    _ <- offsetRef.set(offset1.some)
+                                  } yield a
                                 } { offset =>
                                   if (offset1 > offset) {
-                                    journal
-                                      .offsets
-                                      .update(offset1, timestamp)
+                                    for {
+                                      a <- offsets.update(offset1, timestamp)
+                                      _ <- offsetRef.set(offset1.some)
+                                    } yield a
                                   } else {
                                     ().pure[F]
                                   }
