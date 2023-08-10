@@ -159,7 +159,7 @@ object ReplicatedPartitionJournal {
                 d <- MeasureDuration[F].start
                 r <- self.offsets.get
                 d <- d
-                _ <- metrics.offset(d)
+                _ <- metrics.offsetsGet(d)
               } yield r
             }
 
@@ -168,7 +168,7 @@ object ReplicatedPartitionJournal {
                 d <- MeasureDuration[F].start
                 r <- self.offsets.create(offset, timestamp)
                 d <- d
-                _ <- metrics.offsetCreate(topic, d)
+                _ <- metrics.offsetsCreate(topic, d)
               } yield r
             }
 
@@ -177,7 +177,7 @@ object ReplicatedPartitionJournal {
                 d <- MeasureDuration[F].start
                 r <- self.offsets.update(offset, timestamp)
                 d <- d
-                _ <- metrics.offsetUpdate(topic, d)
+                _ <- metrics.offsetsUpdate(topic, d)
               } yield r
             }
           }

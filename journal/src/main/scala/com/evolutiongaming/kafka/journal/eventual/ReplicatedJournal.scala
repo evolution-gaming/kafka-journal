@@ -144,11 +144,11 @@ object ReplicatedJournal {
 
     def topics(latency: FiniteDuration): F[Unit]
 
-    def offset(latency: FiniteDuration): F[Unit]
+    def offsetsGet(latency: FiniteDuration): F[Unit]
 
-    def offsetUpdate(topic: Topic, latency: FiniteDuration): F[Unit]
+    def offsetsUpdate(topic: Topic, latency: FiniteDuration): F[Unit]
 
-    def offsetCreate(topic: Topic, latency: FiniteDuration): F[Unit]
+    def offsetsCreate(topic: Topic, latency: FiniteDuration): F[Unit]
 
     def append(topic: Topic, latency: FiniteDuration, events: Int): F[Unit]
 
@@ -168,11 +168,11 @@ object ReplicatedJournal {
 
         def topics(latency: FiniteDuration) = unit
 
-        def offset(latency: FiniteDuration) = unit
+        def offsetsGet(latency: FiniteDuration) = unit
 
-        def offsetUpdate(topic: Topic, latency: FiniteDuration) = unit
+        def offsetsUpdate(topic: Topic, latency: FiniteDuration) = unit
 
-        def offsetCreate(topic: Topic, latency: FiniteDuration) = unit
+        def offsetsCreate(topic: Topic, latency: FiniteDuration) = unit
 
         def append(topic: Topic, latency: FiniteDuration, events: Int) = unit
 
@@ -232,16 +232,16 @@ object ReplicatedJournal {
             observeLatency(name = "topics", latency = latency)
           }
 
-          def offset(latency: FiniteDuration): F[Unit] = {
-            observeLatency(name = "offset", latency = latency)
+          def offsetsGet(latency: FiniteDuration): F[Unit] = {
+            observeLatency(name = "offsets.get", latency = latency)
           }
 
-          def offsetUpdate(topic: Topic, latency: FiniteDuration) = {
-            observeLatency(name = "offsetUpdate", latency = latency)
+          def offsetsUpdate(topic: Topic, latency: FiniteDuration) = {
+            observeLatency(name = "offsets.update", latency = latency)
           }
 
-          def offsetCreate(topic: Topic, latency: FiniteDuration) = {
-            observeLatency(name = "offsetCreate", latency = latency)
+          def offsetsCreate(topic: Topic, latency: FiniteDuration) = {
+            observeLatency(name = "offsets.create", latency = latency)
           }
 
           def append(topic: Topic, latency: FiniteDuration, events: Int) = {
