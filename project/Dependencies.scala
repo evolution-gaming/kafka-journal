@@ -26,7 +26,7 @@ object Dependencies {
   val scache               = "com.evolution"          %% "scache"                % "5.0.0"
 
   object Cats {
-    val core   = "org.typelevel" %% "cats-core"   % "2.9.0"
+    val core   = "org.typelevel" %% "cats-core"   % "2.10.0"
     val effect = "org.typelevel" %% "cats-effect" % "3.4.8"
   }
 
