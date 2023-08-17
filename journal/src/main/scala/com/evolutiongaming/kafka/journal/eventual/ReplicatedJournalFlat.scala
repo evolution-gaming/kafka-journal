@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal.eventual
 import java.time.Instant
 
 import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
 import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedKeyJournal.Changed

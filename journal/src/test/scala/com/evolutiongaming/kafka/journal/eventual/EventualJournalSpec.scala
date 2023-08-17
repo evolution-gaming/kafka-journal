@@ -419,7 +419,7 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
           _       = a shouldEqual Nil
           a      <- eventual.pointer
         } yield {
-          a shouldEqual journalPointerOf(offset = 8, seqNr = SeqNr.max).some
+          a shouldEqual journalPointerOf(offset = 8, seqNr = event3.seqNr).some
         }
       }
     }

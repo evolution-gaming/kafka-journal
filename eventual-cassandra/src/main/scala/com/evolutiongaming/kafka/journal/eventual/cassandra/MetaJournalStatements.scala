@@ -486,6 +486,41 @@ object MetaJournalStatements {
     }
   }
 
+  trait UpdatePartitionOffset[F[_]] {
+
+    def apply(key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant): F[Unit]
+  }
+
+  object UpdatePartitionOffset {
+
+    def of[F[_]: Monad: CassandraSession](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Write
+    ): F[UpdatePartitionOffset[F]] = {
+      s"""
+         |UPDATE ${ name.toCql }
+         |SET partition = ?, offset = ?, updated = ?
+         |WHERE id = ?
+         |AND topic = ?
+         |AND segment = ?
+         |"""
+        .stripMargin
+        .prepare
+        .map { statement =>
+          (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant) =>
+            statement
+              .bind()
+              .encode(key)
+              .encode(segment)
+              .encode(partitionOffset)
+              .encode("updated", timestamp)
+              .setConsistencyLevel(consistencyConfig.value)
+              .first
+              .void
+        }
+    }
+  }
+
 
   trait Delete[F[_]] {
 

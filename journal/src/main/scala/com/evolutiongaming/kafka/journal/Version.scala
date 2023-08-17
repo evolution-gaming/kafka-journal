@@ -11,7 +11,7 @@ final case class Version(value: String) {
 
 object Version {
 
-  val current: Version = Version("1.0.16")
+  val current: Version = Version("3.2.4")
 
 
   implicit val eqVersion: Eq[Version] = Eq.fromUniversalEquals
