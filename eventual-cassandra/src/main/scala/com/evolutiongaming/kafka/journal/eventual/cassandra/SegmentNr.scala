@@ -109,4 +109,10 @@ object SegmentNr {
 
     def prev[F[_]: Applicative: Fail]: F[SegmentNr] = map { _ - 1L }
   }
+
+  object implicits {
+    implicit class SeqNrOpsSegmentNr(val self: SeqNr) extends AnyVal {
+      def toSegmentNr(segmentSize: SegmentSize): SegmentNr = SegmentNr(self, segmentSize)
+    }
+  }
 }

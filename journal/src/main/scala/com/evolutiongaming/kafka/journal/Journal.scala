@@ -44,8 +44,8 @@ trait Journal[F[_]] {
 object Journal {
 
   def empty[F[_] : Applicative]: Journal[F] = {
-    class Main
-    new Main with Journal[F] {
+    class Empty
+    new Empty with Journal[F] {
 
       def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
         implicit kafkaWrite: KafkaWrite[F, A]) = PartitionOffset.empty.pure[F]

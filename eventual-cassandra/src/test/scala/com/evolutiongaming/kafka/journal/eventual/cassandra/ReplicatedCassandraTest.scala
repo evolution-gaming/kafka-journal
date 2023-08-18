@@ -99,6 +99,12 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
       val expected = State(
         actions = List(
+          Action.UpdateDeleteTo(
+            key,
+            segment,
+            partitionOffset.copy(Partition.min, offset1),
+            timestamp1,
+            SeqNr.min.toDeleteTo),
           Action.InsertMetaJournal(
             key,
             segment,
@@ -115,8 +121,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             journalHead = JournalHead(
               partitionOffset = partitionOffset.copy(offset = offset1),
               segmentSize = segmentSize,
-              seqNr = SeqNr.max,
-              deleteTo = SeqNr.max.toDeleteTo.some),
+              seqNr = SeqNr.min,
+              deleteTo = SeqNr.min.toDeleteTo.some),
             created = timestamp0,
             updated = timestamp1,
             origin = origin.some))))))
@@ -785,10 +791,28 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           timestamp = timestamp1,
           deleteTo = SeqNr.max.toDeleteTo,
           origin = origin.some)
+        _ <- journal.delete(
+          key = key,
+          Partition.min,
+          Offset.unsafe(3),
+          timestamp = timestamp1,
+          deleteTo = SeqNr.max.toDeleteTo,
+          origin = origin.some)
       } yield {}
 
       val expected = State(
         actions = List(
+          Action.UpdatePartitionOffset(
+            key,
+            segment,
+            partitionOffset.copy(Partition.min, Offset.unsafe(3)),
+            timestamp1),
+          Action.UpdateDeleteTo(
+            key,
+            segment,
+            partitionOffset.copy(Partition.min, Offset.unsafe(2)),
+            timestamp1,
+            SeqNr.min.toDeleteTo),
           Action.InsertMetaJournal(
             key,
             segment,
@@ -800,10 +824,10 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         metaJournal = Map(
           ((topic0, segment), Map((id, MetaJournalEntry(
             journalHead = JournalHead(
-              partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
+              partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(3)),
               segmentSize = segmentSize,
-              seqNr = SeqNr.max,
-              deleteTo = SeqNr.max.toDeleteTo.some,
+              seqNr = SeqNr.min,
+              deleteTo = SeqNr.min.toDeleteTo.some,
               expiry = none),
             created = timestamp0,
             updated = timestamp1,
@@ -887,7 +911,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           Action.UpdateDeleteTo(
             key,
             segment,
-            PartitionOffset(Partition.min, Offset.unsafe(4)),
+            PartitionOffset(Partition.min, Offset.unsafe(3)),
             timestamp1,
             SeqNr.unsafe(2).toDeleteTo),
           Action.InsertMetaJournal(
@@ -902,7 +926,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     }
 
 
-    test(s"not repeat purge, $suffix") {
+    test(s"repeat purge again for the same offset, $suffix") {
       val id = "id"
       val key = Key(id = id, topic = topic0)
       val segment = segmentOfId(key)
@@ -913,6 +937,13 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
       val expected = State(
         actions = List(
+          Action.Delete(key, segment),
+          Action.UpdateDeleteTo(
+            key,
+            segment,
+            partitionOffset,
+            timestamp0,
+            SeqNr.min.toDeleteTo),
           Action.InsertMetaJournal(
             key,
             segment,
@@ -920,17 +951,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             updated = timestamp0,
             JournalHead(partitionOffset, segmentSize, SeqNr.min),
             origin.some),
-          Action.InsertRecords(key, SegmentNr.min, 1)),
-        metaJournal = Map(
-          ((topic0, segment), Map((id, MetaJournalEntry(
-            journalHead = JournalHead(
-              partitionOffset = partitionOffset,
-              segmentSize = segmentSize,
-              seqNr = SeqNr.min),
-            created = timestamp0,
-            updated = timestamp0,
-            origin = origin.some))))),
-        journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))))
+          Action.InsertRecords(key, SegmentNr.min, 1)))
       val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
     }
@@ -977,12 +998,6 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val expected = State(
         actions = List(
           Action.Delete(key, segment),
-          Action.UpdateDeleteTo(
-            key,
-            segment,
-            PartitionOffset(Partition.min, Offset.unsafe(5)),
-            timestamp1,
-            SeqNr.unsafe(2).toDeleteTo),
           Action.UpdateDeleteTo(
             key,
             segment,
@@ -1152,6 +1167,21 @@ object ReplicatedCassandraTest {
     }
   }
 
+  val updatePartitionOffsetMetaJournal: MetaJournalStatements.UpdatePartitionOffset[StateT] = {
+    (key, segment, partitionOffset, timestamp) => {
+      StateT.unit { state =>
+        state
+          .updateMetaJournal(key, segment) { entry =>
+            entry.copy(
+              journalHead = entry.journalHead.copy(
+                partitionOffset = partitionOffset),
+              updated = timestamp)
+          }
+          .append(Action.UpdatePartitionOffset(key, segment, partitionOffset, timestamp))
+      }
+    }
+  }
+
 
   val deleteMetaJournal: MetaJournalStatements.Delete[StateT] = {
     (key, segment) => {
@@ -1277,6 +1307,7 @@ object ReplicatedCassandraTest {
       updateSeqNrMetaJournal,
       updateExpiryMetaJournal,
       updateDeleteToMetaJournal,
+      updatePartitionOffsetMetaJournal,
       deleteMetaJournal,
       deleteExpiryMetaJournal)
 
@@ -1378,6 +1409,13 @@ object ReplicatedCassandraTest {
       partitionOffset: PartitionOffset,
       timestamp: Instant,
       deleteTo: DeleteTo
+    ) extends Action
+
+    final case class UpdatePartitionOffset(
+      key: Key,
+      segment: SegmentNr,
+      partitionOffset: PartitionOffset,
+      timestamp: Instant,
     ) extends Action
 
     final case class Delete(key: Key, segment: SegmentNr) extends Action
