@@ -181,7 +181,13 @@ object Journals {
     for {
       poolSize    <- consumerPoolSize.calculate.toResource
       _           <- log.debug(s"Creating a consumer pool of size $poolSize").toResource
-      pool        <- ResourcePool.fixedSize[F, Consumer[F]](consumer, poolSize)
+      pool        <- ResourcePool.fixedSize[F, Consumer[F]](
+        consumer,
+        poolSize,
+        acquireTimeout = 15.seconds,
+        resourceTTL = 1.minute,
+        log = log,
+      )
       poolMetrics = consumerPoolMetrics.getOrElse(RecoveryConsumerPoolMetrics.empty(Async[F]))
     } yield apply[F](
         eventual = eventualJournal,
