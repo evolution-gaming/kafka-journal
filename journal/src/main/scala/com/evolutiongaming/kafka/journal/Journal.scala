@@ -331,33 +331,18 @@ object Journal {
     implicit val configReaderCallTimeThresholds: ConfigReader[CallTimeThresholds] = deriveReader[CallTimeThresholds]
   }
 
-  sealed trait ConsumerPoolSize {
-
-    def calculate[F[_]: Runtime: Applicative]: F[Int] =
-      this match {
-        case ConsumerPoolSize.Fixed(size) =>
-          size.pure[F]
-        case ConsumerPoolSize.ScaleWithCpus(scale) =>
-          Runtime[F].availableCores.map { cores =>
-            math.max(1, math.ceil(cores.toDouble * scale)).toInt
-          }
+  case class ConsumerPoolConfig(
+    sizeScale: Double,
+    acquireTimeout: FiniteDuration,
+    idleTimeout: FiniteDuration,
+  ) {
+    def calculateSize[F[_]: Runtime: Applicative]: F[Int] =
+      Runtime[F].availableCores.map { cores =>
+        math.ceil(cores.toDouble * sizeScale).toInt
       }
   }
 
-  object ConsumerPoolSize {
-
-    final case class ScaleWithCpus(scale: Double) extends ConsumerPoolSize
-
-    object ScaleWithCpus {
-      implicit val configReader: ConfigReader[ScaleWithCpus] = deriveReader
-    }
-
-    final case class Fixed(size: Int) extends ConsumerPoolSize
-
-    object Fixed {
-      implicit val configReader: ConfigReader[Fixed] = deriveReader
-    }
-
-    implicit val configReader: ConfigReader[ConsumerPoolSize] = deriveReader
+  object ConsumerPoolConfig {
+    implicit val configReader: ConfigReader[ConsumerPoolConfig] = deriveReader
   }
 }
