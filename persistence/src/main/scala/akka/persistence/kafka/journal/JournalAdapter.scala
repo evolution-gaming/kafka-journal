@@ -5,7 +5,6 @@ import cats.effect._
 import cats.syntax.all._
 import cats.{Monad, Parallel, ~>}
 import com.evolutiongaming.catshelper._
-import com.evolutiongaming.kafka.journal.Journal.ConsumerPoolSize
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.conversions.ConversionMetrics
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
@@ -81,7 +80,7 @@ object JournalAdapter {
       kafkaProducerOf: KafkaProducerOf[F],
       headCacheOf: HeadCacheOf[F]) = {
 
-      val journal = config.recoveryConsumerPoolSize match {
+      val journal = config.consumerPool match {
         case Some(consumerPoolConfig) =>
           Journals.make[F](
             origin = origin,
@@ -89,7 +88,7 @@ object JournalAdapter {
             eventualJournal = eventualJournal,
             journalMetrics = metrics.journal,
             conversionMetrics = metrics.conversion,
-            consumerPoolSize = consumerPoolConfig,
+            consumerPoolConfig = consumerPoolConfig,
             consumerPoolMetrics = metrics.consumerPool,
             callTimeThresholds = config.callTimeThresholds
           )
@@ -251,7 +250,7 @@ object JournalAdapter {
     producer: Option[ClientId => ProducerMetrics[F]] = none,
     consumer: Option[ClientId => ConsumerMetrics[F]] = none,
     conversion: Option[ConversionMetrics[F]] = none,
-    consumerPool: Option[RecoveryConsumerPoolMetrics[F]] = none,
+    consumerPool: Option[ConsumerPoolMetrics[F]] = none,
   )
 
   object Metrics {
