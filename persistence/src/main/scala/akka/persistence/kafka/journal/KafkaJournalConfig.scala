@@ -1,6 +1,6 @@
 package akka.persistence.kafka.journal
 
-import com.evolutiongaming.kafka.journal.Journal.{CallTimeThresholds, ConsumerPoolSize}
+import com.evolutiongaming.kafka.journal.Journal.{CallTimeThresholds, ConsumerPoolConfig}
 import com.evolutiongaming.kafka.journal.JournalConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig
 import pureconfig.generic.semiauto.{deriveEnumerationReader, deriveReader}
@@ -44,11 +44,7 @@ import scala.concurrent.duration._
   *   vice-versa. This parameter is only relevant if default [[KafkaJournal]] is
   *   used, i.e. it is not taken into account if Circe JSON or other custom
   *   serialization is used.
-  * @param recoveryConsumerPoolSize
-  *   Configures the size of recovery consumer pool. If None, consumer pool
-  *   won't be used at all and a new consumer will be created for each recovery.
-  *   @see [[ConsumerPoolSize.calculate]] for details on how the size is
-  *   calculated.
+  * @param consumerPoolSize TODO: write doc after MR is approved
   *
   * @see [[KafkaJournal]] for more details.
   */
@@ -60,7 +56,7 @@ final case class KafkaJournalConfig(
   maxEventsInBatch: Int = 100,
   callTimeThresholds: CallTimeThresholds = CallTimeThresholds.default,
   jsonCodec: KafkaJournalConfig.JsonCodec = KafkaJournalConfig.JsonCodec.Default,
-  recoveryConsumerPoolSize: Option[ConsumerPoolSize] = None,
+  consumerPool: Option[ConsumerPoolConfig] = None,
 )
 
 object KafkaJournalConfig {

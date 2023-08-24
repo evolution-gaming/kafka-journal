@@ -4,12 +4,12 @@ import cats._
 import cats.data.{NonEmptyList => Nel, NonEmptySet => Nes}
 import cats.effect._
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MeasureDuration, MonadThrowable}
+import com.evolutiongaming.kafka.journal.Journal.ConsumerPoolConfig
 import com.evolutiongaming.kafka.journal.Journal.ConsumerPoolSize
 import com.evolutiongaming.kafka.journal.conversions.{ConversionMetrics, KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualRead}
-import com.evolutiongaming.kafka.journal.util.{Fail, ResourcePool}
+import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
@@ -99,8 +99,8 @@ object Journals {
      eventualJournal: EventualJournal[F],
      journalMetrics: Option[JournalMetrics[F]],
      conversionMetrics: Option[ConversionMetrics[F]],
-     consumerPoolSize: ConsumerPoolSize,
-     consumerPoolMetrics: Option[RecoveryConsumerPoolMetrics[F]],
+     consumerPoolConfig: ConsumerPoolConfig,
+     consumerPoolMetrics: Option[ConsumerPoolMetrics[F]],
      callTimeThresholds: Journal.CallTimeThresholds
    ): Resource[F, Journals[F]] = {
 
@@ -124,7 +124,7 @@ object Journals {
         consumer,
         eventualJournal,
         headCache,
-        consumerPoolSize,
+        consumerPoolConfig,
         consumerPoolMetrics,
         log,
         conversionMetrics
@@ -170,27 +170,25 @@ object Journals {
      consumer: Resource[F, Consumer[F]],
      eventualJournal: EventualJournal[F],
      headCache: HeadCache[F],
-     consumerPoolSize: ConsumerPoolSize,
-     consumerPoolMetrics: Option[RecoveryConsumerPoolMetrics[F]],
+     consumerPoolConfig: ConsumerPoolConfig,
+     consumerPoolMetrics: Option[ConsumerPoolMetrics[F]],
      log: Log[F],
      conversionMetrics: Option[ConversionMetrics[F]]
   ): Resource[F, Journals[F]] = {
     implicit val fromAttempt: FromAttempt[F]   = FromAttempt.lift[F]
     implicit val fromJsResult: FromJsResult[F] = FromJsResult.lift[F]
 
-    for {
-      poolSize    <- consumerPoolSize.calculate.toResource
-      _           <- log.debug(s"Creating a consumer pool of size $poolSize").toResource
-      pool        <- ResourcePool.fixedSize[F, Consumer[F]](consumer, poolSize)
-      poolMetrics = consumerPoolMetrics.getOrElse(RecoveryConsumerPoolMetrics.empty(Async[F]))
-    } yield apply[F](
+    val consumerPool = ConsumerPool.of[F](consumerPoolConfig, consumerPoolMetrics, log)(consumer)
+    consumerPool.map { consumer =>
+      apply[F](
         eventual = eventualJournal,
-        consumeActionRecords = ConsumeActionRecords.of[F](pool, poolMetrics, log),
+        consumeActionRecords = ConsumeActionRecords[F](consumer, log),
         produce = Produce[F](producer, origin),
         headCache = headCache,
         log = log,
         conversionMetrics = conversionMetrics
-    )
+      )
+    }
   }
 
   def apply[F[_] : Concurrent : RandomIdOf : MeasureDuration](
