@@ -1,54 +1,41 @@
 package com.evolutiongaming.kafka.journal.eventual
 
-import cats.data.NonEmptyMap._
-import cats.data.{NonEmptyMap => Nem}
 import cats.effect.Resource
 import cats.effect.syntax.all._
 import cats.syntax.all._
 import cats.{Applicative, Monad, ~>}
 import com.evolutiongaming.catshelper.{BracketThrowable, Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.skafka.{Offset, Partition, Topic}
-
-import java.time.Instant
+import com.evolutiongaming.skafka.{Partition, Topic}
 
 
 trait ReplicatedTopicJournal[F[_]] {
-  import ReplicatedTopicJournal._
 
-  def pointer(partition: Partition): F[Option[Offset]]
-
-  def journal(id: String): Resource[F, ReplicatedKeyJournal[F]]
-
-  def save(pointers: Nem[Partition, Offset], timestamp: Instant): F[Changed]
+  def apply(partition: Partition): Resource[F, ReplicatedPartitionJournal[F]]
 }
 
 object ReplicatedTopicJournal {
 
-  type Changed = Boolean
-
-
-  def empty[F[_]: Applicative]: ReplicatedTopicJournal[F] = new ReplicatedTopicJournal[F] {
-
-    def pointer(partition: Partition): F[Option[Offset]] = none[Offset].pure[F]
-
-    def journal(id: String) = {
-      ReplicatedKeyJournal
-        .empty[F]
-        .pure[F]
-        .toResource
+  def empty[F[_]: Applicative]: ReplicatedTopicJournal[F] = {
+    class Empty
+    new Empty with ReplicatedTopicJournal[F] {
+      def apply(partition: Partition) = {
+        ReplicatedPartitionJournal
+          .empty[F]
+          .pure[F]
+          .toResource
+      }
     }
-
-    def save(pointers: Nem[Partition, Offset], timestamp: Instant) = false.pure[F]
   }
 
 
-  def apply[F[_]: Applicative](
+  /*def apply[F[_]: Applicative](
     topic: Topic,
     replicatedJournal: ReplicatedJournalFlat[F]
   ): ReplicatedTopicJournal[F] = {
 
-    new ReplicatedTopicJournal[F] {
+    class Main
+    new Main with ReplicatedTopicJournal[F] {
 
       def pointer(partition: Partition): F[Option[Offset]] = replicatedJournal.pointer(topic, partition)
 
@@ -58,13 +45,17 @@ object ReplicatedTopicJournal {
           .pure[F]
           .toResource
       }
-
-      def save(pointers: Nem[Partition, Offset], timestamp: Instant) = {
-        replicatedJournal.save(topic, pointers, timestamp)
-      }
     }
-  }
+  }*/
 
+
+  private sealed abstract class WithLog
+
+  private sealed abstract class WithMetrics
+
+  private sealed abstract class EnhanceError
+
+  private sealed abstract class MapK
 
   implicit class ReplicatedTopicJournalOps[F[_]](val self: ReplicatedTopicJournal[F]) extends AnyVal {
 
@@ -72,19 +63,15 @@ object ReplicatedTopicJournal {
       f: F ~> G)(implicit
       B: BracketThrowable[F],
       GT: BracketThrowable[G]
-    ): ReplicatedTopicJournal[G] = new ReplicatedTopicJournal[G] {
+    ): ReplicatedTopicJournal[G] = {
+      new MapK with ReplicatedTopicJournal[G] {
 
-      def pointer(partition: Partition): G[Option[Offset]] = f(self.pointer(partition))
-
-      def journal(id: String) = {
-        self
-          .journal(id)
-          .map(_.mapK(f))
-          .mapK(f)
-      }
-
-      def save(pointers: Nem[Partition, Offset], timestamp: Instant) = {
-        f(self.save(pointers, timestamp))
+        def apply(partition: Partition) = {
+          self
+            .apply(partition)
+            .map(_.mapK(f))
+            .mapK(f)
+        }
       }
     }
 
@@ -95,31 +82,12 @@ object ReplicatedTopicJournal {
       F: Monad[F],
       measureDuration: MeasureDuration[F]
     ): ReplicatedTopicJournal[F] = {
+      new WithLog with ReplicatedTopicJournal[F] {
 
-      new ReplicatedTopicJournal[F] {
-
-        def pointer(partition: Partition): F[Option[Offset]] = {
-          for {
-            d <- MeasureDuration[F].start
-            r <- self.pointer(partition)
-            d <- d
-            _ <- log.debug(s"$topic $partition pointer in ${ d.toMillis }ms, result: $r")
-          } yield r
-        }
-
-        def journal(id: String) = {
+        def apply(partition: Partition) = {
           self
-            .journal(id)
-            .map { _.withLog(Key(id = id, topic = topic), log) }
-        }
-
-        def save(pointers: Nem[Partition, Offset], timestamp: Instant) = {
-          for {
-            d <- MeasureDuration[F].start
-            r <- self.save(pointers, timestamp)
-            d <- d
-            _ <- log.debug(s"$topic save in ${ d.toMillis }ms, pointers: ${ pointers.mkString_(",") }, timestamp: $timestamp")
-          } yield r
+            .apply(partition)
+            .map { _.withLog(topic, partition, log) }
         }
       }
     }
@@ -131,30 +99,12 @@ object ReplicatedTopicJournal {
       F: Monad[F],
       measureDuration: MeasureDuration[F]
     ): ReplicatedTopicJournal[F] = {
-      new ReplicatedTopicJournal[F] {
+      new WithMetrics with ReplicatedTopicJournal[F] {
 
-        def pointer(partition: Partition): F[Option[Offset]] = {
-          for {
-            d <- MeasureDuration[F].start
-            r <- self.pointer(partition)
-            d <- d
-            _ <- metrics.pointer(d)
-          } yield r
-        }
-
-        def journal(id: String) = {
+        def apply(partition: Partition) = {
           self
-            .journal(id)
+            .apply(partition)
             .map { _.withMetrics(topic, metrics) }
-        }
-
-        def save(pointers: Nem[Partition, Offset], timestamp: Instant) = {
-          for {
-            d <- MeasureDuration[F].start
-            r <- self.save(pointers, timestamp)
-            d <- d
-            _ <- metrics.save(topic, d)
-          } yield r
         }
       }
     }
@@ -169,31 +119,13 @@ object ReplicatedTopicJournal {
         JournalError(s"ReplicatedTopicJournal.$msg failed with $cause", cause)
       }
 
-      new ReplicatedTopicJournal[F] {
+      new EnhanceError with ReplicatedTopicJournal[F] {
 
-        def pointer(partition: Partition): F[Option[Offset]] = {
+        def apply(partition: Partition) = {
           self
-            .pointer(partition)
-            .adaptError { case a => journalError(s"pointer topic: $topic, partition: $partition", a) }
-        }
-
-        def journal(id: String) = {
-          val key = Key(id = id, topic = topic)
-          self
-            .journal(id)
-            .map { _.enhanceError(key) }
-            .adaptError { case a => journalError(s"journal key: $key", a) }
-        }
-
-        def save(pointers: Nem[Partition, Offset], timestamp: Instant) = {
-          self
-            .save(pointers, timestamp)
-            .adaptError { case a =>
-              journalError(s"save " +
-                s"topic: $topic, " +
-                s"pointers: $pointers, " +
-                s"timestamp: $timestamp", a)
-            }
+            .apply(partition)
+            .map { _.enhanceError(topic, partition) }
+            .adaptError { case a => journalError(s"journal topic: $topic, partition: $partition", a) }
         }
       }
     }

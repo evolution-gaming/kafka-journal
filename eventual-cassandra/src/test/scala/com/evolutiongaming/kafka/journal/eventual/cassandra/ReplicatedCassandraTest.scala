@@ -2,12 +2,13 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import java.time.{Instant, LocalDate, ZoneOffset}
 import java.util.concurrent.TimeUnit
-import cats.data.{IndexedStateT, NonEmptyList => Nel, NonEmptyMap => Nem}
+import cats.data.{IndexedStateT, NonEmptyList => Nel}
 import cats.effect.{Poll, Sync}
 import cats.effect.kernel.CancelScope
 import cats.implicits._
 import cats.syntax.all.none
 import cats.{Id, Parallel}
+import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
@@ -20,6 +21,7 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.Json
 
+import scala.collection.immutable.SortedSet
 import scala.concurrent.duration._
 import scala.util.Try
 
@@ -57,12 +59,17 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     val (segmentsFirst, segmentsSecond) = segments
     val segmentNrsOf = SegmentNrsOf[StateT](first = segmentsFirst, second = segmentsSecond)
     val segmentOfId = SegmentOf[Id](segmentsFirst)
-    val journal = ReplicatedCassandra(
-      segmentSize,
-      segmentNrsOf,
-      statements,
-      ExpiryService(ZoneOffset.UTC)
-    ).toFlat
+    val journal = {
+      implicit val parallel = Parallel.identity[StateT]
+      ReplicatedCassandra
+        .apply(
+          segmentSize,
+          segmentNrsOf,
+          statements,
+          ExpiryService(ZoneOffset.UTC)
+        )
+        .toFlat
+    }
 
     val suffix = s"segmentSize: $segmentSize, segments: $segments"
 
@@ -70,30 +77,36 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val id = "id"
       val key = Key(id = id, topic = topic0)
       val segment = segmentOfId(key)
-      val partitionOffset1 = partitionOffset.copy(offset = partitionOffset.offset.inc[Try].get)
+      val offset1 = partitionOffset.offset.inc[Try].get
 
       val stateT = for {
         topics <- journal.topics
-        _       = topics.toSet shouldEqual Set.empty
-        _      <- journal.append(key, partitionOffset, timestamp0, none, Nel.of(record))
+        _       = topics shouldEqual Set.empty
+        _      <- journal.append(key, partitionOffset.partition, partitionOffset.offset, timestamp0, none, Nel.of(record))
         topics <- journal.topics
-        _       = topics.toSet shouldEqual Set.empty
-        _      <- journal.save(topic0, Nem.of((Partition.min, Offset.min)), timestamp0)
+        _       = topics shouldEqual Set.empty
+        _      <- journal.offsetCreate(topic0, Partition.min, Offset.min, timestamp0)
         topics <- journal.topics
-        _       = topics.toSet shouldEqual Set(topic0)
-        _      <- journal.save(topic0, Nem.of((Partition.min, Offset.unsafe(1))), timestamp1)
+        _       = topics shouldEqual Set(topic0)
+        _      <- journal.offsetUpdate(topic0, Partition.min, Offset.unsafe(1), timestamp1)
         topics <- journal.topics
-        _       = topics.toSet shouldEqual Set(topic0)
-        _      <- journal.save(topic1, Nem.of((Partition.min, Offset.min)), timestamp0)
+        _       = topics shouldEqual Set(topic0)
+        _      <- journal.offsetCreate(topic1, Partition.min, Offset.min, timestamp0)
         topics <- journal.topics
-        _       = topics.toSet shouldEqual Set(topic0, topic1)
-        _      <- journal.delete(key, partitionOffset1, timestamp1, SeqNr.max.toDeleteTo, origin.some)
+        _       = topics shouldEqual Set(topic0, topic1)
+        _      <- journal.delete(key, partitionOffset.partition, offset1, timestamp1, SeqNr.max.toDeleteTo, origin.some)
         topics <- journal.topics
-        _       = topics.toSet shouldEqual Set(topic0, topic1)
+        _       = topics shouldEqual Set(topic0, topic1)
       } yield {}
 
       val expected = State(
         actions = List(
+          Action.UpdateDeleteTo(
+            key,
+            segment,
+            partitionOffset.copy(Partition.min, offset1),
+            timestamp1,
+            SeqNr.min.toDeleteTo),
           Action.InsertMetaJournal(
             key,
             segment,
@@ -108,10 +121,10 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         metaJournal = Map(
           ((topic0, segment), Map((id, MetaJournalEntry(
             journalHead = JournalHead(
-              partitionOffset = partitionOffset1,
+              partitionOffset = partitionOffset.copy(offset = offset1),
               segmentSize = segmentSize,
-              seqNr = SeqNr.max,
-              deleteTo = SeqNr.max.toDeleteTo.some),
+              seqNr = SeqNr.min,
+              deleteTo = SeqNr.min.toDeleteTo.some),
             created = timestamp0,
             updated = timestamp1,
             origin = origin.some))))))
@@ -120,67 +133,24 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     }
 
 
-    test(s"save, $suffix") {
-      val stateT = for {
-        changed <- journal.save(topic0, Nem.of((Partition.min, Offset.min)), timestamp0)
-        _        = changed shouldEqual true
-        changed <- journal.save(topic0, Nem.of((Partition.min, Offset.min)), timestamp0)
-        _        = changed shouldEqual false
-        changed <- journal.save(topic0, Nem.of((Partition.min, Offset.unsafe(1))), timestamp0)
-        _        = changed shouldEqual true
-        changed <- journal.save(topic0, Nem.of((Partition.min, Offset.unsafe(1))), timestamp0)
-        _        = changed shouldEqual false
-        changed <- journal.save(
-          topic0,
-          Nem.of(
-            (Partition.min, Offset.unsafe(1)),
-            (Partition.unsafe(1), Offset.min)),
-          timestamp0)
-        _        = changed shouldEqual true
-        changed <- journal.save(
-          topic0,
-          Nem.of(
-            (Partition.min, Offset.unsafe(1)),
-            (Partition.unsafe(1), Offset.min)),
-          timestamp0)
-        _        = changed shouldEqual false
-        changed <- journal.save(
-          topic0,
-          Nem.of(
-            (Partition.min, Offset.unsafe(2)),
-            (Partition.unsafe(1), Offset.unsafe(2))),
-          timestamp1)
-        _        = changed shouldEqual true
-      } yield {}
-
-      val expected = State(
-        pointers = Map(
-          (topic0, Map(
-            (Partition.min, PointerEntry(Offset.unsafe(2), created = timestamp0, updated = timestamp1)),
-            (Partition.unsafe(1), PointerEntry(Offset.unsafe(2), created = timestamp0, updated = timestamp1))))))
-      val result = stateT.run(State.empty)
-      result shouldEqual (expected, ()).pure[Try]
-    }
-
-
-    test(s"pointers, $suffix") {
+    test(s"offset, $suffix") {
       val id = "id"
       val key = Key(id = id, topic = topic0)
       val segment = segmentOfId(key)
       val stateT = for {
-        offset   <- journal.pointer(topic0, Partition.min)
+        offset   <- journal.offset(topic0, Partition.min)
         _         = offset shouldEqual none
-        _        <- journal.append(key, partitionOffset, timestamp0, none[ExpireAfter], Nel.of(record))
-        offset   <- journal.pointer(topic0, Partition.min)
+        _        <- journal.append(key, partitionOffset.partition, partitionOffset.offset, timestamp0, none[ExpireAfter], Nel.of(record))
+        offset   <- journal.offset(topic0, Partition.min)
         _         = offset shouldEqual none
-        _        <- journal.save(topic0, Nem.of((Partition.min, Offset.min)), timestamp0)
-        offset   <- journal.pointer(topic0, Partition.min)
+        _        <- journal.offsetCreate(topic0, Partition.min, Offset.min, timestamp0)
+        offset   <- journal.offset(topic0, Partition.min)
         _         = offset shouldEqual Offset.min.some
-        _        <- journal.save(topic0, Nem.of((Partition.min, Offset.unsafe(1))), timestamp1)
-        offset   <- journal.pointer(topic0, Partition.min)
+        _        <- journal.offsetUpdate(topic0, Partition.min, Offset.unsafe(1), timestamp1)
+        offset   <- journal.offset(topic0, Partition.min)
         _         = offset shouldEqual Offset.unsafe(1).some
-        _        <- journal.save(topic1, Nem.of((Partition.min, Offset.min)), timestamp0)
-        offset   <- journal.pointer(topic0, Partition.min)
+        _        <- journal.offsetCreate(topic1, Partition.min, Offset.min, timestamp0)
+        offset   <- journal.offset(topic0, Partition.min)
         _         = offset shouldEqual Offset.unsafe(1).some
       } yield {}
 
@@ -225,7 +195,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val stateT = for {
         _ <- journal.append(
           key = key0,
-          partitionOffset = PartitionOffset(Partition.min, Offset.min),
+          Partition.min,
+          Offset.min,
           timestamp = timestamp0,
           expireAfter = expiry.after.some,
           events = Nel.of(
@@ -234,7 +205,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               partitionOffset = PartitionOffset(Partition.min, Offset.min))))
         _ <- journal.append(
           key = key0,
-          partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(3)),
+          Partition.min,
+          Offset.unsafe(3),
           timestamp = timestamp1,
           expireAfter = none,
           events = Nel.of(
@@ -246,7 +218,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)))))
         _ <- journal.append(
           key = key1,
-          partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(4)),
+          Partition.min,
+          Offset.unsafe(4),
           timestamp = timestamp0,
           expireAfter = none,
           events = Nel.of(
@@ -380,7 +353,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val stateT = for {
         _ <- journal.append(
           key = key,
-          partitionOffset = PartitionOffset(Partition.min, Offset.min),
+          Partition.min,
+          Offset.min,
           timestamp = timestamp0,
           expireAfter = expiry0.after.some,
           events = Nel.of(
@@ -389,7 +363,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               partitionOffset = PartitionOffset(Partition.min, Offset.min))))
         _ <- journal.append(
           key = key,
-          partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(3)),
+          Partition.min,
+          Offset.unsafe(3),
           timestamp = timestamp1,
           expireAfter = expiry1.after.some,
           events = Nel.of(
@@ -500,7 +475,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val stateT = for {
         _ <- journal.append(
           key = key,
-          partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)),
+          Partition.min,
+          Offset.unsafe(1),
           timestamp = timestamp0,
           expireAfter = expiry0.after.some,
           events = Nel.of(
@@ -509,7 +485,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)))))
         _ <- journal.append(
           key = key,
-          partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
+          Partition.min,
+          Offset.unsafe(2),
           timestamp = timestamp1,
           expireAfter = expiry1.after.some,
           events = Nel.of(
@@ -581,7 +558,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val stateT = for {
         _ <- journal.append(
           key = key,
-          partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)),
+          Partition.min,
+          Offset.unsafe(1),
           timestamp = timestamp0,
           expireAfter = expiry.after.some,
           events = Nel.of(
@@ -590,7 +568,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)))))
         _ <- journal.append(
           key = key,
-          partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
+          Partition.min,
+          Offset.unsafe(2),
           timestamp = timestamp1,
           expireAfter = expiry.after.some,
           events = Nel.of(
@@ -661,7 +640,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val stateT = for {
         _ <- journal.append(
           key = key,
-          partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)),
+          Partition.min,
+          Offset.unsafe(1),
           timestamp = timestamp0,
           expireAfter = expiry.after.some,
           events = Nel.of(
@@ -670,7 +650,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)))))
         _ <- journal.append(
           key = key,
-          partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
+          Partition.min,
+          Offset.unsafe(2),
           timestamp = timestamp1,
           expireAfter = none,
           events = Nel.of(
@@ -734,7 +715,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val segment = segmentOfId(key)
       val stateT = journal.append(
         key = key,
-        partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(4)),
+        Partition.min,
+        Offset.unsafe(4),
         timestamp = timestamp1,
         expireAfter = none,
         events = Nel.of(
@@ -796,7 +778,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val stateT = for {
         _ <- journal.append(
           key = key,
-          partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)),
+          Partition.min,
+          Offset.unsafe(1),
           timestamp = timestamp0,
           expireAfter = none,
           events = Nel.of(
@@ -805,7 +788,15 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               partitionOffset = PartitionOffset(Partition.min, Offset.min))))
         _ <- journal.delete(
           key = key,
-          partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
+          Partition.min,
+          Offset.unsafe(2),
+          timestamp = timestamp1,
+          deleteTo = SeqNr.max.toDeleteTo,
+          origin = origin.some)
+        _ <- journal.delete(
+          key = key,
+          Partition.min,
+          Offset.unsafe(3),
           timestamp = timestamp1,
           deleteTo = SeqNr.max.toDeleteTo,
           origin = origin.some)
@@ -813,6 +804,17 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
       val expected = State(
         actions = List(
+          Action.UpdatePartitionOffset(
+            key,
+            segment,
+            partitionOffset.copy(Partition.min, Offset.unsafe(3)),
+            timestamp1),
+          Action.UpdateDeleteTo(
+            key,
+            segment,
+            partitionOffset.copy(Partition.min, Offset.unsafe(2)),
+            timestamp1,
+            SeqNr.min.toDeleteTo),
           Action.InsertMetaJournal(
             key,
             segment,
@@ -824,10 +826,10 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         metaJournal = Map(
           ((topic0, segment), Map((id, MetaJournalEntry(
             journalHead = JournalHead(
-              partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
+              partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(3)),
               segmentSize = segmentSize,
-              seqNr = SeqNr.max,
-              deleteTo = SeqNr.max.toDeleteTo.some,
+              seqNr = SeqNr.min,
+              deleteTo = SeqNr.min.toDeleteTo.some,
               expiry = none),
             created = timestamp0,
             updated = timestamp1,
@@ -843,7 +845,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val segment = segmentOfId(key)
       val stateT = journal.delete(
         key = key,
-        partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)),
+        Partition.min,
+        Offset.unsafe(1),
         timestamp = timestamp1,
         deleteTo = SeqNr.min.toDeleteTo,
         origin = origin.some)
@@ -889,7 +892,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val stateT = for {
         _ <- journal.append(
           key = key,
-          partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(3)),
+          Partition.min,
+          Offset.unsafe(3),
           timestamp = timestamp0,
           expireAfter = none,
           events = Nel.of(
@@ -899,7 +903,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             eventRecordOf(
               seqNr = SeqNr.unsafe(2),
               partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)))))
-        _ <- journal.purge(key, Offset.unsafe(4), timestamp1)
+        _ <- journal.purge(key, Partition.min, Offset.unsafe(4), timestamp1)
       } yield {}
 
       val actual = stateT.run(State.empty)
@@ -909,7 +913,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           Action.UpdateDeleteTo(
             key,
             segment,
-            PartitionOffset(Partition.min, Offset.unsafe(4)),
+            PartitionOffset(Partition.min, Offset.unsafe(3)),
             timestamp1,
             SeqNr.unsafe(2).toDeleteTo),
           Action.InsertMetaJournal(
@@ -924,17 +928,24 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     }
 
 
-    test(s"not repeat purge, $suffix") {
+    test(s"repeat purge again for the same offset, $suffix") {
       val id = "id"
       val key = Key(id = id, topic = topic0)
       val segment = segmentOfId(key)
       val stateT = for {
-        _ <- journal.append(key, partitionOffset, timestamp0, none, Nel.of(record))
-        _ <- journal.purge(key, partitionOffset.offset, timestamp0)
+        _ <- journal.append(key, partitionOffset.partition, partitionOffset.offset, timestamp0, none, Nel.of(record))
+        _ <- journal.purge(key, partitionOffset.partition, partitionOffset.offset, timestamp0)
       } yield {}
 
       val expected = State(
         actions = List(
+          Action.Delete(key, segment),
+          Action.UpdateDeleteTo(
+            key,
+            segment,
+            partitionOffset,
+            timestamp0,
+            SeqNr.min.toDeleteTo),
           Action.InsertMetaJournal(
             key,
             segment,
@@ -942,17 +953,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             updated = timestamp0,
             JournalHead(partitionOffset, segmentSize, SeqNr.min),
             origin.some),
-          Action.InsertRecords(key, SegmentNr.min, 1)),
-        metaJournal = Map(
-          ((topic0, segment), Map((id, MetaJournalEntry(
-            journalHead = JournalHead(
-              partitionOffset = partitionOffset,
-              segmentSize = segmentSize,
-              seqNr = SeqNr.min),
-            created = timestamp0,
-            updated = timestamp0,
-            origin = origin.some))))),
-        journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))))
+          Action.InsertRecords(key, SegmentNr.min, 1)))
       val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
     }
@@ -961,7 +962,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     test(s"ignore purge, $suffix") {
       val id = "id"
       val key = Key(id, topic0)
-      val stateT = journal.purge(key, Offset.unsafe(4), timestamp1)
+      val stateT = journal.purge(key, Partition.min, Offset.unsafe(4), timestamp1)
       val actual = stateT.run(State.empty)
       actual shouldEqual (State.empty, false).pure[Try]
     }
@@ -974,7 +975,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val stateT = for {
         _ <- journal.append(
           key = key,
-          partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(3)),
+          Partition.min,
+          Offset.unsafe(3),
           timestamp = timestamp0,
           expireAfter = none,
           events = Nel.of(
@@ -986,23 +988,18 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)))))
         _ <- journal.delete(
           key,
-          PartitionOffset(Partition.min, Offset.unsafe(4)),
+          Partition.min,
+          Offset.unsafe(4),
           timestamp0,
           SeqNr.unsafe(2).toDeleteTo,
           origin.some)
-        _ <- journal.purge(key, Offset.unsafe(5), timestamp1)
+        _ <- journal.purge(key, Partition.min, Offset.unsafe(5), timestamp1)
       } yield {}
 
       val actual = stateT.run(State.empty)
       val expected = State(
         actions = List(
           Action.Delete(key, segment),
-          Action.UpdateDeleteTo(
-            key,
-            segment,
-            PartitionOffset(Partition.min, Offset.unsafe(5)),
-            timestamp1,
-            SeqNr.unsafe(2).toDeleteTo),
           Action.UpdateDeleteTo(
             key,
             segment,
@@ -1172,6 +1169,21 @@ object ReplicatedCassandraTest {
     }
   }
 
+  val updatePartitionOffsetMetaJournal: MetaJournalStatements.UpdatePartitionOffset[StateT] = {
+    (key, segment, partitionOffset, timestamp) => {
+      StateT.unit { state =>
+        state
+          .updateMetaJournal(key, segment) { entry =>
+            entry.copy(
+              journalHead = entry.journalHead.copy(
+                partitionOffset = partitionOffset),
+              updated = timestamp)
+          }
+          .append(Action.UpdatePartitionOffset(key, segment, partitionOffset, timestamp))
+      }
+    }
+  }
+
 
   val deleteMetaJournal: MetaJournalStatements.Delete[StateT] = {
     (key, segment) => {
@@ -1209,7 +1221,7 @@ object ReplicatedCassandraTest {
   }
 
 
-  val selectPointer: PointerStatements.Select[StateT] = {
+  val selectOffset: PointerStatements.SelectOffset[StateT] = {
     (topic, partition) => {
       StateT.success { state =>
         val offset = for {
@@ -1223,24 +1235,17 @@ object ReplicatedCassandraTest {
     }
   }
 
-
-  val selectPointersIn: PointerStatements.SelectIn[StateT] = {
-    (topic, partitions) => {
-      StateT.success { state =>
-        val pointers = state
-          .pointers
-          .getOrElse(topic, Map.empty)
-        val offsets = for {
-          partition <- partitions.toList
-          pointer   <- pointers.get(partition)
-        } yield {
-          (partition, pointer.offset)
-        }
-        (state, offsets.toMap)
-      }
-    }
+  val selectOffset2: Pointer2Statements.SelectOffset[StateT] = {
+    (_, _) => none[Offset].pure[StateT]
   }
 
+  val selectPointer: PointerStatements.Select[StateT] = {
+    (_, _) => PointerStatements.Select.Result(Instant.EPOCH.some).some.pure[StateT]
+  }
+
+  val selectPointer2: Pointer2Statements.Select[StateT] = {
+    (_, _) => none[Pointer2Statements.Select.Result].pure[StateT]
+  }
 
   val insertPointer: PointerStatements.Insert[StateT] = {
     (topic, partition, offset, created, updated) => {
@@ -1258,6 +1263,9 @@ object ReplicatedCassandraTest {
     }
   }
 
+  val insertPointer2: Pointer2Statements.Insert[StateT] = {
+    (_, _, _, _, _) => ().pure[StateT]
+  }
 
   val updatePointer: PointerStatements.Update[StateT] = {
     (topic, partition, offset, timestamp) => {
@@ -1271,16 +1279,26 @@ object ReplicatedCassandraTest {
     }
   }
 
+  val updatePointer2: Pointer2Statements.Update[StateT] = {
+    (_, _, _, _) => ().pure[StateT]
+  }
+
+  val updatePointerCreated2: Pointer2Statements.UpdateCreated[StateT] = {
+    (_, _, _, _, _) => ().pure[StateT]
+  }
 
   val selectTopics: PointerStatements.SelectTopics[StateT] = {
     () => {
       StateT.success { state =>
-        val topics = state.pointers.keys.toList
+        val topics = state.pointers.keySet.toSortedSet
         (state, topics)
       }
     }
   }
 
+  val selectTopics2: Pointer2Statements.SelectTopics[StateT] = {
+    () => SortedSet.empty[Topic].pure[StateT]
+  }
 
   val statements: ReplicatedCassandra.Statements[StateT] = {
 
@@ -1291,6 +1309,7 @@ object ReplicatedCassandraTest {
       updateSeqNrMetaJournal,
       updateExpiryMetaJournal,
       updateDeleteToMetaJournal,
+      updatePartitionOffsetMetaJournal,
       deleteMetaJournal,
       deleteExpiryMetaJournal)
 
@@ -1299,11 +1318,17 @@ object ReplicatedCassandraTest {
       deleteRecordsTo,
       deleteRecords,
       metaJournal,
+      selectOffset,
+      selectOffset2,
       selectPointer,
-      selectPointersIn,
+      selectPointer2,
       insertPointer,
+      insertPointer2,
       updatePointer,
-      selectTopics)
+      updatePointer2,
+      updatePointerCreated2,
+      selectTopics,
+      selectTopics2)
   }
 
 
@@ -1384,6 +1409,13 @@ object ReplicatedCassandraTest {
       partitionOffset: PartitionOffset,
       timestamp: Instant,
       deleteTo: DeleteTo
+    ) extends Action
+
+    final case class UpdatePartitionOffset(
+      key: Key,
+      segment: SegmentNr,
+      partitionOffset: PartitionOffset,
+      timestamp: Instant,
     ) extends Action
 
     final case class Delete(key: Key, segment: SegmentNr) extends Action

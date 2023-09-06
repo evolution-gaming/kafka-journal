@@ -5,7 +5,7 @@ import cats.effect.kernel.Sync
 import cats.effect.unsafe.implicits.global
 import cats.effect.{Clock, IO}
 import cats.syntax.all._
-import cats.{Monad, MonadError}
+import cats.{Monad, MonadError, MonadThrow}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, MeasureDuration}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
@@ -433,8 +433,7 @@ object JournalSpec {
 
   object SeqNrJournal {
 
-    def apply[F[_] : Monad, A](journals: Journals[F])(implicit
-      F: MonadError[F, Throwable],
+    def apply[F[_]: MonadThrow, A](journals: Journals[F])(implicit
       kafkaRead: KafkaRead[F, A],
       eventualRead: EventualRead[F, A],
       kafkaWrite: KafkaWrite[F, A],
@@ -442,8 +441,7 @@ object JournalSpec {
       apply(journals(key))
     }
 
-    def apply[F[_] : Monad, A](journal: Journal[F])(implicit
-      F: MonadError[F, Throwable],
+    def apply[F[_]: MonadThrow, A](journal: Journal[F])(implicit
       kafkaRead: KafkaRead[F, A],
       eventualRead: EventualRead[F, A],
       kafkaWrite: KafkaWrite[F, A],

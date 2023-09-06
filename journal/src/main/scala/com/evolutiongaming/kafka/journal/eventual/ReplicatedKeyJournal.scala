@@ -7,20 +7,20 @@ import cats.{Applicative, FlatMap, ~>}
 import com.evolutiongaming.catshelper.{ApplicativeThrowable, Log, MeasureDuration}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedKeyJournal.Changed
-import com.evolutiongaming.skafka.{Offset, Topic}
+import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 
 trait ReplicatedKeyJournal[F[_]] {
 
   def append(
-    partitionOffset: PartitionOffset,
+    offset: Offset,
     timestamp: Instant,
     expireAfter: Option[ExpireAfter],
     events: Nel[EventRecord[EventualPayloadAndType]]
   ): F[Changed]
 
   def delete(
-    partitionOffset: PartitionOffset,
+    offset: Offset,
     timestamp: Instant,
     deleteTo: DeleteTo,
     origin: Option[Origin]
@@ -44,14 +44,14 @@ object ReplicatedKeyJournal {
     new Const with ReplicatedKeyJournal[F] {
 
       def append(
-        partitionOffset: PartitionOffset,
+        offset: Offset,
         timestamp: Instant,
         expireAfter: Option[ExpireAfter],
         events: Nel[EventRecord[EventualPayloadAndType]]
       ) = value
 
       def delete(
-        partitionOffset: PartitionOffset,
+        offset: Offset,
         timestamp: Instant,
         deleteTo: DeleteTo,
         origin: Option[Origin]
@@ -64,37 +64,6 @@ object ReplicatedKeyJournal {
     }
   }
 
-
-  def apply[F[_]](key: Key, replicatedJournal: ReplicatedJournalFlat[F]): ReplicatedKeyJournal[F] = {
-    class Flat
-    new Flat with ReplicatedKeyJournal[F] {
-
-      def append(
-        partitionOffset: PartitionOffset,
-        timestamp: Instant,
-        expireAfter: Option[ExpireAfter],
-        events: Nel[EventRecord[EventualPayloadAndType]]
-      ) = {
-        replicatedJournal.append(key, partitionOffset, timestamp, expireAfter, events)
-      }
-
-      def delete(
-        partitionOffset: PartitionOffset,
-        timestamp: Instant,
-        deleteTo: DeleteTo,
-        origin: Option[Origin]
-      ) = {
-        replicatedJournal.delete(key, partitionOffset, timestamp, deleteTo, origin)
-      }
-
-      def purge(
-        offset: Offset,
-        timestamp: Instant
-      ) = {
-        replicatedJournal.purge(key, offset, timestamp)
-      }
-    }
-  }
 
   private abstract sealed class WithLog
 
@@ -108,21 +77,21 @@ object ReplicatedKeyJournal {
       new MapK with ReplicatedKeyJournal[G] {
 
         def append(
-          partitionOffset: PartitionOffset,
+          offset: Offset,
           timestamp: Instant,
           expireAfter: Option[ExpireAfter],
           events: Nel[EventRecord[EventualPayloadAndType]]
         ) = {
-          f(self.append(partitionOffset, timestamp, expireAfter, events))
+          f(self.append(offset, timestamp, expireAfter, events))
         }
 
         def delete(
-          partitionOffset: PartitionOffset,
+          offset: Offset,
           timestamp: Instant,
           deleteTo: DeleteTo,
           origin: Option[Origin]
         ) = {
-          f(self.delete(partitionOffset, timestamp, deleteTo, origin))
+          f(self.delete(offset, timestamp, deleteTo, origin))
         }
 
         def purge(
@@ -137,6 +106,7 @@ object ReplicatedKeyJournal {
 
     def withLog(
       key: Key,
+      partition: Partition,
       log: Log[F])(implicit
       F: FlatMap[F],
       measureDuration: MeasureDuration[F]
@@ -145,39 +115,39 @@ object ReplicatedKeyJournal {
       new WithLog with ReplicatedKeyJournal[F] {
 
         def append(
-          partitionOffset: PartitionOffset,
+          offset: Offset,
           timestamp: Instant,
           expireAfter: Option[ExpireAfter],
           events: Nel[EventRecord[EventualPayloadAndType]]
         ) = {
           for {
             d <- MeasureDuration[F].start
-            r <- self.append(partitionOffset, timestamp, expireAfter, events)
+            r <- self.append(offset, timestamp, expireAfter, events)
             d <- d
             _ <- log.debug {
               val origin = events.head.origin
               val originStr = origin.foldMap { origin => s", origin: $origin" }
               val expireAfterStr = expireAfter.foldMap { expireAfter => s", expireAfter: $expireAfter" }
               s"$key append in ${ d.toMillis }ms, " +
-                s"offset: $partitionOffset$originStr$expireAfterStr, " +
+                s"offset: $partition:$offset$originStr$expireAfterStr, " +
                 s"events: ${ events.toList.mkString(",") }"
             }
           } yield r
         }
 
         def delete(
-          partitionOffset: PartitionOffset,
+          offset: Offset,
           timestamp: Instant,
           deleteTo: DeleteTo,
           origin: Option[Origin]
         ) = {
           for {
             d <- MeasureDuration[F].start
-            r <- self.delete(partitionOffset, timestamp, deleteTo, origin)
+            r <- self.delete(offset, timestamp, deleteTo, origin)
             d <- d
             _ <- log.debug {
               val originStr = origin.foldMap { origin => s", origin: $origin" }
-              s"$key delete in ${ d.toMillis }ms, offset: $partitionOffset, deleteTo: $deleteTo$originStr"
+              s"$key delete in ${ d.toMillis }ms, offset: $partition:$offset, deleteTo: $deleteTo$originStr"
             }
           } yield r
         }
@@ -190,7 +160,7 @@ object ReplicatedKeyJournal {
             d <- MeasureDuration[F].start
             r <- self.purge(offset, timestamp)
             d <- d
-            _ <- log.debug(s"$key purge in ${ d.toMillis }ms, offset: $offset")
+            _ <- log.debug(s"$key purge in ${ d.toMillis }ms, offset: $partition:$offset")
           } yield r
         }
       }
@@ -206,28 +176,28 @@ object ReplicatedKeyJournal {
       new WithMetrics with ReplicatedKeyJournal[F] {
 
         def append(
-          partitionOffset: PartitionOffset,
+          offset: Offset,
           timestamp: Instant,
           expireAfter: Option[ExpireAfter],
           events: Nel[EventRecord[EventualPayloadAndType]]
         ) = {
           for {
             d <- MeasureDuration[F].start
-            r <- self.append(partitionOffset, timestamp, expireAfter, events)
+            r <- self.append(offset, timestamp, expireAfter, events)
             d <- d
             _ <- metrics.append(topic = topic, latency = d, events = events.size)
           } yield r
         }
 
         def delete(
-          partitionOffset: PartitionOffset,
+          offset: Offset,
           timestamp: Instant,
           deleteTo: DeleteTo,
           origin: Option[Origin]
         ) = {
           for {
             d <- MeasureDuration[F].start
-            r <- self.delete(partitionOffset, timestamp, deleteTo, origin)
+            r <- self.delete(offset, timestamp, deleteTo, origin)
             d <- d
             _ <- metrics.delete(topic, d)
           } yield r
@@ -248,7 +218,7 @@ object ReplicatedKeyJournal {
     }
 
 
-    def enhanceError(key: Key)(implicit F: ApplicativeThrowable[F]): ReplicatedKeyJournal[F] = {
+    def enhanceError(key: Key, partition: Partition)(implicit F: ApplicativeThrowable[F]): ReplicatedKeyJournal[F] = {
 
       def error[A](msg: String, cause: Throwable) = {
         JournalError(s"ReplicatedKeyJournal.$msg failed with $cause", cause).raiseError[F, A]
@@ -257,17 +227,17 @@ object ReplicatedKeyJournal {
       new ReplicatedKeyJournal[F] {
 
         def append(
-          partitionOffset: PartitionOffset,
+          offset: Offset,
           timestamp: Instant,
           expireAfter: Option[ExpireAfter],
           events: Nel[EventRecord[EventualPayloadAndType]]
         ) = {
           self
-            .append(partitionOffset, timestamp, expireAfter, events)
+            .append(offset, timestamp, expireAfter, events)
             .handleErrorWith { a =>
               error(s"append " +
                 s"key: $key, " +
-                s"offset: $partitionOffset, " +
+                s"offset: $partition:$offset, " +
                 s"timestamp: $timestamp, " +
                 s"expireAfter: $expireAfter, " +
                 s"events: $events", a)
@@ -275,18 +245,18 @@ object ReplicatedKeyJournal {
         }
 
         def delete(
-          partitionOffset: PartitionOffset,
+          offset: Offset,
           timestamp: Instant,
           deleteTo: DeleteTo,
           origin: Option[Origin]
         ) = {
           self
-            .delete(partitionOffset, timestamp, deleteTo, origin)
+            .delete(offset, timestamp, deleteTo, origin)
             .handleErrorWith { a =>
               error(
                 s"delete " +
                   s"key: $key, " +
-                  s"offset: $partitionOffset, " +
+                  s"offset: $partition:$offset, " +
                   s"timestamp: $timestamp, " +
                   s"deleteTo: $deleteTo, " +
                   s"origin: $origin", a)

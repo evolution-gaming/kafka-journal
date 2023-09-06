@@ -642,8 +642,9 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
       val state = State(
         records = List(consumerRecords),
         metaJournal = Map(metaJournalOf(key.id, partition = 0, offset = 0)))
-      topicReplicator.run(state).unsafeToFuture().map {
-        case (result, _) =>
+      topicReplicator
+        .run(state)
+        .map { case (result, _) =>
           result shouldEqual State(
             topics = List(topic),
             commits = List(Nem.of(
@@ -652,7 +653,8 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
             metrics = List(
               Metrics.Round(records = 2),
               Metrics.Purge(actions = 1)))
-      }
+        }
+        .unsafeToFuture()
     }
   }
 
@@ -798,81 +800,97 @@ object TopicReplicatorSpec {
 
       val journal: ReplicatedTopicJournal[StateT] = new ReplicatedTopicJournal[StateT] {
 
-        def pointer(partition: Partition): StateT[Option[Offset]] = {
-          StateT { state =>
-            val offset = state
-              .pointers
-              .getOrElse(topic, Map.empty)
-              .get(partition.value)
-              .map(Offset.unsafe[Long])
-            (state, offset)
-          }
-        }
+        def apply(partition: Partition) = {
 
-        def journal(id: String) = {
-          val journal = new ReplicatedKeyJournal[StateT] {
+          val result = new ReplicatedPartitionJournal[StateT] {
 
-            def append(
-              partitionOffset: PartitionOffset,
-              timestamp: Instant,
-              expireAfter: Option[ExpireAfter],
-              events: Nel[EventRecord[EventualPayloadAndType]],
-            ) = {
-              StateT { state =>
-                val records = events.toList ++ state.journal.getOrElse(id, Nil)
 
-                val deleteTo = state.metaJournal.get(id).flatMap(_.deleteTo)
+            def offsets = {
+              new ReplicatedPartitionJournal.Offsets[StateT] {
 
-                val metaJournal = MetaJournal(partitionOffset, deleteTo, expireAfter, events.last.origin)
+                def get = {
+                  StateT { state =>
+                    val offset = state
+                      .pointers
+                      .getOrElse(topic, Map.empty)
+                      .get(partition.value)
+                      .map(Offset.unsafe[Long])
+                    (state, offset)
+                  }
+                }
 
-                val state1 = state.copy(
-                  journal = state.journal.updated(id, records),
-                  metaJournal = state.metaJournal.updated(id, metaJournal))
+                def create(offset: Offset, timestamp: Instant) = {
+                  update(offset, timestamp)
+                }
 
-                val updated = state.metaJournal.get(id).fold(true) { journalHead => partitionOffset.offset > journalHead.offset.offset }
-
-                (state1, updated)
+                def update(offset: Offset, timestamp: Instant) = {
+                  StateT { state =>
+                    val pointers1 = state
+                      .pointers
+                      .getOrElse(topic, Map.empty)
+                      .updated(partition.value, offset.value)
+                    val state1 = state.copy(pointers = state.pointers.updated(topic, pointers1))
+                    (state1, ())
+                  }
+                }
               }
             }
 
-            def delete(partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: DeleteTo, origin: Option[Origin]) = {
-              StateT { state =>
-                val deleted = state.metaJournal.get(id).fold(true) { journalHead => partitionOffset.offset > journalHead.offset.offset }
+            def journal(id: ClientId) = {
+              val result = new ReplicatedKeyJournal[StateT] {
 
-                (state.delete(id, deleteTo, partitionOffset, origin), deleted)
+                def append(
+                  offset: Offset,
+                  timestamp: Instant,
+                  expireAfter: Option[ExpireAfter],
+                  events: Nel[EventRecord[EventualPayloadAndType]],
+                ) = {
+                  StateT { state =>
+                    val records = events.toList ++ state.journal.getOrElse(id, Nil)
+
+                    val deleteTo = state.metaJournal.get(id).flatMap(_.deleteTo)
+
+                    val metaJournal = MetaJournal(PartitionOffset(partition, offset), deleteTo, expireAfter, events.last.origin)
+
+                    val state1 = state.copy(
+                      journal = state.journal.updated(id, records),
+                      metaJournal = state.metaJournal.updated(id, metaJournal))
+
+                    val updated = state
+                      .metaJournal
+                      .get(id)
+                      .fold(true) { journalHead =>
+                        offset > journalHead.offset.offset
+                      }
+                    (state1, updated)
+                  }
+                }
+
+                def delete(offset: Offset, timestamp: Instant, deleteTo: DeleteTo, origin: Option[Origin]) = {
+                  StateT { state =>
+                    val deleted = state.metaJournal.get(id).fold(true) { journalHead => offset > journalHead.offset.offset }
+
+                    (state.delete(id, deleteTo, PartitionOffset(partition, offset), origin), deleted)
+                  }
+                }
+
+                def purge(offset: Offset, timestamp: Instant) = {
+                  StateT { state =>
+                    val state1 = state.copy(
+                      journal = state.journal - id,
+                      metaJournal = state.metaJournal - id)
+
+                    val purged = state.metaJournal.get(id).fold(false) { journalHead => offset > journalHead.offset.offset }
+
+                    (state1, purged)
+                  }
+                }
               }
-            }
 
-            def purge(
-              offset: Offset,
-              timestamp: Instant,
-            ) = {
-              StateT { state =>
-                val state1 =state.copy(
-                  journal = state.journal - id,
-                  metaJournal = state.metaJournal - id)
-
-                val purged = state.metaJournal.get(id).fold(false) { journalHead => offset > journalHead.offset.offset }
-
-                (state1, purged)
-              }
+              result.pure[StateT].toResource
             }
           }
-
-          journal.pure[StateT].toResource
-        }
-
-        def save(pointers: Nem[Partition, Offset], timestamp: Instant) = {
-          StateT { state =>
-            val pointers1 = pointers
-              .toSortedMap
-              .map { case (partition, offset) => (partition.value, offset.value)}
-            val pointers2 = state
-              .pointers
-              .getOrElse(topic, Map.empty) ++ pointers1
-            val state1 = state.copy(pointers = state.pointers.updated(topic, pointers2))
-            (state1, true)
-          }
+          result.pure[Resource[StateT, *]]
         }
       }
 

@@ -353,6 +353,19 @@ object ReplicatedCassandraMetaJournalStatementsTest {
     }
   }
 
+  val updateMetaJournalPartitionOffset: MetaJournalStatements.UpdatePartitionOffset[StateT] = {
+    (key, segment, partitionOffset, timestamp) => {
+      StateT.unit { state =>
+        state.updateMetaJournal(key, segment) { entry =>
+          entry.copy(
+            journalHead = entry.journalHead.copy(
+              partitionOffset = partitionOffset),
+            updated = timestamp)
+        }
+      }
+    }
+  }
+
 
   val deleteMetaJournal: MetaJournalStatements.Delete[StateT] = {
     (key, segment) => {
@@ -396,6 +409,7 @@ object ReplicatedCassandraMetaJournalStatementsTest {
     updateSeqNrMetaJournal,
     updateExpiryMetaJournal,
     updateDeleteToMetaJournal,
+    updateMetaJournalPartitionOffset,
     deleteMetaJournal,
     deleteExpiryMetaJournal)
 
