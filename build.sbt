@@ -112,7 +112,7 @@ lazy val `tests` = (project in file("tests")
     `cats-helper`,
     Kafka.kafka % Test,
     `kafka-launcher` % Test,
-    `cassandra-launcher` % Test,
+    `testcontainers-cassandra` % Test,
     scalatest % Test,
     Akka.`persistence-tck` % Test,
     Slf4j.`log4j-over-slf4j` % Test,
