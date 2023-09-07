@@ -178,7 +178,7 @@ object Journals {
     implicit val fromAttempt: FromAttempt[F]   = FromAttempt.lift[F]
     implicit val fromJsResult: FromJsResult[F] = FromJsResult.lift[F]
 
-    val consumerPool = ConsumerPool.of[F](consumerPoolConfig, consumerPoolMetrics, log)(consumer)
+    val consumerPool = ConsumerPool.make[F](consumerPoolConfig, consumerPoolMetrics, log)(consumer)
     consumerPool.map { consumer =>
       apply[F](
         eventual = eventualJournal,
