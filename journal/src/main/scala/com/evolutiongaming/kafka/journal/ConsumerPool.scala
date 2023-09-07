@@ -6,7 +6,7 @@ import cats.syntax.all._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.Journal.ConsumerPoolConfig
 import com.evolutiongaming.kafka.journal.Journals.Consumer
-import com.evolutiongaming.kafka.journal.util.ResourcePool
+import com.evolutiongaming.kafka.journal.util.ObjectPool
 
 import scala.concurrent.duration._
 
@@ -15,7 +15,7 @@ private[journal] object ConsumerPool {
   /**
    * @return The outer Resource is for the pool, the inner is for consumers
    */
-  def of[F[_]: Async](
+  def make[F[_]: Async](
     poolConfig: ConsumerPoolConfig,
     metrics: Option[ConsumerPoolMetrics[F]],
     log: Log[F],
@@ -23,7 +23,7 @@ private[journal] object ConsumerPool {
     consumer: Resource[F, Consumer[F]],
   ): Resource[F, Resource[F, Consumer[F]]] = {
 
-    def borrowWithMetrics(pool: ResourcePool[F, Consumer[F]]): Resource[F, Consumer[F]] = {
+    def borrowWithMetrics(pool: ObjectPool[F, Consumer[F]]): Resource[F, Consumer[F]] = {
       metrics match {
         case None =>
           pool.borrow
@@ -50,9 +50,8 @@ private[journal] object ConsumerPool {
     for {
       poolSize <- poolConfig.calculateSize.toResource
       _ <- log.info(s"Creating consumer pool of size $poolSize").toResource
-      pool <- ResourcePool.fixedSize[F, Consumer[F]](
+      pool <- ObjectPool.fixedSize[F, Consumer[F]](
         poolSize,
-        acquireTimeout = poolConfig.acquireTimeout,
         idleTimeout = poolConfig.idleTimeout,
         log = log,
       )(
