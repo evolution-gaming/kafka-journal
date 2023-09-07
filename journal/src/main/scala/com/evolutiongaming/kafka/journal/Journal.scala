@@ -333,7 +333,6 @@ object Journal {
 
   case class ConsumerPoolConfig(
     sizeScale: Double,
-    acquireTimeout: FiniteDuration,
     idleTimeout: FiniteDuration,
   ) {
     def calculateSize[F[_]: Runtime: Applicative]: F[Int] =
