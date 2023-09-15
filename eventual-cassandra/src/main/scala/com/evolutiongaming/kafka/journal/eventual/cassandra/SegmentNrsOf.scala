@@ -10,11 +10,12 @@ import com.evolutiongaming.kafka.journal.Key
   * It is expected that for the same key the same [[SegmentNrs]] will be
   * returned.
   *
-  * I.e. returning a constant value regardless a parameter is a valid,
-  * though inefficient implementation.
+  * I.e. returning a constant value regardless a parameter is a valid, though
+  * inefficient implementation.
   *
-  * @see [[SegmentOf]] for a more simple implementation of this factory without
-  * support of backwards compatible change of the segmenting algorithm.
+  * @see
+  *   [[SegmentOf]] for a more simple implementation of this factory without
+  *   support of backwards compatible change of the segmenting algorithm.
   */
 trait SegmentNrsOf[F[_]] {
 
