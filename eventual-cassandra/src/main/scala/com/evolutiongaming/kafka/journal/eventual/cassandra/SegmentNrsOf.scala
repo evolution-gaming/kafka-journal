@@ -25,9 +25,8 @@ object SegmentNrsOf {
 
   /** Always return one and the same [[SegmentNrs]] instance.
     *
-    * It is meant to be used in tests only as it could be a very inefficient way
-    * in real life, i.e. all keys will get to one and the same Cassandra
-    * partition.
+    * It might be a very inefficient approach in some real life cases, i.e. all
+    * keys will get to one and the same Cassandra partition.
     */
   def const[F[_]: Applicative](segmentNrs: SegmentNrs): SegmentNrsOf[F] = (_: Key) => segmentNrs.pure[F]
 

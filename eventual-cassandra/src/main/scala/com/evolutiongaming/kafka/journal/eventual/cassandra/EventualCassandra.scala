@@ -18,13 +18,15 @@ import com.evolutiongaming.sstream.Stream
 
 /** Creates read-only representation of the data stored to Cassandra.
   *
-  * It is intended to be used for journal recovery. One cannot use Kafka only to
-  * recover because Kafka may have the retention window expried for the older
-  * journals or the offset might be too far in the past for such recovery to be
-  * practical.
+  * It is intended to be used for journal recovery.
   *
-  * Hence, one is to use [[EventualCassandra]] to recover the tail of the journal
-  * and then read the newest data from Kafka.
+  * One may not be able to use Kafka only to recover because Kafka may have the
+  * retention window expired for the older journals, or the offset might be too
+  * far in the past for such recovery to be practical (i.e. too much irrelevant
+  * data will have to be filtered out).
+  *
+  * Hence, one is to use [[EventualCassandra]] to recover the tail of the
+  * journal and then read the newest data from Kafka.
   */
 object EventualCassandra {
 
