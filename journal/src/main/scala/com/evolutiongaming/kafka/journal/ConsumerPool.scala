@@ -1,62 +1,55 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.effect._
-import cats.effect.syntax.all._
+import cats.effect.{Concurrent, Resource, Timer}
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.Log
+import com.evolution.resourcepool.ResourcePool
+import com.evolutiongaming.catshelper.{MeasureDuration, Runtime}
+import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.kafka.journal.Journal.ConsumerPoolConfig
 import com.evolutiongaming.kafka.journal.Journals.Consumer
-import com.evolutiongaming.kafka.journal.util.ObjectPool
-
-import scala.concurrent.duration._
 
 private[journal] object ConsumerPool {
 
   /**
    * @return The outer Resource is for the pool, the inner is for consumers
    */
-  def make[F[_]: Async](
+  def of[F[_]: Concurrent: Timer: Runtime: MeasureDuration](
     poolConfig: ConsumerPoolConfig,
     metrics: Option[ConsumerPoolMetrics[F]],
-    log: Log[F],
-  )(
     consumer: Resource[F, Consumer[F]],
   ): Resource[F, Resource[F, Consumer[F]]] = {
 
-    def borrowWithMetrics(pool: ObjectPool[F, Consumer[F]]): Resource[F, Consumer[F]] = {
-      metrics match {
-        case None =>
-          pool.borrow
-        case Some(metrics) =>
+    for {
+      cores <- Runtime[F].availableCores.toResource
+      pool  <- ResourcePool.of(
+        (cores.toDouble * poolConfig.multiplier)
+          .round
+          .toInt,
+        poolConfig.idleTimeout,
+        _ => consumer
+      )
+    } yield {
+      metrics.fold {
+        pool.resource
+      } { metrics =>
+        Resource {
           for {
-            startedAcquiringAt <- Clock[F].monotonic.toResource
-            deferred <- Deferred[F, FiniteDuration].toResource
-            consumer <- pool.borrow.onFinalize {
-              for {
-                start <- deferred.get
-                end <- Clock[F].monotonic
-                _ <- metrics.useTime(end - start)
-              } yield ()
-            }
-            acquiredAt <- Clock[F].monotonic.toResource
-            _ <- deferred.complete(acquiredAt).toResource
-            _ <- metrics
-              .acquireTime(acquiredAt - startedAcquiringAt)
-              .toResource
-          } yield consumer
+            duration <- MeasureDuration[F].start
+            result   <- pool.get
+            duration <- duration
+            _        <- metrics.acquire(duration)
+            duration <- MeasureDuration[F].start
+          } yield {
+            val (consumer, release) = result
+            val release1 = for {
+              duration <- duration
+              _        <- metrics.use(duration)
+              result   <- release
+            } yield result
+            (consumer, release1)
+          }
+        }
       }
     }
-
-    for {
-      poolSize <- poolConfig.calculateSize.toResource
-      _ <- log.info(s"Creating consumer pool of size $poolSize").toResource
-      pool <- ObjectPool.fixedSize[F, Consumer[F]](
-        poolSize,
-        idleTimeout = poolConfig.idleTimeout,
-        log = log,
-      )(
-        consumer
-      )
-    } yield borrowWithMetrics(pool)
   }
 }

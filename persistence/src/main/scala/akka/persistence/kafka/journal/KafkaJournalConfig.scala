@@ -44,7 +44,6 @@ import scala.concurrent.duration._
   *   vice-versa. This parameter is only relevant if default [[KafkaJournal]] is
   *   used, i.e. it is not taken into account if Circe JSON or other custom
   *   serialization is used.
-  * @param consumerPoolSize TODO: write doc after MR is approved
   *
   * @see [[KafkaJournal]] for more details.
   */
@@ -56,7 +55,7 @@ final case class KafkaJournalConfig(
   maxEventsInBatch: Int = 100,
   callTimeThresholds: CallTimeThresholds = CallTimeThresholds.default,
   jsonCodec: KafkaJournalConfig.JsonCodec = KafkaJournalConfig.JsonCodec.Default,
-  consumerPool: Option[ConsumerPoolConfig] = None,
+  consumerPool: ConsumerPoolConfig = ConsumerPoolConfig.Default,
 )
 
 object KafkaJournalConfig {

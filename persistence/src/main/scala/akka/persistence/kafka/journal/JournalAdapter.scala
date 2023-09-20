@@ -80,36 +80,19 @@ object JournalAdapter {
       eventualJournal: EventualJournal[F])(implicit
       kafkaConsumerOf: KafkaConsumerOf[F],
       kafkaProducerOf: KafkaProducerOf[F],
-      headCacheOf: HeadCacheOf[F]) = {
-
-      val journal = config.consumerPool match {
-        case Some(consumerPoolConfig) =>
-          Journals.make[F](
-            origin = origin,
-            config = config.journal,
-            eventualJournal = eventualJournal,
-            journalMetrics = metrics.journal,
-            conversionMetrics = metrics.conversion,
-            consumerPoolConfig = consumerPoolConfig,
-            consumerPoolMetrics = metrics.consumerPool,
-            callTimeThresholds = config.callTimeThresholds
-          )
-        case None =>
-          Journals.of[F](
-            origin = origin,
-            config = config.journal,
-            eventualJournal = eventualJournal,
-            journalMetrics = metrics.journal,
-            conversionMetrics = metrics.conversion,
-            callTimeThresholds = config.callTimeThresholds
-          )
-      }
-
-      for {
-        journal <- journal
-      } yield {
-        journal.withLogError(log)
-      }
+      headCacheOf: HeadCacheOf[F]
+    ): Resource[F, Journals[F]] = {
+      Journals
+        .of1[F](
+          origin = origin,
+          config = config.journal,
+          eventualJournal = eventualJournal,
+          journalMetrics = metrics.journal,
+          conversionMetrics = metrics.conversion,
+          consumerPoolConfig = config.consumerPool,
+          consumerPoolMetrics = metrics.consumerPool,
+          callTimeThresholds = config.callTimeThresholds)
+        .map { _.withLogError(log) }
     }
 
     for {
