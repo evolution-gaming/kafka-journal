@@ -2,7 +2,7 @@ import sbt._
 
 object Dependencies {
 
-  val scalatest                   = "org.scalatest"          %% "scalatest"             % "3.2.16"
+  val scalatest                   = "org.scalatest"          %% "scalatest"             % "3.2.17"
   val `scala-java8-compat`        = "org.scala-lang.modules" %% "scala-java8-compat"    % "1.0.2"
   val `kind-projector`            = "org.typelevel"           % "kind-projector"        % "0.13.2"
   val `cassandra-driver`          = "com.datastax.cassandra"  % "cassandra-driver-core" % "3.11.2"
@@ -13,7 +13,7 @@ object Dependencies {
   val `akka-serialization`        = "com.evolutiongaming"    %% "akka-serialization"    % "1.0.4"
   val `future-helper`             = "com.evolutiongaming"    %% "future-helper"         % "1.0.6"
   val `kafka-launcher`            = "com.evolutiongaming"    %% "kafka-launcher"        % "0.1.0"
-  val `testcontainers-cassandra`  = "com.dimafeng"           %% "testcontainers-scala-cassandra"  % "0.40.12"
+  val `testcontainers-cassandra`  = "com.dimafeng"           %% "testcontainers-scala-cassandra"  % "0.41.0"
   val hostname                    = "com.evolutiongaming"    %% "hostname"              % "0.2.0"
   val scassandra                  = "com.evolutiongaming"    %% "scassandra"            % "5.0.0"
   val `cassandra-sync`            = "com.evolutiongaming"    %% "cassandra-sync"        % "3.0.0"
