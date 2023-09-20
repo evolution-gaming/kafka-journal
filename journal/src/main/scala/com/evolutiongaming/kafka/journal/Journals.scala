@@ -40,7 +40,7 @@ object Journals {
     }
   }
 
-  @deprecated("use `make`", "2023-07-26")
+  @deprecated("use `of1`", "2023-07-26")
   def of[
     F[_]
     : Clock
@@ -86,7 +86,7 @@ object Journals {
     }
   }
 
-  def make[
+  def of1[
     F[_]
     : Async
     : FromTry : Fail : LogOf
@@ -102,7 +102,7 @@ object Journals {
      consumerPoolConfig: ConsumerPoolConfig,
      consumerPoolMetrics: Option[ConsumerPoolMetrics[F]],
      callTimeThresholds: Journal.CallTimeThresholds
-   ): Resource[F, Journals[F]] = {
+  ): Resource[F, Journals[F]] = {
 
     val consumer = Consumer.of[F](config.kafka.consumer, config.pollTimeout)
 
@@ -115,27 +115,25 @@ object Journals {
     }
 
     for {
-      producer <- Producer.of[F](config.kafka.producer)
-      log <- LogOf[F].apply(Journals.getClass).toResource
+      producer  <- Producer.of[F](config.kafka.producer)
+      log       <- LogOf[F].apply(Journals.getClass).toResource
       headCache <- headCache
-      journal <- make(
+      consumer  <- ConsumerPool.of[F](consumerPoolConfig, consumerPoolMetrics, consumer)
+    } yield {
+      val withLog = apply(
         origin,
         producer,
         consumer,
         eventualJournal,
         headCache,
-        consumerPoolConfig,
-        consumerPoolMetrics,
         log,
         conversionMetrics
       )
-    } yield {
-      val withLog = journal.withLog(log, callTimeThresholds)
+        .withLog(log, callTimeThresholds)
       journalMetrics.fold(withLog) { metrics => withLog.withMetrics(metrics) }
     }
   }
 
-  @deprecated("use `make`", "2023-07-26")
   def apply[F[_]: Clock : RandomIdOf : Fail : JsonCodec : MeasureDuration](
     origin: Option[Origin],
     producer: Producer[F],
@@ -155,40 +153,6 @@ object Journals {
       headCache = headCache,
       log = log,
       conversionMetrics = conversionMetrics)
-  }
-
-  def make[
-    F[_]
-    : Async
-    : FromTry : Fail : LogOf
-    : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomIdOf
-    : MeasureDuration
-    : JsonCodec
-  ](
-     origin: Option[Origin],
-     producer: Producer[F],
-     consumer: Resource[F, Consumer[F]],
-     eventualJournal: EventualJournal[F],
-     headCache: HeadCache[F],
-     consumerPoolConfig: ConsumerPoolConfig,
-     consumerPoolMetrics: Option[ConsumerPoolMetrics[F]],
-     log: Log[F],
-     conversionMetrics: Option[ConversionMetrics[F]]
-  ): Resource[F, Journals[F]] = {
-    implicit val fromAttempt: FromAttempt[F]   = FromAttempt.lift[F]
-    implicit val fromJsResult: FromJsResult[F] = FromJsResult.lift[F]
-
-    val consumerPool = ConsumerPool.make[F](consumerPoolConfig, consumerPoolMetrics, log)(consumer)
-    consumerPool.map { consumer =>
-      apply[F](
-        eventual = eventualJournal,
-        consumeActionRecords = ConsumeActionRecords[F](consumer, log),
-        produce = Produce[F](producer, origin),
-        headCache = headCache,
-        log = log,
-        conversionMetrics = conversionMetrics
-      )
-    }
   }
 
   def apply[F[_] : RandomIdOf : MeasureDuration](

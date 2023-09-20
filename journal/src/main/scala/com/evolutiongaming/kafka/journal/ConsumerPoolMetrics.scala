@@ -10,9 +10,9 @@ import scala.concurrent.duration.FiniteDuration
 
 trait ConsumerPoolMetrics[F[_]] {
 
-  def acquireTime(time: FiniteDuration): F[Unit]
+  def acquire(latency: FiniteDuration): F[Unit]
 
-  def useTime(time: FiniteDuration): F[Unit]
+  def use(latency: FiniteDuration): F[Unit]
 }
 
 object ConsumerPoolMetrics {
@@ -22,29 +22,28 @@ object ConsumerPoolMetrics {
     prefix: String = "journal"
   ): Resource[F, ConsumerPoolMetrics[F]] = {
 
-    val timeSummary = registry.summary(
-      name = s"${prefix}_consumer_pool_time_spent",
-      help = "Time spent acquiring/using consumers",
-      quantiles = Quantiles.Default,
-      labels = LabelNames("type")
-    )
+    registry
+      .summary(
+        name = s"${ prefix }_consumer_pool_latency",
+        help = "Latency of acquiring/using consumers",
+        quantiles = Quantiles.Default,
+        labels = LabelNames("type"))
+      .map { timeSummary =>
+        class Main
+        new Main with ConsumerPoolMetrics[F] {
 
-    for {
-      timeSummary <- timeSummary
-    } yield {
-      class Main
-      new Main with ConsumerPoolMetrics[F] {
+          def observe(name: String, latency: FiniteDuration) =
+            timeSummary
+              .labels(name)
+              .observe(latency.toNanos.nanosToSeconds)
 
-        def observeLatency(name: String, latency: FiniteDuration) =
-          timeSummary.labels(name).observe(latency.toNanos.nanosToSeconds)
+          def acquire(latency: FiniteDuration) =
+            observe("acquire", latency)
 
-        override def acquireTime(time: FiniteDuration): F[Unit] =
-          observeLatency("acquire", time)
-
-        override def useTime(time: FiniteDuration): F[Unit] =
-          observeLatency("use", time)
+          def use(latency: FiniteDuration) =
+            observe("use", latency)
+        }
       }
-    }
   }
 
   def empty[F[_] : Applicative]: ConsumerPoolMetrics[F] = const(().pure[F])
@@ -53,9 +52,9 @@ object ConsumerPoolMetrics {
     class Const
     new Const with ConsumerPoolMetrics[F] {
 
-      override def acquireTime(time: FiniteDuration): F[Unit] = unit
+      def acquire(latency: FiniteDuration) = unit
 
-      override def useTime(time: FiniteDuration): F[Unit] = unit
+      def use(latency: FiniteDuration) = unit
     }
   }
 }
