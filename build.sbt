@@ -81,6 +81,7 @@ lazy val journal = (project in file("journal")
     Cats.effect,
     Scodec.core,
     Scodec.bits,
+    `resource-pool`,
     Logback.core % Test,
     Logback.classic % Test)))
 

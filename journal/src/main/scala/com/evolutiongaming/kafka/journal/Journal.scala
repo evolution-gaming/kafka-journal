@@ -4,7 +4,6 @@ import cats._
 import cats.arrow.FunctionK
 import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.Runtime
 import com.evolutiongaming.catshelper.{Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.EventualRead
@@ -332,16 +331,16 @@ object Journal {
   }
 
   case class ConsumerPoolConfig(
-    sizeScale: Double,
+    multiplier: Double,
     idleTimeout: FiniteDuration,
-  ) {
-    def calculateSize[F[_]: Runtime: Applicative]: F[Int] =
-      Runtime[F].availableCores.map { cores =>
-        math.ceil(cores.toDouble * sizeScale).toInt
-      }
-  }
+  )
 
   object ConsumerPoolConfig {
-    implicit val configReader: ConfigReader[ConsumerPoolConfig] = deriveReader
+
+    val Default: ConsumerPoolConfig = ConsumerPoolConfig(
+      multiplier = 10,
+      idleTimeout = 1.minute)
+
+    implicit val configReaderConsumerPoolConfig: ConfigReader[ConsumerPoolConfig] = deriveReader
   }
 }
