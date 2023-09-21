@@ -181,26 +181,23 @@ object Journals {
       for {
         marker   <- appendMarker(key)
         result   <- {
-          val offset = marker.offset
-          if (offset === Offset.min) {
+          marker
+            .offset
+            .dec[Try]
+            .toOption.fold {
             (HeadInfo.empty, StreamActionRecords.empty[F].pure[F]).pure[F]
-          } else {
+          } { offset =>
             def stream = eventual
               .offset(key.topic, marker.partition)
               .map { offset =>
                 StreamActionRecords(key, from, marker, offset, consumeActionRecords)
               }
             headCache
-              .get(
-                key,
-                marker.partition,
-                offset
-                  .dec[Try]
-                  .getOrElse { offset })
+              .get(key, marker.partition, offset)
               .flatMap {
                 case Some(headInfo) =>
                   (headInfo, stream).pure[F]
-                case None         =>
+                case None           =>
                   for {
                     stream   <- stream
                     headInfo <- stream(none).fold(HeadInfo.empty) { (info, action) =>

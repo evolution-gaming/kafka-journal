@@ -83,7 +83,7 @@ object TopicReplicator {
   ): F[Unit] = {
 
     trait PartitionFlow {
-      def apply(timestamp: Instant, records: Nel[ConsRecord]): F[Int]
+      def apply(timestamp: Instant, records: Nel[ConsRecord]): F[Unit]
     }
 
     trait KeyFlow {
@@ -163,28 +163,27 @@ object TopicReplicator {
                                     }
                                   }
                               }
-                            _ <- {
-                              if (result > 0) {
-                                val offset1 = records
-                                  .maximumBy { _.offset }
-                                  .offset
-                                offset.fold {
+                            result <- {
+                              val offset1 = records
+                                .maximumBy { _.offset }
+                                .offset
+
+                              def set = offsetRef.set(offset1.some)
+
+                              offset.fold {
+                                for {
+                                  a <- offsets.create(offset1, timestamp)
+                                  _ <- set
+                                } yield a
+                              } { offset =>
+                                if (offset1 > offset) {
                                   for {
-                                    a <- offsets.create(offset1, timestamp)
-                                    _ <- offsetRef.set(offset1.some)
+                                    a <- offsets.update(offset1, timestamp)
+                                    _ <- set
                                   } yield a
-                                } { offset =>
-                                  if (offset1 > offset) {
-                                    for {
-                                      a <- offsets.update(offset1, timestamp)
-                                      _ <- offsetRef.set(offset1.some)
-                                    } yield a
-                                  } else {
-                                    ().pure[F]
-                                  }
+                                } else {
+                                  ().pure[F]
                                 }
-                              } else {
-                                ().pure[F]
                               }
                             }
                           } yield result
