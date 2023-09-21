@@ -22,18 +22,34 @@ object IntegrationSuite {
     cassandraClusterOf: CassandraClusterOf[F]
   ): Resource[F, Unit] = {
 
-    def cassandra(log: Log[F]) = Resource {
+    def cassandra(log: Log[F]) = {
       // To ensure all default '127.0.0.1:9042' configurations work, we need to bind to the host's 9042 port manually
-      val cassandra = CassandraContainer().configure(_.withCreateContainerCmdModifier(cmd => cmd.withHostConfig(
-        new HostConfig().withPortBindings(new PortBinding(Ports.Binding.bindPort(9042), new ExposedPort(9042)))
-      )))
-      for {
-        _ <- Sync[F].delay { cassandra.start() }
-      } yield {
-        val release = Sync[F].delay { cassandra.stop() }.onError { case e =>
-          log.error(s"failed to release cassandra with $e", e)
+      Resource.make {
+        Sync[F].delay {
+          val cassandra = CassandraContainer
+            .apply()
+            .configure { container =>
+              container.withCreateContainerCmdModifier { cmd =>
+                cmd.withHostConfig {
+                  new HostConfig()
+                    .withPortBindings(
+                      new PortBinding(
+                        Ports.Binding.bindPort(9042),
+                        new ExposedPort(9042)))
+                }
+                ()
+              }
+              ()
+            }
+          cassandra.start()
+          cassandra
         }
-        (().pure[F], release)
+      } { cassandra =>
+        Sync[F]
+          .delay { cassandra.stop() }
+          .onError { case e =>
+            log.error(s"failed to release cassandra with $e", e)
+          }
       }
     }
 
