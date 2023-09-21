@@ -181,7 +181,8 @@ object Journals {
       for {
         marker   <- appendMarker(key)
         result   <- {
-          if (marker.offset === Offset.min) {
+          val offset = marker.offset
+          if (offset === Offset.min) {
             (HeadInfo.empty, StreamActionRecords.empty[F].pure[F]).pure[F]
           } else {
             def stream = eventual
@@ -190,7 +191,12 @@ object Journals {
                 StreamActionRecords(key, from, marker, offset, consumeActionRecords)
               }
             headCache
-              .get(key, partition = marker.partition, offset = marker.offset)
+              .get(
+                key,
+                marker.partition,
+                offset
+                  .dec[Try]
+                  .getOrElse { offset })
               .flatMap {
                 case Some(headInfo) =>
                   (headInfo, stream).pure[F]

@@ -17,11 +17,26 @@ import com.evolutiongaming.smetrics._
 
 import scala.concurrent.duration._
 
-/**
- * TODO headcache:
- * 1. Keep 1000 last seen entries, even if replicated.
- * 2. Fail headcache when background tasks failed
- */
+/** Metainfo of events written to Kafka, but not yet replicated to Cassandra.
+  *
+  * The implementation subscribes to all events in Kafka and periodically polls
+  * Cassandra to remove information about the events, which already replicated.
+  *
+  * The returned entries do not contain the events themselves, but only an
+  * offset of the first non-replicated event, the sequence number of last event,
+  * range of events to be deleted etc.
+  *
+  * The consuming/polling of the records will stop after a configured timeout
+  * (i.e. [[HeadCacheConfig#expiry]]) for the topics where no activity /
+  * recoveries happen. It will restart when the new calls to a cache come for
+  * these topics again.
+  *
+  * TODO headcache:
+  * 1. Keep 1000 last seen entries, even if replicated.
+  * 2. Fail headcache when background tasks failed
+  *
+  * @see [[HeadInfo]] for more details on the purpose of the stored data.
+  */
 trait HeadCache[F[_]] {
 
   def get(key: Key, partition: Partition, offset: Offset): F[Option[HeadInfo]]
