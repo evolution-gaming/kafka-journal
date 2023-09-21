@@ -75,16 +75,16 @@ object HeadCacheConsumption {
     def seek(consumer: Consumer[F], random: Random.State) = {
       for {
         partitions <- partitions(consumer, random)
-        _ <- consumer.assign(topic, partitions)
-        pointers <- pointers
-        offsets = partitions
+        _          <- consumer.assign(topic, partitions)
+        pointers   <- pointers
+        offsets     = partitions
           .toNel
           .map { partition =>
             val offset = pointers.getOrElse(partition, Offset.min)
             (partition, offset)
           }
           .toNem
-        result <- consumer.seek(topic, offsets)
+        result      <- consumer.seek(topic, offsets)
       } yield result
     }
 
@@ -99,10 +99,10 @@ object HeadCacheConsumption {
         val onError = OnError.fromLog(log.prefixed("consuming"))
         Retry(strategy, onError)
       }
-      _ <- Stream.around(retry.toFunctionK)
+      _        <- Stream.around(retry.toFunctionK)
       consumer <- consumer.toStream
-      _ <- seek(consumer, random).toStream
-      records <- Stream.repeat(consumer.poll) if records.values.nonEmpty
+      _        <- seek(consumer, random).toStream
+      records  <- Stream.repeat(consumer.poll) if records.values.nonEmpty
     } yield records
   }
 

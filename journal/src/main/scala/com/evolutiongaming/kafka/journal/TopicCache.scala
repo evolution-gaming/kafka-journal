@@ -88,15 +88,13 @@ object TopicCache {
   ): Resource[F, TopicCache[F]] = {
 
     for {
-      consumer <- consumer
+      consumer   <- consumer
         .map { _.withLog(log) }
         .pure[Resource[F, *]]
       partitions <- consumer
-        .use { consumer =>
-          consumer.partitions(topic)
-        }
+        .use { _.partitions(topic) }
         .toResource
-      cache <- Cache.loading[F, Partition, PartitionCache[F]]
+      cache     <- Cache.loading[F, Partition, PartitionCache[F]]
       partitionCacheOf = (partition: Partition) => {
         cache.getOrUpdateResource(partition) {
           PartitionCache.of(
@@ -105,26 +103,29 @@ object TopicCache {
             timeout = config.timeout)
         }
       }
-      remove =
-        partitions
-          .foldMapM { partition =>
-            for {
-              offset <- eventual.pointer(topic, partition)
-              cache <- partitionCacheOf(partition)
-              diff <- offset.flatTraverse(cache.remove)
-            } yield diff match {
-              case Some(a) => Sample(a.value)
-              case None    => Sample.Empty
+      remove = partitions
+        .foldMapM { partition =>
+          for {
+            offset <- eventual.pointer(topic, partition)
+            cache  <- partitionCacheOf(partition)
+            result <- offset.foldMapM { offset =>
+              cache
+                .remove(offset)
+                .map { diff =>
+                  diff.foldMap { a => Sample(a.value) }
+                }
             }
-          }
-          .flatMap { sample =>
-            sample.avg
-              .foldMapM { diff =>
-                metrics.foldMapM { _.storage(topic, diff) }
-              }
-          }
-      _ <- remove.toResource
-      pointers = {
+          } yield result
+        }
+        .flatMap { sample =>
+          sample
+            .avg
+            .foldMapM { diff =>
+              metrics.foldMapM { _.storage(topic, diff) }
+            }
+        }
+      _         <- remove.toResource
+      pointers  = {
         cache
           .values1
           .flatMap { values =>
