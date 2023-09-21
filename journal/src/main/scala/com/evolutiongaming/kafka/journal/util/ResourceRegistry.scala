@@ -4,7 +4,6 @@ import cats.effect._
 import cats.effect.Ref
 import cats.effect.implicits._
 import cats.syntax.all._
-import cats.Applicative
 
 trait ResourceRegistry[F[_]] {
 
@@ -13,20 +12,20 @@ trait ResourceRegistry[F[_]] {
 
 object ResourceRegistry {
 
-  def of[F[_] : Concurrent]: Resource[F, ResourceRegistry[F]] = {
-    implicit val monoidUnit = Applicative.monoid[F, Unit]
-    val result = for {
-      releases <- Ref.of[F, List[F[Unit]]](List.empty[F[Unit]])
-    } yield {
-      val registry = apply[F](releases)
-      val release = for {
-        releases <- releases.get
-        ignore    = (_: Throwable) => ()
-        _        <- releases.foldMap { _.handleError(ignore) }
-      } yield {}
-      (registry, release)
-    }
-    Resource(result)
+  def of[F[_]: Concurrent]: Resource[F, ResourceRegistry[F]] = {
+    Resource
+      .make {
+        Ref.of[F, List[F[Unit]]](List.empty[F[Unit]])
+      } { releases =>
+        for {
+          releases <- releases.get
+          ignore    = (_: Throwable) => ()
+          result   <- releases.foldMapM { _.handleError(ignore) }
+        } yield result
+      }
+      .map { releases =>
+        apply(releases)
+      }
   }
 
   def apply[F[_] : Concurrent](releases: Ref[F, List[F[Unit]]]): ResourceRegistry[F] = {
