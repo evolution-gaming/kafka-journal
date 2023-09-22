@@ -78,19 +78,19 @@ object JournalAdapter {
       eventualJournal: EventualJournal[F])(implicit
       kafkaConsumerOf: KafkaConsumerOf[F],
       kafkaProducerOf: KafkaProducerOf[F],
-      headCacheOf: HeadCacheOf[F]) = {
-
-      for {
-        journal <- Journals.of[F](
+      headCacheOf: HeadCacheOf[F]
+    ): Resource[F, Journals[F]] = {
+      Journals
+        .of1[F](
           origin = origin,
           config = config.journal,
           eventualJournal = eventualJournal,
           journalMetrics = metrics.journal,
           conversionMetrics = metrics.conversion,
+          consumerPoolConfig = config.consumerPool,
+          consumerPoolMetrics = metrics.consumerPool,
           callTimeThresholds = config.callTimeThresholds)
-      } yield {
-        journal.withLogError(log)
-      }
+        .map { _.withLogError(log) }
     }
 
     val headCacheOf1 = headCacheOf(kafkaConsumerOf)
@@ -232,7 +232,8 @@ object JournalAdapter {
     headCache: Option[HeadCacheMetrics[F]] = none,
     producer: Option[ClientId => ProducerMetrics[F]] = none,
     consumer: Option[ClientId => ConsumerMetrics[F]] = none,
-    conversion: Option[ConversionMetrics[F]] = none
+    conversion: Option[ConversionMetrics[F]] = none,
+    consumerPool: Option[ConsumerPoolMetrics[F]] = none,
   )
 
   object Metrics {

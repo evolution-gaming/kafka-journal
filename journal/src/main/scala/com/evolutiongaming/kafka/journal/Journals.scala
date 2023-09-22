@@ -6,6 +6,7 @@ import cats.effect._
 import cats.effect.syntax.all._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MeasureDuration, MonadThrowable}
+import com.evolutiongaming.kafka.journal.Journal.ConsumerPoolConfig
 import com.evolutiongaming.kafka.journal.conversions.{ConversionMetrics, KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualRead}
 import com.evolutiongaming.kafka.journal.util.Fail
@@ -39,7 +40,7 @@ object Journals {
     }
   }
 
-
+  @deprecated("use `of1`", "2023-07-26")
   def of[
     F[_]
     : Clock
@@ -85,6 +86,53 @@ object Journals {
     }
   }
 
+  def of1[
+    F[_]
+    : Async
+    : FromTry : Fail : LogOf
+    : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomIdOf
+    : MeasureDuration
+    : JsonCodec
+  ](
+     config: JournalConfig,
+     origin: Option[Origin],
+     eventualJournal: EventualJournal[F],
+     journalMetrics: Option[JournalMetrics[F]],
+     conversionMetrics: Option[ConversionMetrics[F]],
+     consumerPoolConfig: ConsumerPoolConfig,
+     consumerPoolMetrics: Option[ConsumerPoolMetrics[F]],
+     callTimeThresholds: Journal.CallTimeThresholds
+  ): Resource[F, Journals[F]] = {
+
+    val consumer = Consumer.of[F](config.kafka.consumer, config.pollTimeout)
+
+    val headCache = {
+      if (config.headCache.enabled) {
+        HeadCacheOf[F].apply(config.kafka.consumer, eventualJournal)
+      } else {
+        Resource.pure[F, HeadCache[F]](HeadCache.empty[F])
+      }
+    }
+
+    for {
+      producer  <- Producer.of[F](config.kafka.producer)
+      log       <- LogOf[F].apply(Journals.getClass).toResource
+      headCache <- headCache
+      consumer  <- ConsumerPool.of[F](consumerPoolConfig, consumerPoolMetrics, consumer)
+    } yield {
+      val withLog = apply(
+        origin,
+        producer,
+        consumer,
+        eventualJournal,
+        headCache,
+        log,
+        conversionMetrics
+      )
+        .withLog(log, callTimeThresholds)
+      journalMetrics.fold(withLog) { metrics => withLog.withMetrics(metrics) }
+    }
+  }
 
   def apply[F[_]: Clock : RandomIdOf : Fail : JsonCodec : MeasureDuration](
     origin: Option[Origin],
@@ -106,7 +154,6 @@ object Journals {
       log = log,
       conversionMetrics = conversionMetrics)
   }
-
 
   def apply[F[_] : RandomIdOf : MeasureDuration](
     eventual: EventualJournal[F],
@@ -134,20 +181,23 @@ object Journals {
       for {
         marker   <- appendMarker(key)
         result   <- {
-          if (marker.offset === Offset.min) {
+          marker
+            .offset
+            .dec[Try]
+            .toOption.fold {
             (HeadInfo.empty, StreamActionRecords.empty[F].pure[F]).pure[F]
-          } else {
+          } { offset =>
             def stream = eventual
               .offset(key.topic, marker.partition)
               .map { offset =>
                 StreamActionRecords(key, from, marker, offset, consumeActionRecords)
               }
             headCache
-              .get(key, partition = marker.partition, offset = marker.offset)
+              .get(key, marker.partition, offset)
               .flatMap {
                 case Some(headInfo) =>
                   (headInfo, stream).pure[F]
-                case None         =>
+                case None           =>
                   for {
                     stream   <- stream
                     headInfo <- stream(none).fold(HeadInfo.empty) { (info, action) =>

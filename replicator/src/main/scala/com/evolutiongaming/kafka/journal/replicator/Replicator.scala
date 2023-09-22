@@ -180,19 +180,21 @@ object Replicator {
 
     val sleep = Sleep[F].sleep(config.topicDiscoveryInterval)
 
-    def loop(state: State): F[State] = {
-      val result = for {
-        topics <- newTopics(state)
-        _      <- continue
-        _      <- topics.parFoldMap1(start)
-        _      <- continue
-        _      <- sleep
-        _      <- continue
-      } yield state ++ topics
-      result >>= loop
-    }
-
-    loop(Set.empty).void.onError { case e => log.error(s"failed with $e", e) }
+    Set
+      .empty[Topic]
+      .tailRecM { state =>
+        for {
+          topics <- newTopics(state)
+          _      <- continue
+          _      <- topics.parFoldMap1(start)
+          _      <- continue
+          _      <- sleep
+          _      <- continue
+        } yield {
+          (state ++ topics).asLeft[Unit]
+        }
+      }
+      .onError { case e => log.error(s"failed with $e", e) }
   }
 
 

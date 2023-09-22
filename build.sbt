@@ -8,7 +8,7 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(url("http://evolution.com")),
   publishTo := Some(Resolver.evolutionReleases),
   scalaVersion := crossScalaVersions.value.head,
-  crossScalaVersions := Seq("2.13.8", "2.12.17"),
+  crossScalaVersions := Seq("2.13.8"),
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
   scalacOptsFailOnWarn := Some(false),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
@@ -81,6 +81,7 @@ lazy val journal = (project in file("journal")
     Cats.effect,
     Scodec.core,
     Scodec.bits,
+    `resource-pool`,
     Logback.core % Test,
     Logback.classic % Test)))
 

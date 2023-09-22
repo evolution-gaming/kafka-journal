@@ -11,7 +11,7 @@ import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.skafka.{Bytes => _, _}
 import com.evolutiongaming.sstream.Stream
 import pureconfig.ConfigReader
-import pureconfig.generic.semiauto.deriveReader
+import pureconfig.generic.semiauto._
 
 import scala.concurrent.duration._
 
@@ -328,5 +328,19 @@ object Journal {
     val default: CallTimeThresholds = CallTimeThresholds()
 
     implicit val configReaderCallTimeThresholds: ConfigReader[CallTimeThresholds] = deriveReader[CallTimeThresholds]
+  }
+
+  case class ConsumerPoolConfig(
+    multiplier: Double,
+    idleTimeout: FiniteDuration,
+  )
+
+  object ConsumerPoolConfig {
+
+    val Default: ConsumerPoolConfig = ConsumerPoolConfig(
+      multiplier = 10,
+      idleTimeout = 1.minute)
+
+    implicit val configReaderConsumerPoolConfig: ConfigReader[ConsumerPoolConfig] = deriveReader
   }
 }

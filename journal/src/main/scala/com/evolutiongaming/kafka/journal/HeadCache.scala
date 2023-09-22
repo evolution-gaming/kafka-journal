@@ -19,7 +19,7 @@ import scala.concurrent.duration._
 
 /** Metainfo of events written to Kafka, but not yet replicated to Cassandra.
   *
-  * The implementation subcribes to all events in Kafka and periodically polls
+  * The implementation subscribes to all events in Kafka and periodically polls
   * Cassandra to remove information about the events, which already replicated.
   *
   * The returned entries do not contain the events themselves, but only an
