@@ -88,7 +88,7 @@ object Journals {
 
   def of1[
     F[_]
-    : Concurrent: Timer
+    : Concurrent: Timer: Parallel
     : FromTry: Fail: LogOf
     : KafkaConsumerOf : KafkaProducerOf : HeadCacheOf : RandomIdOf
     : MeasureDuration
