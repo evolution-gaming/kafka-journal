@@ -46,9 +46,10 @@ private[journal] object ConsumerPool {
         Resource {
           for {
             duration <- MeasureDuration[F].start
-            result   <- consumer
+            consumer <- consumer.attempt
             duration <- duration
             _        <- metrics.acquire(duration)
+            result   <- consumer.liftTo[F]
             duration <- MeasureDuration[F].start
           } yield {
             val (consumer, release) = result
