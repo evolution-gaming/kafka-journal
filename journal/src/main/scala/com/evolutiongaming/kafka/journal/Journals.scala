@@ -253,7 +253,7 @@ object Journals {
                           .dec[Try]
                           .toOption
                           .max { offset0 }
-                        for {
+                        val records = for {
                           record <- stream(offset)
                           action <- record.action match {
                             case a: Action.Append => Stream[F].single(a)
@@ -270,6 +270,16 @@ object Journals {
                           if event.seqNr >= seqNr
                         } yield {
                           EventRecord(action, event, record.partitionOffset, events.metadata)
+                        }
+                        records.stateful(seqNr) { case (seqNr, a) =>
+                          if (seqNr <= a.seqNr) {
+                            val seqNr1 = a
+                              .seqNr
+                              .next[Option]
+                            (seqNr1, Stream[F].single(a))
+                          } else {
+                            (seqNr.some, Stream[F].empty[EventRecord[A]])
+                          }
                         }
                       }
                       event     <- readEventual(seqNr).flatMapLast {
@@ -311,36 +321,12 @@ object Journals {
               }
             }
 
-            val stream = for {
+            for {
               headAndStream  <- headAndStream(key, from).toStream
               (head, stream)  = headAndStream
               _              <- log.debug(s"$key read info: $head").toStream
               eventRecord    <- read(head, stream)
             } yield eventRecord
-
-            val empty = Option.empty[EventRecord[A]]
-
-            stream.map(Option(_)).concat(Stream.single(empty)).stateful(empty) {
-              case (None, None) =>
-                None -> Stream.empty
-
-              case (None, Some(record)) =>
-                record.some.some -> Stream.empty
-
-              case (Some(prevRecord), Some(record)) if prevRecord.seqNr == record.seqNr =>
-                val logError = log.warn(s"Duplicated events found during recovery: $prevRecord and $record").toStream
-                record.some.some-> logError *> Stream.empty
-
-              case (Some(prevRecord), Some(record)) if prevRecord.seqNr > record.seqNr =>
-                val logError = log.warn(s"Invalid records order: $prevRecord, $record").toStream
-                prevRecord.some.some -> logError *> Stream.empty
-
-              case (Some(prevRecord), Some(record)) =>
-                record.some.some -> Stream.single(prevRecord)
-
-              case (Some(prevRecord), None) =>
-                None -> Stream.single(prevRecord)
-            }
           }
 
 

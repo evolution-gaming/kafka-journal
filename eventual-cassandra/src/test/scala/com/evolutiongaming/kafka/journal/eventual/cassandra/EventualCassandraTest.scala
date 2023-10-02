@@ -168,6 +168,26 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
       }
     }
 
+    test(s"read duplicated seqNr, $suffix") {
+      val seqNr   = SeqNr.min
+      val key     = Key(id = "id", topic = topic0)
+      val segment = segmentOf(key)
+      val record1 = record.copy(timestamp = timestamp1)
+
+      val stateT = for {
+        records <- journal.read(key, seqNr).toList
+        _        = records shouldEqual List.empty
+        head     = JournalHead(partitionOffset, segmentSize, record.seqNr)
+        _       <- insertMetaJournal(key, segment, timestamp0, timestamp0, head, origin.some)
+        _       <- insertRecords(key, SegmentNr.min, Nel.of(record, record1))
+        _       <- journal.read(key, seqNr).toList
+      } yield {}
+
+      assertThrows[JournalError] {
+        stateT.run(State.empty).unsafeRunSync()
+      }
+    }
+
     test(s"ids, $suffix") {
       val id0 = "id0"
       val id1 = "id1"

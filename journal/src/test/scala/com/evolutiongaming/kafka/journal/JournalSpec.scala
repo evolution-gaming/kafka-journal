@@ -2,10 +2,10 @@ package com.evolutiongaming.kafka.journal
 
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.kernel.Sync
-import cats.effect.unsafe.implicits.global
 import cats.effect.{Clock, IO}
 import cats.syntax.all._
-import cats.{Monad, MonadError, MonadThrow}
+import cats.Monad
+import cats.effect.unsafe.implicits.global
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, MeasureDuration}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
@@ -247,7 +247,7 @@ class JournalSpec extends AnyWordSpec with Matchers {
         ("valid"  , StateT.headCache))
       (duplicatesStr, consumeActionRecordsOf, eventualJournalOf) <- List(
         ("off", (a: ConsumeActionRecords[StateT]) => a               , (a: EventualJournal[StateT]) => a),
-        ("on" , (a: ConsumeActionRecords[StateT]) => a.withDuplicates, (a: EventualJournal[StateT]) => a.withDuplicates))
+        ("on" , (a: ConsumeActionRecords[StateT]) => a.withDuplicates, (a: EventualJournal[StateT]) => a))
     } {
 
       def test(
@@ -433,7 +433,7 @@ object JournalSpec {
 
   object SeqNrJournal {
 
-    def apply[F[_]: MonadThrow, A](journals: Journals[F])(implicit
+    def apply[F[_]: Monad, A](journals: Journals[F])(implicit
       kafkaRead: KafkaRead[F, A],
       eventualRead: EventualRead[F, A],
       kafkaWrite: KafkaWrite[F, A],
@@ -441,7 +441,7 @@ object JournalSpec {
       apply(journals(key))
     }
 
-    def apply[F[_]: MonadThrow, A](journal: Journal[F])(implicit
+    def apply[F[_]: Monad, A](journal: Journal[F])(implicit
       kafkaRead: KafkaRead[F, A],
       eventualRead: EventualRead[F, A],
       kafkaWrite: KafkaWrite[F, A],
@@ -467,13 +467,7 @@ object JournalSpec {
             .read(range.from)
             .dropWhile { _.seqNr < range.from }
             .takeWhile { _.seqNr <= range.to }
-            .flatMap{ r =>
-              if (r.timestamp == Instant.MIN) {
-                MonadError[Stream[F, *], Throwable].raiseError[SeqNr](new RuntimeException("Old duplicated event is read!"))
-              } else {
-                Stream.single[F, SeqNr](r.seqNr)
-              }
-            }
+            .map { _.seqNr }
             .toList
         }
 
@@ -743,36 +737,22 @@ object JournalSpec {
 
 
   implicit class ConsumeActionRecordsOps[F[_]](val self: ConsumeActionRecords[F]) extends AnyVal {
-    def withDuplicates(implicit monac: Monad[F]): ConsumeActionRecords[F] = new ConsumeActionRecords[F] {
+    def withDuplicates(implicit F: Monad[F]): ConsumeActionRecords[F] = new ConsumeActionRecords[F] {
       def apply(key: Key, partition: Partition, from: Offset) = {
         self
           .apply(key, partition, from)
-          .withDuplicates()
+          .withDuplicates
       }
     }
   }
 
-  implicit class EventualJournalOps[F[_]](val self: EventualJournal[F]) extends AnyVal {
-    def withDuplicates(implicit monad: Monad[F]): EventualJournal[F] = new EventualJournal[F] {
-
-      def pointer(key: Key) = self.pointer(key)
-
-      def offset(topic: Topic, partition: Partition): F[Option[Offset]] = self.offset(topic, partition)
-
-      def read(key: Key, from: SeqNr) = {
-        self
-          .read(key, from)
-          .withDuplicates(_.copy(timestamp = Instant.MIN))
-      }
-
-      def ids(topic: Topic) = self.ids(topic)
-    }
-  }
 
   implicit class StreamOps[F[_], A](val self: Stream[F, A]) extends AnyVal {
-    def withDuplicates(corruptOld: A => A = identity)(implicit F: Monad[F]): Stream[F, A] = {
+    def withDuplicates(implicit F: Monad[F]): Stream[F, A] = {
       self.flatMap { a =>
-        List(corruptOld(a), a).toStream1[F]
+        List
+          .fill(2)(a)
+          .toStream1[F]
       }
     }
   }
