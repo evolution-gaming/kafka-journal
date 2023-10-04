@@ -23,7 +23,6 @@ import org.scalatest.Suite
 import org.scalatest.matchers.should.Matchers
 import pureconfig.{ConfigReader, ConfigSource}
 
-import java.time.Instant
 import scala.concurrent.Promise
 
 trait JournalSuite extends ActorSuite with Matchers { self: Suite =>

@@ -22,7 +22,7 @@ import play.api.libs.json.Json
 
 import java.time.Instant
 import scala.concurrent.duration._
-import scala.util.Try
+import scala.util.{Failure, Try}
 
 class EventualCassandraTest extends AnyFunSuite with Matchers {
   import EventualCassandraTest._
@@ -183,9 +183,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
         _       <- journal.read(key, seqNr).toList
       } yield {}
 
-      assertThrows[JournalError] {
-        stateT.run(State.empty).unsafeRunSync()
-      }
+      stateT.run(State.empty) should matchPattern { case Failure(_: JournalError) =>  }
     }
 
     test(s"ids, $suffix") {
