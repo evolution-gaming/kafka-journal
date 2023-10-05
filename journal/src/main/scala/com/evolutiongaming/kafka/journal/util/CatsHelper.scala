@@ -32,7 +32,7 @@ object CatsHelper {
         }
         value <- value match {
           case Some(value) => fiber.cancel.as(value.some)
-          case None        => fiber.joinWithNever
+          case None        => fiber.joinWith(none[B].pure[F])
         }
       } yield value
     }
