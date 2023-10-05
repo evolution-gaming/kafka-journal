@@ -79,8 +79,12 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
         pointers = Map(
           (topic0, Map((Partition.min, PointerEntry(Offset.unsafe(1), created = timestamp0, updated = timestamp1)))),
           (topic1, Map((Partition.min, PointerEntry(Offset.min, created = timestamp0, updated = timestamp0))))))
+<<<<<<< HEAD
       val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
+=======
+      stateT.run(State.empty) shouldEqual (expected, ()).pure[Try]
+>>>>>>> d4cb5026 (return back ConcurrentOf)
     }
 
 
@@ -113,8 +117,12 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
             created = timestamp0,
             updated = timestamp1,
             origin = origin.some))))))
+<<<<<<< HEAD
       val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
+=======
+      stateT.run(State.empty) shouldEqual (expected, ()).pure[Try]
+>>>>>>> d4cb5026 (return back ConcurrentOf)
     }
 
     for {
@@ -163,8 +171,12 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
           journal = Map(((key, SegmentNr.min), Map(
             ((record.seqNr, record.timestamp), record),
             ((record1.seqNr, record1.timestamp), record1)))))
+<<<<<<< HEAD
         val result = stateT.run(State.empty)
         result shouldEqual (expected, ()).pure[Try]
+=======
+        stateT.run(State.empty) shouldEqual (expected, ()).pure[Try]
+>>>>>>> d4cb5026 (return back ConcurrentOf)
       }
     }
 
@@ -183,7 +195,11 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
         _       <- journal.read(key, seqNr).toList
       } yield {}
 
+<<<<<<< HEAD
       stateT.run(State.empty) should matchPattern { case Failure(_: JournalError) =>  }
+=======
+      stateT.run(State.empty) should matchPattern { case Failure(_: JournalError) => }
+>>>>>>> d4cb5026 (return back ConcurrentOf)
     }
 
     test(s"ids, $suffix") {
@@ -463,7 +479,6 @@ object EventualCassandraTest {
 
 
   def statementsOf(segmentNrsOf: SegmentNrsOf[StateT], segments: Segments): EventualCassandra.Statements[StateT] = {
-
     implicit val concurrentStateT = ConcurrentOf.fromMonad[StateT]
 
     val metaJournalStatements = EventualCassandra.MetaJournalStatements.fromMetaJournal(

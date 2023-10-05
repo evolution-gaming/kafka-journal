@@ -255,7 +255,14 @@ object EventualCassandra {
       def firstOrSecond[A](key: Key)(f: SegmentNr => F[Option[A]]): F[Option[A]] = {
         for {
           segmentNrs <- segmentNrsOf(key)
-          result     <- f(segmentNrs.first).orElsePar { segmentNrs.second.flatTraverse(f) }
+          first       = f(segmentNrs.first)
+          result     <- segmentNrs
+            .second
+            .fold {
+              first
+            } { second =>
+              first.orElsePar { f(second) }
+            }
         } yield result
       }
 
