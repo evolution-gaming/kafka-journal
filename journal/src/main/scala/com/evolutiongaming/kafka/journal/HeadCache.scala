@@ -213,6 +213,8 @@ object HeadCache {
       */
     def pointer(topic: Topic, partition: Partition): F[Option[Offset]]
 
+    def pointers(topic: Topic, partitions: Set[Partition]): F[TopicPointers]
+
   }
 
   object Eventual {
@@ -224,6 +226,7 @@ object HeadCache {
       class Main
       new Main with HeadCache.Eventual[F] {
         def pointer(topic: Topic, partition: Partition): F[Option[Offset]] = eventualJournal.offset(topic, partition)
+        def pointers(topic: Topic, partitions: Set[Partition]): F[TopicPointers] = eventualJournal.offsets(topic, partitions)
       }
     }
 
@@ -241,6 +244,7 @@ object HeadCache {
       class Const
       new Const with Eventual[F] {
         def pointer(topic: Topic, partition: Partition): F[Option[Offset]] = value.map(_.values.get(partition))
+        def pointers(topic: Topic, partitions: Set[Partition]): F[TopicPointers] = value
       }
     }
   }
