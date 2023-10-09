@@ -81,7 +81,7 @@ object JournalAdapter {
       headCacheOf: HeadCacheOf[F]
     ): Resource[F, Journals[F]] = {
       Journals
-        .of1[F](
+        .of2[F](
           origin = origin,
           config = config.journal,
           eventualJournal = eventualJournal,
@@ -89,7 +89,8 @@ object JournalAdapter {
           conversionMetrics = metrics.conversion,
           consumerPoolConfig = config.consumerPool,
           consumerPoolMetrics = metrics.consumerPool,
-          callTimeThresholds = config.callTimeThresholds)
+          callTimeThresholds = config.callTimeThresholds,
+          headCacheConfig = config.headCacheConfig)
         .map { _.withLogError(log) }
     }
 

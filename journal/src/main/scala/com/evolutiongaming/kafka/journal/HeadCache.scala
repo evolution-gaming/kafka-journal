@@ -102,6 +102,7 @@ object HeadCache {
     *   and there is no need to call [[HeadCache#of]] each time if parameters
     *   did not change.
     */
+  @deprecated("use `of1`", "2023-10-09")
   def of[F[_]: Async: Parallel: Runtime: LogOf: KafkaConsumerOf: MeasureDuration: FromTry: FromJsResult: JsonCodec.Decode](
     consumerConfig: ConsumerConfig,
     eventualJournal: EventualJournal[F],
@@ -114,6 +115,53 @@ object HeadCache {
         log,
         TopicCache.Consumer.of[F](consumerConfig),
         metrics)
+      result <- result.withFence
+    } yield {
+      result.withLog(log)
+    }
+  }
+
+
+  /** Creates new cache using a Kafka configuration and Cassandra reader.
+    *
+    * The created instances will report metrics to `metrics` and also will do
+    * the debug logging. There is no need to call [[HeadCache#withLogs]] on
+    * them.
+    *
+    * @param consumerConfig
+    *   Kafka consumer configuration used to find new non-replicated journal
+    *   events. Some of the parameters will be ignored. See
+    *   [[TopicCache.Consumer#of]] for more details.
+    * @param eventualJournal
+    *   Cassandra (or other long term storage) data source used to remove
+    *   replicated events from the cache. Usually created by calling
+    *   [[EventualCassandra#of]].
+    * @param metrics
+    *   Interface to report the metrics to. The intended way to configure it is
+    *   overriding [[KafkaJournal#metrics]] in a custom implementation of
+    *   [[KafkaJournal]].
+    * @param headCacheConfig
+    *   [[HeadCache]] configuration.
+    * @return
+    *   Resource which will configure a [[HeadCache]] with the passed
+    *   parameters. Instance of `Resource[HeadCache]` are, obviously, reusable
+    *   and there is no need to call [[HeadCache#of]] each time if parameters
+    *   did not change.
+    */
+  def of1[F[_]: Async: Parallel: Runtime: LogOf: KafkaConsumerOf: MeasureDuration: FromTry: FromJsResult: JsonCodec.Decode](
+    consumerConfig: ConsumerConfig,
+    eventualJournal: EventualJournal[F],
+    metrics: Option[HeadCacheMetrics[F]],
+    headCacheConfig: HeadCacheConfig
+  ): Resource[F, HeadCache[F]] = {
+    for {
+      log    <- LogOf[F].apply(HeadCache.getClass).toResource
+      result <- HeadCache.of(
+        Eventual(eventualJournal),
+        log,
+        TopicCache.Consumer.of[F](consumerConfig),
+        metrics,
+        headCacheConfig)
       result <- result.withFence
     } yield {
       result.withLog(log)

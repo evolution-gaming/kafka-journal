@@ -61,7 +61,7 @@ object Journals {
 
     val headCache = {
       if (config.headCache.enabled) {
-        HeadCacheOf[F].apply(config.kafka.consumer, eventualJournal)
+        HeadCacheOf[F].apply1(config.kafka.consumer, eventualJournal, HeadCacheConfig.default)
       } else {
         Resource.pure[F, HeadCache[F]](HeadCache.empty[F])
       }
@@ -86,6 +86,7 @@ object Journals {
     }
   }
 
+  @deprecated("use `of2`", "2023-10-09")
   def of1[
     F[_]
     : Async
@@ -102,23 +103,53 @@ object Journals {
      consumerPoolConfig: ConsumerPoolConfig,
      consumerPoolMetrics: Option[ConsumerPoolMetrics[F]],
      callTimeThresholds: Journal.CallTimeThresholds
+  ): Resource[F, Journals[F]] =
+    of2(
+      config = config,
+      origin = origin,
+      eventualJournal = eventualJournal,
+      journalMetrics = journalMetrics,
+      conversionMetrics = conversionMetrics,
+      consumerPoolConfig = consumerPoolConfig,
+      consumerPoolMetrics = consumerPoolMetrics,
+      callTimeThresholds = callTimeThresholds,
+      headCacheConfig = HeadCacheConfig.default
+    )
+
+  def of2[
+    F[_]
+    : Async
+    : FromTry: Fail: LogOf
+    : KafkaConsumerOf: KafkaProducerOf: HeadCacheOf: RandomIdOf
+    : MeasureDuration
+    : JsonCodec
+  ](
+    config: JournalConfig,
+    origin: Option[Origin],
+    eventualJournal: EventualJournal[F],
+    journalMetrics: Option[JournalMetrics[F]],
+    conversionMetrics: Option[ConversionMetrics[F]],
+    consumerPoolConfig: ConsumerPoolConfig,
+    consumerPoolMetrics: Option[ConsumerPoolMetrics[F]],
+    callTimeThresholds: Journal.CallTimeThresholds,
+    headCacheConfig: HeadCacheConfig
   ): Resource[F, Journals[F]] = {
 
     val consumer = Consumer.of[F](config.kafka.consumer, config.pollTimeout)
 
     val headCache = {
       if (config.headCache.enabled) {
-        HeadCacheOf[F].apply(config.kafka.consumer, eventualJournal)
+        HeadCacheOf[F].apply1(config.kafka.consumer, eventualJournal, headCacheConfig)
       } else {
         Resource.pure[F, HeadCache[F]](HeadCache.empty[F])
       }
     }
 
     for {
-      producer  <- Producer.of[F](config.kafka.producer)
-      log       <- LogOf[F].apply(Journals.getClass).toResource
+      producer <- Producer.of[F](config.kafka.producer)
+      log <- LogOf[F].apply(Journals.getClass).toResource
       headCache <- headCache
-      consumer  <- ConsumerPool.of[F](consumerPoolConfig, consumerPoolMetrics, consumer)
+      consumer <- ConsumerPool.of[F](consumerPoolConfig, consumerPoolMetrics, consumer)
     } yield {
       val withLog = apply(
         origin,

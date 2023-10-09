@@ -81,7 +81,7 @@ object ReadEventsApp extends IOApp {
       cassandraClusterOf <- CassandraClusterOf.of[F].toResource
       origin             <- Origin.hostName[F].toResource
       eventualJournal    <- EventualCassandra.of[F](eventualCassandraConfig, origin, none, cassandraClusterOf)
-      headCache          <- HeadCache.of[F](consumerConfig, eventualJournal, none)
+      headCache          <- HeadCache.of1[F](consumerConfig, eventualJournal, none, HeadCacheConfig.default)
       producer           <- Journals.Producer.of[F](producerConfig)
     } yield {
       val origin = Origin("ReadEventsApp")

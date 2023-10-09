@@ -45,9 +45,10 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
 
       def headCacheOf(config: KafkaJournalConfig) = if (headCache) {
         val headCacheOf = HeadCacheOf[IO](HeadCacheMetrics.empty[IO].some)
-        headCacheOf(
+        headCacheOf.apply1(
           config.journal.kafka.consumer,
-          eventualJournal)
+          eventualJournal,
+          HeadCacheConfig.default)
       } else {
         Resource.pure[IO, HeadCache[IO]](HeadCache.empty[IO])
       }

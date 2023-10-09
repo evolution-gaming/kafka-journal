@@ -36,7 +36,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
       for {
         config    <- config.liftTo[IO].toResource
         consumer   = Journals.Consumer.of[IO](config.journal.kafka.consumer, config.journal.pollTimeout)
-        headCache <- headCacheOf(config.journal.kafka.consumer, eventualJournal)
+        headCache <- headCacheOf.apply1(config.journal.kafka.consumer, eventualJournal, HeadCacheConfig.default)
       } yield {
         Journals(
           producer = producer,
