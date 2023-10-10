@@ -37,7 +37,7 @@ object CassandraHelper {
   implicit class EncodeRowObjOps(val self: EncodeRow.type) extends AnyVal {
 
     def empty[A]: EncodeRow[A] = new EncodeRow[A] {
-      
+
       def apply[B <: SettableData[B]](data: B, value: A) = data
     }
 
@@ -91,5 +91,16 @@ object CassandraHelper {
 
   implicit val finiteDurationDecodeByName: DecodeByName[FiniteDuration] = {
     DecodeByName[DurationC].map(durationToFiniteDuration)
+  }
+
+
+  implicit val setIntEncodeBbyName: EncodeByName[Set[Int]] = {
+    val integer = classOf[Integer]
+    new EncodeByName[Set[Int]] {
+      override def apply[B <: SettableData[B]](data: B, name: String, value: Set[Int]): B = {
+        val values = value.map(a => a: Integer).toList.asJava
+        data.setList(name, values, integer)
+      }
+    }
   }
 }

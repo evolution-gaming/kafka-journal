@@ -176,6 +176,13 @@ object EventualCassandra {
           offset <- offset.fold { statements.selectOffset(topic, partition) } { _.some.pure[F] }
         } yield offset
       }
+
+      def offsets(topic: Topic, partitions: Set[Partition]): F[TopicPointers] = {
+        for {
+          offsets <- statements.selectOffsets2(topic, partitions)
+          offsets <- if (offsets.values.isEmpty) statements.selectOffsets(topic, partitions) else offsets.pure[F]
+        } yield offsets
+      }
     }
   }
 
@@ -184,7 +191,9 @@ object EventualCassandra {
     records: JournalStatements.SelectRecords[F],
     metaJournal: MetaJournalStatements[F],
     selectOffset: PointerStatements.SelectOffset[F],
-    selectOffset2: Pointer2Statements.SelectOffset[F])
+    selectOffset2: Pointer2Statements.SelectOffset[F],
+    selectOffsets: PointerStatements.SelectOffsets[F],
+    selectOffsets2: Pointer2Statements.SelectOffsets[F])
 
   object Statements {
 
@@ -201,8 +210,10 @@ object EventualCassandra {
         metaJournal    <- MetaJournalStatements.of(schema, segmentNrsOf, segments, consistencyConfig)
         selectOffset   <- PointerStatements.SelectOffset.of[F](schema.pointer, consistencyConfig)
         selectOffset2  <- Pointer2Statements.SelectOffset.of[F](schema.pointer2, consistencyConfig)
+        selectOffsets  <- PointerStatements.SelectOffsets.of[F](schema.pointer, consistencyConfig)
+        selectOffsets2 <- Pointer2Statements.SelectOffsets.of[F](schema.pointer2, consistencyConfig)
       } yield {
-        Statements(selectRecords, metaJournal, selectOffset, selectOffset2)
+        Statements(selectRecords, metaJournal, selectOffset, selectOffset2, selectOffsets, selectOffsets2)
       }
     }
   }
