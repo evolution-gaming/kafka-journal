@@ -4,12 +4,12 @@ import java.time.Instant
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.Clock
 import cats.syntax.all._
-import cats.{Id, Monad, MonadError}
+import cats.{Id, Monad}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.{FromTry, Log, MeasureDuration}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
-import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualPayloadAndType, EventualRead, EventualWrite}
+import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualPayloadAndType, EventualRead, EventualWrite, TopicPointers}
 import com.evolutiongaming.kafka.journal.util.{ConcurrentOf, Fail}
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
@@ -681,7 +681,7 @@ object JournalSpec {
             val partitionOffset = PartitionOffset(partition, record.offset)
             EventRecord(action, event.map(eventualWrite(_).get), partitionOffset, events1.metadata)
           }
-          copy(events = events.enqueue(batch.toList), offset = offset.some)
+          copy(events = events.enqueueAll(batch.toList), offset = offset.some)
         }
 
         def onDelete(action: Action.Delete) = {

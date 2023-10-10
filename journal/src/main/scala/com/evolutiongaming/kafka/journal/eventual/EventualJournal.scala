@@ -83,7 +83,7 @@ object EventualJournal {
 
     private sealed abstract class Main
 
-    def of[F[_]](
+    def of[F[_] : Monad](
       registry: CollectorRegistry[F],
       prefix: String = "eventual_journal"
     ): Resource[F, Metrics[F]] = {
