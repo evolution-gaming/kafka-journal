@@ -55,19 +55,22 @@ object TopicCache {
             timeout = config.timeout)
         }
       }
-      remove = partitions
-        .foldMapM { partition =>
-          for {
-            offset <- eventual.pointer(topic, partition)
-            cache  <- partitionCacheOf(partition)
-            result <- offset.foldMapM { offset =>
-              cache
-                .remove(offset)
-                .map { diff =>
-                  diff.foldMap { a => Sample(a.value) }
-                }
+      remove = eventual
+        .pointers(topic, partitions)
+        .flatMap { offsets =>
+          offsets
+            .values
+            .toList
+            .foldMapM { case (partition, offset) =>
+              for {
+                cache <- partitionCacheOf(partition)
+                result <- cache
+                  .remove(offset)
+                  .map { diff =>
+                    diff.foldMap { a => Sample(a.value) }
+                  }
+              } yield result
             }
-          } yield result
         }
         .flatMap { sample =>
           sample

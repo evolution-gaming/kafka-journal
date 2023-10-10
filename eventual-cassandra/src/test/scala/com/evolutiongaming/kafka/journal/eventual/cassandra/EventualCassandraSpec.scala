@@ -11,6 +11,9 @@ import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.util.{BracketFromMonadError, ConcurrentOf, Fail}
 import com.evolutiongaming.skafka.{Offset, Topic}
+import com.evolutiongaming.kafka.journal.util.Fail
+import com.evolutiongaming.kafka.journal.util.TestTemporal._
+import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.sstream.FoldWhile._
 import com.evolutiongaming.sstream.Stream
 
@@ -83,6 +86,22 @@ object EventualCassandraSpec {
 
   val selectOffset2: Pointer2Statements.SelectOffset[StateT] = {
     (_, _) => none[Offset].pure[StateT]
+  }
+
+  val selectOffsets: PointerStatements.SelectOffsets[StateT] = {
+    (topic, partitions) => {
+      StateT { state =>
+        val pointers0 = state
+          .pointers
+          .getOrElse(topic, TopicPointers.empty)
+        val pointers = TopicPointers(pointers0.values.view.filterKeys(partitions.contains).toMap)
+        (state, pointers)
+      }
+    }
+  }
+
+  val selectOffsets2: Pointer2Statements.SelectOffsets[StateT] = {
+    (_, _) => TopicPointers.empty.pure[StateT]
   }
 
   val selectPointer: PointerStatements.Select[StateT] = {
@@ -178,7 +197,9 @@ object EventualCassandraSpec {
       selectRecords,
       metaJournalStatements,
       selectOffset,
-      selectOffset2)
+      selectOffset2,
+      selectOffsets,
+      selectOffsets2)
 
     EventualCassandra[StateT](statements)
   }

@@ -4,6 +4,7 @@ import cats.syntax.all._
 import cats.Monad
 import com.datastax.driver.core.GettableByNameData
 import com.evolutiongaming.catshelper.DataHelper._
+import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
@@ -129,6 +130,47 @@ object Pointer2Statements {
         }
     }
   }
+
+
+  trait SelectOffsets[F[_]] {
+
+    def apply(topic: Topic, partitions: Set[Partition]): F[TopicPointers]
+  }
+
+  object SelectOffsets {
+
+    def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: ConsistencyConfig.Read): F[SelectOffsets[F]] = {
+
+      val query =
+        s"""
+           |SELECT partition, offset FROM ${ name.toCql }
+           |WHERE topic = :topic
+           |AND partition IN :partitions
+           |""".stripMargin
+
+      query
+        .prepare
+        .map { prepared =>
+          (topic: Topic, partitions: Set[Partition]) => prepared
+            .bind()
+            .encode("topic", topic)
+            .encode("partitions", partitions.map(_.value))
+            .setConsistencyLevel(consistencyConfig.value)
+            .execute
+            .toList
+            .map { rows =>
+              val pointers = rows
+                .map { row =>
+                  val partition = row.decode[Partition]("partition")
+                  val offset = row.decode[Offset]("offset")
+                  partition -> offset
+                }
+              TopicPointers(pointers.toMap)
+            }
+        }
+    }
+  }
+
 
   trait Insert[F[_]] {
 

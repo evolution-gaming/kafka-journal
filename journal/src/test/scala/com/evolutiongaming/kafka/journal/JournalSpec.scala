@@ -544,6 +544,16 @@ object JournalSpec {
         }
       }
 
+      def offsets(topic: Topic, partitions: Set[Partition]): StateT[TopicPointers] = {
+        StateT { state =>
+          val offsets = state.replicatedState.offset match {
+            case Some(offset) => Map(partitions.head -> offset)
+            case None         => Map.empty[Partition, Offset]
+          }
+          (state, TopicPointers(offsets))
+        }
+      }
+
       def read(key: Key, from: SeqNr) = {
         val events = StateT { state =>
           val events = state.replicatedState.events.toList.filter(_.seqNr >= from)

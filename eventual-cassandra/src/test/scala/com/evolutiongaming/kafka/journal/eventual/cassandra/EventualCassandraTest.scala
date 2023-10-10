@@ -9,6 +9,8 @@ import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
+import com.evolutiongaming.kafka.journal.eventual.{EventualPayloadAndType, TopicPointers}
+import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
@@ -378,6 +380,30 @@ object EventualCassandraTest {
     (_, _) => none[Offset].pure[StateT]
   }
 
+  val selectOffsets: PointerStatements.SelectOffsets[StateT] = {
+    (topic: Topic, partitions: Set[Partition]) => {
+      StateT.success { state =>
+        val pointers = state
+          .pointers
+          .get(topic)
+          .map { pointers =>
+            val offsets = pointers
+              .view
+              .filterKeys(partitions.contains)
+              .mapValues(_.offset)
+              .toMap
+            TopicPointers(offsets)
+          }
+          .getOrElse(TopicPointers.empty)
+        (state, pointers)
+      }
+    }
+  }
+
+  val selectOffsets2: Pointer2Statements.SelectOffsets[StateT] = {
+    (_, _) => TopicPointers.empty.pure[StateT]
+  }
+
   val insertPointer: PointerStatements.Insert[StateT] = {
     (topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant) => {
       StateT.unit { state =>
@@ -473,7 +499,9 @@ object EventualCassandraTest {
       selectRecords,
       metaJournalStatements,
       selectOffset,
-      selectOffset2)
+      selectOffset2,
+      selectOffsets,
+      selectOffsets2)
   }
 
 
