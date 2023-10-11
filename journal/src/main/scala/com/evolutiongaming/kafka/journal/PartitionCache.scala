@@ -1,15 +1,13 @@
 package com.evolutiongaming.kafka.journal
 
-import cats._
+import cats.{Monad, MonadThrow, Semigroup}
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.effect.syntax.all._
 import cats.kernel.CommutativeMonoid
 import cats.syntax.all._
-import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.skafka.Offset
-import com.evolution.scache.Cache
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -110,7 +108,7 @@ object PartitionCache {
     *   that 1% of journals will get dropped, and `1.0` means that 100% of
     *   journals will get dropped.
     * @param timeout
-    *   Duration to wait in [[Result.Now.Later]] returned by [[Partition#get]]
+    *   Duration to wait in [[Result.Later]] returned by [[Partition#get]]
     *   if entry is not found in a cache.
     * @return
     *   Resource which will configure a [[PartitionCache]] with the passed
@@ -118,7 +116,7 @@ object PartitionCache {
     *   reusable and there is no need to call [[PartitionCache#of]] each time if
     *   parameters did not change.
     */
-  def of[F[_]: Async: Runtime: Parallel](
+  def of[F[_]: Async](
     maxSize: Int = 10000,
     dropUponLimit: Double = 0.1,
     timeout: FiniteDuration
@@ -130,250 +128,417 @@ object PartitionCache {
   }
 
   /** Same as [[#of]], but without default parameters */
-  private def main[F[_]: Async: Runtime: Parallel](
+  private def main[F[_]: Async](
     maxSize: Int,
     dropUponLimit: Double,
     timeout: FiniteDuration
   ): Resource[F, PartitionCache[F]] = {
 
-    // Key of a [[Listener]] waiting for data to load, including
-    // journal identifier and current Kafka offset (or marker offset)
-    // at the time of [[PartitionCache#get]] call.
-    final case class Key(id: String, offset: Offset)
+    /** Listener waiting for latest [[HeadInfo]] to appear in the cache.
+      *
+      * When [[PartitionCache#get]] cannot find an actual entry for a given
+      * journal, it sets up an expiring listener (or deferred value), which
+      * returns an actual information if it gets into a cache in a timely manner,
+      * or [[Result.Now.Timeout]] if the configured timeout expires.
+      */
+    final case class Listener(id: String, offset: Offset, deferred: Deferred[F, Either[Throwable, Result.Now]])
 
-    for {
-      stateRef <- Resource.make {
-        Ref[F].of(State(offset = none, entries = none).asRight[Throwable])
-      } { ref =>
-        ref.set(ReleasedError.asLeft)
+    type ListenerId = Int
+
+    /** Actual state of [[PartitionCache]].
+      *
+      * @param listenerId
+      * id to be use for next listener created
+      * @param offset
+      * The last _replicated_ offset seen by [[PartitionCache]] in Cassandra (or
+      * another long term storage).
+      * @param entries
+      * Information about non-replicated events seen by [[PartitionCache]] in
+      * Kafka.
+      * @param listeners
+      * Listener waiting for latest [[HeadInfo]] to appear in the cache.
+      */
+    final case class State(
+      listenerId: ListenerId,
+      offset: Option[Offset],
+      entries: Option[Entries],
+      listeners: Map[ListenerId, Listener]
+    ) { self =>
+      /** Checks if current state is ahead of Cassandra.
+        *
+        * @param offset
+        * The current offset (offset of the marker).
+        * @see
+        * [[Result.Now.Ahead]] for more details.
+        */
+      def ahead(offset: Offset): Boolean = {
+        self
+          .offset
+          .exists { _ >= offset }
       }
-      cache    <- Cache.loading[F, Key, Listener[F]]
-    } yield {
+    }
 
-      class Main
-      new Main with PartitionCache[F] {
-
-        def get(id: String, offset: Offset) = {
-
-          def listener: F[Listener[F]] = {
-            val key = Key(id, offset)
-            cache
-              .getOrUpdateResource(key) {
-                for {
-                  deferred <- Resource.make {
-                    Deferred[F, Either[Throwable, Result.Now]]
-                  } { deferred =>
-                    deferred
-                      .complete(ReleasedError.asLeft)
-                      .void
-                  }
-                  complete = (result: Result.Now) => {
-                    deferred
-                      .complete(result.asRight)
-                      .flatMap {
-                        case true  => cache.remove(key).void
-                        case false => ().pure[F]
-                      }
-                  }
-                  _ <- Temporal[F]
-                    .sleep(timeout)
-                    .productR { complete(Result.Now.timeout(timeout)) }
-                    .background
-                } yield {
-
-                  new Listener[F] {
-
-                    def get = {
-                      deferred
-                        .get
-                        .rethrow
-                    }
-
-                    def updated(state: State) = {
+    Resource
+      .make {
+        Ref[F].of(
+          State
+            .apply(
+              listenerId = 0,
+              offset = none,
+              entries = none,
+              listeners = Map.empty)
+            .asRight[Throwable])
+      } { ref =>
+        0.tailRecM { count =>
+          ref
+            .access
+            .flatMap {
+              case (Right(state), set) =>
+                set
+                  .apply(ReleasedError.asLeft)
+                  .flatMap {
+                    case true  =>
                       state
-                        .result(id, offset)
-                        .foldMapM { result => complete(result) }
-                    }
+                        .listeners
+                        .values
+                        .toList
+                        .foldMapM { listener =>
+                          listener
+                            .deferred
+                            .complete(ReleasedError.asLeft)
+                            .void
+                        }
+                        .map { _.asRight[Int] }
+                    case false =>
+                      (count + 1)
+                        .asLeft[Unit]
+                        .pure[F]
                   }
+              case _                   =>
+                ()
+                  .asRight[Int]
+                  .pure[F]
+            }
+        }
+      }
+      .map { ref =>
+
+        class Main
+        new Main with PartitionCache[F] {
+
+          def get(id: String, offset: Offset) = {
+            0.tailRecM { count =>
+              ref
+                .access
+                .flatMap {
+                  case (Right(state), set) =>
+                    val result = {
+                      if (state.ahead(offset)) {
+                        Result
+                          .Now
+                          .ahead
+                          .some
+                      } else {
+                        state
+                          .entries
+                          .flatMap { _.result(id, offset) }
+                      }
+                    }
+                    result
+                      .map { result =>
+                        result
+                          .toResult[F]
+                          .asRight[Int]
+                          .pure[F]
+                      }
+                      .getOrElse {
+                        Deferred
+                          .apply[F, Either[Throwable, Result.Now]]
+                          .flatMap { deferred =>
+                            val listenerId = state.listenerId
+                            set
+                              .apply {
+                                state
+                                  .copy(
+                                    listenerId = listenerId + 1,
+                                    listeners = state
+                                      .listeners
+                                      .updated(
+                                        listenerId,
+                                        Listener(id, offset, deferred)))
+                                  .asRight
+                              }
+                              .flatMap {
+                                case true =>
+                                  Temporal[F]
+                                    .sleep(timeout)
+                                    .productR {
+                                      deferred
+                                        .complete(Result.Now.timeout(timeout).asRight)
+                                        .flatMap {
+                                          case true  =>
+                                            0.tailRecM { count =>
+                                              ref
+                                                .access
+                                                .flatMap {
+                                                  case (Right(state), set) =>
+                                                    set
+                                                      .apply {
+                                                        state
+                                                          .copy(listeners = state.listeners - listenerId)
+                                                          .asRight
+                                                      }
+                                                      .map {
+                                                        case true  => ().asRight[Int]
+                                                        case false => (count + 1).asLeft[Unit]
+                                                      }
+                                                  case (Left(_), _)        =>
+                                                    ()
+                                                      .asRight[Int]
+                                                      .pure[F]
+                                                }
+                                            }
+                                          case false =>
+                                            ().pure[F]
+                                        }
+                                    }
+                                    .start
+                                    .as {
+                                      val get = deferred
+                                        .get
+                                        .rethrow
+                                      val result: Result[F] = state.entries match {
+                                        case Some(_) => Result.behind(get)
+                                        case None    => Result.empty(get)
+                                      }
+                                      result.asRight[Int]
+                                    }
+
+                                case false =>
+                                  (count + 1)
+                                    .asLeft[Result[F]]
+                                    .pure[F]
+                              }
+                              .uncancelable
+                          }
+                      }
+
+                  case (Left(error), _) =>
+                    error.raiseError[F, Either[Int, Result[F]]]
                 }
+            }
+          }
+
+          def offset = {
+            ref
+              .get
+              .rethrow
+              .map { state =>
+                state
+                  .entries
+                  .map { entries =>
+                    entries
+                      .bounds
+                      .max
+                  }
+                  .max(state.offset)
               }
           }
 
-          stateRef
-            .get
-            .rethrow
-            .flatMap { state =>
-              state.result(id, offset) match {
-                case Right(a)    =>
-                  a
-                    .toResult[F]
-                    .pure[F]
-                case Left(entries) =>
-                  listener.map { listener =>
-                    entries match {
-                      case Some(_) => Result.behind(listener.get)
-                      case None    => Result.empty(listener.get)
-                    }
+          def add(records: Nel[Record]) = {
+            for {
+              bounds  <- Bounds.of[F](
+                min = records
+                  .minimumBy { _.offset }
+                  .offset,
+                max = records
+                  .maximumBy { _.offset }
+                  .offset
+              )
+              values   = for {
+                (id, values) <- records
+                  .toList
+                  .collect { case Record(offset, Some(data)) => (offset, data) }
+                  .groupBy { case (_, record) => record.id }
+                (offset, _)   = values.maxBy { case (offset, _) => offset }
+                info          = values.foldLeft(HeadInfo.empty) { case (info, (offset, data)) => info(data.header, offset) }
+                entry        <- info match {
+                  case HeadInfo.Empty       => none[Entry]
+                  case a: HeadInfo.NonEmpty => Entry(offset = offset, a).some
+                }
+              } yield {
+                (id, entry)
+              }
+              entries  = Entries(bounds = bounds, values = values.toMap)
+
+              result  <- 0.tailRecM { counter =>
+                ref
+                  .access
+                  .flatMap { case (state, set) =>
+                    state
+                      .liftTo[F]
+                      .flatMap { state =>
+                        val entriesNotLimited = state
+                          .entries
+                          .fold(entries) { _.combine(entries) }
+                        entriesNotLimited
+                          .limit(maxSize, dropUponLimit)
+                          .flatMap { entries =>
+                            val listeners = state.listeners
+                            val (listeners1, effect) = listeners.foldLeft((listeners, ().pure[F])) {
+                              case ((listeners, effect), (listenerId, listener)) =>
+                                entriesNotLimited
+                                  .result(listener.id, listener.offset)
+                                  .fold {
+                                    (listeners, effect)
+                                  } { result =>
+                                    (
+                                      listeners - listenerId,
+                                      effect.productR {
+                                        listener
+                                          .deferred
+                                          .complete(result.asRight)
+                                          .void
+                                      }
+                                    )
+                                  }
+                            }
+                            set
+                              .apply {
+                                state
+                                  .copy(
+                                    listeners = listeners1,
+                                    entries = entries.some)
+                                  .asRight
+                              }
+                              .flatMap {
+                                case true  =>
+                                  effect.as {
+                                    state
+                                      .entries
+                                      .flatMap { entries =>
+                                        Diff.of(
+                                          prev = entries.bounds.max,
+                                          next = bounds.max)
+                                      }
+                                      .asRight[Int]
+                                  }
+                                case false =>
+                                  (counter + 1)
+                                    .asLeft[Option[Diff]]
+                                    .pure[F]
+                              }
+                              .uncancelable
+                          }
+                      }
                   }
               }
-            }
-        }
+            } yield result
+          }
 
-        def offset = {
-          stateRef
-            .get
-            .rethrow
-            .map { state =>
-              state
-                .entries
-                .map { entries =>
-                  entries
-                    .bounds
-                    .max
-                }
-                .max(state.offset)
-            }
-        }
-
-        def add(records: Nel[Record]) = {
-          for {
-            bounds   <- Bounds.of[F](
-              min = records
-                .minimumBy { _.offset }
-                .offset,
-              max = records
-                .maximumBy { _.offset }
-                .offset
-            )
-            values   = for {
-              (id, values) <- records
-                .toList
-                .collect { case Record(offset, Some(data)) => (offset, data) }
-                .groupBy { case (_, record) => record.id }
-              (offset, _)    = values.maxBy { case (offset, _) => offset }
-              info           = values.foldLeft(HeadInfo.empty) { case (info, (offset, data)) => info(data.header, offset) }
-              entry        <- info match {
-                case HeadInfo.Empty       => none[Entry]
-                case a: HeadInfo.NonEmpty => Entry(offset = offset, a).some
-              }
-            } yield {
-              (id, entry)
-            }
-            entries  = Entries(bounds = bounds, values = values.toMap)
-
-            result  <- 0.tailRecM { counter =>
-              stateRef
+          def remove(offset: Offset) = {
+            0.tailRecM { counter =>
+              ref
                 .access
                 .flatMap { case (state, set) =>
                   state
                     .liftTo[F]
                     .flatMap { state =>
-                      val entriesNotLimited = state
-                        .entries
-                        .fold(entries) { _.combine(entries) }
-                      entriesNotLimited
-                        .limit(maxSize, dropUponLimit)
-                        .flatMap { entries =>
-                          val state1 = state.copy(entries = entries.some)
-                          set(state1.asRight).flatMap {
-                            case true  =>
-                              cache
-                                .foldMap1 { _.updated(state1.copy(entries = entriesNotLimited.some)) }
-                                .as {
-                                  state
-                                    .entries
-                                    .flatMap { entries =>
-                                      Diff.of(
-                                        prev = entries.bounds.max,
-                                        next = bounds.max)
-                                    }
-                                    .asRight[Int]
+                      if (state.ahead(offset)) {
+                        none[Diff]
+                          .asRight[Int]
+                          .pure[F]
+                      } else {
+                        state
+                          .entries
+                          .flatTraverse { entries =>
+                            val bounds = entries.bounds
+                            if (offset >= bounds.min) {
+                              if (offset < bounds.max) {
+                                for {
+                                  offset <- offset.inc[F]
+                                  bounds <- bounds.withMin(offset)
+                                } yield {
+                                  val values = entries
+                                    .values
+                                    .filter { case (_, entry) => entry.offset >= bounds.min }
+                                  Entries(bounds = bounds, values = values).some
                                 }
-                            case false =>
-                              (counter + 1)
-                                .asLeft[Option[Diff]]
+                              } else {
+                                none[Entries].pure[F]
+                              }
+                            } else {
+                              entries
+                                .some
                                 .pure[F]
+                            }
                           }
-                        }
+                          .flatMap { entries =>
+                            val listeners = state.listeners
+                            val (listeners1, effect) = listeners.foldLeft((listeners, ().pure[F])) {
+                              case ((listeners, effect), (listenerId, listener)) =>
+                                if (offset >= listener.offset) {
+                                  (
+                                    listeners - listenerId,
+                                    effect.productR {
+                                      listener
+                                        .deferred
+                                        .complete {
+                                          Result
+                                            .Now
+                                            .ahead
+                                            .asRight
+                                        }
+                                        .void
+                                    }
+                                  )
+                                } else {
+                                  (listeners, effect)
+                                }
+                            }
+                            set
+                              .apply {
+                                state
+                                  .copy(
+                                    offset = offset.some,
+                                    entries = entries,
+                                    listeners = listeners1)
+                                  .asRight
+                              }
+                              .flatMap {
+                                case true  =>
+                                  effect.as {
+                                    state
+                                      .offset
+                                      .flatMap { offset0 => Diff.of(prev = offset0, next = offset) }
+                                      .asRight[Int]
+                                  }
+                                case false =>
+                                  (counter + 1)
+                                    .asLeft[Option[Diff]]
+                                    .pure[F]
+                              }
+                              .uncancelable
+                          }
+                      }
                     }
                 }
             }
-          } yield result
-        }
+          }
 
-        def remove(offset: Offset) = {
-          0.tailRecM { counter =>
-            stateRef
-              .access
-              .flatMap { case (state, set) =>
-                state
-                  .liftTo[F]
-                  .flatMap { state =>
-                    if (state.ahead(offset)) {
-                      none[Diff]
-                        .asRight[Int]
-                        .pure[F]
-                    } else {
-                      state
-                        .entries
-                        .flatTraverse { entries =>
-                          val bounds = entries.bounds
-                          if (offset >= bounds.min) {
-                            if (offset < bounds.max) {
-                              for {
-                                offset <- offset.inc[F]
-                                bounds <- bounds.withMin(offset)
-                              } yield {
-                                val values = entries
-                                  .values
-                                  .filter { case (_, entry) => entry.offset >= bounds.min }
-                                Entries(bounds = bounds, values = values).some
-                              }
-                            } else {
-                              none[Entries].pure[F]
-                            }
-                          } else {
-                            entries
-                              .some
-                              .pure[F]
-                          }
-                        }
-                        .flatMap { entries =>
-                          val state1 = State(offset = offset.some, entries = entries)
-                          set(state1.asRight).flatMap {
-                            case true  =>
-                              cache
-                                .foldMap1 { _.updated(state1) }
-                                .as {
-                                  state
-                                    .offset
-                                    .flatMap { offset0 => Diff.of(prev = offset0, next = offset) }
-                                    .asRight[Int]
-                                }
-                            case false =>
-                              (counter + 1)
-                                .asLeft[Option[Diff]]
-                                .pure[F]
-                          }
-                        }
-                    }
-                  }
+          def meters = {
+            ref
+              .get
+              .map { state =>
+                state.foldMap { state =>
+                  Meters(
+                    listeners = state.listeners.size,
+                    entries = state.entries.foldMap { _.values.size })
+                }
               }
           }
         }
-
-        def meters = {
-          for {
-            listeners <- cache.size
-            state     <- stateRef.get
-          } yield {
-            Meters(
-              listeners = listeners,
-              entries = state.foldMap { _.entries.foldMap { _.values.size } })
-          }
-        }
       }
-    }
   }
 
   /** State of the non-replicated journal head comparing to a given offset. */
@@ -610,26 +775,6 @@ object PartitionCache {
     }
   }
 
-  /** Listener waiting for latest [[HeadInfo]] to appear in the cache.
-    *
-    * When [[PartitionCache#get]] cannot find an actual entry for a given
-    * journal, it sets up an expiring listener (or deferred value), which
-    * returns an actual information if it gets into a cache in a timely manner,
-    * or [[Result.Now.Timeout]] if the configured timeout expires.
-    */
-  private trait Listener[F[_]] {
-
-    /** Actual information or [[Result.Now.Timeout]]. */
-    def get: F[Result.Now]
-
-    /** Up-to-date information received by [[PartitionCache]].
-      *
-      * If the method is called before a timeout happened, then next call to
-      * [[#get]] will return the required entry.
-      */
-    def updated(state: State): F[Unit]
-  }
-
   /** Runtime parameters that could be used for metrics.
     *
     * @param listeners
@@ -846,98 +991,40 @@ object PartitionCache {
             }
         }
       }
-    }
-  }
 
-  /** Actual state of [[PartitionCache]].
-    *
-    * @param offset
-    *   The last _replicated_ offset seen by [[PartitionCache]] in Cassandra (or
-    *   another long term storage).
-    * @param entries
-    *   Information about non-replicated events seen by [[PartitionCache]] in
-    *   Kafka.
-    */
-  private final case class State(offset: Option[Offset], entries: Option[Entries])
+      def result(id: String, offset: Offset): Option[Result.Now] = {
 
-  private object State {
-    implicit class StateOps(val self: State) extends AnyVal {
-
-      /** Checks if current state is ahead of Cassandra.
-        *
-        * @param offset
-        *   The current offset (offset of the marker).
-        *
-        * @see
-        *   [[Result.Now.Ahead]] for more details.
-        */
-      def ahead(offset: Offset): Boolean = {
-        self
-          .offset
-          .exists { _ >= offset }
-      }
-
-      /** Get a [[HeadInfo]] entry for a specific journal.
-        *
-        * The journal is expected to be stored in the partition related to this
-        * cache.
-        *
-        * @param id
-        *   The uniqued identifier of a journal within a partition.
-        * @param offset
-        *   Current offset (i.e. offset of the marker).
-        * @return
-        *   [[Result.Now]] if such entry is found in cache, or `Option[Entries]`
-        *   if the entry was not found. Note that [[Entries]] contain values for
-        *   all journals, not only one specified by `id`. At the time of
-        *   writing, this value is not used directly, and only checked for
-        *   `None` or `Some(_)`.
-        */
-      def result(id: String, offset: Offset): Either[Option[Entries], Result.Now] = {
-        if (self.ahead(offset)) {
-          Result
-            .Now
-            .ahead
-            .asRight[Option[Entries]]
-        } else {
+        def entry = {
           self
-            .entries
-            .fold {
-              none[Entries].asLeft[Result.Now]
-            } { entries =>
-              def entry = {
-                entries
-                  .values
-                  .get(id)
-              }
-              if (offset >= entries.bounds.min) {
-                if (offset <= entries.bounds.max) {
-                  val headInfo = entry
-                    .map { _.headInfo }
-                    .getOrElse { HeadInfo.empty }
-                  Result
-                    .Now
-                    .value(headInfo)
-                    .asRight[Option[Entries]]
-                } else {
-                  entries
-                    .some
-                    .asLeft[Result.Now]
-                }
-              } else {
+            .values
+            .get(id)
+        }
+
+        if (offset >= self.bounds.min) {
+          if (offset <= self.bounds.max) {
+            Result
+              .Now
+              .value {
                 entry
-                  .fold {
-                    Result
-                      .Now
-                      .limited
-                  } { entry =>
-                    Result
-                      .Now
-                      .value(entry.headInfo)
-                  }
-                  .asRight[Option[Entries]]
+                  .map { _.headInfo }
+                  .getOrElse { HeadInfo.empty }
               }
+              .some
+          } else {
+            none[Result.Now]
+          }
+        } else {
+          entry
+            .fold {
+              Result
+                .Now
+                .limited
+            } { entry =>
+              Result
+                .Now
+                .value(entry.headInfo)
             }
+            .some
         }
       }
     }
@@ -948,46 +1035,6 @@ object PartitionCache {
     /** Same as [[PartitionCache#add]], but makes it a bit less verbose */
     def add(record: Record, records: Record*): F[Option[Diff]] = {
       self.add(Nel.of(record, records: _*))
-    }
-
-  }
-
-  private implicit class CacheOps[F[_], K, V](val self: Cache[F, K, V]) extends AnyVal {
-
-    /** Aggregate all succesfully loaded or loading values to something else.
-      *
-      * If an error happens when value is loaded, then it is ignored.
-      *
-      * Example: calculate sum of all even loaded or loading `Int` values:
-      * {{{
-      * cache.foldMap { value =>
-      *   if (value % 2 == 0) value else 0
-      * }
-      * }}}
-      *
-      * @tparam A
-      *   Type to map the key/values to, and aggregate with. It requires
-      *   [[CommutativeMonoid]] to be present to be able to sum up the values,
-      *   without having a guarantee about the order of the values being
-      *   aggregates as the order may be random depending on a cache
-      *   implementation.
-      *
-      * @return
-      *   Result of the aggregation, i.e. all mapped values combined using
-      *   passed [[CommutativeMonoid]].
-      */
-    def foldMap1[A](f: V => F[A])(implicit F: Sync[F], commutativeMonoid: CommutativeMonoid[A]): F[A] = {
-      self.foldMap {
-        case (_, Right(a)) =>
-          f(a)
-        case (_, Left(a))  =>
-          a
-            .attempt
-            .flatMap {
-              case Right(a) => f(a)
-              case Left(_)  => CommutativeMonoid[A].empty.pure[F]
-            }
-      }
     }
   }
 }
