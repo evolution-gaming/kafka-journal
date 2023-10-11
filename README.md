@@ -1,7 +1,7 @@
 # Kafka Journal 
 [![Build Status](https://github.com/evolution-gaming/kafka-journal/workflows/CI/badge.svg)](https://github.com/evolution-gaming/kafka-journal/actions?query=workflow%3ACI)
 [![Coverage Status](https://coveralls.io/repos/github/evolution-gaming/kafka-journal/badge.svg?branch=master)](https://coveralls.io/github/evolution-gaming/kafka-journal?branch=master)
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/fab03059b5f94fa5b1e7ad7bddfe8b07)](https://www.codacy.com/app/evolution-gaming/kafka-journal?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=evolution-gaming/kafka-journal&amp;utm_campaign=Badge_Grade)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/a391e347e329454e8f992717113ec1ec)](https://app.codacy.com/gh/evolution-gaming/kafka-journal/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 [![Version](https://img.shields.io/badge/version-click-blue)](https://evolution.jfrog.io/artifactory/api/search/latestVersion?g=com.evolutiongaming&a=kafka-journal_2.13&repos=public)
 [![Chat](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/evolution-gaming/kafka-journal)
 
