@@ -85,7 +85,9 @@ object HeadCache {
 
     val consRecordToActionHeader = ConsRecordToActionHeader[F]
     for {
-      cache <- Cache.expiring(ExpiringCache.Config[F, Topic, TopicCache[F]](expireAfterRead = config.expiry))
+      cache <- Cache.expiring(
+        ExpiringCache.Config[F, Topic, TopicCache[F]](expireAfterRead = config.expiry),
+        partitions = 1.some)
       cache <- metrics.fold(cache.pure[Resource[F, *]]) { metrics => cache.withMetrics(metrics.cache) }
     } yield {
       class Main
