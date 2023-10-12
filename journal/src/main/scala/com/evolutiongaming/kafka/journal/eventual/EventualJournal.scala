@@ -20,8 +20,6 @@ trait EventualJournal[F[_]] {
 
   def offset(topic: Topic, partition: Partition): F[Option[Offset]]
 
-  def offsets(topic: Topic, partitions: Set[Partition]): F[TopicPointers]
-
   def read(key: Key, from: SeqNr): Stream[F, EventRecord[EventualPayloadAndType]]
 
   def ids(topic: Topic): Stream[F, String]
@@ -42,8 +40,6 @@ object EventualJournal {
     def ids(topic: Topic) = Stream.empty[F, String]
 
     def offset(topic: Topic, partition: Partition): F[Option[Offset]] = none[Offset].pure[F]
-
-    def offsets(topic: Topic, partitions: Set[Partition]): F[TopicPointers] = TopicPointers.empty.pure[F]
   }
 
 
@@ -157,8 +153,6 @@ object EventualJournal {
       def ids(topic: Topic) = self.ids(topic).mapK(fg, gf)
 
       def offset(topic: Topic, partition: Partition): G[Option[Offset]] = fg(self.offset(topic, partition))
-
-      def offsets(topic: Topic, partitions: Set[Partition]): G[TopicPointers] = fg(self.offsets(topic, partitions))
     }
 
 
@@ -214,14 +208,6 @@ object EventualJournal {
           } yield r
         }
 
-        def offsets(topic: Topic, partitions: Set[Partition]): F[TopicPointers] = {
-          for {
-            d <- MeasureDuration[F].start
-            r <- self.offsets(topic, partitions)
-            d <- d
-            _ <- log.debug(s"$topic $partitions offsets in ${ d.toMillis }ms, result: $r")
-          } yield r
-        }
       }
     }
 
@@ -282,14 +268,6 @@ object EventualJournal {
           } yield r
         }
 
-        def offsets(topic: Topic, partitions: Set[Partition]): F[TopicPointers] = {
-          for {
-            d <- MeasureDuration[F].start
-            r <- self.offsets(topic, partitions)
-            d <- d
-            _ <- metrics.offset(topic, d)
-          } yield r
-        }
       }
     }
 
@@ -325,14 +303,6 @@ object EventualJournal {
             .offset(topic, partition)
             .handleErrorWith { a =>
               error(s"offset topic: $topic, partition $partition", a)
-            }
-        }
-
-        def offsets(topic: Topic, partitions: Set[Partition]): F[TopicPointers] = {
-          self
-            .offsets(topic, partitions)
-            .handleErrorWith { a =>
-              error(s"offsets topic: $topic, partitions $partitions", a)
             }
         }
       }

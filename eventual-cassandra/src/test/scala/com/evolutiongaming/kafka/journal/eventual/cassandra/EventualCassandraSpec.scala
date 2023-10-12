@@ -85,22 +85,6 @@ object EventualCassandraSpec {
     (_, _) => none[Offset].pure[StateT]
   }
 
-  val selectOffsets: PointerStatements.SelectOffsets[StateT] = {
-    (topic, partitions) => {
-      StateT { state =>
-        val pointers0 = state
-          .pointers
-          .getOrElse(topic, TopicPointers.empty)
-        val pointers = TopicPointers(pointers0.values.view.filterKeys(partitions.contains).toMap)
-        (state, pointers)
-      }
-    }
-  }
-
-  val selectOffsets2: Pointer2Statements.SelectOffsets[StateT] = {
-    (_, _) => TopicPointers.empty.pure[StateT]
-  }
-
   val selectPointer: PointerStatements.Select[StateT] = {
     (_, _) => PointerStatements.Select.Result(Instant.EPOCH.some).some.pure[StateT]
   }
@@ -194,9 +178,7 @@ object EventualCassandraSpec {
       selectRecords,
       metaJournalStatements,
       selectOffset,
-      selectOffset2,
-      selectOffsets,
-      selectOffsets2)
+      selectOffset2)
 
     EventualCassandra[StateT](statements)
   }
