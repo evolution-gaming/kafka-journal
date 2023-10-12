@@ -46,7 +46,7 @@ object TopicCache {
       partitions <- consumer
         .use { _.partitions(topic) }
         .toResource
-      cache     <- Cache.loading[F, Partition, PartitionCache[F]]
+      cache     <- Cache.loading[F, Partition, PartitionCache[F]](partitions = 1.some)
       partitionCacheOf = (partition: Partition) => {
         cache.getOrUpdateResource(partition) {
           PartitionCache.of(
