@@ -1,7 +1,7 @@
 package akka.persistence.kafka.journal
 
 import cats.syntax.all._
-import com.evolutiongaming.kafka.journal.Journal.CallTimeThresholds
+import com.evolutiongaming.kafka.journal.Journal.{CallTimeThresholds, ConsumerPoolConfig}
 import com.evolutiongaming.kafka.journal.{JournalConfig, KafkaConfig}
 import com.typesafe.config.ConfigFactory
 import org.scalatest.funsuite.AnyFunSuite
@@ -35,6 +35,7 @@ class KafkaJournalConfigSpec extends AnyFunSuite with Matchers {
         headCache = JournalConfig.HeadCache(enabled = false),
         kafka = KafkaConfig("client-id")),
       jsonCodec = KafkaJournalConfig.JsonCodec.Jsoniter,
+      consumerPool = ConsumerPoolConfig(multiplier = 1, idleTimeout = 1.second)
     )
     ConfigSource
       .fromConfig(config)

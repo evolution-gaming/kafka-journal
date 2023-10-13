@@ -330,7 +330,7 @@ object Journal {
     implicit val configReaderCallTimeThresholds: ConfigReader[CallTimeThresholds] = deriveReader[CallTimeThresholds]
   }
 
-  case class ConsumerPoolConfig(
+  final case class ConsumerPoolConfig(
     multiplier: Double,
     idleTimeout: FiniteDuration,
   )
