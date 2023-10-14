@@ -46,32 +46,33 @@ object StreamActionRecords {
                 .max(offsetReplicated)
                 .fold(Offset.min.pure[F]) { _.inc[F] }
                 .toStream
-              result     <- consumeActionRecords(key, partition, fromOffset).stateless { record =>
+              result     <- consumeActionRecords
+                .apply(key, partition, fromOffset)
+                .stateless { record =>
 
-                def take(action: Action.User) = {
-                  (true, Stream[F].single(record.copy(action = action)))
-                }
+                  def take(action: Action.User) = {
+                    (true, Stream[F].single(record.copy(action = action)))
+                  }
 
-                def skip = {
-                  (true, Stream[F].empty[ActionRecord[Action.User]])
-                }
+                  def skip = {
+                    (true, Stream[F].empty[ActionRecord[Action.User]])
+                  }
 
-                def stop = {
-                  (false, Stream[F].empty[ActionRecord[Action.User]])
-                }
+                  def stop = {
+                    (false, Stream[F].empty[ActionRecord[Action.User]])
+                  }
 
-                if (record.offset > max) {
-                  stop
-                } else {
-                  record.action match {
-                    case a: Action.Append => if (a.range.to < from) skip else take(a)
-                    case a: Action.Mark   => if (a.id === marker.id) stop else skip
-                    case a: Action.Delete => take(a)
-                    case a: Action.Purge  => take(a)
+                  if (record.offset > max) {
+                    stop
+                  } else {
+                    record.action match {
+                      case a: Action.Append => if (a.range.to < from) skip else take(a)
+                      case a: Action.Mark   => if (a.id === marker.id) stop else skip
+                      case a: Action.Delete => take(a)
+                      case a: Action.Purge  => take(a)
+                    }
                   }
                 }
-              }
-
             } yield result
           }
         }

@@ -148,7 +148,7 @@ object Journals {
 
     apply[F](
       eventual = eventualJournal,
-      consumeActionRecords = ConsumeActionRecords[F](consumer, log),
+      consumeActionRecords = ConsumeActionRecords[F](consumer),
       produce = Produce[F](producer, origin),
       headCache = headCache,
       log = log,
