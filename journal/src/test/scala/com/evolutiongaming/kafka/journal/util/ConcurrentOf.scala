@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal.util
 import cats.Monad
 import cats.effect.{Concurrent, Fiber, Poll}
 import cats.effect.kernel.{Async, Outcome, Unique}
-import cats.effect.syntax.all._
 import cats.syntax.all._
 
 import scala.util.control.NonFatal
