@@ -8,7 +8,7 @@ import cats.{Id, Parallel}
 import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.eventual.{EventualPayloadAndType, TopicPointers}
+import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
