@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.effect._
+import cats.effect.kernel.Resource.ExitCase
 import cats.effect.syntax.all._
 import cats.syntax.all._
 import com.evolution.resourcepool.ResourcePool.implicits._
@@ -32,33 +33,37 @@ private[journal] object ConsumerPool {
         discardTasksOnRelease = true
       )
     } yield {
-      val consumer = pool
-        .get
-        .timeoutTo(
-          timeout,
-          Sync[F].defer {
-            val msg = s"failed to acquire consumer within $timeout"
-            JournalError(msg, new TimeoutException(msg)).raiseError
-          })
-      metrics.fold {
-        Resource { consumer }
-      } { metrics =>
-        Resource {
-          for {
-            duration <- MeasureDuration[F].start
-            consumer <- consumer.attempt
-            duration <- duration
-            _        <- metrics.acquire(duration)
-            result   <- consumer.liftTo[F]
-            duration <- MeasureDuration[F].start
-          } yield {
-            val (consumer, release) = result
-            val release1 = for {
+      Resource.applyFull { poll =>
+        poll {
+          val consumer = pool
+            .get
+            .timeoutTo(
+              timeout,
+              Sync[F].defer {
+                val msg = s"failed to acquire consumer within $timeout"
+                JournalError(msg, new TimeoutException(msg)).raiseError
+              })
+          metrics.fold {
+            consumer.map { case (consumer, release) => (consumer, (_: ExitCase) => release) }
+          } { metrics =>
+            for {
+              duration <- MeasureDuration[F].start
+              result   <- consumer.attempt
               duration <- duration
-              _        <- metrics.use(duration)
-              result   <- release
-            } yield result
-            (consumer, release1)
+              _        <- metrics.acquire(duration)
+              result   <- result.liftTo[F]
+              duration <- MeasureDuration[F].start
+            } yield {
+              val (consumer, release) = result
+              (
+                consumer,
+                (_: ExitCase) => for {
+                  duration <- duration
+                  _        <- metrics.use(duration)
+                  result   <- release
+                } yield result
+              )
+            }
           }
         }
       }
