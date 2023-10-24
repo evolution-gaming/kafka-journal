@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.effect.kernel.{Async, Temporal}
-import cats.effect.syntax.resource._
+import cats.effect.syntax.all._
 import cats.effect.{Concurrent, Resource}
 import cats.syntax.all._
-import cats.{Monad, Parallel}
+import cats.{MonadThrow, Parallel}
 import com.evolutiongaming.catshelper.{LogOf, MeasureDuration, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
@@ -100,7 +100,7 @@ object EventualCassandra {
     * The implementation itself is abstracted from the calls to Cassandra which
     * should be passed as part of [[Statements]] parameter.
     */
-  def apply[F[_]: Monad](statements: Statements[F]): EventualJournal[F] = {
+  def apply[F[_]: MonadThrow](statements: Statements[F]): EventualJournal[F] = {
 
     new Main with EventualJournal[F] {
 
@@ -131,6 +131,18 @@ object EventualCassandra {
                 }
               }
               .map { case (record, _) => record }
+              .stateful(from) { case (seqNr, record) =>
+                if (seqNr <= record.seqNr) {
+                  val seqNr1 = record
+                    .seqNr
+                    .next[Option]
+                  (seqNr1, Stream[F].single(record))
+                } else {
+                  val msg = s"Data integrity violated: seqNr $seqNr duplicated in multiple records from eventual journal, key $key"
+                  val err = new JournalError(msg)
+                  (seqNr.some, err.raiseError[F, EventRecord[EventualPayloadAndType]].toStream)
+                }
+              }
           }
 
 
@@ -246,7 +258,14 @@ object EventualCassandra {
       def firstOrSecond[A](key: Key)(f: SegmentNr => F[Option[A]]): F[Option[A]] = {
         for {
           segmentNrs <- segmentNrsOf(key)
-          result     <- f(segmentNrs.first).orElsePar { segmentNrs.second.flatTraverse(f) }
+          first       = f(segmentNrs.first)
+          result     <- segmentNrs
+            .second
+            .fold {
+              first
+            } { second =>
+              first.orElsePar { f(second) }
+            }
         } yield result
       }
 

@@ -8,6 +8,7 @@ import cats.effect.IO
 import cats.effect.syntax.resource._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.LogOf
+import com.evolutiongaming.catshelper.FromFuture
 import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
@@ -21,6 +22,7 @@ import org.scalatest.matchers.should.Matchers
 import pureconfig.{ConfigReader, ConfigSource}
 
 import java.time.Instant
+import scala.concurrent.Promise
 
 
 trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
@@ -59,9 +61,13 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
       .unsafeRunSync()
   }
 
+  private val await = Promise[Unit]()
+  val awaitResources: IO[Unit] = FromFuture[IO].apply(await.future)
+
   override def beforeAll() = {
     super.beforeAll()
     IntegrationSuite.start()
+    await.success({})
     //    eventual
     //    producer
   }

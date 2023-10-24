@@ -157,7 +157,7 @@ object ReplicateRecords {
       for {
         records <- records
           .toList
-          .traverseFilter { a => consRecordToActionRecord(a).value }
+          .traverseFilter { record => consRecordToActionRecord(record) }
         result  <- records
           .toNel
           .foldMapM { records => apply(records) }

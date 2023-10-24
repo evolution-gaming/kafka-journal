@@ -10,7 +10,7 @@ import com.evolutiongaming.kafka.journal.util.CatsHelper._
 
 trait ConsRecordToActionRecord[F[_]] {
 
-  def apply(consRecord: ConsRecord): OptionT[F, ActionRecord[Action]]
+  def apply(consRecord: ConsRecord): F[Option[ActionRecord[Action]]]
 }
 
 
@@ -67,7 +67,6 @@ object ConsRecordToActionRecord {
         .adaptError { case e =>
           JournalError(s"ConsRecordToActionRecord failed for $consRecord: $e", e)
         }
-        .toOptionT
     }
   }
 }
