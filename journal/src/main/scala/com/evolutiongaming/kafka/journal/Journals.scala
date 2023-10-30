@@ -456,18 +456,21 @@ object Journals {
     def apply[F[_]](
       consumer: KafkaConsumer[F, String, ByteVector],
       pollTimeout: FiniteDuration
-    ): Consumer[F] = new Consumer[F] {
+    ): Consumer[F] = {
+      class Main
+      new Main with Consumer[F] {
 
-      def assign(partitions: Nes[TopicPartition]) = {
-        consumer.assign(partitions)
-      }
+        def assign(partitions: Nes[TopicPartition]) = {
+          consumer.assign(partitions)
+        }
 
-      def seek(partition: TopicPartition, offset: Offset) = {
-        consumer.seek(partition, offset)
-      }
+        def seek(partition: TopicPartition, offset: Offset) = {
+          consumer.seek(partition, offset)
+        }
 
-      def poll = {
-        consumer.poll(pollTimeout)
+        def poll = {
+          consumer.poll(pollTimeout)
+        }
       }
     }
   }
