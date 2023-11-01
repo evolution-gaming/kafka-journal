@@ -293,7 +293,9 @@ object HeadCacheSpec {
         config = config,
         eventual = eventual,
         consumer = consumer,
-        metrics = metrics.some)
+        metrics = metrics.some,
+        pointer = ???
+      )
     } yield headCache
   }
 

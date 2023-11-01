@@ -2,19 +2,20 @@ package com.evolutiongaming.kafka.journal
 
 import cats._
 import cats.effect._
-import cats.effect.syntax.all._
 import cats.effect.kernel.Async
+import cats.effect.syntax.all._
 import cats.syntax.all._
+import com.evolution.scache.{Cache, ExpiringCache}
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.PartitionCache.Result
 import com.evolutiongaming.kafka.journal.conversions.ConsRecordToActionHeader
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
-import com.evolution.scache.{Cache, ExpiringCache}
-import com.evolutiongaming.skafka.consumer.ConsumerConfig
+import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.smetrics._
 
+import java.nio.ByteBuffer
 import scala.concurrent.duration._
 
 /** Metainfo of events written to Kafka, but not yet replicated to Cassandra.
@@ -107,13 +108,38 @@ object HeadCache {
     eventualJournal: EventualJournal[F],
     metrics: Option[HeadCacheMetrics[F]]
   ): Resource[F, HeadCache[F]] = {
+
+    import com.evolutiongaming.skafka.FromBytes
+
+    implicit val partitionFromBytes: FromBytes[F, Partition] = (bytes, _) =>
+        for {
+          int       <- Sync[F].delay { ByteBuffer.wrap(bytes).getInt() }
+          partition <- Partition.of(int)
+        } yield partition
+
+    implicit val offsetFromBytes: FromBytes[F, Offset] = (bytes, _) =>
+      for {
+        long      <- Sync[F].delay { ByteBuffer.wrap(bytes).getLong() }
+        partition <- Offset.of(long)
+      } yield partition
+
     for {
       log    <- LogOf[F].apply(HeadCache.getClass).toResource
       result <- HeadCache.of(
         Eventual(eventualJournal),
         log,
         TopicCache.Consumer.of[F](consumerConfig),
-        metrics)
+        metrics,
+        pointer = KafkaConsumerOf[F].apply[Partition, Offset](
+          consumerConfig.copy(
+            groupId            = none,
+            autoCommit         = true,
+            autoCommitInterval = 5.seconds.some,
+            autoOffsetReset    = AutoOffsetReset.Latest,
+            fetchMinBytes      = 1,
+          )
+        )
+      )
       result <- result.withFence
     } yield {
       result.withLog(log)
@@ -132,7 +158,7 @@ object HeadCache {
     *   debug logging will be affected by this. One needs to call
     *   [[HeadCache#withLog]] if debug logging for [[HeadCache]] is required.
     * @param consumer
-    *   Kakfa data source factory. The reason why it is factory (i.e.
+    *   Kafka data source factory. The reason why it is factory (i.e.
     *   `Resource`) is that [[HeadCache]] will try to recreate consumer in case
     *   of the failure.
     * @param metrics
@@ -153,7 +179,8 @@ object HeadCache {
     log: Log[F],
     consumer: Resource[F, TopicCache.Consumer[F]],
     metrics: Option[HeadCacheMetrics[F]],
-    config: HeadCacheConfig = HeadCacheConfig.default
+    config: HeadCacheConfig = HeadCacheConfig.default,
+    pointer: Resource[F, KafkaConsumer[F, Partition, Offset]]
   ): Resource[F, HeadCache[F]] = {
 
     val consRecordToActionHeader = ConsRecordToActionHeader[F]
@@ -179,7 +206,9 @@ object HeadCache {
                   consumer,
                   config,
                   consRecordToActionHeader,
-                  metrics.map { _.headCache })
+                  metrics.map { _.headCache },
+                  pointer
+                )
                 .map { cache =>
                   metrics
                     .fold(cache) { metrics => cache.withMetrics(topic, metrics.headCache) }

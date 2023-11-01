@@ -1,21 +1,21 @@
 package com.evolutiongaming.kafka.journal
 
 import cats._
-import cats.data.{NonEmptyMap => Nem, NonEmptySet => Nes}
+import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.effect._
 import cats.effect.syntax.all._
 import cats.syntax.all._
-import com.evolutiongaming.catshelper._
+import com.evolution.scache.Cache
 import com.evolutiongaming.catshelper.ParallelHelper._
+import com.evolutiongaming.catshelper._
+import com.evolutiongaming.kafka.journal.HeadCache.Eventual
 import com.evolutiongaming.kafka.journal.conversions.ConsRecordToActionHeader
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
-import com.evolutiongaming.kafka.journal.HeadCache.Eventual
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.Retry.implicits._
 import com.evolutiongaming.retry.{Sleep, Strategy}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecords}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
-import com.evolution.scache.Cache
 
 import scala.concurrent.duration._
 
@@ -84,9 +84,9 @@ object TopicCache {
     consumer: Resource[F, Consumer[F]],
     config: HeadCacheConfig,
     consRecordToActionHeader: ConsRecordToActionHeader[F],
-    metrics: Option[HeadCache.Metrics[F]]
+    metrics: Option[HeadCache.Metrics[F]],
+    pointer: Resource[F, KafkaConsumer[F, Partition, Offset]],
   ): Resource[F, TopicCache[F]] = {
-
     for {
       consumer   <- consumer
         .map { _.withLog(log) }
@@ -125,6 +125,50 @@ object TopicCache {
             }
         }
       _         <- remove.toResource
+
+      pointer <- pointer
+      subscribePointer = for {
+        partitions <- pointer.partitions(pointerTopic)
+        partitions <- Nel
+          .fromList(partitions.toList.map { partition => TopicPartition(pointerTopic, partition) })
+          .map(_.toNes)
+          .liftTo[F](new RuntimeException(s"no partitions in topic $pointerTopic"))
+        _          <- pointer.assign(partitions)
+      } yield {}
+      _ <- subscribePointer.toResource.whenA(topic == rbowTopic)
+      pollPointers = pointer
+        .poll(1.second)
+        .flatMap { records =>
+          val offsets = for {
+            case (_, records) <- records.values.toList
+            record <- records.toList
+            partition <- record.key
+            offset <- record.value
+          } yield partition.value -> offset.value
+          offsets
+            .groupBy { case (partition, _) => partition }
+            .map { case (partition, offsets) => partition -> offsets.map(_._2).maxBy(_.value) }
+            .toList
+            .foldMapM { case (partition, offset) =>
+              for {
+                cache <- partitionCacheOf(partition)
+                result <- cache
+                  .remove(offset)
+                  .map { diff =>
+                    diff.foldMap { a => Sample(a.value) }
+                  }
+              } yield result
+            }
+        }
+        .flatMap { sample =>
+          sample
+            .avg
+            .foldMapM { diff =>
+              metrics.foldMapM { _.storage(topic, diff) }
+            }
+            .as(sample.count)
+        }
+
       pointers  = {
         cache
           .values1
@@ -225,6 +269,16 @@ object TopicCache {
         .exponential(10.millis)
         .cap(3.seconds)
         .jitter(random)
+      _ <- pollPointers
+        .flatMap {
+          case 0 => Sleep[F].sleep(config.removeInterval)
+          case _ => Applicative[F].unit
+        }
+        .retry(strategy) // probably not needed here
+        .handleErrorWith { a => log.error(s"remove poll failed, error: $a", a) }
+        .foreverM[Unit]
+        .background
+        .whenA(topic == rbowTopic)
       _ <- Sleep[F]
         .sleep(config.removeInterval)
         .productR { remove }
@@ -232,6 +286,7 @@ object TopicCache {
         .handleErrorWith { a => log.error(s"remove failed, error: $a", a) }
         .foreverM[Unit]
         .background
+        .whenA(topic != rbowTopic)
       _ <- metrics.foldMapM { metrics =>
         val result = for {
           _ <- Temporal[F].sleep(1.minute)

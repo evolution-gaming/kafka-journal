@@ -15,6 +15,7 @@ import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.retry.Sleep
 import com.evolutiongaming.skafka.{Metadata, Offset, Partition, Topic}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
+import com.evolutiongaming.skafka.producer.ProducerConfig
 import scodec.bits.ByteVector
 
 import java.time.Instant
@@ -231,11 +232,17 @@ object TopicReplicator {
 
   object ConsumerOf {
 
-    def of[F[_]: Concurrent : KafkaConsumerOf : FromTry : Clock](
+    final case class PointerConfig(
+      topic: Topic,
+      config: ProducerConfig
+    )
+
+    def of[F[_]: Async : KafkaConsumerOf : FromTry : ToTry : Clock](
       topic: Topic,
       config: ConsumerConfig,
       pollTimeout: FiniteDuration,
-      hostName: Option[HostName]
+      hostName: Option[HostName],
+      pointerConfig: Option[PointerConfig] = None,
     ): Resource[F, TopicConsumer[F]] = {
 
       val groupId = {
@@ -261,6 +268,13 @@ object TopicReplicator {
         metadata  = hostName.fold { Metadata.empty } { _.value }
         commit    = TopicCommit(topic, metadata, consumer)
         commit   <- TopicCommit.delayed(5.seconds, commit).toResource
+        commit   <- pointerConfig match {
+          case None                               => commit.pure[Resource[F, *]]
+          case Some(PointerConfig(topic, config)) =>
+            for {
+              producer <- KafkaProducerOf[F](none).apply(config)
+            } yield TopicCommit.pointer[F](topic, producer, commit)
+        }
       } yield {
         TopicConsumer(topic, pollTimeout, commit, consumer)
       }

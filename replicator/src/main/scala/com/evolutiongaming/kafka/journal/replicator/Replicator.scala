@@ -22,6 +22,7 @@ import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerMetrics}
 import com.evolutiongaming.skafka.{ClientId, Topic, Bytes => _}
 import com.evolutiongaming.smetrics.CollectorRegistry
 import com.evolution.scache.CacheMetrics
+import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig}
 import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
@@ -59,7 +60,7 @@ object Replicator {
 
   def of[
     F[_]
-    : Temporal : Parallel
+    : Async : Parallel
     : Runtime : FromTry : ToTry : Fail : LogOf
     : KafkaConsumerOf : MeasureDuration
     : JsonCodec
@@ -72,11 +73,27 @@ object Replicator {
 
     val topicReplicator: Topic => Resource[F, F[Outcome[F, Throwable, Unit]]] =
       (topic: Topic) => {
+        val pointerConfig = topic match {
+          case theTopic if theTopic == rbowTopic =>
+            TopicReplicator.ConsumerOf.PointerConfig(
+              topic  = pointerTopic,
+              config = ProducerConfig(
+                common    = config.kafka.consumer.common,
+                batchSize = 0,
+                acks      = Acks.One,
+                retries   = 0,
+              )
+            ).some
+          case _ => none
+        }
+
         val consumer = TopicReplicator.ConsumerOf.of[F](
           topic,
           config.kafka.consumer,
           config.pollTimeout,
-          hostName)
+          hostName,
+          pointerConfig
+        )
 
         val metrics1 = metrics
           .flatMap { _.replicator }

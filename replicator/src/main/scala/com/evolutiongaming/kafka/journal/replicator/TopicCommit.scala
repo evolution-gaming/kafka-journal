@@ -4,14 +4,17 @@ import java.time.Instant
 import cats.Applicative
 import cats.data.{NonEmptyMap => Nem}
 import cats.effect.kernel.Concurrent
-import cats.effect.{Clock, Ref}
+import cats.effect.{Clock, Ref, Sync}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
-import com.evolutiongaming.kafka.journal.KafkaConsumer
+import com.evolutiongaming.kafka.journal.{KafkaConsumer, KafkaProducer}
 import com.evolutiongaming.skafka._
+import com.evolutiongaming.skafka.producer.ProducerRecord
+import com.evolutiongaming.skafka.ToBytes
 
+import java.nio.ByteBuffer
 import scala.collection.immutable.SortedMap
 import scala.concurrent.duration._
 
@@ -77,4 +80,39 @@ object TopicCommit {
       }
     }
   }
+
+  def pointer[F[_]: Sync](
+    topic: Topic,
+    producer: KafkaProducer[F],
+    commit: TopicCommit[F]
+  ): TopicCommit[F] =
+    new TopicCommit[F] {
+
+      implicit val partitionToBytes: ToBytes[F, Partition] =
+        (partition: Partition, _) => Sync[F].delay { ByteBuffer.allocate(4).putInt(partition.value).array() }
+
+      implicit val offsetToBytes: ToBytes[F, Offset] =
+        (offset: Offset, _) => Sync[F].delay { ByteBuffer.allocate(8).putLong(offset.value).array() }
+
+      override def apply(offsets: Nem[Partition, Offset]): F[Unit] = {
+
+        val commitPointers = offsets.toNel.toList.traverse {
+          case (partition, offset) =>
+            val record = new ProducerRecord[Partition, Offset](
+              topic = topic,
+              partition = partition.some, // manually setting partition for imitating journal topic
+              key = partition.some,
+              value = offset.some,
+            )
+            producer.send(record)
+        }
+
+        val commitOffsets = commit(offsets)
+
+        for {
+          _ <- commitPointers
+          _ <- commitOffsets
+        } yield {}
+      }
+    }
 }
