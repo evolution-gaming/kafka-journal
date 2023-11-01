@@ -9,6 +9,5 @@ final case class SnapshotRecord[A](
   origin: Option[Origin],
   version: Option[Version],
   metadata: RecordMetadata,
-  headers: Headers,
   status: SnapshotStatus
 )
