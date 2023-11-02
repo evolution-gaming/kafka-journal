@@ -16,6 +16,7 @@ import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.smetrics._
 
 import java.nio.ByteBuffer
+import java.util.UUID
 import scala.concurrent.duration._
 
 /** Metainfo of events written to Kafka, but not yet replicated to Cassandra.
@@ -132,7 +133,7 @@ object HeadCache {
         metrics,
         pointer = KafkaConsumerOf[F].apply[Partition, Offset](
           consumerConfig.copy(
-            groupId            = none,
+            groupId            = UUID.randomUUID().toString.some,
             autoCommit         = true,
             autoCommitInterval = 5.seconds.some,
             autoOffsetReset    = AutoOffsetReset.Latest,

@@ -16,7 +16,7 @@ import com.evolutiongaming.smetrics.CollectorRegistry
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import com.evolutiongaming.retry.Sleep
-import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords}
+import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecord, ConsumerRecords}
 
 import scala.collection.immutable.Queue
 import scala.concurrent.duration._
@@ -188,7 +188,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
     "timeout" in {
       val consumer   = TopicCache.Consumer.empty[IO]
       val headCache  = headCacheOf(
-        HeadCache.Eventual.empty, 
+        HeadCache.Eventual.empty,
         consumer.pure[IO].toResource,
         config.copy(timeout = 10.millis))
       val result = headCache.use { headCache =>
@@ -276,7 +276,7 @@ object HeadCacheSpec {
       headers = headers).get
   }
 
-  
+
   implicit val LogIO: Log[IO] = Log.empty[IO]
 
 
@@ -294,7 +294,7 @@ object HeadCacheSpec {
         eventual = eventual,
         consumer = consumer,
         metrics = metrics.some,
-        pointer = ???
+        pointer = KafkaConsumer.of(Consumer.empty[IO, Partition, Offset].pure[Resource[IO, *]])
       )
     } yield headCache
   }
@@ -377,7 +377,7 @@ object HeadCacheSpec {
       }
     }
   }
-  
-  
+
+
   case object TestError extends RuntimeException with NoStackTrace
 }
