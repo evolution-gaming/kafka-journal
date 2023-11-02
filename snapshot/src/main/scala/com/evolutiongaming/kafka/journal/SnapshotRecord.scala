@@ -8,6 +8,5 @@ final case class SnapshotRecord[A](
   partitionOffset: PartitionOffset,
   origin: Option[Origin],
   version: Option[Version],
-  metadata: RecordMetadata,
-  status: SnapshotStatus
+  metadata: RecordMetadata
 )
