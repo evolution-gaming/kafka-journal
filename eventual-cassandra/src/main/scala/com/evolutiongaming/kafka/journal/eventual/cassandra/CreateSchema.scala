@@ -47,6 +47,8 @@ object CreateSchema {
 
       val pointer2 = table(config.pointer2Table, a => Nel.of(Pointer2Statements.createTable(a)))
 
+      val snapshot = table(config.snapshotTable, a => Nel.of(SnapshotStatements.createTable(a)))
+
       val setting = table(config.settingTable, a => Nel.of(SettingStatements.createTable(a)))
 
       val schema = Schema(
@@ -55,11 +57,12 @@ object CreateSchema {
         metaJournal = tableName(metaJournal),
         pointer = tableName(pointer),
         pointer2 = tableName(pointer2),
+        snapshot = tableName(snapshot),
         setting = tableName(setting))
 
       if (config.autoCreate) {
         for {
-          result <- createTables(keyspace, Nel.of(journal, pointer, pointer2, setting, metaJournal))
+          result <- createTables(keyspace, Nel.of(journal, pointer, pointer2, snapshot, setting, metaJournal))
         } yield {
           (schema, result)
         }
