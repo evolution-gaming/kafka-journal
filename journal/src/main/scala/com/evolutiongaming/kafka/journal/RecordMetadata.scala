@@ -14,25 +14,14 @@ object RecordMetadata {
 
   val empty: RecordMetadata = RecordMetadata()
 
-
   implicit val formatRecordMetadata: OFormat[RecordMetadata] = {
-
     val format = Json.format[RecordMetadata]
-
-    // TODO expiry: temporary, remove after 01-02-2020
-    val writes = new OWrites[RecordMetadata] {
-      def writes(a: RecordMetadata) = {
-        Json.toJsObject(a.header) ++ format.writes(a)
-      }
-    }
-
-    val reads = format.orElse((json: JsValue) => {
+    val reads = format.orElse { json: JsValue =>
       json
         .validate[HeaderMetadata]
         .map { a => RecordMetadata(a, PayloadMetadata.empty) }
-    })
-
-    OFormat(reads, writes)
+    }
+    OFormat(reads, format)
   }
 
 

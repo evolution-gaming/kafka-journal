@@ -27,8 +27,7 @@ class RecordMetadataTest extends AnyFunSuite with Matchers {
             ("data", Json.obj(("key0", "value0"))))),
           ("payload", Json.obj(
             ("expireAfter", "1 day"),
-            ("data", Json.obj(("key1", "value1"))))),
-          ("data", Json.obj(("key0", "value0"))))),
+            ("data", Json.obj(("key1", "value1"))))))),
       (
         RecordMetadata(
           HeaderMetadata(Json.obj(("key0", "value0")).some),
@@ -37,8 +36,7 @@ class RecordMetadataTest extends AnyFunSuite with Matchers {
           ("header", Json.obj(
             ("data", Json.obj(("key0", "value0"))))),
           ("payload", Json.obj(
-            ("data", Json.obj(("key1", "value1"))))),
-          ("data", Json.obj(("key0", "value0"))))),
+            ("data", Json.obj(("key1", "value1"))))))),
       (
         RecordMetadata(
           HeaderMetadata.empty,
@@ -55,8 +53,7 @@ class RecordMetadataTest extends AnyFunSuite with Matchers {
         Json.obj(
           ("header", Json.obj(
             ("data", Json.obj(("key0", "value0"))))),
-          ("payload", Json.obj()),
-          ("data", Json.obj(("key0", "value0"))))))
+          ("payload", Json.obj()))))
   } {
     test(s"formatRecordMetadata reads & writes $json") {
       Json.toJson(metadata) shouldEqual json
