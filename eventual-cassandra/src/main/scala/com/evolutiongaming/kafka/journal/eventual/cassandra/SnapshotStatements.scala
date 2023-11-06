@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.Monad
 import cats.syntax.all._
 import com.datastax.driver.core.Row
-import com.evolutiongaming.catshelper.ToTry
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
@@ -13,7 +12,6 @@ import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName, TableName}
 import scodec.bits.ByteVector
 
 import java.time.Instant
-import scala.util.Try
 
 object SnapshotStatements {
 
@@ -25,8 +23,6 @@ object SnapshotStatements {
        |segment BIGINT,
        |buffer_nr INT,
        |seq_nr BIGINT,
-       |partition INT,
-       |offset BIGINT,
        |timestamp TIMESTAMP,
        |origin TEXT,
        |version TEXT,
@@ -44,17 +40,13 @@ object SnapshotStatements {
 
   object InsertRecord {
 
-    def of[F[_] : Monad : CassandraSession : ToTry : JsonCodec.Encode](
+    def of[F[_] : Monad : CassandraSession](
       name: TableName,
       consistencyConfig: ConsistencyConfig.Write
     ): F[InsertRecord[F]] = {
 
-      implicit val encodeTry: JsonCodec.Encode[Try] = JsonCodec.Encode.summon[F].mapK(ToTry.functionK)
-
       implicit val encodeByNameByteVector: EncodeByName[ByteVector] = EncodeByName[Array[Byte]]
         .contramap { _.toArray }
-
-      val encodeByNameRecordMetadata = EncodeByName[RecordMetadata]
 
       val query =
         s"""
@@ -64,16 +56,13 @@ object SnapshotStatements {
            |segment,
            |buffer_nr,
            |seq_nr,
-           |partition,
-           |offset,
            |timestamp,
            |origin,
            |version,
            |payload_type,
            |payload_txt,
            |payload_bin,
-           |metadata,
-           |status)
+           |metadata)
            |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            |""".stripMargin
 
@@ -100,14 +89,12 @@ object SnapshotStatements {
               .encode(segment)
               .encode(bufferNr)
               .encode(snapshot.seqNr)
-              .encode(record.partitionOffset)
               .encode("timestamp", record.timestamp)
               .encodeSome(record.origin)
               .encodeSome(record.version)
               .encodeSome("payload_type", payloadType)
               .encodeSome("payload_txt", txt)
               .encodeSome("payload_bin", bin)
-              .encode("metadata", record.metadata)(encodeByNameRecordMetadata)
               .setConsistencyLevel(consistencyConfig.value)
           }
 
@@ -118,18 +105,69 @@ object SnapshotStatements {
   }
 
 
-  trait SelectRecord[F[_]] {
+  trait SelectMetadata[F[_]] {
+    def apply(key: Key, segment: SegmentNr): F[Map[BufferNr, (SeqNr, Instant)]]
+  }
 
+  object SelectMetadata {
+
+    def of[F[_] : Monad : CassandraSession](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Read): F[SelectMetadata[F]] = {
+
+      val query =
+        s"""
+           |SELECT
+           |buffer_nr,
+           |seq_nr,
+           |timestamp FROM ${ name.toCql }
+           |WHERE id = ?
+           |AND topic = ?
+           |AND segment = ?
+           |""".stripMargin
+
+      for {
+        prepared <- query.prepare
+      } yield {
+        new SelectMetadata[F] {
+
+          def apply(key: Key, segment: SegmentNr) = {
+
+            val bound = prepared
+              .bind()
+              .encode(key)
+              .encode(segment)
+              .setConsistencyLevel(consistencyConfig.value)
+
+            val rows = for {
+              row <- bound.execute
+            } yield {
+
+              val seqNr = row.decode[SeqNr]
+              val bufferNr = row.decode[BufferNr]
+              val timestamp = row.decode[Instant]("timestamp")
+
+              (bufferNr, (seqNr, timestamp))
+            }
+
+            rows.toList.map(_.toMap)
+          }
+        }
+      }
+    }
+  }
+
+
+  trait SelectRecord[F[_]] {
     def apply(key: Key, segment: SegmentNr, bufferNr: BufferNr): F[Option[SnapshotRecord[EventualPayloadAndType]]]
   }
 
   object SelectRecord {
 
-    def of[F[_] : Monad : CassandraSession : ToTry : JsonCodec.Decode](
+    def of[F[_] : Monad : CassandraSession](
       name: TableName,
       consistencyConfig: ConsistencyConfig.Read): F[SelectRecord[F]] = {
 
-      implicit val encodeTry: JsonCodec.Decode[Try] = JsonCodec.Decode.summon[F].mapK(ToTry.functionK)
       implicit val decodeByNameByteVector: DecodeByName[ByteVector] = DecodeByName[Array[Byte]]
         .map { a => ByteVector.view(a) }
 
@@ -137,16 +175,13 @@ object SnapshotStatements {
         s"""
            |SELECT
            |seq_nr,
-           |partition,
-           |offset,
            |timestamp,
            |origin,
            |version,
            |payload_type,
            |payload_txt,
            |payload_bin,
-           |metadata,
-           |status FROM ${ name.toCql }
+           |metadata FROM ${ name.toCql }
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?
@@ -179,7 +214,6 @@ object SnapshotStatements {
             val rows = for {
               row <- bound.execute
             } yield {
-              val partitionOffset = row.decode[PartitionOffset]
 
               val payload = readPayload(row)
 
@@ -188,15 +222,11 @@ object SnapshotStatements {
                 seqNr = seqNr,
                 payload = payload)
 
-              val metadata = row.decode[Option[RecordMetadata]]("metadata") getOrElse RecordMetadata.empty
-
               SnapshotRecord(
                 snapshot = snapshot,
                 timestamp = row.decode[Instant]("timestamp"),
                 origin = row.decode[Option[Origin]],
-                version = row.decode[Option[Version]],
-                partitionOffset = partitionOffset,
-                metadata = metadata)
+                version = row.decode[Option[Version]])
             }
 
             rows.first
