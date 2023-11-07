@@ -13,6 +13,9 @@ sealed abstract case class BufferNr(value: Int) {
 
 object BufferNr {
 
+  def listOf(size: Int): List[BufferNr] =
+    (0 until size).toList.map(fromIntUnsafe)
+
   def fromIntUnsafe(value: Int): BufferNr =
     new BufferNr(value) {}
 
