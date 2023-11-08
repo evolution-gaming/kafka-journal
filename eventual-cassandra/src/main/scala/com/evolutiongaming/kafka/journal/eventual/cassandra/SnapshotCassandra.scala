@@ -30,9 +30,10 @@ object SnapshotCassandra {
   def apply[F[_]: MonadThrow](statements: Statements[F]): SnapshotStoreFlat[F] = {
     new Main with SnapshotStoreFlat[F] {
 
+      // we do not use segments for now
+      val segmentNr = SegmentNr.min
+
       def save(key: Key, snapshot: SnapshotRecord[EventualPayloadAndType]): F[Unit] = {
-        // we do not use segments for now
-        val segmentNr = SegmentNr.min
         statements.selectMetadata(key, segmentNr).flatMap {
           case s if s.size < BufferSize => insert(key, segmentNr, s, snapshot)
           case s                        => update(key, segmentNr, s, snapshot)
@@ -75,7 +76,19 @@ object SnapshotCassandra {
         maxTimestamp: Instant,
         minSeqNr: SeqNr,
         minTimestamp: Instant
-      ): F[Option[SnapshotRecord[EventualPayloadAndType]]] = ???
+      ): F[Option[SnapshotRecord[EventualPayloadAndType]]] = for {
+        savedSnapshots <- statements.selectMetadata(key, segmentNr)
+        sortedSnapshots = savedSnapshots.toList.sortBy { case (_, (seqNr, _)) => seqNr }
+        bufferNr = sortedSnapshots.reverse.collectFirst {
+          case (bufferNr, (seqNr, timestamp))
+              if seqNr >= minSeqNr &&
+                seqNr <= maxSeqNr &&
+                timestamp.compareTo(minTimestamp) >= 0 &&
+                timestamp.compareTo(maxTimestamp) <= 0 =>
+            bufferNr
+        }
+        snapshot <- bufferNr.flatTraverse(statements.selectRecords(key, segmentNr, _))
+      } yield snapshot
 
       def drop(key: Key, maxSeqNr: SeqNr, maxTimestamp: Instant, minSeqNr: SeqNr, minTimestamp: Instant): F[Unit] = ???
       def drop(key: Key, seqNr: SeqNr): F[Unit] = ???
