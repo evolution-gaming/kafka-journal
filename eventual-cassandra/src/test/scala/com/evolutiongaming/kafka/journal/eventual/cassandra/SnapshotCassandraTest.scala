@@ -10,7 +10,7 @@ import org.scalatest.funsuite.AnyFunSuite
 
 import java.time.Instant
 
-class SnapshotCassandraSpec extends AnyFunSuite {
+class SnapshotCassandraTest extends AnyFunSuite {
 
   type SnaphsotWithPayload = SnapshotRecord[EventualPayloadAndType]
 
