@@ -35,7 +35,7 @@ object SnapshotCassandra {
         val segmentNr = SegmentNr.min
         statements.selectMetadata(key, segmentNr).flatMap {
           case s if s.size < BufferSize => insert(key, segmentNr, s, snapshot)
-          case s => update(key, segmentNr, s, snapshot)
+          case s                        => update(key, segmentNr, s, snapshot)
         }
       }
 
@@ -62,13 +62,21 @@ object SnapshotCassandra {
         val sortedSnapshots = savedSnapshots.toList.sortBy { case (_, (seqNr, _)) => seqNr }
 
         val oldestSnapshot = sortedSnapshots.lastOption
-        MonadThrow[F].fromOption(oldestSnapshot, SnapshotStoreError("Could not find an oldest snapshot")).flatMap { oldestSnapshot =>
-          val (bufferNr, (_, _)) = oldestSnapshot
-          statements.insertRecords(key, segmentNr, bufferNr, snapshot)
+        MonadThrow[F].fromOption(oldestSnapshot, SnapshotStoreError("Could not find an oldest snapshot")).flatMap {
+          oldestSnapshot =>
+            val (bufferNr, (_, _)) = oldestSnapshot
+            statements.insertRecords(key, segmentNr, bufferNr, snapshot)
         }
       }
 
-      def load(key: Key, maxSeqNr: SeqNr, maxTimestamp: Instant, minSeqNr: SeqNr, minTimestamp: Instant): F[Unit] = ???
+      def load(
+        key: Key,
+        maxSeqNr: SeqNr,
+        maxTimestamp: Instant,
+        minSeqNr: SeqNr,
+        minTimestamp: Instant
+      ): F[Option[SnapshotRecord[EventualPayloadAndType]]] = ???
+
       def drop(key: Key, maxSeqNr: SeqNr, maxTimestamp: Instant, minSeqNr: SeqNr, minTimestamp: Instant): F[Unit] = ???
       def drop(key: Key, seqNr: SeqNr): F[Unit] = ???
 
