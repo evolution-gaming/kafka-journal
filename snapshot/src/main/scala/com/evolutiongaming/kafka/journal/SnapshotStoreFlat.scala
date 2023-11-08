@@ -16,13 +16,7 @@ trait SnapshotStoreFlat[F[_]] {
     minTimestamp: Instant
   ): F[Option[SnapshotRecord[EventualPayloadAndType]]]
 
-  def drop(
-    key: Key,
-    maxSeqNr: SeqNr,
-    maxTimestamp: Instant,
-    minSeqNr: SeqNr,
-    minTimestamp: Instant
-  ): F[Unit]
+  def drop(key: Key, maxSeqNr: SeqNr, maxTimestamp: Instant, minSeqNr: SeqNr, minTimestamp: Instant): F[Unit]
 
   def drop(key: Key, seqNr: SeqNr): F[Unit]
 
