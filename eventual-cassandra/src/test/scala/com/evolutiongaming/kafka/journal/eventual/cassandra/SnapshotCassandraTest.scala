@@ -6,11 +6,11 @@ import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
-import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.funsuite.AsyncFunSuite
 
 import java.time.Instant
 
-class SnapshotCassandraTest extends AnyFunSuite {
+class SnapshotCassandraTest extends AsyncFunSuite {
 
   type SnaphsotWithPayload = SnapshotRecord[EventualPayloadAndType]
 
@@ -19,10 +19,27 @@ class SnapshotCassandraTest extends AnyFunSuite {
       statements <- statements[IO]
       store = SnapshotCassandra(statements)
       key = Key("topic", "id")
-      _ <- store.save(key, snapshot)
-      snapshot <- store.load(key, SeqNr.min, Instant.MAX, SeqNr.max, Instant.MAX)
+      _ <- store.save(key, record)
+      snapshot <- store.load(key, SeqNr.max, Instant.MAX, SeqNr.min, Instant.MIN)
     } yield {
       assert(snapshot.isDefined)
+    }
+    program.run()
+  }
+
+  test("save concurrently") {
+    val program = for {
+      statements <- statements[IO]
+      store = SnapshotCassandra(statements)
+      key = Key("topic", "id")
+      snapshot1 = record.snapshot.copy(seqNr = SeqNr.unsafe(1))
+      snapshot2 = record.snapshot.copy(seqNr = SeqNr.unsafe(2))
+      save1 = store.save(key, record.copy(snapshot = snapshot1))
+      save2 = store.save(key, record.copy(snapshot = snapshot2))
+      _ <- IO.both(save1, save2)
+      snapshot <- store.load(key, SeqNr.max, Instant.MAX, SeqNr.min, Instant.MIN)
+    } yield {
+      assert(snapshot.map(_.snapshot.seqNr) == Some(SeqNr.unsafe(2)))
     }
     program.run()
   }
@@ -61,7 +78,7 @@ class SnapshotCassandraTest extends AnyFunSuite {
     def empty: DatabaseState = DatabaseState(Map.empty)
   }
 
-  val snapshot = SnapshotRecord(
+  val record = SnapshotRecord(
     snapshot = Snapshot(
       seqNr = SeqNr.min,
       payload = Some(EventualPayloadAndType(payload = Left("payload"), payloadType = PayloadType.Text))
