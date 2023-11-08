@@ -35,6 +35,7 @@ object SnapshotCassandra {
         val segmentNr = SegmentNr.min
         statements.selectMetadata(key, segmentNr).flatMap {
           case s if s.size < BufferSize => insert(key, segmentNr, s, snapshot)
+          case s => update(key, segmentNr, s, snapshot)
         }
       }
 
@@ -48,6 +49,21 @@ object SnapshotCassandra {
         val takenBufferNrs = savedSnapshots.keySet
         val freeBufferNr = allBufferNrs.find(bufferNr => !takenBufferNrs.contains(bufferNr))
         MonadThrow[F].fromOption(freeBufferNr, SnapshotStoreError("Could not find a free key")).flatMap { bufferNr =>
+          statements.insertRecords(key, segmentNr, bufferNr, snapshot)
+        }
+      }
+
+      def update(
+        key: Key,
+        segmentNr: SegmentNr,
+        savedSnapshots: Map[BufferNr, (SeqNr, Instant)],
+        snapshot: SnapshotRecord[EventualPayloadAndType]
+      ): F[Unit] = {
+        val sortedSnapshots = savedSnapshots.toList.sortBy { case (_, (seqNr, _)) => seqNr }
+
+        val oldestSnapshot = sortedSnapshots.lastOption
+        MonadThrow[F].fromOption(oldestSnapshot, SnapshotStoreError("Could not find an oldest snapshot")).flatMap { oldestSnapshot =>
+          val (bufferNr, (_, _)) = oldestSnapshot
           statements.insertRecords(key, segmentNr, bufferNr, snapshot)
         }
       }
