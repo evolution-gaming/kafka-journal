@@ -1,7 +1,7 @@
 import Dependencies._
 
 lazy val commonSettings = Seq(
-  organization := "com.evolutiongaming",
+  organization := "com.evolution.tech-1038",
   homepage := Some(new URL("http://github.com/evolution-gaming/kafka-journal")),
   startYear := Some(2018),
   organizationName := "Evolution",
