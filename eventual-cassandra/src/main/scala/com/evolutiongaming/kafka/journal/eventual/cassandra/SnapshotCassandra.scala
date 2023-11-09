@@ -76,22 +76,37 @@ object SnapshotCassandra {
         maxTimestamp: Instant,
         minSeqNr: SeqNr,
         minTimestamp: Instant
-      ): F[Option[SnapshotRecord[EventualPayloadAndType]]] = for {
-        savedSnapshots <- statements.selectMetadata(key, segmentNr)
-        sortedSnapshots = savedSnapshots.toList.sortBy { case (_, (seqNr, _)) => seqNr }
-        bufferNr = sortedSnapshots.reverse.collectFirst {
-          case (bufferNr, (seqNr, timestamp))
-              if seqNr >= minSeqNr &&
-                seqNr <= maxSeqNr &&
-                timestamp.compareTo(minTimestamp) >= 0 &&
-                timestamp.compareTo(maxTimestamp) <= 0 =>
-            bufferNr
-        }
-        snapshot <- bufferNr.flatTraverse(statements.selectRecords(key, segmentNr, _))
-      } yield snapshot
+      ): F[Option[SnapshotRecord[EventualPayloadAndType]]] =
+        for {
+          savedSnapshots <- statements.selectMetadata(key, segmentNr)
+          sortedSnapshots = savedSnapshots.toList.sortBy { case (_, (seqNr, _)) => seqNr }
+          bufferNr = sortedSnapshots.reverse.collectFirst {
+            case (bufferNr, (seqNr, timestamp))
+                if seqNr >= minSeqNr &&
+                  seqNr <= maxSeqNr &&
+                  timestamp.compareTo(minTimestamp) >= 0 &&
+                  timestamp.compareTo(maxTimestamp) <= 0 =>
+              bufferNr
+          }
+          snapshot <- bufferNr.flatTraverse(statements.selectRecords(key, segmentNr, _))
+        } yield snapshot
 
-      def drop(key: Key, maxSeqNr: SeqNr, maxTimestamp: Instant, minSeqNr: SeqNr, minTimestamp: Instant): F[Unit] = ???
-      def drop(key: Key, seqNr: SeqNr): F[Unit] = ???
+      def drop(key: Key, maxSeqNr: SeqNr, maxTimestamp: Instant, minSeqNr: SeqNr, minTimestamp: Instant): F[Unit] =
+        for {
+          savedSnapshots <- statements.selectMetadata(key, segmentNr)
+          bufferNrs = savedSnapshots.toList.collect {
+            case (bufferNr, (seqNr, timestamp))
+                if seqNr >= minSeqNr &&
+                  seqNr <= maxSeqNr &&
+                  timestamp.compareTo(minTimestamp) >= 0 &&
+                  timestamp.compareTo(maxTimestamp) <= 0 =>
+              bufferNr
+          }
+          _ <- bufferNrs.traverse(statements.deleteRecords(key, segmentNr, _))
+        } yield ()
+
+      def drop(key: Key, seqNr: SeqNr): F[Unit] =
+        drop(key, seqNr, Instant.MAX, seqNr, Instant.MIN)
 
     }
   }
