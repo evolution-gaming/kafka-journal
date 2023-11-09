@@ -17,6 +17,6 @@ package object journal {
 
   type ConsRecords = ConsumerRecords[String, ByteVector]
 
-  val rbowTopic    = "rbow-journal-4.PlayerBetting"
+  val rbowTopic    = "rbow-journal-v4.PlayerBetting"
   val pointerTopic = "kafka-journal-offset-temp"
 }
