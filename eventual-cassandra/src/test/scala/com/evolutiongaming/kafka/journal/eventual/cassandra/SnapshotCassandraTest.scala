@@ -1,22 +1,22 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.effect.IO
-import cats.effect.kernel.{Concurrent, Ref}
 import cats.syntax.all._
-import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
-import org.scalatest.funsuite.AsyncFunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import java.time.Instant
+import cats.data.StateT
+import scala.util.Try
 
-class SnapshotCassandraTest extends AsyncFunSuite {
+class SnapshotCassandraTest extends AnyFunSuite {
 
   type SnaphsotWithPayload = SnapshotRecord[EventualPayloadAndType]
+  type F[A] = cats.data.StateT[Try, DatabaseState, A]
 
   test("save and load") {
     val program = for {
-      statements <- statements[IO]
+      statements <- statements.pure[F]
       store = SnapshotCassandra(statements)
       key = Key("topic", "id")
       _ <- store.save(key, record)
@@ -24,43 +24,43 @@ class SnapshotCassandraTest extends AsyncFunSuite {
     } yield {
       assert(snapshot.isDefined)
     }
-    program.run()
+    program.run(DatabaseState.empty).get
   }
 
   test("save concurrently") {
     val program = for {
-      statements <- statements[IO]
-      store = SnapshotCassandra(statements)
+      statements <- statements.pure[F]
+      // both snapshotters see empty metadata, because it is not saved yet
+      emptyStore = SnapshotCassandra[F](statements.copy(selectMetadata = { (_, _) => Map.empty.pure[F] }))
+      finalStore = SnapshotCassandra[F](statements)
       key = Key("topic", "id")
       snapshot1 = record.snapshot.copy(seqNr = SeqNr.unsafe(1))
       snapshot2 = record.snapshot.copy(seqNr = SeqNr.unsafe(2))
-      save1 = store.save(key, record.copy(snapshot = snapshot1))
-      save2 = store.save(key, record.copy(snapshot = snapshot2))
-      _ <- IO.both(save1, save2)
-      snapshot <- store.load(key, SeqNr.max, Instant.MAX, SeqNr.min, Instant.MIN)
+      // here, we change the order of writing, to simulate concurrency
+      _ <- emptyStore.save(key, record.copy(snapshot = snapshot2))
+      _ <- emptyStore.save(key, record.copy(snapshot = snapshot1))
+      // we should still get the latest snapshot here
+      snapshot <- finalStore.load(key, SeqNr.max, Instant.MAX, SeqNr.min, Instant.MIN)
     } yield {
       assert(snapshot.map(_.snapshot.seqNr) == Some(SeqNr.unsafe(2)))
     }
-    program.run()
+    program.run(DatabaseState.empty).get
   }
 
-  def statements[F[_]: Concurrent]: F[SnapshotCassandra.Statements[F]] =
-    for {
-      state <- Ref[F].of(DatabaseState.empty)
-    } yield SnapshotCassandra.Statements(
-      insertRecords = { (_, _, bufferNr, snapshot) =>
-        state.update(_.insert(bufferNr, snapshot))
-      },
-      selectRecords = { (_, _, bufferNr) =>
-        state.get.map(_.select(bufferNr))
-      },
-      selectMetadata = { (_, _) =>
-        state.get.map(_.metadata)
-      },
-      deleteRecords = { (_, _, bufferNr) =>
-        state.update(_.delete(bufferNr))
-      }
-    )
+  def statements: SnapshotCassandra.Statements[F] = SnapshotCassandra.Statements(
+    insertRecords = { (_, _, bufferNr, snapshot) =>
+      StateT.modify(_.insert(bufferNr, snapshot))
+    },
+    selectRecords = { (_, _, bufferNr) =>
+      StateT.get[Try, DatabaseState].map(_.select(bufferNr))
+    },
+    selectMetadata = { (_, _) =>
+      StateT.get[Try, DatabaseState].map(_.metadata)
+    },
+    deleteRecords = { (_, _, bufferNr) =>
+      StateT.modify(_.delete(bufferNr))
+    }
+  )
 
   case class DatabaseState(snapshots: Map[BufferNr, SnaphsotWithPayload]) {
     def insert(bufferNr: BufferNr, snapshot: SnaphsotWithPayload): DatabaseState =
