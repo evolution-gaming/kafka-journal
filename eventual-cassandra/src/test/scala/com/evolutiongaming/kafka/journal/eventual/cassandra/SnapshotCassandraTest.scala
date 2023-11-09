@@ -1,12 +1,12 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
+import cats.data.StateT
 import cats.syntax.all._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import org.scalatest.funsuite.AnyFunSuite
 
 import java.time.Instant
-import cats.data.StateT
 import scala.util.Try
 
 class SnapshotCassandraTest extends AnyFunSuite {
