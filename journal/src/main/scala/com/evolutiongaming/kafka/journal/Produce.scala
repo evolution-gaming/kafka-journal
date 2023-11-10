@@ -1,10 +1,9 @@
 package com.evolutiongaming.kafka.journal
 
 import java.time.Instant
-
 import cats.effect._
 import cats.syntax.all._
-import cats.~>
+import cats.{Applicative, ~>}
 import com.evolutiongaming.catshelper.ClockHelper._
 import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolutiongaming.kafka.journal.conversions.ActionToProducerRecord
@@ -29,6 +28,28 @@ trait Produce[F[_]] {
 
 object Produce {
 
+  def empty[F[_]: Applicative](partitionOffset: F[PartitionOffset]): Produce[F] = const(PartitionOffset.empty.pure[F])
+
+  def const[F[_]](partitionOffset: F[PartitionOffset]): Produce[F] = {
+    class Const
+    new Const with Produce[F] {
+      def append(
+        key: Key,
+        range: SeqRange,
+        payloadAndType: PayloadAndType,
+        metadata: HeaderMetadata,
+        headers: Headers
+      ) = {
+        partitionOffset
+      }
+      def delete(key: Key, to: DeleteTo) = partitionOffset
+
+      def purge(key: Key) = partitionOffset
+
+      def mark(key: Key, randomId: RandomId) = partitionOffset
+    }
+  }
+
   def apply[F[_] : MonadThrowable : Clock](
     producer: Journals.Producer[F],
     origin: Option[Origin])(implicit
@@ -50,7 +71,8 @@ object Produce {
       }
     }
 
-    new Produce[F] {
+    class Main
+    new Main with Produce[F] {
 
       def append(
         key: Key,
@@ -109,9 +131,11 @@ object Produce {
   }
 
 
+  private sealed abstract class MapK
+
   implicit class ProduceOps[F[_]](val self: Produce[F]) extends AnyVal {
 
-    def mapK[G[_]](f: F ~> G): Produce[G] = new Produce[G] {
+    def mapK[G[_]](f: F ~> G): Produce[G] = new MapK with Produce[G] {
 
       def append(
         key: Key,
