@@ -22,7 +22,7 @@ class SnapshotCassandraTest extends AnyFunSuite {
       _ <- store.save(key, record)
       snapshot <- store.load(key, SeqNr.max, Instant.MAX, SeqNr.min, Instant.MIN)
     } yield {
-      assert(snapshot.isDefined)
+      assert(snapshot.isDefined, "(could not load the saved snapshot)")
     }
     program.run(DatabaseState.empty).get
   }
@@ -42,7 +42,41 @@ class SnapshotCassandraTest extends AnyFunSuite {
       // we should still get the latest snapshot here
       snapshot <- finalStore.load(key, SeqNr.max, Instant.MAX, SeqNr.min, Instant.MIN)
     } yield {
-      assert(snapshot.map(_.snapshot.seqNr) == Some(SeqNr.unsafe(2)))
+      assert(snapshot.map(_.snapshot.seqNr) == SeqNr.opt(2), "(last snapshot is not seen)")
+    }
+    program.run(DatabaseState.empty).get
+  }
+
+  test("drop all") {
+    val program = for {
+      statements <- statements.pure[F]
+      store = SnapshotCassandra(statements)
+      key = Key("topic", "id")
+      snapshot1 = record.snapshot.copy(seqNr = SeqNr.unsafe(1))
+      snapshot2 = record.snapshot.copy(seqNr = SeqNr.unsafe(2))
+      _ <- store.save(key, record.copy(snapshot = snapshot1))
+      _ <- store.save(key, record.copy(snapshot = snapshot2))
+      _ <- store.drop(key, SeqNr.max, Instant.MAX, SeqNr.min, Instant.MIN)
+      snapshot <- store.load(key, SeqNr.max, Instant.MAX, SeqNr.min, Instant.MIN)
+    } yield {
+      assert(snapshot.isEmpty, "(some snapshots were not dropped)")
+    }
+    program.run(DatabaseState.empty).get
+  }
+
+  test("drop by seqNr") {
+    val program = for {
+      statements <- statements.pure[F]
+      store = SnapshotCassandra(statements)
+      key = Key("topic", "id")
+      snapshot1 = record.snapshot.copy(seqNr = SeqNr.unsafe(1))
+      snapshot2 = record.snapshot.copy(seqNr = SeqNr.unsafe(2))
+      _ <- store.save(key, record.copy(snapshot = snapshot1))
+      _ <- store.save(key, record.copy(snapshot = snapshot2))
+      _ <- store.drop(key, SeqNr.unsafe(2))
+      snapshot <- store.load(key, SeqNr.min, Instant.MAX, SeqNr.min, Instant.MIN)
+    } yield {
+      assert(snapshot.map(_.snapshot.seqNr) == SeqNr.opt(1), "(snapshot1 should still be in a database)")
     }
     program.run(DatabaseState.empty).get
   }
