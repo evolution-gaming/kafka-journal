@@ -12,7 +12,7 @@ import scala.util.Try
 class SnapshotCassandraTest extends AnyFunSuite {
 
   type SnaphsotWithPayload = SnapshotRecord[EventualPayloadAndType]
-  type F[A] = cats.data.StateT[Try, DatabaseState, A]
+  type F[A] = StateT[Try, DatabaseState, A]
 
   test("save and load") {
     val program = for {
@@ -43,6 +43,22 @@ class SnapshotCassandraTest extends AnyFunSuite {
       snapshot <- finalStore.load(key, SnapshotSelectionCriteria.All)
     } yield {
       assert(snapshot.map(_.snapshot.seqNr) == SeqNr.opt(2), "(last snapshot is not seen)")
+    }
+    program.run(DatabaseState.empty).get
+  }
+
+  test("save is idempotent") {
+    val program = for {
+      statements <- statements.pure[F]
+      store = SnapshotCassandra[F](statements)
+      key = Key("topic", "id")
+      // try to save twice
+      _ <- store.save(key, record)
+      _ <- store.save(key, record)
+      state <- StateT.get[Try, DatabaseState]
+    } yield {
+      // we should only get one snapshot in a database
+      assert(state.snapshots.size == 1)
     }
     program.run(DatabaseState.empty).get
   }
