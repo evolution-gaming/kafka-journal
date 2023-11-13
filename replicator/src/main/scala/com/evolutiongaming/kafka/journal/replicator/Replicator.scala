@@ -78,10 +78,11 @@ object Replicator {
             TopicReplicator.ConsumerOf.PointerConfig(
               topic  = pointerTopic,
               config = ProducerConfig(
-                common    = config.kafka.consumer.common,
-                batchSize = 0,
-                acks      = Acks.One,
-                retries   = 0,
+                common      = config.kafka.consumer.common,
+                batchSize   = 0,
+                acks        = Acks.One,
+                retries     = 0,
+                idempotence = false,
               )
             ).some
           case _ => none
