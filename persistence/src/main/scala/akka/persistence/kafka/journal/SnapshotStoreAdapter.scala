@@ -3,7 +3,7 @@ package akka.persistence.kafka.journal
 import cats.Monad
 import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
-import com.evolutiongaming.kafka.journal.{PayloadAndType, SeqNr, SnapshotRecord, SnapshotSelectionCriteria, SnapshotStoreFlat}
+import com.evolutiongaming.kafka.journal.{SeqNr, SnapshotRecord, SnapshotSelectionCriteria, SnapshotStoreFlat}
 
 trait SnapshotStoreAdapter[F[_]] {
 
@@ -12,7 +12,7 @@ trait SnapshotStoreAdapter[F[_]] {
     criteria: SnapshotSelectionCriteria
   ): F[Option[SnapshotRecord[EventualPayloadAndType]]]
 
-  def save(persistenceId: PersistenceId, snapshot: SnapshotRecord[PayloadAndType]): F[Unit]
+  def save(persistenceId: PersistenceId, snapshot: SnapshotRecord[EventualPayloadAndType]): F[Unit]
 
   def delete(persistenceId: String, seqNr: SeqNr): F[Unit]
 
@@ -29,12 +29,14 @@ object SnapshotStoreAdapter {
         persistenceId: String,
         criteria: SnapshotSelectionCriteria
       ): F[Option[SnapshotRecord[EventualPayloadAndType]]] =
-        for {
-          key <- toKey(persistenceId)
-          snapshot <- store.load(key, criteria)
-        } yield snapshot
+        toKey(persistenceId).flatMap { key =>
+          store.load(key, criteria)
+        }
 
-      def save(persistenceId: PersistenceId, snapshot: SnapshotRecord[PayloadAndType]): F[Unit] = ???
+      def save(persistenceId: PersistenceId, snapshot: SnapshotRecord[EventualPayloadAndType]): F[Unit] =
+        toKey(persistenceId).flatMap { key =>
+          store.save(key, snapshot)
+        }
 
       def delete(persistenceId: String, seqNr: SeqNr): F[Unit] =
         toKey(persistenceId).flatMap { key =>
