@@ -50,8 +50,8 @@ object SnapshotStatements {
       consistencyConfig: ConsistencyConfig.Write
     ): F[InsertRecord[F]] = {
 
-      implicit val encodeByNameByteVector: EncodeByName[ByteVector] = EncodeByName[Array[Byte]]
-        .contramap { _.toArray }
+      implicit val encodeByNameByteVector: EncodeByName[ByteVector] =
+        EncodeByName[Array[Byte]].contramap(_.toArray)
 
       val query =
         s"""
@@ -75,15 +75,11 @@ object SnapshotStatements {
       for {
         prepared <- query.prepare
       } yield { (key, segment, bufferNr, snapshot) =>
+
         def statementOf(record: SnapshotRecord[EventualPayloadAndType]) = {
           val snapshot = record.snapshot
-          val (payloadType, txt, bin) = snapshot.payload.map { payloadAndType =>
-            val (text, bytes) =
-              payloadAndType.payload.fold(str => (str.some, none[ByteVector]), bytes => (none[String], bytes.some))
-            (payloadAndType.payloadType.some, text, bytes)
-          } getOrElse {
-            (None, None, None)
-          }
+          val payloadType = snapshot.payload.map(_.payloadType)
+          val (txt, bin) = snapshot.payload.map(_.payload).separate
 
           prepared
             .bind()
@@ -124,8 +120,8 @@ object SnapshotStatements {
       consistencyConfig: ConsistencyConfig.Write
     ): F[UpdateRecord[F]] = {
 
-      implicit val encodeByNameByteVector: EncodeByName[ByteVector] = EncodeByName[Array[Byte]]
-        .contramap { _.toArray }
+      implicit val encodeByNameByteVector: EncodeByName[ByteVector] =
+        EncodeByName[Array[Byte]].contramap(_.toArray)
 
       val query =
         s"""
@@ -148,15 +144,11 @@ object SnapshotStatements {
       for {
         prepared <- query.prepare
       } yield { (key, segment, bufferNr, insertSnapshot, deleteSnapshot) =>
+
         def statementOf(record: SnapshotRecord[EventualPayloadAndType]) = {
           val snapshot = record.snapshot
-          val (payloadType, txt, bin) = snapshot.payload.map { payloadAndType =>
-            val (text, bytes) =
-              payloadAndType.payload.fold(str => (str.some, none[ByteVector]), bytes => (none[String], bytes.some))
-            (payloadAndType.payloadType.some, text, bytes)
-          } getOrElse {
-            (None, None, None)
-          }
+          val payloadType = snapshot.payload.map(_.payloadType)
+          val (txt, bin) = snapshot.payload.map(_.payload).separate
 
           prepared
             .bind()
@@ -239,8 +231,8 @@ object SnapshotStatements {
       consistencyConfig: ConsistencyConfig.Read
     ): F[SelectRecord[F]] = {
 
-      implicit val decodeByNameByteVector: DecodeByName[ByteVector] = DecodeByName[Array[Byte]]
-        .map { a => ByteVector.view(a) }
+      implicit val decodeByNameByteVector: DecodeByName[ByteVector] =
+        DecodeByName[Array[Byte]].map(ByteVector.view)
 
       val query =
         s"""
