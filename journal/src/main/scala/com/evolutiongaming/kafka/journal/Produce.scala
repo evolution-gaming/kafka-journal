@@ -28,7 +28,7 @@ trait Produce[F[_]] {
 
 object Produce {
 
-  def empty[F[_]: Applicative](partitionOffset: F[PartitionOffset]): Produce[F] = const(PartitionOffset.empty.pure[F])
+  def empty[F[_]: Applicative]: Produce[F] = const(PartitionOffset.empty.pure[F])
 
   def const[F[_]](partitionOffset: F[PartitionOffset]): Produce[F] = {
     class Const
