@@ -381,6 +381,7 @@ object ReplicatedCassandra {
                                       .foldMapM { from =>
                                         val to = deleteTo.value.min(seqNr)
                                         if (from <= to) {
+                                          val segmentSize = journalHead.segmentSize
                                           for {
                                             segmentNrs <- from
                                               .toSegmentNr(segmentSize)
