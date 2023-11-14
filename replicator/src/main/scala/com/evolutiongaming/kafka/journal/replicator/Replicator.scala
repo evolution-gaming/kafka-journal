@@ -83,6 +83,8 @@ object Replicator {
                 acks        = Acks.One,
                 retries     = 0,
                 idempotence = false,
+                sslSupport  = config.kafka.consumer.sslSupport,
+                saslSupport = config.kafka.consumer.saslSupport,
               )
             ).some
           case _ => none
