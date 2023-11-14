@@ -34,10 +34,17 @@ object CassandraHelper {
   }
 
 
+  implicit class RowOps(val self: Row) extends AnyVal {
+
+    def wasApplied: Boolean = self.getBool("[applied]")
+
+  }
+
+
   implicit class EncodeRowObjOps(val self: EncodeRow.type) extends AnyVal {
 
     def empty[A]: EncodeRow[A] = new EncodeRow[A] {
-      
+
       def apply[B <: SettableData[B]](data: B, value: A) = data
     }
 
