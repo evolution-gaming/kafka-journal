@@ -1,12 +1,14 @@
 package akka.persistence.kafka.journal
 
 import akka.persistence.{SelectedSnapshot, SnapshotMetadata, SnapshotSelectionCriteria}
-import cats.Monad
-import cats.effect.kernel.Resource
+import cats.effect.kernel.{Async, Resource}
 import cats.syntax.all._
+import cats.{Monad, Parallel}
+import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
+import com.evolutiongaming.kafka.journal.eventual.cassandra.SnapshotCassandra
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.scassandra.CassandraClusterOf
 
@@ -26,14 +28,24 @@ trait SnapshotStoreAdapter[F[_]] {
 
 object SnapshotStoreAdapter {
 
-  def of[F[_], A](
+  def of[F[_]: Async: Parallel: LogOf: Fail, A](
     toKey: ToKey[F],
     origin: Option[Origin],
     snapshotSerializer: SnapshotSerializer[F, A],
     snapshotReadWrite: SnapshotReadWrite[F, A],
     config: KafkaJournalConfig,
     cassandraClusterOf: CassandraClusterOf[F]
-  ): Resource[F, SnapshotStoreAdapter[F]] = ???
+  ): Resource[F, SnapshotStoreAdapter[F]] = {
+
+    def adapter(
+      store: SnapshotStoreFlat[F]
+    )(implicit snapshotSerializer: SnapshotSerializer[F, A], snapshotReadWrite: SnapshotReadWrite[F, A]) =
+      SnapshotStoreAdapter(store, toKey, origin)
+
+    for {
+      store <- SnapshotCassandra.of(config.cassandra, origin, cassandraClusterOf)
+    } yield adapter(store)(snapshotSerializer, snapshotReadWrite)
+  }
 
   def apply[F[_]: Monad: Fail, A](store: SnapshotStoreFlat[F], toKey: ToKey[F], origin: Option[Origin])(implicit
     snapshotSerializer: SnapshotSerializer[F, A],
