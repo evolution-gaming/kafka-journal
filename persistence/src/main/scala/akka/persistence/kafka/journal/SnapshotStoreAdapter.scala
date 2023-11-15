@@ -2,11 +2,13 @@ package akka.persistence.kafka.journal
 
 import akka.persistence.{SelectedSnapshot, SnapshotMetadata, SnapshotSelectionCriteria}
 import cats.Monad
+import cats.effect.kernel.Resource
 import cats.syntax.all._
 import com.evolutiongaming.kafka.journal
-import com.evolutiongaming.kafka.journal.eventual.{EventualPayloadAndType, EventualRead, EventualWrite}
+import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.{SeqNr, Snapshot, SnapshotRecord, SnapshotStoreFlat}
+import com.evolutiongaming.scassandra.CassandraClusterOf
 
 import java.time.Instant
 
@@ -24,10 +26,18 @@ trait SnapshotStoreAdapter[F[_]] {
 
 object SnapshotStoreAdapter {
 
-  def apply[F[_]: Monad: Fail, A](store: SnapshotStoreFlat[F], toKey: ToKey[F])(implicit
+  def of[F[_], A](
+    toKey: ToKey[F],
+    origin: Option[Origin],
     snapshotSerializer: SnapshotSerializer[F, A],
-    eventualRead: EventualRead[F, A],
-    eventualWrite: EventualWrite[F, A]
+    snapshotReadWrite: SnapshotReadWrite[F, A],
+    config: KafkaJournalConfig,
+    cassandraClusterOf: CassandraClusterOf[F]
+  ): Resource[F, SnapshotStoreAdapter[F]] = ???
+
+  def apply[F[_]: Monad: Fail, A](store: SnapshotStoreFlat[F], toKey: ToKey[F], origin: Option[Origin])(implicit
+    snapshotSerializer: SnapshotSerializer[F, A],
+    snapshotReadWrite: SnapshotReadWrite[F, A]
   ): SnapshotStoreAdapter[F] =
     new SnapshotStoreAdapter[F] {
 
@@ -65,13 +75,13 @@ object SnapshotStoreAdapter {
           seqNr <- SeqNr.of(metadata.sequenceNr)
           snapshot <- snapshotSerializer.toInternalRepresentation(metadata, snapshot)
           payload <- snapshot.payload.traverse { payload =>
-            eventualWrite(payload)
+            snapshotReadWrite.eventualWrite(payload)
           }
           record = SnapshotRecord(
             snapshot = Snapshot(seqNr = seqNr, payload = payload),
             timestamp = Instant.ofEpochMilli(metadata.timestamp),
-            origin = None,
-            version = None
+            origin = origin,
+            version = Some(Version.current)
           )
         } yield record
       }
@@ -82,7 +92,7 @@ object SnapshotStoreAdapter {
       ): F[SelectedSnapshot] = {
         for {
           payload <- record.snapshot.payload.traverse { payloadAndType =>
-            eventualRead(payloadAndType)
+            snapshotReadWrite.eventualRead(payloadAndType)
           }
           snapshot = record.snapshot.copy(payload = payload)
           snapshot <- snapshotSerializer.toAkkaRepresentation(persistenceId, snapshot)

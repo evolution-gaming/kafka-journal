@@ -1,12 +1,14 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.effect.kernel.Temporal
+import cats.effect.kernel.{Async, Resource, Temporal}
+import cats.effect.syntax.all._
 import cats.syntax.all._
 import cats.{Monad, MonadThrow, Parallel}
 import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
+import com.evolutiongaming.scassandra.CassandraClusterOf
 
 import java.time.Instant
 
@@ -14,6 +16,24 @@ object SnapshotCassandra {
 
   // TODO: make it configurable
   val BufferSize = 10
+
+  def of[F[_]: Async: Parallel: LogOf](
+    config: EventualCassandraConfig,
+    origin: Option[Origin],
+    cassandraClusterOf: CassandraClusterOf[F]
+  ): Resource[F, SnapshotStoreFlat[F]] = {
+
+    def store(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
+      of(config.schema, origin, config.consistencyConfig)
+    }
+
+    for {
+      cassandraCluster <- CassandraCluster.of[F](config.client, cassandraClusterOf, config.retries)
+      cassandraSession <- cassandraCluster.session
+      store <- store(cassandraCluster, cassandraSession).toResource
+    } yield store
+
+  }
 
   def of[F[_]: Temporal: Parallel: CassandraCluster: CassandraSession: LogOf](
     schemaConfig: SchemaConfig,
