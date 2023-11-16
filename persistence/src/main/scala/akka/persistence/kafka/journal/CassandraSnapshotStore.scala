@@ -20,7 +20,7 @@ import com.typesafe.config.Config
 import pureconfig.ConfigSource
 
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 
 class CassandraSnapshotStore(config: Config) extends SnapshotStore { actor =>
 
@@ -49,13 +49,22 @@ class CassandraSnapshotStore(config: Config) extends SnapshotStore { actor =>
       .toFuture
 
   override def loadAsync(persistenceId: String, criteria: SnapshotSelectionCriteria): Future[Option[SelectedSnapshot]] =
-    ???
+    adapter.flatMap { case (adapter, _) => adapter.load(persistenceId, criteria) }
 
-  override def saveAsync(metadata: SnapshotMetadata, snapshot: Any): Future[Unit] = ???
+  override def saveAsync(metadata: SnapshotMetadata, snapshot: Any): Future[Unit] =
+    adapter.flatMap { case (adapter, _) => adapter.save(metadata, snapshot) }
 
-  override def deleteAsync(metadata: SnapshotMetadata): Future[Unit] = ???
+  override def deleteAsync(metadata: SnapshotMetadata): Future[Unit] =
+    adapter.flatMap { case (adapter, _) => adapter.delete(metadata) }
 
-  override def deleteAsync(persistenceId: String, criteria: SnapshotSelectionCriteria): Future[Unit] = ???
+  override def deleteAsync(persistenceId: String, criteria: SnapshotSelectionCriteria): Future[Unit] =
+    adapter.flatMap { case (adapter, _) => adapter.delete(persistenceId, criteria) }
+
+  override def postStop(): Unit = {
+    val future = adapter.flatMap { case (_, release) => release.toFuture }
+    Await.result(future, 1.minute)
+    super.postStop()
+  }
 
   def adapterIO: Resource[IO, SnapshotStoreAdapter[IO]] = {
     for {
