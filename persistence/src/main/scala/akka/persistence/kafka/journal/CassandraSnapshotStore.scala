@@ -6,8 +6,10 @@ import akka.persistence.{SelectedSnapshot, SnapshotMetadata, SnapshotSelectionCr
 import cats.effect.IO
 import cats.effect.kernel.Resource
 import cats.effect.syntax.all._
+import cats.effect.unsafe.{IORuntime, IORuntimeConfig}
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.LogOf
+import com.evolutiongaming.catshelper.CatsHelper._
+import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
 import com.evolutiongaming.kafka.journal.{JsonCodec, LogOfFromAkka, Origin, Payload, SnapshotReadWrite}
@@ -17,12 +19,34 @@ import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.typesafe.config.Config
 import pureconfig.ConfigSource
 
-import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContextExecutor, Future}
 
 class CassandraSnapshotStore(config: Config) extends SnapshotStore { actor =>
 
   implicit val system: ActorSystem = context.system
+  implicit val executor: ExecutionContextExecutor = context.dispatcher
+
+  private val (blocking, blockingShutdown) = IORuntime.createDefaultBlockingExecutionContext("kafka-journal-blocking")
+  private val (scheduler, schedulerShutdown) = IORuntime.createDefaultScheduler("kafka-journal-scheduler")
+  implicit val ioRuntime: IORuntime = IORuntime(
+    compute = executor,
+    blocking = blocking,
+    scheduler = scheduler,
+    shutdown = () => {
+      blockingShutdown()
+      schedulerShutdown()
+    },
+    config = IORuntimeConfig()
+  )
+  implicit val toFuture: ToFuture[IO] = ToFuture.ioToFuture
+  implicit val fromFuture: FromFuture[IO] = FromFuture.lift[IO]
+
+  val adapter: Future[(SnapshotStoreAdapter[Future], IO[Unit])] =
+    adapterIO
+      .map { _.mapK(toFuture.toFunctionK, fromFuture.toFunctionK) }
+      .allocated
+      .toFuture
 
   override def loadAsync(persistenceId: String, criteria: SnapshotSelectionCriteria): Future[Option[SelectedSnapshot]] =
     ???

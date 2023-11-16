@@ -3,7 +3,7 @@ package akka.persistence.kafka.journal
 import akka.persistence.{SelectedSnapshot, SnapshotMetadata, SnapshotSelectionCriteria}
 import cats.effect.kernel.{Async, Resource}
 import cats.syntax.all._
-import cats.{Monad, Parallel}
+import cats.{Monad, Parallel, ~>}
 import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal
 import com.evolutiongaming.kafka.journal._
@@ -125,5 +125,24 @@ object SnapshotStoreAdapter {
         )
 
     }
+
+  implicit class SnapshotStoreAdapterOps[F[_]](val self: SnapshotStoreAdapter[F]) extends AnyVal {
+
+    def mapK[G[_]](fg: F ~> G, gf: G ~> F): SnapshotStoreAdapter[G] = new SnapshotStoreAdapter[G] {
+
+      def load(persistenceId: String, criteria: SnapshotSelectionCriteria) =
+        fg(self.load(persistenceId, criteria))
+
+      def save(metadata: SnapshotMetadata, snapshot: Any) =
+        fg(self.save(metadata, snapshot))
+
+      def delete(metadata: SnapshotMetadata) =
+        fg(self.delete(metadata))
+
+      def delete(persistenceId: String, criteria: SnapshotSelectionCriteria) =
+        fg(self.delete(persistenceId, criteria))
+
+    }
+  }
 
 }
