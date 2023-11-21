@@ -107,7 +107,7 @@ object SnapshotStoreAdapter {
             snapshotReadWrite.eventualRead(payloadAndType)
           }
           snapshot = record.snapshot.copy(payload = payload)
-          snapshot <- snapshotSerializer.toAkkaRepresentation(persistenceId, snapshot)
+          snapshot <- snapshotSerializer.toAkkaRepresentation(persistenceId, record.timestamp, snapshot)
         } yield snapshot
       }
 
