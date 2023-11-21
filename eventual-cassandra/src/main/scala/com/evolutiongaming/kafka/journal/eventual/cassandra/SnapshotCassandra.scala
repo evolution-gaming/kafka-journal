@@ -55,12 +55,13 @@ object SnapshotCassandra {
 
       def save(key: Key, snapshot: SnapshotRecord[EventualPayloadAndType]): F[Unit] = {
         statements.selectMetadata(key, segmentNr).flatMap {
-          // such snapshot is already saved, do nothing
-          case s if s.values.exists { case (seqNr, _) => snapshot.snapshot.seqNr == seqNr } => ().pure[F]
+          // such snapshot is already saved, overwrite
+          case s if s.values.exists { case (seqNr, _) => snapshot.snapshot.seqNr == seqNr } =>
+            update(key, segmentNr, s, snapshot)
           // there is a free place to add a snapshot
           case s if s.size < BufferSize => insert(key, segmentNr, s, snapshot)
           // all rows are taken, we have to update one of them
-          case s => update(key, segmentNr, s, snapshot)
+          case s => replace(key, segmentNr, s, snapshot)
         }
       }
 
@@ -82,13 +83,13 @@ object SnapshotCassandra {
         }
       }
 
-      def update(
+      def replace(
         key: Key,
         segmentNr: SegmentNr,
         savedSnapshots: Map[BufferNr, (SeqNr, Instant)],
         insertSnapshot: SnapshotRecord[EventualPayloadAndType]
       ): F[Unit] = {
-        val sortedSnapshots = savedSnapshots.toList.sortBy { case (_, (seqNr, _)) => seqNr }
+        val sortedSnapshots = savedSnapshots.toList.sortBy { case (_, (seqNr, timestamp)) => (seqNr, timestamp) }
 
         val oldestSnapshot = sortedSnapshots.lastOption
         MonadThrow[F].fromOption(oldestSnapshot, SnapshotStoreError("Could not find an oldest snapshot")).flatMap {
@@ -102,10 +103,31 @@ object SnapshotCassandra {
         }
       }
 
+      def update(
+        key: Key,
+        segmentNr: SegmentNr,
+        savedSnapshots: Map[BufferNr, (SeqNr, Instant)],
+        insertSnapshot: SnapshotRecord[EventualPayloadAndType]
+      ): F[Unit] = {
+        val sortedSnapshots = savedSnapshots.toList.sortBy { case (_, (seqNr, timestamp)) => (seqNr, timestamp) }
+
+        val olderSnapshot =
+          sortedSnapshots.findLast { case (_, (seqNr, _)) => seqNr == insertSnapshot.snapshot.seqNr }
+        MonadThrow[F].fromOption(olderSnapshot, SnapshotStoreError("Could not find snapshot with seqNr")).flatMap {
+          olderSnapshot =>
+            val (bufferNr, (deleteSnapshot, _)) = olderSnapshot
+            val wasApplied = statements.updateRecord(key, segmentNr, bufferNr, insertSnapshot, deleteSnapshot)
+            wasApplied.flatMap { wasApplied =>
+              // TODO: consider adding circuit breaker here
+              if (wasApplied) ().pure[F] else save(key, insertSnapshot)
+            }
+        }
+      }
+
       def load(key: Key, criteria: SnapshotSelectionCriteria): F[Option[SnapshotRecord[EventualPayloadAndType]]] =
         for {
           savedSnapshots <- statements.selectMetadata(key, segmentNr)
-          sortedSnapshots = savedSnapshots.toList.sortBy { case (_, (seqNr, _)) => seqNr }
+          sortedSnapshots = savedSnapshots.toList.sortBy { case (_, (seqNr, timestamp)) => (seqNr, timestamp) }
           bufferNr = sortedSnapshots.reverse.collectFirst {
             case (bufferNr, (seqNr, timestamp))
                 if seqNr >= criteria.minSeqNr &&
