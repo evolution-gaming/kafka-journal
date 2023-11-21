@@ -171,9 +171,8 @@ class CassandraSnapshotStore(config: Config) extends SnapshotStore { actor =>
       .load[KafkaJournalConfig]
       .liftTo[IO]
 
-  def serializer: Resource[IO, SnapshotSerializer[IO, Payload]] = {
-    ??? // SnapshotSerializer.of[IO](system).toResource
-  }
+  def serializer: Resource[IO, SnapshotSerializer[IO, Payload]] =
+    SnapshotSerializer.of[IO](system).toResource
 
   def snapshotReadWrite(config: KafkaJournalConfig): IO[SnapshotReadWrite[IO, Payload]] =
     for {

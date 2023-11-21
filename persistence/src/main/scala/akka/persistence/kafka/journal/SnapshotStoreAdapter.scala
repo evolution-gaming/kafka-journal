@@ -115,7 +115,8 @@ object SnapshotStoreAdapter {
         for {
           maxSeqNr <- SeqNr.of(criteria.maxSequenceNr)
           maxTimestamp = Instant.ofEpochMilli(criteria.maxTimestamp)
-          minSequenceNr <- SeqNr.of(criteria.minSequenceNr)
+          // this "if"" statement is required, because `0` is sometimes passed by Akka as a value here
+          minSequenceNr <- if (criteria.minSequenceNr < 1) SeqNr.min.pure else SeqNr.of(criteria.minSequenceNr)
           minTimestamp = Instant.ofEpochMilli(criteria.minTimestamp)
         } yield journal.SnapshotSelectionCriteria(
           maxSeqNr = maxSeqNr,
