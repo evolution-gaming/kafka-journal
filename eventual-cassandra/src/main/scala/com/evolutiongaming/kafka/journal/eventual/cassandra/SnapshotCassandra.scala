@@ -76,6 +76,7 @@ object SnapshotCassandra {
         MonadThrow[F].fromOption(freeBufferNr, SnapshotStoreError("Could not find a free key")).flatMap { bufferNr =>
           val wasApplied = statements.insertRecord(key, segmentNr, bufferNr, snapshot)
           wasApplied.flatMap { wasApplied =>
+            // TODO: consider adding circuit breaker here
             if (wasApplied) ().pure[F] else save(key, snapshot)
           }
         }
@@ -95,6 +96,7 @@ object SnapshotCassandra {
             val (bufferNr, (deleteSnapshot, _)) = oldestSnapshot
             val wasApplied = statements.updateRecord(key, segmentNr, bufferNr, insertSnapshot, deleteSnapshot)
             wasApplied.flatMap { wasApplied =>
+              // TODO: consider adding circuit breaker here
               if (wasApplied) ().pure[F] else save(key, insertSnapshot)
             }
         }
