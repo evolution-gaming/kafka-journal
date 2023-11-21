@@ -14,10 +14,12 @@ import com.evolutiongaming.serialization.SerializedMsg
 import play.api.libs.json.{JsString, JsValue, Json}
 import scodec.bits.ByteVector
 
+import java.time.Instant
+
 trait SnapshotSerializer[F[_], A] {
 
   def toInternalRepresentation(metadata: SnapshotMetadata, snapshot: Any): F[Snapshot[A]]
-  def toAkkaRepresentation(persistenceId: PersistenceId, snapshot: Snapshot[A]): F[SelectedSnapshot]
+  def toAkkaRepresentation(persistenceId: PersistenceId, timestamp: Instant, snapshot: Snapshot[A]): F[SelectedSnapshot]
 
 }
 
@@ -106,7 +108,11 @@ object SnapshotSerializer {
       }
     }
 
-    def toAkkaRepresentation(persistenceId: PersistenceId, snapshot: Snapshot[A]): F[SelectedSnapshot] = {
+    def toAkkaRepresentation(
+      persistenceId: PersistenceId,
+      timestamp: Instant,
+      snapshot: Snapshot[A]
+    ): F[SelectedSnapshot] = {
 
       val payload = snapshot.payload.map(_.pure[F]).getOrElse {
         s"Snapshot.payload is not defined".fail[F, A]
@@ -116,7 +122,11 @@ object SnapshotSerializer {
         payload <- payload
         persistentPayload <- fromSnapshotPayload(payload)
       } yield SelectedSnapshot(
-        metadata = SnapshotMetadata(persistenceId = persistenceId, sequenceNr = snapshot.seqNr.value),
+        metadata = SnapshotMetadata(
+          persistenceId = persistenceId,
+          sequenceNr = snapshot.seqNr.value,
+          timestamp = timestamp.toEpochMilli
+        ),
         snapshot = persistentPayload
       )
 
