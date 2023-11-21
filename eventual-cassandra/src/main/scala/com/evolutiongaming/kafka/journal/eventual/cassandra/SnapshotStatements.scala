@@ -68,7 +68,7 @@ object SnapshotStatements {
            |payload_txt,
            |payload_bin,
            |metadata)
-           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            |IF NOT EXISTS
            |""".stripMargin
 
@@ -125,7 +125,7 @@ object SnapshotStatements {
 
       val query =
         s"""
-           |UPDATE ${name.toCql} (
+           |UPDATE ${name.toCql}
            |SET seq_nr = :insert_seq_nr,
            |timestamp = :timestamp,
            |origin = :origin,
@@ -134,10 +134,10 @@ object SnapshotStatements {
            |payload_txt = :payload_txt,
            |payload_bin = :payload_bin,
            |metadata = :metadata
-           |WHERE id = :id,
-           |topic = :topic,
-           |segment = :segment,
-           |buffer_nr = :buffer_nr
+           |WHERE id = :id
+           |AND topic = :topic
+           |AND segment = :segment
+           |AND buffer_nr = :buffer_nr
            |IF seq_nr = :delete_seq_nr
            |""".stripMargin
 
