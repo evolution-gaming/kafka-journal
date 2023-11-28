@@ -55,7 +55,7 @@ object ReplicatedCassandra {
   }
 
   def apply[F[_]: Sync: Parallel: Fail](
-    segmentSize: SegmentSize,
+    segmentSizeDefault: SegmentSize,
     segmentNrsOf: SegmentNrsOf[F],
     statements: Statements[F],
     expiryService: ExpiryService[F],
@@ -255,7 +255,7 @@ object ReplicatedCassandra {
                                     .map { expiry =>
                                       val journalHead = JournalHead(
                                         partitionOffset = partitionOffset,
-                                        segmentSize = segmentSize,
+                                        segmentSize = segmentSizeDefault,
                                         seqNr = seqNrLast,
                                         deleteTo = deleteTo,
                                         expiry = expiry)
@@ -344,7 +344,7 @@ object ReplicatedCassandra {
                               journalHead <- journalHead.fold {
                                 val journalHead = JournalHead(
                                   partitionOffset = partitionOffset,
-                                  segmentSize = segmentSize,
+                                  segmentSize = segmentSizeDefault,
                                   seqNr = deleteTo.value,
                                   deleteTo = deleteTo.some)
                                 metaJournal
