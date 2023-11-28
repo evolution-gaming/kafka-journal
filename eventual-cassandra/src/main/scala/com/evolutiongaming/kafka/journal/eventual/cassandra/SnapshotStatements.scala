@@ -97,7 +97,7 @@ object SnapshotStatements {
         }
 
         val statement = statementOf(snapshot)
-        val row = statement.setConsistencyLevel(consistencyConfig.value).first
+        val row = statement.first
         row.map(_.fold(false)(_.wasApplied))
       }
     }
@@ -167,7 +167,7 @@ object SnapshotStatements {
         }
 
         val statement = statementOf(insertSnapshot)
-        val row = statement.setConsistencyLevel(consistencyConfig.value).first
+        val row = statement.first
         row.map(_.fold(false)(_.wasApplied))
       }
     }
