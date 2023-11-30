@@ -18,19 +18,20 @@ object SnapshotStorePerfSpec {
     override val persistenceId: String,
     replyTo: ActorRef,
     replyAfter: Int,
-    snapshotPerEvents: Int,
-    allowRecoveryFromEvents: Boolean
+    snapshotPerEvents: Int
   ) extends PersistentActor
       with ActorLogging {
 
     var counter = 0
 
-    var snapshotSavingStartedAt: Map[Long, Instant] = Map.empty
-    var snapshotSavingFinishedAt: Map[Long, Instant] = Map.empty
+    var snapshotSavingStartedAt: Map[Long, Long] = Map.empty
+    var snapshotSavingFinishedAt: Map[Long, Long] = Map.empty
 
     // we do not want incoming events to affect measurement of snapshot saving
     // so we will be stashing them when snaphotting is happening
     var savingSnapshot = false
+
+    var loadingSnapshot = true
 
     override def receiveCommand: Receive = {
       case e: Event =>
@@ -42,7 +43,7 @@ object SnapshotStorePerfSpec {
             require(d.payload == counter, s"Expected to receive [$counter] yet got: [${d.payload}]")
             if (counter % snapshotPerEvents == 0) {
               savingSnapshot = true
-              snapshotSavingStartedAt += (this.lastSequenceNr -> Instant.now())
+              snapshotSavingStartedAt += (this.lastSequenceNr -> System.nanoTime())
               saveSnapshot(Snapshot(counter))
             }
           }
@@ -52,7 +53,7 @@ object SnapshotStorePerfSpec {
         savingSnapshot = false
         unstashAll()
         if (snapshotSavingStartedAt.contains(s.metadata.sequenceNr)) {
-          snapshotSavingFinishedAt += (s.metadata.sequenceNr -> Instant.now())
+          snapshotSavingFinishedAt += (s.metadata.sequenceNr -> System.nanoTime())
         } else {
           throw new IllegalArgumentException(
             s"Failed to find a time when snapshot saving started for seqNr: [${s.metadata.sequenceNr}]"
@@ -65,9 +66,9 @@ object SnapshotStorePerfSpec {
                 s"Failed to find a time when snapshot saving finished for seqNr: [$sequenceNr]"
               )
             }
-            finishedAt.toEpochMilli - startedAt.toEpochMilli
+            finishedAt - startedAt
           }
-          replyTo ! SnapshotsSaved((durations.sum / durations.size).millis)
+          replyTo ! SnapshotsSaved((durations.sum / durations.size).nanos)
         }
 
       case c: SaveSnapshotFailure =>
@@ -94,12 +95,17 @@ object SnapshotStorePerfSpec {
     }
 
     override def receiveRecover: Receive = {
-      case SnapshotOffer(_, snapshot: Snapshot) =>
+      case s @ SnapshotOffer(_, snapshot: Snapshot) =>
         counter = snapshot.counter
+        replyTo ! s
       case RecoveryCompleted =>
+        loadingSnapshot = false
         replyTo ! RecoveryCompleted
-      case _: Event if allowRecoveryFromEvents =>
-      // just ignore
+      case _: Event =>
+        if (loadingSnapshot) {
+          loadingSnapshot = false
+          replyTo ! EventsFoundAfterSnapshot
+        }
       case other =>
         throw new IllegalArgumentException(s"Got unexpected message on recovery: [$other]")
     }
@@ -116,6 +122,7 @@ object SnapshotStorePerfSpec {
   case class SnapshotsSaved(duration: FiniteDuration) extends Response
   case object EventsDropped extends Command
   case object SnapshotsDropped extends Response
+  case object EventsFoundAfterSnapshot extends Response
 
   case class Snapshot(counter: Int)
 
@@ -192,15 +199,14 @@ abstract class SnapshotStorePerfSpec(config: Config)
 
   private val testProbe = TestProbe()
 
-  def benchActor(replyAfter: Int, allowRecoveryFromEvents: Boolean): ActorRef =
+  def benchActor(replyAfter: Int): ActorRef =
     system.actorOf(
       Props(
         classOf[BenchActor],
         "SnapshotStorePerfSpec-bench",
         testProbe.ref,
         replyAfter,
-        snapshotPerEvents,
-        allowRecoveryFromEvents
+        snapshotPerEvents
       )
     )
 
@@ -223,7 +229,7 @@ abstract class SnapshotStorePerfSpec(config: Config)
 
   "A PersistentActor's performance" must {
     s"measure: saveSnapshot()-ing $snapshotCount snapshots" in {
-      val p1 = benchActor(eventsCount, false)
+      val p1 = benchActor(eventsCount)
       testProbe.expectMsgType[RecoveryCompleted](awaitDuration)
 
       (0 until measurementIterations).foreach { _ =>
@@ -231,33 +237,41 @@ abstract class SnapshotStorePerfSpec(config: Config)
           p1 ! Event(i)
         }
         val response = testProbe.expectMsgType[SnapshotsSaved](awaitDuration)
-        info(s"Average time: ${response.duration}")
+        val duration = response.duration.toNanos / 1000000.0
+        info(s"Average time: ${duration} milliseconds")
         p1 ! ResetCounter
       }
     }
     s"measure: recovering after doing ${snapshotCount * measurementIterations} snapshots" in {
       (0 until measurementIterations).foreach { _ =>
         val startedAt = Instant.now()
-        benchActor(snapshotCount, false)
-        testProbe.expectMsgType[RecoveryCompleted](awaitDuration)
+        benchActor(snapshotCount)
+        testProbe.expectMsgType[SnapshotOffer](awaitDuration)
         val finishedAt = Instant.now()
         val duration = (finishedAt.toEpochMilli - startedAt.toEpochMilli).millis
-        info(s"Recovering took $duration")
+        info(s"Recovering snapshot took $duration")
+
+        // wait until events recovered
+        testProbe.expectMsgType[RecoveryCompleted](awaitDuration)
       }
     }
     s"measure: recovering after deleting all the snapshots" in {
-      val p1 = benchActor(eventsCount, false)
+      val p1 = benchActor(eventsCount)
+      testProbe.expectMsgType[SnapshotOffer](awaitDuration)
       testProbe.expectMsgType[RecoveryCompleted](awaitDuration)
       p1 ! DropSnapshots
       testProbe.expectMsg(awaitDuration, SnapshotsDropped)
 
       (0 until measurementIterations).foreach { _ =>
         val startedAt = Instant.now()
-        benchActor(snapshotCount, true)
-        testProbe.expectMsgType[RecoveryCompleted](awaitDuration)
+        benchActor(snapshotCount)
+        testProbe.expectMsg(awaitDuration, EventsFoundAfterSnapshot)
         val finishedAt = Instant.now()
         val duration = (finishedAt.toEpochMilli - startedAt.toEpochMilli).millis
-        info(s"Recovering took $duration")
+        info(s"Recovering snapshot took $duration")
+
+        // wait until events recovered
+        testProbe.expectMsgType[RecoveryCompleted](awaitDuration)
       }
     }
   }
