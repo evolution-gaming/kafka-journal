@@ -51,8 +51,17 @@ object Dependencies {
     val persistence       = "com.typesafe.akka" %% "akka-persistence"     % version
     val `persistence-tck` = "com.typesafe.akka" %% "akka-persistence-tck" % version
     val slf4j             = "com.typesafe.akka" %% "akka-slf4j"           % version
+
+    val `akka-cluster`           = "com.typesafe.akka" %% "akka-cluster"           % version
+    val `akka-cluster-tools`     = "com.typesafe.akka" %% "akka-cluster-tools"     % version
+    val `akka-coordination`      = "com.typesafe.akka" %% "akka-coordination"      % version
+    val `akka-persistence-query` = "com.typesafe.akka" %% "akka-persistence-query" % version
+    val `akka-pki`               = "com.typesafe.akka" %% "akka-pki"               % version
+    val `akka-remote`            = "com.typesafe.akka" %% "akka-remote"            % version
+
+    val `persistence-cassandra` = "com.typesafe.akka" %% "akka-persistence-cassandra" % "1.0.6"
   }
-  
+
   object Kafka {
     private val version = "3.4.0"
     val kafka           = "org.apache.kafka" %% "kafka"         % version
