@@ -30,8 +30,8 @@ object BufferNr {
     DecodeByIdx[Int].map(fromIntUnsafe)
 
   implicit val encodeRowSeqNr: EncodeRow[BufferNr] =
-    EncodeRow[BufferNr]("buffer_nr")
+    EncodeRow[BufferNr]("buffer_idx")
   implicit val decodeRowSeqNr: DecodeRow[BufferNr] =
-    DecodeRow[BufferNr]("buffer_nr")
+    DecodeRow[BufferNr]("buffer_idx")
 
 }

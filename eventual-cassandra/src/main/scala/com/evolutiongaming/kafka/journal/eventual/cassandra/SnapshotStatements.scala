@@ -21,7 +21,7 @@ object SnapshotStatements {
        |id TEXT,
        |topic TEXT,
        |segment BIGINT,
-       |buffer_nr INT,
+       |buffer_idx INT,
        |seq_nr BIGINT,
        |timestamp TIMESTAMP,
        |origin TEXT,
@@ -30,7 +30,7 @@ object SnapshotStatements {
        |payload_type TEXT,
        |payload_txt TEXT,
        |payload_bin BLOB,
-       |PRIMARY KEY ((id, topic, segment), buffer_nr))
+       |PRIMARY KEY ((id, topic, segment), buffer_idx))
        |""".stripMargin
   }
 
@@ -59,7 +59,7 @@ object SnapshotStatements {
            |id,
            |topic,
            |segment,
-           |buffer_nr,
+           |buffer_idx,
            |seq_nr,
            |timestamp,
            |origin,
@@ -137,7 +137,7 @@ object SnapshotStatements {
            |WHERE id = :id
            |AND topic = :topic
            |AND segment = :segment
-           |AND buffer_nr = :buffer_nr
+           |AND buffer_idx = :buffer_idx
            |IF seq_nr = :delete_seq_nr
            |""".stripMargin
 
@@ -187,7 +187,7 @@ object SnapshotStatements {
       val query =
         s"""
            |SELECT
-           |buffer_nr,
+           |buffer_idx,
            |seq_nr,
            |timestamp FROM ${name.toCql}
            |WHERE id = ?
@@ -248,7 +248,7 @@ object SnapshotStatements {
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?
-           |AND buffer_nr = ?
+           |AND buffer_idx = ?
            |""".stripMargin
 
       for {
@@ -307,7 +307,7 @@ object SnapshotStatements {
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?
-           |AND buffer_nr = ?
+           |AND buffer_idx = ?
            |IF EXISTS""".stripMargin
 
       for {
