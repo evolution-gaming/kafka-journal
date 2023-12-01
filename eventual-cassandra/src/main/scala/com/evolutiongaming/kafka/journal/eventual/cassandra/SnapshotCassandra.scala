@@ -89,9 +89,8 @@ object SnapshotCassandra {
         savedSnapshots: Map[BufferNr, (SeqNr, Instant)],
         insertSnapshot: SnapshotRecord[EventualPayloadAndType]
       ): F[Unit] = {
-        val sortedSnapshots = savedSnapshots.toList.sortBy { case (_, (seqNr, timestamp)) => (seqNr, timestamp) }
+        val oldestSnapshot = savedSnapshots.toList.minByOption { case (_, (seqNr, timestamp)) => (seqNr, timestamp) }
 
-        val oldestSnapshot = sortedSnapshots.headOption
         MonadThrow[F].fromOption(oldestSnapshot, SnapshotStoreError("Could not find an oldest snapshot")).flatMap {
           oldestSnapshot =>
             val (bufferNr, (deleteSnapshot, _)) = oldestSnapshot
