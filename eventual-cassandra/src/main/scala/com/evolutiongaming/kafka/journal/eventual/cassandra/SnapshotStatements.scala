@@ -294,7 +294,7 @@ object SnapshotStatements {
 
   trait Delete[F[_]] {
 
-    def apply(key: Key, segmentNr: SegmentNr, bufferNr: BufferNr): F[Boolean]
+    def apply(key: Key, segmentNr: SegmentNr, bufferNr: BufferNr): F[Unit]
   }
 
   object Delete {
@@ -308,19 +308,19 @@ object SnapshotStatements {
            |AND topic = ?
            |AND segment = ?
            |AND buffer_nr = ?
-           |IF EXISTS""".stripMargin
+           |""".stripMargin
 
       for {
         prepared <- query.prepare
       } yield { (key, segmentNr, bufferNr) =>
-        val row = prepared
+        prepared
           .bind()
           .encode(key)
           .encode(segmentNr)
           .encode(bufferNr)
           .setConsistencyLevel(consistencyConfig.value)
           .first
-        row.map(_.fold(false)(_.wasApplied))
+          .void
       }
     }
   }
