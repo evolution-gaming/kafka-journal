@@ -134,7 +134,12 @@ class SnapshotCassandraTest extends AnyFunSuite {
       DatabaseState.get.map(_.metadata)
     },
     deleteRecords = { (_, _, bufferNr) =>
-      DatabaseState.modify(_.delete(bufferNr))
+      for {
+        state0 <- DatabaseState.get
+        state1 = state0.delete(bufferNr)
+        wasApplied = state1.isDefined
+        _ <- DatabaseState.set(state1.getOrElse(state0))
+      } yield wasApplied
     }
   )
 
@@ -163,8 +168,10 @@ class SnapshotCassandraTest extends AnyFunSuite {
         (snapshot.snapshot.seqNr, snapshot.timestamp)
       }
 
-    def delete(bufferNr: BufferNr): DatabaseState =
-      this.copy(stored = stored - bufferNr)
+    def delete(bufferNr: BufferNr): Option[DatabaseState] =
+      Option.when(stored.contains(bufferNr)) {
+        this.copy(stored = stored - bufferNr)
+      }
 
     def sync: DatabaseState =
       this.copy(availableForReading = stored)
