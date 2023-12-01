@@ -3,7 +3,7 @@ package akka.persistence.kafka.journal
 import akka.persistence.snapshot.SnapshotStorePerfSpec
 import com.typesafe.config.ConfigFactory
 
-class LegacySnapshotPerfSpec extends SnapshotStorePerfSpec(ConfigFactory.load("snapshot-legacy-perf.conf"))
+class LegacySnapshotPerfSpec extends SnapshotStorePerfSpec(ConfigFactory.load("snapshot-legacy.conf"))
   with KafkaPluginSpec {
 
   def supportsRejectingNonSerializableObjects = false
