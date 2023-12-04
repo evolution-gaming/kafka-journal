@@ -10,6 +10,7 @@ import cats.effect.unsafe.{IORuntime, IORuntimeConfig}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
+import com.evolutiongaming.kafka.journal.eventual.cassandra.SnapshotCassandraConfig
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
 import com.evolutiongaming.kafka.journal.{JsonCodec, LogOfFromAkka, Origin, Payload, SnapshotReadWrite}
@@ -69,7 +70,7 @@ class CassandraSnapshotStore(config: Config) extends SnapshotStore { actor =>
   def adapterIO: Resource[IO, SnapshotStoreAdapter[IO]] = {
     for {
       snapshotSerializer <- serializer
-      config <- kafkaJournalConfig.toResource
+      config <- cassandraSnapshotStoreConfig.toResource
       snapshotReadWrite <- snapshotReadWrite(config).toResource
       adapter <- adapterIO(config, snapshotSerializer, snapshotReadWrite)
     } yield adapter
@@ -80,13 +81,13 @@ class CassandraSnapshotStore(config: Config) extends SnapshotStore { actor =>
     snapshotReadWrite: SnapshotReadWrite[IO, A]
   ): Resource[IO, SnapshotStoreAdapter[IO]] = {
     for {
-      config <- kafkaJournalConfig.toResource
+      config <- cassandraSnapshotStoreConfig.toResource
       adapter <- adapterIO(config, snapshotSerializer, snapshotReadWrite)
     } yield adapter
   }
 
   def adapterIO[A](
-    config: KafkaJournalConfig,
+    config: CassandraSnapshotStoreConfig,
     snapshotSerializer: SnapshotSerializer[IO, A],
     snapshotReadWrite: SnapshotReadWrite[IO, A]
   ): Resource[IO, SnapshotStoreAdapter[IO]] = {
@@ -104,7 +105,7 @@ class CassandraSnapshotStore(config: Config) extends SnapshotStore { actor =>
             origin = origin,
             snapshotSerializer = snapshotSerializer,
             snapshotReadWrite = snapshotReadWrite,
-            config = config,
+            config = config.cassandra,
             cassandraClusterOf = cassandraClusterOf
           )(logOf = logOf)
         } yield adapter
@@ -140,7 +141,7 @@ class CassandraSnapshotStore(config: Config) extends SnapshotStore { actor =>
     origin: Option[Origin],
     snapshotSerializer: SnapshotSerializer[IO, A],
     snapshotReadWrite: SnapshotReadWrite[IO, A],
-    config: KafkaJournalConfig,
+    config: SnapshotCassandraConfig,
     cassandraClusterOf: CassandraClusterOf[IO]
   )(implicit logOf: LogOf[IO]): Resource[IO, SnapshotStoreAdapter[IO]] =
     SnapshotStoreAdapter.of[IO, A](
@@ -165,16 +166,16 @@ class CassandraSnapshotStore(config: Config) extends SnapshotStore { actor =>
       .value
   }
 
-  def kafkaJournalConfig: IO[KafkaJournalConfig] =
+  def cassandraSnapshotStoreConfig: IO[CassandraSnapshotStoreConfig] =
     ConfigSource
       .fromConfig(config)
-      .load[KafkaJournalConfig]
+      .load[CassandraSnapshotStoreConfig]
       .liftTo[IO]
 
   def serializer: Resource[IO, SnapshotSerializer[IO, Payload]] =
     SnapshotSerializer.of[IO](system).toResource
 
-  def snapshotReadWrite(config: KafkaJournalConfig): IO[SnapshotReadWrite[IO, Payload]] =
+  def snapshotReadWrite(config: CassandraSnapshotStoreConfig): IO[SnapshotReadWrite[IO, Payload]] =
     for {
       jsonCodec <- jsonCodec(config)
     } yield {
@@ -182,7 +183,7 @@ class CassandraSnapshotStore(config: Config) extends SnapshotStore { actor =>
       SnapshotReadWrite.of[IO, Payload]
     }
 
-  def jsonCodec(config: KafkaJournalConfig): IO[JsonCodec[IO]] = {
+  def jsonCodec(config: CassandraSnapshotStoreConfig): IO[JsonCodec[IO]] = {
     val codec: JsonCodec[IO] = config.jsonCodec match {
       case KafkaJournalConfig.JsonCodec.Default  => JsonCodec.default
       case KafkaJournalConfig.JsonCodec.PlayJson => JsonCodec.playJson

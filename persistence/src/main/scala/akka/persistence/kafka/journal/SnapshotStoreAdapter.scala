@@ -8,7 +8,7 @@ import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
-import com.evolutiongaming.kafka.journal.eventual.cassandra.SnapshotCassandra
+import com.evolutiongaming.kafka.journal.eventual.cassandra.{SnapshotCassandra, SnapshotCassandraConfig}
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.scassandra.CassandraClusterOf
 
@@ -33,7 +33,7 @@ object SnapshotStoreAdapter {
     origin: Option[Origin],
     snapshotSerializer: SnapshotSerializer[F, A],
     snapshotReadWrite: SnapshotReadWrite[F, A],
-    config: KafkaJournalConfig,
+    config: SnapshotCassandraConfig,
     cassandraClusterOf: CassandraClusterOf[F]
   ): Resource[F, SnapshotStoreAdapter[F]] = {
 
@@ -43,7 +43,7 @@ object SnapshotStoreAdapter {
       SnapshotStoreAdapter(store, toKey, origin)
 
     for {
-      store <- SnapshotCassandra.of(config.cassandra, origin, cassandraClusterOf)
+      store <- SnapshotCassandra.of(config, origin, cassandraClusterOf)
     } yield adapter(store)(snapshotSerializer, snapshotReadWrite)
   }
 

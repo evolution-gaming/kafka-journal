@@ -28,7 +28,7 @@ object SnapshotStorePerfSpec {
     var snapshotSavingFinishedAt: Map[Long, Long] = Map.empty
 
     // we do not want incoming events to affect measurement of snapshot saving
-    // so we will be stashing them when snaphotting is happening
+    // so we will be stashing them when snapshotting is happening
     var savingSnapshot = false
 
     var loadingSnapshot = true
