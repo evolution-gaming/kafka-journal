@@ -20,7 +20,6 @@ object SnapshotStatements {
        |CREATE TABLE IF NOT EXISTS ${name.toCql} (
        |id TEXT,
        |topic TEXT,
-       |segment BIGINT,
        |buffer_idx INT,
        |seq_nr BIGINT,
        |timestamp TIMESTAMP,
@@ -30,17 +29,12 @@ object SnapshotStatements {
        |payload_type TEXT,
        |payload_txt TEXT,
        |payload_bin BLOB,
-       |PRIMARY KEY ((id, topic, segment), buffer_idx))
+       |PRIMARY KEY ((id, topic), buffer_idx))
        |""".stripMargin
   }
 
   trait InsertRecord[F[_]] {
-    def apply(
-      key: Key,
-      segment: SegmentNr,
-      bufferNr: BufferNr,
-      snapshot: SnapshotRecord[EventualPayloadAndType]
-    ): F[Boolean]
+    def apply(key: Key, bufferNr: BufferNr, snapshot: SnapshotRecord[EventualPayloadAndType]): F[Boolean]
   }
 
   object InsertRecord {
@@ -58,7 +52,6 @@ object SnapshotStatements {
            |INSERT INTO ${name.toCql} (
            |id,
            |topic,
-           |segment,
            |buffer_idx,
            |seq_nr,
            |timestamp,
@@ -74,8 +67,7 @@ object SnapshotStatements {
 
       for {
         prepared <- query.prepare
-      } yield { (key, segment, bufferNr, snapshot) =>
-
+      } yield { (key, bufferNr, snapshot) =>
         def statementOf(record: SnapshotRecord[EventualPayloadAndType]) = {
           val snapshot = record.snapshot
           val payloadType = snapshot.payload.map(_.payloadType)
@@ -84,7 +76,6 @@ object SnapshotStatements {
           prepared
             .bind()
             .encode(key)
-            .encode(segment)
             .encode(bufferNr)
             .encode(snapshot.seqNr)
             .encode("timestamp", record.timestamp)
@@ -106,7 +97,6 @@ object SnapshotStatements {
   trait UpdateRecord[F[_]] {
     def apply(
       key: Key,
-      segment: SegmentNr,
       bufferNr: BufferNr,
       insertSnapshot: SnapshotRecord[EventualPayloadAndType],
       deleteSnapshot: SeqNr
@@ -136,15 +126,13 @@ object SnapshotStatements {
            |metadata = :metadata
            |WHERE id = :id
            |AND topic = :topic
-           |AND segment = :segment
            |AND buffer_idx = :buffer_idx
            |IF seq_nr = :delete_seq_nr
            |""".stripMargin
 
       for {
         prepared <- query.prepare
-      } yield { (key, segment, bufferNr, insertSnapshot, deleteSnapshot) =>
-
+      } yield { (key, bufferNr, insertSnapshot, deleteSnapshot) =>
         def statementOf(record: SnapshotRecord[EventualPayloadAndType]) = {
           val snapshot = record.snapshot
           val payloadType = snapshot.payload.map(_.payloadType)
@@ -153,7 +141,6 @@ object SnapshotStatements {
           prepared
             .bind()
             .encode(key)
-            .encode(segment)
             .encode(bufferNr)
             .encode("insert_seq_nr", snapshot.seqNr)
             .encode("delete_seq_nr", deleteSnapshot)
@@ -174,7 +161,7 @@ object SnapshotStatements {
   }
 
   trait SelectMetadata[F[_]] {
-    def apply(key: Key, segment: SegmentNr): F[Map[BufferNr, (SeqNr, Instant)]]
+    def apply(key: Key): F[Map[BufferNr, (SeqNr, Instant)]]
   }
 
   object SelectMetadata {
@@ -192,16 +179,14 @@ object SnapshotStatements {
            |timestamp FROM ${name.toCql}
            |WHERE id = ?
            |AND topic = ?
-           |AND segment = ?
            |""".stripMargin
 
       for {
         prepared <- query.prepare
-      } yield { (key, segment) =>
+      } yield { key =>
         val bound = prepared
           .bind()
           .encode(key)
-          .encode(segment)
           .setConsistencyLevel(consistencyConfig.value)
 
         val rows = for {
@@ -221,7 +206,7 @@ object SnapshotStatements {
   }
 
   trait SelectRecord[F[_]] {
-    def apply(key: Key, segment: SegmentNr, bufferNr: BufferNr): F[Option[SnapshotRecord[EventualPayloadAndType]]]
+    def apply(key: Key, bufferNr: BufferNr): F[Option[SnapshotRecord[EventualPayloadAndType]]]
   }
 
   object SelectRecord {
@@ -247,13 +232,12 @@ object SnapshotStatements {
            |metadata FROM ${name.toCql}
            |WHERE id = ?
            |AND topic = ?
-           |AND segment = ?
            |AND buffer_idx = ?
            |""".stripMargin
 
       for {
         prepared <- query.prepare
-      } yield { (key, segment, bufferNr) =>
+      } yield { (key, bufferNr) =>
         def readPayload(row: Row): Option[EventualPayloadAndType] = {
           val payloadType = row.decode[Option[PayloadType]]("payload_type")
           val payloadTxt = row.decode[Option[String]]("payload_txt")
@@ -266,7 +250,6 @@ object SnapshotStatements {
         val bound = prepared
           .bind()
           .encode(key)
-          .encode(segment)
           .encodeAt(3, bufferNr)
           .setConsistencyLevel(consistencyConfig.value)
 
@@ -294,7 +277,7 @@ object SnapshotStatements {
 
   trait Delete[F[_]] {
 
-    def apply(key: Key, segmentNr: SegmentNr, bufferNr: BufferNr): F[Boolean]
+    def apply(key: Key, bufferNr: BufferNr): F[Boolean]
   }
 
   object Delete {
@@ -306,17 +289,15 @@ object SnapshotStatements {
            |DELETE FROM ${name.toCql}
            |WHERE id = ?
            |AND topic = ?
-           |AND segment = ?
            |AND buffer_idx = ?
            |IF EXISTS""".stripMargin
 
       for {
         prepared <- query.prepare
-      } yield { (key, segmentNr, bufferNr) =>
+      } yield { (key, bufferNr) =>
         val row = prepared
           .bind()
           .encode(key)
-          .encode(segmentNr)
           .encode(bufferNr)
           .setConsistencyLevel(consistencyConfig.value)
           .first

@@ -50,24 +50,20 @@ object SnapshotCassandra {
   def apply[F[_]: MonadThrow](statements: Statements[F]): SnapshotStoreFlat[F] = {
     new Main with SnapshotStoreFlat[F] {
 
-      // we do not use segments for now
-      val segmentNr = SegmentNr.min
-
       def save(key: Key, snapshot: SnapshotRecord[EventualPayloadAndType]): F[Unit] = {
-        statements.selectMetadata(key, segmentNr).flatMap {
+        statements.selectMetadata(key).flatMap {
           // such snapshot is already saved, overwrite
           case s if s.values.exists { case (seqNr, _) => snapshot.snapshot.seqNr == seqNr } =>
-            update(key, segmentNr, s, snapshot)
+            update(key, s, snapshot)
           // there is a free place to add a snapshot
-          case s if s.size < BufferSize => insert(key, segmentNr, s, snapshot)
+          case s if s.size < BufferSize => insert(key, s, snapshot)
           // all rows are taken, we have to update one of them
-          case s => replace(key, segmentNr, s, snapshot)
+          case s => replace(key, s, snapshot)
         }
       }
 
       def insert(
         key: Key,
-        segmentNr: SegmentNr,
         savedSnapshots: Map[BufferNr, (SeqNr, Instant)],
         snapshot: SnapshotRecord[EventualPayloadAndType]
       ): F[Unit] = {
@@ -75,7 +71,7 @@ object SnapshotCassandra {
         val takenBufferNrs = savedSnapshots.keySet
         val freeBufferNr = allBufferNrs.find(bufferNr => !takenBufferNrs.contains(bufferNr))
         MonadThrow[F].fromOption(freeBufferNr, SnapshotStoreError("Could not find a free key")).flatMap { bufferNr =>
-          val wasApplied = statements.insertRecord(key, segmentNr, bufferNr, snapshot)
+          val wasApplied = statements.insertRecord(key, bufferNr, snapshot)
           wasApplied.flatMap { wasApplied =>
             // TODO: consider adding circuit breaker here
             if (wasApplied) ().pure[F] else save(key, snapshot)
@@ -85,7 +81,6 @@ object SnapshotCassandra {
 
       def replace(
         key: Key,
-        segmentNr: SegmentNr,
         savedSnapshots: Map[BufferNr, (SeqNr, Instant)],
         insertSnapshot: SnapshotRecord[EventualPayloadAndType]
       ): F[Unit] = {
@@ -94,7 +89,7 @@ object SnapshotCassandra {
         MonadThrow[F].fromOption(oldestSnapshot, SnapshotStoreError("Could not find an oldest snapshot")).flatMap {
           oldestSnapshot =>
             val (bufferNr, (deleteSnapshot, _)) = oldestSnapshot
-            val wasApplied = statements.updateRecord(key, segmentNr, bufferNr, insertSnapshot, deleteSnapshot)
+            val wasApplied = statements.updateRecord(key, bufferNr, insertSnapshot, deleteSnapshot)
             wasApplied.flatMap { wasApplied =>
               // TODO: consider adding circuit breaker here
               if (wasApplied) ().pure[F] else save(key, insertSnapshot)
@@ -104,7 +99,6 @@ object SnapshotCassandra {
 
       def update(
         key: Key,
-        segmentNr: SegmentNr,
         savedSnapshots: Map[BufferNr, (SeqNr, Instant)],
         insertSnapshot: SnapshotRecord[EventualPayloadAndType]
       ): F[Unit] = {
@@ -115,7 +109,7 @@ object SnapshotCassandra {
         MonadThrow[F].fromOption(olderSnapshot, SnapshotStoreError("Could not find snapshot with seqNr")).flatMap {
           olderSnapshot =>
             val (bufferNr, (deleteSnapshot, _)) = olderSnapshot
-            val wasApplied = statements.updateRecord(key, segmentNr, bufferNr, insertSnapshot, deleteSnapshot)
+            val wasApplied = statements.updateRecord(key, bufferNr, insertSnapshot, deleteSnapshot)
             wasApplied.flatMap { wasApplied =>
               // TODO: consider adding circuit breaker here
               if (wasApplied) ().pure[F] else save(key, insertSnapshot)
@@ -125,7 +119,7 @@ object SnapshotCassandra {
 
       def load(key: Key, criteria: SnapshotSelectionCriteria): F[Option[SnapshotRecord[EventualPayloadAndType]]] =
         for {
-          savedSnapshots <- statements.selectMetadata(key, segmentNr)
+          savedSnapshots <- statements.selectMetadata(key)
           sortedSnapshots = savedSnapshots.toList.sortBy { case (_, (seqNr, timestamp)) => (seqNr, timestamp) }
           bufferNr = sortedSnapshots.reverse.collectFirst {
             case (bufferNr, (seqNr, timestamp))
@@ -135,12 +129,12 @@ object SnapshotCassandra {
                   timestamp.compareTo(criteria.maxTimestamp) <= 0 =>
               bufferNr
           }
-          snapshot <- bufferNr.flatTraverse(statements.selectRecords(key, segmentNr, _))
+          snapshot <- bufferNr.flatTraverse(statements.selectRecords(key, _))
         } yield snapshot
 
       def drop(key: Key, criteria: SnapshotSelectionCriteria): F[Unit] =
         for {
-          savedSnapshots <- statements.selectMetadata(key, segmentNr)
+          savedSnapshots <- statements.selectMetadata(key)
           bufferNrs = savedSnapshots.toList.collect {
             case (bufferNr, (seqNr, timestamp))
                 if seqNr >= criteria.minSeqNr &&
@@ -149,7 +143,7 @@ object SnapshotCassandra {
                   timestamp.compareTo(criteria.maxTimestamp) <= 0 =>
               bufferNr
           }
-          _ <- bufferNrs.traverse(statements.deleteRecords(key, segmentNr, _))
+          _ <- bufferNrs.traverse(statements.deleteRecords(key, _))
         } yield ()
 
       def drop(key: Key, seqNr: SeqNr): F[Unit] =
