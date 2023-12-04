@@ -32,7 +32,7 @@ class SnapshotCassandraTest extends AnyFunSuite {
     val program = for {
       statements <- statements.pure[F]
       // both snapshotters see empty metadata, because it is not saved yet
-      store = SnapshotCassandra[F](statements.copy(selectMetadata = { (_, _) =>
+      store = SnapshotCassandra[F](statements.copy(selectMetadata = { _ =>
         // sync data after first call to simulate delayed update
         // otherwise the `selectMetadata` call may be stuck in an infinite loop
         DatabaseState.get.map(_.metadata) <* DatabaseState.sync
@@ -111,7 +111,7 @@ class SnapshotCassandraTest extends AnyFunSuite {
   }
 
   def statements: SnapshotCassandra.Statements[F] = SnapshotCassandra.Statements(
-    insertRecord = { (_, _, bufferNr, snapshot) =>
+    insertRecord = { (_, bufferNr, snapshot) =>
       for {
         state0 <- DatabaseState.get
         state1 = state0.insert(bufferNr, snapshot)
@@ -119,7 +119,7 @@ class SnapshotCassandraTest extends AnyFunSuite {
         _ <- DatabaseState.set(state1.getOrElse(state0))
       } yield wasApplied
     },
-    updateRecord = { (_, _, bufferNr, insertSnapshot, deleteSnapshot) =>
+    updateRecord = { (_, bufferNr, insertSnapshot, deleteSnapshot) =>
       for {
         state0 <- DatabaseState.get
         state1 = state0.update(bufferNr, insertSnapshot, deleteSnapshot)
@@ -127,13 +127,13 @@ class SnapshotCassandraTest extends AnyFunSuite {
         _ <- DatabaseState.set(state1.getOrElse(state0))
       } yield wasApplied
     },
-    selectRecords = { (_, _, bufferNr) =>
+    selectRecords = { (_, bufferNr) =>
       DatabaseState.get.map(_.select(bufferNr))
     },
-    selectMetadata = { (_, _) =>
+    selectMetadata = { _ =>
       DatabaseState.get.map(_.metadata)
     },
-    deleteRecords = { (_, _, bufferNr) =>
+    deleteRecords = { (_, bufferNr) =>
       for {
         state0 <- DatabaseState.get
         state1 = state0.delete(bufferNr)
