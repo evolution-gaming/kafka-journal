@@ -61,7 +61,7 @@ object SnapshotStatements {
            |payload_txt,
            |payload_bin,
            |metadata)
-           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            |IF NOT EXISTS
            |""".stripMargin
 
