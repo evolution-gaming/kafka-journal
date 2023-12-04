@@ -14,10 +14,12 @@ class SnapshotCassandraTest extends AnyFunSuite {
   type SnaphsotWithPayload = SnapshotRecord[EventualPayloadAndType]
   type F[A] = StateT[Try, DatabaseState, A]
 
+  val numberOfSnapshots: Int = 10
+
   test("save and load") {
     val program = for {
       statements <- statements.pure[F]
-      store = SnapshotCassandra(statements)
+      store = SnapshotCassandra(statements, numberOfSnapshots)
       key = Key("topic", "id")
       _ <- store.save(key, record)
       _ <- DatabaseState.sync
@@ -32,11 +34,14 @@ class SnapshotCassandraTest extends AnyFunSuite {
     val program = for {
       statements <- statements.pure[F]
       // both snapshotters see empty metadata, because it is not saved yet
-      store = SnapshotCassandra[F](statements.copy(selectMetadata = { _ =>
-        // sync data after first call to simulate delayed update
-        // otherwise the `selectMetadata` call may be stuck in an infinite loop
-        DatabaseState.get.map(_.metadata) <* DatabaseState.sync
-      }))
+      store = SnapshotCassandra[F](
+        statements.copy(selectMetadata = { _ =>
+          // sync data after first call to simulate delayed update
+          // otherwise the `selectMetadata` call may be stuck in an infinite loop
+          DatabaseState.get.map(_.metadata) <* DatabaseState.sync
+        }),
+        numberOfSnapshots
+      )
       key = Key("topic", "id")
       snapshot1 = record.snapshot.copy(seqNr = SeqNr.unsafe(1))
       snapshot2 = record.snapshot.copy(seqNr = SeqNr.unsafe(2))
@@ -55,7 +60,7 @@ class SnapshotCassandraTest extends AnyFunSuite {
   test("save is idempotent") {
     val program = for {
       statements <- statements.pure[F]
-      store = SnapshotCassandra[F](statements)
+      store = SnapshotCassandra[F](statements, numberOfSnapshots)
       key = Key("topic", "id")
       // try to save twice
       _ <- store.save(key, record)
@@ -73,7 +78,7 @@ class SnapshotCassandraTest extends AnyFunSuite {
   test("drop all") {
     val program = for {
       statements <- statements.pure[F]
-      store = SnapshotCassandra(statements)
+      store = SnapshotCassandra(statements, numberOfSnapshots)
       key = Key("topic", "id")
       snapshot1 = record.snapshot.copy(seqNr = SeqNr.unsafe(1))
       snapshot2 = record.snapshot.copy(seqNr = SeqNr.unsafe(2))
@@ -93,7 +98,7 @@ class SnapshotCassandraTest extends AnyFunSuite {
   test("drop by seqNr") {
     val program = for {
       statements <- statements.pure[F]
-      store = SnapshotCassandra(statements)
+      store = SnapshotCassandra(statements, numberOfSnapshots)
       key = Key("topic", "id")
       snapshot1 = record.snapshot.copy(seqNr = SeqNr.unsafe(1))
       snapshot2 = record.snapshot.copy(seqNr = SeqNr.unsafe(2))

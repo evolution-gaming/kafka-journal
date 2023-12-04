@@ -14,18 +14,14 @@ import java.time.Instant
 
 object SnapshotCassandra {
 
-  // TODO: make it configurable
-  val BufferSize = 10
-
   def of[F[_]: Async: Parallel: LogOf](
-    config: EventualCassandraConfig,
+    config: SnapshotCassandraConfig,
     origin: Option[Origin],
     cassandraClusterOf: CassandraClusterOf[F]
   ): Resource[F, SnapshotStoreFlat[F]] = {
 
-    def store(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
-      of(config.schema, origin, config.consistencyConfig)
-    }
+    def store(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) =
+      of(config.schema, origin, config.consistencyConfig, config.numberOfSnapshots)
 
     for {
       cassandraCluster <- CassandraCluster.of[F](config.client, cassandraClusterOf, config.retries)
@@ -38,16 +34,17 @@ object SnapshotCassandra {
   def of[F[_]: Temporal: Parallel: CassandraCluster: CassandraSession: LogOf](
     schemaConfig: SchemaConfig,
     origin: Option[Origin],
-    consistencyConfig: ConsistencyConfig
+    consistencyConfig: ConsistencyConfig,
+    numberOfSnapshots: Int
   ): F[SnapshotStoreFlat[F]] =
     for {
       schema <- SetupSchema[F](schemaConfig, origin, consistencyConfig)
       statements <- Statements.of[F](schema, consistencyConfig)
-    } yield SnapshotCassandra(statements)
+    } yield SnapshotCassandra(statements, numberOfSnapshots)
 
   private sealed abstract class Main
 
-  def apply[F[_]: MonadThrow](statements: Statements[F]): SnapshotStoreFlat[F] = {
+  def apply[F[_]: MonadThrow](statements: Statements[F], numberOfSnapshots: Int): SnapshotStoreFlat[F] = {
     new Main with SnapshotStoreFlat[F] {
 
       def save(key: Key, snapshot: SnapshotRecord[EventualPayloadAndType]): F[Unit] = {
@@ -56,7 +53,7 @@ object SnapshotCassandra {
           case s if s.values.exists { case (seqNr, _) => snapshot.snapshot.seqNr == seqNr } =>
             update(key, s, snapshot)
           // there is a free place to add a snapshot
-          case s if s.size < BufferSize => insert(key, s, snapshot)
+          case s if s.size < numberOfSnapshots => insert(key, s, snapshot)
           // all rows are taken, we have to update one of them
           case s => replace(key, s, snapshot)
         }
@@ -67,7 +64,7 @@ object SnapshotCassandra {
         savedSnapshots: Map[BufferNr, (SeqNr, Instant)],
         snapshot: SnapshotRecord[EventualPayloadAndType]
       ): F[Unit] = {
-        val allBufferNrs = BufferNr.listOf(BufferSize)
+        val allBufferNrs = BufferNr.listOf(numberOfSnapshots)
         val takenBufferNrs = savedSnapshots.keySet
         val freeBufferNr = allBufferNrs.find(bufferNr => !takenBufferNrs.contains(bufferNr))
         MonadThrow[F].fromOption(freeBufferNr, SnapshotStoreError("Could not find a free key")).flatMap { bufferNr =>
