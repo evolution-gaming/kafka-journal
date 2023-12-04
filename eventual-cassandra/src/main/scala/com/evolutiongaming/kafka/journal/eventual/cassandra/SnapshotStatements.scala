@@ -250,7 +250,7 @@ object SnapshotStatements {
         val bound = prepared
           .bind()
           .encode(key)
-          .encodeAt(3, bufferNr)
+          .encodeAt(2, bufferNr)
           .setConsistencyLevel(consistencyConfig.value)
 
         val rows = for {
