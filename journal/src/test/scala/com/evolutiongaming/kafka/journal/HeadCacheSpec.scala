@@ -100,7 +100,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
 
       val eventual = HeadCache.Eventual.empty[IO]
 
-      val state = TestConsumer.State.empty
+      val state = TestConsumer.State(topics = Map((topic, List(partition))))
 
       val key = Key(id = "id", topic = topic)
       val result = for {
@@ -186,10 +186,9 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
     }
 
     "timeout" in {
-      val consumer   = TopicCache.Consumer.empty[IO]
       val headCache  = headCacheOf(
         HeadCache.Eventual.empty, 
-        consumer.pure[IO].toResource,
+        consumerEmpty.pure[IO].toResource,
         config.copy(timeout = 10.millis))
       val result = headCache.use { headCache =>
         val key = Key(id = "id", topic = topic)
@@ -222,10 +221,9 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
     }
 
     "not leak resources on release" in {
-      val consumer   = TopicCache.Consumer.empty[IO]
       val headCache  = headCacheOf(
         HeadCache.Eventual.empty,
-        consumer.pure[IO].toResource)
+        consumerEmpty.pure[IO].toResource)
       val result = for {
         a <- headCache.use { headCache =>
           val key = Key(id = "id", topic = topic)
@@ -278,6 +276,14 @@ object HeadCacheSpec {
 
   
   implicit val LogIO: Log[IO] = Log.empty[IO]
+
+
+  val consumerEmpty = new TopicCache.Consumer[IO] {
+    def assign(topic: Topic, partitions: Nes[Partition]) = IO.unit
+    def seek(topic: Topic, offsets: Nem[Partition, Offset]) = IO.unit
+    def poll = ConsumerRecords.empty[String, Unit].pure[IO]
+    def partitions(topic: Topic) = Set(partition).pure[IO]
+  }
 
 
   def headCacheOf(

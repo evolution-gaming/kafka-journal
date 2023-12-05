@@ -15,7 +15,6 @@ import com.evolutiongaming.retry.Retry.implicits._
 import com.evolutiongaming.retry.{Sleep, Strategy}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecords}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
-import com.evolution.scache.Cache
 
 import scala.concurrent.duration._
 
@@ -94,20 +93,26 @@ object TopicCache {
       partitions <- consumer
         .use { _.partitions(topic) }
         .toResource
-      cache     <- Cache.loading[F, Partition, PartitionCache[F]](partitions = 1.some)
-      partitionCacheOf = (partition: Partition) => {
-        cache.getOrUpdateResource(partition) {
-          PartitionCache.of(
-            maxSize = config.partition.maxSize,
-            dropUponLimit = config.partition.dropUponLimit,
-            timeout = config.timeout)
+
+      caches     <- partitions
+        .toList
+        .parTraverse { partition =>
+          PartitionCache
+            .of(
+              maxSize = config.partition.maxSize,
+              dropUponLimit = config.partition.dropUponLimit,
+              timeout = config.timeout)
+            .map { partitionCache =>
+              (partition, partitionCache)
+            }
         }
-      }
-      remove = partitions
-        .foldMapM { partition =>
+
+      cachesMap  = caches.toMap
+
+      remove     = caches
+        .foldMapM { case (partition, cache) =>
           for {
             offset <- eventual.pointer(topic, partition)
-            cache  <- partitionCacheOf(partition)
             result <- offset.foldMapM { offset =>
               cache
                 .remove(offset)
@@ -125,28 +130,18 @@ object TopicCache {
             }
         }
       _         <- remove.toResource
-      pointers  = {
-        cache
-          .values1
-          .flatMap { values =>
-            values
-              .toList
-              .traverseFilter { case (partition, cache) =>
-                cache
-                  .toOption
-                  .traverse { cache =>
-                    cache
-                      .offset
-                      .flatMap {
-                        case Some(offset) => offset.inc[F]
-                        case None         => Offset.min.pure[F]
-                      }
-                      .map { offset => (partition, offset) }
-                  }
-              }
-          }
-          .map { _.toMap }
-      }
+      pointers   = caches
+        .traverse { case (partition, cache) =>
+          cache
+            .offset
+            .flatMap {
+              case Some(offset) => offset.inc[F]
+              case None         => Offset.min.pure[F]
+            }
+            .map { offset => (partition, offset) }
+        }
+        .map { _.toMap }
+
       _ <- HeadCacheConsumption
         .apply(
           topic = topic,
@@ -174,9 +169,12 @@ object TopicCache {
                       }
                   }
                   .flatMap { records =>
-                    partitionCacheOf
-                      .apply(topicPartition.partition)
-                      .flatMap { cache =>
+                    val partition = topicPartition.partition
+                    cachesMap
+                      .get(partition)
+                      .fold {
+                        JournalError(s"invalid partition: $partition").raiseError[F, Sample]
+                      } { cache =>
                         cache
                           .add(records)
                           .map {
@@ -235,7 +233,7 @@ object TopicCache {
       _ <- metrics.foldMapM { metrics =>
         val result = for {
           _ <- Temporal[F].sleep(1.minute)
-          a <- cache.foldMap { case (_, value) => value.foldMapM { _.meters } }
+          a <- caches.foldMapM { case (_, value) => value.meters }
           a <- metrics.meters(topic, entries = a.entries, listeners = a.listeners)
         } yield a
         result
@@ -249,7 +247,13 @@ object TopicCache {
       new Main with TopicCache[F] {
 
         def get(id: String, partition: Partition, offset: Offset) = {
-          partitionCacheOf(partition).flatMap { _.get(id, offset) }
+          cachesMap
+            .get(partition)
+            .fold {
+              JournalError(s"invalid partition: $partition").raiseError[F, PartitionCache.Result[F]]
+            } { cache =>
+              cache.get(id, offset)
+            }
         }
       }
     }
@@ -566,7 +570,7 @@ object TopicCache {
     }
   }
 
-  private implicit class SetOps[A](val self: Set[A]) extends AnyVal {
+  private final implicit class SetOps[A](val self: Set[A]) extends AnyVal {
 
     /** Aggregate all values in a set to something else using [[Monoid]].
       *
@@ -595,4 +599,11 @@ object TopicCache {
 
   }
 
+  private final implicit class MapOps[K, V](val self: Map[K, V]) extends AnyVal {
+    def foldMapM[F[_]: Monad, A: Monoid](f: (K, V) => F[A]): F[A] = {
+      self.foldLeft(Monoid[A].empty.pure[F]) { case (a, (k, v)) =>
+        a.flatMap { a => f(k, v).map { b => a.combine(b) } }
+      }
+    }
+  }
 }
