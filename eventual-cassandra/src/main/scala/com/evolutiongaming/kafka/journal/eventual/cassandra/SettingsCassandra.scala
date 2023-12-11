@@ -55,12 +55,12 @@ object SettingsCassandra {
 
 
   def of[F[_] : Monad : Parallel : Clock : CassandraSession](
-    schema: Schema,
+    table: TableName,
     origin: Option[Origin],
     consistencyConfig: ConsistencyConfig
   ): F[Settings[F]] = {
     for {
-      statements <- Statements.of[F](schema.setting, consistencyConfig)
+      statements <- Statements.of[F](table, consistencyConfig)
     } yield {
       apply(statements, origin)
     }

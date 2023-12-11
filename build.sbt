@@ -34,6 +34,7 @@ lazy val root = (project in file(".")
     `tests`,
     replicator,
     `eventual-cassandra`,
+    `snapshot-cassandra`,
     `journal-circe`,
     `persistence-circe`))
 
@@ -96,7 +97,8 @@ lazy val persistence = (project in file("persistence")
   settings commonSettings
   dependsOn (
     journal % "test->test;compile->compile",
-    `eventual-cassandra`)
+    `eventual-cassandra`,
+    `snapshot-cassandra`)
   settings (libraryDependencies ++= Seq(
     `akka-serialization`,
     `cats-helper`,
@@ -150,8 +152,14 @@ lazy val replicator = (Project("replicator", file("replicator"))
 lazy val `eventual-cassandra` = (project in file("eventual-cassandra")
   settings (name := "kafka-journal-eventual-cassandra")
   settings commonSettings
-  dependsOn (journal % "test->test;compile->compile", snapshot % "test->test;compile->compile")
+  dependsOn (journal % "test->test;compile->compile")
   settings (libraryDependencies ++= Seq(scache, scassandra)))
+
+lazy val `snapshot-cassandra` = (project in file("snapshot-cassandra")
+  settings (name := "kafka-journal-snapshot-cassandra")
+  settings commonSettings
+  dependsOn (snapshot % "test->test;compile->compile", `eventual-cassandra`)
+  settings (libraryDependencies ++= Seq(scassandra)))
 
 lazy val `journal-circe` = (project in file("circe/core")
   settings (name := "kafka-journal-circe")

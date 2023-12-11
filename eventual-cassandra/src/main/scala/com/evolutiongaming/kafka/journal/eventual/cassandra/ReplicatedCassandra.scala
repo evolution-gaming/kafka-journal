@@ -39,7 +39,7 @@ object ReplicatedCassandra {
   ): F[ReplicatedJournal[F]] = {
 
     for {
-      schema        <- SetupSchema[F](config.schema, origin, config.consistencyConfig)
+      schema        <- SetupJournalSchema[F](config.schema, origin, config.consistencyConfig)
       statements    <- Statements.of[F](schema, config.consistencyConfig)
       log           <- LogOf[F].apply(ReplicatedCassandra.getClass)
       expiryService <- ExpiryService.of[F]

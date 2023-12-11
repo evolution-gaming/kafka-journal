@@ -15,7 +15,7 @@ import scala.util.Try
 import scala.util.control.NoStackTrace
 
 
-class SetupSchemaSpec extends AnyFunSuite with Matchers {
+class SetupJournalSchemaSpec extends AnyFunSuite with Matchers {
   import SetupSchemaSpec._
 
   test("migrate fresh") {
@@ -91,7 +91,6 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
     metaJournal = TableName(keyspace = "journal", table = "metaJournal"),
     pointer = TableName(keyspace = "journal", table = "pointer"),
     pointer2 = TableName(keyspace = "journal", table = "pointer2"),
-    snapshot = TableName(keyspace = "journal", table = "snapshot_buffer"),
     setting = TableName(keyspace = "journal", table = "setting"))
 
   implicit val settings: Settings[StateT] = {
@@ -173,7 +172,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
 
   def migrate(fresh: Boolean): StateT[Unit] = {
-    SetupSchema.migrate[StateT](schema, fresh, settings, cassandraSync)
+    SetupJournalSchema(schema, fresh, settings, cassandraSync)
   }
 
   case class State(version: Option[String], actions: List[Action]) {

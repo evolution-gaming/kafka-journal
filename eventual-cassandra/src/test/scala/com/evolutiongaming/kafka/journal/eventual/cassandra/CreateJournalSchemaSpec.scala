@@ -6,7 +6,7 @@ import com.evolutiongaming.scassandra.TableName
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
-class CreateSchemaSpec extends AnyFunSuite with Matchers { self =>
+class CreateJournalSchemaSpec extends AnyFunSuite with Matchers { self =>
 
   test("create keyspace and tables") {
     val config = SchemaConfig.default
@@ -35,7 +35,6 @@ class CreateSchemaSpec extends AnyFunSuite with Matchers { self =>
     metaJournal = TableName(keyspace = "journal", table = "metajournal"),
     pointer = TableName(keyspace = "journal", table = "pointer"),
     pointer2 = TableName(keyspace = "journal", table = "pointer2"),
-    snapshot = TableName(keyspace = "journal", table = "snapshot_buffer"),
     setting = TableName(keyspace = "journal", table = "setting"))
 
   val createTables: CreateTables[StateT] = new CreateTables[StateT] {
@@ -48,7 +47,7 @@ class CreateSchemaSpec extends AnyFunSuite with Matchers { self =>
   }
 
   val createKeyspace: CreateKeyspace[StateT] = new CreateKeyspace[StateT] {
-    def apply(config: SchemaConfig.Keyspace) = {
+    def apply(config: KeyspaceConfig) = {
       StateT { state =>
         val state1 = state.add(Action.CreateKeyspace)
         (state1, ())

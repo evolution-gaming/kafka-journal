@@ -24,15 +24,15 @@ object CassandraSync {
 
 
   def apply[F[_] : Temporal : CassandraSession](
-    config: SchemaConfig,
+    keyspace: KeyspaceConfig,
+    locksTable: String,
     origin: Option[Origin],
   ): CassandraSync[F] = {
 
-    val keyspace = config.keyspace
     val autoCreate = if (keyspace.autoCreate) AutoCreate.Table else AutoCreate.None
     apply(
       keyspace = keyspace.name,
-      table = config.locksTable,
+      table = locksTable,
       autoCreate = autoCreate,
       metadata = origin.map(_.value))
   }
@@ -63,14 +63,15 @@ object CassandraSync {
   }
 
   def of[F[_] : Temporal : CassandraSession](
-    config: SchemaConfig,
+    keyspace: KeyspaceConfig,
+    locksTable: String,
     origin: Option[Origin]
   ): F[CassandraSync[F]] = {
 
     for {
       semaphore <- Semaphore[F](1)
     } yield {
-      val cassandraSync = apply[F](config, origin)
+      val cassandraSync = apply[F](keyspace, locksTable, origin)
       val serial = new (F ~> F) {
         def apply[A](fa: F[A]) = semaphore.permit.use(_ => fa)
       }

@@ -12,68 +12,24 @@ import com.evolutiongaming.scassandra.ToCql.implicits._
 
 import scala.util.Try
 
-object SetupSchema { self =>
+class SetupSchema[F[_]: MonadThrow](
+  cassandraSync: CassandraSync[F],
+  settings: Settings[F],
+  settingKey: String,
+  migrations: List[F[Unit]]
+) {
 
-  def migrate[F[_]: MonadThrow: CassandraSession](
-    schema: Schema,
-    fresh: CreateSchema.Fresh,
-    settings: Settings[F],
-    cassandraSync: CassandraSync[F]
-  ): F[Unit] = {
+  def migrate(fresh: CreateSchema.Fresh): F[Unit] = {
 
-    def addHeaders = {
-      JournalStatements
-        .addHeaders(schema.journal)
-        .execute
-        .first
-        .void
-        .handleError { _ => () }
-    }
-
-    def addVersion = {
-      JournalStatements
-        .addVersion(schema.journal)
-        .execute
-        .first
-        .void
-        .handleError { _ => () }
-    }
-
-    def dropMetadata = {
-      s"DROP TABLE IF EXISTS ${ schema.metadata.toCql }"
-        .execute
-        .first
-        .void
-        .handleError { _ => () }
-    }
-
-    def createPointer2 = {
-      Pointer2Statements.createTable(schema.pointer2)
-        .execute
-        .first
-        .void
-        .handleError { _ => () }
-    }
-
-    val schemaVersion = "schema-version"
-
-    val migrations = Nel.of(
-      addHeaders,
-      addVersion,
-      dropMetadata,
-      createPointer2)
-
-    def setVersion(version: Int) = {
+    def setVersion(version: Int) =
       settings
-        .set("schema-version", version.toString)
+        .set(settingKey, version.toString)
         .void
-    }
 
     def migrate = {
 
-      def migrate(version: Int) = {
-        migrations
-          .toList
+      def migrate(version: Int) =
+        migrations.toList
           .drop(version + 1)
           .toNel
           .map { migrations =>
@@ -87,16 +43,13 @@ object SetupSchema { self =>
               }
               .void
           }
-      }
 
       settings
-        .get(schemaVersion)
+        .get(settingKey)
         .map { setting =>
           setting
             .flatMap { a =>
-              Try
-                .apply { a.value.toInt }
-                .toOption
+              Try.apply { a.value.toInt }.toOption
             }
             .fold {
               if (fresh) {
@@ -126,20 +79,16 @@ object SetupSchema { self =>
     }
   }
 
-  def apply[F[_]: Temporal: Parallel: CassandraCluster: CassandraSession: LogOf](
-    config: SchemaConfig,
-    origin: Option[Origin],
-    consistencyConfig: ConsistencyConfig
-  ): F[Schema] = {
+}
 
-    def createSchema(implicit cassandraSync: CassandraSync[F]) = CreateSchema(config)
+object SetupSchema {
 
-    for {
-      cassandraSync   <- CassandraSync.of[F](config, origin)
-      ab              <- createSchema(cassandraSync)
-      (schema, fresh)  = ab
-      settings        <- SettingsCassandra.of[F](schema, origin, consistencyConfig)
-      _               <- migrate(schema, fresh, settings, cassandraSync)
-    } yield schema
-  }
+  def apply[F[_]: MonadThrow](
+    cassandraSync: CassandraSync[F],
+    settings: Settings[F],
+    settingKey: String,
+    migrations: List[F[Unit]]
+  ): SetupSchema[F] =
+    new SetupSchema(cassandraSync, settings, settingKey, migrations)
+
 }

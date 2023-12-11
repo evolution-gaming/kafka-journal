@@ -1,6 +1,7 @@
-package com.evolutiongaming.kafka.journal.eventual.cassandra
+package com.evolutiongaming.kafka.journal.snapshot.cassandra
 
 import com.datastax.driver.core.ConsistencyLevel
+import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig
 import com.evolutiongaming.scassandra.{CassandraConfig, QueryConfig}
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
@@ -32,7 +33,7 @@ final case class SnapshotCassandraConfig(
     name = "snapshot",
     query = QueryConfig(consistency = ConsistencyLevel.LOCAL_QUORUM, fetchSize = 1000, defaultIdempotence = true)
   ),
-  schema: SchemaConfig = SchemaConfig.default,
+  schema: SnapshotSchemaConfig = SnapshotSchemaConfig.default,
   consistencyConfig: EventualCassandraConfig.ConsistencyConfig = EventualCassandraConfig.ConsistencyConfig.default
 )
 

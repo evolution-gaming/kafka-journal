@@ -8,5 +8,4 @@ final case class Schema(
   metaJournal: TableName,
   pointer: TableName,
   pointer2: TableName,
-  snapshot: TableName,
   setting: TableName)

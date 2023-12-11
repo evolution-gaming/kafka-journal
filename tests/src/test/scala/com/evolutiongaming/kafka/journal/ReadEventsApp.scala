@@ -67,7 +67,7 @@ object ReadEventsApp extends IOApp {
 
     val eventualCassandraConfig = EventualCassandraConfig(
       schema = SchemaConfig(
-        keyspace = SchemaConfig.Keyspace(
+        keyspace = KeyspaceConfig(
           name = "keyspace",
           autoCreate = false),
         autoCreate = false),
