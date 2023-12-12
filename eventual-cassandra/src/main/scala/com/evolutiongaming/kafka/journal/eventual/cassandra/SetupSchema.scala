@@ -1,18 +1,36 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.effect.kernel.Temporal
 import cats.data.{NonEmptyList => Nel}
+import cats.effect.kernel.Temporal
 import cats.syntax.all._
 import cats.{MonadThrow, Parallel}
 import com.evolutiongaming.catshelper.LogOf
-import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.{Origin, Settings}
 import com.evolutiongaming.scassandra.ToCql.implicits._
 
-import scala.util.Try
+/** Creates a new schema, or migrates to the latest schema version, if it already exists */
+object SetupSchema {
 
-object SetupSchema { self =>
+  val SettingKey = "schema-version"
+
+  def migrations(schema: Schema): Nel[String] = {
+
+    def addHeaders =
+      JournalStatements.addHeaders(schema.journal)
+
+    def addVersion =
+      JournalStatements.addVersion(schema.journal)
+
+    def dropMetadata =
+      s"DROP TABLE IF EXISTS ${schema.metadata.toCql}"
+
+    def createPointer2 =
+      Pointer2Statements.createTable(schema.pointer2)
+
+    Nel.of(addHeaders, addVersion, dropMetadata, createPointer2)
+
+  }
 
   def migrate[F[_]: MonadThrow: CassandraSession](
     schema: Schema,
@@ -20,110 +38,8 @@ object SetupSchema { self =>
     settings: Settings[F],
     cassandraSync: CassandraSync[F]
   ): F[Unit] = {
-
-    def addHeaders = {
-      JournalStatements
-        .addHeaders(schema.journal)
-        .execute
-        .first
-        .void
-        .handleError { _ => () }
-    }
-
-    def addVersion = {
-      JournalStatements
-        .addVersion(schema.journal)
-        .execute
-        .first
-        .void
-        .handleError { _ => () }
-    }
-
-    def dropMetadata = {
-      s"DROP TABLE IF EXISTS ${ schema.metadata.toCql }"
-        .execute
-        .first
-        .void
-        .handleError { _ => () }
-    }
-
-    def createPointer2 = {
-      Pointer2Statements.createTable(schema.pointer2)
-        .execute
-        .first
-        .void
-        .handleError { _ => () }
-    }
-
-    val schemaVersion = "schema-version"
-
-    val migrations = Nel.of(
-      addHeaders,
-      addVersion,
-      dropMetadata,
-      createPointer2)
-
-    def setVersion(version: Int) = {
-      settings
-        .set("schema-version", version.toString)
-        .void
-    }
-
-    def migrate = {
-
-      def migrate(version: Int) = {
-        migrations
-          .toList
-          .drop(version + 1)
-          .toNel
-          .map { migrations =>
-            migrations
-              .foldLeftM(version) { (version, migration) =>
-                val version1 = version + 1
-                for {
-                  _ <- migration
-                  _ <- setVersion(version1)
-                } yield version1
-              }
-              .void
-          }
-      }
-
-      settings
-        .get(schemaVersion)
-        .map { setting =>
-          setting
-            .flatMap { a =>
-              Try
-                .apply { a.value.toInt }
-                .toOption
-            }
-            .fold {
-              if (fresh) {
-                val version = migrations.size - 1
-                if (version >= 0) {
-                  setVersion(version).some
-                } else {
-                  none[F[Unit]]
-                }
-              } else {
-                migrate(-1)
-              }
-            } { version =>
-              migrate(version)
-            }
-        }
-    }
-
-    migrate.flatMap { migrate1 =>
-      migrate1.foldMapM { _ =>
-        cassandraSync {
-          migrate.flatMap { migrate =>
-            migrate.foldMapM(identity)
-          }
-        }
-      }
-    }
+    val migrateSchema = MigrateSchema.forSettingKey(cassandraSync, settings, SettingKey, migrations(schema))
+    migrateSchema.run(fresh)
   }
 
   def apply[F[_]: Temporal: Parallel: CassandraCluster: CassandraSession: LogOf](
@@ -135,11 +51,12 @@ object SetupSchema { self =>
     def createSchema(implicit cassandraSync: CassandraSync[F]) = CreateSchema(config)
 
     for {
-      cassandraSync   <- CassandraSync.of[F](config, origin)
-      ab              <- createSchema(cassandraSync)
-      (schema, fresh)  = ab
-      settings        <- SettingsCassandra.of[F](schema, origin, consistencyConfig)
-      _               <- migrate(schema, fresh, settings, cassandraSync)
+      cassandraSync <- CassandraSync.of[F](config, origin)
+      ab <- createSchema(cassandraSync)
+      (schema, fresh) = ab
+      settings <- SettingsCassandra.of[F](schema, origin, consistencyConfig)
+      _ <- migrate(schema, fresh, settings, cassandraSync)
     } yield schema
   }
+
 }
