@@ -47,7 +47,7 @@ class CreateSchemaSpec extends AnyFunSuite with Matchers { self =>
   }
 
   val createKeyspace: CreateKeyspace[StateT] = new CreateKeyspace[StateT] {
-    def apply(config: SchemaConfig.Keyspace) = {
+    def apply(config: KeyspaceConfig) = {
       StateT { state =>
         val state1 = state.add(Action.CreateKeyspace)
         (state1, ())

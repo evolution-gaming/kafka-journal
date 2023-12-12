@@ -1,12 +1,10 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import com.evolutiongaming.scassandra.ReplicationStrategyConfig
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
 
-
 final case class SchemaConfig(
-  keyspace: SchemaConfig.Keyspace = SchemaConfig.Keyspace.default,
+  keyspace: KeyspaceConfig = KeyspaceConfig.default,
   journalTable: String = "journal",
   metadataTable: String = "metadata",
   metaJournalTable: String = "metajournal",
@@ -14,8 +12,8 @@ final case class SchemaConfig(
   pointer2Table: String = "pointer2",
   settingTable: String = "setting",
   locksTable: String = "locks",
-  autoCreate: Boolean = true)
-
+  autoCreate: Boolean = true
+)
 
 object SchemaConfig {
 
@@ -23,17 +21,4 @@ object SchemaConfig {
 
   implicit val configReaderSchemaConfig: ConfigReader[SchemaConfig] = deriveReader
 
-
-  final case class Keyspace(
-    name: String = "journal",
-    replicationStrategy: ReplicationStrategyConfig = ReplicationStrategyConfig.Default,
-    autoCreate: Boolean = true)
-
-  object Keyspace {
-
-    val default: Keyspace = Keyspace()
-
-
-    implicit val configReaderKeyspace: ConfigReader[Keyspace] = deriveReader
-  }
 }

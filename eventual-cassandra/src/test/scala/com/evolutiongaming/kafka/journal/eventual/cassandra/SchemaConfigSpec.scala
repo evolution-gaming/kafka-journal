@@ -18,7 +18,7 @@ class SchemaConfigSpec extends AnyFunSuite with Matchers {
   test("apply from config") {
     val config = ConfigFactory.parseURL(getClass.getResource("schema.conf"))
     val expected = SchemaConfig(
-      keyspace = SchemaConfig.Keyspace(
+      keyspace = KeyspaceConfig(
         name = "keyspace",
         replicationStrategy = ReplicationStrategyConfig.Simple(3),
         autoCreate = false),
