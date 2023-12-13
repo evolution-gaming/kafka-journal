@@ -74,7 +74,7 @@ object CassandraSync {
     * @param table Name of lock table to be used.
     * @param origin Identification of the code performing the lock.
     *
-    * @see cassandra.sync.CassandraSync for more details.
+    * @see [[com.evolutiongaming.cassandra.sync.CassandraSync]] for more details.
     */
   def of[F[_] : Temporal : CassandraSession](
     keyspace: KeyspaceConfig,
