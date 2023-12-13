@@ -51,7 +51,7 @@ object SetupSchema {
     def createSchema(implicit cassandraSync: CassandraSync[F]) = CreateSchema(config)
 
     for {
-      cassandraSync <- CassandraSync.of[F](config, origin)
+      cassandraSync <- CassandraSync.of[F](config.keyspace, config.locksTable, origin)
       ab <- createSchema(cassandraSync)
       (schema, fresh) = ab
       settings <- SettingsCassandra.of[F](schema, origin, consistencyConfig)
