@@ -24,15 +24,15 @@ object CassandraSync {
 
 
   def apply[F[_] : Temporal : CassandraSession](
-    config: SchemaConfig,
+    keyspace: KeyspaceConfig,
+    table: String,
     origin: Option[Origin],
   ): CassandraSync[F] = {
 
-    val keyspace = config.keyspace
     val autoCreate = if (keyspace.autoCreate) AutoCreate.Table else AutoCreate.None
     apply(
       keyspace = keyspace.name,
-      table = config.locksTable,
+      table = table,
       autoCreate = autoCreate,
       metadata = origin.map(_.value))
   }
@@ -62,15 +62,30 @@ object CassandraSync {
     }
   }
 
+  /** Provides [[CassandraSync]] instance guarded by a semaphore.
+    *
+    * In other words, two operations using a single [[CassandraSync]] instance
+    * will not be executed in parallel.
+    *
+    * The same guarantee do not apply if several [[CassandraSync]] instances
+    * are created.
+    *
+    * @param keyspace Keyspace, where lock table should be created.
+    * @param table Name of lock table to be used.
+    * @param origin Identification of the code performing the lock.
+    *
+    * @see cassandra.sync.CassandraSync for more details.
+    */
   def of[F[_] : Temporal : CassandraSession](
-    config: SchemaConfig,
+    keyspace: KeyspaceConfig,
+    table: String,
     origin: Option[Origin]
   ): F[CassandraSync[F]] = {
 
     for {
       semaphore <- Semaphore[F](1)
     } yield {
-      val cassandraSync = apply[F](config, origin)
+      val cassandraSync = apply[F](keyspace, table, origin)
       val serial = new (F ~> F) {
         def apply[A](fa: F[A]) = semaphore.permit.use(_ => fa)
       }
