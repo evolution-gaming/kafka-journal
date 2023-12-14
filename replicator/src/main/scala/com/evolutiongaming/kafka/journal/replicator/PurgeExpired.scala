@@ -8,7 +8,7 @@ import cats.{Applicative, Monad, ~>}
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
+import com.evolutiongaming.kafka.journal.eventual.cassandra.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraSession, ExpireOn, MetaJournalStatements, SegmentNr}
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.StreamHelper._

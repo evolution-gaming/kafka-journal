@@ -6,7 +6,6 @@ import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.util.TemporalHelper._
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.syntax._
@@ -555,7 +554,7 @@ object MetaJournalStatements {
 
 
   trait DeleteExpiry[F[_]] {
-    
+
     def apply(key: Key, segment: SegmentNr): F[Unit]
   }
 

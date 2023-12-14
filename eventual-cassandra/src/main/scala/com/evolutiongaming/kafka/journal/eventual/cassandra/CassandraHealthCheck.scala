@@ -6,7 +6,6 @@ import cats.effect.syntax.resource._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.{Log, LogOf, Schedule}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 
 import scala.concurrent.duration._

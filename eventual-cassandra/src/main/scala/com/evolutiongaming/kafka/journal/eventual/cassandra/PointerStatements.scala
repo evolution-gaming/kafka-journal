@@ -5,7 +5,6 @@ import cats.syntax.all._
 import com.datastax.driver.core.GettableByNameData
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
 import com.evolutiongaming.scassandra.{DecodeRow, TableName}
 import com.evolutiongaming.scassandra.syntax._
