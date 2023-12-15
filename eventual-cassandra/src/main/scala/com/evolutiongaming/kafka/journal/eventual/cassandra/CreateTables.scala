@@ -6,6 +6,7 @@ import cats.syntax.all._
 import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 
+/** Creates tables in a specific keyspace  */
 trait CreateTables[F[_]] {
   import CreateTables.{Fresh, Table}
 
@@ -15,6 +16,7 @@ trait CreateTables[F[_]] {
 
 object CreateTables { self =>
 
+  /** `true` if all tables passed to `CreateTables` did not exist and were created */
   type Fresh = Boolean
 
 
@@ -72,6 +74,15 @@ object CreateTables { self =>
   def const[F[_]](fresh: F[Fresh]): CreateTables[F] = (_: String, _: Nel[Table]) => fresh
 
 
+  /** Table to be created in a specific keyspace.
+    *
+    * @param name
+    *   Table name (without a keyspace) used to check if table already exists.
+    * @param queries
+    *   CQL statements (including keyspace) used to create a table. I.e. it
+    *   could contain `CREATE TABLE` statement and also related `CREATE INDEX`
+    *   statements.
+    */
   final case class Table(name: String, queries: Nel[String])
 
   object Table {
