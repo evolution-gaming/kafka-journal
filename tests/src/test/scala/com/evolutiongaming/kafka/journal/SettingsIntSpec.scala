@@ -8,7 +8,6 @@ import cats.effect.syntax.resource._
 import com.evolutiongaming.catshelper.{FromFuture, LogOf}
 import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.kafka.journal.IOSuite._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra._
 import com.evolutiongaming.kafka.journal.util.ActorSystemOf
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
@@ -43,8 +42,8 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
       cassandraSession: CassandraSession[F]) = {
 
       for {
-        schema   <- SetupSchema[F](config, origin, ConsistencyConfig.default)
-        settings <- SettingsCassandra.of[F](schema, origin, ConsistencyConfig.default)
+        schema   <- SetupSchema[F](config, origin, CassandraConsistencyConfig.default)
+        settings <- SettingsCassandra.of[F](schema, origin, CassandraConsistencyConfig.default)
       } yield settings
     }
 

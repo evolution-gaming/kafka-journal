@@ -2,7 +2,6 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.syntax.all._
 import com.datastax.driver.core.ConsistencyLevel
-import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.typesafe.config.ConfigFactory
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -21,7 +20,9 @@ class EventualCassandraConfigSpec extends AnyFunSuite with Matchers {
     val expected = EventualCassandraConfig(
       retries = 1,
       segmentSize = SegmentSize.min,
-      consistencyConfig = ConsistencyConfig.default.copy(read = ConsistencyConfig.Read(ConsistencyLevel.QUORUM)))
+      consistencyConfig = CassandraConsistencyConfig.default.copy(
+        read = CassandraConsistencyConfig.Read(ConsistencyLevel.QUORUM)
+      ))
     ConfigSource.fromConfig(config).load[EventualCassandraConfig] shouldEqual expected.asRight
   }
 }

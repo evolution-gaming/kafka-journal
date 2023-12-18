@@ -9,7 +9,6 @@ import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper.{LogOf, MeasureDuration, ToTry}
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.SegmentNr.implicits._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.Fail
@@ -541,7 +540,7 @@ object ReplicatedCassandra {
 
     def of[F[_]: Monad: CassandraSession](
       schema: Schema,
-      consistencyConfig: ConsistencyConfig
+      consistencyConfig: CassandraConsistencyConfig
     ): F[MetaJournalStatements[F]] = {
       of[F](schema.metaJournal, consistencyConfig)
     }
@@ -549,7 +548,7 @@ object ReplicatedCassandra {
 
     def of[F[_]: Monad: CassandraSession](
       metaJournal: TableName,
-      consistencyConfig: ConsistencyConfig
+      consistencyConfig: CassandraConsistencyConfig
     ): F[MetaJournalStatements[F]] = {
 
       for {
@@ -695,7 +694,7 @@ object ReplicatedCassandra {
 
     def of[F[_]: Monad: CassandraSession: ToTry: JsonCodec.Encode](
       schema: Schema,
-      consistencyConfig: ConsistencyConfig
+      consistencyConfig: CassandraConsistencyConfig
     ): F[Statements[F]] = {
       for {
         insertRecords          <- JournalStatements.InsertRecords.of[F](schema.journal, consistencyConfig.write)

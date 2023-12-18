@@ -9,7 +9,6 @@ import com.evolutiongaming.catshelper.ToTry
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.HeadersHelper._
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName, TableName}
 import com.evolutiongaming.scassandra.syntax._
@@ -59,7 +58,7 @@ object JournalStatements {
 
     def of[F[_] : Monad : CassandraSession : ToTry : JsonCodec.Encode](
       name: TableName,
-      consistencyConfig: ConsistencyConfig.Write
+      consistencyConfig: CassandraConsistencyConfig.Write
     ): F[InsertRecords[F]] = {
 
       implicit val encodeTry: JsonCodec.Encode[Try] = JsonCodec.Encode.summon[F].mapK(ToTry.functionK)
@@ -149,7 +148,7 @@ object JournalStatements {
 
     def of[F[_] : Monad : CassandraSession : ToTry : JsonCodec.Decode](
       name: TableName,
-      consistencyConfig: ConsistencyConfig.Read): F[SelectRecords[F]] = {
+      consistencyConfig: CassandraConsistencyConfig.Read): F[SelectRecords[F]] = {
 
       implicit val encodeTry: JsonCodec.Decode[Try] = JsonCodec.Decode.summon[F].mapK(ToTry.functionK)
       implicit val decodeByNameByteVector: DecodeByName[ByteVector] = DecodeByName[Array[Byte]]
@@ -243,7 +242,7 @@ object JournalStatements {
 
     def of[F[_] : Monad : CassandraSession](
       name: TableName,
-      consistencyConfig: ConsistencyConfig.Write
+      consistencyConfig: CassandraConsistencyConfig.Write
     ): F[DeleteTo[F]] = {
 
       val query =
@@ -281,7 +280,7 @@ object JournalStatements {
 
     def of[F[_] : Monad : CassandraSession](
       name: TableName,
-      consistencyConfig: ConsistencyConfig.Write
+      consistencyConfig: CassandraConsistencyConfig.Write
     ): F[Delete[F]] = {
 
       val query =

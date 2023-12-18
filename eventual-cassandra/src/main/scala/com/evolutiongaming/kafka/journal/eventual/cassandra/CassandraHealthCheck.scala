@@ -6,7 +6,6 @@ import cats.effect.syntax.resource._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.{Log, LogOf, Schedule}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 
 import scala.concurrent.duration._
@@ -19,7 +18,7 @@ object CassandraHealthCheck {
 
   def of[F[_] : Temporal : LogOf](
     session: Resource[F, CassandraSession[F]],
-    consistencyConfig: ConsistencyConfig.Read
+    consistencyConfig: CassandraConsistencyConfig.Read
   ): Resource[F, CassandraHealthCheck[F]] = {
 
     val statement = for {
@@ -65,7 +64,7 @@ object CassandraHealthCheck {
 
   object Statement {
 
-    def of[F[_] : Monad : CassandraSession](consistency: ConsistencyConfig.Read): F[Statement[F]] = {
+    def of[F[_] : Monad : CassandraSession](consistency: CassandraConsistencyConfig.Read): F[Statement[F]] = {
       for {
         prepared <- "SELECT now() FROM system.local".prepare
       } yield {

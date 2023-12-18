@@ -4,7 +4,6 @@ import cats.effect.Clock
 import cats.syntax.all._
 import cats.{Monad, Parallel}
 import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.kafka.journal.{Origin, Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
 
@@ -57,7 +56,7 @@ object SettingsCassandra {
   def of[F[_] : Monad : Parallel : Clock : CassandraSession](
     schema: Schema,
     origin: Option[Origin],
-    consistencyConfig: ConsistencyConfig
+    consistencyConfig: CassandraConsistencyConfig
   ): F[Settings[F]] = {
     for {
       statements <- Statements.of[F](schema.setting, consistencyConfig)
@@ -77,7 +76,7 @@ object SettingsCassandra {
   object Statements {
     def of[F[_] : Monad : Parallel : CassandraSession](
       table: TableName,
-      consistencyConfig: ConsistencyConfig
+      consistencyConfig: CassandraConsistencyConfig
     ): F[Statements[F]] = {
 
       val statements = (
