@@ -56,7 +56,7 @@ object SettingsCassandra {
   def of[F[_] : Monad : Parallel : Clock : CassandraSession](
     schema: Schema,
     origin: Option[Origin],
-    consistencyConfig: ConsistencyConfig
+    consistencyConfig: CassandraConsistencyConfig
   ): F[Settings[F]] = {
     for {
       statements <- Statements.of[F](schema.setting, consistencyConfig)
@@ -76,7 +76,7 @@ object SettingsCassandra {
   object Statements {
     def of[F[_] : Monad : Parallel : CassandraSession](
       table: TableName,
-      consistencyConfig: ConsistencyConfig
+      consistencyConfig: CassandraConsistencyConfig
     ): F[Statements[F]] = {
 
       val statements = (

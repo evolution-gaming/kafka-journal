@@ -12,17 +12,17 @@ class ConsistencyConfigSpec extends AnyFunSuite with Matchers {
   test("apply from empty config") {
     ConfigSource
       .empty
-      .load[ConsistencyConfig] shouldEqual ConsistencyConfig.default.asRight
+      .load[CassandraConsistencyConfig] shouldEqual CassandraConsistencyConfig.default.asRight
   }
 
   test("apply from config") {
     val config = ConfigFactory.parseURL(getClass.getResource("consistency-config.conf"))
-    val expected = ConsistencyConfig(
-      ConsistencyConfig.Read(ConsistencyLevel.QUORUM),
-      ConsistencyConfig.Write(ConsistencyLevel.EACH_QUORUM))
+    val expected = CassandraConsistencyConfig(
+      CassandraConsistencyConfig.Read(ConsistencyLevel.QUORUM),
+      CassandraConsistencyConfig.Write(ConsistencyLevel.EACH_QUORUM))
 
     ConfigSource
       .fromConfig(config)
-      .load[ConsistencyConfig] shouldEqual expected.asRight
+      .load[CassandraConsistencyConfig] shouldEqual expected.asRight
   }
 }

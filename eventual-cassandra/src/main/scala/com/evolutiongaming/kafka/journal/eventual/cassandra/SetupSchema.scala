@@ -44,7 +44,7 @@ object SetupSchema {
   def apply[F[_]: Temporal: Parallel: CassandraCluster: CassandraSession: LogOf](
     config: SchemaConfig,
     origin: Option[Origin],
-    consistencyConfig: ConsistencyConfig
+    consistencyConfig: CassandraConsistencyConfig
   ): F[Schema] = {
 
     def createSchema(implicit cassandraSync: CassandraSync[F]) = CreateSchema(config)

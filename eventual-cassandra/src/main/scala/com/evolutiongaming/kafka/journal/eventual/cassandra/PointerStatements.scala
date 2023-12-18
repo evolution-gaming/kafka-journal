@@ -38,7 +38,7 @@ object PointerStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: ConsistencyConfig.Write
+      consistencyConfig: CassandraConsistencyConfig.Write
     ): F[Insert[F]] = {
 
       val query =
@@ -73,7 +73,7 @@ object PointerStatements {
 
   object Update {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: ConsistencyConfig.Write): F[Update[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: CassandraConsistencyConfig.Write): F[Update[F]] = {
 
       val query =
         s"""
@@ -118,7 +118,7 @@ object PointerStatements {
       }
     }
 
-    def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: ConsistencyConfig.Read): F[Select[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: CassandraConsistencyConfig.Read): F[Select[F]] = {
       s"""
          |SELECT created FROM ${ name.toCql }
          |WHERE topic = ?
@@ -147,7 +147,7 @@ object PointerStatements {
 
   object SelectOffset {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: ConsistencyConfig.Read): F[SelectOffset[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: CassandraConsistencyConfig.Read): F[SelectOffset[F]] = {
 
       val query =
         s"""
@@ -180,7 +180,7 @@ object PointerStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: ConsistencyConfig.Read
+      consistencyConfig: CassandraConsistencyConfig.Read
     ): F[SelectTopics[F]] = {
 
       val query = s"""SELECT DISTINCT topic FROM ${ name.toCql }""".stripMargin

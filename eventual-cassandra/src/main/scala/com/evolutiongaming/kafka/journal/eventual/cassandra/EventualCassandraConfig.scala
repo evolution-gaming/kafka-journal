@@ -40,12 +40,17 @@ final case class EventualCassandraConfig(
       fetchSize = 1000,
       defaultIdempotence = true)),
   schema: SchemaConfig = SchemaConfig.default,
-  consistencyConfig: ConsistencyConfig = ConsistencyConfig.default)
+  consistencyConfig: CassandraConsistencyConfig = CassandraConsistencyConfig.default)
 
 object EventualCassandraConfig {
 
   val default: EventualCassandraConfig = EventualCassandraConfig()
 
   implicit val configReaderEventualCassandraConfig: ConfigReader[EventualCassandraConfig] = deriveReader
+
+
+  /** @deprecated Use [[com.evolutiongaming.kafka.journal.eventual.cassandra.ConsistencyConfig]] instead */
+  @deprecated(since = "3.2.2", message = "The class was extracted to a separate class")
+  type ConsistencyConfig = Nothing
 
 }

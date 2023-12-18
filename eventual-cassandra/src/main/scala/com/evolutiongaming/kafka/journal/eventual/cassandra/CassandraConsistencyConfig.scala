@@ -4,16 +4,16 @@ import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
 import com.datastax.driver.core.ConsistencyLevel
 
-final case class ConsistencyConfig(
-  read: ConsistencyConfig.Read = ConsistencyConfig.Read.default,
-  write: ConsistencyConfig.Write = ConsistencyConfig.Write.default
+final case class CassandraConsistencyConfig(
+  read: CassandraConsistencyConfig.Read = CassandraConsistencyConfig.Read.default,
+  write: CassandraConsistencyConfig.Write = CassandraConsistencyConfig.Write.default
 )
 
-object ConsistencyConfig {
+object CassandraConsistencyConfig {
 
-  implicit val configReaderConsistencyConfig: ConfigReader[ConsistencyConfig] = deriveReader
+  implicit val configReaderConsistencyConfig: ConfigReader[CassandraConsistencyConfig] = deriveReader
 
-  val default: ConsistencyConfig = ConsistencyConfig()
+  val default: CassandraConsistencyConfig = CassandraConsistencyConfig()
 
   final case class Read(value: ConsistencyLevel = ConsistencyLevel.LOCAL_QUORUM)
 

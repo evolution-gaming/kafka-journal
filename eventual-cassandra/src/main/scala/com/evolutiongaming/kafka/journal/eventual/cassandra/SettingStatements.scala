@@ -54,7 +54,7 @@ object SettingStatements {
 
     def of[F[_] : Monad : CassandraSession](
       name: TableName,
-      consistencyConfig: ConsistencyConfig.Read
+      consistencyConfig: CassandraConsistencyConfig.Read
     ): F[Select[F]] = {
 
       val query = s"SELECT value, timestamp, origin FROM ${ name.toCql } WHERE key = ?"
@@ -86,7 +86,7 @@ object SettingStatements {
 
   object All {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName, consistencyConfig: ConsistencyConfig.Read): F[All[F]] = {
+    def of[F[_] : Monad : CassandraSession](name: TableName, consistencyConfig: CassandraConsistencyConfig.Read): F[All[F]] = {
 
       val query = s"SELECT key, value, timestamp, origin FROM ${ name.toCql }"
       for {
@@ -111,7 +111,7 @@ object SettingStatements {
 
     def of[F[_] : Monad : CassandraSession](
       name: TableName,
-      consistencyConfig: ConsistencyConfig.Write
+      consistencyConfig: CassandraConsistencyConfig.Write
     ): F[Insert[F]] = {
 
       val query = s"INSERT INTO ${ name.toCql } (key, value, timestamp, origin) VALUES (?, ?, ?, ?)"
@@ -137,7 +137,7 @@ object SettingStatements {
 
     def of[F[_] : Monad : CassandraSession](
       name: TableName,
-      consistencyConfig: ConsistencyConfig.Write
+      consistencyConfig: CassandraConsistencyConfig.Write
     ): F[InsertIfEmpty[F]] = {
 
       val query = s"INSERT INTO ${ name.toCql } (key, value, timestamp, origin) VALUES (?, ?, ?, ?) IF NOT EXISTS"
@@ -167,7 +167,7 @@ object SettingStatements {
 
     def of[F[_] : Monad : CassandraSession](
       name: TableName,
-      consistencyConfig: ConsistencyConfig.Write
+      consistencyConfig: CassandraConsistencyConfig.Write
     ): F[Delete[F]] = {
 
       val query = s"DELETE FROM ${ name.toCql } WHERE key = ?"

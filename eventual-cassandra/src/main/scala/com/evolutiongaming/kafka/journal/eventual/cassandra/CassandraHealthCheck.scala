@@ -18,7 +18,7 @@ object CassandraHealthCheck {
 
   def of[F[_] : Temporal : LogOf](
     session: Resource[F, CassandraSession[F]],
-    consistencyConfig: ConsistencyConfig.Read
+    consistencyConfig: CassandraConsistencyConfig.Read
   ): Resource[F, CassandraHealthCheck[F]] = {
 
     val statement = for {
@@ -64,7 +64,7 @@ object CassandraHealthCheck {
 
   object Statement {
 
-    def of[F[_] : Monad : CassandraSession](consistency: ConsistencyConfig.Read): F[Statement[F]] = {
+    def of[F[_] : Monad : CassandraSession](consistency: CassandraConsistencyConfig.Read): F[Statement[F]] = {
       for {
         prepared <- "SELECT now() FROM system.local".prepare
       } yield {

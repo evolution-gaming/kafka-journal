@@ -42,8 +42,8 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
       cassandraSession: CassandraSession[F]) = {
 
       for {
-        schema   <- SetupSchema[F](config, origin, ConsistencyConfig.default)
-        settings <- SettingsCassandra.of[F](schema, origin, ConsistencyConfig.default)
+        schema   <- SetupSchema[F](config, origin, CassandraConsistencyConfig.default)
+        settings <- SettingsCassandra.of[F](schema, origin, CassandraConsistencyConfig.default)
       } yield settings
     }
 
