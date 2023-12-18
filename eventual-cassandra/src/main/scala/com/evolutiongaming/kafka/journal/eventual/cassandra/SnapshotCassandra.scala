@@ -7,7 +7,6 @@ import cats.{Monad, MonadThrow, Parallel}
 import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
-import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.scassandra.CassandraClusterOf
 
 import java.time.Instant
@@ -34,7 +33,7 @@ object SnapshotCassandra {
   def of[F[_]: Temporal: Parallel: CassandraCluster: CassandraSession: LogOf](
     schemaConfig: SchemaConfig,
     origin: Option[Origin],
-    consistencyConfig: ConsistencyConfig,
+    consistencyConfig: CassandraConsistencyConfig,
     numberOfSnapshots: Int
   ): F[SnapshotStoreFlat[F]] =
     for {
@@ -158,7 +157,7 @@ object SnapshotCassandra {
   )
 
   object Statements {
-    def of[F[_]: Monad: CassandraSession](schema: Schema, consistencyConfig: ConsistencyConfig): F[Statements[F]] = {
+    def of[F[_]: Monad: CassandraSession](schema: Schema, consistencyConfig: CassandraConsistencyConfig): F[Statements[F]] = {
       for {
         insertRecord <- SnapshotStatements.InsertRecord.of[F](schema.snapshot, consistencyConfig.write)
         updateRecord <- SnapshotStatements.UpdateRecord.of[F](schema.snapshot, consistencyConfig.write)
