@@ -28,6 +28,7 @@ lazy val root = (project in file(".")
   settings (publish / skip  := true)
   aggregate(
     `scalatest-io`,
+    core,
     journal,
     persistence,
     `tests`,
@@ -47,16 +48,33 @@ lazy val `scalatest-io` = (project in file("scalatest-io")
     Cats.core,
     Cats.effect)))
 
+lazy val core = (project in file("core")
+  settings (name := "kafka-journal-core")
+  settings commonSettings
+  dependsOn (`scalatest-io` % Test)
+  settings (libraryDependencies ++= Seq(
+    Akka.actor,
+    Akka.testkit % Test,
+    skafka,
+    `cats-helper`,
+    `play-json`,
+    `play-json-jsoniter`,
+    scassandra,
+    hostname,
+    Cats.core,
+    Cats.effect,
+    Scodec.core,
+    Scodec.bits)))
+
 lazy val journal = (project in file("journal")
   settings (name := "kafka-journal")
   settings commonSettings
-  dependsOn (`scalatest-io` % Test)
+  dependsOn (core % "test->test;compile->compile", `scalatest-io` % Test)
   settings (libraryDependencies ++= Seq(
     Akka.actor,
     Akka.stream,
     Akka.testkit % Test,
     Akka.slf4j % Test,
-    `cats-helper`,
     Kafka.`kafka-clients`,
     skafka,
     scalatest % Test,
