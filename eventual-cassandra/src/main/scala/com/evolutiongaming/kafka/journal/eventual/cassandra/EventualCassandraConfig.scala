@@ -49,7 +49,7 @@ object EventualCassandraConfig {
   implicit val configReaderEventualCassandraConfig: ConfigReader[EventualCassandraConfig] = deriveReader
 
 
-  /** @deprecated Use [[com.evolutiongaming.kafka.journal.eventual.cassandra.ConsistencyConfig]] instead */
+  /** @deprecated Use [[com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraConsistencyConfig]] instead */
   @deprecated(since = "3.2.2", message = "The class was extracted to a separate class")
   type ConsistencyConfig = Nothing
 
