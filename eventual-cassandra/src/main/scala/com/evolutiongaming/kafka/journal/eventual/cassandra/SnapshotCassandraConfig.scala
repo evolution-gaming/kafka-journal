@@ -33,7 +33,7 @@ final case class SnapshotCassandraConfig(
     query = QueryConfig(consistency = ConsistencyLevel.LOCAL_QUORUM, fetchSize = 1000, defaultIdempotence = true)
   ),
   schema: SchemaConfig = SchemaConfig.default,
-  consistencyConfig: EventualCassandraConfig.ConsistencyConfig = EventualCassandraConfig.ConsistencyConfig.default
+  consistencyConfig: CassandraConsistencyConfig = CassandraConsistencyConfig.default
 )
 
 object SnapshotCassandraConfig {

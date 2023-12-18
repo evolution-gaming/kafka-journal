@@ -6,7 +6,6 @@ import com.datastax.driver.core.Row
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName, TableName}
 import scodec.bits.ByteVector
@@ -41,7 +40,7 @@ object SnapshotStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: ConsistencyConfig.Write
+      consistencyConfig: CassandraConsistencyConfig.Write
     ): F[InsertRecord[F]] = {
 
       implicit val encodeByNameByteVector: EncodeByName[ByteVector] =
@@ -107,7 +106,7 @@ object SnapshotStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: ConsistencyConfig.Write
+      consistencyConfig: CassandraConsistencyConfig.Write
     ): F[UpdateRecord[F]] = {
 
       implicit val encodeByNameByteVector: EncodeByName[ByteVector] =
@@ -168,7 +167,7 @@ object SnapshotStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: ConsistencyConfig.Read
+      consistencyConfig: CassandraConsistencyConfig.Read
     ): F[SelectMetadata[F]] = {
 
       val query =
@@ -213,7 +212,7 @@ object SnapshotStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: ConsistencyConfig.Read
+      consistencyConfig: CassandraConsistencyConfig.Read
     ): F[SelectRecord[F]] = {
 
       implicit val decodeByNameByteVector: DecodeByName[ByteVector] =
@@ -282,7 +281,7 @@ object SnapshotStatements {
 
   object Delete {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: ConsistencyConfig.Write): F[Delete[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: CassandraConsistencyConfig.Write): F[Delete[F]] = {
 
       val query =
         s"""
