@@ -21,4 +21,8 @@ object SchemaConfig {
 
   implicit val configReaderSchemaConfig: ConfigReader[SchemaConfig] = deriveReader
 
+
+  @deprecated(since = "3.2.2", message = "Use [[KeyspaceConfig]] instead")
+  type Keyspace = Nothing
+
 }
