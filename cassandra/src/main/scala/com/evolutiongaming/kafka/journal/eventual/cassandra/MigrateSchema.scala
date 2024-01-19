@@ -20,10 +20,12 @@ trait MigrateSchema[F[_]] {
     *   settings. If `false` then all migration steps will be attempted (because the schema, likely, was created before
     *   migration steps were added).
     */
-  def run(fresh: CreateSchema.Fresh)(implicit session: CassandraSession[F]): F[Unit]
+  def run(fresh: MigrateSchema.Fresh)(implicit session: CassandraSession[F]): F[Unit]
 
 }
 object MigrateSchema {
+
+  type Fresh = Boolean
 
   /** Save version of a schema to the settings storage under specific key.
     *
@@ -51,7 +53,7 @@ object MigrateSchema {
         .set(settingKey, version.toString)
         .void
 
-    def run(fresh: CreateSchema.Fresh)(implicit session: CassandraSession[F]): F[Unit] = {
+    def run(fresh: MigrateSchema.Fresh)(implicit session: CassandraSession[F]): F[Unit] = {
 
       def migrate = {
 

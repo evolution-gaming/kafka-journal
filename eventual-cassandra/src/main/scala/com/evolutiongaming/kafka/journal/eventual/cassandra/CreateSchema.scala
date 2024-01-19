@@ -9,12 +9,9 @@ import com.evolutiongaming.scassandra.TableName
 
 object CreateSchema {
 
-  type Fresh = Boolean
-
-
   def apply[F[_] : Concurrent : CassandraCluster : CassandraSession : CassandraSync : LogOf](
     config: SchemaConfig
-  ): F[(Schema, Fresh)] = {
+  ): F[(Schema, MigrateSchema.Fresh)] = {
 
     for {
       createTables   <- CreateTables.of[F]
@@ -27,7 +24,7 @@ object CreateSchema {
     config: SchemaConfig,
     createKeyspace: CreateKeyspace[F],
     createTables: CreateTables[F]
-  ): F[(Schema, Fresh)] = {
+  ): F[(Schema, MigrateSchema.Fresh)] = {
 
     def createTables1 = {
       val keyspace = config.keyspace.name
