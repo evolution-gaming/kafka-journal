@@ -53,7 +53,7 @@ object SetupSchema {
       cassandraSync <- CassandraSync.of[F](config.keyspace, config.locksTable, origin)
       ab <- createSchema(cassandraSync)
       (schema, fresh) = ab
-      settings <- SettingsCassandra.of[F](schema, origin, consistencyConfig)
+      settings <- SettingsCassandra.of[F](schema.setting, origin, consistencyConfig)
       _ <- migrate(schema, fresh, settings, cassandraSync)
     } yield schema
   }
