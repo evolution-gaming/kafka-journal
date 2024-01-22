@@ -90,7 +90,6 @@ lazy val journal = (project in file("journal")
     `cassandra-driver`,
     scassandra,
     scache,
-    `cassandra-sync`,
     `scala-java8-compat`,
     Pureconfig.pureconfig,
     Pureconfig.cats,
@@ -154,8 +153,8 @@ lazy val replicator = (Project("replicator", file("replicator"))
 lazy val cassandra = (project in file("cassandra")
   settings (name := "kafka-journal-cassandra")
   settings commonSettings
-  dependsOn (journal % "test->test;compile->compile")
-  settings (libraryDependencies ++= Seq(scache, scassandra)))
+  dependsOn (core, `scalatest-io` % Test)
+  settings (libraryDependencies ++= Seq(scache, scassandra, `cassandra-sync`)))
 
 lazy val `eventual-cassandra` = (project in file("eventual-cassandra")
   settings (name := "kafka-journal-eventual-cassandra")
