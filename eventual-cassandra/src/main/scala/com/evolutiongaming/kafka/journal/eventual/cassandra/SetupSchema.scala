@@ -33,7 +33,7 @@ object SetupSchema {
 
   def migrate[F[_]: MonadThrow: CassandraSession](
     schema: Schema,
-    fresh: CreateSchema.Fresh,
+    fresh: MigrateSchema.Fresh,
     settings: Settings[F],
     cassandraSync: CassandraSync[F]
   ): F[Unit] = {
