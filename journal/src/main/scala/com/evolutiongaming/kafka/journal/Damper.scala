@@ -35,7 +35,7 @@ import scala.concurrent.duration.FiniteDuration
   * otherwise.
   * 
   * The recommended way to use the instances of [[Damper]] is to call
-  * [[Damper#resource]] to ensure the [[#release]] calls are not forgotten.
+  * [[Damper.DamperOps#resource]] to ensure the [[#release]] calls are not forgotten.
   * The explicit calls of [[#acquire]] and [[#release]] are reserved for the
   * cases where more control is required.
   */
@@ -49,7 +49,7 @@ trait Damper[F[_]] {
     * [[#release]] should be called after the resource is not used anymore.
     *
     * The recommended way to use the instances of [[Damper]] is to call
-    * [[Damper#resource]] to ensure the [[#release]] calls are not forgotten.
+    * [[Damper.DamperOps#resource]] to ensure the [[#release]] calls are not forgotten.
     * The explicit calls of [[#acquire]] and [[#release]] are reserved for the
     * cases where more control is required.
     */
@@ -60,7 +60,7 @@ trait Damper[F[_]] {
     * [[#release]] should be called after the respective [[#acquire]] call.
     *
     * The recommended way to use the instances of [[Damper]] is to call
-    * [[Damper#resource]] to ensure the [[#release]] calls are not forgotten.
+    * [[Damper.DamperOps#resource]] to ensure the [[#release]] calls are not forgotten.
     * The explicit calls of [[#acquire]] and [[#release]] are reserved for the
     * cases where more control is required.
     */
@@ -286,6 +286,12 @@ object Damper {
 
   implicit class DamperOps[F[_]](val self: Damper[F]) extends AnyVal {
 
+    /** Converts [[Damper]] to a [[cats.effect.Resource]].
+      * 
+      * This is, actually, a prefered way to use [[Damper]] to ensure
+      * [[Damper#release]] is always called after appropriate
+      * [[Damper#acquire]].
+      */
     def resource(implicit F: Functor[F]): Resource[F, Unit] = {
       Resource.applyFull { poll =>
         poll
