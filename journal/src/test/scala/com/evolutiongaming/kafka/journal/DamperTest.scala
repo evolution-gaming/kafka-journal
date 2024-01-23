@@ -44,10 +44,13 @@ class DamperTest extends AsyncFunSuite with Matchers {
 
   test("cancel") {
     val result = for {
+      // start -> sleep(1.minute) -> fiber0 -> sleep(0.minutes) -> fiber1
       ref    <- Ref[IO].of(List(1.minute, 0.minutes))
       damper <- Damper.of[IO] { _ =>
         ref
           .modify {
+            // always return 1.minute
+            // after two delays above from initial Ref are consumed
             case Nil     => (Nil, 1.minute)
             case a :: as => (as, a)
           }
