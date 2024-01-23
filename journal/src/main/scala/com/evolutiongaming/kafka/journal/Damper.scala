@@ -20,7 +20,7 @@ import scala.concurrent.duration.FiniteDuration
   *
   * The trivial implementation would be the following:
   * {{{
-  * class TrivialDumper[F[_]: Monad](duration: FiniteDuration) extends Damper[F] {
+  * class TrivialDumper[F[_]: Temporal](duration: FiniteDuration) extends Damper[F] {
   *   def acquire: F[Unit] = Temporal[F].sleep(duration)
   *   def release: F[Unit] = ().pure[F]
   * }
@@ -72,7 +72,17 @@ object Damper {
 
   type Acquired = Int
 
-  /** Delay a next acquisition based on number of acquired resources. */
+  /** Delay a next acquisition based on number of acquired resources.
+    *
+    * Example (only introduce delay if there are more than 10 resources
+    * acquired):
+    * {{{
+    * Damper.of[F] {
+    *   case n if n < 10 => ().pure[F]
+    *   case _           => Temporal[F].sleep(10.milliseconds)
+    * }
+    * }}}
+    */
   def of[F[_]: Async](delayOf: Acquired => FiniteDuration): F[Damper[F]] = {
 
     sealed trait State
