@@ -10,10 +10,60 @@ import scala.annotation.tailrec
 import scala.collection.immutable.Queue
 import scala.concurrent.duration.FiniteDuration
 
+/** Prevents overload of the expensive resources.
+  *
+  * The idea is that a single damper is set up to protect a resource, which
+  * could be overwhelmed, i.e. a [[KafkaConsumer]].
+  *
+  * Then, before using a resource, [[#acquire]] is called, and, when resource is
+  * not needed anymore, [[#release]] is called instead.
+  *
+  * The trivial implementation would be the following:
+  * {{{
+  * class TrivialDumper[F[_]: Temporal](duration: FiniteDuration) extends Damper[F] {
+  *   def acquire: F[Unit] = Temporal[F].sleep(duration)
+  *   def release: F[Unit] = ().pure[F]
+  * }
+  * }}}
+  *
+  * In this case all the calls to a resource will get artificially delayed by
+  * `duration`.
+  *
+  * The more complicated implementation may only delay the [[#acquire]] call if
+  * sufficient number of calls accumulated, i.e. if there are `< N` ongoing
+  * calls then [[#acquire]] returns immediately, or sleeps for some time,
+  * otherwise.
+  * 
+  * The recommended way to use the instances of [[Damper]] is to call
+  * [[Damper.DamperOps#resource]] to ensure the [[#release]] calls are not forgotten.
+  * The explicit calls of [[#acquire]] and [[#release]] are reserved for the
+  * cases where more control is required.
+  */
 trait Damper[F[_]] {
 
+  /** Call before using an expensive resource.
+    *
+    * The call may sleep for an indefinite duration to reduce number of calls to
+    * a resource.
+    *
+    * [[#release]] should be called after the resource is not used anymore.
+    *
+    * The recommended way to use the instances of [[Damper]] is to call
+    * [[Damper.DamperOps#resource]] to ensure the [[#release]] calls are not forgotten.
+    * The explicit calls of [[#acquire]] and [[#release]] are reserved for the
+    * cases where more control is required.
+    */
   def acquire: F[Unit]
 
+  /** Call after using an expensive resource.
+    *
+    * [[#release]] should be called after the respective [[#acquire]] call.
+    *
+    * The recommended way to use the instances of [[Damper]] is to call
+    * [[Damper.DamperOps#resource]] to ensure the [[#release]] calls are not forgotten.
+    * The explicit calls of [[#acquire]] and [[#release]] are reserved for the
+    * cases where more control is required.
+    */
   def release: F[Unit]
 }
 
@@ -22,6 +72,17 @@ object Damper {
 
   type Acquired = Int
 
+  /** Delay a next acquisition based on number of acquired resources.
+    *
+    * Example (only introduce delay if there are more than 10 resources
+    * acquired):
+    * {{{
+    * Damper.of[F] {
+    *   case n if n < 10 => ().pure[F]
+    *   case _           => Temporal[F].sleep(10.milliseconds)
+    * }
+    * }}}
+    */
   def of[F[_]: Async](delayOf: Acquired => FiniteDuration): F[Damper[F]] = {
 
     sealed trait State
@@ -225,6 +286,12 @@ object Damper {
 
   implicit class DamperOps[F[_]](val self: Damper[F]) extends AnyVal {
 
+    /** Converts [[Damper]] to a [[cats.effect.Resource]].
+      * 
+      * This is, actually, a prefered way to use [[Damper]] to ensure
+      * [[Damper#release]] is always called after appropriate
+      * [[Damper#acquire]].
+      */
     def resource(implicit F: Functor[F]): Resource[F, Unit] = {
       Resource.applyFull { poll =>
         poll
