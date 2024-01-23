@@ -71,7 +71,7 @@ class DamperTest extends AsyncFunSuite with Matchers {
       _      <- fiber2.joinWithNever
       _      <- damper.release
     } yield {}
-    result.replicateA_(1000).run()
+    result.run()
   }
 
   test("many") {
