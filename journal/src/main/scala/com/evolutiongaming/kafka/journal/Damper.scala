@@ -263,15 +263,15 @@ object Damper {
                         case State.Idle(acquired) =>
                                                     (State.Idle(acquired = acquired - 1), ().pure[F])
                         case state: State.Busy    =>
-                                                    if (filter) {
+                          if (filter) {
                             val entries = state.entries.filter(_ != entry)
                             if (state.entries.sizeCompare(entries) == 0) {
-                                                            wakeUp(state)
+                              wakeUp(state)
                             } else {
-                                                            (state.copy(entries = entries), ().pure[F])
+                              (state.copy(entries = entries), ().pure[F])
                             }
                           } else {
-                                                        wakeUp(state)
+                            wakeUp(state)
                           }
                       }
                       .flatten
@@ -281,7 +281,7 @@ object Damper {
               ref
                 .modify {
                   case state: State.Idle =>
-                                        val acquired = state.acquired
+                    val acquired = state.acquired
                     val delay = delayOf1(acquired)
                     if (delay.length == 0) {
                       // zero delay is expected
@@ -302,7 +302,7 @@ object Damper {
                       )
                     }
                   case state: State.Busy =>
-                                        // we already have some delays in progress,
+                    // we already have some delays in progress,
                     // so we add a new one to the waiting queue
                     (
                       state.copy(entries = state.entries.enqueue(entry)),
