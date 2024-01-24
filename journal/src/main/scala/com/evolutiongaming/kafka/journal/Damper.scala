@@ -127,7 +127,7 @@ object Damper {
         type Result = (State, F[Either[(Entry, Delay, WakeUp), Unit]])
 
         def idle(acquired: Acquired, effect: F[Unit]): Result = {
-                    (
+          (
             State.Idle(acquired),
             effect.map { _.asRight[(Entry, Delay, WakeUp)] }
           )
@@ -146,7 +146,7 @@ object Damper {
           *   delay scheduled, and others have zero delays.
           */
         @tailrec def idleOrBusy(acquired: Acquired, entries: Queue[Entry], effect: F[Unit]): Result = {
-            entries.dequeueOption match {
+          entries.dequeueOption match {
             case Some((entry, entries)) =>
               val delay = delayOf1(acquired)
                             if (delay.length == 0) {
@@ -245,7 +245,7 @@ object Damper {
           def acquire = {
             Deferred[F, Unit].flatMap { deferred =>
               val entry = deferred.complete(()).void
-              
+
               def await(filter: Boolean) = {
 
                 def wakeUp(state: State.Busy) = {
