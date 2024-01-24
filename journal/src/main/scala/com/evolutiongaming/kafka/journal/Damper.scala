@@ -146,7 +146,7 @@ object Damper {
           *   delay scheduled, and others have zero delays.
           */
         @tailrec def idleOrBusy(acquired: Acquired, entries: Queue[Entry], effect: F[Unit]): Result = {
-                    entries.dequeueOption match {
+            entries.dequeueOption match {
             case Some((entry, entries)) =>
               val delay = delayOf1(acquired)
                             if (delay.length == 0) {
@@ -171,9 +171,9 @@ object Damper {
         }
 
         def start(entry: Entry, delay: Delay, wakeUp: WakeUp): F[Unit] = {
-                    (entry, delay, wakeUp)
+          (entry, delay, wakeUp)
             .tailRecM { case (entry, delay, wakeUp) =>
-              
+
               def busy(delay: Delay, acquired: Acquired, entries: Queue[Entry]) = {
                 val wakeUp = Deferred.unsafe[F, Option[Entry]]
                 (
@@ -192,7 +192,7 @@ object Damper {
 
               for {
                 start  <- Clock[F].realTime
-                                result <- wakeUp
+                result <- wakeUp
                   .get
                   .race { Temporal[F].sleep(delay) }
                 result <- result match {
@@ -249,7 +249,7 @@ object Damper {
               def await(filter: Boolean) = {
 
                 def wakeUp(state: State.Busy) = {
-                                    (
+                  (
                     state.copy(acquired = state.acquired - 1),
                     state.wakeUp.complete1(entry.some)
                   )
@@ -258,10 +258,10 @@ object Damper {
                 deferred
                   .get
                   .onCancel {
-                                        ref
+                    ref
                       .modify {
                         case State.Idle(acquired) =>
-                                                    (State.Idle(acquired = acquired - 1), ().pure[F])
+                          (State.Idle(acquired = acquired - 1), ().pure[F])
                         case state: State.Busy    =>
                           if (filter) {
                             val entries = state.entries.filter(_ != entry)
