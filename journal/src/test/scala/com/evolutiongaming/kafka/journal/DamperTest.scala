@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.effect.{IO, Ref}
+import cats.effect.{FiberIO, IO, Ref}
 import cats.effect.unsafe.implicits.global
 import cats.syntax.all._
 import org.scalatest.funsuite.AsyncFunSuite
@@ -9,6 +9,7 @@ import com.evolutiongaming.kafka.journal.IOSuite._
 
 import scala.concurrent.TimeoutException
 import scala.concurrent.duration._
+import org.scalatest.compatible.Assertion
 
 class DamperTest extends AsyncFunSuite with Matchers {
 
@@ -17,8 +18,7 @@ class DamperTest extends AsyncFunSuite with Matchers {
       damper <- Damper.of[IO](a => (a % 2) * 500.millis)
       _      <- damper.acquire
       fiber  <- damper.acquire.start
-      result <- fiber.joinWithNever.timeout(10.millis).attempt
-      _      <- IO { result should matchPattern { case Left(_: TimeoutException) => () } }
+      _      <- assertSleeping(fiber)
       _      <- damper.release
       _      <- fiber.joinWithNever
     } yield {}
@@ -30,11 +30,9 @@ class DamperTest extends AsyncFunSuite with Matchers {
       damper <- Damper.of[IO](a => (a % 2) * 500.millis)
       _      <- damper.acquire
       fiber0 <- damper.acquire.start
-      result <- fiber0.joinWithNever.timeout(10.millis).attempt
-      _      <- IO { result should matchPattern { case Left(_: TimeoutException) => () } }
+      _      <- assertSleeping(fiber0)
       fiber1 <- damper.acquire.start
-      result <- fiber1.joinWithNever.timeout(10.millis).attempt
-      _      <- IO { result should matchPattern { case Left(_: TimeoutException) => () } }
+      _      <- assertSleeping(fiber1)
       _      <- damper.release
       _      <- fiber0.joinWithNever
       _      <- fiber1.joinWithNever
@@ -58,19 +56,26 @@ class DamperTest extends AsyncFunSuite with Matchers {
       }
 
       fiber0 <- damper.acquire.start
-      result <- fiber0.joinWithNever.timeout(10.millis).attempt
-      _      <- IO { result should matchPattern { case Left(_: TimeoutException) => () } }
+      _      <- assertSleeping(fiber0)
 
       fiber1 <- damper.acquire.start
-      result <- fiber1.joinWithNever.timeout(10.millis).attempt
-      _      <- IO { result should matchPattern { case Left(_: TimeoutException) => () } }
+      _      <- assertSleeping(fiber1)
 
       fiber2 <- damper.acquire.start
-      result <- fiber2.joinWithNever.timeout(10.millis).attempt
-      _      <- IO { result should matchPattern { case Left(_: TimeoutException) => () } }
+      _      <- assertSleeping(fiber2)
 
       _      <- fiber1.cancel
       _      <- fiber0.cancel
+
+      delays <- ref.get
+      _      <- IO {
+        assert(
+          delays.nonEmpty,
+          "delayOf was called more than once, the test result will not be meaningful," +
+          "consider increasing sleeping delay in `assertSleeping` to ensure the orderly" +
+          "start of fiber0, fiber1 and fiber2")
+      }
+
       _      <- fiber2.joinWithNever
       _      <- damper.release
     } yield {}
@@ -110,4 +115,10 @@ class DamperTest extends AsyncFunSuite with Matchers {
     } yield {}
     result.run()
   }
+
+  def assertSleeping(fiber: FiberIO[Unit]): IO[Assertion] =
+    fiber.joinWithNever.timeout(100.millis).attempt flatMap { result =>
+      IO { result should matchPattern { case Left(_: TimeoutException) => () } }
+    }
+
 }

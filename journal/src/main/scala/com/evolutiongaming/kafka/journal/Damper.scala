@@ -127,22 +127,36 @@ object Damper {
         type Result = (State, F[Either[(Entry, Delay, WakeUp), Unit]])
 
         def idle(acquired: Acquired, effect: F[Unit]): Result = {
-          (
+                    (
             State.Idle(acquired),
             effect.map { _.asRight[(Entry, Delay, WakeUp)] }
           )
         }
 
+        /** Schedule a next sleep for queued entries.
+          *
+          * @param acquired
+          *   Number of [[Damper#acquired]] calls without [[Damper#release]]
+          *   calls.
+          * @param entries
+          *   Wake up callacks for delayed [[Damper#acquired]] calls.
+          * @param effect
+          *   Wake up callback for a first call to be allowed. It could be
+          *   several `Entry` elements glued together, if the first one has a
+          *   delay scheduled, and others have zero delays.
+          */
         @tailrec def idleOrBusy(acquired: Acquired, entries: Queue[Entry], effect: F[Unit]): Result = {
-          entries.dequeueOption match {
+                    entries.dequeueOption match {
             case Some((entry, entries)) =>
               val delay = delayOf1(acquired)
-              if (delay.length == 0) {
+                            if (delay.length == 0) {
+                // zero delay is expected, we can just glue the wake up calls together
                 idleOrBusy(
                   acquired + 1,
                   entries,
                   effect.productR { entry })
               } else {
+                // non-zero delay is expected, let's schedule a sleep
                 val wakeUp = Deferred.unsafe[F, Option[Entry]]
                 (
                   State.Busy(acquired, entries, wakeUp),
@@ -151,14 +165,15 @@ object Damper {
               }
 
             case None =>
+              // no delays are expected, let's just execute accumulated wake up effect
               idle(acquired, effect)
           }
         }
 
         def start(entry: Entry, delay: Delay, wakeUp: WakeUp): F[Unit] = {
-          (entry, delay, wakeUp)
+                    (entry, delay, wakeUp)
             .tailRecM { case (entry, delay, wakeUp) =>
-
+              
               def busy(delay: Delay, acquired: Acquired, entries: Queue[Entry]) = {
                 val wakeUp = Deferred.unsafe[F, Option[Entry]]
                 (
@@ -167,6 +182,7 @@ object Damper {
                 )
               }
 
+              /** Update the state after [[Damper#acquire]] was allowed to happen */
               def acquire = {
                 ref.modify {
                   case state: State.Idle => idle(state.acquired + 1, entry)
@@ -176,13 +192,18 @@ object Damper {
 
               for {
                 start  <- Clock[F].realTime
-                result <- wakeUp
+                                result <- wakeUp
                   .get
                   .race { Temporal[F].sleep(delay) }
                 result <- result match {
                   case Left(Some(`entry`)) =>
+                    // the sleep did not finish and was interrupted
+                    // by doing `wakeUp.complete` on this entry
                     acquire
                   case Left(_) =>
+                    // the sleep did not finish and was interrupted
+                    // by doing `wakeUp.complete` without this entry,
+                    // i.e. `None`, for example, when doing cancelation
                     Clock[F]
                       .realTime
                       .flatMap { end =>
@@ -208,6 +229,7 @@ object Damper {
                       }
 
                   case Right(()) =>
+                    // the sleep is finished and was not interrupted
                     acquire
                 }
                 result <- result
@@ -223,11 +245,11 @@ object Damper {
           def acquire = {
             Deferred[F, Unit].flatMap { deferred =>
               val entry = deferred.complete(()).void
-
+              
               def await(filter: Boolean) = {
 
                 def wakeUp(state: State.Busy) = {
-                  (
+                                    (
                     state.copy(acquired = state.acquired - 1),
                     state.wakeUp.complete1(entry.some)
                   )
@@ -236,20 +258,20 @@ object Damper {
                 deferred
                   .get
                   .onCancel {
-                    ref
+                                        ref
                       .modify {
                         case State.Idle(acquired) =>
-                          (State.Idle(acquired = acquired - 1), ().pure[F])
+                                                    (State.Idle(acquired = acquired - 1), ().pure[F])
                         case state: State.Busy    =>
-                          if (filter) {
+                                                    if (filter) {
                             val entries = state.entries.filter(_ != entry)
                             if (state.entries.sizeCompare(entries) == 0) {
-                              wakeUp(state)
+                                                            wakeUp(state)
                             } else {
-                              (state.copy(entries = entries), ().pure[F])
+                                                            (state.copy(entries = entries), ().pure[F])
                             }
                           } else {
-                            wakeUp(state)
+                                                        wakeUp(state)
                           }
                       }
                       .flatten
@@ -259,7 +281,7 @@ object Damper {
               ref
                 .modify {
                   case state: State.Idle =>
-                    val acquired = state.acquired
+                                        val acquired = state.acquired
                     val delay = delayOf1(acquired)
                     if (delay.length == 0) {
                       // zero delay is expected
@@ -280,7 +302,7 @@ object Damper {
                       )
                     }
                   case state: State.Busy =>
-                    // we already have some delays in progress,
+                                        // we already have some delays in progress,
                     // so we add a new one to the waiting queue
                     (
                       state.copy(entries = state.entries.enqueue(entry)),
