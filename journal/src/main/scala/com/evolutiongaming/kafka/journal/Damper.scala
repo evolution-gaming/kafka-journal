@@ -20,7 +20,7 @@ import scala.concurrent.duration.FiniteDuration
   *
   * The trivial implementation would be the following:
   * {{{
-  * class TrivialDumper[F[_]: Temporal](duration: FiniteDuration) extends Damper[F] {
+  * class TrivialDamper[F[_]: Temporal](duration: FiniteDuration) extends Damper[F] {
   *   def acquire: F[Unit] = Temporal[F].sleep(duration)
   *   def release: F[Unit] = ().pure[F]
   * }
@@ -92,7 +92,29 @@ object Damper {
     type WakeUp = Deferred[F, Option[Entry]]
 
     object State {
+
+      /** There are no [[#acquire]] calls sleeping.
+        *
+        * @param acquired
+        *   Number of [[#acquire]] calls without corresponding [[#release]]
+        *   calls.
+        */
       final case class Idle(acquired: Acquired) extends State
+
+      /** There are some [[#acquire]] calls sleeping.
+        *
+        * @param acquired
+        *   Number of [[#acquire]] calls without corresponding [[#release]]
+        *   calls.
+        * @param entries
+        *   List of the handles allowing specific [[#acquire]] call to happen.
+        *   As soon as respective [[Entry]] is called, the fiber will stop
+        *   waiting and `acquired` will increment.
+        * @param wakeUp
+        *   The deferred marks currently ongoing delay. It will be completed by
+        *   a value from `entries` when the sleep is over, or `None` if the
+        *   sleep is interuptted by call of [[#release]].
+        */
       final case class Busy(acquired: Acquired, entries: Queue[Entry], wakeUp: WakeUp) extends State
     }
 
@@ -111,16 +133,30 @@ object Damper {
           )
         }
 
+        /** Schedule a next sleep for queued entries.
+          *
+          * @param acquired
+          *   Number of [[Damper#acquired]] calls without [[Damper#release]]
+          *   calls.
+          * @param entries
+          *   Wake up callacks for delayed [[Damper#acquired]] calls.
+          * @param effect
+          *   Wake up callback for a first call to be allowed. It could be
+          *   several `Entry` elements glued together, if the first one has a
+          *   delay scheduled, and others have zero delays.
+          */
         @tailrec def idleOrBusy(acquired: Acquired, entries: Queue[Entry], effect: F[Unit]): Result = {
           entries.dequeueOption match {
             case Some((entry, entries)) =>
               val delay = delayOf1(acquired)
-              if (delay.length == 0) {
+                            if (delay.length == 0) {
+                // zero delay is expected, we can just glue the wake up calls together
                 idleOrBusy(
                   acquired + 1,
                   entries,
                   effect.productR { entry })
               } else {
+                // non-zero delay is expected, let's schedule a sleep
                 val wakeUp = Deferred.unsafe[F, Option[Entry]]
                 (
                   State.Busy(acquired, entries, wakeUp),
@@ -129,6 +165,7 @@ object Damper {
               }
 
             case None =>
+              // no delays are expected, let's just execute accumulated wake up effect
               idle(acquired, effect)
           }
         }
@@ -145,6 +182,7 @@ object Damper {
                 )
               }
 
+              /** Update the state after [[Damper#acquire]] was allowed to happen */
               def acquire = {
                 ref.modify {
                   case state: State.Idle => idle(state.acquired + 1, entry)
@@ -159,8 +197,13 @@ object Damper {
                   .race { Temporal[F].sleep(delay) }
                 result <- result match {
                   case Left(Some(`entry`)) =>
+                    // the sleep did not finish and was interrupted
+                    // by doing `wakeUp.complete` on this entry
                     acquire
                   case Left(_) =>
+                    // the sleep did not finish and was interrupted
+                    // by doing `wakeUp.complete` without this entry,
+                    // i.e. `None`, for example, when doing cancelation
                     Clock[F]
                       .realTime
                       .flatMap { end =>
@@ -186,6 +229,7 @@ object Damper {
                       }
 
                   case Right(()) =>
+                    // the sleep is finished and was not interrupted
                     acquire
                 }
                 result <- result
@@ -240,11 +284,17 @@ object Damper {
                     val acquired = state.acquired
                     val delay = delayOf1(acquired)
                     if (delay.length == 0) {
+                      // zero delay is expected
+                      // just increment number of acquired resources
+                      // and return immediately
                       (
                         state.copy(acquired = acquired + 1),
                         ().pure[F].pure[F]
                       )
                     } else {
+                      // this is a first delay, so there is no queue yet,
+                      // but we remember it to be first to wake up
+                      // and also mark the state as busy, now
                       val wakeUp = Deferred.unsafe[F, Option[Entry]]
                       (
                         State.Busy(acquired, Queue.empty, wakeUp),
@@ -252,6 +302,8 @@ object Damper {
                       )
                     }
                   case state: State.Busy =>
+                    // we already have some delays in progress,
+                    // so we add a new one to the waiting queue
                     (
                       state.copy(entries = state.entries.enqueue(entry)),
                       Defer[F].defer { await(filter = true).pure[F] }
@@ -267,11 +319,16 @@ object Damper {
             ref
               .modify {
                 case State.Idle(acquired) =>
+                  // there are no delays in progress,
+                  // so we just decrement number of acquired resources
                   (
                     State.Idle(acquired - 1),
                     ().pure[F]
                   )
                 case state: State.Busy    =>
+                  // there are delays in progress,
+                  // so we wake up the first entry now
+                  // without waiting for delay to finish
                   (
                     state.copy(acquired = state.acquired - 1),
                     state.wakeUp.complete1(none)
