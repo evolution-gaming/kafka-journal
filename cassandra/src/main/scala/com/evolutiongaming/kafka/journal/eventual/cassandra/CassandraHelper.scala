@@ -51,7 +51,7 @@ object CassandraHelper {
   implicit class EncodeRowObjOps(val self: EncodeRow.type) extends AnyVal {
 
     def empty[A]: EncodeRow[A] = new EncodeRow[A] {
-
+      
       def apply[B <: SettableData[B]](data: B, value: A) = data
     }
 
