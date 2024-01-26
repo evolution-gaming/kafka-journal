@@ -7,6 +7,7 @@ import cats.syntax.all._
 import com.datastax.driver.core.{Duration => DurationC, _}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.util.FiniteDurationHelper._
 import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
+import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.sstream.Stream
 
 import scala.jdk.CollectionConverters._
@@ -31,6 +32,20 @@ object CassandraHelper {
     def execute[F[_] : CassandraSession]: Stream[F, Row] = {
       CassandraSession[F].execute(self)
     }
+  }
+
+
+  implicit class RowOps(val self: Row) extends AnyVal {
+
+    /** Same as [[com.datastax.driver.core.ResultSet#wasApplied]] with some
+      * minor differences (i.e. it may throw an exception).
+      *
+      * @throws IllegalArgumentException
+      *   if `[applied]` column is not found, i.e. for non-conditional or DDL
+      *   queries.
+      */
+    def wasApplied: Boolean = self.decode[Boolean]("[applied]")
+
   }
 
 
