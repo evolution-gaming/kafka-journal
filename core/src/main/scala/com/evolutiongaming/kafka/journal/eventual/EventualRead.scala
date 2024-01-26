@@ -8,6 +8,11 @@ import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 import com.evolutiongaming.kafka.journal.{JournalError, JsonCodec, Payload, PayloadType}
 
 
+/** Decode a payload loaded from an eventual storage.
+  *
+  * Converts a structure convenient to store to eventual store, i.e. Cassandra, to a structure, which is convenient to
+  * use for a business logic.
+  */
 trait EventualRead[F[_], A] {
 
   def apply(payloadAndType: EventualPayloadAndType): F[A]
