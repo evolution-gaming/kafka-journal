@@ -29,40 +29,35 @@ object CreateSchema {
     def createTables1 = {
       val keyspace = config.keyspace.name
 
-      def tableName(table: CreateTables.Table) = TableName(keyspace = keyspace, table = table.name)
-
-      def table(name: String, query: TableName => Nel[String]) = {
-        val tableName = TableName(keyspace = keyspace, table = name)
-        CreateTables.Table(name = name, queries = query(tableName))
-      }
-
-      val journal = table(config.journalTable, a => Nel.of(JournalStatements.createTable(a)))
-
-      val metaJournal = table(config.metaJournalTable, a => MetaJournalStatements.createTable(a))
-
-      val pointer = table(config.pointerTable, a => Nel.of(PointerStatements.createTable(a)))
-
-      val pointer2 = table(config.pointer2Table, a => Nel.of(Pointer2Statements.createTable(a)))
-
-      val setting = table(config.settingTable, a => Nel.of(SettingStatements.createTable(a)))
-
       val schema = Schema(
-        journal = tableName(journal),
+        journal = TableName(keyspace = keyspace, table = config.journalTable),
         metadata = TableName(keyspace = keyspace, table = config.metadataTable),
-        metaJournal = tableName(metaJournal),
-        pointer = tableName(pointer),
-        pointer2 = tableName(pointer2),
-        setting = tableName(setting))
+        metaJournal = TableName(keyspace = keyspace, table = config.metaJournalTable),
+        pointer = TableName(keyspace = keyspace, table = config.pointerTable),
+        pointer2 = TableName(keyspace = keyspace, table = config.pointer2Table),
+        setting = TableName(keyspace = keyspace, table = config.settingTable)
+      )
 
-      if (config.autoCreate) {
-        for {
-          result <- createTables(keyspace, Nel.of(journal, pointer, pointer2, setting, metaJournal))
-        } yield {
-          (schema, result)
+      val journalStatements = JournalStatements.createTable(schema.journal)
+      val metaJournalStatements = MetaJournalStatements.createTable(schema.metaJournal)
+      val pointerStatements = PointerStatements.createTable(schema.pointer)
+      val pointer2Statements = Pointer2Statements.createTable(schema.pointer2)
+      val settingStatements = SettingStatements.createTable(schema.setting)
+
+      val journal = CreateTables.Table(config.journalTable, journalStatements)
+      val metaJournal = CreateTables.Table(config.metaJournalTable, metaJournalStatements)
+      val pointer = CreateTables.Table(config.pointerTable, pointerStatements)
+      val pointer2 = CreateTables.Table(config.pointer2Table, pointer2Statements)
+      val setting = CreateTables.Table(config.settingTable, settingStatements)
+
+      val createSchema =
+        if (config.autoCreate) {
+          createTables(keyspace, Nel.of(journal, pointer, pointer2, setting, metaJournal))
+        } else {
+          false.pure[F]
         }
-      } else {
-        (schema, false).pure[F]
-      }
+
+      createSchema.map((schema, _))
     }
 
     for {
