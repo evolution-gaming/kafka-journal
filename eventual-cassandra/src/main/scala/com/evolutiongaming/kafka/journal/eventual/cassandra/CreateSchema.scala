@@ -9,6 +9,17 @@ import com.evolutiongaming.scassandra.TableName
 
 object CreateSchema {
 
+  /** Creates Cassandra schema for eventual storage of a journal.
+    *
+    * The class does not perform a schema migration if any of the tables are
+    * already present in a database, and relies on a caller to use a returned
+    * value to perfom the necessary migrations afterwards.
+    * 
+    * @return
+    *   Fully qualified table names, and `true` if all of the tables were
+    *   created from scratch, or `false` if one or more of them were already
+    *   present in a keyspace.
+    */
   def apply[F[_] : Concurrent : CassandraCluster : CassandraSession : CassandraSync : LogOf](
     config: SchemaConfig
   ): F[(Schema, MigrateSchema.Fresh)] = {
@@ -38,17 +49,17 @@ object CreateSchema {
         setting = TableName(keyspace = keyspace, table = config.settingTable)
       )
 
-      val journalStatements = JournalStatements.createTable(schema.journal)
-      val metaJournalStatements = MetaJournalStatements.createTable(schema.metaJournal)
-      val pointerStatements = PointerStatements.createTable(schema.pointer)
-      val pointer2Statements = Pointer2Statements.createTable(schema.pointer2)
-      val settingStatements = SettingStatements.createTable(schema.setting)
+      val journalStatement = JournalStatements.createTable(schema.journal)
+      val metaJournalStatement = MetaJournalStatements.createTable(schema.metaJournal)
+      val pointerStatement = PointerStatements.createTable(schema.pointer)
+      val pointer2Statement = Pointer2Statements.createTable(schema.pointer2)
+      val settingStatement = SettingStatements.createTable(schema.setting)
 
-      val journal = CreateTables.Table(config.journalTable, journalStatements)
-      val metaJournal = CreateTables.Table(config.metaJournalTable, metaJournalStatements)
-      val pointer = CreateTables.Table(config.pointerTable, pointerStatements)
-      val pointer2 = CreateTables.Table(config.pointer2Table, pointer2Statements)
-      val setting = CreateTables.Table(config.settingTable, settingStatements)
+      val journal = CreateTables.Table(config.journalTable, journalStatement)
+      val metaJournal = CreateTables.Table(config.metaJournalTable, metaJournalStatement)
+      val pointer = CreateTables.Table(config.pointerTable, pointerStatement)
+      val pointer2 = CreateTables.Table(config.pointer2Table, pointer2Statement)
+      val setting = CreateTables.Table(config.settingTable, settingStatement)
 
       val createSchema =
         if (config.autoCreate) {
