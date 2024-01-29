@@ -16,12 +16,12 @@ class CreateSchemaSpec extends AnyFunSuite {
     val (database, (schema, fresh)) = createSchema.run(Database.empty).value
     assert(database.keyspaces == List("journal"))
     assert(
-      database.tables.reverse == List(
+      database.tables.sorted == List(
         "journal.journal",
+        "journal.metajournal",
         "journal.pointer",
         "journal.pointer2",
-        "journal.setting",
-        "journal.metajournal"
+        "journal.setting"
       )
     )
     assert(fresh)
@@ -37,6 +37,30 @@ class CreateSchemaSpec extends AnyFunSuite {
     val (database, (schema, fresh)) = createSchema.run(Database.empty).value
     assert(database.keyspaces == Nil)
     assert(database.tables == Nil)
+    assert(!fresh)
+    assert(schema == this.schema)
+  }
+
+  test("create part of the tables") {
+    val config = SchemaConfig.default.copy(
+      keyspace = KeyspaceConfig.default.copy(autoCreate = false)
+    )
+    val initialState = Database.empty.copy(
+      keyspaces = List("journal"),
+      tables = List("journal.setting")
+    )
+    val createSchema = CreateSchema[F](config, createKeyspace, createTables)
+    val (database, (schema, fresh)) = createSchema.run(initialState).value
+    assert(database.keyspaces == List("journal"))
+    assert(
+      database.tables.sorted == List(
+        "journal.journal",
+        "journal.metajournal",
+        "journal.pointer",
+        "journal.pointer2",
+        "journal.setting"
+      )
+    )
     assert(!fresh)
     assert(schema == this.schema)
   }
