@@ -20,6 +20,7 @@ class SnapshotCassandraTest extends AnyFunSuite {
       store = SnapshotCassandra(statements)
       key = Key("topic", "id")
       _ <- store.save(key, record)
+      _ <- DatabaseState.sync
       snapshot <- store.load(key, SnapshotSelectionCriteria.All)
     } yield {
       assert(snapshot.isDefined, "(could not load the saved snapshot)")
@@ -31,16 +32,20 @@ class SnapshotCassandraTest extends AnyFunSuite {
     val program = for {
       statements <- statements.pure[F]
       // both snapshotters see empty metadata, because it is not saved yet
-      emptyStore = SnapshotCassandra[F](statements.copy(selectMetadata = { (_, _) => Map.empty.pure[F] }))
-      finalStore = SnapshotCassandra[F](statements)
+      store = SnapshotCassandra[F](statements.copy(selectMetadata = { (_, _) =>
+        // sync data after first call to simulate delayed update
+        // otherwise the `selectMetadata` call may be stuck in an infinite loop
+        DatabaseState.get.map(_.metadata) <* DatabaseState.sync
+      }))
       key = Key("topic", "id")
       snapshot1 = record.snapshot.copy(seqNr = SeqNr.unsafe(1))
       snapshot2 = record.snapshot.copy(seqNr = SeqNr.unsafe(2))
       // here, we change the order of writing, to simulate concurrency
-      _ <- emptyStore.save(key, record.copy(snapshot = snapshot2))
-      _ <- emptyStore.save(key, record.copy(snapshot = snapshot1))
+      _ <- store.save(key, record.copy(snapshot = snapshot2))
+      _ <- store.save(key, record.copy(snapshot = snapshot1))
+      _ <- DatabaseState.sync
       // we should still get the latest snapshot here
-      snapshot <- finalStore.load(key, SnapshotSelectionCriteria.All)
+      snapshot <- store.load(key, SnapshotSelectionCriteria.All)
     } yield {
       assert(snapshot.map(_.snapshot.seqNr) == SeqNr.opt(2), "(last snapshot is not seen)")
     }
@@ -54,11 +59,13 @@ class SnapshotCassandraTest extends AnyFunSuite {
       key = Key("topic", "id")
       // try to save twice
       _ <- store.save(key, record)
+      _ <- DatabaseState.sync
       _ <- store.save(key, record)
-      state <- StateT.get[Try, DatabaseState]
+      _ <- DatabaseState.sync
+      state <- DatabaseState.get
     } yield {
       // we should only get one snapshot in a database
-      assert(state.snapshots.size == 1)
+      assert(state.stored.size == 1)
     }
     program.run(DatabaseState.empty).get
   }
@@ -71,8 +78,11 @@ class SnapshotCassandraTest extends AnyFunSuite {
       snapshot1 = record.snapshot.copy(seqNr = SeqNr.unsafe(1))
       snapshot2 = record.snapshot.copy(seqNr = SeqNr.unsafe(2))
       _ <- store.save(key, record.copy(snapshot = snapshot1))
+      _ <- DatabaseState.sync
       _ <- store.save(key, record.copy(snapshot = snapshot2))
+      _ <- DatabaseState.sync
       _ <- store.drop(key, SnapshotSelectionCriteria.All)
+      _ <- DatabaseState.sync
       snapshot <- store.load(key, SnapshotSelectionCriteria.All)
     } yield {
       assert(snapshot.isEmpty, "(some snapshots were not dropped)")
@@ -88,8 +98,11 @@ class SnapshotCassandraTest extends AnyFunSuite {
       snapshot1 = record.snapshot.copy(seqNr = SeqNr.unsafe(1))
       snapshot2 = record.snapshot.copy(seqNr = SeqNr.unsafe(2))
       _ <- store.save(key, record.copy(snapshot = snapshot1))
+      _ <- DatabaseState.sync
       _ <- store.save(key, record.copy(snapshot = snapshot2))
+      _ <- DatabaseState.sync
       _ <- store.drop(key, SeqNr.unsafe(2))
+      _ <- DatabaseState.sync
       snapshot <- store.load(key, SnapshotSelectionCriteria.All)
     } yield {
       assert(snapshot.map(_.snapshot.seqNr) == SeqNr.opt(1), "(snapshot1 should still be in a database)")
@@ -98,34 +111,82 @@ class SnapshotCassandraTest extends AnyFunSuite {
   }
 
   def statements: SnapshotCassandra.Statements[F] = SnapshotCassandra.Statements(
-    insertRecords = { (_, _, bufferNr, snapshot) =>
-      StateT.modify(_.insert(bufferNr, snapshot))
+    insertRecord = { (_, _, bufferNr, snapshot) =>
+      for {
+        state0 <- DatabaseState.get
+        state1 = state0.insert(bufferNr, snapshot)
+        wasApplied = state1.isDefined
+        _ <- DatabaseState.set(state1.getOrElse(state0))
+      } yield wasApplied
+    },
+    updateRecord = { (_, _, bufferNr, insertSnapshot, deleteSnapshot) =>
+      for {
+        state0 <- DatabaseState.get
+        state1 = state0.update(bufferNr, insertSnapshot, deleteSnapshot)
+        wasApplied = state1.isDefined
+        _ <- DatabaseState.set(state1.getOrElse(state0))
+      } yield wasApplied
     },
     selectRecords = { (_, _, bufferNr) =>
-      StateT.get[Try, DatabaseState].map(_.select(bufferNr))
+      DatabaseState.get.map(_.select(bufferNr))
     },
     selectMetadata = { (_, _) =>
-      StateT.get[Try, DatabaseState].map(_.metadata)
+      DatabaseState.get.map(_.metadata)
     },
     deleteRecords = { (_, _, bufferNr) =>
-      StateT.modify(_.delete(bufferNr))
+      DatabaseState.modify(_.delete(bufferNr))
     }
   )
 
-  case class DatabaseState(snapshots: Map[BufferNr, SnaphsotWithPayload]) {
-    def insert(bufferNr: BufferNr, snapshot: SnaphsotWithPayload): DatabaseState =
-      this.copy(snapshots = snapshots.updated(bufferNr, snapshot))
+  case class DatabaseState(
+    stored: Map[BufferNr, SnaphsotWithPayload],
+    availableForReading: Map[BufferNr, SnaphsotWithPayload]
+  ) {
+
+    def insert(bufferNr: BufferNr, snapshot: SnaphsotWithPayload): Option[DatabaseState] =
+      Option.when(!stored.contains(bufferNr)) {
+        this.copy(stored = stored.updated(bufferNr, snapshot))
+      }
+
+    def update(bufferNr: BufferNr, insertSnapshot: SnaphsotWithPayload, deleteSnapshot: SeqNr): Option[DatabaseState] =
+      stored.get(bufferNr).flatMap { previousSnapshot =>
+        Option.when(previousSnapshot.snapshot.seqNr == deleteSnapshot) {
+          this.copy(stored = stored.updated(bufferNr, insertSnapshot))
+        }
+      }
+
     def select(bufferNr: BufferNr): Option[SnaphsotWithPayload] =
-      snapshots.get(bufferNr)
+      availableForReading.get(bufferNr)
+
     def metadata: Map[BufferNr, (SeqNr, Instant)] =
-      snapshots.fmap { snapshot =>
+      availableForReading.fmap { snapshot =>
         (snapshot.snapshot.seqNr, snapshot.timestamp)
       }
+
     def delete(bufferNr: BufferNr): DatabaseState =
-      this.copy(snapshots = snapshots - bufferNr)
+      this.copy(stored = stored - bufferNr)
+
+    def sync: DatabaseState =
+      this.copy(availableForReading = stored)
+
   }
   object DatabaseState {
-    def empty: DatabaseState = DatabaseState(Map.empty)
+
+    def empty: DatabaseState =
+      DatabaseState(stored = Map.empty, availableForReading = Map.empty)
+
+    def set(state: DatabaseState): StateT[Try, DatabaseState, Unit] =
+      StateT.set(state)
+
+    def get: StateT[Try, DatabaseState, DatabaseState] =
+      StateT.get
+
+    def modify(f: DatabaseState => DatabaseState): StateT[Try, DatabaseState, Unit] =
+      StateT.modify(f)
+
+    def sync: StateT[Try, DatabaseState, Unit] =
+      StateT.modify(_.sync)
+
   }
 
   val record = SnapshotRecord(

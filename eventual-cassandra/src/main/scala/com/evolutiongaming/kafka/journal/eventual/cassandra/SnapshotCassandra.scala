@@ -35,8 +35,12 @@ object SnapshotCassandra {
 
       def save(key: Key, snapshot: SnapshotRecord[EventualPayloadAndType]): F[Unit] = {
         statements.selectMetadata(key, segmentNr).flatMap {
+          // such snapshot is already saved, do nothing
+          case s if s.values.exists { case (seqNr, _) => snapshot.snapshot.seqNr == seqNr } => ().pure[F]
+          // there is a free place to add a snapshot
           case s if s.size < BufferSize => insert(key, segmentNr, s, snapshot)
-          case s                        => update(key, segmentNr, s, snapshot)
+          // all rows are taken, we have to update one of them
+          case s => update(key, segmentNr, s, snapshot)
         }
       }
 
@@ -50,7 +54,10 @@ object SnapshotCassandra {
         val takenBufferNrs = savedSnapshots.keySet
         val freeBufferNr = allBufferNrs.find(bufferNr => !takenBufferNrs.contains(bufferNr))
         MonadThrow[F].fromOption(freeBufferNr, SnapshotStoreError("Could not find a free key")).flatMap { bufferNr =>
-          statements.insertRecords(key, segmentNr, bufferNr, snapshot)
+          val wasApplied = statements.insertRecord(key, segmentNr, bufferNr, snapshot)
+          wasApplied.flatMap { wasApplied =>
+            if (wasApplied) ().pure[F] else save(key, snapshot)
+          }
         }
       }
 
@@ -58,22 +65,22 @@ object SnapshotCassandra {
         key: Key,
         segmentNr: SegmentNr,
         savedSnapshots: Map[BufferNr, (SeqNr, Instant)],
-        snapshot: SnapshotRecord[EventualPayloadAndType]
+        insertSnapshot: SnapshotRecord[EventualPayloadAndType]
       ): F[Unit] = {
         val sortedSnapshots = savedSnapshots.toList.sortBy { case (_, (seqNr, _)) => seqNr }
 
         val oldestSnapshot = sortedSnapshots.lastOption
         MonadThrow[F].fromOption(oldestSnapshot, SnapshotStoreError("Could not find an oldest snapshot")).flatMap {
           oldestSnapshot =>
-            val (bufferNr, (_, _)) = oldestSnapshot
-            statements.insertRecords(key, segmentNr, bufferNr, snapshot)
+            val (bufferNr, (deleteSnapshot, _)) = oldestSnapshot
+            val wasApplied = statements.updateRecord(key, segmentNr, bufferNr, insertSnapshot, deleteSnapshot)
+            wasApplied.flatMap { wasApplied =>
+              if (wasApplied) ().pure[F] else save(key, insertSnapshot)
+            }
         }
       }
 
-      def load(
-        key: Key,
-        criteria: SnapshotSelectionCriteria
-      ): F[Option[SnapshotRecord[EventualPayloadAndType]]] =
+      def load(key: Key, criteria: SnapshotSelectionCriteria): F[Option[SnapshotRecord[EventualPayloadAndType]]] =
         for {
           savedSnapshots <- statements.selectMetadata(key, segmentNr)
           sortedSnapshots = savedSnapshots.toList.sortBy { case (_, (seqNr, _)) => seqNr }
@@ -109,7 +116,8 @@ object SnapshotCassandra {
   }
 
   final case class Statements[F[_]](
-    insertRecords: SnapshotStatements.InsertRecord[F],
+    insertRecord: SnapshotStatements.InsertRecord[F],
+    updateRecord: SnapshotStatements.UpdateRecord[F],
     selectRecords: SnapshotStatements.SelectRecord[F],
     selectMetadata: SnapshotStatements.SelectMetadata[F],
     deleteRecords: SnapshotStatements.Delete[F]
@@ -118,11 +126,12 @@ object SnapshotCassandra {
   object Statements {
     def of[F[_]: Monad: CassandraSession](schema: Schema, consistencyConfig: ConsistencyConfig): F[Statements[F]] = {
       for {
-        insertRecords <- SnapshotStatements.InsertRecord.of[F](schema.snapshot, consistencyConfig.write)
+        insertRecord <- SnapshotStatements.InsertRecord.of[F](schema.snapshot, consistencyConfig.write)
+        updateRecord <- SnapshotStatements.UpdateRecord.of[F](schema.snapshot, consistencyConfig.write)
         selectRecord <- SnapshotStatements.SelectRecord.of[F](schema.snapshot, consistencyConfig.read)
         selectMetadata <- SnapshotStatements.SelectMetadata.of[F](schema.snapshot, consistencyConfig.read)
         deleteRecords <- SnapshotStatements.Delete.of[F](schema.snapshot, consistencyConfig.write)
-      } yield Statements(insertRecords, selectRecord, selectMetadata, deleteRecords)
+      } yield Statements(insertRecord, updateRecord, selectRecord, selectMetadata, deleteRecords)
     }
   }
 
