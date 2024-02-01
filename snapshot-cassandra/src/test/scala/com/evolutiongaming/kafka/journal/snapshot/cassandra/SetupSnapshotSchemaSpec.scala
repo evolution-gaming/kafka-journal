@@ -16,8 +16,8 @@ import scala.util.Try
 import scala.util.control.NoStackTrace
 
 
-class SetupSchemaSpec extends AnyFunSuite with Matchers {
-  import SetupSchemaSpec._
+class SetupSnapshotSchemaSpec extends AnyFunSuite with Matchers {
+  import SetupSnapshotSchemaSpec._
 
   val timestamp: Instant = Instant.now()
 
@@ -121,7 +121,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
   case object NotImplemented extends RuntimeException with NoStackTrace
 }
 
-object SetupSchemaSpec {
+object SetupSnapshotSchemaSpec {
   sealed trait Action extends Product
 
   object Action {
