@@ -8,7 +8,7 @@ import com.evolutiongaming.scassandra.TableName
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
-class CreateSchemaSpec extends AnyFunSuite with Matchers { self =>
+class CreateSnapshotSchemaSpec extends AnyFunSuite with Matchers { self =>
 
   test("create keyspace and tables") {
     val config = SnapshotSchemaConfig.default
