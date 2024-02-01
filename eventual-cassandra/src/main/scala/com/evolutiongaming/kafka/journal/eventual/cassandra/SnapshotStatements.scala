@@ -40,7 +40,7 @@ object SnapshotStatements {
       segment: SegmentNr,
       bufferNr: BufferNr,
       snapshot: SnapshotRecord[EventualPayloadAndType]
-    ): F[Unit]
+    ): F[Boolean]
   }
 
   object InsertRecord {
@@ -69,6 +69,7 @@ object SnapshotStatements {
            |payload_bin,
            |metadata)
            |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           |IF NOT EXISTS
            |""".stripMargin
 
       for {
@@ -100,7 +101,82 @@ object SnapshotStatements {
         }
 
         val statement = statementOf(snapshot)
-        statement.setConsistencyLevel(consistencyConfig.value).first.void
+        val row = statement.setConsistencyLevel(consistencyConfig.value).first
+        row.map(_.fold(false)(_.wasApplied))
+      }
+    }
+  }
+
+  trait UpdateRecord[F[_]] {
+    def apply(
+      key: Key,
+      segment: SegmentNr,
+      bufferNr: BufferNr,
+      insertSnapshot: SnapshotRecord[EventualPayloadAndType],
+      deleteSnapshot: SeqNr
+    ): F[Boolean]
+  }
+
+  object UpdateRecord {
+
+    def of[F[_]: Monad: CassandraSession](
+      name: TableName,
+      consistencyConfig: ConsistencyConfig.Write
+    ): F[UpdateRecord[F]] = {
+
+      implicit val encodeByNameByteVector: EncodeByName[ByteVector] = EncodeByName[Array[Byte]]
+        .contramap { _.toArray }
+
+      val query =
+        s"""
+           |UPDATE ${name.toCql} (
+           |SET seq_nr = :insert_seq_nr,
+           |timestamp = :timestamp,
+           |origin = :origin,
+           |version = :version,
+           |payload_type = :payload_type,
+           |payload_txt = :payload_txt,
+           |payload_bin = :payload_bin,
+           |metadata = :metadata
+           |WHERE id = :id,
+           |topic = :topic,
+           |segment = :segment,
+           |buffer_nr = :buffer_nr
+           |IF seq_nr = :delete_seq_nr
+           |""".stripMargin
+
+      for {
+        prepared <- query.prepare
+      } yield { (key, segment, bufferNr, insertSnapshot, deleteSnapshot) =>
+        def statementOf(record: SnapshotRecord[EventualPayloadAndType]) = {
+          val snapshot = record.snapshot
+          val (payloadType, txt, bin) = snapshot.payload.map { payloadAndType =>
+            val (text, bytes) =
+              payloadAndType.payload.fold(str => (str.some, none[ByteVector]), bytes => (none[String], bytes.some))
+            (payloadAndType.payloadType.some, text, bytes)
+          } getOrElse {
+            (None, None, None)
+          }
+
+          prepared
+            .bind()
+            .encode(key)
+            .encode(segment)
+            .encode(bufferNr)
+            .encode("insert_seq_nr", snapshot.seqNr)
+            .encode("delete_seq_nr", deleteSnapshot)
+            .encode("timestamp", record.timestamp)
+            .encodeSome(record.origin)
+            .encodeSome(record.version)
+            .encodeSome("payload_type", payloadType)
+            .encodeSome("payload_txt", txt)
+            .encodeSome("payload_bin", bin)
+            .setConsistencyLevel(consistencyConfig.value)
+        }
+
+        val statement = statementOf(insertSnapshot)
+        val row = statement.setConsistencyLevel(consistencyConfig.value).first
+        row.map(_.fold(false)(_.wasApplied))
       }
     }
   }
