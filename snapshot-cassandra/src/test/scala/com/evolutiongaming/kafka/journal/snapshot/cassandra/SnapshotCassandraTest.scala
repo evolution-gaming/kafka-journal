@@ -187,16 +187,16 @@ class SnapshotCassandraTest extends AnyFunSuite {
     def empty: DatabaseState =
       DatabaseState(stored = Map.empty, availableForReading = Map.empty)
 
-    def set(state: DatabaseState): StateT[Try, DatabaseState, Unit] =
+    def set(state: DatabaseState): F[Unit] =
       StateT.set(state)
 
-    def get: StateT[Try, DatabaseState, DatabaseState] =
+    def get: F[DatabaseState] =
       StateT.get
 
-    def modify(f: DatabaseState => DatabaseState): StateT[Try, DatabaseState, Unit] =
+    def modify(f: DatabaseState => DatabaseState): F[Unit] =
       StateT.modify(f)
 
-    def sync: StateT[Try, DatabaseState, Unit] =
+    def sync: F[Unit] =
       StateT.modify(_.sync)
 
   }
