@@ -6,6 +6,11 @@ import com.evolutiongaming.kafka.journal.{JournalError, JsonCodec, Payload}
 import scodec.bits.ByteVector
 
 
+/** Prepare payload for storing.
+  *
+  * Converts a structure convenient for a business logic to a structure, which is convenient to store to eventual store,
+  * i.e. Cassandra.
+  */
 trait EventualWrite[F[_], A] {
 
   def apply(payload: A): F[EventualPayloadAndType]
