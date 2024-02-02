@@ -10,7 +10,7 @@ import cats.effect.unsafe.{IORuntime, IORuntimeConfig}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{FromFuture, LogOf, ToFuture}
-import com.evolutiongaming.kafka.journal.eventual.cassandra.SnapshotCassandraConfig
+import com.evolutiongaming.kafka.journal.snapshot.cassandra.SnapshotCassandraConfig
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
 import com.evolutiongaming.kafka.journal.{JsonCodec, LogOfFromAkka, Origin, Payload, SnapshotReadWrite}
