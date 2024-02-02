@@ -12,6 +12,7 @@ final case class SchemaConfig(
   metaJournalTable: String = "metajournal",
   pointerTable: String = "pointer",
   pointer2Table: String = "pointer2",
+  snapshotTable: String = "snapshot",
   settingTable: String = "setting",
   locksTable: String = "locks",
   autoCreate: Boolean = true
