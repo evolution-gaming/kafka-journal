@@ -5,7 +5,7 @@ import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
 
 final case class SnapshotSchemaConfig(
-  keyspace: KeyspaceConfig = KeyspaceConfig.default,
+  keyspace: KeyspaceConfig = KeyspaceConfig.default.copy(name = "snapshot"),
   snapshotTable: String = "snapshot_buffer",
   settingTable: String = "setting",
   locksTable: String = "locks",
