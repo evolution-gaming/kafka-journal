@@ -10,8 +10,19 @@ import com.evolutiongaming.scassandra.TableName
 
 object CreateSnapshotSchema {
 
+  /** Creates Cassandra schema for storage of a snapshot.
+    *
+    * The class does not perform a schema migration if any of the tables are
+    * already present in a database, and relies on a caller to use a returned
+    * value to perfom the necessary migrations afterwards.
+    * 
+    * @return
+    *   Fully qualified table names, and `true` if all of the tables were
+    *   created from scratch, or `false` if one or more of them were already
+    *   present in a keyspace.
+    */
   def apply[F[_] : Concurrent : CassandraCluster : CassandraSession : CassandraSync : LogOf](
-  config: SnapshotSchemaConfig
+    config: SnapshotSchemaConfig
   ): F[(SnapshotSchema, MigrateSchema.Fresh)] = {
 
     for {
@@ -30,30 +41,25 @@ object CreateSnapshotSchema {
     def createTables1 = {
       val keyspace = config.keyspace.name
 
-      def tableName(table: CreateTables.Table) = TableName(keyspace = keyspace, table = table.name)
-
-      def table(name: String, query: TableName => Nel[String]) = {
-        val tableName = TableName(keyspace = keyspace, table = name)
-        CreateTables.Table(name = name, queries = query(tableName))
-      }
-
-      val snapshot = table(config.snapshotTable, a => Nel.of(SnapshotStatements.createTable(a)))
-
-      val setting = table(config.settingTable, a => Nel.of(SettingStatements.createTable(a)))
-
       val schema = SnapshotSchema(
-        snapshot = tableName(snapshot),
-        setting = tableName(setting))
+        snapshot = TableName(keyspace = keyspace, table = config.snapshotTable),
+        setting = TableName(keyspace = keyspace, table = config.settingTable)
+      )
 
-      if (config.autoCreate) {
-        for {
-          result <- createTables(keyspace, Nel.of(snapshot, setting))
-        } yield {
-          (schema, result)
+      val snapshotStatement = SnapshotStatements.createTable(schema.snapshot)
+      val settingStatement = SettingStatements.createTable(schema.setting)
+
+      val snapshot = CreateTables.Table(config.snapshotTable, snapshotStatement)
+      val setting = CreateTables.Table(config.settingTable, settingStatement)
+
+      val createSchema =
+        if (config.autoCreate) {
+          createTables(keyspace, Nel.of(snapshot, setting))
+        } else {
+          false.pure[F]
         }
-      } else {
-        (schema, false).pure[F]
-      }
+
+      createSchema.map((schema, _))
     }
 
     for {

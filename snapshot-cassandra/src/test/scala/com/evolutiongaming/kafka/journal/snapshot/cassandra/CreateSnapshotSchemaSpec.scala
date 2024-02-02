@@ -1,80 +1,124 @@
 package com.evolutiongaming.kafka.journal.snapshot.cassandra
 
-import cats.Id
-import cats.data.{NonEmptyList => Nel}
+import cats.data.{NonEmptyList => Nel, State}
+import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CreateKeyspace, CreateTables, KeyspaceConfig}
-import com.evolutiongaming.kafka.journal.snapshot.cassandra.{CreateSnapshotSchema, SnapshotSchemaConfig}
 import com.evolutiongaming.scassandra.TableName
 import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.matchers.should.Matchers
 
-class CreateSnapshotSchemaSpec extends AnyFunSuite with Matchers { self =>
+class CreateSchemaSpec extends AnyFunSuite {
+
+  type F[A] = State[Database, A]
 
   test("create keyspace and tables") {
     val config = SnapshotSchemaConfig.default
-    val createSchema = CreateSnapshotSchema[StateT](config, createKeyspace, createTables)
-    val initial = State.empty.copy(createTables = true)
-    val (state, (schema, fresh)) = createSchema.run(initial)
-    state shouldEqual initial.copy(actions = List(Action.CreateTables, Action.CreateKeyspace))
-    fresh shouldEqual true
-    schema shouldEqual self.schema
+    val createSchema = CreateSnapshotSchema[F](config, createKeyspace, createTables)
+    val (database, (schema, fresh)) = createSchema.run(Database.empty).value
+    assert(database.keyspaces == List("snapshot"))
+    assert(
+      database.tables.sorted == List(
+        "snapshot.setting",
+        "snapshot.snapshot_buffer"
+      )
+    )
+    assert(fresh)
+    assert(schema == this.schema)
   }
 
   test("not create keyspace and tables") {
-    val config = SnapshotSchemaConfig.default.copy(autoCreate = false)
-    val createSchema = CreateSnapshotSchema[StateT](config, createKeyspace, createTables)
-    val initial = State.empty.copy(createTables = true)
-    val (state, (schema, fresh)) = createSchema.run(initial)
-    state shouldEqual initial.copy(actions = List(Action.CreateKeyspace))
-    fresh shouldEqual false
-    schema shouldEqual self.schema
+    val config = SnapshotSchemaConfig.default.copy(
+      autoCreate = false,
+      keyspace = SnapshotSchemaConfig.default.keyspace.copy(autoCreate = false)
+    )
+    val createSchema = CreateSnapshotSchema[F](config, createKeyspace, createTables)
+    val (database, (schema, fresh)) = createSchema.run(Database.empty).value
+    assert(database.keyspaces == Nil)
+    assert(database.tables == Nil)
+    assert(!fresh)
+    assert(schema == this.schema)
   }
 
+  test("create part of the tables") {
+    val config = SnapshotSchemaConfig.default.copy(
+      keyspace = SnapshotSchemaConfig.default.keyspace.copy(autoCreate = false)
+    )
+    val initialState = Database.empty.copy(
+      keyspaces = List("snapshot"),
+      tables = List("snapshot.setting")
+    )
+    val createSchema = CreateSnapshotSchema[F](config, createKeyspace, createTables)
+    val (database, (schema, fresh)) = createSchema.run(initialState).value
+    assert(database.keyspaces == List("snapshot"))
+    assert(
+      database.tables.sorted == List(
+        "snapshot.setting",
+        "snapshot.snapshot_buffer"
+      )
+    )
+    assert(!fresh)
+    assert(schema == this.schema)
+  }
 
   private val schema = SnapshotSchema(
-    snapshot = TableName(keyspace = "journal", table = "snapshot_buffer"),
-    setting = TableName(keyspace = "journal", table = "setting"))
+    snapshot = TableName(keyspace = "snapshot", table = "snapshot_buffer"),
+    setting = TableName(keyspace = "snapshot", table = "setting")
+  )
 
-  val createTables: CreateTables[StateT] = new CreateTables[StateT] {
+  val createTables: CreateTables[F] = new CreateTables[F] {
     def apply(keyspace: String, tables: Nel[CreateTables.Table]) = {
-      StateT { state =>
-        val state1 = state.add(Action.CreateTables)
-        (state1, state.createTables)
+      val results = tables.traverse { table =>
+        assert(
+          table.queries.head.contains(
+            s"CREATE TABLE IF NOT EXISTS $keyspace.${table.name}"
+          )
+        )
+        Database.createTable(keyspace, table.name)
       }
+      results.map(_.forall(_ == true))
     }
   }
 
-  val createKeyspace: CreateKeyspace[StateT] = new CreateKeyspace[StateT] {
-    def apply(config: KeyspaceConfig) = {
-      StateT { state =>
-        val state1 = state.add(Action.CreateKeyspace)
-        (state1, ())
+  val createKeyspace: CreateKeyspace[F] = new CreateKeyspace[F] {
+    def apply(config: KeyspaceConfig) =
+      if (config.autoCreate) Database.createKeyspace(config.name)
+      else ().pure[F]
+  }
+
+  case class Database(keyspaces: List[String], tables: List[String]) {
+
+    def existsKeyspace(keyspace: String): Boolean =
+      keyspaces.contains(keyspace)
+
+    def createKeyspace(keyspace: String): Database =
+      this.copy(keyspaces = keyspace :: keyspaces)
+
+    def existsTable(keyspace: String, name: String): Boolean =
+      tables.contains(s"$keyspace.$name")
+
+    def createTable(keyspace: String, name: String): Database =
+      this.copy(tables = s"$keyspace.$name" :: tables)
+
+  }
+
+  object Database {
+
+    val empty: Database = Database(keyspaces = Nil, tables = Nil)
+
+    def createKeyspace(keyspace: String): F[Unit] =
+      State.modify(_.createKeyspace(keyspace))
+
+    def createTable(keyspace: String, name: String): F[Boolean] =
+      State { database =>
+        if (!database.existsKeyspace(keyspace)) {
+          fail(s"Keyspace '$keyspace' does not exist")
+        }
+        if (database.existsTable(keyspace, name)) {
+          (database, false)
+        } else {
+          (database.createTable(keyspace, name), true)
+        }
       }
-    }
+
   }
 
-
-  case class State(createTables: Boolean, actions: List[Action]) {
-
-    def add(action: Action): State = copy(actions = action :: actions)
-  }
-
-  object State {
-    val empty: State = State(createTables = false, actions = Nil)
-  }
-
-
-  type StateT[A] = cats.data.StateT[Id, State, A]
-
-  object StateT {
-    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[Id, State, A](f)
-  }
-
-
-  sealed trait Action extends Product
-
-  object Action {
-    case object CreateTables extends Action
-    case object CreateKeyspace extends Action
-  }
 }
