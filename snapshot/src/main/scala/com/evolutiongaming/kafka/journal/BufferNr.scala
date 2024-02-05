@@ -16,7 +16,7 @@ object BufferNr {
   val min: BufferNr = BufferNr.fromIntUnsafe(0)
   val max: BufferNr = BufferNr.fromIntUnsafe(Int.MaxValue)
 
-  /** Create all list of buffer indicies of a given size.
+  /** Create a list of N indicies starting from [[BufferNr#min]].
     *
     * I.e. for `size = 3` the following list will be created:
     * {{{
