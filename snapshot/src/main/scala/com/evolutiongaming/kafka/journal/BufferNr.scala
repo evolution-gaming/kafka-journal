@@ -7,11 +7,11 @@ import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 import com.evolutiongaming.scassandra._
 
 /** Snapshot index in a stored ring buffer */
-sealed abstract case class BufferNr(value: Int) {
+private[journal] sealed abstract case class BufferNr(value: Int) {
   override def toString: String = value.toString
 }
 
-object BufferNr {
+private[journal] object BufferNr {
 
   val min: BufferNr = BufferNr.fromIntUnsafe(0)
   val max: BufferNr = BufferNr.fromIntUnsafe(Int.MaxValue)
