@@ -29,22 +29,18 @@ object BufferNr {
   private def fromIntUnsafe(value: Int): BufferNr =
     new BufferNr(value) {}
 
-  /** Create `BufferNr` out of a value or fail it is out of an allowed range.
+  /** Create `BufferNr` from a value or fail if it is out of an allowed range.
     *
     * A returned value may be reused to minimize number of allocations.
     */
-  def of[F[_]: Applicative: Fail](value: Int): F[BufferNr] = {
-    if (value < min.value) {
+  def of[F[_]: Applicative: Fail](value: Int): F[BufferNr] = value match {
+    case value if value < min.value =>
       s"invalid BufferNr of $value, it must be greater or equal to $min".fail[F, BufferNr]
-    } else if (value > max.value) {
+    case value if value > max.value =>
       s"invalid BufferNr of $value, it must be less or equal to $max".fail[F, BufferNr]
-    } else if (value === min.value) {
-      min.pure[F]
-    } else if (value === max.value) {
-      max.pure[F]
-    } else {
-      fromIntUnsafe(value).pure[F]
-    }
+    case min.value => min.pure[F]
+    case max.value => max.pure[F]
+    case value     => fromIntUnsafe(value).pure[F]
   }
 
   implicit val encodeByNameBufferNr: EncodeByName[BufferNr] =
