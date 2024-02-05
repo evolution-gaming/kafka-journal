@@ -9,7 +9,6 @@ import com.evolutiongaming.kafka.journal.FromBytes.implicits._
 import com.evolutiongaming.kafka.journal.ToBytes.implicits._
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 import com.evolutiongaming.serialization.SerializedMsg
 import play.api.libs.json.{JsString, JsValue, Json}
 import scodec.bits.ByteVector
@@ -29,7 +28,7 @@ object SnapshotSerializer {
     SerializedMsgSerializer.of[F](system).map(SnapshotSerializer(_))
 
   def apply[F[_]: MonadThrowable: FromAttempt: FromJsResult](
-    serializer: SerializedMsgSerializer[F]
+      serializer: SerializedMsgSerializer[F]
   ): SnapshotSerializer[F, Payload] = {
 
     implicit val toBytesSerializedMsg: ToBytes[F, SerializedMsg] = ToBytes.fromEncoder
@@ -90,8 +89,8 @@ object SnapshotSerializer {
   }
 
   def apply[F[_]: MonadThrowable, A](
-    toSnapshotPayload: Any => F[A],
-    fromSnapshotPayload: A => F[Any]
+      toSnapshotPayload: Any => F[A],
+      fromSnapshotPayload: A => F[Any]
   ): SnapshotSerializer[F, A] = new SnapshotSerializer[F, A] {
 
     implicit val fail: Fail[F] = Fail.lift[F]
@@ -101,7 +100,7 @@ object SnapshotSerializer {
       val result = for {
         payload <- toSnapshotPayload(snapshot)
         seqNr <- SeqNr.of[F](metadata.sequenceNr)
-      } yield Snapshot(seqNr, payload.some)
+      } yield Snapshot(seqNr, payload)
 
       result.adaptErr { case e =>
         SnapshotStoreError(s"ToSnapshot error, persistenceId: ${metadata.persistenceId}: $e", e)
@@ -109,26 +108,23 @@ object SnapshotSerializer {
     }
 
     def toAkkaRepresentation(
-      persistenceId: PersistenceId,
-      timestamp: Instant,
-      snapshot: Snapshot[A]
+        persistenceId: PersistenceId,
+        timestamp: Instant,
+        snapshot: Snapshot[A]
     ): F[SelectedSnapshot] = {
 
-      val payload = snapshot.payload.map(_.pure[F]).getOrElse {
-        s"Snapshot.payload is not defined".fail[F, A]
-      }
+      val payload = fromSnapshotPayload(snapshot.payload)
 
-      val result = for {
-        payload <- payload
-        persistentPayload <- fromSnapshotPayload(payload)
-      } yield SelectedSnapshot(
-        metadata = SnapshotMetadata(
-          persistenceId = persistenceId,
-          sequenceNr = snapshot.seqNr.value,
-          timestamp = timestamp.toEpochMilli
-        ),
-        snapshot = persistentPayload
-      )
+      val result = payload.map { payload =>
+        SelectedSnapshot(
+          metadata = SnapshotMetadata(
+            persistenceId = persistenceId,
+            sequenceNr = snapshot.seqNr.value,
+            timestamp = timestamp.toEpochMilli
+          ),
+          snapshot = payload
+        )
+      }
 
       result.adaptErr { case e =>
         SnapshotStoreError(s"FromSnapshot error, persistenceId: $persistenceId, snapshot: $snapshot: $e", e)
