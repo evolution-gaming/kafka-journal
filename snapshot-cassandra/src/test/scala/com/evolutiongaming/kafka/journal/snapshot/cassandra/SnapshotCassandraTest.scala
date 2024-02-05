@@ -213,7 +213,7 @@ class SnapshotCassandraTest extends AnyFunSuite {
   val record = SnapshotRecord(
     snapshot = Snapshot(
       seqNr = SeqNr.min,
-      payload = Some(EventualPayloadAndType(payload = Left("payload"), payloadType = PayloadType.Text))
+      payload = EventualPayloadAndType(payload = Left("payload"), payloadType = PayloadType.Text)
     ),
     timestamp = Instant.MIN,
     origin = None,

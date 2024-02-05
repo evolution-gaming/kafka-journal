@@ -86,9 +86,7 @@ object SnapshotStoreAdapter {
         for {
           seqNr <- SeqNr.of(metadata.sequenceNr)
           snapshot <- snapshotSerializer.toInternalRepresentation(metadata, snapshot)
-          payload <- snapshot.payload.traverse { payload =>
-            snapshotReadWrite.eventualWrite(payload)
-          }
+          payload <- snapshotReadWrite.eventualWrite(snapshot.payload)
           record = SnapshotRecord(
             snapshot = Snapshot(seqNr = seqNr, payload = payload),
             timestamp = Instant.ofEpochMilli(metadata.timestamp),
@@ -103,9 +101,7 @@ object SnapshotStoreAdapter {
         record: SnapshotRecord[EventualPayloadAndType]
       ): F[SelectedSnapshot] = {
         for {
-          payload <- record.snapshot.payload.traverse { payloadAndType =>
-            snapshotReadWrite.eventualRead(payloadAndType)
-          }
+          payload <- snapshotReadWrite.eventualRead(record.snapshot.payload)
           snapshot = record.snapshot.copy(payload = payload)
           snapshot <- snapshotSerializer.toAkkaRepresentation(persistenceId, record.timestamp, snapshot)
         } yield snapshot

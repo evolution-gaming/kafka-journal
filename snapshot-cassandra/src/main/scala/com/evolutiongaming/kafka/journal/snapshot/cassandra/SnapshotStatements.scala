@@ -70,8 +70,8 @@ object SnapshotStatements {
       } yield { (key, bufferNr, snapshot) =>
         def statementOf(record: SnapshotRecord[EventualPayloadAndType]) = {
           val snapshot = record.snapshot
-          val payloadType = snapshot.payload.map(_.payloadType)
-          val (txt, bin) = snapshot.payload.map(_.payload).separate
+          val payloadType = snapshot.payload.payloadType
+          val (txt, bin) = snapshot.payload.payload.some.separate
 
           prepared
             .bind()
@@ -81,7 +81,7 @@ object SnapshotStatements {
             .encode("timestamp", record.timestamp)
             .encodeSome(record.origin)
             .encodeSome(record.version)
-            .encodeSome("payload_type", payloadType)
+            .encode("payload_type", payloadType)
             .encodeSome("payload_txt", txt)
             .encodeSome("payload_bin", bin)
             .setConsistencyLevel(consistencyConfig.value)
@@ -135,8 +135,8 @@ object SnapshotStatements {
       } yield { (key, bufferNr, insertSnapshot, deleteSnapshot) =>
         def statementOf(record: SnapshotRecord[EventualPayloadAndType]) = {
           val snapshot = record.snapshot
-          val payloadType = snapshot.payload.map(_.payloadType)
-          val (txt, bin) = snapshot.payload.map(_.payload).separate
+          val payloadType = snapshot.payload.payloadType
+          val (txt, bin) = snapshot.payload.payload.some.separate
 
           prepared
             .bind()
@@ -147,7 +147,7 @@ object SnapshotStatements {
             .encode("timestamp", record.timestamp)
             .encodeSome(record.origin)
             .encodeSome(record.version)
-            .encodeSome("payload_type", payloadType)
+            .encode("payload_type", payloadType)
             .encodeSome("payload_txt", txt)
             .encodeSome("payload_bin", bin)
             .setConsistencyLevel(consistencyConfig.value)
@@ -238,13 +238,12 @@ object SnapshotStatements {
       for {
         prepared <- query.prepare
       } yield { (key, bufferNr) =>
-        def readPayload(row: Row): Option[EventualPayloadAndType] = {
-          val payloadType = row.decode[Option[PayloadType]]("payload_type")
+        def readPayload(row: Row): EventualPayloadAndType = {
+          val payloadType = row.decode[PayloadType]("payload_type")
           val payloadTxt = row.decode[Option[String]]("payload_txt")
           val payloadBin = row.decode[Option[ByteVector]]("payload_bin") getOrElse ByteVector.empty
 
-          payloadType
-            .map(EventualPayloadAndType(payloadTxt.toLeft(payloadBin), _))
+          EventualPayloadAndType(payloadTxt.toLeft(payloadBin), payloadType)
         }
 
         val bound = prepared
