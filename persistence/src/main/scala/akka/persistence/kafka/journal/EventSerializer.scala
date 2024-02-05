@@ -14,10 +14,25 @@ import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 import play.api.libs.json.{JsString, JsValue, Json}
 import scodec.bits.ByteVector
 
+/** Transforms persistent message between Akka representation and internal Kafka Journal format */
 trait EventSerializer[F[_], A] {
 
+  /** Transform persistent Akka message to Kafka Journal specific internal representation.
+    *
+    * [[PersistentRepr#payload]] will get serialized to a form writable to Kafka and stored into [[Event#payload]].
+    *
+    * The method may raise an error into `F[_]` if it is not possible to serialize a message, i.e. for example if
+    * [[PersistentRepr#sequenceNr]] is negative or equals to zero.
+    */
   def toEvent(persistentRepr: PersistentRepr): F[Event[A]]
-  
+
+  /** Transform Kafka Journal event to persistent Akka message.
+    *
+    * Parse [[Event#payload]] read from either Kafka or eventual store (i.e. Cassandra).
+    *
+    * The method may raise an error into `F[_]` if parsing fails, the event payload is not found or the format is not
+    * recognized.
+    */
   def toPersistentRepr(persistenceId: PersistenceId, event: Event[A]): F[PersistentRepr]
 }
 
