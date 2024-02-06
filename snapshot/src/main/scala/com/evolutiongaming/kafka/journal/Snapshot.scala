@@ -5,9 +5,9 @@ package com.evolutiongaming.kafka.journal
   * @param seqNr
   *   Snapshot sequence number.
   * @param payload
-  *   Actual contents of a snapshot. The value is never `None` under normal circumstances.
+  *   Actual contents of a snapshot.
   */
 final case class Snapshot[A](
   seqNr: SeqNr,
-  payload: Option[A]
+  payload: A
 )
