@@ -6,7 +6,7 @@ import cats.syntax.all._
 import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
 import play.api.libs.json._
 
-/** Name of the host, which produced the event or a snapshot.
+/** Name of the host, which produced an event or a snapshot.
   *
   * There is no formal requirement of which name is to be used, so it could be
   * `/etc/hostname`, IP address or even the underlying actor system name. 
