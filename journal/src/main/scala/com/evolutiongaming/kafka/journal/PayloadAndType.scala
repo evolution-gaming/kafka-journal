@@ -12,6 +12,18 @@ import scodec.bits.ByteVector
 import scala.util.Try
 
 
+/** Piece of data prepared for convenient storing into Kafka record.
+  *
+  * The usual practice is that [[PayloadAndType#payload]] will be used as a
+  * value for a Kafka record, and [[PayloadAndType#payloadType]] will get into a
+  * header.
+  *
+  * @param payload
+  *   Used to store actual payload, i.e. one or several journal events.
+  * @param payloadType
+  *   Used to determine how the contents of `payload` should be treated, i.e. if
+  *   it should be parsed as JSON.
+  */
 final case class PayloadAndType(
   payload: ByteVector,
   payloadType: PayloadType.BinaryOrJson)

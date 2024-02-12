@@ -8,6 +8,11 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.util.Fail
 import play.api.libs.json.JsValue
 
+/** Decode a payload loaded from Kafka.
+  *
+  * Converts a structure convenient to store in Kafka, to a structure, which is
+  * convenient to use for a business logic.
+  */
 trait KafkaRead[F[_], A] {
 
   def apply(payloadAndType: PayloadAndType): F[Events[A]]
