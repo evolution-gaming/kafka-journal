@@ -5,6 +5,7 @@ import cats.kernel.{Eq, Order}
 import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
 import play.api.libs.json.{Reads, Writes}
 
+/** Version of Kafka Journal library used to persist an event or a snapshot */
 final case class Version(value: String) {
   override def toString = value
 }
