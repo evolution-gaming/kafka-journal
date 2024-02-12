@@ -10,6 +10,11 @@ import play.api.libs.json.{JsValue, Json, Writes}
 
 import scala.annotation.tailrec
 
+/** Prepare payload for storing into Kafka.
+  *
+  * Converts a structure convenient for a business logic to a structure, which
+  * is convenient to store into Kafka.
+  */
 trait KafkaWrite[F[_], A] {
 
   def apply(events: Events[A]): F[PayloadAndType]
