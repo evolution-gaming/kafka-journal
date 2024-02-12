@@ -47,6 +47,17 @@ object PayloadAndType {
   }
 
 
+  /** Payload of a single event serialized into JSON or String form.
+    *
+    * @param payload
+    *   Serialized payload in JSON or String form.
+    * @param payloadType
+    *   Type indicating if JSON should be parsed from a payload.
+    *
+    * @tparam A
+    *   Type of a JSON library used. I.e. it could be `JsValue` for Play JSON or
+    *   `Json` for Circe.
+    */
   final case class EventJsonPayloadAndType[A](payload: A, payloadType: PayloadType.TextOrJson)
 
 
