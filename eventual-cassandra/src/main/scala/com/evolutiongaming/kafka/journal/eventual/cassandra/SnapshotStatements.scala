@@ -34,7 +34,6 @@ object SnapshotStatements {
        |payload_type TEXT,
        |payload_txt TEXT,
        |payload_bin BLOB,
-       |status TEXT
        |PRIMARY KEY ((id, topic, segment), buffer_nr))
        |""".stripMargin
   }
@@ -109,7 +108,6 @@ object SnapshotStatements {
               .encodeSome("payload_txt", txt)
               .encodeSome("payload_bin", bin)
               .encode("metadata", record.metadata)(encodeByNameRecordMetadata)
-              .encode(record.status)
               .setConsistencyLevel(consistencyConfig.value)
           }
 
@@ -192,16 +190,13 @@ object SnapshotStatements {
 
               val metadata = row.decode[Option[RecordMetadata]]("metadata") getOrElse RecordMetadata.empty
 
-              val status = row.decode[SnapshotStatus]
-
               SnapshotRecord(
                 snapshot = snapshot,
                 timestamp = row.decode[Instant]("timestamp"),
                 origin = row.decode[Option[Origin]],
                 version = row.decode[Option[Version]],
                 partitionOffset = partitionOffset,
-                metadata = metadata,
-                status = status)
+                metadata = metadata)
             }
 
             rows.first
@@ -212,22 +207,21 @@ object SnapshotStatements {
   }
 
 
-  trait UpdateStatus[F[_]] {
+  trait Delete[F[_]] {
 
-    def apply(key: Key, segmentNr: SegmentNr, bufferNr: BufferNr, status: SnapshotStatus):  F[Unit]
+    def apply(key: Key, segmentNr: SegmentNr, bufferNr: BufferNr):  F[Unit]
   }
 
-  object UpdateStatus {
+  object Delete {
 
     def of[F[_] : Monad : CassandraSession](
       name: TableName,
       consistencyConfig: ConsistencyConfig.Write
-    ): F[UpdateStatus[F]] = {
+    ): F[Delete[F]] = {
 
       val query =
         s"""
-           |UPDATE ${ name.toCql }
-           |SET status = ?
+           |DELETE FROM ${ name.toCql }
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?
@@ -237,10 +231,9 @@ object SnapshotStatements {
       for {
         prepared <- query.prepare
       } yield {
-        (key: Key, segmentNr: SegmentNr, bufferNr: BufferNr, status: SnapshotStatus) =>
+        (key: Key, segmentNr: SegmentNr, bufferNr: BufferNr) =>
           prepared
             .bind()
-            .encode(status)
             .encode(key)
             .encode(segmentNr)
             .encode(bufferNr)
