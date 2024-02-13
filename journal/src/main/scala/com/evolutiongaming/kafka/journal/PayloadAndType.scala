@@ -20,6 +20,8 @@ import scala.util.Try
   *
   * @param payload
   *   Used to store actual payload, i.e. one or several journal events.
+  *   The contents are usually a [[PayloadJson]] instance serialized into
+  *   a JSON form.
   * @param payloadType
   *   Used to determine how the contents of `payload` should be treated, i.e. if
   *   it should be parsed as JSON.
@@ -88,6 +90,9 @@ object PayloadAndType {
 
 
   /** Multiple journal events with payloads serialized into JSON or String form.
+    *
+    * The class is meant to be serialized into JSON and stored into
+    * [[PayloadAndType#payload]] field.
     *
     * @param events
     *   List of one or multiple events.
