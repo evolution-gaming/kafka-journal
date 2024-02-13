@@ -30,6 +30,21 @@ final case class PayloadAndType(
 
 object PayloadAndType {
 
+  /** Single journal event with payload serialized into JSON or String form.
+    *
+    * @param seqNr
+    *   Event sequence number in a journal.
+    * @param tags
+    *   Event tags as described in [[akka.persistence.journal.Tagged]].
+    * @param payload
+    *   Serialized payload in JSON or String form.
+    * @param payloadType
+    *   Type indicating if JSON should be parsed from a payload.
+    *
+    * @tparam A
+    *   Type of a JSON library used. I.e. it could be `JsValue` for Play JSON or
+    *   `Json` for Circe.
+    */
   final case class EventJson[A](
     seqNr: SeqNr,
     tags: Tags,
@@ -49,6 +64,17 @@ object PayloadAndType {
 
   /** Payload of a single event serialized into JSON or String form.
     *
+    * It represents two fields from [[EventJson]] class, i.e.
+    * [[EventJson#payload]] and [[EventJson#payloadType]].
+    *
+    * The reason this class was created is to make the logic constructing
+    * [[EventJson]] in [[KafkaWrite#writeJson]] and [[KafkaRead#readJson]]
+    * generic by having ability to convert from an actual business payload to
+    * serialized [[EventJsonPayloadAndType]] and back.
+    * 
+    * It might be possible to express the same logic without using the class,
+    * so in future it might be removed as an overall simplification.
+    *
     * @param payload
     *   Serialized payload in JSON or String form.
     * @param payloadType
@@ -61,6 +87,17 @@ object PayloadAndType {
   final case class EventJsonPayloadAndType[A](payload: A, payloadType: PayloadType.TextOrJson)
 
 
+  /** Multiple journal events with payloads serialized into JSON or String form.
+    *
+    * @param events
+    *   List of one or multiple events.
+    * @param metadata
+    *   Metadata shated by all events in the list.
+    *
+    * @tparam A
+    *   Type of a JSON library used. I.e. it could be `JsValue` for Play JSON or
+    *   `Json` for Circe.
+    */
   final case class PayloadJson[A](events: Nel[EventJson[A]], metadata: Option[PayloadMetadata])
 
   object PayloadJson {
