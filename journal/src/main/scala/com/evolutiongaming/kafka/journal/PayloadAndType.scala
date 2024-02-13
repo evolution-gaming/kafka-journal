@@ -75,9 +75,10 @@ object PayloadAndType {
     * [[EventJson#payload]] and [[EventJson#payloadType]].
     *
     * The reason this class was created is to make the logic constructing
-    * [[EventJson]] in [[KafkaWrite#writeJson]] and [[KafkaRead#readJson]]
-    * generic by having ability to convert from an actual business payload to
-    * serialized [[EventJsonPayloadAndType]] and back.
+    * [[EventJson]] in [[conversions.KafkaWrite#writeJson]] and
+    * [[conversions.KafkaRead#readJson]] generic by having ability to convert
+    * from an actual business payload to serialized [[EventJsonPayloadAndType]]
+    * and back.
     *
     * It might be possible to express the same logic without using the class, so
     * in future it might be removed as an overall simplification.
