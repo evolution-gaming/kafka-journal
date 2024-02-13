@@ -13,6 +13,8 @@ import scala.util.Try
 
 
 /** Piece of data prepared for convenient storing into Kafka record.
+  * 
+  * It usually stores [[Events]] instance in a serialized form.
   *
   * The usual practice is that [[PayloadAndType#payload]] will be used as a
   * value for a Kafka record, and [[PayloadAndType#payloadType]] will get into a
@@ -33,6 +35,9 @@ final case class PayloadAndType(
 object PayloadAndType {
 
   /** Single journal event with payload serialized into JSON or String form.
+    * 
+    * It usually corresponds to a single [[Event]] instance with payload
+    * serialized to JSON form.
     *
     * @param seqNr
     *   Event sequence number in a journal.
@@ -73,9 +78,12 @@ object PayloadAndType {
     * [[EventJson]] in [[KafkaWrite#writeJson]] and [[KafkaRead#readJson]]
     * generic by having ability to convert from an actual business payload to
     * serialized [[EventJsonPayloadAndType]] and back.
-    * 
-    * It might be possible to express the same logic without using the class,
-    * so in future it might be removed as an overall simplification.
+    *
+    * It might be possible to express the same logic without using the class, so
+    * in future it might be removed as an overall simplification.
+    *
+    * It usually corresponds to a single [[Payload]] instance if Play JSON is
+    * used, or [[JsValue]] instance if Circe is used instead.
     *
     * @param payload
     *   Serialized payload in JSON or String form.
@@ -93,6 +101,9 @@ object PayloadAndType {
     *
     * The class is meant to be serialized into JSON and stored into
     * [[PayloadAndType#payload]] field.
+    * 
+    * It usually corresonds to a single [[Events]] instance with all events
+    * serialized into JSON.
     *
     * @param events
     *   List of one or multiple events.
