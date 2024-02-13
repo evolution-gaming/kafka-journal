@@ -109,7 +109,7 @@ object PayloadAndType {
     * @param events
     *   List of one or multiple events.
     * @param metadata
-    *   Metadata shated by all events in the list.
+    *   Metadata shared by all events in the list.
     *
     * @tparam A
     *   Type of a JSON library used. I.e. it could be `JsValue` for Play JSON or
