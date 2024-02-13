@@ -82,8 +82,8 @@ object PayloadAndType {
     * It might be possible to express the same logic without using the class, so
     * in future it might be removed as an overall simplification.
     *
-    * It usually corresponds to a single [[Payload]] instance if Play JSON is
-    * used, or [[JsValue]] instance if Circe is used instead.
+    * It usually corresponds to a single `Payload` instance if Play JSON is
+    * used, or `JsValue` instance if Circe is used instead.
     *
     * @param payload
     *   Serialized payload in JSON or String form.
