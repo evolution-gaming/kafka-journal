@@ -8,7 +8,6 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
-import com.evolutiongaming.kafka.journal.eventual.cassandra.HeadersHelper._
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName, TableName}
 import scodec.bits.ByteVector
@@ -31,12 +30,10 @@ object SnapshotStatements {
        |timestamp TIMESTAMP,
        |origin TEXT,
        |version TEXT,
-       |tags SET<TEXT>,
        |metadata TEXT,
        |payload_type TEXT,
        |payload_txt TEXT,
        |payload_bin BLOB,
-       |headers MAP<TEXT, TEXT>,
        |status TEXT
        |PRIMARY KEY ((id, topic, segment), buffer_nr))
        |""".stripMargin
@@ -73,14 +70,12 @@ object SnapshotStatements {
            |timestamp,
            |origin,
            |version,
-           |tags,
            |payload_type,
            |payload_txt,
            |payload_bin,
            |metadata,
-           |headers,
            |status)
-           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            |""".stripMargin
 
       for {
@@ -110,12 +105,10 @@ object SnapshotStatements {
               .encode("timestamp", record.timestamp)
               .encodeSome(record.origin)
               .encodeSome(record.version)
-              .encode("tags", snapshot.tags)
               .encodeSome("payload_type", payloadType)
               .encodeSome("payload_txt", txt)
               .encodeSome("payload_bin", bin)
               .encode("metadata", record.metadata)(encodeByNameRecordMetadata)
-              .encode(record.headers)
               .encode(record.status)
               .setConsistencyLevel(consistencyConfig.value)
           }
@@ -151,12 +144,10 @@ object SnapshotStatements {
            |timestamp,
            |origin,
            |version,
-           |tags,
            |payload_type,
            |payload_txt,
            |payload_bin,
            |metadata,
-           |headers,
            |status FROM ${ name.toCql }
            |WHERE id = ?
            |AND topic = ?
@@ -197,12 +188,9 @@ object SnapshotStatements {
               val seqNr = row.decode[SeqNr]
               val snapshot = Snapshot(
                 seqNr = seqNr,
-                tags = row.decode[Tags]("tags"),
                 payload = payload)
 
               val metadata = row.decode[Option[RecordMetadata]]("metadata") getOrElse RecordMetadata.empty
-
-              val headers = row.decode[Headers]
 
               val status = row.decode[SnapshotStatus]
 
@@ -213,7 +201,6 @@ object SnapshotStatements {
                 version = row.decode[Option[Version]],
                 partitionOffset = partitionOffset,
                 metadata = metadata,
-                headers = headers,
                 status = status)
             }
 
