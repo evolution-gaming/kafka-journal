@@ -40,7 +40,7 @@ trait SnapshotStoreFlat[F[_]] {
     * @param criteria
     *   Criteria to use.
     */
-  def drop(key: Key, criteria: SnapshotSelectionCriteria): F[Unit]
+  def delete(key: Key, criteria: SnapshotSelectionCriteria): F[Unit]
 
   /** Deletes a snapshot for a given key and sequence number.
     *
@@ -53,6 +53,6 @@ trait SnapshotStoreFlat[F[_]] {
     * @param seqNr
     *   Sequence number to be deleted.
     */
-  def drop(key: Key, seqNr: SeqNr): F[Unit]
+  def delete(key: Key, seqNr: SeqNr): F[Unit]
 
 }

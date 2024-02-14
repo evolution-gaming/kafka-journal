@@ -129,7 +129,7 @@ object SnapshotCassandra {
           snapshot <- bufferNr.flatTraverse(statements.selectRecords(key, _))
         } yield snapshot
 
-      def drop(key: Key, criteria: SnapshotSelectionCriteria): F[Unit] =
+      def delete(key: Key, criteria: SnapshotSelectionCriteria): F[Unit] =
         for {
           savedSnapshots <- statements.selectMetadata(key)
           bufferNrs = savedSnapshots.toList.collect {
@@ -143,8 +143,8 @@ object SnapshotCassandra {
           _ <- bufferNrs.traverse(statements.deleteRecords(key, _))
         } yield ()
 
-      def drop(key: Key, seqNr: SeqNr): F[Unit] =
-        drop(key, SnapshotSelectionCriteria.one(seqNr))
+      def delete(key: Key, seqNr: SeqNr): F[Unit] =
+        delete(key, SnapshotSelectionCriteria.one(seqNr))
 
     }
   }

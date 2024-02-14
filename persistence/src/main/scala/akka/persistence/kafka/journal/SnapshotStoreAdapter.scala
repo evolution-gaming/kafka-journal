@@ -72,14 +72,14 @@ object SnapshotStoreAdapter {
         for {
           key <- toKey(metadata.persistenceId)
           seqNr <- SeqNr.of(metadata.sequenceNr)
-          _ <- store.drop(key, seqNr)
+          _ <- store.delete(key, seqNr)
         } yield ()
 
       def delete(persistenceId: String, criteria: SnapshotSelectionCriteria): F[Unit] =
         for {
           key <- toKey(persistenceId)
           criteria <- convertCriteria(criteria)
-          _ <- store.drop(key, criteria)
+          _ <- store.delete(key, criteria)
         } yield ()
 
       def serializeSnapshot(metadata: SnapshotMetadata, snapshot: Any): F[SnapshotRecord[EventualPayloadAndType]] = {
