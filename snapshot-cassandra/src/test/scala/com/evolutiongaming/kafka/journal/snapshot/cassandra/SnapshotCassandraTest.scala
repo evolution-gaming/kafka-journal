@@ -86,7 +86,7 @@ class SnapshotCassandraTest extends AnyFunSuite {
       _ <- DatabaseState.sync
       _ <- store.save(key, record.copy(snapshot = snapshot2))
       _ <- DatabaseState.sync
-      _ <- store.drop(key, SnapshotSelectionCriteria.All)
+      _ <- store.delete(key, SnapshotSelectionCriteria.All)
       _ <- DatabaseState.sync
       snapshot <- store.load(key, SnapshotSelectionCriteria.All)
     } yield {
@@ -106,7 +106,7 @@ class SnapshotCassandraTest extends AnyFunSuite {
       _ <- DatabaseState.sync
       _ <- store.save(key, record.copy(snapshot = snapshot2))
       _ <- DatabaseState.sync
-      _ <- store.drop(key, SeqNr.unsafe(2))
+      _ <- store.delete(key, SeqNr.unsafe(2))
       _ <- DatabaseState.sync
       snapshot <- store.load(key, SnapshotSelectionCriteria.All)
     } yield {
