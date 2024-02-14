@@ -12,6 +12,17 @@ import scala.collection.immutable.SortedSet
 
 
 
+/** Write-only implementation of a journal stored to eventual storage, i.e.
+  * Cassandra.
+  *
+  * This class is used to replicate the events read from Kafka, hence the name.
+  *
+  * The flat interface was replaced by hierarchical [[ReplicatedJournal]] for
+  * all means and purposes except for the unit tests, and should not be used
+  * directly anymore.
+  * 
+  * @see [[EventualJournal]] for a read-only counterpart of this class.
+  */
 trait ReplicatedJournalFlat[F[_]] {
 
   def topics: F[SortedSet[Topic]]

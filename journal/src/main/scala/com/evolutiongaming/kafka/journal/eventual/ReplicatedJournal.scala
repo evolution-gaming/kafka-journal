@@ -14,10 +14,22 @@ import com.evolutiongaming.smetrics._
 import scala.collection.immutable.SortedSet
 import scala.concurrent.duration.FiniteDuration
 
+/** Write-only implementation of a journal stored to eventual storage, i.e.
+  * Cassandra.
+  *
+  * This class is used to replicate events read from Kafka, hence the name.
+  *
+  * It follows a hierarchical structure, i.e., roughly speaking, it is
+  * a factory of topic-specific [[ReplicatedTopicJournal]] instances.
+  * 
+  * @see [[EventualJournal]] for a read-only counterpart of this class.
+  */
 trait ReplicatedJournal[F[_]] {
 
+  /** Select list of kafka topics previously saved into eventual storage */
   def topics: F[SortedSet[Topic]]
 
+  /** Create a topic-specific write-only journal */
   def journal(topic: Topic): Resource[F, ReplicatedTopicJournal[F]]
 }
 
