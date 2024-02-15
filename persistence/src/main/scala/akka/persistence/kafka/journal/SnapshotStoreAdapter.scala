@@ -85,7 +85,7 @@ object SnapshotStoreAdapter {
       def serializeSnapshot(metadata: SnapshotMetadata, snapshot: Any): F[SnapshotRecord[EventualPayloadAndType]] = {
         for {
           seqNr <- SeqNr.of(metadata.sequenceNr)
-          snapshot <- snapshotSerializer.toInternalRepresentation(metadata, snapshot)
+          snapshot <- snapshotSerializer.encode(metadata, snapshot)
           payload <- snapshotReadWrite.eventualWrite(snapshot.payload)
           record = SnapshotRecord(
             snapshot = Snapshot(seqNr = seqNr, payload = payload),
@@ -103,7 +103,8 @@ object SnapshotStoreAdapter {
         for {
           payload <- snapshotReadWrite.eventualRead(record.snapshot.payload)
           snapshot = record.snapshot.copy(payload = payload)
-          snapshot <- snapshotSerializer.toAkkaRepresentation(persistenceId, record.timestamp, snapshot)
+          metadata = SnapshotMetadata(persistenceId, record.snapshot.seqNr.value, record.timestamp.toEpochMilli)
+          snapshot <- snapshotSerializer.decode(metadata, snapshot)
         } yield snapshot
       }
 
