@@ -18,7 +18,7 @@ object SnapshotCassandra {
     config: SnapshotCassandraConfig,
     origin: Option[Origin],
     cassandraClusterOf: CassandraClusterOf[F]
-  ): Resource[F, SnapshotStoreFlat[F]] = {
+  ): Resource[F, SnapshotStore[F]] = {
 
     def store(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) =
       of(config.schema, origin, config.consistencyConfig, config.numberOfSnapshots)
@@ -36,7 +36,7 @@ object SnapshotCassandra {
     origin: Option[Origin],
     consistencyConfig: CassandraConsistencyConfig,
     numberOfSnapshots: Int
-  ): F[SnapshotStoreFlat[F]] =
+  ): F[SnapshotStore[F]] =
     for {
       schema <- SetupSnapshotSchema[F](schemaConfig, origin, consistencyConfig)
       statements <- Statements.of[F](schema, consistencyConfig)
@@ -44,8 +44,8 @@ object SnapshotCassandra {
 
   private sealed abstract class Main
 
-  def apply[F[_]: MonadThrow](statements: Statements[F], numberOfSnapshots: Int): SnapshotStoreFlat[F] = {
-    new Main with SnapshotStoreFlat[F] {
+  def apply[F[_]: MonadThrow](statements: Statements[F], numberOfSnapshots: Int): SnapshotStore[F] = {
+    new Main with SnapshotStore[F] {
 
       def save(key: Key, snapshot: SnapshotRecord[EventualPayloadAndType]): F[Unit] = {
         statements.selectMetadata(key).flatMap {

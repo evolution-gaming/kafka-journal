@@ -38,7 +38,7 @@ object SnapshotStoreAdapter {
   ): Resource[F, SnapshotStoreAdapter[F]] = {
 
     def adapter(
-      store: SnapshotStoreFlat[F]
+      store: SnapshotStore[F]
     )(implicit snapshotSerializer: SnapshotSerializer[F, A], snapshotReadWrite: SnapshotReadWrite[F, A]) =
       SnapshotStoreAdapter(store, toKey, origin)
 
@@ -47,7 +47,7 @@ object SnapshotStoreAdapter {
     } yield adapter(store)(snapshotSerializer, snapshotReadWrite)
   }
 
-  def apply[F[_]: Monad: Fail, A](store: SnapshotStoreFlat[F], toKey: ToKey[F], origin: Option[Origin])(implicit
+  def apply[F[_]: Monad: Fail, A](store: SnapshotStore[F], toKey: ToKey[F], origin: Option[Origin])(implicit
     snapshotSerializer: SnapshotSerializer[F, A],
     snapshotReadWrite: SnapshotReadWrite[F, A]
   ): SnapshotStoreAdapter[F] =
