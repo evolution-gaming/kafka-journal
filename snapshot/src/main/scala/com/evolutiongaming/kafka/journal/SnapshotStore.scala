@@ -7,7 +7,7 @@ import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
   * Uses `Key` instead of `persistenceId`, similar to [[ReplicatedJournalFlat]]
   * and [[EventualJournal]].
   */
-trait SnapshotStoreFlat[F[_]] {
+trait SnapshotStore[F[_]] {
 
   /** Save snapshot for a specific key.
     *
