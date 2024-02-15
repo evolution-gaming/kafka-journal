@@ -20,7 +20,7 @@ class SnapshotCassandraTest extends AnyFunSuite {
       store = SnapshotCassandra(statements)
       key = Key("topic", "id")
       _ <- store.save(key, record)
-      snapshot <- store.load(key, SeqNr.max, Instant.MAX, SeqNr.min, Instant.MIN)
+      snapshot <- store.load(key, SnapshotSelectionCriteria.All)
     } yield {
       assert(snapshot.isDefined, "(could not load the saved snapshot)")
     }
@@ -40,7 +40,7 @@ class SnapshotCassandraTest extends AnyFunSuite {
       _ <- emptyStore.save(key, record.copy(snapshot = snapshot2))
       _ <- emptyStore.save(key, record.copy(snapshot = snapshot1))
       // we should still get the latest snapshot here
-      snapshot <- finalStore.load(key, SeqNr.max, Instant.MAX, SeqNr.min, Instant.MIN)
+      snapshot <- finalStore.load(key, SnapshotSelectionCriteria.All)
     } yield {
       assert(snapshot.map(_.snapshot.seqNr) == SeqNr.opt(2), "(last snapshot is not seen)")
     }
@@ -56,8 +56,8 @@ class SnapshotCassandraTest extends AnyFunSuite {
       snapshot2 = record.snapshot.copy(seqNr = SeqNr.unsafe(2))
       _ <- store.save(key, record.copy(snapshot = snapshot1))
       _ <- store.save(key, record.copy(snapshot = snapshot2))
-      _ <- store.drop(key, SeqNr.max, Instant.MAX, SeqNr.min, Instant.MIN)
-      snapshot <- store.load(key, SeqNr.max, Instant.MAX, SeqNr.min, Instant.MIN)
+      _ <- store.drop(key, SnapshotSelectionCriteria.All)
+      snapshot <- store.load(key, SnapshotSelectionCriteria.All)
     } yield {
       assert(snapshot.isEmpty, "(some snapshots were not dropped)")
     }
@@ -74,7 +74,7 @@ class SnapshotCassandraTest extends AnyFunSuite {
       _ <- store.save(key, record.copy(snapshot = snapshot1))
       _ <- store.save(key, record.copy(snapshot = snapshot2))
       _ <- store.drop(key, SeqNr.unsafe(2))
-      snapshot <- store.load(key, SeqNr.min, Instant.MAX, SeqNr.min, Instant.MIN)
+      snapshot <- store.load(key, SnapshotSelectionCriteria.All)
     } yield {
       assert(snapshot.map(_.snapshot.seqNr) == SeqNr.opt(1), "(snapshot1 should still be in a database)")
     }
