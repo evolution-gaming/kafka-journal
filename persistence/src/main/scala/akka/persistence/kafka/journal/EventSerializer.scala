@@ -14,7 +14,13 @@ import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 import play.api.libs.json.{JsString, JsValue, Json}
 import scodec.bits.ByteVector
 
-/** Transforms persistent message between Akka representation and internal Kafka Journal format */
+/** Transforms persistent message between Akka representation and internal Kafka Journal format.
+  * 
+  * @tparam A
+  *   Type of serialized payload. At the time of writing it could be either
+  *   [[Payload]] by default, or [[Json]] if `kafka-journal-circe` module is
+  *   used.
+  */
 trait EventSerializer[F[_], A] {
 
   /** Transform persistent Akka message to Kafka Journal specific internal representation.
@@ -38,6 +44,38 @@ trait EventSerializer[F[_], A] {
 
 object EventSerializer {
 
+  /** Single Akka message before serialization to Kafka Journal event format.
+    *
+    * It represents three fields from [[PersistentRepr]] class, i.e.
+    * [[PersistentRepr#payload]], [[PersistentRepr#writerUuid]] and
+    * [[PersistentRepr#manifest]].
+    *
+    * The reason this class was created is to make the logic constructing
+    * `Event[A]` in [[EventSerializer]] generic by having ability to convert from
+    * an instance of [[PersistentRepresentation]] to `A` and back.
+    *
+    * To give an example, at the time of writing the following conversions were
+    * available:
+    * ```
+    * PersistentRepresentation <-> Payload (in kafka-journal module)
+    * PersistentRepresentation <-> Json    (in kafka-journal-circe module)
+    * ```
+    *
+    * It might be possible to express the same logic without using the class, so
+    * in future it might be removed as an overall simplification.
+    *
+    * It is usually serialized to a single `Payload` instance if Play JSON is
+    * used, or `Json` instance if Circe is used instead.
+    *
+    * @param payload
+    *   Non-serialized payload of an Akka message/event. See also
+    *   [[PersistentRepr#payload]].
+    * @param writerUuid
+    *   Same as [[PersistentRepr#writerUuid]]
+    * @param manifest
+    *   Same as [[PersistentRepr#manifest]], but the lack of manifest is
+    *   represented by `None` rather than `""`.
+    */
   final case class PersistentRepresentation(payload: Any, writerUuid: String, manifest: Option[String])
 
   def const[F[_]: Applicative, A](event: Event[A], persistentRepr: PersistentRepr): EventSerializer[F, A] = {
