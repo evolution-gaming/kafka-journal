@@ -77,14 +77,20 @@ object PayloadAndType {
     * The reason this class was created is to make the logic constructing
     * [[EventJson]] in [[conversions.KafkaWrite#writeJson]] and
     * [[conversions.KafkaRead#readJson]] generic by having ability to convert
-    * from an actual business payload to serialized [[EventJsonPayloadAndType]]
-    * and back.
-    *
+    * from an actual payload to [[EventJsonPayloadAndType]] and back.
+    * 
+    * To give an example, at the time of writing the following conversions were
+    * available:
+    * ```
+    * Payload <-> EventJsonPayloadAndType[JsValue] (in kafka-journal module)
+    * Json    <-> EventJsonPayloadAndType[Json]    (in kafka-journal-circe module)
+    * ```
+    * 
     * It might be possible to express the same logic without using the class, so
     * in future it might be removed as an overall simplification.
     *
     * It usually corresponds to a single `Payload` instance if Play JSON is
-    * used, or `JsValue` instance if Circe is used instead.
+    * used, or `Json` instance if Circe is used instead.
     *
     * @param payload
     *   Serialized payload in JSON or String form.

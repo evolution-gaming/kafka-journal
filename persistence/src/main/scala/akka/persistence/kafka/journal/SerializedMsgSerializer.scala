@@ -6,6 +6,10 @@ import cats.syntax.all._
 import cats.~>
 import com.evolutiongaming.serialization.{SerializedMsg, SerializedMsgConverter, SerializedMsgExt}
 
+/** Provides ability to convert an object to [[SerializedMsg]] and back.
+  * 
+  * It is a typesafe wrapper over [[SerializedMsgConverter]]
+  */
 trait SerializedMsgSerializer[F[_]] {
 
   def toMsg(a: AnyRef): F[SerializedMsg]
@@ -15,6 +19,7 @@ trait SerializedMsgSerializer[F[_]] {
 
 object SerializedMsgSerializer {
 
+  /** Create [[SerializedMsgSerializer]] from an actor system using [[SerializedMsgExt]] */
   def of[F[_] : Sync](actorSystem: ActorSystem): F[SerializedMsgSerializer[F]] = {
     for {
       converter <- Sync[F].delay { SerializedMsgExt(actorSystem) }
