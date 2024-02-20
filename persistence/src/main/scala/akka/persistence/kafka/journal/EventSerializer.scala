@@ -78,6 +78,11 @@ object EventSerializer {
     */
   final case class PersistentRepresentation(payload: Any, writerUuid: String, manifest: Option[String])
 
+  /** Always return a fixed `Event` or `PeristentRepr`.
+    *
+    * This could be useful in unit tests, when serialization mechanism is not
+    * required.
+    */
   def const[F[_]: Applicative, A](event: Event[A], persistentRepr: PersistentRepr): EventSerializer[F, A] = {
     new EventSerializer[F, A] {
 
@@ -88,6 +93,13 @@ object EventSerializer {
   }
 
 
+  /** Serialize [[PersistentRepr]] to [[Payload]] using Akka serialization or
+    * Play JSON.
+    *
+    * @see
+    *   [[[#apply[F[_]](serializer*]]] for more details on how serialization
+    *   mechanism is determined.
+    */
   def of[F[_]: Sync: FromAttempt: FromJsResult](system: ActorSystem): F[EventSerializer[F, Payload]] = {
     for {
       serializedMsgSerializer <- SerializedMsgSerializer.of[F](system)
@@ -97,6 +109,29 @@ object EventSerializer {
   }
 
 
+  /** Serialize [[PersistentRepr]] to [[Payload]] using Akka serialization or
+    * Play JSON.
+    *
+    * The underlying type of a resulting [[Payload]] will depend on
+    * [[PersistentRepr#payload]] value. I.e. it will use Play JSON and create
+    * [[Payload.Json]] if it is equal to [[JsValue]] and use Akka serialization
+    * and create [[Payload.Binary]] for everything else.
+    *
+    * `SerializedMsgSerializer` is only used if [[Payload.Binary]] is to be
+    * created or parsed. In this case also `FromAttempt` parameter is used to
+    * append [[PersistentRepr#manifest]] and [[PersistentRepr#writerUuid]] into
+    * a resulting [[ByteVector]].
+    *
+    * `FromJsResult` is used if [[Payload.Json]] is to be parsed. There is no
+    * need for a reverse operation, because [[PersistentRepr#payload]] is
+    * already a [[JsValue]] in this case.
+    *
+    * @note
+    *   It might be useful to have a unit test checking that [[Payload.Binary]]
+    *   is not created accidentially, because it might be too easy to make a
+    *   mistake while setting a value to [[PersistentRepr#payload]] (which has
+    *   `Any` type and will accept anything assigned).
+    */
   def apply[F[_]: MonadThrowable: FromAttempt: FromJsResult](
     serializer: SerializedMsgSerializer[F]
   ): EventSerializer[F, Payload] = {
@@ -172,6 +207,11 @@ object EventSerializer {
     EventSerializer(toEventPayload, fromEventPayload)
   }
 
+  /** Serialize [[PersistentRepr]] to [[Payload]] using custom encoder/decoder.
+    *
+    * See `kafka-journal-circe` module for an example of how this method could
+    * be used.
+    */
   def apply[F[_]: MonadThrowable, A](
     toEventPayload: PersistentRepresentation => F[A],
     fromEventPayload: A => F[PersistentRepresentation]
