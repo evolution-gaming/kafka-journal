@@ -47,10 +47,10 @@ object KafkaWrite {
         * 
         * The method may, probably, be simplified as following:
         * ```
-        * val binaryPayloadPresent = events.forall { event =>
+        * val onlyTextOrJsonPresent = events.forall { event =>
         *   event.payload.fold(true)(_.isInstanceOf[Payload.TextOrJson])
         * }
-        * if (binaryPayloadPresent) Nil else events.flatMap(eventJson)
+        * if (onlyTextOrJsonPresent) events.flatMap(eventJson) else Nil
         * ```
         */
       @tailrec
