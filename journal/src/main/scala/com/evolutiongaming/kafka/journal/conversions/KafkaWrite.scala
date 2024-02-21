@@ -31,15 +31,7 @@ object KafkaWrite {
     events: Events[Payload] => {
 
       /** Safely cast an argument to `Event[Payload.TextOrJson]`,
-        * or returns `None` if payload is binary instead.  
-        * 
-        * The method may, probably, be simplified as following:
-        * ```
-        * event.traverse {
-        *   case payload: Payload.TextOrJson => Some(payload)
-        *   case _: Payload.Binary           => None
-        * }
-        * ```
+        * or returns `None` if payload is binary instead.
         */
       def eventJson(event: Event[Payload]): Option[Event[Payload.TextOrJson]] = {
         event.payload.fold {
