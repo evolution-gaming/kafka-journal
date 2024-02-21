@@ -33,7 +33,7 @@ object KafkaWrite {
       /** Safely cast an argument to `Event[Payload.TextOrJson]`,
         * or returns `None` if payload is binary or not present.  
         * 
-        * The method may, probably, simplified as following:
+        * The method may, probably, be simplified as following:
         * ```
         * event.traverse {
         *   case payload: Payload.TextOrJson => Some(payload)
@@ -51,9 +51,9 @@ object KafkaWrite {
       }
 
       /** Casts all list elements to `Event[Payload.TextOrJson]` or
-        * returns `None` if list contains events with binary on `None` payload,
+        * returns `None` if list contains events with binary or `None` payload,
         * 
-        * The method may, probably, simplified as following:
+        * The method may, probably, be simplified as following:
         * ```
         * val binaryOrEmptyPresent = events.forall { event =>
         *   event.payload.fold(false)(_.isInstanceOf[Payload.TextOrJson])
