@@ -2,8 +2,10 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import com.datastax.driver.core.ConsistencyLevel
 import com.evolutiongaming.scassandra.{CassandraConfig, QueryConfig}
-import pureconfig.generic.semiauto.deriveReader
 import pureconfig.ConfigReader
+import pureconfig.generic.semiauto.deriveReader
+
+import EventualCassandraConfig._
 
 /** Cassandra-specific configuration used by a plugin.
   *
@@ -40,7 +42,7 @@ final case class EventualCassandraConfig(
       fetchSize = 1000,
       defaultIdempotence = true)),
   schema: SchemaConfig = SchemaConfig.default,
-  consistencyConfig: CassandraConsistencyConfig = CassandraConsistencyConfig.default)
+  consistencyConfig: ConsistencyConfig = ConsistencyConfig.default)
 
 object EventualCassandraConfig {
 
@@ -49,7 +51,49 @@ object EventualCassandraConfig {
   implicit val configReaderEventualCassandraConfig: ConfigReader[EventualCassandraConfig] = deriveReader
 
 
-  @deprecated(since = "3.2.2", message = "Use [[CassandraConsistencyConfig]] instead")
-  type ConsistencyConfig = Nothing
+  @deprecated(since = "3.3.9", message = "Use [[CassandraConsistencyConfig]] instead")
+  final case class ConsistencyConfig( 
+    read: ConsistencyConfig.Read = ConsistencyConfig.Read.default,
+    write: ConsistencyConfig.Write = ConsistencyConfig.Write.default) {
+
+    private[cassandra] def toCassandraConsistencyConfig: CassandraConsistencyConfig =
+      CassandraConsistencyConfig(
+        read = this.read.toCassandraConsistencyConfig,
+        write = this.write.toCassandraConsistencyConfig,
+      )
+    
+  }
+
+  @deprecated(since = "3.3.9", message = "Use [[CassandraConsistencyConfig]] instead")
+  object ConsistencyConfig {
+
+    implicit val configReaderConsistencyConfig: ConfigReader[ConsistencyConfig] = deriveReader
+
+    val default: ConsistencyConfig = ConsistencyConfig()
+
+    final case class Read(value: ConsistencyLevel = ConsistencyLevel.LOCAL_QUORUM) {
+      private[cassandra] def toCassandraConsistencyConfig: CassandraConsistencyConfig.Read =
+        CassandraConsistencyConfig.Read(this.value)
+    }
+
+    object Read {
+      val default: Read = Read()
+
+      implicit val configReaderRead: ConfigReader[Read] = ConfigReader[ConsistencyLevel].map { a => Read(a) }
+    }
+
+
+    final case class Write(value: ConsistencyLevel = ConsistencyLevel.LOCAL_QUORUM) {
+      private[cassandra] def toCassandraConsistencyConfig: CassandraConsistencyConfig.Write =
+        CassandraConsistencyConfig.Write(this.value)
+    }
+
+    object Write {
+
+      val default: Write = Write()
+
+      implicit val configReaderWrite: ConfigReader[Write] = ConfigReader[ConsistencyLevel].map { a => Write(a) }
+    }
+  }
 
 }
