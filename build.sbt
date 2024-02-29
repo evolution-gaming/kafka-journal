@@ -19,7 +19,8 @@ lazy val commonSettings = Seq(
     "org.scala-lang.modules" %% "scala-java8-compat" % "always",
     "org.scala-lang.modules" %% "scala-xml"          % "always"),
   autoAPIMappings := true,
-  versionScheme := Some("early-semver"))
+  versionScheme := Some("early-semver"),
+  versionPolicyIntention := Compatibility.BinaryCompatible)
 
 
 lazy val root = (project in file(".")
@@ -54,6 +55,8 @@ lazy val `scalatest-io` = (project in file("scalatest-io")
 lazy val core = (project in file("core")
   settings (name := "kafka-journal-core")
   settings commonSettings
+  // The following line should be removed once 3.3.9 is released.
+  settings (versionPolicyCheck / skip := true)
   dependsOn (`scalatest-io` % Test)
   settings (libraryDependencies ++= Seq(
     Akka.actor,
@@ -72,6 +75,19 @@ lazy val core = (project in file("core")
 lazy val journal = (project in file("journal")
   settings (name := "kafka-journal")
   settings commonSettings
+  // This is a temporary hack, for Kafka Journal version 3.3.9 only.
+  // The problem is that in 3.3.9 `journal` module was split into
+  // `core` and `journal`, and we want mima to see `core` classes too.
+  // The hack should be removed once 3.3.9 is released.
+  settings (
+    mimaCurrentClassfiles := crossTarget.value / "mima-classes",
+    (Compile / compile) := {
+      val analysis = (Compile / compile).value
+      IO.copyDirectory((core / Compile / classDirectory).value, mimaCurrentClassfiles.value)
+      IO.copyDirectory((Compile / classDirectory).value, mimaCurrentClassfiles.value)
+      analysis
+    }
+  )
   dependsOn (core % "test->test;compile->compile", `scalatest-io` % Test)
   settings (libraryDependencies ++= Seq(
     Akka.actor,
@@ -92,6 +108,7 @@ lazy val journal = (project in file("journal")
     `cassandra-driver`,
     scassandra,
     scache,
+    `cassandra-sync`,
     `scala-java8-compat`,
     Pureconfig.pureconfig,
     Pureconfig.cats,
@@ -108,6 +125,8 @@ lazy val journal = (project in file("journal")
 lazy val snapshot = (project in file("snapshot")
   settings (name := "kafka-journal-snapshot")
   settings commonSettings
+  // The following line should be removed once 3.3.9 is released.
+  settings (versionPolicyCheck / skip := true)
   dependsOn (core)
   settings(libraryDependencies ++= Seq(scalatest % Test)))
 
@@ -162,18 +181,35 @@ lazy val replicator = (Project("replicator", file("replicator"))
 lazy val cassandra = (project in file("cassandra")
   settings (name := "kafka-journal-cassandra")
   settings commonSettings
+  // The following line should be removed once 3.3.9 is released.
+  settings (versionPolicyCheck / skip := true)
   dependsOn (core, `scalatest-io` % Test)
   settings (libraryDependencies ++= Seq(scache, scassandra, `cassandra-sync`)))
 
 lazy val `eventual-cassandra` = (project in file("eventual-cassandra")
   settings (name := "kafka-journal-eventual-cassandra")
   settings commonSettings
+  // This is a temporary hack, for Kafka Journal version 3.3.9 only.
+  // The problem is that in 3.3.9 `eventual-cassandra` module was split into
+  // `cassandra` and `eventual-cassandra`, and we want mima to see `cassandra` classes too.
+  // The hack should be removed once 3.3.9 is released.
+  settings (
+    mimaCurrentClassfiles := crossTarget.value / "mima-classes",
+    (Compile / compile) := {
+      val analysis = (Compile / compile).value
+      IO.copyDirectory((cassandra / Compile / classDirectory).value, mimaCurrentClassfiles.value)
+      IO.copyDirectory((Compile / classDirectory).value, mimaCurrentClassfiles.value)
+      analysis
+    }
+  )
   dependsOn (cassandra, journal % "test->test;compile->compile")
   settings (libraryDependencies ++= Seq(scassandra)))
 
 lazy val `snapshot-cassandra` = (project in file("snapshot-cassandra")
   settings (name := "kafka-journal-snapshot-cassandra")
   settings commonSettings
+  // The following line should be removed once 3.3.9 is released.
+  settings (versionPolicyCheck / skip := true)
   dependsOn (cassandra, snapshot % "test->test;compile->compile")
   settings (libraryDependencies ++= Seq(scassandra)))
 
