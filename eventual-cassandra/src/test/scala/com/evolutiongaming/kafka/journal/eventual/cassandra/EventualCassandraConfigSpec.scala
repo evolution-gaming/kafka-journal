@@ -20,8 +20,8 @@ class EventualCassandraConfigSpec extends AnyFunSuite with Matchers {
     val expected = EventualCassandraConfig(
       retries = 1,
       segmentSize = SegmentSize.min,
-      consistencyConfig = CassandraConsistencyConfig.default.copy(
-        read = CassandraConsistencyConfig.Read(ConsistencyLevel.QUORUM)
+      consistencyConfig = EventualCassandraConfig.ConsistencyConfig.default.copy(
+        read = EventualCassandraConfig.ConsistencyConfig.Read(ConsistencyLevel.QUORUM)
       ))
     ConfigSource.fromConfig(config).load[EventualCassandraConfig] shouldEqual expected.asRight
   }

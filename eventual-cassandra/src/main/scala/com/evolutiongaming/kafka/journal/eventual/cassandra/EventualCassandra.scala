@@ -49,7 +49,7 @@ object EventualCassandra {
   ): Resource[F, EventualJournal[F]] = {
 
     def journal(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
-      of(config.schema, origin, metrics, config.consistencyConfig)
+      of(config.schema, origin, metrics, config.consistencyConfig.toCassandraConsistencyConfig)
     }
 
     for {
