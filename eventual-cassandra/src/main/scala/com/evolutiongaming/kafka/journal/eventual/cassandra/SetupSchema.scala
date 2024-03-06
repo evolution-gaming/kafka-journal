@@ -44,7 +44,7 @@ object SetupSchema {
   def apply[F[_]: Temporal: Parallel: CassandraCluster: CassandraSession: LogOf](
     config: SchemaConfig,
     origin: Option[Origin],
-    consistencyConfig: CassandraConsistencyConfig
+    consistencyConfig: EventualCassandraConfig.ConsistencyConfig
   ): F[Schema] = {
 
     def createSchema(implicit cassandraSync: CassandraSync[F]) = CreateSchema(config)
@@ -53,7 +53,7 @@ object SetupSchema {
       cassandraSync <- CassandraSync.of[F](config.keyspace, config.locksTable, origin)
       ab <- createSchema(cassandraSync)
       (schema, fresh) = ab
-      settings <- SettingsCassandra.of[F](schema.setting, origin, consistencyConfig)
+      settings <- SettingsCassandra.of[F](schema.setting, origin, consistencyConfig.toCassandraConsistencyConfig)
       _ <- migrate(schema, fresh, settings, cassandraSync)
     } yield schema
   }

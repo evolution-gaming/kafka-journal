@@ -38,8 +38,8 @@ object ReplicatedCassandra {
   ): F[ReplicatedJournal[F]] = {
 
     for {
-      schema        <- SetupSchema[F](config.schema, origin, config.consistencyConfig.toCassandraConsistencyConfig)
-      statements    <- Statements.of[F](schema, config.consistencyConfig.toCassandraConsistencyConfig)
+      schema        <- SetupSchema[F](config.schema, origin, config.consistencyConfig)
+      statements    <- Statements.of[F](schema, config.consistencyConfig)
       log           <- LogOf[F].apply(ReplicatedCassandra.getClass)
       expiryService <- ExpiryService.of[F]
     } yield {
@@ -540,7 +540,7 @@ object ReplicatedCassandra {
 
     def of[F[_]: Monad: CassandraSession](
       schema: Schema,
-      consistencyConfig: CassandraConsistencyConfig
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig
     ): F[MetaJournalStatements[F]] = {
       of[F](schema.metaJournal, consistencyConfig)
     }
@@ -548,7 +548,7 @@ object ReplicatedCassandra {
 
     def of[F[_]: Monad: CassandraSession](
       metaJournal: TableName,
-      consistencyConfig: CassandraConsistencyConfig
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig
     ): F[MetaJournalStatements[F]] = {
 
       for {
@@ -694,7 +694,7 @@ object ReplicatedCassandra {
 
     def of[F[_]: Monad: CassandraSession: ToTry: JsonCodec.Encode](
       schema: Schema,
-      consistencyConfig: CassandraConsistencyConfig
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig
     ): F[Statements[F]] = {
       for {
         insertRecords          <- JournalStatements.InsertRecords.of[F](schema.journal, consistencyConfig.write)
