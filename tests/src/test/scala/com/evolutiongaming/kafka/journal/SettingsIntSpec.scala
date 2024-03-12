@@ -3,11 +3,12 @@ package com.evolutiongaming.kafka.journal
 import akka.actor.ActorSystem
 import cats.Parallel
 import cats.effect._
-import cats.syntax.all._
 import cats.effect.syntax.resource._
+import cats.syntax.all._
 import com.evolutiongaming.catshelper.{FromFuture, LogOf}
 import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra._
 import com.evolutiongaming.kafka.journal.util.ActorSystemOf
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper._

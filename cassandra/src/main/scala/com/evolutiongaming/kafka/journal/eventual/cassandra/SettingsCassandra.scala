@@ -4,6 +4,7 @@ import cats.effect.Clock
 import cats.syntax.all._
 import cats.{Monad, Parallel}
 import com.evolutiongaming.catshelper.ClockHelper._
+import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
 import com.evolutiongaming.kafka.journal.{Origin, Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
 
