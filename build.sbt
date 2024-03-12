@@ -202,7 +202,7 @@ lazy val `eventual-cassandra` = (project in file("eventual-cassandra")
       analysis
     }
   )
-  dependsOn (cassandra, journal % "test->test;compile->compile")
+  dependsOn (cassandra % "test->test;compile->compile", journal % "test->test;compile->compile")
   settings (libraryDependencies ++= Seq(scassandra)))
 
 lazy val `snapshot-cassandra` = (project in file("snapshot-cassandra")

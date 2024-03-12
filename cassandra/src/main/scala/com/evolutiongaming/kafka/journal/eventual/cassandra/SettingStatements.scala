@@ -1,15 +1,17 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import java.time.Instant
-import cats.syntax.all._
 import cats.Monad
+import cats.syntax.all._
 import com.datastax.driver.core.{GettableByNameData, SettableData}
-import com.evolutiongaming.kafka.journal.{Origin, Setting}
 import com.evolutiongaming.kafka.journal.Setting.{Key, Value}
+import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
+import com.evolutiongaming.kafka.journal.{Origin, Setting}
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow, TableName}
 import com.evolutiongaming.sstream.Stream
+
+import java.time.Instant
 
 object SettingStatements {
 
