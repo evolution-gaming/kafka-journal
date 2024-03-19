@@ -31,7 +31,7 @@ class CreateSchemaSpec extends AnyFunSuite {
   test("not create keyspace and tables") {
     val config = SchemaConfig.default.copy(
       autoCreate = false,
-      keyspace = KeyspaceConfig.default.copy(autoCreate = false)
+      keyspace = SchemaConfig.Keyspace.default.copy(autoCreate = false)
     )
     val createSchema = CreateSchema[F](config, createKeyspace, createTables)
     val (database, (schema, fresh)) = createSchema.run(Database.empty).value
@@ -43,7 +43,7 @@ class CreateSchemaSpec extends AnyFunSuite {
 
   test("create part of the tables") {
     val config = SchemaConfig.default.copy(
-      keyspace = KeyspaceConfig.default.copy(autoCreate = false)
+      keyspace = SchemaConfig.Keyspace.default.copy(autoCreate = false)
     )
     val initialState = Database.empty.copy(
       keyspaces = List("journal"),
