@@ -89,7 +89,7 @@ class CreateSchemaSpec extends AnyFunSuite {
   }
 
   val createKeyspace: CreateKeyspace[F] = new CreateKeyspace[F] {
-    def apply(config: KeyspaceConfig) =
+    def apply(config: SchemaConfig.Keyspace) =
       if (config.autoCreate) Database.createKeyspace(config.name)
       else ().pure[F]
   }

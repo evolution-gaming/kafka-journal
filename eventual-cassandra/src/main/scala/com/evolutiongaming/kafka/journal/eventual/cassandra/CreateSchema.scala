@@ -72,7 +72,7 @@ object CreateSchema {
     }
 
     for {
-      _      <- createKeyspace(config.keyspace.toKeyspaceConfig)
+      _      <- createKeyspace(config.keyspace)
       result <- createTables1
     } yield result
   }
