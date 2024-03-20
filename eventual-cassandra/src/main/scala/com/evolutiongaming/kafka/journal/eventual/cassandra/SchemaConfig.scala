@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
+import com.evolutiongaming.kafka.journal.cassandra.KeyspaceConfig
 import com.evolutiongaming.scassandra.ReplicationStrategyConfig
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
