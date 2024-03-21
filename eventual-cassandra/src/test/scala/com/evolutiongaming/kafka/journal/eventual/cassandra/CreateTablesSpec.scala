@@ -7,13 +7,12 @@ import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.matchers.should.Matchers
 
 import scala.util.control.NoStackTrace
 
 import CreateTables.Table
 
-class CreateTablesSpec extends AnyFunSuite with Matchers {
+class CreateTablesSpec extends AnyFunSuite {
 
   type F[A] = State[Database, A]
 
@@ -119,7 +118,7 @@ class CreateTablesSpec extends AnyFunSuite with Matchers {
 
   private val log = new Log[F] {
 
-    def info(msg: => String, mdc: Log.Mdc) = State.modify(_.log(msg))
+    def info(msg: => String, mdc: Log.Mdc) = Database.log(msg)
 
     def trace(msg: => String, mdc: Log.Mdc) = ().pure[F]
     def debug(msg: => String, mdc: Log.Mdc) = ().pure[F]
