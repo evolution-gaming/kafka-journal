@@ -4,6 +4,7 @@ import cats.MonadThrow
 import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.Settings
+import com.evolutiongaming.kafka.journal.cassandra.CassandraSync
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 
 import scala.util.Try

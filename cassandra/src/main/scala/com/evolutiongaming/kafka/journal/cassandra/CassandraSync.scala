@@ -1,4 +1,4 @@
-package com.evolutiongaming.kafka.journal.eventual.cassandra
+package com.evolutiongaming.kafka.journal.cassandra
 
 import cats.arrow.FunctionK
 import cats.effect.kernel.Temporal
@@ -9,6 +9,7 @@ import com.evolutiongaming.cassandra
 import com.evolutiongaming.cassandra.sync.AutoCreate
 import com.evolutiongaming.kafka.journal.Origin
 import com.evolutiongaming.kafka.journal.cassandra.KeyspaceConfig
+import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraSession
 
 trait CassandraSync[F[_]] {
   def apply[A](fa: F[A]): F[A]
