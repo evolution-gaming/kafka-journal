@@ -37,7 +37,12 @@ object SetupSchema {
     settings: Settings[F],
     cassandraSync: CassandraSync[F]
   ): F[Unit] = {
-    val migrateSchema = MigrateSchema.forSettingKey(cassandraSync, settings, SettingKey, migrations(schema))
+    val migrateSchema = MigrateSchema.forSettingKey(
+      cassandraSync = cassandraSync.toCassandraSync2,
+      settings = settings,
+      settingKey = SettingKey,
+      migrations = migrations(schema)
+    )
     migrateSchema.run(fresh)
   }
 
@@ -50,7 +55,7 @@ object SetupSchema {
     def createSchema(implicit cassandraSync: CassandraSync[F]) = CreateSchema(config)
 
     for {
-      cassandraSync <- CassandraSync.of[F](config.keyspace.toKeyspaceConfig, config.locksTable, origin)
+      cassandraSync <- CassandraSync.of[F](config, origin)
       ab <- createSchema(cassandraSync)
       (schema, fresh) = ab
       settings <- SettingsCassandra.of[F](schema.setting, origin, consistencyConfig.toCassandraConsistencyConfig)
