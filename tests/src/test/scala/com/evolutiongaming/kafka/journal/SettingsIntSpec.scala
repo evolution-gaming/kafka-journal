@@ -8,7 +8,8 @@ import cats.syntax.all._
 import com.evolutiongaming.catshelper.{FromFuture, LogOf}
 import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.kafka.journal.IOSuite._
-import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
+import com.evolutiongaming.kafka.journal.cassandra.{CassandraConsistencyConfig, SettingsCassandra => SettingsCassandra2}
+import com.evolutiongaming.kafka.journal.eventual.cassandra.{SettingsCassandra => SettingsCassandra1}
 import com.evolutiongaming.kafka.journal.eventual.cassandra._
 import com.evolutiongaming.kafka.journal.util.ActorSystemOf
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
@@ -34,17 +35,29 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
 
   private def resources[F[_]: Async: LogOf: Parallel: FromFuture](
     origin: Option[Origin],
-    cassandraClusterOf: CassandraClusterOf[F]
+    cassandraClusterOf: CassandraClusterOf[F],
+    legacySettings: Boolean
   ) = {
 
-    def settings(
+    def settings1(
       config: SchemaConfig)(implicit
       cassandraCluster: CassandraCluster[F],
       cassandraSession: CassandraSession[F]) = {
 
       for {
         schema   <- SetupSchema[F](config, origin, EventualCassandraConfig.ConsistencyConfig.default)
-        settings <- SettingsCassandra.of[F](schema.setting, origin, CassandraConsistencyConfig.default)
+        settings <- SettingsCassandra1.of[F](schema, origin, EventualCassandraConfig.ConsistencyConfig.default)
+      } yield settings
+    }
+
+    def settings2(
+      config: SchemaConfig)(implicit
+      cassandraCluster: CassandraCluster[F],
+      cassandraSession: CassandraSession[F]) = {
+
+      for {
+        schema   <- SetupSchema[F](config, origin, EventualCassandraConfig.ConsistencyConfig.default)
+        settings <- SettingsCassandra2.of[F](schema.setting, origin, CassandraConsistencyConfig.default)
       } yield settings
     }
 
@@ -69,19 +82,23 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
       config           <- config(system).toResource
       cassandraCluster <- CassandraCluster.of[F](config.client, cassandraClusterOf, config.retries)
       cassandraSession <- cassandraCluster.session
-      settings         <- settings(config.schema)(cassandraCluster, cassandraSession).toResource
+      settings         <- if (legacySettings) {
+        settings1(config.schema)(cassandraCluster, cassandraSession).toResource
+      } else {
+        settings2(config.schema)(cassandraCluster, cassandraSession).toResource
+      }
     } yield settings
   }
 
 
-  def test[F[_]: Async: Parallel: FromFuture](cassandraClusterOf: CassandraClusterOf[F]): F[Unit] = {
+  def test[F[_]: Async: Parallel: FromFuture](cassandraClusterOf: CassandraClusterOf[F],legacySettings: Boolean): F[Unit] = {
 
     implicit val logOf = LogOf.empty[F]
 
     for {
       origin    <- Origin.hostName[F]
       timestamp <- Clock[F].realTimeInstant
-      result    <- resources[F](origin, cassandraClusterOf).use { settings =>
+      result    <- resources[F](origin, cassandraClusterOf, legacySettings).use { settings =>
 
         val setting = Setting(key = "key", value = "value", timestamp = timestamp, origin = origin)
 
@@ -155,6 +172,10 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
           _ <- Sync[F].delay { a shouldEqual None }
           a <- setIfEmpty(setting.key, setting.value)
           _ <- Sync[F].delay { a shouldEqual None }
+
+          // clean up the database
+          a <- remove(setting.key)
+          _ <- Sync[F].delay { a shouldEqual setting.some }
         } yield {}
       }
     } yield {
@@ -163,10 +184,14 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
   }
 
 
-  "Settings" should {
-
+  "CassandraSettings" should {
     "set, get, all, remove" in {
-      test[IO](cassandraClusterOf).run()
+      // run two tests in sequence, to avoid concurrency issues
+      val program = 
+        test[IO](cassandraClusterOf, legacySettings = false) *>
+        test[IO](cassandraClusterOf, legacySettings = true)
+      program.run()
     }
   }
+
 }
