@@ -1,4 +1,4 @@
-package com.evolutiongaming.kafka.journal.eventual.cassandra
+package com.evolutiongaming.kafka.journal.cassandra
 
 import cats.Monad
 import cats.syntax.all._
@@ -6,6 +6,7 @@ import com.datastax.driver.core.{GettableByNameData, SettableData}
 import com.evolutiongaming.kafka.journal.Setting.{Key, Value}
 import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraSession
 import com.evolutiongaming.kafka.journal.{Origin, Setting}
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow, TableName}
