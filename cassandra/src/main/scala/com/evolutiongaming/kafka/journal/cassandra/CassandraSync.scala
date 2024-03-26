@@ -8,7 +8,6 @@ import cats.~>
 import com.evolutiongaming.cassandra
 import com.evolutiongaming.cassandra.sync.AutoCreate
 import com.evolutiongaming.kafka.journal.Origin
-import com.evolutiongaming.kafka.journal.cassandra.KeyspaceConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraSession
 
 trait CassandraSync[F[_]] {
