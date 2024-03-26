@@ -29,11 +29,12 @@ object SchemaConfig {
     replicationStrategy: ReplicationStrategyConfig = ReplicationStrategyConfig.Default,
     autoCreate: Boolean = true) {
     
-    def toKeyspaceConfig: KeyspaceConfig = KeyspaceConfig(
-      name = this.name,
-      replicationStrategy = this.replicationStrategy,
-      autoCreate = this.autoCreate
-    )
+    private[cassandra] def toKeyspaceConfig: KeyspaceConfig =
+      KeyspaceConfig(
+        name = this.name,
+        replicationStrategy = this.replicationStrategy,
+        autoCreate = this.autoCreate
+      )
 
   }
   
@@ -41,8 +42,14 @@ object SchemaConfig {
   @deprecated(since = "3.3.9", message = "Use [[KeyspaceConfig]] instead")
   object Keyspace {
 
-    val default: Keyspace = Keyspace()
+    private[cassandra] def apply(config: KeyspaceConfig): Keyspace =
+      Keyspace(
+        name = config.name,
+        replicationStrategy = config.replicationStrategy,
+        autoCreate = config.autoCreate
+      )
 
+    val default: Keyspace = Keyspace()
 
     implicit val configReaderKeyspace: ConfigReader[Keyspace] = deriveReader
   }
