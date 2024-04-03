@@ -23,7 +23,7 @@ jobs:
           java-version: openjdk@1.11
 
       - name: build ${{ matrix.scala }}
-        run: sbt ++${{ matrix.scala }} clean coverage test
+        run: sbt ++${{ matrix.scala }} clean versionPolicyCheck coverage test
 
       - name: test coverage
         if: success()
