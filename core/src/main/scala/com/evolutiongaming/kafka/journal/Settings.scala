@@ -17,6 +17,13 @@ trait Settings[F[_]] {
 
   def set(key: K, value: V): F[Option[Setting]]
 
+  @deprecated(
+    message =
+      "the behavior of the method might not be deterministic, " +
+      "because it uses Cassandra LWTs, while other methods do not, " +
+      "use get + set instead for a rough approximation of functionality",
+    since = "3.3.9"
+  )
   def setIfEmpty(key: K, value: V): F[Option[Setting]]
 
   def remove(key: K): F[Option[Setting]]
