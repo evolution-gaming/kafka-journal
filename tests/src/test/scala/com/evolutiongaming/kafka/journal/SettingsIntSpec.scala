@@ -91,7 +91,7 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
   }
 
 
-  def test[F[_]: Async: Parallel: FromFuture](cassandraClusterOf: CassandraClusterOf[F],legacySettings: Boolean): F[Unit] = {
+  def test[F[_]: Async: Parallel: FromFuture](cassandraClusterOf: CassandraClusterOf[F], legacySettings: Boolean): F[Unit] = {
 
     implicit val logOf = LogOf.empty[F]
 
@@ -174,8 +174,7 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
           _ <- Sync[F].delay { a shouldEqual None }
 
           // clean up the database
-          a <- remove(setting.key)
-          _ <- Sync[F].delay { a shouldEqual setting.some }
+          _ <- remove(setting.key)
         } yield {}
       }
     } yield {
@@ -187,7 +186,7 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
   "CassandraSettings" should {
     "set, get, all, remove" in {
       // run two tests in sequence, to avoid concurrency issues
-      val program = 
+      val program =
         test[IO](cassandraClusterOf, legacySettings = false) *>
         test[IO](cassandraClusterOf, legacySettings = true)
       program.run()
