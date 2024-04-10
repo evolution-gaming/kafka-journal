@@ -41,8 +41,14 @@ object SchemaConfig {
   @deprecated(since = "3.3.9", message = "Use [[KeyspaceConfig]] instead")
   object Keyspace {
 
-    val default: Keyspace = Keyspace()
+    private[cassandra] def apply(config: KeyspaceConfig): Keyspace =
+      Keyspace(
+        name = config.name,
+        replicationStrategy = config.replicationStrategy,
+        autoCreate = config.autoCreate
+      )
 
+    val default: Keyspace = Keyspace()
 
     implicit val configReaderKeyspace: ConfigReader[Keyspace] = deriveReader
   }

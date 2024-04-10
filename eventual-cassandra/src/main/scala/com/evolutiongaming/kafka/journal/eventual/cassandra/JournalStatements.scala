@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import java.time.Instant
 import cats.Monad
 import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
@@ -10,11 +9,12 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.HeadersHelper._
-import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName, TableName}
 import com.evolutiongaming.scassandra.syntax._
+import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName, TableName}
 import com.evolutiongaming.sstream.Stream
 import scodec.bits.ByteVector
 
+import java.time.Instant
 import scala.util.Try
 
 object JournalStatements {
