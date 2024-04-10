@@ -29,7 +29,7 @@ object SchemaConfig {
     replicationStrategy: ReplicationStrategyConfig = ReplicationStrategyConfig.Default,
     autoCreate: Boolean = true) {
     
-    def toKeyspaceConfig: KeyspaceConfig = KeyspaceConfig(
+    private[cassandra] def toKeyspaceConfig: KeyspaceConfig = KeyspaceConfig(
       name = this.name,
       replicationStrategy = this.replicationStrategy,
       autoCreate = this.autoCreate
