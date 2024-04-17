@@ -4,9 +4,10 @@ import cats.Monad
 import cats.syntax.all._
 import com.datastax.driver.core.Row
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraConsistencyConfig, CassandraSession}
+import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraSession
 import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName, TableName}
 import scodec.bits.ByteVector

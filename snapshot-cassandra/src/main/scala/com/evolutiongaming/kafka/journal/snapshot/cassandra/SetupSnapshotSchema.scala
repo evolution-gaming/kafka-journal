@@ -5,7 +5,8 @@ import cats.effect.kernel.Temporal
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.Origin
-import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraConsistencyConfig, CassandraSession, CassandraSync, SettingsCassandra}
+import com.evolutiongaming.kafka.journal.cassandra.{CassandraConsistencyConfig, CassandraSync, SettingsCassandra}
+import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession}
 
 /** Creates a new schema */
 object SetupSnapshotSchema {

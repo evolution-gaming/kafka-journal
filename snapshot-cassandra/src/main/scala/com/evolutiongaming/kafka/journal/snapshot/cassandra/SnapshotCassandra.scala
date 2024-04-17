@@ -6,8 +6,9 @@ import cats.syntax.all._
 import cats.{Monad, MonadThrow, Parallel}
 import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
-import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraConsistencyConfig, CassandraSession}
+import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession}
 import com.evolutiongaming.scassandra.CassandraClusterOf
 
 import java.time.Instant

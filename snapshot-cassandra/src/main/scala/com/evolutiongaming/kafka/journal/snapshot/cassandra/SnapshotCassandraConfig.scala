@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.snapshot.cassandra
 
 import com.datastax.driver.core.ConsistencyLevel
-import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraConsistencyConfig
+import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
 import com.evolutiongaming.scassandra.{CassandraConfig, QueryConfig}
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader

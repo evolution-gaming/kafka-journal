@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.snapshot.cassandra
 
-import com.evolutiongaming.kafka.journal.eventual.cassandra.KeyspaceConfig
+import com.evolutiongaming.kafka.journal.cassandra.KeyspaceConfig
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
 
