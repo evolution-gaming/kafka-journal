@@ -1,4 +1,4 @@
-package com.evolutiongaming.kafka.journal.eventual.cassandra
+package com.evolutiongaming.kafka.journal.snapshot.cassandra
 
 import cats.data.StateT
 import cats.syntax.all._

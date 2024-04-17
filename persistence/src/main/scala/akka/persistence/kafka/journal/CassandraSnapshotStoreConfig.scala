@@ -1,6 +1,6 @@
 package akka.persistence.kafka.journal
 
-import com.evolutiongaming.kafka.journal.eventual.cassandra.SnapshotCassandraConfig
+import com.evolutiongaming.kafka.journal.snapshot.cassandra.SnapshotCassandraConfig
 import pureconfig.generic.semiauto.deriveReader
 import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
 

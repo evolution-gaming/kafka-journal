@@ -1,10 +1,11 @@
-package com.evolutiongaming.kafka.journal.eventual.cassandra
+package com.evolutiongaming.kafka.journal.snapshot.cassandra
 
 import cats.implicits.catsStdInstancesForTry
 import cats.syntax.all._
 import com.datastax.driver.core.{Row, Statement}
-import com.evolutiongaming.kafka.journal.{Setting, Settings}
+import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraSession, CassandraSync}
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
+import com.evolutiongaming.kafka.journal.{Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AnyFunSuite
@@ -18,79 +19,10 @@ import scala.util.control.NoStackTrace
 class SetupSchemaSpec extends AnyFunSuite with Matchers {
   import SetupSchemaSpec._
 
-  test("migrate fresh") {
-    val initial = State.empty
-    val (state, _) = migrate(fresh = true)
-      .run(initial)
-      .get
-    state shouldEqual initial.copy(
-      version = "3".some,
-      actions = List(
-        Action.SyncEnd,
-        Action.SetSetting("schema-version", "3"),
-        Action.GetSetting("schema-version"),
-        Action.SyncStart,
-        Action.GetSetting("schema-version")))
-  }
-
-  test("migrate") {
-    val initial = State.empty
-    val (state, _) = migrate(fresh = false)
-      .run(initial)
-      .get
-    state shouldEqual initial.copy(
-      version = "3".some,
-      actions = List(
-        Action.SyncEnd,
-        Action.SetSetting("schema-version", "3"),
-        Action.Query,
-        Action.SetSetting("schema-version", "2"),
-        Action.Query,
-        Action.SetSetting("schema-version", "1"),
-        Action.Query,
-        Action.SetSetting("schema-version", "0"),
-        Action.Query,
-        Action.GetSetting("schema-version"),
-        Action.SyncStart,
-        Action.GetSetting("schema-version")))
-  }
-
-  test("migrate 0") {
-    val initial = State.empty.copy(version = "0".some)
-    val (state, _) = migrate(fresh = false)
-      .run(initial)
-      .get
-    state shouldEqual initial.copy(
-      version = "3".some,
-      actions = List(
-        Action.SyncEnd,
-        Action.SetSetting("schema-version", "3"),
-        Action.Query,
-        Action.SetSetting("schema-version", "2"),
-        Action.Query,
-        Action.SetSetting("schema-version", "1"),
-        Action.Query,
-        Action.GetSetting("schema-version"),
-        Action.SyncStart,
-        Action.GetSetting("schema-version")))
-  }
-
-  test("not migrate") {
-    val initial = State.empty.copy(version = "3".some)
-    val (state, _) = migrate(fresh = false)
-      .run(initial)
-      .get
-    state shouldEqual initial.copy(actions = List(Action.GetSetting("schema-version")))
-  }
-
   val timestamp: Instant = Instant.now()
 
-  val schema: Schema = Schema(
-    journal = TableName(keyspace = "journal", table = "journal"),
-    metadata = TableName(keyspace = "journal", table = "metadata"),
-    metaJournal = TableName(keyspace = "journal", table = "metaJournal"),
-    pointer = TableName(keyspace = "journal", table = "pointer"),
-    pointer2 = TableName(keyspace = "journal", table = "pointer2"),
+  val schema: SnapshotSchema = SnapshotSchema(
+    snapshot = TableName(keyspace = "journal", table = "snapshot_buffer"),
     setting = TableName(keyspace = "journal", table = "setting"))
 
   implicit val settings: Settings[StateT] = {
@@ -168,11 +100,6 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
         (state3, a)
       }
     }
-  }
-
-
-  def migrate(fresh: Boolean): StateT[Unit] = {
-    SetupSchema.migrate[StateT](schema, fresh, settings, cassandraSync)
   }
 
   case class State(version: Option[String], actions: List[Action]) {

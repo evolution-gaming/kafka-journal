@@ -50,17 +50,12 @@ object CreateSchema {
         setting = TableName(keyspace = keyspace, table = config.settingTable)
       )
 
-      val journalStatement = JournalStatements.createTable(schema.journal)
-      val metaJournalStatement = MetaJournalStatements.createTable(schema.metaJournal)
-      val pointerStatement = PointerStatements.createTable(schema.pointer)
-      val pointer2Statement = Pointer2Statements.createTable(schema.pointer2)
-      val settingStatement = SettingStatements.createTable(schema.setting)
+      def table(name: String, query: TableName => Nel[String]) = {
+        val tableName = TableName(keyspace = keyspace, table = name)
+        CreateTables.Table(name = name, queries = query(tableName))
+      }
 
-      val journal = CreateTables.Table(config.journalTable, journalStatement)
-      val metaJournal = CreateTables.Table(config.metaJournalTable, metaJournalStatement)
-      val pointer = CreateTables.Table(config.pointerTable, pointerStatement)
-      val pointer2 = CreateTables.Table(config.pointer2Table, pointer2Statement)
-      val setting = CreateTables.Table(config.settingTable, settingStatement)
+      val journal = table(config.journalTable, a => Nel.of(JournalStatements.createTable(a)))
 
       val createSchema =
         if (config.autoCreate) {

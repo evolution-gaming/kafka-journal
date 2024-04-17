@@ -8,7 +8,7 @@ import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
-import com.evolutiongaming.kafka.journal.eventual.cassandra.{SnapshotCassandra, SnapshotCassandraConfig}
+import com.evolutiongaming.kafka.journal.snapshot.cassandra.{SnapshotCassandra, SnapshotCassandraConfig}
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.scassandra.CassandraClusterOf
 
