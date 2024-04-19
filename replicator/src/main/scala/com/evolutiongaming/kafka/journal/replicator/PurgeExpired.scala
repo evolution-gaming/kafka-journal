@@ -1,15 +1,14 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import cats.data.{NonEmptySet => Nes}
-import cats.effect.{Clock, Resource}
 import cats.effect.syntax.resource._
+import cats.effect.{Clock, Resource}
 import cats.syntax.all._
 import cats.{Applicative, Monad, ~>}
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraConsistencyConfig
-import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraSession, ExpireOn, MetaJournalStatements, SegmentNr}
+import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraSession, EventualCassandraConfig, ExpireOn, MetaJournalStatements, SegmentNr}
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.scassandra.TableName
@@ -33,7 +32,7 @@ object PurgeExpired {
     producerConfig: ProducerConfig,
     tableName: TableName,
     metrics: Option[Metrics[F]],
-    consistencyConfig: CassandraConsistencyConfig.Read
+    consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read
   ): Resource[F, PurgeExpired[F]] = {
 
     implicit val fromAttempt = FromAttempt.lift[F]

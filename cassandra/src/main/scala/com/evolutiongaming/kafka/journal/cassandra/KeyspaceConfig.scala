@@ -1,4 +1,4 @@
-package com.evolutiongaming.kafka.journal.eventual.cassandra
+package com.evolutiongaming.kafka.journal.cassandra
 
 import com.evolutiongaming.scassandra.ReplicationStrategyConfig
 import pureconfig.ConfigReader

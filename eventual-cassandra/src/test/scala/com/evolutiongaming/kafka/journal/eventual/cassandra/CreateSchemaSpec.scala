@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.data.State
-import cats.data.{NonEmptyList => Nel}
+import cats.data.{NonEmptyList => Nel, State}
 import cats.syntax.all._
+import com.evolutiongaming.kafka.journal.cassandra.KeyspaceConfig
 import com.evolutiongaming.scassandra.TableName
 import org.scalatest.funsuite.AnyFunSuite
 
@@ -31,7 +31,7 @@ class CreateSchemaSpec extends AnyFunSuite {
   test("not create keyspace and tables") {
     val config = SchemaConfig.default.copy(
       autoCreate = false,
-      keyspace = KeyspaceConfig.default.copy(autoCreate = false)
+      keyspace = SchemaConfig.Keyspace.default.copy(autoCreate = false)
     )
     val createSchema = CreateSchema[F](config, createKeyspace, createTables)
     val (database, (schema, fresh)) = createSchema.run(Database.empty).value
@@ -43,7 +43,7 @@ class CreateSchemaSpec extends AnyFunSuite {
 
   test("create part of the tables") {
     val config = SchemaConfig.default.copy(
-      keyspace = KeyspaceConfig.default.copy(autoCreate = false)
+      keyspace = SchemaConfig.Keyspace.default.copy(autoCreate = false)
     )
     val initialState = Database.empty.copy(
       keyspaces = List("journal"),
@@ -89,7 +89,7 @@ class CreateSchemaSpec extends AnyFunSuite {
   }
 
   val createKeyspace: CreateKeyspace[F] = new CreateKeyspace[F] {
-    def apply(config: KeyspaceConfig) =
+    def apply(config: SchemaConfig.Keyspace) =
       if (config.autoCreate) Database.createKeyspace(config.name)
       else ().pure[F]
   }

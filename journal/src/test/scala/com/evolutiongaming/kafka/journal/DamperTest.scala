@@ -65,17 +65,17 @@ class DamperTest extends AsyncFunSuite with Matchers {
       fiber2 <- damper.acquire.start
       _      <- assertSleeping(fiber2)
 
-      _      <- fiber1.cancel
-      _      <- fiber0.cancel
-
       delays <- ref.get
       _      <- IO {
         assert(
           delays.nonEmpty,
-          "delayOf was called more than once, the test result will not be meaningful," +
-          "consider increasing sleeping delay in `assertSleeping` to ensure the orderly" +
+          "delayOf was called more than once, the test result will not be meaningful, " +
+          "consider increasing sleeping delay in `assertSleeping` to ensure the orderly " +
           "start of fiber0, fiber1 and fiber2")
       }
+
+      _      <- fiber1.cancel
+      _      <- fiber0.cancel
 
       _      <- fiber2.joinWithNever
       _      <- damper.release

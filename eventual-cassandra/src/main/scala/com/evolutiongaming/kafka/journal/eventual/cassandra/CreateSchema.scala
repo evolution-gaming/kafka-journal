@@ -5,6 +5,7 @@ import cats.data.{NonEmptyList => Nel}
 import cats.effect.Concurrent
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.LogOf
+import com.evolutiongaming.kafka.journal.cassandra.MigrateSchema
 import com.evolutiongaming.scassandra.TableName
 
 object CreateSchema {
@@ -23,7 +24,7 @@ object CreateSchema {
   def apply[F[_] : Concurrent : CassandraCluster : CassandraSession : CassandraSync : LogOf](
     config: SchemaConfig
   ): F[(Schema, MigrateSchema.Fresh)] = {
-
+    implicit val cassandraSync2 = CassandraSync[F].toCassandraSync2
     for {
       createTables   <- CreateTables.of[F]
       createKeyspace  = CreateKeyspace[F]

@@ -5,6 +5,7 @@ import cats.effect.kernel.Temporal
 import cats.syntax.all._
 import cats.{MonadThrow, Parallel}
 import com.evolutiongaming.catshelper.LogOf
+import com.evolutiongaming.kafka.journal.cassandra.{MigrateSchema, SettingsCassandra}
 import com.evolutiongaming.kafka.journal.{Origin, Settings}
 import com.evolutiongaming.scassandra.ToCql.implicits._
 
@@ -37,23 +38,28 @@ object SetupSchema {
     settings: Settings[F],
     cassandraSync: CassandraSync[F]
   ): F[Unit] = {
-    val migrateSchema = MigrateSchema.forSettingKey(cassandraSync, settings, SettingKey, migrations(schema))
+    val migrateSchema = MigrateSchema.forSettingKey(
+      cassandraSync = cassandraSync.toCassandraSync2,
+      settings = settings,
+      settingKey = SettingKey,
+      migrations = migrations(schema)
+    )
     migrateSchema.run(fresh)
   }
 
   def apply[F[_]: Temporal: Parallel: CassandraCluster: CassandraSession: LogOf](
     config: SchemaConfig,
     origin: Option[Origin],
-    consistencyConfig: CassandraConsistencyConfig
+    consistencyConfig: EventualCassandraConfig.ConsistencyConfig
   ): F[Schema] = {
 
     def createSchema(implicit cassandraSync: CassandraSync[F]) = CreateSchema(config)
 
     for {
-      cassandraSync <- CassandraSync.of[F](config.keyspace, config.locksTable, origin)
+      cassandraSync <- CassandraSync.of[F](config, origin)
       ab <- createSchema(cassandraSync)
       (schema, fresh) = ab
-      settings <- SettingsCassandra.of[F](schema.setting, origin, consistencyConfig)
+      settings <- SettingsCassandra.of[F](schema.setting, origin, consistencyConfig.toCassandraConsistencyConfig)
       _ <- migrate(schema, fresh, settings, cassandraSync)
     } yield schema
   }

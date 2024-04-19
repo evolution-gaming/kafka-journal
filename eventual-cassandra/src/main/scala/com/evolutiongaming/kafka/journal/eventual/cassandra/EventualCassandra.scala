@@ -6,11 +6,11 @@ import cats.effect.{Concurrent, Resource}
 import cats.syntax.all._
 import cats.{MonadThrow, Parallel}
 import com.evolutiongaming.catshelper.{LogOf, MeasureDuration, ToTry}
-import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
-import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
+import com.evolutiongaming.kafka.journal.{cassandra => _, _}
+import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.scassandra.{CassandraClusterOf, TableName}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.sstream.Stream
@@ -75,7 +75,7 @@ object EventualCassandra {
     schemaConfig: SchemaConfig,
     origin: Option[Origin],
     metrics: Option[EventualJournal.Metrics[F]],
-    consistencyConfig: CassandraConsistencyConfig
+    consistencyConfig: EventualCassandraConfig.ConsistencyConfig
   ): F[EventualJournal[F]] = {
 
     for {
@@ -193,7 +193,7 @@ object EventualCassandra {
       schema: Schema,
       segmentNrsOf: SegmentNrsOf[F],
       segments: Segments,
-      consistencyConfig: CassandraConsistencyConfig.Read
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read
     ): F[Statements[F]] = {
       for {
         selectRecords  <- JournalStatements.SelectRecords.of[F](schema.journal, consistencyConfig)
@@ -222,7 +222,7 @@ object EventualCassandra {
       schema: Schema,
       segmentNrsOf: SegmentNrsOf[F],
       segments: Segments,
-      consistencyConfig: CassandraConsistencyConfig.Read
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read
     ): F[MetaJournalStatements[F]] = {
       of(schema.metaJournal, segmentNrsOf, segments, consistencyConfig)
     }
@@ -231,7 +231,7 @@ object EventualCassandra {
       metaJournal: TableName,
       segmentNrsOf: SegmentNrsOf[F],
       segments: Segments,
-      consistencyConfig: CassandraConsistencyConfig.Read
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read
     ): F[MetaJournalStatements[F]] = {
       for {
         selectJournalHead    <- cassandra.MetaJournalStatements.SelectJournalHead.of[F](metaJournal, consistencyConfig)

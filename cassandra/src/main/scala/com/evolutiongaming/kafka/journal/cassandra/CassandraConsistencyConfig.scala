@@ -1,8 +1,8 @@
-package com.evolutiongaming.kafka.journal.eventual.cassandra
+package com.evolutiongaming.kafka.journal.cassandra
 
+import com.datastax.driver.core.ConsistencyLevel
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
-import com.datastax.driver.core.ConsistencyLevel
 
 final case class CassandraConsistencyConfig(
   read: CassandraConsistencyConfig.Read = CassandraConsistencyConfig.Read.default,
