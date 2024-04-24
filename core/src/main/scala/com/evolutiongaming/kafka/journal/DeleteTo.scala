@@ -33,7 +33,7 @@ object DeleteTo {
   implicit val decodeByNameDeleteTo: DecodeByName[DeleteTo] = DecodeByName[SeqNr].map { _.toDeleteTo }
 
 
-  implicit val encodeByIdxDeleteTo: EncodeByIdx[DeleteTo] = EncodeByIdx[SeqNr].contramap { a: DeleteTo => a.value }
+  implicit val encodeByIdxDeleteTo: EncodeByIdx[DeleteTo] = EncodeByIdx[SeqNr].contramap { (a: DeleteTo) => a.value }
 
   implicit val decodeByIdxDeleteTo: DecodeByIdx[DeleteTo] = DecodeByIdx[SeqNr].map { _.toDeleteTo }
 
