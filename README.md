@@ -133,3 +133,11 @@ libraryDependencies += "com.evolutiongaming" %% "kafka-journal-eventual-cassandr
 
 * Jan 2019 [Riga Scala Community](https://www.meetup.com/Riga-Scala-Community/events/257926307)
 * Apr 2019 [Amsterdam.scala](https://www.meetup.com/amsterdam-scala/events/260005066/)
+
+## Development
+
+To run unit-test, have to have Docker environment **running** (Docker Desktop, Rancher Desktop etc). Some tests expect to
+have `/var/run/docker.sock` available. In case of Rancher Desktop, one has to amend local setup with:
+```shell
+sudo ln -s $HOME/.rd/docker.sock /var/run/docker.sock
+```
