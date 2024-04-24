@@ -32,7 +32,7 @@ object Payload {
 
   final case class Binary(value: ByteVector) extends Payload {
 
-    def payloadType: PayloadType = PayloadType.Binary
+    def payloadType = PayloadType.Binary
 
     def size: Long = value.length
   }
@@ -50,7 +50,7 @@ object Payload {
   }
 
   final case class Text(value: String) extends TextOrJson {
-    def payloadType: PayloadType.TextOrJson = PayloadType.Text
+    def payloadType = PayloadType.Text
   }
 
   object Text {
@@ -61,7 +61,7 @@ object Payload {
 
 
   final case class Json(value: JsValue) extends TextOrJson {
-    def payloadType: PayloadType.TextOrJson = PayloadType.Json
+    def payloadType = PayloadType.Json
   }
 
   object Json {
