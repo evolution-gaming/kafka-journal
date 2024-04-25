@@ -6,7 +6,6 @@ import java.lang.{Byte => ByteJ}
 import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import scodec.bits.ByteVector
 import scodec.{Codec, codecs}
-import scodec.*
 
 final case class Events[A](events: Nel[Event[A]], metadata: PayloadMetadata)
 

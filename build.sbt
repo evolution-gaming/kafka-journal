@@ -9,8 +9,8 @@ lazy val commonSettings = Seq(
 
   crossScalaVersions := Seq("2.13.13"),
   scalaVersion := crossScalaVersions.value.head,
-  scalacOptions ++= Seq("-release:17", "-Xsource:3-cross", "-deprecation"), // TODO MR remove `-deprecation`
-  scalacOptsFailOnWarn := Some(false), // TODO remove this and resolve all deprecations
+  scalacOptions ++= Seq("-release:17", "-deprecation"), // TODO https://github.com/evolution-gaming/kafka-journal/issues/611
+  scalacOptsFailOnWarn := Some(false),
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
   publishTo := Some(Resolver.evolutionReleases),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),

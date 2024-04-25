@@ -4,7 +4,6 @@ import akka.persistence.PersistentRepr
 import com.evolutiongaming.kafka.journal.{FromAttempt, FromBytes, ToBytes}
 import com.evolutiongaming.serialization.SerializedMsg
 import scodec.{Codec, codecs}
-import scodec.*
 
 final case class PersistentBinary(
   manifest: Option[String],

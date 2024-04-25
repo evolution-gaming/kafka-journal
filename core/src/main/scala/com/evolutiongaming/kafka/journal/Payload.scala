@@ -4,7 +4,6 @@ import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import scodec.Codec
-import scodec.*
 import scodec.bits.ByteVector
 import scodec.codecs.{bytes, utf8}
 
