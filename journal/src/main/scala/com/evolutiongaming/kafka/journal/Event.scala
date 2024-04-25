@@ -4,6 +4,7 @@ import cats._
 import cats.syntax.all._
 import scodec.bits.ByteVector
 import scodec.{Attempt, Codec, Err, codecs}
+import scodec.*
 
 import scala.util.Try
 

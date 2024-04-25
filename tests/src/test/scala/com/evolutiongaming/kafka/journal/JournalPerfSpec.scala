@@ -29,7 +29,7 @@ class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
   import cats.effect.unsafe.implicits.global
 
   private val journalOf = {
-    eventualJournal: EventualJournal[IO] => {
+    (eventualJournal: EventualJournal[IO]) => {
       implicit val logOf = LogOf.empty[IO]
       val log = Log.empty[IO]
       val headCacheOf = HeadCacheOf[IO](HeadCacheMetrics.empty[IO].some)

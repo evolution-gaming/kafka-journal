@@ -20,7 +20,7 @@ object Batching {
 
 
   def byNumberOfEvents[F[_] : Applicative](maxEventsInBatch: Int): Batching[F] = {
-    aws: List[AtomicWrite] => {
+    (aws: List[AtomicWrite]) => {
       GroupByWeight[AtomicWrite](aws, maxEventsInBatch)(_.payload.size).pure[F]
     }
   }

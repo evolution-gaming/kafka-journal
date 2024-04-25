@@ -31,7 +31,7 @@ object SegmentOf {
 
   /** Calculate [[SegmentNr]] value by key using a hashing alorithm */
   def apply[F[_]: Applicative](segments: Segments): SegmentOf[F] = {
-    key: Key => {
+    (key: Key) => {
       val hashCode = key.id.toLowerCase.hashCode
       val segmentNr = SegmentNr(hashCode, segments)
       segmentNr.pure[F]

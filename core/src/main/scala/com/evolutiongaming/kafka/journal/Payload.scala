@@ -4,6 +4,7 @@ import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import scodec.Codec
+import scodec.*
 import scodec.bits.ByteVector
 import scodec.codecs.{bytes, utf8}
 
@@ -32,7 +33,7 @@ object Payload {
 
   final case class Binary(value: ByteVector) extends Payload {
 
-    def payloadType = PayloadType.Binary
+    def payloadType: PayloadType.Binary.type = PayloadType.Binary
 
     def size: Long = value.length
   }
@@ -50,18 +51,18 @@ object Payload {
   }
 
   final case class Text(value: String) extends TextOrJson {
-    def payloadType = PayloadType.Text
+    def payloadType: PayloadType.Text.type = PayloadType.Text
   }
 
   object Text {
 
-    implicit val codecText: Codec[Text] = utf8.as[Payload.Text]
+    implicit val codecText: Codec[Text] = utf8.as[Text]
 
   }
 
 
   final case class Json(value: JsValue) extends TextOrJson {
-    def payloadType = PayloadType.Json
+    def payloadType: PayloadType.Json.type = PayloadType.Json
   }
 
   object Json {

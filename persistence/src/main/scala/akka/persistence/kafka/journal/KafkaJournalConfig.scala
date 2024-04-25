@@ -66,7 +66,7 @@ object KafkaJournalConfig {
 
     val configReader = deriveReader[KafkaJournalConfig]
 
-    cursor: ConfigCursor => {
+    (cursor: ConfigCursor) => {
       for {
         cursor  <- cursor.asObjectCursor
         config   = cursor.objValue.toConfig

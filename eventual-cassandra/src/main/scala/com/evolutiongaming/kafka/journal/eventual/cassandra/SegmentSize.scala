@@ -72,7 +72,7 @@ object SegmentSize {
 
 
   implicit val configReaderSegmentSize: ConfigReader[SegmentSize] = {
-    cursor: ConfigCursor => {
+    (cursor: ConfigCursor) => {
       for {
         value       <- cursor.asInt
         segmentSize  = of[Either[String, *]](value)

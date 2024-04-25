@@ -28,9 +28,9 @@ class PayloadAndTypeSpec extends AnyFunSuite with Matchers {
 
   def binary(a: String): Payload.Binary = PayloadBinaryFromStr(a)
 
-  private implicit val fromAttempt = FromAttempt.lift[Try]
+  private implicit val fromAttempt: FromAttempt[Try] = FromAttempt.lift[Try]
   
-  private implicit val fromJsResult = FromJsResult.lift[Try]
+  private implicit val fromJsResult: FromJsResult[Try] = FromJsResult.lift[Try]
 
   private val payloadMetadata = PayloadMetadata(
     1.day.toExpireAfter.some,

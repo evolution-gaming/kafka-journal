@@ -6,6 +6,7 @@ import akka.persistence.journal.JournalPerfSpec.Cmd
 import akka.serialization.SerializerWithStringManifest
 import scodec.bits.BitVector
 import scodec.{Codec, codecs}
+import scodec.*
 
 class PersistenceTckSerializer extends SerializerWithStringManifest {
   import PersistenceTckSerializer._

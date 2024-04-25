@@ -9,8 +9,8 @@ lazy val commonSettings = Seq(
 
   crossScalaVersions := Seq("2.13.13"),
   scalaVersion := crossScalaVersions.value.head,
-//  scalacOptions := Seq("-release:17", "-Xsource:3-cross"),
-  scalacOptsFailOnWarn := Some(false),
+  scalacOptions ++= Seq("-release:17", "-Xsource:3-cross", "-deprecation"), // TODO MR remove `-deprecation`
+  scalacOptsFailOnWarn := Some(false), // TODO remove this and resolve all deprecations
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
   publishTo := Some(Resolver.evolutionReleases),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
@@ -156,7 +156,8 @@ lazy val `tests` = (project in file("tests")
     publish / skip  := true,
     Test / fork := true,
     Test / parallelExecution := false,
-    Test / javaOptions ++= Seq("-Xms3G", "-Xmx3G"))
+    Test / javaOptions ++= Seq("-Xms3G", "-Xmx3G"),
+    Test / envVars ++= Map("TESTCONTAINERS_RYUK_DISABLED" -> "true"))
   dependsOn (
     persistence % "test->test;compile->compile",
     `persistence-circe`,

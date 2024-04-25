@@ -609,7 +609,7 @@ object JournalSpec {
 
 
     val produceAction: ProduceAction[StateT] = {
-      action: Action => {
+      (action: Action) => {
         StateT { state =>
           val offset = Offset.unsafe(state.records.size)
           val partitionOffset = PartitionOffset(partition = partition, offset = offset)
@@ -675,7 +675,7 @@ object JournalSpec {
             val partitionOffset = PartitionOffset(partition, record.offset)
             EventRecord(action, event.map(eventualWrite(_).get), partitionOffset, events1.metadata)
           }
-          copy(events = events.enqueue(batch.toList), offset = offset.some)
+          copy(events = events.enqueueAll(batch.toList), offset = offset.some)
         }
 
         def onDelete(action: Action.Delete) = {

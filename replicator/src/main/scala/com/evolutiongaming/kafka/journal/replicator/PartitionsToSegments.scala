@@ -28,7 +28,7 @@ object PartitionsToSegments {
       }
     }
 
-    partitions: Nes[Partition] => {
+    (partitions: Nes[Partition]) => {
       for {
         partition <- partitions.toSortedSet
         segmentNr <- segmentNrs

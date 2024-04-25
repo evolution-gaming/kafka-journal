@@ -100,7 +100,7 @@ object TopicReplicatorMetrics {
       roundRecordsSummary <- roundRecordsSummary
     } yield {
 
-      topic: Topic => {
+      (topic: Topic) => {
 
         def observeMeasurements(name: String, measurements: Measurements) = {
           for {

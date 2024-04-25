@@ -64,7 +64,7 @@ object KafkaSingleton {
 
 
   def topicFlowOf[F[_] : Concurrent, A](a: Resource[F, Unit]): TopicFlowOf[F] = {
-    _: Topic => {
+    (_: Topic) => {
       Resource
         .make {
           Ref[F].of(none[F[Unit]])
