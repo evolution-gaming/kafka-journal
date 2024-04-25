@@ -78,7 +78,7 @@ object TestTemporal {
     }
 
     override def uncancelable[A](body: Poll[StateT[S, *]] => StateT[S, A]): StateT[S, A] = body(new Poll[StateT[S, *]] {
-      override def apply[X](fa: StateT[S, X]): StateT[S, X] = of { s: S =>
+      override def apply[X](fa: StateT[S, X]): StateT[S, X] = of { (s: S) =>
         fa.run(s).uncancelable
       }
     })

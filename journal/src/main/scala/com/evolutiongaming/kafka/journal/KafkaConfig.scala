@@ -53,7 +53,7 @@ object KafkaConfig {
 
   def configReader(default: => KafkaConfig): ConfigReader[KafkaConfig] = {
 
-    cursor: ConfigCursor => {
+    (cursor: ConfigCursor) => {
       for {
         cursor <- cursor.asObjectCursor
       } yield {

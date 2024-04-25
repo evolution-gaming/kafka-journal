@@ -28,7 +28,7 @@ object KafkaWrite {
     eventsToBytes: ToBytes[F, Events[Payload]],
     payloadJsonToBytes: ToBytes[F, PayloadJson[JsValue]]
   ): KafkaWrite[F, Payload] = {
-    events: Events[Payload] => {
+    (events: Events[Payload]) => {
 
       /** Safely cast an argument to `Event[Payload.TextOrJson]`,
         * or returns `None` if payload is binary instead.
@@ -96,7 +96,7 @@ object KafkaWrite {
     payloadJsonToBytes: ToBytes[F, PayloadJson[B]]
   ): KafkaWrite[F, A] = {
 
-    events: Events[A] => {
+    (events: Events[A]) => {
 
       def eventJson(event: Event[A]): EventJson[B] = {
 

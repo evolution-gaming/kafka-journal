@@ -15,7 +15,7 @@ object ProduceAction {
     producer: Journals.Producer[F])(implicit
     actionToProducerRecord: ActionToProducerRecord[F]
   ): ProduceAction[F] = {
-    action: Action => {
+    (action: Action) => {
       for {
         producerRecord  <- actionToProducerRecord(action)
         partitionOffset <- producer.send(producerRecord)

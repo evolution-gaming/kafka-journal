@@ -338,7 +338,7 @@ object EventualJournal {
         def read(key: Key, from: SeqNr) = {
           self
             .read(key, from)
-            .handleErrorWith { a: Throwable => error[EventRecord[EventualPayloadAndType]](s"read key: $key, from: $from", a).toStream }
+            .handleErrorWith { (a: Throwable) => error[EventRecord[EventualPayloadAndType]](s"read key: $key, from: $from", a).toStream }
         }
 
         def pointer(key: Key) = {
@@ -356,7 +356,7 @@ object EventualJournal {
         def offset(topic: Topic, partition: Partition): F[Option[Offset]] = {
           self
             .offset(topic, partition)
-            .handleErrorWith { a =>
+            .handleErrorWith { (a) =>
               error(s"offset topic: $topic, partition $partition", a)
             }
         }

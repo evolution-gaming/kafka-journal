@@ -6,6 +6,8 @@ import cats.{FlatMap, ~>}
 import com.evolutiongaming.catshelper.{Log, MeasureDuration}
 import com.evolutiongaming.sstream.Stream
 
+import scala.annotation.nowarn
+
 
 trait Settings[F[_]] {
 
@@ -62,6 +64,7 @@ object Settings {
           } yield r
         }
 
+        @nowarn
         def setIfEmpty(key: K, value: V) = {
           for {
             d <- MeasureDuration[F].start
@@ -102,6 +105,7 @@ object Settings {
 
       def set(key: K, value: V) = fg(self.set(key, value))
 
+      @nowarn
       def setIfEmpty(key: K, value: V) = fg(self.setIfEmpty(key, value))
 
       def remove(key: K) = fg(self.remove(key))

@@ -14,7 +14,7 @@ object AppendMarker {
     produce: Produce[F],
   ): AppendMarker[F] = {
 
-    key: Key => {
+    (key: Key) => {
       for {
         randomId        <- RandomIdOf[F].apply
         partitionOffset <- produce.mark(key, randomId)

@@ -135,7 +135,7 @@ object CassandraSession {
         def execute(statement: Statement) = {
           self
             .execute(statement)
-            .handleErrorWith { a: Throwable => error[Row](s"execute statement: $statement", a).toStream }
+            .handleErrorWith { (a: Throwable) => error[Row](s"execute statement: $statement", a).toStream }
         }
 
         def unsafe = self.unsafe

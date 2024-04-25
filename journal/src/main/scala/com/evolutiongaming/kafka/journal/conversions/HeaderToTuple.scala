@@ -16,7 +16,7 @@ object HeaderToTuple {
   implicit def apply[F[_] : ApplicativeThrowable](implicit
     stringFromBytes: FromBytes[F, String],
   ): HeaderToTuple[F] = {
-    header: Header => {
+    (header: Header) => {
       val bytes = ByteVector.view(header.value)
       stringFromBytes(bytes)
         .map { value => (header.key, value) }

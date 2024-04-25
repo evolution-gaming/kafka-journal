@@ -89,7 +89,7 @@ object CreateTables { self =>
 
   object Table {
 
-    implicit val orderTable: Order[Table] = Order.by { a: Table => a.name }
+    implicit val orderTable: Order[Table] = Order.by { (a: Table) => a.name }
 
     def apply(name: String, query: String): Table = Table(name, Nel.of(query))
   }

@@ -86,7 +86,7 @@ object ActionHeader {
     }
   }
 
-  implicit val writesActionHeader: Writes[ActionHeader] = formatOptActionHeader.contramap { a: ActionHeader => a.some }
+  implicit val writesActionHeader: Writes[ActionHeader] = formatOptActionHeader.contramap { (a: ActionHeader) => a.some }
 
 
   implicit def toBytesActionHeader[F[_] : JsonCodec.Encode]: ToBytes[F, ActionHeader] = ToBytes.fromWrites

@@ -21,7 +21,7 @@ object ConsRecordToActionRecord {
     headerToTuple: HeaderToTuple[F],
   ): ConsRecordToActionRecord[F] = {
 
-    consRecord: ConsRecord => {
+    (consRecord: ConsRecord) => {
 
       def action(key: Key, timestamp: Instant, header: ActionHeader) = {
 

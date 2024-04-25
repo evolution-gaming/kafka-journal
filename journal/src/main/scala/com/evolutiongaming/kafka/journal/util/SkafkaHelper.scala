@@ -31,12 +31,12 @@ object SkafkaHelper {
   }
 
 
-  implicit val encodeByNamePartition: EncodeByName[Partition] = EncodeByName[Int].contramap { a: Partition => a.value }
+  implicit val encodeByNamePartition: EncodeByName[Partition] = EncodeByName[Int].contramap { (a: Partition) => a.value }
 
   implicit val decodeByNamePartition: DecodeByName[Partition] = DecodeByName[Int].map { a => Partition.of[Try](a).get }
 
 
-  implicit val encodeByNameOffset: EncodeByName[Offset] = EncodeByName[Long].contramap { a: Offset => a.value }
+  implicit val encodeByNameOffset: EncodeByName[Offset] = EncodeByName[Long].contramap { (a: Offset) => a.value }
 
   implicit val decodeByNameOffset: DecodeByName[Offset] = DecodeByName[Long].map { a => Offset.of[Try](a).get }
 
