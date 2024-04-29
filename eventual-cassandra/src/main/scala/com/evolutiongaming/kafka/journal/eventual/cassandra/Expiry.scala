@@ -25,7 +25,7 @@ object Expiry {
   implicit val decodeByNameOptExpireOn: DecodeByName[Option[ExpireOn]] = DecodeByName.optDecodeByName[ExpireOn]
 
 
-  implicit val encodeByNameExpireAfter: EncodeByName[ExpireAfter] = EncodeByName[FiniteDuration].contramap { a: ExpireAfter => a.value }
+  implicit val encodeByNameExpireAfter: EncodeByName[ExpireAfter] = EncodeByName[FiniteDuration].contramap { (a: ExpireAfter) => a.value }
 
   implicit val decodeByNameExpireAfter: DecodeByName[ExpireAfter] = DecodeByName[FiniteDuration].map { _.toExpireAfter }
 
@@ -36,7 +36,7 @@ object Expiry {
 
 
   implicit val decodeRowExpiryOpt: DecodeRow[Option[Expiry]] = {
-    row: GettableByNameData => {
+    (row: GettableByNameData) => {
       for {
         expireAfter <- row.decode[Option[ExpireAfter]]("expire_after")
         expireOn    <- row.decode[Option[ExpireOn]]("expire_on")

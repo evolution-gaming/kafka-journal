@@ -126,7 +126,7 @@ object Replicator {
             // TODO
             registry.allocate {
               val fiber = for {
-                fiber <- StartResource(topicReplicator) { outcomeF: F[Outcome[F, Throwable, Unit]] =>
+                fiber <- StartResource(topicReplicator) { (outcomeF: F[Outcome[F, Throwable, Unit]]) =>
                   outcomeF.flatTap {
                     case Outcome.Errored(e) => error.set(e.raiseError[F, Unit])
                     case _                  => Concurrent[F].unit

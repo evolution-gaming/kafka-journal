@@ -29,7 +29,7 @@ object TopicCommit {
     metadata: String,
     consumer: KafkaConsumer[F, _, _],
   ): TopicCommit[F] = {
-    offsets: Nem[Partition, Offset] => {
+    (offsets: Nem[Partition, Offset]) => {
       val offsets1 = offsets.mapKV { (partition, offset) =>
         val offset1 = OffsetAndMetadata(offset, metadata)
         val partition1 = TopicPartition(topic, partition)

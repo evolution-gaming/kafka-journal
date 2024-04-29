@@ -24,7 +24,7 @@ trait StreamActionRecords[F[_]] {
 object StreamActionRecords {
 
   def empty[F[_] : Applicative]: StreamActionRecords[F] = {
-    _: Option[Offset] => Stream.empty[F, ActionRecord[Action.User]]
+    (_: Option[Offset]) => Stream.empty[F, ActionRecord[Action.User]]
   }
 
   /** Creates a reader for events not yet replicated to Cassandra.

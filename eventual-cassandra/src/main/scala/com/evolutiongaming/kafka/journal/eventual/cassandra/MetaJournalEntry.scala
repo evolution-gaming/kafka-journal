@@ -16,7 +16,7 @@ final case class MetaJournalEntry(
 object MetaJournalEntry {
 
   implicit def decodeRowMetaJournalEntry(implicit decode: DecodeRow[JournalHead]): DecodeRow[MetaJournalEntry] = {
-    row: GettableByNameData => {
+    (row: GettableByNameData) => {
       MetaJournalEntry(
         journalHead = row.decode[JournalHead],
         created = row.decode[Instant]("created"),

@@ -28,7 +28,7 @@ object SettingStatements {
   }
 
   implicit val decodeRowSetting: DecodeRow[Setting] = {
-    data: GettableByNameData => {
+    (data: GettableByNameData) => {
       Setting(
         key = data.decode[Key]("key"),
         value = data.decode[Value]("value"),
@@ -64,7 +64,7 @@ object SettingStatements {
       for {
         prepared <- query.prepare
       } yield {
-        key: Key =>
+        (key: Key) =>
           val bound = prepared
             .bind()
             .encode("key", key)
@@ -121,7 +121,7 @@ object SettingStatements {
       for {
         prepared <- query.prepare
       } yield {
-        setting: Setting =>
+        (setting: Setting) =>
           val bound = prepared
             .bind()
             .encode(setting)
@@ -147,7 +147,7 @@ object SettingStatements {
       for {
         prepared <- query.prepare
       } yield {
-        setting: Setting =>
+        (setting: Setting) =>
           val bound = prepared
             .bind()
             .encode(setting)
@@ -177,7 +177,7 @@ object SettingStatements {
       for {
         prepared <- query.prepare
       } yield {
-        key: Key =>
+        (key: Key) =>
           val bound = prepared
             .bind()
             .encode("key", key)

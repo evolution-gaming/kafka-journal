@@ -22,7 +22,7 @@ object TopicFlowOf {
                   (implicit
                    B: MonadCancel[F, Throwable],
                    BG: MonadCancel[G, Throwable]): TopicFlowOf[G] = {
-      topic: Topic => self(topic).map(_.mapK(f)).mapK(f)
+      (topic: Topic) => self(topic).map(_.mapK(f)).mapK(f)
     }
   }
 }

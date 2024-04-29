@@ -7,14 +7,14 @@ import com.evolutiongaming.skafka.producer.{Acks, CompressionType, ProducerConfi
 import com.typesafe.config.ConfigFactory
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
-import pureconfig.ConfigSource
+import pureconfig.{ConfigReader, ConfigSource}
 
 import scala.concurrent.duration._
 
 
 class KafkaConfigTest extends AnyFunSuite with Matchers {
 
-  private implicit val configReader = KafkaConfig.configReader(KafkaConfig.default)
+  private implicit val configReader: ConfigReader[KafkaConfig] = KafkaConfig.configReader(KafkaConfig.default)
 
   test("configReader from empty config") {
     val config = ConfigFactory.empty()

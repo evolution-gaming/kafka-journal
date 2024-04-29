@@ -24,7 +24,6 @@ project/plugins/project/
 
 # Visual Studio Code
 .bloop
-.history
 .metals
 .vscode
 metals.sbt

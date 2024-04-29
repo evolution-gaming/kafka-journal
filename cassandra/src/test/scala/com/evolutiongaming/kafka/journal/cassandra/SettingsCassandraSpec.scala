@@ -101,11 +101,11 @@ class SettingsCassandraSpec extends AnyFunSuite {
   private val settings = {
 
     val statements = SettingsCassandra.Statements(
-      select = Database.select,
-      insert = Database.insert,
-      insertIfEmpty = Database.insertIfEmpty,
+      select = Database.select(_),
+      insert = Database.insert(_),
+      insertIfEmpty = Database.insertIfEmpty(_),
       all = Database.all,
-      delete = Database.delete)
+      delete = Database.delete(_))
 
     implicit val clock = Clock.const[F](nanos = 0, millis = timestamp.toEpochMilli)
 

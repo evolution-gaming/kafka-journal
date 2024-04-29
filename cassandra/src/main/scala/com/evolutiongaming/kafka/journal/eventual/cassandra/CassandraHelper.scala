@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-
 import cats.Applicative
 import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._

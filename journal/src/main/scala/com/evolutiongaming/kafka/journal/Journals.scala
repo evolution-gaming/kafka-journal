@@ -408,7 +408,7 @@ object Journals {
       toBytesKey: skafka.ToBytes[F, String],
       toBytesValue: skafka.ToBytes[F, ByteVector],
     ): Producer[F] = {
-      record: ProducerRecord[String, ByteVector] => {
+      (record: ProducerRecord[String, ByteVector]) => {
         for {
           metadata  <- producer.send(record)(toBytesKey, toBytesValue)
           partition  = metadata.topicPartition.partition
@@ -484,7 +484,7 @@ object Journals {
       F: FlatMap[F],
       measureDuration: MeasureDuration[F]
     ): Journals[F] = {
-      key: Key => self(key).withLog(key, log, config)
+      (key: Key) => self(key).withLog(key, log, config)
     }
 
 
@@ -493,7 +493,7 @@ object Journals {
       F: MonadThrowable[F],
       measureDuration: MeasureDuration[F]
     ): Journals[F] = {
-      key: Key => self(key).withLogError(key, log)
+      (key: Key) => self(key).withLogError(key, log)
     }
 
 
@@ -502,12 +502,12 @@ object Journals {
       F: MonadThrowable[F],
       measureDuration: MeasureDuration[F]
     ): Journals[F] = {
-      key: Key => self(key).withMetrics(key.topic, metrics)
+      (key: Key) => self(key).withMetrics(key.topic, metrics)
     }
 
 
     def mapK[G[_]](fg: F ~> G, gf: G ~> F): Journals[G] = {
-      key: Key => self(key).mapK(fg, gf)
+      (key: Key) => self(key).mapK(fg, gf)
     }
   }
 }

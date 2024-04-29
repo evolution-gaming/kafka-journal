@@ -146,7 +146,7 @@ object ConsumeTopicTest {
 
 
   val topicFlowOf: TopicFlowOf[StateT] = {
-    topic: Topic => {
+    (topic: Topic) => {
       val result = StateT.pure { state =>
         val state1 = state + Action.AcquireTopicFlow(topic)
         val release = StateT.unit {

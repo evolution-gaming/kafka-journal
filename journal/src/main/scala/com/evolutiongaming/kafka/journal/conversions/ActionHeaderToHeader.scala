@@ -15,7 +15,7 @@ object ActionHeaderToHeader {
   implicit def apply[F[_] : ApplicativeThrowable](implicit
     actionHeaderToBytes: ToBytes[F, ActionHeader]
   ): ActionHeaderToHeader[F] = {
-    actionHeader: ActionHeader => {
+    (actionHeader: ActionHeader) => {
       val result = for {
         bytes <- actionHeaderToBytes(actionHeader)
       } yield {

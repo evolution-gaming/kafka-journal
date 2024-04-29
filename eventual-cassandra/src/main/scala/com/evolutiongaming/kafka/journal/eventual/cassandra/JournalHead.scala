@@ -26,7 +26,7 @@ final case class JournalHead(
 object JournalHead {
 
   implicit def decodeRowJournalHead(implicit decode: DecodeRow[Option[Expiry]]): DecodeRow[JournalHead] = {
-    row: GettableByNameData => {
+    (row: GettableByNameData) => {
       JournalHead(
         partitionOffset = row.decode[PartitionOffset],
         segmentSize = row.decode[SegmentSize],

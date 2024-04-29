@@ -27,7 +27,7 @@ object KafkaRead {
     payloadJsonFromBytes: FromBytes[F, PayloadJson[JsValue]]
   ): KafkaRead[F, Payload] = {
 
-    payloadAndType: PayloadAndType => {
+    (payloadAndType: PayloadAndType) => {
 
       def fromEventJsonPayload(jsonPayload: EventJsonPayloadAndType[JsValue]) = {
         def text = {
@@ -60,7 +60,7 @@ object KafkaRead {
     fromEventJsonPayload: EventJsonPayloadAndType[A] => F[B]
   ): KafkaRead[F, B] = {
 
-    payloadAndType: PayloadAndType => {
+    (payloadAndType: PayloadAndType) => {
 
       def events(payloadJson: PayloadJson[A]) = {
         payloadJson.events.traverse { event =>

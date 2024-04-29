@@ -9,7 +9,6 @@ object Dependencies {
   val `play-json`                 = "com.typesafe.play"      %% "play-json"             % "2.9.3"
   val `play-json-jsoniter`        = "com.evolutiongaming"    %% "play-json-jsoniter"    % "0.10.2"
   val `executor-tools`            = "com.evolutiongaming"    %% "executor-tools"        % "1.0.3"
-  val `config-tools`              = "com.evolutiongaming"    %% "config-tools"          % "1.0.3"
   val `akka-serialization`        = "com.evolutiongaming"    %% "akka-serialization"    % "1.0.5"
   val `future-helper`             = "com.evolutiongaming"    %% "future-helper"         % "1.0.6"
   val `kafka-launcher`            = "com.evolutiongaming"    %% "kafka-launcher"        % "0.2.0"
@@ -32,7 +31,7 @@ object Dependencies {
   }
 
   object Logback {
-    private val version = "1.4.5"
+    private val version = "1.5.6"
     val core    = "ch.qos.logback" % "logback-core"    % version
     val classic = "ch.qos.logback" % "logback-classic" % version
   }
@@ -44,7 +43,7 @@ object Dependencies {
   }
 
   object Akka {
-    private val version = "2.6.13"
+    private val version = "2.6.20"
     val actor             = "com.typesafe.akka" %% "akka-actor"           % version
     val testkit           = "com.typesafe.akka" %% "akka-testkit"         % version
     val stream            = "com.typesafe.akka" %% "akka-stream"          % version

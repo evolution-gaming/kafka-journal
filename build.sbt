@@ -2,17 +2,20 @@ import Dependencies._
 
 lazy val commonSettings = Seq(
   organization := "com.evolutiongaming",
-  homepage := Some(new URL("http://github.com/evolution-gaming/kafka-journal")),
-  startYear := Some(2018),
   organizationName := "Evolution",
-  organizationHomepage := Some(url("http://evolution.com")),
-  publishTo := Some(Resolver.evolutionReleases),
-  scalaVersion := crossScalaVersions.value.head,
+  organizationHomepage := Some(url("https://evolution.com")),
+  homepage := Some(url("https://github.com/evolution-gaming/kafka-journal")),
+  startYear := Some(2018),
+
   crossScalaVersions := Seq("2.13.13"),
-  Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
+  scalaVersion := crossScalaVersions.value.head,
+  scalacOptions ++= Seq("-release:17", "-deprecation"), // TODO https://github.com/evolution-gaming/kafka-journal/issues/611
   scalacOptsFailOnWarn := Some(false),
+  Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
+  publishTo := Some(Resolver.evolutionReleases),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   releaseCrossBuild := true,
+
   Test / testOptions ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM")),
   libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full),
   libraryDependencySchemes ++= Seq(
@@ -22,11 +25,14 @@ lazy val commonSettings = Seq(
   versionScheme := Some("early-semver"),
   versionPolicyIntention := Compatibility.BinaryCompatible)
 
+val alias: Seq[sbt.Def.Setting[_]] =
+  addCommandAlias("build", "all compile test")
 
 lazy val root = (project in file(".")
   settings (name := "kafka-journal")
   settings commonSettings
   settings (publish / skip  := true)
+  settings alias
   aggregate(
     `scalatest-io`,
     core,
@@ -150,7 +156,8 @@ lazy val `tests` = (project in file("tests")
     publish / skip  := true,
     Test / fork := true,
     Test / parallelExecution := false,
-    Test / javaOptions ++= Seq("-Xms3G", "-Xmx3G"))
+    Test / javaOptions ++= Seq("-Xms3G", "-Xmx3G"),
+    Test / envVars ++= Map("TESTCONTAINERS_RYUK_DISABLED" -> "true"))
   dependsOn (
     persistence % "test->test;compile->compile",
     `persistence-circe`,

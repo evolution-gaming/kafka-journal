@@ -7,7 +7,6 @@ import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import scodec.bits.ByteVector
 import scodec.{Codec, codecs}
 
-
 final case class Events[A](events: Nel[Event[A]], metadata: PayloadMetadata)
 
 object Events {

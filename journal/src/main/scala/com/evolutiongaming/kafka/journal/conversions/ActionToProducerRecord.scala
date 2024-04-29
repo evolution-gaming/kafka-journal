@@ -19,7 +19,7 @@ object ActionToProducerRecord {
     tupleToHeader: TupleToHeader[F]
   ): ActionToProducerRecord[F] = {
 
-    action: Action => {
+    (action: Action) => {
       val key = action.key
       val result = for {
         header  <- actionHeaderToHeader(action.header)

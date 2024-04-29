@@ -24,7 +24,7 @@ object KafkaProducerOf {
 
 
   def apply[F[_]: Monad](producerOf: ProducerOf[F]): KafkaProducerOf[F] = {
-    config: ProducerConfig => {
+    (config: ProducerConfig) => {
       for {
         producer <- producerOf(config)
       } yield {

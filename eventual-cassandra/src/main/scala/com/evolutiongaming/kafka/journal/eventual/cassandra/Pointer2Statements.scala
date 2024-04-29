@@ -70,7 +70,7 @@ object Pointer2Statements {
 
     object Result {
       implicit val decodeResult: DecodeRow[Result] = {
-        row: GettableByNameData => {
+        (row: GettableByNameData) => {
           Result(row.decode[Option[Instant]]("created"))
         }
       }

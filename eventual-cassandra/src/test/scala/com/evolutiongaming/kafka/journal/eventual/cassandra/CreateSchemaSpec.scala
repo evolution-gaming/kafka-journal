@@ -2,7 +2,6 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.data.{NonEmptyList => Nel, State}
 import cats.syntax.all._
-import com.evolutiongaming.kafka.journal.cassandra.KeyspaceConfig
 import com.evolutiongaming.scassandra.TableName
 import org.scalatest.funsuite.AnyFunSuite
 

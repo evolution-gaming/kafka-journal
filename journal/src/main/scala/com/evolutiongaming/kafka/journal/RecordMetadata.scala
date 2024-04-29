@@ -16,7 +16,7 @@ object RecordMetadata {
 
   implicit val formatRecordMetadata: OFormat[RecordMetadata] = {
     val format = Json.format[RecordMetadata]
-    val reads = format.orElse { json: JsValue =>
+    val reads = format.orElse { (json: JsValue) =>
       json
         .validate[HeaderMetadata]
         .map { a => RecordMetadata(a, PayloadMetadata.empty) }

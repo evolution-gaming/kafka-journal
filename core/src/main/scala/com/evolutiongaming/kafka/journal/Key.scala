@@ -20,8 +20,8 @@ object Key {
   implicit val showKey: Show[Key] = Show.fromToString
 
   implicit val orderKey: Order[Key] = Order.whenEqual(
-    Order.by { a: Key => a.topic },
-    Order.by { a: Key => a.id })
+    Order.by { (a: Key) => a.topic },
+    Order.by { (a: Key) => a.id })
 
   implicit val orderingKey: Ordering[Key] = orderKey.toOrdering
 
