@@ -356,9 +356,7 @@ object EventualJournal {
         def offset(topic: Topic, partition: Partition): F[Option[Offset]] = {
           self
             .offset(topic, partition)
-            .handleErrorWith { (a) =>
-              error(s"offset topic: $topic, partition $partition", a)
-            }
+            .handleErrorWith { a => error(s"offset topic: $topic, partition $partition", a) }
         }
       }
     }
