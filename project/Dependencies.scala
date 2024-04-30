@@ -10,7 +10,6 @@ object Dependencies {
   val `play-json-jsoniter`        = "com.evolutiongaming"    %% "play-json-jsoniter"    % "0.10.2"
   val `executor-tools`            = "com.evolutiongaming"    %% "executor-tools"        % "1.0.3"
   val `akka-serialization`        = "com.evolutiongaming"    %% "akka-serialization"    % "1.0.5"
-  val `future-helper`             = "com.evolutiongaming"    %% "future-helper"         % "1.0.6"
   val `kafka-launcher`            = "com.evolutiongaming"    %% "kafka-launcher"        % "0.2.0"
   val `testcontainers-cassandra`  = "com.dimafeng"           %% "testcontainers-scala-cassandra"  % "0.41.3"
   val hostname                    = "com.evolutiongaming"    %% "hostname"              % "0.2.0"
