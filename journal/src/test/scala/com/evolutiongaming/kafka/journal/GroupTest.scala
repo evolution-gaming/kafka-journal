@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal
 import cats.effect.kernel.Ref
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.{Deferred, IO, Temporal}
-import cats.effect.syntax.all._
 import cats.syntax.all._
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers

@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal.cassandra
 
 import cats.effect.IO
-import cats.effect.syntax.all._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.IOSuite._

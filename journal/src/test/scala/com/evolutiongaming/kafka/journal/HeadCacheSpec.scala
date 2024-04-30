@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal
 import java.time.Instant
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.effect.{Concurrent, IO, Outcome, Ref, Resource, Temporal}
-import cats.effect.syntax.resource._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers

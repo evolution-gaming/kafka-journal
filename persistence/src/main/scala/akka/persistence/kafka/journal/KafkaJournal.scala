@@ -4,7 +4,6 @@ import akka.actor.ActorSystem
 import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.effect._
-import cats.effect.syntax.resource._
 import cats.effect.unsafe.{IORuntime, IORuntimeConfig}
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.CatsHelper._

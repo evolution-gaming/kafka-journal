@@ -5,7 +5,6 @@ import akka.persistence.kafka.journal.KafkaJournalConfig
 import cats.Monad
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.IO
-import cats.effect.syntax.resource._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.catshelper.FromFuture

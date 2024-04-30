@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal
 
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.IO
-import cats.effect.syntax.resource._
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.catshelper.ParallelHelper._
