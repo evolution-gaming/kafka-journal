@@ -20,7 +20,8 @@ lazy val commonSettings = Seq(
   libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full),
   libraryDependencySchemes ++= Seq(
     "org.scala-lang.modules" %% "scala-java8-compat" % "always",
-    "org.scala-lang.modules" %% "scala-xml"          % "always"),
+    "org.scala-lang.modules" %% "scala-xml"          % "always",
+    "com.evolutiongaming"    %% "scassandra"         % "semver-spec"),
   autoAPIMappings := true,
   versionScheme := Some("early-semver"),
   versionPolicyIntention := Compatibility.BinaryCompatible)
