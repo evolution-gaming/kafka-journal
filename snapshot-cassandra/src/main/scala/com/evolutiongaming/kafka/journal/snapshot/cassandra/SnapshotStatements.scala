@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.snapshot.cassandra
 
-import cats.Monad
 import cats.syntax.all._
+import cats.{Monad, MonadThrow}
 import com.datastax.driver.core.Row
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
@@ -42,7 +42,8 @@ object SnapshotStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: CassandraConsistencyConfig.Write
+      consistencyConfig: CassandraConsistencyConfig.Write,
+      useLWT: Boolean
     ): F[InsertRecord[F]] = {
 
       implicit val encodeByNameByteVector: EncodeByName[ByteVector] =
@@ -63,7 +64,7 @@ object SnapshotStatements {
            |payload_bin,
            |metadata)
            |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           |IF NOT EXISTS
+           |${if (useLWT) "IF NOT EXISTS" else ""}
            |""".stripMargin
 
       for {
@@ -90,7 +91,12 @@ object SnapshotStatements {
 
         val statement = statementOf(snapshot)
         val row = statement.first
-        row.map(_.fold(false)(_.wasApplied))
+
+        if (useLWT) {
+          row.map(_.fold(false)(_.wasApplied))
+        } else {
+          row.as(true)
+        }
       }
     }
   }
@@ -108,7 +114,8 @@ object SnapshotStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: CassandraConsistencyConfig.Write
+      consistencyConfig: CassandraConsistencyConfig.Write,
+      useLWT: Boolean
     ): F[UpdateRecord[F]] = {
 
       implicit val encodeByNameByteVector: EncodeByName[ByteVector] =
@@ -128,7 +135,7 @@ object SnapshotStatements {
            |WHERE id = :id
            |AND topic = :topic
            |AND buffer_idx = :buffer_idx
-           |IF seq_nr = :delete_seq_nr
+           |${if (useLWT) "IF seq_nr = :delete_seq_nr" else ""}
            |""".stripMargin
 
       for {
@@ -144,7 +151,7 @@ object SnapshotStatements {
             .encode(key)
             .encode(bufferNr)
             .encode("insert_seq_nr", snapshot.seqNr)
-            .encode("delete_seq_nr", deleteSnapshot)
+            .encodeSome("delete_seq_nr", Option.when(useLWT)(deleteSnapshot))
             .encode("timestamp", record.timestamp)
             .encodeSome(record.origin)
             .encodeSome(record.version)
@@ -156,7 +163,12 @@ object SnapshotStatements {
 
         val statement = statementOf(insertSnapshot)
         val row = statement.first
-        row.map(_.fold(false)(_.wasApplied))
+
+        if (useLWT) {
+          row.map(_.fold(false)(_.wasApplied))
+        } else {
+          row.as(true)
+        }
       }
     }
   }
@@ -167,9 +179,10 @@ object SnapshotStatements {
 
   object SelectMetadata {
 
-    def of[F[_]: Monad: CassandraSession](
+    def of[F[_]: MonadThrow: CassandraSession](
       name: TableName,
-      consistencyConfig: CassandraConsistencyConfig.Read
+      consistencyConfig: CassandraConsistencyConfig.Read,
+      useLWT: Boolean
     ): F[SelectMetadata[F]] = {
 
       val query =
@@ -183,6 +196,9 @@ object SnapshotStatements {
            |""".stripMargin
 
       for {
+        _ <- MonadThrow[F].raiseWhen(useLWT && !consistencyConfig.value.isSerial) {
+          new IllegalArgumentException("consistencyConfig should be set to SERIAL or LOCAL_SERIAL when useLWT = true")
+        }
         prepared <- query.prepare
       } yield { key =>
         val bound = prepared
@@ -212,9 +228,10 @@ object SnapshotStatements {
 
   object SelectRecord {
 
-    def of[F[_]: Monad: CassandraSession](
+    def of[F[_]: MonadThrow: CassandraSession](
       name: TableName,
-      consistencyConfig: CassandraConsistencyConfig.Read
+      consistencyConfig: CassandraConsistencyConfig.Read,
+      useLWT: Boolean
     ): F[SelectRecord[F]] = {
 
       implicit val decodeByNameByteVector: DecodeByName[ByteVector] =
@@ -237,6 +254,9 @@ object SnapshotStatements {
            |""".stripMargin
 
       for {
+        _ <- MonadThrow[F].raiseWhen(useLWT && !consistencyConfig.value.isSerial) {
+          new IllegalArgumentException("consistencyConfig should be set to SERIAL or LOCAL_SERIAL when useLWT = true")
+        }
         prepared <- query.prepare
       } yield { (key, bufferNr) =>
         def readPayload(row: Row): EventualPayloadAndType = {
@@ -282,7 +302,11 @@ object SnapshotStatements {
 
   object Delete {
 
-    def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: CassandraConsistencyConfig.Write): F[Delete[F]] = {
+    def of[F[_]: Monad: CassandraSession](
+      name: TableName,
+      consistencyConfig: CassandraConsistencyConfig.Write,
+      useLWT: Boolean
+    ): F[Delete[F]] = {
 
       val query =
         s"""
@@ -290,7 +314,8 @@ object SnapshotStatements {
            |WHERE id = ?
            |AND topic = ?
            |AND buffer_idx = ?
-           |IF EXISTS""".stripMargin
+           |${if (useLWT) "IF EXISTS" else ""}
+           |""".stripMargin
 
       for {
         prepared <- query.prepare
@@ -301,7 +326,12 @@ object SnapshotStatements {
           .encode(bufferNr)
           .setConsistencyLevel(consistencyConfig.value)
           .first
-        row.map(_.fold(false)(_.wasApplied))
+
+        if (useLWT) {
+          row.map(_.fold(false)(_.wasApplied))
+        } else {
+          row.as(true)
+        }
       }
     }
   }

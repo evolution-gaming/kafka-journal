@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.snapshot.cassandra
 import cats.effect.kernel.{Async, Resource, Temporal}
 import cats.effect.syntax.all._
 import cats.syntax.all._
-import cats.{Monad, MonadThrow, Parallel}
+import cats.{MonadThrow, Parallel}
 import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
@@ -22,7 +22,7 @@ object SnapshotCassandra {
   ): Resource[F, SnapshotStore[F]] = {
 
     def store(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) =
-      of(config.schema, origin, config.consistencyConfig, config.numberOfSnapshots)
+      of(config.schema, origin, config.consistencyConfig, config.numberOfSnapshots, config.useLWT)
 
     for {
       cassandraCluster <- CassandraCluster.of[F](config.client, cassandraClusterOf, config.retries)
@@ -36,11 +36,12 @@ object SnapshotCassandra {
     schemaConfig: SnapshotSchemaConfig,
     origin: Option[Origin],
     consistencyConfig: CassandraConsistencyConfig,
-    numberOfSnapshots: Int
+    numberOfSnapshots: Int,
+    useLWT: Boolean
   ): F[SnapshotStore[F]] =
     for {
       schema <- SetupSnapshotSchema[F](schemaConfig, origin, consistencyConfig)
-      statements <- Statements.of[F](schema, consistencyConfig)
+      statements <- Statements.of[F](schema, consistencyConfig, useLWT)
     } yield SnapshotCassandra(statements, numberOfSnapshots)
 
   private sealed abstract class Main
@@ -159,13 +160,13 @@ object SnapshotCassandra {
   )
 
   object Statements {
-    def of[F[_]: Monad: CassandraSession](schema: SnapshotSchema, consistencyConfig: CassandraConsistencyConfig): F[Statements[F]] = {
+    def of[F[_]: MonadThrow: CassandraSession](schema: SnapshotSchema, consistencyConfig: CassandraConsistencyConfig, useLWT: Boolean): F[Statements[F]] = {
       for {
-        insertRecord <- SnapshotStatements.InsertRecord.of[F](schema.snapshot, consistencyConfig.write)
-        updateRecord <- SnapshotStatements.UpdateRecord.of[F](schema.snapshot, consistencyConfig.write)
-        selectRecord <- SnapshotStatements.SelectRecord.of[F](schema.snapshot, consistencyConfig.read)
-        selectMetadata <- SnapshotStatements.SelectMetadata.of[F](schema.snapshot, consistencyConfig.read)
-        deleteRecords <- SnapshotStatements.Delete.of[F](schema.snapshot, consistencyConfig.write)
+        insertRecord <- SnapshotStatements.InsertRecord.of[F](schema.snapshot, consistencyConfig.write, useLWT)
+        updateRecord <- SnapshotStatements.UpdateRecord.of[F](schema.snapshot, consistencyConfig.write, useLWT)
+        selectRecord <- SnapshotStatements.SelectRecord.of[F](schema.snapshot, consistencyConfig.read, useLWT)
+        selectMetadata <- SnapshotStatements.SelectMetadata.of[F](schema.snapshot, consistencyConfig.read, useLWT)
+        deleteRecords <- SnapshotStatements.Delete.of[F](schema.snapshot, consistencyConfig.write, useLWT)
       } yield Statements(insertRecord, updateRecord, selectRecord, selectMetadata, deleteRecords)
     }
   }
