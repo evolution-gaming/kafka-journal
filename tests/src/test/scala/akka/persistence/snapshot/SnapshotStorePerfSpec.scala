@@ -11,6 +11,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 
 import java.nio.charset.StandardCharsets
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import scala.concurrent.duration._
 
 object SnapshotStorePerfSpec {
@@ -238,7 +239,7 @@ abstract class SnapshotStorePerfSpec(config: Config)
         }
         val response = testProbe.expectMsgType[SnapshotsSaved](awaitDuration)
         val duration = response.duration.toNanos / 1000000.0
-        info(s"Average time: ${duration} milliseconds")
+        info(f"Average time: $duration%.2f milliseconds")
         p1 ! ResetCounter
       }
     }
@@ -248,8 +249,8 @@ abstract class SnapshotStorePerfSpec(config: Config)
         benchActor(snapshotCount)
         testProbe.expectMsgType[SnapshotOffer](awaitDuration)
         val finishedAt = Instant.now()
-        val duration = (finishedAt.toEpochMilli - startedAt.toEpochMilli).millis
-        info(s"Recovering snapshot took $duration")
+        val duration = startedAt.until(finishedAt, ChronoUnit.NANOS) / 1000000.0
+        info(f"Recovering snapshot took $duration%.2f milliseconds")
 
         // wait until events recovered
         testProbe.expectMsgType[RecoveryCompleted](awaitDuration)
@@ -267,8 +268,8 @@ abstract class SnapshotStorePerfSpec(config: Config)
         benchActor(snapshotCount)
         testProbe.expectMsg(awaitDuration, EventsFoundAfterSnapshot)
         val finishedAt = Instant.now()
-        val duration = (finishedAt.toEpochMilli - startedAt.toEpochMilli).millis
-        info(s"Recovering snapshot took $duration")
+        val duration = startedAt.until(finishedAt, ChronoUnit.NANOS) / 1000000.0
+        info(f"Recovering snapshot took $duration%.2f milliseconds")
 
         // wait until events recovered
         testProbe.expectMsgType[RecoveryCompleted](awaitDuration)
