@@ -13,7 +13,7 @@ object Dependencies {
   val `kafka-launcher`            = "com.evolutiongaming"    %% "kafka-launcher"        % "0.2.0"
   val `testcontainers-cassandra`  = "com.dimafeng"           %% "testcontainers-scala-cassandra"  % "0.41.3"
   val hostname                    = "com.evolutiongaming"    %% "hostname"              % "0.2.0"
-  val scassandra                  = "com.evolutiongaming"    %% "scassandra"            % "5.2.0"
+  val scassandra                  = "com.evolutiongaming"    %% "scassandra"            % "5.2.1"
   val `cassandra-sync`            = "com.evolutiongaming"    %% "cassandra-sync"        % "3.0.0"
   val `cats-helper`               = "com.evolutiongaming"    %% "cats-helper"           % "3.10.3"
   val random                      = "com.evolutiongaming"    %% "random"                % "1.0.0"
@@ -63,7 +63,7 @@ object Dependencies {
   }
 
   object Smetrics {
-    private val version = "2.0.0"
+    private val version = "2.0.0" // TODO MR mima fail when using 2.2.0
     val smetrics   = "com.evolutiongaming" %% "smetrics"            % version
     val prometheus = "com.evolutiongaming" %% "smetrics-prometheus" % version
   }
@@ -75,7 +75,7 @@ object Dependencies {
   }
 
   object Circe {
-    private val version = "0.13.0"
+    private val version = "0.13.0" // TODO MR mima fail when using 0.14.7
     val core    = "io.circe" %% "circe-core"    % version
     val generic = "io.circe" %% "circe-generic" % version
     val jawn    = "io.circe" %% "circe-jawn"    % version

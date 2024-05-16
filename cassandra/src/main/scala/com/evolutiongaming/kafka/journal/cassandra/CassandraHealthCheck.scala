@@ -17,6 +17,7 @@ import scala.concurrent.duration._
   * The common implementation is to periodically do a simple query and check
   * if it returns an error.
   */
+@deprecated(since = "3.3.10", message = "Use `com.evolutiongaming.scassandra.CassandraHealthCheck` instead")
 trait CassandraHealthCheck[F[_]] {
 
   /** @return `None` if Cassandra healthy, and `Some(error)` otherwise */
