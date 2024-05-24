@@ -1,0 +1,11 @@
+name: Publish new Release
+
+on:
+  release:
+    types: [published]
+    branches: [master]
+
+jobs:
+  release:
+    uses: evolution-gaming/scala-github-actions/.github/workflows/release.yml@v1
+    secrets: inherit
