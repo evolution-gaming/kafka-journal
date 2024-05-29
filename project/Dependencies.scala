@@ -25,7 +25,7 @@ object Dependencies {
   val `resource-pool`             = "com.evolution"          %% "resource-pool"         % "1.0.4"
 
   object Cats {
-    val core   = "org.typelevel" %% "cats-core"   % "2.10.0"
+    val core   = "org.typelevel" %% "cats-core"   % "2.12.0"
     val effect = "org.typelevel" %% "cats-effect" % "3.5.4"
   }
 
