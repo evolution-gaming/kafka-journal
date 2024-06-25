@@ -24,8 +24,11 @@ jobs:
           distribution: 'oracle'
           cache: 'sbt'
 
+      - name: Check code formatting
+        run: sbt clean check
+
       - name: build ${{ matrix.scala }}
-        run: sbt ++${{ matrix.scala }} clean check coverage test
+        run: sbt ++${{ matrix.scala }} clean coverage test
 
       - name: test coverage
         if: success()
