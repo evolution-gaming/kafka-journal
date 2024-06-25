@@ -36,11 +36,3 @@ jobs:
         env:
           COVERALLS_REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COVERALLS_FLAG_NAME: Scala ${{ matrix.scala }}
-
-      - name: slack
-        uses: homoluctus/slatify@master
-        if: failure() && github.ref == 'refs/heads/master'
-        with:
-          type: ${{ job.status }}
-          job_name: Build
-          url: ${{ secrets.SLACK_WEBHOOK }}
