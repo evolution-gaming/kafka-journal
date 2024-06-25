@@ -13,11 +13,11 @@ trait CreateKeyspace[F[_]] {
 
 object CreateKeyspace { self =>
 
-  def empty[F[_] : Applicative]: CreateKeyspace[F] = (_: KeyspaceConfig) => ().pure[F]
+  def empty[F[_]: Applicative]: CreateKeyspace[F] = (_: KeyspaceConfig) => ().pure[F]
 
-  def apply[F[_] : Monad : CassandraCluster : CassandraSession : LogOf]: CreateKeyspace[F] = new CreateKeyspace[F] {
+  def apply[F[_]: Monad: CassandraCluster: CassandraSession: LogOf]: CreateKeyspace[F] = new CreateKeyspace[F] {
 
-    def apply(config: KeyspaceConfig) = {
+    def apply(config: KeyspaceConfig) =
       if (config.autoCreate) {
         val keyspace = config.name
 
@@ -38,6 +38,5 @@ object CreateKeyspace { self =>
       } else {
         ().pure[F]
       }
-    }
   }
 }

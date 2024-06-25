@@ -8,9 +8,7 @@ import scodec.Codec
 
 import scala.util.Try
 
-final case class PayloadMetadata(
-  expireAfter: Option[ExpireAfter] = none,
-  data: Option[JsValue] = none)
+final case class PayloadMetadata(expireAfter: Option[ExpireAfter] = none, data: Option[JsValue] = none)
 
 object PayloadMetadata {
 
@@ -21,9 +19,9 @@ object PayloadMetadata {
   implicit def metadataCodec(implicit jsonCodec: JsonCodec[Try]): Codec[PayloadMetadata] =
     formatCodec[PayloadMetadata]
 
-  implicit def toBytesPayloadMetadata[F[_] : JsonCodec.Encode]: ToBytes[F, PayloadMetadata] =
+  implicit def toBytesPayloadMetadata[F[_]: JsonCodec.Encode]: ToBytes[F, PayloadMetadata] =
     ToBytes.fromWrites
 
-  implicit def fromBytesPayloadMetadata[F[_] : Monad : FromJsResult : JsonCodec.Decode]: FromBytes[F, PayloadMetadata] =
+  implicit def fromBytesPayloadMetadata[F[_]: Monad: FromJsResult: JsonCodec.Decode]: FromBytes[F, PayloadMetadata] =
     FromBytes.fromReads
 }

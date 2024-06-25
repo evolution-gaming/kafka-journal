@@ -14,7 +14,8 @@ object Codecs {
 
   implicit val finiteDurationEncoder: Encoder[FiniteDuration] = Encoder.encodeString.contramap(_.toString)
   implicit val finiteDurationDecoder: Decoder[FiniteDuration] = Decoder.decodeString.emap { str =>
-    Either.catchNonFatal(Duration(str).asInstanceOf[FiniteDuration])
+    Either
+      .catchNonFatal(Duration(str).asInstanceOf[FiniteDuration])
       .leftMap(_ => s"cannot parse FiniteDuration from $str")
   }
 
@@ -39,10 +40,10 @@ object Codecs {
       .toRight(s"No PayloadType.TextOrJson found by $str")
   }
 
-  implicit def eventJsonEncoder[A : Encoder]: Encoder[EventJson[A]] = deriveEncoder
-  implicit def eventJsonDecoder[A : Decoder]: Decoder[EventJson[A]] = deriveDecoder
+  implicit def eventJsonEncoder[A: Encoder]: Encoder[EventJson[A]] = deriveEncoder
+  implicit def eventJsonDecoder[A: Decoder]: Decoder[EventJson[A]] = deriveDecoder
 
-  implicit def payloadJsonEncoder[A : Encoder]: Encoder[PayloadJson[A]] = deriveEncoder
-  implicit def payloadJsonDecoder[A : Decoder]: Decoder[PayloadJson[A]] = deriveDecoder
+  implicit def payloadJsonEncoder[A: Encoder]: Encoder[PayloadJson[A]] = deriveEncoder
+  implicit def payloadJsonDecoder[A: Decoder]: Decoder[PayloadJson[A]] = deriveDecoder
 
 }

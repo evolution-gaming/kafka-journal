@@ -1,16 +1,15 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.effect.{FiberIO, IO, Ref}
 import cats.effect.unsafe.implicits.global
+import cats.effect.{FiberIO, IO, Ref}
 import cats.syntax.all._
+import com.evolutiongaming.kafka.journal.IOSuite._
 import org.scalatest.compatible.Assertion
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
-import com.evolutiongaming.kafka.journal.IOSuite._
 
 import scala.concurrent.TimeoutException
 import scala.concurrent.duration._
-
 
 class DamperTest extends AsyncFunSuite with Matchers {
 
@@ -44,7 +43,7 @@ class DamperTest extends AsyncFunSuite with Matchers {
   test("cancel") {
     val result = for {
       // start -> sleep(1.minute) -> fiber0 -> sleep(0.minutes) -> fiber1
-      ref    <- Ref[IO].of(List(1.minute, 0.minutes))
+      ref <- Ref[IO].of(List(1.minute, 0.minutes))
       damper <- Damper.of[IO] { _ =>
         ref
           .modify {
@@ -66,60 +65,57 @@ class DamperTest extends AsyncFunSuite with Matchers {
       _      <- assertSleeping(fiber2)
 
       delays <- ref.get
-      _      <- IO {
+      _ <- IO {
         assert(
           delays.nonEmpty,
           "delayOf was called more than once, the test result will not be meaningful, " +
-          "consider increasing sleeping delay in `assertSleeping` to ensure the orderly " +
-          "start of fiber0, fiber1 and fiber2")
+            "consider increasing sleeping delay in `assertSleeping` to ensure the orderly " +
+            "start of fiber0, fiber1 and fiber2",
+        )
       }
 
-      _      <- fiber1.cancel
-      _      <- fiber0.cancel
+      _ <- fiber1.cancel
+      _ <- fiber0.cancel
 
-      _      <- fiber2.joinWithNever
-      _      <- damper.release
+      _ <- fiber2.joinWithNever
+      _ <- damper.release
     } yield {}
     result.run()
   }
 
   test("many") {
     val result = for {
-      last    <- Ref[IO].of(0)
-      max     <- Ref[IO].of(0)
-      damper  <- Damper.of[IO] { acquired =>
+      last <- Ref[IO].of(0)
+      max  <- Ref[IO].of(0)
+      damper <- Damper.of[IO] { acquired =>
         val result = for {
           _ <- last.set(acquired)
-          _ <- max.update { _ max acquired }
-        } yield {
-          1.millis
-        }
+          _ <- max.update(_ max acquired)
+        } yield 1.millis
         result.unsafeRunSync()
       }
-      _      <- damper
-        .resource
-        .use { _ => IO.sleep(100.millis) }
+      _ <- damper.resource
+        .use(_ => IO.sleep(100.millis))
         .timeoutTo(1000.millis, IO.unit)
         .parReplicateA(1000)
-      _      <- damper
-        .resource
-        .use { _ => IO.sleep(10.millis) }
+      _ <- damper.resource
+        .use(_ => IO.sleep(10.millis))
         .replicateA(10)
         .parReplicateA(10)
       _      <- damper.acquire
       _      <- damper.release
       result <- last.get
-      _      <- IO { result shouldEqual 0 }
+      _      <- IO(result shouldEqual 0)
       result <- max.get
-      _      <- IO { result should be <= 100 }
-      _      <- IO { result should be >= 10 }
+      _      <- IO(result should be <= 100)
+      _      <- IO(result should be >= 10)
     } yield {}
     result.run()
   }
 
   def assertSleeping(fiber: FiberIO[Unit]): IO[Assertion] =
     fiber.joinWithNever.timeout(100.millis).attempt flatMap { result =>
-      IO { result should matchPattern { case Left(_: TimeoutException) => () } }
+      IO(result should matchPattern { case Left(_: TimeoutException) => () })
     }
 
 }

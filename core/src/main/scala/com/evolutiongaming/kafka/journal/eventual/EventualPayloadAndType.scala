@@ -15,29 +15,28 @@ import scodec.bits.ByteVector
   * payload_txt TEXT,
   * payload_bin BLOB
   * }}}
-  * Where usage of either `payload_txt` or `payload_bin` column depends on
-  * the contents of a `payload` field.
+  * Where usage of either `payload_txt` or `payload_bin` column depends on the contents of a `payload` field.
   *
-  * The `payloadType` field is used to determine how the contents of `payload`
-  * should be treated, i.e. if it should be parsed as JSON.
+  * The `payloadType` field is used to determine how the contents of `payload` should be treated, i.e. if it should be
+  * parsed as JSON.
   */
 final case class EventualPayloadAndType(
   payload: Either[String, ByteVector],
-  payloadType: PayloadType
+  payloadType: PayloadType,
 )
 
 object EventualPayloadAndType {
 
   implicit class EventualPayloadAndTypeOps(val self: EventualPayloadAndType) extends AnyVal {
 
-    def payloadStr[F[_] : Applicative : Fail]: F[String] = self.payload.fold(
+    def payloadStr[F[_]: Applicative: Fail]: F[String] = self.payload.fold(
       _.pure[F],
-      _ => "String expected, but got bytes".fail
+      _ => "String expected, but got bytes".fail,
     )
 
-    def payloadBytes[F[_] : Applicative : Fail]: F[ByteVector] = self.payload.fold(
+    def payloadBytes[F[_]: Applicative: Fail]: F[ByteVector] = self.payload.fold(
       _ => "Bytes expected, but got string".fail,
-      _.pure[F]
+      _.pure[F],
     )
 
   }

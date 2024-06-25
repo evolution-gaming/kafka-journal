@@ -26,11 +26,10 @@ object ActorSystemRef {
 
         def get = promise.future
 
-        def set(a: A) = Future.fromTry { Try { promise.success(a) } }
+        def set(a: A) = Future.fromTry(Try(promise.success(a)))
       }
     }
   }
-
 
   implicit class ActorSystemRefOps[F[_], A](val self: ActorSystemRef[F, A]) extends AnyVal {
 
@@ -42,14 +41,13 @@ object ActorSystemRef {
     }
   }
 
-
   implicit class ActorSystemPromiseFutureOps[A](val self: ActorSystemRef[Future, A]) extends AnyVal {
 
-    def fromFuture[F[_] : FromFuture]: ActorSystemRef[F, A] = new ActorSystemRef[F, A] {
+    def fromFuture[F[_]: FromFuture]: ActorSystemRef[F, A] = new ActorSystemRef[F, A] {
 
-      def get = FromFuture[F].apply { self.get }
+      def get = FromFuture[F].apply(self.get)
 
-      def set(a: A) = FromFuture[F].apply { self.set(a) }
+      def set(a: A) = FromFuture[F].apply(self.set(a))
     }
   }
 }

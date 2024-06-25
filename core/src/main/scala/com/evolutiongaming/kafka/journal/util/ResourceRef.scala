@@ -17,49 +17,44 @@ trait ResourceRef[F[_], A] {
 
 object ResourceRef {
 
-  def of[F[_] : Sync, A](resource: Resource[F, A]): Resource[F, ResourceRef[F, A]] = {
+  def of[F[_]: Sync, A](resource: Resource[F, A]): Resource[F, ResourceRef[F, A]] = {
 
     case class State(a: A, release: F[Unit])
 
     Resource
       .make {
         for {
-          ab           <- resource.allocated
-          (a, release)  = ab
-          ref          <- Ref[F].of(State(a, release).some)
+          ab          <- resource.allocated
+          (a, release) = ab
+          ref         <- Ref[F].of(State(a, release).some)
         } yield ref
       } { ref =>
         ref
           .getAndSet(none)
-          .flatMap { _.foldMapM { _.release } }
+          .flatMap(_.foldMapM(_.release))
       }
       .map { ref =>
         new ResourceRef[F, A] {
 
-          def get = {
-            ref
-              .get
+          def get =
+            ref.get
               .flatMap {
                 case Some(state) => state.a.pure[F]
                 case None        => ResourceReleasedError.raiseError[F, A]
               }
-          }
 
-          def set(a: A, release: F[Unit]) = {
+          def set(a: A, release: F[Unit]) =
             ref
               .modify {
-                case Some(state) => (State(a, release).some, state.release )
+                case Some(state) => (State(a, release).some, state.release)
                 case None        => (none, ResourceReleasedError.raiseError[F, Unit])
               }
               .flatten
               .uncancelable
-          }
 
-          def set(a: Resource[F, A]) = {
-            a
-              .allocated
+          def set(a: Resource[F, A]) =
+            a.allocated
               .flatMap { case (a, release) => set(a, release) }
-          }
         }
       }
   }

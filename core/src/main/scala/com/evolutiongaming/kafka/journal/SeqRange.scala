@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.{Applicative, Id, Monad}
 import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
+import cats.{Applicative, Id, Monad}
 import com.evolutiongaming.kafka.journal.util.Fail
 import play.api.libs.json.{Json, OFormat}
 
@@ -21,9 +21,8 @@ final case class SeqRange(from: SeqNr, to: SeqNr) {
 
   def >(range: SeqRange): Boolean = this > range.to
 
-  def intersects(range: SeqRange): Boolean = {
+  def intersects(range: SeqRange): Boolean =
     !(this > range || this < range)
-  }
 
   def contains(seqNr: SeqNr): Boolean = from <= seqNr && to >= seqNr
 
@@ -40,10 +39,9 @@ final case class SeqRange(from: SeqNr, to: SeqNr) {
     loop(Nel.of(to))
   }
 
-  override def toString: String = {
+  override def toString: String =
     if (from === to) from.toString
     else s"$from..$to"
-  }
 }
 
 object SeqRange {
@@ -52,33 +50,22 @@ object SeqRange {
 
   val all: SeqRange = SeqRange(SeqNr.min, SeqNr.max)
 
-
   def apply(value: SeqNr): SeqRange = SeqRange(value, value)
 
-
-  def of[F[_] : Applicative : Fail](value: Long): F[SeqRange] = {
+  def of[F[_]: Applicative: Fail](value: Long): F[SeqRange] =
     for {
       seqNr <- SeqNr.of[F](value)
-    } yield {
-      SeqRange(seqNr)
-    }
-  }
+    } yield SeqRange(seqNr)
 
-  def of[F[_] : Monad : Fail](from: Long, to: Long): F[SeqRange] = {
+  def of[F[_]: Monad: Fail](from: Long, to: Long): F[SeqRange] =
     for {
       from <- SeqNr.of[F](from)
       to   <- SeqNr.of[F](to)
-    } yield {
-      SeqRange(from, to)
-    }
-  }
-  
+    } yield SeqRange(from, to)
 
-  def unsafe[A](value: A)(implicit numeric: Numeric[A]): SeqRange = {
+  def unsafe[A](value: A)(implicit numeric: Numeric[A]): SeqRange =
     of[Id](numeric.toLong(value))
-  }
 
-  def unsafe[A](from: A, to: A)(implicit numeric: Numeric[A]): SeqRange = {
+  def unsafe[A](from: A, to: A)(implicit numeric: Numeric[A]): SeqRange =
     of[Id](from = numeric.toLong(from), to = numeric.toLong(to))
-  }
 }

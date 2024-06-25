@@ -34,9 +34,8 @@ object KafkaConsumer {
 
   def apply[F[_], K, V](implicit F: KafkaConsumer[F, K, V]): KafkaConsumer[F, K, V] = F
 
-
-  def of[F[_] : Sync, K, V](
-    consumer: Resource[F, Consumer[F, K, V]]
+  def of[F[_]: Sync, K, V](
+    consumer: Resource[F, Consumer[F, K, V]],
   ): Resource[F, KafkaConsumer[F, K, V]] = {
 
     val result = for {
@@ -45,9 +44,8 @@ object KafkaConsumer {
       val (consumer, close0) = result
 
       val toError = new Named[F] {
-        def apply[A](fa: F[A], method: String) = {
+        def apply[A](fa: F[A], method: String) =
           fa.adaptError { case e => KafkaConsumerError(s"consumer.$method", e) }
-        }
       }
 
       val close = toError(close0, "close")
@@ -59,58 +57,46 @@ object KafkaConsumer {
     Resource(result)
   }
 
-  def apply[F[_] : Applicative, K, V](consumer: Consumer[F, K, V]): KafkaConsumer[F, K, V] = {
+  def apply[F[_]: Applicative, K, V](consumer: Consumer[F, K, V]): KafkaConsumer[F, K, V] = {
     class Main
     new Main with KafkaConsumer[F, K, V] {
 
-      def assign(partitions: Nes[TopicPartition]) = {
+      def assign(partitions: Nes[TopicPartition]) =
         consumer.assign(partitions)
-      }
 
-      def seek(partition: TopicPartition, offset: Offset) = {
+      def seek(partition: TopicPartition, offset: Offset) =
         consumer.seek(partition, offset)
-      }
 
-      def subscribe(topic: Topic, listener: Option[RebalanceListener[F]]) = {
+      def subscribe(topic: Topic, listener: Option[RebalanceListener[F]]) =
         consumer.subscribe(Nes.of(topic), listener)
-      }
 
-      def poll(timeout: FiniteDuration) = {
+      def poll(timeout: FiniteDuration) =
         consumer.poll(timeout)
-      }
 
-      def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) = {
+      def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) =
         consumer.commit(offsets)
-      }
 
-      def topics: F[Set[Topic]] = {
-        consumer
-          .topics
-          .map { _.keySet }
-      }
+      def topics: F[Set[Topic]] =
+        consumer.topics
+          .map(_.keySet)
 
-      def partitions(topic: Topic) = {
+      def partitions(topic: Topic) =
         consumer
           .partitions(topic)
           .map { infos =>
-            infos
-              .map { _.partition }
-              .toSet
+            infos.map(_.partition).toSet
           }
-      }
 
-      def assignment = {
+      def assignment =
         consumer.assignment
-      }
     }
   }
 
+  sealed abstract private class MapK
 
-  private sealed abstract class MapK
+  sealed abstract private class MapMethod
 
-  private sealed abstract class MapMethod
-
-  private sealed abstract class ShiftPoll
+  sealed abstract private class ShiftPoll
 
   implicit class KafkaConsumerOps[F[_], K, V](val self: KafkaConsumer[F, K, V]) extends AnyVal {
 
@@ -136,16 +122,14 @@ object KafkaConsumer {
       def assignment = fg(self.assignment)
     }
 
-
     def mapMethod(f: Named[F]): KafkaConsumer[F, K, V] = new MapMethod with KafkaConsumer[F, K, V] {
 
       def assign(partitions: Nes[TopicPartition]) = f(self.assign(partitions), "assign")
 
       def seek(partition: TopicPartition, offset: Offset) = f(self.seek(partition, offset), "seek")
 
-      def subscribe(topic: Topic, listener: Option[RebalanceListener[F]]) = {
+      def subscribe(topic: Topic, listener: Option[RebalanceListener[F]]) =
         f(self.subscribe(topic, listener), "subscribe")
-      }
 
       def poll(timeout: FiniteDuration) = f(self.poll(timeout), "poll")
 
@@ -158,25 +142,21 @@ object KafkaConsumer {
       def assignment = f(self.assignment, "assignment")
     }
 
-
-    def shiftPoll(implicit F: Temporal[F]): KafkaConsumer[F, K, V] = {
-
+    def shiftPoll(implicit F: Temporal[F]): KafkaConsumer[F, K, V] =
       new ShiftPoll with KafkaConsumer[F, K, V] {
 
         def assign(partitions: Nes[TopicPartition]) = self.assign(partitions)
 
         def seek(partition: TopicPartition, offset: Offset) = self.seek(partition, offset)
 
-        def subscribe(topic: Topic, listener: Option[RebalanceListener[F]]) = {
+        def subscribe(topic: Topic, listener: Option[RebalanceListener[F]]) =
           self.subscribe(topic, listener)
-        }
 
-        def poll(timeout: FiniteDuration) = {
+        def poll(timeout: FiniteDuration) =
           for {
             a <- self.poll(timeout)
             _ <- F.cede
           } yield a
-        }
 
         def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) = self.commit(offsets)
 
@@ -186,11 +166,9 @@ object KafkaConsumer {
 
         def assignment = self.assignment
       }
-    }
   }
 }
 
-
-final case class KafkaConsumerError(
-  message: String,
-  cause: Throwable) extends RuntimeException(message, cause) with NoStackTrace
+final case class KafkaConsumerError(message: String, cause: Throwable)
+    extends RuntimeException(message, cause)
+    with NoStackTrace

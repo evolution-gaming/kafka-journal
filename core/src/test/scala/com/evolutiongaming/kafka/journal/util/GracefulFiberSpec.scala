@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal.util
 
-import cats.effect._
-import cats.effect.{Deferred, Ref}
+import cats.effect.{Deferred, Ref, _}
 import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.IOSuite._
 import org.scalatest.funsuite.AsyncFunSuite
@@ -13,14 +12,12 @@ class GracefulFiberSpec extends AsyncFunSuite with Matchers {
     val result = for {
       deferred <- Deferred[IO, Unit]
       ref      <- Ref.of[IO, Boolean](false)
-      fiber    <- GracefulFiber[IO].apply { cancel =>
+      fiber <- GracefulFiber[IO].apply { cancel =>
         Concurrent[IO].start[Unit] {
           val loop = for {
             cancel <- cancel
             _      <- ref.set(cancel)
-          } yield {
-            if (cancel) ().some else none
-          }
+          } yield if (cancel) ().some else none
           for {
             _ <- deferred.complete(())
             _ <- loop.untilDefinedM
@@ -29,9 +26,7 @@ class GracefulFiberSpec extends AsyncFunSuite with Matchers {
       }
       _      <- fiber.cancel
       result <- ref.get
-    } yield {
-      result shouldEqual true
-    }
+    } yield result shouldEqual true
     result.run()
   }
 }

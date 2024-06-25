@@ -29,34 +29,23 @@ object AppendReplicateApp extends IOApp {
   def run(args: List[String]): IO[ExitCode] = {
     import cats.effect.unsafe.implicits.global
 
-    val config = ConfigFactory.load("AppendReplicate.conf")
-    val system = ActorSystem("AppendReplicateApp", config)
+    val config                   = ConfigFactory.load("AppendReplicate.conf")
+    val system                   = ActorSystem("AppendReplicateApp", config)
     implicit val measureDuration = MeasureDuration.fromClock(Clock[IO])
 
     val topic = "journal.AppendReplicate"
 
-    val result = ActorSystemOf[IO](system).use { implicit system => runF[IO](topic) }
+    val result = ActorSystemOf[IO](system).use(implicit system => runF[IO](topic))
     result.as(ExitCode.Success)
   }
 
-
   private def runF[
-    F[_]:
-    Async:
-    Parallel:
-    ToFuture:
-    FromGFuture:
-    MeasureDuration:
-    FromAttempt:
-    FromTry:
-    ToTry:
-    Fail
-  ](
-    topic: Topic)(implicit
+    F[_]: Async: Parallel: ToFuture: FromGFuture: MeasureDuration: FromAttempt: FromTry: ToTry: Fail,
+  ](topic: Topic)(implicit
     system: ActorSystem,
   ): F[Unit] = {
 
-    implicit val logOf = LogOfFromAkka[F](system)
+    implicit val logOf      = LogOfFromAkka[F](system)
     implicit val randomIdOf = RandomIdOf.uuid[F]
 
     val kafkaJournalConfig = ConfigSource
@@ -65,36 +54,28 @@ object AppendReplicateApp extends IOApp {
       .load[KafkaJournalConfig]
       .liftTo[F]
 
-    def journal(
-      config: JournalConfig,
-      hostName: Option[HostName],
-      log: Log[F])(implicit
+    def journal(config: JournalConfig, hostName: Option[HostName], log: Log[F])(implicit
       kafkaConsumerOf: KafkaConsumerOf[F],
-      kafkaProducerOf: KafkaProducerOf[F]
-    ) = {
-
+      kafkaProducerOf: KafkaProducerOf[F],
+    ) =
       for {
         producer <- Journals.Producer.of[F](config.kafka.producer)
-      } yield {
-        Journals[F](
-          origin = hostName.map(Origin.fromHostName),
-          producer = producer,
-          consumer = Journals.Consumer.of[F](config.kafka.consumer, config.pollTimeout),
-          eventualJournal = EventualJournal.empty[F],
-          headCache = HeadCache.empty[F],
-          log = log,
-          conversionMetrics = none
-        )
-      }
-    }
+      } yield Journals[F](
+        origin = hostName.map(Origin.fromHostName),
+        producer = producer,
+        consumer = Journals.Consumer.of[F](config.kafka.consumer, config.pollTimeout),
+        eventualJournal = EventualJournal.empty[F],
+        headCache = HeadCache.empty[F],
+        log = log,
+        conversionMetrics = none,
+      )
 
-    def replicator(hostName: Option[HostName])(implicit kafkaConsumerOf: KafkaConsumerOf[F]) = {
+    def replicator(hostName: Option[HostName])(implicit kafkaConsumerOf: KafkaConsumerOf[F]) =
       for {
         cassandraClusterOf <- CassandraClusterOf.of[F].toResource
         config             <- ReplicatorConfig.fromConfig[F](system.settings.config).toResource
         result             <- Replicator.of[F](config, cassandraClusterOf, hostName)
       } yield result
-    }
 
     val resource = for {
       log                <- LogOf[F].apply(Journals.getClass).toResource
@@ -104,36 +85,30 @@ object AppendReplicateApp extends IOApp {
       hostName           <- HostName.of[F]().toResource
       replicate          <- replicator(hostName)(kafkaConsumerOf)
       journal            <- journal(kafkaJournalConfig.journal, hostName, log)(kafkaConsumerOf, kafkaProducerOf)
-    } yield {
-      (journal, replicate)
-    }
+    } yield (journal, replicate)
 
-    resource.use { case (journal, replicate) =>
-      Concurrent[F].race(append[F](topic, journal), replicate).void
+    resource.use {
+      case (journal, replicate) =>
+        Concurrent[F].race(append[F](topic, journal), replicate).void
     }
   }
 
-
-  private def append[F[_]: Concurrent: Sleep: Parallel](
-    topic: Topic,
-    journals: Journals[F])(implicit
-    kafkaWrite: KafkaWrite[F, Payload]
+  private def append[F[_]: Concurrent: Sleep: Parallel](topic: Topic, journals: Journals[F])(implicit
+    kafkaWrite: KafkaWrite[F, Payload],
   ) = {
 
     def append(id: String) = {
 
       def append(seqNr: SeqNr) = {
-        val key = Key(id = id, topic = topic)
+        val key   = Key(id = id, topic = topic)
         val event = Event(seqNr, payload = Payload("AppendReplicateApp").some)
 
         for {
-          _      <- journals(key).append(Nel.of(event))
+          _ <- journals(key).append(Nel.of(event))
           result <- seqNr.next[Option].fold(().asRight[SeqNr].pure[F]) { seqNr =>
             for {
               _ <- Sleep[F].sleep(100.millis)
-            } yield {
-              seqNr.asLeft[Unit]
-            }
+            } yield seqNr.asLeft[Unit]
           }
         } yield result
       }
@@ -141,8 +116,7 @@ object AppendReplicateApp extends IOApp {
       SeqNr.min.tailRecM(append)
     }
 
-    (0 to 10)
-      .toList
-      .parFoldMap1 { id => append(id.toString) }
+    (0 to 10).toList
+      .parFoldMap1(id => append(id.toString))
   }
 }

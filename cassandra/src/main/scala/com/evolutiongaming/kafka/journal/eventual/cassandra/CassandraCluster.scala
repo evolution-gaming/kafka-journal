@@ -21,37 +21,27 @@ object CassandraCluster {
 
   def apply[F[_]: Async: Parallel: FromGFuture](
     cluster: scassandra.CassandraCluster[F],
-    retries: Int
+    retries: Int,
   ): CassandraCluster[F] = new CassandraCluster[F] {
 
-    def session = {
+    def session =
       for {
         session <- cluster.connect
         session <- CassandraSession.of[F](session)
-      } yield {
-        CassandraSession(session, retries)
-      }
-    }
+      } yield CassandraSession(session, retries)
 
-    def metadata = {
+    def metadata =
       for {
         metadata <- cluster.metadata
-      } yield {
-        CassandraMetadata[F](metadata)
-      }
-    }
+      } yield CassandraMetadata[F](metadata)
   }
 
   def of[F[_]: Async: Parallel: FromGFuture](
     config: CassandraConfig,
     cassandraClusterOf: CassandraClusterOf[F],
     retries: Int,
-  ): Resource[F, CassandraCluster[F]] = {
-
+  ): Resource[F, CassandraCluster[F]] =
     for {
       cluster <- cassandraClusterOf(config)
-    } yield {
-      apply[F](cluster, retries)
-    }
-  }
+    } yield apply[F](cluster, retries)
 }

@@ -1,27 +1,23 @@
 package com.evolutiongaming.kafka.journal.eventual
 
-import java.time.Instant
-
 import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedKeyJournal.Changed
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
+import java.time.Instant
 import scala.collection.immutable.SortedSet
 
-
-
-/** Write-only implementation of a journal stored to eventual storage, i.e.
-  * Cassandra.
+/** Write-only implementation of a journal stored to eventual storage, i.e. Cassandra.
   *
   * This class is used to replicate the events read from Kafka, hence the name.
   *
-  * The flat interface was replaced by hierarchical [[ReplicatedJournal]] for
-  * all means and purposes except for the unit tests, and should not be used
-  * directly anymore.
-  * 
-  * @see [[EventualJournal]] for a read-only counterpart of this class.
+  * The flat interface was replaced by hierarchical [[ReplicatedJournal]] for all means and purposes except for the unit
+  * tests, and should not be used directly anymore.
+  *
+  * @see
+  *   [[EventualJournal]] for a read-only counterpart of this class.
   */
 trait ReplicatedJournalFlat[F[_]] {
 
@@ -39,7 +35,7 @@ trait ReplicatedJournalFlat[F[_]] {
     offset: Offset,
     timestamp: Instant,
     expireAfter: Option[ExpireAfter],
-    events: Nel[EventRecord[EventualPayloadAndType]]
+    events: Nel[EventRecord[EventualPayloadAndType]],
   ): F[Changed]
 
   def delete(
@@ -48,66 +44,59 @@ trait ReplicatedJournalFlat[F[_]] {
     offset: Offset,
     timestamp: Instant,
     deleteTo: DeleteTo,
-    origin: Option[Origin]
+    origin: Option[Origin],
   ): F[Changed]
 
   def purge(
     key: Key,
     partition: Partition,
     offset: Offset,
-    timestamp: Instant
+    timestamp: Instant,
   ): F[Changed]
 }
 
 object ReplicatedJournalFlat {
 
-  def apply[F[_] : BracketThrowable](replicatedJournal: ReplicatedJournal[F]): ReplicatedJournalFlat[F] = {
+  def apply[F[_]: BracketThrowable](replicatedJournal: ReplicatedJournal[F]): ReplicatedJournalFlat[F] = {
     class Main
     new Main with ReplicatedJournalFlat[F] {
 
       def topics = replicatedJournal.topics
 
-      def offset(topic: Topic, partition: Partition): F[Option[Offset]] = {
+      def offset(topic: Topic, partition: Partition): F[Option[Offset]] =
         replicatedJournal
           .journal(topic)
           .use { journal =>
             journal
               .apply(partition)
               .use { journal =>
-                journal
-                  .offsets
-                  .get
+                journal.offsets.get
               }
           }
-      }
 
-      def offsetCreate(topic: Topic, partition: Partition, offset: Offset, timestamp: Instant) = {
+      def offsetCreate(topic: Topic, partition: Partition, offset: Offset, timestamp: Instant) =
         replicatedJournal
           .journal(topic)
           .use { journal =>
             journal
               .apply(partition)
               .use { journal =>
-                journal
-                  .offsets
+                journal.offsets
                   .create(offset, timestamp)
               }
           }
-      }
 
-      def offsetUpdate(topic: Topic, partition: Partition, offset: Offset, timestamp: Instant) = {
+      def offsetUpdate(topic: Topic, partition: Partition, offset: Offset, timestamp: Instant) =
         replicatedJournal
           .journal(topic)
           .use { journal =>
             journal
               .apply(partition)
               .use { journal =>
-                journal
-                  .offsets
+                journal.offsets
                   .update(offset, timestamp)
               }
           }
-      }
 
       def append(
         key: Key,
@@ -115,8 +104,8 @@ object ReplicatedJournalFlat {
         offset: Offset,
         timestamp: Instant,
         expireAfter: Option[ExpireAfter],
-        events: Nel[EventRecord[EventualPayloadAndType]]
-      ) = {
+        events: Nel[EventRecord[EventualPayloadAndType]],
+      ) =
         replicatedJournal
           .journal(key.topic)
           .use { journal =>
@@ -125,10 +114,9 @@ object ReplicatedJournalFlat {
               .use { journal =>
                 journal
                   .journal(key.id)
-                  .use { _.append(offset, timestamp, expireAfter, events) }
+                  .use(_.append(offset, timestamp, expireAfter, events))
               }
           }
-      }
 
       def delete(
         key: Key,
@@ -136,8 +124,8 @@ object ReplicatedJournalFlat {
         offset: Offset,
         timestamp: Instant,
         deleteTo: DeleteTo,
-        origin: Option[Origin]
-      ) = {
+        origin: Option[Origin],
+      ) =
         replicatedJournal
           .journal(key.topic)
           .use { journal =>
@@ -146,17 +134,16 @@ object ReplicatedJournalFlat {
               .use { journal =>
                 journal
                   .journal(key.id)
-                  .use { _.delete(offset, timestamp, deleteTo, origin) }
+                  .use(_.delete(offset, timestamp, deleteTo, origin))
               }
           }
-      }
 
       def purge(
         key: Key,
         partition: Partition,
         offset: Offset,
-        timestamp: Instant
-      ) = {
+        timestamp: Instant,
+      ) =
         replicatedJournal
           .journal(key.topic)
           .use { journal =>
@@ -165,10 +152,9 @@ object ReplicatedJournalFlat {
               .use { journal =>
                 journal
                   .journal(key.id)
-                  .use { _.purge(offset, timestamp) }
+                  .use(_.purge(offset, timestamp))
               }
           }
-      }
     }
   }
 }

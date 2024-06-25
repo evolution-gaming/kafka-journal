@@ -11,22 +11,22 @@ import pureconfig.ConfigSource
 class ConsistencyConfigSpec extends AnyFunSuite with Matchers {
 
   test("apply from empty config") {
-    val actualConfig = ConfigSource.empty.load[ConsistencyConfig]
+    val actualConfig   = ConfigSource.empty.load[ConsistencyConfig]
     val expectedConfig = ConsistencyConfig.default
     assert(actualConfig == Right(expectedConfig))
   }
 
   test("apply from config") {
-    val url = classOf[CassandraConsistencyConfigSpec].getResource("cassandra-consistency-config.conf")
+    val url    = classOf[CassandraConsistencyConfigSpec].getResource("cassandra-consistency-config.conf")
     val config = ConfigFactory.parseURL(url)
 
     val actualConfig = ConfigSource.fromConfig(config).load[ConsistencyConfig]
 
     val expectedConfig = ConsistencyConfig(
       read = ConsistencyConfig.Read(ConsistencyLevel.QUORUM),
-      write = ConsistencyConfig.Write(ConsistencyLevel.EACH_QUORUM)
+      write = ConsistencyConfig.Write(ConsistencyLevel.EACH_QUORUM),
     )
-      
+
     assert(actualConfig == Right(expectedConfig))
   }
 }
