@@ -17,25 +17,39 @@ class ConversionsSpec extends AnyFunSuite with Matchers {
       ("false", JsBoolean(false)),
       ("empty array", JsArray()),
       ("array", JsArray(List(JsString("1"), JsString("2")))),
-      ("array of arrays", JsArray(List(
-        JsArray(List(JsString("1"), JsString("2"))),
-        JsArray(List(JsString("3"), JsString("4")))
-      ))),
-      ("object", JsObject(List(
-        "key1" -> JsNumber(1),
-        "key2" -> JsString("2")
-      ))),
-      ("array of objects", JsArray(List(
-        JsObject(List("key" -> JsString("1"))),
-        JsObject(List("key" -> JsString("2")))
-      )))
+      (
+        "array of arrays",
+        JsArray(
+          List(
+            JsArray(List(JsString("1"), JsString("2"))),
+            JsArray(List(JsString("3"), JsString("4"))),
+          ),
+        ),
+      ),
+      (
+        "object",
+        JsObject(
+          List(
+            "key1" -> JsNumber(1),
+            "key2" -> JsString("2"),
+          ),
+        ),
+      ),
+      (
+        "array of objects",
+        JsArray(
+          List(
+            JsObject(List("key" -> JsString("1"))),
+            JsObject(List("key" -> JsString("2"))),
+          ),
+        ),
+      ),
     )
-  } {
+  }
     test(s"toCirce & fromCirce, json: $name") {
       val circeJson = convertPlayToCirce(playJson)
       val fromCirce = convertCirceToPlay(circeJson)
 
       fromCirce shouldEqual playJson.asRight[String]
     }
-  }
 }

@@ -13,7 +13,7 @@ import scala.concurrent.duration._
 class KafkaJournalConfigSpec extends AnyFunSuite with Matchers {
 
   test("apply from empty config") {
-    val config = ConfigFactory.empty()
+    val config   = ConfigFactory.empty()
     val expected = KafkaJournalConfig.default
     ConfigSource
       .fromConfig(config)
@@ -26,16 +26,11 @@ class KafkaJournalConfigSpec extends AnyFunSuite with Matchers {
       startTimeout = 1.millis,
       stopTimeout = 2.seconds,
       maxEventsInBatch = 3,
-      callTimeThresholds = CallTimeThresholds(
-        append = 1.millis,
-        read = 2.millis,
-        pointer = 3.millis,
-        delete = 4.millis),
-      journal = JournalConfig(
-        headCache = JournalConfig.HeadCache(enabled = false),
-        kafka = KafkaConfig("client-id")),
+      callTimeThresholds =
+        CallTimeThresholds(append = 1.millis, read = 2.millis, pointer = 3.millis, delete = 4.millis),
+      journal = JournalConfig(headCache = JournalConfig.HeadCache(enabled = false), kafka = KafkaConfig("client-id")),
       jsonCodec = KafkaJournalConfig.JsonCodec.Jsoniter,
-      consumerPool = ConsumerPoolConfig(multiplier = 1, idleTimeout = 1.second)
+      consumerPool = ConsumerPoolConfig(multiplier = 1, idleTimeout = 1.second),
     )
     ConfigSource
       .fromConfig(config)
@@ -43,7 +38,7 @@ class KafkaJournalConfigSpec extends AnyFunSuite with Matchers {
   }
 
   test("apply from reference.conf") {
-    val config = ConfigFactory.load()
+    val config   = ConfigFactory.load()
     val expected = KafkaJournalConfig.default
     ConfigSource
       .fromConfig(config)

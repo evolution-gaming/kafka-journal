@@ -12,15 +12,14 @@ object ConsRecord {
     timestampAndType: Option[TimestampAndType],
     key: Option[WithSize[String]] = None,
     value: Option[WithSize[ByteVector]] = None,
-    headers: List[Header] = Nil
-  ): ConsRecord = {
-
+    headers: List[Header] = Nil,
+  ): ConsRecord =
     ConsumerRecord(
       topicPartition = topicPartition,
       offset = offset,
       timestampAndType = timestampAndType,
       key = key,
       value = value,
-      headers = headers)
-  }
+      headers = headers,
+    )
 }

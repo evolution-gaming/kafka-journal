@@ -21,11 +21,11 @@ class KafkaSingletonTest extends AsyncFunSuite with Matchers {
     `allocate & release when partition assigned or revoked`[IO]().run()
   }
 
-  private def `allocate & release when partition assigned or revoked`[F[_] : Concurrent: Sleep](): F[Unit] = {
+  private def `allocate & release when partition assigned or revoked`[F[_]: Concurrent: Sleep](): F[Unit] = {
 
     val topic = "topic"
 
-    def consumer(deferred: Deferred[F, RebalanceListener[F]]) = {
+    def consumer(deferred: Deferred[F, RebalanceListener[F]]) =
       new TopicConsumer[F] {
 
         def subscribe(listener: RebalanceListener[F]) = deferred.complete(listener).void
@@ -34,17 +34,16 @@ class KafkaSingletonTest extends AsyncFunSuite with Matchers {
 
         def commit = TopicCommit.empty
       }
-    }
 
     def topicPartition(partition: Partition) = TopicPartition(topic, partition)
 
     val result = for {
       listener  <- Deferred[F, RebalanceListener[F]].toResource
       allocated <- Ref[F].of(false).toResource
-      resource   = Resource.make { allocated.set(true) } { _ => allocated.set(false) }
+      resource   = Resource.make(allocated.set(true))(_ => allocated.set(false))
       singleton <- KafkaSingleton.of(topic, consumer(listener).pure[Resource[F, *]], resource, Log.empty[F])
       listener  <- listener.get.toResource
-      _         <- Resource.eval {
+      _ <- Resource.eval {
         for {
           a <- singleton.get
           _  = a shouldEqual none[Unit]
@@ -75,6 +74,6 @@ class KafkaSingletonTest extends AsyncFunSuite with Matchers {
         } yield {}
       }
     } yield {}
-    result.use { _ => ().pure[F] }
+    result.use(_ => ().pure[F])
   }
 }

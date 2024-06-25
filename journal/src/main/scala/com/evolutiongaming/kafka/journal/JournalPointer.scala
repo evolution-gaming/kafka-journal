@@ -7,4 +7,4 @@ final case class JournalPointer(partitionOffset: PartitionOffset, seqNr: SeqNr) 
   def offset: Offset = partitionOffset.offset
 
   def partition: Partition = partitionOffset.partition
-}                                                             
+}

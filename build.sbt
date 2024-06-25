@@ -43,7 +43,7 @@ val excludeKafkaJournalConfig = caseClassMethods.flatMap { method =>
   Seq(
     ProblemFilters.exclude[IncompatibleSignatureProblem](s"akka.persistence.kafka.journal.KafkaJournalConfig.$method"),
     ProblemFilters.exclude[DirectMissingMethodProblem](s"akka.persistence.kafka.journal.KafkaJournalConfig.$method"),
-  )     
+  )
 }
 ThisBuild / mimaBinaryIssueFilters ++= excludeKafkaJournalConfig
 

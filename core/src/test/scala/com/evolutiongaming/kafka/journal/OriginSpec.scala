@@ -35,10 +35,9 @@ class OriginSpec extends AsyncFunSuite with Matchers {
 
   private def withSystem[T](f: ActorSystem => T): T = {
     val system = ActorSystem("OriginSpec")
-    try {
+    try
       f(system)
-    } finally {
+    finally
       TestKit.shutdownActorSystem(system, 3.seconds)
-    }
   }
 }

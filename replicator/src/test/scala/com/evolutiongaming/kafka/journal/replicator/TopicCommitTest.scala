@@ -2,34 +2,30 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import cats.Applicative
 import cats.data.{NonEmptyMap => Nem}
-import cats.effect.{Clock, IO}
+import cats.effect.{Clock, Deferred, IO, Ref}
 import com.evolutiongaming.kafka.journal.IOSuite._
-import cats.effect.{Deferred, Ref}
 import com.evolutiongaming.skafka.{Offset, Partition}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 
-class TopicCommitTest extends AsyncFunSuite with Matchers{
+class TopicCommitTest extends AsyncFunSuite with Matchers {
 
   test("delayed") {
 
-    def commitOf(
-      deferred: Deferred[IO, Unit],
-      commitsRef: Ref[IO, List[Nem[Partition, Offset]]])(implicit
-      clock: Clock[IO]
+    def commitOf(deferred: Deferred[IO, Unit], commitsRef: Ref[IO, List[Nem[Partition, Offset]]])(implicit
+      clock: Clock[IO],
     ) = {
       val commit = new TopicCommit[IO] {
-        def apply(offsets: Nem[Partition, Offset]) = {
-          commitsRef.update { offsets :: _ } *> deferred.complete(()).void
-        }
+        def apply(offsets: Nem[Partition, Offset]) =
+          commitsRef.update(offsets :: _) *> deferred.complete(()).void
       }
 
       TopicCommit.delayed(10.millis, commit)
     }
 
-    def clockOf(ref: Ref[IO, FiniteDuration]): Clock[IO] = {
+    def clockOf(ref: Ref[IO, FiniteDuration]): Clock[IO] =
       new Clock[IO] {
         override def applicative: Applicative[IO] = Applicative[IO]
 
@@ -37,7 +33,6 @@ class TopicCommitTest extends AsyncFunSuite with Matchers{
 
         override def realTime: IO[FiniteDuration] = monotonic
       }
-    }
 
     val result = for {
       commitsRef <- Ref[IO].of(List.empty[Nem[Partition, Offset]])
@@ -52,7 +47,7 @@ class TopicCommitTest extends AsyncFunSuite with Matchers{
       _          <- commit(Nem.of((Partition.unsafe(1), Offset.unsafe(1))))
       _          <- deferred.get
       offsets    <- commitsRef.get
-      _           = offsets shouldEqual List(Nem.of((Partition.min, Offset.min), (Partition.unsafe(1), Offset.unsafe(1))))
+      _ = offsets shouldEqual List(Nem.of((Partition.min, Offset.min), (Partition.unsafe(1), Offset.unsafe(1))))
     } yield {}
     result.run()
   }

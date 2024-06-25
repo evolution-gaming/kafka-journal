@@ -7,8 +7,8 @@ final case class PersistentJson[A](
   manifest: Option[String],
   writerUuid: String,
   payloadType: Option[PayloadType.TextOrJson],
-  payload: A)
-
+  payload: A,
+)
 
 object PersistentJson {
 
