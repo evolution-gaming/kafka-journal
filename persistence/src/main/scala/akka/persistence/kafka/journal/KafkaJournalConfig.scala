@@ -1,6 +1,6 @@
 package akka.persistence.kafka.journal
 
-import com.evolutiongaming.kafka.journal.Journal.{CallTimeThresholds, ConsumerPoolConfig}
+import com.evolutiongaming.kafka.journal.Journal.{CallTimeThresholds, ConsumerPoolConfig, DataIntegrityConfig}
 import com.evolutiongaming.kafka.journal.JournalConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig
 import pureconfig.generic.semiauto.{deriveEnumerationReader, deriveReader}
@@ -44,6 +44,10 @@ import scala.concurrent.duration._
   *   vice-versa. This parameter is only relevant if default [[KafkaJournal]] is
   *   used, i.e. it is not taken into account if Circe JSON or other custom
   *   serialization is used.
+  * @param consumerPool
+  *   Kafka consumer pool configuration.
+  * @param dataIntegrity
+  *   Data integrity configuration.
   *
   * @see [[KafkaJournal]] for more details.
   */
@@ -56,6 +60,7 @@ final case class KafkaJournalConfig(
   callTimeThresholds: CallTimeThresholds = CallTimeThresholds.default,
   jsonCodec: KafkaJournalConfig.JsonCodec = KafkaJournalConfig.JsonCodec.Default,
   consumerPool: ConsumerPoolConfig = ConsumerPoolConfig.Default,
+  dataIntegrity: DataIntegrityConfig = DataIntegrityConfig.Default,
 )
 
 object KafkaJournalConfig {

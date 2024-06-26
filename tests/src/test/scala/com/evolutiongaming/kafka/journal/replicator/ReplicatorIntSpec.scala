@@ -10,6 +10,7 @@ import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.Journal.DataIntegrityConfig
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualRead}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
@@ -56,7 +57,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
         .liftTo[F]
       for {
         config          <- config.toResource
-        eventualJournal <- EventualCassandra.of[F](config, origin.some, none, cassandraClusterOf)
+        eventualJournal <- EventualCassandra.of1[F](config, origin.some, none, cassandraClusterOf, DataIntegrityConfig.Default)
       } yield eventualJournal
     }
 
