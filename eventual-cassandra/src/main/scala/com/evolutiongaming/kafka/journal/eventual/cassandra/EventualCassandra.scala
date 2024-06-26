@@ -6,6 +6,7 @@ import cats.effect.{Concurrent, Resource}
 import cats.syntax.all._
 import cats.{MonadThrow, Parallel}
 import com.evolutiongaming.catshelper.{LogOf, MeasureDuration, ToTry}
+import com.evolutiongaming.kafka.journal.Journal.DataIntegrityConfig
 import com.evolutiongaming.kafka.journal.eventual._
 import com.evolutiongaming.kafka.journal.util.CatsHelper._
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
@@ -33,6 +34,7 @@ object EventualCassandra {
     *
     * Underlying schema is automatically created or migrated if required.
     */
+  @deprecated("Use of1 instead", "3.4.0")
   def of[
     F[_]
     : Async
@@ -45,24 +47,21 @@ object EventualCassandra {
     config: EventualCassandraConfig,
     origin: Option[Origin],
     metrics: Option[EventualJournal.Metrics[F]],
-    cassandraClusterOf: CassandraClusterOf[F],
-  ): Resource[F, EventualJournal[F]] = {
-
-    def journal(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
-      of(config.schema, origin, metrics, config.consistencyConfig)
-    }
-
-    for {
-      cassandraCluster <- CassandraCluster.of[F](config.client, cassandraClusterOf, config.retries)
-      cassandraSession <- cassandraCluster.session
-      journal          <- journal(cassandraCluster, cassandraSession).toResource
-    } yield journal
-  }
+    cassandraClusterOf: CassandraClusterOf[F]
+  ): Resource[F, EventualJournal[F]] = 
+    of1[F](
+      config,
+      origin,
+      metrics,
+      cassandraClusterOf,
+      DataIntegrityConfig.Default
+    )
 
   /** Creates [[EventualJournal]] instance for a given Cassandra session.
     *
     * Underlying schema is automatically created or migrated if required.
     */
+  @deprecated("Use of1 instead", "3.4.0")
   def of[
     F[_]
     : Temporal
@@ -76,6 +75,64 @@ object EventualCassandra {
     origin: Option[Origin],
     metrics: Option[EventualJournal.Metrics[F]],
     consistencyConfig: EventualCassandraConfig.ConsistencyConfig
+  ): F[EventualJournal[F]] = 
+    of1[F](
+      schemaConfig,
+      origin,
+      metrics,
+      consistencyConfig,
+      DataIntegrityConfig.Default
+    )
+
+  /** Creates [[EventualJournal]] instance for a given Cassandra cluster factory.
+    *
+    * Underlying schema is automatically created or migrated if required.
+    */
+  def of1[
+    F[_]
+    : Async
+    : Parallel
+    : ToTry: LogOf
+    : FromGFuture
+    : MeasureDuration
+    : JsonCodec.Decode
+  ](
+    config: EventualCassandraConfig,
+    origin: Option[Origin],
+    metrics: Option[EventualJournal.Metrics[F]],
+    cassandraClusterOf: CassandraClusterOf[F],
+    dataIntegrity: DataIntegrityConfig,
+  ): Resource[F, EventualJournal[F]] = {
+
+    def journal(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
+      of1(config.schema, origin, metrics, config.consistencyConfig, dataIntegrity)
+    }
+
+    for {
+      cassandraCluster <- CassandraCluster.of[F](config.client, cassandraClusterOf, config.retries)
+      cassandraSession <- cassandraCluster.session
+      journal          <- journal(cassandraCluster, cassandraSession).toResource
+    } yield journal
+  }
+
+  /** Creates [[EventualJournal]] instance for a given Cassandra session.
+    *
+    * Underlying schema is automatically created or migrated if required.
+    */
+  def of1[
+    F[_]
+    : Temporal
+    : Parallel
+    : ToTry: LogOf
+    : CassandraCluster: CassandraSession
+    : MeasureDuration
+    : JsonCodec.Decode
+  ](
+    schemaConfig: SchemaConfig,
+    origin: Option[Origin],
+    metrics: Option[EventualJournal.Metrics[F]],
+    consistencyConfig: EventualCassandraConfig.ConsistencyConfig,
+    dataIntegrity: DataIntegrityConfig,
   ): F[EventualJournal[F]] = {
 
     for {
@@ -84,7 +141,7 @@ object EventualCassandra {
       segmentNrsOf  = SegmentNrsOf[F](first = Segments.default, second = Segments.old)
       statements   <- Statements.of(schema, segmentNrsOf, Segments.default, consistencyConfig.read)
     } yield {
-      val journal = apply[F](statements).withLog(log)
+      val journal = apply1[F](statements, dataIntegrity).withLog(log)
       metrics
         .fold(journal) { metrics => journal.withMetrics(metrics) }
         .enhanceError
@@ -99,7 +156,15 @@ object EventualCassandra {
     * The implementation itself is abstracted from the calls to Cassandra which
     * should be passed as part of [[Statements]] parameter.
     */
-  def apply[F[_]: MonadThrow](statements: Statements[F]): EventualJournal[F] = {
+  @deprecated("Use of1 instead", "3.4.0")
+  def apply[F[_]: MonadThrow](statements: Statements[F]): EventualJournal[F] = apply1(statements, DataIntegrityConfig.Default)
+
+  /** Creates [[EventualJournal]] instance calling Cassandra appropriately.
+    *
+    * The implementation itself is abstracted from the calls to Cassandra which
+    * should be passed as part of [[Statements]] parameter.
+    */
+  def apply1[F[_]: MonadThrow](statements: Statements[F], dataIntegrity: DataIntegrityConfig): EventualJournal[F] = {
 
     new Main with EventualJournal[F] {
 
@@ -120,28 +185,35 @@ object EventualCassandra {
               statement(key, segment.nr, range).map { record => (record, segment) }
             }
 
-            read(from, Segment(from, head.segmentSize))
-              .chain { case (record, segment) =>
-                for {
-                  from    <- record.seqNr.next[Option]
-                  segment <- segment.next(from)
-                } yield {
-                  read(from, segment)
+            val events = 
+              read(from, Segment(from, head.segmentSize))
+                .chain { case (record, segment) =>
+                  for {
+                    from    <- record.seqNr.next[Option]
+                    segment <- segment.next(from)
+                  } yield {
+                    read(from, segment)
+                  }
                 }
-              }
-              .map { case (record, _) => record }
-              .stateful(from) { case (seqNr, record) =>
-                if (seqNr <= record.seqNr) {
-                  val seqNr1 = record
-                    .seqNr
-                    .next[Option]
-                  (seqNr1, Stream[F].single(record))
-                } else {
-                  val msg = s"Data integrity violated: seqNr $seqNr duplicated in multiple records from eventual journal, key $key"
-                  val err = new JournalError(msg)
-                  (seqNr.some, err.raiseError[F, EventRecord[EventualPayloadAndType]].toStream)
+                .map { case (record, _) => record }
+
+            if (dataIntegrity.seqNrUniqueness) {
+              events
+                .stateful(from) { case (seqNr, record) =>
+                  if (seqNr <= record.seqNr) {
+                    val seqNr1 = record
+                      .seqNr
+                      .next[Option]
+                    (seqNr1, Stream[F].single(record))
+                  } else {
+                    val msg = s"Data integrity violated: seqNr $seqNr duplicated in multiple records from eventual journal, key $key"
+                    val err = new JournalError(msg)
+                    (seqNr.some, err.raiseError[F, EventRecord[EventualPayloadAndType]].toStream)
+                  }
                 }
-              }
+            } else {
+              events
+            }
           }
 
 
