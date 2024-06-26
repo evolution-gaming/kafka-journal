@@ -29,8 +29,18 @@ lazy val commonSettings = Seq(
 val alias: Seq[sbt.Def.Setting[_]] =
 //  addCommandAlias("fmt", " all scalafmtAll scalafmtSbt; scalafixEnable; scalafixAll") ++
 //    addCommandAlias("check", "all versionPolicyCheck Compile/doc scalafmtCheckAll scalafmtSbtCheck; scalafixEnable; scalafixAll --check") ++
-    addCommandAlias("check", "all Compile/doc") ++
+    addCommandAlias("check", "all versionPolicyCheck Compile/doc") ++
     addCommandAlias("build", "all compile test")
+
+import com.typesafe.tools.mima.core._
+val caseClassMethods = Seq("apply", "unapply", "this", "copy")
+val excludeKafkaJournalConfig = caseClassMethods.flatMap { method =>
+  Seq(
+    ProblemFilters.exclude[IncompatibleSignatureProblem](s"akka.persistence.kafka.journal.KafkaJournalConfig.$method"),
+    ProblemFilters.exclude[DirectMissingMethodProblem](s"akka.persistence.kafka.journal.KafkaJournalConfig.$method"),
+  )     
+}
+ThisBuild / mimaBinaryIssueFilters ++= excludeKafkaJournalConfig
 
 lazy val root = (project in file(".")
   settings (name := "kafka-journal")
