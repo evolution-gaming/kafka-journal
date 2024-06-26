@@ -343,4 +343,17 @@ object Journal {
 
     implicit val configReaderConsumerPoolConfig: ConfigReader[ConsumerPoolConfig] = deriveReader
   }
+
+  trait DataIntegrityConfig {
+    def seqNrUniqueness: Boolean
+  }
+
+  object DataIntegrityConfig {
+
+    private case class Implementation(seqNrUniqueness: Boolean) extends DataIntegrityConfig 
+
+    val Default: DataIntegrityConfig = Implementation(seqNrUniqueness = true)
+
+    implicit val configReaderDataIntegrityConfig: ConfigReader[DataIntegrityConfig] = deriveReader[Implementation].map(a => a: DataIntegrityConfig)
+  }
 }
