@@ -156,7 +156,7 @@ object EventualCassandra {
     * The implementation itself is abstracted from the calls to Cassandra which
     * should be passed as part of [[Statements]] parameter.
     */
-  @deprecated("Use of1 instead", "3.4.0")
+  @deprecated("Use apply1 instead", "3.4.0")
   def apply[F[_]: MonadThrow](statements: Statements[F]): EventualJournal[F] = apply1(statements, DataIntegrityConfig.Default)
 
   /** Creates [[EventualJournal]] instance calling Cassandra appropriately.
