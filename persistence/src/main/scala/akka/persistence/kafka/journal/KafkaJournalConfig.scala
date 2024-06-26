@@ -46,7 +46,7 @@ import scala.concurrent.duration._
   *   serialization is used.
   * @param consumerPool
   *   Kafka consumer pool configuration.
-  * @dataIntegrity
+  * @param dataIntegrity
   *   Data integrity configuration.
   *
   * @see [[KafkaJournal]] for more details.
