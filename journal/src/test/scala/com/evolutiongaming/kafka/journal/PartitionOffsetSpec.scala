@@ -8,23 +8,21 @@ import org.scalatest.matchers.should.Matchers
 
 class PartitionOffsetSpec extends AnyFunSuite with Matchers {
 
-  def partitionOffsetOf(partition: Int, offset: Int): PartitionOffset = {
-    PartitionOffset(
-      partition = Partition.unsafe(partition),
-      offset = Offset.unsafe(offset))
-  }
-  
+  def partitionOffsetOf(partition: Int, offset: Int): PartitionOffset =
+    PartitionOffset(partition = Partition.unsafe(partition), offset = Offset.unsafe(offset))
+
   test("order") {
 
     val partitionOffsets = Nel.of(
       partitionOffsetOf(partition = 0, offset = 1),
       partitionOffsetOf(partition = 1, offset = 0),
-      partitionOffsetOf(partition = 0, offset = 0)
+      partitionOffsetOf(partition = 0, offset = 0),
     )
     val expected = Nel.of(
       partitionOffsetOf(partition = 0, offset = 0),
       partitionOffsetOf(partition = 0, offset = 1),
-      partitionOffsetOf(partition = 1, offset = 0))
+      partitionOffsetOf(partition = 1, offset = 0),
+    )
     partitionOffsets.sorted shouldEqual expected
   }
 

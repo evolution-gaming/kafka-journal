@@ -9,13 +9,10 @@ object ConsumerRecordsOf {
     val records1 = for {
       (topicPartition, records) <- records.groupBy(_.topicPartition)
       records                   <- records.toNel
-    } yield {
-      (topicPartition, records)
-    }
+    } yield (topicPartition, records)
     ConsumerRecords(records1)
   }
 
-  def apply[K, V](records: ConsumerRecord[K, V]*): ConsumerRecords[K, V] = {
+  def apply[K, V](records: ConsumerRecord[K, V]*): ConsumerRecords[K, V] =
     apply(records.toList)
-  }
 }

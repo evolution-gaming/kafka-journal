@@ -5,10 +5,10 @@ import cats.effect.Resource
 import cats.effect.kernel.Temporal
 import cats.effect.syntax.resource._
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.{BracketThrowable, MeasureDuration, Runtime}
-import com.evolutiongaming.skafka.Topic
 import com.evolution.scache
 import com.evolution.scache.{CacheMetrics, ExpiringCache}
+import com.evolutiongaming.catshelper.{BracketThrowable, MeasureDuration, Runtime}
+import com.evolutiongaming.skafka.Topic
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -19,7 +19,7 @@ trait CacheOf[F[_]] {
 
 object CacheOf {
 
-  def empty[F[_] : BracketThrowable]: CacheOf[F] = {
+  def empty[F[_]: BracketThrowable]: CacheOf[F] = {
     class Empty
     new Empty with CacheOf[F] {
 
@@ -39,10 +39,9 @@ object CacheOf {
     }
   }
 
-
-  def apply[F[_] : Temporal : Runtime : Parallel : MeasureDuration](
+  def apply[F[_]: Temporal: Runtime: Parallel: MeasureDuration](
     expireAfter: FiniteDuration,
-    cacheMetrics: Option[CacheMetrics.Name => CacheMetrics[F]]
+    cacheMetrics: Option[CacheMetrics.Name => CacheMetrics[F]],
   ): CacheOf[F] = {
     class Main
     new Main with CacheOf[F] {
@@ -50,16 +49,15 @@ object CacheOf {
         val config = ExpiringCache.Config[F, K, V](expireAfter)
         for {
           cache <- scache.Cache.expiring(config)
-          cache <- cacheMetrics.fold { cache.pure[Resource[F,*]] } { cacheMetrics => cache.withMetrics(cacheMetrics(topic)) }
-        } yield {
-          new Cache[F, K, V] {
-
-            def getOrUpdate(key: K)(value: => Resource[F, V]) = {
-              cache.getOrUpdateResource(key) { value }
-            }
-
-            def remove(key: K) = cache.remove(key).flatten.void
+          cache <- cacheMetrics.fold(cache.pure[Resource[F, *]]) { cacheMetrics =>
+            cache.withMetrics(cacheMetrics(topic))
           }
+        } yield new Cache[F, K, V] {
+
+          def getOrUpdate(key: K)(value: => Resource[F, V]) =
+            cache.getOrUpdateResource(key)(value)
+
+          def remove(key: K) = cache.remove(key).flatten.void
         }
       }
     }

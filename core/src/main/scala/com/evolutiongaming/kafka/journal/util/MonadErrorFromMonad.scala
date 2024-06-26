@@ -12,4 +12,3 @@ trait MonadErrorFromMonad[F[_], E] extends MonadError[F, E] {
 
   def pure[A](a: A) = F.pure(a)
 }
-

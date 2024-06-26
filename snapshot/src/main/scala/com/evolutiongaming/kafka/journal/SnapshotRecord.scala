@@ -6,7 +6,8 @@ import java.time.Instant
   *
   * Technically, if there is no Akka cluster brain split etc., there still could exists two [[SnapshotRecord]] instances
   * per single [[Snapshot]] value. I.e. if one cluster node requests a snapshot to be persisted and then goes down, and
-  * a second node recovers before a snapshot propagates to all Cassandra nodes, and then decides to write a snapshot too.
+  * a second node recovers before a snapshot propagates to all Cassandra nodes, and then decides to write a snapshot
+  * too.
   *
   * @param snapshot
   *   Snapshot and sequence number.
@@ -23,5 +24,5 @@ final case class SnapshotRecord[A](
   snapshot: Snapshot[A],
   timestamp: Instant,
   origin: Option[Origin],
-  version: Option[Version]
+  version: Option[Version],
 )

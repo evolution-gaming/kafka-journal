@@ -1,14 +1,14 @@
 package com.evolutiongaming.kafka.journal
 
-import java.time.Instant
-
 import cats._
 import cats.syntax.all._
 import com.evolutiongaming.skafka.{Offset, Partition}
 
-/**
- * @param origin identifier of event origin, for instance node IP address
- */
+import java.time.Instant
+
+/** @param origin
+  *   identifier of event origin, for instance node IP address
+  */
 final case class EventRecord[A](
   event: Event[A],
   timestamp: Instant,
@@ -16,7 +16,7 @@ final case class EventRecord[A](
   origin: Option[Origin],
   version: Option[Version],
   metadata: RecordMetadata,
-  headers: Headers
+  headers: Headers,
 ) {
 
   def seqNr: SeqNr = event.seqNr
@@ -33,31 +33,28 @@ object EventRecord {
   def apply[A](
     record: ActionRecord[Action.Append],
     event: Event[A],
-    metadata: PayloadMetadata
-  ): EventRecord[A] = {
+    metadata: PayloadMetadata,
+  ): EventRecord[A] =
     apply(record.action, event, record.partitionOffset, metadata)
-  }
 
   def apply[A](
     action: Action.Append,
     event: Event[A],
     partitionOffset: PartitionOffset,
     metadata: PayloadMetadata,
-  ): EventRecord[A] = {
+  ): EventRecord[A] =
     EventRecord(
       event = event,
       timestamp = action.timestamp,
       partitionOffset = partitionOffset,
       origin = action.origin,
       version = action.version,
-      metadata = RecordMetadata(
-        header = action.header.metadata,
-        payload = metadata),
-      headers = action.headers)
-  }
+      metadata = RecordMetadata(header = action.header.metadata, payload = metadata),
+      headers = action.headers,
+    )
 
   implicit val traverseEventRecord: Traverse[EventRecord] = new Traverse[EventRecord] {
-    override def traverse[G[_] : Applicative, A, B](fa: EventRecord[A])(f: A => G[B]): G[EventRecord[B]] =
+    override def traverse[G[_]: Applicative, A, B](fa: EventRecord[A])(f: A => G[B]): G[EventRecord[B]] =
       fa.event.traverse(f).map(e => fa.copy(event = e))
 
     override def foldLeft[A, B](fa: EventRecord[A], b: B)(f: (B, A) => B): B =

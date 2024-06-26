@@ -19,26 +19,24 @@ object KafkaReadMetrics {
 
   def of[F[_]](
     registry: CollectorRegistry[F],
-    prefix: String = "journal"
+    prefix: String = "journal",
   ): Resource[F, KafkaReadMetrics[F]] = {
 
     val durationSummary = registry.summary(
       name = s"${prefix}_payload_to_events_duration",
       help = "Journal payload to events conversion duration in seconds",
       quantiles = Quantiles.Default,
-      labels = LabelNames("payload_type")
+      labels = LabelNames("payload_type"),
     )
 
     for {
       durationSummary <- durationSummary
-    } yield {
-      new KafkaReadMetrics[F] {
+    } yield new KafkaReadMetrics[F] {
 
-        def apply(payloadAndType: PayloadAndType, latency: FiniteDuration): F[Unit] =
-          durationSummary
-            .labels(payloadAndType.payloadType.name)
-            .observe(latency.toNanos.nanosToSeconds)
-      }
+      def apply(payloadAndType: PayloadAndType, latency: FiniteDuration): F[Unit] =
+        durationSummary
+          .labels(payloadAndType.payloadType.name)
+          .observe(latency.toNanos.nanosToSeconds)
     }
   }
 }
