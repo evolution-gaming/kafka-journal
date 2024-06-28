@@ -175,7 +175,16 @@ lazy val `tests` = (project in file("tests")
     Slf4j.`log4j-over-slf4j` % Test,
     Logback.core % Test,
     Logback.classic % Test,
-    scalatest % Test)))
+    scalatest % Test,
+    // these libraries are only need for
+    // Akka Persistence Cassandra Persistence performance tests
+    Akka.`persistence-cassandra` % Test,
+    Akka.`akka-cluster` % Test,
+    Akka.`akka-cluster-tools` % Test,
+    Akka.`akka-coordination` % Test,
+    Akka.`akka-persistence-query` % Test,
+    Akka.`akka-pki` % Test,
+    Akka.`akka-remote` % Test)))
 
 lazy val replicator = (Project("replicator", file("replicator"))
   settings (name := "kafka-journal-replicator")
