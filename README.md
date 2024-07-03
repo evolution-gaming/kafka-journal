@@ -7,9 +7,10 @@
 
 > Stream data from two sources where one is eventually consistent and the other one loses its tail
 
-This library provides ability to use [kafka](https://kafka.apache.org) as storage for events.
-Kafka is a perfect fit in case you want to have streaming capabilities for your events
-However it also uses [cassandra](http://cassandra.apache.org) to keep data access performance on acceptable level and overcome kafka `retention policy` 
+This library provides ability to use [Kafka](https://kafka.apache.org) as storage for events.
+Kafka is a perfect fit in case you want to have streaming capabilities for your events.
+However, it also uses [Cassandra](http://cassandra.apache.org) to keep data access performance on acceptable level and 
+overcome Kafka's `retention policy`. 
 Cassandra is a default choice, but you may use any other storage which satisfies following interfaces:
 * Read side, called within client library: [EventualJournal](journal/src/main/scala/com/evolutiongaming/kafka/journal/eventual/EventualJournal.scala) 
 * Write side, called from replicator app: [ReplicatedJournal](journal/src/main/scala/com/evolutiongaming/kafka/journal/eventual/ReplicatedJournal.scala) 
@@ -17,117 +18,78 @@ Cassandra is a default choice, but you may use any other storage which satisfies
 ## High level idea
 
 ### Writing events flow:
+1. Journal client publishes events to Kafka
+2. Replicator app stores events in Cassandra
 
-1. Journal client publishes events to kafka
-2. Replicator app stores events to cassandra
-
-
-### Reading events flow: 
-
-1. Client publishes special marker to kafka so we can make sure there are no more events to expect
-2. Client reads events from cassandra, however at this point we are not yet sure that all events are replicated from kafka to cassandra
-3. Client read events from kafka using offset of last event found in cassandra
-4. We consider recovery finished when marker found in kafka
-
+### Reading events flow:
+1. Client publishes special marker to Kafka, so we can make sure there are no more events to expect
+2. Client reads events from Cassandra, however at this point we are not yet sure that all events are replicated from 
+   Kafka to Cassandra
+3. Client reads events from Kafka using offset of last event found in Cassandra
+4. We consider recovery finished when marker is read from Kafka
 
 ## Notes
-
 * Kafka topic may be used for many different entities
-* We don't need to store all events in kafka as long as they are in cassandra
-* We do not cover snapshots yet
+* We don't need to store all events in Kafka as long as they are in Cassandra
+* We do not cover snapshots, yet
 * Replicator is a separate application
-* It is easy to replace cassandra here with some relational database
-
+* It is easy to replace Cassandra with some relational database
 
 ## State recovery performance
 
-Reading events performance depends on finding the closest offset to the marker as well on replication latency (time difference between the moment event has been written to kafka and the moment when event gets into cassandra)
+Performance of reading events depends on finding the closest offset to the marker as well on replication latency (time 
+difference between the moment event has been written to Kafka and the moment when event becomes available from
+Cassandra).
 
-We may share same kafka consumer for many simultaneous recoveries
-
+Same Kafka consumer may be shared for many simultaneous recoveries.
 
 ## Read & write capabilities:
-* Client allowed to `read` + `write` kafka and `read` cassandra
-* Replicator allowed to `read` kafka and `read` + `write` cassandra
+* Client allowed to `read` + `write` Kafka and `read` Cassandra
+* Replicator allowed to `read` Kafka and `read` + `write` Cassandra
 
 Hence, we recommend configuring access rights accordingly.
 
 ## Api
 
-```scala
-trait Journals[F[_]] {
-
-  def apply(key: Key): Journal[F]
-}
-
-trait Journal[F[_]] {
-
-  /**
-   * @param expireAfter Define expireAfter in order to expire whole journal for given entity
-   */
-  def append(
-    events: Nel[Event],
-    expireAfter: Option[ExpireAfter],
-    metadata: Option[JsValue],
-    headers: Headers
-  ): F[PartitionOffset]
-
-  def read(from: SeqNr): Stream[F, EventRecord]
-
-  def pointer: F[Option[SeqNr]]
-
-  /**
-   * Deletes events up to provided SeqNr, consecutive pointer call will return last seen value  
-   */
-  def delete(to: DeleteTo): F[Option[PartitionOffset]]
-
-  /**
-   * Deletes all data with regards to journal, consecutive pointer call will return none
-   */
-  def purge: F[Option[PartitionOffset]]
-}
-```
+See [Journals](journal/src/main/scala/com/evolutiongaming/kafka/journal/Journals.scala) and 
+[Journal](journal/src/main/scala/com/evolutiongaming/kafka/journal/Journal.scala)
 
 ## Troubleshooting
 
 ### Kafka exceptions in logs
 
-Kafka client tends to log some exceptions at `error` level, however in reality those are harmless in case of operation retried successfully.
-Retriable exceptions usually extend [RetriableException](https://github.com/apache/kafka/blob/trunk/clients/src/main/java/org/apache/kafka/common/errors/RetriableException.java)
+Kafka client tends to log some exceptions at `error` level, however in reality those are harmless in case if operation
+retried successfully. Retriable exceptions usually extend [RetriableException](https://github.com/apache/kafka/blob/trunk/clients/src/main/java/org/apache/kafka/common/errors/RetriableException.java).
 
-Here is the list of known error logs you may ignore:
-
+List of known "error" cases which may be ignored:
 * Offset commit failed on partition .. at offset ..: The request timed out.
 * Offset commit failed on partition .. at offset ..: The coordinator is loading and hence can't process requests.
 * Offset commit failed on partition .. at offset ..: This is not the correct coordinator.
 * Offset commit failed on partition .. at offset ..: This server does not host this topic-partition. 
 
-
 ## Akka persistence plugin
 
-In order to use kafka-journal as [akka persistence plugin](https://doc.akka.io/docs/akka/2.5/persistence.html#storage-plugins) you would need to add following to your `*.conf` file:
-
+In order to use `kafka-journal` as [akka persistence plugin](https://doc.akka.io/docs/akka/2.5/persistence.html#storage-plugins) 
+you have to add following to your `*.conf` file:
 ```hocon
 akka.persistence.journal.plugin = "evolutiongaming.kafka-journal.persistence.journal"
 ```
 
-Unfortunately akka persistence `snapshot` plugin is not implemented yet.
-
+Unfortunately akka persistence `snapshot` plugin is not implemented, yet.
 
 ## Setup
 
 ```scala
 addSbtPlugin("com.evolution" % "sbt-artifactory-plugin" % "0.0.2")
 
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal" % "0.0.153"
+libraryDependencies += "com.evolutiongaming" %% "kafka-journal" % "3.4.0"
 
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal-persistence" % "0.0.153"
+libraryDependencies += "com.evolutiongaming" %% "kafka-journal-persistence" % "3.4.0"
 
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal-replicator" % "0.0.153"
+libraryDependencies += "com.evolutiongaming" %% "kafka-journal-replicator" % "3.4.0"
 
-libraryDependencies += "com.evolutiongaming" %% "kafka-journal-eventual-cassandra" % "0.0.153"
+libraryDependencies += "com.evolutiongaming" %% "kafka-journal-eventual-cassandra" % "3.4.0"
 ```
-
 
 ## Presentations
 
@@ -136,8 +98,8 @@ libraryDependencies += "com.evolutiongaming" %% "kafka-journal-eventual-cassandr
 
 ## Development
 
-To run unit-test, have to have Docker environment **running** (Docker Desktop, Rancher Desktop etc). Some tests expect to
-have `/var/run/docker.sock` available. In case of Rancher Desktop, one has to amend local setup with:
+To run unit-test, have to have Docker environment **running** (Docker Desktop, Rancher Desktop etc.). Some tests expect
+to have `/var/run/docker.sock` available. In case of Rancher Desktop, one might need to amend local setup with:
 ```shell
 sudo ln -s $HOME/.rd/docker.sock /var/run/docker.sock
 ```
