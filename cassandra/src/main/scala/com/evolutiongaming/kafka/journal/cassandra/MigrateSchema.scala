@@ -37,7 +37,7 @@ object MigrateSchema {
     *   Storage to get / save the schema version from / to.
     * @param settingKey
     *   A key to use in a setting store. It is important to use a different key for different schemas, to ensure there
-    *   is no accidential overwrite if both schemas are located in one keyspace.
+    *   is no accidental overwrite if both schemas are located in one keyspace.
     * @param migrations
     *   List of CQL statements to execute. The schema version is equal to the size of this list.
     * @return
