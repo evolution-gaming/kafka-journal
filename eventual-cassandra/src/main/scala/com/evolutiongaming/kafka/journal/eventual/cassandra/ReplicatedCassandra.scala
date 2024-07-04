@@ -65,13 +65,13 @@ object ReplicatedCassandra {
         class Main
         val result = new Main with ReplicatedTopicJournal[F] {
 
-          def apply(partition: Partition) = {
+          def apply(partition: Partition): Resource[F, ReplicatedPartitionJournal[F]] = {
             Ref[F]
               .of(false)
               .map { fixedRef =>
                 new Main with ReplicatedPartitionJournal[F] {
 
-                  def offsets = {
+                  def offsets: ReplicatedPartitionJournal.Offsets[F] = {
                     new Main with ReplicatedPartitionJournal.Offsets[F] {
 
                       def get = {
@@ -587,7 +587,7 @@ object ReplicatedCassandra {
 
       new MetaJournal with MetaJournalStatements[F] {
 
-        def apply(key: Key, segment: SegmentNr) = {
+        def apply(key: Key, segment: SegmentNr): ByKey[F] = {
           new MetaJournal with ByKey[F] {
 
             def journalHead = selectJournalHead(key, segment)
@@ -596,7 +596,7 @@ object ReplicatedCassandra {
               inset1(key, segment, timestamp, timestamp, journalHead, origin)
             }
 
-            def update(partitionOffset: PartitionOffset, timestamp: Instant) = {
+            def update(partitionOffset: PartitionOffset, timestamp: Instant): ByKey.Update[F] = {
               new MetaJournal with ByKey.Update[F] {
 
                 def apply() = {

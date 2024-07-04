@@ -2,18 +2,18 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.effect.Poll
 import cats.effect.kernel.CancelScope
-import cats.syntax.all._
-import cats.{Id, catsInstancesForId}
+import cats.syntax.all.*
+import cats.{Id, Monad, catsInstancesForId}
 import com.evolutiongaming.kafka.journal.ExpireAfter
-import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.ExpireOn.implicits._
+import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
+import com.evolutiongaming.kafka.journal.eventual.cassandra.ExpireOn.implicits.*
 import com.evolutiongaming.kafka.journal.eventual.cassandra.ExpiryService.Action
 import com.evolutiongaming.kafka.journal.util.MonadCancelFromMonad
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import java.time.{Instant, LocalDate, ZoneOffset}
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.Try
 import scala.util.control.NonFatal
 
@@ -53,7 +53,7 @@ object ExpiryServiceTest {
 
   implicit val bracketId: MonadCancelFromMonad[Id, Throwable] = new MonadCancelFromMonad[Id, Throwable] {
 
-    def F = catsInstancesForId
+    def F: Monad[Id] = catsInstancesForId
 
     override def rootCancelScope: CancelScope = CancelScope.Uncancelable
 

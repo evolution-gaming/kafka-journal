@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.Monad
-import cats.effect.kernel.{Async, Outcome, Unique}
+import cats.effect.kernel.{Async, Deferred, Outcome, Ref, Unique}
 import cats.effect.{Concurrent, Fiber, Poll}
-import cats.syntax.all._
+import cats.syntax.all.*
 
 import scala.util.control.NonFatal
 
@@ -14,11 +14,11 @@ object ConcurrentOf {
   def fromMonad[F[_]](implicit F: Monad[F]): Concurrent[F] = {
     new Concurrent[F] {
 
-      def ref[A](a: A) = throw new NotImplementedError(s"Concurrent.ref")
+      def ref[A](a: A): F[Ref[F, A]] = throw new NotImplementedError(s"Concurrent.ref")
 
-      def deferred[A] = throw new NotImplementedError(s"Concurrent.deferred")
+      def deferred[A]: F[Deferred[F, A]] = throw new NotImplementedError(s"Concurrent.deferred")
 
-      def start[A](fa: F[A]) =
+      def start[A](fa: F[A]): F[Fiber[F, Throwable, A]] =
         F.map(fa) { a =>
           new Fiber[F, Throwable, A] {
             def cancel = pure(())
@@ -26,7 +26,7 @@ object ConcurrentOf {
           }
         }
 
-      def never[A] = {
+      def never[A]: F[A] = {
         throw new NotImplementedError(s"Concurrent.never")
       }
 
@@ -44,9 +44,9 @@ object ConcurrentOf {
         }
       }
 
-      def canceled = throw new NotImplementedError(s"Concurrent.canceled")
+      def canceled: F[Unit] = throw new NotImplementedError(s"Concurrent.canceled")
 
-      def onCancel[A](fa: F[A], fin: F[Unit]) = fa.productL(fin)
+      def onCancel[A](fa: F[A], fin: F[Unit]): F[A] = fa.productL(fin)
 
       def raiseError[A](e: Throwable): F[A] = throw e
 

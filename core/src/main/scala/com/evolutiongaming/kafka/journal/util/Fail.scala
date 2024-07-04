@@ -20,34 +20,34 @@ object Fail {
   def apply[F[_]](implicit F: Fail[F]): Fail[F] = F
 
   implicit val idFail: Fail[Id] = new Fail[Id] {
-    def fail[A](a: String) = throw JournalError(a)
+    def fail[A](a: String): Id[A] = throw JournalError(a)
   }
 
   implicit val jsResultFail: Fail[JsResult] = new Fail[JsResult] {
-    def fail[A](a: String) = JsError(a)
+    def fail[A](a: String): JsResult[A] = JsError(a)
   }
 
   implicit val attemptFail: Fail[Attempt] = new Fail[Attempt] {
-    def fail[A](a: String) = Attempt.Failure(Err(a))
+    def fail[A](a: String): Attempt[A] = Attempt.Failure(Err(a))
   }
 
   implicit val optionFail: Fail[Option] = new Fail[Option] {
-    def fail[A](a: String) = none[A]
+    def fail[A](a: String): Option[A] = none[A]
   }
 
   implicit val eitherFail: Fail[Either[String, *]] = new Fail[Either[String, *]] {
-    def fail[A](a: String) = a.asLeft[A]
+    def fail[A](a: String): Either[String, A] = a.asLeft[A]
   }
 
   implicit val tryFail: Fail[Try] = new Fail[Try] {
-    def fail[A](a: String) = Failure(JournalError(a))
+    def fail[A](a: String): Try[A] = Failure(JournalError(a))
   }
 
   implicit val ioFail: Fail[IO] = lift[IO]
 
   def lift[F[_]: ApplicativeThrowable]: Fail[F] = {
     new Fail[F] {
-      def fail[A](a: String) = JournalError(a).raiseError[F, A]
+      def fail[A](a: String): F[A] = JournalError(a).raiseError[F, A]
     }
   }
 

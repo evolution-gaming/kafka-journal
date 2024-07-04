@@ -207,7 +207,7 @@ object Journals {
 
     new Main with Journals[F] {
 
-      def apply(key: Key) = {
+      def apply(key: Key): Journal[F] = {
         new Main with Journal[F] {
 
           def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(

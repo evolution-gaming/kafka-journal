@@ -23,7 +23,7 @@ object ReplicatedPartitionJournal {
     class Empty
     new Empty with ReplicatedPartitionJournal[F] {
 
-      def offsets = {
+      def offsets: Offsets[F] = {
         new Empty with Offsets[F] {
 
           def get = none[Offset].pure[F]
@@ -64,7 +64,7 @@ object ReplicatedPartitionJournal {
     def mapK[G[_]](f: F ~> G)(implicit B: BracketThrowable[F], GT: BracketThrowable[G]): ReplicatedPartitionJournal[G] = {
       new MapK with ReplicatedPartitionJournal[G] {
 
-        def offsets = {
+        def offsets: Offsets[G] = {
           new MapK with Offsets[G] {
 
             def get = f(self.offsets.get)
@@ -90,7 +90,7 @@ object ReplicatedPartitionJournal {
     ): ReplicatedPartitionJournal[F] = {
       new WithLog with ReplicatedPartitionJournal[F] {
 
-        def offsets = {
+        def offsets: Offsets[F] = {
           new WithLog with Offsets[F] {
 
             def get = {
@@ -140,7 +140,7 @@ object ReplicatedPartitionJournal {
     )(implicit F: Monad[F], measureDuration: MeasureDuration[F]): ReplicatedPartitionJournal[F] = {
       new WithMetrics with ReplicatedPartitionJournal[F] {
 
-        def offsets = {
+        def offsets: Offsets[F] = {
           new WithMetrics with Offsets[F] {
 
             def get: F[Option[Offset]] = {
@@ -188,7 +188,7 @@ object ReplicatedPartitionJournal {
 
       new EnhanceError with ReplicatedPartitionJournal[F] {
 
-        def offsets = {
+        def offsets: Offsets[F] = {
           new EnhanceError with Offsets[F] {
 
             def get: F[Option[Offset]] = {

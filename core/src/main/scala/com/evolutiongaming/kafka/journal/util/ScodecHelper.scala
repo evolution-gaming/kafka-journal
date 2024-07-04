@@ -20,18 +20,18 @@ object ScodecHelper {
 
     new MonadError[Attempt, Failure] {
 
-      def raiseError[A](a: Failure) = a
+      def raiseError[A](a: Failure): Attempt[A] = a
 
-      def handleErrorWith[A](fa: Attempt[A])(f: Failure => Attempt[A]) = {
+      def handleErrorWith[A](fa: Attempt[A])(f: Failure => Attempt[A]): Attempt[A] = {
         fa match {
           case fa: Successful[A] => fa
           case fa: Failure       => f(fa)
         }
       }
 
-      def pure[A](a: A) = Successful(a)
+      def pure[A](a: A): Attempt[A] = Successful(a)
 
-      def flatMap[A, B](fa: Attempt[A])(f: A => Attempt[B]) = fa.flatMap(f)
+      def flatMap[A, B](fa: Attempt[A])(f: A => Attempt[B]): Attempt[B] = fa.flatMap(f)
 
       @tailrec
       def tailRecM[A, B](a: A)(f: A => Attempt[Either[A, B]]): Attempt[B] = {

@@ -1,28 +1,29 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptyList => Nel}
-import cats.effect.syntax.resource._
-import cats.effect.{Ref, _}
-import cats.syntax.all._
+import cats.data.NonEmptyList as Nel
+import cats.effect.syntax.resource.*
+import cats.effect.{Ref, *}
+import cats.syntax.all.*
 import cats.{Applicative, Monad, Parallel, ~>}
 import com.evolution.scache.CacheMetrics
-import com.evolutiongaming.catshelper.ParallelHelper._
-import com.evolutiongaming.catshelper._
-import com.evolutiongaming.kafka.journal._
+import com.evolution.scache.CacheMetrics.Name
+import com.evolutiongaming.catshelper.ParallelHelper.*
+import com.evolutiongaming.catshelper.*
+import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession, ReplicatedCassandra}
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
-import com.evolutiongaming.kafka.journal.util._
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
+import com.evolutiongaming.kafka.journal.util.*
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.{OnError, Retry, Sleep, Strategy}
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerMetrics}
-import com.evolutiongaming.skafka.{Bytes => _, ClientId, Topic}
+import com.evolutiongaming.skafka.{ClientId, Topic, Bytes as _}
 import com.evolutiongaming.smetrics.CollectorRegistry
 import scodec.bits.ByteVector
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 // TODO TEST
 trait Replicator[F[_]] {
@@ -242,13 +243,13 @@ object Replicator {
 
     def empty[F[_]]: Metrics[F] = new Metrics[F] {
 
-      def journal = none
+      def journal: Option[ReplicatedJournal.Metrics[F]] = none
 
-      def replicator = none
+      def replicator: Option[Topic => TopicReplicatorMetrics[F]] = none
 
-      def consumer = none
+      def consumer: Option[ConsumerMetrics[F]] = none
 
-      def cache = none
+      def cache: Option[Name => CacheMetrics[F]] = none
     }
 
     def of[F[_]: Monad](registry: CollectorRegistry[F], clientId: ClientId): Resource[F, Replicator.Metrics[F]] = {

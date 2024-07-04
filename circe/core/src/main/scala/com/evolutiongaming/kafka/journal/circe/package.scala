@@ -33,7 +33,7 @@ package object circe {
     def convert(json: Json): Eval[Either[String, JsValue]] = json.fold(
       Eval.now(JsNull.asRight[String]),
       bool => Eval.now(JsBoolean(bool).asRight[String]),
-      num  => Eval.now(num.toBigDecimal.map(JsNumber).toRight(s"Failed to convert JsonNumber $num to JsNumber")),
+      num  => Eval.now(num.toBigDecimal.map(JsNumber.apply).toRight(s"Failed to convert JsonNumber $num to JsNumber")),
       str  => Eval.now(JsString(str).asRight[String]),
       arr =>
         arr

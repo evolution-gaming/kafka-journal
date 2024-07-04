@@ -99,11 +99,11 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
 
       def actor() = new PersistentActor {
 
-        def persistenceId = id
+        def persistenceId: String = id
 
-        def receiveRecover = PartialFunction.empty
+        def receiveRecover: Receive = PartialFunction.empty
 
-        def receiveCommand = {
+        def receiveCommand: Receive = {
           case Stop                     => context.stop(self)
           case Delete(seqNr)            => deleteMessages(seqNr)
           case x: DeleteMessagesSuccess => testActor.tell(x, self)
@@ -147,14 +147,14 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
 
     def actor() = new PersistentActor {
 
-      def persistenceId = id
+      def persistenceId: String = id
 
-      def receiveRecover = {
+      def receiveRecover: Receive = {
         case event: String     => state = f(state, event)
         case RecoveryCompleted => promise.success(state)
       }
 
-      def receiveCommand = PartialFunction.empty
+      def receiveCommand: Receive = PartialFunction.empty
 
       override def onRecoveryFailure(cause: Throwable, event: Option[Any]): Unit = {
         promise.failure(cause)

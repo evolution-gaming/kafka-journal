@@ -49,7 +49,7 @@ object ActionHeader {
 
     new OFormat[Option[ActionHeader]] {
 
-      def reads(json: JsValue) = {
+      def reads(json: JsValue): JsResult[Option[ActionHeader]] = {
 
         def read[A](name: String, reads: Reads[A]) = {
           (json \ name)

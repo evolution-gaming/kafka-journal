@@ -1,10 +1,11 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.implicits.catsStdInstancesForTry
-import cats.syntax.all._
-import com.datastax.driver.core.{Row, Statement}
-import com.evolutiongaming.kafka.journal.util.StreamHelper._
+import cats.syntax.all.*
+import com.datastax.driver.core.{PreparedStatement, Row, Statement}
+import com.evolutiongaming.kafka.journal.util.StreamHelper.*
 import com.evolutiongaming.kafka.journal.{Setting, Settings}
+import com.evolutiongaming.scassandra
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AnyFunSuite
@@ -138,17 +139,17 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
         }
       }
 
-      def remove(key: K) = throw NotImplemented
+      def remove(key: K): StateT[Option[Setting]] = throw NotImplemented
 
-      def all = throw NotImplemented
+      def all: Stream[StateT, Setting] = throw NotImplemented
     }
   }
 
   implicit val cassandraSession: CassandraSession[StateT] = new CassandraSession[StateT] {
 
-    def prepare(query: String) = throw NotImplemented
+    def prepare(query: String): StateT[PreparedStatement] = throw NotImplemented
 
-    def execute(statement: Statement) = {
+    def execute(statement: Statement): Stream[StateT, Row] = {
       val stateT = StateT { state =>
         val state1 = state.add(Action.Query)
         val rows   = Stream.empty[StateT, Row]
@@ -157,7 +158,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
       stateT.toStream.flatten
     }
 
-    def unsafe = throw NotImplemented
+    def unsafe: scassandra.CassandraSession[StateT] = throw NotImplemented
   }
 
   implicit val cassandraSync: CassandraSync[StateT] = new CassandraSync[StateT] {
