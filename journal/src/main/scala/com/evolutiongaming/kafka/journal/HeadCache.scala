@@ -1,21 +1,21 @@
 package com.evolutiongaming.kafka.journal
 
-import cats._
-import cats.effect._
+import cats.*
+import cats.effect.*
 import cats.effect.Async
-import cats.effect.syntax.all._
-import cats.syntax.all._
+import cats.effect.syntax.all.*
+import cats.syntax.all.*
 import com.evolution.scache.{Cache, ExpiringCache}
-import com.evolutiongaming.catshelper._
+import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.kafka.journal.PartitionCache.Result
 import com.evolutiongaming.kafka.journal.conversions.ConsRecordToActionHeader
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
-import com.evolutiongaming.smetrics.MetricsHelper._
-import com.evolutiongaming.smetrics._
+import com.evolutiongaming.smetrics.MetricsHelper.*
+import com.evolutiongaming.smetrics.*
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 /** Metainfo of events written to Kafka, but not yet replicated to Cassandra.
   *

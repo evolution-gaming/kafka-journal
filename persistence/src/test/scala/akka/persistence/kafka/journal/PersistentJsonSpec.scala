@@ -1,6 +1,6 @@
 package akka.persistence.kafka.journal
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.PayloadType
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers

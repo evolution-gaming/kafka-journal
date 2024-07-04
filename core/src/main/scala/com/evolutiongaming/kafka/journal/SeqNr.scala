@@ -1,14 +1,14 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.kernel.{Eq, Order}
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Applicative, Id, Show}
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.Fail.implicits._
-import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
-import com.evolutiongaming.kafka.journal.util.ScodecHelper._
-import com.evolutiongaming.scassandra._
-import play.api.libs.json._
+import com.evolutiongaming.kafka.journal.util.Fail.implicits.*
+import com.evolutiongaming.kafka.journal.util.PlayJsonHelper.*
+import com.evolutiongaming.kafka.journal.util.ScodecHelper.*
+import com.evolutiongaming.scassandra.*
+import play.api.libs.json.*
 import scodec.{Attempt, Codec, codecs}
 
 sealed abstract case class SeqNr(value: Long) {

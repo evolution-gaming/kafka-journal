@@ -1,16 +1,16 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
-import cats.effect._
-import cats.syntax.all._
-import com.evolutiongaming.catshelper.CatsHelper._
+import cats.data.{NonEmptyList as Nel, NonEmptyMap as Nem, NonEmptySet as Nes}
+import cats.effect.*
+import cats.syntax.all.*
+import com.evolutiongaming.catshelper.CatsHelper.*
 import com.evolutiongaming.catshelper.Log
-import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.IOSuite.*
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.TopicPointers
 import com.evolutiongaming.retry.Sleep
-import com.evolutiongaming.skafka._
+import com.evolutiongaming.skafka.*
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords}
 import com.evolutiongaming.smetrics.CollectorRegistry
 import org.scalatest.matchers.should.Matchers
@@ -18,12 +18,12 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.Instant
 import scala.collection.immutable.Queue
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.Try
 import scala.util.control.NoStackTrace
 
 class HeadCacheSpec extends AsyncWordSpec with Matchers {
-  import HeadCacheSpec._
+  import HeadCacheSpec.*
 
   "HeadCache" should {
 

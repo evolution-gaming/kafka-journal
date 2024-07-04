@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.effect.{MonadCancel, Resource}
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{FlatMap, Monad, MonadError, StackSafeMonad}
 import com.evolutiongaming.sstream.Stream.StreamOps
 import com.evolutiongaming.sstream.{FoldWhile, Stream}

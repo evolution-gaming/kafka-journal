@@ -1,11 +1,11 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.~>
-import com.evolutiongaming.catshelper.CatsHelper._
+import com.evolutiongaming.catshelper.CatsHelper.*
 import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, MonadThrowable}
 import com.evolutiongaming.jsonitertool.PlayJsonJsoniter
-import com.evolutiongaming.kafka.journal.util.ScodecHelper._
+import com.evolutiongaming.kafka.journal.util.ScodecHelper.*
 import play.api.libs.json.{JsValue, Json}
 import scodec.bits.ByteVector
 

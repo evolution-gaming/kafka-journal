@@ -1,13 +1,13 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import com.datastax.driver.core._
+import com.datastax.driver.core.*
 import com.google.common.reflect.TypeToken
 
 import java.math.BigInteger
 import java.net.InetAddress
 import java.nio.ByteBuffer
 import java.util.{Date, UUID}
-import java.{util => ju}
+import java.util as ju
 
 class RowStub extends Row {
 

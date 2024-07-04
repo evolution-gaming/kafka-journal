@@ -2,16 +2,16 @@ package com.evolutiongaming.kafka.journal
 
 import akka.persistence.kafka.journal.KafkaJournalConfig
 import cats.Foldable
-import cats.data.{NonEmptyList => Nel}
+import cats.data.NonEmptyList as Nel
 import cats.effect.{IO, Resource}
-import cats.syntax.all._
-import com.evolutiongaming.catshelper.ParallelHelper._
+import cats.syntax.all.*
+import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.catshelper.{Log, LogOf}
-import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
-import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
+import com.evolutiongaming.kafka.journal.IOSuite.*
 import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualRead}
-import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
+import com.evolutiongaming.kafka.journal.util.PureConfigHelper.*
 import com.evolutiongaming.retry.{Retry, Strategy}
 import org.scalatest.Succeeded
 import org.scalatest.wordspec.AsyncWordSpec
@@ -19,13 +19,13 @@ import play.api.libs.json.Json
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 import TestJsonCodec.instance
 
 abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
-  import JournalIntSpec._
-  import JournalSuite._
+  import JournalIntSpec.*
+  import JournalSuite.*
 
   def event(seqNr: SeqNr): Event[A]
 

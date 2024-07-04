@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.effect._
+import cats.effect.*
 import cats.effect.kernel.Resource.ExitCase
-import cats.effect.syntax.all._
-import cats.syntax.all._
+import cats.effect.syntax.all.*
+import cats.syntax.all.*
 import cats.{Applicative, Defer, Functor}
 
 import scala.annotation.tailrec

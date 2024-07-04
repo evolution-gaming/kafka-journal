@@ -1,13 +1,13 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Monad
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
-import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.util.TemporalHelper._
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper.*
+import com.evolutiongaming.kafka.journal.util.TemporalHelper.*
 import com.evolutiongaming.scassandra.TableName
-import com.evolutiongaming.scassandra.syntax._
+import com.evolutiongaming.scassandra.syntax.*
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.sstream.Stream
 

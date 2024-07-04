@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
-import com.evolutiongaming.kafka.journal._
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.skafka.Offset
 
 sealed abstract class Batch extends Product {

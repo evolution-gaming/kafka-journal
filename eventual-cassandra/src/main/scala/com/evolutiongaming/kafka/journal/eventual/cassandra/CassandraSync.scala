@@ -1,11 +1,11 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.effect.kernel.Temporal
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.~>
 import com.evolutiongaming.cassandra.sync.AutoCreate
 import com.evolutiongaming.kafka.journal.Origin
-import com.evolutiongaming.kafka.journal.cassandra.{CassandraSync => CassandraSync2}
+import com.evolutiongaming.kafka.journal.cassandra.CassandraSync as CassandraSync2
 
 @deprecated(
   since   = "3.3.9",

@@ -1,19 +1,19 @@
 package com.evolutiongaming.kafka.journal
 
-import cats._
+import cats.*
 import cats.arrow.FunctionK
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.{Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.EventualRead
-import com.evolutiongaming.kafka.journal.util.StreamHelper._
-import com.evolutiongaming.skafka.{Bytes => _, _}
+import com.evolutiongaming.kafka.journal.util.StreamHelper.*
+import com.evolutiongaming.skafka.{Bytes as _, _}
 import com.evolutiongaming.sstream.Stream
 import pureconfig.ConfigReader
-import pureconfig.generic.semiauto._
+import pureconfig.generic.semiauto.*
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 trait Journal[F[_]] {
 

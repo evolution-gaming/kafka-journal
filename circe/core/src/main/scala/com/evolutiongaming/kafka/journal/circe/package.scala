@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.Eval
-import cats.syntax.all._
+import cats.syntax.all.*
 import io.circe.Json
-import play.api.libs.json._
+import play.api.libs.json.*
 
 package object circe {
 

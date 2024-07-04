@@ -8,7 +8,7 @@ import scodec.{Codec, codecs, ValueCodecEnrichedWithHListSupport, TransformSynta
 import java.io.NotSerializableException
 
 class PersistenceTckSerializer extends SerializerWithStringManifest {
-  import PersistenceTckSerializer._
+  import PersistenceTckSerializer.*
 
   def identifier = 585506118
 

@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.conversions
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolutiongaming.kafka.journal.{Action, JournalError}
 import com.evolutiongaming.skafka.Header

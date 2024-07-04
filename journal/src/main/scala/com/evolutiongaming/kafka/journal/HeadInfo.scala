@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Foldable, Semigroup}
 import com.evolutiongaming.skafka.Offset
 
@@ -79,7 +79,7 @@ object HeadInfo {
     *
     * Example:
     * {{{
-    * scala> import com.evolutiongaming.kafka.journal._
+    * scala> import com.evolutiongaming.kafka.journal.*
     * scala> import com.evolutiongaming.skafka.Offset
     *
     * scala> HeadInfo.Append(Offset.min, SeqNr.min, None)

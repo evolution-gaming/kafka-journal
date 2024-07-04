@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.effect.{Deferred, Ref, _}
-import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.IOSuite.*
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 

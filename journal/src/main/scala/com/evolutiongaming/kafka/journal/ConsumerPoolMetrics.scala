@@ -2,9 +2,9 @@ package com.evolutiongaming.kafka.journal
 
 import cats.Applicative
 import cats.effect.Resource
-import cats.syntax.all._
-import com.evolutiongaming.smetrics.MetricsHelper._
-import com.evolutiongaming.smetrics._
+import cats.syntax.all.*
+import com.evolutiongaming.smetrics.MetricsHelper.*
+import com.evolutiongaming.smetrics.*
 
 import scala.concurrent.duration.FiniteDuration
 

@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.kernel.Order
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Eq, Show}
-import com.evolutiongaming.scassandra._
-import play.api.libs.json._
+import com.evolutiongaming.scassandra.*
+import play.api.libs.json.*
 
 final case class DeleteTo(value: SeqNr) {
 

@@ -1,18 +1,18 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.data.{IndexedStateT, NonEmptyList => Nel}
+import cats.data.{IndexedStateT, NonEmptyList as Nel}
 import cats.effect.kernel.CancelScope
 import cats.effect.{Poll, Sync}
-import cats.implicits._
+import cats.implicits.*
 import cats.syntax.all.none
 import cats.{Id, Parallel}
-import com.evolutiongaming.catshelper.DataHelper._
-import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.catshelper.DataHelper.*
+import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
+import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
-import com.evolutiongaming.kafka.journal.eventual.cassandra.ExpireOn.implicits._
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
-import com.evolutiongaming.kafka.journal.util.TemporalHelper._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.ExpireOn.implicits.*
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
+import com.evolutiongaming.kafka.journal.util.TemporalHelper.*
 import com.evolutiongaming.kafka.journal.util.{Fail, MonadCancelFromMonadError}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import org.scalatest.funsuite.AnyFunSuite
@@ -22,11 +22,11 @@ import play.api.libs.json.Json
 import java.time.{Instant, LocalDate, ZoneOffset}
 import java.util.concurrent.TimeUnit
 import scala.collection.immutable.SortedSet
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.Try
 
 class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
-  import ReplicatedCassandraTest._
+  import ReplicatedCassandraTest.*
 
   private val timestamp0      = Instant.parse("2019-12-12T10:10:10.00Z")
   private val timestamp1      = timestamp0 + 1.minute

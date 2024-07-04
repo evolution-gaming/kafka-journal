@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.util
 
 import cats.Id
 import cats.effect.IO
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.ApplicativeThrowable
 import com.evolutiongaming.kafka.journal.JournalError
 import play.api.libs.json.{JsError, JsResult}

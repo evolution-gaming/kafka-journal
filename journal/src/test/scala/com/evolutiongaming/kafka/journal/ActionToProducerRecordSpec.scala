@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
-import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
 import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsRecordToActionRecord, KafkaWrite}
 import com.evolutiongaming.skafka.consumer.WithSize
 import com.evolutiongaming.skafka.{TimestampAndType, TimestampType, TopicPartition}
@@ -12,7 +12,7 @@ import play.api.libs.json.Json
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.Try
 
 import TestJsonCodec.instance

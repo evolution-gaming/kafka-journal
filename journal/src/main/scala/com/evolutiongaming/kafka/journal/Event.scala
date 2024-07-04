@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
-import cats._
-import cats.syntax.all._
+import cats.*
+import cats.syntax.all.*
 import scodec.bits.ByteVector
 import scodec.{
   Attempt,

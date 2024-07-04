@@ -2,7 +2,7 @@ package akka.persistence.kafka.journal
 
 import akka.persistence.AtomicWrite
 import cats.Applicative
-import cats.syntax.all._
+import cats.syntax.all.*
 
 trait Batching[F[_]] {
   def apply(aws: List[AtomicWrite]): F[List[List[AtomicWrite]]]

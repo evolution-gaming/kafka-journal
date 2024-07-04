@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal.execution
 
 import cats.effect.{Resource, Sync}
-import cats.syntax.all._
+import cats.syntax.all.*
 
 import java.util.concurrent.{SynchronousQueue, ThreadFactory, ThreadPoolExecutor}
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 object ThreadPoolOf {
 

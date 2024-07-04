@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.util
 
-import cats.effect.syntax.resource._
+import cats.effect.syntax.resource.*
 import cats.effect.{Resource, Sync}
 import com.evolutiongaming.catshelper.Runtime
 import com.evolutiongaming.kafka.journal.execution.{ForkJoinPoolOf, ScheduledExecutorServiceOf, ThreadFactoryOf, ThreadPoolOf}

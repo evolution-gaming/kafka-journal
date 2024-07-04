@@ -2,15 +2,15 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import cats.effect.kernel.Outcome
 import cats.effect.{IO, Resource}
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.LogOf
-import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.IOSuite.*
 import com.evolutiongaming.kafka.journal.replicator.Replicator.Consumer
 import com.evolutiongaming.skafka.Topic
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.control.NoStackTrace
 
 class ReplicatorSpec extends AsyncWordSpec with Matchers {

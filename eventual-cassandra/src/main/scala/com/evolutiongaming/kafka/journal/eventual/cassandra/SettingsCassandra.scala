@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.effect.Clock
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Monad, Parallel}
-import com.evolutiongaming.kafka.journal.cassandra.{SettingsCassandra => SettingsCassandra2}
+import com.evolutiongaming.kafka.journal.cassandra.SettingsCassandra as SettingsCassandra2
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraSession
 import com.evolutiongaming.kafka.journal.{Origin, Settings}
 import com.evolutiongaming.scassandra.TableName

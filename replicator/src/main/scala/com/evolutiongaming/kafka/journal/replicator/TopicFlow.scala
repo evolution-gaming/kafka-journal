@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
-import cats.syntax.all._
+import cats.data.{NonEmptyList as Nel, NonEmptyMap as Nem, NonEmptySet as Nes}
+import cats.syntax.all.*
 import cats.{Applicative, ~>}
 import com.evolutiongaming.kafka.journal.ConsRecord
 import com.evolutiongaming.skafka.{Offset, Partition}

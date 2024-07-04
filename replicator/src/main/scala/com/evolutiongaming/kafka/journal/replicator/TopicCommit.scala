@@ -1,19 +1,19 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import cats.Applicative
-import cats.data.{NonEmptyMap => Nem}
+import cats.data.NonEmptyMap as Nem
 import cats.effect.kernel.Concurrent
 import cats.effect.{Clock, Ref}
-import cats.syntax.all._
-import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.catshelper.DataHelper._
+import cats.syntax.all.*
+import com.evolutiongaming.catshelper.ClockHelper.*
+import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.kafka.journal.KafkaConsumer
-import com.evolutiongaming.kafka.journal.util.TemporalHelper._
-import com.evolutiongaming.skafka._
+import com.evolutiongaming.kafka.journal.util.TemporalHelper.*
+import com.evolutiongaming.skafka.*
 
 import java.time.Instant
 import scala.collection.immutable.SortedMap
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 trait TopicCommit[F[_]] {
 

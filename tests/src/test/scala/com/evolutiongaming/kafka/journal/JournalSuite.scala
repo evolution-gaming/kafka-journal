@@ -2,16 +2,16 @@ package com.evolutiongaming.kafka.journal
 
 import akka.persistence.kafka.journal.KafkaJournalConfig
 import cats.Monad
-import cats.data.{NonEmptyList => Nel}
+import cats.data.NonEmptyList as Nel
 import cats.effect.IO
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.{FromFuture, LogOf}
-import com.evolutiongaming.kafka.journal.CassandraSuite._
-import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.CassandraSuite.*
+import com.evolutiongaming.kafka.journal.IOSuite.*
 import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.EventualRead
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
-import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
+import com.evolutiongaming.kafka.journal.util.PureConfigHelper.*
 import com.evolutiongaming.skafka.consumer.ConsumerMetrics
 import com.evolutiongaming.skafka.producer.ProducerMetrics
 import org.scalatest.Suite

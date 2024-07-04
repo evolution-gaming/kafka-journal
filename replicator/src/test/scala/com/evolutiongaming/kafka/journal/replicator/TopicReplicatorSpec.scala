@@ -1,24 +1,24 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem}
-import cats.effect._
-import cats.effect.syntax.resource._
+import cats.data.{NonEmptyList as Nel, NonEmptyMap as Nem}
+import cats.effect.*
+import cats.effect.syntax.resource.*
 import cats.effect.unsafe.implicits.global
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Applicative, Monoid, Parallel}
-import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.catshelper.DataHelper._
+import com.evolutiongaming.catshelper.ClockHelper.*
+import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.catshelper.{FromTry, Log, MeasureDuration}
-import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
+import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsRecordToActionRecord, KafkaRead, KafkaWrite}
-import com.evolutiongaming.kafka.journal.eventual._
+import com.evolutiongaming.kafka.journal.eventual.*
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicatorMetrics.Measurements
 import com.evolutiongaming.kafka.journal.util.{Fail, TestTemporal}
 import com.evolutiongaming.retry.Sleep
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, RebalanceListener, WithSize}
-import com.evolutiongaming.skafka.{Bytes => _, Header => _, Metadata => _, _}
+import com.evolutiongaming.skafka.{Bytes as _, Header as _, Metadata as _, _}
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -26,12 +26,12 @@ import play.api.libs.json.Json
 
 import java.time.Instant
 import scala.collection.immutable.SortedSet
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.Try
 import scala.util.control.NoStackTrace
 
 class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
-  import TopicReplicatorSpec._
+  import TopicReplicatorSpec.*
 
   "TopicReplicator" should {
 

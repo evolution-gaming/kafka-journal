@@ -1,16 +1,16 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Applicative
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
-import com.datastax.driver.core.{Duration => DurationC, _}
-import com.evolutiongaming.kafka.journal.eventual.cassandra.util.FiniteDurationHelper._
-import com.evolutiongaming.scassandra.syntax._
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
+import com.datastax.driver.core.{Duration as DurationC, _}
+import com.evolutiongaming.kafka.journal.eventual.cassandra.util.FiniteDurationHelper.*
+import com.evolutiongaming.scassandra.syntax.*
 import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
 import com.evolutiongaming.sstream.Stream
 
-import scala.concurrent.duration._
-import scala.jdk.CollectionConverters._
+import scala.concurrent.duration.*
+import scala.jdk.CollectionConverters.*
 
 object CassandraHelper {
 

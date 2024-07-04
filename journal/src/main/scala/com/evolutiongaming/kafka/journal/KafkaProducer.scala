@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.FlatMap
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.producer
-import com.evolutiongaming.skafka.producer._
+import com.evolutiongaming.skafka.producer.*
 
 trait KafkaProducer[F[_]] {
 

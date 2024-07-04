@@ -1,12 +1,12 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Monad
-import cats.effect._
+import cats.effect.*
 import com.evolutiongaming.catshelper.{Log, LogOf}
-import com.evolutiongaming.kafka.journal.cassandra.{CassandraHealthCheck => CassandraHealthCheck2}
+import com.evolutiongaming.kafka.journal.cassandra.CassandraHealthCheck as CassandraHealthCheck2
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 @deprecated(
   since   = "3.3.9",

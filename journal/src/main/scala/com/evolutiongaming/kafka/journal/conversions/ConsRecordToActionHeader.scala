@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal.conversions
 
 import cats.data.OptionT
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.MonadThrowable
-import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
+import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.util.CatsHelper.*
 import com.evolutiongaming.skafka.Header
 import com.evolutiongaming.skafka.consumer.ConsumerRecord
 import scodec.bits.ByteVector

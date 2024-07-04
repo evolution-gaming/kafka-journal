@@ -2,10 +2,10 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Show
 import cats.kernel.{Eq, Order}
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.datastax.driver.core.SettableData
-import com.evolutiongaming.kafka.journal.util.TemporalHelper._
-import com.evolutiongaming.scassandra.syntax._
+import com.evolutiongaming.kafka.journal.util.TemporalHelper.*
+import com.evolutiongaming.scassandra.syntax.*
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName, EncodeRow}
 
 import java.time.LocalDate

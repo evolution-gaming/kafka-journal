@@ -1,15 +1,15 @@
 package com.evolutiongaming.kafka.journal.circe
 
-import cats.syntax.all._
-import com.evolutiongaming.catshelper._
-import com.evolutiongaming.kafka.journal.PayloadAndType._
-import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.circe.Codecs._
-import com.evolutiongaming.kafka.journal.conversions._
+import cats.syntax.all.*
+import com.evolutiongaming.catshelper.*
+import com.evolutiongaming.kafka.journal.PayloadAndType.*
+import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.circe.Codecs.*
+import com.evolutiongaming.kafka.journal.conversions.*
 import com.evolutiongaming.kafka.journal.eventual.EventualRead
-import io.circe._
-import io.circe.jawn._
-import io.circe.syntax._
+import io.circe.*
+import io.circe.jawn.*
+import io.circe.syntax.*
 import scodec.bits.ByteVector
 
 import java.nio.charset.StandardCharsets

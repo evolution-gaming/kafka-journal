@@ -1,11 +1,11 @@
 package com.evolutiongaming.kafka.journal.cassandra
 
 import cats.MonadThrow
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.Settings
 import com.evolutiongaming.kafka.journal.cassandra.CassandraSync
-import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper.*
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraSession
 
 import scala.util.Try

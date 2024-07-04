@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.kernel.Eq
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Functor, Order, Show}
 import com.datastax.driver.core.{GettableByNameData, SettableData}
-import com.evolutiongaming.scassandra.syntax._
+import com.evolutiongaming.scassandra.syntax.*
 import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow}
 import com.evolutiongaming.skafka.Topic
 

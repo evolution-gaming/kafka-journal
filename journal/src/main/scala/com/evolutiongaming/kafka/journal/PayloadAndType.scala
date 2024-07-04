@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.Monad
-import cats.data.{NonEmptyList => Nel}
-import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
-import com.evolutiongaming.kafka.journal.util.ScodecHelper._
-import play.api.libs.json._
+import cats.data.NonEmptyList as Nel
+import com.evolutiongaming.kafka.journal.util.PlayJsonHelper.*
+import com.evolutiongaming.kafka.journal.util.ScodecHelper.*
+import play.api.libs.json.*
 import scodec.Codec
 import scodec.bits.ByteVector
 

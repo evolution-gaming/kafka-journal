@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Applicative, Eq, Id, Order, Show}
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.Fail.implicits._
-import com.evolutiongaming.scassandra._
+import com.evolutiongaming.kafka.journal.util.Fail.implicits.*
+import com.evolutiongaming.scassandra.*
 import pureconfig.error.{CannotParse, ConfigReaderFailures}
 import pureconfig.{ConfigCursor, ConfigReader}
 

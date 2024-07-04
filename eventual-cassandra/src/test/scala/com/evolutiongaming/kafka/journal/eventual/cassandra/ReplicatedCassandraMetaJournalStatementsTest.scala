@@ -1,21 +1,21 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.syntax.all._
-import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
-import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.ExpireOn.implicits._
+import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
+import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.eventual.cassandra.ExpireOn.implicits.*
 import com.evolutiongaming.kafka.journal.eventual.cassandra.ReplicatedCassandra.MetaJournalStatements.ByKey
-import com.evolutiongaming.kafka.journal.util.TemporalHelper._
+import com.evolutiongaming.kafka.journal.util.TemporalHelper.*
 import com.evolutiongaming.skafka.Topic
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.time.{Instant, LocalDate}
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.Try
 
 class ReplicatedCassandraMetaJournalStatementsTest extends AnyWordSpec with Matchers {
-  import ReplicatedCassandraMetaJournalStatementsTest._
+  import ReplicatedCassandraMetaJournalStatementsTest.*
 
   "byKey" when {
 

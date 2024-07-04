@@ -1,23 +1,23 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.data.{NonEmptyList => Nel}
+import cats.data.NonEmptyList as Nel
 import cats.effect.IO
-import cats.syntax.all._
-import com.evolutiongaming.catshelper.DataHelper._
-import com.evolutiongaming.catshelper.ParallelHelper._
+import cats.syntax.all.*
+import com.evolutiongaming.catshelper.DataHelper.*
+import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.catshelper.{Log, LogOf, MeasureDuration}
-import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.IOSuite.*
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
-import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
+import com.evolutiongaming.kafka.journal.util.PureConfigHelper.*
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class JournalPerfSpec extends AsyncWordSpec with JournalSuite {
-  import JournalSuite._
+  import JournalSuite.*
 
   private val many      = 100
   private val events    = 1000

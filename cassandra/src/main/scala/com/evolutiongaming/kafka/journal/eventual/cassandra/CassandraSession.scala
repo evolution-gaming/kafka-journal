@@ -3,16 +3,16 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.Parallel
 import cats.effect.kernel.Async
 import cats.effect.{Concurrent, Resource}
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
-import com.datastax.driver.core.{ResultSet => _, _}
+import com.datastax.driver.core.{ResultSet as _, _}
 import com.evolution.scache.Cache
 import com.evolutiongaming.catshelper.{MonadThrowable, Runtime}
 import com.evolutiongaming.kafka.journal.JournalError
-import com.evolutiongaming.kafka.journal.util.StreamHelper._
+import com.evolutiongaming.kafka.journal.util.StreamHelper.*
 import com.evolutiongaming.scassandra
 import com.evolutiongaming.scassandra.NextHostRetryPolicy
-import com.evolutiongaming.scassandra.syntax._
+import com.evolutiongaming.scassandra.syntax.*
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.sstream.Stream
 

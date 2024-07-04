@@ -1,20 +1,20 @@
 package akka.persistence.kafka.journal.circe
 
 import akka.persistence.kafka.journal.EventSerializer.PersistentRepresentation
-import akka.persistence.kafka.journal._
-import akka.persistence.kafka.journal.circe.KafkaJournalCirce._
+import akka.persistence.kafka.journal.*
+import akka.persistence.kafka.journal.circe.KafkaJournalCirce.*
 import cats.effect.{IO, Resource}
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.MonadThrowable
-import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.circe.Codecs._
+import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.circe.Codecs.*
 import com.evolutiongaming.kafka.journal.circe.FromCirceResult
-import com.evolutiongaming.kafka.journal.circe.Instances._
+import com.evolutiongaming.kafka.journal.circe.Instances.*
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.typesafe.config.Config
-import io.circe._
-import io.circe.generic.semiauto._
-import io.circe.syntax._
+import io.circe.*
+import io.circe.generic.semiauto.*
+import io.circe.syntax.*
 
 class KafkaJournalCirce(config: Config) extends KafkaJournal(config) {
 

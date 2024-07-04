@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.datastax.driver.core.ConsistencyLevel
 import com.typesafe.config.ConfigFactory
 import org.scalatest.funsuite.AnyFunSuite

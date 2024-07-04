@@ -1,22 +1,22 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.data.{NonEmptyList => Nel}
+import cats.data.NonEmptyList as Nel
 import cats.effect.IO
-import cats.syntax.all._
-import com.evolutiongaming.kafka.journal.IOSuite._
-import com.evolutiongaming.kafka.journal.PartitionCache._
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.IOSuite.*
+import com.evolutiongaming.kafka.journal.PartitionCache.*
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
 import com.evolutiongaming.skafka.Offset
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import java.time.Instant
 import scala.concurrent.TimeoutException
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.Try
 
 class PartitionCacheSpec extends AsyncFunSuite with Matchers {
-  import PartitionCacheSpec._
+  import PartitionCacheSpec.*
 
   private def partitionCacheOf(
     maxSize: Int            = 10,

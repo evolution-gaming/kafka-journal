@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal.eventual
 
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
 import cats.{Applicative, FlatMap, ~>}
 import com.evolutiongaming.catshelper.{ApplicativeThrowable, Log, MeasureDuration}
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedKeyJournal.Changed
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 

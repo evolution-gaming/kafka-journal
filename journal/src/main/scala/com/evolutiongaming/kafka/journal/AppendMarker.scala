@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.FlatMap
-import cats.syntax.all._
+import cats.syntax.all.*
 
 trait AppendMarker[F[_]] {
 

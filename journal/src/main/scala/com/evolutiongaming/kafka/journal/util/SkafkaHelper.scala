@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal.util
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Applicative, ApplicativeThrow, Hash}
 import com.datastax.driver.core.{GettableByNameData, SettableData}
 import com.evolutiongaming.catshelper.ApplicativeThrowable
-import com.evolutiongaming.scassandra.syntax._
+import com.evolutiongaming.scassandra.syntax.*
 import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.{Bytes, Offset, Partition, Topic}

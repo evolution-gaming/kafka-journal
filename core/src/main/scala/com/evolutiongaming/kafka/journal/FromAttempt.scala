@@ -2,9 +2,9 @@ package com.evolutiongaming.kafka.journal
 
 import cats.Applicative
 import cats.effect.IO
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.Fail.implicits._
+import com.evolutiongaming.kafka.journal.util.Fail.implicits.*
 import scodec.Attempt
 
 import scala.util.Try

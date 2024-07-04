@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.syntax.all._
-import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
+import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.util.PlayJsonHelper.*
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
-import play.api.libs.json._
+import play.api.libs.json.*
 
 import scala.util.Try
 

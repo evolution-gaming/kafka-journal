@@ -1,19 +1,19 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import cats.Parallel
-import cats.data.{NonEmptyList => Nel}
-import cats.effect._
-import cats.effect.syntax.resource._
-import cats.syntax.all._
-import com.evolutiongaming.catshelper._
-import com.evolutiongaming.kafka.journal.CassandraSuite._
-import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
-import com.evolutiongaming.kafka.journal.IOSuite._
+import cats.data.NonEmptyList as Nel
+import cats.effect.*
+import cats.effect.syntax.resource.*
+import cats.syntax.all.*
+import com.evolutiongaming.catshelper.*
+import com.evolutiongaming.kafka.journal.CassandraSuite.*
+import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
+import com.evolutiongaming.kafka.journal.IOSuite.*
 import com.evolutiongaming.kafka.journal.Journal.DataIntegrityConfig
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualRead}
-import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
+import com.evolutiongaming.kafka.journal.util.PureConfigHelper.*
 import com.evolutiongaming.kafka.journal.util.{ActorSystemOf, Fail}
 import com.evolutiongaming.retry.{Retry, Strategy}
 import com.evolutiongaming.scassandra.CassandraClusterOf
@@ -26,7 +26,7 @@ import play.api.libs.json.Json
 import pureconfig.ConfigSource
 
 import java.time.Instant
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.control.NoStackTrace
 
 import TestJsonCodec.instance

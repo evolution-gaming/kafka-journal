@@ -1,11 +1,11 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.kernel.Eq
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Applicative, Id, Monad, Order, Show}
 import com.evolutiongaming.kafka.journal.SeqNr
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.Fail.implicits._
+import com.evolutiongaming.kafka.journal.util.Fail.implicits.*
 import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
 
 sealed abstract case class SegmentNr(value: Long) {

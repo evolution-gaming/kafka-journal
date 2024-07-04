@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.cassandra
 import cats.arrow.FunctionK
 import cats.effect.kernel.Temporal
 import cats.effect.std.Semaphore
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.~>
 import com.evolutiongaming.cassandra
 import com.evolutiongaming.cassandra.sync.AutoCreate

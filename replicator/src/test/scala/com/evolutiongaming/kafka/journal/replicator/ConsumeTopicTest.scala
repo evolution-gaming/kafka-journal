@@ -1,27 +1,27 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
+import cats.data.{NonEmptyList as Nel, NonEmptyMap as Nem, NonEmptySet as Nes}
 import cats.effect.unsafe.implicits.global
 import cats.effect.{IO, Resource}
-import cats.syntax.all._
-import com.evolutiongaming.catshelper.DataHelper._
+import cats.syntax.all.*
+import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.ConsRecord
 import com.evolutiongaming.kafka.journal.util.TestTemporal.temporalTry
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
-import com.evolutiongaming.skafka._
+import com.evolutiongaming.skafka.*
 import com.evolutiongaming.skafka.consumer.{RebalanceListener, WithSize}
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.Try
 import scala.util.control.NoStackTrace
 
 class ConsumeTopicTest extends AsyncFunSuite with Matchers {
 
-  import ConsumeTopicTest._
+  import ConsumeTopicTest.*
 
   test("happy path") {
     val state = State(commands =

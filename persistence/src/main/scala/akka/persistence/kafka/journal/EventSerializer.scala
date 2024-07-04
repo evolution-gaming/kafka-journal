@@ -3,14 +3,14 @@ package akka.persistence.kafka.journal
 import akka.actor.ActorSystem
 import akka.persistence.PersistentRepr
 import cats.effect.Sync
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Applicative, ~>}
 import com.evolutiongaming.catshelper.MonadThrowable
-import com.evolutiongaming.kafka.journal.FromBytes.implicits._
-import com.evolutiongaming.kafka.journal.ToBytes.implicits._
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.FromBytes.implicits.*
+import com.evolutiongaming.kafka.journal.ToBytes.implicits.*
+import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.Fail.implicits._
+import com.evolutiongaming.kafka.journal.util.Fail.implicits.*
 import play.api.libs.json.{JsString, JsValue, Json}
 import scodec.bits.ByteVector
 

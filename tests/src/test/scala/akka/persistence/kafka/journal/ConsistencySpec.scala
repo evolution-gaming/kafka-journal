@@ -1,9 +1,9 @@
 package akka.persistence.kafka.journal
 
 import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.persistence._
+import akka.persistence.*
 import akka.persistence.journal.JournalSpec
-import cats.data.{NonEmptyList => Nel}
+import cats.data.NonEmptyList as Nel
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.duration.FiniteDuration

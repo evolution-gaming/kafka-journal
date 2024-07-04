@@ -4,7 +4,7 @@ import com.datastax.driver.core.LocalDate
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
-import java.time.{Instant, LocalDate => LocalDateJ, ZoneId}
+import java.time.{Instant, LocalDate as LocalDateJ, ZoneId}
 
 class LocalDateTest extends AnyFunSuite with Matchers {
 

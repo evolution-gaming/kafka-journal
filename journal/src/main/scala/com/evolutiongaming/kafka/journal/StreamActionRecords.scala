@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.Applicative
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.BracketThrowable
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
-import com.evolutiongaming.kafka.journal.util.StreamHelper._
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
+import com.evolutiongaming.kafka.journal.util.StreamHelper.*
 import com.evolutiongaming.skafka.Offset
 import com.evolutiongaming.sstream.Stream
 

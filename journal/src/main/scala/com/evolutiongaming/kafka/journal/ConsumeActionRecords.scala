@@ -1,12 +1,12 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.data.{NonEmptySet => Nes}
+import cats.data.NonEmptySet as Nes
 import cats.effect.Resource
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.~>
 import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal.conversions.ConsRecordToActionRecord
-import com.evolutiongaming.kafka.journal.util.StreamHelper._
+import com.evolutiongaming.kafka.journal.util.StreamHelper.*
 import com.evolutiongaming.skafka.{Offset, Partition, TopicPartition}
 import com.evolutiongaming.sstream.Stream
 

@@ -1,13 +1,13 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.data.{NonEmptyList => Nel}
+import cats.data.NonEmptyList as Nel
 import cats.effect.kernel.Temporal
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{MonadThrow, Parallel}
 import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.cassandra.{MigrateSchema, SettingsCassandra}
 import com.evolutiongaming.kafka.journal.{Origin, Settings}
-import com.evolutiongaming.scassandra.ToCql.implicits._
+import com.evolutiongaming.scassandra.ToCql.implicits.*
 
 /** Creates a new schema, or migrates to the latest schema version, if it already exists */
 object SetupSchema {

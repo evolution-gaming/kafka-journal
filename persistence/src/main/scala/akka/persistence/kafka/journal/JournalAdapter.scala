@@ -1,11 +1,11 @@
 package akka.persistence.kafka.journal
 
 import akka.persistence.{AtomicWrite, PersistentRepr}
-import cats.effect._
-import cats.syntax.all._
+import cats.effect.*
+import cats.syntax.all.*
 import cats.{Monad, Parallel, ~>}
-import com.evolutiongaming.catshelper._
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.catshelper.*
+import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.conversions.ConversionMetrics
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra

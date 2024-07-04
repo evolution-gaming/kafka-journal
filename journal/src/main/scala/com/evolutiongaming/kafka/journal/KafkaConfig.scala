@@ -1,13 +1,13 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.evolutiongaming.skafka.producer.{Acks, CompressionType, ProducerConfig}
 import com.typesafe.config.Config
 import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 /** Configuration of Kafka client used to store the journal.
   *

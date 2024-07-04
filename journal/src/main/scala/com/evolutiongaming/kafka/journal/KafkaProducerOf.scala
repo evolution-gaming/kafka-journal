@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.Monad
-import cats.effect._
+import cats.effect.*
 import com.evolutiongaming.catshelper.{MeasureDuration, ToTry}
 import com.evolutiongaming.skafka.producer.{ProducerConfig, ProducerMetrics, ProducerOf}
 

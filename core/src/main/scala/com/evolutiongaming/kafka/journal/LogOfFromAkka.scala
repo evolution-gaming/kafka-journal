@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import akka.actor.ActorSystem
 import akka.event.LogSource
 import cats.effect.Sync
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.LogOf
 
 object LogOfFromAkka {

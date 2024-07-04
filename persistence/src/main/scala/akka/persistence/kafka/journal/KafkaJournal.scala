@@ -3,22 +3,22 @@ package akka.persistence.kafka.journal
 import akka.actor.ActorSystem
 import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.{AtomicWrite, PersistentRepr}
-import cats.effect._
+import cats.effect.*
 import cats.effect.unsafe.{IORuntime, IORuntimeConfig}
-import cats.syntax.all._
-import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper._
-import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
-import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
-import com.evolutiongaming.retry.Retry.implicits._
+import cats.syntax.all.*
+import com.evolutiongaming.catshelper.CatsHelper.*
+import com.evolutiongaming.catshelper.*
+import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.util.CatsHelper.*
+import com.evolutiongaming.kafka.journal.util.PureConfigHelper.*
+import com.evolutiongaming.retry.Retry.implicits.*
 import com.evolutiongaming.retry.{OnError, Strategy}
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.typesafe.config.Config
 import pureconfig.ConfigSource
 
 import scala.collection.immutable.Seq
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.util.Try
 

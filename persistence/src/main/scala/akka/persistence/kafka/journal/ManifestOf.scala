@@ -1,7 +1,7 @@
 package akka.persistence.kafka.journal
 
 import akka.persistence.PersistentRepr
-import cats.syntax.all._
+import cats.syntax.all.*
 
 object ManifestOf {
 

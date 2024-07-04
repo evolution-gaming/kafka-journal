@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.circe
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.ApplicativeThrowable
 import com.evolutiongaming.kafka.journal.JournalError
 import io.circe.Error

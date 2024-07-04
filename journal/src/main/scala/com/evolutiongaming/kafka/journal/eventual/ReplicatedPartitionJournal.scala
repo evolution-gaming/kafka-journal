@@ -1,11 +1,11 @@
 package com.evolutiongaming.kafka.journal.eventual
 
 import cats.effect.Resource
-import cats.effect.syntax.all._
-import cats.syntax.all._
+import cats.effect.syntax.all.*
+import cats.syntax.all.*
 import cats.{Applicative, Monad, ~>}
 import com.evolutiongaming.catshelper.{BracketThrowable, Log, MeasureDuration, MonadThrowable}
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 import java.time.Instant

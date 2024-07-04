@@ -1,22 +1,22 @@
 package com.evolutiongaming.kafka.journal
 
-import cats._
-import cats.data.{NonEmptyMap => Nem, NonEmptySet => Nes}
-import cats.effect._
-import cats.effect.syntax.all._
-import cats.syntax.all._
-import com.evolutiongaming.catshelper.ParallelHelper._
-import com.evolutiongaming.catshelper._
+import cats.*
+import cats.data.{NonEmptyMap as Nem, NonEmptySet as Nes}
+import cats.effect.*
+import cats.effect.syntax.all.*
+import cats.syntax.all.*
+import com.evolutiongaming.catshelper.ParallelHelper.*
+import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.kafka.journal.HeadCache.Eventual
 import com.evolutiongaming.kafka.journal.conversions.ConsRecordToActionHeader
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
 import com.evolutiongaming.random.Random
-import com.evolutiongaming.retry.Retry.implicits._
+import com.evolutiongaming.retry.Retry.implicits.*
 import com.evolutiongaming.retry.{Sleep, Strategy}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecords}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 /** Maintains an information about non-replicated Kafka records in a topic.
   *
@@ -435,7 +435,7 @@ object TopicCache {
     *
     * Example:
     * {{{
-    * scala> import cats.syntax.all._
+    * scala> import cats.syntax.all.*
     * scala> (1L to 100L).toList.map(Sample(_)).combineAll.avg
     * val res0: Option[Long] = Some(50)
     * }}}
@@ -568,8 +568,8 @@ object TopicCache {
       * It is possible to achieve the same using `alleycats-core`
       * library like this, so the method might be removed in future:
       * {{{
-      * scala> import cats.syntax.all._
-      * scala> import alleycats.std.all._
+      * scala> import cats.syntax.all.*
+      * scala> import alleycats.std.all.*
       * scala> Set(1, 2, 3).foldMapM(_.some)
       * val res0: Option[Int] = Some(6)
       * }}}

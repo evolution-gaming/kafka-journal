@@ -1,13 +1,13 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptySet => Nes}
-import cats.effect.syntax.resource._
+import cats.data.NonEmptySet as Nes
+import cats.effect.syntax.resource.*
 import cats.effect.{Clock, Resource}
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Applicative, Monad, ~>}
-import com.evolutiongaming.catshelper.DataHelper._
+import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, Log, MeasureDuration, MonadThrowable}
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{
   CassandraSession,
   EventualCassandraConfig,
@@ -16,12 +16,12 @@ import com.evolutiongaming.kafka.journal.eventual.cassandra.{
   SegmentNr,
 }
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.StreamHelper._
+import com.evolutiongaming.kafka.journal.util.StreamHelper.*
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.skafka.producer.ProducerConfig
-import com.evolutiongaming.smetrics.MetricsHelper._
-import com.evolutiongaming.smetrics._
+import com.evolutiongaming.smetrics.MetricsHelper.*
+import com.evolutiongaming.smetrics.*
 
 import scala.concurrent.duration.FiniteDuration
 

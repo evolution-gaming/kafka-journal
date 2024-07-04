@@ -2,9 +2,9 @@ package com.evolutiongaming.kafka.journal.util
 
 import cats.Monad
 import cats.arrow.FunctionK
-import cats.effect._
+import cats.effect.*
 import cats.effect.kernel.{Poll, Unique}
-import cats.syntax.all._
+import cats.syntax.all.*
 
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.duration.FiniteDuration
@@ -19,7 +19,7 @@ object TestTemporal {
 
     def of[A](f: S => IO[(S, A)]): StateT[S, A] = cats.data.StateT[IO, S, A](data => f(data))
 
-    import cats.data.{StateT => St}
+    import cats.data.StateT as St
 
     type ST[B] = StateT[S, B]
 
@@ -119,7 +119,7 @@ object TestTemporal {
   implicit def temporalTry[S]: Temporal[StateTry[S, *]] = new Temporal[StateTry[S, *]] {
     def of[A](f: S => IO[(S, Try[A])]): StateTry[S, A] = cats.data.StateT[IO, S, Try[A]](data => f(data))
 
-    import cats.data.{StateT => St}
+    import cats.data.StateT as St
 
     type ST[B] = StateTry[S, B]
 

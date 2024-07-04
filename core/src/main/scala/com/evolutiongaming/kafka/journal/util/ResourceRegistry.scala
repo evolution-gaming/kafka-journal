@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal.util
 
-import cats.effect.implicits._
+import cats.effect.implicits.*
 import cats.effect.{Ref, _}
-import cats.syntax.all._
+import cats.syntax.all.*
 
 trait ResourceRegistry[F[_]] {
 

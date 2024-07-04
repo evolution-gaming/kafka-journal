@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Monad
-import cats.data.{NonEmptyList => Nel}
+import cats.data.NonEmptyList as Nel
 import cats.effect.Concurrent
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.cassandra.MigrateSchema
 import com.evolutiongaming.scassandra.TableName

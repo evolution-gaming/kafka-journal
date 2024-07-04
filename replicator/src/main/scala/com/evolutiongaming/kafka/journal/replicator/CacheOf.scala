@@ -3,8 +3,8 @@ package com.evolutiongaming.kafka.journal.replicator
 import cats.Parallel
 import cats.effect.Resource
 import cats.effect.kernel.Temporal
-import cats.effect.syntax.resource._
-import cats.syntax.all._
+import cats.effect.syntax.resource.*
+import cats.syntax.all.*
 import com.evolution.scache
 import com.evolution.scache.{CacheMetrics, ExpiringCache}
 import com.evolutiongaming.catshelper.{BracketThrowable, MeasureDuration, Runtime}

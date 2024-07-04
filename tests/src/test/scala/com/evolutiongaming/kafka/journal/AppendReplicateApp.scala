@@ -3,18 +3,18 @@ package com.evolutiongaming.kafka.journal
 import akka.actor.ActorSystem
 import akka.persistence.kafka.journal.KafkaJournalConfig
 import cats.Parallel
-import cats.data.{NonEmptyList => Nel}
-import cats.effect._
-import cats.effect.syntax.resource._
-import cats.syntax.all._
-import com.evolutiongaming.catshelper.ParallelHelper._
-import com.evolutiongaming.catshelper._
+import cats.data.NonEmptyList as Nel
+import cats.effect.*
+import cats.effect.syntax.resource.*
+import cats.syntax.all.*
+import com.evolutiongaming.catshelper.ParallelHelper.*
+import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.conversions.KafkaWrite
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
-import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
-import com.evolutiongaming.kafka.journal.util._
+import com.evolutiongaming.kafka.journal.util.PureConfigHelper.*
+import com.evolutiongaming.kafka.journal.util.*
 import com.evolutiongaming.retry.Sleep
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
@@ -22,7 +22,7 @@ import com.evolutiongaming.skafka.Topic
 import com.typesafe.config.ConfigFactory
 import pureconfig.ConfigSource
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 object AppendReplicateApp extends IOApp {
 

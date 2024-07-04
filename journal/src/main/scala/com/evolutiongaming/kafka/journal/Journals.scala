@@ -1,26 +1,26 @@
 package com.evolutiongaming.kafka.journal
 
-import cats._
-import cats.data.{NonEmptyList => Nel, NonEmptySet => Nes}
-import cats.effect._
-import cats.effect.syntax.all._
-import cats.syntax.all._
+import cats.*
+import cats.data.{NonEmptyList as Nel, NonEmptySet as Nes}
+import cats.effect.*
+import cats.effect.syntax.all.*
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal.Journal.ConsumerPoolConfig
 import com.evolutiongaming.kafka.journal.conversions.{ConversionMetrics, KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualRead}
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.Fail.implicits._
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
-import com.evolutiongaming.kafka.journal.util.StreamHelper._
+import com.evolutiongaming.kafka.journal.util.Fail.implicits.*
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
+import com.evolutiongaming.kafka.journal.util.StreamHelper.*
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord}
-import com.evolutiongaming.skafka.{Bytes => _, _}
+import com.evolutiongaming.skafka.{Bytes as _, _}
 import com.evolutiongaming.sstream.Stream
 import scodec.bits.ByteVector
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.Try
 
 trait Journals[F[_]] {
@@ -390,7 +390,7 @@ object Journals {
       for {
         kafkaProducer <- KafkaProducerOf[F].apply(config1)
       } yield {
-        import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+        import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
         apply(kafkaProducer)
       }
     }
@@ -432,7 +432,7 @@ object Journals {
       config: ConsumerConfig,
       pollTimeout: FiniteDuration,
     ): Resource[F, Consumer[F]] = {
-      import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+      import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
 
       val config1 = config.copy(groupId = None, autoCommit = false)
 

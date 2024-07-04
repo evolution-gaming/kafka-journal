@@ -1,16 +1,16 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
 import com.datastax.driver.core.ConsistencyLevel
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig
-import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
+import com.evolutiongaming.kafka.journal.util.PureConfigHelper.*
 import com.evolutiongaming.kafka.journal.{FromConfigReaderResult, KafkaConfig}
 import com.evolutiongaming.scassandra.{CassandraConfig, QueryConfig}
 import com.typesafe.config.Config
 import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 final case class ReplicatorConfig(
   topicPrefixes: Nel[String]             = Nel.of("journal"),

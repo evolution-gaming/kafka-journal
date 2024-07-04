@@ -1,16 +1,16 @@
 package com.evolutiongaming.kafka.journal.eventual
 
-import cats.data.{NonEmptyList => Nel}
+import cats.data.NonEmptyList as Nel
 import cats.effect.Clock
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Applicative, FlatMap, Monad}
-import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.catshelper.DataHelper._
+import com.evolutiongaming.catshelper.ClockHelper.*
+import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.catshelper.{BracketThrowable, Log, MeasureDuration, MonadThrowable}
-import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
+import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.util.CatsHelper.*
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
@@ -22,7 +22,7 @@ import scala.collection.immutable.SortedSet
 import scala.util.Try
 
 trait EventualJournalSpec extends AnyWordSpec with Matchers {
-  import EventualJournalSpec._
+  import EventualJournalSpec.*
 
   def test[F[_]: BracketThrowable: Fail](withJournals: (EventualAndReplicated[F] => F[Assertion]) => F[Assertion]): Unit = {
 

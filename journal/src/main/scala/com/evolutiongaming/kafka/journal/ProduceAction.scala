@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Monad, ~>}
 import com.evolutiongaming.kafka.journal.conversions.ActionToProducerRecord
 

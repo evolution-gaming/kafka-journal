@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal.eventual
 
 import cats.Applicative
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.PayloadType
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.Fail.implicits._
+import com.evolutiongaming.kafka.journal.util.Fail.implicits.*
 import scodec.bits.ByteVector
 
 /** Piece of data prepared for convenient storing into Cassandra row.

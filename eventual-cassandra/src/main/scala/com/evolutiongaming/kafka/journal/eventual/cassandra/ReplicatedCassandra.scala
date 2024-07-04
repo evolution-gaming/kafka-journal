@@ -1,17 +1,17 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.data.{NonEmptyList => Nel}
-import cats.effect.syntax.all._
+import cats.data.NonEmptyList as Nel
+import cats.effect.syntax.all.*
 import cats.effect.{Async, Ref, Resource, Sync}
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Monad, Parallel}
-import com.evolutiongaming.catshelper.ParallelHelper._
+import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.catshelper.{LogOf, MeasureDuration, ToTry}
-import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.SegmentNr.implicits._
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
+import com.evolutiongaming.kafka.journal.eventual.*
+import com.evolutiongaming.kafka.journal.eventual.cassandra.SegmentNr.implicits.*
+import com.evolutiongaming.kafka.journal.util.CatsHelper.*
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.{cassandra => _, _}
+import com.evolutiongaming.kafka.journal.{cassandra as _, _}
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
@@ -522,7 +522,7 @@ object ReplicatedCassandra {
   }
 
   trait MetaJournalStatements[F[_]] {
-    import MetaJournalStatements._
+    import MetaJournalStatements.*
 
     def apply(key: Key, segment: SegmentNr): ByKey[F]
   }
@@ -630,7 +630,7 @@ object ReplicatedCassandra {
     }
 
     trait ByKey[F[_]] {
-      import ByKey._
+      import ByKey.*
 
       def journalHead: F[Option[JournalHead]]
 

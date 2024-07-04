@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 /** Kafka-specific configuration used by a plugin.
   *

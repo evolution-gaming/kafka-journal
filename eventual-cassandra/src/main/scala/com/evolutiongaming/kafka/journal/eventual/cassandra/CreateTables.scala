@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
 import cats.{Monad, Order}
 import com.evolutiongaming.catshelper.{Log, LogOf}
-import com.evolutiongaming.kafka.journal.cassandra.{CreateTables => CreateTables2}
+import com.evolutiongaming.kafka.journal.cassandra.CreateTables as CreateTables2
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession}
 
 /** Creates tables in a specific keyspace  */

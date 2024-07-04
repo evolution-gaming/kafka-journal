@@ -1,14 +1,14 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import cats.Applicative
-import cats.data.{NonEmptyMap => Nem}
+import cats.data.NonEmptyMap as Nem
 import cats.effect.{Clock, Deferred, IO, Ref}
-import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.IOSuite.*
 import com.evolutiongaming.skafka.{Offset, Partition}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class TopicCommitTest extends AsyncFunSuite with Matchers {
 

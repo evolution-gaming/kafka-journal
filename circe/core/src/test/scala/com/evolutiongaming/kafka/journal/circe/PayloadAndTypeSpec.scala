@@ -1,20 +1,20 @@
 package com.evolutiongaming.kafka.journal.circe
 
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
-import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.circe.Instances._
-import com.evolutiongaming.kafka.journal.conversions._
-import io.circe.{Json => CirceJson}
+import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.circe.Instances.*
+import com.evolutiongaming.kafka.journal.conversions.*
+import io.circe.Json as CirceJson
 import org.scalatest.EitherValues
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
-import play.api.libs.json.{Json => PlayJson}
+import play.api.libs.json.Json as PlayJson
 import scodec.bits.ByteVector
 
 import java.nio.charset.StandardCharsets
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.Try
 
 class PayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherValues {

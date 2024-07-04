@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.syntax.all._
-import com.evolutiongaming.kafka.journal.Bounds.implicits._
+import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.Bounds.implicits.*
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 

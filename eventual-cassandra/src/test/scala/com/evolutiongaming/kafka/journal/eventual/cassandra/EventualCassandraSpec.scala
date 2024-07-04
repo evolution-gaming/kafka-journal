@@ -2,15 +2,15 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Parallel
 import cats.effect.IO
-import cats.implicits._
-import com.evolutiongaming.catshelper.DataHelper._
-import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec._
-import com.evolutiongaming.kafka.journal.eventual._
+import cats.implicits.*
+import com.evolutiongaming.catshelper.DataHelper.*
+import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec.*
+import com.evolutiongaming.kafka.journal.eventual.*
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.TestTemporal._
+import com.evolutiongaming.kafka.journal.util.TestTemporal.*
 import com.evolutiongaming.skafka.{Offset, Topic}
-import com.evolutiongaming.sstream.FoldWhile._
+import com.evolutiongaming.sstream.FoldWhile.*
 import com.evolutiongaming.sstream.Stream
 
 import java.time.{Instant, ZoneOffset}
@@ -18,7 +18,7 @@ import scala.collection.immutable.SortedSet
 
 // TODO expiry: test purge
 class EventualCassandraSpec extends EventualJournalSpec {
-  import EventualCassandraSpec._
+  import EventualCassandraSpec.*
   import cats.effect.unsafe.implicits.global
 
   "EventualCassandra" when {

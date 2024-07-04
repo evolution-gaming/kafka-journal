@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.syntax.all._
+import cats.syntax.all.*
 
 final case class JournalError(
   msg: String,

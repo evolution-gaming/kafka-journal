@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Applicative, Id}
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.Fail.implicits._
-import com.evolutiongaming.scassandra._
+import com.evolutiongaming.kafka.journal.util.Fail.implicits.*
+import com.evolutiongaming.scassandra.*
 
 /** Snapshot index in a stored ring buffer */
 private[journal] sealed abstract case class BufferNr(value: Int) {

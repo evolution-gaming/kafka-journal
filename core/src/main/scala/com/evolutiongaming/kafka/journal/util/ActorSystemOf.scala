@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal.util
 
 import akka.actor.ActorSystem
-import cats.effect.syntax.all._
+import cats.effect.syntax.all.*
 import cats.effect.{Resource, Sync}
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.FromFuture
 import com.typesafe.config.Config
 

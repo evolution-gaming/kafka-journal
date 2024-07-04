@@ -18,7 +18,7 @@ import scala.util.Try
 import scala.util.control.NonFatal
 
 class ExpiryServiceTest extends AnyFunSuite with Matchers {
-  import ExpiryServiceTest._
+  import ExpiryServiceTest.*
 
   test("expireOn") {
     val expireAfter = 1.day.toExpireAfter

@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
-import cats._
-import cats.syntax.all._
+import cats.*
+import cats.syntax.all.*
 import com.evolutiongaming.skafka.{Offset, Partition}
 
 import java.time.Instant

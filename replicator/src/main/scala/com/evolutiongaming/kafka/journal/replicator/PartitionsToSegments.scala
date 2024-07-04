@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptySet => Nes}
-import cats.syntax.all._
-import com.evolutiongaming.catshelper.DataHelper._
+import cats.data.NonEmptySet as Nes
+import cats.syntax.all.*
+import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{SegmentNr, Segments}
 import com.evolutiongaming.skafka.Partition
 

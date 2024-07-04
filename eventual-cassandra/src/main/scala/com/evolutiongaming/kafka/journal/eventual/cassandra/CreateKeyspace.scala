@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.{Applicative, Monad}
 import com.evolutiongaming.catshelper.LogOf
-import com.evolutiongaming.kafka.journal.cassandra.{CreateKeyspace => CreateKeyspace2}
+import com.evolutiongaming.kafka.journal.cassandra.CreateKeyspace as CreateKeyspace2
 
 @deprecated(
   since   = "3.3.9",

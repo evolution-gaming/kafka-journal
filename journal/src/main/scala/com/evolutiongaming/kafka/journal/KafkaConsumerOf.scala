@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.effect._
+import cats.effect.*
 import com.evolutiongaming.catshelper.{MeasureDuration, ToFuture, ToTry}
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerMetrics, ConsumerOf}

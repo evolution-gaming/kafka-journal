@@ -1,12 +1,12 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.data.{NonEmptyList => Nel}
-import cats.effect._
-import cats.effect.syntax.all._
+import cats.data.NonEmptyList as Nel
+import cats.effect.*
+import cats.effect.syntax.all.*
 import cats.kernel.CommutativeMonoid
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Monad, MonadThrow, Semigroup}
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
 import com.evolutiongaming.skafka.Offset
 
 import scala.concurrent.duration.FiniteDuration
@@ -790,7 +790,7 @@ object PartitionCache {
     *
     * Example:
     * {{{
-    * scala> import cats.syntax.all._
+    * scala> import cats.syntax.all.*
     * scala> import com.evolutiongaming.kafka.journal.PartitionCache.Diff
     *
     * scala> Diff.of(10, 20)

@@ -6,7 +6,7 @@ import com.evolutiongaming.scassandra.{CassandraConfig, QueryConfig}
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
 
-import EventualCassandraConfig._
+import EventualCassandraConfig.*
 
 /** Cassandra-specific configuration used by a plugin.
   *

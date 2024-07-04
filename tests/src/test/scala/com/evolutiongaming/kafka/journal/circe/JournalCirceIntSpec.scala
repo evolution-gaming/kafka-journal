@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal.circe
 
 import cats.effect.IO
-import cats.syntax.all._
-import com.evolutiongaming.kafka.journal.circe.Instances._
+import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.circe.Instances.*
 import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.EventualRead
 import com.evolutiongaming.kafka.journal.{Event, JournalIntSpec, SeqNr}

@@ -3,11 +3,11 @@ package com.evolutiongaming.kafka.journal.cassandra
 import cats.arrow.FunctionK
 import cats.data.State
 import cats.effect.Clock
-import cats.syntax.all._
-import com.evolutiongaming.catshelper.ClockHelper._
+import cats.syntax.all.*
+import com.evolutiongaming.catshelper.ClockHelper.*
 import com.evolutiongaming.catshelper.{Log, MeasureDuration}
 import com.evolutiongaming.kafka.journal.Setting.Key
-import com.evolutiongaming.kafka.journal.util.StreamHelper._
+import com.evolutiongaming.kafka.journal.util.StreamHelper.*
 import com.evolutiongaming.kafka.journal.{Origin, Setting}
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AnyFunSuite

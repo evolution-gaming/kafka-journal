@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.kernel.Eq
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Applicative, Id, Order, Show}
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.Fail.implicits._
+import com.evolutiongaming.kafka.journal.util.Fail.implicits.*
 
 /** The maximum number of segments in Cassandra table.
   *

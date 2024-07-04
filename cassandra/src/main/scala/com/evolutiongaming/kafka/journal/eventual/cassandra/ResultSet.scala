@@ -1,12 +1,12 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.effect.Sync
-import cats.effect.implicits._
+import cats.effect.implicits.*
 import cats.effect.kernel.{Async, Spawn}
-import cats.syntax.all._
-import com.datastax.driver.core.{ResultSet => ResultSetJ, Row}
+import cats.syntax.all.*
+import com.datastax.driver.core.{ResultSet as ResultSetJ, Row}
 import com.evolutiongaming.scassandra.util.FromGFuture
-import com.evolutiongaming.sstream.FoldWhile._
+import com.evolutiongaming.sstream.FoldWhile.*
 import com.evolutiongaming.sstream.Stream
 
 object ResultSet {

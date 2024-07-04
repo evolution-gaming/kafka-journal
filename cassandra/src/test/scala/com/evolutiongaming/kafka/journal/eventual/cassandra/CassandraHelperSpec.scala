@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import org.scalatest.funsuite.AnyFunSuite
 
-import CassandraHelper._
+import CassandraHelper.*
 
 class CassandraHelperSpec extends AnyFunSuite {
 

@@ -1,16 +1,16 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.effect._
-import cats.implicits._
+import cats.effect.*
+import cats.implicits.*
 import cats.{Applicative, Monad}
-import com.evolutiongaming.skafka.{Bytes => _, _}
-import com.evolutiongaming.smetrics.MetricsHelper._
-import com.evolutiongaming.smetrics._
+import com.evolutiongaming.skafka.{Bytes as _, _}
+import com.evolutiongaming.smetrics.MetricsHelper.*
+import com.evolutiongaming.smetrics.*
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 trait TopicReplicatorMetrics[F[_]] {
-  import TopicReplicatorMetrics._
+  import TopicReplicatorMetrics.*
 
   def append(events: Int, bytes: Long, measurements: Measurements): F[Unit]
 

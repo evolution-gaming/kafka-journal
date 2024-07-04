@@ -1,20 +1,20 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.Monad
-import cats.data.{NonEmptyList => Nel}
+import cats.data.NonEmptyList as Nel
 import cats.effect.kernel.Sync
 import cats.effect.unsafe.implicits.global
 import cats.effect.{Clock, IO}
-import cats.syntax.all._
-import com.evolutiongaming.catshelper.ClockHelper._
+import cats.syntax.all.*
+import com.evolutiongaming.catshelper.ClockHelper.*
 import com.evolutiongaming.catshelper.{FromTry, Log, MeasureDuration}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
-import com.evolutiongaming.kafka.journal.eventual._
+import com.evolutiongaming.kafka.journal.eventual.*
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
-import com.evolutiongaming.kafka.journal.util.StreamHelper._
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
+import com.evolutiongaming.kafka.journal.util.StreamHelper.*
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.matchers.should.Matchers
@@ -27,7 +27,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 class JournalSpec extends AnyWordSpec with Matchers {
-  import JournalSpec._
+  import JournalSpec.*
 
   // TODO add test when Kafka missing it's tail comparing to eventual
   def testF[F[_]: Monad](withJournal: (SeqNrJournal[F] => F[Assertion]) => Assertion): Unit = {

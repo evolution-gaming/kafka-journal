@@ -1,11 +1,11 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.data.{NonEmptyMap => Nem, NonEmptySet => Nes}
-import cats.effect._
-import cats.syntax.all._
+import cats.data.{NonEmptyMap as Nem, NonEmptySet as Nes}
+import cats.effect.*
+import cats.syntax.all.*
 import cats.{Applicative, ~>}
 import com.evolutiongaming.kafka.journal.util.Named
-import com.evolutiongaming.skafka._
+import com.evolutiongaming.skafka.*
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecords, RebalanceListener}
 
 import scala.concurrent.duration.FiniteDuration

@@ -1,15 +1,15 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.data.{NonEmptyList => Nel}
+import cats.data.NonEmptyList as Nel
 import cats.effect.kernel.Ref
 import cats.effect.{Deferred, IO, Temporal}
-import cats.syntax.all._
-import com.evolutiongaming.kafka.journal.IOSuite._
+import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.IOSuite.*
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.TimeoutException
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class GroupTest extends AsyncFunSuite with Matchers {
 

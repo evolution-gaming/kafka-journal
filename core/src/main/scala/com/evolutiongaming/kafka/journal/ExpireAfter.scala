@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import cats.Show
 import cats.kernel.{Eq, Order}
-import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
+import com.evolutiongaming.kafka.journal.util.PlayJsonHelper.*
 import play.api.libs.json.{Reads, Writes}
 
 import scala.concurrent.duration.FiniteDuration

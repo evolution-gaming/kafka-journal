@@ -1,18 +1,18 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
-import cats.effect.implicits._
+import cats.data.{NonEmptyList as Nel, NonEmptyMap as Nem, NonEmptySet as Nes}
+import cats.effect.implicits.*
 import cats.effect.{Concurrent, Ref, Resource}
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.{BracketThrowable, FromTry, Log}
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
 import com.evolutiongaming.kafka.journal.{ConsRecord, KafkaConsumerOf}
 import com.evolutiongaming.retry.Sleep
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import scodec.bits.ByteVector
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 trait KafkaSingleton[F[_], A] {
 

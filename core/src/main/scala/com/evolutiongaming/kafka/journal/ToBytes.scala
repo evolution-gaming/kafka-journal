@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Applicative, Contravariant, ~>}
 import play.api.libs.json.Writes
 import scodec.bits.ByteVector

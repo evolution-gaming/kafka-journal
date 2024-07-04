@@ -1,15 +1,15 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.effect._
-import cats.effect.implicits._
-import cats.syntax.all._
+import cats.effect.*
+import cats.effect.implicits.*
+import cats.syntax.all.*
 import com.dimafeng.testcontainers.CassandraContainer
-import com.evolutiongaming.catshelper._
+import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.kafka.StartKafka
-import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.IOSuite.*
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.replicator.{Replicator, ReplicatorConfig}
-import com.evolutiongaming.kafka.journal.util._
+import com.evolutiongaming.kafka.journal.util.*
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.smetrics.CollectorRegistry
 import com.github.dockerjava.api.model.{ExposedPort, HostConfig, PortBinding, Ports}

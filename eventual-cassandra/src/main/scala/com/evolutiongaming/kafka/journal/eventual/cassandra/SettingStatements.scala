@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Monad
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.Setting
 import com.evolutiongaming.kafka.journal.Setting.Key
-import com.evolutiongaming.kafka.journal.cassandra.{SettingStatements => SettingStatements2}
+import com.evolutiongaming.kafka.journal.cassandra.SettingStatements as SettingStatements2
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
 import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow, TableName}
 import com.evolutiongaming.sstream.Stream

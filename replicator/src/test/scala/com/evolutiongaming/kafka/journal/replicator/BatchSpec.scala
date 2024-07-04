@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
-import com.evolutiongaming.kafka.journal._
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.skafka.Offset
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -11,7 +11,7 @@ import scodec.bits.ByteVector
 import java.time.Instant
 
 class BatchSpec extends AnyFunSuite with Matchers {
-  import BatchSpec._
+  import BatchSpec.*
 
   private val keyOf = Key(id = "id", topic = "topic")
 

@@ -6,7 +6,7 @@ import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraCon
 import pureconfig.generic.semiauto.{deriveEnumerationReader, deriveReader}
 import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 /** Configuration for [[KafkaJournal]].
   *

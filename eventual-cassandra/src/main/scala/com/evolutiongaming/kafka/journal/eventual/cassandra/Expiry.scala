@@ -4,9 +4,9 @@ import cats.Show
 import cats.kernel.Eq
 import com.datastax.driver.core.{GettableByNameData, SettableData}
 import com.evolutiongaming.kafka.journal.ExpireAfter
-import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.scassandra.syntax._
+import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
+import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper.*
+import com.evolutiongaming.scassandra.syntax.*
 import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
 
 import scala.concurrent.duration.FiniteDuration

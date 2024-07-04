@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
-import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
 import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -10,7 +10,7 @@ import play.api.libs.json.Json
 import scodec.bits.ByteVector
 
 import java.io.FileOutputStream
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.Try
 
 import TestJsonCodec.instance

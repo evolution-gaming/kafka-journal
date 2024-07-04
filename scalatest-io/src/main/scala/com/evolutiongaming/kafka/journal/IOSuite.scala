@@ -5,7 +5,7 @@ import cats.effect.{Clock, IO}
 import com.evolutiongaming.catshelper.MeasureDuration
 import org.scalatest.Succeeded
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
 object IOSuite {

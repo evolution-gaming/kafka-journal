@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptyMap => Nem, NonEmptySet => Nes}
+import cats.data.{NonEmptyMap as Nem, NonEmptySet as Nes}
 import cats.effect.{Deferred, IO, Ref, Resource, Sync}
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.LogOf
-import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.IOSuite.*
 import com.evolutiongaming.kafka.journal.{KafkaConsumer, KafkaConsumerOf}
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords, RebalanceListener}
@@ -15,7 +15,7 @@ import org.scalatest.matchers.should.Matchers
 import scala.concurrent.duration.FiniteDuration
 
 class DistributeJobTest extends AsyncFunSuite with Matchers {
-  import DistributeJobTest._
+  import DistributeJobTest.*
 
   test("DistributeJob") {
     val topic = "topic"

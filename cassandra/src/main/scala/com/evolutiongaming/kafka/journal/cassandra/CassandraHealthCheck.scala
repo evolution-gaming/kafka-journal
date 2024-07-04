@@ -1,16 +1,16 @@
 package com.evolutiongaming.kafka.journal.cassandra
 
 import cats.Monad
-import cats.effect._
-import cats.effect.syntax.resource._
-import cats.syntax.all._
+import cats.effect.*
+import cats.effect.syntax.resource.*
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.{Log, LogOf, Schedule}
 import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
-import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper.*
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraSession
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
+import com.evolutiongaming.kafka.journal.util.CatsHelper.*
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 /** Performs a check if Cassandra is alive.
   *

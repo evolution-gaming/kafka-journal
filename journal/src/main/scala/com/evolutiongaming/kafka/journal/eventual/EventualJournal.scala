@@ -1,15 +1,15 @@
 package com.evolutiongaming.kafka.journal.eventual
 
-import cats._
+import cats.*
 import cats.arrow.FunctionK
 import cats.effect.Resource
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.{Log, MeasureDuration, MonadThrowable}
-import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.util.StreamHelper._
+import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.util.StreamHelper.*
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
-import com.evolutiongaming.smetrics.MetricsHelper._
-import com.evolutiongaming.smetrics._
+import com.evolutiongaming.smetrics.MetricsHelper.*
+import com.evolutiongaming.smetrics.*
 import com.evolutiongaming.sstream.Stream
 
 import scala.concurrent.duration.FiniteDuration

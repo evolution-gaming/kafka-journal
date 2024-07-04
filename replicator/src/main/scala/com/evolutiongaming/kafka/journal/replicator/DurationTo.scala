@@ -1,12 +1,12 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import cats.effect.Sync
-import cats.implicits._
+import cats.implicits.*
 import com.evolutiongaming.catshelper.{ApplicativeThrowable, MonadThrowable}
 
 import java.time.temporal.ChronoUnit
 import java.time.{LocalDateTime, LocalTime}
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 trait DurationTo[F[_]] {
 

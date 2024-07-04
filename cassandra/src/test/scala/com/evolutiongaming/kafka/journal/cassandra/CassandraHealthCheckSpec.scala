@@ -1,12 +1,12 @@
 package com.evolutiongaming.kafka.journal.cassandra
 
 import cats.effect.IO
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.Log
-import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.IOSuite.*
 import org.scalatest.funsuite.AsyncFunSuite
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.control.NoStackTrace
 
 class CassandraHealthCheckSpec extends AsyncFunSuite {

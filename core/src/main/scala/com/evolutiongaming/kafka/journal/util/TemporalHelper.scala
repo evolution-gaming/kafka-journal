@@ -5,7 +5,7 @@ import cats.Order
 import java.time.temporal.{ChronoUnit, Temporal, TemporalAmount}
 import java.time.{Instant, LocalDate, ZoneId}
 import java.util.concurrent.TimeUnit
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 object TemporalHelper {
 

@@ -16,7 +16,7 @@ import scala.util.Try
 import scala.util.control.NoStackTrace
 
 class SetupSchemaSpec extends AnyFunSuite with Matchers {
-  import SetupSchemaSpec._
+  import SetupSchemaSpec.*
 
   test("migrate fresh") {
     val initial = State.empty

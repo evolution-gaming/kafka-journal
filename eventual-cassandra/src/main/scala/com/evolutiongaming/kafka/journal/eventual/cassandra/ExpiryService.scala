@@ -1,18 +1,18 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.effect.Sync
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Monad, ~>}
 import com.evolutiongaming.catshelper.{BracketThrowable, Log, LogOf, MeasureDuration}
 import com.evolutiongaming.kafka.journal.ExpireAfter
-import com.evolutiongaming.kafka.journal.util.TemporalHelper._
+import com.evolutiongaming.kafka.journal.util.TemporalHelper.*
 
 import java.time.{Instant, LocalDate, ZoneId}
 import java.util.TimeZone
 import scala.concurrent.duration.FiniteDuration
 
 trait ExpiryService[F[_]] {
-  import ExpiryService._
+  import ExpiryService.*
 
   def expireOn(expireAfter: ExpireAfter, timestamp: Instant): F[ExpireOn]
 

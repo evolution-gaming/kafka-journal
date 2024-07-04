@@ -1,11 +1,11 @@
 package com.evolutiongaming.kafka.journal.eventual
 
-import cats.syntax.all._
-import com.evolutiongaming.kafka.journal._
+import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.*
 import org.scalatest.EitherValues
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
-import play.api.libs.json.{Json => PlayJson}
+import play.api.libs.json.Json as PlayJson
 import scodec.bits.ByteVector
 
 import scala.util.Try

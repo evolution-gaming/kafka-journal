@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.Monad
-import cats.syntax.all._
-import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
-import play.api.libs.json._
+import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.util.PlayJsonHelper.*
+import play.api.libs.json.*
 
 sealed abstract class ActionHeader extends Product {
 

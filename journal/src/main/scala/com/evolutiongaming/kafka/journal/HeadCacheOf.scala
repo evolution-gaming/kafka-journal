@@ -2,8 +2,8 @@ package com.evolutiongaming.kafka.journal
 
 import cats.effect.Resource
 import cats.effect.kernel.Async
-import cats.effect.syntax.all._
-import cats.syntax.all._
+import cats.effect.syntax.all.*
+import cats.syntax.all.*
 import cats.{Applicative, Parallel}
 import com.evolutiongaming.catshelper.{FromTry, LogOf, MeasureDuration, Runtime}
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal

@@ -1,6 +1,6 @@
 package akka.persistence.kafka.journal
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.Journal.{CallTimeThresholds, ConsumerPoolConfig}
 import com.evolutiongaming.kafka.journal.{JournalConfig, KafkaConfig}
 import com.typesafe.config.ConfigFactory
@@ -8,7 +8,7 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import pureconfig.{ConfigReader, ConfigSource}
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class KafkaJournalConfigSpec extends AnyFunSuite with Matchers {
 

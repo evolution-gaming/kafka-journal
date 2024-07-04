@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.Functor
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.conversions.KafkaWrite
 import scodec.bits.ByteVector
 

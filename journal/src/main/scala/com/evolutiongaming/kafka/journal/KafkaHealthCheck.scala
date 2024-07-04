@@ -1,17 +1,17 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.effect._
-import cats.effect.implicits._
-import cats.syntax.all._
+import cats.effect.*
+import cats.effect.implicits.*
+import cats.syntax.all.*
 import cats.{Applicative, Functor, Monad}
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
+import com.evolutiongaming.kafka.journal.util.CatsHelper.*
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.evolutiongaming.skafka.producer.{ProducerConfig, ProducerRecord}
 
 import scala.concurrent.CancellationException
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 trait KafkaHealthCheck[F[_]] {
 

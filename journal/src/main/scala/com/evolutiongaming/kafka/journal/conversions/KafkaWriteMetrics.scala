@@ -2,8 +2,8 @@ package com.evolutiongaming.kafka.journal.conversions
 
 import cats.Applicative
 import cats.effect.Resource
-import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.smetrics.MetricsHelper._
+import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.smetrics.MetricsHelper.*
 import com.evolutiongaming.smetrics.{CollectorRegistry, LabelNames, Quantiles}
 
 import scala.concurrent.duration.FiniteDuration

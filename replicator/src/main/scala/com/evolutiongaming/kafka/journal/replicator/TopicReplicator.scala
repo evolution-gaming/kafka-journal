@@ -1,24 +1,24 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
-import cats.effect._
-import cats.effect.implicits._
-import cats.implicits._
-import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.catshelper.ParallelHelper._
+import cats.data.{NonEmptyList as Nel, NonEmptyMap as Nem, NonEmptySet as Nes}
+import cats.effect.*
+import cats.effect.implicits.*
+import cats.implicits.*
+import com.evolutiongaming.catshelper.ClockHelper.*
+import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, MeasureDuration, ToTry}
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.conversions.{ConsRecordToActionRecord, KafkaRead}
-import com.evolutiongaming.kafka.journal.eventual._
+import com.evolutiongaming.kafka.journal.eventual.*
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
 import com.evolutiongaming.retry.Sleep
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.evolutiongaming.skafka.{Metadata, Offset, Partition, Topic}
 import scodec.bits.ByteVector
 
 import java.time.Instant
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.Try
 
 object TopicReplicator {

@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.effect.{Concurrent, Fiber, Ref}
-import cats.syntax.all._
+import cats.syntax.all.*
 
 trait GracefulFiber[F[_]] {
   def apply[A](f: F[Boolean] => F[Fiber[F, Throwable, A]]): F[Fiber[F, Throwable, A]]

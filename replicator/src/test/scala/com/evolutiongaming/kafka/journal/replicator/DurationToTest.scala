@@ -1,11 +1,11 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.implicits._
+import cats.implicits.*
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import java.time.{LocalDateTime, LocalTime}
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.Try
 
 class DurationToTest extends AnyFunSuite with Matchers {

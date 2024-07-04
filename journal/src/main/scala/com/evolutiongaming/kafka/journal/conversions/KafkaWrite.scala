@@ -1,11 +1,11 @@
 package com.evolutiongaming.kafka.journal.conversions
 
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
 import cats.{Monad, ~>}
 import com.evolutiongaming.catshelper.{MeasureDuration, MonadThrowable}
-import com.evolutiongaming.kafka.journal.PayloadAndType._
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.PayloadAndType.*
+import com.evolutiongaming.kafka.journal.*
 import play.api.libs.json.{JsValue, Json, Writes}
 
 import scala.annotation.tailrec

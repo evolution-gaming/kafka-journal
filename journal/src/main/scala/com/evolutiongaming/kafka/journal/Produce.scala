@@ -1,12 +1,12 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.effect._
-import cats.syntax.all._
+import cats.effect.*
+import cats.syntax.all.*
 import cats.{Applicative, ~>}
-import com.evolutiongaming.catshelper.ClockHelper._
+import com.evolutiongaming.catshelper.ClockHelper.*
 import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolutiongaming.kafka.journal.conversions.ActionToProducerRecord
-import com.evolutiongaming.skafka.{Bytes => _}
+import com.evolutiongaming.skafka.Bytes as _
 
 import java.time.Instant
 

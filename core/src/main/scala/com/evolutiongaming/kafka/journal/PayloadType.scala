@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
+import com.evolutiongaming.kafka.journal.util.PlayJsonHelper.*
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
-import play.api.libs.json._
+import play.api.libs.json.*
 
 sealed abstract class PayloadType extends Product {
   def ext: String

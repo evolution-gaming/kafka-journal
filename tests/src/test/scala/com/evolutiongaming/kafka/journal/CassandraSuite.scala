@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.effect.IO
-import com.evolutiongaming.catshelper.CatsHelper._
+import com.evolutiongaming.catshelper.CatsHelper.*
 import com.evolutiongaming.scassandra.CassandraClusterOf
 
 object CassandraSuite {

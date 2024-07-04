@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.data.{NonEmptyList => Nel, State}
-import cats.syntax.all._
+import cats.data.{NonEmptyList as Nel, State}
+import cats.syntax.all.*
 import com.evolutiongaming.scassandra.TableName
 import org.scalatest.funsuite.AnyFunSuite
 

@@ -1,17 +1,17 @@
 package akka.persistence.kafka.journal
 
 import akka.persistence.{AtomicWrite, PersistentRepr}
-import cats.data.{NonEmptyList => Nel}
+import cats.data.NonEmptyList as Nel
 import cats.effect.Clock
-import cats.syntax.all._
-import com.evolutiongaming.catshelper.ClockHelper._
+import cats.syntax.all.*
+import com.evolutiongaming.catshelper.ClockHelper.*
 import com.evolutiongaming.catshelper.{FromTry, Log}
-import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
+import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.{EventualPayloadAndType, EventualRead, EventualWrite}
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.StreamHelper._
+import com.evolutiongaming.kafka.journal.util.StreamHelper.*
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -19,14 +19,14 @@ import play.api.libs.json.Json
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.Try
 
 import TestJsonCodec.instance
 
 class JournalAdapterSpec extends AnyFunSuite with Matchers {
-  import JournalAdapterSpec.StateT._
-  import JournalAdapterSpec._
+  import JournalAdapterSpec.StateT.*
+  import JournalAdapterSpec.*
 
   private val eventSerializer  = EventSerializer.const[StateT, Payload](event, persistentRepr)
   private val journalReadWrite = JournalReadWrite.of[StateT, Payload]

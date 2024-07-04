@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.effect.{Deferred, IO, Outcome}
-import cats.syntax.all._
-import com.evolutiongaming.kafka.journal.IOSuite._
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
+import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.IOSuite.*
+import com.evolutiongaming.kafka.journal.util.CatsHelper.*
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 

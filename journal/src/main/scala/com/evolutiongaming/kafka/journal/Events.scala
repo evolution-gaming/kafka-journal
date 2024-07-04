@@ -1,11 +1,11 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.data.{NonEmptyList => Nel}
-import com.evolutiongaming.kafka.journal.util.ScodecHelper._
+import cats.data.NonEmptyList as Nel
+import com.evolutiongaming.kafka.journal.util.ScodecHelper.*
 import scodec.bits.ByteVector
 import scodec.{Codec, codecs, ValueCodecEnrichedWithHListSupport, TransformSyntax}
 
-import java.lang.{Byte => ByteJ}
+import java.lang.Byte as ByteJ
 
 final case class Events[A](events: Nel[Event[A]], metadata: PayloadMetadata)
 

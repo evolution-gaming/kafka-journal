@@ -1,20 +1,20 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptySet => Nes}
-import cats.effect._
-import cats.effect.syntax.all._
-import cats.syntax.all._
+import cats.data.NonEmptySet as Nes
+import cats.effect.*
+import cats.effect.syntax.all.*
+import cats.syntax.all.*
 import cats.{Defer, Parallel}
-import com.evolutiongaming.catshelper.ParallelHelper._
+import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.catshelper.{FromTry, LogOf}
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.random.Random
-import com.evolutiongaming.retry.Retry.implicits._
+import com.evolutiongaming.retry.Retry.implicits.*
 import com.evolutiongaming.retry.{OnError, Sleep, Strategy}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, RebalanceListener}
 import com.evolutiongaming.skafka.{Partition, Topic, TopicPartition}
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 trait DistributeJob[F[_]] {
   import DistributeJob.Assigned

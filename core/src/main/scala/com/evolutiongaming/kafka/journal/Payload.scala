@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.util.ScodecHelper._
-import play.api.libs.functional.syntax._
-import play.api.libs.json._
+import com.evolutiongaming.kafka.journal.util.ScodecHelper.*
+import play.api.libs.functional.syntax.*
+import play.api.libs.json.*
 import scodec.{Codec, TransformSyntax}
 import scodec.bits.ByteVector
 import scodec.codecs.{bytes, utf8}

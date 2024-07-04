@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.data.{NonEmptyList => Nel}
-import cats.effect._
-import cats.syntax.all._
+import cats.data.NonEmptyList as Nel
+import cats.effect.*
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.{FromTry, LogOf, MeasureDuration, ToFuture, ToTry}
 import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.ConsumerConfig

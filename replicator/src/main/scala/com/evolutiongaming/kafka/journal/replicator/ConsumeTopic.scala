@@ -1,16 +1,16 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptySet => Nes}
+import cats.data.NonEmptySet as Nes
 import cats.effect.Resource
-import cats.syntax.all._
-import com.evolutiongaming.catshelper.DataHelper._
+import cats.syntax.all.*
+import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.{OnError, Retry, Sleep, Strategy}
-import com.evolutiongaming.skafka._
+import com.evolutiongaming.skafka.*
 import com.evolutiongaming.skafka.consumer.RebalanceListener
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 object ConsumeTopic {
 

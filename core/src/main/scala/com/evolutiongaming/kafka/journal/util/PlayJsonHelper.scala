@@ -1,14 +1,14 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.MonadError
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.JsonCodec
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
-import play.api.libs.json._
+import play.api.libs.json.*
 
 import scala.annotation.tailrec
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.Try
 
 object PlayJsonHelper {

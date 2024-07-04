@@ -1,11 +1,11 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.data.OptionT
-import cats.effect.syntax.all._
+import cats.effect.syntax.all.*
 import cats.effect.{Concurrent, Outcome}
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Applicative, ApplicativeError}
-import com.evolutiongaming.kafka.journal.util.Fail.implicits._
+import com.evolutiongaming.kafka.journal.util.Fail.implicits.*
 
 object CatsHelper {
 

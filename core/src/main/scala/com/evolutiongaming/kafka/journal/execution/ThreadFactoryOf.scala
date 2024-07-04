@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal.execution
 
 import cats.effect.Sync
-import cats.syntax.all._
+import cats.syntax.all.*
 
-import java.util.concurrent.{Executors => ExecutorsJ, ThreadFactory}
+import java.util.concurrent.{Executors as ExecutorsJ, ThreadFactory}
 
 object ThreadFactoryOf {
 

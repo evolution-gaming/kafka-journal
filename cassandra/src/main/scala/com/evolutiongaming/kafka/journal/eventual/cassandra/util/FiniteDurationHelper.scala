@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra.util
 
-import com.datastax.driver.core.{Duration => DurationC}
+import com.datastax.driver.core.Duration as DurationC
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 object FiniteDurationHelper {
 

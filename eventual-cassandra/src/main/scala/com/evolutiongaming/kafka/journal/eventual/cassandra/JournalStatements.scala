@@ -1,15 +1,15 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Monad
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
 import com.datastax.driver.core.{BatchStatement, Row}
 import com.evolutiongaming.catshelper.ToTry
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
-import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.HeadersHelper._
-import com.evolutiongaming.scassandra.syntax._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper.*
+import com.evolutiongaming.kafka.journal.eventual.cassandra.HeadersHelper.*
+import com.evolutiongaming.scassandra.syntax.*
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName, TableName}
 import com.evolutiongaming.sstream.Stream
 import scodec.bits.ByteVector

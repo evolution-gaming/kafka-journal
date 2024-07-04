@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.MonadError
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.JsonCodec
 import play.api.libs.json.Format
 import scodec.bits.ByteVector
@@ -16,7 +16,7 @@ object ScodecHelper {
 
   implicit val attemptMonadError: MonadError[Attempt, Attempt.Failure] = {
 
-    import Attempt._
+    import Attempt.*
 
     new MonadError[Attempt, Failure] {
 

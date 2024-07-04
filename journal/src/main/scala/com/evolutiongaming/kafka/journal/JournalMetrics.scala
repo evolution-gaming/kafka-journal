@@ -1,13 +1,13 @@
 package com.evolutiongaming.kafka.journal
 
-import cats._
-import cats.effect._
-import cats.syntax.all._
+import cats.*
+import cats.effect.*
+import cats.syntax.all.*
 import com.evolutiongaming.skafka.Topic
-import com.evolutiongaming.smetrics.MetricsHelper._
-import com.evolutiongaming.smetrics._
+import com.evolutiongaming.smetrics.MetricsHelper.*
+import com.evolutiongaming.smetrics.*
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 trait JournalMetrics[F[_]] {
 

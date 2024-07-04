@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import cats.data.IndexedStateT
 import cats.effect.kernel.{CancelScope, Poll}
-import cats.implicits._
+import cats.implicits.*
 import cats.syntax.all.none
 import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal.util.MonadCancelFromMonadError
@@ -16,7 +16,7 @@ import java.time.Instant
 import scala.util.{Success, Try}
 
 class StreamActionRecordsSpec extends AnyFunSuite with Matchers {
-  import StreamActionRecordsSpec._
+  import StreamActionRecordsSpec.*
 
   test("no offsets") {
     val records = List(Pointer(seqNr = 1L, offset = 11L), Pointer(seqNr = 2L, offset = 12L), Pointer(seqNr = 3L, offset = 13L))

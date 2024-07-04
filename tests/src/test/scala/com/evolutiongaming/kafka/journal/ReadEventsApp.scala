@@ -1,13 +1,13 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.Parallel
-import cats.data.{NonEmptyList => Nel}
-import cats.effect._
-import cats.effect.syntax.resource._
-import cats.syntax.all._
-import com.evolutiongaming.catshelper._
+import cats.data.NonEmptyList as Nel
+import cats.effect.*
+import cats.effect.syntax.resource.*
+import cats.syntax.all.*
+import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
-import com.evolutiongaming.kafka.journal.eventual.cassandra._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.*
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.scassandra.{AuthenticationConfig, CassandraClusterOf, CassandraConfig}
@@ -15,7 +15,7 @@ import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig}
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 object ReadEventsApp extends IOApp {
 

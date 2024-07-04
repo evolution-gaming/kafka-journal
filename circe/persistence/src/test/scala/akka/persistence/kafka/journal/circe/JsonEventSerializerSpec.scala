@@ -4,17 +4,17 @@ import akka.persistence.PersistentRepr
 import akka.persistence.journal.Tagged
 import akka.persistence.kafka.journal.EventSerializer
 import cats.effect.IO
-import cats.syntax.all._
-import com.evolutiongaming.kafka.journal.IOSuite._
-import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.circe._
-import com.evolutiongaming.kafka.journal.util.ScodecHelper._
+import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.IOSuite.*
+import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.circe.*
+import com.evolutiongaming.kafka.journal.util.ScodecHelper.*
 import io.circe.Json
-import io.circe.jawn._
+import io.circe.jawn.*
 import org.scalatest.EitherValues
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
-import play.api.libs.json._
+import play.api.libs.json.*
 
 class JsonEventSerializerSpec extends AsyncFunSuite with ActorSuite with Matchers with EitherValues {
 

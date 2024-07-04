@@ -2,9 +2,9 @@ package com.evolutiongaming.kafka.journal
 
 import akka.actor.{ActorSystem, ExtendedActorSystem, Extension, ExtensionId}
 import cats.effect.Sync
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
-import play.api.libs.json._
+import play.api.libs.json.*
 
 /** Name of the host, which produced an event or a snapshot.
   *

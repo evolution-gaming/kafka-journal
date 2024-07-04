@@ -1,16 +1,16 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.effect.kernel.{Async, Temporal}
-import cats.effect.syntax.all._
+import cats.effect.syntax.all.*
 import cats.effect.{Concurrent, Resource}
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{MonadThrow, Parallel}
 import com.evolutiongaming.catshelper.{LogOf, MeasureDuration, ToTry}
 import com.evolutiongaming.kafka.journal.Journal.DataIntegrityConfig
-import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
-import com.evolutiongaming.kafka.journal.util.StreamHelper._
-import com.evolutiongaming.kafka.journal.{cassandra => _, _}
+import com.evolutiongaming.kafka.journal.eventual.*
+import com.evolutiongaming.kafka.journal.util.CatsHelper.*
+import com.evolutiongaming.kafka.journal.util.StreamHelper.*
+import com.evolutiongaming.kafka.journal.{cassandra as _, _}
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.scassandra.{CassandraClusterOf, TableName}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}

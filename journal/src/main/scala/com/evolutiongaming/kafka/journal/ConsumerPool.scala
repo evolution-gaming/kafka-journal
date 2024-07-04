@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.effect._
+import cats.effect.*
 import cats.effect.kernel.Resource.ExitCase
-import cats.effect.syntax.all._
-import cats.syntax.all._
-import com.evolution.resourcepool.ResourcePool.implicits._
+import cats.effect.syntax.all.*
+import cats.syntax.all.*
+import com.evolution.resourcepool.ResourcePool.implicits.*
 import com.evolutiongaming.catshelper.{MeasureDuration, Runtime}
 import com.evolutiongaming.kafka.journal.Journal.ConsumerPoolConfig
 import com.evolutiongaming.kafka.journal.Journals.Consumer

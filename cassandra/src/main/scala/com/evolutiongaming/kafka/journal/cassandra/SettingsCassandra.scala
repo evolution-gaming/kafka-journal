@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal.cassandra
 
 import cats.effect.Clock
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Monad, Parallel}
-import com.evolutiongaming.catshelper.ClockHelper._
+import com.evolutiongaming.catshelper.ClockHelper.*
 import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraSession
 import com.evolutiongaming.kafka.journal.{Origin, Setting, Settings}

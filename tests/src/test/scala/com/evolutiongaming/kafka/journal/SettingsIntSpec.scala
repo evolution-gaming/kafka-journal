@@ -2,17 +2,17 @@ package com.evolutiongaming.kafka.journal
 
 import akka.actor.ActorSystem
 import cats.Parallel
-import cats.effect._
-import cats.effect.syntax.resource._
-import cats.syntax.all._
+import cats.effect.*
+import cats.effect.syntax.resource.*
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.{FromFuture, LogOf}
-import com.evolutiongaming.kafka.journal.CassandraSuite._
-import com.evolutiongaming.kafka.journal.IOSuite._
-import com.evolutiongaming.kafka.journal.cassandra.{CassandraConsistencyConfig, SettingsCassandra => SettingsCassandra2}
-import com.evolutiongaming.kafka.journal.eventual.cassandra._
-import com.evolutiongaming.kafka.journal.eventual.cassandra.{SettingsCassandra => SettingsCassandra1}
+import com.evolutiongaming.kafka.journal.CassandraSuite.*
+import com.evolutiongaming.kafka.journal.IOSuite.*
+import com.evolutiongaming.kafka.journal.cassandra.{CassandraConsistencyConfig, SettingsCassandra as SettingsCassandra2}
+import com.evolutiongaming.kafka.journal.eventual.cassandra.*
+import com.evolutiongaming.kafka.journal.eventual.cassandra.SettingsCassandra as SettingsCassandra1
 import com.evolutiongaming.kafka.journal.util.ActorSystemOf
-import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
+import com.evolutiongaming.kafka.journal.util.PureConfigHelper.*
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.typesafe.config.ConfigFactory
 import org.scalatest.BeforeAndAfterAll

@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{ApplicativeThrow, Order, Semigroup}
 
 import scala.util.Try
@@ -17,7 +17,7 @@ import scala.util.Try
   * val bounds1: Bounds[Int] = 10..20
   * val bounds2: Bounds[Int] = 50..70
   *
-  * scala> import cats.syntax.all._
+  * scala> import cats.syntax.all.*
   * scala> bounds1.combine(bounds2)
   * val res0: Bounds[Int] = 10..70
   * }}}

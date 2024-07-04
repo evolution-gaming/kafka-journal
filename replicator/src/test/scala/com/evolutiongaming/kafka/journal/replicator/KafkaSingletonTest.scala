@@ -1,11 +1,11 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptySet => Nes}
-import cats.effect._
-import cats.effect.syntax.resource._
-import cats.syntax.all._
+import cats.data.NonEmptySet as Nes
+import cats.effect.*
+import cats.effect.syntax.resource.*
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.Log
-import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.IOSuite.*
 import com.evolutiongaming.retry.Sleep
 import com.evolutiongaming.skafka.consumer.RebalanceListener
 import com.evolutiongaming.skafka.{Partition, TopicPartition}
@@ -13,7 +13,7 @@ import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class KafkaSingletonTest extends AsyncFunSuite with Matchers {
 

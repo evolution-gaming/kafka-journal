@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.effect.syntax.resource._
+import cats.effect.syntax.resource.*
 import cats.effect.{MonadCancel, Resource}
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Applicative, ~>}
 import com.evolutiongaming.skafka.Topic
 

@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.data.{NonEmptyList => Nel}
+import cats.data.NonEmptyList as Nel
 
 object Combinations {
 

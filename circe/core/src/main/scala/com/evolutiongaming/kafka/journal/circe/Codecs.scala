@@ -1,14 +1,14 @@
 package com.evolutiongaming.kafka.journal.circe
 
-import cats.syntax.all._
-import com.evolutiongaming.kafka.journal.PayloadAndType._
+import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.PayloadAndType.*
 import com.evolutiongaming.kafka.journal.PayloadType.TextOrJson
-import com.evolutiongaming.kafka.journal._
-import io.circe._
-import io.circe.generic.semiauto._
+import com.evolutiongaming.kafka.journal.*
+import io.circe.*
+import io.circe.generic.semiauto.*
 import play.api.libs.json.JsValue
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 object Codecs {
 

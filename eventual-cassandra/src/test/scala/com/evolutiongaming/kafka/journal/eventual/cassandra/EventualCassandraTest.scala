@@ -1,28 +1,28 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Id
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
-import com.evolutiongaming.catshelper.DataHelper._
-import com.evolutiongaming.kafka.journal._
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
+import com.evolutiongaming.catshelper.DataHelper.*
+import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
-import com.evolutiongaming.kafka.journal.util.StreamHelper._
-import com.evolutiongaming.kafka.journal.util.TemporalHelper._
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
+import com.evolutiongaming.kafka.journal.util.StreamHelper.*
+import com.evolutiongaming.kafka.journal.util.TemporalHelper.*
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
-import com.evolutiongaming.sstream.FoldWhile._
+import com.evolutiongaming.sstream.FoldWhile.*
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.Json
 
 import java.time.Instant
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.{Failure, Try}
 
 class EventualCassandraTest extends AnyFunSuite with Matchers {
-  import EventualCassandraTest._
+  import EventualCassandraTest.*
 
   private val timestamp0      = Instant.now()
   private val timestamp1      = timestamp0 + 1.minute

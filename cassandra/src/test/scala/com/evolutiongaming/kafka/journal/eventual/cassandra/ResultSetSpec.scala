@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.effect.{Concurrent, IO, Ref}
-import cats.syntax.all._
-import com.evolutiongaming.kafka.journal.IOSuite._
+import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.IOSuite.*
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 

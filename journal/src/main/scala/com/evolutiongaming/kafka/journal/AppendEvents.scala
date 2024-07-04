@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.Monad
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.conversions.KafkaWrite
 
 trait AppendEvents[F[_]] {
