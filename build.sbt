@@ -1,4 +1,5 @@
 import Dependencies.*
+import sbt.Package.ManifestAttributes
 
 lazy val commonSettings = Seq(
   organization := "com.evolutiongaming",
@@ -24,6 +25,13 @@ lazy val commonSettings = Seq(
   autoAPIMappings := true,
   versionScheme := Some("early-semver"),
   versionPolicyIntention := Compatibility.BinaryCompatible,
+  packageOptions := {
+    Seq(
+      ManifestAttributes(
+        ("Implementation-Version", (ThisProject / version).value),
+      ),
+    )
+  },
 )
 
 val alias: Seq[sbt.Def.Setting[?]] =
