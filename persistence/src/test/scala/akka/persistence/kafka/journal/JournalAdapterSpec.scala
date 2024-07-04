@@ -6,8 +6,8 @@ import cats.effect.Clock
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.ClockHelper.*
 import com.evolutiongaming.catshelper.{FromTry, Log}
-import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
 import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
 import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.{EventualPayloadAndType, EventualRead, EventualWrite}
 import com.evolutiongaming.kafka.journal.util.Fail

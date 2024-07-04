@@ -2,8 +2,8 @@ package com.evolutiongaming.kafka.journal.circe
 
 import cats.data.NonEmptyList as Nel
 import cats.syntax.all.*
-import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.circe.Instances.*
 import com.evolutiongaming.kafka.journal.conversions.*
 import io.circe.Json as CirceJson

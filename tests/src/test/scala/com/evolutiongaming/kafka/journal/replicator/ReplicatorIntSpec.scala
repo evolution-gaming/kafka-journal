@@ -6,11 +6,11 @@ import cats.effect.*
 import cats.effect.syntax.resource.*
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.*
+import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.CassandraSuite.*
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
 import com.evolutiongaming.kafka.journal.IOSuite.*
 import com.evolutiongaming.kafka.journal.Journal.DataIntegrityConfig
-import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualRead}
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper.*

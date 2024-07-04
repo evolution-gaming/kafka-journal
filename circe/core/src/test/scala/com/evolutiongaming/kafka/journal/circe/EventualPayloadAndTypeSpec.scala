@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal.circe
 
 import cats.syntax.all.*
-import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.circe.Instances.*
 import com.evolutiongaming.kafka.journal.eventual.*
 import io.circe.Json as CirceJson

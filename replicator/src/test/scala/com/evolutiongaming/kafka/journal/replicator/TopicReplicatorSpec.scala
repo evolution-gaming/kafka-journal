@@ -9,9 +9,9 @@ import cats.{Applicative, Monoid, Parallel}
 import com.evolutiongaming.catshelper.ClockHelper.*
 import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.catshelper.{FromTry, Log, MeasureDuration}
+import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
-import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, ConsRecordToActionRecord, KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.*
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicatorMetrics.Measurements

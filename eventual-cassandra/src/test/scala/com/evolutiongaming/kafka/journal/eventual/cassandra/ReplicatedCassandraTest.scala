@@ -7,8 +7,8 @@ import cats.implicits.*
 import cats.syntax.all.none
 import cats.{Id, Parallel}
 import com.evolutiongaming.catshelper.DataHelper.*
-import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
 import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.eventual.cassandra.ExpireOn.implicits.*
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*

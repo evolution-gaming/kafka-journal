@@ -5,8 +5,8 @@ import cats.effect.IO
 import cats.implicits.*
 import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.kafka.journal.*
-import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec.*
 import com.evolutiongaming.kafka.journal.eventual.*
+import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec.*
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.TestTemporal.*
 import com.evolutiongaming.skafka.{Offset, Topic}

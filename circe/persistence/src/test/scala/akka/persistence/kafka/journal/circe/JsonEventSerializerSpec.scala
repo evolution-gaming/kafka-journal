@@ -5,8 +5,8 @@ import akka.persistence.journal.Tagged
 import akka.persistence.kafka.journal.EventSerializer
 import cats.effect.IO
 import cats.syntax.all.*
-import com.evolutiongaming.kafka.journal.IOSuite.*
 import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.IOSuite.*
 import com.evolutiongaming.kafka.journal.circe.*
 import com.evolutiongaming.kafka.journal.util.ScodecHelper.*
 import io.circe.Json
