@@ -1,9 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.*
-import cats.effect.*
-import cats.effect.Async
 import cats.effect.syntax.all.*
+import cats.effect.{Async, *}
 import cats.syntax.all.*
 import com.evolution.scache.{Cache, ExpiringCache}
 import com.evolutiongaming.catshelper.*
@@ -12,8 +11,8 @@ import com.evolutiongaming.kafka.journal.conversions.ConsRecordToActionHeader
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
-import com.evolutiongaming.smetrics.MetricsHelper.*
 import com.evolutiongaming.smetrics.*
+import com.evolutiongaming.smetrics.MetricsHelper.*
 
 import scala.concurrent.duration.*
 

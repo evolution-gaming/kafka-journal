@@ -16,7 +16,7 @@ import com.evolutiongaming.kafka.journal.util.StreamHelper.*
 import com.evolutiongaming.skafka
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig, ProducerRecord}
-import com.evolutiongaming.skafka.{Bytes as _, _}
+import com.evolutiongaming.skafka.{Bytes as _, *}
 import com.evolutiongaming.sstream.Stream
 import scodec.bits.ByteVector
 

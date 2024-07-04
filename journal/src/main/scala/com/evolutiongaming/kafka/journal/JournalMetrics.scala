@@ -4,8 +4,8 @@ import cats.*
 import cats.effect.*
 import cats.syntax.all.*
 import com.evolutiongaming.skafka.Topic
-import com.evolutiongaming.smetrics.MetricsHelper.*
 import com.evolutiongaming.smetrics.*
+import com.evolutiongaming.smetrics.MetricsHelper.*
 
 import scala.concurrent.duration.*
 

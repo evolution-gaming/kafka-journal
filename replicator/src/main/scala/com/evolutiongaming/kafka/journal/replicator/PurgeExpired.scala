@@ -20,8 +20,8 @@ import com.evolutiongaming.kafka.journal.util.StreamHelper.*
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.skafka.producer.ProducerConfig
-import com.evolutiongaming.smetrics.MetricsHelper.*
 import com.evolutiongaming.smetrics.*
+import com.evolutiongaming.smetrics.MetricsHelper.*
 
 import scala.concurrent.duration.FiniteDuration
 

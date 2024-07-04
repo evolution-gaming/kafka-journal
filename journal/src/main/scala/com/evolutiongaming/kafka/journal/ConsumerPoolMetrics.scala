@@ -3,8 +3,8 @@ package com.evolutiongaming.kafka.journal
 import cats.Applicative
 import cats.effect.Resource
 import cats.syntax.all.*
-import com.evolutiongaming.smetrics.MetricsHelper.*
 import com.evolutiongaming.smetrics.*
+import com.evolutiongaming.smetrics.MetricsHelper.*
 
 import scala.concurrent.duration.FiniteDuration
 

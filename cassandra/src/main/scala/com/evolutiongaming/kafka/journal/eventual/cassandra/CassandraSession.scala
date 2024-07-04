@@ -5,7 +5,7 @@ import cats.effect.kernel.Async
 import cats.effect.{Concurrent, Resource}
 import cats.syntax.all.*
 import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
-import com.datastax.driver.core.{ResultSet as _, _}
+import com.datastax.driver.core.{ResultSet as _, *}
 import com.evolution.scache.Cache
 import com.evolutiongaming.catshelper.{MonadThrowable, Runtime}
 import com.evolutiongaming.kafka.journal.JournalError

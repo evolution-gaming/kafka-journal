@@ -1,7 +1,7 @@
 package akka.persistence.kafka.journal.circe
 
-import akka.persistence.kafka.journal.EventSerializer.PersistentRepresentation
 import akka.persistence.kafka.journal.*
+import akka.persistence.kafka.journal.EventSerializer.PersistentRepresentation
 import akka.persistence.kafka.journal.circe.KafkaJournalCirce.*
 import cats.effect.{IO, Resource}
 import cats.syntax.all.*

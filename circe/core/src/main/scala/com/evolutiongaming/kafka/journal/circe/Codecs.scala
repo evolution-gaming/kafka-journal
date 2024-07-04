@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal.circe
 
 import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.PayloadAndType.*
 import com.evolutiongaming.kafka.journal.PayloadType.TextOrJson
-import com.evolutiongaming.kafka.journal.*
 import io.circe.*
 import io.circe.generic.semiauto.*
 import play.api.libs.json.JsValue

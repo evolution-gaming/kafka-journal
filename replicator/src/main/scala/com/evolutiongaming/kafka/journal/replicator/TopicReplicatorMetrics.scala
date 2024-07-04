@@ -3,9 +3,9 @@ package com.evolutiongaming.kafka.journal.replicator
 import cats.effect.*
 import cats.implicits.*
 import cats.{Applicative, Monad}
-import com.evolutiongaming.skafka.{Bytes as _, _}
-import com.evolutiongaming.smetrics.MetricsHelper.*
+import com.evolutiongaming.skafka.{Bytes as _, *}
 import com.evolutiongaming.smetrics.*
+import com.evolutiongaming.smetrics.MetricsHelper.*
 
 import scala.concurrent.duration.*
 

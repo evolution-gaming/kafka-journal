@@ -8,7 +8,7 @@ import com.evolutiongaming.catshelper.{Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.EventualRead
 import com.evolutiongaming.kafka.journal.util.StreamHelper.*
-import com.evolutiongaming.skafka.{Bytes as _, _}
+import com.evolutiongaming.skafka.{Bytes as _, *}
 import com.evolutiongaming.sstream.Stream
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.*

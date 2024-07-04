@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.effect.implicits.*
-import cats.effect.{Deferred, _}
+import cats.effect.{Deferred, *}
 import cats.syntax.all.*
 
 object StartResource {

@@ -5,8 +5,8 @@ import cats.data.{NonEmptyMap as Nem, NonEmptySet as Nes}
 import cats.effect.*
 import cats.effect.syntax.all.*
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.catshelper.*
+import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.kafka.journal.HeadCache.Eventual
 import com.evolutiongaming.kafka.journal.conversions.ConsRecordToActionHeader
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*

@@ -6,8 +6,8 @@ import com.google.common.reflect.TypeToken
 import java.math.BigInteger
 import java.net.InetAddress
 import java.nio.ByteBuffer
-import java.util.{Date, UUID}
 import java.util as ju
+import java.util.{Date, UUID}
 
 class RowStub extends Row {
 

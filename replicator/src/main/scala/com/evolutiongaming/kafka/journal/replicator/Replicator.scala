@@ -7,19 +7,19 @@ import cats.syntax.all.*
 import cats.{Applicative, Monad, Parallel, ~>}
 import com.evolution.scache.CacheMetrics
 import com.evolution.scache.CacheMetrics.Name
-import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.catshelper.*
+import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession, ReplicatedCassandra}
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
 import com.evolutiongaming.kafka.journal.util.*
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.{OnError, Retry, Sleep, Strategy}
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerMetrics}
-import com.evolutiongaming.skafka.{ClientId, Topic, Bytes as _}
+import com.evolutiongaming.skafka.{Bytes as _, ClientId, Topic}
 import com.evolutiongaming.smetrics.CollectorRegistry
 import scodec.bits.ByteVector
 

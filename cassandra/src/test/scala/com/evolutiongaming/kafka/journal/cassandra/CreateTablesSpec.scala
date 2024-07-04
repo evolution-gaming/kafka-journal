@@ -1,18 +1,25 @@
 package com.evolutiongaming.kafka.journal.cassandra
 
-import cats.data.{State, NonEmptyList as Nel}
+import cats.data.{NonEmptyList as Nel, State}
+import cats.effect.Resource
 import cats.syntax.all.*
 import com.datastax.driver.core.{PreparedStatement, Row, Statement}
 import com.evolutiongaming.catshelper.Log
-import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraMetadata, CassandraSession, KeyspaceMetadata, TableMetadata}
+import com.evolutiongaming.kafka.journal.eventual.cassandra.{
+  CassandraCluster,
+  CassandraMetadata,
+  CassandraSession,
+  KeyspaceMetadata,
+  TableMetadata,
+}
 import com.evolutiongaming.kafka.journal.util.StreamHelper.*
+import com.evolutiongaming.scassandra
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AnyFunSuite
 
 import scala.util.control.NoStackTrace
+
 import CreateTables.Table
-import cats.effect.Resource
-import com.evolutiongaming.scassandra
 
 class CreateTablesSpec extends AnyFunSuite {
 

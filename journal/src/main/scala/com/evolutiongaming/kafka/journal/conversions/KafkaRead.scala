@@ -3,8 +3,8 @@ package com.evolutiongaming.kafka.journal.conversions
 import cats.syntax.all.*
 import cats.{Monad, ~>}
 import com.evolutiongaming.catshelper.*
-import com.evolutiongaming.kafka.journal.PayloadAndType.*
 import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.PayloadAndType.*
 import com.evolutiongaming.kafka.journal.util.Fail
 import play.api.libs.json.JsValue
 

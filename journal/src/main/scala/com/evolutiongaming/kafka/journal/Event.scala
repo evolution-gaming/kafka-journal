@@ -2,16 +2,8 @@ package com.evolutiongaming.kafka.journal
 
 import cats.*
 import cats.syntax.all.*
+import scodec.*
 import scodec.bits.ByteVector
-import scodec.{
-  Attempt,
-  Codec,
-  Err,
-  codecs,
-  HListCodecEnrichedWithHListSupport,
-  ValueCodecEnrichedWithHListSupport,
-  TransformSyntax,
-}
 
 import scala.util.Try
 

@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.util
 
-import cats.effect.{Deferred, Ref, _}
+import cats.effect.{Deferred, Ref, *}
 import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.IOSuite.*
 import org.scalatest.funsuite.AsyncFunSuite
