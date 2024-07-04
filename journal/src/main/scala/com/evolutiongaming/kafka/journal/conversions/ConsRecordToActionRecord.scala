@@ -1,27 +1,25 @@
 package com.evolutiongaming.kafka.journal.conversions
 
-import java.time.Instant
-
 import cats.data.OptionT
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.MonadThrowable
-import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
+import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.util.CatsHelper.*
+
+import java.time.Instant
 
 trait ConsRecordToActionRecord[F[_]] {
 
   def apply(consRecord: ConsRecord): F[Option[ActionRecord[Action]]]
 }
 
-
 object ConsRecordToActionRecord {
 
-  implicit def apply[F[_] : MonadThrowable](implicit
-    consRecordToActionHeader: ConsRecordToActionHeader[F],
+  implicit def apply[F[_]: MonadThrowable](
+    implicit consRecordToActionHeader: ConsRecordToActionHeader[F],
     headerToTuple: HeaderToTuple[F],
-  ): ConsRecordToActionRecord[F] = {
-
-    (consRecord: ConsRecord) => {
+  ): ConsRecordToActionRecord[F] = { (consRecord: ConsRecord) =>
+    {
 
       def action(key: Key, timestamp: Instant, header: ActionHeader) = {
 
@@ -29,7 +27,8 @@ object ConsRecordToActionRecord {
           consRecord
             .value
             .traverse { value =>
-              val headers = consRecord.headers
+              val headers = consRecord
+                .headers
                 .filter { _.key =!= ActionHeader.key }
                 .traverse { header => headerToTuple(header) }
 
@@ -64,8 +63,9 @@ object ConsRecordToActionRecord {
 
       result
         .value
-        .adaptError { case e =>
-          JournalError(s"ConsRecordToActionRecord failed for $consRecord: $e", e)
+        .adaptError {
+          case e =>
+            JournalError(s"ConsRecordToActionRecord failed for $consRecord: $e", e)
         }
     }
   }

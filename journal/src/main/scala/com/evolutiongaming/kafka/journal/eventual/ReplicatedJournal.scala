@@ -1,15 +1,14 @@
 package com.evolutiongaming.kafka.journal.eventual
 
-
 import cats.effect.Resource
-import cats.effect.syntax.all._
-import cats.syntax.all._
+import cats.effect.syntax.all.*
+import cats.syntax.all.*
 import cats.{Applicative, Monad, ~>}
 import com.evolutiongaming.catshelper.{BracketThrowable, Log, MeasureDuration, MonadThrowable}
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.skafka.Topic
-import com.evolutiongaming.smetrics.MetricsHelper._
-import com.evolutiongaming.smetrics._
+import com.evolutiongaming.smetrics.*
+import com.evolutiongaming.smetrics.MetricsHelper.*
 
 import scala.collection.immutable.SortedSet
 import scala.concurrent.duration.FiniteDuration
@@ -37,7 +36,7 @@ object ReplicatedJournal {
 
   private sealed abstract class Empty
 
-  def empty[F[_] : Applicative]: ReplicatedJournal[F] = new Empty with ReplicatedJournal[F] {
+  def empty[F[_]: Applicative]: ReplicatedJournal[F] = new Empty with ReplicatedJournal[F] {
 
     def topics = SortedSet.empty[Topic].pure[F]
 
@@ -49,7 +48,6 @@ object ReplicatedJournal {
     }
   }
 
-
   private sealed abstract class MapK
 
   private sealed abstract class WithLog
@@ -58,14 +56,10 @@ object ReplicatedJournal {
 
   private sealed abstract class WithEnhanceError
 
-
   implicit class ReplicatedJournalOps[F[_]](val self: ReplicatedJournal[F]) extends AnyVal {
 
-    def mapK[G[_]](
-      f: F ~> G)(implicit
-      B: BracketThrowable[F],
-      GT: BracketThrowable[G]
-    ): ReplicatedJournal[G] = new MapK with ReplicatedJournal[G] {
+    def mapK[G[_]](f: F ~> G)(implicit B: BracketThrowable[F], GT: BracketThrowable[G]): ReplicatedJournal[G] = new MapK
+      with ReplicatedJournal[G] {
 
       def topics = f(self.topics)
 
@@ -77,19 +71,15 @@ object ReplicatedJournal {
       }
     }
 
-
-    def withLog(
-      log: Log[F])(implicit
-      F: Monad[F],
-      measureDuration: MeasureDuration[F]
-    ): ReplicatedJournal[F] = new WithLog with ReplicatedJournal[F] {
+    def withLog(log: Log[F])(implicit F: Monad[F], measureDuration: MeasureDuration[F]): ReplicatedJournal[F] = new WithLog
+      with ReplicatedJournal[F] {
 
       def topics = {
         for {
           d <- MeasureDuration[F].start
           r <- self.topics
           d <- d
-          _ <- log.debug(s"topics in ${ d.toMillis }ms, r: ${ r.mkString(",") }")
+          _ <- log.debug(s"topics in ${d.toMillis}ms, r: ${r.mkString(",")}")
         } yield r
       }
 
@@ -100,29 +90,24 @@ object ReplicatedJournal {
       }
     }
 
+    def withMetrics(metrics: Metrics[F])(implicit F: Monad[F], measureDuration: MeasureDuration[F]): ReplicatedJournal[F] =
+      new WithMetrics with ReplicatedJournal[F] {
 
-    def withMetrics(
-      metrics: Metrics[F])(implicit
-      F: Monad[F],
-      measureDuration: MeasureDuration[F]
-    ): ReplicatedJournal[F] = new WithMetrics with ReplicatedJournal[F] {
+        def topics = {
+          for {
+            d <- MeasureDuration[F].start
+            r <- self.topics
+            d <- d
+            _ <- metrics.topics(d)
+          } yield r
+        }
 
-      def topics = {
-        for {
-          d <- MeasureDuration[F].start
-          r <- self.topics
-          d <- d
-          _ <- metrics.topics(d)
-        } yield r
+        def journal(topic: Topic) = {
+          self
+            .journal(topic)
+            .map { _.withMetrics(topic, metrics) }
+        }
       }
-
-      def journal(topic: Topic) = {
-        self
-          .journal(topic)
-          .map { _.withMetrics(topic, metrics) }
-      }
-    }
-
 
     def enhanceError(implicit F: MonadThrowable[F]): ReplicatedJournal[F] = {
 
@@ -150,7 +135,6 @@ object ReplicatedJournal {
     def toFlat(implicit F: BracketThrowable[F]): ReplicatedJournalFlat[F] = ReplicatedJournalFlat(self)
   }
 
-
   trait Metrics[F[_]] {
 
     def topics(latency: FiniteDuration): F[Unit]
@@ -170,8 +154,7 @@ object ReplicatedJournal {
 
   object Metrics {
 
-    def empty[F[_] : Applicative]: Metrics[F] = const(().pure[F])
-
+    def empty[F[_]: Applicative]: Metrics[F] = const(().pure[F])
 
     def const[F[_]](unit: F[Unit]): Metrics[F] = {
       class Const
@@ -193,29 +176,31 @@ object ReplicatedJournal {
       }
     }
 
-
-    def of[F[_] : Monad](
+    def of[F[_]: Monad](
       registry: CollectorRegistry[F],
-      prefix: String = "replicated_journal"
+      prefix: String = "replicated_journal",
     ): Resource[F, Metrics[F]] = {
 
       val latencySummary = registry.summary(
-        name      = s"${ prefix }_latency",
+        name      = s"${prefix}_latency",
         help      = "Journal call latency in seconds",
         quantiles = Quantiles.Default,
-        labels    = LabelNames("type"))
+        labels    = LabelNames("type"),
+      )
 
       val topicLatencySummary = registry.summary(
-        name      = s"${ prefix }_topic_latency",
+        name      = s"${prefix}_topic_latency",
         help      = "Journal topic call latency in seconds",
         quantiles = Quantiles.Default,
-        labels    = LabelNames("topic", "type"))
+        labels    = LabelNames("topic", "type"),
+      )
 
       val eventsSummary = registry.summary(
-        name      = s"${ prefix }_events",
+        name      = s"${prefix}_events",
         help      = "Number of events saved",
         quantiles = Quantiles.Empty,
-        labels    = LabelNames("topic"))
+        labels    = LabelNames("topic"),
+      )
 
       for {
         latencySummary      <- latencySummary

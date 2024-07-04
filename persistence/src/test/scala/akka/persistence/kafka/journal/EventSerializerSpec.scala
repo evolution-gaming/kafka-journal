@@ -1,39 +1,41 @@
 package akka.persistence.kafka.journal
 
-import java.io.FileOutputStream
-
 import akka.persistence.PersistentRepr
 import akka.persistence.serialization.Snapshot
 import cats.effect.{IO, Sync}
-import com.evolutiongaming.kafka.journal.FromBytes.implicits._
-import com.evolutiongaming.kafka.journal.IOSuite._
-import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
+import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.FromBytes.implicits.*
+import com.evolutiongaming.kafka.journal.IOSuite.*
+import com.evolutiongaming.kafka.journal.util.CatsHelper.*
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.JsString
 import scodec.bits.ByteVector
-import TestJsonCodec.instance
 
+import java.io.FileOutputStream
 import scala.util.Try
+
+import TestJsonCodec.instance
 
 class EventSerializerSpec extends AsyncFunSuite with ActorSuite with Matchers {
 
   for {
     (name, payloadType, payload) <- List(
-      ("PersistentRepr.bin",       PayloadType.Binary, Snapshot("binary")),
+      ("PersistentRepr.bin", PayloadType.Binary, Snapshot("binary")),
       ("PersistentRepr.text.json", PayloadType.Json, "text"),
-      ("PersistentRepr.json",      PayloadType.Json, JsString("json")))
+      ("PersistentRepr.json", PayloadType.Json, JsString("json")),
+    )
   } {
 
     test(s"toEvent & toPersistentRepr, payload: $payload") {
       val persistenceId = "persistenceId"
       val persistentRepr = PersistentRepr(
-        payload = payload,
-        sequenceNr = 1,
+        payload       = payload,
+        sequenceNr    = 1,
         persistenceId = persistenceId,
-        manifest = "manifest",
-        writerUuid = "writerUuid")
+        manifest      = "manifest",
+        writerUuid    = "writerUuid",
+      )
 
       val fa = for {
         serializer <- EventSerializer.of[IO](actorSystem)
@@ -47,7 +49,7 @@ class EventSerializerSpec extends AsyncFunSuite with ActorSuite with Matchers {
           case _: Payload.Text   => IO.unit
           case _: Payload.Json   => IO.unit
         }*/
-        bytes      <- ByteVectorOf[IO](getClass, name)
+        bytes <- ByteVectorOf[IO](getClass, name)
       } yield {
         payload match {
           case payload: Payload.Binary => payload.value shouldEqual bytes
@@ -60,7 +62,7 @@ class EventSerializerSpec extends AsyncFunSuite with ActorSuite with Matchers {
     }
   }
 
-  def writeToFile[F[_] : Sync](bytes: ByteVector, path: String): F[Unit] = {
+  def writeToFile[F[_]: Sync](bytes: ByteVector, path: String): F[Unit] = {
     Sync[F].delay {
       val os = new FileOutputStream(path)
       os.write(bytes.toArray)

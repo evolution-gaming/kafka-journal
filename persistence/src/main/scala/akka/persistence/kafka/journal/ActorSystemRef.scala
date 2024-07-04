@@ -31,7 +31,6 @@ object ActorSystemRef {
     }
   }
 
-
   implicit class ActorSystemRefOps[F[_], A](val self: ActorSystemRef[F, A]) extends AnyVal {
 
     def mapK[G[_]](f: F ~> G): ActorSystemRef[G, A] = new ActorSystemRef[G, A] {
@@ -42,10 +41,9 @@ object ActorSystemRef {
     }
   }
 
-
   implicit class ActorSystemPromiseFutureOps[A](val self: ActorSystemRef[Future, A]) extends AnyVal {
 
-    def fromFuture[F[_] : FromFuture]: ActorSystemRef[F, A] = new ActorSystemRef[F, A] {
+    def fromFuture[F[_]: FromFuture]: ActorSystemRef[F, A] = new ActorSystemRef[F, A] {
 
       def get = FromFuture[F].apply { self.get }
 

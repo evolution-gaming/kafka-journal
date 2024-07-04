@@ -1,21 +1,27 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
 import cats.{Monad, Order}
 import com.evolutiongaming.catshelper.{Log, LogOf}
-import com.evolutiongaming.kafka.journal.cassandra.{CreateTables => CreateTables2}
+import com.evolutiongaming.kafka.journal.cassandra.CreateTables as CreateTables2
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession}
 
 /** Creates tables in a specific keyspace  */
-@deprecated(since = "3.3.9", message = "Use a class from `com.evolutiongaming.kafka.journal.cassandra` (without `eventual` part) package instead")
+@deprecated(
+  since   = "3.3.9",
+  message = "Use a class from `com.evolutiongaming.kafka.journal.cassandra` (without `eventual` part) package instead",
+)
 trait CreateTables[F[_]] {
   import CreateTables.{Fresh, Table}
 
   def apply(keyspace: String, tables: Nel[Table]): F[Fresh]
 }
 
-@deprecated(since = "3.3.9", message = "Use a class from `com.evolutiongaming.kafka.journal.cassandra` (without `eventual` part) package instead")
+@deprecated(
+  since   = "3.3.9",
+  message = "Use a class from `com.evolutiongaming.kafka.journal.cassandra` (without `eventual` part) package instead",
+)
 object CreateTables { self =>
 
   /** `true` if all tables passed to `CreateTables` did not exist and were created */
@@ -26,33 +32,28 @@ object CreateTables { self =>
       keyspace = keyspace,
       tables = tables.map { table =>
         CreateTables2.Table(table.name, table.queries)
-      }
+      },
     )
   }
 
-
   def apply[F[_]](implicit F: CreateTables[F]): CreateTables[F] = F
 
-
-  def apply[F[_] : Monad : CassandraCluster : CassandraSession : CassandraSync](log: Log[F]): CreateTables[F] = {
+  def apply[F[_]: Monad: CassandraCluster: CassandraSession: CassandraSync](log: Log[F]): CreateTables[F] = {
     implicit val cassandraSync2 = CassandraSync[F].toCassandraSync2
-    val createTables2 = CreateTables2(log)
+    val createTables2           = CreateTables2(log)
     CreateTables(createTables2)
   }
 
-
-  def of[F[_] : Monad : CassandraCluster : CassandraSession : CassandraSync : LogOf]: F[CreateTables[F]] = {
+  def of[F[_]: Monad: CassandraCluster: CassandraSession: CassandraSync: LogOf]: F[CreateTables[F]] = {
     implicit val cassandraSync2 = CassandraSync[F].toCassandraSync2
-    val createTables2 = CreateTables2.of[F]
+    val createTables2           = CreateTables2.of[F]
     createTables2.map(CreateTables(_))
   }
-
 
   def const[F[_]](fresh: F[Fresh]): CreateTables[F] = {
     val createTables2 = CreateTables2.const(fresh)
     CreateTables(createTables2)
   }
-
 
   /** Table to be created in a specific keyspace.
     *

@@ -1,52 +1,39 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.~>
-import com.evolutiongaming.catshelper.CatsHelper._
+import com.evolutiongaming.catshelper.CatsHelper.*
 import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, MonadThrowable}
 import com.evolutiongaming.jsonitertool.PlayJsonJsoniter
-import com.evolutiongaming.kafka.journal.util.ScodecHelper._
+import com.evolutiongaming.kafka.journal.util.ScodecHelper.*
 import play.api.libs.json.{JsValue, Json}
 import scodec.bits.ByteVector
 
 import java.nio.charset.StandardCharsets
 import scala.util.Try
 
-final case class JsonCodec[F[_]](
-  encode: JsonCodec.Encode[F],
-  decode: JsonCodec.Decode[F])
+final case class JsonCodec[F[_]](encode: JsonCodec.Encode[F], decode: JsonCodec.Decode[F])
 
 object JsonCodec {
 
   def summon[F[_]](implicit F: JsonCodec[F]): JsonCodec[F] = F
 
-
   def playJson[F[_]: FromTry]: JsonCodec[F] = {
-    JsonCodec(
-      encode = Encode.playJson,
-      decode = Decode.playJson)
+    JsonCodec(encode = Encode.playJson, decode = Decode.playJson)
   }
-
 
   def jsoniter[F[_]: FromTry]: JsonCodec[F] = {
-    JsonCodec(
-      encode = Encode.jsoniter,
-      decode = Decode.jsoniter)
+    JsonCodec(encode = Encode.jsoniter, decode = Decode.jsoniter)
   }
-
 
   def default[F[_]: ApplicativeThrowable: FromTry]: JsonCodec[F] = {
-    JsonCodec(
-      encode = Encode.jsoniter[F] fallbackTo Encode.playJson,
-      decode = Decode.jsoniter[F] fallbackTo Decode.playJson)
+    JsonCodec(encode = Encode.jsoniter[F] fallbackTo Encode.playJson, decode = Decode.jsoniter[F] fallbackTo Decode.playJson)
   }
-
 
   implicit class JsonCodecOps[F[_]](val self: JsonCodec[F]) extends AnyVal {
 
     def mapK[G[_]](f: F ~> G): JsonCodec[G] = JsonCodec(self.encode.mapK(f), self.decode.mapK(f))
   }
-
 
   final case class Encode[F[_]](toBytes: ToBytes[F, JsValue])
 
@@ -55,7 +42,6 @@ object JsonCodec {
     def summon[F[_]](implicit F: Encode[F]): Encode[F] = F
 
     implicit def fromCodec[F[_]](implicit codec: JsonCodec[F]): Encode[F] = codec.encode
-
 
     def playJson[F[_]: FromTry]: Encode[F] = {
       Encode { value =>
@@ -66,7 +52,6 @@ object JsonCodec {
       }
     }
 
-
     def jsoniter[F[_]: FromTry]: Encode[F] = {
       Encode { value =>
         FromTry[F].unsafe {
@@ -75,7 +60,6 @@ object JsonCodec {
         }
       }
     }
-
 
     implicit class EncodeOps[F[_]](val self: Encode[F]) extends AnyVal {
 
@@ -101,7 +85,6 @@ object JsonCodec {
     }
   }
 
-
   final case class Decode[F[_]](fromBytes: FromBytes[F, JsValue])
 
   object Decode {
@@ -110,14 +93,12 @@ object JsonCodec {
 
     implicit def fromCodec[F[_]](implicit codec: JsonCodec[F]): Decode[F] = codec.decode
 
-
     def playJson[F[_]: FromTry]: Decode[F] = {
       Decode { byteVector =>
         val bytes = byteVector.toArray
         Try { Json.parse(bytes) }.adapt(byteVector)
       }
     }
-
 
     def jsoniter[F[_]: FromTry]: Decode[F] = {
       Decode { byteVector =>
@@ -126,7 +107,6 @@ object JsonCodec {
           .adapt(byteVector)
       }
     }
-
 
     implicit class DecodeOps[F[_]](val self: Decode[F]) extends AnyVal {
 
@@ -152,16 +132,16 @@ object JsonCodec {
     }
   }
 
-
   private implicit class TryOps[A](val self: Try[A]) extends AnyVal {
 
     def adapt[F[_]: FromTry](byteVector: ByteVector): F[A] = {
       self
-        .adaptErr { case e =>
-          val str = byteVector
-            .decodeStr
-            .getOrElse { byteVector.toString() }
-          JournalError(s"failed to parse $str: $e", e)
+        .adaptErr {
+          case e =>
+            val str = byteVector
+              .decodeStr
+              .getOrElse { byteVector.toString() }
+            JournalError(s"failed to parse $str: $e", e)
         }
         .fromTry[F]
     }

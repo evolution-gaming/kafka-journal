@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.util
 
-import cats.syntax.all._
+import cats.syntax.all.*
 
 import scala.util.Either
 
@@ -10,12 +10,10 @@ object EitherHelper {
 
   private val LeftUnit = ().asLeft
 
-
   implicit class LeftOpsEitherHelper(val self: Left.type) extends AnyVal {
 
     def unit[A]: Either[Unit, A] = LeftUnit
   }
-
 
   implicit class RightOpsEitherHelper(val self: Right.type) extends AnyVal {
 

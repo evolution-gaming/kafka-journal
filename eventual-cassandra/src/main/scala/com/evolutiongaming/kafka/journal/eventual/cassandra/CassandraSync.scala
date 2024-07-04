@@ -1,13 +1,16 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.effect.kernel.Temporal
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.~>
 import com.evolutiongaming.cassandra.sync.AutoCreate
 import com.evolutiongaming.kafka.journal.Origin
-import com.evolutiongaming.kafka.journal.cassandra.{CassandraSync => CassandraSync2}
+import com.evolutiongaming.kafka.journal.cassandra.CassandraSync as CassandraSync2
 
-@deprecated(since = "3.3.9", message = "Use a class from `com.evolutiongaming.kafka.journal.cassandra` (without `eventual` part) package instead")
+@deprecated(
+  since   = "3.3.9",
+  message = "Use a class from `com.evolutiongaming.kafka.journal.cassandra` (without `eventual` part) package instead",
+)
 trait CassandraSync[F[_]] { self =>
 
   def apply[A](fa: F[A]): F[A]
@@ -19,7 +22,10 @@ trait CassandraSync[F[_]] { self =>
 
 }
 
-@deprecated(since = "3.3.9", message = "Use a class from `com.evolutiongaming.kafka.journal.cassandra` (without `eventual` part) package instead")
+@deprecated(
+  since   = "3.3.9",
+  message = "Use a class from `com.evolutiongaming.kafka.journal.cassandra` (without `eventual` part) package instead",
+)
 object CassandraSync {
 
   private[cassandra] def apply[F[_]](cassandraSync2: CassandraSync2[F]): CassandraSync[F] =
@@ -32,11 +38,9 @@ object CassandraSync {
     CassandraSync(cassandraSync2)
   }
 
-
   def apply[F[_]](implicit F: CassandraSync[F]): CassandraSync[F] = F
 
-
-  def apply[F[_] : Temporal : CassandraSession](
+  def apply[F[_]: Temporal: CassandraSession](
     config: SchemaConfig,
     origin: Option[Origin],
   ): CassandraSync[F] = {
@@ -44,7 +48,7 @@ object CassandraSync {
     CassandraSync(cassandraSync2)
   }
 
-  def apply[F[_] : Temporal : CassandraSession](
+  def apply[F[_]: Temporal: CassandraSession](
     keyspace: String,
     table: String,
     autoCreate: AutoCreate,
@@ -54,14 +58,13 @@ object CassandraSync {
     CassandraSync(cassandraSync2)
   }
 
-  def of[F[_] : Temporal : CassandraSession](
+  def of[F[_]: Temporal: CassandraSession](
     config: SchemaConfig,
-    origin: Option[Origin]
+    origin: Option[Origin],
   ): F[CassandraSync[F]] = {
     val cassandraSync2 = CassandraSync2.of(config.keyspace.toKeyspaceConfig, config.locksTable, origin)
     cassandraSync2.map(CassandraSync(_))
   }
-
 
   implicit class CassandraSyncOps[F[_]](val self: CassandraSync[F]) extends AnyVal {
 

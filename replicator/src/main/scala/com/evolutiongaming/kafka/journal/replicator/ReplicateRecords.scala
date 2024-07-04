@@ -1,19 +1,18 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptyList => Nel}
-import cats.effect._
-import cats.syntax.all._
-import com.evolutiongaming.catshelper.ClockHelper._
+import cats.data.NonEmptyList as Nel
+import cats.effect.*
+import cats.syntax.all.*
+import com.evolutiongaming.catshelper.ClockHelper.*
 import com.evolutiongaming.catshelper.{BracketThrowable, Log}
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.conversions.{ConsRecordToActionRecord, KafkaRead}
-import com.evolutiongaming.kafka.journal.eventual._
-import com.evolutiongaming.kafka.journal.util.TemporalHelper._
+import com.evolutiongaming.kafka.journal.eventual.*
+import com.evolutiongaming.kafka.journal.util.TemporalHelper.*
 import com.evolutiongaming.skafka.Offset
 
 import java.time.Instant
 import scala.concurrent.duration.FiniteDuration
-
 
 trait ReplicateRecords[F[_]] {
 
@@ -28,16 +27,15 @@ object ReplicateRecords {
     metrics: TopicReplicatorMetrics[F],
     kafkaRead: KafkaRead[F, A],
     eventualWrite: EventualWrite[F, A],
-    log: Log[F]
-  ): ReplicateRecords[F] = {
-
-    (records: Nel[ConsRecord], timestamp: Instant) => {
+    log: Log[F],
+  ): ReplicateRecords[F] = { (records: Nel[ConsRecord], timestamp: Instant) =>
+    {
 
       def apply(records: Nel[ActionRecord[Action]]) = {
-        val record = records.last
-        val key = record.action.key
+        val record    = records.last
+        val key       = record.action.key
         val partition = record.partitionOffset.partition
-        val id = key.id
+        val id        = key.id
 
         def measurements(records: Int) = {
           for {
@@ -46,8 +44,9 @@ object ReplicateRecords {
             val timestamp1 = record.action.timestamp
             TopicReplicatorMetrics.Measurements(
               replicationLatency = now diff timestamp1,
-              deliveryLatency = timestamp diff timestamp1,
-              records = records)
+              deliveryLatency    = timestamp diff timestamp1,
+              records            = records,
+            )
           }
         }
 
@@ -57,17 +56,17 @@ object ReplicateRecords {
           def msg(
             events: Nel[EventRecord[EventualPayloadAndType]],
             latency: FiniteDuration,
-            expireAfter: Option[ExpireAfter]
+            expireAfter: Option[ExpireAfter],
           ) = {
             val seqNrs =
-              if (events.tail.isEmpty) s"seqNr: ${ events.head.seqNr }"
-              else s"seqNrs: ${ events.head.seqNr }..${ events.last.seqNr }"
-            val origin = records.head.action.origin
-            val originStr = origin.foldMap { origin => s", origin: $origin" }
-            val version = records.last.action.version
-            val versionStr = version.fold("none") { _.toString }
+              if (events.tail.isEmpty) s"seqNr: ${events.head.seqNr}"
+              else s"seqNrs: ${events.head.seqNr}..${events.last.seqNr}"
+            val origin         = records.head.action.origin
+            val originStr      = origin.foldMap { origin => s", origin: $origin" }
+            val version        = records.last.action.version
+            val versionStr     = version.fold("none") { _.toString }
             val expireAfterStr = expireAfter.foldMap { expireAfter => s", expireAfter: $expireAfter" }
-            s"append in ${ latency.toMillis }ms, id: $id, partition: $partition, offset: $offset, $seqNrs$originStr, version: $versionStr$expireAfterStr"
+            s"append in ${latency.toMillis}ms, id: $id, partition: $partition, offset: $offset, $seqNrs$originStr, version: $versionStr$expireAfterStr"
           }
 
           def measure(events: Nel[EventRecord[EventualPayloadAndType]], expireAfter: Option[ExpireAfter]) = {
@@ -79,12 +78,13 @@ object ReplicateRecords {
           }
 
           for {
-            events      <- records.flatTraverse { record =>
-              val action = record.action
+            events <- records.flatTraverse { record =>
+              val action         = record.action
               val payloadAndType = action.toPayloadAndType
               for {
-                events         <- kafkaRead(payloadAndType).adaptError { case e =>
-                  JournalError(s"ReplicateRecords failed for id: $id, partition: $partition, offset: $offset: $e", e)
+                events <- kafkaRead(payloadAndType).adaptError {
+                  case e =>
+                    JournalError(s"ReplicateRecords failed for id: $id, partition: $partition, offset: $offset: $e", e)
                 }
                 eventualEvents <- events.events.traverse { _.traverse { a => eventualWrite(a) } }
               } yield for {
@@ -93,18 +93,18 @@ object ReplicateRecords {
                 EventRecord(record, event, events.metadata)
               }
             }
-            expireAfter  = events.last.metadata.payload.expireAfter
-            result      <- journal.append(offset, timestamp, expireAfter, events)
-            result      <- if (result) measure(events, expireAfter).as(events.size) else 0.pure[F]
+            expireAfter = events.last.metadata.payload.expireAfter
+            result     <- journal.append(offset, timestamp, expireAfter, events)
+            result     <- if (result) measure(events, expireAfter).as(events.size) else 0.pure[F]
           } yield result
         }
 
         def delete(offset: Offset, deleteTo: DeleteTo, origin: Option[Origin], version: Option[Version]) = {
 
           def msg(latency: FiniteDuration) = {
-            val originStr = origin.foldMap { origin => s", origin: $origin" }
+            val originStr  = origin.foldMap { origin => s", origin: $origin" }
             val versionStr = version.fold("none") { _.toString }
-            s"delete in ${ latency.toMillis }ms, id: $id, offset: $partition:$offset, deleteTo: $deleteTo$originStr, version: $versionStr"
+            s"delete in ${latency.toMillis}ms, id: $id, offset: $partition:$offset, deleteTo: $deleteTo$originStr, version: $versionStr"
           }
 
           def measure() = {
@@ -125,9 +125,9 @@ object ReplicateRecords {
         def purge(offset: Offset, origin: Option[Origin], version: Option[Version]) = {
 
           def msg(latency: FiniteDuration) = {
-            val originStr = origin.foldMap { origin => s", origin: $origin" }
+            val originStr  = origin.foldMap { origin => s", origin: $origin" }
             val versionStr = version.fold("none") { _.toString }
-            s"purge in ${ latency.toMillis }ms, id: $id, offset: $partition:$offset$originStr, version: $versionStr"
+            s"purge in ${latency.toMillis}ms, id: $id, offset: $partition:$offset$originStr, version: $versionStr"
           }
 
           def measure() = {
@@ -158,7 +158,7 @@ object ReplicateRecords {
         records <- records
           .toList
           .traverseFilter { record => consRecordToActionRecord(record) }
-        result  <- records
+        result <- records
           .toNel
           .foldMapM { records => apply(records) }
       } yield result

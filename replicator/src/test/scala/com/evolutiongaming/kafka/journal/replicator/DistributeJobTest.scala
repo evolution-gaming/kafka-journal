@@ -1,24 +1,21 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-
-import cats.data.{NonEmptyMap => Nem, NonEmptySet => Nes}
-import cats.effect.{Deferred, Ref}
-import cats.effect.{IO, Resource, Sync}
-import cats.syntax.all._
+import cats.data.{NonEmptyMap as Nem, NonEmptySet as Nes}
+import cats.effect.{Deferred, IO, Ref, Resource, Sync}
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.LogOf
-import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.IOSuite.*
 import com.evolutiongaming.kafka.journal.{KafkaConsumer, KafkaConsumerOf}
 import com.evolutiongaming.skafka
-import com.evolutiongaming.skafka.{Offset, OffsetAndMetadata, Partition, Topic, TopicPartition}
 import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords, RebalanceListener}
+import com.evolutiongaming.skafka.{Offset, OffsetAndMetadata, Partition, Topic, TopicPartition}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration.FiniteDuration
 
 class DistributeJobTest extends AsyncFunSuite with Matchers {
-  import DistributeJobTest._
-
+  import DistributeJobTest.*
 
   test("DistributeJob") {
     val topic = "topic"
@@ -28,19 +25,17 @@ class DistributeJobTest extends AsyncFunSuite with Matchers {
     implicit val logOf = LogOf.empty[IO]
     val consumerConfig = ConsumerConfig()
     val result = for {
-      actions <- Actions.of[IO]
+      actions    <- Actions.of[IO]
       partition0 <- Partition.of[IO](0)
       partition1 <- Partition.of[IO](1)
       partition2 <- Partition.of[IO](2)
-      deferred <- Deferred[IO, RebalanceListener[IO]]
+      deferred   <- Deferred[IO, RebalanceListener[IO]]
       kafkaConsumerOf = new KafkaConsumerOf[IO] {
         def apply[K, V](
-          config: ConsumerConfig)(implicit
-          fromBytesK: skafka.FromBytes[IO, K],
-          fromBytesV: skafka.FromBytes[IO, V]
-        ) = {
+          config: ConsumerConfig,
+        )(implicit fromBytesK: skafka.FromBytes[IO, K], fromBytesV: skafka.FromBytes[IO, V]) = {
           val consumer: KafkaConsumer[IO, K, V] = new KafkaConsumer[IO, K, V] {
-            def assign(partitions: Nes[TopicPartition]) = ().pure[IO]
+            def assign(partitions: Nes[TopicPartition])         = ().pure[IO]
             def seek(partition: TopicPartition, offset: Offset) = ().pure[IO]
             def subscribe(topic: Topic, listener: Option[RebalanceListener[IO]]) = {
               listener.foldMapM { listener => deferred.complete(listener).void }
@@ -51,7 +46,7 @@ class DistributeJobTest extends AsyncFunSuite with Matchers {
                 .as(ConsumerRecords.empty[K, V])
             }
             def commit(offsets: Nem[TopicPartition, OffsetAndMetadata]) = ().pure[IO]
-            def topics = Set.empty[Topic].pure[IO]
+            def topics                                                  = Set.empty[Topic].pure[IO]
             def partitions(topic: Topic) = {
               Set(partition0, partition1, partition2).pure[IO]
             }
@@ -66,13 +61,11 @@ class DistributeJobTest extends AsyncFunSuite with Matchers {
           jobOf = (name: String, partition: Partition) => {
             distributeJobs(name) { partitions =>
               if (partitions.getOrElse(partition, false)) {
-                Resource
-                  .make {
-                    actions.add(Action.Allocate(name))
-                  } { _ =>
-                    actions.add(Action.Release(name))
-                  }
-                  .some
+                Resource.make {
+                  actions.add(Action.Allocate(name))
+                } { _ =>
+                  actions.add(Action.Release(name))
+                }.some
               } else {
                 none
               }
@@ -82,8 +75,8 @@ class DistributeJobTest extends AsyncFunSuite with Matchers {
         } yield {
           for {
             listener <- deferred.get
-            a <- actions.get
-            _ <- IO { a shouldEqual List.empty }
+            a        <- actions.get
+            _        <- IO { a shouldEqual List.empty }
 
             _ <- listener.onPartitionsAssigned(Nes.one(topicPartitionOf(partition1)))
             a <- actions.get
@@ -97,28 +90,19 @@ class DistributeJobTest extends AsyncFunSuite with Matchers {
               for {
                 a <- actions.get
                 _ <- IO {
-                  a shouldEqual List(
-                    Action.Allocate("a"),
-                    Action.Allocate("b"))
+                  a shouldEqual List(Action.Allocate("a"), Action.Allocate("b"))
                 }
               } yield {}
             }
 
             a <- actions.get
             _ <- IO {
-              a shouldEqual List(
-                Action.Allocate("a"),
-                Action.Allocate("b"),
-                Action.Release("b"))
+              a shouldEqual List(Action.Allocate("a"), Action.Allocate("b"), Action.Release("b"))
             }
             _ <- listener.onPartitionsRevoked(Nes.of(topicPartitionOf(partition0), topicPartitionOf(partition1)))
             a <- actions.get
             _ <- IO {
-              a shouldEqual List(
-                Action.Allocate("a"),
-                Action.Allocate("b"),
-                Action.Release("b"),
-                Action.Release("a"))
+              a shouldEqual List(Action.Allocate("a"), Action.Allocate("b"), Action.Release("b"), Action.Release("a"))
             }
             _ <- jobOf("c", partition2).allocated
             _ <- jobOf("d", Partition.max).allocated
@@ -131,7 +115,8 @@ class DistributeJobTest extends AsyncFunSuite with Matchers {
                 Action.Allocate("b"),
                 Action.Release("b"),
                 Action.Release("a"),
-                Action.Allocate("c"))
+                Action.Allocate("c"),
+              )
             }
           } yield {}
         }
@@ -145,7 +130,8 @@ class DistributeJobTest extends AsyncFunSuite with Matchers {
           Action.Release("b"),
           Action.Release("a"),
           Action.Allocate("c"),
-          Action.Release("c"))
+          Action.Release("c"),
+        )
       }
     } yield result
     result.run()

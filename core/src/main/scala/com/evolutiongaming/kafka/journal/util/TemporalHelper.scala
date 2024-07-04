@@ -1,12 +1,11 @@
 package com.evolutiongaming.kafka.journal.util
 
+import cats.Order
+
 import java.time.temporal.{ChronoUnit, Temporal, TemporalAmount}
 import java.time.{Instant, LocalDate, ZoneId}
 import java.util.concurrent.TimeUnit
-
-import cats.Order
-
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 object TemporalHelper {
 
@@ -14,11 +13,9 @@ object TemporalHelper {
 
   implicit val instantOrder: Order[Instant] = Order.fromOrdering
 
-
   implicit val localDateOrdering: Ordering[LocalDate] = Ordering.fromLessThan(_ isBefore _)
 
   implicit val localDateOrder: Order[LocalDate] = Order.fromOrdering
-
 
   implicit class TemporalOps[T <: Temporal](val self: T) extends AnyVal {
 
@@ -35,17 +32,14 @@ object TemporalHelper {
     }
   }
 
-
   implicit class InstantOps(val self: Instant) extends AnyVal {
 
     def diff(instant: Instant): FiniteDuration = {
       (self.toEpochMilli - instant.toEpochMilli).abs.millis
     }
 
-
     def toLocalDate(zoneId: ZoneId): LocalDate = LocalDate.ofInstant(self, zoneId)
   }
-
 
   implicit class TimeUnitOps(val self: TimeUnit) extends AnyVal {
 

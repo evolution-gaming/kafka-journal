@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.evolutiongaming.skafka.producer.{Acks, CompressionType, ProducerConfig}
@@ -9,8 +9,7 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import pureconfig.{ConfigReader, ConfigSource}
 
-import scala.concurrent.duration._
-
+import scala.concurrent.duration.*
 
 class KafkaConfigTest extends AnyFunSuite with Matchers {
 
@@ -25,23 +24,20 @@ class KafkaConfigTest extends AnyFunSuite with Matchers {
     val config = ConfigFactory.parseURL(getClass.getResource("kafka.conf"))
     val expected = KafkaConfig(
       producer = ProducerConfig(
-        common = CommonConfig(
-          clientId = "clientId".some,
-          sendBufferBytes = 1000,
-          receiveBufferBytes = 100),
-        acks = Acks.All,
-        idempotence = true,
-        linger = 1.millis,
-        compressionType = CompressionType.Lz4),
+        common          = CommonConfig(clientId = "clientId".some, sendBufferBytes = 1000, receiveBufferBytes = 100),
+        acks            = Acks.All,
+        idempotence     = true,
+        linger          = 1.millis,
+        compressionType = CompressionType.Lz4,
+      ),
       ConsumerConfig(
-        common = CommonConfig(
-          clientId = "clientId".some,
-          sendBufferBytes = 100,
-          receiveBufferBytes = 1000),
-        groupId = "groupId".some,
+        common          = CommonConfig(clientId = "clientId".some, sendBufferBytes = 100, receiveBufferBytes = 1000),
+        groupId         = "groupId".some,
         autoOffsetReset = AutoOffsetReset.Earliest,
-        autoCommit = false,
-        maxPollRecords = 1000))
+        autoCommit      = false,
+        maxPollRecords  = 1000,
+      ),
+    )
     ConfigSource.fromConfig(config).load[KafkaConfig] shouldEqual expected.asRight
   }
 }

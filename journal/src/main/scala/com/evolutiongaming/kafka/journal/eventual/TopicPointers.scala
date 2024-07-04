@@ -14,7 +14,6 @@ object TopicPointers {
 
   val empty: TopicPointers = TopicPointers()
 
-
   implicit class TopicPointersOps(val self: TopicPointers) extends AnyVal {
 
     def +(pointers: TopicPointers): TopicPointers = {

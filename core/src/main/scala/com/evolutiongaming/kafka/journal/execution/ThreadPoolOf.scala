@@ -1,15 +1,14 @@
 package com.evolutiongaming.kafka.journal.execution
 
-import java.util.concurrent.{SynchronousQueue, ThreadFactory, ThreadPoolExecutor}
-
 import cats.effect.{Resource, Sync}
-import cats.syntax.all._
+import cats.syntax.all.*
 
-import scala.concurrent.duration._
+import java.util.concurrent.{SynchronousQueue, ThreadFactory, ThreadPoolExecutor}
+import scala.concurrent.duration.*
 
 object ThreadPoolOf {
 
-  def apply[F[_] : Sync](
+  def apply[F[_]: Sync](
     minSize: Int,
     maxSize: Int,
     threadFactory: ThreadFactory,
@@ -18,13 +17,7 @@ object ThreadPoolOf {
 
     val result = for {
       result <- Sync[F].delay {
-        new ThreadPoolExecutor(
-          minSize,
-          maxSize,
-          keepAlive.length,
-          keepAlive.unit,
-          new SynchronousQueue[Runnable],
-          threadFactory)
+        new ThreadPoolExecutor(minSize, maxSize, keepAlive.length, keepAlive.unit, new SynchronousQueue[Runnable], threadFactory)
       }
     } yield {
       val release = Sync[F].delay { result.shutdown() }

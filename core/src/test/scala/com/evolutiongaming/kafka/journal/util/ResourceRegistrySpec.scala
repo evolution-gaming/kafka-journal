@@ -1,10 +1,9 @@
 package com.evolutiongaming.kafka.journal.util
 
-import cats.effect._
-import cats.effect.{Deferred, Ref}
-import cats.syntax.all._
+import cats.effect.{Deferred, Ref, *}
+import cats.syntax.all.*
 import cats.{Applicative, Foldable}
-import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.IOSuite.*
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -14,10 +13,7 @@ class ResourceRegistrySpec extends AsyncFunSuite with Matchers {
 
   val error: Throwable = new RuntimeException with NoStackTrace
   for {
-    exitCase <- List[Outcome[IO, Throwable, Unit]](
-      Outcome.succeeded(().pure[IO]),
-      Outcome.errored(error),
-      Outcome.canceled)
+    exitCase <- List[Outcome[IO, Throwable, Unit]](Outcome.succeeded(().pure[IO]), Outcome.errored(error), Outcome.canceled)
   } yield {
 
     test(s"ResRegistry releases resources, exitCase: $exitCase") {
@@ -25,8 +21,8 @@ class ResourceRegistrySpec extends AsyncFunSuite with Matchers {
       testCancel.run()
       testError(error.some).run()
       val result = exitCase match {
-        case Outcome.Succeeded(_) => testError(none)
-        case Outcome.Canceled() => testCancel
+        case Outcome.Succeeded(_)   => testError(none)
+        case Outcome.Canceled()     => testCancel
         case Outcome.Errored(error) => testError(error.some)
       }
       result.run()
@@ -38,8 +34,8 @@ class ResourceRegistrySpec extends AsyncFunSuite with Matchers {
 
     def logic(release: IO[Unit]) = {
       ResourceRegistry.of[IO].use { registry =>
-        val resource = Resource.make(().pure[IO]) { _ => release }
-        val fa = registry.allocate(resource)
+        val resource            = Resource.make(().pure[IO]) { _ => release }
+        val fa                  = registry.allocate(resource)
         implicit val monoidUnit = Applicative.monoid[IO, Unit]
         for {
           _ <- Foldable[List].fold(List.fill(n)(fa))
@@ -49,9 +45,9 @@ class ResourceRegistrySpec extends AsyncFunSuite with Matchers {
     }
 
     for {
-      ref <- Ref.of[IO, Int](0)
-      fa = logic(ref.update(_ + 1))
-      result <- fa.redeem(_.some, _ => none)
+      ref      <- Ref.of[IO, Int](0)
+      fa        = logic(ref.update(_ + 1))
+      result   <- fa.redeem(_.some, _ => none)
       releases <- ref.get
     } yield {
       result shouldEqual result
@@ -62,7 +58,7 @@ class ResourceRegistrySpec extends AsyncFunSuite with Matchers {
   private def testCancel = {
     for {
       released <- Ref.of[IO, Int](0)
-      started <- Deferred[IO, Unit]
+      started  <- Deferred[IO, Unit]
       fiber <- Concurrent[IO].start {
         ResourceRegistry.of[IO].use { registry =>
           val resource = Resource.make(().pure[IO]) { _ => released.update(_ + 1) }
@@ -73,8 +69,8 @@ class ResourceRegistrySpec extends AsyncFunSuite with Matchers {
           } yield {}
         }
       }
-      _ <- started.get
-      _ <- fiber.cancel
+      _        <- started.get
+      _        <- fiber.cancel
       released <- released.get
     } yield {
       released shouldEqual 1

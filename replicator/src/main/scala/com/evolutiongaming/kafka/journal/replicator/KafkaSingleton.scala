@@ -1,18 +1,18 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
-import cats.effect.implicits._
+import cats.data.{NonEmptyList as Nel, NonEmptyMap as Nem, NonEmptySet as Nes}
+import cats.effect.implicits.*
 import cats.effect.{Concurrent, Ref, Resource}
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.{BracketThrowable, FromTry, Log}
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
 import com.evolutiongaming.kafka.journal.{ConsRecord, KafkaConsumerOf}
 import com.evolutiongaming.retry.Sleep
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import scodec.bits.ByteVector
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 trait KafkaSingleton[F[_], A] {
 
@@ -26,18 +26,15 @@ object KafkaSingleton {
     groupId: String,
     singleton: Resource[F, A],
     consumerConfig: ConsumerConfig,
-    log: Log[F]
+    log: Log[F],
   ): Resource[F, KafkaSingleton[F, A]] = {
-    val consumerConfig1 = consumerConfig.copy(
-      autoOffsetReset = AutoOffsetReset.Latest,
-      groupId = groupId.some,
-      autoCommit = false)
+    val consumerConfig1 =
+      consumerConfig.copy(autoOffsetReset = AutoOffsetReset.Latest, groupId = groupId.some, autoCommit = false)
     val consumer = KafkaConsumerOf[F]
       .apply[String, ByteVector](consumerConfig1)
       .map { consumer => TopicConsumer(topic, 10.millis, TopicCommit.empty[F], consumer) }
     of(topic, consumer, singleton, log)
   }
-
 
   def of[F[_]: Concurrent: Sleep, A](
     topic: Topic,
@@ -62,9 +59,8 @@ object KafkaSingleton {
     }
   }
 
-
-  def topicFlowOf[F[_] : Concurrent, A](a: Resource[F, Unit]): TopicFlowOf[F] = {
-    (_: Topic) => {
+  def topicFlowOf[F[_]: Concurrent, A](a: Resource[F, Unit]): TopicFlowOf[F] = { (_: Topic) =>
+    {
       Resource
         .make {
           Ref[F].of(none[F[Unit]])
@@ -78,10 +74,9 @@ object KafkaSingleton {
     }
   }
 
-
-  def topicFlow[F[_] : BracketThrowable](
+  def topicFlow[F[_]: BracketThrowable](
     ref: Ref[F, Option[F[Unit]]],
-    a: Resource[F, Unit]
+    a: Resource[F, Unit],
   ): TopicFlow[F] = {
     val partition = Partition.min
 
@@ -102,10 +97,11 @@ object KafkaSingleton {
         if (partitions contains_ partition) {
           a
             .allocated
-            .flatMap { case (_, release) =>
-              ref
-                .set(release.some)
-                .handleErrorWith { e => release *> e.raiseError[F, Unit] }
+            .flatMap {
+              case (_, release) =>
+                ref
+                  .set(release.some)
+                  .handleErrorWith { e => release *> e.raiseError[F, Unit] }
             }
             .uncancelable
         } else {

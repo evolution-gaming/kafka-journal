@@ -1,15 +1,15 @@
 package com.evolutiongaming.kafka.journal.eventual
 
-import cats._
+import cats.*
 import cats.arrow.FunctionK
 import cats.effect.Resource
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.{Log, MeasureDuration, MonadThrowable}
-import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.util.StreamHelper._
+import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.util.StreamHelper.*
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
-import com.evolutiongaming.smetrics.MetricsHelper._
-import com.evolutiongaming.smetrics._
+import com.evolutiongaming.smetrics.*
+import com.evolutiongaming.smetrics.MetricsHelper.*
 import com.evolutiongaming.sstream.Stream
 
 import scala.concurrent.duration.FiniteDuration
@@ -97,7 +97,6 @@ object EventualJournal {
     def offset(topic: Topic, partition: Partition): F[Option[Offset]] = none[Offset].pure[F]
   }
 
-
   trait Metrics[F[_]] {
 
     def offset(topic: Topic, latency: FiniteDuration): F[Unit]
@@ -113,8 +112,7 @@ object EventualJournal {
 
   object Metrics {
 
-    def empty[F[_] : Applicative]: Metrics[F] = const(Applicative[F].unit)
-
+    def empty[F[_]: Applicative]: Metrics[F] = const(Applicative[F].unit)
 
     private sealed abstract class Const
 
@@ -131,25 +129,26 @@ object EventualJournal {
       def offset(topic: Topic, latency: FiniteDuration): F[Unit] = unit
     }
 
-
     private sealed abstract class Main
 
     def of[F[_]](
       registry: CollectorRegistry[F],
-      prefix: String = "eventual_journal"
+      prefix: String = "eventual_journal",
     ): Resource[F, Metrics[F]] = {
 
       val latencySummary = registry.summary(
-        name = s"${ prefix }_topic_latency",
-        help = "Journal call latency in seconds",
+        name      = s"${prefix}_topic_latency",
+        help      = "Journal call latency in seconds",
         quantiles = Quantiles.Default,
-        labels = LabelNames("topic", "type"))
+        labels    = LabelNames("topic", "type"),
+      )
 
       val eventsSummary = registry.summary(
-        name = s"${ prefix }_events",
-        help = "Number of events",
+        name      = s"${prefix}_events",
+        help      = "Number of events",
         quantiles = Quantiles.Empty,
-        labels = LabelNames("topic"))
+        labels    = LabelNames("topic"),
+      )
 
       for {
         latencySummary <- latencySummary
@@ -188,7 +187,6 @@ object EventualJournal {
     }
   }
 
-
   private sealed abstract class MapK
 
   private sealed abstract class WithMetrics
@@ -210,7 +208,6 @@ object EventualJournal {
       def offset(topic: Topic, partition: Partition): G[Option[Offset]] = fg(self.offset(topic, partition))
     }
 
-
     def withLog(log: Log[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): EventualJournal[F] = {
 
       val functionKId = FunctionK.id[F]
@@ -224,7 +221,7 @@ object EventualJournal {
                 d <- MeasureDuration[F].start
                 r <- fa
                 d <- d
-                _ <- log.debug(s"$key read in ${ d.toMillis }ms, from: $from, result: $r")
+                _ <- log.debug(s"$key read in ${d.toMillis}ms, from: $from, result: $r")
               } yield r
             }
           }
@@ -236,7 +233,7 @@ object EventualJournal {
             d <- MeasureDuration[F].start
             r <- self.pointer(key)
             d <- d
-            _ <- log.debug(s"$key pointer in ${ d.toMillis }ms, result: $r")
+            _ <- log.debug(s"$key pointer in ${d.toMillis}ms, result: $r")
           } yield r
         }
 
@@ -247,7 +244,7 @@ object EventualJournal {
                 d <- MeasureDuration[F].start
                 r <- fa
                 d <- d
-                _ <- log.debug(s"$topic ids in ${ d.toMillis }ms, result: $r")
+                _ <- log.debug(s"$topic ids in ${d.toMillis}ms, result: $r")
               } yield r
             }
           }
@@ -265,7 +262,6 @@ object EventualJournal {
 
       }
     }
-
 
     def withMetrics(metrics: Metrics[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): EventualJournal[F] = {
 
@@ -326,7 +322,6 @@ object EventualJournal {
       }
     }
 
-
     def enhanceError(implicit F: MonadThrowable[F]): EventualJournal[F] = {
 
       def error[A](msg: String, cause: Throwable) = {
@@ -338,7 +333,9 @@ object EventualJournal {
         def read(key: Key, from: SeqNr) = {
           self
             .read(key, from)
-            .handleErrorWith { (a: Throwable) => error[EventRecord[EventualPayloadAndType]](s"read key: $key, from: $from", a).toStream }
+            .handleErrorWith { (a: Throwable) =>
+              error[EventRecord[EventualPayloadAndType]](s"read key: $key, from: $from", a).toStream
+            }
         }
 
         def pointer(key: Key) = {

@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.datastax.driver.core.ConsistencyLevel
 import com.typesafe.config.ConfigFactory
 import org.scalatest.funsuite.AnyFunSuite
@@ -10,7 +10,7 @@ import pureconfig.ConfigSource
 class EventualCassandraConfigSpec extends AnyFunSuite with Matchers {
 
   test("apply from empty config") {
-    val config = ConfigFactory.empty()
+    val config   = ConfigFactory.empty()
     val expected = EventualCassandraConfig.default
     ConfigSource.fromConfig(config).load[EventualCassandraConfig] shouldEqual expected.asRight
   }
@@ -18,11 +18,15 @@ class EventualCassandraConfigSpec extends AnyFunSuite with Matchers {
   test("apply from config") {
     val config = ConfigFactory.parseURL(getClass.getResource("eventual-cassandra.conf"))
     val expected = EventualCassandraConfig(
-      retries = 1,
+      retries     = 1,
       segmentSize = SegmentSize.min,
-      consistencyConfig = EventualCassandraConfig.ConsistencyConfig.default.copy(
-        read = EventualCassandraConfig.ConsistencyConfig.Read(ConsistencyLevel.QUORUM)
-      ))
+      consistencyConfig = EventualCassandraConfig
+        .ConsistencyConfig
+        .default
+        .copy(
+          read = EventualCassandraConfig.ConsistencyConfig.Read(ConsistencyLevel.QUORUM),
+        ),
+    )
     ConfigSource.fromConfig(config).load[EventualCassandraConfig] shouldEqual expected.asRight
   }
 }

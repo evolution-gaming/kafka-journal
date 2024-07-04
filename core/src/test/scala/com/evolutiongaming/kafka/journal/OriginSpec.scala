@@ -3,11 +3,11 @@ package com.evolutiongaming.kafka.journal
 import akka.actor.ActorSystem
 import akka.testkit.TestKit
 import cats.effect.IO
-import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.IOSuite.*
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class OriginSpec extends AsyncFunSuite with Matchers {
 

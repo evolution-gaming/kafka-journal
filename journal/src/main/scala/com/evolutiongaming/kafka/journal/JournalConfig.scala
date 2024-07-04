@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 /** Kafka-specific configuration used by a plugin.
   *
@@ -23,9 +23,10 @@ import scala.concurrent.duration._
   *   and how it works.
   */
 final case class JournalConfig(
-  pollTimeout: FiniteDuration = 10.millis,
-  kafka: KafkaConfig = KafkaConfig("journal"),
-  headCache: JournalConfig.HeadCache = JournalConfig.HeadCache.default)
+  pollTimeout: FiniteDuration        = 10.millis,
+  kafka: KafkaConfig                 = KafkaConfig("journal"),
+  headCache: JournalConfig.HeadCache = JournalConfig.HeadCache.default,
+)
 
 object JournalConfig {
 

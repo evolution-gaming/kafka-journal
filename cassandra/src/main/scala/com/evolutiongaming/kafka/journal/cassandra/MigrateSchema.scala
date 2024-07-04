@@ -1,11 +1,11 @@
 package com.evolutiongaming.kafka.journal.cassandra
 
 import cats.MonadThrow
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.Settings
 import com.evolutiongaming.kafka.journal.cassandra.CassandraSync
-import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper.*
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraSession
 
 import scala.util.Try
@@ -37,7 +37,7 @@ object MigrateSchema {
     *   Storage to get / save the schema version from / to.
     * @param settingKey
     *   A key to use in a setting store. It is important to use a different key for different schemas, to ensure there
-    *   is no accidential overwrite if both schemas are located in one keyspace.
+    *   is no accidental overwrite if both schemas are located in one keyspace.
     * @param migrations
     *   List of CQL statements to execute. The schema version is equal to the size of this list.
     * @return
@@ -47,7 +47,7 @@ object MigrateSchema {
     cassandraSync: CassandraSync[F],
     settings: Settings[F],
     settingKey: String,
-    migrations: Nel[String]
+    migrations: Nel[String],
   ): MigrateSchema[F] = new MigrateSchema[F] {
 
     def setVersion(version: Int) =
@@ -60,7 +60,8 @@ object MigrateSchema {
       def migrate = {
 
         def migrate(version: Int) = {
-          migrations.toList
+          migrations
+            .toList
             .drop(version + 1)
             .toNel
             .map { migrations =>

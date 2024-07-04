@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import cats.Show
 import cats.kernel.{Eq, Order}
-import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
+import com.evolutiongaming.kafka.journal.util.PlayJsonHelper.*
 import play.api.libs.json.{Reads, Writes}
 
 import scala.concurrent.duration.FiniteDuration
@@ -18,16 +18,13 @@ object ExpireAfter {
 
   implicit val showExpireAfter: Show[ExpireAfter] = Show.fromToString
 
-
   implicit val orderingExpireAfter: Ordering[ExpireAfter] = (a, b) => a.value compare b.value
 
   implicit val orderExpireAfter: Order[ExpireAfter] = Order.fromOrdering
 
-
   implicit val writesExpireAfter: Writes[ExpireAfter] = Writes.of[FiniteDuration].contramap { _.value }
 
   implicit val readsExpireAfter: Reads[ExpireAfter] = Reads.of[FiniteDuration].map { a => ExpireAfter(a) }
-
 
   object implicits {
 

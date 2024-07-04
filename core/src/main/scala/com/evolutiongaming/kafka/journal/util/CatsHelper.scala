@@ -1,12 +1,11 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.data.OptionT
-import cats.effect.syntax.all._
+import cats.effect.syntax.all.*
 import cats.effect.{Concurrent, Outcome}
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Applicative, ApplicativeError}
-import com.evolutiongaming.kafka.journal.util.Fail.implicits._
-
+import com.evolutiongaming.kafka.journal.util.Fail.implicits.*
 
 object CatsHelper {
 
@@ -17,7 +16,6 @@ object CatsHelper {
     }
   }
 
-
   implicit class FOptionOpsCatsHelper[F[_], A](val self: F[Option[A]]) extends AnyVal {
 
     def toOptionT: OptionT[F, A] = OptionT(self)
@@ -26,9 +24,9 @@ object CatsHelper {
       for {
         fiber <- fa.start
         value <- self.guaranteeCase {
-          case Outcome.Succeeded(_)   => ().pure[F]
-          case Outcome.Canceled()     => fiber.cancel
-          case Outcome.Errored(_)     => fiber.cancel
+          case Outcome.Succeeded(_) => ().pure[F]
+          case Outcome.Canceled()   => fiber.cancel
+          case Outcome.Errored(_)   => fiber.cancel
         }
         value <- value match {
           case Some(value) => fiber.cancel.as(value.some)
@@ -38,10 +36,9 @@ object CatsHelper {
     }
   }
 
-
   implicit class OptionOpsCatsHelper[A](val self: Option[A]) extends AnyVal {
 
-    def getOrError[F[_]: Applicative : Fail](name: => String): F[A] = {
+    def getOrError[F[_]: Applicative: Fail](name: => String): F[A] = {
       self.fold {
         s"$name is not defined".fail[F, A]
       } { a =>

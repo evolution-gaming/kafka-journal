@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
-import com.evolutiongaming.kafka.journal.Event._
-import com.evolutiongaming.kafka.journal.util.ScodecHelper.{nelCodec, _}
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.Event.*
+import com.evolutiongaming.kafka.journal.util.ScodecHelper.{nelCodec, *}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import scodec.bits.ByteVector
@@ -17,7 +17,7 @@ class EventsTest extends AnyFunSuite with Matchers {
     implicit val jsonCodec = JsonCodec.jsoniter[Try]
     val codec = {
       val eventsCodec = nelCodec(codecs.listOfN(codecs.int32, codecs.variableSizeBytes(codecs.int32, Event.codecEventPayload)))
-      val version = ByteVector.fromByte(100)
+      val version     = ByteVector.fromByte(100)
       (codecs.constant(version) ~> eventsCodec)
         .xmap[Events[Payload]](a => Events(a, PayloadMetadata.empty), _.events)
     }

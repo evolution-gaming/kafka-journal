@@ -1,6 +1,6 @@
 package akka.persistence.kafka.journal
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.PayloadType
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -13,11 +13,8 @@ class PersistentJsonSpec extends AnyFunSuite with Matchers {
     manifest    <- List(none, "manifest".some, "".some)
   } {
     test(s"toJson & fromJson, payloadType: $payloadType, manifest: $manifest") {
-      val persistent = PersistentJson(
-        manifest = manifest,
-        writerUuid = "writerUuid",
-        payloadType = payloadType,
-        payload = "payload")
+      val persistent =
+        PersistentJson(manifest = manifest, writerUuid = "writerUuid", payloadType = payloadType, payload = "payload")
       val json = Json.toJson(persistent)
       json.validate[PersistentJson[String]] shouldEqual JsSuccess(persistent)
     }

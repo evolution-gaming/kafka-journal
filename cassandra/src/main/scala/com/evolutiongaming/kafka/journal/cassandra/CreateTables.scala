@@ -1,11 +1,11 @@
 package com.evolutiongaming.kafka.journal.cassandra
 
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
 import cats.{Monad, Order}
 import com.evolutiongaming.catshelper.{Log, LogOf}
 import com.evolutiongaming.kafka.journal.cassandra.CassandraSync
-import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper.*
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession, KeyspaceMetadata}
 
 /** Creates tables in a specific keyspace  */
@@ -15,18 +15,15 @@ trait CreateTables[F[_]] {
   def apply(keyspace: String, tables: Nel[Table]): F[Fresh]
 }
 
-
 object CreateTables { self =>
 
   /** `true` if all tables passed to `CreateTables` did not exist and were created */
   type Fresh = Boolean
 
-
   def apply[F[_]](implicit F: CreateTables[F]): CreateTables[F] = F
 
-
-  def apply[F[_] : Monad : CassandraCluster : CassandraSession : CassandraSync](
-    log: Log[F]
+  def apply[F[_]: Monad: CassandraCluster: CassandraSession: CassandraSync](
+    log: Log[F],
   ): CreateTables[F] = new CreateTables[F] {
 
     def apply(keyspace: String, tables: Nel[Table]) = {
@@ -63,8 +60,7 @@ object CreateTables { self =>
     }
   }
 
-
-  def of[F[_] : Monad : CassandraCluster : CassandraSession : CassandraSync : LogOf]: F[CreateTables[F]] = {
+  def of[F[_]: Monad: CassandraCluster: CassandraSession: CassandraSync: LogOf]: F[CreateTables[F]] = {
     for {
       log <- LogOf[F].apply(self.getClass)
     } yield {
@@ -72,9 +68,7 @@ object CreateTables { self =>
     }
   }
 
-
   def const[F[_]](fresh: F[Fresh]): CreateTables[F] = (_: String, _: Nel[Table]) => fresh
-
 
   /** Table to be created in a specific keyspace.
     *

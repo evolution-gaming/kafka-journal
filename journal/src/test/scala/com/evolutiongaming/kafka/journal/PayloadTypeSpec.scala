@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.JsString
@@ -8,10 +8,7 @@ import play.api.libs.json.JsString
 class PayloadTypeSpec extends AnyFunSuite with Matchers {
 
   for {
-    (ext, payloadType) <- List(
-      ("json", PayloadType.Json),
-      ("txt" , PayloadType.Text),
-      ("bin" , PayloadType.Binary))
+    (ext, payloadType) <- List(("json", PayloadType.Json), ("txt", PayloadType.Text), ("bin", PayloadType.Binary))
   } {
     test(s"$payloadType.ext") {
       payloadType.ext shouldEqual ext
@@ -20,10 +17,11 @@ class PayloadTypeSpec extends AnyFunSuite with Matchers {
 
   for {
     (json, expected) <- List(
-      ("json"  , PayloadType.Json.some),
-      ("text"  , PayloadType.Text.some),
+      ("json", PayloadType.Json.some),
+      ("text", PayloadType.Text.some),
       ("binary", PayloadType.Binary.some),
-      ("none"  , none))
+      ("none", none),
+    )
   } {
     test(s"reads & writes $json") {
       JsString(json).validate[PayloadType].asOpt shouldEqual expected
@@ -31,10 +29,7 @@ class PayloadTypeSpec extends AnyFunSuite with Matchers {
   }
 
   for {
-    (json, expected) <- List(
-      ("json"  , PayloadType.Json.some),
-      ("text"  , PayloadType.Text.some),
-      ("binary", none))
+    (json, expected) <- List(("json", PayloadType.Json.some), ("text", PayloadType.Text.some), ("binary", none))
   } {
     test(s"TextOrJson reads & writes $json") {
       JsString(json).validate[PayloadType.TextOrJson].asOpt shouldEqual expected
@@ -42,10 +37,7 @@ class PayloadTypeSpec extends AnyFunSuite with Matchers {
   }
 
   for {
-    (json, expected) <- List(
-      ("json"  , PayloadType.Json.some),
-      ("text"  , none),
-      ("binary", PayloadType.Binary.some))
+    (json, expected) <- List(("json", PayloadType.Json.some), ("text", none), ("binary", PayloadType.Binary.some))
   } {
     test(s"BinaryOrJson reads & writes $json") {
       JsString(json).validate[PayloadType.BinaryOrJson].asOpt shouldEqual expected

@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.Applicative
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.BracketThrowable
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
-import com.evolutiongaming.kafka.journal.util.StreamHelper._
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
+import com.evolutiongaming.kafka.journal.util.StreamHelper.*
 import com.evolutiongaming.skafka.Offset
 import com.evolutiongaming.sstream.Stream
 
@@ -23,8 +23,8 @@ trait StreamActionRecords[F[_]] {
 
 object StreamActionRecords {
 
-  def empty[F[_] : Applicative]: StreamActionRecords[F] = {
-    (_: Option[Offset]) => Stream.empty[F, ActionRecord[Action.User]]
+  def empty[F[_]: Applicative]: StreamActionRecords[F] = { (_: Option[Offset]) =>
+    Stream.empty[F, ActionRecord[Action.User]]
   }
 
   /** Creates a reader for events not yet replicated to Cassandra.
@@ -59,13 +59,13 @@ object StreamActionRecords {
     * @param consumeActionRecords
     *   Underlying reader of Kafka records.
     */
-  def apply[F[_] : BracketThrowable](
+  def apply[F[_]: BracketThrowable](
     // TODO add range argument
     key: Key,
     from: SeqNr,
     marker: Marker,
     offsetReplicated: Option[Offset],
-    consumeActionRecords: ConsumeActionRecords[F]
+    consumeActionRecords: ConsumeActionRecords[F],
   ): StreamActionRecords[F] = {
 
     // TODO compare partitions !
@@ -74,49 +74,49 @@ object StreamActionRecords {
     val replicated = offsetReplicated.exists { _ >= marker.offset }
 
     if (replicated) empty[F]
-    else (offset: Option[Offset]) => {
-      for {
-        max    <- marker.offset.dec[F].toStream
-        result <- {
-          val replicated = offset.exists { _ >= max }
-          if (replicated) Stream.empty[F, ActionRecord[Action.User]]
-          else {
-            for {
-              fromOffset <- offset
-                .max(offsetReplicated)
-                .fold(Offset.min.pure[F]) { _.inc[F] }
-                .toStream
-              result     <- consumeActionRecords
-                .apply(key, partition, fromOffset)
-                .stateless { record =>
+    else
+      (offset: Option[Offset]) => {
+        for {
+          max <- marker.offset.dec[F].toStream
+          result <- {
+            val replicated = offset.exists { _ >= max }
+            if (replicated) Stream.empty[F, ActionRecord[Action.User]]
+            else {
+              for {
+                fromOffset <- offset
+                  .max(offsetReplicated)
+                  .fold(Offset.min.pure[F]) { _.inc[F] }
+                  .toStream
+                result <- consumeActionRecords
+                  .apply(key, partition, fromOffset)
+                  .stateless { record =>
+                    def take(action: Action.User) = {
+                      (true, Stream[F].single(record.copy(action = action)))
+                    }
 
-                  def take(action: Action.User) = {
-                    (true, Stream[F].single(record.copy(action = action)))
-                  }
+                    def skip = {
+                      (true, Stream[F].empty[ActionRecord[Action.User]])
+                    }
 
-                  def skip = {
-                    (true, Stream[F].empty[ActionRecord[Action.User]])
-                  }
+                    def stop = {
+                      (false, Stream[F].empty[ActionRecord[Action.User]])
+                    }
 
-                  def stop = {
-                    (false, Stream[F].empty[ActionRecord[Action.User]])
-                  }
-
-                  if (record.offset > max) {
-                    stop
-                  } else {
-                    record.action match {
-                      case a: Action.Append => if (a.range.to < from) skip else take(a)
-                      case a: Action.Mark   => if (a.id === marker.id) stop else skip
-                      case a: Action.Delete => take(a)
-                      case a: Action.Purge  => take(a)
+                    if (record.offset > max) {
+                      stop
+                    } else {
+                      record.action match {
+                        case a: Action.Append => if (a.range.to < from) skip else take(a)
+                        case a: Action.Mark   => if (a.id === marker.id) stop else skip
+                        case a: Action.Delete => take(a)
+                        case a: Action.Purge  => take(a)
+                      }
                     }
                   }
-                }
-            } yield result
+              } yield result
+            }
           }
-        }
-      } yield result
-    }
+        } yield result
+      }
   }
 }

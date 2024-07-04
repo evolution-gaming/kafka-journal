@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
 import cats.{Applicative, Id, Monad}
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.util.Fail
 import play.api.libs.json.{Json, OFormat}
 
@@ -52,11 +52,9 @@ object SeqRange {
 
   val all: SeqRange = SeqRange(SeqNr.min, SeqNr.max)
 
-
   def apply(value: SeqNr): SeqRange = SeqRange(value, value)
 
-
-  def of[F[_] : Applicative : Fail](value: Long): F[SeqRange] = {
+  def of[F[_]: Applicative: Fail](value: Long): F[SeqRange] = {
     for {
       seqNr <- SeqNr.of[F](value)
     } yield {
@@ -64,7 +62,7 @@ object SeqRange {
     }
   }
 
-  def of[F[_] : Monad : Fail](from: Long, to: Long): F[SeqRange] = {
+  def of[F[_]: Monad: Fail](from: Long, to: Long): F[SeqRange] = {
     for {
       from <- SeqNr.of[F](from)
       to   <- SeqNr.of[F](to)
@@ -72,7 +70,6 @@ object SeqRange {
       SeqRange(from, to)
     }
   }
-  
 
   def unsafe[A](value: A)(implicit numeric: Numeric[A]): SeqRange = {
     of[Id](numeric.toLong(value))

@@ -1,29 +1,30 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
 import com.datastax.driver.core.ConsistencyLevel
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig
-import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
+import com.evolutiongaming.kafka.journal.util.PureConfigHelper.*
 import com.evolutiongaming.kafka.journal.{FromConfigReaderResult, KafkaConfig}
 import com.evolutiongaming.scassandra.{CassandraConfig, QueryConfig}
 import com.typesafe.config.Config
 import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 final case class ReplicatorConfig(
-  topicPrefixes: Nel[String] = Nel.of("journal"),
+  topicPrefixes: Nel[String]             = Nel.of("journal"),
   topicDiscoveryInterval: FiniteDuration = 3.seconds,
-  cacheExpireAfter: FiniteDuration = 1.minute,
-  kafka: KafkaConfig = KafkaConfig("replicator"),
+  cacheExpireAfter: FiniteDuration       = 1.minute,
+  kafka: KafkaConfig                     = KafkaConfig("replicator"),
   cassandra: EventualCassandraConfig = EventualCassandraConfig(
     client = CassandraConfig(
-      name = "replicator",
-      query = QueryConfig(
-        consistency = ConsistencyLevel.LOCAL_QUORUM,
-        defaultIdempotence = true))),
-  pollTimeout: FiniteDuration = 10.millis)
+      name  = "replicator",
+      query = QueryConfig(consistency = ConsistencyLevel.LOCAL_QUORUM, defaultIdempotence = true),
+    ),
+  ),
+  pollTimeout: FiniteDuration = 10.millis,
+)
 
 object ReplicatorConfig {
 
@@ -31,14 +32,13 @@ object ReplicatorConfig {
 
   private implicit val configReaderKafkaConfig: ConfigReader[KafkaConfig] = KafkaConfig.configReader(default.kafka)
 
-  implicit val configReaderReplicatorConfig: ConfigReader[ReplicatorConfig] = {
-    (cursor: ConfigCursor) => {
+  implicit val configReaderReplicatorConfig: ConfigReader[ReplicatorConfig] = { (cursor: ConfigCursor) =>
+    {
       cursor
         .asObjectCursor
         .map { cursor => fromConfig(cursor.objValue.toConfig, default) }
     }
   }
-
 
   def fromConfig[F[_]: FromConfigReaderResult](config: Config): F[ReplicatorConfig] = {
     ConfigSource
@@ -48,12 +48,11 @@ object ReplicatorConfig {
       .liftTo[F]
   }
 
-
   private def fromConfig(config: Config, default: => ReplicatorConfig): ReplicatorConfig = {
 
     val source = ConfigSource.fromConfig(config)
 
-    def get[A : ConfigReader](name: String) = source.at(name).load[A]
+    def get[A: ConfigReader](name: String) = source.at(name).load[A]
 
     val topicPrefixes = {
       val prefixes = for {
@@ -64,10 +63,11 @@ object ReplicatorConfig {
     }
 
     ReplicatorConfig(
-      topicPrefixes = topicPrefixes,
+      topicPrefixes          = topicPrefixes,
       topicDiscoveryInterval = get[FiniteDuration]("topic-discovery-interval") getOrElse default.topicDiscoveryInterval,
-      kafka = get[KafkaConfig]("kafka") getOrElse default.kafka,
-      cassandra = get[EventualCassandraConfig]("cassandra") getOrElse default.cassandra,
-      pollTimeout = get[FiniteDuration]("kafka.consumer.poll-timeout") getOrElse default.pollTimeout)
+      kafka                  = get[KafkaConfig]("kafka") getOrElse default.kafka,
+      cassandra              = get[EventualCassandraConfig]("cassandra") getOrElse default.cassandra,
+      pollTimeout            = get[FiniteDuration]("kafka.consumer.poll-timeout") getOrElse default.pollTimeout,
+    )
   }
 }

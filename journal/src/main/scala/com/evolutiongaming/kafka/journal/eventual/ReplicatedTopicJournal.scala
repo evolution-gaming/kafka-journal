@@ -1,13 +1,12 @@
 package com.evolutiongaming.kafka.journal.eventual
 
 import cats.effect.Resource
-import cats.effect.syntax.all._
-import cats.syntax.all._
+import cats.effect.syntax.all.*
+import cats.syntax.all.*
 import cats.{Applicative, Monad, ~>}
 import com.evolutiongaming.catshelper.{BracketThrowable, Log, MeasureDuration, MonadThrowable}
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.skafka.{Partition, Topic}
-
 
 trait ReplicatedTopicJournal[F[_]] {
 
@@ -28,7 +27,6 @@ object ReplicatedTopicJournal {
     }
   }
 
-
   /*def apply[F[_]: Applicative](
     topic: Topic,
     replicatedJournal: ReplicatedJournalFlat[F]
@@ -48,7 +46,6 @@ object ReplicatedTopicJournal {
     }
   }*/
 
-
   private sealed abstract class WithLog
 
   private sealed abstract class WithMetrics
@@ -59,11 +56,7 @@ object ReplicatedTopicJournal {
 
   implicit class ReplicatedTopicJournalOps[F[_]](val self: ReplicatedTopicJournal[F]) extends AnyVal {
 
-    def mapK[G[_]](
-      f: F ~> G)(implicit
-      B: BracketThrowable[F],
-      GT: BracketThrowable[G]
-    ): ReplicatedTopicJournal[G] = {
+    def mapK[G[_]](f: F ~> G)(implicit B: BracketThrowable[F], GT: BracketThrowable[G]): ReplicatedTopicJournal[G] = {
       new MapK with ReplicatedTopicJournal[G] {
 
         def apply(partition: Partition) = {
@@ -75,13 +68,10 @@ object ReplicatedTopicJournal {
       }
     }
 
-
     def withLog(
       topic: Topic,
-      log: Log[F])(implicit
-      F: Monad[F],
-      measureDuration: MeasureDuration[F]
-    ): ReplicatedTopicJournal[F] = {
+      log: Log[F],
+    )(implicit F: Monad[F], measureDuration: MeasureDuration[F]): ReplicatedTopicJournal[F] = {
       new WithLog with ReplicatedTopicJournal[F] {
 
         def apply(partition: Partition) = {
@@ -92,13 +82,10 @@ object ReplicatedTopicJournal {
       }
     }
 
-
     def withMetrics(
       topic: Topic,
-      metrics: ReplicatedJournal.Metrics[F])(implicit
-      F: Monad[F],
-      measureDuration: MeasureDuration[F]
-    ): ReplicatedTopicJournal[F] = {
+      metrics: ReplicatedJournal.Metrics[F],
+    )(implicit F: Monad[F], measureDuration: MeasureDuration[F]): ReplicatedTopicJournal[F] = {
       new WithMetrics with ReplicatedTopicJournal[F] {
 
         def apply(partition: Partition) = {
@@ -109,11 +96,7 @@ object ReplicatedTopicJournal {
       }
     }
 
-
-    def enhanceError(
-      topic: Topic)(implicit
-      F: MonadThrowable[F]
-    ): ReplicatedTopicJournal[F] = {
+    def enhanceError(topic: Topic)(implicit F: MonadThrowable[F]): ReplicatedTopicJournal[F] = {
 
       def journalError(msg: String, cause: Throwable) = {
         JournalError(s"ReplicatedTopicJournal.$msg failed with $cause", cause)

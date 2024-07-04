@@ -24,8 +24,11 @@ jobs:
           distribution: 'oracle'
           cache: 'sbt'
 
+      - name: Check code formatting
+        run: sbt clean check
+
       - name: build ${{ matrix.scala }}
-        run: sbt ++${{ matrix.scala }} clean check coverage test
+        run: sbt ++${{ matrix.scala }} clean coverage test
 
       - name: test coverage
         if: success()
@@ -33,11 +36,3 @@ jobs:
         env:
           COVERALLS_REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COVERALLS_FLAG_NAME: Scala ${{ matrix.scala }}
-
-      - name: slack
-        uses: homoluctus/slatify@master
-        if: failure() && github.ref == 'refs/heads/master'
-        with:
-          type: ${{ job.status }}
-          job_name: Build
-          url: ${{ secrets.SLACK_WEBHOOK }}

@@ -1,11 +1,10 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-
-import cats.syntax.all._
 import cats.kernel.Eq
+import cats.syntax.all.*
 import cats.{Applicative, Id, Order, Show}
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.Fail.implicits._
+import com.evolutiongaming.kafka.journal.util.Fail.implicits.*
 
 /** The maximum number of segments in Cassandra table.
   *
@@ -44,13 +43,11 @@ object Segments {
 
   implicit val showSegments: Show[Segments] = Show.fromToString
 
-
   implicit val orderingSegments: Ordering[Segments] = Ordering.by(_.value)
 
   implicit val orderSegments: Order[Segments] = Order.fromOrdering
 
-
-  def of[F[_] : Applicative : Fail](value: Int): F[Segments] = {
+  def of[F[_]: Applicative: Fail](value: Int): F[Segments] = {
     if (value < min.value) {
       s"invalid Segments of $value, it must be greater or equal to $min".fail[F, Segments]
     } else if (value > max.value) {
@@ -64,12 +61,9 @@ object Segments {
     }
   }
 
-
   def opt(value: Int): Option[Segments] = of[Option](value)
 
-
   def unsafe[A](value: A)(implicit numeric: Numeric[A]): Segments = of[Id](numeric.toInt(value))
-
 
   implicit class SegmentsOps(val self: Segments) extends AnyVal {
     def segmentNrs: List[SegmentNr] = SegmentNr.fromSegments(self)

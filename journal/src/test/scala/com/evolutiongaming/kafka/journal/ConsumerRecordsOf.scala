@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords}
 
 object ConsumerRecordsOf {

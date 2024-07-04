@@ -1,11 +1,10 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
-import cats.syntax.all._
+import cats.data.{NonEmptyList as Nel, NonEmptyMap as Nem, NonEmptySet as Nes}
+import cats.syntax.all.*
 import cats.{Applicative, ~>}
 import com.evolutiongaming.kafka.journal.ConsRecord
 import com.evolutiongaming.skafka.{Offset, Partition}
-
 
 trait TopicFlow[F[_]] {
 
@@ -20,7 +19,7 @@ trait TopicFlow[F[_]] {
 
 object TopicFlow {
 
-  def empty[F[_] : Applicative]: TopicFlow[F] = new TopicFlow[F] {
+  def empty[F[_]: Applicative]: TopicFlow[F] = new TopicFlow[F] {
 
     def assign(partitions: Nes[Partition]) = ().pure[F]
 
@@ -30,7 +29,6 @@ object TopicFlow {
 
     def lose(partitions: Nes[Partition]) = ().pure[F]
   }
-
 
   implicit class TopicFlowOps[F[_]](val self: TopicFlow[F]) extends AnyVal {
 

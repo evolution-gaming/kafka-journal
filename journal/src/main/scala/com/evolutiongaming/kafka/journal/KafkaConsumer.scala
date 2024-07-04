@@ -1,11 +1,11 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.data.{NonEmptyMap => Nem, NonEmptySet => Nes}
-import cats.effect._
-import cats.syntax.all._
+import cats.data.{NonEmptyMap as Nem, NonEmptySet as Nes}
+import cats.effect.*
+import cats.syntax.all.*
 import cats.{Applicative, ~>}
 import com.evolutiongaming.kafka.journal.util.Named
-import com.evolutiongaming.skafka._
+import com.evolutiongaming.skafka.*
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecords, RebalanceListener}
 
 import scala.concurrent.duration.FiniteDuration
@@ -34,9 +34,8 @@ object KafkaConsumer {
 
   def apply[F[_], K, V](implicit F: KafkaConsumer[F, K, V]): KafkaConsumer[F, K, V] = F
 
-
-  def of[F[_] : Sync, K, V](
-    consumer: Resource[F, Consumer[F, K, V]]
+  def of[F[_]: Sync, K, V](
+    consumer: Resource[F, Consumer[F, K, V]],
   ): Resource[F, KafkaConsumer[F, K, V]] = {
 
     val result = for {
@@ -59,7 +58,7 @@ object KafkaConsumer {
     Resource(result)
   }
 
-  def apply[F[_] : Applicative, K, V](consumer: Consumer[F, K, V]): KafkaConsumer[F, K, V] = {
+  def apply[F[_]: Applicative, K, V](consumer: Consumer[F, K, V]): KafkaConsumer[F, K, V] = {
     class Main
     new Main with KafkaConsumer[F, K, V] {
 
@@ -93,9 +92,7 @@ object KafkaConsumer {
         consumer
           .partitions(topic)
           .map { infos =>
-            infos
-              .map { _.partition }
-              .toSet
+            infos.map { _.partition }.toSet
           }
       }
 
@@ -104,7 +101,6 @@ object KafkaConsumer {
       }
     }
   }
-
 
   private sealed abstract class MapK
 
@@ -136,7 +132,6 @@ object KafkaConsumer {
       def assignment = fg(self.assignment)
     }
 
-
     def mapMethod(f: Named[F]): KafkaConsumer[F, K, V] = new MapMethod with KafkaConsumer[F, K, V] {
 
       def assign(partitions: Nes[TopicPartition]) = f(self.assign(partitions), "assign")
@@ -157,7 +152,6 @@ object KafkaConsumer {
 
       def assignment = f(self.assignment, "assignment")
     }
-
 
     def shiftPoll(implicit F: Temporal[F]): KafkaConsumer[F, K, V] = {
 
@@ -190,7 +184,4 @@ object KafkaConsumer {
   }
 }
 
-
-final case class KafkaConsumerError(
-  message: String,
-  cause: Throwable) extends RuntimeException(message, cause) with NoStackTrace
+final case class KafkaConsumerError(message: String, cause: Throwable) extends RuntimeException(message, cause) with NoStackTrace

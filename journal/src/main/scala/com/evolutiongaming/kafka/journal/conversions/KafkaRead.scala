@@ -1,10 +1,10 @@
 package com.evolutiongaming.kafka.journal.conversions
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Monad, ~>}
-import com.evolutiongaming.catshelper._
-import com.evolutiongaming.kafka.journal.PayloadAndType._
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.catshelper.*
+import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.PayloadAndType.*
 import com.evolutiongaming.kafka.journal.util.Fail
 import play.api.libs.json.JsValue
 
@@ -22,12 +22,11 @@ object KafkaRead {
 
   def summon[F[_], A](implicit kafkaRead: KafkaRead[F, A]): KafkaRead[F, A] = kafkaRead
 
-  implicit def payloadKafkaRead[F[_]: MonadThrowable: FromJsResult](implicit
-    eventsFromBytes: FromBytes[F, Events[Payload]],
-    payloadJsonFromBytes: FromBytes[F, PayloadJson[JsValue]]
-  ): KafkaRead[F, Payload] = {
-
-    (payloadAndType: PayloadAndType) => {
+  implicit def payloadKafkaRead[F[_]: MonadThrowable: FromJsResult](
+    implicit eventsFromBytes: FromBytes[F, Events[Payload]],
+    payloadJsonFromBytes: FromBytes[F, PayloadJson[JsValue]],
+  ): KafkaRead[F, Payload] = { (payloadAndType: PayloadAndType) =>
+    {
 
       def fromEventJsonPayload(jsonPayload: EventJsonPayloadAndType[JsValue]) = {
         def text = {
@@ -57,25 +56,22 @@ object KafkaRead {
 
   def readJson[F[_]: MonadThrowable, A, B](
     payloadJsonFromBytes: FromBytes[F, PayloadJson[A]],
-    fromEventJsonPayload: EventJsonPayloadAndType[A] => F[B]
-  ): KafkaRead[F, B] = {
-
-    (payloadAndType: PayloadAndType) => {
+    fromEventJsonPayload: EventJsonPayloadAndType[A] => F[B],
+  ): KafkaRead[F, B] = { (payloadAndType: PayloadAndType) =>
+    {
 
       def events(payloadJson: PayloadJson[A]) = {
         payloadJson.events.traverse { event =>
           val payloadType = event.payloadType getOrElse PayloadType.Json
-          val payload = event.payload
+          val payload = event
+            .payload
             .map(EventJsonPayloadAndType(_, payloadType))
             .traverse(fromEventJsonPayload)
 
           for {
             payload <- payload
           } yield {
-            Event(
-              seqNr = event.seqNr,
-              tags = event.tags,
-              payload = payload)
+            Event(seqNr = event.seqNr, tags = event.tags, payload = payload)
           }
         }
       }
@@ -89,7 +85,7 @@ object KafkaRead {
           } yield {
             Events(
               events,
-              payloadJson.metadata getOrElse PayloadMetadata.empty
+              payloadJson.metadata getOrElse PayloadMetadata.empty,
             )
           }
 
@@ -102,23 +98,24 @@ object KafkaRead {
   }
 
   private def withErrorAdapted[F[_]: ApplicativeThrowable, A](payloadAndType: PayloadAndType)(fa: F[A]): F[A] =
-    fa.adaptErr { case e =>
-      JournalError(s"KafkaRead failed for $payloadAndType: $e", e)
+    fa.adaptErr {
+      case e =>
+        JournalError(s"KafkaRead failed for $payloadAndType: $e", e)
     }
 
   implicit class KafkaReadOps[F[_], A](val self: KafkaRead[F, A]) extends AnyVal {
     def withMetrics(
-      metrics: KafkaReadMetrics[F]
+      metrics: KafkaReadMetrics[F],
     )(
-      implicit F: Monad[F], measureDuration: MeasureDuration[F]
-    ): KafkaRead[F, A] = {
-      payloadAndType =>
-        for {
-          d <- MeasureDuration[F].start
-          r <- self(payloadAndType)
-          d <- d
-          _ <- metrics(payloadAndType, d)
-        } yield r
+      implicit F: Monad[F],
+      measureDuration: MeasureDuration[F],
+    ): KafkaRead[F, A] = { payloadAndType =>
+      for {
+        d <- MeasureDuration[F].start
+        r <- self(payloadAndType)
+        d <- d
+        _ <- metrics(payloadAndType, d)
+      } yield r
     }
 
     def mapK[G[_]](fg: F ~> G): KafkaRead[G, A] =

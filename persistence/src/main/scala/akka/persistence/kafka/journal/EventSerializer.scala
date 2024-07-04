@@ -3,14 +3,14 @@ package akka.persistence.kafka.journal
 import akka.actor.ActorSystem
 import akka.persistence.PersistentRepr
 import cats.effect.Sync
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Applicative, ~>}
 import com.evolutiongaming.catshelper.MonadThrowable
-import com.evolutiongaming.kafka.journal.FromBytes.implicits._
-import com.evolutiongaming.kafka.journal.ToBytes.implicits._
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.FromBytes.implicits.*
+import com.evolutiongaming.kafka.journal.ToBytes.implicits.*
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.Fail.implicits._
+import com.evolutiongaming.kafka.journal.util.Fail.implicits.*
 import play.api.libs.json.{JsString, JsValue, Json}
 import scodec.bits.ByteVector
 
@@ -92,7 +92,6 @@ object EventSerializer {
     }
   }
 
-
   /** Serialize [[PersistentRepr]] to [[Payload]] using Akka serialization or
     * Play JSON.
     *
@@ -107,7 +106,6 @@ object EventSerializer {
       apply[F](serializedMsgSerializer)
     }
   }
-
 
   /** Serialize [[PersistentRepr]] to [[Payload]] using Akka serialization or
     * Play JSON.
@@ -133,7 +131,7 @@ object EventSerializer {
     *   `Any` type and will accept anything assigned).
     */
   def apply[F[_]: MonadThrowable: FromAttempt: FromJsResult](
-    serializer: SerializedMsgSerializer[F]
+    serializer: SerializedMsgSerializer[F],
   ): EventSerializer[F, Payload] = {
 
     def toEventPayload(repr: PersistentRepresentation): F[Payload] = {
@@ -149,11 +147,8 @@ object EventSerializer {
       }
 
       def json(payload: JsValue, payloadType: Option[PayloadType.TextOrJson] = None) = {
-        val persistent = PersistentJson(
-          manifest = repr.manifest,
-          writerUuid = repr.writerUuid,
-          payloadType = payloadType,
-          payload = payload)
+        val persistent =
+          PersistentJson(manifest = repr.manifest, writerUuid = repr.writerUuid, payloadType = payloadType, payload = payload)
         val json = Json.toJson(persistent)
         Payload.json(json)
       }
@@ -173,26 +168,26 @@ object EventSerializer {
           anyRef     <- serializer.fromMsg(persistent.payload)
         } yield {
           PersistentRepresentation(
-            payload = anyRef,
-            manifest = persistent.manifest,
-            writerUuid = persistent.writerUuid
+            payload    = anyRef,
+            manifest   = persistent.manifest,
+            writerUuid = persistent.writerUuid,
           )
         }
       }
 
       def json(payload: JsValue): F[PersistentRepresentation] = {
         for {
-          persistent  <- FromJsResult[F].apply { payload.validate[PersistentJson[JsValue]] }
-          payloadType  = persistent.payloadType getOrElse PayloadType.Json
-          anyRef      <- payloadType match {
+          persistent <- FromJsResult[F].apply { payload.validate[PersistentJson[JsValue]] }
+          payloadType = persistent.payloadType getOrElse PayloadType.Json
+          anyRef <- payloadType match {
             case PayloadType.Text => FromJsResult[F].apply { persistent.payload.validate[String].map(a => a: AnyRef) }
             case PayloadType.Json => persistent.payload.pure[F].widen[AnyRef]
           }
         } yield {
           PersistentRepresentation(
-            payload = anyRef,
-            manifest = persistent.manifest,
-            writerUuid = persistent.writerUuid
+            payload    = anyRef,
+            manifest   = persistent.manifest,
+            writerUuid = persistent.writerUuid,
           )
         }
       }
@@ -214,20 +209,20 @@ object EventSerializer {
     */
   def apply[F[_]: MonadThrowable, A](
     toEventPayload: PersistentRepresentation => F[A],
-    fromEventPayload: A => F[PersistentRepresentation]
+    fromEventPayload: A => F[PersistentRepresentation],
   ): EventSerializer[F, A] = new EventSerializer[F, A] {
 
     implicit val fail: Fail[F] = Fail.lift[F]
 
     override def toEvent(persistentRepr: PersistentRepr): F[Event[A]] = {
 
-      val tagged = PersistentReprPayload(persistentRepr)
+      val tagged   = PersistentReprPayload(persistentRepr)
       val manifest = ManifestOf(persistentRepr)
 
       val persistentRepresentation = PersistentRepresentation(
         tagged.payload,
         persistentRepr.writerUuid,
-        manifest
+        manifest,
       )
 
       val result = for {
@@ -237,8 +232,9 @@ object EventSerializer {
         Event(seqNr, tagged.tags, payload.some)
       }
 
-      result.adaptErr { case e =>
-        JournalError(s"ToEvent error, persistenceId: ${persistentRepr.persistenceId}: $e", e)
+      result.adaptErr {
+        case e =>
+          JournalError(s"ToEvent error, persistenceId: ${persistentRepr.persistenceId}: $e", e)
       }
     }
 
@@ -246,26 +242,30 @@ object EventSerializer {
 
       def persistentRepr(repr: PersistentRepresentation) = {
         PersistentRepr(
-          payload = repr.payload,
-          sequenceNr = event.seqNr.value,
+          payload       = repr.payload,
+          sequenceNr    = event.seqNr.value,
           persistenceId = persistenceId,
-          manifest = repr.manifest getOrElse PersistentRepr.Undefined,
-          writerUuid = repr.writerUuid)
+          manifest      = repr.manifest getOrElse PersistentRepr.Undefined,
+          writerUuid    = repr.writerUuid,
+        )
       }
 
-      val payload = event.payload.fold {
-        s"Event.payload is not defined".fail[F, A]
-      } {
-        _.pure[F]
-      }
+      val payload = event
+        .payload
+        .fold {
+          s"Event.payload is not defined".fail[F, A]
+        } {
+          _.pure[F]
+        }
 
       val result = for {
-        payload <- payload
+        payload           <- payload
         persistentPayload <- fromEventPayload(payload)
       } yield persistentRepr(persistentPayload)
 
-      result.adaptErr { case e =>
-        JournalError(s"ToPersistentRepr error, persistenceId: $persistenceId, event: $event: $e", e)
+      result.adaptErr {
+        case e =>
+          JournalError(s"ToPersistentRepr error, persistenceId: $persistenceId, event: $event: $e", e)
       }
     }
   }

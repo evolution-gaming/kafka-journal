@@ -1,16 +1,15 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.{Monad, MonadThrow, Semigroup}
-import cats.data.{NonEmptyList => Nel}
-import cats.effect._
-import cats.effect.syntax.all._
+import cats.data.NonEmptyList as Nel
+import cats.effect.*
+import cats.effect.syntax.all.*
 import cats.kernel.CommutativeMonoid
-import cats.syntax.all._
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+import cats.syntax.all.*
+import cats.{Monad, MonadThrow, Semigroup}
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
 import com.evolutiongaming.skafka.Offset
 
 import scala.concurrent.duration.FiniteDuration
-
 
 /** Maintains an information about non-replicated Kafka records in a partition.
   *
@@ -117,21 +116,18 @@ object PartitionCache {
     *   parameters did not change.
     */
   def of[F[_]: Async](
-    maxSize: Int = 10000,
+    maxSize: Int          = 10000,
     dropUponLimit: Double = 0.1,
-    timeout: FiniteDuration
+    timeout: FiniteDuration,
   ): Resource[F, PartitionCache[F]] = {
-    main(
-      maxSize = maxSize.max(1),
-      dropUponLimit = dropUponLimit.max(0.01).min(1.0),
-      timeout = timeout)
+    main(maxSize = maxSize.max(1), dropUponLimit = dropUponLimit.max(0.01).min(1.0), timeout = timeout)
   }
 
   /** Same as [[#of]], but without default parameters */
   private def main[F[_]: Async](
     maxSize: Int,
     dropUponLimit: Double,
-    timeout: FiniteDuration
+    timeout: FiniteDuration,
   ): Resource[F, PartitionCache[F]] = {
 
     /** Listener waiting for latest [[HeadInfo]] to appear in the cache.
@@ -162,8 +158,9 @@ object PartitionCache {
       listenerId: ListenerId,
       offset: Option[Offset],
       entries: Option[Entries],
-      listeners: Map[ListenerId, Listener]
+      listeners: Map[ListenerId, Listener],
     ) { self =>
+
       /** Checks if current state is ahead of Cassandra.
         *
         * @param offset
@@ -182,12 +179,9 @@ object PartitionCache {
       .make {
         Ref[F].of(
           State
-            .apply(
-              listenerId = 0,
-              offset = none,
-              entries = none,
-              listeners = Map.empty)
-            .asRight[Throwable])
+            .apply(listenerId = 0, offset = none, entries = none, listeners = Map.empty)
+            .asRight[Throwable],
+        )
       } { ref =>
         0.tailRecM { count =>
           ref
@@ -197,7 +191,7 @@ object PartitionCache {
                 set
                   .apply(ReleasedError.asLeft)
                   .flatMap {
-                    case true  =>
+                    case true =>
                       state
                         .listeners
                         .values
@@ -214,7 +208,7 @@ object PartitionCache {
                         .asLeft[Unit]
                         .pure[F]
                   }
-              case _                   =>
+              case _ =>
                 ()
                   .asRight[Int]
                   .pure[F]
@@ -222,7 +216,6 @@ object PartitionCache {
         }
       }
       .map { ref =>
-
         class Main
         new Main with PartitionCache[F] {
 
@@ -263,9 +256,8 @@ object PartitionCache {
                                     listenerId = listenerId + 1,
                                     listeners = state
                                       .listeners
-                                      .updated(
-                                        listenerId,
-                                        Listener(id, offset, deferred)))
+                                      .updated(listenerId, Listener(id, offset, deferred)),
+                                  )
                                   .asRight
                               }
                               .flatMap {
@@ -276,7 +268,7 @@ object PartitionCache {
                                       deferred
                                         .complete(Result.Now.timeout(timeout).asRight)
                                         .flatMap {
-                                          case true  =>
+                                          case true =>
                                             0.tailRecM { count =>
                                               ref
                                                 .access
@@ -292,7 +284,7 @@ object PartitionCache {
                                                         case true  => ().asRight[Int]
                                                         case false => (count + 1).asLeft[Unit]
                                                       }
-                                                  case (Left(_), _)        =>
+                                                  case (Left(_), _) =>
                                                     ()
                                                       .asRight[Int]
                                                       .pure[F]
@@ -347,90 +339,83 @@ object PartitionCache {
 
           def add(records: Nel[Record]) = {
             for {
-              bounds  <- Bounds.of[F](
-                min = records
-                  .minimumBy { _.offset }
-                  .offset,
-                max = records
-                  .maximumBy { _.offset }
-                  .offset
+              bounds <- Bounds.of[F](
+                min = records.minimumBy { _.offset }.offset,
+                max = records.maximumBy { _.offset }.offset,
               )
-              values   = for {
+              values = for {
                 (id, values) <- records
                   .toList
                   .collect { case Record(offset, Some(data)) => (offset, data) }
                   .groupBy { case (_, record) => record.id }
-                (offset, _)   = values.maxBy { case (offset, _) => offset }
-                info          = values.foldLeft(HeadInfo.empty) { case (info, (offset, data)) => info(data.header, offset) }
-                entry        <- info match {
+                (offset, _) = values.maxBy { case (offset, _) => offset }
+                info        = values.foldLeft(HeadInfo.empty) { case (info, (offset, data)) => info(data.header, offset) }
+                entry <- info match {
                   case HeadInfo.Empty       => none[Entry]
                   case a: HeadInfo.NonEmpty => Entry(offset = offset, a).some
                 }
               } yield {
                 (id, entry)
               }
-              entries  = Entries(bounds = bounds, values = values.toMap)
+              entries = Entries(bounds = bounds, values = values.toMap)
 
-              result  <- 0.tailRecM { counter =>
+              result <- 0.tailRecM { counter =>
                 ref
                   .access
-                  .flatMap { case (state, set) =>
-                    state
-                      .liftTo[F]
-                      .flatMap { state =>
-                        val entriesNotLimited = state
-                          .entries
-                          .fold(entries) { _.combine(entries) }
-                        entriesNotLimited
-                          .limit(maxSize, dropUponLimit)
-                          .flatMap { entries =>
-                            val listeners = state.listeners
-                            val (listeners1, effect) = listeners.foldLeft((listeners, ().pure[F])) {
-                              case ((listeners, effect), (listenerId, listener)) =>
-                                entriesNotLimited
-                                  .result(listener.id, listener.offset)
-                                  .fold {
-                                    (listeners, effect)
-                                  } { result =>
-                                    (
-                                      listeners - listenerId,
-                                      effect.productR {
-                                        listener
-                                          .deferred
-                                          .complete(result.asRight)
-                                          .void
-                                      }
-                                    )
-                                  }
+                  .flatMap {
+                    case (state, set) =>
+                      state
+                        .liftTo[F]
+                        .flatMap { state =>
+                          val entriesNotLimited = state
+                            .entries
+                            .fold(entries) { _.combine(entries) }
+                          entriesNotLimited
+                            .limit(maxSize, dropUponLimit)
+                            .flatMap { entries =>
+                              val listeners = state.listeners
+                              val (listeners1, effect) = listeners.foldLeft((listeners, ().pure[F])) {
+                                case ((listeners, effect), (listenerId, listener)) =>
+                                  entriesNotLimited
+                                    .result(listener.id, listener.offset)
+                                    .fold {
+                                      (listeners, effect)
+                                    } { result =>
+                                      (
+                                        listeners - listenerId,
+                                        effect.productR {
+                                          listener
+                                            .deferred
+                                            .complete(result.asRight)
+                                            .void
+                                        },
+                                      )
+                                    }
+                              }
+                              set
+                                .apply {
+                                  state
+                                    .copy(listeners = listeners1, entries = entries.some)
+                                    .asRight
+                                }
+                                .flatMap {
+                                  case true =>
+                                    effect.as {
+                                      state
+                                        .entries
+                                        .flatMap { entries =>
+                                          Diff.of(prev = entries.bounds.max, next = bounds.max)
+                                        }
+                                        .asRight[Int]
+                                    }
+                                  case false =>
+                                    (counter + 1)
+                                      .asLeft[Option[Diff]]
+                                      .pure[F]
+                                }
+                                .uncancelable
                             }
-                            set
-                              .apply {
-                                state
-                                  .copy(
-                                    listeners = listeners1,
-                                    entries = entries.some)
-                                  .asRight
-                              }
-                              .flatMap {
-                                case true  =>
-                                  effect.as {
-                                    state
-                                      .entries
-                                      .flatMap { entries =>
-                                        Diff.of(
-                                          prev = entries.bounds.max,
-                                          next = bounds.max)
-                                      }
-                                      .asRight[Int]
-                                  }
-                                case false =>
-                                  (counter + 1)
-                                    .asLeft[Option[Diff]]
-                                    .pure[F]
-                              }
-                              .uncancelable
-                          }
-                      }
+                        }
                   }
               }
             } yield result
@@ -440,88 +425,86 @@ object PartitionCache {
             0.tailRecM { counter =>
               ref
                 .access
-                .flatMap { case (state, set) =>
-                  state
-                    .liftTo[F]
-                    .flatMap { state =>
-                      if (state.ahead(offset)) {
-                        none[Diff]
-                          .asRight[Int]
-                          .pure[F]
-                      } else {
-                        state
-                          .entries
-                          .flatTraverse { entries =>
-                            val bounds = entries.bounds
-                            if (offset >= bounds.min) {
-                              if (offset < bounds.max) {
-                                for {
-                                  offset <- offset.inc[F]
-                                  bounds <- bounds.withMin(offset)
-                                } yield {
-                                  val values = entries
-                                    .values
-                                    .filter { case (_, entry) => entry.offset >= bounds.min }
-                                  Entries(bounds = bounds, values = values).some
+                .flatMap {
+                  case (state, set) =>
+                    state
+                      .liftTo[F]
+                      .flatMap { state =>
+                        if (state.ahead(offset)) {
+                          none[Diff]
+                            .asRight[Int]
+                            .pure[F]
+                        } else {
+                          state
+                            .entries
+                            .flatTraverse { entries =>
+                              val bounds = entries.bounds
+                              if (offset >= bounds.min) {
+                                if (offset < bounds.max) {
+                                  for {
+                                    offset <- offset.inc[F]
+                                    bounds <- bounds.withMin(offset)
+                                  } yield {
+                                    val values = entries
+                                      .values
+                                      .filter { case (_, entry) => entry.offset >= bounds.min }
+                                    Entries(bounds = bounds, values = values).some
+                                  }
+                                } else {
+                                  none[Entries].pure[F]
                                 }
                               } else {
-                                none[Entries].pure[F]
+                                entries
+                                  .some
+                                  .pure[F]
                               }
-                            } else {
-                              entries
-                                .some
-                                .pure[F]
                             }
-                          }
-                          .flatMap { entries =>
-                            val listeners = state.listeners
-                            val (listeners1, effect) = listeners.foldLeft((listeners, ().pure[F])) {
-                              case ((listeners, effect), (listenerId, listener)) =>
-                                if (offset >= listener.offset) {
-                                  (
-                                    listeners - listenerId,
-                                    effect.productR {
-                                      listener
-                                        .deferred
-                                        .complete {
-                                          Result
-                                            .Now
-                                            .ahead
-                                            .asRight
-                                        }
-                                        .void
-                                    }
-                                  )
-                                } else {
-                                  (listeners, effect)
-                                }
-                            }
-                            set
-                              .apply {
-                                state
-                                  .copy(
-                                    offset = offset.some,
-                                    entries = entries,
-                                    listeners = listeners1)
-                                  .asRight
-                              }
-                              .flatMap {
-                                case true  =>
-                                  effect.as {
-                                    state
-                                      .offset
-                                      .flatMap { offset0 => Diff.of(prev = offset0, next = offset) }
-                                      .asRight[Int]
+                            .flatMap { entries =>
+                              val listeners = state.listeners
+                              val (listeners1, effect) = listeners.foldLeft((listeners, ().pure[F])) {
+                                case ((listeners, effect), (listenerId, listener)) =>
+                                  if (offset >= listener.offset) {
+                                    (
+                                      listeners - listenerId,
+                                      effect.productR {
+                                        listener
+                                          .deferred
+                                          .complete {
+                                            Result
+                                              .Now
+                                              .ahead
+                                              .asRight
+                                          }
+                                          .void
+                                      },
+                                    )
+                                  } else {
+                                    (listeners, effect)
                                   }
-                                case false =>
-                                  (counter + 1)
-                                    .asLeft[Option[Diff]]
-                                    .pure[F]
                               }
-                              .uncancelable
-                          }
+                              set
+                                .apply {
+                                  state
+                                    .copy(offset = offset.some, entries = entries, listeners = listeners1)
+                                    .asRight
+                                }
+                                .flatMap {
+                                  case true =>
+                                    effect.as {
+                                      state
+                                        .offset
+                                        .flatMap { offset0 => Diff.of(prev = offset0, next = offset) }
+                                        .asRight[Int]
+                                    }
+                                  case false =>
+                                    (counter + 1)
+                                      .asLeft[Option[Diff]]
+                                      .pure[F]
+                                }
+                                .uncancelable
+                            }
+                        }
                       }
-                    }
                 }
             }
           }
@@ -531,9 +514,7 @@ object PartitionCache {
               .get
               .map { state =>
                 state.foldMap { state =>
-                  Meters(
-                    listeners = state.listeners.size,
-                    entries = state.entries.foldMap { _.values.size })
+                  Meters(listeners = state.listeners.size, entries = state.entries.foldMap { _.values.size })
                 }
               }
           }
@@ -793,13 +774,10 @@ object PartitionCache {
     implicit val commutativeMonoidMeters: CommutativeMonoid[Meters] = new CommutativeMonoid[Meters] {
       def empty = Empty
       def combine(a: Meters, b: Meters) = {
-        Meters(
-          listeners = a.listeners + b.listeners,
-          entries = a.entries + b.entries)
+        Meters(listeners = a.listeners + b.listeners, entries = a.entries + b.entries)
       }
     }
   }
-
 
   /** Difference between two numerical values.
     *
@@ -812,7 +790,7 @@ object PartitionCache {
     *
     * Example:
     * {{{
-    * scala> import cats.syntax.all._
+    * scala> import cats.syntax.all.*
     * scala> import com.evolutiongaming.kafka.journal.PartitionCache.Diff
     *
     * scala> Diff.of(10, 20)
@@ -854,9 +832,7 @@ object PartitionCache {
       *   to `next`.
       */
     def of(prev: Offset, next: Offset): Option[Diff] = {
-      of(
-        prev = prev.value,
-        next = next.value)
+      of(prev = prev.value, next = next.value)
     }
 
     /** Calculate the difference between two numbers.
@@ -878,7 +854,7 @@ object PartitionCache {
     }
 
     implicit val commutativeMonoidDiff: CommutativeMonoid[Diff] = new CommutativeMonoid[Diff] {
-      def empty = Empty
+      def empty                     = Empty
       def combine(a: Diff, b: Diff) = Diff(a.value + b.value)
     }
   }
@@ -932,11 +908,9 @@ object PartitionCache {
   private final case class Entry(offset: Offset, headInfo: HeadInfo.NonEmpty)
 
   private object Entry {
-    implicit val semigroupEntry: Semigroup[Entry] = {
-      (a: Entry, b: Entry) => {
-        Entry(
-          headInfo = a.headInfo combine b.headInfo,
-          offset = a.offset max b.offset)
+    implicit val semigroupEntry: Semigroup[Entry] = { (a: Entry, b: Entry) =>
+      {
+        Entry(headInfo = a.headInfo combine b.headInfo, offset = a.offset max b.offset)
       }
     }
 
@@ -956,11 +930,9 @@ object PartitionCache {
   private final case class Entries(bounds: Bounds[Offset], values: Map[String, Entry])
 
   private object Entries {
-    implicit val semigroupEntries: Semigroup[Entries] = {
-      (a: Entries, b: Entries) => {
-        Entries(
-          values = a.values combine b.values,
-          bounds = a.bounds combine b.bounds)
+    implicit val semigroupEntries: Semigroup[Entries] = { (a: Entries, b: Entries) =>
+      {
+        Entries(values = a.values combine b.values, bounds = a.bounds combine b.bounds)
       }
     }
 
@@ -983,9 +955,7 @@ object PartitionCache {
             .take(take)
           val (_, entry) = values.minBy { case (_, entry) => entry.offset }
           Bounds
-            .of[F](
-              min = entry.offset,
-              max = self.bounds.max)
+            .of[F](min = entry.offset, max = self.bounds.max)
             .map { bounds =>
               Entries(bounds, values.toMap)
             }
@@ -1014,17 +984,15 @@ object PartitionCache {
             none[Result.Now]
           }
         } else {
-          entry
-            .fold {
-              Result
-                .Now
-                .limited
-            } { entry =>
-              Result
-                .Now
-                .value(entry.headInfo)
-            }
-            .some
+          entry.fold {
+            Result
+              .Now
+              .limited
+          } { entry =>
+            Result
+              .Now
+              .value(entry.headInfo)
+          }.some
         }
       }
     }

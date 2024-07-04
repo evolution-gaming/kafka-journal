@@ -2,14 +2,14 @@ package akka.persistence.kafka.journal
 
 import cats.arrow.FunctionK
 import cats.effect.{IO, Outcome, Sync}
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.ActorSuite
-import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.IOSuite.*
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
 class ActorSystemRefTest extends AsyncFunSuite with ActorSuite with Matchers {
-  import ActorSystemRefTest._
+  import ActorSystemRefTest.*
 
   test("Extension") {
     val result = for {

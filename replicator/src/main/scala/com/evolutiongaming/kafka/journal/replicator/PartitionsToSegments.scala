@@ -1,13 +1,12 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptySet => Nes}
-import cats.syntax.all._
-import com.evolutiongaming.catshelper.DataHelper._
+import cats.data.NonEmptySet as Nes
+import cats.syntax.all.*
+import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{SegmentNr, Segments}
 import com.evolutiongaming.skafka.Partition
 
 import scala.collection.immutable.SortedSet
-
 
 trait PartitionsToSegments {
 
@@ -21,10 +20,10 @@ object PartitionsToSegments {
       .segmentNrs
       .toSortedSet
     val filter = {
-      if (partitions >= segments.value) {
-        (a: Partition, b: SegmentNr) => a.value % segments.value.toLong === b.value
-      } else {
-        (a: Partition, b: SegmentNr) => b.value % partitions === a.value.toLong
+      if (partitions >= segments.value) { (a: Partition, b: SegmentNr) =>
+        a.value % segments.value.toLong === b.value
+      } else { (a: Partition, b: SegmentNr) =>
+        b.value % partitions === a.value.toLong
       }
     }
 

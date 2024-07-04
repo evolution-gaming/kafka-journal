@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Monad
-import cats.data.{NonEmptyList => Nel}
+import cats.data.NonEmptyList as Nel
 import cats.effect.Concurrent
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.cassandra.MigrateSchema
 import com.evolutiongaming.scassandra.TableName
@@ -21,46 +21,46 @@ object CreateSchema {
     *   created from scratch, or `false` if one or more of them were already
     *   present in a keyspace.
     */
-  def apply[F[_] : Concurrent : CassandraCluster : CassandraSession : CassandraSync : LogOf](
-    config: SchemaConfig
+  def apply[F[_]: Concurrent: CassandraCluster: CassandraSession: CassandraSync: LogOf](
+    config: SchemaConfig,
   ): F[(Schema, MigrateSchema.Fresh)] = {
     implicit val cassandraSync2 = CassandraSync[F].toCassandraSync2
     for {
-      createTables   <- CreateTables.of[F]
-      createKeyspace  = CreateKeyspace[F]
-      result         <- apply[F](config, createKeyspace, createTables)
+      createTables  <- CreateTables.of[F]
+      createKeyspace = CreateKeyspace[F]
+      result        <- apply[F](config, createKeyspace, createTables)
     } yield result
   }
 
-  def apply[F[_] : Monad](
+  def apply[F[_]: Monad](
     config: SchemaConfig,
     createKeyspace: CreateKeyspace[F],
-    createTables: CreateTables[F]
+    createTables: CreateTables[F],
   ): F[(Schema, MigrateSchema.Fresh)] = {
 
     def createTables1 = {
       val keyspace = config.keyspace.name
 
       val schema = Schema(
-        journal = TableName(keyspace = keyspace, table = config.journalTable),
-        metadata = TableName(keyspace = keyspace, table = config.metadataTable),
+        journal     = TableName(keyspace = keyspace, table = config.journalTable),
+        metadata    = TableName(keyspace = keyspace, table = config.metadataTable),
         metaJournal = TableName(keyspace = keyspace, table = config.metaJournalTable),
-        pointer = TableName(keyspace = keyspace, table = config.pointerTable),
-        pointer2 = TableName(keyspace = keyspace, table = config.pointer2Table),
-        setting = TableName(keyspace = keyspace, table = config.settingTable)
+        pointer     = TableName(keyspace = keyspace, table = config.pointerTable),
+        pointer2    = TableName(keyspace = keyspace, table = config.pointer2Table),
+        setting     = TableName(keyspace = keyspace, table = config.settingTable),
       )
 
-      val journalStatement = JournalStatements.createTable(schema.journal)
+      val journalStatement     = JournalStatements.createTable(schema.journal)
       val metaJournalStatement = MetaJournalStatements.createTable(schema.metaJournal)
-      val pointerStatement = PointerStatements.createTable(schema.pointer)
-      val pointer2Statement = Pointer2Statements.createTable(schema.pointer2)
-      val settingStatement = SettingStatements.createTable(schema.setting)
+      val pointerStatement     = PointerStatements.createTable(schema.pointer)
+      val pointer2Statement    = Pointer2Statements.createTable(schema.pointer2)
+      val settingStatement     = SettingStatements.createTable(schema.setting)
 
-      val journal = CreateTables.Table(config.journalTable, journalStatement)
+      val journal     = CreateTables.Table(config.journalTable, journalStatement)
       val metaJournal = CreateTables.Table(config.metaJournalTable, metaJournalStatement)
-      val pointer = CreateTables.Table(config.pointerTable, pointerStatement)
-      val pointer2 = CreateTables.Table(config.pointer2Table, pointer2Statement)
-      val setting = CreateTables.Table(config.settingTable, settingStatement)
+      val pointer     = CreateTables.Table(config.pointerTable, pointerStatement)
+      val pointer2    = CreateTables.Table(config.pointer2Table, pointer2Statement)
+      val setting     = CreateTables.Table(config.settingTable, settingStatement)
 
       val createSchema =
         if (config.autoCreate) {

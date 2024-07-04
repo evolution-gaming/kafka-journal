@@ -1,22 +1,22 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.effect._
-import cats.syntax.all._
+import cats.effect.*
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.Log
-import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.IOSuite.*
 import com.evolutiongaming.kafka.journal.KafkaHealthCheck.Record
-import com.evolutiongaming.kafka.journal.util.TestTemporal._
+import com.evolutiongaming.kafka.journal.util.TestTemporal.*
 import com.evolutiongaming.skafka.Topic
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.control.NoStackTrace
 
 class KafkaHealthCheckSpec extends AsyncFunSuite with Matchers {
 
-  import KafkaHealthCheckSpec.StateT._
-  import KafkaHealthCheckSpec._
+  import KafkaHealthCheckSpec.StateT.*
+  import KafkaHealthCheckSpec.*
 
   test("error") {
     implicit val log = Log.empty[IO]
@@ -36,15 +36,13 @@ class KafkaHealthCheckSpec extends AsyncFunSuite with Matchers {
     }
 
     val healthCheck = KafkaHealthCheck.of[IO](
-      key = "key",
-      config = KafkaHealthCheck.Config(
-        topic = "topic",
-        initial = 0.seconds,
-        interval = 1.second),
-      stop = false.pure[IO],
+      key      = "key",
+      config   = KafkaHealthCheck.Config(topic = "topic", initial = 0.seconds, interval = 1.second),
+      stop     = false.pure[IO],
       producer = Resource.pure[IO, KafkaHealthCheck.Producer[IO]](producer),
       consumer = Resource.pure[IO, KafkaHealthCheck.Consumer[IO]](consumer),
-      log = log)
+      log      = log,
+    )
     val result = for {
       error <- healthCheck.use(_.error.untilDefinedM)
     } yield {
@@ -59,16 +57,13 @@ class KafkaHealthCheckSpec extends AsyncFunSuite with Matchers {
       (data1, data1.checks <= 0)
     }
     val healthCheck = KafkaHealthCheck.of[StateT](
-      key = "key",
-      config = KafkaHealthCheck.Config(
-        topic = "topic",
-        initial = 0.millis,
-        interval = 0.millis,
-        timeout = 100.millis),
-      stop = stop,
+      key      = "key",
+      config   = KafkaHealthCheck.Config(topic = "topic", initial = 0.millis, interval = 0.millis, timeout = 100.millis),
+      stop     = stop,
       producer = Resource.pure[StateT, KafkaHealthCheck.Producer[StateT]](KafkaHealthCheck.Producer[StateT]),
       consumer = Resource.pure[StateT, KafkaHealthCheck.Consumer[StateT]](KafkaHealthCheck.Consumer[StateT]),
-      log = log)
+      log      = log,
+    )
 
     val initial = State(checks = 2)
     val result = for {
@@ -83,7 +78,9 @@ class KafkaHealthCheckSpec extends AsyncFunSuite with Matchers {
           "debug key send 1:0",
           "debug key send 1",
           "debug key send 0:0",
-          "debug key send 0"))
+          "debug key send 0",
+        ),
+      )
     }
 
     result.run()
@@ -122,7 +119,6 @@ object KafkaHealthCheckSpec {
       }
     }
 
-
     implicit val consumer: KafkaHealthCheck.Consumer[StateT] = new KafkaHealthCheck.Consumer[StateT] {
 
       def subscribe(topic: Topic) = {
@@ -143,7 +139,6 @@ object KafkaHealthCheckSpec {
       }
     }
 
-
     implicit val producer: KafkaHealthCheck.Producer[StateT] = new KafkaHealthCheck.Producer[StateT] {
 
       def send(record: Record) = {
@@ -158,10 +153,10 @@ object KafkaHealthCheckSpec {
 
   }
 
-
   final case class State(
-                          checks: Int = 0,
-                          subscribed: Option[Topic] = None,
-                          logs: List[String] = List.empty,
-                          records: List[Record] = List.empty)
+    checks: Int               = 0,
+    subscribed: Option[Topic] = None,
+    logs: List[String]        = List.empty,
+    records: List[Record]     = List.empty,
+  )
 }

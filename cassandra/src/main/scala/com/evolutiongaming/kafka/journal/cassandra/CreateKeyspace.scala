@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal.cassandra
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Applicative, Monad}
 import com.evolutiongaming.catshelper.LogOf
-import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper.*
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession}
 import com.evolutiongaming.scassandra.CreateKeyspaceIfNotExists
 
@@ -13,9 +13,9 @@ trait CreateKeyspace[F[_]] {
 
 object CreateKeyspace { self =>
 
-  def empty[F[_] : Applicative]: CreateKeyspace[F] = (_: KeyspaceConfig) => ().pure[F]
+  def empty[F[_]: Applicative]: CreateKeyspace[F] = (_: KeyspaceConfig) => ().pure[F]
 
-  def apply[F[_] : Monad : CassandraCluster : CassandraSession : LogOf]: CreateKeyspace[F] = new CreateKeyspace[F] {
+  def apply[F[_]: Monad: CassandraCluster: CassandraSession: LogOf]: CreateKeyspace[F] = new CreateKeyspace[F] {
 
     def apply(config: KeyspaceConfig) = {
       if (config.autoCreate) {

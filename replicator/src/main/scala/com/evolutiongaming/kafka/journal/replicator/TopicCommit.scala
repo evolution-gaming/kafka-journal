@@ -1,19 +1,19 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import java.time.Instant
 import cats.Applicative
-import cats.data.{NonEmptyMap => Nem}
+import cats.data.NonEmptyMap as Nem
 import cats.effect.kernel.Concurrent
 import cats.effect.{Clock, Ref}
-import cats.syntax.all._
-import com.evolutiongaming.catshelper.ClockHelper._
-import com.evolutiongaming.catshelper.DataHelper._
-import com.evolutiongaming.kafka.journal.util.TemporalHelper._
+import cats.syntax.all.*
+import com.evolutiongaming.catshelper.ClockHelper.*
+import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.kafka.journal.KafkaConsumer
-import com.evolutiongaming.skafka._
+import com.evolutiongaming.kafka.journal.util.TemporalHelper.*
+import com.evolutiongaming.skafka.*
 
+import java.time.Instant
 import scala.collection.immutable.SortedMap
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 trait TopicCommit[F[_]] {
 
@@ -22,16 +22,16 @@ trait TopicCommit[F[_]] {
 
 object TopicCommit {
 
-  def empty[F[_] : Applicative]: TopicCommit[F] = (_: Nem[Partition, Offset]) => ().pure[F]
+  def empty[F[_]: Applicative]: TopicCommit[F] = (_: Nem[Partition, Offset]) => ().pure[F]
 
   def apply[F[_]](
     topic: Topic,
     metadata: String,
     consumer: KafkaConsumer[F, _, _],
-  ): TopicCommit[F] = {
-    (offsets: Nem[Partition, Offset]) => {
+  ): TopicCommit[F] = { (offsets: Nem[Partition, Offset]) =>
+    {
       val offsets1 = offsets.mapKV { (partition, offset) =>
-        val offset1 = OffsetAndMetadata(offset, metadata)
+        val offset1    = OffsetAndMetadata(offset, metadata)
         val partition1 = TopicPartition(topic, partition)
         (partition1, offset1)
       }
@@ -39,9 +39,9 @@ object TopicCommit {
     }
   }
 
-  def delayed[F[_] : Concurrent : Clock](
+  def delayed[F[_]: Concurrent: Clock](
     delay: FiniteDuration,
-    commit: TopicCommit[F]
+    commit: TopicCommit[F],
   ): F[TopicCommit[F]] = {
 
     case class State(until: Instant, offsets: SortedMap[Partition, Offset] = SortedMap.empty)

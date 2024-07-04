@@ -1,13 +1,12 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.Monad
-import cats.syntax.all._
-import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
-import play.api.libs.json._
-
+import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.util.PlayJsonHelper.*
+import play.api.libs.json.*
 
 sealed abstract class ActionHeader extends Product {
-  
+
   def origin: Option[Origin]
 
   def version: Option[Version]
@@ -16,7 +15,6 @@ sealed abstract class ActionHeader extends Product {
 object ActionHeader {
 
   val key: String = "journal.action"
-
 
   implicit val formatOptActionHeader: OFormat[Option[ActionHeader]] = {
 
@@ -46,12 +44,12 @@ object ActionHeader {
       OFormat(reads, format)
     }
     val deleteFormat = Json.format[Delete]
-    val purgeFormat = Json.format[Purge]
-    val readFormat = Json.format[Mark]
+    val purgeFormat  = Json.format[Purge]
+    val readFormat   = Json.format[Mark]
 
     new OFormat[Option[ActionHeader]] {
 
-      def reads(json: JsValue) = {
+      def reads(json: JsValue): JsResult[Option[ActionHeader]] = {
 
         def read[A](name: String, reads: Reads[A]) = {
           (json \ name)
@@ -88,14 +86,12 @@ object ActionHeader {
 
   implicit val writesActionHeader: Writes[ActionHeader] = formatOptActionHeader.contramap { (a: ActionHeader) => a.some }
 
+  implicit def toBytesActionHeader[F[_]: JsonCodec.Encode]: ToBytes[F, ActionHeader] = ToBytes.fromWrites
 
-  implicit def toBytesActionHeader[F[_] : JsonCodec.Encode]: ToBytes[F, ActionHeader] = ToBytes.fromWrites
-
-  implicit def fromBytesOptActionHeader[F[_] : Monad : FromJsResult : JsonCodec.Decode]: FromBytes[F, Option[ActionHeader]] = FromBytes.fromReads
-
+  implicit def fromBytesOptActionHeader[F[_]: Monad: FromJsResult: JsonCodec.Decode]: FromBytes[F, Option[ActionHeader]] =
+    FromBytes.fromReads
 
   sealed abstract class AppendOrDelete extends ActionHeader
-
 
   final case class Append(
     range: SeqRange,
@@ -105,23 +101,20 @@ object ActionHeader {
     metadata: HeaderMetadata,
   ) extends AppendOrDelete
 
-
   final case class Delete(
     to: DeleteTo,
     origin: Option[Origin],
-    version: Option[Version]
+    version: Option[Version],
   ) extends AppendOrDelete
-
 
   final case class Purge(
     origin: Option[Origin],
-    version: Option[Version]
+    version: Option[Version],
   ) extends AppendOrDelete
-
 
   final case class Mark(
     id: String,
     origin: Option[Origin],
-    version: Option[Version]
+    version: Option[Version],
   ) extends ActionHeader
 }

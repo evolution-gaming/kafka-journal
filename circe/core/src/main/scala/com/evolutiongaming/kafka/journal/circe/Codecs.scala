@@ -1,20 +1,21 @@
 package com.evolutiongaming.kafka.journal.circe
 
-import cats.syntax.all._
-import com.evolutiongaming.kafka.journal.PayloadAndType._
+import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.PayloadAndType.*
 import com.evolutiongaming.kafka.journal.PayloadType.TextOrJson
-import com.evolutiongaming.kafka.journal._
-import io.circe._
-import io.circe.generic.semiauto._
+import io.circe.*
+import io.circe.generic.semiauto.*
 import play.api.libs.json.JsValue
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 object Codecs {
 
   implicit val finiteDurationEncoder: Encoder[FiniteDuration] = Encoder.encodeString.contramap(_.toString)
   implicit val finiteDurationDecoder: Decoder[FiniteDuration] = Decoder.decodeString.emap { str =>
-    Either.catchNonFatal(Duration(str).asInstanceOf[FiniteDuration])
+    Either
+      .catchNonFatal(Duration(str).asInstanceOf[FiniteDuration])
       .leftMap(_ => s"cannot parse FiniteDuration from $str")
   }
 
@@ -39,10 +40,10 @@ object Codecs {
       .toRight(s"No PayloadType.TextOrJson found by $str")
   }
 
-  implicit def eventJsonEncoder[A : Encoder]: Encoder[EventJson[A]] = deriveEncoder
-  implicit def eventJsonDecoder[A : Decoder]: Decoder[EventJson[A]] = deriveDecoder
+  implicit def eventJsonEncoder[A: Encoder]: Encoder[EventJson[A]] = deriveEncoder
+  implicit def eventJsonDecoder[A: Decoder]: Decoder[EventJson[A]] = deriveDecoder
 
-  implicit def payloadJsonEncoder[A : Encoder]: Encoder[PayloadJson[A]] = deriveEncoder
-  implicit def payloadJsonDecoder[A : Decoder]: Decoder[PayloadJson[A]] = deriveDecoder
+  implicit def payloadJsonEncoder[A: Encoder]: Encoder[PayloadJson[A]] = deriveEncoder
+  implicit def payloadJsonDecoder[A: Decoder]: Decoder[PayloadJson[A]] = deriveDecoder
 
 }

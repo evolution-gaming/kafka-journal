@@ -10,17 +10,18 @@ object ConsRecord {
     topicPartition: TopicPartition,
     offset: Offset,
     timestampAndType: Option[TimestampAndType],
-    key: Option[WithSize[String]] = None,
+    key: Option[WithSize[String]]       = None,
     value: Option[WithSize[ByteVector]] = None,
-    headers: List[Header] = Nil
+    headers: List[Header]               = Nil,
   ): ConsRecord = {
 
     ConsumerRecord(
-      topicPartition = topicPartition,
-      offset = offset,
+      topicPartition   = topicPartition,
+      offset           = offset,
       timestampAndType = timestampAndType,
-      key = key,
-      value = value,
-      headers = headers)
+      key              = key,
+      value            = value,
+      headers          = headers,
+    )
   }
 }

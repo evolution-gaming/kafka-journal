@@ -1,12 +1,11 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.effect.IO
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.ApplicativeThrowable
 import play.api.libs.json.{JsResult, JsResultException}
 
 import scala.util.Try
-
 
 trait FromJsResult[F[_]] {
 
@@ -17,16 +16,12 @@ object FromJsResult {
 
   def apply[F[_]](implicit F: FromJsResult[F]): FromJsResult[F] = F
 
-
   def lift[F[_]: ApplicativeThrowable]: FromJsResult[F] = new FromJsResult[F] {
 
     def apply[A](fa: JsResult[A]) = {
-      fa.fold(
-        a => JournalError(s"FromJsResult failed: $a", JsResultException(a)).raiseError[F, A],
-        a => a.pure[F])
+      fa.fold(a => JournalError(s"FromJsResult failed: $a", JsResultException(a)).raiseError[F, A], a => a.pure[F])
     }
   }
-
 
   implicit val tryFromAttempt: FromJsResult[Try] = lift
 

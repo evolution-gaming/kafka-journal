@@ -1,16 +1,13 @@
 package com.evolutiongaming.kafka.journal.eventual
 
-import java.time.Instant
-
-import cats.data.{NonEmptyList => Nel}
+import cats.data.NonEmptyList as Nel
 import com.evolutiongaming.catshelper.BracketThrowable
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedKeyJournal.Changed
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
+import java.time.Instant
 import scala.collection.immutable.SortedSet
-
-
 
 /** Write-only implementation of a journal stored to eventual storage, i.e.
   * Cassandra.
@@ -39,7 +36,7 @@ trait ReplicatedJournalFlat[F[_]] {
     offset: Offset,
     timestamp: Instant,
     expireAfter: Option[ExpireAfter],
-    events: Nel[EventRecord[EventualPayloadAndType]]
+    events: Nel[EventRecord[EventualPayloadAndType]],
   ): F[Changed]
 
   def delete(
@@ -48,20 +45,20 @@ trait ReplicatedJournalFlat[F[_]] {
     offset: Offset,
     timestamp: Instant,
     deleteTo: DeleteTo,
-    origin: Option[Origin]
+    origin: Option[Origin],
   ): F[Changed]
 
   def purge(
     key: Key,
     partition: Partition,
     offset: Offset,
-    timestamp: Instant
+    timestamp: Instant,
   ): F[Changed]
 }
 
 object ReplicatedJournalFlat {
 
-  def apply[F[_] : BracketThrowable](replicatedJournal: ReplicatedJournal[F]): ReplicatedJournalFlat[F] = {
+  def apply[F[_]: BracketThrowable](replicatedJournal: ReplicatedJournal[F]): ReplicatedJournalFlat[F] = {
     class Main
     new Main with ReplicatedJournalFlat[F] {
 
@@ -115,7 +112,7 @@ object ReplicatedJournalFlat {
         offset: Offset,
         timestamp: Instant,
         expireAfter: Option[ExpireAfter],
-        events: Nel[EventRecord[EventualPayloadAndType]]
+        events: Nel[EventRecord[EventualPayloadAndType]],
       ) = {
         replicatedJournal
           .journal(key.topic)
@@ -136,7 +133,7 @@ object ReplicatedJournalFlat {
         offset: Offset,
         timestamp: Instant,
         deleteTo: DeleteTo,
-        origin: Option[Origin]
+        origin: Option[Origin],
       ) = {
         replicatedJournal
           .journal(key.topic)
@@ -155,7 +152,7 @@ object ReplicatedJournalFlat {
         key: Key,
         partition: Partition,
         offset: Offset,
-        timestamp: Instant
+        timestamp: Instant,
       ) = {
         replicatedJournal
           .journal(key.topic)

@@ -1,13 +1,12 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.arrow.FunctionK
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{FlatMap, ~>}
 import com.evolutiongaming.catshelper.{Log, MeasureDuration}
 import com.evolutiongaming.sstream.Stream
 
 import scala.annotation.nowarn
-
 
 trait Settings[F[_]] {
 
@@ -20,11 +19,10 @@ trait Settings[F[_]] {
   def set(key: K, value: V): F[Option[Setting]]
 
   @deprecated(
-    message =
-      "the behavior of the method might not be deterministic, " +
+    message = "the behavior of the method might not be deterministic, " +
       "because it uses Cassandra LWTs, while other methods do not, " +
       "use get + set instead for a rough approximation of functionality",
-    since = "3.3.9"
+    since = "3.3.9",
   )
   def setIfEmpty(key: K, value: V): F[Option[Setting]]
 
@@ -36,7 +34,6 @@ trait Settings[F[_]] {
 object Settings {
 
   def apply[F[_]](implicit F: Settings[F]): Settings[F] = F
-
 
   implicit class SettingsOps[F[_]](val self: Settings[F]) extends AnyVal {
 
@@ -51,7 +48,7 @@ object Settings {
             d <- MeasureDuration[F].start
             r <- self.get(key)
             d <- d
-            _ <- log.debug(s"$key get in ${ d.toMillis }ms, result: $r")
+            _ <- log.debug(s"$key get in ${d.toMillis}ms, result: $r")
           } yield r
         }
 
@@ -60,7 +57,7 @@ object Settings {
             d <- MeasureDuration[F].start
             r <- self.set(key, value)
             d <- d
-            _ <- log.debug(s"$key set in ${ d.toMillis }ms, value: $value, result: $r")
+            _ <- log.debug(s"$key set in ${d.toMillis}ms, value: $value, result: $r")
           } yield r
         }
 
@@ -70,7 +67,7 @@ object Settings {
             d <- MeasureDuration[F].start
             r <- self.setIfEmpty(key, value)
             d <- d
-            _ <- log.debug(s"$key setIfEmpty in ${ d.toMillis }ms, value: $value, result: $r")
+            _ <- log.debug(s"$key setIfEmpty in ${d.toMillis}ms, value: $value, result: $r")
           } yield r
         }
 
@@ -79,7 +76,7 @@ object Settings {
             d <- MeasureDuration[F].start
             r <- self.remove(key)
             d <- d
-            _ <- log.debug(s"$key set in ${ d.toMillis }ms, result: $r")
+            _ <- log.debug(s"$key set in ${d.toMillis}ms, result: $r")
           } yield r
         }
 
@@ -90,7 +87,7 @@ object Settings {
                 d <- MeasureDuration[F].start
                 r <- fa
                 d <- d
-                _ <- log.debug(s"all in ${ d.toMillis }ms, result: $r")
+                _ <- log.debug(s"all in ${d.toMillis}ms, result: $r")
               } yield r
             }
           }

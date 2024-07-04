@@ -1,24 +1,22 @@
 package akka.persistence.kafka.journal
 
 import akka.actor.{ActorRef, ActorSystem, Props}
-import akka.persistence._
+import akka.persistence.*
 import akka.persistence.journal.JournalSpec
-import cats.data.{NonEmptyList => Nel}
+import cats.data.NonEmptyList as Nel
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, Promise}
 
-
-class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
-  with KafkaPluginSpec {
+class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf")) with KafkaPluginSpec {
 
   implicit lazy val system: ActorSystem = ActorSystem("ConsistencySpec", config.withFallback(JournalSpec.config))
 
   "KafkaJournal" should {
 
     "replay events" in {
-      val ref = PersistenceRef()
+      val ref    = PersistenceRef()
       val events = Nel.of("event")
       ref.persist(events)
       ref.stop()
@@ -26,7 +24,7 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
     }
 
     "replay events in the same order" in {
-      val ref = PersistenceRef()
+      val ref    = PersistenceRef()
       val events = (1 to 100).toList map { _.toString }
       for {
         group <- events.grouped(10)
@@ -41,7 +39,7 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
     }
 
     "replay events in the same order when half is deleted" in {
-      val ref = PersistenceRef()
+      val ref    = PersistenceRef()
       val events = (1 to 100).toList map { _.toString }
       for {
         group <- events.grouped(10)
@@ -58,7 +56,7 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
     }
 
     "recover new entity from lengthy topic" in {
-      val ref = PersistenceRef()
+      val ref    = PersistenceRef()
       val events = (1 to 1000).toList map { _.toString }
       for {
         group <- events.grouped(10)
@@ -74,9 +72,9 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
     val numberOfEvents = 10000
 
     s"recover $numberOfEvents events" in {
-      val ref = PersistenceRef()
+      val ref       = PersistenceRef()
       val batchSize = 100
-      val events = (1 to batchSize).toList.map(_.toString)
+      val events    = (1 to batchSize).toList.map(_.toString)
       for {
         _ <- 1 to (numberOfEvents / batchSize)
       } {
@@ -88,7 +86,6 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
       count shouldEqual numberOfEvents
     }
   }
-
 
   trait PersistenceRef {
     def persist(events: Nel[String]): Unit
@@ -102,18 +99,18 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
 
       def actor() = new PersistentActor {
 
-        def persistenceId = id
+        def persistenceId: String = id
 
-        def receiveRecover = PartialFunction.empty
+        def receiveRecover: Receive = PartialFunction.empty
 
-        def receiveCommand = {
+        def receiveCommand: Receive = {
           case Stop                     => context.stop(self)
           case Delete(seqNr)            => deleteMessages(seqNr)
           case x: DeleteMessagesSuccess => testActor.tell(x, self)
           case x: DeleteMessagesFailure => testActor.tell(x, self)
-          case Cmd(events)              =>
+          case Cmd(events) =>
             val sender = this.sender()
-            val last = events.last
+            val last   = events.last
             persistAll(events.toList) { event =>
               if (event === last) sender.tell(event, self)
             }
@@ -121,7 +118,7 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
       }
 
       val props = Props(actor())
-      val ref = system.actorOf(props)
+      val ref   = system.actorOf(props)
 
       new PersistenceRef {
         def persist(events: Nel[String]) = {
@@ -143,7 +140,6 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
     }
   }
 
-
   def recover[S](s: S, timeout: FiniteDuration, id: PersistenceId = pid)(f: (S, String) => S): S = {
     val promise = Promise[S]()
 
@@ -151,14 +147,14 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
 
     def actor() = new PersistentActor {
 
-      def persistenceId = id
+      def persistenceId: String = id
 
-      def receiveRecover = {
+      def receiveRecover: Receive = {
         case event: String     => state = f(state, event)
         case RecoveryCompleted => promise.success(state)
       }
 
-      def receiveCommand = PartialFunction.empty
+      def receiveCommand: Receive = PartialFunction.empty
 
       override def onRecoveryFailure(cause: Throwable, event: Option[Any]): Unit = {
         promise.failure(cause)
@@ -177,13 +173,11 @@ class ConsistencySpec extends PluginSpec(ConfigFactory.load("consistency.conf"))
     events.reverse
   }
 
-
   def stop(ref: ActorRef) = {
     watch(ref)
     ref.tell(Stop, testActor)
     expectTerminated(ref)
   }
-
 
   case class Cmd(events: Nel[String])
   case class Delete(seqNr: Long)

@@ -1,13 +1,12 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import cats.effect.Sync
-import cats.implicits._
+import cats.implicits.*
 import com.evolutiongaming.catshelper.{ApplicativeThrowable, MonadThrowable}
 
 import java.time.temporal.ChronoUnit
 import java.time.{LocalDateTime, LocalTime}
-import scala.concurrent.duration._
-
+import scala.concurrent.duration.*
 
 trait DurationTo[F[_]] {
 
@@ -21,12 +20,12 @@ object DurationTo {
     apply(now)
   }
 
-  def apply[F[_]: MonadThrowable](now: F[LocalDateTime]): DurationTo[F] = {
-    localTime => {
+  def apply[F[_]: MonadThrowable](now: F[LocalDateTime]): DurationTo[F] = { localTime =>
+    {
       now.flatMap { now =>
         ApplicativeThrowable[F].catchNonFatal {
           val localDateTime = {
-            val localDate = now.toLocalDate
+            val localDate     = now.toLocalDate
             val localDateTime = localDate.atTime(localTime)
             if (localDateTime.isAfter(now)) {
               localDateTime

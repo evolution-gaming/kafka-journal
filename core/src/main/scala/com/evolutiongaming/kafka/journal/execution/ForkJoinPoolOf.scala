@@ -1,27 +1,22 @@
 package com.evolutiongaming.kafka.journal.execution
 
+import cats.effect.{Resource, Sync}
+import cats.syntax.all.*
+
 import java.util.concurrent.ForkJoinPool
 import java.util.concurrent.ForkJoinPool.ForkJoinWorkerThreadFactory
 
-import cats.effect.{Resource, Sync}
-import cats.syntax.all._
-
-
 object ForkJoinPoolOf {
 
-  def apply[F[_] : Sync](
+  def apply[F[_]: Sync](
     name: String,
-    parallelism: Int
+    parallelism: Int,
   ): Resource[F, ForkJoinPool] = {
 
     val threadFactory = ForkJoinPool.defaultForkJoinWorkerThreadFactory.withPrefix(name)
 
     val threadPool = Sync[F].delay {
-      new ForkJoinPool(
-        parallelism,
-        threadFactory,
-        UncaughtExceptionHandler.default,
-        true)
+      new ForkJoinPool(parallelism, threadFactory, UncaughtExceptionHandler.default, true)
     }
 
     val result = for {
@@ -34,13 +29,12 @@ object ForkJoinPoolOf {
     Resource(result)
   }
 
-
   implicit class ForkJoinWorkerThreadFactoryOps(val self: ForkJoinWorkerThreadFactory) extends AnyVal {
 
     def withPrefix(prefix: String): ForkJoinWorkerThreadFactory = new ForkJoinWorkerThreadFactory {
 
       def newThread(pool: ForkJoinPool) = {
-        val thread = self.newThread(pool)
+        val thread   = self.newThread(pool)
         val threadId = thread.getId
         thread.setName(s"$prefix-$threadId")
         thread

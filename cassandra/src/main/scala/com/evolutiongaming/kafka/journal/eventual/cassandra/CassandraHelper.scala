@@ -1,38 +1,36 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Applicative
-import cats.data.{NonEmptyList => Nel}
-import cats.syntax.all._
-import com.datastax.driver.core.{Duration => DurationC, _}
-import com.evolutiongaming.kafka.journal.eventual.cassandra.util.FiniteDurationHelper._
+import cats.data.NonEmptyList as Nel
+import cats.syntax.all.*
+import com.datastax.driver.core.{Duration as DurationC, *}
+import com.evolutiongaming.kafka.journal.eventual.cassandra.util.FiniteDurationHelper.*
+import com.evolutiongaming.scassandra.syntax.*
 import com.evolutiongaming.scassandra.{DecodeByName, DecodeRow, EncodeByName, EncodeRow}
-import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.sstream.Stream
 
-import scala.jdk.CollectionConverters._
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
+import scala.jdk.CollectionConverters.*
 
 object CassandraHelper {
 
   implicit class StatementOps(val self: Statement) extends AnyVal {
 
-    def execute[F[_] : CassandraSession]: Stream[F, Row] = CassandraSession[F].execute(self)
+    def execute[F[_]: CassandraSession]: Stream[F, Row] = CassandraSession[F].execute(self)
 
-    def first[F[_] : CassandraSession : Applicative]: F[Option[Row]] = execute[F].first
+    def first[F[_]: CassandraSession: Applicative]: F[Option[Row]] = execute[F].first
   }
-
 
   implicit class QueryOps(val self: String) extends AnyVal {
 
-    def prepare[F[_] : CassandraSession]: F[PreparedStatement] = {
+    def prepare[F[_]: CassandraSession]: F[PreparedStatement] = {
       CassandraSession[F].prepare(self)
     }
 
-    def execute[F[_] : CassandraSession]: Stream[F, Row] = {
+    def execute[F[_]: CassandraSession]: Stream[F, Row] = {
       CassandraSession[F].execute(self)
     }
   }
-
 
   implicit class RowOps(val self: Row) extends AnyVal {
 
@@ -47,14 +45,12 @@ object CassandraHelper {
 
   }
 
-
   implicit class EncodeRowObjOps(val self: EncodeRow.type) extends AnyVal {
 
     def empty[A]: EncodeRow[A] = new EncodeRow[A] {
-      
+
       def apply[B <: SettableData[B]](data: B, value: A) = data
     }
-
 
     def noneAsUnset[A](implicit encode: EncodeRow[A]): EncodeRow[Option[A]] = new EncodeRow[Option[A]] {
 
@@ -64,12 +60,10 @@ object CassandraHelper {
     }
   }
 
-
   implicit class DecodeRowObjOps(val self: DecodeRow.type) extends AnyVal {
 
     def const[A](a: A): DecodeRow[A] = (_: GettableByNameData) => a
   }
-
 
   implicit val mapTextEncodeByName: EncodeByName[Map[String, String]] = {
     val text = classOf[String]
@@ -87,7 +81,6 @@ object CassandraHelper {
     }
   }
 
-
   implicit val nelIntEncodeByName: EncodeByName[Nel[Int]] = {
     val integer = classOf[Integer]
     new EncodeByName[Nel[Int]] {
@@ -97,7 +90,6 @@ object CassandraHelper {
       }
     }
   }
-
 
   implicit val finiteDurationEncodeByName: EncodeByName[FiniteDuration] = {
     EncodeByName[DurationC].contramap(finiteDurationToDuration)

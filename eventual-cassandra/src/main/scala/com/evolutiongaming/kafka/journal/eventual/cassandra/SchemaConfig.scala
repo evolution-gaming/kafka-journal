@@ -7,14 +7,14 @@ import pureconfig.generic.semiauto.deriveReader
 
 final case class SchemaConfig(
   keyspace: SchemaConfig.Keyspace = SchemaConfig.Keyspace.default,
-  journalTable: String = "journal",
-  metadataTable: String = "metadata",
-  metaJournalTable: String = "metajournal",
-  pointerTable: String = "pointer",
-  pointer2Table: String = "pointer2",
-  settingTable: String = "setting",
-  locksTable: String = "locks",
-  autoCreate: Boolean = true
+  journalTable: String            = "journal",
+  metadataTable: String           = "metadata",
+  metaJournalTable: String        = "metajournal",
+  pointerTable: String            = "pointer",
+  pointer2Table: String           = "pointer2",
+  settingTable: String            = "setting",
+  locksTable: String              = "locks",
+  autoCreate: Boolean             = true,
 )
 
 object SchemaConfig {
@@ -25,24 +25,23 @@ object SchemaConfig {
 
   @deprecated(since = "3.3.9", message = "Use [[KeyspaceConfig]] instead")
   final case class Keyspace(
-    name: String = "journal",
+    name: String                                   = "journal",
     replicationStrategy: ReplicationStrategyConfig = ReplicationStrategyConfig.Default,
-    autoCreate: Boolean = true) {
-    
+    autoCreate: Boolean                            = true,
+  ) {
+
     private[cassandra] def toKeyspaceConfig: KeyspaceConfig = KeyspaceConfig(
-      name = this.name,
+      name                = this.name,
       replicationStrategy = this.replicationStrategy,
-      autoCreate = this.autoCreate
+      autoCreate          = this.autoCreate,
     )
 
   }
-  
 
   @deprecated(since = "3.3.9", message = "Use [[KeyspaceConfig]] instead")
   object Keyspace {
 
     val default: Keyspace = Keyspace()
-
 
     implicit val configReaderKeyspace: ConfigReader[Keyspace] = deriveReader
   }

@@ -1,13 +1,12 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Applicative, Eq, Id, Order, Show}
-import com.evolutiongaming.scassandra.{DecodeByIdx, DecodeByName, DecodeRow, EncodeByIdx, EncodeByName, EncodeRow}
 import com.evolutiongaming.kafka.journal.util.Fail
-import com.evolutiongaming.kafka.journal.util.Fail.implicits._
+import com.evolutiongaming.kafka.journal.util.Fail.implicits.*
+import com.evolutiongaming.scassandra.*
 import pureconfig.error.{CannotParse, ConfigReaderFailures}
 import pureconfig.{ConfigCursor, ConfigReader}
-
 
 /** The size of a segment in Cassandra table.
   *
@@ -41,16 +40,13 @@ object SegmentSize {
 
   val default: SegmentSize = new SegmentSize(10000) {}
 
-
   implicit val eqSegmentSize: Eq[SegmentSize] = Eq.fromUniversalEquals
 
   implicit val showSegmentSize: Show[SegmentSize] = Show.fromToString
 
-
   implicit val orderingSegmentSize: Ordering[SegmentSize] = Ordering.by(_.value)
 
   implicit val orderSegmentSize: Order[SegmentSize] = Order.fromOrdering
-
 
   implicit val encodeByNameSegmentSize: EncodeByName[SegmentSize] = EncodeByName[Int].contramap((a: SegmentSize) => a.value)
 
@@ -58,21 +54,18 @@ object SegmentSize {
     SegmentSize.of[Option](a) getOrElse default
   }
 
-
   implicit val encodeByIdxSegmentSize: EncodeByIdx[SegmentSize] = EncodeByIdx[Int].contramap((a: SegmentSize) => a.value)
 
   implicit val decodeByIdxSegmentSize: DecodeByIdx[SegmentSize] = DecodeByIdx[Int].map { a =>
     SegmentSize.of[Option](a) getOrElse default
   }
 
-
   implicit val encodeRowSegmentSize: EncodeRow[SegmentSize] = EncodeRow[SegmentSize]("segment_size")
 
   implicit val decodeRowSegmentSize: DecodeRow[SegmentSize] = DecodeRow[SegmentSize]("segment_size")
 
-
-  implicit val configReaderSegmentSize: ConfigReader[SegmentSize] = {
-    (cursor: ConfigCursor) => {
+  implicit val configReaderSegmentSize: ConfigReader[SegmentSize] = { (cursor: ConfigCursor) =>
+    {
       for {
         value       <- cursor.asInt
         segmentSize  = of[Either[String, *]](value)
@@ -81,8 +74,7 @@ object SegmentSize {
     }
   }
 
-
-  def of[F[_] : Applicative : Fail](value: Int): F[SegmentSize] = {
+  def of[F[_]: Applicative: Fail](value: Int): F[SegmentSize] = {
     if (value < min.value) {
       s"invalid SegmentSize of $value, it must be greater or equal to $min".fail[F, SegmentSize]
     } else if (value > max.value) {
@@ -95,7 +87,6 @@ object SegmentSize {
       new SegmentSize(value) {}.pure[F]
     }
   }
-
 
   def unsafe[A](value: A)(implicit numeric: Numeric[A]): SegmentSize = of[Id](numeric.toInt(value))
 }

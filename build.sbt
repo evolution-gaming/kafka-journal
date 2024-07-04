@@ -1,4 +1,4 @@
-import Dependencies._
+import Dependencies.*
 
 lazy val commonSettings = Seq(
   organization := "com.evolutiongaming",
@@ -6,38 +6,40 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(url("https://evolution.com")),
   homepage := Some(url("https://github.com/evolution-gaming/kafka-journal")),
   startYear := Some(2018),
-
   crossScalaVersions := Seq("2.13.14"),
   scalaVersion := crossScalaVersions.value.head,
-  scalacOptions ++= Seq("-release:17", "-deprecation"), // TODO https://github.com/evolution-gaming/kafka-journal/issues/611
-  scalacOptsFailOnWarn := Some(false),
+  scalacOptions ++= Seq("-release:17", "-deprecation", "-Xsource:3"),
+  scalacOptsFailOnWarn := Some(false), // TODO MR remove this
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
   publishTo := Some(Resolver.evolutionReleases),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   releaseCrossBuild := true,
-
   Test / testOptions ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM")),
   libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full),
   libraryDependencySchemes ++= Seq(
     "org.scala-lang.modules" %% "scala-java8-compat" % "always",
     "org.scala-lang.modules" %% "scala-xml"          % "always",
-    "com.evolutiongaming"    %% "scassandra"         % "semver-spec"),
+    "com.evolutiongaming"    %% "scassandra"         % "semver-spec",
+  ),
   autoAPIMappings := true,
   versionScheme := Some("early-semver"),
-  versionPolicyIntention := Compatibility.BinaryCompatible)
+  versionPolicyIntention := Compatibility.BinaryCompatible,
+)
 
-val alias: Seq[sbt.Def.Setting[_]] =
-//  addCommandAlias("fmt", " all scalafmtAll scalafmtSbt; scalafixEnable; scalafixAll") ++
-//    addCommandAlias("check", "all versionPolicyCheck Compile/doc scalafmtCheckAll scalafmtSbtCheck; scalafixEnable; scalafixAll --check") ++
-    addCommandAlias("check", "all versionPolicyCheck Compile/doc") ++
+val alias: Seq[sbt.Def.Setting[?]] =
+  addCommandAlias("fmt", "all scalafmtAll scalafmtSbt; scalafixEnable; scalafixAll") ++
+    addCommandAlias(
+      "check",
+      "all versionPolicyCheck Compile/doc scalafmtCheckAll scalafmtSbtCheck; scalafixEnable; scalafixAll --check",
+    ) ++
     addCommandAlias("build", "all compile test")
 
 lazy val root = (project in file(".")
   settings (name := "kafka-journal")
   settings commonSettings
-  settings (publish / skip  := true)
+  settings (publish / skip := true)
   settings alias
-  aggregate(
+  aggregate (
     `scalatest-io`,
     core,
     journal,
@@ -49,18 +51,14 @@ lazy val root = (project in file(".")
     `eventual-cassandra`,
     `snapshot-cassandra`,
     `journal-circe`,
-    `persistence-circe`))
+    `persistence-circe`,
+  ))
 
 lazy val `scalatest-io` = (project in file("scalatest-io")
   settings (name := "kafka-journal-scalatest-io")
   settings commonSettings
-  settings (publish / skip  := true)
-  settings (libraryDependencies ++= Seq(
-    scalatest,
-    Smetrics.smetrics,
-    `cats-helper`,
-    Cats.core,
-    Cats.effect)))
+  settings (publish / skip := true)
+  settings (libraryDependencies ++= Seq(scalatest, Smetrics.smetrics, `cats-helper`, Cats.core, Cats.effect)))
 
 lazy val core = (project in file("core")
   settings (name := "kafka-journal-core")
@@ -80,7 +78,8 @@ lazy val core = (project in file("core")
     Cats.core,
     Cats.effect,
     Scodec.core,
-    Scodec.bits)))
+    Scodec.bits,
+  )))
 
 lazy val journal = (project in file("journal")
   settings (name := "kafka-journal")
@@ -96,17 +95,17 @@ lazy val journal = (project in file("journal")
       IO.copyDirectory((core / Compile / classDirectory).value, mimaCurrentClassfiles.value)
       IO.copyDirectory((Compile / classDirectory).value, mimaCurrentClassfiles.value)
       analysis
-    }
+    },
   )
   dependsOn (core % "test->test;compile->compile", `scalatest-io` % Test)
   settings (libraryDependencies ++= Seq(
     Akka.actor,
     Akka.stream,
     Akka.testkit % Test,
-    Akka.slf4j % Test,
+    Akka.slf4j   % Test,
     Kafka.`kafka-clients`,
     skafka,
-    scalatest % Test,
+    scalatest        % Test,
     `executor-tools` % Test,
     random,
     retry,
@@ -128,65 +127,58 @@ lazy val journal = (project in file("journal")
     Scodec.core,
     Scodec.bits,
     `resource-pool`,
-    Logback.core % Test,
-    Logback.classic % Test)))
+    Logback.core    % Test,
+    Logback.classic % Test,
+  )))
 
 lazy val snapshot = (project in file("snapshot")
   settings (name := "kafka-journal-snapshot")
   settings commonSettings
   // The following line should be removed once 3.3.9 is released.
   settings (versionPolicyCheck / skip := true)
-  dependsOn (core)
-  settings(libraryDependencies ++= Seq(scalatest % Test)))
+  dependsOn core
+  settings (libraryDependencies ++= Seq(scalatest % Test)))
 
 lazy val persistence = (project in file("persistence")
   settings (name := "kafka-journal-persistence")
   settings commonSettings
-  dependsOn (
-    journal % "test->test;compile->compile",
-    `eventual-cassandra`,
-    `snapshot-cassandra`)
+  dependsOn (journal % "test->test;compile->compile", `eventual-cassandra`, `snapshot-cassandra`)
   settings (libraryDependencies ++= Seq(
     `akka-serialization`,
     `cats-helper`,
     Akka.persistence,
-    `akka-test-actor` % Test)))
+    `akka-test-actor` % Test,
+  )))
 
 lazy val `tests` = (project in file("tests")
   settings (name := "kafka-journal-tests")
   settings commonSettings
   settings Seq(
-    publish / skip  := true,
+    publish / skip := true,
     Test / fork := true,
     Test / parallelExecution := false,
     Test / javaOptions ++= Seq("-Xms3G", "-Xmx3G"),
-    Test / envVars ++= Map("TESTCONTAINERS_RYUK_DISABLED" -> "true"))
-  dependsOn (
-    persistence % "test->test;compile->compile",
-    `persistence-circe`,
-    replicator)
+    Test / envVars ++= Map("TESTCONTAINERS_RYUK_DISABLED" -> "true"),
+  )
+  dependsOn (persistence % "test->test;compile->compile", `persistence-circe`, replicator)
   settings (libraryDependencies ++= Seq(
     `cats-helper`,
-    Kafka.kafka % Test,
-    `kafka-launcher` % Test,
+    Kafka.kafka                % Test,
+    `kafka-launcher`           % Test,
     `testcontainers-cassandra` % Test,
-    scalatest % Test,
-    Akka.`persistence-tck` % Test,
-    Slf4j.`log4j-over-slf4j` % Test,
-    Logback.core % Test,
-    Logback.classic % Test,
-    scalatest % Test)))
+    scalatest                  % Test,
+    Akka.`persistence-tck`     % Test,
+    Slf4j.`log4j-over-slf4j`   % Test,
+    Logback.core               % Test,
+    Logback.classic            % Test,
+    scalatest                  % Test,
+  )))
 
 lazy val replicator = (Project("replicator", file("replicator"))
   settings (name := "kafka-journal-replicator")
   settings commonSettings
-  dependsOn (
-    journal % "test->test;compile->compile",
-    `eventual-cassandra`)
-  settings (libraryDependencies ++= Seq(
-    `cats-helper`,
-    Logback.core % Test,
-    Logback.classic % Test)))
+  dependsOn (journal % "test->test;compile->compile", `eventual-cassandra`)
+  settings (libraryDependencies ++= Seq(`cats-helper`, Logback.core % Test, Logback.classic % Test)))
 
 lazy val cassandra = (project in file("cassandra")
   settings (name := "kafka-journal-cassandra")
@@ -210,7 +202,7 @@ lazy val `eventual-cassandra` = (project in file("eventual-cassandra")
       IO.copyDirectory((cassandra / Compile / classDirectory).value, mimaCurrentClassfiles.value)
       IO.copyDirectory((Compile / classDirectory).value, mimaCurrentClassfiles.value)
       analysis
-    }
+    },
   )
   dependsOn (cassandra % "test->test;compile->compile", journal % "test->test;compile->compile")
   settings (libraryDependencies ++= Seq(scassandra)))

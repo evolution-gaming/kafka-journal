@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.syntax.all._
+import cats.syntax.all.*
 
 /** Contains segments that query should be performed in.
   *

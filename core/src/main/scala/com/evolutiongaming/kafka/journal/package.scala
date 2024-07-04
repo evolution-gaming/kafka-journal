@@ -9,9 +9,7 @@ package object journal {
 
   type Tags = Set[Tag]
 
-
   type Headers = Map[String, String]
-
 
   type ConsRecord = ConsumerRecord[String, ByteVector]
 

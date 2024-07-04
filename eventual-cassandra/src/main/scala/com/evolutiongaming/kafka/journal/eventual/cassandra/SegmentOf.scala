@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Applicative, ~>}
 import com.evolutiongaming.kafka.journal.Key
 
@@ -30,14 +30,13 @@ object SegmentOf {
   def const[F[_]: Applicative](segmentNr: SegmentNr): SegmentOf[F] = (_: Key) => segmentNr.pure[F]
 
   /** Calculate [[SegmentNr]] value by key using a hashing alorithm */
-  def apply[F[_]: Applicative](segments: Segments): SegmentOf[F] = {
-    (key: Key) => {
-      val hashCode = key.id.toLowerCase.hashCode
+  def apply[F[_]: Applicative](segments: Segments): SegmentOf[F] = { (key: Key) =>
+    {
+      val hashCode  = key.id.toLowerCase.hashCode
       val segmentNr = SegmentNr(hashCode, segments)
       segmentNr.pure[F]
     }
   }
-
 
   implicit class SegmentOfOps[F[_]](val self: SegmentOf[F]) extends AnyVal {
 

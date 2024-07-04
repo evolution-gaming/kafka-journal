@@ -1,20 +1,20 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptySet => Nes}
-import cats.effect.syntax.all._
-import cats.effect._
-import cats.syntax.all._
+import cats.data.NonEmptySet as Nes
+import cats.effect.*
+import cats.effect.syntax.all.*
+import cats.syntax.all.*
 import cats.{Defer, Parallel}
+import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.catshelper.{FromTry, LogOf}
-import com.evolutiongaming.catshelper.ParallelHelper._
-import com.evolutiongaming.kafka.journal._
+import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.random.Random
-import com.evolutiongaming.retry.Retry.implicits._
+import com.evolutiongaming.retry.Retry.implicits.*
 import com.evolutiongaming.retry.{OnError, Sleep, Strategy}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, RebalanceListener}
 import com.evolutiongaming.skafka.{Partition, Topic, TopicPartition}
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 trait DistributeJob[F[_]] {
   import DistributeJob.Assigned
@@ -32,13 +32,10 @@ object DistributeJob {
     groupId: String,
     topic: Topic,
     consumerConfig: ConsumerConfig,
-    kafkaConsumerOf: KafkaConsumerOf[F]
+    kafkaConsumerOf: KafkaConsumerOf[F],
   ): Resource[F, DistributeJob[F]] = {
 
-    val consumerConfig1 = consumerConfig.copy(
-      autoCommit = true,
-      groupId = groupId.some,
-      autoOffsetReset = AutoOffsetReset.Latest)
+    val consumerConfig1 = consumerConfig.copy(autoCommit = true, groupId = groupId.some, autoOffsetReset = AutoOffsetReset.Latest)
 
     type Job = Map[Partition, Assigned] => Option[Resource[F, Unit]]
 
@@ -61,36 +58,36 @@ object DistributeJob {
     val unit = ().pure[F]
 
     for {
-      log <- LogOf[F].apply(DistributeJob.getClass).toResource
+      log    <- LogOf[F].apply(DistributeJob.getClass).toResource
       random <- Random.State.fromClock[F]().toResource
       strategy = Strategy
         .exponential(100.millis)
         .jitter(random)
         .limit(1.hour)
         .resetAfter(5.minutes)
-      onError = OnError.fromLog(log)
+      onError   = OnError.fromLog(log)
       deferred <- Deferred[F, Either[Throwable, Unit]].toResource
-      launched = (a: Either[Throwable, Unit]) => deferred
-        .complete(a)
-        .void
-        .handleError { _ => () }
+      launched = (a: Either[Throwable, Unit]) =>
+        deferred
+          .complete(a)
+          .void
+          .handleError { _ => () }
       release = (jobs: Map[String, (Job, Release)]) => {
         Defer[F].defer {
-          jobs.parFoldMap1 { case (name, (_, release)) =>
-            release.handleErrorWith { a => log.error(s"release failed, job: $name, error: $a", a) }
+          jobs.parFoldMap1 {
+            case (name, (_, release)) =>
+              release.handleErrorWith { a => log.error(s"release failed, job: $name, error: $a", a) }
           }
         }
       }
       ref <- Resource.make {
         Ref[F].of(S.empty)
       } { ref =>
-        ref
-          .modify {
-            case _: S.Idle   => (S.Released, unit)
-            case s: S.Active => (S.Released, release(s.jobs))
-            case S.Released  => (S.Released, unit)
-          }
-          .flatten
+        ref.modify {
+          case _: S.Idle   => (S.Released, unit)
+          case s: S.Active => (S.Released, release(s.jobs))
+          case S.Released  => (S.Released, unit)
+        }.flatten
       }
       modify = (f: S.Allocated => (S.Allocated, F[Unit])) => {
         ref
@@ -102,37 +99,43 @@ object DistributeJob {
           .uncancelable
       }
       resource = for {
-        consumer <- kafkaConsumerOf[String, Unit](consumerConfig1)
+        consumer      <- kafkaConsumerOf[String, Unit](consumerConfig1)
         partitionsAll <- consumer.partitions(topic).toResource
-        active = (deferred: Deferred[F, String => F[Unit]], jobs: Map[String, (Job, Release)], partitions: Map[Partition, Assigned]) => {
-          val jobs1 = jobs.map { case (name, (job, _)) =>
-            val release = deferred.get.flatMap { _.apply(name) }
-            (name, (job, release))
+        active = (
+          deferred: Deferred[F, String => F[Unit]],
+          jobs: Map[String, (Job, Release)],
+          partitions: Map[Partition, Assigned],
+        ) => {
+          val jobs1 = jobs.map {
+            case (name, (job, _)) =>
+              val release = deferred.get.flatMap { _.apply(name) }
+              (name, (job, release))
           }
           val effect = Defer[F].defer {
             for {
               releases <- jobs
                 .toList
-                .parTraverse { case (name, (job, release)) =>
-                  for {
-                    _ <- release.handleErrorWith { a => log.error(s"release failed, job: $name, error: $a", a) }
-                    a <- job(partitions) match {
-                      case Some(job) =>
-                        job
-                          .allocated
-                          .attempt
-                          .flatMap {
-                            case Right(((), release)) =>
-                              (name, release).pure[F]
-                            case Left(a)              =>
-                              log
-                                .error(s"allocate failed, job: $name, error: $a", a)
-                                .as((name, unit))
-                          }
-                      case None      =>
-                        (name, unit).pure[F]
-                    }
-                  } yield a
+                .parTraverse {
+                  case (name, (job, release)) =>
+                    for {
+                      _ <- release.handleErrorWith { a => log.error(s"release failed, job: $name, error: $a", a) }
+                      a <- job(partitions) match {
+                        case Some(job) =>
+                          job
+                            .allocated
+                            .attempt
+                            .flatMap {
+                              case Right(((), release)) =>
+                                (name, release).pure[F]
+                              case Left(a) =>
+                                log
+                                  .error(s"allocate failed, job: $name, error: $a", a)
+                                  .as((name, unit))
+                            }
+                        case None =>
+                          (name, unit).pure[F]
+                      }
+                    } yield a
                 }
               releases <- releases.toMap.pure[F]
               release   = (name: String) => releases.get(name).foldA
@@ -147,14 +150,12 @@ object DistributeJob {
             for {
               d <- Deferred[F, String => F[Unit]]
               a <- modify {
-                case s: S.Idle   =>
+                case s: S.Idle =>
                   val jobs = s.jobs.map { case (name, job) => (name, (job, unit)) }
-                  val partitions = partitionsAll
-                    .map { partition =>
-                      val assigned = partitionsAssigned.contains_(partition)
-                      (partition, assigned)
-                    }
-                    .toMap
+                  val partitions = partitionsAll.map { partition =>
+                    val assigned = partitionsAssigned.contains_(partition)
+                    (partition, assigned)
+                  }.toMap
                   active(d, jobs, partitions)
                 case s: S.Active =>
                   if (partitionsAssigned.forall { partition => s.partitions.getOrElse(partition, false) }) {
@@ -172,7 +173,7 @@ object DistributeJob {
             for {
               d <- Deferred[F, String => F[Unit]]
               a <- modify {
-                case s: S.Idle   => (s, unit)
+                case s: S.Idle => (s, unit)
                 case s: S.Active =>
                   if (partitionsRevoked.forall { partition => !s.partitions.getOrElse(partition, false) }) {
                     (s, unit)
@@ -182,8 +183,9 @@ object DistributeJob {
                       val effect = Defer[F].defer {
                         s
                           .jobs
-                          .parFoldMap1 { case (name, (_, release)) =>
-                            release.handleErrorWith { a => log.error(s"release failed, job: $name, error: $a", a) }
+                          .parFoldMap1 {
+                            case (name, (_, release)) =>
+                              release.handleErrorWith { a => log.error(s"release failed, job: $name, error: $a", a) }
                           }
                       }
                       val jobs = s.jobs.map { case (name, (job, _)) => (name, job) }
@@ -200,12 +202,12 @@ object DistributeJob {
             onPartitionsRevoked(topicPartitions)
           }
         }
-        _    <- consumer
+        _ <- consumer
           .subscribe(topic, listener.some)
           .toResource
-        poll  = consumer.poll(10.millis)
-        _    <- poll.toResource
-        _    <- launched(().asRight).toResource
+        poll = consumer.poll(10.millis)
+        _   <- poll.toResource
+        _   <- launched(().asRight).toResource
       } yield {
         poll.foreverM[Unit]
       }
@@ -230,7 +232,7 @@ object DistributeJob {
             for {
               d <- Deferred[F, F[Unit]]
               a <- modify {
-                case s: S.Idle   =>
+                case s: S.Idle =>
                   s.jobs.get(name) match {
                     case Some(_) => (s, DistributeJobError("duplicate job").raiseError[F, Unit])
                     case None    => (s.copy(jobs = s.jobs.updated(name, job)), unit)
@@ -239,7 +241,7 @@ object DistributeJob {
                   s.jobs.get(name) match {
                     case Some(_) =>
                       (s, DistributeJobError("duplicate job").raiseError[F, Unit])
-                    case None    =>
+                    case None =>
                       val (effect, release) = job(s.partitions) match {
                         case Some(job) =>
                           val effect = Defer[F].defer {
@@ -250,7 +252,7 @@ object DistributeJob {
                               a <- a match {
                                 case Right(((), a)) =>
                                   d.complete(a).void
-                                case Left(a)        =>
+                                case Left(a) =>
                                   for {
                                     _ <- d.complete(unit)
                                     _ <- ref.update {
@@ -273,11 +275,12 @@ object DistributeJob {
             } yield a
           } { _ =>
             modify {
-              case s: S.Idle   => (s.copy(jobs = s.jobs - name), unit)
-              case s: S.Active => s.jobs.get(name) match {
-                case Some((_, release)) => (s.copy(jobs = s.jobs - name), release)
-                case None               => (s, unit)
-              }
+              case s: S.Idle => (s.copy(jobs = s.jobs - name), unit)
+              case s: S.Active =>
+                s.jobs.get(name) match {
+                  case Some((_, release)) => (s.copy(jobs = s.jobs - name), release)
+                  case None               => (s, unit)
+                }
             }
           }
         }
@@ -296,15 +299,12 @@ object DistributeJob {
   }
 }
 
-
 final case class DistributeJobError(
   msg: String,
-  cause: Option[Throwable] = None
+  cause: Option[Throwable] = None,
 ) extends RuntimeException(msg, cause.orNull)
 
 object DistributeJobError {
 
   def apply(msg: String, cause: Throwable): DistributeJobError = DistributeJobError(msg, cause.some)
 }
-
-

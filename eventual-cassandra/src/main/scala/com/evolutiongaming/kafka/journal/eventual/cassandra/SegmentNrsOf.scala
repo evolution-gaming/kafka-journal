@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.{Applicative, ~>}
 import com.evolutiongaming.kafka.journal.Key
 
@@ -32,18 +31,15 @@ object SegmentNrsOf {
   def const[F[_]: Applicative](segmentNrs: SegmentNrs): SegmentNrsOf[F] = (_: Key) => segmentNrs.pure[F]
 
   /** Calculate both [[SegmentNrs]] values by a key using a hashing alorithm */
-  def apply[F[_]: Applicative](first: Segments, second: Segments): SegmentNrsOf[F] = {
-    key =>
-      val hashCode = key.id.toLowerCase.hashCode
-      val segmentNrs = SegmentNrs(
-        first = SegmentNr(hashCode, first),
-        second = SegmentNr(hashCode, second))
-      segmentNrs.pure[F]
+  def apply[F[_]: Applicative](first: Segments, second: Segments): SegmentNrsOf[F] = { key =>
+    val hashCode   = key.id.toLowerCase.hashCode
+    val segmentNrs = SegmentNrs(first = SegmentNr(hashCode, first), second = SegmentNr(hashCode, second))
+    segmentNrs.pure[F]
   }
 
   /** Calculate [[SegmentNrs#first]] value only and ignore [[SegmentNrs#second]] */
-  def apply[F[_]: Applicative](segmentOf: SegmentOf[F]): SegmentNrsOf[F] = {
-    key => segmentOf(key).map { segmentNr => SegmentNrs(segmentNr) }
+  def apply[F[_]: Applicative](segmentOf: SegmentOf[F]): SegmentNrsOf[F] = { key =>
+    segmentOf(key).map { segmentNr => SegmentNrs(segmentNr) }
   }
 
   implicit class SegmentNrsOfOps[F[_]](val self: SegmentNrsOf[F]) extends AnyVal {

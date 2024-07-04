@@ -1,25 +1,25 @@
 package com.evolutiongaming.kafka.journal.cassandra
 
 import cats.effect.IO
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.Log
-import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.IOSuite.*
 import org.scalatest.funsuite.AsyncFunSuite
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.control.NoStackTrace
 
 class CassandraHealthCheckSpec extends AsyncFunSuite {
 
   test("CassandraHealthCheck#of(statement)") {
-    
+
     val expectedError = new RuntimeException with NoStackTrace
 
     val healthCheck = CassandraHealthCheck.of[IO](
-      initial = 0.seconds,
-      interval = 1.second,
+      initial   = 0.seconds,
+      interval  = 1.second,
       statement = expectedError.raiseError[IO, Unit].pure[IO].toResource,
-      log = Log.empty[IO]
+      log       = Log.empty[IO],
     )
 
     val actualError = healthCheck.use(_.error.untilDefinedM)

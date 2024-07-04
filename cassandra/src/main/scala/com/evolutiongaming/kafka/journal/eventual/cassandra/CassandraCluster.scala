@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.Parallel
 import cats.effect.Resource
 import cats.effect.kernel.Async
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.scassandra
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.scassandra.{CassandraClusterOf, CassandraConfig}
@@ -21,7 +21,7 @@ object CassandraCluster {
 
   def apply[F[_]: Async: Parallel: FromGFuture](
     cluster: scassandra.CassandraCluster[F],
-    retries: Int
+    retries: Int,
   ): CassandraCluster[F] = new CassandraCluster[F] {
 
     def session = {

@@ -1,17 +1,16 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.effect._
-import cats.implicits._
+import cats.effect.*
+import cats.implicits.*
 import cats.{Applicative, Monad}
-import com.evolutiongaming.skafka.{Bytes => _, _}
-import com.evolutiongaming.smetrics.MetricsHelper._
-import com.evolutiongaming.smetrics._
+import com.evolutiongaming.skafka.{Bytes as _, *}
+import com.evolutiongaming.smetrics.*
+import com.evolutiongaming.smetrics.MetricsHelper.*
 
-import scala.concurrent.duration._
-
+import scala.concurrent.duration.*
 
 trait TopicReplicatorMetrics[F[_]] {
-  import TopicReplicatorMetrics._
+  import TopicReplicatorMetrics.*
 
   def append(events: Int, bytes: Long, measurements: Measurements): F[Unit]
 
@@ -26,7 +25,7 @@ object TopicReplicatorMetrics {
 
   def apply[F[_]](implicit F: TopicReplicatorMetrics[F]): TopicReplicatorMetrics[F] = F
 
-  def empty[F[_] : Applicative]: TopicReplicatorMetrics[F] = const(Applicative[F].unit)
+  def empty[F[_]: Applicative]: TopicReplicatorMetrics[F] = const(Applicative[F].unit)
 
   def const[F[_]](unit: F[Unit]): TopicReplicatorMetrics[F] = {
     class Const
@@ -42,53 +41,59 @@ object TopicReplicatorMetrics {
     }
   }
 
-
-  def of[F[_] : Monad](
+  def of[F[_]: Monad](
     registry: CollectorRegistry[F],
-    prefix: String = "replicator"
+    prefix: String = "replicator",
   ): Resource[F, Topic => TopicReplicatorMetrics[F]] = {
 
     val replicationSummary = registry.summary(
-      name      = s"${ prefix }_replication_latency",
+      name      = s"${prefix}_replication_latency",
       help      = "Replication latency in seconds",
       quantiles = Quantiles.Default,
-      labels    = LabelNames("topic", "type"))
+      labels    = LabelNames("topic", "type"),
+    )
 
     val deliverySummary = registry.summary(
-      name      = s"${ prefix }_delivery_latency",
+      name      = s"${prefix}_delivery_latency",
       help      = "Delivery latency in seconds",
       quantiles = Quantiles.Default,
-      labels    = LabelNames("topic", "type"))
+      labels    = LabelNames("topic", "type"),
+    )
 
     val eventsSummary = registry.summary(
-      name      = s"${ prefix }_events",
+      name      = s"${prefix}_events",
       help      = "Number of events replicated",
       quantiles = Quantiles.Empty,
-      labels    = LabelNames("topic"))
+      labels    = LabelNames("topic"),
+    )
 
     val bytesSummary = registry.summary(
-      name      = s"${ prefix }_bytes",
+      name      = s"${prefix}_bytes",
       help      = "Number of bytes replicated",
       quantiles = Quantiles.Empty,
-      labels    = LabelNames("topic"))
+      labels    = LabelNames("topic"),
+    )
 
     val recordsSummary = registry.summary(
-      name      = s"${ prefix }_records",
+      name      = s"${prefix}_records",
       help      = "Number of kafka records processed",
       quantiles = Quantiles.Empty,
-      labels    = LabelNames("topic"))
+      labels    = LabelNames("topic"),
+    )
 
     val roundSummary = registry.summary(
-      name      = s"${ prefix }_round_duration",
+      name      = s"${prefix}_round_duration",
       help      = "Replication round duration",
       quantiles = Quantiles.Default,
-      labels    = LabelNames("topic"))
+      labels    = LabelNames("topic"),
+    )
 
     val roundRecordsSummary = registry.summary(
-      name      = s"${ prefix }_round_records",
+      name      = s"${prefix}_round_records",
       help      = "Number of kafka records processed in round",
       quantiles = Quantiles.Empty,
-      labels    = LabelNames("topic"))
+      labels    = LabelNames("topic"),
+    )
 
     for {
       replicationSummary  <- replicationSummary
@@ -98,9 +103,8 @@ object TopicReplicatorMetrics {
       recordsSummary      <- recordsSummary
       roundSummary        <- roundSummary
       roundRecordsSummary <- roundRecordsSummary
-    } yield {
-
-      (topic: Topic) => {
+    } yield { (topic: Topic) =>
+      {
 
         def observeMeasurements(name: String, measurements: Measurements) = {
           for {
@@ -140,9 +144,5 @@ object TopicReplicatorMetrics {
     }
   }
 
-
-  final case class Measurements(
-    replicationLatency: FiniteDuration,
-    deliveryLatency: FiniteDuration,
-    records: Int)
+  final case class Measurements(replicationLatency: FiniteDuration, deliveryLatency: FiniteDuration, records: Int)
 }

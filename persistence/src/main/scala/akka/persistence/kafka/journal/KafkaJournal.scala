@@ -3,22 +3,22 @@ package akka.persistence.kafka.journal
 import akka.actor.ActorSystem
 import akka.persistence.journal.AsyncWriteJournal
 import akka.persistence.{AtomicWrite, PersistentRepr}
-import cats.effect._
+import cats.effect.*
 import cats.effect.unsafe.{IORuntime, IORuntimeConfig}
-import cats.syntax.all._
-import com.evolutiongaming.catshelper.CatsHelper._
-import com.evolutiongaming.catshelper._
-import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.util.CatsHelper._
-import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
-import com.evolutiongaming.retry.Retry.implicits._
+import cats.syntax.all.*
+import com.evolutiongaming.catshelper.*
+import com.evolutiongaming.catshelper.CatsHelper.*
+import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.util.CatsHelper.*
+import com.evolutiongaming.kafka.journal.util.PureConfigHelper.*
+import com.evolutiongaming.retry.Retry.implicits.*
 import com.evolutiongaming.retry.{OnError, Strategy}
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.typesafe.config.Config
 import pureconfig.ConfigSource
 
 import scala.collection.immutable.Seq
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.util.Try
 
@@ -64,25 +64,25 @@ import scala.util.Try
   */
 class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
 
-  implicit val system       : ActorSystem              = context.system
-  implicit val executor     : ExecutionContextExecutor = context.dispatcher
+  implicit val system: ActorSystem                = context.system
+  implicit val executor: ExecutionContextExecutor = context.dispatcher
 
   private val (blocking, blockingShutdown)   = IORuntime.createDefaultBlockingExecutionContext("kafka-journal-blocking")
   private val (scheduler, schedulerShutdown) = IORuntime.createDefaultScheduler("kafka-journal-scheduler")
   implicit val ioRuntime: IORuntime = IORuntime(
-    compute = executor,
-    blocking = blocking,
+    compute   = executor,
+    blocking  = blocking,
     scheduler = scheduler,
     shutdown = () => {
       blockingShutdown()
       schedulerShutdown()
     },
-    config = IORuntimeConfig()
+    config = IORuntimeConfig(),
   )
-  implicit val toFuture     : ToFuture[IO]             = ToFuture.ioToFuture
-  implicit val fromFuture   : FromFuture[IO]           = FromFuture.lift[IO]
-  implicit val fromAttempt  : FromAttempt[IO]          = FromAttempt.lift[IO]
-  implicit val fromJsResult : FromJsResult[IO]         = FromJsResult.lift[IO]
+  implicit val toFuture: ToFuture[IO]         = ToFuture.ioToFuture
+  implicit val fromFuture: FromFuture[IO]     = FromFuture.lift[IO]
+  implicit val fromAttempt: FromAttempt[IO]   = FromAttempt.lift[IO]
+  implicit val fromJsResult: FromJsResult[IO] = FromJsResult.lift[IO]
 
   val adapter: Future[(JournalAdapter[Future], IO[Unit])] = {
     adapterIO
@@ -135,14 +135,15 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     for {
       jsonCodec <- jsonCodec(config)
     } yield {
-      implicit val jsonCodec1 = jsonCodec
+      implicit val jsonCodec1   = jsonCodec
       implicit val jsonCodecTry = jsonCodec.mapK(ToTry.functionK)
       JournalReadWrite.of[IO, Payload]
     }
   }
 
   def metrics: Resource[IO, JournalAdapter.Metrics[IO]] = {
-    JournalAdapter.Metrics
+    JournalAdapter
+      .Metrics
       .empty[IO]
       .pure[Resource[IO, *]]
   }
@@ -185,7 +186,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
 
   def adapterIO[A](
     serializer: EventSerializer[IO, A],
-    journalReadWrite: JournalReadWrite[IO, A]
+    journalReadWrite: JournalReadWrite[IO, A],
   ): Resource[IO, JournalAdapter[IO]] = {
     for {
       config  <- kafkaJournalConfig.toResource
@@ -196,12 +197,12 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
   def adapterIO[A](
     config: KafkaJournalConfig,
     serializer: EventSerializer[IO, A],
-    journalReadWrite: JournalReadWrite[IO, A]
+    journalReadWrite: JournalReadWrite[IO, A],
   ): Resource[IO, JournalAdapter[IO]] = {
     for {
-      logOf   <- logOf
-      log     <- logOf(classOf[KafkaJournal]).toResource
-      _       <- log.debug(s"config: $config").toResource
+      logOf <- logOf
+      log   <- logOf(classOf[KafkaJournal]).toResource
+      _     <- log.debug(s"config: $config").toResource
       adapter <- Resource {
         val adapter = for {
           randomId           <- randomIdOf
@@ -213,7 +214,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
           batching           <- batching(config)
           cassandraClusterOf <- cassandraClusterOf
           jsonCodec          <- jsonCodec(config).toResource
-          adapter            <- adapterOf(
+          adapter <- adapterOf(
             toKey              = toKey,
             origin             = origin,
             serializer         = serializer,
@@ -223,23 +224,20 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
             appendMetadataOf   = appendMetadataOf,
             batching           = batching,
             log                = log,
-            cassandraClusterOf = cassandraClusterOf)(
-            logOf              = logOf,
-            randomIdOf         = randomId,
-            measureDuration    = measureDuration,
-            jsonCodec          = jsonCodec)
+            cassandraClusterOf = cassandraClusterOf,
+          )(logOf = logOf, randomIdOf = randomId, measureDuration = measureDuration, jsonCodec = jsonCodec)
         } yield adapter
         val strategy = Strategy
           .fibonacci(100.millis)
           .cap(config.startTimeout)
-        val onError: OnError[IO, Throwable] = {
-          (error, status, decision) => {
+        val onError: OnError[IO, Throwable] = { (error, status, decision) =>
+          {
             decision match {
               case OnError.Decision.Retry(delay) =>
                 log.warn(s"allocate failed, retrying in $delay, error: $error")
 
               case OnError.Decision.GiveUp =>
-                val retries = status.retries
+                val retries  = status.retries
                 val duration = status.delay
                 log.error(s"allocate failed after $retries retries within $duration: $error", error)
             }
@@ -249,11 +247,12 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
           .allocated
           .retry(strategy, onError)
           .timeout(config.startTimeout)
-          .map { case (adapter, release0) =>
-            val release = release0
-              .timeout(config.startTimeout)
-              .handleErrorWith { error => log.error(s"release failed with $error", error) }
-            (adapter, release)
+          .map {
+            case (adapter, release0) =>
+              val release = release0
+                .timeout(config.startTimeout)
+                .handleErrorWith { error => log.error(s"release failed with $error", error) }
+              (adapter, release)
           }
       }
     } yield adapter
@@ -269,24 +268,26 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     appendMetadataOf: AppendMetadataOf[IO],
     batching: Batching[IO],
     log: Log[IO],
-    cassandraClusterOf: CassandraClusterOf[IO])(implicit
-    logOf: LogOf[IO],
+    cassandraClusterOf: CassandraClusterOf[IO],
+  )(
+    implicit logOf: LogOf[IO],
     randomIdOf: RandomIdOf[IO],
     measureDuration: MeasureDuration[IO],
-    jsonCodec: JsonCodec[IO]
+    jsonCodec: JsonCodec[IO],
   ): Resource[IO, JournalAdapter[IO]] = {
 
     JournalAdapter.of[IO, A](
-      toKey = toKey,
-      origin = origin,
-      serializer = serializer,
-      journalReadWrite = journalReadWrite,
-      config = config,
-      metrics = metrics,
-      log = log,
-      batching = batching,
-      appendMetadataOf = appendMetadataOf,
-      cassandraClusterOf = cassandraClusterOf)
+      toKey              = toKey,
+      origin             = origin,
+      serializer         = serializer,
+      journalReadWrite   = journalReadWrite,
+      config             = config,
+      metrics            = metrics,
+      log                = log,
+      batching           = batching,
+      appendMetadataOf   = appendMetadataOf,
+      cassandraClusterOf = cassandraClusterOf,
+    )
   }
 
   override def postStop(): Unit = {
@@ -306,12 +307,8 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     }
   }
 
-  def asyncReplayMessages(
-    persistenceId: PersistenceId,
-    from: Long,
-    to: Long,
-    max: Long)(
-    f: PersistentRepr => Unit
+  def asyncReplayMessages(persistenceId: PersistenceId, from: Long, to: Long, max: Long)(
+    f: PersistentRepr => Unit,
   ): Future[Unit] = {
     val seqNrFrom = SeqNr
       .of[Option](from)
@@ -320,7 +317,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
       .of[Option](to)
       .getOrElse(SeqNr.max)
     val range = SeqRange(seqNrFrom, seqNrTo)
-    val f1 = (a: PersistentRepr) => Future.fromTry(Try { f(a) })
+    val f1    = (a: PersistentRepr) => Future.fromTry(Try { f(a) })
     adapter.flatMap { case (adapter, _) => adapter.replay(persistenceId, range, max)(f1) }
   }
 

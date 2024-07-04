@@ -1,9 +1,9 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.datastax.driver.core.{GettableByNameData, SettableData}
 import com.evolutiongaming.kafka.journal.{DeleteTo, PartitionOffset, SeqNr}
-import com.evolutiongaming.scassandra.syntax._
+import com.evolutiongaming.scassandra.syntax.*
 import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow}
 
 /** Represents metadata of particular journal.
@@ -21,19 +21,22 @@ final case class JournalHead(
   segmentSize: SegmentSize,
   seqNr: SeqNr,
   deleteTo: Option[DeleteTo] = none,
-  expiry: Option[Expiry] = none)
+  expiry: Option[Expiry]     = none,
+)
 
 object JournalHead {
 
   implicit def decodeRowJournalHead(implicit decode: DecodeRow[Option[Expiry]]): DecodeRow[JournalHead] = {
-    (row: GettableByNameData) => {
-      JournalHead(
-        partitionOffset = row.decode[PartitionOffset],
-        segmentSize = row.decode[SegmentSize],
-        seqNr = row.decode[SeqNr],
-        deleteTo = row.decode[Option[DeleteTo]]("delete_to"),
-        expiry = row.decode[Option[Expiry]])
-    }
+    (row: GettableByNameData) =>
+      {
+        JournalHead(
+          partitionOffset = row.decode[PartitionOffset],
+          segmentSize     = row.decode[SegmentSize],
+          seqNr           = row.decode[SeqNr],
+          deleteTo        = row.decode[Option[DeleteTo]]("delete_to"),
+          expiry          = row.decode[Option[Expiry]],
+        )
+      }
   }
 
   implicit def encodeRowJournalHead(implicit encode: EncodeRow[Option[Expiry]]): EncodeRow[JournalHead] = {

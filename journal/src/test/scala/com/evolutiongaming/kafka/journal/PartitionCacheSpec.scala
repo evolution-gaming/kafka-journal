@@ -1,28 +1,27 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.data.{NonEmptyList => Nel}
+import cats.data.NonEmptyList as Nel
 import cats.effect.IO
-import cats.syntax.all._
-import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
-import com.evolutiongaming.kafka.journal.IOSuite._
-import com.evolutiongaming.kafka.journal.PartitionCache._
+import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.IOSuite.*
+import com.evolutiongaming.kafka.journal.PartitionCache.*
+import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
 import com.evolutiongaming.skafka.Offset
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import java.time.Instant
 import scala.concurrent.TimeoutException
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.Try
 
-
 class PartitionCacheSpec extends AsyncFunSuite with Matchers {
-  import PartitionCacheSpec._
+  import PartitionCacheSpec.*
 
   private def partitionCacheOf(
-    maxSize: Int = 10,
-    dropUponLimit: Double = 0.1,
-    timeout: FiniteDuration = 1.minute
+    maxSize: Int            = 10,
+    dropUponLimit: Double   = 0.1,
+    timeout: FiniteDuration = 1.minute,
   ) = {
     PartitionCache.of[IO](maxSize, dropUponLimit, timeout)
   }
@@ -50,7 +49,6 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
       }
       .run()
   }
-
 
   test("get Result.ahead when offset is greater than request") {
     partitionCacheOf()
@@ -122,10 +120,7 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
   test("get HeadInfo.delete") {
     partitionCacheOf()
       .use { cache =>
-        val actionHeader = ActionHeader.Delete(
-          to = DeleteTo(seqNr0),
-          origin = none,
-          version = none)
+        val actionHeader = ActionHeader.Delete(to = DeleteTo(seqNr0), origin = none, version = none)
         for {
           a <- cache.add(Record(id0, offset0, actionHeader))
           _ <- IO { a shouldEqual none }
@@ -487,11 +482,13 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
         for {
           a <- cache.get(id0, offset0)
           a <- a.matchOrError { case a: Result.Later.Empty[IO] => a.value }
-          d <- cache.add(Nel.of(
-            Record(id0, offset0, actionHeaderOf(seqNr0)),
-            Record(id1, offset1, actionHeaderOf(seqNr0)),
-            Record(id2, offset2, actionHeaderOf(seqNr0))
-          ))
+          d <- cache.add(
+            Nel.of(
+              Record(id0, offset0, actionHeaderOf(seqNr0)),
+              Record(id1, offset1, actionHeaderOf(seqNr0)),
+              Record(id2, offset2, actionHeaderOf(seqNr0)),
+            ),
+          )
           _ <- IO { d shouldEqual none }
           a <- a
           _ <- IO { a shouldEqual Result.value(HeadInfo.append(offset0, seqNr0, none)) }
@@ -510,12 +507,14 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
     partitionCacheOf(maxSize = 2, dropUponLimit = 0.4)
       .use { cache =>
         for {
-          a <- cache.add(Nel.of(
-            Record(id0, offset0, actionHeaderOf(seqNr0)),
-            Record(id1, offset1, actionHeaderOf(seqNr0)),
-            Record(id0, offset2, actionHeaderOf(seqNr1)),
-            Record(id2, offset3, actionHeaderOf(seqNr0)),
-          ))
+          a <- cache.add(
+            Nel.of(
+              Record(id0, offset0, actionHeaderOf(seqNr0)),
+              Record(id1, offset1, actionHeaderOf(seqNr0)),
+              Record(id0, offset2, actionHeaderOf(seqNr1)),
+              Record(id2, offset3, actionHeaderOf(seqNr0)),
+            ),
+          )
           _ <- IO { a shouldEqual none }
           a <- cache.get(id0, offset0)
           _ <- IO { a shouldEqual Result.value(HeadInfo.append(offset0, seqNr1, none)) }
@@ -532,11 +531,13 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
     partitionCacheOf(maxSize = 2, dropUponLimit = 0.5)
       .use { cache =>
         for {
-          a <- cache.add(Nel.of(
-            Record(id0, offset0, actionHeader),
-            Record(id1, offset1, actionHeader),
-            Record(id2, offset2, actionHeader)
-          ))
+          a <- cache.add(
+            Nel.of(
+              Record(id0, offset0, actionHeader),
+              Record(id1, offset1, actionHeader),
+              Record(id2, offset2, actionHeader),
+            ),
+          )
           _ <- IO { a shouldEqual none }
           a <- cache.get(id0, offset0)
           _ <- IO { a shouldEqual Result.value(HeadInfo.empty) }
@@ -612,14 +613,14 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
           .map { result => (cache, result) }
       }
       (cache, a) = value
-      a     <- a.toNow.attempt
-      _     <- IO { a shouldEqual ReleasedError.asLeft }
-      a     <- cache.get(id0, offset0).attempt
-      _     <- IO { a shouldEqual ReleasedError.asLeft }
-      a     <- cache.add(Record(id0, offset0, actionHeader)).attempt
-      _     <- IO { a shouldEqual ReleasedError.asLeft }
-      a     <- cache.remove(offset0).attempt
-      _     <- IO { a shouldEqual ReleasedError.asLeft }
+      a         <- a.toNow.attempt
+      _         <- IO { a shouldEqual ReleasedError.asLeft }
+      a         <- cache.get(id0, offset0).attempt
+      _         <- IO { a shouldEqual ReleasedError.asLeft }
+      a         <- cache.add(Record(id0, offset0, actionHeader)).attempt
+      _         <- IO { a shouldEqual ReleasedError.asLeft }
+      a         <- cache.remove(offset0).attempt
+      _         <- IO { a shouldEqual ReleasedError.asLeft }
     } yield {}
     result.run()
   }
@@ -627,25 +628,26 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
 
 object PartitionCacheSpec {
   val timestamp: Instant = Instant.now()
-  val offset0: Offset = Offset.min
-  val offset1: Offset = offset0.inc[Try].get
-  val offset2: Offset = offset1.inc[Try].get
-  val offset3: Offset = offset2.inc[Try].get
-  val id0: String = "id0"
-  val id1: String = "id1"
-  val id2: String = "id2"
-  val seqNr0: SeqNr = SeqNr.min
-  val seqNr1: SeqNr = seqNr0.next[Try].get
+  val offset0: Offset    = Offset.min
+  val offset1: Offset    = offset0.inc[Try].get
+  val offset2: Offset    = offset1.inc[Try].get
+  val offset3: Offset    = offset2.inc[Try].get
+  val id0: String        = "id0"
+  val id1: String        = "id1"
+  val id2: String        = "id2"
+  val seqNr0: SeqNr      = SeqNr.min
+  val seqNr1: SeqNr      = seqNr0.next[Try].get
 
   val actionHeader: ActionHeader = ActionHeader.Mark("mark", none, none)
 
   def actionHeaderOf(seqNr: SeqNr): ActionHeader.Append = {
     ActionHeader.Append(
-      range = SeqRange(seqNr),
-      origin = none,
+      range       = SeqRange(seqNr),
+      origin      = none,
       payloadType = PayloadType.Binary,
-      metadata = HeaderMetadata.empty,
-      version = none)
+      metadata    = HeaderMetadata.empty,
+      version     = none,
+    )
   }
 
   private implicit class Ops[A](val self: A) extends AnyVal {
@@ -653,7 +655,7 @@ object PartitionCacheSpec {
       pf.lift(self) match {
         case Some(a) =>
           a.pure[IO]
-        case None    =>
+        case None =>
           new MatchError(self).raiseError[IO, B]
       }
     }

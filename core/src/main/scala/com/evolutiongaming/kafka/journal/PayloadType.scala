@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
-import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
+import com.evolutiongaming.kafka.journal.util.PlayJsonHelper.*
 import com.evolutiongaming.scassandra.{DecodeByName, EncodeByName}
-import play.api.libs.json._
+import play.api.libs.json.*
 
 sealed abstract class PayloadType extends Product {
   def ext: String
@@ -15,13 +15,11 @@ object PayloadType {
 
   private val byName = values.map(value => (value.name, value)).toMap
 
-
   implicit val encodeByNamePayloadType: EncodeByName[PayloadType] = EncodeByName[String].contramap { _.name }
 
   implicit val decodeByNamePayloadType: DecodeByName[PayloadType] = DecodeByName[String].map { name =>
     apply(name) getOrElse Binary
   }
-
 
   implicit val formatPayloadType: Format[PayloadType] = {
     val writes = Writes
@@ -39,16 +37,13 @@ object PayloadType {
     Format(reads, writes)
   }
 
-
   def apply(name: String): Option[PayloadType] = byName.get(name)
-
 
   def binary: PayloadType = Binary
 
   def text: PayloadType = Text
 
   def json: PayloadType = Json
-
 
   sealed abstract class BinaryOrJson extends PayloadType
 
@@ -68,7 +63,6 @@ object PayloadType {
     }
   }
 
-
   sealed trait TextOrJson extends PayloadType
 
   object TextOrJson {
@@ -87,19 +81,18 @@ object PayloadType {
     }
   }
 
-
   case object Binary extends BinaryOrJson {
     def name = "binary"
-    def ext = "bin"
+    def ext  = "bin"
   }
 
   case object Text extends TextOrJson {
     def name = "text"
-    def ext = "txt"
+    def ext  = "txt"
   }
 
   case object Json extends BinaryOrJson with TextOrJson {
     def name = "json"
-    def ext = "json"
+    def ext  = "json"
   }
 }

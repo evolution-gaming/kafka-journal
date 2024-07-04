@@ -1,9 +1,8 @@
 package com.evolutiongaming.kafka.journal.util
 
-import cats.effect._
-import cats.effect.Ref
-import cats.effect.implicits._
-import cats.syntax.all._
+import cats.effect.implicits.*
+import cats.effect.{Ref, *}
+import cats.syntax.all.*
 
 trait ResourceRegistry[F[_]] {
 
@@ -28,20 +27,24 @@ object ResourceRegistry {
       }
   }
 
-  def apply[F[_] : Concurrent](releases: Ref[F, List[F[Unit]]]): ResourceRegistry[F] = {
+  def apply[F[_]: Concurrent](releases: Ref[F, List[F[Unit]]]): ResourceRegistry[F] = {
     new ResourceRegistry[F] {
       def allocate[B](resource: Resource[F, B]) = {
-        resource.allocated.bracketCase { case (b, release) =>
-          for {
-            _ <- releases.update(release :: _)
-          } yield b
-        } { case ((_, release), exitCase) =>
-          exitCase match {
-            case Outcome.Succeeded(_) => ().pure[F]
-            case Outcome.Errored(_)   => release
-            case Outcome.Canceled()   => release
+        resource
+          .allocated
+          .bracketCase {
+            case (b, release) =>
+              for {
+                _ <- releases.update(release :: _)
+              } yield b
+          } {
+            case ((_, release), exitCase) =>
+              exitCase match {
+                case Outcome.Succeeded(_) => ().pure[F]
+                case Outcome.Errored(_)   => release
+                case Outcome.Canceled()   => release
+              }
           }
-        }
       }
     }
   }

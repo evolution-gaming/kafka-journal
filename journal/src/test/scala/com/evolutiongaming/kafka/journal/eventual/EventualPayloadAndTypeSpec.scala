@@ -1,12 +1,11 @@
 package com.evolutiongaming.kafka.journal.eventual
 
-
-import cats.syntax.all._
-import com.evolutiongaming.kafka.journal._
+import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.*
 import org.scalatest.EitherValues
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
-import play.api.libs.json.{Json => PlayJson}
+import play.api.libs.json.Json as PlayJson
 import scodec.bits.ByteVector
 
 import scala.util.Try
@@ -16,19 +15,19 @@ class EventualPayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherVa
   implicit val jsonCodec: JsonCodec[Try] = JsonCodec.default[Try]
 
   private val eventualWrite = EventualWrite.summon[Try, Payload]
-  private val eventualRead = EventualRead.summon[Try, Payload]
+  private val eventualRead  = EventualRead.summon[Try, Payload]
 
   for {
     (name, payload) <- List(
       ("text", Payload.text("text")),
       ("binary", PayloadBinaryFromStr("binary")),
-      ("json", Payload.json("json"))
+      ("json", Payload.json("json")),
     )
   } {
     test(s"toEventual & fromEventual, payload: $name") {
       val actual = for {
         payloadAndType <- eventualWrite(payload)
-        actual <- eventualRead(payloadAndType)
+        actual         <- eventualRead(payloadAndType)
       } yield actual
 
       actual shouldBe payload.pure[Try]

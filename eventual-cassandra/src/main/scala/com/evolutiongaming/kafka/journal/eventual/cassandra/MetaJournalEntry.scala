@@ -1,28 +1,26 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import java.time.Instant
-
 import com.datastax.driver.core.{GettableByNameData, SettableData}
 import com.evolutiongaming.kafka.journal.Origin
-import com.evolutiongaming.scassandra.syntax._
+import com.evolutiongaming.scassandra.syntax.*
 import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow}
 
-final case class MetaJournalEntry(
-  journalHead: JournalHead,
-  created: Instant,
-  updated: Instant,
-  origin: Option[Origin])
+import java.time.Instant
+
+final case class MetaJournalEntry(journalHead: JournalHead, created: Instant, updated: Instant, origin: Option[Origin])
 
 object MetaJournalEntry {
 
   implicit def decodeRowMetaJournalEntry(implicit decode: DecodeRow[JournalHead]): DecodeRow[MetaJournalEntry] = {
-    (row: GettableByNameData) => {
-      MetaJournalEntry(
-        journalHead = row.decode[JournalHead],
-        created = row.decode[Instant]("created"),
-        updated = row.decode[Instant]("updated"),
-        origin = row.decode[Option[Origin]])
-    }
+    (row: GettableByNameData) =>
+      {
+        MetaJournalEntry(
+          journalHead = row.decode[JournalHead],
+          created     = row.decode[Instant]("created"),
+          updated     = row.decode[Instant]("updated"),
+          origin      = row.decode[Option[Origin]],
+        )
+      }
   }
 
   implicit def encodeRowMetaJournalEntry(implicit encode: EncodeRow[JournalHead]): EncodeRow[MetaJournalEntry] = {

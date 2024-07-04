@@ -6,7 +6,7 @@ import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraCon
 import pureconfig.generic.semiauto.{deriveEnumerationReader, deriveReader}
 import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 /** Configuration for [[KafkaJournal]].
   *
@@ -52,15 +52,15 @@ import scala.concurrent.duration._
   * @see [[KafkaJournal]] for more details.
   */
 final case class KafkaJournalConfig(
-  journal: JournalConfig = JournalConfig.default,
-  cassandra: EventualCassandraConfig = EventualCassandraConfig.default,
-  startTimeout: FiniteDuration = 1.minute,
-  stopTimeout: FiniteDuration = 1.minute,
-  maxEventsInBatch: Int = 100,
-  callTimeThresholds: CallTimeThresholds = CallTimeThresholds.default,
+  journal: JournalConfig                  = JournalConfig.default,
+  cassandra: EventualCassandraConfig      = EventualCassandraConfig.default,
+  startTimeout: FiniteDuration            = 1.minute,
+  stopTimeout: FiniteDuration             = 1.minute,
+  maxEventsInBatch: Int                   = 100,
+  callTimeThresholds: CallTimeThresholds  = CallTimeThresholds.default,
   jsonCodec: KafkaJournalConfig.JsonCodec = KafkaJournalConfig.JsonCodec.Default,
-  consumerPool: ConsumerPoolConfig = ConsumerPoolConfig.Default,
-  dataIntegrity: DataIntegrityConfig = DataIntegrityConfig.Default,
+  consumerPool: ConsumerPoolConfig        = ConsumerPoolConfig.Default,
+  dataIntegrity: DataIntegrityConfig      = DataIntegrityConfig.Default,
 )
 
 object KafkaJournalConfig {
@@ -87,7 +87,7 @@ object KafkaJournalConfig {
   sealed trait JsonCodec
 
   object JsonCodec {
-    case object Default  extends JsonCodec
+    case object Default extends JsonCodec
     case object PlayJson extends JsonCodec
     case object Jsoniter extends JsonCodec
 

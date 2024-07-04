@@ -1,15 +1,14 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.data.{NonEmptySet => Nes}
+import cats.data.NonEmptySet as Nes
 import cats.effect.Resource
-import cats.syntax.all._
+import cats.syntax.all.*
 import cats.~>
 import com.evolutiongaming.catshelper.BracketThrowable
 import com.evolutiongaming.kafka.journal.conversions.ConsRecordToActionRecord
-import com.evolutiongaming.kafka.journal.util.StreamHelper._
+import com.evolutiongaming.kafka.journal.util.StreamHelper.*
 import com.evolutiongaming.skafka.{Offset, Partition, TopicPartition}
 import com.evolutiongaming.sstream.Stream
-
 
 trait ConsumeActionRecords[F[_]] {
 
@@ -19,22 +18,21 @@ trait ConsumeActionRecords[F[_]] {
 object ConsumeActionRecords {
 
   def apply[F[_]: BracketThrowable](
-    consumer: Resource[F, Journals.Consumer[F]])(implicit
-    consRecordToActionRecord: ConsRecordToActionRecord[F]
-  ): ConsumeActionRecords[F] = {
+    consumer: Resource[F, Journals.Consumer[F]],
+  )(implicit consRecordToActionRecord: ConsRecordToActionRecord[F]): ConsumeActionRecords[F] = {
     class Main
     new Main with ConsumeActionRecords[F] {
       def apply(key: Key, partition: Partition, from: Offset) = {
         for {
           consumer <- consumer.toStream
-          _        <- Stream.lift {
+          _ <- Stream.lift {
             val topicPartition = TopicPartition(topic = key.topic, partition = partition)
             for {
               _ <- consumer.assign(Nes.of(topicPartition))
               a <- consumer.seek(topicPartition, from)
             } yield a
           }
-          records  <- Stream.repeat {
+          records <- Stream.repeat {
             for {
               records <- consumer.poll
               actions <- records
@@ -51,7 +49,7 @@ object ConsumeActionRecords {
                 .traverseFilter { record => consRecordToActionRecord(record) }
             } yield actions
           }
-          record   <- records.toStream1[F]
+          record <- records.toStream1[F]
         } yield record
       }
     }

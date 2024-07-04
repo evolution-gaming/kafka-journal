@@ -1,37 +1,40 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
+import cats.data.{NonEmptyList as Nel, NonEmptyMap as Nem, NonEmptySet as Nes}
 import cats.effect.unsafe.implicits.global
 import cats.effect.{IO, Resource}
-import cats.syntax.all._
-import com.evolutiongaming.catshelper.DataHelper._
+import cats.syntax.all.*
+import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.ConsRecord
 import com.evolutiongaming.kafka.journal.util.TestTemporal.temporalTry
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
-import com.evolutiongaming.skafka._
+import com.evolutiongaming.skafka.*
 import com.evolutiongaming.skafka.consumer.{RebalanceListener, WithSize}
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.Try
 import scala.util.control.NoStackTrace
 
 class ConsumeTopicTest extends AsyncFunSuite with Matchers {
 
-  import ConsumeTopicTest._
+  import ConsumeTopicTest.*
 
   test("happy path") {
-    val state = State(commands = List(
-      Command.AssignPartitions(partitions),
-      Command.ProduceRecords(Map.empty),
-      Command.ProduceRecords(Map.empty),
-      Command.ProduceRecords(recordsOf(recordOf(partition = 0, offset = 0)).toSortedMap)))
+    val state = State(commands =
+      List(
+        Command.AssignPartitions(partitions),
+        Command.ProduceRecords(Map.empty),
+        Command.ProduceRecords(Map.empty),
+        Command.ProduceRecords(recordsOf(recordOf(partition = 0, offset = 0)).toSortedMap),
+      ),
+    )
 
     subscriptionFlow.run(state).unsafeToFuture().map {
-      case (result, _) => 
+      case (result, _) =>
         result shouldEqual State(
           actions = List(
             Action.ReleaseConsumer,
@@ -41,19 +44,23 @@ class ConsumeTopicTest extends AsyncFunSuite with Matchers {
             Action.AssignPartitions(partitions),
             Action.Subscribe()(RebalanceListener.empty[StateT]),
             Action.AcquireTopicFlow(topic),
-            Action.AcquireConsumer))
+            Action.AcquireConsumer,
+          ),
+        )
     }
   }
 
-
   test("retry") {
-    val state = State(commands = List(
-      Command.AssignPartitions(partitions),
-      Command.ProduceRecords(Map.empty),
-      Command.Fail(Error),
-      Command.AssignPartitions(partitions),
-      Command.ProduceRecords(Map.empty),
-      Command.ProduceRecords(recordsOf(recordOf(partition = 0, offset = 0)).toSortedMap)))
+    val state = State(commands =
+      List(
+        Command.AssignPartitions(partitions),
+        Command.ProduceRecords(Map.empty),
+        Command.Fail(Error),
+        Command.AssignPartitions(partitions),
+        Command.ProduceRecords(Map.empty),
+        Command.ProduceRecords(recordsOf(recordOf(partition = 0, offset = 0)).toSortedMap),
+      ),
+    )
 
     subscriptionFlow.run(state).unsafeToFuture().map {
       case (result, _) =>
@@ -73,18 +80,22 @@ class ConsumeTopicTest extends AsyncFunSuite with Matchers {
             Action.AssignPartitions(partitions),
             Action.Subscribe()(RebalanceListener.empty),
             Action.AcquireTopicFlow(topic),
-            Action.AcquireConsumer))
+            Action.AcquireConsumer,
+          ),
+        )
     }
   }
 
-
   test("rebalance") {
-    val state = State(commands = List(
-      Command.AssignPartitions(Nes.of(Partition.unsafe(1))),
-      Command.ProduceRecords(Map.empty),
-      Command.AssignPartitions(Nes.of(Partition.unsafe(2))),
-      Command.RevokePartitions(Nes.of(Partition.unsafe(1), Partition.unsafe(2))),
-      Command.ProduceRecords(recordsOf(recordOf(partition = 0, offset = 0)).toSortedMap)))
+    val state = State(commands =
+      List(
+        Command.AssignPartitions(Nes.of(Partition.unsafe(1))),
+        Command.ProduceRecords(Map.empty),
+        Command.AssignPartitions(Nes.of(Partition.unsafe(2))),
+        Command.RevokePartitions(Nes.of(Partition.unsafe(1), Partition.unsafe(2))),
+        Command.ProduceRecords(recordsOf(recordOf(partition = 0, offset = 0)).toSortedMap),
+      ),
+    )
 
     subscriptionFlow.run(state).unsafeToFuture().map {
       case (result, _) =>
@@ -99,7 +110,9 @@ class ConsumeTopicTest extends AsyncFunSuite with Matchers {
             Action.AssignPartitions(Nes.of(Partition.unsafe(1))),
             Action.Subscribe()(RebalanceListener.empty[StateT]),
             Action.AcquireTopicFlow(topic),
-            Action.AcquireConsumer))
+            Action.AcquireConsumer,
+          ),
+        )
     }
   }
 }
@@ -112,15 +125,13 @@ object ConsumeTopicTest {
 
   val partitions: Nes[Partition] = Nes.of(Partition.min)
 
-
   final case class State(
-                          commands: List[Command] = List.empty,
-                          actions: List[Action] = List.empty,
-                        ) {
+    commands: List[Command] = List.empty,
+    actions: List[Action]   = List.empty,
+  ) {
 
     def +(action: Action): State = copy(actions = action :: actions)
   }
-
 
   type StateT[A] = cats.data.StateT[IO, State, Try[A]]
 
@@ -144,9 +155,8 @@ object ConsumeTopicTest {
     def unit(f: State => State): StateT[Unit] = pure { state => (f(state), ()) }
   }
 
-
-  val topicFlowOf: TopicFlowOf[StateT] = {
-    (topic: Topic) => {
+  val topicFlowOf: TopicFlowOf[StateT] = { (topic: Topic) =>
+    {
       val result = StateT.pure { state =>
         val state1 = state + Action.AcquireTopicFlow(topic)
         val release = StateT.unit {
@@ -185,7 +195,6 @@ object ConsumeTopicTest {
     }
   }
 
-
   val consumer: Resource[StateT, TopicConsumer[StateT]] = {
 
     val consumer: TopicConsumer[StateT] = new TopicConsumer[StateT] {
@@ -203,13 +212,14 @@ object ConsumeTopicTest {
             case Command.AssignPartitions(partitions) =>
               state
                 .actions
-                .collectFirst { case action: Action.Subscribe =>
-                  val topicPartitions = partitions.map { partition => TopicPartition(topic, partition) }
-                  action
-                    .listener
-                    .onPartitionsAssigned(topicPartitions)
-                    .run(state)
-                    .map { case (s, _) => s }
+                .collectFirst {
+                  case action: Action.Subscribe =>
+                    val topicPartitions = partitions.map { partition => TopicPartition(topic, partition) }
+                    action
+                      .listener
+                      .onPartitionsAssigned(topicPartitions)
+                      .run(state)
+                      .map { case (s, _) => s }
                 }
                 .getOrElse(state.pure[IO])
                 .map { state => (state, Map.empty[Partition, Nel[ConsRecord]].some.pure[Try]) }
@@ -220,13 +230,14 @@ object ConsumeTopicTest {
             case Command.RevokePartitions(partitions) =>
               state
                 .actions
-                .collectFirst { case action: Action.Subscribe =>
-                  val topicPartitions = partitions.map { partition => TopicPartition(topic, partition) }
-                  action
-                    .listener
-                    .onPartitionsRevoked(topicPartitions)
-                    .run(state)
-                    .map { case (s, _) => s }
+                .collectFirst {
+                  case action: Action.Subscribe =>
+                    val topicPartitions = partitions.map { partition => TopicPartition(topic, partition) }
+                    action
+                      .listener
+                      .onPartitionsRevoked(topicPartitions)
+                      .run(state)
+                      .map { case (s, _) => s }
                 }
                 .getOrElse(state.pure[IO])
                 .map { s => (s, Map.empty[Partition, Nel[ConsRecord]].some.pure[Try]) }
@@ -238,7 +249,7 @@ object ConsumeTopicTest {
 
         val stateT = StateT.of { state =>
           state.commands match {
-            case Nil => (state, none[Map[Partition, Nel[ConsRecord]]].pure[Try]).pure[IO]
+            case Nil                 => (state, none[Map[Partition, Nel[ConsRecord]]].pure[Try]).pure[IO]
             case command :: commands => apply(state.copy(commands = commands), command)
           }
         }
@@ -246,9 +257,10 @@ object ConsumeTopicTest {
         Stream.whileSome(stateT)
       }
 
-      val commit = offsets => StateT.unit {
-        _ + Action.Commit(offsets)
-      }
+      val commit = offsets =>
+        StateT.unit {
+          _ + Action.Commit(offsets)
+        }
     }
 
     val result = StateT.pure { state =>
@@ -260,7 +272,6 @@ object ConsumeTopicTest {
     }
     Resource(result)
   }
-
 
   val retry: Retry[StateT] = {
     val strategy = Strategy.const(1.millis)
@@ -274,20 +285,18 @@ object ConsumeTopicTest {
     Retry(strategy, onError)
   }
 
-
   def recordOf(
-                partition: Int,
-                offset: Long,
-              ): ConsRecord = {
+    partition: Int,
+    offset: Long,
+  ): ConsRecord = {
     ConsRecord(
-      topicPartition = TopicPartition(
-        topic = topic,
-        partition = Partition.unsafe(partition)),
-      offset = Offset.unsafe(offset),
+      topicPartition   = TopicPartition(topic = topic, partition = Partition.unsafe(partition)),
+      offset           = Offset.unsafe(offset),
       timestampAndType = none,
-      key = WithSize(key).some,
-      value = none,
-      headers = List.empty)
+      key              = WithSize(key).some,
+      value            = none,
+      headers          = List.empty,
+    )
   }
 
   def recordsOf(record: ConsRecord, records: ConsRecord*): Nem[Partition, Nel[ConsRecord]] = {
@@ -299,14 +308,7 @@ object ConsumeTopicTest {
       .get
   }
 
-
-  val subscriptionFlow: StateT[Unit] = ConsumeTopic(
-    topic,
-    consumer,
-    topicFlowOf,
-    Log.empty[StateT],
-    retry)
-
+  val subscriptionFlow: StateT[Unit] = ConsumeTopic(topic, consumer, topicFlowOf, Log.empty[StateT], retry)
 
   sealed abstract class Command
 

@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
 import cats.FlatMap
-import cats.syntax.all._
+import cats.syntax.all.*
 
 trait AppendMarker[F[_]] {
 
@@ -10,11 +10,10 @@ trait AppendMarker[F[_]] {
 
 object AppendMarker {
 
-  def apply[F[_] : FlatMap : RandomIdOf](
+  def apply[F[_]: FlatMap: RandomIdOf](
     produce: Produce[F],
-  ): AppendMarker[F] = {
-
-    (key: Key) => {
+  ): AppendMarker[F] = { (key: Key) =>
+    {
       for {
         randomId        <- RandomIdOf[F].apply
         partitionOffset <- produce.mark(key, randomId)

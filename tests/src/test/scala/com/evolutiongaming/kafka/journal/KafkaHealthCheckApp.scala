@@ -1,13 +1,12 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.data.{NonEmptyList => Nel}
-import cats.effect._
-import cats.syntax.all._
+import cats.data.NonEmptyList as Nel
+import cats.effect.*
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.{FromTry, LogOf, MeasureDuration, ToFuture, ToTry}
 import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.ProducerConfig
-
 
 object KafkaHealthCheckApp extends IOApp {
 
@@ -18,7 +17,7 @@ object KafkaHealthCheckApp extends IOApp {
 
     for {
       logOf <- LogOf.slf4j[IO]
-      _     <- {
+      _ <- {
         implicit val logOf1 = logOf
         runF[IO]
       }
@@ -35,16 +34,10 @@ object KafkaHealthCheckApp extends IOApp {
 
     implicit val randomIdOf = RandomIdOf.uuid[F]
 
-    val commonConfig = CommonConfig(
-      clientId = "KafkaHealthCheckApp".some,
-      bootstrapServers = Nel.of("localhost:9092"))
-    val kafkaConfig = KafkaConfig(
-      ProducerConfig(common = commonConfig),
-      ConsumerConfig(common = commonConfig))
+    val commonConfig = CommonConfig(clientId = "KafkaHealthCheckApp".some, bootstrapServers = Nel.of("localhost:9092"))
+    val kafkaConfig  = KafkaConfig(ProducerConfig(common = commonConfig), ConsumerConfig(common = commonConfig))
 
-    val kafkaHealthCheck = KafkaHealthCheck.of[F](
-      KafkaHealthCheck.Config.default,
-      kafkaConfig)
+    val kafkaHealthCheck = KafkaHealthCheck.of[F](KafkaHealthCheck.Config.default, kafkaConfig)
 
     kafkaHealthCheck.use(_.error.untilDefinedM)
   }
