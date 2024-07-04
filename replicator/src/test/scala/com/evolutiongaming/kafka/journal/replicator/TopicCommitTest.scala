@@ -2,24 +2,19 @@ package com.evolutiongaming.kafka.journal.replicator
 
 import cats.Applicative
 import cats.data.{NonEmptyMap => Nem}
-import cats.effect.{Clock, IO}
+import cats.effect.{Clock, Deferred, IO, Ref}
 import com.evolutiongaming.kafka.journal.IOSuite._
-import cats.effect.{Deferred, Ref}
 import com.evolutiongaming.skafka.{Offset, Partition}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 
-class TopicCommitTest extends AsyncFunSuite with Matchers{
+class TopicCommitTest extends AsyncFunSuite with Matchers {
 
   test("delayed") {
 
-    def commitOf(
-      deferred: Deferred[IO, Unit],
-      commitsRef: Ref[IO, List[Nem[Partition, Offset]]])(implicit
-      clock: Clock[IO]
-    ) = {
+    def commitOf(deferred: Deferred[IO, Unit], commitsRef: Ref[IO, List[Nem[Partition, Offset]]])(implicit clock: Clock[IO]) = {
       val commit = new TopicCommit[IO] {
         def apply(offsets: Nem[Partition, Offset]) = {
           commitsRef.update { offsets :: _ } *> deferred.complete(()).void

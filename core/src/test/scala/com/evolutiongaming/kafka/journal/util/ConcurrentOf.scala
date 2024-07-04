@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.Monad
-import cats.effect.{Concurrent, Fiber, Poll}
 import cats.effect.kernel.{Async, Outcome, Unique}
+import cats.effect.{Concurrent, Fiber, Poll}
 import cats.syntax.all._
 
 import scala.util.control.NonFatal
@@ -22,7 +22,7 @@ object ConcurrentOf {
         F.map(fa) { a =>
           new Fiber[F, Throwable, A] {
             def cancel = pure(())
-            def join = pure(Outcome.succeeded(pure(a)))
+            def join   = pure(Outcome.succeeded(pure(a)))
           }
         }
 
@@ -33,7 +33,8 @@ object ConcurrentOf {
       def cede: F[Unit] = F.unit
 
       def forceR[A, B](fa: F[A])(fb: F[B]): F[B] = {
-        try { fa } catch { case NonFatal(_) => () }
+        try { fa }
+        catch { case NonFatal(_) => () }
         fb
       }
 
@@ -50,7 +51,8 @@ object ConcurrentOf {
       def raiseError[A](e: Throwable): F[A] = throw e
 
       def handleErrorWith[A](fa: F[A])(f: Throwable => F[A]): F[A] =
-        try { fa } catch { case NonFatal(e) => f(e) }
+        try { fa }
+        catch { case NonFatal(e) => f(e) }
 
       def flatMap[A, B](fa: F[A])(f: A => F[B]): F[B] =
         F.flatMap(fa)(f)

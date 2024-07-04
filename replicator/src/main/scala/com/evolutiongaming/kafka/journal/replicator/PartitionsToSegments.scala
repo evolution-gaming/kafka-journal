@@ -8,7 +8,6 @@ import com.evolutiongaming.skafka.Partition
 
 import scala.collection.immutable.SortedSet
 
-
 trait PartitionsToSegments {
 
   def apply(partitions: Nes[Partition]): SortedSet[SegmentNr]
@@ -21,10 +20,10 @@ object PartitionsToSegments {
       .segmentNrs
       .toSortedSet
     val filter = {
-      if (partitions >= segments.value) {
-        (a: Partition, b: SegmentNr) => a.value % segments.value.toLong === b.value
-      } else {
-        (a: Partition, b: SegmentNr) => b.value % partitions === a.value.toLong
+      if (partitions >= segments.value) { (a: Partition, b: SegmentNr) =>
+        a.value % segments.value.toLong === b.value
+      } else { (a: Partition, b: SegmentNr) =>
+        b.value % partitions === a.value.toLong
       }
     }
 

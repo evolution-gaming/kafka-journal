@@ -10,8 +10,8 @@ class CreateSchemaSpec extends AnyFunSuite {
   type F[A] = State[Database, A]
 
   test("create keyspace and tables") {
-    val config = SchemaConfig.default
-    val createSchema = CreateSchema[F](config, createKeyspace, createTables)
+    val config                      = SchemaConfig.default
+    val createSchema                = CreateSchema[F](config, createKeyspace, createTables)
     val (database, (schema, fresh)) = createSchema.run(Database.empty).value
     assert(database.keyspaces == List("journal"))
     assert(
@@ -20,19 +20,21 @@ class CreateSchemaSpec extends AnyFunSuite {
         "journal.metajournal",
         "journal.pointer",
         "journal.pointer2",
-        "journal.setting"
-      )
+        "journal.setting",
+      ),
     )
     assert(fresh)
     assert(schema == this.schema)
   }
 
   test("not create keyspace and tables") {
-    val config = SchemaConfig.default.copy(
-      autoCreate = false,
-      keyspace = SchemaConfig.Keyspace.default.copy(autoCreate = false)
-    )
-    val createSchema = CreateSchema[F](config, createKeyspace, createTables)
+    val config = SchemaConfig
+      .default
+      .copy(
+        autoCreate = false,
+        keyspace   = SchemaConfig.Keyspace.default.copy(autoCreate = false),
+      )
+    val createSchema                = CreateSchema[F](config, createKeyspace, createTables)
     val (database, (schema, fresh)) = createSchema.run(Database.empty).value
     assert(database.keyspaces == Nil)
     assert(database.tables == Nil)
@@ -41,14 +43,18 @@ class CreateSchemaSpec extends AnyFunSuite {
   }
 
   test("create part of the tables") {
-    val config = SchemaConfig.default.copy(
-      keyspace = SchemaConfig.Keyspace.default.copy(autoCreate = false)
-    )
-    val initialState = Database.empty.copy(
-      keyspaces = List("journal"),
-      tables = List("journal.setting")
-    )
-    val createSchema = CreateSchema[F](config, createKeyspace, createTables)
+    val config = SchemaConfig
+      .default
+      .copy(
+        keyspace = SchemaConfig.Keyspace.default.copy(autoCreate = false),
+      )
+    val initialState = Database
+      .empty
+      .copy(
+        keyspaces = List("journal"),
+        tables    = List("journal.setting"),
+      )
+    val createSchema                = CreateSchema[F](config, createKeyspace, createTables)
     val (database, (schema, fresh)) = createSchema.run(initialState).value
     assert(database.keyspaces == List("journal"))
     assert(
@@ -57,29 +63,32 @@ class CreateSchemaSpec extends AnyFunSuite {
         "journal.metajournal",
         "journal.pointer",
         "journal.pointer2",
-        "journal.setting"
-      )
+        "journal.setting",
+      ),
     )
     assert(!fresh)
     assert(schema == this.schema)
   }
 
   private val schema = Schema(
-    journal = TableName(keyspace = "journal", table = "journal"),
-    metadata = TableName(keyspace = "journal", table = "metadata"),
+    journal     = TableName(keyspace = "journal", table = "journal"),
+    metadata    = TableName(keyspace = "journal", table = "metadata"),
     metaJournal = TableName(keyspace = "journal", table = "metajournal"),
-    pointer = TableName(keyspace = "journal", table = "pointer"),
-    pointer2 = TableName(keyspace = "journal", table = "pointer2"),
-    setting = TableName(keyspace = "journal", table = "setting")
+    pointer     = TableName(keyspace = "journal", table = "pointer"),
+    pointer2    = TableName(keyspace = "journal", table = "pointer2"),
+    setting     = TableName(keyspace = "journal", table = "setting"),
   )
 
   val createTables: CreateTables[F] = new CreateTables[F] {
     def apply(keyspace: String, tables: Nel[CreateTables.Table]) = {
       val results = tables.traverse { table =>
         assert(
-          table.queries.head.contains(
-            s"CREATE TABLE IF NOT EXISTS $keyspace.${table.name}"
-          )
+          table
+            .queries
+            .head
+            .contains(
+              s"CREATE TABLE IF NOT EXISTS $keyspace.${table.name}",
+            ),
         )
         Database.createTable(keyspace, table.name)
       }

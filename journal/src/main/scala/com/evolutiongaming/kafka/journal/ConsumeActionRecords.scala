@@ -10,7 +10,6 @@ import com.evolutiongaming.kafka.journal.util.StreamHelper._
 import com.evolutiongaming.skafka.{Offset, Partition, TopicPartition}
 import com.evolutiongaming.sstream.Stream
 
-
 trait ConsumeActionRecords[F[_]] {
 
   def apply(key: Key, partition: Partition, from: Offset): Stream[F, ActionRecord[Action]]
@@ -19,22 +18,21 @@ trait ConsumeActionRecords[F[_]] {
 object ConsumeActionRecords {
 
   def apply[F[_]: BracketThrowable](
-    consumer: Resource[F, Journals.Consumer[F]])(implicit
-    consRecordToActionRecord: ConsRecordToActionRecord[F]
-  ): ConsumeActionRecords[F] = {
+    consumer: Resource[F, Journals.Consumer[F]],
+  )(implicit consRecordToActionRecord: ConsRecordToActionRecord[F]): ConsumeActionRecords[F] = {
     class Main
     new Main with ConsumeActionRecords[F] {
       def apply(key: Key, partition: Partition, from: Offset) = {
         for {
           consumer <- consumer.toStream
-          _        <- Stream.lift {
+          _ <- Stream.lift {
             val topicPartition = TopicPartition(topic = key.topic, partition = partition)
             for {
               _ <- consumer.assign(Nes.of(topicPartition))
               a <- consumer.seek(topicPartition, from)
             } yield a
           }
-          records  <- Stream.repeat {
+          records <- Stream.repeat {
             for {
               records <- consumer.poll
               actions <- records
@@ -51,7 +49,7 @@ object ConsumeActionRecords {
                 .traverseFilter { record => consRecordToActionRecord(record) }
             } yield actions
           }
-          record   <- records.toStream1[F]
+          record <- records.toStream1[F]
         } yield record
       }
     }

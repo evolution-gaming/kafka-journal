@@ -47,7 +47,7 @@ object MigrateSchema {
     cassandraSync: CassandraSync[F],
     settings: Settings[F],
     settingKey: String,
-    migrations: Nel[String]
+    migrations: Nel[String],
   ): MigrateSchema[F] = new MigrateSchema[F] {
 
     def setVersion(version: Int) =
@@ -60,7 +60,8 @@ object MigrateSchema {
       def migrate = {
 
         def migrate(version: Int) = {
-          migrations.toList
+          migrations
+            .toList
             .drop(version + 1)
             .toNel
             .map { migrations =>

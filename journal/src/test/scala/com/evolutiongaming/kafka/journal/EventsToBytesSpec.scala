@@ -1,19 +1,18 @@
 package com.evolutiongaming.kafka.journal
 
-import java.io.FileOutputStream
-
 import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
+import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.kafka.journal.FromBytes.implicits._
 import com.evolutiongaming.kafka.journal.ToBytes.implicits._
-import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.Json
 import scodec.bits.ByteVector
 
-import scala.util.Try
+import java.io.FileOutputStream
 import scala.concurrent.duration._
+import scala.util.Try
 
 class EventsToBytesSpec extends AnyFunSuite with Matchers {
 
@@ -28,62 +27,34 @@ class EventsToBytesSpec extends AnyFunSuite with Matchers {
 
   def binary(a: String): Payload = PayloadBinaryFromStr(a)
 
-  private val payloadMetadata = PayloadMetadata(
-    1.day.toExpireAfter.some,
-    Json.obj(("key", "value")).some)
+  private val payloadMetadata = PayloadMetadata(1.day.toExpireAfter.some, Json.obj(("key", "value")).some)
 
   implicit val jsonCodec: JsonCodec[Try] = JsonCodec.jsoniter
 
-
   for {
     (name, events) <- List(
-      ("empty", Events(
-        Nel.of(
-          event(1)),
-        PayloadMetadata.empty)),
-      ("binary", Events(
-        Nel.of(
-          event(1, binary("binary"))),
-        PayloadMetadata.empty)),
-      ("text", Events(
-        Nel.of(
-          event(1, Payload.text("text"))),
-        PayloadMetadata.empty)),
-      ("json", Events(
-        Nel.of(
-          event(1, Payload.json("json"))),
-        payloadMetadata)),
-      ("empty-many", Events(
-        Nel.of(
-          event(1),
-          event(2),
-          event(3)),
-        payloadMetadata)),
-      ("binary-many", Events(
-        Nel.of(
-          event(1, binary("1")),
-          event(2, binary("2")),
-          event(3, binary("3"))),
-        payloadMetadata)),
-      ("text-many", Events(
-        Nel.of(
-          event(1, Payload.text("1")),
-          event(2, Payload.text("2")),
-          event(3, Payload.text("3"))),
-        payloadMetadata)),
-      ("json-many", Events(
-        Nel.of(
-          event(1, Payload.json("1")),
-          event(2, Payload.json("2")),
-          event(3, Payload.json("3"))),
-        payloadMetadata)),
-      ("empty-binary-text-json", Events(
-        Nel.of(
-          event(1),
-          event(2, binary("binary")),
-          event(3, Payload.text("text")),
-          event(4, Payload.json("json"))),
-        payloadMetadata)))
+      ("empty", Events(Nel.of(event(1)), PayloadMetadata.empty)),
+      ("binary", Events(Nel.of(event(1, binary("binary"))), PayloadMetadata.empty)),
+      ("text", Events(Nel.of(event(1, Payload.text("text"))), PayloadMetadata.empty)),
+      ("json", Events(Nel.of(event(1, Payload.json("json"))), payloadMetadata)),
+      ("empty-many", Events(Nel.of(event(1), event(2), event(3)), payloadMetadata)),
+      ("binary-many", Events(Nel.of(event(1, binary("1")), event(2, binary("2")), event(3, binary("3"))), payloadMetadata)),
+      (
+        "text-many",
+        Events(Nel.of(event(1, Payload.text("1")), event(2, Payload.text("2")), event(3, Payload.text("3"))), payloadMetadata),
+      ),
+      (
+        "json-many",
+        Events(Nel.of(event(1, Payload.json("1")), event(2, Payload.json("2")), event(3, Payload.json("3"))), payloadMetadata),
+      ),
+      (
+        "empty-binary-text-json",
+        Events(
+          Nel.of(event(1), event(2, binary("binary")), event(3, Payload.text("text")), event(4, Payload.json("json"))),
+          payloadMetadata,
+        ),
+      ),
+    )
   } {
     test(s"toBytes & fromBytes $name") {
 
@@ -105,53 +76,34 @@ class EventsToBytesSpec extends AnyFunSuite with Matchers {
 
   for {
     (name, events) <- List(
-      ("empty", Events(
-        Nel.of(
-          event(1)),
-        PayloadMetadata.empty)),
-      ("binary", Events(
-        Nel.of(
-          event(1, binary("binary"))),
-        PayloadMetadata.empty)),
-      ("text", Events(
-        Nel.of(
-          event(1, Payload.text("text"))),
-        PayloadMetadata.empty)),
-      ("json", Events(
-        Nel.of(
-          event(1, Payload.json("json"))),
-        PayloadMetadata.empty)),
-      ("empty-many", Events(
-        Nel.of(
-          event(1),
-          event(2),
-          event(3)),
-        PayloadMetadata.empty)),
-      ("binary-many", Events(
-        Nel.of(
-          event(1, binary("1")),
-          event(2, binary("2")),
-          event(3, binary("3"))),
-        PayloadMetadata.empty)),
-      ("text-many", Events(
-        Nel.of(
-          event(1, Payload.text("1")),
-          event(2, Payload.text("2")),
-          event(3, Payload.text("3"))),
-        PayloadMetadata.empty)),
-      ("json-many", Events(
-        Nel.of(
-          event(1, Payload.json("1")),
-          event(2, Payload.json("2")),
-          event(3, Payload.json("3"))),
-        PayloadMetadata.empty)),
-      ("empty-binary-text-json", Events(
-        Nel.of(
-          event(1),
-          event(2, binary("binary")),
-          event(3, Payload.text("text")),
-          event(4, Payload.json("json"))),
-        PayloadMetadata.empty)))
+      ("empty", Events(Nel.of(event(1)), PayloadMetadata.empty)),
+      ("binary", Events(Nel.of(event(1, binary("binary"))), PayloadMetadata.empty)),
+      ("text", Events(Nel.of(event(1, Payload.text("text"))), PayloadMetadata.empty)),
+      ("json", Events(Nel.of(event(1, Payload.json("json"))), PayloadMetadata.empty)),
+      ("empty-many", Events(Nel.of(event(1), event(2), event(3)), PayloadMetadata.empty)),
+      ("binary-many", Events(Nel.of(event(1, binary("1")), event(2, binary("2")), event(3, binary("3"))), PayloadMetadata.empty)),
+      (
+        "text-many",
+        Events(
+          Nel.of(event(1, Payload.text("1")), event(2, Payload.text("2")), event(3, Payload.text("3"))),
+          PayloadMetadata.empty,
+        ),
+      ),
+      (
+        "json-many",
+        Events(
+          Nel.of(event(1, Payload.json("1")), event(2, Payload.json("2")), event(3, Payload.json("3"))),
+          PayloadMetadata.empty,
+        ),
+      ),
+      (
+        "empty-binary-text-json",
+        Events(
+          Nel.of(event(1), event(2, binary("binary")), event(3, Payload.text("text")), event(4, Payload.json("json"))),
+          PayloadMetadata.empty,
+        ),
+      ),
+    )
   } {
     test(s"fromBytes $name") {
       val actual = for {

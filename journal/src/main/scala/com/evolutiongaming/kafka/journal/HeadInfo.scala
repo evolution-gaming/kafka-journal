@@ -96,10 +96,9 @@ object HeadInfo {
   }
 
   /** Calls [[HeadInfo#apply]] until all incoming actions are handled */
-  def apply[F[_] : Foldable](actions: F[(ActionHeader, Offset)]): HeadInfo = {
+  def apply[F[_]: Foldable](actions: F[(ActionHeader, Offset)]): HeadInfo = {
     actions.foldLeft(empty) { case (head, (header, offset)) => head(header, offset) }
   }
-
 
   /** There are no non-replicated events in Kafka for specific journal.
     *
@@ -120,8 +119,8 @@ object HeadInfo {
 
   object NonEmpty {
 
-    implicit val semigroupNonEmpty: Semigroup[NonEmpty] = {
-      (a: NonEmpty, b: NonEmpty) => {
+    implicit val semigroupNonEmpty: Semigroup[NonEmpty] = { (a: NonEmpty, b: NonEmpty) =>
+      {
 
         def onDelete(a: Append, b: Delete) = {
           val deleteTo = a.deleteTo.fold(b.deleteTo) { _ max b.deleteTo }
@@ -162,7 +161,7 @@ object HeadInfo {
   final case class Append(
     offset: Offset,
     seqNr: SeqNr,
-    deleteTo: Option[DeleteTo]
+    deleteTo: Option[DeleteTo],
   ) extends NonEmpty
 
   /** The only non-replicated records are delete actions.
@@ -181,7 +180,7 @@ object HeadInfo {
     *   [[SeqNr]] of the _last_ deleted event.
     */
   final case class Delete(
-    deleteTo: DeleteTo
+    deleteTo: DeleteTo,
   ) extends NonEmpty
 
   /** The last non-replicated record was a journal purge action.
@@ -190,7 +189,6 @@ object HeadInfo {
     * purged.
     */
   final case object Purge extends NonEmpty
-
 
   implicit class HeadInfoOps(val self: HeadInfo) extends AnyVal {
 
@@ -218,7 +216,6 @@ object HeadInfo {
       }
     }
 
-
     /** A new event was appended.
       *
       * We update last saved [[SeqNr]], but ignore [[Offset]] unless this is a
@@ -241,7 +238,6 @@ object HeadInfo {
       }
     }
 
-
     /** A journal marker was found, which does not change [[HeadInfo]] state.
       *
       * The marker only matters during recovery, to validate that all journal
@@ -250,10 +246,8 @@ object HeadInfo {
       */
     def mark: HeadInfo = self
 
-
     /** A journal purge was performed, all previous events could be ignored */
     def purge: HeadInfo = Purge
-
 
     /** Update [[HeadInfo]] with a next event coming from Kafka.
       *
@@ -270,4 +264,3 @@ object HeadInfo {
     }
   }
 }
-

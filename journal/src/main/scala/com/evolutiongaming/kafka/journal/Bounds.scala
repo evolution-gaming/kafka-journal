@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.{ApplicativeThrow, Order, Semigroup}
 import cats.syntax.all._
+import cats.{ApplicativeThrow, Order, Semigroup}
 
 import scala.util.Try
 
@@ -25,16 +25,13 @@ import scala.util.Try
 sealed trait Bounds[+A]
 
 object Bounds {
-  implicit def semigroupBounds[A: Order]: Semigroup[Bounds[A]] = {
-    (a: Bounds[A], b: Bounds[A]) => {
+  implicit def semigroupBounds[A: Order]: Semigroup[Bounds[A]] = { (a: Bounds[A], b: Bounds[A]) =>
+    {
       Bounds
-        .of[Try](
-          min = a.min min b.min,
-          max = a.max max b.max)
+        .of[Try](min = a.min min b.min, max = a.max max b.max)
         .get
     }
   }
-
 
   /** Creates an interval containing a single value.
     *
@@ -67,7 +64,6 @@ object Bounds {
       }
     }
   }
-
 
   private sealed abstract case class One[A](value: A) extends Bounds[A] {
     override def toString = value.toString

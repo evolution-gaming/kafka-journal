@@ -7,7 +7,6 @@ import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 import com.evolutiongaming.kafka.journal.{JournalError, JsonCodec, Payload, PayloadType}
 
-
 /** Decode a payload loaded from an eventual storage.
   *
   * Converts a structure convenient to store to eventual store, i.e. Cassandra, to a structure, which is convenient to
@@ -28,13 +27,15 @@ object EventualRead {
 
     payloadAndType => {
       payloadAndType.payloadType match {
-        case PayloadType.Binary => liftError(payloadAndType) {
-          payloadAndType.payloadBytes[F].map(Payload.binary)
-        }
+        case PayloadType.Binary =>
+          liftError(payloadAndType) {
+            payloadAndType.payloadBytes[F].map(Payload.binary)
+          }
 
-        case PayloadType.Text => liftError(payloadAndType) {
-          payloadAndType.payloadStr[F].map(Payload.text)
-        }
+        case PayloadType.Text =>
+          liftError(payloadAndType) {
+            payloadAndType.payloadStr[F].map(Payload.text)
+          }
 
         case PayloadType.Json =>
           val jsonEventualRead = EventualRead.readJson(decode.fromStr(_).map(Payload(_)))
@@ -59,8 +60,9 @@ object EventualRead {
   }
 
   private def liftError[F[_]: MonadThrowable, A](payloadAndType: EventualPayloadAndType)(fa: F[A]): F[A] =
-    fa.adaptError { case e =>
-      JournalError(s"EventualRead failed for $payloadAndType: $e", e)
+    fa.adaptError {
+      case e =>
+        JournalError(s"EventualRead failed for $payloadAndType: $e", e)
     }
 
   implicit class EventualReadOps[F[_], A](val self: EventualRead[F, A]) extends AnyVal {

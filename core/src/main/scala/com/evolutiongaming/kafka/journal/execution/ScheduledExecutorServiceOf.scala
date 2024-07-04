@@ -1,16 +1,15 @@
 package com.evolutiongaming.kafka.journal.execution
 
-import java.util.concurrent.{ScheduledExecutorService, ThreadFactory, Executors => ExecutorsJ}
-
 import cats.effect.{Resource, Sync}
 import cats.syntax.all._
 
+import java.util.concurrent.{Executors => ExecutorsJ, ScheduledExecutorService, ThreadFactory}
 
 object ScheduledExecutorServiceOf {
 
-  def apply[F[_] : Sync](
+  def apply[F[_]: Sync](
     parallelism: Int,
-    threadFactory: ThreadFactory
+    threadFactory: ThreadFactory,
   ): Resource[F, ScheduledExecutorService] = {
 
     val result = for {

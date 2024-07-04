@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal
 
-
 import cats.Monad
 import cats.data.{NonEmptyList => Nel}
 import com.evolutiongaming.kafka.journal.util.PlayJsonHelper._
@@ -10,7 +9,6 @@ import scodec.Codec
 import scodec.bits.ByteVector
 
 import scala.util.Try
-
 
 /** Piece of data prepared for convenient storing into Kafka record.
   * 
@@ -28,9 +26,7 @@ import scala.util.Try
   *   Used to determine how the contents of `payload` should be treated, i.e. if
   *   it should be parsed as JSON.
   */
-final case class PayloadAndType(
-  payload: ByteVector,
-  payloadType: PayloadType.BinaryOrJson)
+final case class PayloadAndType(payload: ByteVector, payloadType: PayloadType.BinaryOrJson)
 
 object PayloadAndType {
 
@@ -56,18 +52,17 @@ object PayloadAndType {
     seqNr: SeqNr,
     tags: Tags,
     payloadType: Option[PayloadType.TextOrJson] = None,
-    payload: Option[A] = None)
+    payload: Option[A]                          = None,
+  )
 
   object EventJson {
 
     implicit val formatEventJson: OFormat[EventJson[JsValue]] = Json.format
 
-
     implicit val writesNelEventJson: Writes[Nel[EventJson[JsValue]]] = nelWrites
 
     implicit val readsNelEventJson: Reads[Nel[EventJson[JsValue]]] = nelReads
   }
-
 
   /** Payload of a single event serialized into JSON or String form.
     *
@@ -103,7 +98,6 @@ object PayloadAndType {
     */
   final case class EventJsonPayloadAndType[A](payload: A, payloadType: PayloadType.TextOrJson)
 
-
   /** Multiple journal events with payloads serialized into JSON or String form.
     *
     * The class is meant to be serialized into JSON and stored into
@@ -127,14 +121,12 @@ object PayloadAndType {
 
     implicit val formatPayloadJson: OFormat[PayloadJson[JsValue]] = Json.format
 
-
     implicit def codecPayloadJson(implicit jsonCodec: JsonCodec[Try]): Codec[PayloadJson[JsValue]] = formatCodec // TODO not used
 
-
-    implicit def toBytesPayloadJson[F[_] : JsonCodec.Encode]: ToBytes[F, PayloadJson[JsValue]] =
+    implicit def toBytesPayloadJson[F[_]: JsonCodec.Encode]: ToBytes[F, PayloadJson[JsValue]] =
       ToBytes.fromWrites
 
-    implicit def fromBytesPayloadJson[F[_] : Monad : FromJsResult: JsonCodec.Decode]: FromBytes[F, PayloadJson[JsValue]] =
+    implicit def fromBytesPayloadJson[F[_]: Monad: FromJsResult: JsonCodec.Decode]: FromBytes[F, PayloadJson[JsValue]] =
       FromBytes.fromReads
   }
 }

@@ -18,18 +18,18 @@ object ConsumeTopic {
     topic: Topic,
     consumer: Resource[F, TopicConsumer[F]],
     topicFlowOf: TopicFlowOf[F],
-    log: Log[F]
+    log: Log[F],
   ): F[Unit] = {
     for {
-      random   <- Random.State.fromClock[F]()
-      strategy  = Strategy
+      random <- Random.State.fromClock[F]()
+      strategy = Strategy
         .exponential(100.millis)
         .jitter(random)
         .limit(1.minute)
         .resetAfter(5.minutes)
-      onError   = OnError.fromLog(log)
-      retry     = Retry(strategy, onError)
-      result   <- apply(topic, consumer, topicFlowOf, log, retry)
+      onError = OnError.fromLog(log)
+      retry   = Retry(strategy, onError)
+      result <- apply(topic, consumer, topicFlowOf, log, retry)
     } yield result
   }
 
@@ -38,7 +38,7 @@ object ConsumeTopic {
     consumer: Resource[F, TopicConsumer[F]],
     topicFlowOf: TopicFlowOf[F],
     log: Log[F],
-    retry: Retry[F]
+    retry: Retry[F],
   ): F[Unit] = {
 
     def rebalanceListenerOf(topicFlow: TopicFlow[F]): RebalanceListener[F] = {
@@ -63,30 +63,31 @@ object ConsumeTopic {
     retry {
       (consumer, topicFlowOf(topic))
         .tupled
-        .use { case (consumer, topicFlow) =>
-          val listener = rebalanceListenerOf(topicFlow)
-          for {
-            _ <- consumer.subscribe(listener)
-            a <- consumer
-              .poll
-              .mapM { records =>
-                records
-                  .toNem
-                  .foldMapM { records =>
-                    for {
-                      offsets <- topicFlow(records)
-                      _       <- offsets
-                        .toNem
-                        .traverse { offsets =>
-                          consumer
-                            .commit(offsets)
-                            .handleErrorWith { a => log.error(s"commit failed for $offsets: $a") }
-                        }
-                    } yield {}
-                  }
-              }
-              .drain
-          } yield a
+        .use {
+          case (consumer, topicFlow) =>
+            val listener = rebalanceListenerOf(topicFlow)
+            for {
+              _ <- consumer.subscribe(listener)
+              a <- consumer
+                .poll
+                .mapM { records =>
+                  records
+                    .toNem
+                    .foldMapM { records =>
+                      for {
+                        offsets <- topicFlow(records)
+                        _ <- offsets
+                          .toNem
+                          .traverse { offsets =>
+                            consumer
+                              .commit(offsets)
+                              .handleErrorWith { a => log.error(s"commit failed for $offsets: $a") }
+                          }
+                      } yield {}
+                    }
+                }
+                .drain
+            } yield a
         }
     }
   }

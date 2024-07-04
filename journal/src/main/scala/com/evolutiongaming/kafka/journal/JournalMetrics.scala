@@ -9,7 +9,6 @@ import com.evolutiongaming.smetrics._
 
 import scala.concurrent.duration._
 
-
 trait JournalMetrics[F[_]] {
 
   def append(topic: Topic, latency: FiniteDuration, events: Int): F[Unit]
@@ -29,8 +28,7 @@ trait JournalMetrics[F[_]] {
 
 object JournalMetrics {
 
-  def empty[F[_] : Applicative]: JournalMetrics[F] = const(().pure[F])
-
+  def empty[F[_]: Applicative]: JournalMetrics[F] = const(().pure[F])
 
   def const[F[_]](unit: F[Unit]): JournalMetrics[F] = {
     class Const
@@ -52,28 +50,30 @@ object JournalMetrics {
     }
   }
 
-
-  def of[F[_] : Monad](
+  def of[F[_]: Monad](
     registry: CollectorRegistry[F],
-    prefix: String = "journal"
+    prefix: String = "journal",
   ): Resource[F, JournalMetrics[F]] = {
 
     val latencySummary = registry.summary(
-      name = s"${ prefix }_topic_latency",
-      help = "Journal call latency in seconds",
+      name      = s"${prefix}_topic_latency",
+      help      = "Journal call latency in seconds",
       quantiles = Quantiles.Default,
-      labels = LabelNames("topic", "type"))
+      labels    = LabelNames("topic", "type"),
+    )
 
     val eventsSummary = registry.summary(
-      name = s"${ prefix }_events",
-      help = "Number of events",
+      name      = s"${prefix}_events",
+      help      = "Number of events",
       quantiles = Quantiles.Empty,
-      labels = LabelNames("topic", "type"))
+      labels    = LabelNames("topic", "type"),
+    )
 
     val resultCounter = registry.counter(
-      name = s"${ prefix }_results",
-      help = "Call result: success or failure",
-      labels = LabelNames("topic", "type", "result"))
+      name   = s"${prefix}_results",
+      help   = "Call result: success or failure",
+      labels = LabelNames("topic", "type", "result"),
+    )
 
     for {
       latencySummary <- latencySummary

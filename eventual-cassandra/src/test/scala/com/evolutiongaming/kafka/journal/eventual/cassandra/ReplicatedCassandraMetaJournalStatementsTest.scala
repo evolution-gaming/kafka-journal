@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import java.time.{Instant, LocalDate}
 import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.kafka.journal._
@@ -11,6 +10,7 @@ import com.evolutiongaming.skafka.Topic
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.time.{Instant, LocalDate}
 import scala.concurrent.duration._
 import scala.util.Try
 
@@ -31,18 +31,25 @@ class ReplicatedCassandraMetaJournalStatementsTest extends AnyWordSpec with Matc
       }
 
       "from metaJournal" in {
-        val key = ReplicatedCassandraMetaJournalStatementsTest.key
+        val key          = ReplicatedCassandraMetaJournalStatementsTest.key
         val journalHead1 = journalHead.copy(deleteTo = journalHead.seqNr.toDeleteTo.some)
         val stateT = for {
           a <- byKey.journalHead
           _  = a shouldEqual journalHead1.some
         } yield {}
         val expected = State(
-          metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
-            journalHead = journalHead1,
-            created = timestamp0,
-            updated = timestamp1,
-            origin = origin.some))))))
+          metaJournal = Map(
+            (
+              (key.topic, segment),
+              Map(
+                (
+                  key.id,
+                  MetaJournalEntry(journalHead = journalHead1, created = timestamp0, updated = timestamp1, origin = origin.some),
+                ),
+              ),
+            ),
+          ),
+        )
         val (state1, _) = stateT.run(expected).get
         state1 shouldEqual expected
       }
@@ -55,16 +62,29 @@ class ReplicatedCassandraMetaJournalStatementsTest extends AnyWordSpec with Matc
         _  = a.shouldEqual(())
       } yield {}
       val expected = State(
-        metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
-          journalHead = journalHead,
-          created = timestamp0,
-          updated = timestamp0,
-          origin = origin.some))))),
-        metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
-          journalHead = journalHead,
-          created = timestamp0,
-          updated = timestamp0,
-          origin = origin.some))))))
+        metadata = Map(
+          (
+            key.topic,
+            Map(
+              (
+                key.id,
+                MetaJournalEntry(journalHead = journalHead, created = timestamp0, updated = timestamp0, origin = origin.some),
+              ),
+            ),
+          ),
+        ),
+        metaJournal = Map(
+          (
+            (key.topic, segment),
+            Map(
+              (
+                key.id,
+                MetaJournalEntry(journalHead = journalHead, created = timestamp0, updated = timestamp0, origin = origin.some),
+              ),
+            ),
+          ),
+        ),
+      )
       val (state1, _) = stateT.run(expected).get
       state1 shouldEqual expected
     }
@@ -82,16 +102,29 @@ class ReplicatedCassandraMetaJournalStatementsTest extends AnyWordSpec with Matc
         } yield {}
         val journalHead1 = journalHead.copy(seqNr = SeqNr.max, deleteTo = SeqNr.max.toDeleteTo.some)
         val expected = State(
-          metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
-            journalHead = journalHead1,
-            created = timestamp0,
-            updated = timestamp1,
-            origin = origin.some))))),
-          metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
-            journalHead = journalHead1,
-            created = timestamp0,
-            updated = timestamp1,
-            origin = origin.some))))))
+          metadata = Map(
+            (
+              key.topic,
+              Map(
+                (
+                  key.id,
+                  MetaJournalEntry(journalHead = journalHead1, created = timestamp0, updated = timestamp1, origin = origin.some),
+                ),
+              ),
+            ),
+          ),
+          metaJournal = Map(
+            (
+              (key.topic, segment),
+              Map(
+                (
+                  key.id,
+                  MetaJournalEntry(journalHead = journalHead1, created = timestamp0, updated = timestamp1, origin = origin.some),
+                ),
+              ),
+            ),
+          ),
+        )
         val (state1, _) = stateT.run(expected).get
         state1 shouldEqual expected
       }
@@ -105,16 +138,29 @@ class ReplicatedCassandraMetaJournalStatementsTest extends AnyWordSpec with Matc
         } yield {}
         val journalHead1 = journalHead.copy(seqNr = SeqNr.max)
         val expected = State(
-          metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
-            journalHead = journalHead1,
-            created = timestamp0,
-            updated = timestamp1,
-            origin = origin.some))))),
-          metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
-            journalHead = journalHead1,
-            created = timestamp0,
-            updated = timestamp1,
-            origin = origin.some))))))
+          metadata = Map(
+            (
+              key.topic,
+              Map(
+                (
+                  key.id,
+                  MetaJournalEntry(journalHead = journalHead1, created = timestamp0, updated = timestamp1, origin = origin.some),
+                ),
+              ),
+            ),
+          ),
+          metaJournal = Map(
+            (
+              (key.topic, segment),
+              Map(
+                (
+                  key.id,
+                  MetaJournalEntry(journalHead = journalHead1, created = timestamp0, updated = timestamp1, origin = origin.some),
+                ),
+              ),
+            ),
+          ),
+        )
         val (state1, _) = stateT.run(expected).get
         state1 shouldEqual expected
       }
@@ -127,16 +173,39 @@ class ReplicatedCassandraMetaJournalStatementsTest extends AnyWordSpec with Matc
           _  = a.shouldEqual(())
         } yield {}
         val expected = State(
-          metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
-            journalHead = journalHead.copy(seqNr = SeqNr.max),
-            created = timestamp0,
-            updated = timestamp1,
-            origin = origin.some))))),
-          metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
-            journalHead = journalHead.copy(seqNr = SeqNr.max, expiry = expiry.some),
-            created = timestamp0,
-            updated = timestamp1,
-            origin = origin.some))))))
+          metadata = Map(
+            (
+              key.topic,
+              Map(
+                (
+                  key.id,
+                  MetaJournalEntry(
+                    journalHead = journalHead.copy(seqNr = SeqNr.max),
+                    created     = timestamp0,
+                    updated     = timestamp1,
+                    origin      = origin.some,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          metaJournal = Map(
+            (
+              (key.topic, segment),
+              Map(
+                (
+                  key.id,
+                  MetaJournalEntry(
+                    journalHead = journalHead.copy(seqNr = SeqNr.max, expiry = expiry.some),
+                    created     = timestamp0,
+                    updated     = timestamp1,
+                    origin      = origin.some,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        )
         val (state1, _) = stateT.run(expected).get
         state1 shouldEqual expected
       }
@@ -150,16 +219,29 @@ class ReplicatedCassandraMetaJournalStatementsTest extends AnyWordSpec with Matc
         } yield {}
         val journalHead1 = journalHead.copy(deleteTo = journalHead.seqNr.toDeleteTo.some)
         val expected = State(
-          metadata = Map((key.topic, Map((key.id, MetaJournalEntry(
-            journalHead = journalHead1,
-            created = timestamp0,
-            updated = timestamp1,
-            origin = origin.some))))),
-          metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
-            journalHead = journalHead1,
-            created = timestamp0,
-            updated = timestamp1,
-            origin = origin.some))))))
+          metadata = Map(
+            (
+              key.topic,
+              Map(
+                (
+                  key.id,
+                  MetaJournalEntry(journalHead = journalHead1, created = timestamp0, updated = timestamp1, origin = origin.some),
+                ),
+              ),
+            ),
+          ),
+          metaJournal = Map(
+            (
+              (key.topic, segment),
+              Map(
+                (
+                  key.id,
+                  MetaJournalEntry(journalHead = journalHead1, created = timestamp0, updated = timestamp1, origin = origin.some),
+                ),
+              ),
+            ),
+          ),
+        )
         val (state1, _) = stateT.run(expected).get
         state1 shouldEqual expected
       }
@@ -185,11 +267,18 @@ class ReplicatedCassandraMetaJournalStatementsTest extends AnyWordSpec with Matc
       } yield {}
       val (state, _) = stateT.run(State.empty).get
       val expected = State(
-        metaJournal = Map(((key.topic, segment), Map((key.id, MetaJournalEntry(
-          journalHead = journalHead,
-          created = timestamp0,
-          updated = timestamp1,
-          origin = origin.some))))))
+        metaJournal = Map(
+          (
+            (key.topic, segment),
+            Map(
+              (
+                key.id,
+                MetaJournalEntry(journalHead = journalHead, created = timestamp0, updated = timestamp1, origin = origin.some),
+              ),
+            ),
+          ),
+        ),
+      )
       state shouldEqual expected
     }
   }
@@ -197,26 +286,23 @@ class ReplicatedCassandraMetaJournalStatementsTest extends AnyWordSpec with Matc
 
 object ReplicatedCassandraMetaJournalStatementsTest {
 
-  val timestamp0: Instant = Instant.now()
-  val timestamp1: Instant = timestamp0 + 1.second
-  val key: Key = Key(id = "id", topic = "topic")
-  val segment: SegmentNr = SegmentNr.min
+  val timestamp0: Instant              = Instant.now()
+  val timestamp1: Instant              = timestamp0 + 1.second
+  val key: Key                         = Key(id = "id", topic = "topic")
+  val segment: SegmentNr               = SegmentNr.min
   val partitionOffset: PartitionOffset = PartitionOffset.empty
-  val journalHead: JournalHead = JournalHead(partitionOffset, SegmentSize.default, SeqNr.min)
-  val origin: Origin = Origin("origin")
-  val expiry: Expiry = Expiry(
-    1.day.toExpireAfter,
-    LocalDate.of(2019, 12, 12).toExpireOn)
-
+  val journalHead: JournalHead         = JournalHead(partitionOffset, SegmentSize.default, SeqNr.min)
+  val origin: Origin                   = Origin("origin")
+  val expiry: Expiry                   = Expiry(1.day.toExpireAfter, LocalDate.of(2019, 12, 12).toExpireOn)
 
   final case class State(
-    metadata: Map[Topic, Map[String, MetaJournalEntry]] = Map.empty,
-    metaJournal: Map[(Topic, SegmentNr), Map[String, MetaJournalEntry]] = Map.empty)
+    metadata: Map[Topic, Map[String, MetaJournalEntry]]                 = Map.empty,
+    metaJournal: Map[(Topic, SegmentNr), Map[String, MetaJournalEntry]] = Map.empty,
+  )
 
   object State {
 
     val empty: State = State()
-
 
     implicit class StateOps(val self: State) extends AnyVal {
 
@@ -225,7 +311,7 @@ object ReplicatedCassandraMetaJournalStatementsTest {
           entries <- self.metadata.get(key.topic)
           entry   <- entries.get(key.id)
         } yield {
-          val entry1 = f(entry)
+          val entry1   = f(entry)
           val entries1 = entries.updated(key.id, entry1)
           self.copy(metadata = self.metadata.updated(key.topic, entries1))
         }
@@ -237,7 +323,7 @@ object ReplicatedCassandraMetaJournalStatementsTest {
           entries <- self.metaJournal.get((key.topic, segment))
           entry   <- entries.get(key.id)
         } yield {
-          val entry1 = f(entry)
+          val entry1   = f(entry)
           val entries1 = entries.updated(key.id, entry1)
           self.copy(metaJournal = self.metaJournal.updated((key.topic, segment), entries1))
         }
@@ -245,7 +331,6 @@ object ReplicatedCassandraMetaJournalStatementsTest {
       }
     }
   }
-
 
   type StateT[A] = cats.data.StateT[Try, State, A]
 
@@ -258,15 +343,10 @@ object ReplicatedCassandraMetaJournalStatementsTest {
     def unit(f: State => State): StateT[Unit] = success[Unit] { a => (f(a), ()) }
   }
 
-
-  val insertMetaJournal: MetaJournalStatements.Insert[StateT] = {
-    (key, segment, created, updated, journalHead, origin) => {
+  val insertMetaJournal: MetaJournalStatements.Insert[StateT] = { (key, segment, created, updated, journalHead, origin) =>
+    {
       StateT.unit { state =>
-        val entry = MetaJournalEntry(
-          journalHead = journalHead,
-          created = created,
-          updated = updated,
-          origin = origin)
+        val entry = MetaJournalEntry(journalHead = journalHead, created = created, updated = updated, origin = origin)
         val entries = state
           .metaJournal
           .getOrElse((key.topic, segment), Map.empty)
@@ -276,9 +356,8 @@ object ReplicatedCassandraMetaJournalStatementsTest {
     }
   }
 
-
-  val selectMetaJournal: MetaJournalStatements.SelectJournalHead[StateT] = {
-    (key, segment) => {
+  val selectMetaJournal: MetaJournalStatements.SelectJournalHead[StateT] = { (key, segment) =>
+    {
       StateT.success { state =>
         val journalHead = for {
           entries <- state.metaJournal.get((key.topic, segment))
@@ -291,84 +370,70 @@ object ReplicatedCassandraMetaJournalStatementsTest {
     }
   }
 
-
-  val updateMetaJournal: MetaJournalStatements.Update[StateT] = {
-    (key, segment, partitionOffset, timestamp, seqNr, deleteTo) => {
+  val updateMetaJournal: MetaJournalStatements.Update[StateT] = { (key, segment, partitionOffset, timestamp, seqNr, deleteTo) =>
+    {
       StateT.unit { state =>
         state.updateMetaJournal(key, segment) { entry =>
           entry.copy(
-            journalHead = entry.journalHead.copy(
-              partitionOffset = partitionOffset,
-              seqNr = seqNr,
-              deleteTo = deleteTo.some),
-            updated = timestamp)
+            journalHead = entry.journalHead.copy(partitionOffset = partitionOffset, seqNr = seqNr, deleteTo = deleteTo.some),
+            updated     = timestamp,
+          )
         }
       }
     }
   }
 
-
-  val updateSeqNrMetaJournal: MetaJournalStatements.UpdateSeqNr[StateT] = {
-    (key, segment, partitionOffset, timestamp, seqNr) => {
+  val updateSeqNrMetaJournal: MetaJournalStatements.UpdateSeqNr[StateT] = { (key, segment, partitionOffset, timestamp, seqNr) =>
+    {
       StateT.unit { state =>
         state.updateMetaJournal(key, segment) { entry =>
-          entry.copy(
-            journalHead = entry.journalHead.copy(
-              partitionOffset = partitionOffset,
-              seqNr = seqNr),
-            updated = timestamp)
+          entry.copy(journalHead = entry.journalHead.copy(partitionOffset = partitionOffset, seqNr = seqNr), updated = timestamp)
         }
       }
     }
   }
-
 
   val updateExpiryMetaJournal: MetaJournalStatements.UpdateExpiry[StateT] = {
-    (key, segment, partitionOffset, timestamp, seqNr, expiry) => {
-      StateT.unit { state =>
-        state.updateMetaJournal(key, segment) { entry =>
-          entry.copy(
-            journalHead = entry.journalHead.copy(
-              partitionOffset = partitionOffset,
-              seqNr = seqNr,
-              expiry = expiry.some),
-            updated = timestamp)
+    (key, segment, partitionOffset, timestamp, seqNr, expiry) =>
+      {
+        StateT.unit { state =>
+          state.updateMetaJournal(key, segment) { entry =>
+            entry.copy(
+              journalHead = entry.journalHead.copy(partitionOffset = partitionOffset, seqNr = seqNr, expiry = expiry.some),
+              updated     = timestamp,
+            )
+          }
         }
       }
-    }
   }
 
-
   val updateDeleteToMetaJournal: MetaJournalStatements.UpdateDeleteTo[StateT] = {
-    (key, segment, partitionOffset, timestamp, deleteTo) => {
-      StateT.unit { state =>
-        state.updateMetaJournal(key, segment) { entry =>
-          entry.copy(
-            journalHead = entry.journalHead.copy(
-              partitionOffset = partitionOffset,
-              deleteTo = deleteTo.some),
-            updated = timestamp)
+    (key, segment, partitionOffset, timestamp, deleteTo) =>
+      {
+        StateT.unit { state =>
+          state.updateMetaJournal(key, segment) { entry =>
+            entry.copy(
+              journalHead = entry.journalHead.copy(partitionOffset = partitionOffset, deleteTo = deleteTo.some),
+              updated     = timestamp,
+            )
+          }
         }
       }
-    }
   }
 
   val updateMetaJournalPartitionOffset: MetaJournalStatements.UpdatePartitionOffset[StateT] = {
-    (key, segment, partitionOffset, timestamp) => {
-      StateT.unit { state =>
-        state.updateMetaJournal(key, segment) { entry =>
-          entry.copy(
-            journalHead = entry.journalHead.copy(
-              partitionOffset = partitionOffset),
-            updated = timestamp)
+    (key, segment, partitionOffset, timestamp) =>
+      {
+        StateT.unit { state =>
+          state.updateMetaJournal(key, segment) { entry =>
+            entry.copy(journalHead = entry.journalHead.copy(partitionOffset = partitionOffset), updated = timestamp)
+          }
         }
       }
-    }
   }
 
-
-  val deleteMetaJournal: MetaJournalStatements.Delete[StateT] = {
-    (key, segment) => {
+  val deleteMetaJournal: MetaJournalStatements.Delete[StateT] = { (key, segment) =>
+    {
       StateT.unit { state =>
         val k = (key.topic, segment)
         val state1 = for {
@@ -388,15 +453,11 @@ object ReplicatedCassandraMetaJournalStatementsTest {
     }
   }
 
-
-  val deleteExpiryMetaJournal: MetaJournalStatements.DeleteExpiry[StateT] = {
-    (key, segment) => {
+  val deleteExpiryMetaJournal: MetaJournalStatements.DeleteExpiry[StateT] = { (key, segment) =>
+    {
       StateT.unit { state =>
         state.updateMetaJournal(key, segment) { entry =>
-          entry.copy(
-            journalHead = entry.journalHead.copy(
-              partitionOffset = partitionOffset,
-              expiry = none))
+          entry.copy(journalHead = entry.journalHead.copy(partitionOffset = partitionOffset, expiry = none))
         }
       }
     }
@@ -411,7 +472,8 @@ object ReplicatedCassandraMetaJournalStatementsTest {
     updateDeleteToMetaJournal,
     updateMetaJournalPartitionOffset,
     deleteMetaJournal,
-    deleteExpiryMetaJournal)
+    deleteExpiryMetaJournal,
+  )
 
   val byKey: ByKey[StateT] = metaJournalStatements(key, segment)
 }

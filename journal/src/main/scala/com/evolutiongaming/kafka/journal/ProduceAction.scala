@@ -11,18 +11,16 @@ trait ProduceAction[F[_]] {
 
 object ProduceAction {
 
-  def apply[F[_] : Monad](
-    producer: Journals.Producer[F])(implicit
-    actionToProducerRecord: ActionToProducerRecord[F]
-  ): ProduceAction[F] = {
-    (action: Action) => {
+  def apply[F[_]: Monad](
+    producer: Journals.Producer[F],
+  )(implicit actionToProducerRecord: ActionToProducerRecord[F]): ProduceAction[F] = { (action: Action) =>
+    {
       for {
         producerRecord  <- actionToProducerRecord(action)
         partitionOffset <- producer.send(producerRecord)
       } yield partitionOffset
     }
   }
-
 
   implicit class ProduceActionOps[F[_]](val self: ProduceAction[F]) extends AnyVal {
 

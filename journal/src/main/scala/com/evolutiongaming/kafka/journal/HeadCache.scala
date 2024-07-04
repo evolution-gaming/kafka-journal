@@ -2,14 +2,14 @@ package com.evolutiongaming.kafka.journal
 
 import cats._
 import cats.effect._
+import cats.effect.Async
 import cats.effect.syntax.all._
-import cats.effect.kernel.Async
 import cats.syntax.all._
+import com.evolution.scache.{Cache, ExpiringCache}
 import com.evolutiongaming.catshelper._
 import com.evolutiongaming.kafka.journal.PartitionCache.Result
 import com.evolutiongaming.kafka.journal.conversions.ConsRecordToActionHeader
 import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, TopicPointers}
-import com.evolution.scache.{Cache, ExpiringCache}
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.smetrics.MetricsHelper._
@@ -62,12 +62,10 @@ trait HeadCache[F[_]] {
   def get(key: Key, partition: Partition, offset: Offset): F[Option[HeadInfo]]
 }
 
-
 object HeadCache {
 
   /** Disable cache and always return `None` */
   def empty[F[_]: Applicative]: HeadCache[F] = const(none[HeadInfo].pure[F])
-
 
   /** Disable cache and always return a predefined value */
   def const[F[_]](value: F[Option[HeadInfo]]): HeadCache[F] = {
@@ -76,7 +74,6 @@ object HeadCache {
       def get(key: Key, partition: Partition, offset: Offset) = value
     }
   }
-
 
   /** Creates new cache using a Kafka configuration and Cassandra reader.
     *
@@ -105,15 +102,11 @@ object HeadCache {
   def of[F[_]: Async: Parallel: Runtime: LogOf: KafkaConsumerOf: MeasureDuration: FromTry: FromJsResult: JsonCodec.Decode](
     consumerConfig: ConsumerConfig,
     eventualJournal: EventualJournal[F],
-    metrics: Option[HeadCacheMetrics[F]]
+    metrics: Option[HeadCacheMetrics[F]],
   ): Resource[F, HeadCache[F]] = {
     for {
       log    <- LogOf[F].apply(HeadCache.getClass).toResource
-      result <- HeadCache.of(
-        Eventual(eventualJournal),
-        log,
-        TopicCache.Consumer.of[F](consumerConfig),
-        metrics)
+      result <- HeadCache.of(Eventual(eventualJournal), log, TopicCache.Consumer.of[F](consumerConfig), metrics)
       result <- result.withFence
     } yield {
       result.withLog(log)
@@ -153,14 +146,12 @@ object HeadCache {
     log: Log[F],
     consumer: Resource[F, TopicCache.Consumer[F]],
     metrics: Option[HeadCacheMetrics[F]],
-    config: HeadCacheConfig = HeadCacheConfig.default
+    config: HeadCacheConfig = HeadCacheConfig.default,
   ): Resource[F, HeadCache[F]] = {
 
     val consRecordToActionHeader = ConsRecordToActionHeader[F]
     for {
-      cache <- Cache.expiring(
-        ExpiringCache.Config[F, Topic, TopicCache[F]](expireAfterRead = config.expiry),
-        partitions = 1.some)
+      cache <- Cache.expiring(ExpiringCache.Config[F, Topic, TopicCache[F]](expireAfterRead = config.expiry), partitions = 1.some)
       cache <- metrics.fold(cache.pure[Resource[F, *]]) { metrics => cache.withMetrics(metrics.cache) }
     } yield {
       class Main
@@ -168,18 +159,11 @@ object HeadCache {
 
         def get(key: Key, partition: Partition, offset: Offset) = {
           val topic = key.topic
-          val log1 = log.prefixed(topic)
+          val log1  = log.prefixed(topic)
           cache
             .getOrUpdateResource(topic) {
               TopicCache
-                .of(
-                  eventual,
-                  topic,
-                  log1,
-                  consumer,
-                  config,
-                  consRecordToActionHeader,
-                  metrics.map { _.headCache })
+                .of(eventual, topic, log1, consumer, config, consRecordToActionHeader, metrics.map { _.headCache })
                 .map { cache =>
                   metrics
                     .fold(cache) { metrics => cache.withMetrics(topic, metrics.headCache) }
@@ -201,7 +185,6 @@ object HeadCache {
       }
     }
   }
-
 
   /** Lighweight wrapper over [[EventualJournal]].
     *
@@ -273,7 +256,7 @@ object HeadCache {
             d <- MeasureDuration[F].start
             a <- self.get(key, partition, offset)
             d <- d
-            _ <- log.debug(s"get in ${ d.toMillis }ms, key: $key, offset: $partition:$offset, result: $a")
+            _ <- log.debug(s"get in ${d.toMillis}ms, key: $key, offset: $partition:$offset, result: $a")
           } yield a
         }
       }
@@ -302,7 +285,6 @@ object HeadCache {
         }
     }
   }
-
 
   /** Provides methods to update the metrics for [[HeadCache]] internals */
   trait Metrics[F[_]] {
@@ -367,7 +349,6 @@ object HeadCache {
     /** Does not do anything, ignores metric reports */
     def empty[F[_]: Applicative]: Metrics[F] = const(().pure[F])
 
-
     /** Calls a passed effect when metrics are reported.
       *
       * May only be useful for tests, as the reported parameters are ignored.
@@ -386,13 +367,11 @@ object HeadCache {
       }
     }
 
-
     type Prefix = String
 
     object Prefix {
       val default: Prefix = "headcache"
     }
-
 
     /** Registers a default set of metrics to a passed collector registry.
       *
@@ -419,41 +398,40 @@ object HeadCache {
       */
     def of[F[_]: Monad](
       registry: CollectorRegistry[F],
-      prefix: Prefix = Prefix.default
+      prefix: Prefix = Prefix.default,
     ): Resource[F, Metrics[F]] = {
 
       val getLatencySummary = registry.summary(
-        name = s"${ prefix }_get_latency",
-        help = "HeadCache get latency in seconds",
+        name      = s"${prefix}_get_latency",
+        help      = "HeadCache get latency in seconds",
         quantiles = Quantiles.Default,
-        labels = LabelNames("topic", "result", "now"))
+        labels    = LabelNames("topic", "result", "now"),
+      )
 
       val getResultCounter = registry.counter(
-        name = s"${ prefix }_get_result",
-        help = "HeadCache `get` call result counter",
-        labels = LabelNames("topic", "result", "now"))
+        name   = s"${prefix}_get_result",
+        help   = "HeadCache `get` call result counter",
+        labels = LabelNames("topic", "result", "now"),
+      )
 
-      val entriesGauge = registry.gauge(
-        name = s"${ prefix }_entries",
-        help = "HeadCache entries",
-        labels = LabelNames("topic"))
+      val entriesGauge = registry.gauge(name = s"${prefix}_entries", help = "HeadCache entries", labels = LabelNames("topic"))
 
-      val listenersGauge = registry.gauge(
-        name = s"${ prefix }_listeners",
-        help = "HeadCache listeners",
-        labels = LabelNames("topic"))
+      val listenersGauge =
+        registry.gauge(name = s"${prefix}_listeners", help = "HeadCache listeners", labels = LabelNames("topic"))
 
       val ageSummary = registry.summary(
-        name = s"${ prefix }_records_age",
-        help = "HeadCache time difference between record timestamp and now in seconds",
+        name      = s"${prefix}_records_age",
+        help      = "HeadCache time difference between record timestamp and now in seconds",
         quantiles = Quantiles.Default,
-        labels = LabelNames("topic"))
+        labels    = LabelNames("topic"),
+      )
 
       val diffSummary = registry.summary(
-        name = s"${ prefix }_diff",
-        help = "HeadCache offset difference between state and source",
+        name      = s"${prefix}_diff",
+        help      = "HeadCache offset difference between state and source",
         quantiles = Quantiles.Default,
-        labels = LabelNames("topic", "source"))
+        labels    = LabelNames("topic", "source"),
+      )
 
       for {
         getLatencySummary <- getLatencySummary

@@ -23,5 +23,5 @@ final case class SnapshotRecord[A](
   snapshot: Snapshot[A],
   timestamp: Instant,
   origin: Option[Origin],
-  version: Option[Version]
+  version: Option[Version],
 )

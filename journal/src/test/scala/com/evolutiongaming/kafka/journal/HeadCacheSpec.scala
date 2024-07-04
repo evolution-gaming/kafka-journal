@@ -1,22 +1,22 @@
 package com.evolutiongaming.kafka.journal
 
-import java.time.Instant
 import cats.data.{NonEmptyList => Nel, NonEmptyMap => Nem, NonEmptySet => Nes}
-import cats.effect.{Concurrent, IO, Outcome, Ref, Resource, Temporal}
+import cats.effect._
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.Log
-import com.evolutiongaming.kafka.journal.eventual.TopicPointers
-import com.evolutiongaming.kafka.journal.IOSuite._
-import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, KafkaWrite}
-import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
-import com.evolutiongaming.skafka._
 import com.evolutiongaming.catshelper.CatsHelper._
+import com.evolutiongaming.catshelper.Log
+import com.evolutiongaming.kafka.journal.IOSuite._
+import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
+import com.evolutiongaming.kafka.journal.conversions.{ActionToProducerRecord, KafkaWrite}
+import com.evolutiongaming.kafka.journal.eventual.TopicPointers
+import com.evolutiongaming.retry.Sleep
+import com.evolutiongaming.skafka._
+import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords}
 import com.evolutiongaming.smetrics.CollectorRegistry
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
-import com.evolutiongaming.retry.Sleep
-import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords}
 
+import java.time.Instant
 import scala.collection.immutable.Queue
 import scala.concurrent.duration._
 import scala.util.Try
@@ -43,14 +43,12 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
         }
       }
 
-      val state = TestConsumer.State(
-        topics = Map((topic, List(partition))),
-        records = Queue(records.pure[Try]))
+      val state = TestConsumer.State(topics = Map((topic, List(partition))), records = Queue(records.pure[Try]))
 
       val result = for {
         stateRef <- Ref[IO].of(state)
         consumer  = TestConsumer.of(stateRef)
-        _        <- headCacheOf(eventual, consumer).use { headCache =>
+        _ <- headCacheOf(eventual, consumer).use { headCache =>
           for {
             result <- headCache.get(key = key, partition = partition, offset = offsetLast)
             _       = result shouldEqual HeadInfo.append(Offset.min, SeqNr.unsafe(11), none).some
@@ -60,8 +58,10 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
               actions = List(
                 TestConsumer.Action.Seek(topic, Nem.of((partition, Offset.min))),
                 TestConsumer.Action.Assign(topic, Nes.of(partition)),
-                TestConsumer.Action.Release),
-              topics = Map((topic, List(partition))))
+                TestConsumer.Action.Release,
+              ),
+              topics = Map((topic, List(partition))),
+            )
           }
         }
       } yield {}
@@ -72,18 +72,17 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
     "return result, all events are already replicated and cache is empty" in {
       val marker = Offset.unsafe(10)
 
-      val pointers = Map((partition, marker))
+      val pointers          = Map((partition, marker))
       implicit val eventual = HeadCache.Eventual.const(TopicPointers(pointers).pure[IO])
 
-      val state = TestConsumer.State(
-        topics = Map((topic, List(partition))))
+      val state = TestConsumer.State(topics = Map((topic, List(partition))))
 
       val key = Key(id = "id", topic = topic)
 
       val result = for {
         stateRef <- Ref[IO].of(state)
         consumer  = TestConsumer.of(stateRef)
-        _        <- headCacheOf(eventual, consumer).use { headCache =>
+        _ <- headCacheOf(eventual, consumer).use { headCache =>
           for {
             a <- headCache.get(key = key, partition = partition, offset = marker)
             _  = a shouldEqual HeadInfo.empty.some
@@ -105,13 +104,13 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
       val result = for {
         stateRef <- Ref[IO].of(state)
         consumer  = TestConsumer.of(stateRef)
-        _        <- headCacheOf(eventual, consumer).use { headCache =>
+        _ <- headCacheOf(eventual, consumer).use { headCache =>
           for {
             result <- Concurrent[IO].start { headCache.get(key = key, partition = partition, offset = marker) }
             _      <- stateRef.update { _.copy(topics = Map((topic, List(partition)))) }
-            _      <- stateRef.update { state =>
-              val action = Action.Mark(key, timestamp, ActionHeader.Mark("mark", none, Version.current.some))
-              val record = consumerRecordOf(action, topicPartition, marker)
+            _ <- stateRef.update { state =>
+              val action  = Action.Mark(key, timestamp, ActionHeader.Mark("mark", none, Version.current.some))
+              val record  = consumerRecordOf(action, topicPartition, marker)
               val records = ConsumerRecordsOf(List(record))
               state.enqueue(records.pure[Try])
             }
@@ -123,8 +122,10 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
               actions = List(
                 TestConsumer.Action.Seek(topic, Nem.of((partition, Offset.min))),
                 TestConsumer.Action.Assign(topic, Nes.of(partition)),
-                TestConsumer.Action.Release),
-              topics = Map((topic, List(partition))))
+                TestConsumer.Action.Release,
+              ),
+              topics = Map((topic, List(partition))),
+            )
           }
         }
       } yield {}
@@ -133,27 +134,25 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
     }
 
     "retry in case consuming failed" in {
-      val state = TestConsumer.State(
-        topics = Map((topic, List(Partition.min))))
+      val state = TestConsumer.State(topics = Map((topic, List(Partition.min))))
 
       val result = for {
-        pointers  <- Ref.of[IO, Map[Partition, Offset]](Map.empty)
-        stateRef  <- Ref[IO].of(state)
-        consumer   = TestConsumer.of(stateRef)
-        headCache  = {
+        pointers <- Ref.of[IO, Map[Partition, Offset]](Map.empty)
+        stateRef <- Ref[IO].of(state)
+        consumer  = TestConsumer.of(stateRef)
+        headCache = {
           val topicPointers = for {
             pointers <- pointers.get
           } yield TopicPointers(pointers)
           val eventual = HeadCache.Eventual.const(topicPointers)
           headCacheOf(eventual, consumer)
         }
-        _         <- headCache.use { headCache =>
-
+        _ <- headCache.use { headCache =>
           val key = Key(id = "id", topic = topic)
           val enqueue = (offset: Offset) => {
             stateRef.update { state =>
-              val action = appendOf(key, SeqNr.min)
-              val record = consumerRecordOf(action, topicPartition, offset)
+              val action  = appendOf(key, SeqNr.min)
+              val record  = consumerRecordOf(action, topicPartition, offset)
               val records = ConsumerRecordsOf(List(record))
               state.enqueue(records.pure[Try])
             }
@@ -175,8 +174,10 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
                 TestConsumer.Action.Release,
                 TestConsumer.Action.Seek(topic, Nem.of((partition, Offset.min))),
                 TestConsumer.Action.Assign(topic, Nes.of(partition)),
-                TestConsumer.Action.Release),
-              topics = Map((topic, List(partition))))
+                TestConsumer.Action.Release,
+              ),
+              topics = Map((topic, List(partition))),
+            )
           }
         }
       } yield {}
@@ -185,10 +186,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
     }
 
     "timeout" in {
-      val headCache  = headCacheOf(
-        HeadCache.Eventual.empty, 
-        consumerEmpty.pure[IO].toResource,
-        config.copy(timeout = 10.millis))
+      val headCache = headCacheOf(HeadCache.Eventual.empty, consumerEmpty.pure[IO].toResource, config.copy(timeout = 10.millis))
       val result = headCache.use { headCache =>
         val key = Key(id = "id", topic = topic)
         for {
@@ -202,10 +200,8 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
 
     // TODO headcache: how to test?
     "do not leak on cancel" ignore {
-      val consumer   = TopicCache.Consumer.empty[IO]
-      val headCache  = headCacheOf(
-        HeadCache.Eventual.empty,
-        consumer.pure[IO].toResource)
+      val consumer  = TopicCache.Consumer.empty[IO]
+      val headCache = headCacheOf(HeadCache.Eventual.empty, consumer.pure[IO].toResource)
       val result = headCache.use { headCache =>
         val key = Key(id = "id", topic = topic)
         for {
@@ -220,9 +216,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
     }
 
     "not leak resources on release" in {
-      val headCache  = headCacheOf(
-        HeadCache.Eventual.empty,
-        consumerEmpty.pure[IO].toResource)
+      val headCache = headCacheOf(HeadCache.Eventual.empty, consumerEmpty.pure[IO].toResource)
       val result = for {
         a <- headCache.use { headCache =>
           val key = Key(id = "id", topic = topic)
@@ -240,74 +234,67 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
 }
 
 object HeadCacheSpec {
-  val timestamp: Instant = Instant.now()
-  val topic: Topic = "topic"
-  val partition: Partition = Partition.min
+  val timestamp: Instant             = Instant.now()
+  val topic: Topic                   = "topic"
+  val partition: Partition           = Partition.min
   val topicPartition: TopicPartition = TopicPartition(topic = topic, partition = partition)
-  val config: HeadCacheConfig = HeadCacheConfig(removeInterval = 100.millis)
+  val config: HeadCacheConfig        = HeadCacheConfig(removeInterval = 100.millis)
 
   val recordMetadata: HeaderMetadata = HeaderMetadata.empty
 
   val headers: Headers = Headers.empty
 
-  def consumerRecordOf(
-    action: Action,
-    topicPartition: TopicPartition,
-    offset: Offset)(implicit
-    actionToProducerRecord: ActionToProducerRecord[Try]
+  def consumerRecordOf(action: Action, topicPartition: TopicPartition, offset: Offset)(
+    implicit actionToProducerRecord: ActionToProducerRecord[Try],
   ): ConsumerRecord[String, Unit] = {
     ConsumerRecordOf[Try](action, topicPartition, offset)
       .get
       .void
   }
 
-  def appendOf(key: Key, seqNr: SeqNr): Action.Append  = {
+  def appendOf(key: Key, seqNr: SeqNr): Action.Append = {
     implicit val kafkaWrite = KafkaWrite.summon[Try, Payload]
-    Action.Append.of[Try, Payload](
-      key = key,
-      timestamp = timestamp,
-      origin = none,
-      version = Version.current.some,
-      events = Events(Nel.of(Event(seqNr)), PayloadMetadata.empty),
-      metadata = recordMetadata,
-      headers = headers).get
+    Action
+      .Append
+      .of[Try, Payload](
+        key       = key,
+        timestamp = timestamp,
+        origin    = none,
+        version   = Version.current.some,
+        events    = Events(Nel.of(Event(seqNr)), PayloadMetadata.empty),
+        metadata  = recordMetadata,
+        headers   = headers,
+      )
+      .get
   }
 
-  
   implicit val LogIO: Log[IO] = Log.empty[IO]
 
-
   val consumerEmpty = new TopicCache.Consumer[IO] {
-    def assign(topic: Topic, partitions: Nes[Partition]) = IO.unit
+    def assign(topic: Topic, partitions: Nes[Partition])    = IO.unit
     def seek(topic: Topic, offsets: Nem[Partition, Offset]) = IO.unit
-    def poll = ConsumerRecords.empty[String, Unit].pure[IO]
-    def partitions(topic: Topic) = Set(partition).pure[IO]
+    def poll                                                = ConsumerRecords.empty[String, Unit].pure[IO]
+    def partitions(topic: Topic)                            = Set(partition).pure[IO]
   }
-
 
   def headCacheOf(
     eventual: HeadCache.Eventual[IO],
     consumer: Resource[IO, TopicCache.Consumer[IO]],
-    config: HeadCacheConfig = config
+    config: HeadCacheConfig = config,
   ): Resource[IO, HeadCache[IO]] = {
 
     for {
-      metrics   <- HeadCacheMetrics.of[IO](CollectorRegistry.empty)
-      headCache <- HeadCache.of[IO](
-        log = LogIO,
-        config = config,
-        eventual = eventual,
-        consumer = consumer,
-        metrics = metrics.some)
+      metrics <- HeadCacheMetrics.of[IO](CollectorRegistry.empty)
+      headCache <- HeadCache
+        .of[IO](log = LogIO, config = config, eventual = eventual, consumer = consumer, metrics = metrics.some)
     } yield headCache
   }
-
 
   object TestConsumer {
 
     def of(stateRef: Ref[IO, State]): Resource[IO, TopicCache.Consumer[IO]] = {
       val consumer = apply(stateRef)
-      val release = stateRef.update { _.append(Action.Release) }
+      val release  = stateRef.update { _.append(Action.Release) }
       Resource((consumer, release).pure[IO])
     }
 
@@ -324,10 +311,10 @@ object HeadCacheSpec {
 
         val poll = {
           for {
-            _       <- Sleep[IO].sleep(1.milli)
+            _ <- Sleep[IO].sleep(1.milli)
             records <- stateRef.modify { state =>
               state.records.dequeueOption match {
-                case None                    => (state, ConsumerRecords.empty[String, Unit].pure[Try])
+                case None => (state, ConsumerRecords.empty[String, Unit].pure[Try])
                 case Some((record, records)) =>
                   val stateUpdated = state.copy(records = records)
                   (stateUpdated, record)
@@ -347,7 +334,6 @@ object HeadCacheSpec {
       }
     }
 
-
     sealed abstract class Action
 
     object Action {
@@ -361,14 +347,14 @@ object HeadCacheSpec {
     }
 
     final case class State(
-      actions: List[Action] = List.empty,
-      topics: Map[Topic, List[Partition]] = Map.empty,
-      records: Queue[Try[ConsumerRecords[String, Unit]]] = Queue.empty)
+      actions: List[Action]                              = List.empty,
+      topics: Map[Topic, List[Partition]]                = Map.empty,
+      records: Queue[Try[ConsumerRecords[String, Unit]]] = Queue.empty,
+    )
 
     object State {
 
       val empty: State = State()
-
 
       implicit class StateOps(val self: State) extends AnyVal {
 
@@ -380,7 +366,6 @@ object HeadCacheSpec {
       }
     }
   }
-  
-  
+
   case object TestError extends RuntimeException with NoStackTrace
 }

@@ -18,7 +18,6 @@ trait Fail[F[_]] {
 object Fail {
 
   def apply[F[_]](implicit F: Fail[F]): Fail[F] = F
-  
 
   implicit val idFail: Fail[Id] = new Fail[Id] {
     def fail[A](a: String) = throw JournalError(a)
@@ -43,22 +42,20 @@ object Fail {
   implicit val tryFail: Fail[Try] = new Fail[Try] {
     def fail[A](a: String) = Failure(JournalError(a))
   }
-  
+
   implicit val ioFail: Fail[IO] = lift[IO]
 
-
-  def lift[F[_] : ApplicativeThrowable]: Fail[F] = {
+  def lift[F[_]: ApplicativeThrowable]: Fail[F] = {
     new Fail[F] {
       def fail[A](a: String) = JournalError(a).raiseError[F, A]
     }
   }
 
-
   object implicits {
 
     implicit class StringOpsFail(val self: String) extends AnyVal {
 
-      def fail[F[_] : Fail, A]: F[A] = Fail[F].fail(self)
+      def fail[F[_]: Fail, A]: F[A] = Fail[F].fail(self)
     }
   }
 }

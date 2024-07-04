@@ -21,7 +21,7 @@ object CassandraCluster {
 
   def apply[F[_]: Async: Parallel: FromGFuture](
     cluster: scassandra.CassandraCluster[F],
-    retries: Int
+    retries: Int,
   ): CassandraCluster[F] = new CassandraCluster[F] {
 
     def session = {

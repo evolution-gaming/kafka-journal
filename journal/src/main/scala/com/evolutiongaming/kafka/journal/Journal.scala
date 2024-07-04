@@ -20,13 +20,12 @@ trait Journal[F[_]] {
   def append[A](
     events: Nel[Event[A]],
     metadata: RecordMetadata = RecordMetadata.empty,
-    headers: Headers = Headers.empty
+    headers: Headers         = Headers.empty,
   )(implicit kafkaWrite: KafkaWrite[F, A]): F[PartitionOffset]
 
-  def read[A](from: SeqNr = SeqNr.min)(implicit
-    kafkaRead: KafkaRead[F, A],
-    eventualRead: EventualRead[F, A]
-  ): Stream[F, EventRecord[A]]
+  def read[A](
+    from: SeqNr = SeqNr.min,
+  )(implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A]): Stream[F, EventRecord[A]]
 
   def pointer: F[Option[SeqNr]]
 
@@ -43,12 +42,12 @@ trait Journal[F[_]] {
 
 object Journal {
 
-  def empty[F[_] : Applicative]: Journal[F] = {
+  def empty[F[_]: Applicative]: Journal[F] = {
     class Empty
     new Empty with Journal[F] {
 
-      def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
-        implicit kafkaWrite: KafkaWrite[F, A]) = PartitionOffset.empty.pure[F]
+      def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(implicit kafkaWrite: KafkaWrite[F, A]) =
+        PartitionOffset.empty.pure[F]
 
       def read[A](from: SeqNr)(implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A]) = Stream.empty
 
@@ -70,12 +69,9 @@ object Journal {
 
   implicit class JournalOps[F[_]](val self: Journal[F]) extends AnyVal {
 
-    def withLog(
-      key: Key,
-      log: Log[F],
-      config: CallTimeThresholds = CallTimeThresholds.default)(implicit
-      F: FlatMap[F],
-      measureDuration: MeasureDuration[F]
+    def withLog(key: Key, log: Log[F], config: CallTimeThresholds = CallTimeThresholds.default)(
+      implicit F: FlatMap[F],
+      measureDuration: MeasureDuration[F],
     ): Journal[F] = {
 
       val functionKId = FunctionK.id[F]
@@ -87,17 +83,18 @@ object Journal {
       new WithLog with Journal[F] {
 
         def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
-          implicit kafkaWrite: KafkaWrite[F, A]) = {
+          implicit kafkaWrite: KafkaWrite[F, A],
+        ) = {
           for {
             d <- MeasureDuration[F].start
             r <- self.append(events, metadata, headers)
             d <- d
             _ <- logDebugOrWarn(d, config.append) {
-              val first = events.head.seqNr
-              val last = events.last.seqNr
+              val first          = events.head.seqNr
+              val last           = events.last.seqNr
               val expireAfterStr = metadata.payload.expireAfter.foldMap { expireAfter => s", expireAfter: $expireAfter" }
-              val seqNr = if (first === last) s"seqNr: $first" else s"seqNrs: $first..$last"
-              s"$key append in ${ d.toMillis }ms, $seqNr$expireAfterStr, result: $r"
+              val seqNr          = if (first === last) s"seqNr: $first" else s"seqNrs: $first..$last"
+              s"$key append in ${d.toMillis}ms, $seqNr$expireAfterStr, result: $r"
             }
           } yield r
         }
@@ -109,7 +106,7 @@ object Journal {
                 d <- MeasureDuration[F].start
                 r <- fa
                 d <- d
-                _ <- logDebugOrWarn(d, config.read) { s"$key read in ${ d.toMillis }ms, from: $from, result: $r" }
+                _ <- logDebugOrWarn(d, config.read) { s"$key read in ${d.toMillis}ms, from: $from, result: $r" }
               } yield r
             }
           }
@@ -121,7 +118,7 @@ object Journal {
             d <- MeasureDuration[F].start
             r <- self.pointer
             d <- d
-            _ <- logDebugOrWarn(d, config.pointer) { s"$key pointer in ${ d.toMillis }ms, result: $r" }
+            _ <- logDebugOrWarn(d, config.pointer) { s"$key pointer in ${d.toMillis}ms, result: $r" }
           } yield r
         }
 
@@ -130,7 +127,7 @@ object Journal {
             d <- MeasureDuration[F].start
             r <- self.delete(to)
             d <- d
-            _ <- logDebugOrWarn(d, config.delete) { s"$key delete in ${ d.toMillis }ms, to: $to, result: $r" }
+            _ <- logDebugOrWarn(d, config.delete) { s"$key delete in ${d.toMillis}ms, to: $to, result: $r" }
           } yield r
         }
 
@@ -139,19 +136,13 @@ object Journal {
             d <- MeasureDuration[F].start
             r <- self.purge
             d <- d
-            _ <- logDebugOrWarn(d, config.purge) { s"$key purge in ${ d.toMillis }ms, result: $r" }
+            _ <- logDebugOrWarn(d, config.purge) { s"$key purge in ${d.toMillis}ms, result: $r" }
           } yield r
         }
       }
     }
 
-
-    def withLogError(
-      key: Key,
-      log: Log[F])(implicit
-      F: MonadThrowable[F],
-      measureDuration: MeasureDuration[F]
-    ): Journal[F] = {
+    def withLogError(key: Key, log: Log[F])(implicit F: MonadThrowable[F], measureDuration: MeasureDuration[F]): Journal[F] = {
 
       val functionKId = FunctionK.id[F]
 
@@ -171,11 +162,12 @@ object Journal {
       new WithLogError with Journal[F] {
 
         def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
-          implicit kafkaWrite: KafkaWrite[F, A]) = {
+          implicit kafkaWrite: KafkaWrite[F, A],
+        ) = {
           logError {
             self.append(events, metadata, headers)
           } { (error, latency) =>
-            s"$key append failed in ${ latency.toMillis }ms, events: $events, error: $error"
+            s"$key append failed in ${latency.toMillis}ms, events: $events, error: $error"
           }
         }
 
@@ -183,7 +175,7 @@ object Journal {
           val logging = new (F ~> F) {
             def apply[B](fa: F[B]) = {
               logError(fa) { (error, latency) =>
-                s"$key read failed in ${ latency.toMillis }ms, from: $from, error: $error"
+                s"$key read failed in ${latency.toMillis}ms, from: $from, error: $error"
               }
             }
           }
@@ -194,7 +186,7 @@ object Journal {
           logError {
             self.pointer
           } { (error, latency) =>
-            s"$key pointer failed in ${ latency.toMillis }ms, error: $error"
+            s"$key pointer failed in ${latency.toMillis}ms, error: $error"
           }
         }
 
@@ -202,7 +194,7 @@ object Journal {
           logError {
             self.delete(to)
           } { (error, latency) =>
-            s"$key delete failed in ${ latency.toMillis }ms, to: $to, error: $error"
+            s"$key delete failed in ${latency.toMillis}ms, to: $to, error: $error"
           }
         }
 
@@ -210,19 +202,16 @@ object Journal {
           logError {
             self.purge
           } { (error, latency) =>
-            s"$key purge failed in ${ latency.toMillis }ms, error: $error"
+            s"$key purge failed in ${latency.toMillis}ms, error: $error"
           }
         }
       }
     }
 
-
     def withMetrics(
       topic: Topic,
-      metrics: JournalMetrics[F])(implicit
-      F: MonadThrowable[F],
-      measureDuration: MeasureDuration[F]
-    ): Journal[F] = {
+      metrics: JournalMetrics[F],
+    )(implicit F: MonadThrowable[F], measureDuration: MeasureDuration[F]): Journal[F] = {
       val functionKId = FunctionK.id[F]
 
       def handleError[A](name: String, topic: Topic)(fa: F[A]): F[A] = {
@@ -237,7 +226,8 @@ object Journal {
       new WithMetrics with Journal[F] {
 
         def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
-          implicit kafkaWrite: KafkaWrite[F, A]) = {
+          implicit kafkaWrite: KafkaWrite[F, A],
+        ) = {
           def append = self.append(events, metadata, headers)
           for {
             d <- MeasureDuration[F].start
@@ -294,12 +284,12 @@ object Journal {
       }
     }
 
-
     def mapK[G[_]](fg: F ~> G, gf: G ~> F): Journal[G] = {
       new MapK with Journal[G] {
 
         def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
-          implicit kafkaWrite: KafkaWrite[G, A]) = {
+          implicit kafkaWrite: KafkaWrite[G, A],
+        ) = {
           fg(self.append(events, metadata, headers)(kafkaWrite.mapK(gf)))
         }
 
@@ -315,13 +305,13 @@ object Journal {
     }
   }
 
-
   final case class CallTimeThresholds(
-    append: FiniteDuration = 500.millis,
-    read: FiniteDuration = 5.seconds,
+    append: FiniteDuration  = 500.millis,
+    read: FiniteDuration    = 5.seconds,
     pointer: FiniteDuration = 1.second,
-    delete: FiniteDuration = 1.second,
-    purge: FiniteDuration = 1.second)
+    delete: FiniteDuration  = 1.second,
+    purge: FiniteDuration   = 1.second,
+  )
 
   object CallTimeThresholds {
 
@@ -337,9 +327,7 @@ object Journal {
 
   object ConsumerPoolConfig {
 
-    val Default: ConsumerPoolConfig = ConsumerPoolConfig(
-      multiplier = 10,
-      idleTimeout = 1.minute)
+    val Default: ConsumerPoolConfig = ConsumerPoolConfig(multiplier = 10, idleTimeout = 1.minute)
 
     implicit val configReaderConsumerPoolConfig: ConfigReader[ConsumerPoolConfig] = deriveReader
   }
@@ -350,10 +338,11 @@ object Journal {
 
   object DataIntegrityConfig {
 
-    private case class Implementation(seqNrUniqueness: Boolean) extends DataIntegrityConfig 
+    private case class Implementation(seqNrUniqueness: Boolean) extends DataIntegrityConfig
 
     val Default: DataIntegrityConfig = Implementation(seqNrUniqueness = true)
 
-    implicit val configReaderDataIntegrityConfig: ConfigReader[DataIntegrityConfig] = deriveReader[Implementation].map(a => a: DataIntegrityConfig)
+    implicit val configReaderDataIntegrityConfig: ConfigReader[DataIntegrityConfig] =
+      deriveReader[Implementation].map(a => a: DataIntegrityConfig)
   }
 }

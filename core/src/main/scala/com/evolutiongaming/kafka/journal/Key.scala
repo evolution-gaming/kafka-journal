@@ -1,7 +1,7 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.syntax.all._
 import cats.kernel.Eq
+import cats.syntax.all._
 import cats.{Functor, Order, Show}
 import com.datastax.driver.core.{GettableByNameData, SettableData}
 import com.evolutiongaming.scassandra.syntax._
@@ -19,12 +19,9 @@ object Key {
 
   implicit val showKey: Show[Key] = Show.fromToString
 
-  implicit val orderKey: Order[Key] = Order.whenEqual(
-    Order.by { (a: Key) => a.topic },
-    Order.by { (a: Key) => a.id })
+  implicit val orderKey: Order[Key] = Order.whenEqual(Order.by { (a: Key) => a.topic }, Order.by { (a: Key) => a.id })
 
   implicit val orderingKey: Ordering[Key] = orderKey.toOrdering
-
 
   implicit val encodeRowKey: EncodeRow[Key] = new EncodeRow[Key] {
 
@@ -38,14 +35,11 @@ object Key {
   implicit val decodeRowKey: DecodeRow[Key] = new DecodeRow[Key] {
 
     def apply(data: GettableByNameData) = {
-      Key(
-        id = data.decode[String]("id"),
-        topic = data.decode[Topic]("topic"))
+      Key(id = data.decode[String]("id"), topic = data.decode[Topic]("topic"))
     }
   }
 
-
-  def random[F[_] : Functor : RandomIdOf](topic: Topic): F[Key] = {
+  def random[F[_]: Functor: RandomIdOf](topic: Topic): F[Key] = {
     for {
       randomId <- RandomIdOf[F].apply
     } yield {

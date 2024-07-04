@@ -19,7 +19,6 @@ trait ReplicatedPartitionJournal[F[_]] {
 
 object ReplicatedPartitionJournal {
 
-
   def empty[F[_]: Applicative]: ReplicatedPartitionJournal[F] = {
     class Empty
     new Empty with ReplicatedPartitionJournal[F] {
@@ -52,7 +51,6 @@ object ReplicatedPartitionJournal {
     def update(offset: Offset, timestamp: Instant): F[Unit]
   }
 
-
   private sealed abstract class WithLog
 
   private sealed abstract class WithMetrics
@@ -63,11 +61,7 @@ object ReplicatedPartitionJournal {
 
   implicit class ReplicatedPartitionJournalOps[F[_]](val self: ReplicatedPartitionJournal[F]) extends AnyVal {
 
-    def mapK[G[_]](
-      f: F ~> G)(implicit
-      B: BracketThrowable[F],
-      GT: BracketThrowable[G]
-    ): ReplicatedPartitionJournal[G] = {
+    def mapK[G[_]](f: F ~> G)(implicit B: BracketThrowable[F], GT: BracketThrowable[G]): ReplicatedPartitionJournal[G] = {
       new MapK with ReplicatedPartitionJournal[G] {
 
         def offsets = {
@@ -90,13 +84,9 @@ object ReplicatedPartitionJournal {
       }
     }
 
-
-    def withLog(
-      topic: Topic,
-      partition: Partition,
-      log: Log[F])(implicit
-      F: Monad[F],
-      measureDuration: MeasureDuration[F]
+    def withLog(topic: Topic, partition: Partition, log: Log[F])(
+      implicit F: Monad[F],
+      measureDuration: MeasureDuration[F],
     ): ReplicatedPartitionJournal[F] = {
       new WithLog with ReplicatedPartitionJournal[F] {
 
@@ -108,7 +98,7 @@ object ReplicatedPartitionJournal {
                 d <- MeasureDuration[F].start
                 r <- self.offsets.get
                 d <- d
-                _ <- log.debug(s"$topic offsets.get in ${ d.toMillis }ms, partition: $partition, result: $r")
+                _ <- log.debug(s"$topic offsets.get in ${d.toMillis}ms, partition: $partition, result: $r")
               } yield r
             }
 
@@ -117,7 +107,9 @@ object ReplicatedPartitionJournal {
                 d <- MeasureDuration[F].start
                 r <- self.offsets.create(offset, timestamp)
                 d <- d
-                _ <- log.debug(s"$topic offsets.create in ${ d.toMillis }ms, partition: $partition, offset: $offset, timestamp: $timestamp")
+                _ <- log.debug(
+                  s"$topic offsets.create in ${d.toMillis}ms, partition: $partition, offset: $offset, timestamp: $timestamp",
+                )
               } yield r
             }
 
@@ -126,7 +118,9 @@ object ReplicatedPartitionJournal {
                 d <- MeasureDuration[F].start
                 r <- self.offsets.update(offset, timestamp)
                 d <- d
-                _ <- log.debug(s"$topic offsets.update in ${ d.toMillis }ms, partition: $partition, offset: $offset, timestamp: $timestamp")
+                _ <- log.debug(
+                  s"$topic offsets.update in ${d.toMillis}ms, partition: $partition, offset: $offset, timestamp: $timestamp",
+                )
               } yield r
             }
           }
@@ -140,15 +134,11 @@ object ReplicatedPartitionJournal {
       }
     }
 
-
     def withMetrics(
       topic: Topic,
-      metrics: ReplicatedJournal.Metrics[F])(implicit
-      F: Monad[F],
-      measureDuration: MeasureDuration[F]
-    ): ReplicatedPartitionJournal[F] = {
+      metrics: ReplicatedJournal.Metrics[F],
+    )(implicit F: Monad[F], measureDuration: MeasureDuration[F]): ReplicatedPartitionJournal[F] = {
       new WithMetrics with ReplicatedPartitionJournal[F] {
-
 
         def offsets = {
           new WithMetrics with Offsets[F] {
@@ -190,18 +180,13 @@ object ReplicatedPartitionJournal {
       }
     }
 
-    def enhanceError(
-      topic: Topic,
-      partition: Partition)(implicit
-      F: MonadThrowable[F]
-    ): ReplicatedPartitionJournal[F] = {
+    def enhanceError(topic: Topic, partition: Partition)(implicit F: MonadThrowable[F]): ReplicatedPartitionJournal[F] = {
 
       def journalError(msg: String, cause: Throwable) = {
         JournalError(s"ReplicatedPartitionJournal.$msg failed with $cause", cause)
       }
 
       new EnhanceError with ReplicatedPartitionJournal[F] {
-
 
         def offsets = {
           new EnhanceError with Offsets[F] {
@@ -217,12 +202,16 @@ object ReplicatedPartitionJournal {
               self
                 .offsets
                 .create(offset, timestamp)
-                .adaptError { case a =>
-                  journalError(s"offsets.create " +
-                    s"topic: $topic, " +
-                    s"partition: $partition, " +
-                    s"offset: $offset, " +
-                    s"timestamp: $timestamp", a)
+                .adaptError {
+                  case a =>
+                    journalError(
+                      s"offsets.create " +
+                        s"topic: $topic, " +
+                        s"partition: $partition, " +
+                        s"offset: $offset, " +
+                        s"timestamp: $timestamp",
+                      a,
+                    )
                 }
             }
 
@@ -230,12 +219,16 @@ object ReplicatedPartitionJournal {
               self
                 .offsets
                 .update(offset, timestamp)
-                .adaptError { case a =>
-                  journalError(s"offsets.update " +
-                    s"topic: $topic, " +
-                    s"partition: $partition, " +
-                    s"offset: $offset, " +
-                    s"timestamp: $timestamp", a)
+                .adaptError {
+                  case a =>
+                    journalError(
+                      s"offsets.update " +
+                        s"topic: $topic, " +
+                        s"partition: $partition, " +
+                        s"offset: $offset, " +
+                        s"timestamp: $timestamp",
+                      a,
+                    )
                 }
             }
           }

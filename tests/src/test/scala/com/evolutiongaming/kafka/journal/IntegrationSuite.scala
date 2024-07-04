@@ -15,11 +15,10 @@ import com.evolutiongaming.smetrics.CollectorRegistry
 import com.github.dockerjava.api.model.{ExposedPort, HostConfig, PortBinding, Ports}
 import com.typesafe.config.ConfigFactory
 
-
 object IntegrationSuite {
 
   def startF[F[_]: Async: ToFuture: LogOf: MeasureDuration: FromTry: ToTry: Fail](
-    cassandraClusterOf: CassandraClusterOf[F]
+    cassandraClusterOf: CassandraClusterOf[F],
   ): Resource[F, Unit] = {
 
     def cassandra(log: Log[F]) = {
@@ -32,10 +31,7 @@ object IntegrationSuite {
               container.withCreateContainerCmdModifier { cmd =>
                 cmd.withHostConfig {
                   new HostConfig()
-                    .withPortBindings(
-                      new PortBinding(
-                        Ports.Binding.bindPort(9042),
-                        new ExposedPort(9042)))
+                    .withPortBindings(new PortBinding(Ports.Binding.bindPort(9042), new ExposedPort(9042)))
                 }
                 ()
               }
@@ -47,8 +43,9 @@ object IntegrationSuite {
       } { cassandra =>
         Sync[F]
           .delay { cassandra.stop() }
-          .onError { case e =>
-            log.error(s"failed to release cassandra with $e", e)
+          .onError {
+            case e =>
+              log.error(s"failed to release cassandra with $e", e)
           }
       }
     }
@@ -57,8 +54,9 @@ object IntegrationSuite {
       for {
         kafka <- Sync[F].delay { StartKafka() }
       } yield {
-        val release = Sync[F].delay { kafka() }.onError { case e =>
-          log.error(s"failed to release kafka with $e", e)
+        val release = Sync[F].delay { kafka() }.onError {
+          case e =>
+            log.error(s"failed to release kafka with $e", e)
         }
         (().pure[F], release)
       }
@@ -81,10 +79,10 @@ object IntegrationSuite {
     }
 
     for {
-      log      <- LogOf[F].apply(IntegrationSuite.getClass).toResource
-      _        <- cassandra(log)
-      _        <- kafka(log)
-      _        <- replicator(log)
+      log <- LogOf[F].apply(IntegrationSuite.getClass).toResource
+      _   <- cassandra(log)
+      _   <- kafka(log)
+      _   <- replicator(log)
     } yield {}
   }
 
@@ -93,7 +91,7 @@ object IntegrationSuite {
 
     val logOf = LogOf.slf4j[IO]
     for {
-      logOf  <- logOf.toResource
+      logOf <- logOf.toResource
       result <- {
         implicit val logOf1 = logOf
         startF[IO](cassandraClusterOf)

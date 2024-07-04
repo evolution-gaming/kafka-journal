@@ -7,10 +7,7 @@ import scodec.{Attempt, Codec, Err, codecs}
 
 import scala.util.Try
 
-final case class Event[A](
-  seqNr: SeqNr,
-  tags: Tags = Tags.empty,
-  payload: Option[A] = None)
+final case class Event[A](seqNr: SeqNr, tags: Tags = Tags.empty, payload: Option[A] = None)
 
 object Event {
 
@@ -26,9 +23,7 @@ object Event {
       val errEmpty = Err("")
 
       def codecSome[A](implicit codec: Codec[A]) = {
-        codec.exmap[Option[A]](
-          a => Attempt.successful(a.some),
-          a => Attempt.fromOption(a, errEmpty))
+        codec.exmap[Option[A]](a => Attempt.successful(a.some), a => Attempt.fromOption(a, errEmpty))
       }
 
       def codecOpt[A](payloadType: Byte, codec: Codec[Option[A]]) = {
@@ -44,19 +39,16 @@ object Event {
 
       val textCodec = codecOpt(3, codecSome[Payload.Text])
 
-      codecs.choice[Option[Payload]](
-        binaryCodec.upcast,
-        jsonCodec.upcast,
-        textCodec.upcast,
-        emptyCodec)
+      codecs.choice[Option[Payload]](binaryCodec.upcast, jsonCodec.upcast, textCodec.upcast, emptyCodec)
     }
 
     codecEvent[Payload]
   }
 
   implicit val traverseEvent: Traverse[Event] = new Traverse[Event] {
-    override def traverse[G[_] : Applicative, A, B](fa: Event[A])(f: A => G[B]): G[Event[B]] =
-      fa.payload.traverse(f)
+    override def traverse[G[_]: Applicative, A, B](fa: Event[A])(f: A => G[B]): G[Event[B]] =
+      fa.payload
+        .traverse(f)
         .map(newPayload => fa.copy(payload = newPayload))
 
     override def foldLeft[A, B](fa: Event[A], b: B)(f: (B, A) => B): B =

@@ -2,7 +2,6 @@ package akka.persistence.kafka.journal
 
 import cats.syntax.all._
 
-
 object GroupByWeight {
 
   def apply[A](as: List[A], maxWeight: Int)(weight: A => Int): List[List[A]] = {
@@ -16,7 +15,7 @@ object GroupByWeight {
     else {
       val bs = as.foldLeft(List.empty[List[A]]) { (bs, a) =>
         bs match {
-          case Nil     => List(List(a))
+          case Nil => List(List(a))
           case b :: bs =>
             if (weight(a) + weightOf(b) <= maxWeight) (a :: b) :: bs
             else List(a) :: b :: bs

@@ -23,11 +23,11 @@ import scala.concurrent.duration._
   *   Partition cache configuration as described in [[HeadCacheConfig.Partition]].
   */
 final case class HeadCacheConfig(
-  timeout: FiniteDuration = 1.second,
-  expiry: FiniteDuration = 10.minutes,
-  removeInterval: FiniteDuration = 100.millis,
-  partition: HeadCacheConfig.Partition = HeadCacheConfig.Partition.default)
-
+  timeout: FiniteDuration              = 1.second,
+  expiry: FiniteDuration               = 10.minutes,
+  removeInterval: FiniteDuration       = 100.millis,
+  partition: HeadCacheConfig.Partition = HeadCacheConfig.Partition.default,
+)
 
 object HeadCacheConfig {
 

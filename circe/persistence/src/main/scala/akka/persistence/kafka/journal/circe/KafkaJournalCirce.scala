@@ -40,29 +40,29 @@ class KafkaJournalCirce(config: Config) extends KafkaJournal(config) {
 
 object KafkaJournalCirce {
 
-  implicit def persistentJsonEncoder[A : Encoder]: Encoder[PersistentJson[A]] = deriveEncoder
-  implicit def persistentJsonDecoder[A : Decoder]: Decoder[PersistentJson[A]] = deriveDecoder
+  implicit def persistentJsonEncoder[A: Encoder]: Encoder[PersistentJson[A]] = deriveEncoder
+  implicit def persistentJsonDecoder[A: Decoder]: Decoder[PersistentJson[A]] = deriveDecoder
 
   object JsonEventSerializer {
 
-    def of[F[_] : MonadThrowable : FromCirceResult]: EventSerializer[F, Json] = {
+    def of[F[_]: MonadThrowable: FromCirceResult]: EventSerializer[F, Json] = {
 
       def toEventPayload(repr: PersistentRepresentation): F[Json] = {
 
         def json(json: Json, payloadType: Option[PayloadType.TextOrJson] = None) = {
           val persistent = PersistentJson(
-            manifest = repr.manifest,
-            writerUuid = repr.writerUuid,
+            manifest    = repr.manifest,
+            writerUuid  = repr.writerUuid,
             payloadType = payloadType,
-            payload = json
+            payload     = json,
           )
           persistent.asJson.dropNullValues
         }
 
         repr.payload match {
-          case payload: Json => json(payload).pure[F]
+          case payload: Json   => json(payload).pure[F]
           case payload: String => json(Json.fromString(payload), PayloadType.Text.some).pure[F]
-          case other => Fail.lift[F].fail(s"Event.payload is not supported, payload: $other")
+          case other           => Fail.lift[F].fail(s"Event.payload is not supported, payload: $other")
         }
       }
 
@@ -71,17 +71,17 @@ object KafkaJournalCirce {
 
         for {
           persistentJson <- fromCirceResult(json.as[PersistentJson[Json]])
-          payloadType = persistentJson.payloadType getOrElse PayloadType.Json
-          payload = persistentJson.payload
+          payloadType     = persistentJson.payloadType getOrElse PayloadType.Json
+          payload         = persistentJson.payload
           anyRef <- payloadType match {
             case PayloadType.Text => fromCirceResult(payload.as[String]).widen[AnyRef]
             case PayloadType.Json => payload.pure[F].widen[AnyRef]
           }
         } yield {
           PersistentRepresentation(
-            payload = anyRef,
-            manifest = persistentJson.manifest,
-            writerUuid = persistentJson.writerUuid
+            payload    = anyRef,
+            manifest   = persistentJson.manifest,
+            writerUuid = persistentJson.writerUuid,
           )
         }
       }

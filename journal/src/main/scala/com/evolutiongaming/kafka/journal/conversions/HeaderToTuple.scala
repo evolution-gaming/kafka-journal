@@ -13,14 +13,13 @@ trait HeaderToTuple[F[_]] {
 
 object HeaderToTuple {
 
-  implicit def apply[F[_] : ApplicativeThrowable](implicit
-    stringFromBytes: FromBytes[F, String],
-  ): HeaderToTuple[F] = {
-    (header: Header) => {
-      val bytes = ByteVector.view(header.value)
-      stringFromBytes(bytes)
-        .map { value => (header.key, value) }
-        .adaptErr { case e => JournalError(s"HeaderToTuple failed for $header: $e", e) }
-    }
+  implicit def apply[F[_]: ApplicativeThrowable](implicit stringFromBytes: FromBytes[F, String]): HeaderToTuple[F] = {
+    (header: Header) =>
+      {
+        val bytes = ByteVector.view(header.value)
+        stringFromBytes(bytes)
+          .map { value => (header.key, value) }
+          .adaptErr { case e => JournalError(s"HeaderToTuple failed for $header: $e", e) }
+      }
   }
 }

@@ -21,16 +21,16 @@ private[journal] object ConsumerPool {
     poolConfig: ConsumerPoolConfig,
     metrics: Option[ConsumerPoolMetrics[F]],
     consumer: Resource[F, Consumer[F]],
-    timeout: FiniteDuration = 1.minute
+    timeout: FiniteDuration = 1.minute,
   ): Resource[F, Resource[F, Consumer[F]]] = {
     for {
       cores <- Runtime[F].availableCores.toResource
-      pool  <- consumer.toResourcePool(
+      pool <- consumer.toResourcePool(
         (cores.toDouble * poolConfig.multiplier)
           .round
           .toInt,
         poolConfig.idleTimeout,
-        discardTasksOnRelease = true
+        discardTasksOnRelease = true,
       )
     } yield {
       Resource.applyFull { poll =>
@@ -42,7 +42,8 @@ private[journal] object ConsumerPool {
               Sync[F].defer {
                 val msg = s"failed to acquire consumer within $timeout"
                 JournalError(msg, new TimeoutException(msg)).raiseError
-              })
+              },
+            )
           metrics.fold {
             consumer.map { case (consumer, release) => (consumer, (_: ExitCase) => release) }
           } { metrics =>
@@ -57,11 +58,12 @@ private[journal] object ConsumerPool {
               val (consumer, release) = result
               (
                 consumer,
-                (_: ExitCase) => for {
-                  duration <- duration
-                  _        <- metrics.use(duration)
-                  result   <- release
-                } yield result
+                (_: ExitCase) =>
+                  for {
+                    duration <- duration
+                    _        <- metrics.use(duration)
+                    result   <- release
+                  } yield result,
               )
             }
           }

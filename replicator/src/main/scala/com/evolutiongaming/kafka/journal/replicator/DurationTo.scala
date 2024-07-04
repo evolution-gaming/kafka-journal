@@ -8,7 +8,6 @@ import java.time.temporal.ChronoUnit
 import java.time.{LocalDateTime, LocalTime}
 import scala.concurrent.duration._
 
-
 trait DurationTo[F[_]] {
 
   def apply(localTime: LocalTime): F[FiniteDuration]
@@ -21,12 +20,12 @@ object DurationTo {
     apply(now)
   }
 
-  def apply[F[_]: MonadThrowable](now: F[LocalDateTime]): DurationTo[F] = {
-    localTime => {
+  def apply[F[_]: MonadThrowable](now: F[LocalDateTime]): DurationTo[F] = { localTime =>
+    {
       now.flatMap { now =>
         ApplicativeThrowable[F].catchNonFatal {
           val localDateTime = {
-            val localDate = now.toLocalDate
+            val localDate     = now.toLocalDate
             val localDateTime = localDate.atTime(localTime)
             if (localDateTime.isAfter(now)) {
               localDateTime

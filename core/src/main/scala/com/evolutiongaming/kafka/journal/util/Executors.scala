@@ -1,17 +1,16 @@
 package com.evolutiongaming.kafka.journal.util
 
-import java.util.concurrent.ScheduledExecutorService
-
-import cats.effect.{Resource, Sync}
 import cats.effect.syntax.resource._
+import cats.effect.{Resource, Sync}
 import com.evolutiongaming.catshelper.Runtime
 import com.evolutiongaming.kafka.journal.execution.{ForkJoinPoolOf, ScheduledExecutorServiceOf, ThreadFactoryOf, ThreadPoolOf}
 
+import java.util.concurrent.ScheduledExecutorService
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 
 object Executors {
 
-  def blocking[F[_] : Sync](
+  def blocking[F[_]: Sync](
     name: String,
   ): Resource[F, ExecutionContextExecutorService] = {
     for {
@@ -22,8 +21,7 @@ object Executors {
     }
   }
 
-
-  def nonBlocking[F[_] : Sync](
+  def nonBlocking[F[_]: Sync](
     name: String,
   ): Resource[F, ExecutionContextExecutorService] = {
     for {
@@ -35,10 +33,9 @@ object Executors {
     }
   }
 
-
-  def scheduled[F[_] : Sync](
+  def scheduled[F[_]: Sync](
     name: String,
-    parallelism: Int
+    parallelism: Int,
   ): Resource[F, ScheduledExecutorService] = {
     for {
       threadFactory <- ThreadFactoryOf[F](name).toResource

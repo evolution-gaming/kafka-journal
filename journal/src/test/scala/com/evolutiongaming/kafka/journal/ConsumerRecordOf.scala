@@ -8,11 +8,8 @@ import com.evolutiongaming.skafka.{Offset, TimestampAndType, TimestampType, Topi
 
 object ConsumerRecordOf {
 
-  def apply[F[_] : Functor](
-    action: Action,
-    topicPartition: TopicPartition,
-    offset: Offset)(implicit
-    actionToProducerRecord: ActionToProducerRecord[F]
+  def apply[F[_]: Functor](action: Action, topicPartition: TopicPartition, offset: Offset)(
+    implicit actionToProducerRecord: ActionToProducerRecord[F],
   ): F[ConsRecord] = {
 
     for {
@@ -20,12 +17,13 @@ object ConsumerRecordOf {
     } yield {
       val timestampAndType = TimestampAndType(action.timestamp, TimestampType.Create)
       ConsRecord(
-        topicPartition = topicPartition,
-        offset = offset,
+        topicPartition   = topicPartition,
+        offset           = offset,
         timestampAndType = timestampAndType.some,
-        key = producerRecord.key.map { bytes => WithSize(bytes, bytes.length) },
-        value = producerRecord.value.map { bytes => WithSize(bytes, bytes.length.toInt) },
-        headers = producerRecord.headers)
+        key              = producerRecord.key.map { bytes => WithSize(bytes, bytes.length) },
+        value            = producerRecord.value.map { bytes => WithSize(bytes, bytes.length.toInt) },
+        headers          = producerRecord.headers,
+      )
     }
   }
 }

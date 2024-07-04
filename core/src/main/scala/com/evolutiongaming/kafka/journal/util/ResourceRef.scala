@@ -17,16 +17,16 @@ trait ResourceRef[F[_], A] {
 
 object ResourceRef {
 
-  def of[F[_] : Sync, A](resource: Resource[F, A]): Resource[F, ResourceRef[F, A]] = {
+  def of[F[_]: Sync, A](resource: Resource[F, A]): Resource[F, ResourceRef[F, A]] = {
 
     case class State(a: A, release: F[Unit])
 
     Resource
       .make {
         for {
-          ab           <- resource.allocated
-          (a, release)  = ab
-          ref          <- Ref[F].of(State(a, release).some)
+          ab          <- resource.allocated
+          (a, release) = ab
+          ref         <- Ref[F].of(State(a, release).some)
         } yield ref
       } { ref =>
         ref
@@ -48,7 +48,7 @@ object ResourceRef {
           def set(a: A, release: F[Unit]) = {
             ref
               .modify {
-                case Some(state) => (State(a, release).some, state.release )
+                case Some(state) => (State(a, release).some, state.release)
                 case None        => (none, ResourceReleasedError.raiseError[F, Unit])
               }
               .flatten

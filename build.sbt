@@ -1,21 +1,18 @@
 import Dependencies._
 
 lazy val commonSettings = Seq(
-  organization         := "com.evolutiongaming",
-  organizationName     := "Evolution",
+  organization := "com.evolutiongaming",
+  organizationName := "Evolution",
   organizationHomepage := Some(url("https://evolution.com")),
-  homepage             := Some(url("https://github.com/evolution-gaming/kafka-journal")),
-  startYear            := Some(2018),
-  crossScalaVersions   := Seq("2.13.14"),
-  scalaVersion         := crossScalaVersions.value.head,
-  scalacOptions ++= Seq(
-    "-release:17",
-    "-deprecation",
-  ), // TODO https://github.com/evolution-gaming/kafka-journal/issues/611
+  homepage := Some(url("https://github.com/evolution-gaming/kafka-journal")),
+  startYear := Some(2018),
+  crossScalaVersions := Seq("2.13.14"),
+  scalaVersion := crossScalaVersions.value.head,
+  scalacOptions ++= Seq("-release:17", "-deprecation"), // TODO MR "-Xsource:3",
   scalacOptsFailOnWarn := Some(false), // TODO MR remove this
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
-  publishTo         := Some(Resolver.evolutionReleases),
-  licenses          := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
+  publishTo := Some(Resolver.evolutionReleases),
+  licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   releaseCrossBuild := true,
   Test / testOptions ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM")),
   libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full),
@@ -24,12 +21,12 @@ lazy val commonSettings = Seq(
     "org.scala-lang.modules" %% "scala-xml"          % "always",
     "com.evolutiongaming"    %% "scassandra"         % "semver-spec",
   ),
-  autoAPIMappings        := true,
-  versionScheme          := Some("early-semver"),
+  autoAPIMappings := true,
+  versionScheme := Some("early-semver"),
   versionPolicyIntention := Compatibility.BinaryCompatible,
 )
 
-val alias: Seq[sbt.Def.Setting[_]] =
+val alias: Seq[sbt.Def.Setting[?]] =
   addCommandAlias("fmt", " all scalafmtAll scalafmtSbt; scalafixEnable; scalafixAll") ++
     addCommandAlias(
       "check",
@@ -68,7 +65,7 @@ lazy val core = (project in file("core")
   settings commonSettings
   // The following line should be removed once 3.3.9 is released.
   settings (versionPolicyCheck / skip := true)
-  dependsOn (`scalatest-io`            % Test)
+  dependsOn (`scalatest-io` % Test)
   settings (libraryDependencies ++= Seq(
     Akka.actor,
     Akka.testkit % Test,
@@ -157,8 +154,8 @@ lazy val `tests` = (project in file("tests")
   settings (name := "kafka-journal-tests")
   settings commonSettings
   settings Seq(
-    publish / skip           := true,
-    Test / fork              := true,
+    publish / skip := true,
+    Test / fork := true,
     Test / parallelExecution := false,
     Test / javaOptions ++= Seq("-Xms3G", "-Xmx3G"),
     Test / envVars ++= Map("TESTCONTAINERS_RYUK_DISABLED" -> "true"),
@@ -188,7 +185,7 @@ lazy val cassandra = (project in file("cassandra")
   settings commonSettings
   // The following line should be removed once 3.3.9 is released.
   settings (versionPolicyCheck / skip := true)
-  dependsOn (core, `scalatest-io`      % Test)
+  dependsOn (core, `scalatest-io` % Test)
   settings (libraryDependencies ++= Seq(scache, scassandra, `cassandra-sync`)))
 
 lazy val `eventual-cassandra` = (project in file("eventual-cassandra")
@@ -215,7 +212,7 @@ lazy val `snapshot-cassandra` = (project in file("snapshot-cassandra")
   settings commonSettings
   // The following line should be removed once 3.3.9 is released.
   settings (versionPolicyCheck / skip := true)
-  dependsOn (cassandra, snapshot       % "test->test;compile->compile")
+  dependsOn (cassandra, snapshot % "test->test;compile->compile")
   settings (libraryDependencies ++= Seq(scassandra)))
 
 lazy val `journal-circe` = (project in file("circe/core")

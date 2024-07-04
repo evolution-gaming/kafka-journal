@@ -21,39 +21,34 @@ import scala.concurrent.duration._
   * @param consumer
   *   Consumer configuration used to read journal on recovery.
   */
-final case class KafkaConfig(
-  producer: ProducerConfig,
-  consumer: ConsumerConfig)
+final case class KafkaConfig(producer: ProducerConfig, consumer: ConsumerConfig)
 
 object KafkaConfig {
 
   val default: KafkaConfig = apply("kafka-journal")
 
-
   def apply(name: String): KafkaConfig = {
-    val common = CommonConfig(
-      clientId = name.some,
-      sendBufferBytes = 1000000,
-      receiveBufferBytes = 1000000)
+    val common = CommonConfig(clientId = name.some, sendBufferBytes = 1000000, receiveBufferBytes = 1000000)
     KafkaConfig(
       producer = ProducerConfig(
-        common = common,
-        acks = Acks.All,
-        idempotence = true,
-        linger = 1.millis,
-        compressionType = CompressionType.Lz4),
+        common          = common,
+        acks            = Acks.All,
+        idempotence     = true,
+        linger          = 1.millis,
+        compressionType = CompressionType.Lz4,
+      ),
       consumer = ConsumerConfig(
-        common = common,
-        groupId = name.some,
+        common          = common,
+        groupId         = name.some,
         autoOffsetReset = AutoOffsetReset.Earliest,
-        autoCommit = false,
-        maxPollRecords = 1000))
+        autoCommit      = false,
+        maxPollRecords  = 1000,
+      ),
+    )
   }
 
-
-  def configReader(default: => KafkaConfig): ConfigReader[KafkaConfig] = {
-
-    (cursor: ConfigCursor) => {
+  def configReader(default: => KafkaConfig): ConfigReader[KafkaConfig] = { (cursor: ConfigCursor) =>
+    {
       for {
         cursor <- cursor.asObjectCursor
       } yield {
@@ -69,7 +64,8 @@ object KafkaConfig {
 
         KafkaConfig(
           producer = ProducerConfig(at("producer"), default.producer),
-          consumer = ConsumerConfig(at("consumer"), default.consumer))
+          consumer = ConsumerConfig(at("consumer"), default.consumer),
+        )
       }
     }
   }

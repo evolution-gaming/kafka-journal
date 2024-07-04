@@ -11,7 +11,7 @@ trait CassandraMetadata[F[_]] {
 
 object CassandraMetadata {
 
-  def apply[F[_] : FlatMap](metadata: scassandra.Metadata[F]): CassandraMetadata[F] = new CassandraMetadata[F] {
+  def apply[F[_]: FlatMap](metadata: scassandra.Metadata[F]): CassandraMetadata[F] = new CassandraMetadata[F] {
 
     def keyspace(name: String) = {
       for {
@@ -25,7 +25,6 @@ object CassandraMetadata {
   }
 }
 
-
 trait KeyspaceMetadata[F[_]] {
 
   def table(name: String): F[Option[TableMetadata]]
@@ -33,7 +32,7 @@ trait KeyspaceMetadata[F[_]] {
 
 object KeyspaceMetadata {
 
-  def apply[F[_] : FlatMap](metadata: scassandra.KeyspaceMetadata[F]): KeyspaceMetadata[F] = new KeyspaceMetadata[F] {
+  def apply[F[_]: FlatMap](metadata: scassandra.KeyspaceMetadata[F]): KeyspaceMetadata[F] = new KeyspaceMetadata[F] {
 
     def table(name: String) = {
       for {
@@ -46,6 +45,5 @@ object KeyspaceMetadata {
     }
   }
 }
-
 
 final case class TableMetadata(name: String)

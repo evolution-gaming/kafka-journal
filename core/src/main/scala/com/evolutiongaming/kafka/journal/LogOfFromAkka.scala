@@ -8,7 +8,7 @@ import com.evolutiongaming.catshelper.LogOf
 
 object LogOfFromAkka {
 
-  def apply[F[_] : Sync](system: ActorSystem): LogOf[F] = {
+  def apply[F[_]: Sync](system: ActorSystem): LogOf[F] = {
 
     def log[A: LogSource](source: A) = {
       for {

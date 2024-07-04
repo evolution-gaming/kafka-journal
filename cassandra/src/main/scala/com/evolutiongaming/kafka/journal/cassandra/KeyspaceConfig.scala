@@ -5,9 +5,9 @@ import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
 
 final case class KeyspaceConfig(
-  name: String = "journal",
+  name: String                                   = "journal",
   replicationStrategy: ReplicationStrategyConfig = ReplicationStrategyConfig.Default,
-  autoCreate: Boolean = true
+  autoCreate: Boolean                            = true,
 )
 
 object KeyspaceConfig {

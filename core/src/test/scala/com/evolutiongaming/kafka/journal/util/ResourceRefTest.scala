@@ -1,7 +1,6 @@
 package com.evolutiongaming.kafka.journal.util
 
-import cats.effect._
-import cats.effect.Ref
+import cats.effect.{Ref, _}
 import cats.syntax.all._
 import com.evolutiongaming.kafka.journal.IOSuite._
 import org.scalatest.funsuite.AsyncFunSuite
@@ -18,7 +17,7 @@ class ResourceRefTest extends AsyncFunSuite with Matchers {
     val result = for {
       ref0 <- Ref[IO].of(false)
       ref1 <- Ref[IO].of(false)
-      ref  <- ResourceRef.of(resourceOf(0, ref0)).use { ref =>
+      ref <- ResourceRef.of(resourceOf(0, ref0)).use { ref =>
         for {
           a <- ref.get
           _  = a shouldEqual 0

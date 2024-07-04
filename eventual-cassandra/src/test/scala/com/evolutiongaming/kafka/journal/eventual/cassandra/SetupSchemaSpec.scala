@@ -3,8 +3,8 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.implicits.catsStdInstancesForTry
 import cats.syntax.all._
 import com.datastax.driver.core.{Row, Statement}
-import com.evolutiongaming.kafka.journal.{Setting, Settings}
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
+import com.evolutiongaming.kafka.journal.{Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AnyFunSuite
@@ -13,7 +13,6 @@ import org.scalatest.matchers.should.Matchers
 import java.time.Instant
 import scala.util.Try
 import scala.util.control.NoStackTrace
-
 
 class SetupSchemaSpec extends AnyFunSuite with Matchers {
   import SetupSchemaSpec._
@@ -30,7 +29,9 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
         Action.SetSetting("schema-version", "3"),
         Action.GetSetting("schema-version"),
         Action.SyncStart,
-        Action.GetSetting("schema-version")))
+        Action.GetSetting("schema-version"),
+      ),
+    )
   }
 
   test("migrate") {
@@ -52,7 +53,9 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
         Action.Query,
         Action.GetSetting("schema-version"),
         Action.SyncStart,
-        Action.GetSetting("schema-version")))
+        Action.GetSetting("schema-version"),
+      ),
+    )
   }
 
   test("migrate 0") {
@@ -72,7 +75,9 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
         Action.Query,
         Action.GetSetting("schema-version"),
         Action.SyncStart,
-        Action.GetSetting("schema-version")))
+        Action.GetSetting("schema-version"),
+      ),
+    )
   }
 
   test("not migrate") {
@@ -86,12 +91,13 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
   val timestamp: Instant = Instant.now()
 
   val schema: Schema = Schema(
-    journal = TableName(keyspace = "journal", table = "journal"),
-    metadata = TableName(keyspace = "journal", table = "metadata"),
+    journal     = TableName(keyspace = "journal", table = "journal"),
+    metadata    = TableName(keyspace = "journal", table = "metadata"),
     metaJournal = TableName(keyspace = "journal", table = "metaJournal"),
-    pointer = TableName(keyspace = "journal", table = "pointer"),
-    pointer2 = TableName(keyspace = "journal", table = "pointer2"),
-    setting = TableName(keyspace = "journal", table = "setting"))
+    pointer     = TableName(keyspace = "journal", table = "pointer"),
+    pointer2    = TableName(keyspace = "journal", table = "pointer2"),
+    setting     = TableName(keyspace = "journal", table = "setting"),
+  )
 
   implicit val settings: Settings[StateT] = {
 
@@ -114,9 +120,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
       def set(key: K, value: V) = {
         StateT { state =>
           val setting = state.version.map { version => settingOf(key, version) }
-          val state1 = state.copy(
-            version = value.some,
-            actions = Action.SetSetting(key, value) :: state.actions)
+          val state1  = state.copy(version = value.some, actions = Action.SetSetting(key, value) :: state.actions)
           (state1, setting)
         }
       }
@@ -127,10 +131,8 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
             case Some(version) =>
               val setting = settingOf(key, version)
               (state, setting.some)
-            case None          =>
-              val state1 = state.copy(
-                version = value.some,
-                actions = Action.SetSetting(key, value) :: state.actions)
+            case None =>
+              val state1 = state.copy(version = value.some, actions = Action.SetSetting(key, value) :: state.actions)
               (state1, none[Setting])
           }
         }
@@ -149,7 +151,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
     def execute(statement: Statement) = {
       val stateT = StateT { state =>
         val state1 = state.add(Action.Query)
-        val rows = Stream.empty[StateT, Row]
+        val rows   = Stream.empty[StateT, Row]
         (state1, rows)
       }
       stateT.toStream.flatten
@@ -162,14 +164,13 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
     def apply[A](fa: StateT[A]) = {
       StateT { state =>
-        val state1 = state.add(Action.SyncStart)
+        val state1      = state.add(Action.SyncStart)
         val (state2, a) = fa.run(state1).get
-        val state3 = state2.add(Action.SyncEnd)
+        val state3      = state2.add(Action.SyncEnd)
         (state3, a)
       }
     }
   }
-
 
   def migrate(fresh: Boolean): StateT[Unit] = {
     SetupSchema.migrate[StateT](schema, fresh, settings, cassandraSync)
@@ -183,7 +184,6 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
   object State {
     val empty: State = State(version = None, actions = Nil)
   }
-
 
   type StateT[A] = cats.data.StateT[Try, State, A]
 

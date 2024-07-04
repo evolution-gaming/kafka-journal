@@ -20,7 +20,7 @@ class SettingsCassandraSpec extends AnyFunSuite {
   type F[A] = State[Database, A]
 
   test("set") {
-    val program = settings.set(setting.key, setting.value)
+    val program                   = settings.set(setting.key, setting.value)
     val (database, previousValue) = program.run(Database.empty).value
 
     assert(database.settings == Map(setting.key -> setting))
@@ -28,28 +28,28 @@ class SettingsCassandraSpec extends AnyFunSuite {
   }
 
   test("setIfEmpty") {
-    val program = settings.setIfEmpty(setting.key, setting.value)
+    val program                   = settings.setIfEmpty(setting.key, setting.value)
     val (database, existingValue) = program.run(Database.fromSetting(setting)).value
     assert(database.settings == Map(setting.key -> setting))
     assert(existingValue == Some(setting))
   }
 
   test("get") {
-    val program = settings.get(setting.key)
+    val program           = settings.get(setting.key)
     val (database, value) = program.run(Database.empty).value
     assert(database.settings.isEmpty)
     assert(value.isEmpty)
   }
 
   test("all") {
-    val program = settings.all.toList
+    val program            = settings.all.toList
     val (database, values) = program.run(Database.fromSetting(setting)).value
     assert(database.settings == Map(setting.key -> setting))
     assert(values == List(setting))
   }
 
   test("remove") {
-    val program = settings.remove(setting.key)
+    val program                  = settings.remove(setting.key)
     val (database, deletedValue) = program.run(Database.fromSetting(setting)).value
     assert(database.settings.isEmpty)
     assert(deletedValue == Some(setting))
@@ -91,7 +91,6 @@ class SettingsCassandraSpec extends AnyFunSuite {
     assert(database.settings == Map(setting.key -> setting))
   }
 
-
   private val origin = Origin("origin")
 
   private val timestamp = Instant.parse("2023-12-11T11:12:13.00Z").truncatedTo(ChronoUnit.MILLIS)
@@ -101,11 +100,12 @@ class SettingsCassandraSpec extends AnyFunSuite {
   private val settings = {
 
     val statements = SettingsCassandra.Statements(
-      select = Database.select(_),
-      insert = Database.insert(_),
+      select        = Database.select(_),
+      insert        = Database.insert(_),
       insertIfEmpty = Database.insertIfEmpty(_),
-      all = Database.all,
-      delete = Database.delete(_))
+      all           = Database.all,
+      delete        = Database.delete(_),
+    )
 
     implicit val clock = Clock.const[F](nanos = 0, millis = timestamp.toEpochMilli)
 
@@ -116,12 +116,11 @@ class SettingsCassandraSpec extends AnyFunSuite {
       .mapK(FunctionK.id[F], FunctionK.id[F])
   }
 
-
   case class Database(settings: Map[Key, Setting]) {
 
     def exists(key: Key): Boolean =
       select(key).nonEmpty
-    
+
     def select(key: Key): Option[Setting] =
       settings.get(key)
 
@@ -137,7 +136,7 @@ class SettingsCassandraSpec extends AnyFunSuite {
   }
 
   object Database {
-    
+
     val empty: Database = Database(Map.empty)
 
     def fromSetting(setting: Setting): Database =
@@ -148,7 +147,7 @@ class SettingsCassandraSpec extends AnyFunSuite {
 
     def all: Stream[F, Setting] =
       values.map(Stream[F].apply(_)).toStream.flatten
-    
+
     def insert(setting: Setting): F[Unit] =
       State.modify(_.insert(setting))
 

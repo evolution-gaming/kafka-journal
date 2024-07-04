@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-
 import cats.Monad
 import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
@@ -11,7 +10,6 @@ import com.evolutiongaming.sstream.Stream
 import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
-
 
 trait TopicConsumer[F[_]] {
 

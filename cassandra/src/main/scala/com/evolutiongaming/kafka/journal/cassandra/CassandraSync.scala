@@ -20,25 +20,19 @@ object CassandraSync {
     def apply[A](fa: F[A]) = fa
   }
 
-
   def apply[F[_]](implicit F: CassandraSync[F]): CassandraSync[F] = F
 
-
-  def apply[F[_] : Temporal : CassandraSession](
+  def apply[F[_]: Temporal: CassandraSession](
     keyspace: KeyspaceConfig,
     table: String,
     origin: Option[Origin],
   ): CassandraSync[F] = {
 
     val autoCreate = if (keyspace.autoCreate) AutoCreate.Table else AutoCreate.None
-    apply(
-      keyspace = keyspace.name,
-      table = table,
-      autoCreate = autoCreate,
-      metadata = origin.map(_.value))
+    apply(keyspace = keyspace.name, table = table, autoCreate = autoCreate, metadata = origin.map(_.value))
   }
 
-  def apply[F[_] : Temporal : CassandraSession](
+  def apply[F[_]: Temporal: CassandraSession](
     keyspace: String,
     table: String,
     autoCreate: AutoCreate,
@@ -49,11 +43,10 @@ object CassandraSync {
 
       def apply[A](fa: F[A]) = {
 
-        val cassandraSync = cassandra.sync.CassandraSync.of[F](
-          session = CassandraSession[F].unsafe,
-          keyspace = keyspace,
-          table = table,
-          autoCreate = autoCreate)
+        val cassandraSync = cassandra
+          .sync
+          .CassandraSync
+          .of[F](session = CassandraSession[F].unsafe, keyspace = keyspace, table = table, autoCreate = autoCreate)
 
         for {
           cassandraSync <- cassandraSync
@@ -77,10 +70,10 @@ object CassandraSync {
     *
     * @see [[com.evolutiongaming.cassandra.sync.CassandraSync]] for more details.
     */
-  def of[F[_] : Temporal : CassandraSession](
+  def of[F[_]: Temporal: CassandraSession](
     keyspace: KeyspaceConfig,
     table: String,
-    origin: Option[Origin]
+    origin: Option[Origin],
   ): F[CassandraSync[F]] = {
 
     for {
@@ -93,7 +86,6 @@ object CassandraSync {
       cassandraSync.mapK(serial, FunctionK.id)
     }
   }
-
 
   implicit class CassandraSyncOps[F[_]](val self: CassandraSync[F]) extends AnyVal {
 

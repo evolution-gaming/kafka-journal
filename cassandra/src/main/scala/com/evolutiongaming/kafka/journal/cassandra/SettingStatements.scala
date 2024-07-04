@@ -27,19 +27,20 @@ object SettingStatements {
     }
   }
 
-  implicit val decodeRowSetting: DecodeRow[Setting] = {
-    (data: GettableByNameData) => {
+  implicit val decodeRowSetting: DecodeRow[Setting] = { (data: GettableByNameData) =>
+    {
       Setting(
-        key = data.decode[Key]("key"),
-        value = data.decode[Value]("value"),
+        key       = data.decode[Key]("key"),
+        value     = data.decode[Value]("value"),
         timestamp = data.decode[Instant]("timestamp"),
-        origin = data.decode[Option[Origin]])
+        origin    = data.decode[Option[Origin]],
+      )
     }
   }
 
   def createTable(name: TableName): String = {
     s"""
-       |CREATE TABLE IF NOT EXISTS ${ name.toCql } (
+       |CREATE TABLE IF NOT EXISTS ${name.toCql} (
        |key text PRIMARY KEY,
        |value TEXT,
        |timestamp TIMESTAMP,
@@ -48,50 +49,48 @@ object SettingStatements {
        |""".stripMargin
   }
 
-
   trait Select[F[_]] {
     def apply(key: Key): F[Option[Setting]]
   }
 
   object Select {
 
-    def of[F[_] : Monad : CassandraSession](
+    def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: CassandraConsistencyConfig.Read
+      consistencyConfig: CassandraConsistencyConfig.Read,
     ): F[Select[F]] = {
 
-      val query = s"SELECT value, timestamp, origin FROM ${ name.toCql } WHERE key = ?"
+      val query = s"SELECT value, timestamp, origin FROM ${name.toCql} WHERE key = ?"
       for {
         prepared <- query.prepare
-      } yield {
-        (key: Key) =>
-          val bound = prepared
-            .bind()
-            .encode("key", key)
-            .setConsistencyLevel(consistencyConfig.value)
-          for {
-            row <- bound.first
-          } yield for {
-            row <- row
-          } yield {
-            Setting(
-              key = key,
-              value = row.decode[Value]("value"),
-              timestamp = row.decode[Instant]("timestamp"),
-              origin = row.decode[Option[Origin]])
-          }
+      } yield { (key: Key) =>
+        val bound = prepared
+          .bind()
+          .encode("key", key)
+          .setConsistencyLevel(consistencyConfig.value)
+        for {
+          row <- bound.first
+        } yield for {
+          row <- row
+        } yield {
+          Setting(
+            key       = key,
+            value     = row.decode[Value]("value"),
+            timestamp = row.decode[Instant]("timestamp"),
+            origin    = row.decode[Option[Origin]],
+          )
+        }
       }
     }
   }
-
 
   type All[F[_]] = Stream[F, Setting]
 
   object All {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName, consistencyConfig: CassandraConsistencyConfig.Read): F[All[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: CassandraConsistencyConfig.Read): F[All[F]] = {
 
-      val query = s"SELECT key, value, timestamp, origin FROM ${ name.toCql }"
+      val query = s"SELECT key, value, timestamp, origin FROM ${name.toCql}"
       for {
         prepared <- query.prepare
       } yield {
@@ -105,32 +104,29 @@ object SettingStatements {
     }
   }
 
-
   trait Insert[F[_]] {
     def apply(setting: Setting): F[Unit]
   }
 
   object Insert {
 
-    def of[F[_] : Monad : CassandraSession](
+    def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: CassandraConsistencyConfig.Write
+      consistencyConfig: CassandraConsistencyConfig.Write,
     ): F[Insert[F]] = {
 
-      val query = s"INSERT INTO ${ name.toCql } (key, value, timestamp, origin) VALUES (?, ?, ?, ?)"
+      val query = s"INSERT INTO ${name.toCql} (key, value, timestamp, origin) VALUES (?, ?, ?, ?)"
       for {
         prepared <- query.prepare
-      } yield {
-        (setting: Setting) =>
-          val bound = prepared
-            .bind()
-            .encode(setting)
-            .setConsistencyLevel(consistencyConfig.value)
-          bound.first.void
+      } yield { (setting: Setting) =>
+        val bound = prepared
+          .bind()
+          .encode(setting)
+          .setConsistencyLevel(consistencyConfig.value)
+        bound.first.void
       }
     }
   }
-
 
   trait InsertIfEmpty[F[_]] {
     def apply(setting: Setting): F[Boolean]
@@ -138,29 +134,27 @@ object SettingStatements {
 
   object InsertIfEmpty {
 
-    def of[F[_] : Monad : CassandraSession](
+    def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: CassandraConsistencyConfig.Write
+      consistencyConfig: CassandraConsistencyConfig.Write,
     ): F[InsertIfEmpty[F]] = {
 
-      val query = s"INSERT INTO ${ name.toCql } (key, value, timestamp, origin) VALUES (?, ?, ?, ?) IF NOT EXISTS"
+      val query = s"INSERT INTO ${name.toCql} (key, value, timestamp, origin) VALUES (?, ?, ?, ?) IF NOT EXISTS"
       for {
         prepared <- query.prepare
-      } yield {
-        (setting: Setting) =>
-          val bound = prepared
-            .bind()
-            .encode(setting)
-            .setConsistencyLevel(consistencyConfig.value)
-          for {
-            row <- bound.first
-          } yield {
-            row.fold(false) { _.decode[Boolean]("[applied]") }
-          }
+      } yield { (setting: Setting) =>
+        val bound = prepared
+          .bind()
+          .encode(setting)
+          .setConsistencyLevel(consistencyConfig.value)
+        for {
+          row <- bound.first
+        } yield {
+          row.fold(false) { _.decode[Boolean]("[applied]") }
+        }
       }
     }
   }
-
 
   trait Delete[F[_]] {
     def apply(key: Key): F[Unit]
@@ -168,21 +162,20 @@ object SettingStatements {
 
   object Delete {
 
-    def of[F[_] : Monad : CassandraSession](
+    def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: CassandraConsistencyConfig.Write
+      consistencyConfig: CassandraConsistencyConfig.Write,
     ): F[Delete[F]] = {
 
-      val query = s"DELETE FROM ${ name.toCql } WHERE key = ?"
+      val query = s"DELETE FROM ${name.toCql} WHERE key = ?"
       for {
         prepared <- query.prepare
-      } yield {
-        (key: Key) =>
-          val bound = prepared
-            .bind()
-            .encode("key", key)
-            .setConsistencyLevel(consistencyConfig.value)
-          bound.first.void
+      } yield { (key: Key) =>
+        val bound = prepared
+          .bind()
+          .encode("key", key)
+          .setConsistencyLevel(consistencyConfig.value)
+        bound.first.void
       }
     }
   }

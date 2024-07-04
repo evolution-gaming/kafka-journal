@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal.replicator
 
-import java.time.Instant
 import cats.Parallel
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
@@ -12,10 +11,10 @@ import com.evolutiongaming.kafka.journal.ExpireAfter.implicits._
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.Journal.DataIntegrityConfig
 import com.evolutiongaming.kafka.journal._
-import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualRead}
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{EventualCassandra, EventualCassandraConfig}
-import com.evolutiongaming.kafka.journal.util.{ActorSystemOf, Fail}
+import com.evolutiongaming.kafka.journal.eventual.{EventualJournal, EventualRead}
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
+import com.evolutiongaming.kafka.journal.util.{ActorSystemOf, Fail}
 import com.evolutiongaming.retry.{Retry, Strategy}
 import com.evolutiongaming.scassandra.CassandraClusterOf
 import com.evolutiongaming.skafka.Offset
@@ -25,28 +24,28 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import play.api.libs.json.Json
 import pureconfig.ConfigSource
-import TestJsonCodec.instance
 
+import java.time.Instant
 import scala.concurrent.duration._
 import scala.util.control.NoStackTrace
+
+import TestJsonCodec.instance
 
 class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers {
 
   import cats.effect.unsafe.implicits.global
 
-  private val origin = Origin("ReplicatorIntSpec")
+  private val origin  = Origin("ReplicatorIntSpec")
   private val version = Version.current
 
-  private val recordMetadata = RecordMetadata(
-    HeaderMetadata(Json.obj(("key", "value")).some),
-    PayloadMetadata.empty)
+  private val recordMetadata = RecordMetadata(HeaderMetadata(Json.obj(("key", "value")).some), PayloadMetadata.empty)
 
   private val headers = Headers(("key", "value"))
 
   private implicit val randomIdOf: RandomIdOf[IO] = RandomIdOf.uuid[IO]
 
-  private def resources[F[_]: Async : LogOf : Parallel : FromFuture : ToFuture : RandomIdOf : MeasureDuration : FromTry : ToTry : Fail](
-    cassandraClusterOf: CassandraClusterOf[F]
+  private def resources[F[_]: Async: LogOf: Parallel: FromFuture: ToFuture: RandomIdOf: MeasureDuration: FromTry: ToTry: Fail](
+    cassandraClusterOf: CassandraClusterOf[F],
   ) = {
 
     def eventualJournal(conf: Config) = {
@@ -63,7 +62,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
     def journal(
       conf: Config,
-      eventualJournal: EventualJournal[F]
+      eventualJournal: EventualJournal[F],
     ) = {
 
       val config = ConfigSource
@@ -82,13 +81,13 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
         log      <- LogOf[F].apply(Journals.getClass).toResource
       } yield {
         Journals[F](
-          origin = origin.some,
-          producer = producer,
-          consumer = consumer,
-          eventualJournal = eventualJournal,
-          headCache = HeadCache.empty[F],
-          log = log,
-          conversionMetrics = none
+          origin            = origin.some,
+          producer          = producer,
+          consumer          = consumer,
+          eventualJournal   = eventualJournal,
+          headCache         = HeadCache.empty[F],
+          log               = log,
+          conversionMetrics = none,
         )
       }
     }
@@ -141,9 +140,10 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
     def read(key: Key)(until: List[EventRecord[Payload]] => Boolean) = {
       val events = for {
-        events <- eventualJournal.read(key, SeqNr.min)
-            .mapM(_.traverse(eventualRead.apply))
-            .toList
+        events <- eventualJournal
+          .read(key, SeqNr.min)
+          .mapM(_.traverse(eventualRead.apply))
+          .toList
         events <- {
           if (until(events)) {
             events
@@ -226,30 +226,30 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
       s"replicate events and there after delete, seqNr: $seqNr" in {
         val result = for {
-          key             <- Key.random[IO](topic)
-          journal          = journals(key)
-          pointer0        <- journal.pointer
-          _                = pointer0 shouldEqual None
-          expected        <- append(journal, Nel.of(event(seqNr)))
-          partitionOffset  = expected.head.partitionOffset
-          partition        = partitionOffset.partition
-          offset          <- eventualJournal.offset(topic, partitionOffset.partition)
-          _                = offset.foreach { offset => partitionOffset.offset should be >= offset }
-          events          <- read(key)(_.nonEmpty)
-          _                = events shouldEqual expected.toList
-          pointer         <- journal.pointer
-          _                = pointer shouldEqual expected.last.seqNr.some
-          pointer         <- journal.delete(expected.last.event.seqNr.toDeleteTo).map(_.map(_.partition))
-          _                = pointer shouldEqual partition.some
-          events          <- read(key)(_.isEmpty)
-          _                = events shouldEqual Nil
-          pointer         <- journal.pointer
-          _                = pointer shouldEqual expected.last.seqNr.some
-          expected        <- append(journal, Nel.of(event(seqNr + 1), event(seqNr + 2)))
-          events          <- read(key)(_.nonEmpty)
-          _                = events shouldEqual expected.toList
-          pointer4        <- journal.pointer
-          _                = pointer4 shouldEqual expected.last.seqNr.some
+          key            <- Key.random[IO](topic)
+          journal         = journals(key)
+          pointer0       <- journal.pointer
+          _               = pointer0 shouldEqual None
+          expected       <- append(journal, Nel.of(event(seqNr)))
+          partitionOffset = expected.head.partitionOffset
+          partition       = partitionOffset.partition
+          offset         <- eventualJournal.offset(topic, partitionOffset.partition)
+          _               = offset.foreach { offset => partitionOffset.offset should be >= offset }
+          events         <- read(key)(_.nonEmpty)
+          _               = events shouldEqual expected.toList
+          pointer        <- journal.pointer
+          _               = pointer shouldEqual expected.last.seqNr.some
+          pointer        <- journal.delete(expected.last.event.seqNr.toDeleteTo).map(_.map(_.partition))
+          _               = pointer shouldEqual partition.some
+          events         <- read(key)(_.isEmpty)
+          _               = events shouldEqual Nil
+          pointer        <- journal.pointer
+          _               = pointer shouldEqual expected.last.seqNr.some
+          expected       <- append(journal, Nel.of(event(seqNr + 1), event(seqNr + 2)))
+          events         <- read(key)(_.nonEmpty)
+          _               = events shouldEqual expected.toList
+          pointer4       <- journal.pointer
+          _               = pointer4 shouldEqual expected.last.seqNr.some
         } yield {}
         result.run(5.minutes)
       }
@@ -259,18 +259,18 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       s"replicate append of $numberOfEvents events, seqNr: $seqNr" in {
 
         val result = for {
-          key        <- Key.random[IO](topic)
-          journal     = journals(key)
-          events     = for {
+          key    <- Key.random[IO](topic)
+          journal = journals(key)
+          events = for {
             n <- (0 until numberOfEvents).toList
           } yield {
             event(seqNr + n, Payload("kafka-journal"))
           }
-          expected   <- append(journal, Nel.fromListUnsafe(events))
-          actual     <- read(key)(_.nonEmpty)
-          _           = actual shouldEqual expected.toList
-          pointer    <- journal.pointer
-          _           = pointer shouldEqual events.last.seqNr.some
+          expected <- append(journal, Nel.fromListUnsafe(events))
+          actual   <- read(key)(_.nonEmpty)
+          _         = actual shouldEqual expected.toList
+          pointer  <- journal.pointer
+          _         = pointer shouldEqual events.last.seqNr.some
         } yield {}
 
         result.run(5.minutes)
@@ -284,30 +284,29 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
           ("binary", Nel.of(event(seqNr, binary("binary")))),
           ("text", Nel.of(event(seqNr, Payload.text("text")))),
           ("json", Nel.of(event(seqNr, Payload.json("json")))),
-          ("empty-many", Nel.of(
-            event(seqNr),
-            event(seqNr + 1),
-            event(seqNr + 2))),
-          ("binary-many", Nel.of(
-            event(seqNr, binary("1")),
-            event(seqNr + 1, binary("2")),
-            event(seqNr + 2, binary("3")))),
-          ("text-many", Nel.of(
-            event(seqNr, Payload.text("1")),
-            event(seqNr + 1, Payload.text("2")),
-            event(seqNr + 2, Payload.text("3")))),
-          ("json-many", Nel.of(
-            event(seqNr, Payload.json("1")),
-            event(seqNr + 1, Payload.json("2")),
-            event(seqNr + 2, Payload.json("3")))),
-          ("empty-binary-text-json", Nel.of(
-            event(seqNr),
-            event(seqNr + 1, binary("binary")),
-            event(seqNr + 2, Payload.text("text")),
-            event(seqNr + 3, Payload.json("json")))))
+          ("empty-many", Nel.of(event(seqNr), event(seqNr + 1), event(seqNr + 2))),
+          ("binary-many", Nel.of(event(seqNr, binary("1")), event(seqNr + 1, binary("2")), event(seqNr + 2, binary("3")))),
+          (
+            "text-many",
+            Nel.of(event(seqNr, Payload.text("1")), event(seqNr + 1, Payload.text("2")), event(seqNr + 2, Payload.text("3"))),
+          ),
+          (
+            "json-many",
+            Nel.of(event(seqNr, Payload.json("1")), event(seqNr + 1, Payload.json("2")), event(seqNr + 2, Payload.json("3"))),
+          ),
+          (
+            "empty-binary-text-json",
+            Nel.of(
+              event(seqNr),
+              event(seqNr + 1, binary("binary")),
+              event(seqNr + 2, Payload.text("text")),
+              event(seqNr + 3, Payload.json("json")),
+            ),
+          ),
+        )
       } {
         s"consume event from kafka and replicate to eventual journal, seqNr: $seqNr, payload: $name" in {
-          
+
           val result = for {
             key          <- Key.random[IO](topic)
             journal       = journals(key)

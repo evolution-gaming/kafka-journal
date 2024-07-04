@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal
 
-import java.time.Instant
 import cats.effect._
 import cats.syntax.all._
 import cats.{Applicative, ~>}
@@ -9,6 +8,8 @@ import com.evolutiongaming.catshelper.MonadThrowable
 import com.evolutiongaming.kafka.journal.conversions.ActionToProducerRecord
 import com.evolutiongaming.skafka.{Bytes => _}
 
+import java.time.Instant
+
 trait Produce[F[_]] {
 
   def append(
@@ -16,7 +17,7 @@ trait Produce[F[_]] {
     range: SeqRange,
     payloadAndType: PayloadAndType,
     metadata: HeaderMetadata,
-    headers: Headers
+    headers: Headers,
   ): F[PartitionOffset]
 
   def delete(key: Key, to: DeleteTo): F[PartitionOffset]
@@ -38,7 +39,7 @@ object Produce {
         range: SeqRange,
         payloadAndType: PayloadAndType,
         metadata: HeaderMetadata,
-        headers: Headers
+        headers: Headers,
       ) = {
         partitionOffset
       }
@@ -50,24 +51,23 @@ object Produce {
     }
   }
 
-  def apply[F[_] : MonadThrowable : Clock](
-    producer: Journals.Producer[F],
-    origin: Option[Origin])(implicit
-    actionToProducerRecord: ActionToProducerRecord[F]
+  def apply[F[_]: MonadThrowable: Clock](producer: Journals.Producer[F], origin: Option[Origin])(
+    implicit actionToProducerRecord: ActionToProducerRecord[F],
   ): Produce[F] = {
     val produceAction = ProduceAction(producer)
     apply(produceAction, origin)
   }
 
-  def apply[F[_] : MonadThrowable : Clock](
+  def apply[F[_]: MonadThrowable: Clock](
     produceAction: ProduceAction[F],
     origin: Option[Origin],
-    version: Version = Version.current
+    version: Version = Version.current,
   ): Produce[F] = {
 
     def send(action: Action) = {
-      produceAction(action).adaptError { case e =>
-        JournalError(s"failed to produce $action", e)
+      produceAction(action).adaptError {
+        case e =>
+          JournalError(s"failed to produce $action", e)
       }
     }
 
@@ -79,7 +79,7 @@ object Produce {
         range: SeqRange,
         payloadAndType: PayloadAndType,
         metadata: HeaderMetadata,
-        headers: Headers
+        headers: Headers,
       ) = {
 
         def actionOf(timestamp: Instant) = {
@@ -87,13 +87,15 @@ object Produce {
             key,
             timestamp,
             ActionHeader.Append(
-              range = range,
-              origin = origin,
-              version = version.some,
+              range       = range,
+              origin      = origin,
+              version     = version.some,
               payloadType = payloadAndType.payloadType,
-              metadata = metadata),
+              metadata    = metadata,
+            ),
             payloadAndType.payload,
-            headers)
+            headers,
+          )
         }
 
         for {
@@ -130,7 +132,6 @@ object Produce {
     }
   }
 
-
   private sealed abstract class MapK
 
   implicit class ProduceOps[F[_]](val self: Produce[F]) extends AnyVal {
@@ -142,7 +143,7 @@ object Produce {
         range: SeqRange,
         payloadAndType: PayloadAndType,
         metadata: HeaderMetadata,
-        headers: Headers
+        headers: Headers,
       ) = {
         f(self.append(key, range, payloadAndType, metadata, headers))
       }

@@ -21,7 +21,7 @@ class EventualPayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherVa
 
   for {
     (playPayload, circePayload) <- List(
-      (Payload.json(PlayJson.obj(("key", "value"))), CirceJson.obj("key" -> CirceJson.fromString("value")))
+      (Payload.json(PlayJson.obj(("key", "value"))), CirceJson.obj("key" -> CirceJson.fromString("value"))),
     )
   } {
     test(s"toEventual with Play, fromEventual with Circe") {
@@ -37,7 +37,7 @@ class EventualPayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherVa
   for {
     (name, payloadAndType) <- List(
       ("binary", EventualPayloadAndType(ByteVector.empty.asRight, PayloadType.Binary)),
-      ("text", EventualPayloadAndType("text".asLeft, PayloadType.Text))
+      ("text", EventualPayloadAndType("text".asLeft, PayloadType.Text)),
     )
   } {
     test(s"fromEventual: returns an error for non-json payload type: $name") {
@@ -58,7 +58,7 @@ class EventualPayloadAndTypeSpec extends AnyFunSuite with Matchers with EitherVa
   }
 
   test("fromEventual: returns an error for malformed json") {
-    val malformed = "{\"key\": {sss}}"
+    val malformed      = "{\"key\": {sss}}"
     val payloadAndType = EventualPayloadAndType(malformed.asLeft, PayloadType.Json)
 
     val result = circeEventualRead(payloadAndType).toEither

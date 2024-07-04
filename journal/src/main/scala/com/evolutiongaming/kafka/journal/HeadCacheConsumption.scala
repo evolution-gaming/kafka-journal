@@ -50,7 +50,7 @@ object HeadCacheConsumption {
     topic: Topic,
     pointers: F[Map[Partition, Offset]],
     consumer: Resource[F, TopicCache.Consumer[F]],
-    log: Log[F]
+    log: Log[F],
   ): Stream[F, ConsumerRecords[String, Unit]] = {
 
     def partitions(consumer: Consumer[F], random: Random.State): F[Nes[Partition]] = {
@@ -77,14 +77,14 @@ object HeadCacheConsumption {
         partitions <- partitions(consumer, random)
         _          <- consumer.assign(topic, partitions)
         pointers   <- pointers
-        offsets     = partitions
+        offsets = partitions
           .toNel
           .map { partition =>
             val offset = pointers.getOrElse(partition, Offset.min)
             (partition, offset)
           }
           .toNem
-        result      <- consumer.seek(topic, offsets)
+        result <- consumer.seek(topic, offsets)
       } yield result
     }
 

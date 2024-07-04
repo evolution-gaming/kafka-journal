@@ -32,9 +32,10 @@ trait JournalAdapter[F[_]] {
 object JournalAdapter {
 
   def of[
-    F[_]: Async: ToFuture: Parallel: LogOf: RandomIdOf:
-    FromGFuture: MeasureDuration: ToTry: FromTry: FromJsResult: Fail: JsonCodec,
-    A
+    F[
+      _,
+    ]: Async: ToFuture: Parallel: LogOf: RandomIdOf: FromGFuture: MeasureDuration: ToTry: FromTry: FromJsResult: Fail: JsonCodec,
+    A,
   ](
     toKey: ToKey[F],
     origin: Option[Origin],
@@ -45,7 +46,7 @@ object JournalAdapter {
     log: Log[F],
     batching: Batching[F],
     appendMetadataOf: AppendMetadataOf[F],
-    cassandraClusterOf: CassandraClusterOf[F]
+    cassandraClusterOf: CassandraClusterOf[F],
   ): Resource[F, JournalAdapter[F]] = {
 
     def clientIdOf(config: CommonConfig) = config.clientId getOrElse "journal"
@@ -74,30 +75,31 @@ object JournalAdapter {
       HeadCacheOf[F](metrics.headCache)
     }
 
-    def journal(
-      eventualJournal: EventualJournal[F])(implicit
-      kafkaConsumerOf: KafkaConsumerOf[F],
+    def journal(eventualJournal: EventualJournal[F])(
+      implicit kafkaConsumerOf: KafkaConsumerOf[F],
       kafkaProducerOf: KafkaProducerOf[F],
-      headCacheOf: HeadCacheOf[F]
+      headCacheOf: HeadCacheOf[F],
     ): Resource[F, Journals[F]] = {
       Journals
         .of1[F](
-          origin = origin,
-          config = config.journal,
-          eventualJournal = eventualJournal,
-          journalMetrics = metrics.journal,
-          conversionMetrics = metrics.conversion,
-          consumerPoolConfig = config.consumerPool,
+          origin              = origin,
+          config              = config.journal,
+          eventualJournal     = eventualJournal,
+          journalMetrics      = metrics.journal,
+          conversionMetrics   = metrics.conversion,
+          consumerPoolConfig  = config.consumerPool,
           consumerPoolMetrics = metrics.consumerPool,
-          callTimeThresholds = config.callTimeThresholds)
+          callTimeThresholds  = config.callTimeThresholds,
+        )
         .map { _.withLogError(log) }
     }
 
     val headCacheOf1 = headCacheOf(kafkaConsumerOf)
 
     for {
-      eventualJournal  <- EventualCassandra.of1[F](config.cassandra, origin, metrics.eventual, cassandraClusterOf, config.dataIntegrity)
-      journal          <- journal(eventualJournal)(kafkaConsumerOf, kafkaProducerOf, headCacheOf1)
+      eventualJournal <- EventualCassandra
+        .of1[F](config.cassandra, origin, metrics.eventual, cassandraClusterOf, config.dataIntegrity)
+      journal <- journal(eventualJournal)(kafkaConsumerOf, kafkaProducerOf, headCacheOf1)
     } yield {
       JournalAdapter[F, A](journal, toKey, serializer, journalReadWrite, appendMetadataOf).withBatching(batching)
     }
@@ -108,11 +110,11 @@ object JournalAdapter {
     toKey: ToKey[F],
     serializer: EventSerializer[F, A],
     journalReadWrite: JournalReadWrite[F, A],
-    appendMetadataOf: AppendMetadataOf[F]
+    appendMetadataOf: AppendMetadataOf[F],
   ): JournalAdapter[F] = {
 
-    implicit val kafkaRead = journalReadWrite.kafkaRead
-    implicit val kafkaWrite = journalReadWrite.kafkaWrite
+    implicit val kafkaRead    = journalReadWrite.kafkaRead
+    implicit val kafkaWrite   = journalReadWrite.kafkaWrite
     implicit val eventualRead = journalReadWrite.eventualRead
 
     new JournalAdapter[F] {
@@ -174,7 +176,7 @@ object JournalAdapter {
           key     <- toKey(persistenceId)
           pointer <- journals(key).pointer
         } yield for {
-          pointer    <- pointer
+          pointer <- pointer
           if pointer >= from
         } yield pointer
       }
@@ -196,23 +198,23 @@ object JournalAdapter {
       }
     }
 
-
-    def withBatching(batching: Batching[F])(implicit F : Monad[F]): JournalAdapter[F] = new JournalAdapter[F] {
+    def withBatching(batching: Batching[F])(implicit F: Monad[F]): JournalAdapter[F] = new JournalAdapter[F] {
 
       def write(aws: Seq[AtomicWrite]) = {
         if (aws.size <= 1) self.write(aws)
-        else for {
-          batches <- batching(aws.toList)
-          results <- batches.foldLeftM(List.empty[List[Try[Unit]]]) { (results, group) =>
-            for {
-              result <- self.write(group)
-            } yield {
-              result :: results
+        else
+          for {
+            batches <- batching(aws.toList)
+            results <- batches.foldLeftM(List.empty[List[Try[Unit]]]) { (results, group) =>
+              for {
+                result <- self.write(group)
+              } yield {
+                result :: results
+              }
             }
+          } yield {
+            results.reverse.flatten
           }
-        } yield {
-          results.reverse.flatten
-        }
       }
 
       def delete(persistenceId: PersistenceId, to: DeleteTo) = self.delete(persistenceId, to)
@@ -225,15 +227,14 @@ object JournalAdapter {
     }
   }
 
-
   final case class Metrics[F[_]](
-    journal: Option[JournalMetrics[F]] = none,
-    eventual: Option[EventualJournal.Metrics[F]] = none,
-    headCache: Option[HeadCacheMetrics[F]] = none,
+    journal: Option[JournalMetrics[F]]               = none,
+    eventual: Option[EventualJournal.Metrics[F]]     = none,
+    headCache: Option[HeadCacheMetrics[F]]           = none,
     producer: Option[ClientId => ProducerMetrics[F]] = none,
     consumer: Option[ClientId => ConsumerMetrics[F]] = none,
-    conversion: Option[ConversionMetrics[F]] = none,
-    consumerPool: Option[ConsumerPoolMetrics[F]] = none,
+    conversion: Option[ConversionMetrics[F]]         = none,
+    consumerPool: Option[ConsumerPoolMetrics[F]]     = none,
   )
 
   object Metrics {

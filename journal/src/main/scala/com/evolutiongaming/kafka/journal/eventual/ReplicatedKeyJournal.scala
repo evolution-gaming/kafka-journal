@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal.eventual
 
-import java.time.Instant
 import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
 import cats.{Applicative, FlatMap, ~>}
@@ -9,6 +8,7 @@ import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedKeyJournal.Changed
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
+import java.time.Instant
 
 trait ReplicatedKeyJournal[F[_]] {
 
@@ -16,26 +16,25 @@ trait ReplicatedKeyJournal[F[_]] {
     offset: Offset,
     timestamp: Instant,
     expireAfter: Option[ExpireAfter],
-    events: Nel[EventRecord[EventualPayloadAndType]]
+    events: Nel[EventRecord[EventualPayloadAndType]],
   ): F[Changed]
 
   def delete(
     offset: Offset,
     timestamp: Instant,
     deleteTo: DeleteTo,
-    origin: Option[Origin]
+    origin: Option[Origin],
   ): F[Changed]
 
   def purge(
     offset: Offset,
-    timestamp: Instant
+    timestamp: Instant,
   ): F[Changed]
 }
 
 object ReplicatedKeyJournal {
 
   type Changed = Boolean
-
 
   def empty[F[_]: Applicative]: ReplicatedKeyJournal[F] = const(false.pure[F])
 
@@ -47,23 +46,22 @@ object ReplicatedKeyJournal {
         offset: Offset,
         timestamp: Instant,
         expireAfter: Option[ExpireAfter],
-        events: Nel[EventRecord[EventualPayloadAndType]]
+        events: Nel[EventRecord[EventualPayloadAndType]],
       ) = value
 
       def delete(
         offset: Offset,
         timestamp: Instant,
         deleteTo: DeleteTo,
-        origin: Option[Origin]
+        origin: Option[Origin],
       ) = value
 
       def purge(
         offset: Offset,
-        timestamp: Instant
+        timestamp: Instant,
       ) = value
     }
   }
-
 
   private abstract sealed class WithLog
 
@@ -80,7 +78,7 @@ object ReplicatedKeyJournal {
           offset: Offset,
           timestamp: Instant,
           expireAfter: Option[ExpireAfter],
-          events: Nel[EventRecord[EventualPayloadAndType]]
+          events: Nel[EventRecord[EventualPayloadAndType]],
         ) = {
           f(self.append(offset, timestamp, expireAfter, events))
         }
@@ -89,27 +87,23 @@ object ReplicatedKeyJournal {
           offset: Offset,
           timestamp: Instant,
           deleteTo: DeleteTo,
-          origin: Option[Origin]
+          origin: Option[Origin],
         ) = {
           f(self.delete(offset, timestamp, deleteTo, origin))
         }
 
         def purge(
           offset: Offset,
-          timestamp: Instant
+          timestamp: Instant,
         ) = {
           f(self.purge(offset, timestamp))
         }
       }
     }
 
-
-    def withLog(
-      key: Key,
-      partition: Partition,
-      log: Log[F])(implicit
-      F: FlatMap[F],
-      measureDuration: MeasureDuration[F]
+    def withLog(key: Key, partition: Partition, log: Log[F])(
+      implicit F: FlatMap[F],
+      measureDuration: MeasureDuration[F],
     ): ReplicatedKeyJournal[F] = {
 
       new WithLog with ReplicatedKeyJournal[F] {
@@ -118,19 +112,19 @@ object ReplicatedKeyJournal {
           offset: Offset,
           timestamp: Instant,
           expireAfter: Option[ExpireAfter],
-          events: Nel[EventRecord[EventualPayloadAndType]]
+          events: Nel[EventRecord[EventualPayloadAndType]],
         ) = {
           for {
             d <- MeasureDuration[F].start
             r <- self.append(offset, timestamp, expireAfter, events)
             d <- d
             _ <- log.debug {
-              val origin = events.head.origin
-              val originStr = origin.foldMap { origin => s", origin: $origin" }
+              val origin         = events.head.origin
+              val originStr      = origin.foldMap { origin => s", origin: $origin" }
               val expireAfterStr = expireAfter.foldMap { expireAfter => s", expireAfter: $expireAfter" }
-              s"$key append in ${ d.toMillis }ms, " +
+              s"$key append in ${d.toMillis}ms, " +
                 s"offset: $partition:$offset$originStr$expireAfterStr, " +
-                s"events: ${ events.toList.mkString(",") }"
+                s"events: ${events.toList.mkString(",")}"
             }
           } yield r
         }
@@ -139,7 +133,7 @@ object ReplicatedKeyJournal {
           offset: Offset,
           timestamp: Instant,
           deleteTo: DeleteTo,
-          origin: Option[Origin]
+          origin: Option[Origin],
         ) = {
           for {
             d <- MeasureDuration[F].start
@@ -147,39 +141,36 @@ object ReplicatedKeyJournal {
             d <- d
             _ <- log.debug {
               val originStr = origin.foldMap { origin => s", origin: $origin" }
-              s"$key delete in ${ d.toMillis }ms, offset: $partition:$offset, deleteTo: $deleteTo$originStr"
+              s"$key delete in ${d.toMillis}ms, offset: $partition:$offset, deleteTo: $deleteTo$originStr"
             }
           } yield r
         }
 
         def purge(
           offset: Offset,
-          timestamp: Instant
+          timestamp: Instant,
         ) = {
           for {
             d <- MeasureDuration[F].start
             r <- self.purge(offset, timestamp)
             d <- d
-            _ <- log.debug(s"$key purge in ${ d.toMillis }ms, offset: $partition:$offset")
+            _ <- log.debug(s"$key purge in ${d.toMillis}ms, offset: $partition:$offset")
           } yield r
         }
       }
     }
 
-
     def withMetrics(
       topic: Topic,
-      metrics: ReplicatedJournal.Metrics[F])(implicit
-      F: FlatMap[F],
-      measureDuration: MeasureDuration[F]
-    ): ReplicatedKeyJournal[F] = {
+      metrics: ReplicatedJournal.Metrics[F],
+    )(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): ReplicatedKeyJournal[F] = {
       new WithMetrics with ReplicatedKeyJournal[F] {
 
         def append(
           offset: Offset,
           timestamp: Instant,
           expireAfter: Option[ExpireAfter],
-          events: Nel[EventRecord[EventualPayloadAndType]]
+          events: Nel[EventRecord[EventualPayloadAndType]],
         ) = {
           for {
             d <- MeasureDuration[F].start
@@ -193,7 +184,7 @@ object ReplicatedKeyJournal {
           offset: Offset,
           timestamp: Instant,
           deleteTo: DeleteTo,
-          origin: Option[Origin]
+          origin: Option[Origin],
         ) = {
           for {
             d <- MeasureDuration[F].start
@@ -205,7 +196,7 @@ object ReplicatedKeyJournal {
 
         def purge(
           offset: Offset,
-          timestamp: Instant
+          timestamp: Instant,
         ) = {
           for {
             d <- MeasureDuration[F].start
@@ -216,7 +207,6 @@ object ReplicatedKeyJournal {
         }
       }
     }
-
 
     def enhanceError(key: Key, partition: Partition)(implicit F: ApplicativeThrowable[F]): ReplicatedKeyJournal[F] = {
 
@@ -230,17 +220,20 @@ object ReplicatedKeyJournal {
           offset: Offset,
           timestamp: Instant,
           expireAfter: Option[ExpireAfter],
-          events: Nel[EventRecord[EventualPayloadAndType]]
+          events: Nel[EventRecord[EventualPayloadAndType]],
         ) = {
           self
             .append(offset, timestamp, expireAfter, events)
             .handleErrorWith { a =>
-              error(s"append " +
-                s"key: $key, " +
-                s"offset: $partition:$offset, " +
-                s"timestamp: $timestamp, " +
-                s"expireAfter: $expireAfter, " +
-                s"events: $events", a)
+              error(
+                s"append " +
+                  s"key: $key, " +
+                  s"offset: $partition:$offset, " +
+                  s"timestamp: $timestamp, " +
+                  s"expireAfter: $expireAfter, " +
+                  s"events: $events",
+                a,
+              )
             }
         }
 
@@ -248,7 +241,7 @@ object ReplicatedKeyJournal {
           offset: Offset,
           timestamp: Instant,
           deleteTo: DeleteTo,
-          origin: Option[Origin]
+          origin: Option[Origin],
         ) = {
           self
             .delete(offset, timestamp, deleteTo, origin)
@@ -259,21 +252,26 @@ object ReplicatedKeyJournal {
                   s"offset: $partition:$offset, " +
                   s"timestamp: $timestamp, " +
                   s"deleteTo: $deleteTo, " +
-                  s"origin: $origin", a)
+                  s"origin: $origin",
+                a,
+              )
             }
         }
 
         def purge(
           offset: Offset,
-          timestamp: Instant
+          timestamp: Instant,
         ) = {
           self
             .purge(offset, timestamp)
             .handleErrorWith { a =>
-              error(s"purge " +
-                s"key: $key, " +
-                s"offset: $offset, " +
-                s"timestamp: $timestamp", a)
+              error(
+                s"purge " +
+                  s"key: $key, " +
+                  s"offset: $offset, " +
+                  s"timestamp: $timestamp",
+                a,
+              )
             }
         }
       }

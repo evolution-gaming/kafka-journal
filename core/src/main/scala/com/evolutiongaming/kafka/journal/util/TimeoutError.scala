@@ -10,7 +10,7 @@ final case class TimeoutError(msg: String) extends TimeoutException(msg) with No
 
 object TimeoutError {
 
-  def lift[F[_] : Sync, A](msg: String): F[A] = {
+  def lift[F[_]: Sync, A](msg: String): F[A] = {
     for {
       e <- Sync[F].delay { TimeoutError(msg) }
       a <- Sync[F].raiseError[A](e)

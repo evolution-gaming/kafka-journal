@@ -1,6 +1,5 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-
 import cats.Monad
 import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
@@ -14,13 +13,12 @@ import com.evolutiongaming.sstream.Stream
 
 import java.time.{Instant, LocalDate, ZoneOffset}
 
-
 object MetaJournalStatements {
 
   def createTable(name: TableName): Nel[String] = {
 
     val table = s"""
-      |CREATE TABLE IF NOT EXISTS ${ name.toCql } (
+      |CREATE TABLE IF NOT EXISTS ${name.toCql} (
       |id TEXT,
       |topic TEXT,
       |segment BIGINT,
@@ -41,16 +39,15 @@ object MetaJournalStatements {
       |""".stripMargin
 
     val createdDateIdx = s"""
-      |CREATE INDEX IF NOT EXISTS ${ name.table }_created_date_idx ON ${ name.toCql } (created_date)
+      |CREATE INDEX IF NOT EXISTS ${name.table}_created_date_idx ON ${name.toCql} (created_date)
       |""".stripMargin
 
     val expireOnIdx = s"""
-      |CREATE INDEX IF NOT EXISTS ${ name.table }_expire_on_idx ON ${ name.toCql } (expire_on)
+      |CREATE INDEX IF NOT EXISTS ${name.table}_expire_on_idx ON ${name.toCql} (expire_on)
       |""".stripMargin
 
     Nel.of(table, createdDateIdx, expireOnIdx)
   }
-
 
   trait Insert[F[_]] {
 
@@ -60,20 +57,20 @@ object MetaJournalStatements {
       created: Instant,
       updated: Instant,
       journalHead: JournalHead,
-      origin: Option[Origin]
+      origin: Option[Origin],
     ): F[Unit]
   }
 
   object Insert {
 
-    def of[F[_] : Monad : CassandraSession](
+    def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
     ): F[Insert[F]] = {
 
       val query =
         s"""
-           |INSERT INTO ${ name.toCql } (
+           |INSERT INTO ${name.toCql} (
            |topic,
            |segment,
            |id,
@@ -94,8 +91,15 @@ object MetaJournalStatements {
 
       query
         .prepare
-        .map { prepared =>
-          (key: Key, segment: SegmentNr, created: Instant, updated: Instant, journalHead: JournalHead, origin: Option[Origin]) =>
+        .map {
+          prepared => (
+            key: Key,
+            segment: SegmentNr,
+            created: Instant,
+            updated: Instant,
+            journalHead: JournalHead,
+            origin: Option[Origin],
+          ) =>
             prepared
               .bind()
               .encode(key)
@@ -112,7 +116,6 @@ object MetaJournalStatements {
     }
   }
 
-
   trait SelectJournalHead[F[_]] {
 
     def apply(key: Key, segment: SegmentNr): F[Option[JournalHead]]
@@ -120,14 +123,14 @@ object MetaJournalStatements {
 
   object SelectJournalHead {
 
-    def of[F[_] : Monad : CassandraSession](
+    def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
     ): F[SelectJournalHead[F]] = {
 
       val query =
         s"""
-           |SELECT partition, offset, segment_size, seq_nr, delete_to, expire_after, expire_on FROM ${ name.toCql }
+           |SELECT partition, offset, segment_size, seq_nr, delete_to, expire_after, expire_on FROM ${name.toCql}
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?
@@ -135,25 +138,23 @@ object MetaJournalStatements {
 
       query
         .prepare
-        .map { prepared =>
-          (key: Key, segment: SegmentNr) =>
-            val row = prepared
-              .bind()
-              .encode(key)
-              .encode(segment)
-              .setConsistencyLevel(consistencyConfig.value)
-              .first
-            for {
-              row <- row
-            } yield for {
-              row <- row
-            } yield {
-              row.decode[JournalHead]
-            }
+        .map { prepared => (key: Key, segment: SegmentNr) =>
+          val row = prepared
+            .bind()
+            .encode(key)
+            .encode(segment)
+            .setConsistencyLevel(consistencyConfig.value)
+            .first
+          for {
+            row <- row
+          } yield for {
+            row <- row
+          } yield {
+            row.decode[JournalHead]
+          }
         }
     }
   }
-
 
   trait SelectJournalPointer[F[_]] {
 
@@ -162,41 +163,37 @@ object MetaJournalStatements {
 
   object SelectJournalPointer {
 
-    def of[F[_] : Monad : CassandraSession](
+    def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
     ): F[SelectJournalPointer[F]] = {
 
       val query =
         s"""
-           |SELECT partition, offset, seq_nr FROM ${ name.toCql }
+           |SELECT partition, offset, seq_nr FROM ${name.toCql}
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?
            |""".stripMargin
       query
         .prepare
-        .map { prepared =>
-          (key: Key, segment: SegmentNr) =>
-            val row = prepared
-              .bind()
-              .encode(key)
-              .encode(segment)
-              .setConsistencyLevel(consistencyConfig.value)
-              .first
-            for {
-              row <- row
-            } yield for {
-              row <- row
-            } yield {
-              JournalPointer(
-                partitionOffset = row.decode[PartitionOffset],
-                seqNr = row.decode[SeqNr])
-            }
+        .map { prepared => (key: Key, segment: SegmentNr) =>
+          val row = prepared
+            .bind()
+            .encode(key)
+            .encode(segment)
+            .setConsistencyLevel(consistencyConfig.value)
+            .first
+          for {
+            row <- row
+          } yield for {
+            row <- row
+          } yield {
+            JournalPointer(partitionOffset = row.decode[PartitionOffset], seqNr = row.decode[SeqNr])
+          }
         }
     }
   }
-
 
   trait IdByTopicAndExpireOn[F[_]] {
 
@@ -205,14 +202,14 @@ object MetaJournalStatements {
 
   object IdByTopicAndExpireOn {
 
-    def of[F[_] : Monad : CassandraSession](
+    def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
     ): F[IdByTopicAndExpireOn[F]] = {
 
       val query =
         s"""
-           |SELECT id FROM ${ name.toCql }
+           |SELECT id FROM ${name.toCql}
            |WHERE topic = ?
            |AND segment = ?
            |AND expire_on = ?
@@ -220,20 +217,18 @@ object MetaJournalStatements {
 
       query
         .prepare
-        .map { prepared =>
-          (topic: Topic, segment: SegmentNr, expireOn: ExpireOn) =>
-            prepared
-              .bind()
-              .encode("topic", topic)
-              .encode(segment)
-              .encode(expireOn)
-              .setConsistencyLevel(consistencyConfig.value)
-              .execute
-              .map { _.decode[String]("id") }
+        .map { prepared => (topic: Topic, segment: SegmentNr, expireOn: ExpireOn) =>
+          prepared
+            .bind()
+            .encode("topic", topic)
+            .encode(segment)
+            .encode(expireOn)
+            .setConsistencyLevel(consistencyConfig.value)
+            .execute
+            .map { _.decode[String]("id") }
         }
     }
   }
-
 
   trait IdByTopicAndCreated[F[_]] {
 
@@ -242,14 +237,14 @@ object MetaJournalStatements {
 
   object IdByTopicAndCreated {
 
-    def of[F[_] : Monad : CassandraSession](
+    def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
     ): F[IdByTopicAndCreated[F]] = {
 
       val query =
         s"""
-           |SELECT id FROM ${ name.toCql }
+           |SELECT id FROM ${name.toCql}
            |WHERE topic = ?
            |AND segment = ?
            |AND created_date = ?
@@ -257,20 +252,18 @@ object MetaJournalStatements {
 
       query
         .prepare
-        .map { prepared =>
-          (topic: Topic, segment: SegmentNr, created: LocalDate) =>
-            prepared
-              .bind()
-              .encode("topic", topic)
-              .encode(segment)
-              .encode("created_date", created)
-              .setConsistencyLevel(consistencyConfig.value)
-              .execute
-              .map { _.decode[String]("id") }
+        .map { prepared => (topic: Topic, segment: SegmentNr, created: LocalDate) =>
+          prepared
+            .bind()
+            .encode("topic", topic)
+            .encode(segment)
+            .encode("created_date", created)
+            .setConsistencyLevel(consistencyConfig.value)
+            .execute
+            .map { _.decode[String]("id") }
         }
     }
   }
-
 
   trait IdByTopicAndSegment[F[_]] {
 
@@ -279,33 +272,31 @@ object MetaJournalStatements {
 
   object IdByTopicAndSegment {
 
-    def of[F[_] : Monad : CassandraSession](
+    def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
     ): F[IdByTopicAndSegment[F]] = {
 
       val query =
         s"""
-           |SELECT id FROM ${ name.toCql }
+           |SELECT id FROM ${name.toCql}
            |WHERE topic = ?
            |AND segment = ?
            |""".stripMargin
 
       query
         .prepare
-        .map { prepared =>
-          (topic: Topic, segment: SegmentNr) =>
-            prepared
-              .bind()
-              .encode("topic", topic)
-              .encode(segment)
-              .setConsistencyLevel(consistencyConfig.value)
-              .execute
-              .map { _.decode[String]("id") }
+        .map { prepared => (topic: Topic, segment: SegmentNr) =>
+          prepared
+            .bind()
+            .encode("topic", topic)
+            .encode(segment)
+            .setConsistencyLevel(consistencyConfig.value)
+            .execute
+            .map { _.decode[String]("id") }
         }
     }
   }
-
 
   trait Update[F[_]] {
 
@@ -315,18 +306,20 @@ object MetaJournalStatements {
       partitionOffset: PartitionOffset,
       timestamp: Instant,
       seqNr: SeqNr,
-      deleteTo: DeleteTo
+      deleteTo: DeleteTo,
     ): F[Unit]
   }
 
   object Update {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName, consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write
+    def of[F[_]: Monad: CassandraSession](
+      name: TableName,
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
     ): F[Update[F]] = {
 
       val query =
         s"""
-           |UPDATE ${ name.toCql }
+           |UPDATE ${name.toCql}
            |SET partition = ?, offset = ?, seq_nr = ?, delete_to = ?, updated = ?
            |WHERE id = ?
            |AND topic = ?
@@ -335,8 +328,15 @@ object MetaJournalStatements {
 
       query
         .prepare
-        .map { prepared =>
-          (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, deleteTo: DeleteTo) =>
+        .map {
+          prepared => (
+            key: Key,
+            segment: SegmentNr,
+            partitionOffset: PartitionOffset,
+            timestamp: Instant,
+            seqNr: SeqNr,
+            deleteTo: DeleteTo,
+          ) =>
             prepared
               .bind()
               .encode(key)
@@ -352,27 +352,26 @@ object MetaJournalStatements {
     }
   }
 
-
   trait UpdateSeqNr[F[_]] {
     def apply(
       key: Key,
       segment: SegmentNr,
       partitionOffset: PartitionOffset,
       timestamp: Instant,
-      seqNr: SeqNr
+      seqNr: SeqNr,
     ): F[Unit]
   }
 
   object UpdateSeqNr {
 
-    def of[F[_] : Monad : CassandraSession](
+    def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
     ): F[UpdateSeqNr[F]] = {
 
       val query =
         s"""
-           |UPDATE ${ name.toCql }
+           |UPDATE ${name.toCql}
            |SET partition = ?, offset = ?, seq_nr = ?, updated = ?
            |WHERE id = ?
            |AND topic = ?
@@ -381,22 +380,20 @@ object MetaJournalStatements {
 
       query
         .prepare
-        .map { prepared =>
-          (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr) =>
-            prepared
-              .bind()
-              .encode(key)
-              .encode(segment)
-              .encode(partitionOffset)
-              .encode(seqNr)
-              .encode("updated", timestamp)
-              .setConsistencyLevel(consistencyConfig.value)
-              .first
-              .void
+        .map { prepared => (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr) =>
+          prepared
+            .bind()
+            .encode(key)
+            .encode(segment)
+            .encode(partitionOffset)
+            .encode(seqNr)
+            .encode("updated", timestamp)
+            .setConsistencyLevel(consistencyConfig.value)
+            .first
+            .void
         }
     }
   }
-
 
   trait UpdateExpiry[F[_]] {
 
@@ -406,20 +403,20 @@ object MetaJournalStatements {
       partitionOffset: PartitionOffset,
       timestamp: Instant,
       seqNr: SeqNr,
-      expiry: Expiry
+      expiry: Expiry,
     ): F[Unit]
   }
 
   object UpdateExpiry {
 
-    def of[F[_] : Monad : CassandraSession](
+    def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
     ): F[UpdateExpiry[F]] = {
 
       val query =
         s"""
-           |UPDATE ${ name.toCql }
+           |UPDATE ${name.toCql}
            |SET partition = ?, offset = ?, seq_nr = ?, updated = ?, expire_after = ?, expire_on = ?
            |WHERE id = ?
            |AND topic = ?
@@ -428,23 +425,23 @@ object MetaJournalStatements {
 
       query
         .prepare
-        .map { prepared =>
-          (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, expiry: Expiry) =>
-            prepared
-              .bind()
-              .encode(key)
-              .encode(segment)
-              .encode(partitionOffset)
-              .encode(seqNr)
-              .encode("updated", timestamp)
-              .encode(expiry)
-              .setConsistencyLevel(consistencyConfig.value)
-              .first
-              .void
+        .map {
+          prepared =>
+            (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, seqNr: SeqNr, expiry: Expiry) =>
+              prepared
+                .bind()
+                .encode(key)
+                .encode(segment)
+                .encode(partitionOffset)
+                .encode(seqNr)
+                .encode("updated", timestamp)
+                .encode(expiry)
+                .setConsistencyLevel(consistencyConfig.value)
+                .first
+                .void
         }
     }
   }
-
 
   trait UpdateDeleteTo[F[_]] {
 
@@ -453,14 +450,14 @@ object MetaJournalStatements {
 
   object UpdateDeleteTo {
 
-    def of[F[_] : Monad : CassandraSession](
+    def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
     ): F[UpdateDeleteTo[F]] = {
 
       val query =
         s"""
-           |UPDATE ${ name.toCql }
+           |UPDATE ${name.toCql}
            |SET partition = ?, offset = ?, delete_to = ?, updated = ?
            |WHERE id = ?
            |AND topic = ?
@@ -469,8 +466,8 @@ object MetaJournalStatements {
 
       query
         .prepare
-        .map { prepared =>
-          (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: DeleteTo) =>
+        .map {
+          prepared => (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant, deleteTo: DeleteTo) =>
             prepared
               .bind()
               .encode(key)
@@ -494,10 +491,10 @@ object MetaJournalStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
     ): F[UpdatePartitionOffset[F]] = {
       s"""
-         |UPDATE ${ name.toCql }
+         |UPDATE ${name.toCql}
          |SET partition = ?, offset = ?, updated = ?
          |WHERE id = ?
          |AND topic = ?
@@ -505,21 +502,19 @@ object MetaJournalStatements {
          |"""
         .stripMargin
         .prepare
-        .map { statement =>
-          (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant) =>
-            statement
-              .bind()
-              .encode(key)
-              .encode(segment)
-              .encode(partitionOffset)
-              .encode("updated", timestamp)
-              .setConsistencyLevel(consistencyConfig.value)
-              .first
-              .void
+        .map { statement => (key: Key, segment: SegmentNr, partitionOffset: PartitionOffset, timestamp: Instant) =>
+          statement
+            .bind()
+            .encode(key)
+            .encode(segment)
+            .encode(partitionOffset)
+            .encode("updated", timestamp)
+            .setConsistencyLevel(consistencyConfig.value)
+            .first
+            .void
         }
     }
   }
-
 
   trait Delete[F[_]] {
 
@@ -528,30 +523,31 @@ object MetaJournalStatements {
 
   object Delete {
 
-    def of[F[_] : Monad : CassandraSession](name: TableName, consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write): F[Delete[F]] = {
+    def of[F[_]: Monad: CassandraSession](
+      name: TableName,
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
+    ): F[Delete[F]] = {
 
       val query =
         s"""
-           |DELETE FROM ${ name.toCql }
+           |DELETE FROM ${name.toCql}
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?
            |""".stripMargin
       query
         .prepare
-        .map { prepared =>
-          (key: Key, segment: SegmentNr) =>
-            prepared
-              .bind()
-              .encode(key)
-              .encode(segment)
-              .setConsistencyLevel(consistencyConfig.value)
-              .first
-              .void
+        .map { prepared => (key: Key, segment: SegmentNr) =>
+          prepared
+            .bind()
+            .encode(key)
+            .encode(segment)
+            .setConsistencyLevel(consistencyConfig.value)
+            .first
+            .void
         }
     }
   }
-
 
   trait DeleteExpiry[F[_]] {
 
@@ -560,14 +556,14 @@ object MetaJournalStatements {
 
   object DeleteExpiry {
 
-    def of[F[_] : Monad : CassandraSession](
+    def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
     ): F[DeleteExpiry[F]] = {
 
       val query =
         s"""
-           |DELETE expire_after, expire_on FROM ${ name.toCql }
+           |DELETE expire_after, expire_on FROM ${name.toCql}
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?
@@ -575,19 +571,17 @@ object MetaJournalStatements {
 
       query
         .prepare
-        .map { prepared =>
-          (key: Key, segmentNr: SegmentNr) =>
-            prepared
-              .bind()
-              .encode(key)
-              .encode(segmentNr)
-              .setConsistencyLevel(consistencyConfig.value)
-              .first
-              .void
+        .map { prepared => (key: Key, segmentNr: SegmentNr) =>
+          prepared
+            .bind()
+            .encode(key)
+            .encode(segmentNr)
+            .setConsistencyLevel(consistencyConfig.value)
+            .first
+            .void
         }
     }
   }
-
 
   trait SelectIds[F[_]] {
 
@@ -598,19 +592,18 @@ object MetaJournalStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
     ): F[SelectIds[F]] = {
       for {
-        prepared <- s"SELECT id FROM ${ name.toCql } WHERE topic = ? AND segment = ?".prepare
-      } yield {
-        (topic: Topic, segmentNr: SegmentNr) =>
-          prepared
-            .bind()
-            .encode("topic", topic)
-            .encode(segmentNr)
-            .setConsistencyLevel(consistencyConfig.value)
-            .execute
-            .map { _.decode[String]("id") }
+        prepared <- s"SELECT id FROM ${name.toCql} WHERE topic = ? AND segment = ?".prepare
+      } yield { (topic: Topic, segmentNr: SegmentNr) =>
+        prepared
+          .bind()
+          .encode("topic", topic)
+          .encode(segmentNr)
+          .setConsistencyLevel(consistencyConfig.value)
+          .execute
+          .map { _.decode[String]("id") }
       }
     }
   }

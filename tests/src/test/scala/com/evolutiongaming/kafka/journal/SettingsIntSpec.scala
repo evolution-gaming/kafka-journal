@@ -9,8 +9,8 @@ import com.evolutiongaming.catshelper.{FromFuture, LogOf}
 import com.evolutiongaming.kafka.journal.CassandraSuite._
 import com.evolutiongaming.kafka.journal.IOSuite._
 import com.evolutiongaming.kafka.journal.cassandra.{CassandraConsistencyConfig, SettingsCassandra => SettingsCassandra2}
-import com.evolutiongaming.kafka.journal.eventual.cassandra.{SettingsCassandra => SettingsCassandra1}
 import com.evolutiongaming.kafka.journal.eventual.cassandra._
+import com.evolutiongaming.kafka.journal.eventual.cassandra.{SettingsCassandra => SettingsCassandra1}
 import com.evolutiongaming.kafka.journal.util.ActorSystemOf
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper._
 import com.evolutiongaming.scassandra.CassandraClusterOf
@@ -19,7 +19,6 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import pureconfig.ConfigSource
-
 
 class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers {
 
@@ -32,17 +31,13 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
     super.afterAll()
   }
 
-
   private def resources[F[_]: Async: LogOf: Parallel: FromFuture](
     origin: Option[Origin],
     cassandraClusterOf: CassandraClusterOf[F],
-    legacySettings: Boolean
+    legacySettings: Boolean,
   ) = {
 
-    def settings1(
-      config: SchemaConfig)(implicit
-      cassandraCluster: CassandraCluster[F],
-      cassandraSession: CassandraSession[F]) = {
+    def settings1(config: SchemaConfig)(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
 
       for {
         schema   <- SetupSchema[F](config, origin, EventualCassandraConfig.ConsistencyConfig.default)
@@ -50,10 +45,7 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
       } yield settings
     }
 
-    def settings2(
-      config: SchemaConfig)(implicit
-      cassandraCluster: CassandraCluster[F],
-      cassandraSession: CassandraSession[F]) = {
+    def settings2(config: SchemaConfig)(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
 
       for {
         schema   <- SetupSchema[F](config, origin, EventualCassandraConfig.ConsistencyConfig.default)
@@ -82,14 +74,14 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
       config           <- config(system).toResource
       cassandraCluster <- CassandraCluster.of[F](config.client, cassandraClusterOf, config.retries)
       cassandraSession <- cassandraCluster.session
-      settings         <- if (legacySettings) {
-        settings1(config.schema)(cassandraCluster, cassandraSession).toResource
-      } else {
-        settings2(config.schema)(cassandraCluster, cassandraSession).toResource
-      }
+      settings <-
+        if (legacySettings) {
+          settings1(config.schema)(cassandraCluster, cassandraSession).toResource
+        } else {
+          settings2(config.schema)(cassandraCluster, cassandraSession).toResource
+        }
     } yield settings
   }
-
 
   def test[F[_]: Async: Parallel: FromFuture](cassandraClusterOf: CassandraClusterOf[F], legacySettings: Boolean): F[Unit] = {
 
@@ -98,18 +90,16 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
     for {
       origin    <- Origin.hostName[F]
       timestamp <- Clock[F].realTimeInstant
-      result    <- resources[F](origin, cassandraClusterOf, legacySettings).use { settings =>
-
+      result <- resources[F](origin, cassandraClusterOf, legacySettings).use { settings =>
         val setting = Setting(key = "key", value = "value", timestamp = timestamp, origin = origin)
 
         def fix(setting: Setting) = {
-          setting.copy(
-            timestamp = timestamp)
+          setting.copy(timestamp = timestamp)
         }
         val all = for {
           settings <- settings.all.toList
         } yield for {
-          setting  <- settings
+          setting <- settings
           if setting.key =!= "schema-version"
         } yield {
           fix(setting)
@@ -182,13 +172,12 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
     }
   }
 
-
   "CassandraSettings" should {
     "set, get, all, remove" in {
       // run two tests in sequence, to avoid concurrency issues
       val program =
         test[IO](cassandraClusterOf, legacySettings = false) *>
-        test[IO](cassandraClusterOf, legacySettings = true)
+          test[IO](cassandraClusterOf, legacySettings = true)
       program.run()
     }
   }
