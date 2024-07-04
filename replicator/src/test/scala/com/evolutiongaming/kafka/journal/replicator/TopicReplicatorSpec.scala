@@ -18,7 +18,7 @@ import com.evolutiongaming.kafka.journal.replicator.TopicReplicatorMetrics.Measu
 import com.evolutiongaming.kafka.journal.util.{Fail, TestTemporal}
 import com.evolutiongaming.retry.Sleep
 import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, RebalanceListener, WithSize}
-import com.evolutiongaming.skafka.{Bytes as _, Header as _, Metadata as _, _}
+import com.evolutiongaming.skafka.{Bytes as _, Header as _, Metadata as _, *}
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
