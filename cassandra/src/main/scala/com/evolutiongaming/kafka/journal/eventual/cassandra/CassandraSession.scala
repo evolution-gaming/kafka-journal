@@ -4,17 +4,18 @@ import cats.Parallel
 import cats.effect.kernel.Async
 import cats.effect.{Concurrent, Resource}
 import cats.syntax.all._
-import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
 import com.datastax.driver.core.{ResultSet => _, _}
-import com.evolution.scache.Cache
+import com.datastax.driver.core.policies.{LoggingRetryPolicy, RetryPolicy}
 import com.evolutiongaming.catshelper.{MonadThrowable, Runtime}
 import com.evolutiongaming.kafka.journal.JournalError
 import com.evolutiongaming.kafka.journal.util.StreamHelper._
-import com.evolutiongaming.scassandra
-import com.evolutiongaming.scassandra.NextHostRetryPolicy
 import com.evolutiongaming.scassandra.syntax._
+import com.evolutiongaming.scassandra.NextHostRetryPolicy
+import com.evolutiongaming.scassandra
 import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.sstream.Stream
+import com.evolution.scache.Cache
+
 
 trait CassandraSession[F[_]] {
 
@@ -27,22 +28,25 @@ trait CassandraSession[F[_]] {
   final def execute(statement: String): Stream[F, Row] = execute(new SimpleStatement(statement))
 }
 
+
 object CassandraSession {
 
   def apply[F[_]](implicit F: CassandraSession[F]): CassandraSession[F] = F
 
+
   def apply[F[_]](
     session: CassandraSession[F],
     retries: Int,
-    trace: Boolean = false,
+    trace: Boolean = false
   ): CassandraSession[F] = {
     val retryPolicy = new LoggingRetryPolicy(NextHostRetryPolicy(retries))
     session.configured(retryPolicy, trace)
   }
 
-  private def apply[F[_]: Async: FromGFuture](
-    session: scassandra.CassandraSession[F],
-  ): CassandraSession[F] =
+
+  private def apply[F[_] : Async : FromGFuture](
+    session: scassandra.CassandraSession[F]
+  ): CassandraSession[F] = {
     new CassandraSession[F] {
 
       def prepare(query: String) = session.prepare(query)
@@ -57,21 +61,28 @@ object CassandraSession {
 
       def unsafe = session
     }
+  }
+
 
   def of[F[_]: Async: Parallel: FromGFuture](
-    session: scassandra.CassandraSession[F],
-  ): Resource[F, CassandraSession[F]] =
-    apply[F](session).enhanceError.cachePrepared
+    session: scassandra.CassandraSession[F]
+  ): Resource[F, CassandraSession[F]] = {
+    apply[F](session)
+      .enhanceError
+      .cachePrepared
+  }
+
 
   implicit class CassandraSessionOps[F[_]](val self: CassandraSession[F]) extends AnyVal {
 
     def configured(
       retryPolicy: RetryPolicy,
-      trace: Boolean,
+      trace: Boolean
     ): CassandraSession[F] = new CassandraSession[F] {
 
-      def prepare(query: String) =
+      def prepare(query: String) = {
         self.prepare(query)
+      }
 
       def execute(statement: Statement) = {
         val configured = statement
@@ -84,39 +95,48 @@ object CassandraSession {
       def unsafe = self.unsafe
     }
 
+
     def cachePrepared(implicit
       F: Concurrent[F],
       parallel: Parallel[F],
-      runtime: Runtime[F],
-    ): Resource[F, CassandraSession[F]] =
+      runtime: Runtime[F]
+    ): Resource[F, CassandraSession[F]] = {
       for {
         cache <- Cache.loading[F, String, PreparedStatement]
-      } yield new CassandraSession[F] {
+      } yield {
+        new CassandraSession[F] {
 
-        def prepare(query: String) =
-          cache.getOrUpdate(query)(self.prepare(query))
+          def prepare(query: String) = {
+            cache.getOrUpdate(query) { self.prepare(query) }
+          }
 
-        def execute(statement: Statement) = self.execute(statement)
+          def execute(statement: Statement) = self.execute(statement)
 
-        def unsafe = self.unsafe
+          def unsafe = self.unsafe
+        }
       }
+    }
+
 
     def enhanceError(implicit F: MonadThrowable[F]): CassandraSession[F] = {
 
-      def error[A](msg: String, cause: Throwable) =
+      def error[A](msg: String, cause: Throwable) = {
         JournalError(s"CassandraSession.$msg failed with $cause", cause).raiseError[F, A]
+      }
 
       new CassandraSession[F] {
 
-        def prepare(query: String) =
+        def prepare(query: String) = {
           self
             .prepare(query)
-            .handleErrorWith(a => error(s"prepare query: $query", a))
+            .handleErrorWith { a => error(s"prepare query: $query", a) }
+        }
 
-        def execute(statement: Statement) =
+        def execute(statement: Statement) = {
           self
             .execute(statement)
-            .handleErrorWith((a: Throwable) => error[Row](s"execute statement: $statement", a).toStream)
+            .handleErrorWith { (a: Throwable) => error[Row](s"execute statement: $statement", a).toStream }
+        }
 
         def unsafe = self.unsafe
       }

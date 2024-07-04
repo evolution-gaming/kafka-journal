@@ -8,6 +8,7 @@ import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.ProducerConfig
 
+
 object KafkaHealthCheckApp extends IOApp {
 
   def run(args: List[String]): IO[ExitCode] = {
@@ -17,11 +18,13 @@ object KafkaHealthCheckApp extends IOApp {
 
     for {
       logOf <- LogOf.slf4j[IO]
-      _ <- {
+      _     <- {
         implicit val logOf1 = logOf
         runF[IO]
       }
-    } yield ExitCode.Success
+    } yield {
+      ExitCode.Success
+    }
   }
 
   private def runF[F[_]: Async: ToFuture: LogOf: FromTry: ToTry: MeasureDuration] = {
@@ -32,10 +35,16 @@ object KafkaHealthCheckApp extends IOApp {
 
     implicit val randomIdOf = RandomIdOf.uuid[F]
 
-    val commonConfig = CommonConfig(clientId = "KafkaHealthCheckApp".some, bootstrapServers = Nel.of("localhost:9092"))
-    val kafkaConfig  = KafkaConfig(ProducerConfig(common = commonConfig), ConsumerConfig(common = commonConfig))
+    val commonConfig = CommonConfig(
+      clientId = "KafkaHealthCheckApp".some,
+      bootstrapServers = Nel.of("localhost:9092"))
+    val kafkaConfig = KafkaConfig(
+      ProducerConfig(common = commonConfig),
+      ConsumerConfig(common = commonConfig))
 
-    val kafkaHealthCheck = KafkaHealthCheck.of[F](KafkaHealthCheck.Config.default, kafkaConfig)
+    val kafkaHealthCheck = KafkaHealthCheck.of[F](
+      KafkaHealthCheck.Config.default,
+      kafkaConfig)
 
     kafkaHealthCheck.use(_.error.untilDefinedM)
   }

@@ -8,12 +8,15 @@ import com.evolutiongaming.catshelper.LogOf
 
 object LogOfFromAkka {
 
-  def apply[F[_]: Sync](system: ActorSystem): LogOf[F] = {
+  def apply[F[_] : Sync](system: ActorSystem): LogOf[F] = {
 
-    def log[A: LogSource](source: A) =
+    def log[A: LogSource](source: A) = {
       for {
-        log <- Sync[F].delay(akka.event.Logging(system, source))
-      } yield LogFromAkka[F](log)
+        log <- Sync[F].delay { akka.event.Logging(system, source) }
+      } yield {
+        LogFromAkka[F](log)
+      }
+    }
 
     new LogOf[F] {
 

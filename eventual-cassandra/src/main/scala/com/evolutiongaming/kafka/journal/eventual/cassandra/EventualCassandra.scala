@@ -20,12 +20,13 @@ import com.evolutiongaming.sstream.Stream
   *
   * It is intended to be used for journal recovery.
   *
-  * One may not be able to use Kafka only to recover because Kafka may have the retention window expired for the older
-  * journals, or the offset might be too far in the past for such recovery to be practical (i.e. too much irrelevant
+  * One may not be able to use Kafka only to recover because Kafka may have the
+  * retention window expired for the older journals, or the offset might be too
+  * far in the past for such recovery to be practical (i.e. too much irrelevant
   * data will have to be filtered out).
   *
-  * Hence, one is to use [[EventualCassandra]] to recover the tail of the journal and then read the newest data from
-  * Kafka.
+  * Hence, one is to use [[EventualCassandra]] to recover the tail of the
+  * journal and then read the newest data from Kafka.
   */
 object EventualCassandra {
 
@@ -35,19 +36,25 @@ object EventualCassandra {
     */
   @deprecated("Use of1 instead", "3.4.0")
   def of[
-    F[_]: Async: Parallel: ToTry: LogOf: FromGFuture: MeasureDuration: JsonCodec.Decode,
+    F[_]
+    : Async
+    : Parallel
+    : ToTry: LogOf
+    : FromGFuture
+    : MeasureDuration
+    : JsonCodec.Decode
   ](
     config: EventualCassandraConfig,
     origin: Option[Origin],
     metrics: Option[EventualJournal.Metrics[F]],
-    cassandraClusterOf: CassandraClusterOf[F],
-  ): Resource[F, EventualJournal[F]] =
+    cassandraClusterOf: CassandraClusterOf[F]
+  ): Resource[F, EventualJournal[F]] = 
     of1[F](
       config,
       origin,
       metrics,
       cassandraClusterOf,
-      DataIntegrityConfig.Default,
+      DataIntegrityConfig.Default
     )
 
   /** Creates [[EventualJournal]] instance for a given Cassandra session.
@@ -56,19 +63,25 @@ object EventualCassandra {
     */
   @deprecated("Use of1 instead", "3.4.0")
   def of[
-    F[_]: Temporal: Parallel: ToTry: LogOf: CassandraCluster: CassandraSession: MeasureDuration: JsonCodec.Decode,
+    F[_]
+    : Temporal
+    : Parallel
+    : ToTry: LogOf
+    : CassandraCluster: CassandraSession
+    : MeasureDuration
+    : JsonCodec.Decode
   ](
     schemaConfig: SchemaConfig,
     origin: Option[Origin],
     metrics: Option[EventualJournal.Metrics[F]],
-    consistencyConfig: EventualCassandraConfig.ConsistencyConfig,
-  ): F[EventualJournal[F]] =
+    consistencyConfig: EventualCassandraConfig.ConsistencyConfig
+  ): F[EventualJournal[F]] = 
     of1[F](
       schemaConfig,
       origin,
       metrics,
       consistencyConfig,
-      DataIntegrityConfig.Default,
+      DataIntegrityConfig.Default
     )
 
   /** Creates [[EventualJournal]] instance for a given Cassandra cluster factory.
@@ -76,7 +89,13 @@ object EventualCassandra {
     * Underlying schema is automatically created or migrated if required.
     */
   def of1[
-    F[_]: Async: Parallel: ToTry: LogOf: FromGFuture: MeasureDuration: JsonCodec.Decode,
+    F[_]
+    : Async
+    : Parallel
+    : ToTry: LogOf
+    : FromGFuture
+    : MeasureDuration
+    : JsonCodec.Decode
   ](
     config: EventualCassandraConfig,
     origin: Option[Origin],
@@ -85,8 +104,9 @@ object EventualCassandra {
     dataIntegrity: DataIntegrityConfig,
   ): Resource[F, EventualJournal[F]] = {
 
-    def journal(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) =
+    def journal(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
       of1(config.schema, origin, metrics, config.consistencyConfig, dataIntegrity)
+    }
 
     for {
       cassandraCluster <- CassandraCluster.of[F](config.client, cassandraClusterOf, config.retries)
@@ -100,48 +120,59 @@ object EventualCassandra {
     * Underlying schema is automatically created or migrated if required.
     */
   def of1[
-    F[_]: Temporal: Parallel: ToTry: LogOf: CassandraCluster: CassandraSession: MeasureDuration: JsonCodec.Decode,
+    F[_]
+    : Temporal
+    : Parallel
+    : ToTry: LogOf
+    : CassandraCluster: CassandraSession
+    : MeasureDuration
+    : JsonCodec.Decode
   ](
     schemaConfig: SchemaConfig,
     origin: Option[Origin],
     metrics: Option[EventualJournal.Metrics[F]],
     consistencyConfig: EventualCassandraConfig.ConsistencyConfig,
     dataIntegrity: DataIntegrityConfig,
-  ): F[EventualJournal[F]] =
+  ): F[EventualJournal[F]] = {
+
     for {
-      log         <- LogOf[F].apply(EventualCassandra.getClass)
-      schema      <- SetupSchema[F](schemaConfig, origin, consistencyConfig)
-      segmentNrsOf = SegmentNrsOf[F](first = Segments.default, second = Segments.old)
-      statements  <- Statements.of(schema, segmentNrsOf, Segments.default, consistencyConfig.read)
+      log          <- LogOf[F].apply(EventualCassandra.getClass)
+      schema       <- SetupSchema[F](schemaConfig, origin, consistencyConfig)
+      segmentNrsOf  = SegmentNrsOf[F](first = Segments.default, second = Segments.old)
+      statements   <- Statements.of(schema, segmentNrsOf, Segments.default, consistencyConfig.read)
     } yield {
       val journal = apply1[F](statements, dataIntegrity).withLog(log)
       metrics
-        .fold(journal)(metrics => journal.withMetrics(metrics))
+        .fold(journal) { metrics => journal.withMetrics(metrics) }
         .enhanceError
     }
+  }
 
-  sealed abstract private class Main
+
+  private sealed abstract class Main
 
   /** Creates [[EventualJournal]] instance calling Cassandra appropriately.
     *
-    * The implementation itself is abstracted from the calls to Cassandra which should be passed as part of
-    * [[Statements]] parameter.
+    * The implementation itself is abstracted from the calls to Cassandra which
+    * should be passed as part of [[Statements]] parameter.
     */
   @deprecated("Use apply1 instead", "3.4.0")
-  def apply[F[_]: MonadThrow](statements: Statements[F]): EventualJournal[F] =
-    apply1(statements, DataIntegrityConfig.Default)
+  def apply[F[_]: MonadThrow](statements: Statements[F]): EventualJournal[F] = apply1(statements, DataIntegrityConfig.Default)
 
   /** Creates [[EventualJournal]] instance calling Cassandra appropriately.
     *
-    * The implementation itself is abstracted from the calls to Cassandra which should be passed as part of
-    * [[Statements]] parameter.
+    * The implementation itself is abstracted from the calls to Cassandra which
+    * should be passed as part of [[Statements]] parameter.
     */
-  def apply1[F[_]: MonadThrow](statements: Statements[F], dataIntegrity: DataIntegrityConfig): EventualJournal[F] =
+  def apply1[F[_]: MonadThrow](statements: Statements[F], dataIntegrity: DataIntegrityConfig): EventualJournal[F] = {
+
     new Main with EventualJournal[F] {
 
-      def pointer(key: Key) =
-        statements.metaJournal
+      def pointer(key: Key) = {
+        statements
+          .metaJournal
           .journalPointer(key)
+      }
 
       def read(key: Key, from: SeqNr) = {
 
@@ -151,76 +182,80 @@ object EventualCassandra {
 
             def read(from: SeqNr, segment: Segment) = {
               val range = SeqRange(from, SeqNr.max)
-              statement(key, segment.nr, range).map(record => (record, segment))
+              statement(key, segment.nr, range).map { record => (record, segment) }
             }
 
-            val events = read(from, Segment(from, head.segmentSize))
-              .chain {
-                case (record, segment) =>
+            val events = 
+              read(from, Segment(from, head.segmentSize))
+                .chain { case (record, segment) =>
                   for {
                     from    <- record.seqNr.next[Option]
                     segment <- segment.next(from)
-                  } yield read(from, segment)
-              }
-              .map { case (record, _) => record }
+                  } yield {
+                    read(from, segment)
+                  }
+                }
+                .map { case (record, _) => record }
 
             if (dataIntegrity.seqNrUniqueness) {
               events
-                .stateful(from) {
-                  case (seqNr, record) =>
-                    if (seqNr <= record.seqNr) {
-                      val seqNr1 = record.seqNr
-                        .next[Option]
-                      (seqNr1, Stream[F].single(record))
-                    } else {
-                      val msg =
-                        s"Data integrity violated: seqNr $seqNr duplicated in multiple records from eventual journal, key $key"
-                      val err = new JournalError(msg)
-                      (seqNr.some, err.raiseError[F, EventRecord[EventualPayloadAndType]].toStream)
-                    }
+                .stateful(from) { case (seqNr, record) =>
+                  if (seqNr <= record.seqNr) {
+                    val seqNr1 = record
+                      .seqNr
+                      .next[Option]
+                    (seqNr1, Stream[F].single(record))
+                  } else {
+                    val msg = s"Data integrity violated: seqNr $seqNr duplicated in multiple records from eventual journal, key $key"
+                    val err = new JournalError(msg)
+                    (seqNr.some, err.raiseError[F, EventRecord[EventualPayloadAndType]].toStream)
+                  }
                 }
             } else {
               events
             }
           }
 
+
           head.deleteTo match {
-            case None => read(from)
+            case None           => read(from)
             case Some(deleteTo) =>
               if (from > deleteTo.value) read(from)
-              else
-                deleteTo.value.next[Option] match {
-                  case Some(from) => read(from)
-                  case None       => Stream.empty[F, EventRecord[EventualPayloadAndType]]
-                }
+              else deleteTo.value.next[Option] match {
+                case Some(from) => read(from)
+                case None       => Stream.empty[F, EventRecord[EventualPayloadAndType]]
+              }
           }
         }
 
         for {
           journalHead <- statements.metaJournal.journalHead(key).toStream
-          result <- journalHead match {
+          result      <- journalHead match {
             case Some(journalHead) => read(statements.records, journalHead)
             case None              => Stream.empty[F, EventRecord[EventualPayloadAndType]]
           }
         } yield result
       }
 
-      def ids(topic: Topic) =
+      def ids(topic: Topic) = {
         statements.metaJournal.ids(topic)
+      }
 
-      def offset(topic: Topic, partition: Partition): F[Option[Offset]] =
+      def offset(topic: Topic, partition: Partition): F[Option[Offset]] = {
         for {
           offset <- statements.selectOffset2(topic, partition)
-          offset <- offset.fold(statements.selectOffset(topic, partition))(_.some.pure[F])
+          offset <- offset.fold { statements.selectOffset(topic, partition) } { _.some.pure[F] }
         } yield offset
+      }
     }
+  }
+
 
   final case class Statements[F[_]](
     records: JournalStatements.SelectRecords[F],
     metaJournal: MetaJournalStatements[F],
     selectOffset: PointerStatements.SelectOffset[F],
-    selectOffset2: Pointer2Statements.SelectOffset[F],
-  )
+    selectOffset2: Pointer2Statements.SelectOffset[F])
 
   object Statements {
 
@@ -230,15 +265,19 @@ object EventualCassandra {
       schema: Schema,
       segmentNrsOf: SegmentNrsOf[F],
       segments: Segments,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
-    ): F[Statements[F]] =
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read
+    ): F[Statements[F]] = {
       for {
-        selectRecords <- JournalStatements.SelectRecords.of[F](schema.journal, consistencyConfig)
-        metaJournal   <- MetaJournalStatements.of(schema, segmentNrsOf, segments, consistencyConfig)
-        selectOffset  <- PointerStatements.SelectOffset.of[F](schema.pointer, consistencyConfig)
-        selectOffset2 <- Pointer2Statements.SelectOffset.of[F](schema.pointer2, consistencyConfig)
-      } yield Statements(selectRecords, metaJournal, selectOffset, selectOffset2)
+        selectRecords  <- JournalStatements.SelectRecords.of[F](schema.journal, consistencyConfig)
+        metaJournal    <- MetaJournalStatements.of(schema, segmentNrsOf, segments, consistencyConfig)
+        selectOffset   <- PointerStatements.SelectOffset.of[F](schema.pointer, consistencyConfig)
+        selectOffset2  <- Pointer2Statements.SelectOffset.of[F](schema.pointer2, consistencyConfig)
+      } yield {
+        Statements(selectRecords, metaJournal, selectOffset, selectOffset2)
+      }
+    }
   }
+
 
   trait MetaJournalStatements[F[_]] {
 
@@ -255,61 +294,70 @@ object EventualCassandra {
       schema: Schema,
       segmentNrsOf: SegmentNrsOf[F],
       segments: Segments,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
-    ): F[MetaJournalStatements[F]] =
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read
+    ): F[MetaJournalStatements[F]] = {
       of(schema.metaJournal, segmentNrsOf, segments, consistencyConfig)
+    }
 
     def of[F[_]: Concurrent: CassandraSession](
       metaJournal: TableName,
       segmentNrsOf: SegmentNrsOf[F],
       segments: Segments,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
-    ): F[MetaJournalStatements[F]] =
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read
+    ): F[MetaJournalStatements[F]] = {
       for {
-        selectJournalHead <- cassandra.MetaJournalStatements.SelectJournalHead.of[F](metaJournal, consistencyConfig)
-        selectJournalPointer <- cassandra.MetaJournalStatements.SelectJournalPointer
-          .of[F](metaJournal, consistencyConfig)
-        selectIds <- cassandra.MetaJournalStatements.SelectIds.of[F](metaJournal, consistencyConfig)
-      } yield fromMetaJournal(segmentNrsOf, selectJournalHead, selectJournalPointer, selectIds, segments)
+        selectJournalHead    <- cassandra.MetaJournalStatements.SelectJournalHead.of[F](metaJournal, consistencyConfig)
+        selectJournalPointer <- cassandra.MetaJournalStatements.SelectJournalPointer.of[F](metaJournal, consistencyConfig)
+        selectIds            <- cassandra.MetaJournalStatements.SelectIds.of[F](metaJournal, consistencyConfig)
+      } yield {
+        fromMetaJournal(segmentNrsOf, selectJournalHead, selectJournalPointer, selectIds, segments)
+      }
+    }
 
     def fromMetaJournal[F[_]: Concurrent](
       segmentNrsOf: SegmentNrsOf[F],
       journalHead: cassandra.MetaJournalStatements.SelectJournalHead[F],
       journalPointer: cassandra.MetaJournalStatements.SelectJournalPointer[F],
       ids: cassandra.MetaJournalStatements.SelectIds[F],
-      segments: Segments,
+      segments: Segments
     ): MetaJournalStatements[F] = {
 
-      val journalHead1    = journalHead
+      val journalHead1 = journalHead
       val journalPointer1 = journalPointer
-      val ids1            = ids
+      val ids1 = ids
 
-      def firstOrSecond[A](key: Key)(f: SegmentNr => F[Option[A]]): F[Option[A]] =
+      def firstOrSecond[A](key: Key)(f: SegmentNr => F[Option[A]]): F[Option[A]] = {
         for {
           segmentNrs <- segmentNrsOf(key)
           first       = f(segmentNrs.first)
-          result <- segmentNrs.second
+          result     <- segmentNrs
+            .second
             .fold {
               first
             } { second =>
-              first.orElsePar(f(second))
+              first.orElsePar { f(second) }
             }
         } yield result
+      }
 
       new Main with MetaJournalStatements[F] {
 
-        def journalHead(key: Key) =
-          firstOrSecond(key)(segmentNr => journalHead1(key, segmentNr))
+        def journalHead(key: Key) = {
+          firstOrSecond(key) {  segmentNr => journalHead1(key, segmentNr) }
+        }
 
-        def journalPointer(key: Key) =
-          firstOrSecond(key)(segmentNr => journalPointer1(key, segmentNr))
+        def journalPointer(key: Key) = {
+          firstOrSecond(key) {  segmentNr => journalPointer1(key, segmentNr) }
+        }
 
-        def ids(topic: Topic) =
+        def ids(topic: Topic) = {
           for {
             segmentNr <- segments.segmentNrs.toStream1[F]
             id        <- ids1(topic, segmentNr)
           } yield id
+        }
       }
     }
   }
 }
+

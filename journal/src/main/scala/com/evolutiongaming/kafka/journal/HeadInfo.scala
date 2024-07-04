@@ -6,19 +6,22 @@ import com.evolutiongaming.skafka.Offset
 
 /** Minimal metainformation about the non-replicated events in a journal.
   *
-  * If journal has a non-deleted events pending a replication, it will contain [[Offset]] of the _first_ (i.e. oldest)
-  * event and [[SeqNr]] of the _last_ (i.e. newest) event in a form of [[HeadInfo.Append]] class, with
+  * If journal has a non-deleted events pending a replication, it will contain
+  * [[Offset]] of the _first_ (i.e. oldest) event and [[SeqNr]] of the _last_
+  * (i.e. newest) event in a form of [[HeadInfo.Append]] class, with
   * [[HeadInfo.Append#deleteTo]] specifying the part to be deleted, if any.
   *
-  * If the journal was purged or all events were deleted, it will be [[HeadInfo.Purge]] or [[HeadInfo.Delete]],
-  * accordingly.
+  * If the journal was purged or all events were deleted, it will be
+  * [[HeadInfo.Purge]] or [[HeadInfo.Delete]], accordingly.
   *
-  * Having this information (by preparing it using [[HeadCache]]) allows one to avoid re-reading Kafka during recovery,
-  * if it is [[HeadInfo.Empty]], or start reading Kafka topic partition much later, by skipping events unrelated to the
-  * journal.
+  * Having this information (by preparing it using [[HeadCache]]) allows one to
+  * avoid re-reading Kafka during recovery, if it is [[HeadInfo.Empty]], or
+  * start reading Kafka topic partition much later, by skipping events unrelated
+  * to the journal.
   *
   * @see
-  *   [[HeadCache]] for more details on how this information is being prefetched.
+  *   [[HeadCache]] for more details on how this information is being
+  *   prefetched.
   * @see
   *   [[Journals]] for more details on how it is used.
   */
@@ -28,8 +31,9 @@ object HeadInfo {
 
   /** There are no non-replicated events in Kafka for specific journal.
     *
-    * [[HeadInfo#empty]] is equivalent to [[HeadInfo.Empty]], but the inferred type will be `HeadInfo` rather than
-    * `HeadInfo.Empty`, which might be a little more convenient in some cases.
+    * [[HeadInfo#empty]] is equivalent to [[HeadInfo.Empty]], but the inferred
+    * type will be `HeadInfo` rather than `HeadInfo.Empty`, which might be a
+    * little more convenient in some cases.
     *
     * Example:
     * {{{
@@ -42,15 +46,15 @@ object HeadInfo {
     * val res1: HeadInfo = Empty
     * }}}
     *
-    * @see
-    *   [[HeadInfo.Empty]] for more details.
+    * @see [[HeadInfo.Empty]] for more details.
     */
   def empty: HeadInfo = Empty
 
   /** The only non-replicated records are delete actions.
     *
-    * [[HeadInfo#delete]] is equivalent to [[HeadInfo.Delete]], but the inferred type will be `HeadInfo` rather than
-    * `HeadInfo.Delete`, which might be a little more convenient in some cases.
+    * [[HeadInfo#delete]] is equivalent to [[HeadInfo.Delete]], but the inferred
+    * type will be `HeadInfo` rather than `HeadInfo.Delete`, which might be a
+    * little more convenient in some cases.
     *
     * Example:
     * {{{
@@ -63,15 +67,15 @@ object HeadInfo {
     * val res0: HeadInfo = Delete(1)
     * }}}
     *
-    * @see
-    *   [[HeadInfo.Delete]] for more details.
+    * @see [[HeadInfo.Delete]] for more details.
     */
   def delete(deleteTo: DeleteTo): HeadInfo = Delete(deleteTo)
 
   /** There are new appended events in Kafka, which did not replicate yet.
     *
-    * [[HeadInfo#append]] is equivalent to [[HeadInfo.Append]], but the inferred type will be `HeadInfo` rather than
-    * `HeadInfo.Append`, which might be a little more convenient in some cases.
+    * [[HeadInfo#append]] is equivalent to [[HeadInfo.Append]], but the inferred
+    * type will be `HeadInfo` rather than `HeadInfo.Append`, which might be a
+    * little more convenient in some cases.
     *
     * Example:
     * {{{
@@ -85,61 +89,71 @@ object HeadInfo {
     * val res1: HeadInfo = Append(0,1,None)
     * }}}
     *
-    * @see
-    *   [[HeadInfo.Append]] for more details.
+    * @see [[HeadInfo.Append]] for more details.
     */
-  def append(offset: Offset, seqNr: SeqNr, deleteTo: Option[DeleteTo]): HeadInfo =
+  def append(offset: Offset, seqNr: SeqNr, deleteTo: Option[DeleteTo]): HeadInfo = {
     Append(offset, seqNr, deleteTo)
+  }
 
   /** Calls [[HeadInfo#apply]] until all incoming actions are handled */
-  def apply[F[_]: Foldable](actions: F[(ActionHeader, Offset)]): HeadInfo =
+  def apply[F[_] : Foldable](actions: F[(ActionHeader, Offset)]): HeadInfo = {
     actions.foldLeft(empty) { case (head, (header, offset)) => head(header, offset) }
+  }
+
 
   /** There are no non-replicated events in Kafka for specific journal.
     *
-    * Having this state means it is safe to assume the journal is fully replicated to a storage (i.e. Cassandra).
+    * Having this state means it is safe to assume the journal is fully
+    * replicated to a storage (i.e. Cassandra).
     *
-    * In other words, one can read it from Cassandra only and not look into Kafka.
+    * In other words, one can read it from Cassandra only and not look into
+    * Kafka.
     */
   final case object Empty extends HeadInfo
 
   /** There are new non-replicated events in Kafka for specific journal.
     *
-    * Having this state means it is not enough to read Cassandra to get a full journal. One has to read Kafka also.
+    * Having this state means it is not enough to read Cassandra to get a full
+    * journal. One has to read Kafka also.
     */
-  sealed abstract class NonEmpty extends HeadInfo
+  abstract sealed class NonEmpty extends HeadInfo
 
   object NonEmpty {
 
-    implicit val semigroupNonEmpty: Semigroup[NonEmpty] = { (a: NonEmpty, b: NonEmpty) =>
-      def onDelete(a: Append, b: Delete) = {
-        val deleteTo = a.deleteTo.fold(b.deleteTo)(_ max b.deleteTo)
-        Append(a.offset, a.seqNr, deleteTo.some)
-      }
+    implicit val semigroupNonEmpty: Semigroup[NonEmpty] = {
+      (a: NonEmpty, b: NonEmpty) => {
 
-      (a, b) match {
-        case (a: Append, b: Append) => Append(a.offset min b.offset, a.seqNr max b.seqNr, a.deleteTo max b.deleteTo)
-        case (a: Append, b: Delete) => onDelete(a, b)
-        case (_: Append, Purge)     => Purge
-        case (a: Delete, b: Append) => onDelete(b, a)
-        case (a: Delete, b: Delete) => Delete(a.deleteTo max b.deleteTo)
-        case (_: Delete, Purge)     => Purge
-        case (Purge, b: Append)     => b
-        case (Purge, b: Delete)     => b
-        case (Purge, Purge)         => Purge
+        def onDelete(a: Append, b: Delete) = {
+          val deleteTo = a.deleteTo.fold(b.deleteTo) { _ max b.deleteTo }
+          Append(a.offset, a.seqNr, deleteTo.some)
+        }
+
+        (a, b) match {
+          case (a: Append, b: Append) => Append(a.offset min b.offset, a.seqNr max b.seqNr, a.deleteTo max b.deleteTo)
+          case (a: Append, b: Delete) => onDelete(a, b)
+          case (_: Append, Purge)     => Purge
+          case (a: Delete, b: Append) => onDelete(b, a)
+          case (a: Delete, b: Delete) => Delete(a.deleteTo max b.deleteTo)
+          case (_: Delete, Purge)     => Purge
+          case (Purge, b: Append)     => b
+          case (Purge, b: Delete)     => b
+          case (Purge, Purge)         => Purge
+        }
       }
     }
   }
 
   /** There are new appended events in Kafka, which did not replicate yet.
     *
-    * The fields will be located like following inside of the Kafka topic partition:
+    * The fields will be located like following inside of the Kafka topic
+    * partition:
     * {{{
     * [offset][deleted events][deleteTo][non-replicated events][seqNr]
     * }}}
     *
     * @param offset
-    *   [[Offset]] of the _first_ non-replicated event, which might be, optionally, deleted.
+    *   [[Offset]] of the _first_ non-replicated event, which might be,
+    *   optionally, deleted.
     * @param seqNr
     *   [[SeqNr]] of the _last_ non-replicated event.
     * @param deleteTo
@@ -148,15 +162,17 @@ object HeadInfo {
   final case class Append(
     offset: Offset,
     seqNr: SeqNr,
-    deleteTo: Option[DeleteTo],
+    deleteTo: Option[DeleteTo]
   ) extends NonEmpty
 
   /** The only non-replicated records are delete actions.
     *
-    * The events itself already replicated to Cassandra, so it should be enough to read them from Cassandra starting
-    * from the first non-deleted event, i.e. there is no need to read Kafka in this case.
+    * The events itself already replicated to Cassandra, so it should be enough
+    * to read them from Cassandra starting from the first non-deleted event,
+    * i.e. there is no need to read Kafka in this case.
     *
-    * The `deleteTo` field will be located like following inside of the Kafka topic partition:
+    * The `deleteTo` field will be located like following inside of the Kafka
+    * topic partition:
     * {{{
     * [deleted events][deleteTo][replicated events]
     * }}}
@@ -165,14 +181,16 @@ object HeadInfo {
     *   [[SeqNr]] of the _last_ deleted event.
     */
   final case class Delete(
-    deleteTo: DeleteTo,
+    deleteTo: DeleteTo
   ) extends NonEmpty
 
   /** The last non-replicated record was a journal purge action.
     *
-    * It means there is no need to read either Cassandra or Kafka as journal was purged.
+    * It means there is no need to read either Cassandra or Kafka as journal was
+    * purged.
     */
   final case object Purge extends NonEmpty
+
 
   implicit class HeadInfoOps(val self: HeadInfo) extends AnyVal {
 
@@ -183,8 +201,9 @@ object HeadInfo {
     def delete(to: DeleteTo): HeadInfo = {
 
       def onAppend(self: Append) = {
-        val deleteTo = self.deleteTo
-          .fold(to)(_ max to)
+        val deleteTo = self
+          .deleteTo
+          .fold(to) { _ max to }
           .min(self.seqNr.toDeleteTo)
         self.copy(seqNr = self.seqNr, deleteTo = deleteTo.some)
       }
@@ -199,16 +218,18 @@ object HeadInfo {
       }
     }
 
+
     /** A new event was appended.
       *
-      * We update last saved [[SeqNr]], but ignore [[Offset]] unless this is a first event in our list of non-replicted
-      * events.
+      * We update last saved [[SeqNr]], but ignore [[Offset]] unless this is a
+      * first event in our list of non-replicted events.
       */
     def append(range: SeqRange, offset: Offset): HeadInfo = {
 
-      def deleteToOf(deleteTo: DeleteTo) = range.from
+      def deleteToOf(deleteTo: DeleteTo) = range
+        .from
         .prev[Option]
-        .map(_.toDeleteTo min deleteTo)
+        .map { _.toDeleteTo min deleteTo }
 
       def append = Append(offset, range.to, none)
 
@@ -220,26 +241,33 @@ object HeadInfo {
       }
     }
 
+
     /** A journal marker was found, which does not change [[HeadInfo]] state.
       *
-      * The marker only matters during recovery, to validate that all journal events were read. There is no, currently,
-      * a reason to track if markers made by previous recoveries did replicate.
+      * The marker only matters during recovery, to validate that all journal
+      * events were read. There is no, currently, a reason to track if markers
+      * made by previous recoveries did replicate.
       */
     def mark: HeadInfo = self
+
 
     /** A journal purge was performed, all previous events could be ignored */
     def purge: HeadInfo = Purge
 
+
     /** Update [[HeadInfo]] with a next event coming from Kafka.
       *
-      * Note, that no actual event body is required, only [[ActionHeader]] and [[Offset]] of the new record.
+      * Note, that no actual event body is required, only [[ActionHeader]] and
+      * [[Offset]] of the new record.
       */
-    def apply(header: ActionHeader, offset: Offset): HeadInfo =
+    def apply(header: ActionHeader, offset: Offset): HeadInfo = {
       header match {
         case a: ActionHeader.Append => append(a.range, offset)
         case _: ActionHeader.Mark   => mark
         case a: ActionHeader.Delete => delete(a.to)
         case _: ActionHeader.Purge  => purge
       }
+    }
   }
 }
+

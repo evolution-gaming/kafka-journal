@@ -10,10 +10,12 @@ object EitherHelper {
 
   private val LeftUnit = ().asLeft
 
+
   implicit class LeftOpsEitherHelper(val self: Left.type) extends AnyVal {
 
     def unit[A]: Either[Unit, A] = LeftUnit
   }
+
 
   implicit class RightOpsEitherHelper(val self: Right.type) extends AnyVal {
 

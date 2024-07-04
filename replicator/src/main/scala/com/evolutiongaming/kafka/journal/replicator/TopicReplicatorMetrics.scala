@@ -9,6 +9,7 @@ import com.evolutiongaming.smetrics._
 
 import scala.concurrent.duration._
 
+
 trait TopicReplicatorMetrics[F[_]] {
   import TopicReplicatorMetrics._
 
@@ -25,7 +26,7 @@ object TopicReplicatorMetrics {
 
   def apply[F[_]](implicit F: TopicReplicatorMetrics[F]): TopicReplicatorMetrics[F] = F
 
-  def empty[F[_]: Applicative]: TopicReplicatorMetrics[F] = const(Applicative[F].unit)
+  def empty[F[_] : Applicative]: TopicReplicatorMetrics[F] = const(Applicative[F].unit)
 
   def const[F[_]](unit: F[Unit]): TopicReplicatorMetrics[F] = {
     class Const
@@ -41,59 +42,53 @@ object TopicReplicatorMetrics {
     }
   }
 
-  def of[F[_]: Monad](
+
+  def of[F[_] : Monad](
     registry: CollectorRegistry[F],
-    prefix: String = "replicator",
+    prefix: String = "replicator"
   ): Resource[F, Topic => TopicReplicatorMetrics[F]] = {
 
     val replicationSummary = registry.summary(
-      name = s"${prefix}_replication_latency",
-      help = "Replication latency in seconds",
+      name      = s"${ prefix }_replication_latency",
+      help      = "Replication latency in seconds",
       quantiles = Quantiles.Default,
-      labels = LabelNames("topic", "type"),
-    )
+      labels    = LabelNames("topic", "type"))
 
     val deliverySummary = registry.summary(
-      name = s"${prefix}_delivery_latency",
-      help = "Delivery latency in seconds",
+      name      = s"${ prefix }_delivery_latency",
+      help      = "Delivery latency in seconds",
       quantiles = Quantiles.Default,
-      labels = LabelNames("topic", "type"),
-    )
+      labels    = LabelNames("topic", "type"))
 
     val eventsSummary = registry.summary(
-      name = s"${prefix}_events",
-      help = "Number of events replicated",
+      name      = s"${ prefix }_events",
+      help      = "Number of events replicated",
       quantiles = Quantiles.Empty,
-      labels = LabelNames("topic"),
-    )
+      labels    = LabelNames("topic"))
 
     val bytesSummary = registry.summary(
-      name = s"${prefix}_bytes",
-      help = "Number of bytes replicated",
+      name      = s"${ prefix }_bytes",
+      help      = "Number of bytes replicated",
       quantiles = Quantiles.Empty,
-      labels = LabelNames("topic"),
-    )
+      labels    = LabelNames("topic"))
 
     val recordsSummary = registry.summary(
-      name = s"${prefix}_records",
-      help = "Number of kafka records processed",
+      name      = s"${ prefix }_records",
+      help      = "Number of kafka records processed",
       quantiles = Quantiles.Empty,
-      labels = LabelNames("topic"),
-    )
+      labels    = LabelNames("topic"))
 
     val roundSummary = registry.summary(
-      name = s"${prefix}_round_duration",
-      help = "Replication round duration",
+      name      = s"${ prefix }_round_duration",
+      help      = "Replication round duration",
       quantiles = Quantiles.Default,
-      labels = LabelNames("topic"),
-    )
+      labels    = LabelNames("topic"))
 
     val roundRecordsSummary = registry.summary(
-      name = s"${prefix}_round_records",
-      help = "Number of kafka records processed in round",
+      name      = s"${ prefix }_round_records",
+      help      = "Number of kafka records processed in round",
       quantiles = Quantiles.Empty,
-      labels = LabelNames("topic"),
-    )
+      labels    = LabelNames("topic"))
 
     for {
       replicationSummary  <- replicationSummary
@@ -103,38 +98,51 @@ object TopicReplicatorMetrics {
       recordsSummary      <- recordsSummary
       roundSummary        <- roundSummary
       roundRecordsSummary <- roundRecordsSummary
-    } yield { (topic: Topic) =>
-      def observeMeasurements(name: String, measurements: Measurements) =
-        for {
-          _ <- replicationSummary.labels(topic, name).observe(measurements.replicationLatency.toNanos.nanosToSeconds)
-          _ <- deliverySummary.labels(topic, name).observe(measurements.deliveryLatency.toNanos.nanosToSeconds)
-          _ <- recordsSummary.labels(topic).observe(measurements.records.toDouble)
-        } yield {}
+    } yield {
 
-      class Main
-      new Main with TopicReplicatorMetrics[F] {
+      (topic: Topic) => {
 
-        def append(events: Int, bytes: Long, measurements: Measurements) =
+        def observeMeasurements(name: String, measurements: Measurements) = {
           for {
-            _ <- observeMeasurements("append", measurements)
-            _ <- eventsSummary.labels(topic).observe(events.toDouble)
-            _ <- bytesSummary.labels(topic).observe(bytes.toDouble)
+            _ <- replicationSummary.labels(topic, name).observe(measurements.replicationLatency.toNanos.nanosToSeconds)
+            _ <- deliverySummary.labels(topic, name).observe(measurements.deliveryLatency.toNanos.nanosToSeconds)
+            _ <- recordsSummary.labels(topic).observe(measurements.records.toDouble)
           } yield {}
+        }
 
-        def delete(measurements: Measurements) =
-          observeMeasurements("delete", measurements)
+        class Main
+        new Main with TopicReplicatorMetrics[F] {
 
-        def purge(measurements: Measurements) =
-          observeMeasurements("purge", measurements)
+          def append(events: Int, bytes: Long, measurements: Measurements) = {
+            for {
+              _ <- observeMeasurements("append", measurements)
+              _ <- eventsSummary.labels(topic).observe(events.toDouble)
+              _ <- bytesSummary.labels(topic).observe(bytes.toDouble)
+            } yield {}
+          }
 
-        def round(duration: FiniteDuration, records: Int) =
-          for {
-            _ <- roundSummary.labels(topic).observe(duration.toNanos.nanosToSeconds)
-            _ <- roundRecordsSummary.labels(topic).observe(records.toDouble)
-          } yield {}
+          def delete(measurements: Measurements) = {
+            observeMeasurements("delete", measurements)
+          }
+
+          def purge(measurements: Measurements) = {
+            observeMeasurements("purge", measurements)
+          }
+
+          def round(duration: FiniteDuration, records: Int) = {
+            for {
+              _ <- roundSummary.labels(topic).observe(duration.toNanos.nanosToSeconds)
+              _ <- roundRecordsSummary.labels(topic).observe(records.toDouble)
+            } yield {}
+          }
+        }
       }
     }
   }
 
-  final case class Measurements(replicationLatency: FiniteDuration, deliveryLatency: FiniteDuration, records: Int)
+
+  final case class Measurements(
+    replicationLatency: FiniteDuration,
+    deliveryLatency: FiniteDuration,
+    records: Int)
 }

@@ -8,40 +8,48 @@ import com.evolutiongaming.kafka.journal.cassandra.CassandraSync
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession, KeyspaceMetadata}
 
-/** Creates tables in a specific keyspace */
+/** Creates tables in a specific keyspace  */
 trait CreateTables[F[_]] {
   import CreateTables.{Fresh, Table}
 
   def apply(keyspace: String, tables: Nel[Table]): F[Fresh]
 }
 
+
 object CreateTables { self =>
 
   /** `true` if all tables passed to `CreateTables` did not exist and were created */
   type Fresh = Boolean
 
+
   def apply[F[_]](implicit F: CreateTables[F]): CreateTables[F] = F
 
-  def apply[F[_]: Monad: CassandraCluster: CassandraSession: CassandraSync](
-    log: Log[F],
+
+  def apply[F[_] : Monad : CassandraCluster : CassandraSession : CassandraSync](
+    log: Log[F]
   ): CreateTables[F] = new CreateTables[F] {
 
     def apply(keyspace: String, tables: Nel[Table]) = {
 
-      def missing(keyspace: KeyspaceMetadata[F]) =
+      def missing(keyspace: KeyspaceMetadata[F]) = {
         for {
           tables <- tables.foldLeftM(List.empty[Table]) { (create, table) =>
             for {
               metadata <- keyspace.table(table.name)
-            } yield metadata.fold(table :: create)(_ => create)
+            } yield {
+              metadata.fold(table :: create) { _ => create }
+            }
           }
-        } yield tables.reverse
+        } yield {
+          tables.reverse
+        }
+      }
 
       def create(tables1: Nel[Table]) = {
         val fresh = tables1.length === tables.length
         for {
           _ <- log.info(s"tables: ${tables1.map(_.name).mkString_(",")}, fresh: $fresh")
-          _ <- CassandraSync[F].apply(tables1.foldMapM(_.queries.foldMapM(_.execute.first.void)))
+          _ <- CassandraSync[F].apply { tables1.foldMapM { _.queries.foldMapM { _.execute.first.void } } }
         } yield fresh
       }
 
@@ -55,26 +63,33 @@ object CreateTables { self =>
     }
   }
 
-  def of[F[_]: Monad: CassandraCluster: CassandraSession: CassandraSync: LogOf]: F[CreateTables[F]] =
+
+  def of[F[_] : Monad : CassandraCluster : CassandraSession : CassandraSync : LogOf]: F[CreateTables[F]] = {
     for {
       log <- LogOf[F].apply(self.getClass)
-    } yield apply[F](log)
+    } yield {
+      apply[F](log)
+    }
+  }
+
 
   def const[F[_]](fresh: F[Fresh]): CreateTables[F] = (_: String, _: Nel[Table]) => fresh
+
 
   /** Table to be created in a specific keyspace.
     *
     * @param name
     *   Table name (without a keyspace) used to check if table already exists.
     * @param queries
-    *   CQL statements (including keyspace) used to create a table. I.e. it could contain `CREATE TABLE` statement and
-    *   also related `CREATE INDEX` statements.
+    *   CQL statements (including keyspace) used to create a table. I.e. it
+    *   could contain `CREATE TABLE` statement and also related `CREATE INDEX`
+    *   statements.
     */
   final case class Table(name: String, queries: Nel[String])
 
   object Table {
 
-    implicit val orderTable: Order[Table] = Order.by((a: Table) => a.name)
+    implicit val orderTable: Order[Table] = Order.by { (a: Table) => a.name }
 
     def apply(name: String, query: String): Table = Table(name, Nel.of(query))
   }

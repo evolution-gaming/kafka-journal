@@ -29,22 +29,27 @@ class KafkaHealthCheckSpec extends AsyncFunSuite with Matchers {
 
       def subscribe(topic: Topic) = ().pure[IO]
 
-      def poll(timeout: FiniteDuration) =
+      def poll(timeout: FiniteDuration) = {
         if (timeout == 1.second) List.empty[Record].pure[IO]
         else Error.raiseError[IO, List[Record]]
+      }
     }
 
     val healthCheck = KafkaHealthCheck.of[IO](
       key = "key",
-      config = KafkaHealthCheck.Config(topic = "topic", initial = 0.seconds, interval = 1.second),
+      config = KafkaHealthCheck.Config(
+        topic = "topic",
+        initial = 0.seconds,
+        interval = 1.second),
       stop = false.pure[IO],
       producer = Resource.pure[IO, KafkaHealthCheck.Producer[IO]](producer),
       consumer = Resource.pure[IO, KafkaHealthCheck.Consumer[IO]](consumer),
-      log = log,
-    )
+      log = log)
     val result = for {
       error <- healthCheck.use(_.error.untilDefinedM)
-    } yield error shouldEqual error
+    } yield {
+      error shouldEqual error
+    }
     result.run()
   }
 
@@ -55,12 +60,15 @@ class KafkaHealthCheckSpec extends AsyncFunSuite with Matchers {
     }
     val healthCheck = KafkaHealthCheck.of[StateT](
       key = "key",
-      config = KafkaHealthCheck.Config(topic = "topic", initial = 0.millis, interval = 0.millis, timeout = 100.millis),
+      config = KafkaHealthCheck.Config(
+        topic = "topic",
+        initial = 0.millis,
+        interval = 0.millis,
+        timeout = 100.millis),
       stop = stop,
       producer = Resource.pure[StateT, KafkaHealthCheck.Producer[StateT]](KafkaHealthCheck.Producer[StateT]),
       consumer = Resource.pure[StateT, KafkaHealthCheck.Consumer[StateT]](KafkaHealthCheck.Consumer[StateT]),
-      log = log,
-    )
+      log = log)
 
     val initial = State(checks = 2)
     val result = for {
@@ -75,9 +83,7 @@ class KafkaHealthCheckSpec extends AsyncFunSuite with Matchers {
           "debug key send 1:0",
           "debug key send 1",
           "debug key send 0:0",
-          "debug key send 0",
-        ),
-      )
+          "debug key send 0"))
     }
 
     result.run()
@@ -116,15 +122,17 @@ object KafkaHealthCheckSpec {
       }
     }
 
+
     implicit val consumer: KafkaHealthCheck.Consumer[StateT] = new KafkaHealthCheck.Consumer[StateT] {
 
-      def subscribe(topic: Topic) =
+      def subscribe(topic: Topic) = {
         apply { data =>
           val data1 = data.copy(subscribed = topic.some)
           (data1, ())
         }
+      }
 
-      def poll(timeout: FiniteDuration) =
+      def poll(timeout: FiniteDuration) = {
         StateT { data =>
           if (data.records.size >= 2) {
             (data.copy(records = List.empty), data.records)
@@ -132,25 +140,28 @@ object KafkaHealthCheckSpec {
             (data, List.empty)
           }
         }
+      }
     }
+
 
     implicit val producer: KafkaHealthCheck.Producer[StateT] = new KafkaHealthCheck.Producer[StateT] {
 
-      def send(record: Record) =
+      def send(record: Record) = {
         cats.data.StateT[IO, State, Unit] { data =>
           val data1 = data.copy(records = record :: data.records)
           (data1, ()).pure[IO]
         }
+      }
     }
 
     def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[IO, State, A](data => IO.delay(f(data)))
 
   }
 
+
   final case class State(
-    checks: Int = 0,
-    subscribed: Option[Topic] = None,
-    logs: List[String] = List.empty,
-    records: List[Record] = List.empty,
-  )
+                          checks: Int = 0,
+                          subscribed: Option[Topic] = None,
+                          logs: List[String] = List.empty,
+                          records: List[Record] = List.empty)
 }

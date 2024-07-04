@@ -2,6 +2,8 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.effect.Poll
 import cats.effect.kernel.CancelScope
+
+import java.time.{Instant, LocalDate, ZoneOffset}
 import cats.syntax.all._
 import cats.{Id, catsInstancesForId}
 import com.evolutiongaming.kafka.journal.ExpireAfter
@@ -12,7 +14,6 @@ import com.evolutiongaming.kafka.journal.util.MonadCancelFromMonad
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
-import java.time.{Instant, LocalDate, ZoneOffset}
 import scala.concurrent.duration._
 import scala.util.Try
 import scala.util.control.NonFatal
@@ -22,7 +23,7 @@ class ExpiryServiceTest extends AnyFunSuite with Matchers {
 
   test("expireOn") {
     val expireAfter = 1.day.toExpireAfter
-    val expected    = LocalDate.of(2019, 12, 12).toExpireOn
+    val expected = LocalDate.of(2019, 12, 12).toExpireOn
     expireService.expireOn(expireAfter, timestamp) shouldEqual expected
   }
 
@@ -31,27 +32,39 @@ class ExpiryServiceTest extends AnyFunSuite with Matchers {
       (
         none[Expiry],
         1.minute.toExpireAfter.some,
-        Action.update(Expiry(1.minute.toExpireAfter, LocalDate.of(2019, 12, 11).toExpireOn)),
-      ),
+        Action.update(Expiry(
+          1.minute.toExpireAfter,
+          LocalDate.of(2019, 12, 11).toExpireOn))),
       (
         none[Expiry],
         1.day.toExpireAfter.some,
-        Action.update(Expiry(1.day.toExpireAfter, LocalDate.of(2019, 12, 12).toExpireOn)),
-      ),
+        Action.update(Expiry(
+          1.day.toExpireAfter,
+          LocalDate.of(2019, 12, 12).toExpireOn))),
       (
-        Expiry(1.day.toExpireAfter, LocalDate.of(2019, 12, 11).toExpireOn).some,
+        Expiry(
+          1.day.toExpireAfter,
+          LocalDate.of(2019, 12, 11).toExpireOn).some,
         1.day.toExpireAfter.some,
-        Action.update(Expiry(1.day.toExpireAfter, LocalDate.of(2019, 12, 12).toExpireOn)),
-      ),
+        Action.update(Expiry(
+          1.day.toExpireAfter,
+          LocalDate.of(2019, 12, 12).toExpireOn))),
       (
-        Expiry(1.day.toExpireAfter, LocalDate.of(2019, 12, 12).toExpireOn).some,
+        Expiry(
+          1.day.toExpireAfter,
+          LocalDate.of(2019, 12, 12).toExpireOn).some,
         1.day.toExpireAfter.some,
-        Action.ignore,
-      ),
-      (Expiry(1.day.toExpireAfter, LocalDate.of(2019, 12, 12).toExpireOn).some, none[ExpireAfter], Action.remove),
-    )
-  } yield test(s"action expiry: $expiry, expireAfter: $expireAfter, action: $action") {
-    expireService.action(expiry, expireAfter, timestamp) shouldEqual action
+        Action.ignore),
+      (
+        Expiry(
+          1.day.toExpireAfter,
+          LocalDate.of(2019, 12, 12).toExpireOn).some,
+        none[ExpireAfter],
+        Action.remove))
+  } yield {
+    test(s"action expiry: $expiry, expireAfter: $expireAfter, action: $action") {
+      expireService.action(expiry, expireAfter, timestamp) shouldEqual action
+    }
   }
 }
 
@@ -75,8 +88,7 @@ object ExpiryServiceTest {
 
     override def raiseError[A](e: Throwable): Id[A] = throw e
 
-    override def handleErrorWith[A](fa: Id[A])(f: Throwable => Id[A]): Id[A] = try fa
-    catch { case NonFatal(e) => f(e) }
+    override def handleErrorWith[A](fa: Id[A])(f: Throwable => Id[A]): Id[A] = try { fa } catch { case NonFatal(e) => f(e) }
   }
 
   val timestamp: Instant = Instant.parse("2019-12-11T10:10:10.00Z")

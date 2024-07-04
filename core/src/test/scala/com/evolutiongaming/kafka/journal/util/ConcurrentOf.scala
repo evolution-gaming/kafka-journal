@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal.util
 
 import cats.Monad
-import cats.effect.kernel.{Async, Outcome, Unique}
 import cats.effect.{Concurrent, Fiber, Poll}
+import cats.effect.kernel.{Async, Outcome, Unique}
 import cats.syntax.all._
 
 import scala.util.control.NonFatal
@@ -11,7 +11,7 @@ object ConcurrentOf {
 
   def fromAsync[F[_]](implicit F: Async[F]): Concurrent[F] = F
 
-  def fromMonad[F[_]](implicit F: Monad[F]): Concurrent[F] =
+  def fromMonad[F[_]](implicit F: Monad[F]): Concurrent[F] = {
     new Concurrent[F] {
 
       def ref[A](a: A) = throw new NotImplementedError(s"Concurrent.ref")
@@ -22,18 +22,18 @@ object ConcurrentOf {
         F.map(fa) { a =>
           new Fiber[F, Throwable, A] {
             def cancel = pure(())
-            def join   = pure(Outcome.succeeded(pure(a)))
+            def join = pure(Outcome.succeeded(pure(a)))
           }
         }
 
-      def never[A] =
+      def never[A] = {
         throw new NotImplementedError(s"Concurrent.never")
+      }
 
       def cede: F[Unit] = F.unit
 
       def forceR[A, B](fa: F[A])(fb: F[B]): F[B] = {
-        try fa
-        catch { case NonFatal(_) => () }
+        try { fa } catch { case NonFatal(_) => () }
         fb
       }
 
@@ -50,8 +50,7 @@ object ConcurrentOf {
       def raiseError[A](e: Throwable): F[A] = throw e
 
       def handleErrorWith[A](fa: F[A])(f: Throwable => F[A]): F[A] =
-        try fa
-        catch { case NonFatal(e) => f(e) }
+        try { fa } catch { case NonFatal(e) => f(e) }
 
       def flatMap[A, B](fa: F[A])(f: A => F[B]): F[B] =
         F.flatMap(fa)(f)
@@ -63,4 +62,5 @@ object ConcurrentOf {
 
       def unique = F.pure(new Unique.Token())
     }
+  }
 }

@@ -15,16 +15,18 @@ object PayloadType {
 
   private val byName = values.map(value => (value.name, value)).toMap
 
-  implicit val encodeByNamePayloadType: EncodeByName[PayloadType] = EncodeByName[String].contramap(_.name)
+
+  implicit val encodeByNamePayloadType: EncodeByName[PayloadType] = EncodeByName[String].contramap { _.name }
 
   implicit val decodeByNamePayloadType: DecodeByName[PayloadType] = DecodeByName[String].map { name =>
     apply(name) getOrElse Binary
   }
 
+
   implicit val formatPayloadType: Format[PayloadType] = {
     val writes = Writes
       .of[String]
-      .contramap((a: PayloadType) => a.name)
+      .contramap { (a: PayloadType) => a.name }
 
     val reads = Reads
       .of[String]
@@ -37,13 +39,16 @@ object PayloadType {
     Format(reads, writes)
   }
 
+
   def apply(name: String): Option[PayloadType] = byName.get(name)
+
 
   def binary: PayloadType = Binary
 
   def text: PayloadType = Text
 
   def json: PayloadType = Json
+
 
   sealed abstract class BinaryOrJson extends PayloadType
 
@@ -63,6 +68,7 @@ object PayloadType {
     }
   }
 
+
   sealed trait TextOrJson extends PayloadType
 
   object TextOrJson {
@@ -81,18 +87,19 @@ object PayloadType {
     }
   }
 
+
   case object Binary extends BinaryOrJson {
     def name = "binary"
-    def ext  = "bin"
+    def ext = "bin"
   }
 
   case object Text extends TextOrJson {
     def name = "text"
-    def ext  = "txt"
+    def ext = "txt"
   }
 
   case object Json extends BinaryOrJson with TextOrJson {
     def name = "json"
-    def ext  = "json"
+    def ext = "json"
   }
 }

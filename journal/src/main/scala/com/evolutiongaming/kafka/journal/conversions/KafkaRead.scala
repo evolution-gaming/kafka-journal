@@ -10,7 +10,8 @@ import play.api.libs.json.JsValue
 
 /** Decode a payload loaded from Kafka.
   *
-  * Converts a structure convenient to store in Kafka, to a structure, which is convenient to use for a business logic.
+  * Converts a structure convenient to store in Kafka, to a structure, which is
+  * convenient to use for a business logic.
   */
 trait KafkaRead[F[_], A] {
 
@@ -23,85 +24,101 @@ object KafkaRead {
 
   implicit def payloadKafkaRead[F[_]: MonadThrowable: FromJsResult](implicit
     eventsFromBytes: FromBytes[F, Events[Payload]],
-    payloadJsonFromBytes: FromBytes[F, PayloadJson[JsValue]],
-  ): KafkaRead[F, Payload] = { (payloadAndType: PayloadAndType) =>
-    def fromEventJsonPayload(jsonPayload: EventJsonPayloadAndType[JsValue]) = {
-      def text =
-        FromJsResult[F]
-          .apply(jsonPayload.payload.validate[String])
-          .map(str => Payload.text(str))
+    payloadJsonFromBytes: FromBytes[F, PayloadJson[JsValue]]
+  ): KafkaRead[F, Payload] = {
 
-      jsonPayload.payloadType match {
-        case PayloadType.Json => Payload.json(jsonPayload.payload).pure[F]
-        case PayloadType.Text => text
-      }
-    }
+    (payloadAndType: PayloadAndType) => {
 
-    payloadAndType.payloadType match {
-      case PayloadType.Binary =>
-        withErrorAdapted(payloadAndType) {
-          eventsFromBytes(payloadAndType.payload)
+      def fromEventJsonPayload(jsonPayload: EventJsonPayloadAndType[JsValue]) = {
+        def text = {
+          FromJsResult[F]
+            .apply { jsonPayload.payload.validate[String] }
+            .map { str => Payload.text(str) }
         }
 
-      case PayloadType.Json =>
-        val jsonKafkaRead = KafkaRead.readJson(payloadJsonFromBytes, fromEventJsonPayload)
-        jsonKafkaRead(payloadAndType)
+        jsonPayload.payloadType match {
+          case PayloadType.Json => Payload.json(jsonPayload.payload).pure[F]
+          case PayloadType.Text => text
+        }
+      }
+
+      payloadAndType.payloadType match {
+        case PayloadType.Binary =>
+          withErrorAdapted(payloadAndType) {
+            eventsFromBytes(payloadAndType.payload)
+          }
+
+        case PayloadType.Json =>
+          val jsonKafkaRead = KafkaRead.readJson(payloadJsonFromBytes, fromEventJsonPayload)
+          jsonKafkaRead(payloadAndType)
+      }
     }
   }
 
   def readJson[F[_]: MonadThrowable, A, B](
     payloadJsonFromBytes: FromBytes[F, PayloadJson[A]],
-    fromEventJsonPayload: EventJsonPayloadAndType[A] => F[B],
-  ): KafkaRead[F, B] = { (payloadAndType: PayloadAndType) =>
-    def events(payloadJson: PayloadJson[A]) =
-      payloadJson.events.traverse { event =>
-        val payloadType = event.payloadType getOrElse PayloadType.Json
-        val payload = event.payload
-          .map(EventJsonPayloadAndType(_, payloadType))
-          .traverse(fromEventJsonPayload)
+    fromEventJsonPayload: EventJsonPayloadAndType[A] => F[B]
+  ): KafkaRead[F, B] = {
 
-        for {
-          payload <- payload
-        } yield Event(seqNr = event.seqNr, tags = event.tags, payload = payload)
+    (payloadAndType: PayloadAndType) => {
+
+      def events(payloadJson: PayloadJson[A]) = {
+        payloadJson.events.traverse { event =>
+          val payloadType = event.payloadType getOrElse PayloadType.Json
+          val payload = event.payload
+            .map(EventJsonPayloadAndType(_, payloadType))
+            .traverse(fromEventJsonPayload)
+
+          for {
+            payload <- payload
+          } yield {
+            Event(
+              seqNr = event.seqNr,
+              tags = event.tags,
+              payload = payload)
+          }
+        }
       }
 
-    val payload = payloadAndType.payload
-    val result = payloadAndType.payloadType match {
-      case PayloadType.Json =>
-        for {
-          payloadJson <- payloadJsonFromBytes(payload)
-          events      <- events(payloadJson)
-        } yield Events(
-          events,
-          payloadJson.metadata getOrElse PayloadMetadata.empty,
-        )
+      val payload = payloadAndType.payload
+      val result = payloadAndType.payloadType match {
+        case PayloadType.Json =>
+          for {
+            payloadJson <- payloadJsonFromBytes(payload)
+            events      <- events(payloadJson)
+          } yield {
+            Events(
+              events,
+              payloadJson.metadata getOrElse PayloadMetadata.empty
+            )
+          }
 
-      case other =>
-        Fail.lift[F].fail[Events[B]](s"Only Json payload type supported, got: $other")
+        case other =>
+          Fail.lift[F].fail[Events[B]](s"Only Json payload type supported, got: $other")
+      }
+
+      withErrorAdapted(payloadAndType)(result)
     }
-
-    withErrorAdapted(payloadAndType)(result)
   }
 
   private def withErrorAdapted[F[_]: ApplicativeThrowable, A](payloadAndType: PayloadAndType)(fa: F[A]): F[A] =
-    fa.adaptErr {
-      case e =>
-        JournalError(s"KafkaRead failed for $payloadAndType: $e", e)
+    fa.adaptErr { case e =>
+      JournalError(s"KafkaRead failed for $payloadAndType: $e", e)
     }
 
   implicit class KafkaReadOps[F[_], A](val self: KafkaRead[F, A]) extends AnyVal {
     def withMetrics(
-      metrics: KafkaReadMetrics[F],
-    )(implicit
-      F: Monad[F],
-      measureDuration: MeasureDuration[F],
-    ): KafkaRead[F, A] = { payloadAndType =>
-      for {
-        d <- MeasureDuration[F].start
-        r <- self(payloadAndType)
-        d <- d
-        _ <- metrics(payloadAndType, d)
-      } yield r
+      metrics: KafkaReadMetrics[F]
+    )(
+      implicit F: Monad[F], measureDuration: MeasureDuration[F]
+    ): KafkaRead[F, A] = {
+      payloadAndType =>
+        for {
+          d <- MeasureDuration[F].start
+          r <- self(payloadAndType)
+          d <- d
+          _ <- metrics(payloadAndType, d)
+        } yield r
     }
 
     def mapK[G[_]](fg: F ~> G): KafkaRead[G, A] =

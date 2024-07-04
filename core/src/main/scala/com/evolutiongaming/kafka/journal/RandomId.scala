@@ -12,7 +12,7 @@ object RandomId {
 
   implicit val showRandomId: Show[RandomId] = Show.fromToString
 
-  implicit val orderingRandomId: Ordering[RandomId] = Ordering.by(_.value)
+  implicit val orderingRandomId: Ordering[RandomId] = Ordering.by { _.value }
 
   implicit val orderRandomId: Order[RandomId] = Order.fromOrdering
 }

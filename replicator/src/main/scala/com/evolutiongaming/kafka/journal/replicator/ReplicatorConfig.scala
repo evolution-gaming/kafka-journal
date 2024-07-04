@@ -20,35 +20,40 @@ final case class ReplicatorConfig(
   cassandra: EventualCassandraConfig = EventualCassandraConfig(
     client = CassandraConfig(
       name = "replicator",
-      query = QueryConfig(consistency = ConsistencyLevel.LOCAL_QUORUM, defaultIdempotence = true),
-    ),
-  ),
-  pollTimeout: FiniteDuration = 10.millis,
-)
+      query = QueryConfig(
+        consistency = ConsistencyLevel.LOCAL_QUORUM,
+        defaultIdempotence = true))),
+  pollTimeout: FiniteDuration = 10.millis)
 
 object ReplicatorConfig {
 
   val default: ReplicatorConfig = ReplicatorConfig()
 
-  implicit private val configReaderKafkaConfig: ConfigReader[KafkaConfig] = KafkaConfig.configReader(default.kafka)
+  private implicit val configReaderKafkaConfig: ConfigReader[KafkaConfig] = KafkaConfig.configReader(default.kafka)
 
-  implicit val configReaderReplicatorConfig: ConfigReader[ReplicatorConfig] = { (cursor: ConfigCursor) =>
-    cursor.asObjectCursor
-      .map(cursor => fromConfig(cursor.objValue.toConfig, default))
+  implicit val configReaderReplicatorConfig: ConfigReader[ReplicatorConfig] = {
+    (cursor: ConfigCursor) => {
+      cursor
+        .asObjectCursor
+        .map { cursor => fromConfig(cursor.objValue.toConfig, default) }
+    }
   }
 
-  def fromConfig[F[_]: FromConfigReaderResult](config: Config): F[ReplicatorConfig] =
+
+  def fromConfig[F[_]: FromConfigReaderResult](config: Config): F[ReplicatorConfig] = {
     ConfigSource
       .fromConfig(config)
       .at("evolutiongaming.kafka-journal.replicator")
       .load[ReplicatorConfig]
       .liftTo[F]
+  }
+
 
   private def fromConfig(config: Config, default: => ReplicatorConfig): ReplicatorConfig = {
 
     val source = ConfigSource.fromConfig(config)
 
-    def get[A: ConfigReader](name: String) = source.at(name).load[A]
+    def get[A : ConfigReader](name: String) = source.at(name).load[A]
 
     val topicPrefixes = {
       val prefixes = for {
@@ -63,7 +68,6 @@ object ReplicatorConfig {
       topicDiscoveryInterval = get[FiniteDuration]("topic-discovery-interval") getOrElse default.topicDiscoveryInterval,
       kafka = get[KafkaConfig]("kafka") getOrElse default.kafka,
       cassandra = get[EventualCassandraConfig]("cassandra") getOrElse default.cassandra,
-      pollTimeout = get[FiniteDuration]("kafka.consumer.poll-timeout") getOrElse default.pollTimeout,
-    )
+      pollTimeout = get[FiniteDuration]("kafka.consumer.poll-timeout") getOrElse default.pollTimeout)
   }
 }

@@ -16,8 +16,7 @@ class EventsTest extends AnyFunSuite with Matchers {
   test("decode newer version") {
     implicit val jsonCodec = JsonCodec.jsoniter[Try]
     val codec = {
-      val eventsCodec =
-        nelCodec(codecs.listOfN(codecs.int32, codecs.variableSizeBytes(codecs.int32, Event.codecEventPayload)))
+      val eventsCodec = nelCodec(codecs.listOfN(codecs.int32, codecs.variableSizeBytes(codecs.int32, Event.codecEventPayload)))
       val version = ByteVector.fromByte(100)
       (codecs.constant(version) ~> eventsCodec)
         .xmap[Events[Payload]](a => Events(a, PayloadMetadata.empty), _.events)
@@ -27,7 +26,9 @@ class EventsTest extends AnyFunSuite with Matchers {
     val actual = for {
       bits   <- codec.encode(events)
       result <- Events.codecEvents[Payload].decode(bits)
-    } yield result.value
+    } yield {
+      result.value
+    }
     actual shouldEqual events.pure[Attempt]
   }
 }

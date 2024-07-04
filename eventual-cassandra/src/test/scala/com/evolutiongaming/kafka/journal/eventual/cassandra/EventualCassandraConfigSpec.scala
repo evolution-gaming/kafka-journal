@@ -10,7 +10,7 @@ import pureconfig.ConfigSource
 class EventualCassandraConfigSpec extends AnyFunSuite with Matchers {
 
   test("apply from empty config") {
-    val config   = ConfigFactory.empty()
+    val config = ConfigFactory.empty()
     val expected = EventualCassandraConfig.default
     ConfigSource.fromConfig(config).load[EventualCassandraConfig] shouldEqual expected.asRight
   }
@@ -21,9 +21,8 @@ class EventualCassandraConfigSpec extends AnyFunSuite with Matchers {
       retries = 1,
       segmentSize = SegmentSize.min,
       consistencyConfig = EventualCassandraConfig.ConsistencyConfig.default.copy(
-        read = EventualCassandraConfig.ConsistencyConfig.Read(ConsistencyLevel.QUORUM),
-      ),
-    )
+        read = EventualCassandraConfig.ConsistencyConfig.Read(ConsistencyLevel.QUORUM)
+      ))
     ConfigSource.fromConfig(config).load[EventualCassandraConfig] shouldEqual expected.asRight
   }
 }

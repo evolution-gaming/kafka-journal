@@ -16,8 +16,9 @@ import scala.concurrent.duration.FiniteDuration
 
 /** Reader of the replicated journal (Cassandra by default).
   *
-  * This allows to access the data replicated from Kafka to Cassandara. Note, that all the methods of this class have
-  * eventual nature, i.e. there could be newer events already in Kafka, but not yet replicated to Cassandra.
+  * This allows to access the data replicated from Kafka to Cassandara. Note,
+  * that all the methods of this class have eventual nature, i.e. there could be
+  * newer events already in Kafka, but not yet replicated to Cassandra.
   *
   * There could be other non-Cassandra implementations of this interface.
   */
@@ -26,9 +27,11 @@ trait EventualJournal[F[_]] {
   /** Gets a last replicated [[PartitionOffset]] and [[SeqNr]] for specific journal [[Key]].
     *
     * @param key
-    *   Unique identifier of a journal including a topic where it is stored in Kafka.
+    *   Unique identifier of a journal including a topic where it is stored
+    *   in Kafka.
     * @return
-    *   [[JournalPointer]] containing a partition, an offset and sequence number of a last replicated event.
+    *   [[JournalPointer]] containing a partition, an offset and sequence
+    *   number of a last replicated event.
     */
   def pointer(key: Key): F[Option[JournalPointer]]
 
@@ -39,20 +42,23 @@ trait EventualJournal[F[_]] {
     * @param partition
     *   Topic partition to get offset for.
     * @return
-    *   Partition offset, or `None` if such topic/partition pair never replicated.
+    *   Partition offset, or `None` if such topic/partition pair never
+    *   replicated.
     */
   def offset(topic: Topic, partition: Partition): F[Option[Offset]]
 
   /** Reads the replicated event journal.
     *
-    * Streams all events already replicated to a storage (Cassandra by default). It does not keep streaming forever and
-    * ends the stream when the last replicated event is read.
+    * Streams all events already replicated to a storage (Cassandra by default).
+    * It does not keep streaming forever and ends the stream when the last
+    * replicated event is read.
     *
-    * While it is possible to keep streaming forever by polling this method from time to time, the recommended way is to
-    * read Kafka instead.
+    * While it is possible to keep streaming forever by polling this method from
+    * time to time, the recommended way is to read Kafka instead.
     *
     * @param key
-    *   Unique identifier of a journal including a topic where it is stored in Kafka.
+    *   Unique identifier of a journal including a topic where it is stored in
+    *   Kafka.
     * @param from
     *   First [[SeqNr]] to read.
     * @return
@@ -62,8 +68,9 @@ trait EventualJournal[F[_]] {
 
   /** Streams ids of journals replicated from a given topic.
     *
-    * Streams all ids already replicated to a storage (Cassandra by default). It does not keep streaming forever and
-    * ends the stream when the last replicated journal is found.
+    * Streams all ids already replicated to a storage (Cassandra by default). It
+    * does not keep streaming forever and ends the stream when the last
+    * replicated journal is found.
     *
     * @param topic
     *   Kafka topic name where the journals are being stored in.
@@ -77,7 +84,7 @@ object EventualJournal {
 
   def apply[F[_]](implicit F: EventualJournal[F]): EventualJournal[F] = F
 
-  sealed abstract private class Empty
+  private sealed abstract class Empty
 
   def empty[F[_]: Applicative]: EventualJournal[F] = new Empty with EventualJournal[F] {
 
@@ -89,6 +96,7 @@ object EventualJournal {
 
     def offset(topic: Topic, partition: Partition): F[Option[Offset]] = none[Offset].pure[F]
   }
+
 
   trait Metrics[F[_]] {
 
@@ -105,9 +113,10 @@ object EventualJournal {
 
   object Metrics {
 
-    def empty[F[_]: Applicative]: Metrics[F] = const(Applicative[F].unit)
+    def empty[F[_] : Applicative]: Metrics[F] = const(Applicative[F].unit)
 
-    sealed abstract private class Const
+
+    private sealed abstract class Const
 
     def const[F[_]](unit: F[Unit]): Metrics[F] = new Const with Metrics[F] {
 
@@ -122,65 +131,71 @@ object EventualJournal {
       def offset(topic: Topic, latency: FiniteDuration): F[Unit] = unit
     }
 
-    sealed abstract private class Main
+
+    private sealed abstract class Main
 
     def of[F[_]](
       registry: CollectorRegistry[F],
-      prefix: String = "eventual_journal",
+      prefix: String = "eventual_journal"
     ): Resource[F, Metrics[F]] = {
 
       val latencySummary = registry.summary(
-        name = s"${prefix}_topic_latency",
+        name = s"${ prefix }_topic_latency",
         help = "Journal call latency in seconds",
         quantiles = Quantiles.Default,
-        labels = LabelNames("topic", "type"),
-      )
+        labels = LabelNames("topic", "type"))
 
       val eventsSummary = registry.summary(
-        name = s"${prefix}_events",
+        name = s"${ prefix }_events",
         help = "Number of events",
         quantiles = Quantiles.Empty,
-        labels = LabelNames("topic"),
-      )
+        labels = LabelNames("topic"))
 
       for {
         latencySummary <- latencySummary
         eventsSummary  <- eventsSummary
       } yield {
 
-        def observeLatency(name: String, topic: Topic, latency: FiniteDuration) =
+        def observeLatency(name: String, topic: Topic, latency: FiniteDuration) = {
           latencySummary
             .labels(topic, name)
             .observe(latency.toNanos.nanosToSeconds)
+        }
 
         new Main with Metrics[F] {
 
-          def read(topic: Topic, latency: FiniteDuration) =
+          def read(topic: Topic, latency: FiniteDuration) = {
             observeLatency(name = "read", topic = topic, latency = latency)
+          }
 
-          def read(topic: Topic) =
+          def read(topic: Topic) = {
             eventsSummary.labels(topic).observe(1.0)
+          }
 
-          def pointer(topic: Topic, latency: FiniteDuration) =
+          def pointer(topic: Topic, latency: FiniteDuration) = {
             observeLatency(name = "pointer", topic = topic, latency = latency)
+          }
 
-          def ids(topic: Topic, latency: FiniteDuration) =
+          def ids(topic: Topic, latency: FiniteDuration) = {
             observeLatency(name = "ids", topic = topic, latency = latency)
+          }
 
-          def offset(topic: Topic, latency: FiniteDuration): F[Unit] =
+          def offset(topic: Topic, latency: FiniteDuration): F[Unit] = {
             observeLatency(name = "offset", topic = topic, latency = latency)
+          }
         }
       }
     }
   }
 
-  sealed abstract private class MapK
 
-  sealed abstract private class WithMetrics
+  private sealed abstract class MapK
 
-  sealed abstract private class WithLog
+  private sealed abstract class WithMetrics
 
-  sealed abstract private class EnhanceError
+  private sealed abstract class WithLog
+
+  private sealed abstract class EnhanceError
 
   implicit class EventualJournalOps[F[_]](val self: EventualJournal[F]) extends AnyVal {
 
@@ -195,6 +210,7 @@ object EventualJournal {
       def offset(topic: Topic, partition: Partition): G[Option[Offset]] = fg(self.offset(topic, partition))
     }
 
+
     def withLog(log: Log[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): EventualJournal[F] = {
 
       val functionKId = FunctionK.id[F]
@@ -203,52 +219,55 @@ object EventualJournal {
 
         def read(key: Key, from: SeqNr) = {
           val logging = new (F ~> F) {
-            def apply[A](fa: F[A]) =
+            def apply[A](fa: F[A]) = {
               for {
                 d <- MeasureDuration[F].start
                 r <- fa
                 d <- d
-                _ <- log.debug(s"$key read in ${d.toMillis}ms, from: $from, result: $r")
+                _ <- log.debug(s"$key read in ${ d.toMillis }ms, from: $from, result: $r")
               } yield r
+            }
           }
           self.read(key, from).mapK(logging, functionKId)
         }
 
-        def pointer(key: Key) =
+        def pointer(key: Key) = {
           for {
             d <- MeasureDuration[F].start
             r <- self.pointer(key)
             d <- d
-            _ <- log.debug(s"$key pointer in ${d.toMillis}ms, result: $r")
+            _ <- log.debug(s"$key pointer in ${ d.toMillis }ms, result: $r")
           } yield r
+        }
 
         def ids(topic: Topic) = {
           val logging = new (F ~> F) {
-            def apply[A](fa: F[A]) =
+            def apply[A](fa: F[A]) = {
               for {
                 d <- MeasureDuration[F].start
                 r <- fa
                 d <- d
-                _ <- log.debug(s"$topic ids in ${d.toMillis}ms, result: $r")
+                _ <- log.debug(s"$topic ids in ${ d.toMillis }ms, result: $r")
               } yield r
+            }
           }
           self.ids(topic).mapK(logging, functionKId)
         }
 
-        def offset(topic: Topic, partition: Partition): F[Option[Offset]] =
+        def offset(topic: Topic, partition: Partition): F[Option[Offset]] = {
           for {
             d <- MeasureDuration[F].start
             r <- self.offset(topic, partition)
             d <- d
             _ <- log.debug(s"$topic $partition offset in ${d.toMillis}ms, result: $r")
           } yield r
+        }
 
       }
     }
 
-    def withMetrics(
-      metrics: Metrics[F],
-    )(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): EventualJournal[F] = {
+
+    def withMetrics(metrics: Metrics[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): EventualJournal[F] = {
 
       val functionKId = FunctionK.id[F]
 
@@ -256,13 +275,14 @@ object EventualJournal {
 
         def read(key: Key, from: SeqNr) = {
           val measure = new (F ~> F) {
-            def apply[A](fa: F[A]) =
+            def apply[A](fa: F[A]) = {
               for {
                 d <- MeasureDuration[F].start
                 r <- fa
                 d <- d
                 _ <- metrics.read(topic = key.topic, latency = d)
               } yield r
+            }
           }
 
           for {
@@ -271,66 +291,73 @@ object EventualJournal {
           } yield a
         }
 
-        def pointer(key: Key) =
+        def pointer(key: Key) = {
           for {
             d <- MeasureDuration[F].start
             r <- self.pointer(key)
             d <- d
             _ <- metrics.pointer(key.topic, d)
           } yield r
+        }
 
         def ids(topic: Topic) = {
           val measure = new (F ~> F) {
-            def apply[A](fa: F[A]) =
+            def apply[A](fa: F[A]) = {
               for {
                 d <- MeasureDuration[F].start
                 r <- fa
                 d <- d
                 _ <- metrics.ids(topic, d)
               } yield r
+            }
           }
           self.ids(topic).mapK(measure, functionKId)
         }
 
-        def offset(topic: Topic, partition: Partition): F[Option[Offset]] =
+        def offset(topic: Topic, partition: Partition): F[Option[Offset]] = {
           for {
             d <- MeasureDuration[F].start
             r <- self.offset(topic, partition)
             d <- d
             _ <- metrics.offset(topic, d)
           } yield r
+        }
 
       }
     }
 
+
     def enhanceError(implicit F: MonadThrowable[F]): EventualJournal[F] = {
 
-      def error[A](msg: String, cause: Throwable) =
+      def error[A](msg: String, cause: Throwable) = {
         JournalError(s"EventualJournal.$msg failed with $cause", cause).raiseError[F, A]
+      }
 
       new EnhanceError with EventualJournal[F] {
 
-        def read(key: Key, from: SeqNr) =
+        def read(key: Key, from: SeqNr) = {
           self
             .read(key, from)
-            .handleErrorWith { (a: Throwable) =>
-              error[EventRecord[EventualPayloadAndType]](s"read key: $key, from: $from", a).toStream
-            }
+            .handleErrorWith { (a: Throwable) => error[EventRecord[EventualPayloadAndType]](s"read key: $key, from: $from", a).toStream }
+        }
 
-        def pointer(key: Key) =
+        def pointer(key: Key) = {
           self
             .pointer(key)
-            .handleErrorWith(a => error(s"pointer key: $key", a))
+            .handleErrorWith { a => error(s"pointer key: $key", a) }
+        }
 
-        def ids(topic: Topic) =
+        def ids(topic: Topic) = {
           self
             .ids(topic)
-            .handleErrorWith(a => error[String](s"ids topic: $topic", a).toStream)
+            .handleErrorWith { a => error[String](s"ids topic: $topic", a).toStream }
+        }
 
-        def offset(topic: Topic, partition: Partition): F[Option[Offset]] =
+        def offset(topic: Topic, partition: Partition): F[Option[Offset]] = {
           self
             .offset(topic, partition)
-            .handleErrorWith(a => error(s"offset topic: $topic, partition $partition", a))
+            .handleErrorWith { a => error(s"offset topic: $topic, partition $partition", a) }
+        }
       }
     }
   }

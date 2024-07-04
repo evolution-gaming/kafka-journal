@@ -62,14 +62,14 @@ class HeadInfoSpec extends AnyFunSuite with Matchers {
     deleteInfo(1)(mark, Offset.unsafe(1)) shouldEqual deleteInfo(1)
   }
 
-  private def append(from: Int, to: Int) =
+  private def append(from: Int, to: Int) = {
     ActionHeader.Append(
       range = SeqRange.unsafe(from, to),
       origin = None,
       version = Version.current.some,
       payloadType = PayloadType.Json,
-      metadata = HeaderMetadata.empty,
-    )
+      metadata = HeaderMetadata.empty)
+  }
 
   private def delete(seqNr: Int) = {
     val deleteTo = SeqNr.unsafe(seqNr).toDeleteTo
@@ -85,10 +85,10 @@ class HeadInfoSpec extends AnyFunSuite with Matchers {
     HeadInfo.Delete(deleteTo)
   }
 
-  private def appendInfo(offset: Int, seqNr: Int, deleteTo: Option[Int] = None) =
+  private def appendInfo(offset: Int, seqNr: Int, deleteTo: Option[Int] = None) = {
     HeadInfo.Append(
       seqNr = SeqNr.unsafe(seqNr),
-      deleteTo = deleteTo.map(deleteTo => SeqNr.unsafe(deleteTo).toDeleteTo),
-      offset = Offset.unsafe(offset),
-    )
+      deleteTo = deleteTo.map { deleteTo => SeqNr.unsafe(deleteTo).toDeleteTo },
+      offset = Offset.unsafe(offset))
+  }
 }

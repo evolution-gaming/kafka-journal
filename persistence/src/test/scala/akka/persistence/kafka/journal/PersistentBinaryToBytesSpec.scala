@@ -1,9 +1,9 @@
 package akka.persistence.kafka.journal
 
 import cats.syntax.all._
-import com.evolutiongaming.kafka.journal.ByteVectorOf
 import com.evolutiongaming.kafka.journal.FromBytes.implicits._
 import com.evolutiongaming.kafka.journal.ToBytes.implicits._
+import com.evolutiongaming.kafka.journal.ByteVectorOf
 import com.evolutiongaming.serialization.SerializedMsg
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -19,8 +19,10 @@ class PersistentBinaryToBytesSpec extends AnyFunSuite with Matchers {
     val expected = PersistentBinary(
       manifest = "persistentManifest".some,
       writerUuid = "writerUuid",
-      payload = SerializedMsg(identifier = 2, manifest = "manifest", bytes = "payload".encodeStr),
-    )
+      payload = SerializedMsg(
+        identifier = 2,
+        manifest = "manifest",
+        bytes = "payload".encodeStr))
 
     def verify(bytes: ByteVector) = {
       val actual = bytes.fromBytes[Try, PersistentBinary]
@@ -35,10 +37,11 @@ class PersistentBinaryToBytesSpec extends AnyFunSuite with Matchers {
 object PersistentBinaryToBytesSpec {
 
   implicit class StrOps(val self: String) extends AnyVal {
-
-    def encodeStr: ByteVector =
+    
+    def encodeStr: ByteVector = {
       ByteVector
         .encodeUtf8(self)
         .fold(throw _, identity)
+    }
   }
 }

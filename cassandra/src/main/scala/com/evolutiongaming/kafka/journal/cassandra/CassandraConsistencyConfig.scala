@@ -6,7 +6,7 @@ import pureconfig.generic.semiauto.deriveReader
 
 final case class CassandraConsistencyConfig(
   read: CassandraConsistencyConfig.Read = CassandraConsistencyConfig.Read.default,
-  write: CassandraConsistencyConfig.Write = CassandraConsistencyConfig.Write.default,
+  write: CassandraConsistencyConfig.Write = CassandraConsistencyConfig.Write.default
 )
 
 object CassandraConsistencyConfig {
@@ -20,7 +20,7 @@ object CassandraConsistencyConfig {
   object Read {
     val default: Read = Read()
 
-    implicit val configReaderRead: ConfigReader[Read] = ConfigReader[ConsistencyLevel].map(a => Read(a))
+    implicit val configReaderRead: ConfigReader[Read] = ConfigReader[ConsistencyLevel].map { a => Read(a) }
   }
 
   final case class Write(value: ConsistencyLevel = ConsistencyLevel.LOCAL_QUORUM)
@@ -28,6 +28,6 @@ object CassandraConsistencyConfig {
   object Write {
     val default: Write = Write()
 
-    implicit val configReaderWrite: ConfigReader[Write] = ConfigReader[ConsistencyLevel].map(a => Write(a))
+    implicit val configReaderWrite: ConfigReader[Write] = ConfigReader[ConsistencyLevel].map { a => Write(a) }
   }
 }

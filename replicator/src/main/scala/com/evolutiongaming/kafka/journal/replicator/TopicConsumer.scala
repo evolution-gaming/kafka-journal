@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal.replicator
 
+
 import cats.Monad
 import cats.data.{NonEmptyList => Nel}
 import cats.syntax.all._
@@ -10,6 +11,7 @@ import com.evolutiongaming.sstream.Stream
 import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
+
 
 trait TopicConsumer[F[_]] {
 
@@ -33,15 +35,18 @@ object TopicConsumer {
 
     new TopicConsumer[F] {
 
-      def subscribe(listener: RebalanceListener[F]) =
+      def subscribe(listener: RebalanceListener[F]) = {
         consumer.subscribe(topic, listener.some)
+      }
 
       val poll = {
         val records = for {
           records <- consumer.poll(pollTimeout)
         } yield for {
           (partition, records) <- records.values
-        } yield (partition.partition, records)
+        } yield {
+          (partition.partition, records)
+        }
         Stream.repeat(records)
       }
 

@@ -14,7 +14,7 @@ final case class SchemaConfig(
   pointer2Table: String = "pointer2",
   settingTable: String = "setting",
   locksTable: String = "locks",
-  autoCreate: Boolean = true,
+  autoCreate: Boolean = true
 )
 
 object SchemaConfig {
@@ -27,21 +27,22 @@ object SchemaConfig {
   final case class Keyspace(
     name: String = "journal",
     replicationStrategy: ReplicationStrategyConfig = ReplicationStrategyConfig.Default,
-    autoCreate: Boolean = true,
-  ) {
-
+    autoCreate: Boolean = true) {
+    
     private[cassandra] def toKeyspaceConfig: KeyspaceConfig = KeyspaceConfig(
       name = this.name,
       replicationStrategy = this.replicationStrategy,
-      autoCreate = this.autoCreate,
+      autoCreate = this.autoCreate
     )
 
   }
+  
 
   @deprecated(since = "3.3.9", message = "Use [[KeyspaceConfig]] instead")
   object Keyspace {
 
     val default: Keyspace = Keyspace()
+
 
     implicit val configReaderKeyspace: ConfigReader[Keyspace] = deriveReader
   }

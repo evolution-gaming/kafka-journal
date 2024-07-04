@@ -8,35 +8,47 @@ import play.api.libs.json.JsString
 class PayloadTypeSpec extends AnyFunSuite with Matchers {
 
   for {
-    (ext, payloadType) <- List(("json", PayloadType.Json), ("txt", PayloadType.Text), ("bin", PayloadType.Binary))
-  }
+    (ext, payloadType) <- List(
+      ("json", PayloadType.Json),
+      ("txt" , PayloadType.Text),
+      ("bin" , PayloadType.Binary))
+  } {
     test(s"$payloadType.ext") {
       payloadType.ext shouldEqual ext
     }
+  }
 
   for {
     (json, expected) <- List(
-      ("json", PayloadType.Json.some),
-      ("text", PayloadType.Text.some),
+      ("json"  , PayloadType.Json.some),
+      ("text"  , PayloadType.Text.some),
       ("binary", PayloadType.Binary.some),
-      ("none", none),
-    )
-  }
+      ("none"  , none))
+  } {
     test(s"reads & writes $json") {
       JsString(json).validate[PayloadType].asOpt shouldEqual expected
     }
+  }
 
   for {
-    (json, expected) <- List(("json", PayloadType.Json.some), ("text", PayloadType.Text.some), ("binary", none))
-  }
+    (json, expected) <- List(
+      ("json"  , PayloadType.Json.some),
+      ("text"  , PayloadType.Text.some),
+      ("binary", none))
+  } {
     test(s"TextOrJson reads & writes $json") {
       JsString(json).validate[PayloadType.TextOrJson].asOpt shouldEqual expected
     }
+  }
 
   for {
-    (json, expected) <- List(("json", PayloadType.Json.some), ("text", none), ("binary", PayloadType.Binary.some))
-  }
+    (json, expected) <- List(
+      ("json"  , PayloadType.Json.some),
+      ("text"  , none),
+      ("binary", PayloadType.Binary.some))
+  } {
     test(s"BinaryOrJson reads & writes $json") {
       JsString(json).validate[PayloadType.BinaryOrJson].asOpt shouldEqual expected
     }
+  }
 }

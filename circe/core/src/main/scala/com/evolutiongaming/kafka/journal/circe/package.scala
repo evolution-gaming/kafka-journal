@@ -9,17 +9,19 @@ package object circe {
 
   def convertPlayToCirce(jsValue: JsValue): Json = {
     def convert(jsValue: JsValue): Eval[Json] = jsValue match {
-      case JsNull      => Eval.now(Json.Null)
-      case JsString(a) => Eval.now(Json.fromString(a))
-      case JsNumber(a) => Eval.now(Json.fromBigDecimal(a))
-      case JsTrue      => Eval.now(Json.True)
-      case JsFalse     => Eval.now(Json.False)
+      case JsNull          => Eval.now(Json.Null)
+      case JsString(a)     => Eval.now(Json.fromString(a))
+      case JsNumber(a)     => Eval.now(Json.fromBigDecimal(a))
+      case JsTrue          => Eval.now(Json.True)
+      case JsFalse         => Eval.now(Json.False)
       case JsArray(values) =>
-        values.toList
-          .traverse(value => Eval.defer(convert(value)))
+        values
+          .toList
+          .traverse { value => Eval.defer(convert(value)) }
           .map(Json.arr(_: _*))
       case JsObject(fields) =>
-        fields.toList
+        fields
+          .toList
           .traverse { case (field, value) => Eval.defer(convert(value)).map(field -> _) }
           .map(Json.fromFields)
     }
@@ -33,19 +35,16 @@ package object circe {
       bool => Eval.now(JsBoolean(bool).asRight[String]),
       num => Eval.now(num.toBigDecimal.map(JsNumber).toRight(s"Failed to convert JsonNumber $num to JsNumber")),
       str => Eval.now(JsString(str).asRight[String]),
-      arr =>
-        arr.toList
-          .traverse { value =>
-            Eval.defer(convert(value))
-          }
-          .map(_.sequence.map(JsArray(_))),
-      obj =>
-        obj.toList
-          .traverse {
-            case (field, value) =>
-              Eval.defer(convert(value)).map(_.map(field -> _))
-          }
-          .map(_.sequence.map(JsObject(_))),
+      arr => arr.toList
+        .traverse { value =>
+          Eval.defer(convert(value))
+        }
+        .map(_.sequence.map(JsArray(_))),
+      obj => obj.toList
+        .traverse { case (field, value) =>
+          Eval.defer(convert(value)).map(_.map(field -> _))
+        }
+        .map(_.sequence.map(JsObject(_)))
     )
 
     convert(json).value

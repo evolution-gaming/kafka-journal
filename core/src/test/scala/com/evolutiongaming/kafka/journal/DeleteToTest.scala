@@ -9,3 +9,4 @@ class DeleteToTest extends AnyFunSuite with Matchers {
     SeqNr.min.toDeleteTo.toString shouldEqual SeqNr.min.toString
   }
 }
+

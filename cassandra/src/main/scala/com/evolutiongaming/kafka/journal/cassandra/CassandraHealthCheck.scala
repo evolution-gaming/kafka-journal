@@ -14,7 +14,8 @@ import scala.concurrent.duration._
 
 /** Performs a check if Cassandra is alive.
   *
-  * The common implementation is to periodically do a simple query and check if it returns an error.
+  * The common implementation is to periodically do a simple query and check
+  * if it returns an error.
   */
 @deprecated(since = "3.3.10", message = "Use `com.evolutiongaming.scassandra.CassandraHealthCheck` instead")
 trait CassandraHealthCheck[F[_]] {
@@ -41,13 +42,13 @@ object CassandraHealthCheck {
     * @return
     *   Factory for `CassandraHealthCheck` instances.
     */
-  def of[F[_]: Temporal: LogOf](
+  def of[F[_] : Temporal : LogOf](
     session: Resource[F, CassandraSession[F]],
-    consistencyConfig: CassandraConsistencyConfig.Read,
+    consistencyConfig: CassandraConsistencyConfig.Read
   ): Resource[F, CassandraHealthCheck[F]] = {
 
     val statement = for {
-      session <- session
+      session   <- session
       statement <- {
         implicit val session1 = session
         Statement.of[F](consistencyConfig).toResource
@@ -75,33 +76,41 @@ object CassandraHealthCheck {
     * @return
     *   Factory for `CassandraHealthCheck` instances.
     */
-  def of[F[_]: Temporal](
+  def of[F[_] : Temporal](
     initial: FiniteDuration,
     interval: FiniteDuration,
     statement: Resource[F, Statement[F]],
-    log: Log[F],
-  ): Resource[F, CassandraHealthCheck[F]] =
+    log: Log[F]
+  ): Resource[F, CassandraHealthCheck[F]] = {
+
     for {
       ref       <- Ref.of[F, Option[Throwable]](none).toResource
       statement <- statement
-      _ <- Schedule(initial, interval) {
+      _         <- Schedule(initial, interval) {
         for {
           e <- statement.error[Throwable]
-          _ <- e.foldMapM(e => log.error(s"failed with $e", e))
+          _ <- e.foldMapM { e => log.error(s"failed with $e", e) }
           _ <- ref.set(e)
         } yield {}
       }
-    } yield new CassandraHealthCheck[F] {
-      def error = ref.get
+    } yield {
+      new CassandraHealthCheck[F] {
+        def error = ref.get
+      }
     }
+  }
+
 
   type Statement[F[_]] = F[Unit]
 
   object Statement {
 
-    def of[F[_]: Monad: CassandraSession](consistency: CassandraConsistencyConfig.Read): F[Statement[F]] =
+    def of[F[_] : Monad : CassandraSession](consistency: CassandraConsistencyConfig.Read): F[Statement[F]] = {
       for {
         prepared <- "SELECT now() FROM system.local".prepare
-      } yield prepared.bind().setConsistencyLevel(consistency.value).first.void
+      } yield {
+        prepared.bind().setConsistencyLevel(consistency.value).first.void
+      }
+    }
   }
 }

@@ -1,8 +1,8 @@
 package com.evolutiongaming.kafka.journal
 
-import cats.effect.Sync
-
 import java.util.UUID
+
+import cats.effect.Sync
 
 trait RandomIdOf[F[_]] {
 
@@ -13,8 +13,9 @@ object RandomIdOf {
 
   def apply[F[_]](implicit F: RandomIdOf[F]): RandomIdOf[F] = F
 
-  def uuid[F[_]: Sync]: RandomIdOf[F] = new RandomIdOf[F] {
 
-    def apply = Sync[F].delay(RandomId(UUID.randomUUID().toString))
+  def uuid[F[_] : Sync]: RandomIdOf[F] = new RandomIdOf[F] {
+
+    def apply = Sync[F].delay { RandomId(UUID.randomUUID().toString) }
   }
 }

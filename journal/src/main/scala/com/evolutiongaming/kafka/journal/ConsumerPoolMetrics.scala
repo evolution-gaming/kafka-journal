@@ -3,8 +3,8 @@ package com.evolutiongaming.kafka.journal
 import cats.Applicative
 import cats.effect.Resource
 import cats.syntax.all._
-import com.evolutiongaming.smetrics.MetricsHelper._
 import com.evolutiongaming.smetrics._
+import com.evolutiongaming.smetrics.MetricsHelper._
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -19,15 +19,15 @@ object ConsumerPoolMetrics {
 
   def of[F[_]](
     registry: CollectorRegistry[F],
-    prefix: String = "journal",
-  ): Resource[F, ConsumerPoolMetrics[F]] =
+    prefix: String = "journal"
+  ): Resource[F, ConsumerPoolMetrics[F]] = {
+
     registry
       .summary(
-        name = s"${prefix}_consumer_pool_latency",
+        name = s"${ prefix }_consumer_pool_latency",
         help = "Latency of acquiring/using consumers",
         quantiles = Quantiles.Default,
-        labels = LabelNames("type"),
-      )
+        labels = LabelNames("type"))
       .map { timeSummary =>
         class Main
         new Main with ConsumerPoolMetrics[F] {
@@ -44,8 +44,9 @@ object ConsumerPoolMetrics {
             observe("use", latency)
         }
       }
+  }
 
-  def empty[F[_]: Applicative]: ConsumerPoolMetrics[F] = const(().pure[F])
+  def empty[F[_] : Applicative]: ConsumerPoolMetrics[F] = const(().pure[F])
 
   def const[F[_]](unit: F[Unit]): ConsumerPoolMetrics[F] = {
     class Const

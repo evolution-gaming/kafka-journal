@@ -22,24 +22,26 @@ object KafkaWriteMetrics {
 
   def of[F[_]](
     registry: CollectorRegistry[F],
-    prefix: String = "journal",
+    prefix: String = "journal"
   ): Resource[F, KafkaWriteMetrics[F]] = {
 
     val durationSummary = registry.summary(
       name = s"${prefix}_events_to_payload_duration",
       help = "Journal events to payload conversion duration in seconds",
       quantiles = Quantiles.Default,
-      labels = LabelNames("payload_type"),
+      labels = LabelNames("payload_type")
     )
 
     for {
       durationSummary <- durationSummary
-    } yield new KafkaWriteMetrics[F] {
+    } yield {
+      new KafkaWriteMetrics[F] {
 
-      def apply[A](events: Events[A], payloadAndType: PayloadAndType, latency: FiniteDuration): F[Unit] =
-        durationSummary
-          .labels(payloadAndType.payloadType.name)
-          .observe(latency.toNanos.nanosToSeconds)
+        def apply[A](events: Events[A], payloadAndType: PayloadAndType, latency: FiniteDuration): F[Unit] =
+          durationSummary
+            .labels(payloadAndType.payloadType.name)
+            .observe(latency.toNanos.nanosToSeconds)
+      }
     }
   }
 }

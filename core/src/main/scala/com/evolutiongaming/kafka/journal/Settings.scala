@@ -8,6 +8,7 @@ import com.evolutiongaming.sstream.Stream
 
 import scala.annotation.nowarn
 
+
 trait Settings[F[_]] {
 
   type K = Setting.Key
@@ -19,10 +20,11 @@ trait Settings[F[_]] {
   def set(key: K, value: V): F[Option[Setting]]
 
   @deprecated(
-    message = "the behavior of the method might not be deterministic, " +
+    message =
+      "the behavior of the method might not be deterministic, " +
       "because it uses Cassandra LWTs, while other methods do not, " +
       "use get + set instead for a rough approximation of functionality",
-    since = "3.3.9",
+    since = "3.3.9"
   )
   def setIfEmpty(key: K, value: V): F[Option[Setting]]
 
@@ -35,6 +37,7 @@ object Settings {
 
   def apply[F[_]](implicit F: Settings[F]): Settings[F] = F
 
+
   implicit class SettingsOps[F[_]](val self: Settings[F]) extends AnyVal {
 
     def withLog(log: Log[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): Settings[F] = {
@@ -43,48 +46,53 @@ object Settings {
 
       new Settings[F] {
 
-        def get(key: K): F[Option[Setting]] =
+        def get(key: K): F[Option[Setting]] = {
           for {
             d <- MeasureDuration[F].start
             r <- self.get(key)
             d <- d
-            _ <- log.debug(s"$key get in ${d.toMillis}ms, result: $r")
+            _ <- log.debug(s"$key get in ${ d.toMillis }ms, result: $r")
           } yield r
+        }
 
-        def set(key: K, value: V) =
+        def set(key: K, value: V) = {
           for {
             d <- MeasureDuration[F].start
             r <- self.set(key, value)
             d <- d
-            _ <- log.debug(s"$key set in ${d.toMillis}ms, value: $value, result: $r")
+            _ <- log.debug(s"$key set in ${ d.toMillis }ms, value: $value, result: $r")
           } yield r
+        }
 
         @nowarn
-        def setIfEmpty(key: K, value: V) =
+        def setIfEmpty(key: K, value: V) = {
           for {
             d <- MeasureDuration[F].start
             r <- self.setIfEmpty(key, value)
             d <- d
-            _ <- log.debug(s"$key setIfEmpty in ${d.toMillis}ms, value: $value, result: $r")
+            _ <- log.debug(s"$key setIfEmpty in ${ d.toMillis }ms, value: $value, result: $r")
           } yield r
+        }
 
-        def remove(key: K) =
+        def remove(key: K) = {
           for {
             d <- MeasureDuration[F].start
             r <- self.remove(key)
             d <- d
-            _ <- log.debug(s"$key set in ${d.toMillis}ms, result: $r")
+            _ <- log.debug(s"$key set in ${ d.toMillis }ms, result: $r")
           } yield r
+        }
 
         def all = {
           val logging = new (F ~> F) {
-            def apply[A](fa: F[A]) =
+            def apply[A](fa: F[A]) = {
               for {
                 d <- MeasureDuration[F].start
                 r <- fa
                 d <- d
-                _ <- log.debug(s"all in ${d.toMillis}ms, result: $r")
+                _ <- log.debug(s"all in ${ d.toMillis }ms, result: $r")
               } yield r
+            }
           }
           self.all.mapK(logging, functionKId)
         }

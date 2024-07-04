@@ -7,7 +7,7 @@ import com.evolutiongaming.kafka.journal.util.Fail.implicits._
 import com.evolutiongaming.scassandra._
 
 /** Snapshot index in a stored ring buffer */
-sealed abstract private[journal] case class BufferNr(value: Int) {
+private[journal] sealed abstract case class BufferNr(value: Int) {
   override def toString: String = value.toString
 }
 

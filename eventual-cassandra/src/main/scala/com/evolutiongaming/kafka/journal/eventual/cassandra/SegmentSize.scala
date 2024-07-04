@@ -2,28 +2,31 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.syntax.all._
 import cats.{Applicative, Eq, Id, Order, Show}
+import com.evolutiongaming.scassandra.{DecodeByIdx, DecodeByName, DecodeRow, EncodeByIdx, EncodeByName, EncodeRow}
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.Fail.implicits._
-import com.evolutiongaming.scassandra._
 import pureconfig.error.{CannotParse, ConfigReaderFailures}
 import pureconfig.{ConfigCursor, ConfigReader}
 
+
 /** The size of a segment in Cassandra table.
   *
-  * When [[SegmentSize]] is used then the segment column is used akin to a page number. I.e. segment number increments
-  * as soon as more than [[SegmentSize#value]] rows accumulate.
+  * When [[SegmentSize]] is used then the segment column is used akin to a page
+  * number. I.e. segment number increments as soon as more than [[SegmentSize#value]]
+  * rows accumulate.
   *
-  * The logic itself could be found in [[SegmentNr]] class constructors (apply methods).
+  * The logic itself could be found in [[SegmentNr]] class constructors
+  * (apply methods).
   *
-  * The only place where such approach is used right now is a journal table specified by [[SchemaConfig#journalTable]].
-  * This allows the nearby journal events reside mostly in the same partitions in Cassandra making recovery quicker and
-  * less resource consuming.
+  * The only place where such approach is used right now is a journal table
+  * specified by [[SchemaConfig#journalTable]]. This allows the nearby journal
+  * events reside mostly in the same partitions in Cassandra making recovery
+  * quicker and less resource consuming.
   *
-  * The value is configured per journal in [[EventualCassandraConfig#segmentSize]] and stays the same during the life of
-  * the persistent journal.
+  * The value is configured per journal in [[EventualCassandraConfig#segmentSize]]
+  * and stays the same during the life of the persistent journal.
   *
-  * @see
-  *   [[Segments]] for alternative way used for some other tables.
+  * @see [[Segments]] for alternative way used for some other tables.
   */
 sealed abstract case class SegmentSize(value: Int) {
 
@@ -38,41 +41,48 @@ object SegmentSize {
 
   val default: SegmentSize = new SegmentSize(10000) {}
 
+
   implicit val eqSegmentSize: Eq[SegmentSize] = Eq.fromUniversalEquals
 
   implicit val showSegmentSize: Show[SegmentSize] = Show.fromToString
+
 
   implicit val orderingSegmentSize: Ordering[SegmentSize] = Ordering.by(_.value)
 
   implicit val orderSegmentSize: Order[SegmentSize] = Order.fromOrdering
 
-  implicit val encodeByNameSegmentSize: EncodeByName[SegmentSize] =
-    EncodeByName[Int].contramap((a: SegmentSize) => a.value)
+
+  implicit val encodeByNameSegmentSize: EncodeByName[SegmentSize] = EncodeByName[Int].contramap((a: SegmentSize) => a.value)
 
   implicit val decodeByNameSegmentSize: DecodeByName[SegmentSize] = DecodeByName[Int].map { a =>
     SegmentSize.of[Option](a) getOrElse default
   }
 
-  implicit val encodeByIdxSegmentSize: EncodeByIdx[SegmentSize] =
-    EncodeByIdx[Int].contramap((a: SegmentSize) => a.value)
+
+  implicit val encodeByIdxSegmentSize: EncodeByIdx[SegmentSize] = EncodeByIdx[Int].contramap((a: SegmentSize) => a.value)
 
   implicit val decodeByIdxSegmentSize: DecodeByIdx[SegmentSize] = DecodeByIdx[Int].map { a =>
     SegmentSize.of[Option](a) getOrElse default
   }
 
+
   implicit val encodeRowSegmentSize: EncodeRow[SegmentSize] = EncodeRow[SegmentSize]("segment_size")
 
   implicit val decodeRowSegmentSize: DecodeRow[SegmentSize] = DecodeRow[SegmentSize]("segment_size")
 
-  implicit val configReaderSegmentSize: ConfigReader[SegmentSize] = { (cursor: ConfigCursor) =>
-    for {
-      value       <- cursor.asInt
-      segmentSize  = of[Either[String, *]](value)
-      segmentSize <- segmentSize.leftMap(a => ConfigReaderFailures(CannotParse(a, cursor.origin)))
-    } yield segmentSize
+
+  implicit val configReaderSegmentSize: ConfigReader[SegmentSize] = {
+    (cursor: ConfigCursor) => {
+      for {
+        value       <- cursor.asInt
+        segmentSize  = of[Either[String, *]](value)
+        segmentSize <- segmentSize.leftMap(a => ConfigReaderFailures(CannotParse(a, cursor.origin)))
+      } yield segmentSize
+    }
   }
 
-  def of[F[_]: Applicative: Fail](value: Int): F[SegmentSize] =
+
+  def of[F[_] : Applicative : Fail](value: Int): F[SegmentSize] = {
     if (value < min.value) {
       s"invalid SegmentSize of $value, it must be greater or equal to $min".fail[F, SegmentSize]
     } else if (value > max.value) {
@@ -84,6 +94,8 @@ object SegmentSize {
     } else {
       new SegmentSize(value) {}.pure[F]
     }
+  }
+
 
   def unsafe[A](value: A)(implicit numeric: Numeric[A]): SegmentSize = of[Id](numeric.toInt(value))
 }

@@ -36,13 +36,13 @@ object SetupSchema {
     schema: Schema,
     fresh: MigrateSchema.Fresh,
     settings: Settings[F],
-    cassandraSync: CassandraSync[F],
+    cassandraSync: CassandraSync[F]
   ): F[Unit] = {
     val migrateSchema = MigrateSchema.forSettingKey(
       cassandraSync = cassandraSync.toCassandraSync2,
       settings = settings,
       settingKey = SettingKey,
-      migrations = migrations(schema),
+      migrations = migrations(schema)
     )
     migrateSchema.run(fresh)
   }
@@ -50,17 +50,17 @@ object SetupSchema {
   def apply[F[_]: Temporal: Parallel: CassandraCluster: CassandraSession: LogOf](
     config: SchemaConfig,
     origin: Option[Origin],
-    consistencyConfig: EventualCassandraConfig.ConsistencyConfig,
+    consistencyConfig: EventualCassandraConfig.ConsistencyConfig
   ): F[Schema] = {
 
     def createSchema(implicit cassandraSync: CassandraSync[F]) = CreateSchema(config)
 
     for {
-      cassandraSync  <- CassandraSync.of[F](config, origin)
-      ab             <- createSchema(cassandraSync)
+      cassandraSync <- CassandraSync.of[F](config, origin)
+      ab <- createSchema(cassandraSync)
       (schema, fresh) = ab
-      settings       <- SettingsCassandra.of[F](schema.setting, origin, consistencyConfig.toCassandraConsistencyConfig)
-      _              <- migrate(schema, fresh, settings, cassandraSync)
+      settings <- SettingsCassandra.of[F](schema.setting, origin, consistencyConfig.toCassandraConsistencyConfig)
+      _ <- migrate(schema, fresh, settings, cassandraSync)
     } yield schema
   }
 

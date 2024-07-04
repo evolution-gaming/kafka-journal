@@ -8,6 +8,7 @@ import com.evolutiongaming.catshelper.{BracketThrowable, Log, MeasureDuration, M
 import com.evolutiongaming.kafka.journal._
 import com.evolutiongaming.skafka.{Partition, Topic}
 
+
 trait ReplicatedTopicJournal[F[_]] {
 
   def apply(partition: Partition): Resource[F, ReplicatedPartitionJournal[F]]
@@ -18,13 +19,15 @@ object ReplicatedTopicJournal {
   def empty[F[_]: Applicative]: ReplicatedTopicJournal[F] = {
     class Empty
     new Empty with ReplicatedTopicJournal[F] {
-      def apply(partition: Partition) =
+      def apply(partition: Partition) = {
         ReplicatedPartitionJournal
           .empty[F]
           .pure[F]
           .toResource
+      }
     }
   }
+
 
   /*def apply[F[_]: Applicative](
     topic: Topic,
@@ -45,67 +48,85 @@ object ReplicatedTopicJournal {
     }
   }*/
 
-  sealed abstract private class WithLog
 
-  sealed abstract private class WithMetrics
+  private sealed abstract class WithLog
 
-  sealed abstract private class EnhanceError
+  private sealed abstract class WithMetrics
 
-  sealed abstract private class MapK
+  private sealed abstract class EnhanceError
+
+  private sealed abstract class MapK
 
   implicit class ReplicatedTopicJournalOps[F[_]](val self: ReplicatedTopicJournal[F]) extends AnyVal {
 
-    def mapK[G[_]](f: F ~> G)(implicit
+    def mapK[G[_]](
+      f: F ~> G)(implicit
       B: BracketThrowable[F],
-      GT: BracketThrowable[G],
-    ): ReplicatedTopicJournal[G] =
+      GT: BracketThrowable[G]
+    ): ReplicatedTopicJournal[G] = {
       new MapK with ReplicatedTopicJournal[G] {
 
-        def apply(partition: Partition) =
+        def apply(partition: Partition) = {
           self
             .apply(partition)
             .map(_.mapK(f))
             .mapK(f)
+        }
       }
+    }
 
-    def withLog(topic: Topic, log: Log[F])(implicit
+
+    def withLog(
+      topic: Topic,
+      log: Log[F])(implicit
       F: Monad[F],
-      measureDuration: MeasureDuration[F],
-    ): ReplicatedTopicJournal[F] =
+      measureDuration: MeasureDuration[F]
+    ): ReplicatedTopicJournal[F] = {
       new WithLog with ReplicatedTopicJournal[F] {
 
-        def apply(partition: Partition) =
+        def apply(partition: Partition) = {
           self
             .apply(partition)
-            .map(_.withLog(topic, partition, log))
+            .map { _.withLog(topic, partition, log) }
+        }
       }
+    }
 
-    def withMetrics(topic: Topic, metrics: ReplicatedJournal.Metrics[F])(implicit
+
+    def withMetrics(
+      topic: Topic,
+      metrics: ReplicatedJournal.Metrics[F])(implicit
       F: Monad[F],
-      measureDuration: MeasureDuration[F],
-    ): ReplicatedTopicJournal[F] =
+      measureDuration: MeasureDuration[F]
+    ): ReplicatedTopicJournal[F] = {
       new WithMetrics with ReplicatedTopicJournal[F] {
 
-        def apply(partition: Partition) =
+        def apply(partition: Partition) = {
           self
             .apply(partition)
-            .map(_.withMetrics(topic, metrics))
+            .map { _.withMetrics(topic, metrics) }
+        }
       }
+    }
 
-    def enhanceError(topic: Topic)(implicit
-      F: MonadThrowable[F],
+
+    def enhanceError(
+      topic: Topic)(implicit
+      F: MonadThrowable[F]
     ): ReplicatedTopicJournal[F] = {
 
-      def journalError(msg: String, cause: Throwable) =
+      def journalError(msg: String, cause: Throwable) = {
         JournalError(s"ReplicatedTopicJournal.$msg failed with $cause", cause)
+      }
 
       new EnhanceError with ReplicatedTopicJournal[F] {
 
-        def apply(partition: Partition) =
+        def apply(partition: Partition) = {
           self
             .apply(partition)
-            .map(_.enhanceError(topic, partition))
+            .map { _.enhanceError(topic, partition) }
             .adaptError { case a => journalError(s"journal topic: $topic, partition: $partition", a) }
+        }
       }
     }
   }

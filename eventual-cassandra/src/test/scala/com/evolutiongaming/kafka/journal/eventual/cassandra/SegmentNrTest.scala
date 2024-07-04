@@ -29,16 +29,15 @@ class SegmentNrTest extends AnyFunSuite with Matchers {
     (2, 0, List.empty[Int]),
     (0, 2, List(0, 1, 2)),
     (0, 0, List(0)),
-  ).foreach {
-    case (a, b, expected) =>
-      test(s"$a to $b") {
-        val result = for {
-          a <- SegmentNr.of[Try](a.toLong)
-          b <- SegmentNr.of[Try](b.toLong)
-          c <- a.to[Try](b)
-          _  = c.map(_.value) shouldEqual expected.map(_.toLong)
-        } yield {}
-        result.get
-      }
+  ).foreach { case (a, b, expected) =>
+    test(s"$a to $b") {
+      val result = for {
+        a <- SegmentNr.of[Try](a.toLong)
+        b <- SegmentNr.of[Try](b.toLong)
+        c <- a.to[Try](b)
+        _  = c.map { _.value } shouldEqual expected.map { _.toLong }
+      } yield {}
+      result.get
+    }
   }
 }

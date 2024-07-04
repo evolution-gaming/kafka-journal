@@ -18,13 +18,16 @@ object ExpireAfter {
 
   implicit val showExpireAfter: Show[ExpireAfter] = Show.fromToString
 
+
   implicit val orderingExpireAfter: Ordering[ExpireAfter] = (a, b) => a.value compare b.value
 
   implicit val orderExpireAfter: Order[ExpireAfter] = Order.fromOrdering
 
-  implicit val writesExpireAfter: Writes[ExpireAfter] = Writes.of[FiniteDuration].contramap(_.value)
 
-  implicit val readsExpireAfter: Reads[ExpireAfter] = Reads.of[FiniteDuration].map(a => ExpireAfter(a))
+  implicit val writesExpireAfter: Writes[ExpireAfter] = Writes.of[FiniteDuration].contramap { _.value }
+
+  implicit val readsExpireAfter: Reads[ExpireAfter] = Reads.of[FiniteDuration].map { a => ExpireAfter(a) }
+
 
   object implicits {
 

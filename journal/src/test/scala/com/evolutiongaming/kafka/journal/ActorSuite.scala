@@ -1,5 +1,6 @@
 package com.evolutiongaming.kafka.journal
 
+
 import akka.actor.ActorSystem
 import akka.testkit.{DefaultTimeout, ImplicitSender, TestKit}
 import com.typesafe.config.{Config, ConfigFactory}

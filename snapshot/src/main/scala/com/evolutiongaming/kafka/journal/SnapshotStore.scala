@@ -4,7 +4,8 @@ import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 
 /** Snapshot storage for Kafka Journal.
   *
-  * Uses `Key` instead of `persistenceId`, similar to [[ReplicatedJournalFlat]] and [[EventualJournal]].
+  * Uses `Key` instead of `persistenceId`, similar to [[ReplicatedJournalFlat]]
+  * and [[EventualJournal]].
   */
 trait SnapshotStore[F[_]] {
 
@@ -19,8 +20,8 @@ trait SnapshotStore[F[_]] {
 
   /** Loads a snapshot for a given key and selection criteria.
     *
-    * If several snapshots are found using a passed selection criteria for a specific key, then the last one (i.e. with
-    * a latest `SeqNr`) is returned.
+    * If several snapshots are found using a passed selection criteria for a
+    * specific key, then the last one (i.e. with a latest `SeqNr`) is returned.
     *
     * @param key
     *   Unique identifier of a journal snapshot was done for.
@@ -31,7 +32,8 @@ trait SnapshotStore[F[_]] {
 
   /** Deletes all snapshots for a given key and selection criteria.
     *
-    * If several snapshots are found using a passed selection criteria for a specific key, then all of them are deleted.
+    * If several snapshots are found using a passed selection criteria for a
+    * specific key, then all of them are deleted.
     *
     * @param key
     *   Unique identifier of a journal snapshot was done for.
@@ -42,8 +44,9 @@ trait SnapshotStore[F[_]] {
 
   /** Deletes a snapshot for a given key and sequence number.
     *
-    * The method returns the same as `load(key, SnapshotSelectionCriteria.one(seqNr))`, but additional optimizations
-    * might be possible.
+    * The method returns the same as
+    * `load(key, SnapshotSelectionCriteria.one(seqNr))`,
+    * but additional optimizations might be possible.
     *
     * @param key
     *   Unique identifier of a journal snapshot was done for.

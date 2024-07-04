@@ -6,13 +6,14 @@ import com.evolutiongaming.kafka.journal.Key
 
 /** Calculate [[SegementNr]] using the passed journal key.
   *
-  * It is expected that for the same key the same [[SegmentNr]] will be returned.
+  * It is expected that for the same key the same [[SegmentNr]] will be
+  * returned.
   *
-  * I.e. returning a constant value such as [[SegmentNr#min]] regardless a parameter is a valid, though inefficient
-  * implementation.
+  * I.e. returning a constant value such as [[SegmentNr#min]] regardless a
+  * parameter is a valid, though inefficient implementation.
   *
-  * @see
-  *   [[SegmentNrsOf]] for an implementation supporting backwards compatible change of the segmenting algorithm.
+  * @see [[SegmentNrsOf]] for an implementation supporting backwards compatible
+  * change of the segmenting algorithm.
   */
 trait SegmentOf[F[_]] {
 
@@ -23,17 +24,20 @@ object SegmentOf {
 
   /** Always return one and the same [[SegmentNrs]] instance.
     *
-    * It might be a very inefficient approach in some real life cases, i.e. all keys will get to one and the same
-    * Cassandra partition.
+    * It might be a very inefficient approach in some real life cases, i.e. all
+    * keys will get to one and the same Cassandra partition.
     */
   def const[F[_]: Applicative](segmentNr: SegmentNr): SegmentOf[F] = (_: Key) => segmentNr.pure[F]
 
   /** Calculate [[SegmentNr]] value by key using a hashing alorithm */
-  def apply[F[_]: Applicative](segments: Segments): SegmentOf[F] = { (key: Key) =>
-    val hashCode  = key.id.toLowerCase.hashCode
-    val segmentNr = SegmentNr(hashCode, segments)
-    segmentNr.pure[F]
+  def apply[F[_]: Applicative](segments: Segments): SegmentOf[F] = {
+    (key: Key) => {
+      val hashCode = key.id.toLowerCase.hashCode
+      val segmentNr = SegmentNr(hashCode, segments)
+      segmentNr.pure[F]
+    }
   }
+
 
   implicit class SegmentOfOps[F[_]](val self: SegmentOf[F]) extends AnyVal {
 

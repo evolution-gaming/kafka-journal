@@ -13,11 +13,15 @@ trait TopicFlowOf[F[_]] {
 
 object TopicFlowOf {
 
-  def empty[F[_]: Applicative]: TopicFlowOf[F] = (_: Topic) => TopicFlow.empty[F].pure[F].toResource
+  def empty[F[_] : Applicative]: TopicFlowOf[F] = (_: Topic) => TopicFlow.empty[F].pure[F].toResource
+
 
   implicit class TopicFlowOfOps[F[_]](val self: TopicFlowOf[F]) extends AnyVal {
 
-    def mapK[G[_]](f: F ~> G)(implicit B: MonadCancel[F, Throwable], BG: MonadCancel[G, Throwable]): TopicFlowOf[G] = {
+    def mapK[G[_]](f: F ~> G)
+                  (implicit
+                   B: MonadCancel[F, Throwable],
+                   BG: MonadCancel[G, Throwable]): TopicFlowOf[G] = {
       (topic: Topic) => self(topic).map(_.mapK(f)).mapK(f)
     }
   }

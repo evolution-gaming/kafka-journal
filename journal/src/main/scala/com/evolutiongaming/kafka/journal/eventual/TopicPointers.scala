@@ -14,15 +14,18 @@ object TopicPointers {
 
   val empty: TopicPointers = TopicPointers()
 
+
   implicit class TopicPointersOps(val self: TopicPointers) extends AnyVal {
 
-    def +(pointers: TopicPointers): TopicPointers =
+    def +(pointers: TopicPointers): TopicPointers = {
       self.copy(self.values ++ pointers.values)
+    }
 
-    def append(partition: Partition, offset: Option[Offset]): TopicPointers =
+    def append(partition: Partition, offset: Option[Offset]): TopicPointers = {
       offset match {
         case Some(offset) => TopicPointers(self.values.updated(partition, offset))
         case None         => self
       }
+    }
   }
 }

@@ -1,10 +1,11 @@
 package com.evolutiongaming.kafka.journal
 
+
 import cats.syntax.all._
 
 final case class JournalError(
   msg: String,
-  cause: Option[Throwable] = None,
+  cause: Option[Throwable] = None
 ) extends RuntimeException(msg, cause.orNull)
 
 object JournalError {

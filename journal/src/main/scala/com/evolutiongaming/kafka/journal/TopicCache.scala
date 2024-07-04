@@ -5,11 +5,11 @@ import cats.data.{NonEmptyMap => Nem, NonEmptySet => Nes}
 import cats.effect._
 import cats.effect.syntax.all._
 import cats.syntax.all._
-import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.catshelper._
-import com.evolutiongaming.kafka.journal.HeadCache.Eventual
+import com.evolutiongaming.catshelper.ParallelHelper._
 import com.evolutiongaming.kafka.journal.conversions.ConsRecordToActionHeader
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
+import com.evolutiongaming.kafka.journal.HeadCache.Eventual
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.Retry.implicits._
 import com.evolutiongaming.retry.{Sleep, Strategy}
@@ -20,7 +20,8 @@ import scala.concurrent.duration._
 
 /** Maintains an information about non-replicated Kafka records in a topic.
   *
-  * The implementation reads both Kafka and Cassandra by itself, continously refreshing the information.
+  * The implementation reads both Kafka and Cassandra by itself, continously
+  * refreshing the information.
   */
 trait TopicCache[F[_]] {
 
@@ -29,16 +30,18 @@ trait TopicCache[F[_]] {
     * @param id
     *   Journal id
     * @param partition
-    *   Partition where journal is stored to. The usual way to get the partition is to write a "marker" record to Kafka
-    *   topic and use the partition of the marker as a current one.
+    *   Partition where journal is stored to. The usual way to get the partition
+    *   is to write a "marker" record to Kafka topic and use the partition of
+    *   the marker as a current one.
     * @param offset
-    *   Current [[Offset]], i.e. maximum offset where Kafka records related to a journal are located. The usual way to
-    *   get such an offset is to write a "marker" record to Kafka patition and use the offset of the marker as a current
-    *   one.
+    *   Current [[Offset]], i.e. maximum offset where Kafka records related to a
+    *   journal are located. The usual way to get such an offset is to write a
+    *   "marker" record to Kafka patition and use the offset of the marker as a
+    *   current one.
     *
     * @return
-    *   [[PartitionCache.Result]] with either the current state or indication of a reason why such state is not present
-    *   in a cache.
+    *   [[PartitionCache.Result]] with either the current state or indication of
+    *   a reason why such state is not present in a cache.
     *
     * @see
     *   [[PartitionCache.Result]] for more details on possible results.
@@ -57,18 +60,21 @@ object TopicCache {
     * @param log
     *   Logger used to write debug logs to.
     * @param consumer
-    *   Kafka data source factory. The reason why it is factory (i.e. `Resource`) is that [[HeadCache]] will try to
-    *   recreate consumer in case of the failure.
+    *   Kafka data source factory. The reason why it is factory (i.e.
+    *   `Resource`) is that [[HeadCache]] will try to recreate consumer in case
+    *   of the failure.
     * @param config
     *   [[HeadCache]] configuration.
     * @param consRecordToActionHeader
-    *   Function used to parse records coming from `consumer`. Only headers will be parsed, and the payload will be
-    *   ignored.
+    *   Function used to parse records coming from `consumer`. Only headers will
+    *   be parsed, and the payload will be ignored.
     * @param metrics
     *   Interface to report the metrics to.
     * @return
-    *   Resource which will configure a [[TopicCache]] with the passed parameters. Instance of `Resource[TopicCache]`
-    *   are, obviously, reusable and there is no need to call [[TopicCache#of]] each time if parameters did not change.
+    *   Resource which will configure a [[TopicCache]] with the passed
+    *   parameters. Instance of `Resource[TopicCache]` are, obviously, reusable
+    *   and there is no need to call [[TopicCache#of]] each time if parameters
+    *   did not change.
     */
   def of[F[_]: Async: Parallel: Runtime](
     eventual: Eventual[F],
@@ -77,118 +83,130 @@ object TopicCache {
     consumer: Resource[F, Consumer[F]],
     config: HeadCacheConfig,
     consRecordToActionHeader: ConsRecordToActionHeader[F],
-    metrics: Option[HeadCache.Metrics[F]],
+    metrics: Option[HeadCache.Metrics[F]]
   ): Resource[F, TopicCache[F]] = {
 
     for {
-      consumer <- consumer
-        .map(_.withLog(log))
+      consumer   <- consumer
+        .map { _.withLog(log) }
         .pure[Resource[F, *]]
-      partitions <- consumer.use(_.partitions(topic)).toResource
+      partitions <- consumer
+        .use { _.partitions(topic) }
+        .toResource
 
-      caches <- partitions.toList
+      caches     <- partitions
+        .toList
         .parTraverse { partition =>
           PartitionCache
             .of(
               maxSize = config.partition.maxSize,
               dropUponLimit = config.partition.dropUponLimit,
-              timeout = config.timeout,
-            )
+              timeout = config.timeout)
             .map { partitionCache =>
               (partition, partitionCache)
             }
         }
 
-      cachesMap = caches.toMap
+      cachesMap  = caches.toMap
 
-      remove = caches
-        .foldMapM {
-          case (partition, cache) =>
-            for {
-              offset <- eventual.pointer(topic, partition)
-              result <- offset.foldMapM { offset =>
-                cache
-                  .remove(offset)
-                  .map { diff =>
-                    diff.foldMap(a => Sample(a.value))
-                  }
-              }
-            } yield result
+      remove     = caches
+        .foldMapM { case (partition, cache) =>
+          for {
+            offset <- eventual.pointer(topic, partition)
+            result <- offset.foldMapM { offset =>
+              cache
+                .remove(offset)
+                .map { diff =>
+                  diff.foldMap { a => Sample(a.value) }
+                }
+            }
+          } yield result
         }
         .flatMap { sample =>
-          sample.avg
+          sample
+            .avg
             .foldMapM { diff =>
-              metrics.foldMapM(_.storage(topic, diff))
+              metrics.foldMapM { _.storage(topic, diff) }
             }
         }
-      _ <- remove.toResource
-      pointers = caches
-        .traverse {
-          case (partition, cache) =>
-            cache.offset
-              .flatMap {
-                case Some(offset) => offset.inc[F]
-                case None         => Offset.min.pure[F]
-              }
-              .map(offset => (partition, offset))
+      _         <- remove.toResource
+      pointers   = caches
+        .traverse { case (partition, cache) =>
+          cache
+            .offset
+            .flatMap {
+              case Some(offset) => offset.inc[F]
+              case None         => Offset.min.pure[F]
+            }
+            .map { offset => (partition, offset) }
         }
-        .map(_.toMap)
+        .map { _.toMap }
 
       _ <- HeadCacheConsumption
-        .apply(topic = topic, pointers = pointers, consumer = consumer, log = log)
+        .apply(
+          topic = topic,
+          pointers = pointers,
+          consumer = consumer,
+          log = log)
         .foreach { records =>
           for {
             now <- Clock[F].realTime
-            result <- records.values
-              .parFoldMap1 {
-                case (topicPartition, records) =>
-                  records
-                    .traverse { record =>
-                      record.key
-                        .traverseFilter { key =>
-                          consRecordToActionHeader
-                            .apply(record)
-                            .map(header => PartitionCache.Record.Data(key.value, header))
-                            .value
-                        }
-                        .map { data =>
-                          PartitionCache.Record(record.offset, data)
-                        }
-                    }
-                    .flatMap { records =>
-                      val partition = topicPartition.partition
-                      cachesMap
-                        .get(partition)
-                        .fold {
-                          JournalError(s"invalid partition: $partition").raiseError[F, Sample]
-                        } { cache =>
-                          cache
-                            .add(records)
-                            .map {
-                              case Some(a) => Sample(a.value)
-                              case None    => Sample.Empty
-                            }
-                        }
-                    }
+            result <- records
+              .values
+              .parFoldMap1 { case (topicPartition, records) =>
+                records
+                  .traverse { record =>
+                    record
+                      .key
+                      .traverseFilter { key =>
+                        consRecordToActionHeader
+                          .apply(record)
+                          .map { header => PartitionCache.Record.Data(key.value, header) }
+                          .value
+                      }
+                      .map { data =>
+                        PartitionCache.Record(record.offset, data)
+                      }
+                  }
+                  .flatMap { records =>
+                    val partition = topicPartition.partition
+                    cachesMap
+                      .get(partition)
+                      .fold {
+                        JournalError(s"invalid partition: $partition").raiseError[F, Sample]
+                      } { cache =>
+                        cache
+                          .add(records)
+                          .map {
+                            case Some(a) => Sample(a.value)
+                            case None    => Sample.Empty
+                          }
+                      }
+                  }
               }
               .flatMap { sample =>
                 metrics.foldMapM { metrics =>
-                  sample.avg
+                  sample
+                    .avg
                     .foldMapM { diff =>
-                      records.values
-                        .foldLeft(none[Long]) {
-                          case (timestamp, (_, records)) =>
-                            records
-                              .foldLeft(timestamp) {
-                                case (timestamp, record) =>
-                                  record.timestampAndType
-                                    .fold {
-                                      timestamp
-                                    } { timestampAndType =>
-                                      val timestamp1 = timestampAndType.timestamp.toEpochMilli
-                                      timestamp.fold(timestamp1)(_.min(timestamp1)).some
-                                    }
-                              }
+                      records
+                        .values
+                        .foldLeft(none[Long]) { case (timestamp, (_, records)) =>
+                          records
+                            .foldLeft(timestamp) { case (timestamp, record) =>
+                              record
+                                .timestampAndType
+                                .fold {
+                                  timestamp
+                                } { timestampAndType =>
+                                  val timestamp1 = timestampAndType
+                                    .timestamp
+                                    .toEpochMilli
+                                  timestamp
+                                    .fold { timestamp1 } { _.min(timestamp1) }
+                                    .some
+                                }
+                            }
                         }
                         .foldMapM { timestamp =>
                           metrics.consumer(topic, age = now - timestamp.millis, diff = diff)
@@ -207,9 +225,9 @@ object TopicCache {
         .jitter(random)
       _ <- Sleep[F]
         .sleep(config.removeInterval)
-        .productR(remove)
+        .productR { remove }
         .retry(strategy)
-        .handleErrorWith(a => log.error(s"remove failed, error: $a", a))
+        .handleErrorWith { a => log.error(s"remove failed, error: $a", a) }
         .foreverM[Unit]
         .background
       _ <- metrics.foldMapM { metrics =>
@@ -219,7 +237,7 @@ object TopicCache {
           a <- metrics.meters(topic, entries = a.entries, listeners = a.listeners)
         } yield a
         result
-          .handleErrorWith(a => log.error(s"metrics.listeners failed, error: $a", a))
+          .handleErrorWith { a => log.error(s"metrics.listeners failed, error: $a", a) }
           .foreverM[Unit]
           .background
           .void
@@ -228,7 +246,7 @@ object TopicCache {
       class Main
       new Main with TopicCache[F] {
 
-        def get(id: String, partition: Partition, offset: Offset) =
+        def get(id: String, partition: Partition, offset: Offset) = {
           cachesMap
             .get(partition)
             .fold {
@@ -236,28 +254,31 @@ object TopicCache {
             } { cache =>
               cache.get(id, offset)
             }
+        }
       }
     }
   }
 
   /** Lighweight wrapper over [[KafkaConsumer]].
     *
-    * Allows easier stubbing in unit tests and provides a little bit more convenient [[TopicCache]]-specific API.
+    * Allows easier stubbing in unit tests and provides a little bit more
+    * convenient [[TopicCache]]-specific API.
     */
   trait Consumer[F[_]] {
 
-    /** Assigns specific topic partitions to a consumer.
-      *
-      * I.e. consumer groups will not be used.
-      *
-      * @see
-      *   [[KafkaConsumer#assign]] for more details.
-      */
+   /** Assigns specific topic partitions to a consumer.
+     *
+     * I.e. consumer groups will not be used.
+     *
+     * @see
+     *   [[KafkaConsumer#assign]] for more details.
+     */
     def assign(topic: Topic, partitions: Nes[Partition]): F[Unit]
 
     /** Moves fetching position to a different offset(s).
       *
-      * The read will start from the new offsets the next time [[#poll]] is called.
+      * The read will start from the new offsets the next time [[#poll]] is
+      * called.
       *
       * @see
       *   [[KafkaConsumer#seek]] for more details.
@@ -296,18 +317,17 @@ object TopicCache {
       }
     }
 
+
     def apply[F[_]](implicit F: Consumer[F]): Consumer[F] = F
 
     /** Wraps existing [[KafkaConsumer]] into [[Consumer]] API.
       *
-      * @param consumer
-      *   Previously created [[KafkaConsumer]].
-      * @param pollTimeout
-      *   The timeout to use for [[KafkaConsumer#poll]].
+      * @param consumer Previously created [[KafkaConsumer]].
+      * @param pollTimeout The timeout to use for [[KafkaConsumer#poll]].
       */
     def apply[F[_]: Monad](
       consumer: KafkaConsumer[F, String, Unit],
-      pollTimeout: FiniteDuration,
+      pollTimeout: FiniteDuration
     ): Consumer[F] = {
 
       class Main
@@ -320,12 +340,12 @@ object TopicCache {
           consumer.assign(partitions1)
         }
 
-        def seek(topic: Topic, offsets: Nem[Partition, Offset]) =
-          offsets.toNel.foldMapM {
-            case (partition, offset) =>
-              val topicPartition = TopicPartition(topic = topic, partition = partition)
-              consumer.seek(topicPartition, offset)
+        def seek(topic: Topic, offsets: Nem[Partition, Offset]) = {
+          offsets.toNel.foldMapM { case (partition, offset) =>
+            val topicPartition = TopicPartition(topic = topic, partition = partition)
+            consumer.seek(topicPartition, offset)
           }
+        }
 
         val poll = consumer.poll(pollTimeout)
 
@@ -336,46 +356,55 @@ object TopicCache {
     /** Creates a new [[KafkaConsumer]] and wraps it into [[Consumer]] API.
       *
       * @param config
-      *   Kafka configuration in form of [[ConsumerConfig]]. It is used to get Kafka address, mostly, and some important
-      *   parameters will be ignored, as these need to be set to specific values for the cache to work. I.e.
+      *   Kafka configuration in form of [[ConsumerConfig]]. It is used to get
+      *   Kafka address, mostly, and some important parameters will be ignored,
+      *   as these need to be set to specific values for the cache to work. I.e.
       *   `autoOffsetReset`, `groupId` and `autoCommit` will not be used.
       * @param pollTimeout
       *   The timeout to use for [[KafkaConsumer#poll]].
       */
     def of[F[_]: Monad: KafkaConsumerOf: FromTry](
       config: ConsumerConfig,
-      pollTimeout: FiniteDuration = 10.millis,
+      pollTimeout: FiniteDuration = 10.millis
     ): Resource[F, Consumer[F]] = {
-      val config1 = config.copy(autoOffsetReset = AutoOffsetReset.Earliest, groupId = None, autoCommit = false)
+      val config1 = config.copy(
+        autoOffsetReset = AutoOffsetReset.Earliest,
+        groupId = None,
+        autoCommit = false)
       for {
         consumer <- KafkaConsumerOf[F].apply[String, Unit](config1)
-      } yield Consumer[F](consumer, pollTimeout)
+      } yield {
+        Consumer[F](consumer, pollTimeout)
+      }
     }
 
-    sealed abstract private class WithLog
+    private abstract sealed class WithLog
 
     implicit class ConsumerOps[F[_]](val self: Consumer[F]) extends AnyVal {
 
       /** Log debug messages on every call to the class methods.
         *
-        * The messages will go to DEBUG level, so it is also necessary to enable it in logger configuration.
+        * The messages will go to DEBUG level, so it is also necessary to enable
+        * it in logger configuration.
         */
-      def withLog(log: Log[F])(implicit F: Monad[F]): Consumer[F] =
+      def withLog(log: Log[F])(implicit F: Monad[F]): Consumer[F] = {
         new WithLog with Consumer[F] {
 
-          def assign(topic: Topic, partitions: Nes[Partition]) =
+          def assign(topic: Topic, partitions: Nes[Partition]) = {
             for {
               _ <- log.debug(s"assign topic: $topic, partitions: $partitions")
               a <- self.assign(topic, partitions)
             } yield a
+          }
 
-          def seek(topic: Topic, offsets: Nem[Partition, Offset]) =
+          def seek(topic: Topic, offsets: Nem[Partition, Offset]) = {
             for {
               _ <- log.debug(s"seek topic: $topic, offsets: $offsets")
               a <- self.seek(topic, offsets)
             } yield a
+          }
 
-          def poll =
+          def poll = {
             for {
               a <- self.poll
               _ <- {
@@ -383,26 +412,31 @@ object TopicCache {
                   ().pure[F]
                 } else {
                   log.debug {
-                    val size = a.values.values.foldLeft(0L)(_ + _.size)
+                    val size = a.values.values.foldLeft(0L) { _ + _.size }
                     s"poll result: $size"
                   }
                 }
               }
             } yield a
+          }
 
-          def partitions(topic: Topic) =
+          def partitions(topic: Topic) = {
             for {
               a <- self.partitions(topic)
               _ <- log.debug(s"partitions topic: $topic, result: $a")
             } yield a
+          }
         }
+      }
     }
   }
 
+
   /** Cumulative average of some data stream.
     *
-    * If one has to calcuate an average for a large list of numbers, one does not have to keep all these numbers in a
-    * memory. It is enough to keep sum of them and the count.
+    * If one has to calcuate an average for a large list of numbers, one does
+    * not have to keep all these numbers in a memory. It is enough to keep sum
+    * of them and the count.
     *
     * @param sum
     *   Sum of all numbers seen.
@@ -419,7 +453,7 @@ object TopicCache {
     * @see
     *   https://en.wikipedia.org/wiki/Moving_average#Cumulative_average
     */
-  final private case class Sample(sum: Long, count: Int)
+  private final case class Sample(sum: Long, count: Int)
 
   private object Sample {
 
@@ -433,33 +467,38 @@ object TopicCache {
 
       def empty = Empty
 
-      def combine(a: Sample, b: Sample) =
-        Sample(sum = a.sum.combine(b.sum), count = a.count.combine(b.count))
+      def combine(a: Sample, b: Sample) = {
+        Sample(
+          sum = a.sum.combine(b.sum),
+          count = a.count.combine(b.count))
+      }
     }
 
     implicit class SampleOps(val self: Sample) extends AnyVal {
 
       /** Average of the all numbers seen, or `None` if no numbers were added.
         *
-        * @return
-        *   Average of all numbers seen, rounded down.
+        * @return Average of all numbers seen, rounded down.
         */
-      def avg: Option[Long] =
+      def avg: Option[Long] = {
         if (self.count > 0) (self.sum / self.count).some else none
+      }
     }
   }
 
-  sealed abstract private class WithMetrics
+  private sealed abstract class WithMetrics
 
-  sealed abstract private class WithLog
+  private sealed abstract class WithLog
 
   implicit class TopicCacheOps[F[_]](val self: TopicCache[F]) extends AnyVal {
 
     /** Wrap instance in a class, which logs metrics to [[HeadCache.Metrics]] */
-    def withMetrics(topic: Topic, metrics: HeadCache.Metrics[F])(implicit
+    def withMetrics(
+      topic: Topic,
+      metrics: HeadCache.Metrics[F])(implicit
       F: MonadThrowable[F],
-      measureDuration: MeasureDuration[F],
-    ): TopicCache[F] =
+      measureDuration: MeasureDuration[F]
+    ): TopicCache[F] = {
       new WithMetrics with TopicCache[F] {
 
         def get(id: String, partition: Partition, offset: Offset) = {
@@ -488,15 +527,17 @@ object TopicCache {
                 f(a.asRight, true)
 
               case Right(Result.Later.Behind(a)) =>
-                val result = a.attempt
-                  .flatMap(a => f(a, false))
+                val result = a
+                  .attempt
+                  .flatMap { a => f(a, false) }
                 Result
                   .behind(result)
                   .pure[F]
 
               case Right(Result.Later.Empty(a)) =>
-                val result = a.attempt
-                  .flatMap(a => f(a, false))
+                val result = a
+                  .attempt
+                  .flatMap { a => f(a, false) }
                 Result
                   .empty(result)
                   .pure[F]
@@ -507,34 +548,39 @@ object TopicCache {
           } yield a
         }
       }
+    }
 
     /** Log debug messages on every call to a cache.
       *
-      * The messages will go to DEBUG level, so it is also necessary to enable it in logger configuration.
+      * The messages will go to DEBUG level, so it is also necessary to enable
+      * it in logger configuration.
       */
-    def withLog(log: Log[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): TopicCache[F] =
+    def withLog(log: Log[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): TopicCache[F] = {
       new WithLog with TopicCache[F] {
 
-        def get(id: String, partition: Partition, offset: Offset) =
+        def get(id: String, partition: Partition, offset: Offset) = {
           for {
             d <- MeasureDuration[F].start
             a <- self.get(id, partition, offset)
             d <- d
-            _ <- log.debug(s"get in ${d.toMillis}ms, id: $id, offset: $partition:$offset, result: $a")
+            _ <- log.debug(s"get in ${ d.toMillis }ms, id: $id, offset: $partition:$offset, result: $a")
           } yield a
+        }
       }
+    }
   }
 
-  implicit final private class SetOps[A](val self: Set[A]) extends AnyVal {
+  private final implicit class SetOps[A](val self: Set[A]) extends AnyVal {
 
     /** Aggregate all values in a set to something else using [[Monoid]].
       *
       * In other words, provides `foldMapM` method to `Set`.
       *
-      * The method is not provided directly by `cats-core`, because it is unlawful.
+      * The method is not provided directly by `cats-core`,
+      * because it is unlawful.
       *
-      * It is possible to achieve the same using `alleycats-core` library like this, so the method might be removed in
-      * future:
+      * It is possible to achieve the same using `alleycats-core`
+      * library like this, so the method might be removed in future:
       * {{{
       * scala> import cats.syntax.all._
       * scala> import alleycats.std.all._
@@ -542,22 +588,22 @@ object TopicCache {
       * val res0: Option[Int] = Some(6)
       * }}}
       */
-    def foldMapM[F[_]: Monad, B: Monoid](f: A => F[B]): F[B] =
-      self.foldLeft(Monoid[B].empty.pure[F]) {
-        case (b0, a) =>
-          for {
-            b0 <- b0
-            b1 <- f(a)
-          } yield b0.combine(b1)
+    def foldMapM[F[_]: Monad, B: Monoid](f: A => F[B]): F[B] = {
+      self.foldLeft(Monoid[B].empty.pure[F]) { case (b0, a) =>
+        for {
+          b0 <- b0
+          b1 <- f(a)
+        } yield b0.combine(b1)
       }
+    }
 
   }
 
-  implicit final private class MapOps[K, V](val self: Map[K, V]) extends AnyVal {
-    def foldMapM[F[_]: Monad, A: Monoid](f: (K, V) => F[A]): F[A] =
-      self.foldLeft(Monoid[A].empty.pure[F]) {
-        case (a, (k, v)) =>
-          a.flatMap(a => f(k, v).map(b => a.combine(b)))
+  private final implicit class MapOps[K, V](val self: Map[K, V]) extends AnyVal {
+    def foldMapM[F[_]: Monad, A: Monoid](f: (K, V) => F[A]): F[A] = {
+      self.foldLeft(Monoid[A].empty.pure[F]) { case (a, (k, v)) =>
+        a.flatMap { a => f(k, v).map { b => a.combine(b) } }
       }
+    }
   }
 }

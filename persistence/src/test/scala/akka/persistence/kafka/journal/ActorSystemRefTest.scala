@@ -13,7 +13,7 @@ class ActorSystemRefTest extends AsyncFunSuite with ActorSuite with Matchers {
 
   test("Extension") {
     val result = for {
-      ref <- Sync[IO].delay(Extension(actorSystem))
+      ref <- Sync[IO].delay { Extension(actorSystem) }
       ref <- ref.fromFuture[IO].mapK(FunctionK.id).pure[IO]
       a   <- ref.get.start
       _   <- ref.set(0)

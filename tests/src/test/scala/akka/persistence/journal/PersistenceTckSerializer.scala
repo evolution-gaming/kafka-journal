@@ -1,11 +1,11 @@
 package akka.persistence.journal
 
+import java.io.NotSerializableException
+
 import akka.persistence.journal.JournalPerfSpec.Cmd
 import akka.serialization.SerializerWithStringManifest
 import scodec.bits.BitVector
 import scodec.{Codec, codecs}
-
-import java.io.NotSerializableException
 
 class PersistenceTckSerializer extends SerializerWithStringManifest {
   import PersistenceTckSerializer._
@@ -14,20 +14,22 @@ class PersistenceTckSerializer extends SerializerWithStringManifest {
 
   def manifest(a: AnyRef): String = a match {
     case _: Cmd => cmdManifest
-    case _      => illegalArgument(s"Cannot serialize message of ${a.getClass} in ${getClass.getName}")
+    case _      => illegalArgument(s"Cannot serialize message of ${ a.getClass } in ${ getClass.getName }")
   }
 
-  def toBinary(a: AnyRef): Array[Byte] =
+  def toBinary(a: AnyRef): Array[Byte] = {
     a match {
       case a: Cmd => cmdCodec.encode(a).require.toByteArray
-      case _      => illegalArgument(s"Cannot serialize message of ${a.getClass} in ${getClass.getName}")
+      case _      => illegalArgument(s"Cannot serialize message of ${ a.getClass } in ${ getClass.getName }")
     }
+  }
 
-  def fromBinary(bytes: Array[Byte], manifest: String): AnyRef =
+  def fromBinary(bytes: Array[Byte], manifest: String): AnyRef = {
     manifest match {
       case `cmdManifest` => cmdCodec.decode(BitVector.view(bytes)).require.value
-      case _             => notSerializable(s"Cannot deserialize message for manifest $manifest in ${getClass.getName}")
+      case _             => notSerializable(s"Cannot deserialize message for manifest $manifest in ${ getClass.getName }")
     }
+  }
 
   private def notSerializable(msg: String) = throw new NotSerializableException(msg)
 

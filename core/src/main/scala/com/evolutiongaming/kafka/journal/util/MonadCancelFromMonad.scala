@@ -13,3 +13,4 @@ trait MonadCancelFromMonad[F[_], E] extends MonadCancel[F, E] {
 
   def pure[A](a: A): F[A] = F.pure(a)
 }
+

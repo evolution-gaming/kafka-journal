@@ -1,13 +1,13 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.Monad
 import cats.syntax.all._
+import cats.Monad
 import com.datastax.driver.core.GettableByNameData
 import com.evolutiongaming.catshelper.DataHelper._
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper._
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper._
-import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.scassandra.{DecodeRow, TableName}
+import com.evolutiongaming.scassandra.syntax._
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 import java.time.Instant
@@ -15,9 +15,9 @@ import scala.collection.immutable.SortedSet
 
 object Pointer2Statements {
 
-  def createTable(name: TableName): String =
+  def createTable(name: TableName): String = {
     s"""
-       |CREATE TABLE IF NOT EXISTS ${name.toCql} (
+       |CREATE TABLE IF NOT EXISTS ${ name.toCql } (
        |topic text,
        |partition int,
        |offset bigint,
@@ -25,6 +25,7 @@ object Pointer2Statements {
        |updated timestamp,
        |PRIMARY KEY ((topic, partition)))
        |""".stripMargin
+  }
 
   trait SelectTopics[F[_]] {
     def apply(): F[SortedSet[Topic]]
@@ -34,21 +35,26 @@ object Pointer2Statements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read
     ): F[SelectTopics[F]] = {
 
-      val query = s"""SELECT DISTINCT topic, partition FROM ${name.toCql}""".stripMargin
+      val query = s"""SELECT DISTINCT topic, partition FROM ${ name.toCql }""".stripMargin
 
-      query.prepare
-        .map { prepared => () =>
-          prepared
-            .bind()
-            .setConsistencyLevel(consistencyConfig.value)
-            .execute
-            .toList
-            .map { records =>
-              records.map(_.decode[Topic]("topic")).toSortedSet
-            }
+      query
+        .prepare
+        .map { prepared =>
+          () => {
+            prepared
+              .bind()
+              .setConsistencyLevel(consistencyConfig.value)
+              .execute
+              .toList
+              .map { records =>
+                records
+                  .map { _.decode[Topic]("topic") }
+                  .toSortedSet
+              }
+          }
         }
     }
   }
@@ -63,30 +69,34 @@ object Pointer2Statements {
     final case class Result(created: Option[Instant])
 
     object Result {
-      implicit val decodeResult: DecodeRow[Result] = { (row: GettableByNameData) =>
-        Result(row.decode[Option[Instant]]("created"))
+      implicit val decodeResult: DecodeRow[Result] = {
+        (row: GettableByNameData) => {
+          Result(row.decode[Option[Instant]]("created"))
+        }
       }
     }
 
-    def of[F[_]: Monad: CassandraSession](
-      name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
-    ): F[Select[F]] =
+    def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read): F[Select[F]] = {
       s"""
-         |SELECT created FROM ${name.toCql}
+         |SELECT created FROM ${ name.toCql }
          |WHERE topic = ?
          |AND partition = ?
-         |""".stripMargin.prepare
-        .map { prepared => (topic: Topic, partition: Partition) =>
-          prepared
-            .bind()
-            .encode("topic", topic)
-            .encode("partition", partition)
-            .setConsistencyLevel(consistencyConfig.value)
-            .first
-            .map(_.map(_.decode[Result]))
+         |"""
+        .stripMargin
+        .prepare
+        .map { prepared =>
+          (topic: Topic, partition: Partition) =>
+            prepared
+              .bind()
+              .encode("topic", topic)
+              .encode("partition", partition)
+              .setConsistencyLevel(consistencyConfig.value)
+              .first
+              .map { _.map { _.decode[Result] } }
         }
+    }
   }
+
 
   trait SelectOffset[F[_]] {
 
@@ -95,27 +105,26 @@ object Pointer2Statements {
 
   object SelectOffset {
 
-    def of[F[_]: Monad: CassandraSession](
-      name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
-    ): F[SelectOffset[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read): F[SelectOffset[F]] = {
 
       val query =
         s"""
-           |SELECT offset FROM ${name.toCql}
+           |SELECT offset FROM ${ name.toCql }
            |WHERE topic = ?
            |AND partition = ?
            |""".stripMargin
 
-      query.prepare
-        .map { prepared => (topic: Topic, partition: Partition) =>
-          prepared
-            .bind()
-            .encode("topic", topic)
-            .encode("partition", partition)
-            .setConsistencyLevel(consistencyConfig.value)
-            .first
-            .map(_.map(_.decode[Offset]("offset")))
+      query
+        .prepare
+        .map { prepared =>
+          (topic: Topic, partition: Partition) =>
+            prepared
+              .bind()
+              .encode("topic", topic)
+              .encode("partition", partition)
+              .setConsistencyLevel(consistencyConfig.value)
+              .first
+              .map { _.map { _.decode[Offset]("offset") } }
         }
     }
   }
@@ -129,30 +138,33 @@ object Pointer2Statements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
+      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write
     ): F[Insert[F]] = {
 
       val query =
         s"""
-           |INSERT INTO ${name.toCql} (topic, partition, offset, created, updated)
+           |INSERT INTO ${ name.toCql } (topic, partition, offset, created, updated)
            |VALUES (?, ?, ?, ?, ?)
            |""".stripMargin
 
-      query.prepare
-        .map { prepared => (topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant) =>
-          prepared
-            .bind()
-            .encode("topic", topic)
-            .encode(partition)
-            .encode(offset)
-            .encode("created", created)
-            .encode("updated", updated)
-            .setConsistencyLevel(consistencyConfig.value)
-            .first
-            .void
+      query
+        .prepare
+        .map { prepared =>
+          (topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant) =>
+            prepared
+              .bind()
+              .encode("topic", topic)
+              .encode(partition)
+              .encode(offset)
+              .encode("created", created)
+              .encode("updated", updated)
+              .setConsistencyLevel(consistencyConfig.value)
+              .first
+              .void
         }
     }
   }
+
 
   trait Update[F[_]] {
 
@@ -161,30 +173,29 @@ object Pointer2Statements {
 
   object Update {
 
-    def of[F[_]: Monad: CassandraSession](
-      name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
-    ): F[Update[F]] = {
+    def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write): F[Update[F]] = {
 
       val query =
         s"""
-           |UPDATE ${name.toCql}
+           |UPDATE ${ name.toCql }
            |SET offset = ?, updated = ?
            |WHERE topic = ?
            |AND partition = ?
            |""".stripMargin
 
-      query.prepare
-        .map { prepared => (topic: Topic, partition: Partition, offset: Offset, timestamp: Instant) =>
-          prepared
-            .bind()
-            .encode("topic", topic)
-            .encode("partition", partition)
-            .encode("offset", offset)
-            .encode("updated", timestamp)
-            .setConsistencyLevel(consistencyConfig.value)
-            .first
-            .void
+      query
+        .prepare
+        .map { prepared =>
+          (topic: Topic, partition: Partition, offset: Offset, timestamp: Instant) =>
+            prepared
+              .bind()
+              .encode("topic", topic)
+              .encode("partition", partition)
+              .encode("offset", offset)
+              .encode("updated", timestamp)
+              .setConsistencyLevel(consistencyConfig.value)
+              .first
+              .void
         }
     }
   }
@@ -196,27 +207,28 @@ object Pointer2Statements {
 
   object UpdateCreated {
 
-    def of[F[_]: Monad: CassandraSession](
-      name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
-    ): F[UpdateCreated[F]] =
+    def of[F[_]: Monad: CassandraSession](name: TableName, consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write): F[UpdateCreated[F]] = {
       s"""
-         |UPDATE ${name.toCql}
+         |UPDATE ${ name.toCql }
          |SET offset = ?, created = ?, updated = ?
          |WHERE topic = ?
          |AND partition = ?
-         |""".stripMargin.prepare
-        .map { prepared => (topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant) =>
-          prepared
-            .bind()
-            .encode("topic", topic)
-            .encode("partition", partition)
-            .encode("offset", offset)
-            .encode("created", created)
-            .encode("updated", updated)
-            .setConsistencyLevel(consistencyConfig.value)
-            .first
-            .void
+         |"""
+        .stripMargin
+        .prepare
+        .map { prepared =>
+          (topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant) =>
+            prepared
+              .bind()
+              .encode("topic", topic)
+              .encode("partition", partition)
+              .encode("offset", offset)
+              .encode("created", created)
+              .encode("updated", updated)
+              .setConsistencyLevel(consistencyConfig.value)
+              .first
+              .void
         }
+    }
   }
 }

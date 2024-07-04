@@ -24,24 +24,25 @@ object ReadEventsApp extends IOApp {
     runF[IO].as(ExitCode.Success)
   }
 
-  private def runF[F[_]: Async: ToFuture: Parallel: FromGFuture: FromTry: ToTry: Fail]: F[Unit] =
+  private def runF[F[_]: Async: ToFuture: Parallel: FromGFuture: FromTry: ToTry: Fail]: F[Unit] = {
+
     for {
-      logOf <- LogOf.slf4j[F]
-      log   <- logOf(ReadEventsApp.getClass)
+      logOf  <- LogOf.slf4j[F]
+      log    <- logOf(ReadEventsApp.getClass)
       result <- {
-        implicit val logOf1          = logOf
+        implicit val logOf1 = logOf
         implicit val measureDuration = MeasureDuration.fromClock(Clock[F])
-        implicit val fromAttempt     = FromAttempt.lift[F]
-        implicit val fromJsResult    = FromJsResult.lift[F]
+        implicit val fromAttempt = FromAttempt.lift[F]
+        implicit val fromJsResult = FromJsResult.lift[F]
         runF[F](log).handleErrorWith { error =>
           log.error(s"failed with $error", error)
         }
       }
     } yield result
 
-  private def runF[F[
-    _,
-  ]: Async: ToFuture: Parallel: LogOf: FromGFuture: MeasureDuration: FromTry: ToTry: FromAttempt: FromJsResult: Fail](
+  }
+
+  private def runF[F[_]: Async: ToFuture: Parallel: LogOf: FromGFuture: MeasureDuration: FromTry: ToTry: FromAttempt: FromJsResult: Fail](
     log: Log[F],
   ): F[Unit] = {
 
@@ -51,22 +52,30 @@ object ReadEventsApp extends IOApp {
 
     implicit val randomIdOf = RandomIdOf.uuid[F]
 
-    val commonConfig = CommonConfig(clientId = "ReadEventsApp".some, bootstrapServers = Nel.of("localhost:9092"))
+    val commonConfig = CommonConfig(
+      clientId = "ReadEventsApp".some,
+      bootstrapServers = Nel.of("localhost:9092"))
 
-    val producerConfig = ProducerConfig(common = commonConfig, idempotence = true, acks = Acks.All)
+    val producerConfig = ProducerConfig(
+      common = commonConfig,
+      idempotence = true,
+      acks = Acks.All)
 
     val consumerConfig = ConsumerConfig(common = commonConfig)
 
     val consumer = Journals.Consumer.of[F](consumerConfig, 100.millis)
 
     val eventualCassandraConfig = EventualCassandraConfig(
-      schema =
-        SchemaConfig(keyspace = SchemaConfig.Keyspace(name = "keyspace", autoCreate = false), autoCreate = false),
+      schema = SchemaConfig(
+        keyspace = SchemaConfig.Keyspace(
+          name = "keyspace",
+          autoCreate = false),
+        autoCreate = false),
       client = CassandraConfig(
         contactPoints = com.evolutiongaming.nel.Nel("127.0.0.1"),
-        authentication = AuthenticationConfig(username = "username", password = "password").some,
-      ),
-    )
+        authentication = AuthenticationConfig(
+          username = "username",
+          password = "password").some))
 
     val journal = for {
       cassandraClusterOf <- CassandraClusterOf.of[F].toResource
@@ -75,10 +84,10 @@ object ReadEventsApp extends IOApp {
       headCache          <- HeadCache.of[F](consumerConfig, eventualJournal, none)
       producer           <- Journals.Producer.of[F](producerConfig)
     } yield {
-      val origin   = Origin("ReadEventsApp")
+      val origin = Origin("ReadEventsApp")
       val journals = Journals[F](origin.some, producer, consumer, eventualJournal, headCache, log, none)
-      val key      = Key(id = "id", topic = "topic")
-      val journal  = journals(key)
+      val key = Key(id = "id", topic = "topic")
+      val journal = journals(key)
       for {
         pointer <- journal.pointer
         seqNrs  <- journal.read().map(_.seqNr).toList
