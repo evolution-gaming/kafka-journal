@@ -2,27 +2,32 @@ import sbt.*
 
 object Dependencies {
 
-  val scalatest                  = "org.scalatest"          %% "scalatest"                      % "3.2.19"
-  val `scala-java8-compat`       = "org.scala-lang.modules" %% "scala-java8-compat"             % "1.0.2"
-  val `kind-projector`           = "org.typelevel"           % "kind-projector"                 % "0.13.3"
-  val `cassandra-driver`         = "com.datastax.cassandra"  % "cassandra-driver-core"          % "3.11.2"
-  val `play-json`                = "com.typesafe.play"      %% "play-json"                      % "2.9.3"
-  val `play-json-jsoniter`       = "com.evolutiongaming"    %% "play-json-jsoniter"             % "0.10.2"
-  val `executor-tools`           = "com.evolutiongaming"    %% "executor-tools"                 % "1.0.3"
-  val `akka-serialization`       = "com.evolutiongaming"    %% "akka-serialization"             % "1.0.5"
-  val `kafka-launcher`           = "com.evolutiongaming"    %% "kafka-launcher"                 % "0.2.0"
-  val `testcontainers-cassandra` = "com.dimafeng"           %% "testcontainers-scala-cassandra" % "0.41.4"
-  val hostname                   = "com.evolutiongaming"    %% "hostname"                       % "0.2.0"
-  val scassandra                 = "com.evolutiongaming"    %% "scassandra"                     % "5.2.1"
-  val `cassandra-sync`           = "com.evolutiongaming"    %% "cassandra-sync"                 % "3.0.0"
-  val `cats-helper`              = "com.evolutiongaming"    %% "cats-helper"                    % "3.10.5"
-  val random                     = "com.evolutiongaming"    %% "random"                         % "1.0.0"
-  val retry                      = "com.evolutiongaming"    %% "retry"                          % "3.0.1"
-  val sstream                    = "com.evolutiongaming"    %% "sstream"                        % "1.0.1"
-  val skafka                     = "com.evolutiongaming"    %% "skafka"                         % "16.0.0"
-  val `akka-test-actor`          = "com.evolutiongaming"    %% "akka-test-actor"                % "0.1.0"
-  val scache                     = "com.evolution"          %% "scache"                         % "5.0.0"
-  val `resource-pool`            = "com.evolution"          %% "resource-pool"                  % "1.0.4"
+  val scalatest                   = "org.scalatest"          %% "scalatest"             % "3.2.19"
+  val `scala-java8-compat`        = "org.scala-lang.modules" %% "scala-java8-compat"    % "1.0.2"
+  val `kind-projector`            = "org.typelevel"           % "kind-projector"        % "0.13.3"
+  val `cassandra-driver`          = "com.datastax.cassandra"  % "cassandra-driver-core" % "3.11.2"
+  val `play-json`                 = "com.typesafe.play"      %% "play-json"             % "2.9.3"
+  val `play-json-jsoniter`        = "com.evolutiongaming"    %% "play-json-jsoniter"    % "0.10.2"
+  val `executor-tools`            = "com.evolutiongaming"    %% "executor-tools"        % "1.0.3"
+  val `akka-serialization`        = "com.evolutiongaming"    %% "akka-serialization"    % "1.0.5"
+  val `kafka-launcher`            = "com.evolutiongaming"    %% "kafka-launcher"        % "0.2.0"
+  val `testcontainers-cassandra`  = "com.dimafeng"           %% "testcontainers-scala-cassandra"  % "0.41.4"
+  val hostname                    = "com.evolutiongaming"    %% "hostname"              % "0.2.0"
+  val scassandra                  = "com.evolutiongaming"    %% "scassandra"            % "5.2.1"
+  val `cassandra-sync`            = "com.evolutiongaming"    %% "cassandra-sync"        % "3.0.0"
+  val `cats-helper`               = "com.evolutiongaming"    %% "cats-helper"           % "3.10.5"
+  val random                      = "com.evolutiongaming"    %% "random"                % "1.0.0"
+  val retry                       = "com.evolutiongaming"    %% "retry"                 % "3.0.1"
+  val sstream                     = "com.evolutiongaming"    %% "sstream"               % "1.0.1"
+  val `akka-test-actor`           = "com.evolutiongaming"    %% "akka-test-actor"       % "0.1.0"
+  val scache                      = "com.evolution"          %% "scache"                % "5.0.0"
+  val `resource-pool`             = "com.evolution"          %% "resource-pool"         % "1.0.4"
+
+  object SKafka {
+    private val version = "16.0.0"
+    val skafka  = "com.evolutiongaming" %% "skafka" % version
+    val metrics = "com.evolutiongaming" %% "skafka-metrics" % version
+  }
 
   object Cats {
     val core   = "org.typelevel" %% "cats-core"   % "2.12.0"

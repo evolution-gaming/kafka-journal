@@ -23,6 +23,7 @@ class KafkaConfigTest extends AnyFunSuite with Matchers {
   test("configReader from config") {
     val config = ConfigFactory.parseURL(getClass.getResource("kafka.conf"))
     val expected = KafkaConfig(
+      name = "test",
       producer = ProducerConfig(
         common          = CommonConfig(clientId = "clientId".some, sendBufferBytes = 1000, receiveBufferBytes = 100),
         acks            = Acks.All,

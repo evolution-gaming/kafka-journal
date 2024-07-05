@@ -16,12 +16,17 @@ import scala.concurrent.duration.*
   * internal issue is to be worked around as the logic of persistence plugin may
   * depend on some of these settings.
   *
+  * @param name
+  *  Name of the Kafka journal, used in metrics.
   * @param producer
   *   Producer configuration used to write journal to Kafka.
   * @param consumer
   *   Consumer configuration used to read journal on recovery.
   */
-final case class KafkaConfig(producer: ProducerConfig, consumer: ConsumerConfig)
+final case class KafkaConfig(
+  name: String,
+  producer: ProducerConfig,
+  consumer: ConsumerConfig)
 
 object KafkaConfig {
 
@@ -30,6 +35,7 @@ object KafkaConfig {
   def apply(name: String): KafkaConfig = {
     val common = CommonConfig(clientId = name.some, sendBufferBytes = 1000000, receiveBufferBytes = 1000000)
     KafkaConfig(
+      name = name,
       producer = ProducerConfig(
         common          = common,
         acks            = Acks.All,
@@ -63,6 +69,7 @@ object KafkaConfig {
         }
 
         KafkaConfig(
+          name     = source.at("name").load[String].getOrElse(default.name),
           producer = ProducerConfig(at("producer"), default.producer),
           consumer = ConsumerConfig(at("consumer"), default.consumer),
         )

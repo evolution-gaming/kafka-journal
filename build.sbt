@@ -1,4 +1,5 @@
 import Dependencies.*
+import sbt.Package.ManifestAttributes
 
 lazy val commonSettings = Seq(
   organization := "com.evolutiongaming",
@@ -24,6 +25,13 @@ lazy val commonSettings = Seq(
   autoAPIMappings := true,
   versionScheme := Some("early-semver"),
   versionPolicyIntention := Compatibility.BinaryCompatible,
+  packageOptions := {
+    Seq(
+      ManifestAttributes(
+        ("Implementation-Version", (ThisProject / version).value),
+      ),
+    )
+  },
 )
 
 val alias: Seq[sbt.Def.Setting[?]] =
@@ -69,7 +77,7 @@ lazy val core = (project in file("core")
   settings (libraryDependencies ++= Seq(
     Akka.actor,
     Akka.testkit % Test,
-    skafka,
+    SKafka.skafka,
     `cats-helper`,
     `play-json`,
     `play-json-jsoniter`,
@@ -102,10 +110,11 @@ lazy val journal = (project in file("journal")
     Akka.actor,
     Akka.stream,
     Akka.testkit % Test,
-    Akka.slf4j   % Test,
-    Kafka.`kafka-clients`,
-    skafka,
-    scalatest        % Test,
+    Akka.slf4j % Test,
+    Kafka.`kafka-clients`,  
+    SKafka.skafka,
+    SKafka.metrics,
+    scalatest % Test,
     `executor-tools` % Test,
     random,
     retry,

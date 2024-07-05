@@ -68,7 +68,7 @@ object JournalAdapter {
         val clientId = clientIdOf(config.journal.kafka.producer.common)
         metrics(clientId)
       }
-      KafkaProducerOf[F](producerMetrics)
+      KafkaProducerOf.apply1[F](producerMetrics, config.journal.kafka.name)
     }
 
     def headCacheOf(implicit kafkaConsumerOf: KafkaConsumerOf[F]): HeadCacheOf[F] = {

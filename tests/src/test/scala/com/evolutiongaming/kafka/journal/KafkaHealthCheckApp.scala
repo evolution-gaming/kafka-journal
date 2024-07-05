@@ -34,8 +34,13 @@ object KafkaHealthCheckApp extends IOApp {
 
     implicit val randomIdOf = RandomIdOf.uuid[F]
 
-    val commonConfig = CommonConfig(clientId = "KafkaHealthCheckApp".some, bootstrapServers = Nel.of("localhost:9092"))
-    val kafkaConfig  = KafkaConfig(ProducerConfig(common = commonConfig), ConsumerConfig(common = commonConfig))
+    val commonConfig = CommonConfig(
+      clientId = "KafkaHealthCheckApp".some,
+      bootstrapServers = Nel.of("localhost:9092"))
+    val kafkaConfig = KafkaConfig(
+      name = "kafka-health-check-app",
+      ProducerConfig(common = commonConfig),
+      ConsumerConfig(common = commonConfig))
 
     val kafkaHealthCheck = KafkaHealthCheck.of[F](KafkaHealthCheck.Config.default, kafkaConfig)
 

@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual
 import cats.*
 import cats.arrow.FunctionK
 import cats.effect.Resource
+import cats.effect.syntax.all.*
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.{Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal.*
@@ -136,6 +137,12 @@ object EventualJournal {
       prefix: String = "eventual_journal",
     ): Resource[F, Metrics[F]] = {
 
+      val versionGauge = registry.gauge(
+        name   = s"${prefix}_info",
+        help   = "Journal version information",
+        labels = LabelNames("version"),
+      )
+
       val latencySummary = registry.summary(
         name      = s"${prefix}_topic_latency",
         help      = "Journal call latency in seconds",
@@ -151,6 +158,8 @@ object EventualJournal {
       )
 
       for {
+        versionGauge   <- versionGauge
+        _              <- versionGauge.labels(Version.current.value).set(1).toResource
         latencySummary <- latencySummary
         eventsSummary  <- eventsSummary
       } yield {
