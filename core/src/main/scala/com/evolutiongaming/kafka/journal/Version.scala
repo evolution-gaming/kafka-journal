@@ -12,7 +12,7 @@ final case class Version(value: String) {
 
 object Version {
 
-  val current: Version = Version("3.2.4")
+  val current: Version = Version(Option(Version.getClass.getPackage.getImplementationVersion).getOrElse("unknown"))
 
   implicit val eqVersion: Eq[Version] = Eq.fromUniversalEquals
 
