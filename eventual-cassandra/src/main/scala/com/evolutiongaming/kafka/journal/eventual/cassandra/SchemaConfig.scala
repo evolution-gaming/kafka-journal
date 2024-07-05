@@ -5,6 +5,10 @@ import com.evolutiongaming.scassandra.ReplicationStrategyConfig
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
 
+import scala.annotation.nowarn
+
+@nowarn
+// TODO MR deal with deprecated
 final case class SchemaConfig(
   keyspace: SchemaConfig.Keyspace = SchemaConfig.Keyspace.default,
   journalTable: String            = "journal",
@@ -17,6 +21,8 @@ final case class SchemaConfig(
   autoCreate: Boolean             = true,
 )
 
+@nowarn
+// TODO MR deal with deprecated
 object SchemaConfig {
 
   val default: SchemaConfig = SchemaConfig()

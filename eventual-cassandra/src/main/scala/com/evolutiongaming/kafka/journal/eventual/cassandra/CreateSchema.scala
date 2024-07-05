@@ -8,6 +8,8 @@ import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.cassandra.MigrateSchema
 import com.evolutiongaming.scassandra.TableName
 
+import scala.annotation.nowarn
+
 object CreateSchema {
 
   /** Creates Cassandra schema for eventual storage of a journal.
@@ -21,6 +23,8 @@ object CreateSchema {
     *   created from scratch, or `false` if one or more of them were already
     *   present in a keyspace.
     */
+  @nowarn
+  // TODO MR deal with deprecated
   def apply[F[_]: Concurrent: CassandraCluster: CassandraSession: CassandraSync: LogOf](
     config: SchemaConfig,
   ): F[(Schema, MigrateSchema.Fresh)] = {
@@ -32,6 +36,8 @@ object CreateSchema {
     } yield result
   }
 
+  @nowarn
+  // TODO MR deal with deprecated
   def apply[F[_]: Monad](
     config: SchemaConfig,
     createKeyspace: CreateKeyspace[F],

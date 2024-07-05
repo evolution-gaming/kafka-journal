@@ -12,9 +12,12 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import java.time.Instant
+import scala.annotation.nowarn
 import scala.util.Try
 import scala.util.control.NoStackTrace
 
+@nowarn
+// TODO MR deal with deprecated
 class SetupSchemaSpec extends AnyFunSuite with Matchers {
   import SetupSchemaSpec.*
 

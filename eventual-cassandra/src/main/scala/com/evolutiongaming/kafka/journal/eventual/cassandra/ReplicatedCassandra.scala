@@ -16,7 +16,7 @@ import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 import java.time.Instant
-import scala.annotation.tailrec
+import scala.annotation.{nowarn, tailrec}
 
 object ReplicatedCassandra {
 
@@ -530,6 +530,8 @@ object ReplicatedCassandra {
 
   object MetaJournalStatements {
 
+    @nowarn
+    // TODO MR deal with deprecated
     def of[F[_]: Monad: CassandraSession](
       schema: Schema,
       consistencyConfig: EventualCassandraConfig.ConsistencyConfig,
@@ -537,6 +539,8 @@ object ReplicatedCassandra {
       of[F](schema.metaJournal, consistencyConfig)
     }
 
+    @nowarn
+    // TODO MR deal with deprecated
     def of[F[_]: Monad: CassandraSession](
       metaJournal: TableName,
       consistencyConfig: EventualCassandraConfig.ConsistencyConfig,
@@ -682,6 +686,8 @@ object ReplicatedCassandra {
 
     def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 
+    @nowarn
+    // TODO MR deal with deprecated
     def of[F[_]: Monad: CassandraSession: ToTry: JsonCodec.Encode](
       schema: Schema,
       consistencyConfig: EventualCassandraConfig.ConsistencyConfig,

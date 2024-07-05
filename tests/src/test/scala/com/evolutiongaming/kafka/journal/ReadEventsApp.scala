@@ -15,6 +15,7 @@ import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig}
 
+import scala.annotation.nowarn
 import scala.concurrent.duration.*
 
 object ReadEventsApp extends IOApp {
@@ -42,6 +43,8 @@ object ReadEventsApp extends IOApp {
 
   }
 
+  @nowarn
+  // TODO MR deal with deprecated
   private def runF[F[
     _,
   ]: Async: ToFuture: Parallel: LogOf: FromGFuture: MeasureDuration: FromTry: ToTry: FromAttempt: FromJsResult: Fail](

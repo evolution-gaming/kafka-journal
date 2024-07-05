@@ -9,6 +9,8 @@ import com.evolutiongaming.kafka.journal.cassandra.{MigrateSchema, SettingsCassa
 import com.evolutiongaming.kafka.journal.{Origin, Settings}
 import com.evolutiongaming.scassandra.ToCql.implicits.*
 
+import scala.annotation.nowarn
+
 /** Creates a new schema, or migrates to the latest schema version, if it already exists */
 object SetupSchema {
 
@@ -32,6 +34,8 @@ object SetupSchema {
 
   }
 
+  @nowarn
+  // TODO MR deal with deprecated
   def migrate[F[_]: MonadThrow: CassandraSession](
     schema: Schema,
     fresh: MigrateSchema.Fresh,
@@ -47,6 +51,8 @@ object SetupSchema {
     migrateSchema.run(fresh)
   }
 
+  @nowarn
+  // TODO MR deal with deprecated
   def apply[F[_]: Temporal: Parallel: CassandraCluster: CassandraSession: LogOf](
     config: SchemaConfig,
     origin: Option[Origin],

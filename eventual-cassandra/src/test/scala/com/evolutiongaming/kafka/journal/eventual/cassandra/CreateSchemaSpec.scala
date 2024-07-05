@@ -1,10 +1,14 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.data.{NonEmptyList as Nel, State}
+import cats.data.{State, NonEmptyList as Nel}
 import cats.syntax.all.*
 import com.evolutiongaming.scassandra.TableName
 import org.scalatest.funsuite.AnyFunSuite
 
+import scala.annotation.nowarn
+
+@nowarn
+// TODO MR deal with deprecated
 class CreateSchemaSpec extends AnyFunSuite {
 
   type F[A] = State[Database, A]

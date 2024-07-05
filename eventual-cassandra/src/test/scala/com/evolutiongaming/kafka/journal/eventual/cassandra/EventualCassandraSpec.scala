@@ -5,6 +5,7 @@ import cats.effect.IO
 import cats.implicits.*
 import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.Journal.DataIntegrityConfig
 import com.evolutiongaming.kafka.journal.eventual.*
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec.*
 import com.evolutiongaming.kafka.journal.util.Fail
@@ -144,7 +145,7 @@ object EventualCassandraSpec {
 
     val statements = EventualCassandra.Statements(selectRecords, metaJournalStatements, selectOffset, selectOffset2)
 
-    EventualCassandra[StateT](statements)
+    EventualCassandra.apply1[StateT](statements, DataIntegrityConfig.Default)
   }
 
   def replicatedJournalOf(

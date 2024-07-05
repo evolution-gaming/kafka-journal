@@ -14,7 +14,10 @@ import org.scalatest.funsuite.AnyFunSuite
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import scala.annotation.nowarn
 
+@nowarn
+// TODO MR deal with deprecated
 class SettingsCassandraSpec extends AnyFunSuite {
 
   type F[A] = State[Database, A]

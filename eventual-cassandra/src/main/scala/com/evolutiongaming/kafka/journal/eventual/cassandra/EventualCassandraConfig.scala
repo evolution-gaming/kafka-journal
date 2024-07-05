@@ -5,8 +5,9 @@ import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
 import com.evolutiongaming.scassandra.{CassandraConfig, QueryConfig}
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
-
 import EventualCassandraConfig.*
+
+import scala.annotation.nowarn
 
 /** Cassandra-specific configuration used by a plugin.
   *
@@ -33,6 +34,8 @@ import EventualCassandraConfig.*
   *   The main reason one may be interested to change it, is for integration
   *   tests with small number of Cassandra nodes.
   */
+@nowarn
+// TODO MR deal with deprecated
 final case class EventualCassandraConfig(
   retries: Int             = 100,
   segmentSize: SegmentSize = SegmentSize.default,
@@ -44,6 +47,8 @@ final case class EventualCassandraConfig(
   consistencyConfig: ConsistencyConfig = ConsistencyConfig.default,
 )
 
+@nowarn
+// TODO MR deal with deprecated
 object EventualCassandraConfig {
 
   val default: EventualCassandraConfig = EventualCassandraConfig()

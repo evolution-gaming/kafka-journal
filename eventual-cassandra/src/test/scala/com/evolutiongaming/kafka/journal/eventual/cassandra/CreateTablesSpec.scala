@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.data.{NonEmptyList as Nel, State}
+import cats.data.{State, NonEmptyList as Nel}
 import cats.effect.Resource
 import cats.syntax.all.*
 import com.datastax.driver.core.{PreparedStatement, Row, Statement}
@@ -11,9 +11,12 @@ import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AnyFunSuite
 
 import scala.util.control.NoStackTrace
-
 import CreateTables.Table
 
+import scala.annotation.nowarn
+
+@nowarn
+// TODO MR deal with deprecated
 class CreateTablesSpec extends AnyFunSuite {
 
   type F[A] = State[Database, A]

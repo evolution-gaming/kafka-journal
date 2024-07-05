@@ -9,6 +9,7 @@ import com.evolutiongaming.kafka.journal.conversions.ActionToProducerRecord
 import com.evolutiongaming.skafka.Bytes as _
 
 import java.time.Instant
+import scala.annotation.nowarn
 
 trait Produce[F[_]] {
 
@@ -29,6 +30,8 @@ trait Produce[F[_]] {
 
 object Produce {
 
+  @nowarn
+  // TODO MR deal with deprecated
   def empty[F[_]: Applicative](partitionOffset: F[PartitionOffset]): Produce[F] = const(PartitionOffset.empty.pure[F])
 
   def const[F[_]](partitionOffset: F[PartitionOffset]): Produce[F] = {

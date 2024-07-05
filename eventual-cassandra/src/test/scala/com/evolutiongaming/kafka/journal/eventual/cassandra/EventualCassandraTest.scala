@@ -18,9 +18,12 @@ import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.Json
 
 import java.time.Instant
+import scala.annotation.nowarn
 import scala.concurrent.duration.*
 import scala.util.{Failure, Try}
 
+@nowarn
+// TODO MR deal with deprecated
 class EventualCassandraTest extends AnyFunSuite with Matchers {
   import EventualCassandraTest.*
 

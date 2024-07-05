@@ -6,9 +6,12 @@ import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.IOSuite.*
 import org.scalatest.funsuite.AsyncFunSuite
 
+import scala.annotation.nowarn
 import scala.concurrent.duration.*
 import scala.util.control.NoStackTrace
 
+@nowarn
+// TODO MR deal with deprecated
 class CassandraHealthCheckSpec extends AsyncFunSuite {
 
   test("CassandraHealthCheck#of(statement)") {

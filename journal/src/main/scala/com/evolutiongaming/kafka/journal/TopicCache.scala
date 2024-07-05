@@ -16,6 +16,7 @@ import com.evolutiongaming.retry.{Sleep, Strategy}
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, ConsumerRecords}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic, TopicPartition}
 
+import scala.annotation.nowarn
 import scala.concurrent.duration.*
 
 /** Maintains an information about non-replicated Kafka records in a topic.
@@ -76,6 +77,8 @@ object TopicCache {
     *   and there is no need to call [[TopicCache#of]] each time if parameters
     *   did not change.
     */
+  @nowarn
+  // TODO MR remove `Runtime` with next major release
   def of[F[_]: Async: Parallel: Runtime](
     eventual: Eventual[F],
     topic: Topic,
