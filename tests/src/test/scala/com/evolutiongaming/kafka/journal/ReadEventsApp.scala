@@ -6,6 +6,7 @@ import cats.effect.*
 import cats.effect.syntax.resource.*
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.*
+import com.evolutiongaming.kafka.journal.Journal.DataIntegrityConfig
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.eventual.cassandra.*
 import com.evolutiongaming.kafka.journal.util.Fail
@@ -15,7 +16,6 @@ import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig}
 
-import scala.annotation.nowarn
 import scala.concurrent.duration.*
 
 object ReadEventsApp extends IOApp {
@@ -43,8 +43,6 @@ object ReadEventsApp extends IOApp {
 
   }
 
-  @nowarn
-  // TODO MR deal with deprecated
   private def runF[F[
     _,
   ]: Async: ToFuture: Parallel: LogOf: FromGFuture: MeasureDuration: FromTry: ToTry: FromAttempt: FromJsResult: Fail](
@@ -76,9 +74,10 @@ object ReadEventsApp extends IOApp {
     val journal = for {
       cassandraClusterOf <- CassandraClusterOf.of[F].toResource
       origin             <- Origin.hostName[F].toResource
-      eventualJournal    <- EventualCassandra.of[F](eventualCassandraConfig, origin, none, cassandraClusterOf)
-      headCache          <- HeadCache.of[F](consumerConfig, eventualJournal, none)
-      producer           <- Journals.Producer.of[F](producerConfig)
+      eventualJournal <- EventualCassandra
+        .of1[F](eventualCassandraConfig, origin, none, cassandraClusterOf, DataIntegrityConfig.Default)
+      headCache <- HeadCache.of[F](consumerConfig, eventualJournal, none)
+      producer  <- Journals.Producer.of[F](producerConfig)
     } yield {
       val origin   = Origin("ReadEventsApp")
       val journals = Journals[F](origin.some, producer, consumer, eventualJournal, headCache, log, none)
