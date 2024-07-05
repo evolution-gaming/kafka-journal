@@ -159,31 +159,6 @@ lazy val persistence = project
     ),
   )
 
-lazy val `tests` = project
-  .settings(name := "kafka-journal-tests")
-  .settings(
-    Seq(
-      publish / skip := true,
-      Test / javaOptions ++= Seq("-Xms3G", "-Xmx3G"),
-      Test / envVars ++= Map("TESTCONTAINERS_RYUK_DISABLED" -> "true"),
-    ),
-  )
-  .dependsOn(persistence % "test->test;compile->compile", `persistence-circe`, replicator)
-  .settings(
-    libraryDependencies ++= Seq(
-      `cats-helper`,
-      Kafka.kafka                % Test,
-      `kafka-launcher`           % Test,
-      `testcontainers-cassandra` % Test,
-      scalatest                  % Test,
-      Akka.`persistence-tck`     % Test,
-      Slf4j.`log4j-over-slf4j`   % Test,
-      Logback.core               % Test,
-      Logback.classic            % Test,
-      scalatest                  % Test,
-    ),
-  )
-
 lazy val replicator = project
   .settings(name := "kafka-journal-replicator")
   .dependsOn(journal % "test->test;compile->compile", `eventual-cassandra`)
@@ -214,3 +189,28 @@ lazy val `persistence-circe` = project
   .in(file("circe/persistence"))
   .settings(name := "kafka-journal-persistence-circe")
   .dependsOn(`journal-circe`, persistence % "test->test;compile->compile")
+
+lazy val `tests` = project
+  .settings(name := "kafka-journal-tests")
+  .settings(
+    Seq(
+      publish / skip := true,
+      Test / javaOptions ++= Seq("-Xms3G", "-Xmx3G"),
+      Test / envVars ++= Map("TESTCONTAINERS_RYUK_DISABLED" -> "true"),
+    ),
+  )
+  .dependsOn(persistence % "test->test;compile->compile", `persistence-circe`, replicator)
+  .settings(
+    libraryDependencies ++= Seq(
+      `cats-helper`,
+      Kafka.kafka                % Test,
+      `kafka-launcher`           % Test,
+      `testcontainers-cassandra` % Test,
+      scalatest                  % Test,
+      Akka.`persistence-tck`     % Test,
+      Slf4j.`log4j-over-slf4j`   % Test,
+      Logback.core               % Test,
+      Logback.classic            % Test,
+      scalatest                  % Test,
+    ),
+  )
