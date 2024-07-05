@@ -4,7 +4,7 @@ import com.evolutiongaming.scassandra.TableName
 
 final case class Schema(
   journal: TableName,
-  metadata: TableName,
+  metadata: TableName, // is not used
   metaJournal: TableName,
   pointer: TableName,
   pointer2: TableName,
