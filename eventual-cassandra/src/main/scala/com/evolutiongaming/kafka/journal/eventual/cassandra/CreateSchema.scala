@@ -5,10 +5,18 @@ import cats.data.NonEmptyList as Nel
 import cats.effect.Concurrent
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.LogOf
-import com.evolutiongaming.kafka.journal.cassandra.MigrateSchema
+import com.evolutiongaming.kafka.journal.cassandra.{
+  CassandraSync,
+  CreateKeyspace,
+  CreateTables,
+  MigrateSchema,
+  SettingStatements,
+}
 import com.evolutiongaming.scassandra.TableName
-
-import scala.annotation.nowarn
+import com.evolutiongaming.kafka.journal.eventual.cassandra.{
+  CassandraSync as LegacyCassandraSync,
+  CreateKeyspace as LegacyCreateKeyspace,
+}
 
 object CreateSchema {
 
@@ -16,40 +24,66 @@ object CreateSchema {
     *
     * The class does not perform a schema migration if any of the tables are
     * already present in a database, and relies on a caller to use a returned
-    * value to perfom the necessary migrations afterwards.
+    * value to perform the necessary migrations afterwards.
     * 
     * @return
     *   Fully qualified table names, and `true` if all of the tables were
     *   created from scratch, or `false` if one or more of them were already
     *   present in a keyspace.
     */
-  @nowarn
-  // TODO MR deal with deprecated
-  def apply[F[_]: Concurrent: CassandraCluster: CassandraSession: CassandraSync: LogOf](
+  @deprecated(since = "3.4.1", message = "Use `apply1`")
+  def apply[F[_]: Concurrent: CassandraCluster: CassandraSession: LegacyCassandraSync: LogOf](
     config: SchemaConfig,
   ): F[(Schema, MigrateSchema.Fresh)] = {
-    implicit val cassandraSync2 = CassandraSync[F].toCassandraSync2
+    implicit val cassandraSync2: CassandraSync[F] = LegacyCassandraSync[F].toCassandraSync2
+    apply1(config)
+  }
+
+  /** Creates Cassandra schema for eventual storage of a journal.
+   *
+   * The class does not perform a schema migration if any of the tables are
+   * already present in a database, and relies on a caller to use a returned
+   * value to perform the necessary migrations afterwards.
+   *
+   * @return
+   *   Fully qualified table names, and `true` if all of the tables were
+   *   created from scratch, or `false` if one or more of them were already
+   *   present in a keyspace.
+   */
+  def apply1[F[_]: Concurrent: CassandraCluster: CassandraSession: CassandraSync: LogOf](
+    config: SchemaConfig,
+  ): F[(Schema, MigrateSchema.Fresh)] = {
     for {
       createTables  <- CreateTables.of[F]
-      createKeyspace = CreateKeyspace[F]
-      result        <- apply[F](config, createKeyspace, createTables)
+      keyspaceConfig = config.keyspace.toKeyspaceConfig
+      createKeyspace = CreateKeyspace.apply[F](keyspaceConfig)
+      result        <- apply1[F](config, createKeyspace, createTables)
     } yield result
   }
 
-  @nowarn
-  // TODO MR deal with deprecated
+  @deprecated(since = "3.4.1", message = "Use `apply1`")
   def apply[F[_]: Monad](
+    config: SchemaConfig,
+    createKeyspace: LegacyCreateKeyspace[F],
+    createTables: CreateTables[F],
+  ): F[(Schema, MigrateSchema.Fresh)] = {
+    for {
+      createKeyspace2 <- LegacyCreateKeyspace(CreateKeyspace[F])(config.keyspace)
+    } yield apply1(config, createKeyspace2, createTables)
+  }
+
+  def apply1[F[_]: Monad](
     config: SchemaConfig,
     createKeyspace: CreateKeyspace[F],
     createTables: CreateTables[F],
   ): F[(Schema, MigrateSchema.Fresh)] = {
 
-    def createTables1 = {
+    def createTables1: F[(Schema, Boolean)] = {
       val keyspace = config.keyspace.name
 
       val schema = Schema(
         journal     = TableName(keyspace = keyspace, table = config.journalTable),
-        metadata    = TableName(keyspace = keyspace, table = config.metadataTable),
+        metadata    = TableName(keyspace = keyspace, table = config.metadataTable), // gets dropped with migration
         metaJournal = TableName(keyspace = keyspace, table = config.metaJournalTable),
         pointer     = TableName(keyspace = keyspace, table = config.pointerTable),
         pointer2    = TableName(keyspace = keyspace, table = config.pointer2Table),
@@ -79,7 +113,7 @@ object CreateSchema {
     }
 
     for {
-      _      <- createKeyspace(config.keyspace)
+      _      <- createKeyspace(config.keyspace.toKeyspaceConfig)
       result <- createTables1
     } yield result
   }
