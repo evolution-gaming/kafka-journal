@@ -16,6 +16,7 @@ import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig}
 
+import scala.annotation.nowarn
 import scala.concurrent.duration.*
 
 object ReadEventsApp extends IOApp {
@@ -63,6 +64,7 @@ object ReadEventsApp extends IOApp {
 
     val consumer = Journals.Consumer.of[F](consumerConfig, 100.millis)
 
+    @nowarn
     val eventualCassandraConfig = EventualCassandraConfig(
       schema = SchemaConfig(keyspace = SchemaConfig.Keyspace(name = "keyspace", autoCreate = false), autoCreate = false),
       client = CassandraConfig(

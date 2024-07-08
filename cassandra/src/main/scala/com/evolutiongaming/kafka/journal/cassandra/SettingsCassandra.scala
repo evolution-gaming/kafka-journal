@@ -8,6 +8,7 @@ import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraSession
 import com.evolutiongaming.kafka.journal.{Origin, Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
+import com.evolutiongaming.sstream
 
 object SettingsCassandra {
 
@@ -16,7 +17,7 @@ object SettingsCassandra {
     origin: Option[Origin],
   ): Settings[F] = new Settings[F] {
 
-    def get(key: K) = {
+    def get(key: K): F[Option[Setting]] = {
       for {
         setting <- statements.select(key)
       } yield for {
@@ -24,7 +25,7 @@ object SettingsCassandra {
       } yield setting
     }
 
-    def set(key: K, value: V) = {
+    def set(key: K, value: V): F[Option[Setting]] = {
       for {
         timestamp <- Clock[F].instant
         prev      <- statements.select(key)
@@ -33,7 +34,7 @@ object SettingsCassandra {
       } yield prev
     }
 
-    def setIfEmpty(key: K, value: V) = {
+    def setIfEmpty(key: K, value: V): F[Option[Setting]] = {
       for {
         timestamp <- Clock[F].instant
         setting    = Setting(key = key, value = value, timestamp = timestamp, origin = origin)
@@ -42,14 +43,14 @@ object SettingsCassandra {
       } yield result
     }
 
-    def remove(key: K) = {
+    def remove(key: K): F[Option[Setting]] = {
       for {
         prev <- statements.select(key)
         _    <- statements.delete(key)
       } yield prev
     }
 
-    def all = {
+    def all: sstream.Stream[F, Setting] = {
       statements.all
     }
   }

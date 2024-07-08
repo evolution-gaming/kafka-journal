@@ -25,6 +25,7 @@ trait MigrateSchema[F[_]] {
   def run(fresh: MigrateSchema.Fresh)(implicit session: CassandraSession[F]): F[Unit]
 
 }
+
 object MigrateSchema {
 
   type Fresh = Boolean
@@ -50,16 +51,16 @@ object MigrateSchema {
     migrations: Nel[String],
   ): MigrateSchema[F] = new MigrateSchema[F] {
 
-    def setVersion(version: Int) =
+    def setVersion(version: Int): F[Unit] =
       settings
         .set(settingKey, version.toString)
         .void
 
     def run(fresh: MigrateSchema.Fresh)(implicit session: CassandraSession[F]): F[Unit] = {
 
-      def migrate = {
+      def migrate: F[Option[F[Unit]]] = {
 
-        def migrate(version: Int) = {
+        def migrate(version: Int): Option[F[Unit]] = {
           migrations
             .toList
             .drop(version + 1)
@@ -112,7 +113,5 @@ object MigrateSchema {
       }
 
     }
-
   }
-
 }

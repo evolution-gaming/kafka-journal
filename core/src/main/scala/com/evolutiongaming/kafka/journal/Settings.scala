@@ -52,7 +52,7 @@ object Settings {
           } yield r
         }
 
-        def set(key: K, value: V) = {
+        def set(key: K, value: V): F[Option[Setting]] = {
           for {
             d <- MeasureDuration[F].start
             r <- self.set(key, value)
@@ -62,7 +62,7 @@ object Settings {
         }
 
         @nowarn
-        def setIfEmpty(key: K, value: V) = {
+        def setIfEmpty(key: K, value: V): F[Option[Setting]] = {
           for {
             d <- MeasureDuration[F].start
             r <- self.setIfEmpty(key, value)
@@ -71,7 +71,7 @@ object Settings {
           } yield r
         }
 
-        def remove(key: K) = {
+        def remove(key: K): F[Option[Setting]] = {
           for {
             d <- MeasureDuration[F].start
             r <- self.remove(key)
@@ -80,9 +80,9 @@ object Settings {
           } yield r
         }
 
-        def all = {
+        def all: Stream[F, Setting] = {
           val logging = new (F ~> F) {
-            def apply[A](fa: F[A]) = {
+            def apply[A](fa: F[A]): F[A] = {
               for {
                 d <- MeasureDuration[F].start
                 r <- fa
@@ -98,16 +98,16 @@ object Settings {
 
     def mapK[G[_]](fg: F ~> G, gf: G ~> F): Settings[G] = new Settings[G] {
 
-      def get(key: K) = fg(self.get(key))
+      def get(key: K): G[Option[Setting]] = fg(self.get(key))
 
-      def set(key: K, value: V) = fg(self.set(key, value))
+      def set(key: K, value: V): G[Option[Setting]] = fg(self.set(key, value))
 
       @nowarn
-      def setIfEmpty(key: K, value: V) = fg(self.setIfEmpty(key, value))
+      def setIfEmpty(key: K, value: V): G[Option[Setting]] = fg(self.setIfEmpty(key, value))
 
-      def remove(key: K) = fg(self.remove(key))
+      def remove(key: K): G[Option[Setting]] = fg(self.remove(key))
 
-      def all = self.all.mapK(fg, gf)
+      def all: Stream[G, Setting] = self.all.mapK(fg, gf)
     }
   }
 }

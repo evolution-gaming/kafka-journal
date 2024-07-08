@@ -5,6 +5,7 @@ import cats.effect.kernel.Temporal
 import cats.syntax.all.*
 import cats.{MonadThrow, Parallel}
 import com.evolutiongaming.catshelper.LogOf
+import com.evolutiongaming.kafka.journal.cassandra.MigrateSchema.Fresh
 import com.evolutiongaming.kafka.journal.cassandra.{MigrateSchema, SettingsCassandra}
 import com.evolutiongaming.kafka.journal.{Origin, Settings}
 import com.evolutiongaming.scassandra.ToCql.implicits.*
@@ -16,18 +17,18 @@ object SetupSchema {
 
   val SettingKey = "schema-version"
 
-  def migrations(schema: Schema): Nel[String] = {
+  private def migrations(schema: Schema): Nel[String] = {
 
-    def addHeaders =
+    def addHeaders: String =
       JournalStatements.addHeaders(schema.journal)
 
-    def addVersion =
+    def addVersion: String =
       JournalStatements.addVersion(schema.journal)
 
     def dropMetadata =
       s"DROP TABLE IF EXISTS ${schema.metadata.toCql}"
 
-    def createPointer2 =
+    def createPointer2: String =
       Pointer2Statements.createTable(schema.pointer2)
 
     Nel.of(addHeaders, addVersion, dropMetadata, createPointer2)
@@ -59,7 +60,7 @@ object SetupSchema {
     consistencyConfig: EventualCassandraConfig.ConsistencyConfig,
   ): F[Schema] = {
 
-    def createSchema(implicit cassandraSync: CassandraSync[F]) = CreateSchema(config)
+    def createSchema(implicit cassandraSync: CassandraSync[F]): F[(Schema, Fresh)] = CreateSchema(config)
 
     for {
       cassandraSync  <- CassandraSync.of[F](config, origin)
