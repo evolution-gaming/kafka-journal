@@ -11,7 +11,6 @@ ThisBuild / licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT")))
 ThisBuild / crossScalaVersions := Seq("2.13.14")
 ThisBuild / scalaVersion := crossScalaVersions.value.head
 ThisBuild / scalacOptions ++= Seq("-release:17", "-deprecation", "-Xsource:3")
-//ThisBuild / scalacOptsFailOnWarn := Some(false) // TODO MR remove this
 ThisBuild / autoAPIMappings := true
 // ---
 ThisBuild / Test / testOptions ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM"))
@@ -29,13 +28,11 @@ ThisBuild / libraryDependencySchemes ++= Seq(
 ThisBuild / versionScheme := Some("early-semver")
 ThisBuild / versionPolicyIntention := Compatibility.BinaryCompatible
 // ---
-ThisBuild / packageOptions := {
-  Seq(
-    ManifestAttributes(
-      ("Implementation-Version", (ThisProject / version).value),
-    ),
-  )
-}
+ThisBuild / packageOptions := Seq(
+  ManifestAttributes(
+    ("Implementation-Version", (ThisProject / version).value),
+  ),
+)
 
 lazy val docSettings = Seq(
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
