@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
-import cats.data.{State, NonEmptyList as Nel}
+import cats.data.{NonEmptyList as Nel, State}
 import cats.effect.Resource
 import cats.syntax.all.*
 import com.datastax.driver.core.{PreparedStatement, Row, Statement}
@@ -10,10 +10,10 @@ import com.evolutiongaming.scassandra
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AnyFunSuite
 
-import scala.util.control.NoStackTrace
-import CreateTables.Table
-
 import scala.annotation.nowarn
+import scala.util.control.NoStackTrace
+
+import CreateTables.Table
 
 @nowarn
 // TODO MR deal with deprecated

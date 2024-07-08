@@ -1,45 +1,45 @@
 import Dependencies.*
 import sbt.Package.ManifestAttributes
 
-lazy val commonSettings = inThisBuild(
+ThisBuild / organization := "com.evolutiongaming"
+ThisBuild / organizationName := "Evolution"
+ThisBuild / organizationHomepage := Some(url("https://evolution.com"))
+ThisBuild / homepage := Some(url("https://github.com/evolution-gaming/kafka-journal"))
+ThisBuild / startYear := Some(2018)
+ThisBuild / licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT")))
+// ---
+ThisBuild / crossScalaVersions := Seq("2.13.14")
+ThisBuild / scalaVersion := crossScalaVersions.value.head
+ThisBuild / scalacOptions ++= Seq("-release:17", "-deprecation", "-Xsource:3")
+ThisBuild / scalacOptsFailOnWarn := Some(false) // TODO MR remove this
+ThisBuild / autoAPIMappings := true
+// ---
+ThisBuild / Test / testOptions ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM"))
+ThisBuild / Test / fork := true
+ThisBuild / Test / parallelExecution := false
+// ---
+ThisBuild / publishTo := Some(Resolver.evolutionReleases)
+ThisBuild / releaseCrossBuild := true
+ThisBuild / libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full)
+ThisBuild / libraryDependencySchemes ++= Seq(
+  "org.scala-lang.modules" %% "scala-java8-compat" % "always",
+  "org.scala-lang.modules" %% "scala-xml"          % "always",
+  "com.evolutiongaming"    %% "scassandra"         % "semver-spec",
+)
+ThisBuild / versionScheme := Some("early-semver")
+ThisBuild / versionPolicyIntention := Compatibility.BinaryCompatible
+// ---
+ThisBuild / packageOptions := {
   Seq(
-    organization := "com.evolutiongaming",
-    organizationName := "Evolution",
-    organizationHomepage := Some(url("https://evolution.com")),
-    homepage := Some(url("https://github.com/evolution-gaming/kafka-journal")),
-    startYear := Some(2018),
-    licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
-    // ---
-    crossScalaVersions := Seq("2.13.14"),
-    scalaVersion := crossScalaVersions.value.head,
-    scalacOptions ++= Seq("-release:17", "-deprecation", "-Xsource:3"),
-    scalacOptsFailOnWarn := Some(false), // TODO MR remove this
-    Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
-    // ---
-    Test / testOptions ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM")),
-    Test / fork := true,
-    Test / parallelExecution := false,
-    // ---
-    publishTo := Some(Resolver.evolutionReleases),
-    releaseCrossBuild := true,
-    libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full),
-    libraryDependencySchemes ++= Seq(
-      "org.scala-lang.modules" %% "scala-java8-compat" % "always",
-      "org.scala-lang.modules" %% "scala-xml"          % "always",
-      "com.evolutiongaming"    %% "scassandra"         % "semver-spec",
+    ManifestAttributes(
+      ("Implementation-Version", (ThisProject / version).value),
     ),
-    autoAPIMappings := true,
-    versionScheme := Some("early-semver"),
-    versionPolicyIntention := Compatibility.BinaryCompatible,
-    // ---
-    packageOptions := {
-      Seq(
-        ManifestAttributes(
-          ("Implementation-Version", (ThisProject / version).value),
-        ),
-      )
-    },
-  ),
+  )
+}
+
+lazy val docSettings = Seq(
+  Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
+  Compile / doc / scalacOptions -= "-Xfatal-warnings",
 )
 
 val alias: Seq[sbt.Def.Setting[?]] =
@@ -53,7 +53,6 @@ val alias: Seq[sbt.Def.Setting[?]] =
 lazy val root = project
   .in(file("."))
   .settings(name := "kafka-journal")
-  .settings(commonSettings)
   .settings(publish / skip := true)
   .settings(alias)
   .aggregate(
@@ -87,6 +86,7 @@ lazy val `scalatest-io` = project
 lazy val core = project
   .settings(name := "kafka-journal-core")
   .dependsOn(`scalatest-io` % Test)
+  .settings(docSettings)
   .settings(
     libraryDependencies ++= Seq(
       Akka.actor,
@@ -107,6 +107,7 @@ lazy val core = project
 lazy val journal = project
   .settings(name := "kafka-journal")
   .dependsOn(core % "test->test;compile->compile", `scalatest-io` % Test)
+  .settings(docSettings)
   .settings(
     libraryDependencies ++= Seq(
       Akka.actor,
@@ -145,11 +146,13 @@ lazy val journal = project
 lazy val snapshot = project
   .settings(name := "kafka-journal-snapshot")
   .dependsOn(core)
+  .settings(docSettings)
   .settings(libraryDependencies ++= Seq(scalatest % Test))
 
 lazy val persistence = project
   .settings(name := "kafka-journal-persistence")
   .dependsOn(journal % "test->test;compile->compile", `eventual-cassandra`, `snapshot-cassandra`)
+  .settings(docSettings)
   .settings(
     libraryDependencies ++= Seq(
       `akka-serialization`,
@@ -162,32 +165,38 @@ lazy val persistence = project
 lazy val replicator = project
   .settings(name := "kafka-journal-replicator")
   .dependsOn(journal % "test->test;compile->compile", `eventual-cassandra`)
+  .settings(docSettings)
   .settings(libraryDependencies ++= Seq(`cats-helper`, Logback.core % Test, Logback.classic % Test))
 
 lazy val cassandra = project
   .settings(name := "kafka-journal-cassandra")
   .dependsOn(core, `scalatest-io` % Test)
+  .settings(docSettings)
   .settings(libraryDependencies ++= Seq(scache, scassandra, `cassandra-sync`))
 
 lazy val `eventual-cassandra` = project
   .settings(name := "kafka-journal-eventual-cassandra")
   .dependsOn(cassandra % "test->test;compile->compile", journal % "test->test;compile->compile")
+  .settings(docSettings)
   .settings(libraryDependencies ++= Seq(scassandra))
 
 lazy val `snapshot-cassandra` = project
   .settings(name := "kafka-journal-snapshot-cassandra")
   .dependsOn(cassandra, snapshot % "test->test;compile->compile")
+  .settings(docSettings)
   .settings(libraryDependencies ++= Seq(scassandra))
 
 lazy val `journal-circe` = project
   .in(file("circe/core"))
-  .settings(name := "kafka-journal-circe")
   .dependsOn(journal % "test->test;compile->compile")
+  .settings(name := "kafka-journal-circe")
+  .settings(docSettings)
   .settings(libraryDependencies ++= Seq(Circe.core, Circe.generic, Circe.jawn))
 
 lazy val `persistence-circe` = project
   .in(file("circe/persistence"))
   .settings(name := "kafka-journal-persistence-circe")
+  .settings(docSettings)
   .dependsOn(`journal-circe`, persistence % "test->test;compile->compile")
 
 lazy val `tests` = project

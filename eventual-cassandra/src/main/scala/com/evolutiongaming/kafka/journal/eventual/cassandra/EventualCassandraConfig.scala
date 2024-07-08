@@ -5,9 +5,10 @@ import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
 import com.evolutiongaming.scassandra.{CassandraConfig, QueryConfig}
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
-import EventualCassandraConfig.*
 
 import scala.annotation.nowarn
+
+import EventualCassandraConfig.*
 
 /** Cassandra-specific configuration used by a plugin.
   *

@@ -27,7 +27,7 @@ object SetupSchema {
 
   val SettingKey = "schema-version"
 
-  private def migrations(schema: Schema): Nel[String] = {
+  def migrations(schema: Schema): Nel[String] = {
 
     def addHeaders: String =
       JournalStatements.addHeaders(schema.journal)
