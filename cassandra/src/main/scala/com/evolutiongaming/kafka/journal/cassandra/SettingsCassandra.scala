@@ -8,7 +8,7 @@ import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraSession
 import com.evolutiongaming.kafka.journal.{Origin, Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
-import com.evolutiongaming.sstream
+import com.evolutiongaming.sstream.Stream
 
 object SettingsCassandra {
 
@@ -50,7 +50,7 @@ object SettingsCassandra {
       } yield prev
     }
 
-    def all: sstream.Stream[F, Setting] = {
+    def all: Stream[F, Setting] = {
       statements.all
     }
   }
