@@ -12,7 +12,17 @@ import com.evolutiongaming.scassandra.ToCql.implicits.*
 
 import scala.annotation.nowarn
 
-/** Creates a new schema, or migrates to the latest schema version, if it already exists */
+/** Creates a new schema, or migrates to the latest schema version, if it already exists.
+ *
+ * Migration is done by checking [[SettingKey]] in `settings` table:
+ *  - read the `version` (`value` in table), which represents number of applied migration statements:
+ *    - `0` means first migration has been done
+ *    - `1` states that 2 migrations have been applied
+ *    - etc
+ *  - depending on value of `version`, applies all, some or none of migrations from [[SetupSchema.migrations]]
+ *
+ *  Migrations are done by [[MigrateSchema]] by restricting concurrent changes using [[CassandraSync]].
+ *  */
 object SetupSchema {
 
   val SettingKey = "schema-version"
