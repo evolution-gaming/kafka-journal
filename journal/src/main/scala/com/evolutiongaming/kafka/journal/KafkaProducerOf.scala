@@ -4,8 +4,8 @@ import cats.Monad
 import cats.effect.*
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.{MeasureDuration, ToTry}
-import com.evolutiongaming.skafka.producer.{ProducerConfig, ProducerMetrics, ProducerOf}
 import com.evolutiongaming.skafka.metrics.KafkaMetricsCollector
+import com.evolutiongaming.skafka.producer.{ProducerConfig, ProducerMetrics, ProducerOf}
 import io.prometheus.client.CollectorRegistry
 
 trait KafkaProducerOf[F[_]] {
