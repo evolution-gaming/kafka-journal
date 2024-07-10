@@ -77,7 +77,7 @@ lazy val core = (project in file("core")
   settings (libraryDependencies ++= Seq(
     Akka.actor,
     Akka.testkit % Test,
-    skafka,
+    SKafka.skafka,
     `cats-helper`,
     `play-json`,
     `play-json-jsoniter`,
@@ -112,7 +112,8 @@ lazy val journal = (project in file("journal")
     Akka.testkit % Test,
     Akka.slf4j   % Test,
     Kafka.`kafka-clients`,
-    skafka,
+    SKafka.skafka,
+    SKafka.metrics,
     scalatest        % Test,
     `executor-tools` % Test,
     random,

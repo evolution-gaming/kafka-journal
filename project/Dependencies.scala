@@ -19,7 +19,6 @@ object Dependencies {
   val random                     = "com.evolutiongaming"    %% "random"                         % "1.0.0"
   val retry                      = "com.evolutiongaming"    %% "retry"                          % "3.0.1"
   val sstream                    = "com.evolutiongaming"    %% "sstream"                        % "1.0.1"
-  val skafka                     = "com.evolutiongaming"    %% "skafka"                         % "16.0.0"
   val `akka-test-actor`          = "com.evolutiongaming"    %% "akka-test-actor"                % "0.1.0"
   val scache                     = "com.evolution"          %% "scache"                         % "5.0.0"
   val `resource-pool`            = "com.evolution"          %% "resource-pool"                  % "1.0.4"
@@ -55,6 +54,12 @@ object Dependencies {
     private val version = "3.4.0"
     val kafka           = "org.apache.kafka" %% "kafka"         % version
     val `kafka-clients` = "org.apache.kafka"  % "kafka-clients" % version
+  }
+
+  object SKafka {
+    private val version = "16.0.0"
+    val skafka  = "com.evolutiongaming" %% "skafka" % version
+    val metrics = "com.evolutiongaming" %% "skafka-metrics" % version
   }
 
   object Scodec {
