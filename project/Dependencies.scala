@@ -58,8 +58,8 @@ object Dependencies {
 
   object SKafka {
     private val version = "16.0.0"
-    val skafka  = "com.evolutiongaming" %% "skafka" % version
-    val metrics = "com.evolutiongaming" %% "skafka-metrics" % version
+    val skafka          = "com.evolutiongaming" %% "skafka"         % version
+    val metrics         = "com.evolutiongaming" %% "skafka-metrics" % version
   }
 
   object Scodec {
