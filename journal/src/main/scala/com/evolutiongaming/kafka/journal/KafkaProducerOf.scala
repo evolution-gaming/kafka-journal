@@ -17,7 +17,7 @@ object KafkaProducerOf {
 
   def apply[F[_]](implicit F: KafkaProducerOf[F]): KafkaProducerOf[F] = F
 
-  @deprecated("use apply1 with `prefix` param", "3.4.1")
+  @deprecated("use apply1 with `prefix` param", "3.5.0")
   def apply[F[_]: Async: MeasureDuration: ToTry](
     metrics: Option[ProducerMetrics[F]] = None,
   ): KafkaProducerOf[F] = {
@@ -25,7 +25,7 @@ object KafkaProducerOf {
     apply(producerOf)
   }
 
-  @deprecated("use apply1 with `prefix` param", "3.4.1")
+  @deprecated("use apply1 with `prefix` param", "3.5.0")
   def apply[F[_]: Monad](producerOf: ProducerOf[F]): KafkaProducerOf[F] = { (config: ProducerConfig) =>
     {
       for {
