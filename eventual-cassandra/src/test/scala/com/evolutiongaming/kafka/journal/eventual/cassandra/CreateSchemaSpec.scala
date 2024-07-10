@@ -2,6 +2,8 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.data.{NonEmptyList as Nel, State}
 import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.cassandra.CreateTables.Fresh
+import com.evolutiongaming.kafka.journal.cassandra.{CreateKeyspace, CreateTables, KeyspaceConfig}
 import com.evolutiongaming.scassandra.TableName
 import org.scalatest.funsuite.AnyFunSuite
 
@@ -15,7 +17,7 @@ class CreateSchemaSpec extends AnyFunSuite {
 
   test("create keyspace and tables") {
     val config                      = SchemaConfig.default
-    val createSchema                = CreateSchema[F](config, createKeyspace, createTables)
+    val createSchema                = CreateSchema.create[F](config, createKeyspace, createTables)
     val (database, (schema, fresh)) = createSchema.run(Database.empty).value
     assert(database.keyspaces == List("journal"))
     assert(
@@ -38,7 +40,7 @@ class CreateSchemaSpec extends AnyFunSuite {
         autoCreate = false,
         keyspace   = SchemaConfig.Keyspace.default.copy(autoCreate = false),
       )
-    val createSchema                = CreateSchema[F](config, createKeyspace, createTables)
+    val createSchema                = CreateSchema.create[F](config, createKeyspace, createTables)
     val (database, (schema, fresh)) = createSchema.run(Database.empty).value
     assert(database.keyspaces == Nil)
     assert(database.tables == Nil)
@@ -58,7 +60,7 @@ class CreateSchemaSpec extends AnyFunSuite {
         keyspaces = List("journal"),
         tables    = List("journal.setting"),
       )
-    val createSchema                = CreateSchema[F](config, createKeyspace, createTables)
+    val createSchema                = CreateSchema.create[F](config, createKeyspace, createTables)
     val (database, (schema, fresh)) = createSchema.run(initialState).value
     assert(database.keyspaces == List("journal"))
     assert(
@@ -84,7 +86,7 @@ class CreateSchemaSpec extends AnyFunSuite {
   )
 
   val createTables: CreateTables[F] = new CreateTables[F] {
-    def apply(keyspace: String, tables: Nel[CreateTables.Table]) = {
+    def apply(keyspace: String, tables: Nel[CreateTables.Table]): F[Fresh] = {
       val results = tables.traverse { table =>
         assert(
           table
@@ -101,7 +103,7 @@ class CreateSchemaSpec extends AnyFunSuite {
   }
 
   val createKeyspace: CreateKeyspace[F] = new CreateKeyspace[F] {
-    def apply(config: SchemaConfig.Keyspace) =
+    def apply(config: KeyspaceConfig): F[Unit] =
       if (config.autoCreate) Database.createKeyspace(config.name)
       else ().pure[F]
   }

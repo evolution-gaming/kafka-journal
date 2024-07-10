@@ -34,6 +34,14 @@ ThisBuild / packageOptions := Seq(
   ),
 )
 
+import com.typesafe.tools.mima.core.*
+ThisBuild / mimaBinaryIssueFilters ++= Seq(
+  ProblemFilters.exclude[IncompatibleMethTypeProblem]("com.evolutiongaming.kafka.journal.eventual.cassandra.CreateSchema.apply"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolutiongaming.kafka.journal.eventual.cassandra.CreateSchema.apply"),
+  ProblemFilters.exclude[IncompatibleMethTypeProblem]("com.evolutiongaming.kafka.journal.eventual.cassandra.SetupSchema.migrate"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolutiongaming.kafka.journal.eventual.cassandra.SetupSchema.migrate"),
+)
+
 lazy val docSettings = Seq(
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
   Compile / doc / scalacOptions -= "-Xfatal-warnings",

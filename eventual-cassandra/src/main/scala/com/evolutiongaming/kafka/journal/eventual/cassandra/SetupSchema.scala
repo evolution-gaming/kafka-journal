@@ -6,7 +6,7 @@ import cats.syntax.all.*
 import cats.{MonadThrow, Parallel}
 import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.cassandra.MigrateSchema.Fresh
-import com.evolutiongaming.kafka.journal.cassandra.{MigrateSchema, SettingsCassandra}
+import com.evolutiongaming.kafka.journal.cassandra.{CassandraSync, MigrateSchema, SettingsCassandra}
 import com.evolutiongaming.kafka.journal.{Origin, Settings}
 import com.evolutiongaming.scassandra.ToCql.implicits.*
 
@@ -45,16 +45,14 @@ object SetupSchema {
 
   }
 
-  @nowarn
-  // TODO MR deal with deprecated
-  def migrate[F[_]: MonadThrow: CassandraSession](
+  private[cassandra] def migrate[F[_]: MonadThrow: CassandraSession](
     schema: Schema,
     fresh: MigrateSchema.Fresh,
     settings: Settings[F],
     cassandraSync: CassandraSync[F],
   ): F[Unit] = {
     val migrateSchema = MigrateSchema.forSettingKey(
-      cassandraSync = cassandraSync.toCassandraSync2,
+      cassandraSync = cassandraSync,
       settings      = settings,
       settingKey    = SettingKey,
       migrations    = migrations(schema),
@@ -73,7 +71,7 @@ object SetupSchema {
     def createSchema(implicit cassandraSync: CassandraSync[F]): F[(Schema, Fresh)] = CreateSchema(config)
 
     for {
-      cassandraSync  <- CassandraSync.of[F](config, origin)
+      cassandraSync  <- CassandraSync.of[F](config.keyspace.toKeyspaceConfig, config.locksTable, origin)
       ab             <- createSchema(cassandraSync)
       (schema, fresh) = ab
       settings       <- SettingsCassandra.of[F](schema.setting, origin, consistencyConfig.toCassandraConsistencyConfig)
