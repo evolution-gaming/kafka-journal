@@ -201,6 +201,7 @@ object Pointer2Statements {
     }
   }
 
+  // TODO MR remove with next major release
   trait UpdateCreated[F[_]] {
 
     def apply(topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant): F[Unit]

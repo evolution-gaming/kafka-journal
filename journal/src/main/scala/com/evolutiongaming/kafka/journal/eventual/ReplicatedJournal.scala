@@ -6,7 +6,7 @@ import cats.syntax.all.*
 import cats.{Applicative, Monad, ~>}
 import com.evolutiongaming.catshelper.{BracketThrowable, Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal.*
-import com.evolutiongaming.skafka.Topic
+import com.evolutiongaming.skafka.{Partition, Topic}
 import com.evolutiongaming.smetrics.*
 import com.evolutiongaming.smetrics.MetricsHelper.*
 
@@ -38,9 +38,9 @@ object ReplicatedJournal {
 
   def empty[F[_]: Applicative]: ReplicatedJournal[F] = new Empty with ReplicatedJournal[F] {
 
-    def topics = SortedSet.empty[Topic].pure[F]
+    def topics: F[SortedSet[Topic]] = SortedSet.empty[Topic].pure[F]
 
-    def journal(topic: Topic) = {
+    def journal(topic: Topic): Resource[F, ReplicatedTopicJournal[F]] = {
       ReplicatedTopicJournal
         .empty[F]
         .pure[F]
@@ -61,9 +61,9 @@ object ReplicatedJournal {
     def mapK[G[_]](f: F ~> G)(implicit B: BracketThrowable[F], GT: BracketThrowable[G]): ReplicatedJournal[G] = new MapK
       with ReplicatedJournal[G] {
 
-      def topics = f(self.topics)
+      def topics: G[SortedSet[Topic]] = f(self.topics)
 
-      def journal(topic: Topic) = {
+      def journal(topic: Topic): Resource[G, ReplicatedTopicJournal[G]] = {
         self
           .journal(topic)
           .map { _.mapK(f) }
@@ -74,7 +74,7 @@ object ReplicatedJournal {
     def withLog(log: Log[F])(implicit F: Monad[F], measureDuration: MeasureDuration[F]): ReplicatedJournal[F] = new WithLog
       with ReplicatedJournal[F] {
 
-      def topics = {
+      def topics: F[SortedSet[Topic]] = {
         for {
           d <- MeasureDuration[F].start
           r <- self.topics
@@ -83,7 +83,7 @@ object ReplicatedJournal {
         } yield r
       }
 
-      def journal(topic: Topic) = {
+      def journal(topic: Topic): Resource[F, ReplicatedTopicJournal[F]] = {
         self
           .journal(topic)
           .map { _.withLog(topic, log) }
@@ -93,7 +93,7 @@ object ReplicatedJournal {
     def withMetrics(metrics: Metrics[F])(implicit F: Monad[F], measureDuration: MeasureDuration[F]): ReplicatedJournal[F] =
       new WithMetrics with ReplicatedJournal[F] {
 
-        def topics = {
+        def topics: F[SortedSet[Topic]] = {
           for {
             d <- MeasureDuration[F].start
             r <- self.topics
@@ -102,7 +102,7 @@ object ReplicatedJournal {
           } yield r
         }
 
-        def journal(topic: Topic) = {
+        def journal(topic: Topic): Resource[F, ReplicatedTopicJournal[F]] = {
           self
             .journal(topic)
             .map { _.withMetrics(topic, metrics) }
@@ -117,13 +117,13 @@ object ReplicatedJournal {
 
       new WithEnhanceError with ReplicatedJournal[F] {
 
-        def topics = {
+        def topics: F[SortedSet[Topic]] = {
           self
             .topics
             .adaptError { case a => journalError(s"topics", a) }
         }
 
-        def journal(topic: Topic) = {
+        def journal(topic: Topic): Resource[F, ReplicatedTopicJournal[F]] = {
           self
             .journal(topic)
             .map { _.enhanceError(topic) }
@@ -150,6 +150,18 @@ object ReplicatedJournal {
     def delete(topic: Topic, latency: FiniteDuration): F[Unit]
 
     def purge(topic: Topic, latency: FiniteDuration): F[Unit]
+
+    // TODO MR remove with next major release
+    def topicsFallback(topic: Topic): F[Unit]
+
+    // TODO MR remove with next major release
+    def selectOffsetFallback(topic: Topic, partition: Partition): F[Unit]
+
+    // TODO MR remove with next major release
+    def selectPointerFallback(topic: Topic, partition: Partition): F[Unit]
+
+    // TODO MR remove with next major release
+    def updatePointerCreated2Fallback(topic: Topic, partition: Partition): F[Unit]
   }
 
   object Metrics {
@@ -160,19 +172,27 @@ object ReplicatedJournal {
       class Const
       new Const with Metrics[F] {
 
-        def topics(latency: FiniteDuration) = unit
+        def topics(latency: FiniteDuration): F[Unit] = unit
 
-        def offsetsGet(latency: FiniteDuration) = unit
+        def offsetsGet(latency: FiniteDuration): F[Unit] = unit
 
-        def offsetsUpdate(topic: Topic, latency: FiniteDuration) = unit
+        def offsetsUpdate(topic: Topic, latency: FiniteDuration): F[Unit] = unit
 
-        def offsetsCreate(topic: Topic, latency: FiniteDuration) = unit
+        def offsetsCreate(topic: Topic, latency: FiniteDuration): F[Unit] = unit
 
-        def append(topic: Topic, latency: FiniteDuration, events: Int) = unit
+        def append(topic: Topic, latency: FiniteDuration, events: Int): F[Unit] = unit
 
-        def delete(topic: Topic, latency: FiniteDuration) = unit
+        def delete(topic: Topic, latency: FiniteDuration): F[Unit] = unit
 
-        def purge(topic: Topic, latency: FiniteDuration) = unit
+        def purge(topic: Topic, latency: FiniteDuration): F[Unit] = unit
+
+        def topicsFallback(topic: Topic): F[Unit] = unit
+
+        def selectOffsetFallback(topic: Topic, partition: Partition): F[Unit] = unit
+
+        def selectPointerFallback(topic: Topic, partition: Partition): F[Unit] = unit
+
+        def updatePointerCreated2Fallback(topic: Topic, partition: Partition): F[Unit] = unit
       }
     }
 
@@ -208,21 +228,49 @@ object ReplicatedJournal {
         labels    = LabelNames("topic"),
       )
 
+      val topicsCounter = registry.counter(
+        name   = s"${prefix}_temp_replicated_cassandra_topics_fallback_called_total",
+        help   = "TEMP count how many times `topics` had to be read from `pointer` table (`pointer2` didn't have it)",
+        labels = LabelNames("topic"),
+      )
+
+      val selectOffsetCounter = registry.counter(
+        name   = s"${prefix}_temp_replicated_cassandra_selectOffset_fallback_called_total",
+        help   = "TEMP count how many times `selectOffset` was called from `pointer` table",
+        labels = LabelNames("topic", "partition"),
+      )
+
+      val selectPointerCounter = registry.counter(
+        name   = s"${prefix}_temp_replicated_cassandra_selectPointer_fallback_called_total",
+        help   = "TEMP count how many times `selectPointer` was called from `pointer` table",
+        labels = LabelNames("topic", "partition"),
+      )
+
+      val updatePointerCreated2Counter = registry.counter(
+        name   = s"${prefix}_temp_replicated_cassandra_updatePointerCreated2_fallback_called_total",
+        help   = "TEMP count how many times `selectPointer` was called from `pointer` table",
+        labels = LabelNames("topic", "partition"),
+      )
+
       for {
-        versionGauge        <- versionGauge
-        _                   <- versionGauge.labels(Version.current.value).set(1).toResource
-        latencySummary      <- latencySummary
-        topicLatencySummary <- topicLatencySummary
-        eventsSummary       <- eventsSummary
+        versionGauge                 <- versionGauge
+        _                            <- versionGauge.labels(Version.current.value).set(1).toResource
+        latencySummary               <- latencySummary
+        topicLatencySummary          <- topicLatencySummary
+        eventsSummary                <- eventsSummary
+        topicsCounter                <- topicsCounter
+        selectOffsetCounter          <- selectOffsetCounter
+        selectPointerCounter         <- selectPointerCounter
+        updatePointerCreated2Counter <- updatePointerCreated2Counter
       } yield {
 
-        def observeTopicLatency(name: String, topic: Topic, latency: FiniteDuration) = {
+        def observeTopicLatency(name: String, topic: Topic, latency: FiniteDuration): F[Unit] = {
           topicLatencySummary
             .labels(topic, name)
             .observe(latency.toNanos.nanosToSeconds)
         }
 
-        def observeLatency(name: String, latency: FiniteDuration) = {
+        def observeLatency(name: String, latency: FiniteDuration): F[Unit] = {
           latencySummary
             .labels(name)
             .observe(latency.toNanos.nanosToSeconds)
@@ -232,36 +280,42 @@ object ReplicatedJournal {
 
         new Main with Metrics[F] {
 
-          def topics(latency: FiniteDuration) = {
+          def topics(latency: FiniteDuration): F[Unit] =
             observeLatency(name = "topics", latency = latency)
-          }
 
-          def offsetsGet(latency: FiniteDuration): F[Unit] = {
+          def offsetsGet(latency: FiniteDuration): F[Unit] =
             observeLatency(name = "offsets.get", latency = latency)
-          }
 
-          def offsetsUpdate(topic: Topic, latency: FiniteDuration) = {
+          def offsetsUpdate(topic: Topic, latency: FiniteDuration): F[Unit] =
             observeLatency(name = "offsets.update", latency = latency)
-          }
 
-          def offsetsCreate(topic: Topic, latency: FiniteDuration) = {
+          def offsetsCreate(topic: Topic, latency: FiniteDuration): F[Unit] =
             observeLatency(name = "offsets.create", latency = latency)
-          }
 
-          def append(topic: Topic, latency: FiniteDuration, events: Int) = {
+          def append(topic: Topic, latency: FiniteDuration, events: Int): F[Unit] =
             for {
               _ <- eventsSummary.labels(topic).observe(events.toDouble)
               _ <- observeTopicLatency(name = "append", topic = topic, latency = latency)
             } yield {}
-          }
 
-          def delete(topic: Topic, latency: FiniteDuration) = {
+          def delete(topic: Topic, latency: FiniteDuration): F[Unit] =
             observeTopicLatency(name = "delete", topic = topic, latency = latency)
-          }
 
-          def purge(topic: Topic, latency: FiniteDuration) = {
+          def purge(topic: Topic, latency: FiniteDuration): F[Unit] =
             observeTopicLatency(name = "purge", topic = topic, latency = latency)
-          }
+
+          def topicsFallback(topic: Topic): F[Unit] =
+            topicsCounter.labels(topic).inc()
+
+          def selectOffsetFallback(topic: Topic, partition: Partition): F[Unit] =
+            selectOffsetCounter.labels(topic, s"$partition").inc()
+
+          def selectPointerFallback(topic: Topic, partition: Partition): F[Unit] =
+            selectPointerCounter.labels(topic, s"$partition").inc()
+
+          def updatePointerCreated2Fallback(topic: Topic, partition: Partition): F[Unit] =
+            updatePointerCreated2Counter.labels(topic, s"$partition").inc()
+
         }
       }
     }

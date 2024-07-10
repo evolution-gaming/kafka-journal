@@ -4,10 +4,12 @@ import cats.data.NonEmptyList as Nel
 import cats.effect.syntax.all.*
 import cats.effect.{Async, Ref, Resource, Sync}
 import cats.syntax.all.*
-import cats.{Monad, Parallel}
+import cats.{Applicative, Monad, Parallel}
 import com.evolutiongaming.catshelper.ParallelHelper.*
-import com.evolutiongaming.catshelper.{LogOf, MeasureDuration, ToTry}
+import com.evolutiongaming.catshelper.{Log, LogOf, MeasureDuration, ToTry}
 import com.evolutiongaming.kafka.journal.eventual.*
+import com.evolutiongaming.kafka.journal.eventual.ReplicatedKeyJournal.Changed
+import com.evolutiongaming.kafka.journal.eventual.cassandra.ReplicatedCassandra.MetaJournalStatements.ByKey
 import com.evolutiongaming.kafka.journal.eventual.cassandra.SegmentNr.implicits.*
 import com.evolutiongaming.kafka.journal.util.CatsHelper.*
 import com.evolutiongaming.kafka.journal.util.Fail
@@ -17,6 +19,7 @@ import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 import java.time.Instant
 import scala.annotation.tailrec
+import scala.collection.immutable.SortedSet
 
 object ReplicatedCassandra {
 
@@ -38,8 +41,9 @@ object ReplicatedCassandra {
       _             <- log.info(s"kafka-journal version: ${Version.current.value}")
     } yield {
       val segmentOf = SegmentNrsOf[F](first = Segments.default, second = Segments.old)
-      val journal = apply[F](config.segmentSize, segmentOf, statements, expiryService)
-        .withLog(log)
+      val journal =
+        applyWithTempMetrics[F](config.segmentSize, segmentOf, statements, expiryService, metrics, Some(log))
+          .withLog(log)
       metrics
         .fold(journal) { metrics => journal.withMetrics(metrics) }
         .enhanceError
@@ -52,60 +56,104 @@ object ReplicatedCassandra {
     statements: Statements[F],
     expiryService: ExpiryService[F],
   ): ReplicatedJournal[F] = {
+    applyWithTempMetrics(segmentSizeDefault, segmentNrsOf, statements, expiryService, None, None)
+  }
+
+  private def applyWithTempMetrics[F[_]: Sync: Parallel: Fail](
+    segmentSizeDefault: SegmentSize,
+    segmentNrsOf: SegmentNrsOf[F],
+    statements: Statements[F],
+    expiryService: ExpiryService[F],
+    metrics: Option[ReplicatedJournal.Metrics[F]],
+    log: Option[Log[F]],
+  ): ReplicatedJournal[F] = {
 
     new Main with ReplicatedJournal[F] {
 
-      def topics = {
+      val unit: F[Unit] = Applicative[F].unit
+
+      def topics: F[SortedSet[Topic]] = {
         statements
           .selectTopics2()
           .parProduct(statements.selectTopics())
-          .map { case (a, b) => a ++ b }
+          .flatMap {
+            case (a, b) =>
+              val meterAndLog = Applicative[F].whenA(b.diff(a).nonEmpty) {
+                val diff = b.diff(a)
+                diff
+                  .toList
+                  .map { topic =>
+                    for {
+                      _ <- metrics.map(_.topicsFallback(topic)).getOrElse(unit)
+                      _ <- log.map(_.warn(s"`pointer` contains topic $topic while `pointer2` doesn't")).getOrElse(unit)
+                    } yield ()
+                  }
+                  .sequence_
+              }
+              meterAndLog.as(a ++ b)
+          }
       }
 
-      def journal(topic: Topic) = {
+      def journal(topic: Topic): Resource[F, ReplicatedTopicJournal[F]] = {
         class Main
         val result = new Main with ReplicatedTopicJournal[F] {
 
           def apply(partition: Partition): Resource[F, ReplicatedPartitionJournal[F]] = {
             Ref[F]
-              .of(false)
+              .of(false) // assume that `pointer2` isn't updated, yet
               .map { fixedRef =>
                 new Main with ReplicatedPartitionJournal[F] {
 
                   def offsets: ReplicatedPartitionJournal.Offsets[F] = {
                     new Main with ReplicatedPartitionJournal.Offsets[F] {
 
-                      def get = {
+                      def get: F[Option[Offset]] = {
                         for {
                           offset <- statements.selectOffset2(topic, partition)
-                          offset <- offset.fold { statements.selectOffset(topic, partition) } { _.some.pure[F] }
+                          offset <- offset.fold {
+                            val meterAndLog = {
+                              for {
+                                _      <- metrics.map(_.selectOffsetFallback(topic, partition)).getOrElse(unit)
+                                message = s"`selectOffset` was called for topic $topic and partition: $partition"
+                                _      <- log.map(_.warn(message)).getOrElse(unit)
+                              } yield ()
+                            }
+                            statements.selectOffset(topic, partition) <* meterAndLog
+                          } { _.some.pure[F] }
                         } yield offset
                       }
 
-                      def create(offset: Offset, timestamp: Instant) = {
+                      def create(offset: Offset, timestamp: Instant): F[Unit] = {
                         for {
                           a <- statements.insertPointer2(topic, partition, offset, timestamp, timestamp)
                           b <- statements.insertPointer(topic, partition, offset, timestamp, timestamp)
-                          _ <- fixedRef.set(true)
+                          _ <- fixedRef.set(true) // mark that `pointer2` table is updated with new state
                         } yield {
                           a.combine(b)
                         }
                       }
 
-                      def update(offset: Offset, timestamp: Instant) = {
+                      def update(offset: Offset, timestamp: Instant): F[Unit] = {
                         statements
                           .updatePointer(topic, partition, offset, timestamp)
                           .parProduct {
                             for {
                               fixed <- fixedRef.get
                               result <-
-                                if (fixed) {
-                                  statements.updatePointer2(topic, partition, offset, timestamp)
-                                } else {
+                                if (fixed) { // if topic's partition's offset has been set inside `create` [before]
+                                  statements.updatePointer2(topic, partition, offset, timestamp) // use them
+                                } else { // else find state from `pointer` table
                                   for {
                                     pointer <- statements.selectPointer2(topic, partition)
                                     created = statements
                                       .selectPointer(topic, partition)
+                                      .productL {
+                                        for {
+                                          _      <- metrics.map(_.selectPointerFallback(topic, partition)).getOrElse(unit)
+                                          message = s"`selectPointer` was called for topic $topic and partition: $partition"
+                                          _      <- log.map(_.warn(message)).getOrElse(unit)
+                                        } yield ()
+                                      }
                                       .map { pointer =>
                                         pointer
                                           .flatMap { _.created }
@@ -120,6 +168,8 @@ object ReplicatedCassandra {
                                       pointer
                                         .created
                                         .fold {
+                                          // initial migration had issue on low-load environments:
+                                          //   some partition-topic pairs were never written due to low load
                                           for {
                                             created <- created
                                             result <- statements.updatePointerCreated2(
@@ -129,6 +179,12 @@ object ReplicatedCassandra {
                                               created,
                                               timestamp,
                                             )
+                                            _ <- for {
+                                              _ <- metrics.map(_.updatePointerCreated2Fallback(topic, partition)).getOrElse(unit)
+                                              message =
+                                                s"`updatePointerCreated2` was called for topic $topic and partition: $partition"
+                                              _ <- log.map(_.warn(message)).getOrElse(unit)
+                                            } yield ()
                                           } yield result
                                         } { _ =>
                                           ().pure[F]
@@ -144,7 +200,7 @@ object ReplicatedCassandra {
                     }
                   }
 
-                  def journal(id: String) = {
+                  def journal(id: String): Resource[F, ReplicatedKeyJournal[F]] = {
 
                     val key = Key(id = id, topic = topic)
 
@@ -188,7 +244,7 @@ object ReplicatedCassandra {
                             timestamp: Instant,
                             expireAfter: Option[ExpireAfter],
                             events: Nel[EventRecord[EventualPayloadAndType]],
-                          ) = {
+                          ): F[Changed] = {
 
                             def partitionOffset = PartitionOffset(partition, offset)
 
@@ -261,7 +317,7 @@ object ReplicatedCassandra {
                                       (insert, journalHead)
                                     }
                                 } { journalHead =>
-                                  def updateOf = metaJournal.update(partitionOffset, timestamp)
+                                  def updateOf: ByKey.Update[F] = metaJournal.update(partitionOffset, timestamp)
 
                                   expiryService
                                     .action(journalHead.expiry, expireAfter, timestamp)
@@ -329,7 +385,7 @@ object ReplicatedCassandra {
                             timestamp: Instant,
                             deleteTo: DeleteTo,
                             origin: Option[Origin],
-                          ) = {
+                          ): F[Changed] = {
 
                             def partitionOffset = PartitionOffset(partition, offset)
 
@@ -428,7 +484,7 @@ object ReplicatedCassandra {
                           def purge(
                             offset: Offset,
                             timestamp: Instant,
-                          ) = {
+                          ): F[Changed] = {
                             for {
                               journalHead <- journalHeadRef.get
                               result <- journalHead.fold {
@@ -591,40 +647,40 @@ object ReplicatedCassandra {
         def apply(key: Key, segment: SegmentNr): ByKey[F] = {
           new MetaJournal with ByKey[F] {
 
-            def journalHead = selectJournalHead(key, segment)
+            def journalHead: F[Option[JournalHead]] = selectJournalHead(key, segment)
 
-            def insert(timestamp: Instant, journalHead: JournalHead, origin: Option[Origin]) = {
+            def insert(timestamp: Instant, journalHead: JournalHead, origin: Option[Origin]): F[Unit] = {
               inset1(key, segment, timestamp, timestamp, journalHead, origin)
             }
 
             def update(partitionOffset: PartitionOffset, timestamp: Instant): ByKey.Update[F] = {
               new MetaJournal with ByKey.Update[F] {
 
-                def apply() = {
+                def apply(): F[Unit] = {
                   updatePartitionOffset(key, segment, partitionOffset, timestamp)
                 }
 
-                def apply(seqNr: SeqNr) = {
+                def apply(seqNr: SeqNr): F[Unit] = {
                   updateSeqNr(key, segment, partitionOffset, timestamp, seqNr)
                 }
 
-                def apply(seqNr: SeqNr, expiry: Expiry) = {
+                def apply(seqNr: SeqNr, expiry: Expiry): F[Unit] = {
                   updateExpiry(key, segment, partitionOffset, timestamp, seqNr, expiry)
                 }
 
-                def apply(deleteTo: DeleteTo) = {
+                def apply(deleteTo: DeleteTo): F[Unit] = {
                   updateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo)
                 }
 
-                def apply(seqNr: SeqNr, deleteTo: DeleteTo) = {
+                def apply(seqNr: SeqNr, deleteTo: DeleteTo): F[Unit] = {
                   update1(key, segment, partitionOffset, timestamp, seqNr, deleteTo)
                 }
               }
             }
 
-            def delete = delete1(key, segment)
+            def delete: F[Unit] = delete1(key, segment)
 
-            def deleteExpiry = deleteExpiry1(key, segment)
+            def deleteExpiry: F[Unit] = deleteExpiry1(key, segment)
           }
         }
       }
