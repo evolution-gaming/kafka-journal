@@ -70,22 +70,20 @@ object ReplicatedCassandra {
 
     new Main with ReplicatedJournal[F] {
 
-      val unit: F[Unit] = Applicative[F].unit
-
       def topics: F[SortedSet[Topic]] = {
         statements
           .selectTopics2()
           .parProduct(statements.selectTopics())
           .flatMap {
             case (a, b) =>
-              val meterAndLog = Applicative[F].whenA(b.diff(a).nonEmpty) {
-                val diff = b.diff(a)
+              val diff = b.diff(a)
+              val meterAndLog = Applicative[F].whenA(diff.nonEmpty) {
                 diff
                   .toList
                   .map { topic =>
                     for {
-                      _ <- metrics.map(_.topicsFallback(topic)).getOrElse(unit)
-                      _ <- log.map(_.warn(s"`pointer` contains topic $topic while `pointer2` doesn't")).getOrElse(unit)
+                      _ <- metrics.traverse_(_.topicsFallback(topic))
+                      _ <- log.traverse_(_.warn(s"`pointer` contains topic $topic while `pointer2` doesn't"))
                     } yield ()
                   }
                   .sequence_
@@ -113,9 +111,9 @@ object ReplicatedCassandra {
                           offset <- offset.fold {
                             val meterAndLog = {
                               for {
-                                _      <- metrics.map(_.selectOffsetFallback(topic, partition)).getOrElse(unit)
+                                _      <- metrics.traverse_(_.selectOffsetFallback(topic, partition))
                                 message = s"`selectOffset` was called for topic $topic and partition: $partition"
-                                _      <- log.map(_.warn(message)).getOrElse(unit)
+                                _      <- log.traverse_(_.warn(message))
                               } yield ()
                             }
                             statements.selectOffset(topic, partition) <* meterAndLog
@@ -149,9 +147,9 @@ object ReplicatedCassandra {
                                       .selectPointer(topic, partition)
                                       .productL {
                                         for {
-                                          _      <- metrics.map(_.selectPointerFallback(topic, partition)).getOrElse(unit)
+                                          _      <- metrics.traverse_(_.selectPointerFallback(topic, partition))
                                           message = s"`selectPointer` was called for topic $topic and partition: $partition"
-                                          _      <- log.map(_.warn(message)).getOrElse(unit)
+                                          _      <- log.traverse_(_.warn(message))
                                         } yield ()
                                       }
                                       .map { pointer =>
@@ -180,10 +178,10 @@ object ReplicatedCassandra {
                                               timestamp,
                                             )
                                             _ <- for {
-                                              _ <- metrics.map(_.updatePointerCreated2Fallback(topic, partition)).getOrElse(unit)
+                                              _ <- metrics.traverse_(_.updatePointerCreated2Fallback(topic, partition))
                                               message =
                                                 s"`updatePointerCreated2` was called for topic $topic and partition: $partition"
-                                              _ <- log.map(_.warn(message)).getOrElse(unit)
+                                              _ <- log.traverse_(_.warn(message))
                                             } yield ()
                                           } yield result
                                         } { _ =>
