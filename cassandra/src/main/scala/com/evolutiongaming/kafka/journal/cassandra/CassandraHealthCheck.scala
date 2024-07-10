@@ -10,7 +10,6 @@ import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper.*
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraSession
 import com.evolutiongaming.kafka.journal.util.CatsHelper.*
 
-import scala.annotation.nowarn
 import scala.concurrent.duration.*
 
 /** Performs a check if Cassandra is alive.
@@ -26,6 +25,7 @@ trait CassandraHealthCheck[F[_]] {
 
 }
 
+@deprecated(since = "3.3.10", message = "Use `com.evolutiongaming.scassandra.CassandraHealthCheck` instead")
 object CassandraHealthCheck {
 
   /** Checks if Cassandra is alive by requesting a current timestamp from Cassandra.
@@ -43,8 +43,6 @@ object CassandraHealthCheck {
     * @return
     *   Factory for `CassandraHealthCheck` instances.
     */
-  @nowarn
-  // TODO MR deal with deprecated
   def of[F[_]: Temporal: LogOf](
     session: Resource[F, CassandraSession[F]],
     consistencyConfig: CassandraConsistencyConfig.Read,
@@ -79,8 +77,6 @@ object CassandraHealthCheck {
     * @return
     *   Factory for `CassandraHealthCheck` instances.
     */
-  @nowarn
-  // TODO MR deal with deprecated
   def of[F[_]: Temporal](
     initial: FiniteDuration,
     interval: FiniteDuration,
@@ -100,7 +96,7 @@ object CassandraHealthCheck {
       }
     } yield {
       new CassandraHealthCheck[F] {
-        def error = ref.get
+        def error: F[Option[Throwable]] = ref.get
       }
     }
   }
