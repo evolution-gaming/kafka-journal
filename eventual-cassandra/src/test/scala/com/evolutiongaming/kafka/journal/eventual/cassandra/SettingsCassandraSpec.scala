@@ -14,10 +14,11 @@ import org.scalatest.funsuite.AnyFunSuite
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import scala.annotation.nowarn
 
-@nowarn
-// TODO MR deal with deprecated
+@deprecated(
+  since   = "3.3.9",
+  message = "Use a class from `com.evolutiongaming.kafka.journal.cassandra` (without `eventual` part) package instead",
+)
 class SettingsCassandraSpec extends AnyFunSuite {
 
   type F[A] = State[Database, A]
@@ -34,7 +35,7 @@ class SettingsCassandraSpec extends AnyFunSuite {
     val program                   = settings.setIfEmpty(setting.key, setting.value)
     val (database, existingValue) = program.run(Database.fromSetting(setting)).value
     assert(database.settings == Map(setting.key -> setting))
-    assert(existingValue == Some(setting))
+    assert(existingValue.contains(setting))
   }
 
   test("get") {
@@ -55,7 +56,7 @@ class SettingsCassandraSpec extends AnyFunSuite {
     val program                  = settings.remove(setting.key)
     val (database, deletedValue) = program.run(Database.fromSetting(setting)).value
     assert(database.settings.isEmpty)
-    assert(deletedValue == Some(setting))
+    assert(deletedValue.contains(setting))
   }
 
   test("set, get, all, remove") {
@@ -110,9 +111,9 @@ class SettingsCassandraSpec extends AnyFunSuite {
       delete        = Database.delete,
     )
 
-    implicit val clock = Clock.const[F](nanos = 0, millis = timestamp.toEpochMilli)
+    implicit val clock: Clock[F] = Clock.const[F](nanos = 0, millis = timestamp.toEpochMilli)
 
-    implicit val measureDuration = MeasureDuration.fromClock(clock)
+    implicit val measureDuration: MeasureDuration[F] = MeasureDuration.fromClock(clock)
 
     SettingsCassandra[F](statements, origin.some)
       .withLog(Log.empty)

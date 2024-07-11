@@ -34,7 +34,7 @@ class SettingsCassandraSpec extends AnyFunSuite {
     val program                   = settings.setIfEmpty(setting.key, setting.value)
     val (database, existingValue) = program.run(Database.fromSetting(setting)).value
     assert(database.settings == Map(setting.key -> setting))
-    assert(existingValue == Some(setting))
+    assert(existingValue.contains(setting))
   }
 
   test("get") {
@@ -55,7 +55,7 @@ class SettingsCassandraSpec extends AnyFunSuite {
     val program                  = settings.remove(setting.key)
     val (database, deletedValue) = program.run(Database.fromSetting(setting)).value
     assert(database.settings.isEmpty)
-    assert(deletedValue == Some(setting))
+    assert(deletedValue.contains(setting))
   }
 
   test("set, get, all, remove") {
@@ -70,16 +70,16 @@ class SettingsCassandraSpec extends AnyFunSuite {
       a <- settings.set(setting.key, setting.value)
       _  = assert(a.isEmpty)
       a <- settings.get(setting.key)
-      _  = assert(a == Some(setting))
+      _  = assert(a.contains(setting))
       a <- settings.setIfEmpty(setting.key, setting.value)
-      _  = assert(a == Some(setting))
+      _  = assert(a.contains(setting))
       a <- settings.get(setting.key)
-      _  = assert(a == Some(setting))
+      _  = assert(a.contains(setting))
       a <- settings.all.toList
       _  = assert(a == List(setting))
 
       a <- settings.remove(setting.key)
-      _  = assert(a == Some(setting))
+      _  = assert(a.contains(setting))
       a <- settings.get(setting.key)
       _  = assert(a.isEmpty)
       a <- settings.all.toList
@@ -110,9 +110,9 @@ class SettingsCassandraSpec extends AnyFunSuite {
       delete        = Database.delete(_),
     )
 
-    implicit val clock = Clock.const[F](nanos = 0, millis = timestamp.toEpochMilli)
+    implicit val clock: Clock[F] = Clock.const[F](nanos = 0, millis = timestamp.toEpochMilli)
 
-    implicit val measureDuration = MeasureDuration.fromClock(clock)
+    implicit val measureDuration: MeasureDuration[F] = MeasureDuration.fromClock(clock)
 
     SettingsCassandra[F](statements, origin.some)
       .withLog(Log.empty)
