@@ -76,19 +76,16 @@ object ReplicatedCassandra {
           .parProduct(statements.selectTopics())
           .flatMap {
             case (a, b) =>
-              val diff = b.diff(a)
-              val meterAndLog = Applicative[F].whenA(diff.nonEmpty) {
-                diff
-                  .toList
-                  .map { topic =>
-                    for {
-                      _ <- metrics.traverse_(_.topicsFallback(topic))
-                      _ <- log.traverse_(_.warn(s"`pointer` contains topic $topic while `pointer2` doesn't"))
-                    } yield ()
-                  }
-                  .sequence_
-              }
-              meterAndLog.as(a ++ b)
+              val meterAndLog = for {
+                metrics <- metrics.toSeq
+                log     <- log.toSeq
+                topic   <- b.diff(a).toSeq
+              } yield for {
+                _ <- metrics.topicsFallback(topic)
+                _ <- log.warn(s"`pointer` contains topic $topic while `pointer2` doesn't")
+              } yield ()
+
+              meterAndLog.sequence_.as(a ++ b)
           }
       }
 
