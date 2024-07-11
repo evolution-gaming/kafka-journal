@@ -1,2 +1,3 @@
 -J-Xms4G
 -J-Xmx4G
+-J-Dsbt.boot.lock=false
