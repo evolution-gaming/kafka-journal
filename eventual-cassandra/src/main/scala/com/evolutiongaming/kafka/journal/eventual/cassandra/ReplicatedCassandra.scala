@@ -4,7 +4,7 @@ import cats.data.NonEmptyList as Nel
 import cats.effect.syntax.all.*
 import cats.effect.{Async, Ref, Resource, Sync}
 import cats.syntax.all.*
-import cats.{Applicative, Monad, Parallel}
+import cats.{Monad, Parallel}
 import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.catshelper.{Log, LogOf, MeasureDuration, ToTry}
 import com.evolutiongaming.kafka.journal.eventual.*
