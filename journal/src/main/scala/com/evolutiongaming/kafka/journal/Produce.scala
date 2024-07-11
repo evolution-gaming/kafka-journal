@@ -29,7 +29,7 @@ trait Produce[F[_]] {
 
 object Produce {
 
-  @deprecated(since = "3.4.1", message = "Use without arguments instead")
+  @deprecated(since = "3.4.1", message = "Use `.empty` without arguments instead")
   def empty[F[_]: Applicative](partitionOffset: F[PartitionOffset]): Produce[F] = const(PartitionOffset.empty.pure[F])
 
   def empty[F[_]: Applicative](): Produce[F] = const(PartitionOffset.empty.pure[F])
