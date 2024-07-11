@@ -34,6 +34,23 @@ lazy val commonSettings = Seq(
   },
 )
 
+// TODO MR remove after 3.4.1 release
+import com.typesafe.tools.mima.core.*
+ThisBuild / mimaBinaryIssueFilters ++= Seq(
+  ProblemFilters.exclude[ReversedMissingMethodProblem](
+    s"com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal#Metrics.topicsFallback",
+  ),
+  ProblemFilters.exclude[ReversedMissingMethodProblem](
+    s"com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal#Metrics.selectOffsetFallback",
+  ),
+  ProblemFilters.exclude[ReversedMissingMethodProblem](
+    s"com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal#Metrics.selectPointerFallback",
+  ),
+  ProblemFilters.exclude[ReversedMissingMethodProblem](
+    s"com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal#Metrics.updatePointerCreated2Fallback",
+  ),
+)
+
 val alias: Seq[sbt.Def.Setting[?]] =
   addCommandAlias("fmt", "all scalafmtAll scalafmtSbt; scalafixEnable; scalafixAll") ++
     addCommandAlias(
