@@ -8,6 +8,7 @@ import cats.syntax.all.*
 import com.evolutiongaming.catshelper.{FromFuture, LogOf}
 import com.evolutiongaming.kafka.journal.CassandraSuite.*
 import com.evolutiongaming.kafka.journal.IOSuite.*
+import com.evolutiongaming.kafka.journal.Journal.DataIntegrityConfig
 import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}
 import com.evolutiongaming.kafka.journal.eventual.EventualRead
 import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra
@@ -42,10 +43,11 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
     implicit val logOf     = LogOf.empty[IO]
     implicit val jsonCodec = JsonCodec.jsoniter[IO]
     val resource = for {
-      config          <- config.liftTo[IO].toResource
-      origin          <- Origin.hostName[IO].toResource
-      eventualJournal <- EventualCassandra.of[IO](config.cassandra, origin, none, cassandraClusterOf)
-      producer        <- Journals.Producer.of[IO](config.journal.kafka.producer)
+      config <- config.liftTo[IO].toResource
+      origin <- Origin.hostName[IO].toResource
+      eventualJournal <- EventualCassandra
+        .of1[IO](config.cassandra, origin, none, cassandraClusterOf, DataIntegrityConfig.Default)
+      producer <- Journals.Producer.of[IO](config.journal.kafka.producer)
     } yield {
       (eventualJournal, producer)
     }

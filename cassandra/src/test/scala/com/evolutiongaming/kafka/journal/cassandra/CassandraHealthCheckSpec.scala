@@ -9,6 +9,7 @@ import org.scalatest.funsuite.AsyncFunSuite
 import scala.concurrent.duration.*
 import scala.util.control.NoStackTrace
 
+@deprecated(since = "3.3.10", message = "Use `com.evolutiongaming.scassandra.CassandraHealthCheck` instead")
 class CassandraHealthCheckSpec extends AsyncFunSuite {
 
   test("CassandraHealthCheck#of(statement)") {

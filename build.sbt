@@ -10,8 +10,8 @@ lazy val commonSettings = Seq(
   crossScalaVersions := Seq("2.13.14"),
   scalaVersion := crossScalaVersions.value.head,
   scalacOptions ++= Seq("-release:17", "-deprecation", "-Xsource:3"),
-  scalacOptsFailOnWarn := Some(false), // TODO MR remove this
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
+  Compile / doc / scalacOptions -= "-Xfatal-warnings",
   publishTo := Some(Resolver.evolutionReleases),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   releaseCrossBuild := true,
@@ -34,21 +34,12 @@ lazy val commonSettings = Seq(
   },
 )
 
-// TODO MR remove after 3.4.1 release
 import com.typesafe.tools.mima.core.*
 ThisBuild / mimaBinaryIssueFilters ++= Seq(
-  ProblemFilters.exclude[ReversedMissingMethodProblem](
-    s"com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal#Metrics.topicsFallback",
-  ),
-  ProblemFilters.exclude[ReversedMissingMethodProblem](
-    s"com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal#Metrics.selectOffsetFallback",
-  ),
-  ProblemFilters.exclude[ReversedMissingMethodProblem](
-    s"com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal#Metrics.selectPointerFallback",
-  ),
-  ProblemFilters.exclude[ReversedMissingMethodProblem](
-    s"com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal#Metrics.updatePointerCreated2Fallback",
-  ),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolutiongaming.kafka.journal.eventual.cassandra.CreateSchema.apply"),
+  ProblemFilters.exclude[IncompatibleMethTypeProblem]("com.evolutiongaming.kafka.journal.eventual.cassandra.CreateSchema.apply"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolutiongaming.kafka.journal.eventual.cassandra.SetupSchema.migrate"),
+  ProblemFilters.exclude[IncompatibleMethTypeProblem]("com.evolutiongaming.kafka.journal.eventual.cassandra.SetupSchema.migrate"),
 )
 
 val alias: Seq[sbt.Def.Setting[?]] =

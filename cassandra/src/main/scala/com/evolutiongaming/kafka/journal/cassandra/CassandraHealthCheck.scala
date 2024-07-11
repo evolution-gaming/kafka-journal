@@ -25,6 +25,7 @@ trait CassandraHealthCheck[F[_]] {
 
 }
 
+@deprecated(since = "3.3.10", message = "Use `com.evolutiongaming.scassandra.CassandraHealthCheck` instead")
 object CassandraHealthCheck {
 
   /** Checks if Cassandra is alive by requesting a current timestamp from Cassandra.
@@ -95,7 +96,7 @@ object CassandraHealthCheck {
       }
     } yield {
       new CassandraHealthCheck[F] {
-        def error = ref.get
+        def error: F[Option[Throwable]] = ref.get
       }
     }
   }

@@ -8,6 +8,7 @@ import com.evolutiongaming.kafka.journal.util.Named
 import com.evolutiongaming.skafka.*
 import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecords, RebalanceListener}
 
+import scala.annotation.nowarn
 import scala.concurrent.duration.FiniteDuration
 import scala.util.control.NoStackTrace
 
@@ -70,6 +71,8 @@ object KafkaConsumer {
         consumer.seek(partition, offset)
       }
 
+      @nowarn
+      // TODO MR deal with deprecated
       def subscribe(topic: Topic, listener: Option[RebalanceListener[F]]) = {
         consumer.subscribe(Nes.of(topic), listener)
       }

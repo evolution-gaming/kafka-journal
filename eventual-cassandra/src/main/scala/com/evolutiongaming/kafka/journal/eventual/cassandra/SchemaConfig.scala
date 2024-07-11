@@ -5,18 +5,24 @@ import com.evolutiongaming.scassandra.ReplicationStrategyConfig
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
 
+import scala.annotation.nowarn
+
+@nowarn
+// TODO MR deal with deprecated
 final case class SchemaConfig(
   keyspace: SchemaConfig.Keyspace = SchemaConfig.Keyspace.default,
   journalTable: String            = "journal",
-  metadataTable: String           = "metadata",
+  metadataTable: String           = "metadata", // gets dropped
   metaJournalTable: String        = "metajournal",
-  pointerTable: String            = "pointer",
+  pointerTable: String            = "pointer", // should not be used any more
   pointer2Table: String           = "pointer2",
   settingTable: String            = "setting",
   locksTable: String              = "locks",
   autoCreate: Boolean             = true,
 )
 
+@nowarn
+// TODO MR deal with deprecated
 object SchemaConfig {
 
   val default: SchemaConfig = SchemaConfig()

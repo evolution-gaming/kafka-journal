@@ -8,6 +8,10 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import pureconfig.ConfigSource
 
+import scala.annotation.nowarn
+
+@nowarn
+// TODO MR deal with deprecated
 class ConsistencyConfigSpec extends AnyFunSuite with Matchers {
 
   test("apply from empty config") {

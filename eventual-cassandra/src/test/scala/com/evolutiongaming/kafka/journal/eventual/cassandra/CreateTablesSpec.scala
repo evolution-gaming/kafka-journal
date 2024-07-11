@@ -14,6 +14,10 @@ import scala.util.control.NoStackTrace
 
 import CreateTables.Table
 
+@deprecated(
+  since   = "3.3.9",
+  message = "Use a class from `com.evolutiongaming.kafka.journal.cassandra` (without `eventual` part) package instead",
+)
 class CreateTablesSpec extends AnyFunSuite {
 
   type F[A] = State[Database, A]

@@ -2,9 +2,11 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Id
 import cats.data.NonEmptyList as Nel
+import cats.effect.Concurrent
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.Journal.DataIntegrityConfig
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.util.ConcurrentOf
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
@@ -52,7 +54,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
     val segmentOf    = SegmentOf[Id](segments)
     val segmentNrsOf = SegmentNrsOf[StateT](first = segments, Segments.default)
     val statements   = statementsOf(segmentNrsOf, Segments.default)
-    val journal      = EventualCassandra(statements)
+    val journal      = EventualCassandra.apply1(statements, DataIntegrityConfig.Default)
 
     val suffix = s"segmentSize: $segmentSize, segments: $segments"
 
@@ -444,7 +446,7 @@ object EventualCassandraTest {
   }
 
   def statementsOf(segmentNrsOf: SegmentNrsOf[StateT], segments: Segments): EventualCassandra.Statements[StateT] = {
-    implicit val concurrentStateT = ConcurrentOf.fromMonad[StateT]
+    val concurrentStateT: Concurrent[StateT] = ConcurrentOf.fromMonad[StateT]
 
     val metaJournalStatements = EventualCassandra
       .MetaJournalStatements
@@ -454,7 +456,7 @@ object EventualCassandraTest {
         journalPointer = selectJournalPointer0,
         ids            = selectIds0,
         segments       = segments,
-      )
+      )(concurrentStateT)
 
     EventualCassandra.Statements(selectRecords, metaJournalStatements, selectOffset, selectOffset2)
   }
