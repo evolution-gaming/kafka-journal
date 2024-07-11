@@ -446,7 +446,7 @@ object EventualCassandraTest {
   }
 
   def statementsOf(segmentNrsOf: SegmentNrsOf[StateT], segments: Segments): EventualCassandra.Statements[StateT] = {
-    implicit val concurrentStateT: Concurrent[StateT] = ConcurrentOf.fromMonad[StateT]
+    val concurrentStateT: Concurrent[StateT] = ConcurrentOf.fromMonad[StateT]
 
     val metaJournalStatements = EventualCassandra
       .MetaJournalStatements
@@ -456,7 +456,7 @@ object EventualCassandraTest {
         journalPointer = selectJournalPointer0,
         ids            = selectIds0,
         segments       = segments,
-      )
+      )(concurrentStateT)
 
     EventualCassandra.Statements(selectRecords, metaJournalStatements, selectOffset, selectOffset2)
   }
