@@ -14,7 +14,7 @@ import scala.annotation.nowarn
 
 /** Creates a new schema, or migrates to the latest schema version, if it already exists.
  *
- * Migration is done by checking [[SettingKey]] in `settings` table:
+ * Migration is done by checking [[SettingKey]] in `setting` table:
  *  - read the `version` (`value` in table), which represents number of applied migration statements:
  *    - `0` means first migration has been done
  *    - `1` states that 2 migrations have been applied
