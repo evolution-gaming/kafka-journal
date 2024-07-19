@@ -15,6 +15,7 @@ lazy val commonSettings = Seq(
   publishTo := Some(Resolver.evolutionReleases),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   releaseCrossBuild := true,
+  // explanation of flags: https://www.scalatest.org/user_guide/using_the_runner (`Configuring reporters` section)
   Test / testOptions ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM")),
   libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full),
   libraryDependencySchemes ++= Seq(
