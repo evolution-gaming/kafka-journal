@@ -904,6 +904,14 @@ object TopicReplicatorSpec {
                     (state1, purged)
                   }
                 }
+
+                def expire(after: ExpireAfter, timestamp: Instant): StateT[ReplicatedKeyJournal.Changed] = {
+                  StateT { state =>
+                    val metaJournal = state.metaJournal.get(id).map(_.copy(expireAfter = after.some))
+                    val state1      = metaJournal.fold(state)(m => state.copy(metaJournal = state.metaJournal.updated(id, m)))
+                    (state1, metaJournal.isDefined)
+                  }
+                }
               }
 
               result.pure[StateT].toResource

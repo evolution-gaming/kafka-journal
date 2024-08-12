@@ -151,6 +151,8 @@ object ReplicatedJournal {
 
     def purge(topic: Topic, latency: FiniteDuration): F[Unit]
 
+    def expire(topic: Topic, latency: FiniteDuration): F[Unit]
+
     // TODO MR remove with next major release
     def topicsFallback(topic: Topic): F[Unit]
 
@@ -185,6 +187,8 @@ object ReplicatedJournal {
         def delete(topic: Topic, latency: FiniteDuration): F[Unit] = unit
 
         def purge(topic: Topic, latency: FiniteDuration): F[Unit] = unit
+
+        def expire(topic: Topic, latency: FiniteDuration): F[Unit] = unit
 
         def topicsFallback(topic: Topic): F[Unit] = unit
 
@@ -303,6 +307,9 @@ object ReplicatedJournal {
 
           def purge(topic: Topic, latency: FiniteDuration): F[Unit] =
             observeTopicLatency(name = "purge", topic = topic, latency = latency)
+
+          def expire(topic: Topic, latency: FiniteDuration): F[Unit] =
+            observeTopicLatency(name = "expire", topic = topic, latency = latency)
 
           def topicsFallback(topic: Topic): F[Unit] =
             topicsCounter.labels(topic).inc()

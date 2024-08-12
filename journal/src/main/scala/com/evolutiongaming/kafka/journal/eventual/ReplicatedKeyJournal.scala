@@ -30,6 +30,11 @@ trait ReplicatedKeyJournal[F[_]] {
     offset: Offset,
     timestamp: Instant,
   ): F[Changed]
+
+  def expire(
+    after: ExpireAfter,
+    timestamp: Instant,
+  ): F[Changed]
 }
 
 object ReplicatedKeyJournal {
@@ -58,6 +63,11 @@ object ReplicatedKeyJournal {
 
       def purge(
         offset: Offset,
+        timestamp: Instant,
+      ) = value
+
+      def expire(
+        after: ExpireAfter,
         timestamp: Instant,
       ) = value
     }
@@ -98,6 +108,14 @@ object ReplicatedKeyJournal {
         ) = {
           f(self.purge(offset, timestamp))
         }
+
+        def expire(
+          after: ExpireAfter,
+          timestamp: Instant,
+        ) = {
+          f(self.expire(after, timestamp))
+        }
+
       }
     }
 
@@ -157,6 +175,18 @@ object ReplicatedKeyJournal {
             _ <- log.debug(s"$key purge in ${d.toMillis}ms, offset: $partition:$offset")
           } yield r
         }
+
+        def expire(
+          after: ExpireAfter,
+          timestamp: Instant,
+        ): F[Changed] = {
+          for {
+            d <- MeasureDuration[F].start
+            r <- self.expire(after, timestamp)
+            d <- d
+            _ <- log.debug(s"$key expire in ${d.toMillis}ms, after: $after")
+          } yield r
+        }
       }
     }
 
@@ -203,6 +233,18 @@ object ReplicatedKeyJournal {
             r <- self.purge(offset, timestamp)
             d <- d
             _ <- metrics.purge(topic, d)
+          } yield r
+        }
+
+        def expire(
+          after: ExpireAfter,
+          timestamp: Instant,
+        ): F[Changed] = {
+          for {
+            d <- MeasureDuration[F].start
+            r <- self.expire(after, timestamp)
+            d <- d
+            _ <- metrics.expire(topic, d)
           } yield r
         }
       }
@@ -270,6 +312,22 @@ object ReplicatedKeyJournal {
                   s"key: $key, " +
                   s"offset: $offset, " +
                   s"timestamp: $timestamp",
+                a,
+              )
+            }
+        }
+
+        def expire(
+          after: ExpireAfter,
+          timestamp: Instant,
+        ): F[Changed] = {
+          self
+            .expire(after, timestamp)
+            .handleErrorWith { a =>
+              error(
+                s"expire " +
+                  s"key: $key, " +
+                  s"after: $after",
                 a,
               )
             }
