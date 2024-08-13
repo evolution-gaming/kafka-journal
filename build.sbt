@@ -38,16 +38,10 @@ lazy val commonSettings = Seq(
 import com.typesafe.tools.mima.core.*
 ThisBuild / mimaBinaryIssueFilters ++= Seq(
   ProblemFilters.exclude[ReversedMissingMethodProblem](
-    s"com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal#Metrics.topicsFallback",
+    "com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal#Metrics.expire",
   ),
   ProblemFilters.exclude[ReversedMissingMethodProblem](
-    s"com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal#Metrics.selectOffsetFallback",
-  ),
-  ProblemFilters.exclude[ReversedMissingMethodProblem](
-    s"com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal#Metrics.selectPointerFallback",
-  ),
-  ProblemFilters.exclude[ReversedMissingMethodProblem](
-    s"com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal#Metrics.updatePointerCreated2Fallback",
+    "com.evolutiongaming.kafka.journal.eventual.ReplicatedKeyJournal.expire",
   ),
 )
 
