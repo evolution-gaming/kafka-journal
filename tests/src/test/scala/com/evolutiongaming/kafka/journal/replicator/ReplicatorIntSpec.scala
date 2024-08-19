@@ -5,7 +5,7 @@ import cats.data.NonEmptyList as Nel
 import cats.effect.*
 import cats.effect.syntax.resource.*
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.*
+import com.evolutiongaming.catshelper.{RandomIdOf as _, *}
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.CassandraSuite.*
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
