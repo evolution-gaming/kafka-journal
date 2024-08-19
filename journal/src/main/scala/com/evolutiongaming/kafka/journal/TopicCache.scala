@@ -76,7 +76,45 @@ object TopicCache {
     *   and there is no need to call [[TopicCache#of]] each time if parameters
     *   did not change.
     */
+  @deprecated(since = "3.4.1", message = "Use `.of1` instead")
   def of[F[_]: Async: Parallel: Runtime](
+    eventual: Eventual[F],
+    topic: Topic,
+    log: Log[F],
+    consumer: Resource[F, Consumer[F]],
+    config: HeadCacheConfig,
+    consRecordToActionHeader: ConsRecordToActionHeader[F],
+    metrics: Option[HeadCache.Metrics[F]],
+  ): Resource[F, TopicCache[F]] = {
+    of1(eventual, topic, log, consumer, config, consRecordToActionHeader, metrics)
+  }
+
+  /** Creates [[TopicCache]] using configured parameters and data sources.
+   *
+   * @param eventual
+   *   Cassandra data source.
+   * @param topic
+   *   Topic stored in this cache.
+   * @param log
+   *   Logger used to write debug logs to.
+   * @param consumer
+   *   Kafka data source factory. The reason why it is factory (i.e.
+   *   `Resource`) is that [[HeadCache]] will try to recreate consumer in case
+   *   of the failure.
+   * @param config
+   *   [[HeadCache]] configuration.
+   * @param consRecordToActionHeader
+   *   Function used to parse records coming from `consumer`. Only headers will
+   *   be parsed, and the payload will be ignored.
+   * @param metrics
+   *   Interface to report the metrics to.
+   * @return
+   *   Resource which will configure a [[TopicCache]] with the passed
+   *   parameters. Instance of `Resource[TopicCache]` are, obviously, reusable
+   *   and there is no need to call [[TopicCache#of]] each time if parameters
+   *   did not change.
+   */
+  def of1[F[_]: Async: Parallel](
     eventual: Eventual[F],
     topic: Topic,
     log: Log[F],
@@ -240,7 +278,7 @@ object TopicCache {
       class Main
       new Main with TopicCache[F] {
 
-        def get(id: String, partition: Partition, offset: Offset) = {
+        def get(id: String, partition: Partition, offset: Offset): F[PartitionCache.Result[F]] = {
           cachesMap
             .get(partition)
             .fold {
@@ -253,7 +291,7 @@ object TopicCache {
     }
   }
 
-  /** Lighweight wrapper over [[KafkaConsumer]].
+  /** Lightweight wrapper over [[KafkaConsumer]].
     *
     * Allows easier stubbing in unit tests and provides a little bit more
     * convenient [[TopicCache]]-specific API.
@@ -271,7 +309,7 @@ object TopicCache {
 
     /** Moves fetching position to a different offset(s).
       *
-      * The read will start from the new offsets the next time [[#poll]] is
+      * The read will start from the new offsets the next time [[KafkaConsumer#poll]] is
       * called.
       *
       * @see
@@ -301,13 +339,13 @@ object TopicCache {
       class Empty
       new Empty with Consumer[F] {
 
-        def assign(topic: Topic, partitions: Nes[Partition]) = ().pure[F]
+        def assign(topic: Topic, partitions: Nes[Partition]): F[Unit] = ().pure[F]
 
-        def seek(topic: Topic, offsets: Nem[Partition, Offset]) = ().pure[F]
+        def seek(topic: Topic, offsets: Nem[Partition, Offset]): F[Unit] = ().pure[F]
 
-        def poll = ConsumerRecords.empty[String, Unit].pure[F]
+        def poll: F[ConsumerRecords[Tag, Unit]] = ConsumerRecords.empty[String, Unit].pure[F]
 
-        def partitions(topic: Topic) = Set.empty[Partition].pure[F]
+        def partitions(topic: Topic): F[Set[Partition]] = Set.empty[Partition].pure[F]
       }
     }
 
@@ -326,14 +364,14 @@ object TopicCache {
       class Main
       new Main with Consumer[F] {
 
-        def assign(topic: Topic, partitions: Nes[Partition]) = {
+        def assign(topic: Topic, partitions: Nes[Partition]): F[Unit] = {
           val partitions1 = partitions.map { partition =>
             TopicPartition(topic = topic, partition)
           }
           consumer.assign(partitions1)
         }
 
-        def seek(topic: Topic, offsets: Nem[Partition, Offset]) = {
+        def seek(topic: Topic, offsets: Nem[Partition, Offset]): F[Unit] = {
           offsets.toNel.foldMapM {
             case (partition, offset) =>
               val topicPartition = TopicPartition(topic = topic, partition = partition)
@@ -341,9 +379,9 @@ object TopicCache {
           }
         }
 
-        val poll = consumer.poll(pollTimeout)
+        val poll: F[ConsumerRecords[Tag, Unit]] = consumer.poll(pollTimeout)
 
-        def partitions(topic: Topic) = consumer.partitions(topic)
+        def partitions(topic: Topic): F[Set[Partition]] = consumer.partitions(topic)
       }
     }
 
@@ -381,21 +419,21 @@ object TopicCache {
       def withLog(log: Log[F])(implicit F: Monad[F]): Consumer[F] = {
         new WithLog with Consumer[F] {
 
-          def assign(topic: Topic, partitions: Nes[Partition]) = {
+          def assign(topic: Topic, partitions: Nes[Partition]): F[Unit] = {
             for {
               _ <- log.debug(s"assign topic: $topic, partitions: $partitions")
               a <- self.assign(topic, partitions)
             } yield a
           }
 
-          def seek(topic: Topic, offsets: Nem[Partition, Offset]) = {
+          def seek(topic: Topic, offsets: Nem[Partition, Offset]): F[Unit] = {
             for {
               _ <- log.debug(s"seek topic: $topic, offsets: $offsets")
               a <- self.seek(topic, offsets)
             } yield a
           }
 
-          def poll = {
+          def poll: F[ConsumerRecords[Tag, Unit]] = {
             for {
               a <- self.poll
               _ <- {
@@ -411,7 +449,7 @@ object TopicCache {
             } yield a
           }
 
-          def partitions(topic: Topic) = {
+          def partitions(topic: Topic): F[Set[Partition]] = {
             for {
               a <- self.partitions(topic)
               _ <- log.debug(s"partitions topic: $topic, result: $a")
@@ -455,9 +493,9 @@ object TopicCache {
 
     implicit val monoidSample: Monoid[Sample] = new Monoid[Sample] {
 
-      def empty = Empty
+      def empty: Sample = Empty
 
-      def combine(a: Sample, b: Sample) = {
+      def combine(a: Sample, b: Sample): Sample = {
         Sample(sum = a.sum.combine(b.sum), count = a.count.combine(b.count))
       }
     }
@@ -487,7 +525,7 @@ object TopicCache {
     )(implicit F: MonadThrowable[F], measureDuration: MeasureDuration[F]): TopicCache[F] = {
       new WithMetrics with TopicCache[F] {
 
-        def get(id: String, partition: Partition, offset: Offset) = {
+        def get(id: String, partition: Partition, offset: Offset): F[PartitionCache.Result[F]] = {
           import com.evolutiongaming.kafka.journal.PartitionCache.Result
           for {
             d <- MeasureDuration[F].start
@@ -544,7 +582,7 @@ object TopicCache {
     def withLog(log: Log[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): TopicCache[F] = {
       new WithLog with TopicCache[F] {
 
-        def get(id: String, partition: Partition, offset: Offset) = {
+        def get(id: String, partition: Partition, offset: Offset): F[PartitionCache.Result[F]] = {
           for {
             d <- MeasureDuration[F].start
             a <- self.get(id, partition, offset)

@@ -110,7 +110,7 @@ object TopicReplicator {
               for {
                 duration  <- MeasureDuration[F].start
                 timestamp <- Clock[F].instant
-                result <- records.parFoldMap1 {
+                _ <- records.parFoldMap1 {
                   case (partition, records) =>
                     for {
                       partitionFlow <- cache.getOrUpdate(partition) {
@@ -128,7 +128,7 @@ object TopicReplicator {
                           {
                             for {
                               offset <- offsetRef.get
-                              result <- offset
+                              _ <- offset
                                 .fold {
                                   records.some
                                 } { offset =>

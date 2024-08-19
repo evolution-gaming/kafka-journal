@@ -29,7 +29,10 @@ trait Produce[F[_]] {
 
 object Produce {
 
+  @deprecated(since = "3.4.1", message = "Use `.empty` without arguments instead")
   def empty[F[_]: Applicative](partitionOffset: F[PartitionOffset]): Produce[F] = const(PartitionOffset.empty.pure[F])
+
+  def empty[F[_]: Applicative](): Produce[F] = const(PartitionOffset.empty.pure[F])
 
   def const[F[_]](partitionOffset: F[PartitionOffset]): Produce[F] = {
     class Const
@@ -40,14 +43,15 @@ object Produce {
         payloadAndType: PayloadAndType,
         metadata: HeaderMetadata,
         headers: Headers,
-      ) = {
+      ): F[PartitionOffset] = {
         partitionOffset
       }
-      def delete(key: Key, to: DeleteTo) = partitionOffset
 
-      def purge(key: Key) = partitionOffset
+      def delete(key: Key, to: DeleteTo): F[PartitionOffset] = partitionOffset
 
-      def mark(key: Key, randomId: RandomId) = partitionOffset
+      def purge(key: Key): F[PartitionOffset] = partitionOffset
+
+      def mark(key: Key, randomId: RandomId): F[PartitionOffset] = partitionOffset
     }
   }
 
@@ -80,7 +84,7 @@ object Produce {
         payloadAndType: PayloadAndType,
         metadata: HeaderMetadata,
         headers: Headers,
-      ) = {
+      ): F[PartitionOffset] = {
 
         def actionOf(timestamp: Instant) = {
           Action.Append(
@@ -105,7 +109,7 @@ object Produce {
         } yield result
       }
 
-      def delete(key: Key, to: DeleteTo) = {
+      def delete(key: Key, to: DeleteTo): F[PartitionOffset] = {
         for {
           timestamp <- Clock[F].instant
           action     = Action.Delete(key, timestamp, to, origin, version.some)
@@ -113,7 +117,7 @@ object Produce {
         } yield result
       }
 
-      def purge(key: Key) = {
+      def purge(key: Key): F[PartitionOffset] = {
         for {
           timestamp <- Clock[F].instant
           action     = Action.Purge(key, timestamp, origin, version.some)
@@ -121,7 +125,7 @@ object Produce {
         } yield result
       }
 
-      def mark(key: Key, randomId: RandomId) = {
+      def mark(key: Key, randomId: RandomId): F[PartitionOffset] = {
         for {
           timestamp <- Clock[F].instant
           id         = randomId.value
@@ -144,15 +148,15 @@ object Produce {
         payloadAndType: PayloadAndType,
         metadata: HeaderMetadata,
         headers: Headers,
-      ) = {
+      ): G[PartitionOffset] = {
         f(self.append(key, range, payloadAndType, metadata, headers))
       }
 
-      def delete(key: Key, to: DeleteTo) = f(self.delete(key, to))
+      def delete(key: Key, to: DeleteTo): G[PartitionOffset] = f(self.delete(key, to))
 
-      def purge(key: Key) = f(self.purge(key))
+      def purge(key: Key): G[PartitionOffset] = f(self.purge(key))
 
-      def mark(key: Key, randomId: RandomId) = f(self.mark(key, randomId))
+      def mark(key: Key, randomId: RandomId): G[PartitionOffset] = f(self.mark(key, randomId))
     }
   }
 }

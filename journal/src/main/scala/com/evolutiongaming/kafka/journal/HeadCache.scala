@@ -16,7 +16,7 @@ import com.evolutiongaming.smetrics.MetricsHelper.*
 
 import scala.concurrent.duration.*
 
-/** Metainfo of events written to Kafka, but not yet replicated to Cassandra.
+/** Meta-info of events written to Kafka, but not yet replicated to Cassandra.
   *
   * The implementation subscribes to all events in Kafka and periodically polls
   * Cassandra to remove information about the events, which already replicated.
@@ -31,7 +31,7 @@ import scala.concurrent.duration.*
   * these topics again.
   *
   * TODO headcache:
-  * 1. Keep 1000 last seen entries, even if replicated.
+  * 1. Keep 1000 last seen entries, even if replicated
   * 2. Fail headcache when background tasks failed
   *
   * @see [[HeadInfo]] for more details on the purpose of the stored data.
@@ -70,7 +70,7 @@ object HeadCache {
   def const[F[_]](value: F[Option[HeadInfo]]): HeadCache[F] = {
     class Const
     new Const with HeadCache[F] {
-      def get(key: Key, partition: Partition, offset: Offset) = value
+      def get(key: Key, partition: Partition, offset: Offset): F[Option[HeadInfo]] = value
     }
   }
 
@@ -124,7 +124,7 @@ object HeadCache {
     *   debug logging will be affected by this. One needs to call
     *   [[HeadCache#withLog]] if debug logging for [[HeadCache]] is required.
     * @param consumer
-    *   Kakfa data source factory. The reason why it is factory (i.e.
+    *   Kafka data source factory. The reason why it is factory (i.e.
     *   `Resource`) is that [[HeadCache]] will try to recreate consumer in case
     *   of the failure.
     * @param metrics
@@ -156,13 +156,13 @@ object HeadCache {
       class Main
       new Main with HeadCache[F] {
 
-        def get(key: Key, partition: Partition, offset: Offset) = {
+        def get(key: Key, partition: Partition, offset: Offset): F[Option[HeadInfo]] = {
           val topic = key.topic
           val log1  = log.prefixed(topic)
           cache
             .getOrUpdateResource(topic) {
               TopicCache
-                .of(eventual, topic, log1, consumer, config, consRecordToActionHeader, metrics.map { _.headCache })
+                .of1(eventual, topic, log1, consumer, config, consRecordToActionHeader, metrics.map { _.headCache })
                 .map { cache =>
                   metrics
                     .fold(cache) { metrics => cache.withMetrics(topic, metrics.headCache) }
@@ -185,7 +185,7 @@ object HeadCache {
     }
   }
 
-  /** Lighweight wrapper over [[EventualJournal]].
+  /** Lightweight wrapper over [[EventualJournal]].
     *
     * Allows easier stubbing in unit tests.
     */
@@ -237,7 +237,7 @@ object HeadCache {
 
     def mapK[G[_]](f: F ~> G): HeadCache[G] = new HeadCache[G] {
 
-      def get(key: Key, partition: Partition, offset: Offset) = {
+      def get(key: Key, partition: Partition, offset: Offset): G[Option[HeadInfo]] = {
         f(self.get(key, partition, offset))
       }
     }
@@ -250,7 +250,7 @@ object HeadCache {
     def withLog(log: Log[F])(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): HeadCache[F] = {
       new WithLog with HeadCache[F] {
 
-        def get(key: Key, partition: Partition, offset: Offset) = {
+        def get(key: Key, partition: Partition, offset: Offset): F[Option[HeadInfo]] = {
           for {
             d <- MeasureDuration[F].start
             a <- self.get(key, partition, offset)
@@ -267,14 +267,14 @@ object HeadCache {
       * resource is released.
       *
       * It may prevent certain kind of bugs, when several caches are,
-      * accidentially, alive and working.
+      * accidentally, alive and working.
       */
     def withFence(implicit F: Sync[F]): Resource[F, HeadCache[F]] = {
       Resource
         .make { Ref[F].of(().pure[F]) } { _.set(ReleasedError.raiseError[F, Unit]) }
         .map { ref =>
           new WithFence with HeadCache[F] {
-            def get(key: Key, partition: Partition, offset: Offset) = {
+            def get(key: Key, partition: Partition, offset: Offset): F[Option[HeadInfo]] = {
               ref
                 .get
                 .flatten
@@ -356,13 +356,13 @@ object HeadCache {
       class Const
       new Const with Metrics[F] {
 
-        def get(topic: Topic, latency: FiniteDuration, result: String, hit: Boolean) = unit
+        def get(topic: Topic, latency: FiniteDuration, result: String, hit: Boolean): F[Unit] = unit
 
-        def meters(topic: Topic, entries: Int, listeners: Int) = unit
+        def meters(topic: Topic, entries: Int, listeners: Int): F[Unit] = unit
 
-        def consumer(topic: Topic, age: FiniteDuration, diff: Long) = unit
+        def consumer(topic: Topic, age: FiniteDuration, diff: Long): F[Unit] = unit
 
-        def storage(topic: Topic, diff: Long) = unit
+        def storage(topic: Topic, diff: Long): F[Unit] = unit
       }
     }
 
@@ -444,7 +444,7 @@ object HeadCache {
         class Main
         new Main with Metrics[F] {
 
-          def get(topic: Topic, latency: FiniteDuration, result: String, now: Boolean) = {
+          def get(topic: Topic, latency: FiniteDuration, result: String, now: Boolean): F[Unit] = {
             val nowLabel = if (now) "now" else "later"
             for {
               _ <- getLatencySummary
@@ -456,7 +456,7 @@ object HeadCache {
             } yield a
           }
 
-          def meters(topic: Topic, entries: Int, listeners: Int) = {
+          def meters(topic: Topic, entries: Int, listeners: Int): F[Unit] = {
             for {
               _ <- listenersGauge
                 .labels(topic)
@@ -467,7 +467,7 @@ object HeadCache {
             } yield a
           }
 
-          def consumer(topic: Topic, age: FiniteDuration, diff: Long) = {
+          def consumer(topic: Topic, age: FiniteDuration, diff: Long): F[Unit] = {
             for {
               _ <- ageSummary
                 .labels(topic)
@@ -478,7 +478,7 @@ object HeadCache {
             } yield a
           }
 
-          def storage(topic: Topic, diff: Long) = {
+          def storage(topic: Topic, diff: Long): F[Unit] = {
             diffSummary
               .labels(topic, "storage")
               .observe(diff.toDouble)

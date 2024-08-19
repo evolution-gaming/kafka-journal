@@ -3,6 +3,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.implicits.catsStdInstancesForTry
 import cats.syntax.all.*
 import com.datastax.driver.core.{PreparedStatement, Row, Statement}
+import com.evolutiongaming.kafka.journal.cassandra.CassandraSync
 import com.evolutiongaming.kafka.journal.util.StreamHelper.*
 import com.evolutiongaming.kafka.journal.{Setting, Settings}
 import com.evolutiongaming.scassandra
@@ -106,7 +107,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
     new Settings[StateT] {
 
-      def get(key: K) = {
+      def get(key: K): StateT[Option[Setting]] = {
         StateT { state =>
           val setting = for {
             version <- state.version
@@ -118,7 +119,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
         }
       }
 
-      def set(key: K, value: V) = {
+      def set(key: K, value: V): StateT[Option[Setting]] = {
         StateT { state =>
           val setting = state.version.map { version => settingOf(key, version) }
           val state1  = state.copy(version = value.some, actions = Action.SetSetting(key, value) :: state.actions)
@@ -126,7 +127,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
         }
       }
 
-      def setIfEmpty(key: K, value: V) = {
+      def setIfEmpty(key: K, value: V): StateT[Option[Setting]] = {
         StateT { state =>
           state.version match {
             case Some(version) =>
@@ -163,7 +164,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
   implicit val cassandraSync: CassandraSync[StateT] = new CassandraSync[StateT] {
 
-    def apply[A](fa: StateT[A]) = {
+    def apply[A](fa: StateT[A]): StateT[A] = {
       StateT { state =>
         val state1      = state.add(Action.SyncStart)
         val (state2, a) = fa.run(state1).get

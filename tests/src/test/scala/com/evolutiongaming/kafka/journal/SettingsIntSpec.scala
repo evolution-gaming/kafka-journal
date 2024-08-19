@@ -20,6 +20,10 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import pureconfig.ConfigSource
 
+import scala.annotation.nowarn
+
+@nowarn
+// TODO MR deal with deprecated
 class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers {
 
   override protected def beforeAll(): Unit = {
