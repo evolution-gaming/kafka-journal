@@ -7,9 +7,16 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(url("https://evolution.com")),
   homepage := Some(url("https://github.com/evolution-gaming/kafka-journal")),
   startYear := Some(2018),
-  crossScalaVersions := Seq("2.13.14"),
+  crossScalaVersions := Seq("2.13.14", "3.3.3"),
   scalaVersion := crossScalaVersions.value.head,
-  scalacOptions ++= Seq("-release:17", "-deprecation", "-Xsource:3"),
+  scalacOptions ++= {
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((3, _)) => Seq("-release:17")
+      case Some((2, 13)) => Seq("-release:17", "-Xsource:3")
+      case _ => Seq("-deprecation")
+    }
+  },
+  scalacOptions += "-deprecation",
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
   Compile / doc / scalacOptions -= "-Xfatal-warnings",
   publishTo := Some(Resolver.evolutionReleases),
@@ -17,7 +24,14 @@ lazy val commonSettings = Seq(
   releaseCrossBuild := true,
   // explanation of flags: https://www.scalatest.org/user_guide/using_the_runner (`Configuring reporters` section)
   Test / testOptions ++= Seq(Tests.Argument(TestFrameworks.ScalaTest, "-oUDNCXEHLOPQRM")),
-  libraryDependencies += compilerPlugin(`kind-projector` cross CrossVersion.full),
+  libraryDependencies ++= {
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((3, _)) => Seq.empty
+      case Some((2, 13)) =>
+        Seq(compilerPlugin(`kind-projector` cross CrossVersion.full))
+      case _ => Seq.empty
+    }
+  },
   libraryDependencySchemes ++= Seq(
     "org.scala-lang.modules" %% "scala-java8-compat" % "always",
     "org.scala-lang.modules" %% "scala-xml"          % "always",
@@ -91,7 +105,6 @@ lazy val core = project
       `play-json`,
       `play-json-jsoniter`,
       scassandra,
-      hostname,
       Cats.core,
       Cats.effect,
       Scodec.core,
@@ -118,7 +131,6 @@ lazy val journal = project
       `cats-helper`,
       `play-json`,
       `play-json-jsoniter`,
-      hostname,
       `cassandra-driver`,
       scassandra,
       scache,
