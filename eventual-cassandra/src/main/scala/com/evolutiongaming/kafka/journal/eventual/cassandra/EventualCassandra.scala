@@ -179,7 +179,7 @@ object EventualCassandra {
                 }
                 .map { case (record, _) => record }
 
-            if (dataIntegrity.seqNrUniqueness) {
+            val events1 = if (dataIntegrity.seqNrUniqueness) {
               events
                 .stateful(from) {
                   case (seqNr, record) =>
@@ -197,6 +197,20 @@ object EventualCassandra {
                 }
             } else {
               events
+            }
+
+            if (dataIntegrity.correlateEventsWithMeta) {
+              head.correlationId.fold { events1 } {
+                case CorrelationId(fromMeta) =>
+                  events1.filter { event =>
+                    event.headers.get(CorrelationId.key) match {
+                      case None => false // meta has correlationId, event does not thus the event does not belong to the meta
+                      case Some(fromEvent) => fromMeta == fromEvent // meta and event have the same correlationId
+                    }
+                  }
+              }
+            } else {
+              events1
             }
           }
 

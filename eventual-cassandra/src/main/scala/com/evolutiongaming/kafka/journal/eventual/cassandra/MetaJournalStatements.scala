@@ -130,7 +130,7 @@ object MetaJournalStatements {
 
       val query =
         s"""
-           |SELECT partition, offset, segment_size, seq_nr, delete_to, expire_after, expire_on FROM ${name.toCql}
+           |SELECT partition, offset, segment_size, seq_nr, delete_to, expire_after, expire_on, properties FROM ${name.toCql}
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?

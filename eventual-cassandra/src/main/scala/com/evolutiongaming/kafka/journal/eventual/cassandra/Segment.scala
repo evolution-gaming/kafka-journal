@@ -14,6 +14,9 @@ object Segment {
 
   implicit class SegmentOps(val self: Segment) extends AnyVal {
 
+    /**
+      * Returns the next segment `seqNr` belongs to it, otherwise `None`.
+      */
     def next(seqNr: SeqNr): Option[Segment] = {
       val segmentNr = SegmentNr(seqNr, self.size)
       if (segmentNr === self.nr) none

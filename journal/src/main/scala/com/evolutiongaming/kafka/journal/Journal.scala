@@ -333,14 +333,29 @@ object Journal {
   }
 
   trait DataIntegrityConfig {
+
+    /**
+      * If true then duplicated [[SeqNr]] in events will cause [[JournalError]] `Data integrity violated`
+      */
     def seqNrUniqueness: Boolean
+
+    /**
+      * If true then events with [[CorrelationId]] different from one in metadata will be filtered out
+      */
+    def correlateEventsWithMeta: Boolean
   }
 
   object DataIntegrityConfig {
 
-    private case class Implementation(seqNrUniqueness: Boolean) extends DataIntegrityConfig
+    private case class Implementation(
+      seqNrUniqueness: Boolean,
+      correlateEventsWithMeta: Boolean,
+    ) extends DataIntegrityConfig
 
-    val Default: DataIntegrityConfig = Implementation(seqNrUniqueness = true)
+    val Default: DataIntegrityConfig = Implementation(
+      seqNrUniqueness         = true,
+      correlateEventsWithMeta = false,
+    )
 
     implicit val configReaderDataIntegrityConfig: ConfigReader[DataIntegrityConfig] =
       deriveReader[Implementation].map(a => a: DataIntegrityConfig)
