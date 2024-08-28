@@ -5,23 +5,24 @@ object Dependencies {
   val scalatest                  = "org.scalatest"          %% "scalatest"                      % "3.2.19"
   val `scala-java8-compat`       = "org.scala-lang.modules" %% "scala-java8-compat"             % "1.0.2"
   val `kind-projector`           = "org.typelevel"           % "kind-projector"                 % "0.13.3"
-  val `cassandra-driver`         = "com.datastax.cassandra"  % "cassandra-driver-core"          % "3.11.2"
+  val `cassandra-driver`         = "com.datastax.cassandra" % "cassandra-driver-core" % "3.11.3"
   val `play-json`                = "com.typesafe.play"      %% "play-json"                      % "2.10.6"
-  val `play-json-jsoniter`       = "com.evolutiongaming"    %% "play-json-jsoniter"             % "0.10.2"
-  val `executor-tools`           = "com.evolutiongaming"    %% "executor-tools"                 % "1.0.3"
-  val `akka-serialization`       = "com.evolutiongaming"    %% "akka-serialization"             % "1.0.5"
+  val `play-json-jsoniter`       = "com.evolutiongaming"    %% "play-json-jsoniter"             % "0.10.3"
+  val `executor-tools`           = "com.evolutiongaming"    %% "executor-tools"                 % "1.0.4"
+  val `akka-serialization`       = "com.evolutiongaming"    %% "akka-serialization"             % "1.0.6-SNAPSHOT"
   val `kafka-launcher`           = "com.evolutiongaming"    %% "kafka-launcher"                 % "0.2.0"
-  val `testcontainers-cassandra` = "com.dimafeng"           %% "testcontainers-scala-cassandra" % "0.41.4"
+  val `testcontainers-cassandra` = "com.dimafeng"           %% "testcontainers-scala-cassandra" % "0.40.17"
+  val `testcontainers-kafka` = "com.dimafeng"           %% "testcontainers-scala-kafka" % "0.40.17"
   val scassandra                 = "com.evolutiongaming"    %% "scassandra"                     % "5.2.1"
-  val `cassandra-sync`           = "com.evolutiongaming"    %% "cassandra-sync"                 % "3.0.0"
+  val `cassandra-sync`           = "com.evolutiongaming"    %% "cassandra-sync"                 % "3.0.1-SNAPSHOT"
   val `cats-helper`              = "com.evolutiongaming"    %% "cats-helper"                    % "3.11.0"
-  val random                     = "com.evolutiongaming"    %% "random"                         % "1.0.0"
-  val retry                      = "com.evolutiongaming"    %% "retry"                          % "3.0.1"
-  val sstream                    = "com.evolutiongaming"    %% "sstream"                        % "1.0.1"
-  val skafka                     = "com.evolutiongaming"    %% "skafka"                         % "16.0.0"
+  val random                     = "com.evolution"    %% "random"                         % "1.0.4"
+  val retry                      = "com.evolutiongaming"    %% "retry"                          % "3.1.0"
+  val sstream                    = "com.evolutiongaming"    %% "sstream"                        % "1.0.2"
+  val skafka                     = "com.evolutiongaming"    %% "skafka"                         % "16.4.0"
   val `akka-test-actor`          = "com.evolutiongaming"    %% "akka-test-actor"                % "0.1.0"
-  val scache                     = "com.evolution"          %% "scache"                         % "5.0.0"
-  val `resource-pool`            = "com.evolution"          %% "resource-pool"                  % "1.0.4"
+  val scache                     = "com.evolution"          %% "scache"                         % "5.1.2"
+  val `resource-pool`            = "com.evolution"          %% "resource-pool"                  % "1.0.5-SNAPSHOT"
 
   object Cats {
     val core   = "org.typelevel" %% "cats-core"   % "2.12.0"
@@ -51,14 +52,13 @@ object Dependencies {
   }
 
   object Kafka {
-    private val version = "3.4.0"
-    val kafka           = "org.apache.kafka" %% "kafka"         % version
+    private val version = "3.8.0"
+    val kafka           = "org.apache.kafka"  % "kafka"         % version
     val `kafka-clients` = "org.apache.kafka"  % "kafka-clients" % version
   }
 
   object Scodec {
-    val core = "org.scodec" %% "scodec-core" % "1.11.7"
-    val bits = "org.scodec" %% "scodec-bits" % "1.1.20"
+    def core(version: String) = "org.scodec" %% "scodec-core" % (if (version.startsWith("2.")) "1.11.10" else "2.2.1")
   }
 
   object Smetrics {
@@ -69,12 +69,12 @@ object Dependencies {
 
   object Pureconfig {
     private val version = "0.17.7"
-    val pureconfig      = "com.github.pureconfig" %% "pureconfig"      % version
+    val pureconfig      = "com.github.pureconfig" %% "pureconfig-core" % version
     val cats            = "com.github.pureconfig" %% "pureconfig-cats" % version
   }
 
   object Circe {
-    private val version = "0.13.0" // TODO MR mima fail when using 0.14.7
+    private val version = "0.14.9" // TODO MR mima fail when using 0.14.7
     val core            = "io.circe" %% "circe-core"    % version
     val generic         = "io.circe" %% "circe-generic" % version
     val jawn            = "io.circe" %% "circe-jawn"    % version

@@ -132,7 +132,7 @@ object Bounds {
         *   `true` if this value is less than `x` for an interval `[x, y]`, `false`
         *   otherwise.
         */
-      def <(bounds: Bounds[A])(implicit order: Order[A]): Boolean = self < bounds.min
+      def <(bounds: Bounds[A])(implicit order: Order[A]): Boolean = order.lt(self, bounds.min)
 
       /** Checks if this value is located after an interval `bounds`.
         *
@@ -140,7 +140,7 @@ object Bounds {
         *   `true` if this value is greater than `y` for an interval `[x, y]`, `false`
         *   otherwise.
         */
-      def >(bounds: Bounds[A])(implicit order: Order[A]): Boolean = self > bounds.max
+      def >(bounds: Bounds[A])(implicit order: Order[A]): Boolean = order.gt(self,bounds.max)
     }
   }
 }

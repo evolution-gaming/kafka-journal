@@ -20,7 +20,6 @@ object HostName {
   }
 }
 
-
 import java.net.InetAddress
 import java.util.concurrent.Executors
 
@@ -46,8 +45,8 @@ object EvoHostName {
     }
   }
 
-  private[hostname] def inetAddress() = {
-    val service = Executors.newSingleThreadExecutor()
+  private def inetAddress() = {
+    val service     = Executors.newSingleThreadExecutor()
     implicit val ec = ExecutionContext.fromExecutor(service)
     val future = Future {
       InetAddress.getLocalHost.getHostName
@@ -56,21 +55,21 @@ object EvoHostName {
     safe { Await.result(future, 1.second) }.filter(str => str != "localhost")
   }
 
-  private[hostname] def win() =
+  private def win() =
     env("COMPUTERNAME") orElse
       exec("hostname")
 
-  private[hostname] def unix() =
+  private def unix() =
     env("HOSTNAME") orElse
       exec("hostname") orElse
       env("gethostname") orElse
       exec("cat /etc/hostname")
 
-  private[hostname] def exec(name: String) = safe { name.!! }
+  private def exec(name: String) = safe { name.!! }
 
-  private[hostname] def env(name: String) = Properties.envOrNone(name)
+  private def env(name: String) = Properties.envOrNone(name)
 
-  private[hostname] def safe(f: => String) = {
+  private def safe(f: => String) = {
     try {
       Option(f.trim).filter(_.nonEmpty)
     } catch {
@@ -78,4 +77,3 @@ object EvoHostName {
     }
   }
 }
-

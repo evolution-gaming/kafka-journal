@@ -24,8 +24,8 @@ object ScodecHelper {
 
       def handleErrorWith[A](fa: Attempt[A])(f: Failure => Attempt[A]): Attempt[A] = {
         fa match {
-          case fa: Successful[A] => fa
           case fa: Failure       => f(fa)
+          case fa => fa
         }
       }
 
@@ -33,14 +33,14 @@ object ScodecHelper {
 
       def flatMap[A, B](fa: Attempt[A])(f: A => Attempt[B]): Attempt[B] = fa.flatMap(f)
 
-      @tailrec
+      @tailrec //tailrec forces to use explicit match instead of fold and type erasure forces to use asInstanceOf
       def tailRecM[A, B](a: A)(f: A => Attempt[Either[A, B]]): Attempt[B] = {
         f(a) match {
-          case b: Failure => b
-          case b: Successful[Either[A, B]] =>
-            b.value match {
-              case Left(b1) => tailRecM(b1)(f)
-              case Right(a) => Successful(a)
+          case failure: Failure => failure
+          case success: Successful[?] =>
+            success.value match {
+              case Left(a1) => tailRecM(a1.asInstanceOf[A])(f)
+              case Right(b) => Successful(b.asInstanceOf[B])
             }
         }
       }

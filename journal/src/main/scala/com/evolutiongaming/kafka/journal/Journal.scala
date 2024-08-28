@@ -10,10 +10,10 @@ import com.evolutiongaming.kafka.journal.eventual.EventualRead
 import com.evolutiongaming.kafka.journal.util.StreamHelper.*
 import com.evolutiongaming.skafka.{Bytes as _, *}
 import com.evolutiongaming.sstream.Stream
-import pureconfig.ConfigReader
-import pureconfig.generic.semiauto.*
+import pureconfig.{ConfigCursor, ConfigReader}
 
 import scala.concurrent.duration.*
+import scala.concurrent.duration.FiniteDuration
 
 trait Journal[F[_]] {
 
@@ -317,7 +317,28 @@ object Journal {
 
     val default: CallTimeThresholds = CallTimeThresholds()
 
-    implicit val configReaderCallTimeThresholds: ConfigReader[CallTimeThresholds] = deriveReader[CallTimeThresholds]
+    implicit val configReaderCallTimeThresholds: ConfigReader[CallTimeThresholds] = new ConfigReader[CallTimeThresholds] {
+      val fdReader = implicitly[ConfigReader[FiniteDuration]]
+      override def from(cur: ConfigCursor): ConfigReader.Result[CallTimeThresholds] = {
+        for {
+          objCur <- cur.asObjectCursor
+          appendCur = objCur.atKeyOrUndefined("append")
+          append <- if (appendCur.isUndefined) Right(CallTimeThresholds().append) else fdReader.from(appendCur)
+
+          readCur = objCur.atKeyOrUndefined("read")
+          read <- if (readCur.isUndefined) Right(CallTimeThresholds().read) else fdReader.from(readCur)
+
+          pointerCur = objCur.atKeyOrUndefined("pointer")
+          pointer <- if (pointerCur.isUndefined) Right(CallTimeThresholds().pointer) else fdReader.from(pointerCur)
+
+          deleteCur = objCur.atKeyOrUndefined("delete")
+          delete <- if (deleteCur.isUndefined) Right(CallTimeThresholds().delete) else fdReader.from(deleteCur)
+
+          purgeCur <- objCur.atKeyOrUndefined("purge")
+          purge <- if (purgeCur.isUndefined) Right(CallTimeThresholds().purge) else fdReader.from(purgeCur)
+        } yield CallTimeThresholds(append, read, pointer, delete, purge)
+      }
+    }
   }
 
   final case class ConsumerPoolConfig(
@@ -329,7 +350,17 @@ object Journal {
 
     val Default: ConsumerPoolConfig = ConsumerPoolConfig(multiplier = 10, idleTimeout = 1.minute)
 
-    implicit val configReaderConsumerPoolConfig: ConfigReader[ConsumerPoolConfig] = deriveReader
+    implicit val configReaderConsumerPoolConfig: ConfigReader[ConsumerPoolConfig] = new ConfigReader[ConsumerPoolConfig] {
+      override def from(cur: ConfigCursor): ConfigReader.Result[ConsumerPoolConfig] = {
+        for {
+          objCur <- cur.asObjectCursor
+          multiplierCur <- objCur.atKey("multiplier")
+          multiplier <- multiplierCur.asDouble
+          idleTimeoutCur <- objCur.atKey("idle-timeout")
+          idleTimeout <- implicitly[ConfigReader[FiniteDuration]].from(idleTimeoutCur)
+        } yield ConsumerPoolConfig(multiplier, idleTimeout)
+      }
+    }
   }
 
   trait DataIntegrityConfig {

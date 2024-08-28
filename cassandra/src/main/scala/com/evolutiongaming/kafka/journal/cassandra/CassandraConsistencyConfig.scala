@@ -1,8 +1,7 @@
 package com.evolutiongaming.kafka.journal.cassandra
 
 import com.datastax.driver.core.ConsistencyLevel
-import pureconfig.ConfigReader
-import pureconfig.generic.semiauto.deriveReader
+import pureconfig.{ConfigCursor, ConfigReader}
 
 final case class CassandraConsistencyConfig(
   read: CassandraConsistencyConfig.Read   = CassandraConsistencyConfig.Read.default,
@@ -11,7 +10,17 @@ final case class CassandraConsistencyConfig(
 
 object CassandraConsistencyConfig {
 
-  implicit val configReaderConsistencyConfig: ConfigReader[CassandraConsistencyConfig] = deriveReader
+  implicit val configReaderConsistencyConfig: ConfigReader[CassandraConsistencyConfig] = new ConfigReader[CassandraConsistencyConfig] {
+    override def from(cur: ConfigCursor): ConfigReader.Result[CassandraConsistencyConfig] = {
+      for {
+        objCur <- cur.asObjectCursor
+        readCur = objCur.atKeyOrUndefined("read")
+        read <- Read.configReaderRead.from(readCur)
+        writeCur = objCur.atKeyOrUndefined("write")
+        write = if (writeCur.isUndefined) CassandraConsistencyConfig.Write.default else (Write.configReaderWrite.from(writeCur))
+      } yield CassandraConsistencyConfig(read, write)
+    }
+  }
 
   val default: CassandraConsistencyConfig = CassandraConsistencyConfig()
 
