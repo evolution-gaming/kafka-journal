@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.Monad
 import cats.syntax.all.*
 import com.datastax.driver.core.GettableByNameData
-import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper.*
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
 import com.evolutiongaming.scassandra.syntax.*
@@ -11,7 +10,6 @@ import com.evolutiongaming.scassandra.{DecodeRow, TableName}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 import java.time.Instant
-import scala.collection.immutable.SortedSet
 
 object PointerStatements {
 
