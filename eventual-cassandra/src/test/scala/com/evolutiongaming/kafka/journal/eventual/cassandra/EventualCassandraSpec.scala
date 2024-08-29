@@ -3,7 +3,6 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.Parallel
 import cats.effect.IO
 import cats.implicits.*
-import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.Journal.DataIntegrityConfig
 import com.evolutiongaming.kafka.journal.eventual.*
@@ -61,19 +60,6 @@ object EventualCassandraSpec {
           .get(key)
           .map { metadata => JournalPointer(metadata.partitionOffset, metadata.seqNr) }
         (state, pointer)
-      }
-    }
-  }
-
-  val selectOffset: PointerStatements.SelectOffset[StateT] = { (topic, partition) =>
-    {
-      StateT { state =>
-        val offset = state
-          .pointers
-          .getOrElse(topic, TopicPointers.empty)
-          .values
-          .get(partition)
-        (state, offset)
       }
     }
   }
@@ -143,7 +129,7 @@ object EventualCassandraSpec {
         segments       = segments,
       )
 
-    val statements = EventualCassandra.Statements(selectRecords, metaJournalStatements, selectOffset, selectOffset2)
+    val statements = EventualCassandra.Statements(selectRecords, metaJournalStatements, selectOffset2)
 
     EventualCassandra.apply1[StateT](statements, DataIntegrityConfig.Default)
   }
@@ -352,14 +338,6 @@ object EventualCassandraSpec {
       ().pure[StateT]
     }
 
-    val selectTopics: PointerStatements.SelectTopics[StateT] = { () =>
-      {
-        StateT { state =>
-          (state, state.pointers.keySet.toSortedSet)
-        }
-      }
-    }
-
     val selectTopics2: Pointer2Statements.SelectTopics[StateT] = { () =>
       SortedSet.empty[Topic].pure[StateT]
     }
@@ -381,7 +359,6 @@ object EventualCassandraSpec {
       deleteRecordsTo,
       deleteRecords,
       metaJournal,
-      selectOffset,
       selectOffset2,
       selectPointer,
       selectPointer2,
@@ -390,7 +367,6 @@ object EventualCassandraSpec {
       updatePointer,
       updatePointer2,
       updatePointerCreated2,
-      selectTopics,
       selectTopics2,
     )
 

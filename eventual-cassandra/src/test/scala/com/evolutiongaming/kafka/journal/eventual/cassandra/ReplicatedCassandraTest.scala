@@ -6,7 +6,6 @@ import cats.effect.{Poll, Sync}
 import cats.implicits.*
 import cats.syntax.all.none
 import cats.{Id, Parallel}
-import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
@@ -1270,20 +1269,6 @@ object ReplicatedCassandraTest {
     }
   }
 
-  val selectOffset: PointerStatements.SelectOffset[StateT] = { (topic, partition) =>
-    {
-      StateT.success { state =>
-        val offset = for {
-          pointers <- state.pointers.get(topic)
-          pointer  <- pointers.get(partition)
-        } yield {
-          pointer.offset
-        }
-        (state, offset)
-      }
-    }
-  }
-
   val selectOffset2: Pointer2Statements.SelectOffset[StateT] = { (_, _) =>
     none[Offset].pure[StateT]
   }
@@ -1331,15 +1316,6 @@ object ReplicatedCassandraTest {
     ().pure[StateT]
   }
 
-  val selectTopics: PointerStatements.SelectTopics[StateT] = { () =>
-    {
-      StateT.success { state =>
-        val topics = state.pointers.keySet.toSortedSet
-        (state, topics)
-      }
-    }
-  }
-
   val selectTopics2: Pointer2Statements.SelectTopics[StateT] = { () =>
     SortedSet.empty[Topic].pure[StateT]
   }
@@ -1363,7 +1339,6 @@ object ReplicatedCassandraTest {
       deleteRecordsTo,
       deleteRecords,
       metaJournal,
-      selectOffset,
       selectOffset2,
       selectPointer,
       selectPointer2,
@@ -1372,7 +1347,6 @@ object ReplicatedCassandraTest {
       updatePointer,
       updatePointer2,
       updatePointerCreated2,
-      selectTopics,
       selectTopics2,
     )
   }
