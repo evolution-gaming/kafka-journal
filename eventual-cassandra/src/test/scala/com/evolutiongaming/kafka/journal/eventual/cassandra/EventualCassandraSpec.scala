@@ -3,18 +3,18 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.Parallel
 import cats.effect.IO
 import cats.implicits.*
+import com.evolutiongaming.catshelper.DataHelper.IterableOps1DataHelper
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.Journal.DataIntegrityConfig
 import com.evolutiongaming.kafka.journal.eventual.*
 import com.evolutiongaming.kafka.journal.eventual.EventualJournalSpec.*
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.TestTemporal.*
-import com.evolutiongaming.skafka.{Offset, Topic}
+import com.evolutiongaming.skafka.{Partition, Topic}
 import com.evolutiongaming.sstream.FoldWhile.*
 import com.evolutiongaming.sstream.Stream
 
 import java.time.{Instant, ZoneOffset}
-import scala.collection.immutable.SortedSet
 
 // TODO expiry: test purge
 class EventualCassandraSpec extends EventualJournalSpec {
@@ -64,8 +64,17 @@ object EventualCassandraSpec {
     }
   }
 
-  val selectOffset2: Pointer2Statements.SelectOffset[StateT] = { (_, _) =>
-    none[Offset].pure[StateT]
+  val selectOffset2: Pointer2Statements.SelectOffset[StateT] = { (topic: Topic, partition: Partition) =>
+    {
+      StateT { state =>
+        val offset = state
+          .pointers
+          .getOrElse(topic, TopicPointers.empty)
+          .values
+          .get(partition)
+        (state, offset)
+      }
+    }
   }
 
   val selectPointer: PointerStatements.Select[StateT] = { (_, _) =>
@@ -339,7 +348,11 @@ object EventualCassandraSpec {
     }
 
     val selectTopics2: Pointer2Statements.SelectTopics[StateT] = { () =>
-      SortedSet.empty[Topic].pure[StateT]
+      {
+        StateT { state =>
+          (state, state.pointers.keySet.toSortedSet)
+        }
+      }
     }
 
     val metaJournal = ReplicatedCassandra.MetaJournalStatements(

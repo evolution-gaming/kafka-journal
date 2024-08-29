@@ -376,10 +376,6 @@ object EventualCassandraTest {
       }
   }
 
-  val selectOffset2: Pointer2Statements.SelectOffset[StateT] = { (_, _) =>
-    none[Offset].pure[StateT]
-  }
-
   val insertPointer: PointerStatements.Insert[StateT] = {
     (topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant) =>
       {
@@ -392,6 +388,20 @@ object EventualCassandraTest {
           state.copy(pointers = state.pointers.updated(topic, entries))
         }
       }
+  }
+
+  val selectOffset2: Pointer2Statements.SelectOffset[StateT] = { (topic: Topic, partition: Partition) =>
+  {
+    StateT.success { state =>
+      val offset = for {
+        pointers <- state.pointers.get(topic)
+        pointer  <- pointers.get(partition)
+      } yield {
+        pointer.offset
+      }
+      (state, offset)
+    }
+  }
   }
 
   val updatePointer: PointerStatements.Update[StateT] = {

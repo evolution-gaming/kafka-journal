@@ -6,6 +6,7 @@ import cats.effect.{Poll, Sync}
 import cats.implicits.*
 import cats.syntax.all.none
 import cats.{Id, Parallel}
+import com.evolutiongaming.catshelper.DataHelper.IterableOps1DataHelper
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
@@ -20,7 +21,6 @@ import play.api.libs.json.Json
 
 import java.time.{Instant, LocalDate, ZoneOffset}
 import java.util.concurrent.TimeUnit
-import scala.collection.immutable.SortedSet
 import scala.concurrent.duration.*
 import scala.util.Try
 
@@ -1269,8 +1269,18 @@ object ReplicatedCassandraTest {
     }
   }
 
-  val selectOffset2: Pointer2Statements.SelectOffset[StateT] = { (_, _) =>
-    none[Offset].pure[StateT]
+  val selectOffset2: Pointer2Statements.SelectOffset[StateT] = { (topic: Topic, partition: Partition) =>
+    {
+      StateT.success { state =>
+        val offset = for {
+          pointers <- state.pointers.get(topic)
+          pointer  <- pointers.get(partition)
+        } yield {
+          pointer.offset
+        }
+        (state, offset)
+      }
+    }
   }
 
   val selectPointer: PointerStatements.Select[StateT] = { (_, _) =>
@@ -1317,7 +1327,12 @@ object ReplicatedCassandraTest {
   }
 
   val selectTopics2: Pointer2Statements.SelectTopics[StateT] = { () =>
-    SortedSet.empty[Topic].pure[StateT]
+    {
+      StateT.success { state =>
+        val topics = state.pointers.keySet.toSortedSet
+        (state, topics)
+      }
+    }
   }
 
   val statements: ReplicatedCassandra.Statements[StateT] = {
