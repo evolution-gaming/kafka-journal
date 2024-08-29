@@ -170,33 +170,4 @@ object PointerStatements {
         }
     }
   }
-
-  trait SelectTopics[F[_]] {
-    def apply(): F[SortedSet[Topic]]
-  }
-
-  object SelectTopics {
-
-    def of[F[_]: Monad: CassandraSession](
-      name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
-    ): F[SelectTopics[F]] = {
-
-      val query = s"""SELECT DISTINCT topic FROM ${name.toCql}""".stripMargin
-      query
-        .prepare
-        .map { prepared => () =>
-          {
-            prepared
-              .bind()
-              .setConsistencyLevel(consistencyConfig.value)
-              .execute
-              .toList
-              .map { records =>
-                records.map { _.decode[Topic]("topic") }.toSortedSet
-              }
-          }
-        }
-    }
-  }
 }

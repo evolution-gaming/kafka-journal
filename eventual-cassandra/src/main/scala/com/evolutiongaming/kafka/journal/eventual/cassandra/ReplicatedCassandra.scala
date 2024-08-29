@@ -71,22 +71,7 @@ object ReplicatedCassandra {
     new Main with ReplicatedJournal[F] {
 
       def topics: F[SortedSet[Topic]] = {
-        statements
-          .selectTopics2()
-          .parProduct(statements.selectTopics())
-          .flatMap {
-            case (a, b) =>
-              val meterAndLog = for {
-                metrics <- metrics.toSeq
-                log     <- log.toSeq
-                topic   <- b.diff(a).toSeq
-              } yield for {
-                _ <- metrics.topicsFallback(topic)
-                _ <- log.warn(s"`pointer` contains topic $topic while `pointer2` doesn't")
-              } yield ()
-
-              meterAndLog.sequence_.as(a ++ b)
-          }
+        statements.selectTopics2()
       }
 
       def journal(topic: Topic): Resource[F, ReplicatedTopicJournal[F]] = {
@@ -729,7 +714,6 @@ object ReplicatedCassandra {
     updatePointer: PointerStatements.Update[F],
     updatePointer2: Pointer2Statements.Update[F],
     updatePointerCreated2: Pointer2Statements.UpdateCreated[F],
-    selectTopics: PointerStatements.SelectTopics[F],
     selectTopics2: Pointer2Statements.SelectTopics[F],
   )
 
@@ -757,7 +741,6 @@ object ReplicatedCassandra {
         updatePointer         <- PointerStatements.Update.of[F](schema.pointer, consistencyConfig.write)
         updatePointer2        <- Pointer2Statements.Update.of[F](schema.pointer2, consistencyConfig.write)
         updatePointerCreated2 <- Pointer2Statements.UpdateCreated.of[F](schema.pointer2, consistencyConfig.write)
-        selectTopics          <- PointerStatements.SelectTopics.of[F](schema.pointer, consistencyConfig.read)
         selectTopics2         <- Pointer2Statements.SelectTopics.of[F](schema.pointer2, consistencyConfig.read)
       } yield {
         Statements(
@@ -774,7 +757,6 @@ object ReplicatedCassandra {
           updatePointer,
           updatePointer2,
           updatePointerCreated2,
-          selectTopics,
           selectTopics2,
         )
       }
