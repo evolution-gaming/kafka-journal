@@ -137,37 +137,4 @@ object PointerStatements {
         }
     }
   }
-
-  trait SelectOffset[F[_]] {
-
-    def apply(topic: Topic, partition: Partition): F[Option[Offset]]
-  }
-
-  object SelectOffset {
-
-    def of[F[_]: Monad: CassandraSession](
-      name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
-    ): F[SelectOffset[F]] = {
-
-      val query =
-        s"""
-           |SELECT offset FROM ${name.toCql}
-           |WHERE topic = ?
-           |AND partition = ?
-           |""".stripMargin
-
-      query
-        .prepare
-        .map { prepared => (topic: Topic, partition: Partition) =>
-          prepared
-            .bind()
-            .encode("topic", topic)
-            .encode("partition", partition)
-            .setConsistencyLevel(consistencyConfig.value)
-            .first
-            .map { _.map { _.decode[Offset]("offset") } }
-        }
-    }
-  }
 }

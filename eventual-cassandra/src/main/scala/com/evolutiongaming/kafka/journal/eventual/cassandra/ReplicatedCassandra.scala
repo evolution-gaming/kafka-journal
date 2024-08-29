@@ -88,19 +88,7 @@ object ReplicatedCassandra {
                     new Main with ReplicatedPartitionJournal.Offsets[F] {
 
                       def get: F[Option[Offset]] = {
-                        for {
-                          offset <- statements.selectOffset2(topic, partition)
-                          offset <- offset.fold {
-                            val meterAndLog = {
-                              for {
-                                _      <- metrics.traverse_(_.selectOffsetFallback(topic, partition))
-                                message = s"`selectOffset` was called for topic $topic and partition: $partition"
-                                _      <- log.traverse_(_.warn(message))
-                              } yield ()
-                            }
-                            statements.selectOffset(topic, partition) <* meterAndLog
-                          } { _.some.pure[F] }
-                        } yield offset
+                        statements.selectOffset2(topic, partition)
                       }
 
                       def create(offset: Offset, timestamp: Instant): F[Unit] = {
@@ -705,7 +693,6 @@ object ReplicatedCassandra {
     deleteRecordsTo: JournalStatements.DeleteTo[F],
     deleteRecords: JournalStatements.Delete[F],
     metaJournal: MetaJournalStatements[F],
-    selectOffset: PointerStatements.SelectOffset[F],
     selectOffset2: Pointer2Statements.SelectOffset[F],
     selectPointer: PointerStatements.Select[F],
     selectPointer2: Pointer2Statements.Select[F],
@@ -732,7 +719,6 @@ object ReplicatedCassandra {
         deleteRecordsTo       <- JournalStatements.DeleteTo.of[F](schema.journal, consistencyConfig.write)
         deleteRecords         <- JournalStatements.Delete.of[F](schema.journal, consistencyConfig.write)
         metaJournal           <- MetaJournalStatements.of[F](schema, consistencyConfig)
-        selectOffset          <- PointerStatements.SelectOffset.of[F](schema.pointer, consistencyConfig.read)
         selectOffset2         <- Pointer2Statements.SelectOffset.of[F](schema.pointer2, consistencyConfig.read)
         selectPointer         <- PointerStatements.Select.of[F](schema.pointer, consistencyConfig.read)
         selectPointer2        <- Pointer2Statements.Select.of[F](schema.pointer2, consistencyConfig.read)
@@ -748,7 +734,6 @@ object ReplicatedCassandra {
           deleteRecordsTo,
           deleteRecords,
           metaJournal,
-          selectOffset,
           selectOffset2,
           selectPointer,
           selectPointer2,
