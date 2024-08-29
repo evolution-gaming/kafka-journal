@@ -391,17 +391,17 @@ object EventualCassandraTest {
   }
 
   val selectOffset2: Pointer2Statements.SelectOffset[StateT] = { (topic: Topic, partition: Partition) =>
-  {
-    StateT.success { state =>
-      val offset = for {
-        pointers <- state.pointers.get(topic)
-        pointer  <- pointers.get(partition)
-      } yield {
-        pointer.offset
+    {
+      StateT.success { state =>
+        val offset = for {
+          pointers <- state.pointers.get(topic)
+          pointer  <- pointers.get(partition)
+        } yield {
+          pointer.offset
+        }
+        (state, offset)
       }
-      (state, offset)
     }
-  }
   }
 
   val updatePointer: PointerStatements.Update[StateT] = {
