@@ -125,6 +125,48 @@ ThisBuild / mimaBinaryIssueFilters ++= Seq(
   ProblemFilters.exclude[MissingClassProblem](
     "com.evolutiongaming.kafka.journal.eventual.cassandra.PointerStatements$SelectTopics$",
   ),
+  ProblemFilters.exclude[MissingClassProblem](
+    "com.evolutiongaming.kafka.journal.eventual.cassandra.Pointer2Statements$UpdateCreated",
+  ),
+  ProblemFilters.exclude[MissingClassProblem](
+    "com.evolutiongaming.kafka.journal.eventual.cassandra.Pointer2Statements$UpdateCreated$",
+  ),
+  ProblemFilters.exclude[MissingClassProblem](
+    "com.evolutiongaming.kafka.journal.eventual.cassandra.PointerStatements$Select",
+  ),
+  ProblemFilters.exclude[MissingClassProblem](
+    "com.evolutiongaming.kafka.journal.eventual.cassandra.PointerStatements$Select$",
+  ),
+  ProblemFilters.exclude[MissingClassProblem](
+    "com.evolutiongaming.kafka.journal.eventual.cassandra.PointerStatements$Select$Result",
+  ),
+  ProblemFilters.exclude[MissingClassProblem](
+    "com.evolutiongaming.kafka.journal.eventual.cassandra.PointerStatements$Select$Result$",
+  ),
+  ProblemFilters.exclude[DirectMissingMethodProblem](
+    "com.evolutiongaming.kafka.journal.eventual.cassandra.ReplicatedCassandra#Statements.selectPointer",
+  ),
+  ProblemFilters.exclude[DirectMissingMethodProblem](
+    "com.evolutiongaming.kafka.journal.eventual.cassandra.ReplicatedCassandra#Statements.updatePointerCreated2",
+  ),
+  ProblemFilters.exclude[DirectMissingMethodProblem](
+    "com.evolutiongaming.kafka.journal.eventual.cassandra.ReplicatedCassandra#Statements.copy$default$12",
+  ),
+  ProblemFilters.exclude[DirectMissingMethodProblem](
+    "com.evolutiongaming.kafka.journal.eventual.cassandra.ReplicatedCassandra#Statements.copy$default$13",
+  ),
+  ProblemFilters.exclude[DirectMissingMethodProblem](
+    "com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal#Metrics.topicsFallback",
+  ),
+  ProblemFilters.exclude[DirectMissingMethodProblem](
+    "com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal#Metrics.selectOffsetFallback",
+  ),
+  ProblemFilters.exclude[DirectMissingMethodProblem](
+    "com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal#Metrics.selectPointerFallback",
+  ),
+  ProblemFilters.exclude[DirectMissingMethodProblem](
+    "com.evolutiongaming.kafka.journal.eventual.ReplicatedJournal#Metrics.updatePointerCreated2Fallback",
+  ),
 )
 
 val alias: Seq[sbt.Def.Setting[?]] =
