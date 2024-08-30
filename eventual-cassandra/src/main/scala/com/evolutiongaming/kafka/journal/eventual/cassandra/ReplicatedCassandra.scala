@@ -634,17 +634,17 @@ object ReplicatedCassandra {
       consistencyConfig: EventualCassandraConfig.ConsistencyConfig,
     ): F[Statements[F]] = {
       for {
-        insertRecords         <- JournalStatements.InsertRecords.of[F](schema.journal, consistencyConfig.write)
-        deleteRecordsTo       <- JournalStatements.DeleteTo.of[F](schema.journal, consistencyConfig.write)
-        deleteRecords         <- JournalStatements.Delete.of[F](schema.journal, consistencyConfig.write)
-        metaJournal           <- MetaJournalStatements.of[F](schema, consistencyConfig)
-        selectOffset2         <- Pointer2Statements.SelectOffset.of[F](schema.pointer2, consistencyConfig.read)
-        selectPointer2        <- Pointer2Statements.Select.of[F](schema.pointer2, consistencyConfig.read)
-        insertPointer         <- PointerStatements.Insert.of[F](schema.pointer, consistencyConfig.write)
-        insertPointer2        <- Pointer2Statements.Insert.of[F](schema.pointer2, consistencyConfig.write)
-        updatePointer         <- PointerStatements.Update.of[F](schema.pointer, consistencyConfig.write)
-        updatePointer2        <- Pointer2Statements.Update.of[F](schema.pointer2, consistencyConfig.write)
-        selectTopics2         <- Pointer2Statements.SelectTopics.of[F](schema.pointer2, consistencyConfig.read)
+        insertRecords   <- JournalStatements.InsertRecords.of[F](schema.journal, consistencyConfig.write)
+        deleteRecordsTo <- JournalStatements.DeleteTo.of[F](schema.journal, consistencyConfig.write)
+        deleteRecords   <- JournalStatements.Delete.of[F](schema.journal, consistencyConfig.write)
+        metaJournal     <- MetaJournalStatements.of[F](schema, consistencyConfig)
+        selectOffset2   <- Pointer2Statements.SelectOffset.of[F](schema.pointer2, consistencyConfig.read)
+        selectPointer2  <- Pointer2Statements.Select.of[F](schema.pointer2, consistencyConfig.read)
+        insertPointer   <- PointerStatements.Insert.of[F](schema.pointer, consistencyConfig.write)
+        insertPointer2  <- Pointer2Statements.Insert.of[F](schema.pointer2, consistencyConfig.write)
+        updatePointer   <- PointerStatements.Update.of[F](schema.pointer, consistencyConfig.write)
+        updatePointer2  <- Pointer2Statements.Update.of[F](schema.pointer2, consistencyConfig.write)
+        selectTopics2   <- Pointer2Statements.SelectTopics.of[F](schema.pointer2, consistencyConfig.read)
       } yield {
         Statements(
           insertRecords,

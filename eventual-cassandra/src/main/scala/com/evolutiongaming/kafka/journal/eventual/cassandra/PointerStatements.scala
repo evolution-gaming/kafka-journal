@@ -4,8 +4,8 @@ import cats.Monad
 import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper.*
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
-import com.evolutiongaming.scassandra.syntax.*
 import com.evolutiongaming.scassandra.TableName
+import com.evolutiongaming.scassandra.syntax.*
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 import java.time.Instant

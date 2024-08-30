@@ -209,11 +209,11 @@ object ReplicatedJournal {
       )
 
       for {
-        versionGauge                 <- versionGauge
-        _                            <- versionGauge.labels(Version.current.value).set(1).toResource
-        latencySummary               <- latencySummary
-        topicLatencySummary          <- topicLatencySummary
-        eventsSummary                <- eventsSummary
+        versionGauge        <- versionGauge
+        _                   <- versionGauge.labels(Version.current.value).set(1).toResource
+        latencySummary      <- latencySummary
+        topicLatencySummary <- topicLatencySummary
+        eventsSummary       <- eventsSummary
       } yield {
 
         def observeTopicLatency(name: String, topic: Topic, latency: FiniteDuration): F[Unit] = {
