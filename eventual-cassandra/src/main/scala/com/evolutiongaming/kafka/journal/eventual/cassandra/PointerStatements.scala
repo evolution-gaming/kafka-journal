@@ -2,11 +2,10 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.Monad
 import cats.syntax.all.*
-import com.datastax.driver.core.GettableByNameData
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper.*
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
 import com.evolutiongaming.scassandra.syntax.*
-import com.evolutiongaming.scassandra.{DecodeRow, TableName}
+import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 import java.time.Instant
@@ -92,46 +91,6 @@ object PointerStatements {
             .setConsistencyLevel(consistencyConfig.value)
             .first
             .void
-        }
-    }
-  }
-
-  trait Select[F[_]] {
-
-    def apply(topic: Topic, partition: Partition): F[Option[Select.Result]]
-  }
-
-  object Select {
-
-    final case class Result(created: Option[Instant])
-
-    object Result {
-      implicit val decodeResult: DecodeRow[Result] = { (row: GettableByNameData) =>
-        {
-          Result(row.decode[Option[Instant]]("created"))
-        }
-      }
-    }
-
-    def of[F[_]: Monad: CassandraSession](
-      name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
-    ): F[Select[F]] = {
-      s"""
-         |SELECT created FROM ${name.toCql}
-         |WHERE topic = ?
-         |AND partition = ?
-         |"""
-        .stripMargin
-        .prepare
-        .map { prepared => (topic: Topic, partition: Partition) =>
-          prepared
-            .bind()
-            .encode("topic", topic)
-            .encode("partition", partition)
-            .setConsistencyLevel(consistencyConfig.value)
-            .first
-            .map { _.map { _.decode[Result] } }
         }
     }
   }

@@ -6,7 +6,7 @@ import cats.effect.{Async, Ref, Resource, Sync}
 import cats.syntax.all.*
 import cats.{Monad, Parallel}
 import com.evolutiongaming.catshelper.ParallelHelper.*
-import com.evolutiongaming.catshelper.{Log, LogOf, MeasureDuration, ToTry}
+import com.evolutiongaming.catshelper.{LogOf, MeasureDuration, ToTry}
 import com.evolutiongaming.kafka.journal.eventual.*
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedKeyJournal.Changed
 import com.evolutiongaming.kafka.journal.eventual.cassandra.ReplicatedCassandra.MetaJournalStatements.ByKey
@@ -41,9 +41,7 @@ object ReplicatedCassandra {
       _             <- log.info(s"kafka-journal version: ${Version.current.value}")
     } yield {
       val segmentOf = SegmentNrsOf[F](first = Segments.default, second = Segments.old)
-      val journal =
-        applyWithTempMetrics[F](config.segmentSize, segmentOf, statements, expiryService, metrics, Some(log))
-          .withLog(log)
+      val journal   = apply[F](config.segmentSize, segmentOf, statements, expiryService).withLog(log)
       metrics
         .fold(journal) { metrics => journal.withMetrics(metrics) }
         .enhanceError
@@ -55,17 +53,6 @@ object ReplicatedCassandra {
     segmentNrsOf: SegmentNrsOf[F],
     statements: Statements[F],
     expiryService: ExpiryService[F],
-  ): ReplicatedJournal[F] = {
-    applyWithTempMetrics(segmentSizeDefault, segmentNrsOf, statements, expiryService, None, None)
-  }
-
-  private def applyWithTempMetrics[F[_]: Sync: Parallel: Fail](
-    segmentSizeDefault: SegmentSize,
-    segmentNrsOf: SegmentNrsOf[F],
-    statements: Statements[F],
-    expiryService: ExpiryService[F],
-    metrics: Option[ReplicatedJournal.Metrics[F]],
-    log: Option[Log[F]],
   ): ReplicatedJournal[F] = {
 
     new Main with ReplicatedJournal[F] {
@@ -79,466 +66,400 @@ object ReplicatedCassandra {
         val result = new Main with ReplicatedTopicJournal[F] {
 
           def apply(partition: Partition): Resource[F, ReplicatedPartitionJournal[F]] = {
-            Ref[F]
-              .of(false) // assume that `pointer2` isn't updated, yet
-              .map { fixedRef =>
-                new Main with ReplicatedPartitionJournal[F] {
+            new Main with ReplicatedPartitionJournal[F] {
 
-                  def offsets: ReplicatedPartitionJournal.Offsets[F] = {
-                    new Main with ReplicatedPartitionJournal.Offsets[F] {
+              def offsets: ReplicatedPartitionJournal.Offsets[F] = {
+                new Main with ReplicatedPartitionJournal.Offsets[F] {
 
-                      def get: F[Option[Offset]] = {
-                        statements.selectOffset2(topic, partition)
-                      }
-
-                      def create(offset: Offset, timestamp: Instant): F[Unit] = {
-                        for {
-                          a <- statements.insertPointer2(topic, partition, offset, timestamp, timestamp)
-                          b <- statements.insertPointer(topic, partition, offset, timestamp, timestamp)
-                          _ <- fixedRef.set(true) // mark that `pointer2` table is updated with new state
-                        } yield {
-                          a.combine(b)
-                        }
-                      }
-
-                      def update(offset: Offset, timestamp: Instant): F[Unit] = {
-                        statements
-                          .updatePointer(topic, partition, offset, timestamp)
-                          .parProduct {
-                            for {
-                              fixed <- fixedRef.get
-                              result <-
-                                if (fixed) { // if topic's partition's offset has been set inside `create` [before]
-                                  statements.updatePointer2(topic, partition, offset, timestamp) // use them
-                                } else { // else find state from `pointer` table
-                                  for {
-                                    pointer <- statements.selectPointer2(topic, partition)
-                                    created = statements
-                                      .selectPointer(topic, partition)
-                                      .productL {
-                                        for {
-                                          _      <- metrics.traverse_(_.selectPointerFallback(topic, partition))
-                                          message = s"`selectPointer` was called for topic $topic and partition: $partition"
-                                          _      <- log.traverse_(_.warn(message))
-                                        } yield ()
-                                      }
-                                      .map { pointer =>
-                                        pointer
-                                          .flatMap { _.created }
-                                          .getOrElse(timestamp)
-                                      }
-                                    result <- pointer.fold {
-                                      for {
-                                        created <- created
-                                        result  <- statements.insertPointer2(topic, partition, offset, created, timestamp)
-                                      } yield result
-                                    } { pointer =>
-                                      pointer
-                                        .created
-                                        .fold {
-                                          // initial migration had issue on low-load environments:
-                                          //   some partition-topic pairs were never written due to low load
-                                          for {
-                                            created <- created
-                                            result <- statements.updatePointerCreated2(
-                                              topic,
-                                              partition,
-                                              offset,
-                                              created,
-                                              timestamp,
-                                            )
-                                            _ <- for {
-                                              _ <- metrics.traverse_(_.updatePointerCreated2Fallback(topic, partition))
-                                              message =
-                                                s"`updatePointerCreated2` was called for topic $topic and partition: $partition"
-                                              _ <- log.traverse_(_.warn(message))
-                                            } yield ()
-                                          } yield result
-                                        } { _ =>
-                                          ().pure[F]
-                                        }
-                                    }
-                                    _ <- fixedRef.set(true)
-                                  } yield result
-                                }
-                            } yield result
-                          }
-                          .map { case (a, b) => a.combine(b) }
-                      }
-                    }
+                  def get: F[Option[Offset]] = {
+                    statements.selectOffset2(topic, partition)
                   }
 
-                  def journal(id: String): Resource[F, ReplicatedKeyJournal[F]] = {
+                  def create(offset: Offset, timestamp: Instant): F[Unit] = {
+                    statements
+                      .insertPointer2(topic, partition, offset, timestamp, timestamp)
+                      .parProduct(statements.insertPointer(topic, partition, offset, timestamp, timestamp))
+                      .map { case (a, b) => a.combine(b) }
+                  }
 
-                    val key = Key(id = id, topic = topic)
-
-                    def journalHeadRef = {
-
-                      def head(segmentNr: SegmentNr) = {
-                        statements
-                          .metaJournal(key, segmentNr)
-                          .journalHead
-                          .toOptionT
-                          .map { a => (a, segmentNr) }
-                      }
-
-                      for {
-                        segmentNrs <- segmentNrsOf(key)
-                        result <- head(segmentNrs.first).orElse {
-                          segmentNrs
-                            .second
-                            .toOptionT[F]
-                            .flatMap { segmentNr => head(segmentNr) }
-                        }.value
-                        (head, segmentNr) = result match {
-                          case Some((head, segmentNr)) => (head.some, segmentNr)
-                          case None                    => (none[JournalHead], segmentNrs.first)
-                        }
-                        ref <- Ref[F].of(head)
-                      } yield {
-                        (ref, segmentNr)
-                      }
-                    }
-
-                    journalHeadRef.map {
-                      case (journalHeadRef, segmentNr) =>
-                        def metaJournal = statements.metaJournal(key, segmentNr)
-
-                        class Main
-                        new Main with ReplicatedKeyJournal[F] {
-
-                          def append(
-                            offset: Offset,
-                            timestamp: Instant,
-                            expireAfter: Option[ExpireAfter],
-                            events: Nel[EventRecord[EventualPayloadAndType]],
-                          ): F[Changed] = {
-
-                            def partitionOffset = PartitionOffset(partition, offset)
-
-                            def append(segmentSize: SegmentSize, offset: Option[Offset]) = {
-
-                              @tailrec
-                              def loop(
-                                events: List[EventRecord[EventualPayloadAndType]],
-                                s: Option[(Segment, Nel[EventRecord[EventualPayloadAndType]])],
-                                result: F[Unit],
-                              ): F[Unit] = {
-
-                                def insert(segment: Segment, events: Nel[EventRecord[EventualPayloadAndType]]) = {
-                                  val next = statements.insertRecords(key, segment.nr, events)
-                                  result *> next
-                                }
-
-                                events match {
-                                  case head :: tail =>
-                                    val seqNr = head.event.seqNr
-                                    s match {
-                                      case Some((segment, batch)) =>
-                                        segment.next(seqNr) match {
-                                          case None       => loop(tail, (segment, head :: batch).some, result)
-                                          case Some(next) => loop(tail, (next, Nel.of(head)).some, insert(segment, batch))
-                                        }
-                                      case None => loop(tail, (Segment(seqNr, segmentSize), Nel.of(head)).some, result)
-                                    }
-
-                                  case Nil => s.fold(result) { case (segment, batch) => insert(segment, batch) }
-                                }
-                              }
-
-                              val events1 = offset.fold {
-                                events.toList
-                              } { offset =>
-                                events.filter { event => event.partitionOffset.offset > offset }
-                              }
-                              loop(events1, None, ().pure[F])
-                            }
-
-                            def appendAndSave(journalHead: Option[JournalHead]) = {
-
-                              def appendAndSave = {
-                                val seqNrLast = events.last.seqNr
-
-                                val saveAndJournalHead = journalHead.fold {
-                                  val deleteTo = events
-                                    .head
-                                    .seqNr
-                                    .prev[Option]
-                                    .map { _.toDeleteTo }
-
-                                  expireAfter
-                                    .traverse { expireAfter =>
-                                      expiryService
-                                        .expireOn(expireAfter, timestamp)
-                                        .map { expireOn => Expiry(expireAfter, expireOn) }
-                                    }
-                                    .map { expiry =>
-                                      val journalHead = JournalHead(
-                                        partitionOffset = partitionOffset,
-                                        segmentSize     = segmentSizeDefault,
-                                        seqNr           = seqNrLast,
-                                        deleteTo        = deleteTo,
-                                        expiry          = expiry,
-                                      )
-                                      val origin = events.head.origin
-                                      val insert = metaJournal.insert(timestamp, journalHead, origin)
-                                      (insert, journalHead)
-                                    }
-                                } { journalHead =>
-                                  def updateOf: ByKey.Update[F] = metaJournal.update(partitionOffset, timestamp)
-
-                                  expiryService
-                                    .action(journalHead.expiry, expireAfter, timestamp)
-                                    .map { action =>
-                                      val (expiry, update) = action match {
-                                        case ExpiryService.Action.Update(expiry) =>
-                                          (expiry.some, updateOf(seqNrLast, expiry))
-
-                                        case ExpiryService.Action.Ignore =>
-                                          (journalHead.expiry, updateOf(seqNrLast))
-
-                                        case ExpiryService.Action.Remove =>
-                                          val update = for {
-                                            _ <- updateOf(seqNrLast)
-                                            _ <- metaJournal.deleteExpiry
-                                          } yield {}
-                                          (none[Expiry], update)
-                                      }
-                                      val journalHead1 =
-                                        journalHead.copy(partitionOffset = partitionOffset, seqNr = seqNrLast, expiry = expiry)
-                                      (update, journalHead1)
-                                    }
-                                }
-
-                                val offset = journalHead.map { _.partitionOffset.offset }
-
-                                val result = for {
-                                  saveAndJournalHead <- saveAndJournalHead
-                                  (save, journalHead) = saveAndJournalHead
-                                  _                  <- append(journalHead.segmentSize, offset)
-                                  _                  <- save
-                                } yield {
-                                  journalHead.some
-                                }
-                                result.uncancelable
-                              }
-
-                              journalHead.fold {
-                                appendAndSave
-                              } { journalHead =>
-                                if (offset <= journalHead.partitionOffset.offset) {
-                                  none[JournalHead].pure[F]
-                                } else {
-                                  appendAndSave
-                                }
-                              }
-                            }
-
-                            for {
-                              journalHead <- journalHeadRef.get
-                              journalHead <- appendAndSave(journalHead)
-                              result <- journalHead match {
-                                case Some(journalHead) =>
-                                  journalHeadRef
-                                    .set(journalHead.some)
-                                    .as(true)
-                                case None =>
-                                  false.pure[F]
-                              }
-                            } yield result
-                          }
-
-                          def delete(
-                            offset: Offset,
-                            timestamp: Instant,
-                            deleteTo: DeleteTo,
-                            origin: Option[Origin],
-                          ): F[Changed] = {
-
-                            def partitionOffset = PartitionOffset(partition, offset)
-
-                            val result = for {
-                              journalHead <- journalHeadRef.get
-                              journalHead <- journalHead.fold {
-                                val journalHead = JournalHead(
-                                  partitionOffset = partitionOffset,
-                                  segmentSize     = segmentSizeDefault,
-                                  seqNr           = deleteTo.value,
-                                  deleteTo        = deleteTo.some,
-                                )
-                                metaJournal
-                                  .insert(timestamp, journalHead, origin)
-                                  .as(journalHead.some)
-                              } { journalHead =>
-                                if (offset > journalHead.partitionOffset.offset) {
-                                  val deleteTo0 = journalHead.deleteTo
-                                  val seqNr     = journalHead.seqNr
-                                  val seqNr1    = deleteTo0.fold { seqNr } { _.value.max(seqNr) }
-                                  val deleteTo1 = deleteTo
-                                    .value
-                                    .min(seqNr1)
-                                    .toDeleteTo
-                                  for {
-                                    _ <- {
-                                      val update = metaJournal.update(partitionOffset, timestamp)
-                                      if (seqNr1 == seqNr) {
-                                        if (deleteTo0.contains(deleteTo1)) {
-                                          update()
-                                        } else {
-                                          update(deleteTo1)
-                                        }
-                                      } else {
-                                        if (deleteTo0.contains(deleteTo1)) {
-                                          update(seqNr1)
-                                        } else {
-                                          update(seqNr1, deleteTo1)
-                                        }
-                                      }
-                                    }
-                                    _ <- deleteTo0
-                                      .fold { SeqNr.min.some } { _.value.next[Option] }
-                                      .foldMapM { from =>
-                                        val to = deleteTo.value.min(seqNr)
-                                        if (from <= to) {
-                                          val segmentSize = journalHead.segmentSize
-                                          for {
-                                            segmentNrs <- from
-                                              .toSegmentNr(segmentSize)
-                                              .to[F] { to.toSegmentNr(segmentSize) }
-                                            result <- {
-                                              if (to >= seqNr) {
-                                                segmentNrs.parFoldMapA { segmentNr =>
-                                                  statements
-                                                    .deleteRecords(key, segmentNr)
-                                                    .uncancelable
-                                                }
-                                              } else {
-                                                @tailrec def loop(as: List[SegmentNr], result: List[F[Unit]]): List[F[Unit]] = {
-                                                  as match {
-                                                    case Nil      => result
-                                                    case a :: Nil => statements.deleteRecordsTo(key, a, to) :: result
-                                                    case a :: as  => loop(as, statements.deleteRecords(key, a) :: result)
-                                                  }
-                                                }
-
-                                                loop(segmentNrs, List.empty).parFoldMap1 { _.uncancelable }
-                                              }
-                                            }
-                                          } yield result
-                                        } else {
-                                          ().pure[F]
-                                        }
-                                      }
-                                  } yield {
-                                    journalHead
-                                      .copy(partitionOffset = partitionOffset, seqNr = seqNr1, deleteTo = deleteTo1.some)
-                                      .some
-                                  }
-                                } else {
-                                  none[JournalHead].pure[F]
-                                }
-                              }
-                              result <- journalHead.fold {
-                                false.pure[F]
-                              } { journalHead =>
-                                journalHeadRef
-                                  .set(journalHead.some)
-                                  .as(true)
-                              }
-                            } yield result
-                            result.uncancelable
-                          }
-
-                          def purge(
-                            offset: Offset,
-                            timestamp: Instant,
-                          ): F[Changed] = {
-                            for {
-                              journalHead <- journalHeadRef.get
-                              result <- journalHead.fold {
-                                false.pure[F]
-                              } { journalHead =>
-                                if (offset >= journalHead.partitionOffset.offset) {
-                                  val segmentSize = journalHead.segmentSize
-                                  val seqNr       = journalHead.seqNr
-                                  val update      = metaJournal.update(journalHead.partitionOffset, timestamp)
-                                  val result = for {
-                                    result <- journalHead
-                                      .deleteTo
-                                      .fold {
-                                        val deleteTo = seqNr.toDeleteTo
-                                        for {
-                                          _ <- update(deleteTo)
-                                          _ <- journalHeadRef.set {
-                                            journalHead
-                                              .copy(deleteTo = deleteTo.some)
-                                              .some
-                                          }
-                                        } yield {
-                                          (SeqNr.min, seqNr)
-                                        }
-                                      } { deleteTo =>
-                                        val seqNr = journalHead.seqNr
-                                        if (deleteTo.value < seqNr) {
-                                          val deleteTo1 = seqNr.toDeleteTo
-                                          for {
-                                            _ <- update(deleteTo1)
-                                            _ <- journalHeadRef.set {
-                                              journalHead
-                                                .copy(deleteTo = deleteTo1.some)
-                                                .some
-                                            }
-                                          } yield {
-                                            (deleteTo.value, seqNr)
-                                          }
-                                        } else if (deleteTo.value == seqNr) {
-                                          (seqNr, seqNr).pure[F]
-                                        } else {
-                                          val seqNr1 = deleteTo.value
-                                          for {
-                                            _ <- update(seqNr1)
-                                            _ <- journalHeadRef.set {
-                                              journalHead
-                                                .copy(seqNr = seqNr1)
-                                                .some
-                                            }
-                                          } yield {
-                                            (seqNr, seqNr1)
-                                          }
-                                        }
-                                      }
-                                    (from, to) = result
-                                    segmentNrs <- from
-                                      .prev[Option]
-                                      .getOrElse { from }
-                                      .toSegmentNr(segmentSize)
-                                      .to[F] {
-                                        to
-                                          .next[Option]
-                                          .getOrElse { journalHead.seqNr }
-                                          .toSegmentNr(segmentSize)
-                                      }
-                                    _ <- segmentNrs.parFoldMapA { segmentNr =>
-                                      statements
-                                        .deleteRecords(key, segmentNr)
-                                        .uncancelable
-                                    }
-                                    _ <- metaJournal.delete
-                                    _ <- journalHeadRef.set(none)
-                                  } yield true
-                                  result.uncancelable
-                                } else {
-                                  false.pure[F]
-                                }
-                              }
-                            } yield result
-                          }
-                        }
-                    }.toResource
+                  def update(offset: Offset, timestamp: Instant): F[Unit] = {
+                    statements
+                      .updatePointer(topic, partition, offset, timestamp)
+                      .parProduct(statements.updatePointer2(topic, partition, offset, timestamp))
+                      .map { case (a, b) => a.combine(b) }
                   }
                 }
               }
-              .toResource
+
+              def journal(id: String): Resource[F, ReplicatedKeyJournal[F]] = {
+
+                val key = Key(id = id, topic = topic)
+
+                def journalHeadRef = {
+
+                  def head(segmentNr: SegmentNr) = {
+                    statements
+                      .metaJournal(key, segmentNr)
+                      .journalHead
+                      .toOptionT
+                      .map { a => (a, segmentNr) }
+                  }
+
+                  for {
+                    segmentNrs <- segmentNrsOf(key)
+                    result <- head(segmentNrs.first).orElse {
+                      segmentNrs
+                        .second
+                        .toOptionT[F]
+                        .flatMap { segmentNr => head(segmentNr) }
+                    }.value
+                    (head, segmentNr) = result match {
+                      case Some((head, segmentNr)) => (head.some, segmentNr)
+                      case None                    => (none[JournalHead], segmentNrs.first)
+                    }
+                    ref <- Ref[F].of(head)
+                  } yield {
+                    (ref, segmentNr)
+                  }
+                }
+
+                journalHeadRef.map {
+                  case (journalHeadRef, segmentNr) =>
+                    def metaJournal = statements.metaJournal(key, segmentNr)
+
+                    class Main
+                    new Main with ReplicatedKeyJournal[F] {
+
+                      def append(
+                        offset: Offset,
+                        timestamp: Instant,
+                        expireAfter: Option[ExpireAfter],
+                        events: Nel[EventRecord[EventualPayloadAndType]],
+                      ): F[Changed] = {
+
+                        def partitionOffset = PartitionOffset(partition, offset)
+
+                        def append(segmentSize: SegmentSize, offset: Option[Offset]) = {
+
+                          @tailrec
+                          def loop(
+                            events: List[EventRecord[EventualPayloadAndType]],
+                            s: Option[(Segment, Nel[EventRecord[EventualPayloadAndType]])],
+                            result: F[Unit],
+                          ): F[Unit] = {
+
+                            def insert(segment: Segment, events: Nel[EventRecord[EventualPayloadAndType]]) = {
+                              val next = statements.insertRecords(key, segment.nr, events)
+                              result *> next
+                            }
+
+                            events match {
+                              case head :: tail =>
+                                val seqNr = head.event.seqNr
+                                s match {
+                                  case Some((segment, batch)) =>
+                                    segment.next(seqNr) match {
+                                      case None       => loop(tail, (segment, head :: batch).some, result)
+                                      case Some(next) => loop(tail, (next, Nel.of(head)).some, insert(segment, batch))
+                                    }
+                                  case None => loop(tail, (Segment(seqNr, segmentSize), Nel.of(head)).some, result)
+                                }
+
+                              case Nil => s.fold(result) { case (segment, batch) => insert(segment, batch) }
+                            }
+                          }
+
+                          val events1 = offset.fold {
+                            events.toList
+                          } { offset =>
+                            events.filter { event => event.partitionOffset.offset > offset }
+                          }
+                          loop(events1, None, ().pure[F])
+                        }
+
+                        def appendAndSave(journalHead: Option[JournalHead]) = {
+
+                          def appendAndSave = {
+                            val seqNrLast = events.last.seqNr
+
+                            val saveAndJournalHead = journalHead.fold {
+                              val deleteTo = events
+                                .head
+                                .seqNr
+                                .prev[Option]
+                                .map { _.toDeleteTo }
+
+                              expireAfter
+                                .traverse { expireAfter =>
+                                  expiryService
+                                    .expireOn(expireAfter, timestamp)
+                                    .map { expireOn => Expiry(expireAfter, expireOn) }
+                                }
+                                .map { expiry =>
+                                  val journalHead = JournalHead(
+                                    partitionOffset = partitionOffset,
+                                    segmentSize     = segmentSizeDefault,
+                                    seqNr           = seqNrLast,
+                                    deleteTo        = deleteTo,
+                                    expiry          = expiry,
+                                  )
+                                  val origin = events.head.origin
+                                  val insert = metaJournal.insert(timestamp, journalHead, origin)
+                                  (insert, journalHead)
+                                }
+                            } { journalHead =>
+                              def updateOf: ByKey.Update[F] = metaJournal.update(partitionOffset, timestamp)
+
+                              expiryService
+                                .action(journalHead.expiry, expireAfter, timestamp)
+                                .map { action =>
+                                  val (expiry, update) = action match {
+                                    case ExpiryService.Action.Update(expiry) =>
+                                      (expiry.some, updateOf(seqNrLast, expiry))
+
+                                    case ExpiryService.Action.Ignore =>
+                                      (journalHead.expiry, updateOf(seqNrLast))
+
+                                    case ExpiryService.Action.Remove =>
+                                      val update = for {
+                                        _ <- updateOf(seqNrLast)
+                                        _ <- metaJournal.deleteExpiry
+                                      } yield {}
+                                      (none[Expiry], update)
+                                  }
+                                  val journalHead1 =
+                                    journalHead.copy(partitionOffset = partitionOffset, seqNr = seqNrLast, expiry = expiry)
+                                  (update, journalHead1)
+                                }
+                            }
+
+                            val offset = journalHead.map { _.partitionOffset.offset }
+
+                            val result = for {
+                              saveAndJournalHead <- saveAndJournalHead
+                              (save, journalHead) = saveAndJournalHead
+                              _                  <- append(journalHead.segmentSize, offset)
+                              _                  <- save
+                            } yield {
+                              journalHead.some
+                            }
+                            result.uncancelable
+                          }
+
+                          journalHead.fold {
+                            appendAndSave
+                          } { journalHead =>
+                            if (offset <= journalHead.partitionOffset.offset) {
+                              none[JournalHead].pure[F]
+                            } else {
+                              appendAndSave
+                            }
+                          }
+                        }
+
+                        for {
+                          journalHead <- journalHeadRef.get
+                          journalHead <- appendAndSave(journalHead)
+                          result <- journalHead match {
+                            case Some(journalHead) =>
+                              journalHeadRef
+                                .set(journalHead.some)
+                                .as(true)
+                            case None =>
+                              false.pure[F]
+                          }
+                        } yield result
+                      }
+
+                      def delete(
+                        offset: Offset,
+                        timestamp: Instant,
+                        deleteTo: DeleteTo,
+                        origin: Option[Origin],
+                      ): F[Changed] = {
+
+                        def partitionOffset = PartitionOffset(partition, offset)
+
+                        val result = for {
+                          journalHead <- journalHeadRef.get
+                          journalHead <- journalHead.fold {
+                            val journalHead = JournalHead(
+                              partitionOffset = partitionOffset,
+                              segmentSize     = segmentSizeDefault,
+                              seqNr           = deleteTo.value,
+                              deleteTo        = deleteTo.some,
+                            )
+                            metaJournal
+                              .insert(timestamp, journalHead, origin)
+                              .as(journalHead.some)
+                          } { journalHead =>
+                            if (offset > journalHead.partitionOffset.offset) {
+                              val deleteTo0 = journalHead.deleteTo
+                              val seqNr     = journalHead.seqNr
+                              val seqNr1    = deleteTo0.fold { seqNr } { _.value.max(seqNr) }
+                              val deleteTo1 = deleteTo
+                                .value
+                                .min(seqNr1)
+                                .toDeleteTo
+                              for {
+                                _ <- {
+                                  val update = metaJournal.update(partitionOffset, timestamp)
+                                  if (seqNr1 == seqNr) {
+                                    if (deleteTo0.contains(deleteTo1)) {
+                                      update()
+                                    } else {
+                                      update(deleteTo1)
+                                    }
+                                  } else {
+                                    if (deleteTo0.contains(deleteTo1)) {
+                                      update(seqNr1)
+                                    } else {
+                                      update(seqNr1, deleteTo1)
+                                    }
+                                  }
+                                }
+                                _ <- deleteTo0
+                                  .fold { SeqNr.min.some } { _.value.next[Option] }
+                                  .foldMapM { from =>
+                                    val to = deleteTo.value.min(seqNr)
+                                    if (from <= to) {
+                                      val segmentSize = journalHead.segmentSize
+                                      for {
+                                        segmentNrs <- from
+                                          .toSegmentNr(segmentSize)
+                                          .to[F] { to.toSegmentNr(segmentSize) }
+                                        result <- {
+                                          if (to >= seqNr) {
+                                            segmentNrs.parFoldMapA { segmentNr =>
+                                              statements
+                                                .deleteRecords(key, segmentNr)
+                                                .uncancelable
+                                            }
+                                          } else {
+                                            @tailrec def loop(as: List[SegmentNr], result: List[F[Unit]]): List[F[Unit]] = {
+                                              as match {
+                                                case Nil      => result
+                                                case a :: Nil => statements.deleteRecordsTo(key, a, to) :: result
+                                                case a :: as  => loop(as, statements.deleteRecords(key, a) :: result)
+                                              }
+                                            }
+
+                                            loop(segmentNrs, List.empty).parFoldMap1 { _.uncancelable }
+                                          }
+                                        }
+                                      } yield result
+                                    } else {
+                                      ().pure[F]
+                                    }
+                                  }
+                              } yield {
+                                journalHead
+                                  .copy(partitionOffset = partitionOffset, seqNr = seqNr1, deleteTo = deleteTo1.some)
+                                  .some
+                              }
+                            } else {
+                              none[JournalHead].pure[F]
+                            }
+                          }
+                          result <- journalHead.fold {
+                            false.pure[F]
+                          } { journalHead =>
+                            journalHeadRef
+                              .set(journalHead.some)
+                              .as(true)
+                          }
+                        } yield result
+                        result.uncancelable
+                      }
+
+                      def purge(
+                        offset: Offset,
+                        timestamp: Instant,
+                      ): F[Changed] = {
+                        for {
+                          journalHead <- journalHeadRef.get
+                          result <- journalHead.fold {
+                            false.pure[F]
+                          } { journalHead =>
+                            if (offset >= journalHead.partitionOffset.offset) {
+                              val segmentSize = journalHead.segmentSize
+                              val seqNr       = journalHead.seqNr
+                              val update      = metaJournal.update(journalHead.partitionOffset, timestamp)
+                              val result = for {
+                                result <- journalHead
+                                  .deleteTo
+                                  .fold {
+                                    val deleteTo = seqNr.toDeleteTo
+                                    for {
+                                      _ <- update(deleteTo)
+                                      _ <- journalHeadRef.set {
+                                        journalHead
+                                          .copy(deleteTo = deleteTo.some)
+                                          .some
+                                      }
+                                    } yield {
+                                      (SeqNr.min, seqNr)
+                                    }
+                                  } { deleteTo =>
+                                    val seqNr = journalHead.seqNr
+                                    if (deleteTo.value < seqNr) {
+                                      val deleteTo1 = seqNr.toDeleteTo
+                                      for {
+                                        _ <- update(deleteTo1)
+                                        _ <- journalHeadRef.set {
+                                          journalHead
+                                            .copy(deleteTo = deleteTo1.some)
+                                            .some
+                                        }
+                                      } yield {
+                                        (deleteTo.value, seqNr)
+                                      }
+                                    } else if (deleteTo.value == seqNr) {
+                                      (seqNr, seqNr).pure[F]
+                                    } else {
+                                      val seqNr1 = deleteTo.value
+                                      for {
+                                        _ <- update(seqNr1)
+                                        _ <- journalHeadRef.set {
+                                          journalHead
+                                            .copy(seqNr = seqNr1)
+                                            .some
+                                        }
+                                      } yield {
+                                        (seqNr, seqNr1)
+                                      }
+                                    }
+                                  }
+                                (from, to) = result
+                                segmentNrs <- from
+                                  .prev[Option]
+                                  .getOrElse { from }
+                                  .toSegmentNr(segmentSize)
+                                  .to[F] {
+                                    to
+                                      .next[Option]
+                                      .getOrElse { journalHead.seqNr }
+                                      .toSegmentNr(segmentSize)
+                                  }
+                                _ <- segmentNrs.parFoldMapA { segmentNr =>
+                                  statements
+                                    .deleteRecords(key, segmentNr)
+                                    .uncancelable
+                                }
+                                _ <- metaJournal.delete
+                                _ <- journalHeadRef.set(none)
+                              } yield true
+                              result.uncancelable
+                            } else {
+                              false.pure[F]
+                            }
+                          }
+                        } yield result
+                      }
+                    }
+                }.toResource
+              }
+            }.pure[Resource[F, *]]
           }
         }
         result.pure[Resource[F, *]]
@@ -694,13 +615,11 @@ object ReplicatedCassandra {
     deleteRecords: JournalStatements.Delete[F],
     metaJournal: MetaJournalStatements[F],
     selectOffset2: Pointer2Statements.SelectOffset[F],
-    selectPointer: PointerStatements.Select[F],
     selectPointer2: Pointer2Statements.Select[F],
     insertPointer: PointerStatements.Insert[F],
     insertPointer2: Pointer2Statements.Insert[F],
     updatePointer: PointerStatements.Update[F],
     updatePointer2: Pointer2Statements.Update[F],
-    updatePointerCreated2: Pointer2Statements.UpdateCreated[F],
     selectTopics2: Pointer2Statements.SelectTopics[F],
   )
 
@@ -720,13 +639,11 @@ object ReplicatedCassandra {
         deleteRecords         <- JournalStatements.Delete.of[F](schema.journal, consistencyConfig.write)
         metaJournal           <- MetaJournalStatements.of[F](schema, consistencyConfig)
         selectOffset2         <- Pointer2Statements.SelectOffset.of[F](schema.pointer2, consistencyConfig.read)
-        selectPointer         <- PointerStatements.Select.of[F](schema.pointer, consistencyConfig.read)
         selectPointer2        <- Pointer2Statements.Select.of[F](schema.pointer2, consistencyConfig.read)
         insertPointer         <- PointerStatements.Insert.of[F](schema.pointer, consistencyConfig.write)
         insertPointer2        <- Pointer2Statements.Insert.of[F](schema.pointer2, consistencyConfig.write)
         updatePointer         <- PointerStatements.Update.of[F](schema.pointer, consistencyConfig.write)
         updatePointer2        <- Pointer2Statements.Update.of[F](schema.pointer2, consistencyConfig.write)
-        updatePointerCreated2 <- Pointer2Statements.UpdateCreated.of[F](schema.pointer2, consistencyConfig.write)
         selectTopics2         <- Pointer2Statements.SelectTopics.of[F](schema.pointer2, consistencyConfig.read)
       } yield {
         Statements(
@@ -735,13 +652,11 @@ object ReplicatedCassandra {
           deleteRecords,
           metaJournal,
           selectOffset2,
-          selectPointer,
           selectPointer2,
           insertPointer,
           insertPointer2,
           updatePointer,
           updatePointer2,
-          updatePointerCreated2,
           selectTopics2,
         )
       }

@@ -200,39 +200,4 @@ object Pointer2Statements {
         }
     }
   }
-
-  // TODO MR remove with next major release
-  trait UpdateCreated[F[_]] {
-
-    def apply(topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant): F[Unit]
-  }
-
-  object UpdateCreated {
-
-    def of[F[_]: Monad: CassandraSession](
-      name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
-    ): F[UpdateCreated[F]] = {
-      s"""
-         |UPDATE ${name.toCql}
-         |SET offset = ?, created = ?, updated = ?
-         |WHERE topic = ?
-         |AND partition = ?
-         |"""
-        .stripMargin
-        .prepare
-        .map { prepared => (topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant) =>
-          prepared
-            .bind()
-            .encode("topic", topic)
-            .encode("partition", partition)
-            .encode("offset", offset)
-            .encode("created", created)
-            .encode("updated", updated)
-            .setConsistencyLevel(consistencyConfig.value)
-            .first
-            .void
-        }
-    }
-  }
 }
