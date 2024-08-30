@@ -135,7 +135,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           ),
         ),
       )
-      val result = stateT.run(State.empty)
+      val result = stateT.run(State.empty).map { case (s, u) => s.dropCorrelationId -> u }
       result shouldEqual (expected, ()).pure[Try]
     }
 
@@ -194,7 +194,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         ),
         journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))),
       )
-      val result = stateT.run(State.empty)
+      val result = stateT.run(State.empty).map { case (s, u) => s.dropCorrelationId -> u }
       result shouldEqual (expected, ()).pure[Try]
     }
 
@@ -361,7 +361,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           ),
         ),
       )
-      val result = stateT.run(State.empty)
+      val result = stateT.run(State.empty).map { case (s, u) => s.dropCorrelationId -> u }
       result shouldEqual (expected, ()).pure[Try]
     }
 
@@ -471,7 +471,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         ),
         journal = events0,
       )
-      val result = stateT.run(State.empty)
+      val result = stateT.run(State.empty).map { case (s, u) => s.dropCorrelationId -> u }
       result shouldEqual (expected, ()).pure[Try]
     }
 
@@ -558,7 +558,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           ),
         ),
       )
-      val result = stateT.run(State.empty)
+      val result = stateT.run(State.empty).map { case (s, u) => s.dropCorrelationId -> u }
       result shouldEqual (expected, ()).pure[Try]
     }
 
@@ -642,7 +642,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           ),
         ),
       )
-      val result = stateT.run(State.empty)
+      val result = stateT.run(State.empty).map { case (s, u) => s.dropCorrelationId -> u }
       result shouldEqual (expected, ()).pure[Try]
     }
 
@@ -725,7 +725,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           ),
         ),
       )
-      val result = stateT.run(State.empty)
+      val result = stateT.run(State.empty).map { case (s, u) => s.dropCorrelationId -> u }
       result shouldEqual (expected, ()).pure[Try]
     }
 
@@ -808,7 +808,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           ),
         )
 
-      val actual = stateT.run(initial)
+      val actual = stateT.run(initial).map { case (s, u) => s.dropCorrelationId -> u }
       actual shouldEqual (expected, true).pure[Try]
     }
 
@@ -886,7 +886,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           ),
         ),
       )
-      val result = stateT.run(State.empty)
+      val result = stateT.run(State.empty).map { case (s, u) => s.dropCorrelationId -> u }
       result shouldEqual (expected, ()).pure[Try]
     }
 
@@ -957,7 +957,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))),
       )
 
-      val actual = stateT.run(initial)
+      val actual = stateT.run(initial).map { case (s, u) => s.dropCorrelationId -> u }
       actual shouldEqual (expected, false).pure[Try]
     }
 
@@ -980,7 +980,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         _ <- journal.purge(key, Partition.min, Offset.unsafe(4), timestamp1)
       } yield {}
 
-      val actual = stateT.run(State.empty)
+      val actual = stateT.run(State.empty).map { case (s, u) => s.dropCorrelationId -> u }
       val expected = State(
         actions = List(
           Action.Delete(key, segment),
@@ -1029,7 +1029,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           Action.InsertRecords(key, SegmentNr.min, 1),
         ),
       )
-      val result = stateT.run(State.empty)
+      val result = stateT.run(State.empty).map { case (s, u) => s.dropCorrelationId -> u }
       result shouldEqual (expected, ()).pure[Try]
     }
 
@@ -1061,7 +1061,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         _ <- journal.purge(key, Partition.min, Offset.unsafe(5), timestamp1)
       } yield {}
 
-      val actual = stateT.run(State.empty)
+      val actual = stateT.run(State.empty).map { case (s, u) => s.dropCorrelationId -> u }
       val expected = State(
         actions = List(
           Action.Delete(key, segment),
@@ -1501,6 +1501,32 @@ object ReplicatedCassandraTest {
           self.copy(pointers = self.pointers.updated(topic, entries1))
         }
         state getOrElse self
+      }
+
+      def dropCorrelationId: State = {
+        val actions = self.actions.map {
+          case imj: Action.InsertMetaJournal => imj.copy(journalHead = imj.journalHead.copy(correlationId = none))
+          case action                        => action
+        }
+        val metaJournal = self.metaJournal.map {
+          case ((topic, segment), entries) =>
+            val entries1 = entries.map {
+              case (id, entry) =>
+                val journalHead = entry.journalHead.copy(correlationId = none)
+                id -> entry.copy(journalHead = journalHead)
+            }
+            (topic, segment) -> entries1
+        }
+        val journal = self.journal.map {
+          case ((key, segment), entries) =>
+            val entries1 = entries.map {
+              case ((seqNr, timestamp), event) =>
+                val event1 = event.copy(headers = event.headers - CorrelationId.key)
+                (seqNr, timestamp) -> event1
+            }
+            (key, segment) -> entries1
+        }
+        self.copy(actions = actions, metaJournal = metaJournal, journal = journal)
       }
     }
   }

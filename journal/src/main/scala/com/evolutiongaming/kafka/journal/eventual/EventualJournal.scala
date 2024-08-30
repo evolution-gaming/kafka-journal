@@ -17,7 +17,7 @@ import scala.concurrent.duration.FiniteDuration
 
 /** Reader of the replicated journal (Cassandra by default).
   *
-  * This allows to access the data replicated from Kafka to Cassandara. Note,
+  * This allows to access the data replicated from Kafka to Cassandra. Note,
   * that all the methods of this class have eventual nature, i.e. there could be
   * newer events already in Kafka, but not yet replicated to Cassandra.
   *

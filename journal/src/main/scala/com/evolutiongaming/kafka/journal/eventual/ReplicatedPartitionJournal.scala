@@ -10,6 +10,12 @@ import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 import java.time.Instant
 
+/**
+  * Write-only implementation of a journal stored to eventual storage, i.e. Cassandra.
+  * The interface provides actions against a _single Kafka partition_ thus the name.
+  * 
+  * Alternative API provided by [[ReplicatedJournalFlat]] is more suitable for general use.
+  */
 trait ReplicatedPartitionJournal[F[_]] {
 
   def offsets: ReplicatedPartitionJournal.Offsets[F]

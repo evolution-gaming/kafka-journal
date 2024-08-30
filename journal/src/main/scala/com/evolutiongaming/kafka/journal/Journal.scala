@@ -15,6 +15,11 @@ import pureconfig.generic.semiauto.*
 
 import scala.concurrent.duration.*
 
+/**
+  * Client-side API for Kafka Journal, for Replicator-side API check [[ReplicatedJournal]].
+  * 
+  * Supports storing & deleting events, purging journals (actor's lifetime) and reading events (actor's recovery).
+  */
 trait Journal[F[_]] {
 
   def append[A](

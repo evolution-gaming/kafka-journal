@@ -92,7 +92,7 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
             pointer  <- journal.pointer
             _         = pointer shouldEqual None
             events   <- journal.read
-            _         = events shouldEqual List.empty
+            _         = events.map(cleanupCorrelationId) shouldEqual List.empty
             pointer  <- journal.delete(DeleteTo.max)
             _         = pointer shouldEqual None
             anEvent   = event(seqNr)
@@ -100,24 +100,24 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
             record    = EventRecord(anEvent, timestamp, offset, origin.some, version.some, recordMetadata, headers)
             partition = offset.partition
             events   <- journal.read
-            _         = events shouldEqual List(record)
+            _         = events.map(cleanupCorrelationId) shouldEqual List(record)
             pointer  <- journal.delete(DeleteTo.max)
             _         = pointer.map { _.partition } shouldEqual partition.some
             pointer  <- journal.pointer
             _         = pointer shouldEqual seqNr.some
             events   <- journal.read
-            _         = events shouldEqual List.empty
+            _         = events.map(cleanupCorrelationId) shouldEqual List.empty
             pointer  <- journal.purge
             _         = pointer.map { _.partition } shouldEqual partition.some
             pointer  <- journal.pointer
             _         = pointer shouldEqual none
             events   <- journal.read
-            _         = events shouldEqual List.empty
+            _         = events.map(cleanupCorrelationId) shouldEqual List.empty
             metadata  = recordMetadata.withExpireAfter(1.day.toExpireAfter.some)
             offset   <- journal.append(Nel.of(anEvent), metadata, headers)
             record    = EventRecord(anEvent, timestamp, offset, origin.some, version.some, metadata, headers)
             events   <- journal.read
-            _         = events shouldEqual List(record)
+            _         = events.map(cleanupCorrelationId) shouldEqual List(record)
             pointer  <- journal.delete(DeleteTo.max)
             _         = pointer.map { _.partition } shouldEqual partition.some
             pointer  <- journal.pointer
@@ -264,6 +264,10 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
         result <- IO { ids.distinct shouldEqual ids }
       } yield result
       result.run(1.minute)
+    }
+
+    def cleanupCorrelationId(event: EventRecord[A]): EventRecord[A] = {
+      event.copy(headers = event.headers - CorrelationId.key)
     }
   }
 }

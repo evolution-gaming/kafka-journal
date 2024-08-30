@@ -15,6 +15,10 @@ import com.evolutiongaming.smetrics.CollectorRegistry
 import com.github.dockerjava.api.model.{ExposedPort, HostConfig, PortBinding, Ports}
 import com.typesafe.config.ConfigFactory
 
+/**
+  * IntegrationSuite is a class that provides a way to start the necessary services for the integration tests:
+  * Cassandra, Kafka, and Replicator.  
+  */
 object IntegrationSuite {
 
   def startF[F[_]: Async: ToFuture: LogOf: MeasureDuration: FromTry: ToTry: Fail](

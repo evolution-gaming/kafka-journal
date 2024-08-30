@@ -8,6 +8,12 @@ import com.evolutiongaming.catshelper.{BracketThrowable, Log, MeasureDuration, M
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.skafka.{Partition, Topic}
 
+/**
+  * Write-only implementation of a journal stored to eventual storage, i.e. Cassandra.
+  * The interface provides actions against a _single Kafka topic_ thus the name.
+  * 
+  * Alternative API provided by [[ReplicatedJournalFlat]] is more suitable for general use.
+  */
 trait ReplicatedTopicJournal[F[_]] {
 
   def apply(partition: Partition): Resource[F, ReplicatedPartitionJournal[F]]

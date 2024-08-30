@@ -135,7 +135,7 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
             for {
               a <- eventual.events()
             } yield {
-              a shouldEqual events
+              a.map(cleanupCorrelationId) shouldEqual events
             }
         }
       }
@@ -153,7 +153,7 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
                 _ <- head.toNel.foldMap { head => replicated.append(head) }
                 a <- eventual.events()
               } yield {
-                a shouldEqual events ++ head
+                a.map(cleanupCorrelationId) shouldEqual events ++ head
               }
           }
         }
@@ -170,7 +170,7 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
                 _       <- replicated.delete(deleteTo, partitionOffsetNext)
                 expected = events.dropWhile(_.seqNr <= deleteTo.value)
                 a       <- eventual.events()
-                _        = a shouldEqual expected
+                _        = a.map(cleanupCorrelationId) shouldEqual expected
                 a       <- eventual.pointer
               } yield {
                 a shouldEqual pointerLast.map(_.withPartitionOffset(partitionOffsetNext))
@@ -185,7 +185,7 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
                 _       <- replicated.delete(deleteTo, partitionOffsetNext)
                 expected = events.dropWhile(_.seqNr <= deleteTo.value)
                 a       <- eventual.events()
-                _        = a shouldEqual expected
+                _        = a.map(cleanupCorrelationId) shouldEqual expected
                 pointer <- eventual.pointer
                 _        = pointer shouldEqual pointerLast.map(_.withPartitionOffset(partitionOffsetNext))
                 event = {
@@ -199,7 +199,7 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
                 event   <- event.copy(partitionOffset = pointer.partitionOffset).pure[F]
                 _       <- replicated.append(Nel.of(event))
                 a       <- eventual.events()
-                _        = a shouldEqual expected ++ List(event)
+                _        = a.map(cleanupCorrelationId) shouldEqual expected ++ List(event)
                 a       <- eventual.pointer
               } yield {
                 a shouldEqual event.pointer.some
@@ -218,13 +218,13 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
               for {
                 _               <- replicated.delete(deleteTo, partitionOffsetNext)
                 a               <- eventual.events()
-                _                = a shouldEqual Nil
+                _                = a.map(cleanupCorrelationId) shouldEqual Nil
                 a               <- eventual.pointer
                 _                = a shouldEqual JournalPointer(partitionOffsetNext, deleteTo.value).some
                 partitionOffset2 = partitionOffsetNext.next
                 _               <- replicated.delete(deleteTo, partitionOffset2)
                 a               <- eventual.events()
-                _                = a shouldEqual Nil
+                _                = a.map(cleanupCorrelationId) shouldEqual Nil
                 a               <- eventual.pointer
               } yield {
                 a shouldEqual JournalPointer(partitionOffset2, deleteTo.value).some
@@ -244,7 +244,7 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
               for {
                 a <- eventual.events(from)
               } yield {
-                a shouldEqual expected
+                a.map(cleanupCorrelationId) shouldEqual expected
               }
           }
         }
@@ -381,7 +381,7 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
               }
               _ <- replicated.append(Nel.of(event))
               a <- eventual.events()
-              _  = a shouldEqual List(event)
+              _  = a.map(cleanupCorrelationId) shouldEqual List(event)
               a <- eventual.pointer
             } yield {
               a shouldEqual event.pointer.some
@@ -401,24 +401,24 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
             event1 = eventOf(journalPointerOf(offset = 2, seqNr = SeqNr.unsafe(1)))
             _     <- replicated.append(Nel.of(event1))
             a     <- eventual.events()
-            _      = a shouldEqual List(event1)
+            _      = a.map(cleanupCorrelationId) shouldEqual List(event1)
             a     <- eventual.pointer
             _      = a shouldEqual event1.pointer.some
             event2 = eventOf(journalPointerOf(offset = 3, seqNr = SeqNr.unsafe(2)))
             _     <- replicated.append(partitionOffsetOf(Offset.unsafe(4)), Nel.of(event2))
             a     <- eventual.events()
-            _      = a shouldEqual List(event1, event2)
+            _      = a.map(cleanupCorrelationId) shouldEqual List(event1, event2)
             a     <- eventual.pointer
             _      = a shouldEqual journalPointerOf(offset = 4, seqNr = event2.seqNr).some
             _     <- replicated.delete(event1.seqNr.toDeleteTo, partitionOffsetOf(Offset.unsafe(5)))
             a     <- eventual.events()
-            _      = a shouldEqual List(event2)
+            _      = a.map(cleanupCorrelationId) shouldEqual List(event2)
             a     <- eventual.pointer
             _      = a shouldEqual journalPointerOf(offset = 5, seqNr = event2.seqNr).some
             event3 = eventOf(journalPointerOf(offset = 6, seqNr = SeqNr.unsafe(3)))
             _     <- replicated.append(Nel.of(event3))
             a     <- eventual.events()
-            _      = a shouldEqual List(event2, event3)
+            _      = a.map(cleanupCorrelationId) shouldEqual List(event2, event3)
             a     <- eventual.pointer
             _      = a shouldEqual event3.pointer.some
             _     <- replicated.delete(event3.seqNr.toDeleteTo, partitionOffsetOf(Offset.unsafe(7)))
@@ -451,7 +451,7 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
             _  = a shouldEqual events.last.pointer.some
             a <- eventual.events(SeqNr.min)
           } yield {
-            a shouldEqual events.toList
+            a.map(cleanupCorrelationId) shouldEqual events.toList
           }
       }
     }
@@ -472,6 +472,10 @@ trait EventualJournalSpec extends AnyWordSpec with Matchers {
           }
       }
     }
+  }
+
+  def cleanupCorrelationId[A](event: EventRecord[A]): EventRecord[A] = {
+    event.copy(headers = event.headers - CorrelationId.key)
   }
 }
 

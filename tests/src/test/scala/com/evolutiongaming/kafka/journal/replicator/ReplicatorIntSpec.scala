@@ -175,10 +175,10 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
         journal    = journals(key)
         expected0 <- append(journal, Nel.of(event(1)))
         events    <- read(key)(_.nonEmpty)
-        _          = events shouldEqual expected0.toList
+        _          = events.map(cleanupCorrelationId) shouldEqual expected0.toList
         expected1 <- append(journal, Nel.of(event(2)), 1.day.toExpireAfter.some)
         events    <- read(key)(_.size == 2)
-        _          = events shouldEqual expected0.toList ++ expected1.toList
+        _          = events.map(cleanupCorrelationId) shouldEqual expected0.toList ++ expected1.toList
         // TODO expiry: implement actual expiration test
       } yield {}
       result.run(5.minutes)
@@ -192,10 +192,10 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
         journal    = journals(key)
         expected0 <- append(journal, Nel.of(event(1)), 1.day.toExpireAfter.some)
         events    <- read(key)(_.nonEmpty)
-        _          = events shouldEqual expected0.toList
+        _          = events.map(cleanupCorrelationId) shouldEqual expected0.toList
         expected1 <- append(journal, Nel.of(event(2)))
         events    <- read(key)(_.size == 2)
-        _          = events shouldEqual expected0.toList ++ expected1.toList
+        _          = events.map(cleanupCorrelationId) shouldEqual expected0.toList ++ expected1.toList
         // TODO expiry: how to verify
       } yield {}
       result.run(5.minutes)
@@ -207,13 +207,13 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
         journal   = journals(key)
         expected <- append(journal, Nel.of(event(1)))
         events   <- read(key)(_.nonEmpty)
-        _         = events shouldEqual expected.toList
+        _         = events.map(cleanupCorrelationId) shouldEqual expected.toList
         pointer  <- journal.pointer
         _         = pointer shouldEqual expected.last.seqNr.some
         pointer  <- journal.purge
         _         = pointer.map { _.partition } shouldEqual expected.head.partition.some
         events   <- read(key)(_.isEmpty)
-        _         = events shouldEqual Nil
+        _         = events.map(cleanupCorrelationId) shouldEqual Nil
         pointer  <- journal.pointer
         _         = pointer shouldEqual none
       } yield {}
@@ -236,18 +236,18 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
           offset         <- eventualJournal.offset(topic, partitionOffset.partition)
           _               = offset.foreach { offset => partitionOffset.offset should be >= offset }
           events         <- read(key)(_.nonEmpty)
-          _               = events shouldEqual expected.toList
+          _               = events.map(cleanupCorrelationId) shouldEqual expected.toList
           pointer        <- journal.pointer
           _               = pointer shouldEqual expected.last.seqNr.some
           pointer        <- journal.delete(expected.last.event.seqNr.toDeleteTo).map(_.map(_.partition))
           _               = pointer shouldEqual partition.some
           events         <- read(key)(_.isEmpty)
-          _               = events shouldEqual Nil
+          _               = events.map(cleanupCorrelationId) shouldEqual Nil
           pointer        <- journal.pointer
           _               = pointer shouldEqual expected.last.seqNr.some
           expected       <- append(journal, Nel.of(event(seqNr + 1), event(seqNr + 2)))
           events         <- read(key)(_.nonEmpty)
-          _               = events shouldEqual expected.toList
+          _               = events.map(cleanupCorrelationId) shouldEqual expected.toList
           pointer4       <- journal.pointer
           _               = pointer4 shouldEqual expected.last.seqNr.some
         } yield {}
@@ -268,7 +268,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
           }
           expected <- append(journal, Nel.fromListUnsafe(events))
           actual   <- read(key)(_.nonEmpty)
-          _         = actual shouldEqual expected.toList
+          _         = actual.map(cleanupCorrelationId) shouldEqual expected.toList
           pointer  <- journal.pointer
           _         = pointer shouldEqual events.last.seqNr.some
         } yield {}
@@ -314,7 +314,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
             partition     = expected.head.partitionOffset.partition
             offsetBefore <- eventualJournal.offset(topic, partition).map(_.getOrElse(Offset.min))
             actual       <- read(key)(_.nonEmpty)
-            _             = actual shouldEqual expected.toList
+            _             = actual.map(cleanupCorrelationId) shouldEqual expected.toList
             pointer      <- journal.pointer
             _             = pointer shouldEqual events.last.seqNr.some
             offsetAfter  <- eventualJournal.offset(topic, partition).map(_.getOrElse(Offset.min))
@@ -335,5 +335,9 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
   private def event(seqNr: Int, payload: Payload): Event[Payload] = {
     event(seqNr, payload.some)
+  }
+
+  private def cleanupCorrelationId(event: EventRecord[Payload]): EventRecord[Payload] = {
+    event.copy(headers = event.headers - CorrelationId.key)
   }
 }

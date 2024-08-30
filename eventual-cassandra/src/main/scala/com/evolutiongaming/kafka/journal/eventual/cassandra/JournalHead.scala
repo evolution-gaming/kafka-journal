@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.syntax.all.*
 import com.datastax.driver.core.{GettableByNameData, SettableData}
-import com.evolutiongaming.kafka.journal.{DeleteTo, PartitionOffset, SeqNr}
+import com.evolutiongaming.kafka.journal.{CorrelationId, DeleteTo, PartitionOffset, SeqNr}
 import com.evolutiongaming.scassandra.syntax.*
 import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow}
 

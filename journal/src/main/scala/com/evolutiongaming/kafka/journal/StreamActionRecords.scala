@@ -14,8 +14,8 @@ trait StreamActionRecords[F[_]] {
     *
     * @param offset
     *   The offset to start the reading from. If `None` then reading will start
-    *   from the beginning, which could either be the begining of Kafka topic
-    *   partion, or another offset, if the stream implementation limits it to
+    *   from the beginning, which could either be the beginning of Kafka topic
+    *   partition, or another offset, if the stream implementation limits it to
     *   some newer offset.
     */
   def apply(offset: Option[Offset]): Stream[F, ActionRecord[Action.User]]
