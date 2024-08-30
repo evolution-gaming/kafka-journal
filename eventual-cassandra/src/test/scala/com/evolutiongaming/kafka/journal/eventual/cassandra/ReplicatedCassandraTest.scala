@@ -6,7 +6,7 @@ import cats.effect.{Poll, Sync}
 import cats.implicits.*
 import cats.syntax.all.none
 import cats.{Id, Parallel}
-import com.evolutiongaming.catshelper.DataHelper.*
+import com.evolutiongaming.catshelper.DataHelper.IterableOps1DataHelper
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
@@ -21,7 +21,6 @@ import play.api.libs.json.Json
 
 import java.time.{Instant, LocalDate, ZoneOffset}
 import java.util.concurrent.TimeUnit
-import scala.collection.immutable.SortedSet
 import scala.concurrent.duration.*
 import scala.util.Try
 
@@ -1270,7 +1269,7 @@ object ReplicatedCassandraTest {
     }
   }
 
-  val selectOffset: PointerStatements.SelectOffset[StateT] = { (topic, partition) =>
+  val selectOffset2: Pointer2Statements.SelectOffset[StateT] = { (topic: Topic, partition: Partition) =>
     {
       StateT.success { state =>
         val offset = for {
@@ -1284,16 +1283,8 @@ object ReplicatedCassandraTest {
     }
   }
 
-  val selectOffset2: Pointer2Statements.SelectOffset[StateT] = { (_, _) =>
-    none[Offset].pure[StateT]
-  }
-
-  val selectPointer: PointerStatements.Select[StateT] = { (_, _) =>
-    PointerStatements.Select.Result(Instant.EPOCH.some).some.pure[StateT]
-  }
-
   val selectPointer2: Pointer2Statements.Select[StateT] = { (_, _) =>
-    none[Pointer2Statements.Select.Result].pure[StateT]
+    Pointer2Statements.Select.Result(Instant.EPOCH.some).some.pure[StateT]
   }
 
   val insertPointer: PointerStatements.Insert[StateT] = { (topic, partition, offset, created, updated) =>
@@ -1327,21 +1318,13 @@ object ReplicatedCassandraTest {
     ().pure[StateT]
   }
 
-  val updatePointerCreated2: Pointer2Statements.UpdateCreated[StateT] = { (_, _, _, _, _) =>
-    ().pure[StateT]
-  }
-
-  val selectTopics: PointerStatements.SelectTopics[StateT] = { () =>
+  val selectTopics2: Pointer2Statements.SelectTopics[StateT] = { () =>
     {
       StateT.success { state =>
         val topics = state.pointers.keySet.toSortedSet
         (state, topics)
       }
     }
-  }
-
-  val selectTopics2: Pointer2Statements.SelectTopics[StateT] = { () =>
-    SortedSet.empty[Topic].pure[StateT]
   }
 
   val statements: ReplicatedCassandra.Statements[StateT] = {
@@ -1363,16 +1346,12 @@ object ReplicatedCassandraTest {
       deleteRecordsTo,
       deleteRecords,
       metaJournal,
-      selectOffset,
       selectOffset2,
-      selectPointer,
       selectPointer2,
       insertPointer,
       insertPointer2,
       updatePointer,
       updatePointer2,
-      updatePointerCreated2,
-      selectTopics,
       selectTopics2,
     )
   }

@@ -4,7 +4,6 @@ import cats.Id
 import cats.data.NonEmptyList as Nel
 import cats.effect.Concurrent
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.Journal.DataIntegrityConfig
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
@@ -377,24 +376,6 @@ object EventualCassandraTest {
       }
   }
 
-  val selectOffset: PointerStatements.SelectOffset[StateT] = { (topic: Topic, partition: Partition) =>
-    {
-      StateT.success { state =>
-        val offset = for {
-          pointers <- state.pointers.get(topic)
-          pointer  <- pointers.get(partition)
-        } yield {
-          pointer.offset
-        }
-        (state, offset)
-      }
-    }
-  }
-
-  val selectOffset2: Pointer2Statements.SelectOffset[StateT] = { (_, _) =>
-    none[Offset].pure[StateT]
-  }
-
   val insertPointer: PointerStatements.Insert[StateT] = {
     (topic: Topic, partition: Partition, offset: Offset, created: Instant, updated: Instant) =>
       {
@@ -409,6 +390,20 @@ object EventualCassandraTest {
       }
   }
 
+  val selectOffset2: Pointer2Statements.SelectOffset[StateT] = { (topic: Topic, partition: Partition) =>
+    {
+      StateT.success { state =>
+        val offset = for {
+          pointers <- state.pointers.get(topic)
+          pointer  <- pointers.get(partition)
+        } yield {
+          pointer.offset
+        }
+        (state, offset)
+      }
+    }
+  }
+
   val updatePointer: PointerStatements.Update[StateT] = {
     (topic: Topic, partition: Partition, offset: Offset, timestamp: Instant) =>
       {
@@ -418,15 +413,6 @@ object EventualCassandraTest {
           }
         }
       }
-  }
-
-  val selectTopics: PointerStatements.SelectTopics[StateT] = { () =>
-    {
-      StateT.success { state =>
-        val topics = state.pointers.keySet.toSortedSet
-        (state, topics)
-      }
-    }
   }
 
   val selectRecords: JournalStatements.SelectRecords[StateT] = { (key: Key, segment: SegmentNr, range: SeqRange) =>
@@ -458,7 +444,7 @@ object EventualCassandraTest {
         segments       = segments,
       )(concurrentStateT)
 
-    EventualCassandra.Statements(selectRecords, metaJournalStatements, selectOffset, selectOffset2)
+    EventualCassandra.Statements(selectRecords, metaJournalStatements, selectOffset2)
   }
 
   final case class PointerEntry(offset: Offset, created: Instant, updated: Instant)
