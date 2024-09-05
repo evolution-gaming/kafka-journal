@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.data.NonEmptyList as Nel
+import cats.effect.std.UUIDGen
 import cats.effect.syntax.all.*
 import cats.effect.{Async, Ref, Resource, Sync}
 import cats.syntax.all.*
@@ -50,7 +51,17 @@ object ReplicatedCassandra {
     }
   }
 
+  @deprecated("use `apply1` instead", "3.6.0")
   def apply[F[_]: Sync: Parallel: Fail](
+    segmentSizeDefault: SegmentSize,
+    segmentNrsOf: SegmentNrsOf[F],
+    statements: Statements[F],
+    expiryService: ExpiryService[F],
+  ): ReplicatedJournal[F] = {
+    apply1(segmentSizeDefault, segmentNrsOf, statements, expiryService)
+  }
+
+  def apply1[F[_]: Sync: Parallel: Fail: UUIDGen](
     segmentSizeDefault: SegmentSize,
     segmentNrsOf: SegmentNrsOf[F],
     statements: Statements[F],
@@ -59,7 +70,7 @@ object ReplicatedCassandra {
     applyWithTempMetrics(segmentSizeDefault, segmentNrsOf, statements, expiryService, None, None)
   }
 
-  private def applyWithTempMetrics[F[_]: Sync: Parallel: Fail](
+  private def applyWithTempMetrics[F[_]: Sync: Parallel: Fail: UUIDGen](
     segmentSizeDefault: SegmentSize,
     segmentNrsOf: SegmentNrsOf[F],
     statements: Statements[F],

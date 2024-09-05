@@ -32,6 +32,10 @@ final case class EventRecord[A](
   def withCorrelationId(cid: CorrelationId): EventRecord[A] = {
     copy(headers = headers.updated(CorrelationId.key, cid.value))
   }
+
+  def withoutCorrelationId: EventRecord[A] = {
+    copy(headers = headers - CorrelationId.key)
+  }
 }
 
 object EventRecord {

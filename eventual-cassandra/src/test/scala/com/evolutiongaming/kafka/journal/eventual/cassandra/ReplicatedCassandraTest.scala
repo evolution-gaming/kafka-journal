@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.data.{IndexedStateT, NonEmptyList as Nel}
 import cats.effect.kernel.CancelScope
+import cats.effect.std.UUIDGen
 import cats.effect.{Poll, Sync}
 import cats.implicits.*
 import cats.syntax.all.none
@@ -20,6 +21,7 @@ import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.Json
 
 import java.time.{Instant, LocalDate, ZoneOffset}
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 import scala.collection.immutable.SortedSet
 import scala.concurrent.duration.*
@@ -35,6 +37,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
   private val partitionOffset = PartitionOffset.empty
   private val origin          = Origin("origin")
   private val version         = Version.current
+  private val correlationUUID = UUID.randomUUID()
+  private val correlationId   = CorrelationId.unsafe(correlationUUID.toString)
   private val record          = eventRecordOf(SeqNr.min, partitionOffset)
 
   private def eventRecordOf(seqNr: SeqNr, partitionOffset: PartitionOffset) = {
@@ -46,7 +50,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       version         = version.some,
       metadata        = RecordMetadata(HeaderMetadata(Json.obj(("key", "value")).some), PayloadMetadata.empty),
       headers         = Headers(("key", "value")),
-    )
+    ).withCorrelationId(correlationId)
   }
 
   for {
@@ -58,8 +62,11 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     val segmentOfId                     = SegmentOf[Id](segmentsFirst)
     val journal = {
       implicit val parallel = Parallel.identity[StateT]
+      implicit val uuidGen = new UUIDGen[StateT] {
+        override def randomUUID = correlationUUID.pure[StateT]
+      }
       ReplicatedCassandra
-        .apply(
+        .apply1(
           segmentSize,
           segmentNrsOf,
           statements,
@@ -104,7 +111,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(partitionOffset, segmentSize, SeqNr.min),
+            JournalHead(partitionOffset, segmentSize, SeqNr.min, correlationId = correlationId.some),
             origin.some,
           ),
           Action.InsertRecords(key, SegmentNr.min, 1),
@@ -125,6 +132,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                     segmentSize     = segmentSize,
                     seqNr           = SeqNr.min,
                     deleteTo        = SeqNr.min.toDeleteTo.some,
+                    correlationId   = correlationId.some,
                   ),
                   created = timestamp0,
                   updated = timestamp1,
@@ -135,7 +143,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           ),
         ),
       )
-      val result = stateT.run(State.empty).map { case (s, u) => s.dropCorrelationId -> u }
+      val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
     }
 
@@ -167,7 +175,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(partitionOffset, segmentSize, SeqNr.min),
+            JournalHead(partitionOffset, segmentSize, SeqNr.min, correlationId = correlationId.some),
             origin.some,
           ),
           Action.InsertRecords(key, SegmentNr.min, 1),
@@ -183,10 +191,15 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               (
                 id,
                 MetaJournalEntry(
-                  journalHead = JournalHead(partitionOffset = partitionOffset, segmentSize = segmentSize, seqNr = SeqNr.min),
-                  created     = timestamp0,
-                  updated     = timestamp0,
-                  origin      = origin.some,
+                  journalHead = JournalHead(
+                    partitionOffset = partitionOffset,
+                    segmentSize     = segmentSize,
+                    seqNr           = SeqNr.min,
+                    correlationId   = correlationId.some,
+                  ),
+                  created = timestamp0,
+                  updated = timestamp0,
+                  origin  = origin.some,
                 ),
               ),
             ),
@@ -194,7 +207,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         ),
         journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))),
       )
-      val result = stateT.run(State.empty).map { case (s, u) => s.dropCorrelationId -> u }
+      val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
     }
 
@@ -263,7 +276,12 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment1,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(4)), segmentSize, SeqNr.min),
+            JournalHead(
+              PartitionOffset(Partition.min, Offset.unsafe(4)),
+              segmentSize,
+              SeqNr.min,
+              correlationId = correlationId.some,
+            ),
             origin.some,
           ),
           Action.InsertRecords(key1, SegmentNr.min, 1),
@@ -276,7 +294,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment0,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(partitionOffset, segmentSize, SeqNr.min, none, expiry.some),
+            JournalHead(partitionOffset, segmentSize, SeqNr.min, none, expiry.some, correlationId.some),
             origin.some,
           ),
           Action.InsertRecords(key0, SegmentNr.min, 1),
@@ -288,7 +306,12 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment1,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(4)), segmentSize, SeqNr.min),
+            JournalHead(
+              PartitionOffset(Partition.min, Offset.unsafe(4)),
+              segmentSize,
+              SeqNr.min,
+              correlationId = correlationId.some,
+            ),
             origin.some,
           ),
           Action.InsertRecords(key1, SegmentNr.min, 1),
@@ -300,7 +323,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment0,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(partitionOffset, segmentSize, SeqNr.min, none, expiry.some),
+            JournalHead(partitionOffset, segmentSize, SeqNr.min, none, expiry.some, correlationId.some),
             origin.some,
           ),
           Action.InsertRecords(key0, SegmentNr.min, 1),
@@ -322,6 +345,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                     seqNr           = SeqNr.unsafe(3),
                     deleteTo        = none,
                     expiry          = none,
+                    correlationId   = correlationId.some,
                   ),
                   created = timestamp0,
                   updated = timestamp1,
@@ -340,6 +364,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                     partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(4)),
                     segmentSize     = segmentSize,
                     seqNr           = SeqNr.unsafe(1),
+                    correlationId   = correlationId.some,
                   ),
                   created = timestamp0,
                   updated = timestamp0,
@@ -361,7 +386,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           ),
         ),
       )
-      val result = stateT.run(State.empty).map { case (s, u) => s.dropCorrelationId -> u }
+      val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
     }
 
@@ -423,7 +448,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(partitionOffset, segmentSize, SeqNr.min, none, expiry0.some),
+            JournalHead(partitionOffset, segmentSize, SeqNr.min, none, expiry0.some, correlationId = correlationId.some),
             origin.some,
           ),
           Action.InsertRecords(key, SegmentNr.min, 1),
@@ -438,7 +463,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(partitionOffset, segmentSize, SeqNr.min, none, expiry0.some),
+            JournalHead(partitionOffset, segmentSize, SeqNr.min, none, expiry0.some, correlationId = correlationId.some),
             origin.some,
           ),
           Action.InsertRecords(key, SegmentNr.min, 1),
@@ -460,6 +485,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                     seqNr           = SeqNr.unsafe(3),
                     deleteTo        = none,
                     expiry          = expiry1.some,
+                    correlationId   = correlationId.some,
                   ),
                   created = timestamp0,
                   updated = timestamp1,
@@ -471,7 +497,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         ),
         journal = events0,
       )
-      val result = stateT.run(State.empty).map { case (s, u) => s.dropCorrelationId -> u }
+      val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
     }
 
@@ -515,7 +541,14 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(1)), segmentSize, SeqNr.unsafe(1), none, expiry0.some),
+            JournalHead(
+              PartitionOffset(Partition.min, Offset.unsafe(1)),
+              segmentSize,
+              SeqNr.unsafe(1),
+              none,
+              expiry0.some,
+              correlationId = correlationId.some,
+            ),
             origin.some,
           ),
           Action.InsertRecords(key, SegmentNr.min, 1),
@@ -533,6 +566,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                     seqNr           = SeqNr.unsafe(2),
                     deleteTo        = none,
                     expiry          = expiry1.some,
+                    correlationId   = correlationId.some,
                   ),
                   created = timestamp0,
                   updated = timestamp1,
@@ -558,7 +592,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           ),
         ),
       )
-      val result = stateT.run(State.empty).map { case (s, u) => s.dropCorrelationId -> u }
+      val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
     }
 
@@ -599,7 +633,14 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(1)), segmentSize, SeqNr.unsafe(1), none, expiry.some),
+            JournalHead(
+              PartitionOffset(Partition.min, Offset.unsafe(1)),
+              segmentSize,
+              SeqNr.unsafe(1),
+              none,
+              expiry.some,
+              correlationId = correlationId.some,
+            ),
             origin.some,
           ),
           Action.InsertRecords(key, SegmentNr.min, 1),
@@ -617,6 +658,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                     seqNr           = SeqNr.unsafe(2),
                     deleteTo        = none,
                     expiry          = expiry.some,
+                    correlationId   = correlationId.some,
                   ),
                   created = timestamp0,
                   updated = timestamp1,
@@ -642,7 +684,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           ),
         ),
       )
-      val result = stateT.run(State.empty).map { case (s, u) => s.dropCorrelationId -> u }
+      val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
     }
 
@@ -684,7 +726,14 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(1)), segmentSize, SeqNr.unsafe(1), none, expiry.some),
+            JournalHead(
+              PartitionOffset(Partition.min, Offset.unsafe(1)),
+              segmentSize,
+              SeqNr.unsafe(1),
+              none,
+              expiry.some,
+              correlationId.some,
+            ),
             origin.some,
           ),
           Action.InsertRecords(key, SegmentNr.min, 1),
@@ -700,6 +749,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                     partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
                     segmentSize     = segmentSize,
                     seqNr           = SeqNr.unsafe(2),
+                    correlationId   = correlationId.some,
                   ),
                   created = timestamp0,
                   updated = timestamp1,
@@ -725,7 +775,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           ),
         ),
       )
-      val result = stateT.run(State.empty).map { case (s, u) => s.dropCorrelationId -> u }
+      val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
     }
 
@@ -761,6 +811,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                     partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(4)),
                     segmentSize     = segmentSize,
                     seqNr           = SeqNr.unsafe(2),
+                    correlationId   = correlationId.some,
                   ),
                   created = timestamp0,
                   updated = timestamp1,
@@ -797,6 +848,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                       partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
                       segmentSize     = segmentSize,
                       seqNr           = SeqNr.unsafe(1),
+                      correlationId   = correlationId.some,
                     ),
                     created = timestamp0,
                     updated = timestamp0,
@@ -808,7 +860,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           ),
         )
 
-      val actual = stateT.run(initial).map { case (s, u) => s.dropCorrelationId -> u }
+      val actual = stateT.run(initial)
       actual shouldEqual (expected, true).pure[Try]
     }
 
@@ -858,7 +910,12 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(1)), segmentSize, SeqNr.min),
+            JournalHead(
+              PartitionOffset(Partition.min, Offset.unsafe(1)),
+              segmentSize,
+              SeqNr.min,
+              correlationId = correlationId.some,
+            ),
             origin.some,
           ),
           Action.InsertRecords(key, SegmentNr.min, 1),
@@ -876,6 +933,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                     seqNr           = SeqNr.min,
                     deleteTo        = SeqNr.min.toDeleteTo.some,
                     expiry          = none,
+                    correlationId   = correlationId.some,
                   ),
                   created = timestamp0,
                   updated = timestamp1,
@@ -886,7 +944,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           ),
         ),
       )
-      val result = stateT.run(State.empty).map { case (s, u) => s.dropCorrelationId -> u }
+      val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
     }
 
@@ -919,6 +977,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                       seqNr           = SeqNr.min,
                       deleteTo        = SeqNr.min.toDeleteTo.some,
                       expiry          = none,
+                      correlationId   = correlationId.some,
                     ),
                     created = timestamp0,
                     updated = timestamp0,
@@ -945,6 +1004,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                     seqNr           = SeqNr.min,
                     deleteTo        = SeqNr.min.toDeleteTo.some,
                     expiry          = none,
+                    correlationId   = correlationId.some,
                   ),
                   created = timestamp0,
                   updated = timestamp0,
@@ -957,7 +1017,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         journal = Map(((key, SegmentNr.min), Map(((SeqNr.min, timestamp0), record)))),
       )
 
-      val actual = stateT.run(initial).map { case (s, u) => s.dropCorrelationId -> u }
+      val actual = stateT.run(initial)
       actual shouldEqual (expected, false).pure[Try]
     }
 
@@ -980,7 +1040,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         _ <- journal.purge(key, Partition.min, Offset.unsafe(4), timestamp1)
       } yield {}
 
-      val actual = stateT.run(State.empty).map { case (s, u) => s.dropCorrelationId -> u }
+      val actual = stateT.run(State.empty)
       val expected = State(
         actions = List(
           Action.Delete(key, segment),
@@ -996,7 +1056,12 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(3)), segmentSize, SeqNr.unsafe(2)),
+            JournalHead(
+              PartitionOffset(Partition.min, Offset.unsafe(3)),
+              segmentSize,
+              SeqNr.unsafe(2),
+              correlationId = correlationId.some,
+            ),
             origin.some,
           ),
           Action.InsertRecords(key, SegmentNr.min, 2),
@@ -1023,13 +1088,13 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(partitionOffset, segmentSize, SeqNr.min),
+            JournalHead(partitionOffset, segmentSize, SeqNr.min, correlationId = correlationId.some),
             origin.some,
           ),
           Action.InsertRecords(key, SegmentNr.min, 1),
         ),
       )
-      val result = stateT.run(State.empty).map { case (s, u) => s.dropCorrelationId -> u }
+      val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
     }
 
@@ -1061,7 +1126,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         _ <- journal.purge(key, Partition.min, Offset.unsafe(5), timestamp1)
       } yield {}
 
-      val actual = stateT.run(State.empty).map { case (s, u) => s.dropCorrelationId -> u }
+      val actual = stateT.run(State.empty)
       val expected = State(
         actions = List(
           Action.Delete(key, segment),
@@ -1077,13 +1142,209 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(3)), segmentSize, SeqNr.unsafe(2)),
+            JournalHead(
+              PartitionOffset(Partition.min, Offset.unsafe(3)),
+              segmentSize,
+              SeqNr.unsafe(2),
+              correlationId = correlationId.some,
+            ),
             origin.some,
           ),
           Action.InsertRecords(key, SegmentNr.min, 2),
         ),
       )
       actual shouldEqual (expected, ()).pure[Try]
+    }
+
+    test(s"not set correlation ID, $suffix") {
+      val id      = "id"
+      val key     = Key(id = id, topic = topic0)
+      val segment = segmentOfId(key)
+
+      def partitionOffset(offset: Long) = PartitionOffset(Partition.min, Offset.unsafe(offset))
+
+      val record0 = eventRecordOf(SeqNr.min, partitionOffset(0)).withoutCorrelationId
+      val record1 = eventRecordOf(SeqNr.min.next[Id], partitionOffset(1)).withoutCorrelationId
+
+      val stateT = journal.append(
+        key = key,
+        Partition.min,
+        Offset.unsafe(1),
+        timestamp   = timestamp1,
+        expireAfter = none,
+        events      = Nel.of(record1),
+      )
+
+      val initial = State
+        .empty
+        .copy(
+          metaJournal = Map(
+            (
+              (topic0, segment),
+              Map(
+                (
+                  id,
+                  MetaJournalEntry(
+                    journalHead = JournalHead(
+                      partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(0)),
+                      segmentSize     = segmentSize,
+                      seqNr           = SeqNr.min,
+                      correlationId   = none,
+                    ),
+                    created = timestamp0,
+                    updated = timestamp0,
+                    origin  = origin.some,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          journal = Map(
+            (
+              (key, SegmentNr.min),
+              Map(
+                ((SeqNr.min, timestamp0), record0),
+              ),
+            ),
+          ),
+        )
+
+      val expected = State(
+        actions = List(
+          Action.UpdateSeqNr(key, segment, PartitionOffset(Partition.min, Offset.unsafe(1)), timestamp1, SeqNr.min.next[Id]),
+          Action.InsertRecords(key, SegmentNr.min, 1),
+        ),
+        metaJournal = Map(
+          (
+            (topic0, segment),
+            Map(
+              (
+                id,
+                MetaJournalEntry(
+                  journalHead = JournalHead(
+                    partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)),
+                    segmentSize     = segmentSize,
+                    seqNr           = SeqNr.min.next[Id],
+                    expiry          = none,
+                    correlationId   = none,
+                  ),
+                  created = timestamp0,
+                  updated = timestamp1,
+                  origin  = origin.some,
+                ),
+              ),
+            ),
+          ),
+        ),
+        journal = Map(
+          (
+            (key, SegmentNr.min),
+            Map(
+              ((SeqNr.min, timestamp0), record0),
+              ((SeqNr.min.next[Id], timestamp0), record1),
+            ),
+          ),
+        ),
+      )
+
+      val actual = stateT.run(initial)
+      actual shouldEqual (expected, true).pure[Try]
+    }
+
+    test(s"not update correlation ID, $suffix") {
+      val id      = "id"
+      val key     = Key(id = id, topic = topic0)
+      val segment = segmentOfId(key)
+      val cid0    = CorrelationId.unsafe("some-correlation-id")
+
+      def partitionOffset(offset: Long) = PartitionOffset(Partition.min, Offset.unsafe(offset))
+
+      val record0 = eventRecordOf(SeqNr.min, partitionOffset(0)).withCorrelationId(cid0)
+      val record1 = eventRecordOf(SeqNr.min.next[Id], partitionOffset(1)).withoutCorrelationId
+
+      val stateT = journal.append(
+        key = key,
+        Partition.min,
+        Offset.unsafe(1),
+        timestamp   = timestamp1,
+        expireAfter = none,
+        events      = Nel.of(record1),
+      )
+
+      val initial = State
+        .empty
+        .copy(
+          metaJournal = Map(
+            (
+              (topic0, segment),
+              Map(
+                (
+                  id,
+                  MetaJournalEntry(
+                    journalHead = JournalHead(
+                      partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(0)),
+                      segmentSize     = segmentSize,
+                      seqNr           = SeqNr.min,
+                      correlationId   = cid0.some,
+                    ),
+                    created = timestamp0,
+                    updated = timestamp0,
+                    origin  = origin.some,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          journal = Map(
+            (
+              (key, SegmentNr.min),
+              Map(
+                ((SeqNr.min, timestamp0), record0),
+              ),
+            ),
+          ),
+        )
+
+      val expected = State(
+        actions = List(
+          Action.UpdateSeqNr(key, segment, PartitionOffset(Partition.min, Offset.unsafe(1)), timestamp1, SeqNr.min.next[Id]),
+          Action.InsertRecords(key, SegmentNr.min, 1),
+        ),
+        metaJournal = Map(
+          (
+            (topic0, segment),
+            Map(
+              (
+                id,
+                MetaJournalEntry(
+                  journalHead = JournalHead(
+                    partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)),
+                    segmentSize     = segmentSize,
+                    seqNr           = SeqNr.min.next[Id],
+                    expiry          = none,
+                    correlationId   = cid0.some,
+                  ),
+                  created = timestamp0,
+                  updated = timestamp1,
+                  origin  = origin.some,
+                ),
+              ),
+            ),
+          ),
+        ),
+        journal = Map(
+          (
+            (key, SegmentNr.min),
+            Map(
+              ((SeqNr.min, timestamp0), record0),
+              ((SeqNr.min.next[Id], timestamp0), record1.withCorrelationId(cid0)),
+            ),
+          ),
+        ),
+      )
+
+      val actual = stateT.run(initial)
+      actual shouldEqual (expected, true).pure[Try]
     }
   }
 }
@@ -1503,31 +1764,6 @@ object ReplicatedCassandraTest {
         state getOrElse self
       }
 
-      def dropCorrelationId: State = {
-        val actions = self.actions.map {
-          case imj: Action.InsertMetaJournal => imj.copy(journalHead = imj.journalHead.copy(correlationId = none))
-          case action                        => action
-        }
-        val metaJournal = self.metaJournal.map {
-          case ((topic, segment), entries) =>
-            val entries1 = entries.map {
-              case (id, entry) =>
-                val journalHead = entry.journalHead.copy(correlationId = none)
-                id -> entry.copy(journalHead = journalHead)
-            }
-            (topic, segment) -> entries1
-        }
-        val journal = self.journal.map {
-          case ((key, segment), entries) =>
-            val entries1 = entries.map {
-              case ((seqNr, timestamp), event) =>
-                val event1 = event.copy(headers = event.headers - CorrelationId.key)
-                (seqNr, timestamp) -> event1
-            }
-            (key, segment) -> entries1
-        }
-        self.copy(actions = actions, metaJournal = metaJournal, journal = journal)
-      }
     }
   }
 

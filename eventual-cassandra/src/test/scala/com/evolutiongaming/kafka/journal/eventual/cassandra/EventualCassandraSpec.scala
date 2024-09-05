@@ -394,7 +394,7 @@ object EventualCassandraSpec {
       selectTopics2,
     )
 
-    ReplicatedCassandra(segmentSize, segmentNrsOf, statements, ExpiryService(ZoneOffset.UTC))
+    ReplicatedCassandra.apply1(segmentSize, segmentNrsOf, statements, ExpiryService(ZoneOffset.UTC))
   }
 
   def journalsOf(
