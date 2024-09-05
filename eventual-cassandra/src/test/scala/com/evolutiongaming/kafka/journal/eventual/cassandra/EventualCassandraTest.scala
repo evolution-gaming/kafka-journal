@@ -51,10 +51,14 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
     segmentSize <- List(SegmentSize.min, SegmentSize.default, SegmentSize.max)
     segments    <- List(Segments.min, Segments.old)
   } {
+    val config = new DataIntegrityConfig {
+      override def seqNrUniqueness         = true
+      override def correlateEventsWithMeta = true
+    }
     val segmentOf    = SegmentOf[Id](segments)
     val segmentNrsOf = SegmentNrsOf[StateT](first = segments, Segments.default)
     val statements   = statementsOf(segmentNrsOf, Segments.default)
-    val journal      = EventualCassandra.apply1(statements, DataIntegrityConfig.Default)
+    val journal      = EventualCassandra.apply1(statements, config)
 
     val suffix = s"segmentSize: $segmentSize, segments: $segments"
 
@@ -229,6 +233,39 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
       stateT
         .run(State.empty)
         .map { case (_, a) => a } shouldEqual ().pure[Try]
+    }
+
+    test(s"read only events that corelate with meta, $suffix") {
+      val seqNr   = SeqNr.min
+      val key     = Key(id = "id", topic = topic0)
+      val segment = segmentOf(key)
+      val actual  = CorrelationId.unsafe("actual")
+      val legacy  = CorrelationId.unsafe("legacy")
+
+      val stateT = journal.read(key, seqNr).toList
+
+      val record1 = eventRecordOf(seqNr, partitionOffset).withCorrelationId(legacy)
+      val record2 = eventRecordOf(seqNr.next[Id], partitionOffset).withCorrelationId(actual)
+      val initial = State(
+        metaJournal = Map(
+          (topic0, segment) -> Map(
+            key.id -> MetaJournalEntry(
+              journalHead = JournalHead(partitionOffset, segmentSize, seqNr.next[Id], correlationId = actual.some),
+              created     = timestamp1,
+              updated     = timestamp1,
+              origin      = origin.some,
+            ),
+          ),
+        ),
+        journal = Map(
+          (key, SegmentNr.min) -> Map(
+            (seqNr, timestamp0)          -> record1,
+            (seqNr.next[Id], timestamp1) -> record2,
+          ),
+        ),
+      )
+
+      stateT.run(initial).map { case (_, events) => events } shouldEqual List(record2).pure[Try]
     }
   }
 }
