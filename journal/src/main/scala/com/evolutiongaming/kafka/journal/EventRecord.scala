@@ -26,6 +26,12 @@ final case class EventRecord[A](
   def partition: Partition = partitionOffset.partition
 
   def pointer: JournalPointer = JournalPointer(partitionOffset, event.seqNr)
+
+  def correlationId: Option[CorrelationId] = headers.get(CorrelationId.key).map(CorrelationId.unsafe)
+
+  def withCorrelationId(cid: CorrelationId): EventRecord[A] = {
+    copy(headers = headers.updated(CorrelationId.key, cid.value))
+  }
 }
 
 object EventRecord {

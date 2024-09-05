@@ -104,7 +104,7 @@ object MetaJournalStatements {
               .bind()
               .encode(key)
               .encode(segment)
-              .encode(journalHead)
+              .put(journalHead)
               .encode("created", created)
               .encode("created_date", created.toLocalDate(ZoneOffset.UTC))
               .encode("updated", updated)
@@ -150,7 +150,7 @@ object MetaJournalStatements {
           } yield for {
             row <- row
           } yield {
-            row.decode[JournalHead]
+            row.take[JournalHead]
           }
         }
     }

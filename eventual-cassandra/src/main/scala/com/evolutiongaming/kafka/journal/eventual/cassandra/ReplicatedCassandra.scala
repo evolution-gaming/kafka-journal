@@ -354,11 +354,8 @@ object ReplicatedCassandra {
                               ): F[Unit] = {
 
                                 def insert(segment: Segment, events: Nel[EventRecord[EventualPayloadAndType]]) = {
-                                  val events1 = journalHead.correlationId.fold { events } {
-                                    case CorrelationId(cid) =>
-                                      events.map { event =>
-                                        event.copy(headers = event.headers + { CorrelationId.key -> cid })
-                                      }
+                                  val events1 = journalHead.correlationId.fold { events } { cid =>
+                                    events.map { _.withCorrelationId(cid) }
                                   }
 
                                   for {

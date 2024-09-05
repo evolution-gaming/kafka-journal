@@ -200,14 +200,13 @@ object EventualCassandra {
             }
 
             if (dataIntegrity.correlateEventsWithMeta) {
-              head.correlationId.fold { events1 } {
-                case CorrelationId(fromMeta) =>
-                  events1.filter { event =>
-                    event.headers.get(CorrelationId.key) match {
-                      case None => false // meta has correlationId, event does not thus the event does not belong to the meta
-                      case Some(fromEvent) => fromMeta == fromEvent // meta and event have the same correlationId
-                    }
+              head.correlationId.fold { events1 } { fromMeta =>
+                events1.filter { event =>
+                  event.correlationId match {
+                    case None => false // meta has correlationId, event does not thus the event does not belong to the meta
+                    case Some(fromEvent) => fromMeta == fromEvent // meta and event have the same correlationId
                   }
+                }
               }
             } else {
               events1

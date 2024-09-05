@@ -3,8 +3,8 @@ package com.evolutiongaming.kafka.journal
 import cats.Monad
 import cats.effect.std.UUIDGen
 import cats.syntax.all.*
+import com.datastax.driver.core.{GettableData, SettableData}
 import com.evolutiongaming.scassandra.*
-import com.datastax.driver.core.{GettableByNameData, SettableData}
 
 import scala.jdk.CollectionConverters.*
 
@@ -24,26 +24,29 @@ object CorrelationId {
 
   val key = "correlation_id"
 
-  implicit val encodeByNameCorrelationId: EncodeByName[CorrelationId] = EncodeByName[String].contramap(_.value)
-  implicit val decodeByNameCorrelationId: DecodeByName[CorrelationId] = DecodeByName[String].map(CorrelationId.unsafe)
-  implicit val encodeByIdxCorrelationId: EncodeByIdx[CorrelationId]   = EncodeByIdx[String].contramap(_.value)
-  implicit val decodeByIdxCorrelationId: DecodeByIdx[CorrelationId]   = DecodeByIdx[String].map(CorrelationId.unsafe)
+  implicit val correlationIdCodec: CodecRow[Option[CorrelationId]] = new CodecRow[Option[CorrelationId]] {
 
-  implicit val encodeAsPropertiesCorrelationId: EncodeRow[Option[CorrelationId]] = new EncodeRow[Option[CorrelationId]] {
-    def apply[B <: SettableData[B]](data: B, value: Option[CorrelationId]) = {
-      value
-        .map {
-          case CorrelationId(value) =>
-            data.setMap("properties", Map(key -> value).asJava, classOf[String], classOf[String])
-        }
-        .getOrElse(data)
+    val field = "properties"
+    val clazz = classOf[String]
+
+    override def encode[D <: GettableData with SettableData[D]](data: D, value: Option[CorrelationId]): D = {
+      value.fold(data) {
+        case CorrelationId(value) =>
+          val properties = asProperties(data).updated(key, value).asJava
+          data.setMap(field, properties, clazz, clazz)
+      }
     }
+
+    override def decode[D <: GettableData](data: D): Option[CorrelationId] = {
+      val properties = asProperties(data)
+      properties.get(key).map(CorrelationId.unsafe)
+    }
+
+    private def asProperties[D <: GettableData](data: D): Map[String, String] = {
+      val nullable = data.getMap(field, clazz, clazz)
+      Option(nullable).map(_.asScala.toMap).getOrElse(Map.empty)
+    }
+
   }
 
-  implicit val decodePropertiesAsCorrelationId: DecodeRow[Option[CorrelationId]] = new DecodeRow[Option[CorrelationId]] {
-    def apply(data: GettableByNameData) = {
-      val properties = data.getMap("properties", classOf[String], classOf[String])
-      Option(properties.get(key)).map(CorrelationId.unsafe)
-    }
-  }
 }
