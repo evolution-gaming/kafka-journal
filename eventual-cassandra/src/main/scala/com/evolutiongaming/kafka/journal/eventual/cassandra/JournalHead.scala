@@ -1,11 +1,10 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.syntax.all.*
-import com.datastax.driver.core.{GettableData, SettableData}
+import com.datastax.driver.core.{GettableData, GettableByNameData, SettableData}
 import com.evolutiongaming.kafka.journal.{CorrelationId, DeleteTo, PartitionOffset, SeqNr}
 import com.evolutiongaming.scassandra.syntax.*
-import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow}
-import com.evolutiongaming.scassandra.CodecRow
+import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow, UpdateRow}
 
 /** Represents metadata of particular journal.
   *
@@ -33,32 +32,31 @@ final case class JournalHead(
 
 object JournalHead {
 
-  //format: off
-  implicit def journalHeadCodec(implicit //format: on
-    encodeExpiry: EncodeRow[Option[Expiry]],
-    decodeExpiry: DecodeRow[Option[Expiry]],
-  ): CodecRow[JournalHead] = new CodecRow[JournalHead] {
+  implicit def decodeRowJournalHead(implicit decode: DecodeRow[Option[Expiry]]): DecodeRow[JournalHead] = {
+    (row: GettableByNameData) =>
+      {
+        JournalHead(
+          partitionOffset = row.decode[PartitionOffset],
+          segmentSize     = row.decode[SegmentSize],
+          seqNr           = row.decode[SeqNr],
+          deleteTo        = row.decode[Option[DeleteTo]]("delete_to"),
+          expiry          = row.decode[Option[Expiry]],
+          correlationId   = row.decode[Option[CorrelationId]]("properties"),
+        )
+      }
+  }
 
-    override def encode[D <: GettableData with SettableData[D]](data: D, value: JournalHead): D = {
-      data
-        .encode(value.partitionOffset)
-        .encode(value.segmentSize)
-        .encode(value.seqNr)
-        .encodeSome(value.deleteTo)
-        .encode(value.expiry)(encodeExpiry)
-        .put(value.correlationId)
+  implicit def encodeRowJournalHead(implicit encode: EncodeRow[Option[Expiry]]): UpdateRow[JournalHead] = {
+    new UpdateRow[JournalHead] {
+      def apply[B <: GettableData & SettableData[B]](data: B, value: JournalHead) = {
+        data
+          .encode(value.partitionOffset)
+          .encode(value.segmentSize)
+          .encode(value.seqNr)
+          .encodeSome(value.deleteTo)
+          .encode(value.expiry)
+          .update("properties", value.correlationId)
+      }
     }
-
-    override def decode[D <: GettableData](data: D): JournalHead = {
-      JournalHead(
-        partitionOffset = data.decode[PartitionOffset],
-        segmentSize     = data.decode[SegmentSize],
-        seqNr           = data.decode[SeqNr],
-        deleteTo        = data.decode[Option[DeleteTo]]("delete_to"),
-        expiry          = data.decode[Option[Expiry]](decodeExpiry),
-        correlationId   = data.take[Option[CorrelationId]],
-      )
-    }
-
   }
 }

@@ -5,6 +5,7 @@ import cats.data.NonEmptyList as Nel
 import cats.effect.Concurrent
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.DataHelper.*
+import com.evolutiongaming.catshelper.Log
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.Journal.DataIntegrityConfig
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
@@ -51,6 +52,8 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
     segmentSize <- List(SegmentSize.min, SegmentSize.default, SegmentSize.max)
     segments    <- List(Segments.min, Segments.old)
   } {
+    implicit val log: Log[StateT] = Log.empty[StateT]
+
     val config = new DataIntegrityConfig {
       override def seqNrUniqueness         = true
       override def correlateEventsWithMeta = true
@@ -58,7 +61,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
     val segmentOf    = SegmentOf[Id](segments)
     val segmentNrsOf = SegmentNrsOf[StateT](first = segments, Segments.default)
     val statements   = statementsOf(segmentNrsOf, Segments.default)
-    val journal      = EventualCassandra.apply1(statements, config)
+    val journal      = EventualCassandra.apply2(statements, config)
 
     val suffix = s"segmentSize: $segmentSize, segments: $segments"
 

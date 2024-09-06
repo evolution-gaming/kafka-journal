@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import cats.Monad
 import cats.effect.std.UUIDGen
 import cats.syntax.all.*
-import com.datastax.driver.core.{GettableData, SettableData}
+import com.datastax.driver.core.{GettableByNameData, SettableData}
 import com.evolutiongaming.scassandra.*
 
 import scala.jdk.CollectionConverters.*
@@ -24,29 +24,26 @@ object CorrelationId {
 
   val key = "correlation_id"
 
-  implicit val correlationIdCodec: CodecRow[Option[CorrelationId]] = new CodecRow[Option[CorrelationId]] {
+  implicit val correlationIdOptionDecodeByName: DecodeByName[Option[CorrelationId]] = new DecodeByName[Option[CorrelationId]] {
+    def apply(data: GettableByNameData, name: String): Option[CorrelationId] = {
+      for {
+        map <- Option { data.getMap(name, classOf[String], classOf[String]) }
+        cid <- map.asScala.get(key)
+      } yield CorrelationId.unsafe(cid)
+    }
+  }
 
-    val field = "properties"
-    val clazz = classOf[String]
-
-    override def encode[D <: GettableData with SettableData[D]](data: D, value: Option[CorrelationId]): D = {
-      value.fold(data) {
-        case CorrelationId(value) =>
-          val properties = asProperties(data).updated(key, value).asJava
-          data.setMap(field, properties, clazz, clazz)
+  implicit val correlationIdOptionUpdateByName: UpdateByName[Option[CorrelationId]] = new UpdateByName[Option[CorrelationId]] {
+    def apply[D <: GettableByNameData & SettableData[D]](data: D, name: String, value: Option[CorrelationId]): D = {
+      val data1 = for {
+        cid <- value
+        map <- Option { data.getMap(name, classOf[String], classOf[String]) }
+      } yield {
+        val updated = map.asScala.toMap.updated(key, cid.value).asJava
+        data.setMap(name, updated, classOf[String], classOf[String])
       }
+      data1 getOrElse data
     }
-
-    override def decode[D <: GettableData](data: D): Option[CorrelationId] = {
-      val properties = asProperties(data)
-      properties.get(key).map(CorrelationId.unsafe)
-    }
-
-    private def asProperties[D <: GettableData](data: D): Map[String, String] = {
-      val nullable = data.getMap(field, clazz, clazz)
-      Option(nullable).map(_.asScala.toMap).getOrElse(Map.empty)
-    }
-
   }
 
 }

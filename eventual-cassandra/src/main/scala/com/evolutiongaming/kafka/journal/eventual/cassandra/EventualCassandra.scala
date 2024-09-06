@@ -5,7 +5,7 @@ import cats.effect.syntax.all.*
 import cats.effect.{Concurrent, Resource}
 import cats.syntax.all.*
 import cats.{MonadThrow, Parallel}
-import com.evolutiongaming.catshelper.{LogOf, MeasureDuration, ToTry}
+import com.evolutiongaming.catshelper.{LogOf, Log, MeasureDuration, ToTry}
 import com.evolutiongaming.kafka.journal.Journal.DataIntegrityConfig
 import com.evolutiongaming.kafka.journal.eventual.*
 import com.evolutiongaming.kafka.journal.util.CatsHelper.*
@@ -122,7 +122,8 @@ object EventualCassandra {
       statements  <- Statements.of(schema, segmentNrsOf, Segments.default, consistencyConfig.read)
       _           <- log.info(s"kafka-journal version: ${Version.current.value}")
     } yield {
-      val journal = apply1[F](statements, dataIntegrity).withLog(log)
+      implicit val log1 = log
+      val journal       = apply2[F](statements, dataIntegrity).withLog(log)
       metrics
         .fold(journal) { metrics => journal.withMetrics(metrics) }
         .enhanceError
@@ -145,7 +146,13 @@ object EventualCassandra {
     * The implementation itself is abstracted from the calls to Cassandra which
     * should be passed as part of [[Statements]] parameter.
     */
+  @deprecated("Use apply1 instead", "3.6.0")
   def apply1[F[_]: MonadThrow](statements: Statements[F], dataIntegrity: DataIntegrityConfig): EventualJournal[F] = {
+    implicit val log = Log.empty[F]
+    apply2(statements, dataIntegrity)
+  }
+
+  def apply2[F[_]: MonadThrow: Log](statements: Statements[F], dataIntegrity: DataIntegrityConfig): EventualJournal[F] = {
 
     new Main with EventualJournal[F] {
 
@@ -201,10 +208,25 @@ object EventualCassandra {
 
             if (dataIntegrity.correlateEventsWithMeta) {
               head.correlationId.fold { events1 } { fromMeta =>
-                events1.filter { event =>
+                events1.flatMap { event =>
                   event.correlationId match {
-                    case None => false // meta has correlationId, event does not thus the event does not belong to the meta
-                    case Some(fromEvent) => fromMeta == fromEvent // meta and event have the same correlationId
+                    case None =>
+                      Stream
+                        .lift {
+                          Log[F].error(s"Data integrity violated: event $event is orphan, key $key")
+                        }
+                        .flatMap { _ => Stream.empty[F, EventRecord[EventualPayloadAndType]] }
+
+                    case Some(fromEvent) =>
+                      if (fromMeta == fromEvent) {
+                        Stream.single(event)
+                      } else {
+                        Stream
+                          .lift {
+                            Log[F].error(s"Data integrity violated: event $event belong to purged meta, key $key")
+                          }
+                          .flatMap { _ => Stream.empty[F, EventRecord[EventualPayloadAndType]] }
+                      }
                   }
                 }
               }
