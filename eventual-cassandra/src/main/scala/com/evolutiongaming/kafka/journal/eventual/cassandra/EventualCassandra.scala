@@ -146,7 +146,7 @@ object EventualCassandra {
     * The implementation itself is abstracted from the calls to Cassandra which
     * should be passed as part of [[Statements]] parameter.
     */
-  @deprecated("Use apply1 instead", "3.6.0")
+  @deprecated("Use apply2 instead", "3.6.0")
   def apply1[F[_]: MonadThrow](statements: Statements[F], dataIntegrity: DataIntegrityConfig): EventualJournal[F] = {
     implicit val log = Log.empty[F]
     apply2(statements, dataIntegrity)

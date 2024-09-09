@@ -37,10 +37,12 @@ lazy val commonSettings = Seq(
 
 import com.typesafe.tools.mima.core.*
 ThisBuild / mimaBinaryIssueFilters ++= Seq(
-  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolutiongaming.kafka.journal.eventual.cassandra.CreateSchema.apply"),
-  ProblemFilters.exclude[IncompatibleMethTypeProblem]("com.evolutiongaming.kafka.journal.eventual.cassandra.CreateSchema.apply"),
-  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolutiongaming.kafka.journal.eventual.cassandra.SetupSchema.migrate"),
-  ProblemFilters.exclude[IncompatibleMethTypeProblem]("com.evolutiongaming.kafka.journal.eventual.cassandra.SetupSchema.migrate"),
+  ProblemFilters.exclude[ReversedMissingMethodProblem]("com.evolutiongaming.kafka.journal.Journal#DataIntegrityConfig.correlateEventsWithMeta"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolutiongaming.kafka.journal.Journal#DataIntegrityConfig#Implementation.copy"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolutiongaming.kafka.journal.Journal#DataIntegrityConfig#Implementation.this"),
+  ProblemFilters.exclude[MissingTypesProblem]("com.evolutiongaming.kafka.journal.Journal$DataIntegrityConfig$Implementation$"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolutiongaming.kafka.journal.Journal#DataIntegrityConfig#Implementation.apply"),
+  ProblemFilters.exclude[IncompatibleSignatureProblem]("com.evolutiongaming.kafka.journal.Journal#DataIntegrityConfig#Implementation.unapply"),
 )
 
 val alias: Seq[sbt.Def.Setting[?]] =
