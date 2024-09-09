@@ -270,6 +270,38 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
 
       stateT.run(initial).map { case (_, events) => events } shouldEqual List(record2).pure[Try]
     }
+
+    test(s"read events with duplicated seqNr if only one 'branch' correlate with meta, $suffix") {
+      val seqNr         = SeqNr.min
+      val key           = Key(id = "id", topic = topic0)
+      val segment       = segmentOf(key)
+      val correlationId = CorrelationId.unsafe("actual")
+
+      val stateT = journal.read(key, seqNr).toList
+
+      val record1 = eventRecordOf(seqNr, partitionOffset).withoutCorrelationId
+      val record2 = eventRecordOf(seqNr, partitionOffset).withCorrelationId(correlationId)
+      val initial = State(
+        metaJournal = Map(
+          (topic0, segment) -> Map(
+            key.id -> MetaJournalEntry(
+              journalHead = JournalHead(partitionOffset, segmentSize, seqNr, correlationId = correlationId.some),
+              created     = timestamp1,
+              updated     = timestamp1,
+              origin      = origin.some,
+            ),
+          ),
+        ),
+        journal = Map(
+          (key, SegmentNr.min) -> Map(
+            (seqNr, timestamp0) -> record1,
+            (seqNr, timestamp1) -> record2,
+          ),
+        ),
+      )
+
+      stateT.run(initial).map { case (_, events) => events } shouldEqual List(record2).pure[Try]
+    }
   }
 }
 

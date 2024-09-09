@@ -164,16 +164,37 @@ object EventualCassandra {
 
       def read(key: Key, from: SeqNr) = {
 
+        def result =
+          for {
+            journalHead <- statements.metaJournal.journalHead(key).toStream
+            result <- journalHead match {
+              case Some(journalHead) => read(statements.records, journalHead)
+              case None              => Stream.empty[F, EventRecord[EventualPayloadAndType]]
+            }
+          } yield result
+
         def read(statement: JournalStatements.SelectRecords[F], head: JournalHead) = {
+
+          def result = head.deleteTo match {
+            case None => read(from)
+            case Some(deleteTo) =>
+              if (from > deleteTo.value) read(from)
+              else
+                deleteTo.value.next[Option] match {
+                  case Some(from) => read(from)
+                  case None       => Stream.empty[F, EventRecord[EventualPayloadAndType]]
+                }
+          }
 
           def read(from: SeqNr) = {
 
-            def read(from: SeqNr, segment: Segment) = {
-              val range = SeqRange(from, SeqNr.max)
-              statement(key, segment.nr, range).map { record => (record, segment) }
-            }
+            val events = {
 
-            val events =
+              def read(from: SeqNr, segment: Segment) = {
+                val range = SeqRange(from, SeqNr.max)
+                statement(key, segment.nr, range).map { record => (record, segment) }
+              }
+
               read(from, Segment(from, head.segmentSize))
                 .chain {
                   case (record, segment) =>
@@ -185,9 +206,39 @@ object EventualCassandra {
                     }
                 }
                 .map { case (record, _) => record }
+            }
 
-            val events1 = if (dataIntegrity.seqNrUniqueness) {
-              events
+            val events1 =
+              if (dataIntegrity.correlateEventsWithMeta) {
+                head.correlationId.fold { events } { fromMeta =>
+                  events.flatMap { event =>
+                    event.correlationId match {
+                      case None =>
+                        Stream
+                          .lift {
+                            Log[F].error(s"Data integrity violated: event $event is orphan, key $key")
+                          }
+                          .flatMap { _ => Stream.empty[F, EventRecord[EventualPayloadAndType]] }
+
+                      case Some(fromEvent) =>
+                        if (fromMeta == fromEvent) {
+                          Stream.single(event)
+                        } else {
+                          Stream
+                            .lift {
+                              Log[F].error(s"Data integrity violated: event $event belong to purged meta, key $key")
+                            }
+                            .flatMap { _ => Stream.empty[F, EventRecord[EventualPayloadAndType]] }
+                        }
+                    }
+                  }
+                }
+              } else {
+                events
+              }
+
+            if (dataIntegrity.seqNrUniqueness) {
+              events1
                 .stateful(from) {
                   case (seqNr, record) =>
                     if (seqNr <= record.seqNr) {
@@ -203,57 +254,14 @@ object EventualCassandra {
                     }
                 }
             } else {
-              events
-            }
-
-            if (dataIntegrity.correlateEventsWithMeta) {
-              head.correlationId.fold { events1 } { fromMeta =>
-                events1.flatMap { event =>
-                  event.correlationId match {
-                    case None =>
-                      Stream
-                        .lift {
-                          Log[F].error(s"Data integrity violated: event $event is orphan, key $key")
-                        }
-                        .flatMap { _ => Stream.empty[F, EventRecord[EventualPayloadAndType]] }
-
-                    case Some(fromEvent) =>
-                      if (fromMeta == fromEvent) {
-                        Stream.single(event)
-                      } else {
-                        Stream
-                          .lift {
-                            Log[F].error(s"Data integrity violated: event $event belong to purged meta, key $key")
-                          }
-                          .flatMap { _ => Stream.empty[F, EventRecord[EventualPayloadAndType]] }
-                      }
-                  }
-                }
-              }
-            } else {
               events1
             }
           }
 
-          head.deleteTo match {
-            case None => read(from)
-            case Some(deleteTo) =>
-              if (from > deleteTo.value) read(from)
-              else
-                deleteTo.value.next[Option] match {
-                  case Some(from) => read(from)
-                  case None       => Stream.empty[F, EventRecord[EventualPayloadAndType]]
-                }
-          }
+          result
         }
 
-        for {
-          journalHead <- statements.metaJournal.journalHead(key).toStream
-          result <- journalHead match {
-            case Some(journalHead) => read(statements.records, journalHead)
-            case None              => Stream.empty[F, EventRecord[EventualPayloadAndType]]
-          }
-        } yield result
+        result
       }
 
       def ids(topic: Topic) = {
