@@ -311,7 +311,7 @@ object EventualCassandraSpec {
       }
     }
 
-    val insertPointer: PointerStatements.Insert[StateT] = { (topic, partition, offset, _, _) =>
+    val insertPointer2: Pointer2Statements.Insert[StateT] = { (topic, partition, offset, _, _) =>
       {
         StateT { state =>
           val pointers      = state.pointers
@@ -323,11 +323,7 @@ object EventualCassandraSpec {
       }
     }
 
-    val insertPointer2: Pointer2Statements.Insert[StateT] = { (_, _, _, _, _) =>
-      ().pure[StateT]
-    }
-
-    val updatePointer: PointerStatements.Update[StateT] = { (topic, partition, offset, _) =>
+    val updatePointer2: Pointer2Statements.Update[StateT] = { (topic, partition, offset, _) =>
       {
         StateT { state =>
           val pointers      = state.pointers
@@ -337,10 +333,6 @@ object EventualCassandraSpec {
           (state.copy(pointers = pointers1), ())
         }
       }
-    }
-
-    val updatePointer2: Pointer2Statements.Update[StateT] = { (_, _, _, _) =>
-      ().pure[StateT]
     }
 
     val selectTopics2: Pointer2Statements.SelectTopics[StateT] = { () =>
@@ -370,9 +362,7 @@ object EventualCassandraSpec {
       metaJournal,
       selectOffset2,
       selectPointer2,
-      insertPointer,
       insertPointer2,
-      updatePointer,
       updatePointer2,
       selectTopics2,
     )

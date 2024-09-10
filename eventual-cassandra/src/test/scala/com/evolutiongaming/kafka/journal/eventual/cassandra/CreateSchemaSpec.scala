@@ -7,10 +7,6 @@ import com.evolutiongaming.kafka.journal.cassandra.{CreateKeyspace, CreateTables
 import com.evolutiongaming.scassandra.TableName
 import org.scalatest.funsuite.AnyFunSuite
 
-import scala.annotation.nowarn
-
-@nowarn
-// TODO MR deal with deprecated
 class CreateSchemaSpec extends AnyFunSuite {
 
   type F[A] = State[Database, A]
@@ -24,7 +20,6 @@ class CreateSchemaSpec extends AnyFunSuite {
       database.tables.sorted == List(
         "journal.journal",
         "journal.metajournal",
-        "journal.pointer",
         "journal.pointer2",
         "journal.setting",
       ),
@@ -38,7 +33,7 @@ class CreateSchemaSpec extends AnyFunSuite {
       .default
       .copy(
         autoCreate = false,
-        keyspace   = SchemaConfig.Keyspace.default.copy(autoCreate = false),
+        keyspace   = KeyspaceConfig.default.copy(autoCreate = false),
       )
     val createSchema                = CreateSchema.create[F](config, createKeyspace, createTables)
     val (database, (schema, fresh)) = createSchema.run(Database.empty).value
@@ -52,7 +47,7 @@ class CreateSchemaSpec extends AnyFunSuite {
     val config = SchemaConfig
       .default
       .copy(
-        keyspace = SchemaConfig.Keyspace.default.copy(autoCreate = false),
+        keyspace = KeyspaceConfig.default.copy(autoCreate = false),
       )
     val initialState = Database
       .empty
@@ -67,7 +62,6 @@ class CreateSchemaSpec extends AnyFunSuite {
       database.tables.sorted == List(
         "journal.journal",
         "journal.metajournal",
-        "journal.pointer",
         "journal.pointer2",
         "journal.setting",
       ),
@@ -78,9 +72,7 @@ class CreateSchemaSpec extends AnyFunSuite {
 
   private val schema = Schema(
     journal     = TableName(keyspace = "journal", table = "journal"),
-    metadata    = TableName(keyspace = "journal", table = "metadata"),
     metaJournal = TableName(keyspace = "journal", table = "metajournal"),
-    pointer     = TableName(keyspace = "journal", table = "pointer"),
     pointer2    = TableName(keyspace = "journal", table = "pointer2"),
     setting     = TableName(keyspace = "journal", table = "setting"),
   )

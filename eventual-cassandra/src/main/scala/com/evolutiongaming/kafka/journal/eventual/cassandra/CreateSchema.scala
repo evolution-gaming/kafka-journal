@@ -42,28 +42,24 @@ object CreateSchema {
 
       val schema = Schema(
         journal     = TableName(keyspace = keyspace, table = config.journalTable),
-        metadata    = TableName(keyspace = keyspace, table = config.metadataTable),
         metaJournal = TableName(keyspace = keyspace, table = config.metaJournalTable),
-        pointer     = TableName(keyspace = keyspace, table = config.pointerTable),
         pointer2    = TableName(keyspace = keyspace, table = config.pointer2Table),
         setting     = TableName(keyspace = keyspace, table = config.settingTable),
       )
 
       val journalStatement     = JournalStatements.createTable(schema.journal)
       val metaJournalStatement = MetaJournalStatements.createTable(schema.metaJournal)
-      val pointerStatement     = PointerStatements.createTable(schema.pointer)
       val pointer2Statement    = Pointer2Statements.createTable(schema.pointer2)
       val settingStatement     = SettingStatements.createTable(schema.setting)
 
       val journal     = CreateTables.Table(config.journalTable, journalStatement)
       val metaJournal = CreateTables.Table(config.metaJournalTable, metaJournalStatement)
-      val pointer     = CreateTables.Table(config.pointerTable, pointerStatement)
       val pointer2    = CreateTables.Table(config.pointer2Table, pointer2Statement)
       val setting     = CreateTables.Table(config.settingTable, settingStatement)
 
       val createSchema =
         if (config.autoCreate) {
-          createTables(keyspace, Nel.of(journal, pointer, pointer2, setting, metaJournal))
+          createTables(keyspace, Nel.of(journal, pointer2, setting, metaJournal))
         } else {
           false.pure[F]
         }
@@ -72,7 +68,7 @@ object CreateSchema {
     }
 
     for {
-      _      <- createKeyspace(config.keyspace.toKeyspaceConfig)
+      _      <- createKeyspace(config.keyspace)
       result <- createTables1
     } yield result
   }

@@ -8,6 +8,7 @@ import cats.syntax.all.*
 import com.evolutiongaming.catshelper.{RandomIdOf, RandomIdOf as _, *}
 import com.evolutiongaming.kafka.journal.Journal.DataIntegrityConfig
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
+import com.evolutiongaming.kafka.journal.cassandra.KeyspaceConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.*
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.scassandra.util.FromGFuture
@@ -66,7 +67,7 @@ object ReadEventsApp extends IOApp {
 
     @nowarn
     val eventualCassandraConfig = EventualCassandraConfig(
-      schema = SchemaConfig(keyspace = SchemaConfig.Keyspace(name = "keyspace", autoCreate = false), autoCreate = false),
+      schema = SchemaConfig(keyspace = KeyspaceConfig(name = "keyspace", autoCreate = false), autoCreate = false),
       client = CassandraConfig(
         contactPoints  = com.evolutiongaming.nel.Nel("127.0.0.1"),
         authentication = AuthenticationConfig(username = "username", password = "password").some,

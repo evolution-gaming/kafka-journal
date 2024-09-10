@@ -1566,7 +1566,7 @@ object ReplicatedCassandraTest {
     Pointer2Statements.Select.Result(Instant.EPOCH.some).some.pure[StateT]
   }
 
-  val insertPointer: PointerStatements.Insert[StateT] = { (topic, partition, offset, created, updated) =>
+  val insertPointer2: Pointer2Statements.Insert[StateT] = { (topic, partition, offset, created, updated) =>
     {
       StateT.unit { state =>
         val entry = PointerEntry(offset = offset, created = created, updated = updated)
@@ -1579,11 +1579,7 @@ object ReplicatedCassandraTest {
     }
   }
 
-  val insertPointer2: Pointer2Statements.Insert[StateT] = { (_, _, _, _, _) =>
-    ().pure[StateT]
-  }
-
-  val updatePointer: PointerStatements.Update[StateT] = { (topic, partition, offset, timestamp) =>
+  val updatePointer2: Pointer2Statements.Update[StateT] = { (topic, partition, offset, timestamp) =>
     {
       StateT.unit { state =>
         state.updatePointer(topic, partition) { entry =>
@@ -1591,10 +1587,6 @@ object ReplicatedCassandraTest {
         }
       }
     }
-  }
-
-  val updatePointer2: Pointer2Statements.Update[StateT] = { (_, _, _, _) =>
-    ().pure[StateT]
   }
 
   val selectTopics2: Pointer2Statements.SelectTopics[StateT] = { () =>
@@ -1627,9 +1619,7 @@ object ReplicatedCassandraTest {
       metaJournal,
       selectOffset2,
       selectPointer2,
-      insertPointer,
       insertPointer2,
-      updatePointer,
       updatePointer2,
       selectTopics2,
     )
