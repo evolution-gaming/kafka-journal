@@ -7,7 +7,7 @@ import cats.effect.*
 import cats.effect.unsafe.{IORuntime, IORuntimeConfig}
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.CatsHelper.*
-import com.evolutiongaming.catshelper.{RandomIdOf as _, *}
+import com.evolutiongaming.catshelper.{RandomIdOf, RandomIdOf as _, *}
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.util.CatsHelper.*
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper.*

@@ -4,7 +4,7 @@ import cats.effect.*
 import cats.effect.implicits.*
 import cats.syntax.all.*
 import cats.{Applicative, Functor, Monad}
-import com.evolutiongaming.catshelper.{FromTry, Log, LogOf}
+import com.evolutiongaming.catshelper.{FromTry, Log, LogOf, RandomIdOf}
 import com.evolutiongaming.kafka.journal.util.CatsHelper.*
 import com.evolutiongaming.skafka.Topic
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig}

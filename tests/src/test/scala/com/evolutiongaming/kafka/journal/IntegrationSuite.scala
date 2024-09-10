@@ -25,7 +25,7 @@ object IntegrationSuite {
       // To ensure all default '127.0.0.1:9042' configurations work, we need to bind to the host's 9042 port manually
       Resource.make {
         Sync[F].delay {
-          val cassandra = CassandraContainer
+          val cassandra =  CassandraContainer
             .apply()
             .configure { container =>
               container.withCreateContainerCmdModifier { cmd =>

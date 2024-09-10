@@ -5,7 +5,7 @@ import cats.Monad
 import cats.data.NonEmptyList as Nel
 import cats.effect.IO
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.{FromFuture, LogOf}
+import com.evolutiongaming.catshelper.{FromFuture, LogOf, RandomIdOf}
 import com.evolutiongaming.kafka.journal.CassandraSuite.*
 import com.evolutiongaming.kafka.journal.IOSuite.*
 import com.evolutiongaming.kafka.journal.Journal.DataIntegrityConfig

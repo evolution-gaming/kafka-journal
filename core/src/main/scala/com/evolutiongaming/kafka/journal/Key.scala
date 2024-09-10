@@ -4,6 +4,7 @@ import cats.kernel.Eq
 import cats.syntax.all.*
 import cats.{Functor, Order, Show}
 import com.datastax.driver.core.{GettableByNameData, SettableData}
+import com.evolutiongaming.catshelper.RandomIdOf
 import com.evolutiongaming.scassandra.syntax.*
 import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow}
 import com.evolutiongaming.skafka.Topic
@@ -25,7 +26,7 @@ object Key {
 
   implicit val encodeRowKey: EncodeRow[Key] = new EncodeRow[Key] {
 
-    def apply[B <: SettableData[B]](data: B, value: Key) = {
+    def apply[B <: SettableData[B]](data: B, value: Key): B = {
       data
         .encode("id", value.id)
         .encode("topic", value.topic)
@@ -34,7 +35,7 @@ object Key {
 
   implicit val decodeRowKey: DecodeRow[Key] = new DecodeRow[Key] {
 
-    def apply(data: GettableByNameData) = {
+    def apply(data: GettableByNameData): Key = {
       Key(id = data.decode[String]("id"), topic = data.decode[Topic]("topic"))
     }
   }

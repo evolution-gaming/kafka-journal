@@ -4,7 +4,7 @@ import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.effect.*
 import cats.syntax.all.*
 import cats.{Monad, Parallel, ~>}
-import com.evolutiongaming.catshelper.{RandomIdOf as _, *}
+import com.evolutiongaming.catshelper.{RandomIdOf, RandomIdOf as _, *}
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.conversions.ConversionMetrics
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal

@@ -5,7 +5,7 @@ import cats.data.NonEmptyList as Nel
 import cats.effect.*
 import cats.effect.syntax.resource.*
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.{RandomIdOf as _, *}
+import com.evolutiongaming.catshelper.{RandomIdOf, RandomIdOf as _, *}
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.CassandraSuite.*
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
@@ -28,7 +28,6 @@ import pureconfig.ConfigSource
 import java.time.Instant
 import scala.concurrent.duration.*
 import scala.util.control.NoStackTrace
-
 import TestJsonCodec.instance
 
 class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers {

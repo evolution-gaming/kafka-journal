@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal
 import cats.data.NonEmptyList as Nel
 import cats.effect.*
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.{FromTry, LogOf, MeasureDuration, ToFuture, ToTry}
+import com.evolutiongaming.catshelper.{FromTry, LogOf, MeasureDuration, RandomIdOf, ToFuture, ToTry}
 import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.ProducerConfig

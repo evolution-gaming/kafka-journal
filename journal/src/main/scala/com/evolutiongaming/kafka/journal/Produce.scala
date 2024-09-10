@@ -4,7 +4,7 @@ import cats.effect.*
 import cats.syntax.all.*
 import cats.{Applicative, ~>}
 import com.evolutiongaming.catshelper.ClockHelper.*
-import com.evolutiongaming.catshelper.MonadThrowable
+import com.evolutiongaming.catshelper.{MonadThrowable, RandomId}
 import com.evolutiongaming.kafka.journal.conversions.ActionToProducerRecord
 import com.evolutiongaming.skafka.Bytes as _
 
