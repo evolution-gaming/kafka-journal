@@ -4,7 +4,6 @@ import cats.effect.Clock
 import cats.syntax.all.*
 import cats.{Monad, Parallel}
 import com.evolutiongaming.catshelper.ClockHelper.*
-import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraSession
 import com.evolutiongaming.kafka.journal.{Origin, Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
@@ -34,15 +33,6 @@ object SettingsCassandra {
       } yield prev
     }
 
-    def setIfEmpty(key: K, value: V): F[Option[Setting]] = {
-      for {
-        timestamp <- Clock[F].instant
-        setting    = Setting(key = key, value = value, timestamp = timestamp, origin = origin)
-        inserted  <- statements.insertIfEmpty(setting)
-        result    <- if (inserted) none[Setting].pure[F] else statements.select(key)
-      } yield result
-    }
-
     def remove(key: K): F[Option[Setting]] = {
       for {
         prev <- statements.select(key)
@@ -70,7 +60,6 @@ object SettingsCassandra {
   final case class Statements[F[_]](
     select: SettingStatements.Select[F],
     insert: SettingStatements.Insert[F],
-    insertIfEmpty: SettingStatements.InsertIfEmpty[F],
     all: SettingStatements.All[F],
     delete: SettingStatements.Delete[F],
   )
@@ -84,7 +73,6 @@ object SettingsCassandra {
       val statements = (
         SettingStatements.Select.of[F](table, consistencyConfig.read),
         SettingStatements.Insert.of[F](table, consistencyConfig.write),
-        SettingStatements.InsertIfEmpty.of[F](table, consistencyConfig.write),
         SettingStatements.All.of[F](table, consistencyConfig.read),
         SettingStatements.Delete.of[F](table, consistencyConfig.write),
       )

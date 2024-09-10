@@ -135,19 +135,6 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
         }
       }
 
-      def setIfEmpty(key: K, value: V): StateT[Option[Setting]] = {
-        StateT { state =>
-          state.version match {
-            case Some(version) =>
-              val setting = settingOf(key, version)
-              (state, setting.some)
-            case None =>
-              val state1 = state.copy(version = value.some, actions = Action.SetSetting(key, value) :: state.actions)
-              (state1, none[Setting])
-          }
-        }
-      }
-
       def remove(key: K): StateT[Option[Setting]] = throw NotImplemented
 
       def all: Stream[StateT, Setting] = throw NotImplemented

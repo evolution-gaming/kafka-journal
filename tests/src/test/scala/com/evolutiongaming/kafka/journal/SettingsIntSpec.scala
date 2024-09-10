@@ -102,16 +102,6 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
           fix(setting)
         }
 
-        def setIfEmpty(key: Setting.Key, value: Setting.Value) = {
-          for {
-            setting <- settings.setIfEmpty(key, value)
-          } yield for {
-            setting <- setting
-          } yield {
-            fix(setting)
-          }
-        }
-
         def remove(key: Setting.Key) = {
           for {
             setting <- settings.remove(key)
@@ -134,10 +124,6 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
           _ <- Sync[F].delay { a shouldEqual None }
           a <- get(setting.key)
           _ <- Sync[F].delay { a shouldEqual setting.some }
-          a <- setIfEmpty(setting.key, setting.value)
-          _ <- Sync[F].delay { a shouldEqual setting.some }
-          a <- get(setting.key)
-          _ <- Sync[F].delay { a shouldEqual setting.some }
           a <- all
           _ <- Sync[F].delay { a shouldEqual List(setting) }
 
@@ -148,8 +134,6 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
           a <- all
           _ <- Sync[F].delay { a shouldEqual Nil }
           a <- remove(setting.key)
-          _ <- Sync[F].delay { a shouldEqual None }
-          a <- setIfEmpty(setting.key, setting.value)
           _ <- Sync[F].delay { a shouldEqual None }
 
           // clean up the database

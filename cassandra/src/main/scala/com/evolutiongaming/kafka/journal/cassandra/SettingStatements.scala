@@ -128,34 +128,6 @@ object SettingStatements {
     }
   }
 
-  trait InsertIfEmpty[F[_]] {
-    def apply(setting: Setting): F[Boolean]
-  }
-
-  object InsertIfEmpty {
-
-    def of[F[_]: Monad: CassandraSession](
-      name: TableName,
-      consistencyConfig: CassandraConsistencyConfig.Write,
-    ): F[InsertIfEmpty[F]] = {
-
-      val query = s"INSERT INTO ${name.toCql} (key, value, timestamp, origin) VALUES (?, ?, ?, ?) IF NOT EXISTS"
-      for {
-        prepared <- query.prepare
-      } yield { (setting: Setting) =>
-        val bound = prepared
-          .bind()
-          .encode(setting)
-          .setConsistencyLevel(consistencyConfig.value)
-        for {
-          row <- bound.first
-        } yield {
-          row.fold(false) { _.decode[Boolean]("[applied]") }
-        }
-      }
-    }
-  }
-
   trait Delete[F[_]] {
     def apply(key: Key): F[Unit]
   }
