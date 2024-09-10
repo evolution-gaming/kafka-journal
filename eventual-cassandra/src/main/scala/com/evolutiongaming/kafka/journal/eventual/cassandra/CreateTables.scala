@@ -4,8 +4,7 @@ import cats.data.NonEmptyList as Nel
 import cats.syntax.all.*
 import cats.{Monad, Order}
 import com.evolutiongaming.catshelper.{Log, LogOf}
-import com.evolutiongaming.kafka.journal.cassandra.CreateTables as CreateTables2
-import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession}
+import com.evolutiongaming.kafka.journal.cassandra.{CassandraSync, CreateTables as CreateTables2}
 
 /** Creates tables in a specific keyspace  */
 @deprecated(
@@ -39,14 +38,12 @@ object CreateTables { self =>
   def apply[F[_]](implicit F: CreateTables[F]): CreateTables[F] = F
 
   def apply[F[_]: Monad: CassandraCluster: CassandraSession: CassandraSync](log: Log[F]): CreateTables[F] = {
-    implicit val cassandraSync2 = CassandraSync[F].toCassandraSync2
-    val createTables2           = CreateTables2(log)
+    val createTables2 = CreateTables2(log)
     CreateTables(createTables2)
   }
 
   def of[F[_]: Monad: CassandraCluster: CassandraSession: CassandraSync: LogOf]: F[CreateTables[F]] = {
-    implicit val cassandraSync2 = CassandraSync[F].toCassandraSync2
-    val createTables2           = CreateTables2.of[F]
+    val createTables2 = CreateTables2.of[F]
     createTables2.map(CreateTables(_))
   }
 
