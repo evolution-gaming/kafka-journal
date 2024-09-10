@@ -75,7 +75,7 @@ object Dependencies {
   }
 
   object Circe {
-    private val version = "0.13.0" // TODO MR mima fail when using 0.14.7
+    private val version = "0.14.10"
     val core            = "io.circe" %% "circe-core"    % version
     val generic         = "io.circe" %% "circe-generic" % version
     val jawn            = "io.circe" %% "circe-jawn"    % version
