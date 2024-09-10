@@ -8,6 +8,7 @@ import cats.syntax.all.*
 import cats.{Monad, Parallel}
 import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.catshelper.{LogOf, MeasureDuration, ToTry}
+import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
 import com.evolutiongaming.kafka.journal.eventual.*
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedKeyJournal.Changed
 import com.evolutiongaming.kafka.journal.eventual.cassandra.JournalStatements.JournalRecord
@@ -485,20 +486,16 @@ object ReplicatedCassandra {
 
   object MetaJournalStatements {
 
-    @nowarn
-    // TODO MR deal with deprecated
     def of[F[_]: Monad: CassandraSession](
       schema: Schema,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig,
+      consistencyConfig: CassandraConsistencyConfig,
     ): F[MetaJournalStatements[F]] = {
       of[F](schema.metaJournal, consistencyConfig)
     }
 
-    @nowarn
-    // TODO MR deal with deprecated
     def of[F[_]: Monad: CassandraSession](
       metaJournal: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig,
+      consistencyConfig: CassandraConsistencyConfig,
     ): F[MetaJournalStatements[F]] = {
 
       for {
@@ -639,7 +636,7 @@ object ReplicatedCassandra {
     // TODO MR deal with deprecated
     def of[F[_]: Monad: CassandraSession: ToTry: JsonCodec.Encode](
       schema: Schema,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig,
+      consistencyConfig: CassandraConsistencyConfig,
     ): F[Statements[F]] = {
       for {
         insertRecords   <- JournalStatements.InsertRecords.of[F](schema.journal, consistencyConfig.write)

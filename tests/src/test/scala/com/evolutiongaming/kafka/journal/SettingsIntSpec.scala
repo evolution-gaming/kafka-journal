@@ -42,7 +42,7 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
     def settings(config: SchemaConfig)(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
 
       for {
-        schema   <- SetupSchema[F](config, origin, EventualCassandraConfig.ConsistencyConfig.default)
+        schema   <- SetupSchema[F](config, origin, CassandraConsistencyConfig.default)
         settings <- SettingsCassandra2.of[F](schema.setting, origin, CassandraConsistencyConfig.default)
       } yield settings
     }

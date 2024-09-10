@@ -6,6 +6,7 @@ import cats.syntax.all.*
 import com.datastax.driver.core.{BatchStatement, Row}
 import com.evolutiongaming.catshelper.ToTry
 import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper.*
 import com.evolutiongaming.kafka.journal.eventual.cassandra.HeadersHelper.*
@@ -64,7 +65,7 @@ object JournalStatements {
 
     def of[F[_]: Monad: CassandraSession: ToTry: JsonCodec.Encode](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
+      consistencyConfig: CassandraConsistencyConfig.Write,
     ): F[InsertRecords[F]] = {
 
       implicit val encodeTry: JsonCodec.Encode[Try] = JsonCodec.Encode.summon[F].mapK(ToTry.functionK)
@@ -153,7 +154,7 @@ object JournalStatements {
 
     def of[F[_]: Monad: CassandraSession: ToTry: JsonCodec.Decode](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
+      consistencyConfig: CassandraConsistencyConfig.Read,
     ): F[SelectRecords[F]] = {
 
       implicit val encodeTry: JsonCodec.Decode[Try] = JsonCodec.Decode.summon[F].mapK(ToTry.functionK)
@@ -251,7 +252,7 @@ object JournalStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
+      consistencyConfig: CassandraConsistencyConfig.Write,
     ): F[DeleteTo[F]] = {
 
       val query =
@@ -287,7 +288,7 @@ object JournalStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
+      consistencyConfig: CassandraConsistencyConfig.Write,
     ): F[Delete[F]] = {
 
       val query =

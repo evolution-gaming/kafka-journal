@@ -6,12 +6,10 @@ import cats.syntax.all.*
 import cats.{MonadThrow, Parallel}
 import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.cassandra.MigrateSchema.Fresh
-import com.evolutiongaming.kafka.journal.cassandra.{CassandraSync, MigrateSchema, SettingsCassandra}
+import com.evolutiongaming.kafka.journal.cassandra.{CassandraConsistencyConfig, CassandraSync, MigrateSchema, SettingsCassandra}
 import com.evolutiongaming.kafka.journal.{Origin, Settings}
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.scassandra.ToCql.implicits.*
-
-import scala.annotation.nowarn
 
 /** Creates a new schema, or migrates to the latest schema version, if it already exists.
  *
@@ -67,12 +65,10 @@ object SetupSchema {
     migrateSchema.run(fresh)
   }
 
-  @nowarn
-  // TODO MR deal with deprecated
   def apply[F[_]: Temporal: Parallel: CassandraCluster: CassandraSession: LogOf](
     config: SchemaConfig,
     origin: Option[Origin],
-    consistencyConfig: EventualCassandraConfig.ConsistencyConfig,
+    consistencyConfig: CassandraConsistencyConfig,
   ): F[Schema] = {
 
     def createSchema(implicit cassandraSync: CassandraSync[F]): F[(Schema, Fresh)] = CreateSchema(config)
@@ -81,7 +77,7 @@ object SetupSchema {
       cassandraSync  <- CassandraSync.of[F](config.keyspace, config.locksTable, origin)
       ab             <- createSchema(cassandraSync)
       (schema, fresh) = ab
-      settings       <- SettingsCassandra.of[F](schema.setting, origin, consistencyConfig.toCassandraConsistencyConfig)
+      settings       <- SettingsCassandra.of[F](schema.setting, origin, consistencyConfig)
       _              <- migrate(schema, fresh, settings, cassandraSync)
     } yield schema
   }

@@ -8,13 +8,8 @@ import cats.{Applicative, Monad, ~>}
 import com.evolutiongaming.catshelper.DataHelper.*
 import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, Log, MeasureDuration, MonadThrowable}
 import com.evolutiongaming.kafka.journal.*
-import com.evolutiongaming.kafka.journal.eventual.cassandra.{
-  CassandraSession,
-  EventualCassandraConfig,
-  ExpireOn,
-  MetaJournalStatements,
-  SegmentNr,
-}
+import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
+import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraSession, ExpireOn, MetaJournalStatements, SegmentNr}
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.StreamHelper.*
 import com.evolutiongaming.scassandra.TableName
@@ -37,7 +32,7 @@ object PurgeExpired {
     producerConfig: ProducerConfig,
     tableName: TableName,
     metrics: Option[Metrics[F]],
-    consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
+    consistencyConfig: CassandraConsistencyConfig.Read,
   ): Resource[F, PurgeExpired[F]] = {
 
     implicit val fromAttempt = FromAttempt.lift[F]
