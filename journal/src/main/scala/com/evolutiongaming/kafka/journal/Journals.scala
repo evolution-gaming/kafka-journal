@@ -39,47 +39,6 @@ object Journals {
     }
   }
 
-  @deprecated("use `of1`", "2023-07-26")
-  def of[
-    F[_]: Clock: FromTry: Fail: LogOf: KafkaConsumerOf: KafkaProducerOf: HeadCacheOf: RandomIdOf: MeasureDuration: JsonCodec,
-  ](
-    config: JournalConfig,
-    origin: Option[Origin],
-    eventualJournal: EventualJournal[F],
-    journalMetrics: Option[JournalMetrics[F]],
-    conversionMetrics: Option[ConversionMetrics[F]],
-    callTimeThresholds: Journal.CallTimeThresholds,
-  )(implicit F: MonadCancel[F, Throwable]): Resource[F, Journals[F]] = {
-
-    val consumer = Consumer.of[F](config.kafka.consumer, config.pollTimeout)
-
-    val headCache = {
-      if (config.headCache.enabled) {
-        HeadCacheOf[F].apply(config.kafka.consumer, eventualJournal)
-      } else {
-        Resource.pure[F, HeadCache[F]](HeadCache.empty[F])
-      }
-    }
-
-    for {
-      producer  <- Producer.of[F](config.kafka.producer)
-      log       <- LogOf[F].apply(Journals.getClass).toResource
-      headCache <- headCache
-    } yield {
-      val journal = apply(
-        origin,
-        producer,
-        consumer,
-        eventualJournal,
-        headCache,
-        log,
-        conversionMetrics,
-      )
-      val withLog = journal.withLog(log, callTimeThresholds)
-      journalMetrics.fold(withLog) { metrics => withLog.withMetrics(metrics) }
-    }
-  }
-
   def of1[
     F[_]: Async: FromTry: Fail: LogOf: KafkaConsumerOf: KafkaProducerOf: HeadCacheOf: RandomIdOf: MeasureDuration: JsonCodec,
   ](
