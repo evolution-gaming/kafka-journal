@@ -18,8 +18,6 @@ import com.evolutiongaming.scassandra.{CassandraClusterOf, TableName}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.sstream.Stream
 
-import scala.annotation.nowarn
-
 /** Creates read-only representation of the data stored to Cassandra.
   *
   * It is intended to be used for journal recovery.
@@ -63,8 +61,6 @@ object EventualCassandra {
     *
     * Underlying schema is automatically created or migrated if required.
     */
-  @nowarn
-  // TODO MR deal with deprecated
   def of1[
     F[_]: Temporal: Parallel: ToTry: LogOf: CassandraCluster: CassandraSession: MeasureDuration: JsonCodec.Decode,
   ](
