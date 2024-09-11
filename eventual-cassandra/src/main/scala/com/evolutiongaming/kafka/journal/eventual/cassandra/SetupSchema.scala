@@ -41,7 +41,13 @@ object SetupSchema {
     def createPointer2: String =
       Pointer2Statements.createTable(schema.pointer2)
 
-    Nel.of(addHeaders, addVersion, dropMetadata, createPointer2)
+    def journalAddMetaRecordId: String =
+      JournalStatements.addMetaRecordId(schema.journal)
+
+    def metaAddRecordId: String =
+      MetaJournalStatements.addRecordId(schema.metaJournal)
+
+    Nel.of(addHeaders, addVersion, dropMetadata, createPointer2, journalAddMetaRecordId, metaAddRecordId)
 
   }
 

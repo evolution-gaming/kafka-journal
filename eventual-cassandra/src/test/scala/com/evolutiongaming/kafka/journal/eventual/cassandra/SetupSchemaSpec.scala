@@ -25,10 +25,10 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
       .run(initial)
       .get
     state shouldEqual initial.copy(
-      version = "3".some,
+      version = "5".some,
       actions = List(
         Action.SyncEnd,
-        Action.SetSetting("schema-version", "3"),
+        Action.SetSetting("schema-version", "5"),
         Action.GetSetting("schema-version"),
         Action.SyncStart,
         Action.GetSetting("schema-version"),
@@ -42,9 +42,13 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
       .run(initial)
       .get
     state shouldEqual initial.copy(
-      version = "3".some,
+      version = "5".some,
       actions = List(
         Action.SyncEnd,
+        Action.SetSetting("schema-version", "5"),
+        Action.Query,
+        Action.SetSetting("schema-version", "4"),
+        Action.Query,
         Action.SetSetting("schema-version", "3"),
         Action.Query,
         Action.SetSetting("schema-version", "2"),
@@ -66,9 +70,13 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
       .run(initial)
       .get
     state shouldEqual initial.copy(
-      version = "3".some,
+      version = "5".some,
       actions = List(
         Action.SyncEnd,
+        Action.SetSetting("schema-version", "5"),
+        Action.Query,
+        Action.SetSetting("schema-version", "4"),
+        Action.Query,
         Action.SetSetting("schema-version", "3"),
         Action.Query,
         Action.SetSetting("schema-version", "2"),
@@ -83,7 +91,7 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
   }
 
   test("not migrate") {
-    val initial = State.empty.copy(version = "3".some)
+    val initial = State.empty.copy(version = "5".some)
     val (state, _) = migrate(fresh = false)
       .run(initial)
       .get

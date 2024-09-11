@@ -19,6 +19,8 @@ import scala.util.Try
 
 object JournalStatements {
 
+  final case class JournalRecord(event: EventRecord[EventualPayloadAndType], metaRecordId: Option[RecordId])
+
   def createTable(name: TableName): String = {
     s"""
        |CREATE TABLE IF NOT EXISTS ${name.toCql} (
@@ -31,6 +33,7 @@ object JournalStatements {
        |timestamp TIMESTAMP,
        |origin TEXT,
        |version TEXT,
+       |meta_record_id UUID,
        |tags SET<TEXT>,
        |metadata TEXT,
        |payload_type TEXT,
@@ -49,8 +52,12 @@ object JournalStatements {
     s"ALTER TABLE ${table.toCql} ADD version TEXT"
   }
 
+  def addMetaRecordId(table: TableName): String = {
+    s"ALTER TABLE ${table.toCql} ADD meta_record_id UUID"
+  }
+
   trait InsertRecords[F[_]] {
-    def apply(key: Key, segment: SegmentNr, events: Nel[EventRecord[EventualPayloadAndType]]): F[Unit]
+    def apply(key: Key, segment: SegmentNr, events: Nel[JournalRecord]): F[Unit]
   }
 
   object InsertRecords {
@@ -79,47 +86,49 @@ object JournalStatements {
            |timestamp,
            |origin,
            |version,
+           |meta_record_id,
            |tags,
            |payload_type,
            |payload_txt,
            |payload_bin,
            |metadata,
            |headers)
-           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            |""".stripMargin
 
       for {
         prepared <- query.prepare
-      } yield { (key: Key, segment: SegmentNr, events: Nel[EventRecord[EventualPayloadAndType]]) =>
-        def statementOf(record: EventRecord[EventualPayloadAndType]) = {
-          val event = record.event
-          val (payloadType, txt, bin) = event.payload.map { payloadAndType =>
-            val (text, bytes) = payloadAndType
-              .payload
-              .fold(
-                str   => (str.some, none[ByteVector]),
-                bytes => (none[String], bytes.some),
-              )
-            (payloadAndType.payloadType.some, text, bytes)
-          } getOrElse {
-            (None, None, None)
-          }
+      } yield { (key: Key, segment: SegmentNr, events: Nel[JournalRecord]) =>
+        def statementOf(record: JournalRecord) = {
+          val (payloadType, txt, bin) =
+            record.event.event.payload.map { payloadAndType =>
+              val (text, bytes) = payloadAndType
+                .payload
+                .fold(
+                  str   => (str.some, none[ByteVector]),
+                  bytes => (none[String], bytes.some),
+                )
+              (payloadAndType.payloadType.some, text, bytes)
+            } getOrElse {
+              (None, None, None)
+            }
 
           prepared
             .bind()
             .encode(key)
             .encode(segment)
-            .encode(event.seqNr)
-            .encode(record.partitionOffset)
-            .encode("timestamp", record.timestamp)
-            .encodeSome(record.origin)
-            .encodeSome(record.version)
-            .encode("tags", event.tags)
+            .encode(record.event.seqNr)
+            .encode(record.event.partitionOffset)
+            .encode("timestamp", record.event.timestamp)
+            .encodeSome(record.event.origin)
+            .encodeSome(record.event.version)
+            .encode("tags", record.event.event.tags)
+            .encodeSome("meta_record_id", record.metaRecordId)
             .encodeSome("payload_type", payloadType)
             .encodeSome("payload_txt", txt)
             .encodeSome("payload_bin", bin)
-            .encode("metadata", record.metadata)(encodeByNameRecordMetadata)
-            .encode(record.headers)
+            .encode("metadata", record.event.metadata)(encodeByNameRecordMetadata)
+            .encode(record.event.headers)
             .setConsistencyLevel(consistencyConfig.value)
         }
 
@@ -127,9 +136,7 @@ object JournalStatements {
           if (events.tail.isEmpty) {
             statementOf(events.head)
           } else {
-            events.foldLeft(new BatchStatement()) { (batch, event) =>
-              batch.add(statementOf(event))
-            }
+            events.foldLeft(new BatchStatement()) { (batch, record) => batch.add(statementOf(record)) }
           }
         }
         statement.setConsistencyLevel(consistencyConfig.value).first.void
@@ -139,7 +146,7 @@ object JournalStatements {
 
   trait SelectRecords[F[_]] {
 
-    def apply(key: Key, segment: SegmentNr, range: SeqRange): Stream[F, EventRecord[EventualPayloadAndType]]
+    def apply(key: Key, segment: SegmentNr, range: SeqRange): Stream[F, JournalRecord]
   }
 
   object SelectRecords {
@@ -162,6 +169,7 @@ object JournalStatements {
            |timestamp,
            |origin,
            |version,
+           |meta_record_id,
            |tags,
            |payload_type,
            |payload_txt,
@@ -213,7 +221,7 @@ object JournalStatements {
 
               val headers = row.decode[Headers]
 
-              EventRecord(
+              val eventRecord = EventRecord(
                 event           = event,
                 timestamp       = row.decode[Instant]("timestamp"),
                 origin          = row.decode[Option[Origin]],
@@ -221,6 +229,11 @@ object JournalStatements {
                 partitionOffset = partitionOffset,
                 metadata        = metadata,
                 headers         = headers,
+              )
+
+              JournalRecord(
+                event        = eventRecord,
+                metaRecordId = row.decode[Option[RecordId]]("meta_record_id"),
               )
             }
           }
