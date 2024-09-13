@@ -35,9 +35,15 @@ lazy val commonSettings = Seq(
   },
 )
 
-//import com.typesafe.tools.mima.core.*
-//ThisBuild / mimaBinaryIssueFilters ++= Seq(
-//)
+import com.typesafe.tools.mima.core.*
+ThisBuild / mimaBinaryIssueFilters ++= Seq(
+  ProblemFilters.exclude[DirectMissingMethodProblem](
+    "com.evolutiongaming.kafka.journal.replicator.TopicReplicatorMetrics.append",
+  ),
+  ProblemFilters.exclude[ReversedMissingMethodProblem](
+    "com.evolutiongaming.kafka.journal.replicator.TopicReplicatorMetrics.append",
+  ),
+)
 
 val alias: Seq[sbt.Def.Setting[?]] =
   addCommandAlias("fmt", "all scalafmtAll scalafmtSbt; scalafixEnable; scalafixAll") ++
