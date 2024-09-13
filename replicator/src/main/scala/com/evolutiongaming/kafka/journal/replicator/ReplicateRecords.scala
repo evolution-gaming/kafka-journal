@@ -72,8 +72,14 @@ object ReplicateRecords {
           def measure(events: Nel[EventRecord[EventualPayloadAndType]], expireAfter: Option[ExpireAfter]) = {
             for {
               measurements <- measurements(records.size)
-              result       <- metrics.append(events = events.length, bytes = bytes, measurements = measurements)
-              _            <- log.info(msg(events, measurements.replicationLatency, expireAfter))
+              version       = events.last.version.map(_.value).getOrElse("none")
+              result <- metrics.append(
+                events        = events.length,
+                bytes         = bytes,
+                clientVersion = version,
+                measurements  = measurements,
+              )
+              _ <- log.info(msg(events, measurements.replicationLatency, expireAfter))
             } yield result
           }
 
