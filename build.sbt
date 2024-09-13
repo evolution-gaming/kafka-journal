@@ -1,4 +1,5 @@
-import Dependencies._
+import Dependencies.*
+import sbt.Package.ManifestAttributes
 
 lazy val commonSettings = Seq(
   organization := "com.evolutiongaming",
@@ -18,7 +19,15 @@ lazy val commonSettings = Seq(
   libraryDependencySchemes ++= Seq(
     "org.scala-lang.modules" %% "scala-java8-compat" % "always",
     "org.scala-lang.modules" %% "scala-xml"          % "always"),
-  versionScheme := Some("early-semver"))
+  versionScheme := Some("early-semver"),
+  packageOptions := {
+    Seq(
+      ManifestAttributes(
+        ("Implementation-Version", (ThisProject / version).value),
+      ),
+    )
+  },
+)
 
 
 lazy val root = (project in file(".")
