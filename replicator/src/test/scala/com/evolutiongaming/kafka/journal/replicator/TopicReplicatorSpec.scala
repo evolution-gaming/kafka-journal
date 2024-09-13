@@ -956,7 +956,7 @@ object TopicReplicatorSpec {
 
   implicit val metrics: TopicReplicatorMetrics[StateT] = new TopicReplicatorMetrics[StateT] {
 
-    def append(events: Int, bytes: Long, measurements: Measurements) = {
+    def append(events: Int, bytes: Long, clientVersion: String, measurements: Measurements) = {
       StateT { s =>
         s + Metrics.Append(latency = measurements.replicationLatency, events = events, records = measurements.records)
       }
