@@ -81,6 +81,7 @@ object EventualCassandra {
       schema       <- SetupSchema[F](schemaConfig, origin, consistencyConfig)
       segmentNrsOf  = SegmentNrsOf[F](first = Segments.default, second = Segments.old)
       statements   <- Statements.of(schema, segmentNrsOf, Segments.default, consistencyConfig.read)
+      _            <- log.info(s"kafka-journal version: ${Version.current.value}")
     } yield {
       val journal = apply[F](statements).withLog(log)
       metrics

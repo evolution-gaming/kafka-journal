@@ -44,6 +44,7 @@ object ReplicatedCassandra {
       statements    <- Statements.of[F](schema, config.consistencyConfig)
       log           <- LogOf[F].apply(ReplicatedCassandra.getClass)
       expiryService <- ExpiryService.of[F]
+      _             <- log.info(s"kafka-journal version: ${Version.current.value}")
     } yield {
       val segmentOf = SegmentNrsOf[F](first = Segments.default, second = Segments.old)
       val journal = apply[F](config.segmentSize, segmentOf, statements, expiryService)
