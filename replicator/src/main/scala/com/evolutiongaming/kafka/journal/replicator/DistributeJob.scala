@@ -39,12 +39,28 @@ import scala.concurrent.duration.*
  * Please take into account that any job must be tolerant to execution of [[Resource]]'s release
  * action while it is still running. The service does not cancel or interrupt running jobs any other way 
  * than releasing corresponding [[Resource]]. 
+ * 
+ * Please note that Kafka topic used for job distribution must have at least as many partitions as the number of application nodes.
  */
 trait DistributeJob[F[_]] {
   import DistributeJob.Assigned
 
+  /**
+    * Assigns a job to be distributed across application nodes.
+    *
+    * @param name job name, expected to be unique within the application. Otherwise [[DistributeJobError]] will be raised.
+    * @param job job factory aimed to provide the job to process subset of its data based on Kafka partitions assignment.
+    * @return a resource that will be released when the job is done or failed.
+    */
   def apply(name: String)(job: Map[Partition, Assigned] => Option[Resource[F, Unit]]): Resource[F, Unit]
 
+  /**
+    * Assigns a job to one of the application nodes.
+    *
+    * @param name job name, expected to be unique within the application. Otherwise [[DistributeJobError]] will be raised.
+    * @param job the job to be done.
+    * @return a resource that will be released when the job is done or failed.
+    */
   def single(name: String)(job: Resource[F, Unit]): Resource[F, Unit]
 }
 
