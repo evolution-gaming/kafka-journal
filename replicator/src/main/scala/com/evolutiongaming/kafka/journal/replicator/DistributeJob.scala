@@ -16,11 +16,51 @@ import com.evolutiongaming.skafka.{Partition, Topic, TopicPartition}
 
 import scala.concurrent.duration.*
 
+/**
+ * [[DistributeJob]] is a service that distributes jobs across application nodes.
+ * 
+ * Distribution done with help of Apache Kafka consumers working within a single consumer group.
+ * Each job expected to process subset of its data based on Kafka partitions assignment, API:
+ * {{{
+ * val job = (assignedPartitions: Map[Partition, Assigned]) => {
+ *   assignedPartitions
+ *     .collect { case (assigned, true) => assigned }
+ *     .toList
+ *     .map(_.value)
+ *     .parTraverse_ { n: Int =>
+ *        val jobSubset: Resource[F, Unit] = ??? // use `n` in calculating job subset to be done
+ *         jobSubset
+ *      }
+ * }
+ * }}}
+ * 
+ * In case of Kafka partitions rebalance (i.e. on application node restart), the service will
+ * release jobs from unassigned partitions and re-allocate them to the new assigned partitions.
+ * Please take into account that any job must be tolerant to execution of [[Resource]]'s release
+ * action while it is still running. The service does not cancel or interrupt running jobs any other way 
+ * than releasing corresponding [[Resource]]. 
+ * 
+ * Please note that Kafka topic used for job distribution must have at least as many partitions as the number of application nodes.
+ */
 trait DistributeJob[F[_]] {
   import DistributeJob.Assigned
 
+  /**
+    * Assigns a job to be distributed across application nodes.
+    *
+    * @param name job name, expected to be unique within the application. Otherwise [[DistributeJobError]] will be raised.
+    * @param job job factory aimed to provide the job to process subset of its data based on Kafka partitions assignment.
+    * @return a resource that will be released when the job is done or failed.
+    */
   def apply(name: String)(job: Map[Partition, Assigned] => Option[Resource[F, Unit]]): Resource[F, Unit]
 
+  /**
+    * Assigns a job to one of the application nodes.
+    *
+    * @param name job name, expected to be unique within the application. Otherwise [[DistributeJobError]] will be raised.
+    * @param job the job to be done.
+    * @return a resource that will be released when the job is done or failed.
+    */
   def single(name: String)(job: Resource[F, Unit]): Resource[F, Unit]
 }
 
