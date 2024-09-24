@@ -1,6 +1,7 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.data.NonEmptyList as Nel
+import cats.effect.std.UUIDGen
 import cats.effect.syntax.all.*
 import cats.effect.{Async, Ref, Resource, Sync}
 import cats.syntax.all.*
@@ -9,6 +10,7 @@ import com.evolutiongaming.catshelper.ParallelHelper.*
 import com.evolutiongaming.catshelper.{LogOf, MeasureDuration, ToTry}
 import com.evolutiongaming.kafka.journal.eventual.*
 import com.evolutiongaming.kafka.journal.eventual.ReplicatedKeyJournal.Changed
+import com.evolutiongaming.kafka.journal.eventual.cassandra.JournalStatements.JournalRecord
 import com.evolutiongaming.kafka.journal.eventual.cassandra.ReplicatedCassandra.MetaJournalStatements.ByKey
 import com.evolutiongaming.kafka.journal.eventual.cassandra.SegmentNr.implicits.*
 import com.evolutiongaming.kafka.journal.util.CatsHelper.*
@@ -41,14 +43,24 @@ object ReplicatedCassandra {
       _             <- log.info(s"kafka-journal version: ${Version.current.value}")
     } yield {
       val segmentOf = SegmentNrsOf[F](first = Segments.default, second = Segments.old)
-      val journal   = apply[F](config.segmentSize, segmentOf, statements, expiryService).withLog(log)
+      val journal   = apply1[F](config.segmentSize, segmentOf, statements, expiryService).withLog(log)
       metrics
         .fold(journal) { metrics => journal.withMetrics(metrics) }
         .enhanceError
     }
   }
 
+  @deprecated("use `apply1` instead", "3.6.0")
   def apply[F[_]: Sync: Parallel: Fail](
+    segmentSizeDefault: SegmentSize,
+    segmentNrsOf: SegmentNrsOf[F],
+    statements: Statements[F],
+    expiryService: ExpiryService[F],
+  ): ReplicatedJournal[F] = {
+    apply1(segmentSizeDefault, segmentNrsOf, statements, expiryService)
+  }
+
+  def apply1[F[_]: Sync: Parallel: Fail: UUIDGen](
     segmentSizeDefault: SegmentSize,
     segmentNrsOf: SegmentNrsOf[F],
     statements: Statements[F],
@@ -139,7 +151,7 @@ object ReplicatedCassandra {
 
                         def partitionOffset = PartitionOffset(partition, offset)
 
-                        def append(segmentSize: SegmentSize, offset: Option[Offset]) = {
+                        def append(journalHead: JournalHead, offset: Option[Offset]) = {
 
                           @tailrec
                           def loop(
@@ -149,7 +161,8 @@ object ReplicatedCassandra {
                           ): F[Unit] = {
 
                             def insert(segment: Segment, events: Nel[EventRecord[EventualPayloadAndType]]) = {
-                              val next = statements.insertRecords(key, segment.nr, events)
+                              val records = events.map { event => JournalRecord(event, journalHead.recordId) }
+                              val next    = statements.insertRecords(key, segment.nr, records)
                               result *> next
                             }
 
@@ -162,7 +175,7 @@ object ReplicatedCassandra {
                                       case None       => loop(tail, (segment, head :: batch).some, result)
                                       case Some(next) => loop(tail, (next, Nel.of(head)).some, insert(segment, batch))
                                     }
-                                  case None => loop(tail, (Segment(seqNr, segmentSize), Nel.of(head)).some, result)
+                                  case None => loop(tail, (Segment(seqNr, journalHead.segmentSize), Nel.of(head)).some, result)
                                 }
 
                               case Nil => s.fold(result) { case (segment, batch) => insert(segment, batch) }
@@ -195,17 +208,20 @@ object ReplicatedCassandra {
                                     .expireOn(expireAfter, timestamp)
                                     .map { expireOn => Expiry(expireAfter, expireOn) }
                                 }
-                                .map { expiry =>
-                                  val journalHead = JournalHead(
-                                    partitionOffset = partitionOffset,
-                                    segmentSize     = segmentSizeDefault,
-                                    seqNr           = seqNrLast,
-                                    deleteTo        = deleteTo,
-                                    expiry          = expiry,
-                                  )
-                                  val origin = events.head.origin
-                                  val insert = metaJournal.insert(timestamp, journalHead, origin)
-                                  (insert, journalHead)
+                                .product(RecordId.of[F])
+                                .map {
+                                  case (expiry, recordId) =>
+                                    val journalHead = JournalHead(
+                                      partitionOffset = partitionOffset,
+                                      segmentSize     = segmentSizeDefault,
+                                      seqNr           = seqNrLast,
+                                      deleteTo        = deleteTo,
+                                      expiry          = expiry,
+                                      recordId        = recordId.some,
+                                    )
+                                    val origin = events.head.origin
+                                    val insert = metaJournal.insert(timestamp, journalHead, origin)
+                                    (insert, journalHead)
                                 }
                             } { journalHead =>
                               def updateOf: ByKey.Update[F] = metaJournal.update(partitionOffset, timestamp)
@@ -238,7 +254,7 @@ object ReplicatedCassandra {
                             val result = for {
                               saveAndJournalHead <- saveAndJournalHead
                               (save, journalHead) = saveAndJournalHead
-                              _                  <- append(journalHead.segmentSize, offset)
+                              _                  <- append(journalHead, offset)
                               _                  <- save
                             } yield {
                               journalHead.some

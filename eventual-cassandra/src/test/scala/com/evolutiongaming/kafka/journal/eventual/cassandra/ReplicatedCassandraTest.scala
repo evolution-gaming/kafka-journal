@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.data.{IndexedStateT, NonEmptyList as Nel}
 import cats.effect.kernel.CancelScope
+import cats.effect.std.UUIDGen
 import cats.effect.{Poll, Sync}
 import cats.implicits.*
 import cats.syntax.all.none
@@ -11,6 +12,7 @@ import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
 import com.evolutiongaming.kafka.journal.eventual.EventualPayloadAndType
 import com.evolutiongaming.kafka.journal.eventual.cassandra.ExpireOn.implicits.*
+import com.evolutiongaming.kafka.journal.eventual.cassandra.JournalStatements.JournalRecord
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
 import com.evolutiongaming.kafka.journal.util.TemporalHelper.*
 import com.evolutiongaming.kafka.journal.util.{Fail, MonadCancelFromMonadError}
@@ -20,6 +22,7 @@ import org.scalatest.matchers.should.Matchers
 import play.api.libs.json.Json
 
 import java.time.{Instant, LocalDate, ZoneOffset}
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.*
 import scala.util.Try
@@ -34,10 +37,12 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
   private val partitionOffset = PartitionOffset.empty
   private val origin          = Origin("origin")
   private val version         = Version.current
+  private val uuid            = UUID.randomUUID
+  private val recordId        = RecordId(uuid)
   private val record          = eventRecordOf(SeqNr.min, partitionOffset)
 
   private def eventRecordOf(seqNr: SeqNr, partitionOffset: PartitionOffset) = {
-    EventRecord(
+    val event = EventRecord(
       event           = Event[EventualPayloadAndType](seqNr),
       timestamp       = timestamp0,
       partitionOffset = partitionOffset,
@@ -46,6 +51,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       metadata        = RecordMetadata(HeaderMetadata(Json.obj(("key", "value")).some), PayloadMetadata.empty),
       headers         = Headers(("key", "value")),
     )
+    JournalRecord(event, recordId.some)
   }
 
   for {
@@ -57,8 +63,11 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     val segmentOfId                     = SegmentOf[Id](segmentsFirst)
     val journal = {
       implicit val parallel = Parallel.identity[StateT]
+      implicit val uuidGen = new UUIDGen[StateT] {
+        override def randomUUID = uuid.pure[StateT]
+      }
       ReplicatedCassandra
-        .apply(
+        .apply1(
           segmentSize,
           segmentNrsOf,
           statements,
@@ -78,7 +87,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val stateT = for {
         topics <- journal.topics
         _       = topics shouldEqual Set.empty
-        _      <- journal.append(key, partitionOffset.partition, partitionOffset.offset, timestamp0, none, Nel.of(record))
+        _      <- journal.append(key, partitionOffset.partition, partitionOffset.offset, timestamp0, none, Nel.of(record.event))
         topics <- journal.topics
         _       = topics shouldEqual Set.empty
         _      <- journal.offsetCreate(topic0, Partition.min, Offset.min, timestamp0)
@@ -103,7 +112,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(partitionOffset, segmentSize, SeqNr.min),
+            JournalHead(partitionOffset, segmentSize, SeqNr.min, recordId = recordId.some),
             origin.some,
           ),
           Action.InsertRecords(key, SegmentNr.min, 1),
@@ -124,6 +133,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                     segmentSize     = segmentSize,
                     seqNr           = SeqNr.min,
                     deleteTo        = SeqNr.min.toDeleteTo.some,
+                    recordId        = recordId.some,
                   ),
                   created = timestamp0,
                   updated = timestamp1,
@@ -145,7 +155,14 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val stateT = for {
         offset <- journal.offset(topic0, Partition.min)
         _       = offset shouldEqual none
-        _ <- journal.append(key, partitionOffset.partition, partitionOffset.offset, timestamp0, none[ExpireAfter], Nel.of(record))
+        _ <- journal.append(
+          key,
+          partitionOffset.partition,
+          partitionOffset.offset,
+          timestamp0,
+          none[ExpireAfter],
+          Nel.of(record.event),
+        )
         offset <- journal.offset(topic0, Partition.min)
         _       = offset shouldEqual none
         _      <- journal.offsetCreate(topic0, Partition.min, Offset.min, timestamp0)
@@ -166,7 +183,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(partitionOffset, segmentSize, SeqNr.min),
+            JournalHead(partitionOffset, segmentSize, SeqNr.min, recordId = recordId.some),
             origin.some,
           ),
           Action.InsertRecords(key, SegmentNr.min, 1),
@@ -182,10 +199,15 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
               (
                 id,
                 MetaJournalEntry(
-                  journalHead = JournalHead(partitionOffset = partitionOffset, segmentSize = segmentSize, seqNr = SeqNr.min),
-                  created     = timestamp0,
-                  updated     = timestamp0,
-                  origin      = origin.some,
+                  journalHead = JournalHead(
+                    partitionOffset = partitionOffset,
+                    segmentSize     = segmentSize,
+                    seqNr           = SeqNr.min,
+                    recordId        = recordId.some,
+                  ),
+                  created = timestamp0,
+                  updated = timestamp0,
+                  origin  = origin.some,
                 ),
               ),
             ),
@@ -212,7 +234,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           Offset.min,
           timestamp   = timestamp0,
           expireAfter = expiry.after.some,
-          events = Nel.of(eventRecordOf(seqNr = SeqNr.unsafe(1), partitionOffset = PartitionOffset(Partition.min, Offset.min))),
+          events =
+            Nel.of(eventRecordOf(seqNr = SeqNr.unsafe(1), partitionOffset = PartitionOffset(Partition.min, Offset.min)).event),
         )
         _ <- journal.append(
           key = key0,
@@ -221,8 +244,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           timestamp   = timestamp1,
           expireAfter = none,
           events = Nel.of(
-            eventRecordOf(seqNr = SeqNr.unsafe(2), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1))),
-            eventRecordOf(seqNr = SeqNr.unsafe(3), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2))),
+            eventRecordOf(seqNr = SeqNr.unsafe(2), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1))).event,
+            eventRecordOf(seqNr = SeqNr.unsafe(3), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2))).event,
           ),
         )
         _ <- journal.append(
@@ -231,12 +254,13 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           Offset.unsafe(4),
           timestamp   = timestamp0,
           expireAfter = none,
-          events =
-            Nel.of(eventRecordOf(seqNr = SeqNr.unsafe(1), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(4)))),
+          events = Nel.of(
+            eventRecordOf(seqNr = SeqNr.unsafe(1), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(4))).event,
+          ),
         )
       } yield {}
 
-      val events0 = Nel
+      val records0 = Nel
         .of(
           eventRecordOf(seqNr = SeqNr.unsafe(1), partitionOffset = PartitionOffset(Partition.min, Offset.min)),
           eventRecordOf(seqNr = SeqNr.unsafe(2), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1))),
@@ -247,7 +271,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         .map {
           case (events, segmentNr) =>
             val map = events
-              .map { a => ((a.seqNr, a.timestamp), a) }
+              .map { a => ((a.event.seqNr, a.event.timestamp), a) }
               .toList
               .toMap
             ((key0, SegmentNr.unsafe(segmentNr)), map)
@@ -262,7 +286,12 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment1,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(4)), segmentSize, SeqNr.min),
+            JournalHead(
+              PartitionOffset(Partition.min, Offset.unsafe(4)),
+              segmentSize,
+              SeqNr.min,
+              recordId = recordId.some,
+            ),
             origin.some,
           ),
           Action.InsertRecords(key1, SegmentNr.min, 1),
@@ -275,7 +304,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment0,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(partitionOffset, segmentSize, SeqNr.min, none, expiry.some),
+            JournalHead(partitionOffset, segmentSize, SeqNr.min, none, expiry.some, recordId = recordId.some),
             origin.some,
           ),
           Action.InsertRecords(key0, SegmentNr.min, 1),
@@ -287,7 +316,12 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment1,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(4)), segmentSize, SeqNr.min),
+            JournalHead(
+              PartitionOffset(Partition.min, Offset.unsafe(4)),
+              segmentSize,
+              SeqNr.min,
+              recordId = recordId.some,
+            ),
             origin.some,
           ),
           Action.InsertRecords(key1, SegmentNr.min, 1),
@@ -299,7 +333,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment0,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(partitionOffset, segmentSize, SeqNr.min, none, expiry.some),
+            JournalHead(partitionOffset, segmentSize, SeqNr.min, none, expiry.some, recordId = recordId.some),
             origin.some,
           ),
           Action.InsertRecords(key0, SegmentNr.min, 1),
@@ -321,6 +355,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                     seqNr           = SeqNr.unsafe(3),
                     deleteTo        = none,
                     expiry          = none,
+                    recordId        = recordId.some,
                   ),
                   created = timestamp0,
                   updated = timestamp1,
@@ -339,6 +374,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                     partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(4)),
                     segmentSize     = segmentSize,
                     seqNr           = SeqNr.unsafe(1),
+                    recordId        = recordId.some,
                   ),
                   created = timestamp0,
                   updated = timestamp0,
@@ -348,7 +384,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             ),
           ),
         ),
-        journal = events0 ++ Map(
+        journal = records0 ++ Map(
           (
             (key1, SegmentNr.min),
             Map(
@@ -377,7 +413,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           Offset.min,
           timestamp   = timestamp0,
           expireAfter = expiry0.after.some,
-          events = Nel.of(eventRecordOf(seqNr = SeqNr.unsafe(1), partitionOffset = PartitionOffset(Partition.min, Offset.min))),
+          events =
+            Nel.of(eventRecordOf(seqNr = SeqNr.unsafe(1), partitionOffset = PartitionOffset(Partition.min, Offset.min)).event),
         )
         _ <- journal.append(
           key = key,
@@ -386,13 +423,13 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           timestamp   = timestamp1,
           expireAfter = expiry1.after.some,
           events = Nel.of(
-            eventRecordOf(seqNr = SeqNr.unsafe(2), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1))),
-            eventRecordOf(seqNr = SeqNr.unsafe(3), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2))),
+            eventRecordOf(seqNr = SeqNr.unsafe(2), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1))).event,
+            eventRecordOf(seqNr = SeqNr.unsafe(3), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2))).event,
           ),
         )
       } yield {}
 
-      val events0 = Nel
+      val records0 = Nel
         .of(
           eventRecordOf(seqNr = SeqNr.unsafe(1), partitionOffset = PartitionOffset(Partition.min, Offset.min)),
           eventRecordOf(seqNr = SeqNr.unsafe(2), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1))),
@@ -401,9 +438,9 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         .grouped(segmentSize.value)
         .zipWithIndex
         .map {
-          case (events, segmentNr) =>
-            val map = events
-              .map { a => ((a.seqNr, a.timestamp), a) }
+          case (records, segmentNr) =>
+            val map = records
+              .map { a => ((a.event.seqNr, a.event.timestamp), a) }
               .toList
               .toMap
             ((key, SegmentNr.unsafe(segmentNr)), map)
@@ -422,7 +459,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(partitionOffset, segmentSize, SeqNr.min, none, expiry0.some),
+            JournalHead(partitionOffset, segmentSize, SeqNr.min, none, expiry0.some, recordId = recordId.some),
             origin.some,
           ),
           Action.InsertRecords(key, SegmentNr.min, 1),
@@ -437,7 +474,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(partitionOffset, segmentSize, SeqNr.min, none, expiry0.some),
+            JournalHead(partitionOffset, segmentSize, SeqNr.min, none, expiry0.some, recordId = recordId.some),
             origin.some,
           ),
           Action.InsertRecords(key, SegmentNr.min, 1),
@@ -459,6 +496,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                     seqNr           = SeqNr.unsafe(3),
                     deleteTo        = none,
                     expiry          = expiry1.some,
+                    recordId        = recordId.some,
                   ),
                   created = timestamp0,
                   updated = timestamp1,
@@ -468,7 +506,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             ),
           ),
         ),
-        journal = events0,
+        journal = records0,
       )
       val result = stateT.run(State.empty)
       result shouldEqual (expected, ()).pure[Try]
@@ -490,8 +528,9 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           Offset.unsafe(1),
           timestamp   = timestamp0,
           expireAfter = expiry0.after.some,
-          events =
-            Nel.of(eventRecordOf(seqNr = SeqNr.unsafe(1), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)))),
+          events = Nel.of(
+            eventRecordOf(seqNr = SeqNr.unsafe(1), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1))).event,
+          ),
         )
         _ <- journal.append(
           key = key,
@@ -499,8 +538,9 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           Offset.unsafe(2),
           timestamp   = timestamp1,
           expireAfter = expiry1.after.some,
-          events =
-            Nel.of(eventRecordOf(seqNr = SeqNr.unsafe(2), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)))),
+          events = Nel.of(
+            eventRecordOf(seqNr = SeqNr.unsafe(2), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2))).event,
+          ),
         )
       } yield {}
 
@@ -514,7 +554,14 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(1)), segmentSize, SeqNr.unsafe(1), none, expiry0.some),
+            JournalHead(
+              PartitionOffset(Partition.min, Offset.unsafe(1)),
+              segmentSize,
+              SeqNr.unsafe(1),
+              none,
+              expiry0.some,
+              recordId.some,
+            ),
             origin.some,
           ),
           Action.InsertRecords(key, SegmentNr.min, 1),
@@ -532,6 +579,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                     seqNr           = SeqNr.unsafe(2),
                     deleteTo        = none,
                     expiry          = expiry1.some,
+                    recordId        = recordId.some,
                   ),
                   created = timestamp0,
                   updated = timestamp1,
@@ -575,8 +623,9 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           Offset.unsafe(1),
           timestamp   = timestamp0,
           expireAfter = expiry.after.some,
-          events =
-            Nel.of(eventRecordOf(seqNr = SeqNr.unsafe(1), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)))),
+          events = Nel.of(
+            eventRecordOf(seqNr = SeqNr.unsafe(1), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1))).event,
+          ),
         )
         _ <- journal.append(
           key = key,
@@ -584,8 +633,9 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           Offset.unsafe(2),
           timestamp   = timestamp1,
           expireAfter = expiry.after.some,
-          events =
-            Nel.of(eventRecordOf(seqNr = SeqNr.unsafe(2), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)))),
+          events = Nel.of(
+            eventRecordOf(seqNr = SeqNr.unsafe(2), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2))).event,
+          ),
         )
       } yield {}
 
@@ -598,7 +648,14 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(1)), segmentSize, SeqNr.unsafe(1), none, expiry.some),
+            JournalHead(
+              PartitionOffset(Partition.min, Offset.unsafe(1)),
+              segmentSize,
+              SeqNr.unsafe(1),
+              none,
+              expiry.some,
+              recordId.some,
+            ),
             origin.some,
           ),
           Action.InsertRecords(key, SegmentNr.min, 1),
@@ -616,6 +673,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                     seqNr           = SeqNr.unsafe(2),
                     deleteTo        = none,
                     expiry          = expiry.some,
+                    recordId        = recordId.some,
                   ),
                   created = timestamp0,
                   updated = timestamp1,
@@ -659,8 +717,9 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           Offset.unsafe(1),
           timestamp   = timestamp0,
           expireAfter = expiry.after.some,
-          events =
-            Nel.of(eventRecordOf(seqNr = SeqNr.unsafe(1), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)))),
+          events = Nel.of(
+            eventRecordOf(seqNr = SeqNr.unsafe(1), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1))).event,
+          ),
         )
         _ <- journal.append(
           key = key,
@@ -668,8 +727,9 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           Offset.unsafe(2),
           timestamp   = timestamp1,
           expireAfter = none,
-          events =
-            Nel.of(eventRecordOf(seqNr = SeqNr.unsafe(2), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)))),
+          events = Nel.of(
+            eventRecordOf(seqNr = SeqNr.unsafe(2), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2))).event,
+          ),
         )
       } yield {}
 
@@ -683,7 +743,14 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(1)), segmentSize, SeqNr.unsafe(1), none, expiry.some),
+            JournalHead(
+              PartitionOffset(Partition.min, Offset.unsafe(1)),
+              segmentSize,
+              SeqNr.unsafe(1),
+              none,
+              expiry.some,
+              recordId.some,
+            ),
             origin.some,
           ),
           Action.InsertRecords(key, SegmentNr.min, 1),
@@ -699,6 +766,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                     partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
                     segmentSize     = segmentSize,
                     seqNr           = SeqNr.unsafe(2),
+                    recordId        = recordId.some,
                   ),
                   created = timestamp0,
                   updated = timestamp1,
@@ -739,8 +807,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         timestamp   = timestamp1,
         expireAfter = none,
         events = Nel.of(
-          eventRecordOf(seqNr = SeqNr.unsafe(1), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1))),
-          eventRecordOf(seqNr = SeqNr.unsafe(2), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(3))),
+          eventRecordOf(seqNr = SeqNr.unsafe(1), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1))).event,
+          eventRecordOf(seqNr = SeqNr.unsafe(2), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(3))).event,
         ),
       )
 
@@ -760,6 +828,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                     partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(4)),
                     segmentSize     = segmentSize,
                     seqNr           = SeqNr.unsafe(2),
+                    recordId        = recordId.some,
                   ),
                   created = timestamp0,
                   updated = timestamp1,
@@ -796,6 +865,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                       partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
                       segmentSize     = segmentSize,
                       seqNr           = SeqNr.unsafe(1),
+                      recordId        = recordId.some,
                     ),
                     created = timestamp0,
                     updated = timestamp0,
@@ -822,7 +892,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           Offset.unsafe(1),
           timestamp   = timestamp0,
           expireAfter = none,
-          events      = Nel.of(eventRecordOf(seqNr = SeqNr.min, partitionOffset = PartitionOffset(Partition.min, Offset.min))),
+          events = Nel.of(eventRecordOf(seqNr = SeqNr.min, partitionOffset = PartitionOffset(Partition.min, Offset.min)).event),
         )
         _ <- journal.delete(
           key = key,
@@ -857,7 +927,12 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(1)), segmentSize, SeqNr.min),
+            JournalHead(
+              PartitionOffset(Partition.min, Offset.unsafe(1)),
+              segmentSize,
+              SeqNr.min,
+              recordId = recordId.some,
+            ),
             origin.some,
           ),
           Action.InsertRecords(key, SegmentNr.min, 1),
@@ -875,6 +950,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                     seqNr           = SeqNr.min,
                     deleteTo        = SeqNr.min.toDeleteTo.some,
                     expiry          = none,
+                    recordId        = recordId.some,
                   ),
                   created = timestamp0,
                   updated = timestamp1,
@@ -918,6 +994,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                       seqNr           = SeqNr.min,
                       deleteTo        = SeqNr.min.toDeleteTo.some,
                       expiry          = none,
+                      recordId        = recordId.some,
                     ),
                     created = timestamp0,
                     updated = timestamp0,
@@ -944,6 +1021,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                     seqNr           = SeqNr.min,
                     deleteTo        = SeqNr.min.toDeleteTo.some,
                     expiry          = none,
+                    recordId        = recordId.some,
                   ),
                   created = timestamp0,
                   updated = timestamp0,
@@ -972,8 +1050,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           timestamp   = timestamp0,
           expireAfter = none,
           events = Nel.of(
-            eventRecordOf(seqNr = SeqNr.unsafe(1), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1))),
-            eventRecordOf(seqNr = SeqNr.unsafe(2), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2))),
+            eventRecordOf(seqNr = SeqNr.unsafe(1), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1))).event,
+            eventRecordOf(seqNr = SeqNr.unsafe(2), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2))).event,
           ),
         )
         _ <- journal.purge(key, Partition.min, Offset.unsafe(4), timestamp1)
@@ -995,7 +1073,12 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(3)), segmentSize, SeqNr.unsafe(2)),
+            JournalHead(
+              PartitionOffset(Partition.min, Offset.unsafe(3)),
+              segmentSize,
+              SeqNr.unsafe(2),
+              recordId = recordId.some,
+            ),
             origin.some,
           ),
           Action.InsertRecords(key, SegmentNr.min, 2),
@@ -1009,7 +1092,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val key     = Key(id = id, topic = topic0)
       val segment = segmentOfId(key)
       val stateT = for {
-        _ <- journal.append(key, partitionOffset.partition, partitionOffset.offset, timestamp0, none, Nel.of(record))
+        _ <- journal.append(key, partitionOffset.partition, partitionOffset.offset, timestamp0, none, Nel.of(record.event))
         _ <- journal.purge(key, partitionOffset.partition, partitionOffset.offset, timestamp0)
       } yield {}
 
@@ -1022,7 +1105,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(partitionOffset, segmentSize, SeqNr.min),
+            JournalHead(partitionOffset, segmentSize, SeqNr.min, recordId = recordId.some),
             origin.some,
           ),
           Action.InsertRecords(key, SegmentNr.min, 1),
@@ -1052,8 +1135,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           timestamp   = timestamp0,
           expireAfter = none,
           events = Nel.of(
-            eventRecordOf(seqNr = SeqNr.unsafe(1), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1))),
-            eventRecordOf(seqNr = SeqNr.unsafe(2), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2))),
+            eventRecordOf(seqNr = SeqNr.unsafe(1), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1))).event,
+            eventRecordOf(seqNr = SeqNr.unsafe(2), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2))).event,
           ),
         )
         _ <- journal.delete(key, Partition.min, Offset.unsafe(4), timestamp0, SeqNr.unsafe(2).toDeleteTo, origin.some)
@@ -1076,7 +1159,12 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(PartitionOffset(Partition.min, Offset.unsafe(3)), segmentSize, SeqNr.unsafe(2)),
+            JournalHead(
+              PartitionOffset(Partition.min, Offset.unsafe(3)),
+              segmentSize,
+              SeqNr.unsafe(2),
+              recordId = recordId.some,
+            ),
             origin.some,
           ),
           Action.InsertRecords(key, SegmentNr.min, 2),
@@ -1084,12 +1172,203 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       )
       actual shouldEqual (expected, ()).pure[Try]
     }
+
+    test(s"not set correlation ID, $suffix") {
+      val id      = "id"
+      val key     = Key(id = id, topic = topic0)
+      val segment = segmentOfId(key)
+
+      def partitionOffset(offset: Long) = PartitionOffset(Partition.min, Offset.unsafe(offset))
+
+      val record0 = eventRecordOf(SeqNr.min, partitionOffset(0)).copy(metaRecordId = none)
+      val record1 = eventRecordOf(SeqNr.min.next[Id], partitionOffset(1)).copy(metaRecordId = none)
+
+      val stateT = journal.append(
+        key = key,
+        Partition.min,
+        Offset.unsafe(1),
+        timestamp   = timestamp1,
+        expireAfter = none,
+        events      = Nel.of(record1.event),
+      )
+
+      val initial = State
+        .empty
+        .copy(
+          metaJournal = Map(
+            (
+              (topic0, segment),
+              Map(
+                (
+                  id,
+                  MetaJournalEntry(
+                    journalHead = JournalHead(
+                      partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(0)),
+                      segmentSize     = segmentSize,
+                      seqNr           = SeqNr.min,
+                      recordId        = none,
+                    ),
+                    created = timestamp0,
+                    updated = timestamp0,
+                    origin  = origin.some,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          journal = Map(
+            (
+              (key, SegmentNr.min),
+              Map(
+                ((SeqNr.min, timestamp0), record0),
+              ),
+            ),
+          ),
+        )
+
+      val expected = State(
+        actions = List(
+          Action.UpdateSeqNr(key, segment, PartitionOffset(Partition.min, Offset.unsafe(1)), timestamp1, SeqNr.min.next[Id]),
+          Action.InsertRecords(key, SegmentNr.min, 1),
+        ),
+        metaJournal = Map(
+          (
+            (topic0, segment),
+            Map(
+              (
+                id,
+                MetaJournalEntry(
+                  journalHead = JournalHead(
+                    partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)),
+                    segmentSize     = segmentSize,
+                    seqNr           = SeqNr.min.next[Id],
+                    expiry          = none,
+                    recordId        = none,
+                  ),
+                  created = timestamp0,
+                  updated = timestamp1,
+                  origin  = origin.some,
+                ),
+              ),
+            ),
+          ),
+        ),
+        journal = Map(
+          (
+            (key, SegmentNr.min),
+            Map(
+              ((SeqNr.min, timestamp0), record0),
+              ((SeqNr.min.next[Id], timestamp0), record1),
+            ),
+          ),
+        ),
+      )
+
+      val actual = stateT.run(initial)
+      actual shouldEqual (expected, true).pure[Try]
+    }
+
+    test(s"not update correlation ID, $suffix") {
+      val id      = "id"
+      val key     = Key(id = id, topic = topic0)
+      val segment = segmentOfId(key)
+      val rid0    = RecordId.unsafe
+
+      def partitionOffset(offset: Long) = PartitionOffset(Partition.min, Offset.unsafe(offset))
+
+      val record0 = eventRecordOf(SeqNr.min, partitionOffset(0)).copy(metaRecordId = rid0.some)
+      val record1 = eventRecordOf(SeqNr.min.next[Id], partitionOffset(1)).copy(metaRecordId = none)
+
+      val stateT = journal.append(
+        key = key,
+        Partition.min,
+        Offset.unsafe(1),
+        timestamp   = timestamp1,
+        expireAfter = none,
+        events      = Nel.of(record1.event),
+      )
+
+      val initial = State
+        .empty
+        .copy(
+          metaJournal = Map(
+            (
+              (topic0, segment),
+              Map(
+                (
+                  id,
+                  MetaJournalEntry(
+                    journalHead = JournalHead(
+                      partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(0)),
+                      segmentSize     = segmentSize,
+                      seqNr           = SeqNr.min,
+                      recordId        = rid0.some,
+                    ),
+                    created = timestamp0,
+                    updated = timestamp0,
+                    origin  = origin.some,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          journal = Map(
+            (
+              (key, SegmentNr.min),
+              Map(
+                ((SeqNr.min, timestamp0), record0),
+              ),
+            ),
+          ),
+        )
+
+      val expected = State(
+        actions = List(
+          Action.UpdateSeqNr(key, segment, PartitionOffset(Partition.min, Offset.unsafe(1)), timestamp1, SeqNr.min.next[Id]),
+          Action.InsertRecords(key, SegmentNr.min, 1),
+        ),
+        metaJournal = Map(
+          (
+            (topic0, segment),
+            Map(
+              (
+                id,
+                MetaJournalEntry(
+                  journalHead = JournalHead(
+                    partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)),
+                    segmentSize     = segmentSize,
+                    seqNr           = SeqNr.min.next[Id],
+                    expiry          = none,
+                    recordId        = rid0.some,
+                  ),
+                  created = timestamp0,
+                  updated = timestamp1,
+                  origin  = origin.some,
+                ),
+              ),
+            ),
+          ),
+        ),
+        journal = Map(
+          (
+            (key, SegmentNr.min),
+            Map(
+              ((SeqNr.min, timestamp0), record0),
+              ((SeqNr.min.next[Id], timestamp0), record1.copy(metaRecordId = rid0.some)),
+            ),
+          ),
+        ),
+      )
+
+      val actual = stateT.run(initial)
+      actual shouldEqual (expected, true).pure[Try]
+    }
   }
 }
 
 object ReplicatedCassandraTest {
 
-  val insertRecords: JournalStatements.InsertRecords[StateT] = { (key, segment, events) =>
+  val insertRecords: JournalStatements.InsertRecords[StateT] = { (key, segment, records) =>
     {
       StateT.unit { state =>
         val k = (key, segment)
@@ -1097,14 +1376,14 @@ object ReplicatedCassandraTest {
           .journal
           .getOrElse(k, Map.empty)
 
-        val entries1 = events.foldLeft(entries) { (entries, event) =>
-          entries.updated((event.seqNr, event.timestamp), event)
+        val entries1 = records.foldLeft(entries) { (entries, record) =>
+          entries.updated((record.event.seqNr, record.event.timestamp), record)
         }
 
         val journal1 = state.journal.updated(k, entries1)
         state
           .copy(journal = journal1)
-          .append(Action.InsertRecords(key, segment, events.size))
+          .append(Action.InsertRecords(key, segment, records.size))
       }
     }
   }
@@ -1444,10 +1723,10 @@ object ReplicatedCassandraTest {
   }
 
   final case class State(
-    actions: List[Action]                                                                      = List.empty,
-    pointers: Map[Topic, Map[Partition, PointerEntry]]                                         = Map.empty,
-    metaJournal: Map[(Topic, SegmentNr), Map[String, MetaJournalEntry]]                        = Map.empty,
-    journal: Map[(Key, SegmentNr), Map[(SeqNr, Instant), EventRecord[EventualPayloadAndType]]] = Map.empty,
+    actions: List[Action]                                                = List.empty,
+    pointers: Map[Topic, Map[Partition, PointerEntry]]                   = Map.empty,
+    metaJournal: Map[(Topic, SegmentNr), Map[String, MetaJournalEntry]]  = Map.empty,
+    journal: Map[(Key, SegmentNr), Map[(SeqNr, Instant), JournalRecord]] = Map.empty,
   )
 
   object State {

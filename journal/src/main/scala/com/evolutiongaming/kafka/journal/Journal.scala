@@ -332,17 +332,25 @@ object Journal {
     implicit val configReaderConsumerPoolConfig: ConfigReader[ConsumerPoolConfig] = deriveReader
   }
 
-  trait DataIntegrityConfig {
-    def seqNrUniqueness: Boolean
-  }
+  final case class DataIntegrityConfig(
+    /**
+      * If true then duplicated [[SeqNr]] in events will cause [[JournalError]] `Data integrity violated`
+      */
+    seqNrUniqueness: Boolean,
+
+    /**
+      * If true then events with [[RecordId]] different from one in metadata will be filtered out
+      */
+    correlateEventsWithMeta: Boolean,
+  )
 
   object DataIntegrityConfig {
 
-    private case class Implementation(seqNrUniqueness: Boolean) extends DataIntegrityConfig
+    val Default: DataIntegrityConfig = DataIntegrityConfig(
+      seqNrUniqueness         = true,
+      correlateEventsWithMeta = false,
+    )
 
-    val Default: DataIntegrityConfig = Implementation(seqNrUniqueness = true)
-
-    implicit val configReaderDataIntegrityConfig: ConfigReader[DataIntegrityConfig] =
-      deriveReader[Implementation].map(a => a: DataIntegrityConfig)
+    implicit val configReaderDataIntegrityConfig: ConfigReader[DataIntegrityConfig] = deriveReader
   }
 }

@@ -5,9 +5,10 @@ import cats.effect.syntax.all.*
 import cats.effect.{Concurrent, Resource}
 import cats.syntax.all.*
 import cats.{MonadThrow, Parallel}
-import com.evolutiongaming.catshelper.{LogOf, MeasureDuration, ToTry}
+import com.evolutiongaming.catshelper.{Log, LogOf, MeasureDuration, ToTry}
 import com.evolutiongaming.kafka.journal.Journal.DataIntegrityConfig
 import com.evolutiongaming.kafka.journal.eventual.*
+import com.evolutiongaming.kafka.journal.eventual.cassandra.JournalStatements.JournalRecord
 import com.evolutiongaming.kafka.journal.util.CatsHelper.*
 import com.evolutiongaming.kafka.journal.util.StreamHelper.*
 import com.evolutiongaming.kafka.journal.{cassandra as _, *}
@@ -122,7 +123,8 @@ object EventualCassandra {
       statements  <- Statements.of(schema, segmentNrsOf, Segments.default, consistencyConfig.read)
       _           <- log.info(s"kafka-journal version: ${Version.current.value}")
     } yield {
-      val journal = apply1[F](statements, dataIntegrity).withLog(log)
+      implicit val log1 = log
+      val journal       = apply2[F](statements, dataIntegrity).withLog(log)
       metrics
         .fold(journal) { metrics => journal.withMetrics(metrics) }
         .enhanceError
@@ -145,7 +147,13 @@ object EventualCassandra {
     * The implementation itself is abstracted from the calls to Cassandra which
     * should be passed as part of [[Statements]] parameter.
     */
+  @deprecated("Use apply2 instead", "3.6.0")
   def apply1[F[_]: MonadThrow](statements: Statements[F], dataIntegrity: DataIntegrityConfig): EventualJournal[F] = {
+    implicit val log = Log.empty[F]
+    apply2(statements, dataIntegrity)
+  }
+
+  def apply2[F[_]: MonadThrow: Log](statements: Statements[F], dataIntegrity: DataIntegrityConfig): EventualJournal[F] = {
 
     new Main with EventualJournal[F] {
 
@@ -166,12 +174,12 @@ object EventualCassandra {
               statement(key, segment.nr, range).map { record => (record, segment) }
             }
 
-            val events =
+            val records =
               read(from, Segment(from, head.segmentSize))
                 .chain {
                   case (record, segment) =>
                     for {
-                      from    <- record.seqNr.next[Option]
+                      from    <- record.event.seqNr.next[Option]
                       segment <- segment.next(from)
                     } yield {
                       read(from, segment)
@@ -179,25 +187,66 @@ object EventualCassandra {
                 }
                 .map { case (record, _) => record }
 
-            if (dataIntegrity.seqNrUniqueness) {
-              events
-                .stateful(from) {
-                  case (seqNr, record) =>
-                    if (seqNr <= record.seqNr) {
-                      val seqNr1 = record
-                        .seqNr
-                        .next[Option]
-                      (seqNr1, Stream[F].single(record))
-                    } else {
-                      val msg =
-                        s"Data integrity violated: seqNr $seqNr duplicated in multiple records from eventual journal, key $key"
-                      val err = new JournalError(msg)
-                      (seqNr.some, err.raiseError[F, EventRecord[EventualPayloadAndType]].toStream)
-                    }
+            val records1 = {
+              head.recordId.fold { records } { fromMeta =>
+                records.flatMap { event =>
+                  event.metaRecordId match {
+
+                    case None if dataIntegrity.correlateEventsWithMeta =>
+                      for {
+                        _ <- Log[F].error(s"Data integrity violated: event $event is orphan, key $key").toStream
+                        r <- Stream.empty[F, JournalRecord]
+                      } yield r
+
+                    case None =>
+                      Log[F]
+                        .warn(s"Disabled data integrity violated: event $event is orphan, key $key")
+                        .toStream
+                        .as(event)
+
+                    case Some(fromEvent) if fromEvent == fromMeta =>
+                      Stream.single(event)
+
+                    case Some(_) if dataIntegrity.correlateEventsWithMeta =>
+                      for {
+                        _ <- Log[F].error(s"Data integrity violated: event $event belongs to purged meta, key $key").toStream
+                        r <- Stream.empty[F, JournalRecord]
+                      } yield r
+
+                    case Some(_) =>
+                      Log[F]
+                        .warn(s"Disabled data integrity violated: event $event belongs to purged meta, key $key")
+                        .toStream
+                        .as(event)
+
+                  }
                 }
-            } else {
-              events
+              }
             }
+
+            val records2 =
+              if (dataIntegrity.seqNrUniqueness) {
+                records1
+                  .stateful(from) {
+                    case (seqNr, record) =>
+                      if (seqNr <= record.event.seqNr) {
+                        val seqNr1 = record
+                          .event
+                          .seqNr
+                          .next[Option]
+                        (seqNr1, Stream[F].single(record))
+                      } else {
+                        val msg =
+                          s"Data integrity violated: seqNr $seqNr duplicated in multiple records from eventual journal, key $key"
+                        val err = new JournalError(msg)
+                        (seqNr.some, err.raiseError[F, JournalRecord].toStream)
+                      }
+                  }
+              } else {
+                records1
+              }
+
+            records2.map(_.event)
           }
 
           head.deleteTo match {

@@ -32,6 +32,7 @@ object MetaJournalStatements {
       |updated TIMESTAMP,
       |expire_after DURATION,
       |expire_on DATE,
+      |record_id UUID,
       |origin TEXT,
       |properties MAP<TEXT,TEXT>,
       |metadata TEXT,
@@ -47,6 +48,10 @@ object MetaJournalStatements {
       |""".stripMargin
 
     Nel.of(table, createdDateIdx, expireOnIdx)
+  }
+
+  def addRecordId(table: TableName): String = {
+    s"ALTER TABLE ${table.toCql} ADD record_id UUID"
   }
 
   trait Insert[F[_]] {
@@ -84,9 +89,10 @@ object MetaJournalStatements {
            |updated,
            |expire_after,
            |expire_on,
+           |record_id,
            |origin,
            |properties)
-           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           |VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            |""".stripMargin
 
       query
@@ -130,7 +136,7 @@ object MetaJournalStatements {
 
       val query =
         s"""
-           |SELECT partition, offset, segment_size, seq_nr, delete_to, expire_after, expire_on FROM ${name.toCql}
+           |SELECT partition, offset, segment_size, seq_nr, delete_to, expire_after, expire_on, record_id FROM ${name.toCql}
            |WHERE id = ?
            |AND topic = ?
            |AND segment = ?
