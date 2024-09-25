@@ -6,8 +6,8 @@ import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.effect.*
 import cats.effect.unsafe.{IORuntime, IORuntimeConfig}
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.CatsHelper.*
 import com.evolutiongaming.catshelper.*
+import com.evolutiongaming.catshelper.CatsHelper.*
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.util.CatsHelper.*
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper.*

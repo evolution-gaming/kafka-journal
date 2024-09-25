@@ -28,6 +28,7 @@ import pureconfig.ConfigSource
 import java.time.Instant
 import scala.concurrent.duration.*
 import scala.util.control.NoStackTrace
+
 import TestJsonCodec.instance
 
 class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers {
