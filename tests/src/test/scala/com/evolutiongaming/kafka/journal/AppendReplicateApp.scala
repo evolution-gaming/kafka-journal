@@ -8,7 +8,7 @@ import cats.effect.*
 import cats.effect.syntax.resource.*
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.ParallelHelper.*
-import com.evolutiongaming.catshelper.{RandomIdOf, RandomIdOf as _, *}
+import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.conversions.KafkaWrite
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
