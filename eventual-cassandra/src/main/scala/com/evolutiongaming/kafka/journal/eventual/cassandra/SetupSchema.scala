@@ -8,7 +8,6 @@ import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.cassandra.MigrateSchema.Fresh
 import com.evolutiongaming.kafka.journal.cassandra.{CassandraConsistencyConfig, CassandraSync, MigrateSchema, SettingsCassandra}
 import com.evolutiongaming.kafka.journal.{Origin, Settings}
-import com.evolutiongaming.scassandra.ToCql.implicits.*
 
 /** Creates a new schema, or migrates to the latest schema version, if it already exists.
  *
@@ -34,7 +33,7 @@ object SetupSchema {
       JournalStatements.addVersion(schema.journal)
 
     def dropMetadata =
-      s"DROP TABLE IF EXISTS ${schema.metadata.toCql}"
+      s"DROP TABLE IF EXISTS metadata"
 
     def createPointer2: String =
       Pointer2Statements.createTable(schema.pointer2)
@@ -73,7 +72,7 @@ object SetupSchema {
     def createSchema(implicit cassandraSync: CassandraSync[F]): F[(Schema, Fresh)] = CreateSchema(config)
 
     for {
-      cassandraSync  <- CassandraSync.of[F](config.keyspace.toKeyspaceConfig, config.locksTable, origin)
+      cassandraSync  <- CassandraSync.of[F](config.keyspace, config.locksTable, origin)
       ab             <- createSchema(cassandraSync)
       (schema, fresh) = ab
       settings       <- SettingsCassandra.of[F](schema.setting, origin, consistencyConfig)

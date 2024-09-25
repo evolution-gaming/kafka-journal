@@ -2,7 +2,7 @@ import Dependencies.*
 import sbt.Package.ManifestAttributes
 
 lazy val commonSettings = Seq(
-  organization := "com.evolutiongaming", // TODO MR should we change this to `evolution`?
+  organization := "com.evolutiongaming",
   organizationName := "Evolution",
   organizationHomepage := Some(url("https://evolution.com")),
   homepage := Some(url("https://github.com/evolution-gaming/kafka-journal")),

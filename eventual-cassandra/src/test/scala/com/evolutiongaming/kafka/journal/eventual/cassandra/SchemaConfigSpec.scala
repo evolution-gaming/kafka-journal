@@ -2,15 +2,12 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.syntax.all.*
 import com.evolutiongaming.scassandra.ReplicationStrategyConfig
+import com.evolutiongaming.kafka.journal.cassandra.KeyspaceConfig
 import com.typesafe.config.ConfigFactory
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import pureconfig.ConfigSource
 
-import scala.annotation.nowarn
-
-@nowarn
-// TODO MR deal with deprecated
 class SchemaConfigSpec extends AnyFunSuite with Matchers {
 
   test("apply from empty config") {
@@ -21,10 +18,8 @@ class SchemaConfigSpec extends AnyFunSuite with Matchers {
   test("apply from config") {
     val config = ConfigFactory.parseURL(getClass.getResource("schema.conf"))
     val expected = SchemaConfig(
-      keyspace =
-        SchemaConfig.Keyspace(name = "keyspace", replicationStrategy = ReplicationStrategyConfig.Simple(3), autoCreate = false),
+      keyspace = KeyspaceConfig(name = "keyspace", replicationStrategy = ReplicationStrategyConfig.Simple(3), autoCreate = false),
       journalTable     = "table-journal",
-      metadataTable    = "table-metadata",
       metaJournalTable = "table-meta-journal",
       pointerTable     = "table-pointer",
       settingTable     = "table-setting",

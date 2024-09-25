@@ -42,7 +42,6 @@ object CreateSchema {
 
       val schema = Schema(
         journal     = TableName(keyspace = keyspace, table = config.journalTable),
-        metadata    = TableName(keyspace = keyspace, table = config.metadataTable),
         metaJournal = TableName(keyspace = keyspace, table = config.metaJournalTable),
         pointer     = TableName(keyspace = keyspace, table = config.pointerTable),
         pointer2    = TableName(keyspace = keyspace, table = config.pointer2Table),
@@ -72,7 +71,7 @@ object CreateSchema {
     }
 
     for {
-      _      <- createKeyspace(config.keyspace.toKeyspaceConfig)
+      _      <- createKeyspace(config.keyspace)
       result <- createTables1
     } yield result
   }
