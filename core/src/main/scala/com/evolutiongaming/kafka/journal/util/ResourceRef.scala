@@ -17,7 +17,7 @@ trait ResourceRef[F[_], A] {
 
 object ResourceRef {
 
-  def of[F[_]: Sync, A](resource: Resource[F, A]): Resource[F, ResourceRef[F, A]] = {
+  def make[F[_]: Sync, A](resource: Resource[F, A]): Resource[F, ResourceRef[F, A]] = {
 
     case class State(a: A, release: F[Unit])
 

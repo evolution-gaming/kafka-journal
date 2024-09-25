@@ -31,7 +31,7 @@ object HeadCacheOf {
     metrics: Option[HeadCacheMetrics[F]],
   ): HeadCacheOf[F] = { (consumerConfig: ConsumerConfig, eventualJournal: EventualJournal[F]) =>
     {
-      HeadCache.of[F](consumerConfig, eventualJournal, metrics)
+      HeadCache.make[F](consumerConfig, eventualJournal, metrics)
     }
   }
 }

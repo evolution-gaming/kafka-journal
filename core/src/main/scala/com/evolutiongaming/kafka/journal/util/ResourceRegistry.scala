@@ -11,7 +11,7 @@ trait ResourceRegistry[F[_]] {
 
 object ResourceRegistry {
 
-  def of[F[_]: Concurrent]: Resource[F, ResourceRegistry[F]] = {
+  def make[F[_]: Concurrent]: Resource[F, ResourceRegistry[F]] = {
     Resource
       .make {
         Ref.of[F, List[F[Unit]]](List.empty[F[Unit]])

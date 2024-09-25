@@ -23,7 +23,7 @@ import scala.util.Try
 
 object TopicReplicator {
 
-  def of[F[_]: Concurrent: Sleep: ToTry: LogOf: Fail: MeasureDuration: JsonCodec](
+  def make[F[_]: Concurrent: Sleep: ToTry: LogOf: Fail: MeasureDuration: JsonCodec](
     topic: Topic,
     journal: ReplicatedJournal[F],
     consumer: Resource[F, TopicConsumer[F]],
@@ -228,7 +228,7 @@ object TopicReplicator {
 
   object ConsumerOf {
 
-    def of[F[_]: Concurrent: KafkaConsumerOf: FromTry: Clock](
+    def make[F[_]: Concurrent: KafkaConsumerOf: FromTry: Clock](
       topic: Topic,
       config: ConsumerConfig,
       pollTimeout: FiniteDuration,

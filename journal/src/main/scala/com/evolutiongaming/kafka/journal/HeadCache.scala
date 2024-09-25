@@ -98,14 +98,14 @@ object HeadCache {
     *   and there is no need to call [[HeadCache#of]] each time if parameters
     *   did not change.
     */
-  def of[F[_]: Async: Parallel: Runtime: LogOf: KafkaConsumerOf: MeasureDuration: FromTry: FromJsResult: JsonCodec.Decode](
+  def make[F[_]: Async: Parallel: Runtime: LogOf: KafkaConsumerOf: MeasureDuration: FromTry: FromJsResult: JsonCodec.Decode](
     consumerConfig: ConsumerConfig,
     eventualJournal: EventualJournal[F],
     metrics: Option[HeadCacheMetrics[F]],
   ): Resource[F, HeadCache[F]] = {
     for {
       log    <- LogOf[F].apply(HeadCache.getClass).toResource
-      result <- HeadCache.of(Eventual(eventualJournal), log, TopicCache.Consumer.of[F](consumerConfig), metrics)
+      result <- HeadCache.make(Eventual(eventualJournal), log, TopicCache.Consumer.make[F](consumerConfig), metrics)
       result <- result.withFence
     } yield {
       result.withLog(log)
@@ -140,7 +140,7 @@ object HeadCache {
     *   and there is no need to call [[HeadCache#of]] each time if parameters
     *   did not change.
     */
-  def of[F[_]: Async: Parallel: Runtime: FromJsResult: MeasureDuration: JsonCodec.Decode](
+  def make[F[_]: Async: Parallel: Runtime: FromJsResult: MeasureDuration: JsonCodec.Decode](
     eventual: Eventual[F],
     log: Log[F],
     consumer: Resource[F, TopicCache.Consumer[F]],
@@ -162,7 +162,7 @@ object HeadCache {
           cache
             .getOrUpdateResource(topic) {
               TopicCache
-                .of1(eventual, topic, log1, consumer, config, consRecordToActionHeader, metrics.map { _.headCache })
+                .make(eventual, topic, log1, consumer, config, consRecordToActionHeader, metrics.map { _.headCache })
                 .map { cache =>
                   metrics
                     .fold(cache) { metrics => cache.withMetrics(topic, metrics.headCache) }
@@ -395,7 +395,7 @@ object HeadCache {
       * @param prefix
       *   Prefix to use for the registered metrics.
       */
-    def of[F[_]: Monad](
+    def make[F[_]: Monad](
       registry: CollectorRegistry[F],
       prefix: Prefix = Prefix.default,
     ): Resource[F, Metrics[F]] = {

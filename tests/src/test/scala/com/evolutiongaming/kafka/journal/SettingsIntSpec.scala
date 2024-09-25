@@ -62,7 +62,7 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
     for {
       system           <- system
       config           <- config(system).toResource
-      cassandraCluster <- CassandraCluster.of[F](config.client, cassandraClusterOf, config.retries)
+      cassandraCluster <- CassandraCluster.make[F](config.client, cassandraClusterOf, config.retries)
       cassandraSession <- cassandraCluster.session
       settings         <- settings(config.schema)(cassandraCluster, cassandraSession).toResource
     } yield settings

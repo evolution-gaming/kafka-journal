@@ -33,7 +33,7 @@ trait Replicator[F[_]] {
 
 object Replicator {
 
-  def of[F[_]: Async: Parallel: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: FromGFuture: MeasureDuration: JsonCodec](
+  def make[F[_]: Async: Parallel: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: FromGFuture: MeasureDuration: JsonCodec](
     config: ReplicatorConfig,
     cassandraClusterOf: CassandraClusterOf[F],
     hostName: Option[HostName],
@@ -46,14 +46,14 @@ object Replicator {
     }
 
     for {
-      cassandraCluster  <- CassandraCluster.of(config.cassandra.client, cassandraClusterOf, config.cassandra.retries)
+      cassandraCluster  <- CassandraCluster.make(config.cassandra.client, cassandraClusterOf, config.cassandra.retries)
       cassandraSession  <- cassandraCluster.session
       replicatedJournal <- replicatedJournal(cassandraCluster, cassandraSession).toResource
-      result            <- of(config, metrics, replicatedJournal, hostName)
+      result            <- make(config, metrics, replicatedJournal, hostName)
     } yield result
   }
 
-  def of[
+  def make[
     F[_]: Temporal: Parallel: Runtime: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: MeasureDuration: JsonCodec,
   ](
     config: ReplicatorConfig,
@@ -64,22 +64,22 @@ object Replicator {
 
     val topicReplicator: Topic => Resource[F, F[Outcome[F, Throwable, Unit]]] =
       (topic: Topic) => {
-        val consumer = TopicReplicator.ConsumerOf.of[F](topic, config.kafka.consumer, config.pollTimeout, hostName)
+        val consumer = TopicReplicator.ConsumerOf.make[F](topic, config.kafka.consumer, config.pollTimeout, hostName)
 
         val metrics1 = metrics
           .flatMap { _.replicator }
           .fold { TopicReplicatorMetrics.empty[F] } { metrics => metrics(topic) }
 
         val cacheOf = CacheOf[F](config.cacheExpireAfter, metrics.flatMap(_.cache))
-        TopicReplicator.of(topic, journal, consumer, metrics1, cacheOf)
+        TopicReplicator.make(topic, journal, consumer, metrics1, cacheOf)
       }
 
-    val consumer = Consumer.of[F](config.kafka.consumer)
+    val consumer = Consumer.make[F](config.kafka.consumer)
 
-    of[F](config = Config(config), consumer = consumer, topicReplicatorOf = topicReplicator)
+    make[F](config = Config(config), consumer = consumer, topicReplicatorOf = topicReplicator)
   }
 
-  def of[F[_]: Concurrent: Sleep: Parallel: LogOf: MeasureDuration](
+  def make[F[_]: Concurrent: Sleep: Parallel: LogOf: MeasureDuration](
     config: Config,
     consumer: Resource[F, Consumer[F]],
     topicReplicatorOf: Topic => Resource[F, F[Outcome[F, Throwable, Unit]]],
@@ -103,7 +103,7 @@ object Replicator {
 
     for {
       consumer <- consumer
-      registry <- ResourceRegistry.of[F]
+      registry <- ResourceRegistry.make[F]
     } yield {
       for {
         log   <- LogOf[F].apply(Replicator.getClass)
@@ -208,7 +208,7 @@ object Replicator {
       def topics = consumer.topics
     }
 
-    def of[F[_]: Applicative: KafkaConsumerOf: FromTry](config: ConsumerConfig): Resource[F, Consumer[F]] = {
+    def make[F[_]: Applicative: KafkaConsumerOf: FromTry](config: ConsumerConfig): Resource[F, Consumer[F]] = {
       for {
         consumer <- KafkaConsumerOf[F].apply[String, ByteVector](config)
       } yield {
@@ -252,10 +252,10 @@ object Replicator {
       def cache: Option[Name => CacheMetrics[F]] = none
     }
 
-    def of[F[_]: Monad](registry: CollectorRegistry[F], clientId: ClientId): Resource[F, Replicator.Metrics[F]] = {
+    def make[F[_]: Monad](registry: CollectorRegistry[F], clientId: ClientId): Resource[F, Replicator.Metrics[F]] = {
       for {
-        replicator1 <- TopicReplicatorMetrics.of[F](registry)
-        journal1    <- ReplicatedJournal.Metrics.of[F](registry)
+        replicator1 <- TopicReplicatorMetrics.make[F](registry)
+        journal1    <- ReplicatedJournal.Metrics.make[F](registry)
         consumer1   <- ConsumerMetrics.of[F](registry)
         cache1      <- CacheMetrics.of[F](registry)
       } yield {

@@ -11,12 +11,12 @@ object HeadCacheMetrics {
 
   def empty[F[_]: Applicative]: HeadCacheMetrics[F] = apply(HeadCache.Metrics.empty, CacheMetrics.empty)
 
-  def of[F[_]: Monad](
+  def make[F[_]: Monad](
     registry: CollectorRegistry[F],
     prefix: HeadCache.Metrics.Prefix = HeadCache.Metrics.Prefix.default,
   ): Resource[F, HeadCacheMetrics[F]] = {
     for {
-      headCache <- HeadCache.Metrics.of(registry, prefix)
+      headCache <- HeadCache.Metrics.make(registry, prefix)
       cache     <- CacheMetrics.of(registry, s"${prefix}_${CacheMetrics.Prefix.Default}")
     } yield {
       apply(headCache, cache(prefix))

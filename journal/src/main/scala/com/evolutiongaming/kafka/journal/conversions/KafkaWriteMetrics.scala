@@ -20,7 +20,7 @@ object KafkaWriteMetrics {
       Applicative[F].unit
   }
 
-  def of[F[_]](
+  def make[F[_]](
     registry: CollectorRegistry[F],
     prefix: String = "journal",
   ): Resource[F, KafkaWriteMetrics[F]] = {

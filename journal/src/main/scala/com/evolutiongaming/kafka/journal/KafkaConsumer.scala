@@ -35,7 +35,7 @@ object KafkaConsumer {
 
   def apply[F[_], K, V](implicit F: KafkaConsumer[F, K, V]): KafkaConsumer[F, K, V] = F
 
-  def of[F[_]: Sync, K, V](
+  def make[F[_]: Sync, K, V](
     consumer: Resource[F, Consumer[F, K, V]],
   ): Resource[F, KafkaConsumer[F, K, V]] = {
 

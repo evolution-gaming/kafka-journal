@@ -31,7 +31,7 @@ trait JournalAdapter[F[_]] {
 
 object JournalAdapter {
 
-  def of[
+  def make[
     F[
       _,
     ]: Async: ToFuture: Parallel: LogOf: RandomIdOf: FromGFuture: MeasureDuration: ToTry: FromTry: FromJsResult: Fail: JsonCodec,
@@ -81,7 +81,7 @@ object JournalAdapter {
       headCacheOf: HeadCacheOf[F],
     ): Resource[F, Journals[F]] = {
       Journals
-        .of1[F](
+        .make[F](
           origin              = origin,
           config              = config.journal,
           eventualJournal     = eventualJournal,

@@ -58,12 +58,12 @@ object AppendReplicateApp extends IOApp {
     ) = {
 
       for {
-        producer <- Journals.Producer.of[F](config.kafka.producer)
+        producer <- Journals.Producer.make[F](config.kafka.producer)
       } yield {
         Journals[F](
           origin            = hostName.map(Origin.fromHostName),
           producer          = producer,
-          consumer          = Journals.Consumer.of[F](config.kafka.consumer, config.pollTimeout),
+          consumer          = Journals.Consumer.make[F](config.kafka.consumer, config.pollTimeout),
           eventualJournal   = EventualJournal.empty[F],
           headCache         = HeadCache.empty[F],
           log               = log,
@@ -76,7 +76,7 @@ object AppendReplicateApp extends IOApp {
       for {
         cassandraClusterOf <- CassandraClusterOf.of[F].toResource
         config             <- ReplicatorConfig.fromConfig[F](system.settings.config).toResource
-        result             <- Replicator.of[F](config, cassandraClusterOf, hostName)
+        result             <- Replicator.make[F](config, cassandraClusterOf, hostName)
       } yield result
     }
 

@@ -115,7 +115,7 @@ object PartitionCache {
     *   reusable and there is no need to call [[PartitionCache#of]] each time if
     *   parameters did not change.
     */
-  def of[F[_]: Async](
+  def make[F[_]: Async](
     maxSize: Int          = 10000,
     dropUponLimit: Double = 0.1,
     timeout: FiniteDuration,

@@ -17,7 +17,7 @@ private[journal] object ConsumerPool {
   /**
    * @return The outer Resource is for the pool, the inner is for consumers
    */
-  def of[F[_]: Async: Runtime: MeasureDuration](
+  def make[F[_]: Async: Runtime: MeasureDuration](
     poolConfig: ConsumerPoolConfig,
     metrics: Option[ConsumerPoolMetrics[F]],
     consumer: Resource[F, Consumer[F]],

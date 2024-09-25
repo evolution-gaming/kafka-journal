@@ -52,7 +52,7 @@ trait JournalSuite extends ActorSuite with Matchers { self: Suite =>
         cassandraClusterOf,
         DataIntegrityConfig.Default,
       )
-      producer <- Journals.Producer.of[IO](config.journal.kafka.producer)
+      producer <- Journals.Producer.make[IO](config.journal.kafka.producer)
     } yield {
       (eventualJournal, producer)
     }

@@ -33,7 +33,7 @@ class ResourceRegistrySpec extends AsyncFunSuite with Matchers {
     val n = 3
 
     def logic(release: IO[Unit]) = {
-      ResourceRegistry.of[IO].use { registry =>
+      ResourceRegistry.make[IO].use { registry =>
         val resource            = Resource.make(().pure[IO]) { _ => release }
         val fa                  = registry.allocate(resource)
         implicit val monoidUnit = Applicative.monoid[IO, Unit]
@@ -60,7 +60,7 @@ class ResourceRegistrySpec extends AsyncFunSuite with Matchers {
       released <- Ref.of[IO, Int](0)
       started  <- Deferred[IO, Unit]
       fiber <- Concurrent[IO].start {
-        ResourceRegistry.of[IO].use { registry =>
+        ResourceRegistry.make[IO].use { registry =>
           val resource = Resource.make(().pure[IO]) { _ => released.update(_ + 1) }
           for {
             _ <- registry.allocate(resource)

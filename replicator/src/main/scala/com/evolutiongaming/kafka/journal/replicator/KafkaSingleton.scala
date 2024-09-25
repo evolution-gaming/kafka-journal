@@ -21,7 +21,7 @@ trait KafkaSingleton[F[_], A] {
 
 object KafkaSingleton {
 
-  def of[F[_]: Concurrent: Sleep: KafkaConsumerOf: FromTry, A](
+  def make[F[_]: Concurrent: Sleep: KafkaConsumerOf: FromTry, A](
     topic: Topic,
     groupId: String,
     singleton: Resource[F, A],
@@ -33,10 +33,10 @@ object KafkaSingleton {
     val consumer = KafkaConsumerOf[F]
       .apply[String, ByteVector](consumerConfig1)
       .map { consumer => TopicConsumer(topic, 10.millis, TopicCommit.empty[F], consumer) }
-    of(topic, consumer, singleton, log)
+    make(topic, consumer, singleton, log)
   }
 
-  def of[F[_]: Concurrent: Sleep, A](
+  def make[F[_]: Concurrent: Sleep, A](
     topic: Topic,
     consumer: Resource[F, TopicConsumer[F]],
     singleton: Resource[F, A],

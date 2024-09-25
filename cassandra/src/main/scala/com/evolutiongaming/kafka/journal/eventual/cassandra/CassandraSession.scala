@@ -59,7 +59,7 @@ object CassandraSession {
     }
   }
 
-  def of[F[_]: Async: Parallel: FromGFuture](
+  def make[F[_]: Async: Parallel: FromGFuture](
     session: scassandra.CassandraSession[F],
   ): Resource[F, CassandraSession[F]] = {
     apply[F](session)

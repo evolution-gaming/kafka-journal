@@ -39,7 +39,7 @@ object Journals {
     }
   }
 
-  def of1[
+  def make[
     F[_]: Async: FromTry: Fail: LogOf: KafkaConsumerOf: KafkaProducerOf: HeadCacheOf: RandomIdOf: MeasureDuration: JsonCodec,
   ](
     config: JournalConfig,
@@ -52,7 +52,7 @@ object Journals {
     callTimeThresholds: Journal.CallTimeThresholds,
   ): Resource[F, Journals[F]] = {
 
-    val consumer = Consumer.of[F](config.kafka.consumer, config.pollTimeout)
+    val consumer = Consumer.make[F](config.kafka.consumer, config.pollTimeout)
 
     val headCache = {
       if (config.headCache.enabled) {
@@ -63,10 +63,10 @@ object Journals {
     }
 
     for {
-      producer  <- Producer.of[F](config.kafka.producer)
+      producer  <- Producer.make[F](config.kafka.producer)
       log       <- LogOf[F].apply(Journals.getClass).toResource
       headCache <- headCache
-      consumer  <- ConsumerPool.of[F](consumerPoolConfig, consumerPoolMetrics, consumer)
+      consumer  <- ConsumerPool.make[F](consumerPoolConfig, consumerPoolMetrics, consumer)
     } yield {
       val withLog = apply(
         origin,
@@ -327,7 +327,7 @@ object Journals {
 
   object Producer {
 
-    def of[F[_]: Monad: KafkaProducerOf: FromTry: Fail](config: ProducerConfig): Resource[F, Producer[F]] = {
+    def make[F[_]: Monad: KafkaProducerOf: FromTry: Fail](config: ProducerConfig): Resource[F, Producer[F]] = {
 
       val acks = config.acks match {
         case Acks.None => Acks.One
@@ -387,7 +387,7 @@ object Journals {
 
   object Consumer {
 
-    def of[F[_]: MonadThrowable: KafkaConsumerOf: FromTry](
+    def make[F[_]: MonadThrowable: KafkaConsumerOf: FromTry](
       config: ConsumerConfig,
       pollTimeout: FiniteDuration,
     ): Resource[F, Consumer[F]] = {

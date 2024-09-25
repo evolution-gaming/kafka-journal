@@ -49,7 +49,7 @@ abstract class JournalIntSpec[A] extends AsyncWordSpec with JournalSuite {
 
       for {
         config    <- config.liftTo[IO].toResource
-        consumer   = Journals.Consumer.of[IO](config.journal.kafka.consumer, config.journal.pollTimeout)
+        consumer   = Journals.Consumer.make[IO](config.journal.kafka.consumer, config.journal.pollTimeout)
         headCache <- headCacheOf(config)
         journal = Journals[IO](
           producer          = producer,

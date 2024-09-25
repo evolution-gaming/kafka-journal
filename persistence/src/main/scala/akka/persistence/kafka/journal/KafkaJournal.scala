@@ -276,7 +276,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     jsonCodec: JsonCodec[IO],
   ): Resource[IO, JournalAdapter[IO]] = {
 
-    JournalAdapter.of[IO, A](
+    JournalAdapter.make[IO, A](
       toKey              = toKey,
       origin             = origin,
       serializer         = serializer,

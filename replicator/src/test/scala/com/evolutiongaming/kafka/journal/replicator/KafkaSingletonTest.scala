@@ -42,7 +42,7 @@ class KafkaSingletonTest extends AsyncFunSuite with Matchers {
       listener  <- Deferred[F, RebalanceListener[F]].toResource
       allocated <- Ref[F].of(false).toResource
       resource   = Resource.make { allocated.set(true) } { _ => allocated.set(false) }
-      singleton <- KafkaSingleton.of(topic, consumer(listener).pure[Resource[F, *]], resource, Log.empty[F])
+      singleton <- KafkaSingleton.make(topic, consumer(listener).pure[Resource[F, *]], resource, Log.empty[F])
       listener  <- listener.get.toResource
       _ <- Resource.eval {
         for {

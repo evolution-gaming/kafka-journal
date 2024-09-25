@@ -50,7 +50,7 @@ object JournalMetrics {
     }
   }
 
-  def of[F[_]: Monad](
+  def make[F[_]: Monad](
     registry: CollectorRegistry[F],
     prefix: String = "journal",
   ): Resource[F, JournalMetrics[F]] = {

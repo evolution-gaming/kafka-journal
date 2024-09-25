@@ -76,7 +76,7 @@ object TopicCache {
    *   and there is no need to call [[TopicCache#of]] each time if parameters
    *   did not change.
    */
-  def of1[F[_]: Async: Parallel](
+  def make[F[_]: Async: Parallel](
     eventual: Eventual[F],
     topic: Topic,
     log: Log[F],
@@ -96,7 +96,7 @@ object TopicCache {
         .toList
         .parTraverse { partition =>
           PartitionCache
-            .of(maxSize = config.partition.maxSize, dropUponLimit = config.partition.dropUponLimit, timeout = config.timeout)
+            .make(maxSize = config.partition.maxSize, dropUponLimit = config.partition.dropUponLimit, timeout = config.timeout)
             .map { partitionCache =>
               (partition, partitionCache)
             }
@@ -357,7 +357,7 @@ object TopicCache {
       * @param pollTimeout
       *   The timeout to use for [[KafkaConsumer#poll]].
       */
-    def of[F[_]: Monad: KafkaConsumerOf: FromTry](
+    def make[F[_]: Monad: KafkaConsumerOf: FromTry](
       config: ConsumerConfig,
       pollTimeout: FiniteDuration = 10.millis,
     ): Resource[F, Consumer[F]] = {
