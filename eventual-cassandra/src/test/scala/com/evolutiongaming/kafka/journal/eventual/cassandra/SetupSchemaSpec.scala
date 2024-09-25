@@ -102,7 +102,9 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
   val schema: Schema = Schema(
     journal     = TableName(keyspace = "journal", table = "journal"),
+    metadata    = TableName(keyspace = "journal", table = "metadata"),
     metaJournal = TableName(keyspace = "journal", table = "metaJournal"),
+    pointer     = TableName(keyspace = "journal", table = "pointer"),
     pointer2    = TableName(keyspace = "journal", table = "pointer2"),
     setting     = TableName(keyspace = "journal", table = "setting"),
   )
