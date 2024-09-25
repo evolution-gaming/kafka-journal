@@ -14,7 +14,7 @@ private[journal] object Batch {
 
   def of(records: Nel[ActionRecord[Action]]): List[Batch] = {
 
-    def cut(appends: Appends, delete: Action.Delete) = {
+    def dropToBeDeletedAppends(appends: Appends, delete: Action.Delete): Boolean = {
       val append = appends.records.head.action
       append.range.to <= delete.to.value
     }
@@ -23,21 +23,23 @@ private[journal] object Batch {
       .foldLeft(List.empty[Batch]) { (bs, record) =>
         val offset = record.partitionOffset.offset
 
-        def appendsOf(records: Nel[ActionRecord[Action.Append]]) = {
+        def appendsOf(records: Nel[ActionRecord[Action.Append]]): Appends = {
           Appends(offset, records)
         }
 
-        def deleteOf(to: DeleteTo, origin: Option[Origin], version: Option[Version]) = {
-          Delete(offset, to, origin, version)
+        def deleteOf(to: DeleteTo, origin: Option[Origin], version: Option[Version], setSeqNr: Option[SeqNr] = None): Delete = {
+          Delete(offset, to, origin, version, setSeqNr)
         }
 
-        def purgeOf(origin: Option[Origin], version: Option[Version]) = {
+        def purgeOf(origin: Option[Origin], version: Option[Version]): Purge = {
           Purge(offset, origin, version)
         }
 
-        def actionRecord[A <: Action](a: A) = record.copy(action = a)
+        def actionRecord[A <: Action](a: A): ActionRecord[A] = {
+          record.copy(action = a)
+        }
 
-        def origin = {
+        def origin: Option[Origin] = {
           bs.foldRight(none[Origin]) { (b, origin) =>
             origin orElse {
               b match {
@@ -49,7 +51,7 @@ private[journal] object Batch {
           }
         }
 
-        def version = {
+        def version: Option[Version] = {
           bs.foldRight(none[Version]) { (b, version) =>
             version orElse {
               b match {
@@ -72,8 +74,8 @@ private[journal] object Batch {
                 appendsOf(b.records) :: tail
 
               case (b: Appends, a: Action.Delete) =>
-                if (cut(b, a)) {
-                  val delete = deleteOf(a.to, origin orElse a.origin, version orElse a.version)
+                if (dropToBeDeletedAppends(b, a)) {
+                  val delete = deleteOf(a.to, origin orElse a.origin, version orElse a.version, a.to.value.some)
                   delete :: Nil
                 } else {
                   val delete = deleteOf(a.to, a.origin, a.version)
@@ -91,8 +93,8 @@ private[journal] object Batch {
 
               case (b: Delete, a: Action.Delete) =>
                 if (a.to > b.to) {
-                  if (tail.collectFirst { case b: Appends => cut(b, a) } getOrElse false) {
-                    val delete = deleteOf(a.to, origin orElse a.origin, version orElse a.version)
+                  if (tail.collectFirst { case b: Appends => dropToBeDeletedAppends(b, a) } getOrElse false) {
+                    val delete = deleteOf(a.to, origin orElse a.origin, version orElse a.version, a.to.value.some)
                     delete :: Nil
                   } else {
                     val delete = deleteOf(a.to, b.origin orElse a.origin, b.version orElse a.version)
@@ -128,9 +130,9 @@ private[journal] object Batch {
             }
         }
       }
-      .foldLeft(List.empty[Batch]) { (bs, b) =>
+      .foldLeft(List.empty[Batch]) { (bs, b) => // reverse order of batches
         b match {
-          case b: Appends => b.copy(records = b.records.reverse) :: bs
+          case b: Appends => b.copy(records = b.records.reverse) :: bs // reverse append actions
           case b: Delete  => b :: bs
           case b: Purge   => b :: bs
         }
@@ -147,6 +149,7 @@ private[journal] object Batch {
     to: DeleteTo,
     origin: Option[Origin],
     version: Option[Version],
+    setSeqNr: Option[SeqNr],
   ) extends Batch
 
   final case class Purge(

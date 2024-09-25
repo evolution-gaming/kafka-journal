@@ -265,6 +265,23 @@ object EventualCassandraSpec {
       }
     }
 
+//    val updateMetaJournalDeleteToAndSeqNr: MetaJournalStatements.UpdateDeleteToAndSeqNr[StateT] = {
+//      (key, _, partitionOffset, _, deleteTo, seqNr) =>
+//        {
+//          StateT { state =>
+//            val metaJournal = state.metaJournal
+//            val state1 = for {
+//              entry <- metaJournal.get(key)
+//            } yield {
+//              val entry1 = entry.copy(partitionOffset = partitionOffset, deleteTo = deleteTo.some, seqNr = seqNr)
+//              state.copy(metaJournal = metaJournal.updated(key, entry1))
+//            }
+//
+//            (state1 getOrElse state, ())
+//          }
+//        }
+//    }
+
     val updateMetaJournalPartitionOffset: MetaJournalStatements.UpdatePartitionOffset[StateT] = { (key, _, partitionOffset, _) =>
       {
         StateT { state =>

@@ -783,7 +783,7 @@ object TopicReplicatorSpec {
 
   def topicPartitionOf(partition: Int): TopicPartition = TopicPartition(topic, Partition.unsafe(partition))
 
-  def keyOf(id: String) = Key(id = id, topic = topic)
+  def keyOf(id: String): Key = Key(id = id, topic = topic)
 
   def metaJournalOf(
     id: String,
@@ -887,7 +887,13 @@ object TopicReplicatorSpec {
                   }
                 }
 
-                def delete(offset: Offset, timestamp: Instant, deleteTo: DeleteTo, origin: Option[Origin]) = {
+                def delete(
+                  offset: Offset,
+                  timestamp: Instant,
+                  deleteTo: DeleteTo,
+                  origin: Option[Origin],
+                  setSeqNr: Option[SeqNr],
+                ) = {
                   StateT { state =>
                     val deleted = state.metaJournal.get(id).fold(true) { journalHead => offset > journalHead.offset.offset }
 

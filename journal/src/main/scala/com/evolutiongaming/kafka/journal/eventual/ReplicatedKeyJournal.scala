@@ -24,6 +24,7 @@ trait ReplicatedKeyJournal[F[_]] {
     timestamp: Instant,
     deleteTo: DeleteTo,
     origin: Option[Origin],
+    setSeqNr: Option[SeqNr],
   ): F[Changed]
 
   def purge(
@@ -47,19 +48,20 @@ object ReplicatedKeyJournal {
         timestamp: Instant,
         expireAfter: Option[ExpireAfter],
         events: Nel[EventRecord[EventualPayloadAndType]],
-      ) = value
+      ): F[Changed] = value
 
       def delete(
         offset: Offset,
         timestamp: Instant,
         deleteTo: DeleteTo,
         origin: Option[Origin],
-      ) = value
+        setSeqNr: Option[SeqNr],
+      ): F[Changed] = value
 
       def purge(
         offset: Offset,
         timestamp: Instant,
-      ) = value
+      ): F[Changed] = value
     }
   }
 
@@ -79,7 +81,7 @@ object ReplicatedKeyJournal {
           timestamp: Instant,
           expireAfter: Option[ExpireAfter],
           events: Nel[EventRecord[EventualPayloadAndType]],
-        ) = {
+        ): G[Changed] = {
           f(self.append(offset, timestamp, expireAfter, events))
         }
 
@@ -88,14 +90,15 @@ object ReplicatedKeyJournal {
           timestamp: Instant,
           deleteTo: DeleteTo,
           origin: Option[Origin],
-        ) = {
-          f(self.delete(offset, timestamp, deleteTo, origin))
+          setSeqNr: Option[SeqNr],
+        ): G[Changed] = {
+          f(self.delete(offset, timestamp, deleteTo, origin, setSeqNr))
         }
 
         def purge(
           offset: Offset,
           timestamp: Instant,
-        ) = {
+        ): G[Changed] = {
           f(self.purge(offset, timestamp))
         }
       }
@@ -113,7 +116,7 @@ object ReplicatedKeyJournal {
           timestamp: Instant,
           expireAfter: Option[ExpireAfter],
           events: Nel[EventRecord[EventualPayloadAndType]],
-        ) = {
+        ): F[Changed] = {
           for {
             d <- MeasureDuration[F].start
             r <- self.append(offset, timestamp, expireAfter, events)
@@ -134,10 +137,11 @@ object ReplicatedKeyJournal {
           timestamp: Instant,
           deleteTo: DeleteTo,
           origin: Option[Origin],
-        ) = {
+          setSeqNr: Option[SeqNr],
+        ): F[Changed] = {
           for {
             d <- MeasureDuration[F].start
-            r <- self.delete(offset, timestamp, deleteTo, origin)
+            r <- self.delete(offset, timestamp, deleteTo, origin, setSeqNr)
             d <- d
             _ <- log.debug {
               val originStr = origin.foldMap { origin => s", origin: $origin" }
@@ -149,7 +153,7 @@ object ReplicatedKeyJournal {
         def purge(
           offset: Offset,
           timestamp: Instant,
-        ) = {
+        ): F[Changed] = {
           for {
             d <- MeasureDuration[F].start
             r <- self.purge(offset, timestamp)
@@ -171,7 +175,7 @@ object ReplicatedKeyJournal {
           timestamp: Instant,
           expireAfter: Option[ExpireAfter],
           events: Nel[EventRecord[EventualPayloadAndType]],
-        ) = {
+        ): F[Changed] = {
           for {
             d <- MeasureDuration[F].start
             r <- self.append(offset, timestamp, expireAfter, events)
@@ -185,10 +189,11 @@ object ReplicatedKeyJournal {
           timestamp: Instant,
           deleteTo: DeleteTo,
           origin: Option[Origin],
-        ) = {
+          setSeqNr: Option[SeqNr],
+        ): F[Changed] = {
           for {
             d <- MeasureDuration[F].start
-            r <- self.delete(offset, timestamp, deleteTo, origin)
+            r <- self.delete(offset, timestamp, deleteTo, origin, setSeqNr)
             d <- d
             _ <- metrics.delete(topic, d)
           } yield r
@@ -197,7 +202,7 @@ object ReplicatedKeyJournal {
         def purge(
           offset: Offset,
           timestamp: Instant,
-        ) = {
+        ): F[Changed] = {
           for {
             d <- MeasureDuration[F].start
             r <- self.purge(offset, timestamp)
@@ -221,7 +226,7 @@ object ReplicatedKeyJournal {
           timestamp: Instant,
           expireAfter: Option[ExpireAfter],
           events: Nel[EventRecord[EventualPayloadAndType]],
-        ) = {
+        ): F[Changed] = {
           self
             .append(offset, timestamp, expireAfter, events)
             .handleErrorWith { a =>
@@ -242,9 +247,10 @@ object ReplicatedKeyJournal {
           timestamp: Instant,
           deleteTo: DeleteTo,
           origin: Option[Origin],
-        ) = {
+          setSeqNr: Option[SeqNr],
+        ): F[Changed] = {
           self
-            .delete(offset, timestamp, deleteTo, origin)
+            .delete(offset, timestamp, deleteTo, origin, setSeqNr)
             .handleErrorWith { a =>
               error(
                 s"delete " +
@@ -261,7 +267,7 @@ object ReplicatedKeyJournal {
         def purge(
           offset: Offset,
           timestamp: Instant,
-        ) = {
+        ): F[Changed] = {
           self
             .purge(offset, timestamp)
             .handleErrorWith { a =>
