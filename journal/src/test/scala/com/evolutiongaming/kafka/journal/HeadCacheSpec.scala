@@ -285,7 +285,8 @@ object HeadCacheSpec {
 
     for {
       metrics <- HeadCacheMetrics.make[IO](CollectorRegistry.empty)
-      headCache <- HeadCache.make[IO](log = LogIO, config = config, eventual = eventual, consumer = consumer, metrics = metrics.some)
+      headCache <- HeadCache
+        .make[IO](log = LogIO, config = config, eventual = eventual, consumer = consumer, metrics = metrics.some)
     } yield headCache
   }
 

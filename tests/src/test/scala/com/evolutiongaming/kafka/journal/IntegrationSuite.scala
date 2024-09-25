@@ -25,7 +25,7 @@ object IntegrationSuite {
       // To ensure all default '127.0.0.1:9042' configurations work, we need to bind to the host's 9042 port manually
       Resource.make {
         Sync[F].delay {
-          val cassandra =  CassandraContainer
+          val cassandra = CassandraContainer
             .apply()
             .configure { container =>
               container.withCreateContainerCmdModifier { cmd =>
@@ -73,8 +73,7 @@ object IntegrationSuite {
         metrics  <- Replicator.Metrics.make[F](CollectorRegistry.empty[F], "clientId")
         config   <- config.toResource
         hostName <- HostName.of[F]().toResource
-        result   <- Replicator.make
-        [F](config, cassandraClusterOf, hostName, metrics.some)
+        result   <- Replicator.make[F](config, cassandraClusterOf, hostName, metrics.some)
         _        <- result.onError { case e => log.error(s"failed to release replicator with $e", e) }.background
       } yield {}
     }
