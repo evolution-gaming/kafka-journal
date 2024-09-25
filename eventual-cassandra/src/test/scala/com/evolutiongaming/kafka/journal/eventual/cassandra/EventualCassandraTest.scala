@@ -63,7 +63,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
     val segmentOf    = SegmentOf[Id](segments)
     val segmentNrsOf = SegmentNrsOf[StateT](first = segments, Segments.default)
     val statements   = statementsOf(segmentNrsOf, Segments.default)
-    val journal      = EventualCassandra.apply2(statements, config)
+    val journal      = EventualCassandra(statements, DataIntegrityConfig.Default)
 
     val suffix = s"segmentSize: $segmentSize, segments: $segments"
 

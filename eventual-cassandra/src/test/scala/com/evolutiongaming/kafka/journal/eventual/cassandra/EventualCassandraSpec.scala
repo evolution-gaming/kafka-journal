@@ -140,7 +140,7 @@ object EventualCassandraSpec {
 
     val statements = EventualCassandra.Statements(selectRecords, metaJournalStatements, selectOffset2)
 
-    EventualCassandra.apply2[StateT](statements, DataIntegrityConfig.Default)
+    EventualCassandra.apply[StateT](statements, DataIntegrityConfig.Default)
   }
 
   def replicatedJournalOf(

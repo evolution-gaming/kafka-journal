@@ -36,7 +36,7 @@ object EventualCassandra {
     *
     * Underlying schema is automatically created or migrated if required.
     */
-  def of1[
+  def make[
     F[_]: Async: Parallel: ToTry: LogOf: FromGFuture: MeasureDuration: JsonCodec.Decode,
   ](
     config: EventualCassandraConfig,
@@ -47,7 +47,7 @@ object EventualCassandra {
   ): Resource[F, EventualJournal[F]] = {
 
     def journal(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
-      of1(config.schema, origin, metrics, config.consistencyConfig, dataIntegrity)
+      of(config.schema, origin, metrics, config.consistencyConfig, dataIntegrity)
     }
 
     for {
@@ -61,7 +61,7 @@ object EventualCassandra {
     *
     * Underlying schema is automatically created or migrated if required.
     */
-  def of1[
+  def of[
     F[_]: Temporal: Parallel: ToTry: LogOf: CassandraCluster: CassandraSession: MeasureDuration: JsonCodec.Decode,
   ](
     schemaConfig: SchemaConfig,
@@ -79,7 +79,7 @@ object EventualCassandra {
       _           <- log.info(s"kafka-journal version: ${Version.current.value}")
     } yield {
       implicit val log1 = log
-      val journal       = apply2[F](statements, dataIntegrity).withLog(log)
+      val journal       = apply[F](statements, dataIntegrity).withLog(log)
       metrics
         .fold(journal) { metrics => journal.withMetrics(metrics) }
         .enhanceError
@@ -93,12 +93,7 @@ object EventualCassandra {
     * The implementation itself is abstracted from the calls to Cassandra which
     * should be passed as part of [[Statements]] parameter.
     */
-  def apply1[F[_]: MonadThrow](statements: Statements[F], dataIntegrity: DataIntegrityConfig): EventualJournal[F] = {
-    implicit val log = Log.empty[F]
-    apply2(statements, dataIntegrity)
-  }
-
-  def apply2[F[_]: MonadThrow: Log](statements: Statements[F], dataIntegrity: DataIntegrityConfig): EventualJournal[F] = {
+  def apply[F[_]: MonadThrow: Log](statements: Statements[F], dataIntegrity: DataIntegrityConfig): EventualJournal[F] = {
 
     new Main with EventualJournal[F] {
 

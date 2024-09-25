@@ -55,7 +55,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
         .liftTo[F]
       for {
         config          <- config.toResource
-        eventualJournal <- EventualCassandra.of1[F](config, origin.some, none, cassandraClusterOf, DataIntegrityConfig.Default)
+        eventualJournal <- EventualCassandra.make[F](config, origin.some, none, cassandraClusterOf, DataIntegrityConfig.Default)
       } yield eventualJournal
     }
 
