@@ -8,8 +8,8 @@ import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.{OnError, Retry, Sleep, Strategy}
 import com.evolutiongaming.skafka.*
+import com.evolutiongaming.skafka.consumer.RebalanceCallback.syntax.*
 import com.evolutiongaming.skafka.consumer.RebalanceListener1
-import com.evolutiongaming.skafka.consumer.RebalanceCallback.syntax._
 
 import scala.concurrent.duration.*
 

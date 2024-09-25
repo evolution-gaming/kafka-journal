@@ -11,8 +11,8 @@ import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.Retry.implicits.*
 import com.evolutiongaming.retry.{OnError, Sleep, Strategy}
+import com.evolutiongaming.skafka.consumer.RebalanceCallback.syntax.*
 import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, RebalanceListener1}
-import com.evolutiongaming.skafka.consumer.RebalanceCallback.syntax._
 import com.evolutiongaming.skafka.{Partition, Topic, TopicPartition}
 
 import scala.concurrent.duration.*
