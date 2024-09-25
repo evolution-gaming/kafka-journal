@@ -17,7 +17,7 @@ import com.evolutiongaming.kafka.journal.eventual.*
 import com.evolutiongaming.kafka.journal.replicator.TopicReplicatorMetrics.Measurements
 import com.evolutiongaming.kafka.journal.util.{Fail, TestTemporal}
 import com.evolutiongaming.retry.Sleep
-import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, RebalanceListener, WithSize}
+import com.evolutiongaming.skafka.consumer.{ConsumerRecord, ConsumerRecords, RebalanceListener1, WithSize}
 import com.evolutiongaming.skafka.{Bytes as _, Header as _, Metadata as _, *}
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.matchers.should.Matchers
@@ -921,7 +921,7 @@ object TopicReplicatorSpec {
 
   implicit val consumer: TopicConsumer[StateT] = new TopicConsumer[StateT] {
 
-    def subscribe(listener: RebalanceListener[StateT]) = {
+    def subscribe(listener: RebalanceListener1[StateT]) = {
       StateT { s =>
         (s.subscribe(topic), ())
       }

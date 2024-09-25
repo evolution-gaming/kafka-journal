@@ -5,19 +5,19 @@ import cats.effect.unsafe.implicits.global
 import cats.effect.{IO, Resource}
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.DataHelper.*
-import com.evolutiongaming.catshelper.Log
+import com.evolutiongaming.catshelper.{Log, ToTry}
 import com.evolutiongaming.kafka.journal.ConsRecord
 import com.evolutiongaming.kafka.journal.util.TestTemporal.temporalTry
 import com.evolutiongaming.retry.{OnError, Retry, Strategy}
 import com.evolutiongaming.skafka.*
-import com.evolutiongaming.skafka.consumer.{RebalanceListener, WithSize}
+import com.evolutiongaming.skafka.consumer.{RebalanceCallback, RebalanceListener1, WithSize}
 import com.evolutiongaming.sstream.Stream
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration.*
-import scala.util.Try
 import scala.util.control.NoStackTrace
+import scala.util.{Failure, Success, Try}
 
 class ConsumeTopicTest extends AsyncFunSuite with Matchers {
 
@@ -42,7 +42,7 @@ class ConsumeTopicTest extends AsyncFunSuite with Matchers {
             Action.Commit(Nem.of((Partition.min, Offset.min))),
             Action.Poll(recordsOf(recordOf(partition = 0, offset = 0))),
             Action.AssignPartitions(partitions),
-            Action.Subscribe()(RebalanceListener.empty[StateT]),
+            Action.Subscribe()(RebalanceListener1.empty[StateT]),
             Action.AcquireTopicFlow(topic),
             Action.AcquireConsumer,
           ),
@@ -71,14 +71,14 @@ class ConsumeTopicTest extends AsyncFunSuite with Matchers {
             Action.Commit(Nem.of((Partition.min, Offset.min))),
             Action.Poll(recordsOf(recordOf(partition = 0, offset = 0))),
             Action.AssignPartitions(partitions),
-            Action.Subscribe()(RebalanceListener.empty),
+            Action.Subscribe()(RebalanceListener1.empty),
             Action.AcquireTopicFlow(topic),
             Action.AcquireConsumer,
             Action.RetryOnError(Error, OnError.Decision.retry(1.millis)),
             Action.ReleaseConsumer,
             Action.ReleaseTopicFlow(topic),
             Action.AssignPartitions(partitions),
-            Action.Subscribe()(RebalanceListener.empty),
+            Action.Subscribe()(RebalanceListener1.empty),
             Action.AcquireTopicFlow(topic),
             Action.AcquireConsumer,
           ),
@@ -108,7 +108,7 @@ class ConsumeTopicTest extends AsyncFunSuite with Matchers {
             Action.RevokePartitions(Nes.of(Partition.unsafe(1), Partition.unsafe(2))),
             Action.AssignPartitions(Nes.of(Partition.unsafe(2))),
             Action.AssignPartitions(Nes.of(Partition.unsafe(1))),
-            Action.Subscribe()(RebalanceListener.empty[StateT]),
+            Action.Subscribe()(RebalanceListener1.empty[StateT]),
             Action.AcquireTopicFlow(topic),
             Action.AcquireConsumer,
           ),
@@ -155,6 +155,35 @@ object ConsumeTopicTest {
     def unit(f: State => State): StateT[Unit] = pure { state => (f(state), ()) }
   }
 
+  implicit class RebalanceCallbackOps[A](val callback: RebalanceCallback[StateT, A]) extends AnyVal {
+
+    def runAsIO(state: State): IO[(State, A)] = {
+      var result: State = null // i know what i'm doing, but if you don't like it - never use StateT
+
+      implicit val toTryStateT = new ToTry[StateT] {
+
+        val ioToTry = ToTry.ioToTry
+
+        def apply[B](stateT: StateT[B]): Try[B] = {
+          val io = stateT.run(state)
+          val tr = ioToTry(io)
+          tr match {
+            case Success((s, tryB)) => result = s; tryB
+            case Failure(exception) => Failure(exception)
+          }
+        }
+      }
+
+      val tryU = callback.run(EmptyRebalanceConsumer)
+
+      tryU match {
+        case Failure(e) => IO.raiseError(e)
+        case Success(a) => IO.pure(result -> a)
+      }
+    }
+
+  }
+
   val topicFlowOf: TopicFlowOf[StateT] = { (topic: Topic) =>
     {
       val result = StateT.pure { state =>
@@ -199,7 +228,7 @@ object ConsumeTopicTest {
 
     val consumer: TopicConsumer[StateT] = new TopicConsumer[StateT] {
 
-      def subscribe(listener: RebalanceListener[StateT]) = {
+      def subscribe(listener: RebalanceListener1[StateT]) = {
         StateT.unit {
           _ + Action.Subscribe()(listener)
         }
@@ -218,7 +247,7 @@ object ConsumeTopicTest {
                     action
                       .listener
                       .onPartitionsAssigned(topicPartitions)
-                      .run(state)
+                      .runAsIO(state)
                       .map { case (s, _) => s }
                 }
                 .getOrElse(state.pure[IO])
@@ -236,7 +265,7 @@ object ConsumeTopicTest {
                     action
                       .listener
                       .onPartitionsRevoked(topicPartitions)
-                      .run(state)
+                      .runAsIO(state)
                       .map { case (s, _) => s }
                 }
                 .getOrElse(state.pure[IO])
@@ -339,7 +368,7 @@ object ConsumeTopicTest {
 
     final case class LosePartitions(partitions: Nes[Partition]) extends Action
 
-    final case class Subscribe()(val listener: RebalanceListener[StateT]) extends Action
+    final case class Subscribe()(val listener: RebalanceListener1[StateT]) extends Action
 
     final case class Poll(records: Nem[Partition, Nel[ConsRecord]]) extends Action
 

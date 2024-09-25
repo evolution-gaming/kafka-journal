@@ -8,7 +8,8 @@ import com.evolutiongaming.catshelper.{BracketThrowable, Log}
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.{OnError, Retry, Sleep, Strategy}
 import com.evolutiongaming.skafka.*
-import com.evolutiongaming.skafka.consumer.RebalanceListener
+import com.evolutiongaming.skafka.consumer.RebalanceListener1
+import com.evolutiongaming.skafka.consumer.RebalanceCallback.syntax._
 
 import scala.concurrent.duration.*
 
@@ -41,21 +42,21 @@ object ConsumeTopic {
     retry: Retry[F],
   ): F[Unit] = {
 
-    def rebalanceListenerOf(topicFlow: TopicFlow[F]): RebalanceListener[F] = {
-      new RebalanceListener[F] {
+    def rebalanceListenerOf(topicFlow: TopicFlow[F]): RebalanceListener1[F] = {
+      new RebalanceListener1[F] {
 
         def onPartitionsAssigned(partitions: Nes[TopicPartition]) = {
           val partitions1 = partitions.map { _.partition }
-          topicFlow.assign(partitions1)
+          topicFlow.assign(partitions1).lift
         }
 
         def onPartitionsRevoked(partitions: Nes[TopicPartition]) = {
           val partitions1 = partitions.map { _.partition }
-          topicFlow.revoke(partitions1)
+          topicFlow.revoke(partitions1).lift
         }
         def onPartitionsLost(partitions: Nes[TopicPartition]) = {
           val partitions1 = partitions.map { _.partition }
-          topicFlow.lose(partitions1)
+          topicFlow.lose(partitions1).lift
         }
       }
     }
