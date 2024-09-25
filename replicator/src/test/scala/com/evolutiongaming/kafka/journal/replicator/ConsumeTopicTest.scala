@@ -158,28 +158,30 @@ object ConsumeTopicTest {
   implicit class RebalanceCallbackOps[A](val callback: RebalanceCallback[StateT, A]) extends AnyVal {
 
     def runAsIO(state: State): IO[(State, A)] = {
-      var result: State = null // i know what i'm doing, but if you don't like it - never use StateT
 
-      implicit val toTryStateT = new ToTry[StateT] {
+      IO.delay {
+        var result: State = null // i know what i'm doing, but if you don't like it - never use StateT
 
-        val ioToTry = ToTry.ioToTry
+        implicit val toTryStateT = new ToTry[StateT] {
 
-        def apply[B](stateT: StateT[B]): Try[B] = {
-          val io = stateT.run(state)
-          val tr = ioToTry(io)
-          tr match {
-            case Success((s, tryB)) => result = s; tryB
-            case Failure(exception) => Failure(exception)
+          val ioToTry = ToTry.ioToTry
+
+          def apply[B](stateT: StateT[B]): Try[B] = {
+            val io = stateT.run(state)
+            val tr = ioToTry(io)
+            tr match {
+              case Success((s, tryB)) => result = s; tryB
+              case Failure(exception) => Failure(exception)
+            }
           }
+        }
+
+        callback.run(EmptyRebalanceConsumer) match {
+          case Failure(e) => throw e
+          case Success(a) => result -> a
         }
       }
 
-      val tryU = callback.run(EmptyRebalanceConsumer)
-
-      tryU match {
-        case Failure(e) => IO.raiseError(e)
-        case Success(a) => IO.pure(result -> a)
-      }
     }
 
   }
