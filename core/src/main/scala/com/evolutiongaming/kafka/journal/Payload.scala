@@ -3,9 +3,9 @@ package com.evolutiongaming.kafka.journal
 import com.evolutiongaming.kafka.journal.util.ScodecHelper.*
 import play.api.libs.functional.syntax.*
 import play.api.libs.json.*
-import scodec.bits.ByteVector
+import scodec.bits.{BitVector, ByteVector}
 import scodec.codecs.{bytes, utf8}
-import scodec.{Codec, TransformSyntax}
+import scodec.{Attempt, Codec, DecodeResult, SizeBound}
 
 import scala.util.Try
 
@@ -39,7 +39,13 @@ object Payload {
 
     val empty: Binary = Binary(ByteVector.empty)
 
-    implicit val codecBinary: Codec[Binary] = bytes.as[Binary]
+    implicit val codecBinary: Codec[Binary] = new Codec[Binary] {
+      override def decode(bits: BitVector): Attempt[DecodeResult[Binary]] = bytes.decode(bits).map(_.map(Binary(_)))
+
+      override def encode(value: Binary): Attempt[BitVector] = bytes.encode(value.value)
+
+      override def sizeBound: SizeBound = bytes.sizeBound
+    }
 
   }
 
@@ -53,7 +59,13 @@ object Payload {
 
   object Text {
 
-    implicit val codecText: Codec[Text] = utf8.as[Text]
+    implicit val codecText: Codec[Text] = new Codec[Text] {
+      override def decode(bits: BitVector): Attempt[DecodeResult[Text]] = utf8.decode(bits).map(_.map(Text(_)))
+
+      override def encode(value: Text): Attempt[BitVector] = utf8.encode(value.value)
+
+      override def sizeBound: SizeBound = utf8.sizeBound
+    }
 
   }
 

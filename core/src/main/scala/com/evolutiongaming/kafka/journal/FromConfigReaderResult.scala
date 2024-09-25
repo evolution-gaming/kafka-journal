@@ -5,9 +5,11 @@ import com.evolutiongaming.catshelper.ApplicativeThrowable
 import pureconfig.ConfigReader
 import pureconfig.error.ConfigReaderException
 
+import scala.reflect.ClassTag
+
 trait FromConfigReaderResult[F[_]] {
 
-  def apply[A](a: ConfigReader.Result[A]): F[A]
+  def apply[A: ClassTag](a: ConfigReader.Result[A]): F[A]
 }
 
 object FromConfigReaderResult {
@@ -16,7 +18,7 @@ object FromConfigReaderResult {
 
   implicit def lift[F[_]: ApplicativeThrowable]: FromConfigReaderResult[F] = {
     new FromConfigReaderResult[F] {
-      def apply[A](a: ConfigReader.Result[A]) = {
+      def apply[A: ClassTag](a: ConfigReader.Result[A]): F[A] = {
         a.fold(a => ConfigReaderException(a).raiseError[F, A], _.pure[F])
       }
     }

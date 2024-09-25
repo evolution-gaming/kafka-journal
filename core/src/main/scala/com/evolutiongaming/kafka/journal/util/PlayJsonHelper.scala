@@ -31,7 +31,7 @@ object PlayJsonHelper {
 
     def handleErrorWith[A](fa: JsResult[A])(f: JsError => JsResult[A]): JsResult[A] = {
       fa match {
-        case fa: JsSuccess[A] => fa
+        case fa: JsSuccess[?] => fa
         case fa: JsError      => f(fa)
       }
     }
@@ -40,15 +40,15 @@ object PlayJsonHelper {
 
     def flatMap[A, B](fa: JsResult[A])(f: A => JsResult[B]): JsResult[B] = fa.flatMap(f)
 
-    @tailrec
+    @tailrec //tailrec forces to use explicit match instead of fold and type erasure forces to use asInstanceOf
     def tailRecM[A, B](a: A)(f: A => JsResult[Either[A, B]]): JsResult[B] = {
       f(a) match {
-        case b: JsSuccess[Either[A, B]] =>
-          b.value match {
-            case Right(a) => JsSuccess(a)
-            case Left(b)  => tailRecM(b)(f)
+        case success: JsSuccess[?] =>
+          success.value match {
+            case Right(b) => JsSuccess(b.asInstanceOf[B])
+            case Left(a1)  => tailRecM(a1.asInstanceOf[A])(f)
           }
-        case b: JsError => b
+        case error: JsError => error
       }
     }
   }

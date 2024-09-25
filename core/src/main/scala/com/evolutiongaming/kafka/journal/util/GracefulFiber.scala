@@ -23,10 +23,11 @@ object GracefulFiber {
             def join = fiber.join
 
             def cancel = {
-              for {
-                cancel <- cancelRef.getAndSet(true)
-                _      <- if (cancel) ().pure[F] else fiber.joinWithNever
-              } yield {}
+              cancelRef.getAndSet(true)
+                .flatMap(cancel =>
+                  (if (cancel) ().pure[F] else fiber.joinWithNever.void)
+
+                )
             }
           }
         }
