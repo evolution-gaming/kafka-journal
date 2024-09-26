@@ -6,9 +6,8 @@ import cats.syntax.all.*
 import cats.{Applicative, ~>}
 import com.evolutiongaming.kafka.journal.util.Named
 import com.evolutiongaming.skafka.*
-import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecords, RebalanceListener}
+import com.evolutiongaming.skafka.consumer.{Consumer, ConsumerRecords, RebalanceListener1}
 
-import scala.annotation.nowarn
 import scala.concurrent.duration.FiniteDuration
 import scala.util.control.NoStackTrace
 
@@ -18,7 +17,7 @@ trait KafkaConsumer[F[_], K, V] {
 
   def seek(partition: TopicPartition, offset: Offset): F[Unit]
 
-  def subscribe(topic: Topic, listener: Option[RebalanceListener[F]]): F[Unit]
+  def subscribe(topic: Topic, listener: RebalanceListener1[F]): F[Unit]
 
   def poll(timeout: FiniteDuration): F[ConsumerRecords[K, V]]
 
@@ -35,7 +34,7 @@ object KafkaConsumer {
 
   def apply[F[_], K, V](implicit F: KafkaConsumer[F, K, V]): KafkaConsumer[F, K, V] = F
 
-  def of[F[_]: Sync, K, V](
+  def make[F[_]: Sync, K, V](
     consumer: Resource[F, Consumer[F, K, V]],
   ): Resource[F, KafkaConsumer[F, K, V]] = {
 
@@ -71,9 +70,7 @@ object KafkaConsumer {
         consumer.seek(partition, offset)
       }
 
-      @nowarn
-      // TODO MR deal with deprecated
-      def subscribe(topic: Topic, listener: Option[RebalanceListener[F]]) = {
+      def subscribe(topic: Topic, listener: RebalanceListener1[F]) = {
         consumer.subscribe(Nes.of(topic), listener)
       }
 
@@ -119,8 +116,8 @@ object KafkaConsumer {
 
       def seek(partition: TopicPartition, offset: Offset) = fg(self.seek(partition, offset))
 
-      def subscribe(topic: Topic, listener: Option[RebalanceListener[G]]) = {
-        val listener1 = listener.map(_.mapK(gf))
+      def subscribe(topic: Topic, listener: RebalanceListener1[G]) = {
+        val listener1 = listener.mapK(gf)
         fg(self.subscribe(topic, listener1))
       }
 
@@ -141,7 +138,7 @@ object KafkaConsumer {
 
       def seek(partition: TopicPartition, offset: Offset) = f(self.seek(partition, offset), "seek")
 
-      def subscribe(topic: Topic, listener: Option[RebalanceListener[F]]) = {
+      def subscribe(topic: Topic, listener: RebalanceListener1[F]) = {
         f(self.subscribe(topic, listener), "subscribe")
       }
 
@@ -164,7 +161,7 @@ object KafkaConsumer {
 
         def seek(partition: TopicPartition, offset: Offset) = self.seek(partition, offset)
 
-        def subscribe(topic: Topic, listener: Option[RebalanceListener[F]]) = {
+        def subscribe(topic: Topic, listener: RebalanceListener1[F]) = {
           self.subscribe(topic, listener)
         }
 

@@ -19,7 +19,7 @@ class GroupTest extends AsyncFunSuite with Matchers {
       deferred1 <- Deferred[IO, Unit]
       deferred2 <- Deferred[IO, Nel[Unit]]
       deferred3 <- Deferred[IO, Unit]
-      result <- Group.of {
+      result <- Group.make {
         for {
           _ <- deferred0.complete(())
           _ <- deferred1.get
@@ -48,7 +48,7 @@ class GroupTest extends AsyncFunSuite with Matchers {
   test("group many") {
     val result = for {
       ref <- Ref[IO].of(0).toResource
-      group <- Group.of {
+      group <- Group.make {
         for {
           a <- ref.modify { a => (a + 1, a) }
           _ <- Temporal[IO].sleep(1.millis)

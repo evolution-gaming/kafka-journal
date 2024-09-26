@@ -6,8 +6,6 @@ import cats.{FlatMap, ~>}
 import com.evolutiongaming.catshelper.{Log, MeasureDuration}
 import com.evolutiongaming.sstream.Stream
 
-import scala.annotation.nowarn
-
 trait Settings[F[_]] {
 
   type K = Setting.Key
@@ -17,14 +15,6 @@ trait Settings[F[_]] {
   def get(key: K): F[Option[Setting]]
 
   def set(key: K, value: V): F[Option[Setting]]
-
-  @deprecated(
-    since = "3.3.9",
-    message = "the behavior of the method might not be deterministic, " +
-      "because it uses Cassandra LWTs, while other methods do not, " +
-      "use get + set instead for a rough approximation of functionality",
-  )
-  def setIfEmpty(key: K, value: V): F[Option[Setting]]
 
   def remove(key: K): F[Option[Setting]]
 
@@ -61,16 +51,6 @@ object Settings {
           } yield r
         }
 
-        @nowarn
-        def setIfEmpty(key: K, value: V): F[Option[Setting]] = {
-          for {
-            d <- MeasureDuration[F].start
-            r <- self.setIfEmpty(key, value)
-            d <- d
-            _ <- log.debug(s"$key setIfEmpty in ${d.toMillis}ms, value: $value, result: $r")
-          } yield r
-        }
-
         def remove(key: K): F[Option[Setting]] = {
           for {
             d <- MeasureDuration[F].start
@@ -101,9 +81,6 @@ object Settings {
       def get(key: K): G[Option[Setting]] = fg(self.get(key))
 
       def set(key: K, value: V): G[Option[Setting]] = fg(self.set(key, value))
-
-      @nowarn
-      def setIfEmpty(key: K, value: V): G[Option[Setting]] = fg(self.setIfEmpty(key, value))
 
       def remove(key: K): G[Option[Setting]] = fg(self.remove(key))
 

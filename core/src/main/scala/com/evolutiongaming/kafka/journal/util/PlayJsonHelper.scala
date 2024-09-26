@@ -11,7 +11,7 @@ import scala.annotation.tailrec
 import scala.concurrent.duration.*
 import scala.util.Try
 
-object PlayJsonHelper {
+private[journal] object PlayJsonHelper {
 
   implicit def jsValueEncodeByName(implicit encode: JsonCodec.Encode[Try]): EncodeByName[JsValue] =
     encodeByNameFromWrites

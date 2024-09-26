@@ -2,15 +2,12 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.syntax.all.*
 import com.datastax.driver.core.ConsistencyLevel
+import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
 import com.typesafe.config.ConfigFactory
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import pureconfig.ConfigSource
 
-import scala.annotation.nowarn
-
-@nowarn
-// TODO MR deal with deprecated
 class EventualCassandraConfigSpec extends AnyFunSuite with Matchers {
 
   test("apply from empty config") {
@@ -24,11 +21,10 @@ class EventualCassandraConfigSpec extends AnyFunSuite with Matchers {
     val expected = EventualCassandraConfig(
       retries     = 1,
       segmentSize = SegmentSize.min,
-      consistencyConfig = EventualCassandraConfig
-        .ConsistencyConfig
+      consistencyConfig = CassandraConsistencyConfig
         .default
         .copy(
-          read = EventualCassandraConfig.ConsistencyConfig.Read(ConsistencyLevel.QUORUM),
+          read = CassandraConsistencyConfig.Read(ConsistencyLevel.QUORUM),
         ),
     )
     ConfigSource.fromConfig(config).load[EventualCassandraConfig] shouldEqual expected.asRight

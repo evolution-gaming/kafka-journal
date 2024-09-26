@@ -7,7 +7,7 @@ import cats.effect.unsafe.implicits.global
 import cats.effect.{Clock, IO}
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.ClockHelper.*
-import com.evolutiongaming.catshelper.{FromTry, Log, MeasureDuration}
+import com.evolutiongaming.catshelper.{FromTry, Log, MeasureDuration, RandomIdOf}
 import com.evolutiongaming.concurrent.CurrentThreadExecutionContext
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.conversions.{KafkaRead, KafkaWrite}

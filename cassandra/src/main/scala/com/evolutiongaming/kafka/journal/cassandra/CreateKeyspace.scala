@@ -7,11 +7,11 @@ import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper.*
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession}
 import com.evolutiongaming.scassandra.CreateKeyspaceIfNotExists
 
-trait CreateKeyspace[F[_]] {
+private[journal] trait CreateKeyspace[F[_]] {
   def apply(config: KeyspaceConfig): F[Unit]
 }
 
-object CreateKeyspace {
+private[journal] object CreateKeyspace {
 
   def empty[F[_]: Applicative]: CreateKeyspace[F] = (_: KeyspaceConfig) => ().pure[F]
 

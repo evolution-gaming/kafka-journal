@@ -5,9 +5,10 @@ import cats.data.NonEmptyList as Nel
 import cats.effect.*
 import cats.effect.syntax.resource.*
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.{RandomIdOf as _, *}
+import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.kafka.journal.Journal.DataIntegrityConfig
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
+import com.evolutiongaming.kafka.journal.cassandra.KeyspaceConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.*
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.scassandra.util.FromGFuture
@@ -16,7 +17,6 @@ import com.evolutiongaming.skafka.CommonConfig
 import com.evolutiongaming.skafka.consumer.ConsumerConfig
 import com.evolutiongaming.skafka.producer.{Acks, ProducerConfig}
 
-import scala.annotation.nowarn
 import scala.concurrent.duration.*
 
 object ReadEventsApp extends IOApp {
@@ -62,11 +62,10 @@ object ReadEventsApp extends IOApp {
 
     val consumerConfig = ConsumerConfig(common = commonConfig)
 
-    val consumer = Journals.Consumer.of[F](consumerConfig, 100.millis)
+    val consumer = Journals.Consumer.make[F](consumerConfig, 100.millis)
 
-    @nowarn
     val eventualCassandraConfig = EventualCassandraConfig(
-      schema = SchemaConfig(keyspace = SchemaConfig.Keyspace(name = "keyspace", autoCreate = false), autoCreate = false),
+      schema = SchemaConfig(keyspace = KeyspaceConfig(name = "keyspace", autoCreate = false), autoCreate = false),
       client = CassandraConfig(
         contactPoints  = com.evolutiongaming.nel.Nel("127.0.0.1"),
         authentication = AuthenticationConfig(username = "username", password = "password").some,
@@ -76,10 +75,15 @@ object ReadEventsApp extends IOApp {
     val journal = for {
       cassandraClusterOf <- CassandraClusterOf.of[F].toResource
       origin             <- Origin.hostName[F].toResource
-      eventualJournal <- EventualCassandra
-        .of1[F](eventualCassandraConfig, origin, none, cassandraClusterOf, DataIntegrityConfig.Default)
-      headCache <- HeadCache.of[F](consumerConfig, eventualJournal, none)
-      producer  <- Journals.Producer.of[F](producerConfig)
+      eventualJournal <- EventualCassandra.make[F](
+        eventualCassandraConfig,
+        origin,
+        none,
+        cassandraClusterOf,
+        DataIntegrityConfig.Default,
+      )
+      headCache <- HeadCache.make[F](consumerConfig, eventualJournal, none)
+      producer  <- Journals.Producer.make[F](producerConfig)
     } yield {
       val origin   = Origin("ReadEventsApp")
       val journals = Journals[F](origin.some, producer, consumer, eventualJournal, headCache, log, none)

@@ -7,6 +7,7 @@ import cats.syntax.all.*
 import cats.{MonadThrow, Parallel}
 import com.evolutiongaming.catshelper.{Log, LogOf, MeasureDuration, ToTry}
 import com.evolutiongaming.kafka.journal.Journal.DataIntegrityConfig
+import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
 import com.evolutiongaming.kafka.journal.eventual.*
 import com.evolutiongaming.kafka.journal.eventual.cassandra.JournalStatements.JournalRecord
 import com.evolutiongaming.kafka.journal.util.CatsHelper.*
@@ -16,8 +17,6 @@ import com.evolutiongaming.scassandra.util.FromGFuture
 import com.evolutiongaming.scassandra.{CassandraClusterOf, TableName}
 import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import com.evolutiongaming.sstream.Stream
-
-import scala.annotation.nowarn
 
 /** Creates read-only representation of the data stored to Cassandra.
   *
@@ -37,49 +36,7 @@ object EventualCassandra {
     *
     * Underlying schema is automatically created or migrated if required.
     */
-  @deprecated("Use of1 instead", "3.4.0")
-  def of[
-    F[_]: Async: Parallel: ToTry: LogOf: FromGFuture: MeasureDuration: JsonCodec.Decode,
-  ](
-    config: EventualCassandraConfig,
-    origin: Option[Origin],
-    metrics: Option[EventualJournal.Metrics[F]],
-    cassandraClusterOf: CassandraClusterOf[F],
-  ): Resource[F, EventualJournal[F]] =
-    of1[F](
-      config,
-      origin,
-      metrics,
-      cassandraClusterOf,
-      DataIntegrityConfig.Default,
-    )
-
-  /** Creates [[EventualJournal]] instance for a given Cassandra session.
-    *
-    * Underlying schema is automatically created or migrated if required.
-    */
-  @deprecated("Use of1 instead", "3.4.0")
-  def of[
-    F[_]: Temporal: Parallel: ToTry: LogOf: CassandraCluster: CassandraSession: MeasureDuration: JsonCodec.Decode,
-  ](
-    schemaConfig: SchemaConfig,
-    origin: Option[Origin],
-    metrics: Option[EventualJournal.Metrics[F]],
-    consistencyConfig: EventualCassandraConfig.ConsistencyConfig,
-  ): F[EventualJournal[F]] =
-    of1[F](
-      schemaConfig,
-      origin,
-      metrics,
-      consistencyConfig,
-      DataIntegrityConfig.Default,
-    )
-
-  /** Creates [[EventualJournal]] instance for a given Cassandra cluster factory.
-    *
-    * Underlying schema is automatically created or migrated if required.
-    */
-  def of1[
+  def make[
     F[_]: Async: Parallel: ToTry: LogOf: FromGFuture: MeasureDuration: JsonCodec.Decode,
   ](
     config: EventualCassandraConfig,
@@ -90,11 +47,11 @@ object EventualCassandra {
   ): Resource[F, EventualJournal[F]] = {
 
     def journal(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
-      of1(config.schema, origin, metrics, config.consistencyConfig, dataIntegrity)
+      of(config.schema, origin, metrics, config.consistencyConfig, dataIntegrity)
     }
 
     for {
-      cassandraCluster <- CassandraCluster.of[F](config.client, cassandraClusterOf, config.retries)
+      cassandraCluster <- CassandraCluster.make[F](config.client, cassandraClusterOf, config.retries)
       cassandraSession <- cassandraCluster.session
       journal          <- journal(cassandraCluster, cassandraSession).toResource
     } yield journal
@@ -104,15 +61,13 @@ object EventualCassandra {
     *
     * Underlying schema is automatically created or migrated if required.
     */
-  @nowarn
-  // TODO MR deal with deprecated
-  def of1[
+  def of[
     F[_]: Temporal: Parallel: ToTry: LogOf: CassandraCluster: CassandraSession: MeasureDuration: JsonCodec.Decode,
   ](
     schemaConfig: SchemaConfig,
     origin: Option[Origin],
     metrics: Option[EventualJournal.Metrics[F]],
-    consistencyConfig: EventualCassandraConfig.ConsistencyConfig,
+    consistencyConfig: CassandraConsistencyConfig,
     dataIntegrity: DataIntegrityConfig,
   ): F[EventualJournal[F]] = {
 
@@ -124,7 +79,7 @@ object EventualCassandra {
       _           <- log.info(s"kafka-journal version: ${Version.current.value}")
     } yield {
       implicit val log1 = log
-      val journal       = apply2[F](statements, dataIntegrity).withLog(log)
+      val journal       = apply[F](statements, dataIntegrity).withLog(log)
       metrics
         .fold(journal) { metrics => journal.withMetrics(metrics) }
         .enhanceError
@@ -138,22 +93,7 @@ object EventualCassandra {
     * The implementation itself is abstracted from the calls to Cassandra which
     * should be passed as part of [[Statements]] parameter.
     */
-  @deprecated("Use apply1 instead", "3.4.0")
-  def apply[F[_]: MonadThrow](statements: Statements[F]): EventualJournal[F] =
-    apply1(statements, DataIntegrityConfig.Default)
-
-  /** Creates [[EventualJournal]] instance calling Cassandra appropriately.
-    *
-    * The implementation itself is abstracted from the calls to Cassandra which
-    * should be passed as part of [[Statements]] parameter.
-    */
-  @deprecated("Use apply2 instead", "3.6.0")
-  def apply1[F[_]: MonadThrow](statements: Statements[F], dataIntegrity: DataIntegrityConfig): EventualJournal[F] = {
-    implicit val log = Log.empty[F]
-    apply2(statements, dataIntegrity)
-  }
-
-  def apply2[F[_]: MonadThrow: Log](statements: Statements[F], dataIntegrity: DataIntegrityConfig): EventualJournal[F] = {
+  def apply[F[_]: MonadThrow: Log](statements: Statements[F], dataIntegrity: DataIntegrityConfig): EventualJournal[F] = {
 
     new Main with EventualJournal[F] {
 
@@ -294,7 +234,7 @@ object EventualCassandra {
       schema: Schema,
       segmentNrsOf: SegmentNrsOf[F],
       segments: Segments,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
+      consistencyConfig: CassandraConsistencyConfig.Read,
     ): F[Statements[F]] = {
       for {
         selectRecords <- JournalStatements.SelectRecords.of[F](schema.journal, consistencyConfig)
@@ -321,7 +261,7 @@ object EventualCassandra {
       schema: Schema,
       segmentNrsOf: SegmentNrsOf[F],
       segments: Segments,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
+      consistencyConfig: CassandraConsistencyConfig.Read,
     ): F[MetaJournalStatements[F]] = {
       of(schema.metaJournal, segmentNrsOf, segments, consistencyConfig)
     }
@@ -330,7 +270,7 @@ object EventualCassandra {
       metaJournal: TableName,
       segmentNrsOf: SegmentNrsOf[F],
       segments: Segments,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
+      consistencyConfig: CassandraConsistencyConfig.Read,
     ): F[MetaJournalStatements[F]] = {
       for {
         selectJournalHead    <- cassandra.MetaJournalStatements.SelectJournalHead.of[F](metaJournal, consistencyConfig)

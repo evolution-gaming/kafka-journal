@@ -47,7 +47,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
 
       val result = for {
         stateRef <- Ref[IO].of(state)
-        consumer  = TestConsumer.of(stateRef)
+        consumer  = TestConsumer.make(stateRef)
         _ <- headCacheOf(eventual, consumer).use { headCache =>
           for {
             result <- headCache.get(key = key, partition = partition, offset = offsetLast)
@@ -81,7 +81,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
 
       val result = for {
         stateRef <- Ref[IO].of(state)
-        consumer  = TestConsumer.of(stateRef)
+        consumer  = TestConsumer.make(stateRef)
         _ <- headCacheOf(eventual, consumer).use { headCache =>
           for {
             a <- headCache.get(key = key, partition = partition, offset = marker)
@@ -103,7 +103,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
       val key = Key(id = "id", topic = topic)
       val result = for {
         stateRef <- Ref[IO].of(state)
-        consumer  = TestConsumer.of(stateRef)
+        consumer  = TestConsumer.make(stateRef)
         _ <- headCacheOf(eventual, consumer).use { headCache =>
           for {
             result <- Concurrent[IO].start { headCache.get(key = key, partition = partition, offset = marker) }
@@ -139,7 +139,7 @@ class HeadCacheSpec extends AsyncWordSpec with Matchers {
       val result = for {
         pointers <- Ref.of[IO, Map[Partition, Offset]](Map.empty)
         stateRef <- Ref[IO].of(state)
-        consumer  = TestConsumer.of(stateRef)
+        consumer  = TestConsumer.make(stateRef)
         headCache = {
           val topicPointers = for {
             pointers <- pointers.get
@@ -284,15 +284,15 @@ object HeadCacheSpec {
   ): Resource[IO, HeadCache[IO]] = {
 
     for {
-      metrics <- HeadCacheMetrics.of[IO](CollectorRegistry.empty)
+      metrics <- HeadCacheMetrics.make[IO](CollectorRegistry.empty)
       headCache <- HeadCache
-        .of[IO](log = LogIO, config = config, eventual = eventual, consumer = consumer, metrics = metrics.some)
+        .make[IO](log = LogIO, config = config, eventual = eventual, consumer = consumer, metrics = metrics.some)
     } yield headCache
   }
 
   object TestConsumer {
 
-    def of(stateRef: Ref[IO, State]): Resource[IO, TopicCache.Consumer[IO]] = {
+    def make(stateRef: Ref[IO, State]): Resource[IO, TopicCache.Consumer[IO]] = {
       val consumer = apply(stateRef)
       val release  = stateRef.update { _.append(Action.Release) }
       Resource((consumer, release).pure[IO])

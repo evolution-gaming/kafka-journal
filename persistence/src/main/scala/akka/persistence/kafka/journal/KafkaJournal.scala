@@ -6,8 +6,8 @@ import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.effect.*
 import cats.effect.unsafe.{IORuntime, IORuntimeConfig}
 import cats.syntax.all.*
+import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.catshelper.CatsHelper.*
-import com.evolutiongaming.catshelper.{RandomIdOf as _, *}
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.util.CatsHelper.*
 import com.evolutiongaming.kafka.journal.util.PureConfigHelper.*
@@ -276,7 +276,7 @@ class KafkaJournal(config: Config) extends AsyncWriteJournal { actor =>
     jsonCodec: JsonCodec[IO],
   ): Resource[IO, JournalAdapter[IO]] = {
 
-    JournalAdapter.of[IO, A](
+    JournalAdapter.make[IO, A](
       toKey              = toKey,
       origin             = origin,
       serializer         = serializer,

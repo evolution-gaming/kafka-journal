@@ -11,7 +11,7 @@ import java.time.{Instant, LocalDate, ZoneId}
 import java.util.TimeZone
 import scala.concurrent.duration.FiniteDuration
 
-trait ExpiryService[F[_]] {
+private[journal] trait ExpiryService[F[_]] {
   import ExpiryService.*
 
   def expireOn(expireAfter: ExpireAfter, timestamp: Instant): F[ExpireOn]
@@ -19,7 +19,7 @@ trait ExpiryService[F[_]] {
   def action(expiry: Option[Expiry], expireAfter: Option[ExpireAfter], timestamp: Instant): F[Action]
 }
 
-object ExpiryService {
+private[journal] object ExpiryService {
 
   def const[F[_]](expireOn: F[ExpireOn], action: F[Action]): ExpiryService[F] = {
 

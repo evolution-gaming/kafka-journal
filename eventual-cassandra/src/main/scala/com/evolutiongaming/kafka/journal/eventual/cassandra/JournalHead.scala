@@ -24,7 +24,7 @@ import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow}
   *   thus while al least one record in `metajournal` table does not have `record_id` field - it should be optional.
   *   `metajournal` record can be _created_ with `record_id` field, but never updated! 
   */
-final case class JournalHead(
+private[journal] final case class JournalHead(
   partitionOffset: PartitionOffset,
   segmentSize: SegmentSize,
   seqNr: SeqNr,
@@ -33,7 +33,7 @@ final case class JournalHead(
   recordId: Option[RecordId] = none,
 )
 
-object JournalHead {
+private[journal] object JournalHead {
 
   implicit def decodeRowJournalHead(implicit decode: DecodeRow[Option[Expiry]]): DecodeRow[JournalHead] = {
     (row: GettableByNameData) =>

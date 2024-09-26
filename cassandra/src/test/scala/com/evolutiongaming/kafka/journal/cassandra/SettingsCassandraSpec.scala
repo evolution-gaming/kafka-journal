@@ -14,10 +14,7 @@ import org.scalatest.funsuite.AnyFunSuite
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import scala.annotation.nowarn
 
-@nowarn
-// TODO MR deal with deprecated
 class SettingsCassandraSpec extends AnyFunSuite {
 
   type F[A] = State[Database, A]
@@ -28,13 +25,6 @@ class SettingsCassandraSpec extends AnyFunSuite {
 
     assert(database.settings == Map(setting.key -> setting))
     assert(previousValue.isEmpty)
-  }
-
-  test("setIfEmpty") {
-    val program                   = settings.setIfEmpty(setting.key, setting.value)
-    val (database, existingValue) = program.run(Database.fromSetting(setting)).value
-    assert(database.settings == Map(setting.key -> setting))
-    assert(existingValue.contains(setting))
   }
 
   test("get") {
@@ -71,10 +61,6 @@ class SettingsCassandraSpec extends AnyFunSuite {
       _  = assert(a.isEmpty)
       a <- settings.get(setting.key)
       _  = assert(a.contains(setting))
-      a <- settings.setIfEmpty(setting.key, setting.value)
-      _  = assert(a.contains(setting))
-      a <- settings.get(setting.key)
-      _  = assert(a.contains(setting))
       a <- settings.all.toList
       _  = assert(a == List(setting))
 
@@ -86,12 +72,10 @@ class SettingsCassandraSpec extends AnyFunSuite {
       _  = assert(a.isEmpty)
       a <- settings.remove(setting.key)
       _  = assert(a.isEmpty)
-      a <- settings.setIfEmpty(setting.key, setting.value)
-      _  = assert(a.isEmpty)
     } yield ()
 
     val database = program.runS(Database.empty).value
-    assert(database.settings == Map(setting.key -> setting))
+    assert(database.settings.isEmpty)
   }
 
   private val origin = Origin("origin")
@@ -103,11 +87,10 @@ class SettingsCassandraSpec extends AnyFunSuite {
   private val settings = {
 
     val statements = SettingsCassandra.Statements(
-      select        = Database.select(_),
-      insert        = Database.insert(_),
-      insertIfEmpty = Database.insertIfEmpty(_),
-      all           = Database.all,
-      delete        = Database.delete(_),
+      select = Database.select(_),
+      insert = Database.insert(_),
+      all    = Database.all,
+      delete = Database.delete(_),
     )
 
     implicit val clock: Clock[F] = Clock.const[F](nanos = 0, millis = timestamp.toEpochMilli)

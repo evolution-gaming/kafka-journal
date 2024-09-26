@@ -23,7 +23,7 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
     dropUponLimit: Double   = 0.1,
     timeout: FiniteDuration = 1.minute,
   ) = {
-    PartitionCache.of[IO](maxSize, dropUponLimit, timeout)
+    PartitionCache.make[IO](maxSize, dropUponLimit, timeout)
   }
 
   test("get Result.empty when cache is empty") {

@@ -7,19 +7,19 @@ object Dependencies {
   val `kind-projector`           = "org.typelevel"           % "kind-projector"                 % "0.13.3"
   val `cassandra-driver`         = "com.datastax.cassandra"  % "cassandra-driver-core"          % "3.11.2"
   val `play-json`                = "com.typesafe.play"      %% "play-json"                      % "2.9.3"
-  val `play-json-jsoniter`       = "com.evolutiongaming"    %% "play-json-jsoniter"             % "0.10.2"
+  val `play-json-jsoniter`       = "com.evolution"          %% "play-json-jsoniter"             % "1.1.1"
   val `executor-tools`           = "com.evolutiongaming"    %% "executor-tools"                 % "1.0.3"
-  val `akka-serialization`       = "com.evolutiongaming"    %% "akka-serialization"             % "1.0.5"
+  val `akka-serialization`       = "com.evolutiongaming"    %% "akka-serialization"             % "1.1.0"
   val `kafka-launcher`           = "com.evolutiongaming"    %% "kafka-launcher"                 % "0.2.0"
   val `testcontainers-cassandra` = "com.dimafeng"           %% "testcontainers-scala-cassandra" % "0.41.4"
   val hostname                   = "com.evolutiongaming"    %% "hostname"                       % "0.2.0"
-  val scassandra                 = "com.evolutiongaming"    %% "scassandra"                     % "5.2.1"
+  val scassandra                 = "com.evolutiongaming"    %% "scassandra"                     % "5.3.0"
   val `cassandra-sync`           = "com.evolutiongaming"    %% "cassandra-sync"                 % "3.0.0"
   val `cats-helper`              = "com.evolutiongaming"    %% "cats-helper"                    % "3.11.0"
   val random                     = "com.evolutiongaming"    %% "random"                         % "1.0.0"
   val retry                      = "com.evolutiongaming"    %% "retry"                          % "3.0.1"
   val sstream                    = "com.evolutiongaming"    %% "sstream"                        % "1.0.1"
-  val skafka                     = "com.evolutiongaming"    %% "skafka"                         % "16.0.0"
+  val skafka                     = "com.evolutiongaming"    %% "skafka"                         % "17.1.0"
   val `akka-test-actor`          = "com.evolutiongaming"    %% "akka-test-actor"                % "0.1.0"
   val scache                     = "com.evolution"          %% "scache"                         % "5.0.0"
   val `resource-pool`            = "com.evolution"          %% "resource-pool"                  % "1.0.4"
@@ -30,7 +30,7 @@ object Dependencies {
   }
 
   object Logback {
-    private val version = "1.5.7"
+    private val version = "1.5.8"
     val core            = "ch.qos.logback" % "logback-core"    % version
     val classic         = "ch.qos.logback" % "logback-classic" % version
   }
@@ -63,7 +63,7 @@ object Dependencies {
   }
 
   object Smetrics {
-    private val version = "2.0.0" // TODO MR mima fail when using 2.2.0
+    private val version = "2.2.0"
     val smetrics        = "com.evolutiongaming" %% "smetrics"            % version
     val prometheus      = "com.evolutiongaming" %% "smetrics-prometheus" % version
   }
@@ -75,7 +75,7 @@ object Dependencies {
   }
 
   object Circe {
-    private val version = "0.13.0" // TODO MR mima fail when using 0.14.7
+    private val version = "0.14.10"
     val core            = "io.circe" %% "circe-core"    % version
     val generic         = "io.circe" %% "circe-generic" % version
     val jawn            = "io.circe" %% "circe-jawn"    % version

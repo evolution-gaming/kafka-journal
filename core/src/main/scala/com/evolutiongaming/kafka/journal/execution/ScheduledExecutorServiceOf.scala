@@ -5,7 +5,7 @@ import cats.syntax.all.*
 
 import java.util.concurrent.{Executors as ExecutorsJ, ScheduledExecutorService, ThreadFactory}
 
-object ScheduledExecutorServiceOf {
+private[journal] object ScheduledExecutorServiceOf {
 
   def apply[F[_]: Sync](
     parallelism: Int,

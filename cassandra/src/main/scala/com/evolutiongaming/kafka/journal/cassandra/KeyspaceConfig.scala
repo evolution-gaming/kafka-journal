@@ -4,13 +4,13 @@ import com.evolutiongaming.scassandra.ReplicationStrategyConfig
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
 
-final case class KeyspaceConfig(
+private[journal] final case class KeyspaceConfig(
   name: String                                   = "journal",
   replicationStrategy: ReplicationStrategyConfig = ReplicationStrategyConfig.Default,
   autoCreate: Boolean                            = true,
 )
 
-object KeyspaceConfig {
+private[journal] object KeyspaceConfig {
 
   val default: KeyspaceConfig = KeyspaceConfig()
 

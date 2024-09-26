@@ -7,8 +7,8 @@ import cats.data.NonEmptyList as Nel
 import cats.effect.*
 import cats.effect.syntax.resource.*
 import cats.syntax.all.*
+import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.catshelper.ParallelHelper.*
-import com.evolutiongaming.catshelper.{RandomIdOf as _, *}
 import com.evolutiongaming.kafka.journal.TestJsonCodec.instance
 import com.evolutiongaming.kafka.journal.conversions.KafkaWrite
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
@@ -58,12 +58,12 @@ object AppendReplicateApp extends IOApp {
     ) = {
 
       for {
-        producer <- Journals.Producer.of[F](config.kafka.producer)
+        producer <- Journals.Producer.make[F](config.kafka.producer)
       } yield {
         Journals[F](
           origin            = hostName.map(Origin.fromHostName),
           producer          = producer,
-          consumer          = Journals.Consumer.of[F](config.kafka.consumer, config.pollTimeout),
+          consumer          = Journals.Consumer.make[F](config.kafka.consumer, config.pollTimeout),
           eventualJournal   = EventualJournal.empty[F],
           headCache         = HeadCache.empty[F],
           log               = log,
@@ -76,7 +76,7 @@ object AppendReplicateApp extends IOApp {
       for {
         cassandraClusterOf <- CassandraClusterOf.of[F].toResource
         config             <- ReplicatorConfig.fromConfig[F](system.settings.config).toResource
-        result             <- Replicator.of[F](config, cassandraClusterOf, hostName)
+        result             <- Replicator.make[F](config, cassandraClusterOf, hostName)
       } yield result
     }
 

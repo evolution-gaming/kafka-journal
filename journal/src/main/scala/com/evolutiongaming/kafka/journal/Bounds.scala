@@ -22,9 +22,9 @@ import scala.util.Try
   * val res0: Bounds[Int] = 10..70
   * }}}
   */
-sealed trait Bounds[+A]
+private[journal] sealed trait Bounds[+A]
 
-object Bounds {
+private[journal] object Bounds {
   implicit def semigroupBounds[A: Order]: Semigroup[Bounds[A]] = { (a: Bounds[A], b: Bounds[A]) =>
     {
       Bounds

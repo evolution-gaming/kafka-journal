@@ -102,7 +102,6 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
 
   val schema: Schema = Schema(
     journal     = TableName(keyspace = "journal", table = "journal"),
-    metadata    = TableName(keyspace = "journal", table = "metadata"),
     metaJournal = TableName(keyspace = "journal", table = "metaJournal"),
     pointer     = TableName(keyspace = "journal", table = "pointer"),
     pointer2    = TableName(keyspace = "journal", table = "pointer2"),
@@ -132,19 +131,6 @@ class SetupSchemaSpec extends AnyFunSuite with Matchers {
           val setting = state.version.map { version => settingOf(key, version) }
           val state1  = state.copy(version = value.some, actions = Action.SetSetting(key, value) :: state.actions)
           (state1, setting)
-        }
-      }
-
-      def setIfEmpty(key: K, value: V): StateT[Option[Setting]] = {
-        StateT { state =>
-          state.version match {
-            case Some(version) =>
-              val setting = settingOf(key, version)
-              (state, setting.some)
-            case None =>
-              val state1 = state.copy(version = value.some, actions = Action.SetSetting(key, value) :: state.actions)
-              (state1, none[Setting])
-          }
         }
       }
 

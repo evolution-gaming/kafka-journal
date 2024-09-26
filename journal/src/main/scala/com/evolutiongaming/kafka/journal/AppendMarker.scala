@@ -2,6 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import cats.FlatMap
 import cats.syntax.all.*
+import com.evolutiongaming.catshelper.RandomIdOf
 
 trait AppendMarker[F[_]] {
 

@@ -7,7 +7,7 @@ import java.time.{Instant, LocalDate, ZoneId}
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.*
 
-object TemporalHelper {
+private[journal] object TemporalHelper {
 
   implicit val instantOrdering: Ordering[Instant] = Ordering.fromLessThan(_ isBefore _)
 

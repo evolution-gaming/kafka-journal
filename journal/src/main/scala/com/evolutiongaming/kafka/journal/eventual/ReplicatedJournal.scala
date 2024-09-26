@@ -176,7 +176,7 @@ object ReplicatedJournal {
       }
     }
 
-    def of[F[_]: Monad](
+    def make[F[_]: Monad](
       registry: CollectorRegistry[F],
       prefix: String = "replicated_journal",
     ): Resource[F, Metrics[F]] = {

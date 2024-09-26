@@ -5,7 +5,7 @@ import cats.data.NonEmptyList as Nel
 import cats.effect.*
 import cats.effect.syntax.resource.*
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.{RandomIdOf as _, *}
+import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.CassandraSuite.*
 import com.evolutiongaming.kafka.journal.ExpireAfter.implicits.*
@@ -56,7 +56,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
         .liftTo[F]
       for {
         config          <- config.toResource
-        eventualJournal <- EventualCassandra.of1[F](config, origin.some, none, cassandraClusterOf, DataIntegrityConfig.Default)
+        eventualJournal <- EventualCassandra.make[F](config, origin.some, none, cassandraClusterOf, DataIntegrityConfig.Default)
       } yield eventualJournal
     }
 
@@ -76,8 +76,8 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
 
       for {
         config   <- config.toResource
-        producer <- Journals.Producer.of[F](config.kafka.producer)
-        consumer  = Journals.Consumer.of[F](config.kafka.consumer, config.pollTimeout)
+        producer <- Journals.Producer.make[F](config.kafka.producer)
+        consumer  = Journals.Consumer.make[F](config.kafka.consumer, config.pollTimeout)
         log      <- LogOf[F].apply(Journals.getClass).toResource
       } yield {
         Journals[F](

@@ -8,7 +8,7 @@ import com.evolutiongaming.kafka.journal.execution.{ForkJoinPoolOf, ScheduledExe
 import java.util.concurrent.ScheduledExecutorService
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 
-object Executors {
+private[journal] object Executors {
 
   def blocking[F[_]: Sync](
     name: String,

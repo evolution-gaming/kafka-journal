@@ -4,6 +4,7 @@ import cats.Monad
 import cats.syntax.all.*
 import com.datastax.driver.core.GettableByNameData
 import com.evolutiongaming.catshelper.DataHelper.*
+import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper.*
 import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
 import com.evolutiongaming.scassandra.syntax.*
@@ -13,7 +14,7 @@ import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import java.time.Instant
 import scala.collection.immutable.SortedSet
 
-object Pointer2Statements {
+private[journal] object Pointer2Statements {
 
   def createTable(name: TableName): String = {
     s"""
@@ -35,7 +36,7 @@ object Pointer2Statements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
+      consistencyConfig: CassandraConsistencyConfig.Read,
     ): F[SelectTopics[F]] = {
 
       val query = s"""SELECT DISTINCT topic, partition FROM ${name.toCql}""".stripMargin
@@ -76,7 +77,7 @@ object Pointer2Statements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
+      consistencyConfig: CassandraConsistencyConfig.Read,
     ): F[Select[F]] = {
       s"""
          |SELECT created FROM ${name.toCql}
@@ -106,7 +107,7 @@ object Pointer2Statements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
+      consistencyConfig: CassandraConsistencyConfig.Read,
     ): F[SelectOffset[F]] = {
 
       val query =
@@ -139,7 +140,7 @@ object Pointer2Statements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
+      consistencyConfig: CassandraConsistencyConfig.Write,
     ): F[Insert[F]] = {
 
       val query =
@@ -174,7 +175,7 @@ object Pointer2Statements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
+      consistencyConfig: CassandraConsistencyConfig.Write,
     ): F[Update[F]] = {
 
       val query =

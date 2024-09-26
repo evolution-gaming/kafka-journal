@@ -4,7 +4,7 @@ import akka.persistence.{AtomicWrite, PersistentRepr}
 import cats.effect.*
 import cats.syntax.all.*
 import cats.{Monad, Parallel, ~>}
-import com.evolutiongaming.catshelper.{RandomIdOf as _, *}
+import com.evolutiongaming.catshelper.*
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.kafka.journal.conversions.ConversionMetrics
 import com.evolutiongaming.kafka.journal.eventual.EventualJournal
@@ -31,7 +31,7 @@ trait JournalAdapter[F[_]] {
 
 object JournalAdapter {
 
-  def of[
+  def make[
     F[
       _,
     ]: Async: ToFuture: Parallel: LogOf: RandomIdOf: FromGFuture: MeasureDuration: ToTry: FromTry: FromJsResult: Fail: JsonCodec,
@@ -81,7 +81,7 @@ object JournalAdapter {
       headCacheOf: HeadCacheOf[F],
     ): Resource[F, Journals[F]] = {
       Journals
-        .of1[F](
+        .make[F](
           origin              = origin,
           config              = config.journal,
           eventualJournal     = eventualJournal,
@@ -97,8 +97,13 @@ object JournalAdapter {
     val headCacheOf1 = headCacheOf(kafkaConsumerOf)
 
     for {
-      eventualJournal <- EventualCassandra
-        .of1[F](config.cassandra, origin, metrics.eventual, cassandraClusterOf, config.dataIntegrity)
+      eventualJournal <- EventualCassandra.make[F](
+        config.cassandra,
+        origin,
+        metrics.eventual,
+        cassandraClusterOf,
+        config.dataIntegrity,
+      )
       journal <- journal(eventualJournal)(kafkaConsumerOf, kafkaProducerOf, headCacheOf1)
     } yield {
       JournalAdapter[F, A](journal, toKey, serializer, journalReadWrite, appendMetadataOf).withBatching(batching)

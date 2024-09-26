@@ -15,7 +15,7 @@ trait Group[F[_], A, B] {
 
 object Group {
 
-  def of[F[_]: Async, A, B](func: F[Nel[A] => F[B]]): Resource[F, Group[F, A, B]] = {
+  def make[F[_]: Async, A, B](func: F[Nel[A] => F[B]]): Resource[F, Group[F, A, B]] = {
 
     sealed trait S
 

@@ -6,12 +6,12 @@ import com.evolutiongaming.kafka.journal.{FromBytes, JournalError}
 import com.evolutiongaming.skafka.Header
 import scodec.bits.ByteVector
 
-trait HeaderToTuple[F[_]] {
+private[journal] trait HeaderToTuple[F[_]] {
 
   def apply(header: Header): F[(String, String)]
 }
 
-object HeaderToTuple {
+private[journal] object HeaderToTuple {
 
   implicit def apply[F[_]: ApplicativeThrowable](implicit stringFromBytes: FromBytes[F, String]): HeaderToTuple[F] = {
     (header: Header) =>

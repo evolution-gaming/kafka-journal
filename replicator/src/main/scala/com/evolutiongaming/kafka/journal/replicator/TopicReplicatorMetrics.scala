@@ -46,7 +46,7 @@ object TopicReplicatorMetrics {
     }
   }
 
-  def of[F[_]: Monad](
+  def make[F[_]: Monad](
     registry: CollectorRegistry[F],
     prefix: String = "replicator",
   ): Resource[F, Topic => TopicReplicatorMetrics[F]] = {

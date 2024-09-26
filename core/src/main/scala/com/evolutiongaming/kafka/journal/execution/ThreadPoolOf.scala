@@ -6,7 +6,7 @@ import cats.syntax.all.*
 import java.util.concurrent.{SynchronousQueue, ThreadFactory, ThreadPoolExecutor}
 import scala.concurrent.duration.*
 
-object ThreadPoolOf {
+private[journal] object ThreadPoolOf {
 
   def apply[F[_]: Sync](
     minSize: Int,

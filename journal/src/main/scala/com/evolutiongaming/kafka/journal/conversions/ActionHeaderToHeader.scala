@@ -5,12 +5,12 @@ import com.evolutiongaming.catshelper.ApplicativeThrowable
 import com.evolutiongaming.kafka.journal.{ActionHeader, JournalError, ToBytes}
 import com.evolutiongaming.skafka.Header
 
-trait ActionHeaderToHeader[F[_]] {
+private[journal] trait ActionHeaderToHeader[F[_]] {
 
   def apply(actionHeader: ActionHeader): F[Header]
 }
 
-object ActionHeaderToHeader {
+private[journal] object ActionHeaderToHeader {
 
   implicit def apply[F[_]: ApplicativeThrowable](
     implicit actionHeaderToBytes: ToBytes[F, ActionHeader],

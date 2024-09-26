@@ -5,22 +5,22 @@ import cats.data.NonEmptyList as Nel
 import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.{ConsRecord, KafkaConsumer}
 import com.evolutiongaming.skafka.*
-import com.evolutiongaming.skafka.consumer.RebalanceListener
+import com.evolutiongaming.skafka.consumer.RebalanceListener1
 import com.evolutiongaming.sstream.Stream
 import scodec.bits.ByteVector
 
 import scala.concurrent.duration.*
 
-trait TopicConsumer[F[_]] {
+private[journal] trait TopicConsumer[F[_]] {
 
-  def subscribe(listener: RebalanceListener[F]): F[Unit]
+  def subscribe(listener: RebalanceListener1[F]): F[Unit]
 
   def poll: Stream[F, Map[Partition, Nel[ConsRecord]]]
 
   def commit: TopicCommit[F]
 }
 
-object TopicConsumer {
+private[journal] object TopicConsumer {
 
   def apply[F[_]: Monad](
     topic: Topic,
@@ -33,8 +33,8 @@ object TopicConsumer {
 
     new TopicConsumer[F] {
 
-      def subscribe(listener: RebalanceListener[F]) = {
-        consumer.subscribe(topic, listener.some)
+      def subscribe(listener: RebalanceListener1[F]) = {
+        consumer.subscribe(topic, listener)
       }
 
       val poll = {

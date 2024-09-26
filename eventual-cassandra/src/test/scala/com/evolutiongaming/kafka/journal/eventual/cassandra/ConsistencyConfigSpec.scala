@@ -1,22 +1,17 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import com.datastax.driver.core.ConsistencyLevel
-import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfigSpec
-import com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandraConfig.ConsistencyConfig
+import com.evolutiongaming.kafka.journal.cassandra.{CassandraConsistencyConfig, CassandraConsistencyConfigSpec}
 import com.typesafe.config.ConfigFactory
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import pureconfig.ConfigSource
 
-import scala.annotation.nowarn
-
-@nowarn
-// TODO MR deal with deprecated
 class ConsistencyConfigSpec extends AnyFunSuite with Matchers {
 
   test("apply from empty config") {
-    val actualConfig   = ConfigSource.empty.load[ConsistencyConfig]
-    val expectedConfig = ConsistencyConfig.default
+    val actualConfig   = ConfigSource.empty.load[CassandraConsistencyConfig]
+    val expectedConfig = CassandraConsistencyConfig.default
     assert(actualConfig == Right(expectedConfig))
   }
 
@@ -24,11 +19,11 @@ class ConsistencyConfigSpec extends AnyFunSuite with Matchers {
     val url    = classOf[CassandraConsistencyConfigSpec].getResource("cassandra-consistency-config.conf")
     val config = ConfigFactory.parseURL(url)
 
-    val actualConfig = ConfigSource.fromConfig(config).load[ConsistencyConfig]
+    val actualConfig = ConfigSource.fromConfig(config).load[CassandraConsistencyConfig]
 
-    val expectedConfig = ConsistencyConfig(
-      read  = ConsistencyConfig.Read(ConsistencyLevel.QUORUM),
-      write = ConsistencyConfig.Write(ConsistencyLevel.EACH_QUORUM),
+    val expectedConfig = CassandraConsistencyConfig(
+      read  = CassandraConsistencyConfig.Read(ConsistencyLevel.QUORUM),
+      write = CassandraConsistencyConfig.Write(ConsistencyLevel.EACH_QUORUM),
     )
 
     assert(actualConfig == Right(expectedConfig))

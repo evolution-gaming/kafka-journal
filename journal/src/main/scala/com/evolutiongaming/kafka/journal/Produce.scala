@@ -4,13 +4,13 @@ import cats.effect.*
 import cats.syntax.all.*
 import cats.{Applicative, ~>}
 import com.evolutiongaming.catshelper.ClockHelper.*
-import com.evolutiongaming.catshelper.MonadThrowable
+import com.evolutiongaming.catshelper.{MonadThrowable, RandomId}
 import com.evolutiongaming.kafka.journal.conversions.ActionToProducerRecord
 import com.evolutiongaming.skafka.Bytes as _
 
 import java.time.Instant
 
-trait Produce[F[_]] {
+private[journal] trait Produce[F[_]] {
 
   def append(
     key: Key,
@@ -27,10 +27,7 @@ trait Produce[F[_]] {
   def mark(key: Key, randomId: RandomId): F[PartitionOffset]
 }
 
-object Produce {
-
-  @deprecated(since = "3.4.1", message = "Use `.empty` without arguments instead")
-  def empty[F[_]: Applicative](partitionOffset: F[PartitionOffset]): Produce[F] = const(PartitionOffset.empty.pure[F])
+private[journal] object Produce {
 
   def empty[F[_]: Applicative](): Produce[F] = const(PartitionOffset.empty.pure[F])
 

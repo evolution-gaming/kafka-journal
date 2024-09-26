@@ -17,7 +17,7 @@ object KafkaReadMetrics {
 
   def empty[F[_]: Applicative]: KafkaReadMetrics[F] = (_, _) => Applicative[F].unit
 
-  def of[F[_]](
+  def make[F[_]](
     registry: CollectorRegistry[F],
     prefix: String = "journal",
   ): Resource[F, KafkaReadMetrics[F]] = {

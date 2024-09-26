@@ -1,13 +1,14 @@
 package com.evolutiongaming.kafka.journal.replicator
 
 import cats.data.{NonEmptyMap as Nem, NonEmptySet as Nes}
+import cats.effect.unsafe.implicits.global
 import cats.effect.{Deferred, IO, Ref, Resource, Sync}
 import cats.syntax.all.*
-import com.evolutiongaming.catshelper.LogOf
+import com.evolutiongaming.catshelper.{LogOf, ToTry}
 import com.evolutiongaming.kafka.journal.IOSuite.*
 import com.evolutiongaming.kafka.journal.{KafkaConsumer, KafkaConsumerOf}
 import com.evolutiongaming.skafka
-import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords, RebalanceListener}
+import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerRecords, RebalanceListener1}
 import com.evolutiongaming.skafka.{Offset, OffsetAndMetadata, Partition, Topic, TopicPartition}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -23,13 +24,14 @@ class DistributeJobTest extends AsyncFunSuite with Matchers {
     def topicPartitionOf(partition: Partition) = TopicPartition(topic, partition)
 
     implicit val logOf = LogOf.empty[IO]
+    implicit val toTry = ToTry.ioToTry
     val consumerConfig = ConsumerConfig()
     val result = for {
       actions    <- Actions.of[IO]
       partition0 <- Partition.of[IO](0)
       partition1 <- Partition.of[IO](1)
       partition2 <- Partition.of[IO](2)
-      deferred   <- Deferred[IO, RebalanceListener[IO]]
+      deferred   <- Deferred[IO, RebalanceListener1[IO]]
       kafkaConsumerOf = new KafkaConsumerOf[IO] {
         def apply[K, V](
           config: ConsumerConfig,
@@ -37,8 +39,8 @@ class DistributeJobTest extends AsyncFunSuite with Matchers {
           val consumer: KafkaConsumer[IO, K, V] = new KafkaConsumer[IO, K, V] {
             def assign(partitions: Nes[TopicPartition])         = ().pure[IO]
             def seek(partition: TopicPartition, offset: Offset) = ().pure[IO]
-            def subscribe(topic: Topic, listener: Option[RebalanceListener[IO]]) = {
-              listener.foldMapM { listener => deferred.complete(listener).void }
+            def subscribe(topic: Topic, listener: RebalanceListener1[IO]) = {
+              deferred.complete(listener).void
             }
             def poll(timeout: FiniteDuration) = {
               IO
@@ -78,11 +80,11 @@ class DistributeJobTest extends AsyncFunSuite with Matchers {
             a        <- actions.get
             _        <- IO { a shouldEqual List.empty }
 
-            _ <- listener.onPartitionsAssigned(Nes.one(topicPartitionOf(partition1)))
+            _ <- listener.onPartitionsAssigned(Nes.one(topicPartitionOf(partition1))).run(EmptyRebalanceConsumer).liftTo[IO]
             a <- actions.get
             _ <- IO { a shouldEqual List.empty }
 
-            _ <- listener.onPartitionsAssigned(Nes.one(topicPartitionOf(partition0)))
+            _ <- listener.onPartitionsAssigned(Nes.one(topicPartitionOf(partition0))).run(EmptyRebalanceConsumer).liftTo[IO]
             a <- actions.get
             _ <- IO { a shouldEqual List(Action.Allocate("a")) }
 
@@ -99,7 +101,10 @@ class DistributeJobTest extends AsyncFunSuite with Matchers {
             _ <- IO {
               a shouldEqual List(Action.Allocate("a"), Action.Allocate("b"), Action.Release("b"))
             }
-            _ <- listener.onPartitionsRevoked(Nes.of(topicPartitionOf(partition0), topicPartitionOf(partition1)))
+            _ <- listener
+              .onPartitionsRevoked(Nes.of(topicPartitionOf(partition0), topicPartitionOf(partition1)))
+              .run(EmptyRebalanceConsumer)
+              .liftTo[IO]
             a <- actions.get
             _ <- IO {
               a shouldEqual List(Action.Allocate("a"), Action.Allocate("b"), Action.Release("b"), Action.Release("a"))
@@ -107,7 +112,7 @@ class DistributeJobTest extends AsyncFunSuite with Matchers {
             _ <- jobOf("c", partition2).allocated
             _ <- jobOf("d", Partition.max).allocated
 
-            _ <- listener.onPartitionsAssigned(Nes.one(topicPartitionOf(partition2)))
+            _ <- listener.onPartitionsAssigned(Nes.one(topicPartitionOf(partition2))).run(EmptyRebalanceConsumer).liftTo[IO]
             a <- actions.get
             _ <- IO {
               a shouldEqual List(

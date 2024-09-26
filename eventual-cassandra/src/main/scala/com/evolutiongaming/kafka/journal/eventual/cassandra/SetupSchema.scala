@@ -6,11 +6,8 @@ import cats.syntax.all.*
 import cats.{MonadThrow, Parallel}
 import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.cassandra.MigrateSchema.Fresh
-import com.evolutiongaming.kafka.journal.cassandra.{CassandraSync, MigrateSchema, SettingsCassandra}
+import com.evolutiongaming.kafka.journal.cassandra.{CassandraConsistencyConfig, CassandraSync, MigrateSchema, SettingsCassandra}
 import com.evolutiongaming.kafka.journal.{Origin, Settings}
-import com.evolutiongaming.scassandra.ToCql.implicits.*
-
-import scala.annotation.nowarn
 
 /** Creates a new schema, or migrates to the latest schema version, if it already exists.
  *
@@ -23,7 +20,7 @@ import scala.annotation.nowarn
  *
  *  Migrations are done by [[MigrateSchema]] by restricting concurrent changes using [[CassandraSync]].
  *  */
-object SetupSchema {
+private[journal] object SetupSchema {
 
   val SettingKey = "schema-version"
 
@@ -36,7 +33,7 @@ object SetupSchema {
       JournalStatements.addVersion(schema.journal)
 
     def dropMetadata =
-      s"DROP TABLE IF EXISTS ${schema.metadata.toCql}"
+      s"DROP TABLE IF EXISTS metadata"
 
     def createPointer2: String =
       Pointer2Statements.createTable(schema.pointer2)
@@ -66,21 +63,19 @@ object SetupSchema {
     migrateSchema.run(fresh)
   }
 
-  @nowarn
-  // TODO MR deal with deprecated
   def apply[F[_]: Temporal: Parallel: CassandraCluster: CassandraSession: LogOf](
     config: SchemaConfig,
     origin: Option[Origin],
-    consistencyConfig: EventualCassandraConfig.ConsistencyConfig,
+    consistencyConfig: CassandraConsistencyConfig,
   ): F[Schema] = {
 
     def createSchema(implicit cassandraSync: CassandraSync[F]): F[(Schema, Fresh)] = CreateSchema(config)
 
     for {
-      cassandraSync  <- CassandraSync.of[F](config.keyspace.toKeyspaceConfig, config.locksTable, origin)
+      cassandraSync  <- CassandraSync.of[F](config.keyspace, config.locksTable, origin)
       ab             <- createSchema(cassandraSync)
       (schema, fresh) = ab
-      settings       <- SettingsCassandra.of[F](schema.setting, origin, consistencyConfig.toCassandraConsistencyConfig)
+      settings       <- SettingsCassandra.of[F](schema.setting, origin, consistencyConfig)
       _              <- migrate(schema, fresh, settings, cassandraSync)
     } yield schema
   }

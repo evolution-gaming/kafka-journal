@@ -11,7 +11,8 @@ import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.random.Random
 import com.evolutiongaming.retry.Retry.implicits.*
 import com.evolutiongaming.retry.{OnError, Sleep, Strategy}
-import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, RebalanceListener}
+import com.evolutiongaming.skafka.consumer.RebalanceCallback.syntax.*
+import com.evolutiongaming.skafka.consumer.{AutoOffsetReset, ConsumerConfig, RebalanceListener1}
 import com.evolutiongaming.skafka.{Partition, Topic, TopicPartition}
 
 import scala.concurrent.duration.*
@@ -184,10 +185,10 @@ object DistributeJob {
           }
           (S.Active(partitions, jobs1), effect.void)
         }
-        listener = new RebalanceListener[F] {
+        listener = new RebalanceListener1[F] {
           def onPartitionsAssigned(topicPartitions: Nes[TopicPartition]) = {
             val partitionsAssigned = topicPartitions.map { _.partition }
-            for {
+            val effect = for {
               d <- Deferred[F, String => F[Unit]]
               a <- modify {
                 case s: S.Idle =>
@@ -206,11 +207,12 @@ object DistributeJob {
                   }
               }
             } yield a
+            effect.lift
           }
 
           def onPartitionsRevoked(topicPartitions: Nes[TopicPartition]) = {
             val partitionsRevoked = topicPartitions.map { _.partition }
-            for {
+            val effect = for {
               d <- Deferred[F, String => F[Unit]]
               a <- modify {
                 case s: S.Idle => (s, unit)
@@ -236,6 +238,7 @@ object DistributeJob {
                   }
               }
             } yield a
+            effect.lift
           }
 
           def onPartitionsLost(topicPartitions: Nes[TopicPartition]) = {
@@ -243,7 +246,7 @@ object DistributeJob {
           }
         }
         _ <- consumer
-          .subscribe(topic, listener.some)
+          .subscribe(topic, listener)
           .toResource
         poll = consumer.poll(10.millis)
         _   <- poll.toResource

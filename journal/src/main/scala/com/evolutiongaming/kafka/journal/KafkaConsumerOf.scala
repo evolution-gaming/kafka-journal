@@ -30,7 +30,7 @@ object KafkaConsumerOf {
 
       def apply[K, V](config: ConsumerConfig)(implicit fromBytesK: skafka.FromBytes[F, K], fromBytesV: skafka.FromBytes[F, V]) = {
         val consumer = consumerOf[K, V](config)
-        KafkaConsumer.of(consumer)
+        KafkaConsumer.make(consumer)
       }
     }
   }

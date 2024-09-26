@@ -24,12 +24,12 @@ import com.evolutiongaming.kafka.journal.util.Fail.implicits.*
   *
   * @see [[SegmentSize]] for alternative way used for some other tables.
   */
-sealed abstract case class Segments(value: Int) {
+private[journal] sealed abstract case class Segments(value: Int) {
 
   override def toString: String = value.toString
 }
 
-object Segments {
+private[journal] object Segments {
 
   val min: Segments = new Segments(1) {}
 

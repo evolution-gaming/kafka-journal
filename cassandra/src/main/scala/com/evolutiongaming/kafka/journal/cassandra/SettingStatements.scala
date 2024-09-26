@@ -14,7 +14,7 @@ import com.evolutiongaming.sstream.Stream
 
 import java.time.Instant
 
-object SettingStatements {
+private[journal] object SettingStatements {
 
   implicit val encodeRowSetting: EncodeRow[Setting] = new EncodeRow[Setting] {
 
@@ -124,34 +124,6 @@ object SettingStatements {
           .encode(setting)
           .setConsistencyLevel(consistencyConfig.value)
         bound.first.void
-      }
-    }
-  }
-
-  trait InsertIfEmpty[F[_]] {
-    def apply(setting: Setting): F[Boolean]
-  }
-
-  object InsertIfEmpty {
-
-    def of[F[_]: Monad: CassandraSession](
-      name: TableName,
-      consistencyConfig: CassandraConsistencyConfig.Write,
-    ): F[InsertIfEmpty[F]] = {
-
-      val query = s"INSERT INTO ${name.toCql} (key, value, timestamp, origin) VALUES (?, ?, ?, ?) IF NOT EXISTS"
-      for {
-        prepared <- query.prepare
-      } yield { (setting: Setting) =>
-        val bound = prepared
-          .bind()
-          .encode(setting)
-          .setConsistencyLevel(consistencyConfig.value)
-        for {
-          row <- bound.first
-        } yield {
-          row.fold(false) { _.decode[Boolean]("[applied]") }
-        }
       }
     }
   }

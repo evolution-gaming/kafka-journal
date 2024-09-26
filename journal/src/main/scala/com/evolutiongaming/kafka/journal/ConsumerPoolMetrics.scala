@@ -17,7 +17,7 @@ trait ConsumerPoolMetrics[F[_]] {
 
 object ConsumerPoolMetrics {
 
-  def of[F[_]](
+  def make[F[_]](
     registry: CollectorRegistry[F],
     prefix: String = "journal",
   ): Resource[F, ConsumerPoolMetrics[F]] = {

@@ -4,7 +4,7 @@ import cats.effect.implicits.*
 import cats.effect.{Deferred, *}
 import cats.syntax.all.*
 
-object StartResource {
+private[journal] object StartResource {
 
   def apply[F[_]: Concurrent, A, B](res: Resource[F, A])(
     use: A => F[B],

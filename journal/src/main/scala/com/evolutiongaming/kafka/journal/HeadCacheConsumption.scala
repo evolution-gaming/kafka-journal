@@ -17,7 +17,7 @@ import com.evolutiongaming.sstream.Stream
 import scala.concurrent.duration.*
 import scala.util.control.NoStackTrace
 
-object HeadCacheConsumption {
+private[journal] object HeadCacheConsumption {
 
   /** Streams records from Kafka topic with error handling and retries.
     *

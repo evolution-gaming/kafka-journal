@@ -13,9 +13,9 @@ import cats.syntax.all.*
   * @param first segment to be preferred if data is found
   * @param second segment is to use if data for `first` is not found
   */
-sealed abstract case class SegmentNrs(first: SegmentNr, second: Option[SegmentNr])
+private[journal] sealed abstract case class SegmentNrs(first: SegmentNr, second: Option[SegmentNr])
 
-object SegmentNrs {
+private[journal] object SegmentNrs {
 
   def apply(first: SegmentNr, second: SegmentNr): SegmentNrs = {
     new SegmentNrs(first, if (first == second) none else second.some) {}

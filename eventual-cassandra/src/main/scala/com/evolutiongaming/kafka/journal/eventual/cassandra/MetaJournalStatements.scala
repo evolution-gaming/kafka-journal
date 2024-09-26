@@ -4,6 +4,7 @@ import cats.Monad
 import cats.data.NonEmptyList as Nel
 import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.*
+import com.evolutiongaming.kafka.journal.cassandra.CassandraConsistencyConfig
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper.*
 import com.evolutiongaming.kafka.journal.util.TemporalHelper.*
 import com.evolutiongaming.scassandra.TableName
@@ -13,7 +14,7 @@ import com.evolutiongaming.sstream.Stream
 
 import java.time.{Instant, LocalDate, ZoneOffset}
 
-object MetaJournalStatements {
+private[journal] object MetaJournalStatements {
 
   def createTable(name: TableName): Nel[String] = {
 
@@ -70,7 +71,7 @@ object MetaJournalStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
+      consistencyConfig: CassandraConsistencyConfig.Write,
     ): F[Insert[F]] = {
 
       val query =
@@ -131,7 +132,7 @@ object MetaJournalStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
+      consistencyConfig: CassandraConsistencyConfig.Read,
     ): F[SelectJournalHead[F]] = {
 
       val query =
@@ -171,7 +172,7 @@ object MetaJournalStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
+      consistencyConfig: CassandraConsistencyConfig.Read,
     ): F[SelectJournalPointer[F]] = {
 
       val query =
@@ -210,7 +211,7 @@ object MetaJournalStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
+      consistencyConfig: CassandraConsistencyConfig.Read,
     ): F[IdByTopicAndExpireOn[F]] = {
 
       val query =
@@ -245,7 +246,7 @@ object MetaJournalStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
+      consistencyConfig: CassandraConsistencyConfig.Read,
     ): F[IdByTopicAndCreated[F]] = {
 
       val query =
@@ -280,7 +281,7 @@ object MetaJournalStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
+      consistencyConfig: CassandraConsistencyConfig.Read,
     ): F[IdByTopicAndSegment[F]] = {
 
       val query =
@@ -320,7 +321,7 @@ object MetaJournalStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
+      consistencyConfig: CassandraConsistencyConfig.Write,
     ): F[Update[F]] = {
 
       val query =
@@ -372,7 +373,7 @@ object MetaJournalStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
+      consistencyConfig: CassandraConsistencyConfig.Write,
     ): F[UpdateSeqNr[F]] = {
 
       val query =
@@ -417,7 +418,7 @@ object MetaJournalStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
+      consistencyConfig: CassandraConsistencyConfig.Write,
     ): F[UpdateExpiry[F]] = {
 
       val query =
@@ -458,7 +459,7 @@ object MetaJournalStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
+      consistencyConfig: CassandraConsistencyConfig.Write,
     ): F[UpdateDeleteTo[F]] = {
 
       val query =
@@ -497,7 +498,7 @@ object MetaJournalStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
+      consistencyConfig: CassandraConsistencyConfig.Write,
     ): F[UpdatePartitionOffset[F]] = {
       s"""
          |UPDATE ${name.toCql}
@@ -531,7 +532,7 @@ object MetaJournalStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
+      consistencyConfig: CassandraConsistencyConfig.Write,
     ): F[Delete[F]] = {
 
       val query =
@@ -564,7 +565,7 @@ object MetaJournalStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Write,
+      consistencyConfig: CassandraConsistencyConfig.Write,
     ): F[DeleteExpiry[F]] = {
 
       val query =
@@ -598,7 +599,7 @@ object MetaJournalStatements {
 
     def of[F[_]: Monad: CassandraSession](
       name: TableName,
-      consistencyConfig: EventualCassandraConfig.ConsistencyConfig.Read,
+      consistencyConfig: CassandraConsistencyConfig.Read,
     ): F[SelectIds[F]] = {
       for {
         prepared <- s"SELECT id FROM ${name.toCql} WHERE topic = ? AND segment = ?".prepare

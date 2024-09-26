@@ -5,7 +5,7 @@ import cats.syntax.all.*
 
 import java.util.concurrent.{Executors as ExecutorsJ, ThreadFactory}
 
-object ThreadFactoryOf {
+private[journal] object ThreadFactoryOf {
 
   def apply[F[_]: Sync](
     prefix: String,

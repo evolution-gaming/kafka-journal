@@ -31,7 +31,7 @@ class ReplicatorSpec extends AsyncWordSpec with Matchers {
         (_: Topic) => Resource.pure[IO, IO[Outcome[IO, Throwable, Unit]]](Outcome.errored[IO, Throwable, Unit](error).pure[IO])
       val result = for {
         result <- Replicator
-          .of[IO](
+          .make[IO](
             config            = Replicator.Config(topicDiscoveryInterval = 0.millis),
             consumer          = Resource.pure[IO, Consumer[IO]](consumer),
             topicReplicatorOf = start,

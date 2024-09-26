@@ -6,7 +6,7 @@ import cats.{Applicative, ~>}
 import com.evolutiongaming.kafka.journal.ConsRecord
 import com.evolutiongaming.skafka.{Offset, Partition}
 
-trait TopicFlow[F[_]] {
+private[journal] trait TopicFlow[F[_]] {
 
   def assign(partitions: Nes[Partition]): F[Unit]
 
@@ -17,7 +17,7 @@ trait TopicFlow[F[_]] {
   def lose(partitions: Nes[Partition]): F[Unit]
 }
 
-object TopicFlow {
+private[journal] object TopicFlow {
 
   def empty[F[_]: Applicative]: TopicFlow[F] = new TopicFlow[F] {
 

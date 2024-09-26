@@ -27,7 +27,7 @@ object CassandraCluster {
     def session = {
       for {
         session <- cluster.connect
-        session <- CassandraSession.of[F](session)
+        session <- CassandraSession.make[F](session)
       } yield {
         CassandraSession(session, retries)
       }
@@ -42,7 +42,7 @@ object CassandraCluster {
     }
   }
 
-  def of[F[_]: Async: Parallel: FromGFuture](
+  def make[F[_]: Async: Parallel: FromGFuture](
     config: CassandraConfig,
     cassandraClusterOf: CassandraClusterOf[F],
     retries: Int,

@@ -23,7 +23,7 @@ import scala.concurrent.duration.*
   * The implementation reads both Kafka and Cassandra by itself, continously
   * refreshing the information.
   */
-trait TopicCache[F[_]] {
+private[journal] trait TopicCache[F[_]] {
 
   /** Get the information about a state of a journal stored in the topic.
     *
@@ -49,45 +49,7 @@ trait TopicCache[F[_]] {
   def get(id: String, partition: Partition, offset: Offset): F[PartitionCache.Result[F]]
 }
 
-object TopicCache {
-
-  /** Creates [[TopicCache]] using configured parameters and data sources.
-    *
-    * @param eventual
-    *   Cassandra data source.
-    * @param topic
-    *   Topic stored in this cache.
-    * @param log
-    *   Logger used to write debug logs to.
-    * @param consumer
-    *   Kafka data source factory. The reason why it is factory (i.e.
-    *   `Resource`) is that [[HeadCache]] will try to recreate consumer in case
-    *   of the failure.
-    * @param config
-    *   [[HeadCache]] configuration.
-    * @param consRecordToActionHeader
-    *   Function used to parse records coming from `consumer`. Only headers will
-    *   be parsed, and the payload will be ignored.
-    * @param metrics
-    *   Interface to report the metrics to.
-    * @return
-    *   Resource which will configure a [[TopicCache]] with the passed
-    *   parameters. Instance of `Resource[TopicCache]` are, obviously, reusable
-    *   and there is no need to call [[TopicCache#of]] each time if parameters
-    *   did not change.
-    */
-  @deprecated(since = "3.4.1", message = "Use `.of1` instead")
-  def of[F[_]: Async: Parallel: Runtime](
-    eventual: Eventual[F],
-    topic: Topic,
-    log: Log[F],
-    consumer: Resource[F, Consumer[F]],
-    config: HeadCacheConfig,
-    consRecordToActionHeader: ConsRecordToActionHeader[F],
-    metrics: Option[HeadCache.Metrics[F]],
-  ): Resource[F, TopicCache[F]] = {
-    of1(eventual, topic, log, consumer, config, consRecordToActionHeader, metrics)
-  }
+private[journal] object TopicCache {
 
   /** Creates [[TopicCache]] using configured parameters and data sources.
    *
@@ -114,7 +76,7 @@ object TopicCache {
    *   and there is no need to call [[TopicCache#of]] each time if parameters
    *   did not change.
    */
-  def of1[F[_]: Async: Parallel](
+  def make[F[_]: Async: Parallel](
     eventual: Eventual[F],
     topic: Topic,
     log: Log[F],
@@ -134,7 +96,7 @@ object TopicCache {
         .toList
         .parTraverse { partition =>
           PartitionCache
-            .of(maxSize = config.partition.maxSize, dropUponLimit = config.partition.dropUponLimit, timeout = config.timeout)
+            .make(maxSize = config.partition.maxSize, dropUponLimit = config.partition.dropUponLimit, timeout = config.timeout)
             .map { partitionCache =>
               (partition, partitionCache)
             }
@@ -395,7 +357,7 @@ object TopicCache {
       * @param pollTimeout
       *   The timeout to use for [[KafkaConsumer#poll]].
       */
-    def of[F[_]: Monad: KafkaConsumerOf: FromTry](
+    def make[F[_]: Monad: KafkaConsumerOf: FromTry](
       config: ConsumerConfig,
       pollTimeout: FiniteDuration = 10.millis,
     ): Resource[F, Consumer[F]] = {

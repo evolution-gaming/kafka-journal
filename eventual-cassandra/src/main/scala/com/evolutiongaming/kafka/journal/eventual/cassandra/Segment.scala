@@ -3,9 +3,9 @@ package com.evolutiongaming.kafka.journal.eventual.cassandra
 import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.SeqNr
 
-final case class Segment(nr: SegmentNr, size: SegmentSize)
+private[journal] final case class Segment(nr: SegmentNr, size: SegmentSize)
 
-object Segment {
+private[journal] object Segment {
 
   def apply(seqNr: SeqNr, size: SegmentSize): Segment = {
     val segmentNr = SegmentNr(seqNr, size)

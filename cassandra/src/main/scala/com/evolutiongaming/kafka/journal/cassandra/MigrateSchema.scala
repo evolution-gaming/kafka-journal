@@ -11,7 +11,7 @@ import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraSession
 import scala.util.Try
 
 /** Migrates the existing schema to the latest version */
-trait MigrateSchema[F[_]] {
+private[journal] trait MigrateSchema[F[_]] {
 
   /** Run all built-in migrations
     *
@@ -26,7 +26,7 @@ trait MigrateSchema[F[_]] {
 
 }
 
-object MigrateSchema {
+private[journal] object MigrateSchema {
 
   type Fresh = Boolean
 
