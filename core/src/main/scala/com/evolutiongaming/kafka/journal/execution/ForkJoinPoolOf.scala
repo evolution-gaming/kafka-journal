@@ -6,7 +6,7 @@ import cats.syntax.all.*
 import java.util.concurrent.ForkJoinPool
 import java.util.concurrent.ForkJoinPool.ForkJoinWorkerThreadFactory
 
-object ForkJoinPoolOf {
+private[journal] object ForkJoinPoolOf {
 
   def apply[F[_]: Sync](
     name: String,

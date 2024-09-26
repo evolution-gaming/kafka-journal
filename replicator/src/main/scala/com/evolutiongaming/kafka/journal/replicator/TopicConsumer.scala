@@ -11,7 +11,7 @@ import scodec.bits.ByteVector
 
 import scala.concurrent.duration.*
 
-trait TopicConsumer[F[_]] {
+private[journal] trait TopicConsumer[F[_]] {
 
   def subscribe(listener: RebalanceListener1[F]): F[Unit]
 
@@ -20,7 +20,7 @@ trait TopicConsumer[F[_]] {
   def commit: TopicCommit[F]
 }
 
-object TopicConsumer {
+private[journal] object TopicConsumer {
 
   def apply[F[_]: Monad](
     topic: Topic,

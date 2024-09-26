@@ -2,7 +2,7 @@ package com.evolutiongaming.kafka.journal
 
 import scodec.{Codec, codecs}
 
-object Tags {
+private[journal] object Tags {
 
   val empty: Tags = Set.empty
 

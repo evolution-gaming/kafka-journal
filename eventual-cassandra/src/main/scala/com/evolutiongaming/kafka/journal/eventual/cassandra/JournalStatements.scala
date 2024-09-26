@@ -18,7 +18,7 @@ import scodec.bits.ByteVector
 import java.time.Instant
 import scala.util.Try
 
-object JournalStatements {
+private[journal] object JournalStatements {
 
   final case class JournalRecord(event: EventRecord[EventualPayloadAndType], metaRecordId: Option[RecordId])
 

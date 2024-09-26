@@ -5,12 +5,12 @@ import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.skafka.Offset
 
-sealed abstract class Batch extends Product {
+private[journal] sealed abstract class Batch extends Product {
 
   def offset: Offset
 }
 
-object Batch {
+private[journal] object Batch {
 
   def of(records: Nel[ActionRecord[Action]]): List[Batch] = {
 

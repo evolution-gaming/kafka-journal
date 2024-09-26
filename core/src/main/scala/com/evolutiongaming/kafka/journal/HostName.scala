@@ -2,12 +2,12 @@ package com.evolutiongaming.kafka.journal
 
 import cats.effect.Sync
 
-final case class HostName(value: String) {
+private[journal] final case class HostName(value: String) {
 
   override def toString: String = value
 }
 
-object HostName {
+private[journal] object HostName {
 
   def of[F[_]: Sync](): F[Option[HostName]] = {
     Sync[F].delay {

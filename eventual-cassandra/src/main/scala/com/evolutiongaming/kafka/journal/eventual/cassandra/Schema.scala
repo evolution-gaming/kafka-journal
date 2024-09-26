@@ -17,7 +17,7 @@ import com.evolutiongaming.scassandra.TableName
  * @param pointer2 stores information on how close to tail the replication is, see [[Pointer2Statements]]
  * @param setting used to track schema migrations, see [[SetupSchema]] and [[MigrateSchema]] for details
  */
-final case class Schema(
+private[journal] final case class Schema(
   journal: TableName,
   metaJournal: TableName,
   pointer: TableName, // TODO MR remove with next major release

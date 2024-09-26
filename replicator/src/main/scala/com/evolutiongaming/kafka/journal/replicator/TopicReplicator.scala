@@ -21,7 +21,7 @@ import java.time.Instant
 import scala.concurrent.duration.*
 import scala.util.Try
 
-object TopicReplicator {
+private[journal] object TopicReplicator {
 
   def make[F[_]: Concurrent: Sleep: ToTry: LogOf: Fail: MeasureDuration: JsonCodec](
     topic: Topic,

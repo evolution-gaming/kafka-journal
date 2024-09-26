@@ -14,7 +14,7 @@ import com.evolutiongaming.sstream.Stream
 
 import java.time.{Instant, LocalDate, ZoneOffset}
 
-object MetaJournalStatements {
+private[journal] object MetaJournalStatements {
 
   def createTable(name: TableName): Nel[String] = {
 

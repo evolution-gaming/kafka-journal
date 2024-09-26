@@ -18,7 +18,7 @@ import scala.concurrent.duration.FiniteDuration
   * [[PartitionCache#add]] (for Kafka updates), and [[PartitionCache#remove]]
   * (for Cassandra updates).
   */
-trait PartitionCache[F[_]] {
+private[journal] trait PartitionCache[F[_]] {
 
   /** Get the information about a state of a journal stored in this partition.
     *
@@ -92,7 +92,7 @@ trait PartitionCache[F[_]] {
   def meters: F[PartitionCache.Meters]
 }
 
-object PartitionCache {
+private[journal] object PartitionCache {
 
   /** Creates [[PartitionCache]] using configured parameters.
     *

@@ -4,12 +4,12 @@ import com.datastax.driver.core.ConsistencyLevel
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
 
-final case class CassandraConsistencyConfig(
+private[journal] final case class CassandraConsistencyConfig(
   read: CassandraConsistencyConfig.Read   = CassandraConsistencyConfig.Read.default,
   write: CassandraConsistencyConfig.Write = CassandraConsistencyConfig.Write.default,
 )
 
-object CassandraConsistencyConfig {
+private[journal] object CassandraConsistencyConfig {
 
   implicit val configReaderConsistencyConfig: ConfigReader[CassandraConsistencyConfig] = deriveReader
 

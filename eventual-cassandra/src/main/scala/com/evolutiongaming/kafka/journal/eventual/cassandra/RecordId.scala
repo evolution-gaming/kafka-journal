@@ -17,11 +17,11 @@ import java.util.UUID
   * that deleted record and recreated one are not considered the same while sharing
   * same private key.
   */
-final case class RecordId(value: UUID) extends AnyVal {
+private[journal] final case class RecordId(value: UUID) extends AnyVal {
   override def toString: String = value.toString()
 }
 
-object RecordId {
+private[journal] object RecordId {
 
   private[cassandra] def unsafe: RecordId = new RecordId(UUID.randomUUID())
 

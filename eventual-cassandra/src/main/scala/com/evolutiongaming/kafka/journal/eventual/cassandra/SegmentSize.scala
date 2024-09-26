@@ -27,12 +27,12 @@ import pureconfig.{ConfigCursor, ConfigReader}
   *
   * @see [[Segments]] for alternative way used for some other tables.
   */
-sealed abstract case class SegmentSize(value: Int) {
+private[journal] sealed abstract case class SegmentSize(value: Int) {
 
   override def toString: String = value.toString
 }
 
-object SegmentSize {
+private[journal] object SegmentSize {
 
   val min: SegmentSize = new SegmentSize(2) {}
 

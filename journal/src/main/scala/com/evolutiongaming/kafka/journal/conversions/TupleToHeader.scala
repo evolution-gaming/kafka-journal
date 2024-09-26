@@ -5,12 +5,12 @@ import com.evolutiongaming.catshelper.ApplicativeThrowable
 import com.evolutiongaming.kafka.journal.{JournalError, ToBytes}
 import com.evolutiongaming.skafka.Header
 
-trait TupleToHeader[F[_]] {
+private[journal] trait TupleToHeader[F[_]] {
 
   def apply(key: String, value: String): F[Header]
 }
 
-object TupleToHeader {
+private[journal] object TupleToHeader {
 
   implicit def apply[F[_]: ApplicativeThrowable](implicit stringToBytes: ToBytes[F, String]): TupleToHeader[F] = { (key, value) =>
     val result = for {

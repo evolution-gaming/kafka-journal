@@ -4,7 +4,7 @@ import com.evolutiongaming.kafka.journal.Headers
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper.*
 import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow}
 
-object HeadersHelper {
+private[journal] object HeadersHelper {
 
   implicit val headersEncodeRow: EncodeRow[Headers] = EncodeRow("headers")
 

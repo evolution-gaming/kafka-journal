@@ -9,13 +9,13 @@ import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraHelper.*
 import com.evolutiongaming.kafka.journal.eventual.cassandra.{CassandraCluster, CassandraSession, KeyspaceMetadata}
 
 /** Creates tables in a specific keyspace  */
-trait CreateTables[F[_]] {
+private[journal] trait CreateTables[F[_]] {
   import CreateTables.{Fresh, Table}
 
   def apply(keyspace: String, tables: Nel[Table]): F[Fresh]
 }
 
-object CreateTables { self =>
+private[journal] object CreateTables { self =>
 
   /** `true` if all tables passed to `CreateTables` did not exist and were created */
   type Fresh = Boolean

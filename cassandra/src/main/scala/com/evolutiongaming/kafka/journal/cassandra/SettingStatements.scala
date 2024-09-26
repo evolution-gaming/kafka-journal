@@ -14,7 +14,7 @@ import com.evolutiongaming.sstream.Stream
 
 import java.time.Instant
 
-object SettingStatements {
+private[journal] object SettingStatements {
 
   implicit val encodeRowSetting: EncodeRow[Setting] = new EncodeRow[Setting] {
 

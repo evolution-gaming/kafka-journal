@@ -4,7 +4,7 @@ import com.evolutiongaming.kafka.journal.cassandra.KeyspaceConfig
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
 
-final case class SchemaConfig(
+private[journal] final case class SchemaConfig(
   keyspace: KeyspaceConfig = KeyspaceConfig.default,
   journalTable: String     = "journal",
   metaJournalTable: String = "metajournal",
@@ -15,7 +15,7 @@ final case class SchemaConfig(
   autoCreate: Boolean      = true,
 )
 
-object SchemaConfig {
+private[journal] object SchemaConfig {
 
   val default: SchemaConfig = SchemaConfig()
 

@@ -24,7 +24,7 @@ import scodec.bits.ByteVector
   *   } yield actions.flatMap(_.version)
   * }}}
   */
-trait ConsRecordToActionHeader[F[_]] {
+private[journal] trait ConsRecordToActionHeader[F[_]] {
 
   /** Convert generic Kafka record to a Kafka Journal action.
     *
@@ -38,7 +38,7 @@ trait ConsRecordToActionHeader[F[_]] {
   def apply[A](record: ConsumerRecord[String, A]): OptionT[F, ActionHeader]
 }
 
-object ConsRecordToActionHeader {
+private[journal] object ConsRecordToActionHeader {
 
   implicit def apply[F[_]: MonadThrowable](implicit fromBytes: FromBytes[F, Option[ActionHeader]]): ConsRecordToActionHeader[F] =
     new ConsRecordToActionHeader[F] {

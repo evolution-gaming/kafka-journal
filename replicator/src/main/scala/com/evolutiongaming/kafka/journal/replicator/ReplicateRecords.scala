@@ -14,12 +14,12 @@ import com.evolutiongaming.skafka.Offset
 import java.time.Instant
 import scala.concurrent.duration.FiniteDuration
 
-trait ReplicateRecords[F[_]] {
+private[journal] trait ReplicateRecords[F[_]] {
 
   def apply(records: Nel[ConsRecord], timestamp: Instant): F[Int]
 }
 
-object ReplicateRecords {
+private[journal] object ReplicateRecords {
 
   def apply[F[_]: BracketThrowable: Clock, A](
     consRecordToActionRecord: ConsRecordToActionRecord[F],

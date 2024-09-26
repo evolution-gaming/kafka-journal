@@ -9,7 +9,7 @@ import com.evolutiongaming.kafka.journal.{Origin, Setting, Settings}
 import com.evolutiongaming.scassandra.TableName
 import com.evolutiongaming.sstream.Stream
 
-object SettingsCassandra {
+private[journal] object SettingsCassandra {
 
   def apply[F[_]: Monad: Clock](
     statements: Statements[F],

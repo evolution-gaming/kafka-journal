@@ -10,7 +10,7 @@ import com.evolutiongaming.skafka.Bytes as _
 
 import java.time.Instant
 
-trait Produce[F[_]] {
+private[journal] trait Produce[F[_]] {
 
   def append(
     key: Key,
@@ -27,7 +27,7 @@ trait Produce[F[_]] {
   def mark(key: Key, randomId: RandomId): F[PartitionOffset]
 }
 
-object Produce {
+private[journal] object Produce {
 
   def empty[F[_]: Applicative](): Produce[F] = const(PartitionOffset.empty.pure[F])
 

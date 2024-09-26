@@ -2,7 +2,7 @@ package akka.persistence.kafka.journal
 
 import cats.syntax.all.*
 
-object GroupByWeight {
+private[journal] object GroupByWeight {
 
   def apply[A](as: List[A], maxWeight: Int)(weight: A => Int): List[List[A]] = {
 

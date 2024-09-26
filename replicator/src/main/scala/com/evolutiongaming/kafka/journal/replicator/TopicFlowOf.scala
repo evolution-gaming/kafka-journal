@@ -6,12 +6,12 @@ import cats.syntax.all.*
 import cats.{Applicative, ~>}
 import com.evolutiongaming.skafka.Topic
 
-trait TopicFlowOf[F[_]] {
+private[journal] trait TopicFlowOf[F[_]] {
 
   def apply(topic: Topic): Resource[F, TopicFlow[F]]
 }
 
-object TopicFlowOf {
+private[journal] object TopicFlowOf {
 
   def empty[F[_]: Applicative]: TopicFlowOf[F] = (_: Topic) => TopicFlow.empty[F].pure[F].toResource
 

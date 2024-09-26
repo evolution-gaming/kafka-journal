@@ -3,7 +3,7 @@ package com.evolutiongaming.kafka.journal.util
 import cats.Monad
 import cats.effect.MonadCancel
 
-trait MonadCancelFromMonad[F[_], E] extends MonadCancel[F, E] {
+private[journal] trait MonadCancelFromMonad[F[_], E] extends MonadCancel[F, E] {
 
   def F: Monad[F]
 

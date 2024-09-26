@@ -7,7 +7,7 @@ import cats.syntax.all.*
 import com.evolutiongaming.catshelper.FromFuture
 import com.typesafe.config.Config
 
-object ActorSystemOf {
+private[journal] object ActorSystemOf {
 
   def apply[F[_]: Sync: FromFuture](
     name: String,

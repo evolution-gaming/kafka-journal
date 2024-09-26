@@ -23,7 +23,7 @@ import scala.concurrent.duration.*
   * The implementation reads both Kafka and Cassandra by itself, continously
   * refreshing the information.
   */
-trait TopicCache[F[_]] {
+private[journal] trait TopicCache[F[_]] {
 
   /** Get the information about a state of a journal stored in the topic.
     *
@@ -49,7 +49,7 @@ trait TopicCache[F[_]] {
   def get(id: String, partition: Partition, offset: Offset): F[PartitionCache.Result[F]]
 }
 
-object TopicCache {
+private[journal] object TopicCache {
 
   /** Creates [[TopicCache]] using configured parameters and data sources.
    *

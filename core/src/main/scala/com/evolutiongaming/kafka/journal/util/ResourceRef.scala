@@ -6,7 +6,7 @@ import cats.syntax.all.*
 
 import scala.util.control.NoStackTrace
 
-trait ResourceRef[F[_], A] {
+private[journal] trait ResourceRef[F[_], A] {
 
   def get: F[A]
 
@@ -15,7 +15,7 @@ trait ResourceRef[F[_], A] {
   def set(a: Resource[F, A]): F[Unit]
 }
 
-object ResourceRef {
+private[journal] object ResourceRef {
 
   def make[F[_]: Sync, A](resource: Resource[F, A]): Resource[F, ResourceRef[F, A]] = {
 

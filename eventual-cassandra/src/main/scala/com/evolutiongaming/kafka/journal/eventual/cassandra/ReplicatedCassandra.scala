@@ -24,7 +24,7 @@ import java.time.Instant
 import scala.annotation.tailrec
 import scala.collection.immutable.SortedSet
 
-object ReplicatedCassandra {
+private[journal] object ReplicatedCassandra {
 
   private sealed abstract class Main
 

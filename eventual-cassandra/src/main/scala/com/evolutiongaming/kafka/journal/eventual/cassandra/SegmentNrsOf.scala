@@ -16,12 +16,12 @@ import com.evolutiongaming.kafka.journal.Key
   *   [[SegmentOf]] for a more simple implementation of this factory without
   *   support of backwards compatible change of the segmenting algorithm.
   */
-trait SegmentNrsOf[F[_]] {
+private[journal] trait SegmentNrsOf[F[_]] {
 
   def apply(key: Key): F[SegmentNrs]
 }
 
-object SegmentNrsOf {
+private[journal] object SegmentNrsOf {
 
   /** Always return one and the same [[SegmentNrs]] instance.
     *

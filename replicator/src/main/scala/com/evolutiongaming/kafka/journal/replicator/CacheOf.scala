@@ -12,12 +12,12 @@ import com.evolutiongaming.skafka.Topic
 
 import scala.concurrent.duration.FiniteDuration
 
-trait CacheOf[F[_]] {
+private[journal] trait CacheOf[F[_]] {
 
   def apply[K, V](topic: Topic): Resource[F, Cache[F, K, V]]
 }
 
-object CacheOf {
+private[journal] object CacheOf {
 
   def empty[F[_]: BracketThrowable]: CacheOf[F] = {
     class Empty

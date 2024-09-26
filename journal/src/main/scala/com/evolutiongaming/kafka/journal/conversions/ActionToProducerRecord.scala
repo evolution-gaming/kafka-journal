@@ -7,12 +7,12 @@ import com.evolutiongaming.skafka.Header
 import com.evolutiongaming.skafka.producer.ProducerRecord
 import scodec.bits.ByteVector
 
-trait ActionToProducerRecord[F[_]] {
+private[journal] trait ActionToProducerRecord[F[_]] {
 
   def apply(action: Action): F[ProducerRecord[String, ByteVector]]
 }
 
-object ActionToProducerRecord {
+private[journal] object ActionToProducerRecord {
 
   implicit def apply[F[_]: MonadThrowable](
     implicit actionHeaderToHeader: ActionHeaderToHeader[F],

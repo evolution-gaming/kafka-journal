@@ -8,7 +8,7 @@ import com.evolutiongaming.catshelper.LogOf
 import com.evolutiongaming.kafka.journal.cassandra.{CassandraSync, CreateKeyspace, CreateTables, MigrateSchema, SettingStatements}
 import com.evolutiongaming.scassandra.TableName
 
-object CreateSchema {
+private[journal] object CreateSchema {
 
   /** Creates Cassandra schema for eventual storage of a journal.
    *

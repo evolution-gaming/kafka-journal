@@ -4,12 +4,12 @@ import cats.effect.implicits.*
 import cats.effect.{Ref, *}
 import cats.syntax.all.*
 
-trait ResourceRegistry[F[_]] {
+private[journal] trait ResourceRegistry[F[_]] {
 
   def allocate[A](resource: Resource[F, A]): F[A]
 }
 
-object ResourceRegistry {
+private[journal] object ResourceRegistry {
 
   def make[F[_]: Concurrent]: Resource[F, ResourceRegistry[F]] = {
     Resource

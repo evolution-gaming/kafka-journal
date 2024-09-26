@@ -10,11 +10,11 @@ import com.evolutiongaming.cassandra.sync.AutoCreate
 import com.evolutiongaming.kafka.journal.Origin
 import com.evolutiongaming.kafka.journal.eventual.cassandra.CassandraSession
 
-trait CassandraSync[F[_]] {
+private[journal] trait CassandraSync[F[_]] {
   def apply[A](fa: F[A]): F[A]
 }
 
-object CassandraSync {
+private[journal] object CassandraSync {
 
   def empty[F[_]]: CassandraSync[F] = new CassandraSync[F] {
     def apply[A](fa: F[A]) = fa

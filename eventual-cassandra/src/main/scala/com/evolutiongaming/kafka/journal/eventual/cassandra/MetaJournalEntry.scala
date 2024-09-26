@@ -7,9 +7,9 @@ import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow}
 
 import java.time.Instant
 
-final case class MetaJournalEntry(journalHead: JournalHead, created: Instant, updated: Instant, origin: Option[Origin])
+private[journal] final case class MetaJournalEntry(journalHead: JournalHead, created: Instant, updated: Instant, origin: Option[Origin])
 
-object MetaJournalEntry {
+private[journal] object MetaJournalEntry {
 
   implicit def decodeRowMetaJournalEntry(implicit decode: DecodeRow[JournalHead]): DecodeRow[MetaJournalEntry] = {
     (row: GettableByNameData) =>

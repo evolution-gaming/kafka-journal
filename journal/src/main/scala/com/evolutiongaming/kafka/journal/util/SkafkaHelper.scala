@@ -12,7 +12,7 @@ import scodec.bits.ByteVector
 
 import scala.util.Try
 
-object SkafkaHelper {
+private[journal] object SkafkaHelper {
 
   implicit def skafkaFromBytes[F[_]: Applicative]: skafka.FromBytes[F, ByteVector] = { (a: Bytes, _: Topic) =>
     ByteVector.view(a).pure[F]

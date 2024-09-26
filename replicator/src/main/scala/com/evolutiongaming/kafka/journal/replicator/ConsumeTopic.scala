@@ -13,7 +13,7 @@ import com.evolutiongaming.skafka.consumer.RebalanceListener1
 
 import scala.concurrent.duration.*
 
-object ConsumeTopic {
+private[journal] object ConsumeTopic {
 
   def apply[F[_]: BracketThrowable: Sleep](
     topic: Topic,

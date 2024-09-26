@@ -20,7 +20,7 @@ import com.evolutiongaming.kafka.journal.{Origin, Settings}
  *
  *  Migrations are done by [[MigrateSchema]] by restricting concurrent changes using [[CassandraSync]].
  *  */
-object SetupSchema {
+private[journal] object SetupSchema {
 
   val SettingKey = "schema-version"
 

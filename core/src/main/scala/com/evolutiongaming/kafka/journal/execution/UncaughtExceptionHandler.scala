@@ -1,6 +1,6 @@
 package com.evolutiongaming.kafka.journal.execution
 
-object UncaughtExceptionHandler {
+private[journal] object UncaughtExceptionHandler {
 
   val default: Thread.UncaughtExceptionHandler = new Thread.UncaughtExceptionHandler {
     def uncaughtException(thread: Thread, error: Throwable) = {

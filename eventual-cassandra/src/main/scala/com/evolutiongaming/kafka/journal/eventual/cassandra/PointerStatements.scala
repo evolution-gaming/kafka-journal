@@ -11,7 +11,7 @@ import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 
 import java.time.Instant
 
-object PointerStatements {
+private[journal] object PointerStatements {
 
   def createTable(name: TableName): String = {
     s"""

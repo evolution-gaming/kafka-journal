@@ -14,7 +14,7 @@ import com.evolutiongaming.skafka.{Offset, Partition, Topic}
 import java.time.Instant
 import scala.collection.immutable.SortedSet
 
-object Pointer2Statements {
+private[journal] object Pointer2Statements {
 
   def createTable(name: TableName): String = {
     s"""
