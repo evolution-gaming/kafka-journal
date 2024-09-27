@@ -970,7 +970,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       result shouldEqual (expected, ()).pure[Try]
     }
 
-    test(s"batched append+delete drops append updates `metajournal` table correctly, $suffix") {
+    test(s"batched append+delete drops previous append action(s), must update `metajournal` table correctly, $suffix") {
       val id          = "id"
       val key         = Key(id = id, topic = topic0)
       val metaSegment = segmentOfId(key)
@@ -1051,8 +1051,9 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         ),
       )
       val result = stateT.run(initial).map {
-        // workaround - this unit-test works with several segment lengths and sizes
-        // here we drop all, except "most interesting" journal's deletion action
+        // workaround - this unit-test works with several segment sizes and lengths
+        // here we drop all expected previous segment deletions, which are expected to be empty,
+        // except "most interesting" journal's deletion action where we expect delete only record there (in this test)
         case (state, unit) =>
           val s = state.copy(
             actions = state.actions.filter {
@@ -1614,22 +1615,6 @@ object ReplicatedCassandraTest {
       }
   }
 
-//  val updateDeleteToAndSeqNrMetaJournal: MetaJournalStatements.UpdateDeleteToAndSeqNr[StateT] = {
-//    (key, segment, partitionOffset, timestamp, deleteTo, seqNr) =>
-//      {
-//        StateT.unit { state =>
-//          state
-//            .updateMetaJournal(key, segment) { entry =>
-//              entry.copy(
-//                journalHead = entry.journalHead.copy(partitionOffset = partitionOffset, deleteTo = deleteTo.some, seqNr = seqNr),
-//                updated     = timestamp,
-//              )
-//            }
-//            .append(Action.UpdateDeleteToAndSeqNr(key, segment, partitionOffset, timestamp, deleteTo, seqNr))
-//        }
-//      }
-//  }
-
   val updatePartitionOffsetMetaJournal: MetaJournalStatements.UpdatePartitionOffset[StateT] = {
     (key, segment, partitionOffset, timestamp) =>
       StateT.unit { state =>
@@ -1700,6 +1685,7 @@ object ReplicatedCassandraTest {
   }
 
   val insertPointer2: Pointer2Statements.Insert[StateT] = { (_, _, _, _, _) =>
+    // TODO MR pointer2 - update in similar fashion as `pointer` above
     ().pure[StateT]
   }
 
@@ -1712,6 +1698,7 @@ object ReplicatedCassandraTest {
   }
 
   val updatePointer2: Pointer2Statements.Update[StateT] = { (_, _, _, _) =>
+    // TODO MR pointer2 - update in similar fashion as `pointer` above
     ().pure[StateT]
   }
 
@@ -1731,7 +1718,6 @@ object ReplicatedCassandraTest {
       updateSeqNrMetaJournal,
       updateExpiryMetaJournal,
       updateDeleteToMetaJournal,
-//      updateDeleteToAndSeqNrMetaJournal,
       updatePartitionOffsetMetaJournal,
       deleteMetaJournal,
       deleteExpiryMetaJournal,

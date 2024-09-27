@@ -539,10 +539,6 @@ private[journal] object ReplicatedCassandra {
         updateSeqNr       <- cassandra.MetaJournalStatements.UpdateSeqNr.of[F](metaJournal, consistencyConfig.write)
         updateExpiry      <- cassandra.MetaJournalStatements.UpdateExpiry.of[F](metaJournal, consistencyConfig.write)
         updateDeleteTo    <- cassandra.MetaJournalStatements.UpdateDeleteTo.of[F](metaJournal, consistencyConfig.write)
-//        updateDeleteToAndSeqNr <- cassandra
-//          .MetaJournalStatements
-//          .UpdateDeleteToAndSeqNr
-//          .of[F](metaJournal, consistencyConfig.write)
         updatePartitionOffset <- cassandra.MetaJournalStatements.UpdatePartitionOffset.of[F](metaJournal, consistencyConfig.write)
         delete                <- cassandra.MetaJournalStatements.Delete.of[F](metaJournal, consistencyConfig.write)
         deleteExpiry          <- cassandra.MetaJournalStatements.DeleteExpiry.of[F](metaJournal, consistencyConfig.write)
@@ -554,7 +550,6 @@ private[journal] object ReplicatedCassandra {
           updateSeqNr,
           updateExpiry,
           updateDeleteTo,
-//          updateDeleteToAndSeqNr,
           updatePartitionOffset,
           delete,
           deleteExpiry,
@@ -571,7 +566,6 @@ private[journal] object ReplicatedCassandra {
       updateSeqNr: cassandra.MetaJournalStatements.UpdateSeqNr[F],
       updateExpiry: cassandra.MetaJournalStatements.UpdateExpiry[F],
       updateDeleteTo: cassandra.MetaJournalStatements.UpdateDeleteTo[F],
-//      updateDeleteToAndSeqNr: cassandra.MetaJournalStatements.UpdateDeleteToAndSeqNr[F],
       updatePartitionOffset: cassandra.MetaJournalStatements.UpdatePartitionOffset[F],
       delete: cassandra.MetaJournalStatements.Delete[F],
       deleteExpiry: cassandra.MetaJournalStatements.DeleteExpiry[F],
@@ -612,10 +606,6 @@ private[journal] object ReplicatedCassandra {
                   updateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo)
                 }
 
-//                def apply(deleteTo: DeleteTo, seqNr: SeqNr): F[Unit] = {
-//                  updateDeleteToAndSeqNr(key, segment, partitionOffset, timestamp, deleteTo, seqNr)
-//                }
-
                 def apply(seqNr: SeqNr, deleteTo: DeleteTo): F[Unit] = {
                   update1(key, segment, partitionOffset, timestamp, seqNr, deleteTo)
                 }
@@ -655,8 +645,6 @@ private[journal] object ReplicatedCassandra {
 
         def apply(deleteTo: DeleteTo): F[Unit]
 
-//        def apply(deleteTo: DeleteTo, seqNr: SeqNr): F[Unit]
-//
         def apply(seqNr: SeqNr, deleteTo: DeleteTo): F[Unit]
       }
     }
