@@ -4,9 +4,9 @@ import java.nio.charset.StandardCharsets
 
 import cats.syntax.all._
 import cats.~>
+import com.evolution.playjson.jsoniter.PlayJsonJsoniter
 import com.evolutiongaming.catshelper.CatsHelper._
 import com.evolutiongaming.catshelper.{ApplicativeThrowable, FromTry, MonadThrowable}
-import com.evolutiongaming.jsonitertool.PlayJsonJsoniter
 import com.evolutiongaming.kafka.journal.util.ScodecHelper._
 import play.api.libs.json.{JsValue, Json}
 import scodec.bits.ByteVector
