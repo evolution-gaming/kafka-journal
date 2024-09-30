@@ -149,7 +149,7 @@ private[journal] object Batch {
     to: DeleteTo,
     origin: Option[Origin],
     version: Option[Version],
-    setSeqNr: Option[SeqNr],
+    setSeqNr: Option[SeqNr], // there were `Appends` removed and we carry over their not-yet-written `seqNr`
   ) extends Batch
 
   final case class Purge(

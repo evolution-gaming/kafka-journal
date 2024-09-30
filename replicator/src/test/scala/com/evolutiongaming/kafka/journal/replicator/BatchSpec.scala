@@ -20,7 +20,7 @@ class BatchSpec extends AnyFunSuite with Matchers {
   for {
     (values, expected) <- List[(Nel[A], List[Batch])](
       (
-        Nel.of(
+        Nel.of( // state: delete_to = 384, seqNr = 573 (in Cassandra)
           append(offset = 1797039, seqNr = 574),
           append(offset = 1801629, seqNr = 575),
           mark(offset   = 1801632),
