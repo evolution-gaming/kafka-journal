@@ -14,7 +14,7 @@ trait TopicReplicatorMetrics[F[_]] {
 
   /** Accounts number of processed events, the size of their payloads and client version as well as
    * replication and delivery latencies and number of processed Kafka records */
-  def append(events: Int, bytes: Long, clientVersion: String, measurements: Measurements): F[Unit]
+  def append(events: Int, bytes: Long, clientVersion: String, expiration: String, measurements: Measurements): F[Unit]
 
   /** Accounts replication and delivery latencies and number of processed Kafka records */
   def delete(measurements: Measurements): F[Unit]
@@ -36,7 +36,7 @@ object TopicReplicatorMetrics {
     class Const
     new Const with TopicReplicatorMetrics[F] {
 
-      def append(events: Int, bytes: Long, clientVersion: String, measurements: Measurements): F[Unit] = unit
+      def append(events: Int, bytes: Long, clientVersion: String, expiration: String, measurements: Measurements): F[Unit] = unit
 
       def delete(measurements: Measurements): F[Unit] = unit
 
@@ -106,19 +106,26 @@ object TopicReplicatorMetrics {
       labels = LabelNames("topic", "version"),
     )
 
+    val expirationDurationGauge = registry.gauge(
+      name   = s"${prefix}_kafka_journal_client_journal_expiration_info",
+      help   = "kafka-journal's client expiration as observed in payloads",
+      labels = LabelNames("topic", "expiration"),
+    )
+
     for {
-      replicationSummary  <- replicationSummary
-      deliverySummary     <- deliverySummary
-      eventsSummary       <- eventsSummary
-      bytesSummary        <- bytesSummary
-      recordsSummary      <- recordsSummary
-      roundSummary        <- roundSummary
-      roundRecordsSummary <- roundRecordsSummary
-      clientVersionGauge  <- clientVersionGauge
+      replicationSummary      <- replicationSummary
+      deliverySummary         <- deliverySummary
+      eventsSummary           <- eventsSummary
+      bytesSummary            <- bytesSummary
+      recordsSummary          <- recordsSummary
+      roundSummary            <- roundSummary
+      roundRecordsSummary     <- roundRecordsSummary
+      clientVersionGauge      <- clientVersionGauge
+      expirationDurationGauge <- expirationDurationGauge
     } yield { (topic: Topic) =>
       {
 
-        def observeMeasurements(name: String, measurements: Measurements) = {
+        def observeMeasurements(name: String, measurements: Measurements): F[Unit] = {
           for {
             _ <- replicationSummary.labels(topic, name).observe(measurements.replicationLatency.toNanos.nanosToSeconds)
             _ <- deliverySummary.labels(topic, name).observe(measurements.deliveryLatency.toNanos.nanosToSeconds)
@@ -129,12 +136,13 @@ object TopicReplicatorMetrics {
         class Main
         new Main with TopicReplicatorMetrics[F] {
 
-          def append(events: Int, bytes: Long, clientVersion: String, measurements: Measurements): F[Unit] = {
+          def append(events: Int, bytes: Long, clientVersion: String, expiration: String, measurements: Measurements): F[Unit] = {
             for {
               _ <- observeMeasurements("append", measurements)
               _ <- eventsSummary.labels(topic).observe(events.toDouble)
               _ <- bytesSummary.labels(topic).observe(bytes.toDouble)
               _ <- clientVersionGauge.labels(topic, clientVersion).set(1)
+              _ <- expirationDurationGauge.labels(topic, expiration).set(1)
             } yield {}
           }
 
