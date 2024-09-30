@@ -8,12 +8,12 @@ import com.evolutiongaming.kafka.journal.util.CatsHelper.*
 
 import java.time.Instant
 
-private[journal] trait ConsRecordToActionRecord[F[_]] {
+trait ConsRecordToActionRecord[F[_]] {
 
   def apply(consRecord: ConsRecord): F[Option[ActionRecord[Action]]]
 }
 
-private[journal] object ConsRecordToActionRecord {
+object ConsRecordToActionRecord {
 
   implicit def apply[F[_]: MonadThrowable](
     implicit consRecordToActionHeader: ConsRecordToActionHeader[F],
