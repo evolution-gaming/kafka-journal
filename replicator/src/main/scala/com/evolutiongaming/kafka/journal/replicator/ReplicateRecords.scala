@@ -72,8 +72,8 @@ private[journal] object ReplicateRecords {
           def measure(events: Nel[EventRecord[EventualPayloadAndType]], expireAfter: Option[ExpireAfter]) = {
             for {
               measurements <- measurements(records.size)
-              version       = events.head.version.map(_.value).getOrElse("none")
-              expiration    = events.head.metadata.payload.expireAfter.map(_.value.toString).getOrElse("none")
+              version       = events.last.version.map(_.value).getOrElse("none")
+              expiration    = expireAfter.map(_.value.toString).getOrElse("none")
               result <- metrics.append(
                 events        = events.length,
                 bytes         = bytes,
