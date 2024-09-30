@@ -44,24 +44,14 @@ private[journal] object ReplicatedCassandra {
       _             <- log.info(s"kafka-journal version: ${Version.current.value}")
     } yield {
       val segmentOf = SegmentNrsOf[F](first = Segments.default, second = Segments.old)
-      val journal   = apply1[F](config.segmentSize, segmentOf, statements, expiryService).withLog(log)
+      val journal   = apply[F](config.segmentSize, segmentOf, statements, expiryService).withLog(log)
       metrics
         .fold(journal) { metrics => journal.withMetrics(metrics) }
         .enhanceError
     }
   }
 
-  @deprecated("use `apply1` instead", "3.6.0")
-  def apply[F[_]: Sync: Parallel: Fail](
-    segmentSizeDefault: SegmentSize,
-    segmentNrsOf: SegmentNrsOf[F],
-    statements: Statements[F],
-    expiryService: ExpiryService[F],
-  ): ReplicatedJournal[F] = {
-    apply1(segmentSizeDefault, segmentNrsOf, statements, expiryService)
-  }
-
-  def apply1[F[_]: Sync: Parallel: Fail: UUIDGen](
+  def apply[F[_]: Sync: Parallel: Fail: UUIDGen](
     segmentSizeDefault: SegmentSize,
     segmentNrsOf: SegmentNrsOf[F],
     statements: Statements[F],

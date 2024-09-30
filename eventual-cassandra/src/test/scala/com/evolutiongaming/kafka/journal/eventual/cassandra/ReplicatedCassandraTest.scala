@@ -66,14 +66,12 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       implicit val uuidGen = new UUIDGen[StateT] {
         override def randomUUID = uuid.pure[StateT]
       }
-      ReplicatedCassandra
-        .apply1(
-          segmentSize,
-          segmentNrsOf,
-          statements,
-          ExpiryService(ZoneOffset.UTC),
-        )
-        .toFlat
+      ReplicatedCassandra(
+        segmentSize,
+        segmentNrsOf,
+        statements,
+        ExpiryService(ZoneOffset.UTC),
+      ).toFlat
     }
 
     val suffix = s"segmentSize: $segmentSize, segments: $segments"
