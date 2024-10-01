@@ -14,7 +14,9 @@ private[journal] object Batch {
 
   def of(records: Nel[ActionRecord[Action]]): List[Batch] = {
 
-    def dropToBeDeletedAppends(appends: Appends, delete: Action.Delete): Boolean = {
+    // returns `true` when we can optimize Cassandra usage by NOT inserting "previous" Append actions in DB
+    // because "current" Delete action will discard them all
+    def cut(appends: Appends, delete: Action.Delete): Boolean = {
       val append = appends.records.head.action
       append.range.to <= delete.to.value
     }
@@ -74,7 +76,7 @@ private[journal] object Batch {
                 appendsOf(b.records) :: tail
 
               case (b: Appends, a: Action.Delete) =>
-                if (dropToBeDeletedAppends(b, a)) {
+                if (cut(b, a)) {
                   val delete = deleteOf(a.to, origin orElse a.origin, version orElse a.version, a.to.value.some)
                   delete :: Nil
                 } else {
@@ -93,7 +95,7 @@ private[journal] object Batch {
 
               case (b: Delete, a: Action.Delete) =>
                 if (a.to > b.to) {
-                  if (tail.collectFirst { case b: Appends => dropToBeDeletedAppends(b, a) } getOrElse false) {
+                  if (tail.collectFirst { case b: Appends => cut(b, a) } getOrElse false) {
                     val delete = deleteOf(a.to, origin orElse a.origin, version orElse a.version, a.to.value.some)
                     delete :: Nil
                   } else {
