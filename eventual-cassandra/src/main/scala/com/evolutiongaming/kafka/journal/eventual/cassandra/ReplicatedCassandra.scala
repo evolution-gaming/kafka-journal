@@ -335,7 +335,11 @@ private[journal] object ReplicatedCassandra {
                                       for {
                                         segmentNrs <- from
                                           .toJournalSegmentNr(segmentSize)
-                                          .to[F] { to.toJournalSegmentNr(segmentSize) }
+                                          .to[F] {
+                                            // TODO MR why we don't use `to.next[Option].getOrElse(SegmentNr.max)` as in `def purge`?
+                                            //  see test-case `repeat purge again for the same offset` ???
+                                            to.toJournalSegmentNr(segmentSize)
+                                          }
                                         result <- {
                                           if (to >= seqNr) {
                                             segmentNrs.parFoldMapA { segmentNr =>
@@ -444,10 +448,15 @@ private[journal] object ReplicatedCassandra {
                                   .getOrElse { from }
                                   .toJournalSegmentNr(segmentSize)
                                   .to[F] {
+                                    // TODO MR for context see test-case `repeat purge again for the same offset`
                                     to
-                                      .next[Option]
+                                      .next[Option] // TODO MR why overshoot to possibly next segment?
                                       .getOrElse { journalHead.seqNr }
                                       .toJournalSegmentNr(segmentSize)
+                                    // TODO MR alternative, if overshoot is required
+//                                    to.toSegmentNr(segmentSize).next[Option].getOrElse(SegmentNr.max)
+                                    // TODO MR alternative, if same as in `def delete`
+//                                    to.toSegmentNr(segmentSize)
                                   }
                                 _ <- segmentNrs.parFoldMapA { segmentNr =>
                                   statements
