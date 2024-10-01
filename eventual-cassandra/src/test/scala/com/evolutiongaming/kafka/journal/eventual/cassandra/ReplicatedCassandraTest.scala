@@ -1361,6 +1361,77 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val actual = stateT.run(initial)
       actual shouldEqual (expected, true).pure[Try]
     }
+
+    test(s"optimization: delete action advances head's seq_nr, $suffix") {
+      val id      = "id"
+      val key     = Key(id = id, topic = topic0)
+      val segment = segmentOfId(key)
+      val stateT = journal.delete(
+        key = key,
+        Partition.min,
+        Offset.unsafe(2),
+        timestamp = timestamp1,
+        deleteTo  = SeqNr.unsafe(200).toDeleteTo,
+        origin    = origin.some,
+      )
+
+      val initial = State
+        .empty
+        .copy(
+          metaJournal = Map(
+            (
+              (topic0, segment),
+              Map(
+                (
+                  id,
+                  MetaJournalEntry(
+                    journalHead = JournalHead(
+                      partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)),
+                      segmentSize     = segmentSize,
+                      seqNr           = SeqNr.unsafe(300),
+                      deleteTo        = SeqNr.unsafe(400).toDeleteTo.some,
+                      expiry          = none,
+                      recordId        = none,
+                    ),
+                    created = timestamp0,
+                    updated = timestamp0,
+                    origin  = origin.some,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        )
+
+      val expected = State(
+        metaJournal = Map(
+          (
+            (topic0, segment),
+            Map(
+              (
+                id,
+                MetaJournalEntry(
+                  journalHead = JournalHead(
+                    partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
+                    segmentSize     = segmentSize,
+                    seqNr           = SeqNr.unsafe(400),
+                    deleteTo        = SeqNr.unsafe(200).toDeleteTo.some,
+                    expiry          = none,
+                    recordId        = none,
+                  ),
+                  created = timestamp0,
+                  updated = timestamp1,
+                  origin  = origin.some,
+                ),
+              ),
+            ),
+          ),
+        ),
+      )
+
+      val actual = stateT.run(initial)
+      actual shouldEqual (expected, true).pure[Try]
+    }
   }
 }
 
