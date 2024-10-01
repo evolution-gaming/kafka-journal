@@ -30,6 +30,140 @@ class BatchSpec extends AnyFunSuite with Matchers {
           deletes(offset = 1801642, deleteToSeqNr = 575, setSeqNr = 575.some),
         ),
       ),
+      (Nel.of(mark(offset = 0)), Nil),
+      (Nel.of(mark(offset = 0), mark(offset = 1)), Nil),
+      (Nel.of(append(offset = 0, seqNr = 1)), List(appends(0, append(offset = 0, seqNr = 1)))),
+      (Nel.of(append(offset = 0, seqNr = 1, seqNrs = 2)), List(appends(0, append(offset = 0, seqNr = 1, seqNrs = 2)))),
+      (
+        Nel.of(append(offset = 0, seqNr = 1, seqNrs = 2), append(offset = 1, seqNr = 3, seqNrs = 4)),
+        List(appends(1, append(offset = 0, seqNr = 1, seqNrs = 2), append(offset = 1, seqNr = 3, seqNrs = 4))),
+      ),
+      (Nel.of(append(offset = 0, seqNr = 1), mark(offset = 1)), List(appends(1, append(offset = 0, seqNr = 1)))),
+      (Nel.of(mark(offset = 0), append(offset = 1, seqNr = 1)), List(appends(1, append(offset = 1, seqNr = 1)))),
+      (
+        Nel.of(append(offset = 0, seqNr = 1), append(offset = 1, seqNr = 2)),
+        List(appends(1, append(offset = 0, seqNr = 1), append(offset = 1, seqNr = 2))),
+      ),
+      (
+        Nel.of(
+          mark(offset   = 0),
+          append(offset = 1, seqNr = 1),
+          mark(offset   = 2),
+          append(offset = 3, seqNr = 2),
+          mark(offset   = 4),
+        ),
+        List(appends(4, append(offset = 1, seqNr = 1), append(offset = 3, seqNr = 2))),
+      ),
+      (Nel.of(delete(offset = 1, seqNr = 1)), List(deletes(offset = 1, deleteToSeqNr = 1, setSeqNr = None))),
+      (Nel.of(mark(offset = 1), delete(offset = 2, seqNr = 1)), List(deletes(offset = 2, deleteToSeqNr = 1, setSeqNr = None))),
+      (Nel.of(delete(offset = 1, seqNr = 1), mark(offset = 2)), List(deletes(offset = 2, deleteToSeqNr = 1, setSeqNr = None))),
+      (
+        Nel.of(delete(offset = 1, seqNr = 1), append(offset = 2, seqNr = 2)),
+        List(deletes(offset = 1, deleteToSeqNr = 1, setSeqNr = None), appends(2, append(offset = 2, seqNr = 2))),
+      ),
+      (
+        Nel.of(append(offset = 1, seqNr = 2), delete(offset = 2, seqNr = 1)),
+        List(appends(1, append(offset = 1, seqNr = 2)), deletes(offset = 2, deleteToSeqNr = 1, setSeqNr = None)),
+      ),
+      (
+        Nel.of(append(offset = 1, seqNr = 1, seqNrs = 2, 3), delete(offset = 2, seqNr = 1)),
+        List(appends(1, append(offset = 1, seqNr = 1, seqNrs = 2, 3)), deletes(offset = 2, deleteToSeqNr = 1, setSeqNr = None)),
+      ),
+      (
+        Nel.of(append(offset = 1, seqNr = 1), delete(offset = 2, seqNr = 1), append(offset = 3, seqNr = 2)),
+        List(deletes(offset = 2, deleteToSeqNr = 1, setSeqNr = Some(1)), appends(3, append(offset = 3, seqNr = 2))),
+      ),
+      (
+        Nel.of(
+          append(offset = 1, seqNr = 1),
+          delete(offset = 2, seqNr = 1, origin = "origin1"),
+          append(offset = 3, seqNr = 2),
+          delete(offset = 4, seqNr = 2, origin = "origin2"),
+        ),
+        List(deletes(offset = 4, deleteToSeqNr = 2, origin = "origin1", setSeqNr = Some(2))),
+      ),
+      (
+        Nel.of(
+          append(offset = 1, seqNr = 1),
+          delete(offset = 2, seqNr = 1, origin = "origin"),
+          append(offset = 3, seqNr = 2),
+          delete(offset = 4, seqNr = 2),
+        ),
+        List(deletes(offset = 4, deleteToSeqNr = 2, origin = "origin", setSeqNr = Some(2))),
+      ),
+      (
+        Nel.of(
+          append(offset = 1, seqNr = 1),
+          append(offset = 2, seqNr = 2),
+          delete(offset = 3, seqNr = 1, origin = "origin1"),
+          delete(offset = 4, seqNr = 2, origin = "origin2"),
+        ),
+        List(deletes(offset = 4, deleteToSeqNr = 2, origin = "origin1", setSeqNr = Some(2))),
+      ),
+      (
+        Nel.of(
+          append(offset = 1, seqNr = 1),
+          append(offset = 2, seqNr = 2),
+          delete(offset = 3, seqNr = 1),
+          delete(offset = 4, seqNr = 2, origin = "origin"),
+        ),
+        List(deletes(offset = 4, deleteToSeqNr = 2, origin = "origin", setSeqNr = Some(2))),
+      ),
+      (
+        Nel.of(delete(offset = 2, seqNr = 1), delete(offset = 3, seqNr = 2)),
+        List(deletes(offset = 3, deleteToSeqNr = 2, setSeqNr = None)),
+      ),
+      (
+        Nel.of(delete(offset = 2, seqNr = 2, origin = "origin"), delete(offset = 3, seqNr = 1)),
+        List(deletes(offset = 3, deleteToSeqNr = 2, origin = "origin", setSeqNr = None)),
+      ),
+      (
+        Nel.of(
+          mark(offset   = 2),
+          delete(offset = 3, seqNr = 1, origin = "origin"),
+          mark(offset   = 4),
+          delete(offset = 5, seqNr = 2),
+          mark(offset   = 6),
+        ),
+        List(deletes(offset = 6, deleteToSeqNr = 2, origin = "origin", setSeqNr = None)),
+      ),
+      (
+        Nel.of(
+          append(offset = 0, seqNr = 1),
+          delete(offset = 1, seqNr = 1),
+          append(offset = 2, seqNr = 2),
+          delete(offset = 3, seqNr = 2),
+          append(offset = 4, seqNr = 3),
+        ),
+        List(deletes(offset = 3, deleteToSeqNr = 2, setSeqNr = Some(2)), appends(4, append(offset = 4, seqNr = 3))),
+      ),
+      (
+        Nel.of(
+          append(offset = 0, seqNr = 1),
+          append(offset = 1, seqNr = 2),
+          delete(offset = 2, seqNr = 1),
+          append(offset = 3, seqNr = 3),
+          delete(offset = 4, seqNr = 3),
+          append(offset = 5, seqNr = 4),
+        ),
+        List(deletes(offset = 4, deleteToSeqNr = 3, setSeqNr = Some(3)), appends(5, append(offset = 5, seqNr = 4))),
+      ),
+      (
+        Nel.of(
+          append(offset = 0, seqNr = 1),
+          append(offset = 1, seqNr = 2),
+          mark(offset   = 2),
+          delete(offset = 3, seqNr = 1),
+          append(offset = 4, seqNr = 3),
+          append(offset = 5, seqNr = 4),
+          mark(offset   = 6),
+        ),
+        List(
+          appends(2, append(offset = 0, seqNr = 1), append(offset = 1, seqNr = 2)),
+          deletes(offset = 3, deleteToSeqNr = 1, setSeqNr = None),
+          appends(6, append(offset = 4, seqNr = 3), append(offset = 5, seqNr = 4)),
+        ),
+      ),
       (
         Nel.of(
           append(offset = 0, seqNr = 1),
