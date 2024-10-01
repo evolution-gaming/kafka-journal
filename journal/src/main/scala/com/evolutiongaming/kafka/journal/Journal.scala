@@ -30,7 +30,7 @@ trait Journal[F[_]] {
   def pointer: F[Option[SeqNr]]
 
   /**
-   * Deletes events up to provided SeqNr
+   * Deletes events up to provided SeqNr without updating `seqNr`
    */
   def delete(to: DeleteTo = DeleteTo.max): F[Option[PartitionOffset]]
 

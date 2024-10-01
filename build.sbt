@@ -37,13 +37,15 @@ lazy val commonSettings = Seq(
 
 import com.typesafe.tools.mima.core.*
 ThisBuild / mimaBinaryIssueFilters ++= Seq(
-  ProblemFilters.exclude[IncompatibleTemplateDefProblem]("com.evolutiongaming.kafka.journal.Journal$DataIntegrityConfig"),
-  ProblemFilters.exclude[MissingClassProblem]("com.evolutiongaming.kafka.journal.Journal$DataIntegrityConfig$*"),
-  ProblemFilters.exclude[IncompatibleSignatureProblem]("com.evolutiongaming.kafka.journal.eventual.cassandra.JournalHead.*"),
-  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolutiongaming.kafka.journal.eventual.cassandra.JournalHead.*"),
-  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolutiongaming.kafka.journal.replicator.TopicReplicatorMetrics.*"),
-  ProblemFilters.exclude[ReversedMissingMethodProblem]("com.evolutiongaming.kafka.journal.replicator.TopicReplicatorMetrics.*"),
-  ProblemFilters.exclude[IncompatibleSignatureProblem]("com.evolutiongaming.kafka.journal.eventual.cassandra.JournalStatements#*"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolutiongaming.kafka.journal.eventual.ReplicatedJournalFlat.delete"),
+  ProblemFilters.exclude[ReversedMissingMethodProblem]("com.evolutiongaming.kafka.journal.eventual.ReplicatedJournalFlat.delete"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolutiongaming.kafka.journal.eventual.ReplicatedKeyJournal.delete"),
+  ProblemFilters.exclude[ReversedMissingMethodProblem]("com.evolutiongaming.kafka.journal.eventual.ReplicatedKeyJournal.delete"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolutiongaming.kafka.journal.replicator.Batch#Delete.copy"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolutiongaming.kafka.journal.replicator.Batch#Delete.this"),
+  ProblemFilters.exclude[MissingTypesProblem]("com.evolutiongaming.kafka.journal.replicator.Batch$Delete$"),
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolutiongaming.kafka.journal.replicator.Batch#Delete.apply"),
+  ProblemFilters.exclude[IncompatibleSignatureProblem]("com.evolutiongaming.kafka.journal.replicator.Batch#Delete.unapply"),
 )
 
 val alias: Seq[sbt.Def.Setting[?]] =

@@ -107,7 +107,13 @@ private[journal] object ReplicateRecords {
           } yield result
         }
 
-        def delete(offset: Offset, deleteTo: DeleteTo, origin: Option[Origin], version: Option[Version]): F[Int] = {
+        def delete(
+          offset: Offset,
+          deleteTo: DeleteTo,
+          origin: Option[Origin],
+          version: Option[Version],
+          setSeqNr: Option[SeqNr],
+        ): F[Int] = {
 
           def msg(latency: FiniteDuration): String = {
             val originStr  = origin.foldMap { origin => s", origin: $origin" }
@@ -125,7 +131,7 @@ private[journal] object ReplicateRecords {
           }
 
           for {
-            result <- journal.delete(offset, timestamp, deleteTo, origin)
+            result <- journal.delete(offset, timestamp, deleteTo, origin, setSeqNr)
             result <- if (result) measure().as(1) else 0.pure[F]
           } yield result
         }
@@ -157,7 +163,7 @@ private[journal] object ReplicateRecords {
           .of(records)
           .foldMapM {
             case batch: Batch.Appends => append(batch.offset, batch.records)
-            case batch: Batch.Delete  => delete(batch.offset, batch.to, batch.origin, batch.version)
+            case batch: Batch.Delete  => delete(batch.offset, batch.to, batch.origin, batch.version, batch.setSeqNr)
             case batch: Batch.Purge   => purge(batch.offset, batch.origin, batch.version)
           }
       }

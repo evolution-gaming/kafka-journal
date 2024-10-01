@@ -283,6 +283,7 @@ private[journal] object ReplicatedCassandra {
                         timestamp: Instant,
                         deleteTo: DeleteTo,
                         origin: Option[Origin],
+                        setSeqNr: Option[SeqNr],
                       ): F[Changed] = {
 
                         def partitionOffset = PartitionOffset(partition, offset)
@@ -301,34 +302,45 @@ private[journal] object ReplicatedCassandra {
                               .as(journalHead.some)
                           } { journalHead =>
                             if (offset > journalHead.partitionOffset.offset) {
-                              val deleteTo0 = journalHead.deleteTo
-                              val seqNr     = journalHead.seqNr
-                              val seqNr1    = deleteTo0.fold { seqNr } { _.value.max(seqNr) }
-                              val deleteTo1 = deleteTo
+                              val headDeleteTo = journalHead.deleteTo
+                              val headSeqNr    = journalHead.seqNr
+
+                              // keep existing `seqNr` or update to higher one
+                              // usually because `delete batch` removed previous `append batch`
+                              val validatedSeqNr: SeqNr = setSeqNr.fold { headSeqNr } { _.max(headSeqNr) }
+
+                              // clamp down to requested or max valid seqNr
+                              // in default protocol we have `Journal#delete(DeleteTo.max)`
+                              // `DeleteTo.max` can be used to discard all traces, but keep `seqNr`
+                              val validatedDeleteTo = deleteTo
                                 .value
-                                .min(seqNr1)
+                                .min(validatedSeqNr)
                                 .toDeleteTo
+
+                              val updateSeqNr = setSeqNr.isDefined
+                              // different from value in head, must be less or equal to head's `seqNr`
+                              val updateDeleteTo = headDeleteTo.forall(_ < validatedDeleteTo)
+
                               for {
                                 _ <- {
                                   val update = metaJournal.update(partitionOffset, timestamp)
-                                  if (seqNr1 == seqNr) {
-                                    if (deleteTo0.contains(deleteTo1)) {
-                                      update()
-                                    } else {
-                                      update(deleteTo1)
-                                    }
+
+                                  if (updateSeqNr && updateDeleteTo) {
+                                    // delete batch dropped previous append - we have to update `seqNr`
+                                    update(validatedSeqNr, validatedDeleteTo)
+                                  } else if (updateSeqNr) {
+                                    update(validatedSeqNr)
+                                  } else if (updateDeleteTo) {
+                                    update(validatedDeleteTo)
                                   } else {
-                                    if (deleteTo0.contains(deleteTo1)) {
-                                      update(seqNr1)
-                                    } else {
-                                      update(seqNr1, deleteTo1)
-                                    }
+                                    // head already has requested `deleteTo` - update only `partition-offset` and `updated`
+                                    update()
                                   }
                                 }
-                                _ <- deleteTo0
+                                _ <- headDeleteTo
                                   .fold { SeqNr.min.some } { _.value.next[Option] }
                                   .foldMapM { from =>
-                                    val to = deleteTo.value.min(seqNr)
+                                    val to = validatedDeleteTo.value.min(validatedSeqNr)
                                     if (from <= to) {
                                       val segmentSize = journalHead.segmentSize
                                       for {
@@ -336,7 +348,7 @@ private[journal] object ReplicatedCassandra {
                                           .toSegmentNr(segmentSize)
                                           .to[F] { to.toSegmentNr(segmentSize) }
                                         result <- {
-                                          if (to >= seqNr) {
+                                          if (to >= validatedSeqNr) {
                                             segmentNrs.parFoldMapA { segmentNr =>
                                               statements
                                                 .deleteRecords(key, segmentNr)
@@ -361,7 +373,11 @@ private[journal] object ReplicatedCassandra {
                                   }
                               } yield {
                                 journalHead
-                                  .copy(partitionOffset = partitionOffset, seqNr = seqNr1, deleteTo = deleteTo1.some)
+                                  .copy(
+                                    partitionOffset = partitionOffset,
+                                    seqNr           = validatedSeqNr,
+                                    deleteTo        = validatedDeleteTo.some,
+                                  )
                                   .some
                               }
                             } else {
@@ -390,13 +406,14 @@ private[journal] object ReplicatedCassandra {
                           } { journalHead =>
                             if (offset >= journalHead.partitionOffset.offset) {
                               val segmentSize = journalHead.segmentSize
-                              val seqNr       = journalHead.seqNr
+                              val headSeqNr   = journalHead.seqNr
                               val update      = metaJournal.update(journalHead.partitionOffset, timestamp)
                               val result = for {
                                 result <- journalHead
                                   .deleteTo
                                   .fold {
-                                    val deleteTo = seqNr.toDeleteTo
+                                    // empty `deleteTo` - set it to head's `seqNr`
+                                    val deleteTo = headSeqNr.toDeleteTo
                                     for {
                                       _ <- update(deleteTo)
                                       _ <- journalHeadRef.set {
@@ -405,12 +422,13 @@ private[journal] object ReplicatedCassandra {
                                           .some
                                       }
                                     } yield {
-                                      (SeqNr.min, seqNr)
+                                      // journal has never been pruned, prune it fully from very beginning
+                                      (SeqNr.min, headSeqNr)
                                     }
                                   } { deleteTo =>
-                                    val seqNr = journalHead.seqNr
-                                    if (deleteTo.value < seqNr) {
-                                      val deleteTo1 = seqNr.toDeleteTo
+                                    if (deleteTo.value < headSeqNr) {
+                                      // some part of journal is not deleted, yet
+                                      val deleteTo1 = headSeqNr.toDeleteTo
                                       for {
                                         _ <- update(deleteTo1)
                                         _ <- journalHeadRef.set {
@@ -419,13 +437,18 @@ private[journal] object ReplicatedCassandra {
                                             .some
                                         }
                                       } yield {
-                                        (deleteTo.value, seqNr)
+                                        // prune yet non-deleted part of journal
+                                        (deleteTo.value, headSeqNr)
                                       }
-                                    } else if (deleteTo.value == seqNr) {
-                                      (seqNr, seqNr).pure[F]
+                                    } else if (deleteTo.value == headSeqNr) {
+                                      // all is fully pruned - nothing to do
+                                      (headSeqNr, headSeqNr).pure[F]
                                     } else {
+                                      // somehow `deleteTo` is ahead of head's `seqNr`
+                                      // TODO MR how this can happen? - in `def append` we clamp down `DeleteTo`
                                       val seqNr1 = deleteTo.value
                                       for {
+                                        // advance head's `seqNr` to catch the `deleteTo` value
                                         _ <- update(seqNr1)
                                         _ <- journalHeadRef.set {
                                           journalHead
@@ -433,7 +456,10 @@ private[journal] object ReplicatedCassandra {
                                             .some
                                         }
                                       } yield {
-                                        (seqNr, seqNr1)
+                                        // assume that journal has been pruned till actual `deleteTo`
+                                        // and `seqNr` was not advanced for some reason
+//                                        (headSeqNr, seqNr1) // TODO MR do we need to prune this part of journal?
+                                        (seqNr1, seqNr1)
                                       }
                                     }
                                   }
@@ -445,13 +471,15 @@ private[journal] object ReplicatedCassandra {
                                   .to[F] {
                                     to
                                       .next[Option]
-                                      .getOrElse { journalHead.seqNr }
+                                      .getOrElse { headSeqNr }
                                       .toSegmentNr(segmentSize)
                                   }
-                                _ <- segmentNrs.parFoldMapA { segmentNr =>
-                                  statements
-                                    .deleteRecords(key, segmentNr)
-                                    .uncancelable
+                                _ <- Sync[F].whenA(from < to) {
+                                  segmentNrs.parFoldMapA { segmentNr =>
+                                    statements
+                                      .deleteRecords(key, segmentNr)
+                                      .uncancelable
+                                  }
                                 }
                                 _ <- metaJournal.delete
                                 _ <- journalHeadRef.set(none)
