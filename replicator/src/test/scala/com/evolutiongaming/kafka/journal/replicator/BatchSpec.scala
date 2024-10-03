@@ -209,7 +209,8 @@ class BatchSpec extends AnyFunSuite with Matchers {
       (Nel.of(delete(offset = 0, seqNr = 1), purge(offset = 1)), List(purges(offset = 1))),
       (
         // TODO MR can we optimize by dropping `delete` after `purge`?
-        Nel.of(purge(offset = 0), delete(offset = 1, seqNr = 1)), List(purges(offset = 0), deletes(offset = 1, seqNr = 1)),
+        Nel.of(purge(offset = 0), delete(offset = 1, seqNr = 1)),
+        List(purges(offset = 0), deletes(offset = 1, seqNr = 1)),
       ),
       (
         Nel.of(delete(offset = 0, seqNr = 1), delete(offset = 1, seqNr = 2)),
