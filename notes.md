@@ -16,6 +16,7 @@ Actions:
 * **Append**: Kafka record that contains list of events saved atomically
 * **Mark**: With help of `Mark` action we can prevent from consuming Kafka infinitely and stop upon marker found in topic
 * **Delete**: Indicates attempt to delete all existing events up to passed `seqNr`. It will not delete future events
+* **Purge**: Indicates attempt to whole journal fully - leave no data behind. Next append will create new journal
 
 # Reading flow
 
