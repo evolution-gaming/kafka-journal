@@ -34,8 +34,13 @@ class BatchSpec extends AnyFunSuite with Matchers {
         List(appends(1, append(offset = 0, seqNr = 1), append(offset = 1, seqNr = 2))),
       ),
       (
-        Nel
-          .of(mark(offset = 0), append(offset = 1, seqNr = 1), mark(offset = 2), append(offset = 3, seqNr = 2), mark(offset = 4)),
+        Nel.of(
+          mark(offset   = 0),
+          append(offset = 1, seqNr = 1),
+          mark(offset   = 2),
+          append(offset = 3, seqNr = 2),
+          mark(offset   = 4),
+        ),
         List(appends(4, append(offset = 1, seqNr = 1), append(offset = 3, seqNr = 2))),
       ),
       (Nel.of(delete(offset = 1, seqNr = 1)), List(deletes(offset = 1, seqNr = 1))),
@@ -202,7 +207,55 @@ class BatchSpec extends AnyFunSuite with Matchers {
         List(purges(offset = 0), appends(1, append(offset = 1, seqNr = 1))),
       ),
       (Nel.of(delete(offset = 0, seqNr = 1), purge(offset = 1)), List(purges(offset = 1))),
-      (Nel.of(purge(offset = 0), delete(offset = 1, seqNr = 1)), List(purges(offset = 0), deletes(offset = 1, seqNr = 1))),
+      (
+        // TODO MR can we optimize by dropping `delete` after `purge`?
+        Nel.of(purge(offset = 0), delete(offset = 1, seqNr = 1)), List(purges(offset = 0), deletes(offset = 1, seqNr = 1)),
+      ),
+      (
+        Nel.of(delete(offset = 0, seqNr = 1), delete(offset = 1, seqNr = 2)),
+        List(deletes(offset = 1, seqNr = 2)),
+      ),
+      (
+        Nel.of(
+          append(offset = 0, seqNr = 1, seqNrs = 2),
+          append(offset = 1, seqNr = 3, seqNrs = 4),
+          append(offset = 2, seqNr = 5, seqNrs = 6),
+          delete(offset = 3, seqNr = 3),
+          delete(offset = 4, seqNr = 5),
+        ),
+        // TODO MR possible optimizations for above:
+        //  * discard first 2 "appends"
+        //  * filter out event with `seqNr: 5`
+        //  * merge "appends" in single
+        List(
+          appends(
+            2,
+            append(offset = 0, seqNr = 1, seqNrs = 2),
+            append(offset = 1, seqNr = 3, seqNrs = 4),
+            append(offset = 2, seqNr = 5, seqNrs = 6),
+          ),
+          deletes(offset = 4, seqNr = 5),
+        ),
+      ),
+      (
+        Nel.of(
+          append(offset = 0, seqNr = 1, seqNrs = 2, 3, 4, 5, 6),
+          delete(offset = 1, seqNr = 3),
+          delete(offset = 2, seqNr = 6),
+        ),
+        List(
+          deletes(offset = 2, seqNr = 6),
+        ),
+      ),
+      (
+        Nel.of(
+          delete(offset = 1, seqNr = 10),
+          delete(offset = 2, seqNr = 6),
+        ),
+        List(
+          deletes(offset = 2, seqNr = 10),
+        ),
+      ),
     )
   } {
 
