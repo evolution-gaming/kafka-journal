@@ -220,13 +220,13 @@ object EventualCassandra {
     }
   }
 
-  final case class Statements[F[_]](
+  private[journal] final case class Statements[F[_]](
     records: JournalStatements.SelectRecords[F],
     metaJournal: MetaJournalStatements[F],
     selectOffset2: Pointer2Statements.SelectOffset[F],
   )
 
-  object Statements {
+  private[journal] object Statements {
 
     def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 
@@ -246,7 +246,7 @@ object EventualCassandra {
     }
   }
 
-  trait MetaJournalStatements[F[_]] {
+  private[journal] trait MetaJournalStatements[F[_]] {
 
     def journalHead(key: Key): F[Option[JournalHead]]
 
@@ -255,7 +255,7 @@ object EventualCassandra {
     def ids(topic: Topic): Stream[F, String]
   }
 
-  object MetaJournalStatements {
+  private[journal] object MetaJournalStatements {
 
     def of[F[_]: Concurrent: CassandraSession](
       schema: Schema,

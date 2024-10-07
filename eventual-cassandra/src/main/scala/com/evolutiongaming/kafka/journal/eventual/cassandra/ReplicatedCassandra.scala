@@ -475,13 +475,13 @@ private[journal] object ReplicatedCassandra {
     }
   }
 
-  trait MetaJournalStatements[F[_]] {
+  private[journal] trait MetaJournalStatements[F[_]] {
     import MetaJournalStatements.*
 
     def apply(key: Key, segment: SegmentNr): ByKey[F]
   }
 
-  object MetaJournalStatements {
+  private[journal] object MetaJournalStatements {
 
     def of[F[_]: Monad: CassandraSession](
       schema: Schema,
@@ -613,7 +613,7 @@ private[journal] object ReplicatedCassandra {
     }
   }
 
-  final case class Statements[F[_]](
+  private[journal] final case class Statements[F[_]](
     insertRecords: JournalStatements.InsertRecords[F],
     deleteRecordsTo: JournalStatements.DeleteTo[F],
     deleteRecords: JournalStatements.Delete[F],
@@ -627,7 +627,7 @@ private[journal] object ReplicatedCassandra {
     selectTopics2: Pointer2Statements.SelectTopics[F],
   )
 
-  object Statements {
+  private[journal] object Statements {
 
     def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 
