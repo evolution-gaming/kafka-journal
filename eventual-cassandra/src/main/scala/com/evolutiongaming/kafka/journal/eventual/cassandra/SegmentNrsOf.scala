@@ -4,7 +4,7 @@ import cats.syntax.all.*
 import cats.{Applicative, ~>}
 import com.evolutiongaming.kafka.journal.Key
 
-/** Calculate [[SegementNrs]] using the passed journal key.
+/** Calculate [[SegmentNrs]] for `metajournal` using passed journal key.
   *
   * It is expected that for the same key the same [[SegmentNrs]] will be
   * returned.
@@ -16,11 +16,13 @@ import com.evolutiongaming.kafka.journal.Key
   *   [[SegmentOf]] for a more simple implementation of this factory without
   *   support of backwards compatible change of the segmenting algorithm.
   */
+@deprecated("use `SegmentNrs.Of` instead", "4.1.0")
 private[journal] trait SegmentNrsOf[F[_]] {
 
   def apply(key: Key): F[SegmentNrs]
 }
 
+@deprecated("use `SegmentNrs.Of` instead", "4.1.0")
 private[journal] object SegmentNrsOf {
 
   /** Always return one and the same [[SegmentNrs]] instance.
@@ -30,14 +32,16 @@ private[journal] object SegmentNrsOf {
     */
   def const[F[_]: Applicative](segmentNrs: SegmentNrs): SegmentNrsOf[F] = (_: Key) => segmentNrs.pure[F]
 
-  /** Calculate both [[SegmentNrs]] values by a key using a hashing alorithm */
+  /** Calculate both [[SegmentNrs]] values by a key using a hashing algorithm */
   def apply[F[_]: Applicative](first: Segments, second: Segments): SegmentNrsOf[F] = { key =>
-    val hashCode   = key.id.toLowerCase.hashCode
-    val segmentNrs = SegmentNrs(first = SegmentNr(hashCode, first), second = SegmentNr(hashCode, second))
-    segmentNrs.pure[F]
+    SegmentNrs(
+      first  = SegmentNr.metaJournal(key, first),
+      second = SegmentNr.metaJournal(key, second),
+    ).pure[F]
   }
 
   /** Calculate [[SegmentNrs#first]] value only and ignore [[SegmentNrs#second]] */
+  @deprecated("use `apply(first, second)` instead", "4.1.0")
   def apply[F[_]: Applicative](segmentOf: SegmentOf[F]): SegmentNrsOf[F] = { key =>
     segmentOf(key).map { segmentNr => SegmentNrs(segmentNr) }
   }

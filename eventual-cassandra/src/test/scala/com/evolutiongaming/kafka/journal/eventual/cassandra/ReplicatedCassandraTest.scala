@@ -59,8 +59,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     segments    <- List((Segments.min, Segments.old), (Segments.old, Segments.default))
   } {
     val (segmentsFirst, segmentsSecond) = segments
-    val segmentNrsOf                    = SegmentNrsOf[StateT](first = segmentsFirst, second = segmentsSecond)
-    val segmentOfId                     = SegmentOf[Id](segmentsFirst)
+    val segmentNrsOf                    = SegmentNrs.Of[StateT](first = segmentsFirst, second = segmentsSecond)
+    val segmentOfId                     = SegmentNr.Of[Id](segmentsFirst)
     val journal = {
       implicit val parallel = Parallel.identity[StateT]
       implicit val uuidGen = new UUIDGen[StateT] {
@@ -79,7 +79,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     test(s"topics, $suffix") {
       val id      = "id"
       val key     = Key(id = id, topic = topic0)
-      val segment = segmentOfId(key)
+      val segment = segmentOfId.metaJournal(key)
       val offset1 = partitionOffset.offset.inc[Try].get
 
       val stateT = for {
@@ -149,7 +149,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     test(s"offset, $suffix") {
       val id      = "id"
       val key     = Key(id = id, topic = topic0)
-      val segment = segmentOfId(key)
+      val segment = segmentOfId.metaJournal(key)
       val stateT = for {
         offset <- journal.offset(topic0, Partition.min)
         _       = offset shouldEqual none
@@ -222,8 +222,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val id1      = "id1"
       val key0     = Key(id0, topic0)
       val key1     = Key(id1, topic1)
-      val segment0 = segmentOfId(key0)
-      val segment1 = segmentOfId(key1)
+      val segment0 = segmentOfId.metaJournal(key0)
+      val segment1 = segmentOfId.metaJournal(key1)
       val expiry   = Expiry(1.minute.toExpireAfter, LocalDate.of(2019, 12, 12).toExpireOn)
       val stateT = for {
         _ <- journal.append(
@@ -401,7 +401,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     test(s"append & override expireAfter, $suffix") {
       val id      = "id"
       val key     = Key(id, topic0)
-      val segment = segmentOfId(key)
+      val segment = segmentOfId.metaJournal(key)
       val expiry0 = Expiry(1.minute.toExpireAfter, LocalDate.of(2019, 12, 12).toExpireOn)
       val expiry1 = Expiry(2.minute.toExpireAfter, LocalDate.of(2019, 12, 12).toExpireOn)
       val stateT = for {
@@ -518,7 +518,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
       val expiry1 = Expiry(2.minutes.toExpireAfter, LocalDate.of(2019, 12, 12).toExpireOn)
 
-      val segment = segmentOfId(key)
+      val segment = segmentOfId.metaJournal(key)
       val stateT = for {
         _ <- journal.append(
           key = key,
@@ -613,7 +613,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
       val expiry = Expiry(1.minute.toExpireAfter, LocalDate.of(2019, 12, 12).toExpireOn)
 
-      val segment = segmentOfId(key)
+      val segment = segmentOfId.metaJournal(key)
       val stateT = for {
         _ <- journal.append(
           key = key,
@@ -707,7 +707,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
       val expiry = Expiry(1.minute.toExpireAfter, LocalDate.of(2019, 12, 12).toExpireOn)
 
-      val segment = segmentOfId(key)
+      val segment = segmentOfId.metaJournal(key)
       val stateT = for {
         _ <- journal.append(
           key = key,
@@ -797,7 +797,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     test(s"not repeat appends, $suffix") {
       val id      = "id"
       val key     = Key(id, topic0)
-      val segment = segmentOfId(key)
+      val segment = segmentOfId.metaJournal(key)
       val stateT = journal.append(
         key = key,
         Partition.min,
@@ -882,7 +882,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     test(s"delete, $suffix") {
       val id      = "id"
       val key     = Key(id = id, topic = topic0)
-      val segment = segmentOfId(key)
+      val segment = segmentOfId.metaJournal(key)
       val stateT = for {
         _ <- journal.append(
           key = key,
@@ -966,7 +966,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     test(s"not repeat deletions, $suffix") {
       val id      = "id"
       val key     = Key(id = id, topic = topic0)
-      val segment = segmentOfId(key)
+      val segment = segmentOfId.metaJournal(key)
       val stateT = journal.delete(
         key = key,
         Partition.min,
@@ -1039,7 +1039,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     test(s"purge, $suffix") {
       val id      = "id"
       val key     = Key(id, topic0)
-      val segment = segmentOfId(key)
+      val segment = segmentOfId.metaJournal(key)
       val stateT = for {
         _ <- journal.append(
           key = key,
@@ -1088,7 +1088,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     test(s"repeat purge again for the same offset, $suffix") {
       val id      = "id"
       val key     = Key(id = id, topic = topic0)
-      val segment = segmentOfId(key)
+      val segment = segmentOfId.metaJournal(key)
       val stateT = for {
         _ <- journal.append(key, partitionOffset.partition, partitionOffset.offset, timestamp0, none, Nel.of(record.event))
         _ <- journal.purge(key, partitionOffset.partition, partitionOffset.offset, timestamp0)
@@ -1124,7 +1124,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     test(s"purge meta journal only, $suffix") {
       val id      = "id"
       val key     = Key(id, topic0)
-      val segment = segmentOfId(key)
+      val segment = segmentOfId.metaJournal(key)
       val stateT = for {
         _ <- journal.append(
           key = key,
@@ -1174,7 +1174,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     test(s"not set correlation ID, $suffix") {
       val id      = "id"
       val key     = Key(id = id, topic = topic0)
-      val segment = segmentOfId(key)
+      val segment = segmentOfId.metaJournal(key)
 
       def partitionOffset(offset: Long) = PartitionOffset(Partition.min, Offset.unsafe(offset))
 
@@ -1269,7 +1269,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     test(s"not update correlation ID, $suffix") {
       val id      = "id"
       val key     = Key(id = id, topic = topic0)
-      val segment = segmentOfId(key)
+      val segment = segmentOfId.metaJournal(key)
       val rid0    = RecordId.unsafe
 
       def partitionOffset(offset: Long) = PartitionOffset(Partition.min, Offset.unsafe(offset))
@@ -1365,7 +1365,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     test(s"optimization: delete action advances head's seq_nr, $suffix") {
       val id      = "id"
       val key     = Key(id = id, topic = topic0)
-      val segment = segmentOfId(key)
+      val segment = segmentOfId.metaJournal(key)
       val stateT = journal.delete(
         key = key,
         Partition.min,

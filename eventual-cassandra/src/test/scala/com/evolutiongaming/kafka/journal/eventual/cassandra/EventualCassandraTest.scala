@@ -60,8 +60,8 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
       correlateEventsWithMeta = true,
     )
 
-    val segmentOf    = SegmentOf[Id](segments)
-    val segmentNrsOf = SegmentNrsOf[StateT](first = segments, Segments.default)
+    val segmentOf    = SegmentNr.Of[Id](segments)
+    val segmentNrsOf = SegmentNrs.Of[StateT](first = segments, Segments.default)
     val statements   = statementsOf(segmentNrsOf, Segments.default)
     val journal      = EventualCassandra(statements, config)
 
@@ -94,7 +94,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
     test(s"pointer, $suffix") {
       val id      = "id"
       val key     = Key(id = id, topic = topic0)
-      val segment = segmentOf(key)
+      val segment = segmentOf.metaJournal(key)
       val seqNr   = SeqNr.min
       val stateT = for {
         pointer    <- journal.pointer(key)
@@ -140,7 +140,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
 
         val id      = "id"
         val key     = Key(id = id, topic = topic0)
-        val segment = segmentOf(key)
+        val segment = segmentOf.metaJournal(key)
         val record1 = {
           record.copy(
             event = record
@@ -209,7 +209,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
     test(s"read duplicated seqNr, $suffix") {
       val seqNr   = SeqNr.min
       val key     = Key(id = "id", topic = topic0)
-      val segment = segmentOf(key)
+      val segment = segmentOf.metaJournal(key)
       val record1 = record.copy(event = record.event.copy(timestamp = timestamp1))
 
       val stateT = for {
@@ -253,7 +253,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
     test(s"read only events that corelate with meta, $suffix") {
       val seqNr   = SeqNr.min
       val key     = Key(id = "id", topic = topic0)
-      val segment = segmentOf(key)
+      val segment = segmentOf.metaJournal(key)
       val actual  = RecordId.unsafe
       val legacy  = RecordId.unsafe
 
@@ -292,7 +292,7 @@ class EventualCassandraTest extends AnyFunSuite with Matchers {
     test(s"read events with duplicated seqNr if only one 'branch' correlate with meta, $suffix") {
       val seqNr    = SeqNr.min
       val key      = Key(id = "id", topic = topic0)
-      val segment  = segmentOf(key)
+      val segment  = segmentOf.metaJournal(key)
       val recordId = RecordId.unsafe
 
       val stateT = journal.read(key, seqNr).toList
@@ -526,7 +526,7 @@ object EventualCassandraTest {
     }
   }
 
-  def statementsOf(segmentNrsOf: SegmentNrsOf[StateT], segments: Segments): EventualCassandra.Statements[StateT] = {
+  def statementsOf(segmentNrsOf: SegmentNrs.Of[StateT], segments: Segments): EventualCassandra.Statements[StateT] = {
     val concurrentStateT: Concurrent[StateT] = ConcurrentOf.fromMonad[StateT]
 
     val metaJournalStatements = EventualCassandra

@@ -1,6 +1,8 @@
 package com.evolutiongaming.kafka.journal.eventual.cassandra
 
 import cats.syntax.all.*
+import com.evolutiongaming.kafka.journal.Key
+import cats.Applicative
 
 /** Contains segments that query should be performed in.
   *
@@ -16,6 +18,26 @@ import cats.syntax.all.*
 private[journal] sealed abstract case class SegmentNrs(first: SegmentNr, second: Option[SegmentNr])
 
 private[journal] object SegmentNrs {
+
+  sealed trait Of[F[_]] {
+    def metaJournal(key: Key): F[SegmentNrs]
+  }
+
+  object Of {
+
+    def const[F[_]: Applicative](nrs: SegmentNrs): Of[F] = new Of[F] {
+      def metaJournal(key: Key) = nrs.pure[F]
+    }
+
+    def apply[F[_]: Applicative](first: Segments, second: Segments): Of[F] = new Of[F] {
+      def metaJournal(key: Key) =
+        SegmentNrs(
+          first  = SegmentNr.metaJournal(key, first),
+          second = SegmentNr.metaJournal(key, second),
+        ).pure[F]
+    }
+
+  }
 
   def apply(first: SegmentNr, second: SegmentNr): SegmentNrs = {
     new SegmentNrs(first, if (first == second) none else second.some) {}

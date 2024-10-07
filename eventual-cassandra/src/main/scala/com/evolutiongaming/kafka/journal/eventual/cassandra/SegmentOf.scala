@@ -4,7 +4,7 @@ import cats.syntax.all.*
 import cats.{Applicative, ~>}
 import com.evolutiongaming.kafka.journal.Key
 
-/** Calculate [[SegementNr]] using the passed journal key.
+/** Calculate [[SegmentNr]] for `metajournal` using passed journal key.
   *
   * It is expected that for the same key the same [[SegmentNr]] will be
   * returned.
@@ -14,12 +14,15 @@ import com.evolutiongaming.kafka.journal.Key
   *
   * @see [[SegmentNrsOf]] for an implementation supporting backwards compatible
   * change of the segmenting algorithm.
+  * @see [[SegmentNr.metaJournal]] for the actual algorithm.
   */
+@deprecated("use `SegmentNr.Of` instead", "4.1.0")
 private[journal] trait SegmentOf[F[_]] {
 
   def apply(key: Key): F[SegmentNr]
 }
 
+@deprecated("use `SegmentNr.Of` instead", "4.1.0")
 private[journal] object SegmentOf {
 
   /** Always return one and the same [[SegmentNrs]] instance.
@@ -29,13 +32,9 @@ private[journal] object SegmentOf {
     */
   def const[F[_]: Applicative](segmentNr: SegmentNr): SegmentOf[F] = (_: Key) => segmentNr.pure[F]
 
-  /** Calculate [[SegmentNr]] value by key using a hashing alorithm */
+  /** Calculate [[SegmentNr]] value by key using a hashing algorithm */
   def apply[F[_]: Applicative](segments: Segments): SegmentOf[F] = { (key: Key) =>
-    {
-      val hashCode  = key.id.toLowerCase.hashCode
-      val segmentNr = SegmentNr(hashCode, segments)
-      segmentNr.pure[F]
-    }
+    SegmentNr.metaJournal(key, segments).pure[F]
   }
 
   implicit class SegmentOfOps[F[_]](val self: SegmentOf[F]) extends AnyVal {

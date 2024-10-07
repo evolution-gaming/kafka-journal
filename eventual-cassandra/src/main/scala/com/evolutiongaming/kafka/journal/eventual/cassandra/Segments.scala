@@ -6,23 +6,20 @@ import cats.{Applicative, Id, Order, Show}
 import com.evolutiongaming.kafka.journal.util.Fail
 import com.evolutiongaming.kafka.journal.util.Fail.implicits.*
 
-/** The maximum number of segments in Cassandra table.
+/** The maximum number of segments in 'metajournal' table.
   *
   * When [[Segments]] is used then the segment column value is determined by
   * consistent hashing of the key column. I.e. there always no more than
-  * [[Segments#value]] different values.
+  * [[Segments#value]] different values. This allow selecting all records
+  * in the table by iterating over all segments.
   *
-  * The logic itself could be found in [[SegmentNr]] class constructors
-  * (apply methods).
-  *
-  * The only place where such approach is used right now is a metajournal
-  * specified by [[SchemaConfig#metaJournalTable]]. This allows the fair
-  * distribution of the journal keys between the Cassandra partitions.
+  * The logic itself could be found in [[SegmentNr#metaJournal]].
   *
   * The value is not end-user configurable and, currently, set in
   * [[EventualCassandra]].
   *
-  * @see [[SegmentSize]] for alternative way used for some other tables.
+  * @see [[SegmentNr]] for usage in `metajournal` table.
+  * @see [[SegmentSize]] for alternative way, used in `journal` table.
   */
 private[journal] sealed abstract case class Segments(value: Int) {
 
@@ -66,6 +63,10 @@ private[journal] object Segments {
   def unsafe[A](value: A)(implicit numeric: Numeric[A]): Segments = of[Id](numeric.toInt(value))
 
   implicit class SegmentsOps(val self: Segments) extends AnyVal {
-    def segmentNrs: List[SegmentNr] = SegmentNr.fromSegments(self)
+
+    @deprecated("use `metaJournalSegmentNrs` instead", "4.1.0")
+    def segmentNrs: List[SegmentNr] = metaJournalSegmentNrs
+
+    def metaJournalSegmentNrs: List[SegmentNr] = SegmentNr.allForSegmentSize(self)
   }
 }
