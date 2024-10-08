@@ -199,7 +199,9 @@ object SegmentNr {
     implicit class SeqNrOpsSegmentNr(val self: SeqNr) extends AnyVal {
 
       @deprecated("use `seqNr.toJournalSegmentNr` instead", "4.1.0")
-      def toSegmentNr(segmentSize: SegmentSize): SegmentNr = SegmentNr.journal(self, segmentSize)
+      def toSegmentNr(segmentSize: SegmentSize): SegmentNr = {
+        toJournalSegmentNr(segmentSize)
+      }
 
       def toJournalSegmentNr(segmentSize: SegmentSize): SegmentNr = SegmentNr.journal(self, segmentSize)
     }
