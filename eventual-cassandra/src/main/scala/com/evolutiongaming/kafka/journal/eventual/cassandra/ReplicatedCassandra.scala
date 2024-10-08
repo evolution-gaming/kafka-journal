@@ -440,8 +440,8 @@ private[journal] object ReplicatedCassandra {
                                   }
                                 (from, to) = result
                                 // we undershoot and overshoot segments, possibly was created to deal with #676
-                                fromSegmentNr = from.toSegmentNr(segmentSize).prev[Option].getOrElse(SegmentNr.min)
-                                toSegmentNr   = to.toSegmentNr(segmentSize).next[Option].getOrElse(SegmentNr.max)
+                                fromSegmentNr = from.toJournalSegmentNr(segmentSize).prev[Option].getOrElse(SegmentNr.min)
+                                toSegmentNr   = to.toJournalSegmentNr(segmentSize).next[Option].getOrElse(SegmentNr.max)
                                 segmentNrs   <- fromSegmentNr.to(toSegmentNr)
                                 _ <- segmentNrs.parFoldMapA { segmentNr =>
                                   statements

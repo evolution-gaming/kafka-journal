@@ -104,7 +104,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
       val expected = State(
         actions = List(
-          Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(1), segmentSize)),
+          Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(1), segmentSize)),
           Action.UpdateDeleteTo(key, segment, partitionOffset.copy(Partition.min, offset1), timestamp1, SeqNr.min.toDeleteTo),
           Action.InsertMetaJournal(
             key,
@@ -916,7 +916,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val expected = State(
         actions = List(
           Action.UpdatePartitionOffset(key, segment, partitionOffset.copy(Partition.min, Offset.unsafe(3)), timestamp1),
-          Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(1), segmentSize)),
+          Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(1), segmentSize)),
           Action.UpdateDeleteTo(
             key,
             segment,
@@ -1063,8 +1063,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val expected = State(
         actions = List(
           Action.DeleteMetaJournal(key, segment),
-          Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(2), segmentSize).next[Option].get),
-          Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(1), segmentSize)),
+          Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(2), segmentSize).next[Option].get),
+          Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(1), segmentSize)),
           Action.UpdateDeleteTo(
             key,
             segment,
@@ -1094,7 +1094,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     test(s"repeat purge again for the same offset, $suffix") {
       val id                  = "id"
       val key                 = Key(id = id, topic = topic0)
-      val segment             = segmentOfId(key)
+      val segment             = segmentOfId.metaJournal(key)
       val offset              = Offset.unsafe(2)
       val headPartitionOffset = PartitionOffset(Partition.min, offset)
 
@@ -1130,8 +1130,8 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val expected = State(
         actions = List(
           Action.DeleteMetaJournal(key, segment),
-          Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(2), segmentSize).next[Option].get),
-          Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(2), segmentSize)),
+          Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(2), segmentSize).next[Option].get),
+          Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(2), segmentSize)),
           Action.UpdateDeleteTo(key, segment, headPartitionOffset, timestamp0, SeqNr.unsafe(2).toDeleteTo),
         ),
       )
@@ -1205,7 +1205,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       else {
         val id                  = "id"
         val key                 = Key(id = id, topic = topic0)
-        val segment             = segmentOfId(key)
+        val segment             = segmentOfId.metaJournal(key)
         val offset              = Offset.unsafe(2)
         val segments            = 10
         val baseSeqNr           = segmentSize.value * segments - 1
@@ -1240,9 +1240,9 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         val expected = State(
           actions = List(
             Action.DeleteMetaJournal(key, segment),
-            Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(baseSeqNr), segmentSize).next[Option].get),
-            Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(baseSeqNr), segmentSize)),
-            Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(baseSeqNr), segmentSize).prev[Option].get),
+            Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(baseSeqNr), segmentSize).next[Option].get),
+            Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(baseSeqNr), segmentSize)),
+            Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(baseSeqNr), segmentSize).prev[Option].get),
             Action.UpdateSeqNr(key, segment, headPartitionOffset, timestamp1, SeqNr.unsafe(baseSeqNr + 1)),
           ),
         )
@@ -1256,7 +1256,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       else {
         val id        = "id"
         val key       = Key(id, topic0)
-        val segment   = segmentOfId(key)
+        val segment   = segmentOfId.metaJournal(key)
         val baseSeqNr = segmentSize.value * 10
 
         val initial = State(
@@ -1291,9 +1291,9 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           actions = List(
             Action.DeleteMetaJournal(key, segment),
             // deletes records from previous, this and next segments
-            Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(baseSeqNr), segmentSize).next[Option].get),
-            Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(baseSeqNr), segmentSize)),
-            Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(baseSeqNr), segmentSize).prev[Option].get),
+            Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(baseSeqNr), segmentSize).next[Option].get),
+            Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(baseSeqNr), segmentSize)),
+            Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(baseSeqNr), segmentSize).prev[Option].get),
             Action.UpdateDeleteTo(
               key,
               segment,
@@ -1580,7 +1580,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     test(s"batched `[append+; delete]` drops `append` action(s), must update `metajournal` table correctly, $suffix") {
       val id          = "id"
       val key         = Key(id = id, topic = topic0)
-      val metaSegment = segmentOfId(key)
+      val metaSegment = segmentOfId.metaJournal(key)
 
       val initial = State(
         metaJournal = Map(
@@ -1606,7 +1606,9 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             ),
           ),
         ),
-        journal = Map(((key, SegmentNr(SeqNr.unsafe(574L), segmentSize)), Map(((SeqNr.unsafe(574L), timestamp0), record)))),
+        journal = Map(
+          ((key, SegmentNr.journal(SeqNr.unsafe(574L), segmentSize)), Map(((SeqNr.unsafe(574L), timestamp0), record))),
+        ),
       )
 
       val stateT = for {
@@ -1622,7 +1624,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
       val expected = State(
         actions = List(
-          Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(574L), segmentSize)), // 575 TODO MR should get fixed in #676
+          Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(574L), segmentSize)), // 575 TODO MR should get fixed in #676
           Action.UpdateDeleteTo(
             key,
             metaSegment,
@@ -1664,7 +1666,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
             actions = state.actions.filter {
               _ match {
                 case Action.DeleteRecords(_, segment) =>
-                  segment == SegmentNr(SeqNr.unsafe(574L), segmentSize) // 575 TODO MR should get fixed in #676
+                  segment == SegmentNr.journal(SeqNr.unsafe(574L), segmentSize) // 575 TODO MR should get fixed in #676
                 case _ => true
               }
             },
@@ -1678,7 +1680,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     test(s"ignore previously applied `append`, $suffix") {
       val id      = "id"
       val key     = Key(id, topic0)
-      val segment = segmentOfId(key)
+      val segment = segmentOfId.metaJournal(key)
       val initial = State(
         metaJournal = Map(
           (
@@ -1734,7 +1736,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     test(s"ignore previously applied `delete`, $suffix") {
       val id      = "id"
       val key     = Key(id, topic0)
-      val segment = segmentOfId(key)
+      val segment = segmentOfId.metaJournal(key)
       val initial = State(
         metaJournal = Map(
           (
@@ -1789,7 +1791,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     test(s"ignore previously applied `purge`, $suffix") {
       val id      = "id"
       val key     = Key(id, topic0)
-      val segment = segmentOfId(key)
+      val segment = segmentOfId.metaJournal(key)
       val initial = State(
         metaJournal = Map(
           (
