@@ -4,7 +4,7 @@ import cats.syntax.all.*
 import cats.{Applicative, ~>}
 import com.evolutiongaming.kafka.journal.Key
 
-/** Calculate [[SegmentNr]] for `metajournal` using passed journal key.
+/** Calculate [[SegmentNr]] from passed journal key for use in `metajournal` table.
   *
   * It is expected that for the same key the same [[SegmentNr]] will be
   * returned.
