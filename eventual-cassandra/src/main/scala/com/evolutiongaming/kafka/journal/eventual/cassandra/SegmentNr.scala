@@ -151,7 +151,7 @@ object SegmentNr {
 
   def unsafe[A](value: A)(implicit numeric: Numeric[A]): SegmentNr = of[Id](numeric.toLong(value))
 
-  @deprecated("use `fromSegmentSize` instead", "4.1.0")
+  @deprecated("use `allForSegmentSize` instead", "4.1.0")
   def fromSegments(segments: Segments): List[SegmentNr] = {
     min
       .value
