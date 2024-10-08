@@ -153,11 +153,7 @@ object SegmentNr {
 
   @deprecated("use `allForSegmentSize` instead", "4.1.0")
   def fromSegments(segments: Segments): List[SegmentNr] = {
-    min
-      .value
-      .until(segments.value.toLong)
-      .map { a => new SegmentNr(a) {} }
-      .toList
+    allForSegmentSize(segments)
   }
 
   /**
