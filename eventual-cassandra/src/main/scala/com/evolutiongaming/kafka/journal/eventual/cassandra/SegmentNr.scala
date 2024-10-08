@@ -78,7 +78,7 @@ object SegmentNr {
     /**
       * Use [[Segments]] to calculate [[SegmentNr]] for `metajournal` table. 
       *
-      * @param segments total amount of segments in `metajournal` table
+      * @param segments total number of segments in `metajournal` table
       * @return [[SegmentNr.Of]] factory
       */
     def apply[F[_]: Applicative](segments: Segments): Of[F] =
