@@ -17,7 +17,7 @@ object PartitionsToSegments {
 
   def apply(partitions: Int, segments: Segments = Segments.default): PartitionsToSegments = {
     val segmentNrs = segments
-      .segmentNrs
+      .metaJournalSegmentNrs
       .toSortedSet
     val filter = {
       if (partitions >= segments.value) { (a: Partition, b: SegmentNr) =>

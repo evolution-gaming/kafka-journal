@@ -12,7 +12,7 @@ class SegmentsTest extends AnyFunSuite with Matchers {
     )
   } {
     test(s"$segments.segmentNrs") {
-      segments.segmentNrs.map { _.value } shouldEqual expected
+      segments.metaJournalSegmentNrs.map { _.value } shouldEqual expected
     }
   }
 }

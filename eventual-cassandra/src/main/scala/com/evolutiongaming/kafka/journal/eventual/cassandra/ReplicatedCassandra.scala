@@ -43,7 +43,7 @@ private[journal] object ReplicatedCassandra {
       expiryService <- ExpiryService.of[F]
       _             <- log.info(s"kafka-journal version: ${Version.current.value}")
     } yield {
-      val segmentOf = SegmentNrsOf[F](first = Segments.default, second = Segments.old)
+      val segmentOf = SegmentNrs.Of[F](first = Segments.default, second = Segments.old)
       val journal   = apply[F](config.segmentSize, segmentOf, statements, expiryService).withLog(log)
       metrics
         .fold(journal) { metrics => journal.withMetrics(metrics) }
@@ -53,7 +53,7 @@ private[journal] object ReplicatedCassandra {
 
   def apply[F[_]: Sync: Parallel: Fail: UUIDGen](
     segmentSizeDefault: SegmentSize,
-    segmentNrsOf: SegmentNrsOf[F],
+    segmentNrsOf: SegmentNrs.Of[F],
     statements: Statements[F],
     expiryService: ExpiryService[F],
   ): ReplicatedJournal[F] = {
@@ -109,7 +109,7 @@ private[journal] object ReplicatedCassandra {
                   }
 
                   for {
-                    segmentNrs <- segmentNrsOf(key)
+                    segmentNrs <- segmentNrsOf.metaJournal(key)
                     result <- head(segmentNrs.first).orElse {
                       segmentNrs
                         .second
@@ -166,7 +166,8 @@ private[journal] object ReplicatedCassandra {
                                       case None       => loop(tail, (segment, head :: batch).some, result)
                                       case Some(next) => loop(tail, (next, Nel.of(head)).some, insert(segment, batch))
                                     }
-                                  case None => loop(tail, (Segment(seqNr, journalHead.segmentSize), Nel.of(head)).some, result)
+                                  case None =>
+                                    loop(tail, (Segment.journal(seqNr, journalHead.segmentSize), Nel.of(head)).some, result)
                                 }
 
                               case Nil => s.fold(result) { case (segment, batch) => insert(segment, batch) }
@@ -333,8 +334,8 @@ private[journal] object ReplicatedCassandra {
                                       val segmentSize = journalHead.segmentSize
                                       for {
                                         segmentNrs <- from
-                                          .toSegmentNr(segmentSize)
-                                          .to[F] { to.toSegmentNr(segmentSize) }
+                                          .toJournalSegmentNr(segmentSize)
+                                          .to[F] { to.toJournalSegmentNr(segmentSize) }
                                         result <- {
                                           if (to >= seqNr) {
                                             segmentNrs.parFoldMapA { segmentNr =>
@@ -441,12 +442,12 @@ private[journal] object ReplicatedCassandra {
                                 segmentNrs <- from
                                   .prev[Option]
                                   .getOrElse { from }
-                                  .toSegmentNr(segmentSize)
+                                  .toJournalSegmentNr(segmentSize)
                                   .to[F] {
                                     to
                                       .next[Option]
                                       .getOrElse { journalHead.seqNr }
-                                      .toSegmentNr(segmentSize)
+                                      .toJournalSegmentNr(segmentSize)
                                   }
                                 _ <- segmentNrs.parFoldMapA { segmentNr =>
                                   statements
@@ -474,13 +475,13 @@ private[journal] object ReplicatedCassandra {
     }
   }
 
-  trait MetaJournalStatements[F[_]] {
+  private[journal] trait MetaJournalStatements[F[_]] {
     import MetaJournalStatements.*
 
     def apply(key: Key, segment: SegmentNr): ByKey[F]
   }
 
-  object MetaJournalStatements {
+  private[journal] object MetaJournalStatements {
 
     def of[F[_]: Monad: CassandraSession](
       schema: Schema,
@@ -612,7 +613,7 @@ private[journal] object ReplicatedCassandra {
     }
   }
 
-  final case class Statements[F[_]](
+  private[journal] final case class Statements[F[_]](
     insertRecords: JournalStatements.InsertRecords[F],
     deleteRecordsTo: JournalStatements.DeleteTo[F],
     deleteRecords: JournalStatements.Delete[F],
@@ -626,7 +627,7 @@ private[journal] object ReplicatedCassandra {
     selectTopics2: Pointer2Statements.SelectTopics[F],
   )
 
-  object Statements {
+  private[journal] object Statements {
 
     def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 

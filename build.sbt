@@ -37,13 +37,15 @@ lazy val commonSettings = Seq(
 
 import com.typesafe.tools.mima.core.*
 ThisBuild / mimaBinaryIssueFilters ++= Seq(
-  ProblemFilters.exclude[IncompatibleTemplateDefProblem]("com.evolutiongaming.kafka.journal.Journal$DataIntegrityConfig"),
-  ProblemFilters.exclude[MissingClassProblem]("com.evolutiongaming.kafka.journal.Journal$DataIntegrityConfig$*"),
-  ProblemFilters.exclude[IncompatibleSignatureProblem]("com.evolutiongaming.kafka.journal.eventual.cassandra.JournalHead.*"),
-  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolutiongaming.kafka.journal.eventual.cassandra.JournalHead.*"),
-  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolutiongaming.kafka.journal.replicator.TopicReplicatorMetrics.*"),
-  ProblemFilters.exclude[ReversedMissingMethodProblem]("com.evolutiongaming.kafka.journal.replicator.TopicReplicatorMetrics.*"),
-  ProblemFilters.exclude[IncompatibleSignatureProblem]("com.evolutiongaming.kafka.journal.eventual.cassandra.JournalStatements#*"),
+  ProblemFilters.exclude[IncompatibleMethTypeProblem](
+    "com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra#MetaJournalStatements.of",
+  ),
+  ProblemFilters.exclude[IncompatibleMethTypeProblem](
+    "com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra#MetaJournalStatements.fromMetaJournal",
+  ),
+  ProblemFilters.exclude[IncompatibleMethTypeProblem](
+    "com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra#Statements.of",
+  ),
 )
 
 val alias: Seq[sbt.Def.Setting[?]] =
