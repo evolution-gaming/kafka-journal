@@ -1063,71 +1063,32 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val expected = State(
         actions = List(
           Action.DeleteMetaJournal(key, segment),
-        ) ++ {
-          // in our case `seqNr:1` and `seqNr:2` fall in same segment,
-          // code deletes records from this and next segment when latest affected seqNr happens to be last for segment
-          // TODO MR - why we get Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(1), segmentSize)) with `1` as segment?
-          //  original code overshoots with `deleteTo.next[Option]` when calculating affected segments
-          //  if that is done for safety - why not take `segmentNr(to).next`?
-          if (segmentSize.value == 2) List(Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(2).next[Option].get, segmentSize)))
-          else Nil
-        } ++
-          List(
-            Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(2), segmentSize)),
-            Action.UpdateDeleteTo(
-              key,
-              segment,
-              PartitionOffset(Partition.min, Offset.unsafe(3)),
-              timestamp1,
-              SeqNr.unsafe(2).toDeleteTo,
-            ),
-            Action.InsertMetaJournal(
-              key,
-              segment,
-              created = timestamp0,
-              updated = timestamp0,
-              JournalHead(
-                PartitionOffset(Partition.min, Offset.unsafe(3)),
-                segmentSize,
-                SeqNr.unsafe(2),
-                recordId = recordId.some,
-              ),
-              origin.some,
-            ),
-            Action.InsertRecords(key, SegmentNr.min, 2),
-          ),
-      )
-      actual shouldEqual (expected, ()).pure[Try]
-    }
-
-    // TODO MR I do not understand this test-case - name says "repeat purge", but there is "append+purge" both with same `offset`!
-    test(s"TODO bug?: repeat purge again for the same offset, $suffix") {
-      val id      = "id"
-      val key     = Key(id = id, topic = topic0)
-      val segment = segmentOfId.metaJournal(key)
-      val stateT = for {
-        _ <- journal.append(key, partitionOffset.partition, partitionOffset.offset, timestamp0, none, Nel.of(record.event))
-        _ <- journal.purge(key, partitionOffset.partition, partitionOffset.offset, timestamp0)
-      } yield {}
-
-      val expected = State(
-        actions = List(
-          Action.DeleteMetaJournal(key, segment),
+          Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(2), segmentSize).next[Option].get),
           Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(1), segmentSize)),
-          Action.UpdateDeleteTo(key, segment, partitionOffset, timestamp0, SeqNr.min.toDeleteTo),
+          Action.UpdateDeleteTo(
+            key,
+            segment,
+            PartitionOffset(Partition.min, Offset.unsafe(3)),
+            timestamp1,
+            SeqNr.unsafe(2).toDeleteTo,
+          ),
           Action.InsertMetaJournal(
             key,
             segment,
             created = timestamp0,
             updated = timestamp0,
-            JournalHead(partitionOffset, segmentSize, SeqNr.min, recordId = recordId.some),
+            JournalHead(
+              PartitionOffset(Partition.min, Offset.unsafe(3)),
+              segmentSize,
+              SeqNr.unsafe(2),
+              recordId = recordId.some,
+            ),
             origin.some,
           ),
-          Action.InsertRecords(key, SegmentNr.min, 1),
+          Action.InsertRecords(key, SegmentNr.min, 2),
         ),
       )
-      val result = stateT.run(State.empty)
-      result shouldEqual (expected, ()).pure[Try]
+      actual shouldEqual (expected, ()).pure[Try]
     }
 
     test(s"repeat purge again for the same offset, $suffix") {
@@ -1149,14 +1110,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                     partitionOffset = headPartitionOffset,
                     segmentSize     = segmentSize,
                     seqNr           = SeqNr.unsafe(2),
-                    // TODO MR cover as alternative test-case
-                    // makes useless update of `delete_to` in `metajournal`
-//                    deleteTo        = none,
-                    // makes useless update of `delete_to` in `metajournal`
-                    deleteTo = SeqNr.unsafe(1).toDeleteTo.some, // TODO one more case when `deleteTo == seqNr?
-                    // TODO MR cover as alternative test-case
-                    // issues `1000 / segmentSize` times deletes in `journal` table and makes useless update of `seq_nr`
-//                    deleteTo = SeqNr.unsafe(1000).toDeleteTo.some,
+                    deleteTo        = SeqNr.unsafe(1).toDeleteTo.some,
                   ),
                   created = timestamp0,
                   updated = timestamp0,
@@ -1176,32 +1130,16 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val expected = State(
         actions = List(
           Action.DeleteMetaJournal(key, segment),
-        ) ++ {
-          // in our case `seqNr:1` and `seqNr:2` fall in same segment,
-          // code deletes records from this and next segment when latest affected seqNr happens to be last for segment
-          // TODO MR - why we get Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(1), segmentSize)) with `1` as segment?
-          //  original code overshoots with `deleteTo.next[Option]` when calculating affected segments
-          //  if that is done for safety - why not take `segmentNr(to).next`?
-          if (segmentSize.value == 2) List(Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(2).next[Option].get, segmentSize)))
-          else Nil
-        } ++ List(
-          // TODO MR seems like `DeleteRecords` is a safe-guard...
+          Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(2), segmentSize).next[Option].get),
           Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(2), segmentSize)),
-          // TODO MR do we make some useless updates in `metajournal`?
-          // TODO MR we update `metajournal` with `UpdateDeleteTo` when:
-          //  * `head.deleteTo: None`
-          //  * `head.deleteTo: Some(x)`, where `x < head.seqNr`, then we do not update
           Action.UpdateDeleteTo(key, segment, headPartitionOffset, timestamp0, SeqNr.unsafe(2).toDeleteTo),
-          // TODO MR we update `metajournal` with UpdateSeqNr when:
-          //  * `head.deleteTo: Some(x)`, where `x > head.seqNr`, then we do not update
-
         ),
       )
       val result = stateT.run(initial)
       result shouldEqual (expected, ()).pure[Try]
     }
 
-    test(s"ignore purge, $suffix") {
+    test(s"ignore purge, when there is no matching head entry in `metajournal` table, $suffix") {
       val id     = "id"
       val key    = Key(id, topic0)
       val stateT = journal.purge(key, Partition.min, Offset.unsafe(4), timestamp1)
@@ -1209,68 +1147,164 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       actual shouldEqual (State.empty, false).pure[Try]
     }
 
-    // TODO MR the test name makes no sense - the test case inserts into and removes from both tables, while description
-    //  mentions only `metajournal` table
-    //  after removing append becomdes very similar to `repeat purge again for the same offset` test-case
-    test(s"purge meta journal only, $suffix") {
-      val id      = "id"
-      val key     = Key(id, topic0)
-      val segment = segmentOfId.metaJournal(key)
-      val stateT = for {
-        _ <- journal.append(
-          key = key,
-          Partition.min,
-          Offset.unsafe(3),
-          timestamp   = timestamp0,
-          expireAfter = none,
-          events = Nel.of(
-            eventRecordOf(seqNr = SeqNr.unsafe(1), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1))).event,
-            eventRecordOf(seqNr = SeqNr.unsafe(2), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2))).event,
+    test(s"on purge of never truncated journal, purge all segments from start, $suffix") {
+      if (segmentSize == SegmentSize.max) assert(true, "cannot check for `next` segment on Int.MaxValue")
+      else {
+        val id                  = "id"
+        val key                 = Key(id = id, topic = topic0)
+        val segment             = segmentOfId.metaJournal(key)
+        val offset              = Offset.unsafe(2)
+        val segments            = 10
+        val baseSeqNr           = segmentSize.value * segments
+        val headPartitionOffset = PartitionOffset(Partition.min, offset)
+
+        val initial = State(
+          metaJournal = Map(
+            (
+              (topic0, segment),
+              Map(
+                (
+                  id,
+                  MetaJournalEntry(
+                    journalHead = JournalHead(
+                      partitionOffset = headPartitionOffset,
+                      segmentSize     = segmentSize,
+                      seqNr           = SeqNr.unsafe(baseSeqNr),
+                      deleteTo        = none, // instructs to clean all segments
+                    ),
+                    created = timestamp0,
+                    updated = timestamp0,
+                    origin  = origin.some,
+                  ),
+                ),
+              ),
+            ),
           ),
         )
-        _ <- journal.delete(key, Partition.min, Offset.unsafe(4), timestamp0, SeqNr.unsafe(2).toDeleteTo, origin.some)
-        _ <- journal.purge(key, Partition.min, Offset.unsafe(5), timestamp1)
-      } yield {}
 
-      val actual = stateT.run(State.empty)
-      val expected = State(
-        actions = List(
-          Action.DeleteMetaJournal(key, segment),
-        ) ++ {
-          // in our case `seqNr:1` and `seqNr:2` fall in same segment,
-          // code deletes records from this and next segment when latest affected seqNr happens to be last for segment
-          // TODO MR - why we get Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(1), segmentSize)) with `1` as segment?
-          //  original code overshoots with `deleteTo.next[Option]` when calculating affected segments
-          //  if that is done for safety - why not take `segmentNr(to).next`?
-          if (segmentSize.value == 2) List(Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(2).next[Option].get, segmentSize)))
-          else Nil
-        } ++ List(
-          Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(2), segmentSize)),
-          Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(2), segmentSize)),
-          Action.UpdateDeleteTo(
-            key,
-            segment,
-            PartitionOffset(Partition.min, Offset.unsafe(4)),
-            timestamp0,
-            SeqNr.unsafe(2).toDeleteTo,
+        val stateT = journal.purge(key, partitionOffset.partition, offset, timestamp1)
+
+        val expected = State(
+          actions = List(
+            Action.DeleteMetaJournal(key, segment),
+          ) ++ {
+            for {
+              i <- segments to (0, -1)
+            } yield Action.DeleteRecords(key, SegmentNr.of[Option](i.toLong).get)
+          } ++ List(
+            Action.UpdateDeleteTo(key, segment, headPartitionOffset, timestamp1, SeqNr.unsafe(baseSeqNr).toDeleteTo),
           ),
-          Action.InsertMetaJournal(
-            key,
-            segment,
-            created = timestamp0,
-            updated = timestamp0,
-            JournalHead(
-              PartitionOffset(Partition.min, Offset.unsafe(3)),
-              segmentSize,
-              SeqNr.unsafe(2),
-              recordId = recordId.some,
+        )
+        val result = stateT.run(initial)
+        result shouldEqual (expected, true).pure[Try]
+      }
+    }
+
+    test(s"on purge of inconsistent head, advance `seqNr` and delete extra segment, $suffix") {
+      if (segmentSize == SegmentSize.max) assert(true, "cannot check for `next` segment on Int.MaxValue")
+      else {
+        val id                  = "id"
+        val key                 = Key(id = id, topic = topic0)
+        val segment             = segmentOfId(key)
+        val offset              = Offset.unsafe(2)
+        val segments            = 10
+        val baseSeqNr           = segmentSize.value * segments - 1
+        val headPartitionOffset = PartitionOffset(Partition.min, offset)
+
+        val initial = State(
+          metaJournal = Map(
+            (
+              (topic0, segment),
+              Map(
+                (
+                  id,
+                  MetaJournalEntry(
+                    journalHead = JournalHead(
+                      partitionOffset = headPartitionOffset,
+                      segmentSize     = segmentSize,
+                      seqNr           = SeqNr.unsafe(baseSeqNr),
+                      deleteTo        = SeqNr.unsafe(baseSeqNr + 1).toDeleteTo.some, // on delete advances head's seqNr
+                    ),
+                    created = timestamp0,
+                    updated = timestamp0,
+                    origin  = origin.some,
+                  ),
+                ),
+              ),
             ),
-            origin.some,
           ),
-          Action.InsertRecords(key, SegmentNr.min, 2),
-        ),
-      )
-      actual shouldEqual (expected, ()).pure[Try]
+        )
+
+        val stateT = journal.purge(key, partitionOffset.partition, offset, timestamp1)
+
+        val expected = State(
+          actions = List(
+            Action.DeleteMetaJournal(key, segment),
+            Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(baseSeqNr), segmentSize).next[Option].get),
+            Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(baseSeqNr), segmentSize)),
+            Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(baseSeqNr), segmentSize).prev[Option].get),
+            Action.UpdateSeqNr(key, segment, headPartitionOffset, timestamp1, SeqNr.unsafe(baseSeqNr + 1)),
+          ),
+        )
+        val result = stateT.run(initial)
+        result shouldEqual (expected, true).pure[Try]
+      }
+    }
+
+    test(s"on purge, clean previous, occupied and next segments of `journal` table, $suffix") {
+      if (segmentSize == SegmentSize.max) assert(true, "cannot check for `next` segment on Int.MaxValue")
+      else {
+        val id        = "id"
+        val key       = Key(id, topic0)
+        val segment   = segmentOfId(key)
+        val baseSeqNr = segmentSize.value * 10
+
+        val initial = State(
+          metaJournal = Map(
+            (
+              (topic0, segment),
+              Map(
+                (
+                  id,
+                  MetaJournalEntry(
+                    journalHead = JournalHead(
+                      partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(4)),
+                      segmentSize     = segmentSize,
+                      seqNr           = SeqNr.unsafe(baseSeqNr),
+                      deleteTo        = SeqNr.unsafe(baseSeqNr - 1).toDeleteTo.some,
+                    ),
+                    created = timestamp0,
+                    updated = timestamp0,
+                    origin  = origin.some,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        )
+
+        val stateT = journal.purge(key, Partition.min, Offset.unsafe(5), timestamp1)
+
+        val actual = stateT.run(initial)
+
+        val expected = State(
+          actions = List(
+            Action.DeleteMetaJournal(key, segment),
+            // deletes records from previous, this and next segments
+            Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(baseSeqNr), segmentSize).next[Option].get),
+            Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(baseSeqNr), segmentSize)),
+            Action.DeleteRecords(key, SegmentNr(SeqNr.unsafe(baseSeqNr), segmentSize).prev[Option].get),
+            Action.UpdateDeleteTo(
+              key,
+              segment,
+              PartitionOffset(Partition.min, Offset.unsafe(4)),
+              timestamp1,
+              SeqNr.unsafe(baseSeqNr).toDeleteTo,
+            ),
+          ),
+        )
+        actual shouldEqual (expected, true).pure[Try]
+      }
     }
 
     test(s"not set correlation ID, $suffix") {

@@ -224,10 +224,9 @@ class BatchSpec extends AnyFunSuite with Matchers {
           delete(offset = 3, seqNr = 3),
           delete(offset = 4, seqNr = 5),
         ),
-        // TODO MR possible optimizations for above:
+        // TODO MR possible optimization for above:
         //  * discard first 2 "appends"
-        //  * filter out event with `seqNr: 5`
-        //  * merge "appends" in single
+        //  * from third "append" filter out event with `seqNr: 5`
         List(
           appends(
             2,

@@ -424,7 +424,7 @@ private[journal] object ReplicatedCassandra {
                                       }
                                     } else if (deleteTo.value == seqNr) {
                                       (seqNr, seqNr).pure[F]
-                                    } else {
+                                    } else { // deleteTo.value > seqNr
                                       val seqNr1 = deleteTo.value
                                       for {
                                         _ <- update(seqNr1)
