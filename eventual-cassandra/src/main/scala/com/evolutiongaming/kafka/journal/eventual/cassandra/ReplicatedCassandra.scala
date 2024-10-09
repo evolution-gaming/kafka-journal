@@ -424,7 +424,7 @@ private[journal] object ReplicatedCassandra {
                                       }
                                     } else if (deleteTo.value == seqNr) {
                                       (seqNr, seqNr).pure[F]
-                                    } else {
+                                    } else { // deleteTo.value > seqNr
                                       val seqNr1 = deleteTo.value
                                       for {
                                         _ <- update(seqNr1)
@@ -439,16 +439,10 @@ private[journal] object ReplicatedCassandra {
                                     }
                                   }
                                 (from, to) = result
-                                segmentNrs <- from
-                                  .prev[Option]
-                                  .getOrElse { from }
-                                  .toJournalSegmentNr(segmentSize)
-                                  .to[F] {
-                                    to
-                                      .next[Option]
-                                      .getOrElse { journalHead.seqNr }
-                                      .toJournalSegmentNr(segmentSize)
-                                  }
+                                // we undershoot and overshoot segments, possibly was created to deal with #676
+                                fromSegmentNr = from.toJournalSegmentNr(segmentSize).prev[Option].getOrElse(SegmentNr.min)
+                                toSegmentNr   = to.toJournalSegmentNr(segmentSize).next[Option].getOrElse(SegmentNr.max)
+                                segmentNrs   <- fromSegmentNr.to(toSegmentNr)
                                 _ <- segmentNrs.parFoldMapA { segmentNr =>
                                   statements
                                     .deleteRecords(key, segmentNr)

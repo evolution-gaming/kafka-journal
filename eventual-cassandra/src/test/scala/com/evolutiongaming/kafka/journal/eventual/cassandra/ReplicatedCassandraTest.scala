@@ -104,6 +104,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
 
       val expected = State(
         actions = List(
+          Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(1), segmentSize)),
           Action.UpdateDeleteTo(key, segment, partitionOffset.copy(Partition.min, offset1), timestamp1, SeqNr.min.toDeleteTo),
           Action.InsertMetaJournal(
             key,
@@ -890,7 +891,9 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           Offset.unsafe(1),
           timestamp   = timestamp0,
           expireAfter = none,
-          events = Nel.of(eventRecordOf(seqNr = SeqNr.min, partitionOffset = PartitionOffset(Partition.min, Offset.min)).event),
+          events = Nel.of(
+            eventRecordOf(seqNr = SeqNr.min, partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1))).event,
+          ),
         )
         _ <- journal.delete(
           key = key,
@@ -913,6 +916,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val expected = State(
         actions = List(
           Action.UpdatePartitionOffset(key, segment, partitionOffset.copy(Partition.min, Offset.unsafe(3)), timestamp1),
+          Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(1), segmentSize)),
           Action.UpdateDeleteTo(
             key,
             segment,
@@ -1058,7 +1062,9 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val actual = stateT.run(State.empty)
       val expected = State(
         actions = List(
-          Action.Delete(key, segment),
+          Action.DeleteMetaJournal(key, segment),
+          Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(2), segmentSize).next[Id]),
+          Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(1), segmentSize)),
           Action.UpdateDeleteTo(
             key,
             segment,
@@ -1086,34 +1092,54 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
     }
 
     test(s"repeat purge again for the same offset, $suffix") {
-      val id      = "id"
-      val key     = Key(id = id, topic = topic0)
-      val segment = segmentOfId.metaJournal(key)
+      val id                  = "id"
+      val key                 = Key(id = id, topic = topic0)
+      val segment             = segmentOfId.metaJournal(key)
+      val offset              = Offset.unsafe(2)
+      val headPartitionOffset = PartitionOffset(Partition.min, offset)
+
+      val initial = State(
+        metaJournal = Map(
+          (
+            (topic0, segment),
+            Map(
+              (
+                id,
+                MetaJournalEntry(
+                  journalHead = JournalHead(
+                    partitionOffset = headPartitionOffset,
+                    segmentSize     = segmentSize,
+                    seqNr           = SeqNr.unsafe(2),
+                    deleteTo        = SeqNr.unsafe(1).toDeleteTo.some,
+                  ),
+                  created = timestamp0,
+                  updated = timestamp0,
+                  origin  = origin.some,
+                ),
+              ),
+            ),
+          ),
+        ),
+      )
+
       val stateT = for {
-        _ <- journal.append(key, partitionOffset.partition, partitionOffset.offset, timestamp0, none, Nel.of(record.event))
-        _ <- journal.purge(key, partitionOffset.partition, partitionOffset.offset, timestamp0)
+        _ <- journal.purge(key, partitionOffset.partition, offset, timestamp0)
+        _ <- journal.purge(key, partitionOffset.partition, offset, timestamp1)
       } yield {}
 
       val expected = State(
         actions = List(
-          Action.Delete(key, segment),
-          Action.UpdateDeleteTo(key, segment, partitionOffset, timestamp0, SeqNr.min.toDeleteTo),
-          Action.InsertMetaJournal(
-            key,
-            segment,
-            created = timestamp0,
-            updated = timestamp0,
-            JournalHead(partitionOffset, segmentSize, SeqNr.min, recordId = recordId.some),
-            origin.some,
-          ),
-          Action.InsertRecords(key, SegmentNr.min, 1),
+          Action.DeleteMetaJournal(key, segment),
+          Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(2), segmentSize).next[Id]),
+          Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(2), segmentSize)),
+          Action.UpdateDeleteTo(key, segment, headPartitionOffset, timestamp0, SeqNr.unsafe(2).toDeleteTo),
         ),
       )
-      val result = stateT.run(State.empty)
+      val result = stateT.run(initial)
       result shouldEqual (expected, ()).pure[Try]
     }
 
-    test(s"ignore purge, $suffix") {
+    test(s"ignore purge, when there is no matching head entry in `metajournal` table, $suffix") {
       val id     = "id"
       val key    = Key(id, topic0)
       val stateT = journal.purge(key, Partition.min, Offset.unsafe(4), timestamp1)
@@ -1121,54 +1147,164 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       actual shouldEqual (State.empty, false).pure[Try]
     }
 
-    test(s"purge meta journal only, $suffix") {
-      val id      = "id"
-      val key     = Key(id, topic0)
-      val segment = segmentOfId.metaJournal(key)
-      val stateT = for {
-        _ <- journal.append(
-          key = key,
-          Partition.min,
-          Offset.unsafe(3),
-          timestamp   = timestamp0,
-          expireAfter = none,
-          events = Nel.of(
-            eventRecordOf(seqNr = SeqNr.unsafe(1), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1))).event,
-            eventRecordOf(seqNr = SeqNr.unsafe(2), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2))).event,
+    test(s"on purge of never truncated journal, purge all segments from start, $suffix") {
+      if (segmentSize == SegmentSize.max) assert(true, "cannot check for `next` segment on Int.MaxValue")
+      else {
+        val id                  = "id"
+        val key                 = Key(id = id, topic = topic0)
+        val segment             = segmentOfId.metaJournal(key)
+        val offset              = Offset.unsafe(2)
+        val segments            = 10
+        val baseSeqNr           = segmentSize.value * segments
+        val headPartitionOffset = PartitionOffset(Partition.min, offset)
+
+        val initial = State(
+          metaJournal = Map(
+            (
+              (topic0, segment),
+              Map(
+                (
+                  id,
+                  MetaJournalEntry(
+                    journalHead = JournalHead(
+                      partitionOffset = headPartitionOffset,
+                      segmentSize     = segmentSize,
+                      seqNr           = SeqNr.unsafe(baseSeqNr),
+                      deleteTo        = none, // instructs to clean all segments
+                    ),
+                    created = timestamp0,
+                    updated = timestamp0,
+                    origin  = origin.some,
+                  ),
+                ),
+              ),
+            ),
           ),
         )
-        _ <- journal.delete(key, Partition.min, Offset.unsafe(4), timestamp0, SeqNr.unsafe(2).toDeleteTo, origin.some)
-        _ <- journal.purge(key, Partition.min, Offset.unsafe(5), timestamp1)
-      } yield {}
 
-      val actual = stateT.run(State.empty)
-      val expected = State(
-        actions = List(
-          Action.Delete(key, segment),
-          Action.UpdateDeleteTo(
-            key,
-            segment,
-            PartitionOffset(Partition.min, Offset.unsafe(4)),
-            timestamp0,
-            SeqNr.unsafe(2).toDeleteTo,
+        val stateT = journal.purge(key, partitionOffset.partition, offset, timestamp1)
+
+        val expected = State(
+          actions = List(
+            Action.DeleteMetaJournal(key, segment),
+          ) ++ {
+            for {
+              i <- segments to (0, -1)
+            } yield Action.DeleteRecords(key, SegmentNr.of[Id](i.toLong))
+          } ++ List(
+            Action.UpdateDeleteTo(key, segment, headPartitionOffset, timestamp1, SeqNr.unsafe(baseSeqNr).toDeleteTo),
           ),
-          Action.InsertMetaJournal(
-            key,
-            segment,
-            created = timestamp0,
-            updated = timestamp0,
-            JournalHead(
-              PartitionOffset(Partition.min, Offset.unsafe(3)),
-              segmentSize,
-              SeqNr.unsafe(2),
-              recordId = recordId.some,
+        )
+        val result = stateT.run(initial)
+        result shouldEqual (expected, true).pure[Try]
+      }
+    }
+
+    test(s"on purge of inconsistent head, advance `seqNr` and delete extra segment, $suffix") {
+      if (segmentSize == SegmentSize.max) assert(true, "cannot check for `next` segment on Int.MaxValue")
+      else {
+        val id                  = "id"
+        val key                 = Key(id = id, topic = topic0)
+        val segment             = segmentOfId.metaJournal(key)
+        val offset              = Offset.unsafe(2)
+        val segments            = 10
+        val baseSeqNr           = segmentSize.value * segments - 1
+        val headPartitionOffset = PartitionOffset(Partition.min, offset)
+
+        val initial = State(
+          metaJournal = Map(
+            (
+              (topic0, segment),
+              Map(
+                (
+                  id,
+                  MetaJournalEntry(
+                    journalHead = JournalHead(
+                      partitionOffset = headPartitionOffset,
+                      segmentSize     = segmentSize,
+                      seqNr           = SeqNr.unsafe(baseSeqNr),
+                      deleteTo        = SeqNr.unsafe(baseSeqNr + 1).toDeleteTo.some, // on delete advances head's seqNr
+                    ),
+                    created = timestamp0,
+                    updated = timestamp0,
+                    origin  = origin.some,
+                  ),
+                ),
+              ),
             ),
-            origin.some,
           ),
-          Action.InsertRecords(key, SegmentNr.min, 2),
-        ),
-      )
-      actual shouldEqual (expected, ()).pure[Try]
+        )
+
+        val stateT = journal.purge(key, partitionOffset.partition, offset, timestamp1)
+
+        val expected = State(
+          actions = List(
+            Action.DeleteMetaJournal(key, segment),
+            Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(baseSeqNr), segmentSize).next[Id]),
+            Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(baseSeqNr), segmentSize)),
+            Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(baseSeqNr), segmentSize).prev[Id]),
+            Action.UpdateSeqNr(key, segment, headPartitionOffset, timestamp1, SeqNr.unsafe(baseSeqNr + 1)),
+          ),
+        )
+        val result = stateT.run(initial)
+        result shouldEqual (expected, true).pure[Try]
+      }
+    }
+
+    test(s"on purge, clean previous, occupied and next segments of `journal` table, $suffix") {
+      if (segmentSize == SegmentSize.max) assert(true, "cannot check for `next` segment on Int.MaxValue")
+      else {
+        val id        = "id"
+        val key       = Key(id, topic0)
+        val segment   = segmentOfId.metaJournal(key)
+        val baseSeqNr = segmentSize.value * 10
+
+        val initial = State(
+          metaJournal = Map(
+            (
+              (topic0, segment),
+              Map(
+                (
+                  id,
+                  MetaJournalEntry(
+                    journalHead = JournalHead(
+                      partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(4)),
+                      segmentSize     = segmentSize,
+                      seqNr           = SeqNr.unsafe(baseSeqNr),
+                      deleteTo        = SeqNr.unsafe(baseSeqNr - 1).toDeleteTo.some,
+                    ),
+                    created = timestamp0,
+                    updated = timestamp0,
+                    origin  = origin.some,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        )
+
+        val stateT = journal.purge(key, Partition.min, Offset.unsafe(5), timestamp1)
+
+        val actual = stateT.run(initial)
+
+        val expected = State(
+          actions = List(
+            Action.DeleteMetaJournal(key, segment),
+            // deletes records from previous, this and next segments
+            Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(baseSeqNr), segmentSize).next[Id]),
+            Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(baseSeqNr), segmentSize)),
+            Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(baseSeqNr), segmentSize).prev[Id]),
+            Action.UpdateDeleteTo(
+              key,
+              segment,
+              PartitionOffset(Partition.min, Offset.unsafe(4)),
+              timestamp1,
+              SeqNr.unsafe(baseSeqNr).toDeleteTo,
+            ),
+          ),
+        )
+        actual shouldEqual (expected, true).pure[Try]
+      }
     }
 
     test(s"not set correlation ID, $suffix") {
@@ -1362,10 +1498,37 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       actual shouldEqual (expected, true).pure[Try]
     }
 
-    test(s"optimization: delete action advances head's seq_nr, $suffix") {
+    test(s"optimization: `delete` action advances head's seq_nr, $suffix") {
       val id      = "id"
       val key     = Key(id = id, topic = topic0)
       val segment = segmentOfId.metaJournal(key)
+
+      val initial = State(
+        metaJournal = Map(
+          (
+            (topic0, segment),
+            Map(
+              (
+                id,
+                MetaJournalEntry(
+                  journalHead = JournalHead(
+                    partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)),
+                    segmentSize     = segmentSize,
+                    seqNr           = SeqNr.unsafe(300),
+                    deleteTo        = SeqNr.unsafe(400).toDeleteTo.some,
+                    expiry          = none,
+                    recordId        = none,
+                  ),
+                  created = timestamp0,
+                  updated = timestamp0,
+                  origin  = origin.some,
+                ),
+              ),
+            ),
+          ),
+        ),
+      )
+
       val stateT = journal.delete(
         key = key,
         Partition.min,
@@ -1375,35 +1538,16 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         origin    = origin.some,
       )
 
-      val initial = State
-        .empty
-        .copy(
-          metaJournal = Map(
-            (
-              (topic0, segment),
-              Map(
-                (
-                  id,
-                  MetaJournalEntry(
-                    journalHead = JournalHead(
-                      partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1)),
-                      segmentSize     = segmentSize,
-                      seqNr           = SeqNr.unsafe(300),
-                      deleteTo        = SeqNr.unsafe(400).toDeleteTo.some,
-                      expiry          = none,
-                      recordId        = none,
-                    ),
-                    created = timestamp0,
-                    updated = timestamp0,
-                    origin  = origin.some,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        )
-
       val expected = State(
+        actions = List(
+          Action.UpdateDeleteTo(
+            key,
+            segment,
+            PartitionOffset(Partition.min, Offset.unsafe(2)),
+            timestamp1,
+            SeqNr.unsafe(200).toDeleteTo,
+          ),
+        ),
         metaJournal = Map(
           (
             (topic0, segment),
@@ -1415,7 +1559,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
                     partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(2)),
                     segmentSize     = segmentSize,
                     seqNr           = SeqNr.unsafe(400),
-                    deleteTo        = SeqNr.unsafe(200).toDeleteTo.some,
+                    deleteTo        = SeqNr.unsafe(200).toDeleteTo.some, // TODO MR why not `400`?!
                     expiry          = none,
                     recordId        = none,
                   ),
@@ -1432,202 +1576,446 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val actual = stateT.run(initial)
       actual shouldEqual (expected, true).pure[Try]
     }
+
+    test(s"batched `[append+; delete]` drops `append` action(s), must update `metajournal` table correctly, $suffix") {
+      val id          = "id"
+      val key         = Key(id = id, topic = topic0)
+      val metaSegment = segmentOfId.metaJournal(key)
+
+      val initial = State(
+        metaJournal = Map(
+          (
+            (topic0, metaSegment),
+            Map(
+              (
+                id,
+                MetaJournalEntry(
+                  journalHead = JournalHead(
+                    partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1797078)),
+                    segmentSize     = segmentSize,
+                    seqNr           = SeqNr.unsafe(574L),
+                    deleteTo        = SeqNr.unsafe(544L).toDeleteTo.some,
+                    expiry          = none,
+                    recordId        = recordId.some,
+                  ),
+                  created = timestamp0,
+                  updated = timestamp0,
+                  origin  = origin.some,
+                ),
+              ),
+            ),
+          ),
+        ),
+        journal = Map(
+          ((key, SegmentNr.journal(SeqNr.unsafe(574L), segmentSize)), Map(((SeqNr.unsafe(574L), timestamp0), record))),
+        ),
+      )
+
+      val stateT = for {
+        _ <- journal.delete(
+          key       = key,
+          partition = Partition.min,
+          offset    = Offset.unsafe(1801642),
+          timestamp = timestamp1,
+          deleteTo  = SeqNr.unsafe(575L).toDeleteTo,
+          origin    = origin.some,
+        )
+      } yield {}
+
+      val expected = State(
+        actions = List(
+          Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(574L), segmentSize)), // 575 TODO MR should get fixed in #676
+          Action.UpdateDeleteTo(
+            key,
+            metaSegment,
+            partitionOffset.copy(Partition.min, Offset.unsafe(1801642)),
+            timestamp1,
+            SeqNr.unsafe(574L).toDeleteTo, // 575 TODO MR should get fixed in #676
+          ),
+        ),
+        metaJournal = Map(
+          (
+            (topic0, metaSegment),
+            Map(
+              (
+                id,
+                MetaJournalEntry(
+                  journalHead = JournalHead(
+                    partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(1801642)),
+                    segmentSize     = segmentSize,
+                    seqNr           = SeqNr.unsafe(574L), // 575 TODO MR should get fixed in #676
+                    deleteTo        = SeqNr.unsafe(574L).toDeleteTo.some, // 575 TODO MR should get fixed in #676
+                    expiry          = none,
+                    recordId        = recordId.some,
+                  ),
+                  created = timestamp0,
+                  updated = timestamp1,
+                  origin  = origin.some,
+                ),
+              ),
+            ),
+          ),
+        ),
+      )
+      val result = stateT.run(initial).map {
+        // workaround - this unit-test works with several segment sizes and lengths
+        // here we drop all expected previous segment deletions, which are expected to be empty,
+        // except "most interesting" journal's deletion action where we expect to delete only record from `metajournal`
+        case (state, unit) =>
+          val s = state.copy(
+            actions = state.actions.filter {
+              _ match {
+                case Action.DeleteRecords(_, segment) =>
+                  segment == SegmentNr.journal(SeqNr.unsafe(574L), segmentSize) // 575 TODO MR should get fixed in #676
+                case _ => true
+              }
+            },
+          )
+          (s, unit)
+      }
+
+      result shouldEqual (expected, ()).pure[Try]
+    }
+
+    test(s"ignore previously applied `append`, $suffix") {
+      val id      = "id"
+      val key     = Key(id, topic0)
+      val segment = segmentOfId.metaJournal(key)
+      val initial = State(
+        metaJournal = Map(
+          (
+            (topic0, segment),
+            Map(
+              (
+                id,
+                MetaJournalEntry(
+                  journalHead = JournalHead(
+                    partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(31)),
+                    segmentSize     = segmentSize,
+                    seqNr           = SeqNr.unsafe(13),
+                    recordId        = recordId.some,
+                  ),
+                  created = timestamp0,
+                  updated = timestamp0,
+                  origin  = origin.some,
+                ),
+              ),
+            ),
+          ),
+        ),
+        journal = Map(
+          (
+            (key, SegmentNr.min),
+            Map(
+              (
+                (SeqNr.unsafe(13), timestamp0),
+                eventRecordOf(seqNr = SeqNr.unsafe(13), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(31))),
+              ),
+            ),
+          ),
+        ),
+      )
+
+      val stateT = journal.append(
+        key = key,
+        Partition.min,
+        Offset.unsafe(13),
+        timestamp   = timestamp1,
+        expireAfter = none,
+        events = Nel.of(
+          eventRecordOf(seqNr = SeqNr.unsafe(13), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(31))).event,
+        ),
+      )
+
+      val expected = initial
+
+      val actual = stateT.run(initial)
+      actual shouldEqual (expected, false).pure[Try]
+    }
+
+    test(s"ignore previously applied `delete`, $suffix") {
+      val id      = "id"
+      val key     = Key(id, topic0)
+      val segment = segmentOfId.metaJournal(key)
+      val initial = State(
+        metaJournal = Map(
+          (
+            (topic0, segment),
+            Map(
+              (
+                id,
+                MetaJournalEntry(
+                  journalHead = JournalHead(
+                    partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(31)),
+                    segmentSize     = segmentSize,
+                    seqNr           = SeqNr.unsafe(13),
+                    deleteTo        = SeqNr.unsafe(12).toDeleteTo.some,
+                    recordId        = recordId.some,
+                  ),
+                  created = timestamp0,
+                  updated = timestamp0,
+                  origin  = origin.some,
+                ),
+              ),
+            ),
+          ),
+        ),
+        journal = Map(
+          (
+            (key, SegmentNr.min),
+            Map(
+              (
+                (SeqNr.unsafe(13), timestamp0),
+                eventRecordOf(seqNr = SeqNr.unsafe(13), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(31))),
+              ),
+            ),
+          ),
+        ),
+      )
+
+      val stateT = journal.delete(
+        key = key,
+        Partition.min,
+        Offset.unsafe(3),
+        timestamp = timestamp0.minusSeconds(100),
+        deleteTo  = SeqNr.unsafe(5).toDeleteTo,
+        origin    = none,
+      )
+
+      val expected = initial
+
+      val actual = stateT.run(initial)
+      actual shouldEqual (expected, false).pure[Try]
+    }
+
+    test(s"ignore previously applied `purge`, $suffix") {
+      val id      = "id"
+      val key     = Key(id, topic0)
+      val segment = segmentOfId.metaJournal(key)
+      val initial = State(
+        metaJournal = Map(
+          (
+            (topic0, segment),
+            Map(
+              (
+                id,
+                MetaJournalEntry(
+                  journalHead = JournalHead(
+                    partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(31)),
+                    segmentSize     = segmentSize,
+                    seqNr           = SeqNr.unsafe(13),
+                    deleteTo        = SeqNr.unsafe(12).toDeleteTo.some,
+                    recordId        = recordId.some,
+                  ),
+                  created = timestamp0,
+                  updated = timestamp0,
+                  origin  = origin.some,
+                ),
+              ),
+            ),
+          ),
+        ),
+        journal = Map(
+          (
+            (key, SegmentNr.min),
+            Map(
+              (
+                (SeqNr.unsafe(13), timestamp0),
+                eventRecordOf(seqNr = SeqNr.unsafe(13), partitionOffset = PartitionOffset(Partition.min, Offset.unsafe(31))),
+              ),
+            ),
+          ),
+        ),
+      )
+
+      val stateT = journal.purge(
+        key = key,
+        Partition.min,
+        Offset.unsafe(3),
+        timestamp = timestamp0.minusSeconds(100),
+      )
+
+      val expected = initial
+
+      val actual = stateT.run(initial)
+      actual shouldEqual (expected, false).pure[Try]
+    }
   }
 }
 
 object ReplicatedCassandraTest {
 
   val insertRecords: JournalStatements.InsertRecords[StateT] = { (key, segment, records) =>
-    {
-      StateT.unit { state =>
-        val k = (key, segment)
-        val entries = state
-          .journal
-          .getOrElse(k, Map.empty)
+    StateT.unit { state =>
+      val k = (key, segment)
+      val entries = state
+        .journal
+        .getOrElse(k, Map.empty)
 
-        val entries1 = records.foldLeft(entries) { (entries, record) =>
-          entries.updated((record.event.seqNr, record.event.timestamp), record)
-        }
-
-        val journal1 = state.journal.updated(k, entries1)
-        state
-          .copy(journal = journal1)
-          .append(Action.InsertRecords(key, segment, records.size))
+      val entries1 = records.foldLeft(entries) { (entries, record) =>
+        entries.updated((record.event.seqNr, record.event.timestamp), record)
       }
+
+      val journal1 = state.journal.updated(k, entries1)
+      state
+        .copy(journal = journal1)
+        .append(Action.InsertRecords(key, segment, records.size))
     }
   }
 
   val deleteRecordsTo: JournalStatements.DeleteTo[StateT] = { (key, segment, seqNr) =>
-    {
-      StateT.unit { state =>
-        val k       = (key, segment)
-        val journal = state.journal
-        val entries = journal
-          .getOrElse(k, Map.empty)
-          .filter { case ((a, _), _) => a > seqNr }
-        val journal1 = if (entries.isEmpty) journal - k else journal.updated(k, entries)
-        state.copy(journal = journal1)
-      }
+    StateT.unit { state =>
+      val k       = (key, segment)
+      val journal = state.journal
+      val entries = journal
+        .getOrElse(k, Map.empty)
+        .filter { case ((a, _), _) => a > seqNr }
+      val journal1 = if (entries.isEmpty) journal - k else journal.updated(k, entries)
+      state
+        .copy(journal = journal1)
+        .append(Action.DeleteRecordsTo(key, segment, seqNr))
     }
   }
 
   val deleteRecords: JournalStatements.Delete[StateT] = { (key, segment) =>
-    {
-      StateT.unit { state =>
-        val k = (key, segment)
-        state.copy(journal = state.journal - k)
-      }
+    StateT.unit { state =>
+      val k = (key, segment)
+      state
+        .copy(journal = state.journal - k)
+        .append(Action.DeleteRecords(key, segment))
     }
   }
 
   val insertMetaJournal: MetaJournalStatements.Insert[StateT] = { (key, segment, created, updated, journalHead, origin) =>
-    {
-      StateT.unit { state =>
-        val entry = MetaJournalEntry(journalHead = journalHead, created = created, updated = updated, origin = origin)
-        val entries = state
-          .metaJournal
-          .getOrElse((key.topic, segment), Map.empty)
-          .updated(key.id, entry)
-        state
-          .copy(metaJournal = state.metaJournal.updated((key.topic, segment), entries))
-          .append(Action.InsertMetaJournal(key, segment, created, updated, journalHead, origin))
-      }
+    StateT.unit { state =>
+      val entry = MetaJournalEntry(journalHead = journalHead, created = created, updated = updated, origin = origin)
+      val entries = state
+        .metaJournal
+        .getOrElse((key.topic, segment), Map.empty)
+        .updated(key.id, entry)
+      state
+        .copy(metaJournal = state.metaJournal.updated((key.topic, segment), entries))
+        .append(Action.InsertMetaJournal(key, segment, created, updated, journalHead, origin))
     }
   }
 
   val selectMetaJournal: MetaJournalStatements.SelectJournalHead[StateT] = { (key, segment) =>
-    {
-      StateT.success { state =>
-        val journalHead = for {
-          entries <- state.metaJournal.get((key.topic, segment))
-          entry   <- entries.get(key.id)
-        } yield {
-          entry.journalHead
-        }
-        (state, journalHead)
+    StateT.success { state =>
+      val journalHead = for {
+        entries <- state.metaJournal.get((key.topic, segment))
+        entry   <- entries.get(key.id)
+      } yield {
+        entry.journalHead
       }
+      (state, journalHead)
     }
   }
 
   val updateMetaJournal: MetaJournalStatements.Update[StateT] = { (key, segment, partitionOffset, timestamp, seqNr, deleteTo) =>
-    {
-      StateT.unit { state =>
-        state.updateMetaJournal(key, segment) { entry =>
+    StateT.unit { state =>
+      state
+        .updateMetaJournal(key, segment) { entry =>
           entry.copy(
             journalHead = entry.journalHead.copy(partitionOffset = partitionOffset, seqNr = seqNr, deleteTo = deleteTo.some),
             updated     = timestamp,
           )
         }
-      }
+        .append(Action.UpdateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo))
     }
   }
 
   val updateSeqNrMetaJournal: MetaJournalStatements.UpdateSeqNr[StateT] = { (key, segment, partitionOffset, timestamp, seqNr) =>
-    {
-      StateT.unit { state =>
-        state
-          .updateMetaJournal(key, segment) { entry =>
-            entry.copy(
-              journalHead = entry.journalHead.copy(partitionOffset = partitionOffset, seqNr = seqNr),
-              updated     = timestamp,
-            )
-          }
-          .append(Action.UpdateSeqNr(key, segment, partitionOffset, timestamp, seqNr))
-      }
+    StateT.unit { state =>
+      state
+        .updateMetaJournal(key, segment) { entry =>
+          entry.copy(
+            journalHead = entry.journalHead.copy(partitionOffset = partitionOffset, seqNr = seqNr),
+            updated     = timestamp,
+          )
+        }
+        .append(Action.UpdateSeqNr(key, segment, partitionOffset, timestamp, seqNr))
     }
   }
 
   val updateExpiryMetaJournal: MetaJournalStatements.UpdateExpiry[StateT] = {
     (key, segment, partitionOffset, timestamp, seqNr, expiry) =>
-      {
-        StateT.unit { state =>
-          state
-            .updateMetaJournal(key, segment) { entry =>
-              entry.copy(
-                journalHead = entry.journalHead.copy(partitionOffset = partitionOffset, seqNr = seqNr, expiry = expiry.some),
-                updated     = timestamp,
-              )
-            }
-            .append(Action.UpdateExpiry(key, segment, partitionOffset, timestamp, seqNr, expiry))
-        }
+      StateT.unit { state =>
+        state
+          .updateMetaJournal(key, segment) { entry =>
+            entry.copy(
+              journalHead = entry.journalHead.copy(partitionOffset = partitionOffset, seqNr = seqNr, expiry = expiry.some),
+              updated     = timestamp,
+            )
+          }
+          .append(Action.UpdateExpiry(key, segment, partitionOffset, timestamp, seqNr, expiry))
       }
   }
 
   val updateDeleteToMetaJournal: MetaJournalStatements.UpdateDeleteTo[StateT] = {
     (key, segment, partitionOffset, timestamp, deleteTo) =>
-      {
-        StateT.unit { state =>
-          state
-            .updateMetaJournal(key, segment) { entry =>
-              entry.copy(
-                journalHead = entry.journalHead.copy(partitionOffset = partitionOffset, deleteTo = deleteTo.some),
-                updated     = timestamp,
-              )
-            }
-            .append(Action.UpdateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo))
-        }
+      StateT.unit { state =>
+        state
+          .updateMetaJournal(key, segment) { entry =>
+            entry.copy(
+              journalHead = entry.journalHead.copy(partitionOffset = partitionOffset, deleteTo = deleteTo.some),
+              updated     = timestamp,
+            )
+          }
+          .append(Action.UpdateDeleteTo(key, segment, partitionOffset, timestamp, deleteTo))
       }
   }
 
   val updatePartitionOffsetMetaJournal: MetaJournalStatements.UpdatePartitionOffset[StateT] = {
     (key, segment, partitionOffset, timestamp) =>
-      {
-        StateT.unit { state =>
-          state
-            .updateMetaJournal(key, segment) { entry =>
-              entry.copy(journalHead = entry.journalHead.copy(partitionOffset = partitionOffset), updated = timestamp)
-            }
-            .append(Action.UpdatePartitionOffset(key, segment, partitionOffset, timestamp))
-        }
+      StateT.unit { state =>
+        state
+          .updateMetaJournal(key, segment) { entry =>
+            entry.copy(journalHead = entry.journalHead.copy(partitionOffset = partitionOffset), updated = timestamp)
+          }
+          .append(Action.UpdatePartitionOffset(key, segment, partitionOffset, timestamp))
       }
   }
 
   val deleteMetaJournal: MetaJournalStatements.Delete[StateT] = { (key, segment) =>
-    {
-      StateT.unit { state =>
-        val k = (key.topic, segment)
-        val state1 = for {
-          entries <- state.metaJournal.get(k)
-          _       <- entries.get(key.id)
-        } yield {
-          val entries1 = entries - key.id
-          val metaJournal = if (entries1.isEmpty) {
-            state.metaJournal - k
-          } else {
-            state.metaJournal.updated(k, entries1)
-          }
-          state.copy(metaJournal = metaJournal)
+    StateT.unit { state =>
+      val k = (key.topic, segment)
+      val state1 = for {
+        entries <- state.metaJournal.get(k)
+        _       <- entries.get(key.id)
+      } yield {
+        val entries1 = entries - key.id
+        val metaJournal = if (entries1.isEmpty) {
+          state.metaJournal - k
+        } else {
+          state.metaJournal.updated(k, entries1)
         }
-        state1
-          .getOrElse(state)
-          .append(Action.Delete(key, segment))
+        state.copy(metaJournal = metaJournal)
       }
+      state1
+        .getOrElse(state)
+        .append(Action.DeleteMetaJournal(key, segment))
     }
   }
 
   val deleteExpiryMetaJournal: MetaJournalStatements.DeleteExpiry[StateT] = { (key, segment) =>
-    {
-      StateT.unit { state =>
-        state
-          .updateMetaJournal(key, segment) { entry =>
-            entry.copy(journalHead = entry.journalHead.copy(expiry = none))
-          }
-          .append(Action.DeleteExpiry(key, segment))
-      }
+    StateT.unit { state =>
+      state
+        .updateMetaJournal(key, segment) { entry =>
+          entry.copy(journalHead = entry.journalHead.copy(expiry = none))
+        }
+        .append(Action.DeleteExpiry(key, segment))
     }
   }
 
   val selectOffset2: Pointer2Statements.SelectOffset[StateT] = { (topic: Topic, partition: Partition) =>
-    {
-      StateT.success { state =>
-        val offset = for {
-          pointers <- state.pointers.get(topic)
-          pointer  <- pointers.get(partition)
-        } yield {
-          pointer.offset
-        }
-        (state, offset)
+    StateT.success { state =>
+      val offset = for {
+        pointers <- state.pointers.get(topic)
+        pointer  <- pointers.get(partition)
+      } yield {
+        pointer.offset
       }
+      (state, offset)
     }
   }
 
@@ -1635,43 +2023,37 @@ object ReplicatedCassandraTest {
     Pointer2Statements.Select.Result(Instant.EPOCH.some).some.pure[StateT]
   }
 
-  val insertPointer: PointerStatements.Insert[StateT] = { (topic, partition, offset, created, updated) =>
-    {
-      StateT.unit { state =>
-        val entry = PointerEntry(offset = offset, created = created, updated = updated)
-        val entries = state
-          .pointers
-          .getOrElse(topic, Map.empty)
-          .updated(partition, entry)
-        state.copy(pointers = state.pointers.updated(topic, entries))
-      }
-    }
-  }
-
-  val insertPointer2: Pointer2Statements.Insert[StateT] = { (_, _, _, _, _) =>
+  val insertPointer: PointerStatements.Insert[StateT] = { (_, _, _, _, _) =>
     ().pure[StateT]
   }
 
-  val updatePointer: PointerStatements.Update[StateT] = { (topic, partition, offset, timestamp) =>
-    {
-      StateT.unit { state =>
-        state.updatePointer(topic, partition) { entry =>
-          entry.copy(offset = offset, updated = timestamp)
-        }
-      }
+  val insertPointer2: Pointer2Statements.Insert[StateT] = { (topic, partition, offset, created, updated) =>
+    StateT.unit { state =>
+      val entry = PointerEntry(offset = offset, created = created, updated = updated)
+      val entries = state
+        .pointers
+        .getOrElse(topic, Map.empty)
+        .updated(partition, entry)
+      state.copy(pointers = state.pointers.updated(topic, entries))
     }
   }
 
-  val updatePointer2: Pointer2Statements.Update[StateT] = { (_, _, _, _) =>
+  val updatePointer: PointerStatements.Update[StateT] = { (_, _, _, _) =>
     ().pure[StateT]
+  }
+
+  val updatePointer2: Pointer2Statements.Update[StateT] = { (topic, partition, offset, timestamp) =>
+    StateT.unit { state =>
+      state.updatePointer(topic, partition) { entry =>
+        entry.copy(offset = offset, updated = timestamp)
+      }
+    }
   }
 
   val selectTopics2: Pointer2Statements.SelectTopics[StateT] = { () =>
-    {
-      StateT.success { state =>
-        val topics = state.pointers.keySet.toSortedSet
-        (state, topics)
-      }
+    StateT.success { state =>
+      val topics = state.pointers.keySet.toSortedSet
+      (state, topics)
     }
   }
 
@@ -1745,6 +2127,10 @@ object ReplicatedCassandraTest {
 
     final case class InsertRecords(key: Key, segment: SegmentNr, records: Int) extends Action
 
+    final case class DeleteRecords(key: Key, segment: SegmentNr) extends Action
+
+    final case class DeleteRecordsTo(key: Key, segment: SegmentNr, seqNr: SeqNr) extends Action
+
     final case class InsertMetaJournal(
       key: Key,
       segment: SegmentNr,
@@ -1752,6 +2138,15 @@ object ReplicatedCassandraTest {
       updated: Instant,
       journalHead: JournalHead,
       origin: Option[Origin],
+    ) extends Action
+
+    final case class Update(
+      key: Key,
+      segment: SegmentNr,
+      partitionOffset: PartitionOffset,
+      timestamp: Instant,
+      seqNr: SeqNr,
+      deleteTo: DeleteTo,
     ) extends Action
 
     final case class UpdateSeqNr(
@@ -1786,7 +2181,7 @@ object ReplicatedCassandraTest {
       timestamp: Instant,
     ) extends Action
 
-    final case class Delete(key: Key, segment: SegmentNr) extends Action
+    final case class DeleteMetaJournal(key: Key, segment: SegmentNr) extends Action
 
     final case class DeleteExpiry(key: Key, segment: SegmentNr) extends Action
   }
