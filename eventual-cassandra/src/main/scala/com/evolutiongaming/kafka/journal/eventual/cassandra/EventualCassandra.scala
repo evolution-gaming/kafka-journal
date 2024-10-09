@@ -74,7 +74,7 @@ object EventualCassandra {
     for {
       log         <- LogOf[F].apply(EventualCassandra.getClass)
       schema      <- SetupSchema[F](schemaConfig, origin, consistencyConfig)
-      segmentNrsOf = SegmentNrsOf[F](first = Segments.default, second = Segments.old)
+      segmentNrsOf = SegmentNrs.Of[F](first = Segments.default, second = Segments.old)
       statements  <- Statements.of(schema, segmentNrsOf, Segments.default, consistencyConfig.read)
       _           <- log.info(s"kafka-journal version: ${Version.current.value}")
     } yield {
@@ -115,7 +115,7 @@ object EventualCassandra {
             }
 
             val records =
-              read(from, Segment(from, head.segmentSize))
+              read(from, Segment.journal(from, head.segmentSize))
                 .chain {
                   case (record, segment) =>
                     for {
@@ -220,19 +220,19 @@ object EventualCassandra {
     }
   }
 
-  final case class Statements[F[_]](
+  private[journal] final case class Statements[F[_]](
     records: JournalStatements.SelectRecords[F],
     metaJournal: MetaJournalStatements[F],
     selectOffset2: Pointer2Statements.SelectOffset[F],
   )
 
-  object Statements {
+  private[journal] object Statements {
 
     def apply[F[_]](implicit F: Statements[F]): Statements[F] = F
 
     def of[F[_]: Concurrent: CassandraSession: ToTry: JsonCodec.Decode](
       schema: Schema,
-      segmentNrsOf: SegmentNrsOf[F],
+      segmentNrsOf: SegmentNrs.Of[F],
       segments: Segments,
       consistencyConfig: CassandraConsistencyConfig.Read,
     ): F[Statements[F]] = {
@@ -246,7 +246,7 @@ object EventualCassandra {
     }
   }
 
-  trait MetaJournalStatements[F[_]] {
+  private[journal] trait MetaJournalStatements[F[_]] {
 
     def journalHead(key: Key): F[Option[JournalHead]]
 
@@ -255,11 +255,11 @@ object EventualCassandra {
     def ids(topic: Topic): Stream[F, String]
   }
 
-  object MetaJournalStatements {
+  private[journal] object MetaJournalStatements {
 
     def of[F[_]: Concurrent: CassandraSession](
       schema: Schema,
-      segmentNrsOf: SegmentNrsOf[F],
+      segmentNrsOf: SegmentNrs.Of[F],
       segments: Segments,
       consistencyConfig: CassandraConsistencyConfig.Read,
     ): F[MetaJournalStatements[F]] = {
@@ -268,7 +268,7 @@ object EventualCassandra {
 
     def of[F[_]: Concurrent: CassandraSession](
       metaJournal: TableName,
-      segmentNrsOf: SegmentNrsOf[F],
+      segmentNrsOf: SegmentNrs.Of[F],
       segments: Segments,
       consistencyConfig: CassandraConsistencyConfig.Read,
     ): F[MetaJournalStatements[F]] = {
@@ -282,7 +282,7 @@ object EventualCassandra {
     }
 
     def fromMetaJournal[F[_]: Concurrent](
-      segmentNrsOf: SegmentNrsOf[F],
+      segmentNrsOf: SegmentNrs.Of[F],
       journalHead: cassandra.MetaJournalStatements.SelectJournalHead[F],
       journalPointer: cassandra.MetaJournalStatements.SelectJournalPointer[F],
       ids: cassandra.MetaJournalStatements.SelectIds[F],
@@ -295,7 +295,7 @@ object EventualCassandra {
 
       def firstOrSecond[A](key: Key)(f: SegmentNr => F[Option[A]]): F[Option[A]] = {
         for {
-          segmentNrs <- segmentNrsOf(key)
+          segmentNrs <- segmentNrsOf.metaJournal(key)
           first       = f(segmentNrs.first)
           result <- segmentNrs
             .second
@@ -319,7 +319,7 @@ object EventualCassandra {
 
         def ids(topic: Topic) = {
           for {
-            segmentNr <- segments.segmentNrs.toStream1[F]
+            segmentNr <- segments.metaJournalSegmentNrs.toStream1[F]
             id        <- ids1(topic, segmentNr)
           } yield id
         }

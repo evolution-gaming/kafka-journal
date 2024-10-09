@@ -7,9 +7,14 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(url("https://evolution.com")),
   homepage := Some(url("https://github.com/evolution-gaming/kafka-journal")),
   startYear := Some(2018),
-  crossScalaVersions := Seq("2.13.14"),
+  crossScalaVersions := Seq("2.13.15"),
   scalaVersion := crossScalaVersions.value.head,
-  scalacOptions ++= Seq("-release:17", "-deprecation", "-Xsource:3"),
+  scalacOptions ++= Seq(
+    "-release:17",
+    "-deprecation",
+    "-Xsource:3",
+    "-Wconf:cat=unused-pat-vars:s", // workaround for https://github.com/scala/bug/issues/13041 (since 2.13.15)
+  ),
   Compile / doc / scalacOptions ++= Seq("-groups", "-implicits", "-no-link-warnings"),
   Compile / doc / scalacOptions -= "-Xfatal-warnings",
   publishTo := Some(Resolver.evolutionReleases),
@@ -37,13 +42,15 @@ lazy val commonSettings = Seq(
 
 import com.typesafe.tools.mima.core.*
 ThisBuild / mimaBinaryIssueFilters ++= Seq(
-  ProblemFilters.exclude[IncompatibleTemplateDefProblem]("com.evolutiongaming.kafka.journal.Journal$DataIntegrityConfig"),
-  ProblemFilters.exclude[MissingClassProblem]("com.evolutiongaming.kafka.journal.Journal$DataIntegrityConfig$*"),
-  ProblemFilters.exclude[IncompatibleSignatureProblem]("com.evolutiongaming.kafka.journal.eventual.cassandra.JournalHead.*"),
-  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolutiongaming.kafka.journal.eventual.cassandra.JournalHead.*"),
-  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolutiongaming.kafka.journal.replicator.TopicReplicatorMetrics.*"),
-  ProblemFilters.exclude[ReversedMissingMethodProblem]("com.evolutiongaming.kafka.journal.replicator.TopicReplicatorMetrics.*"),
-  ProblemFilters.exclude[IncompatibleSignatureProblem]("com.evolutiongaming.kafka.journal.eventual.cassandra.JournalStatements#*"),
+  ProblemFilters.exclude[IncompatibleMethTypeProblem](
+    "com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra#MetaJournalStatements.of",
+  ),
+  ProblemFilters.exclude[IncompatibleMethTypeProblem](
+    "com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra#MetaJournalStatements.fromMetaJournal",
+  ),
+  ProblemFilters.exclude[IncompatibleMethTypeProblem](
+    "com.evolutiongaming.kafka.journal.eventual.cassandra.EventualCassandra#Statements.of",
+  ),
 )
 
 val alias: Seq[sbt.Def.Setting[?]] =

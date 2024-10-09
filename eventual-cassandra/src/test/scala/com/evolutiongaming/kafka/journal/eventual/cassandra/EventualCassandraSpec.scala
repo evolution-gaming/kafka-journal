@@ -108,7 +108,7 @@ object EventualCassandraSpec {
 
   implicit val log: Log[StateT] = Log.empty[StateT]
 
-  def eventualJournalOf(segmentNrsOf: SegmentNrsOf[StateT], segments: Segments): EventualJournal[StateT] = {
+  def eventualJournalOf(segmentNrsOf: SegmentNrs.Of[StateT], segments: Segments): EventualJournal[StateT] = {
 
     val selectRecords = new JournalStatements.SelectRecords[StateT] {
 
@@ -146,7 +146,7 @@ object EventualCassandraSpec {
   def replicatedJournalOf(
     segmentSize: SegmentSize,
     delete: Boolean,
-    segmentNrsOf: SegmentNrsOf[StateT],
+    segmentNrsOf: SegmentNrs.Of[StateT],
   ): ReplicatedJournal[StateT] = {
 
     val insertRecords: JournalStatements.InsertRecords[StateT] = { (key, segment, insert) =>
@@ -386,7 +386,7 @@ object EventualCassandraSpec {
     segmentsFirst: Segments,
     segmentsSecond: Segments,
   ): EventualAndReplicated[StateT] = {
-    val segmentNrsOf      = SegmentNrsOf[StateT](first = segmentsFirst, second = segmentsSecond)
+    val segmentNrsOf      = SegmentNrs.Of[StateT](first = segmentsFirst, second = segmentsSecond)
     val replicatedJournal = replicatedJournalOf(segmentSize, delete, segmentNrsOf)
     val eventualJournal   = eventualJournalOf(segmentNrsOf, segmentsFirst max segmentsSecond)
     EventualAndReplicated(eventualJournal, replicatedJournal)

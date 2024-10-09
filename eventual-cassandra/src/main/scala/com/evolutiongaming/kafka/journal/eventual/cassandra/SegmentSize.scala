@@ -8,24 +8,20 @@ import com.evolutiongaming.scassandra.*
 import pureconfig.error.{CannotParse, ConfigReaderFailures}
 import pureconfig.{ConfigCursor, ConfigReader}
 
-/** The size of a segment in Cassandra table.
+/** The size of a segment in `journal` table.
   *
   * When [[SegmentSize]] is used then the segment column is used akin to a page
   * number. I.e. segment number increments as soon as more than [[SegmentSize#value]]
-  * rows accumulate.
+  * rows accumulate. This allows the nearby journal events reside mostly in the same 
+  * partitions in Cassandra, making recovery quicker and less resource consuming.
   *
-  * The logic itself could be found in [[SegmentNr]] class constructors
-  * (apply methods).
+  * The logic itself could be found in [[SegmentNr#journal]] class constructor.
   *
-  * The only place where such approach is used right now is a journal table
-  * specified by [[SchemaConfig#journalTable]]. This allows the nearby journal
-  * events reside mostly in the same partitions in Cassandra making recovery
-  * quicker and less resource consuming.
-  *
-  * The value is configured per journal in [[EventualCassandraConfig#segmentSize]]
+  * The value is configured per journal in `metajournal` table in `segment_size` column.
   * and stays the same during the life of the persistent journal.
   *
-  * @see [[Segments]] for alternative way used for some other tables.
+  * @see [[SegmentNr]] for usage in `journal` table.
+  * @see [[Segments]] for alternative way, used in `metajournal` table.
   */
 private[journal] sealed abstract case class SegmentSize(value: Int) {
 

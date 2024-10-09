@@ -16,9 +16,9 @@ class SegmentOfTest extends AnyFunSuite with Matchers {
     )
   } yield {
     test(s"id: $id, segments: $segments, segmentNr: $segmentNr") {
-      val segmentOf = SegmentOf[Id](segments)
+      val segmentOf = SegmentNr.Of[Id](segments)
       val key       = Key(id = id, topic = "topic")
-      segmentOf(key) shouldEqual segmentNr
+      segmentOf.metaJournal(key) shouldEqual segmentNr
     }
   }
 }
