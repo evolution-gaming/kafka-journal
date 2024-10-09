@@ -14,7 +14,9 @@ private[journal] object Batch {
 
   def of(records: Nel[ActionRecord[Action]]): List[Batch] = {
 
-    def cut(appends: Appends, delete: Action.Delete) = {
+    // returns `true` when we can optimize Cassandra usage by NOT inserting "previous" Append actions in DB
+    // because "current" Delete action will discard them all
+    def cut(appends: Appends, delete: Action.Delete): Boolean = {
       val append = appends.records.head.action
       append.range.to <= delete.to.value
     }
@@ -23,21 +25,23 @@ private[journal] object Batch {
       .foldLeft(List.empty[Batch]) { (bs, record) =>
         val offset = record.partitionOffset.offset
 
-        def appendsOf(records: Nel[ActionRecord[Action.Append]]) = {
+        def appendsOf(records: Nel[ActionRecord[Action.Append]]): Appends = {
           Appends(offset, records)
         }
 
-        def deleteOf(to: DeleteTo, origin: Option[Origin], version: Option[Version]) = {
+        def deleteOf(to: DeleteTo, origin: Option[Origin], version: Option[Version]): Delete = {
           Delete(offset, to, origin, version)
         }
 
-        def purgeOf(origin: Option[Origin], version: Option[Version]) = {
+        def purgeOf(origin: Option[Origin], version: Option[Version]): Purge = {
           Purge(offset, origin, version)
         }
 
-        def actionRecord[A <: Action](a: A) = record.copy(action = a)
+        def actionRecord[A <: Action](a: A): ActionRecord[A] = {
+          record.copy(action = a)
+        }
 
-        def origin = {
+        def origin: Option[Origin] = {
           bs.foldRight(none[Origin]) { (b, origin) =>
             origin orElse {
               b match {
@@ -49,7 +53,7 @@ private[journal] object Batch {
           }
         }
 
-        def version = {
+        def version: Option[Version] = {
           bs.foldRight(none[Version]) { (b, version) =>
             version orElse {
               b match {
@@ -128,9 +132,9 @@ private[journal] object Batch {
             }
         }
       }
-      .foldLeft(List.empty[Batch]) { (bs, b) =>
+      .foldLeft(List.empty[Batch]) { (bs, b) => // reverse order of batches
         b match {
-          case b: Appends => b.copy(records = b.records.reverse) :: bs
+          case b: Appends => b.copy(records = b.records.reverse) :: bs // reverse append actions
           case b: Delete  => b :: bs
           case b: Purge   => b :: bs
         }
