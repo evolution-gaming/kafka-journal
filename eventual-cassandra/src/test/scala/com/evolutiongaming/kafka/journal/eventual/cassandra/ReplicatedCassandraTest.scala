@@ -1498,6 +1498,9 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       actual shouldEqual (expected, true).pure[Try]
     }
 
+    test(s"optimization: delete action sets head's expiration, $suffix") {
+      assert(false, "TODO MR implement!")
+    }
     test(s"optimization: `delete` action advances head's seq_nr, $suffix") {
       val id      = "id"
       val key     = Key(id = id, topic = topic0)
