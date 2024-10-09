@@ -1063,7 +1063,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val expected = State(
         actions = List(
           Action.DeleteMetaJournal(key, segment),
-          Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(2), segmentSize).next[Option].get),
+          Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(2), segmentSize).next[Id]),
           Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(1), segmentSize)),
           Action.UpdateDeleteTo(
             key,
@@ -1130,7 +1130,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
       val expected = State(
         actions = List(
           Action.DeleteMetaJournal(key, segment),
-          Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(2), segmentSize).next[Option].get),
+          Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(2), segmentSize).next[Id]),
           Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(2), segmentSize)),
           Action.UpdateDeleteTo(key, segment, headPartitionOffset, timestamp0, SeqNr.unsafe(2).toDeleteTo),
         ),
@@ -1190,7 +1190,7 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           ) ++ {
             for {
               i <- segments to (0, -1)
-            } yield Action.DeleteRecords(key, SegmentNr.of[Option](i.toLong).get)
+            } yield Action.DeleteRecords(key, SegmentNr.of[Id](i.toLong))
           } ++ List(
             Action.UpdateDeleteTo(key, segment, headPartitionOffset, timestamp1, SeqNr.unsafe(baseSeqNr).toDeleteTo),
           ),
@@ -1240,9 +1240,9 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
         val expected = State(
           actions = List(
             Action.DeleteMetaJournal(key, segment),
-            Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(baseSeqNr), segmentSize).next[Option].get),
+            Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(baseSeqNr), segmentSize).next[Id]),
             Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(baseSeqNr), segmentSize)),
-            Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(baseSeqNr), segmentSize).prev[Option].get),
+            Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(baseSeqNr), segmentSize).prev[Id]),
             Action.UpdateSeqNr(key, segment, headPartitionOffset, timestamp1, SeqNr.unsafe(baseSeqNr + 1)),
           ),
         )
@@ -1291,9 +1291,9 @@ class ReplicatedCassandraTest extends AnyFunSuite with Matchers {
           actions = List(
             Action.DeleteMetaJournal(key, segment),
             // deletes records from previous, this and next segments
-            Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(baseSeqNr), segmentSize).next[Option].get),
+            Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(baseSeqNr), segmentSize).next[Id]),
             Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(baseSeqNr), segmentSize)),
-            Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(baseSeqNr), segmentSize).prev[Option].get),
+            Action.DeleteRecords(key, SegmentNr.journal(SeqNr.unsafe(baseSeqNr), segmentSize).prev[Id]),
             Action.UpdateDeleteTo(
               key,
               segment,
