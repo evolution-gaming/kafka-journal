@@ -256,6 +256,18 @@ class BatchSpec extends AnyFunSuite with Matchers {
           deletes(offset = 2, seqNr = 10),
         ),
       ),
+      (
+        Nel.of( // state: delete_to = 384, seqNr = 573 (in Cassandra)
+          append(offset = 1797039, seqNr = 574),
+          append(offset = 1801629, seqNr = 575),
+          mark(offset   = 1801632),
+          delete(offset = 1801642, seqNr = 575),
+        ),
+        List(
+          // TODO MR
+//          deletes(offset = 1801642, deleteToSeqNr = 575, setSeqNr = 575.some),
+        ),
+      ),
     )
   } {
 
