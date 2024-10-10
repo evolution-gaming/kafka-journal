@@ -25,6 +25,13 @@ import scodec.bits.ByteVector
 
 import scala.concurrent.duration.*
 
+/**
+ * Subscribes to Kafka and establishes session with Cassandra.
+ * For each topic creates instance of [[TopicReplicator]] and binds it with Cassandra client [[ReplicatedCassandra]]
+ * (which implements [[ReplicatedJournal]]).
+ *
+ * [[TopicReplicator]] groups messages per key and delegates them to [[ReplicateRecords]] for storage in Cassandra.
+ */
 // TODO TEST
 trait Replicator[F[_]] {
 
