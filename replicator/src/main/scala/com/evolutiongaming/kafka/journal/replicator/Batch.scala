@@ -5,6 +5,14 @@ import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.skafka.Offset
 
+/**
+ * Receives list of records from [[ReplicateRecords]], groups and optimizes similar or sequential actions, like:
+ *  - two or more `append` or `delete` actions are merged into one
+ *  - optimizes list of records to minimize load on Cassandra, like:
+ *    - if `append`(s) are followed by `delete` all `append`(s), except last, are dropped
+ *    - if `append`(s) are followed by `prune`, then all `append`(s) are dropped
+ *    - `mark` actions are ignored
+ */
 private[journal] sealed abstract class Batch extends Product {
 
   def offset: Offset
@@ -29,7 +37,7 @@ private[journal] object Batch {
 
     records
       .foldLeft(List.empty[Batch]) { (bs, record) =>
-        val offset = record.partitionOffset.offset
+        val offset = record.partitionOffset.offset // used only for logging in [[ReplicateRecords]]
 
         def appendsOf(records: NonEmptyList[ActionRecord[Action.Append]]): Appends = {
           Appends(offset, records)
