@@ -6,8 +6,12 @@ import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.skafka.Offset
 
 /**
- * Receives records from [[ReplicateRecords]], groups and optimizes sequential actions.
- * Pays extra attention to preserve `origin` and `version` of the first `delete` action when several are merged.
+ * Receives list of records from [[ReplicateRecords]], groups and optimizes similar or sequential actions, like:
+ *  - two or more `append` or `delete` actions are merged into one
+ *  - optimizes list of records to minimize load on Cassandra, like:
+ *    - if `append`(s) are followed by `delete` all `append`(s), except last, are dropped
+ *    - if `append`(s) are followed by `prune`, then all `append`(s) are dropped
+ *    - `mark` actions are ignored
  */
 private[journal] sealed abstract class Batch extends Product {
 
