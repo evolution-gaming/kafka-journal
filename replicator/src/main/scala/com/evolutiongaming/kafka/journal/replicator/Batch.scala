@@ -21,7 +21,6 @@ private[journal] sealed abstract class Batch extends Product {
 private[journal] object Batch {
 
   def of(records: NonEmptyList[ActionRecord[Action]]): List[Batch] = {
-// TODO MR   val offset = records.last.partitionOffset.offset
 
     val actions = records
       .foldLeft(List.empty[ActionRecord[Action]]) {
@@ -48,7 +47,6 @@ private[journal] object Batch {
       _.headOption.flatMap { record =>
         record.action match {
           case purge: Action.Purge => Purge(record.offset, purge.origin, purge.version).some
-// TODO MR          case purge: Action.Purge => Purge(offset, purge.origin, purge.version).some
           case _                   => none
         }
       }
@@ -67,7 +65,6 @@ private[journal] object Batch {
         }
       }
       Delete(delete.offset, delete.action.to, delete.action.origin, delete.action.version)
-// TODO MR     Delete(offset, delete.action.to, delete.action.origin, delete.action.version)
     }
 
     val appends = actions.get("A").flatMap { appends =>
@@ -79,7 +76,6 @@ private[journal] object Batch {
       }
       NonEmptyList.fromList(actions) match {
         case Some(actions) => Appends(appends.last.offset, actions).some
-// TODO MR       case Some(actions) => Appends(offset, actions).some
         case None          => none
       }
     }
