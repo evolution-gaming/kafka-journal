@@ -48,7 +48,7 @@ class BatchSpec extends AnyFunSuite with Matchers {
       (Nel.of(delete(offset = 1, to = 1), mark(offset = 2)), List(deletes(offset = 1, to = 1))),
       (
         Nel.of(delete(offset = 1, seqNr = 1), append(offset = 2, seqNr = 2)),
-        List(appends(2, append(offset = 2, seqNr = 2)), deletes(offset = 1, seqNr = 1)),
+        List(appends(2, append(offset = 2, seqNr = 2)), deletes(offset = 1, to = 1)),
       ),
       (
         Nel.of(append(offset = 1, seqNr = 2), delete(offset = 2, to = 1)),
@@ -155,7 +155,7 @@ class BatchSpec extends AnyFunSuite with Matchers {
             append(offset = 4, seqNr = 3),
             append(offset = 5, seqNr = 4),
           ),
-          deletes(offset = 3, seqNr = 1),
+          deletes(offset = 3, to = 1),
         ),
       ),
       (
@@ -178,7 +178,7 @@ class BatchSpec extends AnyFunSuite with Matchers {
             append(offset = 5, seqNr = 5),
             append(offset = 7, seqNr = 6),
           ),
-          deletes(offset = 6, seqNr = 2, origin = "origin"),
+          deletes(offset = 6, to = 2, origin = "origin"),
         ),
       ),
       (
@@ -201,7 +201,7 @@ class BatchSpec extends AnyFunSuite with Matchers {
             append(offset = 5, seqNr = 7),
             append(offset = 7, seqNr = 8),
           ),
-          deletes(offset = 6, seqNr = 3),
+          deletes(offset = 6, to = 3),
         ),
       ),
       (Nel.of(purge(offset = 0)), List(purges(offset = 0))),
@@ -290,7 +290,6 @@ class BatchSpec extends AnyFunSuite with Matchers {
     Batch.Appends(Offset.unsafe(offset), appends)
   }
 
-  // TODO MR rename `seqNr` to `toSeqNr`
   def deletes(offset: Int, to: Int, origin: String = ""): Batch.Delete = {
     Batch.Delete(Offset.unsafe(offset), SeqNr.unsafe(to).toDeleteTo, originOf(origin), version = none)
   }
