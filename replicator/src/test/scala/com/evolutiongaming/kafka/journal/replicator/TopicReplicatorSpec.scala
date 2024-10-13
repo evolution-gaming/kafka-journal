@@ -443,11 +443,11 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
               Metrics.Round(records  = 20),
               Metrics.Append(events  = 3, records = 1),
               Metrics.Delete(actions = 1),
-              Metrics.Append(events  = 3, records = 2),
+              Metrics.Append(events  = 1, records = 1),
               Metrics.Append(events  = 2, records = 2),
               Metrics.Append(events  = 3, records = 1),
               Metrics.Delete(actions = 1),
-              Metrics.Append(events  = 3, records = 2),
+              Metrics.Append(events  = 1, records = 1),
               Metrics.Append(events  = 2, records = 2),
             ),
           )

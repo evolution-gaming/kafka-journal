@@ -15,7 +15,7 @@ import com.evolutiongaming.skafka.Offset
  */
 private[journal] sealed abstract class Batch extends Product {
 
-  def offset: Offset
+  def offset: Offset // TODO MR can be removed, as it is derivable from last record in batch!
 }
 
 private[journal] object Batch {
@@ -52,7 +52,7 @@ private[journal] object Batch {
       }
     }
 
-    val delete = actions.get("D").map { deletes =>
+    val delete0 = actions.get("D").map { deletes =>
       // take `Delete` action with largest `seqNr`
       val actions = deletes.collect { case ActionRecord(a: Action.Delete, po) => ActionRecord(a, po) } // recover type
       val delete = actions.reduceLeft { (a, b) =>
@@ -69,15 +69,28 @@ private[journal] object Batch {
 
     val appends = actions.get("A").flatMap { appends =>
       // merge all `Append`s
-      val deleteTo = delete.map(_.to.value)
-      val actions = appends.collect {
-        // drop to be deleted `Append`s
+      val deleteTo = delete0.map(_.to.value)
+      val actions0 = appends.collect {
+        // drop to be deleted `Append`s, except last one - we want to save its expiration in `metajournal`
         case ActionRecord(a: Action.Append, po) if deleteTo.forall(_ <= a.range.to) => ActionRecord(a, po)
       }
+
+      // we can drop first `append`, if `deleteTo` will discard it AND there is at least one more `append`
+      val actions = actions0.headOption match {
+        case Some(head) if deleteTo.contains(head.action.range.to) && actions0.tail.nonEmpty => actions0.tail
+        case _                                                                               => actions0
+      }
+
       NonEmptyList.fromList(actions) match {
         case Some(actions) => Appends(appends.last.offset, actions).some
         case None          => none
       }
+    }
+
+    // if `delete` was not last action, adjust `delete`'s batch offset to update `metajournal` correctly
+    val delete = appends match {
+      case Some(appends) => delete0.map(delete => delete.copy(offset = delete.offset max appends.offset))
+      case None          => delete0
     }
 
     // apply action batches in order: `Purge`, `Append`s and `Delete`
