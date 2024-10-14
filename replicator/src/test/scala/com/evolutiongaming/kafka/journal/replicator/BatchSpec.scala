@@ -171,7 +171,6 @@ class BatchSpec extends AnyFunSuite with Matchers {
         List(
           appends(
             offset = 7,
-//            append(offset = 1, seqNr = 2),
             append(offset = 2, seqNr = 3),
             append(offset = 4, seqNr = 4),
             append(offset = 5, seqNr = 5),
