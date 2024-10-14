@@ -15,7 +15,7 @@ import com.evolutiongaming.skafka.Offset
  */
 private[journal] sealed abstract class Batch extends Product {
 
-  def offset: Offset // TODO MR can be removed, as it is derivable from last record in batch!
+  def offset: Offset
 }
 
 private[journal] object Batch {
