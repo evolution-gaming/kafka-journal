@@ -115,7 +115,7 @@ Generally sane, but wrong assumptions:
 
 ## Expected action behaviour
 
-* `Mark` action is no-op for changes in storage 
+* `Mark` action is no-op for changes in storage
 * `Append` action:
   * when there is no entry in DB:
     * create record in `metajournal` table with `seqNr` of last event and `deleteTo: none`
@@ -124,7 +124,8 @@ Generally sane, but wrong assumptions:
     * update `seqNr` in `metajournal` table
     * append events in `journal` table
 * `Delete` action:
-  * when there is no entry in DB it will do nothing (no-op)
+  * when there is no entry in DB it will:
+    * create record in `metajournal` table with `seqNr` and `deleteTo` both set to `Delete.to` value (allows to "reset" journal)
   * when there is entry for aggregate:
     * update `deleteTo` in `metajournal` table
     * delete events between aggregate's `deleteTo` and  `seqNr <= Delete.to` 
@@ -133,7 +134,8 @@ Generally sane, but wrong assumptions:
   * when there is entry for aggregate:
     * delete all events for aggregate from `journal` table between aggregate's `deleteTo` and `seqNr` including
     * delete entry in `metajournal` table
-
+* `Append` and `Delete` actions also update `partition` and `offset` fields in `metajournal` table to allow easier 
+  lookup of action, which caused the last change, in Kafka
 
 
 
