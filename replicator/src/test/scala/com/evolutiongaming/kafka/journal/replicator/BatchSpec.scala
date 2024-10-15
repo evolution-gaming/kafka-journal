@@ -135,7 +135,7 @@ class BatchSpec extends AnyFunSuite with Matchers {
           delete(offset = 4, seqNr = 3),
           append(offset = 5, seqNr = 4),
         ),
-        List(appends(3, append(offset = 3, seqNr = 3)),deletes(offset = 4, seqNr = 3), appends(5, append(offset = 5, seqNr = 4))),
+        List(appends(3, append(offset = 3, seqNr = 3)), deletes(offset = 4, seqNr = 3), appends(5, append(offset = 5, seqNr = 4))),
       ),
       (
         Nel.of(
