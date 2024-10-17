@@ -102,19 +102,11 @@ private[journal] object Batch {
 
               case (b: Delete, a: Action.Delete) =>
                 if (a.to > b.to) {
-                  if (tail.collectFirst { case b: Appends => cut(b, a) } getOrElse false) {
-                    val delete = deleteOf(a.to, origin orElse a.origin, version orElse a.version)
-                    delete :: Nil
-                  } else {
-                    val delete = deleteOf(a.to, b.origin orElse a.origin, b.version orElse a.version)
-                    delete :: tail
-                  }
-
-                  val cleanTail: List[Batch] = tail.map {
+                  val cleanTail: List[Batch] = tail.mapFilter {
                     case appends: Appends => dropDeleted(appends, a)
                     case delete: Delete   => delete.some
                     case purge: Purge     => purge.some
-                  }.flattenOption
+                  }
 
                   val delete = deleteOf(a.to, b.origin orElse a.origin, b.version orElse a.version)
                   delete :: cleanTail
