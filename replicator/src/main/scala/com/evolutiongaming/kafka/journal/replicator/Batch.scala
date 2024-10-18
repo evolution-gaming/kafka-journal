@@ -12,6 +12,7 @@ import com.evolutiongaming.skafka.Offset
  *    - if `append`(s) are followed by `delete` all `append`(s), except last, are dropped
  *    - if `append`(s) are followed by `prune`, then all `append`(s) are dropped
  *    - `mark` actions are ignored
+ *    - at the end, apply in following order: `purge`, `append`s, `delete`
  */
 private[journal] sealed abstract class Batch extends Product {
 
