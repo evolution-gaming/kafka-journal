@@ -230,3 +230,13 @@ lazy val `persistence-circe` = project
   .settings(name := "kafka-journal-persistence-circe")
   .settings(commonSettings)
   .dependsOn(`journal-circe`, persistence % "test->test;compile->compile")
+
+lazy val benchmark = project
+  .dependsOn(replicator % "test->test", journal % "test->test;compile->compile", `eventual-cassandra`)
+  .enablePlugins(JmhPlugin)
+  .settings(commonSettings)
+  .settings(
+    Jmh / sourceDirectory := (Test / sourceDirectory).value,
+    Jmh / classDirectory := (Test / classDirectory).value,
+    Jmh / dependencyClasspath := (Test / dependencyClasspath).value,
+  )
