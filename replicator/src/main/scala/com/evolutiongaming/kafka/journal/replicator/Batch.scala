@@ -24,12 +24,12 @@ private[journal] object Batch {
   def of(records: NonEmptyList[ActionRecord[Action]]): List[Batch] = {
 
     val actions = records
-      .foldLeft(List.empty[ActionRecord[Action]]) {
+      .foldLeft(Vector.empty[ActionRecord[Action]]) {
         // drop all `Mark` actions
         case (acc, ActionRecord(_: Action.Mark, _)) => acc
 
         // drop all actions before `Purge`
-        case (_, r @ ActionRecord(_: Action.Purge, _)) => List(r)
+        case (_, r @ ActionRecord(_: Action.Purge, _)) => Vector(r)
 
         // collect `Append` and `Delete` actions
         case (acc, record) => acc :+ record
@@ -82,7 +82,7 @@ private[journal] object Batch {
         case _                                                                               => actions0
       }
 
-      NonEmptyList.fromList(actions) match {
+      NonEmptyList.fromList(actions.toList) match {
         case Some(actions) => Appends(appends.last.offset, actions).some
         case None          => none
       }
