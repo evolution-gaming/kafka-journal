@@ -26,18 +26,24 @@ class BatchBenchmark {
   }
 
   @Benchmark
+  def alternativeWithList(blackhole: Blackhole): Unit = {
+    val of = Batch_4_1_0_Alternative_with_List.of
+    callAll[Batch_4_1_0_Alternative_with_List](blackhole, of)
+  }
+
+  @Benchmark
+  def alternativeWithListReversed(blackhole: Blackhole): Unit = {
+    val of = Batch_4_1_0_Alternative_with_List_Reverse.of
+    callAll[Batch_4_1_0_Alternative_with_List_Reverse](blackhole, of)
+  }
+
+  @Benchmark
   def alternativeWithVector(blackhole: Blackhole): Unit = {
     val of = Batch_4_1_0_Alternative_with_Vector.of
     callAll[Batch_4_1_0_Alternative_with_Vector](blackhole, of)
   }
 
-  @Benchmark
-  def alternative4_1_2(blackhole: Blackhole): Unit = {
-    val of = Batch_Alternative_with_Aggressive_Reshuffling.of
-    callAll[Batch_Alternative_with_Aggressive_Reshuffling](blackhole, of)
-  }
-
-  def callAll[T](blackhole: Blackhole, of: Nel[ActionRecord[Action]] => List[T]): Unit = {
+  def callAll[T](blackhole: Blackhole, of: (Nel[ActionRecord[Action]]) => List[T]): Unit = {
     blackhole.consume(of(b1.map(actionRecordOf)))
     blackhole.consume(of(b2.map(actionRecordOf)))
     blackhole.consume(of(b3.map(actionRecordOf)))
