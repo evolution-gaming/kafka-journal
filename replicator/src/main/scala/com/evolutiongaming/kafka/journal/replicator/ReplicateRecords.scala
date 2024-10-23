@@ -14,6 +14,10 @@ import com.evolutiongaming.skafka.Offset
 import java.time.Instant
 import scala.concurrent.duration.FiniteDuration
 
+/**
+ * Gets list of per-key records from [[TopicReplicator]], groups them in [[Batch]]es and replicates each batch
+ * to Cassandra using [[ReplicatedKeyJournal]].
+ */
 private[journal] trait ReplicateRecords[F[_]] {
 
   def apply(records: Nel[ConsRecord], timestamp: Instant): F[Int]
