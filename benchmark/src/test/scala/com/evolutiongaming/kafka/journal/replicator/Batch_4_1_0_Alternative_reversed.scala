@@ -6,22 +6,18 @@ import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.skafka.Offset
 
 /**
- * Receives list of records from [[ReplicateRecords]], groups and optimizes similar or sequential actions, like:
- *  - two or more `append` or `delete` actions are merged into one
- *  - optimizes list of records to minimize load on Cassandra, like:
- *    - if `append`(s) are followed by `delete` all `append`(s), except last, are dropped
- *    - if `append`(s) are followed by `prune`, then all `append`(s) are dropped
- *    - `mark` actions are ignored
- *    - at the end, apply in following order: `purge`, `append`s, `delete`
+ * Copy of `Batch` with changes:
+ *  - change batching algorithm so it is easier to comprehend
+ *  - records are aggregated within `Vector` to make append faster (line: 31)
  */
-private[journal] sealed abstract class Batch extends Product {
+private[journal] sealed abstract class Batch_4_1_0_Alternative_reversed extends Product {
 
   def offset: Offset
 }
 
-private[journal] object Batch {
+private[journal] object Batch_4_1_0_Alternative_reversed {
 
-  def of(records: NonEmptyList[ActionRecord[Action]]): List[Batch] = {
+  def of(records: NonEmptyList[ActionRecord[Action]]): List[Batch_4_1_0_Alternative_reversed] = {
 
     val state = records.reverse.foldLeft(State()) {
       // TODO MR discard next 2 lines - match on explosion of types
@@ -87,7 +83,7 @@ private[journal] object Batch {
     delete: Option[Delete]   = None,
   ) {
 
-    def batches: List[Batch] = {
+    def batches: List[Batch_4_1_0_Alternative_reversed] = {
       // we can drop first `append`, if `deleteTo` will discard it AND there is at least one more `append`
       val appends = {
         this.appends match {
@@ -120,18 +116,18 @@ private[journal] object Batch {
   final case class Appends(
     offset: Offset,
     records: NonEmptyList[ActionRecord[Action.Append]],
-  ) extends Batch
+  ) extends Batch_4_1_0_Alternative_reversed
 
   final case class Delete(
     offset: Offset,
     to: DeleteTo,
     origin: Option[Origin],
     version: Option[Version],
-  ) extends Batch
+  ) extends Batch_4_1_0_Alternative_reversed
 
   final case class Purge(
     offset: Offset,
-    origin: Option[Origin], // used only for logging
-    version: Option[Version], // used only for logging
-  ) extends Batch
+    origin: Option[Origin],
+    version: Option[Version],
+  ) extends Batch_4_1_0_Alternative_reversed
 }
