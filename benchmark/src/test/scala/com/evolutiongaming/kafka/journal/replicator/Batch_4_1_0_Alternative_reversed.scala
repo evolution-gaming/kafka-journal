@@ -20,64 +20,52 @@ private[journal] object Batch_4_1_0_Alternative_reversed {
   def of(records: NonEmptyList[ActionRecord[Action]]): List[Batch_4_1_0_Alternative_reversed] = {
 
     val state = records.reverse.foldLeft(State()) {
-      // TODO MR discard next 2 lines - match on explosion of types
-      case (state, record) =>
-        (state, record.action) match {
-          case (state, _) if state.purge.nonEmpty =>
-            state
+      // ignore all actions before `Purge`
+      case (state, _) if state.purge.nonEmpty =>
+        state
 
-          case (state, purge: Action.Purge) =>
-            state.copy(
-              purge = Purge(record.offset, purge.origin, purge.version).some,
-            )
+      case (state, ActionRecord(purge: Action.Purge, po)) =>
+        state.copy(
+          purge = Purge(po.offset, purge.origin, purge.version).some,
+        )
 
-          case (state, delete: Action.Delete) =>
-            state.delete match {
-              case Some(younger) =>
-                // take `origin` and `version` from "older" entity, if it has them
-                val origin  = delete.origin.orElse(younger.origin)
-                val version = delete.version.orElse(younger.version)
-                if (younger.to < delete.to) {
-                  state.copy(
-                    delete = Delete(record.offset, delete.to, origin, version).some,
-                  )
-                } else {
-                  state.copy(
-                    delete = Delete(younger.offset, younger.to, origin, version).some,
-                  )
-                }
-              case None =>
-                state.copy(
-                  delete = Delete(record.offset, delete.to, delete.origin, delete.version).some,
-                )
-            }
+      case (state, ActionRecord(delete: Action.Delete, po)) =>
+        val delete_ = state.delete match {
+          case Some(younger) =>
+            // take `origin` and `version` from "older" entity, if it has them
+            val origin  = delete.origin.orElse(younger.origin)
+            val version = delete.version.orElse(younger.version)
+            // make `Delete` action with largest `seqNr` and largest `offset`
+            if (younger.to < delete.to) Delete(po.offset, delete.to, origin, version)
+            else younger.copy(origin = origin, version = version)
 
-          case (state, append: Action.Append) if state.delete.forall(_.to.value <= append.range.to) =>
-            state.appends match {
-              case Some(appends) =>
-                Appends(record.offset, NonEmptyList.of(ActionRecord(append, record.partitionOffset))).some
-                state.copy(
-                  appends = appends
-                    .copy(
-                      records = ActionRecord(append, record.partitionOffset) :: appends.records,
-                    )
-                    .some,
-                )
-              case None =>
-                state.copy(
-                  appends = Appends(record.offset, NonEmptyList.of(ActionRecord(append, record.partitionOffset))).some,
-                )
-            }
-
-          case (state, _) => // ignore actions `Mark` and `Append`, if it would get deleted
-            state
+          case None =>
+            Delete(po.offset, delete.to, delete.origin, delete.version)
         }
+        state.copy(
+          delete = delete_.some,
+        )
+
+      case (state, ActionRecord(append: Action.Append, po)) if state.delete.forall(_.to.value <= append.range.to) =>
+        val appends = state.appends match {
+          case Some(appends) =>
+            appends.copy(records = ActionRecord(append, po) :: appends.records)
+          case None =>
+            Appends(po.offset, NonEmptyList.of(ActionRecord(append, po)))
+        }
+        state.copy(
+          appends = appends.some,
+        )
+
+      case (state, _) =>
+        // ignore `Action.Append`, if it would get deleted and ignore `Action.Mark`
+        state
     }
 
     state.batches
   }
 
-  private case class State(
+  private final case class State(
     purge: Option[Purge]     = None,
     appends: Option[Appends] = None,
     delete: Option[Delete]   = None,
@@ -109,6 +97,7 @@ private[journal] object Batch_4_1_0_Alternative_reversed {
         case None          => this.delete
       }
 
+      // apply action batches in order: `Purge`, `Append`s and `Delete`
       List(purge, appends, delete).flatten
     }
   }
