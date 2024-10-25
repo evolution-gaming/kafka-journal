@@ -84,12 +84,9 @@ private[journal] object Batch {
           val deleteTo = this.delete.map(_.to.value)
           val records  = appends.records
           val actions =
-            if (deleteTo.contains(records.head.action.range.to) && records.tail.nonEmpty) appends.records.tail
-            else appends.records.toList
-          NonEmptyList.fromList(actions) match {
-            case Some(actions) => appends.copy(records = actions).some
-            case None          => appends.some // cannot happen
-          }
+            if (deleteTo.contains(records.head.action.range.to)) NonEmptyList.fromList(records.tail).getOrElse(records)
+            else records
+          appends.copy(records = actions).some
         }
       }
 
