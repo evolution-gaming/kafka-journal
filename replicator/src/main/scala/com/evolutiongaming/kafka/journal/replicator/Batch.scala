@@ -78,6 +78,7 @@ private[journal] object Batch {
 
     def batches: List[Batch] = {
       // we can drop first `append`, if `deleteTo` will discard it AND there is at least one more `append`
+      // we have to preserve one `append` to store latest `seqNr` and populate `expireAfter`
       val appends = {
         this.appends.flatMap { appends =>
           val deleteTo = this.delete.map(_.to.value)
