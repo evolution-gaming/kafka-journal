@@ -79,20 +79,16 @@ private[journal] object Batch {
     def batches: List[Batch] = {
       // we can drop first `append`, if `deleteTo` will discard it AND there is at least one more `append`
       val appends = {
-        this.appends match {
-          case Some(appends) =>
-            val deleteTo = this.delete.map(_.to.value)
-            val records  = appends.records
-            val actions =
-              if (deleteTo.contains(records.head.action.range.to) && records.tail.nonEmpty) appends.records.tail
-              else appends.records.toList
-            NonEmptyList.fromList(actions) match {
-              case Some(actions) => appends.copy(records = actions).some
-              case None          => appends.some // cannot happen
-            }
-
-          case None =>
-            None
+        this.appends.flatMap { appends =>
+          val deleteTo = this.delete.map(_.to.value)
+          val records  = appends.records
+          val actions =
+            if (deleteTo.contains(records.head.action.range.to) && records.tail.nonEmpty) appends.records.tail
+            else appends.records.toList
+          NonEmptyList.fromList(actions) match {
+            case Some(actions) => appends.copy(records = actions).some
+            case None          => appends.some // cannot happen
+          }
         }
       }
 
