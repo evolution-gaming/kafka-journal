@@ -32,6 +32,7 @@ private[journal] object Batch {
     delete: Option[Delete]   = None,
   ) {
 
+    // Expects records to be provided in revered order, e.g. youngest first
     def handle: ActionRecord[Action] => State = {
       case _ if this.purge.nonEmpty => // ignore all actions before `Purge`
         this
