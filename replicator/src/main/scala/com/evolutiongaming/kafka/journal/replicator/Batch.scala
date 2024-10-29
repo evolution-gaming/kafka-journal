@@ -14,6 +14,13 @@ import com.evolutiongaming.skafka.Offset
  *    - ignore all `Mark` actions
  *    - if `append`(s) are followed by `delete` all `append`(s), except last, are dropped
  *    - at the end, apply all aggregated batches following order: `purge`, `append`s, `delete`
+ *
+ * Assumptions:
+ *  - client doesn't abuse `Delete(MAX)` or `Delete(SeqNr + X)` which gets clamped down to `SeqNr` in
+ *    [[com.evolutiongaming.kafka.journal.eventual.cassandra.ReplicatedCassandra]]
+ *  - `Delete` action before `Append` can be moved after `Append`
+ *  - client issues `Delete` and following `Append` actions with same `origin` and `version` fields - important only
+ *    when starting a new journal (or right after `Purge`) - it has no technical effect
  */
 private[journal] sealed abstract class Batch extends Product {
 
@@ -26,7 +33,7 @@ private[journal] object Batch {
     State(records).batches
   }
 
-  /** Builds minimal set of actions, which will execute less calls to Cassandra while producing the same result */
+  /** Builds minimal set of actions, which will execute fewer calls to Cassandra while producing the same result */
   private object State {
     def apply(records: NonEmptyList[ActionRecord[Action]]): State = {
       records.reverse.foldLeft(State()) { _.handle(_) }
