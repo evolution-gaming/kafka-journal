@@ -32,7 +32,7 @@ trait Journal[F[_]] {
   /**
    * Deletes events up to provided SeqNr
    */
-  def delete(to: DeleteTo = DeleteTo.max): F[Option[PartitionOffset]]
+  def delete(to: DeleteTo): F[Option[PartitionOffset]]
 
   /**
    * Deletes all data with regards to key, consecutive pointer call will return none
