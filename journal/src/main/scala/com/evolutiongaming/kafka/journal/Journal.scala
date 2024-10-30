@@ -35,7 +35,7 @@ trait Journal[F[_]] {
    * the `DeleteTo.max` would produce dead-en journal - there will be no way to add new events.
    */
   // TODO next major release - remove default value
-  def delete(to: DeleteTo = DeleteTo.max): F[Option[PartitionOffset]]
+  def delete(to: DeleteTo): F[Option[PartitionOffset]]
 
   /**
    * Deletes all data (resets storage, removes all events and all traces of this journal) for the key,
