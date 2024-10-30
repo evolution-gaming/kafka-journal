@@ -6,9 +6,8 @@ import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.skafka.Offset
 
 /**
- * Copy of `Batch` with changes:
- *  - change batching algorithm so it is easier to comprehend
- *  - records are aggregated within `Vector` to make append faster (line: 31)
+ * Copy of `Batch` from 4.1.2:
+ *  - change batching algorithm based on some assumptions
  */
 private[journal] sealed abstract class Batch_4_1_2 extends Product {
 
