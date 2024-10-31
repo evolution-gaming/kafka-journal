@@ -32,7 +32,7 @@ private[journal] object Batch_4_1_2 {
                                   private val appends: Option[Appends] = None,
                                   private val delete: Option[Delete]   = None,
                                 ) {
-    // Expects records to be provided in revered order, e.g. youngest first
+    // Expects records to be provided in reversed order, e.g., youngest first
     private def handle: ActionRecord[Action] => State = {
       case _ if this.purge.nonEmpty => // ignore all actions before `Purge`
         this
