@@ -14,6 +14,10 @@ import com.evolutiongaming.skafka.Offset
  *    - ignore all `Mark` actions
  *    - if `append`(s) are followed by `delete` all `append`(s), except last, are dropped
  *    - at the end, apply all aggregated batches following order: `purge`, `append`s, `delete`
+ *  Our goal is to minimize load on Cassandra and t achieve it we want to execute no more than 3 operations.
+ *  The order: `purge`, `appends` and `delete` provides the most compact structure:
+ *   - in case of `purge` we have to execute it first - as following operations have to start a new journal
+ *   - we cannot `delete` future `append`s, thus `delete` must be after `append`
  *
  * Assumptions:
  *  - client doesn't abuse `Delete(MAX)` or `Delete(SeqNr + X)` which gets clamped down to `SeqNr` in
