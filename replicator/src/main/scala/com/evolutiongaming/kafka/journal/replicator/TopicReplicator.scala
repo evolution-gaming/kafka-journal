@@ -21,6 +21,13 @@ import java.time.Instant
 import scala.concurrent.duration.*
 import scala.util.Try
 
+/**
+ * Consumes the Kafka topic and "splits" the data stream into [[PartitionFlow]]s
+ * and "splits" each per-partition stream in [[KeyFlow]]s.
+ * Basically:
+ *  - result of each Kafka's `poll` gets grouped per partition and key
+ *  - grouped per-key records are processed by [[ReplicateRecords]]
+ */
 private[journal] object TopicReplicator {
 
   def make[F[_]: Concurrent: Sleep: ToTry: LogOf: Fail: MeasureDuration: JsonCodec](

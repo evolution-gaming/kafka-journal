@@ -5,6 +5,10 @@ import cats.syntax.all.*
 import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.skafka.Offset
 
+/**
+ * Receives records from [[ReplicateRecords]], groups and optimizes sequential actions.
+ * Pays extra attention to preserve `origin` and `version` of the first `delete` action when several are merged.
+ */
 private[journal] sealed abstract class Batch extends Product {
 
   def offset: Offset
