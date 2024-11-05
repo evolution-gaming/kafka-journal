@@ -22,7 +22,7 @@ import scala.concurrent.duration.*
 import scala.util.Try
 
 /**
- * Consumes Kafka topic and "splits" the data stream into [[PartitionFlow]]s
+ * Consumes the Kafka topic and "splits" the data stream into [[PartitionFlow]]s
  * and "splits" each per-partition stream in [[KeyFlow]]s.
  * Basically:
  *  - result of each Kafka's `poll` gets grouped per partition and key
