@@ -15,14 +15,14 @@ import com.evolutiongaming.skafka.Offset
  *    - if `append`(s) are followed by `delete` all `append`(s), except last, are dropped
  *  Our goal is to minimize load on Cassandra while preserving original offset ordering.
  */
-private[journal] sealed abstract class Batch extends Product {
+private[journal] sealed abstract class Batch_4_1_2_df extends Product {
 
   def offset: Offset
 }
 
-private[journal] object Batch {
+private[journal] object Batch_4_1_2_df {
 
-  def of(records: NonEmptyList[ActionRecord[Action]]): List[Batch] = {
+  def of(records: NonEmptyList[ActionRecord[Action]]): List[Batch_4_1_2_df] = {
     // reverse list of records to process them from the youngest record down to oldest
     records
       .reverse
@@ -36,7 +36,7 @@ private[journal] object Batch {
     *
     * @param batches list of batches, where head is the _oldest_ batch
     */
-  private case class State(batches: List[Batch]) {
+  private case class State(batches: List[Batch_4_1_2_df]) {
 
     /**
       * Oldest batch from the state.
@@ -50,7 +50,7 @@ private[journal] object Batch {
       * state.next == b6 // while processing a5
       * }}}  
       */
-    def next: Option[Batch] = batches.headOption
+    def next: Option[Batch_4_1_2_df] = batches.headOption
 
     /**
       * Find _oldest_ delete batch in the state.
@@ -60,12 +60,12 @@ private[journal] object Batch {
     /**
       * Add new batch to the state as the _oldest_ one.
       */
-    def prepend(batch: Batch): State = new State(batch :: batches)
+    def prepend(batch: Batch_4_1_2_df): State = new State(batch :: batches)
 
     /**
       * Replace _oldest_ batch in the state with new one.
       */
-    def replace(batch: Batch): State = new State(batch :: batches.tail)
+    def replace(batch: Batch_4_1_2_df): State = new State(batch :: batches.tail)
 
   }
 
@@ -155,18 +155,18 @@ private[journal] object Batch {
   final case class Appends(
     offset: Offset,
     records: NonEmptyList[ActionRecord[Action.Append]],
-  ) extends Batch
+  ) extends Batch_4_1_2_df
 
   final case class Delete(
     offset: Offset,
     to: DeleteTo,
     origin: Option[Origin],
     version: Option[Version],
-  ) extends Batch
+  ) extends Batch_4_1_2_df
 
   final case class Purge(
     offset: Offset,
     origin: Option[Origin], // used only for logging
     version: Option[Version], // used only for logging
-  ) extends Batch
+  ) extends Batch_4_1_2_df
 }

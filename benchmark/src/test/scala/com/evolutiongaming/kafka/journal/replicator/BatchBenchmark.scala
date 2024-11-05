@@ -37,6 +37,12 @@ class BatchBenchmark {
     callAll[Batch_4_1_2](blackhole, of)
   }
 
+  @Benchmark
+  def alternative4_1_2_df(blackhole: Blackhole): Unit = {
+    val of = Batch_4_1_2_df.of
+    callAll[Batch_4_1_2_df](blackhole, of)
+  }
+
   def callAll[T](blackhole: Blackhole, of: (Nel[ActionRecord[Action]]) => List[T]): Unit = {
     blackhole.consume(of(b1.map(actionRecordOf)))
     blackhole.consume(of(b2.map(actionRecordOf)))
