@@ -6,8 +6,14 @@ import com.evolutiongaming.kafka.journal.*
 import com.evolutiongaming.skafka.Offset
 
 /**
- * Copy of `Batch` from 4.1.2:
- *  - change batching algorithm based on some assumptions
+ * Receives list of records from [[ReplicateRecords]], groups and optimizes similar or sequential actions, like:
+ *  - two or more `append` or `delete` actions are merged into one
+ *  - optimizes list of records to minimize load on Cassandra, like:
+ *    - aggregate effective actions by processing them from the _youngest_ record down to oldest
+ *    - ignore/drop all actions, which are before last `Purge`
+ *    - ignore all `Mark` actions
+ *    - if `append`(s) are followed by `delete` all `append`(s), except last, are dropped
+ *  Our goal is to minimize load on Cassandra while preserving original offset ordering.
  */
 private[journal] sealed abstract class Batch_4_1_2 extends Product {
 
@@ -17,103 +23,133 @@ private[journal] sealed abstract class Batch_4_1_2 extends Product {
 private[journal] object Batch_4_1_2 {
 
   def of(records: NonEmptyList[ActionRecord[Action]]): List[Batch_4_1_2] = {
-    State(records).batches
+    // reverse list of records to process them from the youngest record down to oldest
+    records
+      .reverse
+      .foldLeft { State.empty } { State.fold }
+      .batches
   }
 
-  /** Builds minimal set of actions, which will execute fewer calls to Cassandra while producing the same result */
+  /**
+   * Internal state used to collapse actions (aka Kafka records) into batches.
+   * Each batch represents an action to be applied to Cassandra: `appends`, `delete` or `purge`.
+   *
+   * @param batches list of batches, where head is the _oldest_ batch
+   */
+  private case class State(batches: List[Batch_4_1_2]) {
+
+    /**
+     * Oldest batch from the state.
+     *
+     * Actions are processed from the _youngest_ record down to oldest, so `state.next` on each step represents batch that follows the current action:
+     * {{{
+     * // a<x> - action #x
+     * // b<x> - batch #x
+     * [a1,a2,a3,a4,a5,a6,a7] // actions
+     * [b6,b7] // state.batches after processing actions a7 & a6
+     * state.next == b6 // while processing a5
+     * }}}
+     */
+    def next: Option[Batch_4_1_2] = batches.headOption
+
+    /**
+     * Find _oldest_ delete batch in the state.
+     */
+    def delete: Option[Delete] = batches.collectFirst { case d: Delete => d }
+
+    /**
+     * Add new batch to the state as the _oldest_ one.
+     */
+    def prepend(batch: Batch_4_1_2): State = new State(batch :: batches)
+
+    /**
+     * Replace _oldest_ batch in the state with new one.
+     */
+    def replace(batch: Batch_4_1_2): State = new State(batch :: batches.tail)
+
+  }
+
   private object State {
-    def apply(records: NonEmptyList[ActionRecord[Action]]): State = {
-      records.reverse.foldLeft(State()) { _.handle(_) }
-    }
-  }
 
-  private final case class State(
-                                  private val purge: Option[Purge]     = None,
-                                  private val appends: Option[Appends] = None,
-                                  private val delete: Option[Delete]   = None,
-                                ) {
-    // Expects records to be provided in reversed order, e.g., youngest first
-    private def handle: ActionRecord[Action] => State = {
-      case _ if this.purge.nonEmpty => // ignore all actions before `Purge`
-        this
+    val empty: State = State(List.empty)
 
-      case ActionRecord(_: Action.Mark, _) =>
-        this
+    def fold(state: State, event: ActionRecord[Action]): State = event match {
+
+      case ActionRecord(_: Action.Mark, _) => state
 
       case ActionRecord(purge: Action.Purge, partitionOffset: PartitionOffset) =>
-        handlePurge(purge, partitionOffset)
+        def purgeBatch = Purge(partitionOffset.offset, purge.origin, purge.version)
+
+        state.next match {
+          case Some(_: Purge) => state
+          case Some(_)        => state.prepend(purgeBatch)
+          case None           => state.prepend(purgeBatch)
+        }
 
       case ActionRecord(delete: Action.Delete, partitionOffset: PartitionOffset) =>
-        handleDelete(delete, partitionOffset)
+        def deleteBatch(delete: Action.Delete) =
+          Delete(partitionOffset.offset, delete.to, delete.origin, delete.version)
+
+        state.next match {
+
+          case Some(_: Purge) => state
+          case None           => state.prepend(deleteBatch(delete))
+
+          // Action is `delete` and next batch is `appends`.
+          // Can be that another `delete`, that also deletes same (or more) as incoming `delete` action,
+          // present in state's batches - then ignore incoming `delete`.
+          case Some(_: Appends) =>
+            // If `delete` included in `state.delete` then ignore it
+            val delete1 = state.delete match {
+              case None          => delete.some
+              case Some(delete1) => if (delete1.to.value < delete.to.value) delete.some else None
+            }
+            delete1 match {
+              case Some(delete) => state.prepend(deleteBatch(delete))
+              case None         => state
+            }
+
+          case Some(next: Delete) =>
+            if (delete.header.to.value < next.to.value) state
+            // If `delete` includes `next` then replace `next` with `delete`
+            else state.replace(deleteBatch(delete))
+        }
 
       case ActionRecord(append: Action.Append, partitionOffset: PartitionOffset) =>
-        handleAppend(append, partitionOffset)
-    }
+        state.next match {
 
-    private def handlePurge(purge: Action.Purge, partitionOffset: PartitionOffset): State = {
-      this.copy(
-        purge = Purge(partitionOffset.offset, purge.origin, purge.version).some,
-      )
-    }
+          case Some(_: Purge) => state
 
-    private def handleDelete(delete: Action.Delete, partitionOffset: PartitionOffset): State = {
-      val delete_ = this.delete match {
-        case Some(younger) =>
-          // take `origin` and `version` from "older" entity, if it has them
-          val origin  = delete.origin.orElse(younger.origin)
-          val version = delete.version.orElse(younger.version)
-          // make `Delete` action with largest `seqNr` and largest `offset`
-          if (younger.to < delete.to) Delete(partitionOffset.offset, delete.to, origin, version)
-          else younger.copy(origin = origin, version = version)
+          case Some(next: Appends) =>
+            val append1 =
+              // if `append` deleted by `state.delete` then ignore it
+              state.delete match {
+                case Some(delete) => if (delete.to.value < append.range.to) append.some else None
+                case None         => append.some
+              }
 
-        case None =>
-          Delete(partitionOffset.offset, delete.to, delete.origin, delete.version)
-      }
-      this.copy(
-        delete = delete_.some,
-      )
-    }
+            append1 match {
+              case Some(append) =>
+                val record  = ActionRecord(append, partitionOffset)
+                val appends = Appends(next.offset, record :: next.records)
+                // replace head (aka [state.next]) with new Appends, i.e. merge `append` with `next`
+                state.replace(appends)
 
-    private def handleAppend(append: Action.Append, partitionOffset: PartitionOffset): State = {
-      // ignore `Action.Append`, if it would get deleted
-      if (this.delete.forall(_.to.value <= append.range.to)) {
-        val appends = this.appends match {
-          case Some(appends) =>
-            appends.copy(records = ActionRecord(append, partitionOffset) :: appends.records)
+              case None => state
+            }
+
+          case Some(next: Delete) =>
+            val record  = ActionRecord(append, partitionOffset)
+            val appends = Appends(partitionOffset.offset, NonEmptyList.one(record))
+            state.prepend(appends)
+
           case None =>
-            Appends(partitionOffset.offset, NonEmptyList.of(ActionRecord(append, partitionOffset)))
+            val record  = ActionRecord(append, partitionOffset)
+            val appends = Appends(partitionOffset.offset, NonEmptyList.one(record))
+            state.prepend(appends)
         }
-        this.copy(
-          appends = appends.some,
-        )
-      } else {
-        this
-      }
     }
 
-    def batches: List[Batch_4_1_2] = {
-      // we can drop first `append`, if `deleteTo` will discard it AND there is at least one more `append`
-      // we have to preserve one `append` to store latest `seqNr` and populate `expireAfter`
-      val appends = {
-        this.appends.flatMap { appends =>
-          val deleteTo = this.delete.map(_.to.value)
-          val records  = appends.records
-          val actions =
-            if (deleteTo.contains(records.head.action.range.to)) NonEmptyList.fromList(records.tail).getOrElse(records)
-            else records
-          appends.copy(records = actions).some
-        }
-      }
-
-      // if `delete` was not last action, adjust `delete`'s batch offset to update `metajournal` correctly
-      val delete = appends match {
-        case Some(appends) => this.delete.map(delete => delete.copy(offset = delete.offset max appends.offset))
-        case None          => this.delete
-      }
-
-      // apply action batches in order: `Purge`, `Append`s and `Delete`
-      List(purge, appends, delete).flatten
-    }
   }
 
   final case class Appends(
@@ -130,7 +166,7 @@ private[journal] object Batch_4_1_2 {
 
   final case class Purge(
     offset: Offset,
-    origin: Option[Origin],
-    version: Option[Version],
+    origin: Option[Origin], // used only for logging
+    version: Option[Version], // used only for logging
   ) extends Batch_4_1_2
 }
