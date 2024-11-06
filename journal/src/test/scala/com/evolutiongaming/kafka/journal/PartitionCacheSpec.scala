@@ -120,7 +120,7 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
   test("get HeadInfo.delete") {
     partitionCacheOf()
       .use { cache =>
-        val actionHeader = ActionHeader.Delete(to = DeleteTo(seqNr0), origin = none, version = none)
+        val actionHeader = ActionHeader.Delete(to = DeleteTo(seqNr0), origin = none, version = Version.obsolete)
         for {
           a <- cache.add(Record(id0, offset0, actionHeader))
           _ <- IO { a shouldEqual none }
@@ -638,7 +638,7 @@ object PartitionCacheSpec {
   val seqNr0: SeqNr      = SeqNr.min
   val seqNr1: SeqNr      = seqNr0.next[Try].get
 
-  val actionHeader: ActionHeader = ActionHeader.Mark("mark", none, none)
+  val actionHeader: ActionHeader = ActionHeader.Mark("mark", none, Version.obsolete)
 
   def actionHeaderOf(seqNr: SeqNr): ActionHeader.Append = {
     ActionHeader.Append(
@@ -646,7 +646,7 @@ object PartitionCacheSpec {
       origin      = none,
       payloadType = PayloadType.Binary,
       metadata    = HeaderMetadata.empty,
-      version     = none,
+      version     = Version.obsolete,
     )
   }
 

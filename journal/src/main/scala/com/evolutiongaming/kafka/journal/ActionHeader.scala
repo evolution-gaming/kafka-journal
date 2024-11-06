@@ -9,7 +9,7 @@ sealed abstract class ActionHeader extends Product {
 
   def origin: Option[Origin]
 
-  def version: Option[Version]
+  def version: Version
 }
 
 object ActionHeader {
@@ -18,34 +18,10 @@ object ActionHeader {
 
   implicit val formatOptActionHeader: OFormat[Option[ActionHeader]] = {
 
-    val appendFormat = {
-      val format = Json.format[Append]
-      val reads = format orElse new Reads[Append] {
-        def reads(json: JsValue) = {
-
-          def metadata = {
-            (json \ "metadata").validate[JsObject] match {
-              case JsSuccess(a, _) => a.validate[HeaderMetadata]
-              case _: JsError      => HeaderMetadata.empty.pure[JsResult]
-            }
-          }
-
-          for {
-            range       <- (json \ "range").validate[SeqRange]
-            origin      <- (json \ "origin").validateOpt[Origin]
-            version     <- (json \ "version").validateOpt[Version]
-            payloadType <- (json \ "payloadType").validate[PayloadType.BinaryOrJson]
-            metadata    <- metadata
-          } yield {
-            Append(range, origin, version, payloadType, metadata)
-          }
-        }
-      }
-      OFormat(reads, format)
-    }
-    val deleteFormat = Json.format[Delete]
-    val purgeFormat  = Json.format[Purge]
-    val readFormat   = Json.format[Mark]
+    val appendFormat = Json.using[Json.WithDefaultValues].format[Append]
+    val deleteFormat = Json.using[Json.WithDefaultValues].format[Delete]
+    val purgeFormat  = Json.using[Json.WithDefaultValues].format[Purge]
+    val readFormat   = Json.using[Json.WithDefaultValues].format[Mark]
 
     new OFormat[Option[ActionHeader]] {
 
@@ -96,25 +72,25 @@ object ActionHeader {
   final case class Append(
     range: SeqRange,
     origin: Option[Origin],
-    version: Option[Version],
+    version: Version = Version.obsolete,
     payloadType: PayloadType.BinaryOrJson,
-    metadata: HeaderMetadata,
+    metadata: HeaderMetadata = HeaderMetadata.empty,
   ) extends AppendOrDelete
 
   final case class Delete(
     to: DeleteTo,
     origin: Option[Origin],
-    version: Option[Version],
+    version: Version = Version.obsolete,
   ) extends AppendOrDelete
 
   final case class Purge(
     origin: Option[Origin],
-    version: Option[Version],
+    version: Version = Version.obsolete,
   ) extends AppendOrDelete
 
   final case class Mark(
     id: String,
     origin: Option[Origin],
-    version: Option[Version],
+    version: Version = Version.obsolete,
   ) extends ActionHeader
 }
