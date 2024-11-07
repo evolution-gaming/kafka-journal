@@ -15,14 +15,14 @@ import com.evolutiongaming.skafka.Offset
  *    - if `append`(s) are followed by `delete` all `append`(s), except last, are dropped
  *  Our goal is to minimize load on Cassandra while preserving original offset ordering.
  */
-private[journal] sealed abstract class Batch extends Product {
+private[journal] sealed abstract class Batch_4_1_2 extends Product {
 
   def offset: Offset
 }
 
-private[journal] object Batch {
+private[journal] object Batch_4_1_2 {
 
-  def of(records: NonEmptyList[ActionRecord[Action]]): List[Batch] = {
+  def of(records: NonEmptyList[ActionRecord[Action]]): List[Batch_4_1_2] = {
     // reverse list of records to process them from the youngest record down to oldest
     records
       .reverse
@@ -31,41 +31,41 @@ private[journal] object Batch {
   }
 
   /**
-    * Internal state used to collapse actions (aka Kafka records) into batches.
-    * Each batch represents an action to be applied to Cassandra: `appends`, `delete` or `purge`.
-    *
-    * @param batches list of batches, where head is the _oldest_ batch
-    */
-  private case class State(batches: List[Batch]) {
+   * Internal state used to collapse actions (aka Kafka records) into batches.
+   * Each batch represents an action to be applied to Cassandra: `appends`, `delete` or `purge`.
+   *
+   * @param batches list of batches, where head is the _oldest_ batch
+   */
+  private case class State(batches: List[Batch_4_1_2]) {
 
     /**
-      * Oldest batch from the state.
-      * 
-      * Actions are processed from the _youngest_ record down to oldest, so `state.next` on each step represents batch that follows the current action:
-      * {{{
-      * // a<x> - action #x
-      * // b<x> - batch #x
-      * [a1,a2,a3,a4,a5,a6,a7] // actions
-      * [b6,b7] // state.batches after processing actions a7 & a6
-      * state.next == b6 // while processing a5
-      * }}}  
-      */
-    def next: Option[Batch] = batches.headOption
+     * Oldest batch from the state.
+     *
+     * Actions are processed from the _youngest_ record down to oldest, so `state.next` on each step represents batch that follows the current action:
+     * {{{
+     * // a<x> - action #x
+     * // b<x> - batch #x
+     * [a1,a2,a3,a4,a5,a6,a7] // actions
+     * [b6,b7] // state.batches after processing actions a7 & a6
+     * state.next == b6 // while processing a5
+     * }}}
+     */
+    def next: Option[Batch_4_1_2] = batches.headOption
 
     /**
-      * Find _oldest_ delete batch in the state.
-      */
+     * Find _oldest_ delete batch in the state.
+     */
     def delete: Option[Delete] = batches.collectFirst { case d: Delete => d }
 
     /**
-      * Add new batch to the state as the _oldest_ one.
-      */
-    def prepend(batch: Batch): State = new State(batch :: batches)
+     * Add new batch to the state as the _oldest_ one.
+     */
+    def prepend(batch: Batch_4_1_2): State = new State(batch :: batches)
 
     /**
-      * Replace _oldest_ batch in the state with new one.
-      */
-    def replace(batch: Batch): State = new State(batch :: batches.tail)
+     * Replace _oldest_ batch in the state with new one.
+     */
+    def replace(batch: Batch_4_1_2): State = new State(batch :: batches.tail)
 
   }
 
@@ -155,18 +155,18 @@ private[journal] object Batch {
   final case class Appends(
     offset: Offset,
     records: NonEmptyList[ActionRecord[Action.Append]],
-  ) extends Batch
+  ) extends Batch_4_1_2
 
   final case class Delete(
     offset: Offset,
     to: DeleteTo,
     origin: Option[Origin],
     version: Option[Version],
-  ) extends Batch
+  ) extends Batch_4_1_2
 
   final case class Purge(
     offset: Offset,
     origin: Option[Origin], // used only for logging
     version: Option[Version], // used only for logging
-  ) extends Batch
+  ) extends Batch_4_1_2
 }

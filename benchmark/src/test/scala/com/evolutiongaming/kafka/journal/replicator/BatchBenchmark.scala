@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit
 class BatchBenchmark {
 
   @Benchmark
-  def original(blackhole: Blackhole): Unit = {
+  def original4_1_0(blackhole: Blackhole): Unit = {
     val of = Batch_4_1_0.of
     callAll[Batch_4_1_0](blackhole, of)
   }
@@ -32,12 +32,18 @@ class BatchBenchmark {
   }
 
   @Benchmark
-  def alternative4_1_2(blackhole: Blackhole): Unit = {
+  def alternativeWithAggressiveReshuffling(blackhole: Blackhole): Unit = {
     val of = Batch_Alternative_with_Aggressive_Reshuffling.of
     callAll[Batch_Alternative_with_Aggressive_Reshuffling](blackhole, of)
   }
 
-  def callAll[T](blackhole: Blackhole, of: Nel[ActionRecord[Action]] => List[T]): Unit = {
+  @Benchmark
+  def alternative4_1_2(blackhole: Blackhole): Unit = {
+    val of = Batch_4_1_2.of
+    callAll[Batch_4_1_2](blackhole, of)
+  }
+
+  def callAll[T](blackhole: Blackhole, of: (Nel[ActionRecord[Action]]) => List[T]): Unit = {
     blackhole.consume(of(b1.map(actionRecordOf)))
     blackhole.consume(of(b2.map(actionRecordOf)))
     blackhole.consume(of(b3.map(actionRecordOf)))
