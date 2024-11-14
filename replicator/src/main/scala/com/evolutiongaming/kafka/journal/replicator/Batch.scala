@@ -78,7 +78,7 @@ private[journal] object Batch {
       case ActionRecord(_: Action.Mark, _) => state
 
       case ActionRecord(purge: Action.Purge, partitionOffset: PartitionOffset) =>
-        def purgeBatch = Purge(partitionOffset.offset, purge.origin, purge.version)
+        def purgeBatch = Purge(partitionOffset.offset, purge.origin, purge.version1)
 
         state.next match {
           case Some(_: Purge) => state
@@ -88,7 +88,7 @@ private[journal] object Batch {
 
       case ActionRecord(delete: Action.Delete, partitionOffset: PartitionOffset) =>
         def deleteBatch(delete: Action.Delete) =
-          Delete(partitionOffset.offset, delete.to, delete.origin, delete.version)
+          Delete(partitionOffset.offset, delete.to, delete.origin, delete.version1)
 
         state.next match {
 
@@ -167,6 +167,6 @@ private[journal] object Batch {
   final case class Purge(
     offset: Offset,
     origin: Option[Origin], // used only for logging
-    version: Option[Version], // used only for logging
+    version: Version, // used only for logging
   ) extends Batch
 }
