@@ -25,9 +25,9 @@ import com.evolutiongaming.skafka.Offset
   * @see
   *   [[Journals]] for more details on how it is used.
   */
-private[journal] sealed abstract class HeadInfo extends Product
+sealed abstract class HeadInfo extends Product
 
-private[journal] object HeadInfo {
+object HeadInfo {
 
   /** There are no non-replicated events in Kafka for specific journal.
     *
