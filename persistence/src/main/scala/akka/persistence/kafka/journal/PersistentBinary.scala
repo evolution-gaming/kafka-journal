@@ -5,9 +5,9 @@ import com.evolutiongaming.kafka.journal.{FromAttempt, FromBytes, ToBytes}
 import com.evolutiongaming.serialization.SerializedMsg
 import scodec.{Codec, HListCodecEnrichedWithHListSupport, TransformSyntax, ValueCodecEnrichedWithHListSupport, codecs}
 
-private[journal] final case class PersistentBinary(manifest: Option[String], writerUuid: String, payload: SerializedMsg)
+final case class PersistentBinary(manifest: Option[String], writerUuid: String, payload: SerializedMsg)
 
-private[journal] object PersistentBinary {
+object PersistentBinary {
 
   implicit val codecPersistentBinary: Codec[PersistentBinary] = {
     val codec = codecs.optional(codecs.bool, codecs.utf8_32) :: codecs.utf8_32 :: SerializedMsg.CodecSerializedMsg
