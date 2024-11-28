@@ -325,6 +325,13 @@ object Journal {
     implicit val configReaderCallTimeThresholds: ConfigReader[CallTimeThresholds] = deriveReader[CallTimeThresholds]
   }
 
+  /**
+   * Configuration for the dynamic pool of Kafka consumers used on recovery in case the data is not yet replicated to
+   * Cassandra
+   *
+   * @param multiplier max pool size = multiplier x number of cores, capped at 1 below
+   * @param idleTimeout if idle for this time, Kafka consumers are closed
+   */
   final case class ConsumerPoolConfig(
     multiplier: Double,
     idleTimeout: FiniteDuration,
@@ -339,12 +346,13 @@ object Journal {
 
   final case class DataIntegrityConfig(
     /**
-      * If true then duplicated [[SeqNr]] in events will cause [[JournalError]] `Data integrity violated`
+      * On recovery, if true, duplicated [[SeqNr]] in events will cause [[JournalError]] `Data integrity violated`
       */
     seqNrUniqueness: Boolean,
 
     /**
-      * If true then events with [[RecordId]] different from one in metadata will be filtered out
+      * On recovery, if true, events with [[RecordId]] different from the one in the current metadata record
+      * will be filtered out and logged as an error.
       */
     correlateEventsWithMeta: Boolean,
   )
