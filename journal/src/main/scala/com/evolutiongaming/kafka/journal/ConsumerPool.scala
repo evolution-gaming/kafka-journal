@@ -26,10 +26,8 @@ private[journal] object ConsumerPool {
     for {
       cores <- Runtime[F].availableCores.toResource
       pool <- consumer.toResourcePool(
-        (cores.toDouble * poolConfig.multiplier)
-          .round
-          .toInt,
-        poolConfig.idleTimeout,
+        maxSize               = math.max(1, (cores.toDouble * poolConfig.multiplier).intValue),
+        expireAfter           = poolConfig.idleTimeout,
         discardTasksOnRelease = true,
       )
     } yield {
