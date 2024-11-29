@@ -329,7 +329,9 @@ object Journal {
    * Configuration for the dynamic pool of Kafka consumers used on recovery in case the data is not yet replicated to
    * Cassandra
    *
-   * @param multiplier max pool size = multiplier x number of cores, capped at 1 below
+   * @param multiplier defines max pool size = multiplier x number of cores,
+   *                   if a calculated max pool size is below 1, the size of 1 is used to avoid starting with
+   *                   an unusable consumer pool configuration
    * @param idleTimeout if idle for this time, Kafka consumers are closed
    */
   final case class ConsumerPoolConfig(
