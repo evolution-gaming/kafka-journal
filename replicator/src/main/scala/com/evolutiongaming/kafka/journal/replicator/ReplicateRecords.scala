@@ -68,20 +68,19 @@ private[journal] object ReplicateRecords {
             val origin         = records.head.action.origin
             val originStr      = origin.foldMap { origin => s", origin: $origin" }
             val version        = records.last.action.version
-            val versionStr     = version.fold("none") { _.toString }
             val expireAfterStr = expireAfter.foldMap { expireAfter => s", expireAfter: $expireAfter" }
-            s"append in ${latency.toMillis}ms, id: $id, partition: $partition, offset: $offset, $seqNrs$originStr, version: $versionStr$expireAfterStr"
+            s"append in ${latency.toMillis}ms, id: $id, partition: $partition, offset: $offset, $seqNrs$originStr, version: $version$expireAfterStr"
           }
 
           def measure(events: Nel[EventRecord[EventualPayloadAndType]], expireAfter: Option[ExpireAfter]): F[Unit] = {
             for {
               measurements <- measurements(records.size)
-              version       = events.last.version.map(_.value).getOrElse("none")
+              version       = events.last.version
               expiration    = expireAfter.map(_.value.toString).getOrElse("none")
               result <- metrics.append(
                 events        = events.length,
                 bytes         = bytes,
-                clientVersion = version,
+                clientVersion = version.value,
                 expiration    = expiration,
                 measurements  = measurements,
               )
@@ -111,12 +110,11 @@ private[journal] object ReplicateRecords {
           } yield result
         }
 
-        def delete(offset: Offset, deleteTo: DeleteTo, origin: Option[Origin], version: Option[Version]): F[Int] = {
+        def delete(offset: Offset, deleteTo: DeleteTo, origin: Option[Origin], version: Version): F[Int] = {
 
           def msg(latency: FiniteDuration): String = {
-            val originStr  = origin.foldMap { origin => s", origin: $origin" }
-            val versionStr = version.fold("none") { _.toString }
-            s"delete in ${latency.toMillis}ms, id: $id, offset: $partition:$offset, deleteTo: $deleteTo$originStr, version: $versionStr"
+            val originStr = origin.foldMap { origin => s", origin: $origin" }
+            s"delete in ${latency.toMillis}ms, id: $id, offset: $partition:$offset, deleteTo: $deleteTo$originStr, version: $version"
           }
 
           def measure(): F[Unit] = {
@@ -134,12 +132,11 @@ private[journal] object ReplicateRecords {
           } yield result
         }
 
-        def purge(offset: Offset, origin: Option[Origin], version: Option[Version]): F[Int] = {
+        def purge(offset: Offset, origin: Option[Origin], version: Version): F[Int] = {
 
           def msg(latency: FiniteDuration): String = {
-            val originStr  = origin.foldMap { origin => s", origin: $origin" }
-            val versionStr = version.fold("none") { _.toString }
-            s"purge in ${latency.toMillis}ms, id: $id, offset: $partition:$offset$originStr, version: $versionStr"
+            val originStr = origin.foldMap { origin => s", origin: $origin" }
+            s"purge in ${latency.toMillis}ms, id: $id, offset: $partition:$offset$originStr, version: $version"
           }
 
           def measure(): F[Unit] = {
