@@ -29,7 +29,7 @@ class ActionToProducerRecordSpec extends AnyFunSuite with Matchers {
 
   private val origins = List(Origin("origin").some, none[Origin])
 
-  private val versions = List(Version.current.some, none[Version])
+  private val versions = List(Version.current)
 
   private val seqNrs = List(SeqNr.min, SeqNr.max)
 

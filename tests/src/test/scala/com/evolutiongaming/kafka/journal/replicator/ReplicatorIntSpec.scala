@@ -165,7 +165,7 @@ class ReplicatorIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matche
       } yield for {
         event <- events
       } yield {
-        EventRecord(event, timestamp, partitionOffset, origin.some, version.some, recordMetadata1, headers)
+        EventRecord(event, timestamp, partitionOffset, origin.some, version, recordMetadata1, headers)
       }
     }
 
