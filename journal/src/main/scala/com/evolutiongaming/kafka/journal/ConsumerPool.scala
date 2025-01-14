@@ -18,10 +18,10 @@ private[journal] object ConsumerPool {
    * @return The outer Resource is for the pool, the inner is for consumers
    */
   def make[F[_]: Async: Runtime: MeasureDuration](
-    poolConfig: ConsumerPoolConfig,
-    metrics: Option[ConsumerPoolMetrics[F]],
-    consumer: Resource[F, Consumer[F]],
-    timeout: FiniteDuration = 1.minute,
+      poolConfig: ConsumerPoolConfig,
+      metrics: Option[ConsumerPoolMetrics[F]],
+      consumer: Resource[F, Consumer[F]],
+      timeout: FiniteDuration = 1.minute,
   ): Resource[F, Resource[F, Consumer[F]]] = {
     for {
       cores <- Runtime[F].availableCores.toResource

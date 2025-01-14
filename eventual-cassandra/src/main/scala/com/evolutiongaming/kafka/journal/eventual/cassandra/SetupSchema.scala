@@ -49,10 +49,10 @@ private[journal] object SetupSchema {
   }
 
   private[cassandra] def migrate[F[_]: MonadThrow: CassandraSession](
-    schema: Schema,
-    fresh: MigrateSchema.Fresh,
-    settings: Settings[F],
-    cassandraSync: CassandraSync[F],
+      schema: Schema,
+      fresh: MigrateSchema.Fresh,
+      settings: Settings[F],
+      cassandraSync: CassandraSync[F],
   ): F[Unit] = {
     val migrateSchema = MigrateSchema.forSettingKey(
       cassandraSync = cassandraSync,
@@ -64,9 +64,9 @@ private[journal] object SetupSchema {
   }
 
   def apply[F[_]: Temporal: Parallel: CassandraCluster: CassandraSession: LogOf](
-    config: SchemaConfig,
-    origin: Option[Origin],
-    consistencyConfig: CassandraConsistencyConfig,
+      config: SchemaConfig,
+      origin: Option[Origin],
+      consistencyConfig: CassandraConsistencyConfig,
   ): F[Schema] = {
 
     def createSchema(implicit cassandraSync: CassandraSync[F]): F[(Schema, Fresh)] = CreateSchema(config)

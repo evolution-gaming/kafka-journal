@@ -13,17 +13,17 @@ import pureconfig.{ConfigCursor, ConfigReader, ConfigSource}
 import scala.concurrent.duration.*
 
 final case class ReplicatorConfig(
-  topicPrefixes: Nel[String]             = Nel.of("journal"),
-  topicDiscoveryInterval: FiniteDuration = 3.seconds,
-  cacheExpireAfter: FiniteDuration       = 1.minute,
-  kafka: KafkaConfig                     = KafkaConfig("replicator"),
-  cassandra: EventualCassandraConfig = EventualCassandraConfig(
-    client = CassandraConfig(
-      name  = "replicator",
-      query = QueryConfig(consistency = ConsistencyLevel.LOCAL_QUORUM, defaultIdempotence = true),
+    topicPrefixes: Nel[String]             = Nel.of("journal"),
+    topicDiscoveryInterval: FiniteDuration = 3.seconds,
+    cacheExpireAfter: FiniteDuration       = 1.minute,
+    kafka: KafkaConfig                     = KafkaConfig("replicator"),
+    cassandra: EventualCassandraConfig = EventualCassandraConfig(
+      client = CassandraConfig(
+        name  = "replicator",
+        query = QueryConfig(consistency = ConsistencyLevel.LOCAL_QUORUM, defaultIdempotence = true),
+      ),
     ),
-  ),
-  pollTimeout: FiniteDuration = 10.millis,
+    pollTimeout: FiniteDuration = 10.millis,
 )
 
 object ReplicatorConfig {

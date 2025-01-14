@@ -28,9 +28,9 @@ private[journal] object Batch_Alternative_with_Aggressive_Reshuffling {
   }
 
   private final case class State(
-    private val purge: Option[Purge]     = None,
-    private val appends: Option[Appends] = None,
-    private val delete: Option[Delete]   = None,
+      private val purge: Option[Purge]     = None,
+      private val appends: Option[Appends] = None,
+      private val delete: Option[Delete]   = None,
   ) {
     // Expects records to be provided in reversed order, e.g., youngest first
     private def handle: ActionRecord[Action] => State = {
@@ -117,20 +117,20 @@ private[journal] object Batch_Alternative_with_Aggressive_Reshuffling {
   }
 
   final case class Appends(
-    offset: Offset,
-    records: NonEmptyList[ActionRecord[Action.Append]],
+      offset: Offset,
+      records: NonEmptyList[ActionRecord[Action.Append]],
   ) extends Batch_Alternative_with_Aggressive_Reshuffling
 
   final case class Delete(
-    offset: Offset,
-    to: DeleteTo,
-    origin: Option[Origin],
-    version: Option[Version],
+      offset: Offset,
+      to: DeleteTo,
+      origin: Option[Origin],
+      version: Option[Version],
   ) extends Batch_Alternative_with_Aggressive_Reshuffling
 
   final case class Purge(
-    offset: Offset,
-    origin: Option[Origin],
-    version: Option[Version],
+      offset: Offset,
+      origin: Option[Origin],
+      version: Option[Version],
   ) extends Batch_Alternative_with_Aggressive_Reshuffling
 }

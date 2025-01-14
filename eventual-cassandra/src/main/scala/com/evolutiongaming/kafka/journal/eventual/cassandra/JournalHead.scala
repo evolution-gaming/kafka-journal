@@ -25,12 +25,12 @@ import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow}
   *   `metajournal` record can be _created_ with `record_id` field, but never updated! 
   */
 private[journal] final case class JournalHead(
-  partitionOffset: PartitionOffset,
-  segmentSize: SegmentSize,
-  seqNr: SeqNr,
-  deleteTo: Option[DeleteTo] = none,
-  expiry: Option[Expiry]     = none,
-  recordId: Option[RecordId] = none,
+    partitionOffset: PartitionOffset,
+    segmentSize: SegmentSize,
+    seqNr: SeqNr,
+    deleteTo: Option[DeleteTo] = none,
+    expiry: Option[Expiry]     = none,
+    recordId: Option[RecordId] = none,
 )
 
 private[journal] object JournalHead {

@@ -23,7 +23,7 @@ private[journal] object CreateTables { self =>
   def apply[F[_]](implicit F: CreateTables[F]): CreateTables[F] = F
 
   def apply[F[_]: Monad: CassandraCluster: CassandraSession: CassandraSync](
-    log: Log[F],
+      log: Log[F],
   ): CreateTables[F] = new CreateTables[F] {
 
     def apply(keyspace: String, tables: Nel[Table]) = {

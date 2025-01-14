@@ -34,7 +34,7 @@ class DistributeJobTest extends AsyncFunSuite with Matchers {
       deferred   <- Deferred[IO, RebalanceListener1[IO]]
       kafkaConsumerOf = new KafkaConsumerOf[IO] {
         def apply[K, V](
-          config: ConsumerConfig,
+            config: ConsumerConfig,
         )(implicit fromBytesK: skafka.FromBytes[IO, K], fromBytesV: skafka.FromBytes[IO, V]) = {
           val consumer: KafkaConsumer[IO, K, V] = new KafkaConsumer[IO, K, V] {
             def assign(partitions: Nes[TopicPartition])         = ().pure[IO]

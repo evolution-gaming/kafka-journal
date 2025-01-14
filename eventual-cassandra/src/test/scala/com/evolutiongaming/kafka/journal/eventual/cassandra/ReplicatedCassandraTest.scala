@@ -2132,53 +2132,53 @@ object ReplicatedCassandraTest {
     final case class DeleteRecordsTo(key: Key, segment: SegmentNr, seqNr: SeqNr) extends Action
 
     final case class InsertMetaJournal(
-      key: Key,
-      segment: SegmentNr,
-      created: Instant,
-      updated: Instant,
-      journalHead: JournalHead,
-      origin: Option[Origin],
+        key: Key,
+        segment: SegmentNr,
+        created: Instant,
+        updated: Instant,
+        journalHead: JournalHead,
+        origin: Option[Origin],
     ) extends Action
 
     final case class Update(
-      key: Key,
-      segment: SegmentNr,
-      partitionOffset: PartitionOffset,
-      timestamp: Instant,
-      seqNr: SeqNr,
-      deleteTo: DeleteTo,
+        key: Key,
+        segment: SegmentNr,
+        partitionOffset: PartitionOffset,
+        timestamp: Instant,
+        seqNr: SeqNr,
+        deleteTo: DeleteTo,
     ) extends Action
 
     final case class UpdateSeqNr(
-      key: Key,
-      segment: SegmentNr,
-      partitionOffset: PartitionOffset,
-      timestamp: Instant,
-      seqNr: SeqNr,
+        key: Key,
+        segment: SegmentNr,
+        partitionOffset: PartitionOffset,
+        timestamp: Instant,
+        seqNr: SeqNr,
     ) extends Action
 
     final case class UpdateExpiry(
-      key: Key,
-      segment: SegmentNr,
-      partitionOffset: PartitionOffset,
-      timestamp: Instant,
-      seqNr: SeqNr,
-      expiry: Expiry,
+        key: Key,
+        segment: SegmentNr,
+        partitionOffset: PartitionOffset,
+        timestamp: Instant,
+        seqNr: SeqNr,
+        expiry: Expiry,
     ) extends Action
 
     final case class UpdateDeleteTo(
-      key: Key,
-      segment: SegmentNr,
-      partitionOffset: PartitionOffset,
-      timestamp: Instant,
-      deleteTo: DeleteTo,
+        key: Key,
+        segment: SegmentNr,
+        partitionOffset: PartitionOffset,
+        timestamp: Instant,
+        deleteTo: DeleteTo,
     ) extends Action
 
     final case class UpdatePartitionOffset(
-      key: Key,
-      segment: SegmentNr,
-      partitionOffset: PartitionOffset,
-      timestamp: Instant,
+        key: Key,
+        segment: SegmentNr,
+        partitionOffset: PartitionOffset,
+        timestamp: Instant,
     ) extends Action
 
     final case class DeleteMetaJournal(key: Key, segment: SegmentNr) extends Action
@@ -2187,10 +2187,10 @@ object ReplicatedCassandraTest {
   }
 
   final case class State(
-    actions: List[Action]                                                = List.empty,
-    pointers: Map[Topic, Map[Partition, PointerEntry]]                   = Map.empty,
-    metaJournal: Map[(Topic, SegmentNr), Map[String, MetaJournalEntry]]  = Map.empty,
-    journal: Map[(Key, SegmentNr), Map[(SeqNr, Instant), JournalRecord]] = Map.empty,
+      actions: List[Action]                                                = List.empty,
+      pointers: Map[Topic, Map[Partition, PointerEntry]]                   = Map.empty,
+      metaJournal: Map[(Topic, SegmentNr), Map[String, MetaJournalEntry]]  = Map.empty,
+      journal: Map[(Key, SegmentNr), Map[(SeqNr, Instant), JournalRecord]] = Map.empty,
   )
 
   object State {

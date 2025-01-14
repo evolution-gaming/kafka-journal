@@ -44,8 +44,8 @@ object FromBytes {
   }
 
   def fromReads[F[_]: Monad: FromJsResult, A](
-    implicit reads: Reads[A],
-    decode: JsonCodec.Decode[F],
+      implicit reads: Reads[A],
+      decode: JsonCodec.Decode[F],
   ): FromBytes[F, A] = { bytes =>
     for {
       a <- decode.fromBytes(bytes)

@@ -23,35 +23,35 @@ sealed abstract class Action extends Product {
 object Action {
 
   def append(
-    key: Key,
-    timestamp: Instant,
-    header: ActionHeader.Append,
-    payload: ByteVector,
-    headers: Headers,
+      key: Key,
+      timestamp: Instant,
+      header: ActionHeader.Append,
+      payload: ByteVector,
+      headers: Headers,
   ): Action = {
     Append(key, timestamp, header, payload, headers)
   }
 
   def delete(
-    key: Key,
-    timestamp: Instant,
-    header: ActionHeader.Delete,
+      key: Key,
+      timestamp: Instant,
+      header: ActionHeader.Delete,
   ): Action = {
     Delete(key, timestamp, header)
   }
 
   def purge(
-    key: Key,
-    timestamp: Instant,
-    header: ActionHeader.Purge,
+      key: Key,
+      timestamp: Instant,
+      header: ActionHeader.Purge,
   ): Action = {
     Purge(key, timestamp, header)
   }
 
   def mark(
-    key: Key,
-    timestamp: Instant,
-    header: ActionHeader.Mark,
+      key: Key,
+      timestamp: Instant,
+      header: ActionHeader.Mark,
   ): Action = {
     Mark(key, timestamp, header)
   }
@@ -61,11 +61,11 @@ object Action {
   sealed abstract class System extends Action
 
   final case class Append(
-    key: Key,
-    timestamp: Instant,
-    header: ActionHeader.Append,
-    payload: ByteVector,
-    headers: Headers,
+      key: Key,
+      timestamp: Instant,
+      header: ActionHeader.Append,
+      payload: ByteVector,
+      headers: Headers,
   ) extends User {
 
     def payloadType: PayloadType.BinaryOrJson = header.payloadType
@@ -76,13 +76,13 @@ object Action {
   object Append {
 
     def of[F[_]: Functor, A](
-      key: Key,
-      timestamp: Instant,
-      origin: Option[Origin],
-      version: Option[Version],
-      events: Events[A],
-      metadata: HeaderMetadata,
-      headers: Headers,
+        key: Key,
+        timestamp: Instant,
+        origin: Option[Origin],
+        version: Option[Version],
+        events: Events[A],
+        metadata: HeaderMetadata,
+        headers: Headers,
     )(implicit kafkaWrite: KafkaWrite[F, A]): F[Append] = {
       for {
         payloadAndType <- kafkaWrite(events)
@@ -105,9 +105,9 @@ object Action {
   }
 
   final case class Delete(
-    key: Key,
-    timestamp: Instant,
-    header: ActionHeader.Delete,
+      key: Key,
+      timestamp: Instant,
+      header: ActionHeader.Delete,
   ) extends User {
 
     def to: DeleteTo = header.to
@@ -116,11 +116,11 @@ object Action {
   object Delete {
 
     def apply(
-      key: Key,
-      timestamp: Instant,
-      to: DeleteTo,
-      origin: Option[Origin],
-      version: Option[Version],
+        key: Key,
+        timestamp: Instant,
+        to: DeleteTo,
+        origin: Option[Origin],
+        version: Option[Version],
     ): Delete = {
       val header = ActionHeader.Delete(to, origin, version)
       Delete(key, timestamp, header)
@@ -128,9 +128,9 @@ object Action {
   }
 
   final case class Purge(
-    key: Key,
-    timestamp: Instant,
-    header: ActionHeader.Purge,
+      key: Key,
+      timestamp: Instant,
+      header: ActionHeader.Purge,
   ) extends User
 
   object Purge {
@@ -142,9 +142,9 @@ object Action {
   }
 
   final case class Mark(
-    key: Key,
-    timestamp: Instant,
-    header: ActionHeader.Mark,
+      key: Key,
+      timestamp: Instant,
+      header: ActionHeader.Mark,
   ) extends System {
 
     def id: String = header.id
@@ -153,11 +153,11 @@ object Action {
   object Mark {
 
     def apply(
-      key: Key,
-      timestamp: Instant,
-      id: String,
-      origin: Option[Origin],
-      version: Option[Version],
+        key: Key,
+        timestamp: Instant,
+        id: String,
+        origin: Option[Origin],
+        version: Option[Version],
     ): Mark = {
       val header = ActionHeader.Mark(id, origin, version)
       Mark(key, timestamp, header)

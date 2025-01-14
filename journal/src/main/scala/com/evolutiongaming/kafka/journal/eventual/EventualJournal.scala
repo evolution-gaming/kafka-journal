@@ -133,8 +133,8 @@ object EventualJournal {
     private sealed abstract class Main
 
     def make[F[_]](
-      registry: CollectorRegistry[F],
-      prefix: String = "eventual_journal",
+        registry: CollectorRegistry[F],
+        prefix: String = "eventual_journal",
     ): Resource[F, Metrics[F]] = {
 
       val versionGauge = registry.gauge(

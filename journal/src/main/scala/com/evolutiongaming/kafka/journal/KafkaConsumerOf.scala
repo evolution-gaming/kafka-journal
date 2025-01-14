@@ -8,7 +8,7 @@ import com.evolutiongaming.skafka.consumer.{ConsumerConfig, ConsumerMetrics, Con
 trait KafkaConsumerOf[F[_]] {
 
   def apply[K, V](
-    config: ConsumerConfig,
+      config: ConsumerConfig,
   )(implicit fromBytesK: skafka.FromBytes[F, K], fromBytesV: skafka.FromBytes[F, V]): Resource[F, KafkaConsumer[F, K, V]]
 }
 
@@ -17,7 +17,7 @@ object KafkaConsumerOf {
   def apply[F[_]](implicit F: KafkaConsumerOf[F]): KafkaConsumerOf[F] = F
 
   def apply[F[_]: Async: ToTry: ToFuture: MeasureDuration](
-    metrics: Option[ConsumerMetrics[F]] = None,
+      metrics: Option[ConsumerMetrics[F]] = None,
   ): KafkaConsumerOf[F] = {
 
     val consumerOf = ConsumerOf.apply1(metrics)

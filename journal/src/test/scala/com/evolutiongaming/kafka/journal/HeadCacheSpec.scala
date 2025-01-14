@@ -245,7 +245,7 @@ object HeadCacheSpec {
   val headers: Headers = Headers.empty
 
   def consumerRecordOf(action: Action, topicPartition: TopicPartition, offset: Offset)(
-    implicit actionToProducerRecord: ActionToProducerRecord[Try],
+      implicit actionToProducerRecord: ActionToProducerRecord[Try],
   ): ConsumerRecord[String, Unit] = {
     ConsumerRecordOf[Try](action, topicPartition, offset)
       .get
@@ -278,9 +278,9 @@ object HeadCacheSpec {
   }
 
   def headCacheOf(
-    eventual: HeadCache.Eventual[IO],
-    consumer: Resource[IO, TopicCache.Consumer[IO]],
-    config: HeadCacheConfig = config,
+      eventual: HeadCache.Eventual[IO],
+      consumer: Resource[IO, TopicCache.Consumer[IO]],
+      config: HeadCacheConfig = config,
   ): Resource[IO, HeadCache[IO]] = {
 
     for {
@@ -347,9 +347,9 @@ object HeadCacheSpec {
     }
 
     final case class State(
-      actions: List[Action]                              = List.empty,
-      topics: Map[Topic, List[Partition]]                = Map.empty,
-      records: Queue[Try[ConsumerRecords[String, Unit]]] = Queue.empty,
+        actions: List[Action]                              = List.empty,
+        topics: Map[Topic, List[Partition]]                = Map.empty,
+        records: Queue[Try[ConsumerRecords[String, Unit]]] = Queue.empty,
     )
 
     object State {

@@ -40,16 +40,16 @@ object Journals {
   }
 
   def make[
-    F[_]: Async: FromTry: Fail: LogOf: KafkaConsumerOf: KafkaProducerOf: HeadCacheOf: RandomIdOf: MeasureDuration: JsonCodec,
+      F[_]: Async: FromTry: Fail: LogOf: KafkaConsumerOf: KafkaProducerOf: HeadCacheOf: RandomIdOf: MeasureDuration: JsonCodec,
   ](
-    config: JournalConfig,
-    origin: Option[Origin],
-    eventualJournal: EventualJournal[F],
-    journalMetrics: Option[JournalMetrics[F]],
-    conversionMetrics: Option[ConversionMetrics[F]],
-    consumerPoolConfig: ConsumerPoolConfig,
-    consumerPoolMetrics: Option[ConsumerPoolMetrics[F]],
-    callTimeThresholds: Journal.CallTimeThresholds,
+      config: JournalConfig,
+      origin: Option[Origin],
+      eventualJournal: EventualJournal[F],
+      journalMetrics: Option[JournalMetrics[F]],
+      conversionMetrics: Option[ConversionMetrics[F]],
+      consumerPoolConfig: ConsumerPoolConfig,
+      consumerPoolMetrics: Option[ConsumerPoolMetrics[F]],
+      callTimeThresholds: Journal.CallTimeThresholds,
   ): Resource[F, Journals[F]] = {
 
     val consumer = Consumer.make[F](config.kafka.consumer, config.pollTimeout)
@@ -83,13 +83,13 @@ object Journals {
   }
 
   def apply[F[_]: Clock: RandomIdOf: Fail: JsonCodec: MeasureDuration](
-    origin: Option[Origin],
-    producer: Producer[F],
-    consumer: Resource[F, Consumer[F]],
-    eventualJournal: EventualJournal[F],
-    headCache: HeadCache[F],
-    log: Log[F],
-    conversionMetrics: Option[ConversionMetrics[F]],
+      origin: Option[Origin],
+      producer: Producer[F],
+      consumer: Resource[F, Consumer[F]],
+      eventualJournal: EventualJournal[F],
+      headCache: HeadCache[F],
+      log: Log[F],
+      conversionMetrics: Option[ConversionMetrics[F]],
   )(implicit F: MonadCancel[F, Throwable]): Journals[F] = {
     implicit val fromAttempt: FromAttempt[F]   = FromAttempt.lift[F]
     implicit val fromJsResult: FromJsResult[F] = FromJsResult.lift[F]
@@ -105,12 +105,12 @@ object Journals {
   }
 
   def apply[F[_]: RandomIdOf: MeasureDuration](
-    eventual: EventualJournal[F],
-    consumeActionRecords: ConsumeActionRecords[F],
-    produce: Produce[F],
-    headCache: HeadCache[F],
-    log: Log[F],
-    conversionMetrics: Option[ConversionMetrics[F]],
+      eventual: EventualJournal[F],
+      consumeActionRecords: ConsumeActionRecords[F],
+      produce: Produce[F],
+      headCache: HeadCache[F],
+      log: Log[F],
+      conversionMetrics: Option[ConversionMetrics[F]],
   )(implicit F: MonadCancel[F, Throwable]): Journals[F] = {
 
     val appendMarker = AppendMarker(produce)
@@ -170,7 +170,7 @@ object Journals {
         new Main with Journal[F] {
 
           def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
-            implicit kafkaWrite: KafkaWrite[F, A],
+              implicit kafkaWrite: KafkaWrite[F, A],
           ) = {
             appendEvents(key, events, metadata, headers)(kafkaWriteWithMetrics)
           }
@@ -355,7 +355,7 @@ object Journals {
     }
 
     def apply[F[_]: Monad: Fail](
-      producer: KafkaProducer[F],
+        producer: KafkaProducer[F],
     )(implicit toBytesKey: skafka.ToBytes[F, String], toBytesValue: skafka.ToBytes[F, ByteVector]): Producer[F] = {
       (record: ProducerRecord[String, ByteVector]) =>
         {
@@ -388,8 +388,8 @@ object Journals {
   object Consumer {
 
     def make[F[_]: MonadThrowable: KafkaConsumerOf: FromTry](
-      config: ConsumerConfig,
-      pollTimeout: FiniteDuration,
+        config: ConsumerConfig,
+        pollTimeout: FiniteDuration,
     ): Resource[F, Consumer[F]] = {
       import com.evolutiongaming.kafka.journal.util.SkafkaHelper.*
 
@@ -403,8 +403,8 @@ object Journals {
     }
 
     def apply[F[_]](
-      consumer: KafkaConsumer[F, String, ByteVector],
-      pollTimeout: FiniteDuration,
+        consumer: KafkaConsumer[F, String, ByteVector],
+        pollTimeout: FiniteDuration,
     ): Consumer[F] = {
       class Main
       new Main with Consumer[F] {
@@ -427,8 +427,8 @@ object Journals {
   implicit class JournalsOps[F[_]](val self: Journals[F]) extends AnyVal {
 
     def withLog(
-      log: Log[F],
-      config: Journal.CallTimeThresholds = Journal.CallTimeThresholds.default,
+        log: Log[F],
+        config: Journal.CallTimeThresholds = Journal.CallTimeThresholds.default,
     )(implicit F: FlatMap[F], measureDuration: MeasureDuration[F]): Journals[F] = { (key: Key) =>
       self(key).withLog(key, log, config)
     }
@@ -438,7 +438,7 @@ object Journals {
     }
 
     def withMetrics(
-      metrics: JournalMetrics[F],
+        metrics: JournalMetrics[F],
     )(implicit F: MonadThrowable[F], measureDuration: MeasureDuration[F]): Journals[F] = { (key: Key) =>
       self(key).withMetrics(key.topic, metrics)
     }

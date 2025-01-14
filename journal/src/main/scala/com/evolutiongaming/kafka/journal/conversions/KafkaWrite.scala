@@ -25,8 +25,8 @@ object KafkaWrite {
   def summon[F[_], A](implicit kafkaWrite: KafkaWrite[F, A]): KafkaWrite[F, A] = kafkaWrite
 
   implicit def payloadKafkaWrite[F[_]: MonadThrowable](
-    implicit eventsToBytes: ToBytes[F, Events[Payload]],
-    payloadJsonToBytes: ToBytes[F, PayloadJson[JsValue]],
+      implicit eventsToBytes: ToBytes[F, Events[Payload]],
+      payloadJsonToBytes: ToBytes[F, PayloadJson[JsValue]],
   ): KafkaWrite[F, Payload] = { (events: Events[Payload]) =>
     {
 
@@ -95,8 +95,8 @@ object KafkaWrite {
   }
 
   def writeJson[F[_]: MonadThrowable, A, B](
-    toEventJsonPayload: A => EventJsonPayloadAndType[B],
-    payloadJsonToBytes: ToBytes[F, PayloadJson[B]],
+      toEventJsonPayload: A => EventJsonPayloadAndType[B],
+      payloadJsonToBytes: ToBytes[F, PayloadJson[B]],
   ): KafkaWrite[F, A] = { (events: Events[A]) =>
     {
 
@@ -130,10 +130,10 @@ object KafkaWrite {
 
   implicit class KafkaWriteOps[F[_], A](val self: KafkaWrite[F, A]) extends AnyVal {
     def withMetrics(
-      metrics: KafkaWriteMetrics[F],
+        metrics: KafkaWriteMetrics[F],
     )(
-      implicit F: Monad[F],
-      measureDuration: MeasureDuration[F],
+        implicit F: Monad[F],
+        measureDuration: MeasureDuration[F],
     ): KafkaWrite[F, A] = { events =>
       for {
         d <- MeasureDuration[F].start

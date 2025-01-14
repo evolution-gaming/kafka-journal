@@ -32,14 +32,14 @@ import pureconfig.generic.semiauto.deriveReader
   *   tests with small number of Cassandra nodes.
   */
 final case class EventualCassandraConfig(
-  retries: Int             = 100,
-  segmentSize: SegmentSize = SegmentSize.default,
-  client: CassandraConfig = CassandraConfig(
-    name  = "journal",
-    query = QueryConfig(consistency = ConsistencyLevel.LOCAL_QUORUM, fetchSize = 1000, defaultIdempotence = true),
-  ),
-  schema: SchemaConfig                          = SchemaConfig.default,
-  consistencyConfig: CassandraConsistencyConfig = CassandraConsistencyConfig.default,
+    retries: Int             = 100,
+    segmentSize: SegmentSize = SegmentSize.default,
+    client: CassandraConfig = CassandraConfig(
+      name  = "journal",
+      query = QueryConfig(consistency = ConsistencyLevel.LOCAL_QUORUM, fetchSize = 1000, defaultIdempotence = true),
+    ),
+    schema: SchemaConfig                          = SchemaConfig.default,
+    consistencyConfig: CassandraConsistencyConfig = CassandraConsistencyConfig.default,
 )
 
 object EventualCassandraConfig {

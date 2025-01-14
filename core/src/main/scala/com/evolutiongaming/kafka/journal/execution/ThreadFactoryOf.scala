@@ -8,8 +8,8 @@ import java.util.concurrent.{Executors as ExecutorsJ, ThreadFactory}
 private[journal] object ThreadFactoryOf {
 
   def apply[F[_]: Sync](
-    prefix: String,
-    uncaughtExceptionHandler: Thread.UncaughtExceptionHandler = UncaughtExceptionHandler.default,
+      prefix: String,
+      uncaughtExceptionHandler: Thread.UncaughtExceptionHandler = UncaughtExceptionHandler.default,
   ): F[ThreadFactory] = {
 
     for {

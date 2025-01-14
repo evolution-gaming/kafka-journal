@@ -84,9 +84,9 @@ object JournalSuite {
   trait JournalTest[F[_]] {
 
     def append[A](
-      events: Nel[Event[A]],
-      metadata: RecordMetadata = RecordMetadata.empty,
-      headers: Headers         = Headers.empty,
+        events: Nel[Event[A]],
+        metadata: RecordMetadata = RecordMetadata.empty,
+        headers: Headers         = Headers.empty,
     )(implicit kafkaWrite: KafkaWrite[F, A]): F[PartitionOffset]
 
     def read[A](implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A]): F[List[EventRecord[A]]]
@@ -103,8 +103,8 @@ object JournalSuite {
   object JournalTest {
 
     def apply[F[_]: Monad](
-      journal: Journal[F],
-      timestamp: Instant,
+        journal: Journal[F],
+        timestamp: Instant,
     ): JournalTest[F] = new JournalTest[F] {
 
       def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(implicit kafkaWrite: KafkaWrite[F, A]) = {

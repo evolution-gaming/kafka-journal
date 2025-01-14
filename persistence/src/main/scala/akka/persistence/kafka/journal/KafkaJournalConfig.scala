@@ -52,15 +52,15 @@ import scala.concurrent.duration.*
   * @see [[KafkaJournal]] for more details.
   */
 final case class KafkaJournalConfig(
-  journal: JournalConfig                  = JournalConfig.default,
-  cassandra: EventualCassandraConfig      = EventualCassandraConfig.default,
-  startTimeout: FiniteDuration            = 1.minute,
-  stopTimeout: FiniteDuration             = 1.minute,
-  maxEventsInBatch: Int                   = 100,
-  callTimeThresholds: CallTimeThresholds  = CallTimeThresholds.default,
-  jsonCodec: KafkaJournalConfig.JsonCodec = KafkaJournalConfig.JsonCodec.Default,
-  consumerPool: ConsumerPoolConfig        = ConsumerPoolConfig.Default,
-  dataIntegrity: DataIntegrityConfig      = DataIntegrityConfig.Default,
+    journal: JournalConfig                  = JournalConfig.default,
+    cassandra: EventualCassandraConfig      = EventualCassandraConfig.default,
+    startTimeout: FiniteDuration            = 1.minute,
+    stopTimeout: FiniteDuration             = 1.minute,
+    maxEventsInBatch: Int                   = 100,
+    callTimeThresholds: CallTimeThresholds  = CallTimeThresholds.default,
+    jsonCodec: KafkaJournalConfig.JsonCodec = KafkaJournalConfig.JsonCodec.Default,
+    consumerPool: ConsumerPoolConfig        = ConsumerPoolConfig.Default,
+    dataIntegrity: DataIntegrityConfig      = DataIntegrityConfig.Default,
 )
 
 object KafkaJournalConfig {

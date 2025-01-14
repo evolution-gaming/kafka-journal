@@ -11,7 +11,7 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 private[journal] object Executors {
 
   def blocking[F[_]: Sync](
-    name: String,
+      name: String,
   ): Resource[F, ExecutionContextExecutorService] = {
     for {
       threadFactory <- ThreadFactoryOf[F](name).toResource
@@ -22,7 +22,7 @@ private[journal] object Executors {
   }
 
   def nonBlocking[F[_]: Sync](
-    name: String,
+      name: String,
   ): Resource[F, ExecutionContextExecutorService] = {
     for {
       cores        <- Runtime[F].availableCores.toResource
@@ -34,8 +34,8 @@ private[journal] object Executors {
   }
 
   def scheduled[F[_]: Sync](
-    name: String,
-    parallelism: Int,
+      name: String,
+      parallelism: Int,
   ): Resource[F, ScheduledExecutorService] = {
     for {
       threadFactory <- ThreadFactoryOf[F](name).toResource

@@ -85,8 +85,8 @@ object ReplicatedPartitionJournal {
     }
 
     def withLog(topic: Topic, partition: Partition, log: Log[F])(
-      implicit F: Monad[F],
-      measureDuration: MeasureDuration[F],
+        implicit F: Monad[F],
+        measureDuration: MeasureDuration[F],
     ): ReplicatedPartitionJournal[F] = {
       new WithLog with ReplicatedPartitionJournal[F] {
 
@@ -135,8 +135,8 @@ object ReplicatedPartitionJournal {
     }
 
     def withMetrics(
-      topic: Topic,
-      metrics: ReplicatedJournal.Metrics[F],
+        topic: Topic,
+        metrics: ReplicatedJournal.Metrics[F],
     )(implicit F: Monad[F], measureDuration: MeasureDuration[F]): ReplicatedPartitionJournal[F] = {
       new WithMetrics with ReplicatedPartitionJournal[F] {
 

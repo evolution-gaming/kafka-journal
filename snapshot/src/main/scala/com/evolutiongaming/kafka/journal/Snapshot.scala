@@ -8,6 +8,6 @@ package com.evolutiongaming.kafka.journal
   *   Actual contents of a snapshot.
   */
 final case class Snapshot[A](
-  seqNr: SeqNr,
-  payload: A,
+    seqNr: SeqNr,
+    payload: A,
 )

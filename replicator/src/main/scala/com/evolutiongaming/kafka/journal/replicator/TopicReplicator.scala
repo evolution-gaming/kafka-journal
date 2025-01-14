@@ -31,11 +31,11 @@ import scala.util.Try
 private[journal] object TopicReplicator {
 
   def make[F[_]: Concurrent: Sleep: ToTry: LogOf: Fail: MeasureDuration: JsonCodec](
-    topic: Topic,
-    journal: ReplicatedJournal[F],
-    consumer: Resource[F, TopicConsumer[F]],
-    metrics: TopicReplicatorMetrics[F],
-    cacheOf: CacheOf[F],
+      topic: Topic,
+      journal: ReplicatedJournal[F],
+      consumer: Resource[F, TopicConsumer[F]],
+      metrics: TopicReplicatorMetrics[F],
+      cacheOf: CacheOf[F],
   ): Resource[F, F[Outcome[F, Throwable, Unit]]] = {
 
     implicit val fromAttempt: FromAttempt[F]   = FromAttempt.lift[F]
@@ -46,8 +46,8 @@ private[journal] object TopicReplicator {
     val eventualWrite = EventualWrite.summon[F, Payload]
 
     def consume(
-      consumer: Resource[F, TopicConsumer[F]],
-      log: Log[F],
+        consumer: Resource[F, TopicConsumer[F]],
+        log: Log[F],
     ) = {
 
       val consRecordToActionRecord = ConsRecordToActionRecord[F]
@@ -77,15 +77,15 @@ private[journal] object TopicReplicator {
   }
 
   def of[F[_]: Concurrent: Sleep: MeasureDuration, A](
-    topic: Topic,
-    consumer: Resource[F, TopicConsumer[F]],
-    consRecordToActionRecord: ConsRecordToActionRecord[F],
-    kafkaRead: KafkaRead[F, A],
-    eventualWrite: EventualWrite[F, A],
-    journal: ReplicatedJournal[F],
-    metrics: TopicReplicatorMetrics[F],
-    log: Log[F],
-    cacheOf: CacheOf[F],
+      topic: Topic,
+      consumer: Resource[F, TopicConsumer[F]],
+      consRecordToActionRecord: ConsRecordToActionRecord[F],
+      kafkaRead: KafkaRead[F, A],
+      eventualWrite: EventualWrite[F, A],
+      journal: ReplicatedJournal[F],
+      metrics: TopicReplicatorMetrics[F],
+      log: Log[F],
+      cacheOf: CacheOf[F],
   ): F[Unit] = {
 
     trait PartitionFlow {
@@ -236,10 +236,10 @@ private[journal] object TopicReplicator {
   object ConsumerOf {
 
     def make[F[_]: Concurrent: KafkaConsumerOf: FromTry: Clock](
-      topic: Topic,
-      config: ConsumerConfig,
-      pollTimeout: FiniteDuration,
-      hostName: Option[HostName],
+        topic: Topic,
+        config: ConsumerConfig,
+        pollTimeout: FiniteDuration,
+        hostName: Option[HostName],
     ): Resource[F, TopicConsumer[F]] = {
 
       val groupId = {

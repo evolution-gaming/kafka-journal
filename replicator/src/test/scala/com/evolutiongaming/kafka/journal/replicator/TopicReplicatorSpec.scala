@@ -696,9 +696,9 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
   }
 
   private def consumerRecordOf(
-    action: Action,
-    topicPartition: TopicPartition,
-    offset: Long,
+      action: Action,
+      topicPartition: TopicPartition,
+      offset: Long,
   ) = {
 
     val producerRecord = ActionToProducerRecord[Try].apply(action).get
@@ -713,10 +713,10 @@ class TopicReplicatorSpec extends AsyncWordSpec with Matchers {
   }
 
   private def record(
-    seqNr: Int,
-    partition: Int,
-    offset: Long,
-    expireAfter: Option[ExpireAfter] = none,
+      seqNr: Int,
+      partition: Int,
+      offset: Long,
+      expireAfter: Option[ExpireAfter] = none,
   ) = {
     val partitionOffset = PartitionOffset(Partition.unsafe(partition), Offset.unsafe(offset))
     val event           = Event[EventualPayloadAndType](SeqNr.unsafe(seqNr), Set(seqNr.toString))
@@ -786,11 +786,11 @@ object TopicReplicatorSpec {
   def keyOf(id: String) = Key(id = id, topic = topic)
 
   def metaJournalOf(
-    id: String,
-    partition: Int,
-    offset: Long,
-    deleteTo: Option[Int]            = none,
-    expireAfter: Option[ExpireAfter] = none,
+      id: String,
+      partition: Int,
+      offset: Long,
+      deleteTo: Option[Int]            = none,
+      expireAfter: Option[ExpireAfter] = none,
   ): (String, MetaJournal) = {
     val deleteToSeqNr = deleteTo
       .flatMap { deleteTo => SeqNr.opt(deleteTo.toLong) }
@@ -860,10 +860,10 @@ object TopicReplicatorSpec {
               val result = new ReplicatedKeyJournal[StateT] {
 
                 def append(
-                  offset: Offset,
-                  timestamp: Instant,
-                  expireAfter: Option[ExpireAfter],
-                  events: Nel[EventRecord[EventualPayloadAndType]],
+                    offset: Offset,
+                    timestamp: Instant,
+                    expireAfter: Option[ExpireAfter],
+                    events: Nel[EventRecord[EventualPayloadAndType]],
                 ) = {
                   StateT { state =>
                     val records = events.toList ++ state.journal.getOrElse(id, Nil)
@@ -1016,13 +1016,13 @@ object TopicReplicatorSpec {
   }
 
   final case class State(
-    topics: List[Topic]                                             = Nil,
-    commits: List[Nem[Int, Long]]                                   = Nil,
-    records: List[ConsRecords]                                      = Nil,
-    pointers: Map[Topic, Map[Int, Long]]                            = Map.empty,
-    journal: Map[String, List[EventRecord[EventualPayloadAndType]]] = Map.empty,
-    metaJournal: Map[String, MetaJournal]                           = Map.empty,
-    metrics: List[Metrics]                                          = Nil,
+      topics: List[Topic]                                             = Nil,
+      commits: List[Nem[Int, Long]]                                   = Nil,
+      records: List[ConsRecords]                                      = Nil,
+      pointers: Map[Topic, Map[Int, Long]]                            = Map.empty,
+      journal: Map[String, List[EventRecord[EventualPayloadAndType]]] = Map.empty,
+      metaJournal: Map[String, MetaJournal]                           = Map.empty,
+      metrics: List[Metrics]                                          = Nil,
   ) { self =>
 
     def +(metrics: Metrics): (State, Unit) = {
@@ -1072,10 +1072,10 @@ object TopicReplicatorSpec {
   }
 
   final case class MetaJournal(
-    offset: PartitionOffset,
-    deleteTo: Option[DeleteTo],
-    expireAfter: Option[ExpireAfter],
-    origin: Option[Origin],
+      offset: PartitionOffset,
+      deleteTo: Option[DeleteTo],
+      expireAfter: Option[ExpireAfter],
+      origin: Option[Origin],
   )
 
   case object NotImplemented extends RuntimeException with NoStackTrace

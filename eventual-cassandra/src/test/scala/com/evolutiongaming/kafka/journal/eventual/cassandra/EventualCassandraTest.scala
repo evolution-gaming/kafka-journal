@@ -545,10 +545,10 @@ object EventualCassandraTest {
   final case class PointerEntry(offset: Offset, created: Instant, updated: Instant)
 
   final case class State(
-    pointers: Map[Topic, Map[Partition, PointerEntry]]                   = Map.empty,
-    metadata: Map[Topic, Map[String, MetaJournalEntry]]                  = Map.empty,
-    metaJournal: Map[(Topic, SegmentNr), Map[String, MetaJournalEntry]]  = Map.empty,
-    journal: Map[(Key, SegmentNr), Map[(SeqNr, Instant), JournalRecord]] = Map.empty,
+      pointers: Map[Topic, Map[Partition, PointerEntry]]                   = Map.empty,
+      metadata: Map[Topic, Map[String, MetaJournalEntry]]                  = Map.empty,
+      metaJournal: Map[(Topic, SegmentNr), Map[String, MetaJournalEntry]]  = Map.empty,
+      journal: Map[(Key, SegmentNr), Map[(SeqNr, Instant), JournalRecord]] = Map.empty,
   )
 
   object State {

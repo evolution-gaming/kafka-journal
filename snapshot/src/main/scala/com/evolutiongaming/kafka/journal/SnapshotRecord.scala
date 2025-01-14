@@ -20,8 +20,8 @@ import java.time.Instant
   *   The version of a library, which produced a snapshot. See [[Version]] for more details.
   */
 final case class SnapshotRecord[A](
-  snapshot: Snapshot[A],
-  timestamp: Instant,
-  origin: Option[Origin],
-  version: Option[Version],
+    snapshot: Snapshot[A],
+    timestamp: Instant,
+    origin: Option[Origin],
+    version: Option[Version],
 )

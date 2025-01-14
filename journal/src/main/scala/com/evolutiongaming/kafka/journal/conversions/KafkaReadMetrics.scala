@@ -18,8 +18,8 @@ object KafkaReadMetrics {
   def empty[F[_]: Applicative]: KafkaReadMetrics[F] = (_, _) => Applicative[F].unit
 
   def make[F[_]](
-    registry: CollectorRegistry[F],
-    prefix: String = "journal",
+      registry: CollectorRegistry[F],
+      prefix: String = "journal",
   ): Resource[F, KafkaReadMetrics[F]] = {
 
     val durationSummary = registry.summary(

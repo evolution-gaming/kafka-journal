@@ -25,9 +25,9 @@ object ResultSet {
   }
 
   def apply[F[_]: Spawn, A](
-    fetch: F[Unit],
-    fetched: F[Boolean],
-    next: F[List[A]],
+      fetch: F[Unit],
+      fetched: F[Boolean],
+      next: F[List[A]],
   ): Stream[F, A] = new Stream[F, A] {
 
     def foldWhileM[L, R](l: L)(f: (L, A) => F[Either[L, R]]) = {

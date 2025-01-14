@@ -63,9 +63,9 @@ object StreamActionRecordsSpec {
   }
 
   private def seqNrs(
-    replicated: Option[Long],
-    offset: Option[Long],
-    pointers: List[Pointer],
+      replicated: Option[Long],
+      offset: Option[Long],
+      pointers: List[Pointer],
   ) = {
 
     val timestamp = Instant.now()

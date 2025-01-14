@@ -8,10 +8,10 @@ import com.evolutiongaming.scassandra.{DecodeRow, EncodeRow}
 import java.time.Instant
 
 private[journal] final case class MetaJournalEntry(
-  journalHead: JournalHead,
-  created: Instant,
-  updated: Instant,
-  origin: Option[Origin],
+    journalHead: JournalHead,
+    created: Instant,
+    updated: Instant,
+    origin: Option[Origin],
 )
 
 private[journal] object MetaJournalEntry {

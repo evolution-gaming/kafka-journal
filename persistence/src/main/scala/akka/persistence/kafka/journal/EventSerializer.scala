@@ -131,7 +131,7 @@ object EventSerializer {
     *   `Any` type and will accept anything assigned).
     */
   def apply[F[_]: MonadThrowable: FromAttempt: FromJsResult](
-    serializer: SerializedMsgSerializer[F],
+      serializer: SerializedMsgSerializer[F],
   ): EventSerializer[F, Payload] = {
 
     def toEventPayload(repr: PersistentRepresentation): F[Payload] = {
@@ -208,8 +208,8 @@ object EventSerializer {
     * be used.
     */
   def apply[F[_]: MonadThrowable, A](
-    toEventPayload: PersistentRepresentation => F[A],
-    fromEventPayload: A => F[PersistentRepresentation],
+      toEventPayload: PersistentRepresentation => F[A],
+      fromEventPayload: A => F[PersistentRepresentation],
   ): EventSerializer[F, A] = new EventSerializer[F, A] {
 
     implicit val fail: Fail[F] = Fail.lift[F]

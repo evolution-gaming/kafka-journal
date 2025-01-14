@@ -258,10 +258,10 @@ class JournalSpec extends AnyWordSpec with Matchers {
     } {
 
       def test(
-        eventual: EventualJournal[StateT],
-        consumeActionRecords: ConsumeActionRecords[StateT],
-        produceAction: ProduceAction[StateT],
-        headCache: HeadCache[StateT],
+          eventual: EventualJournal[StateT],
+          consumeActionRecords: ConsumeActionRecords[StateT],
+          produceAction: ProduceAction[StateT],
+          headCache: HeadCache[StateT],
       ): Unit = {
         val journal =
           SeqNrJournal(eventualJournalOf(eventual), consumeActionRecordsOf(consumeActionRecords), produceAction, headCache)
@@ -411,13 +411,13 @@ object JournalSpec {
   object SeqNrJournal {
 
     def apply[F[_]: Monad, A](
-      journals: Journals[F],
+        journals: Journals[F],
     )(implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A], kafkaWrite: KafkaWrite[F, A]): SeqNrJournal[F] = {
       apply(journals(key))
     }
 
     def apply[F[_]: Monad, A](
-      journal: Journal[F],
+        journal: Journal[F],
     )(implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A], kafkaWrite: KafkaWrite[F, A]): SeqNrJournal[F] = {
 
       new SeqNrJournal[F] {
@@ -469,10 +469,10 @@ object JournalSpec {
     }
 
     def apply[F[_]: Sync](
-      eventual: EventualJournal[F],
-      consumeActionRecords: ConsumeActionRecords[F],
-      produceAction: ProduceAction[F],
-      headCache: HeadCache[F],
+        eventual: EventualJournal[F],
+        consumeActionRecords: ConsumeActionRecords[F],
+        produceAction: ProduceAction[F],
+        headCache: HeadCache[F],
     ): SeqNrJournal[F] = {
       implicit val clock           = Clock.const[F](nanos = 0, millis = timestamp.toEpochMilli)
       implicit val randomIdOf      = RandomIdOf.uuid[F]
@@ -498,9 +498,9 @@ object JournalSpec {
   }
 
   final case class State(
-    records: Queue[ActionRecord[Action]]       = Queue.empty,
-    replicatedState: EventualJournalOf.State   = EventualJournalOf.State.empty,
-    recordsToRead: Queue[ActionRecord[Action]] = Queue.empty,
+      records: Queue[ActionRecord[Action]]       = Queue.empty,
+      replicatedState: EventualJournalOf.State   = EventualJournalOf.State.empty,
+      recordsToRead: Queue[ActionRecord[Action]] = Queue.empty,
   )
 
   object State {
@@ -615,9 +615,9 @@ object JournalSpec {
   object EventualJournalOf {
 
     final case class State(
-      events: Queue[EventRecord[EventualPayloadAndType]] = Queue.empty,
-      deleteTo: Option[DeleteTo]                         = None,
-      offset: Option[Offset]                             = None,
+        events: Queue[EventRecord[EventualPayloadAndType]] = Queue.empty,
+        deleteTo: Option[DeleteTo]                         = None,
+        offset: Option[Offset]                             = None,
     ) {
 
       def apply(record: ActionRecord[Action]): State = {

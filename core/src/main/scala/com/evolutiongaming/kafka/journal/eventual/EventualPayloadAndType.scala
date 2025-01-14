@@ -22,8 +22,8 @@ import scodec.bits.ByteVector
   * should be treated, i.e. if it should be parsed as JSON.
   */
 final case class EventualPayloadAndType(
-  payload: Either[String, ByteVector],
-  payloadType: PayloadType,
+    payload: Either[String, ByteVector],
+    payloadType: PayloadType,
 )
 
 object EventualPayloadAndType {

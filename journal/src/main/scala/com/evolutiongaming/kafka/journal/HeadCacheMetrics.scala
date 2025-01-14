@@ -12,8 +12,8 @@ object HeadCacheMetrics {
   def empty[F[_]: Applicative]: HeadCacheMetrics[F] = apply(HeadCache.Metrics.empty, CacheMetrics.empty)
 
   def make[F[_]: Monad](
-    registry: CollectorRegistry[F],
-    prefix: HeadCache.Metrics.Prefix = HeadCache.Metrics.Prefix.default,
+      registry: CollectorRegistry[F],
+      prefix: HeadCache.Metrics.Prefix = HeadCache.Metrics.Prefix.default,
   ): Resource[F, HeadCacheMetrics[F]] = {
     for {
       headCache <- HeadCache.Metrics.make(registry, prefix)

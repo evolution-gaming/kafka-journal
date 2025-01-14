@@ -16,10 +16,10 @@ import scala.concurrent.duration.*
 private[journal] object ConsumeTopic {
 
   def apply[F[_]: BracketThrowable: Sleep](
-    topic: Topic,
-    consumer: Resource[F, TopicConsumer[F]],
-    topicFlowOf: TopicFlowOf[F],
-    log: Log[F],
+      topic: Topic,
+      consumer: Resource[F, TopicConsumer[F]],
+      topicFlowOf: TopicFlowOf[F],
+      log: Log[F],
   ): F[Unit] = {
     for {
       random <- Random.State.fromClock[F]()
@@ -35,11 +35,11 @@ private[journal] object ConsumeTopic {
   }
 
   def apply[F[_]: BracketThrowable](
-    topic: Topic,
-    consumer: Resource[F, TopicConsumer[F]],
-    topicFlowOf: TopicFlowOf[F],
-    log: Log[F],
-    retry: Retry[F],
+      topic: Topic,
+      consumer: Resource[F, TopicConsumer[F]],
+      topicFlowOf: TopicFlowOf[F],
+      log: Log[F],
+      retry: Retry[F],
   ): F[Unit] = {
 
     def rebalanceListenerOf(topicFlow: TopicFlow[F]): RebalanceListener1[F] = {

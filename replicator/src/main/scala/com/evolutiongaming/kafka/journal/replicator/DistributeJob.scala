@@ -70,10 +70,10 @@ object DistributeJob {
   type Assigned = Boolean
 
   def apply[F[_]: Concurrent: Defer: Sleep: FromTry: LogOf: Parallel](
-    groupId: String,
-    topic: Topic,
-    consumerConfig: ConsumerConfig,
-    kafkaConsumerOf: KafkaConsumerOf[F],
+      groupId: String,
+      topic: Topic,
+      consumerConfig: ConsumerConfig,
+      kafkaConsumerOf: KafkaConsumerOf[F],
   ): Resource[F, DistributeJob[F]] = {
 
     val consumerConfig1 = consumerConfig.copy(autoCommit = true, groupId = groupId.some, autoOffsetReset = AutoOffsetReset.Latest)
@@ -143,9 +143,9 @@ object DistributeJob {
         consumer      <- kafkaConsumerOf[String, Unit](consumerConfig1)
         partitionsAll <- consumer.partitions(topic).toResource
         active = (
-          deferred: Deferred[F, String => F[Unit]],
-          jobs: Map[String, (Job, Release)],
-          partitions: Map[Partition, Assigned],
+            deferred: Deferred[F, String => F[Unit]],
+            jobs: Map[String, (Job, Release)],
+            partitions: Map[Partition, Assigned],
         ) => {
           val jobs1 = jobs.map {
             case (name, (job, _)) =>
@@ -343,8 +343,8 @@ object DistributeJob {
 }
 
 final case class DistributeJobError(
-  msg: String,
-  cause: Option[Throwable] = None,
+    msg: String,
+    cause: Option[Throwable] = None,
 ) extends RuntimeException(msg, cause.orNull)
 
 object DistributeJobError {

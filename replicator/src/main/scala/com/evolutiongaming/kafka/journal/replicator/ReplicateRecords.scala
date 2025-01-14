@@ -26,12 +26,12 @@ private[journal] trait ReplicateRecords[F[_]] {
 private[journal] object ReplicateRecords {
 
   def apply[F[_]: BracketThrowable: Clock, A](
-    consRecordToActionRecord: ConsRecordToActionRecord[F],
-    journal: ReplicatedKeyJournal[F],
-    metrics: TopicReplicatorMetrics[F],
-    kafkaRead: KafkaRead[F, A],
-    eventualWrite: EventualWrite[F, A],
-    log: Log[F],
+      consRecordToActionRecord: ConsRecordToActionRecord[F],
+      journal: ReplicatedKeyJournal[F],
+      metrics: TopicReplicatorMetrics[F],
+      kafkaRead: KafkaRead[F, A],
+      eventualWrite: EventualWrite[F, A],
+      log: Log[F],
   ): ReplicateRecords[F] = { (records: Nel[ConsRecord], timestamp: Instant) =>
     {
 
@@ -58,9 +58,9 @@ private[journal] object ReplicateRecords {
           val bytes = records.foldLeft(0L) { case (bytes, record) => bytes + record.action.payload.size }
 
           def msg(
-            events: Nel[EventRecord[EventualPayloadAndType]],
-            latency: FiniteDuration,
-            expireAfter: Option[ExpireAfter],
+              events: Nel[EventRecord[EventualPayloadAndType]],
+              latency: FiniteDuration,
+              expireAfter: Option[ExpireAfter],
           ): String = {
             val seqNrs =
               if (events.tail.isEmpty) s"seqNr: ${events.head.seqNr}"

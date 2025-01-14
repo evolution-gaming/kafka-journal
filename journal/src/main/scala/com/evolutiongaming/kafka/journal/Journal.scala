@@ -18,13 +18,13 @@ import scala.concurrent.duration.*
 trait Journal[F[_]] {
 
   def append[A](
-    events: Nel[Event[A]],
-    metadata: RecordMetadata = RecordMetadata.empty,
-    headers: Headers         = Headers.empty,
+      events: Nel[Event[A]],
+      metadata: RecordMetadata = RecordMetadata.empty,
+      headers: Headers         = Headers.empty,
   )(implicit kafkaWrite: KafkaWrite[F, A]): F[PartitionOffset]
 
   def read[A](
-    from: SeqNr = SeqNr.min,
+      from: SeqNr = SeqNr.min,
   )(implicit kafkaRead: KafkaRead[F, A], eventualRead: EventualRead[F, A]): Stream[F, EventRecord[A]]
 
   def pointer: F[Option[SeqNr]]
@@ -75,8 +75,8 @@ object Journal {
   implicit class JournalOps[F[_]](val self: Journal[F]) extends AnyVal {
 
     def withLog(key: Key, log: Log[F], config: CallTimeThresholds = CallTimeThresholds.default)(
-      implicit F: FlatMap[F],
-      measureDuration: MeasureDuration[F],
+        implicit F: FlatMap[F],
+        measureDuration: MeasureDuration[F],
     ): Journal[F] = {
 
       val functionKId = FunctionK.id[F]
@@ -88,7 +88,7 @@ object Journal {
       new WithLog with Journal[F] {
 
         def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
-          implicit kafkaWrite: KafkaWrite[F, A],
+            implicit kafkaWrite: KafkaWrite[F, A],
         ) = {
           for {
             d <- MeasureDuration[F].start
@@ -167,7 +167,7 @@ object Journal {
       new WithLogError with Journal[F] {
 
         def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
-          implicit kafkaWrite: KafkaWrite[F, A],
+            implicit kafkaWrite: KafkaWrite[F, A],
         ) = {
           logError {
             self.append(events, metadata, headers)
@@ -214,8 +214,8 @@ object Journal {
     }
 
     def withMetrics(
-      topic: Topic,
-      metrics: JournalMetrics[F],
+        topic: Topic,
+        metrics: JournalMetrics[F],
     )(implicit F: MonadThrowable[F], measureDuration: MeasureDuration[F]): Journal[F] = {
       val functionKId = FunctionK.id[F]
 
@@ -231,7 +231,7 @@ object Journal {
       new WithMetrics with Journal[F] {
 
         def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
-          implicit kafkaWrite: KafkaWrite[F, A],
+            implicit kafkaWrite: KafkaWrite[F, A],
         ) = {
           def append = self.append(events, metadata, headers)
           for {
@@ -293,7 +293,7 @@ object Journal {
       new MapK with Journal[G] {
 
         def append[A](events: Nel[Event[A]], metadata: RecordMetadata, headers: Headers)(
-          implicit kafkaWrite: KafkaWrite[G, A],
+            implicit kafkaWrite: KafkaWrite[G, A],
         ) = {
           fg(self.append(events, metadata, headers)(kafkaWrite.mapK(gf)))
         }
@@ -311,11 +311,11 @@ object Journal {
   }
 
   final case class CallTimeThresholds(
-    append: FiniteDuration  = 500.millis,
-    read: FiniteDuration    = 5.seconds,
-    pointer: FiniteDuration = 1.second,
-    delete: FiniteDuration  = 1.second,
-    purge: FiniteDuration   = 1.second,
+      append: FiniteDuration  = 500.millis,
+      read: FiniteDuration    = 5.seconds,
+      pointer: FiniteDuration = 1.second,
+      delete: FiniteDuration  = 1.second,
+      purge: FiniteDuration   = 1.second,
   )
 
   object CallTimeThresholds {
@@ -335,8 +335,8 @@ object Journal {
    * @param idleTimeout if idle for this time, Kafka consumers are closed
    */
   final case class ConsumerPoolConfig(
-    multiplier: Double,
-    idleTimeout: FiniteDuration,
+      multiplier: Double,
+      idleTimeout: FiniteDuration,
   )
 
   object ConsumerPoolConfig {
@@ -347,16 +347,16 @@ object Journal {
   }
 
   final case class DataIntegrityConfig(
-    /**
+      /**
       * On recovery, if true, duplicated [[SeqNr]] in events will cause [[JournalError]] `Data integrity violated`
       */
-    seqNrUniqueness: Boolean,
+      seqNrUniqueness: Boolean,
 
-    /**
+      /**
       * On recovery, if true, events with [[RecordId]] different from the one in the current metadata record
       * will be filtered out and logged as an error.
       */
-    correlateEventsWithMeta: Boolean,
+      correlateEventsWithMeta: Boolean,
   )
 
   object DataIntegrityConfig {

@@ -77,13 +77,13 @@ private[journal] object TopicCache {
    *   did not change.
    */
   def make[F[_]: Async: Parallel](
-    eventual: Eventual[F],
-    topic: Topic,
-    log: Log[F],
-    consumer: Resource[F, Consumer[F]],
-    config: HeadCacheConfig,
-    consRecordToActionHeader: ConsRecordToActionHeader[F],
-    metrics: Option[HeadCache.Metrics[F]],
+      eventual: Eventual[F],
+      topic: Topic,
+      log: Log[F],
+      consumer: Resource[F, Consumer[F]],
+      config: HeadCacheConfig,
+      consRecordToActionHeader: ConsRecordToActionHeader[F],
+      metrics: Option[HeadCache.Metrics[F]],
   ): Resource[F, TopicCache[F]] = {
 
     for {
@@ -319,8 +319,8 @@ private[journal] object TopicCache {
       * @param pollTimeout The timeout to use for [[KafkaConsumer#poll]].
       */
     def apply[F[_]: Monad](
-      consumer: KafkaConsumer[F, String, Unit],
-      pollTimeout: FiniteDuration,
+        consumer: KafkaConsumer[F, String, Unit],
+        pollTimeout: FiniteDuration,
     ): Consumer[F] = {
 
       class Main
@@ -358,8 +358,8 @@ private[journal] object TopicCache {
       *   The timeout to use for [[KafkaConsumer#poll]].
       */
     def make[F[_]: Monad: KafkaConsumerOf: FromTry](
-      config: ConsumerConfig,
-      pollTimeout: FiniteDuration = 10.millis,
+        config: ConsumerConfig,
+        pollTimeout: FiniteDuration = 10.millis,
     ): Resource[F, Consumer[F]] = {
       val config1 = config.copy(autoOffsetReset = AutoOffsetReset.Earliest, groupId = None, autoCommit = false)
       for {
@@ -482,8 +482,8 @@ private[journal] object TopicCache {
 
     /** Wrap instance in a class, which logs metrics to [[HeadCache.Metrics]] */
     def withMetrics(
-      topic: Topic,
-      metrics: HeadCache.Metrics[F],
+        topic: Topic,
+        metrics: HeadCache.Metrics[F],
     )(implicit F: MonadThrowable[F], measureDuration: MeasureDuration[F]): TopicCache[F] = {
       new WithMetrics with TopicCache[F] {
 

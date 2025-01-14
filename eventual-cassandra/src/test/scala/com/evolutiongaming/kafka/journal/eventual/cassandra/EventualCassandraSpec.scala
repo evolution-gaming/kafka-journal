@@ -144,9 +144,9 @@ object EventualCassandraSpec {
   }
 
   def replicatedJournalOf(
-    segmentSize: SegmentSize,
-    delete: Boolean,
-    segmentNrsOf: SegmentNrs.Of[StateT],
+      segmentSize: SegmentSize,
+      delete: Boolean,
+      segmentNrsOf: SegmentNrs.Of[StateT],
   ): ReplicatedJournal[StateT] = {
 
     val insertRecords: JournalStatements.InsertRecords[StateT] = { (key, segment, insert) =>
@@ -381,10 +381,10 @@ object EventualCassandraSpec {
   }
 
   def journalsOf(
-    segmentSize: SegmentSize,
-    delete: Boolean,
-    segmentsFirst: Segments,
-    segmentsSecond: Segments,
+      segmentSize: SegmentSize,
+      delete: Boolean,
+      segmentsFirst: Segments,
+      segmentsSecond: Segments,
   ): EventualAndReplicated[StateT] = {
     val segmentNrsOf      = SegmentNrs.Of[StateT](first = segmentsFirst, second = segmentsSecond)
     val replicatedJournal = replicatedJournalOf(segmentSize, delete, segmentNrsOf)
@@ -393,9 +393,9 @@ object EventualCassandraSpec {
   }
 
   final case class State(
-    journal: Map[(Key, SegmentNr), List[JournalRecord]],
-    metaJournal: Map[Key, JournalHead],
-    pointers: Map[Topic, TopicPointers],
+      journal: Map[(Key, SegmentNr), List[JournalRecord]],
+      metaJournal: Map[Key, JournalHead],
+      pointers: Map[Topic, TopicPointers],
   )
 
   object State {

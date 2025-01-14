@@ -159,9 +159,9 @@ object HeadInfo {
     *   [[SeqNr]] of the _last_ deleted event, if any.
     */
   final case class Append(
-    offset: Offset,
-    seqNr: SeqNr,
-    deleteTo: Option[DeleteTo],
+      offset: Offset,
+      seqNr: SeqNr,
+      deleteTo: Option[DeleteTo],
   ) extends NonEmpty
 
   /** The only non-replicated records are delete actions.
@@ -180,7 +180,7 @@ object HeadInfo {
     *   [[SeqNr]] of the _last_ deleted event.
     */
   final case class Delete(
-    deleteTo: DeleteTo,
+      deleteTo: DeleteTo,
   ) extends NonEmpty
 
   /** The last non-replicated record was a journal purge action.

@@ -23,8 +23,8 @@ object KafkaRead {
   def summon[F[_], A](implicit kafkaRead: KafkaRead[F, A]): KafkaRead[F, A] = kafkaRead
 
   implicit def payloadKafkaRead[F[_]: MonadThrowable: FromJsResult](
-    implicit eventsFromBytes: FromBytes[F, Events[Payload]],
-    payloadJsonFromBytes: FromBytes[F, PayloadJson[JsValue]],
+      implicit eventsFromBytes: FromBytes[F, Events[Payload]],
+      payloadJsonFromBytes: FromBytes[F, PayloadJson[JsValue]],
   ): KafkaRead[F, Payload] = { (payloadAndType: PayloadAndType) =>
     {
 
@@ -55,8 +55,8 @@ object KafkaRead {
   }
 
   def readJson[F[_]: MonadThrowable, A, B](
-    payloadJsonFromBytes: FromBytes[F, PayloadJson[A]],
-    fromEventJsonPayload: EventJsonPayloadAndType[A] => F[B],
+      payloadJsonFromBytes: FromBytes[F, PayloadJson[A]],
+      fromEventJsonPayload: EventJsonPayloadAndType[A] => F[B],
   ): KafkaRead[F, B] = { (payloadAndType: PayloadAndType) =>
     {
 
@@ -105,10 +105,10 @@ object KafkaRead {
 
   implicit class KafkaReadOps[F[_], A](val self: KafkaRead[F, A]) extends AnyVal {
     def withMetrics(
-      metrics: KafkaReadMetrics[F],
+        metrics: KafkaReadMetrics[F],
     )(
-      implicit F: Monad[F],
-      measureDuration: MeasureDuration[F],
+        implicit F: Monad[F],
+        measureDuration: MeasureDuration[F],
     ): KafkaRead[F, A] = { payloadAndType =>
       for {
         d <- MeasureDuration[F].start

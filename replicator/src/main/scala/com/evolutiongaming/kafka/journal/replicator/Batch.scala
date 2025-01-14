@@ -153,20 +153,20 @@ private[journal] object Batch {
   }
 
   final case class Appends(
-    offset: Offset,
-    records: NonEmptyList[ActionRecord[Action.Append]],
+      offset: Offset,
+      records: NonEmptyList[ActionRecord[Action.Append]],
   ) extends Batch
 
   final case class Delete(
-    offset: Offset,
-    to: DeleteTo,
-    origin: Option[Origin],
-    version: Option[Version],
+      offset: Offset,
+      to: DeleteTo,
+      origin: Option[Origin],
+      version: Option[Version],
   ) extends Batch
 
   final case class Purge(
-    offset: Offset,
-    origin: Option[Origin], // used only for logging
-    version: Option[Version], // used only for logging
+      offset: Offset,
+      origin: Option[Origin], // used only for logging
+      version: Option[Version], // used only for logging
   ) extends Batch
 }

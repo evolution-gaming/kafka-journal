@@ -9,7 +9,7 @@ import com.evolutiongaming.skafka.producer.*
 trait KafkaProducer[F[_]] {
 
   def send[K, V](
-    record: ProducerRecord[K, V],
+      record: ProducerRecord[K, V],
   )(implicit toBytesK: skafka.ToBytes[F, K], toBytesV: skafka.ToBytes[F, V]): F[producer.RecordMetadata]
 }
 

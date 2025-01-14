@@ -94,27 +94,27 @@ object ActionHeader {
   sealed abstract class AppendOrDelete extends ActionHeader
 
   final case class Append(
-    range: SeqRange,
-    origin: Option[Origin],
-    version: Option[Version],
-    payloadType: PayloadType.BinaryOrJson,
-    metadata: HeaderMetadata,
+      range: SeqRange,
+      origin: Option[Origin],
+      version: Option[Version],
+      payloadType: PayloadType.BinaryOrJson,
+      metadata: HeaderMetadata,
   ) extends AppendOrDelete
 
   final case class Delete(
-    to: DeleteTo,
-    origin: Option[Origin],
-    version: Option[Version],
+      to: DeleteTo,
+      origin: Option[Origin],
+      version: Option[Version],
   ) extends AppendOrDelete
 
   final case class Purge(
-    origin: Option[Origin],
-    version: Option[Version],
+      origin: Option[Origin],
+      version: Option[Version],
   ) extends AppendOrDelete
 
   final case class Mark(
-    id: String,
-    origin: Option[Origin],
-    version: Option[Version],
+      id: String,
+      origin: Option[Origin],
+      version: Option[Version],
   ) extends ActionHeader
 }

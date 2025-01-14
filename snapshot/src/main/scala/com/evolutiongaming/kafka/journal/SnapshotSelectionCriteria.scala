@@ -10,10 +10,10 @@ import java.time.Instant
   * they are given in a reverse order in a constructor.
   */
 final case class SnapshotSelectionCriteria(
-  maxSeqNr: SeqNr       = SeqNr.max,
-  maxTimestamp: Instant = Instant.MAX,
-  minSeqNr: SeqNr       = SeqNr.min,
-  minTimestamp: Instant = Instant.MIN,
+    maxSeqNr: SeqNr       = SeqNr.max,
+    maxTimestamp: Instant = Instant.MAX,
+    minSeqNr: SeqNr       = SeqNr.min,
+    minTimestamp: Instant = Instant.MIN,
 )
 
 object SnapshotSelectionCriteria {

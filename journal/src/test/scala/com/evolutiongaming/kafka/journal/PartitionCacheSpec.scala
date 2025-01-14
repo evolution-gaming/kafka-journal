@@ -19,9 +19,9 @@ class PartitionCacheSpec extends AsyncFunSuite with Matchers {
   import PartitionCacheSpec.*
 
   private def partitionCacheOf(
-    maxSize: Int            = 10,
-    dropUponLimit: Double   = 0.1,
-    timeout: FiniteDuration = 1.minute,
+      maxSize: Int            = 10,
+      dropUponLimit: Double   = 0.1,
+      timeout: FiniteDuration = 1.minute,
   ) = {
     PartitionCache.make[IO](maxSize, dropUponLimit, timeout)
   }

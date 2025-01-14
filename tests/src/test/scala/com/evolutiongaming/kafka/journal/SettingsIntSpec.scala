@@ -31,8 +31,8 @@ class SettingsIntSpec extends AsyncWordSpec with BeforeAndAfterAll with Matchers
   }
 
   private def resources[F[_]: Async: LogOf: Parallel: FromFuture](
-    origin: Option[Origin],
-    cassandraClusterOf: CassandraClusterOf[F],
+      origin: Option[Origin],
+      cassandraClusterOf: CassandraClusterOf[F],
   ) = {
 
     def settings(config: SchemaConfig)(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {

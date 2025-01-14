@@ -41,10 +41,10 @@ trait Replicator[F[_]] {
 object Replicator {
 
   def make[F[_]: Async: Parallel: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: FromGFuture: MeasureDuration: JsonCodec](
-    config: ReplicatorConfig,
-    cassandraClusterOf: CassandraClusterOf[F],
-    hostName: Option[HostName],
-    metrics: Option[Metrics[F]] = none,
+      config: ReplicatorConfig,
+      cassandraClusterOf: CassandraClusterOf[F],
+      hostName: Option[HostName],
+      metrics: Option[Metrics[F]] = none,
   ): Resource[F, F[Unit]] = {
 
     def replicatedJournal(implicit cassandraCluster: CassandraCluster[F], cassandraSession: CassandraSession[F]) = {
@@ -61,12 +61,12 @@ object Replicator {
   }
 
   def make[
-    F[_]: Temporal: Parallel: Runtime: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: MeasureDuration: JsonCodec,
+      F[_]: Temporal: Parallel: Runtime: FromTry: ToTry: Fail: LogOf: KafkaConsumerOf: MeasureDuration: JsonCodec,
   ](
-    config: ReplicatorConfig,
-    metrics: Option[Metrics[F]],
-    journal: ReplicatedJournal[F],
-    hostName: Option[HostName],
+      config: ReplicatorConfig,
+      metrics: Option[Metrics[F]],
+      journal: ReplicatedJournal[F],
+      hostName: Option[HostName],
   ): Resource[F, F[Unit]] = {
 
     val topicReplicator: Topic => Resource[F, F[Outcome[F, Throwable, Unit]]] =
@@ -87,9 +87,9 @@ object Replicator {
   }
 
   def make[F[_]: Concurrent: Sleep: Parallel: LogOf: MeasureDuration](
-    config: Config,
-    consumer: Resource[F, Consumer[F]],
-    topicReplicatorOf: Topic => Resource[F, F[Outcome[F, Throwable, Unit]]],
+      config: Config,
+      consumer: Resource[F, Consumer[F]],
+      topicReplicatorOf: Topic => Resource[F, F[Outcome[F, Throwable, Unit]]],
   ): Resource[F, F[Unit]] = {
 
     def retry(log: Log[F]) = for {
@@ -145,11 +145,11 @@ object Replicator {
   }
 
   def start[F[_]: Concurrent: Sleep: Parallel: MeasureDuration](
-    config: Config,
-    consumer: Consumer[F],
-    start: Topic => F[Unit],
-    continue: F[Unit],
-    log: Log[F],
+      config: Config,
+      consumer: Consumer[F],
+      start: Topic => F[Unit],
+      continue: F[Unit],
+      log: Log[F],
   ): F[Unit] = {
 
     type State = Set[Topic]

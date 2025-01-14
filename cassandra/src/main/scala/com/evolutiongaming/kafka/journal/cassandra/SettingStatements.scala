@@ -56,8 +56,8 @@ private[journal] object SettingStatements {
   object Select {
 
     def of[F[_]: Monad: CassandraSession](
-      name: TableName,
-      consistencyConfig: CassandraConsistencyConfig.Read,
+        name: TableName,
+        consistencyConfig: CassandraConsistencyConfig.Read,
     ): F[Select[F]] = {
 
       val query = s"SELECT value, timestamp, origin FROM ${name.toCql} WHERE key = ?"
@@ -111,8 +111,8 @@ private[journal] object SettingStatements {
   object Insert {
 
     def of[F[_]: Monad: CassandraSession](
-      name: TableName,
-      consistencyConfig: CassandraConsistencyConfig.Write,
+        name: TableName,
+        consistencyConfig: CassandraConsistencyConfig.Write,
     ): F[Insert[F]] = {
 
       val query = s"INSERT INTO ${name.toCql} (key, value, timestamp, origin) VALUES (?, ?, ?, ?)"
@@ -135,8 +135,8 @@ private[journal] object SettingStatements {
   object Delete {
 
     def of[F[_]: Monad: CassandraSession](
-      name: TableName,
-      consistencyConfig: CassandraConsistencyConfig.Write,
+        name: TableName,
+        consistencyConfig: CassandraConsistencyConfig.Write,
     ): F[Delete[F]] = {
 
       val query = s"DELETE FROM ${name.toCql} WHERE key = ?"

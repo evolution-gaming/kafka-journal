@@ -31,28 +31,28 @@ trait ReplicatedJournalFlat[F[_]] {
   def offsetUpdate(topic: Topic, partition: Partition, offset: Offset, timestamp: Instant): F[Unit]
 
   def append(
-    key: Key,
-    partition: Partition,
-    offset: Offset,
-    timestamp: Instant,
-    expireAfter: Option[ExpireAfter],
-    events: Nel[EventRecord[EventualPayloadAndType]],
+      key: Key,
+      partition: Partition,
+      offset: Offset,
+      timestamp: Instant,
+      expireAfter: Option[ExpireAfter],
+      events: Nel[EventRecord[EventualPayloadAndType]],
   ): F[Changed]
 
   def delete(
-    key: Key,
-    partition: Partition,
-    offset: Offset,
-    timestamp: Instant,
-    deleteTo: DeleteTo,
-    origin: Option[Origin],
+      key: Key,
+      partition: Partition,
+      offset: Offset,
+      timestamp: Instant,
+      deleteTo: DeleteTo,
+      origin: Option[Origin],
   ): F[Changed]
 
   def purge(
-    key: Key,
-    partition: Partition,
-    offset: Offset,
-    timestamp: Instant,
+      key: Key,
+      partition: Partition,
+      offset: Offset,
+      timestamp: Instant,
   ): F[Changed]
 }
 
@@ -107,12 +107,12 @@ object ReplicatedJournalFlat {
       }
 
       def append(
-        key: Key,
-        partition: Partition,
-        offset: Offset,
-        timestamp: Instant,
-        expireAfter: Option[ExpireAfter],
-        events: Nel[EventRecord[EventualPayloadAndType]],
+          key: Key,
+          partition: Partition,
+          offset: Offset,
+          timestamp: Instant,
+          expireAfter: Option[ExpireAfter],
+          events: Nel[EventRecord[EventualPayloadAndType]],
       ) = {
         replicatedJournal
           .journal(key.topic)
@@ -128,12 +128,12 @@ object ReplicatedJournalFlat {
       }
 
       def delete(
-        key: Key,
-        partition: Partition,
-        offset: Offset,
-        timestamp: Instant,
-        deleteTo: DeleteTo,
-        origin: Option[Origin],
+          key: Key,
+          partition: Partition,
+          offset: Offset,
+          timestamp: Instant,
+          deleteTo: DeleteTo,
+          origin: Option[Origin],
       ) = {
         replicatedJournal
           .journal(key.topic)
@@ -149,10 +149,10 @@ object ReplicatedJournalFlat {
       }
 
       def purge(
-        key: Key,
-        partition: Partition,
-        offset: Offset,
-        timestamp: Instant,
+          key: Key,
+          partition: Partition,
+          offset: Offset,
+          timestamp: Instant,
       ) = {
         replicatedJournal
           .journal(key.topic)

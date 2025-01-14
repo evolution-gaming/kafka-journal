@@ -49,10 +49,10 @@ object PayloadAndType {
     *   `Json` for Circe.
     */
   final case class EventJson[A](
-    seqNr: SeqNr,
-    tags: Tags,
-    payloadType: Option[PayloadType.TextOrJson] = None,
-    payload: Option[A]                          = None,
+      seqNr: SeqNr,
+      tags: Tags,
+      payloadType: Option[PayloadType.TextOrJson] = None,
+      payload: Option[A]                          = None,
   )
 
   object EventJson {

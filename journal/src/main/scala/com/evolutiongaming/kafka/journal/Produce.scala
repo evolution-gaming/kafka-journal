@@ -13,11 +13,11 @@ import java.time.Instant
 private[journal] trait Produce[F[_]] {
 
   def append(
-    key: Key,
-    range: SeqRange,
-    payloadAndType: PayloadAndType,
-    metadata: HeaderMetadata,
-    headers: Headers,
+      key: Key,
+      range: SeqRange,
+      payloadAndType: PayloadAndType,
+      metadata: HeaderMetadata,
+      headers: Headers,
   ): F[PartitionOffset]
 
   def delete(key: Key, to: DeleteTo): F[PartitionOffset]
@@ -35,11 +35,11 @@ private[journal] object Produce {
     class Const
     new Const with Produce[F] {
       def append(
-        key: Key,
-        range: SeqRange,
-        payloadAndType: PayloadAndType,
-        metadata: HeaderMetadata,
-        headers: Headers,
+          key: Key,
+          range: SeqRange,
+          payloadAndType: PayloadAndType,
+          metadata: HeaderMetadata,
+          headers: Headers,
       ): F[PartitionOffset] = {
         partitionOffset
       }
@@ -53,16 +53,16 @@ private[journal] object Produce {
   }
 
   def apply[F[_]: MonadThrowable: Clock](producer: Journals.Producer[F], origin: Option[Origin])(
-    implicit actionToProducerRecord: ActionToProducerRecord[F],
+      implicit actionToProducerRecord: ActionToProducerRecord[F],
   ): Produce[F] = {
     val produceAction = ProduceAction(producer)
     apply(produceAction, origin)
   }
 
   def apply[F[_]: MonadThrowable: Clock](
-    produceAction: ProduceAction[F],
-    origin: Option[Origin],
-    version: Version = Version.current,
+      produceAction: ProduceAction[F],
+      origin: Option[Origin],
+      version: Version = Version.current,
   ): Produce[F] = {
 
     def send(action: Action) = {
@@ -76,11 +76,11 @@ private[journal] object Produce {
     new Main with Produce[F] {
 
       def append(
-        key: Key,
-        range: SeqRange,
-        payloadAndType: PayloadAndType,
-        metadata: HeaderMetadata,
-        headers: Headers,
+          key: Key,
+          range: SeqRange,
+          payloadAndType: PayloadAndType,
+          metadata: HeaderMetadata,
+          headers: Headers,
       ): F[PartitionOffset] = {
 
         def actionOf(timestamp: Instant) = {
@@ -140,11 +140,11 @@ private[journal] object Produce {
     def mapK[G[_]](f: F ~> G): Produce[G] = new MapK with Produce[G] {
 
       def append(
-        key: Key,
-        range: SeqRange,
-        payloadAndType: PayloadAndType,
-        metadata: HeaderMetadata,
-        headers: Headers,
+          key: Key,
+          range: SeqRange,
+          payloadAndType: PayloadAndType,
+          metadata: HeaderMetadata,
+          headers: Headers,
       ): G[PartitionOffset] = {
         f(self.append(key, range, payloadAndType, metadata, headers))
       }

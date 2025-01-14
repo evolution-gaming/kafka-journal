@@ -32,21 +32,21 @@ trait JournalAdapter[F[_]] {
 object JournalAdapter {
 
   def make[
-    F[
-      _,
-    ]: Async: ToFuture: Parallel: LogOf: RandomIdOf: FromGFuture: MeasureDuration: ToTry: FromTry: FromJsResult: Fail: JsonCodec,
-    A,
+      F[
+          _,
+      ]: Async: ToFuture: Parallel: LogOf: RandomIdOf: FromGFuture: MeasureDuration: ToTry: FromTry: FromJsResult: Fail: JsonCodec,
+      A,
   ](
-    toKey: ToKey[F],
-    origin: Option[Origin],
-    serializer: EventSerializer[F, A],
-    journalReadWrite: JournalReadWrite[F, A],
-    config: KafkaJournalConfig,
-    metrics: Metrics[F],
-    log: Log[F],
-    batching: Batching[F],
-    appendMetadataOf: AppendMetadataOf[F],
-    cassandraClusterOf: CassandraClusterOf[F],
+      toKey: ToKey[F],
+      origin: Option[Origin],
+      serializer: EventSerializer[F, A],
+      journalReadWrite: JournalReadWrite[F, A],
+      config: KafkaJournalConfig,
+      metrics: Metrics[F],
+      log: Log[F],
+      batching: Batching[F],
+      appendMetadataOf: AppendMetadataOf[F],
+      cassandraClusterOf: CassandraClusterOf[F],
   ): Resource[F, JournalAdapter[F]] = {
 
     def clientIdOf(config: CommonConfig) = config.clientId getOrElse "journal"
@@ -76,9 +76,9 @@ object JournalAdapter {
     }
 
     def journal(eventualJournal: EventualJournal[F])(
-      implicit kafkaConsumerOf: KafkaConsumerOf[F],
-      kafkaProducerOf: KafkaProducerOf[F],
-      headCacheOf: HeadCacheOf[F],
+        implicit kafkaConsumerOf: KafkaConsumerOf[F],
+        kafkaProducerOf: KafkaProducerOf[F],
+        headCacheOf: HeadCacheOf[F],
     ): Resource[F, Journals[F]] = {
       Journals
         .make[F](
@@ -111,11 +111,11 @@ object JournalAdapter {
   }
 
   def apply[F[_]: Monad, A](
-    journals: Journals[F],
-    toKey: ToKey[F],
-    serializer: EventSerializer[F, A],
-    journalReadWrite: JournalReadWrite[F, A],
-    appendMetadataOf: AppendMetadataOf[F],
+      journals: Journals[F],
+      toKey: ToKey[F],
+      serializer: EventSerializer[F, A],
+      journalReadWrite: JournalReadWrite[F, A],
+      appendMetadataOf: AppendMetadataOf[F],
   ): JournalAdapter[F] = {
 
     implicit val kafkaRead    = journalReadWrite.kafkaRead
@@ -233,13 +233,13 @@ object JournalAdapter {
   }
 
   final case class Metrics[F[_]](
-    journal: Option[JournalMetrics[F]]               = none,
-    eventual: Option[EventualJournal.Metrics[F]]     = none,
-    headCache: Option[HeadCacheMetrics[F]]           = none,
-    producer: Option[ClientId => ProducerMetrics[F]] = none,
-    consumer: Option[ClientId => ConsumerMetrics[F]] = none,
-    conversion: Option[ConversionMetrics[F]]         = none,
-    consumerPool: Option[ConsumerPoolMetrics[F]]     = none,
+      journal: Option[JournalMetrics[F]]               = none,
+      eventual: Option[EventualJournal.Metrics[F]]     = none,
+      headCache: Option[HeadCacheMetrics[F]]           = none,
+      producer: Option[ClientId => ProducerMetrics[F]] = none,
+      consumer: Option[ClientId => ConsumerMetrics[F]] = none,
+      conversion: Option[ConversionMetrics[F]]         = none,
+      consumerPool: Option[ConsumerPoolMetrics[F]]     = none,
   )
 
   object Metrics {

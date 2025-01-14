@@ -9,10 +9,10 @@ import scala.concurrent.duration.*
 private[journal] object ThreadPoolOf {
 
   def apply[F[_]: Sync](
-    minSize: Int,
-    maxSize: Int,
-    threadFactory: ThreadFactory,
-    keepAlive: FiniteDuration = 5.minute,
+      minSize: Int,
+      maxSize: Int,
+      threadFactory: ThreadFactory,
+      keepAlive: FiniteDuration = 5.minute,
   ): Resource[F, ThreadPoolExecutor] = {
 
     val result = for {

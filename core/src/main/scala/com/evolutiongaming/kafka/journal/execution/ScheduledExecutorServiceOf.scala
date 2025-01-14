@@ -8,8 +8,8 @@ import java.util.concurrent.{Executors as ExecutorsJ, ScheduledExecutorService, 
 private[journal] object ScheduledExecutorServiceOf {
 
   def apply[F[_]: Sync](
-    parallelism: Int,
-    threadFactory: ThreadFactory,
+      parallelism: Int,
+      threadFactory: ThreadFactory,
   ): Resource[F, ScheduledExecutorService] = {
 
     val result = for {

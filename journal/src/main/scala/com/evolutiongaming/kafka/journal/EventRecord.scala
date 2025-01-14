@@ -10,13 +10,13 @@ import java.time.Instant
  * @param origin identifier of event origin, for instance node IP address
  */
 final case class EventRecord[A](
-  event: Event[A],
-  timestamp: Instant,
-  partitionOffset: PartitionOffset,
-  origin: Option[Origin],
-  version: Option[Version],
-  metadata: RecordMetadata,
-  headers: Headers,
+    event: Event[A],
+    timestamp: Instant,
+    partitionOffset: PartitionOffset,
+    origin: Option[Origin],
+    version: Option[Version],
+    metadata: RecordMetadata,
+    headers: Headers,
 ) {
 
   def seqNr: SeqNr = event.seqNr
@@ -31,18 +31,18 @@ final case class EventRecord[A](
 object EventRecord {
 
   def apply[A](
-    record: ActionRecord[Action.Append],
-    event: Event[A],
-    metadata: PayloadMetadata,
+      record: ActionRecord[Action.Append],
+      event: Event[A],
+      metadata: PayloadMetadata,
   ): EventRecord[A] = {
     apply(record.action, event, record.partitionOffset, metadata)
   }
 
   def apply[A](
-    action: Action.Append,
-    event: Event[A],
-    partitionOffset: PartitionOffset,
-    metadata: PayloadMetadata,
+      action: Action.Append,
+      event: Event[A],
+      partitionOffset: PartitionOffset,
+      metadata: PayloadMetadata,
   ): EventRecord[A] = {
     EventRecord(
       event           = event,

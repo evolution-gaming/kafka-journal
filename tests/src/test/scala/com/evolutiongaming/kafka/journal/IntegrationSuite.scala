@@ -18,7 +18,7 @@ import com.typesafe.config.ConfigFactory
 object IntegrationSuite {
 
   def startF[F[_]: Async: ToFuture: LogOf: MeasureDuration: FromTry: ToTry: Fail](
-    cassandraClusterOf: CassandraClusterOf[F],
+      cassandraClusterOf: CassandraClusterOf[F],
   ): Resource[F, Unit] = {
 
     def cassandra(log: Log[F]) = {

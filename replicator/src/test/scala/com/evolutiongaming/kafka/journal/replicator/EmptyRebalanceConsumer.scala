@@ -16,8 +16,8 @@ object EmptyRebalanceConsumer extends RebalanceConsumer {
   )
 
   override def beginningOffsets(
-    partitions: NonEmptySet[TopicPartition],
-    timeout: FiniteDuration,
+      partitions: NonEmptySet[TopicPartition],
+      timeout: FiniteDuration,
   ): Try[Map[TopicPartition, Offset]] = Failure(new NotImplementedError)
 
   override def commit(): Try[Unit] = Failure(new NotImplementedError)
@@ -35,8 +35,8 @@ object EmptyRebalanceConsumer extends RebalanceConsumer {
   )
 
   override def committed(
-    partitions: NonEmptySet[TopicPartition],
-    timeout: FiniteDuration,
+      partitions: NonEmptySet[TopicPartition],
+      timeout: FiniteDuration,
   ): Try[Map[TopicPartition, OffsetAndMetadata]] = Failure(new NotImplementedError)
 
   override def endOffsets(partitions: NonEmptySet[TopicPartition]): Try[Map[TopicPartition, Offset]] = Failure(
@@ -53,12 +53,12 @@ object EmptyRebalanceConsumer extends RebalanceConsumer {
   override def topics(timeout: FiniteDuration): Try[Map[Topic, List[PartitionInfo]]] = Failure(new NotImplementedError)
 
   override def offsetsForTimes(
-    timestampsToSearch: NonEmptyMap[TopicPartition, Instant],
+      timestampsToSearch: NonEmptyMap[TopicPartition, Instant],
   ): Try[Map[TopicPartition, Option[OffsetAndTimestamp]]] = Failure(new NotImplementedError)
 
   override def offsetsForTimes(
-    timestampsToSearch: NonEmptyMap[TopicPartition, Instant],
-    timeout: FiniteDuration,
+      timestampsToSearch: NonEmptyMap[TopicPartition, Instant],
+      timeout: FiniteDuration,
   ): Try[Map[TopicPartition, Option[OffsetAndTimestamp]]] = Failure(new NotImplementedError)
 
   override def partitionsFor(topic: Topic): Try[List[PartitionInfo]] = Failure(new NotImplementedError)
